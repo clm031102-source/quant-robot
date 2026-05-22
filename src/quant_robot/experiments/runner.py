@@ -29,6 +29,10 @@ class ExperimentGridConfig:
     forward_horizon: int = 1
     execution_lag: int = 1
     quantiles: int = 2
+    portfolio_scope: str | None = None
+    periods_per_year: int | None = None
+    signal_start_date: str | None = None
+    signal_end_date: str | None = None
     output_dir: Path | None = None
     rank_by: str = "sharpe"
     min_trades: int = 1
@@ -76,6 +80,10 @@ def load_experiment_grid_config(path: str | Path) -> ExperimentGridConfig:
         forward_horizon=int(data.get("forward_horizon", ExperimentGridConfig.forward_horizon)),
         execution_lag=int(data.get("execution_lag", ExperimentGridConfig.execution_lag)),
         quantiles=int(data.get("quantiles", ExperimentGridConfig.quantiles)),
+        portfolio_scope=data.get("portfolio_scope"),
+        periods_per_year=int(data["periods_per_year"]) if data.get("periods_per_year") is not None else None,
+        signal_start_date=data.get("signal_start_date"),
+        signal_end_date=data.get("signal_end_date"),
         output_dir=Path(data["output_dir"]) if data.get("output_dir") else None,
         rank_by=str(data.get("rank_by", ExperimentGridConfig.rank_by)),
         min_trades=int(data.get("min_trades", ExperimentGridConfig.min_trades)),
@@ -83,6 +91,7 @@ def load_experiment_grid_config(path: str | Path) -> ExperimentGridConfig:
 
 
 def run_experiment_grid(bars: pd.DataFrame, config: ExperimentGridConfig) -> dict[str, Any]:
+    _validate_config(config)
     rows = [_run_case(bars, config, case) for case in build_experiment_cases(config)]
     leaderboard = _rank_rows(rows, config.rank_by)
     result = {
@@ -111,6 +120,10 @@ def _run_case(bars: pd.DataFrame, grid_config: ExperimentGridConfig, case: Exper
                 quantiles=grid_config.quantiles,
                 top_n=case.top_n,
                 cost_bps=case.cost_bps,
+                portfolio_scope=grid_config.portfolio_scope,
+                periods_per_year=grid_config.periods_per_year,
+                signal_start_date=grid_config.signal_start_date,
+                signal_end_date=grid_config.signal_end_date,
                 output_dir=output_dir,
             ),
         )
@@ -181,6 +194,31 @@ def _summary(leaderboard: list[dict[str, Any]]) -> dict[str, int]:
         "no_trades": sum(1 for row in leaderboard if row["status"] == "no_trades"),
         "failed": sum(1 for row in leaderboard if row["status"] == "failed"),
     }
+
+
+def _validate_config(config: ExperimentGridConfig) -> None:
+    windows = set(config.factor_windows)
+    mismatches = []
+    for factor_name in config.factor_names:
+        window = _parse_factor_window(factor_name)
+        if window is not None and window not in windows:
+            mismatches.append(factor_name)
+    if mismatches:
+        raise ValueError(
+            "factor_names reference windows that are not in factor_windows: "
+            + ", ".join(sorted(mismatches))
+        )
+
+
+def _parse_factor_window(factor_name: str) -> int | None:
+    for prefix in ("momentum", "reversal", "volatility", "volume_change", "liquidity"):
+        marker = f"{prefix}_"
+        if factor_name.startswith(marker):
+            try:
+                return int(factor_name.removeprefix(marker))
+            except ValueError:
+                return None
+    return None
 
 
 def _write_grid_artifacts(output_dir: Path, result: dict[str, Any], leaderboard: list[dict[str, Any]]) -> None:

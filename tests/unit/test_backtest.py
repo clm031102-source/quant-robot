@@ -84,9 +84,59 @@ class BacktestTests(unittest.TestCase):
             }
         )
 
-        result = run_factor_backtest(factors, bars, top_n=1, cost_bps=0.0)
+        result = run_factor_backtest(factors, bars, top_n=1, cost_bps=0.0, portfolio_scope="market")
 
         self.assertEqual(set(result.trades["asset_id"]), {"US_B", "CN_B"})
+
+    def test_backtest_global_scope_allocates_one_portfolio_across_markets(self):
+        factors = pd.DataFrame(
+            {
+                "date": [pd.Timestamp("2024-01-01").date()] * 4,
+                "asset_id": ["US_A", "US_B", "CN_A", "CN_B"],
+                "market": ["US", "US", "CN", "CN"],
+                "factor_name": ["momentum_1"] * 4,
+                "factor_value": [1.0, 4.0, 2.0, 3.0],
+            }
+        )
+        bars = pd.DataFrame(
+            {
+                "date": list(pd.date_range("2024-01-01", periods=3).date) * 4,
+                "asset_id": ["US_A"] * 3 + ["US_B"] * 3 + ["CN_A"] * 3 + ["CN_B"] * 3,
+                "market": ["US"] * 6 + ["CN"] * 6,
+                "adj_close": [10.0, 10.0, 11.0, 10.0, 10.0, 12.0, 10.0, 10.0, 13.0, 10.0, 10.0, 14.0],
+            }
+        )
+
+        result = run_factor_backtest(factors, bars, top_n=2, cost_bps=0.0, portfolio_scope="global")
+
+        self.assertEqual(set(result.trades["asset_id"]), {"US_B", "CN_B"})
+        self.assertAlmostEqual(float(result.trades["target_weight"].sum()), 1.0)
+        self.assertAlmostEqual(result.metrics["turnover"], 1.0)
+
+    def test_backtest_holding_period_controls_exit_date(self):
+        factors = pd.DataFrame(
+            {
+                "date": [pd.Timestamp("2024-01-01").date()],
+                "asset_id": ["A"],
+                "market": ["US"],
+                "factor_name": ["momentum_1"],
+                "factor_value": [1.0],
+            }
+        )
+        bars = pd.DataFrame(
+            {
+                "date": pd.date_range("2024-01-01", periods=5).date,
+                "asset_id": ["A"] * 5,
+                "market": ["US"] * 5,
+                "adj_close": [100.0, 101.0, 103.0, 107.0, 111.0],
+            }
+        )
+
+        result = run_factor_backtest(factors, bars, top_n=1, cost_bps=0.0, holding_period=2)
+
+        self.assertEqual(result.trades.iloc[0]["entry_date"], pd.Timestamp("2024-01-02").date())
+        self.assertEqual(result.trades.iloc[0]["exit_date"], pd.Timestamp("2024-01-04").date())
+        self.assertAlmostEqual(result.trades.iloc[0]["gross_return"], 107.0 / 101.0 - 1.0)
 
 
 if __name__ == "__main__":

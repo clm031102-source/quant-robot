@@ -13,6 +13,8 @@
     "forward_horizon": 1,
     "execution_lag": 1,
     "quantiles": 2,
+    "portfolio_scope": null,
+    "periods_per_year": null,
     "rank_by": "sharpe",
     "min_trades": 1
   }

@@ -12,6 +12,8 @@ The walk-forward runner:
 
 - splits bars by `split_date`;
 - runs the same experiment grid on train data and test data;
+- carries enough pre-split warmup bars into the test calculation for rolling factors;
+- filters test signals so out-of-sample trades start only after the split;
 - merges train/test metrics by `case_id`;
 - computes `sharpe_degradation` and `stability_score`;
 - marks candidates as `accepted` or `rejected`;
@@ -52,6 +54,10 @@ data/reports/walk_forward/
 - `sharpe_degradation`: positive when train Sharpe is higher than test Sharpe.
 - `stability_score`: test Sharpe penalized by train-to-test degradation.
 - `data_mode`: `fixture` means demo data only, not evidence of real profitability.
+
+## Warmup And No-Lookahead
+
+Rolling factors need historical bars before the first test date. The test run receives per-asset warmup bars from the train period, but those warmup bars are only used to calculate state. Signals and trades are filtered to the first post-split date or later, so train-period rows cannot become test-period trades.
 
 ## Real Data Later
 

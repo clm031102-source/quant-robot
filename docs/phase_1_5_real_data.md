@@ -40,6 +40,8 @@ $env:PYTHONPATH='src'
 
 When Tushare is installed and `TUSHARE_TOKEN` is set, switch `--source tushare-fixture` to `--source tushare`.
 
+Adjusted close is calculated as `close * adj_factor` when adjustment factors are available. The ingest pipeline intentionally does not divide by the latest factor inside the requested range, because that makes a historical adjusted close depend on the end date of the request.
+
 ## Readiness Check
 
 Before running a real Tushare smoke test:

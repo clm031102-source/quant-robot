@@ -3,6 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import pandas as pd
+
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.research.pipeline import ResearchPipelineConfig, run_research_pipeline
 from quant_robot.storage.dataset_store import DatasetStore
@@ -43,6 +45,33 @@ class ResearchPipelineTests(unittest.TestCase):
 
         self.assertEqual({row["market"] for row in result["trades"]}, {"CN"})
         self.assertEqual({row["market"] for row in result["holdings"]}, {"CN"})
+
+    def test_pipeline_uses_forward_horizon_for_backtest_exit(self):
+        config = ResearchPipelineConfig(factor_name="momentum_2", factor_windows=(2,), market="CN", top_n=1, forward_horizon=2)
+
+        result = run_research_pipeline(load_demo_market_bars(), config)
+
+        trade = result["trades"][0]
+        self.assertEqual((pd.to_datetime(trade["exit_date"]) - pd.to_datetime(trade["entry_date"])).days, 2)
+
+    def test_all_market_pipeline_uses_global_portfolio_scope(self):
+        config = ResearchPipelineConfig(factor_name="momentum_2", factor_windows=(2,), market="ALL", top_n=2, cost_bps=0.0)
+
+        result = run_research_pipeline(load_demo_market_bars(), config)
+
+        weights_by_signal = {}
+        for trade in result["trades"]:
+            weights_by_signal.setdefault(trade["signal_date"], 0.0)
+            weights_by_signal[trade["signal_date"]] += trade["target_weight"]
+        self.assertTrue(weights_by_signal)
+        self.assertTrue(all(abs(weight - 1.0) < 1e-9 for weight in weights_by_signal.values()))
+
+    def test_crypto_pipeline_uses_crypto_annualization_period(self):
+        config = ResearchPipelineConfig(factor_name="momentum_2", factor_windows=(2,), market="CRYPTO", top_n=1)
+
+        result = run_research_pipeline(load_demo_market_bars(), config)
+
+        self.assertEqual(result["request"]["periods_per_year"], 365)
 
     def test_processed_bar_loader_accepts_store_root_or_processed_subdirectory(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -71,6 +71,18 @@ class ExperimentRunnerTests(unittest.TestCase):
         self.assertEqual(result["leaderboard"][0]["status"], "no_trades")
         self.assertEqual(result["leaderboard"][0]["trades"], 0)
 
+    def test_experiment_grid_rejects_factor_window_mismatch(self):
+        config = ExperimentGridConfig(
+            markets=("CN",),
+            factor_names=("momentum_5",),
+            factor_windows=(2,),
+            top_n_values=(1,),
+            cost_bps_values=(0.0,),
+        )
+
+        with self.assertRaisesRegex(ValueError, "factor_names reference windows"):
+            run_experiment_grid(load_demo_market_bars(), config)
+
     def test_load_experiment_grid_config_reads_json_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             config_path = Path(tmp) / "grid.json"

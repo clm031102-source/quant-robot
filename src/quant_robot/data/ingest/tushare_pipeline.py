@@ -148,8 +148,7 @@ def _attach_adjusted_close(
     merged = source.merge(factors, on=["symbol", "date"], how="left")
     if merged["adj_factor"].isna().all():
         return raw, False
-    latest_factor = merged.groupby("symbol")["adj_factor"].transform("last")
-    merged["adj_close"] = merged["close"] * merged["adj_factor"] / latest_factor
+    merged["adj_close"] = merged["close"] * merged["adj_factor"].fillna(1.0)
     return merged.drop(columns=["adj_factor"]), True
 
 

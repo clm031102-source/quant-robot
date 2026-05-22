@@ -17,17 +17,33 @@ class BacktestResult:
     metrics: dict[str, float]
 
 
-def run_factor_backtest(factors: pd.DataFrame, bars: pd.DataFrame, top_n: int = 10, cost_bps: float = 0.0) -> BacktestResult:
+def run_factor_backtest(
+    factors: pd.DataFrame,
+    bars: pd.DataFrame,
+    top_n: int = 10,
+    cost_bps: float = 0.0,
+    portfolio_scope: str = "market",
+    execution_lag: int = 1,
+    holding_period: int = 1,
+    periods_per_year: int = 252,
+) -> BacktestResult:
     required_factor_columns = ["date", "asset_id", "market", "factor_name", "factor_value"]
     required_bar_columns = ["date", "asset_id", "market", "adj_close"]
     _require_columns(factors, required_factor_columns, "factors")
     _require_columns(bars, required_bar_columns, "bars")
+    if execution_lag < 1:
+        raise ValueError("execution_lag must be at least 1")
+    if holding_period < 1:
+        raise ValueError("holding_period must be at least 1")
 
-    selected = select_top_n(factors, top_n=top_n)
+    selected = select_top_n(factors, top_n=top_n, portfolio_scope=portfolio_scope)
     bar_lookup = _price_lookup(bars)
-    trades = _build_trades(selected, bar_lookup, round_trip_cost(cost_bps))
+    trades = _build_trades(selected, bar_lookup, round_trip_cost(cost_bps), execution_lag, holding_period)
     equity_curve = _equity_curve(trades)
-    metrics = summarize_returns(equity_curve["period_return"] if not equity_curve.empty else pd.Series(dtype=float))
+    metrics = summarize_returns(
+        equity_curve["period_return"] if not equity_curve.empty else pd.Series(dtype=float),
+        periods_per_year=periods_per_year,
+    )
     if not trades.empty:
         metrics["turnover"] = float(trades.groupby("signal_date")["target_weight"].sum().mean())
         metrics["average_holdings"] = float(trades.groupby("signal_date")["asset_id"].nunique().mean())
@@ -50,17 +66,24 @@ def _price_lookup(bars: pd.DataFrame) -> dict[str, pd.DataFrame]:
     return lookup
 
 
-def _build_trades(selected: pd.DataFrame, bar_lookup: dict[str, pd.DataFrame], cost: float) -> pd.DataFrame:
+def _build_trades(
+    selected: pd.DataFrame,
+    bar_lookup: dict[str, pd.DataFrame],
+    cost: float,
+    execution_lag: int,
+    holding_period: int,
+) -> pd.DataFrame:
     rows = []
     for row in selected.itertuples(index=False):
         asset_bars = bar_lookup.get(row.asset_id)
         if asset_bars is None:
             continue
-        future = asset_bars[asset_bars["date"] > row.date].head(2)
-        if len(future) < 2:
+        needed_future_bars = execution_lag + holding_period
+        future = asset_bars[asset_bars["date"] > row.date].head(needed_future_bars)
+        if len(future) < needed_future_bars:
             continue
-        entry = future.iloc[0]
-        exit_ = future.iloc[1]
+        entry = future.iloc[execution_lag - 1]
+        exit_ = future.iloc[execution_lag + holding_period - 1]
         gross_return = exit_["adj_close"] / entry["adj_close"] - 1.0
         net_return = gross_return - cost
         rows.append(

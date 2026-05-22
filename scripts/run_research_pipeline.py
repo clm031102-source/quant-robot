@@ -18,8 +18,14 @@ def main() -> None:
     parser.add_argument("--factor-windows", default="2,3")
     parser.add_argument("--top-n", default=2, type=int)
     parser.add_argument("--cost-bps", default=5.0, type=float)
+    parser.add_argument("--forward-horizon", default=1, type=int)
+    parser.add_argument("--execution-lag", default=1, type=int)
+    parser.add_argument("--portfolio-scope", choices=["market", "global"])
+    parser.add_argument("--periods-per-year", type=int)
     parser.add_argument("--start-date")
     parser.add_argument("--end-date")
+    parser.add_argument("--signal-start-date")
+    parser.add_argument("--signal-end-date")
     parser.add_argument("--output-dir", default="data/reports/research_pipeline")
     args = parser.parse_args()
     bars = load_demo_market_bars() if args.source == "fixture" else load_processed_bars(Path(args.data_root), args.market)
@@ -29,8 +35,14 @@ def main() -> None:
         market=args.market,
         start_date=args.start_date,
         end_date=args.end_date,
+        forward_horizon=args.forward_horizon,
+        execution_lag=args.execution_lag,
         top_n=args.top_n,
         cost_bps=args.cost_bps,
+        portfolio_scope=args.portfolio_scope,
+        periods_per_year=args.periods_per_year,
+        signal_start_date=args.signal_start_date,
+        signal_end_date=args.signal_end_date,
         output_dir=Path(args.output_dir),
     )
     result = run_research_pipeline(bars, config)

@@ -12,6 +12,8 @@ The first grid runner supports:
 - factor names from the current basic factor library;
 - multiple transaction-cost assumptions;
 - multiple `top_n` portfolio sizes;
+- configurable `forward_horizon` and `execution_lag`;
+- optional `portfolio_scope` and `periods_per_year` overrides;
 - per-case artifacts from the research pipeline;
 - a combined leaderboard with explicit `data_mode`.
 
@@ -44,6 +46,10 @@ data/reports/experiment_grid/
 ## Interpreting Results
 
 Fixture runs prove the pipeline works; they do not prove a strategy can make money. Any fixture leaderboard row must be treated as demo-only.
+
+The grid validates that known factor names match `factor_windows`. For example, `momentum_20` requires `20` in `factor_windows`; otherwise the run fails early. This prevents a typo from turning into a silent no-trade leaderboard row.
+
+For multi-market cases, leave `portfolio_scope` unset unless you need a specific override. The research pipeline uses `global` scope for `market=ALL` so total target weight is capped across markets, and `market` scope for single-market runs. `periods_per_year` can be set explicitly when you want to override the default annualization assumption; otherwise crypto uses 365 and non-crypto markets use 252.
 
 When real processed bars exist, use:
 

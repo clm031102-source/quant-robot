@@ -34,11 +34,13 @@ def load_walk_forward_config(path: str | Path) -> WalkForwardConfig:
 
 
 def run_walk_forward_validation(bars: pd.DataFrame, config: WalkForwardConfig) -> dict[str, Any]:
-    train_bars, test_bars = _split_bars(bars, config.split_date)
+    train_bars, post_split_bars = _split_bars(bars, config.split_date)
+    test_signal_start = str(pd.to_datetime(post_split_bars["date"]).dt.date.min())
+    test_bars = _with_warmup_bars(train_bars, post_split_bars, max(config.experiment_grid.factor_windows))
     train_dir = config.output_dir / "train" if config.output_dir is not None else None
     test_dir = config.output_dir / "test" if config.output_dir is not None else None
-    train_config = replace(config.experiment_grid, output_dir=train_dir)
-    test_config = replace(config.experiment_grid, output_dir=test_dir)
+    train_config = replace(config.experiment_grid, output_dir=train_dir, signal_end_date=config.split_date)
+    test_config = replace(config.experiment_grid, output_dir=test_dir, signal_start_date=test_signal_start)
     train = run_experiment_grid(train_bars, train_config)
     test = run_experiment_grid(test_bars, test_config)
     rows = _merge_leaderboards(train["leaderboard"], test["leaderboard"], config)
@@ -61,6 +63,15 @@ def _split_bars(bars: pd.DataFrame, split_date: str) -> tuple[pd.DataFrame, pd.D
     if train.empty or test.empty:
         raise ValueError("Walk-forward split requires non-empty train and test bars")
     return train, test
+
+
+def _with_warmup_bars(train_bars: pd.DataFrame, post_split_bars: pd.DataFrame, warmup_rows: int) -> pd.DataFrame:
+    warmup = (
+        train_bars.sort_values(["asset_id", "date"])
+        .groupby("asset_id", as_index=False, group_keys=False)
+        .tail(max(warmup_rows, 0))
+    )
+    return pd.concat([warmup, post_split_bars], ignore_index=True).sort_values(["asset_id", "date"]).reset_index(drop=True)
 
 
 def _merge_leaderboards(
@@ -178,6 +189,10 @@ def _grid_from_mapping(data: dict[str, Any]) -> ExperimentGridConfig:
         forward_horizon=int(data.get("forward_horizon", ExperimentGridConfig.forward_horizon)),
         execution_lag=int(data.get("execution_lag", ExperimentGridConfig.execution_lag)),
         quantiles=int(data.get("quantiles", ExperimentGridConfig.quantiles)),
+        portfolio_scope=data.get("portfolio_scope"),
+        periods_per_year=int(data["periods_per_year"]) if data.get("periods_per_year") is not None else None,
+        signal_start_date=data.get("signal_start_date"),
+        signal_end_date=data.get("signal_end_date"),
         output_dir=None,
         rank_by=str(data.get("rank_by", ExperimentGridConfig.rank_by)),
         min_trades=int(data.get("min_trades", ExperimentGridConfig.min_trades)),

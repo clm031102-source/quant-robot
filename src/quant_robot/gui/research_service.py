@@ -5,15 +5,9 @@ from typing import Any
 
 import pandas as pd
 
-from quant_robot.backtest.engine import run_factor_backtest
-from quant_robot.data.quality import validate_market_data
 from quant_robot.data.readiness import check_parquet_readiness, check_tushare_readiness
-from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.gui.fixtures import mock_data
-from quant_robot.research.groups import quantile_group_returns
-from quant_robot.research.ic import compute_ic
-from quant_robot.research.labels import make_forward_returns
-from quant_robot.research.long_short import long_short_returns
+from quant_robot.research.pipeline import ResearchPipelineConfig, run_research_pipeline
 
 
 def build_gui_snapshot() -> dict[str, Any]:
@@ -66,39 +60,38 @@ def run_demo_research(
     end_date: str | None = None,
 ) -> dict[str, Any]:
     bars = _filtered_bars(market, start_date, end_date)
-    validate_market_data(bars)
-    factors = compute_basic_factors(bars, windows=(2, 3))
-    selected_factors = factors[factors["factor_name"] == factor_name].dropna(subset=["factor_value"])
-    labels = make_forward_returns(bars, horizons=(1,), execution_lag=1)
-    ic = compute_ic(selected_factors, labels)
-    groups = quantile_group_returns(selected_factors, labels, quantiles=2)
-    long_short = long_short_returns(selected_factors, labels, quantiles=2)
-    backtest = run_factor_backtest(selected_factors, bars, top_n=top_n, cost_bps=cost_bps)
-    drawdown = _drawdown_curve(backtest.equity_curve)
-    factor_summary = _factor_summary(ic)
-    risk = _risk_from_backtest(backtest.metrics, backtest.equity_curve, backtest.trades)
+    result = run_research_pipeline(
+        bars,
+        ResearchPipelineConfig(
+            factor_name=factor_name,
+            factor_windows=(2, 3),
+            market=market,
+            start_date=start_date,
+            end_date=end_date,
+            top_n=top_n,
+            cost_bps=cost_bps,
+        ),
+    )
+    risk = _risk_from_backtest(
+        result["metrics"],
+        pd.DataFrame(result["equity_curve"]),
+        pd.DataFrame(result["trades"]),
+    )
     return _sanitize(
         {
             "data_mode": mock_data.DATA_MODE,
             "notice": mock_data.DEMO_NOTICE,
-            "request": {
-                "market": market,
-                "factor_name": factor_name,
-                "top_n": top_n,
-                "cost_bps": cost_bps,
-                "start_date": start_date,
-                "end_date": end_date,
-            },
-            "metrics": backtest.metrics,
-            "factor_summary": factor_summary,
+            "request": result["request"],
+            "metrics": result["metrics"],
+            "factor_summary": result["factor_summary"],
             "risk": risk,
-            "equity_curve": _records(backtest.equity_curve),
-            "drawdown_curve": _records(drawdown),
-            "ic": _records(ic),
-            "group_returns": _records(groups),
-            "long_short": _records(long_short),
-            "trades": _records(backtest.trades),
-            "holdings": _records(backtest.positions),
+            "equity_curve": result["equity_curve"],
+            "drawdown_curve": result["drawdown_curve"],
+            "ic": result["ic"],
+            "group_returns": result["group_returns"],
+            "long_short": result["long_short"],
+            "trades": result["trades"],
+            "holdings": result["holdings"],
         }
     )
 
@@ -115,33 +108,6 @@ def _filtered_bars(market: str, start_date: str | None, end_date: str | None) ->
         end = pd.to_datetime(end_date).date()
         bars = bars[pd.to_datetime(bars["date"]).dt.date <= end]
     return bars.reset_index(drop=True)
-
-
-def _factor_summary(ic: pd.DataFrame) -> dict[str, float]:
-    if ic.empty:
-        return {"mean_ic": 0.0, "mean_rank_ic": 0.0, "icir": 0.0}
-    clean_ic = pd.to_numeric(ic["ic"], errors="coerce").dropna()
-    clean_rank = pd.to_numeric(ic["rank_ic"], errors="coerce").dropna()
-    if clean_ic.empty:
-        icir = 0.0
-        mean_ic = 0.0
-    else:
-        mean_ic = float(clean_ic.mean())
-        std_ic = float(clean_ic.std(ddof=0))
-        icir = 0.0 if std_ic == 0.0 else float(mean_ic / std_ic)
-    return {
-        "mean_ic": mean_ic,
-        "mean_rank_ic": float(clean_rank.mean()) if not clean_rank.empty else 0.0,
-        "icir": icir,
-    }
-
-
-def _drawdown_curve(equity_curve: pd.DataFrame) -> pd.DataFrame:
-    if equity_curve.empty:
-        return pd.DataFrame(columns=["date", "drawdown"])
-    frame = equity_curve[["date", "equity"]].copy()
-    frame["drawdown"] = frame["equity"] / frame["equity"].cummax() - 1.0
-    return frame[["date", "drawdown"]]
 
 
 def _risk_from_backtest(metrics: dict[str, float], equity_curve: pd.DataFrame, trades: pd.DataFrame) -> dict[str, Any]:

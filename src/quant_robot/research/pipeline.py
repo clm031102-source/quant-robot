@@ -30,6 +30,10 @@ class ResearchPipelineConfig:
     quantiles: int = 2
     top_n: int = 2
     cost_bps: float = 5.0
+    portfolio_scope: str | None = None
+    periods_per_year: int | None = None
+    signal_start_date: str | None = None
+    signal_end_date: str | None = None
     output_dir: Path | None = None
 
 
@@ -39,16 +43,28 @@ def run_research_pipeline(bars: pd.DataFrame, config: ResearchPipelineConfig) ->
     factors = compute_basic_factors(filtered, windows=config.factor_windows)
     labels = make_forward_returns(filtered, horizons=(config.forward_horizon,), execution_lag=config.execution_lag)
     selected = factors[factors["factor_name"] == config.factor_name].dropna(subset=["factor_value"]).reset_index(drop=True)
+    selected = _filter_signals(selected, config)
     ic = compute_ic(selected, labels)
     groups = quantile_group_returns(selected, labels, quantiles=config.quantiles)
     long_short = long_short_returns(selected, labels, quantiles=config.quantiles)
-    backtest = run_factor_backtest(selected, filtered, top_n=config.top_n, cost_bps=config.cost_bps)
+    portfolio_scope = _resolve_portfolio_scope(config)
+    periods_per_year = _resolve_periods_per_year(config)
+    backtest = run_factor_backtest(
+        selected,
+        filtered,
+        top_n=config.top_n,
+        cost_bps=config.cost_bps,
+        portfolio_scope=portfolio_scope,
+        execution_lag=config.execution_lag,
+        holding_period=config.forward_horizon,
+        periods_per_year=periods_per_year,
+    )
     drawdown = _drawdown_curve(backtest.equity_curve)
     summary = _factor_summary(ic)
     result = _sanitize(
         {
             "data_mode": "fixture" if set(filtered["source"].astype(str)) == {"fixture"} else "research",
-            "request": _config_dict(config),
+            "request": _config_dict(config, portfolio_scope, periods_per_year),
             "metrics": backtest.metrics,
             "factor_summary": summary,
             "artifact_rows": {
@@ -84,6 +100,27 @@ def _filter_bars(bars: pd.DataFrame, config: ResearchPipelineConfig) -> pd.DataF
     if config.end_date:
         frame = frame[pd.to_datetime(frame["date"]).dt.date <= pd.to_datetime(config.end_date).date()]
     return frame.sort_values(["asset_id", "date"]).reset_index(drop=True)
+
+
+def _filter_signals(factors: pd.DataFrame, config: ResearchPipelineConfig) -> pd.DataFrame:
+    frame = factors.copy()
+    if config.signal_start_date:
+        frame = frame[pd.to_datetime(frame["date"]).dt.date >= pd.to_datetime(config.signal_start_date).date()]
+    if config.signal_end_date:
+        frame = frame[pd.to_datetime(frame["date"]).dt.date <= pd.to_datetime(config.signal_end_date).date()]
+    return frame.reset_index(drop=True)
+
+
+def _resolve_portfolio_scope(config: ResearchPipelineConfig) -> str:
+    if config.portfolio_scope is not None:
+        return config.portfolio_scope
+    return "global" if config.market.upper() == "ALL" else "market"
+
+
+def _resolve_periods_per_year(config: ResearchPipelineConfig) -> int:
+    if config.periods_per_year is not None:
+        return config.periods_per_year
+    return 365 if config.market.upper() == "CRYPTO" else 252
 
 
 def _factor_summary(ic: pd.DataFrame) -> dict[str, float]:
@@ -137,9 +174,11 @@ def _write_artifacts(
     write_line_svg(ic, "date", "ic", output_dir / "ic.svg", "Research Pipeline IC")
 
 
-def _config_dict(config: ResearchPipelineConfig) -> dict[str, Any]:
+def _config_dict(config: ResearchPipelineConfig, portfolio_scope: str, periods_per_year: int) -> dict[str, Any]:
     data = asdict(config)
     data["factor_windows"] = list(config.factor_windows)
+    data["portfolio_scope"] = portfolio_scope
+    data["periods_per_year"] = periods_per_year
     data["output_dir"] = str(config.output_dir) if config.output_dir is not None else None
     return data
 

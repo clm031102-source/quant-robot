@@ -64,6 +64,26 @@ class WalkForwardTests(unittest.TestCase):
         self.assertEqual(result["leaderboard"][0]["validation_status"], "rejected")
         self.assertIn("oos_sharpe_below_threshold", result["leaderboard"][0]["rejection_reasons"])
 
+    def test_walk_forward_test_split_uses_warmup_history_for_rolling_factors(self):
+        bars = load_demo_market_bars()
+        bars = bars[(bars["market"] == "CN") & (pd.to_datetime(bars["date"]).dt.date <= pd.Timestamp("2024-01-06").date())]
+        config = WalkForwardConfig(
+            split_date="2024-01-03",
+            experiment_grid=ExperimentGridConfig(
+                markets=("CN",),
+                factor_names=("momentum_2",),
+                factor_windows=(2,),
+                top_n_values=(1,),
+                cost_bps_values=(0.0,),
+            ),
+            min_test_trades=1,
+        )
+
+        result = run_walk_forward_validation(bars, config)
+
+        self.assertEqual(result["leaderboard"][0]["test_status"], "completed")
+        self.assertGreaterEqual(result["leaderboard"][0]["test_trades"], 1)
+
     def test_load_walk_forward_config_reads_nested_experiment_grid(self):
         with tempfile.TemporaryDirectory() as tmp:
             config_path = Path(tmp) / "walk_forward.json"

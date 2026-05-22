@@ -26,6 +26,8 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("max_drawdown", result["metrics"])
         self.assertIn("sharpe", result["metrics"])
         self.assertIn("icir", result["factor_summary"])
+        self.assertEqual(result["request"]["portfolio_scope"], "global")
+        self.assertEqual(result["request"]["periods_per_year"], 252)
         self.assertGreater(len(result["equity_curve"]), 0)
         self.assertGreater(len(result["trades"]), 0)
         self.assertGreater(len(result["holdings"]), 0)

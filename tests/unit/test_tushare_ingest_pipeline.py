@@ -137,8 +137,38 @@ class TushareIngestPipelineTests(unittest.TestCase):
             processed = pd.read_csv(processed_file).sort_values("date").reset_index(drop=True)
 
             self.assertTrue(result["adjusted"])
-            self.assertAlmostEqual(processed.loc[0, "adj_close"], 5.25)
-            self.assertAlmostEqual(processed.loc[1, "adj_close"], 10.5)
+            self.assertAlmostEqual(processed.loc[0, "adj_close"], 10.5)
+            self.assertAlmostEqual(processed.loc[1, "adj_close"], 21.0)
+
+    def test_adjusted_close_is_stable_across_different_ingest_ranges(self):
+        class ThreeDayAdjustedAdapter(FakeTushareDailyAdapter):
+            def fetch_adj_factor(self, ts_code: str = "", start_date: str = "", end_date: str = ""):
+                return pd.DataFrame(
+                    {
+                        "symbol": ["000001.SZ", "000001.SZ", "000001.SZ"],
+                        "date": [
+                            pd.Timestamp("2024-01-02").date(),
+                            pd.Timestamp("2024-01-03").date(),
+                            pd.Timestamp("2024-01-04").date(),
+                        ],
+                        "adj_factor": [1.0, 2.0, 4.0],
+                    }
+                )
+
+        with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second:
+            run_tushare_daily_ingest(ThreeDayAdjustedAdapter(), "2024-01-02", "2024-01-03", Path(first))
+            run_tushare_daily_ingest(ThreeDayAdjustedAdapter(), "2024-01-02", "2024-01-04", Path(second))
+
+            first_processed = pd.read_csv(
+                Path(first) / "processed" / "bars" / "frequency=1d" / "market=CN" / "year=2024" / "part-00000.csv"
+            )
+            second_processed = pd.read_csv(
+                Path(second) / "processed" / "bars" / "frequency=1d" / "market=CN" / "year=2024" / "part-00000.csv"
+            )
+            first_jan2 = first_processed[first_processed["date"] == "2024-01-02"].iloc[0]["adj_close"]
+            second_jan2 = second_processed[second_processed["date"] == "2024-01-02"].iloc[0]["adj_close"]
+
+            self.assertAlmostEqual(first_jan2, second_jan2)
 
     def test_asset_from_tushare_symbol_supports_beijing_exchange(self):
         asset = _asset_from_tushare_symbol("430047.BJ")
