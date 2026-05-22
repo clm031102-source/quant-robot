@@ -1,0 +1,2 @@
+"""GUI-only demo fixtures."""
+

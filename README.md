@@ -33,6 +33,17 @@ $env:PYTHONPATH='src'
 
 Outputs are written to `data/reports/fixture_research/`.
 
+## Run Local GUI
+
+The local GUI is research-only and uses clearly labeled demo fixture data unless you explicitly wire in a real data workflow later.
+
+```powershell
+$env:PYTHONPATH='src'
+& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_gui.py
+```
+
+Open `http://127.0.0.1:8765` in your browser.
+
 ## Phase 1.5 Real Data Foundation
 
 Phase 1.5 adds safe real-data foundations for Tushare A-share data and TradingView CSV verification. The first implementation is offline-testable and keeps all live data dependencies optional.

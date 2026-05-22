@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Quant Robot Local Console</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%2324261f'/%3E%3Ctext x='5' y='21' font-size='12' fill='%23fffdf7' font-family='Georgia'%3EQR%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand-block">
+          <div class="brand-mark">QR</div>
+          <div>
+            <h1>Quant Robot</h1>
+            <p>Local Research Console</p>
+          </div>
+        </div>
+        <nav class="nav-list" aria-label="主要导航">
+          <button class="nav-item active" data-page="dashboard"><span>01</span>Dashboard</button>
+          <button class="nav-item" data-page="data"><span>02</span>数据中心</button>
+          <button class="nav-item" data-page="research"><span>03</span>因子研究</button>
+          <button class="nav-item" data-page="backtest"><span>04</span>回测报告</button>
+          <button class="nav-item" data-page="risk"><span>05</span>风险监控</button>
+          <button class="nav-item" data-page="logs"><span>06</span>日志/报告</button>
+        </nav>
+        <div class="boundary-box">
+          <strong>Research only</strong>
+          <span>不接券商，不下单，不实盘。</span>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">multi-market quant research</p>
+            <h2 id="page-title">Dashboard</h2>
+          </div>
+          <div class="mode-pill" id="mode-pill">loading</div>
+        </header>
+
+        <section id="page-dashboard" class="page active-page">
+          <div class="metric-grid" id="dashboard-metrics"></div>
+          <div class="split-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <h3>最近研究结果</h3>
+                <span class="tag">demo</span>
+              </div>
+              <div id="dashboard-equity" class="chart-box"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <h3>风险提示</h3>
+                <span class="tag tag-warn">locked</span>
+              </div>
+              <div id="dashboard-risk"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="page-data" class="page">
+          <section class="panel">
+            <div class="panel-head">
+              <h3>市场数据状态</h3>
+              <span class="tag">local fixture</span>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>市场</th>
+                    <th>数据源</th>
+                    <th>更新时间</th>
+                    <th>数据量</th>
+                    <th>缺失值</th>
+                    <th>异常值</th>
+                    <th>状态</th>
+                  </tr>
+                </thead>
+                <tbody id="market-table"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <section id="page-research" class="page">
+          <section class="control-strip">
+            <label>市场
+              <select id="market-select">
+                <option value="ALL">ALL</option>
+                <option value="CN">A股</option>
+                <option value="HK">港股</option>
+                <option value="US">美股</option>
+                <option value="CRYPTO">加密货币</option>
+              </select>
+            </label>
+            <label>资产池
+              <select id="universe-select">
+                <option value="demo_multi_market">demo_multi_market</option>
+              </select>
+            </label>
+            <label>因子
+              <select id="factor-select"></select>
+            </label>
+            <label>开始
+              <input id="start-date" type="date" value="2024-01-02">
+            </label>
+            <label>结束
+              <input id="end-date" type="date" value="2024-01-13">
+            </label>
+            <button id="run-research" class="primary-button" type="button">运行研究</button>
+          </section>
+          <div class="metric-grid compact" id="factor-metrics"></div>
+          <div class="triple-grid">
+            <section class="panel">
+              <div class="panel-head"><h3>IC / Rank IC</h3></div>
+              <div id="ic-chart" class="chart-box"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head"><h3>分组收益</h3></div>
+              <div id="group-chart" class="chart-box"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head"><h3>多空收益</h3></div>
+              <div id="long-short-chart" class="chart-box"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="page-backtest" class="page">
+          <section class="control-strip slim">
+            <label>Top N
+              <input id="top-n" type="number" min="1" max="8" value="2">
+            </label>
+            <label>手续费 bps
+              <input id="cost-bps" type="number" min="0" max="100" value="5">
+            </label>
+            <button id="run-backtest" class="primary-button" type="button">刷新回测</button>
+          </section>
+          <div class="metric-grid compact" id="backtest-metrics"></div>
+          <div class="split-grid">
+            <section class="panel">
+              <div class="panel-head"><h3>净值曲线</h3></div>
+              <div id="equity-chart" class="chart-box tall"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head"><h3>回撤曲线</h3></div>
+              <div id="drawdown-chart" class="chart-box tall"></div>
+            </section>
+          </div>
+          <div class="split-grid">
+            <section class="panel">
+              <div class="panel-head"><h3>调仓记录</h3></div>
+              <div class="table-wrap small-table"><table><tbody id="trade-table"></tbody></table></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head"><h3>持仓表</h3></div>
+              <div class="table-wrap small-table"><table><tbody id="holding-table"></tbody></table></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="page-risk" class="page">
+          <div class="metric-grid compact" id="risk-metrics"></div>
+          <div class="split-grid">
+            <section class="panel">
+              <div class="panel-head"><h3>市场暴露</h3></div>
+              <div id="exposure-chart" class="chart-box"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head"><h3>异常日志</h3></div>
+              <div id="risk-log"></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="page-logs" class="page">
+          <div class="split-grid">
+            <section class="panel">
+              <div class="panel-head"><h3>任务日志</h3></div>
+              <div id="task-log"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head"><h3>报告入口</h3></div>
+              <div id="report-list"></div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
