@@ -1,0 +1,5 @@
+market: CN
+source: tushare
+symbols:
+  - 000001.SZ
+  - 600519.SH

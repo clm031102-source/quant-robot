@@ -33,6 +33,17 @@ $env:PYTHONPATH='src'
 
 Outputs are written to `data/reports/fixture_research/`.
 
+## Phase 1.5 Real Data Foundation
+
+Phase 1.5 adds safe real-data foundations for Tushare A-share data and TradingView CSV verification. The first implementation is offline-testable and keeps all live data dependencies optional.
+
+```powershell
+$env:PYTHONPATH='src'
+& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\ingest_data.py --source fixture --market CN --output-dir data\processed\ingest_fixture
+```
+
+Real Tushare access uses `TUSHARE_TOKEN` from the environment. Never commit a real token.
+
 ## No-Live-Trading Boundary
 
 This repository intentionally has no real broker adapter, no order placement, no account login, and no automatic live execution. Later phases should extend from research signals to portfolio targets, then to simulated order intents, and only then to a carefully gated broker adapter.

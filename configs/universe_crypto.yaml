@@ -1,0 +1,5 @@
+market: CRYPTO
+source: ccxt
+symbols:
+  - BTC/USDT
+  - ETH/USDT

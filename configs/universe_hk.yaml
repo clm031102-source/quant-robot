@@ -1,0 +1,5 @@
+market: HK
+source: yfinance
+symbols:
+  - 0700.HK
+  - 9988.HK
