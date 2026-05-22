@@ -1,0 +1,4 @@
+initial_cash: 1000000
+rebalance: daily
+execution_price: next_close
+cost_bps: 10

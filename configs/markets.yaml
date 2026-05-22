@@ -1,0 +1,17 @@
+markets:
+  CN:
+    currency: CNY
+    timezone: Asia/Shanghai
+    calendars: [XSHG, XSHE]
+  HK:
+    currency: HKD
+    timezone: Asia/Hong_Kong
+    calendars: [XHKG]
+  US:
+    currency: USD
+    timezone: America/New_York
+    calendars: [XNYS, XNAS]
+  CRYPTO:
+    currency: USDT
+    timezone: UTC
+    calendars: ["24/7"]

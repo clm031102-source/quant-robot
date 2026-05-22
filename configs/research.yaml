@@ -1,0 +1,4 @@
+frequency: 1d
+factor_windows: [5, 20]
+forward_return_horizons: [1, 5, 20]
+execution_lag: 1

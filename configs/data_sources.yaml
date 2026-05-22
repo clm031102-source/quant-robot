@@ -1,0 +1,5 @@
+sources:
+  cn: [akshare, tushare]
+  hk: [yfinance, akshare]
+  us: [yfinance, akshare]
+  crypto: [ccxt]
