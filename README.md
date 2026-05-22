@@ -44,6 +44,13 @@ $env:PYTHONPATH='src'
 
 Real Tushare access uses `TUSHARE_TOKEN` from the environment. Never commit a real token.
 
+To test the Tushare-shaped pipeline without credentials:
+
+```powershell
+$env:PYTHONPATH='src'
+& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\ingest_data.py --source tushare-fixture --market CN --output-dir data\processed\tushare_fixture
+```
+
 ## No-Live-Trading Boundary
 
 This repository intentionally has no real broker adapter, no order placement, no account login, and no automatic live execution. Later phases should extend from research signals to portfolio targets, then to simulated order intents, and only then to a carefully gated broker adapter.

@@ -19,6 +19,17 @@ $env:PYTHONPATH='src'
 & "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\ingest_data.py --source fixture --market CN --output-dir data\processed\ingest_fixture
 ```
 
+## Tushare-Shaped Fixture Ingest
+
+This exercises the Tushare daily ingest pipeline, manifest resume, raw storage, processed storage, and quality report without requiring a real token:
+
+```powershell
+$env:PYTHONPATH='src'
+& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\ingest_data.py --source tushare-fixture --market CN --start-date 2024-01-02 --end-date 2024-01-06 --output-dir data\processed\tushare_fixture
+```
+
+When Tushare is installed and `TUSHARE_TOKEN` is set, switch `--source tushare-fixture` to `--source tushare`.
+
 ## TradingView CSV Import
 
 Export chart data from TradingView, then normalize the CSV shape:
