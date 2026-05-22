@@ -26,7 +26,7 @@ $env:PYTHONPATH='src'
 
 ## Run Core Checks
 
-This runs the local test suite, Python compile check, project audit, readiness check, provider status, data catalog, offline fixture research, and the configurable research pipeline. It does not download market data.
+This runs the local test suite, Python compile check, project audit, readiness check, provider status, data catalog, offline fixture research, the configurable research pipeline, the experiment grid, and walk-forward validation. It does not download market data.
 
 ```powershell
 $env:PYTHONPATH='src'
@@ -105,6 +105,24 @@ Outputs are written to `data/reports/experiment_grid/` by default:
 - one artifact folder per experiment case
 
 Edit `configs/experiment_grid.json` to change markets, factors, transaction costs, position counts, ranking metric, and output path.
+
+## Run Walk-Forward Validation
+
+This splits local data into train and out-of-sample test periods, runs the same experiment candidates on both sides, and ranks candidates by sample-out stability. Fixture results remain demo-only.
+
+```powershell
+$env:PYTHONPATH='src'
+& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_walk_forward.py --source fixture
+```
+
+Outputs are written to `data/reports/walk_forward/` by default:
+
+- `walk_forward_leaderboard.csv`
+- `walk_forward_leaderboard.json`
+- `manifest.json`
+- `train/` and `test/` per-case artifacts
+
+Edit `configs/walk_forward.json` to change the split date, candidate grid, acceptance thresholds, and output path.
 
 ## Run Local GUI
 
