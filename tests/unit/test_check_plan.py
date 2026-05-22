@@ -21,6 +21,7 @@ class CheckPlanTests(unittest.TestCase):
                 "research_pipeline",
                 "experiment_grid",
                 "walk_forward",
+                "signal_snapshot",
             ],
         )
         self.assertTrue(all(not step.uses_network for step in plan))
@@ -30,6 +31,7 @@ class CheckPlanTests(unittest.TestCase):
         self.assertIn("--summary-only", plan[5].command)
         self.assertIn("scripts/run_experiment_grid.py", plan[8].command)
         self.assertIn("scripts/run_walk_forward.py", plan[9].command)
+        self.assertIn("scripts/run_signal_snapshot.py", plan[10].command)
 
 
 if __name__ == "__main__":

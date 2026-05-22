@@ -15,6 +15,7 @@ Phase one is research-only. It does not connect to real broker accounts, does no
 - Forward-return labels with explicit execution lag.
 - IC, Rank IC, quantile group returns, and long-short returns.
 - Research backtest with explicit execution lag, holding period, portfolio scope, and transaction cost assumptions.
+- Research-only signal snapshots, risk-capped target weights, and advisory rebalance plans.
 - CSV, JSON, and SVG report outputs.
 
 ## Run Tests
@@ -26,7 +27,7 @@ $env:PYTHONPATH='src'
 
 ## Run Core Checks
 
-This runs the local test suite, Python compile check, project audit, readiness check, provider status, data catalog, offline fixture research, the configurable research pipeline, the experiment grid, and walk-forward validation. It does not download market data.
+This runs the local test suite, Python compile check, project audit, readiness check, provider status, data catalog, offline fixture research, the configurable research pipeline, the experiment grid, walk-forward validation, and signal snapshot generation. It does not download market data.
 
 ```powershell
 $env:PYTHONPATH='src'
@@ -125,6 +126,23 @@ Outputs are written to `data/reports/walk_forward/` by default:
 - `train/` and `test/` per-case artifacts
 
 Edit `configs/walk_forward.json` to change the split date, candidate grid, acceptance thresholds, and output path. The test segment includes train-period warmup bars for rolling factor calculation, but signals and trades are restricted to dates after the split.
+
+## Run Signal Snapshot
+
+This generates the latest research signal targets and a research-only advisory rebalance plan. It does not connect to a broker, read a real account, or place orders. If no positions CSV is supplied, the run assumes an empty local paper portfolio.
+
+```powershell
+$env:PYTHONPATH='src'
+& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_signal_snapshot.py --source fixture --market ALL --factor momentum_2 --top-n 2 --max-asset-weight 0.4 --min-cash-weight 0.1
+```
+
+Outputs are written to `data/reports/signal_snapshot/` by default:
+
+- `targets.csv`
+- `rebalance_plan.csv`
+- `manifest.json`
+
+`targets.csv` is the strategy target state. `rebalance_plan.csv` is explicitly marked `executable=false` and is only an advisory bridge toward later simulated trading.
 
 ## Run Local GUI
 
