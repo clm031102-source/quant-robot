@@ -48,6 +48,39 @@ class ResearchTests(unittest.TestCase):
 
         self.assertAlmostEqual(result.loc[0, "long_short_return"], 0.02)
 
+    def test_ic_is_computed_within_each_market(self):
+        factors = pd.DataFrame(
+            {
+                "date": [pd.Timestamp("2024-01-01").date()] * 4,
+                "asset_id": ["US_A", "US_B", "CN_A", "CN_B"],
+                "market": ["US", "US", "CN", "CN"],
+                "factor_name": ["momentum_2"] * 4,
+                "factor_value": [1.0, 2.0, 1.0, 2.0],
+                "lookback_window": [2] * 4,
+            }
+        )
+        labels = pd.DataFrame(
+            {
+                "date": [pd.Timestamp("2024-01-01").date()] * 4,
+                "asset_id": ["US_A", "US_B", "CN_A", "CN_B"],
+                "market": ["US", "US", "CN", "CN"],
+                "horizon": [1] * 4,
+                "execution_lag": [1] * 4,
+                "forward_return": [0.01, 0.02, 0.20, 0.10],
+            }
+        )
+
+        result = compute_ic(factors, labels).sort_values("market").reset_index(drop=True)
+
+        self.assertEqual(result["market"].tolist(), ["CN", "US"])
+        self.assertAlmostEqual(result.loc[0, "ic"], -1.0)
+        self.assertAlmostEqual(result.loc[1, "ic"], 1.0)
+
+    def test_group_returns_are_computed_within_each_market(self):
+        result = quantile_group_returns(self.factors, self.labels, quantiles=2)
+
+        self.assertIn("market", result.columns)
+
 
 if __name__ == "__main__":
     unittest.main()

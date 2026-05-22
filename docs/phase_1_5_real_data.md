@@ -30,6 +30,15 @@ $env:PYTHONPATH='src'
 
 When Tushare is installed and `TUSHARE_TOKEN` is set, switch `--source tushare-fixture` to `--source tushare`.
 
+## Readiness Check
+
+Before running a real Tushare smoke test:
+
+```powershell
+$env:PYTHONPATH='src'
+& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\check_readiness.py
+```
+
 ## TradingView CSV Import
 
 Export chart data from TradingView, then normalize the CSV shape:

@@ -5,7 +5,7 @@ from typing import Any
 import pandas as pd
 
 
-def build_quality_report(bars: pd.DataFrame) -> dict[str, Any]:
+def build_quality_report(bars: pd.DataFrame, expected_dates: list[object] | None = None) -> dict[str, Any]:
     required = ["asset_id", "market", "date", "volume"]
     missing = [column for column in required if column not in bars.columns]
     if missing:
@@ -19,7 +19,9 @@ def build_quality_report(bars: pd.DataFrame) -> dict[str, Any]:
         duplicate_columns = ["asset_id", "date"]
     duplicate_bars = int(frame.duplicated(duplicate_columns).sum())
     zero_volume_rows = int((pd.to_numeric(frame["volume"], errors="coerce").fillna(0) == 0).sum())
-    missing_date_rows = _missing_date_rows(frame)
+    expected = [value.date() if hasattr(value, "date") else value for value in expected_dates] if expected_dates else None
+    expected = list(pd.to_datetime(expected).date) if expected is not None else None
+    missing_date_rows = _missing_date_rows(frame, expected)
     return {
         "rows": int(len(frame)),
         "assets": int(frame["asset_id"].nunique()),
@@ -33,13 +35,16 @@ def build_quality_report(bars: pd.DataFrame) -> dict[str, Any]:
     }
 
 
-def _missing_date_rows(frame: pd.DataFrame) -> int:
+def _missing_date_rows(frame: pd.DataFrame, expected_dates: list[object] | None) -> int:
     missing = 0
     for _, group in frame.groupby("asset_id", sort=False):
         unique_dates = sorted(set(group["date"]))
         if len(unique_dates) < 2:
             continue
-        expected = pd.date_range(unique_dates[0], unique_dates[-1], freq="D").date
+        if expected_dates is None:
+            expected = pd.date_range(unique_dates[0], unique_dates[-1], freq="D").date
+        else:
+            expected = [date for date in expected_dates if unique_dates[0] <= date <= unique_dates[-1]]
         missing += len(set(expected) - set(unique_dates))
     return int(missing)
 

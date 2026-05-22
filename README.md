@@ -44,6 +44,13 @@ $env:PYTHONPATH='src'
 
 Real Tushare access uses `TUSHARE_TOKEN` from the environment. Never commit a real token.
 
+Before switching to real Tushare data, check optional dependencies and credentials:
+
+```powershell
+$env:PYTHONPATH='src'
+& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\check_readiness.py
+```
+
 To test the Tushare-shaped pipeline without credentials:
 
 ```powershell

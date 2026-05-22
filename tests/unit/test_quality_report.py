@@ -37,6 +37,23 @@ class QualityReportTests(unittest.TestCase):
         self.assertEqual(report["assets"], 2)
         self.assertEqual(report["missing_date_rows"], 1)
 
+    def test_report_uses_expected_trading_dates_when_provided(self):
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["A", "A"],
+                "market": ["CN", "CN"],
+                "date": [pd.Timestamp("2024-01-05").date(), pd.Timestamp("2024-01-08").date()],
+                "volume": [100.0, 100.0],
+            }
+        )
+
+        report = build_quality_report(
+            bars,
+            expected_dates=[pd.Timestamp("2024-01-05").date(), pd.Timestamp("2024-01-08").date()],
+        )
+
+        self.assertEqual(report["missing_date_rows"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

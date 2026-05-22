@@ -65,6 +65,29 @@ class BacktestTests(unittest.TestCase):
         self.assertIn("max_drawdown", metrics)
         self.assertLessEqual(max_drawdown(pd.Series([1.0, 1.1, 1.0])), 0.0)
 
+    def test_backtest_selects_top_n_within_each_market(self):
+        factors = pd.DataFrame(
+            {
+                "date": [pd.Timestamp("2024-01-01").date()] * 4,
+                "asset_id": ["US_A", "US_B", "CN_A", "CN_B"],
+                "market": ["US", "US", "CN", "CN"],
+                "factor_name": ["momentum_1"] * 4,
+                "factor_value": [1.0, 2.0, 1.0, 2.0],
+            }
+        )
+        bars = pd.DataFrame(
+            {
+                "date": list(pd.date_range("2024-01-01", periods=3).date) * 4,
+                "asset_id": ["US_A"] * 3 + ["US_B"] * 3 + ["CN_A"] * 3 + ["CN_B"] * 3,
+                "market": ["US"] * 6 + ["CN"] * 6,
+                "adj_close": [10.0, 10.0, 11.0, 10.0, 10.0, 12.0, 10.0, 10.0, 13.0, 10.0, 10.0, 14.0],
+            }
+        )
+
+        result = run_factor_backtest(factors, bars, top_n=1, cost_bps=0.0)
+
+        self.assertEqual(set(result.trades["asset_id"]), {"US_B", "CN_B"})
+
 
 if __name__ == "__main__":
     unittest.main()

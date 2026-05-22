@@ -50,7 +50,7 @@ def map_tushare_trade_cal(frame: pd.DataFrame, open_only: bool = True) -> pd.Dat
 def map_tushare_stock_basic(frame: pd.DataFrame) -> pd.DataFrame:
     required = ["ts_code", "symbol", "name", "exchange", "list_status"]
     _require_columns(frame, required, "tushare stock_basic")
-    exchange = frame["exchange"].map({"SSE": "XSHG", "SZSE": "XSHE"}).fillna(frame["exchange"])
+    exchange = frame["exchange"].map({"SSE": "XSHG", "SZSE": "XSHE", "BSE": "XBEI"}).fillna(frame["exchange"])
     return pd.DataFrame(
         {
             "asset_id": "CN_" + exchange + "_" + frame["symbol"],

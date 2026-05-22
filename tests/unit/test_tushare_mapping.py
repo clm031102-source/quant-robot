@@ -71,6 +71,22 @@ class TushareMappingTests(unittest.TestCase):
         self.assertEqual(result.loc[0, "market"], "CN")
         self.assertEqual(result.loc[0, "currency"], "CNY")
 
+    def test_map_stock_basic_maps_beijing_exchange(self):
+        source = pd.DataFrame(
+            {
+                "ts_code": ["430047.BJ"],
+                "symbol": ["430047"],
+                "name": ["诺思兰德"],
+                "exchange": ["BSE"],
+                "list_status": ["L"],
+            }
+        )
+
+        result = map_tushare_stock_basic(source)
+
+        self.assertEqual(result.loc[0, "asset_id"], "CN_XBEI_430047")
+        self.assertEqual(result.loc[0, "exchange"], "XBEI")
+
 
 if __name__ == "__main__":
     unittest.main()
