@@ -21,9 +21,10 @@ def build_check_plan(python_executable: str = sys.executable) -> list[CheckStep]
         CheckStep("project_audit", [python_executable, "scripts/run_project_audit.py", "--json"]),
         CheckStep("readiness_check", [python_executable, "scripts/check_readiness.py"]),
         CheckStep("provider_status", [python_executable, "scripts/show_provider_status.py"]),
-        CheckStep("data_catalog", [python_executable, "scripts/show_data_catalog.py", "--root", "data"]),
+        CheckStep("data_catalog", [python_executable, "scripts/show_data_catalog.py", "--root", "data", "--summary-only"]),
         CheckStep("fixture_research", [python_executable, "scripts/run_fixture_research.py"]),
         CheckStep("research_pipeline", [python_executable, "scripts/run_research_pipeline.py", "--source", "fixture"]),
+        CheckStep("experiment_grid", [python_executable, "scripts/run_experiment_grid.py", "--source", "fixture"]),
     ]
 
 

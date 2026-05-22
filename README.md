@@ -88,6 +88,24 @@ $env:PYTHONPATH='src'
 & "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_research_pipeline.py --source processed-bars --data-root data\processed\tushare_fixture --market CN --factor momentum_2 --output-dir data\reports\research_pipeline_cn
 ```
 
+## Run Batch Experiment Grid
+
+This runs a local multi-market factor sweep and writes a leaderboard. Fixture results are explicitly marked as `data_mode=fixture` and are not real performance.
+
+```powershell
+$env:PYTHONPATH='src'
+& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_experiment_grid.py --source fixture
+```
+
+Outputs are written to `data/reports/experiment_grid/` by default:
+
+- `leaderboard.csv`
+- `leaderboard.json`
+- `manifest.json`
+- one artifact folder per experiment case
+
+Edit `configs/experiment_grid.json` to change markets, factors, transaction costs, position counts, ranking metric, and output path.
+
 ## Run Local GUI
 
 The local GUI is research-only and uses clearly labeled demo fixture data unless you explicitly wire in a real data workflow later.

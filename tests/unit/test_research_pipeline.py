@@ -6,7 +6,7 @@ from pathlib import Path
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.research.pipeline import ResearchPipelineConfig, run_research_pipeline
 from quant_robot.storage.dataset_store import DatasetStore
-from scripts.run_research_pipeline import _load_processed_bars
+from quant_robot.storage.processed_bars import load_processed_bars
 
 
 class ResearchPipelineTests(unittest.TestCase):
@@ -51,9 +51,9 @@ class ResearchPipelineTests(unittest.TestCase):
             cn_bars = bars[bars["market"] == "CN"].reset_index(drop=True)
             DatasetStore(root).write_frame(cn_bars, "processed/bars", {"frequency": "1d", "market": "CN", "year": "2024"})
 
-            from_store_root = _load_processed_bars(root, "CN")
-            from_processed_root = _load_processed_bars(root / "processed", "CN")
-            from_bars_root = _load_processed_bars(root / "processed" / "bars", "CN")
+            from_store_root = load_processed_bars(root, "CN")
+            from_processed_root = load_processed_bars(root / "processed", "CN")
+            from_bars_root = load_processed_bars(root / "processed" / "bars", "CN")
 
             self.assertEqual(len(from_store_root), len(cn_bars))
             self.assertEqual(len(from_processed_root), len(cn_bars))
@@ -67,7 +67,7 @@ class ResearchPipelineTests(unittest.TestCase):
             cn_bars = bars[bars["market"] == "CN"].reset_index(drop=True)
             DatasetStore(store_root).write_frame(cn_bars, "processed/bars", {"frequency": "1d", "market": "CN", "year": "2024"})
 
-            result = _load_processed_bars(search_root, "CN")
+            result = load_processed_bars(search_root, "CN")
 
             self.assertEqual(len(result), len(cn_bars))
 
