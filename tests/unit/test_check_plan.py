@@ -15,12 +15,16 @@ class CheckPlanTests(unittest.TestCase):
                 "compile_python",
                 "project_audit",
                 "readiness_check",
+                "provider_status",
+                "data_catalog",
                 "fixture_research",
+                "research_pipeline",
             ],
         )
         self.assertTrue(all(not step.uses_network for step in plan))
         self.assertIn("-m", plan[0].command)
         self.assertIn("scripts/run_project_audit.py", plan[2].command)
+        self.assertIn("scripts/show_provider_status.py", plan[4].command)
 
 
 if __name__ == "__main__":

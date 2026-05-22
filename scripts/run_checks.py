@@ -20,7 +20,10 @@ def build_check_plan(python_executable: str = sys.executable) -> list[CheckStep]
         CheckStep("compile_python", [python_executable, "-m", "compileall", "-q", "src", "scripts", "tests"]),
         CheckStep("project_audit", [python_executable, "scripts/run_project_audit.py", "--json"]),
         CheckStep("readiness_check", [python_executable, "scripts/check_readiness.py"]),
+        CheckStep("provider_status", [python_executable, "scripts/show_provider_status.py"]),
+        CheckStep("data_catalog", [python_executable, "scripts/show_data_catalog.py", "--root", "data"]),
         CheckStep("fixture_research", [python_executable, "scripts/run_fixture_research.py"]),
+        CheckStep("research_pipeline", [python_executable, "scripts/run_research_pipeline.py", "--source", "fixture"]),
     ]
 
 
@@ -33,7 +36,7 @@ def main() -> None:
         print(json.dumps([asdict(step) for step in plan], indent=2))
         return
     for step in plan:
-        print(f"==> {step.name}")
+        print(f"==> {step.name}", flush=True)
         subprocess.run(step.command, check=True)
 
 

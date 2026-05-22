@@ -12,6 +12,16 @@ $env:TUSHARE_TOKEN="your-token"
 
 Do not commit real tokens.
 
+## Optional Dependency Install
+
+Real Tushare and Parquet storage are optional until you are ready. When you decide to connect the API, install the optional data and parquet dependencies:
+
+```powershell
+& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" -m pip install -e ".[data,parquet]"
+```
+
+Then set `TUSHARE_TOKEN` and run the readiness checks below.
+
 ## Offline Ingest Smoke Test
 
 ```powershell

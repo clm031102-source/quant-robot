@@ -26,7 +26,7 @@ $env:PYTHONPATH='src'
 
 ## Run Core Checks
 
-This runs the local test suite, Python compile check, project audit, readiness check, and offline fixture research. It does not download market data.
+This runs the local test suite, Python compile check, project audit, readiness check, provider status, data catalog, offline fixture research, and the configurable research pipeline. It does not download market data.
 
 ```powershell
 $env:PYTHONPATH='src'
@@ -49,6 +49,22 @@ $env:PYTHONPATH='src'
 
 Outputs are written to `data/reports/project_audit/`.
 
+## Show Provider Status
+
+```powershell
+$env:PYTHONPATH='src'
+& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\show_provider_status.py
+```
+
+This reports optional package and token readiness for Tushare, AKShare, yfinance, ccxt, and Parquet storage.
+
+## Show Local Data Catalog
+
+```powershell
+$env:PYTHONPATH='src'
+& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\show_data_catalog.py --root data
+```
+
 ## Run Offline Fixture Research
 
 ```powershell
@@ -57,6 +73,20 @@ $env:PYTHONPATH='src'
 ```
 
 Outputs are written to `data/reports/fixture_research/`.
+
+## Run Configurable Research Pipeline
+
+```powershell
+$env:PYTHONPATH='src'
+& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_research_pipeline.py --source fixture --market ALL --factor momentum_2 --top-n 2 --cost-bps 5 --output-dir data\reports\research_pipeline
+```
+
+When real processed bars exist, point the same pipeline at a processed-bars root:
+
+```powershell
+$env:PYTHONPATH='src'
+& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_research_pipeline.py --source processed-bars --data-root data\processed\tushare_fixture --market CN --factor momentum_2 --output-dir data\reports\research_pipeline_cn
+```
 
 ## Run Local GUI
 
