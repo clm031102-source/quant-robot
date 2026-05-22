@@ -39,6 +39,22 @@ $env:PYTHONPATH='src'
 & "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\check_readiness.py
 ```
 
+## Safe Tushare Smoke Plan
+
+The smoke command is dry-run by default. It checks readiness and prints whether a real Tushare ingest is blocked or ready. Dry-run does not download data.
+
+```powershell
+$env:PYTHONPATH='src'
+& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_tushare_smoke.py --start-date 2024-01-02 --end-date 2024-01-06 --output-dir data\raw\tushare_smoke
+```
+
+After `tushare`, a Parquet engine, and `TUSHARE_TOKEN` are ready, add `--execute` to actually call Tushare:
+
+```powershell
+$env:PYTHONPATH='src'
+& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_tushare_smoke.py --start-date 2024-01-02 --end-date 2024-01-06 --output-dir data\raw\tushare_smoke --execute
+```
+
 ## TradingView CSV Import
 
 Export chart data from TradingView, then normalize the CSV shape:

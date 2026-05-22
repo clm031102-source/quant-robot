@@ -24,6 +24,31 @@ $env:PYTHONPATH='src'
 & "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" -m unittest discover -s tests -p "test_*.py"
 ```
 
+## Run Core Checks
+
+This runs the local test suite, Python compile check, project audit, readiness check, and offline fixture research. It does not download market data.
+
+```powershell
+$env:PYTHONPATH='src'
+& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_checks.py --execute
+```
+
+To inspect the check plan without running it:
+
+```powershell
+$env:PYTHONPATH='src'
+& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_checks.py
+```
+
+## Run Project Audit
+
+```powershell
+$env:PYTHONPATH='src'
+& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_project_audit.py
+```
+
+Outputs are written to `data/reports/project_audit/`.
+
 ## Run Offline Fixture Research
 
 ```powershell

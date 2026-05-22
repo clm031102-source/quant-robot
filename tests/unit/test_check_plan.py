@@ -1,0 +1,27 @@
+import unittest
+
+from scripts.run_checks import build_check_plan
+
+
+class CheckPlanTests(unittest.TestCase):
+    def test_check_plan_is_local_and_contains_core_commands(self):
+        plan = build_check_plan("python")
+
+        names = [step.name for step in plan]
+        self.assertEqual(
+            names,
+            [
+                "unit_and_integration_tests",
+                "compile_python",
+                "project_audit",
+                "readiness_check",
+                "fixture_research",
+            ],
+        )
+        self.assertTrue(all(not step.uses_network for step in plan))
+        self.assertIn("-m", plan[0].command)
+        self.assertIn("scripts/run_project_audit.py", plan[2].command)
+
+
+if __name__ == "__main__":
+    unittest.main()
