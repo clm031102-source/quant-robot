@@ -19,7 +19,7 @@ class GuiSnapshotTests(unittest.TestCase):
 
         self.assertEqual(snapshot["data_mode"], "demo_fixture")
         self.assertFalse(snapshot["risk"]["account_connected"])
-        self.assertEqual({market["market"] for market in snapshot["markets"]}, {"CN", "HK", "US", "CRYPTO"})
+        self.assertEqual({market["market"] for market in snapshot["markets"]}, {"CN", "CN_ETF", "HK", "US", "CRYPTO"})
         self.assertIn("research", snapshot["logs"])
         self.assertGreaterEqual(snapshot["dashboard"]["strategy_count"], 1)
 
@@ -78,22 +78,23 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("Quant Robot Local Console", html)
             self.assertIn("信号快照", html)
             self.assertIn("模拟交易", html)
+            self.assertIn("A股 ETF", html)
             self.assertNotIn("鐮", html)
             self.assertNotIn("閺", html)
 
             snapshot = _read_json(f"{base_url}/api/snapshot")
             self.assertEqual(snapshot["data_mode"], "demo_fixture")
 
-            research = _read_json(f"{base_url}/api/research/demo?market=CN&factor=momentum_2&top_n=1&cost_bps=5")
-            self.assertEqual(research["request"]["market"], "CN")
+            research = _read_json(f"{base_url}/api/research/demo?market=CN_ETF&factor=momentum_2&top_n=2&cost_bps=5")
+            self.assertEqual(research["request"]["market"], "CN_ETF")
             self.assertEqual(research["request"]["factor_name"], "momentum_2")
             self.assertGreater(len(research["equity_curve"]), 0)
 
-            signal = _read_json(f"{base_url}/api/signals/demo?market=ALL&factor=momentum_2&top_n=2&max_asset_weight=0.4&min_cash_weight=0.1")
+            signal = _read_json(f"{base_url}/api/signals/demo?market=CN_ETF&factor=momentum_2&top_n=2&max_asset_weight=0.4&min_cash_weight=0.1")
             self.assertGreater(len(signal["targets"]), 0)
             self.assertFalse(signal["rebalance_plan"][0]["executable"])
 
-            paper = _read_json(f"{base_url}/api/paper/demo?market=ALL&factor=momentum_2&top_n=2&max_asset_weight=0.4&min_cash_weight=0.1")
+            paper = _read_json(f"{base_url}/api/paper/demo?market=CN_ETF&factor=momentum_2&top_n=2&max_asset_weight=0.4&min_cash_weight=0.1")
             self.assertGreater(len(paper["equity_curve"]), 0)
             self.assertGreater(len(paper["fills"]), 0)
             self.assertFalse(paper["intents"][0]["executable"])

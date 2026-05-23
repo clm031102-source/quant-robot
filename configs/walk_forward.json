@@ -5,7 +5,7 @@
   "min_test_sharpe": 0,
   "output_dir": "data/reports/walk_forward",
   "experiment_grid": {
-    "markets": ["CN", "HK", "US", "CRYPTO"],
+    "markets": ["CN", "CN_ETF", "HK", "US", "CRYPTO"],
     "factor_names": ["momentum_2", "reversal_2"],
     "factor_windows": [2, 3],
     "top_n_values": [1],

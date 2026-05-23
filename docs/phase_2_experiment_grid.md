@@ -8,11 +8,12 @@ Run many local research/backtest cases from one configuration file, then rank th
 
 The first grid runner supports:
 
-- markets: CN, HK, US, CRYPTO;
+- markets: CN, CN_ETF, HK, US, CRYPTO;
 - factor names from the current basic factor library;
 - multiple transaction-cost assumptions;
 - multiple `top_n` portfolio sizes;
 - configurable `forward_horizon` and `execution_lag`;
+- conservative signal-sleeve scaling when `forward_horizon` is greater than one, so daily overlapping research signals do not implicitly assume a full new portfolio for each holding window;
 - optional `portfolio_scope` and `periods_per_year` overrides;
 - per-case artifacts from the research pipeline;
 - a combined leaderboard with explicit `data_mode`.
@@ -59,3 +60,10 @@ python scripts\run_experiment_grid.py --source processed-bars --data-root data\p
 ```
 
 For real Tushare data later, install optional dependencies, set `TUSHARE_TOKEN`, ingest data, then point `--data-root` at the ingest output root or a parent directory containing processed bars.
+
+For ETF-only factor mining, use:
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_experiment_grid.py --config configs\experiment_grid_cn_etf.json --source processed-bars --data-root data\processed\etf_csv
+```

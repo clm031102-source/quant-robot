@@ -9,10 +9,34 @@ from quant_robot.data.readiness import check_parquet_readiness
 
 
 PROVIDERS = {
-    "tushare": {"package": "tushare", "credential": "TUSHARE_TOKEN", "markets": ["CN"]},
-    "akshare": {"package": "akshare", "credential": None, "markets": ["CN", "HK", "US"]},
-    "yfinance": {"package": "yfinance", "credential": None, "markets": ["HK", "US"]},
-    "ccxt": {"package": "ccxt", "credential": None, "markets": ["CRYPTO"]},
+    "tushare": {
+        "package": "tushare",
+        "credential": "TUSHARE_TOKEN",
+        "markets": ["CN"],
+        "planned_markets": ["CN_ETF"],
+        "implemented": True,
+    },
+    "akshare": {
+        "package": "akshare",
+        "credential": None,
+        "markets": [],
+        "planned_markets": ["CN", "CN_ETF", "HK", "US"],
+        "implemented": False,
+    },
+    "yfinance": {
+        "package": "yfinance",
+        "credential": None,
+        "markets": ["HK", "US"],
+        "planned_markets": [],
+        "implemented": True,
+    },
+    "ccxt": {
+        "package": "ccxt",
+        "credential": None,
+        "markets": ["CRYPTO"],
+        "planned_markets": [],
+        "implemented": True,
+    },
 }
 
 
@@ -32,10 +56,15 @@ def build_provider_status(
             missing.append(f"{config['package']} package is not installed")
         if credential is not None and not credential_ready:
             missing.append(f"{credential} is not set")
+        implemented = bool(config["implemented"])
+        if not implemented:
+            missing.append("adapter implementation is planned")
         providers[name] = {
-            "ready": dependency_ready and credential_ready,
+            "ready": dependency_ready and credential_ready and implemented,
             "package": config["package"],
             "markets": config["markets"],
+            "planned_markets": config["planned_markets"],
+            "implemented": implemented,
             "requires_token": credential is not None,
             "credential": credential,
             "missing": missing,

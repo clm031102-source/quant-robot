@@ -129,7 +129,7 @@ function renderDashboard() {
   const signals = state.signals || {};
   document.getElementById("dashboard-metrics").innerHTML = [
     metric("策略数量", dashboard.strategy_count ?? 0, "demo strategies"),
-    metric("数据源状态", `${state.snapshot?.markets?.length ?? 0}/4`, "local checks"),
+    metric("数据源状态", `${state.snapshot?.markets?.length ?? 0} markets`, "local checks"),
     metric("回测数量", dashboard.backtest_count ?? 0, "research runs"),
     metric("信号日期", signals.signal_date || "--", "latest snapshot"),
   ].join("");

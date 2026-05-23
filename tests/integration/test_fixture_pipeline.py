@@ -6,11 +6,11 @@ from scripts.run_fixture_research import run_fixture_research
 
 
 class FixturePipelineTests(unittest.TestCase):
-    def test_fixture_pipeline_runs_four_markets_and_writes_reports(self):
+    def test_fixture_pipeline_runs_research_markets_and_writes_reports(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = run_fixture_research(Path(tmp))
 
-            self.assertEqual(result["market_count"], 4)
+            self.assertEqual(result["market_count"], 5)
             self.assertGreater(result["factor_rows"], 0)
             self.assertGreater(result["label_rows"], 0)
             self.assertIn("total_return", result["metrics"])

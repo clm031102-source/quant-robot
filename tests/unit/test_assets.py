@@ -80,6 +80,7 @@ class AssetTests(unittest.TestCase):
 
     def test_calendar_for_market_defaults(self):
         self.assertEqual(calendar_for_market("CN", "XSHG"), "XSHG")
+        self.assertEqual(calendar_for_market("CN_ETF", "XSHE"), "XSHE")
         self.assertEqual(calendar_for_market("HK", "XHKG"), "XHKG")
         self.assertEqual(calendar_for_market("US", "XNAS"), "XNYS")
         self.assertEqual(calendar_for_market("CRYPTO", "BINANCE"), "24/7")

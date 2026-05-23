@@ -53,6 +53,43 @@ class PaperSimulationTests(unittest.TestCase):
         self.assertGreaterEqual(result["metrics"]["ending_cash"], 0.0)
         self.assertLessEqual(max(row["target_weight"] for row in result["snapshots"]), 0.70)
 
+    def test_paper_simulation_runs_for_cn_etf_market(self):
+        config = PaperSimulationConfig(
+            market="CN_ETF",
+            factor_name="momentum_2",
+            factor_windows=(2,),
+            top_n=2,
+            start_date="2024-01-04",
+            end_date="2024-01-12",
+            initial_cash=100000.0,
+            max_asset_weight=0.4,
+            min_cash_weight=0.1,
+        )
+
+        result = run_paper_simulation(load_demo_market_bars(), config)
+
+        self.assertGreater(len(result["fills"]), 0)
+        self.assertTrue(all(row["market"] == "CN_ETF" for row in result["fills"]))
+
+    def test_cn_etf_fills_respect_100_share_lots(self):
+        config = PaperSimulationConfig(
+            market="CN_ETF",
+            factor_name="momentum_2",
+            factor_windows=(2,),
+            top_n=2,
+            start_date="2024-01-04",
+            end_date="2024-01-12",
+            initial_cash=100000.0,
+            max_asset_weight=0.4,
+            min_cash_weight=0.1,
+        )
+
+        result = run_paper_simulation(load_demo_market_bars(), config)
+
+        self.assertGreater(len(result["fills"]), 0)
+        self.assertTrue(all(row["lot_size"] == 100.0 for row in result["fills"]))
+        self.assertTrue(all(row["quantity"] % 100 == 0 for row in result["fills"]))
+
     def test_paper_simulation_rejects_real_account_like_position_columns(self):
         config = PaperSimulationConfig(market="CN", factor_name="momentum_2", factor_windows=(2,), top_n=1)
         positions = pd.DataFrame({"asset_id": ["CN_XSHG_600519"], "quantity": [1.0], "account_id": ["real"]})

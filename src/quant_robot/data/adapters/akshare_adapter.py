@@ -8,7 +8,7 @@ from quant_robot.data.adapters.base import FetchRequest, MarketDataAdapter, requ
 
 class AkshareAdapter(MarketDataAdapter):
     name = "akshare"
-    supported_markets = {"CN", "HK", "US"}
+    supported_markets: set[str] = set()
 
     def supports(self, asset: Asset) -> bool:
         return asset.market.upper() in self.supported_markets

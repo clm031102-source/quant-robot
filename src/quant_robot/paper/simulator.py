@@ -228,13 +228,15 @@ def _simulate_fills(
         base_price = float(price_row["latest_price"])
         signed_quantity = float(intent["signed_quantity"])
         fill_price = _fill_price(base_price, signed_quantity, slippage_bps)
+        lot_size = _lot_size_for_market(str(price_row.get("market", intent["market"])))
+        signed_quantity = _round_signed_quantity_to_lot(signed_quantity, lot_size)
         quantity = abs(signed_quantity)
         notional = quantity * fill_price
         fee = notional * commission_bps / 10000.0
         if signed_quantity > 0.0 and notional + fee > cash and notional > 0.0:
             scale = max(cash, 0.0) / (notional + fee)
-            quantity *= scale
-            signed_quantity = quantity
+            signed_quantity = _round_signed_quantity_to_lot(quantity * scale, lot_size)
+            quantity = abs(signed_quantity)
             notional = quantity * fill_price
             fee = notional * commission_bps / 10000.0
         if quantity <= 1e-12:
@@ -250,6 +252,7 @@ def _simulate_fills(
                 "side": intent["side"],
                 "quantity": quantity,
                 "signed_quantity": signed_quantity,
+                "lot_size": lot_size,
                 "fill_price": fill_price,
                 "notional": notional,
                 "fee": fee,
@@ -263,6 +266,18 @@ def _simulate_fills(
 def _fill_price(base_price: float, signed_quantity: float, slippage_bps: float) -> float:
     direction = 1.0 if signed_quantity > 0.0 else -1.0
     return base_price * (1.0 + direction * slippage_bps / 10000.0)
+
+
+def _lot_size_for_market(market: str) -> float:
+    return 100.0 if market.upper() in {"CN", "CN_ETF"} else 1.0
+
+
+def _round_signed_quantity_to_lot(signed_quantity: float, lot_size: float) -> float:
+    if lot_size <= 1.0:
+        return signed_quantity
+    direction = 1.0 if signed_quantity > 0.0 else -1.0
+    lots = math.floor(abs(signed_quantity) / lot_size)
+    return direction * lots * lot_size
 
 
 def _apply_fills(positions: dict[str, float], cash: float, fills: list[dict[str, Any]]) -> float:

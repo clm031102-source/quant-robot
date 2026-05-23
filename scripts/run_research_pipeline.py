@@ -8,6 +8,8 @@ from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.research.pipeline import ResearchPipelineConfig, run_research_pipeline
 from quant_robot.storage.processed_bars import load_processed_bars
 
+DEFAULT_MARKETS = ("CN", "CN_ETF", "HK", "US", "CRYPTO")
+
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run a configurable local research/backtest pipeline.")
@@ -28,7 +30,7 @@ def main() -> None:
     parser.add_argument("--signal-end-date")
     parser.add_argument("--output-dir", default="data/reports/research_pipeline")
     args = parser.parse_args()
-    bars = load_demo_market_bars() if args.source == "fixture" else load_processed_bars(Path(args.data_root), args.market)
+    bars = load_research_bars(args.source, Path(args.data_root), args.market)
     config = ResearchPipelineConfig(
         factor_name=args.factor,
         factor_windows=_parse_windows(args.factor_windows),
@@ -51,6 +53,20 @@ def main() -> None:
 
 def _parse_windows(value: str) -> tuple[int, ...]:
     return tuple(int(part.strip()) for part in value.split(",") if part.strip())
+
+
+def load_research_bars(source: str, data_root: Path, market: str) -> object:
+    if source == "fixture":
+        return load_demo_market_bars()
+    if source != "processed-bars":
+        raise ValueError(f"Unsupported research source: {source}")
+    market_upper = market.upper()
+    if market_upper != "ALL":
+        return load_processed_bars(data_root, market_upper)
+    import pandas as pd
+
+    frames = [load_processed_bars(data_root, item) for item in DEFAULT_MARKETS]
+    return pd.concat(frames, ignore_index=True)
 
 
 if __name__ == "__main__":

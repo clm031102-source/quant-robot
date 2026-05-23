@@ -1,22 +1,22 @@
 # Quant Robot
 
-Local multi-market quantitative research framework for A-shares, Hong Kong stocks, US stocks, and crypto.
+Local multi-market quantitative research framework for A-shares, A-share ETFs, Hong Kong stocks, US stocks, and crypto.
 
 Phase one is research-only. It does not connect to real broker accounts, does not place live orders, and does not implement automatic trading.
 
 ## What Works In Phase One
 
-- Canonical asset abstraction for CN, HK, US, and CRYPTO.
-- Offline fixture data for all four markets.
+- Canonical asset abstraction for CN, CN_ETF, HK, US, and CRYPTO.
+- Offline fixture data for all research markets, including A-share ETFs.
 - Unified OHLCV normalization with timezone-aware UTC timestamps.
 - Parquet storage abstraction, enabled when `pyarrow` or `fastparquet` is installed.
-- Data adapter interfaces for AKShare, Tushare, yfinance, and ccxt.
+- Implemented adapter paths for Tushare A-shares, yfinance HK/US, and ccxt crypto. AKShare and Tushare ETF fetching remain planned; A-share ETF research currently uses local CSV or fixture data.
 - Basic factors: momentum, reversal, volatility, volume change, and liquidity.
 - Forward-return labels with explicit execution lag.
 - IC, Rank IC, quantile group returns, and long-short returns.
-- Research backtest with explicit execution lag, holding period, portfolio scope, and transaction cost assumptions.
+- Research backtest with explicit execution lag, holding period, portfolio scope, transaction cost assumptions, and conservative sleeve scaling for multi-day holding periods.
 - Research-only signal snapshots, risk-capped target weights, and advisory rebalance plans.
-- Local paper trading simulation with simulated intents, fills, cash, positions, and equity curve.
+- Local paper trading simulation with simulated intents, fills, cash, positions, equity curve, and China-market 100-share lot rounding.
 - CSV, JSON, and SVG report outputs.
 
 ## Run Tests
@@ -58,7 +58,7 @@ $env:PYTHONPATH='src'
 python scripts\show_provider_status.py
 ```
 
-This reports optional package and token readiness for Tushare, AKShare, yfinance, ccxt, and Parquet storage.
+This reports optional package, token, and implementation readiness for Tushare, AKShare, yfinance, ccxt, and Parquet storage.
 
 ## Show Local Data Catalog
 
@@ -163,6 +163,26 @@ Outputs are written to `data/reports/paper_simulation/` by default:
 - `snapshots.csv`
 - `manifest.json`
 
+## A-Share ETF Research
+
+The framework includes a dedicated `CN_ETF` market and a default ETF universe in `configs/universe_cn_etf.yaml`. You can import TradingView ETF CSV exports into processed bars:
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\import_etf_csv.py path\to\510300.csv --symbol 510300.SH --output-dir data\processed\etf_csv
+```
+
+The importer checks that a six-digit code in the CSV filename matches `--symbol`, uses an import lock to avoid concurrent year-partition rewrites, and does not count weekends as missing dates unless a real exchange calendar is provided later.
+
+Then run ETF-only research, factor mining, and paper simulation:
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_research_pipeline.py --source processed-bars --data-root data\processed\etf_csv --market CN_ETF --factor momentum_2 --top-n 2
+python scripts\run_experiment_grid.py --config configs\experiment_grid_cn_etf.json --source processed-bars --data-root data\processed\etf_csv
+python scripts\run_paper_simulation.py --source processed-bars --data-root data\processed\etf_csv --market CN_ETF --factor momentum_2 --top-n 2
+```
+
 ## Run Local GUI
 
 The local GUI is research-only and uses clearly labeled demo fixture data unless you explicitly wire in a real data workflow later.
@@ -185,7 +205,7 @@ $env:PYTHONPATH='src'
 python scripts\ingest_data.py --source fixture --market CN --output-dir data\processed\ingest_fixture
 ```
 
-Real Tushare access uses `TUSHARE_TOKEN` from the environment. Never commit a real token.
+Real Tushare A-share access uses `TUSHARE_TOKEN` from the environment. Never commit a real token. Tushare ETF daily fetching is intentionally not marked ready until its ETF endpoint is wired and tested; use the `CN_ETF` CSV importer for ETF research now.
 
 Tushare adjustment factors are stored as range-stable adjusted closes using `close * adj_factor` when adjustment factors are available. The pipeline avoids normalizing by the latest factor inside the requested date range because that would make the same historical date change when you request a longer range.
 

@@ -8,7 +8,7 @@ def calendar_for_market(market: str, exchange: str) -> str:
         return "24/7"
     if market_upper == "US":
         return "XNYS"
-    if market_upper == "CN":
+    if market_upper in {"CN", "CN_ETF"}:
         return exchange_upper
     if market_upper == "HK":
         return "XHKG"

@@ -1,0 +1,28 @@
+market: CN_ETF
+source_priority:
+  - tradingview_csv
+  - akshare
+  - tushare
+symbols:
+  - symbol: 510300.SH
+    name: 沪深300 ETF
+  - symbol: 510500.SH
+    name: 中证500 ETF
+  - symbol: 159915.SZ
+    name: 创业板 ETF
+  - symbol: 588000.SH
+    name: 科创50 ETF
+  - symbol: 512100.SH
+    name: 中证1000 ETF
+  - symbol: 512880.SH
+    name: 证券 ETF
+  - symbol: 512690.SH
+    name: 酒 ETF
+  - symbol: 515790.SH
+    name: 光伏 ETF
+  - symbol: 516160.SH
+    name: 新能源 ETF
+  - symbol: 159819.SZ
+    name: 人工智能 ETF
+  - symbol: 511880.SH
+    name: 货币 ETF

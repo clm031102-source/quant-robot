@@ -1,5 +1,5 @@
 {
-  "markets": ["CN", "CN_ETF", "HK", "US", "CRYPTO"],
+  "markets": ["CN_ETF"],
   "factor_names": ["momentum_2", "reversal_2", "volatility_2", "volume_change_2", "liquidity_2"],
   "factor_windows": [2, 3],
   "top_n_values": [1, 2],
@@ -8,8 +8,8 @@
   "execution_lag": 1,
   "quantiles": 2,
   "portfolio_scope": null,
-  "periods_per_year": null,
+  "periods_per_year": 252,
   "rank_by": "sharpe",
   "min_trades": 1,
-  "output_dir": "data/reports/experiment_grid"
+  "output_dir": "data/reports/experiment_grid_cn_etf"
 }

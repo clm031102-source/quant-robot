@@ -138,6 +138,30 @@ class BacktestTests(unittest.TestCase):
         self.assertEqual(result.trades.iloc[0]["exit_date"], pd.Timestamp("2024-01-04").date())
         self.assertAlmostEqual(result.trades.iloc[0]["gross_return"], 107.0 / 101.0 - 1.0)
 
+    def test_backtest_scales_daily_signal_sleeves_for_multi_day_holding_period(self):
+        factors = pd.DataFrame(
+            {
+                "date": pd.date_range("2024-01-01", periods=3).date,
+                "asset_id": ["A", "A", "A"],
+                "market": ["US", "US", "US"],
+                "factor_name": ["momentum_1", "momentum_1", "momentum_1"],
+                "factor_value": [1.0, 1.0, 1.0],
+            }
+        )
+        bars = pd.DataFrame(
+            {
+                "date": pd.date_range("2024-01-01", periods=6).date,
+                "asset_id": ["A"] * 6,
+                "market": ["US"] * 6,
+                "adj_close": [100.0, 101.0, 103.0, 107.0, 111.0, 113.0],
+            }
+        )
+
+        result = run_factor_backtest(factors, bars, top_n=1, cost_bps=0.0, holding_period=2)
+
+        self.assertTrue(all(abs(weight - 0.5) < 1e-9 for weight in result.trades["target_weight"]))
+        self.assertAlmostEqual(result.metrics["turnover"], 0.5)
+
 
 if __name__ == "__main__":
     unittest.main()

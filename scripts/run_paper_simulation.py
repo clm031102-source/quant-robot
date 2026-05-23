@@ -11,7 +11,7 @@ from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.paper.simulator import PaperSimulationConfig, run_paper_simulation, write_paper_simulation_artifacts
 from quant_robot.storage.processed_bars import load_processed_bars
 
-DEFAULT_MARKETS = ("CN", "HK", "US", "CRYPTO")
+DEFAULT_MARKETS = ("CN", "CN_ETF", "HK", "US", "CRYPTO")
 
 
 def run_simulation(

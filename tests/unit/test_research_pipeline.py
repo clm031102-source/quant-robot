@@ -9,6 +9,7 @@ from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.research.pipeline import ResearchPipelineConfig, run_research_pipeline
 from quant_robot.storage.dataset_store import DatasetStore
 from quant_robot.storage.processed_bars import load_processed_bars
+from scripts.run_research_pipeline import load_research_bars
 
 
 class ResearchPipelineTests(unittest.TestCase):
@@ -73,6 +74,15 @@ class ResearchPipelineTests(unittest.TestCase):
 
         self.assertEqual(result["request"]["periods_per_year"], 365)
 
+    def test_cn_etf_pipeline_runs_on_dedicated_etf_market(self):
+        config = ResearchPipelineConfig(factor_name="momentum_2", factor_windows=(2,), market="CN_ETF", top_n=2)
+
+        result = run_research_pipeline(load_demo_market_bars(), config)
+
+        self.assertEqual(result["request"]["market"], "CN_ETF")
+        self.assertGreater(result["artifact_rows"]["trades"], 0)
+        self.assertEqual(result["request"]["periods_per_year"], 252)
+
     def test_processed_bar_loader_accepts_store_root_or_processed_subdirectory(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -99,6 +109,21 @@ class ResearchPipelineTests(unittest.TestCase):
             result = load_processed_bars(search_root, "CN")
 
             self.assertEqual(len(result), len(cn_bars))
+
+    def test_research_cli_loader_supports_all_processed_markets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "store"
+            bars = load_demo_market_bars()
+            for market, group in bars.groupby("market"):
+                DatasetStore(root).write_frame(
+                    group.reset_index(drop=True),
+                    "processed/bars",
+                    {"frequency": "1d", "market": market, "year": "2024"},
+                )
+
+            result = load_research_bars("processed-bars", root, "ALL")
+
+            self.assertEqual(set(result["market"]), {"CN", "CN_ETF", "HK", "US", "CRYPTO"})
 
 
 if __name__ == "__main__":

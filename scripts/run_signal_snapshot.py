@@ -13,7 +13,7 @@ from quant_robot.portfolio.rebalance import build_rebalance_plan
 from quant_robot.signals.pipeline import SignalPipelineConfig, generate_signal_snapshot, write_signal_snapshot
 from quant_robot.storage.processed_bars import load_processed_bars
 
-DEFAULT_MARKETS = ("CN", "HK", "US", "CRYPTO")
+DEFAULT_MARKETS = ("CN", "CN_ETF", "HK", "US", "CRYPTO")
 
 
 def run_signal_snapshot(

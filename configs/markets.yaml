@@ -3,6 +3,10 @@ markets:
     currency: CNY
     timezone: Asia/Shanghai
     calendars: [XSHG, XSHE]
+  CN_ETF:
+    currency: CNY
+    timezone: Asia/Shanghai
+    calendars: [XSHG, XSHE]
   HK:
     currency: HKD
     timezone: Asia/Hong_Kong
