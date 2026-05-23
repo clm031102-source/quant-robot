@@ -23,7 +23,7 @@ The walk-forward runner:
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_walk_forward.py --source fixture
+python scripts\run_walk_forward.py --source fixture
 ```
 
 Default config:
@@ -65,7 +65,7 @@ After real processed bars exist, run:
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_walk_forward.py --source processed-bars --data-root data\processed\tushare_fixture
+python scripts\run_walk_forward.py --source processed-bars --data-root data\processed\tushare_fixture
 ```
 
 The same flow can later be used with yfinance, AKShare, or ccxt processed bars once those adapters produce the unified schema.

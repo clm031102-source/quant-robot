@@ -27,6 +27,7 @@ def build_check_plan(python_executable: str = sys.executable) -> list[CheckStep]
         CheckStep("experiment_grid", [python_executable, "scripts/run_experiment_grid.py", "--source", "fixture"]),
         CheckStep("walk_forward", [python_executable, "scripts/run_walk_forward.py", "--source", "fixture"]),
         CheckStep("signal_snapshot", [python_executable, "scripts/run_signal_snapshot.py", "--source", "fixture"]),
+        CheckStep("paper_simulation", [python_executable, "scripts/run_paper_simulation.py", "--source", "fixture"]),
     ]
 
 

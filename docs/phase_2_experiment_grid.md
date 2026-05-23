@@ -21,7 +21,7 @@ The first grid runner supports:
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_experiment_grid.py --source fixture
+python scripts\run_experiment_grid.py --source fixture
 ```
 
 Default config:
@@ -55,7 +55,7 @@ When real processed bars exist, use:
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_experiment_grid.py --source processed-bars --data-root data\processed\tushare_fixture
+python scripts\run_experiment_grid.py --source processed-bars --data-root data\processed\tushare_fixture
 ```
 
 For real Tushare data later, install optional dependencies, set `TUSHARE_TOKEN`, ingest data, then point `--data-root` at the ingest output root or a parent directory containing processed bars.

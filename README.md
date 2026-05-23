@@ -16,36 +16,37 @@ Phase one is research-only. It does not connect to real broker accounts, does no
 - IC, Rank IC, quantile group returns, and long-short returns.
 - Research backtest with explicit execution lag, holding period, portfolio scope, and transaction cost assumptions.
 - Research-only signal snapshots, risk-capped target weights, and advisory rebalance plans.
+- Local paper trading simulation with simulated intents, fills, cash, positions, and equity curve.
 - CSV, JSON, and SVG report outputs.
 
 ## Run Tests
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" -m unittest discover -s tests -p "test_*.py"
+python -m unittest discover -s tests -p "test_*.py"
 ```
 
 ## Run Core Checks
 
-This runs the local test suite, Python compile check, project audit, readiness check, provider status, data catalog, offline fixture research, the configurable research pipeline, the experiment grid, walk-forward validation, and signal snapshot generation. It does not download market data.
+This runs the local test suite, Python compile check, project audit, readiness check, provider status, data catalog, offline fixture research, the configurable research pipeline, the experiment grid, walk-forward validation, signal snapshot generation, and paper simulation. It does not download market data.
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_checks.py --execute
+python scripts\run_checks.py --execute
 ```
 
 To inspect the check plan without running it:
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_checks.py
+python scripts\run_checks.py
 ```
 
 ## Run Project Audit
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_project_audit.py
+python scripts\run_project_audit.py
 ```
 
 Outputs are written to `data/reports/project_audit/`.
@@ -54,7 +55,7 @@ Outputs are written to `data/reports/project_audit/`.
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\show_provider_status.py
+python scripts\show_provider_status.py
 ```
 
 This reports optional package and token readiness for Tushare, AKShare, yfinance, ccxt, and Parquet storage.
@@ -63,14 +64,14 @@ This reports optional package and token readiness for Tushare, AKShare, yfinance
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\show_data_catalog.py --root data
+python scripts\show_data_catalog.py --root data
 ```
 
 ## Run Offline Fixture Research
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_fixture_research.py
+python scripts\run_fixture_research.py
 ```
 
 Outputs are written to `data/reports/fixture_research/`.
@@ -79,7 +80,7 @@ Outputs are written to `data/reports/fixture_research/`.
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_research_pipeline.py --source fixture --market ALL --factor momentum_2 --top-n 2 --cost-bps 5 --output-dir data\reports\research_pipeline
+python scripts\run_research_pipeline.py --source fixture --market ALL --factor momentum_2 --top-n 2 --cost-bps 5 --output-dir data\reports\research_pipeline
 ```
 
 `--market ALL` uses one global portfolio by default so the combined multi-market backtest is not accidentally leveraged once per market. Single-market runs use market-level selection by default. `--forward-horizon` drives both the forward-return label horizon and the research backtest holding period. Use `--portfolio-scope` or `--periods-per-year` only when you need to override the defaults.
@@ -88,7 +89,7 @@ When real processed bars exist, point the same pipeline at a processed-bars root
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_research_pipeline.py --source processed-bars --data-root data\processed\tushare_fixture --market CN --factor momentum_2 --output-dir data\reports\research_pipeline_cn
+python scripts\run_research_pipeline.py --source processed-bars --data-root data\processed\tushare_fixture --market CN --factor momentum_2 --output-dir data\reports\research_pipeline_cn
 ```
 
 ## Run Batch Experiment Grid
@@ -97,7 +98,7 @@ This runs a local multi-market factor sweep and writes a leaderboard. Fixture re
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_experiment_grid.py --source fixture
+python scripts\run_experiment_grid.py --source fixture
 ```
 
 Outputs are written to `data/reports/experiment_grid/` by default:
@@ -115,7 +116,7 @@ This splits local data into train and out-of-sample test periods, runs the same 
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_walk_forward.py --source fixture
+python scripts\run_walk_forward.py --source fixture
 ```
 
 Outputs are written to `data/reports/walk_forward/` by default:
@@ -133,7 +134,7 @@ This generates the latest research signal targets and a research-only advisory r
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_signal_snapshot.py --source fixture --market ALL --factor momentum_2 --top-n 2 --max-asset-weight 0.4 --min-cash-weight 0.1
+python scripts\run_signal_snapshot.py --source fixture --market ALL --factor momentum_2 --top-n 2 --max-asset-weight 0.4 --min-cash-weight 0.1
 ```
 
 Outputs are written to `data/reports/signal_snapshot/` by default:
@@ -144,13 +145,31 @@ Outputs are written to `data/reports/signal_snapshot/` by default:
 
 `targets.csv` is the strategy target state. `rebalance_plan.csv` is explicitly marked `executable=false` and is only an advisory bridge toward later simulated trading.
 
+## Run Paper Simulation
+
+This runs a local simulated trading loop from factor signals. It creates research-only intents, simulated fills, positions, and an equity curve. It does not connect to a broker, does not read a real account, and does not place orders.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_paper_simulation.py --source fixture --market ALL --factor momentum_2 --top-n 2 --start-date 2024-01-04 --end-date 2024-01-12 --initial-cash 100000 --max-asset-weight 0.4 --min-cash-weight 0.1
+```
+
+Outputs are written to `data/reports/paper_simulation/` by default:
+
+- `intents.csv`
+- `fills.csv`
+- `positions.csv`
+- `equity_curve.csv`
+- `snapshots.csv`
+- `manifest.json`
+
 ## Run Local GUI
 
 The local GUI is research-only and uses clearly labeled demo fixture data unless you explicitly wire in a real data workflow later.
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_gui.py
+python scripts\run_gui.py
 ```
 
 Open `http://127.0.0.1:8765` in your browser.
@@ -163,7 +182,7 @@ Phase 1.5 adds safe real-data foundations for Tushare A-share data and TradingVi
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\ingest_data.py --source fixture --market CN --output-dir data\processed\ingest_fixture
+python scripts\ingest_data.py --source fixture --market CN --output-dir data\processed\ingest_fixture
 ```
 
 Real Tushare access uses `TUSHARE_TOKEN` from the environment. Never commit a real token.
@@ -174,14 +193,14 @@ Before switching to real Tushare data, check optional dependencies and credentia
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\check_readiness.py
+python scripts\check_readiness.py
 ```
 
 To test the Tushare-shaped pipeline without credentials:
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\ingest_data.py --source tushare-fixture --market CN --output-dir data\processed\tushare_fixture
+python scripts\ingest_data.py --source tushare-fixture --market CN --output-dir data\processed\tushare_fixture
 ```
 
 ## No-Live-Trading Boundary

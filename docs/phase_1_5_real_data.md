@@ -17,7 +17,7 @@ Do not commit real tokens.
 Real Tushare and Parquet storage are optional until you are ready. When you decide to connect the API, install the optional data and parquet dependencies:
 
 ```powershell
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" -m pip install -e ".[data,parquet]"
+python -m pip install -e ".[data,parquet]"
 ```
 
 Then set `TUSHARE_TOKEN` and run the readiness checks below.
@@ -26,7 +26,7 @@ Then set `TUSHARE_TOKEN` and run the readiness checks below.
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\ingest_data.py --source fixture --market CN --output-dir data\processed\ingest_fixture
+python scripts\ingest_data.py --source fixture --market CN --output-dir data\processed\ingest_fixture
 ```
 
 ## Tushare-Shaped Fixture Ingest
@@ -35,7 +35,7 @@ This exercises the Tushare daily ingest pipeline, manifest resume, raw storage, 
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\ingest_data.py --source tushare-fixture --market CN --start-date 2024-01-02 --end-date 2024-01-06 --output-dir data\processed\tushare_fixture
+python scripts\ingest_data.py --source tushare-fixture --market CN --start-date 2024-01-02 --end-date 2024-01-06 --output-dir data\processed\tushare_fixture
 ```
 
 When Tushare is installed and `TUSHARE_TOKEN` is set, switch `--source tushare-fixture` to `--source tushare`.
@@ -48,7 +48,7 @@ Before running a real Tushare smoke test:
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\check_readiness.py
+python scripts\check_readiness.py
 ```
 
 ## Safe Tushare Smoke Plan
@@ -57,14 +57,14 @@ The smoke command is dry-run by default. It checks readiness and prints whether 
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_tushare_smoke.py --start-date 2024-01-02 --end-date 2024-01-06 --output-dir data\raw\tushare_smoke
+python scripts\run_tushare_smoke.py --start-date 2024-01-02 --end-date 2024-01-06 --output-dir data\raw\tushare_smoke
 ```
 
 After `tushare`, a Parquet engine, and `TUSHARE_TOKEN` are ready, add `--execute` to actually call Tushare:
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_tushare_smoke.py --start-date 2024-01-02 --end-date 2024-01-06 --output-dir data\raw\tushare_smoke --execute
+python scripts\run_tushare_smoke.py --start-date 2024-01-02 --end-date 2024-01-06 --output-dir data\raw\tushare_smoke --execute
 ```
 
 ## TradingView CSV Import
@@ -73,5 +73,5 @@ Export chart data from TradingView, then normalize the CSV shape:
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\import_tradingview_csv.py input.csv data\raw\tradingview\parsed.csv
+python scripts\import_tradingview_csv.py input.csv data\raw\tradingview\parsed.csv
 ```
