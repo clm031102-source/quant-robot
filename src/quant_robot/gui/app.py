@@ -6,7 +6,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from quant_robot.gui.research_service import build_gui_snapshot, run_demo_research, run_demo_signal_snapshot
+from quant_robot.gui.research_service import (
+    build_gui_snapshot,
+    run_demo_paper_simulation,
+    run_demo_research,
+    run_demo_signal_snapshot,
+)
 
 
 def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHandler]:
@@ -44,6 +49,25 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                         max_gross_exposure=float(_first(query, "max_gross_exposure", "1")),
                         min_cash_weight=float(_first(query, "min_cash_weight", "0")),
                         portfolio_value=float(_first(query, "portfolio_value", "100000")),
+                    )
+                )
+                return
+            if parsed.path == "/api/paper/demo":
+                query = parse_qs(parsed.query)
+                self._send_json(
+                    run_demo_paper_simulation(
+                        market=_first(query, "market", "ALL"),
+                        factor_name=_first(query, "factor", "momentum_2"),
+                        top_n=int(_first(query, "top_n", "2")),
+                        start_date=_optional(query, "start_date"),
+                        end_date=_optional(query, "end_date"),
+                        initial_cash=float(_first(query, "initial_cash", "100000")),
+                        commission_bps=float(_first(query, "commission_bps", "5")),
+                        slippage_bps=float(_first(query, "slippage_bps", "5")),
+                        max_asset_weight=float(_first(query, "max_asset_weight", "1")),
+                        max_market_weight=float(_first(query, "max_market_weight", "1")),
+                        max_gross_exposure=float(_first(query, "max_gross_exposure", "1")),
+                        min_cash_weight=float(_first(query, "min_cash_weight", "0")),
                     )
                 )
                 return

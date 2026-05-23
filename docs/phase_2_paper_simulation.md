@@ -36,6 +36,10 @@ data/reports/paper_simulation/
 - `snapshots.csv`: signal-date target summaries.
 - `manifest.json`: request, metrics, and safety boundary.
 
+## Local GUI
+
+The local GUI exposes the same demo paper loop through the `模拟交易` page and `/api/paper/demo` endpoint. It is useful for inspecting equity, gross exposure, simulated fills, and final positions without leaving the browser.
+
 ## Safety Boundary
 
 The simulator accepts an optional local positions CSV, but only with:

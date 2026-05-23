@@ -24,8 +24,9 @@
           <button class="nav-item" data-page="research" type="button"><span>03</span>因子研究</button>
           <button class="nav-item" data-page="backtest" type="button"><span>04</span>回测报告</button>
           <button class="nav-item" data-page="signals" type="button"><span>05</span>信号快照</button>
-          <button class="nav-item" data-page="risk" type="button"><span>06</span>风险监控</button>
-          <button class="nav-item" data-page="logs" type="button"><span>07</span>日志报告</button>
+          <button class="nav-item" data-page="paper" type="button"><span>06</span>模拟交易</button>
+          <button class="nav-item" data-page="risk" type="button"><span>07</span>风险监控</button>
+          <button class="nav-item" data-page="logs" type="button"><span>08</span>日志报告</button>
         </nav>
 
         <div class="safety-card">
@@ -103,7 +104,7 @@
               </select>
             </label>
             <label>因子
-              <select id="factor-select"></select>
+              <select id="factor-select" class="factor-select"></select>
             </label>
             <label>开始
               <input id="start-date" type="date" value="2024-01-02">
@@ -191,6 +192,69 @@
             <section class="panel">
               <div class="panel-head"><h3>调仓计划</h3><span class="tag tag-warn">executable=false</span></div>
               <div class="table-wrap scroll-table"><table><tbody id="rebalance-table"></tbody></table></div>
+            </section>
+          </div>
+        </section>
+
+        <section id="page-paper" class="page">
+          <section class="control-panel paper-controls">
+            <label>市场
+              <select id="paper-market-select">
+                <option value="ALL">ALL</option>
+                <option value="CN">A股</option>
+                <option value="HK">港股</option>
+                <option value="US">美股</option>
+                <option value="CRYPTO">加密货币</option>
+              </select>
+            </label>
+            <label>因子
+              <select id="paper-factor-select" class="factor-select"></select>
+            </label>
+            <label>开始
+              <input id="paper-start-date" type="date" value="2024-01-04">
+            </label>
+            <label>结束
+              <input id="paper-end-date" type="date" value="2024-01-12">
+            </label>
+            <label>初始资金
+              <input id="paper-initial-cash" type="number" min="1000" step="1000" value="100000">
+            </label>
+            <label>Top N
+              <input id="paper-top-n" type="number" min="1" max="8" value="2">
+            </label>
+            <label>佣金 bps
+              <input id="paper-commission-bps" type="number" min="0" max="100" value="5">
+            </label>
+            <label>滑点 bps
+              <input id="paper-slippage-bps" type="number" min="0" max="100" value="5">
+            </label>
+            <label>单资产上限
+              <input id="paper-max-asset-weight" type="number" min="0.05" max="1" step="0.05" value="0.4">
+            </label>
+            <label>现金下限
+              <input id="paper-min-cash-weight" type="number" min="0" max="0.95" step="0.05" value="0.1">
+            </label>
+            <button id="run-paper" class="primary-button" type="button">运行模拟</button>
+          </section>
+          <div class="metric-grid compact" id="paper-metrics"></div>
+          <div class="layout-1-1">
+            <section class="panel">
+              <div class="panel-head"><h3>模拟净值</h3><span class="tag">equity_curve.csv</span></div>
+              <div id="paper-equity-chart" class="chart-box tall"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head"><h3>模拟仓位暴露</h3><span class="tag tag-warn">local only</span></div>
+              <div id="paper-exposure-chart" class="chart-box tall"></div>
+            </section>
+          </div>
+          <div class="layout-1-1">
+            <section class="panel">
+              <div class="panel-head"><h3>模拟成交</h3><span class="tag">fills.csv</span></div>
+              <div class="table-wrap scroll-table"><table><tbody id="paper-fill-table"></tbody></table></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head"><h3>模拟持仓</h3><span class="tag">positions.csv</span></div>
+              <div class="table-wrap scroll-table"><table><tbody id="paper-position-table"></tbody></table></div>
             </section>
           </div>
         </section>

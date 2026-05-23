@@ -174,7 +174,7 @@ python scripts\run_gui.py
 
 Open `http://127.0.0.1:8765` in your browser.
 
-The GUI includes local pages for dashboard, data status, factor research, backtest reports, signal snapshots, risk monitoring, and logs. Signal snapshots expose target weights and an advisory rebalance plan marked `executable=false`.
+The GUI includes dashboard, data center, factor research, backtest report, signal snapshot, paper simulation, risk monitor, and logs/report views. Signal snapshots expose target weights and an advisory rebalance plan marked `executable=false`; the paper simulation view uses local demo bars by default and produces simulated fills only.
 
 ## Phase 1.5 Real Data Foundation
 

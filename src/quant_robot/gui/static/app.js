@@ -2,6 +2,7 @@ const state = {
   snapshot: null,
   research: null,
   signals: null,
+  paper: null,
 };
 
 const titles = {
@@ -10,6 +11,7 @@ const titles = {
   research: "因子研究",
   backtest: "回测报告",
   signals: "信号快照",
+  paper: "模拟交易",
   risk: "风险监控",
   logs: "日志报告",
 };
@@ -20,6 +22,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   await loadSnapshot();
   await runResearch();
   await runSignals();
+  await runPaper();
 });
 
 function bindNavigation() {
@@ -38,6 +41,7 @@ function bindNavigation() {
 function bindActions() {
   document.getElementById("run-research").addEventListener("click", runResearch);
   document.getElementById("run-signals").addEventListener("click", runSignals);
+  document.getElementById("run-paper").addEventListener("click", runPaper);
 }
 
 async function loadSnapshot() {
@@ -88,9 +92,35 @@ async function runSignals() {
   });
 }
 
+async function runPaper() {
+  const params = new URLSearchParams({
+    market: valueOf("paper-market-select"),
+    factor: valueOf("paper-factor-select") || "momentum_2",
+    top_n: valueOf("paper-top-n") || "2",
+    start_date: valueOf("paper-start-date"),
+    end_date: valueOf("paper-end-date"),
+    initial_cash: valueOf("paper-initial-cash") || "100000",
+    commission_bps: valueOf("paper-commission-bps") || "5",
+    slippage_bps: valueOf("paper-slippage-bps") || "5",
+    max_asset_weight: valueOf("paper-max-asset-weight") || "1",
+    max_market_weight: "1",
+    max_gross_exposure: "1",
+    min_cash_weight: valueOf("paper-min-cash-weight") || "0",
+  });
+  await withBusy("run-paper", async () => {
+    state.paper = await fetchJson(`/api/paper/demo?${params.toString()}`);
+    renderDashboard();
+    renderPaper();
+    renderRisk();
+    showToast("模拟交易已更新");
+  });
+}
+
 function fillFactorSelect(factors) {
-  const select = document.getElementById("factor-select");
-  select.innerHTML = factors.map((factor) => `<option value="${escapeHtml(factor)}">${escapeHtml(factor)}</option>`).join("");
+  const options = factors.map((factor) => `<option value="${escapeHtml(factor)}">${escapeHtml(factor)}</option>`).join("");
+  document.querySelectorAll(".factor-select").forEach((select) => {
+    select.innerHTML = options;
+  });
 }
 
 function renderDashboard() {
@@ -110,6 +140,7 @@ function renderDashboard() {
   document.getElementById("dashboard-status").innerHTML = statusRows([
     ["Tushare", readyText(state.snapshot?.readiness?.tushare), state.snapshot?.readiness?.tushare?.ready ? "ok" : "warn"],
     ["Parquet", readyText(state.snapshot?.readiness?.parquet), state.snapshot?.readiness?.parquet?.ready ? "ok" : "warn"],
+    ["模拟交易", state.paper ? `ending equity ${formatNumber(state.paper.metrics?.ending_equity)}` : "not run", state.paper ? "ok" : "muted"],
     ["交易边界", dashboard.risk_notice || "Research only", "danger"],
     ["数据说明", state.snapshot?.notice || "", "muted"],
   ]);
@@ -219,8 +250,42 @@ function renderSignals() {
   ]);
 }
 
+function renderPaper() {
+  const paper = state.paper || {};
+  const metrics = paper.metrics || {};
+  document.getElementById("paper-metrics").innerHTML = [
+    metric("期末权益", formatNumber(metrics.ending_equity), "demo"),
+    metric("现金", formatNumber(metrics.ending_cash), "simulated"),
+    metric("总收益", formatPercent(metrics.cash_return ?? metrics.total_return), "simulated"),
+    metric("最大回撤", formatPercent(metrics.max_equity_drawdown ?? metrics.max_drawdown), "simulated"),
+    metric("成交笔数", paper.fills?.length ?? 0, "fills"),
+  ].join("");
+  document.getElementById("paper-equity-chart").innerHTML = lineChart(paper.equity_curve || [], "date", "equity", {
+    color: "#0f8b8d",
+    title: "Paper equity",
+  });
+  document.getElementById("paper-exposure-chart").innerHTML = lineChart(paper.equity_curve || [], "date", "gross_exposure", {
+    color: "#c56b2d",
+    title: "Gross exposure",
+  });
+  document.getElementById("paper-fill-table").innerHTML = tableRows(paper.fills || [], [
+    "signal_date",
+    "execution_date",
+    "asset_id",
+    "market",
+    "side",
+    "quantity",
+    "fill_price",
+    "fee",
+  ]);
+  document.getElementById("paper-position-table").innerHTML = tableRows(paper.positions || [], [
+    "asset_id",
+    "quantity",
+  ]);
+}
+
 function renderRisk() {
-  const risk = state.research?.risk || state.snapshot?.risk || {};
+  const risk = state.paper?.risk || state.research?.risk || state.snapshot?.risk || {};
   const signalGross = Number(state.signals?.target_gross_exposure);
   document.getElementById("risk-metrics").innerHTML = [
     metric("波动率", formatPercent(risk.volatility), "demo"),
@@ -229,7 +294,9 @@ function renderRisk() {
     metric("研究暴露", formatDecimal(risk.gross_exposure), "backtest"),
     metric("信号仓位", Number.isFinite(signalGross) ? formatPercent(signalGross) : "--", "targets"),
   ].join("");
-  const exposure = Object.entries(risk.exposure_by_market || {}).map(([market, value]) => ({ market, value }));
+  const exposure = risk.exposure_by_market
+    ? Object.entries(risk.exposure_by_market).map(([market, value]) => ({ market, value }))
+    : [{ market: "paper gross", value: risk.gross_exposure || 0 }];
   document.getElementById("exposure-chart").innerHTML = barChart(exposure, "market", "value", "#c56b2d");
   document.getElementById("risk-log").innerHTML = (risk.anomalies || []).map((item) => `
     <div class="list-row ${escapeHtml(item.level)}"><strong>${escapeHtml(item.level)}</strong><span>${escapeHtml(item.message)}</span></div>

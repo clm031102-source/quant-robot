@@ -7,6 +7,7 @@ import pandas as pd
 
 from quant_robot.data.readiness import check_parquet_readiness, check_tushare_readiness
 from quant_robot.gui.fixtures import mock_data
+from quant_robot.paper.simulator import PaperSimulationConfig, run_paper_simulation
 from quant_robot.portfolio.rebalance import build_rebalance_plan
 from quant_robot.research.pipeline import ResearchPipelineConfig, run_research_pipeline
 from quant_robot.signals.pipeline import SignalPipelineConfig, generate_signal_snapshot
@@ -142,6 +143,45 @@ def run_demo_signal_snapshot(
     )
 
 
+def run_demo_paper_simulation(
+    market: str = "ALL",
+    factor_name: str = "momentum_2",
+    top_n: int = 2,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    initial_cash: float = 100000.0,
+    commission_bps: float = 5.0,
+    slippage_bps: float = 5.0,
+    max_asset_weight: float = 1.0,
+    max_market_weight: float = 1.0,
+    max_gross_exposure: float = 1.0,
+    min_cash_weight: float = 0.0,
+) -> dict[str, Any]:
+    result = run_paper_simulation(
+        mock_data.demo_bars(),
+        PaperSimulationConfig(
+            market=market,
+            factor_name=factor_name,
+            factor_windows=(2, 3),
+            top_n=top_n,
+            start_date=start_date,
+            end_date=end_date,
+            initial_cash=initial_cash,
+            commission_bps=commission_bps,
+            slippage_bps=slippage_bps,
+            max_asset_weight=max_asset_weight,
+            max_market_weight=max_market_weight,
+            max_gross_exposure=max_gross_exposure,
+            min_cash_weight=min_cash_weight,
+        ),
+    )
+    equity_curve = pd.DataFrame(result["equity_curve"])
+    result["data_mode"] = mock_data.DATA_MODE
+    result["notice"] = mock_data.DEMO_NOTICE
+    result["risk"] = _risk_from_paper(result["metrics"], equity_curve)
+    return _sanitize(result)
+
+
 def _filtered_bars(market: str, start_date: str | None, end_date: str | None) -> pd.DataFrame:
     bars = mock_data.demo_bars()
     market_upper = market.upper()
@@ -171,6 +211,25 @@ def _risk_from_backtest(metrics: dict[str, float], equity_curve: pd.DataFrame, t
         "exposure_by_market": exposure,
         "gross_exposure": sum(abs(value) for value in exposure.values()),
         "anomalies": mock_data.risk_snapshot()["anomalies"],
+    }
+
+
+def _risk_from_paper(metrics: dict[str, float], equity_curve: pd.DataFrame) -> dict[str, Any]:
+    returns = equity_curve["period_return"] if "period_return" in equity_curve.columns else pd.Series(dtype=float)
+    clean_returns = pd.to_numeric(returns, errors="coerce").dropna()
+    var_95 = float(clean_returns.quantile(0.05)) if not clean_returns.empty else 0.0
+    return {
+        "account_connected": False,
+        "volatility": metrics.get("annualized_volatility", 0.0),
+        "max_drawdown": metrics.get("max_equity_drawdown", metrics.get("max_drawdown", 0.0)),
+        "var_95": var_95,
+        "loss_streak": _max_loss_streak(clean_returns),
+        "gross_exposure": float(equity_curve["gross_exposure"].max()) if "gross_exposure" in equity_curve.columns and not equity_curve.empty else 0.0,
+        "open_positions": metrics.get("open_positions", 0.0),
+        "anomalies": [
+            {"level": "info", "message": "Paper simulation uses local demo fixture bars only."},
+            {"level": "warn", "message": "Simulated fills are not broker executions or live account records."},
+        ],
     }
 
 

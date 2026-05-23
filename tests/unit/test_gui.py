@@ -5,7 +5,12 @@ from http.server import ThreadingHTTPServer
 from urllib.request import urlopen
 
 from quant_robot.gui.app import create_gui_handler
-from quant_robot.gui.research_service import build_gui_snapshot, run_demo_research, run_demo_signal_snapshot
+from quant_robot.gui.research_service import (
+    build_gui_snapshot,
+    run_demo_paper_simulation,
+    run_demo_research,
+    run_demo_signal_snapshot,
+)
 
 
 class GuiSnapshotTests(unittest.TestCase):
@@ -41,9 +46,29 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertTrue(all(row["executable"] is False for row in result["rebalance_plan"]))
         self.assertLessEqual(result["target_gross_exposure"], 0.9)
 
+    def test_demo_paper_simulation_contains_local_only_fills_positions_and_equity(self):
+        result = run_demo_paper_simulation(
+            market="ALL",
+            factor_name="momentum_2",
+            top_n=2,
+            start_date="2024-01-04",
+            end_date="2024-01-12",
+            initial_cash=100000.0,
+            max_asset_weight=0.4,
+            min_cash_weight=0.1,
+        )
+
+        self.assertEqual(result["data_mode"], "demo_fixture")
+        self.assertIn("ending_equity", result["metrics"])
+        self.assertGreater(len(result["equity_curve"]), 0)
+        self.assertGreater(len(result["fills"]), 0)
+        self.assertGreater(len(result["positions"]), 0)
+        self.assertTrue(all(row["fill_type"] == "simulated" for row in result["fills"]))
+        self.assertTrue(all(row["executable"] is False for row in result["intents"]))
+
 
 class GuiHttpTests(unittest.TestCase):
-    def test_http_app_serves_index_snapshot_and_demo_research(self):
+    def test_http_app_serves_index_snapshot_and_demo_workflows(self):
         server = ThreadingHTTPServer(("127.0.0.1", 0), create_gui_handler())
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
@@ -52,7 +77,9 @@ class GuiHttpTests(unittest.TestCase):
             html = _read_text(f"{base_url}/")
             self.assertIn("Quant Robot Local Console", html)
             self.assertIn("信号快照", html)
-            self.assertNotIn("鏁版嵁", html)
+            self.assertIn("模拟交易", html)
+            self.assertNotIn("鐮", html)
+            self.assertNotIn("閺", html)
 
             snapshot = _read_json(f"{base_url}/api/snapshot")
             self.assertEqual(snapshot["data_mode"], "demo_fixture")
@@ -65,6 +92,11 @@ class GuiHttpTests(unittest.TestCase):
             signal = _read_json(f"{base_url}/api/signals/demo?market=ALL&factor=momentum_2&top_n=2&max_asset_weight=0.4&min_cash_weight=0.1")
             self.assertGreater(len(signal["targets"]), 0)
             self.assertFalse(signal["rebalance_plan"][0]["executable"])
+
+            paper = _read_json(f"{base_url}/api/paper/demo?market=ALL&factor=momentum_2&top_n=2&max_asset_weight=0.4&min_cash_weight=0.1")
+            self.assertGreater(len(paper["equity_curve"]), 0)
+            self.assertGreater(len(paper["fills"]), 0)
+            self.assertFalse(paper["intents"][0]["executable"])
         finally:
             server.shutdown()
             thread.join(timeout=5)
