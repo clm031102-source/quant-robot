@@ -155,6 +155,8 @@ $env:PYTHONPATH='src'
 
 Open `http://127.0.0.1:8765` in your browser.
 
+The GUI includes local pages for dashboard, data status, factor research, backtest reports, signal snapshots, risk monitoring, and logs. Signal snapshots expose target weights and an advisory rebalance plan marked `executable=false`.
+
 ## Phase 1.5 Real Data Foundation
 
 Phase 1.5 adds safe real-data foundations for Tushare A-share data and TradingView CSV verification. The first implementation is offline-testable and keeps all live data dependencies optional.

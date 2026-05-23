@@ -5,7 +5,7 @@ from http.server import ThreadingHTTPServer
 from urllib.request import urlopen
 
 from quant_robot.gui.app import create_gui_handler
-from quant_robot.gui.research_service import build_gui_snapshot, run_demo_research
+from quant_robot.gui.research_service import build_gui_snapshot, run_demo_research, run_demo_signal_snapshot
 
 
 class GuiSnapshotTests(unittest.TestCase):
@@ -32,6 +32,15 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertGreater(len(result["trades"]), 0)
         self.assertGreater(len(result["holdings"]), 0)
 
+    def test_demo_signal_snapshot_contains_targets_and_research_only_rebalance_plan(self):
+        result = run_demo_signal_snapshot(market="ALL", factor_name="momentum_2", top_n=2, max_asset_weight=0.4, min_cash_weight=0.1)
+
+        self.assertEqual(result["data_mode"], "demo_fixture")
+        self.assertGreater(len(result["targets"]), 0)
+        self.assertGreater(len(result["rebalance_plan"]), 0)
+        self.assertTrue(all(row["executable"] is False for row in result["rebalance_plan"]))
+        self.assertLessEqual(result["target_gross_exposure"], 0.9)
+
 
 class GuiHttpTests(unittest.TestCase):
     def test_http_app_serves_index_snapshot_and_demo_research(self):
@@ -42,6 +51,8 @@ class GuiHttpTests(unittest.TestCase):
         try:
             html = _read_text(f"{base_url}/")
             self.assertIn("Quant Robot Local Console", html)
+            self.assertIn("信号快照", html)
+            self.assertNotIn("鏁版嵁", html)
 
             snapshot = _read_json(f"{base_url}/api/snapshot")
             self.assertEqual(snapshot["data_mode"], "demo_fixture")
@@ -50,6 +61,10 @@ class GuiHttpTests(unittest.TestCase):
             self.assertEqual(research["request"]["market"], "CN")
             self.assertEqual(research["request"]["factor_name"], "momentum_2")
             self.assertGreater(len(research["equity_curve"]), 0)
+
+            signal = _read_json(f"{base_url}/api/signals/demo?market=ALL&factor=momentum_2&top_n=2&max_asset_weight=0.4&min_cash_weight=0.1")
+            self.assertGreater(len(signal["targets"]), 0)
+            self.assertFalse(signal["rebalance_plan"][0]["executable"])
         finally:
             server.shutdown()
             thread.join(timeout=5)

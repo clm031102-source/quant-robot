@@ -1,15 +1,17 @@
 const state = {
   snapshot: null,
   research: null,
+  signals: null,
 };
 
 const titles = {
-  dashboard: "Dashboard",
+  dashboard: "总览",
   data: "数据中心",
   research: "因子研究",
   backtest: "回测报告",
+  signals: "信号快照",
   risk: "风险监控",
-  logs: "日志/报告",
+  logs: "日志报告",
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -17,6 +19,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindActions();
   await loadSnapshot();
   await runResearch();
+  await runSignals();
 });
 
 function bindNavigation() {
@@ -34,12 +37,12 @@ function bindNavigation() {
 
 function bindActions() {
   document.getElementById("run-research").addEventListener("click", runResearch);
-  document.getElementById("run-backtest").addEventListener("click", runResearch);
+  document.getElementById("run-signals").addEventListener("click", runSignals);
 }
 
 async function loadSnapshot() {
   state.snapshot = await fetchJson("/api/snapshot");
-  document.getElementById("mode-pill").textContent = `${state.snapshot.data_mode} · local only`;
+  document.getElementById("mode-pill").textContent = `${state.snapshot.data_mode} / local`;
   fillFactorSelect(state.snapshot.available_factors || []);
   renderDashboard();
   renderDataCenter();
@@ -51,41 +54,65 @@ async function runResearch() {
   const params = new URLSearchParams({
     market: valueOf("market-select"),
     factor: valueOf("factor-select") || "momentum_2",
-    top_n: valueOf("top-n") || "2",
-    cost_bps: valueOf("cost-bps") || "5",
+    top_n: valueOf("research-top-n") || "2",
+    cost_bps: valueOf("research-cost-bps") || "5",
     start_date: valueOf("start-date"),
     end_date: valueOf("end-date"),
   });
-  state.research = await fetchJson(`/api/research/demo?${params.toString()}`);
-  renderDashboard();
-  renderFactorResearch();
-  renderBacktest();
-  renderRisk();
+  await withBusy("run-research", async () => {
+    state.research = await fetchJson(`/api/research/demo?${params.toString()}`);
+    renderDashboard();
+    renderFactorResearch();
+    renderBacktest();
+    renderRisk();
+    showToast("研究已更新");
+  });
+}
+
+async function runSignals() {
+  const params = new URLSearchParams({
+    market: valueOf("market-select"),
+    factor: valueOf("factor-select") || "momentum_2",
+    top_n: valueOf("signal-top-n") || "2",
+    as_of_date: valueOf("signal-as-of"),
+    max_asset_weight: valueOf("max-asset-weight") || "1",
+    max_market_weight: valueOf("max-market-weight") || "1",
+    max_gross_exposure: valueOf("max-gross-exposure") || "1",
+    min_cash_weight: valueOf("min-cash-weight") || "0",
+  });
+  await withBusy("run-signals", async () => {
+    state.signals = await fetchJson(`/api/signals/demo?${params.toString()}`);
+    renderSignals();
+    renderRisk();
+    showToast("信号快照已生成");
+  });
 }
 
 function fillFactorSelect(factors) {
   const select = document.getElementById("factor-select");
-  if (select.children.length > 0) return;
   select.innerHTML = factors.map((factor) => `<option value="${escapeHtml(factor)}">${escapeHtml(factor)}</option>`).join("");
 }
 
 function renderDashboard() {
-  const dashboard = state.snapshot?.dashboard;
+  const dashboard = state.snapshot?.dashboard || {};
   const metrics = state.research?.metrics || {};
+  const signals = state.signals || {};
   document.getElementById("dashboard-metrics").innerHTML = [
-    metric("策略数量", dashboard?.strategy_count ?? 0, "demo strategies"),
-    metric("数据源状态", `${state.snapshot?.markets?.length ?? 0}/4`, "local status checks"),
-    metric("最近报告", dashboard?.latest_report || "--", "demo fixture"),
-    metric("回测数量", dashboard?.backtest_count ?? 0, "research runs"),
+    metric("策略数量", dashboard.strategy_count ?? 0, "demo strategies"),
+    metric("数据源状态", `${state.snapshot?.markets?.length ?? 0}/4`, "local checks"),
+    metric("回测数量", dashboard.backtest_count ?? 0, "research runs"),
+    metric("信号日期", signals.signal_date || "--", "latest snapshot"),
   ].join("");
   document.getElementById("dashboard-equity").innerHTML = lineChart(state.research?.equity_curve || [], "date", "equity", {
     color: "#0f8b8d",
-    title: `Demo equity · ${formatPercent(metrics.total_return)}`,
+    title: `Demo equity ${formatPercent(metrics.total_return)}`,
   });
-  document.getElementById("dashboard-risk").innerHTML = `
-    <p class="warning-text">${escapeHtml(dashboard?.risk_notice || "")}</p>
-    <p class="muted">${escapeHtml(state.snapshot?.notice || "")}</p>
-  `;
+  document.getElementById("dashboard-status").innerHTML = statusRows([
+    ["Tushare", readyText(state.snapshot?.readiness?.tushare), state.snapshot?.readiness?.tushare?.ready ? "ok" : "warn"],
+    ["Parquet", readyText(state.snapshot?.readiness?.parquet), state.snapshot?.readiness?.parquet?.ready ? "ok" : "warn"],
+    ["交易边界", dashboard.risk_notice || "Research only", "danger"],
+    ["数据说明", state.snapshot?.notice || "", "muted"],
+  ]);
 }
 
 function renderDataCenter() {
@@ -105,9 +132,9 @@ function renderDataCenter() {
 function renderFactorResearch() {
   const summary = state.research?.factor_summary || {};
   document.getElementById("factor-metrics").innerHTML = [
-    metric("Mean IC", formatDecimal(summary.mean_ic), "demo"),
-    metric("Rank IC", formatDecimal(summary.mean_rank_ic), "demo"),
-    metric("ICIR", formatDecimal(summary.icir), "mean / std"),
+    metric("Mean IC", formatDecimal(summary.mean_ic), "cross-section"),
+    metric("Rank IC", formatDecimal(summary.mean_rank_ic), "rank"),
+    metric("ICIR", formatDecimal(summary.icir), "mean/std"),
     metric("因子", state.research?.request?.factor_name || "--", "selected"),
     metric("市场", state.research?.request?.market || "--", "selected"),
   ].join("");
@@ -163,38 +190,60 @@ function renderBacktest() {
   ]);
 }
 
+function renderSignals() {
+  const signal = state.signals || {};
+  document.getElementById("signal-metrics").innerHTML = [
+    metric("信号日期", signal.signal_date || "--", "as-of"),
+    metric("目标总仓位", formatPercent(signal.target_gross_exposure), "gross"),
+    metric("现金权重", formatPercent(signal.cash_weight), "cash"),
+    metric("目标数量", signal.targets?.length ?? 0, "assets"),
+    metric("可执行", "false", "research only"),
+  ].join("");
+  document.getElementById("target-table").innerHTML = tableRows(signal.targets || [], [
+    "signal_date",
+    "asset_id",
+    "market",
+    "factor_name",
+    "factor_value",
+    "latest_price",
+    "target_weight",
+  ]);
+  document.getElementById("rebalance-table").innerHTML = tableRows(signal.rebalance_plan || [], [
+    "asset_id",
+    "market",
+    "action",
+    "target_weight",
+    "delta_value",
+    "estimated_quantity_delta",
+    "executable",
+  ]);
+}
+
 function renderRisk() {
   const risk = state.research?.risk || state.snapshot?.risk || {};
+  const signalGross = Number(state.signals?.target_gross_exposure);
   document.getElementById("risk-metrics").innerHTML = [
     metric("波动率", formatPercent(risk.volatility), "demo"),
     metric("最大回撤", formatPercent(risk.max_drawdown), "demo"),
     metric("VaR 95", formatPercent(risk.var_95), "demo"),
-    metric("仓位暴露", formatDecimal(risk.gross_exposure), "gross"),
-    metric("连续亏损", risk.loss_streak ?? 0, "periods"),
+    metric("研究暴露", formatDecimal(risk.gross_exposure), "backtest"),
+    metric("信号仓位", Number.isFinite(signalGross) ? formatPercent(signalGross) : "--", "targets"),
   ].join("");
   const exposure = Object.entries(risk.exposure_by_market || {}).map(([market, value]) => ({ market, value }));
   document.getElementById("exposure-chart").innerHTML = barChart(exposure, "market", "value", "#c56b2d");
   document.getElementById("risk-log").innerHTML = (risk.anomalies || []).map((item) => `
-    <div class="risk-row"><strong>${escapeHtml(item.level)}</strong><span class="muted">${escapeHtml(item.message)}</span></div>
+    <div class="list-row ${escapeHtml(item.level)}"><strong>${escapeHtml(item.level)}</strong><span>${escapeHtml(item.message)}</span></div>
   `).join("");
 }
 
 function renderLogs() {
   const logs = state.snapshot?.logs || {};
-  const research = logs.research || [];
-  const backtest = logs.backtest || [];
-  const errors = logs.errors || [];
-  document.getElementById("task-log").innerHTML = [...research, ...backtest, ...errors].map((item) => `
-    <div class="log-row">
-      <strong>${escapeHtml(item.level)} · ${escapeHtml(item.time || "")}</strong>
-      <span class="muted">${escapeHtml(item.message)}</span>
-    </div>
+  const rows = [...(logs.research || []), ...(logs.backtest || []), ...(logs.errors || [])];
+  document.getElementById("task-log").innerHTML = rows.map((item) => `
+    <div class="list-row"><strong>${escapeHtml(item.level)} / ${escapeHtml(item.time || "")}</strong><span>${escapeHtml(item.message)}</span></div>
   `).join("");
   document.getElementById("report-list").innerHTML = (state.snapshot?.reports || []).map((report) => `
-    <div class="report-row">
-      <strong>${escapeHtml(report.name)}</strong>
-      <span class="muted">${escapeHtml(report.kind)} · ${escapeHtml(report.path)}</span>
-    </div>
+    <div class="list-row"><strong>${escapeHtml(report.name)}</strong><span>${escapeHtml(report.kind)} / ${escapeHtml(report.path)}</span></div>
   `).join("");
 }
 
@@ -202,9 +251,15 @@ function metric(label, value, meta) {
   return `<div class="metric"><small>${escapeHtml(label)}</small><strong>${escapeHtml(String(value))}</strong><span>${escapeHtml(meta || "")}</span></div>`;
 }
 
+function statusRows(rows) {
+  return rows.map(([label, value, tone]) => `
+    <div class="list-row ${escapeHtml(tone || "")}"><strong>${escapeHtml(label)}</strong><span>${escapeHtml(value || "")}</span></div>
+  `).join("");
+}
+
 function tableRows(rows, columns) {
   const head = `<tr>${columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("")}</tr>`;
-  const body = rows.slice(0, 40).map((row) => `
+  const body = rows.slice(0, 60).map((row) => `
     <tr>${columns.map((column) => `<td>${formatCell(row[column])}</td>`).join("")}</tr>
   `).join("");
   return `${head}${body}`;
@@ -246,13 +301,11 @@ function multiLineChart(rows, xKey, series) {
 }
 
 function renderLineSvg(series) {
-  const width = 720;
-  const height = 260;
-  const pad = { left: 46, right: 22, top: 26, bottom: 38 };
+  const width = 760;
+  const height = 276;
+  const pad = { left: 50, right: 24, top: 30, bottom: 38 };
   const all = series.flatMap((item) => item.points);
-  if (all.length === 0) {
-    return emptyChart("No demo points");
-  }
+  if (all.length === 0) return emptyChart("No data");
   let minY = Math.min(...all.map((point) => point.y));
   let maxY = Math.max(...all.map((point) => point.y));
   if (minY === maxY) {
@@ -271,19 +324,19 @@ function renderLineSvg(series) {
     return `<polyline points="${coords}" fill="none" stroke="${item.color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>`;
   }).join("");
   const legend = series.map((item, index) => `
-    <g transform="translate(${pad.left + index * 140}, 14)">
-      <rect width="16" height="4" fill="${item.color}"></rect>
-      <text x="22" y="5" font-size="12" fill="#686c62">${escapeSvg(item.label)}</text>
+    <g transform="translate(${pad.left + index * 150}, 16)">
+      <rect width="18" height="4" rx="2" fill="${item.color}"></rect>
+      <text x="24" y="5" font-size="12" fill="#64685f">${escapeSvg(item.label)}</text>
     </g>
   `).join("");
   return `
     <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="line chart">
-      <rect width="${width}" height="${height}" fill="#fbf8f0"></rect>
+      <rect width="${width}" height="${height}" fill="#f9f4e8"></rect>
       ${legend}
-      <line x1="${pad.left}" y1="${height - pad.bottom}" x2="${width - pad.right}" y2="${height - pad.bottom}" stroke="#d7d1c3"></line>
-      <line x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${height - pad.bottom}" stroke="#d7d1c3"></line>
-      <text x="8" y="${pad.top + 5}" font-size="11" fill="#686c62">${maxY.toFixed(3)}</text>
-      <text x="8" y="${height - pad.bottom}" font-size="11" fill="#686c62">${minY.toFixed(3)}</text>
+      <line x1="${pad.left}" y1="${height - pad.bottom}" x2="${width - pad.right}" y2="${height - pad.bottom}" stroke="#d9d0be"></line>
+      <line x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${height - pad.bottom}" stroke="#d9d0be"></line>
+      <text x="10" y="${pad.top + 5}" font-size="11" fill="#64685f">${maxY.toFixed(3)}</text>
+      <text x="10" y="${height - pad.bottom}" font-size="11" fill="#64685f">${minY.toFixed(3)}</text>
       ${paths}
     </svg>
   `;
@@ -293,36 +346,36 @@ function barChart(rows, xKey, yKey, color) {
   const points = rows
     .map((row) => ({ label: String(row[xKey]), value: Number(row[yKey]) }))
     .filter((point) => Number.isFinite(point.value));
-  if (points.length === 0) return emptyChart("No demo bars");
-  const width = 520;
-  const height = 250;
-  const pad = { left: 44, right: 18, top: 22, bottom: 44 };
+  if (points.length === 0) return emptyChart("No data");
+  const width = 560;
+  const height = 260;
+  const pad = { left: 46, right: 18, top: 24, bottom: 44 };
   const minY = Math.min(0, ...points.map((point) => point.value));
   const maxY = Math.max(0.001, ...points.map((point) => point.value));
   const innerW = width - pad.left - pad.right;
   const innerH = height - pad.top - pad.bottom;
   const zeroY = pad.top + innerH - ((0 - minY) / (maxY - minY)) * innerH;
-  const barW = Math.max(16, innerW / points.length - 10);
+  const barW = Math.max(16, innerW / points.length - 12);
   const bars = points.map((point, index) => {
-    const x = pad.left + index * (innerW / points.length) + 5;
+    const x = pad.left + index * (innerW / points.length) + 6;
     const y = pad.top + innerH - ((point.value - minY) / (maxY - minY)) * innerH;
     const h = Math.abs(zeroY - y);
     return `
-      <rect x="${x}" y="${Math.min(y, zeroY)}" width="${barW}" height="${h}" fill="${color}"></rect>
-      <text x="${x}" y="${height - 18}" font-size="11" fill="#686c62">${escapeSvg(point.label.slice(0, 8))}</text>
+      <rect x="${x}" y="${Math.min(y, zeroY)}" width="${barW}" height="${h}" rx="4" fill="${color}"></rect>
+      <text x="${x}" y="${height - 18}" font-size="11" fill="#64685f">${escapeSvg(point.label.slice(0, 9))}</text>
     `;
   }).join("");
   return `
     <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="bar chart">
-      <rect width="${width}" height="${height}" fill="#fbf8f0"></rect>
-      <line x1="${pad.left}" y1="${zeroY}" x2="${width - pad.right}" y2="${zeroY}" stroke="#d7d1c3"></line>
+      <rect width="${width}" height="${height}" fill="#f9f4e8"></rect>
+      <line x1="${pad.left}" y1="${zeroY}" x2="${width - pad.right}" y2="${zeroY}" stroke="#d9d0be"></line>
       ${bars}
     </svg>
   `;
 }
 
 function emptyChart(label) {
-  return `<svg viewBox="0 0 520 240" role="img" aria-label="${escapeHtml(label)}"><rect width="520" height="240" fill="#fbf8f0"></rect><text x="32" y="120" fill="#686c62">${escapeSvg(label)}</text></svg>`;
+  return `<svg viewBox="0 0 520 240" role="img" aria-label="${escapeHtml(label)}"><rect width="520" height="240" fill="#f9f4e8"></rect><text x="30" y="122" fill="#64685f">${escapeSvg(label)}</text></svg>`;
 }
 
 async function fetchJson(url) {
@@ -331,11 +384,44 @@ async function fetchJson(url) {
   return response.json();
 }
 
+async function withBusy(buttonId, action) {
+  const button = document.getElementById(buttonId);
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = "运行中";
+  try {
+    await action();
+  } catch (error) {
+    showToast(error.message || "运行失败", true);
+  } finally {
+    button.disabled = false;
+    button.textContent = label;
+  }
+}
+
+function showToast(message, isError = false) {
+  const toast = document.getElementById("toast");
+  toast.textContent = message;
+  toast.classList.toggle("error", isError);
+  toast.hidden = false;
+  window.clearTimeout(showToast.timer);
+  showToast.timer = window.setTimeout(() => {
+    toast.hidden = true;
+  }, 2200);
+}
+
+function readyText(readiness) {
+  if (!readiness) return "--";
+  if (readiness.ready) return "ready";
+  return (readiness.missing || []).join(" / ") || "not ready";
+}
+
 function valueOf(id) {
   return document.getElementById(id)?.value || "";
 }
 
 function formatCell(value) {
+  if (typeof value === "boolean") return escapeHtml(String(value));
   if (typeof value === "number") return escapeHtml(formatDecimal(value));
   return escapeHtml(String(value ?? ""));
 }

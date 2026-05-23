@@ -7,7 +7,9 @@ import pandas as pd
 
 from quant_robot.data.readiness import check_parquet_readiness, check_tushare_readiness
 from quant_robot.gui.fixtures import mock_data
+from quant_robot.portfolio.rebalance import build_rebalance_plan
 from quant_robot.research.pipeline import ResearchPipelineConfig, run_research_pipeline
+from quant_robot.signals.pipeline import SignalPipelineConfig, generate_signal_snapshot
 
 
 def build_gui_snapshot() -> dict[str, Any]:
@@ -92,6 +94,50 @@ def run_demo_research(
             "long_short": result["long_short"],
             "trades": result["trades"],
             "holdings": result["holdings"],
+        }
+    )
+
+
+def run_demo_signal_snapshot(
+    market: str = "ALL",
+    factor_name: str = "momentum_2",
+    top_n: int = 2,
+    as_of_date: str | None = None,
+    max_asset_weight: float = 1.0,
+    max_market_weight: float = 1.0,
+    max_gross_exposure: float = 1.0,
+    min_cash_weight: float = 0.0,
+    portfolio_value: float = 100000.0,
+) -> dict[str, Any]:
+    snapshot = generate_signal_snapshot(
+        mock_data.demo_bars(),
+        SignalPipelineConfig(
+            factor_name=factor_name,
+            factor_windows=(2, 3),
+            market=market,
+            as_of_date=as_of_date,
+            top_n=top_n,
+            max_asset_weight=max_asset_weight,
+            max_market_weight=max_market_weight,
+            max_gross_exposure=max_gross_exposure,
+            min_cash_weight=min_cash_weight,
+        ),
+    )
+    targets = pd.DataFrame(snapshot["targets"])
+    latest_prices = targets[["asset_id", "latest_price"]] if not targets.empty else pd.DataFrame(columns=["asset_id", "latest_price"])
+    rebalance_plan = build_rebalance_plan(
+        targets,
+        pd.DataFrame(columns=["asset_id", "quantity"]),
+        latest_prices,
+        portfolio_value=portfolio_value,
+    )
+    return _sanitize(
+        {
+            **snapshot,
+            "data_mode": mock_data.DATA_MODE,
+            "notice": mock_data.DEMO_NOTICE,
+            "portfolio_value": portfolio_value,
+            "rebalance_plan": _records(rebalance_plan),
         }
     )
 
