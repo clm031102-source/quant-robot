@@ -8,9 +8,12 @@ from typing import Any
 
 import pandas as pd
 
+from quant_robot.backtest.portfolio import select_top_n
 from quant_robot.backtest.metrics import max_drawdown, summarize_returns
+from quant_robot.data.quality import validate_market_data
+from quant_robot.factors.technical import compute_basic_factors
+from quant_robot.portfolio.constraints import PortfolioConstraints, apply_portfolio_constraints
 from quant_robot.portfolio.rebalance import FORBIDDEN_REAL_ACCOUNT_COLUMNS, build_rebalance_plan
-from quant_robot.signals.pipeline import SignalPipelineConfig, generate_signal_snapshot
 
 
 @dataclass(frozen=True)
@@ -42,7 +45,11 @@ def run_paper_simulation(
         raise ValueError("initial_cash must be positive")
     positions = _initial_positions(initial_positions)
     filtered = _filter_bars(bars, config)
+    validate_market_data(filtered)
+    factors = compute_basic_factors(filtered, windows=config.factor_windows)
     dates = sorted(pd.to_datetime(filtered["date"]).dt.date.unique())
+    factor_slices = _factor_slices_by_date(factors, config.factor_name, dates)
+    prices_by_date = _latest_prices_by_date(filtered, dates)
     cash = float(config.initial_cash)
     intents: list[dict[str, Any]] = []
     fills: list[dict[str, Any]] = []
@@ -55,28 +62,14 @@ def run_paper_simulation(
         execution_date = dates[index + 1]
         if config.end_date and execution_date > pd.to_datetime(config.end_date).date():
             continue
-        try:
-            snapshot = generate_signal_snapshot(
-                filtered,
-                SignalPipelineConfig(
-                    factor_name=config.factor_name,
-                    factor_windows=config.factor_windows,
-                    market=config.market,
-                    as_of_date=str(signal_date),
-                    top_n=config.top_n,
-                    max_asset_weight=config.max_asset_weight,
-                    max_market_weight=config.max_market_weight,
-                    max_gross_exposure=config.max_gross_exposure,
-                    min_cash_weight=config.min_cash_weight,
-                ),
-            )
-        except ValueError:
+        selected = factor_slices.get(signal_date)
+        if selected is None or selected.empty:
             continue
 
-        signal_prices = _latest_prices(filtered, signal_date)
-        execution_prices = _latest_prices(filtered, execution_date)
+        signal_prices = prices_by_date[signal_date]
+        execution_prices = prices_by_date[execution_date]
         portfolio_value = _portfolio_value(cash, positions, signal_prices)
-        targets = pd.DataFrame(snapshot["targets"])
+        targets, cash_weight = _targets_from_factor_slice(selected, signal_prices, config)
         plan = build_rebalance_plan(
             targets,
             _positions_frame(positions),
@@ -87,7 +80,7 @@ def run_paper_simulation(
             {
                 "signal_date": str(signal_date),
                 "target_weight": float(targets["target_weight"].sum()) if not targets.empty else 0.0,
-                "cash_weight": float(snapshot["cash_weight"]),
+                "cash_weight": cash_weight,
                 "target_count": int(len(targets)),
             }
         )
@@ -168,6 +161,67 @@ def _latest_prices(bars: pd.DataFrame, as_of_date: Any) -> pd.DataFrame:
         .rename(columns={"adj_close": "latest_price"})
         .reset_index(drop=True)
     )
+
+
+def _factor_slices_by_date(factors: pd.DataFrame, factor_name: str, dates: list[Any]) -> dict[Any, pd.DataFrame]:
+    selected = factors[factors["factor_name"] == factor_name].dropna(subset=["factor_value"]).copy()
+    if selected.empty:
+        return {}
+    selected["_date_key"] = pd.to_datetime(selected["date"]).dt.date
+    groups = {date: group.drop(columns=["_date_key"]).reset_index(drop=True) for date, group in selected.groupby("_date_key")}
+    slices: dict[Any, pd.DataFrame] = {}
+    latest: pd.DataFrame | None = None
+    for date in dates:
+        latest = groups.get(date, latest)
+        if latest is not None:
+            slices[date] = latest
+    return slices
+
+
+def _latest_prices_by_date(bars: pd.DataFrame, dates: list[Any]) -> dict[Any, pd.DataFrame]:
+    frame = bars.copy()
+    frame["_date_key"] = pd.to_datetime(frame["date"]).dt.date
+    groups = {date: group for date, group in frame.groupby("_date_key")}
+    latest: dict[str, dict[str, Any]] = {}
+    prices: dict[Any, pd.DataFrame] = {}
+    for date in dates:
+        for row in groups.get(date, pd.DataFrame()).itertuples(index=False):
+            latest[str(row.asset_id)] = {
+                "asset_id": str(row.asset_id),
+                "market": str(row.market),
+                "latest_price": float(row.adj_close),
+            }
+        prices[date] = pd.DataFrame(latest.values(), columns=["asset_id", "market", "latest_price"])
+    return prices
+
+
+def _targets_from_factor_slice(
+    selected: pd.DataFrame,
+    prices: pd.DataFrame,
+    config: PaperSimulationConfig,
+) -> tuple[pd.DataFrame, float]:
+    ranked = select_top_n(selected, top_n=config.top_n, portfolio_scope=_portfolio_scope(config))
+    if ranked.empty:
+        return ranked.assign(latest_price=pd.Series(dtype=float)), 1.0
+    targets = ranked.merge(prices[["asset_id", "latest_price"]], on="asset_id", how="left")
+    targets = targets.dropna(subset=["latest_price"]).copy()
+    if targets.empty:
+        return targets, 1.0
+    targets["signal_date"] = targets["date"]
+    constrained, cash_weight, _warnings = apply_portfolio_constraints(
+        targets,
+        PortfolioConstraints(
+            max_asset_weight=config.max_asset_weight,
+            max_market_weight=config.max_market_weight,
+            max_gross_exposure=config.max_gross_exposure,
+            min_cash_weight=config.min_cash_weight,
+        ),
+    )
+    return constrained, cash_weight
+
+
+def _portfolio_scope(config: PaperSimulationConfig) -> str:
+    return "global" if config.market.upper() == "ALL" else "market"
 
 
 def _portfolio_value(cash: float, positions: dict[str, float], prices: pd.DataFrame) -> float:

@@ -1,0 +1,21 @@
+{
+  "split_date": "2023-01-03",
+  "rank_by": "stability_score",
+  "min_test_trades": 20,
+  "min_test_sharpe": 0,
+  "output_dir": "data/reports/walk_forward_cn_etf_real_csv",
+  "experiment_grid": {
+    "markets": ["CN_ETF"],
+    "factor_names": ["volatility_2", "momentum_2", "liquidity_2"],
+    "factor_windows": [2, 3],
+    "top_n_values": [1, 2],
+    "cost_bps_values": [0, 5],
+    "forward_horizon": 1,
+    "execution_lag": 1,
+    "quantiles": 2,
+    "portfolio_scope": "market",
+    "periods_per_year": 252,
+    "rank_by": "sharpe",
+    "min_trades": 20
+  }
+}

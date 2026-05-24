@@ -1,8 +1,10 @@
 import unittest
+from unittest.mock import patch
 
 import pandas as pd
 
 from quant_robot.data.fixtures import load_demo_market_bars
+from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.paper.simulator import PaperSimulationConfig, run_paper_simulation
 
 
@@ -96,6 +98,14 @@ class PaperSimulationTests(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "real account or broker columns"):
             run_paper_simulation(load_demo_market_bars(), config, initial_positions=positions)
+
+    def test_paper_simulation_computes_factors_once_for_signal_loop(self):
+        config = PaperSimulationConfig(market="CN_ETF", factor_name="momentum_2", factor_windows=(2,), top_n=1)
+
+        with patch("quant_robot.paper.simulator.compute_basic_factors", wraps=compute_basic_factors) as wrapped:
+            run_paper_simulation(load_demo_market_bars(), config)
+
+        self.assertEqual(wrapped.call_count, 1)
 
 
 if __name__ == "__main__":

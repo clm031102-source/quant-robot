@@ -27,6 +27,15 @@ Import additional ETF CSVs into the same output root. The importer merges symbol
 
 Use filenames that contain the ETF code, such as `510300.csv` or `510300_1D.csv`. If the filename code conflicts with `--symbol`, the import fails instead of silently labeling the data as the wrong ETF.
 
+For multiple TradingView exports, put the raw files in one folder and run the batch importer:
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\batch_import_etf_csv.py --input-dir . --raw-dir data\raw\tradingview_etf_csv --output-dir data\processed\etf_csv --move-raw
+```
+
+The batch importer infers `.SH`/`.SZ` from TradingView filenames such as `SSE_DLY_510300, 1D_xxx.csv` and `SZSE_DLY_159915, 1D_xxx.csv`, moves them into stable project filenames like `510300_SH_1d.csv`, then writes a `batch_import_manifest.json`.
+
 ## Run ETF Research
 
 ```powershell
@@ -39,6 +48,13 @@ python scripts\run_research_pipeline.py --source processed-bars --data-root data
 ```powershell
 $env:PYTHONPATH='src'
 python scripts\run_experiment_grid.py --config configs\experiment_grid_cn_etf.json --source processed-bars --data-root data\processed\etf_csv
+```
+
+## Run ETF Walk-Forward Validation
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_walk_forward.py --config configs\walk_forward_cn_etf.json --source processed-bars --data-root data\processed\etf_csv
 ```
 
 ## Run ETF Paper Simulation

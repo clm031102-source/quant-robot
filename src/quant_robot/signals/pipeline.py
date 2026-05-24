@@ -33,6 +33,29 @@ def generate_signal_snapshot(bars: pd.DataFrame, config: SignalPipelineConfig) -
     validate_market_data(filtered)
     as_of_date = _resolve_as_of_date(filtered, config)
     factors = compute_basic_factors(filtered, windows=config.factor_windows)
+    return _build_signal_snapshot(filtered, factors, config, as_of_date)
+
+
+def generate_signal_snapshot_from_factors(
+    bars: pd.DataFrame,
+    factors: pd.DataFrame,
+    config: SignalPipelineConfig,
+    validate: bool = True,
+) -> dict[str, Any]:
+    filtered = _filter_bars(bars, config)
+    if validate:
+        validate_market_data(filtered)
+    as_of_date = _resolve_as_of_date(filtered, config)
+    factor_frame = _filter_factor_rows(factors, config)
+    return _build_signal_snapshot(filtered, factor_frame, config, as_of_date)
+
+
+def _build_signal_snapshot(
+    filtered: pd.DataFrame,
+    factors: pd.DataFrame,
+    config: SignalPipelineConfig,
+    as_of_date: Any,
+) -> dict[str, Any]:
     selected = _latest_factor_slice(factors, config.factor_name, as_of_date)
     portfolio_scope = _resolve_portfolio_scope(config)
     ranked = select_top_n(selected, top_n=config.top_n, portfolio_scope=portfolio_scope)
@@ -76,6 +99,13 @@ def _filter_bars(bars: pd.DataFrame, config: SignalPipelineConfig) -> pd.DataFra
         frame = frame[pd.to_datetime(frame["date"]).dt.date <= pd.to_datetime(config.as_of_date).date()]
     if frame.empty:
         raise ValueError("No bars available for signal snapshot")
+    return frame.sort_values(["asset_id", "date"]).reset_index(drop=True)
+
+
+def _filter_factor_rows(factors: pd.DataFrame, config: SignalPipelineConfig) -> pd.DataFrame:
+    frame = factors.copy()
+    if config.market.upper() != "ALL":
+        frame = frame[frame["market"] == config.market.upper()]
     return frame.sort_values(["asset_id", "date"]).reset_index(drop=True)
 
 
