@@ -25,7 +25,7 @@ def run_factor_backtest(
     portfolio_scope: str = "market",
     execution_lag: int = 1,
     holding_period: int = 1,
-    periods_per_year: int = 252,
+    periods_per_year: float = 252,
 ) -> BacktestResult:
     required_factor_columns = ["date", "asset_id", "market", "factor_name", "factor_value"]
     required_bar_columns = ["date", "asset_id", "market", "adj_close"]
@@ -36,7 +36,7 @@ def run_factor_backtest(
     if holding_period < 1:
         raise ValueError("holding_period must be at least 1")
 
-    selected = select_top_n(factors, top_n=top_n, portfolio_scope=portfolio_scope)
+    selected = _scale_signal_sleeves(select_top_n(factors, top_n=top_n, portfolio_scope=portfolio_scope), holding_period)
     bar_lookup = _price_lookup(bars)
     trades = _build_trades(selected, bar_lookup, round_trip_cost(cost_bps), execution_lag, holding_period)
     equity_curve = _equity_curve(trades)
@@ -57,6 +57,14 @@ def _require_columns(frame: pd.DataFrame, columns: list[str], name: str) -> None
     missing = [column for column in columns if column not in frame.columns]
     if missing:
         raise ValueError(f"{name} is missing columns: {', '.join(missing)}")
+
+
+def _scale_signal_sleeves(selected: pd.DataFrame, holding_period: int) -> pd.DataFrame:
+    if selected.empty or holding_period <= 1:
+        return selected
+    scaled = selected.copy()
+    scaled["target_weight"] = scaled["target_weight"] / float(holding_period)
+    return scaled
 
 
 def _price_lookup(bars: pd.DataFrame) -> dict[str, pd.DataFrame]:

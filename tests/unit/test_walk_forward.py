@@ -50,7 +50,7 @@ class WalkForwardTests(unittest.TestCase):
         config = WalkForwardConfig(
             split_date="2024-01-08",
             experiment_grid=ExperimentGridConfig(
-                markets=("CN",),
+                markets=("CN_ETF",),
                 factor_names=("momentum_2",),
                 factor_windows=(2,),
                 top_n_values=(1,),
@@ -63,6 +63,48 @@ class WalkForwardTests(unittest.TestCase):
 
         self.assertEqual(result["leaderboard"][0]["validation_status"], "rejected")
         self.assertIn("oos_sharpe_below_threshold", result["leaderboard"][0]["rejection_reasons"])
+
+    def test_walk_forward_rejects_candidates_below_relative_return_threshold(self):
+        config = WalkForwardConfig(
+            split_date="2024-01-08",
+            experiment_grid=ExperimentGridConfig(
+                markets=("CN",),
+                factor_names=("momentum_2",),
+                factor_windows=(2,),
+                top_n_values=(1,),
+                cost_bps_values=(0.0,),
+                benchmark_asset_id="CN_ETF_XSHG_510300",
+            ),
+            min_test_trades=1,
+            min_test_relative_return=999.0,
+        )
+
+        result = run_walk_forward_validation(load_demo_market_bars(), config)
+        row = result["leaderboard"][0]
+
+        self.assertEqual(row["validation_status"], "rejected")
+        self.assertIn("relative_return_below_threshold", row["rejection_reasons"])
+        self.assertIn("test_relative_return", row)
+
+    def test_walk_forward_rejects_candidates_above_drawdown_limit(self):
+        config = WalkForwardConfig(
+            split_date="2024-01-08",
+            experiment_grid=ExperimentGridConfig(
+                markets=("CN",),
+                factor_names=("momentum_2",),
+                factor_windows=(2,),
+                top_n_values=(1,),
+                cost_bps_values=(0.0,),
+            ),
+            min_test_trades=1,
+            max_test_drawdown=0.0,
+        )
+
+        result = run_walk_forward_validation(load_demo_market_bars(), config)
+        row = result["leaderboard"][0]
+
+        self.assertEqual(row["validation_status"], "rejected")
+        self.assertIn("drawdown_above_limit", row["rejection_reasons"])
 
     def test_walk_forward_test_split_uses_warmup_history_for_rolling_factors(self):
         bars = load_demo_market_bars()
@@ -99,7 +141,11 @@ class WalkForwardTests(unittest.TestCase):
                             "factor_windows": [2],
                             "top_n_values": [1],
                             "cost_bps_values": [5],
+                            "rebalance_intervals": [5],
+                            "benchmark_asset_id": "CN_ETF_XSHG_510300",
                         },
+                        "min_test_relative_return": 0.02,
+                        "max_test_drawdown": 0.20,
                     }
                 ),
                 encoding="utf-8",
@@ -110,8 +156,12 @@ class WalkForwardTests(unittest.TestCase):
             self.assertEqual(config.split_date, "2024-01-08")
             self.assertEqual(config.output_dir, Path(tmp) / "wf")
             self.assertEqual(config.min_test_sharpe, 0.5)
+            self.assertAlmostEqual(config.min_test_relative_return, 0.02)
+            self.assertAlmostEqual(config.max_test_drawdown, 0.20)
             self.assertEqual(config.experiment_grid.markets, ("CN",))
             self.assertEqual(config.experiment_grid.cost_bps_values, (5.0,))
+            self.assertEqual(config.experiment_grid.rebalance_intervals, (5,))
+            self.assertEqual(config.experiment_grid.benchmark_asset_id, "CN_ETF_XSHG_510300")
 
 
 if __name__ == "__main__":

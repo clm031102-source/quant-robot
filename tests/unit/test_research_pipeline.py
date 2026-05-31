@@ -9,6 +9,7 @@ from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.research.pipeline import ResearchPipelineConfig, run_research_pipeline
 from quant_robot.storage.dataset_store import DatasetStore
 from quant_robot.storage.processed_bars import load_processed_bars
+from scripts.run_research_pipeline import load_research_bars
 
 
 class ResearchPipelineTests(unittest.TestCase):
@@ -73,6 +74,81 @@ class ResearchPipelineTests(unittest.TestCase):
 
         self.assertEqual(result["request"]["periods_per_year"], 365)
 
+    def test_cn_etf_pipeline_runs_on_dedicated_etf_market(self):
+        config = ResearchPipelineConfig(factor_name="momentum_2", factor_windows=(2,), market="CN_ETF", top_n=2)
+
+        result = run_research_pipeline(load_demo_market_bars(), config)
+
+        self.assertEqual(result["request"]["market"], "CN_ETF")
+        self.assertGreater(result["artifact_rows"]["trades"], 0)
+        self.assertEqual(result["request"]["periods_per_year"], 252)
+
+    def test_pipeline_can_sample_signals_by_rebalance_interval(self):
+        daily = run_research_pipeline(
+            load_demo_market_bars(),
+            ResearchPipelineConfig(factor_name="momentum_2", factor_windows=(2,), market="CN_ETF", top_n=1, rebalance_interval=1),
+        )
+        sampled = run_research_pipeline(
+            load_demo_market_bars(),
+            ResearchPipelineConfig(factor_name="momentum_2", factor_windows=(2,), market="CN_ETF", top_n=1, rebalance_interval=3),
+        )
+
+        self.assertEqual(sampled["request"]["rebalance_interval"], 3)
+        self.assertLess(sampled["artifact_rows"]["trades"], daily["artifact_rows"]["trades"])
+        self.assertLess(sampled["artifact_rows"]["factors"], daily["artifact_rows"]["factors"])
+
+    def test_pipeline_auto_scales_annualization_for_sparse_rebalance_interval(self):
+        result = run_research_pipeline(
+            load_demo_market_bars(),
+            ResearchPipelineConfig(factor_name="momentum_2", factor_windows=(2,), market="CN_ETF", top_n=1, rebalance_interval=5),
+        )
+
+        self.assertAlmostEqual(result["request"]["periods_per_year"], 252 / 5)
+
+    def test_pipeline_attaches_benchmark_and_decision_metrics(self):
+        result = run_research_pipeline(
+            load_demo_market_bars(),
+            ResearchPipelineConfig(
+                factor_name="momentum_2",
+                factor_windows=(2,),
+                market="CN_ETF",
+                top_n=1,
+                benchmark_asset_id="CN_ETF_XSHG_510300",
+                cash_annual_return=0.02,
+                min_relative_return=-1.0,
+            ),
+        )
+
+        self.assertIn("benchmark_metrics", result)
+        self.assertIn("decision", result)
+        self.assertIn("benchmark_curve", result)
+        self.assertEqual(result["decision"]["decision_status"], "approved")
+        self.assertIn("relative_return", result["benchmark_metrics"])
+        self.assertEqual(result["request"]["benchmark_asset_id"], "CN_ETF_XSHG_510300")
+
+    def test_pipeline_regime_filter_reduces_trades_when_benchmark_is_falling(self):
+        bars = _falling_regime_bars()
+        baseline = run_research_pipeline(
+            bars,
+            ResearchPipelineConfig(factor_name="momentum_2", factor_windows=(2,), market="CN_ETF", top_n=1),
+        )
+        filtered = run_research_pipeline(
+            bars,
+            ResearchPipelineConfig(
+                factor_name="momentum_2",
+                factor_windows=(2,),
+                market="CN_ETF",
+                top_n=1,
+                benchmark_asset_id="CN_ETF_XSHG_510300",
+                regime_filter=True,
+                regime_lookback=2,
+            ),
+        )
+
+        self.assertGreater(baseline["artifact_rows"]["trades"], 0)
+        self.assertLess(filtered["artifact_rows"]["trades"], baseline["artifact_rows"]["trades"])
+        self.assertGreater(filtered["regime"]["blocked_signal_dates"], 0)
+
     def test_processed_bar_loader_accepts_store_root_or_processed_subdirectory(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -99,6 +175,63 @@ class ResearchPipelineTests(unittest.TestCase):
             result = load_processed_bars(search_root, "CN")
 
             self.assertEqual(len(result), len(cn_bars))
+
+    def test_research_cli_loader_supports_all_processed_markets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "store"
+            bars = load_demo_market_bars()
+            for market, group in bars.groupby("market"):
+                DatasetStore(root).write_frame(
+                    group.reset_index(drop=True),
+                    "processed/bars",
+                    {"frequency": "1d", "market": market, "year": "2024"},
+                )
+
+            result = load_research_bars("processed-bars", root, "ALL")
+
+            self.assertEqual(set(result["market"]), {"CN", "CN_ETF", "HK", "US", "CRYPTO"})
+
+
+def _falling_regime_bars() -> pd.DataFrame:
+    rows = []
+    dates = pd.date_range("2024-01-01", periods=8).date
+    paths = {
+        "CN_ETF_XSHG_510300": [10.0, 9.8, 9.6, 9.4, 9.2, 9.0, 8.8, 8.6],
+        "CN_ETF_XSHG_510500": [5.0, 5.1, 5.3, 5.5, 5.8, 6.0, 6.2, 6.4],
+    }
+    symbols = {
+        "CN_ETF_XSHG_510300": "510300.SH",
+        "CN_ETF_XSHG_510500": "510500.SH",
+    }
+    for asset_id, prices in paths.items():
+        for date, price in zip(dates, prices, strict=True):
+            rows.append(
+                {
+                    "asset_id": asset_id,
+                    "symbol": symbols[asset_id],
+                    "market": "CN_ETF",
+                    "exchange": "XSHG",
+                    "asset_type": "etf",
+                    "timestamp": pd.Timestamp(date).tz_localize("UTC"),
+                    "date": date,
+                    "timezone": "Asia/Shanghai",
+                    "calendar": "XSHG",
+                    "frequency": "1d",
+                    "open": price,
+                    "high": price * 1.01,
+                    "low": price * 0.99,
+                    "close": price,
+                    "adj_close": price,
+                    "volume": 1000.0,
+                    "amount": price * 1000.0,
+                    "vwap": price,
+                    "currency": "CNY",
+                    "source": "fixture",
+                    "adjusted": True,
+                    "ingested_at": pd.Timestamp("2024-01-01", tz="UTC"),
+                }
+            )
+    return pd.DataFrame(rows)
 
 
 if __name__ == "__main__":

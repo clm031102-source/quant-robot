@@ -4,6 +4,7 @@ from dataclasses import asdict
 
 import pandas as pd
 
+from quant_robot.assets.etf_universe import default_cn_etf_assets
 from quant_robot.assets.models import Asset
 from quant_robot.data.normalize import normalize_ohlcv
 
@@ -15,13 +16,13 @@ def demo_strategies() -> list[dict[str, object]]:
     return [
         {
             "name": "Multi-market momentum research",
-            "markets": ["CN", "HK", "US", "CRYPTO"],
+            "markets": ["CN", "CN_ETF", "HK", "US", "CRYPTO"],
             "factor": "momentum_2",
             "status": "demo",
         },
         {
-            "name": "Liquidity reversal sandbox",
-            "markets": ["CN", "US"],
+            "name": "ETF liquidity reversal sandbox",
+            "markets": ["CN_ETF"],
             "factor": "reversal_3",
             "status": "demo",
         },
@@ -31,6 +32,7 @@ def demo_strategies() -> list[dict[str, object]]:
 def market_statuses() -> list[dict[str, object]]:
     return [
         _market("CN", "A-shares", "AKShare / Tushare", "2026-05-22 09:30 CST", 24, 0, 0, "fixture-ready"),
+        _market("CN_ETF", "A-share ETFs", "TradingView CSV / AKShare / Tushare", "2026-05-22 09:30 CST", 48, 0, 0, "fixture-ready"),
         _market("HK", "Hong Kong stocks", "yfinance / AKShare", "2026-05-22 09:30 HKT", 24, 0, 1, "fixture-ready"),
         _market("US", "US stocks", "yfinance", "2026-05-21 16:00 ET", 24, 0, 0, "fixture-ready"),
         _market("CRYPTO", "Crypto spot", "ccxt", "2026-05-22 00:00 UTC", 24, 0, 0, "fixture-ready"),
@@ -85,6 +87,7 @@ def demo_assets() -> list[Asset]:
         Asset("US_XNAS_MSFT", "MSFT", "US", "XNAS", "stock", "USD", "America/New_York", "XNYS"),
         Asset("CRYPTO_BINANCE_BTC_USDT", "BTC/USDT", "CRYPTO", "BINANCE", "crypto_spot", "USDT", "UTC", "24/7"),
         Asset("CRYPTO_BINANCE_ETH_USDT", "ETH/USDT", "CRYPTO", "BINANCE", "crypto_spot", "USDT", "UTC", "24/7"),
+        *default_cn_etf_assets()[:4],
     ]
 
 
@@ -149,5 +152,9 @@ def _price_path(asset_id: str) -> list[float]:
         "US_XNAS_MSFT": [310, 311, 314, 313, 316, 320, 322, 321, 325, 327, 330, 333],
         "CRYPTO_BINANCE_BTC_USDT": [30000, 30300, 30100, 30900, 31500, 31200, 31800, 33000, 32600, 33400, 34100, 33600],
         "CRYPTO_BINANCE_ETH_USDT": [2200, 2250, 2230, 2310, 2360, 2330, 2410, 2460, 2430, 2510, 2580, 2550],
+        "CN_ETF_XSHG_510300": [3.50, 3.53, 3.55, 3.51, 3.60, 3.66, 3.64, 3.70, 3.76, 3.73, 3.80, 3.86],
+        "CN_ETF_XSHG_510500": [5.20, 5.16, 5.25, 5.31, 5.28, 5.37, 5.44, 5.41, 5.50, 5.58, 5.55, 5.64],
+        "CN_ETF_XSHE_159915": [2.10, 2.13, 2.09, 2.16, 2.22, 2.18, 2.25, 2.31, 2.28, 2.35, 2.42, 2.38],
+        "CN_ETF_XSHG_588000": [1.02, 1.01, 1.04, 1.07, 1.05, 1.09, 1.12, 1.10, 1.14, 1.18, 1.16, 1.20],
     }
     return paths[asset_id]

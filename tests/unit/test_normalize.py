@@ -95,6 +95,24 @@ class NormalizeTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_market_data(result)
 
+    def test_validate_rejects_missing_required_price_values(self):
+        asset = Asset("US_XNAS_AAPL", "AAPL", "US", "XNAS", "stock", "USD", "America/New_York", "XNYS")
+        raw = pd.DataFrame(
+            {
+                "date": ["2024-01-02"],
+                "open": [100.0],
+                "high": [101.0],
+                "low": [99.0],
+                "close": ["bad"],
+                "volume": [1000.0],
+            }
+        )
+
+        result = normalize_ohlcv(raw, asset, source="fixture", frequency="1d")
+
+        with self.assertRaisesRegex(ValueError, "missing required values"):
+            validate_market_data(result)
+
 
 if __name__ == "__main__":
     unittest.main()

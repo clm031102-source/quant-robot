@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 
+from quant_robot.assets.etf_universe import default_cn_etf_assets
 from quant_robot.assets.models import Asset
 from quant_robot.data.normalize import normalize_ohlcv
 
@@ -16,6 +17,7 @@ def demo_assets() -> list[Asset]:
         Asset("US_XNAS_MSFT", "MSFT", "US", "XNAS", "stock", "USD", "America/New_York", "XNYS"),
         Asset("CRYPTO_BINANCE_BTC_USDT", "BTC/USDT", "CRYPTO", "BINANCE", "crypto_spot", "USDT", "UTC", "24/7"),
         Asset("CRYPTO_BINANCE_ETH_USDT", "ETH/USDT", "CRYPTO", "BINANCE", "crypto_spot", "USDT", "UTC", "24/7"),
+        *default_cn_etf_assets()[:4],
     ]
 
 
@@ -70,5 +72,9 @@ def _price_path(asset_id: str) -> list[float]:
             35200,
         ],
         "CRYPTO_BINANCE_ETH_USDT": [2200, 2250, 2230, 2310, 2360, 2330, 2410, 2460, 2430, 2510, 2580, 2550, 2630, 2670],
+        "CN_ETF_XSHG_510300": [3.50, 3.53, 3.55, 3.51, 3.60, 3.66, 3.64, 3.70, 3.76, 3.73, 3.80, 3.86, 3.84, 3.91],
+        "CN_ETF_XSHG_510500": [5.20, 5.16, 5.25, 5.31, 5.28, 5.37, 5.44, 5.41, 5.50, 5.58, 5.55, 5.64, 5.70, 5.68],
+        "CN_ETF_XSHE_159915": [2.10, 2.13, 2.09, 2.16, 2.22, 2.18, 2.25, 2.31, 2.28, 2.35, 2.42, 2.38, 2.45, 2.51],
+        "CN_ETF_XSHG_588000": [1.02, 1.01, 1.04, 1.07, 1.05, 1.09, 1.12, 1.10, 1.14, 1.18, 1.16, 1.20, 1.23, 1.21],
     }
     return paths[asset_id]

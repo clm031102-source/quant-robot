@@ -22,13 +22,14 @@ class ExperimentRunnerTests(unittest.TestCase):
             factor_windows=(2,),
             top_n_values=(1, 2),
             cost_bps_values=(0.0,),
+            rebalance_intervals=(1, 5),
         )
 
         cases = build_experiment_cases(config)
 
-        self.assertEqual(len(cases), 8)
-        self.assertEqual(cases[0].case_id, "CN_momentum_2_top1_cost0")
-        self.assertEqual(cases[-1].case_id, "US_reversal_2_top2_cost0")
+        self.assertEqual(len(cases), 16)
+        self.assertEqual(cases[0].case_id, "CN_momentum_2_top1_cost0_reb1")
+        self.assertEqual(cases[-1].case_id, "US_reversal_2_top2_cost0_reb5")
 
     def test_experiment_grid_runs_sweep_and_writes_leaderboard(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -56,6 +57,27 @@ class ExperimentRunnerTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / leaderboard[0]["case_id"] / "metrics.json").exists())
             saved = pd.read_csv(Path(tmp) / "leaderboard.csv")
             self.assertEqual(len(saved), 8)
+
+    def test_experiment_grid_surfaces_decision_metrics(self):
+        config = ExperimentGridConfig(
+            markets=("CN_ETF",),
+            factor_names=("momentum_2",),
+            factor_windows=(2,),
+            top_n_values=(1,),
+            cost_bps_values=(0.0,),
+            benchmark_asset_id="CN_ETF_XSHG_510300",
+            min_relative_return=-1.0,
+            rank_by="relative_return",
+        )
+
+        result = run_experiment_grid(load_demo_market_bars(), config)
+        row = result["leaderboard"][0]
+
+        self.assertEqual(row["status"], "completed")
+        self.assertIn("benchmark_total_return", row)
+        self.assertIn("relative_return", row)
+        self.assertIn("excess_over_cash", row)
+        self.assertEqual(row["decision_status"], "approved")
 
     def test_experiment_grid_marks_no_trade_cases_without_crashing(self):
         config = ExperimentGridConfig(
@@ -94,6 +116,9 @@ class ExperimentRunnerTests(unittest.TestCase):
                         "factor_windows": [2],
                         "top_n_values": [1],
                         "cost_bps_values": [5],
+                        "rebalance_intervals": [5],
+                        "benchmark_asset_id": "CN_ETF_XSHG_510300",
+                        "min_relative_return": 0.01,
                         "output_dir": str(Path(tmp) / "reports"),
                     }
                 ),
@@ -104,6 +129,9 @@ class ExperimentRunnerTests(unittest.TestCase):
 
             self.assertEqual(config.markets, ("CN",))
             self.assertEqual(config.factor_names, ("momentum_2",))
+            self.assertEqual(config.rebalance_intervals, (5,))
+            self.assertEqual(config.benchmark_asset_id, "CN_ETF_XSHG_510300")
+            self.assertAlmostEqual(config.min_relative_return, 0.01)
             self.assertEqual(config.output_dir, Path(tmp) / "reports")
 
 

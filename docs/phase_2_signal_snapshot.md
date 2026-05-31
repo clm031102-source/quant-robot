@@ -17,7 +17,7 @@ It is still research-only. It does not connect to brokers, read real accounts, o
 
 ```powershell
 $env:PYTHONPATH='src'
-& "C:\Users\11042\.cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe" scripts\run_signal_snapshot.py --source fixture --market ALL --factor momentum_2 --top-n 2
+python scripts\run_signal_snapshot.py --source fixture --market ALL --factor momentum_2 --top-n 2
 ```
 
 Default output:
