@@ -28,9 +28,16 @@ class ExperimentGridConfig:
     end_date: str | None = None
     forward_horizon: int = 1
     execution_lag: int = 1
+    rebalance_intervals: tuple[int, ...] = (1,)
     quantiles: int = 2
     portfolio_scope: str | None = None
-    periods_per_year: int | None = None
+    periods_per_year: float | None = None
+    benchmark_asset_id: str | None = None
+    cash_annual_return: float = 0.0
+    regime_filter: bool = False
+    regime_lookback: int = 20
+    min_relative_return: float | None = None
+    max_drawdown_limit: float | None = None
     signal_start_date: str | None = None
     signal_end_date: str | None = None
     output_dir: Path | None = None
@@ -46,6 +53,7 @@ class ExperimentCase:
     factor_windows: tuple[int, ...]
     top_n: int
     cost_bps: float
+    rebalance_interval: int
 
 
 def build_experiment_cases(config: ExperimentGridConfig) -> list[ExperimentCase]:
@@ -54,16 +62,18 @@ def build_experiment_cases(config: ExperimentGridConfig) -> list[ExperimentCase]
         for factor_name in config.factor_names:
             for top_n in config.top_n_values:
                 for cost_bps in config.cost_bps_values:
-                    cases.append(
-                        ExperimentCase(
-                            case_id=_case_id(market, factor_name, top_n, cost_bps),
-                            market=market.upper(),
-                            factor_name=factor_name,
-                            factor_windows=config.factor_windows,
-                            top_n=int(top_n),
-                            cost_bps=float(cost_bps),
+                    for rebalance_interval in config.rebalance_intervals:
+                        cases.append(
+                            ExperimentCase(
+                                case_id=_case_id(market, factor_name, top_n, cost_bps, rebalance_interval),
+                                market=market.upper(),
+                                factor_name=factor_name,
+                                factor_windows=config.factor_windows,
+                                top_n=int(top_n),
+                                cost_bps=float(cost_bps),
+                                rebalance_interval=int(rebalance_interval),
+                            )
                         )
-                    )
     return cases
 
 
@@ -79,9 +89,16 @@ def load_experiment_grid_config(path: str | Path) -> ExperimentGridConfig:
         end_date=data.get("end_date"),
         forward_horizon=int(data.get("forward_horizon", ExperimentGridConfig.forward_horizon)),
         execution_lag=int(data.get("execution_lag", ExperimentGridConfig.execution_lag)),
+        rebalance_intervals=tuple(int(value) for value in data.get("rebalance_intervals", ExperimentGridConfig.rebalance_intervals)),
         quantiles=int(data.get("quantiles", ExperimentGridConfig.quantiles)),
         portfolio_scope=data.get("portfolio_scope"),
-        periods_per_year=int(data["periods_per_year"]) if data.get("periods_per_year") is not None else None,
+        periods_per_year=float(data["periods_per_year"]) if data.get("periods_per_year") is not None else None,
+        benchmark_asset_id=data.get("benchmark_asset_id"),
+        cash_annual_return=float(data.get("cash_annual_return", ExperimentGridConfig.cash_annual_return)),
+        regime_filter=bool(data.get("regime_filter", ExperimentGridConfig.regime_filter)),
+        regime_lookback=int(data.get("regime_lookback", ExperimentGridConfig.regime_lookback)),
+        min_relative_return=float(data["min_relative_return"]) if data.get("min_relative_return") is not None else None,
+        max_drawdown_limit=float(data["max_drawdown_limit"]) if data.get("max_drawdown_limit") is not None else None,
         signal_start_date=data.get("signal_start_date"),
         signal_end_date=data.get("signal_end_date"),
         output_dir=Path(data["output_dir"]) if data.get("output_dir") else None,
@@ -117,11 +134,18 @@ def _run_case(bars: pd.DataFrame, grid_config: ExperimentGridConfig, case: Exper
                 end_date=grid_config.end_date,
                 forward_horizon=grid_config.forward_horizon,
                 execution_lag=grid_config.execution_lag,
+                rebalance_interval=case.rebalance_interval,
                 quantiles=grid_config.quantiles,
                 top_n=case.top_n,
                 cost_bps=case.cost_bps,
                 portfolio_scope=grid_config.portfolio_scope,
                 periods_per_year=grid_config.periods_per_year,
+                benchmark_asset_id=grid_config.benchmark_asset_id,
+                cash_annual_return=grid_config.cash_annual_return,
+                regime_filter=grid_config.regime_filter,
+                regime_lookback=grid_config.regime_lookback,
+                min_relative_return=grid_config.min_relative_return,
+                max_drawdown_limit=grid_config.max_drawdown_limit,
                 signal_start_date=grid_config.signal_start_date,
                 signal_end_date=grid_config.signal_end_date,
                 output_dir=output_dir,
@@ -136,6 +160,8 @@ def _run_case(bars: pd.DataFrame, grid_config: ExperimentGridConfig, case: Exper
 
 def _row(case: ExperimentCase, status: str, error: str | None, trades: int, result: dict[str, Any] | None) -> dict[str, Any]:
     metrics = result["metrics"] if result is not None else {}
+    benchmark_metrics = result["benchmark_metrics"] if result is not None else {}
+    decision = result["decision"] if result is not None else {}
     factor_summary = result["factor_summary"] if result is not None else {}
     artifact_rows = result["artifact_rows"] if result is not None else {}
     return _sanitize(
@@ -146,6 +172,7 @@ def _row(case: ExperimentCase, status: str, error: str | None, trades: int, resu
             "factor_windows": list(case.factor_windows),
             "top_n": case.top_n,
             "cost_bps": case.cost_bps,
+            "rebalance_interval": case.rebalance_interval,
             "status": status,
             "error": error,
             "data_mode": result["data_mode"] if result is not None else "unknown",
@@ -159,6 +186,11 @@ def _row(case: ExperimentCase, status: str, error: str | None, trades: int, resu
             "win_rate": float(metrics.get("win_rate", 0.0)),
             "turnover": float(metrics.get("turnover", 0.0)),
             "average_holdings": float(metrics.get("average_holdings", 0.0)),
+            "benchmark_total_return": float(benchmark_metrics.get("benchmark_total_return", 0.0)),
+            "relative_return": float(benchmark_metrics.get("relative_return", 0.0)),
+            "excess_over_cash": float(benchmark_metrics.get("excess_over_cash", 0.0)),
+            "decision_status": str(decision.get("decision_status", "unknown")),
+            "decision_reasons": decision.get("rejection_reasons", []),
             "mean_ic": float(factor_summary.get("mean_ic", 0.0)),
             "mean_rank_ic": float(factor_summary.get("mean_rank_ic", 0.0)),
             "icir": float(factor_summary.get("icir", 0.0)),
@@ -239,13 +271,14 @@ def _config_dict(config: ExperimentGridConfig) -> dict[str, Any]:
     data["factor_windows"] = list(config.factor_windows)
     data["top_n_values"] = list(config.top_n_values)
     data["cost_bps_values"] = list(config.cost_bps_values)
+    data["rebalance_intervals"] = list(config.rebalance_intervals)
     data["output_dir"] = str(config.output_dir) if config.output_dir is not None else None
     return data
 
 
-def _case_id(market: str, factor_name: str, top_n: int, cost_bps: float) -> str:
+def _case_id(market: str, factor_name: str, top_n: int, cost_bps: float, rebalance_interval: int) -> str:
     cost = f"{cost_bps:g}".replace(".", "p")
-    return f"{market.upper()}_{factor_name}_top{top_n}_cost{cost}"
+    return f"{market.upper()}_{factor_name}_top{top_n}_cost{cost}_reb{rebalance_interval}"
 
 
 def _sanitize(value: Any) -> Any:

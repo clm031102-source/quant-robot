@@ -51,9 +51,15 @@ data/reports/walk_forward/
 - `validation_status`: `accepted` only means the candidate passed configured local thresholds.
 - `rejection_reasons`: explains failed gates, such as insufficient test trades or weak out-of-sample Sharpe.
 - `train_sharpe` / `test_sharpe`: compare in-sample and out-of-sample behavior.
+- `train_relative_return` / `test_relative_return`: compare strategy return against the configured benchmark.
+- `train_benchmark_total_return` / `test_benchmark_total_return`: benchmark performance over each split.
 - `sharpe_degradation`: positive when train Sharpe is higher than test Sharpe.
 - `stability_score`: test Sharpe penalized by train-to-test degradation.
 - `data_mode`: `fixture` means demo data only, not evidence of real profitability.
+
+The CLI fails the process if a train/test experiment grid has failed or missing cases, or if no candidate is accepted. A rejected candidate is still a normal research outcome, but a validation run with zero accepted candidates should not pass the local check chain.
+
+Phase 2.6 can additionally reject candidates with `relative_return_below_threshold` or `drawdown_above_limit` when `min_test_relative_return` or `max_test_drawdown` is configured.
 
 ## Warmup And No-Lookahead
 

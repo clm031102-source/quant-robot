@@ -13,7 +13,7 @@ def max_drawdown(equity_curve: pd.Series) -> float:
     return float(drawdowns.min())
 
 
-def summarize_returns(returns: pd.Series, periods_per_year: int = 252) -> dict[str, float]:
+def summarize_returns(returns: pd.Series, periods_per_year: float = 252) -> dict[str, float]:
     clean = returns.dropna()
     if clean.empty:
         return {

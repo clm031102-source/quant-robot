@@ -25,7 +25,7 @@ def run_factor_backtest(
     portfolio_scope: str = "market",
     execution_lag: int = 1,
     holding_period: int = 1,
-    periods_per_year: int = 252,
+    periods_per_year: float = 252,
 ) -> BacktestResult:
     required_factor_columns = ["date", "asset_id", "market", "factor_name", "factor_value"]
     required_bar_columns = ["date", "asset_id", "market", "adj_close"]

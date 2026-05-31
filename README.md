@@ -17,6 +17,7 @@ Phase one is research-only. It does not connect to real broker accounts, does no
 - Research backtest with explicit execution lag, holding period, portfolio scope, transaction cost assumptions, and conservative sleeve scaling for multi-day holding periods.
 - Research-only signal snapshots, risk-capped target weights, and advisory rebalance plans.
 - Local paper trading simulation with simulated intents, fills, cash, positions, equity curve, and China-market 100-share lot rounding.
+- Research decision-risk layer with benchmark comparison, cash comparison, optional regime filtering, walk-forward relative-return gates, and paper drawdown guards.
 - CSV, JSON, and SVG report outputs.
 
 ## Run Tests
@@ -29,6 +30,8 @@ python -m unittest discover -s tests -p "test_*.py"
 ## Run Core Checks
 
 This runs the local test suite, Python compile check, project audit, readiness check, provider status, data catalog, offline fixture research, the configurable research pipeline, the experiment grid, walk-forward validation, signal snapshot generation, and paper simulation. It does not download market data.
+
+The batch experiment grid exits non-zero if any case fails or if no case completes. Walk-forward validation exits non-zero if the underlying train/test grids fail or if no candidate is accepted. This keeps local checks from hiding failed research runs inside CSV/JSON leaderboards.
 
 ```powershell
 $env:PYTHONPATH='src'
@@ -163,6 +166,19 @@ Outputs are written to `data/reports/paper_simulation/` by default:
 - `snapshots.csv`
 - `manifest.json`
 
+Use `--max-drawdown-guard` and `--guard-cooldown-periods` when you want the local simulator to block new buy intents after a drawdown breach.
+
+## Phase 2.6 Decision Risk Layer
+
+Phase 2.6 adds benchmark/cash comparison, optional regime filtering, decision summaries, walk-forward relative-return and drawdown gates, and paper-simulation drawdown guards.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_research_pipeline.py --source fixture --market CN_ETF --factor momentum_2 --top-n 1 --benchmark-asset-id CN_ETF_XSHG_510300 --cash-annual-return 0.015 --regime-filter --regime-lookback 3 --min-relative-return 0 --max-drawdown-limit 0.25
+```
+
+See `docs/phase_2_6_decision_risk.md` for output fields and interpretation rules.
+
 ## A-Share ETF Research
 
 The framework includes a dedicated `CN_ETF` market and a default ETF universe in `configs/universe_cn_etf.yaml`. You can import TradingView ETF CSV exports into processed bars:
@@ -173,6 +189,7 @@ python scripts\import_etf_csv.py path\to\510300.csv --symbol 510300.SH --output-
 ```
 
 The importer checks that a six-digit code in the CSV filename matches `--symbol`, uses an import lock to avoid concurrent year-partition rewrites, and does not count weekends as missing dates unless a real exchange calendar is provided later.
+Its quality report checks missing rows across observed business days, so weekday gaps in CSV exports are flagged while weekend gaps are ignored.
 
 Then run ETF-only research, factor mining, and paper simulation:
 

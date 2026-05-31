@@ -25,7 +25,7 @@ def default_cn_etf_assets() -> list[Asset]:
 def resolve_cn_etf_asset(symbol: str) -> Asset:
     normalized = _normalize_symbol(symbol)
     names = {_normalize_symbol(item_symbol): name for item_symbol, name in DEFAULT_CN_ETFS}
-    return cn_etf_asset(normalized, names.get(normalized, "A股 ETF"))
+    return cn_etf_asset(normalized, names.get(normalized, "A股ETF"))
 
 
 def cn_etf_asset(symbol: str, name: str = "") -> Asset:

@@ -19,6 +19,8 @@ class WalkForwardConfig:
     rank_by: str = "stability_score"
     min_test_trades: int = 1
     min_test_sharpe: float = 0.0
+    min_test_relative_return: float | None = None
+    max_test_drawdown: float | None = None
 
 
 def load_walk_forward_config(path: str | Path) -> WalkForwardConfig:
@@ -30,6 +32,10 @@ def load_walk_forward_config(path: str | Path) -> WalkForwardConfig:
         rank_by=str(data.get("rank_by", WalkForwardConfig.rank_by)),
         min_test_trades=int(data.get("min_test_trades", WalkForwardConfig.min_test_trades)),
         min_test_sharpe=float(data.get("min_test_sharpe", WalkForwardConfig.min_test_sharpe)),
+        min_test_relative_return=(
+            float(data["min_test_relative_return"]) if data.get("min_test_relative_return") is not None else None
+        ),
+        max_test_drawdown=float(data["max_test_drawdown"]) if data.get("max_test_drawdown") is not None else None,
     )
 
 
@@ -94,10 +100,12 @@ def _merged_row(
     source = test or train or {}
     train_sharpe = _metric(train, "sharpe")
     test_sharpe = _metric(test, "sharpe")
+    test_relative_return = _metric(test, "relative_return")
+    test_max_drawdown = _metric(test, "max_drawdown")
     degradation = max(train_sharpe - test_sharpe, 0.0)
     stability_score = test_sharpe - degradation
     test_trades = int(_metric(test, "trades"))
-    reasons = _rejection_reasons(train, test, test_trades, test_sharpe, config)
+    reasons = _rejection_reasons(train, test, test_trades, test_sharpe, test_relative_return, test_max_drawdown, config)
     return _sanitize(
         {
             "case_id": case_id,
@@ -115,10 +123,16 @@ def _merged_row(
             "test_trades": test_trades,
             "train_total_return": _metric(train, "total_return"),
             "test_total_return": _metric(test, "total_return"),
+            "train_benchmark_total_return": _metric(train, "benchmark_total_return"),
+            "test_benchmark_total_return": _metric(test, "benchmark_total_return"),
+            "train_relative_return": _metric(train, "relative_return"),
+            "test_relative_return": test_relative_return,
+            "train_decision_status": train.get("decision_status") if train else "missing",
+            "test_decision_status": test.get("decision_status") if test else "missing",
             "train_sharpe": train_sharpe,
             "test_sharpe": test_sharpe,
             "train_max_drawdown": _metric(train, "max_drawdown"),
-            "test_max_drawdown": _metric(test, "max_drawdown"),
+            "test_max_drawdown": test_max_drawdown,
             "train_mean_ic": _metric(train, "mean_ic"),
             "test_mean_ic": _metric(test, "mean_ic"),
             "sharpe_degradation": degradation,
@@ -132,6 +146,8 @@ def _rejection_reasons(
     test: dict[str, Any] | None,
     test_trades: int,
     test_sharpe: float,
+    test_relative_return: float,
+    test_max_drawdown: float,
     config: WalkForwardConfig,
 ) -> list[str]:
     reasons = []
@@ -143,6 +159,10 @@ def _rejection_reasons(
         reasons.append("insufficient_oos_trades")
     if test_sharpe < config.min_test_sharpe:
         reasons.append("oos_sharpe_below_threshold")
+    if config.min_test_relative_return is not None and test_relative_return < config.min_test_relative_return:
+        reasons.append("relative_return_below_threshold")
+    if config.max_test_drawdown is not None and test_max_drawdown < -abs(config.max_test_drawdown):
+        reasons.append("drawdown_above_limit")
     return reasons
 
 
@@ -188,9 +208,16 @@ def _grid_from_mapping(data: dict[str, Any]) -> ExperimentGridConfig:
         end_date=data.get("end_date"),
         forward_horizon=int(data.get("forward_horizon", ExperimentGridConfig.forward_horizon)),
         execution_lag=int(data.get("execution_lag", ExperimentGridConfig.execution_lag)),
+        rebalance_intervals=tuple(int(value) for value in data.get("rebalance_intervals", ExperimentGridConfig.rebalance_intervals)),
         quantiles=int(data.get("quantiles", ExperimentGridConfig.quantiles)),
         portfolio_scope=data.get("portfolio_scope"),
-        periods_per_year=int(data["periods_per_year"]) if data.get("periods_per_year") is not None else None,
+        periods_per_year=float(data["periods_per_year"]) if data.get("periods_per_year") is not None else None,
+        benchmark_asset_id=data.get("benchmark_asset_id"),
+        cash_annual_return=float(data.get("cash_annual_return", ExperimentGridConfig.cash_annual_return)),
+        regime_filter=bool(data.get("regime_filter", ExperimentGridConfig.regime_filter)),
+        regime_lookback=int(data.get("regime_lookback", ExperimentGridConfig.regime_lookback)),
+        min_relative_return=float(data["min_relative_return"]) if data.get("min_relative_return") is not None else None,
+        max_drawdown_limit=float(data["max_drawdown_limit"]) if data.get("max_drawdown_limit") is not None else None,
         signal_start_date=data.get("signal_start_date"),
         signal_end_date=data.get("signal_end_date"),
         output_dir=None,
@@ -208,6 +235,7 @@ def _config_dict(config: WalkForwardConfig) -> dict[str, Any]:
     data["experiment_grid"]["factor_windows"] = list(config.experiment_grid.factor_windows)
     data["experiment_grid"]["top_n_values"] = list(config.experiment_grid.top_n_values)
     data["experiment_grid"]["cost_bps_values"] = list(config.experiment_grid.cost_bps_values)
+    data["experiment_grid"]["rebalance_intervals"] = list(config.experiment_grid.rebalance_intervals)
     return data
 
 

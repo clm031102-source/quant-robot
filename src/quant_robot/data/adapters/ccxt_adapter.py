@@ -19,7 +19,8 @@ class CcxtAdapter(MarketDataAdapter):
 
     def fetch_ohlcv(self, asset: Asset, request: FetchRequest) -> pd.DataFrame:
         since = int(pd.Timestamp(request.start, tz="UTC").timestamp() * 1000)
-        rows = self.exchange.fetch_ohlcv(asset.symbol, _ccxt_timeframe(request.frequency), since, self.limit)
+        end_date = pd.to_datetime(request.end).date()
+        rows = self._fetch_pages(asset.symbol, _ccxt_timeframe(request.frequency), since, end_date)
         frame = pd.DataFrame(rows, columns=["timestamp_ms", "open", "high", "low", "close", "volume"])
         if frame.empty:
             return pd.DataFrame(columns=["date", "open", "high", "low", "close", "adj_close", "volume", "amount"])
@@ -36,8 +37,23 @@ class CcxtAdapter(MarketDataAdapter):
             }
         )
         mapped["amount"] = mapped["close"] * mapped["volume"]
-        end_date = pd.to_datetime(request.end).date()
         return mapped[mapped["date"] <= end_date].sort_values("date").reset_index(drop=True)
+
+    def _fetch_pages(self, symbol: str, timeframe: str, since: int, end_date: object) -> list[list[object]]:
+        rows: list[list[object]] = []
+        next_since = since
+        while True:
+            page = self.exchange.fetch_ohlcv(symbol, timeframe, next_since, self.limit)
+            if not page:
+                break
+            rows.extend(page)
+            last_timestamp = int(page[-1][0])
+            if pd.to_datetime(last_timestamp, unit="ms", utc=True).date() >= end_date:
+                break
+            if len(page) < self.limit or last_timestamp < next_since:
+                break
+            next_since = last_timestamp + 1
+        return rows
 
     @property
     def exchange(self) -> object:

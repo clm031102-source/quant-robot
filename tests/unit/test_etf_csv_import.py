@@ -69,6 +69,21 @@ class EtfCsvImportTests(unittest.TestCase):
 
             self.assertEqual(result["quality_report"]["missing_date_rows"], 0)
 
+    def test_import_quality_report_counts_missing_weekdays(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            csv_path = root / "510300.csv"
+            csv_path.write_text(
+                "time,open,high,low,close,Volume\n"
+                "2024-01-02,3,3.1,2.9,3.05,100\n"
+                "2024-01-04,3.1,3.2,3.0,3.15,120\n",
+                encoding="utf-8",
+            )
+
+            result = import_etf_csv(csv_path, root / "processed", symbol="510300.SH")
+
+            self.assertEqual(result["quality_report"]["missing_date_rows"], 1)
+
     def test_import_refuses_to_run_when_import_lock_exists(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

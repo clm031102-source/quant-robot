@@ -39,6 +39,34 @@ def main() -> None:
         output_dir=Path(args.output_dir) if args.output_dir else None,
     )
     print(json.dumps({"summary": result["summary"], "top": result["leaderboard"][:10]}, indent=2, sort_keys=True))
+    try:
+        assert_walk_forward_succeeded(result)
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from exc
+
+
+def assert_walk_forward_succeeded(result: dict[str, object]) -> None:
+    summary = result.get("summary", {})
+    if not isinstance(summary, dict):
+        raise RuntimeError("walk-forward validation failed: missing summary")
+    leaderboard = result.get("leaderboard", [])
+    if not isinstance(leaderboard, list):
+        leaderboard = []
+    failed_rows = [
+        row
+        for row in leaderboard
+        if isinstance(row, dict) and _has_failed_grid_status(row)
+    ]
+    if failed_rows:
+        cases = ", ".join(str(row.get("case_id")) for row in failed_rows[:5])
+        raise RuntimeError(f"walk-forward grid failures: {cases}")
+    if int(summary.get("accepted", 0)) == 0:
+        raise RuntimeError("walk-forward validation failed: no accepted walk-forward cases")
+
+
+def _has_failed_grid_status(row: dict[str, object]) -> bool:
+    statuses = {row.get("train_status"), row.get("test_status")}
+    return "failed" in statuses or "missing" in statuses
 
 
 def _load_bars(source: str, data_root: Path, markets: tuple[str, ...]) -> pd.DataFrame:

@@ -14,11 +14,13 @@ class PaperSimulationCliTests(unittest.TestCase):
                 factor_name="momentum_2",
                 factor_windows=(2,),
                 top_n=1,
+                rebalance_interval=2,
                 start_date="2024-01-04",
                 end_date="2024-01-10",
                 output_dir=Path(tmp),
             )
 
+            self.assertEqual(result["request"]["rebalance_interval"], 2)
             self.assertGreater(len(result["fills"]), 0)
             self.assertTrue((Path(tmp) / "intents.csv").exists())
             self.assertTrue((Path(tmp) / "fills.csv").exists())

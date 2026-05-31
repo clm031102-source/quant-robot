@@ -22,6 +22,7 @@ class PaperSimulationConfig:
     factor_name: str = "momentum_2"
     factor_windows: tuple[int, ...] = (2, 3)
     top_n: int = 2
+    rebalance_interval: int = 1
     start_date: str | None = None
     end_date: str | None = None
     initial_cash: float = 100000.0
@@ -32,7 +33,9 @@ class PaperSimulationConfig:
     max_market_weight: float = 1.0
     max_gross_exposure: float = 1.0
     min_cash_weight: float = 0.0
-    periods_per_year: int | None = None
+    periods_per_year: float | None = None
+    max_drawdown_guard: float | None = None
+    guard_cooldown_periods: int = 0
     output_dir: Path | None = None
 
 
@@ -43,22 +46,34 @@ def run_paper_simulation(
 ) -> dict[str, Any]:
     if config.initial_cash <= 0.0:
         raise ValueError("initial_cash must be positive")
+    if config.rebalance_interval < 1:
+        raise ValueError("rebalance_interval must be at least 1")
     positions = _initial_positions(initial_positions)
     filtered = _filter_bars(bars, config)
     validate_market_data(filtered)
     factors = compute_basic_factors(filtered, windows=config.factor_windows)
     dates = sorted(pd.to_datetime(filtered["date"]).dt.date.unique())
     factor_slices = _factor_slices_by_date(factors, config.factor_name, dates)
-    prices_by_date = _latest_prices_by_date(filtered, dates)
+    valuation_prices_by_date = _latest_prices_by_date(filtered, dates)
+    execution_prices_by_date = _current_prices_by_date(filtered, dates)
     cash = float(config.initial_cash)
     intents: list[dict[str, Any]] = []
     fills: list[dict[str, Any]] = []
     equity_rows: list[dict[str, Any]] = []
     snapshots: list[dict[str, Any]] = []
+    guard_events: list[dict[str, Any]] = []
 
+    rebalance_counter = 0
+    baseline_recorded = False
+    peak_equity = float(config.initial_cash)
+    guard_remaining = 0
     for index, signal_date in enumerate(dates[:-1]):
         if config.start_date and signal_date < pd.to_datetime(config.start_date).date():
             continue
+        if rebalance_counter % config.rebalance_interval != 0:
+            rebalance_counter += 1
+            continue
+        rebalance_counter += 1
         execution_date = dates[index + 1]
         if config.end_date and execution_date > pd.to_datetime(config.end_date).date():
             continue
@@ -66,8 +81,14 @@ def run_paper_simulation(
         if selected is None or selected.empty:
             continue
 
-        signal_prices = prices_by_date[signal_date]
-        execution_prices = prices_by_date[execution_date]
+        signal_prices = valuation_prices_by_date[signal_date]
+        execution_prices = execution_prices_by_date[execution_date]
+        valuation_prices = valuation_prices_by_date[execution_date]
+        if not baseline_recorded:
+            baseline_row = _equity_row(signal_date, cash, positions, signal_prices)
+            equity_rows.append(baseline_row)
+            peak_equity = max(peak_equity, float(baseline_row["equity"]))
+            baseline_recorded = True
         portfolio_value = _portfolio_value(cash, positions, signal_prices)
         targets, cash_weight = _targets_from_factor_slice(selected, signal_prices, config)
         plan = build_rebalance_plan(
@@ -85,14 +106,21 @@ def run_paper_simulation(
             }
         )
         day_intents = _build_intents(plan, signal_date, execution_date, config.min_trade_value)
+        day_intents, guard_remaining, guard_event = _apply_drawdown_guard(day_intents, signal_date, guard_remaining)
+        if guard_event is not None:
+            guard_events.append(guard_event)
         day_fills = _simulate_fills(day_intents, execution_prices, config.commission_bps, config.slippage_bps, cash)
         cash = _apply_fills(positions, cash, day_fills)
         intents.extend(day_intents)
         fills.extend(day_fills)
-        equity_rows.append(_equity_row(execution_date, cash, positions, execution_prices))
+        equity_row = _equity_row(execution_date, cash, positions, valuation_prices)
+        equity_rows.append(equity_row)
+        peak_equity, guard_remaining, trigger_event = _update_drawdown_guard(equity_row, peak_equity, guard_remaining, config)
+        if trigger_event is not None:
+            guard_events.append(trigger_event)
 
     equity_curve = _equity_curve(equity_rows)
-    metrics = _metrics(equity_curve, cash, positions, filtered, config)
+    metrics = _metrics(equity_curve, cash, positions, filtered, config, guard_events)
     result = _sanitize(
         {
             "data_mode": "fixture" if set(filtered["source"].astype(str)) == {"fixture"} else "research",
@@ -103,6 +131,7 @@ def run_paper_simulation(
             "positions": _records(_positions_frame(positions)),
             "equity_curve": _records(equity_curve),
             "snapshots": snapshots,
+            "guard_events": guard_events,
         }
     )
     if config.output_dir is not None:
@@ -117,6 +146,7 @@ def write_paper_simulation_artifacts(result: dict[str, Any], output_dir: Path) -
     pd.DataFrame(result["positions"]).to_csv(output_dir / "positions.csv", index=False)
     pd.DataFrame(result["equity_curve"]).to_csv(output_dir / "equity_curve.csv", index=False)
     pd.DataFrame(result["snapshots"]).to_csv(output_dir / "snapshots.csv", index=False)
+    pd.DataFrame(result["guard_events"]).to_csv(output_dir / "guard_events.csv", index=False)
     manifest = {
         "data_mode": result["data_mode"],
         "request": result["request"],
@@ -193,6 +223,16 @@ def _latest_prices_by_date(bars: pd.DataFrame, dates: list[Any]) -> dict[Any, pd
             }
         prices[date] = pd.DataFrame(latest.values(), columns=["asset_id", "market", "latest_price"])
     return prices
+
+
+def _current_prices_by_date(bars: pd.DataFrame, dates: list[Any]) -> dict[Any, pd.DataFrame]:
+    frame = bars.copy()
+    frame["_date_key"] = pd.to_datetime(frame["date"]).dt.date
+    prices: dict[Any, pd.DataFrame] = {}
+    empty = pd.DataFrame(columns=["asset_id", "market", "latest_price"])
+    for date, group in frame.groupby("_date_key"):
+        prices[date] = group[["asset_id", "market", "adj_close"]].rename(columns={"adj_close": "latest_price"}).reset_index(drop=True)
+    return {date: prices.get(date, empty) for date in dates}
 
 
 def _targets_from_factor_slice(
@@ -317,6 +357,51 @@ def _simulate_fills(
     return fills
 
 
+def _apply_drawdown_guard(
+    intents: list[dict[str, Any]],
+    signal_date: Any,
+    guard_remaining: int,
+) -> tuple[list[dict[str, Any]], int, dict[str, Any] | None]:
+    if guard_remaining <= 0:
+        return intents, guard_remaining, None
+    allowed = [intent for intent in intents if intent["side"] != "buy"]
+    blocked = len(intents) - len(allowed)
+    event = None
+    if blocked:
+        event = {
+            "event_type": "drawdown_guard_blocked_buys",
+            "date": signal_date,
+            "blocked_buy_intents": blocked,
+            "cooldown_remaining": guard_remaining,
+        }
+    return allowed, max(guard_remaining - 1, 0), event
+
+
+def _update_drawdown_guard(
+    equity_row: dict[str, Any],
+    peak_equity: float,
+    guard_remaining: int,
+    config: PaperSimulationConfig,
+) -> tuple[float, int, dict[str, Any] | None]:
+    equity = float(equity_row["equity"])
+    peak = max(peak_equity, equity)
+    if config.max_drawdown_guard is None or peak <= 0.0:
+        return peak, guard_remaining, None
+    drawdown = equity / peak - 1.0
+    if drawdown >= -abs(config.max_drawdown_guard) or guard_remaining > 0:
+        return peak, guard_remaining, None
+    cooldown = max(1, int(config.guard_cooldown_periods))
+    return peak, cooldown, {
+        "event_type": "drawdown_guard_triggered",
+        "date": equity_row["date"],
+        "equity": equity,
+        "peak_equity": peak,
+        "drawdown": drawdown,
+        "cooldown_remaining": cooldown,
+        "blocked_buy_intents": 0,
+    }
+
+
 def _fill_price(base_price: float, signed_quantity: float, slippage_bps: float) -> float:
     direction = 1.0 if signed_quantity > 0.0 else -1.0
     return base_price * (1.0 + direction * slippage_bps / 10000.0)
@@ -371,18 +456,24 @@ def _metrics(
     positions: dict[str, float],
     bars: pd.DataFrame,
     config: PaperSimulationConfig,
+    guard_events: list[dict[str, Any]],
 ) -> dict[str, float]:
-    periods = config.periods_per_year or (365 if config.market.upper() == "CRYPTO" else 252)
+    periods = _resolve_periods_per_year(config)
     summary = summarize_returns(equity_curve["period_return"] if not equity_curve.empty else pd.Series(dtype=float), periods_per_year=periods)
+    starting_equity = float(equity_curve.iloc[0]["equity"]) if not equity_curve.empty else float(config.initial_cash)
     ending_equity = float(equity_curve.iloc[-1]["equity"]) if not equity_curve.empty else float(config.initial_cash)
+    total_return = 0.0 if starting_equity <= 0.0 else ending_equity / starting_equity - 1.0
     summary.update(
         {
             "starting_cash": float(config.initial_cash),
+            "starting_equity": starting_equity,
             "ending_cash": float(cash),
             "ending_equity": ending_equity,
-            "cash_return": ending_equity / float(config.initial_cash) - 1.0,
+            "total_return": total_return,
+            "cash_return": total_return,
             "open_positions": float(len(positions)),
             "max_equity_drawdown": max_drawdown(equity_curve["equity"]) if not equity_curve.empty else 0.0,
+            "guard_event_count": float(len(guard_events)),
         }
     )
     return summary
@@ -391,8 +482,16 @@ def _metrics(
 def _config_dict(config: PaperSimulationConfig) -> dict[str, Any]:
     data = asdict(config)
     data["factor_windows"] = list(config.factor_windows)
+    data["periods_per_year"] = _resolve_periods_per_year(config)
     data["output_dir"] = str(config.output_dir) if config.output_dir is not None else None
     return data
+
+
+def _resolve_periods_per_year(config: PaperSimulationConfig) -> float:
+    if config.periods_per_year is not None:
+        return config.periods_per_year
+    base_periods = 365 if config.market.upper() == "CRYPTO" else 252
+    return base_periods / float(max(config.rebalance_interval, 1))
 
 
 def _records(frame: pd.DataFrame) -> list[dict[str, Any]]:

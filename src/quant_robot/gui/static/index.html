@@ -4,7 +4,6 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Quant Robot Local Console</title>
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%231d211d'/%3E%3Ctext x='5' y='21' font-size='12' fill='%23f8f1df' font-family='Georgia'%3EQR%3C/text%3E%3C/svg%3E">
     <link rel="stylesheet" href="/styles.css">
   </head>
   <body>
@@ -14,31 +13,29 @@
           <div class="brand-mark">QR</div>
           <div>
             <h1>Quant Robot</h1>
-            <p>本地量化研究控制台</p>
+            <p>本地多市场研究终端</p>
           </div>
         </div>
-
         <nav class="nav-list" aria-label="主导航">
           <button class="nav-item active" data-page="dashboard" type="button"><span>01</span>总览</button>
-          <button class="nav-item" data-page="data" type="button"><span>02</span>数据中心</button>
-          <button class="nav-item" data-page="research" type="button"><span>03</span>因子研究</button>
-          <button class="nav-item" data-page="backtest" type="button"><span>04</span>回测报告</button>
+          <button class="nav-item" data-page="research" type="button"><span>02</span>因子研究</button>
+          <button class="nav-item" data-page="backtest" type="button"><span>03</span>回测报告</button>
+          <button class="nav-item" data-page="decision" type="button"><span>04</span>决策风控</button>
           <button class="nav-item" data-page="signals" type="button"><span>05</span>信号快照</button>
-          <button class="nav-item" data-page="paper" type="button"><span>06</span>模拟交易</button>
-          <button class="nav-item" data-page="risk" type="button"><span>07</span>风险监控</button>
+          <button class="nav-item" data-page="paper" type="button"><span>06</span>纸面模拟</button>
+          <button class="nav-item" data-page="data" type="button"><span>07</span>数据中心</button>
           <button class="nav-item" data-page="logs" type="button"><span>08</span>日志报告</button>
         </nav>
-
         <div class="safety-card">
           <strong>Research only</strong>
-          <span>不接券商，不下单，不实盘。</span>
+          <span>无券商连接。无账户读取。无真实下单。</span>
         </div>
       </aside>
 
       <main class="workspace">
         <header class="topbar">
           <div>
-            <p class="eyebrow">multi-market research terminal</p>
+            <p class="eyebrow">local research console</p>
             <h2 id="page-title">总览</h2>
           </div>
           <div class="status-cluster">
@@ -49,7 +46,7 @@
 
         <section id="page-dashboard" class="page active-page">
           <div class="metric-grid" id="dashboard-metrics"></div>
-          <div class="layout-2-1">
+          <div class="layout-wide">
             <section class="panel">
               <div class="panel-head">
                 <h3>研究净值</h3>
@@ -59,46 +56,21 @@
             </section>
             <section class="panel">
               <div class="panel-head">
-                <h3>系统状态</h3>
-                <span class="tag tag-warn">local</span>
+                <h3>准入状态</h3>
+                <span class="tag tag-warn">Phase 2.6</span>
               </div>
               <div id="dashboard-status" class="status-list"></div>
             </section>
           </div>
         </section>
 
-        <section id="page-data" class="page">
-          <section class="panel">
-            <div class="panel-head">
-              <h3>市场数据状态</h3>
-              <span class="tag">本地检查</span>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>市场</th>
-                    <th>数据源</th>
-                    <th>更新时间</th>
-                    <th>行数</th>
-                    <th>缺失值</th>
-                    <th>异常值</th>
-                    <th>状态</th>
-                  </tr>
-                </thead>
-                <tbody id="market-table"></tbody>
-              </table>
-            </div>
-          </section>
-        </section>
-
         <section id="page-research" class="page">
-          <section class="control-panel">
+          <section class="control-panel research-controls">
             <label>市场
               <select id="market-select">
                 <option value="ALL">ALL</option>
                 <option value="CN">A股</option>
-                <option value="CN_ETF">A股 ETF</option>
+                <option value="CN_ETF" selected>A股ETF</option>
                 <option value="HK">港股</option>
                 <option value="US">美股</option>
                 <option value="CRYPTO">加密货币</option>
@@ -118,6 +90,25 @@
             </label>
             <label>成本 bps
               <input id="research-cost-bps" type="number" min="0" max="100" value="5">
+            </label>
+            <label>基准资产
+              <input id="benchmark-asset-id" value="CN_ETF_XSHG_510300">
+            </label>
+            <label>现金年化
+              <input id="cash-annual-return" type="number" step="0.001" value="0.015">
+            </label>
+            <label class="check-label">
+              <input id="regime-filter" type="checkbox" checked>
+              <span>Regime 过滤</span>
+            </label>
+            <label>Regime 窗口
+              <input id="regime-lookback" type="number" min="1" max="252" value="3">
+            </label>
+            <label>相对收益门槛
+              <input id="min-relative-return" type="number" step="0.01" value="-1">
+            </label>
+            <label>最大回撤上限
+              <input id="max-drawdown-limit" type="number" step="0.01" value="0.25">
             </label>
             <button id="run-research" class="primary-button" type="button">运行研究</button>
           </section>
@@ -140,7 +131,7 @@
 
         <section id="page-backtest" class="page">
           <div class="metric-grid compact" id="backtest-metrics"></div>
-          <div class="layout-1-1">
+          <div class="layout-even">
             <section class="panel">
               <div class="panel-head"><h3>净值曲线</h3></div>
               <div id="equity-chart" class="chart-box tall"></div>
@@ -150,7 +141,7 @@
               <div id="drawdown-chart" class="chart-box tall"></div>
             </section>
           </div>
-          <div class="layout-1-1">
+          <div class="layout-even">
             <section class="panel">
               <div class="panel-head"><h3>调仓记录</h3></div>
               <div class="table-wrap scroll-table"><table><tbody id="trade-table"></tbody></table></div>
@@ -160,6 +151,24 @@
               <div class="table-wrap scroll-table"><table><tbody id="holding-table"></tbody></table></div>
             </section>
           </div>
+        </section>
+
+        <section id="page-decision" class="page">
+          <div class="metric-grid compact" id="decision-metrics"></div>
+          <div class="layout-even">
+            <section class="panel">
+              <div class="panel-head"><h3>策略 vs 基准</h3></div>
+              <div id="benchmark-chart" class="chart-box tall"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head"><h3>Regime 状态</h3></div>
+              <div class="table-wrap scroll-table"><table><tbody id="regime-table"></tbody></table></div>
+            </section>
+          </div>
+          <section class="panel">
+            <div class="panel-head"><h3>准入原因</h3><span class="tag tag-warn">research gate</span></div>
+            <div id="decision-log" class="status-list"></div>
+          </section>
         </section>
 
         <section id="page-signals" class="page">
@@ -185,7 +194,7 @@
             <button id="run-signals" class="primary-button" type="button">生成信号</button>
           </section>
           <div class="metric-grid compact" id="signal-metrics"></div>
-          <div class="layout-1-1">
+          <div class="layout-even">
             <section class="panel">
               <div class="panel-head"><h3>目标仓位</h3><span class="tag">targets.csv</span></div>
               <div class="table-wrap scroll-table"><table><tbody id="target-table"></tbody></table></div>
@@ -203,7 +212,7 @@
               <select id="paper-market-select">
                 <option value="ALL">ALL</option>
                 <option value="CN">A股</option>
-                <option value="CN_ETF">A股 ETF</option>
+                <option value="CN_ETF" selected>A股ETF</option>
                 <option value="HK">港股</option>
                 <option value="US">美股</option>
                 <option value="CRYPTO">加密货币</option>
@@ -236,47 +245,61 @@
             <label>现金下限
               <input id="paper-min-cash-weight" type="number" min="0" max="0.95" step="0.05" value="0.1">
             </label>
+            <label>回撤保护
+              <input id="paper-drawdown-guard" type="number" min="0" max="1" step="0.01" value="0.10">
+            </label>
+            <label>冷却期
+              <input id="paper-guard-cooldown" type="number" min="0" max="30" value="3">
+            </label>
             <button id="run-paper" class="primary-button" type="button">运行模拟</button>
           </section>
           <div class="metric-grid compact" id="paper-metrics"></div>
-          <div class="layout-1-1">
+          <div class="layout-even">
             <section class="panel">
               <div class="panel-head"><h3>模拟净值</h3><span class="tag">equity_curve.csv</span></div>
               <div id="paper-equity-chart" class="chart-box tall"></div>
             </section>
             <section class="panel">
-              <div class="panel-head"><h3>模拟仓位暴露</h3><span class="tag tag-warn">local only</span></div>
+              <div class="panel-head"><h3>仓位暴露</h3><span class="tag tag-warn">local only</span></div>
               <div id="paper-exposure-chart" class="chart-box tall"></div>
             </section>
           </div>
-          <div class="layout-1-1">
+          <div class="layout-even">
             <section class="panel">
               <div class="panel-head"><h3>模拟成交</h3><span class="tag">fills.csv</span></div>
               <div class="table-wrap scroll-table"><table><tbody id="paper-fill-table"></tbody></table></div>
             </section>
             <section class="panel">
-              <div class="panel-head"><h3>模拟持仓</h3><span class="tag">positions.csv</span></div>
-              <div class="table-wrap scroll-table"><table><tbody id="paper-position-table"></tbody></table></div>
+              <div class="panel-head"><h3>保护事件</h3><span class="tag">guard_events.csv</span></div>
+              <div class="table-wrap scroll-table"><table><tbody id="paper-guard-table"></tbody></table></div>
             </section>
           </div>
         </section>
 
-        <section id="page-risk" class="page">
-          <div class="metric-grid compact" id="risk-metrics"></div>
-          <div class="layout-1-1">
-            <section class="panel">
-              <div class="panel-head"><h3>市场暴露</h3></div>
-              <div id="exposure-chart" class="chart-box"></div>
-            </section>
-            <section class="panel">
-              <div class="panel-head"><h3>异常日志</h3></div>
-              <div id="risk-log" class="status-list"></div>
-            </section>
-          </div>
+        <section id="page-data" class="page">
+          <section class="panel">
+            <div class="panel-head"><h3>市场数据状态</h3><span class="tag">本地检查</span></div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>市场</th>
+                    <th>数据源</th>
+                    <th>更新时间</th>
+                    <th>行数</th>
+                    <th>缺失值</th>
+                    <th>异常值</th>
+                    <th>状态</th>
+                  </tr>
+                </thead>
+                <tbody id="market-table"></tbody>
+              </table>
+            </div>
+          </section>
         </section>
 
         <section id="page-logs" class="page">
-          <div class="layout-1-1">
+          <div class="layout-even">
             <section class="panel">
               <div class="panel-head"><h3>任务日志</h3></div>
               <div id="task-log" class="status-list"></div>
@@ -289,7 +312,6 @@
         </section>
       </main>
     </div>
-
     <div id="toast" class="toast" hidden></div>
     <script src="/app.js"></script>
   </body>

@@ -38,7 +38,7 @@ def import_etf_csv(
         validate_market_data(bars)
         written = _merge_write_processed_bars(bars, output_root, frequency)
         observed_dates = sorted(set(pd.to_datetime(bars["date"]).dt.date))
-        report = build_quality_report(bars, expected_dates=observed_dates)
+        report = build_quality_report(bars, expected_dates=_expected_business_dates(observed_dates))
         report_path = output_root / "quality_report_cn_etf.json"
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
@@ -92,6 +92,12 @@ def _merge_write_processed_bars(bars: pd.DataFrame, output_root: Path, frequency
             year_bars = pd.concat([existing, year_bars], ignore_index=True)
         written.append(store.write_frame(year_bars, "processed/bars", partitions))
     return written
+
+
+def _expected_business_dates(observed_dates: list[object]) -> list[object]:
+    if not observed_dates:
+        return []
+    return list(pd.bdate_range(min(observed_dates), max(observed_dates)).date)
 
 
 def main() -> None:

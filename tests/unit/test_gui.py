@@ -23,16 +23,30 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("research", snapshot["logs"])
         self.assertGreaterEqual(snapshot["dashboard"]["strategy_count"], 1)
 
-    def test_demo_research_payload_contains_metrics_tables_and_demo_label(self):
-        result = run_demo_research(market="ALL", factor_name="momentum_2", top_n=2, cost_bps=5.0)
+    def test_demo_research_payload_contains_metrics_tables_decision_and_demo_label(self):
+        result = run_demo_research(
+            market="CN_ETF",
+            factor_name="momentum_2",
+            top_n=2,
+            cost_bps=5.0,
+            benchmark_asset_id="CN_ETF_XSHG_510300",
+            cash_annual_return=0.015,
+            regime_filter=True,
+            regime_lookback=3,
+            min_relative_return=-1.0,
+            max_drawdown_limit=0.25,
+        )
 
         self.assertEqual(result["data_mode"], "demo_fixture")
         self.assertIn("annualized_return", result["metrics"])
         self.assertIn("max_drawdown", result["metrics"])
         self.assertIn("sharpe", result["metrics"])
         self.assertIn("icir", result["factor_summary"])
-        self.assertEqual(result["request"]["portfolio_scope"], "global")
+        self.assertEqual(result["request"]["portfolio_scope"], "market")
         self.assertEqual(result["request"]["periods_per_year"], 252)
+        self.assertIn("relative_return", result["benchmark_metrics"])
+        self.assertIn(result["decision"]["decision_status"], {"approved", "rejected"})
+        self.assertGreaterEqual(result["regime"]["blocked_signal_dates"], 0)
         self.assertGreater(len(result["equity_curve"]), 0)
         self.assertGreater(len(result["trades"]), 0)
         self.assertGreater(len(result["holdings"]), 0)
@@ -56,10 +70,14 @@ class GuiSnapshotTests(unittest.TestCase):
             initial_cash=100000.0,
             max_asset_weight=0.4,
             min_cash_weight=0.1,
+            max_drawdown_guard=0.50,
+            guard_cooldown_periods=3,
         )
 
         self.assertEqual(result["data_mode"], "demo_fixture")
         self.assertIn("ending_equity", result["metrics"])
+        self.assertIn("guard_event_count", result["metrics"])
+        self.assertIn("guard_events", result)
         self.assertGreater(len(result["equity_curve"]), 0)
         self.assertGreater(len(result["fills"]), 0)
         self.assertGreater(len(result["positions"]), 0)
@@ -77,26 +95,38 @@ class GuiHttpTests(unittest.TestCase):
             html = _read_text(f"{base_url}/")
             self.assertIn("Quant Robot Local Console", html)
             self.assertIn("信号快照", html)
-            self.assertIn("模拟交易", html)
-            self.assertIn("A股 ETF", html)
+            self.assertIn("纸面模拟", html)
+            self.assertIn("A股ETF", html)
+            self.assertIn("决策风控", html)
+            self.assertNotIn("鎬", html)
             self.assertNotIn("鐮", html)
-            self.assertNotIn("閺", html)
+            self.assertNotIn("妯", html)
+            self.assertNotIn("鑲", html)
 
             snapshot = _read_json(f"{base_url}/api/snapshot")
             self.assertEqual(snapshot["data_mode"], "demo_fixture")
 
-            research = _read_json(f"{base_url}/api/research/demo?market=CN_ETF&factor=momentum_2&top_n=2&cost_bps=5")
+            research = _read_json(
+                f"{base_url}/api/research/demo?market=CN_ETF&factor=momentum_2&top_n=2&cost_bps=5"
+                "&benchmark_asset_id=CN_ETF_XSHG_510300&cash_annual_return=0.015&regime_filter=true&regime_lookback=3"
+            )
             self.assertEqual(research["request"]["market"], "CN_ETF")
             self.assertEqual(research["request"]["factor_name"], "momentum_2")
+            self.assertIn("decision", research)
+            self.assertIn("benchmark_metrics", research)
             self.assertGreater(len(research["equity_curve"]), 0)
 
             signal = _read_json(f"{base_url}/api/signals/demo?market=CN_ETF&factor=momentum_2&top_n=2&max_asset_weight=0.4&min_cash_weight=0.1")
             self.assertGreater(len(signal["targets"]), 0)
             self.assertFalse(signal["rebalance_plan"][0]["executable"])
 
-            paper = _read_json(f"{base_url}/api/paper/demo?market=CN_ETF&factor=momentum_2&top_n=2&max_asset_weight=0.4&min_cash_weight=0.1")
+            paper = _read_json(
+                f"{base_url}/api/paper/demo?market=CN_ETF&factor=momentum_2&top_n=2&max_asset_weight=0.4&min_cash_weight=0.1"
+                "&max_drawdown_guard=0.0001&guard_cooldown_periods=3"
+            )
             self.assertGreater(len(paper["equity_curve"]), 0)
             self.assertGreater(len(paper["fills"]), 0)
+            self.assertIn("guard_events", paper)
             self.assertFalse(paper["intents"][0]["executable"])
         finally:
             server.shutdown()

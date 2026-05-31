@@ -39,6 +39,31 @@ def main() -> None:
         output_dir=Path(args.output_dir) if args.output_dir else None,
     )
     print(json.dumps({"summary": result["summary"], "top": result["leaderboard"][:10]}, indent=2, sort_keys=True))
+    try:
+        assert_grid_succeeded(result)
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from exc
+
+
+def assert_grid_succeeded(result: dict[str, object]) -> None:
+    summary = result.get("summary", {})
+    if not isinstance(summary, dict):
+        raise RuntimeError("experiment grid failed: missing summary")
+    failed = int(summary.get("failed", 0))
+    completed = int(summary.get("completed", 0))
+    if failed:
+        leaderboard = result.get("leaderboard", [])
+        if not isinstance(leaderboard, list):
+            leaderboard = []
+        failures = [
+            f"{row.get('case_id')}: {row.get('error')}"
+            for row in leaderboard
+            if isinstance(row, dict) and row.get("status") == "failed"
+        ]
+        detail = "; ".join(failures[:5])
+        raise RuntimeError(f"experiment grid failed: {failed} failed case(s)" + (f" ({detail})" if detail else ""))
+    if completed == 0:
+        raise RuntimeError("experiment grid failed: no completed experiment cases")
 
 
 def _load_bars(source: str, data_root: Path, markets: tuple[str, ...]) -> pd.DataFrame:

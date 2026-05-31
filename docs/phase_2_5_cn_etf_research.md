@@ -50,11 +50,27 @@ $env:PYTHONPATH='src'
 python scripts\run_experiment_grid.py --config configs\experiment_grid_cn_etf.json --source processed-bars --data-root data\processed\etf_csv
 ```
 
+For the lower-turnover research path, run the dedicated grid. It uses longer factor windows, 5-day holding, 5/10-day rebalance intervals, and realistic transaction costs:
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_experiment_grid.py --config configs\experiment_grid_cn_etf_low_turnover.json --source processed-bars --data-root data\processed\etf_csv
+```
+
+When `periods_per_year` is left unset, the pipeline scales annualization by the rebalance interval. For example, a 5-day rebalance interval uses roughly `252 / 5` periods per year rather than pretending each return is daily.
+
 ## Run ETF Walk-Forward Validation
 
 ```powershell
 $env:PYTHONPATH='src'
 python scripts\run_walk_forward.py --config configs\walk_forward_cn_etf.json --source processed-bars --data-root data\processed\etf_csv
+```
+
+Lower-turnover walk-forward validation:
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_walk_forward.py --config configs\walk_forward_cn_etf_low_turnover.json --source processed-bars --data-root data\processed\etf_csv
 ```
 
 ## Run ETF Paper Simulation

@@ -7,12 +7,12 @@ const state = {
 
 const titles = {
   dashboard: "总览",
-  data: "数据中心",
   research: "因子研究",
   backtest: "回测报告",
+  decision: "决策风控",
   signals: "信号快照",
-  paper: "模拟交易",
-  risk: "风险监控",
+  paper: "纸面模拟",
+  data: "数据中心",
   logs: "日志报告",
 };
 
@@ -32,25 +32,24 @@ function bindNavigation() {
       document.querySelectorAll(".nav-item").forEach((item) => item.classList.remove("active"));
       button.classList.add("active");
       document.querySelectorAll(".page").forEach((section) => section.classList.remove("active-page"));
-      document.getElementById(`page-${page}`).classList.add("active-page");
-      document.getElementById("page-title").textContent = titles[page] || page;
+      byId(`page-${page}`).classList.add("active-page");
+      byId("page-title").textContent = titles[page] || page;
     });
   });
 }
 
 function bindActions() {
-  document.getElementById("run-research").addEventListener("click", runResearch);
-  document.getElementById("run-signals").addEventListener("click", runSignals);
-  document.getElementById("run-paper").addEventListener("click", runPaper);
+  byId("run-research").addEventListener("click", runResearch);
+  byId("run-signals").addEventListener("click", runSignals);
+  byId("run-paper").addEventListener("click", runPaper);
 }
 
 async function loadSnapshot() {
   state.snapshot = await fetchJson("/api/snapshot");
-  document.getElementById("mode-pill").textContent = `${state.snapshot.data_mode} / local`;
+  byId("mode-pill").textContent = `${state.snapshot.data_mode} / local`;
   fillFactorSelect(state.snapshot.available_factors || []);
   renderDashboard();
   renderDataCenter();
-  renderRisk();
   renderLogs();
 }
 
@@ -62,14 +61,20 @@ async function runResearch() {
     cost_bps: valueOf("research-cost-bps") || "5",
     start_date: valueOf("start-date"),
     end_date: valueOf("end-date"),
+    benchmark_asset_id: valueOf("benchmark-asset-id"),
+    cash_annual_return: valueOf("cash-annual-return") || "0",
+    regime_filter: byId("regime-filter").checked ? "true" : "false",
+    regime_lookback: valueOf("regime-lookback") || "20",
+    min_relative_return: valueOf("min-relative-return"),
+    max_drawdown_limit: valueOf("max-drawdown-limit"),
   });
   await withBusy("run-research", async () => {
     state.research = await fetchJson(`/api/research/demo?${params.toString()}`);
     renderDashboard();
     renderFactorResearch();
     renderBacktest();
-    renderRisk();
-    showToast("研究已更新");
+    renderDecision();
+    showToast("研究结果已更新");
   });
 }
 
@@ -87,7 +92,7 @@ async function runSignals() {
   await withBusy("run-signals", async () => {
     state.signals = await fetchJson(`/api/signals/demo?${params.toString()}`);
     renderSignals();
-    renderRisk();
+    renderDashboard();
     showToast("信号快照已生成");
   });
 }
@@ -106,50 +111,55 @@ async function runPaper() {
     max_market_weight: "1",
     max_gross_exposure: "1",
     min_cash_weight: valueOf("paper-min-cash-weight") || "0",
+    max_drawdown_guard: valueOf("paper-drawdown-guard"),
+    guard_cooldown_periods: valueOf("paper-guard-cooldown") || "0",
   });
   await withBusy("run-paper", async () => {
     state.paper = await fetchJson(`/api/paper/demo?${params.toString()}`);
     renderDashboard();
     renderPaper();
-    renderRisk();
-    showToast("模拟交易已更新");
+    showToast("纸面模拟已更新");
   });
 }
 
 function fillFactorSelect(factors) {
   const options = factors.map((factor) => `<option value="${escapeHtml(factor)}">${escapeHtml(factor)}</option>`).join("");
   document.querySelectorAll(".factor-select").forEach((select) => {
+    const previous = select.value;
     select.innerHTML = options;
+    if (previous) select.value = previous;
   });
 }
 
 function renderDashboard() {
   const dashboard = state.snapshot?.dashboard || {};
   const metrics = state.research?.metrics || {};
-  const signals = state.signals || {};
-  document.getElementById("dashboard-metrics").innerHTML = [
-    metric("策略数量", dashboard.strategy_count ?? 0, "demo strategies"),
-    metric("数据源状态", `${state.snapshot?.markets?.length ?? 0} markets`, "local checks"),
-    metric("回测数量", dashboard.backtest_count ?? 0, "research runs"),
-    metric("信号日期", signals.signal_date || "--", "latest snapshot"),
+  const benchmark = state.research?.benchmark_metrics || {};
+  const decision = state.research?.decision || {};
+  const paperMetrics = state.paper?.metrics || {};
+  byId("dashboard-metrics").innerHTML = [
+    metric("策略数量", dashboard.strategy_count ?? 0, "local"),
+    metric("总收益", formatPercent(metrics.total_return), "research"),
+    metric("相对基准", formatPercent(benchmark.relative_return), "Phase 2.6"),
+    metric("准入状态", decision.decision_status || "--", "research gate"),
   ].join("");
-  document.getElementById("dashboard-equity").innerHTML = lineChart(state.research?.equity_curve || [], "date", "equity", {
-    color: "#0f8b8d",
-    title: `Demo equity ${formatPercent(metrics.total_return)}`,
-  });
-  document.getElementById("dashboard-status").innerHTML = statusRows([
+  byId("dashboard-equity").innerHTML = multiLineChart([
+    { label: "策略", color: "#007f86", rows: state.research?.equity_curve || [], yKey: "equity" },
+    { label: "基准", color: "#b86b24", rows: state.research?.benchmark_curve || [], yKey: "benchmark_equity" },
+  ]);
+  byId("dashboard-status").innerHTML = statusRows([
     ["Tushare", readyText(state.snapshot?.readiness?.tushare), state.snapshot?.readiness?.tushare?.ready ? "ok" : "warn"],
     ["Parquet", readyText(state.snapshot?.readiness?.parquet), state.snapshot?.readiness?.parquet?.ready ? "ok" : "warn"],
-    ["模拟交易", state.paper ? `ending equity ${formatNumber(state.paper.metrics?.ending_equity)}` : "not run", state.paper ? "ok" : "muted"],
-    ["交易边界", dashboard.risk_notice || "Research only", "danger"],
-    ["数据说明", state.snapshot?.notice || "", "muted"],
+    ["纸面权益", formatNumber(paperMetrics.ending_equity), state.paper ? "ok" : "muted"],
+    ["保护事件", formatNumber(paperMetrics.guard_event_count), paperMetrics.guard_event_count > 0 ? "warn" : "muted"],
+    ["安全边界", dashboard.risk_notice || "Research only", "danger"],
   ]);
 }
 
 function renderDataCenter() {
-  document.getElementById("market-table").innerHTML = (state.snapshot?.markets || []).map((market) => `
+  byId("market-table").innerHTML = (state.snapshot?.markets || []).map((market) => `
     <tr>
-      <td><span class="status-dot"></span><strong>${escapeHtml(market.market)}</strong><br><span class="muted">${escapeHtml(market.label)}</span></td>
+      <td><strong>${escapeHtml(market.market)}</strong><br><span class="muted">${escapeHtml(market.label)}</span></td>
       <td>${escapeHtml(market.source)}</td>
       <td>${escapeHtml(market.updated_at)}</td>
       <td>${formatNumber(market.rows)}</td>
@@ -162,154 +172,97 @@ function renderDataCenter() {
 
 function renderFactorResearch() {
   const summary = state.research?.factor_summary || {};
-  document.getElementById("factor-metrics").innerHTML = [
+  byId("factor-metrics").innerHTML = [
     metric("Mean IC", formatDecimal(summary.mean_ic), "cross-section"),
     metric("Rank IC", formatDecimal(summary.mean_rank_ic), "rank"),
     metric("ICIR", formatDecimal(summary.icir), "mean/std"),
     metric("因子", state.research?.request?.factor_name || "--", "selected"),
     metric("市场", state.research?.request?.market || "--", "selected"),
   ].join("");
-  document.getElementById("ic-chart").innerHTML = multiLineChart(state.research?.ic || [], "date", [
-    { key: "ic", label: "IC", color: "#0f8b8d" },
-    { key: "rank_ic", label: "Rank IC", color: "#c56b2d" },
+  byId("ic-chart").innerHTML = multiLineChart([
+    { label: "IC", color: "#007f86", rows: state.research?.ic || [], yKey: "ic" },
+    { label: "Rank IC", color: "#b86b24", rows: state.research?.ic || [], yKey: "rank_ic" },
   ]);
-  document.getElementById("group-chart").innerHTML = barChart(
-    averageByKey(state.research?.group_returns || [], "quantile", "mean_forward_return"),
-    "quantile",
-    "mean_forward_return",
-    "#476f54"
-  );
-  document.getElementById("long-short-chart").innerHTML = lineChart(state.research?.long_short || [], "date", "long_short_return", {
-    color: "#b44336",
-    title: "Long-short return",
-  });
+  byId("group-chart").innerHTML = barChart(averageByKey(state.research?.group_returns || [], "quantile", "mean_forward_return"), "quantile", "mean_forward_return", "#476f54");
+  byId("long-short-chart").innerHTML = lineChart(state.research?.long_short || [], "long_short_return", "#a13d32", "Long-short");
 }
 
 function renderBacktest() {
   const metrics = state.research?.metrics || {};
-  document.getElementById("backtest-metrics").innerHTML = [
+  byId("backtest-metrics").innerHTML = [
     metric("年化收益", formatPercent(metrics.annualized_return), "demo"),
     metric("最大回撤", formatPercent(metrics.max_drawdown), "demo"),
-    metric("夏普比率", formatDecimal(metrics.sharpe), "demo"),
+    metric("Sharpe", formatDecimal(metrics.sharpe), "demo"),
     metric("胜率", formatPercent(metrics.win_rate), "demo"),
     metric("换手率", formatDecimal(metrics.turnover), "avg"),
   ].join("");
-  document.getElementById("equity-chart").innerHTML = lineChart(state.research?.equity_curve || [], "date", "equity", {
-    color: "#0f8b8d",
-    title: "Equity",
-  });
-  document.getElementById("drawdown-chart").innerHTML = lineChart(state.research?.drawdown_curve || [], "date", "drawdown", {
-    color: "#b44336",
-    title: "Drawdown",
-  });
-  document.getElementById("trade-table").innerHTML = tableRows(state.research?.trades || [], [
-    "signal_date",
-    "entry_date",
-    "exit_date",
-    "asset_id",
-    "market",
-    "target_weight",
-    "net_return",
+  byId("equity-chart").innerHTML = lineChart(state.research?.equity_curve || [], "equity", "#007f86", "Equity");
+  byId("drawdown-chart").innerHTML = lineChart(state.research?.drawdown_curve || [], "drawdown", "#a13d32", "Drawdown");
+  byId("trade-table").innerHTML = tableRows(state.research?.trades || [], ["signal_date", "entry_date", "exit_date", "asset_id", "market", "target_weight", "net_return"]);
+  byId("holding-table").innerHTML = tableRows(state.research?.holdings || [], ["date", "asset_id", "market", "factor_name", "factor_value", "target_weight"]);
+}
+
+function renderDecision() {
+  const decision = state.research?.decision || {};
+  const benchmark = state.research?.benchmark_metrics || {};
+  const regime = state.research?.regime || {};
+  byId("decision-metrics").innerHTML = [
+    metric("准入状态", decision.decision_status || "--", "gate"),
+    metric("相对基准", formatPercent(benchmark.relative_return), "strategy - benchmark"),
+    metric("跑赢现金", formatPercent(benchmark.excess_over_cash), "strategy - cash"),
+    metric("基准收益", formatPercent(benchmark.benchmark_total_return), "benchmark"),
+    metric("屏蔽日期", formatNumber(regime.blocked_signal_dates), "regime"),
+  ].join("");
+  byId("benchmark-chart").innerHTML = multiLineChart([
+    { label: "策略", color: "#007f86", rows: state.research?.equity_curve || [], yKey: "equity" },
+    { label: "基准", color: "#b86b24", rows: state.research?.benchmark_curve || [], yKey: "benchmark_equity" },
   ]);
-  document.getElementById("holding-table").innerHTML = tableRows(state.research?.holdings || [], [
-    "date",
-    "asset_id",
-    "market",
-    "factor_name",
-    "factor_value",
-    "target_weight",
+  byId("regime-table").innerHTML = tableRows(state.research?.regime_curve || [], ["date", "regime_momentum", "regime_allowed"]);
+  const reasons = decision.rejection_reasons || [];
+  byId("decision-log").innerHTML = statusRows([
+    ["状态", decision.decision_status || "--", decision.decision_status === "approved" ? "ok" : "warn"],
+    ["拒绝原因", reasons.length ? reasons.join(" / ") : "无", reasons.length ? "warn" : "ok"],
+    ["回撤上限", formatPercent(decision.max_drawdown_limit), "muted"],
+    ["相对收益门槛", formatPercent(decision.min_relative_return), "muted"],
   ]);
 }
 
 function renderSignals() {
   const signal = state.signals || {};
-  document.getElementById("signal-metrics").innerHTML = [
+  byId("signal-metrics").innerHTML = [
     metric("信号日期", signal.signal_date || "--", "as-of"),
     metric("目标总仓位", formatPercent(signal.target_gross_exposure), "gross"),
     metric("现金权重", formatPercent(signal.cash_weight), "cash"),
     metric("目标数量", signal.targets?.length ?? 0, "assets"),
     metric("可执行", "false", "research only"),
   ].join("");
-  document.getElementById("target-table").innerHTML = tableRows(signal.targets || [], [
-    "signal_date",
-    "asset_id",
-    "market",
-    "factor_name",
-    "factor_value",
-    "latest_price",
-    "target_weight",
-  ]);
-  document.getElementById("rebalance-table").innerHTML = tableRows(signal.rebalance_plan || [], [
-    "asset_id",
-    "market",
-    "action",
-    "target_weight",
-    "delta_value",
-    "estimated_quantity_delta",
-    "executable",
-  ]);
+  byId("target-table").innerHTML = tableRows(signal.targets || [], ["signal_date", "asset_id", "market", "factor_name", "factor_value", "latest_price", "target_weight"]);
+  byId("rebalance-table").innerHTML = tableRows(signal.rebalance_plan || [], ["asset_id", "market", "action", "target_weight", "delta_value", "estimated_quantity_delta", "executable"]);
 }
 
 function renderPaper() {
   const paper = state.paper || {};
   const metrics = paper.metrics || {};
-  document.getElementById("paper-metrics").innerHTML = [
+  byId("paper-metrics").innerHTML = [
     metric("期末权益", formatNumber(metrics.ending_equity), "demo"),
-    metric("现金", formatNumber(metrics.ending_cash), "simulated"),
-    metric("总收益", formatPercent(metrics.cash_return ?? metrics.total_return), "simulated"),
+    metric("总收益", formatPercent(metrics.total_return), "simulated"),
     metric("最大回撤", formatPercent(metrics.max_equity_drawdown ?? metrics.max_drawdown), "simulated"),
     metric("成交笔数", paper.fills?.length ?? 0, "fills"),
+    metric("保护事件", formatNumber(metrics.guard_event_count), "guard"),
   ].join("");
-  document.getElementById("paper-equity-chart").innerHTML = lineChart(paper.equity_curve || [], "date", "equity", {
-    color: "#0f8b8d",
-    title: "Paper equity",
-  });
-  document.getElementById("paper-exposure-chart").innerHTML = lineChart(paper.equity_curve || [], "date", "gross_exposure", {
-    color: "#c56b2d",
-    title: "Gross exposure",
-  });
-  document.getElementById("paper-fill-table").innerHTML = tableRows(paper.fills || [], [
-    "signal_date",
-    "execution_date",
-    "asset_id",
-    "market",
-    "side",
-    "quantity",
-    "fill_price",
-    "fee",
-  ]);
-  document.getElementById("paper-position-table").innerHTML = tableRows(paper.positions || [], [
-    "asset_id",
-    "quantity",
-  ]);
-}
-
-function renderRisk() {
-  const risk = state.paper?.risk || state.research?.risk || state.snapshot?.risk || {};
-  const signalGross = Number(state.signals?.target_gross_exposure);
-  document.getElementById("risk-metrics").innerHTML = [
-    metric("波动率", formatPercent(risk.volatility), "demo"),
-    metric("最大回撤", formatPercent(risk.max_drawdown), "demo"),
-    metric("VaR 95", formatPercent(risk.var_95), "demo"),
-    metric("研究暴露", formatDecimal(risk.gross_exposure), "backtest"),
-    metric("信号仓位", Number.isFinite(signalGross) ? formatPercent(signalGross) : "--", "targets"),
-  ].join("");
-  const exposure = risk.exposure_by_market
-    ? Object.entries(risk.exposure_by_market).map(([market, value]) => ({ market, value }))
-    : [{ market: "paper gross", value: risk.gross_exposure || 0 }];
-  document.getElementById("exposure-chart").innerHTML = barChart(exposure, "market", "value", "#c56b2d");
-  document.getElementById("risk-log").innerHTML = (risk.anomalies || []).map((item) => `
-    <div class="list-row ${escapeHtml(item.level)}"><strong>${escapeHtml(item.level)}</strong><span>${escapeHtml(item.message)}</span></div>
-  `).join("");
+  byId("paper-equity-chart").innerHTML = lineChart(paper.equity_curve || [], "equity", "#007f86", "Paper equity");
+  byId("paper-exposure-chart").innerHTML = lineChart(paper.equity_curve || [], "gross_exposure", "#b86b24", "Gross exposure");
+  byId("paper-fill-table").innerHTML = tableRows(paper.fills || [], ["signal_date", "execution_date", "asset_id", "market", "side", "quantity", "fill_price", "fee"]);
+  byId("paper-guard-table").innerHTML = tableRows(paper.guard_events || [], ["date", "event_type", "drawdown", "blocked_buy_intents", "cooldown_remaining"]);
 }
 
 function renderLogs() {
   const logs = state.snapshot?.logs || {};
   const rows = [...(logs.research || []), ...(logs.backtest || []), ...(logs.errors || [])];
-  document.getElementById("task-log").innerHTML = rows.map((item) => `
+  byId("task-log").innerHTML = rows.map((item) => `
     <div class="list-row"><strong>${escapeHtml(item.level)} / ${escapeHtml(item.time || "")}</strong><span>${escapeHtml(item.message)}</span></div>
   `).join("");
-  document.getElementById("report-list").innerHTML = (state.snapshot?.reports || []).map((report) => `
+  byId("report-list").innerHTML = (state.snapshot?.reports || []).map((report) => `
     <div class="list-row"><strong>${escapeHtml(report.name)}</strong><span>${escapeHtml(report.kind)} / ${escapeHtml(report.path)}</span></div>
   `).join("");
 }
@@ -326,7 +279,7 @@ function statusRows(rows) {
 
 function tableRows(rows, columns) {
   const head = `<tr>${columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("")}</tr>`;
-  const body = rows.slice(0, 60).map((row) => `
+  const body = rows.slice(0, 80).map((row) => `
     <tr>${columns.map((column) => `<td>${formatCell(row[column])}</td>`).join("")}</tr>
   `).join("");
   return `${head}${body}`;
@@ -349,70 +302,58 @@ function averageByKey(rows, key, valueKey) {
   }));
 }
 
-function lineChart(rows, xKey, yKey, options = {}) {
-  const points = rows
-    .map((row) => ({ x: row[xKey], y: Number(row[yKey]) }))
-    .filter((point) => Number.isFinite(point.y));
-  return renderLineSvg([{ points, color: options.color || "#0f8b8d", label: options.title || yKey }]);
+function lineChart(rows, yKey, color, label) {
+  return multiLineChart([{ label, color, rows, yKey }]);
 }
 
-function multiLineChart(rows, xKey, series) {
-  const chartSeries = series.map((item) => ({
-    color: item.color,
-    label: item.label,
-    points: rows
-      .map((row) => ({ x: row[xKey], y: Number(row[item.key]) }))
-      .filter((point) => Number.isFinite(point.y)),
-  }));
-  return renderLineSvg(chartSeries);
-}
-
-function renderLineSvg(series) {
+function multiLineChart(series) {
   const width = 760;
   const height = 276;
-  const pad = { left: 50, right: 24, top: 30, bottom: 38 };
-  const all = series.flatMap((item) => item.points);
+  const pad = { left: 54, right: 24, top: 30, bottom: 38 };
+  const normalized = series.map((item) => ({
+    ...item,
+    points: (item.rows || []).map((row) => Number(row[item.yKey])).filter((value) => Number.isFinite(value)),
+  }));
+  const all = normalized.flatMap((item) => item.points);
   if (all.length === 0) return emptyChart("No data");
-  let minY = Math.min(...all.map((point) => point.y));
-  let maxY = Math.max(...all.map((point) => point.y));
+  let minY = Math.min(...all);
+  let maxY = Math.max(...all);
   if (minY === maxY) {
     minY -= 0.5;
     maxY += 0.5;
   }
-  const maxLen = Math.max(...series.map((item) => item.points.length));
   const innerW = width - pad.left - pad.right;
   const innerH = height - pad.top - pad.bottom;
-  const paths = series.map((item) => {
-    const coords = item.points.map((point, index) => {
+  const maxLen = Math.max(...normalized.map((item) => item.points.length));
+  const paths = normalized.map((item) => {
+    const coords = item.points.map((value, index) => {
       const x = pad.left + (innerW * index) / Math.max(maxLen - 1, 1);
-      const y = pad.top + innerH - ((point.y - minY) / (maxY - minY)) * innerH;
+      const y = pad.top + innerH - ((value - minY) / (maxY - minY)) * innerH;
       return `${x.toFixed(1)},${y.toFixed(1)}`;
     }).join(" ");
     return `<polyline points="${coords}" fill="none" stroke="${item.color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"></polyline>`;
   }).join("");
-  const legend = series.map((item, index) => `
-    <g transform="translate(${pad.left + index * 150}, 16)">
+  const legend = normalized.map((item, index) => `
+    <g transform="translate(${pad.left + index * 120}, 16)">
       <rect width="18" height="4" rx="2" fill="${item.color}"></rect>
-      <text x="24" y="5" font-size="12" fill="#64685f">${escapeSvg(item.label)}</text>
+      <text x="24" y="5" font-size="12" fill="#5d6470">${escapeSvg(item.label)}</text>
     </g>
   `).join("");
   return `
     <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="line chart">
-      <rect width="${width}" height="${height}" fill="#f9f4e8"></rect>
+      <rect width="${width}" height="${height}" fill="#f6f2ea"></rect>
       ${legend}
-      <line x1="${pad.left}" y1="${height - pad.bottom}" x2="${width - pad.right}" y2="${height - pad.bottom}" stroke="#d9d0be"></line>
-      <line x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${height - pad.bottom}" stroke="#d9d0be"></line>
-      <text x="10" y="${pad.top + 5}" font-size="11" fill="#64685f">${maxY.toFixed(3)}</text>
-      <text x="10" y="${height - pad.bottom}" font-size="11" fill="#64685f">${minY.toFixed(3)}</text>
+      <line x1="${pad.left}" y1="${height - pad.bottom}" x2="${width - pad.right}" y2="${height - pad.bottom}" stroke="#d7d0c4"></line>
+      <line x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${height - pad.bottom}" stroke="#d7d0c4"></line>
+      <text x="10" y="${pad.top + 5}" font-size="11" fill="#5d6470">${maxY.toFixed(3)}</text>
+      <text x="10" y="${height - pad.bottom}" font-size="11" fill="#5d6470">${minY.toFixed(3)}</text>
       ${paths}
     </svg>
   `;
 }
 
 function barChart(rows, xKey, yKey, color) {
-  const points = rows
-    .map((row) => ({ label: String(row[xKey]), value: Number(row[yKey]) }))
-    .filter((point) => Number.isFinite(point.value));
+  const points = rows.map((row) => ({ label: String(row[xKey]), value: Number(row[yKey]) })).filter((point) => Number.isFinite(point.value));
   if (points.length === 0) return emptyChart("No data");
   const width = 560;
   const height = 260;
@@ -428,21 +369,21 @@ function barChart(rows, xKey, yKey, color) {
     const y = pad.top + innerH - ((point.value - minY) / (maxY - minY)) * innerH;
     const h = Math.abs(zeroY - y);
     return `
-      <rect x="${x}" y="${Math.min(y, zeroY)}" width="${barW}" height="${h}" rx="4" fill="${color}"></rect>
-      <text x="${x}" y="${height - 18}" font-size="11" fill="#64685f">${escapeSvg(point.label.slice(0, 9))}</text>
+      <rect x="${x}" y="${Math.min(y, zeroY)}" width="${barW}" height="${h}" rx="3" fill="${color}"></rect>
+      <text x="${x}" y="${height - 18}" font-size="11" fill="#5d6470">${escapeSvg(point.label.slice(0, 9))}</text>
     `;
   }).join("");
   return `
     <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="bar chart">
-      <rect width="${width}" height="${height}" fill="#f9f4e8"></rect>
-      <line x1="${pad.left}" y1="${zeroY}" x2="${width - pad.right}" y2="${zeroY}" stroke="#d9d0be"></line>
+      <rect width="${width}" height="${height}" fill="#f6f2ea"></rect>
+      <line x1="${pad.left}" y1="${zeroY}" x2="${width - pad.right}" y2="${zeroY}" stroke="#d7d0c4"></line>
       ${bars}
     </svg>
   `;
 }
 
 function emptyChart(label) {
-  return `<svg viewBox="0 0 520 240" role="img" aria-label="${escapeHtml(label)}"><rect width="520" height="240" fill="#f9f4e8"></rect><text x="30" y="122" fill="#64685f">${escapeSvg(label)}</text></svg>`;
+  return `<svg viewBox="0 0 520 240" role="img" aria-label="${escapeHtml(label)}"><rect width="520" height="240" fill="#f6f2ea"></rect><text x="30" y="122" fill="#5d6470">${escapeSvg(label)}</text></svg>`;
 }
 
 async function fetchJson(url) {
@@ -452,7 +393,7 @@ async function fetchJson(url) {
 }
 
 async function withBusy(buttonId, action) {
-  const button = document.getElementById(buttonId);
+  const button = byId(buttonId);
   const label = button.textContent;
   button.disabled = true;
   button.textContent = "运行中";
@@ -467,7 +408,7 @@ async function withBusy(buttonId, action) {
 }
 
 function showToast(message, isError = false) {
-  const toast = document.getElementById("toast");
+  const toast = byId("toast");
   toast.textContent = message;
   toast.classList.toggle("error", isError);
   toast.hidden = false;
@@ -483,8 +424,12 @@ function readyText(readiness) {
   return (readiness.missing || []).join(" / ") || "not ready";
 }
 
+function byId(id) {
+  return document.getElementById(id);
+}
+
 function valueOf(id) {
-  return document.getElementById(id)?.value || "";
+  return byId(id)?.value || "";
 }
 
 function formatCell(value) {

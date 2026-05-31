@@ -75,3 +75,5 @@ Export chart data from TradingView, then normalize the CSV shape:
 $env:PYTHONPATH='src'
 python scripts\import_tradingview_csv.py input.csv data\raw\tradingview\parsed.csv
 ```
+
+For A-share ETF imports, `quality_report_cn_etf.json` checks gaps across observed business days. This catches missing weekday rows in exported CSV files without counting weekends as data gaps.

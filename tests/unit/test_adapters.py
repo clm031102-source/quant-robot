@@ -109,6 +109,30 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(result.loc[0, "close"], 42500.0)
         self.assertEqual(result.loc[0, "amount"], 85000.0)
 
+    def test_ccxt_adapter_paginates_until_end_date(self):
+        class FakeExchange:
+            def __init__(self):
+                self.calls = []
+                self.rows = [
+                    [1704067200000, 42000.0, 43000.0, 41000.0, 42500.0, 2.0],
+                    [1704153600000, 42500.0, 43500.0, 42000.0, 43000.0, 3.0],
+                    [1704240000000, 43000.0, 44000.0, 42500.0, 43500.0, 4.0],
+                ]
+
+            def fetch_ohlcv(self, symbol, timeframe, since, limit):
+                self.calls.append((symbol, timeframe, since, limit))
+                page = [row for row in self.rows if row[0] >= since]
+                return page[:limit]
+
+        exchange = FakeExchange()
+        adapter = CcxtAdapter(exchange=exchange, limit=2)
+        asset = Asset("CRYPTO_BINANCE_BTC_USDT", "BTC/USDT", "CRYPTO", "BINANCE", "crypto_spot", "USDT", "UTC", "24/7")
+
+        result = adapter.fetch_ohlcv(asset, FetchRequest("2024-01-01", "2024-01-03"))
+
+        self.assertEqual(len(exchange.calls), 2)
+        self.assertEqual(list(result["close"]), [42500.0, 43000.0, 43500.0])
+
 
 if __name__ == "__main__":
     unittest.main()

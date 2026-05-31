@@ -10,6 +10,8 @@ def validate_market_data(frame: pd.DataFrame) -> None:
     if missing:
         raise ValueError(f"Market data is missing columns: {', '.join(missing)}")
 
+    _validate_required_values(frame)
+
     duplicate_keys = ["asset_id", "timestamp", "frequency", "source"]
     if frame.duplicated(duplicate_keys).any():
         raise ValueError("Market data contains duplicate bars")
@@ -17,6 +19,34 @@ def validate_market_data(frame: pd.DataFrame) -> None:
     _validate_non_negative(frame, ["open", "high", "low", "close", "adj_close", "volume", "amount"])
     _validate_ohlc(frame)
     _validate_monotonic_dates(frame)
+
+
+def _validate_required_values(frame: pd.DataFrame) -> None:
+    required = [
+        "asset_id",
+        "symbol",
+        "market",
+        "exchange",
+        "asset_type",
+        "timestamp",
+        "date",
+        "timezone",
+        "calendar",
+        "frequency",
+        "open",
+        "high",
+        "low",
+        "close",
+        "adj_close",
+        "volume",
+        "currency",
+        "source",
+        "adjusted",
+        "ingested_at",
+    ]
+    missing_values = [column for column in required if frame[column].isna().any()]
+    if missing_values:
+        raise ValueError("Market data contains missing required values: " + ", ".join(missing_values))
 
 
 def _validate_non_negative(frame: pd.DataFrame, columns: list[str]) -> None:

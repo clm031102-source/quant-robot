@@ -61,6 +61,12 @@ def run_demo_research(
     cost_bps: float = 5.0,
     start_date: str | None = None,
     end_date: str | None = None,
+    benchmark_asset_id: str | None = None,
+    cash_annual_return: float = 0.0,
+    regime_filter: bool = False,
+    regime_lookback: int = 20,
+    min_relative_return: float | None = None,
+    max_drawdown_limit: float | None = None,
 ) -> dict[str, Any]:
     bars = _filtered_bars(market, start_date, end_date)
     result = run_research_pipeline(
@@ -73,6 +79,12 @@ def run_demo_research(
             end_date=end_date,
             top_n=top_n,
             cost_bps=cost_bps,
+            benchmark_asset_id=benchmark_asset_id,
+            cash_annual_return=cash_annual_return,
+            regime_filter=regime_filter,
+            regime_lookback=regime_lookback,
+            min_relative_return=min_relative_return,
+            max_drawdown_limit=max_drawdown_limit,
         ),
     )
     risk = _risk_from_backtest(
@@ -86,10 +98,15 @@ def run_demo_research(
             "notice": mock_data.DEMO_NOTICE,
             "request": result["request"],
             "metrics": result["metrics"],
+            "benchmark_metrics": result["benchmark_metrics"],
+            "decision": result["decision"],
+            "regime": result["regime"],
             "factor_summary": result["factor_summary"],
             "risk": risk,
             "equity_curve": result["equity_curve"],
+            "benchmark_curve": result["benchmark_curve"],
             "drawdown_curve": result["drawdown_curve"],
+            "regime_curve": result["regime_curve"],
             "ic": result["ic"],
             "group_returns": result["group_returns"],
             "long_short": result["long_short"],
@@ -156,6 +173,8 @@ def run_demo_paper_simulation(
     max_market_weight: float = 1.0,
     max_gross_exposure: float = 1.0,
     min_cash_weight: float = 0.0,
+    max_drawdown_guard: float | None = None,
+    guard_cooldown_periods: int = 0,
 ) -> dict[str, Any]:
     result = run_paper_simulation(
         mock_data.demo_bars(),
@@ -173,6 +192,8 @@ def run_demo_paper_simulation(
             max_market_weight=max_market_weight,
             max_gross_exposure=max_gross_exposure,
             min_cash_weight=min_cash_weight,
+            max_drawdown_guard=max_drawdown_guard,
+            guard_cooldown_periods=guard_cooldown_periods,
         ),
     )
     equity_curve = pd.DataFrame(result["equity_curve"])

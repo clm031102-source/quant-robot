@@ -21,6 +21,7 @@ def run_simulation(
     factor_name: str = "momentum_2",
     factor_windows: tuple[int, ...] = (2, 3),
     top_n: int = 2,
+    rebalance_interval: int = 1,
     start_date: str | None = None,
     end_date: str | None = None,
     initial_cash: float = 100000.0,
@@ -31,6 +32,9 @@ def run_simulation(
     max_market_weight: float = 1.0,
     max_gross_exposure: float = 1.0,
     min_cash_weight: float = 0.0,
+    periods_per_year: float | None = None,
+    max_drawdown_guard: float | None = None,
+    guard_cooldown_periods: int = 0,
     positions_csv: str | Path | None = None,
     output_dir: str | Path | None = None,
 ) -> dict[str, Any]:
@@ -41,6 +45,7 @@ def run_simulation(
         factor_name=factor_name,
         factor_windows=factor_windows,
         top_n=top_n,
+        rebalance_interval=rebalance_interval,
         start_date=start_date,
         end_date=end_date,
         initial_cash=initial_cash,
@@ -51,6 +56,9 @@ def run_simulation(
         max_market_weight=max_market_weight,
         max_gross_exposure=max_gross_exposure,
         min_cash_weight=min_cash_weight,
+        periods_per_year=periods_per_year,
+        max_drawdown_guard=max_drawdown_guard,
+        guard_cooldown_periods=guard_cooldown_periods,
         output_dir=None,
     )
     result = run_paper_simulation(bars, config, initial_positions=positions)
@@ -67,6 +75,7 @@ def main() -> None:
     parser.add_argument("--factor", default="momentum_2")
     parser.add_argument("--factor-windows", default="2,3")
     parser.add_argument("--top-n", default=2, type=int)
+    parser.add_argument("--rebalance-interval", default=1, type=int)
     parser.add_argument("--start-date")
     parser.add_argument("--end-date")
     parser.add_argument("--initial-cash", default=100000.0, type=float)
@@ -77,6 +86,9 @@ def main() -> None:
     parser.add_argument("--max-market-weight", default=1.0, type=float)
     parser.add_argument("--max-gross-exposure", default=1.0, type=float)
     parser.add_argument("--min-cash-weight", default=0.0, type=float)
+    parser.add_argument("--periods-per-year", type=float)
+    parser.add_argument("--max-drawdown-guard", type=float)
+    parser.add_argument("--guard-cooldown-periods", default=0, type=int)
     parser.add_argument("--positions-csv")
     parser.add_argument("--output-dir", default="data/reports/paper_simulation")
     args = parser.parse_args()
@@ -87,6 +99,7 @@ def main() -> None:
         factor_name=args.factor,
         factor_windows=_parse_windows(args.factor_windows),
         top_n=args.top_n,
+        rebalance_interval=args.rebalance_interval,
         start_date=args.start_date,
         end_date=args.end_date,
         initial_cash=args.initial_cash,
@@ -97,6 +110,9 @@ def main() -> None:
         max_market_weight=args.max_market_weight,
         max_gross_exposure=args.max_gross_exposure,
         min_cash_weight=args.min_cash_weight,
+        periods_per_year=args.periods_per_year,
+        max_drawdown_guard=args.max_drawdown_guard,
+        guard_cooldown_periods=args.guard_cooldown_periods,
         positions_csv=Path(args.positions_csv) if args.positions_csv else None,
         output_dir=Path(args.output_dir),
     )
@@ -109,6 +125,7 @@ def main() -> None:
                 "fills": len(result["fills"]),
                 "positions": len(result["positions"]),
                 "equity_points": len(result["equity_curve"]),
+                "guard_events": len(result["guard_events"]),
             },
             indent=2,
             sort_keys=True,

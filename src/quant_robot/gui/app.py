@@ -33,6 +33,12 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                         cost_bps=float(_first(query, "cost_bps", "5")),
                         start_date=_optional(query, "start_date"),
                         end_date=_optional(query, "end_date"),
+                        benchmark_asset_id=_optional(query, "benchmark_asset_id"),
+                        cash_annual_return=float(_first(query, "cash_annual_return", "0")),
+                        regime_filter=_bool(_first(query, "regime_filter", "false")),
+                        regime_lookback=int(_first(query, "regime_lookback", "20")),
+                        min_relative_return=_optional_float(query, "min_relative_return"),
+                        max_drawdown_limit=_optional_float(query, "max_drawdown_limit"),
                     )
                 )
                 return
@@ -68,6 +74,8 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                         max_market_weight=float(_first(query, "max_market_weight", "1")),
                         max_gross_exposure=float(_first(query, "max_gross_exposure", "1")),
                         min_cash_weight=float(_first(query, "min_cash_weight", "0")),
+                        max_drawdown_guard=_optional_float(query, "max_drawdown_guard"),
+                        guard_cooldown_periods=int(_first(query, "guard_cooldown_periods", "0")),
                     )
                 )
                 return
@@ -121,6 +129,15 @@ def _first(query: dict[str, list[str]], key: str, default: str) -> str:
 def _optional(query: dict[str, list[str]], key: str) -> str | None:
     value = _first(query, key, "")
     return value or None
+
+
+def _optional_float(query: dict[str, list[str]], key: str) -> float | None:
+    value = _optional(query, key)
+    return float(value) if value is not None else None
+
+
+def _bool(value: str) -> bool:
+    return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _is_within(path: Path, root: Path) -> bool:

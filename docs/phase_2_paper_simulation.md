@@ -9,7 +9,7 @@ It is still research-only. It does not connect to brokers, read real accounts, o
 - generates a signal snapshot for each eligible signal date;
 - builds a local advisory rebalance plan from current simulated positions;
 - converts advisory deltas into paper simulation intents marked `executable=false`;
-- executes simulated fills on the next available bar;
+- executes simulated fills only when the asset has a real bar on the execution date;
 - applies configurable commission and slippage assumptions;
 - updates simulated cash and positions;
 - writes an equity curve and final metrics.
@@ -34,6 +34,7 @@ data/reports/paper_simulation/
 - `positions.csv`: final simulated positions.
 - `equity_curve.csv`: cash, equity, gross exposure, and period return.
 - `snapshots.csv`: signal-date target summaries.
+- `guard_events.csv`: drawdown guard trigger and buy-block events, when a guard is configured.
 - `manifest.json`: request, metrics, and safety boundary.
 
 ## Local GUI
@@ -53,3 +54,7 @@ Columns such as `account_id`, `broker`, or `order_id` are rejected. This keeps t
 ## Modeling Limits
 
 The first implementation uses daily bars and simple fill assumptions. It is useful for workflow validation and strategy sanity checks, not proof of profitability. Later phases should add richer market calendars, lot sizes, limit-up/down handling, suspended assets, and more realistic execution models before any small-money live experiment.
+
+For mixed-market runs, prior prices may be used to value existing positions on days when a market is closed, but they are not used to create simulated fills. Reported `total_return` and `cash_return` both use starting equity as the denominator.
+
+Phase 2.6 adds an optional drawdown guard. When `--max-drawdown-guard` is breached, the simulator records a guard event and blocks new buy intents during `--guard-cooldown-periods`; sell intents remain allowed so the simulated portfolio can reduce exposure.
