@@ -182,6 +182,30 @@ class PaperSimulationTests(unittest.TestCase):
         self.assertTrue(any(event["event_type"] == "drawdown_guard_triggered" for event in result["guard_events"]))
         self.assertTrue(any(event.get("blocked_buy_intents", 0) > 0 for event in result["guard_events"]))
 
+    def test_paper_simulation_blocks_fills_on_suspended_or_limit_locked_bars(self):
+        bars = _bars_with_execution_constraints()
+
+        result = run_paper_simulation(
+            bars,
+            PaperSimulationConfig(
+                market="CN_ETF",
+                factor_name="momentum_2",
+                factor_windows=(2,),
+                top_n=2,
+                start_date="2024-01-04",
+                end_date="2024-01-05",
+                initial_cash=100000.0,
+                max_asset_weight=0.5,
+            ),
+        )
+
+        blocked_reasons = {event["reason"] for event in result["execution_events"]}
+        filled_assets = {row["asset_id"] for row in result["fills"]}
+        self.assertIn("suspended", blocked_reasons)
+        self.assertIn("limit_up_buy_blocked", blocked_reasons)
+        self.assertNotIn("CN_ETF_XSHG_510300", filled_assets)
+        self.assertNotIn("CN_ETF_XSHE_159915", filled_assets)
+
 
 def _bars_with_cn_closed_on_execution_date() -> pd.DataFrame:
     rows = []
@@ -193,6 +217,23 @@ def _bars_with_cn_closed_on_execution_date() -> pd.DataFrame:
         strict=True,
     ):
         rows.append(_bar("CRYPTO_BINANCE_BTC_USDT", "BTC/USDT", "CRYPTO", "BINANCE", "UTC", date, price))
+    return pd.DataFrame(rows)
+
+
+def _bars_with_execution_constraints() -> pd.DataFrame:
+    rows = []
+    prices_by_asset = {
+        "CN_ETF_XSHG_510300": ("510300.SH", "XSHG", [4.0, 4.1, 4.2, 4.4, 4.5, 4.6]),
+        "CN_ETF_XSHE_159915": ("159915.SZ", "XSHE", [2.0, 2.1, 2.2, 2.4, 2.5, 2.6]),
+    }
+    for asset_id, (symbol, exchange, prices) in prices_by_asset.items():
+        for date, price in zip(pd.date_range("2024-01-01", "2024-01-06").date, prices, strict=True):
+            row = _bar(asset_id, symbol, "CN_ETF", exchange, "Asia/Shanghai", date, price)
+            row["asset_type"] = "etf"
+            row["suspended"] = asset_id == "CN_ETF_XSHG_510300" and str(date) == "2024-01-05"
+            row["limit_up"] = asset_id == "CN_ETF_XSHE_159915" and str(date) == "2024-01-05"
+            row["limit_down"] = False
+            rows.append(row)
     return pd.DataFrame(rows)
 
 

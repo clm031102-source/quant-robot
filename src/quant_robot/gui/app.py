@@ -7,10 +7,21 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from quant_robot.gui.research_service import (
+    build_constrained_search_snapshot,
+    build_daily_ops_snapshot,
+    build_evidence_refresh_snapshot,
+    build_promotion_ops_snapshot,
+    build_promotion_review_snapshot,
     build_gui_snapshot,
+    build_paper_profile_snapshot,
+    build_project_status_snapshot,
+    build_risk_candidate_snapshot,
     run_demo_paper_simulation,
     run_demo_research,
     run_demo_signal_snapshot,
+    run_gui_paper_simulation,
+    run_gui_research,
+    run_gui_signal_snapshot,
 )
 
 
@@ -22,6 +33,60 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
             parsed = urlparse(self.path)
             if parsed.path == "/api/snapshot":
                 self._send_json(build_gui_snapshot())
+                return
+            if parsed.path == "/api/project/status":
+                query = parse_qs(parsed.query)
+                self._send_json(
+                    build_project_status_snapshot(
+                        readiness_board=_optional(query, "readiness_board"),
+                        data_gap_evidence=_optional(query, "data_gap_evidence"),
+                        provider_remediation=_optional(query, "provider_remediation"),
+                        residual_focus=_optional(query, "residual_focus"),
+                    )
+                )
+                return
+            if parsed.path == "/api/daily/ops":
+                query = parse_qs(parsed.query)
+                self._send_json(build_daily_ops_snapshot(daily_ops_pack=_optional(query, "daily_ops_pack")))
+                return
+            if parsed.path == "/api/risk/candidates":
+                query = parse_qs(parsed.query)
+                self._send_json(build_risk_candidate_snapshot(risk_candidate_pack=_optional(query, "risk_candidate_pack")))
+                return
+            if parsed.path == "/api/risk/constrained-search":
+                query = parse_qs(parsed.query)
+                self._send_json(build_constrained_search_snapshot(constrained_search_pack=_optional(query, "constrained_search_pack")))
+                return
+            if parsed.path == "/api/risk/paper-profiles":
+                query = parse_qs(parsed.query)
+                self._send_json(build_paper_profile_snapshot(paper_profile_pack=_optional(query, "paper_profile_pack")))
+                return
+            if parsed.path == "/api/research":
+                query = parse_qs(parsed.query)
+                self._send_json(
+                    run_gui_research(
+                        source=_first(query, "source", "demo_fixture"),
+                        data_root=_optional(query, "data_root"),
+                        market=_first(query, "market", "ALL"),
+                        factor_name=_first(query, "factor", "momentum_2"),
+                        factor_windows=_optional_windows(query, "factor_windows"),
+                        top_n=int(_first(query, "top_n", "2")),
+                        cost_bps=float(_first(query, "cost_bps", "5")),
+                        start_date=_optional(query, "start_date"),
+                        end_date=_optional(query, "end_date"),
+                        forward_horizon=int(_first(query, "forward_horizon", "1")),
+                        execution_lag=int(_first(query, "execution_lag", "1")),
+                        rebalance_interval=int(_first(query, "rebalance_interval", "1")),
+                        portfolio_scope=_optional(query, "portfolio_scope"),
+                        periods_per_year=_optional_float(query, "periods_per_year"),
+                        benchmark_asset_id=_optional(query, "benchmark_asset_id"),
+                        cash_annual_return=float(_first(query, "cash_annual_return", "0")),
+                        regime_filter=_bool(_first(query, "regime_filter", "false")),
+                        regime_lookback=int(_first(query, "regime_lookback", "20")),
+                        min_relative_return=_optional_float(query, "min_relative_return"),
+                        max_drawdown_limit=_optional_float(query, "max_drawdown_limit"),
+                    )
+                )
                 return
             if parsed.path == "/api/research/demo":
                 query = parse_qs(parsed.query)
@@ -58,6 +123,25 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                     )
                 )
                 return
+            if parsed.path == "/api/signals":
+                query = parse_qs(parsed.query)
+                self._send_json(
+                    run_gui_signal_snapshot(
+                        source=_first(query, "source", "demo_fixture"),
+                        data_root=_optional(query, "data_root"),
+                        market=_first(query, "market", "ALL"),
+                        factor_name=_first(query, "factor", "momentum_2"),
+                        factor_windows=_optional_windows(query, "factor_windows"),
+                        top_n=int(_first(query, "top_n", "2")),
+                        as_of_date=_optional(query, "as_of_date"),
+                        max_asset_weight=float(_first(query, "max_asset_weight", "1")),
+                        max_market_weight=float(_first(query, "max_market_weight", "1")),
+                        max_gross_exposure=float(_first(query, "max_gross_exposure", "1")),
+                        min_cash_weight=float(_first(query, "min_cash_weight", "0")),
+                        portfolio_value=float(_first(query, "portfolio_value", "100000")),
+                    )
+                )
+                return
             if parsed.path == "/api/paper/demo":
                 query = parse_qs(parsed.query)
                 self._send_json(
@@ -76,6 +160,64 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                         min_cash_weight=float(_first(query, "min_cash_weight", "0")),
                         max_drawdown_guard=_optional_float(query, "max_drawdown_guard"),
                         guard_cooldown_periods=int(_first(query, "guard_cooldown_periods", "0")),
+                    )
+                )
+                return
+            if parsed.path == "/api/paper":
+                query = parse_qs(parsed.query)
+                self._send_json(
+                    run_gui_paper_simulation(
+                        source=_first(query, "source", "demo_fixture"),
+                        data_root=_optional(query, "data_root"),
+                        market=_first(query, "market", "ALL"),
+                        factor_name=_first(query, "factor", "momentum_2"),
+                        factor_windows=_optional_windows(query, "factor_windows"),
+                        top_n=int(_first(query, "top_n", "2")),
+                        rebalance_interval=int(_first(query, "rebalance_interval", "1")),
+                        start_date=_optional(query, "start_date"),
+                        end_date=_optional(query, "end_date"),
+                        initial_cash=float(_first(query, "initial_cash", "100000")),
+                        commission_bps=float(_first(query, "commission_bps", "5")),
+                        slippage_bps=float(_first(query, "slippage_bps", "5")),
+                        max_asset_weight=float(_first(query, "max_asset_weight", "1")),
+                        max_market_weight=float(_first(query, "max_market_weight", "1")),
+                        max_gross_exposure=float(_first(query, "max_gross_exposure", "1")),
+                        min_cash_weight=float(_first(query, "min_cash_weight", "0")),
+                        periods_per_year=_optional_float(query, "periods_per_year"),
+                        max_drawdown_guard=_optional_float(query, "max_drawdown_guard"),
+                        guard_cooldown_periods=int(_first(query, "guard_cooldown_periods", "0")),
+                    )
+                )
+                return
+            if parsed.path == "/api/promotion/ops":
+                query = parse_qs(parsed.query)
+                self._send_json(
+                    build_promotion_ops_snapshot(
+                        promotion_report=_optional(query, "promotion_report"),
+                        provider_status=_optional(query, "provider_status"),
+                        quality_report=_optional(query, "quality_report"),
+                    )
+                )
+                return
+            if parsed.path == "/api/promotion/review":
+                query = parse_qs(parsed.query)
+                self._send_json(
+                    build_promotion_review_snapshot(
+                        promotion_report=_optional(query, "promotion_report"),
+                        provider_status=_optional(query, "provider_status"),
+                        quality_report=_optional(query, "quality_report"),
+                        candidate_id=_optional(query, "candidate_id"),
+                    )
+                )
+                return
+            if parsed.path == "/api/promotion/evidence-refresh":
+                query = parse_qs(parsed.query)
+                self._send_json(
+                    build_evidence_refresh_snapshot(
+                        promotion_report=_optional(query, "promotion_report"),
+                        provider_status=_optional(query, "provider_status"),
+                        quality_report=_optional(query, "quality_report"),
+                        candidate_id=_optional(query, "candidate_id"),
                     )
                 )
                 return
@@ -134,6 +276,13 @@ def _optional(query: dict[str, list[str]], key: str) -> str | None:
 def _optional_float(query: dict[str, list[str]], key: str) -> float | None:
     value = _optional(query, key)
     return float(value) if value is not None else None
+
+
+def _optional_windows(query: dict[str, list[str]], key: str) -> tuple[int, ...] | None:
+    value = _optional(query, key)
+    if value is None:
+        return None
+    return tuple(int(part.strip()) for part in value.split(",") if part.strip())
 
 
 def _bool(value: str) -> bool:

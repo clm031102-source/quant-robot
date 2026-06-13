@@ -1,0 +1,45 @@
+{
+  "walk_forward_leaderboard": "data/reports/walk_forward_cn_etf_risk_constrained/walk_forward_leaderboard.csv",
+  "source": "processed-bars",
+  "data_root": "data/processed/etf_csv",
+  "output_dir": "data/reports/paper_batch_cn_etf_risk_constrained",
+  "max_candidates": 12,
+  "initial_cash": 100000,
+  "commission_bps": 5,
+  "slippage_bps": 5,
+  "min_trade_value": 1,
+  "max_asset_weight": 0.35,
+  "max_market_weight": 1.0,
+  "max_gross_exposure": 0.7,
+  "min_cash_weight": 0.3,
+  "max_drawdown_guard": 0.08,
+  "guard_cooldown_periods": 5,
+  "profile_rank_by": "sharpe",
+  "profile_max_drawdown": 0.2,
+  "risk_profiles": [
+    {
+      "profile_id": "defensive_cash_40",
+      "max_asset_weight": 0.25,
+      "max_gross_exposure": 0.6,
+      "min_cash_weight": 0.4,
+      "max_drawdown_guard": 0.08,
+      "guard_cooldown_periods": 8
+    },
+    {
+      "profile_id": "defensive_cash_30",
+      "max_asset_weight": 0.3,
+      "max_gross_exposure": 0.7,
+      "min_cash_weight": 0.3,
+      "max_drawdown_guard": 0.08,
+      "guard_cooldown_periods": 5
+    },
+    {
+      "profile_id": "balanced_cap35",
+      "max_asset_weight": 0.35,
+      "max_gross_exposure": 0.7,
+      "min_cash_weight": 0.25,
+      "max_drawdown_guard": 0.1,
+      "guard_cooldown_periods": 5
+    }
+  ]
+}

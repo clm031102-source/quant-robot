@@ -12,16 +12,16 @@ PROVIDERS = {
     "tushare": {
         "package": "tushare",
         "credential": "TUSHARE_TOKEN",
-        "markets": ["CN"],
-        "planned_markets": ["CN_ETF"],
+        "markets": ["CN", "CN_ETF"],
+        "planned_markets": [],
         "implemented": True,
     },
     "akshare": {
         "package": "akshare",
         "credential": None,
-        "markets": [],
-        "planned_markets": ["CN", "CN_ETF", "HK", "US"],
-        "implemented": False,
+        "markets": ["CN", "CN_ETF"],
+        "planned_markets": ["HK", "US"],
+        "implemented": True,
     },
     "yfinance": {
         "package": "yfinance",

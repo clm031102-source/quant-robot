@@ -1,0 +1,42 @@
+{
+  "walk_forward_leaderboard": "data/reports/walk_forward_cn_etf_low_turnover/walk_forward_leaderboard.csv",
+  "source": "processed-bars",
+  "data_root": "data/processed/etf_csv",
+  "output_dir": "data/reports/paper_batch_cn_etf",
+  "max_candidates": 8,
+  "initial_cash": 100000,
+  "commission_bps": 5,
+  "slippage_bps": 5,
+  "min_trade_value": 1,
+  "max_asset_weight": 0.4,
+  "max_market_weight": 1.0,
+  "max_gross_exposure": 1.0,
+  "min_cash_weight": 0.2,
+  "max_drawdown_guard": 0.1,
+  "guard_cooldown_periods": 5,
+  "profile_rank_by": "sharpe",
+  "profile_max_drawdown": 0.25,
+  "risk_profiles": [
+    {
+      "profile_id": "conservative_guard",
+      "max_asset_weight": 0.4,
+      "min_cash_weight": 0.2,
+      "max_drawdown_guard": 0.1,
+      "guard_cooldown_periods": 5
+    },
+    {
+      "profile_id": "balanced_fast_guard",
+      "max_asset_weight": 0.5,
+      "min_cash_weight": 0.0,
+      "max_drawdown_guard": 0.1,
+      "guard_cooldown_periods": 3
+    },
+    {
+      "profile_id": "balanced_wide_guard",
+      "max_asset_weight": 0.5,
+      "min_cash_weight": 0.0,
+      "max_drawdown_guard": 0.12,
+      "guard_cooldown_periods": 8
+    }
+  ]
+}

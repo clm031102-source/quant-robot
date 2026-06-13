@@ -10,7 +10,7 @@ Phase one is research-only. It does not connect to real broker accounts, does no
 - Offline fixture data for all research markets, including A-share ETFs.
 - Unified OHLCV normalization with timezone-aware UTC timestamps.
 - Parquet storage abstraction, enabled when `pyarrow` or `fastparquet` is installed.
-- Implemented adapter paths for Tushare A-shares, yfinance HK/US, and ccxt crypto. AKShare and Tushare ETF fetching remain planned; A-share ETF research currently uses local CSV or fixture data.
+- Implemented adapter paths for Tushare A-shares and A-share ETFs, yfinance HK/US, and ccxt crypto. AKShare remains planned; A-share ETF research can use local CSV, fixtures, or optional Tushare ETF daily ingestion.
 - Basic factors: momentum, reversal, volatility, volume change, and liquidity.
 - Forward-return labels with explicit execution lag.
 - IC, Rank IC, quantile group returns, and long-short returns.
@@ -18,6 +18,23 @@ Phase one is research-only. It does not connect to real broker accounts, does no
 - Research-only signal snapshots, risk-capped target weights, and advisory rebalance plans.
 - Local paper trading simulation with simulated intents, fills, cash, positions, equity curve, and China-market 100-share lot rounding.
 - Research decision-risk layer with benchmark comparison, cash comparison, optional regime filtering, walk-forward relative-return gates, and paper drawdown guards.
+- Promotion operations summary for pre-API candidates, including live-review blockers, duplicate clusters, and local next actions.
+- Promotion review packets with candidate evidence, manual-review gate state, checklist CSV, and Markdown artifacts.
+- Evidence refresh plans that turn review blockers into ordered local action tracks.
+- Data-quality gap audits that list exact CN ETF missing asset/date rows.
+- Provider-readiness evidence packs that classify dependency, token, adapter, market coverage, and Parquet readiness.
+- Provider-remediation matrices and readiness-board integration for dependency, token, adapter, and storage blockers.
+- Residual blocker focus packs that prioritize projected blocker leftovers, linked work items, downstream waits, and local-only action commands.
+- Residual data-gap review packs that isolate post-rehearsal blocking gap rows and write fillable local resolution templates.
+- Data-gap evidence packs that attach raw CSV presence, peer-trading counts, and previous/next local rows before manual gap review.
+- Residual provider review packs that isolate post-rehearsal provider blockers and write fillable local remediation templates.
+- Paper-observation evidence packs that summarize observation windows, guard events, execution blocks, risk profiles, and Sharpe/drawdown trends.
+- Duplicate canonical registries that persist canonical candidates, suppressed duplicate members, and suppression reasons.
+- Manual-review gate rehearsal that lists clean-state requirements while proving broker/account/order boundaries stay disabled.
+- Pre-API readiness board that consolidates local evidence, blockers, next actions, and live-boundary status into one artifact.
+- Blocker-resolution worklist that turns readiness blockers into open local-only work items and a deduplicated action queue.
+- Tushare CN ETF daily ingestion path through the optional `fund_daily` endpoint.
+- Paper-simulation execution-block events for suspended, zero-volume, limit-up, and limit-down bars when those fields exist in local data.
 - CSV, JSON, and SVG report outputs.
 
 ## Run Tests
@@ -29,7 +46,7 @@ python -m unittest discover -s tests -p "test_*.py"
 
 ## Run Core Checks
 
-This runs the local test suite, Python compile check, project audit, readiness check, provider status, data catalog, offline fixture research, the configurable research pipeline, the experiment grid, walk-forward validation, signal snapshot generation, and paper simulation. It does not download market data.
+This runs the local test suite, Python compile check, project audit, readiness check, provider status, provider evidence, provider remediation, provider remediation rehearsal, data catalog, data-quality gap audit, data-gap resolution, data-gap evidence, data-gap rehearsal, offline fixture research, the configurable research pipeline, the experiment grid, walk-forward validation, signal snapshot generation, paper simulation, paper observation, promotion operations summary, duplicate registry, promotion review packet, manual review rehearsal, evidence refresh plan, pre-API readiness board, readiness projection, blocker worklist, residual blocker focus pack, residual data-gap review pack, and residual provider review pack. It does not download market data.
 
 The batch experiment grid exits non-zero if any case fails or if no case completes. Walk-forward validation exits non-zero if the underlying train/test grids fail or if no candidate is accepted. This keeps local checks from hiding failed research runs inside CSV/JSON leaderboards.
 
@@ -62,6 +79,13 @@ python scripts\show_provider_status.py
 ```
 
 This reports optional package, token, and implementation readiness for Tushare, AKShare, yfinance, ccxt, and Parquet storage.
+
+To write review-ready provider evidence:
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_provider_evidence.py --output-dir data\reports\provider_evidence
+```
 
 ## Show Local Data Catalog
 
@@ -179,6 +203,460 @@ python scripts\run_research_pipeline.py --source fixture --market CN_ETF --facto
 
 See `docs/phase_2_6_decision_risk.md` for output fields and interpretation rules.
 
+## Phase 2.7 Pre-API Promotion Gate
+
+Before connecting APIs or brokers, run the local promotion gate to classify candidates as `blocked`, `research_only`, `paper_ready`, or `manual_live_review`.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_paper_batch.py --config configs\paper_batch_cn_etf.json
+python scripts\run_promotion_report.py --config configs\promotion_gate_cn_etf.json
+```
+
+The report is written to `data/reports/promotion_gate_cn_etf/`. It blocks candidates with weak walk-forward evidence, fixture-only data, excessive drawdown, or unsafe paper-simulation metrics. It can consume one paper manifest or a directory of per-candidate paper manifests. See `docs/phase_2_7_promotion_gate.md`.
+
+## Phase 2.8 Promotion Operations
+
+Phase 2.8 turns promotion output into a local operations entry point and prepares the next pre-API foundations.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_gui.py
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8765/api/promotion/ops
+```
+
+The payload summarizes promotion status, top candidate evidence, live-review blockers, duplicate signal clusters, provider/data-quality evidence, and next local actions. It remains research-only and never connects to a broker.
+
+You can also write the same operations artifact from the CLI:
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_promotion_ops.py --output-dir data\reports\promotion_ops
+```
+
+Outputs:
+
+- `promotion_ops.json`
+- `promotion_ops_candidates.csv`
+- `promotion_ops_actions.csv`
+
+## Phase 2.9 Promotion Review Packet
+
+Phase 2.9 turns the operations payload into an auditable candidate review packet.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_promotion_ops.py --output-dir data\reports\promotion_ops
+python scripts\run_promotion_review.py --output-dir data\reports\promotion_review
+```
+
+Outputs:
+
+- `promotion_review_packet.json`
+- `promotion_review_packet.md`
+- `promotion_review_checklist.csv`
+
+The local GUI also exposes the packet at `/api/promotion/review` and renders review status, checklist rows, and Markdown on the Promotion Ops page. See `docs/phase_2_9_promotion_review_packet.md`.
+
+## Phase 3.0 Evidence Refresh
+
+Phase 3.0 turns blocked review evidence into ordered local refresh tracks.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_evidence_refresh.py --output-dir data\reports\evidence_refresh
+```
+
+Outputs:
+
+- `evidence_refresh_plan.json`
+- `evidence_refresh_plan.md`
+- `evidence_refresh_actions.csv`
+
+The local GUI exposes the same plan at `/api/promotion/evidence-refresh` and renders refresh tracks plus ordered actions on the Promotion Ops page. See `docs/phase_3_0_evidence_refresh.md`.
+
+## Phase 3.1 Data Quality Gap Audit
+
+Phase 3.1 turns the CN ETF `missing_date_rows` blocker into exact local asset/date rows.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_data_quality_audit.py --data-root data\processed\etf_csv --market CN_ETF --output-dir data\reports\data_quality_gap_audit
+```
+
+Outputs:
+
+- `data_quality_gap_audit.json`
+- `data_quality_gap_audit.md`
+- `missing_dates.csv`
+- `coverage_by_asset.csv`
+
+See `docs/phase_3_1_data_quality_gap_audit.md` and `docs/roadmap_after_phase_3_0.md`.
+
+## Phase 3.2 Provider Readiness Evidence
+
+Phase 3.2 turns provider readiness into a review-ready evidence pack.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_provider_evidence.py --output-dir data\reports\provider_evidence
+```
+
+Outputs:
+
+- `provider_evidence_pack.json`
+- `provider_evidence_pack.md`
+- `provider_market_matrix.csv`
+- `provider_readiness.csv`
+
+See `docs/phase_3_2_provider_readiness_evidence.md` and `docs/roadmap_after_phase_3_0.md`.
+
+## Phase 3.3 Paper Observation Extension
+
+Phase 3.3 turns paper-batch output into a review-ready observation pack.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_paper_observation.py --paper-batch-summary data\reports\paper_batch_cn_etf_candidate_search\paper_batch_summary.json --output-dir data\reports\paper_observation
+```
+
+Outputs:
+
+- `paper_observation_pack.json`
+- `paper_observation_pack.md`
+- `paper_observation_candidates.csv`
+- `paper_observation_risk_profiles.csv`
+- `paper_observation_trend.csv`
+
+See `docs/phase_3_3_paper_observation_extension.md` and `docs/roadmap_after_phase_3_0.md`.
+
+## Phase 3.4 Duplicate Canonical Registry
+
+Phase 3.4 turns duplicate candidate suppression into a stable registry.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_duplicate_registry.py --promotion-report data\reports\promotion_gate_cn_etf_candidate_search\promotion_report.json --output-dir data\reports\duplicate_registry
+```
+
+Outputs:
+
+- `duplicate_canonical_registry.json`
+- `duplicate_canonical_registry.md`
+- `canonical_candidates.csv`
+- `duplicate_members.csv`
+
+Promotion Ops and Promotion Review Packet also include duplicate registry summary fields. See `docs/phase_3_4_duplicate_canonical_registry.md` and `docs/roadmap_after_phase_3_0.md`.
+
+## Phase 3.5 Manual Review Gate Rehearsal
+
+Phase 3.5 rehearses the manual review gate as a local dry run.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_manual_review_rehearsal.py --output-dir data\reports\manual_review_rehearsal
+```
+
+Outputs:
+
+- `manual_review_rehearsal.json`
+- `manual_review_rehearsal.md`
+- `manual_review_requirements.csv`
+
+The rehearsal records broker connection, account reads, order placement, and live trading as disabled. See `docs/phase_3_5_manual_review_gate_rehearsal.md` and `docs/roadmap_after_phase_3_0.md`.
+
+## Phase 4.0 Pre-API Readiness Board
+
+Phase 4.0 consolidates local evidence into one operational readiness board.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_pre_api_readiness_board.py --output-dir data\reports\pre_api_readiness_board
+```
+
+Outputs:
+
+- `pre_api_readiness_board.json`
+- `pre_api_readiness_board.md`
+- `pre_api_readiness_items.csv`
+- `pre_api_blockers.csv`
+- `pre_api_next_actions.csv`
+
+See `docs/phase_4_0_pre_api_readiness_board.md` and `docs/roadmap_after_phase_3_0.md`.
+
+## Phase 4.1 Blocker Resolution Worklist
+
+Phase 4.1 turns readiness-board blockers into open local work items.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_blocker_worklist.py --output-dir data\reports\blocker_worklist
+```
+
+Outputs:
+
+- `blocker_resolution_worklist.json`
+- `blocker_resolution_worklist.md`
+- `blocker_work_items.csv`
+- `blocker_action_queue.csv`
+
+See `docs/phase_4_1_blocker_resolution_worklist.md` and `docs/roadmap_after_phase_3_0.md`.
+
+## Phase 4.2 Data Gap Resolution Ledger
+
+Phase 4.2 turns exact missing ETF dates into stable local resolution rows.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_data_gap_resolution.py --output-dir data\reports\data_gap_resolution
+```
+
+Outputs:
+
+- `data_gap_resolution_ledger.json`
+- `data_gap_resolution_ledger.md`
+- `data_gap_resolution_rows.csv`
+- `data_gap_resolution_action_queue.csv`
+- `gap_resolutions_template.csv`
+- `data_gap_resolution_status_options.csv`
+- `data_gap_resolution_validation.csv`
+
+Each row receives a stable `gap_id`, `resolution_status`, evidence note, recommended local command, and API-boundary blocking flag. See `docs/phase_4_2_data_gap_resolution_ledger.md` and `docs/roadmap_after_phase_3_0.md`.
+
+## Phase 4.4 Data Gap Resolution Template
+
+Phase 4.4 writes a fillable local CSV template from the current data-gap ledger.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_data_gap_resolution.py --output-dir data\reports\data_gap_resolution
+```
+
+Use `data\reports\data_gap_resolution\gap_resolutions_template.csv` to record local evidence per `gap_id`, then feed it back through `--resolution-file`. See `docs/phase_4_4_data_gap_resolution_template.md`.
+
+## Phase 4.5 Data Gap Resolution Validation
+
+Phase 4.5 validates local resolution CSV input and reports unknown gaps, unsupported statuses, and duplicate rows.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_data_gap_resolution.py --resolution-file data\reports\data_gap_resolution\gap_resolutions_template.csv --output-dir data\reports\data_gap_resolution
+```
+
+Validation output is written to `data\reports\data_gap_resolution\data_gap_resolution_validation.csv`. See `docs/phase_4_5_data_gap_resolution_validation.md`.
+
+## Phase 4.6 Data Gap Resolution Rehearsal
+
+Phase 4.6 generates a local rehearsal pack showing how sample resolution rows change data-gap blocking counts.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_data_gap_rehearsal.py --output-dir data\reports\data_gap_rehearsal
+```
+
+Outputs:
+
+- `data_gap_rehearsal.json`
+- `data_gap_rehearsal.md`
+- `sample_gap_resolutions.csv`
+- `rehearsed_data_gap_rows.csv`
+- `data_gap_rehearsal_summary.csv`
+
+See `docs/phase_4_6_data_gap_resolution_rehearsal.md`.
+
+## Phase 4.7 Provider Remediation Matrix
+
+Phase 4.7 turns provider-readiness blockers into local remediation rows.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_provider_remediation.py --output-dir data\reports\provider_remediation
+```
+
+Outputs:
+
+- `provider_remediation_matrix.json`
+- `provider_remediation_matrix.md`
+- `provider_remediation_items.csv`
+- `provider_remediation_summary.csv`
+- `provider_remediation_review_template.csv`
+- `provider_remediation_status_options.csv`
+
+See `docs/phase_4_7_provider_remediation_matrix.md`.
+
+## Phase 4.8 Provider Remediation Board Integration
+
+Phase 4.8 connects provider-remediation evidence to the pre-API readiness board.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_pre_api_readiness_board.py --provider-remediation data\reports\provider_remediation\provider_remediation_matrix.json --output-dir data\reports\pre_api_readiness_board
+```
+
+The board now includes a `provider_remediation` track and a `provider_remediation_items_open` blocker when remediation rows remain. See `docs/phase_4_8_provider_remediation_board_integration.md`.
+
+## Phase 4.9 Provider Remediation Review Template
+
+Phase 4.9 writes a fillable local review template for provider-remediation rows.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_provider_remediation.py --output-dir data\reports\provider_remediation
+```
+
+Use `data\reports\provider_remediation\provider_remediation_review_template.csv` to record controlled local evidence per `remediation_id`. See `docs/phase_4_9_provider_remediation_review_template.md`.
+
+## Phase 4.10 Provider Remediation Review Validation
+
+Phase 4.10 validates filled provider-remediation review rows and applies valid local statuses back into provider-remediation evidence.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_provider_remediation.py --review-file data\reports\provider_remediation\provider_remediation_review_template.csv --output-dir data\reports\provider_remediation
+```
+
+Validation output is written to `data\reports\provider_remediation\provider_remediation_validation.csv`. The pre-API readiness board uses `blocking_remediation_items` so non-blocking review statuses can clear the provider-remediation track while preserving the remediation history. See `docs/phase_4_10_provider_remediation_review_validation.md`.
+
+## Phase 4.11 Provider Remediation Review Rehearsal
+
+Phase 4.11 generates a local rehearsal pack showing how sample provider-review rows change provider-remediation blocking counts.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_provider_remediation_rehearsal.py --output-dir data\reports\provider_remediation_rehearsal
+```
+
+Outputs:
+
+- `provider_remediation_rehearsal.json`
+- `provider_remediation_rehearsal.md`
+- `sample_provider_remediation_reviews.csv`
+- `rehearsed_provider_remediation_items.csv`
+- `provider_remediation_rehearsal_summary.csv`
+
+See `docs/phase_4_11_provider_remediation_review_rehearsal.md`.
+
+## Phase 4.16 Data Gap Evidence Pack
+
+Phase 4.16 adds local raw-CSV context before a reviewer changes data-gap statuses. It does not resolve gaps automatically; it records whether the target raw CSV contains the missing row, how many peer ETFs traded on that date, and the target asset's previous/next local raw dates.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_data_gap_evidence.py --output-dir data\reports\data_gap_evidence
+```
+
+Outputs:
+
+- `data_gap_evidence_pack.json`
+- `data_gap_evidence_pack.md`
+- `data_gap_evidence_rows.csv`
+- `data_gap_evidence_action_queue.csv`
+
+See `docs/phase_4_16_data_gap_evidence_pack.md`.
+
+## Phase 4.12 Pre-API Readiness Projection Pack
+
+Phase 4.12 combines current readiness-board evidence with rehearsal projections.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_readiness_projection.py --output-dir data\reports\readiness_projection
+```
+
+Outputs:
+
+- `readiness_projection_pack.json`
+- `readiness_projection_pack.md`
+- `readiness_projection_items.csv`
+- `readiness_projection_deltas.csv`
+- `readiness_projection_residuals.csv`
+
+See `docs/phase_4_12_pre_api_readiness_projection_pack.md`.
+
+## Phase 4.13 Residual Blocker Focus Pack
+
+Phase 4.13 turns projected residual blockers into a prioritized local focus pack.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_residual_blocker_focus.py --output-dir data\reports\residual_blocker_focus
+```
+
+Outputs:
+
+- `residual_blocker_focus_pack.json`
+- `residual_blocker_focus_pack.md`
+- `residual_focus_items.csv`
+- `residual_downstream_waits.csv`
+- `residual_focus_actions.csv`
+
+See `docs/phase_4_13_residual_blocker_focus_pack.md`.
+
+## Phase 4.14 Residual Data Gap Review Pack
+
+Phase 4.14 isolates data-gap rows that remain blocking after rehearsal and points reviewers to the data-gap evidence pack before applying local resolution statuses.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_residual_data_gap_review.py --output-dir data\reports\residual_data_gap_review
+```
+
+Outputs:
+
+- `residual_data_gap_review_pack.json`
+- `residual_data_gap_review_pack.md`
+- `residual_data_gap_rows.csv`
+- `residual_gap_review_template.csv`
+- `residual_gap_action_queue.csv`
+- `residual_gap_status_options.csv`
+
+See `docs/phase_4_14_residual_data_gap_review_pack.md`.
+
+## Phase 4.15 Residual Provider Review Pack
+
+Phase 4.15 isolates provider-remediation rows that remain blocking after rehearsal.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_residual_provider_review.py --output-dir data\reports\residual_provider_review
+```
+
+Outputs:
+
+- `residual_provider_review_pack.json`
+- `residual_provider_review_pack.md`
+- `residual_provider_remediation_items.csv`
+- `residual_provider_review_template.csv`
+- `residual_provider_action_queue.csv`
+- `residual_provider_status_options.csv`
+
+See `docs/phase_4_15_residual_provider_review_pack.md`.
+
+## Phase 4.3 Data Gap Ledger Board Integration
+
+Phase 4.3 connects the data-gap resolution ledger to the pre-API readiness board.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_pre_api_readiness_board.py --data-gap-resolution data\reports\data_gap_resolution\data_gap_resolution_ledger.json --output-dir data\reports\pre_api_readiness_board
+```
+
+The board now includes a `data_gap_resolution` track and a `data_gap_resolution_blocking_gaps` blocker when unresolved ledger rows remain. See `docs/phase_4_3_data_gap_ledger_board_integration.md`.
+
+Tushare CN ETF ingest is now available through the same ingest CLI:
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\ingest_data.py --source tushare-fixture --market CN_ETF --output-dir data\processed\tushare_etf_fixture
+```
+
+Paper simulation also records local execution-block events when bars include `suspended`, `limit_up`, or `limit_down` fields, or when an execution bar has zero volume. See `docs/phase_2_8_promotion_operations.md`.
+
 ## A-Share ETF Research
 
 The framework includes a dedicated `CN_ETF` market and a default ETF universe in `configs/universe_cn_etf.yaml`. You can import TradingView ETF CSV exports into processed bars:
@@ -202,7 +680,7 @@ python scripts\run_paper_simulation.py --source processed-bars --data-root data\
 
 ## Run Local GUI
 
-The local GUI is research-only and uses clearly labeled demo fixture data unless you explicitly wire in a real data workflow later.
+The local GUI is research-only. It defaults to local `processed-bars` CN ETF CSV research when `data\processed\etf_csv` exists, and still includes a clearly labeled `demo_fixture` mode for smoke checks.
 
 ```powershell
 $env:PYTHONPATH='src'
@@ -211,7 +689,7 @@ python scripts\run_gui.py
 
 Open `http://127.0.0.1:8765` in your browser.
 
-The GUI includes dashboard, data center, factor research, backtest report, signal snapshot, paper simulation, risk monitor, and logs/report views. Signal snapshots expose target weights and an advisory rebalance plan marked `executable=false`; the paper simulation view uses local demo bars by default and produces simulated fills only.
+The GUI includes dashboard, data center, factor research, backtest report, signal snapshot, paper simulation, risk monitor, and logs/report views. Signal snapshots expose target weights and an advisory rebalance plan marked `executable=false`; paper simulation uses local bars only and produces simulated fills only.
 
 ## Phase 1.5 Real Data Foundation
 
@@ -222,7 +700,7 @@ $env:PYTHONPATH='src'
 python scripts\ingest_data.py --source fixture --market CN --output-dir data\processed\ingest_fixture
 ```
 
-Real Tushare A-share access uses `TUSHARE_TOKEN` from the environment. Never commit a real token. Tushare ETF daily fetching is intentionally not marked ready until its ETF endpoint is wired and tested; use the `CN_ETF` CSV importer for ETF research now.
+Real Tushare A-share and A-share ETF access uses `TUSHARE_TOKEN` from the environment. Never commit a real token. CN ETF fetching is still optional and pre-broker: use local CSV or fixture workflows when provider credentials are unavailable.
 
 Tushare adjustment factors are stored as range-stable adjusted closes using `close * adj_factor` when adjustment factors are available. The pipeline avoids normalizing by the latest factor inside the requested date range because that would make the same historical date change when you request a longer range.
 

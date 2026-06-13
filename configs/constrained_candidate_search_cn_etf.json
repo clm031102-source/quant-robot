@@ -1,0 +1,19 @@
+{
+  "source": "processed-bars",
+  "data_root": "data/processed/etf_csv",
+  "walk_forward_config": "configs/walk_forward_cn_etf_risk_constrained.json",
+  "walk_forward_output_dir": "data/reports/walk_forward_cn_etf_risk_constrained",
+  "paper_batch_config": "configs/paper_batch_cn_etf_risk_constrained.json",
+  "paper_batch_output_dir": "data/reports/paper_batch_cn_etf_risk_constrained",
+  "promotion_config": "configs/promotion_gate_cn_etf_risk_constrained.json",
+  "promotion_output_dir": "data/reports/promotion_gate_cn_etf_risk_constrained",
+  "daily_ops_pack": "data/reports/daily_ops/daily_ops_pack.json",
+  "risk_candidate_output_dir": "data/reports/risk_candidate_selector_risk_constrained",
+  "output_dir": "data/reports/constrained_candidate_search",
+  "max_drawdown_limit": 0.2,
+  "min_walk_forward_sharpe": 0.3,
+  "min_relative_return": 0.0,
+  "min_paper_sharpe": 0.5,
+  "min_trades": 20,
+  "reuse_existing_artifacts": true
+}

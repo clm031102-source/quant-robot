@@ -1,0 +1,40 @@
+{
+  "split_date": "2023-01-03",
+  "rank_by": "stability_score",
+  "min_test_trades": 20,
+  "min_test_sharpe": 0.3,
+  "min_test_relative_return": 0,
+  "max_test_drawdown": 0.2,
+  "output_dir": "data/reports/walk_forward_cn_etf_risk_constrained",
+  "experiment_grid": {
+    "markets": ["CN_ETF"],
+    "factor_names": [
+      "momentum_120",
+      "risk_adjusted_momentum_5",
+      "risk_adjusted_momentum_60",
+      "liquidity_5",
+      "liquidity_10",
+      "liquidity_20",
+      "liquidity_60",
+      "liquidity_120"
+    ],
+    "factor_windows": [5, 10, 20, 60, 120],
+    "top_n_values": [1, 2],
+    "cost_bps_values": [5],
+    "rebalance_intervals": [5, 10, 20],
+    "forward_horizon": 5,
+    "execution_lag": 1,
+    "quantiles": 2,
+    "portfolio_scope": "market",
+    "periods_per_year": null,
+    "benchmark_asset_id": "CN_ETF_XSHG_510300",
+    "cash_annual_return": 0.015,
+    "regime_filter": true,
+    "regime_lookback": 60,
+    "target_gross_exposure": 0.7,
+    "min_relative_return": 0,
+    "max_drawdown_limit": 0.2,
+    "rank_by": "sharpe",
+    "min_trades": 20
+  }
+}

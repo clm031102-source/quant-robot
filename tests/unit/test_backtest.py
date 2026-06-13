@@ -162,6 +162,61 @@ class BacktestTests(unittest.TestCase):
         self.assertTrue(all(abs(weight - 0.5) < 1e-9 for weight in result.trades["target_weight"]))
         self.assertAlmostEqual(result.metrics["turnover"], 0.5)
 
+    def test_backtest_does_not_scale_non_overlapping_sparse_rebalance_sleeves(self):
+        factors = pd.DataFrame(
+            {
+                "date": [pd.Timestamp("2024-01-01").date(), pd.Timestamp("2024-01-03").date()],
+                "asset_id": ["A", "A"],
+                "market": ["US", "US"],
+                "factor_name": ["momentum_1", "momentum_1"],
+                "factor_value": [1.0, 1.0],
+            }
+        )
+        bars = pd.DataFrame(
+            {
+                "date": pd.date_range("2024-01-01", periods=7).date,
+                "asset_id": ["A"] * 7,
+                "market": ["US"] * 7,
+                "adj_close": [100.0, 101.0, 103.0, 107.0, 111.0, 113.0, 117.0],
+            }
+        )
+
+        result = run_factor_backtest(
+            factors,
+            bars,
+            top_n=1,
+            cost_bps=0.0,
+            holding_period=2,
+            rebalance_interval=2,
+        )
+
+        self.assertTrue(all(abs(weight - 1.0) < 1e-9 for weight in result.trades["target_weight"]))
+        self.assertAlmostEqual(result.metrics["turnover"], 1.0)
+
+    def test_backtest_scales_target_gross_exposure(self):
+        factors = pd.DataFrame(
+            {
+                "date": [pd.Timestamp("2024-01-01").date()],
+                "asset_id": ["A"],
+                "market": ["US"],
+                "factor_name": ["momentum_1"],
+                "factor_value": [1.0],
+            }
+        )
+        bars = pd.DataFrame(
+            {
+                "date": pd.date_range("2024-01-01", periods=3).date,
+                "asset_id": ["A"] * 3,
+                "market": ["US"] * 3,
+                "adj_close": [100.0, 101.0, 103.0],
+            }
+        )
+
+        result = run_factor_backtest(factors, bars, top_n=1, cost_bps=0.0, target_gross_exposure=0.8)
+
+        self.assertAlmostEqual(float(result.trades.iloc[0]["target_weight"]), 0.8)
+        self.assertAlmostEqual(result.metrics["turnover"], 0.8)
+
 
 if __name__ == "__main__":
     unittest.main()

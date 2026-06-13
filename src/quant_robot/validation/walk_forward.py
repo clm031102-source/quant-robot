@@ -216,6 +216,7 @@ def _grid_from_mapping(data: dict[str, Any]) -> ExperimentGridConfig:
         cash_annual_return=float(data.get("cash_annual_return", ExperimentGridConfig.cash_annual_return)),
         regime_filter=bool(data.get("regime_filter", ExperimentGridConfig.regime_filter)),
         regime_lookback=int(data.get("regime_lookback", ExperimentGridConfig.regime_lookback)),
+        target_gross_exposure=float(data.get("target_gross_exposure", ExperimentGridConfig.target_gross_exposure)),
         min_relative_return=float(data["min_relative_return"]) if data.get("min_relative_return") is not None else None,
         max_drawdown_limit=float(data["max_drawdown_limit"]) if data.get("max_drawdown_limit") is not None else None,
         signal_start_date=data.get("signal_start_date"),

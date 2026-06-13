@@ -3,6 +3,8 @@
   "factor_names": [
     "momentum_20",
     "momentum_60",
+    "risk_adjusted_momentum_20",
+    "risk_adjusted_momentum_60",
     "reversal_20",
     "volatility_20",
     "liquidity_20"
@@ -20,6 +22,7 @@
   "cash_annual_return": 0.015,
   "regime_filter": true,
   "regime_lookback": 60,
+  "target_gross_exposure": 0.8,
   "min_relative_return": 0,
   "max_drawdown_limit": 0.25,
   "rank_by": "relative_return",

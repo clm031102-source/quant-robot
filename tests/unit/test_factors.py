@@ -45,6 +45,28 @@ class FactorTests(unittest.TestCase):
 
         self.assertAlmostEqual(row["factor_value"], 0.21)
 
+    def test_risk_adjusted_momentum_divides_momentum_by_realized_volatility(self):
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["A"] * 4,
+                "market": ["US"] * 4,
+                "date": pd.date_range("2024-01-01", periods=4).date,
+                "adj_close": [100.0, 110.0, 99.0, 118.8],
+                "volume": [100.0, 100.0, 100.0, 100.0],
+                "amount": [10000.0, 11000.0, 9900.0, 11880.0],
+            }
+        )
+
+        factors = compute_basic_factors(bars, windows=(2,))
+        matches = factors[
+            (factors["date"] == pd.Timestamp("2024-01-03").date())
+            & (factors["factor_name"] == "risk_adjusted_momentum_2")
+        ]
+
+        self.assertEqual(len(matches), 1)
+        row = matches.iloc[0]
+        self.assertAlmostEqual(row["factor_value"], -0.1)
+
     def test_factor_output_is_long_schema(self):
         bars = pd.DataFrame(
             {

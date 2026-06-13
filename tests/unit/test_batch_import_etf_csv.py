@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import sys
@@ -37,6 +38,41 @@ class BatchEtfCsvImportTests(unittest.TestCase):
             self.assertFalse(second.exists())
             self.assertTrue((output / "batch_import_manifest.json").exists())
             self.assertEqual(set(bars["symbol"]), {"510300.SH", "159915.SZ"})
+            quality_report = json.loads((output / "quality_report_cn_etf.json").read_text(encoding="utf-8"))
+            self.assertEqual(quality_report["assets"], 2)
+            self.assertEqual(quality_report["rows"], 4)
+            self.assertEqual(
+                {item["asset_id"] for item in quality_report["coverage_by_asset"]},
+                {"CN_ETF_XSHG_510300", "CN_ETF_XSHE_159915"},
+            )
+
+    def test_batch_quality_report_uses_observed_universe_dates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            incoming = root / "incoming"
+            incoming.mkdir()
+            output = root / "processed"
+            raw_dir = root / "raw"
+            first = incoming / "SSE_DLY_510300, 1D_abc.csv"
+            second = incoming / "SZSE_DLY_159915, 1D_def.csv"
+            first.write_text(
+                "time,open,high,low,close,Volume\n"
+                "2024-01-02,3,3.1,2.9,3.05,100\n"
+                "2024-01-04,3.1,3.2,3.0,3.15,120\n",
+                encoding="utf-8",
+            )
+            second.write_text(
+                "time,open,high,low,close,Volume\n"
+                "2024-01-02,2,2.1,1.9,2.05,200\n"
+                "2024-01-04,2.1,2.2,2.0,2.15,220\n",
+                encoding="utf-8",
+            )
+
+            batch_import_etf_csv(incoming, output, raw_dir=raw_dir)
+
+            quality_report = json.loads((output / "quality_report_cn_etf.json").read_text(encoding="utf-8"))
+            self.assertEqual(quality_report["assets"], 2)
+            self.assertEqual(quality_report["missing_date_rows"], 0)
 
     def test_cli_can_start_when_executed_as_script(self):
         repo_root = Path(__file__).resolve().parents[2]
