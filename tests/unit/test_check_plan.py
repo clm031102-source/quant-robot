@@ -51,6 +51,7 @@ class CheckPlanTests(unittest.TestCase):
                 "iterative_observation_expansion",
                 "tushare_activation_gate",
                 "paper_observation_history",
+                "paper_ops_guardrail",
                 "risk_candidate_selector",
                 "constrained_candidate_search",
                 "paper_profile_optimizer",
@@ -96,9 +97,10 @@ class CheckPlanTests(unittest.TestCase):
         self.assertIn("scripts/run_iterative_observation_expansion.py", plan[37].command)
         self.assertIn("scripts/run_tushare_activation_gate.py", plan[38].command)
         self.assertIn("scripts/run_paper_observation_history.py", plan[39].command)
-        self.assertIn("scripts/run_risk_candidate_selector.py", plan[40].command)
-        self.assertIn("scripts/run_constrained_candidate_search.py", plan[41].command)
-        self.assertIn("scripts/run_paper_profile_optimizer.py", plan[42].command)
+        self.assertIn("scripts/run_paper_ops_guardrail.py", plan[40].command)
+        self.assertIn("scripts/run_risk_candidate_selector.py", plan[41].command)
+        self.assertIn("scripts/run_constrained_candidate_search.py", plan[42].command)
+        self.assertIn("scripts/run_paper_profile_optimizer.py", plan[43].command)
 
 
 if __name__ == "__main__":

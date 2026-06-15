@@ -56,6 +56,7 @@ def build_check_plan(python_executable: str = sys.executable) -> list[CheckStep]
         CheckStep("iterative_observation_expansion", [python_executable, "scripts/run_iterative_observation_expansion.py"]),
         CheckStep("tushare_activation_gate", [python_executable, "scripts/run_tushare_activation_gate.py"]),
         CheckStep("paper_observation_history", [python_executable, "scripts/run_paper_observation_history.py"]),
+        CheckStep("paper_ops_guardrail", [python_executable, "scripts/run_paper_ops_guardrail.py"]),
         CheckStep("risk_candidate_selector", [python_executable, "scripts/run_risk_candidate_selector.py"]),
         CheckStep("constrained_candidate_search", [python_executable, "scripts/run_constrained_candidate_search.py"]),
         CheckStep("paper_profile_optimizer", [python_executable, "scripts/run_paper_profile_optimizer.py"]),

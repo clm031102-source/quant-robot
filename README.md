@@ -2,16 +2,17 @@
 
 Local multi-market quantitative research framework for A-shares, A-share ETFs, Hong Kong stocks, US stocks, and crypto.
 
-The project is currently in a Phase 5.x research-to-paper stage. It has research, walk-forward, paper simulation, promotion, Daily Ops, profile observation, Tushare activation-gate, and paper-observation history workflows, but it still does not connect to real broker accounts, read live accounts, place orders, or implement automatic live trading.
+The project is currently in a Phase 5.x research-to-paper stage. It has research, walk-forward, paper simulation, promotion, Daily Ops, profile observation, Tushare activation-gate, paper-observation history, and paper-ops guardrail workflows, but it still does not connect to real broker accounts, read live accounts, place orders, or implement automatic live trading.
 
 ## Current Status
 
-- Current stage: Phase 5.13 paper observation history.
+- Current stage: Phase 5.14 paper ops guardrail.
 - Latest selected paper profile: `cap60_guard12_cd3` for `CN_ETF_liquidity_10_top1_cost5_reb5`, risk tier `aggressive_growth`.
 - Daily Ops status: `paper_ready` with live boundary disabled.
 - Baseline Profile Observation status: stopped on `signal_data_stale`, which is why the activation chain refreshes and replays recent data.
 - Real Tushare activation status: `paper_observation_ready`; readiness passed, required-asset coverage passed for `CN_ETF_XSHG_516160`, iterative expansion completed in 2 rounds, final fills are `21 / 20`, blockers are empty, and live boundary remains disabled.
 - Paper Observation History status: `history_clear_for_continued_paper_observation=true` with 1 recorded real Tushare activation run and zero live-boundary violations.
+- Paper Ops Guardrail status: `paper_ops_watch`; continued paper observation is allowed, live readiness is false, warnings are `short_paper_history` and `provider_missing_date_rows`.
 - Fixture activation status: `paper_observation_ready`, proving the local refresh -> replay -> sufficiency -> iterative expansion chain without network access.
 - CI status: GitHub Actions now runs unit/integration tests, Python compilation, and project-audit pass checks on push and pull request.
 
@@ -53,7 +54,7 @@ Passing this gate only permits continued paper observation on refreshed data. It
 - Pre-API readiness board that consolidates local evidence, blockers, next actions, and live-boundary status into one artifact.
 - Blocker-resolution worklist that turns readiness blockers into open local-only work items and a deduplicated action queue.
 - Tushare CN ETF daily ingestion path through the optional `fund_daily` endpoint.
-- Risk-tier policy, constrained candidate search, paper-profile optimization, Daily Ops activation, profile-observation stop rules, recent-data refresh, post-refresh replay, observation sufficiency, iterative expansion, Tushare activation-gate packs, and paper-observation history ledgers.
+- Risk-tier policy, constrained candidate search, paper-profile optimization, Daily Ops activation, profile-observation stop rules, recent-data refresh, post-refresh replay, observation sufficiency, iterative expansion, Tushare activation-gate packs, paper-observation history ledgers, and paper-ops guardrail packs.
 - Paper-simulation execution-block events for suspended, zero-volume, limit-up, and limit-down bars when those fields exist in local data.
 - CSV, JSON, and SVG report outputs.
 
@@ -66,7 +67,7 @@ python -m unittest discover -s tests -p "test_*.py"
 
 ## Run Core Checks
 
-This runs the local test suite, Python compile check, project audit, readiness check, provider status, provider evidence, provider remediation, provider remediation rehearsal, data catalog, data-quality gap audit, data-gap resolution, data-gap evidence, data-gap rehearsal, offline fixture research, the configurable research pipeline, the experiment grid, walk-forward validation, signal snapshot generation, paper simulation, paper observation, promotion operations summary, duplicate registry, promotion review packet, manual review rehearsal, evidence refresh plan, pre-API readiness board, readiness projection, blocker worklist, residual blocker focus pack, residual data-gap review pack, residual provider review pack, Daily Ops, profile observation, recent-data refresh, post-refresh replay, observation sufficiency, expanded observation replay, iterative observation expansion, Tushare activation gate, paper-observation history, risk candidate selector, constrained candidate search, and paper profile optimizer. It does not download market data unless a stage is explicitly run in execute mode with valid provider credentials.
+This runs the local test suite, Python compile check, project audit, readiness check, provider status, provider evidence, provider remediation, provider remediation rehearsal, data catalog, data-quality gap audit, data-gap resolution, data-gap evidence, data-gap rehearsal, offline fixture research, the configurable research pipeline, the experiment grid, walk-forward validation, signal snapshot generation, paper simulation, paper observation, promotion operations summary, duplicate registry, promotion review packet, manual review rehearsal, evidence refresh plan, pre-API readiness board, readiness projection, blocker worklist, residual blocker focus pack, residual data-gap review pack, residual provider review pack, Daily Ops, profile observation, recent-data refresh, post-refresh replay, observation sufficiency, expanded observation replay, iterative observation expansion, Tushare activation gate, paper-observation history, paper-ops guardrail, risk candidate selector, constrained candidate search, and paper profile optimizer. It does not download market data unless a stage is explicitly run in execute mode with valid provider credentials.
 
 The batch experiment grid exits non-zero if any case fails or if no case completes. Walk-forward validation exits non-zero if the underlying train/test grids fail or if no candidate is accepted. This keeps local checks from hiding failed research runs inside CSV/JSON leaderboards.
 
