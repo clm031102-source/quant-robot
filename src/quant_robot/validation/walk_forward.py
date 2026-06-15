@@ -355,12 +355,21 @@ def _with_multiple_testing_evidence(rows: list[dict[str, Any]], config: WalkForw
     for row in rows:
         p_value = _metric_or(row, "test_ic_p_value", 1.0)
         adjusted = min(max(p_value, 0.0) * max(hypothesis_count, 1), 1.0)
+        passes = adjusted <= config.multiple_testing_alpha
+        reasons = list(row.get("rejection_reasons", []) or [])
+        validation_status = row.get("validation_status")
+        if not passes:
+            if "adjusted_ic_significance_not_passed" not in reasons:
+                reasons.append("adjusted_ic_significance_not_passed")
+            validation_status = "rejected"
         corrected.append(
             {
                 **row,
+                "validation_status": validation_status,
+                "rejection_reasons": reasons,
                 "hypothesis_count": hypothesis_count,
                 "adjusted_ic_p_value": adjusted,
-                "passes_adjusted_ic_p_value": adjusted <= config.multiple_testing_alpha,
+                "passes_adjusted_ic_p_value": passes,
             }
         )
     return corrected

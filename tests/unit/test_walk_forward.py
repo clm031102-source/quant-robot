@@ -9,6 +9,7 @@ from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.experiments.runner import ExperimentGridConfig
 from quant_robot.validation.walk_forward import (
     WalkForwardConfig,
+    _with_multiple_testing_evidence,
     load_walk_forward_config,
     run_walk_forward_validation,
 )
@@ -67,6 +68,23 @@ class WalkForwardTests(unittest.TestCase):
 
         self.assertEqual(result["leaderboard"][0]["validation_status"], "rejected")
         self.assertIn("oos_sharpe_below_threshold", result["leaderboard"][0]["rejection_reasons"])
+
+    def test_multiple_testing_failure_rejects_previously_accepted_candidate(self):
+        rows = [
+            {
+                "case_id": "weak_ic",
+                "validation_status": "accepted",
+                "rejection_reasons": [],
+                "test_ic_p_value": 1.0,
+            }
+        ]
+        config = WalkForwardConfig(split_date="2024-01-08", experiment_grid=ExperimentGridConfig())
+
+        result = _with_multiple_testing_evidence(rows, config)
+
+        self.assertFalse(result[0]["passes_adjusted_ic_p_value"])
+        self.assertEqual(result[0]["validation_status"], "rejected")
+        self.assertIn("adjusted_ic_significance_not_passed", result[0]["rejection_reasons"])
 
     def test_walk_forward_rejects_candidates_below_relative_return_threshold(self):
         config = WalkForwardConfig(
