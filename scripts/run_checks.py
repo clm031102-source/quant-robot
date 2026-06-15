@@ -14,8 +14,28 @@ class CheckStep:
     uses_network: bool = False
 
 
-def build_check_plan(python_executable: str = sys.executable) -> list[CheckStep]:
-    return [
+LAPTOP_CHECK_NAMES = (
+    "unit_and_integration_tests",
+    "compile_python",
+    "project_audit",
+    "readiness_check",
+    "provider_status",
+    "provider_evidence",
+    "provider_remediation",
+    "provider_remediation_rehearsal",
+    "data_catalog",
+    "fixture_research",
+    "research_pipeline",
+    "signal_snapshot",
+    "paper_simulation",
+    "recent_data_refresh",
+    "tushare_activation_gate",
+    "paper_ops_guardrail",
+)
+
+
+def build_check_plan(python_executable: str = sys.executable, profile: str = "full") -> list[CheckStep]:
+    full_plan = [
         CheckStep("unit_and_integration_tests", [python_executable, "-m", "unittest", "discover", "-s", "tests"]),
         CheckStep("compile_python", [python_executable, "-m", "compileall", "-q", "src", "scripts", "tests"]),
         CheckStep("project_audit", [python_executable, "scripts/run_project_audit.py", "--json"]),
@@ -62,13 +82,20 @@ def build_check_plan(python_executable: str = sys.executable) -> list[CheckStep]
         CheckStep("constrained_candidate_search", [python_executable, "scripts/run_constrained_candidate_search.py"]),
         CheckStep("paper_profile_optimizer", [python_executable, "scripts/run_paper_profile_optimizer.py"]),
     ]
+    if profile == "full":
+        return full_plan
+    if profile == "laptop":
+        selected = set(LAPTOP_CHECK_NAMES)
+        return [step for step in full_plan if step.name in selected]
+    raise ValueError(f"Unsupported check profile: {profile}")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run local Quant Robot checks.")
+    parser.add_argument("--profile", choices=["full", "laptop"], default="full", help="Select the check plan size.")
     parser.add_argument("--execute", action="store_true", help="Run checks instead of printing the plan.")
     args = parser.parse_args()
-    plan = build_check_plan()
+    plan = build_check_plan(profile=args.profile)
     if not args.execute:
         print(json.dumps([asdict(step) for step in plan], indent=2))
         return

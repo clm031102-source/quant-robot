@@ -104,6 +104,40 @@ class CheckPlanTests(unittest.TestCase):
         self.assertIn("scripts/run_constrained_candidate_search.py", plan[43].command)
         self.assertIn("scripts/run_paper_profile_optimizer.py", plan[44].command)
 
+    def test_laptop_check_plan_keeps_fast_audit_and_fixture_smoke_steps(self):
+        plan = build_check_plan("python", profile="laptop")
+
+        names = [step.name for step in plan]
+        self.assertEqual(
+            names,
+            [
+                "unit_and_integration_tests",
+                "compile_python",
+                "project_audit",
+                "readiness_check",
+                "provider_status",
+                "provider_evidence",
+                "provider_remediation",
+                "provider_remediation_rehearsal",
+                "data_catalog",
+                "fixture_research",
+                "research_pipeline",
+                "signal_snapshot",
+                "paper_simulation",
+                "recent_data_refresh",
+                "tushare_activation_gate",
+                "paper_ops_guardrail",
+            ],
+        )
+        self.assertTrue(all(not step.uses_network for step in plan))
+        self.assertNotIn("experiment_grid", names)
+        self.assertNotIn("walk_forward", names)
+        self.assertNotIn("paper_profile_optimizer", names)
+
+    def test_unknown_check_profile_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "Unsupported check profile"):
+            build_check_plan("python", profile="moonbase")
+
 
 if __name__ == "__main__":
     unittest.main()

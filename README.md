@@ -86,9 +86,12 @@ This runs the local test suite, Python compile check, project audit, readiness c
 
 The batch experiment grid exits non-zero if any case fails or if no case completes. Walk-forward validation exits non-zero if the underlying train/test grids fail or if no candidate is accepted. This keeps local checks from hiding failed research runs inside CSV/JSON leaderboards.
 
+For laptop architecture/audit work, use the laptop profile. It keeps the fast safety, provider-readiness, fixture research, signal snapshot, paper-simulation, recent-refresh dry-run, activation-gate dry-run, and paper-ops guardrail checks without running the heavier experiment grid, walk-forward, promotion, and profile-optimizer chain.
+
 ```powershell
 $env:PYTHONPATH='src'
 python scripts\run_checks.py --execute
+python scripts\run_checks.py --profile laptop --execute
 ```
 
 To inspect the check plan without running it:
@@ -96,6 +99,7 @@ To inspect the check plan without running it:
 ```powershell
 $env:PYTHONPATH='src'
 python scripts\run_checks.py
+python scripts\run_checks.py --profile laptop
 ```
 
 ## Run Project Audit
