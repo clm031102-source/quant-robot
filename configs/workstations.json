@@ -1,0 +1,108 @@
+{
+  "machines": {
+    "laptop": {
+      "description": "Portable laptop for architecture, audits, documentation, sync, and light factor smoke checks.",
+      "allowed_tasks": [
+        "architecture_ops",
+        "factor_smoke",
+        "factor_review",
+        "project_sync"
+      ]
+    },
+    "highspec_desktop": {
+      "description": "Higher-spec desktop for data generation, large Tushare factor batches, and heavier validation.",
+      "allowed_tasks": [
+        "data_pipeline",
+        "factor_batch",
+        "factor_validation",
+        "factor_review"
+      ]
+    },
+    "office_desktop": {
+      "description": "Office desktop for additional factor batches, validation reruns, and data-quality checks.",
+      "allowed_tasks": [
+        "data_pipeline",
+        "factor_batch",
+        "factor_validation",
+        "factor_review"
+      ]
+    }
+  },
+  "tasks": {
+    "architecture_ops": {
+      "description": "Project architecture, audits, CI, tests, documentation, GitHub sync, and merge work.",
+      "branch": "codex/architecture-ops"
+    },
+    "project_sync": {
+      "description": "Repository synchronization, branch cleanup, and safe mainline integration.",
+      "branch": "main"
+    },
+    "data_pipeline": {
+      "description": "Tushare downloads, local raw/processed data generation, and data-quality checks.",
+      "branch": "codex/tushare-data-pipeline"
+    },
+    "factor_mining_core": {
+      "description": "Reusable factor definitions, IC/RankIC logic, quantile returns, and research framework code.",
+      "branch": "codex/factor-mining-core"
+    },
+    "factor_smoke": {
+      "description": "Small-sample factor smoke tests and fast local replication checks.",
+      "branch": "codex/factor-smoke-<topic-or-date>"
+    },
+    "factor_batch": {
+      "description": "Large factor experiment batches. Multiple desktops should use separate topic/date branches.",
+      "branch": "codex/factor-batch-<topic-or-date>"
+    },
+    "factor_validation": {
+      "description": "Candidate factor validation, walk-forward reruns, cost checks, and robustness reviews.",
+      "branch": "codex/factor-validation-<topic-or-date>"
+    },
+    "factor_review": {
+      "description": "Review candidate reports and promote only robust findings into integration work.",
+      "branch": "codex/factor-review-<topic-or-date>"
+    },
+    "factor_integration": {
+      "description": "Integrate validated factor logic into the formal pipeline before mainline merge.",
+      "branch": "codex/factor-integration-<topic-or-date>"
+    }
+  },
+  "branch_policy": {
+    "stable_branch": "main",
+    "naming_rule": "Name branches by work content, not by machine. Use the machine only as startup context.",
+    "temporary_branch_cleanup": "Delete task branches after their work is merged and verified.",
+    "main_rule": "Do not run exploratory factor development directly on main."
+  },
+  "data_policy": {
+    "sync_code_with": "GitHub",
+    "sync_large_data_with": "Local copy, NAS, external drive, or future DVC/object storage.",
+    "ignored_paths": [
+      "data/raw/",
+      "data/processed/",
+      "data/reports/",
+      "*.parquet",
+      "*.log"
+    ],
+    "commit_allowed": [
+      "source code",
+      "tests",
+      "configs",
+      "lightweight summaries",
+      "documentation"
+    ],
+    "commit_forbidden": [
+      "Tushare token",
+      "broker credentials",
+      "account data",
+      "large raw market data",
+      "large processed market data"
+    ]
+  },
+  "safety": [
+    "Research-to-paper only.",
+    "No broker connection.",
+    "No live account reads.",
+    "No order placement.",
+    "No automatic live trading.",
+    "TUSHARE_TOKEN must stay in the local environment and must not be written to repository files."
+  ]
+}

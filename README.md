@@ -70,6 +70,16 @@ $env:PYTHONPATH='src'
 python -m unittest discover -s tests -p "test_*.py"
 ```
 
+## Workstation Startup
+
+Before starting work on the laptop, high-spec desktop, or office desktop, confirm the machine, task type, branch, and commit/push permission. Branches are named by work content, not by machine.
+
+```powershell
+python scripts\start_task_context.py
+```
+
+See `AGENTS.md`, `configs/workstations.json`, and `docs/workstation_protocol.md`.
+
 ## Run Core Checks
 
 This runs the local test suite, Python compile check, project audit, readiness check, provider status, provider evidence, provider remediation, provider remediation rehearsal, data catalog, data-quality gap audit, data-gap resolution, data-gap evidence, data-gap rehearsal, offline fixture research, the configurable research pipeline, the experiment grid, walk-forward validation, signal snapshot generation, paper simulation, paper observation, promotion operations summary, duplicate registry, promotion review packet, manual review rehearsal, evidence refresh plan, pre-API readiness board, readiness projection, blocker worklist, residual blocker focus pack, residual data-gap review pack, residual provider review pack, Daily Ops, profile observation, recent-data refresh, post-refresh replay, observation sufficiency, expanded observation replay, iterative observation expansion, Tushare activation gate, paper-observation history, paper-ops guardrail, paper-ops runbook, risk candidate selector, constrained candidate search, and paper profile optimizer. It does not download market data unless a stage is explicitly run in execute mode with valid provider credentials.
