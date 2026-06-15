@@ -8,6 +8,15 @@ from typing import Any
 
 import pandas as pd
 
+from quant_robot.ops.risk_policy_tiers import (
+    PHASE_5_4_STAGE,
+    assign_risk_tier,
+    normalize_risk_tiers,
+    paper_calmar,
+    risk_tier_counts,
+    tier_label,
+)
+
 
 STAGE = "phase_5_1_risk_candidate_selector"
 DEFAULT_MAX_DRAWDOWN_LIMIT = -0.2
@@ -25,20 +34,28 @@ def build_risk_candidate_pack(
     min_relative_return: float = DEFAULT_MIN_RELATIVE_RETURN,
     min_paper_sharpe: float = DEFAULT_MIN_PAPER_SHARPE,
     min_trades: int = DEFAULT_MIN_TRADES,
+    risk_tiers: list[dict[str, Any]] | tuple[dict[str, Any], ...] | None = None,
+    primary_risk_tier: str | None = None,
 ) -> dict[str, Any]:
     daily = daily_ops_pack or {}
     policy = _policy(max_drawdown_limit, min_walk_forward_sharpe, min_relative_return, min_paper_sharpe, min_trades)
+    tiers, primary = normalize_risk_tiers(risk_tiers, policy, primary_risk_tier)
+    if tiers:
+        policy["primary_risk_tier"] = primary
+        policy["risk_tiers"] = tiers
     current_daily_case = _current_daily_case(daily)
     candidates = [
-        _candidate_row(index + 1, row, policy, daily, current_daily_case)
+        _candidate_row(index + 1, row, policy, daily, current_daily_case, tiers)
         for index, row in enumerate(_list(promotion_report.get("candidates", [])))
         if isinstance(row, dict)
     ]
     eligible = [row for row in candidates if row.get("risk_status") == "risk_eligible"]
-    selected = _selected_candidate(eligible)
-    selection_status = "risk_candidate_selected" if selected else "no_risk_eligible_candidate"
+    tier_eligible = [row for row in candidates if row.get("tier_status") == "tier_eligible"]
+    selected_source = tier_eligible if tiers else eligible
+    selected = _selected_candidate(selected_source, tiers=tiers)
+    selection_status = _selection_status(selected, bool(tiers), primary)
     pack = {
-        "stage": STAGE,
+        "stage": PHASE_5_4_STAGE if tiers else STAGE,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "source_stage": promotion_report.get("stage"),
         "safety": _safety(),
@@ -78,7 +95,9 @@ def render_risk_candidate_markdown(pack: dict[str, Any]) -> str:
         f"- Stage: {pack.get('stage', STAGE)}",
         f"- Selection: {pack.get('selection_status', 'unknown')}",
         f"- Risk eligible candidates: {summary.get('risk_eligible_candidates', 0)}",
+        f"- Tier eligible candidates: {summary.get('tier_eligible_candidates', 0)}",
         f"- Max drawdown limit: {policy.get('max_drawdown_limit', DEFAULT_MAX_DRAWDOWN_LIMIT)}",
+        f"- Primary risk tier: {policy.get('primary_risk_tier', 'legacy_policy')}",
         f"- Paper trading allowed: {pack.get('paper_trading_allowed', False)}",
         f"- Live boundary allowed: {pack.get('live_boundary_allowed', False)}",
         f"- Safety: {pack.get('safety', _safety())}",
@@ -92,8 +111,10 @@ def render_risk_candidate_markdown(pack: dict[str, Any]) -> str:
                 f"- Case: {selected.get('case_id')}",
                 f"- Market: {selected.get('market')}",
                 f"- Factor: {selected.get('factor_name')}",
+                f"- Risk tier: {selected.get('risk_tier')}",
                 f"- Walk-forward drawdown: {selected.get('walk_forward_max_drawdown')}",
                 f"- Paper drawdown: {selected.get('paper_max_drawdown')}",
+                f"- Paper Calmar: {selected.get('paper_calmar')}",
             ]
         )
     else:
@@ -103,8 +124,8 @@ def render_risk_candidate_markdown(pack: dict[str, Any]) -> str:
             "",
             "## Candidate Screening",
             "",
-            "| Rank | Case | Status | WF Sharpe | WF Drawdown | Paper Sharpe | Paper Drawdown | Rejections |",
-            "| --- | --- | --- | --- | --- | --- | --- | --- |",
+            "| Rank | Case | Status | Tier | WF Sharpe | WF Drawdown | Paper Sharpe | Paper Drawdown | Paper Calmar | Rejections |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
     for row in pack.get("candidates", [])[:20]:
@@ -114,10 +135,12 @@ def render_risk_candidate_markdown(pack: dict[str, Any]) -> str:
                 f"{row.get('screen_rank', '')} | "
                 f"{row.get('case_id', '')} | "
                 f"{row.get('risk_status', '')} | "
+                f"{row.get('risk_tier', '')} | "
                 f"{_round(row.get('walk_forward_sharpe'))} | "
                 f"{_round(row.get('walk_forward_max_drawdown'))} | "
                 f"{_round(row.get('paper_sharpe'))} | "
                 f"{_round(row.get('paper_max_drawdown'))} | "
+                f"{_round(row.get('paper_calmar'))} | "
                 f"{', '.join(row.get('rejection_reasons', [])) if isinstance(row.get('rejection_reasons'), list) else ''} |"
             )
     return "\n".join(lines) + "\n"
@@ -129,6 +152,7 @@ def _candidate_row(
     policy: dict[str, Any],
     daily_ops_pack: dict[str, Any],
     current_daily_case: str | None,
+    risk_tiers: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     walk = row.get("walk_forward", {}) if isinstance(row.get("walk_forward"), dict) else {}
     paper = row.get("paper", {}) if isinstance(row.get("paper"), dict) else {}
@@ -153,8 +177,23 @@ def _candidate_row(
         "paper_total_return": _float(paper.get("total_return")),
         "is_current_daily_candidate": case_id == current_daily_case,
     }
+    candidate["paper_calmar"] = _round(paper_calmar(candidate["paper_total_return"], candidate["paper_max_drawdown"]))
     candidate["rejection_reasons"] = _rejection_reasons(candidate, policy, daily_ops_pack)
     candidate["risk_status"] = "risk_eligible" if not candidate["rejection_reasons"] else "rejected"
+    if risk_tiers:
+        tier_rejections = {
+            str(tier.get("tier_id")): _rejection_reasons(candidate, tier, daily_ops_pack)
+            for tier in risk_tiers
+        }
+        eligible_tiers, assigned_tier = assign_risk_tier(tier_rejections, risk_tiers)
+        candidate["risk_tier_rejections"] = tier_rejections
+        candidate["eligible_risk_tiers"] = eligible_tiers
+        candidate["risk_tier"] = assigned_tier
+        candidate["risk_tier_label"] = tier_label(risk_tiers, assigned_tier)
+        candidate["tier_status"] = "tier_eligible" if assigned_tier else "tier_rejected"
+    else:
+        candidate["eligible_risk_tiers"] = []
+        candidate["tier_status"] = "not_evaluated"
     return candidate
 
 
@@ -178,27 +217,45 @@ def _rejection_reasons(candidate: dict[str, Any], policy: dict[str, Any], daily_
         reasons.append("paper_sharpe_below_min")
     if _float(candidate.get("paper_max_drawdown")) < _float(policy.get("max_drawdown_limit")):
         reasons.append("paper_drawdown_breach")
+    if _float(candidate.get("paper_calmar")) < _float(policy.get("min_paper_calmar")):
+        reasons.append("paper_calmar_below_min")
+    if _float(candidate.get("paper_total_return")) < _float(policy.get("min_total_return")):
+        reasons.append("paper_total_return_below_min")
     if candidate.get("is_current_daily_candidate") and _daily_status(daily_ops_pack) != "paper_ready":
         reasons.append("daily_ops_current_candidate_blocked")
     return reasons
 
 
-def _selected_candidate(eligible: list[dict[str, Any]]) -> dict[str, Any] | None:
+def _selected_candidate(eligible: list[dict[str, Any]], tiers: list[dict[str, Any]] | None = None) -> dict[str, Any] | None:
     if not eligible:
         return None
-    selected = sorted(
-        eligible,
-        key=lambda row: (
-            -_float(row.get("walk_forward_relative_return")),
-            -_float(row.get("paper_sharpe")),
-            _float(row.get("paper_max_drawdown")),
-            _int(row.get("promotion_rank"), 999999),
-        ),
-    )[0]
+    if tiers:
+        selected = sorted(
+            eligible,
+            key=lambda row: (
+                -_float(row.get("paper_total_return")),
+                -_float(row.get("paper_calmar")),
+                -_float(row.get("paper_sharpe")),
+                -_float(row.get("walk_forward_relative_return")),
+                _int(row.get("promotion_rank"), 999999),
+            ),
+        )[0]
+    else:
+        selected = sorted(
+            eligible,
+            key=lambda row: (
+                -_float(row.get("walk_forward_relative_return")),
+                -_float(row.get("paper_sharpe")),
+                _float(row.get("paper_max_drawdown")),
+                _int(row.get("promotion_rank"), 999999),
+            ),
+        )[0]
     return {
         "case_id": selected.get("case_id"),
         "market": selected.get("market"),
         "factor_name": selected.get("factor_name"),
+        "risk_tier": selected.get("risk_tier"),
+        "risk_tier_label": selected.get("risk_tier_label"),
         "promotion_rank": selected.get("promotion_rank"),
         "score": selected.get("score"),
         "walk_forward_sharpe": selected.get("walk_forward_sharpe"),
@@ -207,14 +264,23 @@ def _selected_candidate(eligible: list[dict[str, Any]]) -> dict[str, Any] | None
         "paper_sharpe": selected.get("paper_sharpe"),
         "paper_max_drawdown": selected.get("paper_max_drawdown"),
         "paper_total_return": selected.get("paper_total_return"),
+        "paper_calmar": selected.get("paper_calmar"),
         "live_order_allowed": False,
     }
 
 
 def _summary(candidates: list[dict[str, Any]]) -> dict[str, Any]:
+    tier_rows = [row for row in candidates if row.get("tier_status") == "tier_eligible"]
+    tier_ids = []
+    for row in candidates:
+        if row.get("risk_tier") and row.get("risk_tier") not in tier_ids:
+            tier_ids.append(row.get("risk_tier"))
+    tier_templates = [{"tier_id": tier_id} for tier_id in tier_ids]
     return {
         "candidates": len(candidates),
         "risk_eligible_candidates": sum(1 for row in candidates if row.get("risk_status") == "risk_eligible"),
+        "tier_eligible_candidates": len(tier_rows),
+        "risk_tier_counts": risk_tier_counts(tier_rows, tier_templates),
         "rejected_candidates": sum(1 for row in candidates if row.get("risk_status") == "rejected"),
         "duplicate_candidates": sum(1 for row in candidates if row.get("duplicate_of")),
         "paper_matched_candidates": sum(1 for row in candidates if row.get("paper_matched")),
@@ -233,7 +299,7 @@ def _next_actions(selection_status: str, policy: dict[str, Any]) -> list[dict[st
     return [
         {
             "action": "run_constrained_candidate_search",
-            "reason": f"No candidate passed max_drawdown_limit={policy.get('max_drawdown_limit')}; search lower exposure, slower turnover, and stricter cash guards.",
+            "reason": f"No candidate passed max_drawdown_limit={policy.get('max_drawdown_limit')}; search higher-return profiles within the configured risk tier if aggressive growth is enabled.",
             "local_only": True,
         },
         {
@@ -268,7 +334,19 @@ def _policy(
         "min_relative_return": _float(min_relative_return, DEFAULT_MIN_RELATIVE_RETURN),
         "min_paper_sharpe": _float(min_paper_sharpe, DEFAULT_MIN_PAPER_SHARPE),
         "min_trades": _int(min_trades, DEFAULT_MIN_TRADES),
+        "min_paper_calmar": 0.0,
+        "min_total_return": 0.0,
     }
+
+
+def _selection_status(selected: dict[str, Any] | None, tier_mode: bool, primary_risk_tier: str | None) -> str:
+    if not selected:
+        return "no_risk_eligible_candidate"
+    if not tier_mode:
+        return "risk_candidate_selected"
+    if selected.get("risk_tier") == primary_risk_tier:
+        return "risk_candidate_selected"
+    return "risk_tier_candidate_selected"
 
 
 def _current_daily_case(daily_ops_pack: dict[str, Any]) -> str | None:

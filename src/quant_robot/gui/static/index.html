@@ -419,6 +419,27 @@
               <label>Paper profile pack
                 <input id="paper-profile-pack-path" value="data/reports/paper_profile_optimizer/paper_profile_optimizer_pack.json">
               </label>
+              <label>Profile observation pack
+                <input id="profile-observation-pack-path" value="data/reports/profile_observation/profile_observation_pack.json">
+              </label>
+              <label>Recent refresh pack
+                <input id="recent-data-refresh-pack-path" value="data/reports/recent_data_refresh/recent_data_refresh_pack.json">
+              </label>
+              <label>Post refresh replay pack
+                <input id="post-refresh-replay-pack-path" value="data/reports/post_refresh_replay/post_refresh_replay_pack.json">
+              </label>
+              <label>Observation sufficiency pack
+                <input id="observation-sufficiency-pack-path" value="data/reports/observation_sufficiency/observation_sufficiency_pack.json">
+              </label>
+              <label>Expanded observation replay pack
+                <input id="expanded-observation-replay-pack-path" value="data/reports/expanded_observation_replay/expanded_observation_replay_pack.json">
+              </label>
+              <label>Iterative observation expansion pack
+                <input id="iterative-observation-expansion-pack-path" value="data/reports/iterative_observation_expansion/iterative_observation_expansion_pack.json">
+              </label>
+              <label>Tushare activation gate pack
+                <input id="tushare-activation-gate-pack-path" value="data/reports/tushare_activation_gate/tushare_activation_gate_pack.json">
+              </label>
               <button id="run-daily-ops" class="primary-button command-action" type="button">Refresh Daily Ops</button>
             </div>
           </section>
@@ -440,6 +461,58 @@
               <div class="table-wrap scroll-table"><table><tbody id="daily-ops-blocker-table"></tbody></table></div>
             </section>
           </div>
+          <div class="metric-grid compact metric-card-grid" id="observation-sufficiency-metrics"></div>
+          <div class="page-grid two-grid">
+            <section class="panel status-panel observation-sufficiency-board">
+              <div class="panel-head"><h3>Observation Sufficiency</h3><span class="tag tag-warn" id="observation-sufficiency-tag">loading</span></div>
+              <div id="observation-sufficiency-status" class="status-list"></div>
+            </section>
+            <section class="panel table-panel">
+              <div class="panel-head"><h3>Sufficiency Actions</h3><span class="tag">sample gate</span></div>
+              <div class="table-wrap scroll-table"><table><tbody id="observation-sufficiency-action-table"></tbody></table></div>
+            </section>
+          </div>
+          <div class="metric-grid compact metric-card-grid" id="expanded-observation-replay-metrics"></div>
+          <div class="page-grid two-grid">
+            <section class="panel status-panel expanded-observation-replay-board">
+              <div class="panel-head"><h3>Expanded Observation Replay</h3><span class="tag tag-warn" id="expanded-observation-replay-tag">loading</span></div>
+              <div id="expanded-observation-replay-status" class="status-list"></div>
+            </section>
+            <section class="panel table-panel">
+              <div class="panel-head"><h3>Expanded Replay Actions</h3><span class="tag">extended sample</span></div>
+              <div class="table-wrap scroll-table"><table><tbody id="expanded-observation-replay-action-table"></tbody></table></div>
+            </section>
+          </div>
+          <div class="metric-grid compact metric-card-grid" id="iterative-observation-expansion-metrics"></div>
+          <div class="page-grid two-grid">
+            <section class="panel status-panel iterative-observation-expansion-board">
+              <div class="panel-head"><h3>Iterative Observation Expansion</h3><span class="tag tag-warn" id="iterative-observation-expansion-tag">loading</span></div>
+              <div id="iterative-observation-expansion-status" class="status-list"></div>
+            </section>
+            <section class="panel table-panel">
+              <div class="panel-head"><h3>Expansion Actions</h3><span class="tag">multi-round</span></div>
+              <div class="table-wrap scroll-table"><table><tbody id="iterative-observation-expansion-action-table"></tbody></table></div>
+            </section>
+          </div>
+          <section class="panel table-panel">
+            <div class="panel-head"><h3>Expansion Rounds</h3><span class="tag">sample path</span></div>
+            <div class="table-wrap scroll-table"><table><tbody id="iterative-observation-expansion-round-table"></tbody></table></div>
+          </section>
+          <div class="metric-grid compact metric-card-grid" id="tushare-activation-gate-metrics"></div>
+          <div class="page-grid two-grid">
+            <section class="panel status-panel tushare-activation-gate-board">
+              <div class="panel-head"><h3>Tushare Activation Gate</h3><span class="tag tag-warn" id="tushare-activation-gate-tag">loading</span></div>
+              <div id="tushare-activation-gate-status" class="status-list"></div>
+            </section>
+            <section class="panel table-panel">
+              <div class="panel-head"><h3>Activation Actions</h3><span class="tag">paper-only</span></div>
+              <div class="table-wrap scroll-table"><table><tbody id="tushare-activation-gate-action-table"></tbody></table></div>
+            </section>
+          </div>
+          <section class="panel table-panel">
+            <div class="panel-head"><h3>Activation Stage Ledger</h3><span class="tag">5.7 to 5.11</span></div>
+            <div class="table-wrap scroll-table"><table><tbody id="tushare-activation-gate-ledger-table"></tbody></table></div>
+          </section>
           <div class="page-grid two-grid">
             <section class="panel table-panel">
               <div class="panel-head"><h3>Advisory Tickets</h3><span class="tag tag-warn">live_order_allowed=false</span></div>
@@ -478,6 +551,53 @@
             <section class="panel table-panel">
               <div class="panel-head"><h3>Profile Attempts</h3><span class="tag">risk sweep</span></div>
               <div class="table-wrap scroll-table"><table><tbody id="paper-profile-attempt-table"></tbody></table></div>
+            </section>
+          </div>
+          <div class="metric-grid compact metric-card-grid" id="profile-observation-metrics"></div>
+          <div class="page-grid two-grid">
+            <section class="panel status-panel profile-observation-board">
+              <div class="panel-head"><h3>Profile Observation</h3><span class="tag tag-warn" id="profile-observation-tag">loading</span></div>
+              <div id="profile-observation-status" class="status-list"></div>
+            </section>
+            <section class="panel table-panel">
+              <div class="panel-head"><h3>Observation Actions</h3><span class="tag">next local step</span></div>
+              <div class="table-wrap scroll-table"><table><tbody id="profile-observation-action-table"></tbody></table></div>
+            </section>
+          </div>
+          <div class="metric-grid compact metric-card-grid" id="recent-data-refresh-metrics"></div>
+          <div class="page-grid two-grid">
+            <section class="panel status-panel recent-data-refresh-board">
+              <div class="panel-head"><h3>Recent Data Refresh</h3><span class="tag tag-warn" id="recent-data-refresh-tag">loading</span></div>
+              <div id="recent-data-refresh-status" class="status-list"></div>
+            </section>
+            <section class="panel status-panel">
+              <div class="panel-head"><h3>Refresh Coverage</h3><span class="tag">data gate</span></div>
+              <div id="recent-data-refresh-coverage" class="status-list"></div>
+            </section>
+          </div>
+          <section class="panel table-panel">
+            <div class="panel-head"><h3>Recent Refresh Actions</h3><span class="tag">token gate</span></div>
+            <div class="table-wrap scroll-table"><table><tbody id="recent-data-refresh-action-table"></tbody></table></div>
+          </section>
+          <div class="metric-grid compact metric-card-grid" id="post-refresh-replay-metrics"></div>
+          <div class="page-grid two-grid">
+            <section class="panel status-panel post-refresh-replay-board">
+              <div class="panel-head"><h3>Post Refresh Replay</h3><span class="tag tag-warn" id="post-refresh-replay-tag">loading</span></div>
+              <div id="post-refresh-replay-status" class="status-list"></div>
+            </section>
+            <section class="panel table-panel">
+              <div class="panel-head"><h3>Post Replay Actions</h3><span class="tag">paper gate</span></div>
+              <div class="table-wrap scroll-table"><table><tbody id="post-refresh-replay-action-table"></tbody></table></div>
+            </section>
+          </div>
+          <div class="page-grid two-grid">
+            <section class="panel table-panel">
+              <div class="panel-head"><h3>Stop Rules</h3><span class="tag tag-warn">hard gate</span></div>
+              <div class="table-wrap scroll-table"><table><tbody id="profile-observation-rule-table"></tbody></table></div>
+            </section>
+            <section class="panel table-panel">
+              <div class="panel-head"><h3>Observation Ledger</h3><span class="tag">paper only</span></div>
+              <div class="table-wrap scroll-table"><table><tbody id="profile-observation-ledger-table"></tbody></table></div>
             </section>
           </div>
           <section class="panel table-panel">

@@ -30,8 +30,16 @@ DEFAULT_DUPLICATE_REGISTRY = Path("data/reports/duplicate_registry/duplicate_can
 DEFAULT_RESIDUAL_FOCUS = Path("data/reports/residual_blocker_focus/residual_blocker_focus_pack.json")
 DEFAULT_DAILY_OPS_PACK = Path("data/reports/daily_ops/daily_ops_pack.json")
 DEFAULT_RISK_CANDIDATE_PACK = Path("data/reports/risk_candidate_selector/risk_candidate_pack.json")
+DEFAULT_CONSTRAINED_RISK_CANDIDATE_PACK = Path("data/reports/risk_candidate_selector_risk_constrained/risk_candidate_pack.json")
 DEFAULT_CONSTRAINED_SEARCH_PACK = Path("data/reports/constrained_candidate_search/constrained_candidate_search_pack.json")
 DEFAULT_PAPER_PROFILE_PACK = Path("data/reports/paper_profile_optimizer/paper_profile_optimizer_pack.json")
+DEFAULT_PROFILE_OBSERVATION_PACK = Path("data/reports/profile_observation/profile_observation_pack.json")
+DEFAULT_RECENT_DATA_REFRESH_PACK = Path("data/reports/recent_data_refresh/recent_data_refresh_pack.json")
+DEFAULT_POST_REFRESH_REPLAY_PACK = Path("data/reports/post_refresh_replay/post_refresh_replay_pack.json")
+DEFAULT_OBSERVATION_SUFFICIENCY_PACK = Path("data/reports/observation_sufficiency/observation_sufficiency_pack.json")
+DEFAULT_EXPANDED_OBSERVATION_REPLAY_PACK = Path("data/reports/expanded_observation_replay/expanded_observation_replay_pack.json")
+DEFAULT_ITERATIVE_OBSERVATION_EXPANSION_PACK = Path("data/reports/iterative_observation_expansion/iterative_observation_expansion_pack.json")
+DEFAULT_TUSHARE_ACTIVATION_GATE_PACK = Path("data/reports/tushare_activation_gate/tushare_activation_gate_pack.json")
 
 
 def build_gui_snapshot() -> dict[str, Any]:
@@ -201,6 +209,7 @@ def build_daily_ops_snapshot(daily_ops_pack: str | Path | None = None) -> dict[s
             "blockers": ["daily_ops_artifact_missing"],
             "risk": {},
             "risk_policy": {},
+            "paper_profile": {},
             "ticket_count": 0,
             "advisory_tickets": [],
             "safety": "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading.",
@@ -220,6 +229,7 @@ def build_daily_ops_snapshot(daily_ops_pack: str | Path | None = None) -> dict[s
             "blockers": blockers,
             "risk": pack.get("risk", {}) if isinstance(pack.get("risk"), dict) else {},
             "risk_policy": pack.get("risk_policy", {}) if isinstance(pack.get("risk_policy"), dict) else {},
+            "paper_profile": pack.get("paper_profile", {}) if isinstance(pack.get("paper_profile"), dict) else {},
             "ticket_count": len(tickets),
             "advisory_tickets": tickets[:80],
             "simulation": pack.get("simulation", {}) if isinstance(pack.get("simulation"), dict) else {},
@@ -232,7 +242,7 @@ def build_daily_ops_snapshot(daily_ops_pack: str | Path | None = None) -> dict[s
 
 
 def build_risk_candidate_snapshot(risk_candidate_pack: str | Path | None = None) -> dict[str, Any]:
-    pack_path = Path(risk_candidate_pack) if risk_candidate_pack else DEFAULT_RISK_CANDIDATE_PACK
+    pack_path = Path(risk_candidate_pack) if risk_candidate_pack else _default_risk_candidate_pack_path()
     pack = _read_optional_json(pack_path)
     if not pack:
         return {
@@ -268,6 +278,12 @@ def build_risk_candidate_snapshot(risk_candidate_pack: str | Path | None = None)
             ),
         }
     )
+
+
+def _default_risk_candidate_pack_path() -> Path:
+    if DEFAULT_CONSTRAINED_RISK_CANDIDATE_PACK.exists():
+        return DEFAULT_CONSTRAINED_RISK_CANDIDATE_PACK
+    return DEFAULT_RISK_CANDIDATE_PACK
 
 
 def build_constrained_search_snapshot(constrained_search_pack: str | Path | None = None) -> dict[str, Any]:
@@ -335,6 +351,342 @@ def build_paper_profile_snapshot(paper_profile_pack: str | Path | None = None) -
             "selected_profile": pack.get("selected_profile") if isinstance(pack.get("selected_profile"), dict) else None,
             "attempts": attempts[:30],
             "next_actions": pack.get("next_actions", []) if isinstance(pack.get("next_actions"), list) else [],
+            "safety": pack.get(
+                "safety",
+                "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading.",
+            ),
+        }
+    )
+
+
+def build_profile_observation_snapshot(profile_observation_pack: str | Path | None = None) -> dict[str, Any]:
+    pack_path = Path(profile_observation_pack) if profile_observation_pack else DEFAULT_PROFILE_OBSERVATION_PACK
+    pack = _read_optional_json(pack_path)
+    if not pack:
+        return {
+            "stage": "gui_profile_observation",
+            "artifact_present": False,
+            "source_path": str(pack_path),
+            "decision": {
+                "observation_status": "missing",
+                "paper_observation_allowed": False,
+                "stop_reasons": ["profile_observation_artifact_missing"],
+            },
+            "summary": {"stop_count": 0, "warning_count": 0},
+            "paper_profile": {},
+            "stop_rules": [],
+            "ledger": [],
+            "next_actions": [{"action": "run_profile_observation", "reason": "profile observation artifact is missing"}],
+            "safety": "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading.",
+        }
+    return _sanitize(
+        {
+            "stage": "gui_profile_observation",
+            "artifact_present": True,
+            "source_path": str(pack_path),
+            "decision": pack.get("decision", {}) if isinstance(pack.get("decision"), dict) else {},
+            "summary": pack.get("summary", {}) if isinstance(pack.get("summary"), dict) else {},
+            "paper_profile": pack.get("paper_profile", {}) if isinstance(pack.get("paper_profile"), dict) else {},
+            "stop_rules": (pack.get("stop_rules", []) if isinstance(pack.get("stop_rules"), list) else [])[:40],
+            "ledger": (pack.get("ledger", []) if isinstance(pack.get("ledger"), list) else [])[:80],
+            "next_actions": pack.get("next_actions", []) if isinstance(pack.get("next_actions"), list) else [],
+            "safety": pack.get(
+                "safety",
+                "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading.",
+            ),
+        }
+    )
+
+
+def build_recent_data_refresh_snapshot(recent_data_refresh_pack: str | Path | None = None) -> dict[str, Any]:
+    pack_path = Path(recent_data_refresh_pack) if recent_data_refresh_pack else DEFAULT_RECENT_DATA_REFRESH_PACK
+    pack = _read_optional_json(pack_path)
+    if not pack:
+        return {
+            "stage": "gui_recent_data_refresh",
+            "artifact_present": False,
+            "source_path": str(pack_path),
+            "status": "missing",
+            "mode": None,
+            "will_download": False,
+            "target_window": {},
+            "decision": {
+                "signal_data_stale_cleared": False,
+                "recent_data_ready": False,
+                "blockers": ["recent_data_refresh_artifact_missing"],
+                "next_daily_ops_allowed": False,
+            },
+            "coverage": {
+                "coverage_status": "missing",
+                "processed_rows": 0,
+                "latest_data_date": None,
+            },
+            "readiness": {},
+            "next_actions": [{"action": "run_recent_data_refresh", "reason": "recent data refresh artifact is missing"}],
+            "live_boundary_allowed": False,
+            "safety": "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading.",
+        }
+    decision = pack.get("decision", {}) if isinstance(pack.get("decision"), dict) else {}
+    coverage = pack.get("coverage", {}) if isinstance(pack.get("coverage"), dict) else {}
+    return _sanitize(
+        {
+            "stage": "gui_recent_data_refresh",
+            "artifact_present": True,
+            "source_path": str(pack_path),
+            "source": pack.get("source"),
+            "market": pack.get("market"),
+            "status": pack.get("status"),
+            "mode": pack.get("mode"),
+            "will_download": bool(pack.get("will_download", False)),
+            "target_window": pack.get("target_window", {}) if isinstance(pack.get("target_window"), dict) else {},
+            "decision": decision,
+            "coverage": coverage,
+            "readiness": pack.get("readiness", {}) if isinstance(pack.get("readiness"), dict) else {},
+            "next_actions": (pack.get("next_actions", []) if isinstance(pack.get("next_actions"), list) else [])[:40],
+            "live_boundary_allowed": bool(pack.get("live_boundary_allowed", False)),
+            "safety": pack.get(
+                "safety",
+                "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading.",
+            ),
+        }
+    )
+
+
+def build_post_refresh_replay_snapshot(post_refresh_replay_pack: str | Path | None = None) -> dict[str, Any]:
+    pack_path = Path(post_refresh_replay_pack) if post_refresh_replay_pack else DEFAULT_POST_REFRESH_REPLAY_PACK
+    pack = _read_optional_json(pack_path)
+    if not pack:
+        return {
+            "stage": "gui_post_refresh_replay",
+            "artifact_present": False,
+            "source_path": str(pack_path),
+            "status": "missing",
+            "recent_data_refresh": {},
+            "daily_ops": {},
+            "profile_observation": {},
+            "decision": {
+                "recent_data_ready": False,
+                "daily_ops_paper_allowed": False,
+                "profile_observation_allowed": False,
+                "post_refresh_replay_allowed": False,
+                "blockers": ["post_refresh_replay_artifact_missing"],
+            },
+            "next_actions": [{"action": "run_post_refresh_replay", "reason": "post-refresh replay artifact is missing"}],
+            "live_boundary_allowed": False,
+            "safety": "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading.",
+        }
+    return _sanitize(
+        {
+            "stage": "gui_post_refresh_replay",
+            "artifact_present": True,
+            "source_path": str(pack_path),
+            "status": pack.get("status"),
+            "recent_data_refresh": pack.get("recent_data_refresh", {}) if isinstance(pack.get("recent_data_refresh"), dict) else {},
+            "daily_ops": pack.get("daily_ops", {}) if isinstance(pack.get("daily_ops"), dict) else {},
+            "profile_observation": pack.get("profile_observation", {}) if isinstance(pack.get("profile_observation"), dict) else {},
+            "decision": pack.get("decision", {}) if isinstance(pack.get("decision"), dict) else {},
+            "next_actions": (pack.get("next_actions", []) if isinstance(pack.get("next_actions"), list) else [])[:40],
+            "replay_error": pack.get("replay_error", {}) if isinstance(pack.get("replay_error"), dict) else {},
+            "live_boundary_allowed": bool(pack.get("live_boundary_allowed", False)),
+            "safety": pack.get(
+                "safety",
+                "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading.",
+            ),
+        }
+    )
+
+
+def build_observation_sufficiency_snapshot(observation_sufficiency_pack: str | Path | None = None) -> dict[str, Any]:
+    pack_path = Path(observation_sufficiency_pack) if observation_sufficiency_pack else DEFAULT_OBSERVATION_SUFFICIENCY_PACK
+    pack = _read_optional_json(pack_path)
+    if not pack:
+        return {
+            "stage": "gui_observation_sufficiency",
+            "artifact_present": False,
+            "source_path": str(pack_path),
+            "status": "missing",
+            "fills": {"observed_fills": 0, "required_fills": 0, "fill_deficit": 0},
+            "recommendation": {
+                "priority": "run_observation_sufficiency",
+                "threshold_relaxation_allowed": False,
+            },
+            "decision": {
+                "observation_sufficiency_cleared": False,
+                "blockers": ["observation_sufficiency_artifact_missing"],
+            },
+            "next_actions": [{"action": "run_observation_sufficiency", "reason": "observation sufficiency artifact is missing"}],
+            "live_boundary_allowed": False,
+            "safety": "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading.",
+        }
+    return _sanitize(
+        {
+            "stage": "gui_observation_sufficiency",
+            "artifact_present": True,
+            "source_path": str(pack_path),
+            "status": pack.get("status"),
+            "fills": pack.get("fills", {}) if isinstance(pack.get("fills"), dict) else {},
+            "recommendation": pack.get("recommendation", {}) if isinstance(pack.get("recommendation"), dict) else {},
+            "decision": pack.get("decision", {}) if isinstance(pack.get("decision"), dict) else {},
+            "next_actions": (pack.get("next_actions", []) if isinstance(pack.get("next_actions"), list) else [])[:40],
+            "live_boundary_allowed": bool(pack.get("live_boundary_allowed", False)),
+            "safety": pack.get(
+                "safety",
+                "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading.",
+            ),
+        }
+    )
+
+
+def build_expanded_observation_replay_snapshot(expanded_observation_replay_pack: str | Path | None = None) -> dict[str, Any]:
+    pack_path = Path(expanded_observation_replay_pack) if expanded_observation_replay_pack else DEFAULT_EXPANDED_OBSERVATION_REPLAY_PACK
+    pack = _read_optional_json(pack_path)
+    if not pack:
+        return {
+            "stage": "gui_expanded_observation_replay",
+            "artifact_present": False,
+            "source_path": str(pack_path),
+            "status": "missing",
+            "window": {},
+            "recent_data_refresh": {},
+            "post_refresh_replay": {},
+            "final_observation_sufficiency": {},
+            "decision": {
+                "can_extend_observation_window": False,
+                "expanded_observation_cleared": False,
+                "blockers": ["expanded_observation_replay_artifact_missing"],
+            },
+            "next_actions": [{"action": "run_expanded_observation_replay", "reason": "expanded observation replay artifact is missing"}],
+            "live_boundary_allowed": False,
+            "safety": "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading.",
+        }
+    return _sanitize(
+        {
+            "stage": "gui_expanded_observation_replay",
+            "artifact_present": True,
+            "source_path": str(pack_path),
+            "status": pack.get("status"),
+            "window": pack.get("window", {}) if isinstance(pack.get("window"), dict) else {},
+            "recent_data_refresh": pack.get("recent_data_refresh", {}) if isinstance(pack.get("recent_data_refresh"), dict) else {},
+            "post_refresh_replay": pack.get("post_refresh_replay", {}) if isinstance(pack.get("post_refresh_replay"), dict) else {},
+            "final_observation_sufficiency": (
+                pack.get("final_observation_sufficiency", {}) if isinstance(pack.get("final_observation_sufficiency"), dict) else {}
+            ),
+            "decision": pack.get("decision", {}) if isinstance(pack.get("decision"), dict) else {},
+            "next_actions": (pack.get("next_actions", []) if isinstance(pack.get("next_actions"), list) else [])[:40],
+            "replay_error": pack.get("replay_error", {}) if isinstance(pack.get("replay_error"), dict) else {},
+            "live_boundary_allowed": bool(pack.get("live_boundary_allowed", False)),
+            "safety": pack.get(
+                "safety",
+                "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading.",
+            ),
+        }
+    )
+
+
+def build_iterative_observation_expansion_snapshot(iterative_observation_expansion_pack: str | Path | None = None) -> dict[str, Any]:
+    pack_path = (
+        Path(iterative_observation_expansion_pack)
+        if iterative_observation_expansion_pack
+        else DEFAULT_ITERATIVE_OBSERVATION_EXPANSION_PACK
+    )
+    pack = _read_optional_json(pack_path)
+    if not pack:
+        return {
+            "stage": "gui_iterative_observation_expansion",
+            "artifact_present": False,
+            "source_path": str(pack_path),
+            "status": "missing",
+            "round_count": 0,
+            "max_rounds": 0,
+            "rounds": [],
+            "final_observation_sufficiency": {},
+            "decision": {
+                "initial_extendable": False,
+                "iterative_observation_cleared": False,
+                "blockers": ["iterative_observation_expansion_artifact_missing"],
+            },
+            "next_actions": [{"action": "run_iterative_observation_expansion", "reason": "iterative observation expansion artifact is missing"}],
+            "live_boundary_allowed": False,
+            "safety": "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading.",
+        }
+    return _sanitize(
+        {
+            "stage": "gui_iterative_observation_expansion",
+            "artifact_present": True,
+            "source_path": str(pack_path),
+            "status": pack.get("status"),
+            "round_count": int(pack.get("round_count", 0) or 0),
+            "max_rounds": int(pack.get("max_rounds", 0) or 0),
+            "rounds": (pack.get("rounds", []) if isinstance(pack.get("rounds"), list) else [])[:20],
+            "initial_observation_sufficiency": (
+                pack.get("initial_observation_sufficiency", {}) if isinstance(pack.get("initial_observation_sufficiency"), dict) else {}
+            ),
+            "final_observation_sufficiency": (
+                pack.get("final_observation_sufficiency", {}) if isinstance(pack.get("final_observation_sufficiency"), dict) else {}
+            ),
+            "decision": pack.get("decision", {}) if isinstance(pack.get("decision"), dict) else {},
+            "next_actions": (pack.get("next_actions", []) if isinstance(pack.get("next_actions"), list) else [])[:40],
+            "expansion_error": pack.get("expansion_error", {}) if isinstance(pack.get("expansion_error"), dict) else {},
+            "live_boundary_allowed": bool(pack.get("live_boundary_allowed", False)),
+            "safety": pack.get(
+                "safety",
+                "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading.",
+            ),
+        }
+    )
+
+
+def build_tushare_activation_gate_snapshot(tushare_activation_gate_pack: str | Path | None = None) -> dict[str, Any]:
+    pack_path = Path(tushare_activation_gate_pack) if tushare_activation_gate_pack else DEFAULT_TUSHARE_ACTIVATION_GATE_PACK
+    pack = _read_optional_json(pack_path)
+    if not pack:
+        return {
+            "stage": "gui_tushare_activation_gate",
+            "artifact_present": False,
+            "source_path": str(pack_path),
+            "status": "missing",
+            "mode": "unknown",
+            "source": "tushare",
+            "readiness": {},
+            "recent_data_refresh": {},
+            "post_refresh_replay": {},
+            "observation_sufficiency": {},
+            "iterative_observation_expansion": {},
+            "final_observation_sufficiency": {},
+            "stage_ledger": [],
+            "decision": {
+                "activation_chain_allowed": False,
+                "paper_continuation_allowed": False,
+                "blockers": ["tushare_activation_gate_artifact_missing"],
+            },
+            "next_actions": [{"action": "run_tushare_activation_gate", "reason": "Tushare activation gate artifact is missing"}],
+            "live_boundary_allowed": False,
+            "safety": "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading.",
+        }
+    return _sanitize(
+        {
+            "stage": "gui_tushare_activation_gate",
+            "artifact_present": True,
+            "source_path": str(pack_path),
+            "status": pack.get("status"),
+            "mode": pack.get("mode"),
+            "source": pack.get("source"),
+            "market": pack.get("market"),
+            "readiness": pack.get("readiness", {}) if isinstance(pack.get("readiness"), dict) else {},
+            "recent_data_refresh": pack.get("recent_data_refresh", {}) if isinstance(pack.get("recent_data_refresh"), dict) else {},
+            "post_refresh_replay": pack.get("post_refresh_replay", {}) if isinstance(pack.get("post_refresh_replay"), dict) else {},
+            "observation_sufficiency": pack.get("observation_sufficiency", {}) if isinstance(pack.get("observation_sufficiency"), dict) else {},
+            "iterative_observation_expansion": (
+                pack.get("iterative_observation_expansion", {}) if isinstance(pack.get("iterative_observation_expansion"), dict) else {}
+            ),
+            "final_observation_sufficiency": (
+                pack.get("final_observation_sufficiency", {}) if isinstance(pack.get("final_observation_sufficiency"), dict) else {}
+            ),
+            "stage_ledger": (pack.get("stage_ledger", []) if isinstance(pack.get("stage_ledger"), list) else [])[:20],
+            "decision": pack.get("decision", {}) if isinstance(pack.get("decision"), dict) else {},
+            "next_actions": (pack.get("next_actions", []) if isinstance(pack.get("next_actions"), list) else [])[:40],
+            "chain_error": pack.get("chain_error", {}) if isinstance(pack.get("chain_error"), dict) else {},
+            "live_boundary_allowed": bool(pack.get("live_boundary_allowed", False)),
             "safety": pack.get(
                 "safety",
                 "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading.",

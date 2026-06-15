@@ -12,6 +12,40 @@
   "min_paper_sharpe": 0.5,
   "max_drawdown_limit": 0.2,
   "min_total_return": 0.0,
+  "min_trades": 20,
+  "primary_risk_tier": "capital_preservation",
+  "risk_tiers": [
+    {
+      "tier_id": "capital_preservation",
+      "label": "Capital Preservation",
+      "max_drawdown_limit": 0.2,
+      "min_paper_sharpe": 0.5,
+      "min_paper_calmar": 1.0,
+      "min_total_return": 0.0,
+      "min_trades": 20,
+      "priority": 1
+    },
+    {
+      "tier_id": "balanced_growth",
+      "label": "Balanced Growth",
+      "max_drawdown_limit": 0.25,
+      "min_paper_sharpe": 0.5,
+      "min_paper_calmar": 1.0,
+      "min_total_return": 0.0,
+      "min_trades": 20,
+      "priority": 2
+    },
+    {
+      "tier_id": "aggressive_growth",
+      "label": "Aggressive Growth",
+      "max_drawdown_limit": 0.3,
+      "min_paper_sharpe": 0.5,
+      "min_paper_calmar": 1.0,
+      "min_total_return": 0.0,
+      "min_trades": 20,
+      "priority": 3
+    }
+  ],
   "risk_profiles": [
     {
       "profile_id": "cap46_guard10_cd3",
@@ -76,6 +110,38 @@
       "min_cash_weight": 0.0,
       "max_drawdown_guard": 0.1,
       "guard_cooldown_periods": 3
+    },
+    {
+      "profile_id": "cap50_guard10_cd3",
+      "max_asset_weight": 0.5,
+      "max_gross_exposure": 1.0,
+      "min_cash_weight": 0.0,
+      "max_drawdown_guard": 0.1,
+      "guard_cooldown_periods": 3
+    },
+    {
+      "profile_id": "cap55_guard12_cd3",
+      "max_asset_weight": 0.55,
+      "max_gross_exposure": 1.0,
+      "min_cash_weight": 0.0,
+      "max_drawdown_guard": 0.12,
+      "guard_cooldown_periods": 3
+    },
+    {
+      "profile_id": "cap60_guard12_cd3",
+      "max_asset_weight": 0.6,
+      "max_gross_exposure": 1.0,
+      "min_cash_weight": 0.0,
+      "max_drawdown_guard": 0.12,
+      "guard_cooldown_periods": 3
+    },
+    {
+      "profile_id": "cap65_guard15_cd5",
+      "max_asset_weight": 0.65,
+      "max_gross_exposure": 1.0,
+      "min_cash_weight": 0.0,
+      "max_drawdown_guard": 0.15,
+      "guard_cooldown_periods": 5
     },
     {
       "profile_id": "cap471_guard08_cd3",

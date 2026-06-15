@@ -9,6 +9,7 @@ import pandas as pd
 
 
 STAGE = "phase_5_0_daily_ops"
+PROFILE_DAILY_OPS_STAGE = "phase_5_5_profile_daily_ops_activation"
 MANUAL_ONLY_BLOCKERS = {"manual_live_review_not_enabled", "manual_live_review_enabled_blocked"}
 DEFAULT_MAX_DRAWDOWN_LIMIT = -0.2
 TICKET_COLUMNS = [
@@ -29,18 +30,20 @@ def build_daily_ops_pack(
     readiness_board: dict[str, Any],
     signal_snapshot: dict[str, Any],
     paper_simulation: dict[str, Any],
+    paper_profile: dict[str, Any] | None = None,
     run_date: str | None = None,
     max_drawdown_limit: float = DEFAULT_MAX_DRAWDOWN_LIMIT,
 ) -> dict[str, Any]:
     candidate = _candidate(promotion_review, readiness_board)
     drawdown_limit = _normalized_drawdown_limit(max_drawdown_limit)
     risk_policy = _risk_policy(paper_simulation, drawdown_limit)
+    profile_summary = _paper_profile_summary(paper_profile or {})
     blockers = _merge_unique(_blocker_ids(readiness_board), risk_policy["risk_blockers"])
     non_manual_blockers = [blocker for blocker in blockers if blocker not in MANUAL_ONLY_BLOCKERS]
     status = "blocked" if non_manual_blockers else "paper_ready"
     tickets = [] if status == "blocked" else _advisory_tickets(signal_snapshot)
     pack = {
-        "stage": STAGE,
+        "stage": PROFILE_DAILY_OPS_STAGE if profile_summary else STAGE,
         "run_date": run_date or date.today().isoformat(),
         "safety": _safety(),
         "candidate": candidate,
@@ -54,6 +57,7 @@ def build_daily_ops_pack(
         "signal": _signal_summary(signal_snapshot),
         "risk": _risk_summary(paper_simulation),
         "risk_policy": risk_policy,
+        "paper_profile": profile_summary,
         "advisory_tickets": tickets,
         "simulation": _simulation_summary(paper_simulation),
         "readiness": _readiness_summary(readiness_board),
@@ -101,6 +105,11 @@ def render_daily_ops_markdown(pack: dict[str, Any]) -> str:
         f"- Guard events: {risk.get('guard_events', 0)}",
         f"- Execution blocks: {risk.get('execution_blocks', 0)}",
         f"- Max drawdown limit: {pack.get('risk_policy', {}).get('max_drawdown_limit', DEFAULT_MAX_DRAWDOWN_LIMIT)}",
+        "",
+        "## Paper Profile",
+        "",
+        f"- Profile: {pack.get('paper_profile', {}).get('profile_id', 'none')}",
+        f"- Risk tier: {pack.get('paper_profile', {}).get('risk_tier', 'none')}",
         "",
         "## Blockers",
         "",
@@ -206,6 +215,22 @@ def _risk_summary(paper_simulation: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _paper_profile_summary(paper_profile: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(paper_profile, dict) or not paper_profile:
+        return {}
+    return {
+        "profile_id": paper_profile.get("profile_id"),
+        "case_id": paper_profile.get("case_id"),
+        "risk_tier": paper_profile.get("risk_tier"),
+        "risk_tier_label": paper_profile.get("risk_tier_label"),
+        "max_asset_weight": _float(paper_profile.get("max_asset_weight"), 1.0),
+        "max_gross_exposure": _float(paper_profile.get("max_gross_exposure"), 1.0),
+        "min_cash_weight": _float(paper_profile.get("min_cash_weight"), 0.0),
+        "max_drawdown_guard": _float(paper_profile.get("max_drawdown_guard"), 0.0),
+        "guard_cooldown_periods": int(_float(paper_profile.get("guard_cooldown_periods"), 0.0)),
+    }
+
+
 def _simulation_summary(paper_simulation: dict[str, Any]) -> dict[str, Any]:
     return {
         "fills": len(paper_simulation.get("fills", []) if isinstance(paper_simulation.get("fills"), list) else []),
@@ -244,6 +269,8 @@ def _summary_row(pack: dict[str, Any]) -> dict[str, Any]:
         "max_drawdown_limit": risk_policy.get("max_drawdown_limit"),
         "max_drawdown_breached": risk_policy.get("max_drawdown_breached"),
         "risk_blockers": len(risk_policy.get("risk_blockers", [])) if isinstance(risk_policy.get("risk_blockers"), list) else 0,
+        "profile_id": pack.get("paper_profile", {}).get("profile_id") if isinstance(pack.get("paper_profile"), dict) else None,
+        "risk_tier": pack.get("paper_profile", {}).get("risk_tier") if isinstance(pack.get("paper_profile"), dict) else None,
     }
 
 

@@ -19,6 +19,7 @@ except ModuleNotFoundError:
 
 DEFAULT_PROMOTION_REVIEW = Path("data/reports/promotion_review/promotion_review_packet.json")
 DEFAULT_READINESS_BOARD = Path("data/reports/pre_api_readiness_board/pre_api_readiness_board.json")
+DEFAULT_PAPER_PROFILE_PACK = Path("data/reports/paper_profile_optimizer/paper_profile_optimizer_pack.json")
 DEFAULT_OUTPUT_DIR = Path("data/reports/daily_ops")
 DEFAULT_DATA_ROOT = Path("data/processed/etf_csv")
 
@@ -28,16 +29,21 @@ def run_daily_ops(
     readiness_board: str | Path = DEFAULT_READINESS_BOARD,
     signal_snapshot: str | Path | None = None,
     paper_simulation: str | Path | None = None,
+    paper_profile_pack: str | Path | None = None,
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
     run_date: str | None = None,
     data_root: str | Path = DEFAULT_DATA_ROOT,
     source: str = "processed-bars",
     portfolio_value: float = 100000.0,
     positions_csv: str | Path | None = None,
-    max_drawdown_limit: float = DEFAULT_MAX_DRAWDOWN_LIMIT,
+    max_drawdown_limit: float | None = None,
 ) -> dict[str, Any]:
     promotion = _read_json(Path(promotion_review))
     readiness = _read_json(Path(readiness_board))
+    profile_pack = _read_json(Path(paper_profile_pack)) if paper_profile_pack is not None else {}
+    paper_profile = _selected_paper_profile(profile_pack)
+    profile_params = _profile_params(paper_profile)
+    effective_max_drawdown_limit = _effective_drawdown_limit(max_drawdown_limit, profile_pack, paper_profile)
     candidate = _candidate(promotion, readiness)
     market = str(candidate.get("market") or "CN_ETF")
     factor_name = str(candidate.get("factor_name") or "liquidity_10")
@@ -57,6 +63,10 @@ def run_daily_ops(
             factor_windows=factor_windows,
             top_n=top_n,
             portfolio_scope="market",
+            max_asset_weight=profile_params["max_asset_weight"],
+            max_market_weight=profile_params["max_market_weight"],
+            max_gross_exposure=profile_params["max_gross_exposure"],
+            min_cash_weight=profile_params["min_cash_weight"],
             portfolio_value=portfolio_value,
             positions_csv=Path(positions_csv) if positions_csv else None,
             output_dir=output_path / "signal_snapshot",
@@ -74,15 +84,25 @@ def run_daily_ops(
             top_n=top_n,
             rebalance_interval=rebalance_interval,
             initial_cash=portfolio_value,
-            max_asset_weight=1.0,
-            max_market_weight=1.0,
-            max_gross_exposure=1.0,
-            min_cash_weight=0.0,
+            max_asset_weight=profile_params["max_asset_weight"],
+            max_market_weight=profile_params["max_market_weight"],
+            max_gross_exposure=profile_params["max_gross_exposure"],
+            min_cash_weight=profile_params["min_cash_weight"],
+            max_drawdown_guard=profile_params["max_drawdown_guard"],
+            guard_cooldown_periods=profile_params["guard_cooldown_periods"],
             positions_csv=Path(positions_csv) if positions_csv else None,
             output_dir=output_path / "paper_simulation",
         )
     )
-    pack = build_daily_ops_pack(promotion, readiness, signal, simulation, run_date=run_date, max_drawdown_limit=max_drawdown_limit)
+    pack = build_daily_ops_pack(
+        promotion,
+        readiness,
+        signal,
+        simulation,
+        paper_profile=paper_profile,
+        run_date=run_date,
+        max_drawdown_limit=effective_max_drawdown_limit,
+    )
     write_daily_ops_pack(output_path, pack)
     return pack
 
@@ -93,6 +113,7 @@ def main() -> None:
     parser.add_argument("--readiness-board", default=str(DEFAULT_READINESS_BOARD))
     parser.add_argument("--signal-snapshot")
     parser.add_argument("--paper-simulation")
+    parser.add_argument("--paper-profile-pack")
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--run-date")
     parser.add_argument("--data-root", default=str(DEFAULT_DATA_ROOT))
@@ -101,7 +122,7 @@ def main() -> None:
     parser.add_argument("--positions-csv")
     parser.add_argument(
         "--max-drawdown-limit",
-        default=DEFAULT_MAX_DRAWDOWN_LIMIT,
+        default=None,
         type=float,
         help="Maximum tolerated equity drawdown. Positive values are normalized to negative limits.",
     )
@@ -111,6 +132,7 @@ def main() -> None:
         readiness_board=Path(args.readiness_board),
         signal_snapshot=Path(args.signal_snapshot) if args.signal_snapshot else None,
         paper_simulation=Path(args.paper_simulation) if args.paper_simulation else None,
+        paper_profile_pack=Path(args.paper_profile_pack) if args.paper_profile_pack else None,
         output_dir=Path(args.output_dir),
         run_date=args.run_date,
         data_root=Path(args.data_root),
@@ -127,6 +149,7 @@ def main() -> None:
                 "candidate": pack["candidate"],
                 "decision": pack["decision"],
                 "advisory_tickets": len(pack["advisory_tickets"]),
+                "paper_profile": pack.get("paper_profile", {}),
                 "risk": pack["risk"],
                 "output_dir": str(Path(args.output_dir)),
             },
@@ -141,6 +164,47 @@ def _read_json(path: Path) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"Expected JSON object in {path}")
     return data
+
+
+def _selected_paper_profile(profile_pack: dict[str, Any]) -> dict[str, Any]:
+    selected = profile_pack.get("selected_profile") if isinstance(profile_pack, dict) else None
+    return selected if isinstance(selected, dict) else {}
+
+
+def _profile_params(paper_profile: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "max_asset_weight": _float(paper_profile.get("max_asset_weight"), 1.0),
+        "max_market_weight": _float(paper_profile.get("max_market_weight"), 1.0),
+        "max_gross_exposure": _float(paper_profile.get("max_gross_exposure"), 1.0),
+        "min_cash_weight": _float(paper_profile.get("min_cash_weight"), 0.0),
+        "max_drawdown_guard": paper_profile.get("max_drawdown_guard"),
+        "guard_cooldown_periods": _int(paper_profile.get("guard_cooldown_periods"), 0),
+    }
+
+
+def _effective_drawdown_limit(
+    explicit_limit: float | None,
+    profile_pack: dict[str, Any],
+    paper_profile: dict[str, Any],
+) -> float:
+    if explicit_limit is not None:
+        return float(explicit_limit)
+    tier_limit = _profile_tier_drawdown_limit(profile_pack, paper_profile)
+    return tier_limit if tier_limit is not None else DEFAULT_MAX_DRAWDOWN_LIMIT
+
+
+def _profile_tier_drawdown_limit(profile_pack: dict[str, Any], paper_profile: dict[str, Any]) -> float | None:
+    tier_id = paper_profile.get("risk_tier")
+    if not tier_id:
+        return None
+    policy = profile_pack.get("policy") if isinstance(profile_pack, dict) else None
+    tiers = policy.get("risk_tiers") if isinstance(policy, dict) else None
+    if not isinstance(tiers, list):
+        return None
+    for tier in tiers:
+        if isinstance(tier, dict) and tier.get("tier_id") == tier_id and tier.get("max_drawdown_limit") is not None:
+            return -abs(_float(tier.get("max_drawdown_limit"), DEFAULT_MAX_DRAWDOWN_LIMIT))
+    return None
 
 
 def _read_signal_artifact(path: Path) -> dict[str, Any]:
@@ -200,6 +264,20 @@ def _rebalance_interval(candidate: dict[str, Any]) -> int:
         if part.startswith("reb") and part[3:].isdigit():
             return int(part[3:])
     return int(candidate.get("rebalance_interval", 1) or 1)
+
+
+def _float(value: Any, default: float = 0.0) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _int(value: Any, default: int = 0) -> int:
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
 
 
 if __name__ == "__main__":

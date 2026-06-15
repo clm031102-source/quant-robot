@@ -10,6 +10,15 @@ from typing import Any
 
 import pandas as pd
 
+from quant_robot.ops.risk_policy_tiers import (
+    PHASE_5_4_STAGE,
+    assign_risk_tier,
+    normalize_risk_tiers,
+    paper_calmar,
+    risk_tier_counts,
+    tier_label,
+)
+
 try:
     from scripts.run_paper_simulation import run_simulation
 except ModuleNotFoundError:  # pragma: no cover - exercised when this file is run directly
@@ -35,6 +44,9 @@ class PaperProfileOptimizerConfig:
     min_paper_sharpe: float = 0.5
     max_drawdown_limit: float = 0.2
     min_total_return: float = 0.0
+    min_trades: int = 20
+    risk_tiers: tuple[dict[str, Any], ...] = ()
+    primary_risk_tier: str | None = None
     risk_profiles: tuple[dict[str, Any], ...] = ()
 
 
@@ -54,6 +66,9 @@ def load_paper_profile_optimizer_config(path: str | Path = DEFAULT_CONFIG) -> Pa
         min_paper_sharpe=float(data.get("min_paper_sharpe", PaperProfileOptimizerConfig.min_paper_sharpe)),
         max_drawdown_limit=float(data.get("max_drawdown_limit", PaperProfileOptimizerConfig.max_drawdown_limit)),
         min_total_return=float(data.get("min_total_return", PaperProfileOptimizerConfig.min_total_return)),
+        min_trades=int(data.get("min_trades", PaperProfileOptimizerConfig.min_trades)),
+        risk_tiers=tuple(_risk_tier(value) for value in data.get("risk_tiers", PaperProfileOptimizerConfig.risk_tiers)),
+        primary_risk_tier=data.get("primary_risk_tier", PaperProfileOptimizerConfig.primary_risk_tier),
         risk_profiles=tuple(_risk_profile(value, index) for index, value in enumerate(data.get("risk_profiles", ()), start=1)),
     )
 
@@ -78,13 +93,20 @@ def build_paper_profile_optimizer_pack(
     attempts: list[dict[str, Any]],
 ) -> dict[str, Any]:
     eligible = [row for row in attempts if row.get("profile_status") == "paper_profile_eligible"]
-    selected = _selected_profile(eligible)
+    selected = _selected_profile(eligible, config)
     if not frontier:
         selection_status = "no_frontier_candidate"
     else:
-        selection_status = "paper_profile_selected" if selected else "no_paper_profile_candidate"
+        selection_status = _selection_status(selected, config)
+    fallback_policy = {
+        "max_drawdown_limit": -abs(config.max_drawdown_limit),
+        "min_paper_sharpe": config.min_paper_sharpe,
+        "min_total_return": config.min_total_return,
+        "min_trades": config.min_trades,
+    }
+    tiers, primary = normalize_risk_tiers(config.risk_tiers, fallback_policy, config.primary_risk_tier)
     pack = {
-        "stage": STAGE,
+        "stage": PHASE_5_4_STAGE if tiers else STAGE,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "source_stage": constrained_search_pack.get("stage"),
         "safety": "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading.",
@@ -95,6 +117,9 @@ def build_paper_profile_optimizer_pack(
             "min_paper_sharpe": config.min_paper_sharpe,
             "max_drawdown_limit": -abs(config.max_drawdown_limit),
             "min_total_return": config.min_total_return,
+            "min_trades": config.min_trades,
+            "primary_risk_tier": primary if tiers else None,
+            "risk_tiers": tiers,
         },
         "config": _config_dict(config),
         "summary": _summary(frontier, attempts),
@@ -141,9 +166,11 @@ def render_paper_profile_optimizer_markdown(pack: dict[str, Any]) -> str:
             [
                 f"- Case: {selected.get('case_id')}",
                 f"- Profile: {selected.get('profile_id')}",
+                f"- Risk tier: {selected.get('risk_tier')}",
                 f"- Paper Sharpe: {selected.get('paper_sharpe')}",
                 f"- Paper drawdown: {selected.get('paper_max_drawdown')}",
                 f"- Total return: {selected.get('paper_total_return')}",
+                f"- Paper Calmar: {selected.get('paper_calmar')}",
             ]
         )
     else:
@@ -153,8 +180,8 @@ def render_paper_profile_optimizer_markdown(pack: dict[str, Any]) -> str:
             "",
             "## Attempts",
             "",
-            "| Case | Profile | Status | Sharpe | Drawdown | Return | Rejections |",
-            "| --- | --- | --- | --- | --- | --- | --- |",
+            "| Case | Profile | Status | Risk tier | Sharpe | Drawdown | Return | Calmar | Rejections |",
+            "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
         ]
     )
     for row in pack.get("attempts", [])[:20]:
@@ -164,9 +191,11 @@ def render_paper_profile_optimizer_markdown(pack: dict[str, Any]) -> str:
                 f"{row.get('case_id', '')} | "
                 f"{row.get('profile_id', '')} | "
                 f"{row.get('profile_status', '')} | "
+                f"{row.get('risk_tier', '')} | "
                 f"{row.get('paper_sharpe', '')} | "
                 f"{row.get('paper_max_drawdown', '')} | "
                 f"{row.get('paper_total_return', '')} | "
+                f"{row.get('paper_calmar', '')} | "
                 f"{', '.join(row.get('rejection_reasons', [])) if isinstance(row.get('rejection_reasons'), list) else ''} |"
             )
     return "\n".join(lines) + "\n"
@@ -234,7 +263,9 @@ def _run_profile_attempt(candidate: dict[str, Any], profile: dict[str, Any], con
             "max_drawdown_guard": _round(profile.get("max_drawdown_guard")),
             "guard_cooldown_periods": _int(profile.get("guard_cooldown_periods")),
         }
+        attempt["paper_calmar"] = _round(paper_calmar(attempt["paper_total_return"], attempt["paper_max_drawdown"]))
         attempt["rejection_reasons"] = _rejection_reasons(attempt, config)
+        _apply_risk_tiers(attempt, config)
         attempt["profile_status"] = "paper_profile_eligible" if not attempt["rejection_reasons"] else "rejected"
         return attempt
     except Exception as exc:
@@ -255,43 +286,62 @@ def _rejection_reasons(attempt: dict[str, Any], config: PaperProfileOptimizerCon
         reasons.append("paper_sharpe_below_min")
     if _float(attempt.get("paper_max_drawdown")) < -abs(config.max_drawdown_limit):
         reasons.append("paper_drawdown_breach")
-    if _float(attempt.get("paper_total_return")) <= config.min_total_return:
+    if _float(attempt.get("paper_total_return")) < config.min_total_return:
         reasons.append("paper_total_return_below_min")
     return reasons
 
 
-def _selected_profile(eligible: list[dict[str, Any]]) -> dict[str, Any] | None:
+def _selected_profile(eligible: list[dict[str, Any]], config: PaperProfileOptimizerConfig) -> dict[str, Any] | None:
     if not eligible:
         return None
-    selected = sorted(
-        eligible,
-        key=lambda row: (
-            -_float(row.get("paper_sharpe")),
-            _float(row.get("paper_max_drawdown")),
-            -_float(row.get("paper_total_return")),
-            str(row.get("case_id")),
-            str(row.get("profile_id")),
-        ),
-    )[0]
+    if config.risk_tiers:
+        selected = sorted(
+            eligible,
+            key=lambda row: (
+                -_float(row.get("paper_total_return")),
+                -_float(row.get("paper_calmar")),
+                -_float(row.get("paper_sharpe")),
+                _float(row.get("paper_max_drawdown")),
+                str(row.get("case_id")),
+                str(row.get("profile_id")),
+            ),
+        )[0]
+    else:
+        selected = sorted(
+            eligible,
+            key=lambda row: (
+                -_float(row.get("paper_sharpe")),
+                _float(row.get("paper_max_drawdown")),
+                -_float(row.get("paper_total_return")),
+                str(row.get("case_id")),
+                str(row.get("profile_id")),
+            ),
+        )[0]
     return {**selected, "live_order_allowed": False}
 
 
 def _summary(frontier: list[dict[str, Any]], attempts: list[dict[str, Any]]) -> dict[str, int]:
+    tier_rows = [row for row in attempts if row.get("profile_status") == "paper_profile_eligible" and row.get("risk_tier")]
+    tier_ids = []
+    for row in tier_rows:
+        if row.get("risk_tier") not in tier_ids:
+            tier_ids.append(row.get("risk_tier"))
     return {
         "frontier_candidates": len(frontier),
         "profile_attempts": len(attempts),
         "eligible_profiles": sum(1 for row in attempts if row.get("profile_status") == "paper_profile_eligible"),
         "rejected_profiles": sum(1 for row in attempts if row.get("profile_status") == "rejected"),
         "failed_profiles": sum(1 for row in attempts if row.get("profile_status") == "failed"),
+        "risk_tier_counts": risk_tier_counts(tier_rows, [{"tier_id": tier_id} for tier_id in tier_ids]),
     }
 
 
 def _next_actions(selection_status: str) -> list[dict[str, Any]]:
-    if selection_status == "paper_profile_selected":
+    if selection_status in {"paper_profile_selected", "risk_tier_profile_selected"}:
         return [
             {
                 "action": "rerun_promotion_gate_with_selected_profile",
-                "reason": "A paper profile passed the strict paper Sharpe and drawdown policy; refresh promotion and daily ops before observation.",
+                "reason": "A paper profile passed the configured paper Sharpe, return, and drawdown policy; refresh promotion and daily ops before observation.",
                 "local_only": True,
             }
         ]
@@ -335,6 +385,74 @@ def _risk_profile(value: Any, index: int) -> dict[str, Any]:
     return profile
 
 
+def _risk_tier(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ValueError("risk_tiers entries must be JSON objects")
+    return dict(value)
+
+
+def _apply_risk_tiers(attempt: dict[str, Any], config: PaperProfileOptimizerConfig) -> None:
+    fallback_policy = {
+        "max_drawdown_limit": -abs(config.max_drawdown_limit),
+        "min_paper_sharpe": config.min_paper_sharpe,
+        "min_total_return": config.min_total_return,
+        "min_trades": config.min_trades,
+    }
+    tiers, _primary = normalize_risk_tiers(config.risk_tiers, fallback_policy, config.primary_risk_tier)
+    if not tiers:
+        attempt["eligible_risk_tiers"] = []
+        attempt["risk_tier"] = None
+        return
+    tier_rejections = {str(tier.get("tier_id")): _profile_tier_rejections(attempt, tier) for tier in tiers}
+    eligible_tiers, assigned_tier = assign_risk_tier(tier_rejections, tiers)
+    attempt["risk_tier_rejections"] = tier_rejections
+    attempt["eligible_risk_tiers"] = eligible_tiers
+    attempt["risk_tier"] = assigned_tier
+    attempt["risk_tier_label"] = tier_label(tiers, assigned_tier)
+    attempt["rejection_reasons"] = tier_rejections.get(assigned_tier, []) if assigned_tier else _merged_tier_rejection_reasons(tier_rejections)
+
+
+def _profile_tier_rejections(attempt: dict[str, Any], tier: dict[str, Any]) -> list[str]:
+    reasons: list[str] = []
+    if _float(attempt.get("paper_sharpe")) < _float(tier.get("min_paper_sharpe")):
+        reasons.append("paper_sharpe_below_min")
+    if _float(attempt.get("paper_max_drawdown")) < _float(tier.get("max_drawdown_limit")):
+        reasons.append("paper_drawdown_breach")
+    if _float(attempt.get("paper_calmar")) < _float(tier.get("min_paper_calmar")):
+        reasons.append("paper_calmar_below_min")
+    if _float(attempt.get("paper_total_return")) < _float(tier.get("min_total_return")):
+        reasons.append("paper_total_return_below_min")
+    if _int(attempt.get("fills")) < _int(tier.get("min_trades")):
+        reasons.append("paper_trades_below_min")
+    return reasons
+
+
+def _merged_tier_rejection_reasons(tier_rejections: dict[str, list[str]]) -> list[str]:
+    reasons: list[str] = []
+    for tier_reasons in tier_rejections.values():
+        for reason in tier_reasons:
+            if reason not in reasons:
+                reasons.append(reason)
+    return reasons or ["no_risk_tier_passed"]
+
+
+def _selection_status(selected: dict[str, Any] | None, config: PaperProfileOptimizerConfig) -> str:
+    if not selected:
+        return "no_paper_profile_candidate"
+    if not config.risk_tiers:
+        return "paper_profile_selected"
+    fallback_policy = {
+        "max_drawdown_limit": -abs(config.max_drawdown_limit),
+        "min_paper_sharpe": config.min_paper_sharpe,
+        "min_total_return": config.min_total_return,
+        "min_trades": config.min_trades,
+    }
+    _tiers, primary = normalize_risk_tiers(config.risk_tiers, fallback_policy, config.primary_risk_tier)
+    if selected.get("risk_tier") == primary:
+        return "paper_profile_selected"
+    return "risk_tier_profile_selected"
+
+
 def _case_top_n(case_id: str) -> int:
     marker = "_top"
     if marker not in case_id:
@@ -370,6 +488,9 @@ def _config_dict(config: PaperProfileOptimizerConfig) -> dict[str, Any]:
         "min_paper_sharpe": config.min_paper_sharpe,
         "max_drawdown_limit": config.max_drawdown_limit,
         "min_total_return": config.min_total_return,
+        "min_trades": config.min_trades,
+        "risk_tiers": list(config.risk_tiers),
+        "primary_risk_tier": config.primary_risk_tier,
         "risk_profiles": list(config.risk_profiles),
     }
 

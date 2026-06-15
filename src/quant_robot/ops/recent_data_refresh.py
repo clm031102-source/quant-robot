@@ -1,0 +1,314 @@
+from __future__ import annotations
+
+import json
+import math
+from datetime import date, timedelta
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+
+
+STAGE = "phase_5_7_tushare_recent_data_refresh"
+DEFAULT_OUTPUT_DIR = Path("data/processed/tushare_etf_recent")
+
+
+def build_recent_data_refresh_pack(
+    profile_observation_pack: dict[str, Any],
+    *,
+    readiness: dict[str, Any] | None = None,
+    ingest_result: dict[str, Any] | None = None,
+    execute: bool = False,
+    source: str = "tushare",
+    market: str = "CN_ETF",
+    output_dir: str | Path = DEFAULT_OUTPUT_DIR,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> dict[str, Any]:
+    readiness_pack = readiness or {"ready": False, "missing": []}
+    target_window = resolve_refresh_window(profile_observation_pack, start_date=start_date, end_date=end_date)
+    coverage = _coverage_from_ingest(ingest_result, target_window)
+    readiness_missing = list(readiness_pack.get("missing", [])) if isinstance(readiness_pack.get("missing", []), list) else []
+    source_name = source.strip().lower()
+    readiness_blocks = source_name == "tushare" and not bool(readiness_pack.get("ready", False))
+    will_download = bool(execute and not readiness_blocks)
+
+    if readiness_blocks:
+        status = "blocked"
+    elif not execute:
+        status = "ready_to_execute" if bool(readiness_pack.get("ready", False)) or source_name == "tushare-fixture" else "blocked"
+    elif coverage["coverage_status"] == "pass":
+        status = "completed"
+    else:
+        status = "data_quality_blocked"
+
+    blockers = _decision_blockers(status, readiness_missing, coverage)
+    stale_cleared = status == "completed" and coverage["coverage_status"] == "pass"
+    pack = {
+        "stage": STAGE,
+        "generated_at": date.today().isoformat(),
+        "status": status,
+        "source": source_name,
+        "market": market.upper(),
+        "mode": "execute" if execute else "dry_run",
+        "will_download": will_download,
+        "output_dir": str(output_dir),
+        "target_window": target_window,
+        "readiness": readiness_pack,
+        "ingest": ingest_result or {},
+        "coverage": coverage,
+        "decision": {
+            "signal_data_stale_cleared": stale_cleared,
+            "recent_data_ready": stale_cleared,
+            "blockers": blockers,
+            "next_daily_ops_allowed": stale_cleared,
+        },
+        "live_boundary_allowed": False,
+        "safety": _safety(),
+    }
+    pack["next_actions"] = _next_actions(pack)
+    pack["markdown"] = render_recent_data_refresh_markdown(pack)
+    return _sanitize(pack)
+
+
+def resolve_refresh_window(
+    profile_observation_pack: dict[str, Any],
+    *,
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> dict[str, Any]:
+    ledger = profile_observation_pack.get("ledger", [])
+    first_ledger = ledger[0] if isinstance(ledger, list) and ledger and isinstance(ledger[0], dict) else {}
+    signal_date = start_date or str(first_ledger.get("signal_date") or profile_observation_pack.get("signal_date") or "")
+    target_start = start_date or (_next_day(signal_date) if signal_date else None)
+    target_end = end_date or str(profile_observation_pack.get("run_date") or date.today().isoformat())
+    return {
+        "signal_date": signal_date or None,
+        "start_date": target_start,
+        "end_date": target_end,
+        "reason": "refresh bars after the stale signal date through the current observation run date",
+    }
+
+
+def write_recent_data_refresh_pack(report_dir: str | Path, pack: dict[str, Any]) -> None:
+    output_path = Path(report_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    (output_path / "recent_data_refresh_pack.json").write_text(
+        json.dumps(pack, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    (output_path / "recent_data_refresh_pack.md").write_text(str(pack.get("markdown", "")), encoding="utf-8")
+    pd.DataFrame([pack.get("coverage", {})]).to_csv(output_path / "recent_data_refresh_coverage.csv", index=False)
+    pd.DataFrame(pack.get("next_actions", [])).to_csv(output_path / "recent_data_refresh_next_actions.csv", index=False)
+
+
+def render_recent_data_refresh_markdown(pack: dict[str, Any]) -> str:
+    decision = pack.get("decision", {}) if isinstance(pack.get("decision"), dict) else {}
+    coverage = pack.get("coverage", {}) if isinstance(pack.get("coverage"), dict) else {}
+    window = pack.get("target_window", {}) if isinstance(pack.get("target_window"), dict) else {}
+    lines = [
+        "# Phase 5.7 Tushare Recent Data Refresh",
+        "",
+        f"- Stage: {pack.get('stage', STAGE)}",
+        f"- Status: {pack.get('status', 'unknown')}",
+        f"- Mode: {pack.get('mode', 'dry_run')}",
+        f"- Source: {pack.get('source', 'tushare')}",
+        f"- Market: {pack.get('market', 'CN_ETF')}",
+        f"- Target window: {window.get('start_date')} to {window.get('end_date')}",
+        f"- Will download: {pack.get('will_download', False)}",
+        f"- Signal data stale cleared: {decision.get('signal_data_stale_cleared', False)}",
+        f"- Live boundary allowed: {pack.get('live_boundary_allowed', False)}",
+        f"- Safety: {pack.get('safety', _safety())}",
+        "",
+        "## Coverage",
+        "",
+        "| Metric | Value |",
+        "| --- | --- |",
+        f"| Coverage status | {coverage.get('coverage_status', 'unknown')} |",
+        f"| Latest data date | {coverage.get('latest_data_date')} |",
+        f"| Processed rows | {coverage.get('processed_rows')} |",
+        f"| Missing date rows | {coverage.get('missing_date_rows')} |",
+        f"| Duplicate bars | {coverage.get('duplicate_bars')} |",
+        f"| Zero-volume rows | {coverage.get('zero_volume_rows')} |",
+        "",
+        "## Next Actions",
+        "",
+    ]
+    actions = pack.get("next_actions", [])
+    if actions:
+        lines.extend(f"- {row.get('action')}: {row.get('reason')}" for row in actions if isinstance(row, dict))
+    else:
+        lines.append("- none")
+    return "\n".join(lines) + "\n"
+
+
+def _coverage_from_ingest(ingest_result: dict[str, Any] | None, target_window: dict[str, Any]) -> dict[str, Any]:
+    if not ingest_result:
+        return {
+            "coverage_status": "missing",
+            "processed_rows": 0,
+            "latest_data_date": None,
+            "target_end_covered": False,
+            "missing_date_rows": None,
+            "duplicate_bars": None,
+            "zero_volume_rows": None,
+        }
+    report = ingest_result.get("quality_report", {}) if isinstance(ingest_result.get("quality_report"), dict) else {}
+    latest_date = _date_str(report.get("end_date"))
+    earliest_date = _date_str(report.get("start_date"))
+    processed_rows = _int(ingest_result.get("processed_rows"), _int(report.get("rows"), 0))
+    missing_date_rows = _int(report.get("missing_date_rows"), 0)
+    duplicate_bars = _int(report.get("duplicate_bars"), 0)
+    zero_volume_rows = _int(report.get("zero_volume_rows"), 0)
+    target_start = _date_str(target_window.get("start_date"))
+    target_end = _date_str(target_window.get("end_date"))
+    target_start_covered = bool(earliest_date and target_start and earliest_date <= target_start)
+    target_end_covered = bool(latest_date and target_end and latest_date >= target_end)
+    pass_status = (
+        processed_rows > 0
+        and target_start_covered
+        and target_end_covered
+        and missing_date_rows == 0
+        and duplicate_bars == 0
+        and zero_volume_rows == 0
+    )
+    return {
+        "coverage_status": "pass" if pass_status else "fail",
+        "processed_rows": processed_rows,
+        "earliest_data_date": earliest_date,
+        "latest_data_date": latest_date,
+        "target_start_covered": target_start_covered,
+        "target_end_covered": target_end_covered,
+        "missing_date_rows": missing_date_rows,
+        "duplicate_bars": duplicate_bars,
+        "zero_volume_rows": zero_volume_rows,
+    }
+
+
+def _decision_blockers(status: str, readiness_missing: list[str], coverage: dict[str, Any]) -> list[str]:
+    blockers = list(readiness_missing)
+    if status == "data_quality_blocked":
+        if not coverage.get("target_start_covered"):
+            blockers.append("target_start_not_covered")
+        if not coverage.get("target_end_covered"):
+            blockers.append("target_end_not_covered")
+        if _int(coverage.get("processed_rows"), 0) <= 0:
+            blockers.append("no_processed_rows")
+        if _int(coverage.get("missing_date_rows"), 0) > 0:
+            blockers.append("missing_date_rows")
+        if _int(coverage.get("duplicate_bars"), 0) > 0:
+            blockers.append("duplicate_bars")
+        if _int(coverage.get("zero_volume_rows"), 0) > 0:
+            blockers.append("zero_volume_rows")
+    if status == "blocked" and not blockers:
+        blockers.append("recent_data_refresh_not_ready")
+    return blockers
+
+
+def _next_actions(pack: dict[str, Any]) -> list[dict[str, Any]]:
+    blockers = pack.get("decision", {}).get("blockers", []) if isinstance(pack.get("decision"), dict) else []
+    actions: list[dict[str, Any]] = []
+    if any("TUSHARE_TOKEN" in str(item) for item in blockers):
+        actions.append(
+            {
+                "action": "set_tushare_token_env",
+                "local_only": True,
+                "command": "setx TUSHARE_TOKEN <your-token>",
+                "reason": "Tushare token is required before a real recent-data refresh can run.",
+            }
+        )
+    if any("tushare package" in str(item).lower() for item in blockers):
+        actions.append(
+            {
+                "action": "install_tushare_package",
+                "local_only": True,
+                "command": ".\\.venv\\Scripts\\python.exe -m pip install tushare",
+                "reason": "The Tushare Python package must be installed before execute mode.",
+            }
+        )
+    if pack.get("status") == "ready_to_execute":
+        actions.append(
+            {
+                "action": "execute_recent_tushare_refresh",
+                "local_only": True,
+                "command": "python scripts\\run_recent_data_refresh.py --execute",
+                "reason": "Readiness is clear; execute mode can refresh recent CN ETF bars.",
+            }
+        )
+    if pack.get("status") == "data_quality_blocked":
+        actions.append(
+            {
+                "action": "inspect_recent_data_quality",
+                "local_only": True,
+                "reason": "Recent provider data did not fully cover the target window or failed quality checks.",
+            }
+        )
+    if pack.get("status") == "completed":
+        actions.extend(
+            [
+                {
+                    "action": "rerun_daily_ops_on_refreshed_data",
+                    "local_only": True,
+                    "command": "python scripts\\run_daily_ops.py --data-root data\\processed\\tushare_etf_recent --output-dir data\\reports\\daily_ops",
+                    "reason": "Recent data is available; rerun the activated paper profile on refreshed bars.",
+                },
+                {
+                    "action": "rerun_profile_observation",
+                    "local_only": True,
+                    "command": "python scripts\\run_profile_observation.py --output-dir data\\reports\\profile_observation",
+                    "reason": "Recompute the observation ledger after Daily Ops uses refreshed data.",
+                },
+            ]
+        )
+    if not actions:
+        actions.append(
+            {
+                "action": "wait_for_readiness_or_execute_flag",
+                "local_only": True,
+                "reason": "Dry-run refresh pack recorded the current blocker state without downloading data.",
+            }
+        )
+    return actions
+
+
+def _next_day(value: str) -> str | None:
+    try:
+        return (date.fromisoformat(value[:10]) + timedelta(days=1)).isoformat()
+    except (TypeError, ValueError):
+        return None
+
+
+def _date_str(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value)[:10]
+    try:
+        return date.fromisoformat(text).isoformat()
+    except ValueError:
+        return None
+
+
+def _int(value: Any, default: int = 0) -> int:
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def _sanitize(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): _sanitize(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_sanitize(item) for item in value]
+    if isinstance(value, tuple):
+        return [_sanitize(item) for item in value]
+    if isinstance(value, pd.Timestamp):
+        return value.isoformat()
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    return value
+
+
+def _safety() -> str:
+    return "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading."
+

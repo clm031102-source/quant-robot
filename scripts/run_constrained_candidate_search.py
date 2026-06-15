@@ -42,6 +42,8 @@ class ConstrainedCandidateSearchConfig:
     min_relative_return: float = 0.0
     min_paper_sharpe: float = 0.5
     min_trades: int = 20
+    risk_tiers: tuple[dict[str, Any], ...] = ()
+    primary_risk_tier: str | None = None
     reuse_existing_artifacts: bool = True
 
 
@@ -64,6 +66,8 @@ def load_constrained_candidate_search_config(path: str | Path = DEFAULT_CONFIG) 
         min_relative_return=float(data.get("min_relative_return", ConstrainedCandidateSearchConfig.min_relative_return)),
         min_paper_sharpe=float(data.get("min_paper_sharpe", ConstrainedCandidateSearchConfig.min_paper_sharpe)),
         min_trades=int(data.get("min_trades", ConstrainedCandidateSearchConfig.min_trades)),
+        risk_tiers=tuple(_risk_tier(value) for value in data.get("risk_tiers", ConstrainedCandidateSearchConfig.risk_tiers)),
+        primary_risk_tier=data.get("primary_risk_tier", ConstrainedCandidateSearchConfig.primary_risk_tier),
         reuse_existing_artifacts=bool(data.get("reuse_existing_artifacts", ConstrainedCandidateSearchConfig.reuse_existing_artifacts)),
     )
 
@@ -102,6 +106,8 @@ def run_constrained_candidate_search(config_path: str | Path = DEFAULT_CONFIG) -
             min_relative_return=config.min_relative_return,
             min_paper_sharpe=config.min_paper_sharpe,
             min_trades=config.min_trades,
+            risk_tiers=list(config.risk_tiers),
+            primary_risk_tier=config.primary_risk_tier,
         ),
     )
     pack = build_constrained_candidate_search_pack(config, walk_forward, paper_batch, promotion, risk_candidates)
@@ -255,7 +261,7 @@ def _summary(
 
 
 def _next_actions(risk_candidates: dict[str, Any]) -> list[dict[str, Any]]:
-    if risk_candidates.get("selection_status") == "risk_candidate_selected":
+    if risk_candidates.get("selection_status") in {"risk_candidate_selected", "risk_tier_candidate_selected"}:
         return [
             {
                 "action": "run_daily_ops_for_selected_candidate",
@@ -295,8 +301,16 @@ def _config_dict(config: ConstrainedCandidateSearchConfig) -> dict[str, Any]:
         "min_relative_return": config.min_relative_return,
         "min_paper_sharpe": config.min_paper_sharpe,
         "min_trades": config.min_trades,
+        "risk_tiers": list(config.risk_tiers),
+        "primary_risk_tier": config.primary_risk_tier,
         "reuse_existing_artifacts": config.reuse_existing_artifacts,
     }
+
+
+def _risk_tier(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ValueError("risk_tiers entries must be JSON objects")
+    return dict(value)
 
 
 def _frontier_candidates(risk_candidates: dict[str, Any]) -> list[dict[str, Any]]:
@@ -309,8 +323,9 @@ def _frontier_candidates(risk_candidates: dict[str, Any]) -> list[dict[str, Any]
         if not isinstance(row, dict):
             continue
         reasons = _reason_list(row.get("rejection_reasons"))
+        tier_eligible = row.get("tier_status") == "tier_eligible"
         hard_reasons = [reason for reason in reasons if reason not in allowed_reasons]
-        if hard_reasons:
+        if hard_reasons and not tier_eligible:
             continue
         if row.get("duplicate_of"):
             continue
@@ -318,9 +333,13 @@ def _frontier_candidates(risk_candidates: dict[str, Any]) -> list[dict[str, Any]
             continue
         if not row.get("paper_matched"):
             continue
+        risk_tier = row.get("risk_tier")
+        tier_policy = _tier_policy(policy, str(risk_tier)) if risk_tier else {}
+        drawdown_limit = _float(tier_policy.get("max_drawdown_limit"), max_drawdown_limit)
+        tier_min_paper_sharpe = _float(tier_policy.get("min_paper_sharpe"), min_paper_sharpe)
         walk_drawdown = _float(row.get("walk_forward_max_drawdown"))
         paper_drawdown = _float(row.get("paper_max_drawdown"))
-        if walk_drawdown < max_drawdown_limit or paper_drawdown < max_drawdown_limit:
+        if not tier_eligible and (walk_drawdown < drawdown_limit or paper_drawdown < drawdown_limit):
             continue
         paper_sharpe = _float(row.get("paper_sharpe"))
         frontier.append(
@@ -328,14 +347,17 @@ def _frontier_candidates(risk_candidates: dict[str, Any]) -> list[dict[str, Any]
                 "case_id": row.get("case_id"),
                 "market": row.get("market"),
                 "factor_name": row.get("factor_name"),
+                "risk_tier": risk_tier,
+                "tier_status": row.get("tier_status"),
                 "walk_forward_sharpe": _round(row.get("walk_forward_sharpe")),
                 "walk_forward_relative_return": _round(row.get("walk_forward_relative_return")),
                 "walk_forward_max_drawdown": _round(walk_drawdown),
                 "paper_sharpe": _round(paper_sharpe),
-                "paper_sharpe_gap": _round(max(min_paper_sharpe - paper_sharpe, 0.0)),
+                "paper_sharpe_gap": _round(max(tier_min_paper_sharpe - paper_sharpe, 0.0)),
                 "paper_max_drawdown": _round(paper_drawdown),
-                "paper_drawdown_headroom": _round(paper_drawdown - max_drawdown_limit),
+                "paper_drawdown_headroom": _round(paper_drawdown - drawdown_limit),
                 "paper_total_return": _round(row.get("paper_total_return")),
+                "paper_calmar": _round(row.get("paper_calmar")),
                 "rejection_reasons": reasons,
             }
         )
@@ -374,6 +396,14 @@ def _reason_list(value: Any) -> list[str]:
     if isinstance(value, list):
         return [str(item) for item in value]
     return []
+
+
+def _tier_policy(policy: dict[str, Any], tier_id: str) -> dict[str, Any]:
+    tiers = policy.get("risk_tiers", []) if isinstance(policy.get("risk_tiers"), list) else []
+    for tier in tiers:
+        if isinstance(tier, dict) and str(tier.get("tier_id")) == tier_id:
+            return tier
+    return {}
 
 
 def _float(value: Any, default: float = 0.0) -> float:

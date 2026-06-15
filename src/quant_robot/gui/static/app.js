@@ -11,6 +11,13 @@ const state = {
   riskCandidates: null,
   constrainedSearch: null,
   paperProfiles: null,
+  profileObservation: null,
+  recentDataRefresh: null,
+  postRefreshReplay: null,
+  observationSufficiency: null,
+  expandedObservationReplay: null,
+  iterativeObservationExpansion: null,
+  tushareActivationGate: null,
 };
 
 const titles = {
@@ -73,6 +80,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   await loadRiskCandidates();
   await loadConstrainedSearch();
   await loadPaperProfiles();
+  await loadProfileObservation();
+  await loadRecentDataRefresh();
+  await loadPostRefreshReplay();
+  await loadObservationSufficiency();
+  await loadExpandedObservationReplay();
+  await loadIterativeObservationExpansion();
+  await loadTushareActivationGate();
 });
 
 function bindNavigation() {
@@ -141,6 +155,48 @@ async function loadConstrainedSearch() {
 async function loadPaperProfiles() {
   state.paperProfiles = await fetchJson("/api/risk/paper-profiles");
   renderPaperProfiles();
+  renderDashboard();
+}
+
+async function loadProfileObservation() {
+  state.profileObservation = await fetchJson("/api/risk/profile-observation");
+  renderProfileObservation();
+  renderDashboard();
+}
+
+async function loadRecentDataRefresh() {
+  state.recentDataRefresh = await fetchJson("/api/data/recent-refresh");
+  renderRecentDataRefresh();
+  renderDashboard();
+}
+
+async function loadPostRefreshReplay() {
+  state.postRefreshReplay = await fetchJson("/api/data/post-refresh-replay");
+  renderPostRefreshReplay();
+  renderDashboard();
+}
+
+async function loadObservationSufficiency() {
+  state.observationSufficiency = await fetchJson("/api/risk/observation-sufficiency");
+  renderObservationSufficiency();
+  renderDashboard();
+}
+
+async function loadExpandedObservationReplay() {
+  state.expandedObservationReplay = await fetchJson("/api/risk/expanded-observation-replay");
+  renderExpandedObservationReplay();
+  renderDashboard();
+}
+
+async function loadIterativeObservationExpansion() {
+  state.iterativeObservationExpansion = await fetchJson("/api/risk/iterative-observation-expansion");
+  renderIterativeObservationExpansion();
+  renderDashboard();
+}
+
+async function loadTushareActivationGate() {
+  state.tushareActivationGate = await fetchJson("/api/risk/tushare-activation-gate");
+  renderTushareActivationGate();
   renderDashboard();
 }
 
@@ -292,15 +348,50 @@ async function runDailyOps() {
   const profileParams = new URLSearchParams({
     paper_profile_pack: valueOf("paper-profile-pack-path"),
   });
+  const observationParams = new URLSearchParams({
+    profile_observation_pack: valueOf("profile-observation-pack-path"),
+  });
+  const recentRefreshParams = new URLSearchParams({
+    recent_data_refresh_pack: valueOf("recent-data-refresh-pack-path"),
+  });
+  const postRefreshParams = new URLSearchParams({
+    post_refresh_replay_pack: valueOf("post-refresh-replay-pack-path"),
+  });
+  const sufficiencyParams = new URLSearchParams({
+    observation_sufficiency_pack: valueOf("observation-sufficiency-pack-path"),
+  });
+  const expandedParams = new URLSearchParams({
+    expanded_observation_replay_pack: valueOf("expanded-observation-replay-pack-path"),
+  });
+  const iterativeParams = new URLSearchParams({
+    iterative_observation_expansion_pack: valueOf("iterative-observation-expansion-pack-path"),
+  });
+  const activationParams = new URLSearchParams({
+    tushare_activation_gate_pack: valueOf("tushare-activation-gate-pack-path"),
+  });
   await withBusy("run-daily-ops", async () => {
     state.dailyOps = await fetchJson(`/api/daily/ops?${params.toString()}`);
     state.riskCandidates = await fetchJson(`/api/risk/candidates?${riskParams.toString()}`);
     state.constrainedSearch = await fetchJson(`/api/risk/constrained-search?${constrainedParams.toString()}`);
     state.paperProfiles = await fetchJson(`/api/risk/paper-profiles?${profileParams.toString()}`);
+    state.profileObservation = await fetchJson(`/api/risk/profile-observation?${observationParams.toString()}`);
+    state.recentDataRefresh = await fetchJson(`/api/data/recent-refresh?${recentRefreshParams.toString()}`);
+    state.postRefreshReplay = await fetchJson(`/api/data/post-refresh-replay?${postRefreshParams.toString()}`);
+    state.observationSufficiency = await fetchJson(`/api/risk/observation-sufficiency?${sufficiencyParams.toString()}`);
+    state.expandedObservationReplay = await fetchJson(`/api/risk/expanded-observation-replay?${expandedParams.toString()}`);
+    state.iterativeObservationExpansion = await fetchJson(`/api/risk/iterative-observation-expansion?${iterativeParams.toString()}`);
+    state.tushareActivationGate = await fetchJson(`/api/risk/tushare-activation-gate?${activationParams.toString()}`);
     renderDailyOps();
     renderRiskCandidates();
     renderConstrainedSearch();
     renderPaperProfiles();
+    renderProfileObservation();
+    renderRecentDataRefresh();
+    renderPostRefreshReplay();
+    renderObservationSufficiency();
+    renderExpandedObservationReplay();
+    renderIterativeObservationExpansion();
+    renderTushareActivationGate();
     renderDashboard();
     showToast("Daily operations refreshed");
   });
@@ -345,9 +436,32 @@ function renderDashboard() {
   const project = state.projectStatus || {};
   const daily = state.dailyOps || {};
   const dailyDecision = daily.decision || {};
+  const dailyPaperProfile = daily.paper_profile || {};
   const riskCandidates = state.riskCandidates || {};
   const constrained = state.constrainedSearch || {};
   const profiles = state.paperProfiles || {};
+  const observation = state.profileObservation || {};
+  const observationDecision = observation.decision || {};
+  const recentRefresh = state.recentDataRefresh || {};
+  const refreshDecision = recentRefresh.decision || {};
+  const refreshCoverage = recentRefresh.coverage || {};
+  const postReplay = state.postRefreshReplay || {};
+  const postReplayDecision = postReplay.decision || {};
+  const sufficiency = state.observationSufficiency || {};
+  const sufficiencyDecision = sufficiency.decision || {};
+  const sufficiencyFills = sufficiency.fills || {};
+  const expandedReplay = state.expandedObservationReplay || {};
+  const expandedDecision = expandedReplay.decision || {};
+  const expandedFinal = expandedReplay.final_observation_sufficiency || {};
+  const expandedFills = expandedFinal.fills || {};
+  const iterativeExpansion = state.iterativeObservationExpansion || {};
+  const iterativeDecision = iterativeExpansion.decision || {};
+  const iterativeFinal = iterativeExpansion.final_observation_sufficiency || {};
+  const iterativeFills = iterativeFinal.fills || {};
+  const activationGate = state.tushareActivationGate || {};
+  const activationDecision = activationGate.decision || {};
+  const activationFinal = activationGate.final_observation_sufficiency || {};
+  const activationFills = activationFinal.fills || {};
   const candidate = project.selected_candidate || {};
   const dataGaps = project.data_gaps || {};
   const provider = project.provider_remediation || {};
@@ -355,9 +469,17 @@ function renderDashboard() {
   byId("dashboard-metrics").innerHTML = [
     metric("项目状态", project.overall_status || "--", `阻塞 ${project.blocker_count ?? "--"}`),
     metric("Daily Ops", dailyDecision.status || "--", dailyDecision.paper_trading_allowed ? "paper allowed" : "blocked"),
+    metric("Daily Profile", dailyPaperProfile.profile_id || "--", dailyPaperProfile.risk_tier || "no overlay"),
     metric("风险候选", riskCandidates.summary?.risk_eligible_candidates ?? "--", riskCandidates.selection_status || "selector"),
     metric("Frontier", constrained.summary?.frontier_candidates ?? "--", constrained.selection_status || "constrained search"),
     metric("Profiles", profiles.summary?.eligible_profiles ?? "--", profiles.selection_status || "paper optimizer"),
+    metric("Observation", observationDecision.observation_status || "--", `stops ${observation.summary?.stop_count ?? "--"}`),
+    metric("Recent Data", recentRefresh.status || "--", refreshDecision.signal_data_stale_cleared ? "fresh" : "blocked"),
+    metric("Post Replay", postReplay.status || "--", postReplayDecision.post_refresh_replay_allowed ? "paper cleared" : "blocked"),
+    metric("Sample Gate", sufficiency.status || "--", `${sufficiencyFills.observed_fills ?? "--"} / ${sufficiencyFills.required_fills ?? "--"} fills`),
+    metric("Expanded Gate", expandedReplay.status || "--", `${expandedFills.observed_fills ?? "--"} / ${expandedFills.required_fills ?? "--"} fills`),
+    metric("Iterative Gate", iterativeExpansion.status || "--", `${iterativeFills.observed_fills ?? "--"} / ${iterativeFills.required_fills ?? "--"} fills`),
+    metric("Activation Gate", activationGate.status || "--", activationDecision.paper_continuation_allowed ? "paper ready" : "blocked"),
     metric("主候选", candidate.promotion_status || promotionSummary.paper_ready || "--", candidate.case_id || "promotion ops"),
     metric("数据缺口", dataGaps.gap_rows ?? "--", `${dataGaps.target_raw_rows_found ?? 0} raw rows found`),
     metric("Provider 阻塞", provider.blocking_remediation_items ?? "--", "remediation"),
@@ -372,9 +494,17 @@ function renderDashboard() {
   ]);
   byId("dashboard-status").innerHTML = statusRows([
     ["Daily Ops", `${dailyDecision.status || "--"} / tickets ${daily.ticket_count ?? "--"}`, dailyDecision.status === "paper_ready" ? "ok" : "warn"],
-    ["Risk candidates", `${riskCandidates.selection_status || "--"} / eligible ${riskCandidates.summary?.risk_eligible_candidates ?? "--"}`, riskCandidates.selection_status === "risk_candidate_selected" ? "ok" : "warn"],
+    ["Daily profile", `${dailyPaperProfile.profile_id || "none"} / ${dailyPaperProfile.risk_tier || "--"}`, dailyPaperProfile.profile_id ? "ok" : "muted"],
+    ["Risk candidates", `${riskCandidates.selection_status || "--"} / eligible ${riskCandidates.summary?.tier_eligible_candidates ?? riskCandidates.summary?.risk_eligible_candidates ?? "--"}`, ["risk_candidate_selected", "risk_tier_candidate_selected"].includes(riskCandidates.selection_status) ? "ok" : "warn"],
     ["Constrained frontier", `${constrained.summary?.frontier_candidates ?? "--"} near miss`, constrained.summary?.frontier_candidates > 0 ? "warn" : "muted"],
-    ["Paper profiles", `${profiles.selection_status || "--"} / eligible ${profiles.summary?.eligible_profiles ?? "--"}`, profiles.selection_status === "paper_profile_selected" ? "ok" : "warn"],
+    ["Paper profiles", `${profiles.selection_status || "--"} / eligible ${profiles.summary?.eligible_profiles ?? "--"}`, ["paper_profile_selected", "risk_tier_profile_selected"].includes(profiles.selection_status) ? "ok" : "warn"],
+    ["Profile observation", `${observationDecision.observation_status || "--"} / stops ${observation.summary?.stop_count ?? "--"}`, observationDecision.paper_observation_allowed ? "ok" : "warn"],
+    ["Recent data", `${recentRefresh.status || "--"} / ${refreshCoverage.coverage_status || "--"}`, refreshDecision.signal_data_stale_cleared ? "ok" : "warn"],
+    ["Post-refresh replay", `${postReplay.status || "--"} / blockers ${(postReplayDecision.blockers || []).length}`, postReplayDecision.post_refresh_replay_allowed ? "ok" : "warn"],
+    ["Sample sufficiency", `${sufficiency.status || "--"} / deficit ${sufficiencyFills.fill_deficit ?? "--"}`, sufficiencyDecision.observation_sufficiency_cleared ? "ok" : "warn"],
+    ["Expanded replay", `${expandedReplay.status || "--"} / deficit ${expandedFills.fill_deficit ?? "--"}`, expandedDecision.expanded_observation_cleared ? "ok" : "warn"],
+    ["Iterative expansion", `${iterativeExpansion.status || "--"} / rounds ${iterativeExpansion.round_count ?? "--"}`, iterativeDecision.iterative_observation_cleared ? "ok" : "warn"],
+    ["Tushare activation", `${activationGate.status || "--"} / fills ${activationFills.observed_fills ?? "--"}`, activationDecision.paper_continuation_allowed ? "ok" : "warn"],
     ["Promotion blockers", (state.promotion?.live_review_blockers || []).join(" / ") || "none", state.promotion?.live_review_allowed ? "ok" : "warn"],
     ["Tushare", readyText(state.snapshot?.readiness?.tushare), state.snapshot?.readiness?.tushare?.ready ? "ok" : "warn"],
     ["Parquet", readyText(state.snapshot?.readiness?.parquet), state.snapshot?.readiness?.parquet?.ready ? "ok" : "warn"],
@@ -516,6 +646,7 @@ function renderDailyOps() {
   const candidate = daily.candidate || {};
   const risk = daily.risk || {};
   const riskPolicy = daily.risk_policy || {};
+  const dailyPaperProfile = daily.paper_profile || {};
   const status = decision.status || (daily.artifact_present ? "unknown" : "missing");
   const tag = byId("daily-ops-tag");
   if (tag) {
@@ -525,6 +656,7 @@ function renderDailyOps() {
   byId("daily-ops-metrics").innerHTML = [
     metric("运营状态", status, daily.run_date || "latest artifact"),
     metric("主候选", candidate.case_id || "--", candidate.market || "--"),
+    metric("Profile", dailyPaperProfile.profile_id || "--", dailyPaperProfile.risk_tier || "no overlay"),
     metric("建议票据", daily.ticket_count ?? 0, "advisory only"),
     metric("纸面允许", decision.paper_trading_allowed ? "true" : "false", "no broker"),
     metric("最大回撤", formatPercent(risk.max_equity_drawdown), "simulation"),
@@ -533,6 +665,7 @@ function renderDailyOps() {
   byId("daily-ops-status").innerHTML = statusRows([
     ["Artifact", daily.artifact_present ? daily.source_path || "present" : "missing", daily.artifact_present ? "ok" : "warn"],
     ["Decision", status, status === "paper_ready" ? "ok" : "warn"],
+    ["Paper profile", `${dailyPaperProfile.profile_id || "none"} / ${dailyPaperProfile.risk_tier || "--"}`, dailyPaperProfile.profile_id ? "ok" : "muted"],
     ["Paper trading", decision.paper_trading_allowed ? "allowed" : "blocked", decision.paper_trading_allowed ? "ok" : "warn"],
     ["Live boundary", decision.live_boundary_allowed ? "allowed" : "blocked", "danger"],
     ["Safety", daily.safety || "Research-to-paper only", "danger"],
@@ -556,6 +689,8 @@ function renderDailyOps() {
     ["Max drawdown limit", formatPercent(riskPolicy.max_drawdown_limit), "muted"],
     ["Drawdown breached", riskPolicy.max_drawdown_breached ? "true" : "false", riskPolicy.max_drawdown_breached ? "warn" : "ok"],
     ["Non-manual blockers", (decision.non_manual_blocking_reasons || []).join(" / ") || "none", decision.non_manual_blocking_reasons?.length ? "warn" : "ok"],
+    ["Profile max weight", formatPercent(dailyPaperProfile.max_asset_weight), dailyPaperProfile.profile_id ? "ok" : "muted"],
+    ["Profile guard", formatPercent(dailyPaperProfile.max_drawdown_guard), dailyPaperProfile.profile_id ? "ok" : "muted"],
     ["Simulation fills", formatNumber(daily.simulation?.fills), "muted"],
   ]);
 }
@@ -569,14 +704,15 @@ function renderRiskCandidates() {
   const tag = byId("risk-candidate-tag");
   if (tag) {
     tag.textContent = status;
-    tag.classList.toggle("tag-warn", status !== "risk_candidate_selected");
+    tag.classList.toggle("tag-warn", !["risk_candidate_selected", "risk_tier_candidate_selected"].includes(status));
   }
   byId("risk-candidate-status").innerHTML = statusRows([
     ["Artifact", pack.artifact_present ? pack.source_path || "present" : "missing", pack.artifact_present ? "ok" : "warn"],
-    ["Selection", status, status === "risk_candidate_selected" ? "ok" : "warn"],
-    ["Eligible candidates", String(summary.risk_eligible_candidates ?? 0), summary.risk_eligible_candidates > 0 ? "ok" : "warn"],
+    ["Selection", status, ["risk_candidate_selected", "risk_tier_candidate_selected"].includes(status) ? "ok" : "warn"],
+    ["Eligible candidates", String(summary.tier_eligible_candidates ?? summary.risk_eligible_candidates ?? 0), (summary.tier_eligible_candidates ?? summary.risk_eligible_candidates ?? 0) > 0 ? "ok" : "warn"],
     ["Paper matched", String(summary.paper_matched_candidates ?? 0), "muted"],
     ["Selected", selected.case_id || "none", selected.case_id ? "ok" : "warn"],
+    ["Risk tier", selected.risk_tier || policy.primary_risk_tier || "legacy_policy", selected.risk_tier ? "ok" : "muted"],
     ["Max drawdown limit", formatPercent(policy.max_drawdown_limit), "muted"],
     ["Live boundary", pack.live_boundary_allowed ? "allowed" : "blocked", "danger"],
   ]);
@@ -585,6 +721,7 @@ function renderRiskCandidates() {
     "screen_rank",
     "case_id",
     "risk_status",
+    "risk_tier",
     "walk_forward_sharpe",
     "walk_forward_relative_return",
     "walk_forward_max_drawdown",
@@ -604,11 +741,11 @@ function renderConstrainedSearch() {
   const tag = byId("constrained-search-tag");
   if (tag) {
     tag.textContent = status;
-    tag.classList.toggle("tag-warn", status !== "risk_candidate_selected");
+    tag.classList.toggle("tag-warn", !["risk_candidate_selected", "risk_tier_candidate_selected"].includes(status));
   }
   byId("constrained-search-status").innerHTML = statusRows([
     ["Artifact", pack.artifact_present ? pack.source_path || "present" : "missing", pack.artifact_present ? "ok" : "warn"],
-    ["Selection", status, status === "risk_candidate_selected" ? "ok" : "warn"],
+    ["Selection", status, ["risk_candidate_selected", "risk_tier_candidate_selected"].includes(status) ? "ok" : "warn"],
     ["Walk-forward accepted", `${summary.walk_forward_accepted ?? 0} / ${summary.walk_forward_cases ?? 0}`, summary.walk_forward_accepted > 0 ? "ok" : "warn"],
     ["Paper completed", String(summary.paper_completed ?? 0), summary.paper_completed > 0 ? "ok" : "warn"],
     ["Risk eligible", String(summary.risk_eligible_candidates ?? 0), summary.risk_eligible_candidates > 0 ? "ok" : "warn"],
@@ -617,10 +754,12 @@ function renderConstrainedSearch() {
   ]);
   byId("constrained-frontier-table").innerHTML = tableRows(frontier, [
     "case_id",
+    "risk_tier",
     "paper_sharpe",
     "paper_sharpe_gap",
     "paper_max_drawdown",
     "paper_drawdown_headroom",
+    "paper_calmar",
     "walk_forward_relative_return",
     "rejection_reasons",
   ]);
@@ -636,27 +775,342 @@ function renderPaperProfiles() {
   const tag = byId("paper-profile-tag");
   if (tag) {
     tag.textContent = status;
-    tag.classList.toggle("tag-warn", status !== "paper_profile_selected");
+    tag.classList.toggle("tag-warn", !["paper_profile_selected", "risk_tier_profile_selected"].includes(status));
   }
   byId("paper-profile-status").innerHTML = statusRows([
     ["Artifact", pack.artifact_present ? pack.source_path || "present" : "missing", pack.artifact_present ? "ok" : "warn"],
-    ["Selection", status, status === "paper_profile_selected" ? "ok" : "warn"],
+    ["Selection", status, ["paper_profile_selected", "risk_tier_profile_selected"].includes(status) ? "ok" : "warn"],
     ["Attempts", String(summary.profile_attempts ?? attempts.length), attempts.length > 0 ? "ok" : "warn"],
     ["Eligible profiles", String(summary.eligible_profiles ?? 0), summary.eligible_profiles > 0 ? "ok" : "warn"],
     ["Selected", selected.profile_id || "none", selected.profile_id ? "ok" : "warn"],
+    ["Risk tier", selected.risk_tier || policy.primary_risk_tier || "legacy_policy", selected.risk_tier ? "ok" : "muted"],
     ["Min Sharpe", formatDecimal(policy.min_paper_sharpe), "muted"],
     ["Max drawdown", formatPercent(policy.max_drawdown_limit), "muted"],
   ]);
   byId("paper-profile-attempt-table").innerHTML = tableRows(attempts, [
     "profile_id",
     "profile_status",
+    "risk_tier",
     "paper_sharpe",
     "paper_max_drawdown",
     "paper_total_return",
+    "paper_calmar",
     "max_asset_weight",
     "max_drawdown_guard",
     "guard_cooldown_periods",
     "rejection_reasons",
+  ]);
+}
+
+function renderProfileObservation() {
+  const pack = state.profileObservation || {};
+  const decision = pack.decision || {};
+  const summary = pack.summary || {};
+  const profile = pack.paper_profile || {};
+  const status = decision.observation_status || (pack.artifact_present ? "unknown" : "missing");
+  const tag = byId("profile-observation-tag");
+  if (tag) {
+    tag.textContent = status;
+    tag.classList.toggle("tag-warn", !decision.paper_observation_allowed);
+  }
+  byId("profile-observation-metrics").innerHTML = [
+    metric("Observation", status, decision.paper_observation_allowed ? "paper observe" : "stopped"),
+    metric("Profile", profile.profile_id || "--", profile.risk_tier || "no tier"),
+    metric("Stops", summary.stop_count ?? 0, `warnings ${summary.warning_count ?? 0}`),
+    metric("Signal age", summary.signal_age_days ?? "--", `max ${summary.max_signal_age_days ?? "--"} days`),
+    metric("Guard ratio", formatDecimal(summary.guard_event_ratio), "warning signal"),
+  ].join("");
+  byId("profile-observation-status").innerHTML = statusRows([
+    ["Artifact", pack.artifact_present ? pack.source_path || "present" : "missing", pack.artifact_present ? "ok" : "warn"],
+    ["Decision", status, decision.paper_observation_allowed ? "ok" : "warn"],
+    ["Stop reasons", (decision.stop_reasons || []).join(" / ") || "none", decision.stop_reasons?.length ? "warn" : "ok"],
+    ["Warning reasons", (decision.warning_reasons || []).join(" / ") || "none", decision.warning_reasons?.length ? "warn" : "muted"],
+    ["Live boundary", pack.live_boundary_allowed ? "allowed" : "blocked", "danger"],
+    ["Safety", pack.safety || "Research-to-paper only", "danger"],
+  ]);
+  byId("profile-observation-rule-table").innerHTML = tableRows(pack.stop_rules || [], [
+    "rule_id",
+    "severity",
+    "status",
+    "observed_value",
+    "threshold",
+    "reason",
+  ]);
+  byId("profile-observation-ledger-table").innerHTML = tableRows(pack.ledger || [], [
+    "run_date",
+    "case_id",
+    "profile_id",
+    "risk_tier",
+    "observation_status",
+    "signal_age_days",
+    "max_equity_drawdown",
+    "guard_event_ratio",
+    "stop_reasons",
+  ]);
+  byId("profile-observation-action-table").innerHTML = tableRows(pack.next_actions || [], [
+    "action",
+    "reason",
+    "command",
+    "local_only",
+  ]);
+}
+
+function renderRecentDataRefresh() {
+  const pack = state.recentDataRefresh || {};
+  const decision = pack.decision || {};
+  const coverage = pack.coverage || {};
+  const targetWindow = pack.target_window || {};
+  const readiness = pack.readiness || {};
+  const blockers = decision.blockers || readiness.missing || [];
+  const status = pack.status || (pack.artifact_present ? "unknown" : "missing");
+  const tag = byId("recent-data-refresh-tag");
+  if (tag) {
+    tag.textContent = status;
+    tag.classList.toggle("tag-warn", !decision.signal_data_stale_cleared);
+  }
+  byId("recent-data-refresh-metrics").innerHTML = [
+    metric("Recent Data", status, pack.mode || "dry_run"),
+    metric("Coverage", coverage.coverage_status || "--", coverage.latest_data_date || "no latest date"),
+    metric("Processed Rows", coverage.processed_rows ?? 0, `missing ${coverage.missing_date_rows ?? "--"}`),
+    metric("Signal Gate", decision.signal_data_stale_cleared ? "cleared" : "blocked", targetWindow.signal_date || "--"),
+    metric("Download", pack.will_download ? "execute" : "no", pack.source || "tushare"),
+  ].join("");
+  byId("recent-data-refresh-status").innerHTML = statusRows([
+    ["Artifact", pack.artifact_present ? pack.source_path || "present" : "missing", pack.artifact_present ? "ok" : "warn"],
+    ["Status", status, decision.signal_data_stale_cleared ? "ok" : "warn"],
+    ["Target window", `${targetWindow.start_date || "--"} to ${targetWindow.end_date || "--"}`, targetWindow.end_date ? "ok" : "muted"],
+    ["Blockers", blockers.join(" / ") || "none", blockers.length ? "warn" : "ok"],
+    ["Will download", pack.will_download ? "yes" : "no", pack.will_download ? "warn" : "muted"],
+    ["Live boundary", pack.live_boundary_allowed ? "allowed" : "blocked", "danger"],
+    ["Safety", pack.safety || "Research-to-paper only", "danger"],
+  ]);
+  byId("recent-data-refresh-coverage").innerHTML = statusRows([
+    ["Coverage status", coverage.coverage_status || "--", coverage.coverage_status === "ready" ? "ok" : "warn"],
+    ["Latest data date", coverage.latest_data_date || "--", coverage.latest_data_date ? "ok" : "warn"],
+    ["Processed rows", formatNumber(coverage.processed_rows), coverage.processed_rows > 0 ? "ok" : "warn"],
+    ["Missing date rows", formatNumber(coverage.missing_date_rows), coverage.missing_date_rows > 0 ? "warn" : "muted"],
+    ["Duplicate bars", formatNumber(coverage.duplicate_bars), coverage.duplicate_bars > 0 ? "warn" : "muted"],
+    ["Zero-volume rows", formatNumber(coverage.zero_volume_rows), coverage.zero_volume_rows > 0 ? "warn" : "muted"],
+  ]);
+  byId("recent-data-refresh-action-table").innerHTML = tableRows(pack.next_actions || [], [
+    "action",
+    "reason",
+    "command",
+    "local_only",
+  ]);
+}
+
+function renderPostRefreshReplay() {
+  const pack = state.postRefreshReplay || {};
+  const decision = pack.decision || {};
+  const recent = pack.recent_data_refresh || {};
+  const daily = pack.daily_ops || {};
+  const observation = pack.profile_observation || {};
+  const blockers = decision.blockers || [];
+  const status = pack.status || (pack.artifact_present ? "unknown" : "missing");
+  const tag = byId("post-refresh-replay-tag");
+  if (tag) {
+    tag.textContent = status;
+    tag.classList.toggle("tag-warn", !decision.post_refresh_replay_allowed);
+  }
+  byId("post-refresh-replay-metrics").innerHTML = [
+    metric("Post Replay", status, decision.post_refresh_replay_allowed ? "paper cleared" : "blocked"),
+    metric("Recent Ready", decision.recent_data_ready ? "yes" : "no", recent.status || "--"),
+    metric("Daily Ops", daily.status || "--", daily.paper_trading_allowed ? "paper allowed" : "blocked"),
+    metric("Observation", observation.observation_status || "--", observation.paper_observation_allowed ? "allowed" : "stopped"),
+    metric("Blockers", blockers.length, blockers.join(" / ") || "none"),
+  ].join("");
+  byId("post-refresh-replay-status").innerHTML = statusRows([
+    ["Artifact", pack.artifact_present ? pack.source_path || "present" : "missing", pack.artifact_present ? "ok" : "warn"],
+    ["Status", status, decision.post_refresh_replay_allowed ? "ok" : "warn"],
+    ["Recent refresh", `${recent.status || "--"} / ${recent.source || "--"}`, decision.recent_data_ready ? "ok" : "warn"],
+    ["Daily Ops", `${daily.status || "--"} / paper ${daily.paper_trading_allowed ? "yes" : "no"}`, decision.daily_ops_paper_allowed ? "ok" : "warn"],
+    ["Observation", `${observation.observation_status || "--"} / paper ${observation.paper_observation_allowed ? "yes" : "no"}`, decision.profile_observation_allowed ? "ok" : "warn"],
+    ["Blockers", blockers.join(" / ") || "none", blockers.length ? "warn" : "ok"],
+    ["Live boundary", pack.live_boundary_allowed ? "allowed" : "blocked", "danger"],
+    ["Safety", pack.safety || "Research-to-paper only", "danger"],
+  ]);
+  byId("post-refresh-replay-action-table").innerHTML = tableRows(pack.next_actions || [], [
+    "action",
+    "reason",
+    "command",
+    "local_only",
+  ]);
+}
+
+function renderObservationSufficiency() {
+  const pack = state.observationSufficiency || {};
+  const fills = pack.fills || {};
+  const recommendation = pack.recommendation || {};
+  const decision = pack.decision || {};
+  const blockers = decision.blockers || [];
+  const status = pack.status || (pack.artifact_present ? "unknown" : "missing");
+  const tag = byId("observation-sufficiency-tag");
+  if (tag) {
+    tag.textContent = status;
+    tag.classList.toggle("tag-warn", !decision.observation_sufficiency_cleared);
+  }
+  byId("observation-sufficiency-metrics").innerHTML = [
+    metric("Sample Gate", status, decision.observation_sufficiency_cleared ? "cleared" : "blocked"),
+    metric("Fills", `${fills.observed_fills ?? "--"} / ${fills.required_fills ?? "--"}`, `deficit ${fills.fill_deficit ?? "--"}`),
+    metric("Obs Days", fills.observation_days ?? "--", `rate ${formatDecimal(fills.fill_rate_per_day)}`),
+    metric("Suggested Start", recommendation.suggested_start_date || "--", recommendation.suggested_end_date || "--"),
+    metric("Relax Min Fills", recommendation.threshold_relaxation_allowed ? "review" : "no", recommendation.threshold_policy || "extend first"),
+  ].join("");
+  byId("observation-sufficiency-status").innerHTML = statusRows([
+    ["Artifact", pack.artifact_present ? pack.source_path || "present" : "missing", pack.artifact_present ? "ok" : "warn"],
+    ["Status", status, decision.observation_sufficiency_cleared ? "ok" : "warn"],
+    ["Observed fills", `${fills.observed_fills ?? "--"} / ${fills.required_fills ?? "--"}`, fills.fill_deficit > 0 ? "warn" : "ok"],
+    ["Estimated days", recommendation.estimated_total_observation_days ?? "--", "muted"],
+    ["Suggested window", `${recommendation.suggested_start_date || "--"} to ${recommendation.suggested_end_date || "--"}`, recommendation.suggested_start_date ? "ok" : "muted"],
+    ["Threshold relaxation", recommendation.threshold_relaxation_allowed ? "review allowed" : "not allowed", recommendation.threshold_relaxation_allowed ? "warn" : "muted"],
+    ["Blockers", blockers.join(" / ") || "none", blockers.length ? "warn" : "ok"],
+    ["Live boundary", pack.live_boundary_allowed ? "allowed" : "blocked", "danger"],
+    ["Safety", pack.safety || "Research-to-paper only", "danger"],
+  ]);
+  byId("observation-sufficiency-action-table").innerHTML = tableRows(pack.next_actions || [], [
+    "action",
+    "reason",
+    "command",
+    "local_only",
+  ]);
+}
+
+function renderExpandedObservationReplay() {
+  const pack = state.expandedObservationReplay || {};
+  const decision = pack.decision || {};
+  const replayWindow = pack.window || {};
+  const recent = pack.recent_data_refresh || {};
+  const final = pack.final_observation_sufficiency || {};
+  const finalFills = final.fills || {};
+  const blockers = decision.blockers || [];
+  const status = pack.status || (pack.artifact_present ? "unknown" : "missing");
+  const tag = byId("expanded-observation-replay-tag");
+  if (tag) {
+    tag.textContent = status;
+    tag.classList.toggle("tag-warn", !decision.expanded_observation_cleared);
+  }
+  byId("expanded-observation-replay-metrics").innerHTML = [
+    metric("Expanded Replay", status, decision.expanded_observation_cleared ? "cleared" : "blocked"),
+    metric("Window", replayWindow.start_date || "--", replayWindow.end_date || "--"),
+    metric("Refresh Rows", recent.coverage?.processed_rows ?? "--", recent.status || "--"),
+    metric("Final Fills", `${finalFills.observed_fills ?? "--"} / ${finalFills.required_fills ?? "--"}`, `deficit ${finalFills.fill_deficit ?? "--"}`),
+    metric("Blockers", blockers.length, blockers.join(" / ") || "none"),
+  ].join("");
+  byId("expanded-observation-replay-status").innerHTML = statusRows([
+    ["Artifact", pack.artifact_present ? pack.source_path || "present" : "missing", pack.artifact_present ? "ok" : "warn"],
+    ["Status", status, decision.expanded_observation_cleared ? "ok" : "warn"],
+    ["Window", `${replayWindow.start_date || "--"} to ${replayWindow.end_date || "--"}`, replayWindow.start_date ? "ok" : "muted"],
+    ["Recent refresh", `${recent.status || "--"} / rows ${recent.coverage?.processed_rows ?? "--"}`, recent.status === "completed" ? "ok" : "warn"],
+    ["Final sufficiency", `${final.status || "--"} / ${finalFills.observed_fills ?? "--"} fills`, final.status === "sufficient" ? "ok" : "warn"],
+    ["Blockers", blockers.join(" / ") || "none", blockers.length ? "warn" : "ok"],
+    ["Live boundary", pack.live_boundary_allowed ? "allowed" : "blocked", "danger"],
+    ["Safety", pack.safety || "Research-to-paper only", "danger"],
+  ]);
+  byId("expanded-observation-replay-action-table").innerHTML = tableRows(pack.next_actions || [], [
+    "action",
+    "reason",
+    "command",
+    "local_only",
+  ]);
+}
+
+function renderIterativeObservationExpansion() {
+  const pack = state.iterativeObservationExpansion || {};
+  const decision = pack.decision || {};
+  const final = pack.final_observation_sufficiency || {};
+  const finalFills = final.fills || {};
+  const blockers = decision.blockers || [];
+  const status = pack.status || (pack.artifact_present ? "unknown" : "missing");
+  const tag = byId("iterative-observation-expansion-tag");
+  if (tag) {
+    tag.textContent = status;
+    tag.classList.toggle("tag-warn", !decision.iterative_observation_cleared);
+  }
+  byId("iterative-observation-expansion-metrics").innerHTML = [
+    metric("Iterative Gate", status, decision.iterative_observation_cleared ? "cleared" : "blocked"),
+    metric("Rounds", `${pack.round_count ?? "--"} / ${pack.max_rounds ?? "--"}`, decision.initial_extendable ? "extendable" : "blocked"),
+    metric("Final Fills", `${finalFills.observed_fills ?? "--"} / ${finalFills.required_fills ?? "--"}`, `deficit ${finalFills.fill_deficit ?? "--"}`),
+    metric("Blockers", blockers.length, blockers.join(" / ") || "none"),
+  ].join("");
+  byId("iterative-observation-expansion-status").innerHTML = statusRows([
+    ["Artifact", pack.artifact_present ? pack.source_path || "present" : "missing", pack.artifact_present ? "ok" : "warn"],
+    ["Status", status, decision.iterative_observation_cleared ? "ok" : "warn"],
+    ["Rounds", `${pack.round_count ?? "--"} / ${pack.max_rounds ?? "--"}`, pack.round_count > 0 ? "ok" : "muted"],
+    ["Final sufficiency", `${final.status || "--"} / ${finalFills.observed_fills ?? "--"} fills`, final.status === "sufficient" ? "ok" : "warn"],
+    ["Blockers", blockers.join(" / ") || "none", blockers.length ? "warn" : "ok"],
+    ["Live boundary", pack.live_boundary_allowed ? "allowed" : "blocked", "danger"],
+    ["Safety", pack.safety || "Research-to-paper only", "danger"],
+  ]);
+  byId("iterative-observation-expansion-round-table").innerHTML = tableRows(
+    (pack.rounds || []).map((row) => {
+      const expanded = row.expanded_observation_replay || {};
+      const window = expanded.window || {};
+      const finalRound = expanded.final_observation_sufficiency || {};
+      const fills = finalRound.fills || {};
+      return {
+        round: row.round,
+        status: expanded.status,
+        start_date: window.start_date,
+        end_date: window.end_date,
+        observed_fills: fills.observed_fills,
+        required_fills: fills.required_fills,
+        fill_deficit: fills.fill_deficit,
+      };
+    }),
+    ["round", "status", "start_date", "end_date", "observed_fills", "required_fills", "fill_deficit"],
+  );
+  byId("iterative-observation-expansion-action-table").innerHTML = tableRows(pack.next_actions || [], [
+    "action",
+    "reason",
+    "command",
+    "local_only",
+  ]);
+}
+
+function renderTushareActivationGate() {
+  const pack = state.tushareActivationGate || {};
+  const decision = pack.decision || {};
+  const readiness = pack.readiness || {};
+  const recent = pack.recent_data_refresh || {};
+  const final = pack.final_observation_sufficiency || {};
+  const finalFills = final.fills || {};
+  const blockers = decision.blockers || [];
+  const status = pack.status || (pack.artifact_present ? "unknown" : "missing");
+  const tag = byId("tushare-activation-gate-tag");
+  if (tag) {
+    tag.textContent = status;
+    tag.classList.toggle("tag-warn", !decision.paper_continuation_allowed);
+  }
+  byId("tushare-activation-gate-metrics").innerHTML = [
+    metric("Activation Gate", status, decision.paper_continuation_allowed ? "paper ready" : "blocked"),
+    metric("Tushare Ready", readiness.ready ? "yes" : "no", (readiness.missing || []).join(" / ") || "ready"),
+    metric("Recent Rows", recent.coverage?.processed_rows ?? "--", recent.status || "not run"),
+    metric("Final Fills", `${finalFills.observed_fills ?? "--"} / ${finalFills.required_fills ?? "--"}`, `deficit ${finalFills.fill_deficit ?? "--"}`),
+  ].join("");
+  byId("tushare-activation-gate-status").innerHTML = statusRows([
+    ["Artifact", pack.artifact_present ? pack.source_path || "present" : "missing", pack.artifact_present ? "ok" : "warn"],
+    ["Status", status, decision.paper_continuation_allowed ? "ok" : "warn"],
+    ["Mode", `${pack.mode || "--"} / ${pack.source || "--"}`, pack.mode === "execute" ? "ok" : "muted"],
+    ["Readiness", readiness.ready ? "ready" : (readiness.missing || []).join(" / ") || "unknown", readiness.ready ? "ok" : "warn"],
+    ["Recent data", decision.recent_data_ready ? "ready" : recent.status || "--", decision.recent_data_ready ? "ok" : "warn"],
+    ["Post replay", decision.post_refresh_replay_allowed ? "cleared" : "blocked", decision.post_refresh_replay_allowed ? "ok" : "warn"],
+    ["Sample gate", decision.observation_sufficiency_cleared || decision.iterative_observation_cleared ? "cleared" : "blocked", decision.paper_continuation_allowed ? "ok" : "warn"],
+    ["Blockers", blockers.join(" / ") || "none", blockers.length ? "warn" : "ok"],
+    ["Live boundary", pack.live_boundary_allowed ? "allowed" : "blocked", "danger"],
+    ["Safety", pack.safety || "Research-to-paper only", "danger"],
+  ]);
+  byId("tushare-activation-gate-ledger-table").innerHTML = tableRows(pack.stage_ledger || [], [
+    "stage",
+    "status",
+    "cleared",
+    "blockers",
+  ]);
+  byId("tushare-activation-gate-action-table").innerHTML = tableRows(pack.next_actions || [], [
+    "action",
+    "reason",
+    "command",
+    "local_only",
   ]);
 }
 

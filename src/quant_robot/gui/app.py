@@ -10,12 +10,19 @@ from quant_robot.gui.research_service import (
     build_constrained_search_snapshot,
     build_daily_ops_snapshot,
     build_evidence_refresh_snapshot,
+    build_expanded_observation_replay_snapshot,
     build_promotion_ops_snapshot,
     build_promotion_review_snapshot,
     build_gui_snapshot,
+    build_iterative_observation_expansion_snapshot,
+    build_observation_sufficiency_snapshot,
     build_paper_profile_snapshot,
+    build_post_refresh_replay_snapshot,
+    build_profile_observation_snapshot,
     build_project_status_snapshot,
+    build_recent_data_refresh_snapshot,
     build_risk_candidate_snapshot,
+    build_tushare_activation_gate_snapshot,
     run_demo_paper_simulation,
     run_demo_research,
     run_demo_signal_snapshot,
@@ -60,6 +67,62 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
             if parsed.path == "/api/risk/paper-profiles":
                 query = parse_qs(parsed.query)
                 self._send_json(build_paper_profile_snapshot(paper_profile_pack=_optional(query, "paper_profile_pack")))
+                return
+            if parsed.path == "/api/risk/profile-observation":
+                query = parse_qs(parsed.query)
+                self._send_json(
+                    build_profile_observation_snapshot(
+                        profile_observation_pack=_optional(query, "profile_observation_pack")
+                    )
+                )
+                return
+            if parsed.path == "/api/data/recent-refresh":
+                query = parse_qs(parsed.query)
+                self._send_json(
+                    build_recent_data_refresh_snapshot(
+                        recent_data_refresh_pack=_optional(query, "recent_data_refresh_pack")
+                    )
+                )
+                return
+            if parsed.path == "/api/data/post-refresh-replay":
+                query = parse_qs(parsed.query)
+                self._send_json(
+                    build_post_refresh_replay_snapshot(
+                        post_refresh_replay_pack=_optional(query, "post_refresh_replay_pack")
+                    )
+                )
+                return
+            if parsed.path == "/api/risk/observation-sufficiency":
+                query = parse_qs(parsed.query)
+                self._send_json(
+                    build_observation_sufficiency_snapshot(
+                        observation_sufficiency_pack=_optional(query, "observation_sufficiency_pack")
+                    )
+                )
+                return
+            if parsed.path == "/api/risk/expanded-observation-replay":
+                query = parse_qs(parsed.query)
+                self._send_json(
+                    build_expanded_observation_replay_snapshot(
+                        expanded_observation_replay_pack=_optional(query, "expanded_observation_replay_pack")
+                    )
+                )
+                return
+            if parsed.path == "/api/risk/iterative-observation-expansion":
+                query = parse_qs(parsed.query)
+                self._send_json(
+                    build_iterative_observation_expansion_snapshot(
+                        iterative_observation_expansion_pack=_optional(query, "iterative_observation_expansion_pack")
+                    )
+                )
+                return
+            if parsed.path == "/api/risk/tushare-activation-gate":
+                query = parse_qs(parsed.query)
+                self._send_json(
+                    build_tushare_activation_gate_snapshot(
+                        tushare_activation_gate_pack=_optional(query, "tushare_activation_gate_pack")
+                    )
+                )
                 return
             if parsed.path == "/api/research":
                 query = parse_qs(parsed.query)

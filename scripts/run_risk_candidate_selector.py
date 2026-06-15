@@ -30,6 +30,8 @@ def run_risk_candidate_selector(
     min_relative_return: float = DEFAULT_MIN_RELATIVE_RETURN,
     min_paper_sharpe: float = DEFAULT_MIN_PAPER_SHARPE,
     min_trades: int = DEFAULT_MIN_TRADES,
+    risk_tiers: list[dict[str, Any]] | None = None,
+    primary_risk_tier: str | None = None,
 ) -> dict[str, Any]:
     promotion = _read_json(Path(promotion_report))
     daily = _read_json(Path(daily_ops_pack))
@@ -41,6 +43,8 @@ def run_risk_candidate_selector(
         min_relative_return=min_relative_return,
         min_paper_sharpe=min_paper_sharpe,
         min_trades=min_trades,
+        risk_tiers=risk_tiers,
+        primary_risk_tier=primary_risk_tier,
     )
     write_risk_candidate_pack(output_dir, pack)
     return pack
@@ -56,7 +60,10 @@ def main() -> None:
     parser.add_argument("--min-relative-return", default=DEFAULT_MIN_RELATIVE_RETURN, type=float)
     parser.add_argument("--min-paper-sharpe", default=DEFAULT_MIN_PAPER_SHARPE, type=float)
     parser.add_argument("--min-trades", default=DEFAULT_MIN_TRADES, type=int)
+    parser.add_argument("--risk-tiers", default=None, help="Optional JSON file containing a risk_tiers array.")
+    parser.add_argument("--primary-risk-tier", default=None)
     args = parser.parse_args()
+    risk_tiers = _read_risk_tiers(Path(args.risk_tiers)) if args.risk_tiers else None
     pack = run_risk_candidate_selector(
         promotion_report=Path(args.promotion_report),
         daily_ops_pack=Path(args.daily_ops_pack),
@@ -66,6 +73,8 @@ def main() -> None:
         min_relative_return=args.min_relative_return,
         min_paper_sharpe=args.min_paper_sharpe,
         min_trades=args.min_trades,
+        risk_tiers=risk_tiers,
+        primary_risk_tier=args.primary_risk_tier,
     )
     print(
         json.dumps(
@@ -89,6 +98,14 @@ def _read_json(path: Path) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"Expected JSON object in {path}")
     return data
+
+
+def _read_risk_tiers(path: Path) -> list[dict[str, Any]]:
+    data = _read_json(path)
+    tiers = data.get("risk_tiers")
+    if not isinstance(tiers, list):
+        raise ValueError(f"Expected risk_tiers array in {path}")
+    return [item for item in tiers if isinstance(item, dict)]
 
 
 if __name__ == "__main__":

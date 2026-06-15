@@ -36,6 +36,21 @@ class ConstrainedCandidateSearchCliTests(unittest.TestCase):
                         "min_relative_return": 0.0,
                         "min_paper_sharpe": 0.5,
                         "min_trades": 20,
+                        "risk_tiers": [
+                            {
+                                "tier_id": "capital_preservation",
+                                "max_drawdown_limit": 0.2,
+                                "min_paper_sharpe": 0.5,
+                                "priority": 1,
+                            },
+                            {
+                                "tier_id": "aggressive_growth",
+                                "max_drawdown_limit": 0.3,
+                                "min_paper_sharpe": 0.5,
+                                "priority": 3,
+                            },
+                        ],
+                        "primary_risk_tier": "capital_preservation",
                     }
                 ),
                 encoding="utf-8",
@@ -75,6 +90,21 @@ class ConstrainedCandidateSearchCliTests(unittest.TestCase):
                 min_relative_return=0.0,
                 min_paper_sharpe=0.5,
                 min_trades=20,
+                risk_tiers=[
+                    {
+                        "tier_id": "capital_preservation",
+                        "max_drawdown_limit": 0.2,
+                        "min_paper_sharpe": 0.5,
+                        "priority": 1,
+                    },
+                    {
+                        "tier_id": "aggressive_growth",
+                        "max_drawdown_limit": 0.3,
+                        "min_paper_sharpe": 0.5,
+                        "priority": 3,
+                    },
+                ],
+                primary_risk_tier="capital_preservation",
             )
             self.assertEqual(pack["stage"], "phase_5_2_constrained_candidate_search")
             self.assertEqual(pack["selection_status"], "risk_candidate_selected")
@@ -155,6 +185,74 @@ class ConstrainedCandidateSearchCliTests(unittest.TestCase):
             self.assertEqual(pack["summary"]["walk_forward_accepted"], 1)
             self.assertEqual(pack["summary"]["frontier_candidates"], 1)
             self.assertEqual(pack["frontier_candidates"][0]["case_id"], "case_a")
+
+    def test_constrained_search_keeps_risk_tier_selected_candidate_on_frontier(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_dir = root / "search"
+            walk_output = root / "walk"
+            paper_output = root / "paper"
+            promotion_output = root / "promotion"
+            risk_output = root / "risk"
+            walk_output.mkdir()
+            paper_output.mkdir()
+            promotion_output.mkdir()
+            risk_output.mkdir()
+            (walk_output / "manifest.json").write_text(json.dumps({"summary": {"cases": 1, "accepted": 1, "rejected": 0}}), encoding="utf-8")
+            (paper_output / "paper_batch_summary.json").write_text(json.dumps({"summary": {"cases": 1, "completed": 1, "skipped": 0}}), encoding="utf-8")
+            (promotion_output / "promotion_report.json").write_text(json.dumps({"summary": {"candidates": 1, "paper_ready": 0}}), encoding="utf-8")
+            (risk_output / "risk_candidate_pack.json").write_text(
+                json.dumps(
+                    {
+                        "selection_status": "risk_tier_candidate_selected",
+                        "summary": {"candidates": 1, "risk_eligible_candidates": 0, "tier_eligible_candidates": 1},
+                        "selected_candidate": {"case_id": "case_aggressive", "risk_tier": "aggressive_growth"},
+                        "policy": {"max_drawdown_limit": -0.2, "min_paper_sharpe": 0.5},
+                        "candidates": [
+                            {
+                                "case_id": "case_aggressive",
+                                "market": "CN_ETF",
+                                "factor_name": "liquidity_10",
+                                "walk_forward_status": "accepted",
+                                "walk_forward_sharpe": 0.8,
+                                "walk_forward_relative_return": 0.08,
+                                "walk_forward_max_drawdown": -0.27,
+                                "paper_matched": True,
+                                "paper_sharpe": 0.62,
+                                "paper_max_drawdown": -0.28,
+                                "paper_total_return": 0.95,
+                                "paper_calmar": 3.392857,
+                                "duplicate_of": None,
+                                "risk_tier": "aggressive_growth",
+                                "tier_status": "tier_eligible",
+                                "rejection_reasons": ["walk_forward_drawdown_breach", "paper_drawdown_breach"],
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            config_path = root / "constrained_search.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "walk_forward_output_dir": str(walk_output),
+                        "paper_batch_output_dir": str(paper_output),
+                        "promotion_output_dir": str(promotion_output),
+                        "risk_candidate_output_dir": str(risk_output),
+                        "output_dir": str(output_dir),
+                        "reuse_existing_artifacts": True,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            pack = run_constrained_candidate_search(config_path)
+
+        self.assertEqual(pack["selection_status"], "risk_tier_candidate_selected")
+        self.assertEqual(pack["summary"]["frontier_candidates"], 1)
+        self.assertEqual(pack["frontier_candidates"][0]["case_id"], "case_aggressive")
+        self.assertEqual(pack["frontier_candidates"][0]["risk_tier"], "aggressive_growth")
 
 
 if __name__ == "__main__":

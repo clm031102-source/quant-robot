@@ -43,6 +43,13 @@ class CheckPlanTests(unittest.TestCase):
                 "residual_data_gap_review",
                 "residual_provider_review",
                 "daily_ops",
+                "profile_observation",
+                "recent_data_refresh",
+                "post_refresh_replay",
+                "observation_sufficiency",
+                "expanded_observation_replay",
+                "iterative_observation_expansion",
+                "tushare_activation_gate",
                 "risk_candidate_selector",
                 "constrained_candidate_search",
                 "paper_profile_optimizer",
@@ -79,9 +86,17 @@ class CheckPlanTests(unittest.TestCase):
         self.assertIn("scripts/run_residual_data_gap_review.py", plan[29].command)
         self.assertIn("scripts/run_residual_provider_review.py", plan[30].command)
         self.assertIn("scripts/run_daily_ops.py", plan[31].command)
-        self.assertIn("scripts/run_risk_candidate_selector.py", plan[32].command)
-        self.assertIn("scripts/run_constrained_candidate_search.py", plan[33].command)
-        self.assertIn("scripts/run_paper_profile_optimizer.py", plan[34].command)
+        self.assertIn("scripts/run_profile_observation.py", plan[32].command)
+        self.assertIn("scripts/run_recent_data_refresh.py", plan[33].command)
+        self.assertNotIn("--execute", plan[33].command)
+        self.assertIn("scripts/run_post_refresh_replay.py", plan[34].command)
+        self.assertIn("scripts/run_observation_sufficiency.py", plan[35].command)
+        self.assertIn("scripts/run_expanded_observation_replay.py", plan[36].command)
+        self.assertIn("scripts/run_iterative_observation_expansion.py", plan[37].command)
+        self.assertIn("scripts/run_tushare_activation_gate.py", plan[38].command)
+        self.assertIn("scripts/run_risk_candidate_selector.py", plan[39].command)
+        self.assertIn("scripts/run_constrained_candidate_search.py", plan[40].command)
+        self.assertIn("scripts/run_paper_profile_optimizer.py", plan[41].command)
 
 
 if __name__ == "__main__":
