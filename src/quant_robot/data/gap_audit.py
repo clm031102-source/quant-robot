@@ -18,6 +18,7 @@ def build_data_quality_gap_audit(
     frame = bars.copy()
     frame["date"] = pd.to_datetime(frame["date"]).dt.date
     expected = _expected_dates(frame, expected_dates)
+    markets = sorted(str(value) for value in frame["market"].dropna().unique())
     missing_dates = _missing_date_rows(frame, expected, max_examples_per_asset)
     coverage = _coverage_rows(frame, expected)
     audit = {
@@ -28,7 +29,7 @@ def build_data_quality_gap_audit(
         "summary": {
             "rows": int(len(frame)),
             "assets": int(frame["asset_id"].nunique()),
-            "markets": sorted(str(value) for value in frame["market"].dropna().unique()),
+            "markets": markets,
             "start_date": str(frame["date"].min()) if len(frame) else None,
             "end_date": str(frame["date"].max()) if len(frame) else None,
             "expected_dates": len(expected),
@@ -38,7 +39,7 @@ def build_data_quality_gap_audit(
         },
         "missing_dates": missing_dates,
         "coverage_by_asset": coverage,
-        "repair_actions": _repair_actions(source_root),
+        "repair_actions": _repair_actions(source_root, _repair_market(markets)),
     }
     audit["markdown"] = render_data_quality_gap_audit_markdown(audit)
     return audit
@@ -145,22 +146,36 @@ def _symbol_by_asset(frame: pd.DataFrame) -> dict[str, str]:
     return {str(row.asset_id): str(row.symbol) for row in rows.itertuples(index=False)}
 
 
-def _repair_actions(source_root: str | Path | None) -> list[dict[str, str]]:
+def _repair_market(markets: list[str]) -> str:
+    return markets[0] if len(markets) == 1 else "ALL"
+
+
+def _repair_actions(source_root: str | Path | None, market: str = "CN_ETF") -> list[dict[str, str]]:
     data_root = str(source_root) if source_root is not None else "data/processed/etf_csv"
     return [
         {
             "action": "inspect_missing_dates",
-            "command": f"python scripts\\run_data_quality_audit.py --data-root {data_root} --market CN_ETF --output-dir data\\reports\\data_quality_gap_audit",
+            "command": f"python scripts\\run_data_quality_audit.py --data-root {data_root} --market {market} --output-dir data\\reports\\data_quality_gap_audit",
             "reason": "Regenerate exact missing-date rows after any local data import.",
         },
-        {
-            "action": "refresh_etf_csv",
-            "command": "python scripts\\batch_import_etf_csv.py --input-dir data\\raw\\tradingview_etf_csv --raw-dir data\\raw\\tradingview_etf_csv --output-dir data\\processed\\etf_csv",
-            "reason": "Refresh local TradingView ETF CSV coverage when missing dates are confirmed.",
-        },
+        _refresh_action(data_root, market),
         {
             "action": "rebuild_promotion_ops",
             "command": "python scripts\\run_promotion_ops.py --output-dir data\\reports\\promotion_ops",
             "reason": "Refresh downstream promotion evidence after data quality changes.",
         },
     ]
+
+
+def _refresh_action(data_root: str, market: str) -> dict[str, str]:
+    if market.upper() == "CN_ETF":
+        return {
+            "action": "refresh_etf_csv",
+            "command": "python scripts\\batch_import_etf_csv.py --input-dir data\\raw\\tradingview_etf_csv --raw-dir data\\raw\\tradingview_etf_csv --output-dir data\\processed\\etf_csv",
+            "reason": "Refresh local TradingView ETF CSV coverage when missing dates are confirmed.",
+        }
+    return {
+        "action": "refresh_tushare_data",
+        "command": f"python scripts\\ingest_data.py --source tushare --market {market} --start-date <start-date> --end-date <end-date> --output-dir {data_root}",
+        "reason": "Refresh the audited market through the local Tushare pipeline after confirming exact missing-date windows.",
+    }

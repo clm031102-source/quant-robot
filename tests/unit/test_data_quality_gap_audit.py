@@ -39,6 +39,30 @@ class DataQualityGapAuditTests(unittest.TestCase):
         self.assertIn("Research only", audit["safety"])
         self.assertIn("ETF_A", audit["markdown"])
 
+    def test_repair_actions_use_audited_market(self):
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["CN_A", "CN_A"],
+                "symbol": ["000001.SZ", "000001.SZ"],
+                "market": ["CN", "CN"],
+                "date": ["2024-01-02", "2024-01-04"],
+                "volume": [100, 120],
+            }
+        )
+
+        audit = build_data_quality_gap_audit(
+            bars,
+            expected_dates=["2024-01-02", "2024-01-03", "2024-01-04"],
+            source_root="data/processed/tushare_alpha_factory_gate",
+        )
+
+        inspect_action = next(action for action in audit["repair_actions"] if action["action"] == "inspect_missing_dates")
+        self.assertIn("--market CN ", inspect_action["command"])
+
+        refresh_action = next(action for action in audit["repair_actions"] if action["action"] == "refresh_tushare_data")
+        self.assertIn("--source tushare", refresh_action["command"])
+        self.assertIn("--market CN ", refresh_action["command"])
+
 
 if __name__ == "__main__":
     unittest.main()
