@@ -70,7 +70,43 @@
     "stable_branch": "main",
     "naming_rule": "Name branches by work content, not by machine. Use the machine only as startup context.",
     "temporary_branch_cleanup": "Delete task branches after their work is merged and verified.",
-    "main_rule": "Do not run exploratory factor development directly on main."
+    "main_rule": "Do not run exploratory factor development directly on main.",
+    "conversation_start_rule": "Start new Codex conversations from main, pull latest main, then create or switch to a task branch before non-trivial work."
+  },
+  "sync_policy": {
+    "trigger_phrase": "同步项目",
+    "default_command": "python scripts\\sync_project.py --machine <machine> --task <task>",
+    "execute_command": "python scripts\\sync_project.py --machine <machine> --task <task> --execute --push",
+    "allowed_paths": [
+      "AGENTS.md",
+      "README.md",
+      ".github/",
+      "configs/",
+      "docs/",
+      "scripts/",
+      "src/",
+      "tests/",
+      "pyproject.toml",
+      ".env.example"
+    ],
+    "forbidden_paths": [
+      ".env",
+      ".env.*",
+      "data/raw/",
+      "data/processed/",
+      "data/reports/",
+      "*.parquet",
+      "*.log"
+    ],
+    "ask_before_push_when": [
+      "machine is not confirmed",
+      "task type is not confirmed",
+      "current branch is main and task is not project_sync",
+      "forbidden paths are present",
+      "branch is behind upstream",
+      "tests or validation failed",
+      "token, credential, broker, account, or order-risk files are present"
+    ]
   },
   "data_policy": {
     "sync_code_with": "GitHub",

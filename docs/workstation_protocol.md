@@ -2,6 +2,8 @@
 
 This project can be worked on from a laptop, a high-spec desktop, and an office desktop. The machines are execution contexts; branches are named by work content.
 
+Start new Codex conversations from `main` when practical. Pull the latest `main`, confirm the machine and task, then create or switch to the appropriate task branch before doing non-trivial work.
+
 ## Startup Questions
 
 Before starting a task, confirm:
@@ -58,6 +60,44 @@ codex/factor-integration-<topic-or-date>
 ```
 
 After a short-lived branch is merged and verified, delete it locally and remotely.
+
+## Daily Sync
+
+Use this phrase with Codex when you want the current computer to sync safe project work:
+
+```text
+同步项目
+```
+
+The safe-sync meaning is:
+
+1. Fetch and prune GitHub refs.
+2. Inspect the current branch, upstream sync, and changed files.
+3. Classify changed paths into syncable, blocked, and ignored.
+4. Commit only syncable code/config/test/doc files.
+5. Push the current task branch only when the machine, task, branch, validation, and safety checks are clear.
+6. Stop and ask before pushing if anything is ambiguous or risky.
+
+Audit mode:
+
+```powershell
+python scripts\sync_project.py --machine office_desktop --task factor_batch
+```
+
+Execute and push mode:
+
+```powershell
+python scripts\sync_project.py --machine office_desktop --task factor_batch --execute --push
+```
+
+Codex must stop and ask before pushing when:
+
+- the machine is not confirmed
+- the task type is not confirmed
+- the current branch is `main` for non-`project_sync` work
+- the branch is behind upstream
+- validation failed
+- changed paths include data, logs, tokens, credentials, broker/account/order files, or other forbidden outputs
 
 ## Data Sync
 

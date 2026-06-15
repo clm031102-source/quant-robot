@@ -76,6 +76,18 @@ python scripts\start_task_context.py
 
 See `AGENTS.md`, `configs/workstations.json`, and `docs/workstation_protocol.md`.
 
+For the daily safe-sync workflow, say `同步项目` or run an audit first:
+
+```powershell
+python scripts\sync_project.py --machine office_desktop --task factor_batch
+```
+
+Only execute and push after the audit is clean:
+
+```powershell
+python scripts\sync_project.py --machine office_desktop --task factor_batch --execute --push
+```
+
 ## Run Core Checks
 
 This runs the local test suite, Python compile check, project audit, readiness check, provider status, provider evidence, provider remediation, provider remediation rehearsal, data catalog, data-quality gap audit, data-gap resolution, data-gap evidence, data-gap rehearsal, offline fixture research, the configurable research pipeline, the experiment grid, walk-forward validation, signal snapshot generation, paper simulation, paper observation, promotion operations summary, duplicate registry, promotion review packet, manual review rehearsal, evidence refresh plan, pre-API readiness board, readiness projection, blocker worklist, residual blocker focus pack, residual data-gap review pack, residual provider review pack, Daily Ops, profile observation, recent-data refresh, post-refresh replay, observation sufficiency, expanded observation replay, iterative observation expansion, Tushare activation gate, paper-observation history, paper-ops guardrail, paper-ops runbook, risk candidate selector, constrained candidate search, and paper profile optimizer. It does not download market data unless a stage is explicitly run in execute mode with valid provider credentials.
