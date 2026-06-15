@@ -1,5 +1,8 @@
+import os
 import unittest
+from unittest.mock import patch
 
+import scripts.run_checks as run_checks
 from scripts.run_checks import build_check_plan
 
 
@@ -137,6 +140,26 @@ class CheckPlanTests(unittest.TestCase):
     def test_unknown_check_profile_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "Unsupported check profile"):
             build_check_plan("python", profile="moonbase")
+
+    def test_child_env_prepends_source_tree_paths(self):
+        env = run_checks.build_child_env({"PYTHONPATH": "legacy_path"})
+
+        paths = env["PYTHONPATH"].split(os.pathsep)
+        self.assertEqual(paths[:2], [str(run_checks.SRC_ROOT), str(run_checks.PROJECT_ROOT)])
+        self.assertEqual(paths[2], "legacy_path")
+
+    def test_execute_check_plan_uses_project_root_and_child_env(self):
+        step = run_checks.CheckStep("demo", ["python", "-c", "pass"])
+
+        with patch("scripts.run_checks.subprocess.run") as mocked_run:
+            run_checks.execute_check_plan([step], env={"PYTHONPATH": "legacy_path"})
+
+        mocked_run.assert_called_once()
+        _, kwargs = mocked_run.call_args
+        self.assertEqual(kwargs["cwd"], run_checks.PROJECT_ROOT)
+        self.assertTrue(kwargs["check"])
+        paths = kwargs["env"]["PYTHONPATH"].split(os.pathsep)
+        self.assertEqual(paths[:2], [str(run_checks.SRC_ROOT), str(run_checks.PROJECT_ROOT)])
 
 
 if __name__ == "__main__":

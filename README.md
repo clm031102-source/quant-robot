@@ -90,16 +90,16 @@ For laptop architecture/audit work, use the laptop profile. It keeps the fast sa
 
 ```powershell
 $env:PYTHONPATH='src'
-python scripts\run_checks.py --execute
-python scripts\run_checks.py --profile laptop --execute
+.\.venv\Scripts\python.exe scripts\run_checks.py --execute
+.\.venv\Scripts\python.exe scripts\run_checks.py --profile laptop --execute
 ```
 
 To inspect the check plan without running it:
 
 ```powershell
 $env:PYTHONPATH='src'
-python scripts\run_checks.py
-python scripts\run_checks.py --profile laptop
+.\.venv\Scripts\python.exe scripts\run_checks.py
+.\.venv\Scripts\python.exe scripts\run_checks.py --profile laptop
 ```
 
 ## Run Project Audit

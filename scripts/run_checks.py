@@ -2,9 +2,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
+from pathlib import Path
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+SRC_ROOT = PROJECT_ROOT / "src"
 
 
 @dataclass(frozen=True)
@@ -90,6 +96,22 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
     raise ValueError(f"Unsupported check profile: {profile}")
 
 
+def build_child_env(base_env: dict[str, str] | None = None) -> dict[str, str]:
+    env = dict(os.environ if base_env is None else base_env)
+    preferred = [str(SRC_ROOT), str(PROJECT_ROOT)]
+    existing = [path for path in env.get("PYTHONPATH", "").split(os.pathsep) if path]
+    remainder = [path for path in existing if path not in preferred]
+    env["PYTHONPATH"] = os.pathsep.join(preferred + remainder)
+    return env
+
+
+def execute_check_plan(plan: list[CheckStep], env: dict[str, str] | None = None) -> None:
+    child_env = build_child_env(env)
+    for step in plan:
+        print(f"==> {step.name}", flush=True)
+        subprocess.run(step.command, check=True, cwd=PROJECT_ROOT, env=child_env)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run local Quant Robot checks.")
     parser.add_argument("--profile", choices=["full", "laptop"], default="full", help="Select the check plan size.")
@@ -99,9 +121,7 @@ def main() -> None:
     if not args.execute:
         print(json.dumps([asdict(step) for step in plan], indent=2))
         return
-    for step in plan:
-        print(f"==> {step.name}", flush=True)
-        subprocess.run(step.command, check=True)
+    execute_check_plan(plan)
 
 
 if __name__ == "__main__":
