@@ -64,6 +64,10 @@ class TushareAdapter(MarketDataAdapter):
         )
         return map_tushare_adj_factor(raw)
 
+    def fetch_adj_factor_by_trade_date(self, trade_date: str) -> pd.DataFrame:
+        raw = self._call(self.client.adj_factor, trade_date=_date_to_tushare(trade_date))
+        return map_tushare_adj_factor(raw)
+
     def fetch_trade_calendar(self, start_date: str, end_date: str, exchange: str = "SSE") -> pd.DataFrame:
         raw = self._call(
             self.client.trade_cal,

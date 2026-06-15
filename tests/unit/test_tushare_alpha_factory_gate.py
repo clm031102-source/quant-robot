@@ -84,6 +84,47 @@ class TushareAlphaFactoryGateTests(unittest.TestCase):
         self.assertEqual(pack["next_actions"][0]["action"], "run_paper_batch_for_alpha_candidates")
         self.assertFalse(pack["live_boundary_allowed"])
 
+    def test_gate_passes_capacity_controls_to_alpha_factory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            alpha_kwargs: dict[str, object] = {}
+
+            def ingest_runner(**kwargs):
+                return {"source": kwargs["source"], "market": kwargs["market"], "processed_rows": 20}
+
+            def alpha_factory_runner(**kwargs):
+                alpha_kwargs.update(kwargs)
+                return {
+                    "summary": {
+                        "hypothesis_count": 9,
+                        "completed": 9,
+                        "adjusted_significant": 0,
+                        "paper_eligible": 0,
+                        "rejected_after_multiple_testing": 9,
+                    },
+                    "candidate_leaderboard": [],
+                }
+
+            run_tushare_alpha_factory_gate(
+                report_dir=root / "gate",
+                data_root=root / "data",
+                source="tushare-fixture",
+                market="CN",
+                execute=True,
+                readiness={"source": "tushare-fixture", "ready": True, "missing": []},
+                ingest_runner=ingest_runner,
+                alpha_factory_runner=alpha_factory_runner,
+                min_trades=3,
+                portfolio_value=500000.0,
+                market_impact_bps=10.0,
+                max_participation_rate=0.05,
+            )
+
+        self.assertEqual(alpha_kwargs["min_trades"], 3)
+        self.assertAlmostEqual(alpha_kwargs["portfolio_value"], 500000.0)
+        self.assertAlmostEqual(alpha_kwargs["market_impact_bps"], 10.0)
+        self.assertAlmostEqual(alpha_kwargs["max_participation_rate"], 0.05)
+
     def test_gate_does_not_allow_paper_when_only_negative_direction_is_significant(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -135,8 +135,93 @@ class TushareIngestPipelineTests(unittest.TestCase):
             processed = _read_processed_bars(Path(tmp), "CN", "2024").sort_values("date").reset_index(drop=True)
 
             self.assertTrue(result["adjusted"])
+            self.assertEqual(result["adjustment_report"]["status"], "applied")
+            self.assertAlmostEqual(result["adjustment_report"]["coverage"], 1.0)
             self.assertAlmostEqual(processed.loc[0, "adj_close"], 10.5)
             self.assertAlmostEqual(processed.loc[1, "adj_close"], 21.0)
+
+    def test_pipeline_skips_adjusted_close_when_adj_factor_coverage_is_partial(self):
+        class PartialAdjustedAdapter(FakeTushareDailyAdapter):
+            def fetch_adj_factor(self, ts_code: str = "", start_date: str = "", end_date: str = ""):
+                return pd.DataFrame(
+                    {
+                        "symbol": ["000001.SZ"],
+                        "date": [pd.Timestamp("2024-01-02").date()],
+                        "adj_factor": [2.0],
+                    }
+                )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_tushare_daily_ingest(PartialAdjustedAdapter(), "2024-01-02", "2024-01-03", Path(tmp))
+            processed = _read_processed_bars(Path(tmp), "CN", "2024").sort_values("date").reset_index(drop=True)
+
+            self.assertFalse(result["adjusted"])
+            self.assertEqual(result["adjustment_report"]["status"], "partial_adj_factor_coverage")
+            self.assertEqual(result["adjustment_report"]["missing_rows"], 1)
+            self.assertAlmostEqual(result["adjustment_report"]["coverage"], 0.5)
+            self.assertAlmostEqual(processed.loc[0, "adj_close"], processed.loc[0, "close"])
+            self.assertAlmostEqual(processed.loc[1, "adj_close"], processed.loc[1, "close"])
+
+    def test_pipeline_falls_back_to_trade_date_adj_factor_when_range_coverage_is_partial(self):
+        class FallbackAdjustedAdapter(FakeTushareDailyAdapter):
+            def fetch_adj_factor(self, ts_code: str = "", start_date: str = "", end_date: str = ""):
+                return pd.DataFrame(
+                    {
+                        "symbol": ["000001.SZ"],
+                        "date": [pd.Timestamp("2024-01-02").date()],
+                        "adj_factor": [2.0],
+                    }
+                )
+
+            def fetch_adj_factor_by_trade_date(self, trade_date: str):
+                date = pd.to_datetime(trade_date, format="%Y%m%d").date()
+                factor = 2.0 if trade_date == "20240102" else 3.0
+                return pd.DataFrame(
+                    {
+                        "symbol": ["000001.SZ"],
+                        "date": [date],
+                        "adj_factor": [factor],
+                    }
+                )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_tushare_daily_ingest(FallbackAdjustedAdapter(), "2024-01-02", "2024-01-03", Path(tmp))
+            processed = _read_processed_bars(Path(tmp), "CN", "2024").sort_values("date").reset_index(drop=True)
+
+            self.assertTrue(result["adjusted"])
+            self.assertEqual(result["adjustment_report"]["status"], "applied")
+            self.assertTrue(result["adjustment_report"]["fallback_used"])
+            self.assertEqual(result["adjustment_report"]["range_factor_rows"], 1)
+            self.assertEqual(result["adjustment_report"]["fallback_factor_rows"], 2)
+            self.assertAlmostEqual(result["adjustment_report"]["coverage"], 1.0)
+            self.assertAlmostEqual(processed.loc[0, "adj_close"], processed.loc[0, "close"] * 2.0)
+            self.assertAlmostEqual(processed.loc[1, "adj_close"], processed.loc[1, "close"] * 3.0)
+
+    def test_pipeline_skips_adjusted_close_when_adj_factor_keys_duplicate(self):
+        class DuplicateAdjustedAdapter(FakeTushareDailyAdapter):
+            def fetch_adj_factor(self, ts_code: str = "", start_date: str = "", end_date: str = ""):
+                return pd.DataFrame(
+                    {
+                        "symbol": ["000001.SZ", "000001.SZ", "000001.SZ"],
+                        "date": [
+                            pd.Timestamp("2024-01-02").date(),
+                            pd.Timestamp("2024-01-02").date(),
+                            pd.Timestamp("2024-01-03").date(),
+                        ],
+                        "adj_factor": [1.0, 1.1, 2.0],
+                    }
+                )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_tushare_daily_ingest(DuplicateAdjustedAdapter(), "2024-01-02", "2024-01-03", Path(tmp))
+            processed = _read_processed_bars(Path(tmp), "CN", "2024").sort_values("date").reset_index(drop=True)
+
+            self.assertFalse(result["adjusted"])
+            self.assertEqual(result["adjustment_report"]["status"], "duplicate_adj_factor_keys")
+            self.assertEqual(result["adjustment_report"]["duplicate_factor_keys"], 1)
+            self.assertEqual(len(processed), 2)
+            self.assertAlmostEqual(processed.loc[0, "adj_close"], processed.loc[0, "close"])
+            self.assertAlmostEqual(processed.loc[1, "adj_close"], processed.loc[1, "close"])
 
     def test_adjusted_close_is_stable_across_different_ingest_ranges(self):
         class ThreeDayAdjustedAdapter(FakeTushareDailyAdapter):

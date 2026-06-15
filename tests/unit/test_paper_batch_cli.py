@@ -9,10 +9,61 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from scripts.run_paper_batch import run_paper_batch
+from scripts.run_paper_batch import load_paper_batch_config, run_paper_batch
 
 
 class PaperBatchCliTests(unittest.TestCase):
+    def test_load_paper_batch_config_accepts_utf8_bom(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config_path = Path(tmp) / "paper_batch.json"
+            config_path.write_text(
+                "\ufeff" + json.dumps({"source": "fixture", "output_dir": str(Path(tmp) / "paper")}),
+                encoding="utf-8",
+            )
+
+            config = load_paper_batch_config(config_path)
+
+            self.assertEqual(config.source, "fixture")
+            self.assertEqual(config.output_dir, Path(tmp) / "paper")
+
+    def test_run_paper_batch_reports_missing_candidate_leaderboard(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            missing_path = root / "missing_candidate_leaderboard.csv"
+            config_path = root / "paper_batch.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "candidate_leaderboard": str(missing_path),
+                        "source": "fixture",
+                        "output_dir": str(root / "paper_batch"),
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "candidate_leaderboard not found"):
+                run_paper_batch(config_path)
+
+    def test_run_paper_batch_reports_missing_walk_forward_leaderboard(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            missing_path = root / "missing_walk_forward_leaderboard.csv"
+            config_path = root / "paper_batch.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "walk_forward_leaderboard": str(missing_path),
+                        "source": "fixture",
+                        "output_dir": str(root / "paper_batch"),
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "walk_forward_leaderboard not found"):
+                run_paper_batch(config_path)
+
     def test_run_paper_batch_writes_one_manifest_per_accepted_candidate(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

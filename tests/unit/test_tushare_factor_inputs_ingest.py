@@ -49,6 +49,14 @@ class FakeInvalidDailyBasicAdapter(FakeTushareDailyBasicAdapter):
         return pd.DataFrame({"symbol": ["BAD"], "date": [pd.Timestamp("2024-01-02").date()], "pb": [1.0]})
 
 
+class FakeMissingDailyBasicAdapter(FakeTushareDailyBasicAdapter):
+    def fetch_daily_basic_by_trade_date(self, trade_date: str):
+        frame = super().fetch_daily_basic_by_trade_date(trade_date)
+        frame.loc[0, "pe_ttm"] = float("nan")
+        frame.loc[:, "dv_ttm"] = float("nan")
+        return frame
+
+
 class TushareFactorInputsIngestTests(unittest.TestCase):
     def test_daily_basic_ingest_writes_raw_processed_manifest_and_quality_report(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -68,6 +76,13 @@ class TushareFactorInputsIngestTests(unittest.TestCase):
             )
             self.assertEqual(set(processed["asset_id"]), {"CN_XSHE_000001", "CN_XSHG_600519"})
             self.assertEqual(set(processed["source"]), {"tushare"})
+
+    def test_daily_basic_quality_report_tracks_missing_numeric_by_column(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_tushare_daily_basic_ingest(FakeMissingDailyBasicAdapter(), "2024-01-02", "2024-01-02", Path(tmp))
+
+            self.assertEqual(result["quality_report"]["missing_numeric_rows"], 3)
+            self.assertEqual(result["quality_report"]["missing_numeric_by_column"], {"pe_ttm": 1, "dv_ttm": 2})
 
     def test_daily_basic_ingest_resume_skips_completed_dates(self):
         with tempfile.TemporaryDirectory() as tmp:

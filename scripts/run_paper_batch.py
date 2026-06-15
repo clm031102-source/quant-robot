@@ -50,7 +50,7 @@ class PaperBatchConfig:
 
 
 def load_paper_batch_config(path: str | Path) -> PaperBatchConfig:
-    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    data = json.loads(Path(path).read_text(encoding="utf-8-sig"))
     return PaperBatchConfig(
         walk_forward_leaderboard=Path(data["walk_forward_leaderboard"]) if data.get("walk_forward_leaderboard") else None,
         candidate_leaderboard=Path(data["candidate_leaderboard"]) if data.get("candidate_leaderboard") else None,
@@ -119,7 +119,7 @@ def _candidate_rows(config: PaperBatchConfig) -> list[dict[str, Any]]:
 
 
 def _walk_forward_candidate_rows(path: Path, max_candidates: int | None) -> list[dict[str, Any]]:
-    frame = pd.read_csv(path)
+    frame = _read_leaderboard(path, "walk_forward_leaderboard")
     if "rank" in frame.columns:
         frame = frame.sort_values("rank")
     records = frame.to_dict(orient="records")
@@ -132,7 +132,7 @@ def _walk_forward_candidate_rows(path: Path, max_candidates: int | None) -> list
 
 
 def _alpha_candidate_rows(path: Path, max_candidates: int | None) -> list[dict[str, Any]]:
-    frame = pd.read_csv(path)
+    frame = _read_leaderboard(path, "candidate_leaderboard")
     if "candidate_rank" in frame.columns:
         frame = frame.sort_values("candidate_rank")
     records = frame.to_dict(orient="records")
@@ -153,6 +153,12 @@ def _alpha_candidate_rows(path: Path, max_candidates: int | None) -> list[dict[s
     deferred = eligible[len(selected) :] if max_candidates is not None else []
     skipped.extend({**row, "_skip_reason": "candidate_limit"} for row in deferred)
     return selected + skipped
+
+
+def _read_leaderboard(path: Path, label: str) -> pd.DataFrame:
+    if not path.exists():
+        raise ValueError(f"{label} not found: {path}")
+    return pd.read_csv(path)
 
 
 def _run_candidate(row: dict[str, Any], config: PaperBatchConfig) -> dict[str, Any]:

@@ -52,6 +52,13 @@ class FakeInvalidMoneyflowAdapter(FakeTushareMoneyflowAdapter):
         return pd.DataFrame({"symbol": ["BAD"], "date": [pd.Timestamp("2024-01-02").date()]})
 
 
+class FakeMissingMoneyflowAdapter(FakeTushareMoneyflowAdapter):
+    def fetch_moneyflow_by_trade_date(self, trade_date: str):
+        frame = super().fetch_moneyflow_by_trade_date(trade_date)
+        frame.loc[0, "net_mf_amount"] = pd.NA
+        return frame
+
+
 class TushareMoneyflowInputsIngestTests(unittest.TestCase):
     def test_moneyflow_ingest_writes_raw_processed_manifest_and_quality_report(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -72,6 +79,13 @@ class TushareMoneyflowInputsIngestTests(unittest.TestCase):
             self.assertEqual(set(processed["asset_id"]), {"CN_XSHE_000001", "CN_XSHG_600519"})
             self.assertEqual(set(processed["source"]), {"tushare_moneyflow"})
             self.assertIn("net_mf_amount", processed.columns)
+
+    def test_moneyflow_quality_report_tracks_missing_numeric_by_column(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_tushare_moneyflow_ingest(FakeMissingMoneyflowAdapter(), "2024-01-02", "2024-01-02", Path(tmp))
+
+            self.assertEqual(result["quality_report"]["missing_numeric_rows"], 1)
+            self.assertEqual(result["quality_report"]["missing_numeric_by_column"], {"net_mf_amount": 1})
 
     def test_moneyflow_ingest_resume_skips_completed_dates(self):
         with tempfile.TemporaryDirectory() as tmp:

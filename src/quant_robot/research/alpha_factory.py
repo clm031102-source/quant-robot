@@ -196,4 +196,6 @@ def _paper_candidate_rejection_reasons(row: dict[str, Any]) -> list[str]:
         reasons.append("adjusted_ic_significance_not_passed")
     if row.get("significance_status") != "significant_positive":
         reasons.append("significance_direction_not_positive")
+    if _float(row.get("capacity_limited_trades"), 0.0) > 0.0:
+        reasons.append("capacity_limited_trades_present")
     return _dedupe([str(reason) for reason in reasons])

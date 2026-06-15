@@ -178,6 +178,12 @@ class TushareMappingTests(unittest.TestCase):
         self.assertEqual(list(result.columns), ["symbol", "date", "adj_factor"])
         self.assertEqual(result.loc[0, "adj_factor"], 101.2)
 
+    def test_map_adj_factor_returns_standard_empty_frame_for_empty_provider_response(self):
+        result = map_tushare_adj_factor(pd.DataFrame())
+
+        self.assertTrue(result.empty)
+        self.assertEqual(list(result.columns), ["symbol", "date", "adj_factor"])
+
     def test_map_trade_cal_keeps_open_days(self):
         source = pd.DataFrame(
             {

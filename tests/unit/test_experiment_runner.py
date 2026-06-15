@@ -57,6 +57,12 @@ class ExperimentRunnerTests(unittest.TestCase):
             self.assertIn("ic_t_stat", leaderboard[0])
             self.assertIn("ic_p_value", leaderboard[0])
             self.assertIn("significance_status", leaderboard[0])
+            self.assertIn("long_short_mean_return", leaderboard[0])
+            self.assertIn("long_short_positive_rate", leaderboard[0])
+            self.assertIn("long_short_observations", leaderboard[0])
+            self.assertIn("quantile_bottom_mean_return", leaderboard[0])
+            self.assertIn("quantile_top_mean_return", leaderboard[0])
+            self.assertIn("quantile_spread_mean_return", leaderboard[0])
             self.assertTrue((Path(tmp) / "leaderboard.csv").exists())
             self.assertTrue((Path(tmp) / "leaderboard.json").exists())
             self.assertTrue((Path(tmp) / "manifest.json").exists())
@@ -209,6 +215,19 @@ class ExperimentRunnerTests(unittest.TestCase):
             self.assertAlmostEqual(config.min_relative_return, 0.01)
             self.assertAlmostEqual(config.target_gross_exposure, 0.9)
             self.assertEqual(config.output_dir, Path(tmp) / "reports")
+
+    def test_load_experiment_grid_config_accepts_utf8_bom(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config_path = Path(tmp) / "grid.json"
+            config_path.write_text(
+                "\ufeff" + json.dumps({"markets": ["CN"], "factor_names": ["momentum_2"]}),
+                encoding="utf-8",
+            )
+
+            config = load_experiment_grid_config(config_path)
+
+            self.assertEqual(config.markets, ("CN",))
+            self.assertEqual(config.factor_names, ("momentum_2",))
 
     def test_load_experiment_grid_config_reads_factor_input_options(self):
         with tempfile.TemporaryDirectory() as tmp:

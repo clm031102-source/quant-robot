@@ -8,6 +8,7 @@ import pandas as pd
 
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.factors.technical import compute_basic_factors
+from quant_robot.factors.tushare_moneyflow import compute_moneyflow_factors
 from quant_robot.paper.simulator import PaperSimulationConfig, run_paper_simulation, write_paper_simulation_artifacts
 from quant_robot.storage.dataset_store import DatasetStore
 
@@ -127,6 +128,32 @@ class PaperSimulationTests(unittest.TestCase):
         self.assertGreater(len(result["intents"]), 0)
         self.assertGreater(len(result["fills"]), 0)
         self.assertTrue(all(row["market"] == "CN" for row in result["fills"]))
+
+    def test_tushare_moneyflow_inputs_are_filtered_to_requested_window_before_factor_compute(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            moneyflow_root = Path(tmp) / "moneyflow_inputs"
+            _write_moneyflow_inputs(moneyflow_root, load_demo_market_bars())
+            config = PaperSimulationConfig(
+                market="CN",
+                factor_source="tushare_moneyflow",
+                moneyflow_input_root=moneyflow_root,
+                factor_name="net_mf_amount_ratio",
+                factor_windows=(1,),
+                top_n=1,
+                start_date="2024-01-05",
+                end_date="2024-01-08",
+                initial_cash=100000.0,
+            )
+
+            with patch("quant_robot.paper.simulator.compute_moneyflow_factors", wraps=compute_moneyflow_factors) as wrapped:
+                run_paper_simulation(load_demo_market_bars(), config)
+
+            inputs = wrapped.call_args.args[0]
+
+        input_dates = pd.to_datetime(inputs["date"]).dt.date
+        self.assertGreater(len(inputs), 0)
+        self.assertGreaterEqual(input_dates.min(), pd.Timestamp("2024-01-05").date())
+        self.assertLessEqual(input_dates.max(), pd.Timestamp("2024-01-08").date())
 
     def test_paper_simulation_artifacts_serialize_path_request_fields(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -104,6 +104,9 @@ def map_tushare_moneyflow(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def map_tushare_adj_factor(frame: pd.DataFrame) -> pd.DataFrame:
+    output_columns = ["symbol", "date", "adj_factor"]
+    if frame.empty:
+        return pd.DataFrame(columns=output_columns)
     _require_columns(frame, ["ts_code", "trade_date", "adj_factor"], "tushare adj_factor")
     return pd.DataFrame(
         {
@@ -111,7 +114,7 @@ def map_tushare_adj_factor(frame: pd.DataFrame) -> pd.DataFrame:
             "date": pd.to_datetime(frame["trade_date"], format="%Y%m%d").dt.date,
             "adj_factor": pd.to_numeric(frame["adj_factor"], errors="coerce"),
         }
-    ).sort_values(["symbol", "date"]).reset_index(drop=True)
+    )[output_columns].sort_values(["symbol", "date"]).reset_index(drop=True)
 
 
 def map_tushare_trade_cal(frame: pd.DataFrame, open_only: bool = True) -> pd.DataFrame:

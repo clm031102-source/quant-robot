@@ -200,7 +200,7 @@ def _compute_factors(bars: pd.DataFrame, config: PaperSimulationConfig) -> pd.Da
         if config.market.upper() == "ALL":
             raise ValueError("Tushare moneyflow paper simulation requires a specific market")
         moneyflow_inputs = load_moneyflow_inputs(config.moneyflow_input_root, config.market.upper())
-        moneyflow_inputs = moneyflow_inputs[moneyflow_inputs["asset_id"].isin(set(bars["asset_id"].astype(str)))].reset_index(drop=True)
+        moneyflow_inputs = _external_factor_inputs_for_window(moneyflow_inputs, bars, config)
         if moneyflow_inputs.empty:
             raise ValueError("No moneyflow inputs available for paper simulation")
         return compute_moneyflow_factors(moneyflow_inputs)
@@ -211,10 +211,27 @@ def _compute_factors(bars: pd.DataFrame, config: PaperSimulationConfig) -> pd.Da
     if config.market.upper() == "ALL":
         raise ValueError("Tushare daily-basic paper simulation requires a specific market")
     factor_inputs = load_factor_inputs(config.factor_input_root, config.market.upper())
-    factor_inputs = factor_inputs[factor_inputs["asset_id"].isin(set(bars["asset_id"].astype(str)))].reset_index(drop=True)
+    factor_inputs = _external_factor_inputs_for_window(factor_inputs, bars, config)
     if factor_inputs.empty:
         raise ValueError("No factor inputs available for paper simulation")
     return compute_daily_basic_factors(factor_inputs)
+
+
+def _external_factor_inputs_for_window(
+    inputs: pd.DataFrame,
+    bars: pd.DataFrame,
+    config: PaperSimulationConfig,
+) -> pd.DataFrame:
+    frame = inputs[inputs["asset_id"].isin(set(bars["asset_id"].astype(str)))].copy()
+    if frame.empty:
+        return frame.reset_index(drop=True)
+    dates = pd.to_datetime(frame["date"]).dt.date
+    if config.start_date:
+        frame = frame[dates >= pd.to_datetime(config.start_date).date()]
+        dates = dates.loc[frame.index]
+    if config.end_date:
+        frame = frame[dates <= pd.to_datetime(config.end_date).date()]
+    return frame.reset_index(drop=True)
 
 
 def _initial_positions(initial_positions: pd.DataFrame | None) -> dict[str, float]:

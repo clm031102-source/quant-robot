@@ -53,6 +53,23 @@ class AlphaFactoryTests(unittest.TestCase):
         self.assertFalse(by_id["negative"]["paper_candidate_allowed"])
         self.assertIn("significance_direction_not_positive", by_id["negative"]["paper_candidate_rejection_reasons"])
 
+    def test_bonferroni_correction_blocks_capacity_limited_paper_candidates(self):
+        rows = [
+            {
+                "case_id": "capacity_limited",
+                "status": "completed",
+                "factor_name": "large_order_net_amount_ratio",
+                "ic_p_value": 0.001,
+                "significance_status": "significant_positive",
+                "capacity_limited_trades": 1,
+            }
+        ]
+
+        result = apply_bonferroni_correction(rows, alpha=0.05)
+
+        self.assertFalse(result[0]["paper_candidate_allowed"])
+        self.assertIn("capacity_limited_trades_present", result[0]["paper_candidate_rejection_reasons"])
+
     def test_alpha_factory_runs_pre_registered_daily_basic_family_and_writes_artifacts(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -29,6 +29,10 @@ def run_alpha_factory_cli(
     alpha: float = 0.05,
     start_date: str | None = None,
     end_date: str | None = None,
+    min_trades: int = 1,
+    portfolio_value: float = 1_000_000.0,
+    market_impact_bps: float = 0.0,
+    max_participation_rate: float | None = None,
 ) -> dict[str, object]:
     bars = load_research_bars(source, Path(data_root), market)
     config = AlphaFactoryConfig(
@@ -43,6 +47,10 @@ def run_alpha_factory_cli(
         alpha=alpha,
         start_date=start_date,
         end_date=end_date,
+        min_trades=min_trades,
+        portfolio_value=portfolio_value,
+        market_impact_bps=market_impact_bps,
+        max_participation_rate=max_participation_rate,
     )
     return run_tushare_alpha_factory(bars, config)
 
@@ -62,6 +70,10 @@ def main() -> None:
     parser.add_argument("--alpha", default=0.05, type=float)
     parser.add_argument("--start-date")
     parser.add_argument("--end-date")
+    parser.add_argument("--min-trades", default=1, type=int)
+    parser.add_argument("--portfolio-value", default=1_000_000.0, type=float)
+    parser.add_argument("--market-impact-bps", default=0.0, type=float)
+    parser.add_argument("--max-participation-rate", type=float)
     args = parser.parse_args()
     result = run_alpha_factory_cli(
         source=args.source,
@@ -77,6 +89,10 @@ def main() -> None:
         alpha=args.alpha,
         start_date=args.start_date,
         end_date=args.end_date,
+        min_trades=args.min_trades,
+        portfolio_value=args.portfolio_value,
+        market_impact_bps=args.market_impact_bps,
+        max_participation_rate=args.max_participation_rate,
     )
     print(
         json.dumps(

@@ -59,6 +59,34 @@ class TushareAlphaFactoryCliTests(unittest.TestCase):
             self.assertGreater(result["summary"]["hypothesis_count"], 0)
             self.assertTrue((output_dir / "candidate_leaderboard.csv").exists())
 
+    def test_cli_helper_passes_capacity_and_cost_controls(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            factor_root = root / "factor_inputs"
+            output_dir = root / "factory"
+            _write_daily_basic_factor_inputs(factor_root, load_demo_market_bars())
+
+            result = run_alpha_factory_cli(
+                source="fixture",
+                data_root=root,
+                market="CN",
+                factor_input_root=factor_root,
+                output_dir=output_dir,
+                top_n=1,
+                cost_bps=5.0,
+                execution_lag=1,
+                alpha=0.05,
+                min_trades=2,
+                portfolio_value=500000.0,
+                market_impact_bps=10.0,
+                max_participation_rate=0.05,
+            )
+
+            self.assertEqual(result["config"]["min_trades"], 2)
+            self.assertAlmostEqual(result["config"]["portfolio_value"], 500000.0)
+            self.assertAlmostEqual(result["config"]["market_impact_bps"], 10.0)
+            self.assertAlmostEqual(result["config"]["max_participation_rate"], 0.05)
+
     def test_script_entrypoint_bootstraps_project_imports(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

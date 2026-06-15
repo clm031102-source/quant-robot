@@ -90,7 +90,7 @@ def build_experiment_cases(config: ExperimentGridConfig) -> list[ExperimentCase]
 
 
 def load_experiment_grid_config(path: str | Path) -> ExperimentGridConfig:
-    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    data = json.loads(Path(path).read_text(encoding="utf-8-sig"))
     return ExperimentGridConfig(
         markets=tuple(data.get("markets", ExperimentGridConfig.markets)),
         factor_source=str(data.get("factor_source", ExperimentGridConfig.factor_source)),
@@ -196,6 +196,8 @@ def _row(case: ExperimentCase, status: str, error: str | None, trades: int, resu
     decision = result["decision"] if result is not None else {}
     factor_summary = result["factor_summary"] if result is not None else {}
     artifact_rows = result["artifact_rows"] if result is not None else {}
+    group_summary = _group_return_summary(result.get("group_returns", []) if result is not None else [])
+    long_short_summary = _long_short_summary(result.get("long_short", []) if result is not None else [])
     return _sanitize(
         {
             "case_id": case.case_id,
@@ -239,8 +241,47 @@ def _row(case: ExperimentCase, status: str, error: str | None, trades: int, resu
             "rank_ic_t_stat": _number(factor_summary.get("rank_ic_t_stat"), 0.0),
             "rank_ic_p_value": _number(factor_summary.get("rank_ic_p_value"), 1.0),
             "significance_status": str(factor_summary.get("significance_status", "unknown")),
+            "long_short_mean_return": long_short_summary["mean_return"],
+            "long_short_positive_rate": long_short_summary["positive_rate"],
+            "long_short_observations": long_short_summary["observations"],
+            "quantile_bottom_mean_return": group_summary["bottom_mean_return"],
+            "quantile_top_mean_return": group_summary["top_mean_return"],
+            "quantile_spread_mean_return": group_summary["spread_mean_return"],
         }
     )
+
+
+def _long_short_summary(rows: Any) -> dict[str, float | int]:
+    frame = pd.DataFrame(rows)
+    if frame.empty or "long_short_return" not in frame.columns:
+        return {"mean_return": 0.0, "positive_rate": 0.0, "observations": 0}
+    values = pd.to_numeric(frame["long_short_return"], errors="coerce").dropna()
+    if values.empty:
+        return {"mean_return": 0.0, "positive_rate": 0.0, "observations": 0}
+    return {
+        "mean_return": float(values.mean()),
+        "positive_rate": float((values > 0.0).mean()),
+        "observations": int(len(values)),
+    }
+
+
+def _group_return_summary(rows: Any) -> dict[str, float]:
+    frame = pd.DataFrame(rows)
+    if frame.empty or "quantile" not in frame.columns or "mean_forward_return" not in frame.columns:
+        return {"bottom_mean_return": 0.0, "top_mean_return": 0.0, "spread_mean_return": 0.0}
+    source = frame.copy()
+    source["quantile"] = pd.to_numeric(source["quantile"], errors="coerce")
+    source["mean_forward_return"] = pd.to_numeric(source["mean_forward_return"], errors="coerce")
+    source = source.dropna(subset=["quantile", "mean_forward_return"])
+    if source.empty:
+        return {"bottom_mean_return": 0.0, "top_mean_return": 0.0, "spread_mean_return": 0.0}
+    bottom = float(source.loc[source["quantile"] == source["quantile"].min(), "mean_forward_return"].mean())
+    top = float(source.loc[source["quantile"] == source["quantile"].max(), "mean_forward_return"].mean())
+    return {
+        "bottom_mean_return": bottom,
+        "top_mean_return": top,
+        "spread_mean_return": top - bottom,
+    }
 
 
 def _rank_rows(rows: list[dict[str, Any]], rank_by: str) -> list[dict[str, Any]]:

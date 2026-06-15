@@ -185,6 +185,7 @@ def _quality_report(frame: pd.DataFrame, market: str) -> dict[str, object]:
             "duplicate_rows": 0,
             "missing_asset_id_rows": 0,
             "missing_numeric_rows": 0,
+            "missing_numeric_by_column": {},
         }
     numeric_columns = [column for column in MONEYFLOW_COLUMNS if column not in {"symbol", "date"} and column in frame.columns]
     dates = pd.to_datetime(frame["date"])
@@ -197,4 +198,13 @@ def _quality_report(frame: pd.DataFrame, market: str) -> dict[str, object]:
         "duplicate_rows": int(frame.duplicated(["asset_id", "date", "source"]).sum()),
         "missing_asset_id_rows": int(frame["asset_id"].isna().sum()),
         "missing_numeric_rows": int(frame[numeric_columns].isna().sum().sum()) if numeric_columns else 0,
+        "missing_numeric_by_column": _missing_numeric_by_column(frame, numeric_columns),
+    }
+
+
+def _missing_numeric_by_column(frame: pd.DataFrame, numeric_columns: list[str]) -> dict[str, int]:
+    return {
+        column: int(frame[column].isna().sum())
+        for column in numeric_columns
+        if int(frame[column].isna().sum()) > 0
     }
