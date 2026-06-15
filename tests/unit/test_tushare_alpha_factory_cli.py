@@ -80,12 +80,18 @@ class TushareAlphaFactoryCliTests(unittest.TestCase):
                 portfolio_value=500000.0,
                 market_impact_bps=10.0,
                 max_participation_rate=0.05,
+                min_ic_observations=3,
+                min_long_short_observations=4,
+                require_capacity_controls=False,
             )
 
             self.assertEqual(result["config"]["min_trades"], 2)
+            self.assertEqual(result["config"]["min_ic_observations"], 3)
+            self.assertEqual(result["config"]["min_long_short_observations"], 4)
             self.assertAlmostEqual(result["config"]["portfolio_value"], 500000.0)
             self.assertAlmostEqual(result["config"]["market_impact_bps"], 10.0)
             self.assertAlmostEqual(result["config"]["max_participation_rate"], 0.05)
+            self.assertFalse(result["config"]["require_capacity_controls"])
 
     def test_script_entrypoint_bootstraps_project_imports(self):
         with tempfile.TemporaryDirectory() as tmp:

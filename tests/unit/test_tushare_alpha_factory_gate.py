@@ -118,12 +118,18 @@ class TushareAlphaFactoryGateTests(unittest.TestCase):
                 portfolio_value=500000.0,
                 market_impact_bps=10.0,
                 max_participation_rate=0.05,
+                min_ic_observations=3,
+                min_long_short_observations=4,
+                require_capacity_controls=False,
             )
 
         self.assertEqual(alpha_kwargs["min_trades"], 3)
+        self.assertEqual(alpha_kwargs["min_ic_observations"], 3)
+        self.assertEqual(alpha_kwargs["min_long_short_observations"], 4)
         self.assertAlmostEqual(alpha_kwargs["portfolio_value"], 500000.0)
         self.assertAlmostEqual(alpha_kwargs["market_impact_bps"], 10.0)
         self.assertAlmostEqual(alpha_kwargs["max_participation_rate"], 0.05)
+        self.assertFalse(alpha_kwargs["require_capacity_controls"])
 
     def test_gate_does_not_allow_paper_when_only_negative_direction_is_significant(self):
         with tempfile.TemporaryDirectory() as tmp:

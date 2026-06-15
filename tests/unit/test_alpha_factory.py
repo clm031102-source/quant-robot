@@ -8,11 +8,21 @@ import pandas as pd
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.factors.tushare_inputs import DAILY_BASIC_FACTOR_NAMES
 from quant_robot.factors.tushare_moneyflow import MONEYFLOW_FACTOR_NAMES
-from quant_robot.research.alpha_factory import AlphaFactoryConfig, apply_bonferroni_correction, run_tushare_alpha_factory
+from quant_robot.research.alpha_factory import AlphaFactoryConfig, _candidate_row, apply_bonferroni_correction, run_tushare_alpha_factory
 from quant_robot.storage.dataset_store import DatasetStore
 
 
 class AlphaFactoryTests(unittest.TestCase):
+    def test_alpha_factory_defaults_use_research_grade_candidate_gates(self):
+        config = AlphaFactoryConfig()
+
+        self.assertEqual(config.min_trades, 30)
+        self.assertEqual(config.min_ic_observations, 20)
+        self.assertEqual(config.min_long_short_observations, 20)
+        self.assertTrue(config.require_capacity_controls)
+        self.assertGreater(config.market_impact_bps, 0.0)
+        self.assertIsNotNone(config.max_participation_rate)
+
     def test_bonferroni_correction_tracks_hypothesis_count_and_adjusted_p_value(self):
         rows = [
             {"factor_name": "a", "ic_p_value": 0.01},
@@ -69,6 +79,48 @@ class AlphaFactoryTests(unittest.TestCase):
 
         self.assertFalse(result[0]["paper_candidate_allowed"])
         self.assertIn("capacity_limited_trades_present", result[0]["paper_candidate_rejection_reasons"])
+
+    def test_candidate_row_rejects_underpowered_samples(self):
+        row = {
+            "case_id": "tiny_sample",
+            "status": "completed",
+            "trades": 1,
+            "ic_observations": 2,
+            "long_short_observations": 2,
+            "ic_p_value": 0.001,
+            "significance_status": "significant_positive",
+            "capacity_limited_trades": 0,
+        }
+
+        result = _candidate_row(row, AlphaFactoryConfig())
+
+        self.assertIn("insufficient_trades", result["multiple_test_rejection_reasons"])
+        self.assertIn("insufficient_ic_observations", result["multiple_test_rejection_reasons"])
+        self.assertIn("insufficient_long_short_observations", result["multiple_test_rejection_reasons"])
+
+    def test_candidate_row_rejects_missing_capacity_controls(self):
+        row = {
+            "case_id": "uncosted",
+            "status": "completed",
+            "trades": 30,
+            "ic_observations": 20,
+            "long_short_observations": 20,
+            "ic_p_value": 0.001,
+            "significance_status": "significant_positive",
+            "capacity_limited_trades": 0,
+        }
+        config = AlphaFactoryConfig(
+            min_trades=1,
+            market_impact_bps=0.0,
+            max_participation_rate=None,
+        )
+
+        result = apply_bonferroni_correction([_candidate_row(row, config)], alpha=0.05)[0]
+
+        self.assertFalse(result["paper_candidate_allowed"])
+        self.assertIn("market_impact_not_configured", result["paper_candidate_rejection_reasons"])
+        self.assertIn("max_participation_rate_not_configured", result["paper_candidate_rejection_reasons"])
+
 
     def test_alpha_factory_runs_pre_registered_daily_basic_family_and_writes_artifacts(self):
         with tempfile.TemporaryDirectory() as tmp:

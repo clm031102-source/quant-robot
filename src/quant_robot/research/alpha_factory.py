@@ -28,11 +28,14 @@ class AlphaFactoryConfig:
     end_date: str | None = None
     forward_horizon: int = 1
     rebalance_interval: int = 1
-    min_trades: int = 1
+    min_trades: int = 30
+    min_ic_observations: int = 20
+    min_long_short_observations: int = 20
     rank_by: str = "sharpe"
     portfolio_value: float = 1_000_000.0
-    market_impact_bps: float = 0.0
-    max_participation_rate: float | None = None
+    market_impact_bps: float = 10.0
+    max_participation_rate: float | None = 0.05
+    require_capacity_controls: bool = True
 
 
 def apply_bonferroni_correction(
@@ -111,6 +114,15 @@ def _candidate_row(row: dict[str, Any], config: AlphaFactoryConfig) -> dict[str,
         reasons.append("experiment_not_completed")
     if int(_float(row.get("trades"), 0.0)) < config.min_trades:
         reasons.append("insufficient_trades")
+    if int(_float(row.get("ic_observations"), 0.0)) < config.min_ic_observations:
+        reasons.append("insufficient_ic_observations")
+    if int(_float(row.get("long_short_observations"), 0.0)) < config.min_long_short_observations:
+        reasons.append("insufficient_long_short_observations")
+    if config.require_capacity_controls:
+        if config.market_impact_bps <= 0.0:
+            reasons.append("market_impact_not_configured")
+        if config.max_participation_rate is None or config.max_participation_rate <= 0.0:
+            reasons.append("max_participation_rate_not_configured")
     return {
         **row,
         "factor_source": config.factor_source,

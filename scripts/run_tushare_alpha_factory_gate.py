@@ -42,10 +42,13 @@ def run_tushare_alpha_factory_gate(
     cost_bps: float = 5.0,
     execution_lag: int = 1,
     alpha: float = 0.05,
-    min_trades: int = 1,
+    min_trades: int = 30,
+    min_ic_observations: int = 20,
+    min_long_short_observations: int = 20,
     portfolio_value: float = 1_000_000.0,
-    market_impact_bps: float = 0.0,
-    max_participation_rate: float | None = None,
+    market_impact_bps: float = 10.0,
+    max_participation_rate: float | None = 0.05,
+    require_capacity_controls: bool = True,
     readiness: dict[str, Any] | None = None,
     ingest_runner: Callable[..., dict[str, Any]] | None = None,
     alpha_factory_runner: Callable[..., dict[str, Any]] | None = None,
@@ -104,9 +107,12 @@ def run_tushare_alpha_factory_gate(
             start_date=start_date,
             end_date=end_date,
             min_trades=min_trades,
+            min_ic_observations=min_ic_observations,
+            min_long_short_observations=min_long_short_observations,
             portfolio_value=portfolio_value,
             market_impact_bps=market_impact_bps,
             max_participation_rate=max_participation_rate,
+            require_capacity_controls=require_capacity_controls,
         )
     except Exception as exc:  # pragma: no cover - exact exception depends on provider or local data state
         chain_error = {"stage": "tushare_alpha_factory_downstream", "error": str(exc)}
@@ -138,10 +144,13 @@ def main() -> None:
     parser.add_argument("--cost-bps", default=5.0, type=float)
     parser.add_argument("--execution-lag", default=1, type=int)
     parser.add_argument("--alpha", default=0.05, type=float)
-    parser.add_argument("--min-trades", default=1, type=int)
+    parser.add_argument("--min-trades", default=30, type=int)
+    parser.add_argument("--min-ic-observations", default=20, type=int)
+    parser.add_argument("--min-long-short-observations", default=20, type=int)
     parser.add_argument("--portfolio-value", default=1_000_000.0, type=float)
-    parser.add_argument("--market-impact-bps", default=0.0, type=float)
-    parser.add_argument("--max-participation-rate", type=float)
+    parser.add_argument("--market-impact-bps", default=10.0, type=float)
+    parser.add_argument("--max-participation-rate", default=0.05, type=float)
+    parser.add_argument("--allow-missing-capacity-controls", action="store_true")
     parser.add_argument("--execute", action="store_true", help="Execute local ingest and alpha-factory steps after readiness passes.")
     args = parser.parse_args()
     pack = run_tushare_alpha_factory_gate(
@@ -156,9 +165,12 @@ def main() -> None:
         execution_lag=args.execution_lag,
         alpha=args.alpha,
         min_trades=args.min_trades,
+        min_ic_observations=args.min_ic_observations,
+        min_long_short_observations=args.min_long_short_observations,
         portfolio_value=args.portfolio_value,
         market_impact_bps=args.market_impact_bps,
         max_participation_rate=args.max_participation_rate,
+        require_capacity_controls=not args.allow_missing_capacity_controls,
         execute=args.execute,
     )
     print(
