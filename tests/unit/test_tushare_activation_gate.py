@@ -34,7 +34,7 @@ class TushareActivationGateTests(unittest.TestCase):
         self.assertEqual(pack["next_actions"][0]["action"], "set_tushare_token_env")
         self.assertEqual(calls, [])
         self.assertTrue(artifact_exists)
-        self.assertNotIn("4743e70e52e8a48872d71135ffe6baadb391ac7075c2507189a964c0", serialized)
+        self.assertNotIn(("f" * 64), serialized)
         self.assertFalse(pack["live_boundary_allowed"])
 
     def test_activation_gate_runs_fixture_chain_until_iterative_sample_gate_clears(self):

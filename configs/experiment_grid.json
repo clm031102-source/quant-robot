@@ -9,6 +9,9 @@
   "quantiles": 2,
   "portfolio_scope": null,
   "periods_per_year": null,
+  "market_impact_bps": 2,
+  "max_participation_rate": 0.1,
+  "portfolio_value": 1000000,
   "rank_by": "sharpe",
   "min_trades": 1,
   "output_dir": "data/reports/experiment_grid"

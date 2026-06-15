@@ -3,6 +3,10 @@
   "rank_by": "stability_score",
   "min_test_trades": 20,
   "min_test_sharpe": 0,
+  "rolling_train_days": 756,
+  "rolling_test_days": 126,
+  "rolling_step_days": 63,
+  "min_accepted_folds": 3,
   "output_dir": "data/reports/walk_forward_cn_etf_real_csv",
   "experiment_grid": {
     "markets": ["CN_ETF"],
@@ -15,6 +19,9 @@
     "quantiles": 2,
     "portfolio_scope": "market",
     "periods_per_year": 252,
+    "market_impact_bps": 2,
+    "max_participation_rate": 0.1,
+    "portfolio_value": 1000000,
     "rank_by": "sharpe",
     "min_trades": 20
   }

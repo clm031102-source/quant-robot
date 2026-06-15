@@ -1,0 +1,200 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Protocol
+
+import pandas as pd
+
+from quant_robot.data.ingest.manifest import IngestManifest
+from quant_robot.data.sources.tushare_mapping import MONEYFLOW_COLUMNS
+from quant_robot.storage.dataset_store import DatasetStore
+
+
+class TushareMoneyflowAdapter(Protocol):
+    def fetch_trade_calendar(self, start_date: str, end_date: str) -> pd.DataFrame:
+        ...
+
+    def fetch_moneyflow_by_trade_date(self, trade_date: str) -> pd.DataFrame:
+        ...
+
+
+def run_tushare_moneyflow_ingest(
+    adapter: TushareMoneyflowAdapter,
+    start_date: str,
+    end_date: str,
+    output_dir: str | Path,
+    resume: bool = True,
+    market: str = "CN",
+) -> dict[str, object]:
+    market = market.upper()
+    if market != "CN":
+        raise ValueError(f"Unsupported Tushare moneyflow-input market: {market}")
+    output_path = Path(output_dir)
+    store = DatasetStore(output_path)
+    manifest = IngestManifest(output_path / "manifest.json")
+    downloaded: list[str] = []
+    skipped: list[str] = []
+    raw_frames_by_date: dict[str, pd.DataFrame] = {}
+    downloaded_rows_by_date: dict[str, int] = {}
+
+    trade_dates = _trade_dates(adapter, start_date, end_date)
+    for trade_date in trade_dates:
+        key = _manifest_key(trade_date)
+        if resume and manifest.is_completed(key):
+            skipped.append(trade_date)
+            continue
+        raw = adapter.fetch_moneyflow_by_trade_date(trade_date)
+        store.write_frame(raw, _raw_dataset(), {"trade_date": trade_date})
+        downloaded.append(trade_date)
+        downloaded_rows_by_date[trade_date] = len(raw)
+        raw_frames_by_date[trade_date] = raw
+
+    try:
+        raw_for_processing = _load_raw_frames(store, trade_dates, raw_frames_by_date)
+        processed = _normalize_moneyflow(raw_for_processing, market)
+        if not processed.empty:
+            _validate_moneyflow_inputs(processed)
+            _write_processed_by_year(store, processed, market)
+        report = _quality_report(processed, market)
+    except Exception as exc:
+        for trade_date in downloaded:
+            manifest.mark_failed(_manifest_key(trade_date), reason=str(exc))
+        manifest.save()
+        raise
+
+    for trade_date in downloaded:
+        manifest.mark_completed(_manifest_key(trade_date), rows=downloaded_rows_by_date[trade_date])
+    manifest.save()
+    (output_path / "moneyflow_input_quality_report.json").write_text(
+        json.dumps(report, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    return {
+        "source": "tushare",
+        "dataset": "moneyflow",
+        "market": market,
+        "downloaded_trade_dates": downloaded,
+        "skipped_trade_dates": skipped,
+        "processed_rows": int(len(processed)),
+        "quality_report": report,
+    }
+
+
+def _trade_dates(adapter: TushareMoneyflowAdapter, start_date: str, end_date: str) -> list[str]:
+    calendar = adapter.fetch_trade_calendar(start_date, end_date)
+    dates = pd.to_datetime(calendar["date"]).dt.strftime("%Y%m%d")
+    return list(dates)
+
+
+def _manifest_key(trade_date: str) -> str:
+    return f"moneyflow:{trade_date}"
+
+
+def _raw_dataset() -> str:
+    return "raw/tushare/moneyflow"
+
+
+def _load_raw_frames(
+    store: DatasetStore,
+    trade_dates: list[str],
+    raw_frames_by_date: dict[str, pd.DataFrame],
+) -> pd.DataFrame:
+    frames = []
+    for trade_date in trade_dates:
+        if trade_date in raw_frames_by_date:
+            frames.append(raw_frames_by_date[trade_date])
+        elif store.exists(_raw_dataset(), {"trade_date": trade_date}):
+            frames.append(store.read_frame(_raw_dataset(), {"trade_date": trade_date}))
+    if not frames:
+        return pd.DataFrame(columns=MONEYFLOW_COLUMNS)
+    return pd.concat(frames, ignore_index=True)
+
+
+def _normalize_moneyflow(raw: pd.DataFrame, market: str) -> pd.DataFrame:
+    required = MONEYFLOW_COLUMNS
+    missing = [column for column in required if column not in raw.columns]
+    if missing:
+        raise ValueError(f"Tushare moneyflow inputs are missing columns: {', '.join(missing)}")
+    source = raw.copy()
+    source["date"] = pd.to_datetime(source["date"]).dt.date
+    source["asset_id"] = source["symbol"].map(_asset_id_from_tushare_symbol)
+    source["market"] = market
+    source["source"] = "tushare_moneyflow"
+    source["ingested_at"] = pd.Timestamp.now(tz="UTC")
+    ordered = ["date", "asset_id", "symbol", "market", "source", "ingested_at"] + [
+        column for column in MONEYFLOW_COLUMNS if column not in {"symbol", "date"}
+    ]
+    return source[ordered].sort_values(["asset_id", "date"]).reset_index(drop=True)
+
+
+def _asset_id_from_tushare_symbol(symbol: str) -> str:
+    parts = str(symbol).split(".")
+    if len(parts) != 2:
+        raise ValueError(f"Unsupported Tushare symbol: {symbol}")
+    code, suffix = parts
+    exchange_by_suffix = {"SZ": "XSHE", "SH": "XSHG", "BJ": "XBEI"}
+    try:
+        exchange = exchange_by_suffix[suffix.upper()]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported Tushare symbol suffix: {symbol}") from exc
+    return f"CN_{exchange}_{code}"
+
+
+def _validate_moneyflow_inputs(frame: pd.DataFrame) -> None:
+    required = ["date", "asset_id", "symbol", "market", "source"]
+    missing = [column for column in required if column not in frame.columns]
+    if missing:
+        raise ValueError(f"Moneyflow inputs are missing columns: {', '.join(missing)}")
+    if frame["asset_id"].isna().any():
+        raise ValueError("Moneyflow inputs contain missing asset_id values")
+    if frame["date"].isna().any():
+        raise ValueError("Moneyflow inputs contain missing dates")
+
+
+def _write_processed_by_year(store: DatasetStore, processed: pd.DataFrame, market: str) -> None:
+    for year, group in processed.groupby(pd.to_datetime(processed["date"]).dt.year):
+        partitions = {"frequency": "1d", "market": market, "year": str(year)}
+        merged = group
+        if store.exists("processed/moneyflow_inputs", partitions):
+            existing = _coerce_processed_types(store.read_frame("processed/moneyflow_inputs", partitions))
+            merged = pd.concat([existing, group], ignore_index=True)
+            merged = merged.drop_duplicates(["asset_id", "date", "source"], keep="last")
+            merged = merged.sort_values(["asset_id", "date"]).reset_index(drop=True)
+        _validate_moneyflow_inputs(merged)
+        store.write_frame(merged, "processed/moneyflow_inputs", partitions)
+
+
+def _coerce_processed_types(frame: pd.DataFrame) -> pd.DataFrame:
+    coerced = frame.copy()
+    if "date" in coerced.columns:
+        coerced["date"] = pd.to_datetime(coerced["date"]).dt.date
+    if "ingested_at" in coerced.columns:
+        coerced["ingested_at"] = pd.to_datetime(coerced["ingested_at"], utc=True)
+    return coerced
+
+
+def _quality_report(frame: pd.DataFrame, market: str) -> dict[str, object]:
+    if frame.empty:
+        return {
+            "rows": 0,
+            "assets": 0,
+            "market": market,
+            "start_date": None,
+            "end_date": None,
+            "duplicate_rows": 0,
+            "missing_asset_id_rows": 0,
+            "missing_numeric_rows": 0,
+        }
+    numeric_columns = [column for column in MONEYFLOW_COLUMNS if column not in {"symbol", "date"} and column in frame.columns]
+    dates = pd.to_datetime(frame["date"])
+    return {
+        "rows": int(len(frame)),
+        "assets": int(frame["asset_id"].nunique()),
+        "market": market,
+        "start_date": dates.min().date().isoformat(),
+        "end_date": dates.max().date().isoformat(),
+        "duplicate_rows": int(frame.duplicated(["asset_id", "date", "source"]).sum()),
+        "missing_asset_id_rows": int(frame["asset_id"].isna().sum()),
+        "missing_numeric_rows": int(frame[numeric_columns].isna().sum().sum()) if numeric_columns else 0,
+    }

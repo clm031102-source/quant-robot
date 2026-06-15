@@ -18,8 +18,11 @@ def run_simulation(
     source: str = "fixture",
     data_root: str | Path = "data/processed",
     market: str = "ALL",
+    factor_source: str = "technical",
     factor_name: str = "momentum_2",
     factor_windows: tuple[int, ...] = (2, 3),
+    factor_input_root: str | Path | None = None,
+    moneyflow_input_root: str | Path | None = None,
     top_n: int = 2,
     rebalance_interval: int = 1,
     start_date: str | None = None,
@@ -27,6 +30,8 @@ def run_simulation(
     initial_cash: float = 100000.0,
     commission_bps: float = 5.0,
     slippage_bps: float = 5.0,
+    market_impact_bps: float = 0.0,
+    max_participation_rate: float | None = None,
     min_trade_value: float = 1.0,
     max_asset_weight: float = 1.0,
     max_market_weight: float = 1.0,
@@ -42,8 +47,11 @@ def run_simulation(
     positions = pd.read_csv(positions_csv) if positions_csv is not None else None
     config = PaperSimulationConfig(
         market=market,
+        factor_source=factor_source,
         factor_name=factor_name,
         factor_windows=factor_windows,
+        factor_input_root=Path(factor_input_root) if factor_input_root is not None else None,
+        moneyflow_input_root=Path(moneyflow_input_root) if moneyflow_input_root is not None else None,
         top_n=top_n,
         rebalance_interval=rebalance_interval,
         start_date=start_date,
@@ -51,6 +59,8 @@ def run_simulation(
         initial_cash=initial_cash,
         commission_bps=commission_bps,
         slippage_bps=slippage_bps,
+        market_impact_bps=market_impact_bps,
+        max_participation_rate=max_participation_rate,
         min_trade_value=min_trade_value,
         max_asset_weight=max_asset_weight,
         max_market_weight=max_market_weight,
@@ -72,8 +82,11 @@ def main() -> None:
     parser.add_argument("--source", choices=["fixture", "processed-bars"], default="fixture")
     parser.add_argument("--data-root", default="data/processed")
     parser.add_argument("--market", default="ALL")
+    parser.add_argument("--factor-source", choices=["technical", "tushare_daily_basic", "tushare_moneyflow"], default="technical")
     parser.add_argument("--factor", default="momentum_2")
     parser.add_argument("--factor-windows", default="2,3")
+    parser.add_argument("--factor-input-root")
+    parser.add_argument("--moneyflow-input-root")
     parser.add_argument("--top-n", default=2, type=int)
     parser.add_argument("--rebalance-interval", default=1, type=int)
     parser.add_argument("--start-date")
@@ -81,6 +94,8 @@ def main() -> None:
     parser.add_argument("--initial-cash", default=100000.0, type=float)
     parser.add_argument("--commission-bps", default=5.0, type=float)
     parser.add_argument("--slippage-bps", default=5.0, type=float)
+    parser.add_argument("--market-impact-bps", default=0.0, type=float)
+    parser.add_argument("--max-participation-rate", type=float)
     parser.add_argument("--min-trade-value", default=1.0, type=float)
     parser.add_argument("--max-asset-weight", default=1.0, type=float)
     parser.add_argument("--max-market-weight", default=1.0, type=float)
@@ -96,8 +111,11 @@ def main() -> None:
         source=args.source,
         data_root=Path(args.data_root),
         market=args.market,
+        factor_source=args.factor_source,
         factor_name=args.factor,
         factor_windows=_parse_windows(args.factor_windows),
+        factor_input_root=Path(args.factor_input_root) if args.factor_input_root else None,
+        moneyflow_input_root=Path(args.moneyflow_input_root) if args.moneyflow_input_root else None,
         top_n=args.top_n,
         rebalance_interval=args.rebalance_interval,
         start_date=args.start_date,
@@ -105,6 +123,8 @@ def main() -> None:
         initial_cash=args.initial_cash,
         commission_bps=args.commission_bps,
         slippage_bps=args.slippage_bps,
+        market_impact_bps=args.market_impact_bps,
+        max_participation_rate=args.max_participation_rate,
         min_trade_value=args.min_trade_value,
         max_asset_weight=args.max_asset_weight,
         max_market_weight=args.max_market_weight,

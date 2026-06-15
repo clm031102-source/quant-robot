@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
 
@@ -9,7 +10,7 @@ from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.research.pipeline import ResearchPipelineConfig, run_research_pipeline
 from quant_robot.storage.dataset_store import DatasetStore
 from quant_robot.storage.processed_bars import load_processed_bars
-from scripts.run_research_pipeline import load_research_bars
+from scripts.run_research_pipeline import build_research_config, load_research_bars
 
 
 class ResearchPipelineTests(unittest.TestCase):
@@ -30,6 +31,11 @@ class ResearchPipelineTests(unittest.TestCase):
             self.assertEqual(result["request"]["market"], "ALL")
             self.assertIn("annualized_return", result["metrics"])
             self.assertIn("icir", result["factor_summary"])
+            self.assertIn("ic_observations", result["factor_summary"])
+            self.assertIn("positive_ic_rate", result["factor_summary"])
+            self.assertIn("ic_t_stat", result["factor_summary"])
+            self.assertIn("ic_p_value", result["factor_summary"])
+            self.assertIn("significance_status", result["factor_summary"])
             self.assertGreater(result["artifact_rows"]["trades"], 0)
             self.assertTrue((Path(tmp) / "metrics.json").exists())
             self.assertTrue((Path(tmp) / "factor_summary.json").exists())
@@ -208,6 +214,170 @@ class ResearchPipelineTests(unittest.TestCase):
 
             self.assertEqual(set(result["market"]), {"CN", "CN_ETF", "HK", "US", "CRYPTO"})
 
+    def test_research_cli_config_builder_passes_factor_input_options(self):
+        args = SimpleNamespace(
+            factor="pb_inverse",
+            factor_source="tushare_daily_basic",
+            factor_windows="2,3",
+            market="CN",
+            start_date=None,
+            end_date=None,
+            forward_horizon=1,
+            execution_lag=1,
+            rebalance_interval=1,
+            top_n=1,
+            cost_bps=5.0,
+            portfolio_scope=None,
+            periods_per_year=None,
+            benchmark_asset_id=None,
+            cash_annual_return=0.0,
+            regime_filter=False,
+            regime_lookback=20,
+            min_relative_return=None,
+            max_drawdown_limit=None,
+            signal_start_date=None,
+            signal_end_date=None,
+            factor_input_root="data/processed/tushare_factor_inputs",
+            factor_input_required=True,
+            moneyflow_input_root=None,
+            output_dir="data/reports/research_pipeline",
+        )
+
+        config = build_research_config(args)
+
+        self.assertEqual(config.factor_name, "pb_inverse")
+        self.assertEqual(config.factor_source, "tushare_daily_basic")
+        self.assertEqual(config.factor_input_root, Path("data/processed/tushare_factor_inputs"))
+        self.assertTrue(config.factor_input_required)
+
+    def test_research_cli_config_builder_passes_moneyflow_input_root(self):
+        args = SimpleNamespace(
+            factor="net_mf_amount_ratio",
+            factor_source="tushare_moneyflow",
+            factor_windows="2,3",
+            market="CN",
+            start_date=None,
+            end_date=None,
+            forward_horizon=1,
+            execution_lag=1,
+            rebalance_interval=1,
+            top_n=1,
+            cost_bps=5.0,
+            portfolio_scope=None,
+            periods_per_year=None,
+            benchmark_asset_id=None,
+            cash_annual_return=0.0,
+            regime_filter=False,
+            regime_lookback=20,
+            min_relative_return=None,
+            max_drawdown_limit=None,
+            signal_start_date=None,
+            signal_end_date=None,
+            factor_input_root=None,
+            factor_input_required=False,
+            moneyflow_input_root="data/processed/tushare_moneyflow_inputs",
+            output_dir="data/reports/research_pipeline",
+        )
+
+        config = build_research_config(args)
+
+        self.assertEqual(config.factor_name, "net_mf_amount_ratio")
+        self.assertEqual(config.factor_source, "tushare_moneyflow")
+        self.assertEqual(config.moneyflow_input_root, Path("data/processed/tushare_moneyflow_inputs"))
+
+    def test_pipeline_rejects_tushare_daily_basic_without_execution_lag(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bars = load_demo_market_bars()
+            _write_daily_basic_factor_inputs(Path(tmp), bars)
+
+            config = ResearchPipelineConfig(
+                factor_name="pb_inverse",
+                factor_source="tushare_daily_basic",
+                factor_input_root=Path(tmp),
+                market="CN",
+                execution_lag=0,
+                top_n=1,
+            )
+
+            with self.assertRaisesRegex(ValueError, "execution_lag"):
+                run_research_pipeline(bars, config)
+
+    def test_pipeline_runs_tushare_daily_basic_factor_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bars = load_demo_market_bars()
+            _write_daily_basic_factor_inputs(Path(tmp), bars)
+
+            result = run_research_pipeline(
+                bars,
+                ResearchPipelineConfig(
+                    factor_name="pb_inverse",
+                    factor_source="tushare_daily_basic",
+                    factor_input_root=Path(tmp),
+                    factor_input_required=True,
+                    market="CN",
+                    top_n=1,
+                    execution_lag=1,
+                ),
+            )
+
+            self.assertEqual(result["request"]["factor_source"], "tushare_daily_basic")
+            self.assertEqual(result["request"]["factor_input_root"], str(Path(tmp)))
+            self.assertGreater(result["artifact_rows"]["factor_inputs"], 0)
+            self.assertGreater(result["artifact_rows"]["factors"], 0)
+            self.assertGreater(result["artifact_rows"]["ic"], 0)
+
+    def test_pipeline_rejects_tushare_moneyflow_without_execution_lag(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bars = load_demo_market_bars()
+            _write_moneyflow_inputs(Path(tmp), bars)
+
+            config = ResearchPipelineConfig(
+                factor_name="net_mf_amount_ratio",
+                factor_source="tushare_moneyflow",
+                moneyflow_input_root=Path(tmp),
+                market="CN",
+                execution_lag=0,
+                top_n=1,
+            )
+
+            with self.assertRaisesRegex(ValueError, "execution_lag"):
+                run_research_pipeline(bars, config)
+
+    def test_pipeline_runs_tushare_moneyflow_factor_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bars = load_demo_market_bars()
+            _write_moneyflow_inputs(Path(tmp), bars)
+
+            result = run_research_pipeline(
+                bars,
+                ResearchPipelineConfig(
+                    factor_name="net_mf_amount_ratio",
+                    factor_source="tushare_moneyflow",
+                    moneyflow_input_root=Path(tmp),
+                    market="CN",
+                    top_n=1,
+                    execution_lag=1,
+                ),
+            )
+
+            self.assertEqual(result["request"]["factor_source"], "tushare_moneyflow")
+            self.assertEqual(result["request"]["moneyflow_input_root"], str(Path(tmp)))
+            self.assertGreater(result["artifact_rows"]["factor_inputs"], 0)
+            self.assertGreater(result["artifact_rows"]["factors"], 0)
+            self.assertGreater(result["artifact_rows"]["ic"], 0)
+
+    def test_pipeline_requires_factor_input_root_when_requested(self):
+        with self.assertRaisesRegex(ValueError, "factor_input_root"):
+            run_research_pipeline(
+                load_demo_market_bars(),
+                ResearchPipelineConfig(
+                    factor_name="pb_inverse",
+                    factor_source="tushare_daily_basic",
+                    factor_input_required=True,
+                    market="CN",
+                ),
+            )
+
 
 def _falling_regime_bars() -> pd.DataFrame:
     rows = []
@@ -249,6 +419,71 @@ def _falling_regime_bars() -> pd.DataFrame:
                 }
             )
     return pd.DataFrame(rows)
+
+
+def _write_daily_basic_factor_inputs(root: Path, bars: pd.DataFrame) -> None:
+    cn_bars = bars[bars["market"] == "CN"].copy()
+    rows = []
+    for index, row in cn_bars.reset_index(drop=True).iterrows():
+        expensive = row["asset_id"].endswith("600519")
+        pb = 8.0 if expensive else 1.5
+        rows.append(
+            {
+                "date": row["date"],
+                "asset_id": row["asset_id"],
+                "symbol": row["symbol"],
+                "market": "CN",
+                "source": "tushare",
+                "turnover_rate": 1.0 + index * 0.01,
+                "turnover_rate_f": 1.1 + index * 0.01,
+                "volume_ratio": 0.9 + index * 0.01,
+                "pe_ttm": 20.0 if expensive else 8.0,
+                "pb": pb,
+                "ps_ttm": 6.0 if expensive else 2.0,
+                "dv_ttm": 1.5 if expensive else 3.0,
+                "total_mv": 300000.0 if expensive else 120000.0,
+                "circ_mv": 200000.0 if expensive else 90000.0,
+            }
+        )
+    frame = pd.DataFrame(rows)
+    DatasetStore(root).write_frame(
+        frame,
+        "processed/factor_inputs",
+        {"frequency": "1d", "market": "CN", "year": "2024"},
+    )
+
+
+def _write_moneyflow_inputs(root: Path, bars: pd.DataFrame) -> None:
+    cn_bars = bars[bars["market"] == "CN"].copy()
+    rows = []
+    for index, row in cn_bars.reset_index(drop=True).iterrows():
+        strong = row["asset_id"].endswith("600519")
+        scale = 1.0 + index * 0.01
+        net = 200.0 if strong else 50.0
+        rows.append(
+            {
+                "date": row["date"],
+                "asset_id": row["asset_id"],
+                "symbol": row["symbol"],
+                "market": "CN",
+                "source": "tushare_moneyflow",
+                "buy_sm_amount": 100.0 * scale,
+                "sell_sm_amount": 80.0 * scale,
+                "buy_md_amount": 300.0 * scale,
+                "sell_md_amount": 250.0 * scale,
+                "buy_lg_amount": 500.0 * scale,
+                "sell_lg_amount": 450.0 * scale,
+                "buy_elg_amount": 700.0 * scale,
+                "sell_elg_amount": 650.0 * scale,
+                "net_mf_amount": net,
+            }
+        )
+    frame = pd.DataFrame(rows)
+    DatasetStore(root).write_frame(
+        frame,
+        "processed/moneyflow_inputs",
+        {"frequency": "1d", "market": "CN", "year": "2024"},
+    )
 
 
 if __name__ == "__main__":

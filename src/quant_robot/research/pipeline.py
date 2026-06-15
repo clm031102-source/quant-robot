@@ -11,6 +11,8 @@ import pandas as pd
 from quant_robot.backtest.engine import run_factor_backtest
 from quant_robot.data.quality import validate_market_data
 from quant_robot.factors.technical import compute_basic_factors
+from quant_robot.factors.tushare_inputs import compute_daily_basic_factors
+from quant_robot.factors.tushare_moneyflow import compute_moneyflow_factors
 from quant_robot.reports.plots import write_line_svg
 from quant_robot.research.decision import (
     build_benchmark_curve,
@@ -22,12 +24,18 @@ from quant_robot.research.groups import quantile_group_returns
 from quant_robot.research.ic import compute_ic
 from quant_robot.research.labels import make_forward_returns
 from quant_robot.research.long_short import long_short_returns
+from quant_robot.storage.factor_inputs import load_factor_inputs
+from quant_robot.storage.moneyflow_inputs import load_moneyflow_inputs
 
 
 @dataclass(frozen=True)
 class ResearchPipelineConfig:
     factor_name: str = "momentum_2"
+    factor_source: str = "technical"
     factor_windows: tuple[int, ...] = (2, 3)
+    factor_input_root: Path | None = None
+    factor_input_required: bool = False
+    moneyflow_input_root: Path | None = None
     market: str = "ALL"
     start_date: str | None = None
     end_date: str | None = None
@@ -44,6 +52,11 @@ class ResearchPipelineConfig:
     regime_filter: bool = False
     regime_lookback: int = 20
     target_gross_exposure: float = 1.0
+    commission_bps: float | None = None
+    slippage_bps: float | None = None
+    market_impact_bps: float = 0.0
+    max_participation_rate: float | None = None
+    portfolio_value: float = 1_000_000.0
     min_relative_return: float | None = None
     max_drawdown_limit: float | None = None
     signal_start_date: str | None = None
@@ -56,7 +69,8 @@ def run_research_pipeline(bars: pd.DataFrame, config: ResearchPipelineConfig) ->
         raise ValueError("rebalance_interval must be at least 1")
     filtered = _filter_bars(bars, config)
     validate_market_data(filtered)
-    factors = compute_basic_factors(filtered, windows=config.factor_windows)
+    factor_inputs = _load_factor_input_frame(config)
+    factors = _compute_factor_source(filtered, factor_inputs, config)
     labels = make_forward_returns(filtered, horizons=(config.forward_horizon,), execution_lag=config.execution_lag)
     selected = factors[factors["factor_name"] == config.factor_name].dropna(subset=["factor_value"]).reset_index(drop=True)
     selected = _filter_signals(selected, config)
@@ -79,6 +93,11 @@ def run_research_pipeline(bars: pd.DataFrame, config: ResearchPipelineConfig) ->
         rebalance_interval=config.rebalance_interval,
         target_gross_exposure=config.target_gross_exposure,
         periods_per_year=periods_per_year,
+        commission_bps=config.commission_bps,
+        slippage_bps=config.slippage_bps,
+        market_impact_bps=config.market_impact_bps,
+        max_participation_rate=config.max_participation_rate,
+        portfolio_value=config.portfolio_value,
     )
     drawdown = _drawdown_curve(backtest.equity_curve)
     benchmark_curve = build_benchmark_curve(_comparison_bars(filtered, config), benchmark_asset_id=config.benchmark_asset_id)
@@ -106,6 +125,7 @@ def run_research_pipeline(bars: pd.DataFrame, config: ResearchPipelineConfig) ->
             "factor_summary": summary,
             "artifact_rows": {
                 "bars": len(filtered),
+                "factor_inputs": len(factor_inputs),
                 "factors": len(selected),
                 "labels": len(labels),
                 "ic": len(ic),
@@ -153,6 +173,68 @@ def _filter_bars(bars: pd.DataFrame, config: ResearchPipelineConfig) -> pd.DataF
     if config.end_date:
         frame = frame[pd.to_datetime(frame["date"]).dt.date <= pd.to_datetime(config.end_date).date()]
     return frame.sort_values(["asset_id", "date"]).reset_index(drop=True)
+
+
+def _load_factor_input_frame(config: ResearchPipelineConfig) -> pd.DataFrame:
+    factor_source = config.factor_source
+    if factor_source not in {"technical", "tushare_daily_basic", "tushare_moneyflow", "combined"}:
+        raise ValueError(f"Unsupported factor_source: {factor_source}")
+    if factor_source == "technical":
+        if config.factor_input_required and config.factor_input_root is None:
+            raise ValueError("factor_input_root is required when factor_input_required is true")
+        return pd.DataFrame()
+    if factor_source == "tushare_moneyflow":
+        return _load_tushare_moneyflow_inputs(config)
+    return _load_tushare_daily_basic_inputs(config)
+
+
+def _load_tushare_daily_basic_inputs(config: ResearchPipelineConfig) -> pd.DataFrame:
+    factor_source = config.factor_source
+    if config.execution_lag < 1:
+        raise ValueError("execution_lag must be at least 1 for Tushare daily-basic factors")
+    if config.factor_input_root is None:
+        if factor_source == "tushare_daily_basic" or config.factor_input_required:
+            raise ValueError("factor_input_root is required for Tushare daily-basic factor sources")
+        return pd.DataFrame()
+    market = config.market.upper()
+    if market == "ALL":
+        raise ValueError("Tushare daily-basic factor inputs require a specific CN market")
+    frame = load_factor_inputs(config.factor_input_root, market)
+    if config.start_date:
+        frame = frame[pd.to_datetime(frame["date"]).dt.date >= pd.to_datetime(config.start_date).date()]
+    if config.end_date:
+        frame = frame[pd.to_datetime(frame["date"]).dt.date <= pd.to_datetime(config.end_date).date()]
+    return frame.sort_values(["asset_id", "date"]).reset_index(drop=True)
+
+
+def _load_tushare_moneyflow_inputs(config: ResearchPipelineConfig) -> pd.DataFrame:
+    if config.execution_lag < 1:
+        raise ValueError("execution_lag must be at least 1 for Tushare moneyflow factors")
+    if config.moneyflow_input_root is None:
+        raise ValueError("moneyflow_input_root is required for Tushare moneyflow factor sources")
+    market = config.market.upper()
+    if market == "ALL":
+        raise ValueError("Tushare moneyflow inputs require a specific CN market")
+    frame = load_moneyflow_inputs(config.moneyflow_input_root, market)
+    if config.start_date:
+        frame = frame[pd.to_datetime(frame["date"]).dt.date >= pd.to_datetime(config.start_date).date()]
+    if config.end_date:
+        frame = frame[pd.to_datetime(frame["date"]).dt.date <= pd.to_datetime(config.end_date).date()]
+    return frame.sort_values(["asset_id", "date"]).reset_index(drop=True)
+
+
+def _compute_factor_source(bars: pd.DataFrame, factor_inputs: pd.DataFrame, config: ResearchPipelineConfig) -> pd.DataFrame:
+    if config.factor_source == "technical":
+        return compute_basic_factors(bars, windows=config.factor_windows)
+    if config.factor_source == "tushare_moneyflow":
+        return compute_moneyflow_factors(factor_inputs)
+    daily_basic = compute_daily_basic_factors(factor_inputs)
+    if config.factor_source == "tushare_daily_basic":
+        return daily_basic
+    technical = compute_basic_factors(bars, windows=config.factor_windows)
+    return pd.concat([technical, daily_basic], ignore_index=True).sort_values(
+        ["asset_id", "date", "factor_name"]
+    ).reset_index(drop=True)
 
 
 def _filter_signals(factors: pd.DataFrame, config: ResearchPipelineConfig) -> pd.DataFrame:
@@ -218,18 +300,64 @@ def _resolve_periods_per_year(config: ResearchPipelineConfig) -> float:
     return base_periods / float(max(config.rebalance_interval, 1))
 
 
-def _factor_summary(ic: pd.DataFrame) -> dict[str, float]:
+def _factor_summary(ic: pd.DataFrame) -> dict[str, float | int | str]:
     if ic.empty:
-        return {"mean_ic": 0.0, "mean_rank_ic": 0.0, "icir": 0.0}
+        return {
+            "mean_ic": 0.0,
+            "mean_rank_ic": 0.0,
+            "icir": 0.0,
+            "ic_observations": 0,
+            "positive_ic_rate": 0.0,
+            "ic_t_stat": 0.0,
+            "ic_p_value": 1.0,
+            "rank_ic_t_stat": 0.0,
+            "rank_ic_p_value": 1.0,
+            "significance_status": "insufficient_data",
+        }
     clean_ic = pd.to_numeric(ic["ic"], errors="coerce").dropna()
     clean_rank = pd.to_numeric(ic["rank_ic"], errors="coerce").dropna()
     mean_ic = float(clean_ic.mean()) if not clean_ic.empty else 0.0
     std_ic = float(clean_ic.std(ddof=0)) if not clean_ic.empty else 0.0
+    ic_t_stat, ic_p_value = _series_t_test(clean_ic)
+    rank_t_stat, rank_p_value = _series_t_test(clean_rank)
     return {
         "mean_ic": mean_ic,
         "mean_rank_ic": float(clean_rank.mean()) if not clean_rank.empty else 0.0,
         "icir": 0.0 if std_ic == 0.0 else float(mean_ic / std_ic),
+        "ic_observations": int(len(clean_ic)),
+        "positive_ic_rate": float((clean_ic > 0).mean()) if not clean_ic.empty else 0.0,
+        "ic_t_stat": ic_t_stat,
+        "ic_p_value": ic_p_value,
+        "rank_ic_t_stat": rank_t_stat,
+        "rank_ic_p_value": rank_p_value,
+        "significance_status": _significance_status(mean_ic, ic_p_value, len(clean_ic)),
     }
+
+
+def _series_t_test(values: pd.Series) -> tuple[float, float]:
+    clean = pd.to_numeric(values, errors="coerce").dropna()
+    observations = len(clean)
+    if observations < 2:
+        return 0.0, 1.0
+    mean = float(clean.mean())
+    std = float(clean.std(ddof=1))
+    if std == 0.0:
+        if mean == 0.0:
+            return 0.0, 1.0
+        return math.copysign(1e12, mean), 0.0
+    t_stat = mean / (std / math.sqrt(observations))
+    p_value = math.erfc(abs(t_stat) / math.sqrt(2.0))
+    return t_stat, max(min(p_value, 1.0), 0.0)
+
+
+def _significance_status(mean_ic: float, p_value: float, observations: int) -> str:
+    if observations < 2:
+        return "insufficient_data"
+    if p_value <= 0.05 and mean_ic > 0.0:
+        return "significant_positive"
+    if p_value <= 0.05 and mean_ic < 0.0:
+        return "significant_negative"
+    return "not_significant"
 
 
 def _drawdown_curve(equity_curve: pd.DataFrame) -> pd.DataFrame:
@@ -278,6 +406,8 @@ def _write_artifacts(
 def _config_dict(config: ResearchPipelineConfig, portfolio_scope: str, periods_per_year: float) -> dict[str, Any]:
     data = asdict(config)
     data["factor_windows"] = list(config.factor_windows)
+    data["factor_input_root"] = str(config.factor_input_root) if config.factor_input_root is not None else None
+    data["moneyflow_input_root"] = str(config.moneyflow_input_root) if config.moneyflow_input_root is not None else None
     data["portfolio_scope"] = portfolio_scope
     data["periods_per_year"] = periods_per_year
     data["output_dir"] = str(config.output_dir) if config.output_dir is not None else None

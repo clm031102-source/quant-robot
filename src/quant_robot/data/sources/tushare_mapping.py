@@ -3,7 +3,57 @@ from __future__ import annotations
 import pandas as pd
 
 
+MONEYFLOW_COLUMNS = [
+    "symbol",
+    "date",
+    "buy_sm_vol",
+    "buy_sm_amount",
+    "sell_sm_vol",
+    "sell_sm_amount",
+    "buy_md_vol",
+    "buy_md_amount",
+    "sell_md_vol",
+    "sell_md_amount",
+    "buy_lg_vol",
+    "buy_lg_amount",
+    "sell_lg_vol",
+    "sell_lg_amount",
+    "buy_elg_vol",
+    "buy_elg_amount",
+    "sell_elg_vol",
+    "sell_elg_amount",
+    "net_mf_vol",
+    "net_mf_amount",
+]
+
+DAILY_BASIC_COLUMNS = [
+    "symbol",
+    "date",
+    "turnover_rate",
+    "turnover_rate_f",
+    "volume_ratio",
+    "pe",
+    "pe_ttm",
+    "pb",
+    "ps",
+    "ps_ttm",
+    "dv_ratio",
+    "dv_ttm",
+    "total_share",
+    "float_share",
+    "free_share",
+    "total_mv",
+    "circ_mv",
+]
+
+_MONEYFLOW_NUMERIC_COLUMNS = [column for column in MONEYFLOW_COLUMNS if column not in {"symbol", "date"}]
+_DAILY_BASIC_NUMERIC_COLUMNS = [column for column in DAILY_BASIC_COLUMNS if column not in {"symbol", "date"}]
+
+
 def map_tushare_daily(frame: pd.DataFrame) -> pd.DataFrame:
+    output_columns = ["symbol", "date", "open", "high", "low", "close", "volume", "amount"]
+    if frame.empty:
+        return pd.DataFrame(columns=output_columns)
     required = ["ts_code", "trade_date", "open", "high", "low", "close", "vol", "amount"]
     _require_columns(frame, required, "tushare daily")
     mapped = pd.DataFrame(
@@ -18,7 +68,39 @@ def map_tushare_daily(frame: pd.DataFrame) -> pd.DataFrame:
             "amount": pd.to_numeric(frame["amount"], errors="coerce") * 1000.0,
         }
     )
-    return mapped.sort_values(["symbol", "date"]).reset_index(drop=True)
+    return mapped[output_columns].sort_values(["symbol", "date"]).reset_index(drop=True)
+
+
+def map_tushare_daily_basic(frame: pd.DataFrame) -> pd.DataFrame:
+    if frame.empty:
+        return pd.DataFrame(columns=DAILY_BASIC_COLUMNS)
+    _require_columns(frame, ["ts_code", "trade_date"], "tushare daily_basic")
+    source = frame.copy()
+    mapped = pd.DataFrame(
+        {
+            "symbol": source["ts_code"],
+            "date": pd.to_datetime(source["trade_date"], format="%Y%m%d").dt.date,
+        }
+    )
+    for column in _DAILY_BASIC_NUMERIC_COLUMNS:
+        mapped[column] = pd.to_numeric(source[column], errors="coerce") if column in source.columns else pd.NA
+    return mapped[DAILY_BASIC_COLUMNS].sort_values(["symbol", "date"]).reset_index(drop=True)
+
+
+def map_tushare_moneyflow(frame: pd.DataFrame) -> pd.DataFrame:
+    if frame.empty:
+        return pd.DataFrame(columns=MONEYFLOW_COLUMNS)
+    _require_columns(frame, ["ts_code", "trade_date"], "tushare moneyflow")
+    source = frame.copy()
+    mapped = pd.DataFrame(
+        {
+            "symbol": source["ts_code"],
+            "date": pd.to_datetime(source["trade_date"], format="%Y%m%d").dt.date,
+        }
+    )
+    for column in _MONEYFLOW_NUMERIC_COLUMNS:
+        mapped[column] = pd.to_numeric(source[column], errors="coerce") if column in source.columns else pd.NA
+    return mapped[MONEYFLOW_COLUMNS].sort_values(["symbol", "date"]).reset_index(drop=True)
 
 
 def map_tushare_adj_factor(frame: pd.DataFrame) -> pd.DataFrame:

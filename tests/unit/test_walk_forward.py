@@ -36,6 +36,10 @@ class WalkForwardTests(unittest.TestCase):
             self.assertEqual(len(leaderboard), 4)
             self.assertEqual(result["summary"]["cases"], 4)
             self.assertEqual({row["data_mode"] for row in leaderboard}, {"fixture"})
+            self.assertEqual({row["factor_source"] for row in leaderboard}, {"technical"})
+            self.assertEqual({row["hypothesis_count"] for row in leaderboard}, {4})
+            self.assertTrue(all("adjusted_ic_p_value" in row for row in leaderboard))
+            self.assertTrue(all("passes_adjusted_ic_p_value" in row for row in leaderboard))
             self.assertTrue(all(row["train_trades"] > 0 for row in leaderboard))
             self.assertTrue(all(row["test_trades"] > 0 for row in leaderboard))
             self.assertEqual([row["rank"] for row in leaderboard], list(range(1, 5)))
@@ -126,6 +130,37 @@ class WalkForwardTests(unittest.TestCase):
         self.assertEqual(result["leaderboard"][0]["test_status"], "completed")
         self.assertGreaterEqual(result["leaderboard"][0]["test_trades"], 1)
 
+    def test_walk_forward_supports_rolling_multi_fold_validation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = WalkForwardConfig(
+                split_date="2024-01-08",
+                experiment_grid=ExperimentGridConfig(
+                    markets=("CN_ETF",),
+                    factor_names=("momentum_2",),
+                    factor_windows=(2,),
+                    top_n_values=(1,),
+                    cost_bps_values=(0.0,),
+                ),
+                output_dir=Path(tmp),
+                min_test_sharpe=-999.0,
+                rolling_train_days=5,
+                rolling_test_days=4,
+                rolling_step_days=3,
+                min_accepted_folds=2,
+            )
+
+            result = run_walk_forward_validation(load_demo_market_bars(), config)
+
+            row = result["leaderboard"][0]
+            self.assertGreaterEqual(result["summary"]["folds"], 2)
+            self.assertGreaterEqual(row["folds"], 2)
+            self.assertGreaterEqual(row["accepted_folds"], 2)
+            self.assertIn("mean_test_sharpe", row)
+            self.assertIn("worst_test_max_drawdown", row)
+            self.assertIn("fold_rejection_reasons", row)
+            self.assertEqual(row["test_trades"], row["total_test_trades"])
+            self.assertTrue((Path(tmp) / "walk_forward_folds.csv").exists())
+
     def test_load_walk_forward_config_reads_nested_experiment_grid(self):
         with tempfile.TemporaryDirectory() as tmp:
             config_path = Path(tmp) / "walk_forward.json"
@@ -137,6 +172,7 @@ class WalkForwardTests(unittest.TestCase):
                         "min_test_sharpe": 0.5,
                         "experiment_grid": {
                             "markets": ["CN"],
+                            "factor_source": "tushare_daily_basic",
                             "factor_names": ["momentum_2"],
                             "factor_windows": [2],
                             "top_n_values": [1],
@@ -146,6 +182,11 @@ class WalkForwardTests(unittest.TestCase):
                         },
                         "min_test_relative_return": 0.02,
                         "max_test_drawdown": 0.20,
+                        "rolling_train_days": 252,
+                        "rolling_test_days": 63,
+                        "rolling_step_days": 21,
+                        "min_accepted_folds": 3,
+                        "multiple_testing_alpha": 0.01,
                     }
                 ),
                 encoding="utf-8",
@@ -159,9 +200,15 @@ class WalkForwardTests(unittest.TestCase):
             self.assertAlmostEqual(config.min_test_relative_return, 0.02)
             self.assertAlmostEqual(config.max_test_drawdown, 0.20)
             self.assertEqual(config.experiment_grid.markets, ("CN",))
+            self.assertEqual(config.experiment_grid.factor_source, "tushare_daily_basic")
             self.assertEqual(config.experiment_grid.cost_bps_values, (5.0,))
             self.assertEqual(config.experiment_grid.rebalance_intervals, (5,))
             self.assertEqual(config.experiment_grid.benchmark_asset_id, "CN_ETF_XSHG_510300")
+            self.assertEqual(config.rolling_train_days, 252)
+            self.assertEqual(config.rolling_test_days, 63)
+            self.assertEqual(config.rolling_step_days, 21)
+            self.assertEqual(config.min_accepted_folds, 3)
+            self.assertAlmostEqual(config.multiple_testing_alpha, 0.01)
 
 
 if __name__ == "__main__":

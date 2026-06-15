@@ -11,6 +11,8 @@ from quant_robot.data.adapters.base import FetchRequest, MarketDataAdapter, requ
 from quant_robot.data.sources.tushare_mapping import (
     map_tushare_adj_factor,
     map_tushare_daily,
+    map_tushare_daily_basic,
+    map_tushare_moneyflow,
     map_tushare_stock_basic,
     map_tushare_trade_cal,
 )
@@ -44,6 +46,14 @@ class TushareAdapter(MarketDataAdapter):
     def fetch_etf_daily_by_trade_date(self, trade_date: str) -> pd.DataFrame:
         raw = self._call(self.client.fund_daily, trade_date=_date_to_tushare(trade_date))
         return map_tushare_daily(raw)
+
+    def fetch_daily_basic_by_trade_date(self, trade_date: str) -> pd.DataFrame:
+        raw = self._call(self.client.daily_basic, trade_date=_date_to_tushare(trade_date))
+        return map_tushare_daily_basic(raw)
+
+    def fetch_moneyflow_by_trade_date(self, trade_date: str) -> pd.DataFrame:
+        raw = self._call(self.client.moneyflow, trade_date=_date_to_tushare(trade_date))
+        return map_tushare_moneyflow(raw)
 
     def fetch_adj_factor(self, ts_code: str = "", start_date: str = "", end_date: str = "") -> pd.DataFrame:
         raw = self._call(

@@ -17,7 +17,11 @@ def main() -> None:
     parser.add_argument("--data-root", default="data/processed")
     parser.add_argument("--market", default="ALL")
     parser.add_argument("--factor", default="momentum_2")
+    parser.add_argument("--factor-source", choices=["technical", "tushare_daily_basic", "tushare_moneyflow", "combined"], default="technical")
     parser.add_argument("--factor-windows", default="2,3")
+    parser.add_argument("--factor-input-root")
+    parser.add_argument("--factor-input-required", action="store_true")
+    parser.add_argument("--moneyflow-input-root")
     parser.add_argument("--top-n", default=2, type=int)
     parser.add_argument("--cost-bps", default=5.0, type=float)
     parser.add_argument("--forward-horizon", default=1, type=int)
@@ -38,9 +42,35 @@ def main() -> None:
     parser.add_argument("--output-dir", default="data/reports/research_pipeline")
     args = parser.parse_args()
     bars = load_research_bars(args.source, Path(args.data_root), args.market)
-    config = ResearchPipelineConfig(
+    config = build_research_config(args)
+    result = run_research_pipeline(bars, config)
+    print(
+        json.dumps(
+            {
+                "request": result["request"],
+                "metrics": result["metrics"],
+                "benchmark_metrics": result["benchmark_metrics"],
+                "decision": result["decision"],
+                "artifact_rows": result["artifact_rows"],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+
+
+def _parse_windows(value: str) -> tuple[int, ...]:
+    return tuple(int(part.strip()) for part in value.split(",") if part.strip())
+
+
+def build_research_config(args: argparse.Namespace) -> ResearchPipelineConfig:
+    return ResearchPipelineConfig(
         factor_name=args.factor,
+        factor_source=args.factor_source,
         factor_windows=_parse_windows(args.factor_windows),
+        factor_input_root=Path(args.factor_input_root) if args.factor_input_root else None,
+        factor_input_required=args.factor_input_required,
+        moneyflow_input_root=Path(args.moneyflow_input_root) if args.moneyflow_input_root else None,
         market=args.market,
         start_date=args.start_date,
         end_date=args.end_date,
@@ -61,24 +91,6 @@ def main() -> None:
         signal_end_date=args.signal_end_date,
         output_dir=Path(args.output_dir),
     )
-    result = run_research_pipeline(bars, config)
-    print(
-        json.dumps(
-            {
-                "request": result["request"],
-                "metrics": result["metrics"],
-                "benchmark_metrics": result["benchmark_metrics"],
-                "decision": result["decision"],
-                "artifact_rows": result["artifact_rows"],
-            },
-            indent=2,
-            sort_keys=True,
-        )
-    )
-
-
-def _parse_windows(value: str) -> tuple[int, ...]:
-    return tuple(int(part.strip()) for part in value.split(",") if part.strip())
 
 
 def load_research_bars(source: str, data_root: Path, market: str) -> object:

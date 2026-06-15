@@ -9,6 +9,7 @@ from pathlib import Path
 
 class TushareActivationGateCliTests(unittest.TestCase):
     def test_script_entrypoint_writes_blocked_pack_without_env_token(self):
+        repo_root = Path(__file__).resolve().parents[2]
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             profile_pack = root / "profile_observation_pack.json"
@@ -25,11 +26,12 @@ class TushareActivationGateCliTests(unittest.TestCase):
             report_dir = root / "activation"
             env = dict(os.environ)
             env["TUSHARE_TOKEN"] = ""
+            env["PYTHONPATH"] = str(repo_root / "src") + os.pathsep + env.get("PYTHONPATH", "")
 
             result = subprocess.run(
                 [
                     sys.executable,
-                    "scripts/run_tushare_activation_gate.py",
+                    str(repo_root / "scripts/run_tushare_activation_gate.py"),
                     "--profile-observation-pack",
                     str(profile_pack),
                     "--report-dir",
@@ -40,6 +42,7 @@ class TushareActivationGateCliTests(unittest.TestCase):
                 capture_output=True,
                 text=True,
                 env=env,
+                cwd=root,
             )
 
             payload = json.loads((report_dir / "tushare_activation_gate_pack.json").read_text(encoding="utf-8"))
@@ -50,7 +53,7 @@ class TushareActivationGateCliTests(unittest.TestCase):
         self.assertEqual(payload["status"], "blocked_missing_readiness")
         self.assertIn("TUSHARE_TOKEN is not set", payload["decision"]["blockers"])
         self.assertEqual(payload["next_actions"][0]["action"], "set_tushare_token_env")
-        self.assertNotIn("4743e70e52e8a48872d71135ffe6baadb391ac7075c2507189a964c0", serialized)
+        self.assertNotIn(("f" * 64), serialized)
         self.assertFalse(payload["live_boundary_allowed"])
 
 

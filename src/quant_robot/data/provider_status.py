@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 from collections.abc import Callable
+from datetime import date
 from typing import Any
 
 from quant_robot.config.secrets import get_env_secret
@@ -70,6 +71,7 @@ def build_provider_status(
             "missing": missing,
         }
     return {
+        "generated_at": date.today().isoformat(),
         "providers": providers,
         "parquet": check_parquet_readiness(dependency_available),
     }

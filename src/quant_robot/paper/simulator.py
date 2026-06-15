@@ -8,19 +8,27 @@ from typing import Any
 
 import pandas as pd
 
+from quant_robot.backtest.costs import capacity_limited, market_impact_cost_bps
 from quant_robot.backtest.portfolio import select_top_n
 from quant_robot.backtest.metrics import max_drawdown, summarize_returns
 from quant_robot.data.quality import validate_market_data
 from quant_robot.factors.technical import compute_basic_factors
+from quant_robot.factors.tushare_inputs import compute_daily_basic_factors
+from quant_robot.factors.tushare_moneyflow import compute_moneyflow_factors
 from quant_robot.portfolio.constraints import PortfolioConstraints, apply_portfolio_constraints
 from quant_robot.portfolio.rebalance import FORBIDDEN_REAL_ACCOUNT_COLUMNS, build_rebalance_plan
+from quant_robot.storage.factor_inputs import load_factor_inputs
+from quant_robot.storage.moneyflow_inputs import load_moneyflow_inputs
 
 
 @dataclass(frozen=True)
 class PaperSimulationConfig:
     market: str = "ALL"
+    factor_source: str = "technical"
     factor_name: str = "momentum_2"
     factor_windows: tuple[int, ...] = (2, 3)
+    factor_input_root: Path | None = None
+    moneyflow_input_root: Path | None = None
     top_n: int = 2
     rebalance_interval: int = 1
     start_date: str | None = None
@@ -28,6 +36,8 @@ class PaperSimulationConfig:
     initial_cash: float = 100000.0
     commission_bps: float = 5.0
     slippage_bps: float = 5.0
+    market_impact_bps: float = 0.0
+    max_participation_rate: float | None = None
     min_trade_value: float = 1.0
     max_asset_weight: float = 1.0
     max_market_weight: float = 1.0
@@ -52,7 +62,7 @@ def run_paper_simulation(
     positions = _initial_positions(initial_positions)
     filtered = _filter_bars(bars, config)
     validate_market_data(filtered)
-    factors = compute_basic_factors(filtered, windows=config.factor_windows)
+    factors = _compute_factors(filtered, config)
     dates = sorted(pd.to_datetime(filtered["date"]).dt.date.unique())
     factor_slices = _factor_slices_by_date(factors, config.factor_name, dates)
     valuation_prices_by_date = _latest_prices_by_date(filtered, dates)
@@ -116,6 +126,8 @@ def run_paper_simulation(
             execution_prices,
             config.commission_bps,
             config.slippage_bps,
+            config.market_impact_bps,
+            config.max_participation_rate,
             cash,
             respect_execution_constraints=config.respect_execution_constraints,
         )
@@ -130,7 +142,7 @@ def run_paper_simulation(
             guard_events.append(trigger_event)
 
     equity_curve = _equity_curve(equity_rows)
-    metrics = _metrics(equity_curve, cash, positions, filtered, config, guard_events, execution_events)
+    metrics = _metrics(equity_curve, cash, positions, filtered, config, guard_events, execution_events, fills)
     result = _sanitize(
         {
             "data_mode": "fixture" if set(filtered["source"].astype(str)) == {"fixture"} else "research",
@@ -177,6 +189,32 @@ def _filter_bars(bars: pd.DataFrame, config: PaperSimulationConfig) -> pd.DataFr
     if frame.empty:
         raise ValueError("No bars available for paper simulation")
     return frame.sort_values(["asset_id", "date"]).reset_index(drop=True)
+
+
+def _compute_factors(bars: pd.DataFrame, config: PaperSimulationConfig) -> pd.DataFrame:
+    if config.factor_source == "technical":
+        return compute_basic_factors(bars, windows=config.factor_windows)
+    if config.factor_source == "tushare_moneyflow":
+        if config.moneyflow_input_root is None:
+            raise ValueError("moneyflow_input_root is required for Tushare moneyflow paper simulation")
+        if config.market.upper() == "ALL":
+            raise ValueError("Tushare moneyflow paper simulation requires a specific market")
+        moneyflow_inputs = load_moneyflow_inputs(config.moneyflow_input_root, config.market.upper())
+        moneyflow_inputs = moneyflow_inputs[moneyflow_inputs["asset_id"].isin(set(bars["asset_id"].astype(str)))].reset_index(drop=True)
+        if moneyflow_inputs.empty:
+            raise ValueError("No moneyflow inputs available for paper simulation")
+        return compute_moneyflow_factors(moneyflow_inputs)
+    if config.factor_source != "tushare_daily_basic":
+        raise ValueError(f"Unsupported paper simulation factor_source: {config.factor_source}")
+    if config.factor_input_root is None:
+        raise ValueError("factor_input_root is required for Tushare daily-basic paper simulation")
+    if config.market.upper() == "ALL":
+        raise ValueError("Tushare daily-basic paper simulation requires a specific market")
+    factor_inputs = load_factor_inputs(config.factor_input_root, config.market.upper())
+    factor_inputs = factor_inputs[factor_inputs["asset_id"].isin(set(bars["asset_id"].astype(str)))].reset_index(drop=True)
+    if factor_inputs.empty:
+        raise ValueError("No factor inputs available for paper simulation")
+    return compute_daily_basic_factors(factor_inputs)
 
 
 def _initial_positions(initial_positions: pd.DataFrame | None) -> dict[str, float]:
@@ -241,7 +279,7 @@ def _current_prices_by_date(bars: pd.DataFrame, dates: list[Any]) -> dict[Any, p
     frame = bars.copy()
     frame["_date_key"] = pd.to_datetime(frame["date"]).dt.date
     prices: dict[Any, pd.DataFrame] = {}
-    optional = [column for column in ("suspended", "limit_up", "limit_down") if column in frame.columns]
+    optional = [column for column in ("amount", "suspended", "limit_up", "limit_down") if column in frame.columns]
     columns = ["asset_id", "market", "adj_close", "volume", *optional]
     empty = pd.DataFrame(columns=["asset_id", "market", "latest_price", "volume", *optional])
     for date, group in frame.groupby("_date_key"):
@@ -324,6 +362,8 @@ def _simulate_fills(
     execution_prices: pd.DataFrame,
     commission_bps: float,
     slippage_bps: float,
+    market_impact_bps: float,
+    max_participation_rate: float | None,
     available_cash: float,
     respect_execution_constraints: bool = True,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -366,6 +406,11 @@ def _simulate_fills(
             fee = notional * commission_bps / 10000.0
         if quantity <= 1e-12:
             continue
+        participation_rate = _participation_rate(quantity, fill_price, price_row)
+        impact_bps = market_impact_cost_bps(market_impact_bps, participation_rate, max_participation_rate)
+        market_impact_fee = notional * impact_bps / 10000.0
+        capacity_flag = capacity_limited(participation_rate, max_participation_rate)
+        fee += market_impact_fee
         cash += notional - fee if signed_quantity < 0.0 else -(notional + fee)
         fills.append(
             {
@@ -381,11 +426,25 @@ def _simulate_fills(
                 "fill_price": fill_price,
                 "notional": notional,
                 "fee": fee,
+                "commission_fee": notional * commission_bps / 10000.0,
+                "market_impact_fee": market_impact_fee,
+                "participation_rate": participation_rate,
+                "capacity_limited": capacity_flag,
                 "fill_type": "simulated",
                 "broker_order_id": None,
             }
         )
     return fills, execution_events
+
+
+def _participation_rate(quantity: float, fill_price: float, price_row: dict[str, Any]) -> float:
+    try:
+        amount = float(price_row.get("amount", 0.0))
+    except (TypeError, ValueError):
+        return 0.0
+    if amount <= 0.0:
+        return 0.0
+    return abs(float(quantity)) * float(fill_price) / amount
 
 
 def _execution_blocking_reason(intent: dict[str, Any], price_row: dict[str, Any], enabled: bool) -> str | None:
@@ -513,6 +572,7 @@ def _metrics(
     config: PaperSimulationConfig,
     guard_events: list[dict[str, Any]],
     execution_events: list[dict[str, Any]],
+    fills: list[dict[str, Any]],
 ) -> dict[str, float]:
     periods = _resolve_periods_per_year(config)
     summary = summarize_returns(equity_curve["period_return"] if not equity_curve.empty else pd.Series(dtype=float), periods_per_year=periods)
@@ -531,6 +591,9 @@ def _metrics(
             "max_equity_drawdown": max_drawdown(equity_curve["equity"]) if not equity_curve.empty else 0.0,
             "guard_event_count": float(len(guard_events)),
             "execution_block_event_count": float(len(execution_events)),
+            "capacity_limited_fills": float(sum(1 for fill in fills if fill.get("capacity_limited"))),
+            "max_participation_rate": max((float(fill.get("participation_rate", 0.0)) for fill in fills), default=0.0),
+            "market_impact_fee": sum(float(fill.get("market_impact_fee", 0.0)) for fill in fills),
         }
     )
     return summary
@@ -564,6 +627,8 @@ def _sanitize(value: Any) -> Any:
         return [_sanitize(item) for item in value]
     if isinstance(value, tuple):
         return [_sanitize(item) for item in value]
+    if isinstance(value, Path):
+        return str(value)
     if isinstance(value, pd.Timestamp):
         return value.isoformat()
     if hasattr(value, "isoformat") and value.__class__.__module__ == "datetime":

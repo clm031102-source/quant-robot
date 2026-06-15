@@ -40,6 +40,8 @@ class PaperProfileOptimizerConfig:
     initial_cash: float = 100000.0
     commission_bps: float = 5.0
     slippage_bps: float = 5.0
+    market_impact_bps: float = 0.0
+    max_participation_rate: float | None = None
     min_trade_value: float = 1.0
     min_paper_sharpe: float = 0.5
     max_drawdown_limit: float = 0.2
@@ -62,6 +64,10 @@ def load_paper_profile_optimizer_config(path: str | Path = DEFAULT_CONFIG) -> Pa
         initial_cash=float(data.get("initial_cash", PaperProfileOptimizerConfig.initial_cash)),
         commission_bps=float(data.get("commission_bps", PaperProfileOptimizerConfig.commission_bps)),
         slippage_bps=float(data.get("slippage_bps", PaperProfileOptimizerConfig.slippage_bps)),
+        market_impact_bps=float(data.get("market_impact_bps", PaperProfileOptimizerConfig.market_impact_bps)),
+        max_participation_rate=(
+            float(data["max_participation_rate"]) if data.get("max_participation_rate") is not None else None
+        ),
         min_trade_value=float(data.get("min_trade_value", PaperProfileOptimizerConfig.min_trade_value)),
         min_paper_sharpe=float(data.get("min_paper_sharpe", PaperProfileOptimizerConfig.min_paper_sharpe)),
         max_drawdown_limit=float(data.get("max_drawdown_limit", PaperProfileOptimizerConfig.max_drawdown_limit)),
@@ -235,6 +241,8 @@ def _run_profile_attempt(candidate: dict[str, Any], profile: dict[str, Any], con
             initial_cash=config.initial_cash,
             commission_bps=config.commission_bps,
             slippage_bps=config.slippage_bps,
+            market_impact_bps=config.market_impact_bps,
+            max_participation_rate=config.max_participation_rate,
             min_trade_value=config.min_trade_value,
             max_asset_weight=_float(profile.get("max_asset_weight"), 1.0),
             max_market_weight=_float(profile.get("max_market_weight"), 1.0),
@@ -484,6 +492,8 @@ def _config_dict(config: PaperProfileOptimizerConfig) -> dict[str, Any]:
         "initial_cash": config.initial_cash,
         "commission_bps": config.commission_bps,
         "slippage_bps": config.slippage_bps,
+        "market_impact_bps": config.market_impact_bps,
+        "max_participation_rate": config.max_participation_rate,
         "min_trade_value": config.min_trade_value,
         "min_paper_sharpe": config.min_paper_sharpe,
         "max_drawdown_limit": config.max_drawdown_limit,

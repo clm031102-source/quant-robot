@@ -35,6 +35,21 @@ class ResearchTests(unittest.TestCase):
 
         self.assertAlmostEqual(result.loc[0, "ic"], 1.0)
         self.assertAlmostEqual(result.loc[0, "rank_ic"], 1.0)
+        self.assertEqual(result.loc[0, "count"], 4)
+
+    def test_compute_ic_includes_significance_evidence(self):
+        labels = self.labels.copy()
+        labels["forward_return"] = [0.01, 0.04, 0.02, 0.05]
+
+        result = compute_ic(self.factors, labels)
+
+        self.assertIn("ic_t_stat", result.columns)
+        self.assertIn("ic_p_value", result.columns)
+        self.assertIn("rank_ic_t_stat", result.columns)
+        self.assertIn("rank_ic_p_value", result.columns)
+        self.assertGreater(result.loc[0, "ic_t_stat"], 0.0)
+        self.assertGreaterEqual(result.loc[0, "ic_p_value"], 0.0)
+        self.assertLessEqual(result.loc[0, "ic_p_value"], 1.0)
 
     def test_quantile_group_returns(self):
         result = quantile_group_returns(self.factors, self.labels, quantiles=2)

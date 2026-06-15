@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import asdict, dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +32,14 @@ class PromotionGateConfig:
     dedupe_similar_candidates: bool = True
     duplicate_similarity_threshold: float = 0.98
     duplicate_min_events: int = 3
+    min_walk_forward_folds: int = 1
+    min_accepted_folds: int = 1
+    max_ic_p_value: float | None = None
+    min_positive_ic_rate: float | None = None
+    required_factor_source: str | None = None
+    max_adjusted_ic_p_value: float | None = None
+    require_provider_ready_for_promotion: bool = False
+    max_provider_status_age_days: int | None = None
 
 
 def load_promotion_gate_config(path: str | Path) -> PromotionGateConfig:
@@ -56,6 +65,20 @@ def load_promotion_gate_config(path: str | Path) -> PromotionGateConfig:
         dedupe_similar_candidates=bool(data.get("dedupe_similar_candidates", PromotionGateConfig.dedupe_similar_candidates)),
         duplicate_similarity_threshold=float(data.get("duplicate_similarity_threshold", PromotionGateConfig.duplicate_similarity_threshold)),
         duplicate_min_events=int(data.get("duplicate_min_events", PromotionGateConfig.duplicate_min_events)),
+        min_walk_forward_folds=int(data.get("min_walk_forward_folds", PromotionGateConfig.min_walk_forward_folds)),
+        min_accepted_folds=int(data.get("min_accepted_folds", PromotionGateConfig.min_accepted_folds)),
+        max_ic_p_value=float(data["max_ic_p_value"]) if data.get("max_ic_p_value") is not None else None,
+        min_positive_ic_rate=float(data["min_positive_ic_rate"]) if data.get("min_positive_ic_rate") is not None else None,
+        required_factor_source=str(data["required_factor_source"]) if data.get("required_factor_source") else None,
+        max_adjusted_ic_p_value=(
+            float(data["max_adjusted_ic_p_value"]) if data.get("max_adjusted_ic_p_value") is not None else None
+        ),
+        require_provider_ready_for_promotion=bool(
+            data.get("require_provider_ready_for_promotion", PromotionGateConfig.require_provider_ready_for_promotion)
+        ),
+        max_provider_status_age_days=(
+            int(data["max_provider_status_age_days"]) if data.get("max_provider_status_age_days") is not None else None
+        ),
     )
 
 
@@ -136,8 +159,19 @@ def _candidate_report(
     test_relative_return = _metric(row, "test_relative_return")
     test_max_drawdown = _metric(row, "test_max_drawdown")
     stability_score = _metric(row, "stability_score")
+    folds = _maybe_int(row.get("folds"))
+    accepted_folds = _maybe_int(row.get("accepted_folds"))
+    test_ic_p_value = _maybe_float(row.get("test_ic_p_value"))
+    test_positive_ic_rate = _maybe_float(row.get("test_positive_ic_rate"))
+    factor_source = _optional_text(row.get("factor_source"))
+    adjusted_ic_p_value = _maybe_float(row.get("adjusted_ic_p_value"))
+    passes_adjusted_ic_p_value = _maybe_bool(row.get("passes_adjusted_ic_p_value"))
+    hypothesis_count = _maybe_int(row.get("hypothesis_count"))
 
     blocking.extend(_missing_walk_forward_metrics(row, config))
+    blocking.extend(_walk_forward_evidence_reasons(folds, accepted_folds, test_ic_p_value, test_positive_ic_rate, config))
+    blocking.extend(_factor_source_reasons(factor_source, config))
+    blocking.extend(_adjusted_ic_evidence_reasons(adjusted_ic_p_value, passes_adjusted_ic_p_value, config))
     if validation_status != "accepted":
         blocking.append("walk_forward_not_accepted")
     if config.require_non_fixture_data and data_mode == "fixture":
@@ -158,10 +192,9 @@ def _candidate_report(
     warnings.extend(paper_summary["warnings"])
 
     providers_ready = _providers_ready(provider_status)
-    if not providers_ready:
-        warnings.append("providers_not_ready_for_live_review")
-    if provider_status is None:
-        warnings.append("provider_status_missing")
+    provider_reasons = _provider_reasons(provider_status, providers_ready, config)
+    blocking.extend(provider_reasons["blocking"])
+    warnings.extend(provider_reasons["warnings"])
 
     research_warnings = []
     if test_sharpe < config.min_oos_sharpe:
@@ -185,6 +218,7 @@ def _candidate_report(
         {
             "case_id": case_id,
             "market": row.get("market"),
+            "factor_source": factor_source,
             "factor_name": row.get("factor_name"),
             "top_n": _maybe_int(row.get("top_n")),
             "cost_bps": _maybe_float(row.get("cost_bps")),
@@ -200,6 +234,14 @@ def _candidate_report(
                 "test_relative_return": test_relative_return,
                 "test_max_drawdown": test_max_drawdown,
                 "stability_score": stability_score,
+                "folds": folds,
+                "accepted_folds": accepted_folds,
+                "test_ic_p_value": test_ic_p_value,
+                "test_positive_ic_rate": test_positive_ic_rate,
+                "factor_source": factor_source,
+                "hypothesis_count": hypothesis_count,
+                "adjusted_ic_p_value": adjusted_ic_p_value,
+                "passes_adjusted_ic_p_value": passes_adjusted_ic_p_value,
             },
             "experiment": _experiment_summary(experiment_row),
             "paper": {
@@ -379,10 +421,16 @@ def _quality_reasons(quality_report: dict[str, Any] | None) -> dict[str, list[st
     warnings = []
     if _metric(quality_report, "duplicate_bars") > 0:
         blocking.append("duplicate_bars_present")
+    if _metric(quality_report, "extreme_return_rows") > 0:
+        blocking.append("extreme_returns_present")
+    if _metric(quality_report, "adj_close_jump_rows") > 0:
+        blocking.append("adj_close_jumps_present")
     if _metric(quality_report, "missing_date_rows") > 0:
         warnings.append("missing_dates_present")
     if _metric(quality_report, "zero_volume_rows") > 0:
         warnings.append("zero_volume_rows_present")
+    if _metric(quality_report, "stale_price_rows") > 0:
+        warnings.append("stale_price_rows_present")
     return {"blocking": blocking, "warnings": warnings}
 
 
@@ -396,6 +444,52 @@ def _missing_walk_forward_metrics(row: dict[str, Any], config: PromotionGateConf
     if config.min_oos_relative_return is not None:
         required["test_relative_return"] = "oos_relative_return_missing"
     return [reason for metric, reason in required.items() if not _metric_present(row, metric)]
+
+
+def _walk_forward_evidence_reasons(
+    folds: int | None,
+    accepted_folds: int | None,
+    test_ic_p_value: float | None,
+    test_positive_ic_rate: float | None,
+    config: PromotionGateConfig,
+) -> list[str]:
+    reasons = []
+    if config.min_walk_forward_folds > 1 and (folds is None or folds < config.min_walk_forward_folds):
+        reasons.append("insufficient_walk_forward_folds")
+    if config.min_accepted_folds > 1 and (accepted_folds is None or accepted_folds < config.min_accepted_folds):
+        reasons.append("insufficient_accepted_folds")
+    if config.max_ic_p_value is not None and (test_ic_p_value is None or test_ic_p_value > config.max_ic_p_value):
+        reasons.append("ic_significance_below_threshold")
+    if config.min_positive_ic_rate is not None and (
+        test_positive_ic_rate is None or test_positive_ic_rate < config.min_positive_ic_rate
+    ):
+        reasons.append("positive_ic_rate_below_threshold")
+    return reasons
+
+
+def _factor_source_reasons(factor_source: str | None, config: PromotionGateConfig) -> list[str]:
+    if config.required_factor_source is None:
+        return []
+    if factor_source != config.required_factor_source:
+        return ["factor_source_mismatch"]
+    return []
+
+
+def _adjusted_ic_evidence_reasons(
+    adjusted_ic_p_value: float | None,
+    passes_adjusted_ic_p_value: bool | None,
+    config: PromotionGateConfig,
+) -> list[str]:
+    if config.max_adjusted_ic_p_value is None:
+        return []
+    reasons = []
+    if adjusted_ic_p_value is None:
+        reasons.append("adjusted_ic_p_value_missing")
+    elif adjusted_ic_p_value > config.max_adjusted_ic_p_value:
+        reasons.append("adjusted_ic_p_value_above_threshold")
+    if passes_adjusted_ic_p_value is not True:
+        reasons.append("adjusted_ic_significance_not_passed")
+    return reasons
 
 
 def _experiment_summary(row: dict[str, Any] | None) -> dict[str, Any]:
@@ -442,6 +536,40 @@ def _providers_ready(provider_status: dict[str, Any] | None) -> bool:
         return False
     ready_values = [provider.get("ready") for provider in providers.values() if isinstance(provider, dict)]
     return bool(ready_values) and all(bool(value) for value in ready_values)
+
+
+def _provider_reasons(
+    provider_status: dict[str, Any] | None,
+    providers_ready: bool,
+    config: PromotionGateConfig,
+) -> dict[str, list[str]]:
+    blocking = []
+    warnings = []
+    if provider_status is None:
+        warnings.append("provider_status_missing")
+        if config.require_provider_ready_for_promotion:
+            blocking.append("providers_not_ready_for_promotion")
+        if config.max_provider_status_age_days is not None:
+            blocking.append("provider_status_timestamp_missing")
+        return {"blocking": blocking, "warnings": warnings}
+    if not providers_ready:
+        warnings.append("providers_not_ready_for_live_review")
+        if config.require_provider_ready_for_promotion:
+            blocking.append("providers_not_ready_for_promotion")
+    if config.max_provider_status_age_days is not None:
+        generated_at = _parse_date(provider_status.get("generated_at"))
+        if generated_at is None:
+            blocking.append("provider_status_timestamp_missing")
+        elif (date.today() - generated_at).days > config.max_provider_status_age_days:
+            blocking.append("provider_status_stale")
+    return {"blocking": blocking, "warnings": warnings}
+
+
+def _parse_date(value: Any) -> date | None:
+    try:
+        return date.fromisoformat(str(value))
+    except (TypeError, ValueError):
+        return None
 
 
 def _summary(candidates: list[dict[str, Any]]) -> dict[str, int]:
@@ -538,6 +666,26 @@ def _maybe_float(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
     return number if math.isfinite(number) else None
+
+
+def _maybe_bool(value: Any) -> bool | None:
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return None
+    text = str(value).strip().lower()
+    if text in {"true", "1", "yes", "y"}:
+        return True
+    if text in {"false", "0", "no", "n"}:
+        return False
+    return None
+
+
+def _optional_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
 
 
 def _dedupe(values: list[str]) -> list[str]:
