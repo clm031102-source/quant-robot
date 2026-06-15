@@ -37,6 +37,13 @@ class ProfileObservationTests(unittest.TestCase):
             "risk_policy": {"max_drawdown_limit": -0.3},
             "signal": {"signal_date": "2026-05-22", "target_gross_exposure": 0.6, "cash_weight": 0.4},
             "simulation": {"fills": 171, "guard_events": 712, "execution_events": 0},
+            "advisory_tickets": [
+                {
+                    "asset_id": "CN_ETF_XSHG_516160",
+                    "ticket_type": "advisory_rebalance",
+                    "live_order_allowed": False,
+                }
+            ],
         }
         simulation_manifest = {
             "request": {
@@ -73,6 +80,8 @@ class ProfileObservationTests(unittest.TestCase):
         self.assertEqual(pack["ledger"][0]["profile_id"], "cap60_guard12_cd3")
         self.assertEqual(pack["ledger"][0]["risk_tier"], "aggressive_growth")
         self.assertEqual(pack["ledger"][0]["signal_age_days"], 23)
+        self.assertEqual(pack["observed_assets"], ["CN_ETF_XSHG_516160"])
+        self.assertEqual(pack["ledger"][0]["observed_assets"], "CN_ETF_XSHG_516160")
         self.assertEqual(pack["next_actions"][0]["action"], "refresh_tushare_recent_data")
         self.assertFalse(pack["live_boundary_allowed"])
 

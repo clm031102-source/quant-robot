@@ -63,6 +63,7 @@ class PostRefreshReplayTests(unittest.TestCase):
                             "signal_data_stale_cleared": True,
                             "blockers": [],
                         },
+                        "target_window": {"start_date": "2026-06-01", "end_date": "2026-06-14"},
                         "coverage": {"coverage_status": "pass", "processed_rows": 46},
                     }
                 ),
@@ -113,8 +114,10 @@ class PostRefreshReplayTests(unittest.TestCase):
         self.assertEqual(pack["decision"]["blockers"], [])
         self.assertEqual(calls["daily"]["data_root"], processed)
         self.assertEqual(calls["daily"]["source"], "processed-bars")
+        self.assertEqual(calls["daily"]["run_date"], "2026-06-14")
         self.assertEqual(calls["observation"]["daily_ops_pack"], report_dir / "daily_ops" / "daily_ops_pack.json")
         self.assertEqual(calls["observation"]["simulation_dir"], report_dir / "daily_ops" / "paper_simulation")
+        self.assertEqual(calls["observation"]["run_date"], "2026-06-14")
         self.assertTrue(artifact_exists)
         self.assertTrue(markdown_exists)
         self.assertTrue(actions_exists)

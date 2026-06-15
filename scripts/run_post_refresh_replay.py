@@ -50,6 +50,7 @@ def run_post_refresh_replay(
 
     daily_runner = daily_ops_runner or run_daily_ops
     observation_runner = profile_observation_runner or run_profile_observation
+    effective_run_date = run_date or _target_end(recent_pack)
     daily_ops_pack: dict[str, Any] = {}
     observation_pack: dict[str, Any] = {}
     replay_error: dict[str, Any] | None = None
@@ -59,7 +60,7 @@ def run_post_refresh_replay(
             readiness_board=Path(readiness_board),
             paper_profile_pack=Path(paper_profile_pack),
             output_dir=daily_ops_output_dir,
-            run_date=run_date,
+            run_date=effective_run_date,
             data_root=Path(str(recent_pack.get("output_dir", ""))),
             source="processed-bars",
             portfolio_value=portfolio_value,
@@ -70,7 +71,7 @@ def run_post_refresh_replay(
             daily_ops_pack=daily_ops_output_dir / "daily_ops_pack.json",
             simulation_dir=daily_ops_output_dir / "paper_simulation",
             output_dir=observation_output_dir,
-            run_date=run_date,
+            run_date=effective_run_date,
         )
     except Exception as exc:  # pragma: no cover - exact exception type depends on downstream workflow
         replay_error = {"stage": "post_refresh_downstream", "error": str(exc)}
@@ -129,6 +130,12 @@ def main() -> None:
 def _recent_refresh_ready(pack: dict[str, Any]) -> bool:
     decision = pack.get("decision", {}) if isinstance(pack.get("decision"), dict) else {}
     return bool(decision.get("recent_data_ready", False) and decision.get("signal_data_stale_cleared", False))
+
+
+def _target_end(pack: dict[str, Any]) -> str | None:
+    target = pack.get("target_window", {}) if isinstance(pack.get("target_window"), dict) else {}
+    value = target.get("end_date")
+    return str(value)[:10] if value else None
 
 
 def _read_json(path: Path) -> dict[str, Any]:

@@ -20,15 +20,26 @@ It is also exposed in the local GUI through `/api/risk/tushare-activation-gate`.
 
 ## Current real-data status
 
-The real Tushare run remains blocked at readiness:
+The real Tushare execute run now clears the paper-observation gate:
 
-- Status: `blocked_missing_readiness`
-- Blocker: `TUSHARE_TOKEN is not set`
-- Recent data ready: `false`
-- Paper continuation allowed: `false`
+- Status: `paper_observation_ready`
+- Source: `tushare`
+- Mode: `execute`
+- Tushare readiness: `true`
+- Recent data ready: `true`
+- Activation chain allowed: `true`
+- Paper continuation allowed: `true`
+- Final observation sufficiency: `sufficient`
+- Final fills: `21 / 20`
+- Iterative expansion: `completed` after 2 rounds
+- Blockers: none
 - Live boundary allowed: `false`
 
-This means the project still has not executed a real Tushare download in this environment. The raw token must be set locally as an environment variable before a real execute run can proceed.
+The real run uses the token only from the local process environment. Do not commit the token or paste it into docs.
+
+Recent refresh still records full-provider data-quality warnings, including `226` provider-level missing date rows, but the activation decision is scoped to the observed advisory asset when available. The required asset `CN_ETF_XSHG_516160` covered the adjusted trading window from `2026-05-25` through `2026-06-12`, so the recent-data gate cleared.
+
+The first post-refresh replay produced only `3 / 20` fills, so the chain expanded the observation window. Round 2 replay aligned the paper run date with the expanded window end, cleared `signal_data_stale`, and produced `21 / 20` fills.
 
 ## Fixture proof
 
@@ -69,4 +80,4 @@ Dry-run readiness check:
 
 This stage is research-to-paper only. It does not connect to a broker, read account data, place orders, or approve live trading.
 
-The next real step is to set `TUSHARE_TOKEN` in the local environment and rerun the activation gate. After that, the system should decide from artifacts whether paper observation can continue on real refreshed data.
+The next real step is continued paper observation and broader robustness validation. This gate is not permission to trade live.

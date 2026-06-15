@@ -56,6 +56,8 @@ def run_expanded_observation_replay(
     post_pack: dict[str, Any] = {}
     final_sufficiency: dict[str, Any] = {}
     replay_error: dict[str, Any] | None = None
+    suggested_start = str(recommendation.get("suggested_start_date"))
+    suggested_end = str(recommendation.get("suggested_end_date"))
     try:
         recent_pack = recent_runner(
             profile_observation_pack=Path(profile_observation_pack),
@@ -63,13 +65,14 @@ def run_expanded_observation_replay(
             market=market,
             output_dir=recent_output_dir,
             report_dir=recent_report_dir,
-            start_date=str(recommendation.get("suggested_start_date")),
-            end_date=str(recommendation.get("suggested_end_date")),
+            start_date=suggested_start,
+            end_date=suggested_end,
             execute=execute,
         )
         post_pack = post_runner(
             recent_data_refresh_pack=recent_report_dir / "recent_data_refresh_pack.json",
             report_dir=post_report_dir,
+            run_date=suggested_end,
         )
         final_sufficiency = sufficiency_runner(
             post_refresh_replay_pack=post_report_dir / "post_refresh_replay_pack.json",

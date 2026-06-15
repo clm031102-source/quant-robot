@@ -50,27 +50,27 @@ The local GUI exposes this phase as a read-only status gate:
 
 The GUI does not execute downloads. It only displays whether the latest refresh artifact clears `signal_data_stale`, the target window, coverage status, blockers, and next actions.
 
-## Current Result
+## Current Real Tushare Result
 
 - stage: `phase_5_7_tushare_recent_data_refresh`
-- status: `blocked`
-- mode: `dry_run`
+- status: `completed`
+- mode: `execute`
 - source: `tushare`
 - market: `CN_ETF`
 - target window: `2026-05-23` to `2026-06-14`
-- will download: `false`
-- signal data stale cleared: `false`
+- effective trading window: `2026-05-25` to `2026-06-12`
+- coverage scope: `required_assets`
+- required asset: `CN_ETF_XSHG_516160`
+- processed rows: `30106`
+- provider missing date rows: `226`
+- scoped missing date rows: `0`
+- duplicate bars: `0`
+- zero-volume rows: `0`
+- signal data stale cleared: `true`
+- next daily ops allowed: `true`
 - live boundary allowed: `false`
 
-The current local blocker is:
-
-- `TUSHARE_TOKEN is not set`
-
-The current shell readiness check returns:
-
-```text
-{'source': 'tushare', 'ready': False, 'missing': ['TUSHARE_TOKEN is not set']}
-```
+The provider-level missing rows remain visible as a warning for universe-level data quality. They do not block this paper gate when the observed advisory asset fully covers the adjusted trading window.
 
 ## Fixture Execute Result
 
@@ -108,11 +108,13 @@ Then open a new PowerShell session so the environment variable is visible, and r
 Phase 5.7 clears the `signal_data_stale` blocker only if:
 
 - the target window starts after the stale signal date;
-- the latest refreshed data reaches the observation run date;
+- the latest refreshed data reaches the observation run date, adjusted to the nearest available Tushare trade-calendar endpoint when the ingest result includes trade dates, with weekend adjustment as a fallback;
 - processed rows are greater than zero;
-- missing date rows are zero;
+- missing date rows are zero for the decision scope;
 - duplicate bars are zero;
 - zero-volume rows are zero.
+
+When Profile Observation provides `observed_assets`, the decision scope is those required assets. Full-provider missing date rows are still recorded as `provider_missing_date_rows`. Required assets must cover the effective start/end dates and have at least the expected number of trade-date rows for that effective window.
 
 If the refresh completes, the next local steps are:
 

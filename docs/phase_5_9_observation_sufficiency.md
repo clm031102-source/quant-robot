@@ -24,14 +24,26 @@ Outputs:
 - `data/reports/observation_sufficiency/observation_sufficiency_pack.md`
 - `data/reports/observation_sufficiency/observation_sufficiency_next_actions.csv`
 
-## Current Result
+## Current Real Tushare Result
 
-Default real-state planner:
+Initial activation-gate planner:
 
 - stage: `phase_5_9_observation_sufficiency`
-- status: `blocked_missing_observation`
-- blocker: `profile_observation_artifact_missing`
-- reason: real recent Tushare refresh is still blocked by missing local `TUSHARE_TOKEN`, so post-refresh observation has not run.
+- status: `needs_more_observation_data`
+- observed fills: `3`
+- required fills: `20`
+- fill deficit: `17`
+- recommendation priority: `extend_recent_data_window`
+- live boundary allowed: `false`
+
+After Phase 5.11 iterative expansion, the final observation sufficiency pack cleared:
+
+- status: `sufficient`
+- observed fills: `21`
+- required fills: `20`
+- fill deficit: `0`
+- recommendation priority: `continue_paper_observation`
+- blockers: none
 
 Fixture planner:
 

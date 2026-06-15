@@ -53,15 +53,15 @@ Risk tier drawdown is still within the current aggressive-growth policy:
 
 ## Tushare Point
 
-Tushare becomes useful now, not for live trading, but for refreshing recent CN ETF bars so the paper profile can be observed on current data.
+Tushare is used here for paper-only recent-data refresh and replay, not for live trading.
 
-Next local action from the pack:
+The baseline observation pack still records why the activation chain is needed:
 
 ```powershell
 python scripts\ingest_data.py --source tushare --market CN_ETF --start-date 2026-05-23 --end-date 2026-06-14 --output-dir data\processed\tushare_etf_recent
 ```
 
-After that refresh, rerun the data processing, daily ops, and profile observation steps. The expected outcome is that `signal_data_stale` clears or is replaced by a more concrete data-quality blocker.
+The Phase 5.12 activation gate has now executed this paper-only refresh/replay chain with real Tushare data. It cleared the required-asset recent-data gate and then used iterative observation expansion to reach `21 / 20` fills while keeping `live_boundary_allowed=false`.
 
 ## GUI/API
 
@@ -82,4 +82,3 @@ This phase remains research-to-paper only:
 - live boundary: disabled
 
 No stop-rule pass should be interpreted as permission to trade live. Passing this ledger only means the profile may continue paper observation.
-

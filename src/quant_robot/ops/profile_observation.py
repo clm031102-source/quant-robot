@@ -34,6 +34,7 @@ def build_profile_observation_pack(
     risk_policy = _dict(daily_ops_pack.get("risk_policy"))
     signal = _dict(daily_ops_pack.get("signal"))
     simulation = _dict(daily_ops_pack.get("simulation"))
+    observed_assets = _observed_assets(daily_ops_pack)
     manifest = simulation_manifest or {}
     equity_rows = _records(equity_curve)
     guard_rows = _records(guard_events)
@@ -82,6 +83,7 @@ def build_profile_observation_pack(
         execution_count,
         observation_status,
         stop_reasons,
+        observed_assets,
     )
     pack = {
         "stage": STAGE,
@@ -109,6 +111,7 @@ def build_profile_observation_pack(
         },
         "candidate": _dict(daily_ops_pack.get("candidate")),
         "paper_profile": profile,
+        "observed_assets": observed_assets,
         "observation_window": observation_window,
         "stop_rules": stop_rules,
         "ledger": [ledger_row],
@@ -305,6 +308,7 @@ def _ledger_row(
     execution_events: int,
     observation_status: str,
     stop_reasons: list[str],
+    observed_assets: list[str],
 ) -> dict[str, Any]:
     candidate = _dict(daily_ops_pack.get("candidate"))
     return {
@@ -330,7 +334,24 @@ def _ledger_row(
         "execution_events": execution_events,
         "paper_observation_allowed": not stop_reasons,
         "stop_reasons": stop_reasons,
+        "observed_assets": " / ".join(observed_assets),
     }
+
+
+def _observed_assets(daily_ops_pack: dict[str, Any]) -> list[str]:
+    tickets = daily_ops_pack.get("advisory_tickets", [])
+    if not isinstance(tickets, list):
+        return []
+    assets: list[str] = []
+    seen: set[str] = set()
+    for ticket in tickets:
+        if not isinstance(ticket, dict):
+            continue
+        asset_id = str(ticket.get("asset_id") or "").strip()
+        if asset_id and asset_id not in seen:
+            assets.append(asset_id)
+            seen.add(asset_id)
+    return assets
 
 
 def _next_actions(stop_reasons: list[str], warning_reasons: list[str], signal_date: str, run_date: str) -> list[dict[str, Any]]:

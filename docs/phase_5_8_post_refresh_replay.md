@@ -35,15 +35,23 @@ Fixture rehearsal also writes:
 - `data/reports/post_refresh_replay_fixture/daily_ops`
 - `data/reports/post_refresh_replay_fixture/profile_observation`
 
-## Current Result
+## Current Real Tushare Result
 
-Default real Tushare replay:
+Activation-gate post-refresh replay:
 
 - stage: `phase_5_8_post_refresh_replay`
-- status: `blocked`
-- recent data ready: `false`
-- blocker: `TUSHARE_TOKEN is not set`
+- status: `replay_blocked`
+- recent data ready: `true`
+- Daily Ops paper allowed: `true`
+- profile observation allowed: `false`
+- blocker: `minimum_fills_observed`
+- run date: `2026-06-14`
+- signal date: `2026-06-12`
+- signal age days: `2`
+- observed fills: `3 / 20`
 - live boundary allowed: `false`
+
+This initial replay is expected to stop when the refreshed recent window is too short to produce enough fills. Phase 5.9 and Phase 5.11 then plan and execute an expanded paper-observation window.
 
 Fixture replay rehearsal:
 
@@ -59,6 +67,8 @@ Fixture replay rehearsal:
 - live boundary allowed: `false`
 
 The fixture rehearsal proves the post-refresh replay chain runs end to end. The next gate is not code execution; it is observation sufficiency. A 23-day fixture window only produced too few fills for the `min_fills=20` observation rule.
+
+Replay now uses the recent-refresh target end date as the default `run_date`, so expanded-window replays do not accidentally evaluate signal staleness against the wall-clock date.
 
 When replay is blocked by `minimum_fills_observed`, run:
 

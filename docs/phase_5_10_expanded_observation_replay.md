@@ -37,15 +37,22 @@ Fixture rehearsal also writes nested recent refresh, post-refresh replay, and fi
 - `data/reports/expanded_observation_replay_fixture/post_refresh_replay`
 - `data/reports/expanded_observation_replay_fixture/observation_sufficiency`
 
-## Current Result
+## Current Real Tushare Result
 
-Default real-state replay:
+Activation-gate expanded replay:
 
 - stage: `phase_5_10_expanded_observation_replay`
-- status: `blocked`
-- blocker: `profile_observation_artifact_missing`
-- reason: real recent Tushare refresh is still blocked before post-refresh observation exists.
+- round 1 status: `expanded_replay_blocked`
+- round 1 window: `2026-04-11` to `2026-06-09`
+- round 1 fills: `10 / 20`
+- round 1 blocker: `minimum_fills_observed`
+- round 2 status: `completed`
+- round 2 window: `2026-03-04` to `2026-06-05`
+- round 2 fills: `21 / 20`
+- round 2 final sufficiency: `sufficient`
 - live boundary allowed: `false`
+
+Expanded replay passes the suggested end date through to post-refresh replay as the paper `run_date`. This keeps the signal-age stop rule aligned with the replay window instead of the wall-clock date.
 
 Fixture expanded replay:
 

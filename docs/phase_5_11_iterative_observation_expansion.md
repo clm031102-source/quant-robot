@@ -27,15 +27,19 @@ Outputs:
 
 Each round writes a full Phase 5.10 replay bundle under `round_01`, `round_02`, and so on.
 
-## Current Result
+## Current Real Tushare Result
 
-Default real-state run:
+Activation-gate iterative expansion:
 
 - stage: `phase_5_11_iterative_observation_expansion`
-- status: `blocked`
-- round count: `0`
-- blocker: `profile_observation_artifact_missing`
-- reason: real Tushare refresh has not executed yet, so real post-refresh observation and sufficiency artifacts are not extendable.
+- status: `completed`
+- round count: `2`
+- max rounds: `3`
+- initial fills: `3 / 20`
+- round 1: `10 / 20`, still blocked by `minimum_fills_observed`
+- round 2: `21 / 20`, sample gate cleared
+- final observation status: `sufficient`
+- blockers: none
 - live boundary allowed: `false`
 
 Fixture rehearsal:

@@ -27,7 +27,7 @@ def build_recent_data_refresh_pack(
 ) -> dict[str, Any]:
     readiness_pack = readiness or {"ready": False, "missing": []}
     target_window = resolve_refresh_window(profile_observation_pack, start_date=start_date, end_date=end_date)
-    coverage = _coverage_from_ingest(ingest_result, target_window)
+    coverage = _coverage_from_ingest(ingest_result, target_window, profile_observation_pack)
     readiness_missing = list(readiness_pack.get("missing", [])) if isinstance(readiness_pack.get("missing", []), list) else []
     source_name = source.strip().lower()
     readiness_blocks = source_name == "tushare" and not bool(readiness_pack.get("ready", False))
@@ -126,8 +126,12 @@ def render_recent_data_refresh_markdown(pack: dict[str, Any]) -> str:
         "| --- | --- |",
         f"| Coverage status | {coverage.get('coverage_status', 'unknown')} |",
         f"| Latest data date | {coverage.get('latest_data_date')} |",
+        f"| Coverage scope | {coverage.get('coverage_scope', 'provider_universe')} |",
+        f"| Effective start date | {coverage.get('effective_start_date')} |",
+        f"| Effective end date | {coverage.get('effective_end_date')} |",
         f"| Processed rows | {coverage.get('processed_rows')} |",
         f"| Missing date rows | {coverage.get('missing_date_rows')} |",
+        f"| Provider missing date rows | {coverage.get('provider_missing_date_rows')} |",
         f"| Duplicate bars | {coverage.get('duplicate_bars')} |",
         f"| Zero-volume rows | {coverage.get('zero_volume_rows')} |",
         "",
@@ -142,10 +146,15 @@ def render_recent_data_refresh_markdown(pack: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _coverage_from_ingest(ingest_result: dict[str, Any] | None, target_window: dict[str, Any]) -> dict[str, Any]:
+def _coverage_from_ingest(
+    ingest_result: dict[str, Any] | None,
+    target_window: dict[str, Any],
+    profile_observation_pack: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     if not ingest_result:
         return {
             "coverage_status": "missing",
+            "coverage_scope": "provider_universe",
             "processed_rows": 0,
             "latest_data_date": None,
             "target_end_covered": False,
@@ -162,8 +171,29 @@ def _coverage_from_ingest(ingest_result: dict[str, Any] | None, target_window: d
     zero_volume_rows = _int(report.get("zero_volume_rows"), 0)
     target_start = _date_str(target_window.get("start_date"))
     target_end = _date_str(target_window.get("end_date"))
-    target_start_covered = bool(earliest_date and target_start and earliest_date <= target_start)
-    target_end_covered = bool(latest_date and target_end and latest_date >= target_end)
+    expected_trade_dates = _expected_trade_dates(ingest_result)
+    effective_start = _effective_start(target_start, expected_trade_dates)
+    effective_end = _effective_end(target_end, expected_trade_dates)
+    required_asset_ids = _required_asset_ids(profile_observation_pack)
+    asset_rows = _asset_coverage_rows(report)
+    if required_asset_ids and asset_rows:
+        return _required_assets_coverage(
+            required_asset_ids,
+            asset_rows,
+            processed_rows=processed_rows,
+            earliest_date=earliest_date,
+            latest_date=latest_date,
+            target_start=target_start,
+            target_end=target_end,
+            effective_start=effective_start,
+            effective_end=effective_end,
+            expected_trade_dates=expected_trade_dates,
+            provider_missing_date_rows=missing_date_rows,
+            duplicate_bars=duplicate_bars,
+            zero_volume_rows=zero_volume_rows,
+        )
+    target_start_covered = bool(earliest_date and effective_start and earliest_date <= effective_start)
+    target_end_covered = bool(latest_date and effective_end and latest_date >= effective_end)
     pass_status = (
         processed_rows > 0
         and target_start_covered
@@ -174,20 +204,234 @@ def _coverage_from_ingest(ingest_result: dict[str, Any] | None, target_window: d
     )
     return {
         "coverage_status": "pass" if pass_status else "fail",
+        "coverage_scope": "provider_universe",
         "processed_rows": processed_rows,
         "earliest_data_date": earliest_date,
         "latest_data_date": latest_date,
+        "target_start_date": target_start,
+        "target_end_date": target_end,
+        "effective_start_date": effective_start,
+        "effective_end_date": effective_end,
+        "expected_trade_dates_count": _expected_trade_dates_count(expected_trade_dates, effective_start, effective_end),
         "target_start_covered": target_start_covered,
         "target_end_covered": target_end_covered,
         "missing_date_rows": missing_date_rows,
+        "provider_missing_date_rows": missing_date_rows,
         "duplicate_bars": duplicate_bars,
         "zero_volume_rows": zero_volume_rows,
     }
 
 
+def _required_assets_coverage(
+    required_asset_ids: list[str],
+    asset_rows: dict[str, dict[str, Any]],
+    *,
+    processed_rows: int,
+    earliest_date: str | None,
+    latest_date: str | None,
+    target_start: str | None,
+    target_end: str | None,
+    effective_start: str | None,
+    effective_end: str | None,
+    expected_trade_dates: list[str],
+    provider_missing_date_rows: int,
+    duplicate_bars: int,
+    zero_volume_rows: int,
+) -> dict[str, Any]:
+    asset_coverage = []
+    expected_rows = _expected_trade_dates_count(expected_trade_dates, effective_start, effective_end)
+    required_asset_missing_date_rows = 0
+    for asset_id in required_asset_ids:
+        row = asset_rows.get(asset_id, {})
+        asset_start = _date_str(row.get("start_date"))
+        asset_end = _date_str(row.get("end_date"))
+        asset_rows_count = _int(row.get("rows"), 0)
+        start_covered = bool(asset_start and effective_start and asset_start <= effective_start)
+        end_covered = bool(asset_end and effective_end and asset_end >= effective_end)
+        missing_date_rows = _required_asset_missing_rows(asset_rows_count, expected_rows, start_covered, end_covered)
+        required_asset_missing_date_rows += missing_date_rows
+        covered = asset_rows_count > 0 and start_covered and end_covered and missing_date_rows == 0
+        asset_coverage.append(
+            {
+                "asset_id": asset_id,
+                "rows": asset_rows_count,
+                "expected_rows": expected_rows,
+                "missing_date_rows": missing_date_rows,
+                "start_date": asset_start,
+                "end_date": asset_end,
+                "target_start_covered": start_covered,
+                "target_end_covered": end_covered,
+                "covered": covered,
+            }
+        )
+    required_assets_covered = all(row["covered"] for row in asset_coverage)
+    target_start_covered = all(row["target_start_covered"] for row in asset_coverage)
+    target_end_covered = all(row["target_end_covered"] for row in asset_coverage)
+    scoped_missing_date_rows = required_asset_missing_date_rows if expected_rows is not None else 0 if required_assets_covered else provider_missing_date_rows
+    pass_status = (
+        processed_rows > 0
+        and required_assets_covered
+        and duplicate_bars == 0
+        and zero_volume_rows == 0
+    )
+    return {
+        "coverage_status": "pass" if pass_status else "fail",
+        "coverage_scope": "required_assets",
+        "required_asset_ids": required_asset_ids,
+        "required_assets_covered": required_assets_covered,
+        "required_asset_coverage": asset_coverage,
+        "processed_rows": processed_rows,
+        "earliest_data_date": earliest_date,
+        "latest_data_date": latest_date,
+        "target_start_date": target_start,
+        "target_end_date": target_end,
+        "effective_start_date": effective_start,
+        "effective_end_date": effective_end,
+        "expected_trade_dates_count": expected_rows,
+        "target_start_covered": target_start_covered,
+        "target_end_covered": target_end_covered,
+        "missing_date_rows": scoped_missing_date_rows,
+        "required_asset_missing_date_rows": required_asset_missing_date_rows,
+        "provider_missing_date_rows": provider_missing_date_rows,
+        "duplicate_bars": duplicate_bars,
+        "zero_volume_rows": zero_volume_rows,
+    }
+
+
+def _required_asset_ids(profile_observation_pack: dict[str, Any] | None) -> list[str]:
+    if not isinstance(profile_observation_pack, dict):
+        return []
+    assets: list[str] = []
+    seen: set[str] = set()
+
+    def add(value: Any) -> None:
+        text = str(value or "").strip()
+        if text and text not in seen:
+            assets.append(text)
+            seen.add(text)
+
+    top_level = profile_observation_pack.get("observed_assets", [])
+    if isinstance(top_level, list):
+        for item in top_level:
+            add(item)
+    elif isinstance(top_level, str):
+        for item in _split_observed_assets(top_level):
+            add(item)
+
+    ledger = profile_observation_pack.get("ledger", [])
+    if isinstance(ledger, list):
+        for row in ledger:
+            if not isinstance(row, dict):
+                continue
+            ledger_assets = row.get("observed_assets")
+            if isinstance(ledger_assets, list):
+                for item in ledger_assets:
+                    add(item)
+            elif isinstance(ledger_assets, str):
+                for item in _split_observed_assets(ledger_assets):
+                    add(item)
+    return assets
+
+
+def _split_observed_assets(value: str) -> list[str]:
+    return [item.strip() for item in value.replace(",", "/").split("/") if item.strip()]
+
+
+def _asset_coverage_rows(report: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    coverage = report.get("coverage_by_asset", [])
+    if not isinstance(coverage, list):
+        return {}
+    rows: dict[str, dict[str, Any]] = {}
+    for row in coverage:
+        if not isinstance(row, dict):
+            continue
+        asset_id = str(row.get("asset_id") or "").strip()
+        if asset_id:
+            rows[asset_id] = row
+    return rows
+
+
+def _expected_trade_dates(ingest_result: dict[str, Any]) -> list[str]:
+    values = []
+    for key in ("downloaded_trade_dates", "skipped_trade_dates"):
+        items = ingest_result.get(key, [])
+        if isinstance(items, list):
+            values.extend(items)
+    dates = []
+    seen: set[str] = set()
+    for value in values:
+        parsed = _trade_date_str(value)
+        if parsed and parsed not in seen:
+            dates.append(parsed)
+            seen.add(parsed)
+    return sorted(dates)
+
+
+def _effective_start(value: str | None, expected_trade_dates: list[str]) -> str | None:
+    if value and expected_trade_dates:
+        for trade_date in expected_trade_dates:
+            if trade_date >= value:
+                return trade_date
+    return _weekend_adjusted_start(value)
+
+
+def _effective_end(value: str | None, expected_trade_dates: list[str]) -> str | None:
+    if value and expected_trade_dates:
+        for trade_date in reversed(expected_trade_dates):
+            if trade_date <= value:
+                return trade_date
+    return _weekend_adjusted_end(value)
+
+
+def _expected_trade_dates_count(
+    expected_trade_dates: list[str],
+    effective_start: str | None,
+    effective_end: str | None,
+) -> int | None:
+    if not expected_trade_dates or not effective_start or not effective_end:
+        return None
+    return sum(1 for trade_date in expected_trade_dates if effective_start <= trade_date <= effective_end)
+
+
+def _required_asset_missing_rows(
+    asset_rows_count: int,
+    expected_rows: int | None,
+    start_covered: bool,
+    end_covered: bool,
+) -> int:
+    boundary_missing = 0 if start_covered and end_covered else 1
+    if expected_rows is None:
+        return boundary_missing
+    return max(boundary_missing, max(0, expected_rows - asset_rows_count))
+
+
+def _weekend_adjusted_start(value: str | None) -> str | None:
+    day = _date_value(value)
+    if day is None:
+        return value
+    if day.weekday() == 5:
+        return (day + timedelta(days=2)).isoformat()
+    if day.weekday() == 6:
+        return (day + timedelta(days=1)).isoformat()
+    return day.isoformat()
+
+
+def _weekend_adjusted_end(value: str | None) -> str | None:
+    day = _date_value(value)
+    if day is None:
+        return value
+    if day.weekday() == 5:
+        return (day - timedelta(days=1)).isoformat()
+    if day.weekday() == 6:
+        return (day - timedelta(days=2)).isoformat()
+    return day.isoformat()
+
+
 def _decision_blockers(status: str, readiness_missing: list[str], coverage: dict[str, Any]) -> list[str]:
     blockers = list(readiness_missing)
     if status == "data_quality_blocked":
+        if coverage.get("coverage_scope") == "required_assets" and not coverage.get("required_assets_covered"):
+            blockers.append("required_assets_not_covered")
         if not coverage.get("target_start_covered"):
             blockers.append("target_start_not_covered")
         if not coverage.get("target_end_covered"):
@@ -279,11 +523,25 @@ def _next_day(value: str) -> str | None:
 
 
 def _date_str(value: Any) -> str | None:
+    day = _date_value(value)
+    return day.isoformat() if day is not None else None
+
+
+def _trade_date_str(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if len(text) == 8 and text.isdigit():
+        text = f"{text[:4]}-{text[4:6]}-{text[6:]}"
+    return _date_str(text)
+
+
+def _date_value(value: Any) -> date | None:
     if value is None:
         return None
     text = str(value)[:10]
     try:
-        return date.fromisoformat(text).isoformat()
+        return date.fromisoformat(text)
     except ValueError:
         return None
 
@@ -311,4 +569,3 @@ def _sanitize(value: Any) -> Any:
 
 def _safety() -> str:
     return "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading."
-

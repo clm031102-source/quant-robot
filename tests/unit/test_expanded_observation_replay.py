@@ -79,6 +79,7 @@ class ExpandedObservationReplayTests(unittest.TestCase):
         self.assertTrue(calls["recent"]["execute"])
         self.assertEqual(calls["recent"]["source"], "tushare-fixture")
         self.assertEqual(calls["post"]["recent_data_refresh_pack"], report_dir / "recent_data_refresh" / "recent_data_refresh_pack.json")
+        self.assertEqual(calls["post"]["run_date"], "2026-06-13")
         self.assertEqual(calls["sufficiency"]["post_refresh_replay_pack"], report_dir / "post_refresh_replay" / "post_refresh_replay_pack.json")
         self.assertFalse(pack["live_boundary_allowed"])
         self.assertTrue(artifact_exists)

@@ -2,15 +2,33 @@
 
 Local multi-market quantitative research framework for A-shares, A-share ETFs, Hong Kong stocks, US stocks, and crypto.
 
-Phase one is research-only. It does not connect to real broker accounts, does not place live orders, and does not implement automatic trading.
+The project is currently in a Phase 5.x research-to-paper stage. It has research, walk-forward, paper simulation, promotion, Daily Ops, profile observation, and Tushare activation-gate workflows, but it still does not connect to real broker accounts, read live accounts, place orders, or implement automatic live trading.
 
-## What Works In Phase One
+## Current Status
+
+- Current stage: Phase 5.12 Tushare activation gate.
+- Latest selected paper profile: `cap60_guard12_cd3` for `CN_ETF_liquidity_10_top1_cost5_reb5`, risk tier `aggressive_growth`.
+- Daily Ops status: `paper_ready` with live boundary disabled.
+- Baseline Profile Observation status: stopped on `signal_data_stale`, which is why the activation chain refreshes and replays recent data.
+- Real Tushare activation status: `paper_observation_ready`; readiness passed, required-asset coverage passed for `CN_ETF_XSHG_516160`, iterative expansion completed in 2 rounds, final fills are `21 / 20`, blockers are empty, and live boundary remains disabled.
+- Fixture activation status: `paper_observation_ready`, proving the local refresh -> replay -> sufficiency -> iterative expansion chain without network access.
+- CI status: GitHub Actions now runs unit/integration tests, Python compilation, and project-audit pass checks on push and pull request.
+
+To reproduce the real-data gate, set `TUSHARE_TOKEN` in the local shell environment and run:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_tushare_activation_gate.py --report-dir data\reports\tushare_activation_gate --execute
+```
+
+Passing this gate only permits continued paper observation on refreshed data. It is not permission to trade live.
+
+## What Works Now
 
 - Canonical asset abstraction for CN, CN_ETF, HK, US, and CRYPTO.
 - Offline fixture data for all research markets, including A-share ETFs.
 - Unified OHLCV normalization with timezone-aware UTC timestamps.
 - Parquet storage abstraction, enabled when `pyarrow` or `fastparquet` is installed.
-- Implemented adapter paths for Tushare A-shares and A-share ETFs, yfinance HK/US, and ccxt crypto. AKShare remains planned; A-share ETF research can use local CSV, fixtures, or optional Tushare ETF daily ingestion.
+- Implemented adapter paths for Tushare A-shares and A-share ETFs, AKShare CN/CN_ETF, yfinance HK/US, and ccxt crypto when optional packages and credentials are available. A-share ETF research can use local CSV, fixtures, AKShare, or optional Tushare ETF daily ingestion.
 - Basic factors: momentum, reversal, volatility, volume change, and liquidity.
 - Forward-return labels with explicit execution lag.
 - IC, Rank IC, quantile group returns, and long-short returns.
@@ -34,6 +52,7 @@ Phase one is research-only. It does not connect to real broker accounts, does no
 - Pre-API readiness board that consolidates local evidence, blockers, next actions, and live-boundary status into one artifact.
 - Blocker-resolution worklist that turns readiness blockers into open local-only work items and a deduplicated action queue.
 - Tushare CN ETF daily ingestion path through the optional `fund_daily` endpoint.
+- Risk-tier policy, constrained candidate search, paper-profile optimization, Daily Ops activation, profile-observation stop rules, recent-data refresh, post-refresh replay, observation sufficiency, iterative expansion, and Tushare activation-gate packs.
 - Paper-simulation execution-block events for suspended, zero-volume, limit-up, and limit-down bars when those fields exist in local data.
 - CSV, JSON, and SVG report outputs.
 
@@ -46,7 +65,7 @@ python -m unittest discover -s tests -p "test_*.py"
 
 ## Run Core Checks
 
-This runs the local test suite, Python compile check, project audit, readiness check, provider status, provider evidence, provider remediation, provider remediation rehearsal, data catalog, data-quality gap audit, data-gap resolution, data-gap evidence, data-gap rehearsal, offline fixture research, the configurable research pipeline, the experiment grid, walk-forward validation, signal snapshot generation, paper simulation, paper observation, promotion operations summary, duplicate registry, promotion review packet, manual review rehearsal, evidence refresh plan, pre-API readiness board, readiness projection, blocker worklist, residual blocker focus pack, residual data-gap review pack, and residual provider review pack. It does not download market data.
+This runs the local test suite, Python compile check, project audit, readiness check, provider status, provider evidence, provider remediation, provider remediation rehearsal, data catalog, data-quality gap audit, data-gap resolution, data-gap evidence, data-gap rehearsal, offline fixture research, the configurable research pipeline, the experiment grid, walk-forward validation, signal snapshot generation, paper simulation, paper observation, promotion operations summary, duplicate registry, promotion review packet, manual review rehearsal, evidence refresh plan, pre-API readiness board, readiness projection, blocker worklist, residual blocker focus pack, residual data-gap review pack, residual provider review pack, Daily Ops, profile observation, recent-data refresh, post-refresh replay, observation sufficiency, expanded observation replay, iterative observation expansion, Tushare activation gate, risk candidate selector, constrained candidate search, and paper profile optimizer. It does not download market data unless a stage is explicitly run in execute mode with valid provider credentials.
 
 The batch experiment grid exits non-zero if any case fails or if no case completes. Walk-forward validation exits non-zero if the underlying train/test grids fail or if no candidate is accepted. This keeps local checks from hiding failed research runs inside CSV/JSON leaderboards.
 
