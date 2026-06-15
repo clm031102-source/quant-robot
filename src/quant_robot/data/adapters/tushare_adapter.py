@@ -25,11 +25,12 @@ class TushareAdapter(MarketDataAdapter):
         self.retry_sleep_seconds = retry_sleep_seconds
 
     def supports(self, asset: Asset) -> bool:
-        return asset.market.upper() == "CN"
+        return asset.market.upper() in {"CN", "CN_ETF"}
 
     def fetch_ohlcv(self, asset: Asset, request: FetchRequest) -> pd.DataFrame:
+        method = self.client.fund_daily if asset.market.upper() == "CN_ETF" else self.client.daily
         raw = self._call(
-            self.client.daily,
+            method,
             ts_code=asset.symbol,
             start_date=_date_to_tushare(request.start),
             end_date=_date_to_tushare(request.end),
@@ -38,6 +39,10 @@ class TushareAdapter(MarketDataAdapter):
 
     def fetch_daily_by_trade_date(self, trade_date: str) -> pd.DataFrame:
         raw = self._call(self.client.daily, trade_date=_date_to_tushare(trade_date))
+        return map_tushare_daily(raw)
+
+    def fetch_etf_daily_by_trade_date(self, trade_date: str) -> pd.DataFrame:
+        raw = self._call(self.client.fund_daily, trade_date=_date_to_tushare(trade_date))
         return map_tushare_daily(raw)
 
     def fetch_adj_factor(self, ts_code: str = "", start_date: str = "", end_date: str = "") -> pd.DataFrame:

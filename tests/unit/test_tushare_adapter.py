@@ -26,6 +26,21 @@ class FakeTushareClient:
             }
         )
 
+    def fund_daily(self, **kwargs):
+        self.calls.append(("fund_daily", kwargs))
+        return pd.DataFrame(
+            {
+                "ts_code": [kwargs.get("ts_code", "510300.SH") or "510300.SH"],
+                "trade_date": [kwargs.get("trade_date", "20240102") or "20240102"],
+                "open": [4.0],
+                "high": [4.1],
+                "low": [3.9],
+                "close": [4.05],
+                "vol": [1000.0],
+                "amount": [4050.0],
+            }
+        )
+
     def adj_factor(self, **kwargs):
         self.calls.append(("adj_factor", kwargs))
         return pd.DataFrame({"ts_code": ["000001.SZ"], "trade_date": ["20240102"], "adj_factor": [100.0]})
@@ -68,6 +83,30 @@ class TushareAdapterTests(unittest.TestCase):
         result = adapter.fetch_daily_by_trade_date("20240102")
 
         self.assertEqual(result.loc[0, "amount"], 200000.0)
+        self.assertEqual(client.calls[0][1]["trade_date"], "20240102")
+
+    def test_fetch_cn_etf_ohlcv_uses_fund_daily_endpoint(self):
+        client = FakeTushareClient()
+        adapter = TushareAdapter(client=client)
+        asset = Asset("CN_ETF_XSHG_510300", "510300.SH", "CN_ETF", "XSHG", "etf", "CNY", "Asia/Shanghai", "XSHG")
+        request = FetchRequest(start="2024-01-01", end="2024-01-31", frequency="1d", adjustment="none")
+
+        result = adapter.fetch_ohlcv(asset, request)
+
+        self.assertTrue(adapter.supports(asset))
+        self.assertEqual(result.loc[0, "symbol"], "510300.SH")
+        self.assertEqual(result.loc[0, "volume"], 100000.0)
+        self.assertEqual(client.calls[0][0], "fund_daily")
+        self.assertEqual(client.calls[0][1]["ts_code"], "510300.SH")
+
+    def test_fetch_etf_daily_by_trade_date_supports_full_market_mode(self):
+        client = FakeTushareClient()
+        adapter = TushareAdapter(client=client)
+
+        result = adapter.fetch_etf_daily_by_trade_date("20240102")
+
+        self.assertEqual(result.loc[0, "symbol"], "510300.SH")
+        self.assertEqual(client.calls[0][0], "fund_daily")
         self.assertEqual(client.calls[0][1]["trade_date"], "20240102")
 
     def test_fetch_metadata_methods_map_contracts(self):

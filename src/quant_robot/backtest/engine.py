@@ -25,6 +25,8 @@ def run_factor_backtest(
     portfolio_scope: str = "market",
     execution_lag: int = 1,
     holding_period: int = 1,
+    rebalance_interval: int = 1,
+    target_gross_exposure: float = 1.0,
     periods_per_year: float = 252,
 ) -> BacktestResult:
     required_factor_columns = ["date", "asset_id", "market", "factor_name", "factor_value"]
@@ -35,8 +37,17 @@ def run_factor_backtest(
         raise ValueError("execution_lag must be at least 1")
     if holding_period < 1:
         raise ValueError("holding_period must be at least 1")
+    if rebalance_interval < 1:
+        raise ValueError("rebalance_interval must be at least 1")
+    if target_gross_exposure <= 0.0 or target_gross_exposure > 1.0:
+        raise ValueError("target_gross_exposure must be greater than 0 and at most 1")
 
-    selected = _scale_signal_sleeves(select_top_n(factors, top_n=top_n, portfolio_scope=portfolio_scope), holding_period)
+    selected = _scale_signal_sleeves(
+        select_top_n(factors, top_n=top_n, portfolio_scope=portfolio_scope),
+        holding_period,
+        rebalance_interval,
+        target_gross_exposure,
+    )
     bar_lookup = _price_lookup(bars)
     trades = _build_trades(selected, bar_lookup, round_trip_cost(cost_bps), execution_lag, holding_period)
     equity_curve = _equity_curve(trades)
@@ -59,11 +70,17 @@ def _require_columns(frame: pd.DataFrame, columns: list[str], name: str) -> None
         raise ValueError(f"{name} is missing columns: {', '.join(missing)}")
 
 
-def _scale_signal_sleeves(selected: pd.DataFrame, holding_period: int) -> pd.DataFrame:
-    if selected.empty or holding_period <= 1:
+def _scale_signal_sleeves(
+    selected: pd.DataFrame,
+    holding_period: int,
+    rebalance_interval: int,
+    target_gross_exposure: float,
+) -> pd.DataFrame:
+    if selected.empty:
         return selected
     scaled = selected.copy()
-    scaled["target_weight"] = scaled["target_weight"] / float(holding_period)
+    sleeve_scale = 1.0 if holding_period <= 1 else min(float(rebalance_interval) / float(holding_period), 1.0)
+    scaled["target_weight"] = scaled["target_weight"] * sleeve_scale * float(target_gross_exposure)
     return scaled
 
 

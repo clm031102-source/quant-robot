@@ -126,6 +126,23 @@ class ResearchPipelineTests(unittest.TestCase):
         self.assertIn("relative_return", result["benchmark_metrics"])
         self.assertEqual(result["request"]["benchmark_asset_id"], "CN_ETF_XSHG_510300")
 
+    def test_benchmark_curve_respects_signal_start_date(self):
+        result = run_research_pipeline(
+            _falling_regime_bars(),
+            ResearchPipelineConfig(
+                factor_name="momentum_2",
+                factor_windows=(2,),
+                market="CN_ETF",
+                top_n=1,
+                benchmark_asset_id="CN_ETF_XSHG_510300",
+                signal_start_date="2024-01-04",
+            ),
+        )
+
+        benchmark_dates = [pd.to_datetime(row["date"]).date() for row in result["benchmark_curve"]]
+        self.assertTrue(benchmark_dates)
+        self.assertGreaterEqual(min(benchmark_dates), pd.Timestamp("2024-01-04").date())
+
     def test_pipeline_regime_filter_reduces_trades_when_benchmark_is_falling(self):
         bars = _falling_regime_bars()
         baseline = run_research_pipeline(

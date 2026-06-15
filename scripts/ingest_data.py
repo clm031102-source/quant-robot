@@ -24,9 +24,9 @@ def run_ingest(
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     if source == "tushare-fixture":
-        return run_tushare_daily_ingest(_FixtureTushareAdapter(), start_date, end_date, output_path)
+        return run_tushare_daily_ingest(_FixtureTushareAdapter(), start_date, end_date, output_path, market=market)
     if source == "tushare":
-        return run_tushare_daily_ingest(TushareAdapter(), start_date, end_date, output_path)
+        return run_tushare_daily_ingest(TushareAdapter(), start_date, end_date, output_path, market=market)
     if source != "fixture":
         raise RuntimeError("Supported sources are fixture, tushare-fixture, and tushare")
     asset = _fixture_asset(market)
@@ -57,6 +57,22 @@ class _FixtureTushareAdapter:
                 "close": [close, close * 2.0],
                 "volume": [10000.0, 20000.0],
                 "amount": [close * 10000.0, close * 40000.0],
+            }
+        )
+
+    def fetch_etf_daily_by_trade_date(self, trade_date: str) -> pd.DataFrame:
+        date = pd.to_datetime(trade_date, format="%Y%m%d")
+        close = 4.0 + (date.day % 10) * 0.02
+        return pd.DataFrame(
+            {
+                "symbol": ["510300.SH", "159915.SZ"],
+                "date": [date.date(), date.date()],
+                "open": [close * 0.99, close * 0.79],
+                "high": [close * 1.02, close * 0.82],
+                "low": [close * 0.98, close * 0.78],
+                "close": [close, close * 0.8],
+                "volume": [100000.0, 200000.0],
+                "amount": [close * 100000.0, close * 0.8 * 200000.0],
             }
         )
 

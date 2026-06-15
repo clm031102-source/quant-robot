@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +31,7 @@ BOUNDARY_PHRASES = (
     "research-only",
     "research only",
 )
+DISABLED_LIVE_BOUNDARY_FIELDS = ("live_order_allowed",)
 
 
 def collect_project_audit(root: str | Path = ".") -> dict[str, Any]:
@@ -173,7 +175,22 @@ def _relative(path: Path, root: Path) -> str:
 
 def _is_allowed_boundary_line(line: str) -> bool:
     lower = line.lower()
-    return any(phrase in lower for phrase in BOUNDARY_PHRASES)
+    return any(phrase in lower for phrase in BOUNDARY_PHRASES) or _is_disabled_live_boundary_line(lower)
+
+
+def _is_disabled_live_boundary_line(lower_line: str) -> bool:
+    stripped = lower_line.strip()
+    for field in DISABLED_LIVE_BOUNDARY_FIELDS:
+        quoted_field = rf"[\"']{re.escape(field)}[\"']"
+        field_reference = rf"{quoted_field}\s*,?$"
+        single_item_collection = rf"\w+\s*=\s*[\(\[\{{]\s*{quoted_field}\s*,?\s*[\)\]\}}]\s*"
+        disabled_mapping = rf"{quoted_field}\s*:\s*false\b"
+        disabled_assignment = rf"\b{re.escape(field)}\s*=\s*false\b"
+        if re.fullmatch(field_reference, stripped) or re.fullmatch(single_item_collection, stripped):
+            return True
+        if re.search(disabled_mapping, stripped) or re.search(disabled_assignment, stripped):
+            return True
+    return False
 
 
 def _is_mock_file(relative_path: str) -> bool:

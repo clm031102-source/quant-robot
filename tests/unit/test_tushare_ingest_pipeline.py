@@ -7,6 +7,7 @@ import pandas as pd
 
 from quant_robot.data.ingest.tushare_pipeline import run_tushare_daily_ingest
 from quant_robot.data.ingest.tushare_pipeline import _asset_from_tushare_symbol
+from quant_robot.storage.dataset_store import DatasetStore
 
 
 class FakeTushareDailyAdapter:
@@ -35,6 +36,21 @@ class FakeTushareDailyAdapter:
                 "close": [10.5],
                 "volume": [10000.0],
                 "amount": [200000.0],
+            }
+        )
+
+    def fetch_etf_daily_by_trade_date(self, trade_date: str):
+        self.calls.append(f"etf:{trade_date}")
+        return pd.DataFrame(
+            {
+                "symbol": ["510300.SH"],
+                "date": [pd.to_datetime(trade_date, format="%Y%m%d").date()],
+                "open": [4.0],
+                "high": [4.1],
+                "low": [3.9],
+                "close": [4.05],
+                "volume": [100000.0],
+                "amount": [405000.0],
             }
         )
 
@@ -108,16 +124,7 @@ class TushareIngestPipelineTests(unittest.TestCase):
             run_tushare_daily_ingest(FakeTushareDailyAdapter(), "2024-01-02", "2024-01-03", Path(tmp))
             run_tushare_daily_ingest(FakeTushareDailyAdapter(), "2024-01-02", "2024-01-04", Path(tmp))
 
-            processed_file = (
-                Path(tmp)
-                / "processed"
-                / "bars"
-                / "frequency=1d"
-                / "market=CN"
-                / "year=2024"
-                / "part-00000.csv"
-            )
-            processed = pd.read_csv(processed_file)
+            processed = _read_processed_bars(Path(tmp), "CN", "2024")
 
             self.assertEqual(len(processed), 3)
             self.assertEqual(sorted(processed["date"].unique().tolist()), ["2024-01-02", "2024-01-03", "2024-01-04"])
@@ -125,16 +132,7 @@ class TushareIngestPipelineTests(unittest.TestCase):
     def test_pipeline_applies_forward_adjusted_close_when_adj_factor_available(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = run_tushare_daily_ingest(FakeTushareAdjustedAdapter(), "2024-01-02", "2024-01-03", Path(tmp))
-            processed_file = (
-                Path(tmp)
-                / "processed"
-                / "bars"
-                / "frequency=1d"
-                / "market=CN"
-                / "year=2024"
-                / "part-00000.csv"
-            )
-            processed = pd.read_csv(processed_file).sort_values("date").reset_index(drop=True)
+            processed = _read_processed_bars(Path(tmp), "CN", "2024").sort_values("date").reset_index(drop=True)
 
             self.assertTrue(result["adjusted"])
             self.assertAlmostEqual(processed.loc[0, "adj_close"], 10.5)
@@ -159,12 +157,8 @@ class TushareIngestPipelineTests(unittest.TestCase):
             run_tushare_daily_ingest(ThreeDayAdjustedAdapter(), "2024-01-02", "2024-01-03", Path(first))
             run_tushare_daily_ingest(ThreeDayAdjustedAdapter(), "2024-01-02", "2024-01-04", Path(second))
 
-            first_processed = pd.read_csv(
-                Path(first) / "processed" / "bars" / "frequency=1d" / "market=CN" / "year=2024" / "part-00000.csv"
-            )
-            second_processed = pd.read_csv(
-                Path(second) / "processed" / "bars" / "frequency=1d" / "market=CN" / "year=2024" / "part-00000.csv"
-            )
+            first_processed = _read_processed_bars(Path(first), "CN", "2024")
+            second_processed = _read_processed_bars(Path(second), "CN", "2024")
             first_jan2 = first_processed[first_processed["date"] == "2024-01-02"].iloc[0]["adj_close"]
             second_jan2 = second_processed[second_processed["date"] == "2024-01-02"].iloc[0]["adj_close"]
 
@@ -175,6 +169,27 @@ class TushareIngestPipelineTests(unittest.TestCase):
 
         self.assertEqual(asset.exchange, "XBEI")
         self.assertEqual(asset.asset_id, "CN_XBEI_430047")
+
+    def test_pipeline_can_ingest_cn_etf_daily_bars(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            adapter = FakeTushareDailyAdapter()
+
+            result = run_tushare_daily_ingest(adapter, "2024-01-02", "2024-01-02", Path(tmp), market="CN_ETF")
+
+            processed = _read_processed_bars(Path(tmp), "CN_ETF", "2024")
+            self.assertEqual(adapter.calls, ["etf:20240102"])
+            self.assertEqual(result["market"], "CN_ETF")
+            self.assertEqual(processed.loc[0, "asset_id"], "CN_ETF_XSHG_510300")
+            self.assertEqual(processed.loc[0, "asset_type"], "etf")
+
+
+def _read_processed_bars(root: Path, market: str, year: str) -> pd.DataFrame:
+    frame = DatasetStore(root).read_frame(
+        "processed/bars",
+        {"frequency": "1d", "market": market, "year": year},
+    )
+    frame["date"] = pd.to_datetime(frame["date"]).dt.strftime("%Y-%m-%d")
+    return frame
 
 
 if __name__ == "__main__":

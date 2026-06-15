@@ -36,6 +36,7 @@ class ExperimentGridConfig:
     cash_annual_return: float = 0.0
     regime_filter: bool = False
     regime_lookback: int = 20
+    target_gross_exposure: float = 1.0
     min_relative_return: float | None = None
     max_drawdown_limit: float | None = None
     signal_start_date: str | None = None
@@ -97,6 +98,7 @@ def load_experiment_grid_config(path: str | Path) -> ExperimentGridConfig:
         cash_annual_return=float(data.get("cash_annual_return", ExperimentGridConfig.cash_annual_return)),
         regime_filter=bool(data.get("regime_filter", ExperimentGridConfig.regime_filter)),
         regime_lookback=int(data.get("regime_lookback", ExperimentGridConfig.regime_lookback)),
+        target_gross_exposure=float(data.get("target_gross_exposure", ExperimentGridConfig.target_gross_exposure)),
         min_relative_return=float(data["min_relative_return"]) if data.get("min_relative_return") is not None else None,
         max_drawdown_limit=float(data["max_drawdown_limit"]) if data.get("max_drawdown_limit") is not None else None,
         signal_start_date=data.get("signal_start_date"),
@@ -144,6 +146,7 @@ def _run_case(bars: pd.DataFrame, grid_config: ExperimentGridConfig, case: Exper
                 cash_annual_return=grid_config.cash_annual_return,
                 regime_filter=grid_config.regime_filter,
                 regime_lookback=grid_config.regime_lookback,
+                target_gross_exposure=grid_config.target_gross_exposure,
                 min_relative_return=grid_config.min_relative_return,
                 max_drawdown_limit=grid_config.max_drawdown_limit,
                 signal_start_date=grid_config.signal_start_date,
@@ -243,7 +246,7 @@ def _validate_config(config: ExperimentGridConfig) -> None:
 
 
 def _parse_factor_window(factor_name: str) -> int | None:
-    for prefix in ("momentum", "reversal", "volatility", "volume_change", "liquidity"):
+    for prefix in ("risk_adjusted_momentum", "momentum", "reversal", "volatility", "volume_change", "liquidity"):
         marker = f"{prefix}_"
         if factor_name.startswith(marker):
             try:

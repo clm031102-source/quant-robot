@@ -1,0 +1,179 @@
+{
+  "constrained_search_pack": "data/reports/constrained_candidate_search/constrained_candidate_search_pack.json",
+  "source": "processed-bars",
+  "data_root": "data/processed/etf_csv",
+  "output_dir": "data/reports/paper_profile_optimizer",
+  "max_frontier_candidates": 1,
+  "factor_windows": [5, 10, 20, 60, 120],
+  "initial_cash": 100000,
+  "commission_bps": 5,
+  "slippage_bps": 5,
+  "min_trade_value": 1,
+  "min_paper_sharpe": 0.5,
+  "max_drawdown_limit": 0.2,
+  "min_total_return": 0.0,
+  "min_trades": 20,
+  "primary_risk_tier": "capital_preservation",
+  "risk_tiers": [
+    {
+      "tier_id": "capital_preservation",
+      "label": "Capital Preservation",
+      "max_drawdown_limit": 0.2,
+      "min_paper_sharpe": 0.5,
+      "min_paper_calmar": 1.0,
+      "min_total_return": 0.0,
+      "min_trades": 20,
+      "priority": 1
+    },
+    {
+      "tier_id": "balanced_growth",
+      "label": "Balanced Growth",
+      "max_drawdown_limit": 0.25,
+      "min_paper_sharpe": 0.5,
+      "min_paper_calmar": 1.0,
+      "min_total_return": 0.0,
+      "min_trades": 20,
+      "priority": 2
+    },
+    {
+      "tier_id": "aggressive_growth",
+      "label": "Aggressive Growth",
+      "max_drawdown_limit": 0.3,
+      "min_paper_sharpe": 0.5,
+      "min_paper_calmar": 1.0,
+      "min_total_return": 0.0,
+      "min_trades": 20,
+      "priority": 3
+    }
+  ],
+  "risk_profiles": [
+    {
+      "profile_id": "cap46_guard10_cd3",
+      "max_asset_weight": 0.46,
+      "max_gross_exposure": 1.0,
+      "min_cash_weight": 0.0,
+      "max_drawdown_guard": 0.1,
+      "guard_cooldown_periods": 3
+    },
+    {
+      "profile_id": "cap47_guard10_cd3",
+      "max_asset_weight": 0.47,
+      "max_gross_exposure": 1.0,
+      "min_cash_weight": 0.0,
+      "max_drawdown_guard": 0.1,
+      "guard_cooldown_periods": 3
+    },
+    {
+      "profile_id": "cap471_guard10_cd3",
+      "max_asset_weight": 0.471,
+      "max_gross_exposure": 1.0,
+      "min_cash_weight": 0.0,
+      "max_drawdown_guard": 0.1,
+      "guard_cooldown_periods": 3
+    },
+    {
+      "profile_id": "cap472_guard10_cd3",
+      "max_asset_weight": 0.472,
+      "max_gross_exposure": 1.0,
+      "min_cash_weight": 0.0,
+      "max_drawdown_guard": 0.1,
+      "guard_cooldown_periods": 3
+    },
+    {
+      "profile_id": "cap473_guard10_cd3",
+      "max_asset_weight": 0.473,
+      "max_gross_exposure": 1.0,
+      "min_cash_weight": 0.0,
+      "max_drawdown_guard": 0.1,
+      "guard_cooldown_periods": 3
+    },
+    {
+      "profile_id": "cap474_guard10_cd3",
+      "max_asset_weight": 0.474,
+      "max_gross_exposure": 1.0,
+      "min_cash_weight": 0.0,
+      "max_drawdown_guard": 0.1,
+      "guard_cooldown_periods": 3
+    },
+    {
+      "profile_id": "cap475_guard10_cd3",
+      "max_asset_weight": 0.475,
+      "max_gross_exposure": 1.0,
+      "min_cash_weight": 0.0,
+      "max_drawdown_guard": 0.1,
+      "guard_cooldown_periods": 3
+    },
+    {
+      "profile_id": "cap48_guard10_cd3",
+      "max_asset_weight": 0.48,
+      "max_gross_exposure": 1.0,
+      "min_cash_weight": 0.0,
+      "max_drawdown_guard": 0.1,
+      "guard_cooldown_periods": 3
+    },
+    {
+      "profile_id": "cap50_guard10_cd3",
+      "max_asset_weight": 0.5,
+      "max_gross_exposure": 1.0,
+      "min_cash_weight": 0.0,
+      "max_drawdown_guard": 0.1,
+      "guard_cooldown_periods": 3
+    },
+    {
+      "profile_id": "cap55_guard12_cd3",
+      "max_asset_weight": 0.55,
+      "max_gross_exposure": 1.0,
+      "min_cash_weight": 0.0,
+      "max_drawdown_guard": 0.12,
+      "guard_cooldown_periods": 3
+    },
+    {
+      "profile_id": "cap60_guard12_cd3",
+      "max_asset_weight": 0.6,
+      "max_gross_exposure": 1.0,
+      "min_cash_weight": 0.0,
+      "max_drawdown_guard": 0.12,
+      "guard_cooldown_periods": 3
+    },
+    {
+      "profile_id": "cap65_guard15_cd5",
+      "max_asset_weight": 0.65,
+      "max_gross_exposure": 1.0,
+      "min_cash_weight": 0.0,
+      "max_drawdown_guard": 0.15,
+      "guard_cooldown_periods": 5
+    },
+    {
+      "profile_id": "cap471_guard08_cd3",
+      "max_asset_weight": 0.471,
+      "max_gross_exposure": 1.0,
+      "min_cash_weight": 0.0,
+      "max_drawdown_guard": 0.08,
+      "guard_cooldown_periods": 3
+    },
+    {
+      "profile_id": "cap471_guard08_cd5",
+      "max_asset_weight": 0.471,
+      "max_gross_exposure": 1.0,
+      "min_cash_weight": 0.0,
+      "max_drawdown_guard": 0.08,
+      "guard_cooldown_periods": 5
+    },
+    {
+      "profile_id": "cap471_guard06_cd5",
+      "max_asset_weight": 0.471,
+      "max_gross_exposure": 1.0,
+      "min_cash_weight": 0.0,
+      "max_drawdown_guard": 0.06,
+      "guard_cooldown_periods": 5
+    },
+    {
+      "profile_id": "cap471_guard06_cd8",
+      "max_asset_weight": 0.471,
+      "max_gross_exposure": 1.0,
+      "min_cash_weight": 0.0,
+      "max_drawdown_guard": 0.06,
+      "guard_cooldown_periods": 8
+    }
+  ]
+}

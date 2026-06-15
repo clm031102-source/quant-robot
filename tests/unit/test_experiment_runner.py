@@ -105,6 +105,18 @@ class ExperimentRunnerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "factor_names reference windows"):
             run_experiment_grid(load_demo_market_bars(), config)
 
+    def test_experiment_grid_rejects_risk_adjusted_momentum_window_mismatch(self):
+        config = ExperimentGridConfig(
+            markets=("CN",),
+            factor_names=("risk_adjusted_momentum_5",),
+            factor_windows=(2,),
+            top_n_values=(1,),
+            cost_bps_values=(0.0,),
+        )
+
+        with self.assertRaisesRegex(ValueError, "risk_adjusted_momentum_5"):
+            run_experiment_grid(load_demo_market_bars(), config)
+
     def test_load_experiment_grid_config_reads_json_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             config_path = Path(tmp) / "grid.json"
@@ -119,6 +131,7 @@ class ExperimentRunnerTests(unittest.TestCase):
                         "rebalance_intervals": [5],
                         "benchmark_asset_id": "CN_ETF_XSHG_510300",
                         "min_relative_return": 0.01,
+                        "target_gross_exposure": 0.9,
                         "output_dir": str(Path(tmp) / "reports"),
                     }
                 ),
@@ -132,6 +145,7 @@ class ExperimentRunnerTests(unittest.TestCase):
             self.assertEqual(config.rebalance_intervals, (5,))
             self.assertEqual(config.benchmark_asset_id, "CN_ETF_XSHG_510300")
             self.assertAlmostEqual(config.min_relative_return, 0.01)
+            self.assertAlmostEqual(config.target_gross_exposure, 0.9)
             self.assertEqual(config.output_dir, Path(tmp) / "reports")
 
 

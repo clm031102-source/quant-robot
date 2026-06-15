@@ -21,6 +21,12 @@ def compute_basic_factors(bars: pd.DataFrame, windows: tuple[int, ...] = (5, 20)
             pieces.extend(
                 [
                     _factor_frame(enriched, f"momentum_{window}", _momentum(enriched["adj_close"], window), window),
+                    _factor_frame(
+                        enriched,
+                        f"risk_adjusted_momentum_{window}",
+                        _risk_adjusted_momentum(enriched["adj_close"], enriched["_return"], window),
+                        window,
+                    ),
                     _factor_frame(enriched, f"reversal_{window}", -_momentum(enriched["adj_close"], window), window),
                     _factor_frame(enriched, f"volatility_{window}", enriched["_return"].rolling(window).std(ddof=0), window),
                     _factor_frame(
@@ -41,6 +47,13 @@ def compute_basic_factors(bars: pd.DataFrame, windows: tuple[int, ...] = (5, 20)
 
 def _momentum(price: pd.Series, window: int) -> pd.Series:
     return price / price.shift(window) - 1.0
+
+
+def _risk_adjusted_momentum(price: pd.Series, returns: pd.Series, window: int) -> pd.Series:
+    volatility = returns.rolling(window).std(ddof=0).replace(0, np.nan)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        value = _momentum(price, window) / volatility
+    return value.replace([np.inf, -np.inf], np.nan)
 
 
 def _amihud(returns: pd.Series, amount: pd.Series) -> pd.Series:

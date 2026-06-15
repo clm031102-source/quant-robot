@@ -21,6 +21,30 @@ class ProjectAuditTests(unittest.TestCase):
             self.assertEqual(audit["safety"]["forbidden_hits"][0]["path"], "src/danger.py")
             self.assertEqual(audit["safety"]["boundary_mentions"], 1)
 
+    def test_audit_allows_explicitly_disabled_live_order_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "src").mkdir()
+            (root / "src" / "safe.py").write_text(
+                "FIELDS = ('live_order_allowed',)\n"
+                "def decision():\n"
+                "    return {'live_order_allowed': False}\n",
+                encoding="utf-8",
+            )
+            (root / "src" / "unsafe.py").write_text(
+                "def decision():\n"
+                "    payload = {}\n"
+                "    payload['live_order_allowed'] = True\n"
+                "    return {'live_order_allowed': True}\n",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            hits = audit["safety"]["forbidden_hits"]
+            self.assertEqual([hit["path"] for hit in hits], ["src/unsafe.py", "src/unsafe.py"])
+            self.assertTrue(all(hit["pattern"] == "live_order" for hit in hits))
+
     def test_audit_reports_mock_boundary_files_separately(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

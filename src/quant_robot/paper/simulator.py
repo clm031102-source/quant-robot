@@ -36,6 +36,7 @@ class PaperSimulationConfig:
     periods_per_year: float | None = None
     max_drawdown_guard: float | None = None
     guard_cooldown_periods: int = 0
+    respect_execution_constraints: bool = True
     output_dir: Path | None = None
 
 
@@ -62,6 +63,7 @@ def run_paper_simulation(
     equity_rows: list[dict[str, Any]] = []
     snapshots: list[dict[str, Any]] = []
     guard_events: list[dict[str, Any]] = []
+    execution_events: list[dict[str, Any]] = []
 
     rebalance_counter = 0
     baseline_recorded = False
@@ -109,10 +111,18 @@ def run_paper_simulation(
         day_intents, guard_remaining, guard_event = _apply_drawdown_guard(day_intents, signal_date, guard_remaining)
         if guard_event is not None:
             guard_events.append(guard_event)
-        day_fills = _simulate_fills(day_intents, execution_prices, config.commission_bps, config.slippage_bps, cash)
+        day_fills, day_execution_events = _simulate_fills(
+            day_intents,
+            execution_prices,
+            config.commission_bps,
+            config.slippage_bps,
+            cash,
+            respect_execution_constraints=config.respect_execution_constraints,
+        )
         cash = _apply_fills(positions, cash, day_fills)
         intents.extend(day_intents)
         fills.extend(day_fills)
+        execution_events.extend(day_execution_events)
         equity_row = _equity_row(execution_date, cash, positions, valuation_prices)
         equity_rows.append(equity_row)
         peak_equity, guard_remaining, trigger_event = _update_drawdown_guard(equity_row, peak_equity, guard_remaining, config)
@@ -120,7 +130,7 @@ def run_paper_simulation(
             guard_events.append(trigger_event)
 
     equity_curve = _equity_curve(equity_rows)
-    metrics = _metrics(equity_curve, cash, positions, filtered, config, guard_events)
+    metrics = _metrics(equity_curve, cash, positions, filtered, config, guard_events, execution_events)
     result = _sanitize(
         {
             "data_mode": "fixture" if set(filtered["source"].astype(str)) == {"fixture"} else "research",
@@ -132,6 +142,7 @@ def run_paper_simulation(
             "equity_curve": _records(equity_curve),
             "snapshots": snapshots,
             "guard_events": guard_events,
+            "execution_events": execution_events,
         }
     )
     if config.output_dir is not None:
@@ -147,6 +158,7 @@ def write_paper_simulation_artifacts(result: dict[str, Any], output_dir: Path) -
     pd.DataFrame(result["equity_curve"]).to_csv(output_dir / "equity_curve.csv", index=False)
     pd.DataFrame(result["snapshots"]).to_csv(output_dir / "snapshots.csv", index=False)
     pd.DataFrame(result["guard_events"]).to_csv(output_dir / "guard_events.csv", index=False)
+    pd.DataFrame(result.get("execution_events", [])).to_csv(output_dir / "execution_events.csv", index=False)
     manifest = {
         "data_mode": result["data_mode"],
         "request": result["request"],
@@ -229,9 +241,11 @@ def _current_prices_by_date(bars: pd.DataFrame, dates: list[Any]) -> dict[Any, p
     frame = bars.copy()
     frame["_date_key"] = pd.to_datetime(frame["date"]).dt.date
     prices: dict[Any, pd.DataFrame] = {}
-    empty = pd.DataFrame(columns=["asset_id", "market", "latest_price"])
+    optional = [column for column in ("suspended", "limit_up", "limit_down") if column in frame.columns]
+    columns = ["asset_id", "market", "adj_close", "volume", *optional]
+    empty = pd.DataFrame(columns=["asset_id", "market", "latest_price", "volume", *optional])
     for date, group in frame.groupby("_date_key"):
-        prices[date] = group[["asset_id", "market", "adj_close"]].rename(columns={"adj_close": "latest_price"}).reset_index(drop=True)
+        prices[date] = group[columns].rename(columns={"adj_close": "latest_price"}).reset_index(drop=True)
     return {date: prices.get(date, empty) for date in dates}
 
 
@@ -311,13 +325,30 @@ def _simulate_fills(
     commission_bps: float,
     slippage_bps: float,
     available_cash: float,
-) -> list[dict[str, Any]]:
+    respect_execution_constraints: bool = True,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     price_lookup = execution_prices.set_index("asset_id").to_dict(orient="index")
     fills: list[dict[str, Any]] = []
+    execution_events: list[dict[str, Any]] = []
     cash = available_cash
     for intent in sorted(intents, key=lambda item: 0 if item["side"] == "sell" else 1):
         price_row = price_lookup.get(intent["asset_id"])
         if price_row is None:
+            continue
+        blocked_reason = _execution_blocking_reason(intent, price_row, respect_execution_constraints)
+        if blocked_reason is not None:
+            execution_events.append(
+                {
+                    "event_type": "execution_constraint_blocked_fill",
+                    "reason": blocked_reason,
+                    "intent_id": intent["intent_id"],
+                    "signal_date": intent["signal_date"],
+                    "execution_date": intent["execution_date"],
+                    "asset_id": intent["asset_id"],
+                    "market": str(price_row.get("market", intent["market"])),
+                    "side": intent["side"],
+                }
+            )
             continue
         base_price = float(price_row["latest_price"])
         signed_quantity = float(intent["signed_quantity"])
@@ -354,7 +385,31 @@ def _simulate_fills(
                 "broker_order_id": None,
             }
         )
-    return fills
+    return fills, execution_events
+
+
+def _execution_blocking_reason(intent: dict[str, Any], price_row: dict[str, Any], enabled: bool) -> str | None:
+    if not enabled:
+        return None
+    if _truthy(price_row.get("suspended")):
+        return "suspended"
+    volume = price_row.get("volume")
+    if volume is not None and not pd.isna(volume) and float(volume) <= 0.0:
+        return "zero_volume"
+    side = str(intent.get("side", "")).lower()
+    if side == "buy" and _truthy(price_row.get("limit_up")):
+        return "limit_up_buy_blocked"
+    if side == "sell" and _truthy(price_row.get("limit_down")):
+        return "limit_down_sell_blocked"
+    return None
+
+
+def _truthy(value: Any) -> bool:
+    if value is None or pd.isna(value):
+        return False
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+    return bool(value)
 
 
 def _apply_drawdown_guard(
@@ -457,6 +512,7 @@ def _metrics(
     bars: pd.DataFrame,
     config: PaperSimulationConfig,
     guard_events: list[dict[str, Any]],
+    execution_events: list[dict[str, Any]],
 ) -> dict[str, float]:
     periods = _resolve_periods_per_year(config)
     summary = summarize_returns(equity_curve["period_return"] if not equity_curve.empty else pd.Series(dtype=float), periods_per_year=periods)
@@ -474,6 +530,7 @@ def _metrics(
             "open_positions": float(len(positions)),
             "max_equity_drawdown": max_drawdown(equity_curve["equity"]) if not equity_curve.empty else 0.0,
             "guard_event_count": float(len(guard_events)),
+            "execution_block_event_count": float(len(execution_events)),
         }
     )
     return summary

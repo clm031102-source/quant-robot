@@ -16,6 +16,7 @@ from quant_robot.data.normalize import normalize_ohlcv
 from quant_robot.data.quality import validate_market_data
 from quant_robot.data.quality_report import build_quality_report
 from quant_robot.storage.dataset_store import DatasetStore
+from quant_robot.storage.processed_bars import load_processed_bars
 
 
 def import_etf_csv(
@@ -37,8 +38,7 @@ def import_etf_csv(
         bars = normalize_ohlcv(raw, asset, source=source, frequency=frequency)
         validate_market_data(bars)
         written = _merge_write_processed_bars(bars, output_root, frequency)
-        observed_dates = sorted(set(pd.to_datetime(bars["date"]).dt.date))
-        report = build_quality_report(bars, expected_dates=_expected_business_dates(observed_dates))
+        report = _build_processed_quality_report(output_root)
         report_path = output_root / "quality_report_cn_etf.json"
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
@@ -98,6 +98,18 @@ def _expected_business_dates(observed_dates: list[object]) -> list[object]:
     if not observed_dates:
         return []
     return list(pd.bdate_range(min(observed_dates), max(observed_dates)).date)
+
+
+def _build_processed_quality_report(output_root: Path) -> dict[str, Any]:
+    processed = load_processed_bars(output_root, "CN_ETF")
+    return build_quality_report(processed, expected_dates=_expected_dates_for_processed(processed))
+
+
+def _expected_dates_for_processed(processed: pd.DataFrame) -> list[object]:
+    observed_dates = sorted(set(pd.to_datetime(processed["date"]).dt.date))
+    if int(processed["asset_id"].nunique()) <= 1:
+        return _expected_business_dates(observed_dates)
+    return observed_dates
 
 
 def main() -> None:

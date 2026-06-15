@@ -84,4 +84,4 @@ python scripts\run_paper_simulation.py --source processed-bars --data-root data\
 
 This phase still does not connect to brokers, does not read a real account, and does not place orders. Paper simulation fills are local simulated records only.
 
-Tushare ETF fetching is not marked implemented yet. When the Tushare ETF endpoint is wired and tested, `CN_ETF` can move from planned provider support to direct provider ingestion.
+Tushare ETF daily fetching is now wired through the optional `fund_daily` provider path. When provider credentials are unavailable, `CN_ETF` research can still use local CSV or fixture data.

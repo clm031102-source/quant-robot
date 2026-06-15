@@ -28,12 +28,12 @@ class AdapterTests(unittest.TestCase):
         us = Asset("US_XNAS_AAPL", "AAPL", "US", "XNAS", "stock", "USD", "America/New_York", "XNYS")
         crypto = Asset("CRYPTO_BINANCE_BTC_USDT", "BTC/USDT", "CRYPTO", "BINANCE", "crypto_spot", "USDT", "UTC", "24/7")
 
-        self.assertFalse(AkshareAdapter().supports(cn))
-        self.assertFalse(AkshareAdapter().supports(etf))
+        self.assertTrue(AkshareAdapter().supports(cn))
+        self.assertTrue(AkshareAdapter().supports(etf))
         self.assertFalse(AkshareAdapter().supports(hk))
         self.assertFalse(AkshareAdapter().supports(us))
         self.assertTrue(TushareAdapter().supports(cn))
-        self.assertFalse(TushareAdapter().supports(etf))
+        self.assertTrue(TushareAdapter().supports(etf))
         self.assertTrue(YFinanceAdapter().supports(hk))
         self.assertTrue(YFinanceAdapter().supports(us))
         self.assertTrue(CcxtAdapter().supports(crypto))
@@ -132,6 +132,61 @@ class AdapterTests(unittest.TestCase):
 
         self.assertEqual(len(exchange.calls), 2)
         self.assertEqual(list(result["close"]), [42500.0, 43000.0, 43500.0])
+
+    def test_akshare_adapter_maps_cn_stock_daily_bars(self):
+        class FakeAkshare:
+            def stock_zh_a_hist(self, **kwargs):
+                self.kwargs = kwargs
+                return pd.DataFrame(
+                    {
+                        "日期": ["2024-01-02"],
+                        "开盘": [10.0],
+                        "最高": [10.5],
+                        "最低": [9.8],
+                        "收盘": [10.2],
+                        "成交量": [10000],
+                        "成交额": [102000.0],
+                    }
+                )
+
+        client = FakeAkshare()
+        adapter = AkshareAdapter(client=client)
+        asset = Asset("CN_XSHG_600519", "600519.SH", "CN", "XSHG", "stock", "CNY", "Asia/Shanghai", "XSHG")
+
+        result = adapter.fetch_ohlcv(asset, FetchRequest("2024-01-01", "2024-01-31", adjustment="qfq"))
+
+        self.assertEqual(client.kwargs["symbol"], "600519")
+        self.assertEqual(client.kwargs["period"], "daily")
+        self.assertEqual(client.kwargs["start_date"], "20240101")
+        self.assertEqual(client.kwargs["end_date"], "20240131")
+        self.assertEqual(client.kwargs["adjust"], "qfq")
+        self.assertEqual(result.loc[0, "close"], 10.2)
+        self.assertEqual(result.loc[0, "amount"], 102000.0)
+
+    def test_akshare_adapter_maps_cn_etf_daily_bars(self):
+        class FakeAkshare:
+            def fund_etf_hist_em(self, **kwargs):
+                self.kwargs = kwargs
+                return pd.DataFrame(
+                    {
+                        "日期": ["2024-01-02"],
+                        "开盘": [3.0],
+                        "最高": [3.2],
+                        "最低": [2.9],
+                        "收盘": [3.1],
+                        "成交量": [5000],
+                    }
+                )
+
+        client = FakeAkshare()
+        adapter = AkshareAdapter(client=client)
+        asset = Asset("CN_ETF_XSHG_510300", "510300.SH", "CN_ETF", "XSHG", "etf", "CNY", "Asia/Shanghai", "XSHG")
+
+        result = adapter.fetch_ohlcv(asset, FetchRequest("2024-01-01", "2024-01-31"))
+
+        self.assertEqual(client.kwargs["symbol"], "510300")
+        self.assertEqual(result.loc[0, "adj_close"], 3.1)
+        self.assertEqual(result.loc[0, "amount"], 15500.0)
 
 
 if __name__ == "__main__":

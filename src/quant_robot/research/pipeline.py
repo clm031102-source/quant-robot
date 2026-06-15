@@ -43,6 +43,7 @@ class ResearchPipelineConfig:
     cash_annual_return: float = 0.0
     regime_filter: bool = False
     regime_lookback: int = 20
+    target_gross_exposure: float = 1.0
     min_relative_return: float | None = None
     max_drawdown_limit: float | None = None
     signal_start_date: str | None = None
@@ -75,10 +76,12 @@ def run_research_pipeline(bars: pd.DataFrame, config: ResearchPipelineConfig) ->
         portfolio_scope=portfolio_scope,
         execution_lag=config.execution_lag,
         holding_period=config.forward_horizon,
+        rebalance_interval=config.rebalance_interval,
+        target_gross_exposure=config.target_gross_exposure,
         periods_per_year=periods_per_year,
     )
     drawdown = _drawdown_curve(backtest.equity_curve)
-    benchmark_curve = build_benchmark_curve(filtered, benchmark_asset_id=config.benchmark_asset_id)
+    benchmark_curve = build_benchmark_curve(_comparison_bars(filtered, config), benchmark_asset_id=config.benchmark_asset_id)
     benchmark_metrics = compare_strategy_to_benchmark(
         backtest.equity_curve,
         benchmark_curve,
@@ -162,6 +165,15 @@ def _filter_signals(factors: pd.DataFrame, config: ResearchPipelineConfig) -> pd
         signal_dates = sorted(pd.to_datetime(frame["date"]).dt.date.unique())
         keep_dates = set(signal_dates[:: config.rebalance_interval])
         frame = frame[pd.to_datetime(frame["date"]).dt.date.isin(keep_dates)]
+    return frame.reset_index(drop=True)
+
+
+def _comparison_bars(bars: pd.DataFrame, config: ResearchPipelineConfig) -> pd.DataFrame:
+    frame = bars.copy()
+    if config.signal_start_date:
+        frame = frame[pd.to_datetime(frame["date"]).dt.date >= pd.to_datetime(config.signal_start_date).date()]
+    if config.signal_end_date:
+        frame = frame[pd.to_datetime(frame["date"]).dt.date <= pd.to_datetime(config.signal_end_date).date()]
     return frame.reset_index(drop=True)
 
 

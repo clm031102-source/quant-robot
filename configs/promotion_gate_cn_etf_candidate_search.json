@@ -1,0 +1,20 @@
+{
+  "walk_forward_leaderboard": "data/reports/walk_forward_cn_etf_candidate_search/walk_forward_leaderboard.csv",
+  "experiment_leaderboard": "data/reports/walk_forward_cn_etf_candidate_search/test/leaderboard.csv",
+  "paper_manifest_dir": "data/reports/paper_batch_cn_etf_candidate_search",
+  "provider_status": "data/reports/provider_status/provider_status.json",
+  "quality_report": "data/processed/etf_csv/quality_report_cn_etf.json",
+  "output_dir": "data/reports/promotion_gate_cn_etf_candidate_search",
+  "min_oos_trades": 20,
+  "min_oos_sharpe": 0.5,
+  "min_stability_score": 0.3,
+  "min_oos_relative_return": 0.0,
+  "max_oos_drawdown": 0.25,
+  "min_paper_sharpe": 0.5,
+  "max_paper_drawdown": 0.25,
+  "require_non_fixture_data": true,
+  "dedupe_similar_candidates": true,
+  "duplicate_similarity_threshold": 0.98,
+  "duplicate_min_events": 3,
+  "allow_manual_live_review": false
+}
