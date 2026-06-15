@@ -28,6 +28,10 @@ from quant_robot.storage.factor_inputs import load_factor_inputs
 from quant_robot.storage.moneyflow_inputs import load_moneyflow_inputs
 
 
+MIN_IC_OBSERVATIONS_FOR_SIGNIFICANCE = 3
+ZERO_VARIANCE_TOLERANCE = 1e-12
+
+
 @dataclass(frozen=True)
 class ResearchPipelineConfig:
     factor_name: str = "momentum_2"
@@ -318,8 +322,8 @@ def _factor_summary(ic: pd.DataFrame) -> dict[str, float | int | str]:
     clean_rank = pd.to_numeric(ic["rank_ic"], errors="coerce").dropna()
     mean_ic = float(clean_ic.mean()) if not clean_ic.empty else 0.0
     std_ic = float(clean_ic.std(ddof=0)) if not clean_ic.empty else 0.0
-    ic_t_stat, ic_p_value = _series_t_test(clean_ic)
-    rank_t_stat, rank_p_value = _series_t_test(clean_rank)
+    ic_t_stat, ic_p_value = _guarded_series_t_test(clean_ic)
+    rank_t_stat, rank_p_value = _guarded_series_t_test(clean_rank)
     return {
         "mean_ic": mean_ic,
         "mean_rank_ic": float(clean_rank.mean()) if not clean_rank.empty else 0.0,
@@ -330,34 +334,45 @@ def _factor_summary(ic: pd.DataFrame) -> dict[str, float | int | str]:
         "ic_p_value": ic_p_value,
         "rank_ic_t_stat": rank_t_stat,
         "rank_ic_p_value": rank_p_value,
-        "significance_status": _significance_status(mean_ic, ic_p_value, len(clean_ic)),
+        "significance_status": _significance_status(mean_ic, ic_p_value, len(clean_ic), std_ic),
     }
+
+
+def _guarded_series_t_test(values: pd.Series) -> tuple[float, float]:
+    clean = pd.to_numeric(values, errors="coerce").dropna()
+    if len(clean) < MIN_IC_OBSERVATIONS_FOR_SIGNIFICANCE:
+        return 0.0, 1.0
+    if _is_zero_variance(float(clean.std(ddof=0))):
+        return 0.0, 1.0
+    return _series_t_test(clean)
 
 
 def _series_t_test(values: pd.Series) -> tuple[float, float]:
     clean = pd.to_numeric(values, errors="coerce").dropna()
     observations = len(clean)
-    if observations < 2:
+    if observations < MIN_IC_OBSERVATIONS_FOR_SIGNIFICANCE:
         return 0.0, 1.0
     mean = float(clean.mean())
     std = float(clean.std(ddof=1))
-    if std == 0.0:
-        if mean == 0.0:
-            return 0.0, 1.0
-        return math.copysign(1e12, mean), 0.0
+    if _is_zero_variance(std):
+        return 0.0, 1.0
     t_stat = mean / (std / math.sqrt(observations))
     p_value = math.erfc(abs(t_stat) / math.sqrt(2.0))
     return t_stat, max(min(p_value, 1.0), 0.0)
 
 
-def _significance_status(mean_ic: float, p_value: float, observations: int) -> str:
-    if observations < 2:
+def _significance_status(mean_ic: float, p_value: float, observations: int, std_ic: float) -> str:
+    if observations < MIN_IC_OBSERVATIONS_FOR_SIGNIFICANCE or _is_zero_variance(std_ic):
         return "insufficient_data"
     if p_value <= 0.05 and mean_ic > 0.0:
         return "significant_positive"
     if p_value <= 0.05 and mean_ic < 0.0:
         return "significant_negative"
     return "not_significant"
+
+
+def _is_zero_variance(value: float) -> bool:
+    return math.isclose(value, 0.0, abs_tol=ZERO_VARIANCE_TOLERANCE)
 
 
 def _drawdown_curve(equity_curve: pd.DataFrame) -> pd.DataFrame:

@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pandas as pd
 
 from quant_robot.data.fixtures import load_demo_market_bars
-from quant_robot.research.pipeline import ResearchPipelineConfig, run_research_pipeline
+from quant_robot.research.pipeline import ResearchPipelineConfig, _factor_summary, run_research_pipeline
 from quant_robot.storage.dataset_store import DatasetStore
 from quant_robot.storage.processed_bars import load_processed_bars
 from scripts.run_research_pipeline import build_research_config, load_research_bars
@@ -131,6 +131,22 @@ class ResearchPipelineTests(unittest.TestCase):
         self.assertEqual(result["decision"]["decision_status"], "approved")
         self.assertIn("relative_return", result["benchmark_metrics"])
         self.assertEqual(result["request"]["benchmark_asset_id"], "CN_ETF_XSHG_510300")
+
+    def test_factor_summary_marks_two_observations_as_insufficient_for_significance(self):
+        summary = _factor_summary(pd.DataFrame({"ic": [0.10, 0.20], "rank_ic": [0.10, 0.20]}))
+
+        self.assertEqual(summary["ic_observations"], 2)
+        self.assertEqual(summary["significance_status"], "insufficient_data")
+        self.assertEqual(summary["ic_p_value"], 1.0)
+        self.assertEqual(summary["ic_t_stat"], 0.0)
+
+    def test_factor_summary_marks_zero_variance_ic_as_insufficient_for_significance(self):
+        summary = _factor_summary(pd.DataFrame({"ic": [0.10] * 20, "rank_ic": [0.10] * 20}))
+
+        self.assertEqual(summary["ic_observations"], 20)
+        self.assertEqual(summary["significance_status"], "insufficient_data")
+        self.assertEqual(summary["ic_p_value"], 1.0)
+        self.assertEqual(summary["ic_t_stat"], 0.0)
 
     def test_benchmark_curve_respects_signal_start_date(self):
         result = run_research_pipeline(
