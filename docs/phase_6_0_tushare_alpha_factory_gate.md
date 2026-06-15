@@ -34,6 +34,20 @@ The fixture execute path completed end-to-end:
 
 This is the expected conservative behavior: no candidate enters paper validation unless it survives multiple-testing correction.
 
+## Candidate Gates
+
+Alpha Factory defaults are now research-grade rather than smoke-grade:
+
+- `min_trades=30`
+- `min_ic_observations=20`
+- `min_long_short_observations=20`
+- `market_impact_bps=10`
+- `max_participation_rate=0.05`
+
+Tiny smoke runs must pass lower thresholds explicitly. A row can only become a
+paper candidate when it is completed, directionally positive, adjusted-IC
+significant, sufficiently sampled, and free of capacity-limit flags.
+
 ## Commands
 
 Token setup with ignored `.env`:
@@ -53,21 +67,21 @@ Readiness:
 
 ```powershell
 $env:PYTHONPATH='src'
-python scripts\check_readiness.py
+.\.venv\Scripts\python.exe scripts\check_readiness.py
 ```
 
 Real alpha-factory gate:
 
 ```powershell
 $env:PYTHONPATH='src'
-python scripts\run_tushare_alpha_factory_gate.py --source tushare --market CN --start-date 2024-01-02 --end-date 2024-12-31 --report-dir data\reports\tushare_alpha_factory_gate --data-root data\processed\tushare_alpha_factory_gate --execute
+.\.venv\Scripts\python.exe scripts\run_tushare_alpha_factory_gate.py --source tushare --market CN --start-date 2024-01-02 --end-date 2024-12-31 --report-dir data\reports\tushare_alpha_factory_gate --data-root data\processed\tushare_alpha_factory_gate --execute
 ```
 
 Fixture proof:
 
 ```powershell
 $env:PYTHONPATH='src'
-python scripts\run_tushare_alpha_factory_gate.py --source tushare-fixture --market CN --start-date 2024-01-02 --end-date 2024-01-12 --report-dir data\reports\tushare_alpha_factory_gate_fixture --data-root data\processed\tushare_alpha_factory_gate_fixture --execute
+.\.venv\Scripts\python.exe scripts\run_tushare_alpha_factory_gate.py --source tushare-fixture --market CN --start-date 2024-01-02 --end-date 2024-01-12 --report-dir data\reports\tushare_alpha_factory_gate_fixture --data-root data\processed\tushare_alpha_factory_gate_fixture --execute
 ```
 
 ## Boundary
@@ -80,5 +94,5 @@ Paper batch for adjusted-significant Alpha Factory candidates:
 
 ```powershell
 $env:PYTHONPATH='src'
-python scripts\run_paper_batch.py --config configs\paper_batch_tushare_alpha_factory.json
+.\.venv\Scripts\python.exe scripts\run_paper_batch.py --config configs\paper_batch_tushare_alpha_factory.json
 ```

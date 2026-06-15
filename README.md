@@ -67,7 +67,7 @@ Passing this gate only permits continued paper observation on refreshed data. It
 
 ```powershell
 $env:PYTHONPATH='src'
-python -m unittest discover -s tests -p "test_*.py"
+.\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py"
 ```
 
 ## Workstation Startup
@@ -75,7 +75,7 @@ python -m unittest discover -s tests -p "test_*.py"
 Before starting work on the laptop, high-spec desktop, or office desktop, confirm the machine, task type, branch, and commit/push permission. Branches are named by work content, not by machine.
 
 ```powershell
-python scripts\start_task_context.py
+.\.venv\Scripts\python.exe scripts\start_task_context.py
 ```
 
 See `AGENTS.md`, `configs/workstations.json`, and `docs/workstation_protocol.md`.
@@ -106,7 +106,7 @@ $env:PYTHONPATH='src'
 
 ```powershell
 $env:PYTHONPATH='src'
-python scripts\run_project_audit.py
+.\.venv\Scripts\python.exe scripts\run_project_audit.py
 ```
 
 Outputs are written to `data/reports/project_audit/`.

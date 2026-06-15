@@ -82,10 +82,14 @@ dividend fields, although the sample here is far too short for edge claims.
 - Blocked alpha-factory paper candidates when the backtest reports
   capacity-limited trades.
 - Exposed alpha-factory CLI controls for `--min-trades`,
-  `--portfolio-value`, `--market-impact-bps`, and
-  `--max-participation-rate`.
+  `--min-ic-observations`, `--min-long-short-observations`,
+  `--portfolio-value`, `--market-impact-bps`,
+  `--max-participation-rate`, and explicit capacity-control relaxation.
 - Exposed the same capacity controls on the Tushare alpha-factory gate and
   passed them through to the alpha factory runner.
+- Hardened Alpha Factory defaults to require 30 trades, 20 IC observations,
+  20 long-short observations, nonzero market impact, and an explicit
+  participation cap before any row can be treated as paper-eligible.
 - Made paper-batch candidate loading fail fast with a clear missing
   leaderboard error.
 - Ran the broader local workflow suite with
