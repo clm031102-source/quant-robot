@@ -28,13 +28,23 @@ DEFAULT_OUTPUT = Path("docs/research/desktop_residual_regime_validation_latest.m
 def run_desktop_validation_summary(
     *,
     walk_forward_leaderboard: str | Path = DEFAULT_WALK_FORWARD_LEADERBOARD,
+    walk_forward_manifest: str | Path | None = None,
     promotion_report: str | Path | None = DEFAULT_PROMOTION_REPORT,
     output: str | Path = DEFAULT_OUTPUT,
     generated_at: str | None = None,
 ) -> Path:
-    rows = _read_csv_records(Path(walk_forward_leaderboard))
+    leaderboard_path = Path(walk_forward_leaderboard)
+    rows = _read_csv_records(leaderboard_path)
+    manifest_path = Path(walk_forward_manifest) if walk_forward_manifest is not None else leaderboard_path.with_name("manifest.json")
+    manifest = _read_optional_json(manifest_path)
+    manifest_summary = _validate_manifest_summary(rows, manifest) if manifest is not None else None
     promotion = _read_optional_json(Path(promotion_report)) if promotion_report is not None else None
-    markdown = build_desktop_validation_summary(rows, promotion_report=promotion, generated_at=generated_at)
+    markdown = build_desktop_validation_summary(
+        rows,
+        walk_forward_manifest_summary=manifest_summary,
+        promotion_report=promotion,
+        generated_at=generated_at,
+    )
     output_path = Path(output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(markdown, encoding="utf-8")
@@ -44,6 +54,7 @@ def run_desktop_validation_summary(
 def build_desktop_validation_summary(
     rows: list[dict[str, str]],
     *,
+    walk_forward_manifest_summary: dict[str, int] | None = None,
     promotion_report: dict[str, Any] | None = None,
     generated_at: str | None = None,
     max_rows: int = 10,
@@ -61,6 +72,7 @@ def build_desktop_validation_summary(
         f"- Cases: {total}",
         f"- Accepted: {accepted} / {total}",
         f"- Rejected: {rejected} / {total}",
+        f"- Walk-forward manifest: {'verified' if walk_forward_manifest_summary is not None else 'missing'}",
         "",
         "## Top Walk-Forward Rows",
         "",
@@ -147,6 +159,24 @@ def _read_optional_json(path: Path) -> dict[str, Any] | None:
     return data
 
 
+def _validate_manifest_summary(rows: list[dict[str, str]], manifest: dict[str, Any]) -> dict[str, int]:
+    summary = manifest.get("summary", {})
+    if not isinstance(summary, dict):
+        raise ValueError("walk-forward manifest must contain a summary object")
+    actual = {
+        "cases": len(rows),
+        "accepted": sum(1 for row in rows if str(row.get("validation_status")) == "accepted"),
+        "rejected": sum(1 for row in rows if str(row.get("validation_status")) == "rejected"),
+    }
+    expected = {key: int(summary.get(key, 0)) for key in actual}
+    if actual != expected:
+        raise ValueError(
+            "walk-forward manifest summary does not match leaderboard: "
+            f"manifest={expected}, leaderboard={actual}"
+        )
+    return expected
+
+
 def _walk_forward_sort_key(row: dict[str, str]) -> tuple[int, float, str]:
     status_order = 0 if row.get("validation_status") == "accepted" else 1
     score = _float(row.get("mean_stability_score", row.get("stability_score", "")))
@@ -174,11 +204,13 @@ def _float(value: Any) -> float:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Write a lightweight desktop residual-regime validation summary.")
     parser.add_argument("--walk-forward-leaderboard", default=str(DEFAULT_WALK_FORWARD_LEADERBOARD))
+    parser.add_argument("--walk-forward-manifest", default=None)
     parser.add_argument("--promotion-report", default=str(DEFAULT_PROMOTION_REPORT))
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT))
     args = parser.parse_args()
     output = run_desktop_validation_summary(
         walk_forward_leaderboard=Path(args.walk_forward_leaderboard),
+        walk_forward_manifest=Path(args.walk_forward_manifest) if args.walk_forward_manifest else None,
         promotion_report=Path(args.promotion_report) if args.promotion_report else None,
         output=Path(args.output),
     )

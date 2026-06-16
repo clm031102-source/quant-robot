@@ -224,7 +224,7 @@ $env:PYTHONPATH='src'
 python scripts\run_checks.py --profile desktop-validation --execute
 ```
 
-The profile also builds a research-only promotion gate report and writes `docs/research/desktop_residual_regime_validation_latest.md` after the walk-forward run. To build only the promotion report after a validation run:
+The profile also builds a research-only promotion gate report and writes `docs/research/desktop_residual_regime_validation_latest.md` after the walk-forward run. The summary command cross-checks the leaderboard against the walk-forward `manifest.json`, so stale or mismatched validation artifacts fail instead of producing a misleading Markdown summary. To build only the promotion report after a validation run:
 
 ```powershell
 $env:PYTHONPATH='src'

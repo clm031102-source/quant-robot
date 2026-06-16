@@ -86,6 +86,8 @@ To rebuild only the syncable Markdown summary:
 python scripts\run_desktop_validation_summary.py
 ```
 
+The summary command validates the walk-forward leaderboard against the sibling `manifest.json`. If cases, accepted count, or rejected count disagree, treat it as stale or mixed validation output and rerun the full desktop profile before syncing.
+
 ## Review Rules
 
 Treat a candidate as useful only if it survives all of these checks:
