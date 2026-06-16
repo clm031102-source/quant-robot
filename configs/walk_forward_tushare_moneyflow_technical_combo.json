@@ -20,6 +20,8 @@
       "small_sell_plus_reversal_5",
       "mf_low_minus_volatility_20",
       "large_minus_liquidity_20",
+      "large_resid_liquidity_20",
+      "large_liquidity_gate_20",
       "extra_low_plus_reversal_5",
       "large_plus_risk_momentum_10"
     ],

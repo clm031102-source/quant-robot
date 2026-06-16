@@ -17,6 +17,7 @@ class ComboFactorSpec:
     operation: str
     lookback_window: int
     economic_meaning: str
+    liquidity_gate_quantile: float | None = None
 
 
 MONEYFLOW_TECHNICAL_COMBO_SPECS: dict[str, ComboFactorSpec] = {
@@ -61,6 +62,21 @@ MONEYFLOW_TECHNICAL_COMBO_SPECS: dict[str, ComboFactorSpec] = {
         "-",
         20,
         "Large-order net inflow penalized by Amihud-style illiquidity.",
+    ),
+    "large_resid_liquidity_20": ComboFactorSpec(
+        "large_order_net_amount_ratio",
+        "liquidity_20",
+        "residual",
+        20,
+        "Large-order net inflow residualized against same-day Amihud-style illiquidity.",
+    ),
+    "large_liquidity_gate_20": ComboFactorSpec(
+        "large_order_net_amount_ratio",
+        "liquidity_20",
+        "gate",
+        20,
+        "Large-order net inflow restricted to the more liquid half of the cross-section.",
+        liquidity_gate_quantile=0.5,
     ),
     "extra_plus_momentum_10": ComboFactorSpec(
         "extra_large_order_net_amount_ratio",
@@ -144,8 +160,7 @@ def _combo_frame(
     left = moneyflow.loc[moneyflow["factor_name"] == spec.moneyflow_factor, keys + ["z_factor_value"]]
     right = technical.loc[technical["factor_name"] == spec.technical_factor, keys + ["z_factor_value"]]
     merged = left.merge(right, on=keys, how="inner", suffixes=("_moneyflow", "_technical"))
-    sign = 1.0 if spec.operation == "+" else -1.0
-    values = merged["z_factor_value_moneyflow"] + sign * merged["z_factor_value_technical"]
+    values = _combo_values(merged, spec)
     return pd.DataFrame(
         {
             "date": merged["date"].to_numpy(),
@@ -156,3 +171,50 @@ def _combo_frame(
             "lookback_window": spec.lookback_window,
         }
     )
+
+
+def _combo_values(merged: pd.DataFrame, spec: ComboFactorSpec) -> pd.Series:
+    moneyflow = merged["z_factor_value_moneyflow"]
+    technical = merged["z_factor_value_technical"]
+    if spec.operation == "+":
+        values = moneyflow + technical
+    elif spec.operation == "-":
+        values = moneyflow - technical
+    elif spec.operation == "gate":
+        values = moneyflow.copy()
+    elif spec.operation == "residual":
+        values = _cross_sectional_residuals(merged, moneyflow, technical)
+    else:
+        raise ValueError(f"Unsupported combo operation: {spec.operation}")
+    if spec.liquidity_gate_quantile is not None:
+        values = values.where(_liquidity_gate_mask(merged, technical, spec.liquidity_gate_quantile))
+    return values
+
+
+def _cross_sectional_residuals(merged: pd.DataFrame, target: pd.Series, exposure: pd.Series) -> pd.Series:
+    values = pd.Series(np.nan, index=merged.index, dtype=float)
+    for _, group in merged.groupby(["date", "market"], sort=False):
+        x = pd.to_numeric(exposure.loc[group.index], errors="coerce")
+        y = pd.to_numeric(target.loc[group.index], errors="coerce")
+        finite = x.notna() & y.notna()
+        if int(finite.sum()) < 2:
+            continue
+        x_clean = x.loc[finite]
+        y_clean = y.loc[finite]
+        variance = float(x_clean.var(ddof=0))
+        if not np.isfinite(variance) or variance <= 1e-12:
+            continue
+        beta = float(((x_clean - float(x_clean.mean())) * (y_clean - float(y_clean.mean()))).mean() / variance)
+        alpha = float(y_clean.mean()) - beta * float(x_clean.mean())
+        values.loc[x_clean.index] = y_clean - (alpha + beta * x_clean)
+    return values
+
+
+def _liquidity_gate_mask(merged: pd.DataFrame, liquidity: pd.Series, quantile: float) -> pd.Series:
+    if not 0.0 < quantile <= 1.0:
+        raise ValueError("liquidity_gate_quantile must be greater than 0 and at most 1")
+    numeric = pd.to_numeric(liquidity, errors="coerce")
+    thresholds = numeric.groupby([merged["date"], merged["market"]], sort=False).transform(
+        lambda values: values.quantile(quantile)
+    )
+    return numeric.notna() & (numeric <= thresholds)
