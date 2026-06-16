@@ -83,11 +83,30 @@ class DesktopValidationSummaryTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
+            data_quality = root / "data_quality_gap_audit.json"
+            data_quality.write_text(
+                json.dumps(
+                    {
+                        "summary": {
+                            "assets": 2,
+                            "missing_date_rows": 4,
+                            "duplicate_bars": 1,
+                            "zero_volume_rows": 0,
+                        },
+                        "repair_actions": [
+                            {"action": "backfill_missing_dates", "priority": 1},
+                            {"action": "deduplicate_bars", "priority": 2},
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
             output = root / "summary.md"
 
             result = run_desktop_validation_summary(
                 walk_forward_leaderboard=leaderboard,
                 promotion_report=promotion,
+                data_quality_audit=data_quality,
                 market_regime_coverage=regime,
                 output=output,
                 generated_at="2026-06-16 16:30:00 +08:00",
@@ -97,6 +116,9 @@ class DesktopValidationSummaryTests(unittest.TestCase):
             self.assertTrue(output.exists())
             text = output.read_text(encoding="utf-8")
             self.assertIn("case_a", text)
+            self.assertIn("Data Quality", text)
+            self.assertIn("Missing date rows: 4", text)
+            self.assertIn("deduplicate_bars", text)
             self.assertIn("Market Regime Coverage", text)
             self.assertIn("sufficient", text)
 
