@@ -479,6 +479,7 @@ def _grid_from_mapping(data: dict[str, Any]) -> ExperimentGridConfig:
         output_dir=None,
         rank_by=str(data.get("rank_by", ExperimentGridConfig.rank_by)),
         min_trades=int(data.get("min_trades", ExperimentGridConfig.min_trades)),
+        precompute_factor_matrix=bool(data.get("precompute_factor_matrix", ExperimentGridConfig.precompute_factor_matrix)),
     )
 
 

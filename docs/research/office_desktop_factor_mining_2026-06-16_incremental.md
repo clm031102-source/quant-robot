@@ -308,7 +308,7 @@ Split-window check on the three approved gated rows:
 - Regime180/top5 and regime252/top5 also passed simple gates in every traded split. Regime252 gave the best 2025H1 and 2026H1 split returns, while regime150 gave the best full-sample relative return.
 - Half-year IC remains unstable: only 2025H2 was significant positive across these split checks. RankIC remains negative in the combined sample, so the factor is still tail-driven rather than smoothly monotonic.
 
-Audit judgment: the laptop-integrated production factor reproduces the temporary probe. `large_resid_liq_vol_amt_gate_20` top5 with regime150/180/252 should stay in the strict-validation queue. It is not promotion-ready because the regime filter avoids the hardest early windows, split IC is not consistently significant, and formal rolling walk-forward needs a cached factor-matrix path before it can run efficiently on the office desktop.
+Audit judgment: the laptop-integrated production factor reproduces the temporary probe. `large_resid_liq_vol_amt_gate_20` top5 with regime150/180/252 should stay in the strict-validation queue. It is not promotion-ready because the regime filter avoids the hardest early windows and split IC is not consistently significant. The laptop framework now addresses the office runtime bottleneck with `precompute_factor_matrix`; the desktop still needs a formal rolling walk-forward run before any promotion discussion.
 
 ## Signal Amount And Rank-Window Probe
 

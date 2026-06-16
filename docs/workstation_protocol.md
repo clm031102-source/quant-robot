@@ -74,7 +74,7 @@ The safe-sync meaning is:
 1. Fetch and prune GitHub refs.
 2. Inspect the current branch, upstream sync, and changed files.
 3. Classify changed paths into syncable, blocked, and ignored.
-4. Audit topic branches before core sync. `research_branch_integration.pending` tracks unabsorbed factor/Tushare research branches. `topic_branch_integration.pending` tracks other unabsorbed remote `origin/codex/*` task branches. `topic_branch_integration.cleanup` lists merged or manifest-absorbed remote topic branches that can be deleted after review. `local_topic_branch_cleanup.cleanup` lists local `codex/*` branches already merged to `origin/main` and not currently checked out.
+4. Audit topic branches before core sync. `research_branch_integration.pending` tracks unabsorbed factor/Tushare research branches. `topic_branch_integration.pending` tracks other unabsorbed remote `origin/codex/*` task branches. `topic_branch_integration.cleanup` lists merged or manifest-absorbed remote topic branches that can be deleted after review. `local_topic_branch_cleanup.cleanup` lists local `codex/*` branches already merged to `origin/main` and not currently checked out. `branch_discovery.errors` must be empty; if Git branch discovery fails, execute/push mode blocks sync rather than treating missing refs as no pending work.
 5. Commit only syncable code/config/test/doc files.
 6. Push the current task branch only when the machine, task, branch, validation, branch-integration audit, and safety checks are clear.
 7. Stop and ask before pushing if anything is ambiguous or risky.
@@ -120,6 +120,18 @@ GitHub does not sync:
 - tokens or credentials
 
 Use local copy, NAS, external drives, or a future DVC/object-storage workflow for large data.
+
+## Desktop Factor Validation
+
+When a desktop is assigned stable framework validation, use task type `factor_validation` and run the residual-regime profile rather than starting a new exploratory batch:
+
+```powershell
+python scripts\run_desktop_factor_validation.py
+```
+
+This runs `configs/walk_forward_tushare_moneyflow_residual_regime.json` on local processed bars and Tushare moneyflow inputs. It allows zero accepted candidates because a clean rejection set is still useful evidence. It should still fail on train/test grid errors, missing data, or unsafe repository state.
+
+Use the detailed checklist in `docs/research/desktop_residual_regime_validation_runbook_2026-06-16.md`.
 
 ## Safety Boundary
 

@@ -19,9 +19,11 @@ class PromotionGateConfig:
     paper_manifest_dir: Path | None = None
     provider_status: Path | None = None
     quality_report: Path | None = None
+    market_regime_coverage: Path | None = None
     output_dir: Path | None = None
     min_oos_trades: int = 20
     min_oos_sharpe: float = 0.50
+    max_oos_sharpe_for_promotion: float | None = None
     min_stability_score: float = 0.30
     min_oos_relative_return: float = 0.0
     max_oos_drawdown: float = 0.25
@@ -40,6 +42,8 @@ class PromotionGateConfig:
     max_adjusted_ic_p_value: float | None = None
     require_provider_ready_for_promotion: bool = False
     max_provider_status_age_days: int | None = None
+    require_market_regime_coverage: bool = False
+    min_distinct_regime_lookbacks_for_family: int = 1
 
 
 def load_promotion_gate_config(path: str | Path) -> PromotionGateConfig:
@@ -52,9 +56,15 @@ def load_promotion_gate_config(path: str | Path) -> PromotionGateConfig:
         paper_manifest_dir=_optional_path(data.get("paper_manifest_dir")),
         provider_status=_optional_path(data.get("provider_status")),
         quality_report=_optional_path(data.get("quality_report")),
+        market_regime_coverage=_optional_path(data.get("market_regime_coverage")),
         output_dir=_optional_path(data.get("output_dir")),
         min_oos_trades=int(data.get("min_oos_trades", PromotionGateConfig.min_oos_trades)),
         min_oos_sharpe=float(data.get("min_oos_sharpe", PromotionGateConfig.min_oos_sharpe)),
+        max_oos_sharpe_for_promotion=(
+            float(data["max_oos_sharpe_for_promotion"])
+            if data.get("max_oos_sharpe_for_promotion") is not None
+            else None
+        ),
         min_stability_score=float(data.get("min_stability_score", PromotionGateConfig.min_stability_score)),
         min_oos_relative_return=float(data.get("min_oos_relative_return", PromotionGateConfig.min_oos_relative_return)),
         max_oos_drawdown=float(data.get("max_oos_drawdown", PromotionGateConfig.max_oos_drawdown)),
@@ -79,6 +89,15 @@ def load_promotion_gate_config(path: str | Path) -> PromotionGateConfig:
         max_provider_status_age_days=(
             int(data["max_provider_status_age_days"]) if data.get("max_provider_status_age_days") is not None else None
         ),
+        require_market_regime_coverage=bool(
+            data.get("require_market_regime_coverage", PromotionGateConfig.require_market_regime_coverage)
+        ),
+        min_distinct_regime_lookbacks_for_family=int(
+            data.get(
+                "min_distinct_regime_lookbacks_for_family",
+                PromotionGateConfig.min_distinct_regime_lookbacks_for_family,
+            )
+        ),
     )
 
 
@@ -90,12 +109,14 @@ def run_promotion_gate(config: PromotionGateConfig) -> dict[str, Any]:
     paper_manifests = _load_paper_manifests(config)
     provider_status = _read_json(config.provider_status) if config.provider_status else None
     quality_report = _read_json(config.quality_report) if config.quality_report else None
+    market_regime_coverage = _read_optional_json(config.market_regime_coverage) if config.market_regime_coverage else None
     report = build_promotion_report(
         walk_forward_rows,
         experiment_rows=experiment_rows,
         paper_manifests=paper_manifests,
         provider_status=provider_status,
         quality_report=quality_report,
+        market_regime_coverage=market_regime_coverage,
         config=config,
     )
     if config.output_dir is not None:
@@ -110,14 +131,25 @@ def build_promotion_report(
     paper_manifests: list[dict[str, Any]] | None = None,
     provider_status: dict[str, Any] | None = None,
     quality_report: dict[str, Any] | None = None,
+    market_regime_coverage: dict[str, Any] | None = None,
     config: PromotionGateConfig = PromotionGateConfig(),
 ) -> dict[str, Any]:
     experiment_by_case = {str(row.get("case_id")): row for row in experiment_rows or []}
     paper_evidence = list(paper_manifests or [])
     if paper_manifest is not None:
         paper_evidence.append(paper_manifest)
+    accepted_regime_lookbacks_by_family = _accepted_regime_lookbacks_by_family(walk_forward_rows)
     candidates = [
-        _candidate_report(row, experiment_by_case.get(str(row.get("case_id"))), paper_evidence, provider_status, quality_report, config)
+        _candidate_report(
+            row,
+            experiment_by_case.get(str(row.get("case_id"))),
+            paper_evidence,
+            provider_status,
+            quality_report,
+            market_regime_coverage,
+            accepted_regime_lookbacks_by_family,
+            config,
+        )
         for row in walk_forward_rows
     ]
     if config.dedupe_similar_candidates:
@@ -147,6 +179,8 @@ def _candidate_report(
     paper_manifests: list[dict[str, Any]],
     provider_status: dict[str, Any] | None,
     quality_report: dict[str, Any] | None,
+    market_regime_coverage: dict[str, Any] | None,
+    accepted_regime_lookbacks_by_family: dict[tuple[str, str, int | None, float | None], set[int]],
     config: PromotionGateConfig,
 ) -> dict[str, Any]:
     blocking: list[str] = []
@@ -172,12 +206,15 @@ def _candidate_report(
     blocking.extend(_walk_forward_evidence_reasons(folds, accepted_folds, test_ic_p_value, test_positive_ic_rate, config))
     blocking.extend(_factor_source_reasons(factor_source, config))
     blocking.extend(_adjusted_ic_evidence_reasons(adjusted_ic_p_value, passes_adjusted_ic_p_value, config))
+    blocking.extend(_regime_family_reasons(row, accepted_regime_lookbacks_by_family, config))
     if validation_status != "accepted":
         blocking.append("walk_forward_not_accepted")
     if config.require_non_fixture_data and data_mode == "fixture":
         blocking.append("fixture_data_not_promotable")
     if test_trades < config.min_oos_trades:
         blocking.append("insufficient_oos_trades")
+    if config.max_oos_sharpe_for_promotion is not None and test_sharpe > config.max_oos_sharpe_for_promotion:
+        blocking.append("oos_sharpe_overfit_flag")
     if test_relative_return < config.min_oos_relative_return:
         blocking.append("relative_return_below_threshold")
     if test_max_drawdown < -abs(config.max_oos_drawdown):
@@ -186,6 +223,8 @@ def _candidate_report(
     quality_reasons = _quality_reasons(quality_report)
     blocking.extend(quality_reasons["blocking"])
     warnings.extend(quality_reasons["warnings"])
+
+    blocking.extend(_market_regime_reasons(market_regime_coverage, config))
 
     paper_summary = _paper_summary(row, paper_manifests, config)
     blocking.extend(paper_summary["blocking"])
@@ -253,6 +292,7 @@ def _candidate_report(
                 "total_return": paper_summary["paper_total_return"],
                 "max_drawdown": paper_summary["paper_max_drawdown"],
             },
+            "market_regime_coverage": _market_regime_summary(market_regime_coverage),
             "duplicate_of": None,
             "duplicate_similarity": 0.0,
             "_signal_signature": sorted(paper_summary["signal_signature"]),
@@ -419,19 +459,102 @@ def _quality_reasons(quality_report: dict[str, Any] | None) -> dict[str, list[st
         return {"blocking": [], "warnings": ["quality_report_missing"]}
     blocking = []
     warnings = []
-    if _metric(quality_report, "duplicate_bars") > 0:
+    if _quality_metric(quality_report, "duplicate_bars") > 0:
         blocking.append("duplicate_bars_present")
-    if _metric(quality_report, "extreme_return_rows") > 0:
+    if _quality_metric(quality_report, "extreme_return_rows") > 0:
         blocking.append("extreme_returns_present")
-    if _metric(quality_report, "adj_close_jump_rows") > 0:
+    if _quality_metric(quality_report, "adj_close_jump_rows") > 0:
         blocking.append("adj_close_jumps_present")
-    if _metric(quality_report, "missing_date_rows") > 0:
+    if _quality_metric(quality_report, "missing_date_rows") > 0:
         warnings.append("missing_dates_present")
-    if _metric(quality_report, "zero_volume_rows") > 0:
+    if _quality_metric(quality_report, "zero_volume_rows") > 0:
         warnings.append("zero_volume_rows_present")
-    if _metric(quality_report, "stale_price_rows") > 0:
+    if _quality_metric(quality_report, "stale_price_rows") > 0:
         warnings.append("stale_price_rows_present")
     return {"blocking": blocking, "warnings": warnings}
+
+
+def _quality_metric(quality_report: dict[str, Any], key: str) -> float:
+    summary = quality_report.get("summary")
+    if isinstance(summary, dict) and key in summary:
+        return _metric(summary, key)
+    return _metric(quality_report, key)
+
+
+def _market_regime_reasons(market_regime_coverage: dict[str, Any] | None, config: PromotionGateConfig) -> list[str]:
+    if not config.require_market_regime_coverage:
+        return []
+    if market_regime_coverage is None:
+        return ["market_regime_coverage_missing"]
+    summary = market_regime_coverage.get("summary", {})
+    decision = market_regime_coverage.get("decision", {})
+    if not isinstance(summary, dict):
+        summary = {}
+    if not isinstance(decision, dict):
+        decision = {}
+    cleared = bool(decision.get("market_regime_coverage_cleared")) or str(market_regime_coverage.get("status")) == "sufficient"
+    reasons = [str(reason) for reason in decision.get("blockers", []) or []]
+    if not cleared:
+        reasons.insert(0, "market_regime_coverage_not_sufficient")
+    if _maybe_int(summary.get("covered_regimes")) is None:
+        reasons.append("market_regime_coverage_summary_missing")
+    return _dedupe(reasons)
+
+
+def _market_regime_summary(market_regime_coverage: dict[str, Any] | None) -> dict[str, Any]:
+    if market_regime_coverage is None:
+        return {"present": False}
+    summary = market_regime_coverage.get("summary", {})
+    decision = market_regime_coverage.get("decision", {})
+    if not isinstance(summary, dict):
+        summary = {}
+    if not isinstance(decision, dict):
+        decision = {}
+    return {
+        "present": True,
+        "status": market_regime_coverage.get("status"),
+        "covered_regimes": _maybe_int(summary.get("covered_regimes")),
+        "regimes": summary.get("regimes", []),
+        "cleared": bool(decision.get("market_regime_coverage_cleared")) or str(market_regime_coverage.get("status")) == "sufficient",
+        "blockers": decision.get("blockers", []) if isinstance(decision.get("blockers", []), list) else [],
+    }
+
+
+def _accepted_regime_lookbacks_by_family(rows: list[dict[str, Any]]) -> dict[tuple[str, str, int | None, float | None], set[int]]:
+    by_family: dict[tuple[str, str, int | None, float | None], set[int]] = {}
+    for row in rows:
+        if str(row.get("validation_status")) != "accepted":
+            continue
+        regime_lookback = _maybe_int(row.get("regime_lookback"))
+        if regime_lookback is None:
+            continue
+        by_family.setdefault(_regime_family_key(row), set()).add(regime_lookback)
+    return by_family
+
+
+def _regime_family_reasons(
+    row: dict[str, Any],
+    accepted_regime_lookbacks_by_family: dict[tuple[str, str, int | None, float | None], set[int]],
+    config: PromotionGateConfig,
+) -> list[str]:
+    required = int(config.min_distinct_regime_lookbacks_for_family)
+    if required <= 1:
+        return []
+    if _maybe_int(row.get("regime_lookback")) is None:
+        return ["regime_lookback_missing"]
+    accepted = accepted_regime_lookbacks_by_family.get(_regime_family_key(row), set())
+    if len(accepted) < required:
+        return ["insufficient_distinct_regime_lookbacks"]
+    return []
+
+
+def _regime_family_key(row: dict[str, Any]) -> tuple[str, str, int | None, float | None]:
+    return (
+        str(row.get("market", "")),
+        str(row.get("factor_name", "")),
+        _maybe_int(row.get("top_n")),
+        _maybe_float(row.get("cost_bps")),
+    )
 
 
 def _missing_walk_forward_metrics(row: dict[str, Any], config: PromotionGateConfig) -> list[str]:
@@ -598,6 +721,13 @@ def _read_json(path: str | Path) -> dict[str, Any]:
     return data
 
 
+def _read_optional_json(path: str | Path) -> dict[str, Any] | None:
+    source = Path(path)
+    if not source.exists():
+        return None
+    return _read_json(source)
+
+
 def _load_paper_manifests(config: PromotionGateConfig) -> list[dict[str, Any]]:
     paths: list[Path] = []
     if config.paper_manifest is not None:
@@ -620,7 +750,16 @@ def _load_paper_manifests(config: PromotionGateConfig) -> list[dict[str, Any]]:
 
 def _config_dict(config: PromotionGateConfig) -> dict[str, Any]:
     data = asdict(config)
-    for key in ("walk_forward_leaderboard", "experiment_leaderboard", "paper_manifest", "paper_manifest_dir", "provider_status", "quality_report", "output_dir"):
+    for key in (
+        "walk_forward_leaderboard",
+        "experiment_leaderboard",
+        "paper_manifest",
+        "paper_manifest_dir",
+        "provider_status",
+        "quality_report",
+        "market_regime_coverage",
+        "output_dir",
+    ):
         data[key] = str(data[key]) if data[key] is not None else None
     data["paper_manifests"] = [str(path) for path in config.paper_manifests]
     return data

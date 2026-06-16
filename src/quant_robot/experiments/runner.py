@@ -8,7 +8,10 @@ from typing import Any
 
 import pandas as pd
 
+from quant_robot.factors.moneyflow_technical import compute_moneyflow_technical_combo_factors
+from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.research.pipeline import ResearchPipelineConfig, run_research_pipeline
+from quant_robot.storage.moneyflow_inputs import load_moneyflow_inputs
 
 
 @dataclass(frozen=True)
@@ -54,6 +57,7 @@ class ExperimentGridConfig:
     output_dir: Path | None = None
     rank_by: str = "sharpe"
     min_trades: int = 1
+    precompute_factor_matrix: bool = False
 
 
 @dataclass(frozen=True)
@@ -144,12 +148,14 @@ def load_experiment_grid_config(path: str | Path) -> ExperimentGridConfig:
         output_dir=Path(data["output_dir"]) if data.get("output_dir") else None,
         rank_by=str(data.get("rank_by", ExperimentGridConfig.rank_by)),
         min_trades=int(data.get("min_trades", ExperimentGridConfig.min_trades)),
+        precompute_factor_matrix=bool(data.get("precompute_factor_matrix", ExperimentGridConfig.precompute_factor_matrix)),
     )
 
 
 def run_experiment_grid(bars: pd.DataFrame, config: ExperimentGridConfig) -> dict[str, Any]:
     _validate_config(config)
-    rows = [_run_case(bars, config, case) for case in build_experiment_cases(config)]
+    precomputed_factors = _precompute_factor_matrix(bars, config) if config.precompute_factor_matrix else None
+    rows = [_run_case(bars, config, case, precomputed_factors) for case in build_experiment_cases(config)]
     leaderboard = _rank_rows(rows, config.rank_by)
     result = {
         "config": _config_dict(config),
@@ -161,7 +167,12 @@ def run_experiment_grid(bars: pd.DataFrame, config: ExperimentGridConfig) -> dic
     return result
 
 
-def _run_case(bars: pd.DataFrame, grid_config: ExperimentGridConfig, case: ExperimentCase) -> dict[str, Any]:
+def _run_case(
+    bars: pd.DataFrame,
+    grid_config: ExperimentGridConfig,
+    case: ExperimentCase,
+    precomputed_factors: pd.DataFrame | None = None,
+) -> dict[str, Any]:
     try:
         output_dir = grid_config.output_dir / case.case_id if grid_config.output_dir is not None else None
         result = run_research_pipeline(
@@ -200,12 +211,35 @@ def _run_case(bars: pd.DataFrame, grid_config: ExperimentGridConfig, case: Exper
                 signal_end_date=grid_config.signal_end_date,
                 output_dir=output_dir,
             ),
+            precomputed_factors=precomputed_factors,
         )
         trades = int(result["artifact_rows"]["trades"])
         status = "completed" if trades >= grid_config.min_trades else "no_trades"
         return _row(case, status, None, trades, result)
     except Exception as exc:
         return _row(case, "failed", str(exc), 0, None)
+
+
+def _precompute_factor_matrix(bars: pd.DataFrame, config: ExperimentGridConfig) -> pd.DataFrame | None:
+    if config.factor_source == "technical":
+        return compute_basic_factors(bars, windows=config.factor_windows)
+    if config.factor_source == "moneyflow_technical_combo":
+        moneyflow_inputs = _load_grid_moneyflow_inputs(config)
+        return compute_moneyflow_technical_combo_factors(
+            bars,
+            moneyflow_inputs,
+            factor_names=config.factor_names,
+        )
+    return None
+
+
+def _load_grid_moneyflow_inputs(config: ExperimentGridConfig) -> pd.DataFrame:
+    if config.moneyflow_input_root is None:
+        raise ValueError("moneyflow_input_root is required when precomputing moneyflow technical combo factors")
+    frames = [load_moneyflow_inputs(config.moneyflow_input_root, market.upper()) for market in sorted(set(config.markets))]
+    if not frames:
+        return pd.DataFrame()
+    return pd.concat(frames, ignore_index=True).sort_values(["asset_id", "date"]).reset_index(drop=True)
 
 
 def _row(case: ExperimentCase, status: str, error: str | None, trades: int, result: dict[str, Any] | None) -> dict[str, Any]:

@@ -145,6 +145,73 @@ class CheckPlanTests(unittest.TestCase):
         self.assertIn("laptop", activation_gate.command)
         self.assertNotIn("--execute", activation_gate.command)
 
+    def test_desktop_validation_profile_runs_safety_checks_then_residual_regime_validation(self):
+        plan = build_check_plan("python", profile="desktop-validation")
+
+        names = [step.name for step in plan]
+        self.assertEqual(
+            names,
+            [
+                "unit_and_integration_tests",
+                "compile_python",
+                "project_audit",
+                "readiness_check",
+                "provider_status",
+                "data_catalog",
+                "data_quality_audit",
+                "desktop_factor_validation",
+                "desktop_market_regime_coverage",
+                "desktop_promotion_report",
+                "desktop_validation_summary",
+            ],
+        )
+        self.assertTrue(all(not step.uses_network for step in plan))
+        data_quality = next(step for step in plan if step.name == "data_quality_audit")
+        self.assertEqual(
+            data_quality.command,
+            [
+                "python",
+                "scripts/run_data_quality_audit.py",
+                "--data-root",
+                "data/processed",
+                "--market",
+                "CN",
+                "--output-dir",
+                "data/reports/data_quality_gap_audit_tushare_moneyflow_residual_regime",
+            ],
+        )
+        self.assertEqual(plan[-4].command, ["python", "scripts/run_desktop_factor_validation.py"])
+        self.assertEqual(
+            plan[-3].command,
+            [
+                "python",
+                "scripts/run_market_regime_coverage.py",
+                "--regime-curve-glob",
+                "data/reports/walk_forward_tushare_moneyflow_residual_regime/fold_*/test/*/regime_curve.csv",
+                "--output-dir",
+                "data/reports/market_regime_coverage_tushare_moneyflow_residual_regime",
+                "--min-regimes",
+                "2",
+                "--min-rows-per-regime",
+                "5",
+                "--min-allowed-rows",
+                "5",
+                "--min-blocked-rows",
+                "5",
+                "--require-sufficient",
+            ],
+        )
+        self.assertEqual(
+            plan[-2].command,
+            [
+                "python",
+                "scripts/run_promotion_report.py",
+                "--config",
+                "configs/promotion_gate_tushare_moneyflow_residual_regime.json",
+            ],
+        )
+        self.assertEqual(plan[-1].command, ["python", "scripts/run_desktop_validation_summary.py"])
+
     def test_unknown_check_profile_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "Unsupported check profile"):
             build_check_plan("python", profile="moonbase")

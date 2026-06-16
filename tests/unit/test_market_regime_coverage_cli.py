@@ -38,6 +38,54 @@ class MarketRegimeCoverageCliTests(unittest.TestCase):
             self.assertTrue(payload["decision"]["market_regime_coverage_cleared"])
             self.assertFalse(payload["live_boundary_allowed"])
 
+    def test_run_market_regime_coverage_reads_globbed_regime_curves(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            curve_a = root / "fold_01" / "test" / "case_a" / "regime_curve.csv"
+            curve_b = root / "fold_02" / "test" / "case_a" / "regime_curve.csv"
+            curve_a.parent.mkdir(parents=True)
+            curve_b.parent.mkdir(parents=True)
+            pd.DataFrame(
+                [
+                    {"date": "2026-01-01", "regime_momentum": 0.05},
+                    {"date": "2026-01-02", "regime_momentum": -0.04},
+                ]
+            ).to_csv(curve_a, index=False)
+            pd.DataFrame([{"date": "2026-01-03", "regime_momentum": 0.00}]).to_csv(curve_b, index=False)
+            output_dir = root / "market_regime_coverage"
+
+            pack = run_market_regime_coverage(
+                regime_curve_glob=str(root / "fold_*" / "test" / "*" / "regime_curve.csv"),
+                output_dir=output_dir,
+                min_regimes=3,
+                min_rows_per_regime=1,
+                require_sufficient=True,
+            )
+
+            self.assertEqual(pack["status"], "sufficient")
+            self.assertEqual(pack["summary"]["rows"], 3)
+            self.assertTrue((output_dir / "market_regime_coverage_pack.json").exists())
+
+    def test_run_market_regime_coverage_requires_sufficient_when_requested(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            regime_curve = root / "regime_curve.csv"
+            pd.DataFrame(
+                [
+                    {"date": "2026-01-01", "regime_momentum": 0.05},
+                    {"date": "2026-01-02", "regime_momentum": 0.04},
+                ]
+            ).to_csv(regime_curve, index=False)
+
+            with self.assertRaisesRegex(RuntimeError, "market regime coverage is insufficient"):
+                run_market_regime_coverage(
+                    regime_curve=regime_curve,
+                    output_dir=root / "market_regime_coverage",
+                    min_regimes=2,
+                    min_rows_per_regime=1,
+                    require_sufficient=True,
+                )
+
 
 if __name__ == "__main__":
     unittest.main()
