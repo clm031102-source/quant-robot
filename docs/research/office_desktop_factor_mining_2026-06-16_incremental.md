@@ -533,3 +533,31 @@ Corrected walk-forward results:
 - Regime252 had the cleanest drawdown and participation, with test total return 4.1560, benchmark return 16.2554, relative return -12.0994, Sharpe 2.6061, max drawdown -0.1755, max participation 1.79%, but tail-IC p-value 0.4819.
 
 Audit judgment: this corrected OOS check downgrades `large_minus_liquidity_20` from "strongest current positive candidate" to "capacity-clean defensive near-miss." The factor can make money in absolute terms at small size with controlled drawdown, but it does not beat the benchmark in rolling OOS and the selected-tail IC weakens. It should not be promoted as a profitability factor in the current framework. The useful handoff to the laptop side is methodological: if this family is revisited, it needs benchmark-relative construction, dynamic beta/market exposure control, or a formal defensive sleeve objective rather than more top-N/regime threshold sweeps on the office desktop.
+
+## Residual-Gate Top6 Corrected Walk-Forward Audit
+
+The office desktop then reran the strongest residual-gate bridge candidate, `large_resid_liq_vol_amt_gate_20/top6`, with a corrected rolling walk-forward window. The run used 315 training days, 315 test days, a 63-day step, portfolio value 1m, cost20/cost30, and regime150/regime180/regime252. This avoided the earlier short-test-window artifact and gave both train and test windows enough room to warm up the longest 252-day regime filter.
+
+Corrected walk-forward results:
+
+- The run covered 6 cases across 2 rolling folds. All OOS tests completed and all were capacity-clean, with capacity-limited trades 0 and max participation 1.98%.
+- No row was accepted. Every case had negative mean OOS relative return versus the benchmark, so the failure is economic rather than a capacity or completion artifact.
+- Cost20/regime180 was the best relative-return row, with test total return 7.7171, benchmark return 14.4672, relative return -6.7501, Sharpe 1.7410, max drawdown -0.1649, adjusted IC p-value 0.0264, but selected-tail IC p-value 0.3426.
+- Cost20/regime150 had test total return 6.5518, relative return -7.9153, max drawdown -0.2318, adjusted IC p-value 0.0264, but selected-tail IC p-value 0.2839.
+- Cost20/regime252 was very low-drawdown but economically weak: test total return 0.8073, relative return -13.6598, max drawdown -0.1649, and selected-tail IC p-value 0.2437.
+- Cost30 did not rescue the shape. The best cost30 row, regime180, had test total return 4.9582, relative return -9.5089, max drawdown -0.2059, and selected-tail IC p-value 0.3426.
+
+Audit judgment: the corrected OOS run downgrades `large_resid_liq_vol_amt_gate_20/top6` from "cost20 strict-validation lead" to "in-sample bridge that does not survive benchmark-relative OOS." The factor remains useful as evidence that residualization plus amount gating controls capacity, but top6 should not be promoted or tuned further on the office desktop. More top-N, cost, holding-period, or stricter-positive-regime sweeps around this same shape are now low value unless the laptop framework introduces a materially different execution-aware or benchmark-relative objective.
+
+## Residual-Gate Weak-Regime Prototype
+
+Because both `large_minus_liquidity_20` and the residual-gate family looked more defensive than benchmark-beating in corrected OOS, the office desktop ran a research-only weak-regime prototype from the cached production factor matrix. The prototype did not add production factor code. It filtered `large_resid_liq_vol_amt_gate_20` signals to dates where equal-weight benchmark momentum was non-positive, <=5%, or <=10% over 150/180/252-day lookbacks, then tested top6/top10 at cost20/cost30 under the same return, drawdown, capacity, and selected-tail IC review.
+
+Prototype results:
+
+- The weak-regime probe covered 36 cases and produced 0 passes.
+- All leading rows were capacity-clean, but every row had negative relative return. The best relative-return row was top6/cost20 with 150-day momentum <=10%: total return 5.1981, benchmark return 13.3566, relative return -8.1585, max drawdown -0.6516, and tail-IC p-value 0.4575.
+- The 252-day weak-regime variants reduced drawdown but still did not beat the benchmark. Top6/cost20 with 252-day momentum <=5% had total return 1.6347, relative return -11.7218, max drawdown -0.1951, and tail-IC p-value 0.2846.
+- The only notable tail-IC survivor was top10/cost20 with 252-day momentum <=10%, with tail-IC p-value 0.0039, but it still had relative return -12.5385 and max drawdown -0.3380.
+
+Audit judgment: weak-regime filtering does not turn the residual-gate family into a profitability factor. It confirms the current signal is not simply being evaluated in the wrong market regime; when restricted to weaker benchmark momentum, returns and drawdown deteriorate or remain benchmark-inferior. The office queue should stop spending cycles on regime-threshold overlays for this factor family and move to genuinely new signal construction or wait for laptop-side benchmark-relative/position-sizing framework changes.
