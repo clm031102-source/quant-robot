@@ -47,6 +47,8 @@ def run_desktop_validation_summary(
     manifest = _read_optional_json(manifest_path)
     manifest_summary = _validate_manifest_summary(rows, manifest) if manifest is not None else None
     promotion = _read_optional_json(Path(promotion_report)) if promotion_report is not None else None
+    if promotion is not None:
+        _validate_promotion_alignment(rows, promotion)
     data_quality = _read_optional_json(Path(data_quality_audit)) if data_quality_audit is not None else None
     regime_coverage = _read_optional_json(Path(market_regime_coverage)) if market_regime_coverage is not None else None
     markdown = build_desktop_validation_summary(
@@ -245,6 +247,25 @@ def _validate_manifest_summary(rows: list[dict[str, str]], manifest: dict[str, A
             f"manifest={expected}, leaderboard={actual}"
         )
     return expected
+
+
+def _validate_promotion_alignment(rows: list[dict[str, str]], report: dict[str, Any]) -> None:
+    candidates = report.get("candidates", [])
+    if not isinstance(candidates, list):
+        raise ValueError("promotion report candidates must be a list")
+    leaderboard_cases = {str(row.get("case_id")) for row in rows if row.get("case_id")}
+    promotion_cases = {
+        str(candidate.get("case_id"))
+        for candidate in candidates
+        if isinstance(candidate, dict) and candidate.get("case_id")
+    }
+    if leaderboard_cases != promotion_cases:
+        missing = sorted(leaderboard_cases - promotion_cases)[:10]
+        extra = sorted(promotion_cases - leaderboard_cases)[:10]
+        raise ValueError(
+            "promotion report candidates do not match leaderboard: "
+            f"missing={missing}, extra={extra}"
+        )
 
 
 def _walk_forward_sort_key(row: dict[str, str]) -> tuple[int, float, str]:

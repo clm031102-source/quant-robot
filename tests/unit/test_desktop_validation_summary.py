@@ -71,7 +71,15 @@ class DesktopValidationSummaryTests(unittest.TestCase):
                 encoding="utf-8",
             )
             promotion = root / "promotion_report.json"
-            promotion.write_text(json.dumps({"summary": {"research_only": 1}, "candidates": []}), encoding="utf-8")
+            promotion.write_text(
+                json.dumps(
+                    {
+                        "summary": {"research_only": 1},
+                        "candidates": [{"case_id": "case_a", "promotion_status": "research_only"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
             regime = root / "market_regime_coverage_pack.json"
             regime.write_text(
                 json.dumps(
@@ -143,6 +151,35 @@ class DesktopValidationSummaryTests(unittest.TestCase):
                     walk_forward_leaderboard=leaderboard,
                     walk_forward_manifest=manifest,
                     promotion_report=None,
+                    output=output,
+                    generated_at="2026-06-16 16:30:00 +08:00",
+                )
+
+    def test_run_summary_rejects_promotion_case_mismatch(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            leaderboard = root / "walk_forward_leaderboard.csv"
+            leaderboard.write_text(
+                "case_id,validation_status,factor_name,regime_lookback,top_n,cost_bps,mean_test_sharpe\n"
+                "case_a,accepted,large_resid_liq_vol_amt_gate_20,150,5,20,1.2\n",
+                encoding="utf-8",
+            )
+            promotion = root / "promotion_report.json"
+            promotion.write_text(
+                json.dumps(
+                    {
+                        "summary": {"blocked": 1},
+                        "candidates": [{"case_id": "case_b", "promotion_status": "blocked"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            output = root / "summary.md"
+
+            with self.assertRaisesRegex(ValueError, "promotion report candidates do not match leaderboard"):
+                run_desktop_validation_summary(
+                    walk_forward_leaderboard=leaderboard,
+                    promotion_report=promotion,
                     output=output,
                     generated_at="2026-06-16 16:30:00 +08:00",
                 )
