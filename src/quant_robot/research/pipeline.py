@@ -184,6 +184,7 @@ def run_research_pipeline(
 
 def _filter_bars(bars: pd.DataFrame, config: ResearchPipelineConfig) -> pd.DataFrame:
     frame = bars.copy()
+    frame["date"] = pd.to_datetime(frame["date"]).dt.date
     if config.market.upper() != "ALL":
         frame = frame[frame["market"] == config.market.upper()]
     if config.start_date:

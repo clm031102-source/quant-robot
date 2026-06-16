@@ -19,6 +19,7 @@ class ComboFactorSpec:
     lookback_window: int
     economic_meaning: str
     liquidity_gate_quantile: float | None = None
+    liquidity_gate_factor: str | None = None
     amount_floor: float | None = None
 
 
@@ -72,6 +73,15 @@ MONEYFLOW_TECHNICAL_COMBO_SPECS: dict[str, ComboFactorSpec] = {
         20,
         "Large-order net inflow residualized against same-day Amihud-style illiquidity.",
     ),
+    "large_resid_liquidity_gate_20": ComboFactorSpec(
+        "large_order_net_amount_ratio",
+        "liquidity_20",
+        "residual",
+        20,
+        "Large-order net inflow residualized against same-day Amihud-style illiquidity, restricted to the more liquid half of the cross-section.",
+        liquidity_gate_quantile=0.5,
+        liquidity_gate_factor="liquidity_20",
+    ),
     "large_resid_liq_vol_amt_20": ComboFactorSpec(
         "large_order_net_amount_ratio",
         ("liquidity_20", "volatility_20", "log_amount_20"),
@@ -94,6 +104,24 @@ MONEYFLOW_TECHNICAL_COMBO_SPECS: dict[str, ComboFactorSpec] = {
         20,
         "Large-order net inflow restricted to the more liquid half of the cross-section.",
         liquidity_gate_quantile=0.5,
+    ),
+    "mf_low_minus_volatility_liquidity_gate_20": ComboFactorSpec(
+        "net_mf_amount_ratio_low",
+        "volatility_20",
+        "-",
+        20,
+        "Low net moneyflow penalized by 20-day volatility and restricted to the more liquid half of the cross-section.",
+        liquidity_gate_quantile=0.5,
+        liquidity_gate_factor="liquidity_20",
+    ),
+    "large_plus_risk_momentum_liquidity_gate_10": ComboFactorSpec(
+        "large_order_net_amount_ratio",
+        "risk_adjusted_momentum_10",
+        "+",
+        10,
+        "Large-order net inflow blended with risk-adjusted momentum and restricted to the more liquid half of the cross-section.",
+        liquidity_gate_quantile=0.5,
+        liquidity_gate_factor="liquidity_10",
     ),
     "extra_plus_momentum_10": ComboFactorSpec(
         "extra_large_order_net_amount_ratio",
@@ -179,14 +207,25 @@ def _combo_frame(
     keys = ["date", "asset_id", "market"]
     left = moneyflow.loc[moneyflow["factor_name"] == spec.moneyflow_factor, keys + ["z_factor_value"]]
     merged = left.rename(columns={"z_factor_value": "z_factor_value_moneyflow"})
-    for index, factor_name in enumerate(_exposure_factor_names(spec)):
+    exposure_names = _exposure_factor_names(spec)
+    for index, factor_name in enumerate(exposure_names):
         right = technical.loc[technical["factor_name"] == factor_name, keys + ["z_factor_value"]].rename(
             columns={"z_factor_value": f"z_factor_value_exposure_{index}"}
         )
         merged = merged.merge(right, on=keys, how="inner")
+    if spec.liquidity_gate_factor is not None:
+        if spec.liquidity_gate_factor in exposure_names:
+            gate_index = exposure_names.index(spec.liquidity_gate_factor)
+            merged["z_factor_value_gate"] = merged[f"z_factor_value_exposure_{gate_index}"]
+        else:
+            gate = technical.loc[
+                technical["factor_name"] == spec.liquidity_gate_factor,
+                keys + ["z_factor_value"],
+            ].rename(columns={"z_factor_value": "z_factor_value_gate"})
+            merged = merged.merge(gate, on=keys, how="inner")
     amount = bars.loc[:, keys + ["amount"]].drop_duplicates(subset=keys)
     merged = merged.merge(amount, on=keys, how="left")
-    exposure_columns = [f"z_factor_value_exposure_{index}" for index, _ in enumerate(_exposure_factor_names(spec))]
+    exposure_columns = [f"z_factor_value_exposure_{index}" for index, _ in enumerate(exposure_names)]
     values = _combo_values(merged, spec, exposure_columns)
     return pd.DataFrame(
         {
@@ -218,7 +257,8 @@ def _combo_values(merged: pd.DataFrame, spec: ComboFactorSpec, exposure_columns:
     else:
         raise ValueError(f"Unsupported combo operation: {spec.operation}")
     if spec.liquidity_gate_quantile is not None:
-        values = values.where(_liquidity_gate_mask(merged, primary_exposure, spec.liquidity_gate_quantile))
+        gate = merged["z_factor_value_gate"] if "z_factor_value_gate" in merged else primary_exposure
+        values = values.where(_liquidity_gate_mask(merged, gate, spec.liquidity_gate_quantile))
     if spec.amount_floor is not None:
         values = values.where(_amount_gate_mask(merged, spec.amount_floor))
     return values
