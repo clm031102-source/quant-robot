@@ -356,3 +356,35 @@ Split-window review shows why this should not be promoted:
 - RankIC remained negative in the combined sample, so the signal is still a tail-selection effect rather than a smooth cross-sectional ordering.
 
 Audit judgment: `large_resid_liquidity_20` is rejected as a tradable candidate. It is useful research evidence because liquidity residualization alone creates a strong but capacity-unsafe tail. The amount gate in `large_resid_liq_vol_amt_gate_20` is necessary, not optional, and the strict-validation queue should continue to focus on the gated residual factor family rather than promoting the ungated liquidity residual.
+
+## Tail-IC Top-N Bridge Probe
+
+After the laptop integrated selected-holdings tail-IC into the core pipeline, the office desktop reran the strongest gated residual factor through the new evidence path. The first local screen attempted a broader 8-factor moneyflow-combo grid, but precomputing that matrix used about 6-7GB and the full grid was too slow for the office machine. The run was intentionally stopped after the core `large_resid_liq_vol_amt_gate_20` set finished, keeping the useful 24 case outputs and avoiding a long low-efficiency sweep.
+
+Core `large_resid_liq_vol_amt_gate_20` top3/top5/top10, cost20/cost30, regime120/150/180/252:
+
+- All 24 cases were capacity-clean, with capacity-limited trades 0.
+- No case passed the combined simple gate once selected-holdings tail-IC was required.
+- Top3 produced the highest raw returns, led by top3/cost20/regime150 with relative return 71.2879, but max drawdown was -0.3643 and tail-IC was not significant.
+- Top5 retained the earlier attractive cost20 return/drawdown profile, but tail-IC remained just short of significance. For example, top5/cost20/regime252 had relative return 27.9794, max drawdown -0.2859, and tail-IC p-value 0.0856.
+- Top10 had significant positive tail-IC, but returns were diluted or negative and drawdown often failed. The best top10/cost20/regime150 row had tail-IC p-value 0.00075, but relative return only 1.4518 and max drawdown -0.3380.
+
+This created a clear bridge hypothesis: test top6-top9 between top5's return profile and top10's stronger tail-IC.
+
+Top6-top9 bridge screen, cost20 only:
+
+- The screen covered 16 cases across top6/top7/top8/top9 and regime120/150/180/252.
+- Three rows passed the simple combined return/drawdown/capacity/tail-IC gate:
+  - top6/cost20/regime252: relative return 10.5936, Sharpe 1.0843, max drawdown -0.2631, capacity-limited trades 0, tail mean IC 0.0503, tail-IC p-value 0.0346.
+  - top6/cost20/regime180: relative return 10.0083, Sharpe 1.0691, max drawdown -0.2720, capacity-limited trades 0, tail mean IC 0.0475, tail-IC p-value 0.0434.
+  - top9/cost20/regime252: tail-IC p-value 0.0061 and max drawdown -0.2741, but relative return was only 0.0075, so it is not economically useful.
+- Top6/regime150 still had the best relative return among top6 rows at 29.4947, but tail-IC p-value was 0.0759, so it did not pass the new evidence gate.
+
+Cost30 stress on top6:
+
+- No top6 row passed after cost increased from 20 bps to 30 bps.
+- top6/cost30/regime252 kept significant tail-IC, but relative return fell to -2.7606 and max drawdown worsened to -0.3203.
+- top6/cost30/regime180 also kept significant tail-IC, but relative return fell to -3.2572 and max drawdown was -0.3203.
+- top6/cost30/regime150 kept positive relative return at 5.0897, but tail-IC was not significant and drawdown was -0.3203.
+
+Audit judgment: top6 is a useful discovery because it is the first rank-size bridge where selected-holdings tail-IC and cost20 drawdown/capacity can pass together under multiple regime lookbacks. It is not promotion-ready because the edge fails the 30 bps stress test and remains cost-sensitive. The next efficient mining path is not another top-N sweep; it is to reduce turnover or execution drag around the top6 residual-gate shape, then rerun the same tail-IC and cost30 checks.
