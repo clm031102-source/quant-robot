@@ -95,3 +95,21 @@ Next steps:
 2. Add market-cap, industry, and liquidity neutralization before any promotion decision.
 3. Inspect quantile monotonicity and tail dependence because RankIC does not confirm the Pearson IC story.
 4. Keep `large_minus_liquidity_20` in `configs/walk_forward_tushare_moneyflow_technical_combo.json` for future validation runs.
+
+## Continued Mining Notes
+
+After the first strict-validation candidate was pushed, the office desktop continued mining the remaining pre-registered combo family on the same incremental dataset.
+
+Observation-only rows:
+
+- `large_plus_risk_momentum_10`: very strong backtest returns, but not promoted. The full incremental run had 10 capacity-limited trades, RankIC was significantly negative, and the 2026H1 split did not have significant IC.
+- `extra_plus_momentum_10`: significant positive IC and strong backtest returns, but not promoted. RankIC was significantly negative and capacity-limited trades were present.
+- `large_plus_momentum_5`: strong backtest returns, but not promoted. IC was not significant, RankIC was significantly negative, and capacity-limited trades were present.
+- `mf_low_plus_momentum_5`: strong backtest returns and no capacity-limited trades, but not promoted. IC was not significant, RankIC was significantly negative, and the long-short spread was negative.
+
+Rejected rows:
+
+- `extra_low_plus_reversal_5`: negative return, weak IC, drawdown above limit, and capacity pressure.
+- `small_sell_low_plus_momentum_5`: negative return, negative IC, drawdown above limit, and capacity pressure.
+
+The continued run reinforces the current promotion rule: high Sharpe alone is not enough. A candidate must survive significance, monotonicity or tail-dependence review, cost, capacity, split-window robustness, and rolling walk-forward checks before it can move beyond observation.
