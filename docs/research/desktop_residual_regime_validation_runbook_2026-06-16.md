@@ -97,7 +97,7 @@ python scripts\run_promotion_report.py --config configs\promotion_gate_tushare_m
 ```
 
 This does not approve live trading. It summarizes which candidates are blocked, research-only, or still missing evidence.
-For this residual-regime profile, the promotion gate also requires the data-quality audit, market-regime coverage pack, and at least two distinct accepted regime lookbacks for the same `market + factor_name + top_n + cost_bps` family. Missing or insufficient regime coverage blocks promotion even when a walk-forward row is otherwise accepted.
+For this residual-regime profile, the promotion gate also requires the data-quality audit, market-regime coverage pack, selected-holdings tail-IC evidence, and at least two distinct accepted regime lookbacks for the same `market + factor_name + top_n + cost_bps` family. Missing or insufficient regime coverage, or a non-significant actual traded-tail IC, blocks promotion even when a walk-forward row is otherwise accepted.
 
 To rebuild only the syncable Markdown summary:
 
@@ -105,7 +105,7 @@ To rebuild only the syncable Markdown summary:
 python scripts\run_desktop_validation_summary.py
 ```
 
-The summary command validates the walk-forward leaderboard against the sibling `manifest.json`, verifies that promotion candidates match the leaderboard `case_id` set, and records the residual-regime data-quality audit, promotion gate, and market-regime coverage status. If cases, accepted count, rejected count, or promotion candidate IDs disagree, treat it as stale or mixed validation output and rerun the full desktop profile before syncing.
+The summary command validates the walk-forward leaderboard against the sibling `manifest.json`, verifies that promotion candidates match the leaderboard `case_id` set, and records the residual-regime data-quality audit, promotion gate, market-regime coverage status, and tail-IC status. If cases, accepted count, rejected count, or promotion candidate IDs disagree, treat it as stale or mixed validation output and rerun the full desktop profile before syncing.
 
 ## Review Rules
 
@@ -117,6 +117,7 @@ Treat a candidate as useful only if it survives all of these checks:
 - Drawdown inside the configured limit.
 - No capacity-limited trades or participation-rate breaches.
 - IC evidence survives multiple-testing correction.
+- Actual selected-holdings tail IC is significant; full-universe IC alone is not enough.
 - Results are not driven by a single regime lookback.
 - The same factor/top-N/cost family is accepted under at least two distinct pre-registered regime lookbacks.
 - 2024 weakness is explained or avoided by a pre-registered regime rule.
@@ -125,6 +126,7 @@ Reject or keep as observation-only when:
 
 - only `regime_lookback=150` works;
 - RankIC or quantile spread contradicts Pearson IC;
+- selected-tail IC is missing or not significant;
 - top5 works but top10/top20 collapse without an economic reason;
 - returns vanish under 30 bps costs;
 - any pass depends on excluding failed exploratory trials from the hypothesis count.

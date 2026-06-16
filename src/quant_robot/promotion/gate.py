@@ -40,6 +40,7 @@ class PromotionGateConfig:
     min_positive_ic_rate: float | None = None
     required_factor_source: str | None = None
     max_adjusted_ic_p_value: float | None = None
+    max_tail_ic_p_value: float | None = None
     require_provider_ready_for_promotion: bool = False
     max_provider_status_age_days: int | None = None
     require_market_regime_coverage: bool = False
@@ -83,6 +84,7 @@ def load_promotion_gate_config(path: str | Path) -> PromotionGateConfig:
         max_adjusted_ic_p_value=(
             float(data["max_adjusted_ic_p_value"]) if data.get("max_adjusted_ic_p_value") is not None else None
         ),
+        max_tail_ic_p_value=float(data["max_tail_ic_p_value"]) if data.get("max_tail_ic_p_value") is not None else None,
         require_provider_ready_for_promotion=bool(
             data.get("require_provider_ready_for_promotion", PromotionGateConfig.require_provider_ready_for_promotion)
         ),
@@ -201,11 +203,14 @@ def _candidate_report(
     adjusted_ic_p_value = _maybe_float(row.get("adjusted_ic_p_value"))
     passes_adjusted_ic_p_value = _maybe_bool(row.get("passes_adjusted_ic_p_value"))
     hypothesis_count = _maybe_int(row.get("hypothesis_count"))
+    test_tail_ic_p_value = _maybe_float(row.get("test_tail_ic_p_value"))
+    test_tail_significance_status = _optional_text(row.get("test_tail_significance_status"))
 
     blocking.extend(_missing_walk_forward_metrics(row, config))
     blocking.extend(_walk_forward_evidence_reasons(folds, accepted_folds, test_ic_p_value, test_positive_ic_rate, config))
     blocking.extend(_factor_source_reasons(factor_source, config))
     blocking.extend(_adjusted_ic_evidence_reasons(adjusted_ic_p_value, passes_adjusted_ic_p_value, config))
+    blocking.extend(_tail_ic_evidence_reasons(test_tail_ic_p_value, test_tail_significance_status, config))
     blocking.extend(_regime_family_reasons(row, accepted_regime_lookbacks_by_family, config))
     if validation_status != "accepted":
         blocking.append("walk_forward_not_accepted")
@@ -281,6 +286,11 @@ def _candidate_report(
                 "hypothesis_count": hypothesis_count,
                 "adjusted_ic_p_value": adjusted_ic_p_value,
                 "passes_adjusted_ic_p_value": passes_adjusted_ic_p_value,
+                "test_tail_mean_ic": _maybe_float(row.get("test_tail_mean_ic")),
+                "test_tail_ic_observations": _maybe_int(row.get("test_tail_ic_observations")),
+                "test_tail_ic_p_value": test_tail_ic_p_value,
+                "test_tail_positive_ic_rate": _maybe_float(row.get("test_tail_positive_ic_rate")),
+                "test_tail_significance_status": test_tail_significance_status,
             },
             "experiment": _experiment_summary(experiment_row),
             "paper": {
@@ -613,6 +623,23 @@ def _adjusted_ic_evidence_reasons(
     if passes_adjusted_ic_p_value is not True:
         reasons.append("adjusted_ic_significance_not_passed")
     return reasons
+
+
+def _tail_ic_evidence_reasons(
+    tail_ic_p_value: float | None,
+    tail_significance_status: str | None,
+    config: PromotionGateConfig,
+) -> list[str]:
+    if config.max_tail_ic_p_value is None:
+        return []
+    reasons = []
+    if tail_ic_p_value is None:
+        reasons.append("tail_ic_p_value_missing")
+    elif tail_ic_p_value > config.max_tail_ic_p_value:
+        reasons.append("tail_ic_significance_below_threshold")
+    if tail_significance_status is not None and tail_significance_status != "significant_positive":
+        reasons.append("tail_ic_significance_below_threshold")
+    return _dedupe(reasons)
 
 
 def _experiment_summary(row: dict[str, Any] | None) -> dict[str, Any]:

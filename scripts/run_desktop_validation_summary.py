@@ -92,8 +92,8 @@ def build_desktop_validation_summary(
         "",
         "## Top Walk-Forward Rows",
         "",
-        "| Case | Status | Factor | Regime | Top N | Cost | Sharpe | Relative | Drawdown | Folds | Adj IC p |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Case | Status | Factor | Regime | Top N | Cost | Sharpe | Relative | Drawdown | Folds | Adj IC p | Tail IC p | Tail IC status |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for row in sorted(rows, key=_walk_forward_sort_key)[:max_rows]:
         lines.append(
@@ -111,6 +111,8 @@ def build_desktop_validation_summary(
                     _metric_text(row, "worst_test_max_drawdown", "test_max_drawdown"),
                     f"{_text(row.get('accepted_folds'))}/{_text(row.get('folds'))}",
                     _text(row.get("adjusted_ic_p_value")),
+                    _text(row.get("test_tail_ic_p_value")),
+                    _text(row.get("test_tail_significance_status")),
                 ]
             )
             + " |"

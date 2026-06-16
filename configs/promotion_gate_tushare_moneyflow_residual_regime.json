@@ -15,6 +15,7 @@
   "min_accepted_folds": 2,
   "max_ic_p_value": 0.05,
   "max_adjusted_ic_p_value": 0.05,
+  "max_tail_ic_p_value": 0.05,
   "min_positive_ic_rate": 0.55,
   "min_distinct_regime_lookbacks_for_family": 2,
   "required_factor_source": "moneyflow_technical_combo",
