@@ -324,3 +324,35 @@ Key observations:
 - Raising the signal-day amount floor to 200m, 500m, or 1b generally reduced the edge. The best `gte200m` row had relative return 32.1945 but max drawdown -0.4983; the best `gte500m` row had relative return only 6.0874 and max drawdown -0.5276.
 
 Audit judgment: amount-band tweaks and rank-window offsets do not produce a better candidate than the existing `large_resid_liq_vol_amt_gate_20` top5 regime family. The useful method improvement is to add a formal tail-selection IC diagnostic to validation, because full-universe IC can look significant while the actually traded tail is not significant.
+
+## Precompute Desktop Validation Slice
+
+After pulling the laptop method update, the office desktop tested the new `precompute_factor_matrix` validation path against the local combined store. The temporary office config reused the official residual-regime validation grid but pointed `moneyflow_input_root` at `data/processed/office_desktop_20260616_combined_research/processed` and narrowed the factor set to `large_resid_liquidity_20` plus `large_resid_liq_vol_amt_gate_20`.
+
+The run was stopped by a 30-minute local timeout before it produced a complete rolling-validation summary. It still produced useful partial evidence:
+
+- Fold 01 test rows were all `no_trades`; the strategy stayed in cash while the benchmark returned 0.3529, so all rows were rejected for relative return.
+- Fold 02 train produced completed rows. The strongest capacity-clean gated row was `large_resid_liq_vol_amt_gate_20/top5/cost20/regime150`: trades 95, total return 0.8707, relative return 0.8188, Sharpe 13.4491, max drawdown -0.0726, capacity-limited trades 0, but IC was not significant over only 19 observations.
+- Fold 02 test rows were again all `no_trades`, with relative return -0.0006 and insufficient IC data.
+- Fold 03 train had started but the run did not finish, so it is not usable as validation evidence.
+
+Audit judgment: the laptop precompute work is the right direction and avoids repeated residual-factor recomputation, but full rolling validation is still heavy for the office desktop on this grid. The partial results also reinforce the main risk in the candidate: the positive-regime filter avoids early weak windows, which can create no-trade test folds. For promotion work, the next framework task should be checkpoint/resume or thinner fold scheduling; for office mining, cached matrix audits remain the efficient path.
+
+## Large Residual Liquidity Matrix Audit
+
+The office desktop then used the cached production factor matrix to audit `large_resid_liquidity_20` directly, without recomputing residual factors. The run covered 16 combinations across top5/top10, cost20/cost30, and none/regime150/regime180/regime252. No row passed the simple promotion gate.
+
+Key combined-sample rows:
+
+- Top5/cost20/no-regime had very large raw performance and significant IC: total return 1187.6564, relative return 1174.2998, Sharpe 1.1249, mean IC 0.0106, IC p-value 3.35e-09. It was rejected for max drawdown -0.5238 and severe capacity pressure: 171 capacity-limited trades and max participation above 500%.
+- Top5/cost20/regime150 improved drawdown to -0.1773 and kept significant IC, with total return 835.9761 and relative return 822.6195. It still failed the simple gate because it had 61 capacity-limited trades and max participation around 75.9%.
+- Top5/cost20/regime252 and regime180 showed the same shape: strong returns, significant positive IC, acceptable drawdown, but 55-57 capacity-limited trades.
+- Cost30 variants reduced returns and did not solve the capacity issue.
+
+Split-window review shows why this should not be promoted:
+
+- The no-regime version traded through 2023H2 and 2024H1, but 2024H1 was deeply negative despite positive full-sample IC.
+- Regime150 blocked 2023H2 and 2024H1, then produced positive traded splits from 2024H2 through 2026H1. However, every traded split still had capacity-limited trades.
+- RankIC remained negative in the combined sample, so the signal is still a tail-selection effect rather than a smooth cross-sectional ordering.
+
+Audit judgment: `large_resid_liquidity_20` is rejected as a tradable candidate. It is useful research evidence because liquidity residualization alone creates a strong but capacity-unsafe tail. The amount gate in `large_resid_liq_vol_amt_gate_20` is necessary, not optional, and the strict-validation queue should continue to focus on the gated residual factor family rather than promoting the ungated liquidity residual.
