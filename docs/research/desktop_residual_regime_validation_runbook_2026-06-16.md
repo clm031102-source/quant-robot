@@ -34,6 +34,8 @@ The run expects local processed data that is not committed to Git:
 - CN processed bars under `data/processed`.
 - Tushare moneyflow inputs under `data/processed/tushare_moneyflow_inputs`.
 
+The validation entrypoint fails fast with a clear message when these local inputs are missing. Missing local data is a desktop data-preparation issue, not a Git sync issue.
+
 Run a sync audit before starting heavy validation:
 
 ```powershell
