@@ -33,7 +33,7 @@ When a desktop machine is assigned stable `factor_validation` work for the resid
 python scripts\run_checks.py --profile desktop-validation --execute
 ```
 
-This profile runs safety checks, `scripts\run_desktop_factor_validation.py`, a strict market-regime coverage check from walk-forward regime curves, the residual-regime promotion gate report, and a lightweight Markdown summary. The validation step uses `configs\walk_forward_tushare_moneyflow_residual_regime.json`. A complete rejection set is acceptable evidence when the train/test grids complete; generated reports and processed data still stay out of Git.
+This profile runs safety checks, `scripts\run_desktop_factor_validation.py`, a strict market-regime coverage check from walk-forward regime curves, the residual-regime promotion gate report, and a lightweight Markdown summary. The validation step uses `configs\walk_forward_tushare_moneyflow_residual_regime.json`; the promotion gate requires the market-regime coverage pack. A complete rejection set is acceptable evidence when the train/test grids complete; generated reports and processed data still stay out of Git.
 
 GitHub is for code, configs, tests, lightweight summaries, and documentation. Do not commit `data/raw/`, `data/processed/`, `data/reports/`, large Parquet/CSV outputs, logs, tokens, broker credentials, account data, or live-trading secrets.
 

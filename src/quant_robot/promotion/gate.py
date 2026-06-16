@@ -19,6 +19,7 @@ class PromotionGateConfig:
     paper_manifest_dir: Path | None = None
     provider_status: Path | None = None
     quality_report: Path | None = None
+    market_regime_coverage: Path | None = None
     output_dir: Path | None = None
     min_oos_trades: int = 20
     min_oos_sharpe: float = 0.50
@@ -40,6 +41,7 @@ class PromotionGateConfig:
     max_adjusted_ic_p_value: float | None = None
     require_provider_ready_for_promotion: bool = False
     max_provider_status_age_days: int | None = None
+    require_market_regime_coverage: bool = False
 
 
 def load_promotion_gate_config(path: str | Path) -> PromotionGateConfig:
@@ -52,6 +54,7 @@ def load_promotion_gate_config(path: str | Path) -> PromotionGateConfig:
         paper_manifest_dir=_optional_path(data.get("paper_manifest_dir")),
         provider_status=_optional_path(data.get("provider_status")),
         quality_report=_optional_path(data.get("quality_report")),
+        market_regime_coverage=_optional_path(data.get("market_regime_coverage")),
         output_dir=_optional_path(data.get("output_dir")),
         min_oos_trades=int(data.get("min_oos_trades", PromotionGateConfig.min_oos_trades)),
         min_oos_sharpe=float(data.get("min_oos_sharpe", PromotionGateConfig.min_oos_sharpe)),
@@ -79,6 +82,9 @@ def load_promotion_gate_config(path: str | Path) -> PromotionGateConfig:
         max_provider_status_age_days=(
             int(data["max_provider_status_age_days"]) if data.get("max_provider_status_age_days") is not None else None
         ),
+        require_market_regime_coverage=bool(
+            data.get("require_market_regime_coverage", PromotionGateConfig.require_market_regime_coverage)
+        ),
     )
 
 
@@ -90,12 +96,14 @@ def run_promotion_gate(config: PromotionGateConfig) -> dict[str, Any]:
     paper_manifests = _load_paper_manifests(config)
     provider_status = _read_json(config.provider_status) if config.provider_status else None
     quality_report = _read_json(config.quality_report) if config.quality_report else None
+    market_regime_coverage = _read_json(config.market_regime_coverage) if config.market_regime_coverage else None
     report = build_promotion_report(
         walk_forward_rows,
         experiment_rows=experiment_rows,
         paper_manifests=paper_manifests,
         provider_status=provider_status,
         quality_report=quality_report,
+        market_regime_coverage=market_regime_coverage,
         config=config,
     )
     if config.output_dir is not None:
@@ -110,6 +118,7 @@ def build_promotion_report(
     paper_manifests: list[dict[str, Any]] | None = None,
     provider_status: dict[str, Any] | None = None,
     quality_report: dict[str, Any] | None = None,
+    market_regime_coverage: dict[str, Any] | None = None,
     config: PromotionGateConfig = PromotionGateConfig(),
 ) -> dict[str, Any]:
     experiment_by_case = {str(row.get("case_id")): row for row in experiment_rows or []}
@@ -117,7 +126,15 @@ def build_promotion_report(
     if paper_manifest is not None:
         paper_evidence.append(paper_manifest)
     candidates = [
-        _candidate_report(row, experiment_by_case.get(str(row.get("case_id"))), paper_evidence, provider_status, quality_report, config)
+        _candidate_report(
+            row,
+            experiment_by_case.get(str(row.get("case_id"))),
+            paper_evidence,
+            provider_status,
+            quality_report,
+            market_regime_coverage,
+            config,
+        )
         for row in walk_forward_rows
     ]
     if config.dedupe_similar_candidates:
@@ -147,6 +164,7 @@ def _candidate_report(
     paper_manifests: list[dict[str, Any]],
     provider_status: dict[str, Any] | None,
     quality_report: dict[str, Any] | None,
+    market_regime_coverage: dict[str, Any] | None,
     config: PromotionGateConfig,
 ) -> dict[str, Any]:
     blocking: list[str] = []
@@ -186,6 +204,8 @@ def _candidate_report(
     quality_reasons = _quality_reasons(quality_report)
     blocking.extend(quality_reasons["blocking"])
     warnings.extend(quality_reasons["warnings"])
+
+    blocking.extend(_market_regime_reasons(market_regime_coverage, config))
 
     paper_summary = _paper_summary(row, paper_manifests, config)
     blocking.extend(paper_summary["blocking"])
@@ -253,6 +273,7 @@ def _candidate_report(
                 "total_return": paper_summary["paper_total_return"],
                 "max_drawdown": paper_summary["paper_max_drawdown"],
             },
+            "market_regime_coverage": _market_regime_summary(market_regime_coverage),
             "duplicate_of": None,
             "duplicate_similarity": 0.0,
             "_signal_signature": sorted(paper_summary["signal_signature"]),
@@ -432,6 +453,45 @@ def _quality_reasons(quality_report: dict[str, Any] | None) -> dict[str, list[st
     if _metric(quality_report, "stale_price_rows") > 0:
         warnings.append("stale_price_rows_present")
     return {"blocking": blocking, "warnings": warnings}
+
+
+def _market_regime_reasons(market_regime_coverage: dict[str, Any] | None, config: PromotionGateConfig) -> list[str]:
+    if not config.require_market_regime_coverage:
+        return []
+    if market_regime_coverage is None:
+        return ["market_regime_coverage_missing"]
+    summary = market_regime_coverage.get("summary", {})
+    decision = market_regime_coverage.get("decision", {})
+    if not isinstance(summary, dict):
+        summary = {}
+    if not isinstance(decision, dict):
+        decision = {}
+    cleared = bool(decision.get("market_regime_coverage_cleared")) or str(market_regime_coverage.get("status")) == "sufficient"
+    reasons = [str(reason) for reason in decision.get("blockers", []) or []]
+    if not cleared:
+        reasons.insert(0, "market_regime_coverage_not_sufficient")
+    if _maybe_int(summary.get("covered_regimes")) is None:
+        reasons.append("market_regime_coverage_summary_missing")
+    return _dedupe(reasons)
+
+
+def _market_regime_summary(market_regime_coverage: dict[str, Any] | None) -> dict[str, Any]:
+    if market_regime_coverage is None:
+        return {"present": False}
+    summary = market_regime_coverage.get("summary", {})
+    decision = market_regime_coverage.get("decision", {})
+    if not isinstance(summary, dict):
+        summary = {}
+    if not isinstance(decision, dict):
+        decision = {}
+    return {
+        "present": True,
+        "status": market_regime_coverage.get("status"),
+        "covered_regimes": _maybe_int(summary.get("covered_regimes")),
+        "regimes": summary.get("regimes", []),
+        "cleared": bool(decision.get("market_regime_coverage_cleared")) or str(market_regime_coverage.get("status")) == "sufficient",
+        "blockers": decision.get("blockers", []) if isinstance(decision.get("blockers", []), list) else [],
+    }
 
 
 def _missing_walk_forward_metrics(row: dict[str, Any], config: PromotionGateConfig) -> list[str]:
@@ -620,7 +680,16 @@ def _load_paper_manifests(config: PromotionGateConfig) -> list[dict[str, Any]]:
 
 def _config_dict(config: PromotionGateConfig) -> dict[str, Any]:
     data = asdict(config)
-    for key in ("walk_forward_leaderboard", "experiment_leaderboard", "paper_manifest", "paper_manifest_dir", "provider_status", "quality_report", "output_dir"):
+    for key in (
+        "walk_forward_leaderboard",
+        "experiment_leaderboard",
+        "paper_manifest",
+        "paper_manifest_dir",
+        "provider_status",
+        "quality_report",
+        "market_regime_coverage",
+        "output_dir",
+    ):
         data[key] = str(data[key]) if data[key] is not None else None
     data["paper_manifests"] = [str(path) for path in config.paper_manifests]
     return data

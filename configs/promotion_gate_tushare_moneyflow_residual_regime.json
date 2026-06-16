@@ -1,5 +1,6 @@
 {
   "walk_forward_leaderboard": "data/reports/walk_forward_tushare_moneyflow_residual_regime/walk_forward_leaderboard.csv",
+  "market_regime_coverage": "data/reports/market_regime_coverage_tushare_moneyflow_residual_regime/market_regime_coverage_pack.json",
   "output_dir": "data/reports/promotion_gate_tushare_moneyflow_residual_regime",
   "min_oos_trades": 30,
   "min_oos_sharpe": 0.5,
@@ -14,6 +15,7 @@
   "max_adjusted_ic_p_value": 0.05,
   "min_positive_ic_rate": 0.55,
   "required_factor_source": "moneyflow_technical_combo",
+  "require_market_regime_coverage": true,
   "require_non_fixture_data": true,
   "dedupe_similar_candidates": true,
   "duplicate_similarity_threshold": 0.98,

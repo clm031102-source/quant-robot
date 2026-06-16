@@ -85,6 +85,7 @@ python scripts\run_promotion_report.py --config configs\promotion_gate_tushare_m
 ```
 
 This does not approve live trading. It summarizes which candidates are blocked, research-only, or still missing evidence.
+For this residual-regime profile, the promotion gate also requires the market-regime coverage pack. Missing or insufficient regime coverage blocks promotion even when a walk-forward row is otherwise accepted.
 
 To rebuild only the syncable Markdown summary:
 

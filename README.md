@@ -224,7 +224,7 @@ $env:PYTHONPATH='src'
 python scripts\run_checks.py --profile desktop-validation --execute
 ```
 
-The profile also builds a strict market-regime coverage pack from walk-forward test-fold `regime_curve.csv` files, then builds a research-only promotion gate report and writes `docs/research/desktop_residual_regime_validation_latest.md`. The summary command cross-checks the leaderboard against the walk-forward `manifest.json`, so stale or mismatched validation artifacts fail instead of producing a misleading Markdown summary. To build only the promotion report after a validation run:
+The profile also builds a strict market-regime coverage pack from walk-forward test-fold `regime_curve.csv` files, then builds a research-only promotion gate report and writes `docs/research/desktop_residual_regime_validation_latest.md`. The residual-regime promotion gate requires that coverage pack, so one-regime evidence cannot be promoted by running the promotion command alone. The summary command cross-checks the leaderboard against the walk-forward `manifest.json`, so stale or mismatched validation artifacts fail instead of producing a misleading Markdown summary. To build only the promotion report after a validation run:
 
 ```powershell
 $env:PYTHONPATH='src'

@@ -264,6 +264,32 @@ class PromotionGateTests(unittest.TestCase):
         self.assertIn("adjusted_ic_p_value_above_threshold", row["blocking_reasons"])
         self.assertIn("adjusted_ic_significance_not_passed", row["blocking_reasons"])
 
+    def test_promotion_blocks_candidate_without_required_market_regime_coverage(self):
+        report = build_promotion_report(
+            walk_forward_rows=[_accepted_walk_forward_row("CN_ETF_momentum_60_top1_cost5_reb5", "momentum_60")],
+            paper_manifest=_paper_manifest(
+                case_id="CN_ETF_momentum_60_top1_cost5_reb5",
+                factor_name="momentum_60",
+                sharpe=0.80,
+                total_return=0.20,
+            ),
+            market_regime_coverage={
+                "status": "insufficient",
+                "summary": {"covered_regimes": 1},
+                "decision": {"market_regime_coverage_cleared": False, "blockers": ["market_regimes_below_minimum"]},
+            },
+            config=PromotionGateConfig(
+                min_oos_sharpe=0.5,
+                min_paper_sharpe=0.5,
+                require_market_regime_coverage=True,
+            ),
+        )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "blocked")
+        self.assertIn("market_regime_coverage_not_sufficient", row["blocking_reasons"])
+        self.assertIn("market_regimes_below_minimum", row["blocking_reasons"])
+
     def test_promotion_accepts_candidate_with_factor_source_and_adjusted_ic_evidence(self):
         walk_forward = _accepted_walk_forward_row("CN_ETF_total_mv_log_top1_cost5_reb5", "total_mv_log")
         walk_forward.update(
@@ -328,6 +354,11 @@ class PromotionGateTests(unittest.TestCase):
         self.assertEqual(config.min_accepted_folds, 2)
         self.assertAlmostEqual(config.max_adjusted_ic_p_value or 0.0, 0.05)
         self.assertFalse(config.allow_manual_live_review)
+        self.assertEqual(
+            config.market_regime_coverage,
+            Path("data/reports/market_regime_coverage_tushare_moneyflow_residual_regime/market_regime_coverage_pack.json"),
+        )
+        self.assertTrue(config.require_market_regime_coverage)
 
     def test_promotion_blocks_stale_or_unready_provider_status_when_required(self):
         report = build_promotion_report(
