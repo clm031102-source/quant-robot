@@ -68,7 +68,15 @@ To run the full desktop validation check chain, use:
 python scripts\run_checks.py --profile desktop-validation --execute
 ```
 
-This runs unit/integration tests, Python compile, project audit, readiness checks, provider status, data catalog, data-quality audit, and then the residual-regime validation command.
+This runs unit/integration tests, Python compile, project audit, readiness checks, provider status, data catalog, data-quality audit, the residual-regime validation command, and then the research-only promotion gate report.
+
+To build only the promotion gate report after a validation run, use:
+
+```powershell
+python scripts\run_promotion_report.py --config configs\promotion_gate_tushare_moneyflow_residual_regime.json
+```
+
+This does not approve live trading. It summarizes which candidates are blocked, research-only, or still missing evidence.
 
 ## Review Rules
 

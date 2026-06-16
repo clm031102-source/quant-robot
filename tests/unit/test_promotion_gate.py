@@ -316,6 +316,19 @@ class PromotionGateTests(unittest.TestCase):
         self.assertEqual(config.required_factor_source, "tushare_daily_basic")
         self.assertAlmostEqual(config.max_adjusted_ic_p_value, 0.05)
 
+    def test_residual_regime_promotion_config_uses_strict_moneyflow_combo_controls(self):
+        config = load_promotion_gate_config("configs/promotion_gate_tushare_moneyflow_residual_regime.json")
+
+        self.assertEqual(
+            config.walk_forward_leaderboard,
+            Path("data/reports/walk_forward_tushare_moneyflow_residual_regime/walk_forward_leaderboard.csv"),
+        )
+        self.assertEqual(config.required_factor_source, "moneyflow_technical_combo")
+        self.assertEqual(config.min_walk_forward_folds, 2)
+        self.assertEqual(config.min_accepted_folds, 2)
+        self.assertAlmostEqual(config.max_adjusted_ic_p_value or 0.0, 0.05)
+        self.assertFalse(config.allow_manual_live_review)
+
     def test_promotion_blocks_stale_or_unready_provider_status_when_required(self):
         report = build_promotion_report(
             walk_forward_rows=[_accepted_walk_forward_row("CN_ETF_momentum_60_top1_cost5_reb5", "momentum_60")],

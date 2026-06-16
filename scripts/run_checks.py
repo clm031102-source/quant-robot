@@ -108,6 +108,15 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
         return [
             *(step for step in full_plan if step.name in selected),
             CheckStep("desktop_factor_validation", [python_executable, "scripts/run_desktop_factor_validation.py"]),
+            CheckStep(
+                "desktop_promotion_report",
+                [
+                    python_executable,
+                    "scripts/run_promotion_report.py",
+                    "--config",
+                    "configs/promotion_gate_tushare_moneyflow_residual_regime.json",
+                ],
+            ),
         ]
     raise ValueError(f"Unsupported check profile: {profile}")
 

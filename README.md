@@ -224,6 +224,13 @@ $env:PYTHONPATH='src'
 python scripts\run_checks.py --profile desktop-validation --execute
 ```
 
+The profile also builds a research-only promotion gate report after the walk-forward run. To build only that report after a validation run:
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_promotion_report.py --config configs\promotion_gate_tushare_moneyflow_residual_regime.json
+```
+
 ## Run Signal Snapshot
 
 This generates the latest research signal targets and a research-only advisory rebalance plan. It does not connect to a broker, read a real account, or place orders. If no positions CSV is supplied, the run assumes an empty local paper portfolio.
