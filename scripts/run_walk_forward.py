@@ -38,6 +38,11 @@ def main() -> None:
     parser.add_argument("--source", choices=["fixture", "processed-bars"], default="fixture")
     parser.add_argument("--data-root", default="data/processed")
     parser.add_argument("--output-dir")
+    parser.add_argument(
+        "--allow-no-accepted",
+        action="store_true",
+        help="Exit successfully when validation completes but every candidate is rejected.",
+    )
     args = parser.parse_args()
     result = run_walk_forward(
         config_path=Path(args.config),
@@ -47,12 +52,12 @@ def main() -> None:
     )
     print(json.dumps({"summary": result["summary"], "top": result["leaderboard"][:10]}, indent=2, sort_keys=True))
     try:
-        assert_walk_forward_succeeded(result)
+        assert_walk_forward_succeeded(result, allow_no_accepted=args.allow_no_accepted)
     except RuntimeError as exc:
         raise SystemExit(str(exc)) from exc
 
 
-def assert_walk_forward_succeeded(result: dict[str, object]) -> None:
+def assert_walk_forward_succeeded(result: dict[str, object], *, allow_no_accepted: bool = False) -> None:
     summary = result.get("summary", {})
     if not isinstance(summary, dict):
         raise RuntimeError("walk-forward validation failed: missing summary")
@@ -67,7 +72,7 @@ def assert_walk_forward_succeeded(result: dict[str, object]) -> None:
     if failed_rows:
         cases = ", ".join(str(row.get("case_id")) for row in failed_rows[:5])
         raise RuntimeError(f"walk-forward grid failures: {cases}")
-    if int(summary.get("accepted", 0)) == 0:
+    if int(summary.get("accepted", 0)) == 0 and not allow_no_accepted:
         raise RuntimeError("walk-forward validation failed: no accepted walk-forward cases")
 
 

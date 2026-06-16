@@ -55,6 +55,14 @@
       "integrated_by": "laptop",
       "status": "absorbed",
       "summary": "Absorbed the same-sample technical baseline control. Momentum, reversal, liquidity, and risk-adjusted momentum baselines were all rejected, reinforcing that the next useful direction is liquidity-aware or residualized factor design rather than raw top-N searches."
+    },
+    {
+      "branch": "origin/codex/factor-batch-moneyflow-alpha",
+      "commit": "e975a4939dee1ac000e8fe43dc2068a17c8562c1",
+      "integrated_on": "2026-06-16",
+      "integrated_by": "laptop",
+      "status": "absorbed",
+      "summary": "Absorbed the holding-period sensitivity audit. Five-day forward returns and five-day rebalancing did not rescue mf_low_minus_volatility_20 or large_minus_liquidity_20, so holding-period sweeps remain rejected and the next useful direction stays liquidity-aware factor construction."
     }
   ],
   "ignored_branches": []

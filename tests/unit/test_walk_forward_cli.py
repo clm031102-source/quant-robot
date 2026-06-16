@@ -42,6 +42,14 @@ class WalkForwardCliTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "no accepted walk-forward cases"):
             assert_walk_forward_succeeded(result)
 
+    def test_assert_walk_forward_succeeded_allows_no_accepted_when_requested(self):
+        result = {
+            "summary": {"cases": 1, "accepted": 0, "rejected": 1},
+            "leaderboard": [{"case_id": "weak_case", "train_status": "completed", "test_status": "completed"}],
+        }
+
+        assert_walk_forward_succeeded(result, allow_no_accepted=True)
+
     def test_assert_walk_forward_succeeded_fails_when_underlying_grid_failed(self):
         result = {
             "summary": {"cases": 1, "accepted": 0, "rejected": 1},

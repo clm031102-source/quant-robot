@@ -206,3 +206,21 @@ To avoid overfitting only inside the moneyflow family, the office desktop also r
 - `momentum_20`: rejected for relative return below threshold and drawdown above limit. Total return -0.9919, relative return -14.3485, Sharpe -0.6100, max drawdown -0.9947, significant negative IC, and capacity-limited trades 4.
 
 The technical baseline did not produce a rescue candidate. The most actionable conclusion remains architectural rather than parametric: the next factor-mining step should pre-register liquidity-aware or residualized factors instead of searching wider top-N portfolios over existing raw technical or moneyflow scores.
+
+## Holding-Period Sensitivity
+
+The office desktop then tested whether daily turnover was the main failure mode by moving the strongest existing moneyflow-combo candidates to 5-day forward returns and 5-day rebalancing on the combined 2023-2026 store.
+
+`mf_low_minus_volatility_20`, forward5/rebalance5/cost20:
+
+- Top5: rejected for drawdown above limit. Total return 52.8020, relative return 39.4454, Sharpe 0.8870, max drawdown -0.6067, IC p-value 0.0511, capacity-limited trades 54, max participation above 300%, and long-short spread -0.1019.
+- Top10: rejected for drawdown above limit. Total return 14.7345, relative return 1.3779, Sharpe 0.7610, max drawdown -0.6159, IC p-value 0.0511, capacity-limited trades 37, max participation above 160%, and long-short spread -0.1019.
+- Top20: rejected for relative return below threshold and drawdown above limit. Total return 8.4630, relative return -4.8936, Sharpe 0.6488, max drawdown -0.5490, IC p-value 0.0511, capacity-limited trades 19, max participation above 200%, and long-short spread -0.1019.
+
+`large_minus_liquidity_20`, forward5/rebalance5/cost20:
+
+- Top5: rejected for relative return below threshold and drawdown above limit. Total return 0.1873, relative return -13.1693, Sharpe 0.4440, max drawdown -0.8569, capacity-limited trades 5.
+- Top10: rejected for relative return below threshold and drawdown above limit. Total return -0.3379, relative return -13.6945, Sharpe 0.2373, max drawdown -0.8278, capacity-limited trades 7.
+- Top20: rejected for relative return below threshold and drawdown above limit. Total return 0.0274, relative return -13.3291, Sharpe 0.3482, max drawdown -0.7626, capacity-limited trades 4.
+
+Longer holding periods do not rescue the current candidates. `mf_low_minus_volatility_20` remains a high-return but non-tradable and non-monotonic shape; `large_minus_liquidity_20` loses most of its edge when moved from 1-day to 5-day holding. This pushes the research direction further toward new liquidity-aware factor construction rather than holding-period parameter sweeps.

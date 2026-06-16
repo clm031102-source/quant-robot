@@ -28,3 +28,11 @@ These candidates should be treated as strict-validation inputs only. A future da
 - data-quality inspection for stale prices, missing dates, extreme returns, and adjusted-close jumps.
 
 The config `configs/walk_forward_tushare_moneyflow_technical_combo.json` now includes both candidates for the next heavier validation pass.
+
+Recommended validation command on `highspec_desktop` or `office_desktop`:
+
+```powershell
+python scripts\run_walk_forward.py --config configs\walk_forward_tushare_moneyflow_technical_combo.json --source processed-bars --data-root data\processed --allow-no-accepted
+```
+
+The `--allow-no-accepted` flag is intentional for strict factor review. It keeps the command successful when the grid completes and every candidate is rejected, because a full rejection set is still useful research evidence. Grid failures, missing train/test results, and unsafe data or sync paths remain blockers.
