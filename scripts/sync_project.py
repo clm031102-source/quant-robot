@@ -195,6 +195,10 @@ def main() -> None:
     syncable = plan["path_classification"]["syncable"]
     if not syncable:
         plan["actions"].append("nothing_to_commit")
+        if should_push_existing_commits(upstream_sync, push=args.push):
+            _push_current_branch(current_branch, upstream_sync)
+            plan["actions"].append("pushed")
+            plan["git"]["upstream_sync_after_push"] = _upstream_sync()
         print(json.dumps(plan, indent=2, sort_keys=True))
         return
 
@@ -210,7 +214,7 @@ def main() -> None:
     plan["actions"].append("committed")
 
     if args.push:
-        _git(["push", "origin", current_branch])
+        _push_current_branch(current_branch, upstream_sync)
         plan["actions"].append("pushed")
         plan["git"]["upstream_sync_after_push"] = _upstream_sync()
 
@@ -353,6 +357,27 @@ def _behind_upstream(upstream_sync: str) -> bool:
         return int(parts[0]) > 0
     except ValueError:
         return False
+
+
+def should_push_existing_commits(upstream_sync: str, *, push: bool) -> bool:
+    if not push:
+        return False
+    if upstream_sync == "no upstream":
+        return True
+    parts = upstream_sync.replace("\t", " ").split()
+    if len(parts) < 2:
+        return False
+    try:
+        return int(parts[1]) > 0
+    except ValueError:
+        return False
+
+
+def _push_current_branch(current_branch: str, upstream_sync: str) -> None:
+    if upstream_sync == "no upstream":
+        _git(["push", "-u", "origin", current_branch])
+    else:
+        _git(["push", "origin", current_branch])
 
 
 def _git_stdout(args: list[str]) -> str:

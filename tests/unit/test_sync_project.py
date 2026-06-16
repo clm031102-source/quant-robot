@@ -5,6 +5,7 @@ from scripts.sync_project import (
     build_sync_plan,
     classify_changed_paths,
     is_forbidden_path,
+    should_push_existing_commits,
 )
 
 
@@ -203,6 +204,16 @@ class SyncProjectTests(unittest.TestCase):
 
         self.assertTrue(plan["can_execute"])
         self.assertNotIn("pending_research_branches_require_integration", plan["blockers"])
+
+    def test_existing_commits_should_push_when_branch_has_no_upstream(self) -> None:
+        self.assertTrue(should_push_existing_commits("no upstream", push=True))
+
+    def test_existing_commits_should_push_when_branch_is_ahead(self) -> None:
+        self.assertTrue(should_push_existing_commits("0\t2", push=True))
+
+    def test_existing_commits_do_not_push_when_already_aligned(self) -> None:
+        self.assertFalse(should_push_existing_commits("0\t0", push=True))
+        self.assertFalse(should_push_existing_commits("0\t2", push=False))
 
 
 def _config() -> dict:
