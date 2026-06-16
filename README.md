@@ -14,6 +14,7 @@ The project is currently in a Phase 5.x research-to-paper stage. It has research
 - Paper Observation History status: `history_clear_for_continued_paper_observation=true` with 1 recorded real Tushare activation run and zero live-boundary violations.
 - Paper Ops Guardrail status: `paper_ops_watch`; continued paper observation is allowed, live readiness is false, warnings are `short_paper_history` and `provider_missing_date_rows`.
 - Paper Ops Runbook status: `paper_cycle_ready`; the queue has 4 local-only, manual-start commands, and live cycle execution remains disabled.
+- Audit remediation status: validation now supports rolling walk-forward folds, IC significance evidence, capacity-aware costs, stricter quality reports, stale provider-status blocking, and a central read-only execution boundary. These are stronger gates, not live-profit proof.
 - Fixture activation status: `paper_observation_ready`, proving the local refresh -> replay -> sufficiency -> iterative expansion chain without network access.
 - CI status: GitHub Actions now runs unit/integration tests, Python compilation, and project-audit pass checks on push and pull request.
 
@@ -34,16 +35,17 @@ Passing this gate only permits continued paper observation on refreshed data. It
 - Implemented adapter paths for Tushare A-shares and A-share ETFs, AKShare CN/CN_ETF, yfinance HK/US, and ccxt crypto when optional packages and credentials are available. A-share ETF research can use local CSV, fixtures, AKShare, or optional Tushare ETF daily ingestion.
 - Basic factors: momentum, reversal, volatility, volume change, and liquidity.
 - Forward-return labels with explicit execution lag.
-- IC, Rank IC, quantile group returns, and long-short returns.
-- Research backtest with explicit execution lag, holding period, portfolio scope, transaction cost assumptions, and conservative sleeve scaling for multi-day holding periods.
+- IC, Rank IC, IC t-statistics, approximate p-values, positive IC rate, quantile group returns, and long-short returns.
+- Research backtest with explicit execution lag, holding period, portfolio scope, transaction cost assumptions, market-impact estimates, participation-rate evidence, and conservative sleeve scaling for multi-day holding periods.
+- Optional rolling walk-forward validation with fold counts, accepted-fold counts, mean out-of-sample metrics, worst out-of-sample drawdown, and fold rejection reasons.
 - Research-only signal snapshots, risk-capped target weights, and advisory rebalance plans.
 - Local paper trading simulation with simulated intents, fills, cash, positions, equity curve, and China-market 100-share lot rounding.
 - Research decision-risk layer with benchmark comparison, cash comparison, optional regime filtering, walk-forward relative-return gates, and paper drawdown guards.
 - Promotion operations summary for pre-API candidates, including live-review blockers, duplicate clusters, and local next actions.
 - Promotion review packets with candidate evidence, manual-review gate state, checklist CSV, and Markdown artifacts.
 - Evidence refresh plans that turn review blockers into ordered local action tracks.
-- Data-quality gap audits that list exact CN ETF missing asset/date rows.
-- Provider-readiness evidence packs that classify dependency, token, adapter, market coverage, and Parquet readiness.
+- Data-quality reports and gap audits that list exact CN ETF missing asset/date rows, duplicate bars, zero volume, extreme returns, stale prices, and adjusted-close jumps.
+- Provider-readiness evidence packs that classify dependency, token, adapter, market coverage, Parquet readiness, and generation date for stale-status checks.
 - Provider-remediation matrices and readiness-board integration for dependency, token, adapter, and storage blockers.
 - Residual blocker focus packs that prioritize projected blocker leftovers, linked work items, downstream waits, and local-only action commands.
 - Residual data-gap review packs that isolate post-rehearsal blocking gap rows and write fillable local resolution templates.
@@ -57,13 +59,15 @@ Passing this gate only permits continued paper observation on refreshed data. It
 - Tushare CN ETF daily ingestion path through the optional `fund_daily` endpoint.
 - Risk-tier policy, constrained candidate search, paper-profile optimization, Daily Ops activation, profile-observation stop rules, recent-data refresh, post-refresh replay, observation sufficiency, iterative expansion, Tushare activation-gate packs, paper-observation history ledgers, paper-ops guardrail packs, and paper-only runbook command queues.
 - Paper-simulation execution-block events for suspended, zero-volume, limit-up, and limit-down bars when those fields exist in local data.
+- Paper-simulation fills now record participation rate, capacity-limit flags, and market-impact fees when amount data is available.
+- Central execution-boundary helpers produce read-only status, non-executable manual review packets, and an explicit refusal path for any live execution request.
 - CSV, JSON, and SVG report outputs.
 
 ## Run Tests
 
 ```powershell
 $env:PYTHONPATH='src'
-python -m unittest discover -s tests -p "test_*.py"
+.\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py"
 ```
 
 ## Workstation Startup
@@ -71,7 +75,7 @@ python -m unittest discover -s tests -p "test_*.py"
 Before starting work on the laptop, high-spec desktop, or office desktop, confirm the machine, task type, branch, and commit/push permission. Branches are named by work content, not by machine.
 
 ```powershell
-python scripts\start_task_context.py
+.\.venv\Scripts\python.exe scripts\start_task_context.py
 ```
 
 See `AGENTS.md`, `configs/workstations.json`, and `docs/workstation_protocol.md`.
@@ -94,23 +98,27 @@ This runs the local test suite, Python compile check, project audit, readiness c
 
 The batch experiment grid exits non-zero if any case fails or if no case completes. Walk-forward validation exits non-zero if the underlying train/test grids fail or if no candidate is accepted. This keeps local checks from hiding failed research runs inside CSV/JSON leaderboards.
 
+For laptop architecture/audit work, use the laptop profile. It keeps the fast safety, provider-readiness, fixture research, signal snapshot, paper-simulation, recent-refresh dry-run, activation-gate dry-run, and paper-ops guardrail checks without running the heavier experiment grid, walk-forward, promotion, and profile-optimizer chain.
+
 ```powershell
 $env:PYTHONPATH='src'
-python scripts\run_checks.py --execute
+.\.venv\Scripts\python.exe scripts\run_checks.py --execute
+.\.venv\Scripts\python.exe scripts\run_checks.py --profile laptop --execute
 ```
 
 To inspect the check plan without running it:
 
 ```powershell
 $env:PYTHONPATH='src'
-python scripts\run_checks.py
+.\.venv\Scripts\python.exe scripts\run_checks.py
+.\.venv\Scripts\python.exe scripts\run_checks.py --profile laptop
 ```
 
 ## Run Project Audit
 
 ```powershell
 $env:PYTHONPATH='src'
-python scripts\run_project_audit.py
+.\.venv\Scripts\python.exe scripts\run_project_audit.py
 ```
 
 Outputs are written to `data/reports/project_audit/`.
@@ -179,7 +187,7 @@ Outputs are written to `data/reports/experiment_grid/` by default:
 - `manifest.json`
 - one artifact folder per experiment case
 
-Edit `configs/experiment_grid.json` to change markets, factors, transaction costs, position counts, holding horizon, optional portfolio scope, annualization periods, ranking metric, and output path. Factor names such as `momentum_2` must reference windows included in `factor_windows`; mismatches fail fast instead of producing silent no-trade cases.
+Edit `configs/experiment_grid.json` to change markets, factors, transaction costs, market-impact assumptions, capacity participation limits, position counts, holding horizon, optional portfolio scope, annualization periods, ranking metric, and output path. Factor names such as `momentum_2` must reference windows included in `factor_windows`; mismatches fail fast instead of producing silent no-trade cases.
 
 ## Run Walk-Forward Validation
 
@@ -196,8 +204,9 @@ Outputs are written to `data/reports/walk_forward/` by default:
 - `walk_forward_leaderboard.json`
 - `manifest.json`
 - `train/` and `test/` per-case artifacts
+- `walk_forward_folds.csv` when rolling mode is enabled
 
-Edit `configs/walk_forward.json` to change the split date, candidate grid, acceptance thresholds, and output path. The test segment includes train-period warmup bars for rolling factor calculation, but signals and trades are restricted to dates after the split.
+Edit `configs/walk_forward.json` to change the split date, candidate grid, acceptance thresholds, and output path. CN ETF production configs can enable `rolling_train_days`, `rolling_test_days`, `rolling_step_days`, and `min_accepted_folds`. The test segment includes train-period warmup bars for rolling factor calculation, but signals and trades are restricted to out-of-sample dates.
 
 ## Run Signal Snapshot
 
@@ -257,7 +266,7 @@ python scripts\run_paper_batch.py --config configs\paper_batch_cn_etf.json
 python scripts\run_promotion_report.py --config configs\promotion_gate_cn_etf.json
 ```
 
-The report is written to `data/reports/promotion_gate_cn_etf/`. It blocks candidates with weak walk-forward evidence, fixture-only data, excessive drawdown, or unsafe paper-simulation metrics. It can consume one paper manifest or a directory of per-candidate paper manifests. See `docs/phase_2_7_promotion_gate.md`.
+The report is written to `data/reports/promotion_gate_cn_etf/`. It blocks candidates with weak walk-forward evidence, insufficient rolling folds, weak IC significance, fixture-only data, severe data-quality failures, stale or unready provider evidence when configured, excessive drawdown, or unsafe paper-simulation metrics. It can consume one paper manifest or a directory of per-candidate paper manifests. See `docs/phase_2_7_promotion_gate.md`.
 
 ## Phase 2.8 Promotion Operations
 

@@ -27,6 +27,24 @@ class IngestCliTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / "quality_report.json").exists())
             self.assertGreater(result["processed_rows"], 0)
 
+    def test_tushare_factor_fixture_ingest_writes_factor_inputs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_ingest(source="tushare-factor-fixture", market="CN", output_dir=Path(tmp))
+
+            self.assertEqual(result["dataset"], "daily_basic")
+            self.assertTrue((Path(tmp) / "manifest.json").exists())
+            self.assertTrue((Path(tmp) / "factor_input_quality_report.json").exists())
+            self.assertGreater(result["processed_rows"], 0)
+
+    def test_tushare_moneyflow_fixture_ingest_writes_moneyflow_inputs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_ingest(source="tushare-moneyflow-fixture", market="CN", output_dir=Path(tmp))
+
+            self.assertEqual(result["dataset"], "moneyflow")
+            self.assertTrue((Path(tmp) / "manifest.json").exists())
+            self.assertTrue((Path(tmp) / "moneyflow_input_quality_report.json").exists())
+            self.assertGreater(result["processed_rows"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()

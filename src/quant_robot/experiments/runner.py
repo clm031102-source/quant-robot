@@ -14,6 +14,7 @@ from quant_robot.research.pipeline import ResearchPipelineConfig, run_research_p
 @dataclass(frozen=True)
 class ExperimentGridConfig:
     markets: tuple[str, ...] = ("CN", "HK", "US", "CRYPTO")
+    factor_source: str = "technical"
     factor_names: tuple[str, ...] = (
         "momentum_2",
         "reversal_2",
@@ -22,6 +23,9 @@ class ExperimentGridConfig:
         "liquidity_2",
     )
     factor_windows: tuple[int, ...] = (2, 3)
+    factor_input_root: Path | None = None
+    factor_input_required: bool = False
+    moneyflow_input_root: Path | None = None
     top_n_values: tuple[int, ...] = (1, 2)
     cost_bps_values: tuple[float, ...] = (0.0, 5.0, 10.0)
     start_date: str | None = None
@@ -37,6 +41,11 @@ class ExperimentGridConfig:
     regime_filter: bool = False
     regime_lookback: int = 20
     target_gross_exposure: float = 1.0
+    commission_bps: float | None = None
+    slippage_bps: float | None = None
+    market_impact_bps: float = 0.0
+    max_participation_rate: float | None = None
+    portfolio_value: float = 1_000_000.0
     min_relative_return: float | None = None
     max_drawdown_limit: float | None = None
     signal_start_date: str | None = None
@@ -50,6 +59,7 @@ class ExperimentGridConfig:
 class ExperimentCase:
     case_id: str
     market: str
+    factor_source: str
     factor_name: str
     factor_windows: tuple[int, ...]
     top_n: int
@@ -68,6 +78,7 @@ def build_experiment_cases(config: ExperimentGridConfig) -> list[ExperimentCase]
                             ExperimentCase(
                                 case_id=_case_id(market, factor_name, top_n, cost_bps, rebalance_interval),
                                 market=market.upper(),
+                                factor_source=config.factor_source,
                                 factor_name=factor_name,
                                 factor_windows=config.factor_windows,
                                 top_n=int(top_n),
@@ -79,11 +90,15 @@ def build_experiment_cases(config: ExperimentGridConfig) -> list[ExperimentCase]
 
 
 def load_experiment_grid_config(path: str | Path) -> ExperimentGridConfig:
-    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    data = json.loads(Path(path).read_text(encoding="utf-8-sig"))
     return ExperimentGridConfig(
         markets=tuple(data.get("markets", ExperimentGridConfig.markets)),
+        factor_source=str(data.get("factor_source", ExperimentGridConfig.factor_source)),
         factor_names=tuple(data.get("factor_names", ExperimentGridConfig.factor_names)),
         factor_windows=tuple(int(value) for value in data.get("factor_windows", ExperimentGridConfig.factor_windows)),
+        factor_input_root=Path(data["factor_input_root"]) if data.get("factor_input_root") else None,
+        factor_input_required=bool(data.get("factor_input_required", ExperimentGridConfig.factor_input_required)),
+        moneyflow_input_root=Path(data["moneyflow_input_root"]) if data.get("moneyflow_input_root") else None,
         top_n_values=tuple(int(value) for value in data.get("top_n_values", ExperimentGridConfig.top_n_values)),
         cost_bps_values=tuple(float(value) for value in data.get("cost_bps_values", ExperimentGridConfig.cost_bps_values)),
         start_date=data.get("start_date"),
@@ -99,6 +114,11 @@ def load_experiment_grid_config(path: str | Path) -> ExperimentGridConfig:
         regime_filter=bool(data.get("regime_filter", ExperimentGridConfig.regime_filter)),
         regime_lookback=int(data.get("regime_lookback", ExperimentGridConfig.regime_lookback)),
         target_gross_exposure=float(data.get("target_gross_exposure", ExperimentGridConfig.target_gross_exposure)),
+        commission_bps=float(data["commission_bps"]) if data.get("commission_bps") is not None else None,
+        slippage_bps=float(data["slippage_bps"]) if data.get("slippage_bps") is not None else None,
+        market_impact_bps=float(data.get("market_impact_bps", ExperimentGridConfig.market_impact_bps)),
+        max_participation_rate=float(data["max_participation_rate"]) if data.get("max_participation_rate") is not None else None,
+        portfolio_value=float(data.get("portfolio_value", ExperimentGridConfig.portfolio_value)),
         min_relative_return=float(data["min_relative_return"]) if data.get("min_relative_return") is not None else None,
         max_drawdown_limit=float(data["max_drawdown_limit"]) if data.get("max_drawdown_limit") is not None else None,
         signal_start_date=data.get("signal_start_date"),
@@ -130,7 +150,11 @@ def _run_case(bars: pd.DataFrame, grid_config: ExperimentGridConfig, case: Exper
             bars,
             ResearchPipelineConfig(
                 factor_name=case.factor_name,
+                factor_source=grid_config.factor_source,
                 factor_windows=case.factor_windows,
+                factor_input_root=grid_config.factor_input_root,
+                factor_input_required=grid_config.factor_input_required,
+                moneyflow_input_root=grid_config.moneyflow_input_root,
                 market=case.market,
                 start_date=grid_config.start_date,
                 end_date=grid_config.end_date,
@@ -147,6 +171,11 @@ def _run_case(bars: pd.DataFrame, grid_config: ExperimentGridConfig, case: Exper
                 regime_filter=grid_config.regime_filter,
                 regime_lookback=grid_config.regime_lookback,
                 target_gross_exposure=grid_config.target_gross_exposure,
+                commission_bps=grid_config.commission_bps,
+                slippage_bps=grid_config.slippage_bps,
+                market_impact_bps=grid_config.market_impact_bps,
+                max_participation_rate=grid_config.max_participation_rate,
+                portfolio_value=grid_config.portfolio_value,
                 min_relative_return=grid_config.min_relative_return,
                 max_drawdown_limit=grid_config.max_drawdown_limit,
                 signal_start_date=grid_config.signal_start_date,
@@ -167,10 +196,13 @@ def _row(case: ExperimentCase, status: str, error: str | None, trades: int, resu
     decision = result["decision"] if result is not None else {}
     factor_summary = result["factor_summary"] if result is not None else {}
     artifact_rows = result["artifact_rows"] if result is not None else {}
+    group_summary = _group_return_summary(result.get("group_returns", []) if result is not None else [])
+    long_short_summary = _long_short_summary(result.get("long_short", []) if result is not None else [])
     return _sanitize(
         {
             "case_id": case.case_id,
             "market": case.market,
+            "factor_source": case.factor_source,
             "factor_name": case.factor_name,
             "factor_windows": list(case.factor_windows),
             "top_n": case.top_n,
@@ -180,25 +212,76 @@ def _row(case: ExperimentCase, status: str, error: str | None, trades: int, resu
             "error": error,
             "data_mode": result["data_mode"] if result is not None else "unknown",
             "trades": trades,
-            "holdings": int(artifact_rows.get("holdings", 0)),
-            "total_return": float(metrics.get("total_return", 0.0)),
-            "annualized_return": float(metrics.get("annualized_return", 0.0)),
-            "annualized_volatility": float(metrics.get("annualized_volatility", 0.0)),
-            "sharpe": float(metrics.get("sharpe", 0.0)),
-            "max_drawdown": float(metrics.get("max_drawdown", 0.0)),
-            "win_rate": float(metrics.get("win_rate", 0.0)),
-            "turnover": float(metrics.get("turnover", 0.0)),
-            "average_holdings": float(metrics.get("average_holdings", 0.0)),
-            "benchmark_total_return": float(benchmark_metrics.get("benchmark_total_return", 0.0)),
-            "relative_return": float(benchmark_metrics.get("relative_return", 0.0)),
-            "excess_over_cash": float(benchmark_metrics.get("excess_over_cash", 0.0)),
+            "holdings": int(_number(artifact_rows.get("holdings"), 0.0)),
+            "total_return": _number(metrics.get("total_return"), 0.0),
+            "annualized_return": _number(metrics.get("annualized_return"), 0.0),
+            "annualized_volatility": _number(metrics.get("annualized_volatility"), 0.0),
+            "sharpe": _number(metrics.get("sharpe"), 0.0),
+            "max_drawdown": _number(metrics.get("max_drawdown"), 0.0),
+            "win_rate": _number(metrics.get("win_rate"), 0.0),
+            "turnover": _number(metrics.get("turnover"), 0.0),
+            "average_holdings": _number(metrics.get("average_holdings"), 0.0),
+            "avg_cost_rate": _number(metrics.get("avg_cost_rate"), 0.0),
+            "max_cost_rate": _number(metrics.get("max_cost_rate"), 0.0),
+            "avg_participation_rate": _number(metrics.get("avg_participation_rate"), 0.0),
+            "max_participation_rate": _number(metrics.get("max_participation_rate"), 0.0),
+            "capacity_limited_trades": int(_number(metrics.get("capacity_limited_trades"), 0.0)),
+            "benchmark_total_return": _number(benchmark_metrics.get("benchmark_total_return"), 0.0),
+            "relative_return": _number(benchmark_metrics.get("relative_return"), 0.0),
+            "excess_over_cash": _number(benchmark_metrics.get("excess_over_cash"), 0.0),
             "decision_status": str(decision.get("decision_status", "unknown")),
             "decision_reasons": decision.get("rejection_reasons", []),
-            "mean_ic": float(factor_summary.get("mean_ic", 0.0)),
-            "mean_rank_ic": float(factor_summary.get("mean_rank_ic", 0.0)),
-            "icir": float(factor_summary.get("icir", 0.0)),
+            "mean_ic": _number(factor_summary.get("mean_ic"), 0.0),
+            "mean_rank_ic": _number(factor_summary.get("mean_rank_ic"), 0.0),
+            "icir": _number(factor_summary.get("icir"), 0.0),
+            "ic_observations": int(_number(factor_summary.get("ic_observations"), 0.0)),
+            "positive_ic_rate": _number(factor_summary.get("positive_ic_rate"), 0.0),
+            "ic_t_stat": _number(factor_summary.get("ic_t_stat"), 0.0),
+            "ic_p_value": _number(factor_summary.get("ic_p_value"), 1.0),
+            "rank_ic_t_stat": _number(factor_summary.get("rank_ic_t_stat"), 0.0),
+            "rank_ic_p_value": _number(factor_summary.get("rank_ic_p_value"), 1.0),
+            "significance_status": str(factor_summary.get("significance_status", "unknown")),
+            "long_short_mean_return": long_short_summary["mean_return"],
+            "long_short_positive_rate": long_short_summary["positive_rate"],
+            "long_short_observations": long_short_summary["observations"],
+            "quantile_bottom_mean_return": group_summary["bottom_mean_return"],
+            "quantile_top_mean_return": group_summary["top_mean_return"],
+            "quantile_spread_mean_return": group_summary["spread_mean_return"],
         }
     )
+
+
+def _long_short_summary(rows: Any) -> dict[str, float | int]:
+    frame = pd.DataFrame(rows)
+    if frame.empty or "long_short_return" not in frame.columns:
+        return {"mean_return": 0.0, "positive_rate": 0.0, "observations": 0}
+    values = pd.to_numeric(frame["long_short_return"], errors="coerce").dropna()
+    if values.empty:
+        return {"mean_return": 0.0, "positive_rate": 0.0, "observations": 0}
+    return {
+        "mean_return": float(values.mean()),
+        "positive_rate": float((values > 0.0).mean()),
+        "observations": int(len(values)),
+    }
+
+
+def _group_return_summary(rows: Any) -> dict[str, float]:
+    frame = pd.DataFrame(rows)
+    if frame.empty or "quantile" not in frame.columns or "mean_forward_return" not in frame.columns:
+        return {"bottom_mean_return": 0.0, "top_mean_return": 0.0, "spread_mean_return": 0.0}
+    source = frame.copy()
+    source["quantile"] = pd.to_numeric(source["quantile"], errors="coerce")
+    source["mean_forward_return"] = pd.to_numeric(source["mean_forward_return"], errors="coerce")
+    source = source.dropna(subset=["quantile", "mean_forward_return"])
+    if source.empty:
+        return {"bottom_mean_return": 0.0, "top_mean_return": 0.0, "spread_mean_return": 0.0}
+    bottom = float(source.loc[source["quantile"] == source["quantile"].min(), "mean_forward_return"].mean())
+    top = float(source.loc[source["quantile"] == source["quantile"].max(), "mean_forward_return"].mean())
+    return {
+        "bottom_mean_return": bottom,
+        "top_mean_return": top,
+        "spread_mean_return": top - bottom,
+    }
 
 
 def _rank_rows(rows: list[dict[str, Any]], rank_by: str) -> list[dict[str, Any]]:
@@ -220,6 +303,14 @@ def _metric_value(value: Any) -> float:
     except (TypeError, ValueError):
         return float("-inf")
     return number if math.isfinite(number) else float("-inf")
+
+
+def _number(value: Any, default: float = 0.0) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return default
+    return number if math.isfinite(number) else default
 
 
 def _summary(leaderboard: list[dict[str, Any]]) -> dict[str, int]:
@@ -270,6 +361,8 @@ def _write_grid_artifacts(output_dir: Path, result: dict[str, Any], leaderboard:
 def _config_dict(config: ExperimentGridConfig) -> dict[str, Any]:
     data = asdict(config)
     data["markets"] = list(config.markets)
+    data["factor_input_root"] = str(config.factor_input_root) if config.factor_input_root is not None else None
+    data["moneyflow_input_root"] = str(config.moneyflow_input_root) if config.moneyflow_input_root is not None else None
     data["factor_names"] = list(config.factor_names)
     data["factor_windows"] = list(config.factor_windows)
     data["top_n_values"] = list(config.top_n_values)

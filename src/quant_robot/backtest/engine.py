@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from quant_robot.backtest.costs import round_trip_cost
+from quant_robot.backtest.costs import capacity_limited, estimate_trade_cost_rate
 from quant_robot.backtest.metrics import summarize_returns
 from quant_robot.backtest.portfolio import select_top_n
 
@@ -28,6 +28,11 @@ def run_factor_backtest(
     rebalance_interval: int = 1,
     target_gross_exposure: float = 1.0,
     periods_per_year: float = 252,
+    commission_bps: float | None = None,
+    slippage_bps: float | None = None,
+    market_impact_bps: float = 0.0,
+    max_participation_rate: float | None = None,
+    portfolio_value: float = 1_000_000.0,
 ) -> BacktestResult:
     required_factor_columns = ["date", "asset_id", "market", "factor_name", "factor_value"]
     required_bar_columns = ["date", "asset_id", "market", "adj_close"]
@@ -41,6 +46,10 @@ def run_factor_backtest(
         raise ValueError("rebalance_interval must be at least 1")
     if target_gross_exposure <= 0.0 or target_gross_exposure > 1.0:
         raise ValueError("target_gross_exposure must be greater than 0 and at most 1")
+    if max_participation_rate is not None and max_participation_rate <= 0.0:
+        raise ValueError("max_participation_rate must be positive when provided")
+    if portfolio_value <= 0.0:
+        raise ValueError("portfolio_value must be positive")
 
     selected = _scale_signal_sleeves(
         select_top_n(factors, top_n=top_n, portfolio_scope=portfolio_scope),
@@ -49,7 +58,18 @@ def run_factor_backtest(
         target_gross_exposure,
     )
     bar_lookup = _price_lookup(bars)
-    trades = _build_trades(selected, bar_lookup, round_trip_cost(cost_bps), execution_lag, holding_period)
+    trades = _build_trades(
+        selected,
+        bar_lookup,
+        cost_bps,
+        execution_lag,
+        holding_period,
+        commission_bps=commission_bps,
+        slippage_bps=slippage_bps,
+        market_impact_bps=market_impact_bps,
+        max_participation_rate=max_participation_rate,
+        portfolio_value=portfolio_value,
+    )
     equity_curve = _equity_curve(trades)
     metrics = summarize_returns(
         equity_curve["period_return"] if not equity_curve.empty else pd.Series(dtype=float),
@@ -58,9 +78,19 @@ def run_factor_backtest(
     if not trades.empty:
         metrics["turnover"] = float(trades.groupby("signal_date")["target_weight"].sum().mean())
         metrics["average_holdings"] = float(trades.groupby("signal_date")["asset_id"].nunique().mean())
+        metrics["avg_cost_rate"] = float(trades["cost_rate"].mean())
+        metrics["max_cost_rate"] = float(trades["cost_rate"].max())
+        metrics["avg_participation_rate"] = float(trades["participation_rate"].mean())
+        metrics["max_participation_rate"] = float(trades["participation_rate"].max())
+        metrics["capacity_limited_trades"] = int(trades["capacity_limited"].sum())
     else:
         metrics["turnover"] = 0.0
         metrics["average_holdings"] = 0.0
+        metrics["avg_cost_rate"] = 0.0
+        metrics["max_cost_rate"] = 0.0
+        metrics["avg_participation_rate"] = 0.0
+        metrics["max_participation_rate"] = 0.0
+        metrics["capacity_limited_trades"] = 0
     return BacktestResult(equity_curve=equity_curve, positions=selected, trades=trades, metrics=metrics)
 
 
@@ -94,9 +124,15 @@ def _price_lookup(bars: pd.DataFrame) -> dict[str, pd.DataFrame]:
 def _build_trades(
     selected: pd.DataFrame,
     bar_lookup: dict[str, pd.DataFrame],
-    cost: float,
+    cost_bps: float,
     execution_lag: int,
     holding_period: int,
+    *,
+    commission_bps: float | None,
+    slippage_bps: float | None,
+    market_impact_bps: float,
+    max_participation_rate: float | None,
+    portfolio_value: float,
 ) -> pd.DataFrame:
     rows = []
     for row in selected.itertuples(index=False):
@@ -109,8 +145,17 @@ def _build_trades(
             continue
         entry = future.iloc[execution_lag - 1]
         exit_ = future.iloc[execution_lag + holding_period - 1]
+        participation_rate = _participation_rate(row.target_weight, entry, portfolio_value)
+        cost_rate = estimate_trade_cost_rate(
+            cost_bps,
+            commission_bps=commission_bps,
+            slippage_bps=slippage_bps,
+            market_impact_bps=market_impact_bps,
+            participation_rate=participation_rate,
+            max_participation_rate=max_participation_rate,
+        )
         gross_return = exit_["adj_close"] / entry["adj_close"] - 1.0
-        net_return = gross_return - cost
+        net_return = gross_return - cost_rate
         rows.append(
             {
                 "signal_date": row.date,
@@ -120,6 +165,11 @@ def _build_trades(
                 "market": row.market,
                 "factor_name": row.factor_name,
                 "target_weight": row.target_weight,
+                "target_notional": abs(row.target_weight) * portfolio_value,
+                "entry_amount": _entry_amount(entry),
+                "participation_rate": participation_rate,
+                "capacity_limited": capacity_limited(participation_rate, max_participation_rate),
+                "cost_rate": cost_rate,
                 "gross_return": gross_return,
                 "net_return": net_return,
                 "weighted_return": row.target_weight * net_return,
@@ -135,12 +185,32 @@ def _build_trades(
                 "market",
                 "factor_name",
                 "target_weight",
+                "target_notional",
+                "entry_amount",
+                "participation_rate",
+                "capacity_limited",
+                "cost_rate",
                 "gross_return",
                 "net_return",
                 "weighted_return",
             ]
         )
     return pd.DataFrame(rows).sort_values(["signal_date", "factor_name", "asset_id"]).reset_index(drop=True)
+
+
+def _participation_rate(target_weight: float, entry: pd.Series, portfolio_value: float) -> float:
+    entry_amount = _entry_amount(entry)
+    if entry_amount <= 0.0:
+        return 0.0
+    return abs(float(target_weight)) * float(portfolio_value) / entry_amount
+
+
+def _entry_amount(entry: pd.Series) -> float:
+    try:
+        value = float(entry.get("amount", 0.0))
+    except (TypeError, ValueError):
+        return 0.0
+    return value if value > 0.0 else 0.0
 
 
 def _equity_curve(trades: pd.DataFrame) -> pd.DataFrame:

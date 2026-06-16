@@ -1,0 +1,39 @@
+{
+  "candidate_leaderboard": "data/reports/tushare_alpha_factory_gate/alpha_factory_moneyflow/candidate_leaderboard.csv",
+  "source": "processed-bars",
+  "data_root": "data/processed/tushare_alpha_factory_gate",
+  "moneyflow_input_root": "data/processed/tushare_alpha_factory_gate/moneyflow_inputs",
+  "output_dir": "data/reports/paper_batch_tushare_alpha_factory_moneyflow",
+  "max_candidates": 5,
+  "initial_cash": 100000,
+  "commission_bps": 5,
+  "slippage_bps": 5,
+  "market_impact_bps": 10,
+  "max_participation_rate": 0.05,
+  "min_trade_value": 100,
+  "max_asset_weight": 0.05,
+  "max_market_weight": 1.0,
+  "max_gross_exposure": 0.8,
+  "min_cash_weight": 0.2,
+  "profile_max_drawdown": 0.12,
+  "min_paper_sharpe": 0.5,
+  "min_paper_total_return": 0.0,
+  "risk_profiles": [
+    {
+      "profile_id": "alpha_defensive",
+      "max_asset_weight": 0.03,
+      "max_gross_exposure": 0.5,
+      "min_cash_weight": 0.5,
+      "max_drawdown_guard": 0.05,
+      "guard_cooldown_periods": 5
+    },
+    {
+      "profile_id": "alpha_balanced",
+      "max_asset_weight": 0.05,
+      "max_gross_exposure": 0.8,
+      "min_cash_weight": 0.2,
+      "max_drawdown_guard": 0.08,
+      "guard_cooldown_periods": 5
+    }
+  ]
+}

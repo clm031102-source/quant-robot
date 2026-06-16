@@ -5,7 +5,14 @@ from typing import Any
 import pandas as pd
 
 
-def build_quality_report(bars: pd.DataFrame, expected_dates: list[object] | None = None) -> dict[str, Any]:
+def build_quality_report(
+    bars: pd.DataFrame,
+    expected_dates: list[object] | None = None,
+    *,
+    extreme_return_threshold: float = 0.50,
+    stale_price_days: int = 3,
+    adj_close_jump_threshold: float = 0.50,
+) -> dict[str, Any]:
     required = ["asset_id", "market", "date", "volume"]
     missing = [column for column in required if column not in bars.columns]
     if missing:
@@ -22,6 +29,7 @@ def build_quality_report(bars: pd.DataFrame, expected_dates: list[object] | None
     expected = [value.date() if hasattr(value, "date") else value for value in expected_dates] if expected_dates else None
     expected = list(pd.to_datetime(expected).date) if expected is not None else None
     missing_date_rows = _missing_date_rows(frame, expected)
+    price_column = _price_column(frame)
     return {
         "rows": int(len(frame)),
         "assets": int(frame["asset_id"].nunique()),
@@ -31,6 +39,9 @@ def build_quality_report(bars: pd.DataFrame, expected_dates: list[object] | None
         "duplicate_bars": duplicate_bars,
         "zero_volume_rows": zero_volume_rows,
         "missing_date_rows": missing_date_rows,
+        "extreme_return_rows": _extreme_return_rows(frame, price_column, extreme_return_threshold),
+        "stale_price_rows": _stale_price_rows(frame, price_column, stale_price_days),
+        "adj_close_jump_rows": _adj_close_jump_rows(frame, adj_close_jump_threshold),
         "coverage_by_asset": _coverage_by_asset(frame),
     }
 
@@ -60,4 +71,48 @@ def _coverage_by_asset(frame: pd.DataFrame) -> list[dict[str, Any]]:
                 "end_date": str(group["date"].max()),
             }
         )
+    return rows
+
+
+def _price_column(frame: pd.DataFrame) -> str | None:
+    if "adj_close" in frame.columns:
+        return "adj_close"
+    if "close" in frame.columns:
+        return "close"
+    return None
+
+
+def _extreme_return_rows(frame: pd.DataFrame, price_column: str | None, threshold: float) -> int:
+    if price_column is None:
+        return 0
+    rows = 0
+    for _, group in frame.sort_values(["asset_id", "date"]).groupby("asset_id", sort=False):
+        prices = pd.to_numeric(group[price_column], errors="coerce")
+        rows += int((prices.pct_change().abs() > abs(threshold)).sum())
+    return rows
+
+
+def _stale_price_rows(frame: pd.DataFrame, price_column: str | None, stale_price_days: int) -> int:
+    if price_column is None or stale_price_days <= 1:
+        return 0
+    rows = 0
+    for _, group in frame.sort_values(["asset_id", "date"]).groupby("asset_id", sort=False):
+        prices = pd.to_numeric(group[price_column], errors="coerce")
+        run_ids = prices.ne(prices.shift()).cumsum()
+        for _, run in prices.groupby(run_ids):
+            clean = run.dropna()
+            if len(clean) >= stale_price_days:
+                rows += len(clean)
+    return int(rows)
+
+
+def _adj_close_jump_rows(frame: pd.DataFrame, threshold: float) -> int:
+    if "adj_close" not in frame.columns or "close" not in frame.columns:
+        return 0
+    rows = 0
+    for _, group in frame.sort_values(["asset_id", "date"]).groupby("asset_id", sort=False):
+        close = pd.to_numeric(group["close"], errors="coerce").replace(0.0, pd.NA)
+        adj_close = pd.to_numeric(group["adj_close"], errors="coerce")
+        ratio = (adj_close / close).dropna()
+        rows += int((ratio.pct_change().abs() > abs(threshold)).sum())
     return rows

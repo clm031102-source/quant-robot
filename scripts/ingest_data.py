@@ -8,6 +8,8 @@ import pandas as pd
 
 from quant_robot.assets.models import Asset
 from quant_robot.data.adapters.tushare_adapter import TushareAdapter
+from quant_robot.data.ingest.tushare_factor_inputs import run_tushare_daily_basic_ingest
+from quant_robot.data.ingest.tushare_moneyflow_inputs import run_tushare_moneyflow_ingest
 from quant_robot.data.ingest.tushare_pipeline import run_tushare_daily_ingest
 from quant_robot.data.normalize import normalize_ohlcv
 from quant_robot.data.quality import validate_market_data
@@ -27,8 +29,19 @@ def run_ingest(
         return run_tushare_daily_ingest(_FixtureTushareAdapter(), start_date, end_date, output_path, market=market)
     if source == "tushare":
         return run_tushare_daily_ingest(TushareAdapter(), start_date, end_date, output_path, market=market)
+    if source == "tushare-factor-fixture":
+        return run_tushare_daily_basic_ingest(_FixtureTushareAdapter(), start_date, end_date, output_path, market=market)
+    if source == "tushare-factor":
+        return run_tushare_daily_basic_ingest(TushareAdapter(), start_date, end_date, output_path, market=market)
+    if source == "tushare-moneyflow-fixture":
+        return run_tushare_moneyflow_ingest(_FixtureTushareAdapter(), start_date, end_date, output_path, market=market)
+    if source == "tushare-moneyflow":
+        return run_tushare_moneyflow_ingest(TushareAdapter(), start_date, end_date, output_path, market=market)
     if source != "fixture":
-        raise RuntimeError("Supported sources are fixture, tushare-fixture, and tushare")
+        raise RuntimeError(
+            "Supported sources are fixture, tushare-fixture, tushare, "
+            "tushare-factor-fixture, tushare-factor, tushare-moneyflow-fixture, and tushare-moneyflow"
+        )
     asset = _fixture_asset(market)
     raw = _fixture_raw_bars()
     bars = normalize_ohlcv(raw, asset, source="fixture", frequency="1d")
@@ -73,6 +86,57 @@ class _FixtureTushareAdapter:
                 "close": [close, close * 0.8],
                 "volume": [100000.0, 200000.0],
                 "amount": [close * 100000.0, close * 0.8 * 200000.0],
+            }
+        )
+
+    def fetch_daily_basic_by_trade_date(self, trade_date: str) -> pd.DataFrame:
+        date = pd.to_datetime(trade_date, format="%Y%m%d").date()
+        return pd.DataFrame(
+            {
+                "symbol": ["000001.SZ", "600519.SH"],
+                "date": [date, date],
+                "turnover_rate": [1.0, 0.5],
+                "turnover_rate_f": [1.2, 0.6],
+                "volume_ratio": [1.1, 0.9],
+                "pe": [8.0, 30.0],
+                "pe_ttm": [7.5, 28.0],
+                "pb": [0.8, 10.0],
+                "ps": [1.2, 15.0],
+                "ps_ttm": [1.1, 14.0],
+                "dv_ratio": [3.0, 1.5],
+                "dv_ttm": [3.2, 1.6],
+                "total_share": [1000.0, 2000.0],
+                "float_share": [800.0, 1200.0],
+                "free_share": [600.0, 1000.0],
+                "total_mv": [120000.0, 300000.0],
+                "circ_mv": [90000.0, 200000.0],
+            }
+        )
+
+    def fetch_moneyflow_by_trade_date(self, trade_date: str) -> pd.DataFrame:
+        date = pd.to_datetime(trade_date, format="%Y%m%d").date()
+        return pd.DataFrame(
+            {
+                "symbol": ["000001.SZ", "600519.SH"],
+                "date": [date, date],
+                "buy_sm_vol": [10.0, 11.0],
+                "buy_sm_amount": [100.0, 110.0],
+                "sell_sm_vol": [8.0, 9.0],
+                "sell_sm_amount": [80.0, 90.0],
+                "buy_md_vol": [30.0, 31.0],
+                "buy_md_amount": [300.0, 310.0],
+                "sell_md_vol": [25.0, 26.0],
+                "sell_md_amount": [250.0, 260.0],
+                "buy_lg_vol": [50.0, 51.0],
+                "buy_lg_amount": [500.0, 510.0],
+                "sell_lg_vol": [45.0, 46.0],
+                "sell_lg_amount": [450.0, 460.0],
+                "buy_elg_vol": [70.0, 71.0],
+                "buy_elg_amount": [700.0, 710.0],
+                "sell_elg_vol": [65.0, 66.0],
+                "sell_elg_amount": [650.0, 660.0],
+                "net_mf_vol": [12.0, 13.0],
+                "net_mf_amount": [120.0, 130.0],
             }
         )
 

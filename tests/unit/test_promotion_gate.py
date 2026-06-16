@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from quant_robot.promotion.gate import PromotionGateConfig, build_promotion_report
+from quant_robot.promotion.gate import PromotionGateConfig, build_promotion_report, load_promotion_gate_config
 
 
 class PromotionGateTests(unittest.TestCase):
@@ -150,6 +150,197 @@ class PromotionGateTests(unittest.TestCase):
         self.assertEqual(row["promotion_status"], "paper_ready")
         self.assertIn("providers_not_ready_for_live_review", row["warnings"])
         self.assertGreater(row["score"], 0.0)
+
+    def test_promotion_blocks_candidates_without_required_rolling_and_significance_evidence(self):
+        report = build_promotion_report(
+            walk_forward_rows=[
+                {
+                    "case_id": "CN_ETF_momentum_60_top1_cost5_reb5",
+                    "market": "CN_ETF",
+                    "factor_name": "momentum_60",
+                    "top_n": 1,
+                    "cost_bps": 5,
+                    "validation_status": "accepted",
+                    "data_mode": "research",
+                    "test_trades": 180,
+                    "test_sharpe": 0.82,
+                    "test_relative_return": 0.06,
+                    "test_max_drawdown": -0.10,
+                    "stability_score": 0.70,
+                    "folds": 1,
+                    "accepted_folds": 1,
+                    "test_ic_p_value": 0.40,
+                    "test_positive_ic_rate": 0.50,
+                }
+            ],
+            paper_manifest={
+                "data_mode": "research",
+                "metrics": {
+                    "max_equity_drawdown": -0.12,
+                    "sharpe": 0.80,
+                    "total_return": 0.18,
+                },
+                "request": {
+                    "market": "CN_ETF",
+                    "factor_name": "momentum_60",
+                    "top_n": 1,
+                    "rebalance_interval": 5,
+                },
+            },
+            config=PromotionGateConfig(
+                min_oos_sharpe=0.5,
+                min_paper_sharpe=0.5,
+                min_walk_forward_folds=3,
+                min_accepted_folds=2,
+                max_ic_p_value=0.05,
+                min_positive_ic_rate=0.55,
+            ),
+        )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "blocked")
+        self.assertIn("insufficient_walk_forward_folds", row["blocking_reasons"])
+        self.assertIn("insufficient_accepted_folds", row["blocking_reasons"])
+        self.assertIn("ic_significance_below_threshold", row["blocking_reasons"])
+        self.assertIn("positive_ic_rate_below_threshold", row["blocking_reasons"])
+
+    def test_promotion_blocks_candidate_without_required_factor_source(self):
+        walk_forward = _accepted_walk_forward_row("CN_ETF_total_mv_log_top1_cost5_reb5", "total_mv_log")
+        walk_forward.update(
+            {
+                "adjusted_ic_p_value": 0.01,
+                "passes_adjusted_ic_p_value": True,
+            }
+        )
+
+        report = build_promotion_report(
+            walk_forward_rows=[walk_forward],
+            paper_manifest=_paper_manifest(
+                case_id="CN_ETF_total_mv_log_top1_cost5_reb5",
+                factor_name="total_mv_log",
+                sharpe=0.80,
+                total_return=0.20,
+            ),
+            config=PromotionGateConfig(
+                min_oos_sharpe=0.5,
+                min_paper_sharpe=0.5,
+                required_factor_source="tushare_daily_basic",
+                max_adjusted_ic_p_value=0.05,
+            ),
+        )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "blocked")
+        self.assertIn("factor_source_mismatch", row["blocking_reasons"])
+
+    def test_promotion_blocks_candidate_without_adjusted_ic_evidence(self):
+        walk_forward = _accepted_walk_forward_row("CN_ETF_total_mv_log_top1_cost5_reb5", "total_mv_log")
+        walk_forward.update(
+            {
+                "factor_source": "tushare_daily_basic",
+                "adjusted_ic_p_value": 0.20,
+                "passes_adjusted_ic_p_value": False,
+            }
+        )
+
+        report = build_promotion_report(
+            walk_forward_rows=[walk_forward],
+            paper_manifest=_paper_manifest(
+                case_id="CN_ETF_total_mv_log_top1_cost5_reb5",
+                factor_name="total_mv_log",
+                sharpe=0.80,
+                total_return=0.20,
+            ),
+            config=PromotionGateConfig(
+                min_oos_sharpe=0.5,
+                min_paper_sharpe=0.5,
+                required_factor_source="tushare_daily_basic",
+                max_adjusted_ic_p_value=0.05,
+            ),
+        )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "blocked")
+        self.assertIn("adjusted_ic_p_value_above_threshold", row["blocking_reasons"])
+        self.assertIn("adjusted_ic_significance_not_passed", row["blocking_reasons"])
+
+    def test_promotion_accepts_candidate_with_factor_source_and_adjusted_ic_evidence(self):
+        walk_forward = _accepted_walk_forward_row("CN_ETF_total_mv_log_top1_cost5_reb5", "total_mv_log")
+        walk_forward.update(
+            {
+                "factor_source": "tushare_daily_basic",
+                "adjusted_ic_p_value": 0.01,
+                "passes_adjusted_ic_p_value": True,
+                "hypothesis_count": 9,
+            }
+        )
+
+        report = build_promotion_report(
+            walk_forward_rows=[walk_forward],
+            paper_manifest=_paper_manifest(
+                case_id="CN_ETF_total_mv_log_top1_cost5_reb5",
+                factor_name="total_mv_log",
+                sharpe=0.80,
+                total_return=0.20,
+            ),
+            config=PromotionGateConfig(
+                min_oos_sharpe=0.5,
+                min_paper_sharpe=0.5,
+                required_factor_source="tushare_daily_basic",
+                max_adjusted_ic_p_value=0.05,
+            ),
+        )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "paper_ready")
+        self.assertEqual(row["walk_forward"]["factor_source"], "tushare_daily_basic")
+        self.assertEqual(row["walk_forward"]["hypothesis_count"], 9)
+        self.assertAlmostEqual(row["walk_forward"]["adjusted_ic_p_value"], 0.01)
+
+    def test_load_promotion_gate_config_reads_factor_source_and_adjusted_ic_controls(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config_path = Path(tmp) / "promotion.json"
+            config_path.write_text(
+                """
+                {
+                  "walk_forward_leaderboard": "walk_forward.csv",
+                  "required_factor_source": "tushare_daily_basic",
+                  "max_adjusted_ic_p_value": 0.05
+                }
+                """,
+                encoding="utf-8",
+            )
+
+            config = load_promotion_gate_config(config_path)
+
+        self.assertEqual(config.required_factor_source, "tushare_daily_basic")
+        self.assertAlmostEqual(config.max_adjusted_ic_p_value, 0.05)
+
+    def test_promotion_blocks_stale_or_unready_provider_status_when_required(self):
+        report = build_promotion_report(
+            walk_forward_rows=[_accepted_walk_forward_row("CN_ETF_momentum_60_top1_cost5_reb5", "momentum_60")],
+            paper_manifest=_paper_manifest(
+                case_id="CN_ETF_momentum_60_top1_cost5_reb5",
+                factor_name="momentum_60",
+                sharpe=0.80,
+                total_return=0.20,
+            ),
+            provider_status={
+                "generated_at": "2020-01-01",
+                "providers": {"tushare": {"ready": False}},
+            },
+            config=PromotionGateConfig(
+                min_oos_sharpe=0.5,
+                min_paper_sharpe=0.5,
+                require_provider_ready_for_promotion=True,
+                max_provider_status_age_days=1,
+            ),
+        )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "blocked")
+        self.assertIn("providers_not_ready_for_promotion", row["blocking_reasons"])
+        self.assertIn("provider_status_stale", row["blocking_reasons"])
 
     def test_promotion_report_surfaces_selected_paper_risk_profile(self):
         report = build_promotion_report(

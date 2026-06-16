@@ -1,11 +1,16 @@
+import json
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
 
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.factors.technical import compute_basic_factors
-from quant_robot.paper.simulator import PaperSimulationConfig, run_paper_simulation
+from quant_robot.factors.tushare_moneyflow import compute_moneyflow_factors
+from quant_robot.paper.simulator import PaperSimulationConfig, run_paper_simulation, write_paper_simulation_artifacts
+from quant_robot.storage.dataset_store import DatasetStore
 
 
 class PaperSimulationTests(unittest.TestCase):
@@ -72,6 +77,110 @@ class PaperSimulationTests(unittest.TestCase):
 
         self.assertGreater(len(result["fills"]), 0)
         self.assertTrue(all(row["market"] == "CN_ETF" for row in result["fills"]))
+
+    def test_paper_simulation_uses_tushare_daily_basic_factor_inputs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            factor_root = Path(tmp) / "factor_inputs"
+            _write_daily_basic_factor_inputs(factor_root, load_demo_market_bars())
+            config = PaperSimulationConfig(
+                market="CN",
+                factor_source="tushare_daily_basic",
+                factor_input_root=factor_root,
+                factor_name="total_mv_log",
+                factor_windows=(1,),
+                top_n=1,
+                start_date="2024-01-04",
+                end_date="2024-01-10",
+                initial_cash=100000.0,
+                max_asset_weight=0.4,
+                min_cash_weight=0.1,
+            )
+
+            result = run_paper_simulation(load_demo_market_bars(), config)
+
+        self.assertEqual(result["request"]["factor_source"], "tushare_daily_basic")
+        self.assertGreater(len(result["intents"]), 0)
+        self.assertGreater(len(result["fills"]), 0)
+        self.assertTrue(all(row["market"] == "CN" for row in result["fills"]))
+
+    def test_paper_simulation_uses_tushare_moneyflow_inputs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            moneyflow_root = Path(tmp) / "moneyflow_inputs"
+            _write_moneyflow_inputs(moneyflow_root, load_demo_market_bars())
+            config = PaperSimulationConfig(
+                market="CN",
+                factor_source="tushare_moneyflow",
+                moneyflow_input_root=moneyflow_root,
+                factor_name="net_mf_amount_ratio",
+                factor_windows=(1,),
+                top_n=1,
+                start_date="2024-01-04",
+                end_date="2024-01-10",
+                initial_cash=100000.0,
+                max_asset_weight=0.4,
+                min_cash_weight=0.1,
+            )
+
+            result = run_paper_simulation(load_demo_market_bars(), config)
+
+        self.assertEqual(result["request"]["factor_source"], "tushare_moneyflow")
+        self.assertEqual(result["request"]["moneyflow_input_root"], str(moneyflow_root))
+        self.assertGreater(len(result["intents"]), 0)
+        self.assertGreater(len(result["fills"]), 0)
+        self.assertTrue(all(row["market"] == "CN" for row in result["fills"]))
+
+    def test_tushare_moneyflow_inputs_are_filtered_to_requested_window_before_factor_compute(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            moneyflow_root = Path(tmp) / "moneyflow_inputs"
+            _write_moneyflow_inputs(moneyflow_root, load_demo_market_bars())
+            config = PaperSimulationConfig(
+                market="CN",
+                factor_source="tushare_moneyflow",
+                moneyflow_input_root=moneyflow_root,
+                factor_name="net_mf_amount_ratio",
+                factor_windows=(1,),
+                top_n=1,
+                start_date="2024-01-05",
+                end_date="2024-01-08",
+                initial_cash=100000.0,
+            )
+
+            with patch("quant_robot.paper.simulator.compute_moneyflow_factors", wraps=compute_moneyflow_factors) as wrapped:
+                run_paper_simulation(load_demo_market_bars(), config)
+
+            inputs = wrapped.call_args.args[0]
+
+        input_dates = pd.to_datetime(inputs["date"]).dt.date
+        self.assertGreater(len(inputs), 0)
+        self.assertGreaterEqual(input_dates.min(), pd.Timestamp("2024-01-05").date())
+        self.assertLessEqual(input_dates.max(), pd.Timestamp("2024-01-08").date())
+
+    def test_paper_simulation_artifacts_serialize_path_request_fields(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            factor_root = root / "factor_inputs"
+            _write_daily_basic_factor_inputs(factor_root, load_demo_market_bars())
+            result = run_paper_simulation(
+                load_demo_market_bars(),
+                PaperSimulationConfig(
+                    market="CN",
+                    factor_source="tushare_daily_basic",
+                    factor_input_root=factor_root,
+                    factor_name="total_mv_log",
+                    factor_windows=(1,),
+                    top_n=1,
+                    start_date="2024-01-04",
+                    end_date="2024-01-10",
+                    initial_cash=100000.0,
+                    max_asset_weight=0.4,
+                    min_cash_weight=0.1,
+                ),
+            )
+
+            write_paper_simulation_artifacts(result, root / "paper")
+
+            manifest = json.loads((root / "paper" / "manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["request"]["factor_input_root"], str(factor_root))
 
     def test_cn_etf_fills_respect_100_share_lots(self):
         config = PaperSimulationConfig(
@@ -206,6 +315,30 @@ class PaperSimulationTests(unittest.TestCase):
         self.assertNotIn("CN_ETF_XSHG_510300", filled_assets)
         self.assertNotIn("CN_ETF_XSHE_159915", filled_assets)
 
+    def test_paper_simulation_records_capacity_and_market_impact_evidence(self):
+        result = run_paper_simulation(
+            load_demo_market_bars(),
+            PaperSimulationConfig(
+                market="CN_ETF",
+                factor_name="momentum_2",
+                factor_windows=(2,),
+                top_n=1,
+                start_date="2024-01-04",
+                end_date="2024-01-08",
+                initial_cash=100000.0,
+                max_asset_weight=1.0,
+                min_cash_weight=0.0,
+                market_impact_bps=10.0,
+                max_participation_rate=0.10,
+            ),
+        )
+
+        self.assertGreater(len(result["fills"]), 0)
+        self.assertTrue(any(row["capacity_limited"] for row in result["fills"]))
+        self.assertTrue(any(row["market_impact_fee"] > 0.0 for row in result["fills"]))
+        self.assertGreater(result["metrics"]["capacity_limited_fills"], 0)
+        self.assertGreater(result["metrics"]["max_participation_rate"], 0.10)
+
 
 def _bars_with_cn_closed_on_execution_date() -> pd.DataFrame:
     rows = []
@@ -263,6 +396,63 @@ def _bar(asset_id: str, symbol: str, market: str, exchange: str, timezone: str, 
         "adjusted": True,
         "ingested_at": pd.Timestamp("2024-01-01", tz="UTC"),
     }
+
+
+def _write_daily_basic_factor_inputs(root: Path, bars: pd.DataFrame) -> None:
+    rows = []
+    for index, row in bars[bars["market"] == "CN"].reset_index(drop=True).iterrows():
+        rows.append(
+            {
+                "date": row["date"],
+                "asset_id": row["asset_id"],
+                "symbol": row["symbol"],
+                "market": "CN",
+                "source": "tushare",
+                "turnover_rate": 1.0 + index * 0.01,
+                "turnover_rate_f": 1.1 + index * 0.01,
+                "volume_ratio": 0.9 + index * 0.01,
+                "pe_ttm": 8.0 + index * 0.1,
+                "pb": 1.5 + index * 0.1,
+                "ps_ttm": 2.0 + index * 0.1,
+                "dv_ttm": 3.0,
+                "total_mv": 120000.0 + index * 1000.0,
+                "circ_mv": 90000.0 + index * 1000.0,
+            }
+        )
+    DatasetStore(root).write_frame(
+        pd.DataFrame(rows),
+        "processed/factor_inputs",
+        {"frequency": "1d", "market": "CN", "year": "2024"},
+    )
+
+
+def _write_moneyflow_inputs(root: Path, bars: pd.DataFrame) -> None:
+    rows = []
+    for index, row in bars[bars["market"] == "CN"].reset_index(drop=True).iterrows():
+        scale = 1.0 + index * 0.01
+        rows.append(
+            {
+                "date": row["date"],
+                "asset_id": row["asset_id"],
+                "symbol": row["symbol"],
+                "market": "CN",
+                "source": "tushare_moneyflow",
+                "buy_sm_amount": 100.0 * scale,
+                "sell_sm_amount": 80.0 * scale,
+                "buy_md_amount": 300.0 * scale,
+                "sell_md_amount": 250.0 * scale,
+                "buy_lg_amount": 500.0 * scale,
+                "sell_lg_amount": 450.0 * scale,
+                "buy_elg_amount": 700.0 * scale,
+                "sell_elg_amount": 650.0 * scale,
+                "net_mf_amount": 120.0 + index,
+            }
+        )
+    DatasetStore(root).write_frame(
+        pd.DataFrame(rows),
+        "processed/moneyflow_inputs",
+        {"frequency": "1d", "market": "CN", "year": "2024"},
+    )
 
 
 if __name__ == "__main__":

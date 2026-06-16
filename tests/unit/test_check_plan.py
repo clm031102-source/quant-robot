@@ -1,5 +1,8 @@
+import os
 import unittest
+from unittest.mock import patch
 
+import scripts.run_checks as run_checks
 from scripts.run_checks import build_check_plan
 
 
@@ -103,6 +106,60 @@ class CheckPlanTests(unittest.TestCase):
         self.assertIn("scripts/run_risk_candidate_selector.py", plan[42].command)
         self.assertIn("scripts/run_constrained_candidate_search.py", plan[43].command)
         self.assertIn("scripts/run_paper_profile_optimizer.py", plan[44].command)
+
+    def test_laptop_check_plan_keeps_fast_audit_and_fixture_smoke_steps(self):
+        plan = build_check_plan("python", profile="laptop")
+
+        names = [step.name for step in plan]
+        self.assertEqual(
+            names,
+            [
+                "unit_and_integration_tests",
+                "compile_python",
+                "project_audit",
+                "readiness_check",
+                "provider_status",
+                "provider_evidence",
+                "provider_remediation",
+                "provider_remediation_rehearsal",
+                "data_catalog",
+                "fixture_research",
+                "research_pipeline",
+                "signal_snapshot",
+                "paper_simulation",
+                "recent_data_refresh",
+                "tushare_activation_gate",
+                "paper_ops_guardrail",
+            ],
+        )
+        self.assertTrue(all(not step.uses_network for step in plan))
+        self.assertNotIn("experiment_grid", names)
+        self.assertNotIn("walk_forward", names)
+        self.assertNotIn("paper_profile_optimizer", names)
+
+    def test_unknown_check_profile_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "Unsupported check profile"):
+            build_check_plan("python", profile="moonbase")
+
+    def test_child_env_prepends_source_tree_paths(self):
+        env = run_checks.build_child_env({"PYTHONPATH": "legacy_path"})
+
+        paths = env["PYTHONPATH"].split(os.pathsep)
+        self.assertEqual(paths[:2], [str(run_checks.SRC_ROOT), str(run_checks.PROJECT_ROOT)])
+        self.assertEqual(paths[2], "legacy_path")
+
+    def test_execute_check_plan_uses_project_root_and_child_env(self):
+        step = run_checks.CheckStep("demo", ["python", "-c", "pass"])
+
+        with patch("scripts.run_checks.subprocess.run") as mocked_run:
+            run_checks.execute_check_plan([step], env={"PYTHONPATH": "legacy_path"})
+
+        mocked_run.assert_called_once()
+        _, kwargs = mocked_run.call_args
+        self.assertEqual(kwargs["cwd"], run_checks.PROJECT_ROOT)
+        self.assertTrue(kwargs["check"])
+        paths = kwargs["env"]["PYTHONPATH"].split(os.pathsep)
+        self.assertEqual(paths[:2], [str(run_checks.SRC_ROOT), str(run_checks.PROJECT_ROOT)])
 
 
 if __name__ == "__main__":

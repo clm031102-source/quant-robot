@@ -1,0 +1,13 @@
+{
+  "absorbed_branches": [
+    {
+      "branch": "origin/codex/factor-batch-moneyflow-alpha",
+      "commit": "008bdf3c817617230d56f4ea4295e26d459860c7",
+      "integrated_on": "2026-06-16",
+      "integrated_by": "laptop",
+      "status": "absorbed",
+      "summary": "Integrated reusable Tushare moneyflow inputs, moneyflow technical combo factors, alpha factory gates, walk-forward validation support, archive replay, and tests into core research code. Local data and generated reports remain excluded."
+    }
+  ],
+  "ignored_branches": []
+}

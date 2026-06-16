@@ -55,7 +55,13 @@ def run_tushare_daily_ingest(
 
     try:
         raw_for_processing = _load_raw_frames(store, trade_dates, raw_frames_by_date, market)
-        raw_for_processing, adjusted = _attach_adjusted_close(adapter, raw_for_processing, start_date, end_date, market)
+        raw_for_processing, adjusted, adjustment_report = _attach_adjusted_close(
+            adapter,
+            raw_for_processing,
+            start_date,
+            end_date,
+            market,
+        )
         processed = _normalize_tushare_daily(raw_for_processing, market)
         if not processed.empty:
             validate_market_data(processed)
@@ -78,6 +84,7 @@ def run_tushare_daily_ingest(
         "skipped_trade_dates": skipped,
         "processed_rows": int(len(processed)),
         "adjusted": adjusted,
+        "adjustment_report": adjustment_report,
         "quality_report": report,
     }
 
@@ -156,23 +163,90 @@ def _attach_adjusted_close(
     start_date: str,
     end_date: str,
     market: str = "CN",
-) -> tuple[pd.DataFrame, bool]:
+) -> tuple[pd.DataFrame, bool, dict[str, object]]:
+    audit = _adjustment_report_template(market, len(raw))
     if market != "CN":
-        return raw, False
+        audit["status"] = "not_applicable_market"
+        return raw, False, audit
     if raw.empty or not hasattr(adapter, "fetch_adj_factor"):
-        return raw, False
+        audit["status"] = "raw_empty" if raw.empty else "adapter_missing_fetch_adj_factor"
+        return raw, False, audit
     adj_factor = adapter.fetch_adj_factor("", start_date, end_date)  # type: ignore[attr-defined]
+    audit["range_factor_rows"] = int(len(adj_factor))
+    audit["factor_rows"] = int(len(adj_factor))
     if adj_factor.empty:
-        return raw, False
+        audit["status"] = "empty_adj_factor"
+        return raw, False, audit
     source = raw.copy()
     source["date"] = pd.to_datetime(source["date"]).dt.date
+    adjusted, audit = _try_attach_adj_factor(source, adj_factor, audit)
+    if adjusted is not None:
+        return adjusted, True, audit
+    if audit["status"] == "partial_adj_factor_coverage" and hasattr(adapter, "fetch_adj_factor_by_trade_date"):
+        trade_dates = sorted(source["date"].unique())
+        fallback = _fetch_adj_factor_by_trade_dates(adapter, trade_dates)
+        audit["fallback_used"] = True
+        audit["fallback_trade_dates"] = [date.strftime("%Y%m%d") for date in trade_dates]
+        audit["fallback_factor_rows"] = int(len(fallback))
+        if not fallback.empty:
+            adjusted, audit = _try_attach_adj_factor(source, fallback, audit)
+            if adjusted is not None:
+                return adjusted, True, audit
+    return raw, False, audit
+
+
+def _fetch_adj_factor_by_trade_dates(adapter: TushareDailyAdapter, trade_dates: list[object]) -> pd.DataFrame:
+    frames = []
+    for trade_date in trade_dates:
+        date_text = pd.to_datetime(trade_date).strftime("%Y%m%d")
+        frames.append(adapter.fetch_adj_factor_by_trade_date(date_text))  # type: ignore[attr-defined]
+    frames = [frame for frame in frames if not frame.empty]
+    if not frames:
+        return pd.DataFrame(columns=["symbol", "date", "adj_factor"])
+    return pd.concat(frames, ignore_index=True)
+
+
+def _try_attach_adj_factor(
+    source: pd.DataFrame,
+    adj_factor: pd.DataFrame,
+    audit: dict[str, object],
+) -> tuple[pd.DataFrame | None, dict[str, object]]:
     factors = adj_factor.copy()
     factors["date"] = pd.to_datetime(factors["date"]).dt.date
+    audit["factor_rows"] = int(len(factors))
+    duplicate_factor_keys = int(factors.duplicated(["symbol", "date"]).sum())
+    audit["duplicate_factor_keys"] = duplicate_factor_keys
+    if duplicate_factor_keys:
+        audit["status"] = "duplicate_adj_factor_keys"
+        return None, audit
     merged = source.merge(factors, on=["symbol", "date"], how="left")
-    if merged["adj_factor"].isna().all():
-        return raw, False
-    merged["adj_close"] = merged["close"] * merged["adj_factor"].fillna(1.0)
-    return merged.drop(columns=["adj_factor"]), True
+    missing_rows = int(merged["adj_factor"].isna().sum())
+    audit["matched_rows"] = int(len(merged) - missing_rows)
+    audit["missing_rows"] = missing_rows
+    audit["coverage"] = float(audit["matched_rows"] / len(source)) if len(source) else 0.0
+    if missing_rows:
+        audit["status"] = "partial_adj_factor_coverage"
+        return None, audit
+    merged["adj_close"] = merged["close"] * merged["adj_factor"]
+    audit["status"] = "applied"
+    return merged.drop(columns=["adj_factor"]), audit
+
+
+def _adjustment_report_template(market: str, raw_rows: int) -> dict[str, object]:
+    return {
+        "market": market,
+        "raw_rows": int(raw_rows),
+        "factor_rows": 0,
+        "range_factor_rows": 0,
+        "fallback_used": False,
+        "fallback_factor_rows": 0,
+        "fallback_trade_dates": [],
+        "matched_rows": 0,
+        "missing_rows": int(raw_rows),
+        "duplicate_factor_keys": 0,
+        "coverage": 0.0,
+        "status": "not_checked",
+    }
 
 
 def _asset_from_tushare_symbol(symbol: str, market: str = "CN") -> Asset:

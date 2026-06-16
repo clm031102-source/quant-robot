@@ -29,6 +29,7 @@ class ProviderStatusTests(unittest.TestCase):
         self.assertEqual(status["providers"]["akshare"]["missing"], [])
         self.assertFalse(status["providers"]["yfinance"]["requires_token"])
         self.assertIn("parquet", status)
+        self.assertIn("generated_at", status)
 
     def test_provider_status_cli_writes_output_file(self):
         with tempfile.TemporaryDirectory() as tmp:

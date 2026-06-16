@@ -1,0 +1,13 @@
+{
+  "max_daily_loss": 200.0,
+  "max_execution_events": 0,
+  "max_guard_events": 0,
+  "max_initial_capital": 10000.0,
+  "max_paper_drawdown": 0.08,
+  "max_single_order_notional": 1000.0,
+  "min_completed_candidates": 1,
+  "min_market_regimes": 2,
+  "min_observation_days": 20,
+  "min_observed_candidates": 1,
+  "min_paper_fills": 30
+}

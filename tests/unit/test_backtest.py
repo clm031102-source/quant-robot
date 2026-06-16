@@ -2,6 +2,7 @@ import unittest
 
 import pandas as pd
 
+from quant_robot.backtest.costs import round_trip_cost
 from quant_robot.backtest.engine import run_factor_backtest
 from quant_robot.backtest.metrics import max_drawdown, summarize_returns
 
@@ -216,6 +217,43 @@ class BacktestTests(unittest.TestCase):
 
         self.assertAlmostEqual(float(result.trades.iloc[0]["target_weight"]), 0.8)
         self.assertAlmostEqual(result.metrics["turnover"], 0.8)
+
+    def test_backtest_records_capacity_and_market_impact_cost_evidence(self):
+        factors = pd.DataFrame(
+            {
+                "date": [pd.Timestamp("2024-01-01").date()],
+                "asset_id": ["A"],
+                "market": ["US"],
+                "factor_name": ["momentum_1"],
+                "factor_value": [1.0],
+            }
+        )
+        bars = pd.DataFrame(
+            {
+                "date": pd.date_range("2024-01-01", periods=3).date,
+                "asset_id": ["A"] * 3,
+                "market": ["US"] * 3,
+                "adj_close": [100.0, 100.0, 110.0],
+                "amount": [500.0, 500.0, 500.0],
+            }
+        )
+
+        result = run_factor_backtest(
+            factors,
+            bars,
+            top_n=1,
+            cost_bps=5.0,
+            market_impact_bps=10.0,
+            portfolio_value=1000.0,
+            max_participation_rate=0.10,
+        )
+
+        trade = result.trades.iloc[0]
+        self.assertGreater(trade["participation_rate"], 0.10)
+        self.assertTrue(bool(trade["capacity_limited"]))
+        self.assertGreater(trade["cost_rate"], round_trip_cost(5.0))
+        self.assertEqual(result.metrics["capacity_limited_trades"], 1)
+        self.assertGreater(result.metrics["max_participation_rate"], 0.10)
 
 
 if __name__ == "__main__":
