@@ -95,3 +95,45 @@ Next steps:
 2. Add market-cap, industry, and liquidity neutralization before any promotion decision.
 3. Inspect quantile monotonicity and tail dependence because RankIC does not confirm the Pearson IC story.
 4. Keep `large_minus_liquidity_20` in `configs/walk_forward_tushare_moneyflow_technical_combo.json` for future validation runs.
+
+## Continued Mining Notes
+
+After the first strict-validation candidate was pushed, the office desktop continued mining the remaining pre-registered combo family on the same incremental dataset.
+
+Observation-only rows:
+
+- `large_plus_risk_momentum_10`: very strong backtest returns, but not promoted. The full incremental run had 10 capacity-limited trades, RankIC was significantly negative, and the 2026H1 split did not have significant IC.
+- `extra_plus_momentum_10`: significant positive IC and strong backtest returns, but not promoted. RankIC was significantly negative and capacity-limited trades were present.
+- `large_plus_momentum_5`: strong backtest returns, but not promoted. IC was not significant, RankIC was significantly negative, and capacity-limited trades were present.
+- `mf_low_plus_momentum_5`: strong backtest returns and no capacity-limited trades, but not promoted. IC was not significant, RankIC was significantly negative, and the long-short spread was negative.
+
+Rejected rows:
+
+- `extra_low_plus_reversal_5`: negative return, weak IC, drawdown above limit, and capacity pressure.
+- `small_sell_low_plus_momentum_5`: negative return, negative IC, drawdown above limit, and capacity pressure.
+
+The continued run reinforces the current promotion rule: high Sharpe alone is not enough. A candidate must survive significance, monotonicity or tail-dependence review, cost, capacity, split-window robustness, and rolling walk-forward checks before it can move beyond observation.
+
+## Combined Long-Sample Recheck
+
+The archive replay store and the 2025-07-01 to 2026-06-15 incremental refresh were combined into a local research store covering 2023-07-03 through 2026-06-15:
+
+- Daily bars: 3,806,375 rows, 5,634 assets, duplicate keys 0.
+- Moneyflow inputs: 3,606,228 rows, 5,312 assets, duplicate keys 0.
+
+`large_minus_liquidity_20` was rerun on the combined 2023-2026 sample at top5/cost20:
+
+- Status: completed, but decision rejected.
+- Rejection reason: drawdown above limit.
+- Total return: 74.6567.
+- Relative return: 61.3001.
+- Sharpe: 0.8881.
+- Max drawdown: -0.6159.
+- Mean IC: 0.01464.
+- IC p-value: 5.20e-12.
+- Positive IC rate: 62.7%.
+- Long-short mean return: 0.00488.
+- Capacity-limited trades: 2.
+- Max participation rate: 14.4%.
+
+This long-sample result weakens the candidate. The signal still deserves strict validation because IC and spread evidence persist, but it is not promotion-ready: drawdown, capacity pressure, and negative RankIC remain unresolved.

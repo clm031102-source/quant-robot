@@ -15,6 +15,14 @@
       "integrated_by": "laptop",
       "status": "absorbed",
       "summary": "Absorbed the office desktop incremental moneyflow audit and kept large_minus_liquidity_20 in the strict walk-forward validation candidate set. Research evidence remains documentation/config only; local data and generated reports remain excluded."
+    },
+    {
+      "branch": "origin/codex/factor-batch-moneyflow-alpha",
+      "commit": "6edd8d1bb363fa97e75ecb4f358b4b039ffd4cc3",
+      "integrated_on": "2026-06-16",
+      "integrated_by": "laptop",
+      "status": "absorbed",
+      "summary": "Absorbed the continued office desktop mining notes and long-sample recheck. The added evidence keeps large_minus_liquidity_20 in strict validation only and explicitly blocks promotion until drawdown, capacity, and RankIC issues are resolved."
     }
   ],
   "ignored_branches": []
