@@ -44,6 +44,33 @@ class PostRefreshReplayTests(unittest.TestCase):
         self.assertEqual(pack["next_actions"][0]["action"], "set_tushare_token_env")
         self.assertEqual(calls, [])
 
+    def test_replay_recommends_machine_scoped_refresh_when_recent_data_is_not_ready(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            recent_pack = root / "recent_data_refresh_pack.json"
+            recent_pack.write_text(
+                json.dumps(
+                    {
+                        "stage": "phase_5_7_tushare_recent_data_refresh",
+                        "status": "ready_to_execute",
+                        "mode": "dry_run",
+                        "decision": {
+                            "recent_data_ready": False,
+                            "signal_data_stale_cleared": False,
+                            "blockers": [],
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            pack = run_post_refresh_replay(recent_data_refresh_pack=recent_pack, report_dir=root / "report")
+
+        self.assertEqual(pack["next_actions"][0]["action"], "execute_recent_data_refresh")
+        self.assertIn("--machine", pack["next_actions"][0]["command"])
+        self.assertIn("highspec_desktop", pack["next_actions"][0]["command"])
+        self.assertIn("--execute", pack["next_actions"][0]["command"])
+
     def test_replay_runs_daily_ops_and_observation_after_ready_recent_refresh(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

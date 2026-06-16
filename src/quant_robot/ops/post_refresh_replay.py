@@ -197,7 +197,7 @@ def _next_actions(pack: dict[str, Any]) -> list[dict[str, Any]]:
         actions.append(
             {
                 "action": "execute_recent_data_refresh",
-                "command": "python scripts\\run_recent_data_refresh.py --execute",
+                "command": "python scripts\\run_recent_data_refresh.py --machine highspec_desktop --execute",
                 "local_only": True,
                 "reason": "Recent data is not ready, so replay is blocked until refresh completes.",
             }

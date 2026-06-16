@@ -201,7 +201,7 @@ def _next_actions(pack: dict[str, Any], post_refresh: dict[str, Any]) -> list[di
         actions = [
             {
                 "action": "extend_recent_refresh_window",
-                "command": f"python scripts\\run_recent_data_refresh.py --start-date {start} --end-date {end} --execute",
+                "command": f"python scripts\\run_recent_data_refresh.py --machine highspec_desktop --start-date {start} --end-date {end} --execute",
                 "local_only": True,
                 "reason": "Increase the paper observation sample before considering any threshold relaxation.",
             },

@@ -78,6 +78,26 @@ class RecentDataRefreshTests(unittest.TestCase):
         self.assertEqual(pack["next_actions"][0]["recommended_machines"], ["highspec_desktop", "office_desktop"])
         self.assertNotIn("execute_recent_tushare_refresh", [row["action"] for row in pack["next_actions"]])
 
+    def test_ready_refresh_default_execute_command_names_data_pipeline_machine(self):
+        profile_observation = {
+            "run_date": "2026-06-14",
+            "ledger": [{"signal_date": "2026-05-22", "profile_id": "cap60_guard12_cd3"}],
+        }
+
+        pack = build_recent_data_refresh_pack(
+            profile_observation,
+            readiness={"ready": True, "missing": []},
+            execute=False,
+            source="tushare",
+            market="CN_ETF",
+            output_dir="data/processed/tushare_etf_recent",
+        )
+
+        self.assertEqual(pack["next_actions"][0]["action"], "execute_recent_tushare_refresh")
+        self.assertIn("--machine", pack["next_actions"][0]["command"])
+        self.assertIn("highspec_desktop", pack["next_actions"][0]["command"])
+        self.assertIn("--execute", pack["next_actions"][0]["command"])
+
     def test_completed_refresh_clears_stale_signal_when_coverage_reaches_run_date(self):
         profile_observation = {
             "run_date": "2026-06-14",

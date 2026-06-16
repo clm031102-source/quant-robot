@@ -21,7 +21,7 @@ The project is currently in a Phase 5.x research-to-paper stage. It has research
 To reproduce the real-data gate, set `TUSHARE_TOKEN` in the local shell environment and run:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\run_tushare_activation_gate.py --report-dir data\reports\tushare_activation_gate --execute
+.\.venv\Scripts\python.exe scripts\run_tushare_activation_gate.py --machine highspec_desktop --report-dir data\reports\tushare_activation_gate --execute
 ```
 
 Passing this gate only permits continued paper observation on refreshed data. It is not permission to trade live.

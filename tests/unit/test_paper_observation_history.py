@@ -59,6 +59,14 @@ class PaperObservationHistoryTests(unittest.TestCase):
         self.assertEqual(pack["summary"]["live_boundary_violations"], 1)
         self.assertFalse(pack["live_boundary_allowed"])
 
+    def test_empty_history_recommends_machine_scoped_activation_gate(self):
+        pack = build_paper_observation_history_pack([])
+
+        self.assertEqual(pack["next_actions"][0]["action"], "run_tushare_activation_gate")
+        self.assertIn("--machine", pack["next_actions"][0]["command"])
+        self.assertIn("highspec_desktop", pack["next_actions"][0]["command"])
+        self.assertIn("--execute", pack["next_actions"][0]["command"])
+
     def test_write_history_pack_outputs_artifacts(self):
         pack = build_paper_observation_history_pack([_gate_pack(status="paper_observation_ready")])
         with tempfile.TemporaryDirectory() as tmp:

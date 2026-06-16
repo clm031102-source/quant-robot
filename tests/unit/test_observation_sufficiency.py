@@ -37,6 +37,9 @@ class ObservationSufficiencyTests(unittest.TestCase):
         self.assertEqual(pack["recommendation"]["priority"], "extend_recent_data_window")
         self.assertFalse(pack["recommendation"]["threshold_relaxation_allowed"])
         self.assertEqual(pack["next_actions"][0]["action"], "extend_recent_refresh_window")
+        self.assertIn("--machine", pack["next_actions"][0]["command"])
+        self.assertIn("highspec_desktop", pack["next_actions"][0]["command"])
+        self.assertIn("--execute", pack["next_actions"][0]["command"])
 
     def test_sufficient_observation_keeps_threshold_policy_intact(self):
         post_refresh = {

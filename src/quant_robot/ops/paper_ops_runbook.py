@@ -107,7 +107,7 @@ def _paper_cycle_commands() -> list[dict[str, Any]]:
         _command(
             2,
             "run_tushare_activation_gate",
-            "python scripts\\run_tushare_activation_gate.py --report-dir data\\reports\\tushare_activation_gate --execute",
+            "python scripts\\run_tushare_activation_gate.py --machine highspec_desktop --report-dir data\\reports\\tushare_activation_gate --execute",
             "Refresh required recent data and rerun the paper activation chain.",
         ),
         _command(

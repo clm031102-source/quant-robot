@@ -219,7 +219,7 @@ def _next_actions(pack: dict[str, Any]) -> list[dict[str, Any]]:
         actions.append(
             {
                 "action": "execute_tushare_activation_gate",
-                "command": "python scripts\\run_tushare_activation_gate.py --execute",
+                "command": "python scripts\\run_tushare_activation_gate.py --machine highspec_desktop --execute",
                 "local_only": True,
                 "reason": "Readiness is clear; execute the local paper-only activation chain.",
             }

@@ -139,7 +139,7 @@ def _next_actions(history_clear: bool, blockers: list[str], has_runs: bool) -> l
             {
                 "action": "run_tushare_activation_gate",
                 "local_only": True,
-                "command": "python scripts\\run_tushare_activation_gate.py --report-dir data\\reports\\tushare_activation_gate --execute",
+                "command": "python scripts\\run_tushare_activation_gate.py --machine highspec_desktop --report-dir data\\reports\\tushare_activation_gate --execute",
                 "reason": "No paper observation gate runs are available for the history ledger.",
             }
         ]

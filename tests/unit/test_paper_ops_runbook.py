@@ -35,6 +35,8 @@ class PaperOpsRunbookTests(unittest.TestCase):
         self.assertTrue(all(row["local_only"] for row in pack["command_queue"]))
         self.assertTrue(all(not row["live_boundary_allowed"] for row in pack["command_queue"]))
         self.assertIn("--execute", pack["command_queue"][1]["command"])
+        self.assertIn("--machine", pack["command_queue"][1]["command"])
+        self.assertIn("highspec_desktop", pack["command_queue"][1]["command"])
         self.assertFalse(pack["live_boundary_allowed"])
 
     def test_runbook_blocks_command_queue_when_guardrail_is_blocked(self):

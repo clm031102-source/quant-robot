@@ -72,6 +72,25 @@ class TushareActivationGateTests(unittest.TestCase):
         self.assertEqual(pack["next_actions"][0]["action"], "handoff_tushare_activation_gate")
         self.assertEqual(pack["next_actions"][0]["recommended_machines"], ["highspec_desktop", "office_desktop"])
 
+    def test_ready_activation_gate_default_execute_command_names_data_pipeline_machine(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile_pack = root / "profile_observation_pack.json"
+            profile_pack.write_text(json.dumps(_profile_observation_pack()), encoding="utf-8")
+
+            pack = run_tushare_activation_gate(
+                profile_observation_pack=profile_pack,
+                report_dir=root / "activation",
+                source="tushare",
+                execute=False,
+                readiness={"source": "tushare", "ready": True, "missing": []},
+            )
+
+        self.assertEqual(pack["next_actions"][0]["action"], "execute_tushare_activation_gate")
+        self.assertIn("--machine", pack["next_actions"][0]["command"])
+        self.assertIn("highspec_desktop", pack["next_actions"][0]["command"])
+        self.assertIn("--execute", pack["next_actions"][0]["command"])
+
     def test_activation_gate_runs_fixture_chain_until_iterative_sample_gate_clears(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

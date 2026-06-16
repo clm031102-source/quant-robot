@@ -516,7 +516,7 @@ def _next_actions(pack: dict[str, Any]) -> list[dict[str, Any]]:
             {
                 "action": "execute_recent_tushare_refresh",
                 "local_only": True,
-                "command": "python scripts\\run_recent_data_refresh.py --execute",
+                "command": "python scripts\\run_recent_data_refresh.py --machine highspec_desktop --execute",
                 "reason": "Readiness is clear; execute mode can refresh recent CN ETF bars.",
             }
         )
