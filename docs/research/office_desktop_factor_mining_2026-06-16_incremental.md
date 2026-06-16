@@ -497,3 +497,25 @@ Amount-gate rescue results:
 - Cost30 amount-gated rows were worse; `amt100m/top10/cost30/regime150` had relative return -9.1978 and max drawdown -0.6057 despite significant tail-IC.
 
 Audit judgment: `mf_low_minus_volatility_20` is the best current capacity-blocked near-miss, not a promotable factor. The ungated top10/regime family has unusually good cost30/tail-IC/drawdown evidence, but the edge depends on names that breach the current participation cap. A simple amount floor solves capacity but destroys returns and worsens drawdown, so it should not be formalized. If the laptop framework adds a liquidity-neutral ranking, position-size throttling, or execution-aware overlay, this factor deserves priority retesting; until then, office mining should not spend more cycles on plain amount-threshold variants.
+
+## Large-Minus-Liquidity Small-Capacity Recheck
+
+The office desktop then used the cached production factor matrix to recheck `large_minus_liquidity_20` under the current selected-holdings tail-IC gate. This closes the evidence gap between the earlier strict-validation candidate status and the later tail-IC framework. The run covered 24 cases across top5/top10/top20, cost20/cost30, and none/regime150/regime180/regime252 at the standard 1m portfolio value.
+
+Standard 1m capacity results:
+
+- All 24 cases completed, but no row passed the stricter office combined gate.
+- The best row was `top5/cost20/regime150`: relative return 91.0784, Sharpe 1.1886, max drawdown -0.2698, selected-tail IC p-value 0.0382, but 4 capacity-limited trades and max participation 18.2%.
+- The cleanest near-miss shape was top10/cost20. Regime150, regime180, and regime252 all had positive relative return, drawdown better than -0.30, and selected-tail IC p-values around 0.004, but each still had 1 capacity-limited trade at 1m.
+- Cost30 remained just outside the drawdown gate. The closest row was `top10/cost30/regime252`, with relative return 0.7778 and tail-IC p-value 0.0038, but max drawdown was -0.3055 and 1 trade still breached the participation cap.
+
+Because the capacity miss was small rather than structural, the office desktop ran a narrow capacity-sizing probe at 500k and 250k portfolio value for top5/top10, cost20/cost30, and regime150/regime180/regime252.
+
+Capacity-sizing results:
+
+- 24 sizing cases completed, with 8 combined-gate passes.
+- At 500k, `top10/cost20` passed for regime150, regime180, and regime252. The regime150 row had relative return 38.2135, max drawdown -0.2824, capacity-limited trades 0, max participation 4.55%, and tail-IC p-value 0.0040.
+- At 250k, `top10/cost20` also passed for regime150/regime180/regime252, and `top5/cost20` additionally passed for regime150 and regime180. The best 250k row was top5/cost20/regime150 with relative return 92.4234, max drawdown -0.2695, capacity-limited trades 0, max participation 4.55%, and tail-IC p-value 0.0382.
+- Cost30 did not pass even after sizing down. The closest cost30 row was top10/regime252 at 250k, with relative return 0.8645 and capacity-limited trades 0, but max drawdown was still -0.3047.
+
+Audit judgment: `large_minus_liquidity_20` should be treated as a small-capacity research candidate, not a general 1m-capacity promotion. The current best robust shape is `top10/cost20/regime150/180/252` at portfolio value up to roughly 500k under a 5% participation cap. This is the strongest current positive candidate after applying selected-tail IC, drawdown, and capacity together. It still fails the 30 bps stress test and should not be promoted to production, but it is worth handing to the laptop framework for formal capacity-aware validation and possible position-sizing rules.
