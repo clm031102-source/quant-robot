@@ -126,6 +126,23 @@ class SyncProjectTests(unittest.TestCase):
         self.assertEqual(plan["blockers"], [])
         self.assertEqual(plan["path_classification"]["blocked"], [])
 
+    def test_execute_plan_blocks_when_project_audit_failed(self) -> None:
+        plan = build_sync_plan(
+            _config(),
+            current_branch="codex/project-sync-hardening",
+            changed_paths=["scripts/sync_project.py"],
+            machine="laptop",
+            task="project_sync",
+            execute=True,
+            push=True,
+            upstream_sync="0\t0",
+            project_audit_passed=False,
+        )
+
+        self.assertFalse(plan["can_execute"])
+        self.assertIn("project_audit_failed", plan["blockers"])
+        self.assertEqual(plan["validation"]["project_audit_passed"], False)
+
     def test_reports_unabsorbed_remote_research_branch(self) -> None:
         pending = audit_remote_research_branches(
             [

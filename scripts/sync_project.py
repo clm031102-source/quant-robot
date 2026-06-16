@@ -4,6 +4,7 @@ import argparse
 import fnmatch
 import json
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -82,6 +83,7 @@ def build_sync_plan(
     pending_research_branches: list[dict[str, str]] | None = None,
     pending_topic_branches: list[dict[str, str]] | None = None,
     cleanup_topic_branches: list[dict[str, str]] | None = None,
+    project_audit_passed: bool | None = None,
 ) -> dict[str, Any]:
     classification = classify_changed_paths(changed_paths, config)
     pending_research_branches = pending_research_branches or []
@@ -98,6 +100,7 @@ def build_sync_plan(
         upstream_sync=upstream_sync,
         pending_research_branches=pending_research_branches,
         pending_topic_branches=pending_topic_branches,
+        project_audit_passed=project_audit_passed,
     )
     return {
         "mode": "execute" if execute else "audit",
@@ -120,6 +123,9 @@ def build_sync_plan(
             "cleanup": cleanup_topic_branches,
         },
         "blockers": blockers,
+        "validation": {
+            "project_audit_passed": project_audit_passed,
+        },
         "actions": _recommended_actions(classification, blockers, execute, push),
     }
 
@@ -284,6 +290,7 @@ def main() -> None:
         current_branch=current_branch,
         stable_commits=stable_commits,
     )
+    project_audit_validation = run_project_audit_validation() if args.execute else {"project_audit_passed": None}
     plan = build_sync_plan(
         config,
         current_branch=current_branch,
@@ -296,7 +303,11 @@ def main() -> None:
         pending_research_branches=pending_research_branches,
         pending_topic_branches=topic_branch_audit["pending"],
         cleanup_topic_branches=topic_branch_audit["cleanup"],
+        project_audit_passed=bool(project_audit_validation.get("project_audit_passed"))
+        if project_audit_validation.get("project_audit_passed") is not None
+        else None,
     )
+    plan["validation"].update(project_audit_validation)
     plan["research_branch_integration"]["remote_branch_count"] = len(
         [branch for branch in remote_topic_branches if _is_research_branch(str(branch.get("name", "")))]
     )
@@ -372,6 +383,7 @@ def _sync_blockers(
     upstream_sync: str,
     pending_research_branches: list[dict[str, str]],
     pending_topic_branches: list[dict[str, str]],
+    project_audit_passed: bool | None,
 ) -> list[str]:
     blockers: list[str] = []
     if not execute:
@@ -382,6 +394,8 @@ def _sync_blockers(
         blockers.append("task_not_confirmed")
     if classification["blocked"]:
         blockers.append("forbidden_paths_present")
+    if project_audit_passed is False:
+        blockers.append("project_audit_failed")
     stable_branch = str(_branch_policy(config).get("stable_branch", "main"))
     if current_branch == stable_branch and task != "project_sync":
         blockers.append("main_requires_project_sync_or_manual_confirmation")
@@ -436,6 +450,30 @@ def _cleanup_topic_branches_when_requested(
             cleaned.append(command[2])
     plan["topic_branch_integration"]["cleaned"] = cleaned
     plan["actions"].append("cleaned_topic_branches" if cleaned else "no_topic_branches_to_clean")
+
+
+def run_project_audit_validation() -> dict[str, Any]:
+    result = subprocess.run(
+        [sys.executable, "scripts/run_project_audit.py", "--json"],
+        capture_output=True,
+        text=True,
+    )
+    validation: dict[str, Any] = {
+        "project_audit_passed": False,
+        "project_audit_returncode": result.returncode,
+    }
+    if result.returncode != 0:
+        validation["project_audit_error"] = result.stderr.strip() or result.stdout.strip()
+        return validation
+    try:
+        audit = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        validation["project_audit_error"] = str(exc)
+        return validation
+    summary = audit.get("summary", {}) if isinstance(audit, dict) else {}
+    validation["project_audit_passed"] = bool(isinstance(summary, dict) and summary.get("passes"))
+    validation["project_audit_summary"] = summary if isinstance(summary, dict) else {}
+    return validation
 
 
 def _changed_paths() -> list[str]:

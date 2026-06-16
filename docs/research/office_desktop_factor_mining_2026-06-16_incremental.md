@@ -244,3 +244,21 @@ The office desktop then decomposed the two most informative failed candidates to
 - The quantile profile was non-monotonic: the bottom quantile mean return was 2.86% while the top quantile mean return was only 0.92%, matching the negative long-short spread despite positive IC and RankIC.
 
 Design implication: the next pre-registered factor batch should not simply add a liquidity term to the score. It should either gate out thinly traded names before ranking, residualize moneyflow against liquidity and broad risk, or explicitly target the mid-quantile/tail behavior that current RankIC and quantile diagnostics expose.
+
+## Directional And Liquidity-Gate Probes
+
+Before adding production factor code, the office desktop ran temporary research-only probes in `data/reports` to test whether simple transformations were worth pre-registering.
+
+Directional and nonlinear probes:
+
+- `inverse_mf_low_minus_volatility_20` failed across top5/top10/top20. The inverse had significant negative IC, drawdowns near -100%, and hundreds of capacity-limited trades.
+- `inverse_large_minus_liquidity_20` also failed across top5/top10/top20, with drawdowns near -100% and severe participation pressure.
+- Rank-target transforms of `large_minus_liquidity_20` that selected names closest to the 65th or 75th percentile removed most capacity pressure but still had insignificant IC, negative relative return, and drawdowns around -85% to -88%.
+
+Signal-date amount gates:
+
+- Applying `>=10m`, `>=50m`, `>=100m`, `10m-500m`, and `50m-500m` amount filters before ranking removed or nearly removed capacity-limited trades, but did not produce an approved candidate.
+- For `mf_low_minus_volatility_20`, the best-looking gated row was `10m-500m/top20`: capacity-limited trades 0, total return 7.1248, but relative return -6.2318, max drawdown -0.6803, and IC no longer significant.
+- For `large_minus_liquidity_20`, the best-looking gated row was `>=100m/top5`: capacity-limited trades 0, total return 9.6189, but relative return -3.7377, max drawdown -0.8051, and IC no longer significant.
+
+These probes reject three easy next steps: simple inversion, percentile targeting, and standalone amount gating. The useful next design should combine gates with a new score, not apply gates after a score whose edge depends on the excluded names.
