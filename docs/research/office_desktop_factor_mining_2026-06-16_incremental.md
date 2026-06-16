@@ -407,3 +407,16 @@ Sticky top6 turnover overlay:
 - Cost30 still produced 0 passes. The closest row was keep12/cost30/regime252 with relative return 0.0712 and significant tail-IC p-value 0.0460, but max drawdown was -0.3021. A narrow keep11/13/14 probe did not rescue the case; keep13/cost30/regime252 had relative return 0.2636 but tail-IC p-value 0.0505 and max drawdown -0.3021.
 
 Audit judgment: longer holding periods are rejected for this factor. Sticky holding is useful as a method lead because it improves the cost20 top6 shape and preserves selected-tail IC under regime180/252, but it still does not clear 30 bps. The next high-efficiency path is to formalize a turnover-aware overlay in the framework, then test whether a better cost model or execution schedule can reduce drawdown below -0.30 without losing tail-IC. Until that exists in the formal pipeline, no sticky result should be promoted.
+
+## Strict-Regime Threshold Probe
+
+Because the closest sticky top6/cost30 rows missed the drawdown gate by only a small margin, the office desktop tested whether a stricter positive-regime threshold could remove the weak dates without changing the factor. This local probe used the sticky overlay, cost30 only, regime180/252, keep-rank 10/12/13/15/20, and equal-weight benchmark momentum thresholds of 0.5%, 1%, 2%, 3%, and 5%.
+
+Key results:
+
+- No row passed the cost30 gate. All 50 cases were capacity-clean, and 17 had significant positive selected-holdings tail-IC, but drawdown or tail-IC still blocked every row.
+- The best relative-return row was keep20/cost30/regime252/threshold1%: relative return 1.9082, Sharpe 1.0208, tail-IC p-value 0.0467, capacity-limited trades 0, but max drawdown was -0.3253.
+- The closest drawdown/tail-IC trade-off was keep12/cost30/regime252/threshold1%: relative return 0.7456, max drawdown -0.3021, tail-IC p-value 0.0458. It still missed the drawdown gate.
+- Narrower keep-rank probes did not rescue the case. keep13/cost30/regime252/threshold1% had relative return 0.9471 and max drawdown -0.3021, but tail-IC p-value was 0.0503.
+
+Audit judgment: stricter regime thresholds do not solve the top6/sticky cost30 problem. The residual-gate top6 family remains useful at cost20, but further parameter tuning around regime thresholds is now low value. The next office mining path should move to a different signal construction or a formally implemented turnover-aware framework from the laptop branch, rather than continuing to overfit this same shape.
