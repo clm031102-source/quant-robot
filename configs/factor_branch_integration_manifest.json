@@ -63,6 +63,14 @@
       "integrated_by": "laptop",
       "status": "absorbed",
       "summary": "Absorbed the holding-period sensitivity audit. Five-day forward returns and five-day rebalancing did not rescue mf_low_minus_volatility_20 or large_minus_liquidity_20, so holding-period sweeps remain rejected and the next useful direction stays liquidity-aware factor construction."
+    },
+    {
+      "branch": "origin/codex/factor-batch-moneyflow-alpha",
+      "commit": "56a34b3c1551d7deac8a1c9d6a2c67a31fd6ff41",
+      "integrated_on": "2026-06-16",
+      "integrated_by": "laptop",
+      "status": "absorbed",
+      "summary": "Absorbed the failure attribution audit. large_minus_liquidity_20 failed mainly through severe 2024 drawdown and non-monotonic quantiles rather than capacity, while mf_low_minus_volatility_20 remains capacity-constrained and non-monotonic. Future batches should gate thin names, residualize risk/liquidity, or explicitly target mid-quantile/tail behavior."
     }
   ],
   "ignored_branches": []

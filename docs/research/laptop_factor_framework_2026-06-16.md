@@ -36,3 +36,5 @@ python scripts\run_walk_forward.py --config configs\walk_forward_tushare_moneyfl
 ```
 
 The `--allow-no-accepted` flag is intentional for strict factor review. It keeps the command successful when the grid completes and every candidate is rejected, because a full rejection set is still useful research evidence. Grid failures, missing train/test results, and unsafe data or sync paths remain blockers.
+
+The latest office attribution also adds a review warning: `large_minus_liquidity_20` failed through a severe 2024H1 drawdown and hump-shaped quantiles rather than a pure capacity problem, while `mf_low_minus_volatility_20` was both capacity-constrained and non-monotonic. The next run should inspect quantile shape and mid-quantile/tail behavior before treating any liquidity-controlled variant as robust.

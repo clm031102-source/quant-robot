@@ -224,3 +224,23 @@ The office desktop then tested whether daily turnover was the main failure mode 
 - Top20: rejected for relative return below threshold and drawdown above limit. Total return 0.0274, relative return -13.3291, Sharpe 0.3482, max drawdown -0.7626, capacity-limited trades 4.
 
 Longer holding periods do not rescue the current candidates. `mf_low_minus_volatility_20` remains a high-return but non-tradable and non-monotonic shape; `large_minus_liquidity_20` loses most of its edge when moved from 1-day to 5-day holding. This pushes the research direction further toward new liquidity-aware factor construction rather than holding-period parameter sweeps.
+
+## Failure Attribution For Next Factor Design
+
+The office desktop then decomposed the two most informative failed candidates to avoid designing the next batch blindly.
+
+`large_minus_liquidity_20`, combined top5/cost20:
+
+- Worst drawdown ran from 2024-01-02 to 2024-07-09. Strategy return over that span was -60.01% versus -24.54% for the equal-weight benchmark, so the drawdown was not just broad market beta.
+- Capacity was not the main cause. Only 2 trades were capacity-limited; median participation was 0.0036%, 99th percentile participation was 0.627%, and max participation was 14.4%.
+- The quantile profile was hump-shaped rather than monotonic. Mean forward returns by quantile were 0.53%, 0.68%, 2.33%, 2.41%, and 1.02%, consistent with the negative RankIC warning.
+- The 2024Q1 and 2024Q2 trade buckets were the main weak periods, with additive weighted-return sums of -0.2872 and -0.4732. The strategy recovered later, but the interim drawdown is too severe for promotion.
+
+`mf_low_minus_volatility_20`, combined top10/cost20:
+
+- Worst drawdown ran from 2023-08-18 to 2024-07-10. Strategy return over that span was -33.93% versus -23.45% for the equal-weight benchmark.
+- Capacity is a real feasibility constraint. The run had 183 capacity-limited trades, 95th percentile participation 2.93%, 99th percentile 9.45%, and max participation 258.6%.
+- Low-liquidity names drove both the signal and the implementation problem. The `<=10m` amount bucket had all 183 capacity-limited trades; the `>500m` amount bucket had a negative additive weighted-return sum.
+- The quantile profile was non-monotonic: the bottom quantile mean return was 2.86% while the top quantile mean return was only 0.92%, matching the negative long-short spread despite positive IC and RankIC.
+
+Design implication: the next pre-registered factor batch should not simply add a liquidity term to the score. It should either gate out thinly traded names before ranking, residualize moneyflow against liquidity and broad risk, or explicitly target the mid-quantile/tail behavior that current RankIC and quantile diagnostics expose.
