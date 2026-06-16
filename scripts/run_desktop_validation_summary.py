@@ -22,6 +22,9 @@ DEFAULT_WALK_FORWARD_LEADERBOARD = Path(
 DEFAULT_PROMOTION_REPORT = Path(
     "data/reports/promotion_gate_tushare_moneyflow_residual_regime/promotion_report.json"
 )
+DEFAULT_MARKET_REGIME_COVERAGE = Path(
+    "data/reports/market_regime_coverage_tushare_moneyflow_residual_regime/market_regime_coverage_pack.json"
+)
 DEFAULT_OUTPUT = Path("docs/research/desktop_residual_regime_validation_latest.md")
 
 
@@ -30,6 +33,7 @@ def run_desktop_validation_summary(
     walk_forward_leaderboard: str | Path = DEFAULT_WALK_FORWARD_LEADERBOARD,
     walk_forward_manifest: str | Path | None = None,
     promotion_report: str | Path | None = DEFAULT_PROMOTION_REPORT,
+    market_regime_coverage: str | Path | None = DEFAULT_MARKET_REGIME_COVERAGE,
     output: str | Path = DEFAULT_OUTPUT,
     generated_at: str | None = None,
 ) -> Path:
@@ -39,10 +43,12 @@ def run_desktop_validation_summary(
     manifest = _read_optional_json(manifest_path)
     manifest_summary = _validate_manifest_summary(rows, manifest) if manifest is not None else None
     promotion = _read_optional_json(Path(promotion_report)) if promotion_report is not None else None
+    regime_coverage = _read_optional_json(Path(market_regime_coverage)) if market_regime_coverage is not None else None
     markdown = build_desktop_validation_summary(
         rows,
         walk_forward_manifest_summary=manifest_summary,
         promotion_report=promotion,
+        market_regime_coverage=regime_coverage,
         generated_at=generated_at,
     )
     output_path = Path(output)
@@ -56,6 +62,7 @@ def build_desktop_validation_summary(
     *,
     walk_forward_manifest_summary: dict[str, int] | None = None,
     promotion_report: dict[str, Any] | None = None,
+    market_regime_coverage: dict[str, Any] | None = None,
     generated_at: str | None = None,
     max_rows: int = 10,
 ) -> str:
@@ -103,6 +110,7 @@ def build_desktop_validation_summary(
         lines.extend(_promotion_lines(promotion_report))
     else:
         lines.extend(["", "## Promotion Gate", "", "- Promotion report: missing."])
+    lines.extend(_market_regime_lines(market_regime_coverage))
     lines.extend(
         [
             "",
@@ -142,6 +150,31 @@ def _promotion_lines(report: dict[str, Any]) -> list[str]:
         return lines
     for reason, count in reasons.most_common(10):
         lines.append(f"- `{reason}`: {count}")
+    return lines
+
+
+def _market_regime_lines(report: dict[str, Any] | None) -> list[str]:
+    if report is None:
+        return ["", "## Market Regime Coverage", "", "- Coverage report: missing."]
+    summary = report.get("summary", {}) if isinstance(report.get("summary"), dict) else {}
+    decision = report.get("decision", {}) if isinstance(report.get("decision"), dict) else {}
+    blockers = [str(item) for item in decision.get("blockers", []) or []]
+    regimes = [str(item) for item in summary.get("regimes", []) or []]
+    lines = [
+        "",
+        "## Market Regime Coverage",
+        "",
+        f"- Status: {_text(report.get('status'))}",
+        f"- Covered regimes: {_text(summary.get('covered_regimes'))}",
+        f"- Regimes: {', '.join(regimes) if regimes else 'n/a'}",
+        "",
+        "### Regime Blockers",
+        "",
+    ]
+    if blockers:
+        lines.extend(f"- `{blocker}`" for blocker in blockers)
+    else:
+        lines.append("- None reported.")
     return lines
 
 
@@ -206,12 +239,14 @@ def main() -> None:
     parser.add_argument("--walk-forward-leaderboard", default=str(DEFAULT_WALK_FORWARD_LEADERBOARD))
     parser.add_argument("--walk-forward-manifest", default=None)
     parser.add_argument("--promotion-report", default=str(DEFAULT_PROMOTION_REPORT))
+    parser.add_argument("--market-regime-coverage", default=str(DEFAULT_MARKET_REGIME_COVERAGE))
     parser.add_argument("--output", default=str(DEFAULT_OUTPUT))
     args = parser.parse_args()
     output = run_desktop_validation_summary(
         walk_forward_leaderboard=Path(args.walk_forward_leaderboard),
         walk_forward_manifest=Path(args.walk_forward_manifest) if args.walk_forward_manifest else None,
         promotion_report=Path(args.promotion_report) if args.promotion_report else None,
+        market_regime_coverage=Path(args.market_regime_coverage) if args.market_regime_coverage else None,
         output=Path(args.output),
     )
     print(json.dumps({"summary": str(output)}, indent=2, sort_keys=True))

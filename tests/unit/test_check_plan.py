@@ -160,12 +160,29 @@ class CheckPlanTests(unittest.TestCase):
                 "data_catalog",
                 "data_quality_audit",
                 "desktop_factor_validation",
+                "desktop_market_regime_coverage",
                 "desktop_promotion_report",
                 "desktop_validation_summary",
             ],
         )
         self.assertTrue(all(not step.uses_network for step in plan))
-        self.assertEqual(plan[-3].command, ["python", "scripts/run_desktop_factor_validation.py"])
+        self.assertEqual(plan[-4].command, ["python", "scripts/run_desktop_factor_validation.py"])
+        self.assertEqual(
+            plan[-3].command,
+            [
+                "python",
+                "scripts/run_market_regime_coverage.py",
+                "--regime-curve-glob",
+                "data/reports/walk_forward_tushare_moneyflow_residual_regime/fold_*/test/*/regime_curve.csv",
+                "--output-dir",
+                "data/reports/market_regime_coverage_tushare_moneyflow_residual_regime",
+                "--min-regimes",
+                "2",
+                "--min-rows-per-regime",
+                "5",
+                "--require-sufficient",
+            ],
+        )
         self.assertEqual(
             plan[-2].command,
             [

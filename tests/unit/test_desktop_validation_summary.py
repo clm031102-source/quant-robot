@@ -72,18 +72,33 @@ class DesktopValidationSummaryTests(unittest.TestCase):
             )
             promotion = root / "promotion_report.json"
             promotion.write_text(json.dumps({"summary": {"research_only": 1}, "candidates": []}), encoding="utf-8")
+            regime = root / "market_regime_coverage_pack.json"
+            regime.write_text(
+                json.dumps(
+                    {
+                        "status": "sufficient",
+                        "summary": {"covered_regimes": 3, "regimes": ["bear", "bull", "sideways"]},
+                        "decision": {"blockers": []},
+                    }
+                ),
+                encoding="utf-8",
+            )
             output = root / "summary.md"
 
             result = run_desktop_validation_summary(
                 walk_forward_leaderboard=leaderboard,
                 promotion_report=promotion,
+                market_regime_coverage=regime,
                 output=output,
                 generated_at="2026-06-16 16:30:00 +08:00",
             )
 
             self.assertEqual(result, output)
             self.assertTrue(output.exists())
-            self.assertIn("case_a", output.read_text(encoding="utf-8"))
+            text = output.read_text(encoding="utf-8")
+            self.assertIn("case_a", text)
+            self.assertIn("Market Regime Coverage", text)
+            self.assertIn("sufficient", text)
 
     def test_run_summary_rejects_manifest_count_mismatch(self):
         with tempfile.TemporaryDirectory() as tmp:

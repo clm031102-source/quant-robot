@@ -70,7 +70,13 @@ To run the full desktop validation check chain, use:
 python scripts\run_checks.py --profile desktop-validation --execute
 ```
 
-This runs unit/integration tests, Python compile, project audit, readiness checks, provider status, data catalog, data-quality audit, the residual-regime validation command, the research-only promotion gate report, and a lightweight Markdown summary at `docs/research/desktop_residual_regime_validation_latest.md`.
+This runs unit/integration tests, Python compile, project audit, readiness checks, provider status, data catalog, data-quality audit, the residual-regime validation command, a strict market-regime coverage check from walk-forward test-fold `regime_curve.csv` files, the research-only promotion gate report, and a lightweight Markdown summary at `docs/research/desktop_residual_regime_validation_latest.md`.
+
+To rebuild only the market-regime coverage pack after a completed walk-forward run:
+
+```powershell
+python scripts\run_market_regime_coverage.py --regime-curve-glob "data/reports/walk_forward_tushare_moneyflow_residual_regime/fold_*/test/*/regime_curve.csv" --output-dir data/reports/market_regime_coverage_tushare_moneyflow_residual_regime --min-regimes 2 --min-rows-per-regime 5 --require-sufficient
+```
 
 To build only the promotion gate report after a validation run, use:
 

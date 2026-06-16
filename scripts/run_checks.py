@@ -109,6 +109,22 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
             *(step for step in full_plan if step.name in selected),
             CheckStep("desktop_factor_validation", [python_executable, "scripts/run_desktop_factor_validation.py"]),
             CheckStep(
+                "desktop_market_regime_coverage",
+                [
+                    python_executable,
+                    "scripts/run_market_regime_coverage.py",
+                    "--regime-curve-glob",
+                    "data/reports/walk_forward_tushare_moneyflow_residual_regime/fold_*/test/*/regime_curve.csv",
+                    "--output-dir",
+                    "data/reports/market_regime_coverage_tushare_moneyflow_residual_regime",
+                    "--min-regimes",
+                    "2",
+                    "--min-rows-per-regime",
+                    "5",
+                    "--require-sufficient",
+                ],
+            ),
+            CheckStep(
                 "desktop_promotion_report",
                 [
                     python_executable,

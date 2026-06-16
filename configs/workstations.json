@@ -54,7 +54,7 @@
       "branch": "codex/factor-batch-<topic-or-date>"
     },
     "factor_validation": {
-      "description": "Candidate factor validation, walk-forward reruns, cost checks, robustness reviews, and desktop residual-regime validation via scripts/run_checks.py --profile desktop-validation --execute.",
+      "description": "Candidate factor validation, walk-forward reruns, cost checks, market-regime coverage checks, robustness reviews, and desktop residual-regime validation via scripts/run_checks.py --profile desktop-validation --execute.",
       "branch": "codex/factor-validation-<topic-or-date>"
     },
     "factor_review": {
