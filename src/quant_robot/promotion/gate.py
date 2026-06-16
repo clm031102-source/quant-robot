@@ -23,6 +23,7 @@ class PromotionGateConfig:
     output_dir: Path | None = None
     min_oos_trades: int = 20
     min_oos_sharpe: float = 0.50
+    max_oos_sharpe_for_promotion: float | None = None
     min_stability_score: float = 0.30
     min_oos_relative_return: float = 0.0
     max_oos_drawdown: float = 0.25
@@ -58,6 +59,11 @@ def load_promotion_gate_config(path: str | Path) -> PromotionGateConfig:
         output_dir=_optional_path(data.get("output_dir")),
         min_oos_trades=int(data.get("min_oos_trades", PromotionGateConfig.min_oos_trades)),
         min_oos_sharpe=float(data.get("min_oos_sharpe", PromotionGateConfig.min_oos_sharpe)),
+        max_oos_sharpe_for_promotion=(
+            float(data["max_oos_sharpe_for_promotion"])
+            if data.get("max_oos_sharpe_for_promotion") is not None
+            else None
+        ),
         min_stability_score=float(data.get("min_stability_score", PromotionGateConfig.min_stability_score)),
         min_oos_relative_return=float(data.get("min_oos_relative_return", PromotionGateConfig.min_oos_relative_return)),
         max_oos_drawdown=float(data.get("max_oos_drawdown", PromotionGateConfig.max_oos_drawdown)),
@@ -196,6 +202,8 @@ def _candidate_report(
         blocking.append("fixture_data_not_promotable")
     if test_trades < config.min_oos_trades:
         blocking.append("insufficient_oos_trades")
+    if config.max_oos_sharpe_for_promotion is not None and test_sharpe > config.max_oos_sharpe_for_promotion:
+        blocking.append("oos_sharpe_overfit_flag")
     if test_relative_return < config.min_oos_relative_return:
         blocking.append("relative_return_below_threshold")
     if test_max_drawdown < -abs(config.max_oos_drawdown):

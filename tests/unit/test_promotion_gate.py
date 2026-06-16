@@ -264,6 +264,29 @@ class PromotionGateTests(unittest.TestCase):
         self.assertIn("adjusted_ic_p_value_above_threshold", row["blocking_reasons"])
         self.assertIn("adjusted_ic_significance_not_passed", row["blocking_reasons"])
 
+    def test_promotion_blocks_implausibly_high_oos_sharpe_when_configured(self):
+        walk_forward = _accepted_walk_forward_row("CN_ETF_momentum_60_top1_cost5_reb5", "momentum_60")
+        walk_forward["test_sharpe"] = 3.5
+
+        report = build_promotion_report(
+            walk_forward_rows=[walk_forward],
+            paper_manifest=_paper_manifest(
+                case_id="CN_ETF_momentum_60_top1_cost5_reb5",
+                factor_name="momentum_60",
+                sharpe=0.80,
+                total_return=0.20,
+            ),
+            config=PromotionGateConfig(
+                min_oos_sharpe=0.5,
+                min_paper_sharpe=0.5,
+                max_oos_sharpe_for_promotion=3.0,
+            ),
+        )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "blocked")
+        self.assertIn("oos_sharpe_overfit_flag", row["blocking_reasons"])
+
     def test_promotion_blocks_candidate_without_required_market_regime_coverage(self):
         report = build_promotion_report(
             walk_forward_rows=[_accepted_walk_forward_row("CN_ETF_momentum_60_top1_cost5_reb5", "momentum_60")],
@@ -378,6 +401,7 @@ class PromotionGateTests(unittest.TestCase):
         self.assertEqual(config.min_accepted_folds, 2)
         self.assertAlmostEqual(config.max_adjusted_ic_p_value or 0.0, 0.05)
         self.assertFalse(config.allow_manual_live_review)
+        self.assertAlmostEqual(config.max_oos_sharpe_for_promotion or 0.0, 3.0)
         self.assertEqual(
             config.market_regime_coverage,
             Path("data/reports/market_regime_coverage_tushare_moneyflow_residual_regime/market_regime_coverage_pack.json"),

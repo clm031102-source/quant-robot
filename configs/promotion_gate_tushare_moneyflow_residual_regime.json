@@ -4,6 +4,7 @@
   "output_dir": "data/reports/promotion_gate_tushare_moneyflow_residual_regime",
   "min_oos_trades": 30,
   "min_oos_sharpe": 0.5,
+  "max_oos_sharpe_for_promotion": 3.0,
   "min_stability_score": 0.3,
   "min_oos_relative_return": 0.0,
   "max_oos_drawdown": 0.30,

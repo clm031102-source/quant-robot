@@ -101,6 +101,7 @@ Treat a candidate as useful only if it survives all of these checks:
 
 - No failed train/test grid cases.
 - Positive out-of-sample relative return after costs.
+- Out-of-sample Sharpe must not exceed the configured overfit ceiling of `3.0`.
 - Drawdown inside the configured limit.
 - No capacity-limited trades or participation-rate breaches.
 - IC evidence survives multiple-testing correction.
