@@ -166,6 +166,20 @@ class CheckPlanTests(unittest.TestCase):
             ],
         )
         self.assertTrue(all(not step.uses_network for step in plan))
+        data_quality = next(step for step in plan if step.name == "data_quality_audit")
+        self.assertEqual(
+            data_quality.command,
+            [
+                "python",
+                "scripts/run_data_quality_audit.py",
+                "--data-root",
+                "data/processed",
+                "--market",
+                "CN",
+                "--output-dir",
+                "data/reports/data_quality_gap_audit_tushare_moneyflow_residual_regime",
+            ],
+        )
         self.assertEqual(plan[-4].command, ["python", "scripts/run_desktop_factor_validation.py"])
         self.assertEqual(
             plan[-3].command,

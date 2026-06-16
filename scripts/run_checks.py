@@ -106,7 +106,7 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
     if profile == "desktop-validation":
         selected = set(DESKTOP_VALIDATION_CHECK_NAMES)
         return [
-            *(step for step in full_plan if step.name in selected),
+            *(_with_desktop_validation_context(step) for step in full_plan if step.name in selected),
             CheckStep("desktop_factor_validation", [python_executable, "scripts/run_desktop_factor_validation.py"]),
             CheckStep(
                 "desktop_market_regime_coverage",
@@ -141,6 +141,25 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
 def _with_laptop_context(step: CheckStep) -> CheckStep:
     if step.name in {"recent_data_refresh", "tushare_activation_gate"}:
         return CheckStep(step.name, [*step.command, "--machine", "laptop"], uses_network=step.uses_network)
+    return step
+
+
+def _with_desktop_validation_context(step: CheckStep) -> CheckStep:
+    if step.name == "data_quality_audit":
+        return CheckStep(
+            step.name,
+            [
+                step.command[0],
+                "scripts/run_data_quality_audit.py",
+                "--data-root",
+                "data/processed",
+                "--market",
+                "CN",
+                "--output-dir",
+                "data/reports/data_quality_gap_audit_tushare_moneyflow_residual_regime",
+            ],
+            uses_network=step.uses_network,
+        )
     return step
 
 

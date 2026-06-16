@@ -72,6 +72,12 @@ python scripts\run_checks.py --profile desktop-validation --execute
 
 This runs unit/integration tests, Python compile, project audit, readiness checks, provider status, data catalog, data-quality audit, the residual-regime validation command, a strict market-regime coverage check from walk-forward test-fold `regime_curve.csv` files, the research-only promotion gate report, and a lightweight Markdown summary at `docs/research/desktop_residual_regime_validation_latest.md`.
 
+For this profile, the data-quality audit is intentionally pinned to the CN Tushare residual-regime data surface instead of the default CN ETF surface:
+
+```powershell
+python scripts\run_data_quality_audit.py --data-root data\processed --market CN --output-dir data\reports\data_quality_gap_audit_tushare_moneyflow_residual_regime
+```
+
 To rebuild only the market-regime coverage pack after a completed walk-forward run:
 
 ```powershell
