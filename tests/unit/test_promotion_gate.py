@@ -337,6 +337,26 @@ class PromotionGateTests(unittest.TestCase):
         self.assertEqual(row["promotion_status"], "blocked")
         self.assertIn("market_regime_coverage_missing", row["blocking_reasons"])
 
+    def test_promotion_gate_reads_gap_audit_summary_quality_metrics(self):
+        report = build_promotion_report(
+            walk_forward_rows=[_accepted_walk_forward_row("CN_ETF_momentum_60_top1_cost5_reb5", "momentum_60")],
+            quality_report={
+                "stage": "phase_3_1_data_quality_gap_audit",
+                "summary": {
+                    "duplicate_bars": 1,
+                    "missing_date_rows": 4,
+                    "zero_volume_rows": 2,
+                },
+            },
+            config=PromotionGateConfig(min_oos_sharpe=0.5, min_paper_sharpe=0.5),
+        )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "blocked")
+        self.assertIn("duplicate_bars_present", row["blocking_reasons"])
+        self.assertIn("missing_dates_present", row["warnings"])
+        self.assertIn("zero_volume_rows_present", row["warnings"])
+
     def test_promotion_accepts_candidate_with_factor_source_and_adjusted_ic_evidence(self):
         walk_forward = _accepted_walk_forward_row("CN_ETF_total_mv_log_top1_cost5_reb5", "total_mv_log")
         walk_forward.update(
@@ -405,6 +425,10 @@ class PromotionGateTests(unittest.TestCase):
         self.assertEqual(
             config.market_regime_coverage,
             Path("data/reports/market_regime_coverage_tushare_moneyflow_residual_regime/market_regime_coverage_pack.json"),
+        )
+        self.assertEqual(
+            config.quality_report,
+            Path("data/reports/data_quality_gap_audit_tushare_moneyflow_residual_regime/data_quality_gap_audit.json"),
         )
         self.assertTrue(config.require_market_regime_coverage)
 

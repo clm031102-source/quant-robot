@@ -448,19 +448,26 @@ def _quality_reasons(quality_report: dict[str, Any] | None) -> dict[str, list[st
         return {"blocking": [], "warnings": ["quality_report_missing"]}
     blocking = []
     warnings = []
-    if _metric(quality_report, "duplicate_bars") > 0:
+    if _quality_metric(quality_report, "duplicate_bars") > 0:
         blocking.append("duplicate_bars_present")
-    if _metric(quality_report, "extreme_return_rows") > 0:
+    if _quality_metric(quality_report, "extreme_return_rows") > 0:
         blocking.append("extreme_returns_present")
-    if _metric(quality_report, "adj_close_jump_rows") > 0:
+    if _quality_metric(quality_report, "adj_close_jump_rows") > 0:
         blocking.append("adj_close_jumps_present")
-    if _metric(quality_report, "missing_date_rows") > 0:
+    if _quality_metric(quality_report, "missing_date_rows") > 0:
         warnings.append("missing_dates_present")
-    if _metric(quality_report, "zero_volume_rows") > 0:
+    if _quality_metric(quality_report, "zero_volume_rows") > 0:
         warnings.append("zero_volume_rows_present")
-    if _metric(quality_report, "stale_price_rows") > 0:
+    if _quality_metric(quality_report, "stale_price_rows") > 0:
         warnings.append("stale_price_rows_present")
     return {"blocking": blocking, "warnings": warnings}
+
+
+def _quality_metric(quality_report: dict[str, Any], key: str) -> float:
+    summary = quality_report.get("summary")
+    if isinstance(summary, dict) and key in summary:
+        return _metric(summary, key)
+    return _metric(quality_report, key)
 
 
 def _market_regime_reasons(market_regime_coverage: dict[str, Any] | None, config: PromotionGateConfig) -> list[str]:

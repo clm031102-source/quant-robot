@@ -78,6 +78,8 @@ For this profile, the data-quality audit is intentionally pinned to the CN Tusha
 python scripts\run_data_quality_audit.py --data-root data\processed --market CN --output-dir data\reports\data_quality_gap_audit_tushare_moneyflow_residual_regime
 ```
 
+The residual-regime promotion gate consumes this JSON through `configs/promotion_gate_tushare_moneyflow_residual_regime.json`. Missing or malformed data-quality evidence should stop the desktop profile instead of producing a promotion report from incomplete inputs.
+
 To rebuild only the market-regime coverage pack after a completed walk-forward run:
 
 ```powershell
@@ -91,7 +93,7 @@ python scripts\run_promotion_report.py --config configs\promotion_gate_tushare_m
 ```
 
 This does not approve live trading. It summarizes which candidates are blocked, research-only, or still missing evidence.
-For this residual-regime profile, the promotion gate also requires the market-regime coverage pack. Missing or insufficient regime coverage blocks promotion even when a walk-forward row is otherwise accepted.
+For this residual-regime profile, the promotion gate also requires the data-quality audit and market-regime coverage pack. Missing or insufficient regime coverage blocks promotion even when a walk-forward row is otherwise accepted.
 
 To rebuild only the syncable Markdown summary:
 

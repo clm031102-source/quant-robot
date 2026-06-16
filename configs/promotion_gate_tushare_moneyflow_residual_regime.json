@@ -1,5 +1,6 @@
 {
   "walk_forward_leaderboard": "data/reports/walk_forward_tushare_moneyflow_residual_regime/walk_forward_leaderboard.csv",
+  "quality_report": "data/reports/data_quality_gap_audit_tushare_moneyflow_residual_regime/data_quality_gap_audit.json",
   "market_regime_coverage": "data/reports/market_regime_coverage_tushare_moneyflow_residual_regime/market_regime_coverage_pack.json",
   "output_dir": "data/reports/promotion_gate_tushare_moneyflow_residual_regime",
   "min_oos_trades": 30,
