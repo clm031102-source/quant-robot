@@ -84,6 +84,7 @@ def build_sync_plan(
     pending_topic_branches: list[dict[str, str]] | None = None,
     cleanup_topic_branches: list[dict[str, str]] | None = None,
     project_audit_passed: bool | None = None,
+    compile_passed: bool | None = None,
 ) -> dict[str, Any]:
     classification = classify_changed_paths(changed_paths, config)
     pending_research_branches = pending_research_branches or []
@@ -101,6 +102,7 @@ def build_sync_plan(
         pending_research_branches=pending_research_branches,
         pending_topic_branches=pending_topic_branches,
         project_audit_passed=project_audit_passed,
+        compile_passed=compile_passed,
     )
     return {
         "mode": "execute" if execute else "audit",
@@ -125,6 +127,7 @@ def build_sync_plan(
         "blockers": blockers,
         "validation": {
             "project_audit_passed": project_audit_passed,
+            "compile_passed": compile_passed,
         },
         "actions": _recommended_actions(classification, blockers, execute, push),
     }
@@ -290,7 +293,7 @@ def main() -> None:
         current_branch=current_branch,
         stable_commits=stable_commits,
     )
-    project_audit_validation = run_project_audit_validation() if args.execute else {"project_audit_passed": None}
+    validation = run_sync_validation() if args.execute else {"project_audit_passed": None, "compile_passed": None}
     plan = build_sync_plan(
         config,
         current_branch=current_branch,
@@ -303,11 +306,14 @@ def main() -> None:
         pending_research_branches=pending_research_branches,
         pending_topic_branches=topic_branch_audit["pending"],
         cleanup_topic_branches=topic_branch_audit["cleanup"],
-        project_audit_passed=bool(project_audit_validation.get("project_audit_passed"))
-        if project_audit_validation.get("project_audit_passed") is not None
+        project_audit_passed=bool(validation.get("project_audit_passed"))
+        if validation.get("project_audit_passed") is not None
+        else None,
+        compile_passed=bool(validation.get("compile_passed"))
+        if validation.get("compile_passed") is not None
         else None,
     )
-    plan["validation"].update(project_audit_validation)
+    plan["validation"].update(validation)
     plan["research_branch_integration"]["remote_branch_count"] = len(
         [branch for branch in remote_topic_branches if _is_research_branch(str(branch.get("name", "")))]
     )
@@ -384,6 +390,7 @@ def _sync_blockers(
     pending_research_branches: list[dict[str, str]],
     pending_topic_branches: list[dict[str, str]],
     project_audit_passed: bool | None,
+    compile_passed: bool | None,
 ) -> list[str]:
     blockers: list[str] = []
     if not execute:
@@ -396,6 +403,8 @@ def _sync_blockers(
         blockers.append("forbidden_paths_present")
     if project_audit_passed is False:
         blockers.append("project_audit_failed")
+    if compile_passed is False:
+        blockers.append("compile_failed")
     stable_branch = str(_branch_policy(config).get("stable_branch", "main"))
     if current_branch == stable_branch and task != "project_sync":
         blockers.append("main_requires_project_sync_or_manual_confirmation")
@@ -473,6 +482,27 @@ def run_project_audit_validation() -> dict[str, Any]:
     summary = audit.get("summary", {}) if isinstance(audit, dict) else {}
     validation["project_audit_passed"] = bool(isinstance(summary, dict) and summary.get("passes"))
     validation["project_audit_summary"] = summary if isinstance(summary, dict) else {}
+    return validation
+
+
+def run_compile_validation() -> dict[str, Any]:
+    result = subprocess.run(
+        [sys.executable, "-m", "compileall", "-q", "src", "scripts", "tests", "quant_robot"],
+        capture_output=True,
+        text=True,
+    )
+    validation: dict[str, Any] = {
+        "compile_passed": result.returncode == 0,
+        "compile_returncode": result.returncode,
+    }
+    if result.returncode != 0:
+        validation["compile_error"] = result.stderr.strip() or result.stdout.strip()
+    return validation
+
+
+def run_sync_validation() -> dict[str, Any]:
+    validation = run_project_audit_validation()
+    validation.update(run_compile_validation())
     return validation
 
 
