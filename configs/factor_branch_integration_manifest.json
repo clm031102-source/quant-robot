@@ -7,6 +7,14 @@
       "integrated_by": "laptop",
       "status": "absorbed",
       "summary": "Integrated reusable Tushare moneyflow inputs, moneyflow technical combo factors, alpha factory gates, walk-forward validation support, archive replay, and tests into core research code. Local data and generated reports remain excluded."
+    },
+    {
+      "branch": "origin/codex/factor-batch-moneyflow-alpha",
+      "commit": "4ad8643cf0cfce58be6cba8e4176123eba548e9f",
+      "integrated_on": "2026-06-16",
+      "integrated_by": "laptop",
+      "status": "absorbed",
+      "summary": "Absorbed the office desktop incremental moneyflow audit and kept large_minus_liquidity_20 in the strict walk-forward validation candidate set. Research evidence remains documentation/config only; local data and generated reports remain excluded."
     }
   ],
   "ignored_branches": []

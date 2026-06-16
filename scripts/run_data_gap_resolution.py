@@ -12,6 +12,7 @@ from quant_robot.ops.data_gap_resolution import build_data_gap_resolution_ledger
 
 DEFAULT_DATA_QUALITY_AUDIT = Path("data/reports/data_quality_gap_audit/data_quality_gap_audit.json")
 DEFAULT_OUTPUT_DIR = Path("data/reports/data_gap_resolution")
+DEFAULT_RESOLUTION_FILE = Path("configs/data_gap_resolutions_cn_etf.csv")
 DEFAULT_REVIEW_FILENAME = "gap_resolutions_review.csv"
 
 
@@ -22,7 +23,9 @@ def run_data_gap_resolution(
 ) -> dict[str, Any]:
     audit = _read_json(data_quality_audit)
     output_path = Path(output_dir)
-    selected_resolution_file = Path(resolution_file) if resolution_file is not None else _default_review_file(output_path)
+    selected_resolution_file = (
+        Path(resolution_file) if resolution_file is not None else _default_resolution_file(output_path)
+    )
     resolution_rows = _read_resolution_rows(selected_resolution_file) if selected_resolution_file is not None else []
     ledger = build_data_gap_resolution_ledger(audit, resolution_rows=resolution_rows)
     write_data_gap_resolution_ledger(output_path, ledger)
@@ -65,9 +68,13 @@ def _read_resolution_rows(path: str | Path) -> list[dict[str, Any]]:
     return [dict(row) for row in frame.to_dict(orient="records")]
 
 
-def _default_review_file(output_dir: Path) -> Path | None:
+def _default_resolution_file(output_dir: Path) -> Path | None:
+    if DEFAULT_RESOLUTION_FILE.exists():
+        return DEFAULT_RESOLUTION_FILE
     review_path = output_dir / DEFAULT_REVIEW_FILENAME
-    return review_path if review_path.exists() else None
+    if review_path.exists():
+        return review_path
+    return None
 
 
 if __name__ == "__main__":
