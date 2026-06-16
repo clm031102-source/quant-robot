@@ -221,6 +221,7 @@ def _merged_row(
             "factor_windows": source.get("factor_windows", []),
             "top_n": source.get("top_n"),
             "cost_bps": source.get("cost_bps"),
+            "regime_lookback": source.get("regime_lookback"),
             "data_mode": _data_mode(train, test),
             "train_status": train.get("status") if train else "missing",
             "test_status": test.get("status") if test else "missing",
@@ -299,6 +300,7 @@ def _aggregate_case_rows(case_id: str, rows: list[dict[str, Any]], config: WalkF
             "factor_windows": source.get("factor_windows", []),
             "top_n": source.get("top_n"),
             "cost_bps": source.get("cost_bps"),
+            "regime_lookback": source.get("regime_lookback"),
             "data_mode": _aggregate_data_mode(rows),
             "train_status": _aggregate_status(rows, "train_status"),
             "test_status": _aggregate_status(rows, "test_status"),
@@ -459,6 +461,11 @@ def _grid_from_mapping(data: dict[str, Any]) -> ExperimentGridConfig:
         cash_annual_return=float(data.get("cash_annual_return", ExperimentGridConfig.cash_annual_return)),
         regime_filter=bool(data.get("regime_filter", ExperimentGridConfig.regime_filter)),
         regime_lookback=int(data.get("regime_lookback", ExperimentGridConfig.regime_lookback)),
+        regime_lookback_values=(
+            tuple(int(value) for value in data["regime_lookback_values"])
+            if data.get("regime_lookback_values") is not None
+            else None
+        ),
         target_gross_exposure=float(data.get("target_gross_exposure", ExperimentGridConfig.target_gross_exposure)),
         commission_bps=float(data["commission_bps"]) if data.get("commission_bps") is not None else None,
         slippage_bps=float(data["slippage_bps"]) if data.get("slippage_bps") is not None else None,
@@ -491,6 +498,11 @@ def _config_dict(config: WalkForwardConfig) -> dict[str, Any]:
     data["experiment_grid"]["top_n_values"] = list(config.experiment_grid.top_n_values)
     data["experiment_grid"]["cost_bps_values"] = list(config.experiment_grid.cost_bps_values)
     data["experiment_grid"]["rebalance_intervals"] = list(config.experiment_grid.rebalance_intervals)
+    data["experiment_grid"]["regime_lookback_values"] = (
+        list(config.experiment_grid.regime_lookback_values)
+        if config.experiment_grid.regime_lookback_values is not None
+        else None
+    )
     return data
 
 

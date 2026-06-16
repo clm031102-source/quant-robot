@@ -262,3 +262,27 @@ Signal-date amount gates:
 - For `large_minus_liquidity_20`, the best-looking gated row was `>=100m/top5`: capacity-limited trades 0, total return 9.6189, but relative return -3.7377, max drawdown -0.8051, and IC no longer significant.
 
 These probes reject three easy next steps: simple inversion, percentile targeting, and standalone amount gating. The useful next design should combine gates with a new score, not apply gates after a score whose edge depends on the excluded names.
+
+## Residualized Liquidity-Aware Probe
+
+The office desktop then tested temporary residualized scores without adding production factor code. The most useful construction was:
+
+`resid_large_liq_vol_amt_20`: cross-sectional residual of large-order net flow after removing same-day 20-day Amihud liquidity, 20-day volatility, and log amount. The probe then required signal-day amount `>=100m`, applied a positive equal-weight market regime filter, and selected top5.
+
+Key combined-sample results:
+
+- No-regime top5 with amount `>=100m`: significant positive IC, capacity-limited trades 0, total return 17.8722, relative return 4.5156, but max drawdown -0.7551.
+- Regime120 top5: significant positive IC, capacity-limited trades 0, total return 41.0642, relative return 27.7076, Sharpe 1.0749, max drawdown -0.3191.
+- Regime150 top5: significant positive IC, capacity-limited trades 0, total return 67.6590, relative return 54.3024, Sharpe 1.1412, max drawdown -0.2859.
+- Regime180 top5: significant positive IC, capacity-limited trades 0, total return 38.1081, relative return 24.7515, Sharpe 1.0788, max drawdown -0.2859.
+- Regime252 top5: significant positive IC, capacity-limited trades 0, total return 41.3360, relative return 27.9794, Sharpe 1.1013, max drawdown -0.2859.
+
+Split-window check for the best temporary row, regime150/top5:
+
+- 2023H2 and 2024H1 had no trades because the regime filter blocked those weak market windows.
+- 2024H2: approved by simple return/drawdown/capacity gates. Total return 1.7672, relative return 1.4761, Sharpe 6.7184, max drawdown -0.2077, capacity-limited trades 0. IC was not significant.
+- 2025H1: approved by simple gates. Total return 0.8500, relative return 0.6730, Sharpe 2.7597, max drawdown -0.2859, capacity-limited trades 0. IC was not significant.
+- 2025H2: approved by simple gates. Total return 0.6849, relative return 0.5118, Sharpe 2.3735, max drawdown -0.1750, capacity-limited trades 0. IC was significant positive.
+- 2026H1: approved by simple gates. Total return 0.2543, relative return 0.2511, Sharpe 1.4231, max drawdown -0.2021, capacity-limited trades 0. IC was not significant.
+
+Audit judgment: this is the first temporary probe to clear the basic combined-sample return, drawdown, and capacity gates. It is still only a strict-validation candidate, not a promotion. Risks remain: the regime filter excludes the hardest early windows, half-year IC is often not significant, RankIC remains negative, and the factor exists only as a temporary research script. The next productive code task is to pre-register this residualized liquidity-aware factor family and run formal rolling walk-forward.

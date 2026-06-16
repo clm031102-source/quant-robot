@@ -198,6 +198,7 @@ class WalkForwardTests(unittest.TestCase):
                             "cost_bps_values": [5],
                             "rebalance_intervals": [5],
                             "benchmark_asset_id": "CN_ETF_XSHG_510300",
+                            "regime_lookback_values": [60, 120],
                         },
                         "min_test_relative_return": 0.02,
                         "max_test_drawdown": 0.20,
@@ -224,6 +225,7 @@ class WalkForwardTests(unittest.TestCase):
             self.assertEqual(config.experiment_grid.cost_bps_values, (5.0,))
             self.assertEqual(config.experiment_grid.rebalance_intervals, (5,))
             self.assertEqual(config.experiment_grid.benchmark_asset_id, "CN_ETF_XSHG_510300")
+            self.assertEqual(config.experiment_grid.regime_lookback_values, (60, 120))
             self.assertEqual(config.rolling_train_days, 252)
             self.assertEqual(config.rolling_test_days, 63)
             self.assertEqual(config.rolling_step_days, 21)

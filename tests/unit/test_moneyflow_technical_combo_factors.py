@@ -1,5 +1,6 @@
 import unittest
 
+import numpy as np
 import pandas as pd
 
 from quant_robot.factors.technical import compute_basic_factors
@@ -76,6 +77,64 @@ class MoneyflowTechnicalComboFactorTests(unittest.TestCase):
         self.assertEqual(len(aligned), 4)
         self.assertAlmostEqual(float(aligned["residual"].mean()), 0.0, places=12)
         self.assertAlmostEqual(float(aligned["residual"].corr(aligned["liquidity"])), 0.0, places=12)
+
+    def test_residualized_liquidity_volatility_amount_factor_removes_multiple_exposures(self):
+        bars = _multi_exposure_framework_bars()
+        factors = compute_moneyflow_technical_combo_factors(
+            bars,
+            _multi_exposure_framework_moneyflow_inputs(),
+            factor_names=("large_resid_liq_vol_amt_20",),
+        )
+        last_date = pd.Timestamp("2024-01-25").date()
+
+        selected = factors[
+            (factors["date"] == last_date) & (factors["factor_name"] == "large_resid_liq_vol_amt_20")
+        ].set_index("asset_id")
+        technical = compute_basic_factors(bars, windows=(20,))
+        liquidity = technical[
+            (technical["date"] == last_date) & (technical["factor_name"] == "liquidity_20")
+        ].set_index("asset_id")["factor_value"]
+        volatility = technical[
+            (technical["date"] == last_date) & (technical["factor_name"] == "volatility_20")
+        ].set_index("asset_id")["factor_value"]
+        last_bars = bars[pd.to_datetime(bars["date"]).dt.date == last_date].set_index("asset_id")
+        log_amount = pd.Series(np.log1p(last_bars["amount"].astype(float)), index=last_bars.index)
+        aligned = pd.concat(
+            [
+                selected["factor_value"],
+                _zscore(liquidity),
+                _zscore(volatility),
+                _zscore(log_amount),
+            ],
+            axis=1,
+            keys=["residual", "liquidity", "volatility", "log_amount"],
+        ).dropna()
+
+        self.assertEqual(len(aligned), 6)
+        self.assertAlmostEqual(float(aligned["residual"].mean()), 0.0, places=12)
+        self.assertAlmostEqual(float(aligned["residual"].corr(aligned["liquidity"])), 0.0, places=12)
+        self.assertAlmostEqual(float(aligned["residual"].corr(aligned["volatility"])), 0.0, places=12)
+        self.assertAlmostEqual(float(aligned["residual"].corr(aligned["log_amount"])), 0.0, places=12)
+
+    def test_residualized_liquidity_volatility_amount_gate_blocks_thin_signal_amounts(self):
+        bars = _multi_exposure_framework_bars()
+        factors = compute_moneyflow_technical_combo_factors(
+            bars,
+            _multi_exposure_framework_moneyflow_inputs(),
+            factor_names=("large_resid_liq_vol_amt_gate_20",),
+        )
+        last_date = pd.Timestamp("2024-01-25").date()
+
+        selected = factors[
+            (factors["date"] == last_date) & (factors["factor_name"] == "large_resid_liq_vol_amt_gate_20")
+        ]
+        values = dict(zip(selected["asset_id"], selected["factor_value"], strict=True))
+
+        self.assertTrue(pd.notna(values["CN_XSHE_000001"]))
+        self.assertTrue(pd.notna(values["CN_XSHE_000002"]))
+        self.assertTrue(pd.notna(values["CN_XSHG_600519"]))
+        self.assertTrue(pd.notna(values["CN_XSHG_600000"]))
+        self.assertTrue(pd.isna(values["CN_XSHG_601398"]))
 
 
 def _combo_bars() -> pd.DataFrame:
@@ -164,6 +223,49 @@ def _liquidity_framework_bars() -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def _multi_exposure_framework_bars() -> pd.DataFrame:
+    rows = []
+    dates = pd.date_range("2024-01-01", periods=25).date
+    settings = {
+        "CN_XSHE_000001": ("000001.SZ", 200_000_000.0, 0.10, 0.020),
+        "CN_XSHE_000002": ("000002.SZ", 160_000_000.0, -0.05, 0.012),
+        "CN_XSHG_600519": ("600519.SH", 120_000_000.0, 0.03, 0.018),
+        "CN_XSHG_601398": ("601398.SH", 80_000_000.0, -0.02, 0.010),
+        "CN_XSHE_000003": ("000003.SZ", 300_000_000.0, 0.08, 0.026),
+        "CN_XSHG_600000": ("600000.SH", 220_000_000.0, -0.07, 0.015),
+    }
+    for asset_index, (asset_id, (symbol, amount, slope, wave)) in enumerate(settings.items()):
+        for day_index, date in enumerate(dates):
+            price = 10.0 + asset_index + slope * day_index + wave * ((day_index % 5) - 2) ** 2
+            rows.append(
+                {
+                    "asset_id": asset_id,
+                    "symbol": symbol,
+                    "market": "CN",
+                    "exchange": "XSHE" if asset_id.startswith("CN_XSHE") else "XSHG",
+                    "asset_type": "stock",
+                    "timestamp": pd.Timestamp(date).tz_localize("UTC"),
+                    "date": date,
+                    "timezone": "Asia/Shanghai",
+                    "calendar": "XSHG",
+                    "frequency": "1d",
+                    "open": price,
+                    "high": price * 1.01,
+                    "low": price * 0.99,
+                    "close": price,
+                    "adj_close": price,
+                    "volume": amount / price,
+                    "amount": amount,
+                    "vwap": price,
+                    "currency": "CNY",
+                    "source": "fixture",
+                    "adjusted": True,
+                    "ingested_at": pd.Timestamp("2024-01-01", tz="UTC"),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
 def _combo_moneyflow_inputs() -> pd.DataFrame:
     rows = []
     dates = pd.date_range("2024-01-01", periods=6).date
@@ -231,6 +333,47 @@ def _liquidity_framework_moneyflow_inputs() -> pd.DataFrame:
                 }
             )
     return pd.DataFrame(rows)
+
+
+def _multi_exposure_framework_moneyflow_inputs() -> pd.DataFrame:
+    rows = []
+    dates = pd.date_range("2024-01-01", periods=25).date
+    offsets = {
+        "CN_XSHE_000001": ("000001.SZ", 120.0),
+        "CN_XSHE_000002": ("000002.SZ", -35.0),
+        "CN_XSHG_600519": ("600519.SH", 55.0),
+        "CN_XSHG_601398": ("601398.SH", 15.0),
+        "CN_XSHE_000003": ("000003.SZ", 95.0),
+        "CN_XSHG_600000": ("600000.SH", -70.0),
+    }
+    for date in dates:
+        for asset_id, (symbol, offset) in offsets.items():
+            positive = max(offset, 0.0)
+            negative = abs(min(offset, 0.0))
+            rows.append(
+                {
+                    "date": date,
+                    "asset_id": asset_id,
+                    "symbol": symbol,
+                    "market": "CN",
+                    "source": "tushare_moneyflow",
+                    "buy_sm_amount": 100.0,
+                    "sell_sm_amount": 100.0,
+                    "buy_md_amount": 100.0,
+                    "sell_md_amount": 100.0,
+                    "buy_lg_amount": 100.0 + positive,
+                    "sell_lg_amount": 100.0 + negative,
+                    "buy_elg_amount": 100.0 + positive,
+                    "sell_elg_amount": 100.0 + negative,
+                    "net_mf_amount": offset,
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def _zscore(values: pd.Series) -> pd.Series:
+    numeric = pd.to_numeric(values, errors="coerce")
+    return (numeric - numeric.mean()) / numeric.std(ddof=0)
 
 
 if __name__ == "__main__":

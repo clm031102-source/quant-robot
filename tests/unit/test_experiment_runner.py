@@ -32,6 +32,26 @@ class ExperimentRunnerTests(unittest.TestCase):
         self.assertEqual(cases[0].case_id, "CN_momentum_2_top1_cost0_reb1")
         self.assertEqual(cases[-1].case_id, "US_reversal_2_top2_cost0_reb5")
 
+    def test_build_experiment_cases_expands_regime_lookback_values(self):
+        config = ExperimentGridConfig(
+            markets=("CN_ETF",),
+            factor_names=("momentum_2",),
+            factor_windows=(2,),
+            top_n_values=(1,),
+            cost_bps_values=(5.0,),
+            rebalance_intervals=(1,),
+            regime_filter=True,
+            regime_lookback_values=(60, 120),
+        )
+
+        cases = build_experiment_cases(config)
+
+        self.assertEqual([case.case_id for case in cases], [
+            "CN_ETF_momentum_2_top1_cost5_reb1_regime60",
+            "CN_ETF_momentum_2_top1_cost5_reb1_regime120",
+        ])
+        self.assertEqual([case.regime_lookback for case in cases], [60, 120])
+
     def test_experiment_grid_runs_sweep_and_writes_leaderboard(self):
         with tempfile.TemporaryDirectory() as tmp:
             config = ExperimentGridConfig(
@@ -185,6 +205,38 @@ class ExperimentRunnerTests(unittest.TestCase):
         self.assertEqual(row["sharpe"], 0.0)
         self.assertEqual(row["ic_p_value"], 1.0)
 
+    def test_experiment_grid_passes_case_regime_lookback_to_pipeline(self):
+        config = ExperimentGridConfig(
+            markets=("CN_ETF",),
+            factor_names=("momentum_2",),
+            factor_windows=(2,),
+            top_n_values=(1,),
+            cost_bps_values=(0.0,),
+            regime_filter=True,
+            regime_lookback_values=(60, 120),
+        )
+        pipeline_result = {
+            "data_mode": "research",
+            "metrics": {
+                "total_return": 0.01,
+                "annualized_return": 0.01,
+                "annualized_volatility": 0.05,
+                "sharpe": 0.2,
+                "max_drawdown": -0.01,
+            },
+            "benchmark_metrics": {"benchmark_total_return": 0.0, "relative_return": 0.01, "excess_over_cash": 0.01},
+            "decision": {"decision_status": "approved", "rejection_reasons": []},
+            "factor_summary": {"mean_ic": 0.01, "ic_p_value": 0.5, "significance_status": "unknown"},
+            "artifact_rows": {"trades": 1, "holdings": 1},
+        }
+
+        with patch("quant_robot.experiments.runner.run_research_pipeline", return_value=pipeline_result) as pipeline:
+            result = run_experiment_grid(load_demo_market_bars(), config)
+
+        self.assertEqual([row["regime_lookback"] for row in result["leaderboard"]], [120, 60])
+        passed_configs = [call.args[1] for call in pipeline.call_args_list]
+        self.assertEqual([item.regime_lookback for item in passed_configs], [60, 120])
+
     def test_load_experiment_grid_config_reads_json_file(self):
         with tempfile.TemporaryDirectory() as tmp:
             config_path = Path(tmp) / "grid.json"
@@ -200,6 +252,7 @@ class ExperimentRunnerTests(unittest.TestCase):
                         "benchmark_asset_id": "CN_ETF_XSHG_510300",
                         "min_relative_return": 0.01,
                         "target_gross_exposure": 0.9,
+                        "regime_lookback_values": [60, 120],
                         "output_dir": str(Path(tmp) / "reports"),
                     }
                 ),
@@ -214,6 +267,7 @@ class ExperimentRunnerTests(unittest.TestCase):
             self.assertEqual(config.benchmark_asset_id, "CN_ETF_XSHG_510300")
             self.assertAlmostEqual(config.min_relative_return, 0.01)
             self.assertAlmostEqual(config.target_gross_exposure, 0.9)
+            self.assertEqual(config.regime_lookback_values, (60, 120))
             self.assertEqual(config.output_dir, Path(tmp) / "reports")
 
     def test_load_experiment_grid_config_accepts_utf8_bom(self):
