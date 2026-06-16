@@ -2,6 +2,7 @@ import unittest
 
 from scripts.sync_project import (
     audit_remote_research_branches,
+    audit_remote_topic_branches,
     build_sync_plan,
     classify_changed_paths,
     is_forbidden_path,
@@ -182,6 +183,86 @@ class SyncProjectTests(unittest.TestCase):
 
         self.assertFalse(plan["can_execute"])
         self.assertIn("pending_research_branches_require_integration", plan["blockers"])
+
+    def test_reports_unabsorbed_remote_nonresearch_topic_branch(self) -> None:
+        audit = audit_remote_topic_branches(
+            [
+                {"name": "origin/codex/profile-daily-ops-activation-2026-06-16", "commit": "abc123"},
+                {"name": "origin/codex/factor-batch-moneyflow-alpha", "commit": "def456"},
+                {"name": "origin/main", "commit": "main123"},
+            ],
+            {"absorbed_branches": []},
+            current_commits=set(),
+        )
+
+        self.assertEqual(
+            audit["pending"],
+            [
+                {
+                    "branch": "origin/codex/profile-daily-ops-activation-2026-06-16",
+                    "commit": "abc123",
+                    "status": "pending_integration",
+                }
+            ],
+        )
+        self.assertEqual(audit["cleanup"], [])
+
+    def test_reports_merged_or_absorbed_topic_branches_for_cleanup(self) -> None:
+        audit = audit_remote_topic_branches(
+            [
+                {"name": "origin/codex/recent-refresh-handoff-2026-06-16", "commit": "abc123"},
+                {"name": "origin/codex/profile-daily-ops-activation-2026-06-16", "commit": "def456"},
+            ],
+            {
+                "absorbed_branches": [
+                    {
+                        "branch": "origin/codex/profile-daily-ops-activation-2026-06-16",
+                        "commit": "def456",
+                        "status": "absorbed",
+                    }
+                ]
+            },
+            current_commits={"abc123"},
+        )
+
+        self.assertEqual(audit["pending"], [])
+        self.assertEqual(
+            audit["cleanup"],
+            [
+                {
+                    "branch": "origin/codex/profile-daily-ops-activation-2026-06-16",
+                    "commit": "def456",
+                    "status": "absorbed_by_manifest",
+                },
+                {
+                    "branch": "origin/codex/recent-refresh-handoff-2026-06-16",
+                    "commit": "abc123",
+                    "status": "merged_to_stable_branch",
+                },
+            ],
+        )
+
+    def test_execute_plan_blocks_core_sync_when_topic_branch_is_pending(self) -> None:
+        plan = build_sync_plan(
+            _config(),
+            current_branch="codex/project-audit-2026-06-16",
+            changed_paths=["scripts/run_daily_ops.py"],
+            machine="laptop",
+            task="architecture_ops",
+            execute=True,
+            push=True,
+            upstream_sync="0\t0",
+            pending_topic_branches=[
+                {
+                    "branch": "origin/codex/profile-daily-ops-activation-2026-06-16",
+                    "commit": "abc123",
+                    "status": "pending_integration",
+                }
+            ],
+        )
+
+        self.assertFalse(plan["can_execute"])
+        self.assertIn("pending_topic_branches_require_integration", plan["blockers"])
 
     def test_execute_plan_allows_factor_batch_to_publish_pending_research_branch(self) -> None:
         plan = build_sync_plan(

@@ -20,6 +20,7 @@ RESEARCH_BRANCH_PREFIXES = (
     "origin/codex/factor-",
     "origin/codex/tushare-",
 )
+TOPIC_BRANCH_PREFIX = "origin/codex/"
 
 
 def classify_changed_paths(paths: list[str], config: dict[str, Any]) -> dict[str, list[str]]:
@@ -74,9 +75,13 @@ def build_sync_plan(
     push: bool,
     upstream_sync: str,
     pending_research_branches: list[dict[str, str]] | None = None,
+    pending_topic_branches: list[dict[str, str]] | None = None,
+    cleanup_topic_branches: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     classification = classify_changed_paths(changed_paths, config)
     pending_research_branches = pending_research_branches or []
+    pending_topic_branches = pending_topic_branches or []
+    cleanup_topic_branches = cleanup_topic_branches or []
     blockers = _sync_blockers(
         config=config,
         current_branch=current_branch,
@@ -87,6 +92,7 @@ def build_sync_plan(
         push=push,
         upstream_sync=upstream_sync,
         pending_research_branches=pending_research_branches,
+        pending_topic_branches=pending_topic_branches,
     )
     return {
         "mode": "execute" if execute else "audit",
@@ -103,6 +109,10 @@ def build_sync_plan(
         "path_classification": classification,
         "research_branch_integration": {
             "pending": pending_research_branches,
+        },
+        "topic_branch_integration": {
+            "pending": pending_topic_branches,
+            "cleanup": cleanup_topic_branches,
         },
         "blockers": blockers,
         "actions": _recommended_actions(classification, blockers, execute, push),
@@ -136,6 +146,38 @@ def audit_remote_research_branches(
     return sorted(pending, key=lambda item: item["branch"])
 
 
+def audit_remote_topic_branches(
+    remote_branches: list[dict[str, str]],
+    manifest: dict[str, Any],
+    *,
+    current_commits: set[str],
+    stable_commits: set[str] | None = None,
+) -> dict[str, list[dict[str, str]]]:
+    absorbed = _manifest_commit_keys(manifest, "absorbed_branches")
+    ignored = _manifest_commit_keys(manifest, "ignored_branches")
+    stable_commits = current_commits if stable_commits is None else stable_commits
+    pending: list[dict[str, str]] = []
+    cleanup: list[dict[str, str]] = []
+    for branch in remote_branches:
+        name = str(branch.get("name", ""))
+        commit = str(branch.get("commit", ""))
+        if not name or not commit or not _is_topic_branch(name):
+            continue
+        key = (name, commit)
+        if commit in stable_commits:
+            cleanup.append({"branch": name, "commit": commit, "status": "merged_to_stable_branch"})
+        elif key in absorbed:
+            cleanup.append({"branch": name, "commit": commit, "status": "absorbed_by_manifest"})
+        elif key in ignored:
+            cleanup.append({"branch": name, "commit": commit, "status": "ignored_by_manifest"})
+        elif commit not in current_commits and not _is_research_branch(name):
+            pending.append({"branch": name, "commit": commit, "status": "pending_integration"})
+    return {
+        "pending": sorted(pending, key=lambda item: item["branch"]),
+        "cleanup": sorted(cleanup, key=lambda item: item["branch"]),
+    }
+
+
 def load_integration_manifest(path: str | Path = DEFAULT_INTEGRATION_MANIFEST) -> dict[str, Any]:
     manifest_path = Path(path)
     if not manifest_path.exists():
@@ -164,12 +206,20 @@ def main() -> None:
     current_branch = _git_stdout(["branch", "--show-current"])
     changed_paths = _changed_paths()
     upstream_sync = _upstream_sync()
-    remote_research_branches = _remote_research_branches()
-    current_commits = _current_history_commits(remote_research_branches)
+    remote_topic_branches = _remote_topic_branches()
+    manifest = load_integration_manifest()
+    current_commits = _current_history_commits(remote_topic_branches)
+    stable_commits = _history_commits(remote_topic_branches, "origin/main")
     pending_research_branches = audit_remote_research_branches(
-        remote_research_branches,
-        load_integration_manifest(),
+        remote_topic_branches,
+        manifest,
         current_commits=current_commits,
+    )
+    topic_branch_audit = audit_remote_topic_branches(
+        remote_topic_branches,
+        manifest,
+        current_commits=current_commits,
+        stable_commits=stable_commits,
     )
     plan = build_sync_plan(
         config,
@@ -181,8 +231,13 @@ def main() -> None:
         push=args.push,
         upstream_sync=upstream_sync,
         pending_research_branches=pending_research_branches,
+        pending_topic_branches=topic_branch_audit["pending"],
+        cleanup_topic_branches=topic_branch_audit["cleanup"],
     )
-    plan["research_branch_integration"]["remote_branch_count"] = len(remote_research_branches)
+    plan["research_branch_integration"]["remote_branch_count"] = len(
+        [branch for branch in remote_topic_branches if _is_research_branch(str(branch.get("name", "")))]
+    )
+    plan["topic_branch_integration"]["remote_branch_count"] = len(remote_topic_branches)
 
     if not args.execute:
         print(json.dumps(plan, indent=2, sort_keys=True))
@@ -232,6 +287,7 @@ def _sync_blockers(
     push: bool,
     upstream_sync: str,
     pending_research_branches: list[dict[str, str]],
+    pending_topic_branches: list[dict[str, str]],
 ) -> list[str]:
     blockers: list[str] = []
     if not execute:
@@ -249,6 +305,8 @@ def _sync_blockers(
         blockers.append("branch_behind_upstream_pull_or_rebase_first")
     if pending_research_branches and task in CORE_SYNC_TASKS:
         blockers.append("pending_research_branches_require_integration")
+    if pending_topic_branches and task in CORE_SYNC_TASKS:
+        blockers.append("pending_topic_branches_require_integration")
     return blockers
 
 
@@ -285,7 +343,7 @@ def _changed_paths() -> list[str]:
     return paths
 
 
-def _remote_research_branches() -> list[dict[str, str]]:
+def _remote_topic_branches() -> list[dict[str, str]]:
     result = _git(
         [
             "for-each-ref",
@@ -301,21 +359,29 @@ def _remote_research_branches() -> list[dict[str, str]]:
         if "|" not in line:
             continue
         name, commit = line.split("|", 1)
-        if _is_research_branch(name):
+        if _is_topic_branch(name):
             branches.append({"name": name.strip(), "commit": commit.strip()})
     return branches
 
 
 def _current_history_commits(remote_branches: list[dict[str, str]]) -> set[str]:
+    return _history_commits(remote_branches, "HEAD")
+
+
+def _history_commits(remote_branches: list[dict[str, str]], ref: str) -> set[str]:
     commits: set[str] = set()
     for branch in remote_branches:
         commit = str(branch.get("commit", ""))
         if not commit:
             continue
-        result = _git(["merge-base", "--is-ancestor", commit, "HEAD"], check=False)
+        result = _git(["merge-base", "--is-ancestor", commit, ref], check=False)
         if result.returncode == 0:
             commits.add(commit)
     return commits
+
+
+def _is_topic_branch(name: str) -> bool:
+    return name.startswith(TOPIC_BRANCH_PREFIX)
 
 
 def _is_research_branch(name: str) -> bool:
