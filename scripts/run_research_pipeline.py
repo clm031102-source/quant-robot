@@ -17,7 +17,11 @@ def main() -> None:
     parser.add_argument("--data-root", default="data/processed")
     parser.add_argument("--market", default="ALL")
     parser.add_argument("--factor", default="momentum_2")
-    parser.add_argument("--factor-source", choices=["technical", "tushare_daily_basic", "tushare_moneyflow", "combined"], default="technical")
+    parser.add_argument(
+        "--factor-source",
+        choices=["technical", "tushare_daily_basic", "tushare_moneyflow", "moneyflow_technical_combo", "combined"],
+        default="technical",
+    )
     parser.add_argument("--factor-windows", default="2,3")
     parser.add_argument("--factor-input-root")
     parser.add_argument("--factor-input-required", action="store_true")

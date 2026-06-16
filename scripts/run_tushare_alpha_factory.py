@@ -66,7 +66,11 @@ def main() -> None:
     parser.add_argument("--source", choices=["fixture", "processed-bars"], default="processed-bars")
     parser.add_argument("--data-root", default="data/processed")
     parser.add_argument("--market", default="CN")
-    parser.add_argument("--factor-source", choices=["tushare_daily_basic", "tushare_moneyflow"], default="tushare_daily_basic")
+    parser.add_argument(
+        "--factor-source",
+        choices=["tushare_daily_basic", "tushare_moneyflow", "moneyflow_technical_combo"],
+        default="tushare_daily_basic",
+    )
     parser.add_argument("--factor-input-root", default="data/processed/tushare_factor_inputs")
     parser.add_argument("--moneyflow-input-root", default="data/processed/tushare_moneyflow_inputs")
     parser.add_argument("--output-dir", default="data/reports/tushare_alpha_factory")

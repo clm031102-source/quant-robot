@@ -1,0 +1,41 @@
+{
+  "split_date": "2025-01-02",
+  "output_dir": "data/reports/walk_forward_tushare_moneyflow_technical_combo",
+  "rank_by": "stability_score",
+  "min_test_trades": 30,
+  "min_test_sharpe": 0.0,
+  "min_test_relative_return": 0.0,
+  "max_test_drawdown": 0.30,
+  "rolling_train_days": 252,
+  "rolling_test_days": 63,
+  "rolling_step_days": 63,
+  "min_accepted_folds": 2,
+  "multiple_testing_alpha": 0.05,
+  "experiment_grid": {
+    "markets": ["CN"],
+    "factor_source": "moneyflow_technical_combo",
+    "moneyflow_input_root": "data/processed/tushare_moneyflow_inputs",
+    "factor_names": [
+      "mf_low_plus_reversal_5",
+      "small_sell_plus_reversal_5",
+      "mf_low_minus_volatility_20",
+      "extra_low_plus_reversal_5",
+      "large_plus_risk_momentum_10"
+    ],
+    "factor_windows": [5, 10, 20],
+    "top_n_values": [5, 10, 20],
+    "cost_bps_values": [10, 20],
+    "forward_horizon": 1,
+    "execution_lag": 1,
+    "rebalance_intervals": [1],
+    "quantiles": 5,
+    "portfolio_scope": "market",
+    "portfolio_value": 1000000,
+    "market_impact_bps": 10,
+    "max_participation_rate": 0.05,
+    "min_relative_return": 0.0,
+    "max_drawdown_limit": 0.30,
+    "rank_by": "sharpe",
+    "min_trades": 30
+  }
+}

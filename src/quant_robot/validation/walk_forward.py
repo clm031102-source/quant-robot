@@ -444,6 +444,7 @@ def _grid_from_mapping(data: dict[str, Any]) -> ExperimentGridConfig:
         factor_windows=tuple(int(value) for value in data.get("factor_windows", ExperimentGridConfig.factor_windows)),
         factor_input_root=Path(data["factor_input_root"]) if data.get("factor_input_root") else None,
         factor_input_required=bool(data.get("factor_input_required", ExperimentGridConfig.factor_input_required)),
+        moneyflow_input_root=Path(data["moneyflow_input_root"]) if data.get("moneyflow_input_root") else None,
         top_n_values=tuple(int(value) for value in data.get("top_n_values", ExperimentGridConfig.top_n_values)),
         cost_bps_values=tuple(float(value) for value in data.get("cost_bps_values", ExperimentGridConfig.cost_bps_values)),
         start_date=data.get("start_date"),
@@ -480,6 +481,9 @@ def _config_dict(config: WalkForwardConfig) -> dict[str, Any]:
     data["experiment_grid"]["output_dir"] = None
     data["experiment_grid"]["factor_input_root"] = (
         str(config.experiment_grid.factor_input_root) if config.experiment_grid.factor_input_root is not None else None
+    )
+    data["experiment_grid"]["moneyflow_input_root"] = (
+        str(config.experiment_grid.moneyflow_input_root) if config.experiment_grid.moneyflow_input_root is not None else None
     )
     data["experiment_grid"]["markets"] = list(config.experiment_grid.markets)
     data["experiment_grid"]["factor_names"] = list(config.experiment_grid.factor_names)

@@ -9,6 +9,7 @@ from typing import Any
 import pandas as pd
 
 from quant_robot.experiments.runner import ExperimentGridConfig, run_experiment_grid
+from quant_robot.factors.moneyflow_technical import MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES
 from quant_robot.factors.tushare_inputs import DAILY_BASIC_FACTOR_NAMES
 from quant_robot.factors.tushare_moneyflow import MONEYFLOW_FACTOR_NAMES
 
@@ -79,7 +80,7 @@ def run_tushare_alpha_factory(bars: pd.DataFrame, config: AlphaFactoryConfig) ->
         moneyflow_input_root=config.moneyflow_input_root,
         factor_input_required=True,
         factor_names=factor_names,
-        factor_windows=(1,),
+        factor_windows=_factor_windows(config),
         top_n_values=(config.top_n,),
         cost_bps_values=(config.cost_bps,),
         start_date=config.start_date,
@@ -181,7 +182,17 @@ def _factor_names(config: AlphaFactoryConfig) -> tuple[str, ...]:
         if config.moneyflow_input_root is None:
             raise ValueError("moneyflow_input_root is required for Tushare moneyflow alpha factory")
         return MONEYFLOW_FACTOR_NAMES
+    if config.factor_source == "moneyflow_technical_combo":
+        if config.moneyflow_input_root is None:
+            raise ValueError("moneyflow_input_root is required for moneyflow technical combo alpha factory")
+        return MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES
     raise ValueError(f"Unsupported Tushare alpha factory factor_source: {config.factor_source}")
+
+
+def _factor_windows(config: AlphaFactoryConfig) -> tuple[int, ...]:
+    if config.factor_source == "moneyflow_technical_combo":
+        return (5, 10, 20)
+    return (1,)
 
 
 def _float(value: Any, default: float = 0.0) -> float:

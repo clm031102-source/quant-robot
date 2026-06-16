@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from types import SimpleNamespace
 
 import pandas as pd
@@ -381,6 +382,61 @@ class ResearchPipelineTests(unittest.TestCase):
             self.assertGreater(result["artifact_rows"]["factor_inputs"], 0)
             self.assertGreater(result["artifact_rows"]["factors"], 0)
             self.assertGreater(result["artifact_rows"]["ic"], 0)
+
+    def test_pipeline_runs_moneyflow_technical_combo_factor_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bars = load_demo_market_bars()
+            _write_moneyflow_inputs(Path(tmp), bars)
+
+            result = run_research_pipeline(
+                bars,
+                ResearchPipelineConfig(
+                    factor_name="mf_low_plus_reversal_5",
+                    factor_source="moneyflow_technical_combo",
+                    factor_windows=(5, 10, 20),
+                    moneyflow_input_root=Path(tmp),
+                    market="CN",
+                    top_n=1,
+                    execution_lag=1,
+                ),
+            )
+
+            self.assertEqual(result["request"]["factor_source"], "moneyflow_technical_combo")
+            self.assertEqual(result["request"]["moneyflow_input_root"], str(Path(tmp)))
+            self.assertGreater(result["artifact_rows"]["factor_inputs"], 0)
+            self.assertGreater(result["artifact_rows"]["factors"], 0)
+            self.assertGreater(result["artifact_rows"]["ic"], 0)
+
+    def test_pipeline_computes_only_requested_moneyflow_technical_combo_factor(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bars = load_demo_market_bars()
+            _write_moneyflow_inputs(Path(tmp), bars)
+
+            with patch("quant_robot.research.pipeline.compute_moneyflow_technical_combo_factors") as combo_builder:
+                combo_builder.return_value = pd.DataFrame(
+                    {
+                        "date": [],
+                        "asset_id": [],
+                        "market": [],
+                        "factor_name": [],
+                        "factor_value": [],
+                        "lookback_window": [],
+                    }
+                )
+                run_research_pipeline(
+                    bars,
+                    ResearchPipelineConfig(
+                        factor_name="mf_low_plus_reversal_5",
+                        factor_source="moneyflow_technical_combo",
+                        factor_windows=(5, 10, 20),
+                        moneyflow_input_root=Path(tmp),
+                        market="CN",
+                        top_n=1,
+                        execution_lag=1,
+                    ),
+                )
+
+            self.assertEqual(combo_builder.call_args.kwargs["factor_names"], ("mf_low_plus_reversal_5",))
 
     def test_pipeline_requires_factor_input_root_when_requested(self):
         with self.assertRaisesRegex(ValueError, "factor_input_root"):

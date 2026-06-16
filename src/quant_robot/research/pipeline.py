@@ -12,6 +12,7 @@ from quant_robot.backtest.engine import run_factor_backtest
 from quant_robot.data.quality import validate_market_data
 from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.factors.tushare_inputs import compute_daily_basic_factors
+from quant_robot.factors.moneyflow_technical import compute_moneyflow_technical_combo_factors
 from quant_robot.factors.tushare_moneyflow import compute_moneyflow_factors
 from quant_robot.reports.plots import write_line_svg
 from quant_robot.research.decision import (
@@ -181,13 +182,13 @@ def _filter_bars(bars: pd.DataFrame, config: ResearchPipelineConfig) -> pd.DataF
 
 def _load_factor_input_frame(config: ResearchPipelineConfig) -> pd.DataFrame:
     factor_source = config.factor_source
-    if factor_source not in {"technical", "tushare_daily_basic", "tushare_moneyflow", "combined"}:
+    if factor_source not in {"technical", "tushare_daily_basic", "tushare_moneyflow", "moneyflow_technical_combo", "combined"}:
         raise ValueError(f"Unsupported factor_source: {factor_source}")
     if factor_source == "technical":
         if config.factor_input_required and config.factor_input_root is None:
             raise ValueError("factor_input_root is required when factor_input_required is true")
         return pd.DataFrame()
-    if factor_source == "tushare_moneyflow":
+    if factor_source in {"tushare_moneyflow", "moneyflow_technical_combo"}:
         return _load_tushare_moneyflow_inputs(config)
     return _load_tushare_daily_basic_inputs(config)
 
@@ -232,6 +233,8 @@ def _compute_factor_source(bars: pd.DataFrame, factor_inputs: pd.DataFrame, conf
         return compute_basic_factors(bars, windows=config.factor_windows)
     if config.factor_source == "tushare_moneyflow":
         return compute_moneyflow_factors(factor_inputs)
+    if config.factor_source == "moneyflow_technical_combo":
+        return compute_moneyflow_technical_combo_factors(bars, factor_inputs, factor_names=(config.factor_name,))
     daily_basic = compute_daily_basic_factors(factor_inputs)
     if config.factor_source == "tushare_daily_basic":
         return daily_basic

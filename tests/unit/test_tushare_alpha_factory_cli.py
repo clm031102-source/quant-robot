@@ -59,6 +59,30 @@ class TushareAlphaFactoryCliTests(unittest.TestCase):
             self.assertGreater(result["summary"]["hypothesis_count"], 0)
             self.assertTrue((output_dir / "candidate_leaderboard.csv").exists())
 
+    def test_cli_helper_runs_fixture_moneyflow_technical_combo_alpha_factory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            moneyflow_root = root / "moneyflow_inputs"
+            output_dir = root / "factory"
+            _write_moneyflow_inputs(moneyflow_root, load_demo_market_bars())
+
+            result = run_alpha_factory_cli(
+                source="fixture",
+                data_root=root,
+                market="CN",
+                factor_input_root=None,
+                moneyflow_input_root=moneyflow_root,
+                factor_source="moneyflow_technical_combo",
+                output_dir=output_dir,
+                top_n=1,
+                cost_bps=5.0,
+                execution_lag=1,
+                alpha=0.05,
+            )
+
+            self.assertGreater(result["summary"]["hypothesis_count"], 0)
+            self.assertTrue((output_dir / "candidate_leaderboard.csv").exists())
+
     def test_cli_helper_passes_capacity_and_cost_controls(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

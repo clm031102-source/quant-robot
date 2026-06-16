@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from quant_robot.data.fixtures import load_demo_market_bars
+from quant_robot.factors.moneyflow_technical import MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES
 from quant_robot.factors.tushare_inputs import DAILY_BASIC_FACTOR_NAMES
 from quant_robot.factors.tushare_moneyflow import MONEYFLOW_FACTOR_NAMES
 from quant_robot.research.alpha_factory import AlphaFactoryConfig, _candidate_row, apply_bonferroni_correction, run_tushare_alpha_factory
@@ -180,6 +181,33 @@ class AlphaFactoryTests(unittest.TestCase):
             self.assertEqual(len(leaderboard), len(MONEYFLOW_FACTOR_NAMES))
             self.assertEqual({row["factor_source"] for row in leaderboard}, {"tushare_moneyflow"})
             self.assertTrue(all("paper_candidate_allowed" in row for row in leaderboard))
+            self.assertTrue((output_dir / "candidate_leaderboard.csv").exists())
+
+    def test_alpha_factory_runs_pre_registered_moneyflow_technical_combo_family(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            moneyflow_root = root / "moneyflow_inputs"
+            output_dir = root / "factory"
+            bars = load_demo_market_bars()
+            _write_moneyflow_inputs(moneyflow_root, bars)
+
+            result = run_tushare_alpha_factory(
+                bars,
+                AlphaFactoryConfig(
+                    market="CN",
+                    factor_source="moneyflow_technical_combo",
+                    moneyflow_input_root=moneyflow_root,
+                    output_dir=output_dir,
+                    top_n=1,
+                    cost_bps=5.0,
+                    alpha=0.05,
+                ),
+            )
+
+            leaderboard = result["candidate_leaderboard"]
+            self.assertEqual(result["summary"]["hypothesis_count"], len(MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES))
+            self.assertEqual(len(leaderboard), len(MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES))
+            self.assertEqual({row["factor_source"] for row in leaderboard}, {"moneyflow_technical_combo"})
             self.assertTrue((output_dir / "candidate_leaderboard.csv").exists())
 
 

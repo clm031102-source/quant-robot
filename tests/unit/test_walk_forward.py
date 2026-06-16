@@ -193,6 +193,7 @@ class WalkForwardTests(unittest.TestCase):
                             "factor_source": "tushare_daily_basic",
                             "factor_names": ["momentum_2"],
                             "factor_windows": [2],
+                            "moneyflow_input_root": str(Path(tmp) / "moneyflow_inputs"),
                             "top_n_values": [1],
                             "cost_bps_values": [5],
                             "rebalance_intervals": [5],
@@ -219,6 +220,7 @@ class WalkForwardTests(unittest.TestCase):
             self.assertAlmostEqual(config.max_test_drawdown, 0.20)
             self.assertEqual(config.experiment_grid.markets, ("CN",))
             self.assertEqual(config.experiment_grid.factor_source, "tushare_daily_basic")
+            self.assertEqual(config.experiment_grid.moneyflow_input_root, Path(tmp) / "moneyflow_inputs")
             self.assertEqual(config.experiment_grid.cost_bps_values, (5.0,))
             self.assertEqual(config.experiment_grid.rebalance_intervals, (5,))
             self.assertEqual(config.experiment_grid.benchmark_asset_id, "CN_ETF_XSHG_510300")
