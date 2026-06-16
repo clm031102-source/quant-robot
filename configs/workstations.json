@@ -83,6 +83,7 @@
       ".github/",
       "configs/",
       "docs/",
+      "quant_robot/",
       "scripts/",
       "src/",
       "tests/",

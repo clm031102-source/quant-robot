@@ -11,8 +11,8 @@ from quant_robot.factors.moneyflow_technical import MONEYFLOW_TECHNICAL_COMBO_FA
 from quant_robot.factors.tushare_inputs import DAILY_BASIC_FACTOR_NAMES
 from quant_robot.factors.tushare_moneyflow import MONEYFLOW_FACTOR_NAMES
 
-SCAN_ROOTS = ("src", "scripts", "tests", "README.md", "docs", "configs")
-IMPLEMENTATION_ROOTS = ("src/", "scripts/")
+SCAN_ROOTS = ("src", "scripts", "tests", "README.md", "docs", "configs", "quant_robot")
+IMPLEMENTATION_ROOTS = ("src/", "scripts/", "quant_robot/")
 SELF_AUDIT_FILES = {"src/quant_robot/audit/project_audit.py"}
 TEXT_SUFFIXES = {".py", ".md", ".txt", ".yaml", ".yml", ".toml", ".json", ".html", ".css", ".js"}
 FORBIDDEN_PATTERNS = (

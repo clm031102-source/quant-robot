@@ -8,6 +8,32 @@ from pathlib import Path
 
 
 class ScriptWorkspaceImportTests(unittest.TestCase):
+    def test_bare_python_from_repo_root_prefers_workspace_src_over_legacy_package(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        with tempfile.TemporaryDirectory() as tmp:
+            legacy = Path(tmp) / "legacy"
+            _write_legacy_quant_robot_package(legacy)
+            env = dict(os.environ)
+            env["PYTHONPATH"] = str(legacy)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-c",
+                    "import quant_robot.audit.project_audit as audit; print(audit.__file__)",
+                ],
+                cwd=repo_root,
+                env=env,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            self.assertTrue(
+                Path(result.stdout.strip()).resolve().is_relative_to((repo_root / "src").resolve()),
+                msg=result.stdout,
+            )
+
     def test_paper_simulation_cli_prefers_workspace_src_over_legacy_installed_package(self):
         repo_root = Path(__file__).resolve().parents[2]
         with tempfile.TemporaryDirectory() as tmp:
