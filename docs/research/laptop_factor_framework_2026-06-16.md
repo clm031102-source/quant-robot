@@ -48,7 +48,7 @@ The desktop profile now enforces the full residual-regime chain:
 - strict walk-forward validation on `configs/walk_forward_tushare_moneyflow_residual_regime.json`;
 - CN data-quality audit against `data/processed` with output under `data/reports/data_quality_gap_audit_tushare_moneyflow_residual_regime`;
 - market-regime coverage rebuilt from walk-forward test-fold `regime_curve.csv` files;
-- residual-regime promotion gate that consumes the data-quality audit and requires the market-regime coverage pack;
+- residual-regime promotion gate that consumes the data-quality audit, requires the market-regime coverage pack, and blocks single-lookback regime wins;
 - Markdown summary that cross-checks the walk-forward leaderboard against `manifest.json`, verifies promotion candidate case IDs, and records data-quality, promotion-gate, and regime-coverage status.
 
 This means a candidate can no longer look acceptable merely because it survived one favorable market cycle or because an old leaderboard CSV was mixed with a newer manifest.

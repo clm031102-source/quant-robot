@@ -313,6 +313,29 @@ class PromotionGateTests(unittest.TestCase):
         self.assertIn("market_regime_coverage_not_sufficient", row["blocking_reasons"])
         self.assertIn("market_regimes_below_minimum", row["blocking_reasons"])
 
+    def test_promotion_blocks_candidate_accepted_by_only_one_regime_lookback_when_required(self):
+        accepted = _accepted_walk_forward_row("CN_momentum_60_top1_cost5_reb1_regime150", "momentum_60")
+        accepted["regime_lookback"] = 150
+        rejected_other_regime = _accepted_walk_forward_row("CN_momentum_60_top1_cost5_reb1_regime180", "momentum_60")
+        rejected_other_regime["regime_lookback"] = 180
+        rejected_other_regime["validation_status"] = "rejected"
+
+        report = build_promotion_report(
+            walk_forward_rows=[accepted, rejected_other_regime],
+            config=PromotionGateConfig(
+                min_oos_sharpe=0.5,
+                min_paper_sharpe=0.5,
+                min_distinct_regime_lookbacks_for_family=2,
+            ),
+        )
+
+        by_case = {row["case_id"]: row for row in report["candidates"]}
+        self.assertEqual(by_case["CN_momentum_60_top1_cost5_reb1_regime150"]["promotion_status"], "blocked")
+        self.assertIn(
+            "insufficient_distinct_regime_lookbacks",
+            by_case["CN_momentum_60_top1_cost5_reb1_regime150"]["blocking_reasons"],
+        )
+
     def test_run_promotion_gate_treats_missing_required_market_regime_coverage_as_blocker(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -419,6 +442,7 @@ class PromotionGateTests(unittest.TestCase):
         self.assertEqual(config.required_factor_source, "moneyflow_technical_combo")
         self.assertEqual(config.min_walk_forward_folds, 2)
         self.assertEqual(config.min_accepted_folds, 2)
+        self.assertEqual(config.min_distinct_regime_lookbacks_for_family, 2)
         self.assertAlmostEqual(config.max_adjusted_ic_p_value or 0.0, 0.05)
         self.assertFalse(config.allow_manual_live_review)
         self.assertAlmostEqual(config.max_oos_sharpe_for_promotion or 0.0, 3.0)

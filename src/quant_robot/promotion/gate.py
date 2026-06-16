@@ -43,6 +43,7 @@ class PromotionGateConfig:
     require_provider_ready_for_promotion: bool = False
     max_provider_status_age_days: int | None = None
     require_market_regime_coverage: bool = False
+    min_distinct_regime_lookbacks_for_family: int = 1
 
 
 def load_promotion_gate_config(path: str | Path) -> PromotionGateConfig:
@@ -91,6 +92,12 @@ def load_promotion_gate_config(path: str | Path) -> PromotionGateConfig:
         require_market_regime_coverage=bool(
             data.get("require_market_regime_coverage", PromotionGateConfig.require_market_regime_coverage)
         ),
+        min_distinct_regime_lookbacks_for_family=int(
+            data.get(
+                "min_distinct_regime_lookbacks_for_family",
+                PromotionGateConfig.min_distinct_regime_lookbacks_for_family,
+            )
+        ),
     )
 
 
@@ -131,6 +138,7 @@ def build_promotion_report(
     paper_evidence = list(paper_manifests or [])
     if paper_manifest is not None:
         paper_evidence.append(paper_manifest)
+    accepted_regime_lookbacks_by_family = _accepted_regime_lookbacks_by_family(walk_forward_rows)
     candidates = [
         _candidate_report(
             row,
@@ -139,6 +147,7 @@ def build_promotion_report(
             provider_status,
             quality_report,
             market_regime_coverage,
+            accepted_regime_lookbacks_by_family,
             config,
         )
         for row in walk_forward_rows
@@ -171,6 +180,7 @@ def _candidate_report(
     provider_status: dict[str, Any] | None,
     quality_report: dict[str, Any] | None,
     market_regime_coverage: dict[str, Any] | None,
+    accepted_regime_lookbacks_by_family: dict[tuple[str, str, int | None, float | None], set[int]],
     config: PromotionGateConfig,
 ) -> dict[str, Any]:
     blocking: list[str] = []
@@ -196,6 +206,7 @@ def _candidate_report(
     blocking.extend(_walk_forward_evidence_reasons(folds, accepted_folds, test_ic_p_value, test_positive_ic_rate, config))
     blocking.extend(_factor_source_reasons(factor_source, config))
     blocking.extend(_adjusted_ic_evidence_reasons(adjusted_ic_p_value, passes_adjusted_ic_p_value, config))
+    blocking.extend(_regime_family_reasons(row, accepted_regime_lookbacks_by_family, config))
     if validation_status != "accepted":
         blocking.append("walk_forward_not_accepted")
     if config.require_non_fixture_data and data_mode == "fixture":
@@ -507,6 +518,43 @@ def _market_regime_summary(market_regime_coverage: dict[str, Any] | None) -> dic
         "cleared": bool(decision.get("market_regime_coverage_cleared")) or str(market_regime_coverage.get("status")) == "sufficient",
         "blockers": decision.get("blockers", []) if isinstance(decision.get("blockers", []), list) else [],
     }
+
+
+def _accepted_regime_lookbacks_by_family(rows: list[dict[str, Any]]) -> dict[tuple[str, str, int | None, float | None], set[int]]:
+    by_family: dict[tuple[str, str, int | None, float | None], set[int]] = {}
+    for row in rows:
+        if str(row.get("validation_status")) != "accepted":
+            continue
+        regime_lookback = _maybe_int(row.get("regime_lookback"))
+        if regime_lookback is None:
+            continue
+        by_family.setdefault(_regime_family_key(row), set()).add(regime_lookback)
+    return by_family
+
+
+def _regime_family_reasons(
+    row: dict[str, Any],
+    accepted_regime_lookbacks_by_family: dict[tuple[str, str, int | None, float | None], set[int]],
+    config: PromotionGateConfig,
+) -> list[str]:
+    required = int(config.min_distinct_regime_lookbacks_for_family)
+    if required <= 1:
+        return []
+    if _maybe_int(row.get("regime_lookback")) is None:
+        return ["regime_lookback_missing"]
+    accepted = accepted_regime_lookbacks_by_family.get(_regime_family_key(row), set())
+    if len(accepted) < required:
+        return ["insufficient_distinct_regime_lookbacks"]
+    return []
+
+
+def _regime_family_key(row: dict[str, Any]) -> tuple[str, str, int | None, float | None]:
+    return (
+        str(row.get("market", "")),
+        str(row.get("factor_name", "")),
+        _maybe_int(row.get("top_n")),
+        _maybe_float(row.get("cost_bps")),
+    )
 
 
 def _missing_walk_forward_metrics(row: dict[str, Any], config: PromotionGateConfig) -> list[str]:

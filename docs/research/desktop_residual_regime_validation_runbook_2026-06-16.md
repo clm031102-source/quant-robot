@@ -93,7 +93,7 @@ python scripts\run_promotion_report.py --config configs\promotion_gate_tushare_m
 ```
 
 This does not approve live trading. It summarizes which candidates are blocked, research-only, or still missing evidence.
-For this residual-regime profile, the promotion gate also requires the data-quality audit and market-regime coverage pack. Missing or insufficient regime coverage blocks promotion even when a walk-forward row is otherwise accepted.
+For this residual-regime profile, the promotion gate also requires the data-quality audit, market-regime coverage pack, and at least two distinct accepted regime lookbacks for the same `market + factor_name + top_n + cost_bps` family. Missing or insufficient regime coverage blocks promotion even when a walk-forward row is otherwise accepted.
 
 To rebuild only the syncable Markdown summary:
 
@@ -114,6 +114,7 @@ Treat a candidate as useful only if it survives all of these checks:
 - No capacity-limited trades or participation-rate breaches.
 - IC evidence survives multiple-testing correction.
 - Results are not driven by a single regime lookback.
+- The same factor/top-N/cost family is accepted under at least two distinct pre-registered regime lookbacks.
 - 2024 weakness is explained or avoided by a pre-registered regime rule.
 
 Reject or keep as observation-only when:
