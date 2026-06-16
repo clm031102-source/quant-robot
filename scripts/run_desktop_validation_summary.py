@@ -205,6 +205,8 @@ def _market_regime_lines(report: dict[str, Any] | None) -> list[str]:
         "",
         f"- Status: {_text(report.get('status'))}",
         f"- Covered regimes: {_text(summary.get('covered_regimes'))}",
+        f"- Allowed rows: {_text(summary.get('allowed_rows'))}",
+        f"- Blocked rows: {_text(summary.get('blocked_rows'))}",
         f"- Regimes: {', '.join(regimes) if regimes else 'n/a'}",
         "",
         "### Regime Blockers",

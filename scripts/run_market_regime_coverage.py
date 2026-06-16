@@ -28,6 +28,8 @@ def run_market_regime_coverage(
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
     min_regimes: int = 2,
     min_rows_per_regime: int = 5,
+    min_allowed_rows: int = 0,
+    min_blocked_rows: int = 0,
     positive_threshold: float = 0.02,
     negative_threshold: float = -0.02,
     require_sufficient: bool = False,
@@ -37,6 +39,8 @@ def run_market_regime_coverage(
         rows,
         min_regimes=min_regimes,
         min_rows_per_regime=min_rows_per_regime,
+        min_allowed_rows=min_allowed_rows,
+        min_blocked_rows=min_blocked_rows,
         positive_threshold=positive_threshold,
         negative_threshold=negative_threshold,
     )
@@ -68,6 +72,8 @@ def main() -> None:
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--min-regimes", default=2, type=int)
     parser.add_argument("--min-rows-per-regime", default=5, type=int)
+    parser.add_argument("--min-allowed-rows", default=0, type=int)
+    parser.add_argument("--min-blocked-rows", default=0, type=int)
     parser.add_argument("--positive-threshold", default=0.02, type=float)
     parser.add_argument("--negative-threshold", default=-0.02, type=float)
     parser.add_argument("--require-sufficient", action="store_true")
@@ -79,6 +85,8 @@ def main() -> None:
             output_dir=Path(args.output_dir),
             min_regimes=args.min_regimes,
             min_rows_per_regime=args.min_rows_per_regime,
+            min_allowed_rows=args.min_allowed_rows,
+            min_blocked_rows=args.min_blocked_rows,
             positive_threshold=args.positive_threshold,
             negative_threshold=args.negative_threshold,
             require_sufficient=args.require_sufficient,

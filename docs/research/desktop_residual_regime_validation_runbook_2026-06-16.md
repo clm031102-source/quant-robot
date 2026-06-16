@@ -83,8 +83,10 @@ The residual-regime promotion gate consumes this JSON through `configs/promotion
 To rebuild only the market-regime coverage pack after a completed walk-forward run:
 
 ```powershell
-python scripts\run_market_regime_coverage.py --regime-curve-glob "data/reports/walk_forward_tushare_moneyflow_residual_regime/fold_*/test/*/regime_curve.csv" --output-dir data/reports/market_regime_coverage_tushare_moneyflow_residual_regime --min-regimes 2 --min-rows-per-regime 5 --require-sufficient
+python scripts\run_market_regime_coverage.py --regime-curve-glob "data/reports/walk_forward_tushare_moneyflow_residual_regime/fold_*/test/*/regime_curve.csv" --output-dir data/reports/market_regime_coverage_tushare_moneyflow_residual_regime --min-regimes 2 --min-rows-per-regime 5 --min-allowed-rows 5 --min-blocked-rows 5 --require-sufficient
 ```
+
+This coverage pack requires both allowed and blocked regime-filter dates, so a run must demonstrate exposure to tradeable and cash/blocked market states.
 
 To build only the promotion gate report after a validation run, use:
 

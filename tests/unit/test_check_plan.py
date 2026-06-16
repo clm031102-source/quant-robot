@@ -194,6 +194,10 @@ class CheckPlanTests(unittest.TestCase):
                 "2",
                 "--min-rows-per-regime",
                 "5",
+                "--min-allowed-rows",
+                "5",
+                "--min-blocked-rows",
+                "5",
                 "--require-sufficient",
             ],
         )

@@ -85,7 +85,12 @@ class DesktopValidationSummaryTests(unittest.TestCase):
                 json.dumps(
                     {
                         "status": "sufficient",
-                        "summary": {"covered_regimes": 3, "regimes": ["bear", "bull", "sideways"]},
+                        "summary": {
+                            "covered_regimes": 3,
+                            "allowed_rows": 8,
+                            "blocked_rows": 6,
+                            "regimes": ["bear", "bull", "sideways"],
+                        },
                         "decision": {"blockers": []},
                     }
                 ),
@@ -129,6 +134,8 @@ class DesktopValidationSummaryTests(unittest.TestCase):
             self.assertIn("deduplicate_bars", text)
             self.assertIn("Market Regime Coverage", text)
             self.assertIn("sufficient", text)
+            self.assertIn("Allowed rows: 8", text)
+            self.assertIn("Blocked rows: 6", text)
 
     def test_run_summary_rejects_manifest_count_mismatch(self):
         with tempfile.TemporaryDirectory() as tmp:
