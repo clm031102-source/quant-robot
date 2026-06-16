@@ -177,3 +177,21 @@ Raw moneyflow priority factors were also checked on the combined store at top20/
 - Top20/cost20: significant positive IC and RankIC, total return 16.6587, relative return 3.3021, but rejected for drawdown -0.5481, 83 capacity-limited trades, max participation above 500%, and negative long-short spread.
 
 These checks narrow the next useful direction: plain moneyflow strength and low-flow volatility variants have signal, but they are not tradable at the current 1,000,000 portfolio value without stronger liquidity gating and risk controls. The next factor-mining branch should pre-register liquidity-gated moneyflow-risk blends rather than keep widening raw top-N portfolios.
+
+## Micro-Capacity Sensitivity
+
+The next audit reduced portfolio value from 1,000,000 to 100,000 and widened the portfolios to top50/top100/top250. The goal was to test whether the rejected moneyflow signals were blocked only by sizing, or whether the ranking shape itself failed when capacity pressure was reduced.
+
+`mf_low_minus_volatility_20`, combined 2023-2026, 100,000 portfolio value, cost20:
+
+- Top50: rejected for relative return below threshold and drawdown above limit. Total return 4.0011, relative return -9.3554, Sharpe 0.5898, max drawdown -0.6566, capacity-limited trades 5, max participation 26.2%.
+- Top100: rejected for relative return below threshold and drawdown above limit. Total return 0.6832, relative return -12.6734, Sharpe 0.4773, max drawdown -0.6998, capacity-limited trades 2, max participation 13.1%.
+- Top250: rejected for relative return below threshold and drawdown above limit. Total return -0.2655, relative return -13.6221, Sharpe 0.3606, max drawdown -0.7678, capacity-limited trades 1, max participation 5.23%.
+
+`net_mf_amount_ratio_low`, combined 2023-2026, 100,000 portfolio value, cost20:
+
+- Top50: rejected for relative return below threshold and drawdown above limit. Total return 1.4843, relative return -11.8722, Sharpe 0.5055, max drawdown -0.7160, capacity-limited trades 5, max participation 26.2%.
+- Top100: rejected for relative return below threshold and drawdown above limit. Total return 0.2086, relative return -13.1480, Sharpe 0.4236, max drawdown -0.7448, capacity-limited trades 2, max participation 13.1%.
+- Top250: rejected for relative return below threshold and drawdown above limit. Total return -0.4090, relative return -13.7656, Sharpe 0.3324, max drawdown -0.8097, capacity-limited trades 1, max participation 5.23%.
+
+This sensitivity check rejects the simple "just reduce capital or widen holdings" explanation. Capacity pressure falls roughly as expected, but the edge disappears or inverts before the strategy becomes capacity-clean. The next useful experiment should add explicit liquidity gates or residualization before selection; broader raw top-N portfolios are not a productive path.

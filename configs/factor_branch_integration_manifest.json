@@ -39,6 +39,14 @@
       "integrated_by": "laptop",
       "status": "absorbed",
       "summary": "Absorbed continued combined rejection audits for large_minus_liquidity_20, raw moneyflow priority factors, and mf_low_minus_volatility_20. The evidence narrows future mining toward liquidity-gated moneyflow-risk blends and does not promote any factor."
+    },
+    {
+      "branch": "origin/codex/factor-batch-moneyflow-alpha",
+      "commit": "6698294cba0e830c6220edfb0063bd028f276f37",
+      "integrated_on": "2026-06-16",
+      "integrated_by": "laptop",
+      "status": "absorbed",
+      "summary": "Absorbed the micro-capacity sensitivity audit. Reducing portfolio value to 100,000 and widening top-N portfolios reduced participation pressure but did not preserve relative return or drawdown control, so raw moneyflow top-N widening remains rejected."
     }
   ],
   "ignored_branches": []
