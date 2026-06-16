@@ -286,3 +286,26 @@ Split-window check for the best temporary row, regime150/top5:
 - 2026H1: approved by simple gates. Total return 0.2543, relative return 0.2511, Sharpe 1.4231, max drawdown -0.2021, capacity-limited trades 0. IC was not significant.
 
 Audit judgment: this is the first temporary probe to clear the basic combined-sample return, drawdown, and capacity gates. It is still only a strict-validation candidate, not a promotion. Risks remain: the regime filter excludes the hardest early windows, half-year IC is often not significant, RankIC remains negative, and the factor exists only as a temporary research script. The next productive code task is to pre-register this residualized liquidity-aware factor family and run formal rolling walk-forward.
+
+## Production Residual Matrix Recheck
+
+After the laptop integrated the residualized moneyflow method into production factor code, the office desktop rebased the mining work onto that method update and reran the combined 2023-2026 sample using the formal factor builder. The full rolling walk-forward grid was too slow on the office desktop because the current validation path recomputes residual factors per case and per fold. The useful office workflow was therefore to compute the production factor matrix once, cache it locally under `data/reports`, and audit regimes from that matrix.
+
+The production matrix covered `large_minus_liquidity_20`, `large_resid_liq_vol_amt_20`, `large_resid_liq_vol_amt_gate_20`, and `large_resid_liquidity_20` with 14,283,928 factor rows. Local artifact path: `data/reports/desktop_factor_mining_20260616_continue/20260616_office_production_residual_factor_matrix_probe/`.
+
+Best combined-sample rows, top5/cost20/1,000,000 portfolio value/10 bps market impact:
+
+- `large_resid_liq_vol_amt_gate_20`, regime150: approved by simple return/drawdown/capacity/IC gates. Total return 67.6590, relative return 54.3024, Sharpe 1.1412, max drawdown -0.2859, capacity-limited trades 0, max participation 1.75%, mean IC 0.00796, IC p-value 0.00228.
+- `large_resid_liq_vol_amt_gate_20`, regime252: approved by simple gates. Total return 41.3360, relative return 27.9794, Sharpe 1.1013, max drawdown -0.2859, capacity-limited trades 0, mean IC 0.00810, IC p-value 0.00208.
+- `large_resid_liq_vol_amt_gate_20`, regime180: approved by simple gates. Total return 38.1081, relative return 24.7515, Sharpe 1.0788, max drawdown -0.2859, capacity-limited trades 0, mean IC 0.00760, IC p-value 0.00334.
+
+The ungated production residual score had much larger raw returns but failed capacity review: `large_resid_liq_vol_amt_20` top5/no-regime had 160 capacity-limited trades and max participation above 500%; regime150 still had 58 capacity-limited trades. This confirms that the amount gate is not cosmetic. It is the difference between a high-return but non-tradable residual score and a capacity-clean strict-validation candidate.
+
+Split-window check on the three approved gated rows:
+
+- 2023H2 and 2024H1 had no trades because the positive market-regime filter blocked those windows.
+- Regime150/top5 passed simple gates in 2024H2, 2025H1, 2025H2, and 2026H1, with capacity-limited trades 0 in every traded split. Returns were strongest in 2024H2 and weakest but still positive in 2026H1.
+- Regime180/top5 and regime252/top5 also passed simple gates in every traded split. Regime252 gave the best 2025H1 and 2026H1 split returns, while regime150 gave the best full-sample relative return.
+- Half-year IC remains unstable: only 2025H2 was significant positive across these split checks. RankIC remains negative in the combined sample, so the factor is still tail-driven rather than smoothly monotonic.
+
+Audit judgment: the laptop-integrated production factor reproduces the temporary probe. `large_resid_liq_vol_amt_gate_20` top5 with regime150/180/252 should stay in the strict-validation queue. It is not promotion-ready because the regime filter avoids the hardest early windows, split IC is not consistently significant, and formal rolling walk-forward needs a cached factor-matrix path before it can run efficiently on the office desktop.
