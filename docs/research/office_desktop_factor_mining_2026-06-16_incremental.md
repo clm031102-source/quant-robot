@@ -137,3 +137,12 @@ The archive replay store and the 2025-07-01 to 2026-06-15 incremental refresh we
 - Max participation rate: 14.4%.
 
 This long-sample result weakens the candidate. The signal still deserves strict validation because IC and spread evidence persist, but it is not promotion-ready: drawdown, capacity pressure, and negative RankIC remain unresolved.
+
+Additional combined width/cost audit on `large_minus_liquidity_20`:
+
+- Top10/cost20: rejected for drawdown above limit; max drawdown -0.6136 and capacity-limited trades 2.
+- Top10/cost30: rejected for relative return below threshold and drawdown above limit.
+- Top20/cost20: rejected for relative return below threshold and drawdown above limit; capacity-limited trades 0, but max drawdown -0.7042.
+- Top20/cost30: rejected for relative return below threshold and drawdown above limit.
+
+The wider portfolios reduce participation pressure but do not solve the drawdown and cost sensitivity problem. Current status is strict-validation observation, not promotion.
