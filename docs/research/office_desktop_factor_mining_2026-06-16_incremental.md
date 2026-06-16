@@ -420,3 +420,32 @@ Key results:
 - Narrower keep-rank probes did not rescue the case. keep13/cost30/regime252/threshold1% had relative return 0.9471 and max drawdown -0.3021, but tail-IC p-value was 0.0503.
 
 Audit judgment: stricter regime thresholds do not solve the top6/sticky cost30 problem. The residual-gate top6 family remains useful at cost20, but further parameter tuning around regime thresholds is now low value. The next office mining path should move to a different signal construction or a formally implemented turnover-aware framework from the laptop branch, rather than continuing to overfit this same shape.
+
+## Momentum-Flow Tail-IC Recheck
+
+After moving away from residual-gate parameter tuning, the office desktop rechecked the two older momentum-flow candidates that had strong historical returns but negative RankIC: `large_plus_risk_momentum_10` and `extra_plus_momentum_10`. The run used the current selected-holdings tail-IC evidence path and covered 36 cases across top3/top5/top10, cost20/cost30, and regime150/regime180/regime252.
+
+Key results:
+
+- All 36 cases completed, but no row passed the combined return/drawdown/capacity/tail-IC gate.
+- All 36 rows had significant positive selected-holdings tail-IC, and all 18 cost30 rows also kept significant positive tail-IC. This confirms the older negative RankIC issue was hiding a strong traded-tail effect rather than a smoothly monotonic cross-section.
+- No row was capacity-clean. Even the lower-pressure top10 rows still had 40-62 capacity-limited trades, and top3/top5 variants had much larger max participation pressure.
+- Only two cost20 rows had max drawdown within -0.30; no cost30 row passed the drawdown limit.
+- Best raw result: `extra_plus_momentum_10/top3/cost20/regime150` had relative return 2592.7438, Sharpe 4.3754, and tail-IC p-value 0.0162, but failed with max drawdown -0.4115, 62 capacity-limited trades, and max participation 281.8%.
+- Closest cost30 drawdown row: `extra_plus_momentum_10/top5/cost30/regime252` had relative return 90.6725 and very strong tail-IC p-value 0.000060, but still failed with max drawdown -0.3023 and 69 capacity-limited trades.
+
+Audit judgment: both momentum-flow candidates are real tail signals, but their tradable evidence is blocked by capacity and drawdown. They are not promotion-ready. The only efficient follow-up worth testing was whether an amount gate could remove the capacity problem without destroying tail-IC.
+
+## Momentum-Flow Amount-Gate Prototype
+
+The office desktop then ran a local research-only amount-gate prototype for `large_plus_risk_momentum_10` and `extra_plus_momentum_10`. This did not change the formal factor registry. The prototype recomputed the two base factors, set signal-day factor values to null when amount was below 100m or 200m, then ran 32 cases across top5/top10, cost20/cost30, and regime150/regime252 through the same formal pipeline with precomputed factors.
+
+Key results:
+
+- All 32 cases completed and all became capacity-clean: capacity-limited trades were 0, with max participation below 5%.
+- The gate also removed the useful tail evidence. No row passed, and the leading rows no longer had significant selected-holdings tail-IC.
+- Best relative-return row: `large_plus_risk_momentum_10_amt100m_proto/top10/cost20/regime150` had relative return 6.1540 and capacity-limited trades 0, but max drawdown was -0.3411 and tail-IC p-value was 0.1285.
+- The 200m floor was worse: returns mostly turned negative, drawdown widened, and tail-IC remained insignificant.
+- `extra_plus_momentum_10` did not survive the amount-gate prototype; its previously strong tail evidence was tied to the lower-liquidity segment removed by the gate.
+
+Audit judgment: a simple signal-day amount floor solves capacity mechanically but destroys the momentum-flow edge. This path should not be formalized as a new production factor. The useful research conclusion is that `large_plus_risk_momentum_10` and `extra_plus_momentum_10` are micro/low-liquidity tail effects; future work should not spend more office cycles on simple amount floors for these signals. If revisited, it should be through a more explicit liquidity-neutral or execution-aware construction from the laptop framework, not another threshold sweep.
