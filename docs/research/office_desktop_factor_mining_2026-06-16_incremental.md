@@ -474,3 +474,26 @@ No-regime supplement:
 - `mf_low_plus_momentum_5/top5/cost20` had relative return 57.6452, but selected-tail IC was not significant, max drawdown was -0.8103, and capacity-limited trades were 70.
 
 Audit judgment: the 5-day momentum blends are not tradable candidates under the current validation standard. They produce strong selected-tail evidence in some rows, but the edge is tied to unstable, capacity-stressed tails and severe drawdowns. Regime filters do not make them safer, and removing regime filters makes drawdown much worse. The office queue should not spend more cycles on simple top-N, regime, or amount-threshold variants of these two factors unless the laptop framework adds a materially different liquidity-neutral or execution-aware construction.
+
+## Low-Flow Minus Volatility Near-Miss
+
+The office desktop then rechecked `mf_low_minus_volatility_20`, the strongest remaining legacy candidate by old relative-return screens. The first run covered 18 cases across top5/top10/top20, cost20/cost30, and regime150/regime180/regime252 using the current selected-holdings tail-IC path.
+
+Regime-screen results:
+
+- All 18 cases completed, and all 18 had significant positive selected-holdings tail-IC.
+- The formal runner approved 11 rows on return and drawdown alone, but none passed the stricter office combined gate because every row had capacity-limited trades.
+- The strongest near-miss was `top10/cost30/regime150`: relative return 72.2635, Sharpe 1.2835, max drawdown -0.2748, selected-tail IC p-value 0.0010, but 61 capacity-limited trades and max participation 169.3%.
+- `top10/cost30/regime252` also cleared return, cost30, drawdown, and tail-IC with relative return 29.7799, max drawdown -0.2500, and tail-IC p-value 0.00042, but still had 48 capacity-limited trades.
+- Top20 reduced drawdown and strengthened tail-IC, but returns became too small at cost30 and capacity remained nonzero.
+
+Because this was the closest non-residual candidate so far, the office desktop ran a narrow research-only amount-gate rescue prototype. It tested signal-day amount floors of 100m and 200m for top10/top20, cost20/cost30, and regime150/regime180/regime252.
+
+Amount-gate rescue results:
+
+- All 24 prototype cases completed and all became capacity-clean, with capacity-limited trades 0 and max participation below 5%.
+- No row passed. The gate removed the economically useful return profile: every row had negative relative return and drawdown stayed far beyond the -0.30 limit.
+- Best relative-return prototype row was `amt100m/top10/cost20/regime150`, with relative return -2.6908, max drawdown -0.4240, and tail-IC p-value 0.000066.
+- Cost30 amount-gated rows were worse; `amt100m/top10/cost30/regime150` had relative return -9.1978 and max drawdown -0.6057 despite significant tail-IC.
+
+Audit judgment: `mf_low_minus_volatility_20` is the best current capacity-blocked near-miss, not a promotable factor. The ungated top10/regime family has unusually good cost30/tail-IC/drawdown evidence, but the edge depends on names that breach the current participation cap. A simple amount floor solves capacity but destroys returns and worsens drawdown, so it should not be formalized. If the laptop framework adds a liquidity-neutral ranking, position-size throttling, or execution-aware overlay, this factor deserves priority retesting; until then, office mining should not spend more cycles on plain amount-threshold variants.
