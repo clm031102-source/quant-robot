@@ -113,3 +113,27 @@ Rejected rows:
 - `small_sell_low_plus_momentum_5`: negative return, negative IC, drawdown above limit, and capacity pressure.
 
 The continued run reinforces the current promotion rule: high Sharpe alone is not enough. A candidate must survive significance, monotonicity or tail-dependence review, cost, capacity, split-window robustness, and rolling walk-forward checks before it can move beyond observation.
+
+## Combined Long-Sample Recheck
+
+The archive replay store and the 2025-07-01 to 2026-06-15 incremental refresh were combined into a local research store covering 2023-07-03 through 2026-06-15:
+
+- Daily bars: 3,806,375 rows, 5,634 assets, duplicate keys 0.
+- Moneyflow inputs: 3,606,228 rows, 5,312 assets, duplicate keys 0.
+
+`large_minus_liquidity_20` was rerun on the combined 2023-2026 sample at top5/cost20:
+
+- Status: completed, but decision rejected.
+- Rejection reason: drawdown above limit.
+- Total return: 74.6567.
+- Relative return: 61.3001.
+- Sharpe: 0.8881.
+- Max drawdown: -0.6159.
+- Mean IC: 0.01464.
+- IC p-value: 5.20e-12.
+- Positive IC rate: 62.7%.
+- Long-short mean return: 0.00488.
+- Capacity-limited trades: 2.
+- Max participation rate: 14.4%.
+
+This long-sample result weakens the candidate. The signal still deserves strict validation because IC and spread evidence persist, but it is not promotion-ready: drawdown, capacity pressure, and negative RankIC remain unresolved.
