@@ -59,12 +59,53 @@ class ProjectAuditTests(unittest.TestCase):
             self.assertIn("src/quant_robot/gui/fixtures/mock_data.py", audit["mock_boundaries"]["mock_files"])
             self.assertTrue(audit["mock_boundaries"]["passes"])
 
+    def test_audit_flags_walk_forward_factor_names_missing_from_registry(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "configs").mkdir()
+            (root / "configs" / "walk_forward_bad_combo.json").write_text(
+                """{
+  "split_date": "2024-01-01",
+  "experiment_grid": {
+    "factor_source": "moneyflow_technical_combo",
+    "factor_names": ["large_resid_liquidity_20", "office_only_factor_20"],
+    "factor_windows": [20]
+  }
+}
+""",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            registry = audit["factor_config_registry"]
+            self.assertFalse(registry["passes"])
+            self.assertEqual(registry["configs_scanned"], 1)
+            self.assertEqual(
+                registry["unknown_factor_refs"],
+                [
+                    {
+                        "path": "configs/walk_forward_bad_combo.json",
+                        "factor_source": "moneyflow_technical_combo",
+                        "factor_name": "office_only_factor_20",
+                    }
+                ],
+            )
+            self.assertFalse(audit["summary"]["passes"])
+
     def test_markdown_report_contains_core_sections(self):
         audit = {
             "summary": {"passes": True, "files_scanned": 2},
             "safety": {"passes": True, "forbidden_hits": [], "boundary_mentions": 1},
             "mock_boundaries": {"passes": True, "mock_files": ["src/mock_data.py"]},
             "real_data": {"tushare_ready": False, "parquet_ready": False},
+            "factor_config_registry": {
+                "passes": True,
+                "configs_scanned": 1,
+                "unknown_factor_refs": [],
+                "unsupported_factor_sources": [],
+                "window_mismatches": [],
+            },
         }
 
         report = render_markdown_report(audit)
@@ -72,6 +113,7 @@ class ProjectAuditTests(unittest.TestCase):
         self.assertIn("# Quant Robot Project Audit", report)
         self.assertIn("Safety Boundary", report)
         self.assertIn("Mock Data Boundary", report)
+        self.assertIn("Factor Config Registry", report)
 
 
 if __name__ == "__main__":

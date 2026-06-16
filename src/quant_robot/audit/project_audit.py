@@ -7,8 +7,11 @@ from pathlib import Path
 from typing import Any
 
 from quant_robot.data.readiness import check_parquet_readiness, check_tushare_readiness
+from quant_robot.factors.moneyflow_technical import MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES
+from quant_robot.factors.tushare_inputs import DAILY_BASIC_FACTOR_NAMES
+from quant_robot.factors.tushare_moneyflow import MONEYFLOW_FACTOR_NAMES
 
-SCAN_ROOTS = ("src", "scripts", "tests", "README.md", "docs")
+SCAN_ROOTS = ("src", "scripts", "tests", "README.md", "docs", "configs")
 IMPLEMENTATION_ROOTS = ("src/", "scripts/")
 SELF_AUDIT_FILES = {"src/quant_robot/audit/project_audit.py"}
 TEXT_SUFFIXES = {".py", ".md", ".txt", ".yaml", ".yml", ".toml", ".json", ".html", ".css", ".js"}
@@ -32,6 +35,16 @@ BOUNDARY_PHRASES = (
     "research only",
 )
 DISABLED_LIVE_BOUNDARY_FIELDS = ("live_order_allowed",)
+TECHNICAL_FACTOR_PREFIXES = (
+    "momentum",
+    "risk_adjusted_momentum",
+    "reversal",
+    "volatility",
+    "volume_change",
+    "liquidity",
+)
+DEFAULT_FACTOR_SOURCE = "technical"
+DEFAULT_FACTOR_WINDOWS = (2, 3)
 
 
 def collect_project_audit(root: str | Path = ".") -> dict[str, Any]:
@@ -64,11 +77,13 @@ def collect_project_audit(root: str | Path = ".") -> dict[str, Any]:
                     )
     tushare = check_tushare_readiness()
     parquet = check_parquet_readiness()
+    factor_config_registry = _audit_factor_config_registry(root_path)
     safety_passes = not forbidden_hits
     mock_passes = all("mock" in file.lower() or "fixture" in file.lower() for file in mock_files)
+    factor_config_passes = bool(factor_config_registry["passes"])
     return {
         "summary": {
-            "passes": safety_passes and mock_passes,
+            "passes": safety_passes and mock_passes and factor_config_passes,
             "files_scanned": len(files),
         },
         "safety": {
@@ -86,6 +101,7 @@ def collect_project_audit(root: str | Path = ".") -> dict[str, Any]:
             "parquet_ready": bool(parquet["ready"]),
             "parquet_missing": list(parquet["missing"]),
         },
+        "factor_config_registry": factor_config_registry,
     }
 
 
@@ -93,6 +109,7 @@ def render_markdown_report(audit: dict[str, Any]) -> str:
     safety = audit["safety"]
     mock = audit["mock_boundaries"]
     real_data = audit.get("real_data", {})
+    factor_registry = audit.get("factor_config_registry", {})
     lines = [
         "# Quant Robot Project Audit",
         "",
@@ -118,6 +135,28 @@ def render_markdown_report(audit: dict[str, Any]) -> str:
     )
     for file in mock["mock_files"]:
         lines.append(f"  - `{file}`")
+    lines.extend(
+        [
+            "",
+            "## Factor Config Registry",
+            "",
+            f"- Passes: {factor_registry.get('passes', False)}",
+            f"- Configs scanned: {factor_registry.get('configs_scanned', 0)}",
+            f"- Unknown factor refs: {len(factor_registry.get('unknown_factor_refs', []))}",
+            f"- Unsupported factor sources: {len(factor_registry.get('unsupported_factor_sources', []))}",
+            f"- Window mismatches: {len(factor_registry.get('window_mismatches', []))}",
+        ]
+    )
+    for hit in factor_registry.get("unknown_factor_refs", []):
+        lines.append(f"  - {hit['path']} `{hit['factor_source']}` `{hit['factor_name']}`")
+    for hit in factor_registry.get("unsupported_factor_sources", []):
+        lines.append(f"  - {hit['path']} unsupported `{hit['factor_source']}`")
+    for hit in factor_registry.get("window_mismatches", []):
+        lines.append(
+            "  - "
+            f"{hit['path']} `{hit['factor_name']}` window {hit['factor_window']} "
+            f"not in {hit['configured_windows']}"
+        )
     lines.extend(
         [
             "",
@@ -202,6 +241,123 @@ def _is_implementation_file(relative_path: str) -> bool:
     if relative_path in SELF_AUDIT_FILES:
         return False
     return relative_path.endswith(".py") and relative_path.startswith(IMPLEMENTATION_ROOTS)
+
+
+def _audit_factor_config_registry(root: Path) -> dict[str, Any]:
+    configs_scanned = 0
+    unknown_factor_refs = []
+    unsupported_factor_sources = []
+    window_mismatches = []
+    invalid_config_files = []
+    config_dir = root / "configs"
+    if not config_dir.exists():
+        return {
+            "passes": True,
+            "configs_scanned": 0,
+            "unknown_factor_refs": [],
+            "unsupported_factor_sources": [],
+            "window_mismatches": [],
+            "invalid_config_files": [],
+        }
+    for path in sorted(config_dir.glob("*.json")):
+        relative = _relative(path, root)
+        try:
+            data = json.loads(path.read_text(encoding="utf-8-sig"))
+        except json.JSONDecodeError as exc:
+            invalid_config_files.append({"path": relative, "error": str(exc)})
+            continue
+        grid = _factor_grid_mapping(data)
+        if grid is None:
+            continue
+        configs_scanned += 1
+        factor_source = str(grid.get("factor_source", DEFAULT_FACTOR_SOURCE))
+        factor_names = tuple(str(name) for name in grid.get("factor_names", ()))
+        factor_windows = _factor_windows(grid.get("factor_windows", DEFAULT_FACTOR_WINDOWS))
+        registered = _registered_factor_names(factor_source, factor_windows)
+        if registered is None:
+            unsupported_factor_sources.append({"path": relative, "factor_source": factor_source})
+            continue
+        for factor_name in factor_names:
+            window = _parse_technical_factor_window(factor_name)
+            if factor_source in {"technical", "combined"} and window is not None and window not in factor_windows:
+                window_mismatches.append(
+                    {
+                        "path": relative,
+                        "factor_name": factor_name,
+                        "factor_window": window,
+                        "configured_windows": list(factor_windows),
+                    }
+                )
+                continue
+            if factor_name not in registered:
+                unknown_factor_refs.append(
+                    {
+                        "path": relative,
+                        "factor_source": factor_source,
+                        "factor_name": factor_name,
+                    }
+                )
+    passes = not unknown_factor_refs and not unsupported_factor_sources and not window_mismatches and not invalid_config_files
+    return {
+        "passes": passes,
+        "configs_scanned": configs_scanned,
+        "unknown_factor_refs": unknown_factor_refs,
+        "unsupported_factor_sources": unsupported_factor_sources,
+        "window_mismatches": window_mismatches,
+        "invalid_config_files": invalid_config_files,
+    }
+
+
+def _factor_grid_mapping(data: Any) -> dict[str, Any] | None:
+    if not isinstance(data, dict):
+        return None
+    nested = data.get("experiment_grid")
+    if isinstance(nested, dict) and "factor_names" in nested:
+        return nested
+    if "factor_names" in data:
+        return data
+    return None
+
+
+def _factor_windows(value: Any) -> tuple[int, ...]:
+    if not isinstance(value, (list, tuple)):
+        return DEFAULT_FACTOR_WINDOWS
+    windows = []
+    for item in value:
+        try:
+            windows.append(int(item))
+        except (TypeError, ValueError):
+            continue
+    return tuple(windows) or DEFAULT_FACTOR_WINDOWS
+
+
+def _registered_factor_names(factor_source: str, factor_windows: tuple[int, ...]) -> set[str] | None:
+    if factor_source == "technical":
+        return _technical_factor_names(factor_windows)
+    if factor_source == "tushare_daily_basic":
+        return set(DAILY_BASIC_FACTOR_NAMES)
+    if factor_source == "tushare_moneyflow":
+        return set(MONEYFLOW_FACTOR_NAMES)
+    if factor_source == "moneyflow_technical_combo":
+        return set(MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES)
+    if factor_source == "combined":
+        return _technical_factor_names(factor_windows) | set(DAILY_BASIC_FACTOR_NAMES)
+    return None
+
+
+def _technical_factor_names(windows: tuple[int, ...]) -> set[str]:
+    return {f"{prefix}_{window}" for prefix in TECHNICAL_FACTOR_PREFIXES for window in windows}
+
+
+def _parse_technical_factor_window(factor_name: str) -> int | None:
+    for prefix in sorted(TECHNICAL_FACTOR_PREFIXES, key=len, reverse=True):
+        marker = f"{prefix}_"
+        if factor_name.startswith(marker):
+            try:
+                return int(factor_name.removeprefix(marker))
+            except ValueError:
+                return None
+    return None
 
 
 if __name__ == "__main__":
