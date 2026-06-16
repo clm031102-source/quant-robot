@@ -264,6 +264,35 @@ class PromotionGateTests(unittest.TestCase):
         self.assertIn("adjusted_ic_p_value_above_threshold", row["blocking_reasons"])
         self.assertIn("adjusted_ic_significance_not_passed", row["blocking_reasons"])
 
+    def test_promotion_blocks_candidate_without_tail_ic_evidence_when_required(self):
+        walk_forward = _accepted_walk_forward_row("CN_ETF_total_mv_log_top1_cost5_reb5", "total_mv_log")
+        walk_forward.update(
+            {
+                "test_tail_ic_p_value": 0.40,
+                "test_tail_significance_status": "not_significant",
+            }
+        )
+
+        report = build_promotion_report(
+            walk_forward_rows=[walk_forward],
+            paper_manifest=_paper_manifest(
+                case_id="CN_ETF_total_mv_log_top1_cost5_reb5",
+                factor_name="total_mv_log",
+                sharpe=0.80,
+                total_return=0.20,
+            ),
+            config=PromotionGateConfig(
+                min_oos_sharpe=0.5,
+                min_paper_sharpe=0.5,
+                max_tail_ic_p_value=0.05,
+            ),
+        )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "blocked")
+        self.assertIn("tail_ic_significance_below_threshold", row["blocking_reasons"])
+        self.assertEqual(row["walk_forward"]["test_tail_significance_status"], "not_significant")
+
     def test_promotion_blocks_implausibly_high_oos_sharpe_when_configured(self):
         walk_forward = _accepted_walk_forward_row("CN_ETF_momentum_60_top1_cost5_reb5", "momentum_60")
         walk_forward["test_sharpe"] = 3.5
@@ -421,7 +450,8 @@ class PromotionGateTests(unittest.TestCase):
                 {
                   "walk_forward_leaderboard": "walk_forward.csv",
                   "required_factor_source": "tushare_daily_basic",
-                  "max_adjusted_ic_p_value": 0.05
+                  "max_adjusted_ic_p_value": 0.05,
+                  "max_tail_ic_p_value": 0.05
                 }
                 """,
                 encoding="utf-8",
@@ -431,6 +461,7 @@ class PromotionGateTests(unittest.TestCase):
 
         self.assertEqual(config.required_factor_source, "tushare_daily_basic")
         self.assertAlmostEqual(config.max_adjusted_ic_p_value, 0.05)
+        self.assertAlmostEqual(config.max_tail_ic_p_value, 0.05)
 
     def test_residual_regime_promotion_config_uses_strict_moneyflow_combo_controls(self):
         config = load_promotion_gate_config("configs/promotion_gate_tushare_moneyflow_residual_regime.json")
@@ -444,6 +475,7 @@ class PromotionGateTests(unittest.TestCase):
         self.assertEqual(config.min_accepted_folds, 2)
         self.assertEqual(config.min_distinct_regime_lookbacks_for_family, 2)
         self.assertAlmostEqual(config.max_adjusted_ic_p_value or 0.0, 0.05)
+        self.assertAlmostEqual(config.max_tail_ic_p_value or 0.0, 0.05)
         self.assertFalse(config.allow_manual_live_review)
         self.assertAlmostEqual(config.max_oos_sharpe_for_promotion or 0.0, 3.0)
         self.assertEqual(

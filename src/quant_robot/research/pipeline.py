@@ -113,6 +113,7 @@ def run_research_pipeline(
         max_participation_rate=config.max_participation_rate,
         portfolio_value=config.portfolio_value,
     )
+    tail_ic = compute_ic(backtest.positions, labels)
     drawdown = _drawdown_curve(backtest.equity_curve)
     benchmark_curve = build_benchmark_curve(_comparison_bars(filtered, config), benchmark_asset_id=config.benchmark_asset_id)
     benchmark_metrics = compare_strategy_to_benchmark(
@@ -127,7 +128,7 @@ def run_research_pipeline(
         min_relative_return=config.min_relative_return,
         max_drawdown_limit=config.max_drawdown_limit,
     )
-    summary = _factor_summary(ic)
+    summary = {**_factor_summary(ic), **_tail_factor_summary(tail_ic)}
     result = _sanitize(
         {
             "data_mode": "fixture" if set(filtered["source"].astype(str)) == {"fixture"} else "research",
@@ -143,6 +144,7 @@ def run_research_pipeline(
                 "factors": len(selected),
                 "labels": len(labels),
                 "ic": len(ic),
+                "tail_ic": len(tail_ic),
                 "group_returns": len(groups),
                 "long_short": len(long_short),
                 "trades": len(backtest.trades),
@@ -155,6 +157,7 @@ def run_research_pipeline(
             "drawdown_curve": _records(drawdown),
             "regime_curve": _records(regime["rows"]),
             "ic": _records(ic),
+            "tail_ic": _records(tail_ic),
             "group_returns": _records(groups),
             "long_short": _records(long_short),
             "trades": _records(backtest.trades),
@@ -170,6 +173,7 @@ def run_research_pipeline(
             drawdown,
             regime["rows"],
             ic,
+            tail_ic,
             groups,
             long_short,
             backtest.trades,
@@ -361,6 +365,10 @@ def _factor_summary(ic: pd.DataFrame) -> dict[str, float | int | str]:
     }
 
 
+def _tail_factor_summary(ic: pd.DataFrame) -> dict[str, float | int | str]:
+    return {f"tail_{key}": value for key, value in _factor_summary(ic).items()}
+
+
 def _guarded_series_t_test(values: pd.Series) -> tuple[float, float]:
     clean = pd.to_numeric(values, errors="coerce").dropna()
     if len(clean) < MIN_IC_OBSERVATIONS_FOR_SIGNIFICANCE:
@@ -414,6 +422,7 @@ def _write_artifacts(
     drawdown: pd.DataFrame,
     regime: pd.DataFrame,
     ic: pd.DataFrame,
+    tail_ic: pd.DataFrame,
     groups: pd.DataFrame,
     long_short: pd.DataFrame,
     trades: pd.DataFrame,
@@ -432,6 +441,7 @@ def _write_artifacts(
     drawdown.to_csv(output_dir / "drawdown_curve.csv", index=False)
     regime.to_csv(output_dir / "regime_curve.csv", index=False)
     ic.to_csv(output_dir / "ic.csv", index=False)
+    tail_ic.to_csv(output_dir / "tail_ic.csv", index=False)
     groups.to_csv(output_dir / "group_returns.csv", index=False)
     long_short.to_csv(output_dir / "long_short.csv", index=False)
     trades.to_csv(output_dir / "trades.csv", index=False)

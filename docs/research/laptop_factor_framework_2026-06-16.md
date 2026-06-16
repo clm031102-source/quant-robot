@@ -49,9 +49,10 @@ The desktop profile now enforces the full residual-regime chain:
 - precomputed factor-matrix reuse inside each residual-regime experiment grid run;
 - CN data-quality audit against `data/processed` with output under `data/reports/data_quality_gap_audit_tushare_moneyflow_residual_regime`;
 - market-regime coverage rebuilt from walk-forward test-fold `regime_curve.csv` files, including both allowed and blocked regime-filter dates;
-- residual-regime promotion gate that consumes the data-quality audit, requires the market-regime coverage pack, and blocks single-lookback regime wins;
-- Markdown summary that cross-checks the walk-forward leaderboard against `manifest.json`, verifies promotion candidate case IDs, and records data-quality, promotion-gate, and regime-coverage status.
+- selected-holdings tail-IC diagnostics computed from actual portfolio positions rather than the whole eligible universe;
+- residual-regime promotion gate that consumes the data-quality audit, requires the market-regime coverage pack, blocks single-lookback regime wins, and blocks non-significant selected-tail IC;
+- Markdown summary that cross-checks the walk-forward leaderboard against `manifest.json`, verifies promotion candidate case IDs, and records data-quality, promotion-gate, tail-IC, and regime-coverage status.
 
-This means a candidate can no longer look acceptable merely because it survived one favorable market cycle or because an old leaderboard CSV was mixed with a newer manifest.
+This means a candidate can no longer look acceptable merely because it survived one favorable market cycle, because an old leaderboard CSV was mixed with a newer manifest, or because full-universe IC looked significant while the actually traded tail did not.
 
 The latest office attribution also adds a review warning: `large_minus_liquidity_20` failed through a severe 2024H1 drawdown and hump-shaped quantiles rather than a pure capacity problem, while `mf_low_minus_volatility_20` was both capacity-constrained and non-monotonic. The next run should inspect quantile shape and mid-quantile/tail behavior before treating any liquidity-controlled variant as robust.

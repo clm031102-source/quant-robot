@@ -95,6 +95,14 @@
       "integrated_by": "laptop",
       "status": "absorbed",
       "summary": "Absorbed the office production residual matrix recheck. The production factor builder reproduced the temporary residual probe, keeping large_resid_liq_vol_amt_gate_20 top5 with regime150/180/252 in strict validation while reinforcing blockers for single-lookback regime dependence, regime-filter blocked windows, unstable split IC, and the need for a cached factor-matrix validation path."
+    },
+    {
+      "branch": "origin/codex/factor-batch-office-residual-regime-20260616",
+      "commit": "0631a9f58dba8a6efbe6c4ae6037e0f6d05a9612",
+      "integrated_on": "2026-06-16",
+      "integrated_by": "laptop",
+      "status": "absorbed",
+      "summary": "Absorbed the residual gate amount-band and rank-window probe. The probe rejected amount-band tweaks and rank offsets as better candidates, and promoted the useful method lesson into core validation: actual selected-holdings tail IC must be reported and gateable because full-universe IC can look significant while the traded tail is not."
     }
   ],
   "ignored_branches": []

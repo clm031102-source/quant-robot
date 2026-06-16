@@ -323,7 +323,7 @@ Key observations:
 - Excluding the 500m-1b signal-amount band improved drawdown for `r1_5/regime150` to -0.2579, but relative return fell to 38.4864 and selected-tail IC remained not significant.
 - Raising the signal-day amount floor to 200m, 500m, or 1b generally reduced the edge. The best `gte200m` row had relative return 32.1945 but max drawdown -0.4983; the best `gte500m` row had relative return only 6.0874 and max drawdown -0.5276.
 
-Audit judgment: amount-band tweaks and rank-window offsets do not produce a better candidate than the existing `large_resid_liq_vol_amt_gate_20` top5 regime family. The useful method improvement is to add a formal tail-selection IC diagnostic to validation, because full-universe IC can look significant while the actually traded tail is not significant.
+Audit judgment: amount-band tweaks and rank-window offsets do not produce a better candidate than the existing `large_resid_liq_vol_amt_gate_20` top5 regime family. The useful method improvement is to add a formal tail-selection IC diagnostic to validation, because full-universe IC can look significant while the actually traded tail is not significant. The laptop integration now promotes this into core validation as tail-IC evidence on the actual selected holdings.
 
 ## Precompute Desktop Validation Slice
 

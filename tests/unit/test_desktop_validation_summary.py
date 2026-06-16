@@ -22,6 +22,8 @@ class DesktopValidationSummaryTests(unittest.TestCase):
                 "accepted_folds": "2",
                 "folds": "2",
                 "adjusted_ic_p_value": "0.01",
+                "test_tail_ic_p_value": "0.40",
+                "test_tail_significance_status": "not_significant",
             },
             {
                 "case_id": "CN_large_resid_liq_vol_amt_20_top20_cost30_reb1_regime120",
@@ -36,6 +38,8 @@ class DesktopValidationSummaryTests(unittest.TestCase):
                 "accepted_folds": "0",
                 "folds": "2",
                 "adjusted_ic_p_value": "1.0",
+                "test_tail_ic_p_value": "1.0",
+                "test_tail_significance_status": "insufficient_data",
             },
         ]
         promotion = {
@@ -60,6 +64,8 @@ class DesktopValidationSummaryTests(unittest.TestCase):
         self.assertIn("regime=150", summary)
         self.assertIn("walk_forward_not_accepted", summary)
         self.assertIn("research-to-paper only", summary)
+        self.assertIn("Tail IC p", summary)
+        self.assertIn("not_significant", summary)
 
     def test_run_summary_reads_files_and_writes_markdown(self):
         with tempfile.TemporaryDirectory() as tmp:
