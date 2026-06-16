@@ -96,7 +96,7 @@ def run_promotion_gate(config: PromotionGateConfig) -> dict[str, Any]:
     paper_manifests = _load_paper_manifests(config)
     provider_status = _read_json(config.provider_status) if config.provider_status else None
     quality_report = _read_json(config.quality_report) if config.quality_report else None
-    market_regime_coverage = _read_json(config.market_regime_coverage) if config.market_regime_coverage else None
+    market_regime_coverage = _read_optional_json(config.market_regime_coverage) if config.market_regime_coverage else None
     report = build_promotion_report(
         walk_forward_rows,
         experiment_rows=experiment_rows,
@@ -656,6 +656,13 @@ def _read_json(path: str | Path) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"Expected JSON object in {path}")
     return data
+
+
+def _read_optional_json(path: str | Path) -> dict[str, Any] | None:
+    source = Path(path)
+    if not source.exists():
+        return None
+    return _read_json(source)
 
 
 def _load_paper_manifests(config: PromotionGateConfig) -> list[dict[str, Any]]:

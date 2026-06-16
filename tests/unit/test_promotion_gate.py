@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from quant_robot.promotion.gate import PromotionGateConfig, build_promotion_report, load_promotion_gate_config
+from quant_robot.promotion.gate import PromotionGateConfig, build_promotion_report, load_promotion_gate_config, run_promotion_gate
 
 
 class PromotionGateTests(unittest.TestCase):
@@ -289,6 +289,30 @@ class PromotionGateTests(unittest.TestCase):
         self.assertEqual(row["promotion_status"], "blocked")
         self.assertIn("market_regime_coverage_not_sufficient", row["blocking_reasons"])
         self.assertIn("market_regimes_below_minimum", row["blocking_reasons"])
+
+    def test_run_promotion_gate_treats_missing_required_market_regime_coverage_as_blocker(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            leaderboard = root / "walk_forward.csv"
+            leaderboard.write_text(
+                "case_id,market,factor_name,top_n,cost_bps,validation_status,data_mode,test_trades,test_sharpe,test_relative_return,test_max_drawdown,stability_score\n"
+                "CN_ETF_momentum_60_top1_cost5_reb5,CN_ETF,momentum_60,1,5,accepted,research,80,0.8,0.06,-0.12,0.7\n",
+                encoding="utf-8",
+            )
+
+            report = run_promotion_gate(
+                PromotionGateConfig(
+                    walk_forward_leaderboard=leaderboard,
+                    market_regime_coverage=root / "missing_regime_pack.json",
+                    require_market_regime_coverage=True,
+                    min_oos_sharpe=0.5,
+                    min_paper_sharpe=0.5,
+                )
+            )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "blocked")
+        self.assertIn("market_regime_coverage_missing", row["blocking_reasons"])
 
     def test_promotion_accepts_candidate_with_factor_source_and_adjusted_ic_evidence(self):
         walk_forward = _accepted_walk_forward_row("CN_ETF_total_mv_log_top1_cost5_reb5", "total_mv_log")
