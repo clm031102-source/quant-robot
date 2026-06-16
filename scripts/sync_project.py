@@ -14,6 +14,12 @@ except ModuleNotFoundError:
 
 
 DEFAULT_COMMIT_MESSAGE = "Sync project updates"
+DEFAULT_INTEGRATION_MANIFEST = Path("configs/factor_branch_integration_manifest.json")
+CORE_SYNC_TASKS = {"architecture_ops", "factor_integration", "project_sync"}
+RESEARCH_BRANCH_PREFIXES = (
+    "origin/codex/factor-",
+    "origin/codex/tushare-",
+)
 
 
 def classify_changed_paths(paths: list[str], config: dict[str, Any]) -> dict[str, list[str]]:
@@ -67,8 +73,10 @@ def build_sync_plan(
     execute: bool,
     push: bool,
     upstream_sync: str,
+    pending_research_branches: list[dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     classification = classify_changed_paths(changed_paths, config)
+    pending_research_branches = pending_research_branches or []
     blockers = _sync_blockers(
         config=config,
         current_branch=current_branch,
@@ -78,6 +86,7 @@ def build_sync_plan(
         execute=execute,
         push=push,
         upstream_sync=upstream_sync,
+        pending_research_branches=pending_research_branches,
     )
     return {
         "mode": "execute" if execute else "audit",
@@ -92,9 +101,46 @@ def build_sync_plan(
             "upstream_sync": upstream_sync,
         },
         "path_classification": classification,
+        "research_branch_integration": {
+            "pending": pending_research_branches,
+        },
         "blockers": blockers,
         "actions": _recommended_actions(classification, blockers, execute, push),
     }
+
+
+def audit_remote_research_branches(
+    remote_branches: list[dict[str, str]],
+    manifest: dict[str, Any],
+    *,
+    current_commits: set[str],
+) -> list[dict[str, str]]:
+    absorbed = _manifest_commit_keys(manifest, "absorbed_branches")
+    ignored = _manifest_commit_keys(manifest, "ignored_branches")
+    pending: list[dict[str, str]] = []
+    for branch in remote_branches:
+        name = str(branch.get("name", ""))
+        commit = str(branch.get("commit", ""))
+        if not name or not commit or not _is_research_branch(name):
+            continue
+        key = (name, commit)
+        if commit in current_commits or key in absorbed or key in ignored:
+            continue
+        pending.append(
+            {
+                "branch": name,
+                "commit": commit,
+                "status": "pending_integration",
+            }
+        )
+    return sorted(pending, key=lambda item: item["branch"])
+
+
+def load_integration_manifest(path: str | Path = DEFAULT_INTEGRATION_MANIFEST) -> dict[str, Any]:
+    manifest_path = Path(path)
+    if not manifest_path.exists():
+        return {"absorbed_branches": [], "ignored_branches": []}
+    return json.loads(manifest_path.read_text(encoding="utf-8"))
 
 
 def main() -> None:
@@ -118,6 +164,13 @@ def main() -> None:
     current_branch = _git_stdout(["branch", "--show-current"])
     changed_paths = _changed_paths()
     upstream_sync = _upstream_sync()
+    remote_research_branches = _remote_research_branches()
+    current_commits = _current_history_commits(remote_research_branches)
+    pending_research_branches = audit_remote_research_branches(
+        remote_research_branches,
+        load_integration_manifest(),
+        current_commits=current_commits,
+    )
     plan = build_sync_plan(
         config,
         current_branch=current_branch,
@@ -127,7 +180,9 @@ def main() -> None:
         execute=args.execute,
         push=args.push,
         upstream_sync=upstream_sync,
+        pending_research_branches=pending_research_branches,
     )
+    plan["research_branch_integration"]["remote_branch_count"] = len(remote_research_branches)
 
     if not args.execute:
         print(json.dumps(plan, indent=2, sort_keys=True))
@@ -172,6 +227,7 @@ def _sync_blockers(
     execute: bool,
     push: bool,
     upstream_sync: str,
+    pending_research_branches: list[dict[str, str]],
 ) -> list[str]:
     blockers: list[str] = []
     if not execute:
@@ -187,6 +243,8 @@ def _sync_blockers(
         blockers.append("main_requires_project_sync_or_manual_confirmation")
     if push and _behind_upstream(upstream_sync):
         blockers.append("branch_behind_upstream_pull_or_rebase_first")
+    if pending_research_branches and task in CORE_SYNC_TASKS:
+        blockers.append("pending_research_branches_require_integration")
     return blockers
 
 
@@ -221,6 +279,59 @@ def _changed_paths() -> list[str]:
         else:
             paths.append(path)
     return paths
+
+
+def _remote_research_branches() -> list[dict[str, str]]:
+    result = _git(
+        [
+            "for-each-ref",
+            "--format=%(refname:short)|%(objectname)",
+            "refs/remotes/origin/codex",
+        ],
+        check=False,
+    )
+    if result.returncode != 0:
+        return []
+    branches: list[dict[str, str]] = []
+    for line in result.stdout.splitlines():
+        if "|" not in line:
+            continue
+        name, commit = line.split("|", 1)
+        if _is_research_branch(name):
+            branches.append({"name": name.strip(), "commit": commit.strip()})
+    return branches
+
+
+def _current_history_commits(remote_branches: list[dict[str, str]]) -> set[str]:
+    commits: set[str] = set()
+    for branch in remote_branches:
+        commit = str(branch.get("commit", ""))
+        if not commit:
+            continue
+        result = _git(["merge-base", "--is-ancestor", commit, "HEAD"], check=False)
+        if result.returncode == 0:
+            commits.add(commit)
+    return commits
+
+
+def _is_research_branch(name: str) -> bool:
+    return any(name.startswith(prefix) for prefix in RESEARCH_BRANCH_PREFIXES)
+
+
+def _manifest_commit_keys(manifest: dict[str, Any], key: str) -> set[tuple[str, str]]:
+    records = manifest.get(key, [])
+    if not isinstance(records, list):
+        return set()
+    result: set[tuple[str, str]] = set()
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        branch = str(record.get("branch", ""))
+        commit = str(record.get("commit", ""))
+        status = str(record.get("status", ""))
+        if branch and commit and status in {"absorbed", "ignored"}:
+            result.add((branch, commit))
+    return result
 
 
 def _matches(path: str, pattern: str) -> bool:

@@ -1,6 +1,11 @@
 import unittest
 
-from scripts.sync_project import build_sync_plan, classify_changed_paths, is_forbidden_path
+from scripts.sync_project import (
+    audit_remote_research_branches,
+    build_sync_plan,
+    classify_changed_paths,
+    is_forbidden_path,
+)
 
 
 class SyncProjectTests(unittest.TestCase):
@@ -116,6 +121,88 @@ class SyncProjectTests(unittest.TestCase):
         self.assertTrue(plan["can_execute"])
         self.assertEqual(plan["blockers"], [])
         self.assertEqual(plan["path_classification"]["blocked"], [])
+
+    def test_reports_unabsorbed_remote_research_branch(self) -> None:
+        pending = audit_remote_research_branches(
+            [
+                {"name": "origin/codex/factor-batch-moneyflow-alpha", "commit": "abc123"},
+                {"name": "origin/main", "commit": "def456"},
+            ],
+            {"absorbed_branches": []},
+            current_commits=set(),
+        )
+
+        self.assertEqual(
+            pending,
+            [
+                {
+                    "branch": "origin/codex/factor-batch-moneyflow-alpha",
+                    "commit": "abc123",
+                    "status": "pending_integration",
+                }
+            ],
+        )
+
+    def test_absorbed_remote_research_branch_is_not_pending(self) -> None:
+        pending = audit_remote_research_branches(
+            [{"name": "origin/codex/factor-batch-moneyflow-alpha", "commit": "abc123"}],
+            {
+                "absorbed_branches": [
+                    {
+                        "branch": "origin/codex/factor-batch-moneyflow-alpha",
+                        "commit": "abc123",
+                        "status": "absorbed",
+                    }
+                ]
+            },
+            current_commits=set(),
+        )
+
+        self.assertEqual(pending, [])
+
+    def test_execute_plan_blocks_core_sync_when_research_branch_is_pending(self) -> None:
+        plan = build_sync_plan(
+            _config(),
+            current_branch="codex/project-audit-2026-06-16",
+            changed_paths=["src/quant_robot/factors/example.py"],
+            machine="laptop",
+            task="architecture_ops",
+            execute=True,
+            push=True,
+            upstream_sync="0\t0",
+            pending_research_branches=[
+                {
+                    "branch": "origin/codex/factor-batch-moneyflow-alpha",
+                    "commit": "abc123",
+                    "status": "pending_integration",
+                }
+            ],
+        )
+
+        self.assertFalse(plan["can_execute"])
+        self.assertIn("pending_research_branches_require_integration", plan["blockers"])
+
+    def test_execute_plan_allows_factor_batch_to_publish_pending_research_branch(self) -> None:
+        plan = build_sync_plan(
+            _config(),
+            current_branch="codex/factor-batch-new-idea",
+            changed_paths=["src/quant_robot/factors/example.py"],
+            machine="office_desktop",
+            task="factor_batch",
+            execute=True,
+            push=True,
+            upstream_sync="0\t0",
+            pending_research_branches=[
+                {
+                    "branch": "origin/codex/factor-batch-new-idea",
+                    "commit": "abc123",
+                    "status": "pending_integration",
+                }
+            ],
+        )
+
+        self.assertTrue(plan["can_execute"])
+        self.assertNotIn("pending_research_branches_require_integration", plan["blockers"])
 
 
 def _config() -> dict:
