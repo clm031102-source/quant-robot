@@ -388,3 +388,22 @@ Cost30 stress on top6:
 - top6/cost30/regime150 kept positive relative return at 5.0897, but tail-IC was not significant and drawdown was -0.3203.
 
 Audit judgment: top6 is a useful discovery because it is the first rank-size bridge where selected-holdings tail-IC and cost20 drawdown/capacity can pass together under multiple regime lookbacks. It is not promotion-ready because the edge fails the 30 bps stress test and remains cost-sensitive. The next efficient mining path is not another top-N sweep; it is to reduce turnover or execution drag around the top6 residual-gate shape, then rerun the same tail-IC and cost30 checks.
+
+## Top6 Cost-Drag Reduction Probes
+
+The office desktop then tested whether the top6 residual-gate shape could survive 30 bps by reducing turnover or execution drag. These were local research-only probes using the cached production factor matrix; generated artifacts stayed under `data/reports`.
+
+Holding/rebalance bridge:
+
+- Tested `large_resid_liq_vol_amt_gate_20/top6` with `forward_horizon = rebalance_interval` at 2, 3, and 5 days, cost20/cost30, and regime150/180/252.
+- No row passed. The best row was h2/reb2/cost20/regime150 with relative return 1.5189, but max drawdown was -0.3480 and selected-holdings tail-IC was not significant.
+- All cost30 rows failed. The longer 3-day and 5-day variants lost relative return and IC strength, so the signal appears to be mainly short-horizon rather than a slower swing signal.
+
+Sticky top6 turnover overlay:
+
+- Tested a research-only sticky overlay: keep the prior top6 holding if it remains within rank <= 6/8/10/12/15/20, otherwise replace it. This measures whether avoiding unnecessary churn can preserve the top6 edge. It is not part of the formal pipeline and should not be treated as promotion evidence.
+- Cost20 produced 9 simple gate passes. The best pass was keep12/cost20/regime252: relative return 15.1888, Sharpe 1.1153, max drawdown -0.2523, capacity-limited trades 0, tail mean IC 0.0469, tail-IC p-value 0.0460.
+- Regime180 also produced cost20 passes, including keep15/cost20/regime180 with relative return 13.9788, max drawdown -0.2776, and tail-IC p-value 0.0409.
+- Cost30 still produced 0 passes. The closest row was keep12/cost30/regime252 with relative return 0.0712 and significant tail-IC p-value 0.0460, but max drawdown was -0.3021. A narrow keep11/13/14 probe did not rescue the case; keep13/cost30/regime252 had relative return 0.2636 but tail-IC p-value 0.0505 and max drawdown -0.3021.
+
+Audit judgment: longer holding periods are rejected for this factor. Sticky holding is useful as a method lead because it improves the cost20 top6 shape and preserves selected-tail IC under regime180/252, but it still does not clear 30 bps. The next high-efficiency path is to formalize a turnover-aware overlay in the framework, then test whether a better cost model or execution schedule can reduce drawdown below -0.30 without losing tail-IC. Until that exists in the formal pipeline, no sticky result should be promoted.
