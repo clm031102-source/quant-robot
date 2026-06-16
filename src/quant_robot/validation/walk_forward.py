@@ -221,6 +221,7 @@ def _merged_row(
             "factor_windows": source.get("factor_windows", []),
             "top_n": source.get("top_n"),
             "cost_bps": source.get("cost_bps"),
+            "regime_lookback": source.get("regime_lookback"),
             "data_mode": _data_mode(train, test),
             "train_status": train.get("status") if train else "missing",
             "test_status": test.get("status") if test else "missing",
@@ -251,6 +252,17 @@ def _merged_row(
             "train_positive_ic_rate": _metric(train, "positive_ic_rate"),
             "test_positive_ic_rate": _metric(test, "positive_ic_rate"),
             "test_significance_status": test.get("significance_status") if test else "missing",
+            "train_tail_mean_ic": _metric(train, "tail_mean_ic"),
+            "test_tail_mean_ic": _metric(test, "tail_mean_ic"),
+            "train_tail_ic_observations": int(_metric(train, "tail_ic_observations")),
+            "test_tail_ic_observations": int(_metric(test, "tail_ic_observations")),
+            "train_tail_ic_t_stat": _metric(train, "tail_ic_t_stat"),
+            "test_tail_ic_t_stat": _metric(test, "tail_ic_t_stat"),
+            "train_tail_ic_p_value": _metric_or(train, "tail_ic_p_value", 1.0),
+            "test_tail_ic_p_value": _metric_or(test, "tail_ic_p_value", 1.0),
+            "train_tail_positive_ic_rate": _metric(train, "tail_positive_ic_rate"),
+            "test_tail_positive_ic_rate": _metric(test, "tail_positive_ic_rate"),
+            "test_tail_significance_status": test.get("tail_significance_status") if test else "missing",
             "test_avg_cost_rate": _metric(test, "avg_cost_rate"),
             "test_max_cost_rate": _metric(test, "max_cost_rate"),
             "test_avg_participation_rate": _metric(test, "avg_participation_rate"),
@@ -299,6 +311,7 @@ def _aggregate_case_rows(case_id: str, rows: list[dict[str, Any]], config: WalkF
             "factor_windows": source.get("factor_windows", []),
             "top_n": source.get("top_n"),
             "cost_bps": source.get("cost_bps"),
+            "regime_lookback": source.get("regime_lookback"),
             "data_mode": _aggregate_data_mode(rows),
             "train_status": _aggregate_status(rows, "train_status"),
             "test_status": _aggregate_status(rows, "test_status"),
@@ -337,6 +350,17 @@ def _aggregate_case_rows(case_id: str, rows: list[dict[str, Any]], config: WalkF
             "train_positive_ic_rate": _min_metric(rows, "train_positive_ic_rate"),
             "test_positive_ic_rate": _min_metric(rows, "test_positive_ic_rate"),
             "test_significance_status": _aggregate_status(rows, "test_significance_status"),
+            "train_tail_mean_ic": _mean_metric(rows, "train_tail_mean_ic"),
+            "test_tail_mean_ic": _mean_metric(rows, "test_tail_mean_ic"),
+            "train_tail_ic_observations": sum(int(_metric(row, "train_tail_ic_observations")) for row in rows),
+            "test_tail_ic_observations": sum(int(_metric(row, "test_tail_ic_observations")) for row in rows),
+            "train_tail_ic_t_stat": _mean_metric(rows, "train_tail_ic_t_stat"),
+            "test_tail_ic_t_stat": _mean_metric(rows, "test_tail_ic_t_stat"),
+            "train_tail_ic_p_value": _max_metric(rows, "train_tail_ic_p_value", default=1.0),
+            "test_tail_ic_p_value": _max_metric(rows, "test_tail_ic_p_value", default=1.0),
+            "train_tail_positive_ic_rate": _min_metric(rows, "train_tail_positive_ic_rate"),
+            "test_tail_positive_ic_rate": _min_metric(rows, "test_tail_positive_ic_rate"),
+            "test_tail_significance_status": _aggregate_status(rows, "test_tail_significance_status"),
             "test_avg_cost_rate": _mean_metric(rows, "test_avg_cost_rate"),
             "test_max_cost_rate": _max_metric(rows, "test_max_cost_rate"),
             "test_avg_participation_rate": _mean_metric(rows, "test_avg_participation_rate"),
@@ -459,6 +483,11 @@ def _grid_from_mapping(data: dict[str, Any]) -> ExperimentGridConfig:
         cash_annual_return=float(data.get("cash_annual_return", ExperimentGridConfig.cash_annual_return)),
         regime_filter=bool(data.get("regime_filter", ExperimentGridConfig.regime_filter)),
         regime_lookback=int(data.get("regime_lookback", ExperimentGridConfig.regime_lookback)),
+        regime_lookback_values=(
+            tuple(int(value) for value in data["regime_lookback_values"])
+            if data.get("regime_lookback_values") is not None
+            else None
+        ),
         target_gross_exposure=float(data.get("target_gross_exposure", ExperimentGridConfig.target_gross_exposure)),
         commission_bps=float(data["commission_bps"]) if data.get("commission_bps") is not None else None,
         slippage_bps=float(data["slippage_bps"]) if data.get("slippage_bps") is not None else None,
@@ -472,6 +501,7 @@ def _grid_from_mapping(data: dict[str, Any]) -> ExperimentGridConfig:
         output_dir=None,
         rank_by=str(data.get("rank_by", ExperimentGridConfig.rank_by)),
         min_trades=int(data.get("min_trades", ExperimentGridConfig.min_trades)),
+        precompute_factor_matrix=bool(data.get("precompute_factor_matrix", ExperimentGridConfig.precompute_factor_matrix)),
     )
 
 
@@ -491,6 +521,11 @@ def _config_dict(config: WalkForwardConfig) -> dict[str, Any]:
     data["experiment_grid"]["top_n_values"] = list(config.experiment_grid.top_n_values)
     data["experiment_grid"]["cost_bps_values"] = list(config.experiment_grid.cost_bps_values)
     data["experiment_grid"]["rebalance_intervals"] = list(config.experiment_grid.rebalance_intervals)
+    data["experiment_grid"]["regime_lookback_values"] = (
+        list(config.experiment_grid.regime_lookback_values)
+        if config.experiment_grid.regime_lookback_values is not None
+        else None
+    )
     return data
 
 

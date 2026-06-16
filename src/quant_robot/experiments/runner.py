@@ -8,7 +8,10 @@ from typing import Any
 
 import pandas as pd
 
+from quant_robot.factors.moneyflow_technical import compute_moneyflow_technical_combo_factors
+from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.research.pipeline import ResearchPipelineConfig, run_research_pipeline
+from quant_robot.storage.moneyflow_inputs import load_moneyflow_inputs
 
 
 @dataclass(frozen=True)
@@ -40,6 +43,7 @@ class ExperimentGridConfig:
     cash_annual_return: float = 0.0
     regime_filter: bool = False
     regime_lookback: int = 20
+    regime_lookback_values: tuple[int, ...] | None = None
     target_gross_exposure: float = 1.0
     commission_bps: float | None = None
     slippage_bps: float | None = None
@@ -53,6 +57,7 @@ class ExperimentGridConfig:
     output_dir: Path | None = None
     rank_by: str = "sharpe"
     min_trades: int = 1
+    precompute_factor_matrix: bool = False
 
 
 @dataclass(frozen=True)
@@ -65,27 +70,39 @@ class ExperimentCase:
     top_n: int
     cost_bps: float
     rebalance_interval: int
+    regime_lookback: int
 
 
 def build_experiment_cases(config: ExperimentGridConfig) -> list[ExperimentCase]:
     cases = []
+    regime_lookbacks = _regime_lookback_values(config)
+    include_regime_in_case_id = config.regime_lookback_values is not None
     for market in config.markets:
         for factor_name in config.factor_names:
             for top_n in config.top_n_values:
                 for cost_bps in config.cost_bps_values:
                     for rebalance_interval in config.rebalance_intervals:
-                        cases.append(
-                            ExperimentCase(
-                                case_id=_case_id(market, factor_name, top_n, cost_bps, rebalance_interval),
-                                market=market.upper(),
-                                factor_source=config.factor_source,
-                                factor_name=factor_name,
-                                factor_windows=config.factor_windows,
-                                top_n=int(top_n),
-                                cost_bps=float(cost_bps),
-                                rebalance_interval=int(rebalance_interval),
+                        for regime_lookback in regime_lookbacks:
+                            cases.append(
+                                ExperimentCase(
+                                    case_id=_case_id(
+                                        market,
+                                        factor_name,
+                                        top_n,
+                                        cost_bps,
+                                        rebalance_interval,
+                                        regime_lookback if include_regime_in_case_id else None,
+                                    ),
+                                    market=market.upper(),
+                                    factor_source=config.factor_source,
+                                    factor_name=factor_name,
+                                    factor_windows=config.factor_windows,
+                                    top_n=int(top_n),
+                                    cost_bps=float(cost_bps),
+                                    rebalance_interval=int(rebalance_interval),
+                                    regime_lookback=int(regime_lookback),
+                                )
                             )
-                        )
     return cases
 
 
@@ -113,6 +130,11 @@ def load_experiment_grid_config(path: str | Path) -> ExperimentGridConfig:
         cash_annual_return=float(data.get("cash_annual_return", ExperimentGridConfig.cash_annual_return)),
         regime_filter=bool(data.get("regime_filter", ExperimentGridConfig.regime_filter)),
         regime_lookback=int(data.get("regime_lookback", ExperimentGridConfig.regime_lookback)),
+        regime_lookback_values=(
+            tuple(int(value) for value in data["regime_lookback_values"])
+            if data.get("regime_lookback_values") is not None
+            else None
+        ),
         target_gross_exposure=float(data.get("target_gross_exposure", ExperimentGridConfig.target_gross_exposure)),
         commission_bps=float(data["commission_bps"]) if data.get("commission_bps") is not None else None,
         slippage_bps=float(data["slippage_bps"]) if data.get("slippage_bps") is not None else None,
@@ -126,12 +148,14 @@ def load_experiment_grid_config(path: str | Path) -> ExperimentGridConfig:
         output_dir=Path(data["output_dir"]) if data.get("output_dir") else None,
         rank_by=str(data.get("rank_by", ExperimentGridConfig.rank_by)),
         min_trades=int(data.get("min_trades", ExperimentGridConfig.min_trades)),
+        precompute_factor_matrix=bool(data.get("precompute_factor_matrix", ExperimentGridConfig.precompute_factor_matrix)),
     )
 
 
 def run_experiment_grid(bars: pd.DataFrame, config: ExperimentGridConfig) -> dict[str, Any]:
     _validate_config(config)
-    rows = [_run_case(bars, config, case) for case in build_experiment_cases(config)]
+    precomputed_factors = _precompute_factor_matrix(bars, config) if config.precompute_factor_matrix else None
+    rows = [_run_case(bars, config, case, precomputed_factors) for case in build_experiment_cases(config)]
     leaderboard = _rank_rows(rows, config.rank_by)
     result = {
         "config": _config_dict(config),
@@ -143,7 +167,12 @@ def run_experiment_grid(bars: pd.DataFrame, config: ExperimentGridConfig) -> dic
     return result
 
 
-def _run_case(bars: pd.DataFrame, grid_config: ExperimentGridConfig, case: ExperimentCase) -> dict[str, Any]:
+def _run_case(
+    bars: pd.DataFrame,
+    grid_config: ExperimentGridConfig,
+    case: ExperimentCase,
+    precomputed_factors: pd.DataFrame | None = None,
+) -> dict[str, Any]:
     try:
         output_dir = grid_config.output_dir / case.case_id if grid_config.output_dir is not None else None
         result = run_research_pipeline(
@@ -169,7 +198,7 @@ def _run_case(bars: pd.DataFrame, grid_config: ExperimentGridConfig, case: Exper
                 benchmark_asset_id=grid_config.benchmark_asset_id,
                 cash_annual_return=grid_config.cash_annual_return,
                 regime_filter=grid_config.regime_filter,
-                regime_lookback=grid_config.regime_lookback,
+                regime_lookback=case.regime_lookback,
                 target_gross_exposure=grid_config.target_gross_exposure,
                 commission_bps=grid_config.commission_bps,
                 slippage_bps=grid_config.slippage_bps,
@@ -182,12 +211,35 @@ def _run_case(bars: pd.DataFrame, grid_config: ExperimentGridConfig, case: Exper
                 signal_end_date=grid_config.signal_end_date,
                 output_dir=output_dir,
             ),
+            precomputed_factors=precomputed_factors,
         )
         trades = int(result["artifact_rows"]["trades"])
         status = "completed" if trades >= grid_config.min_trades else "no_trades"
         return _row(case, status, None, trades, result)
     except Exception as exc:
         return _row(case, "failed", str(exc), 0, None)
+
+
+def _precompute_factor_matrix(bars: pd.DataFrame, config: ExperimentGridConfig) -> pd.DataFrame | None:
+    if config.factor_source == "technical":
+        return compute_basic_factors(bars, windows=config.factor_windows)
+    if config.factor_source == "moneyflow_technical_combo":
+        moneyflow_inputs = _load_grid_moneyflow_inputs(config)
+        return compute_moneyflow_technical_combo_factors(
+            bars,
+            moneyflow_inputs,
+            factor_names=config.factor_names,
+        )
+    return None
+
+
+def _load_grid_moneyflow_inputs(config: ExperimentGridConfig) -> pd.DataFrame:
+    if config.moneyflow_input_root is None:
+        raise ValueError("moneyflow_input_root is required when precomputing moneyflow technical combo factors")
+    frames = [load_moneyflow_inputs(config.moneyflow_input_root, market.upper()) for market in sorted(set(config.markets))]
+    if not frames:
+        return pd.DataFrame()
+    return pd.concat(frames, ignore_index=True).sort_values(["asset_id", "date"]).reset_index(drop=True)
 
 
 def _row(case: ExperimentCase, status: str, error: str | None, trades: int, result: dict[str, Any] | None) -> dict[str, Any]:
@@ -208,6 +260,7 @@ def _row(case: ExperimentCase, status: str, error: str | None, trades: int, resu
             "top_n": case.top_n,
             "cost_bps": case.cost_bps,
             "rebalance_interval": case.rebalance_interval,
+            "regime_lookback": case.regime_lookback,
             "status": status,
             "error": error,
             "data_mode": result["data_mode"] if result is not None else "unknown",
@@ -241,6 +294,16 @@ def _row(case: ExperimentCase, status: str, error: str | None, trades: int, resu
             "rank_ic_t_stat": _number(factor_summary.get("rank_ic_t_stat"), 0.0),
             "rank_ic_p_value": _number(factor_summary.get("rank_ic_p_value"), 1.0),
             "significance_status": str(factor_summary.get("significance_status", "unknown")),
+            "tail_mean_ic": _number(factor_summary.get("tail_mean_ic"), 0.0),
+            "tail_mean_rank_ic": _number(factor_summary.get("tail_mean_rank_ic"), 0.0),
+            "tail_icir": _number(factor_summary.get("tail_icir"), 0.0),
+            "tail_ic_observations": int(_number(factor_summary.get("tail_ic_observations"), 0.0)),
+            "tail_positive_ic_rate": _number(factor_summary.get("tail_positive_ic_rate"), 0.0),
+            "tail_ic_t_stat": _number(factor_summary.get("tail_ic_t_stat"), 0.0),
+            "tail_ic_p_value": _number(factor_summary.get("tail_ic_p_value"), 1.0),
+            "tail_rank_ic_t_stat": _number(factor_summary.get("tail_rank_ic_t_stat"), 0.0),
+            "tail_rank_ic_p_value": _number(factor_summary.get("tail_rank_ic_p_value"), 1.0),
+            "tail_significance_status": str(factor_summary.get("tail_significance_status", "unknown")),
             "long_short_mean_return": long_short_summary["mean_return"],
             "long_short_positive_rate": long_short_summary["positive_rate"],
             "long_short_observations": long_short_summary["observations"],
@@ -323,6 +386,11 @@ def _summary(leaderboard: list[dict[str, Any]]) -> dict[str, int]:
 
 
 def _validate_config(config: ExperimentGridConfig) -> None:
+    regime_lookbacks = _regime_lookback_values(config)
+    if not regime_lookbacks:
+        raise ValueError("regime_lookback_values must not be empty")
+    if any(value < 1 for value in regime_lookbacks):
+        raise ValueError("regime_lookback values must be positive")
     windows = set(config.factor_windows)
     mismatches = []
     for factor_name in config.factor_names:
@@ -368,13 +436,32 @@ def _config_dict(config: ExperimentGridConfig) -> dict[str, Any]:
     data["top_n_values"] = list(config.top_n_values)
     data["cost_bps_values"] = list(config.cost_bps_values)
     data["rebalance_intervals"] = list(config.rebalance_intervals)
+    data["regime_lookback_values"] = (
+        list(config.regime_lookback_values) if config.regime_lookback_values is not None else None
+    )
     data["output_dir"] = str(config.output_dir) if config.output_dir is not None else None
     return data
 
 
-def _case_id(market: str, factor_name: str, top_n: int, cost_bps: float, rebalance_interval: int) -> str:
+def _case_id(
+    market: str,
+    factor_name: str,
+    top_n: int,
+    cost_bps: float,
+    rebalance_interval: int,
+    regime_lookback: int | None = None,
+) -> str:
     cost = f"{cost_bps:g}".replace(".", "p")
-    return f"{market.upper()}_{factor_name}_top{top_n}_cost{cost}_reb{rebalance_interval}"
+    case_id = f"{market.upper()}_{factor_name}_top{top_n}_cost{cost}_reb{rebalance_interval}"
+    if regime_lookback is not None:
+        case_id = f"{case_id}_regime{regime_lookback}"
+    return case_id
+
+
+def _regime_lookback_values(config: ExperimentGridConfig) -> tuple[int, ...]:
+    if config.regime_lookback_values is None:
+        return (int(config.regime_lookback),)
+    return tuple(int(value) for value in config.regime_lookback_values)
 
 
 def _sanitize(value: Any) -> Any:

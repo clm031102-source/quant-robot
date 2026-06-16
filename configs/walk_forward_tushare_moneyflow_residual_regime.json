@@ -1,6 +1,6 @@
 {
   "split_date": "2025-01-02",
-  "output_dir": "data/reports/walk_forward_tushare_moneyflow_technical_combo",
+  "output_dir": "data/reports/walk_forward_tushare_moneyflow_residual_regime",
   "rank_by": "stability_score",
   "min_test_trades": 30,
   "min_test_sharpe": 0.0,
@@ -16,23 +16,14 @@
     "factor_source": "moneyflow_technical_combo",
     "moneyflow_input_root": "data/processed/tushare_moneyflow_inputs",
     "factor_names": [
-      "mf_low_plus_reversal_5",
-      "small_sell_plus_reversal_5",
-      "mf_low_minus_volatility_20",
       "large_minus_liquidity_20",
       "large_resid_liquidity_20",
-      "large_resid_liquidity_gate_20",
       "large_resid_liq_vol_amt_20",
-      "large_resid_liq_vol_amt_gate_20",
-      "large_liquidity_gate_20",
-      "mf_low_minus_volatility_liquidity_gate_20",
-      "extra_low_plus_reversal_5",
-      "large_plus_risk_momentum_10",
-      "large_plus_risk_momentum_liquidity_gate_10"
+      "large_resid_liq_vol_amt_gate_20"
     ],
-    "factor_windows": [5, 10, 20],
+    "factor_windows": [20],
     "top_n_values": [5, 10, 20],
-    "cost_bps_values": [10, 20],
+    "cost_bps_values": [20, 30],
     "forward_horizon": 1,
     "execution_lag": 1,
     "rebalance_intervals": [1],
@@ -44,6 +35,10 @@
     "min_relative_return": 0.0,
     "max_drawdown_limit": 0.30,
     "rank_by": "sharpe",
-    "min_trades": 30
+    "min_trades": 30,
+    "precompute_factor_matrix": true,
+    "regime_filter": true,
+    "regime_lookback": 150,
+    "regime_lookback_values": [120, 150, 180, 252]
   }
 }

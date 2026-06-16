@@ -262,3 +262,65 @@ Signal-date amount gates:
 - For `large_minus_liquidity_20`, the best-looking gated row was `>=100m/top5`: capacity-limited trades 0, total return 9.6189, but relative return -3.7377, max drawdown -0.8051, and IC no longer significant.
 
 These probes reject three easy next steps: simple inversion, percentile targeting, and standalone amount gating. The useful next design should combine gates with a new score, not apply gates after a score whose edge depends on the excluded names.
+
+## Residualized Liquidity-Aware Probe
+
+The office desktop then tested temporary residualized scores without adding production factor code. The most useful construction was:
+
+`resid_large_liq_vol_amt_20`: cross-sectional residual of large-order net flow after removing same-day 20-day Amihud liquidity, 20-day volatility, and log amount. The probe then required signal-day amount `>=100m`, applied a positive equal-weight market regime filter, and selected top5.
+
+Key combined-sample results:
+
+- No-regime top5 with amount `>=100m`: significant positive IC, capacity-limited trades 0, total return 17.8722, relative return 4.5156, but max drawdown -0.7551.
+- Regime120 top5: significant positive IC, capacity-limited trades 0, total return 41.0642, relative return 27.7076, Sharpe 1.0749, max drawdown -0.3191.
+- Regime150 top5: significant positive IC, capacity-limited trades 0, total return 67.6590, relative return 54.3024, Sharpe 1.1412, max drawdown -0.2859.
+- Regime180 top5: significant positive IC, capacity-limited trades 0, total return 38.1081, relative return 24.7515, Sharpe 1.0788, max drawdown -0.2859.
+- Regime252 top5: significant positive IC, capacity-limited trades 0, total return 41.3360, relative return 27.9794, Sharpe 1.1013, max drawdown -0.2859.
+
+Split-window check for the best temporary row, regime150/top5:
+
+- 2023H2 and 2024H1 had no trades because the regime filter blocked those weak market windows.
+- 2024H2: approved by simple return/drawdown/capacity gates. Total return 1.7672, relative return 1.4761, Sharpe 6.7184, max drawdown -0.2077, capacity-limited trades 0. IC was not significant.
+- 2025H1: approved by simple gates. Total return 0.8500, relative return 0.6730, Sharpe 2.7597, max drawdown -0.2859, capacity-limited trades 0. IC was not significant.
+- 2025H2: approved by simple gates. Total return 0.6849, relative return 0.5118, Sharpe 2.3735, max drawdown -0.1750, capacity-limited trades 0. IC was significant positive.
+- 2026H1: approved by simple gates. Total return 0.2543, relative return 0.2511, Sharpe 1.4231, max drawdown -0.2021, capacity-limited trades 0. IC was not significant.
+
+Audit judgment: this is the first temporary probe to clear the basic combined-sample return, drawdown, and capacity gates. It is still only a strict-validation candidate, not a promotion. Risks remain: the regime filter excludes the hardest early windows, half-year IC is often not significant, RankIC remains negative, and the factor exists only as a temporary research script. The next productive code task is to pre-register this residualized liquidity-aware factor family and run formal rolling walk-forward.
+
+## Production Residual Matrix Recheck
+
+After the laptop integrated the residualized moneyflow method into production factor code, the office desktop rebased the mining work onto that method update and reran the combined 2023-2026 sample using the formal factor builder. The full rolling walk-forward grid was too slow on the office desktop because the current validation path recomputes residual factors per case and per fold. The useful office workflow was therefore to compute the production factor matrix once, cache it locally under `data/reports`, and audit regimes from that matrix.
+
+The production matrix covered `large_minus_liquidity_20`, `large_resid_liq_vol_amt_20`, `large_resid_liq_vol_amt_gate_20`, and `large_resid_liquidity_20` with 14,283,928 factor rows. Local artifact path: `data/reports/desktop_factor_mining_20260616_continue/20260616_office_production_residual_factor_matrix_probe/`.
+
+Best combined-sample rows, top5/cost20/1,000,000 portfolio value/10 bps market impact:
+
+- `large_resid_liq_vol_amt_gate_20`, regime150: approved by simple return/drawdown/capacity/IC gates. Total return 67.6590, relative return 54.3024, Sharpe 1.1412, max drawdown -0.2859, capacity-limited trades 0, max participation 1.75%, mean IC 0.00796, IC p-value 0.00228.
+- `large_resid_liq_vol_amt_gate_20`, regime252: approved by simple gates. Total return 41.3360, relative return 27.9794, Sharpe 1.1013, max drawdown -0.2859, capacity-limited trades 0, mean IC 0.00810, IC p-value 0.00208.
+- `large_resid_liq_vol_amt_gate_20`, regime180: approved by simple gates. Total return 38.1081, relative return 24.7515, Sharpe 1.0788, max drawdown -0.2859, capacity-limited trades 0, mean IC 0.00760, IC p-value 0.00334.
+
+The ungated production residual score had much larger raw returns but failed capacity review: `large_resid_liq_vol_amt_20` top5/no-regime had 160 capacity-limited trades and max participation above 500%; regime150 still had 58 capacity-limited trades. This confirms that the amount gate is not cosmetic. It is the difference between a high-return but non-tradable residual score and a capacity-clean strict-validation candidate.
+
+Split-window check on the three approved gated rows:
+
+- 2023H2 and 2024H1 had no trades because the positive market-regime filter blocked those windows.
+- Regime150/top5 passed simple gates in 2024H2, 2025H1, 2025H2, and 2026H1, with capacity-limited trades 0 in every traded split. Returns were strongest in 2024H2 and weakest but still positive in 2026H1.
+- Regime180/top5 and regime252/top5 also passed simple gates in every traded split. Regime252 gave the best 2025H1 and 2026H1 split returns, while regime150 gave the best full-sample relative return.
+- Half-year IC remains unstable: only 2025H2 was significant positive across these split checks. RankIC remains negative in the combined sample, so the factor is still tail-driven rather than smoothly monotonic.
+
+Audit judgment: the laptop-integrated production factor reproduces the temporary probe. `large_resid_liq_vol_amt_gate_20` top5 with regime150/180/252 should stay in the strict-validation queue. It is not promotion-ready because the regime filter avoids the hardest early windows and split IC is not consistently significant. The laptop framework now addresses the office runtime bottleneck with `precompute_factor_matrix`; the desktop still needs a formal rolling walk-forward run before any promotion discussion.
+
+## Signal Amount And Rank-Window Probe
+
+The office desktop then reused the cached production factor matrix to test signal-day amount bands and rank-window offsets for `large_resid_liq_vol_amt_gate_20`. This was a no-lookahead probe: filters used same-day signal amount and same-day factor ranks before selection. The local run evaluated 120 combinations across regime150/180/252, amount bands, and rank windows.
+
+No combination passed the stricter tail-selection gate. The main reason was not capacity; capacity-limited trades stayed at 0 for the leading rows. The failure was that IC measured only on the preselected tradable tail was not significant, and several higher-return variants increased drawdown.
+
+Key observations:
+
+- The highest-return row, `gte100m/r1_3/top3/regime150`, had total return 84.6445 and relative return 71.2879, but max drawdown worsened to -0.3643 and selected-tail IC was not significant.
+- The original `gte100m/r1_5/top5/regime150` shape retained total return 67.6590, relative return 54.3024, and max drawdown -0.2859, but selected-tail IC was not significant in this stricter tail-only view.
+- Excluding the 500m-1b signal-amount band improved drawdown for `r1_5/regime150` to -0.2579, but relative return fell to 38.4864 and selected-tail IC remained not significant.
+- Raising the signal-day amount floor to 200m, 500m, or 1b generally reduced the edge. The best `gte200m` row had relative return 32.1945 but max drawdown -0.4983; the best `gte500m` row had relative return only 6.0874 and max drawdown -0.5276.
+
+Audit judgment: amount-band tweaks and rank-window offsets do not produce a better candidate than the existing `large_resid_liq_vol_amt_gate_20` top5 regime family. The useful method improvement is to add a formal tail-selection IC diagnostic to validation, because full-universe IC can look significant while the actually traded tail is not significant. The laptop integration now promotes this into core validation as tail-IC evidence on the actual selected holdings.

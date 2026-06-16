@@ -92,6 +92,8 @@ Only execute and push after the audit is clean:
 python scripts\sync_project.py --machine office_desktop --task factor_batch --execute --push
 ```
 
+A clean sync audit has no blocked paths, no pending branch-integration work, and an empty `branch_discovery.errors` list. If branch discovery fails, fix the Git/ref problem before pushing so another workstation's factor branch is not missed.
+
 ## Run Core Checks
 
 This runs the local test suite, Python compile check, project audit, readiness check, provider status, provider evidence, provider remediation, provider remediation rehearsal, data catalog, data-quality gap audit, data-gap resolution, data-gap evidence, data-gap rehearsal, offline fixture research, the configurable research pipeline, the experiment grid, walk-forward validation, signal snapshot generation, paper simulation, paper observation, promotion operations summary, duplicate registry, promotion review packet, manual review rehearsal, evidence refresh plan, pre-API readiness board, readiness projection, blocker worklist, residual blocker focus pack, residual data-gap review pack, residual provider review pack, Daily Ops, profile observation, recent-data refresh, post-refresh replay, observation sufficiency, expanded observation replay, iterative observation expansion, Tushare activation gate, paper-observation history, paper-ops guardrail, paper-ops runbook, risk candidate selector, constrained candidate search, and paper profile optimizer. It does not download market data unless a stage is explicitly run in execute mode with valid provider credentials.
@@ -207,6 +209,39 @@ Outputs are written to `data/reports/walk_forward/` by default:
 - `walk_forward_folds.csv` when rolling mode is enabled
 
 Edit `configs/walk_forward.json` to change the split date, candidate grid, acceptance thresholds, and output path. CN ETF production configs can enable `rolling_train_days`, `rolling_test_days`, `rolling_step_days`, and `min_accepted_folds`. The test segment includes train-period warmup bars for rolling factor calculation, but signals and trades are restricted to out-of-sample dates.
+
+For the current desktop residual-regime validation profile, run:
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_desktop_factor_validation.py
+```
+
+This uses `configs/walk_forward_tushare_moneyflow_residual_regime.json` with processed bars and Tushare moneyflow inputs. A run with zero accepted candidates is still a valid strict-validation result when all train/test grids completed.
+The residual-regime config enables `precompute_factor_matrix` so each grid run reuses one production factor matrix across TopN, cost, and regime cases instead of recomputing the same residual factors for every case.
+
+To run the desktop validation check chain around that profile:
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_checks.py --profile desktop-validation --execute
+```
+
+The profile also builds a strict market-regime coverage pack from walk-forward test-fold `regime_curve.csv` files, requiring both allowed and blocked regime-filter dates, then builds a research-only promotion gate report and writes `docs/research/desktop_residual_regime_validation_latest.md`. The residual-regime promotion gate requires that coverage pack, blocks single-lookback regime wins, and treats out-of-sample Sharpe above `3.0` as an overfit blocker, so one-regime or too-good-to-be-true evidence cannot be promoted by running the promotion command alone. The summary command cross-checks the leaderboard against the walk-forward `manifest.json`, verifies promotion candidate case IDs, and records data-quality, promotion-gate, and regime-coverage status, so stale or mismatched validation artifacts fail instead of producing a misleading Markdown summary.
+
+The desktop profile's data-quality audit is pinned to the CN residual-regime data surface: `python scripts\run_data_quality_audit.py --data-root data\processed --market CN --output-dir data\reports\data_quality_gap_audit_tushare_moneyflow_residual_regime`. The residual-regime promotion gate consumes that audit JSON, so missing data-quality evidence stops the gate instead of being silently ignored. To build only the promotion report after a validation run:
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_promotion_report.py --config configs\promotion_gate_tushare_moneyflow_residual_regime.json
+```
+
+To rebuild only the syncable Markdown summary:
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_desktop_validation_summary.py
+```
 
 ## Run Signal Snapshot
 

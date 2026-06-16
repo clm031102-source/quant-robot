@@ -161,6 +161,45 @@ class SyncProjectTests(unittest.TestCase):
         self.assertIn("compile_failed", plan["blockers"])
         self.assertEqual(plan["validation"]["compile_passed"], False)
 
+    def test_audit_plan_reports_branch_discovery_errors(self) -> None:
+        plan = build_sync_plan(
+            _config(),
+            current_branch="codex/project-sync-hardening",
+            changed_paths=[],
+            machine="laptop",
+            task="project_sync",
+            execute=False,
+            push=False,
+            upstream_sync="0\t0",
+            branch_discovery_errors=["remote_topic_branches: fatal: bad ref"],
+        )
+
+        self.assertEqual(
+            plan["branch_discovery"]["errors"],
+            ["remote_topic_branches: fatal: bad ref"],
+        )
+        self.assertEqual(plan["blockers"], [])
+
+    def test_execute_plan_blocks_when_branch_discovery_failed(self) -> None:
+        plan = build_sync_plan(
+            _config(),
+            current_branch="codex/project-sync-hardening",
+            changed_paths=["scripts/sync_project.py"],
+            machine="laptop",
+            task="project_sync",
+            execute=True,
+            push=True,
+            upstream_sync="0\t0",
+            branch_discovery_errors=["remote_topic_branches: fatal: bad ref"],
+        )
+
+        self.assertFalse(plan["can_execute"])
+        self.assertIn("branch_discovery_failed", plan["blockers"])
+        self.assertEqual(
+            plan["branch_discovery"]["errors"],
+            ["remote_topic_branches: fatal: bad ref"],
+        )
+
     def test_reports_unabsorbed_remote_research_branch(self) -> None:
         pending = audit_remote_research_branches(
             [

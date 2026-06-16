@@ -27,8 +27,16 @@ Branch names are task-based, not machine-based. Multiple desktops may run factor
 
 Keep `main` stable. Do not run exploratory factor development directly on `main`.
 
+When a desktop machine is assigned stable `factor_validation` work for the residualized moneyflow/regime framework, prefer the pre-wired validation entrypoint:
+
+```powershell
+python scripts\run_checks.py --profile desktop-validation --execute
+```
+
+This profile runs safety checks, `scripts\run_desktop_factor_validation.py`, a CN data-quality audit against `data\processed` with output under `data\reports\data_quality_gap_audit_tushare_moneyflow_residual_regime`, a strict market-regime coverage check from walk-forward regime curves that requires both allowed and blocked regime-filter dates, the residual-regime promotion gate report, and a lightweight Markdown summary that records data-quality, promotion-gate, and regime-coverage status while rejecting mixed leaderboard/promotion case IDs. The validation step uses `configs\walk_forward_tushare_moneyflow_residual_regime.json`, with precomputed factor-matrix reuse enabled for each experiment grid run; the promotion gate consumes the data-quality audit, requires the market-regime coverage pack, and blocks single-lookback regime wins. A complete rejection set is acceptable evidence when the train/test grids complete; generated reports and processed data still stay out of Git.
+
 GitHub is for code, configs, tests, lightweight summaries, and documentation. Do not commit `data/raw/`, `data/processed/`, `data/reports/`, large Parquet/CSV outputs, logs, tokens, broker credentials, account data, or live-trading secrets.
 
-When the user says `同步项目`, treat it as a daily safe-sync request. Run `python scripts\sync_project.py --machine <machine> --task <task>` first to audit changed paths. If the machine, task, and branch are clear, changed paths are syncable, validation has passed, and there are no token/data/broker/account/order risks, use `python scripts\sync_project.py --machine <machine> --task <task> --execute --push` to commit and push the current task branch. Stop and ask the user before pushing when context is unclear, the current branch is `main` for non-`project_sync` work, the branch is behind upstream, validation failed, or forbidden paths are present.
+When the user says `同步项目`, treat it as a daily safe-sync request. Run `python scripts\sync_project.py --machine <machine> --task <task>` first to audit changed paths. If the machine, task, and branch are clear, changed paths are syncable, validation has passed, `branch_discovery.errors` is empty, and there are no token/data/broker/account/order risks, use `python scripts\sync_project.py --machine <machine> --task <task> --execute --push` to commit and push the current task branch. Stop and ask the user before pushing when context is unclear, the current branch is `main` for non-`project_sync` work, the branch is behind upstream, validation failed, branch discovery failed, or forbidden paths are present.
 
 The project remains research-to-paper only: no broker connection, no live account reads, no order placement, and no automatic live trading.

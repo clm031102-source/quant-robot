@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 import numpy as np
@@ -13,12 +14,13 @@ from quant_robot.schema.factors import FACTOR_COLUMNS
 @dataclass(frozen=True)
 class ComboFactorSpec:
     moneyflow_factor: str
-    technical_factor: str
+    technical_factor: str | tuple[str, ...]
     operation: str
     lookback_window: int
     economic_meaning: str
     liquidity_gate_quantile: float | None = None
     liquidity_gate_factor: str | None = None
+    amount_floor: float | None = None
 
 
 MONEYFLOW_TECHNICAL_COMBO_SPECS: dict[str, ComboFactorSpec] = {
@@ -79,6 +81,21 @@ MONEYFLOW_TECHNICAL_COMBO_SPECS: dict[str, ComboFactorSpec] = {
         "Large-order net inflow residualized against same-day Amihud-style illiquidity, restricted to the more liquid half of the cross-section.",
         liquidity_gate_quantile=0.5,
         liquidity_gate_factor="liquidity_20",
+    ),
+    "large_resid_liq_vol_amt_20": ComboFactorSpec(
+        "large_order_net_amount_ratio",
+        ("liquidity_20", "volatility_20", "log_amount_20"),
+        "residual",
+        20,
+        "Large-order net inflow residualized against same-day liquidity, volatility, and log traded amount.",
+    ),
+    "large_resid_liq_vol_amt_gate_20": ComboFactorSpec(
+        "large_order_net_amount_ratio",
+        ("liquidity_20", "volatility_20", "log_amount_20"),
+        "residual",
+        20,
+        "Large-order net inflow residualized against same-day liquidity, volatility, and log traded amount, restricted to signal-day amount >= 100m.",
+        amount_floor=100_000_000.0,
     ),
     "large_liquidity_gate_20": ComboFactorSpec(
         "large_order_net_amount_ratio",
@@ -150,8 +167,10 @@ def compute_moneyflow_technical_combo_factors(
     specs = {name: MONEYFLOW_TECHNICAL_COMBO_SPECS[name] for name in factor_names}
     windows = tuple(sorted({spec.lookback_window for spec in specs.values()}))
     moneyflow = _with_cross_sectional_zscore(compute_moneyflow_factors(moneyflow_inputs))
-    technical = _with_cross_sectional_zscore(compute_basic_factors(bars, windows=windows))
-    pieces = [_combo_frame(name, spec, moneyflow, technical) for name, spec in specs.items()]
+    technical_raw = compute_basic_factors(bars, windows=windows)
+    log_amount = _compute_log_amount_factors(bars, _required_log_amount_windows(specs.values()))
+    technical = _with_cross_sectional_zscore(pd.concat([technical_raw, log_amount], ignore_index=True))
+    pieces = [_combo_frame(name, spec, moneyflow, technical, bars) for name, spec in specs.items()]
     if not pieces:
         return pd.DataFrame(columns=FACTOR_COLUMNS)
     return pd.concat(pieces, ignore_index=True)[FACTOR_COLUMNS].sort_values(
@@ -183,17 +202,31 @@ def _combo_frame(
     spec: ComboFactorSpec,
     moneyflow: pd.DataFrame,
     technical: pd.DataFrame,
+    bars: pd.DataFrame,
 ) -> pd.DataFrame:
     keys = ["date", "asset_id", "market"]
     left = moneyflow.loc[moneyflow["factor_name"] == spec.moneyflow_factor, keys + ["z_factor_value"]]
-    right = technical.loc[technical["factor_name"] == spec.technical_factor, keys + ["z_factor_value"]]
-    merged = left.merge(right, on=keys, how="inner", suffixes=("_moneyflow", "_technical"))
-    if spec.liquidity_gate_factor is not None and spec.liquidity_gate_factor != spec.technical_factor:
-        gate = technical.loc[technical["factor_name"] == spec.liquidity_gate_factor, keys + ["z_factor_value"]]
-        merged = merged.merge(gate.rename(columns={"z_factor_value": "z_factor_value_gate"}), on=keys, how="inner")
-    elif spec.liquidity_gate_factor is not None:
-        merged["z_factor_value_gate"] = merged["z_factor_value_technical"]
-    values = _combo_values(merged, spec)
+    merged = left.rename(columns={"z_factor_value": "z_factor_value_moneyflow"})
+    exposure_names = _exposure_factor_names(spec)
+    for index, factor_name in enumerate(exposure_names):
+        right = technical.loc[technical["factor_name"] == factor_name, keys + ["z_factor_value"]].rename(
+            columns={"z_factor_value": f"z_factor_value_exposure_{index}"}
+        )
+        merged = merged.merge(right, on=keys, how="inner")
+    if spec.liquidity_gate_factor is not None:
+        if spec.liquidity_gate_factor in exposure_names:
+            gate_index = exposure_names.index(spec.liquidity_gate_factor)
+            merged["z_factor_value_gate"] = merged[f"z_factor_value_exposure_{gate_index}"]
+        else:
+            gate = technical.loc[
+                technical["factor_name"] == spec.liquidity_gate_factor,
+                keys + ["z_factor_value"],
+            ].rename(columns={"z_factor_value": "z_factor_value_gate"})
+            merged = merged.merge(gate, on=keys, how="inner")
+    amount = bars.loc[:, keys + ["amount"]].drop_duplicates(subset=keys)
+    merged = merged.merge(amount, on=keys, how="left")
+    exposure_columns = [f"z_factor_value_exposure_{index}" for index, _ in enumerate(exposure_names)]
+    values = _combo_values(merged, spec, exposure_columns)
     return pd.DataFrame(
         {
             "date": merged["date"].to_numpy(),
@@ -206,41 +239,46 @@ def _combo_frame(
     )
 
 
-def _combo_values(merged: pd.DataFrame, spec: ComboFactorSpec) -> pd.Series:
+def _combo_values(merged: pd.DataFrame, spec: ComboFactorSpec, exposure_columns: list[str]) -> pd.Series:
     moneyflow = merged["z_factor_value_moneyflow"]
-    technical = merged["z_factor_value_technical"]
+    exposures = merged.loc[:, exposure_columns]
+    primary_exposure = exposures.iloc[:, 0]
     if spec.operation == "+":
-        values = moneyflow + technical
+        _require_single_exposure(spec)
+        values = moneyflow + primary_exposure
     elif spec.operation == "-":
-        values = moneyflow - technical
+        _require_single_exposure(spec)
+        values = moneyflow - primary_exposure
     elif spec.operation == "gate":
+        _require_single_exposure(spec)
         values = moneyflow.copy()
     elif spec.operation == "residual":
-        values = _cross_sectional_residuals(merged, moneyflow, technical)
+        values = _cross_sectional_residuals(merged, moneyflow, exposures)
     else:
         raise ValueError(f"Unsupported combo operation: {spec.operation}")
     if spec.liquidity_gate_quantile is not None:
-        gate = merged["z_factor_value_gate"] if "z_factor_value_gate" in merged else technical
+        gate = merged["z_factor_value_gate"] if "z_factor_value_gate" in merged else primary_exposure
         values = values.where(_liquidity_gate_mask(merged, gate, spec.liquidity_gate_quantile))
+    if spec.amount_floor is not None:
+        values = values.where(_amount_gate_mask(merged, spec.amount_floor))
     return values
 
 
-def _cross_sectional_residuals(merged: pd.DataFrame, target: pd.Series, exposure: pd.Series) -> pd.Series:
+def _cross_sectional_residuals(merged: pd.DataFrame, target: pd.Series, exposures: pd.DataFrame) -> pd.Series:
     values = pd.Series(np.nan, index=merged.index, dtype=float)
     for _, group in merged.groupby(["date", "market"], sort=False):
-        x = pd.to_numeric(exposure.loc[group.index], errors="coerce")
+        x = exposures.loc[group.index].apply(pd.to_numeric, errors="coerce")
         y = pd.to_numeric(target.loc[group.index], errors="coerce")
-        finite = x.notna() & y.notna()
-        if int(finite.sum()) < 2:
+        finite = x.notna().all(axis=1) & y.notna()
+        if int(finite.sum()) <= x.shape[1]:
             continue
         x_clean = x.loc[finite]
         y_clean = y.loc[finite]
-        variance = float(x_clean.var(ddof=0))
-        if not np.isfinite(variance) or variance <= 1e-12:
+        design = np.column_stack([np.ones(len(x_clean)), x_clean.to_numpy(dtype=float)])
+        if int(np.linalg.matrix_rank(design)) <= x.shape[1]:
             continue
-        beta = float(((x_clean - float(x_clean.mean())) * (y_clean - float(y_clean.mean()))).mean() / variance)
-        alpha = float(y_clean.mean()) - beta * float(x_clean.mean())
-        values.loc[x_clean.index] = y_clean - (alpha + beta * x_clean)
+        beta, *_ = np.linalg.lstsq(design, y_clean.to_numpy(dtype=float), rcond=None)
+        values.loc[x_clean.index] = y_clean.to_numpy(dtype=float) - design @ beta
     return values
 
 
@@ -252,3 +290,46 @@ def _liquidity_gate_mask(merged: pd.DataFrame, liquidity: pd.Series, quantile: f
         lambda values: values.quantile(quantile)
     )
     return numeric.notna() & (numeric <= thresholds)
+
+
+def _amount_gate_mask(merged: pd.DataFrame, amount_floor: float) -> pd.Series:
+    if amount_floor <= 0:
+        raise ValueError("amount_floor must be greater than 0")
+    numeric = pd.to_numeric(merged["amount"], errors="coerce")
+    return numeric.notna() & (numeric >= amount_floor)
+
+
+def _exposure_factor_names(spec: ComboFactorSpec) -> tuple[str, ...]:
+    if isinstance(spec.technical_factor, str):
+        return (spec.technical_factor,)
+    return spec.technical_factor
+
+
+def _require_single_exposure(spec: ComboFactorSpec) -> None:
+    if len(_exposure_factor_names(spec)) != 1:
+        raise ValueError(f"Combo operation {spec.operation} requires exactly one technical exposure")
+
+
+def _required_log_amount_windows(specs: Iterable[ComboFactorSpec]) -> tuple[int, ...]:
+    windows: set[int] = set()
+    for spec in specs:
+        for factor_name in _exposure_factor_names(spec):
+            if factor_name.startswith("log_amount_"):
+                windows.add(int(factor_name.rsplit("_", 1)[1]))
+    return tuple(sorted(windows))
+
+
+def _compute_log_amount_factors(bars: pd.DataFrame, windows: tuple[int, ...]) -> pd.DataFrame:
+    if not windows:
+        return pd.DataFrame(columns=FACTOR_COLUMNS)
+    keys = ["date", "asset_id", "market"]
+    amount = bars.loc[:, keys + ["amount"]].copy()
+    amount["factor_value"] = np.log1p(pd.to_numeric(amount["amount"], errors="coerce"))
+    amount.loc[pd.to_numeric(amount["amount"], errors="coerce") <= 0, "factor_value"] = np.nan
+    frames = []
+    for window in windows:
+        frame = amount.loc[:, keys + ["factor_value"]].copy()
+        frame["factor_name"] = f"log_amount_{window}"
+        frame["lookback_window"] = window
+        frames.append(frame)
+    return pd.concat(frames, ignore_index=True)[FACTOR_COLUMNS]
