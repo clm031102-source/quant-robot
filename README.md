@@ -761,10 +761,13 @@ Then run ETF-only research, factor mining, and paper simulation:
 
 ```powershell
 $env:PYTHONPATH='src'
+python scripts\run_research_family_scheduler.py --config configs\research_family_scheduler_cn_etf.json
 python scripts\run_research_pipeline.py --source processed-bars --data-root data\processed\etf_csv --market CN_ETF --factor momentum_2 --top-n 2
 python scripts\run_experiment_grid.py --config configs\experiment_grid_cn_etf.json --source processed-bars --data-root data\processed\etf_csv
 python scripts\run_paper_simulation.py --source processed-bars --data-root data\processed\etf_csv --market CN_ETF --factor momentum_2 --top-n 2
 ```
+
+Run the research-family scheduler before material factor-mining batches. It enforces a diversified `CN_ETF` hypothesis portfolio and keeps the direct `CN` stock moneyflow selection family in `auxiliary_only` mode after repeated capacity, cost, out-of-sample, and tail-IC failures. See `docs/research/research_family_scheduler_2026-06-17.md`.
 
 ## Run Local GUI
 
