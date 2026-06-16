@@ -449,3 +449,28 @@ Key results:
 - `extra_plus_momentum_10` did not survive the amount-gate prototype; its previously strong tail evidence was tied to the lower-liquidity segment removed by the gate.
 
 Audit judgment: a simple signal-day amount floor solves capacity mechanically but destroys the momentum-flow edge. This path should not be formalized as a new production factor. The useful research conclusion is that `large_plus_risk_momentum_10` and `extra_plus_momentum_10` are micro/low-liquidity tail effects; future work should not spend more office cycles on simple amount floors for these signals. If revisited, it should be through a more explicit liquidity-neutral or execution-aware construction from the laptop framework, not another threshold sweep.
+
+## Momentum5 Low-Flow Tail-IC Screen
+
+The next office screen moved to the older 5-day momentum blends that looked more capacity-friendly in the early leaderboard: `large_plus_momentum_5` and `mf_low_plus_momentum_5`. The first run used the current selected-tail-IC validation path and covered 36 cases across top3/top5/top10, cost20/cost30, and regime150/regime180/regime252.
+
+Regime-screen results:
+
+- All 36 cases completed, but no row passed the combined gate.
+- 30 of 36 rows had significant positive selected-holdings tail-IC, including 15 cost30 rows.
+- No row was capacity-clean. The regime filters pushed the signals toward more crowded low-liquidity dates, with capacity-limited trades present in every row.
+- Only one row passed the -0.30 drawdown limit, and it still failed capacity.
+- Best raw row: `large_plus_momentum_5/top3/cost20/regime150` had relative return 1608.3431, Sharpe 5.2473, tail-IC p-value 0.0298, but failed with max drawdown -0.3206, 79 capacity-limited trades, and max participation 234.6%.
+- `large_plus_momentum_5/top5/cost20/regime150` had very strong tail-IC p-value 0.0000049, but max drawdown was -0.3233 and capacity-limited trades were 79.
+- `mf_low_plus_momentum_5` also had significant tail-IC in many rows, but drawdown was much worse: top3/cost20/regime150 had max drawdown -0.5160 and 35 capacity-limited trades.
+
+Because the earlier no-regime leaderboard had shown a milder `mf_low_plus_momentum_5/top5/cost20` profile, the office desktop ran a small no-regime tail-IC supplement covering 12 cases across the same two factors, top3/top5/top10, and cost20/cost30.
+
+No-regime supplement:
+
+- All 12 cases completed, but no row passed.
+- `large_plus_momentum_5/top5` and `top10` had strong selected-tail IC, but no-regime trading greatly worsened drawdown and capacity pressure. For example, top5/cost20 had relative return 263.5419 and tail-IC p-value 0.0000026, but max drawdown was -0.6461 with 140 capacity-limited trades.
+- `large_plus_momentum_5/top3` had the largest relative return, 4156.9112 at cost20, but selected-tail IC was not significant and max drawdown was -0.6215.
+- `mf_low_plus_momentum_5/top5/cost20` had relative return 57.6452, but selected-tail IC was not significant, max drawdown was -0.8103, and capacity-limited trades were 70.
+
+Audit judgment: the 5-day momentum blends are not tradable candidates under the current validation standard. They produce strong selected-tail evidence in some rows, but the edge is tied to unstable, capacity-stressed tails and severe drawdowns. Regime filters do not make them safer, and removing regime filters makes drawdown much worse. The office queue should not spend more cycles on simple top-N, regime, or amount-threshold variants of these two factors unless the laptop framework adds a materially different liquidity-neutral or execution-aware construction.
