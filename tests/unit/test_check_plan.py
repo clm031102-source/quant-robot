@@ -161,13 +161,13 @@ class CheckPlanTests(unittest.TestCase):
                 "data_quality_audit",
                 "desktop_factor_validation",
                 "desktop_promotion_report",
+                "desktop_validation_summary",
             ],
         )
         self.assertTrue(all(not step.uses_network for step in plan))
-        desktop_validation = plan[-1]
-        self.assertEqual(plan[-2].command, ["python", "scripts/run_desktop_factor_validation.py"])
+        self.assertEqual(plan[-3].command, ["python", "scripts/run_desktop_factor_validation.py"])
         self.assertEqual(
-            desktop_validation.command,
+            plan[-2].command,
             [
                 "python",
                 "scripts/run_promotion_report.py",
@@ -175,6 +175,7 @@ class CheckPlanTests(unittest.TestCase):
                 "configs/promotion_gate_tushare_moneyflow_residual_regime.json",
             ],
         )
+        self.assertEqual(plan[-1].command, ["python", "scripts/run_desktop_validation_summary.py"])
 
     def test_unknown_check_profile_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "Unsupported check profile"):

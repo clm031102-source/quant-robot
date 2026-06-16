@@ -117,6 +117,7 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
                     "configs/promotion_gate_tushare_moneyflow_residual_regime.json",
                 ],
             ),
+            CheckStep("desktop_validation_summary", [python_executable, "scripts/run_desktop_validation_summary.py"]),
         ]
     raise ValueError(f"Unsupported check profile: {profile}")
 

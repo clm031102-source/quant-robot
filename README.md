@@ -224,11 +224,18 @@ $env:PYTHONPATH='src'
 python scripts\run_checks.py --profile desktop-validation --execute
 ```
 
-The profile also builds a research-only promotion gate report after the walk-forward run. To build only that report after a validation run:
+The profile also builds a research-only promotion gate report and writes `docs/research/desktop_residual_regime_validation_latest.md` after the walk-forward run. To build only the promotion report after a validation run:
 
 ```powershell
 $env:PYTHONPATH='src'
 python scripts\run_promotion_report.py --config configs\promotion_gate_tushare_moneyflow_residual_regime.json
+```
+
+To rebuild only the syncable Markdown summary:
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_desktop_validation_summary.py
 ```
 
 ## Run Signal Snapshot

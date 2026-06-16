@@ -68,7 +68,7 @@ To run the full desktop validation check chain, use:
 python scripts\run_checks.py --profile desktop-validation --execute
 ```
 
-This runs unit/integration tests, Python compile, project audit, readiness checks, provider status, data catalog, data-quality audit, the residual-regime validation command, and then the research-only promotion gate report.
+This runs unit/integration tests, Python compile, project audit, readiness checks, provider status, data catalog, data-quality audit, the residual-regime validation command, the research-only promotion gate report, and a lightweight Markdown summary at `docs/research/desktop_residual_regime_validation_latest.md`.
 
 To build only the promotion gate report after a validation run, use:
 
@@ -77,6 +77,12 @@ python scripts\run_promotion_report.py --config configs\promotion_gate_tushare_m
 ```
 
 This does not approve live trading. It summarizes which candidates are blocked, research-only, or still missing evidence.
+
+To rebuild only the syncable Markdown summary:
+
+```powershell
+python scripts\run_desktop_validation_summary.py
+```
 
 ## Review Rules
 
