@@ -6,7 +6,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 try:
     from scripts.start_task_context import DEFAULT_CONFIG, load_config
@@ -83,6 +83,7 @@ def build_sync_plan(
     pending_research_branches: list[dict[str, str]] | None = None,
     pending_topic_branches: list[dict[str, str]] | None = None,
     cleanup_topic_branches: list[dict[str, str]] | None = None,
+    branch_discovery_errors: list[str] | None = None,
     project_audit_passed: bool | None = None,
     compile_passed: bool | None = None,
 ) -> dict[str, Any]:
@@ -90,6 +91,7 @@ def build_sync_plan(
     pending_research_branches = pending_research_branches or []
     pending_topic_branches = pending_topic_branches or []
     cleanup_topic_branches = cleanup_topic_branches or []
+    branch_discovery_errors = branch_discovery_errors or []
     blockers = _sync_blockers(
         config=config,
         current_branch=current_branch,
@@ -101,6 +103,7 @@ def build_sync_plan(
         upstream_sync=upstream_sync,
         pending_research_branches=pending_research_branches,
         pending_topic_branches=pending_topic_branches,
+        branch_discovery_errors=branch_discovery_errors,
         project_audit_passed=project_audit_passed,
         compile_passed=compile_passed,
     )
@@ -123,6 +126,9 @@ def build_sync_plan(
         "topic_branch_integration": {
             "pending": pending_topic_branches,
             "cleanup": cleanup_topic_branches,
+        },
+        "branch_discovery": {
+            "errors": branch_discovery_errors,
         },
         "blockers": blockers,
         "validation": {
@@ -272,8 +278,15 @@ def main() -> None:
     current_branch = _git_stdout(["branch", "--show-current"])
     changed_paths = _changed_paths()
     upstream_sync = _upstream_sync()
-    remote_topic_branches = _remote_topic_branches()
-    local_topic_branches = _local_topic_branches()
+    remote_branch_discovery = _remote_topic_branch_discovery()
+    local_branch_discovery = _local_topic_branch_discovery()
+    remote_topic_branches = remote_branch_discovery["branches"]
+    local_topic_branches = local_branch_discovery["branches"]
+    branch_discovery_errors = [
+        str(error)
+        for error in (remote_branch_discovery.get("error"), local_branch_discovery.get("error"))
+        if error
+    ]
     manifest = load_integration_manifest()
     current_commits = _current_history_commits(remote_topic_branches)
     stable_commits = _history_commits(remote_topic_branches + local_topic_branches, "origin/main")
@@ -306,6 +319,7 @@ def main() -> None:
         pending_research_branches=pending_research_branches,
         pending_topic_branches=topic_branch_audit["pending"],
         cleanup_topic_branches=topic_branch_audit["cleanup"],
+        branch_discovery_errors=branch_discovery_errors,
         project_audit_passed=bool(validation.get("project_audit_passed"))
         if validation.get("project_audit_passed") is not None
         else None,
@@ -389,6 +403,7 @@ def _sync_blockers(
     upstream_sync: str,
     pending_research_branches: list[dict[str, str]],
     pending_topic_branches: list[dict[str, str]],
+    branch_discovery_errors: list[str],
     project_audit_passed: bool | None,
     compile_passed: bool | None,
 ) -> list[str]:
@@ -405,6 +420,8 @@ def _sync_blockers(
         blockers.append("project_audit_failed")
     if compile_passed is False:
         blockers.append("compile_failed")
+    if branch_discovery_errors:
+        blockers.append("branch_discovery_failed")
     stable_branch = str(_branch_policy(config).get("stable_branch", "main"))
     if current_branch == stable_branch and task != "project_sync":
         blockers.append("main_requires_project_sync_or_manual_confirmation")
@@ -522,45 +539,58 @@ def _changed_paths() -> list[str]:
 
 
 def _remote_topic_branches() -> list[dict[str, str]]:
-    result = _git(
-        [
-            "for-each-ref",
-            "--format=%(refname:short)|%(objectname)",
-            "refs/remotes/origin/codex",
-        ],
-        check=False,
-    )
-    if result.returncode != 0:
-        return []
-    branches: list[dict[str, str]] = []
-    for line in result.stdout.splitlines():
-        if "|" not in line:
-            continue
-        name, commit = line.split("|", 1)
-        if _is_topic_branch(name):
-            branches.append({"name": name.strip(), "commit": commit.strip()})
-    return branches
+    return list(_remote_topic_branch_discovery()["branches"])
 
 
 def _local_topic_branches() -> list[dict[str, str]]:
+    return list(_local_topic_branch_discovery()["branches"])
+
+
+def _remote_topic_branch_discovery() -> dict[str, Any]:
+    return _topic_branch_discovery(
+        ref_prefix="refs/remotes/origin/codex",
+        predicate=_is_topic_branch,
+        error_label="remote_topic_branches",
+    )
+
+
+def _local_topic_branch_discovery() -> dict[str, Any]:
+    return _topic_branch_discovery(
+        ref_prefix="refs/heads/codex",
+        predicate=_is_local_topic_branch,
+        error_label="local_topic_branches",
+    )
+
+
+def _topic_branch_discovery(
+    *,
+    ref_prefix: str,
+    predicate: Callable[[str], bool],
+    error_label: str,
+) -> dict[str, Any]:
     result = _git(
         [
             "for-each-ref",
             "--format=%(refname:short)|%(objectname)",
-            "refs/heads/codex",
+            ref_prefix,
         ],
         check=False,
     )
     if result.returncode != 0:
-        return []
+        return {"branches": [], "error": _git_error_message(error_label, result)}
     branches: list[dict[str, str]] = []
     for line in result.stdout.splitlines():
         if "|" not in line:
             continue
         name, commit = line.split("|", 1)
-        if _is_local_topic_branch(name):
+        if predicate(name):
             branches.append({"name": name.strip(), "commit": commit.strip()})
-    return branches
+    return {"branches": branches, "error": None}
+
+
+def _git_error_message(label: str, result: subprocess.CompletedProcess[str]) -> str:
+    detail = result.stderr.strip() or result.stdout.strip() or f"git returned {result.returncode}"
+    return f"{label}: {detail}"
 
 
 def _current_history_commits(remote_branches: list[dict[str, str]]) -> set[str]:
