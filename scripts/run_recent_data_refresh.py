@@ -15,6 +15,7 @@ ensure_workspace_imports()
 from quant_robot.data.readiness import check_tushare_readiness
 from quant_robot.ops.recent_data_refresh import (
     build_recent_data_refresh_pack,
+    build_workstation_refresh_context,
     resolve_refresh_window,
     write_recent_data_refresh_pack,
 )
@@ -28,6 +29,7 @@ except ModuleNotFoundError:  # pragma: no cover - exercised when this file is ru
 DEFAULT_PROFILE_OBSERVATION_PACK = Path("data/reports/profile_observation/profile_observation_pack.json")
 DEFAULT_OUTPUT_DIR = Path("data/processed/tushare_etf_recent")
 DEFAULT_REPORT_DIR = Path("data/reports/recent_data_refresh")
+DEFAULT_WORKSTATIONS_CONFIG = Path("configs/workstations.json")
 
 
 def run_recent_data_refresh(
@@ -41,13 +43,21 @@ def run_recent_data_refresh(
     execute: bool = False,
     readiness: dict[str, Any] | None = None,
     ingest_runner: Callable[..., dict[str, Any]] | None = None,
+    machine: str | None = None,
+    workstation_config: dict[str, Any] | None = None,
+    workstations_config_path: str | Path = DEFAULT_WORKSTATIONS_CONFIG,
 ) -> dict[str, Any]:
     profile_pack = _read_json(Path(profile_observation_pack))
     window = resolve_refresh_window(profile_pack, start_date=start_date, end_date=end_date)
     source_name = source.strip().lower()
     readiness_pack = readiness if readiness is not None else _readiness_for_source(source_name)
+    resolved_workstation_config = workstation_config
+    if machine and resolved_workstation_config is None:
+        resolved_workstation_config = _read_json(Path(workstations_config_path))
+    workstation = build_workstation_refresh_context(machine, resolved_workstation_config)
+    can_run_data_pipeline = bool(workstation.get("can_run_data_pipeline", True))
     ingest_result = None
-    can_execute = execute and (source_name != "tushare" or bool(readiness_pack.get("ready", False)))
+    can_execute = execute and can_run_data_pipeline and (source_name != "tushare" or bool(readiness_pack.get("ready", False)))
     if can_execute:
         runner = ingest_runner or run_ingest
         ingest_result = runner(
@@ -62,6 +72,8 @@ def run_recent_data_refresh(
         readiness=readiness_pack,
         ingest_result=ingest_result,
         execute=execute,
+        machine=machine,
+        workstation_config=resolved_workstation_config,
         source=source_name,
         market=market,
         output_dir=output_dir,
@@ -81,6 +93,8 @@ def main() -> None:
     parser.add_argument("--report-dir", default=str(DEFAULT_REPORT_DIR))
     parser.add_argument("--start-date")
     parser.add_argument("--end-date")
+    parser.add_argument("--machine", help="Current workstation name from configs/workstations.json.")
+    parser.add_argument("--workstations-config", default=str(DEFAULT_WORKSTATIONS_CONFIG))
     parser.add_argument("--execute", action="store_true", help="Actually run the selected data ingest after readiness passes.")
     args = parser.parse_args()
     pack = run_recent_data_refresh(
@@ -92,6 +106,8 @@ def main() -> None:
         start_date=args.start_date,
         end_date=args.end_date,
         execute=args.execute,
+        machine=args.machine,
+        workstations_config_path=Path(args.workstations_config),
     )
     print(
         json.dumps(
@@ -101,8 +117,10 @@ def main() -> None:
                 "mode": pack["mode"],
                 "will_download": pack["will_download"],
                 "target_window": pack["target_window"],
+                "workstation": pack.get("workstation", {}),
                 "decision": pack["decision"],
                 "coverage": pack["coverage"],
+                "next_actions": pack.get("next_actions", []),
                 "report_dir": str(Path(args.report_dir)),
             },
             indent=2,

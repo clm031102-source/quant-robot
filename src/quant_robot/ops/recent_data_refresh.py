@@ -19,6 +19,8 @@ def build_recent_data_refresh_pack(
     readiness: dict[str, Any] | None = None,
     ingest_result: dict[str, Any] | None = None,
     execute: bool = False,
+    machine: str | None = None,
+    workstation_config: dict[str, Any] | None = None,
     source: str = "tushare",
     market: str = "CN_ETF",
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
@@ -28,14 +30,17 @@ def build_recent_data_refresh_pack(
     readiness_pack = readiness or {"ready": False, "missing": []}
     target_window = resolve_refresh_window(profile_observation_pack, start_date=start_date, end_date=end_date)
     coverage = _coverage_from_ingest(ingest_result, target_window, profile_observation_pack)
+    workstation = build_workstation_refresh_context(machine, workstation_config)
+    can_run_data_pipeline = bool(workstation.get("can_run_data_pipeline", True))
     readiness_missing = list(readiness_pack.get("missing", [])) if isinstance(readiness_pack.get("missing", []), list) else []
     source_name = source.strip().lower()
     readiness_blocks = source_name == "tushare" and not bool(readiness_pack.get("ready", False))
-    will_download = bool(execute and not readiness_blocks)
+    effective_execute = bool(execute and can_run_data_pipeline)
+    will_download = bool(effective_execute and not readiness_blocks)
 
     if readiness_blocks:
         status = "blocked"
-    elif not execute:
+    elif not effective_execute:
         status = "ready_to_execute" if bool(readiness_pack.get("ready", False)) or source_name == "tushare-fixture" else "blocked"
     elif coverage["coverage_status"] == "pass":
         status = "completed"
@@ -50,10 +55,12 @@ def build_recent_data_refresh_pack(
         "status": status,
         "source": source_name,
         "market": market.upper(),
-        "mode": "execute" if execute else "dry_run",
+        "mode": "execute" if effective_execute else "dry_run",
+        "execute_requested": bool(execute),
         "will_download": will_download,
         "output_dir": str(output_dir),
         "target_window": target_window,
+        "workstation": workstation,
         "readiness": readiness_pack,
         "ingest": ingest_result or {},
         "coverage": coverage,
@@ -69,6 +76,35 @@ def build_recent_data_refresh_pack(
     pack["next_actions"] = _next_actions(pack)
     pack["markdown"] = render_recent_data_refresh_markdown(pack)
     return _sanitize(pack)
+
+
+def build_workstation_refresh_context(
+    machine: str | None = None,
+    workstation_config: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    config = workstation_config if isinstance(workstation_config, dict) else {}
+    machines = config.get("machines", {}) if isinstance(config.get("machines", {}), dict) else {}
+    tasks = config.get("tasks", {}) if isinstance(config.get("tasks", {}), dict) else {}
+    selected = machines.get(machine, {}) if machine else {}
+    selected = selected if isinstance(selected, dict) else {}
+    allowed_tasks = _string_list(selected.get("allowed_tasks"))
+    data_pipeline_machines = [
+        str(name)
+        for name, payload in machines.items()
+        if isinstance(payload, dict) and "data_pipeline" in _string_list(payload.get("allowed_tasks"))
+    ]
+    task_config = tasks.get("data_pipeline", {}) if isinstance(tasks.get("data_pipeline", {}), dict) else {}
+    if machine:
+        can_run_data_pipeline = "data_pipeline" in allowed_tasks
+    else:
+        can_run_data_pipeline = True
+    return {
+        "machine": machine,
+        "allowed_tasks": allowed_tasks,
+        "can_run_data_pipeline": can_run_data_pipeline,
+        "data_pipeline_machines": data_pipeline_machines,
+        "data_pipeline_branch": task_config.get("branch"),
+    }
 
 
 def resolve_refresh_window(
@@ -452,6 +488,11 @@ def _decision_blockers(status: str, readiness_missing: list[str], coverage: dict
 def _next_actions(pack: dict[str, Any]) -> list[dict[str, Any]]:
     blockers = pack.get("decision", {}).get("blockers", []) if isinstance(pack.get("decision"), dict) else []
     actions: list[dict[str, Any]] = []
+    workstation = pack.get("workstation", {}) if isinstance(pack.get("workstation"), dict) else {}
+    if pack.get("status") in {"blocked", "ready_to_execute", "data_quality_blocked"} and not bool(
+        workstation.get("can_run_data_pipeline", True)
+    ):
+        return [_handoff_refresh_action(pack, workstation)]
     if any("TUSHARE_TOKEN" in str(item) for item in blockers):
         actions.append(
             {
@@ -515,6 +556,25 @@ def _next_actions(pack: dict[str, Any]) -> list[dict[str, Any]]:
     return actions
 
 
+def _handoff_refresh_action(pack: dict[str, Any], workstation: dict[str, Any]) -> dict[str, Any]:
+    recommended = _string_list(workstation.get("data_pipeline_machines"))
+    primary_machine = recommended[0] if recommended else "highspec_desktop"
+    branch = workstation.get("data_pipeline_branch") or "codex/tushare-data-pipeline"
+    return {
+        "action": "handoff_recent_tushare_refresh",
+        "local_only": False,
+        "requires_machine_handoff": True,
+        "recommended_machines": recommended,
+        "recommended_branch": branch,
+        "command": f"python scripts\\run_recent_data_refresh.py --machine {primary_machine} --execute",
+        "reason": (
+            f"{workstation.get('machine') or 'Current machine'} is not configured for data_pipeline; "
+            "run the recent Tushare refresh on a data-pipeline workstation before rerunning Daily Ops."
+        ),
+        "blocked_local_action": "execute_recent_tushare_refresh" if pack.get("status") == "ready_to_execute" else pack.get("status"),
+    }
+
+
 def _next_day(value: str) -> str | None:
     try:
         return (date.fromisoformat(value[:10]) + timedelta(days=1)).isoformat()
@@ -551,6 +611,12 @@ def _int(value: Any, default: int = 0) -> int:
         return int(float(value))
     except (TypeError, ValueError):
         return default
+
+
+def _string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if item is not None]
 
 
 def _sanitize(value: Any) -> Any:

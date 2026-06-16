@@ -5,6 +5,15 @@ from quant_robot.ops.recent_data_refresh import build_recent_data_refresh_pack
 
 
 class RecentDataRefreshTests(unittest.TestCase):
+    WORKSTATION_CONFIG = {
+        "machines": {
+            "laptop": {"allowed_tasks": ["architecture_ops", "factor_smoke", "factor_review", "project_sync"]},
+            "highspec_desktop": {"allowed_tasks": ["data_pipeline", "factor_batch", "factor_validation"]},
+            "office_desktop": {"allowed_tasks": ["data_pipeline", "factor_batch", "factor_validation"]},
+        },
+        "tasks": {"data_pipeline": {"branch": "codex/tushare-data-pipeline"}},
+    }
+
     def test_execute_blocks_when_tushare_readiness_is_missing(self):
         profile_observation = {
             "stage": "phase_5_6_profile_observation_ledger",
@@ -43,6 +52,31 @@ class RecentDataRefreshTests(unittest.TestCase):
         self.assertEqual(pack["next_actions"][0]["action"], "set_tushare_token_env")
         serialized = json.dumps(pack, ensure_ascii=False)
         self.assertNotIn("4743", serialized)
+
+    def test_laptop_ready_refresh_hands_off_to_data_pipeline_workstations(self):
+        profile_observation = {
+            "run_date": "2026-06-14",
+            "ledger": [{"signal_date": "2026-05-22", "profile_id": "cap60_guard12_cd3"}],
+        }
+
+        pack = build_recent_data_refresh_pack(
+            profile_observation,
+            readiness={"ready": True, "missing": []},
+            execute=False,
+            source="tushare",
+            market="CN_ETF",
+            output_dir="data/processed/tushare_etf_recent",
+            machine="laptop",
+            workstation_config=self.WORKSTATION_CONFIG,
+        )
+
+        self.assertEqual(pack["status"], "ready_to_execute")
+        self.assertEqual(pack["workstation"]["machine"], "laptop")
+        self.assertFalse(pack["workstation"]["can_run_data_pipeline"])
+        self.assertEqual(pack["workstation"]["data_pipeline_machines"], ["highspec_desktop", "office_desktop"])
+        self.assertEqual(pack["next_actions"][0]["action"], "handoff_recent_tushare_refresh")
+        self.assertEqual(pack["next_actions"][0]["recommended_machines"], ["highspec_desktop", "office_desktop"])
+        self.assertNotIn("execute_recent_tushare_refresh", [row["action"] for row in pack["next_actions"]])
 
     def test_completed_refresh_clears_stale_signal_when_coverage_reaches_run_date(self):
         profile_observation = {

@@ -92,8 +92,14 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
         return full_plan
     if profile == "laptop":
         selected = set(LAPTOP_CHECK_NAMES)
-        return [step for step in full_plan if step.name in selected]
+        return [_with_laptop_context(step) for step in full_plan if step.name in selected]
     raise ValueError(f"Unsupported check profile: {profile}")
+
+
+def _with_laptop_context(step: CheckStep) -> CheckStep:
+    if step.name == "recent_data_refresh":
+        return CheckStep(step.name, [*step.command, "--machine", "laptop"], uses_network=step.uses_network)
+    return step
 
 
 def build_child_env(base_env: dict[str, str] | None = None) -> dict[str, str]:

@@ -136,6 +136,10 @@ class CheckPlanTests(unittest.TestCase):
         self.assertNotIn("experiment_grid", names)
         self.assertNotIn("walk_forward", names)
         self.assertNotIn("paper_profile_optimizer", names)
+        recent_refresh = next(step for step in plan if step.name == "recent_data_refresh")
+        self.assertIn("--machine", recent_refresh.command)
+        self.assertIn("laptop", recent_refresh.command)
+        self.assertNotIn("--execute", recent_refresh.command)
 
     def test_unknown_check_profile_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "Unsupported check profile"):

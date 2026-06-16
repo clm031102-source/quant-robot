@@ -9,14 +9,16 @@ It does not connect to a broker, read an account, or place orders. It only decid
 Dry-run, no download:
 
 ```powershell
-python scripts\run_recent_data_refresh.py --profile-observation-pack data\reports\profile_observation\profile_observation_pack.json --source tushare --market CN_ETF --output-dir data\processed\tushare_etf_recent --report-dir data\reports\recent_data_refresh
+python scripts\run_recent_data_refresh.py --machine laptop --profile-observation-pack data\reports\profile_observation\profile_observation_pack.json --source tushare --market CN_ETF --output-dir data\processed\tushare_etf_recent --report-dir data\reports\recent_data_refresh
 ```
 
-Execute after Tushare readiness is clear:
+Execute after Tushare readiness is clear, only from a workstation whose `configs/workstations.json` role includes `data_pipeline`:
 
 ```powershell
-python scripts\run_recent_data_refresh.py --profile-observation-pack data\reports\profile_observation\profile_observation_pack.json --source tushare --market CN_ETF --output-dir data\processed\tushare_etf_recent --report-dir data\reports\recent_data_refresh --execute
+python scripts\run_recent_data_refresh.py --machine highspec_desktop --profile-observation-pack data\reports\profile_observation\profile_observation_pack.json --source tushare --market CN_ETF --output-dir data\processed\tushare_etf_recent --report-dir data\reports\recent_data_refresh --execute
 ```
+
+When `--machine laptop` is selected, execute requests are blocked before ingest starts. The pack records `execute_requested=true`, `will_download=false`, `workstation.can_run_data_pipeline=false`, and a `handoff_recent_tushare_refresh` next action that points to `highspec_desktop` or `office_desktop`.
 
 Outputs:
 
@@ -28,7 +30,7 @@ Outputs:
 Fixture execute rehearsal, no real Tushare token:
 
 ```powershell
-python scripts\run_recent_data_refresh.py --profile-observation-pack data\reports\profile_observation\profile_observation_pack.json --source tushare-fixture --market CN_ETF --output-dir data\processed\tushare_etf_recent_fixture --report-dir data\reports\recent_data_refresh_fixture --execute
+python scripts\run_recent_data_refresh.py --machine highspec_desktop --profile-observation-pack data\reports\profile_observation\profile_observation_pack.json --source tushare-fixture --market CN_ETF --output-dir data\processed\tushare_etf_recent_fixture --report-dir data\reports\recent_data_refresh_fixture --execute
 ```
 
 Fixture outputs:
