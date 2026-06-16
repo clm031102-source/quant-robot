@@ -519,3 +519,17 @@ Capacity-sizing results:
 - Cost30 did not pass even after sizing down. The closest cost30 row was top10/regime252 at 250k, with relative return 0.8645 and capacity-limited trades 0, but max drawdown was still -0.3047.
 
 Audit judgment: `large_minus_liquidity_20` should be treated as a small-capacity research candidate, not a general 1m-capacity promotion. The current best robust shape is `top10/cost20/regime150/180/252` at portfolio value up to roughly 500k under a 5% participation cap. This is the strongest current positive candidate after applying selected-tail IC, drawdown, and capacity together. It still fails the 30 bps stress test and should not be promoted to production, but it is worth handing to the laptop framework for formal capacity-aware validation and possible position-sizing rules.
+
+## Large-Minus-Liquidity Corrected Walk-Forward Audit
+
+After the small-capacity sizing pass, the office desktop ran a corrected rolling walk-forward check for `large_minus_liquidity_20/top10/cost20` at 500k portfolio value. The first 63-day walk-forward attempt was not used as evidence because the test window was shorter than the 150/180/252-day regime lookback, which created blocked or no-trade folds. The corrected run used 252 training days, 315 test days, and a 126-day step so the OOS window could warm up the longest regime filter.
+
+Corrected walk-forward results:
+
+- The corrected run covered regime150, regime180, and regime252 across 2 rolling folds. All three OOS tests completed and were capacity-clean: capacity-limited trades were 0, with max participation between 1.79% and 4.55%.
+- No row was accepted. The rejection was no longer a short-window/no-trade artifact; every OOS row had negative relative return versus the benchmark.
+- Regime150 had the best absolute OOS return profile, with test total return 5.1667, benchmark return 16.2554, relative return -11.0888, Sharpe 2.0094, max drawdown -0.2319, and tail-IC p-value 0.0938.
+- Regime180 had test total return 4.4334, benchmark return 16.2554, relative return -11.8220, Sharpe 2.0433, max drawdown -0.2046, and tail-IC p-value 0.1543.
+- Regime252 had the cleanest drawdown and participation, with test total return 4.1560, benchmark return 16.2554, relative return -12.0994, Sharpe 2.6061, max drawdown -0.1755, max participation 1.79%, but tail-IC p-value 0.4819.
+
+Audit judgment: this corrected OOS check downgrades `large_minus_liquidity_20` from "strongest current positive candidate" to "capacity-clean defensive near-miss." The factor can make money in absolute terms at small size with controlled drawdown, but it does not beat the benchmark in rolling OOS and the selected-tail IC weakens. It should not be promoted as a profitability factor in the current framework. The useful handoff to the laptop side is methodological: if this family is revisited, it needs benchmark-relative construction, dynamic beta/market exposure control, or a formal defensive sleeve objective rather than more top-N/regime threshold sweeps on the office desktop.
