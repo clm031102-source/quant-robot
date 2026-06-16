@@ -121,6 +121,18 @@ GitHub does not sync:
 
 Use local copy, NAS, external drives, or a future DVC/object-storage workflow for large data.
 
+## Desktop Factor Validation
+
+When a desktop is assigned stable framework validation, use task type `factor_validation` and run the residual-regime profile rather than starting a new exploratory batch:
+
+```powershell
+python scripts\run_desktop_factor_validation.py
+```
+
+This runs `configs/walk_forward_tushare_moneyflow_residual_regime.json` on local processed bars and Tushare moneyflow inputs. It allows zero accepted candidates because a clean rejection set is still useful evidence. It should still fail on train/test grid errors, missing data, or unsafe repository state.
+
+Use the detailed checklist in `docs/research/desktop_residual_regime_validation_runbook_2026-06-16.md`.
+
 ## Safety Boundary
 
 The project is still research-to-paper only:

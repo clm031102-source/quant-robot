@@ -39,6 +39,16 @@ LAPTOP_CHECK_NAMES = (
     "paper_ops_guardrail",
 )
 
+DESKTOP_VALIDATION_CHECK_NAMES = (
+    "unit_and_integration_tests",
+    "compile_python",
+    "project_audit",
+    "readiness_check",
+    "provider_status",
+    "data_catalog",
+    "data_quality_audit",
+)
+
 
 def build_check_plan(python_executable: str = sys.executable, profile: str = "full") -> list[CheckStep]:
     full_plan = [
@@ -93,6 +103,12 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
     if profile == "laptop":
         selected = set(LAPTOP_CHECK_NAMES)
         return [_with_laptop_context(step) for step in full_plan if step.name in selected]
+    if profile == "desktop-validation":
+        selected = set(DESKTOP_VALIDATION_CHECK_NAMES)
+        return [
+            *(step for step in full_plan if step.name in selected),
+            CheckStep("desktop_factor_validation", [python_executable, "scripts/run_desktop_factor_validation.py"]),
+        ]
     raise ValueError(f"Unsupported check profile: {profile}")
 
 
@@ -120,7 +136,12 @@ def execute_check_plan(plan: list[CheckStep], env: dict[str, str] | None = None)
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run local Quant Robot checks.")
-    parser.add_argument("--profile", choices=["full", "laptop"], default="full", help="Select the check plan size.")
+    parser.add_argument(
+        "--profile",
+        choices=["full", "laptop", "desktop-validation"],
+        default="full",
+        help="Select the check plan size.",
+    )
     parser.add_argument("--execute", action="store_true", help="Run checks instead of printing the plan.")
     args = parser.parse_args()
     plan = build_check_plan(profile=args.profile)

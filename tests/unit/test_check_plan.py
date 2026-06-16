@@ -145,6 +145,27 @@ class CheckPlanTests(unittest.TestCase):
         self.assertIn("laptop", activation_gate.command)
         self.assertNotIn("--execute", activation_gate.command)
 
+    def test_desktop_validation_profile_runs_safety_checks_then_residual_regime_validation(self):
+        plan = build_check_plan("python", profile="desktop-validation")
+
+        names = [step.name for step in plan]
+        self.assertEqual(
+            names,
+            [
+                "unit_and_integration_tests",
+                "compile_python",
+                "project_audit",
+                "readiness_check",
+                "provider_status",
+                "data_catalog",
+                "data_quality_audit",
+                "desktop_factor_validation",
+            ],
+        )
+        self.assertTrue(all(not step.uses_network for step in plan))
+        desktop_validation = plan[-1]
+        self.assertEqual(desktop_validation.command, ["python", "scripts/run_desktop_factor_validation.py"])
+
     def test_unknown_check_profile_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "Unsupported check profile"):
             build_check_plan("python", profile="moonbase")

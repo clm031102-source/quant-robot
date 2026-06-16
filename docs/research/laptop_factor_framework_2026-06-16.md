@@ -27,14 +27,20 @@ These candidates should be treated as strict-validation inputs only. A future da
 - split-window robustness;
 - data-quality inspection for stale prices, missing dates, extreme returns, and adjusted-close jumps.
 
-The config `configs/walk_forward_tushare_moneyflow_technical_combo.json` now includes both candidates for the next heavier validation pass.
+The config `configs/walk_forward_tushare_moneyflow_technical_combo.json` includes the first liquidity-control candidates for historical comparison. The stricter current default is the residual-regime validation profile, which focuses on `large_resid_liq_vol_amt_20` and `large_resid_liq_vol_amt_gate_20` across multiple pre-registered regime lookbacks.
 
 Recommended validation command on `highspec_desktop` or `office_desktop`:
 
 ```powershell
-python scripts\run_walk_forward.py --config configs\walk_forward_tushare_moneyflow_technical_combo.json --source processed-bars --data-root data\processed --allow-no-accepted
+python scripts\run_desktop_factor_validation.py
 ```
 
-The `--allow-no-accepted` flag is intentional for strict factor review. It keeps the command successful when the grid completes and every candidate is rejected, because a full rejection set is still useful research evidence. Grid failures, missing train/test results, and unsafe data or sync paths remain blockers.
+Allowing zero accepted candidates is intentional for strict factor review. The desktop validation script keeps the command successful when the grid completes and every candidate is rejected, because a full rejection set is still useful research evidence. Grid failures, missing train/test results, and unsafe data or sync paths remain blockers.
+
+For the full desktop check chain, use:
+
+```powershell
+python scripts\run_checks.py --profile desktop-validation --execute
+```
 
 The latest office attribution also adds a review warning: `large_minus_liquidity_20` failed through a severe 2024H1 drawdown and hump-shaped quantiles rather than a pure capacity problem, while `mf_low_minus_volatility_20` was both capacity-constrained and non-monotonic. The next run should inspect quantile shape and mid-quantile/tail behavior before treating any liquidity-controlled variant as robust.

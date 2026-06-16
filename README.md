@@ -208,6 +208,22 @@ Outputs are written to `data/reports/walk_forward/` by default:
 
 Edit `configs/walk_forward.json` to change the split date, candidate grid, acceptance thresholds, and output path. CN ETF production configs can enable `rolling_train_days`, `rolling_test_days`, `rolling_step_days`, and `min_accepted_folds`. The test segment includes train-period warmup bars for rolling factor calculation, but signals and trades are restricted to out-of-sample dates.
 
+For the current desktop residual-regime validation profile, run:
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_desktop_factor_validation.py
+```
+
+This uses `configs/walk_forward_tushare_moneyflow_residual_regime.json` with processed bars and Tushare moneyflow inputs. A run with zero accepted candidates is still a valid strict-validation result when all train/test grids completed.
+
+To run the desktop validation check chain around that profile:
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_checks.py --profile desktop-validation --execute
+```
+
 ## Run Signal Snapshot
 
 This generates the latest research signal targets and a research-only advisory rebalance plan. It does not connect to a broker, read a real account, or place orders. If no positions CSV is supplied, the run assumes an empty local paper portfolio.
