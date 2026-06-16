@@ -82,7 +82,7 @@ def main() -> None:
             output_dir=Path(args.output_dir) if args.output_dir else None,
             require_accepted=args.require_accepted,
         )
-    except FileNotFoundError as exc:
+    except (FileNotFoundError, RuntimeError, ValueError) as exc:
         raise SystemExit(str(exc)) from exc
     print(json.dumps({"summary": result["summary"], "top": result["leaderboard"][:20]}, indent=2, sort_keys=True))
 
