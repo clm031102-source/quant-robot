@@ -146,3 +146,34 @@ Additional combined width/cost audit on `large_minus_liquidity_20`:
 - Top20/cost30: rejected for relative return below threshold and drawdown above limit.
 
 The wider portfolios reduce participation pressure but do not solve the drawdown and cost sensitivity problem. Current status is strict-validation observation, not promotion.
+
+## Continued Combined Audits
+
+The office desktop then tested whether existing controls could rescue the long-sample `large_minus_liquidity_20` shape without adding new factor code.
+
+Regime filter, 20-day equal-weight market momentum, combined 2023-2026:
+
+- Top5/cost20: rejected for drawdown above limit. Total return 59.3310, relative return 45.9744, Sharpe 1.1607, max drawdown -0.4185, capacity-limited trades 9, max participation 48.6%.
+- Top10/cost20: rejected for drawdown above limit. Total return 33.2598, relative return 19.9032, Sharpe 1.0342, max drawdown -0.4026, capacity-limited trades 4, max participation 24.3%.
+- Top20/cost20: rejected for relative return below threshold and drawdown above limit. Total return 12.8595, relative return -0.4971, Sharpe 0.9377, max drawdown -0.3871, capacity-limited trades 2, max participation 12.2%.
+
+Weekly rebalance checks:
+
+- Regime-filtered top20/cost20/rebalance5 reduced drawdown to -0.0906 and removed capacity-limited trades, but total return was only 0.3706 versus a 13.3566 equal-weight benchmark return, so it failed relative-return review.
+- Unfiltered top20/cost20/rebalance5 had drawdown -0.2438 but total return only 0.0179, relative return -13.3387, and 4 capacity-limited trades.
+
+The conclusion is that simple market-regime and weekly-rebalance controls reduce risk by cutting exposure, not by preserving a durable long-sample edge. `large_minus_liquidity_20` remains observation only.
+
+Raw moneyflow priority factors were also checked on the combined store at top20/cost20:
+
+- `large_order_net_amount_ratio`: significant positive IC, but rejected for relative return below threshold, drawdown -0.6577, 90 capacity-limited trades, and max participation above 500%.
+- `extra_large_order_net_amount_ratio`: significant positive IC, but rejected for relative return below threshold, drawdown -0.7766, 34 capacity-limited trades, and max participation above 200%.
+- `small_order_sell_pressure`: significant positive IC, but rejected for relative return below threshold, drawdown -0.6470, 78 capacity-limited trades, and max participation above 600%.
+- `net_mf_amount_ratio_low`: significant positive IC and positive relative return, but rejected for drawdown -0.6382, 98 capacity-limited trades, max participation above 600%, and negative top-minus-bottom quantile spread.
+
+`mf_low_minus_volatility_20` was then tested on the combined store at top10/top20/cost20:
+
+- Top10/cost20: significant positive IC and RankIC, total return 147.5315, relative return 134.1749, but rejected for drawdown -0.3400, 183 capacity-limited trades, max participation above 250%, and negative long-short spread.
+- Top20/cost20: significant positive IC and RankIC, total return 16.6587, relative return 3.3021, but rejected for drawdown -0.5481, 83 capacity-limited trades, max participation above 500%, and negative long-short spread.
+
+These checks narrow the next useful direction: plain moneyflow strength and low-flow volatility variants have signal, but they are not tradable at the current 1,000,000 portfolio value without stronger liquidity gating and risk controls. The next factor-mining branch should pre-register liquidity-gated moneyflow-risk blends rather than keep widening raw top-N portfolios.

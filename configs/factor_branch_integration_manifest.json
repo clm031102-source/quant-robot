@@ -31,6 +31,14 @@
       "integrated_by": "laptop",
       "status": "absorbed",
       "summary": "Absorbed the combined width and cost audit for large_minus_liquidity_20. Wider portfolios reduce participation pressure but do not solve drawdown and cost sensitivity, so the candidate remains strict-validation observation only."
+    },
+    {
+      "branch": "origin/codex/factor-batch-moneyflow-alpha",
+      "commit": "f1419a009c50b88a6db0d6ea3673f2e026569484",
+      "integrated_on": "2026-06-16",
+      "integrated_by": "laptop",
+      "status": "absorbed",
+      "summary": "Absorbed continued combined rejection audits for large_minus_liquidity_20, raw moneyflow priority factors, and mf_low_minus_volatility_20. The evidence narrows future mining toward liquidity-gated moneyflow-risk blends and does not promote any factor."
     }
   ],
   "ignored_branches": []

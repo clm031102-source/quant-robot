@@ -140,6 +140,10 @@ class CheckPlanTests(unittest.TestCase):
         self.assertIn("--machine", recent_refresh.command)
         self.assertIn("laptop", recent_refresh.command)
         self.assertNotIn("--execute", recent_refresh.command)
+        activation_gate = next(step for step in plan if step.name == "tushare_activation_gate")
+        self.assertIn("--machine", activation_gate.command)
+        self.assertIn("laptop", activation_gate.command)
+        self.assertNotIn("--execute", activation_gate.command)
 
     def test_unknown_check_profile_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "Unsupported check profile"):

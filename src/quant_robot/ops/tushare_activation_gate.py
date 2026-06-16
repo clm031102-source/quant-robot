@@ -8,6 +8,8 @@ from typing import Any
 
 import pandas as pd
 
+from quant_robot.ops.recent_data_refresh import build_workstation_refresh_context
+
 
 STAGE = "phase_5_12_tushare_activation_gate"
 
@@ -23,9 +25,14 @@ def build_tushare_activation_gate_pack(
     observation_sufficiency: dict[str, Any] | None = None,
     iterative_observation_expansion: dict[str, Any] | None = None,
     chain_error: dict[str, Any] | None = None,
+    machine: str | None = None,
+    workstation_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     source_name = source.strip().lower()
     readiness_pack = _dict(readiness)
+    workstation = build_workstation_refresh_context(machine, workstation_config)
+    can_run_data_pipeline = bool(workstation.get("can_run_data_pipeline", True))
+    effective_execute = bool(execute and can_run_data_pipeline)
     recent = _dict(recent_data_refresh)
     post = _dict(post_refresh_replay)
     sufficiency = _dict(observation_sufficiency)
@@ -44,7 +51,7 @@ def build_tushare_activation_gate_pack(
 
     if readiness_blocked:
         status = "blocked_missing_readiness"
-    elif not execute:
+    elif not effective_execute:
         status = "ready_to_execute"
     elif chain_error:
         status = "activation_chain_failed"
@@ -59,7 +66,8 @@ def build_tushare_activation_gate_pack(
         "status": status,
         "source": source_name,
         "market": market.upper(),
-        "mode": "execute" if execute else "dry_run",
+        "mode": "execute" if effective_execute else "dry_run",
+        "workstation": workstation,
         "readiness": readiness_pack,
         "recent_data_refresh": _recent_summary(recent),
         "post_refresh_replay": _post_refresh_summary(post),
@@ -184,6 +192,11 @@ def _next_actions(pack: dict[str, Any]) -> list[dict[str, Any]]:
     decision = _dict(pack.get("decision"))
     blockers = _as_list(decision.get("blockers"))
     actions: list[dict[str, Any]] = []
+    workstation = _dict(pack.get("workstation"))
+    if pack.get("status") in {"blocked_missing_readiness", "ready_to_execute", "activation_chain_failed", "paper_gate_blocked"} and not bool(
+        workstation.get("can_run_data_pipeline", True)
+    ):
+        return [_handoff_activation_action(workstation)]
     if any("TUSHARE_TOKEN" in blocker for blocker in blockers):
         actions.append(
             {
@@ -244,6 +257,24 @@ def _next_actions(pack: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
     return actions
+
+
+def _handoff_activation_action(workstation: dict[str, Any]) -> dict[str, Any]:
+    recommended = _as_list(workstation.get("data_pipeline_machines"))
+    primary_machine = recommended[0] if recommended else "highspec_desktop"
+    branch = workstation.get("data_pipeline_branch") or "codex/tushare-data-pipeline"
+    return {
+        "action": "handoff_tushare_activation_gate",
+        "command": f"python scripts\\run_tushare_activation_gate.py --machine {primary_machine} --execute",
+        "local_only": False,
+        "requires_machine_handoff": True,
+        "recommended_machines": recommended,
+        "recommended_branch": branch,
+        "reason": (
+            f"{workstation.get('machine') or 'Current machine'} is not configured for data_pipeline; "
+            "run the Tushare activation chain on a data-pipeline workstation."
+        ),
+    }
 
 
 def _stage_ledger(

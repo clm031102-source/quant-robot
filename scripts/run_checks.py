@@ -97,7 +97,7 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
 
 
 def _with_laptop_context(step: CheckStep) -> CheckStep:
-    if step.name == "recent_data_refresh":
+    if step.name in {"recent_data_refresh", "tushare_activation_gate"}:
         return CheckStep(step.name, [*step.command, "--machine", "laptop"], uses_network=step.uses_network)
     return step
 

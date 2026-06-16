@@ -7,6 +7,15 @@ from scripts.run_tushare_activation_gate import run_tushare_activation_gate
 
 
 class TushareActivationGateTests(unittest.TestCase):
+    WORKSTATION_CONFIG = {
+        "machines": {
+            "laptop": {"allowed_tasks": ["architecture_ops", "factor_smoke", "factor_review", "project_sync"]},
+            "highspec_desktop": {"allowed_tasks": ["data_pipeline", "factor_batch", "factor_validation"]},
+            "office_desktop": {"allowed_tasks": ["data_pipeline", "factor_batch", "factor_validation"]},
+        },
+        "tasks": {"data_pipeline": {"branch": "codex/tushare-data-pipeline"}},
+    }
+
     def test_activation_gate_blocks_before_running_when_tushare_readiness_is_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -36,6 +45,32 @@ class TushareActivationGateTests(unittest.TestCase):
         self.assertTrue(artifact_exists)
         self.assertNotIn(("f" * 64), serialized)
         self.assertFalse(pack["live_boundary_allowed"])
+
+    def test_laptop_execute_request_hands_off_before_activation_chain_runs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile_pack = root / "profile_observation_pack.json"
+            profile_pack.write_text(json.dumps(_profile_observation_pack()), encoding="utf-8")
+            calls: list[str] = []
+
+            pack = run_tushare_activation_gate(
+                profile_observation_pack=profile_pack,
+                report_dir=root / "activation",
+                source="tushare",
+                execute=True,
+                readiness={"source": "tushare", "ready": True, "missing": []},
+                recent_data_refresh_runner=lambda **_: calls.append("recent") or _recent_pack(root / "processed"),
+                machine="laptop",
+                workstation_config=self.WORKSTATION_CONFIG,
+            )
+
+        self.assertEqual(pack["status"], "ready_to_execute")
+        self.assertEqual(pack["mode"], "dry_run")
+        self.assertTrue(pack["decision"]["execute_requested"])
+        self.assertEqual(calls, [])
+        self.assertFalse(pack["workstation"]["can_run_data_pipeline"])
+        self.assertEqual(pack["next_actions"][0]["action"], "handoff_tushare_activation_gate")
+        self.assertEqual(pack["next_actions"][0]["recommended_machines"], ["highspec_desktop", "office_desktop"])
 
     def test_activation_gate_runs_fixture_chain_until_iterative_sample_gate_clears(self):
         with tempfile.TemporaryDirectory() as tmp:

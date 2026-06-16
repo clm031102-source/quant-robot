@@ -13,7 +13,11 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 ensure_workspace_imports()
 
 from quant_robot.data.readiness import check_tushare_readiness
-from quant_robot.ops.recent_data_refresh import build_recent_data_refresh_pack, write_recent_data_refresh_pack
+from quant_robot.ops.recent_data_refresh import (
+    build_recent_data_refresh_pack,
+    build_workstation_refresh_context,
+    write_recent_data_refresh_pack,
+)
 from quant_robot.ops.tushare_activation_gate import (
     build_tushare_activation_gate_pack,
     write_tushare_activation_gate_pack,
@@ -33,6 +37,7 @@ except ModuleNotFoundError:  # pragma: no cover - exercised when this file is ru
 
 DEFAULT_PROFILE_OBSERVATION_PACK = Path("data/reports/profile_observation/profile_observation_pack.json")
 DEFAULT_REPORT_DIR = Path("data/reports/tushare_activation_gate")
+DEFAULT_WORKSTATIONS_CONFIG = Path("configs/workstations.json")
 
 
 def run_tushare_activation_gate(
@@ -47,6 +52,9 @@ def run_tushare_activation_gate(
     post_refresh_replay_runner: Callable[..., dict[str, Any]] | None = None,
     observation_sufficiency_runner: Callable[..., dict[str, Any]] | None = None,
     iterative_observation_expansion_runner: Callable[..., dict[str, Any]] | None = None,
+    machine: str | None = None,
+    workstation_config: dict[str, Any] | None = None,
+    workstations_config_path: str | Path = DEFAULT_WORKSTATIONS_CONFIG,
 ) -> dict[str, Any]:
     profile_path = Path(profile_observation_pack)
     profile_pack = _read_json(profile_path)
@@ -58,6 +66,11 @@ def run_tushare_activation_gate(
     iterative_dir = output_path / "iterative_observation_expansion"
     source_name = source.strip().lower()
     readiness_pack = readiness if readiness is not None else _readiness_for_source(source_name)
+    resolved_workstation_config = workstation_config
+    if machine and resolved_workstation_config is None:
+        resolved_workstation_config = _read_json(Path(workstations_config_path))
+    workstation = build_workstation_refresh_context(machine, resolved_workstation_config)
+    can_run_data_pipeline = bool(workstation.get("can_run_data_pipeline", True))
 
     recent_pack = _build_readiness_probe_recent_pack(
         profile_pack,
@@ -66,6 +79,8 @@ def run_tushare_activation_gate(
         market=market,
         output_dir=recent_output_dir,
         execute=execute,
+        machine=machine,
+        workstation_config=resolved_workstation_config,
     )
     write_recent_data_refresh_pack(recent_report_dir, recent_pack)
     post_pack: dict[str, Any] = {}
@@ -73,13 +88,15 @@ def run_tushare_activation_gate(
     iterative_pack: dict[str, Any] = {}
     chain_error: dict[str, Any] | None = None
 
-    if _readiness_blocks(readiness_pack, source_name) or not execute:
+    if _readiness_blocks(readiness_pack, source_name) or not execute or not can_run_data_pipeline:
         pack = build_tushare_activation_gate_pack(
             readiness=readiness_pack,
             source=source_name,
             market=market,
             execute=execute,
             recent_data_refresh=recent_pack,
+            machine=machine,
+            workstation_config=resolved_workstation_config,
         )
         write_tushare_activation_gate_pack(output_path, pack)
         return pack
@@ -97,6 +114,8 @@ def run_tushare_activation_gate(
             report_dir=recent_report_dir,
             execute=True,
             readiness=readiness_pack,
+            machine=machine,
+            workstation_config=resolved_workstation_config,
         )
         post_pack = post_runner(
             recent_data_refresh_pack=recent_report_dir / "recent_data_refresh_pack.json",
@@ -129,6 +148,8 @@ def run_tushare_activation_gate(
         observation_sufficiency=sufficiency_pack,
         iterative_observation_expansion=iterative_pack,
         chain_error=chain_error,
+        machine=machine,
+        workstation_config=resolved_workstation_config,
     )
     write_tushare_activation_gate_pack(output_path, pack)
     return pack
@@ -141,6 +162,8 @@ def main() -> None:
     parser.add_argument("--source", choices=["tushare", "tushare-fixture"], default="tushare")
     parser.add_argument("--market", default="CN_ETF")
     parser.add_argument("--max-rounds", default=3, type=int)
+    parser.add_argument("--machine", help="Current workstation name from configs/workstations.json.")
+    parser.add_argument("--workstations-config", default=str(DEFAULT_WORKSTATIONS_CONFIG))
     parser.add_argument("--execute", action="store_true", help="Execute the paper-only local activation chain after readiness passes.")
     args = parser.parse_args()
     pack = run_tushare_activation_gate(
@@ -150,6 +173,8 @@ def main() -> None:
         market=args.market,
         max_rounds=args.max_rounds,
         execute=args.execute,
+        machine=args.machine,
+        workstations_config_path=Path(args.workstations_config),
     )
     print(
         json.dumps(
@@ -158,7 +183,9 @@ def main() -> None:
                 "status": pack["status"],
                 "mode": pack["mode"],
                 "source": pack["source"],
+                "workstation": pack.get("workstation", {}),
                 "decision": pack["decision"],
+                "next_actions": pack.get("next_actions", []),
                 "report_dir": str(Path(args.report_dir)),
             },
             indent=2,
@@ -175,6 +202,8 @@ def _build_readiness_probe_recent_pack(
     market: str,
     output_dir: Path,
     execute: bool,
+    machine: str | None = None,
+    workstation_config: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     return build_recent_data_refresh_pack(
         profile_pack,
@@ -183,6 +212,8 @@ def _build_readiness_probe_recent_pack(
         source=source,
         market=market,
         output_dir=output_dir,
+        machine=machine,
+        workstation_config=workstation_config,
     )
 
 

@@ -61,20 +61,22 @@ The important detail is that an initial `minimum_fills_observed` blocker is not 
 Real readiness / execute attempt:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\run_tushare_activation_gate.py --report-dir data\reports\tushare_activation_gate --execute
+.\.venv\Scripts\python.exe scripts\run_tushare_activation_gate.py --machine highspec_desktop --report-dir data\reports\tushare_activation_gate --execute
 ```
 
 Fixture execute:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\run_tushare_activation_gate.py --source tushare-fixture --report-dir data\reports\tushare_activation_gate_fixture --execute
+.\.venv\Scripts\python.exe scripts\run_tushare_activation_gate.py --machine highspec_desktop --source tushare-fixture --report-dir data\reports\tushare_activation_gate_fixture --execute
 ```
 
 Dry-run readiness check:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\run_tushare_activation_gate.py
+.\.venv\Scripts\python.exe scripts\run_tushare_activation_gate.py --machine laptop
 ```
+
+When `--machine laptop` is selected, execute requests are stopped before the activation chain runs. The pack stays in dry-run mode and emits `handoff_tushare_activation_gate` with `highspec_desktop` and `office_desktop` as the data-pipeline workstations.
 
 ## Boundary
 
