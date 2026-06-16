@@ -3,7 +3,7 @@
 ## Scope
 
 - Machine role: `laptop`.
-- Branch: `codex/factor-liquidity-residual-framework`.
+- Branch: `codex/factor-method-optimization-20260616`.
 - Task type: `architecture_ops` / `factor_review`.
 - Boundary: research-to-paper only. No broker connection, no live account reads, no order placement, and no automatic live trading.
 
@@ -42,5 +42,14 @@ For the full desktop check chain, use:
 ```powershell
 python scripts\run_checks.py --profile desktop-validation --execute
 ```
+
+The desktop profile now enforces the full residual-regime chain:
+
+- strict walk-forward validation on `configs/walk_forward_tushare_moneyflow_residual_regime.json`;
+- market-regime coverage rebuilt from walk-forward test-fold `regime_curve.csv` files;
+- residual-regime promotion gate that requires the market-regime coverage pack;
+- Markdown summary that cross-checks the walk-forward leaderboard against `manifest.json` and records the regime coverage status.
+
+This means a candidate can no longer look acceptable merely because it survived one favorable market cycle or because an old leaderboard CSV was mixed with a newer manifest.
 
 The latest office attribution also adds a review warning: `large_minus_liquidity_20` failed through a severe 2024H1 drawdown and hump-shaped quantiles rather than a pure capacity problem, while `mf_low_minus_volatility_20` was both capacity-constrained and non-monotonic. The next run should inspect quantile shape and mid-quantile/tail behavior before treating any liquidity-controlled variant as robust.
