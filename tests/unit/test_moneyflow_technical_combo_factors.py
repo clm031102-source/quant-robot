@@ -136,6 +136,31 @@ class MoneyflowTechnicalComboFactorTests(unittest.TestCase):
         self.assertTrue(pd.notna(values["CN_XSHG_600000"]))
         self.assertTrue(pd.isna(values["CN_XSHG_601398"]))
 
+    def test_residualized_liquidity_volatility_amount_gate_does_not_use_future_rows(self):
+        bars = _multi_exposure_framework_bars()
+        moneyflow = _multi_exposure_framework_moneyflow_inputs()
+        future_bars = _future_spike_bars(bars)
+        future_moneyflow = _future_spike_moneyflow_inputs(moneyflow)
+
+        baseline = compute_moneyflow_technical_combo_factors(
+            bars,
+            moneyflow,
+            factor_names=("large_resid_liq_vol_amt_gate_20",),
+        )
+        with_future = compute_moneyflow_technical_combo_factors(
+            pd.concat([bars, future_bars], ignore_index=True),
+            pd.concat([moneyflow, future_moneyflow], ignore_index=True),
+            factor_names=("large_resid_liq_vol_amt_gate_20",),
+        )
+
+        original_last_date = pd.Timestamp("2024-01-25").date()
+        before_future = with_future[pd.to_datetime(with_future["date"]).dt.date <= original_last_date]
+        pd.testing.assert_frame_equal(
+            baseline.reset_index(drop=True),
+            before_future.reset_index(drop=True),
+            check_like=True,
+        )
+
 
 def _combo_bars() -> pd.DataFrame:
     rows = []
@@ -374,6 +399,39 @@ def _multi_exposure_framework_moneyflow_inputs() -> pd.DataFrame:
 def _zscore(values: pd.Series) -> pd.Series:
     numeric = pd.to_numeric(values, errors="coerce")
     return (numeric - numeric.mean()) / numeric.std(ddof=0)
+
+
+def _future_spike_bars(bars: pd.DataFrame) -> pd.DataFrame:
+    rows = bars[pd.to_datetime(bars["date"]).dt.date == pd.Timestamp("2024-01-25").date()].copy()
+    rows["date"] = pd.Timestamp("2024-01-26").date()
+    rows["timestamp"] = pd.Timestamp("2024-01-26", tz="UTC")
+    rows["open"] = rows["open"].astype(float) * 100.0
+    rows["high"] = rows["high"].astype(float) * 120.0
+    rows["low"] = rows["low"].astype(float) * 80.0
+    rows["close"] = rows["close"].astype(float) * 100.0
+    rows["adj_close"] = rows["adj_close"].astype(float) * 100.0
+    rows["amount"] = rows["amount"].astype(float) * 1_000.0
+    rows["volume"] = rows["volume"].astype(float) * 1_000.0
+    rows["vwap"] = rows["vwap"].astype(float) * 100.0
+    return rows
+
+
+def _future_spike_moneyflow_inputs(moneyflow: pd.DataFrame) -> pd.DataFrame:
+    rows = moneyflow[pd.to_datetime(moneyflow["date"]).dt.date == pd.Timestamp("2024-01-25").date()].copy()
+    rows["date"] = pd.Timestamp("2024-01-26").date()
+    for column in [
+        "buy_sm_amount",
+        "sell_sm_amount",
+        "buy_md_amount",
+        "sell_md_amount",
+        "buy_lg_amount",
+        "sell_lg_amount",
+        "buy_elg_amount",
+        "sell_elg_amount",
+        "net_mf_amount",
+    ]:
+        rows[column] = rows[column].astype(float) * 1_000.0
+    return rows
 
 
 if __name__ == "__main__":
