@@ -10,6 +10,13 @@ from typing import Any
 
 import pandas as pd
 
+try:
+    from scripts.bootstrap import ensure_workspace_imports
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from bootstrap import ensure_workspace_imports
+
+ensure_workspace_imports()
+
 from quant_robot.ops.risk_policy_tiers import (
     PHASE_5_4_STAGE,
     assign_risk_tier,

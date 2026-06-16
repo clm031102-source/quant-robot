@@ -5,6 +5,13 @@ import json
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.bootstrap import ensure_workspace_imports
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from bootstrap import ensure_workspace_imports
+
+ensure_workspace_imports()
+
 from quant_robot.data.provider_status import build_provider_status
 from quant_robot.ops.provider_evidence import build_provider_evidence_pack, write_provider_evidence_pack
 

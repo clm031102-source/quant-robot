@@ -3,6 +3,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+try:
+    from scripts.bootstrap import ensure_workspace_imports
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from bootstrap import ensure_workspace_imports
+
+ensure_workspace_imports()
+
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.research.pipeline import ResearchPipelineConfig, run_research_pipeline
 

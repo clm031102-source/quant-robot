@@ -7,6 +7,13 @@ from typing import Any
 
 import pandas as pd
 
+try:
+    from scripts.bootstrap import ensure_workspace_imports
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from bootstrap import ensure_workspace_imports
+
+ensure_workspace_imports()
+
 from quant_robot.ops.daily_ops import DEFAULT_MAX_DRAWDOWN_LIMIT, build_daily_ops_pack, write_daily_ops_pack
 
 try:
@@ -40,7 +47,8 @@ def run_daily_ops(
 ) -> dict[str, Any]:
     promotion = _read_json(Path(promotion_review))
     readiness = _read_json(Path(readiness_board))
-    profile_pack = _read_json(Path(paper_profile_pack)) if paper_profile_pack is not None else {}
+    profile_pack_path = Path(paper_profile_pack) if paper_profile_pack is not None else _default_paper_profile_pack()
+    profile_pack = _read_json(profile_pack_path) if profile_pack_path is not None else {}
     paper_profile = _selected_paper_profile(profile_pack)
     profile_params = _profile_params(paper_profile)
     effective_max_drawdown_limit = _effective_drawdown_limit(max_drawdown_limit, profile_pack, paper_profile)
@@ -169,6 +177,10 @@ def _read_json(path: Path) -> dict[str, Any]:
 def _selected_paper_profile(profile_pack: dict[str, Any]) -> dict[str, Any]:
     selected = profile_pack.get("selected_profile") if isinstance(profile_pack, dict) else None
     return selected if isinstance(selected, dict) else {}
+
+
+def _default_paper_profile_pack() -> Path | None:
+    return DEFAULT_PAPER_PROFILE_PACK if DEFAULT_PAPER_PROFILE_PACK.exists() else None
 
 
 def _profile_params(paper_profile: dict[str, Any]) -> dict[str, Any]:

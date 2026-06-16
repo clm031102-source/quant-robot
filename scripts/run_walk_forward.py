@@ -7,6 +7,13 @@ from pathlib import Path
 
 import pandas as pd
 
+try:
+    from scripts.bootstrap import ensure_workspace_imports
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from bootstrap import ensure_workspace_imports
+
+ensure_workspace_imports()
+
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.storage.processed_bars import load_processed_bars
 from quant_robot.validation.walk_forward import load_walk_forward_config, run_walk_forward_validation

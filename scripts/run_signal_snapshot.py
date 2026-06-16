@@ -8,6 +8,13 @@ from typing import Any
 
 import pandas as pd
 
+try:
+    from scripts.bootstrap import ensure_workspace_imports
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from bootstrap import ensure_workspace_imports
+
+ensure_workspace_imports()
+
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.portfolio.rebalance import build_rebalance_plan
 from quant_robot.signals.pipeline import SignalPipelineConfig, generate_signal_snapshot, write_signal_snapshot

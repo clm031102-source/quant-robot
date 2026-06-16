@@ -5,6 +5,13 @@ import json
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.bootstrap import ensure_workspace_imports
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from bootstrap import ensure_workspace_imports
+
+ensure_workspace_imports()
+
 from quant_robot.ops.risk_candidate_selector import (
     DEFAULT_MAX_DRAWDOWN_LIMIT,
     DEFAULT_MIN_PAPER_SHARPE,

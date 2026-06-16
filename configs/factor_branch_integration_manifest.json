@@ -23,6 +23,14 @@
       "integrated_by": "laptop",
       "status": "absorbed",
       "summary": "Absorbed the continued office desktop mining notes and long-sample recheck. The added evidence keeps large_minus_liquidity_20 in strict validation only and explicitly blocks promotion until drawdown, capacity, and RankIC issues are resolved."
+    },
+    {
+      "branch": "origin/codex/factor-batch-moneyflow-alpha",
+      "commit": "5509dbec13ac7fee35c64e8f26eb57d629aa930a",
+      "integrated_on": "2026-06-16",
+      "integrated_by": "laptop",
+      "status": "absorbed",
+      "summary": "Absorbed the combined width and cost audit for large_minus_liquidity_20. Wider portfolios reduce participation pressure but do not solve drawdown and cost sensitivity, so the candidate remains strict-validation observation only."
     }
   ],
   "ignored_branches": []
