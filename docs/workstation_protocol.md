@@ -74,7 +74,7 @@ The safe-sync meaning is:
 1. Fetch and prune GitHub refs.
 2. Inspect the current branch, upstream sync, and changed files.
 3. Classify changed paths into syncable, blocked, and ignored.
-4. Audit remote `origin/codex/*` topic branches before core sync. `research_branch_integration.pending` tracks unabsorbed factor/Tushare research branches. `topic_branch_integration.pending` tracks other unabsorbed Codex task branches. `topic_branch_integration.cleanup` lists merged or manifest-absorbed topic branches that can be deleted after review.
+4. Audit topic branches before core sync. `research_branch_integration.pending` tracks unabsorbed factor/Tushare research branches. `topic_branch_integration.pending` tracks other unabsorbed remote `origin/codex/*` task branches. `topic_branch_integration.cleanup` lists merged or manifest-absorbed remote topic branches that can be deleted after review. `local_topic_branch_cleanup.cleanup` lists local `codex/*` branches already merged to `origin/main` and not currently checked out.
 5. Commit only syncable code/config/test/doc files.
 6. Push the current task branch only when the machine, task, branch, validation, branch-integration audit, and safety checks are clear.
 7. Stop and ask before pushing if anything is ambiguous or risky.

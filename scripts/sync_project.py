@@ -178,6 +178,23 @@ def audit_remote_topic_branches(
     }
 
 
+def audit_local_topic_branches(
+    local_branches: list[dict[str, str]],
+    *,
+    current_branch: str,
+    stable_commits: set[str],
+) -> list[dict[str, str]]:
+    cleanup: list[dict[str, str]] = []
+    for branch in local_branches:
+        name = str(branch.get("name", ""))
+        commit = str(branch.get("commit", ""))
+        if not name or not commit or not _is_local_topic_branch(name) or name == current_branch:
+            continue
+        if commit in stable_commits:
+            cleanup.append({"branch": name, "commit": commit, "status": "merged_to_stable_branch"})
+    return sorted(cleanup, key=lambda item: item["branch"])
+
+
 def load_integration_manifest(path: str | Path = DEFAULT_INTEGRATION_MANIFEST) -> dict[str, Any]:
     manifest_path = Path(path)
     if not manifest_path.exists():
@@ -207,9 +224,10 @@ def main() -> None:
     changed_paths = _changed_paths()
     upstream_sync = _upstream_sync()
     remote_topic_branches = _remote_topic_branches()
+    local_topic_branches = _local_topic_branches()
     manifest = load_integration_manifest()
     current_commits = _current_history_commits(remote_topic_branches)
-    stable_commits = _history_commits(remote_topic_branches, "origin/main")
+    stable_commits = _history_commits(remote_topic_branches + local_topic_branches, "origin/main")
     pending_research_branches = audit_remote_research_branches(
         remote_topic_branches,
         manifest,
@@ -219,6 +237,11 @@ def main() -> None:
         remote_topic_branches,
         manifest,
         current_commits=current_commits,
+        stable_commits=stable_commits,
+    )
+    local_topic_cleanup = audit_local_topic_branches(
+        local_topic_branches,
+        current_branch=current_branch,
         stable_commits=stable_commits,
     )
     plan = build_sync_plan(
@@ -238,6 +261,10 @@ def main() -> None:
         [branch for branch in remote_topic_branches if _is_research_branch(str(branch.get("name", "")))]
     )
     plan["topic_branch_integration"]["remote_branch_count"] = len(remote_topic_branches)
+    plan["local_topic_branch_cleanup"] = {
+        "cleanup": local_topic_cleanup,
+        "local_branch_count": len(local_topic_branches),
+    }
 
     if not args.execute:
         print(json.dumps(plan, indent=2, sort_keys=True))
@@ -364,6 +391,27 @@ def _remote_topic_branches() -> list[dict[str, str]]:
     return branches
 
 
+def _local_topic_branches() -> list[dict[str, str]]:
+    result = _git(
+        [
+            "for-each-ref",
+            "--format=%(refname:short)|%(objectname)",
+            "refs/heads/codex",
+        ],
+        check=False,
+    )
+    if result.returncode != 0:
+        return []
+    branches: list[dict[str, str]] = []
+    for line in result.stdout.splitlines():
+        if "|" not in line:
+            continue
+        name, commit = line.split("|", 1)
+        if _is_local_topic_branch(name):
+            branches.append({"name": name.strip(), "commit": commit.strip()})
+    return branches
+
+
 def _current_history_commits(remote_branches: list[dict[str, str]]) -> set[str]:
     return _history_commits(remote_branches, "HEAD")
 
@@ -382,6 +430,10 @@ def _history_commits(remote_branches: list[dict[str, str]], ref: str) -> set[str
 
 def _is_topic_branch(name: str) -> bool:
     return name.startswith(TOPIC_BRANCH_PREFIX)
+
+
+def _is_local_topic_branch(name: str) -> bool:
+    return name.startswith("codex/")
 
 
 def _is_research_branch(name: str) -> bool:

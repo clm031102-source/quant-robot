@@ -1,6 +1,7 @@
 import unittest
 
 from scripts.sync_project import (
+    audit_local_topic_branches,
     audit_remote_research_branches,
     audit_remote_topic_branches,
     build_sync_plan,
@@ -239,6 +240,28 @@ class SyncProjectTests(unittest.TestCase):
                     "commit": "abc123",
                     "status": "merged_to_stable_branch",
                 },
+            ],
+        )
+
+    def test_reports_local_merged_topic_branches_for_cleanup(self) -> None:
+        cleanup = audit_local_topic_branches(
+            [
+                {"name": "codex/old-audit-branch", "commit": "abc123"},
+                {"name": "codex/current-work", "commit": "def456"},
+                {"name": "main", "commit": "main123"},
+            ],
+            current_branch="codex/current-work",
+            stable_commits={"abc123", "def456"},
+        )
+
+        self.assertEqual(
+            cleanup,
+            [
+                {
+                    "branch": "codex/old-audit-branch",
+                    "commit": "abc123",
+                    "status": "merged_to_stable_branch",
+                }
             ],
         )
 
