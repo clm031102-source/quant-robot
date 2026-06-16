@@ -309,3 +309,18 @@ Split-window check on the three approved gated rows:
 - Half-year IC remains unstable: only 2025H2 was significant positive across these split checks. RankIC remains negative in the combined sample, so the factor is still tail-driven rather than smoothly monotonic.
 
 Audit judgment: the laptop-integrated production factor reproduces the temporary probe. `large_resid_liq_vol_amt_gate_20` top5 with regime150/180/252 should stay in the strict-validation queue. It is not promotion-ready because the regime filter avoids the hardest early windows, split IC is not consistently significant, and formal rolling walk-forward needs a cached factor-matrix path before it can run efficiently on the office desktop.
+
+## Signal Amount And Rank-Window Probe
+
+The office desktop then reused the cached production factor matrix to test signal-day amount bands and rank-window offsets for `large_resid_liq_vol_amt_gate_20`. This was a no-lookahead probe: filters used same-day signal amount and same-day factor ranks before selection. The local run evaluated 120 combinations across regime150/180/252, amount bands, and rank windows.
+
+No combination passed the stricter tail-selection gate. The main reason was not capacity; capacity-limited trades stayed at 0 for the leading rows. The failure was that IC measured only on the preselected tradable tail was not significant, and several higher-return variants increased drawdown.
+
+Key observations:
+
+- The highest-return row, `gte100m/r1_3/top3/regime150`, had total return 84.6445 and relative return 71.2879, but max drawdown worsened to -0.3643 and selected-tail IC was not significant.
+- The original `gte100m/r1_5/top5/regime150` shape retained total return 67.6590, relative return 54.3024, and max drawdown -0.2859, but selected-tail IC was not significant in this stricter tail-only view.
+- Excluding the 500m-1b signal-amount band improved drawdown for `r1_5/regime150` to -0.2579, but relative return fell to 38.4864 and selected-tail IC remained not significant.
+- Raising the signal-day amount floor to 200m, 500m, or 1b generally reduced the edge. The best `gte200m` row had relative return 32.1945 but max drawdown -0.4983; the best `gte500m` row had relative return only 6.0874 and max drawdown -0.5276.
+
+Audit judgment: amount-band tweaks and rank-window offsets do not produce a better candidate than the existing `large_resid_liq_vol_amt_gate_20` top5 regime family. The useful method improvement is to add a formal tail-selection IC diagnostic to validation, because full-universe IC can look significant while the actually traded tail is not significant.
