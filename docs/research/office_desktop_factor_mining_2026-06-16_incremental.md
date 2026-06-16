@@ -195,3 +195,14 @@ The next audit reduced portfolio value from 1,000,000 to 100,000 and widened the
 - Top250: rejected for relative return below threshold and drawdown above limit. Total return -0.4090, relative return -13.7656, Sharpe 0.3324, max drawdown -0.8097, capacity-limited trades 1, max participation 5.23%.
 
 This sensitivity check rejects the simple "just reduce capital or widen holdings" explanation. Capacity pressure falls roughly as expected, but the edge disappears or inverts before the strategy becomes capacity-clean. The next useful experiment should add explicit liquidity gates or residualization before selection; broader raw top-N portfolios are not a productive path.
+
+## Technical Baseline Control
+
+To avoid overfitting only inside the moneyflow family, the office desktop also ran a same-sample technical baseline on the combined 2023-2026 store with top20/cost20/1,000,000 portfolio value.
+
+- `risk_adjusted_momentum_20`: rejected for relative return below threshold and drawdown above limit. Total return -0.8556, relative return -14.2121, Sharpe 0.1589, max drawdown -0.9800, IC not significant, capacity-limited trades 4.
+- `liquidity_20`: rejected for relative return below threshold and drawdown above limit. Total return -0.9637, relative return -14.3203, Sharpe -0.1149, max drawdown -0.9636, IC not significant, capacity-limited trades 2,703, max participation above 1,700%.
+- `reversal_20`: rejected for relative return below threshold and drawdown above limit. Total return -0.9760, relative return -14.3326, Sharpe -0.5174, max drawdown -0.9766, significant positive IC, but negative long-short spread and 369 capacity-limited trades.
+- `momentum_20`: rejected for relative return below threshold and drawdown above limit. Total return -0.9919, relative return -14.3485, Sharpe -0.6100, max drawdown -0.9947, significant negative IC, and capacity-limited trades 4.
+
+The technical baseline did not produce a rescue candidate. The most actionable conclusion remains architectural rather than parametric: the next factor-mining step should pre-register liquidity-aware or residualized factors instead of searching wider top-N portfolios over existing raw technical or moneyflow scores.

@@ -4,6 +4,7 @@ from scripts.sync_project import (
     audit_local_topic_branches,
     audit_remote_research_branches,
     audit_remote_topic_branches,
+    build_topic_branch_cleanup_commands,
     build_sync_plan,
     classify_changed_paths,
     is_forbidden_path,
@@ -264,6 +265,70 @@ class SyncProjectTests(unittest.TestCase):
                 }
             ],
         )
+
+    def test_builds_safe_topic_branch_cleanup_commands(self) -> None:
+        commands = build_topic_branch_cleanup_commands(
+            remote_cleanup=[
+                {
+                    "branch": "origin/codex/old-remote",
+                    "commit": "abc123",
+                    "status": "merged_to_stable_branch",
+                },
+                {
+                    "branch": "origin/codex/absorbed-remote",
+                    "commit": "def456",
+                    "status": "absorbed_by_manifest",
+                },
+            ],
+            local_cleanup=[
+                {
+                    "branch": "codex/old-local",
+                    "commit": "ghi789",
+                    "status": "merged_to_stable_branch",
+                }
+            ],
+            current_branch="main",
+        )
+
+        self.assertEqual(
+            commands,
+            [
+                ["push", "origin", "--delete", "codex/absorbed-remote"],
+                ["push", "origin", "--delete", "codex/old-remote"],
+                ["branch", "-d", "codex/old-local"],
+            ],
+        )
+
+    def test_cleanup_commands_skip_current_branch_pending_and_non_topic_branches(self) -> None:
+        commands = build_topic_branch_cleanup_commands(
+            remote_cleanup=[
+                {
+                    "branch": "origin/codex/pending-remote",
+                    "commit": "abc123",
+                    "status": "pending_integration",
+                },
+                {
+                    "branch": "origin/main",
+                    "commit": "def456",
+                    "status": "merged_to_stable_branch",
+                },
+            ],
+            local_cleanup=[
+                {
+                    "branch": "codex/current-work",
+                    "commit": "ghi789",
+                    "status": "merged_to_stable_branch",
+                },
+                {
+                    "branch": "main",
+                    "commit": "main123",
+                    "status": "merged_to_stable_branch",
+                },
+            ],
+            current_branch="codex/current-work",
+        )
+
+        self.assertEqual(commands, [])
 
     def test_execute_plan_blocks_core_sync_when_topic_branch_is_pending(self) -> None:
         plan = build_sync_plan(

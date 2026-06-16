@@ -21,6 +21,11 @@ RESEARCH_BRANCH_PREFIXES = (
     "origin/codex/tushare-",
 )
 TOPIC_BRANCH_PREFIX = "origin/codex/"
+BRANCH_CLEANUP_STATUSES = {
+    "absorbed_by_manifest",
+    "ignored_by_manifest",
+    "merged_to_stable_branch",
+}
 
 
 def classify_changed_paths(paths: list[str], config: dict[str, Any]) -> dict[str, list[str]]:
@@ -195,6 +200,34 @@ def audit_local_topic_branches(
     return sorted(cleanup, key=lambda item: item["branch"])
 
 
+def build_topic_branch_cleanup_commands(
+    *,
+    remote_cleanup: list[dict[str, str]],
+    local_cleanup: list[dict[str, str]],
+    current_branch: str,
+) -> list[list[str]]:
+    commands: list[list[str]] = []
+    for branch in sorted(remote_cleanup, key=lambda item: str(item.get("branch", ""))):
+        name = str(branch.get("branch", ""))
+        status = str(branch.get("status", ""))
+        if status not in BRANCH_CLEANUP_STATUSES or not _is_topic_branch(name):
+            continue
+        local_name = name.removeprefix("origin/")
+        if not _is_local_topic_branch(local_name) or local_name == current_branch:
+            continue
+        commands.append(["push", "origin", "--delete", local_name])
+
+    for branch in sorted(local_cleanup, key=lambda item: str(item.get("branch", ""))):
+        name = str(branch.get("branch", ""))
+        status = str(branch.get("status", ""))
+        if status not in BRANCH_CLEANUP_STATUSES or not _is_local_topic_branch(name):
+            continue
+        if name == current_branch:
+            continue
+        commands.append(["branch", "-d", name])
+    return commands
+
+
 def load_integration_manifest(path: str | Path = DEFAULT_INTEGRATION_MANIFEST) -> dict[str, Any]:
     manifest_path = Path(path)
     if not manifest_path.exists():
@@ -210,11 +243,18 @@ def main() -> None:
     parser.add_argument("--message", default=DEFAULT_COMMIT_MESSAGE)
     parser.add_argument("--execute", action="store_true", help="Stage and commit syncable files if safe.")
     parser.add_argument("--push", action="store_true", help="Push after commit when safe. Requires --execute.")
+    parser.add_argument(
+        "--cleanup-topic-branches",
+        action="store_true",
+        help="Delete merged or manifest-absorbed codex topic branches after a safe execute plan.",
+    )
     parser.add_argument("--skip-fetch", action="store_true", help="Do not fetch/prune before building the plan.")
     args = parser.parse_args()
 
     if args.push and not args.execute:
         raise SystemExit("--push requires --execute")
+    if args.cleanup_topic_branches and not args.execute:
+        raise SystemExit("--cleanup-topic-branches requires --execute")
 
     config = load_config(args.config)
     if not args.skip_fetch:
@@ -265,6 +305,8 @@ def main() -> None:
         "cleanup": local_topic_cleanup,
         "local_branch_count": len(local_topic_branches),
     }
+    if args.cleanup_topic_branches:
+        plan["topic_branch_integration"]["cleanup_requested"] = True
 
     if not args.execute:
         print(json.dumps(plan, indent=2, sort_keys=True))
@@ -281,6 +323,13 @@ def main() -> None:
             _push_current_branch(current_branch, upstream_sync)
             plan["actions"].append("pushed")
             plan["git"]["upstream_sync_after_push"] = _upstream_sync()
+        _cleanup_topic_branches_when_requested(
+            requested=args.cleanup_topic_branches,
+            plan=plan,
+            remote_cleanup=topic_branch_audit["cleanup"],
+            local_cleanup=local_topic_cleanup,
+            current_branch=current_branch,
+        )
         print(json.dumps(plan, indent=2, sort_keys=True))
         return
 
@@ -299,6 +348,14 @@ def main() -> None:
         _push_current_branch(current_branch, upstream_sync)
         plan["actions"].append("pushed")
         plan["git"]["upstream_sync_after_push"] = _upstream_sync()
+
+    _cleanup_topic_branches_when_requested(
+        requested=args.cleanup_topic_branches,
+        plan=plan,
+        remote_cleanup=topic_branch_audit["cleanup"],
+        local_cleanup=local_topic_cleanup,
+        current_branch=current_branch,
+    )
 
     print(json.dumps(plan, indent=2, sort_keys=True))
 
@@ -353,6 +410,32 @@ def _recommended_actions(
     if classification["ignored"]:
         actions.append("leave_ignored_paths_unstaged")
     return actions
+
+
+def _cleanup_topic_branches_when_requested(
+    *,
+    requested: bool,
+    plan: dict[str, Any],
+    remote_cleanup: list[dict[str, str]],
+    local_cleanup: list[dict[str, str]],
+    current_branch: str,
+) -> None:
+    if not requested:
+        return
+    commands = build_topic_branch_cleanup_commands(
+        remote_cleanup=remote_cleanup,
+        local_cleanup=local_cleanup,
+        current_branch=current_branch,
+    )
+    cleaned: list[str] = []
+    for command in commands:
+        _git(command)
+        if command[:3] == ["push", "origin", "--delete"]:
+            cleaned.append(f"origin/{command[3]}")
+        elif command[:2] == ["branch", "-d"]:
+            cleaned.append(command[2])
+    plan["topic_branch_integration"]["cleaned"] = cleaned
+    plan["actions"].append("cleaned_topic_branches" if cleaned else "no_topic_branches_to_clean")
 
 
 def _changed_paths() -> list[str]:

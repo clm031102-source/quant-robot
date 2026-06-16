@@ -47,6 +47,14 @@
       "integrated_by": "laptop",
       "status": "absorbed",
       "summary": "Absorbed the micro-capacity sensitivity audit. Reducing portfolio value to 100,000 and widening top-N portfolios reduced participation pressure but did not preserve relative return or drawdown control, so raw moneyflow top-N widening remains rejected."
+    },
+    {
+      "branch": "origin/codex/factor-batch-moneyflow-alpha",
+      "commit": "10ddeed371f13b00bad230b7a5e1dc8695dcae05",
+      "integrated_on": "2026-06-16",
+      "integrated_by": "laptop",
+      "status": "absorbed",
+      "summary": "Absorbed the same-sample technical baseline control. Momentum, reversal, liquidity, and risk-adjusted momentum baselines were all rejected, reinforcing that the next useful direction is liquidity-aware or residualized factor design rather than raw top-N searches."
     }
   ],
   "ignored_branches": []
