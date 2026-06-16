@@ -18,6 +18,7 @@ class ComboFactorSpec:
     lookback_window: int
     economic_meaning: str
     liquidity_gate_quantile: float | None = None
+    liquidity_gate_factor: str | None = None
 
 
 MONEYFLOW_TECHNICAL_COMBO_SPECS: dict[str, ComboFactorSpec] = {
@@ -70,6 +71,15 @@ MONEYFLOW_TECHNICAL_COMBO_SPECS: dict[str, ComboFactorSpec] = {
         20,
         "Large-order net inflow residualized against same-day Amihud-style illiquidity.",
     ),
+    "large_resid_liquidity_gate_20": ComboFactorSpec(
+        "large_order_net_amount_ratio",
+        "liquidity_20",
+        "residual",
+        20,
+        "Large-order net inflow residualized against same-day Amihud-style illiquidity, restricted to the more liquid half of the cross-section.",
+        liquidity_gate_quantile=0.5,
+        liquidity_gate_factor="liquidity_20",
+    ),
     "large_liquidity_gate_20": ComboFactorSpec(
         "large_order_net_amount_ratio",
         "liquidity_20",
@@ -77,6 +87,24 @@ MONEYFLOW_TECHNICAL_COMBO_SPECS: dict[str, ComboFactorSpec] = {
         20,
         "Large-order net inflow restricted to the more liquid half of the cross-section.",
         liquidity_gate_quantile=0.5,
+    ),
+    "mf_low_minus_volatility_liquidity_gate_20": ComboFactorSpec(
+        "net_mf_amount_ratio_low",
+        "volatility_20",
+        "-",
+        20,
+        "Low net moneyflow penalized by 20-day volatility and restricted to the more liquid half of the cross-section.",
+        liquidity_gate_quantile=0.5,
+        liquidity_gate_factor="liquidity_20",
+    ),
+    "large_plus_risk_momentum_liquidity_gate_10": ComboFactorSpec(
+        "large_order_net_amount_ratio",
+        "risk_adjusted_momentum_10",
+        "+",
+        10,
+        "Large-order net inflow blended with risk-adjusted momentum and restricted to the more liquid half of the cross-section.",
+        liquidity_gate_quantile=0.5,
+        liquidity_gate_factor="liquidity_10",
     ),
     "extra_plus_momentum_10": ComboFactorSpec(
         "extra_large_order_net_amount_ratio",
@@ -160,6 +188,11 @@ def _combo_frame(
     left = moneyflow.loc[moneyflow["factor_name"] == spec.moneyflow_factor, keys + ["z_factor_value"]]
     right = technical.loc[technical["factor_name"] == spec.technical_factor, keys + ["z_factor_value"]]
     merged = left.merge(right, on=keys, how="inner", suffixes=("_moneyflow", "_technical"))
+    if spec.liquidity_gate_factor is not None and spec.liquidity_gate_factor != spec.technical_factor:
+        gate = technical.loc[technical["factor_name"] == spec.liquidity_gate_factor, keys + ["z_factor_value"]]
+        merged = merged.merge(gate.rename(columns={"z_factor_value": "z_factor_value_gate"}), on=keys, how="inner")
+    elif spec.liquidity_gate_factor is not None:
+        merged["z_factor_value_gate"] = merged["z_factor_value_technical"]
     values = _combo_values(merged, spec)
     return pd.DataFrame(
         {
@@ -187,7 +220,8 @@ def _combo_values(merged: pd.DataFrame, spec: ComboFactorSpec) -> pd.Series:
     else:
         raise ValueError(f"Unsupported combo operation: {spec.operation}")
     if spec.liquidity_gate_quantile is not None:
-        values = values.where(_liquidity_gate_mask(merged, technical, spec.liquidity_gate_quantile))
+        gate = merged["z_factor_value_gate"] if "z_factor_value_gate" in merged else technical
+        values = values.where(_liquidity_gate_mask(merged, gate, spec.liquidity_gate_quantile))
     return values
 
 

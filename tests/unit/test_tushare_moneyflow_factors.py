@@ -38,6 +38,14 @@ class TushareMoneyflowFactorTests(unittest.TestCase):
 
         self.assertTrue(all(pd.isna(value) for value in values.values()))
 
+    def test_moneyflow_factor_builder_normalizes_string_dates(self):
+        inputs = _moneyflow_inputs()
+        inputs["date"] = inputs["date"].astype(str)
+
+        factors = compute_moneyflow_factors(inputs)
+
+        self.assertEqual(set(type(value) for value in factors["date"]), {type(pd.Timestamp("2024-01-02").date())})
+
 
 def _moneyflow_inputs() -> pd.DataFrame:
     return pd.DataFrame(

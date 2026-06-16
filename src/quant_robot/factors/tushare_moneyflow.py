@@ -36,7 +36,9 @@ def compute_moneyflow_factors(inputs: pd.DataFrame) -> pd.DataFrame:
     missing = [column for column in required if column not in inputs.columns]
     if missing:
         raise ValueError(f"Moneyflow inputs are missing columns: {', '.join(missing)}")
-    frame = inputs.sort_values(["asset_id", "date"]).copy()
+    frame = inputs.copy()
+    frame["date"] = pd.to_datetime(frame["date"]).dt.date
+    frame = frame.sort_values(["asset_id", "date"])
     denominator = _total_flow_amount(frame)
     net_mf = _ratio(frame["net_mf_amount"], denominator)
     large_order_net = _ratio(

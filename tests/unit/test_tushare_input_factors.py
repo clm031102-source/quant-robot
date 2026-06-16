@@ -45,6 +45,14 @@ class TushareInputFactorTests(unittest.TestCase):
         self.assertTrue(pd.isna(values["total_mv_log"]))
         self.assertTrue(pd.isna(values["circ_mv_log"]))
 
+    def test_daily_basic_factor_builder_normalizes_string_dates(self):
+        inputs = _daily_basic_inputs()
+        inputs["date"] = inputs["date"].astype(str)
+
+        factors = compute_daily_basic_factors(inputs)
+
+        self.assertEqual(set(type(value) for value in factors["date"]), {type(pd.Timestamp("2024-01-02").date())})
+
 
 def _daily_basic_inputs() -> pd.DataFrame:
     return pd.DataFrame(

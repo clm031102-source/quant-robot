@@ -40,7 +40,9 @@ def compute_daily_basic_factors(inputs: pd.DataFrame) -> pd.DataFrame:
     missing = [column for column in required if column not in inputs.columns]
     if missing:
         raise ValueError(f"Daily-basic inputs are missing columns: {', '.join(missing)}")
-    frame = inputs.sort_values(["asset_id", "date"]).copy()
+    frame = inputs.copy()
+    frame["date"] = pd.to_datetime(frame["date"]).dt.date
+    frame = frame.sort_values(["asset_id", "date"])
     factor_values = {
         "turnover_rate": pd.to_numeric(frame["turnover_rate"], errors="coerce"),
         "turnover_rate_f": pd.to_numeric(frame["turnover_rate_f"], errors="coerce"),

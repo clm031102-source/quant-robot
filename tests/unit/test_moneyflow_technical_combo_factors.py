@@ -51,6 +51,26 @@ class MoneyflowTechnicalComboFactorTests(unittest.TestCase):
         self.assertTrue(pd.isna(values["CN_XSHG_600519"]))
         self.assertTrue(pd.isna(values["CN_XSHG_601398"]))
 
+    def test_liquidity_gate_can_use_separate_gate_factor(self):
+        bars = _liquidity_framework_bars()
+        factors = compute_moneyflow_technical_combo_factors(
+            bars,
+            _liquidity_framework_moneyflow_inputs(),
+            factor_names=("mf_low_minus_volatility_liquidity_gate_20",),
+        )
+        last_date = pd.Timestamp("2024-01-25").date()
+
+        selected = factors[
+            (factors["date"] == last_date)
+            & (factors["factor_name"] == "mf_low_minus_volatility_liquidity_gate_20")
+        ]
+        values = dict(zip(selected["asset_id"], selected["factor_value"], strict=True))
+
+        self.assertTrue(pd.notna(values["CN_XSHE_000001"]))
+        self.assertTrue(pd.notna(values["CN_XSHE_000002"]))
+        self.assertTrue(pd.isna(values["CN_XSHG_600519"]))
+        self.assertTrue(pd.isna(values["CN_XSHG_601398"]))
+
     def test_residualized_factor_removes_same_day_liquidity_exposure(self):
         bars = _liquidity_framework_bars()
         factors = compute_moneyflow_technical_combo_factors(
