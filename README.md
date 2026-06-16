@@ -216,6 +216,7 @@ python scripts\run_desktop_factor_validation.py
 ```
 
 This uses `configs/walk_forward_tushare_moneyflow_residual_regime.json` with processed bars and Tushare moneyflow inputs. A run with zero accepted candidates is still a valid strict-validation result when all train/test grids completed.
+The residual-regime config enables `precompute_factor_matrix` so each grid run reuses one production factor matrix across TopN, cost, and regime cases instead of recomputing the same residual factors for every case.
 
 To run the desktop validation check chain around that profile:
 

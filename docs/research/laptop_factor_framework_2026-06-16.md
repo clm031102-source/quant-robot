@@ -46,6 +46,7 @@ python scripts\run_checks.py --profile desktop-validation --execute
 The desktop profile now enforces the full residual-regime chain:
 
 - strict walk-forward validation on `configs/walk_forward_tushare_moneyflow_residual_regime.json`;
+- precomputed factor-matrix reuse inside each residual-regime experiment grid run;
 - CN data-quality audit against `data/processed` with output under `data/reports/data_quality_gap_audit_tushare_moneyflow_residual_regime`;
 - market-regime coverage rebuilt from walk-forward test-fold `regime_curve.csv` files, including both allowed and blocked regime-filter dates;
 - residual-regime promotion gate that consumes the data-quality audit, requires the market-regime coverage pack, and blocks single-lookback regime wins;

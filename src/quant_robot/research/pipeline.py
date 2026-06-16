@@ -69,13 +69,22 @@ class ResearchPipelineConfig:
     output_dir: Path | None = None
 
 
-def run_research_pipeline(bars: pd.DataFrame, config: ResearchPipelineConfig) -> dict[str, Any]:
+def run_research_pipeline(
+    bars: pd.DataFrame,
+    config: ResearchPipelineConfig,
+    *,
+    precomputed_factors: pd.DataFrame | None = None,
+) -> dict[str, Any]:
     if config.rebalance_interval < 1:
         raise ValueError("rebalance_interval must be at least 1")
     filtered = _filter_bars(bars, config)
     validate_market_data(filtered)
-    factor_inputs = _load_factor_input_frame(config)
-    factors = _compute_factor_source(filtered, factor_inputs, config)
+    factor_inputs = pd.DataFrame() if precomputed_factors is not None else _load_factor_input_frame(config)
+    factors = (
+        _filter_precomputed_factors(precomputed_factors, config)
+        if precomputed_factors is not None
+        else _compute_factor_source(filtered, factor_inputs, config)
+    )
     labels = make_forward_returns(filtered, horizons=(config.forward_horizon,), execution_lag=config.execution_lag)
     selected = factors[factors["factor_name"] == config.factor_name].dropna(subset=["factor_value"]).reset_index(drop=True)
     selected = _filter_signals(selected, config)
@@ -242,6 +251,17 @@ def _compute_factor_source(bars: pd.DataFrame, factor_inputs: pd.DataFrame, conf
     return pd.concat([technical, daily_basic], ignore_index=True).sort_values(
         ["asset_id", "date", "factor_name"]
     ).reset_index(drop=True)
+
+
+def _filter_precomputed_factors(factors: pd.DataFrame, config: ResearchPipelineConfig) -> pd.DataFrame:
+    frame = factors.copy()
+    if config.market.upper() != "ALL":
+        frame = frame[frame["market"] == config.market.upper()]
+    if config.start_date:
+        frame = frame[pd.to_datetime(frame["date"]).dt.date >= pd.to_datetime(config.start_date).date()]
+    if config.end_date:
+        frame = frame[pd.to_datetime(frame["date"]).dt.date <= pd.to_datetime(config.end_date).date()]
+    return frame.reset_index(drop=True)
 
 
 def _filter_signals(factors: pd.DataFrame, config: ResearchPipelineConfig) -> pd.DataFrame:

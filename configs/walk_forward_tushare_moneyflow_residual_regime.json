@@ -36,6 +36,7 @@
     "max_drawdown_limit": 0.30,
     "rank_by": "sharpe",
     "min_trades": 30,
+    "precompute_factor_matrix": true,
     "regime_filter": true,
     "regime_lookback": 150,
     "regime_lookback_values": [120, 150, 180, 252]

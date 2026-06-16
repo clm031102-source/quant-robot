@@ -56,6 +56,7 @@ This wraps:
 
 - `configs/walk_forward_tushare_moneyflow_residual_regime.json`
 - processed-bars source from `data/processed`
+- precomputed factor-matrix reuse inside each experiment grid run
 - rolling walk-forward validation
 - explicit regime lookbacks: 120, 150, 180, 252
 - top-N values: 5, 10, 20
@@ -63,6 +64,7 @@ This wraps:
 - capacity controls and max participation checks
 
 The script intentionally allows zero accepted candidates. A complete rejection set is useful evidence when the underlying train/test grids did not fail.
+The residual-regime config enables `precompute_factor_matrix`, so each grid run computes the production moneyflow combo factor matrix once and reuses it across TopN, cost, and regime cases.
 
 To run the full desktop validation check chain, use:
 
