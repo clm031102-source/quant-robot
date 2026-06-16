@@ -25,6 +25,14 @@ With explicit context:
 python scripts\start_task_context.py --machine highspec_desktop --task factor_batch --branch codex/factor-batch-20260618-daily-basic
 ```
 
+For non-trivial desktop ETF research work, also run the Quant PM startup gate:
+
+```powershell
+python scripts\run_quant_pm_startup_gate.py --machine highspec_desktop --task factor_batch --branch codex/factor-batch-20260618-daily-basic
+```
+
+This gate rereads the startup protocol, workstation policy, README, research-family scheduler config, and research-family stop-loss note. If it returns `blocked`, stop before data downloads or factor batches and fix the blocker first.
+
 ## Machines
 
 - `laptop`: architecture, audits, docs, GitHub sync, merge work, and light smoke checks.

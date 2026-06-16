@@ -26,6 +26,14 @@ To reproduce the real-data gate, set `TUSHARE_TOKEN` in the local shell environm
 
 Passing this gate only permits continued paper observation on refreshed data. It is not permission to trade live.
 
+Before material desktop ETF research work, run the Quant PM startup gate so the machine, branch, required reading, research-family allocation, and `CN_ETF` objective are checked together:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_quant_pm_startup_gate.py --machine highspec_desktop --task factor_batch --branch <current-branch>
+```
+
+The gate blocks work when direct `CN` stock moneyflow selection is accidentally reintroduced as a primary research line. See `docs/research/quant_pm_startup_gate_2026-06-17.md`.
+
 ## What Works Now
 
 - Canonical asset abstraction for CN, CN_ETF, HK, US, and CRYPTO.
@@ -761,6 +769,7 @@ Then run ETF-only research, factor mining, and paper simulation:
 
 ```powershell
 $env:PYTHONPATH='src'
+python scripts\run_quant_pm_startup_gate.py --machine highspec_desktop --task factor_batch --branch <current-branch>
 python scripts\run_research_family_scheduler.py --config configs\research_family_scheduler_cn_etf.json
 python scripts\run_research_pipeline.py --source processed-bars --data-root data\processed\etf_csv --market CN_ETF --factor momentum_2 --top-n 2
 python scripts\run_experiment_grid.py --config configs\experiment_grid_cn_etf.json --source processed-bars --data-root data\processed\etf_csv

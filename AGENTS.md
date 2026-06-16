@@ -17,6 +17,14 @@ If the user already provided these answers, restate them briefly and continue.
 
 Use `configs/workstations.json` as the source of truth for machine roles, task types, branch naming, data policy, and safety policy. Use `python scripts\start_task_context.py` to print the current startup context when orientation is needed.
 
+For desktop `data_pipeline`, `factor_batch`, `factor_validation`, or `factor_review` work that can affect the ETF research direction, run the Quant PM startup gate before downloads, factor batches, validation, or signal generation:
+
+```powershell
+python scripts\run_quant_pm_startup_gate.py --machine <machine> --task <task> --branch <current-branch>
+```
+
+This gate rereads the required project protocol files, records their hashes, confirms the primary research market is `CN_ETF`, checks the research-family scheduler, and blocks work if direct `CN` stock moneyflow selection is treated as a primary research line instead of `auxiliary_only`.
+
 New conversations should normally start from `main`. Pull latest `main`, confirm the machine and task, then create or switch to a task branch before non-trivial work. If the user already selected a task branch, verify it matches the requested task before editing.
 
 Branch names are task-based, not machine-based. Multiple desktops may run factor work at the same time, but they should use separate topic/date branches such as:
