@@ -104,7 +104,7 @@ def _classified_rows(frame: pd.DataFrame, positive_threshold: float, negative_th
     rows["regime_momentum"] = pd.to_numeric(rows["regime_momentum"], errors="coerce")
     rows["regime_label"] = rows["regime_momentum"].apply(lambda value: _regime_label(value, positive_threshold, negative_threshold))
     columns = [column for column in ("date", "regime_momentum", "regime_allowed", "regime_label") if column in rows.columns]
-    return rows[columns].reset_index(drop=True)
+    return rows[columns].drop_duplicates().reset_index(drop=True)
 
 
 def _regime_label(value: Any, positive_threshold: float, negative_threshold: float) -> str:
