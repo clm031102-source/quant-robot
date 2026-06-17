@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from quant_robot.data.readiness import check_parquet_readiness, check_tushare_readiness
+from quant_robot.factors.etf_moneyflow_basket import ETF_MONEYFLOW_BASKET_FACTOR_NAMES
+from quant_robot.factors.etf_share_size import ETF_SHARE_SIZE_FACTOR_NAMES
 from quant_robot.factors.moneyflow_technical import MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES
 from quant_robot.factors.tushare_inputs import DAILY_BASIC_FACTOR_NAMES
 from quant_robot.factors.tushare_moneyflow import MONEYFLOW_FACTOR_NAMES
@@ -340,6 +342,10 @@ def _registered_factor_names(factor_source: str, factor_windows: tuple[int, ...]
         return set(MONEYFLOW_FACTOR_NAMES)
     if factor_source == "moneyflow_technical_combo":
         return set(MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES)
+    if factor_source == "etf_share_size":
+        return set(ETF_SHARE_SIZE_FACTOR_NAMES)
+    if factor_source == "etf_moneyflow_basket":
+        return set(ETF_MONEYFLOW_BASKET_FACTOR_NAMES)
     if factor_source == "combined":
         return _technical_factor_names(factor_windows) | set(DAILY_BASIC_FACTOR_NAMES)
     return None

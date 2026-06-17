@@ -237,6 +237,76 @@ class WalkForwardTests(unittest.TestCase):
             self.assertEqual(config.min_accepted_folds, 3)
             self.assertAlmostEqual(config.multiple_testing_alpha, 0.01)
 
+    def test_load_walk_forward_config_accepts_utf8_bom(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config_path = Path(tmp) / "walk_forward.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "split_date": "2024-01-08",
+                        "experiment_grid": {
+                            "markets": ["CN_ETF"],
+                            "factor_names": ["momentum_2"],
+                            "factor_windows": [2],
+                        },
+                    }
+                ),
+                encoding="utf-8-sig",
+            )
+
+            config = load_walk_forward_config(config_path)
+
+            self.assertEqual(config.split_date, "2024-01-08")
+            self.assertEqual(config.experiment_grid.markets, ("CN_ETF",))
+
+    def test_tushare_cn_etf_rotation_config_covers_core_hypothesis_families_and_cost_controls(self):
+        config = load_walk_forward_config("configs/walk_forward_tushare_cn_etf_rotation.json")
+
+        self.assertEqual(config.experiment_grid.markets, ("CN_ETF",))
+        self.assertTrue(config.experiment_grid.rotation_membership_required)
+        self.assertEqual(config.experiment_grid.execution_lag, 1)
+        self.assertGreater(config.experiment_grid.market_impact_bps, 0)
+        self.assertIsNotNone(config.experiment_grid.max_participation_rate)
+        self.assertGreaterEqual(config.rolling_train_days or 0, 252)
+        self.assertGreater(config.rolling_test_days or 0, 0)
+        self.assertIn("momentum_20", config.experiment_grid.factor_names)
+        self.assertIn("reversal_20", config.experiment_grid.factor_names)
+        self.assertIn("liquidity_20", config.experiment_grid.factor_names)
+        self.assertIn("volatility_20", config.experiment_grid.factor_names)
+        self.assertIn("risk_adjusted_momentum_60", config.experiment_grid.factor_names)
+
+    def test_tushare_cn_etf_share_size_config_covers_structure_hypothesis_family(self):
+        config = load_walk_forward_config("configs/walk_forward_tushare_cn_etf_share_size.json")
+
+        self.assertEqual(config.experiment_grid.markets, ("CN_ETF",))
+        self.assertEqual(config.experiment_grid.factor_source, "etf_share_size")
+        self.assertEqual(config.experiment_grid.factor_input_root, Path("data/processed/tushare_etf_full"))
+        self.assertTrue(config.experiment_grid.factor_input_required)
+        self.assertTrue(config.experiment_grid.rotation_membership_required)
+        self.assertEqual(config.experiment_grid.execution_lag, 1)
+        self.assertIn("share_change_1d", config.experiment_grid.factor_names)
+        self.assertIn("size_change_1d_low", config.experiment_grid.factor_names)
+        self.assertIn("nav_premium_discount", config.experiment_grid.factor_names)
+        self.assertIn("total_size_log", config.experiment_grid.factor_names)
+        self.assertGreater(config.experiment_grid.market_impact_bps, 0)
+        self.assertIsNotNone(config.experiment_grid.max_participation_rate)
+
+    def test_tushare_cn_etf_moneyflow_basket_config_keeps_moneyflow_auxiliary(self):
+        config = load_walk_forward_config("configs/walk_forward_tushare_cn_etf_moneyflow_basket.json")
+
+        self.assertEqual(config.experiment_grid.markets, ("CN_ETF",))
+        self.assertEqual(config.experiment_grid.factor_source, "etf_moneyflow_basket")
+        self.assertEqual(config.experiment_grid.factor_input_root, Path("data/processed/tushare_etf_full"))
+        self.assertEqual(config.experiment_grid.moneyflow_input_root, Path("data/processed/tushare_moneyflow_inputs"))
+        self.assertTrue(config.experiment_grid.factor_input_required)
+        self.assertTrue(config.experiment_grid.rotation_membership_required)
+        self.assertEqual(config.experiment_grid.execution_lag, 1)
+        self.assertIn("etf_net_mf_amount_ratio", config.experiment_grid.factor_names)
+        self.assertIn("etf_large_order_net_amount_ratio", config.experiment_grid.factor_names)
+        self.assertIn("etf_net_mf_positive_weight_low", config.experiment_grid.factor_names)
+        self.assertGreater(config.experiment_grid.market_impact_bps, 0)
+        self.assertIsNotNone(config.experiment_grid.max_participation_rate)
+
 
 if __name__ == "__main__":
     unittest.main()

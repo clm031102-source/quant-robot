@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import replace
 from pathlib import Path
 
 try:
@@ -26,13 +27,23 @@ def main() -> None:
     parser.add_argument("--factor", default="momentum_2")
     parser.add_argument(
         "--factor-source",
-        choices=["technical", "tushare_daily_basic", "tushare_moneyflow", "moneyflow_technical_combo", "combined"],
+        choices=[
+            "technical",
+            "tushare_daily_basic",
+            "tushare_moneyflow",
+            "moneyflow_technical_combo",
+            "etf_share_size",
+            "etf_moneyflow_basket",
+            "combined",
+        ],
         default="technical",
     )
     parser.add_argument("--factor-windows", default="2,3")
     parser.add_argument("--factor-input-root")
     parser.add_argument("--factor-input-required", action="store_true")
     parser.add_argument("--moneyflow-input-root")
+    parser.add_argument("--rotation-membership-root")
+    parser.add_argument("--rotation-membership-required", action="store_true")
     parser.add_argument("--top-n", default=2, type=int)
     parser.add_argument("--cost-bps", default=5.0, type=float)
     parser.add_argument("--forward-horizon", default=1, type=int)
@@ -54,6 +65,7 @@ def main() -> None:
     args = parser.parse_args()
     bars = load_research_bars(args.source, Path(args.data_root), args.market)
     config = build_research_config(args)
+    config = attach_processed_cn_etf_rotation_membership(config, args.source, Path(args.data_root))
     result = run_research_pipeline(bars, config)
     print(
         json.dumps(
@@ -82,6 +94,10 @@ def build_research_config(args: argparse.Namespace) -> ResearchPipelineConfig:
         factor_input_root=Path(args.factor_input_root) if args.factor_input_root else None,
         factor_input_required=args.factor_input_required,
         moneyflow_input_root=Path(args.moneyflow_input_root) if args.moneyflow_input_root else None,
+        rotation_membership_root=(
+            Path(args.rotation_membership_root) if getattr(args, "rotation_membership_root", None) else None
+        ),
+        rotation_membership_required=bool(getattr(args, "rotation_membership_required", False)),
         market=args.market,
         start_date=args.start_date,
         end_date=args.end_date,
@@ -101,6 +117,20 @@ def build_research_config(args: argparse.Namespace) -> ResearchPipelineConfig:
         signal_start_date=args.signal_start_date,
         signal_end_date=args.signal_end_date,
         output_dir=Path(args.output_dir),
+    )
+
+
+def attach_processed_cn_etf_rotation_membership(
+    config: ResearchPipelineConfig,
+    source: str,
+    data_root: Path,
+) -> ResearchPipelineConfig:
+    if source != "processed-bars" or config.market.upper() != "CN_ETF":
+        return config
+    return replace(
+        config,
+        rotation_membership_root=config.rotation_membership_root or data_root,
+        rotation_membership_required=True,
     )
 
 

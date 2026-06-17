@@ -64,7 +64,7 @@
       "status": "exploratory",
       "budget_share": 0.1,
       "economic_thesis": "Fund share changes, scale proxies, NAV behavior, and premium/discount proxies may identify ETF demand pressure and crowded exits.",
-      "next_action": "Probe fund_share, fund_nav, and scale-proxy features where Tushare permissions and coverage are sufficient."
+      "next_action": "Probe daily etf_share_size share-change, scale-change, NAV, and premium/discount proxies where Tushare permissions and coverage are sufficient."
     },
     {
       "family_id": "cn_stock_moneyflow_selection",

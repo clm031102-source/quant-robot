@@ -97,6 +97,36 @@ class ResearchPipelineTests(unittest.TestCase):
         self.assertGreater(result["artifact_rows"]["trades"], 0)
         self.assertEqual(result["request"]["periods_per_year"], 252)
 
+    def test_cn_etf_pipeline_filters_signals_to_rotation_membership(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bars = load_demo_market_bars()
+            cn_etf = bars[bars["market"] == "CN_ETF"].copy()
+            membership = cn_etf[["date", "asset_id", "market"]].copy()
+            membership["symbol"] = membership["asset_id"].astype(str)
+            membership["is_rotation_member"] = membership["asset_id"].eq("CN_ETF_XSHG_510300")
+            membership["exclusion_reasons"] = membership["is_rotation_member"].map({True: "", False: "test_excluded"})
+            DatasetStore(root).write_frame(
+                membership,
+                "metadata/cn_etf_rotation_membership",
+                {"market": "CN_ETF"},
+            )
+            config = ResearchPipelineConfig(
+                factor_name="momentum_2",
+                factor_windows=(2,),
+                market="CN_ETF",
+                top_n=4,
+                rotation_membership_root=root,
+                rotation_membership_required=True,
+            )
+
+            result = run_research_pipeline(bars, config)
+
+            self.assertGreater(result["artifact_rows"]["trades"], 0)
+            self.assertEqual({row["asset_id"] for row in result["trades"]}, {"CN_ETF_XSHG_510300"})
+            self.assertEqual(result["request"]["rotation_membership_root"], str(root))
+            self.assertTrue(result["request"]["rotation_membership_required"])
+
     def test_pipeline_can_sample_signals_by_rebalance_interval(self):
         daily = run_research_pipeline(
             load_demo_market_bars(),
@@ -309,6 +339,77 @@ class ResearchPipelineTests(unittest.TestCase):
         self.assertEqual(config.factor_source, "tushare_moneyflow")
         self.assertEqual(config.moneyflow_input_root, Path("data/processed/tushare_moneyflow_inputs"))
 
+    def test_research_cli_config_builder_passes_etf_share_size_factor_source(self):
+        args = SimpleNamespace(
+            factor="share_change_1d",
+            factor_source="etf_share_size",
+            factor_windows="1",
+            market="CN_ETF",
+            start_date=None,
+            end_date=None,
+            forward_horizon=1,
+            execution_lag=1,
+            rebalance_interval=1,
+            top_n=1,
+            cost_bps=5.0,
+            portfolio_scope=None,
+            periods_per_year=None,
+            benchmark_asset_id=None,
+            cash_annual_return=0.0,
+            regime_filter=False,
+            regime_lookback=20,
+            min_relative_return=None,
+            max_drawdown_limit=None,
+            signal_start_date=None,
+            signal_end_date=None,
+            factor_input_root="data/processed/tushare_etf_full",
+            factor_input_required=True,
+            moneyflow_input_root=None,
+            output_dir="data/reports/research_pipeline",
+        )
+
+        config = build_research_config(args)
+
+        self.assertEqual(config.factor_name, "share_change_1d")
+        self.assertEqual(config.factor_source, "etf_share_size")
+        self.assertEqual(config.factor_input_root, Path("data/processed/tushare_etf_full"))
+
+    def test_research_cli_config_builder_passes_etf_moneyflow_basket_factor_source(self):
+        args = SimpleNamespace(
+            factor="etf_net_mf_amount_ratio",
+            factor_source="etf_moneyflow_basket",
+            factor_windows="1",
+            market="CN_ETF",
+            start_date=None,
+            end_date=None,
+            forward_horizon=1,
+            execution_lag=1,
+            rebalance_interval=1,
+            top_n=1,
+            cost_bps=5.0,
+            portfolio_scope=None,
+            periods_per_year=None,
+            benchmark_asset_id=None,
+            cash_annual_return=0.0,
+            regime_filter=False,
+            regime_lookback=20,
+            min_relative_return=None,
+            max_drawdown_limit=None,
+            signal_start_date=None,
+            signal_end_date=None,
+            factor_input_root="data/processed/tushare_etf_baskets",
+            factor_input_required=True,
+            moneyflow_input_root="data/processed/tushare_moneyflow_inputs",
+            output_dir="data/reports/research_pipeline",
+        )
+
+        config = build_research_config(args)
+
+        self.assertEqual(config.factor_name, "etf_net_mf_amount_ratio")
+        self.assertEqual(config.factor_source, "etf_moneyflow_basket")
+        self.assertEqual(config.factor_input_root, Path("data/processed/tushare_etf_baskets"))
+        self.assertEqual(config.moneyflow_input_root, Path("data/processed/tushare_moneyflow_inputs"))
+
     def test_pipeline_rejects_tushare_daily_basic_without_execution_lag(self):
         with tempfile.TemporaryDirectory() as tmp:
             bars = load_demo_market_bars()
@@ -386,6 +487,95 @@ class ResearchPipelineTests(unittest.TestCase):
 
             self.assertEqual(result["request"]["factor_source"], "tushare_moneyflow")
             self.assertEqual(result["request"]["moneyflow_input_root"], str(Path(tmp)))
+            self.assertGreater(result["artifact_rows"]["factor_inputs"], 0)
+            self.assertGreater(result["artifact_rows"]["factors"], 0)
+            self.assertGreater(result["artifact_rows"]["ic"], 0)
+
+    def test_pipeline_rejects_etf_share_size_without_execution_lag(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bars = load_demo_market_bars()
+            _write_etf_share_size_inputs(Path(tmp), bars)
+
+            config = ResearchPipelineConfig(
+                factor_name="share_change_1d",
+                factor_source="etf_share_size",
+                factor_input_root=Path(tmp),
+                market="CN_ETF",
+                execution_lag=0,
+                top_n=1,
+            )
+
+            with self.assertRaisesRegex(ValueError, "execution_lag"):
+                run_research_pipeline(bars, config)
+
+    def test_pipeline_runs_etf_share_size_factor_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bars = load_demo_market_bars()
+            _write_etf_share_size_inputs(Path(tmp), bars)
+
+            result = run_research_pipeline(
+                bars,
+                ResearchPipelineConfig(
+                    factor_name="share_change_1d",
+                    factor_source="etf_share_size",
+                    factor_input_root=Path(tmp),
+                    factor_input_required=True,
+                    market="CN_ETF",
+                    top_n=1,
+                    execution_lag=1,
+                ),
+            )
+
+            self.assertEqual(result["request"]["factor_source"], "etf_share_size")
+            self.assertEqual(result["request"]["factor_input_root"], str(Path(tmp)))
+            self.assertGreater(result["artifact_rows"]["factor_inputs"], 0)
+            self.assertGreater(result["artifact_rows"]["factors"], 0)
+            self.assertGreater(result["artifact_rows"]["ic"], 0)
+
+    def test_pipeline_rejects_etf_moneyflow_basket_without_execution_lag(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bars = load_demo_market_bars()
+            _write_moneyflow_inputs(root, bars)
+            _write_etf_moneyflow_baskets(root, bars)
+
+            config = ResearchPipelineConfig(
+                factor_name="etf_net_mf_amount_ratio",
+                factor_source="etf_moneyflow_basket",
+                factor_input_root=root,
+                moneyflow_input_root=root,
+                market="CN_ETF",
+                execution_lag=0,
+                top_n=1,
+            )
+
+            with self.assertRaisesRegex(ValueError, "execution_lag"):
+                run_research_pipeline(bars, config)
+
+    def test_pipeline_runs_etf_moneyflow_basket_factor_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bars = load_demo_market_bars()
+            _write_moneyflow_inputs(root, bars)
+            _write_etf_moneyflow_baskets(root, bars)
+
+            result = run_research_pipeline(
+                bars,
+                ResearchPipelineConfig(
+                    factor_name="etf_net_mf_amount_ratio",
+                    factor_source="etf_moneyflow_basket",
+                    factor_input_root=root,
+                    factor_input_required=True,
+                    moneyflow_input_root=root,
+                    market="CN_ETF",
+                    top_n=1,
+                    execution_lag=1,
+                ),
+            )
+
+            self.assertEqual(result["request"]["factor_source"], "etf_moneyflow_basket")
+            self.assertEqual(result["request"]["factor_input_root"], str(root))
+            self.assertEqual(result["request"]["moneyflow_input_root"], str(root))
             self.assertGreater(result["artifact_rows"]["factor_inputs"], 0)
             self.assertGreater(result["artifact_rows"]["factors"], 0)
             self.assertGreater(result["artifact_rows"]["ic"], 0)
@@ -581,6 +771,65 @@ def _write_moneyflow_inputs(root: Path, bars: pd.DataFrame) -> None:
         frame,
         "processed/moneyflow_inputs",
         {"frequency": "1d", "market": "CN", "year": "2024"},
+    )
+
+
+def _write_etf_share_size_inputs(root: Path, bars: pd.DataFrame) -> None:
+    etf_bars = bars[bars["market"] == "CN_ETF"].copy()
+    rows = []
+    for asset_index, (asset_id, group) in enumerate(etf_bars.groupby("asset_id", sort=True), start=1):
+        symbol = group["symbol"].iloc[0]
+        exchange = "SSE" if symbol.endswith(".SH") else "SZSE"
+        for index, row in group.sort_values("date").reset_index(drop=True).iterrows():
+            share_change = pd.NA if index == 0 else 0.01 * asset_index
+            size_change = pd.NA if index == 0 else 0.02 * asset_index
+            rows.append(
+                {
+                    "date": row["date"],
+                    "asset_id": asset_id,
+                    "symbol": symbol,
+                    "market": "CN_ETF",
+                    "source": "tushare_etf_share_size",
+                    "name": f"{symbol} ETF",
+                    "exchange": exchange,
+                    "total_share": 10_000_000.0 + index * 100_000.0 * asset_index,
+                    "total_size": 40_000_000.0 + index * 800_000.0 * asset_index,
+                    "nav": row["close"],
+                    "close": row["close"] * (1.0 + 0.001 * asset_index),
+                    "share_change_1d": share_change,
+                    "size_change_1d": size_change,
+                    "nav_premium_discount": 0.001 * asset_index,
+                }
+            )
+    DatasetStore(root).write_frame(
+        pd.DataFrame(rows),
+        "processed/etf_share_size",
+        {"frequency": "1d", "market": "CN_ETF", "year": "2024"},
+    )
+
+
+def _write_etf_moneyflow_baskets(root: Path, bars: pd.DataFrame) -> None:
+    cn_assets = bars[bars["market"] == "CN"].drop_duplicates("asset_id").sort_values("asset_id")
+    etf_assets = bars[bars["market"] == "CN_ETF"].drop_duplicates("asset_id").sort_values("asset_id")
+    rows = []
+    for etf_index, etf in enumerate(etf_assets.itertuples(index=False), start=1):
+        for stock_index, stock in enumerate(cn_assets.itertuples(index=False), start=1):
+            rows.append(
+                {
+                    "etf_asset_id": etf.asset_id,
+                    "etf_symbol": etf.symbol,
+                    "stock_asset_id": stock.asset_id,
+                    "stock_symbol": stock.symbol,
+                    "weight": stock_index / len(cn_assets),
+                    "known_date": pd.Timestamp("2024-01-01").date(),
+                    "end_date": pd.NaT,
+                    "source": f"fixture_basket_{etf_index}",
+                }
+            )
+    DatasetStore(root).write_frame(
+        pd.DataFrame(rows),
+        "metadata/etf_moneyflow_baskets",
+        {"market": "CN_ETF"},
     )
 
 

@@ -17,6 +17,7 @@ from quant_robot.factors.tushare_inputs import compute_daily_basic_factors
 from quant_robot.factors.tushare_moneyflow import compute_moneyflow_factors
 from quant_robot.portfolio.constraints import PortfolioConstraints, apply_portfolio_constraints
 from quant_robot.portfolio.rebalance import FORBIDDEN_REAL_ACCOUNT_COLUMNS, build_rebalance_plan
+from quant_robot.storage.cn_etf_rotation_membership import filter_signals_to_cn_etf_rotation_membership
 from quant_robot.storage.factor_inputs import load_factor_inputs
 from quant_robot.storage.moneyflow_inputs import load_moneyflow_inputs
 
@@ -29,6 +30,8 @@ class PaperSimulationConfig:
     factor_windows: tuple[int, ...] = (2, 3)
     factor_input_root: Path | None = None
     moneyflow_input_root: Path | None = None
+    rotation_membership_root: Path | None = None
+    rotation_membership_required: bool = False
     top_n: int = 2
     rebalance_interval: int = 1
     start_date: str | None = None
@@ -63,6 +66,12 @@ def run_paper_simulation(
     filtered = _filter_bars(bars, config)
     validate_market_data(filtered)
     factors = _compute_factors(filtered, config)
+    factors = filter_signals_to_cn_etf_rotation_membership(
+        factors,
+        root=config.rotation_membership_root,
+        market=config.market,
+        required=config.rotation_membership_required,
+    )
     dates = sorted(pd.to_datetime(filtered["date"]).dt.date.unique())
     factor_slices = _factor_slices_by_date(factors, config.factor_name, dates)
     valuation_prices_by_date = _latest_prices_by_date(filtered, dates)
@@ -619,6 +628,9 @@ def _metrics(
 def _config_dict(config: PaperSimulationConfig) -> dict[str, Any]:
     data = asdict(config)
     data["factor_windows"] = list(config.factor_windows)
+    data["rotation_membership_root"] = (
+        str(config.rotation_membership_root) if config.rotation_membership_root is not None else None
+    )
     data["periods_per_year"] = _resolve_periods_per_year(config)
     data["output_dir"] = str(config.output_dir) if config.output_dir is not None else None
     return data

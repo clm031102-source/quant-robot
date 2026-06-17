@@ -28,6 +28,7 @@ def run_grid(
     config = load_experiment_grid_config(config_path) if config_path is not None else ExperimentGridConfig()
     if output_dir is not None:
         config = replace(config, output_dir=Path(output_dir))
+    config = _attach_processed_cn_etf_rotation_membership(config, source, Path(data_root))
     bars = _load_bars(source, Path(data_root), config.markets)
     return run_experiment_grid(bars, config)
 
@@ -82,6 +83,23 @@ def _load_bars(source: str, data_root: Path, markets: tuple[str, ...]) -> pd.Dat
     if not frames:
         raise ValueError("processed-bars source requires at least one specific market")
     return pd.concat(frames, ignore_index=True)
+
+
+def _attach_processed_cn_etf_rotation_membership(
+    config: ExperimentGridConfig,
+    source: str,
+    data_root: Path,
+) -> ExperimentGridConfig:
+    if source != "processed-bars":
+        return config
+    markets = {market.upper() for market in config.markets}
+    if "CN_ETF" not in markets:
+        return config
+    return replace(
+        config,
+        rotation_membership_root=config.rotation_membership_root or data_root,
+        rotation_membership_required=True,
+    )
 
 
 if __name__ == "__main__":

@@ -29,7 +29,7 @@ class WalkForwardConfig:
 
 
 def load_walk_forward_config(path: str | Path) -> WalkForwardConfig:
-    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    data = json.loads(Path(path).read_text(encoding="utf-8-sig"))
     return WalkForwardConfig(
         split_date=str(data["split_date"]),
         experiment_grid=_grid_from_mapping(data.get("experiment_grid", {})),
@@ -469,6 +469,12 @@ def _grid_from_mapping(data: dict[str, Any]) -> ExperimentGridConfig:
         factor_input_root=Path(data["factor_input_root"]) if data.get("factor_input_root") else None,
         factor_input_required=bool(data.get("factor_input_required", ExperimentGridConfig.factor_input_required)),
         moneyflow_input_root=Path(data["moneyflow_input_root"]) if data.get("moneyflow_input_root") else None,
+        rotation_membership_root=(
+            Path(data["rotation_membership_root"]) if data.get("rotation_membership_root") else None
+        ),
+        rotation_membership_required=bool(
+            data.get("rotation_membership_required", ExperimentGridConfig.rotation_membership_required)
+        ),
         top_n_values=tuple(int(value) for value in data.get("top_n_values", ExperimentGridConfig.top_n_values)),
         cost_bps_values=tuple(float(value) for value in data.get("cost_bps_values", ExperimentGridConfig.cost_bps_values)),
         start_date=data.get("start_date"),
@@ -514,6 +520,11 @@ def _config_dict(config: WalkForwardConfig) -> dict[str, Any]:
     )
     data["experiment_grid"]["moneyflow_input_root"] = (
         str(config.experiment_grid.moneyflow_input_root) if config.experiment_grid.moneyflow_input_root is not None else None
+    )
+    data["experiment_grid"]["rotation_membership_root"] = (
+        str(config.experiment_grid.rotation_membership_root)
+        if config.experiment_grid.rotation_membership_root is not None
+        else None
     )
     data["experiment_grid"]["markets"] = list(config.experiment_grid.markets)
     data["experiment_grid"]["factor_names"] = list(config.experiment_grid.factor_names)

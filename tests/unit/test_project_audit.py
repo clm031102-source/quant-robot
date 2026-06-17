@@ -93,6 +93,54 @@ class ProjectAuditTests(unittest.TestCase):
             )
             self.assertFalse(audit["summary"]["passes"])
 
+    def test_audit_accepts_registered_etf_share_size_factor_names(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "configs").mkdir()
+            (root / "configs" / "walk_forward_etf_share_size.json").write_text(
+                """{
+  "split_date": "2024-01-01",
+  "experiment_grid": {
+    "factor_source": "etf_share_size",
+    "factor_names": ["share_change_1d", "nav_premium_discount_low"],
+    "factor_windows": [1]
+  }
+}
+""",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            registry = audit["factor_config_registry"]
+            self.assertTrue(registry["passes"])
+            self.assertEqual(registry["unknown_factor_refs"], [])
+            self.assertEqual(registry["unsupported_factor_sources"], [])
+
+    def test_audit_accepts_registered_etf_moneyflow_basket_factor_names(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "configs").mkdir()
+            (root / "configs" / "walk_forward_etf_moneyflow_basket.json").write_text(
+                """{
+  "split_date": "2024-01-01",
+  "experiment_grid": {
+    "factor_source": "etf_moneyflow_basket",
+    "factor_names": ["etf_net_mf_amount_ratio", "etf_net_mf_positive_weight_low"],
+    "factor_windows": [1]
+  }
+}
+""",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            registry = audit["factor_config_registry"]
+            self.assertTrue(registry["passes"])
+            self.assertEqual(registry["unknown_factor_refs"], [])
+            self.assertEqual(registry["unsupported_factor_sources"], [])
+
     def test_markdown_report_contains_core_sections(self):
         audit = {
             "summary": {"passes": True, "files_scanned": 2},

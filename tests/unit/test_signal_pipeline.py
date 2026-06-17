@@ -6,6 +6,7 @@ import pandas as pd
 
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.signals.pipeline import SignalPipelineConfig, generate_signal_snapshot, write_signal_snapshot
+from quant_robot.storage.dataset_store import DatasetStore
 
 
 class SignalPipelineTests(unittest.TestCase):
@@ -63,6 +64,34 @@ class SignalPipelineTests(unittest.TestCase):
         self.assertLessEqual(sum(row["target_weight"] for row in result["targets"]), 0.80)
         self.assertGreaterEqual(result["cash_weight"], 0.10)
         self.assertTrue(all(weight <= 0.40 for weight in market_weights.values()))
+
+    def test_cn_etf_signal_snapshot_filters_targets_to_rotation_membership(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bars = load_demo_market_bars()
+            membership = bars[bars["market"] == "CN_ETF"][["date", "asset_id", "market"]].copy()
+            membership["symbol"] = membership["asset_id"].astype(str)
+            membership["is_rotation_member"] = membership["asset_id"].eq("CN_ETF_XSHG_510300")
+            DatasetStore(root).write_frame(
+                membership,
+                "metadata/cn_etf_rotation_membership",
+                {"market": "CN_ETF"},
+            )
+            config = SignalPipelineConfig(
+                market="CN_ETF",
+                factor_name="momentum_2",
+                factor_windows=(2,),
+                top_n=4,
+                as_of_date="2024-01-08",
+                rotation_membership_root=root,
+                rotation_membership_required=True,
+            )
+
+            result = generate_signal_snapshot(bars, config)
+
+            self.assertEqual({row["asset_id"] for row in result["targets"]}, {"CN_ETF_XSHG_510300"})
+            self.assertEqual(result["request"]["rotation_membership_root"], str(root))
+            self.assertTrue(result["request"]["rotation_membership_required"])
 
     def test_signal_snapshot_writes_targets_and_manifest(self):
         config = SignalPipelineConfig(market="CN", factor_name="momentum_2", factor_windows=(2,), top_n=1)

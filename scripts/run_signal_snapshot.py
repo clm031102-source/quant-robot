@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -38,23 +39,29 @@ def run_signal_snapshot(
     min_cash_weight: float = 0.0,
     portfolio_value: float = 100000.0,
     positions_csv: str | Path | None = None,
+    rotation_membership_root: str | Path | None = None,
+    rotation_membership_required: bool = False,
     output_dir: str | Path | None = None,
 ) -> dict[str, Any]:
     bars = _load_bars(source, Path(data_root), market)
+    config = SignalPipelineConfig(
+        factor_name=factor_name,
+        factor_windows=factor_windows,
+        market=market,
+        as_of_date=as_of_date,
+        top_n=top_n,
+        portfolio_scope=portfolio_scope,
+        max_asset_weight=max_asset_weight,
+        max_market_weight=max_market_weight,
+        max_gross_exposure=max_gross_exposure,
+        min_cash_weight=min_cash_weight,
+        rotation_membership_root=Path(rotation_membership_root) if rotation_membership_root is not None else None,
+        rotation_membership_required=rotation_membership_required,
+    )
+    config = _attach_processed_cn_etf_rotation_membership(config, source, Path(data_root))
     snapshot = generate_signal_snapshot(
         bars,
-        SignalPipelineConfig(
-            factor_name=factor_name,
-            factor_windows=factor_windows,
-            market=market,
-            as_of_date=as_of_date,
-            top_n=top_n,
-            portfolio_scope=portfolio_scope,
-            max_asset_weight=max_asset_weight,
-            max_market_weight=max_market_weight,
-            max_gross_exposure=max_gross_exposure,
-            min_cash_weight=min_cash_weight,
-        ),
+        config,
     )
     targets = pd.DataFrame(snapshot["targets"])
     current_positions = _load_positions(positions_csv)
@@ -84,6 +91,8 @@ def main() -> None:
     parser.add_argument("--min-cash-weight", default=0.0, type=float)
     parser.add_argument("--portfolio-value", default=100000.0, type=float)
     parser.add_argument("--positions-csv")
+    parser.add_argument("--rotation-membership-root")
+    parser.add_argument("--rotation-membership-required", action="store_true")
     parser.add_argument("--output-dir", default="data/reports/signal_snapshot")
     args = parser.parse_args()
     result = run_signal_snapshot(
@@ -101,6 +110,8 @@ def main() -> None:
         min_cash_weight=args.min_cash_weight,
         portfolio_value=args.portfolio_value,
         positions_csv=Path(args.positions_csv) if args.positions_csv else None,
+        rotation_membership_root=Path(args.rotation_membership_root) if args.rotation_membership_root else None,
+        rotation_membership_required=args.rotation_membership_required,
         output_dir=Path(args.output_dir),
     )
     print(
@@ -124,6 +135,20 @@ def _load_positions(path: str | Path | None) -> pd.DataFrame:
     if path is None:
         return pd.DataFrame(columns=["asset_id", "quantity"])
     return pd.read_csv(path)
+
+
+def _attach_processed_cn_etf_rotation_membership(
+    config: SignalPipelineConfig,
+    source: str,
+    data_root: Path,
+) -> SignalPipelineConfig:
+    if source != "processed-bars" or config.market.upper() != "CN_ETF":
+        return config
+    return replace(
+        config,
+        rotation_membership_root=config.rotation_membership_root or data_root,
+        rotation_membership_required=True,
+    )
 
 
 def _load_bars(source: str, data_root: Path, market: str) -> pd.DataFrame:

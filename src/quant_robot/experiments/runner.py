@@ -8,9 +8,16 @@ from typing import Any
 
 import pandas as pd
 
+from quant_robot.factors.etf_moneyflow_basket import (
+    aggregate_etf_moneyflow_basket_inputs,
+    compute_etf_moneyflow_basket_factors,
+)
+from quant_robot.factors.etf_share_size import compute_etf_share_size_factors
 from quant_robot.factors.moneyflow_technical import compute_moneyflow_technical_combo_factors
 from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.research.pipeline import ResearchPipelineConfig, run_research_pipeline
+from quant_robot.storage.etf_moneyflow_baskets import load_etf_moneyflow_baskets
+from quant_robot.storage.etf_share_size import load_etf_share_size_inputs
 from quant_robot.storage.moneyflow_inputs import load_moneyflow_inputs
 
 
@@ -29,6 +36,8 @@ class ExperimentGridConfig:
     factor_input_root: Path | None = None
     factor_input_required: bool = False
     moneyflow_input_root: Path | None = None
+    rotation_membership_root: Path | None = None
+    rotation_membership_required: bool = False
     top_n_values: tuple[int, ...] = (1, 2)
     cost_bps_values: tuple[float, ...] = (0.0, 5.0, 10.0)
     start_date: str | None = None
@@ -116,6 +125,12 @@ def load_experiment_grid_config(path: str | Path) -> ExperimentGridConfig:
         factor_input_root=Path(data["factor_input_root"]) if data.get("factor_input_root") else None,
         factor_input_required=bool(data.get("factor_input_required", ExperimentGridConfig.factor_input_required)),
         moneyflow_input_root=Path(data["moneyflow_input_root"]) if data.get("moneyflow_input_root") else None,
+        rotation_membership_root=(
+            Path(data["rotation_membership_root"]) if data.get("rotation_membership_root") else None
+        ),
+        rotation_membership_required=bool(
+            data.get("rotation_membership_required", ExperimentGridConfig.rotation_membership_required)
+        ),
         top_n_values=tuple(int(value) for value in data.get("top_n_values", ExperimentGridConfig.top_n_values)),
         cost_bps_values=tuple(float(value) for value in data.get("cost_bps_values", ExperimentGridConfig.cost_bps_values)),
         start_date=data.get("start_date"),
@@ -184,6 +199,8 @@ def _run_case(
                 factor_input_root=grid_config.factor_input_root,
                 factor_input_required=grid_config.factor_input_required,
                 moneyflow_input_root=grid_config.moneyflow_input_root,
+                rotation_membership_root=grid_config.rotation_membership_root,
+                rotation_membership_required=grid_config.rotation_membership_required,
                 market=case.market,
                 start_date=grid_config.start_date,
                 end_date=grid_config.end_date,
@@ -223,6 +240,10 @@ def _run_case(
 def _precompute_factor_matrix(bars: pd.DataFrame, config: ExperimentGridConfig) -> pd.DataFrame | None:
     if config.factor_source == "technical":
         return compute_basic_factors(bars, windows=config.factor_windows)
+    if config.factor_source == "etf_share_size":
+        return compute_etf_share_size_factors(_load_grid_etf_share_size_inputs(config))
+    if config.factor_source == "etf_moneyflow_basket":
+        return compute_etf_moneyflow_basket_factors(_load_grid_etf_moneyflow_basket_inputs(config))
     if config.factor_source == "moneyflow_technical_combo":
         moneyflow_inputs = _load_grid_moneyflow_inputs(config)
         return compute_moneyflow_technical_combo_factors(
@@ -231,6 +252,28 @@ def _precompute_factor_matrix(bars: pd.DataFrame, config: ExperimentGridConfig) 
             factor_names=config.factor_names,
         )
     return None
+
+
+def _load_grid_etf_moneyflow_basket_inputs(config: ExperimentGridConfig) -> pd.DataFrame:
+    if config.factor_input_root is None:
+        raise ValueError("factor_input_root is required when precomputing ETF moneyflow basket factors")
+    if config.moneyflow_input_root is None:
+        raise ValueError("moneyflow_input_root is required when precomputing ETF moneyflow basket factors")
+    markets = {market.upper() for market in config.markets}
+    if markets != {"CN_ETF"}:
+        raise ValueError("ETF moneyflow basket factor source requires markets=('CN_ETF',)")
+    moneyflow = load_moneyflow_inputs(config.moneyflow_input_root, "CN")
+    baskets = load_etf_moneyflow_baskets(config.factor_input_root, "CN_ETF")
+    return aggregate_etf_moneyflow_basket_inputs(moneyflow, baskets)
+
+
+def _load_grid_etf_share_size_inputs(config: ExperimentGridConfig) -> pd.DataFrame:
+    if config.factor_input_root is None:
+        raise ValueError("factor_input_root is required when precomputing ETF share-size factors")
+    frames = [load_etf_share_size_inputs(config.factor_input_root, market.upper()) for market in sorted(set(config.markets))]
+    if not frames:
+        return pd.DataFrame()
+    return pd.concat(frames, ignore_index=True).sort_values(["asset_id", "date"]).reset_index(drop=True)
 
 
 def _load_grid_moneyflow_inputs(config: ExperimentGridConfig) -> pd.DataFrame:
@@ -431,6 +474,9 @@ def _config_dict(config: ExperimentGridConfig) -> dict[str, Any]:
     data["markets"] = list(config.markets)
     data["factor_input_root"] = str(config.factor_input_root) if config.factor_input_root is not None else None
     data["moneyflow_input_root"] = str(config.moneyflow_input_root) if config.moneyflow_input_root is not None else None
+    data["rotation_membership_root"] = (
+        str(config.rotation_membership_root) if config.rotation_membership_root is not None else None
+    )
     data["factor_names"] = list(config.factor_names)
     data["factor_windows"] = list(config.factor_windows)
     data["top_n_values"] = list(config.top_n_values)

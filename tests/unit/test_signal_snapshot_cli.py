@@ -48,6 +48,39 @@ class SignalSnapshotCliTests(unittest.TestCase):
             self.assertEqual(result["request"]["portfolio_scope"], "global")
             self.assertGreaterEqual(len({row["market"] for row in result["targets"]}), 1)
 
+    def test_processed_cn_etf_snapshot_auto_uses_rotation_membership(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "store"
+            bars = load_demo_market_bars()
+            cn_etf = bars[bars["market"] == "CN_ETF"].reset_index(drop=True)
+            DatasetStore(root).write_frame(
+                cn_etf,
+                "processed/bars",
+                {"frequency": "1d", "market": "CN_ETF", "year": "2024"},
+            )
+            membership = cn_etf[["date", "asset_id", "market"]].copy()
+            membership["symbol"] = membership["asset_id"].astype(str)
+            membership["is_rotation_member"] = membership["asset_id"].eq("CN_ETF_XSHG_510300")
+            DatasetStore(root).write_frame(
+                membership,
+                "metadata/cn_etf_rotation_membership",
+                {"market": "CN_ETF"},
+            )
+
+            result = run_signal_snapshot(
+                source="processed-bars",
+                data_root=root,
+                market="CN_ETF",
+                factor_name="momentum_2",
+                factor_windows=(2,),
+                top_n=4,
+                as_of_date="2024-01-08",
+            )
+
+            self.assertEqual({row["asset_id"] for row in result["targets"]}, {"CN_ETF_XSHG_510300"})
+            self.assertEqual(result["request"]["rotation_membership_root"], str(root))
+            self.assertTrue(result["request"]["rotation_membership_required"])
+
 
 if __name__ == "__main__":
     unittest.main()

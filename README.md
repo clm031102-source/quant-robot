@@ -11,6 +11,7 @@ The project is currently in a Phase 5.x research-to-paper stage. It has research
 - Daily Ops status: `paper_ready` with live boundary disabled.
 - Baseline Profile Observation status: stopped on `signal_data_stale`, which is why the activation chain refreshes and replays recent data.
 - Real Tushare activation status: `paper_observation_ready`; readiness passed, required-asset coverage passed for `CN_ETF_XSHG_516160`, iterative expansion completed in 2 rounds, final fills are `21 / 20`, blockers are empty, and live boundary remains disabled.
+- Current desktop ETF research treats Tushare `fund_basic` plus `fund_daily` as the primary CN_ETF universe and history source. CSV, AKShare, and fixtures are fallback/smoke paths only.
 - Paper Observation History status: `history_clear_for_continued_paper_observation=true` with 1 recorded real Tushare activation run and zero live-boundary violations.
 - Paper Ops Guardrail status: `paper_ops_watch`; continued paper observation is allowed, live readiness is false, warnings are `short_paper_history` and `provider_missing_date_rows`.
 - Paper Ops Runbook status: `paper_cycle_ready`; the queue has 4 local-only, manual-start commands, and live cycle execution remains disabled.
@@ -64,7 +65,7 @@ The gate blocks work when direct `CN` stock moneyflow selection is accidentally 
 - Manual-review gate rehearsal that lists clean-state requirements while proving broker/account/order boundaries stay disabled.
 - Pre-API readiness board that consolidates local evidence, blockers, next actions, and live-boundary status into one artifact.
 - Blocker-resolution worklist that turns readiness blockers into open local-only work items and a deduplicated action queue.
-- Tushare CN ETF daily ingestion path through the optional `fund_daily` endpoint.
+- Tushare CN ETF daily ingestion path through `fund_daily`, plus `etf_share_size` share, scale, NAV, and premium/discount auxiliary data.
 - Risk-tier policy, constrained candidate search, paper-profile optimization, Daily Ops activation, profile-observation stop rules, recent-data refresh, post-refresh replay, observation sufficiency, iterative expansion, Tushare activation-gate packs, paper-observation history ledgers, paper-ops guardrail packs, and paper-only runbook command queues.
 - Paper-simulation execution-block events for suspended, zero-volume, limit-up, and limit-down bars when those fields exist in local data.
 - Paper-simulation fills now record participation rate, capacity-limit flags, and market-impact fees when amount data is available.
@@ -755,7 +756,32 @@ Paper simulation also records local execution-block events when bars include `su
 
 ## A-Share ETF Research
 
-The framework includes a dedicated `CN_ETF` market and a default ETF universe in `configs/universe_cn_etf.yaml`. You can import TradingView ETF CSV exports into processed bars:
+The framework includes a dedicated `CN_ETF` market and a Tushare-first ETF universe policy in `configs/universe_cn_etf.yaml`. The primary trading pool is built from Tushare `fund_basic(market='E')`, filtered to exchange-traded active ETFs as of the research date, and daily bars come from `fund_daily`. The sync also writes a point-in-time `metadata/cn_etf_rotation_membership/market=CN_ETF` surface, preserving delisted or formerly listed ETFs on dates when they were listed and excluding them after `delist_date`. Research, experiment-grid, walk-forward, signal-snapshot, and paper-simulation entrypoints keep full bars for factor warmup, then require and apply this membership surface for `processed-bars + market=CN_ETF` signals. ETF share, scale, NAV, and premium/discount auxiliary inputs come from `etf_share_size`. Static symbols, TradingView CSV, AKShare, and fixtures are fallback/smoke paths only.
+
+For a full-history or incremental Tushare CN_ETF refresh, run the startup gate first, then use the ingest CLI:
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_quant_pm_startup_gate.py --machine highspec_desktop --task data_pipeline --branch <current-branch>
+python scripts\run_research_family_scheduler.py --config configs\research_family_scheduler_cn_etf.json
+python scripts\run_tushare_cn_etf_sync.py --source tushare --start-date auto --end-date latest --output-dir data\processed\tushare_etf_full --report-dir data\reports\tushare_cn_etf_sync --min-rotation-history-rows 60 --min-rotation-median-amount 10000000 --execute
+python scripts\run_data_quality_audit.py --data-root data\processed\tushare_etf_full --market CN_ETF --output-dir data\reports\data_quality_gap_audit_cn_etf_full
+```
+
+`--start-date auto` resolves to the configured full-history anchor, currently `2005-01-01` unless `--full-history-start-date` is supplied. `--end-date latest` resolves through Tushare `trade_cal` to the most recent completed open trading day and records the result under `date_resolution`; if provider readiness is missing, the run writes a blocked pack instead of guessing a trading-calendar date.
+
+For daily refreshes after the full-history root exists, switch the start token to incremental:
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_tushare_cn_etf_sync.py --source tushare --start-date incremental --end-date latest --output-dir data\processed\tushare_etf_full --report-dir data\reports\tushare_cn_etf_sync_incremental --min-rotation-history-rows 60 --min-rotation-median-amount 10000000 --execute
+```
+
+`--start-date incremental` reads the latest local `CN_ETF` processed bar date and starts from the next day. If the local root is current through the resolved latest completed trading day, the sync writes an `up_to_date` pack and skips downloads.
+
+The CN_ETF sync writes `fund_daily` bars, point-in-time rotation membership, `etf_share_size` inputs, and `fund_portfolio`-derived `metadata/etf_moneyflow_baskets/market=CN_ETF`. Basket mappings use Tushare `ann_date` as `known_date`; a holding set is active only until the day before the next announcement for the same ETF.
+
+When provider credentials are unavailable, you can still import TradingView ETF CSV exports into processed bars for smoke checks:
 
 ```powershell
 $env:PYTHONPATH='src'
@@ -765,18 +791,22 @@ python scripts\import_etf_csv.py path\to\510300.csv --symbol 510300.SH --output-
 The importer checks that a six-digit code in the CSV filename matches `--symbol`, uses an import lock to avoid concurrent year-partition rewrites, and does not count weekends as missing dates unless a real exchange calendar is provided later.
 Its quality report checks missing rows across observed business days, so weekday gaps in CSV exports are flagged while weekend gaps are ignored.
 
-Then run ETF-only research, factor mining, and paper simulation:
+Then run ETF-only research, factor mining, and paper simulation against the Tushare processed root when available:
 
 ```powershell
 $env:PYTHONPATH='src'
 python scripts\run_quant_pm_startup_gate.py --machine highspec_desktop --task factor_batch --branch <current-branch>
 python scripts\run_research_family_scheduler.py --config configs\research_family_scheduler_cn_etf.json
-python scripts\run_research_pipeline.py --source processed-bars --data-root data\processed\etf_csv --market CN_ETF --factor momentum_2 --top-n 2
-python scripts\run_experiment_grid.py --config configs\experiment_grid_cn_etf.json --source processed-bars --data-root data\processed\etf_csv
-python scripts\run_paper_simulation.py --source processed-bars --data-root data\processed\etf_csv --market CN_ETF --factor momentum_2 --top-n 2
+python scripts\run_walk_forward.py --config configs\walk_forward_tushare_cn_etf_rotation.json --source processed-bars --data-root data\processed\tushare_etf_full
+python scripts\run_walk_forward.py --config configs\walk_forward_tushare_cn_etf_share_size.json --source processed-bars --data-root data\processed\tushare_etf_full
+python scripts\run_walk_forward.py --config configs\walk_forward_tushare_cn_etf_moneyflow_basket.json --source processed-bars --data-root data\processed\tushare_etf_full
+python scripts\run_research_pipeline.py --source processed-bars --data-root data\processed\tushare_etf_full --market CN_ETF --factor momentum_20 --top-n 2
+python scripts\run_research_pipeline.py --source processed-bars --data-root data\processed\tushare_etf_full --market CN_ETF --factor-source etf_share_size --factor-input-root data\processed\tushare_etf_full --factor share_change_1d --top-n 2
+python scripts\run_research_pipeline.py --source processed-bars --data-root data\processed\tushare_etf_full --market CN_ETF --factor-source etf_moneyflow_basket --factor-input-root data\processed\tushare_etf_full --moneyflow-input-root data\processed\tushare_moneyflow_inputs --factor etf_net_mf_amount_ratio --top-n 2
+python scripts\run_paper_simulation.py --source processed-bars --data-root data\processed\tushare_etf_full --market CN_ETF --factor momentum_20 --top-n 2
 ```
 
-Run the research-family scheduler before material factor-mining batches. It enforces a diversified `CN_ETF` hypothesis portfolio and keeps the direct `CN` stock moneyflow selection family in `auxiliary_only` mode after repeated capacity, cost, out-of-sample, and tail-IC failures. See `docs/research/research_family_scheduler_2026-06-17.md`.
+Run the research-family scheduler before material factor-mining batches. It enforces a diversified `CN_ETF` hypothesis portfolio and keeps the direct `CN` stock moneyflow selection family in `auxiliary_only` mode after repeated capacity, cost, out-of-sample, and tail-IC failures. The ETF share/scale/NAV structure family uses `factor_source=etf_share_size` against the same Tushare sync root. CN stock moneyflow can enter only through ETF-level basket aggregation with point-in-time `known_date` mappings via `factor_source=etf_moneyflow_basket`; final factors and signals remain `CN_ETF`. The default Tushare basket source is `fund_portfolio`, not a current holdings snapshot. See `docs/research/research_family_scheduler_2026-06-17.md`.
 
 ## Run Local GUI
 
@@ -800,7 +830,7 @@ $env:PYTHONPATH='src'
 python scripts\ingest_data.py --source fixture --market CN --output-dir data\processed\ingest_fixture
 ```
 
-Real Tushare A-share and A-share ETF access uses `TUSHARE_TOKEN` from the environment. Never commit a real token. CN ETF fetching is still optional and pre-broker: use local CSV or fixture workflows when provider credentials are unavailable.
+Real Tushare A-share and A-share ETF access uses `TUSHARE_TOKEN` from the environment. Never commit a real token. CN ETF fetching remains pre-broker and research-only: use local CSV or fixture workflows only for smoke checks when provider credentials are unavailable.
 
 Tushare adjustment factors are stored as range-stable adjusted closes using `close * adj_factor` when adjustment factors are available. The pipeline avoids normalizing by the latest factor inside the requested date range because that would make the same historical date change when you request a longer range.
 
