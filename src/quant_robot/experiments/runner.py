@@ -13,11 +13,13 @@ from quant_robot.factors.etf_moneyflow_basket import (
     compute_etf_moneyflow_basket_factors,
 )
 from quant_robot.factors.etf_share_size import compute_etf_share_size_factors
+from quant_robot.factors.etf_theme_breadth import compute_etf_theme_breadth_factors
 from quant_robot.factors.moneyflow_technical import compute_moneyflow_technical_combo_factors
 from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.research.pipeline import ResearchPipelineConfig, run_research_pipeline
 from quant_robot.storage.etf_moneyflow_baskets import load_etf_moneyflow_baskets
 from quant_robot.storage.etf_share_size import load_etf_share_size_inputs
+from quant_robot.storage.cn_etf_theme_map import load_cn_etf_theme_map
 from quant_robot.storage.moneyflow_inputs import load_moneyflow_inputs
 
 
@@ -262,6 +264,12 @@ def _precompute_factor_matrix(bars: pd.DataFrame, config: ExperimentGridConfig) 
         return compute_etf_share_size_factors(_load_grid_etf_share_size_inputs(config))
     if config.factor_source == "etf_moneyflow_basket":
         return compute_etf_moneyflow_basket_factors(_load_grid_etf_moneyflow_basket_inputs(config))
+    if config.factor_source == "etf_theme_breadth":
+        return compute_etf_theme_breadth_factors(
+            bars,
+            _load_grid_etf_theme_map_inputs(config),
+            windows=config.factor_windows,
+        )
     if config.factor_source == "moneyflow_technical_combo":
         moneyflow_inputs = _load_grid_moneyflow_inputs(config)
         return compute_moneyflow_technical_combo_factors(
@@ -292,6 +300,15 @@ def _load_grid_etf_share_size_inputs(config: ExperimentGridConfig) -> pd.DataFra
     if not frames:
         return pd.DataFrame()
     return pd.concat(frames, ignore_index=True).sort_values(["asset_id", "date"]).reset_index(drop=True)
+
+
+def _load_grid_etf_theme_map_inputs(config: ExperimentGridConfig) -> pd.DataFrame:
+    if config.factor_input_root is None:
+        raise ValueError("factor_input_root is required when precomputing ETF theme breadth factors")
+    markets = {market.upper() for market in config.markets}
+    if markets != {"CN_ETF"}:
+        raise ValueError("ETF theme breadth factor source requires markets=('CN_ETF',)")
+    return load_cn_etf_theme_map(config.factor_input_root, "CN_ETF")
 
 
 def _load_grid_moneyflow_inputs(config: ExperimentGridConfig) -> pd.DataFrame:

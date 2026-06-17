@@ -15,6 +15,7 @@ from quant_robot.factors.etf_moneyflow_basket import (
     compute_etf_moneyflow_basket_factors,
 )
 from quant_robot.factors.etf_share_size import compute_etf_share_size_factors
+from quant_robot.factors.etf_theme_breadth import compute_etf_theme_breadth_factors
 from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.factors.tushare_inputs import compute_daily_basic_factors
 from quant_robot.factors.moneyflow_technical import compute_moneyflow_technical_combo_factors
@@ -32,6 +33,7 @@ from quant_robot.research.labels import make_forward_returns
 from quant_robot.research.long_short import long_short_returns
 from quant_robot.storage.etf_moneyflow_baskets import load_etf_moneyflow_baskets
 from quant_robot.storage.etf_share_size import load_etf_share_size_inputs
+from quant_robot.storage.cn_etf_theme_map import load_cn_etf_theme_map
 from quant_robot.storage.cn_etf_rotation_membership import filter_signals_to_cn_etf_rotation_membership
 from quant_robot.storage.factor_inputs import load_factor_inputs
 from quant_robot.storage.moneyflow_inputs import load_moneyflow_inputs
@@ -226,6 +228,7 @@ def _load_factor_input_frame(config: ResearchPipelineConfig) -> pd.DataFrame:
         "moneyflow_technical_combo",
         "etf_share_size",
         "etf_moneyflow_basket",
+        "etf_theme_breadth",
         "combined",
     }:
         raise ValueError(f"Unsupported factor_source: {factor_source}")
@@ -237,6 +240,8 @@ def _load_factor_input_frame(config: ResearchPipelineConfig) -> pd.DataFrame:
         return _load_etf_share_size_inputs(config)
     if factor_source == "etf_moneyflow_basket":
         return _load_etf_moneyflow_basket_inputs(config)
+    if factor_source == "etf_theme_breadth":
+        return _load_etf_theme_map_inputs(config)
     if factor_source in {"tushare_moneyflow", "moneyflow_technical_combo"}:
         return _load_tushare_moneyflow_inputs(config)
     return _load_tushare_daily_basic_inputs(config)
@@ -316,6 +321,19 @@ def _load_etf_moneyflow_basket_inputs(config: ResearchPipelineConfig) -> pd.Data
     return aggregate_etf_moneyflow_basket_inputs(moneyflow, baskets)
 
 
+def _load_etf_theme_map_inputs(config: ResearchPipelineConfig) -> pd.DataFrame:
+    if config.execution_lag < 1:
+        raise ValueError("execution_lag must be at least 1 for ETF theme breadth factors")
+    if config.factor_input_root is None:
+        raise ValueError("factor_input_root is required for ETF theme breadth factors")
+    market = config.market.upper()
+    if market == "ALL":
+        raise ValueError("ETF theme breadth inputs require a specific CN_ETF market")
+    if market != "CN_ETF":
+        raise ValueError("ETF theme breadth factor source requires market=CN_ETF")
+    return load_cn_etf_theme_map(config.factor_input_root, market)
+
+
 def _compute_factor_source(bars: pd.DataFrame, factor_inputs: pd.DataFrame, config: ResearchPipelineConfig) -> pd.DataFrame:
     if config.factor_source == "technical":
         return compute_basic_factors(bars, windows=config.factor_windows)
@@ -323,6 +341,8 @@ def _compute_factor_source(bars: pd.DataFrame, factor_inputs: pd.DataFrame, conf
         return compute_etf_share_size_factors(factor_inputs)
     if config.factor_source == "etf_moneyflow_basket":
         return compute_etf_moneyflow_basket_factors(factor_inputs)
+    if config.factor_source == "etf_theme_breadth":
+        return compute_etf_theme_breadth_factors(bars, factor_inputs, windows=config.factor_windows)
     if config.factor_source == "tushare_moneyflow":
         return compute_moneyflow_factors(factor_inputs)
     if config.factor_source == "moneyflow_technical_combo":

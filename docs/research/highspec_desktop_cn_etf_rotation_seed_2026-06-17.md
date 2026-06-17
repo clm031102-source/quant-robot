@@ -294,6 +294,54 @@ Fold diagnostics:
 
 Interpretation: ETF-age and mature-universe controls are useful diagnostics, not a rescue. They confirm that early CN_ETF history is structurally sparse, but any signal that only works after filtering away the first three full-history folds cannot be promoted under the current full-history standard.
 
+## ETF Theme-Breadth Diagnostic
+
+Command:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_walk_forward.py --config configs\walk_forward_tushare_cn_etf_theme_breadth_20260617.json --source processed-bars --data-root data\processed\tushare_etf_full --allow-no-accepted
+```
+
+Infrastructure added:
+
+- `tushare_fund_basic` name/type metadata is converted into a deterministic ETF theme map. The map uses all listed and delisted ETF rows from the latest local `fund_basic(market="E")` snapshot and does not use holdings, future returns, broker data, or account data.
+- The local map has 1,762 ETF rows across 18 buckets. Largest buckets: `other_equity` 297, `broad_market` 243, `cross_border_hk` 209, `thematic_ai_digital` 133, `bond_cash` 123.
+- Theme factors require at least two ETFs in a theme and at least two eligible themes on the signal date, to avoid single-ETF theme labels becoming disguised single-name selectors.
+
+New factor family:
+
+- `theme_momentum_breadth_60`: share of ETFs in the same theme with positive 60-day momentum.
+- `theme_relative_strength_60`: theme mean 60-day momentum minus same-day market mean momentum.
+- `theme_rank_strength_60`: same-day percentile rank of theme mean momentum.
+- `theme_member_leadership_60`: ETF momentum minus same-theme median momentum.
+- `theme_laggard_reversal_60`: theme mean momentum minus ETF momentum.
+- `theme_risk_adjusted_strength_60`: theme mean momentum divided by theme mean realized volatility.
+
+Result:
+
+- Cases: 6
+- Accepted: 0
+- Rejected: 6
+- Folds: 4
+
+Top aggregate rows:
+
+- `theme_momentum_breadth_60`: rejected. Accepted folds 1, mean OOS Sharpe -0.7204, relative return 0.1105, max drawdown -0.0824, capacity-limited trades 0, max participation 0.0375, adjusted IC p-value 1.0.
+- `theme_rank_strength_60`: rejected. Accepted folds 0, mean OOS Sharpe -0.7269, relative return 0.1107, max drawdown -0.0994, capacity-limited trades 1, max participation 0.0623, adjusted IC p-value 1.0.
+- `theme_relative_strength_60`: rejected. Accepted folds 0, mean OOS Sharpe -0.7269, relative return 0.1107, max drawdown -0.0994, capacity-limited trades 1, max participation 0.0623, adjusted IC p-value 1.0.
+- `theme_laggard_reversal_60`: rejected. Accepted folds 1, mean OOS Sharpe -0.9035, relative return 0.1077, max drawdown -0.0944, capacity-limited trades 5, max participation 0.3117, adjusted IC p-value 1.0.
+- `theme_member_leadership_60`: rejected. Accepted folds 0, mean OOS Sharpe -1.1218, relative return 0.1068, max drawdown -0.1189, capacity-limited trades 1, max participation 0.0578, adjusted IC p-value 1.0.
+- `theme_risk_adjusted_strength_60`: rejected. Accepted folds 1, mean OOS Sharpe -1.0366, relative return 0.1083, max drawdown -0.0855, capacity-limited trades 0, max participation 0.0356, adjusted IC p-value 1.0.
+
+Fold diagnostics:
+
+- Fold 1 had no trades because the early ETF universe had too few eligible same-theme peers.
+- Fold 2 had only 14 OOS trades per case and failed the minimum trade gate.
+- Folds 3 and 4 were tradeable, but aggregate OOS Sharpe remained negative and adjusted IC significance failed after testing 6 hypotheses.
+- Theme-level breadth improved the hypothesis coverage but did not solve the repeated full-history stability failure.
+
+Interpretation: the deterministic ETF theme map is useful infrastructure for auxiliary breadth research, but static name-derived theme momentum/breadth is not a promoted paper signal. Keep the theme map as a data layer; do not rescue this factor family by reducing costs, loosening accepted-fold requirements, or using only the latest ETF era.
+
 ## Next Batch
 
 Do not rescue these seeds by widening topN, lowering costs, or cherry-picking the 2023-2024 fold. The next batch should address the repeated failure modes directly:
@@ -302,7 +350,8 @@ Do not rescue these seeds by widening topN, lowering costs, or cherry-picking th
 - Treat absolute rolling notional as a required diagnostic control for capacity-heavy factors, but do not use it as a promotion shortcut.
 - Downgrade demand-pressure proxies after repeated capacity and stability failures.
 - Use mature-universe filters for diagnosis and risk controls, not for replacing the full-history promotion gate.
-- Move toward ETF theme/industry breadth diffusion once a clean ETF theme map is available.
+- Keep the deterministic ETF theme map as infrastructure, but downgrade pure static-name theme momentum after the rejected theme-breadth diagnostic.
+- If revisiting breadth, prefer ETF-level theme-neutral combinations or auxiliary stock-flow diffusion aggregated to theme buckets, with CN_ETF signals still the only tradable output.
 - Keep `CN` stock moneyflow out of primary selection; only revisit it as ETF-level breadth or theme diffusion after holdings/theme mapping is available.
 
 Research remains paper-only: no broker connection, no account reads, no order placement, no live trading.

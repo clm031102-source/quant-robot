@@ -651,6 +651,32 @@ class ResearchPipelineTests(unittest.TestCase):
             self.assertGreater(result["artifact_rows"]["factors"], 0)
             self.assertGreater(result["artifact_rows"]["ic"], 0)
 
+    def test_pipeline_runs_etf_theme_breadth_factor_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bars = _theme_breadth_pipeline_bars()
+            _write_etf_theme_fund_basic(root, bars)
+
+            result = run_research_pipeline(
+                bars,
+                ResearchPipelineConfig(
+                    factor_name="theme_momentum_breadth_2",
+                    factor_source="etf_theme_breadth",
+                    factor_input_root=root,
+                    factor_input_required=True,
+                    factor_windows=(2,),
+                    market="CN_ETF",
+                    top_n=1,
+                    execution_lag=1,
+                ),
+            )
+
+            self.assertEqual(result["request"]["factor_source"], "etf_theme_breadth")
+            self.assertEqual(result["request"]["factor_input_root"], str(root))
+            self.assertGreater(result["artifact_rows"]["factor_inputs"], 0)
+            self.assertGreater(result["artifact_rows"]["factors"], 0)
+            self.assertGreater(result["artifact_rows"]["ic"], 0)
+
     def test_pipeline_runs_moneyflow_technical_combo_factor_source(self):
         with tempfile.TemporaryDirectory() as tmp:
             bars = load_demo_market_bars()
@@ -748,6 +774,52 @@ def _falling_regime_bars() -> pd.DataFrame:
     symbols = {
         "CN_ETF_XSHG_510300": "510300.SH",
         "CN_ETF_XSHG_510500": "510500.SH",
+    }
+    for asset_id, prices in paths.items():
+        for date, price in zip(dates, prices, strict=True):
+            rows.append(
+                {
+                    "asset_id": asset_id,
+                    "symbol": symbols[asset_id],
+                    "market": "CN_ETF",
+                    "exchange": "XSHG",
+                    "asset_type": "etf",
+                    "timestamp": pd.Timestamp(date).tz_localize("UTC"),
+                    "date": date,
+                    "timezone": "Asia/Shanghai",
+                    "calendar": "XSHG",
+                    "frequency": "1d",
+                    "open": price,
+                    "high": price * 1.01,
+                    "low": price * 0.99,
+                    "close": price,
+                    "adj_close": price,
+                    "volume": 1000.0,
+                    "amount": price * 1000.0,
+                    "vwap": price,
+                    "currency": "CNY",
+                    "source": "fixture",
+                    "adjusted": True,
+                    "ingested_at": pd.Timestamp("2024-01-01", tz="UTC"),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def _theme_breadth_pipeline_bars() -> pd.DataFrame:
+    rows = []
+    dates = pd.date_range("2024-01-01", periods=8).date
+    paths = {
+        "CN_ETF_XSHG_510300": [10.0, 10.2, 10.5, 10.8, 11.2, 11.5, 11.8, 12.0],
+        "CN_ETF_XSHG_510500": [8.0, 8.1, 8.2, 8.4, 8.5, 8.7, 8.8, 9.0],
+        "CN_ETF_XSHG_512800": [6.0, 5.9, 5.8, 5.7, 5.6, 5.5, 5.4, 5.3],
+        "CN_ETF_XSHG_512880": [7.0, 7.1, 7.0, 7.2, 7.1, 7.3, 7.2, 7.4],
+    }
+    symbols = {
+        "CN_ETF_XSHG_510300": "510300.SH",
+        "CN_ETF_XSHG_510500": "510500.SH",
+        "CN_ETF_XSHG_512800": "512800.SH",
+        "CN_ETF_XSHG_512880": "512880.SH",
     }
     for asset_id, prices in paths.items():
         for date, price in zip(dates, prices, strict=True):
@@ -901,6 +973,31 @@ def _write_etf_moneyflow_baskets(root: Path, bars: pd.DataFrame) -> None:
         pd.DataFrame(rows),
         "metadata/etf_moneyflow_baskets",
         {"market": "CN_ETF"},
+    )
+
+
+def _write_etf_theme_fund_basic(root: Path, bars: pd.DataFrame) -> None:
+    etf_assets = bars[bars["market"] == "CN_ETF"].drop_duplicates("asset_id").sort_values("asset_id")
+    names = ["华泰柏瑞沪深300ETF", "南方中证500ETF", "华宝中证银行ETF", "国泰中证全指证券公司ETF"]
+    rows = []
+    for index, row in enumerate(etf_assets.itertuples(index=False)):
+        rows.append(
+            {
+                "symbol": row.symbol,
+                "name": names[index % len(names)],
+                "market": "E",
+                "status": "L",
+                "fund_type": "股票型",
+                "type": "股票型",
+                "is_etf": True,
+                "list_date": "2024-01-01",
+                "delist_date": None,
+            }
+        )
+    DatasetStore(root).write_frame(
+        pd.DataFrame(rows),
+        "metadata/tushare_fund_basic",
+        {"market": "E", "snapshot": "2024-01-01"},
     )
 
 

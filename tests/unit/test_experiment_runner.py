@@ -230,6 +230,31 @@ class ExperimentRunnerTests(unittest.TestCase):
             self.assertEqual(result["config"]["factor_input_root"], str(root))
             self.assertEqual(result["config"]["moneyflow_input_root"], str(root))
 
+    def test_experiment_grid_runs_etf_theme_breadth_factor_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bars = _theme_breadth_runner_bars()
+            _write_etf_theme_fund_basic(root, bars)
+            config = ExperimentGridConfig(
+                markets=("CN_ETF",),
+                factor_source="etf_theme_breadth",
+                factor_input_root=root,
+                factor_input_required=True,
+                factor_names=("theme_momentum_breadth_2",),
+                factor_windows=(2,),
+                top_n_values=(1,),
+                cost_bps_values=(5.0,),
+                precompute_factor_matrix=True,
+            )
+
+            result = run_experiment_grid(bars, config)
+
+            row = result["leaderboard"][0]
+            self.assertEqual(row["status"], "completed")
+            self.assertEqual(row["factor_name"], "theme_momentum_breadth_2")
+            self.assertEqual(result["config"]["factor_source"], "etf_theme_breadth")
+            self.assertEqual(result["config"]["factor_input_root"], str(root))
+
     def test_experiment_grid_coerces_none_metrics_without_failing_case(self):
         config = ExperimentGridConfig(
             markets=("CN",),
@@ -502,6 +527,31 @@ class ExperimentRunnerTests(unittest.TestCase):
             self.assertEqual(config.moneyflow_input_root, moneyflow_root)
             self.assertEqual(config.factor_names, ("etf_net_mf_amount_ratio",))
 
+    def test_load_experiment_grid_config_reads_etf_theme_breadth_factor_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "grid.json"
+            factor_input_root = root / "tushare_etf_full"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "markets": ["CN_ETF"],
+                        "factor_source": "etf_theme_breadth",
+                        "factor_input_root": str(factor_input_root),
+                        "factor_input_required": True,
+                        "factor_names": ["theme_momentum_breadth_60"],
+                        "factor_windows": [60],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            config = load_experiment_grid_config(config_path)
+
+            self.assertEqual(config.factor_source, "etf_theme_breadth")
+            self.assertEqual(config.factor_input_root, factor_input_root)
+            self.assertEqual(config.factor_names, ("theme_momentum_breadth_60",))
+
 
 def _write_daily_basic_factor_inputs(root: Path, bars: pd.DataFrame) -> None:
     from quant_robot.storage.dataset_store import DatasetStore
@@ -618,6 +668,79 @@ def _write_etf_moneyflow_baskets(root: Path, bars: pd.DataFrame) -> None:
         "metadata/etf_moneyflow_baskets",
         {"market": "CN_ETF"},
     )
+
+
+def _write_etf_theme_fund_basic(root: Path, bars: pd.DataFrame) -> None:
+    from quant_robot.storage.dataset_store import DatasetStore
+
+    etf_assets = bars[bars["market"] == "CN_ETF"].drop_duplicates("asset_id").sort_values("asset_id")
+    names = ["华泰柏瑞沪深300ETF", "南方中证500ETF", "华宝中证银行ETF", "国泰中证全指证券公司ETF"]
+    rows = []
+    for index, row in enumerate(etf_assets.itertuples(index=False)):
+        rows.append(
+            {
+                "symbol": row.symbol,
+                "name": names[index % len(names)],
+                "market": "E",
+                "status": "L",
+                "fund_type": "股票型",
+                "type": "股票型",
+                "is_etf": True,
+                "list_date": "2024-01-01",
+                "delist_date": None,
+            }
+        )
+    DatasetStore(root).write_frame(
+        pd.DataFrame(rows),
+        "metadata/tushare_fund_basic",
+        {"market": "E", "snapshot": "2024-01-01"},
+    )
+
+
+def _theme_breadth_runner_bars() -> pd.DataFrame:
+    rows = []
+    dates = pd.date_range("2024-01-01", periods=8).date
+    paths = {
+        "CN_ETF_XSHG_510300": [10.0, 10.2, 10.5, 10.8, 11.2, 11.5, 11.8, 12.0],
+        "CN_ETF_XSHG_510500": [8.0, 8.1, 8.2, 8.4, 8.5, 8.7, 8.8, 9.0],
+        "CN_ETF_XSHG_512800": [6.0, 5.9, 5.8, 5.7, 5.6, 5.5, 5.4, 5.3],
+        "CN_ETF_XSHG_512880": [7.0, 7.1, 7.0, 7.2, 7.1, 7.3, 7.2, 7.4],
+    }
+    symbols = {
+        "CN_ETF_XSHG_510300": "510300.SH",
+        "CN_ETF_XSHG_510500": "510500.SH",
+        "CN_ETF_XSHG_512800": "512800.SH",
+        "CN_ETF_XSHG_512880": "512880.SH",
+    }
+    for asset_id, prices in paths.items():
+        for date, price in zip(dates, prices, strict=True):
+            rows.append(
+                {
+                    "asset_id": asset_id,
+                    "symbol": symbols[asset_id],
+                    "market": "CN_ETF",
+                    "exchange": "XSHG",
+                    "asset_type": "etf",
+                    "timestamp": pd.Timestamp(date).tz_localize("UTC"),
+                    "date": date,
+                    "timezone": "Asia/Shanghai",
+                    "calendar": "XSHG",
+                    "frequency": "1d",
+                    "open": price,
+                    "high": price * 1.01,
+                    "low": price * 0.99,
+                    "close": price,
+                    "adj_close": price,
+                    "volume": 1000.0,
+                    "amount": price * 1000.0,
+                    "vwap": price,
+                    "currency": "CNY",
+                    "source": "fixture",
+                    "adjusted": True,
+                    "ingested_at": pd.Timestamp("2024-01-01", tz="UTC"),
+                }
+            )
+    return pd.DataFrame(rows)
 
 
 if __name__ == "__main__":

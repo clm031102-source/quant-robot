@@ -446,6 +446,21 @@ class WalkForwardTests(unittest.TestCase):
         self.assertIn("recovery_quality_60", config.experiment_grid.factor_names)
         self.assertIn("average_amount_60", config.experiment_grid.factor_names)
 
+    def test_tushare_cn_etf_theme_breadth_config_uses_etf_metadata_proxy_source(self):
+        config = load_walk_forward_config("configs/walk_forward_tushare_cn_etf_theme_breadth_20260617.json")
+
+        self.assertEqual(config.experiment_grid.markets, ("CN_ETF",))
+        self.assertEqual(config.experiment_grid.factor_source, "etf_theme_breadth")
+        self.assertEqual(config.experiment_grid.factor_input_root, Path("data/processed/tushare_etf_full"))
+        self.assertTrue(config.experiment_grid.factor_input_required)
+        self.assertTrue(config.experiment_grid.rotation_membership_required)
+        self.assertEqual(config.experiment_grid.factor_windows, (60,))
+        self.assertEqual(config.experiment_grid.execution_lag, 1)
+        self.assertEqual(config.experiment_grid.max_participation_rate, 0.05)
+        self.assertIn("theme_momentum_breadth_60", config.experiment_grid.factor_names)
+        self.assertIn("theme_relative_strength_60", config.experiment_grid.factor_names)
+        self.assertIn("theme_risk_adjusted_strength_60", config.experiment_grid.factor_names)
+
     def test_tushare_cn_etf_share_size_config_covers_structure_hypothesis_family(self):
         config = load_walk_forward_config("configs/walk_forward_tushare_cn_etf_share_size.json")
 
