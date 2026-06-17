@@ -114,6 +114,33 @@ class FactorTests(unittest.TestCase):
         self.assertLessEqual(values["liquidity_resilience_2"], 0.0)
         self.assertLessEqual(values["amount_stability_2"], 0.0)
 
+    def test_composite_factors_rank_cross_sectional_confirmation_components(self):
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["A", "A", "A", "B", "B", "B"],
+                "market": ["CN_ETF"] * 6,
+                "date": list(pd.date_range("2024-01-01", periods=3).date) * 2,
+                "adj_close": [100.0, 110.0, 120.0, 100.0, 90.0, 80.0],
+                "volume": [100.0, 110.0, 120.0, 100.0, 90.0, 80.0],
+                "amount": [10000.0, 12100.0, 14400.0, 10000.0, 8100.0, 6400.0],
+            }
+        )
+
+        factors = compute_basic_factors(bars, windows=(2,))
+        latest = factors[factors["date"] == pd.Timestamp("2024-01-03").date()]
+        names = set(latest["factor_name"])
+
+        self.assertIn("trend_resilience_2", names)
+        self.assertIn("risk_confirmed_momentum_2", names)
+        self.assertIn("defensive_reversal_2", names)
+        self.assertIn("liquidity_confirmed_breakout_2", names)
+        trend = latest[latest["factor_name"] == "trend_resilience_2"].set_index("asset_id")["factor_value"]
+        breakout = latest[latest["factor_name"] == "liquidity_confirmed_breakout_2"].set_index("asset_id")[
+            "factor_value"
+        ]
+        self.assertGreater(trend["A"], trend["B"])
+        self.assertGreater(breakout["A"], breakout["B"])
+
 
 if __name__ == "__main__":
     unittest.main()

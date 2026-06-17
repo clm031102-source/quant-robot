@@ -87,12 +87,79 @@ Top aggregate rows:
 
 Conclusion: the defensive factors improve drawdown/capacity optics in places but do not pass full-history stability or IC gates. Keep `drawdown_resilience_60` and `amount_stability_60` as ingredients for a future composite, not as standalone signals.
 
+## Composite Seed Walk-Forward
+
+Command:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_walk_forward.py --config configs\walk_forward_tushare_cn_etf_composite_seed_20260617.json --source processed-bars --data-root data\processed\tushare_etf_full --allow-no-accepted
+```
+
+New factor construction:
+
+- `trend_resilience_60`: cross-sectional rank blend of 60-day momentum, drawdown resilience, and liquidity resilience.
+- `risk_confirmed_momentum_60`: rank blend of risk-adjusted momentum, drawdown resilience, and amount stability.
+- `defensive_reversal_60`: rank blend of reversal, low downside volatility, and liquidity resilience.
+- `liquidity_confirmed_breakout_60`: rank blend of momentum, amount stability, and liquidity resilience.
+
+Result:
+
+- Cases: 4
+- Accepted: 0
+- Rejected: 4
+- Folds: 4
+
+Top aggregate rows:
+
+- `liquidity_confirmed_breakout_60`: rejected. Mean OOS Sharpe 2.5162, relative return 0.1763, max drawdown -0.0770, capacity-limited trades 1, but only 1 accepted fold and adjusted IC p-value 1.0.
+- `trend_resilience_60`: rejected. Mean OOS Sharpe 1.0255, relative return 0.1375, max drawdown -0.0927, no capacity-limited trades, but 0 accepted folds and adjusted IC p-value 1.0.
+- `risk_confirmed_momentum_60`: rejected. Mean OOS Sharpe 0.4472, relative return 0.1421, max drawdown -0.0683, capacity-limited trades 1, but 0 accepted folds and adjusted IC p-value 1.0.
+- `defensive_reversal_60`: rejected. Mean OOS Sharpe -10.5622 despite shallow drawdown; only 1 accepted fold and adjusted IC p-value 1.0.
+
+Fold diagnostics:
+
+- Fold 1 and fold 2 were rejected for insufficient OOS trades, with 4 and 14 trades per case.
+- Fold 3 completed but failed Sharpe and/or relative-return gates.
+- Fold 4 accepted `liquidity_confirmed_breakout_60` and `defensive_reversal_60`, but this is a recent-period spark, not a full-history signal.
+
+Conclusion: composite construction improved the best aggregate row relative to standalone defensive factors, but it still fails the required full-history stability and multiple-testing gates. Keep `liquidity_confirmed_breakout_60` as an observation candidate only, not as a promoted paper signal.
+
+## Mature-Universe Diagnostic
+
+Command:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_walk_forward.py --config configs\walk_forward_tushare_cn_etf_composite_mature_diagnostic_20260617.json --source processed-bars --data-root data\processed\tushare_etf_full --allow-no-accepted
+```
+
+Diagnostic scope:
+
+- Same four composite factors as the full-history composite seed.
+- Explicit validation bar window: `bar_start_date = 2015-01-01`.
+- This is a diagnostic slice only. It is not promotion evidence and does not replace the full-history gate.
+
+Result:
+
+- Cases: 4
+- Accepted: 0
+- Rejected: 4
+- Folds: 4
+
+Top aggregate rows:
+
+- `trend_resilience_60`: rejected. Accepted folds 1, mean OOS Sharpe -1.1531, relative return -0.0568, max drawdown -0.1880, capacity-limited trades 2, adjusted IC p-value 1.0.
+- `risk_confirmed_momentum_60`: rejected. Accepted folds 0, mean OOS Sharpe -1.4185, relative return -0.0310, max drawdown -0.0604, capacity-limited trades 1, adjusted IC p-value 1.0.
+- `liquidity_confirmed_breakout_60`: rejected. Accepted folds 0, mean OOS Sharpe -1.5509, relative return -0.0743, max drawdown -0.1878, capacity-limited trades 1, adjusted IC p-value 1.0.
+- `defensive_reversal_60`: rejected. Accepted folds 0, mean OOS Sharpe -4.5771, relative return -0.0557, max drawdown -0.0672, capacity-limited trades 22, adjusted IC p-value 1.0.
+
+Interpretation: removing the early sparse ETF era did not rescue the composite factors. The full-history rejection is therefore not only an early-universe artifact; these rank blends also fail mature-window OOS Sharpe, relative-return, stability, and IC-significance checks.
+
 ## Next Batch
 
 Do not rescue these seeds by widening topN, lowering costs, or cherry-picking the 2023-2024 fold. The next batch should be structurally different:
 
 - Add ETF-age and tradable-universe maturity controls to separate "too few live ETF members" from true factor failure.
-- Try composite features that combine defensive state with price confirmation instead of using defensive state as a standalone rank.
+- Move beyond same-family rank blends. Test structurally different ETF rotation hypotheses such as cross-ETF dispersion breakouts, crash-recovery asymmetry, and theme breadth diffusion once a clean ETF theme map is available.
 - Keep `CN` stock moneyflow out of primary selection; only revisit it as ETF-level breadth or theme diffusion after holdings/theme mapping is available.
 
 Research remains paper-only: no broker connection, no account reads, no order placement, no live trading.

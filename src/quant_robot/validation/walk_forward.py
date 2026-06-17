@@ -16,6 +16,8 @@ class WalkForwardConfig:
     split_date: str
     experiment_grid: ExperimentGridConfig
     output_dir: Path | None = None
+    bar_start_date: str | None = None
+    bar_end_date: str | None = None
     rank_by: str = "stability_score"
     min_test_trades: int = 1
     min_test_sharpe: float = 0.0
@@ -34,6 +36,8 @@ def load_walk_forward_config(path: str | Path) -> WalkForwardConfig:
         split_date=str(data["split_date"]),
         experiment_grid=_grid_from_mapping(data.get("experiment_grid", {})),
         output_dir=Path(data["output_dir"]) if data.get("output_dir") else None,
+        bar_start_date=data.get("bar_start_date"),
+        bar_end_date=data.get("bar_end_date"),
         rank_by=str(data.get("rank_by", WalkForwardConfig.rank_by)),
         min_test_trades=int(data.get("min_test_trades", WalkForwardConfig.min_test_trades)),
         min_test_sharpe=float(data.get("min_test_sharpe", WalkForwardConfig.min_test_sharpe)),
@@ -50,6 +54,7 @@ def load_walk_forward_config(path: str | Path) -> WalkForwardConfig:
 
 
 def run_walk_forward_validation(bars: pd.DataFrame, config: WalkForwardConfig) -> dict[str, Any]:
+    bars = _filter_validation_bars(bars, config)
     if _rolling_enabled(config):
         return _run_rolling_walk_forward_validation(bars, config)
     train_bars, post_split_bars = _split_bars(bars, config.split_date)
@@ -134,6 +139,23 @@ def _rolling_enabled(config: WalkForwardConfig) -> bool:
     if any(int(value) < 1 for value in values if value is not None):
         raise ValueError("rolling walk-forward day counts must be positive")
     return True
+
+
+def _filter_validation_bars(bars: pd.DataFrame, config: WalkForwardConfig) -> pd.DataFrame:
+    if not config.bar_start_date and not config.bar_end_date:
+        return bars
+    frame = bars.copy()
+    dates = pd.to_datetime(frame["date"]).dt.date
+    if config.bar_start_date:
+        dates_start = pd.to_datetime(config.bar_start_date).date()
+        frame = frame[dates >= dates_start]
+        dates = pd.to_datetime(frame["date"]).dt.date
+    if config.bar_end_date:
+        dates_end = pd.to_datetime(config.bar_end_date).date()
+        frame = frame[dates <= dates_end]
+    if frame.empty:
+        raise ValueError("Walk-forward bar window requires non-empty bars")
+    return frame.sort_values(["asset_id", "date"]).reset_index(drop=True)
 
 
 def _rolling_folds(bars: pd.DataFrame, config: WalkForwardConfig) -> list[dict[str, Any]]:

@@ -6,6 +6,14 @@ import pandas as pd
 from quant_robot.schema.factors import FACTOR_COLUMNS
 
 
+_COMPOSITE_FACTOR_SPECS: dict[str, tuple[str, ...]] = {
+    "trend_resilience": ("momentum", "drawdown_resilience", "liquidity_resilience"),
+    "risk_confirmed_momentum": ("risk_adjusted_momentum", "drawdown_resilience", "amount_stability"),
+    "defensive_reversal": ("reversal", "low_downside_volatility", "liquidity_resilience"),
+    "liquidity_confirmed_breakout": ("momentum", "amount_stability", "liquidity_resilience"),
+}
+
+
 def compute_basic_factors(bars: pd.DataFrame, windows: tuple[int, ...] = (5, 20)) -> pd.DataFrame:
     required = ["date", "asset_id", "market", "adj_close", "volume", "amount"]
     missing = [column for column in required if column not in bars.columns]
@@ -72,7 +80,10 @@ def compute_basic_factors(bars: pd.DataFrame, windows: tuple[int, ...] = (5, 20)
             )
     if not pieces:
         return pd.DataFrame(columns=FACTOR_COLUMNS)
-    return pd.concat(pieces, ignore_index=True)[FACTOR_COLUMNS].sort_values(
+    base = pd.concat(pieces, ignore_index=True)[FACTOR_COLUMNS]
+    composites = _composite_factors(base)
+    factors = pd.concat([base, composites], ignore_index=True) if not composites.empty else base
+    return factors[FACTOR_COLUMNS].sort_values(
         ["asset_id", "date", "factor_name"]
     ).reset_index(drop=True)
 
@@ -109,6 +120,46 @@ def _amihud(returns: pd.Series, amount: pd.Series) -> pd.Series:
 def _amount_stability(amount: pd.Series, window: int) -> pd.Series:
     amount_change = amount.replace(0, np.nan).pct_change()
     return -amount_change.rolling(window).std(ddof=0)
+
+
+def _composite_factors(factors: pd.DataFrame) -> pd.DataFrame:
+    if factors.empty:
+        return pd.DataFrame(columns=FACTOR_COLUMNS)
+    rows = []
+    for window in sorted(pd.to_numeric(factors["lookback_window"], errors="coerce").dropna().astype(int).unique()):
+        window_factors = factors[factors["lookback_window"].astype(int) == window]
+        for composite_name, components in _COMPOSITE_FACTOR_SPECS.items():
+            component_names = [f"{component}_{window}" for component in components]
+            wide = _factor_wide_frame(window_factors, component_names)
+            if wide.empty:
+                continue
+            ranked = wide.groupby(["date", "market"], group_keys=False)[component_names].rank(
+                method="average",
+                pct=True,
+            )
+            output = wide[["date", "asset_id", "market"]].copy()
+            output["factor_name"] = f"{composite_name}_{window}"
+            output["factor_value"] = ranked.mean(axis=1, skipna=False)
+            output["lookback_window"] = window
+            rows.append(output)
+    if not rows:
+        return pd.DataFrame(columns=FACTOR_COLUMNS)
+    return pd.concat(rows, ignore_index=True)[FACTOR_COLUMNS]
+
+
+def _factor_wide_frame(factors: pd.DataFrame, component_names: list[str]) -> pd.DataFrame:
+    frame = factors[factors["factor_name"].isin(component_names)]
+    if frame.empty or set(component_names) - set(frame["factor_name"]):
+        return pd.DataFrame()
+    wide = frame.pivot_table(
+        index=["date", "asset_id", "market"],
+        columns="factor_name",
+        values="factor_value",
+        aggfunc="first",
+    ).reset_index()
+    if set(component_names) - set(wide.columns):
+        return pd.DataFrame()
+    return wide.dropna(subset=component_names).reset_index(drop=True)
 
 
 def _factor_frame(group: pd.DataFrame, name: str, values: pd.Series, window: int) -> pd.DataFrame:

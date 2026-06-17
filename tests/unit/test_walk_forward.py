@@ -182,6 +182,29 @@ class WalkForwardTests(unittest.TestCase):
             self.assertEqual(row["test_trades"], row["total_test_trades"])
             self.assertTrue((Path(tmp) / "walk_forward_folds.csv").exists())
 
+    def test_walk_forward_bar_start_date_limits_rolling_fold_dates(self):
+        config = WalkForwardConfig(
+            split_date="2024-01-08",
+            bar_start_date="2024-01-04",
+            experiment_grid=ExperimentGridConfig(
+                markets=("CN_ETF",),
+                factor_names=("momentum_2",),
+                factor_windows=(2,),
+                top_n_values=(1,),
+                cost_bps_values=(0.0,),
+            ),
+            min_test_sharpe=-999.0,
+            rolling_train_days=4,
+            rolling_test_days=3,
+            rolling_step_days=2,
+        )
+
+        result = run_walk_forward_validation(load_demo_market_bars(), config)
+
+        fold_starts = {pd.to_datetime(row["train_start_date"]).date() for row in result["folds"]}
+        self.assertGreaterEqual(min(fold_starts), pd.Timestamp("2024-01-04").date())
+        self.assertEqual(result["config"]["bar_start_date"], "2024-01-04")
+
     def test_load_walk_forward_config_reads_nested_experiment_grid(self):
         with tempfile.TemporaryDirectory() as tmp:
             config_path = Path(tmp) / "walk_forward.json"
@@ -204,6 +227,8 @@ class WalkForwardTests(unittest.TestCase):
                             "regime_lookback_values": [60, 120],
                             "precompute_factor_matrix": True,
                         },
+                        "bar_start_date": "2024-01-01",
+                        "bar_end_date": "2024-12-31",
                         "min_test_relative_return": 0.02,
                         "max_test_drawdown": 0.20,
                         "rolling_train_days": 252,
@@ -220,6 +245,8 @@ class WalkForwardTests(unittest.TestCase):
 
             self.assertEqual(config.split_date, "2024-01-08")
             self.assertEqual(config.output_dir, Path(tmp) / "wf")
+            self.assertEqual(config.bar_start_date, "2024-01-01")
+            self.assertEqual(config.bar_end_date, "2024-12-31")
             self.assertEqual(config.min_test_sharpe, 0.5)
             self.assertAlmostEqual(config.min_test_relative_return, 0.02)
             self.assertAlmostEqual(config.max_test_drawdown, 0.20)
@@ -311,6 +338,36 @@ class WalkForwardTests(unittest.TestCase):
         self.assertIn("drawdown_resilience_60", config.experiment_grid.factor_names)
         self.assertIn("liquidity_resilience_60", config.experiment_grid.factor_names)
         self.assertIn("amount_stability_60", config.experiment_grid.factor_names)
+
+    def test_tushare_cn_etf_composite_seed_config_covers_price_defense_and_capacity_mix(self):
+        config = load_walk_forward_config("configs/walk_forward_tushare_cn_etf_composite_seed_20260617.json")
+
+        self.assertEqual(config.experiment_grid.markets, ("CN_ETF",))
+        self.assertTrue(config.experiment_grid.rotation_membership_required)
+        self.assertEqual(config.experiment_grid.benchmark_asset_id, "CN_ETF_XSHG_510050")
+        self.assertEqual(config.experiment_grid.factor_windows, (60,))
+        self.assertEqual(config.experiment_grid.execution_lag, 1)
+        self.assertEqual(config.experiment_grid.top_n_values, (2,))
+        self.assertEqual(config.experiment_grid.cost_bps_values, (10.0,))
+        self.assertGreater(config.experiment_grid.market_impact_bps, 0)
+        self.assertEqual(config.experiment_grid.max_participation_rate, 0.05)
+        self.assertIn("trend_resilience_60", config.experiment_grid.factor_names)
+        self.assertIn("risk_confirmed_momentum_60", config.experiment_grid.factor_names)
+        self.assertIn("defensive_reversal_60", config.experiment_grid.factor_names)
+        self.assertIn("liquidity_confirmed_breakout_60", config.experiment_grid.factor_names)
+
+    def test_tushare_cn_etf_composite_mature_diagnostic_has_explicit_bar_window(self):
+        config = load_walk_forward_config("configs/walk_forward_tushare_cn_etf_composite_mature_diagnostic_20260617.json")
+
+        self.assertEqual(config.bar_start_date, "2015-01-01")
+        self.assertEqual(config.experiment_grid.markets, ("CN_ETF",))
+        self.assertTrue(config.experiment_grid.rotation_membership_required)
+        self.assertEqual(config.experiment_grid.benchmark_asset_id, "CN_ETF_XSHG_510050")
+        self.assertEqual(config.experiment_grid.factor_windows, (60,))
+        self.assertEqual(config.experiment_grid.execution_lag, 1)
+        self.assertGreaterEqual(config.min_accepted_folds, 3)
+        self.assertIn("trend_resilience_60", config.experiment_grid.factor_names)
+        self.assertIn("liquidity_confirmed_breakout_60", config.experiment_grid.factor_names)
 
     def test_tushare_cn_etf_share_size_config_covers_structure_hypothesis_family(self):
         config = load_walk_forward_config("configs/walk_forward_tushare_cn_etf_share_size.json")
