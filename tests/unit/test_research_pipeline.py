@@ -127,6 +127,48 @@ class ResearchPipelineTests(unittest.TestCase):
             self.assertEqual(result["request"]["rotation_membership_root"], str(root))
             self.assertTrue(result["request"]["rotation_membership_required"])
 
+    def test_cn_etf_pipeline_filters_signals_to_rotation_maturity_controls(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bars = _falling_regime_bars()
+            mature_asset = "CN_ETF_XSHG_510300"
+            immature_asset = "CN_ETF_XSHG_510500"
+            membership = bars[["date", "asset_id", "market"]].copy()
+            membership["symbol"] = membership["asset_id"]
+            membership["is_rotation_member"] = True
+            membership["exclusion_reasons"] = ""
+            membership["history_rows_to_date"] = membership.groupby("asset_id").cumcount() + 1
+            membership.loc[membership["asset_id"].eq(immature_asset), "history_rows_to_date"] = 1
+            DatasetStore(root).write_frame(
+                membership,
+                "metadata/cn_etf_rotation_membership",
+                {"market": "CN_ETF"},
+            )
+            factors = bars[["date", "asset_id", "market"]].copy()
+            factors["factor_name"] = "momentum_2"
+            factors["factor_value"] = factors["asset_id"].map({mature_asset: 1.0, immature_asset: 2.0})
+            factors["lookback_window"] = 2
+
+            result = run_research_pipeline(
+                bars,
+                ResearchPipelineConfig(
+                    factor_name="momentum_2",
+                    factor_windows=(2,),
+                    market="CN_ETF",
+                    top_n=1,
+                    rotation_membership_root=root,
+                    rotation_membership_required=True,
+                    min_rotation_history_rows=3,
+                    min_rotation_live_members=1,
+                ),
+                precomputed_factors=factors,
+            )
+
+            self.assertGreater(result["artifact_rows"]["trades"], 0)
+            self.assertEqual({row["asset_id"] for row in result["trades"]}, {mature_asset})
+            self.assertEqual(result["request"]["min_rotation_history_rows"], 3)
+            self.assertEqual(result["request"]["min_rotation_live_members"], 1)
+
     def test_pipeline_can_sample_signals_by_rebalance_interval(self):
         daily = run_research_pipeline(
             load_demo_market_bars(),

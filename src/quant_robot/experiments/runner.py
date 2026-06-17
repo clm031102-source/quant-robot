@@ -38,6 +38,8 @@ class ExperimentGridConfig:
     moneyflow_input_root: Path | None = None
     rotation_membership_root: Path | None = None
     rotation_membership_required: bool = False
+    min_rotation_history_rows: int | None = None
+    min_rotation_live_members: int | None = None
     top_n_values: tuple[int, ...] = (1, 2)
     cost_bps_values: tuple[float, ...] = (0.0, 5.0, 10.0)
     start_date: str | None = None
@@ -133,6 +135,12 @@ def load_experiment_grid_config(path: str | Path) -> ExperimentGridConfig:
         rotation_membership_required=bool(
             data.get("rotation_membership_required", ExperimentGridConfig.rotation_membership_required)
         ),
+        min_rotation_history_rows=(
+            int(data["min_rotation_history_rows"]) if data.get("min_rotation_history_rows") is not None else None
+        ),
+        min_rotation_live_members=(
+            int(data["min_rotation_live_members"]) if data.get("min_rotation_live_members") is not None else None
+        ),
         top_n_values=tuple(int(value) for value in data.get("top_n_values", ExperimentGridConfig.top_n_values)),
         cost_bps_values=tuple(float(value) for value in data.get("cost_bps_values", ExperimentGridConfig.cost_bps_values)),
         start_date=data.get("start_date"),
@@ -207,6 +215,8 @@ def _run_case(
                 moneyflow_input_root=grid_config.moneyflow_input_root,
                 rotation_membership_root=grid_config.rotation_membership_root,
                 rotation_membership_required=grid_config.rotation_membership_required,
+                min_rotation_history_rows=grid_config.min_rotation_history_rows,
+                min_rotation_live_members=grid_config.min_rotation_live_members,
                 market=case.market,
                 start_date=grid_config.start_date,
                 end_date=grid_config.end_date,
@@ -442,6 +452,10 @@ def _validate_config(config: ExperimentGridConfig) -> None:
         raise ValueError("regime_lookback_values must not be empty")
     if any(value < 1 for value in regime_lookbacks):
         raise ValueError("regime_lookback values must be positive")
+    if config.min_rotation_history_rows is not None and config.min_rotation_history_rows < 1:
+        raise ValueError("min_rotation_history_rows must be positive")
+    if config.min_rotation_live_members is not None and config.min_rotation_live_members < 1:
+        raise ValueError("min_rotation_live_members must be positive")
     if config.signal_amount_window < 1:
         raise ValueError("signal_amount_window must be positive")
     windows = set(config.factor_windows)

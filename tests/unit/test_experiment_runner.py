@@ -383,6 +383,8 @@ class ExperimentRunnerTests(unittest.TestCase):
                         "precompute_factor_matrix": True,
                         "rotation_membership_root": str(Path(tmp) / "membership"),
                         "rotation_membership_required": True,
+                        "min_rotation_history_rows": 252,
+                        "min_rotation_live_members": 50,
                         "min_signal_average_amount": 10000000,
                         "signal_amount_window": 20,
                         "output_dir": str(Path(tmp) / "reports"),
@@ -397,6 +399,8 @@ class ExperimentRunnerTests(unittest.TestCase):
             self.assertEqual(config.factor_names, ("momentum_2",))
             self.assertEqual(config.rotation_membership_root, Path(tmp) / "membership")
             self.assertTrue(config.rotation_membership_required)
+            self.assertEqual(config.min_rotation_history_rows, 252)
+            self.assertEqual(config.min_rotation_live_members, 50)
             self.assertEqual(config.rebalance_intervals, (5,))
             self.assertEqual(config.benchmark_asset_id, "CN_ETF_XSHG_510300")
             self.assertAlmostEqual(config.min_relative_return, 0.01)

@@ -497,6 +497,12 @@ def _grid_from_mapping(data: dict[str, Any]) -> ExperimentGridConfig:
         rotation_membership_required=bool(
             data.get("rotation_membership_required", ExperimentGridConfig.rotation_membership_required)
         ),
+        min_rotation_history_rows=(
+            int(data["min_rotation_history_rows"]) if data.get("min_rotation_history_rows") is not None else None
+        ),
+        min_rotation_live_members=(
+            int(data["min_rotation_live_members"]) if data.get("min_rotation_live_members") is not None else None
+        ),
         top_n_values=tuple(int(value) for value in data.get("top_n_values", ExperimentGridConfig.top_n_values)),
         cost_bps_values=tuple(float(value) for value in data.get("cost_bps_values", ExperimentGridConfig.cost_bps_values)),
         start_date=data.get("start_date"),

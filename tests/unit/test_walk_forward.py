@@ -225,6 +225,8 @@ class WalkForwardTests(unittest.TestCase):
                             "rebalance_intervals": [5],
                             "benchmark_asset_id": "CN_ETF_XSHG_510300",
                             "regime_lookback_values": [60, 120],
+                            "min_rotation_history_rows": 252,
+                            "min_rotation_live_members": 50,
                             "min_signal_average_amount": 10000000,
                             "signal_amount_window": 20,
                             "precompute_factor_matrix": True,
@@ -259,6 +261,8 @@ class WalkForwardTests(unittest.TestCase):
             self.assertEqual(config.experiment_grid.rebalance_intervals, (5,))
             self.assertEqual(config.experiment_grid.benchmark_asset_id, "CN_ETF_XSHG_510300")
             self.assertEqual(config.experiment_grid.regime_lookback_values, (60, 120))
+            self.assertEqual(config.experiment_grid.min_rotation_history_rows, 252)
+            self.assertEqual(config.experiment_grid.min_rotation_live_members, 50)
             self.assertEqual(config.experiment_grid.min_signal_average_amount, 10000000.0)
             self.assertEqual(config.experiment_grid.signal_amount_window, 20)
             self.assertTrue(config.experiment_grid.precompute_factor_matrix)
@@ -424,6 +428,22 @@ class WalkForwardTests(unittest.TestCase):
         self.assertEqual(config.experiment_grid.signal_amount_window, 60)
         self.assertIn("market_relative_strength_60", config.experiment_grid.factor_names)
         self.assertIn("crash_recovery_60", config.experiment_grid.factor_names)
+        self.assertIn("average_amount_60", config.experiment_grid.factor_names)
+
+    def test_tushare_cn_etf_maturity_filtered_structure_config_uses_age_and_universe_controls(self):
+        config = load_walk_forward_config("configs/walk_forward_tushare_cn_etf_maturity_filtered_structure_20260617.json")
+
+        self.assertEqual(config.experiment_grid.markets, ("CN_ETF",))
+        self.assertTrue(config.experiment_grid.rotation_membership_required)
+        self.assertEqual(config.experiment_grid.min_rotation_history_rows, 252)
+        self.assertEqual(config.experiment_grid.min_rotation_live_members, 50)
+        self.assertEqual(config.experiment_grid.min_signal_average_amount, 8000000.0)
+        self.assertEqual(config.experiment_grid.signal_amount_window, 60)
+        self.assertEqual(config.experiment_grid.execution_lag, 1)
+        self.assertEqual(config.experiment_grid.max_participation_rate, 0.05)
+        self.assertIn("market_relative_strength_60", config.experiment_grid.factor_names)
+        self.assertIn("crash_recovery_60", config.experiment_grid.factor_names)
+        self.assertIn("recovery_quality_60", config.experiment_grid.factor_names)
         self.assertIn("average_amount_60", config.experiment_grid.factor_names)
 
     def test_tushare_cn_etf_share_size_config_covers_structure_hypothesis_family(self):

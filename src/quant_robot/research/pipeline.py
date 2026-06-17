@@ -52,6 +52,8 @@ class ResearchPipelineConfig:
     market: str = "ALL"
     rotation_membership_root: Path | None = None
     rotation_membership_required: bool = False
+    min_rotation_history_rows: int | None = None
+    min_rotation_live_members: int | None = None
     start_date: str | None = None
     end_date: str | None = None
     forward_horizon: int = 1
@@ -106,6 +108,8 @@ def run_research_pipeline(
         root=config.rotation_membership_root,
         market=config.market,
         required=config.rotation_membership_required,
+        min_history_rows_to_date=config.min_rotation_history_rows,
+        min_live_members=config.min_rotation_live_members,
     )
     regime = _regime_summary(filtered, selected, config)
     if config.regime_filter:

@@ -257,14 +257,51 @@ Top aggregate rows:
 
 Interpretation: the absolute notional filter fixed the worst participation tail for `quiet_accumulation_60` and improved capacity optics for relative-strength/recovery factors, but it did not create a stable paper signal. `demand_pressure_60` still fails capacity even after the amount filter, so demand-pressure proxies should be downgraded unless paired with stricter ex-ante participation feasibility.
 
+## Maturity-Filtered Structure Diagnostic
+
+Command:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_walk_forward.py --config configs\walk_forward_tushare_cn_etf_maturity_filtered_structure_20260617.json --source processed-bars --data-root data\processed\tushare_etf_full --allow-no-accepted
+```
+
+Diagnostic construction:
+
+- Adds point-in-time rotation maturity controls from `metadata/cn_etf_rotation_membership`.
+- Requires `history_rows_to_date >= 252` for each ETF signal.
+- Requires at least 50 eligible rotation members on the signal date after the history filter.
+- Keeps the absolute traded-notional filter: `min_signal_average_amount = 8000000` over 60 days.
+
+Result:
+
+- Cases: 4
+- Accepted: 0
+- Rejected: 4
+- Folds: 4
+
+Top aggregate rows:
+
+- `crash_recovery_60`: rejected. Accepted folds 1, mean OOS Sharpe 0.3411, relative return 0.1681, max drawdown -0.0392, capacity-limited trades 1, max participation 0.0641, adjusted IC p-value 1.0.
+- `recovery_quality_60`: rejected. Accepted folds 0, mean OOS Sharpe -0.1000, relative return 0.1466, max drawdown -0.0425, capacity-limited trades 0, max participation 0.0159, adjusted IC p-value 1.0.
+- `market_relative_strength_60`: rejected. Accepted folds 0, mean OOS Sharpe -0.1575, relative return 0.1424, max drawdown -0.0650, capacity-limited trades 0, max participation 0.0269, adjusted IC p-value 1.0.
+- `average_amount_60`: rejected. Accepted folds 0, mean OOS Sharpe -3.8191, relative return 0.1473, max drawdown -0.0050, capacity-limited trades 0, max participation 0.0001, adjusted IC p-value 1.0.
+
+Fold diagnostics:
+
+- The maturity controls make the first three rolling folds no-trade folds because the eligible ETF universe only becomes sufficiently mature later in history.
+- Only the most recent fold completes with 20 OOS trades per case.
+- Capacity optics improve materially, but accepted-fold count and IC significance remain far below promotion requirements.
+
+Interpretation: ETF-age and mature-universe controls are useful diagnostics, not a rescue. They confirm that early CN_ETF history is structurally sparse, but any signal that only works after filtering away the first three full-history folds cannot be promoted under the current full-history standard.
+
 ## Next Batch
 
 Do not rescue these seeds by widening topN, lowering costs, or cherry-picking the 2023-2024 fold. The next batch should address the repeated failure modes directly:
 
-- Add ETF-age and tradable-universe maturity controls to separate "too few live ETF members" from true factor failure.
 - Avoid rank-equivalent duplicates such as raw relative momentum versus its same-date z-score when the topN selection is identical.
 - Treat absolute rolling notional as a required diagnostic control for capacity-heavy factors, but do not use it as a promotion shortcut.
 - Downgrade demand-pressure proxies after repeated capacity and stability failures.
+- Use mature-universe filters for diagnosis and risk controls, not for replacing the full-history promotion gate.
 - Move toward ETF theme/industry breadth diffusion once a clean ETF theme map is available.
 - Keep `CN` stock moneyflow out of primary selection; only revisit it as ETF-level breadth or theme diffusion after holdings/theme mapping is available.
 
