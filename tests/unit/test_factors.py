@@ -141,6 +141,52 @@ class FactorTests(unittest.TestCase):
         self.assertGreater(trend["A"], trend["B"])
         self.assertGreater(breakout["A"], breakout["B"])
 
+    def test_cross_sectional_momentum_dispersion_factors_rank_relative_leadership(self):
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["A", "A", "A", "A", "B", "B", "B", "B"],
+                "market": ["CN_ETF"] * 8,
+                "date": list(pd.date_range("2024-01-01", periods=4).date) * 2,
+                "adj_close": [100.0, 105.0, 110.0, 120.0, 100.0, 96.0, 92.0, 88.0],
+                "volume": [100.0, 110.0, 120.0, 130.0, 100.0, 95.0, 90.0, 85.0],
+                "amount": [10000.0, 11550.0, 13200.0, 15600.0, 10000.0, 9120.0, 8280.0, 7480.0],
+            }
+        )
+
+        factors = compute_basic_factors(bars, windows=(3,))
+        latest = factors[factors["date"] == pd.Timestamp("2024-01-04").date()]
+        relative = latest[latest["factor_name"] == "market_relative_strength_3"].set_index("asset_id")["factor_value"]
+        breakout = latest[latest["factor_name"] == "momentum_dispersion_breakout_3"].set_index("asset_id")[
+            "factor_value"
+        ]
+
+        self.assertGreater(relative["A"], 0.0)
+        self.assertLess(relative["B"], 0.0)
+        self.assertGreater(breakout["A"], breakout["B"])
+
+    def test_structure_shift_factors_capture_recovery_and_demand_pressure(self):
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["A"] * 5,
+                "market": ["CN_ETF"] * 5,
+                "date": pd.date_range("2024-01-01", periods=5).date,
+                "adj_close": [100.0, 70.0, 77.0, 84.0, 92.0],
+                "volume": [100.0, 90.0, 95.0, 150.0, 220.0],
+                "amount": [10000.0, 6300.0, 7315.0, 12600.0, 20240.0],
+            }
+        )
+
+        factors = compute_basic_factors(bars, windows=(4,))
+        recovery_rows = factors[factors["date"] == pd.Timestamp("2024-01-04").date()]
+        latest_rows = factors[factors["date"] == pd.Timestamp("2024-01-05").date()]
+        recovery_values = dict(zip(recovery_rows["factor_name"], recovery_rows["factor_value"], strict=True))
+        latest_values = dict(zip(latest_rows["factor_name"], latest_rows["factor_value"], strict=True))
+
+        self.assertGreater(recovery_values["crash_recovery_4"], 0.0)
+        self.assertGreater(latest_values["recovery_quality_4"], 0.0)
+        self.assertGreater(latest_values["demand_pressure_4"], 0.0)
+        self.assertGreater(latest_values["quiet_accumulation_4"], 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

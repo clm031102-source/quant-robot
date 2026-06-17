@@ -154,12 +154,53 @@ Top aggregate rows:
 
 Interpretation: removing the early sparse ETF era did not rescue the composite factors. The full-history rejection is therefore not only an early-universe artifact; these rank blends also fail mature-window OOS Sharpe, relative-return, stability, and IC-significance checks.
 
+## Structure-Shift Seed Walk-Forward
+
+Command:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_walk_forward.py --config configs\walk_forward_tushare_cn_etf_structure_shift_20260617.json --source processed-bars --data-root data\processed\tushare_etf_full --allow-no-accepted
+```
+
+New factor families:
+
+- Cross-ETF dispersion leadership: `market_relative_strength_60`, `momentum_dispersion_breakout_60`
+- Crash/recovery asymmetry: `crash_recovery_60`, `recovery_quality_60`
+- Demand-pressure proxies from ETF traded amount: `demand_pressure_60`, `quiet_accumulation_60`
+
+Result:
+
+- Cases: 6
+- Accepted: 0
+- Rejected: 6
+- Folds: 4
+
+Top aggregate rows:
+
+- `crash_recovery_60`: rejected. Accepted folds 1, mean OOS Sharpe 1.6739, relative return 0.1295, max drawdown -0.0918, capacity-limited trades 4, max participation 0.1822, adjusted IC p-value 1.0.
+- `recovery_quality_60`: rejected. Accepted folds 0, mean OOS Sharpe 1.2874, relative return 0.1581, max drawdown -0.0402, capacity-limited trades 3, max participation 0.1472, adjusted IC p-value 1.0.
+- `market_relative_strength_60`: rejected. Accepted folds 0, mean OOS Sharpe 1.2686, relative return 0.1262, max drawdown -0.1876, capacity-limited trades 4, max participation 0.2960, adjusted IC p-value 1.0.
+- `momentum_dispersion_breakout_60`: rejected with the same top2 selections as `market_relative_strength_60`; the z-score transform was rank-equivalent for this grid.
+- `demand_pressure_60`: rejected. Accepted folds 1, mean OOS Sharpe 0.4380, relative return 0.1120, max drawdown -0.0774, capacity-limited trades 7, max participation 0.5287, adjusted IC p-value 1.0.
+- `quiet_accumulation_60`: rejected. Accepted folds 0, mean OOS Sharpe 0.4356, relative return 0.1173, max drawdown -0.0892, capacity-limited trades 3, max participation 4000.0, adjusted IC p-value 1.0.
+
+Fold diagnostics:
+
+- Fold 1 and fold 2 again failed on insufficient OOS trades, with 4 and 14 trades per case.
+- Fold 3 completed but all factors failed Sharpe and/or relative-return gates.
+- Fold 4 accepted only `crash_recovery_60` and `demand_pressure_60`; this is still a recent-fold spark and not enough for promotion.
+- `quiet_accumulation_60` has a severe capacity warning from extreme participation in one completed fold. Treat it as a rejected demand/liquidity proxy, not as a candidate for cost tuning.
+
+Conclusion: structurally different price/liquidity state factors improved the appearance of crash-recovery rows, but no factor passed full-history stability, adjusted IC significance, or accepted-fold requirements. Do not promote any structure-shift factor.
+
 ## Next Batch
 
-Do not rescue these seeds by widening topN, lowering costs, or cherry-picking the 2023-2024 fold. The next batch should be structurally different:
+Do not rescue these seeds by widening topN, lowering costs, or cherry-picking the 2023-2024 fold. The next batch should address the repeated failure modes directly:
 
 - Add ETF-age and tradable-universe maturity controls to separate "too few live ETF members" from true factor failure.
-- Move beyond same-family rank blends. Test structurally different ETF rotation hypotheses such as cross-ETF dispersion breakouts, crash-recovery asymmetry, and theme breadth diffusion once a clean ETF theme map is available.
+- Avoid rank-equivalent duplicates such as raw relative momentum versus its same-date z-score when the topN selection is identical.
+- Add a hard liquidity/capacity prefilter before demand-pressure proxies, or demote demand-pressure proxies when participation spikes.
+- Move toward ETF theme/industry breadth diffusion once a clean ETF theme map is available.
 - Keep `CN` stock moneyflow out of primary selection; only revisit it as ETF-level breadth or theme diffusion after holdings/theme mapping is available.
 
 Research remains paper-only: no broker connection, no account reads, no order placement, no live trading.

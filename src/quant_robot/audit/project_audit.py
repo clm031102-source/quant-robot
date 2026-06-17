@@ -42,8 +42,23 @@ TECHNICAL_FACTOR_PREFIXES = (
     "risk_adjusted_momentum",
     "reversal",
     "volatility",
+    "low_volatility",
+    "low_downside_volatility",
+    "drawdown_resilience",
     "volume_change",
     "liquidity",
+    "liquidity_resilience",
+    "amount_stability",
+    "trend_resilience",
+    "risk_confirmed_momentum",
+    "defensive_reversal",
+    "liquidity_confirmed_breakout",
+    "market_relative_strength",
+    "momentum_dispersion_breakout",
+    "crash_recovery",
+    "recovery_quality",
+    "demand_pressure",
+    "quiet_accumulation",
 )
 DEFAULT_FACTOR_SOURCE = "technical"
 DEFAULT_FACTOR_WINDOWS = (2, 3)

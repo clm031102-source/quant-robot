@@ -141,6 +141,37 @@ class ProjectAuditTests(unittest.TestCase):
             self.assertEqual(registry["unknown_factor_refs"], [])
             self.assertEqual(registry["unsupported_factor_sources"], [])
 
+    def test_audit_accepts_registered_cn_etf_technical_extension_factor_names(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "configs").mkdir()
+            (root / "configs" / "walk_forward_cn_etf_technical_extensions.json").write_text(
+                """{
+  "split_date": "2024-01-01",
+  "experiment_grid": {
+    "factor_names": [
+      "trend_resilience_60",
+      "market_relative_strength_60",
+      "momentum_dispersion_breakout_60",
+      "crash_recovery_60",
+      "recovery_quality_60",
+      "demand_pressure_60",
+      "quiet_accumulation_60"
+    ],
+    "factor_windows": [60]
+  }
+}
+""",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            registry = audit["factor_config_registry"]
+            self.assertTrue(registry["passes"])
+            self.assertEqual(registry["unknown_factor_refs"], [])
+            self.assertEqual(registry["unsupported_factor_sources"], [])
+
     def test_markdown_report_contains_core_sections(self):
         audit = {
             "summary": {"passes": True, "files_scanned": 2},

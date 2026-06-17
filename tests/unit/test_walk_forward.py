@@ -369,6 +369,25 @@ class WalkForwardTests(unittest.TestCase):
         self.assertIn("trend_resilience_60", config.experiment_grid.factor_names)
         self.assertIn("liquidity_confirmed_breakout_60", config.experiment_grid.factor_names)
 
+    def test_tushare_cn_etf_structure_shift_config_covers_dispersion_recovery_and_demand(self):
+        config = load_walk_forward_config("configs/walk_forward_tushare_cn_etf_structure_shift_20260617.json")
+
+        self.assertEqual(config.experiment_grid.markets, ("CN_ETF",))
+        self.assertTrue(config.experiment_grid.rotation_membership_required)
+        self.assertEqual(config.experiment_grid.benchmark_asset_id, "CN_ETF_XSHG_510050")
+        self.assertEqual(config.experiment_grid.factor_windows, (60,))
+        self.assertEqual(config.experiment_grid.execution_lag, 1)
+        self.assertEqual(config.experiment_grid.top_n_values, (2,))
+        self.assertEqual(config.experiment_grid.cost_bps_values, (10.0,))
+        self.assertGreater(config.experiment_grid.market_impact_bps, 0)
+        self.assertEqual(config.experiment_grid.max_participation_rate, 0.05)
+        self.assertIn("market_relative_strength_60", config.experiment_grid.factor_names)
+        self.assertIn("momentum_dispersion_breakout_60", config.experiment_grid.factor_names)
+        self.assertIn("crash_recovery_60", config.experiment_grid.factor_names)
+        self.assertIn("recovery_quality_60", config.experiment_grid.factor_names)
+        self.assertIn("demand_pressure_60", config.experiment_grid.factor_names)
+        self.assertIn("quiet_accumulation_60", config.experiment_grid.factor_names)
+
     def test_tushare_cn_etf_share_size_config_covers_structure_hypothesis_family(self):
         config = load_walk_forward_config("configs/walk_forward_tushare_cn_etf_share_size.json")
 
