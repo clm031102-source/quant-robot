@@ -141,6 +141,35 @@ class ResearchPipelineTests(unittest.TestCase):
         self.assertLess(sampled["artifact_rows"]["trades"], daily["artifact_rows"]["trades"])
         self.assertLess(sampled["artifact_rows"]["factors"], daily["artifact_rows"]["factors"])
 
+    def test_pipeline_filters_signals_by_absolute_rolling_amount(self):
+        bars = _falling_regime_bars()
+        liquid_asset = "CN_ETF_XSHG_510300"
+        thin_asset = "CN_ETF_XSHG_510500"
+        bars.loc[bars["asset_id"].eq(liquid_asset), "amount"] = 1_000_000.0
+        bars.loc[bars["asset_id"].eq(thin_asset), "amount"] = 100.0
+        factors = bars[["date", "asset_id", "market"]].copy()
+        factors["factor_name"] = "momentum_2"
+        factors["factor_value"] = factors["asset_id"].map({liquid_asset: 1.0, thin_asset: 2.0})
+        factors["lookback_window"] = 2
+
+        result = run_research_pipeline(
+            bars,
+            ResearchPipelineConfig(
+                factor_name="momentum_2",
+                factor_windows=(2,),
+                market="CN_ETF",
+                top_n=1,
+                min_signal_average_amount=10_000.0,
+                signal_amount_window=2,
+            ),
+            precomputed_factors=factors,
+        )
+
+        self.assertGreater(result["artifact_rows"]["trades"], 0)
+        self.assertEqual({row["asset_id"] for row in result["trades"]}, {liquid_asset})
+        self.assertEqual(result["request"]["min_signal_average_amount"], 10_000.0)
+        self.assertEqual(result["request"]["signal_amount_window"], 2)
+
     def test_pipeline_auto_scales_annualization_for_sparse_rebalance_interval(self):
         result = run_research_pipeline(
             load_demo_market_bars(),

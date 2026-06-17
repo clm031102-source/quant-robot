@@ -526,6 +526,10 @@ def _grid_from_mapping(data: dict[str, Any]) -> ExperimentGridConfig:
         max_drawdown_limit=float(data["max_drawdown_limit"]) if data.get("max_drawdown_limit") is not None else None,
         signal_start_date=data.get("signal_start_date"),
         signal_end_date=data.get("signal_end_date"),
+        min_signal_average_amount=(
+            float(data["min_signal_average_amount"]) if data.get("min_signal_average_amount") is not None else None
+        ),
+        signal_amount_window=int(data.get("signal_amount_window", ExperimentGridConfig.signal_amount_window)),
         output_dir=None,
         rank_by=str(data.get("rank_by", ExperimentGridConfig.rank_by)),
         min_trades=int(data.get("min_trades", ExperimentGridConfig.min_trades)),

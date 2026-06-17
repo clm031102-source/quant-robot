@@ -76,6 +76,8 @@ class ResearchPipelineConfig:
     max_drawdown_limit: float | None = None
     signal_start_date: str | None = None
     signal_end_date: str | None = None
+    min_signal_average_amount: float | None = None
+    signal_amount_window: int = 20
     output_dir: Path | None = None
 
 
@@ -98,6 +100,7 @@ def run_research_pipeline(
     labels = make_forward_returns(filtered, horizons=(config.forward_horizon,), execution_lag=config.execution_lag)
     selected = factors[factors["factor_name"] == config.factor_name].dropna(subset=["factor_value"]).reset_index(drop=True)
     selected = _filter_signals(selected, config)
+    selected = _filter_signals_by_average_amount(selected, filtered, config)
     selected = filter_signals_to_cn_etf_rotation_membership(
         selected,
         root=config.rotation_membership_root,
@@ -351,6 +354,32 @@ def _filter_signals(factors: pd.DataFrame, config: ResearchPipelineConfig) -> pd
         keep_dates = set(signal_dates[:: config.rebalance_interval])
         frame = frame[pd.to_datetime(frame["date"]).dt.date.isin(keep_dates)]
     return frame.reset_index(drop=True)
+
+
+def _filter_signals_by_average_amount(
+    factors: pd.DataFrame,
+    bars: pd.DataFrame,
+    config: ResearchPipelineConfig,
+) -> pd.DataFrame:
+    if config.min_signal_average_amount is None:
+        return factors
+    if config.signal_amount_window < 1:
+        raise ValueError("signal_amount_window must be at least 1")
+    if factors.empty:
+        return factors
+    amount = bars[["asset_id", "date", "amount"]].copy()
+    amount["date"] = pd.to_datetime(amount["date"]).dt.date
+    amount = amount.sort_values(["asset_id", "date"])
+    amount["_signal_average_amount"] = amount.groupby("asset_id")["amount"].transform(
+        lambda values: values.rolling(config.signal_amount_window).mean()
+    )
+    merged = factors.merge(
+        amount[["asset_id", "date", "_signal_average_amount"]],
+        on=["asset_id", "date"],
+        how="left",
+    )
+    filtered = merged[pd.to_numeric(merged["_signal_average_amount"], errors="coerce") >= config.min_signal_average_amount]
+    return filtered.drop(columns=["_signal_average_amount"]).reset_index(drop=True)
 
 
 def _comparison_bars(bars: pd.DataFrame, config: ResearchPipelineConfig) -> pd.DataFrame:

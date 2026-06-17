@@ -225,13 +225,46 @@ Top aggregate rows:
 
 Interpretation: the liquidity gate reduced some average participation optics but did not solve the tail-capacity problem. A relative median gate is too weak for ETF rotation; future capacity controls need absolute rolling amount, participation feasibility, or minimum tradable notional constraints before ranking.
 
+## Absolute Notional Filter Diagnostic
+
+Command:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_walk_forward.py --config configs\walk_forward_tushare_cn_etf_notional_filtered_structure_20260617.json --source processed-bars --data-root data\processed\tushare_etf_full --allow-no-accepted
+```
+
+Diagnostic construction:
+
+- Adds `min_signal_average_amount = 8000000` with a 60-day rolling amount window.
+- The threshold is a feasibility proxy for a 1,000,000 portfolio, 80% gross exposure, top2 selection, and 5% max participation.
+- Filtering uses only signal-date and prior traded amount; execution remains T+1.
+
+Result:
+
+- Cases: 6
+- Accepted: 0
+- Rejected: 6
+- Folds: 4
+
+Top aggregate rows:
+
+- `crash_recovery_60`: rejected. Accepted folds 1, mean OOS Sharpe 1.7418, relative return 0.1313, max drawdown -0.0918, capacity-limited trades 2, max participation 0.0641, adjusted IC p-value 1.0.
+- `recovery_quality_60`: rejected. Accepted folds 0, mean OOS Sharpe 1.2739, relative return 0.1580, max drawdown -0.0402, capacity-limited trades 1, max participation 0.0687, adjusted IC p-value 1.0.
+- `market_relative_strength_60`: rejected. Accepted folds 0, mean OOS Sharpe 1.3201, relative return 0.1290, max drawdown -0.1876, capacity-limited trades 0, max participation 0.0394, adjusted IC p-value 1.0.
+- `quiet_accumulation_60`: rejected. Accepted folds 0, mean OOS Sharpe 0.5208, relative return 0.1215, max drawdown -0.0892, capacity-limited trades 2, max participation 0.0683, adjusted IC p-value 1.0.
+- `demand_pressure_60`: rejected. Accepted folds 0, mean OOS Sharpe 0.3084, relative return 0.1090, max drawdown -0.0774, capacity-limited trades 5, max participation 0.4557, adjusted IC p-value 1.0.
+- `average_amount_60`: rejected. Accepted folds 0, mean OOS Sharpe -9.1406, relative return 0.1491, max drawdown -0.0538, capacity-limited trades 0, max participation 0.0048, adjusted IC p-value 1.0.
+
+Interpretation: the absolute notional filter fixed the worst participation tail for `quiet_accumulation_60` and improved capacity optics for relative-strength/recovery factors, but it did not create a stable paper signal. `demand_pressure_60` still fails capacity even after the amount filter, so demand-pressure proxies should be downgraded unless paired with stricter ex-ante participation feasibility.
+
 ## Next Batch
 
 Do not rescue these seeds by widening topN, lowering costs, or cherry-picking the 2023-2024 fold. The next batch should address the repeated failure modes directly:
 
 - Add ETF-age and tradable-universe maturity controls to separate "too few live ETF members" from true factor failure.
 - Avoid rank-equivalent duplicates such as raw relative momentum versus its same-date z-score when the topN selection is identical.
-- Replace relative liquidity gates with absolute rolling notional or ex-ante participation feasibility filters before demand-pressure proxies.
+- Treat absolute rolling notional as a required diagnostic control for capacity-heavy factors, but do not use it as a promotion shortcut.
+- Downgrade demand-pressure proxies after repeated capacity and stability failures.
 - Move toward ETF theme/industry breadth diffusion once a clean ETF theme map is available.
 - Keep `CN` stock moneyflow out of primary selection; only revisit it as ETF-level breadth or theme diffusion after holdings/theme mapping is available.
 

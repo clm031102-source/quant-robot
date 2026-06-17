@@ -383,6 +383,8 @@ class ExperimentRunnerTests(unittest.TestCase):
                         "precompute_factor_matrix": True,
                         "rotation_membership_root": str(Path(tmp) / "membership"),
                         "rotation_membership_required": True,
+                        "min_signal_average_amount": 10000000,
+                        "signal_amount_window": 20,
                         "output_dir": str(Path(tmp) / "reports"),
                     }
                 ),
@@ -402,6 +404,8 @@ class ExperimentRunnerTests(unittest.TestCase):
             self.assertEqual(config.regime_lookback_values, (60, 120))
             self.assertTrue(config.precompute_factor_matrix)
             self.assertEqual(config.output_dir, Path(tmp) / "reports")
+            self.assertEqual(config.min_signal_average_amount, 10000000.0)
+            self.assertEqual(config.signal_amount_window, 20)
 
     def test_load_experiment_grid_config_accepts_utf8_bom(self):
         with tempfile.TemporaryDirectory() as tmp:

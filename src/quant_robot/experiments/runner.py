@@ -63,6 +63,8 @@ class ExperimentGridConfig:
     max_drawdown_limit: float | None = None
     signal_start_date: str | None = None
     signal_end_date: str | None = None
+    min_signal_average_amount: float | None = None
+    signal_amount_window: int = 20
     output_dir: Path | None = None
     rank_by: str = "sharpe"
     min_trades: int = 1
@@ -160,6 +162,10 @@ def load_experiment_grid_config(path: str | Path) -> ExperimentGridConfig:
         max_drawdown_limit=float(data["max_drawdown_limit"]) if data.get("max_drawdown_limit") is not None else None,
         signal_start_date=data.get("signal_start_date"),
         signal_end_date=data.get("signal_end_date"),
+        min_signal_average_amount=(
+            float(data["min_signal_average_amount"]) if data.get("min_signal_average_amount") is not None else None
+        ),
+        signal_amount_window=int(data.get("signal_amount_window", ExperimentGridConfig.signal_amount_window)),
         output_dir=Path(data["output_dir"]) if data.get("output_dir") else None,
         rank_by=str(data.get("rank_by", ExperimentGridConfig.rank_by)),
         min_trades=int(data.get("min_trades", ExperimentGridConfig.min_trades)),
@@ -226,6 +232,8 @@ def _run_case(
                 max_drawdown_limit=grid_config.max_drawdown_limit,
                 signal_start_date=grid_config.signal_start_date,
                 signal_end_date=grid_config.signal_end_date,
+                min_signal_average_amount=grid_config.min_signal_average_amount,
+                signal_amount_window=grid_config.signal_amount_window,
                 output_dir=output_dir,
             ),
             precomputed_factors=precomputed_factors,
@@ -434,6 +442,8 @@ def _validate_config(config: ExperimentGridConfig) -> None:
         raise ValueError("regime_lookback_values must not be empty")
     if any(value < 1 for value in regime_lookbacks):
         raise ValueError("regime_lookback values must be positive")
+    if config.signal_amount_window < 1:
+        raise ValueError("signal_amount_window must be positive")
     windows = set(config.factor_windows)
     mismatches = []
     for factor_name in config.factor_names:
