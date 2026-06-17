@@ -156,7 +156,13 @@ class ProjectAuditTests(unittest.TestCase):
       "crash_recovery_60",
       "recovery_quality_60",
       "demand_pressure_60",
-      "quiet_accumulation_60"
+      "quiet_accumulation_60",
+      "average_amount_60",
+      "liquid_market_relative_strength_60",
+      "liquid_crash_recovery_60",
+      "liquid_recovery_quality_60",
+      "liquid_demand_pressure_60",
+      "liquid_quiet_accumulation_60"
     ],
     "factor_windows": [60]
   }

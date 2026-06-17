@@ -388,6 +388,25 @@ class WalkForwardTests(unittest.TestCase):
         self.assertIn("demand_pressure_60", config.experiment_grid.factor_names)
         self.assertIn("quiet_accumulation_60", config.experiment_grid.factor_names)
 
+    def test_tushare_cn_etf_liquidity_gated_structure_config_keeps_capacity_gate_explicit(self):
+        config = load_walk_forward_config("configs/walk_forward_tushare_cn_etf_liquidity_gated_structure_20260617.json")
+
+        self.assertEqual(config.experiment_grid.markets, ("CN_ETF",))
+        self.assertTrue(config.experiment_grid.rotation_membership_required)
+        self.assertEqual(config.experiment_grid.benchmark_asset_id, "CN_ETF_XSHG_510050")
+        self.assertEqual(config.experiment_grid.factor_windows, (60,))
+        self.assertEqual(config.experiment_grid.execution_lag, 1)
+        self.assertEqual(config.experiment_grid.top_n_values, (2,))
+        self.assertEqual(config.experiment_grid.cost_bps_values, (10.0,))
+        self.assertGreater(config.experiment_grid.market_impact_bps, 0)
+        self.assertEqual(config.experiment_grid.max_participation_rate, 0.05)
+        self.assertIn("average_amount_60", config.experiment_grid.factor_names)
+        self.assertIn("liquid_market_relative_strength_60", config.experiment_grid.factor_names)
+        self.assertIn("liquid_crash_recovery_60", config.experiment_grid.factor_names)
+        self.assertIn("liquid_recovery_quality_60", config.experiment_grid.factor_names)
+        self.assertIn("liquid_demand_pressure_60", config.experiment_grid.factor_names)
+        self.assertIn("liquid_quiet_accumulation_60", config.experiment_grid.factor_names)
+
     def test_tushare_cn_etf_share_size_config_covers_structure_hypothesis_family(self):
         config = load_walk_forward_config("configs/walk_forward_tushare_cn_etf_share_size.json")
 

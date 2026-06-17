@@ -187,6 +187,28 @@ class FactorTests(unittest.TestCase):
         self.assertGreater(latest_values["demand_pressure_4"], 0.0)
         self.assertGreater(latest_values["quiet_accumulation_4"], 0.0)
 
+    def test_liquidity_gated_factors_exclude_thin_cross_sectional_assets(self):
+        dates = list(pd.date_range("2024-01-01", periods=5).date)
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["A"] * 5 + ["B"] * 5,
+                "market": ["CN_ETF"] * 10,
+                "date": dates + dates,
+                "adj_close": [100.0, 102.0, 104.0, 106.0, 108.0, 100.0, 102.0, 104.0, 106.0, 108.0],
+                "volume": [10000.0, 10100.0, 10200.0, 10300.0, 10400.0, 10.0, 11.0, 12.0, 13.0, 14.0],
+                "amount": [1000000.0, 1030200.0, 1060800.0, 1091800.0, 1123200.0, 1000.0, 1122.0, 1248.0, 1378.0, 1512.0],
+            }
+        )
+
+        factors = compute_basic_factors(bars, windows=(4,))
+        latest = factors[factors["date"] == pd.Timestamp("2024-01-05").date()]
+        liquid_demand = latest[latest["factor_name"] == "liquid_demand_pressure_4"]
+        liquid_relative = latest[latest["factor_name"] == "liquid_market_relative_strength_4"]
+
+        self.assertIn("average_amount_4", set(latest["factor_name"]))
+        self.assertEqual(set(liquid_demand["asset_id"]), {"A"})
+        self.assertEqual(set(liquid_relative["asset_id"]), {"A"})
+
 
 if __name__ == "__main__":
     unittest.main()

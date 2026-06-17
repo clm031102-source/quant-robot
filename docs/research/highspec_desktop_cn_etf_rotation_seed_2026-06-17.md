@@ -193,13 +193,45 @@ Fold diagnostics:
 
 Conclusion: structurally different price/liquidity state factors improved the appearance of crash-recovery rows, but no factor passed full-history stability, adjusted IC significance, or accepted-fold requirements. Do not promote any structure-shift factor.
 
+## Liquidity-Gated Structure Diagnostic
+
+Command:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_walk_forward.py --config configs\walk_forward_tushare_cn_etf_liquidity_gated_structure_20260617.json --source processed-bars --data-root data\processed\tushare_etf_full --allow-no-accepted
+```
+
+Diagnostic construction:
+
+- `average_amount_60`: rolling average traded amount, log scaled.
+- `liquid_*_60` variants: keep the source factor only when same-date ETF rolling traded amount rank and liquidity-resilience rank are both above the cross-sectional median.
+- This tests whether a point-in-time liquidity gate fixes the capacity and sparse-tradability failure modes. It is not a promotion shortcut.
+
+Result:
+
+- Cases: 6
+- Accepted: 0
+- Rejected: 6
+- Folds: 4
+
+Top aggregate rows:
+
+- `liquid_recovery_quality_60`: rejected. Accepted folds 1, mean OOS Sharpe 1.5113, relative return 0.1628, max drawdown -0.0383, capacity-limited trades 3, max participation 0.1472, adjusted IC p-value 1.0.
+- `liquid_crash_recovery_60`: rejected. Accepted folds 1, mean OOS Sharpe 1.6768, relative return 0.1296, max drawdown -0.0918, capacity-limited trades 3, max participation 0.1822, adjusted IC p-value 1.0.
+- `liquid_market_relative_strength_60`: rejected. Accepted folds 0, mean OOS Sharpe 1.2686, relative return 0.1262, max drawdown -0.1876, capacity-limited trades 4, max participation 0.2960, adjusted IC p-value 1.0.
+- `liquid_demand_pressure_60`: rejected. Accepted folds 0, mean OOS Sharpe 0.3660, relative return 0.1109, max drawdown -0.0774, capacity-limited trades 4, max participation 0.4557, adjusted IC p-value 1.0.
+- `liquid_quiet_accumulation_60`: rejected. Accepted folds 0, mean OOS Sharpe 0.4356, relative return 0.1173, max drawdown -0.0892, capacity-limited trades 3, max participation 4000.0, adjusted IC p-value 1.0.
+- `average_amount_60`: rejected. Accepted folds 0, mean OOS Sharpe -9.1406, relative return 0.1491, max drawdown -0.0538, capacity-limited trades 0, max participation 0.0048, adjusted IC p-value 1.0.
+
+Interpretation: the liquidity gate reduced some average participation optics but did not solve the tail-capacity problem. A relative median gate is too weak for ETF rotation; future capacity controls need absolute rolling amount, participation feasibility, or minimum tradable notional constraints before ranking.
+
 ## Next Batch
 
 Do not rescue these seeds by widening topN, lowering costs, or cherry-picking the 2023-2024 fold. The next batch should address the repeated failure modes directly:
 
 - Add ETF-age and tradable-universe maturity controls to separate "too few live ETF members" from true factor failure.
 - Avoid rank-equivalent duplicates such as raw relative momentum versus its same-date z-score when the topN selection is identical.
-- Add a hard liquidity/capacity prefilter before demand-pressure proxies, or demote demand-pressure proxies when participation spikes.
+- Replace relative liquidity gates with absolute rolling notional or ex-ante participation feasibility filters before demand-pressure proxies.
 - Move toward ETF theme/industry breadth diffusion once a clean ETF theme map is available.
 - Keep `CN` stock moneyflow out of primary selection; only revisit it as ETF-level breadth or theme diffusion after holdings/theme mapping is available.
 

@@ -13,6 +13,14 @@ _COMPOSITE_FACTOR_SPECS: dict[str, tuple[str, ...]] = {
     "liquidity_confirmed_breakout": ("momentum", "amount_stability", "liquidity_resilience"),
 }
 
+_LIQUIDITY_GATED_FACTOR_SPECS: dict[str, str] = {
+    "liquid_market_relative_strength": "market_relative_strength",
+    "liquid_crash_recovery": "crash_recovery",
+    "liquid_recovery_quality": "recovery_quality",
+    "liquid_demand_pressure": "demand_pressure",
+    "liquid_quiet_accumulation": "quiet_accumulation",
+}
+
 
 def compute_basic_factors(bars: pd.DataFrame, windows: tuple[int, ...] = (5, 20)) -> pd.DataFrame:
     required = ["date", "asset_id", "market", "adj_close", "volume", "amount"]
@@ -78,6 +86,12 @@ def compute_basic_factors(bars: pd.DataFrame, windows: tuple[int, ...] = (5, 20)
                     ),
                     _factor_frame(
                         enriched,
+                        f"average_amount_{window}",
+                        _average_amount(enriched["amount"], window),
+                        window,
+                    ),
+                    _factor_frame(
+                        enriched,
                         f"crash_recovery_{window}",
                         _crash_recovery(enriched["adj_close"], window),
                         window,
@@ -107,6 +121,9 @@ def compute_basic_factors(bars: pd.DataFrame, windows: tuple[int, ...] = (5, 20)
     base = pd.concat(pieces, ignore_index=True)[FACTOR_COLUMNS]
     cross_sectional = _cross_sectional_relative_factors(base)
     expanded = pd.concat([base, cross_sectional], ignore_index=True) if not cross_sectional.empty else base
+    liquidity_gated = _liquidity_gated_factors(expanded)
+    if not liquidity_gated.empty:
+        expanded = pd.concat([expanded, liquidity_gated], ignore_index=True)
     composites = _composite_factors(expanded)
     factors = pd.concat([expanded, composites], ignore_index=True) if not composites.empty else expanded
     return factors[FACTOR_COLUMNS].sort_values(
@@ -146,6 +163,10 @@ def _amihud(returns: pd.Series, amount: pd.Series) -> pd.Series:
 def _amount_stability(amount: pd.Series, window: int) -> pd.Series:
     amount_change = amount.replace(0, np.nan).pct_change()
     return -amount_change.rolling(window).std(ddof=0)
+
+
+def _average_amount(amount: pd.Series, window: int) -> pd.Series:
+    return np.log1p(amount.where(amount > 0).rolling(window).mean())
 
 
 def _crash_recovery(price: pd.Series, window: int) -> pd.Series:
@@ -218,6 +239,30 @@ def _cross_sectional_relative_factors(factors: pd.DataFrame) -> pd.DataFrame:
                 ),
             ]
         )
+    if not rows:
+        return pd.DataFrame(columns=FACTOR_COLUMNS)
+    return pd.concat(rows, ignore_index=True)[FACTOR_COLUMNS]
+
+
+def _liquidity_gated_factors(factors: pd.DataFrame) -> pd.DataFrame:
+    if factors.empty:
+        return pd.DataFrame(columns=FACTOR_COLUMNS)
+    rows = []
+    for window in sorted(pd.to_numeric(factors["lookback_window"], errors="coerce").dropna().astype(int).unique()):
+        amount_name = f"average_amount_{window}"
+        liquidity_name = f"liquidity_resilience_{window}"
+        window_factors = factors[factors["lookback_window"].astype(int) == window]
+        for output_prefix, source_prefix in _LIQUIDITY_GATED_FACTOR_SPECS.items():
+            source_name = f"{source_prefix}_{window}"
+            wide = _factor_wide_frame(window_factors, [source_name, amount_name, liquidity_name])
+            if wide.empty:
+                continue
+            grouped = wide.groupby(["date", "market"])
+            amount_rank = grouped[amount_name].rank(method="average", pct=True)
+            liquidity_rank = grouped[liquidity_name].rank(method="average", pct=True)
+            values = wide[source_name].where((amount_rank > 0.5) & (liquidity_rank > 0.5))
+            output = _cross_sectional_factor_frame(wide, f"{output_prefix}_{window}", values, window)
+            rows.append(output.dropna(subset=["factor_value"]))
     if not rows:
         return pd.DataFrame(columns=FACTOR_COLUMNS)
     return pd.concat(rows, ignore_index=True)[FACTOR_COLUMNS]

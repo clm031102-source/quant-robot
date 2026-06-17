@@ -49,6 +49,7 @@ TECHNICAL_FACTOR_PREFIXES = (
     "liquidity",
     "liquidity_resilience",
     "amount_stability",
+    "average_amount",
     "trend_resilience",
     "risk_confirmed_momentum",
     "defensive_reversal",
@@ -59,6 +60,11 @@ TECHNICAL_FACTOR_PREFIXES = (
     "recovery_quality",
     "demand_pressure",
     "quiet_accumulation",
+    "liquid_market_relative_strength",
+    "liquid_crash_recovery",
+    "liquid_recovery_quality",
+    "liquid_demand_pressure",
+    "liquid_quiet_accumulation",
 )
 DEFAULT_FACTOR_SOURCE = "technical"
 DEFAULT_FACTOR_WINDOWS = (2, 3)
