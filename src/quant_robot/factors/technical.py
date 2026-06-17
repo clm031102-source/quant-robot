@@ -21,6 +21,16 @@ _LIQUIDITY_GATED_FACTOR_SPECS: dict[str, str] = {
     "liquid_quiet_accumulation": "quiet_accumulation",
 }
 
+_STATE_ADAPTIVE_COMPONENTS = (
+    "momentum",
+    "market_relative_strength",
+    "drawdown_resilience",
+    "low_downside_volatility",
+    "liquidity_resilience",
+    "crash_recovery",
+    "recovery_quality",
+)
+
 
 def compute_basic_factors(bars: pd.DataFrame, windows: tuple[int, ...] = (5, 20)) -> pd.DataFrame:
     required = ["date", "asset_id", "market", "adj_close", "volume", "amount"]
@@ -124,6 +134,9 @@ def compute_basic_factors(bars: pd.DataFrame, windows: tuple[int, ...] = (5, 20)
     liquidity_gated = _liquidity_gated_factors(expanded)
     if not liquidity_gated.empty:
         expanded = pd.concat([expanded, liquidity_gated], ignore_index=True)
+    state_adaptive = _state_adaptive_factors(expanded)
+    if not state_adaptive.empty:
+        expanded = pd.concat([expanded, state_adaptive], ignore_index=True)
     composites = _composite_factors(expanded)
     factors = pd.concat([expanded, composites], ignore_index=True) if not composites.empty else expanded
     return factors[FACTOR_COLUMNS].sort_values(
@@ -263,6 +276,64 @@ def _liquidity_gated_factors(factors: pd.DataFrame) -> pd.DataFrame:
             values = wide[source_name].where((amount_rank > 0.5) & (liquidity_rank > 0.5))
             output = _cross_sectional_factor_frame(wide, f"{output_prefix}_{window}", values, window)
             rows.append(output.dropna(subset=["factor_value"]))
+    if not rows:
+        return pd.DataFrame(columns=FACTOR_COLUMNS)
+    return pd.concat(rows, ignore_index=True)[FACTOR_COLUMNS]
+
+
+def _state_adaptive_factors(factors: pd.DataFrame) -> pd.DataFrame:
+    if factors.empty:
+        return pd.DataFrame(columns=FACTOR_COLUMNS)
+    rows = []
+    for window in sorted(pd.to_numeric(factors["lookback_window"], errors="coerce").dropna().astype(int).unique()):
+        component_names = [f"{component}_{window}" for component in _STATE_ADAPTIVE_COMPONENTS]
+        window_factors = factors[factors["lookback_window"].astype(int) == window]
+        wide = _factor_wide_frame(window_factors, component_names)
+        if wide.empty:
+            continue
+        grouped = wide.groupby(["date", "market"], group_keys=False)
+        ranked = grouped[component_names].rank(method="average", pct=True)
+        market_momentum = grouped[f"momentum_{window}"].transform("median")
+        market_drawdown = grouped[f"drawdown_resilience_{window}"].transform("median")
+        risk_on = market_momentum >= 0.0
+        stress = (market_momentum < 0.0) | (market_drawdown < -0.05)
+        trend_score = ranked[[f"momentum_{window}", f"market_relative_strength_{window}"]].mean(axis=1, skipna=False)
+        defensive_score = ranked[
+            [
+                f"drawdown_resilience_{window}",
+                f"low_downside_volatility_{window}",
+                f"liquidity_resilience_{window}",
+            ]
+        ].mean(axis=1, skipna=False)
+        recovery_score = ranked[
+            [
+                f"crash_recovery_{window}",
+                f"recovery_quality_{window}",
+                f"drawdown_resilience_{window}",
+            ]
+        ].mean(axis=1, skipna=False)
+        rows.extend(
+            [
+                _cross_sectional_factor_frame(
+                    wide,
+                    f"state_adaptive_trend_defense_{window}",
+                    trend_score.where(risk_on, defensive_score),
+                    window,
+                ),
+                _cross_sectional_factor_frame(
+                    wide,
+                    f"state_stress_defensive_resilience_{window}",
+                    defensive_score.where(stress),
+                    window,
+                ),
+                _cross_sectional_factor_frame(
+                    wide,
+                    f"state_stress_recovery_leadership_{window}",
+                    recovery_score.where(stress),
+                    window,
+                ),
+            ]
+        )
     if not rows:
         return pd.DataFrame(columns=FACTOR_COLUMNS)
     return pd.concat(rows, ignore_index=True)[FACTOR_COLUMNS]

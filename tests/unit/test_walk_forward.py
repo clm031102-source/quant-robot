@@ -461,6 +461,19 @@ class WalkForwardTests(unittest.TestCase):
         self.assertIn("theme_relative_strength_60", config.experiment_grid.factor_names)
         self.assertIn("theme_risk_adjusted_strength_60", config.experiment_grid.factor_names)
 
+    def test_tushare_cn_etf_state_adaptive_config_covers_market_state_family(self):
+        config = load_walk_forward_config("configs/walk_forward_tushare_cn_etf_state_adaptive_20260617.json")
+
+        self.assertEqual(config.experiment_grid.markets, ("CN_ETF",))
+        self.assertTrue(config.experiment_grid.rotation_membership_required)
+        self.assertEqual(config.experiment_grid.factor_windows, (60,))
+        self.assertEqual(config.experiment_grid.execution_lag, 1)
+        self.assertEqual(config.experiment_grid.max_participation_rate, 0.05)
+        self.assertEqual(config.experiment_grid.min_signal_average_amount, 8000000.0)
+        self.assertIn("state_adaptive_trend_defense_60", config.experiment_grid.factor_names)
+        self.assertIn("state_stress_defensive_resilience_60", config.experiment_grid.factor_names)
+        self.assertIn("state_stress_recovery_leadership_60", config.experiment_grid.factor_names)
+
     def test_tushare_cn_etf_share_size_config_covers_structure_hypothesis_family(self):
         config = load_walk_forward_config("configs/walk_forward_tushare_cn_etf_share_size.json")
 

@@ -209,6 +209,51 @@ class FactorTests(unittest.TestCase):
         self.assertEqual(set(liquid_demand["asset_id"]), {"A"})
         self.assertEqual(set(liquid_relative["asset_id"]), {"A"})
 
+    def test_state_adaptive_factors_switch_to_defensive_scores_under_market_stress(self):
+        dates = list(pd.date_range("2024-01-01", periods=5).date)
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["A"] * 5 + ["B"] * 5 + ["C"] * 5,
+                "market": ["CN_ETF"] * 15,
+                "date": dates + dates + dates,
+                "adj_close": [
+                    100.0,
+                    100.0,
+                    99.0,
+                    99.0,
+                    99.0,
+                    100.0,
+                    90.0,
+                    80.0,
+                    70.0,
+                    60.0,
+                    100.0,
+                    95.0,
+                    90.0,
+                    85.0,
+                    80.0,
+                ],
+                "volume": [10000.0] * 5 + [1000.0] * 5 + [500.0] * 5,
+                "amount": [990000.0] * 5 + [75000.0] * 5 + [45000.0] * 5,
+            }
+        )
+
+        factors = compute_basic_factors(bars, windows=(4,))
+        latest = factors[factors["date"] == pd.Timestamp("2024-01-05").date()]
+        names = set(latest["factor_name"])
+        defensive = latest[latest["factor_name"] == "state_stress_defensive_resilience_4"].set_index("asset_id")[
+            "factor_value"
+        ]
+        adaptive = latest[latest["factor_name"] == "state_adaptive_trend_defense_4"].set_index("asset_id")[
+            "factor_value"
+        ]
+
+        self.assertIn("state_adaptive_trend_defense_4", names)
+        self.assertIn("state_stress_defensive_resilience_4", names)
+        self.assertIn("state_stress_recovery_leadership_4", names)
+        self.assertGreater(defensive["A"], defensive["B"])
+        self.assertAlmostEqual(adaptive["A"], defensive["A"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -342,6 +342,41 @@ Fold diagnostics:
 
 Interpretation: the deterministic ETF theme map is useful infrastructure for auxiliary breadth research, but static name-derived theme momentum/breadth is not a promoted paper signal. Keep the theme map as a data layer; do not rescue this factor family by reducing costs, loosening accepted-fold requirements, or using only the latest ETF era.
 
+## State-Adaptive Technical Diagnostic
+
+Command:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_walk_forward.py --config configs\walk_forward_tushare_cn_etf_state_adaptive_20260617.json --source processed-bars --data-root data\processed\tushare_etf_full --allow-no-accepted
+```
+
+New factor construction:
+
+- `state_adaptive_trend_defense_60`: when the same-day ETF market median 60-day momentum is non-negative, rank by trend leadership; otherwise rank by drawdown, downside-volatility, and liquidity resilience.
+- `state_stress_defensive_resilience_60`: only active in market-stress states, ranking defensive resilience.
+- `state_stress_recovery_leadership_60`: only active in market-stress states, ranking crash-recovery and recovery-quality leadership.
+
+Result:
+
+- Cases: 3
+- Accepted: 0
+- Rejected: 3
+- Folds: 4
+
+Top aggregate rows:
+
+- `state_adaptive_trend_defense_60`: rejected. Accepted folds 0, mean OOS Sharpe 1.3899, relative return 0.1611, max drawdown -0.1324, capacity-limited trades 1, max participation 0.0537, adjusted IC p-value 1.0.
+- `state_stress_recovery_leadership_60`: rejected. Accepted folds 0, mean OOS Sharpe -0.3566, relative return 0.1383, max drawdown -0.0519, capacity-limited trades 0, max participation 0.0356, adjusted IC p-value 1.0.
+- `state_stress_defensive_resilience_60`: rejected. Accepted folds 0, mean OOS Sharpe -23.8540, relative return 0.1456, max drawdown -0.0041, capacity-limited trades 2, max participation 0.0974, adjusted IC p-value 1.0.
+
+Fold diagnostics:
+
+- The adaptive trend/defense blend improved aggregate Sharpe versus the prior theme-breadth batch, but still had 0 accepted folds and failed adjusted IC significance.
+- The stress-only factors produced too few OOS trades in non-stress windows and did not pass stability gates.
+- `state_adaptive_trend_defense_60` is worth tracking as a component idea because it combines structurally different state behavior, but it is not a paper signal under the current full-history promotion standard.
+
+Interpretation: state conditioning helped the best aggregate row, but it did not solve accepted-fold stability or IC significance. Keep market-state adaptive blends as a future component search direction; do not promote or tune this exact batch.
+
 ## Next Batch
 
 Do not rescue these seeds by widening topN, lowering costs, or cherry-picking the 2023-2024 fold. The next batch should address the repeated failure modes directly:
@@ -352,6 +387,7 @@ Do not rescue these seeds by widening topN, lowering costs, or cherry-picking th
 - Use mature-universe filters for diagnosis and risk controls, not for replacing the full-history promotion gate.
 - Keep the deterministic ETF theme map as infrastructure, but downgrade pure static-name theme momentum after the rejected theme-breadth diagnostic.
 - If revisiting breadth, prefer ETF-level theme-neutral combinations or auxiliary stock-flow diffusion aggregated to theme buckets, with CN_ETF signals still the only tradable output.
+- Preserve `state_adaptive_trend_defense_60` as an ingredient candidate only; it improved aggregate Sharpe but failed the full accepted-fold and IC gates.
 - Keep `CN` stock moneyflow out of primary selection; only revisit it as ETF-level breadth or theme diffusion after holdings/theme mapping is available.
 
 Research remains paper-only: no broker connection, no account reads, no order placement, no live trading.

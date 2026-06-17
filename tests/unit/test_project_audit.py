@@ -186,7 +186,10 @@ class ProjectAuditTests(unittest.TestCase):
       "liquid_crash_recovery_60",
       "liquid_recovery_quality_60",
       "liquid_demand_pressure_60",
-      "liquid_quiet_accumulation_60"
+      "liquid_quiet_accumulation_60",
+      "state_adaptive_trend_defense_60",
+      "state_stress_defensive_resilience_60",
+      "state_stress_recovery_leadership_60"
     ],
     "factor_windows": [60]
   }

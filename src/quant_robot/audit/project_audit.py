@@ -66,6 +66,9 @@ TECHNICAL_FACTOR_PREFIXES = (
     "liquid_recovery_quality",
     "liquid_demand_pressure",
     "liquid_quiet_accumulation",
+    "state_adaptive_trend_defense",
+    "state_stress_defensive_resilience",
+    "state_stress_recovery_leadership",
 )
 DEFAULT_FACTOR_SOURCE = "technical"
 DEFAULT_FACTOR_WINDOWS = (2, 3)
