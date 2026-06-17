@@ -36,8 +36,10 @@ def run_tushare_etf_share_size_ingest(
     manifest = IngestManifest(output_path / "manifest.json")
     downloaded: list[str] = []
     skipped: list[str] = []
+    reused_raw: list[str] = []
     raw_frames_by_key: dict[str, pd.DataFrame] = {}
     downloaded_rows_by_key: dict[str, int] = {}
+    raw_dataset = _raw_dataset()
 
     trade_dates = _trade_dates(adapter, start_date, end_date)
     exchange_dates = [(exchange, trade_date) for trade_date in trade_dates for exchange in exchanges]
@@ -47,8 +49,12 @@ def run_tushare_etf_share_size_ingest(
         if resume and manifest.is_completed(key):
             skipped.append(exchange_date)
             continue
+        if resume and store.exists(raw_dataset, {"exchange": exchange, "trade_date": trade_date}):
+            skipped.append(exchange_date)
+            reused_raw.append(exchange_date)
+            continue
         raw = adapter.fetch_etf_share_size_by_trade_date(trade_date, exchange=exchange)
-        store.write_frame(raw, _raw_dataset(), {"exchange": exchange, "trade_date": trade_date})
+        store.write_frame(raw, raw_dataset, {"exchange": exchange, "trade_date": trade_date})
         downloaded.append(exchange_date)
         downloaded_rows_by_key[key] = len(raw)
         raw_frames_by_key[key] = raw
@@ -61,13 +67,21 @@ def run_tushare_etf_share_size_ingest(
             _write_processed_by_year(store, processed, market)
         report = _quality_report(processed, market)
     except Exception as exc:
-        for exchange_date in downloaded:
+        for exchange_date in downloaded + reused_raw:
             exchange, trade_date = exchange_date.split(":", 1)
             manifest.mark_failed(_manifest_key(exchange, trade_date), reason=str(exc))
         manifest.save()
         raise
 
+    for exchange_date in reused_raw:
+        exchange, trade_date = exchange_date.split(":", 1)
+        key = _manifest_key(exchange, trade_date)
+        downloaded_rows_by_key[key] = len(store.read_frame(raw_dataset, {"exchange": exchange, "trade_date": trade_date}))
     for exchange_date in downloaded:
+        exchange, trade_date = exchange_date.split(":", 1)
+        key = _manifest_key(exchange, trade_date)
+        manifest.mark_completed(key, rows=downloaded_rows_by_key[key])
+    for exchange_date in reused_raw:
         exchange, trade_date = exchange_date.split(":", 1)
         key = _manifest_key(exchange, trade_date)
         manifest.mark_completed(key, rows=downloaded_rows_by_key[key])
@@ -83,6 +97,7 @@ def run_tushare_etf_share_size_ingest(
         "exchanges": list(exchanges),
         "downloaded_exchange_trade_dates": downloaded,
         "skipped_exchange_trade_dates": skipped,
+        "reused_raw_exchange_trade_dates": reused_raw,
         "processed_rows": int(len(processed)),
         "quality_report": report,
     }

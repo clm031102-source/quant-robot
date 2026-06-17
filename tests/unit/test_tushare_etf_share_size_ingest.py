@@ -124,6 +124,45 @@ class TushareEtfShareSizeIngestTests(unittest.TestCase):
             self.assertIn("etf_share_size:SSE:20240102", manifest["completed"])
             self.assertIn("etf_share_size:SZSE:20240102", manifest["completed"])
 
+    def test_etf_share_size_ingest_resume_reuses_raw_partitions_without_manifest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            DatasetStore(root).write_frame(
+                pd.DataFrame(
+                    {
+                        "symbol": ["510300.SH"],
+                        "date": [pd.Timestamp("2024-01-02").date()],
+                        "name": ["CSI 300 ETF"],
+                        "total_share": [10_000_000.0],
+                        "total_size": [40_000_000.0],
+                        "nav": [4.0],
+                        "close": [4.04],
+                        "exchange": ["SSE"],
+                    }
+                ),
+                "raw/tushare/etf_share_size",
+                {"exchange": "SSE", "trade_date": "20240102"},
+            )
+
+            adapter = FakeTushareEtfShareSizeAdapter()
+            result = run_tushare_etf_share_size_ingest(
+                adapter,
+                "2024-01-02",
+                "2024-01-02",
+                root,
+                exchanges=("SSE", "SZSE"),
+                resume=True,
+            )
+
+            self.assertEqual(adapter.calls, [("20240102", "SZSE")])
+            self.assertEqual(result["downloaded_exchange_trade_dates"], ["SZSE:20240102"])
+            self.assertEqual(result["reused_raw_exchange_trade_dates"], ["SSE:20240102"])
+            self.assertEqual(result["skipped_exchange_trade_dates"], ["SSE:20240102"])
+            self.assertEqual(result["processed_rows"], 2)
+            manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+            self.assertIn("etf_share_size:SSE:20240102", manifest["completed"])
+            self.assertIn("etf_share_size:SZSE:20240102", manifest["completed"])
+
     def test_etf_share_size_ingest_marks_failed_when_processing_fails(self):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(ValueError):

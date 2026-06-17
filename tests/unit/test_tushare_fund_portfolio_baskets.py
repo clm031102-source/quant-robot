@@ -1,11 +1,77 @@
 import unittest
+import json
+import tempfile
+from pathlib import Path
 
 import pandas as pd
 
-from quant_robot.data.ingest.tushare_fund_portfolio import build_etf_moneyflow_baskets_from_fund_portfolio
+from quant_robot.data.ingest.tushare_fund_portfolio import (
+    build_etf_moneyflow_baskets_from_fund_portfolio,
+    run_tushare_fund_portfolio_basket_ingest,
+)
+from quant_robot.storage.dataset_store import DatasetStore
+
+
+class FakeFundPortfolioAdapter:
+    def __init__(self) -> None:
+        self.calls = []
+
+    def fetch_fund_portfolio(self, ts_code: str, start_date: str = "", end_date: str = ""):
+        self.calls.append((ts_code, start_date, end_date))
+        return pd.DataFrame(
+            {
+                "fund_symbol": [ts_code],
+                "known_date": [pd.Timestamp("2024-01-10").date()],
+                "period_end_date": [pd.Timestamp("2023-12-31").date()],
+                "stock_symbol": ["600519.SH"],
+                "mkv": [100.0],
+                "amount": [1.0],
+                "stk_mkv_ratio": [10.0],
+                "stk_float_ratio": [0.1],
+            }
+        )
 
 
 class TushareFundPortfolioBasketTests(unittest.TestCase):
+    def test_ingest_resume_reuses_raw_partition_without_manifest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            DatasetStore(root).write_frame(
+                pd.DataFrame(
+                    {
+                        "fund_symbol": ["510300.SH"],
+                        "known_date": [pd.Timestamp("2024-01-10").date()],
+                        "period_end_date": [pd.Timestamp("2023-12-31").date()],
+                        "stock_symbol": ["600519.SH"],
+                        "mkv": [100.0],
+                        "amount": [1.0],
+                        "stk_mkv_ratio": [10.0],
+                        "stk_float_ratio": [0.1],
+                    }
+                ),
+                "raw/tushare/fund_portfolio",
+                {"ts_code": "510300.SH", "start_date": "2024-01-01", "end_date": "2024-12-31"},
+            )
+
+            adapter = FakeFundPortfolioAdapter()
+            result = run_tushare_fund_portfolio_basket_ingest(
+                adapter,
+                ["510300.SH", "159915.SZ"],
+                "2024-01-01",
+                "2024-12-31",
+                root,
+                resume=True,
+            )
+
+            self.assertEqual(adapter.calls, [("159915.SZ", "2024-01-01", "2024-12-31")])
+            self.assertEqual(result["downloaded_symbols"], ["159915.SZ"])
+            self.assertEqual(result["reused_raw_symbols"], ["510300.SH"])
+            self.assertEqual(result["skipped_symbols"], ["510300.SH"])
+            self.assertEqual(result["processed_rows"], 2)
+            manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+            self.assertIn("fund_portfolio:510300.SH:2024-01-01:2024-12-31", manifest["completed"])
+            self.assertIn("fund_portfolio:159915.SZ:2024-01-01:2024-12-31", manifest["completed"])
+
     def test_build_baskets_are_point_in_time_by_announcement_date(self):
         portfolio = pd.DataFrame(
             {

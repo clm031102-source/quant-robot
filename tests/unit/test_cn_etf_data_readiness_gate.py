@@ -62,6 +62,81 @@ class CnEtfDataReadinessGateTests(unittest.TestCase):
             self.assertGreater(pack["bars"]["rows"], 0)
             self.assertEqual(pack["rotation_membership"]["rows"], 0)
 
+    def test_missing_date_rows_can_be_allowed_as_explicit_warning(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            store = DatasetStore(root / "processed")
+            bars = pd.DataFrame(
+                [
+                    {
+                        "date": "2024-01-02",
+                        "asset_id": "CN_ETF_TEST_A",
+                        "symbol": "TEST_A",
+                        "market": "CN_ETF",
+                        "volume": 100.0,
+                    },
+                    {
+                        "date": "2024-01-04",
+                        "asset_id": "CN_ETF_TEST_A",
+                        "symbol": "TEST_A",
+                        "market": "CN_ETF",
+                        "volume": 100.0,
+                    },
+                    {
+                        "date": "2024-01-02",
+                        "asset_id": "CN_ETF_TEST_B",
+                        "symbol": "TEST_B",
+                        "market": "CN_ETF",
+                        "volume": 100.0,
+                    },
+                    {
+                        "date": "2024-01-03",
+                        "asset_id": "CN_ETF_TEST_B",
+                        "symbol": "TEST_B",
+                        "market": "CN_ETF",
+                        "volume": 100.0,
+                    },
+                    {
+                        "date": "2024-01-04",
+                        "asset_id": "CN_ETF_TEST_B",
+                        "symbol": "TEST_B",
+                        "market": "CN_ETF",
+                        "volume": 100.0,
+                    },
+                ]
+            )
+            store.write_frame(
+                bars,
+                "processed/bars",
+                {"frequency": "1d", "market": "CN_ETF", "year": "2024"},
+            )
+            store.write_frame(
+                bars[["date", "asset_id"]].assign(is_rotation_member=True),
+                "metadata/cn_etf_rotation_membership",
+                {"market": "CN_ETF"},
+            )
+
+            strict_pack = build_cn_etf_data_readiness_gate(
+                data_root=root / "processed",
+                require_etf_share_size=False,
+                require_etf_moneyflow_baskets=False,
+            )
+            allowed_pack = build_cn_etf_data_readiness_gate(
+                data_root=root / "processed",
+                require_etf_share_size=False,
+                require_etf_moneyflow_baskets=False,
+                allow_missing_date_rows=True,
+            )
+
+            self.assertEqual(strict_pack["status"], "blocked")
+            self.assertIn("data_quality_missing_date_rows", strict_pack["blockers"])
+            self.assertEqual(strict_pack["data_quality"]["missing_date_rows"], 1)
+            self.assertEqual(allowed_pack["status"], "ready")
+            self.assertNotIn("data_quality_missing_date_rows", allowed_pack["blockers"])
+            self.assertIn("data_quality_missing_date_rows_allowed", allowed_pack["warnings"])
+            self.assertEqual(allowed_pack["data_quality"]["status"], "warning")
+            self.assertEqual(allowed_pack["data_quality_policy"]["missing_date_rows"], "warning")
+
     def test_script_writes_readiness_artifacts(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

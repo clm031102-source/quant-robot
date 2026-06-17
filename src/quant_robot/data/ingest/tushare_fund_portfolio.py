@@ -52,16 +52,22 @@ def run_tushare_fund_portfolio_basket_ingest(
     symbols = sorted({str(symbol).upper() for symbol in etf_symbols})
     downloaded: list[str] = []
     skipped: list[str] = []
+    reused_raw: list[str] = []
     raw_frames_by_symbol: dict[str, pd.DataFrame] = {}
     downloaded_rows_by_symbol: dict[str, int] = {}
+    raw_dataset = _raw_dataset()
 
     for symbol in symbols:
         key = _manifest_key(symbol, start_date, end_date)
         if resume and manifest.is_completed(key):
             skipped.append(symbol)
             continue
+        if resume and store.exists(raw_dataset, {"ts_code": symbol, "start_date": start_date, "end_date": end_date}):
+            skipped.append(symbol)
+            reused_raw.append(symbol)
+            continue
         raw = adapter.fetch_fund_portfolio(symbol, start_date=start_date, end_date=end_date)
-        store.write_frame(raw, _raw_dataset(), {"ts_code": symbol, "start_date": start_date, "end_date": end_date})
+        store.write_frame(raw, raw_dataset, {"ts_code": symbol, "start_date": start_date, "end_date": end_date})
         downloaded.append(symbol)
         downloaded_rows_by_symbol[symbol] = len(raw)
         raw_frames_by_symbol[symbol] = raw
@@ -74,12 +80,18 @@ def run_tushare_fund_portfolio_basket_ingest(
             store.write_frame(baskets, "metadata/etf_moneyflow_baskets", {"market": market})
         report = _quality_report(raw_for_processing, baskets, market)
     except Exception as exc:
-        for symbol in downloaded:
+        for symbol in downloaded + reused_raw:
             manifest.mark_failed(_manifest_key(symbol, start_date, end_date), reason=str(exc))
         manifest.save()
         raise
 
+    for symbol in reused_raw:
+        downloaded_rows_by_symbol[symbol] = len(
+            store.read_frame(raw_dataset, {"ts_code": symbol, "start_date": start_date, "end_date": end_date})
+        )
     for symbol in downloaded:
+        manifest.mark_completed(_manifest_key(symbol, start_date, end_date), rows=downloaded_rows_by_symbol[symbol])
+    for symbol in reused_raw:
         manifest.mark_completed(_manifest_key(symbol, start_date, end_date), rows=downloaded_rows_by_symbol[symbol])
     manifest.save()
     (output_path / "fund_portfolio_basket_quality_report.json").write_text(
@@ -92,6 +104,7 @@ def run_tushare_fund_portfolio_basket_ingest(
         "market": market,
         "downloaded_symbols": downloaded,
         "skipped_symbols": skipped,
+        "reused_raw_symbols": reused_raw,
         "raw_rows": int(len(raw_for_processing)),
         "processed_rows": int(len(baskets)),
         "quality_report": report,

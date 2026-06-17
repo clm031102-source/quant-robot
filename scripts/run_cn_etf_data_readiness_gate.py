@@ -30,12 +30,14 @@ def run_cn_etf_data_readiness_gate(
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
     require_etf_share_size: bool = True,
     require_etf_moneyflow_baskets: bool = True,
+    allow_missing_date_rows: bool = False,
 ) -> dict[str, Any]:
     pack = build_cn_etf_data_readiness_gate(
         data_root=Path(data_root),
         sync_report_dir=Path(sync_report_dir) if sync_report_dir is not None else None,
         require_etf_share_size=require_etf_share_size,
         require_etf_moneyflow_baskets=require_etf_moneyflow_baskets,
+        allow_missing_date_rows=allow_missing_date_rows,
     )
     write_cn_etf_data_readiness_gate(output_dir, pack)
     return pack
@@ -48,6 +50,7 @@ def main() -> None:
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--allow-missing-etf-share-size", action="store_true")
     parser.add_argument("--allow-missing-etf-moneyflow-baskets", action="store_true")
+    parser.add_argument("--allow-missing-date-rows", action="store_true")
     args = parser.parse_args()
     pack = run_cn_etf_data_readiness_gate(
         data_root=Path(args.data_root),
@@ -55,6 +58,7 @@ def main() -> None:
         output_dir=Path(args.output_dir),
         require_etf_share_size=not args.allow_missing_etf_share_size,
         require_etf_moneyflow_baskets=not args.allow_missing_etf_moneyflow_baskets,
+        allow_missing_date_rows=args.allow_missing_date_rows,
     )
     print(
         json.dumps(

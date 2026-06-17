@@ -86,6 +86,33 @@ class FactorTests(unittest.TestCase):
             ["date", "asset_id", "market", "factor_name", "factor_value", "lookback_window"],
         )
         self.assertIn("volatility_2", set(factors["factor_name"]))
+        self.assertIn("low_volatility_2", set(factors["factor_name"]))
+        self.assertIn("low_downside_volatility_2", set(factors["factor_name"]))
+        self.assertIn("drawdown_resilience_2", set(factors["factor_name"]))
+        self.assertIn("liquidity_resilience_2", set(factors["factor_name"]))
+        self.assertIn("amount_stability_2", set(factors["factor_name"]))
+
+    def test_defensive_and_capacity_factors_have_selection_friendly_direction(self):
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["A"] * 4,
+                "market": ["CN_ETF"] * 4,
+                "date": pd.date_range("2024-01-01", periods=4).date,
+                "adj_close": [100.0, 110.0, 105.0, 115.0],
+                "volume": [100.0, 100.0, 100.0, 100.0],
+                "amount": [10000.0, 20000.0, 10000.0, 10000.0],
+            }
+        )
+
+        factors = compute_basic_factors(bars, windows=(2,))
+        rows = factors[factors["date"] == pd.Timestamp("2024-01-03").date()]
+        values = dict(zip(rows["factor_name"], rows["factor_value"], strict=True))
+
+        self.assertAlmostEqual(values["drawdown_resilience_2"], 105.0 / 110.0 - 1.0)
+        self.assertLessEqual(values["low_volatility_2"], 0.0)
+        self.assertLessEqual(values["low_downside_volatility_2"], 0.0)
+        self.assertLessEqual(values["liquidity_resilience_2"], 0.0)
+        self.assertLessEqual(values["amount_stability_2"], 0.0)
 
 
 if __name__ == "__main__":

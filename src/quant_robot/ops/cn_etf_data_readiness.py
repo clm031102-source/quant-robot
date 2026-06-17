@@ -27,6 +27,7 @@ def build_cn_etf_data_readiness_gate(
     sync_report_dir: str | Path | None = None,
     require_etf_share_size: bool = True,
     require_etf_moneyflow_baskets: bool = True,
+    allow_missing_date_rows: bool = False,
 ) -> dict[str, Any]:
     root = Path(data_root)
     blockers: list[str] = []
@@ -36,7 +37,13 @@ def build_cn_etf_data_readiness_gate(
     if bars_error:
         blockers.append(bars_error)
 
-    data_quality = _data_quality_summary(bars, root, blockers, warnings)
+    data_quality = _data_quality_summary(
+        bars,
+        root,
+        blockers,
+        warnings,
+        allow_missing_date_rows=allow_missing_date_rows,
+    )
     rotation_membership = _rotation_membership_summary(root, bars, blockers, warnings)
     sync_pack = _sync_pack_summary(sync_report_dir, blockers, warnings)
     auxiliary = _auxiliary_dataset_summary(
@@ -61,6 +68,10 @@ def build_cn_etf_data_readiness_gate(
         "auxiliary_feature_policy": {
             "cn_stock_moneyflow": "auxiliary_only",
             "direct_cn_stock_selection": "forbidden",
+        },
+        "data_quality_policy": {
+            "allow_missing_date_rows": bool(allow_missing_date_rows),
+            "missing_date_rows": "warning" if allow_missing_date_rows else "blocker",
         },
         "lookahead_policy": {
             "signal_date": "T",
@@ -167,6 +178,8 @@ def _data_quality_summary(
     root: Path,
     blockers: list[str],
     warnings: list[str],
+    *,
+    allow_missing_date_rows: bool,
 ) -> dict[str, Any]:
     if bars.empty:
         return {
@@ -186,11 +199,14 @@ def _data_quality_summary(
     missing_date_rows = int(_number(summary.get("missing_date_rows"), 0))
     zero_volume_rows = int(_number(summary.get("zero_volume_rows"), 0))
     if missing_date_rows > 0:
-        blockers.append("data_quality_missing_date_rows")
+        if allow_missing_date_rows:
+            warnings.append("data_quality_missing_date_rows_allowed")
+        else:
+            blockers.append("data_quality_missing_date_rows")
     if zero_volume_rows > 0:
         warnings.append("data_quality_zero_volume_rows_present")
     return {
-        "status": "blocked" if missing_date_rows > 0 else "ready",
+        "status": "warning" if missing_date_rows > 0 and allow_missing_date_rows else "blocked" if missing_date_rows > 0 else "ready",
         "rows": int(_number(summary.get("rows"), 0)),
         "assets": int(_number(summary.get("assets"), 0)),
         "start_date": summary.get("start_date"),

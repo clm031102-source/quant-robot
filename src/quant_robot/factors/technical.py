@@ -33,11 +33,41 @@ def compute_basic_factors(bars: pd.DataFrame, windows: tuple[int, ...] = (5, 20)
                     _factor_frame(enriched, f"volatility_{window}", enriched["_return"].rolling(window).std(ddof=0), window),
                     _factor_frame(
                         enriched,
+                        f"low_volatility_{window}",
+                        -enriched["_return"].rolling(window).std(ddof=0),
+                        window,
+                    ),
+                    _factor_frame(
+                        enriched,
+                        f"low_downside_volatility_{window}",
+                        _low_downside_volatility(enriched["_return"], window),
+                        window,
+                    ),
+                    _factor_frame(
+                        enriched,
+                        f"drawdown_resilience_{window}",
+                        _drawdown_resilience(enriched["adj_close"], window),
+                        window,
+                    ),
+                    _factor_frame(
+                        enriched,
                         f"volume_change_{window}",
                         enriched["volume"] / enriched["volume"].rolling(window).mean() - 1.0,
                         window,
                     ),
                     _factor_frame(enriched, f"liquidity_{window}", _amihud(enriched["_return"], enriched["amount"]), window),
+                    _factor_frame(
+                        enriched,
+                        f"liquidity_resilience_{window}",
+                        -_amihud(enriched["_return"], enriched["amount"]),
+                        window,
+                    ),
+                    _factor_frame(
+                        enriched,
+                        f"amount_stability_{window}",
+                        _amount_stability(enriched["amount"], window),
+                        window,
+                    ),
                 ]
             )
     if not pieces:
@@ -58,10 +88,27 @@ def _risk_adjusted_momentum(price: pd.Series, returns: pd.Series, window: int) -
     return value.replace([np.inf, -np.inf], np.nan)
 
 
+def _low_downside_volatility(returns: pd.Series, window: int) -> pd.Series:
+    downside = returns.clip(upper=0.0)
+    return -downside.rolling(window).std(ddof=0)
+
+
+def _drawdown_resilience(price: pd.Series, window: int) -> pd.Series:
+    rolling_high = price.rolling(window).max()
+    with np.errstate(divide="ignore", invalid="ignore"):
+        value = price / rolling_high - 1.0
+    return value.replace([np.inf, -np.inf], np.nan)
+
+
 def _amihud(returns: pd.Series, amount: pd.Series) -> pd.Series:
     with np.errstate(divide="ignore", invalid="ignore"):
         value = returns.abs() / amount.replace(0, np.nan)
     return value.replace([np.inf, -np.inf], np.nan)
+
+
+def _amount_stability(amount: pd.Series, window: int) -> pd.Series:
+    amount_change = amount.replace(0, np.nan).pct_change()
+    return -amount_change.rolling(window).std(ddof=0)
 
 
 def _factor_frame(group: pd.DataFrame, name: str, values: pd.Series, window: int) -> pd.DataFrame:

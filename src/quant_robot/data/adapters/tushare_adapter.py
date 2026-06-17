@@ -136,7 +136,8 @@ class TushareAdapter(MarketDataAdapter):
                 last_error = exc
                 if attempt < self.max_retries - 1:
                     sleep(self.retry_sleep_seconds)
-        raise RuntimeError(f"Tushare request failed after {self.max_retries} attempts") from last_error
+        detail = f": {last_error}" if last_error is not None else ""
+        raise RuntimeError(f"Tushare request failed after {self.max_retries} attempts{detail}") from last_error
 
 
 def _create_tushare_client() -> object:
