@@ -1,0 +1,202 @@
+{
+  "scope_id": "cn_stock_factor_mining",
+  "description": "Reusable startup gate for A-share CN stock factor mining on office/high-spec desktops.",
+  "market": "CN",
+  "asset_type": "stock",
+  "allowed_machines": [
+    "office_desktop",
+    "highspec_desktop"
+  ],
+  "allowed_tasks": [
+    "factor_batch",
+    "factor_validation",
+    "factor_review"
+  ],
+  "recommended_branch_prefix": "codex/factor-batch-cn-stock-",
+  "recommended_branch_prefixes": [
+    "codex/factor-batch-cn-stock-",
+    "codex/factor-validation-cn-stock-",
+    "codex/factor-review-cn-stock-"
+  ],
+  "forbidden_markets": [
+    "CN_ETF",
+    "HK",
+    "US",
+    "CRYPTO"
+  ],
+  "default_data_root": "data/processed/office_desktop_20260616_combined_research",
+  "required_inputs": [
+    "bars",
+    "moneyflow_inputs"
+  ],
+  "required_confirmations": [
+    "machine_confirmed",
+    "task_confirmed",
+    "branch_confirmed",
+    "push_policy_confirmed",
+    "cn_stock_scope_confirmed",
+    "etf_scope_rejected",
+    "audit_optimization_plan_confirmed",
+    "next_direction_confirmed",
+    "candidate_plan_pre_registered",
+    "portfolio_construction_gate_confirmed",
+    "holding_rebalance_plan_confirmed",
+    "bootstrap_robustness_plan_confirmed",
+    "parameter_sensitivity_plan_confirmed",
+    "latest_tailrankic_batch_confirmed",
+    "downside_lowvol_lead_confirmed",
+    "monthly_persistence_plan_confirmed",
+    "latest_monthly_persistence_batch_confirmed",
+    "hold20_top50_lead_confirmed",
+    "latest_monthly_loss_control_batch_confirmed",
+    "latest_threshold_robustness_batch_confirmed",
+    "prev_month_neg1_gate_confirmed",
+    "latest_rankic_enhancement_batch_confirmed",
+    "downside_range_champion_confirmed",
+    "latest_champion_staggered_schedule_batch_confirmed",
+    "batch12_validation_handoff_confirmed",
+    "daily_champion_oos_candidates_confirmed",
+    "factor_validation_branch_confirmed",
+    "oos_2025_only_validation_plan_confirmed",
+    "overlap_adjusted_statistics_plan_confirmed",
+    "daily_vs_every2_every3_controls_confirmed",
+    "cost_capacity_turnover_stress_confirmed",
+    "cumulative_multiple_testing_gate_confirmed",
+    "capacity_cost_gate_confirmed",
+    "failed_direction_rotation_confirmed"
+  ],
+  "research_direction": {
+    "objective": "cn_stock_cross_sectional_alpha",
+    "mandate": "Mine tradable A-share stock cross-sectional alpha factors; do not evaluate this run as ETF rotation.",
+    "allowed_factor_families": [
+      "price_volume",
+      "daily_basic",
+      "moneyflow",
+      "composite",
+      "liquidity_capacity"
+    ],
+    "forbidden_directions": [
+      "cn_etf_rotation",
+      "single_family_lockin",
+      "oos_tuning",
+      "ic_only_promotion",
+      "capacity_blind_microcap_tail"
+    ],
+    "stage_policy": {
+      "discovery": "Use 2023-07-03 through 2024-12-31 only for candidate design and first-pass filtering.",
+      "validation": "Use 2025-01-01 through 2025-12-31 only after discovery evidence clears cost, capacity, drawdown, and tail checks.",
+      "final_holdout": "Use 2026-01-01 through 2026-06-15 as a read-once final holdout; never tune after reading it."
+    },
+    "factor_family_rotation": {
+      "max_failed_batches_before_rotation": 1,
+      "max_single_family_share": 0.5,
+      "record_rejected_families": true
+    },
+    "repeatable_mining_protocol": {
+      "source_audit": "data/reports/cn_stock_factor_mining_20260617_batch_audit.md",
+      "next_direction": "factor_validation_required_for_daily_champion_oos_candidates",
+      "recently_rejected_directions": [
+        "single_factor_top50_daily_long_only",
+        "liquid_trend_direct_long",
+        "capacity_blind_microcap_tail",
+        "moneyflow_only_lockin",
+        "regime_filter_as_default_drawdown_fix",
+        "bootstrap_only_without_rankic_improvement",
+        "broad_rankic_improvement_without_monthly_persistence",
+        "topn_breadth_expansion_for_monthly_stability",
+        "defensive_dividend_overlay_for_monthly_stability",
+        "prev_month_positive_gate_without_sample_robustness",
+        "high_sharpe_low_signal_count_direct_oos",
+        "threshold_tuning_without_rankic_significance",
+        "prev_month_zero_gate_low_signal_sample",
+        "component_mining_without_rankic_confirmation",
+        "p_value_reset_after_champion_selection",
+        "daily_schedule_sharpe_without_oos_validation",
+        "overlapping_holdings_as_independent_returns"
+      ],
+      "required_experiment_design": [
+        "daily_champion_10bps_20bps_validation",
+        "twenty_twenty_five_oos_only",
+        "overlap_aware_return_statistics",
+        "daily_vs_every2_every3_controls",
+        "cost_capacity_turnover_stress",
+        "cumulative_multiple_testing_accounting",
+        "no_parameter_tuning_during_oos",
+        "final_holdout_only_after_oos_clearance"
+      ],
+      "confirm_before_each_run": [
+        "previous_audit_read",
+        "latest_bootstrap_diagnostic_read",
+        "latest_tailrankic_batch_read",
+        "latest_monthly_persistence_batch_read",
+        "latest_monthly_loss_control_batch_read",
+        "latest_threshold_robustness_batch_read",
+        "latest_rankic_enhancement_batch_read",
+        "latest_champion_staggered_schedule_batch_read",
+        "batch12_validation_handoff_read",
+        "prev_month_neg1_gate_pre_registered",
+        "downside_range_champion_pre_registered",
+        "daily_champion_oos_candidates_pre_registered",
+        "factor_validation_branch_confirmed",
+        "oos_2025_only_validation_plan_registered",
+        "overlap_adjusted_statistics_plan_enabled",
+        "cumulative_multiple_testing_gate_enabled",
+        "daily_vs_every2_every3_controls_enabled",
+        "cost_capacity_turnover_stress_enabled",
+        "cost_capacity_gate_enabled",
+        "final_holdout_not_touched"
+      ]
+    }
+  },
+  "candidate_budget": {
+    "first_batch_max_candidates": 120,
+    "full_eval_top_candidates": 30,
+    "pre_register_every_candidate": true,
+    "record_rejected_candidates": true
+  },
+  "universe_gate": {
+    "exclude_st": true,
+    "exclude_suspended": true,
+    "exclude_limit_up_down_if_untradable": true,
+    "min_listing_days": 120,
+    "min_signal_date_amount": 10000000,
+    "max_position_adv_participation": 0.05
+  },
+  "validation_windows": {
+    "discovery": {
+      "start": "2023-07-03",
+      "end": "2024-12-31",
+      "purpose": "candidate discovery only"
+    },
+    "validation": {
+      "start": "2025-01-01",
+      "end": "2025-12-31",
+      "purpose": "out-of-sample validation"
+    },
+    "final_holdout": {
+      "start": "2026-01-01",
+      "end": "2026-06-15",
+      "purpose": "final recent holdout; do not tune after reading it"
+    }
+  },
+  "promotion_gate": {
+    "min_trades": 30,
+    "min_abs_ic": 0.02,
+    "min_abs_icir": 0.5,
+    "min_positive_ic_rate": 0.55,
+    "max_promotable_sharpe": 3.0,
+    "min_walk_forward_accepted_folds": 2,
+    "require_costs": true,
+    "require_capacity_controls": true,
+    "require_regime_review": true,
+    "require_2026_holdout_not_collapsed": true
+  },
+  "safety": {
+    "research_to_review_only": true,
+    "broker_connection_allowed": false,
+    "live_account_read_allowed": false,
+    "order_placement_allowed": false,
+    "automatic_live_trading_allowed": false,
+    "push_requires_manual_approval": true
+  }
+}

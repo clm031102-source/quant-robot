@@ -239,6 +239,30 @@ def _merged_row(
             "test_decision_status": test.get("decision_status") if test else "missing",
             "train_sharpe": train_sharpe,
             "test_sharpe": test_sharpe,
+            "train_overlap_naive_sharpe": _metric(train, "overlap_naive_sharpe"),
+            "test_overlap_naive_sharpe": _metric(test, "overlap_naive_sharpe"),
+            "train_overlap_autocorr_adjusted_sharpe": _metric(train, "overlap_autocorr_adjusted_sharpe"),
+            "test_overlap_autocorr_adjusted_sharpe": _metric(test, "overlap_autocorr_adjusted_sharpe"),
+            "train_overlap_newey_west_standard_error_mean": _metric(
+                train,
+                "overlap_newey_west_standard_error_mean",
+            ),
+            "test_overlap_newey_west_standard_error_mean": _metric(
+                test,
+                "overlap_newey_west_standard_error_mean",
+            ),
+            "train_overlap_newey_west_t_stat_mean": _metric(train, "overlap_newey_west_t_stat_mean"),
+            "test_overlap_newey_west_t_stat_mean": _metric(test, "overlap_newey_west_t_stat_mean"),
+            "train_overlap_variance_inflation": _metric(train, "overlap_variance_inflation"),
+            "test_overlap_variance_inflation": _metric(test, "overlap_variance_inflation"),
+            "train_overlap_effective_sample_size": _metric(train, "overlap_effective_sample_size"),
+            "test_overlap_effective_sample_size": _metric(test, "overlap_effective_sample_size"),
+            "train_overlap_observations": int(_metric(train, "overlap_observations")),
+            "test_overlap_observations": int(_metric(test, "overlap_observations")),
+            "train_overlap_risk_flag": bool(_raw_metric(train, "overlap_risk_flag", False)),
+            "test_overlap_risk_flag": bool(_raw_metric(test, "overlap_risk_flag", False)),
+            "train_overlap_autocorrelations": _raw_metric(train, "overlap_autocorrelations", []),
+            "test_overlap_autocorrelations": _raw_metric(test, "overlap_autocorrelations", []),
             "train_max_drawdown": _metric(train, "max_drawdown"),
             "test_max_drawdown": test_max_drawdown,
             "train_mean_ic": _metric(train, "mean_ic"),
@@ -336,6 +360,34 @@ def _aggregate_case_rows(case_id: str, rows: list[dict[str, Any]], config: WalkF
             "train_sharpe": _mean_metric(rows, "train_sharpe"),
             "test_sharpe": mean_test_sharpe,
             "mean_test_sharpe": mean_test_sharpe,
+            "train_overlap_naive_sharpe": _mean_metric(rows, "train_overlap_naive_sharpe"),
+            "test_overlap_naive_sharpe": _mean_metric(rows, "test_overlap_naive_sharpe"),
+            "train_overlap_autocorr_adjusted_sharpe": _mean_metric(
+                rows,
+                "train_overlap_autocorr_adjusted_sharpe",
+            ),
+            "test_overlap_autocorr_adjusted_sharpe": _mean_metric(
+                rows,
+                "test_overlap_autocorr_adjusted_sharpe",
+            ),
+            "train_overlap_newey_west_standard_error_mean": _mean_metric(
+                rows,
+                "train_overlap_newey_west_standard_error_mean",
+            ),
+            "test_overlap_newey_west_standard_error_mean": _mean_metric(
+                rows,
+                "test_overlap_newey_west_standard_error_mean",
+            ),
+            "train_overlap_newey_west_t_stat_mean": _mean_metric(rows, "train_overlap_newey_west_t_stat_mean"),
+            "test_overlap_newey_west_t_stat_mean": _mean_metric(rows, "test_overlap_newey_west_t_stat_mean"),
+            "train_overlap_variance_inflation": _mean_metric(rows, "train_overlap_variance_inflation"),
+            "test_overlap_variance_inflation": _mean_metric(rows, "test_overlap_variance_inflation"),
+            "train_overlap_effective_sample_size": _min_metric(rows, "train_overlap_effective_sample_size"),
+            "test_overlap_effective_sample_size": _min_metric(rows, "test_overlap_effective_sample_size"),
+            "train_overlap_observations": sum(int(_metric(row, "train_overlap_observations")) for row in rows),
+            "test_overlap_observations": sum(int(_metric(row, "test_overlap_observations")) for row in rows),
+            "train_overlap_risk_flag": any(bool(row.get("train_overlap_risk_flag")) for row in rows),
+            "test_overlap_risk_flag": any(bool(row.get("test_overlap_risk_flag")) for row in rows),
             "train_max_drawdown": _min_metric(rows, "train_max_drawdown"),
             "test_max_drawdown": worst_test_max_drawdown,
             "worst_test_max_drawdown": worst_test_max_drawdown,
@@ -547,6 +599,12 @@ def _metric_or(row: dict[str, Any] | None, key: str, default: float) -> float:
     except (TypeError, ValueError):
         return default
     return value if math.isfinite(value) else default
+
+
+def _raw_metric(row: dict[str, Any] | None, key: str, default: Any) -> Any:
+    if row is None:
+        return default
+    return row.get(key, default)
 
 
 def _mean_metric(rows: list[dict[str, Any]], key: str) -> float:

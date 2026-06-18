@@ -17,6 +17,9 @@ class DesktopValidationSummaryTests(unittest.TestCase):
                 "top_n": "5",
                 "cost_bps": "20",
                 "mean_test_sharpe": "1.2",
+                "test_overlap_autocorr_adjusted_sharpe": "0.8",
+                "test_overlap_effective_sample_size": "42",
+                "test_overlap_risk_flag": "True",
                 "mean_test_relative_return": "0.3",
                 "worst_test_max_drawdown": "-0.2",
                 "accepted_folds": "2",
@@ -33,6 +36,9 @@ class DesktopValidationSummaryTests(unittest.TestCase):
                 "top_n": "20",
                 "cost_bps": "30",
                 "mean_test_sharpe": "-0.1",
+                "test_overlap_autocorr_adjusted_sharpe": "-0.2",
+                "test_overlap_effective_sample_size": "18",
+                "test_overlap_risk_flag": "False",
                 "mean_test_relative_return": "-0.2",
                 "worst_test_max_drawdown": "-0.5",
                 "accepted_folds": "0",
@@ -65,6 +71,10 @@ class DesktopValidationSummaryTests(unittest.TestCase):
         self.assertIn("walk_forward_not_accepted", summary)
         self.assertIn("research-to-paper only", summary)
         self.assertIn("Tail IC p", summary)
+        self.assertIn("Adj Sharpe", summary)
+        self.assertIn("Eff N", summary)
+        self.assertIn("0.8", summary)
+        self.assertIn("42", summary)
         self.assertIn("not_significant", summary)
 
     def test_run_summary_reads_files_and_writes_markdown(self):

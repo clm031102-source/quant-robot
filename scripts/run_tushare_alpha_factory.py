@@ -12,6 +12,8 @@ for path in (SRC_ROOT, PROJECT_ROOT):
         sys.path.insert(0, str(path))
 
 from quant_robot.research.alpha_factory import AlphaFactoryConfig, run_tushare_alpha_factory
+from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manifest_packet
+from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet
 from scripts.run_research_pipeline import load_research_bars
 
 
@@ -36,7 +38,20 @@ def run_alpha_factory_cli(
     market_impact_bps: float = 10.0,
     max_participation_rate: float | None = 0.05,
     require_capacity_controls: bool = True,
+    startup_gate_packet: str | Path | None = Path("data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"),
+    data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
+    allow_missing_startup_gate: bool = False,
+    allow_review_required_data_manifest: bool = False,
 ) -> dict[str, object]:
+    _enforce_cn_stock_startup_gate(
+        source=source,
+        market=market,
+        startup_gate_packet=startup_gate_packet,
+        data_manifest_packet=data_manifest_packet,
+        allow_missing_startup_gate=allow_missing_startup_gate,
+        allow_review_required_data_manifest=allow_review_required_data_manifest,
+        data_root=Path(data_root),
+    )
     bars = load_research_bars(source, Path(data_root), market)
     config = AlphaFactoryConfig(
         market=market,
@@ -87,6 +102,26 @@ def main() -> None:
     parser.add_argument("--market-impact-bps", default=10.0, type=float)
     parser.add_argument("--max-participation-rate", default=0.05, type=float)
     parser.add_argument("--allow-missing-capacity-controls", action="store_true")
+    parser.add_argument(
+        "--startup-gate-packet",
+        default="data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json",
+        help="Cleared CN stock factor-mining startup gate packet required for processed CN runs.",
+    )
+    parser.add_argument(
+        "--allow-missing-startup-gate",
+        action="store_true",
+        help="Deprecated. CN processed-bars runs cannot bypass the startup gate.",
+    )
+    parser.add_argument(
+        "--data-manifest-packet",
+        default="data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json",
+        help="CN stock data manifest packet required for processed CN runs.",
+    )
+    parser.add_argument(
+        "--allow-review-required-data-manifest",
+        action="store_true",
+        help="Allow a reviewed CN stock data manifest that has warnings but no blockers.",
+    )
     args = parser.parse_args()
     result = run_alpha_factory_cli(
         source=args.source,
@@ -109,6 +144,10 @@ def main() -> None:
         market_impact_bps=args.market_impact_bps,
         max_participation_rate=args.max_participation_rate,
         require_capacity_controls=not args.allow_missing_capacity_controls,
+        startup_gate_packet=Path(args.startup_gate_packet) if args.startup_gate_packet else None,
+        data_manifest_packet=Path(args.data_manifest_packet) if args.data_manifest_packet else None,
+        allow_missing_startup_gate=args.allow_missing_startup_gate,
+        allow_review_required_data_manifest=args.allow_review_required_data_manifest,
     )
     print(
         json.dumps(
@@ -119,6 +158,32 @@ def main() -> None:
             indent=2,
             sort_keys=True,
         )
+    )
+
+
+def _enforce_cn_stock_startup_gate(
+    *,
+    source: str,
+    market: str,
+    startup_gate_packet: str | Path | None,
+    data_manifest_packet: str | Path | None,
+    allow_missing_startup_gate: bool,
+    allow_review_required_data_manifest: bool,
+    data_root: Path,
+) -> None:
+    if source != "processed-bars" or market.upper() != "CN":
+        return
+    if allow_missing_startup_gate:
+        raise ValueError("CN processed-bars alpha factory startup gate cannot be bypassed")
+    validate_cleared_startup_gate_packet(
+        startup_gate_packet,
+        context="CN processed-bars alpha factory",
+    )
+    validate_cn_stock_data_manifest_packet(
+        data_manifest_packet,
+        expected_source_root=data_root,
+        allow_review_required=allow_review_required_data_manifest,
+        context="CN processed-bars alpha factory",
     )
 
 

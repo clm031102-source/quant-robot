@@ -26,6 +26,7 @@ class WalkForwardTests(unittest.TestCase):
                     factor_windows=(2,),
                     top_n_values=(1,),
                     cost_bps_values=(0.0,),
+                    forward_horizon=2,
                 ),
                 output_dir=Path(tmp),
                 min_test_sharpe=0.0,
@@ -48,6 +49,9 @@ class WalkForwardTests(unittest.TestCase):
             self.assertIn("test_tail_ic_p_value", leaderboard[0])
             self.assertIn("test_tail_ic_observations", leaderboard[0])
             self.assertIn("test_tail_significance_status", leaderboard[0])
+            self.assertIn("test_overlap_autocorr_adjusted_sharpe", leaderboard[0])
+            self.assertIn("test_overlap_effective_sample_size", leaderboard[0])
+            self.assertIn("test_overlap_risk_flag", leaderboard[0])
             self.assertTrue((Path(tmp) / "walk_forward_leaderboard.csv").exists())
             self.assertTrue((Path(tmp) / "walk_forward_leaderboard.json").exists())
             self.assertTrue((Path(tmp) / "manifest.json").exists())

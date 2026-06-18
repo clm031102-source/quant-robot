@@ -221,16 +221,30 @@ def _run_case(
 
 
 def _precompute_factor_matrix(bars: pd.DataFrame, config: ExperimentGridConfig) -> pd.DataFrame | None:
+    source_bars = _filter_bars_for_precompute(bars, config)
     if config.factor_source == "technical":
-        return compute_basic_factors(bars, windows=config.factor_windows)
+        return compute_basic_factors(source_bars, windows=config.factor_windows)
     if config.factor_source == "moneyflow_technical_combo":
         moneyflow_inputs = _load_grid_moneyflow_inputs(config)
         return compute_moneyflow_technical_combo_factors(
-            bars,
+            source_bars,
             moneyflow_inputs,
             factor_names=config.factor_names,
         )
     return None
+
+
+def _filter_bars_for_precompute(bars: pd.DataFrame, config: ExperimentGridConfig) -> pd.DataFrame:
+    frame = bars.copy()
+    frame["date"] = pd.to_datetime(frame["date"]).dt.date
+    markets = {market.upper() for market in config.markets if market.upper() != "ALL"}
+    if markets:
+        frame = frame[frame["market"].astype(str).str.upper().isin(markets)]
+    if config.start_date:
+        frame = frame[pd.to_datetime(frame["date"]).dt.date >= pd.to_datetime(config.start_date).date()]
+    if config.end_date:
+        frame = frame[pd.to_datetime(frame["date"]).dt.date <= pd.to_datetime(config.end_date).date()]
+    return frame.sort_values(["asset_id", "date"]).reset_index(drop=True)
 
 
 def _load_grid_moneyflow_inputs(config: ExperimentGridConfig) -> pd.DataFrame:
@@ -272,6 +286,24 @@ def _row(case: ExperimentCase, status: str, error: str | None, trades: int, resu
             "sharpe": _number(metrics.get("sharpe"), 0.0),
             "max_drawdown": _number(metrics.get("max_drawdown"), 0.0),
             "win_rate": _number(metrics.get("win_rate"), 0.0),
+            "overlap_usable": bool(metrics.get("overlap_usable", False)),
+            "overlap_observations": int(_number(metrics.get("overlap_observations"), 0.0)),
+            "overlap_holding_period": int(_number(metrics.get("overlap_holding_period"), 0.0)),
+            "overlap_max_lag": int(_number(metrics.get("overlap_max_lag"), 0.0)),
+            "overlap_naive_sharpe": _number(metrics.get("overlap_naive_sharpe"), 0.0),
+            "overlap_autocorr_adjusted_sharpe": _number(
+                metrics.get("overlap_autocorr_adjusted_sharpe"),
+                0.0,
+            ),
+            "overlap_newey_west_standard_error_mean": _number(
+                metrics.get("overlap_newey_west_standard_error_mean"),
+                0.0,
+            ),
+            "overlap_newey_west_t_stat_mean": _number(metrics.get("overlap_newey_west_t_stat_mean"), 0.0),
+            "overlap_variance_inflation": _number(metrics.get("overlap_variance_inflation"), 0.0),
+            "overlap_effective_sample_size": _number(metrics.get("overlap_effective_sample_size"), 0.0),
+            "overlap_autocorrelations": metrics.get("overlap_autocorrelations", []),
+            "overlap_risk_flag": bool(metrics.get("overlap_risk_flag", False)),
             "turnover": _number(metrics.get("turnover"), 0.0),
             "average_holdings": _number(metrics.get("average_holdings"), 0.0),
             "avg_cost_rate": _number(metrics.get("avg_cost_rate"), 0.0),

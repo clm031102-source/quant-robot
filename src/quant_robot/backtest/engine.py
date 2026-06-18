@@ -7,6 +7,7 @@ import pandas as pd
 from quant_robot.backtest.costs import capacity_limited, estimate_trade_cost_rate
 from quant_robot.backtest.metrics import summarize_returns
 from quant_robot.backtest.portfolio import select_top_n
+from quant_robot.research.overlap import overlap_aware_return_stats
 
 
 @dataclass(frozen=True)
@@ -77,6 +78,13 @@ def run_factor_backtest(
         equity_curve["period_return"] if not equity_curve.empty else pd.Series(dtype=float),
         periods_per_year=periods_per_year,
     )
+    metrics.update(
+        _overlap_metrics(
+            equity_curve["period_return"] if not equity_curve.empty else pd.Series(dtype=float),
+            periods_per_year=periods_per_year,
+            holding_period=holding_period,
+        )
+    )
     if not trades.empty:
         metrics["turnover"] = float(trades.groupby("signal_date")["target_weight"].sum().mean())
         metrics["average_holdings"] = float(trades.groupby("signal_date")["asset_id"].nunique().mean())
@@ -94,6 +102,18 @@ def run_factor_backtest(
         metrics["max_participation_rate"] = 0.0
         metrics["capacity_limited_trades"] = 0
     return BacktestResult(equity_curve=equity_curve, positions=selected, trades=trades, metrics=metrics)
+
+
+def _overlap_metrics(returns: pd.Series, *, periods_per_year: float, holding_period: int) -> dict[str, object]:
+    stats = overlap_aware_return_stats(
+        returns,
+        periods_per_year=periods_per_year,
+        holding_period=holding_period,
+    )
+    return {
+        key if key.startswith("overlap_") else f"overlap_{key}": value
+        for key, value in stats.items()
+    }
 
 
 def _require_columns(frame: pd.DataFrame, columns: list[str], name: str) -> None:

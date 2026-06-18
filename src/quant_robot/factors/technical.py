@@ -37,7 +37,7 @@ def compute_basic_factors(bars: pd.DataFrame, windows: tuple[int, ...] = (5, 20)
                         enriched["volume"] / enriched["volume"].rolling(window).mean() - 1.0,
                         window,
                     ),
-                    _factor_frame(enriched, f"liquidity_{window}", _amihud(enriched["_return"], enriched["amount"]), window),
+                    _factor_frame(enriched, f"liquidity_{window}", _amihud(enriched["_return"], enriched["amount"]).rolling(window).mean(), window),
                 ]
             )
     if not pieces:

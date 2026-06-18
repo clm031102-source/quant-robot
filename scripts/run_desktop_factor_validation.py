@@ -17,6 +17,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
     from run_walk_forward import assert_walk_forward_succeeded, run_walk_forward
 
 from quant_robot.validation.walk_forward import load_walk_forward_config
+from quant_robot.ops.batch12_validation_preflight import validate_batch12_validation_preflight_packet
 
 
 DEFAULT_CONFIG_PATH = Path("configs/walk_forward_tushare_moneyflow_residual_regime.json")
@@ -30,9 +31,11 @@ def run_desktop_factor_validation(
     data_root: str | Path = DEFAULT_DATA_ROOT,
     output_dir: str | Path | None = None,
     require_accepted: bool = False,
+    batch12_validation_preflight_packet: str | Path | None = None,
 ) -> dict[str, object]:
     config_path = Path(config_path)
     data_root = Path(data_root)
+    _validate_optional_batch12_preflight(batch12_validation_preflight_packet)
     _preflight_desktop_inputs(config_path, source, data_root)
     result = run_walk_forward(
         config_path=config_path,
@@ -42,6 +45,12 @@ def run_desktop_factor_validation(
     )
     assert_walk_forward_succeeded(result, allow_no_accepted=not require_accepted)
     return result
+
+
+def _validate_optional_batch12_preflight(packet_path: str | Path | None) -> None:
+    if packet_path is None:
+        return
+    validate_batch12_validation_preflight_packet(Path(packet_path))
 
 
 def _preflight_desktop_inputs(config_path: str | Path, source: str, data_root: str | Path) -> None:
@@ -73,6 +82,10 @@ def main() -> None:
         action="store_true",
         help="Fail when validation completes but every candidate is rejected.",
     )
+    parser.add_argument(
+        "--batch12-validation-preflight-packet",
+        help="Require and validate a cleared Batch 12 CN stock validation preflight packet before running.",
+    )
     args = parser.parse_args()
     try:
         result = run_desktop_factor_validation(
@@ -81,6 +94,11 @@ def main() -> None:
             data_root=Path(args.data_root),
             output_dir=Path(args.output_dir) if args.output_dir else None,
             require_accepted=args.require_accepted,
+            batch12_validation_preflight_packet=(
+                Path(args.batch12_validation_preflight_packet)
+                if args.batch12_validation_preflight_packet
+                else None
+            ),
         )
     except (FileNotFoundError, RuntimeError, ValueError) as exc:
         raise SystemExit(str(exc)) from exc

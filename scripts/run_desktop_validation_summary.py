@@ -92,8 +92,8 @@ def build_desktop_validation_summary(
         "",
         "## Top Walk-Forward Rows",
         "",
-        "| Case | Status | Factor | Regime | Top N | Cost | Sharpe | Relative | Drawdown | Folds | Adj IC p | Tail IC p | Tail IC status |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Case | Status | Factor | Regime | Top N | Cost | Sharpe | Adj Sharpe | Eff N | Overlap | Relative | Drawdown | Folds | Adj IC p | Tail IC p | Tail IC status |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for row in sorted(rows, key=_walk_forward_sort_key)[:max_rows]:
         lines.append(
@@ -107,6 +107,9 @@ def build_desktop_validation_summary(
                     _text(row.get("top_n")),
                     _text(row.get("cost_bps")),
                     _metric_text(row, "mean_test_sharpe", "test_sharpe"),
+                    _text(row.get("test_overlap_autocorr_adjusted_sharpe")),
+                    _text(row.get("test_overlap_effective_sample_size")),
+                    _text(row.get("test_overlap_risk_flag")),
                     _metric_text(row, "mean_test_relative_return", "test_relative_return"),
                     _metric_text(row, "worst_test_max_drawdown", "test_max_drawdown"),
                     f"{_text(row.get('accepted_folds'))}/{_text(row.get('folds'))}",

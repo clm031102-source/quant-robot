@@ -102,6 +102,7 @@ class ExperimentRunnerTests(unittest.TestCase):
             factor_windows=(2,),
             top_n_values=(1,),
             cost_bps_values=(0.0,),
+            forward_horizon=2,
             benchmark_asset_id="CN_ETF_XSHG_510300",
             min_relative_return=-1.0,
             rank_by="relative_return",
@@ -114,6 +115,9 @@ class ExperimentRunnerTests(unittest.TestCase):
         self.assertIn("benchmark_total_return", row)
         self.assertIn("relative_return", row)
         self.assertIn("excess_over_cash", row)
+        self.assertIn("overlap_autocorr_adjusted_sharpe", row)
+        self.assertIn("overlap_effective_sample_size", row)
+        self.assertIn("overlap_risk_flag", row)
         self.assertEqual(row["decision_status"], "approved")
 
     def test_experiment_grid_marks_no_trade_cases_without_crashing(self):
@@ -278,6 +282,48 @@ class ExperimentRunnerTests(unittest.TestCase):
         factor_builder.assert_called_once()
         self.assertEqual(len(pipeline.call_args_list), 4)
         self.assertTrue(all(call.kwargs["precomputed_factors"] is matrix for call in pipeline.call_args_list))
+
+    def test_experiment_grid_filters_bars_before_precomputing_factor_matrix(self):
+        bars = pd.DataFrame(
+            {
+                "date": ["2023-12-29", "2024-01-02", "2025-01-02"],
+                "asset_id": ["CN_XSHE_000001", "CN_XSHE_000001", "CN_XSHE_000001"],
+                "symbol": ["000001.SZ", "000001.SZ", "000001.SZ"],
+                "market": ["CN", "CN", "CN"],
+                "source": ["fixture", "fixture", "fixture"],
+                "adj_close": [10.0, 10.1, 10.2],
+                "volume": [1000, 1000, 1000],
+                "amount": [10000.0, 10100.0, 10200.0],
+            }
+        )
+        matrix = pd.DataFrame(columns=["date", "asset_id", "market", "factor_name", "factor_value", "lookback_window"])
+        config = ExperimentGridConfig(
+            markets=("CN",),
+            factor_names=("momentum_2",),
+            factor_windows=(2,),
+            top_n_values=(1,),
+            cost_bps_values=(0.0,),
+            start_date="2024-01-01",
+            end_date="2024-12-31",
+            precompute_factor_matrix=True,
+        )
+        pipeline_result = {
+            "data_mode": "research",
+            "metrics": {"total_return": 0.0, "annualized_return": 0.0, "annualized_volatility": 0.0, "sharpe": 0.0, "max_drawdown": 0.0},
+            "benchmark_metrics": {"benchmark_total_return": 0.0, "relative_return": 0.0, "excess_over_cash": 0.0},
+            "decision": {"decision_status": "approved", "rejection_reasons": []},
+            "factor_summary": {"mean_ic": 0.0, "ic_p_value": 1.0, "significance_status": "unknown"},
+            "artifact_rows": {"trades": 1, "holdings": 1},
+        }
+
+        with (
+            patch("quant_robot.experiments.runner.compute_basic_factors", return_value=matrix) as factor_builder,
+            patch("quant_robot.experiments.runner.run_research_pipeline", return_value=pipeline_result),
+        ):
+            run_experiment_grid(bars, config)
+
+        precompute_bars = factor_builder.call_args.args[0]
+        self.assertEqual(precompute_bars["date"].astype(str).tolist(), ["2024-01-02"])
 
     def test_load_experiment_grid_config_reads_json_file(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -163,6 +163,35 @@ class BacktestTests(unittest.TestCase):
         self.assertTrue(all(abs(weight - 0.5) < 1e-9 for weight in result.trades["target_weight"]))
         self.assertAlmostEqual(result.metrics["turnover"], 0.5)
 
+    def test_backtest_metrics_include_overlap_aware_statistics_for_multi_day_holds(self):
+        factors = pd.DataFrame(
+            {
+                "date": pd.date_range("2024-01-01", periods=5).date,
+                "asset_id": ["A"] * 5,
+                "market": ["US"] * 5,
+                "factor_name": ["momentum_1"] * 5,
+                "factor_value": [1.0] * 5,
+            }
+        )
+        bars = pd.DataFrame(
+            {
+                "date": pd.date_range("2024-01-01", periods=9).date,
+                "asset_id": ["A"] * 9,
+                "market": ["US"] * 9,
+                "adj_close": [100.0, 101.0, 103.0, 102.0, 106.0, 109.0, 108.0, 112.0, 115.0],
+            }
+        )
+
+        result = run_factor_backtest(factors, bars, top_n=1, cost_bps=0.0, holding_period=3)
+
+        self.assertIn("overlap_naive_sharpe", result.metrics)
+        self.assertIn("overlap_autocorr_adjusted_sharpe", result.metrics)
+        self.assertIn("overlap_newey_west_t_stat_mean", result.metrics)
+        self.assertIn("overlap_effective_sample_size", result.metrics)
+        self.assertIn("overlap_risk_flag", result.metrics)
+        self.assertTrue(result.metrics["overlap_risk_flag"])
+        self.assertLessEqual(result.metrics["overlap_effective_sample_size"], result.metrics["overlap_observations"])
+
     def test_backtest_does_not_scale_non_overlapping_sparse_rebalance_sleeves(self):
         factors = pd.DataFrame(
             {

@@ -41,10 +41,12 @@ def run_tushare_daily_basic_ingest(
     trade_dates = _trade_dates(adapter, start_date, end_date)
     for trade_date in trade_dates:
         key = _manifest_key(trade_date)
-        if resume and manifest.is_completed(key):
+        if resume and manifest.is_completed(key) and _raw_partition_has_rows(store, _raw_dataset(), trade_date):
             skipped.append(trade_date)
             continue
         raw = adapter.fetch_daily_basic_by_trade_date(trade_date)
+        if raw.empty:
+            _mark_empty_raw_response(manifest, key, trade_date)
         store.write_frame(raw, _raw_dataset(), {"trade_date": trade_date})
         downloaded.append(trade_date)
         downloaded_rows_by_date[trade_date] = len(raw)
@@ -93,6 +95,23 @@ def _manifest_key(trade_date: str) -> str:
 
 def _raw_dataset() -> str:
     return "raw/tushare/daily_basic"
+
+
+def _raw_partition_has_rows(store: DatasetStore, dataset: str, trade_date: str) -> bool:
+    partitions = {"trade_date": trade_date}
+    if not store.exists(dataset, partitions):
+        return False
+    try:
+        return len(store.read_frame(dataset, partitions)) > 0
+    except FileNotFoundError:
+        return False
+
+
+def _mark_empty_raw_response(manifest: IngestManifest, key: str, trade_date: str) -> None:
+    reason = f"empty raw response for open trade date {trade_date}"
+    manifest.mark_failed(key, reason=reason)
+    manifest.save()
+    raise RuntimeError(reason)
 
 
 def _load_raw_frames(

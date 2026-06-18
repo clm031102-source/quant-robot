@@ -19,6 +19,7 @@ class IngestManifest:
 
     def mark_failed(self, key: str, reason: str) -> None:
         self.data["failed"][key] = reason
+        self.data["completed"].pop(key, None)
 
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)

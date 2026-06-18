@@ -87,6 +87,38 @@ class FactorTests(unittest.TestCase):
         )
         self.assertIn("volatility_2", set(factors["factor_name"]))
 
+    def test_liquidity_factor_uses_rolling_amihud_window(self):
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["A"] * 4,
+                "market": ["US"] * 4,
+                "date": pd.date_range("2024-01-01", periods=4).date,
+                "adj_close": [100.0, 110.0, 99.0, 118.8],
+                "volume": [100.0, 100.0, 100.0, 100.0],
+                "amount": [10000.0, 11000.0, 9900.0, 11880.0],
+            }
+        )
+
+        factors = compute_basic_factors(bars, windows=(2, 3))
+        last_date = pd.Timestamp("2024-01-04").date()
+        liquidity_2 = factors[
+            (factors["date"] == last_date)
+            & (factors["factor_name"] == "liquidity_2")
+        ].iloc[0]["factor_value"]
+        liquidity_3 = factors[
+            (factors["date"] == last_date)
+            & (factors["factor_name"] == "liquidity_3")
+        ].iloc[0]["factor_value"]
+        daily_amihud = [
+            abs(0.10) / 11000.0,
+            abs(-0.10) / 9900.0,
+            abs(0.20) / 11880.0,
+        ]
+
+        self.assertAlmostEqual(liquidity_2, sum(daily_amihud[-2:]) / 2)
+        self.assertAlmostEqual(liquidity_3, sum(daily_amihud) / 3)
+        self.assertNotEqual(liquidity_2, liquidity_3)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -16,6 +16,8 @@ ensure_workspace_imports()
 
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.experiments.runner import ExperimentGridConfig, load_experiment_grid_config, run_experiment_grid
+from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manifest_packet
+from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet
 from quant_robot.storage.processed_bars import load_processed_bars
 
 
@@ -24,10 +26,23 @@ def run_grid(
     source: str = "fixture",
     data_root: str | Path = "data/processed",
     output_dir: str | Path | None = None,
+    startup_gate_packet: str | Path | None = Path("data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"),
+    data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
+    allow_missing_startup_gate: bool = False,
+    allow_review_required_data_manifest: bool = False,
 ) -> dict[str, object]:
     config = load_experiment_grid_config(config_path) if config_path is not None else ExperimentGridConfig()
     if output_dir is not None:
         config = replace(config, output_dir=Path(output_dir))
+    _enforce_cn_stock_startup_gate(
+        source=source,
+        markets=config.markets,
+        startup_gate_packet=startup_gate_packet,
+        data_manifest_packet=data_manifest_packet,
+        allow_missing_startup_gate=allow_missing_startup_gate,
+        allow_review_required_data_manifest=allow_review_required_data_manifest,
+        data_root=Path(data_root),
+    )
     bars = _load_bars(source, Path(data_root), config.markets)
     return run_experiment_grid(bars, config)
 
@@ -38,12 +53,36 @@ def main() -> None:
     parser.add_argument("--source", choices=["fixture", "processed-bars"], default="fixture")
     parser.add_argument("--data-root", default="data/processed")
     parser.add_argument("--output-dir")
+    parser.add_argument(
+        "--startup-gate-packet",
+        default="data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json",
+        help="Cleared CN stock factor-mining startup gate packet required for processed CN grids.",
+    )
+    parser.add_argument(
+        "--allow-missing-startup-gate",
+        action="store_true",
+        help="Deprecated. CN processed-bars grids cannot bypass the startup gate.",
+    )
+    parser.add_argument(
+        "--data-manifest-packet",
+        default="data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json",
+        help="CN stock data manifest packet required for processed CN grids.",
+    )
+    parser.add_argument(
+        "--allow-review-required-data-manifest",
+        action="store_true",
+        help="Allow a reviewed CN stock data manifest that has warnings but no blockers.",
+    )
     args = parser.parse_args()
     result = run_grid(
         config_path=Path(args.config),
         source=args.source,
         data_root=Path(args.data_root),
         output_dir=Path(args.output_dir) if args.output_dir else None,
+        startup_gate_packet=Path(args.startup_gate_packet) if args.startup_gate_packet else None,
+        data_manifest_packet=Path(args.data_manifest_packet) if args.data_manifest_packet else None,
+        allow_missing_startup_gate=args.allow_missing_startup_gate,
+        allow_review_required_data_manifest=args.allow_review_required_data_manifest,
     )
     print(json.dumps({"summary": result["summary"], "top": result["leaderboard"][:10]}, indent=2, sort_keys=True))
     try:
@@ -82,6 +121,32 @@ def _load_bars(source: str, data_root: Path, markets: tuple[str, ...]) -> pd.Dat
     if not frames:
         raise ValueError("processed-bars source requires at least one specific market")
     return pd.concat(frames, ignore_index=True)
+
+
+def _enforce_cn_stock_startup_gate(
+    *,
+    source: str,
+    markets: tuple[str, ...],
+    startup_gate_packet: str | Path | None,
+    data_manifest_packet: str | Path | None,
+    allow_missing_startup_gate: bool,
+    allow_review_required_data_manifest: bool,
+    data_root: Path,
+) -> None:
+    if source != "processed-bars" or not any(market.upper() == "CN" for market in markets):
+        return
+    if allow_missing_startup_gate:
+        raise ValueError("CN processed-bars experiment grid startup gate cannot be bypassed")
+    validate_cleared_startup_gate_packet(
+        startup_gate_packet,
+        context="CN processed-bars experiment grid",
+    )
+    validate_cn_stock_data_manifest_packet(
+        data_manifest_packet,
+        expected_source_root=data_root,
+        allow_review_required=allow_review_required_data_manifest,
+        context="CN processed-bars experiment grid",
+    )
 
 
 if __name__ == "__main__":

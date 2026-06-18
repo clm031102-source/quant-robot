@@ -80,6 +80,21 @@ Before starting work on the laptop, high-spec desktop, or office desktop, confir
 
 See `AGENTS.md`, `configs/workstations.json`, and `docs/workstation_protocol.md`.
 
+Before starting CN stock factor mining on a desktop, run the CN stock startup gate once for the current session. This keeps CN stock alpha research separate from CN ETF rotation research and confirms the latest audit-driven next-run protocol:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_factor_mining_startup_gate.py --config configs\factor_mining_startup_cn_stock.json --machine office_desktop --task factor_batch --branch codex/factor-batch-cn-stock-20260617 --current-branch codex/factor-batch-cn-stock-20260617 --market CN --asset-type stock --confirm-start
+```
+
+Then build the CN stock data manifest for the same local processed store:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_cn_stock_data_manifest.py --data-root data\processed\office_desktop_20260616_combined_research --output-dir data\reports\cn_stock_data_manifest
+```
+
+Both commands write local-only packets under `data/reports/` and do not authorize live trading or cloud push.
+CN `processed-bars` runs through `run_tushare_alpha_factory.py` and `run_experiment_grid.py` require a same-day cleared startup packet and a same-day non-blocked CN stock data manifest by default. The startup packet must include the repeatable mining protocol from the latest audit: review rejected directions, read the latest bootstrap, tail-RankIC, and monthly-persistence diagnostics, pre-register the hold20/top50 lead, test monthly loss-control or rebalance-phase sensitivity, and preserve tail/broad RankIC before touching OOS. If the data manifest is `review_required`, read the warnings first; use `--allow-review-required-data-manifest` only after explicitly accepting them for that run.
+
 For the daily safe-sync workflow, say `同步项目` or run an audit first:
 
 ```powershell

@@ -59,6 +59,35 @@ class FakeMissingMoneyflowAdapter(FakeTushareMoneyflowAdapter):
         return frame
 
 
+class FakeEmptyMoneyflowAdapter(FakeTushareMoneyflowAdapter):
+    def fetch_moneyflow_by_trade_date(self, trade_date: str):
+        self.calls.append(trade_date)
+        return pd.DataFrame(
+            columns=[
+                "symbol",
+                "date",
+                "buy_sm_vol",
+                "buy_sm_amount",
+                "sell_sm_vol",
+                "sell_sm_amount",
+                "buy_md_vol",
+                "buy_md_amount",
+                "sell_md_vol",
+                "sell_md_amount",
+                "buy_lg_vol",
+                "buy_lg_amount",
+                "sell_lg_vol",
+                "sell_lg_amount",
+                "buy_elg_vol",
+                "buy_elg_amount",
+                "sell_elg_vol",
+                "sell_elg_amount",
+                "net_mf_vol",
+                "net_mf_amount",
+            ]
+        )
+
+
 class TushareMoneyflowInputsIngestTests(unittest.TestCase):
     def test_moneyflow_ingest_writes_raw_processed_manifest_and_quality_report(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -99,6 +128,34 @@ class TushareMoneyflowInputsIngestTests(unittest.TestCase):
             self.assertEqual(result["processed_rows"], 4)
             manifest = json.loads((Path(tmp) / "manifest.json").read_text(encoding="utf-8"))
             self.assertIn("moneyflow:20240102", manifest["completed"])
+
+    def test_moneyflow_refetches_completed_trade_date_when_raw_partition_is_empty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = DatasetStore(Path(tmp))
+            store.write_frame(FakeEmptyMoneyflowAdapter().fetch_moneyflow_by_trade_date("20240102"), "raw/tushare/moneyflow", {"trade_date": "20240102"})
+            (Path(tmp) / "manifest.json").write_text(
+                json.dumps({"completed": {"moneyflow:20240102": {"rows": 0}}, "failed": {}, "metadata": {}}),
+                encoding="utf-8",
+            )
+
+            adapter = FakeTushareMoneyflowAdapter()
+            result = run_tushare_moneyflow_ingest(adapter, "2024-01-02", "2024-01-02", Path(tmp), resume=True)
+
+            self.assertEqual(adapter.calls, ["20240102"])
+            self.assertEqual(result["downloaded_trade_dates"], ["20240102"])
+            self.assertEqual(result["skipped_trade_dates"], [])
+            self.assertEqual(result["processed_rows"], 2)
+            manifest = json.loads((Path(tmp) / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["completed"]["moneyflow:20240102"]["rows"], 2)
+
+    def test_moneyflow_rejects_empty_raw_response_for_open_trade_date(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(RuntimeError, "empty raw response"):
+                run_tushare_moneyflow_ingest(FakeEmptyMoneyflowAdapter(), "2024-01-02", "2024-01-02", Path(tmp))
+
+            manifest = json.loads((Path(tmp) / "manifest.json").read_text(encoding="utf-8"))
+            self.assertNotIn("moneyflow:20240102", manifest["completed"])
+            self.assertIn("moneyflow:20240102", manifest["failed"])
 
     def test_moneyflow_ingest_marks_failed_when_processing_fails(self):
         with tempfile.TemporaryDirectory() as tmp:

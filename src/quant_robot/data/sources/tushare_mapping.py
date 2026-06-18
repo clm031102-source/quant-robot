@@ -118,6 +118,9 @@ def map_tushare_adj_factor(frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def map_tushare_trade_cal(frame: pd.DataFrame, open_only: bool = True) -> pd.DataFrame:
+    output_columns = ["exchange", "date", "is_open"]
+    if frame.empty:
+        return pd.DataFrame(columns=output_columns)
     _require_columns(frame, ["cal_date", "is_open"], "tushare trade_cal")
     source = frame.copy()
     if open_only:
@@ -129,7 +132,7 @@ def map_tushare_trade_cal(frame: pd.DataFrame, open_only: bool = True) -> pd.Dat
             "is_open": source["is_open"].astype(int),
         }
     )
-    return mapped.sort_values(["date"]).reset_index(drop=True)
+    return mapped[output_columns].sort_values(["date"]).reset_index(drop=True)
 
 
 def map_tushare_stock_basic(frame: pd.DataFrame) -> pd.DataFrame:
