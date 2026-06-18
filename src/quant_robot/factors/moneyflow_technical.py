@@ -166,8 +166,15 @@ def compute_moneyflow_technical_combo_factors(
         raise ValueError(f"Unsupported moneyflow technical combo factors: {', '.join(unknown)}")
     specs = {name: MONEYFLOW_TECHNICAL_COMBO_SPECS[name] for name in factor_names}
     windows = tuple(sorted({spec.lookback_window for spec in specs.values()}))
-    moneyflow = _with_cross_sectional_zscore(compute_moneyflow_factors(moneyflow_inputs))
-    technical_raw = compute_basic_factors(bars, windows=windows)
+    moneyflow = _with_cross_sectional_zscore(
+        compute_moneyflow_factors(moneyflow_inputs, factor_names=_required_moneyflow_factor_names(specs.values()))
+    )
+    required_technical = _required_technical_factor_names(specs.values())
+    technical_raw = (
+        compute_basic_factors(bars, windows=windows, factor_names=required_technical)
+        if required_technical
+        else pd.DataFrame(columns=FACTOR_COLUMNS)
+    )
     log_amount = _compute_log_amount_factors(bars, _required_log_amount_windows(specs.values()))
     technical = _with_cross_sectional_zscore(pd.concat([technical_raw, log_amount], ignore_index=True))
     pieces = [_combo_frame(name, spec, moneyflow, technical, bars) for name, spec in specs.items()]
@@ -317,6 +324,30 @@ def _required_log_amount_windows(specs: Iterable[ComboFactorSpec]) -> tuple[int,
             if factor_name.startswith("log_amount_"):
                 windows.add(int(factor_name.rsplit("_", 1)[1]))
     return tuple(sorted(windows))
+
+
+def _required_moneyflow_factor_names(specs: Iterable[ComboFactorSpec]) -> tuple[str, ...]:
+    return _unique_preserving_order(spec.moneyflow_factor for spec in specs)
+
+
+def _required_technical_factor_names(specs: Iterable[ComboFactorSpec]) -> tuple[str, ...]:
+    names = []
+    for spec in specs:
+        names.extend(name for name in _exposure_factor_names(spec) if not name.startswith("log_amount_"))
+        if spec.liquidity_gate_factor is not None and not spec.liquidity_gate_factor.startswith("log_amount_"):
+            names.append(spec.liquidity_gate_factor)
+    return _unique_preserving_order(names)
+
+
+def _unique_preserving_order(names: Iterable[str]) -> tuple[str, ...]:
+    seen: set[str] = set()
+    unique = []
+    for name in names:
+        if name in seen:
+            continue
+        seen.add(name)
+        unique.append(name)
+    return tuple(unique)
 
 
 def _compute_log_amount_factors(bars: pd.DataFrame, windows: tuple[int, ...]) -> pd.DataFrame:

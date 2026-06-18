@@ -18,7 +18,7 @@ MONEYFLOW_FACTOR_NAMES = (
 )
 
 
-def compute_moneyflow_factors(inputs: pd.DataFrame) -> pd.DataFrame:
+def compute_moneyflow_factors(inputs: pd.DataFrame, factor_names: tuple[str, ...] | None = None) -> pd.DataFrame:
     required = [
         "date",
         "asset_id",
@@ -36,6 +36,7 @@ def compute_moneyflow_factors(inputs: pd.DataFrame) -> pd.DataFrame:
     missing = [column for column in required if column not in inputs.columns]
     if missing:
         raise ValueError(f"Moneyflow inputs are missing columns: {', '.join(missing)}")
+    requested = _resolve_requested_factor_names(factor_names)
     frame = inputs.copy()
     frame["date"] = pd.to_datetime(frame["date"]).dt.date
     frame = frame.sort_values(["asset_id", "date"])
@@ -60,12 +61,22 @@ def compute_moneyflow_factors(inputs: pd.DataFrame) -> pd.DataFrame:
         "small_order_sell_pressure": small_sell_pressure,
         "small_order_sell_pressure_low": -small_sell_pressure,
     }
-    pieces = [_factor_frame(frame, name, values) for name, values in factor_values.items()]
+    pieces = [_factor_frame(frame, name, factor_values[name]) for name in requested]
     if not pieces:
         return pd.DataFrame(columns=FACTOR_COLUMNS)
     return pd.concat(pieces, ignore_index=True)[FACTOR_COLUMNS].sort_values(
         ["asset_id", "date", "factor_name"]
     ).reset_index(drop=True)
+
+
+def _resolve_requested_factor_names(factor_names: tuple[str, ...] | None) -> tuple[str, ...]:
+    if factor_names is None:
+        return MONEYFLOW_FACTOR_NAMES
+    supported = set(MONEYFLOW_FACTOR_NAMES)
+    unknown = [name for name in factor_names if name not in supported]
+    if unknown:
+        raise ValueError(f"Unsupported moneyflow factor_names: {', '.join(unknown)}")
+    return factor_names
 
 
 def _total_flow_amount(frame: pd.DataFrame) -> pd.Series:

@@ -53,6 +53,15 @@ class TushareInputFactorTests(unittest.TestCase):
 
         self.assertEqual(set(type(value) for value in factors["date"]), {type(pd.Timestamp("2024-01-02").date())})
 
+    def test_daily_basic_factor_builder_can_compute_only_requested_factor_names(self):
+        factors = compute_daily_basic_factors(_daily_basic_inputs(), factor_names=("pb_inverse", "dv_ttm"))
+
+        self.assertEqual(set(factors["factor_name"]), {"pb_inverse", "dv_ttm"})
+
+    def test_daily_basic_factor_builder_rejects_unknown_requested_factor_names(self):
+        with self.assertRaisesRegex(ValueError, "Unsupported daily-basic factor_names"):
+            compute_daily_basic_factors(_daily_basic_inputs(), factor_names=("pb_inverse", "missing_daily_basic"))
+
 
 def _daily_basic_inputs() -> pd.DataFrame:
     return pd.DataFrame(

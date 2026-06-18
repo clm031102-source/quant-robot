@@ -6,11 +6,30 @@ import pandas as pd
 from quant_robot.schema.factors import FACTOR_COLUMNS
 
 
-def compute_basic_factors(bars: pd.DataFrame, windows: tuple[int, ...] = (5, 20)) -> pd.DataFrame:
+TECHNICAL_FACTOR_PREFIXES = (
+    "momentum",
+    "risk_adjusted_momentum",
+    "reversal",
+    "volatility",
+    "volume_change",
+    "liquidity",
+)
+
+
+def technical_factor_names(windows: tuple[int, ...]) -> tuple[str, ...]:
+    return tuple(f"{prefix}_{window}" for window in windows for prefix in TECHNICAL_FACTOR_PREFIXES)
+
+
+def compute_basic_factors(
+    bars: pd.DataFrame,
+    windows: tuple[int, ...] = (5, 20),
+    factor_names: tuple[str, ...] | None = None,
+) -> pd.DataFrame:
     required = ["date", "asset_id", "market", "adj_close", "volume", "amount"]
     missing = [column for column in required if column not in bars.columns]
     if missing:
         raise ValueError(f"Bars are missing columns for factor calculation: {', '.join(missing)}")
+    requested = _resolve_requested_factor_names(technical_factor_names(windows), factor_names, "technical")
 
     frame = bars.copy()
     frame["date"] = pd.to_datetime(frame["date"]).dt.date
@@ -20,31 +39,59 @@ def compute_basic_factors(bars: pd.DataFrame, windows: tuple[int, ...] = (5, 20)
         enriched = group.copy()
         enriched["_return"] = enriched["adj_close"].pct_change()
         for window in windows:
-            pieces.extend(
-                [
-                    _factor_frame(enriched, f"momentum_{window}", _momentum(enriched["adj_close"], window), window),
+            momentum_name = f"momentum_{window}"
+            risk_adjusted_name = f"risk_adjusted_momentum_{window}"
+            reversal_name = f"reversal_{window}"
+            volatility_name = f"volatility_{window}"
+            volume_change_name = f"volume_change_{window}"
+            liquidity_name = f"liquidity_{window}"
+            if momentum_name in requested:
+                pieces.append(_factor_frame(enriched, momentum_name, _momentum(enriched["adj_close"], window), window))
+            if risk_adjusted_name in requested:
+                pieces.append(
                     _factor_frame(
                         enriched,
-                        f"risk_adjusted_momentum_{window}",
+                        risk_adjusted_name,
                         _risk_adjusted_momentum(enriched["adj_close"], enriched["_return"], window),
                         window,
-                    ),
-                    _factor_frame(enriched, f"reversal_{window}", -_momentum(enriched["adj_close"], window), window),
-                    _factor_frame(enriched, f"volatility_{window}", enriched["_return"].rolling(window).std(ddof=0), window),
+                    )
+                )
+            if reversal_name in requested:
+                pieces.append(_factor_frame(enriched, reversal_name, -_momentum(enriched["adj_close"], window), window))
+            if volatility_name in requested:
+                pieces.append(_factor_frame(enriched, volatility_name, enriched["_return"].rolling(window).std(ddof=0), window))
+            if volume_change_name in requested:
+                pieces.append(
                     _factor_frame(
                         enriched,
-                        f"volume_change_{window}",
+                        volume_change_name,
                         enriched["volume"] / enriched["volume"].rolling(window).mean() - 1.0,
                         window,
-                    ),
-                    _factor_frame(enriched, f"liquidity_{window}", _amihud(enriched["_return"], enriched["amount"]).rolling(window).mean(), window),
-                ]
-            )
+                    )
+                )
+            if liquidity_name in requested:
+                pieces.append(
+                    _factor_frame(enriched, liquidity_name, _amihud(enriched["_return"], enriched["amount"]).rolling(window).mean(), window)
+                )
     if not pieces:
         return pd.DataFrame(columns=FACTOR_COLUMNS)
     return pd.concat(pieces, ignore_index=True)[FACTOR_COLUMNS].sort_values(
         ["asset_id", "date", "factor_name"]
     ).reset_index(drop=True)
+
+
+def _resolve_requested_factor_names(
+    supported: tuple[str, ...],
+    factor_names: tuple[str, ...] | None,
+    label: str,
+) -> tuple[str, ...]:
+    if factor_names is None:
+        return supported
+    supported_set = set(supported)
+    unknown = [name for name in factor_names if name not in supported_set]
+    if unknown:
+        raise ValueError(f"Unsupported {label} factor_names: {', '.join(unknown)}")
+    return factor_names
 
 
 def _momentum(price: pd.Series, window: int) -> pd.Series:

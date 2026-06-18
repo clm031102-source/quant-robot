@@ -10,10 +10,13 @@ import pandas as pd
 
 from quant_robot.backtest.engine import run_factor_backtest
 from quant_robot.data.quality import validate_market_data
-from quant_robot.factors.technical import compute_basic_factors
-from quant_robot.factors.tushare_inputs import compute_daily_basic_factors
-from quant_robot.factors.moneyflow_technical import compute_moneyflow_technical_combo_factors
-from quant_robot.factors.tushare_moneyflow import compute_moneyflow_factors
+from quant_robot.factors.technical import compute_basic_factors, technical_factor_names
+from quant_robot.factors.tushare_inputs import DAILY_BASIC_FACTOR_NAMES, compute_daily_basic_factors
+from quant_robot.factors.moneyflow_technical import (
+    MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES,
+    compute_moneyflow_technical_combo_factors,
+)
+from quant_robot.factors.tushare_moneyflow import MONEYFLOW_FACTOR_NAMES, compute_moneyflow_factors
 from quant_robot.reports.plots import write_line_svg
 from quant_robot.research.decision import (
     build_benchmark_curve,
@@ -25,6 +28,7 @@ from quant_robot.research.groups import quantile_group_returns
 from quant_robot.research.ic import compute_ic
 from quant_robot.research.labels import make_forward_returns
 from quant_robot.research.long_short import long_short_returns
+from quant_robot.schema.factors import FACTOR_COLUMNS
 from quant_robot.storage.factor_inputs import load_factor_inputs
 from quant_robot.storage.moneyflow_inputs import load_moneyflow_inputs
 
@@ -244,18 +248,38 @@ def _load_tushare_moneyflow_inputs(config: ResearchPipelineConfig) -> pd.DataFra
 
 def _compute_factor_source(bars: pd.DataFrame, factor_inputs: pd.DataFrame, config: ResearchPipelineConfig) -> pd.DataFrame:
     if config.factor_source == "technical":
-        return compute_basic_factors(bars, windows=config.factor_windows)
+        if config.factor_name not in technical_factor_names(config.factor_windows):
+            return _empty_factor_frame()
+        return compute_basic_factors(bars, windows=config.factor_windows, factor_names=(config.factor_name,))
     if config.factor_source == "tushare_moneyflow":
-        return compute_moneyflow_factors(factor_inputs)
+        if config.factor_name not in MONEYFLOW_FACTOR_NAMES:
+            return _empty_factor_frame()
+        return compute_moneyflow_factors(factor_inputs, factor_names=(config.factor_name,))
     if config.factor_source == "moneyflow_technical_combo":
+        if config.factor_name not in MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES:
+            return _empty_factor_frame()
         return compute_moneyflow_technical_combo_factors(bars, factor_inputs, factor_names=(config.factor_name,))
-    daily_basic = compute_daily_basic_factors(factor_inputs)
     if config.factor_source == "tushare_daily_basic":
-        return daily_basic
-    technical = compute_basic_factors(bars, windows=config.factor_windows)
+        if config.factor_name not in DAILY_BASIC_FACTOR_NAMES:
+            return _empty_factor_frame()
+        return compute_daily_basic_factors(factor_inputs, factor_names=(config.factor_name,))
+    pieces = []
+    if config.factor_name in technical_factor_names(config.factor_windows):
+        pieces.append(compute_basic_factors(bars, windows=config.factor_windows, factor_names=(config.factor_name,)))
+    if config.factor_name in DAILY_BASIC_FACTOR_NAMES:
+        pieces.append(compute_daily_basic_factors(factor_inputs, factor_names=(config.factor_name,)))
+    if not pieces:
+        return _empty_factor_frame()
+    if len(pieces) == 1:
+        return pieces[0]
+    technical, daily_basic = pieces
     return pd.concat([technical, daily_basic], ignore_index=True).sort_values(
         ["asset_id", "date", "factor_name"]
     ).reset_index(drop=True)
+
+
+def _empty_factor_frame() -> pd.DataFrame:
+    return pd.DataFrame(columns=FACTOR_COLUMNS)
 
 
 def _filter_precomputed_factors(factors: pd.DataFrame, config: ResearchPipelineConfig) -> pd.DataFrame:

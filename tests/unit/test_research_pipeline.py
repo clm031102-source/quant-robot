@@ -61,6 +61,17 @@ class ResearchPipelineTests(unittest.TestCase):
         self.assertEqual({row["market"] for row in result["trades"]}, {"CN"})
         self.assertEqual({row["market"] for row in result["holdings"]}, {"CN"})
 
+    def test_pipeline_computes_only_requested_technical_factor(self):
+        factors = compute_basic_factors(load_demo_market_bars(), windows=(2,))
+
+        with patch("quant_robot.research.pipeline.compute_basic_factors", return_value=factors) as factor_builder:
+            run_research_pipeline(
+                load_demo_market_bars(),
+                ResearchPipelineConfig(factor_name="momentum_2", factor_windows=(2,), market="CN", top_n=1),
+            )
+
+        self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("momentum_2",))
+
     def test_pipeline_uses_forward_horizon_for_backtest_exit(self):
         config = ResearchPipelineConfig(factor_name="momentum_2", factor_windows=(2,), market="CN", top_n=1, forward_horizon=2)
 
@@ -350,6 +361,37 @@ class ResearchPipelineTests(unittest.TestCase):
             self.assertGreater(result["artifact_rows"]["factors"], 0)
             self.assertGreater(result["artifact_rows"]["ic"], 0)
 
+    def test_pipeline_computes_only_requested_tushare_daily_basic_factor(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bars = load_demo_market_bars()
+            _write_daily_basic_factor_inputs(Path(tmp), bars)
+
+            with patch("quant_robot.research.pipeline.compute_daily_basic_factors") as factor_builder:
+                factor_builder.return_value = pd.DataFrame(
+                    {
+                        "date": [],
+                        "asset_id": [],
+                        "market": [],
+                        "factor_name": [],
+                        "factor_value": [],
+                        "lookback_window": [],
+                    }
+                )
+                run_research_pipeline(
+                    bars,
+                    ResearchPipelineConfig(
+                        factor_name="pb_inverse",
+                        factor_source="tushare_daily_basic",
+                        factor_input_root=Path(tmp),
+                        factor_input_required=True,
+                        market="CN",
+                        top_n=1,
+                        execution_lag=1,
+                    ),
+                )
+
+            self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("pb_inverse",))
+
     def test_pipeline_rejects_tushare_moneyflow_without_execution_lag(self):
         with tempfile.TemporaryDirectory() as tmp:
             bars = load_demo_market_bars()
@@ -389,6 +431,36 @@ class ResearchPipelineTests(unittest.TestCase):
             self.assertGreater(result["artifact_rows"]["factor_inputs"], 0)
             self.assertGreater(result["artifact_rows"]["factors"], 0)
             self.assertGreater(result["artifact_rows"]["ic"], 0)
+
+    def test_pipeline_computes_only_requested_tushare_moneyflow_factor(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bars = load_demo_market_bars()
+            _write_moneyflow_inputs(Path(tmp), bars)
+
+            with patch("quant_robot.research.pipeline.compute_moneyflow_factors") as factor_builder:
+                factor_builder.return_value = pd.DataFrame(
+                    {
+                        "date": [],
+                        "asset_id": [],
+                        "market": [],
+                        "factor_name": [],
+                        "factor_value": [],
+                        "lookback_window": [],
+                    }
+                )
+                run_research_pipeline(
+                    bars,
+                    ResearchPipelineConfig(
+                        factor_name="net_mf_amount_ratio",
+                        factor_source="tushare_moneyflow",
+                        moneyflow_input_root=Path(tmp),
+                        market="CN",
+                        top_n=1,
+                        execution_lag=1,
+                    ),
+                )
+
+            self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("net_mf_amount_ratio",))
 
     def test_pipeline_runs_moneyflow_technical_combo_factor_source(self):
         with tempfile.TemporaryDirectory() as tmp:

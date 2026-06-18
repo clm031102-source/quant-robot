@@ -46,6 +46,18 @@ class TushareMoneyflowFactorTests(unittest.TestCase):
 
         self.assertEqual(set(type(value) for value in factors["date"]), {type(pd.Timestamp("2024-01-02").date())})
 
+    def test_moneyflow_factor_builder_can_compute_only_requested_factor_names(self):
+        factors = compute_moneyflow_factors(
+            _moneyflow_inputs(),
+            factor_names=("net_mf_amount_ratio", "small_order_sell_pressure_low"),
+        )
+
+        self.assertEqual(set(factors["factor_name"]), {"net_mf_amount_ratio", "small_order_sell_pressure_low"})
+
+    def test_moneyflow_factor_builder_rejects_unknown_requested_factor_names(self):
+        with self.assertRaisesRegex(ValueError, "Unsupported moneyflow factor_names"):
+            compute_moneyflow_factors(_moneyflow_inputs(), factor_names=("net_mf_amount_ratio", "missing_moneyflow"))
+
 
 def _moneyflow_inputs() -> pd.DataFrame:
     return pd.DataFrame(

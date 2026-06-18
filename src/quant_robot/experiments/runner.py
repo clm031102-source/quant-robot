@@ -10,7 +10,10 @@ import pandas as pd
 
 from quant_robot.factors.moneyflow_technical import compute_moneyflow_technical_combo_factors
 from quant_robot.factors.technical import compute_basic_factors
+from quant_robot.factors.tushare_inputs import compute_daily_basic_factors
+from quant_robot.factors.tushare_moneyflow import compute_moneyflow_factors
 from quant_robot.research.pipeline import ResearchPipelineConfig, run_research_pipeline
+from quant_robot.storage.factor_inputs import load_factor_inputs
 from quant_robot.storage.moneyflow_inputs import load_moneyflow_inputs
 
 
@@ -55,6 +58,7 @@ class ExperimentGridConfig:
     signal_start_date: str | None = None
     signal_end_date: str | None = None
     output_dir: Path | None = None
+    write_case_artifacts: bool = True
     rank_by: str = "sharpe"
     min_trades: int = 1
     precompute_factor_matrix: bool = False
@@ -146,6 +150,7 @@ def load_experiment_grid_config(path: str | Path) -> ExperimentGridConfig:
         signal_start_date=data.get("signal_start_date"),
         signal_end_date=data.get("signal_end_date"),
         output_dir=Path(data["output_dir"]) if data.get("output_dir") else None,
+        write_case_artifacts=bool(data.get("write_case_artifacts", ExperimentGridConfig.write_case_artifacts)),
         rank_by=str(data.get("rank_by", ExperimentGridConfig.rank_by)),
         min_trades=int(data.get("min_trades", ExperimentGridConfig.min_trades)),
         precompute_factor_matrix=bool(data.get("precompute_factor_matrix", ExperimentGridConfig.precompute_factor_matrix)),
@@ -174,7 +179,11 @@ def _run_case(
     precomputed_factors: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
     try:
-        output_dir = grid_config.output_dir / case.case_id if grid_config.output_dir is not None else None
+        output_dir = (
+            grid_config.output_dir / case.case_id
+            if grid_config.output_dir is not None and grid_config.write_case_artifacts
+            else None
+        )
         result = run_research_pipeline(
             bars,
             ResearchPipelineConfig(
@@ -223,7 +232,13 @@ def _run_case(
 def _precompute_factor_matrix(bars: pd.DataFrame, config: ExperimentGridConfig) -> pd.DataFrame | None:
     source_bars = _filter_bars_for_precompute(bars, config)
     if config.factor_source == "technical":
-        return compute_basic_factors(source_bars, windows=config.factor_windows)
+        return compute_basic_factors(source_bars, windows=config.factor_windows, factor_names=config.factor_names)
+    if config.factor_source == "tushare_daily_basic":
+        factor_inputs = _load_grid_factor_inputs(config)
+        return compute_daily_basic_factors(factor_inputs, factor_names=config.factor_names)
+    if config.factor_source == "tushare_moneyflow":
+        moneyflow_inputs = _load_grid_moneyflow_inputs(config)
+        return compute_moneyflow_factors(moneyflow_inputs, factor_names=config.factor_names)
     if config.factor_source == "moneyflow_technical_combo":
         moneyflow_inputs = _load_grid_moneyflow_inputs(config)
         return compute_moneyflow_technical_combo_factors(
@@ -247,10 +262,23 @@ def _filter_bars_for_precompute(bars: pd.DataFrame, config: ExperimentGridConfig
     return frame.sort_values(["asset_id", "date"]).reset_index(drop=True)
 
 
+def _load_grid_factor_inputs(config: ExperimentGridConfig) -> pd.DataFrame:
+    if config.factor_input_root is None:
+        raise ValueError("factor_input_root is required when precomputing Tushare daily-basic factors")
+    markets = sorted({market.upper() for market in config.markets if market.upper() != "ALL"})
+    frames = [load_factor_inputs(config.factor_input_root, market) for market in markets]
+    if not frames:
+        return pd.DataFrame()
+    return pd.concat(frames, ignore_index=True).sort_values(["asset_id", "date"]).reset_index(drop=True)
+
+
 def _load_grid_moneyflow_inputs(config: ExperimentGridConfig) -> pd.DataFrame:
     if config.moneyflow_input_root is None:
         raise ValueError("moneyflow_input_root is required when precomputing moneyflow technical combo factors")
-    frames = [load_moneyflow_inputs(config.moneyflow_input_root, market.upper()) for market in sorted(set(config.markets))]
+    frames = [
+        load_moneyflow_inputs(config.moneyflow_input_root, market)
+        for market in sorted({market.upper() for market in config.markets if market.upper() != "ALL"})
+    ]
     if not frames:
         return pd.DataFrame()
     return pd.concat(frames, ignore_index=True).sort_values(["asset_id", "date"]).reset_index(drop=True)

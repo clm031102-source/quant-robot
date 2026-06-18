@@ -87,6 +87,38 @@ class FactorTests(unittest.TestCase):
         )
         self.assertIn("volatility_2", set(factors["factor_name"]))
 
+    def test_basic_factors_can_compute_only_requested_factor_names(self):
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["A"] * 4,
+                "market": ["US"] * 4,
+                "date": pd.date_range("2024-01-01", periods=4).date,
+                "adj_close": [100.0, 110.0, 121.0, 133.1],
+                "volume": [100.0, 100.0, 100.0, 100.0],
+                "amount": [10000.0, 11000.0, 12100.0, 13310.0],
+            }
+        )
+
+        factors = compute_basic_factors(bars, windows=(2, 3), factor_names=("momentum_2",))
+
+        self.assertEqual(set(factors["factor_name"]), {"momentum_2"})
+        self.assertEqual(set(factors["lookback_window"]), {2})
+
+    def test_basic_factors_reject_unknown_requested_factor_names(self):
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["A"] * 4,
+                "market": ["US"] * 4,
+                "date": pd.date_range("2024-01-01", periods=4).date,
+                "adj_close": [100.0, 110.0, 121.0, 133.1],
+                "volume": [100.0, 100.0, 100.0, 100.0],
+                "amount": [10000.0, 11000.0, 12100.0, 13310.0],
+            }
+        )
+
+        with self.assertRaisesRegex(ValueError, "Unsupported technical factor_names"):
+            compute_basic_factors(bars, windows=(2,), factor_names=("momentum_5", "not_a_factor"))
+
     def test_liquidity_factor_uses_rolling_amihud_window(self):
         bars = pd.DataFrame(
             {

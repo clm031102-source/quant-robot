@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from quant_robot.storage.authority_bars import load_authority_processed_dataset_from_config
 from quant_robot.storage.dataset_store import DatasetStore
 
 
@@ -12,6 +13,12 @@ def load_moneyflow_inputs(root: str | Path, market: str) -> pd.DataFrame:
     if market.upper() == "ALL":
         raise ValueError("market must be specific when loading moneyflow inputs")
     market = market.upper()
+    if root_path.is_file():
+        return load_authority_processed_dataset_from_config(
+            root_path,
+            market=market,
+            dataset="processed/moneyflow_inputs",
+        )
     frames = []
     for store_root in discover_moneyflow_input_store_roots(root_path, market):
         store = DatasetStore(store_root)

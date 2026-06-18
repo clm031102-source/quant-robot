@@ -1,9 +1,11 @@
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
 
 from quant_robot.factors.technical import compute_basic_factors
+from quant_robot.factors.tushare_moneyflow import compute_moneyflow_factors
 from quant_robot.factors.moneyflow_technical import (
     MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES,
     compute_moneyflow_technical_combo_factors,
@@ -20,6 +22,27 @@ class MoneyflowTechnicalComboFactorTests(unittest.TestCase):
         self.assertIn("mf_low_plus_reversal_5", set(factors["factor_name"]))
         self.assertIn("small_sell_plus_reversal_5", set(factors["factor_name"]))
         self.assertIn("mf_low_minus_volatility_20", set(factors["factor_name"]))
+
+    def test_combo_builder_computes_only_dependencies_for_requested_factors(self):
+        with (
+            patch(
+                "quant_robot.factors.moneyflow_technical.compute_moneyflow_factors",
+                wraps=compute_moneyflow_factors,
+            ) as moneyflow_builder,
+            patch(
+                "quant_robot.factors.moneyflow_technical.compute_basic_factors",
+                wraps=compute_basic_factors,
+            ) as technical_builder,
+        ):
+            factors = compute_moneyflow_technical_combo_factors(
+                _liquidity_framework_bars(),
+                _liquidity_framework_moneyflow_inputs(),
+                factor_names=("large_resid_liquidity_gate_20",),
+            )
+
+        self.assertEqual(set(factors["factor_name"]), {"large_resid_liquidity_gate_20"})
+        self.assertEqual(moneyflow_builder.call_args.kwargs["factor_names"], ("large_order_net_amount_ratio",))
+        self.assertEqual(technical_builder.call_args.kwargs["factor_names"], ("liquidity_20",))
 
     def test_combo_builder_uses_cross_sectional_zscore_formula(self):
         factors = compute_moneyflow_technical_combo_factors(_combo_bars(), _combo_moneyflow_inputs())
