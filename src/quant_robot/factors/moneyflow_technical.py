@@ -142,6 +142,22 @@ MONEYFLOW_TECHNICAL_COMBO_SPECS: dict[str, ComboFactorSpec] = {
         20,
         "Small-order sell pressure residualized against same-day Amihud-style illiquidity and log traded amount.",
     ),
+    "mf_low_amount_bucket_rank_20": ComboFactorSpec(
+        "net_mf_amount_ratio_low",
+        "log_amount_20",
+        "amount_bucket_rank",
+        20,
+        "Low net moneyflow ranked inside signal-day traded-amount buckets, with thin signal-day amount names excluded.",
+        amount_floor=100_000_000.0,
+    ),
+    "small_sell_amount_bucket_rank_20": ComboFactorSpec(
+        "small_order_sell_pressure",
+        "log_amount_20",
+        "amount_bucket_rank",
+        20,
+        "Small-order sell pressure ranked inside signal-day traded-amount buckets, with thin signal-day amount names excluded.",
+        amount_floor=100_000_000.0,
+    ),
     "large_plus_risk_momentum_liquidity_gate_10": ComboFactorSpec(
         "large_order_net_amount_ratio",
         "risk_adjusted_momentum_10",
@@ -291,6 +307,9 @@ def _combo_values(merged: pd.DataFrame, spec: ComboFactorSpec, exposure_columns:
         values = _cross_sectional_residuals(merged, moneyflow, exposures)
     elif spec.operation == "capacity_blend":
         values = _capacity_blend_values(exposures, moneyflow)
+    elif spec.operation == "amount_bucket_rank":
+        _require_single_exposure(spec)
+        values = _amount_bucket_rank_values(merged, moneyflow, primary_exposure)
     else:
         raise ValueError(f"Unsupported combo operation: {spec.operation}")
     if spec.liquidity_gate_quantile is not None:
@@ -307,6 +326,29 @@ def _capacity_blend_values(exposures: pd.DataFrame, moneyflow: pd.Series) -> pd.
     liquidity = exposures.iloc[:, 0]
     log_amount = exposures.iloc[:, 1]
     return moneyflow + log_amount - liquidity
+
+
+def _amount_bucket_rank_values(merged: pd.DataFrame, moneyflow: pd.Series, log_amount: pd.Series) -> pd.Series:
+    values = pd.Series(np.nan, index=merged.index, dtype=float)
+    for _, group in merged.groupby(["date", "market"], sort=False):
+        signal = pd.to_numeric(moneyflow.loc[group.index], errors="coerce")
+        amount = pd.to_numeric(log_amount.loc[group.index], errors="coerce")
+        finite = signal.notna() & amount.notna()
+        if int(finite.sum()) < 2:
+            continue
+        group_index = signal.loc[finite].index
+        bucket_count = min(3, int(len(group_index)))
+        bucket_seed = amount.loc[group_index].rank(method="first")
+        try:
+            buckets = pd.qcut(bucket_seed, q=bucket_count, labels=False, duplicates="drop")
+        except ValueError:
+            continue
+        bucket_values = pd.Series(buckets, index=group_index, dtype=float)
+        ranked = signal.loc[group_index].groupby(bucket_values, sort=False).rank(method="average", pct=True)
+        if bucket_count > 1:
+            ranked = ranked + bucket_values / float(bucket_count - 1) * 1e-6
+        values.loc[group_index] = ranked
+    return values
 
 
 def _cross_sectional_residuals(merged: pd.DataFrame, target: pd.Series, exposures: pd.DataFrame) -> pd.Series:

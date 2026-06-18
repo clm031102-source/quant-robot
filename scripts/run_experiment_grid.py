@@ -46,6 +46,7 @@ def run_grid(
         data_root=Path(data_root),
     )
     bars = _load_bars(source, Path(data_root), config.markets, authority_bars_config=authority_bars_config)
+    _enforce_authority_bar_year_coverage(source=source, bars=bars, config=config)
     return run_experiment_grid(bars, config)
 
 
@@ -139,6 +140,26 @@ def _load_bars(
     if not frames:
         raise ValueError("processed-bars source requires at least one specific market")
     return pd.concat(frames, ignore_index=True)
+
+
+def _enforce_authority_bar_year_coverage(
+    *,
+    source: str,
+    bars: pd.DataFrame,
+    config: ExperimentGridConfig,
+) -> None:
+    if source != "authority-processed-bars" or not config.start_date or not config.end_date:
+        return
+    if "date" not in bars.columns:
+        raise ValueError("authority-processed-bars missing date column for year coverage check")
+    required_years = set(range(pd.to_datetime(config.start_date).year, pd.to_datetime(config.end_date).year + 1))
+    actual_years = set(pd.to_datetime(bars["date"], errors="coerce").dropna().dt.year.astype(int).unique())
+    missing = sorted(required_years - actual_years)
+    if missing:
+        raise ValueError(
+            "authority-processed-bars missing required years: "
+            + ", ".join(str(year) for year in missing)
+        )
 
 
 def _enforce_cn_stock_startup_gate(

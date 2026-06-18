@@ -7,7 +7,7 @@
       "root": "data/processed/cn_stock_long_history_2015_202306"
     },
     {
-      "adjusted_only": true,
+      "adjusted_only": false,
       "end_date": "2025-12-31",
       "root": "data/processed/office_desktop_20260616_combined_research",
       "start_date": "2023-07-03"

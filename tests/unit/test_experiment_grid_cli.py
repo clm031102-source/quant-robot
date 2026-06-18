@@ -176,6 +176,60 @@ class ExperimentGridCliTests(unittest.TestCase):
             load_bars.assert_called_once_with(authority_config, markets=("CN",))
             runner.assert_called_once()
 
+    def test_authority_processed_cn_grid_rejects_missing_year_coverage(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "grid.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "markets": ["CN"],
+                        "factor_names": ["momentum_2"],
+                        "factor_windows": [2],
+                        "start_date": "2023-01-01",
+                        "end_date": "2025-12-31",
+                    }
+                ),
+                encoding="utf-8",
+            )
+            authority_config = root / "authority.json"
+            authority_config.write_text(json.dumps({"market": "CN", "segments": []}), encoding="utf-8")
+            gate_packet = root / "factor_mining_startup_gate.json"
+            gate_packet.write_text(_valid_startup_gate_packet_json(), encoding="utf-8")
+            data_manifest = root / "cn_stock_data_manifest.json"
+            data_manifest.write_text(
+                json.dumps(
+                    {
+                        "generated_at": date.today().isoformat(),
+                        "status": "cleared",
+                        "summary": {"source_root": root.as_posix(), "bar_rows": 10, "bar_symbols": 2},
+                        "decision": {"data_manifest_cleared": True, "blockers": [], "warnings": []},
+                        "live_boundary_allowed": False,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            bars = pd.DataFrame(
+                {
+                    "date": ["2023-01-03", "2025-01-02"],
+                    "market": ["CN", "CN"],
+                }
+            )
+
+            with patch("scripts.run_experiment_grid.load_authority_processed_bars_from_config", return_value=bars):
+                with patch("scripts.run_experiment_grid.run_experiment_grid") as runner:
+                    with self.assertRaisesRegex(ValueError, "missing required years: 2024"):
+                        run_grid(
+                            config_path=config_path,
+                            source="authority-processed-bars",
+                            data_root=root,
+                            authority_bars_config=authority_config,
+                            startup_gate_packet=gate_packet,
+                            data_manifest_packet=data_manifest,
+                        )
+
+            runner.assert_not_called()
+
     def test_processed_cn_grid_requires_data_manifest_packet_after_startup_gate(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

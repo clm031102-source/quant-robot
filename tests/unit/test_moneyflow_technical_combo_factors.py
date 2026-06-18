@@ -268,6 +268,25 @@ class MoneyflowTechnicalComboFactorTests(unittest.TestCase):
             self.assertAlmostEqual(float(aligned["residual"].corr(aligned["liquidity"])), 0.0, places=12)
             self.assertAlmostEqual(float(aligned["residual"].corr(aligned["log_amount"])), 0.0, places=12)
 
+    def test_amount_bucket_rank_compares_moneyflow_inside_capacity_tiers_and_gates_thin_names(self):
+        self.assertIn("small_sell_amount_bucket_rank_20", MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES)
+        bars = _multi_exposure_framework_bars()
+        factors = compute_moneyflow_technical_combo_factors(
+            bars,
+            _multi_exposure_framework_moneyflow_inputs(),
+            factor_names=("small_sell_amount_bucket_rank_20",),
+        )
+        last_date = pd.Timestamp("2024-01-25").date()
+
+        selected = factors[
+            (factors["date"] == last_date) & (factors["factor_name"] == "small_sell_amount_bucket_rank_20")
+        ].set_index("asset_id")["factor_value"]
+
+        self.assertTrue(pd.isna(selected["CN_XSHG_601398"]))
+        self.assertGreater(selected["CN_XSHE_000002"], selected["CN_XSHE_000001"])
+        self.assertGreater(selected["CN_XSHE_000003"], selected["CN_XSHG_600000"])
+        self.assertGreater(selected["CN_XSHE_000003"], selected["CN_XSHE_000002"])
+
 
 def _combo_bars() -> pd.DataFrame:
     rows = []
