@@ -21,9 +21,14 @@
       "mf_low_minus_volatility_20",
       "large_minus_liquidity_20",
       "large_resid_liquidity_20",
+      "large_resid_liquidity_gate_20",
+      "large_resid_liq_vol_amt_20",
+      "large_resid_liq_vol_amt_gate_20",
       "large_liquidity_gate_20",
+      "mf_low_minus_volatility_liquidity_gate_20",
       "extra_low_plus_reversal_5",
-      "large_plus_risk_momentum_10"
+      "large_plus_risk_momentum_10",
+      "large_plus_risk_momentum_liquidity_gate_10"
     ],
     "factor_windows": [5, 10, 20],
     "top_n_values": [5, 10, 20],

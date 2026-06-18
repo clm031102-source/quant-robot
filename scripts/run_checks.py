@@ -39,6 +39,16 @@ LAPTOP_CHECK_NAMES = (
     "paper_ops_guardrail",
 )
 
+DESKTOP_VALIDATION_CHECK_NAMES = (
+    "unit_and_integration_tests",
+    "compile_python",
+    "project_audit",
+    "readiness_check",
+    "provider_status",
+    "data_catalog",
+    "data_quality_audit",
+)
+
 
 def build_check_plan(python_executable: str = sys.executable, profile: str = "full") -> list[CheckStep]:
     full_plan = [
@@ -93,12 +103,67 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
     if profile == "laptop":
         selected = set(LAPTOP_CHECK_NAMES)
         return [_with_laptop_context(step) for step in full_plan if step.name in selected]
+    if profile == "desktop-validation":
+        selected = set(DESKTOP_VALIDATION_CHECK_NAMES)
+        return [
+            *(_with_desktop_validation_context(step) for step in full_plan if step.name in selected),
+            CheckStep("desktop_factor_validation", [python_executable, "scripts/run_desktop_factor_validation.py"]),
+            CheckStep(
+                "desktop_market_regime_coverage",
+                [
+                    python_executable,
+                    "scripts/run_market_regime_coverage.py",
+                    "--regime-curve-glob",
+                    "data/reports/walk_forward_tushare_moneyflow_residual_regime/fold_*/test/*/regime_curve.csv",
+                    "--output-dir",
+                    "data/reports/market_regime_coverage_tushare_moneyflow_residual_regime",
+                    "--min-regimes",
+                    "2",
+                    "--min-rows-per-regime",
+                    "5",
+                    "--min-allowed-rows",
+                    "5",
+                    "--min-blocked-rows",
+                    "5",
+                    "--require-sufficient",
+                ],
+            ),
+            CheckStep(
+                "desktop_promotion_report",
+                [
+                    python_executable,
+                    "scripts/run_promotion_report.py",
+                    "--config",
+                    "configs/promotion_gate_tushare_moneyflow_residual_regime.json",
+                ],
+            ),
+            CheckStep("desktop_validation_summary", [python_executable, "scripts/run_desktop_validation_summary.py"]),
+        ]
     raise ValueError(f"Unsupported check profile: {profile}")
 
 
 def _with_laptop_context(step: CheckStep) -> CheckStep:
     if step.name in {"recent_data_refresh", "tushare_activation_gate"}:
         return CheckStep(step.name, [*step.command, "--machine", "laptop"], uses_network=step.uses_network)
+    return step
+
+
+def _with_desktop_validation_context(step: CheckStep) -> CheckStep:
+    if step.name == "data_quality_audit":
+        return CheckStep(
+            step.name,
+            [
+                step.command[0],
+                "scripts/run_data_quality_audit.py",
+                "--data-root",
+                "data/processed",
+                "--market",
+                "CN",
+                "--output-dir",
+                "data/reports/data_quality_gap_audit_tushare_moneyflow_residual_regime",
+            ],
+            uses_network=step.uses_network,
+        )
     return step
 
 
@@ -120,7 +185,12 @@ def execute_check_plan(plan: list[CheckStep], env: dict[str, str] | None = None)
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run local Quant Robot checks.")
-    parser.add_argument("--profile", choices=["full", "laptop"], default="full", help="Select the check plan size.")
+    parser.add_argument(
+        "--profile",
+        choices=["full", "laptop", "desktop-validation"],
+        default="full",
+        help="Select the check plan size.",
+    )
     parser.add_argument("--execute", action="store_true", help="Run checks instead of printing the plan.")
     args = parser.parse_args()
     plan = build_check_plan(profile=args.profile)

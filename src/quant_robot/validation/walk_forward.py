@@ -221,6 +221,7 @@ def _merged_row(
             "factor_windows": source.get("factor_windows", []),
             "top_n": source.get("top_n"),
             "cost_bps": source.get("cost_bps"),
+            "regime_lookback": source.get("regime_lookback"),
             "data_mode": _data_mode(train, test),
             "train_status": train.get("status") if train else "missing",
             "test_status": test.get("status") if test else "missing",
@@ -238,6 +239,30 @@ def _merged_row(
             "test_decision_status": test.get("decision_status") if test else "missing",
             "train_sharpe": train_sharpe,
             "test_sharpe": test_sharpe,
+            "train_overlap_naive_sharpe": _metric(train, "overlap_naive_sharpe"),
+            "test_overlap_naive_sharpe": _metric(test, "overlap_naive_sharpe"),
+            "train_overlap_autocorr_adjusted_sharpe": _metric(train, "overlap_autocorr_adjusted_sharpe"),
+            "test_overlap_autocorr_adjusted_sharpe": _metric(test, "overlap_autocorr_adjusted_sharpe"),
+            "train_overlap_newey_west_standard_error_mean": _metric(
+                train,
+                "overlap_newey_west_standard_error_mean",
+            ),
+            "test_overlap_newey_west_standard_error_mean": _metric(
+                test,
+                "overlap_newey_west_standard_error_mean",
+            ),
+            "train_overlap_newey_west_t_stat_mean": _metric(train, "overlap_newey_west_t_stat_mean"),
+            "test_overlap_newey_west_t_stat_mean": _metric(test, "overlap_newey_west_t_stat_mean"),
+            "train_overlap_variance_inflation": _metric(train, "overlap_variance_inflation"),
+            "test_overlap_variance_inflation": _metric(test, "overlap_variance_inflation"),
+            "train_overlap_effective_sample_size": _metric(train, "overlap_effective_sample_size"),
+            "test_overlap_effective_sample_size": _metric(test, "overlap_effective_sample_size"),
+            "train_overlap_observations": int(_metric(train, "overlap_observations")),
+            "test_overlap_observations": int(_metric(test, "overlap_observations")),
+            "train_overlap_risk_flag": bool(_raw_metric(train, "overlap_risk_flag", False)),
+            "test_overlap_risk_flag": bool(_raw_metric(test, "overlap_risk_flag", False)),
+            "train_overlap_autocorrelations": _raw_metric(train, "overlap_autocorrelations", []),
+            "test_overlap_autocorrelations": _raw_metric(test, "overlap_autocorrelations", []),
             "train_max_drawdown": _metric(train, "max_drawdown"),
             "test_max_drawdown": test_max_drawdown,
             "train_mean_ic": _metric(train, "mean_ic"),
@@ -251,6 +276,17 @@ def _merged_row(
             "train_positive_ic_rate": _metric(train, "positive_ic_rate"),
             "test_positive_ic_rate": _metric(test, "positive_ic_rate"),
             "test_significance_status": test.get("significance_status") if test else "missing",
+            "train_tail_mean_ic": _metric(train, "tail_mean_ic"),
+            "test_tail_mean_ic": _metric(test, "tail_mean_ic"),
+            "train_tail_ic_observations": int(_metric(train, "tail_ic_observations")),
+            "test_tail_ic_observations": int(_metric(test, "tail_ic_observations")),
+            "train_tail_ic_t_stat": _metric(train, "tail_ic_t_stat"),
+            "test_tail_ic_t_stat": _metric(test, "tail_ic_t_stat"),
+            "train_tail_ic_p_value": _metric_or(train, "tail_ic_p_value", 1.0),
+            "test_tail_ic_p_value": _metric_or(test, "tail_ic_p_value", 1.0),
+            "train_tail_positive_ic_rate": _metric(train, "tail_positive_ic_rate"),
+            "test_tail_positive_ic_rate": _metric(test, "tail_positive_ic_rate"),
+            "test_tail_significance_status": test.get("tail_significance_status") if test else "missing",
             "test_avg_cost_rate": _metric(test, "avg_cost_rate"),
             "test_max_cost_rate": _metric(test, "max_cost_rate"),
             "test_avg_participation_rate": _metric(test, "avg_participation_rate"),
@@ -299,6 +335,7 @@ def _aggregate_case_rows(case_id: str, rows: list[dict[str, Any]], config: WalkF
             "factor_windows": source.get("factor_windows", []),
             "top_n": source.get("top_n"),
             "cost_bps": source.get("cost_bps"),
+            "regime_lookback": source.get("regime_lookback"),
             "data_mode": _aggregate_data_mode(rows),
             "train_status": _aggregate_status(rows, "train_status"),
             "test_status": _aggregate_status(rows, "test_status"),
@@ -323,6 +360,34 @@ def _aggregate_case_rows(case_id: str, rows: list[dict[str, Any]], config: WalkF
             "train_sharpe": _mean_metric(rows, "train_sharpe"),
             "test_sharpe": mean_test_sharpe,
             "mean_test_sharpe": mean_test_sharpe,
+            "train_overlap_naive_sharpe": _mean_metric(rows, "train_overlap_naive_sharpe"),
+            "test_overlap_naive_sharpe": _mean_metric(rows, "test_overlap_naive_sharpe"),
+            "train_overlap_autocorr_adjusted_sharpe": _mean_metric(
+                rows,
+                "train_overlap_autocorr_adjusted_sharpe",
+            ),
+            "test_overlap_autocorr_adjusted_sharpe": _mean_metric(
+                rows,
+                "test_overlap_autocorr_adjusted_sharpe",
+            ),
+            "train_overlap_newey_west_standard_error_mean": _mean_metric(
+                rows,
+                "train_overlap_newey_west_standard_error_mean",
+            ),
+            "test_overlap_newey_west_standard_error_mean": _mean_metric(
+                rows,
+                "test_overlap_newey_west_standard_error_mean",
+            ),
+            "train_overlap_newey_west_t_stat_mean": _mean_metric(rows, "train_overlap_newey_west_t_stat_mean"),
+            "test_overlap_newey_west_t_stat_mean": _mean_metric(rows, "test_overlap_newey_west_t_stat_mean"),
+            "train_overlap_variance_inflation": _mean_metric(rows, "train_overlap_variance_inflation"),
+            "test_overlap_variance_inflation": _mean_metric(rows, "test_overlap_variance_inflation"),
+            "train_overlap_effective_sample_size": _min_metric(rows, "train_overlap_effective_sample_size"),
+            "test_overlap_effective_sample_size": _min_metric(rows, "test_overlap_effective_sample_size"),
+            "train_overlap_observations": sum(int(_metric(row, "train_overlap_observations")) for row in rows),
+            "test_overlap_observations": sum(int(_metric(row, "test_overlap_observations")) for row in rows),
+            "train_overlap_risk_flag": any(bool(row.get("train_overlap_risk_flag")) for row in rows),
+            "test_overlap_risk_flag": any(bool(row.get("test_overlap_risk_flag")) for row in rows),
             "train_max_drawdown": _min_metric(rows, "train_max_drawdown"),
             "test_max_drawdown": worst_test_max_drawdown,
             "worst_test_max_drawdown": worst_test_max_drawdown,
@@ -337,6 +402,17 @@ def _aggregate_case_rows(case_id: str, rows: list[dict[str, Any]], config: WalkF
             "train_positive_ic_rate": _min_metric(rows, "train_positive_ic_rate"),
             "test_positive_ic_rate": _min_metric(rows, "test_positive_ic_rate"),
             "test_significance_status": _aggregate_status(rows, "test_significance_status"),
+            "train_tail_mean_ic": _mean_metric(rows, "train_tail_mean_ic"),
+            "test_tail_mean_ic": _mean_metric(rows, "test_tail_mean_ic"),
+            "train_tail_ic_observations": sum(int(_metric(row, "train_tail_ic_observations")) for row in rows),
+            "test_tail_ic_observations": sum(int(_metric(row, "test_tail_ic_observations")) for row in rows),
+            "train_tail_ic_t_stat": _mean_metric(rows, "train_tail_ic_t_stat"),
+            "test_tail_ic_t_stat": _mean_metric(rows, "test_tail_ic_t_stat"),
+            "train_tail_ic_p_value": _max_metric(rows, "train_tail_ic_p_value", default=1.0),
+            "test_tail_ic_p_value": _max_metric(rows, "test_tail_ic_p_value", default=1.0),
+            "train_tail_positive_ic_rate": _min_metric(rows, "train_tail_positive_ic_rate"),
+            "test_tail_positive_ic_rate": _min_metric(rows, "test_tail_positive_ic_rate"),
+            "test_tail_significance_status": _aggregate_status(rows, "test_tail_significance_status"),
             "test_avg_cost_rate": _mean_metric(rows, "test_avg_cost_rate"),
             "test_max_cost_rate": _max_metric(rows, "test_max_cost_rate"),
             "test_avg_participation_rate": _mean_metric(rows, "test_avg_participation_rate"),
@@ -459,6 +535,11 @@ def _grid_from_mapping(data: dict[str, Any]) -> ExperimentGridConfig:
         cash_annual_return=float(data.get("cash_annual_return", ExperimentGridConfig.cash_annual_return)),
         regime_filter=bool(data.get("regime_filter", ExperimentGridConfig.regime_filter)),
         regime_lookback=int(data.get("regime_lookback", ExperimentGridConfig.regime_lookback)),
+        regime_lookback_values=(
+            tuple(int(value) for value in data["regime_lookback_values"])
+            if data.get("regime_lookback_values") is not None
+            else None
+        ),
         target_gross_exposure=float(data.get("target_gross_exposure", ExperimentGridConfig.target_gross_exposure)),
         commission_bps=float(data["commission_bps"]) if data.get("commission_bps") is not None else None,
         slippage_bps=float(data["slippage_bps"]) if data.get("slippage_bps") is not None else None,
@@ -472,6 +553,7 @@ def _grid_from_mapping(data: dict[str, Any]) -> ExperimentGridConfig:
         output_dir=None,
         rank_by=str(data.get("rank_by", ExperimentGridConfig.rank_by)),
         min_trades=int(data.get("min_trades", ExperimentGridConfig.min_trades)),
+        precompute_factor_matrix=bool(data.get("precompute_factor_matrix", ExperimentGridConfig.precompute_factor_matrix)),
     )
 
 
@@ -491,6 +573,11 @@ def _config_dict(config: WalkForwardConfig) -> dict[str, Any]:
     data["experiment_grid"]["top_n_values"] = list(config.experiment_grid.top_n_values)
     data["experiment_grid"]["cost_bps_values"] = list(config.experiment_grid.cost_bps_values)
     data["experiment_grid"]["rebalance_intervals"] = list(config.experiment_grid.rebalance_intervals)
+    data["experiment_grid"]["regime_lookback_values"] = (
+        list(config.experiment_grid.regime_lookback_values)
+        if config.experiment_grid.regime_lookback_values is not None
+        else None
+    )
     return data
 
 
@@ -512,6 +599,12 @@ def _metric_or(row: dict[str, Any] | None, key: str, default: float) -> float:
     except (TypeError, ValueError):
         return default
     return value if math.isfinite(value) else default
+
+
+def _raw_metric(row: dict[str, Any] | None, key: str, default: Any) -> Any:
+    if row is None:
+        return default
+    return row.get(key, default)
 
 
 def _mean_metric(rows: list[dict[str, Any]], key: str) -> float:

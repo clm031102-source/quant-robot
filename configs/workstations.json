@@ -50,11 +50,11 @@
       "branch": "codex/factor-smoke-<topic-or-date>"
     },
     "factor_batch": {
-      "description": "Large factor experiment batches. Multiple desktops should use separate topic/date branches.",
+      "description": "Large factor experiment batches. Multiple desktops should use separate topic/date branches. CN stock factor batches must first run scripts/run_factor_mining_startup_gate.py and scripts/run_cn_stock_data_manifest.py. The startup gate must confirm the repeatable audit-driven next-run protocol before mining.",
       "branch": "codex/factor-batch-<topic-or-date>"
     },
     "factor_validation": {
-      "description": "Candidate factor validation, walk-forward reruns, cost checks, and robustness reviews.",
+      "description": "Candidate factor validation, walk-forward reruns, cost checks, market-regime coverage checks, robustness reviews, and desktop residual-regime validation via scripts/run_checks.py --profile desktop-validation --execute. CN stock validation reruns must first confirm the startup gate and CN stock data manifest.",
       "branch": "codex/factor-validation-<topic-or-date>"
     },
     "factor_review": {

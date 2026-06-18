@@ -69,13 +69,22 @@ class ResearchPipelineConfig:
     output_dir: Path | None = None
 
 
-def run_research_pipeline(bars: pd.DataFrame, config: ResearchPipelineConfig) -> dict[str, Any]:
+def run_research_pipeline(
+    bars: pd.DataFrame,
+    config: ResearchPipelineConfig,
+    *,
+    precomputed_factors: pd.DataFrame | None = None,
+) -> dict[str, Any]:
     if config.rebalance_interval < 1:
         raise ValueError("rebalance_interval must be at least 1")
     filtered = _filter_bars(bars, config)
     validate_market_data(filtered)
-    factor_inputs = _load_factor_input_frame(config)
-    factors = _compute_factor_source(filtered, factor_inputs, config)
+    factor_inputs = pd.DataFrame() if precomputed_factors is not None else _load_factor_input_frame(config)
+    factors = (
+        _filter_precomputed_factors(precomputed_factors, config)
+        if precomputed_factors is not None
+        else _compute_factor_source(filtered, factor_inputs, config)
+    )
     labels = make_forward_returns(filtered, horizons=(config.forward_horizon,), execution_lag=config.execution_lag)
     selected = factors[factors["factor_name"] == config.factor_name].dropna(subset=["factor_value"]).reset_index(drop=True)
     selected = _filter_signals(selected, config)
@@ -104,6 +113,7 @@ def run_research_pipeline(bars: pd.DataFrame, config: ResearchPipelineConfig) ->
         max_participation_rate=config.max_participation_rate,
         portfolio_value=config.portfolio_value,
     )
+    tail_ic = compute_ic(backtest.positions, labels)
     drawdown = _drawdown_curve(backtest.equity_curve)
     benchmark_curve = build_benchmark_curve(_comparison_bars(filtered, config), benchmark_asset_id=config.benchmark_asset_id)
     benchmark_metrics = compare_strategy_to_benchmark(
@@ -118,7 +128,7 @@ def run_research_pipeline(bars: pd.DataFrame, config: ResearchPipelineConfig) ->
         min_relative_return=config.min_relative_return,
         max_drawdown_limit=config.max_drawdown_limit,
     )
-    summary = _factor_summary(ic)
+    summary = {**_factor_summary(ic), **_tail_factor_summary(tail_ic)}
     result = _sanitize(
         {
             "data_mode": "fixture" if set(filtered["source"].astype(str)) == {"fixture"} else "research",
@@ -134,6 +144,7 @@ def run_research_pipeline(bars: pd.DataFrame, config: ResearchPipelineConfig) ->
                 "factors": len(selected),
                 "labels": len(labels),
                 "ic": len(ic),
+                "tail_ic": len(tail_ic),
                 "group_returns": len(groups),
                 "long_short": len(long_short),
                 "trades": len(backtest.trades),
@@ -146,6 +157,7 @@ def run_research_pipeline(bars: pd.DataFrame, config: ResearchPipelineConfig) ->
             "drawdown_curve": _records(drawdown),
             "regime_curve": _records(regime["rows"]),
             "ic": _records(ic),
+            "tail_ic": _records(tail_ic),
             "group_returns": _records(groups),
             "long_short": _records(long_short),
             "trades": _records(backtest.trades),
@@ -161,6 +173,7 @@ def run_research_pipeline(bars: pd.DataFrame, config: ResearchPipelineConfig) ->
             drawdown,
             regime["rows"],
             ic,
+            tail_ic,
             groups,
             long_short,
             backtest.trades,
@@ -171,6 +184,7 @@ def run_research_pipeline(bars: pd.DataFrame, config: ResearchPipelineConfig) ->
 
 def _filter_bars(bars: pd.DataFrame, config: ResearchPipelineConfig) -> pd.DataFrame:
     frame = bars.copy()
+    frame["date"] = pd.to_datetime(frame["date"]).dt.date
     if config.market.upper() != "ALL":
         frame = frame[frame["market"] == config.market.upper()]
     if config.start_date:
@@ -242,6 +256,17 @@ def _compute_factor_source(bars: pd.DataFrame, factor_inputs: pd.DataFrame, conf
     return pd.concat([technical, daily_basic], ignore_index=True).sort_values(
         ["asset_id", "date", "factor_name"]
     ).reset_index(drop=True)
+
+
+def _filter_precomputed_factors(factors: pd.DataFrame, config: ResearchPipelineConfig) -> pd.DataFrame:
+    frame = factors.copy()
+    if config.market.upper() != "ALL":
+        frame = frame[frame["market"] == config.market.upper()]
+    if config.start_date:
+        frame = frame[pd.to_datetime(frame["date"]).dt.date >= pd.to_datetime(config.start_date).date()]
+    if config.end_date:
+        frame = frame[pd.to_datetime(frame["date"]).dt.date <= pd.to_datetime(config.end_date).date()]
+    return frame.reset_index(drop=True)
 
 
 def _filter_signals(factors: pd.DataFrame, config: ResearchPipelineConfig) -> pd.DataFrame:
@@ -341,6 +366,10 @@ def _factor_summary(ic: pd.DataFrame) -> dict[str, float | int | str]:
     }
 
 
+def _tail_factor_summary(ic: pd.DataFrame) -> dict[str, float | int | str]:
+    return {f"tail_{key}": value for key, value in _factor_summary(ic).items()}
+
+
 def _guarded_series_t_test(values: pd.Series) -> tuple[float, float]:
     clean = pd.to_numeric(values, errors="coerce").dropna()
     if len(clean) < MIN_IC_OBSERVATIONS_FOR_SIGNIFICANCE:
@@ -394,6 +423,7 @@ def _write_artifacts(
     drawdown: pd.DataFrame,
     regime: pd.DataFrame,
     ic: pd.DataFrame,
+    tail_ic: pd.DataFrame,
     groups: pd.DataFrame,
     long_short: pd.DataFrame,
     trades: pd.DataFrame,
@@ -412,6 +442,7 @@ def _write_artifacts(
     drawdown.to_csv(output_dir / "drawdown_curve.csv", index=False)
     regime.to_csv(output_dir / "regime_curve.csv", index=False)
     ic.to_csv(output_dir / "ic.csv", index=False)
+    tail_ic.to_csv(output_dir / "tail_ic.csv", index=False)
     groups.to_csv(output_dir / "group_returns.csv", index=False)
     long_short.to_csv(output_dir / "long_short.csv", index=False)
     trades.to_csv(output_dir / "trades.csv", index=False)

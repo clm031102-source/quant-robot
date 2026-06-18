@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pandas as pd
 
 from quant_robot.data.fixtures import load_demo_market_bars
+from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.research.pipeline import ResearchPipelineConfig, _factor_summary, run_research_pipeline
 from quant_robot.storage.dataset_store import DatasetStore
 from quant_robot.storage.processed_bars import load_processed_bars
@@ -37,9 +38,15 @@ class ResearchPipelineTests(unittest.TestCase):
             self.assertIn("ic_t_stat", result["factor_summary"])
             self.assertIn("ic_p_value", result["factor_summary"])
             self.assertIn("significance_status", result["factor_summary"])
+            self.assertIn("tail_mean_ic", result["factor_summary"])
+            self.assertIn("tail_ic_p_value", result["factor_summary"])
+            self.assertIn("tail_ic_observations", result["factor_summary"])
+            self.assertIn("tail_significance_status", result["factor_summary"])
             self.assertGreater(result["artifact_rows"]["trades"], 0)
+            self.assertGreater(result["artifact_rows"]["tail_ic"], 0)
             self.assertTrue((Path(tmp) / "metrics.json").exists())
             self.assertTrue((Path(tmp) / "factor_summary.json").exists())
+            self.assertTrue((Path(tmp) / "tail_ic.csv").exists())
             self.assertTrue((Path(tmp) / "equity_curve.csv").exists())
             self.assertTrue((Path(tmp) / "drawdown_curve.csv").exists())
             self.assertTrue((Path(tmp) / "trades.csv").exists())
@@ -437,6 +444,25 @@ class ResearchPipelineTests(unittest.TestCase):
                 )
 
             self.assertEqual(combo_builder.call_args.kwargs["factor_names"], ("mf_low_plus_reversal_5",))
+
+    def test_pipeline_precomputed_factors_skip_moneyflow_input_loading(self):
+        bars = load_demo_market_bars()
+        factors = compute_basic_factors(bars, windows=(2,))
+
+        result = run_research_pipeline(
+            bars,
+            ResearchPipelineConfig(
+                factor_name="momentum_2",
+                factor_source="moneyflow_technical_combo",
+                factor_windows=(2,),
+                market="CN",
+                top_n=1,
+            ),
+            precomputed_factors=factors,
+        )
+
+        self.assertEqual(result["request"]["factor_source"], "moneyflow_technical_combo")
+        self.assertGreater(result["artifact_rows"]["trades"], 0)
 
     def test_pipeline_requires_factor_input_root_when_requested(self):
         with self.assertRaisesRegex(ValueError, "factor_input_root"):

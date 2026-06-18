@@ -1,0 +1,82 @@
+{
+  "stage": "cn_stock_batch12_validation_handoff",
+  "market": "CN",
+  "asset_type": "stock",
+  "source_discovery_report": "data/reports/cn_stock_champion_staggered_schedule_20260617",
+  "source_audit_report": "data/reports/cn_stock_factor_mining_20260617_batch_audit.md",
+  "validation_window": {
+    "start": "2025-01-01",
+    "end": "2025-12-31"
+  },
+  "final_holdout_window": {
+    "start": "2026-01-01",
+    "end": "2026-06-15",
+    "allowed_next": false
+  },
+  "prior_related_hypotheses": 137,
+  "cumulative_bonferroni_alpha": 0.00036496350364963507,
+  "frozen_candidates": [
+    {
+      "case_id": "rankic_neg1_downside_range_blend_hold20_top50_every1_offset0_cost10_prev_month_ret_gt_neg1",
+      "cost_bps": 10,
+      "schedule_interval": 1,
+      "schedule_offset": 0,
+      "holding_period": 20,
+      "top_n": 50,
+      "previous_month_return_threshold": -0.01,
+      "discovery_total_return": 0.1967,
+      "discovery_sharpe": 6.5375,
+      "discovery_max_drawdown": -0.0416,
+      "discovery_rank_ic": 0.0755,
+      "discovery_tail_rank_ic": 0.1339,
+      "discovery_monthly_probability_gt_zero": 0.9988
+    },
+    {
+      "case_id": "rankic_neg1_downside_range_blend_hold20_top50_every1_offset0_cost20_prev_month_ret_gt_neg1",
+      "cost_bps": 20,
+      "schedule_interval": 1,
+      "schedule_offset": 0,
+      "holding_period": 20,
+      "top_n": 50,
+      "previous_month_return_threshold": -0.01,
+      "discovery_total_return": 0.1753,
+      "discovery_sharpe": 5.8811,
+      "discovery_max_drawdown": -0.0431,
+      "discovery_rank_ic": 0.0755,
+      "discovery_tail_rank_ic": 0.1339,
+      "discovery_monthly_probability_gt_zero": 0.9964
+    }
+  ],
+  "diagnostic_controls": [
+    {
+      "case_family": "daily_vs_every2_control",
+      "schedule_interval": 2,
+      "role": "diagnostic_only"
+    },
+    {
+      "case_family": "daily_vs_every3_control",
+      "schedule_interval": 3,
+      "role": "diagnostic_only"
+    }
+  ],
+  "required_controls": [
+    "twenty_twenty_five_oos_only",
+    "overlap_aware_return_statistics",
+    "daily_vs_every2_every3_controls",
+    "cost_capacity_turnover_stress",
+    "cumulative_multiple_testing_accounting",
+    "no_parameter_tuning_during_oos",
+    "final_holdout_only_after_oos_clearance"
+  ],
+  "required_overlap_statistics": [
+    "naive_sharpe",
+    "autocorr_adjusted_sharpe",
+    "newey_west_standard_error_mean",
+    "newey_west_t_stat_mean",
+    "variance_inflation",
+    "effective_sample_size",
+    "autocorrelations",
+    "overlap_risk_flag"
+  ],
+  "promotion_rule": "No factor-library promotion unless 2025 validation survives cost, capacity, turnover, drawdown, RankIC/Tail RankIC, monthly stability, overlap-aware statistics, and cumulative multiple-testing checks."
+}

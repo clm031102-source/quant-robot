@@ -74,7 +74,7 @@ The safe-sync meaning is:
 1. Fetch and prune GitHub refs.
 2. Inspect the current branch, upstream sync, and changed files.
 3. Classify changed paths into syncable, blocked, and ignored.
-4. Audit topic branches before core sync. `research_branch_integration.pending` tracks unabsorbed factor/Tushare research branches. `topic_branch_integration.pending` tracks other unabsorbed remote `origin/codex/*` task branches. `topic_branch_integration.cleanup` lists merged or manifest-absorbed remote topic branches that can be deleted after review. `local_topic_branch_cleanup.cleanup` lists local `codex/*` branches already merged to `origin/main` and not currently checked out.
+4. Audit topic branches before core sync. `research_branch_integration.pending` tracks unabsorbed factor/Tushare research branches. `topic_branch_integration.pending` tracks other unabsorbed remote `origin/codex/*` task branches. `topic_branch_integration.cleanup` lists merged or manifest-absorbed remote topic branches that can be deleted after review. `local_topic_branch_cleanup.cleanup` lists local `codex/*` branches already merged to `origin/main` and not currently checked out. `branch_discovery.errors` must be empty; if Git branch discovery fails, execute/push mode blocks sync rather than treating missing refs as no pending work.
 5. Commit only syncable code/config/test/doc files.
 6. Push the current task branch only when the machine, task, branch, validation, branch-integration audit, and safety checks are clear.
 7. Stop and ask before pushing if anything is ambiguous or risky.
@@ -120,6 +120,48 @@ GitHub does not sync:
 - tokens or credentials
 
 Use local copy, NAS, external drives, or a future DVC/object-storage workflow for large data.
+
+## Desktop Factor Validation
+
+When a desktop is assigned stable framework validation, use task type `factor_validation` and run the residual-regime profile rather than starting a new exploratory batch:
+
+```powershell
+python scripts\run_desktop_factor_validation.py
+```
+
+This runs `configs/walk_forward_tushare_moneyflow_residual_regime.json` on local processed bars and Tushare moneyflow inputs. It allows zero accepted candidates because a clean rejection set is still useful evidence. It should still fail on train/test grid errors, missing data, or unsafe repository state.
+
+Use the detailed checklist in `docs/research/desktop_residual_regime_validation_runbook_2026-06-16.md`.
+
+## CN Stock Factor Mining Startup Gate
+
+Before starting any CN stock factor batch or validation rerun, run the startup gate once in the current session. This confirms that the run is CN stock cross-sectional research, not ETF rotation, and that the machine, task, branch, and commit/push policy are explicit.
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_factor_mining_startup_gate.py `
+  --config configs\factor_mining_startup_cn_stock.json `
+  --machine office_desktop `
+  --task factor_batch `
+  --branch codex/factor-batch-cn-stock-20260617 `
+  --current-branch codex/factor-batch-cn-stock-20260617 `
+  --market CN `
+  --asset-type stock `
+  --confirm-start
+```
+
+Then build the CN stock data manifest for the same local processed store:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_cn_stock_data_manifest.py `
+  --data-root data\processed\office_desktop_20260616_combined_research `
+  --output-dir data\reports\cn_stock_data_manifest
+```
+
+The gate and manifest write local-only packets under `data/reports/`. They are evidence for the run, not syncable Git artifacts.
+
+`scripts/run_tushare_alpha_factory.py` and `scripts/run_experiment_grid.py` now require a same-day cleared startup packet and a same-day non-blocked CN stock data manifest for `source=processed-bars` plus `market=CN` runs. Fixture smoke tests are not blocked. Use `--startup-gate-packet` and `--data-manifest-packet` to point at specific packets. `--allow-missing-startup-gate` is deprecated and fails for real CN processed-bars runs; every mining run must regenerate or point to a same-day cleared startup gate. Use `--allow-review-required-data-manifest` only after reading and accepting manifest warnings for that run.
+
+Use `--confirm-start` only after the session has explicitly confirmed CN stock scope, ETF exclusion, branch, machine, task, push policy, the latest audit optimization plan, the latest bootstrap diagnostic, the completed tail-RankIC broad-RankIC batch, the completed monthly-persistence batch, the hold20/top50 lead, the next monthly loss-control or rebalance-phase direction, tail/broad RankIC preservation, and monthly-return bootstrap gating. See `docs/research/cn_stock_factor_mining_startup_gate_2026-06-17.md`.
 
 ## Safety Boundary
 

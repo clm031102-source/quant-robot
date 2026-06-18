@@ -12,6 +12,6 @@ The framework follows these rules:
 - Cross-sectional ranking is computed within the current date only.
 - Walk-forward test runs may include pre-split warmup bars for rolling calculations, but test signals and trades must start after the split.
 - Multi-market `ALL` backtests use a single global portfolio scope by default, so combining markets does not multiply exposure by market count.
-- Tests include a future price spike to prove earlier factor rows do not change.
+- Tests include future price and moneyflow spikes to prove earlier technical and residual moneyflow factor rows do not change.
 
 Violating these rules makes research results unusable, even when backtest metrics look attractive.

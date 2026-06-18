@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from quant_robot.promotion.gate import PromotionGateConfig, build_promotion_report, load_promotion_gate_config
+from quant_robot.promotion.gate import PromotionGateConfig, build_promotion_report, load_promotion_gate_config, run_promotion_gate
 
 
 class PromotionGateTests(unittest.TestCase):
@@ -264,6 +264,151 @@ class PromotionGateTests(unittest.TestCase):
         self.assertIn("adjusted_ic_p_value_above_threshold", row["blocking_reasons"])
         self.assertIn("adjusted_ic_significance_not_passed", row["blocking_reasons"])
 
+    def test_promotion_blocks_candidate_without_tail_ic_evidence_when_required(self):
+        walk_forward = _accepted_walk_forward_row("CN_ETF_total_mv_log_top1_cost5_reb5", "total_mv_log")
+        walk_forward.update(
+            {
+                "test_tail_ic_p_value": 0.40,
+                "test_tail_significance_status": "not_significant",
+            }
+        )
+
+        report = build_promotion_report(
+            walk_forward_rows=[walk_forward],
+            paper_manifest=_paper_manifest(
+                case_id="CN_ETF_total_mv_log_top1_cost5_reb5",
+                factor_name="total_mv_log",
+                sharpe=0.80,
+                total_return=0.20,
+            ),
+            config=PromotionGateConfig(
+                min_oos_sharpe=0.5,
+                min_paper_sharpe=0.5,
+                max_tail_ic_p_value=0.05,
+            ),
+        )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "blocked")
+        self.assertIn("tail_ic_significance_below_threshold", row["blocking_reasons"])
+        self.assertEqual(row["walk_forward"]["test_tail_significance_status"], "not_significant")
+
+    def test_promotion_blocks_implausibly_high_oos_sharpe_when_configured(self):
+        walk_forward = _accepted_walk_forward_row("CN_ETF_momentum_60_top1_cost5_reb5", "momentum_60")
+        walk_forward["test_sharpe"] = 3.5
+
+        report = build_promotion_report(
+            walk_forward_rows=[walk_forward],
+            paper_manifest=_paper_manifest(
+                case_id="CN_ETF_momentum_60_top1_cost5_reb5",
+                factor_name="momentum_60",
+                sharpe=0.80,
+                total_return=0.20,
+            ),
+            config=PromotionGateConfig(
+                min_oos_sharpe=0.5,
+                min_paper_sharpe=0.5,
+                max_oos_sharpe_for_promotion=3.0,
+            ),
+        )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "blocked")
+        self.assertIn("oos_sharpe_overfit_flag", row["blocking_reasons"])
+
+    def test_promotion_blocks_candidate_without_required_market_regime_coverage(self):
+        report = build_promotion_report(
+            walk_forward_rows=[_accepted_walk_forward_row("CN_ETF_momentum_60_top1_cost5_reb5", "momentum_60")],
+            paper_manifest=_paper_manifest(
+                case_id="CN_ETF_momentum_60_top1_cost5_reb5",
+                factor_name="momentum_60",
+                sharpe=0.80,
+                total_return=0.20,
+            ),
+            market_regime_coverage={
+                "status": "insufficient",
+                "summary": {"covered_regimes": 1},
+                "decision": {"market_regime_coverage_cleared": False, "blockers": ["market_regimes_below_minimum"]},
+            },
+            config=PromotionGateConfig(
+                min_oos_sharpe=0.5,
+                min_paper_sharpe=0.5,
+                require_market_regime_coverage=True,
+            ),
+        )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "blocked")
+        self.assertIn("market_regime_coverage_not_sufficient", row["blocking_reasons"])
+        self.assertIn("market_regimes_below_minimum", row["blocking_reasons"])
+
+    def test_promotion_blocks_candidate_accepted_by_only_one_regime_lookback_when_required(self):
+        accepted = _accepted_walk_forward_row("CN_momentum_60_top1_cost5_reb1_regime150", "momentum_60")
+        accepted["regime_lookback"] = 150
+        rejected_other_regime = _accepted_walk_forward_row("CN_momentum_60_top1_cost5_reb1_regime180", "momentum_60")
+        rejected_other_regime["regime_lookback"] = 180
+        rejected_other_regime["validation_status"] = "rejected"
+
+        report = build_promotion_report(
+            walk_forward_rows=[accepted, rejected_other_regime],
+            config=PromotionGateConfig(
+                min_oos_sharpe=0.5,
+                min_paper_sharpe=0.5,
+                min_distinct_regime_lookbacks_for_family=2,
+            ),
+        )
+
+        by_case = {row["case_id"]: row for row in report["candidates"]}
+        self.assertEqual(by_case["CN_momentum_60_top1_cost5_reb1_regime150"]["promotion_status"], "blocked")
+        self.assertIn(
+            "insufficient_distinct_regime_lookbacks",
+            by_case["CN_momentum_60_top1_cost5_reb1_regime150"]["blocking_reasons"],
+        )
+
+    def test_run_promotion_gate_treats_missing_required_market_regime_coverage_as_blocker(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            leaderboard = root / "walk_forward.csv"
+            leaderboard.write_text(
+                "case_id,market,factor_name,top_n,cost_bps,validation_status,data_mode,test_trades,test_sharpe,test_relative_return,test_max_drawdown,stability_score\n"
+                "CN_ETF_momentum_60_top1_cost5_reb5,CN_ETF,momentum_60,1,5,accepted,research,80,0.8,0.06,-0.12,0.7\n",
+                encoding="utf-8",
+            )
+
+            report = run_promotion_gate(
+                PromotionGateConfig(
+                    walk_forward_leaderboard=leaderboard,
+                    market_regime_coverage=root / "missing_regime_pack.json",
+                    require_market_regime_coverage=True,
+                    min_oos_sharpe=0.5,
+                    min_paper_sharpe=0.5,
+                )
+            )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "blocked")
+        self.assertIn("market_regime_coverage_missing", row["blocking_reasons"])
+
+    def test_promotion_gate_reads_gap_audit_summary_quality_metrics(self):
+        report = build_promotion_report(
+            walk_forward_rows=[_accepted_walk_forward_row("CN_ETF_momentum_60_top1_cost5_reb5", "momentum_60")],
+            quality_report={
+                "stage": "phase_3_1_data_quality_gap_audit",
+                "summary": {
+                    "duplicate_bars": 1,
+                    "missing_date_rows": 4,
+                    "zero_volume_rows": 2,
+                },
+            },
+            config=PromotionGateConfig(min_oos_sharpe=0.5, min_paper_sharpe=0.5),
+        )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "blocked")
+        self.assertIn("duplicate_bars_present", row["blocking_reasons"])
+        self.assertIn("missing_dates_present", row["warnings"])
+        self.assertIn("zero_volume_rows_present", row["warnings"])
+
     def test_promotion_accepts_candidate_with_factor_source_and_adjusted_ic_evidence(self):
         walk_forward = _accepted_walk_forward_row("CN_ETF_total_mv_log_top1_cost5_reb5", "total_mv_log")
         walk_forward.update(
@@ -305,7 +450,8 @@ class PromotionGateTests(unittest.TestCase):
                 {
                   "walk_forward_leaderboard": "walk_forward.csv",
                   "required_factor_source": "tushare_daily_basic",
-                  "max_adjusted_ic_p_value": 0.05
+                  "max_adjusted_ic_p_value": 0.05,
+                  "max_tail_ic_p_value": 0.05
                 }
                 """,
                 encoding="utf-8",
@@ -315,6 +461,32 @@ class PromotionGateTests(unittest.TestCase):
 
         self.assertEqual(config.required_factor_source, "tushare_daily_basic")
         self.assertAlmostEqual(config.max_adjusted_ic_p_value, 0.05)
+        self.assertAlmostEqual(config.max_tail_ic_p_value, 0.05)
+
+    def test_residual_regime_promotion_config_uses_strict_moneyflow_combo_controls(self):
+        config = load_promotion_gate_config("configs/promotion_gate_tushare_moneyflow_residual_regime.json")
+
+        self.assertEqual(
+            config.walk_forward_leaderboard,
+            Path("data/reports/walk_forward_tushare_moneyflow_residual_regime/walk_forward_leaderboard.csv"),
+        )
+        self.assertEqual(config.required_factor_source, "moneyflow_technical_combo")
+        self.assertEqual(config.min_walk_forward_folds, 2)
+        self.assertEqual(config.min_accepted_folds, 2)
+        self.assertEqual(config.min_distinct_regime_lookbacks_for_family, 2)
+        self.assertAlmostEqual(config.max_adjusted_ic_p_value or 0.0, 0.05)
+        self.assertAlmostEqual(config.max_tail_ic_p_value or 0.0, 0.05)
+        self.assertFalse(config.allow_manual_live_review)
+        self.assertAlmostEqual(config.max_oos_sharpe_for_promotion or 0.0, 3.0)
+        self.assertEqual(
+            config.market_regime_coverage,
+            Path("data/reports/market_regime_coverage_tushare_moneyflow_residual_regime/market_regime_coverage_pack.json"),
+        )
+        self.assertEqual(
+            config.quality_report,
+            Path("data/reports/data_quality_gap_audit_tushare_moneyflow_residual_regime/data_quality_gap_audit.json"),
+        )
+        self.assertTrue(config.require_market_regime_coverage)
 
     def test_promotion_blocks_stale_or_unready_provider_status_when_required(self):
         report = build_promotion_report(

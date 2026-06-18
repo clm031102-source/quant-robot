@@ -262,3 +262,302 @@ Signal-date amount gates:
 - For `large_minus_liquidity_20`, the best-looking gated row was `>=100m/top5`: capacity-limited trades 0, total return 9.6189, but relative return -3.7377, max drawdown -0.8051, and IC no longer significant.
 
 These probes reject three easy next steps: simple inversion, percentile targeting, and standalone amount gating. The useful next design should combine gates with a new score, not apply gates after a score whose edge depends on the excluded names.
+
+## Residualized Liquidity-Aware Probe
+
+The office desktop then tested temporary residualized scores without adding production factor code. The most useful construction was:
+
+`resid_large_liq_vol_amt_20`: cross-sectional residual of large-order net flow after removing same-day 20-day Amihud liquidity, 20-day volatility, and log amount. The probe then required signal-day amount `>=100m`, applied a positive equal-weight market regime filter, and selected top5.
+
+Key combined-sample results:
+
+- No-regime top5 with amount `>=100m`: significant positive IC, capacity-limited trades 0, total return 17.8722, relative return 4.5156, but max drawdown -0.7551.
+- Regime120 top5: significant positive IC, capacity-limited trades 0, total return 41.0642, relative return 27.7076, Sharpe 1.0749, max drawdown -0.3191.
+- Regime150 top5: significant positive IC, capacity-limited trades 0, total return 67.6590, relative return 54.3024, Sharpe 1.1412, max drawdown -0.2859.
+- Regime180 top5: significant positive IC, capacity-limited trades 0, total return 38.1081, relative return 24.7515, Sharpe 1.0788, max drawdown -0.2859.
+- Regime252 top5: significant positive IC, capacity-limited trades 0, total return 41.3360, relative return 27.9794, Sharpe 1.1013, max drawdown -0.2859.
+
+Split-window check for the best temporary row, regime150/top5:
+
+- 2023H2 and 2024H1 had no trades because the regime filter blocked those weak market windows.
+- 2024H2: approved by simple return/drawdown/capacity gates. Total return 1.7672, relative return 1.4761, Sharpe 6.7184, max drawdown -0.2077, capacity-limited trades 0. IC was not significant.
+- 2025H1: approved by simple gates. Total return 0.8500, relative return 0.6730, Sharpe 2.7597, max drawdown -0.2859, capacity-limited trades 0. IC was not significant.
+- 2025H2: approved by simple gates. Total return 0.6849, relative return 0.5118, Sharpe 2.3735, max drawdown -0.1750, capacity-limited trades 0. IC was significant positive.
+- 2026H1: approved by simple gates. Total return 0.2543, relative return 0.2511, Sharpe 1.4231, max drawdown -0.2021, capacity-limited trades 0. IC was not significant.
+
+Audit judgment: this is the first temporary probe to clear the basic combined-sample return, drawdown, and capacity gates. It is still only a strict-validation candidate, not a promotion. Risks remain: the regime filter excludes the hardest early windows, half-year IC is often not significant, RankIC remains negative, and the factor exists only as a temporary research script. The next productive code task is to pre-register this residualized liquidity-aware factor family and run formal rolling walk-forward.
+
+## Production Residual Matrix Recheck
+
+After the laptop integrated the residualized moneyflow method into production factor code, the office desktop rebased the mining work onto that method update and reran the combined 2023-2026 sample using the formal factor builder. The full rolling walk-forward grid was too slow on the office desktop because the current validation path recomputes residual factors per case and per fold. The useful office workflow was therefore to compute the production factor matrix once, cache it locally under `data/reports`, and audit regimes from that matrix.
+
+The production matrix covered `large_minus_liquidity_20`, `large_resid_liq_vol_amt_20`, `large_resid_liq_vol_amt_gate_20`, and `large_resid_liquidity_20` with 14,283,928 factor rows. Local artifact path: `data/reports/desktop_factor_mining_20260616_continue/20260616_office_production_residual_factor_matrix_probe/`.
+
+Best combined-sample rows, top5/cost20/1,000,000 portfolio value/10 bps market impact:
+
+- `large_resid_liq_vol_amt_gate_20`, regime150: approved by simple return/drawdown/capacity/IC gates. Total return 67.6590, relative return 54.3024, Sharpe 1.1412, max drawdown -0.2859, capacity-limited trades 0, max participation 1.75%, mean IC 0.00796, IC p-value 0.00228.
+- `large_resid_liq_vol_amt_gate_20`, regime252: approved by simple gates. Total return 41.3360, relative return 27.9794, Sharpe 1.1013, max drawdown -0.2859, capacity-limited trades 0, mean IC 0.00810, IC p-value 0.00208.
+- `large_resid_liq_vol_amt_gate_20`, regime180: approved by simple gates. Total return 38.1081, relative return 24.7515, Sharpe 1.0788, max drawdown -0.2859, capacity-limited trades 0, mean IC 0.00760, IC p-value 0.00334.
+
+The ungated production residual score had much larger raw returns but failed capacity review: `large_resid_liq_vol_amt_20` top5/no-regime had 160 capacity-limited trades and max participation above 500%; regime150 still had 58 capacity-limited trades. This confirms that the amount gate is not cosmetic. It is the difference between a high-return but non-tradable residual score and a capacity-clean strict-validation candidate.
+
+Split-window check on the three approved gated rows:
+
+- 2023H2 and 2024H1 had no trades because the positive market-regime filter blocked those windows.
+- Regime150/top5 passed simple gates in 2024H2, 2025H1, 2025H2, and 2026H1, with capacity-limited trades 0 in every traded split. Returns were strongest in 2024H2 and weakest but still positive in 2026H1.
+- Regime180/top5 and regime252/top5 also passed simple gates in every traded split. Regime252 gave the best 2025H1 and 2026H1 split returns, while regime150 gave the best full-sample relative return.
+- Half-year IC remains unstable: only 2025H2 was significant positive across these split checks. RankIC remains negative in the combined sample, so the factor is still tail-driven rather than smoothly monotonic.
+
+Audit judgment: the laptop-integrated production factor reproduces the temporary probe. `large_resid_liq_vol_amt_gate_20` top5 with regime150/180/252 should stay in the strict-validation queue. It is not promotion-ready because the regime filter avoids the hardest early windows and split IC is not consistently significant. The laptop framework now addresses the office runtime bottleneck with `precompute_factor_matrix`; the desktop still needs a formal rolling walk-forward run before any promotion discussion.
+
+## Signal Amount And Rank-Window Probe
+
+The office desktop then reused the cached production factor matrix to test signal-day amount bands and rank-window offsets for `large_resid_liq_vol_amt_gate_20`. This was a no-lookahead probe: filters used same-day signal amount and same-day factor ranks before selection. The local run evaluated 120 combinations across regime150/180/252, amount bands, and rank windows.
+
+No combination passed the stricter tail-selection gate. The main reason was not capacity; capacity-limited trades stayed at 0 for the leading rows. The failure was that IC measured only on the preselected tradable tail was not significant, and several higher-return variants increased drawdown.
+
+Key observations:
+
+- The highest-return row, `gte100m/r1_3/top3/regime150`, had total return 84.6445 and relative return 71.2879, but max drawdown worsened to -0.3643 and selected-tail IC was not significant.
+- The original `gte100m/r1_5/top5/regime150` shape retained total return 67.6590, relative return 54.3024, and max drawdown -0.2859, but selected-tail IC was not significant in this stricter tail-only view.
+- Excluding the 500m-1b signal-amount band improved drawdown for `r1_5/regime150` to -0.2579, but relative return fell to 38.4864 and selected-tail IC remained not significant.
+- Raising the signal-day amount floor to 200m, 500m, or 1b generally reduced the edge. The best `gte200m` row had relative return 32.1945 but max drawdown -0.4983; the best `gte500m` row had relative return only 6.0874 and max drawdown -0.5276.
+
+Audit judgment: amount-band tweaks and rank-window offsets do not produce a better candidate than the existing `large_resid_liq_vol_amt_gate_20` top5 regime family. The useful method improvement is to add a formal tail-selection IC diagnostic to validation, because full-universe IC can look significant while the actually traded tail is not significant. The laptop integration now promotes this into core validation as tail-IC evidence on the actual selected holdings.
+
+## Precompute Desktop Validation Slice
+
+After pulling the laptop method update, the office desktop tested the new `precompute_factor_matrix` validation path against the local combined store. The temporary office config reused the official residual-regime validation grid but pointed `moneyflow_input_root` at `data/processed/office_desktop_20260616_combined_research/processed` and narrowed the factor set to `large_resid_liquidity_20` plus `large_resid_liq_vol_amt_gate_20`.
+
+The run was stopped by a 30-minute local timeout before it produced a complete rolling-validation summary. It still produced useful partial evidence:
+
+- Fold 01 test rows were all `no_trades`; the strategy stayed in cash while the benchmark returned 0.3529, so all rows were rejected for relative return.
+- Fold 02 train produced completed rows. The strongest capacity-clean gated row was `large_resid_liq_vol_amt_gate_20/top5/cost20/regime150`: trades 95, total return 0.8707, relative return 0.8188, Sharpe 13.4491, max drawdown -0.0726, capacity-limited trades 0, but IC was not significant over only 19 observations.
+- Fold 02 test rows were again all `no_trades`, with relative return -0.0006 and insufficient IC data.
+- Fold 03 train had started but the run did not finish, so it is not usable as validation evidence.
+
+Audit judgment: the laptop precompute work is the right direction and avoids repeated residual-factor recomputation, but full rolling validation is still heavy for the office desktop on this grid. The partial results also reinforce the main risk in the candidate: the positive-regime filter avoids early weak windows, which can create no-trade test folds. For promotion work, the next framework task should be checkpoint/resume or thinner fold scheduling; for office mining, cached matrix audits remain the efficient path.
+
+## Large Residual Liquidity Matrix Audit
+
+The office desktop then used the cached production factor matrix to audit `large_resid_liquidity_20` directly, without recomputing residual factors. The run covered 16 combinations across top5/top10, cost20/cost30, and none/regime150/regime180/regime252. No row passed the simple promotion gate.
+
+Key combined-sample rows:
+
+- Top5/cost20/no-regime had very large raw performance and significant IC: total return 1187.6564, relative return 1174.2998, Sharpe 1.1249, mean IC 0.0106, IC p-value 3.35e-09. It was rejected for max drawdown -0.5238 and severe capacity pressure: 171 capacity-limited trades and max participation above 500%.
+- Top5/cost20/regime150 improved drawdown to -0.1773 and kept significant IC, with total return 835.9761 and relative return 822.6195. It still failed the simple gate because it had 61 capacity-limited trades and max participation around 75.9%.
+- Top5/cost20/regime252 and regime180 showed the same shape: strong returns, significant positive IC, acceptable drawdown, but 55-57 capacity-limited trades.
+- Cost30 variants reduced returns and did not solve the capacity issue.
+
+Split-window review shows why this should not be promoted:
+
+- The no-regime version traded through 2023H2 and 2024H1, but 2024H1 was deeply negative despite positive full-sample IC.
+- Regime150 blocked 2023H2 and 2024H1, then produced positive traded splits from 2024H2 through 2026H1. However, every traded split still had capacity-limited trades.
+- RankIC remained negative in the combined sample, so the signal is still a tail-selection effect rather than a smooth cross-sectional ordering.
+
+Audit judgment: `large_resid_liquidity_20` is rejected as a tradable candidate. It is useful research evidence because liquidity residualization alone creates a strong but capacity-unsafe tail. The amount gate in `large_resid_liq_vol_amt_gate_20` is necessary, not optional, and the strict-validation queue should continue to focus on the gated residual factor family rather than promoting the ungated liquidity residual.
+
+## Tail-IC Top-N Bridge Probe
+
+After the laptop integrated selected-holdings tail-IC into the core pipeline, the office desktop reran the strongest gated residual factor through the new evidence path. The first local screen attempted a broader 8-factor moneyflow-combo grid, but precomputing that matrix used about 6-7GB and the full grid was too slow for the office machine. The run was intentionally stopped after the core `large_resid_liq_vol_amt_gate_20` set finished, keeping the useful 24 case outputs and avoiding a long low-efficiency sweep.
+
+Core `large_resid_liq_vol_amt_gate_20` top3/top5/top10, cost20/cost30, regime120/150/180/252:
+
+- All 24 cases were capacity-clean, with capacity-limited trades 0.
+- No case passed the combined simple gate once selected-holdings tail-IC was required.
+- Top3 produced the highest raw returns, led by top3/cost20/regime150 with relative return 71.2879, but max drawdown was -0.3643 and tail-IC was not significant.
+- Top5 retained the earlier attractive cost20 return/drawdown profile, but tail-IC remained just short of significance. For example, top5/cost20/regime252 had relative return 27.9794, max drawdown -0.2859, and tail-IC p-value 0.0856.
+- Top10 had significant positive tail-IC, but returns were diluted or negative and drawdown often failed. The best top10/cost20/regime150 row had tail-IC p-value 0.00075, but relative return only 1.4518 and max drawdown -0.3380.
+
+This created a clear bridge hypothesis: test top6-top9 between top5's return profile and top10's stronger tail-IC.
+
+Top6-top9 bridge screen, cost20 only:
+
+- The screen covered 16 cases across top6/top7/top8/top9 and regime120/150/180/252.
+- Three rows passed the simple combined return/drawdown/capacity/tail-IC gate:
+  - top6/cost20/regime252: relative return 10.5936, Sharpe 1.0843, max drawdown -0.2631, capacity-limited trades 0, tail mean IC 0.0503, tail-IC p-value 0.0346.
+  - top6/cost20/regime180: relative return 10.0083, Sharpe 1.0691, max drawdown -0.2720, capacity-limited trades 0, tail mean IC 0.0475, tail-IC p-value 0.0434.
+  - top9/cost20/regime252: tail-IC p-value 0.0061 and max drawdown -0.2741, but relative return was only 0.0075, so it is not economically useful.
+- Top6/regime150 still had the best relative return among top6 rows at 29.4947, but tail-IC p-value was 0.0759, so it did not pass the new evidence gate.
+
+Cost30 stress on top6:
+
+- No top6 row passed after cost increased from 20 bps to 30 bps.
+- top6/cost30/regime252 kept significant tail-IC, but relative return fell to -2.7606 and max drawdown worsened to -0.3203.
+- top6/cost30/regime180 also kept significant tail-IC, but relative return fell to -3.2572 and max drawdown was -0.3203.
+- top6/cost30/regime150 kept positive relative return at 5.0897, but tail-IC was not significant and drawdown was -0.3203.
+
+Audit judgment: top6 is a useful discovery because it is the first rank-size bridge where selected-holdings tail-IC and cost20 drawdown/capacity can pass together under multiple regime lookbacks. It is not promotion-ready because the edge fails the 30 bps stress test and remains cost-sensitive. The next efficient mining path is not another top-N sweep; it is to reduce turnover or execution drag around the top6 residual-gate shape, then rerun the same tail-IC and cost30 checks.
+
+## Top6 Cost-Drag Reduction Probes
+
+The office desktop then tested whether the top6 residual-gate shape could survive 30 bps by reducing turnover or execution drag. These were local research-only probes using the cached production factor matrix; generated artifacts stayed under `data/reports`.
+
+Holding/rebalance bridge:
+
+- Tested `large_resid_liq_vol_amt_gate_20/top6` with `forward_horizon = rebalance_interval` at 2, 3, and 5 days, cost20/cost30, and regime150/180/252.
+- No row passed. The best row was h2/reb2/cost20/regime150 with relative return 1.5189, but max drawdown was -0.3480 and selected-holdings tail-IC was not significant.
+- All cost30 rows failed. The longer 3-day and 5-day variants lost relative return and IC strength, so the signal appears to be mainly short-horizon rather than a slower swing signal.
+
+Sticky top6 turnover overlay:
+
+- Tested a research-only sticky overlay: keep the prior top6 holding if it remains within rank <= 6/8/10/12/15/20, otherwise replace it. This measures whether avoiding unnecessary churn can preserve the top6 edge. It is not part of the formal pipeline and should not be treated as promotion evidence.
+- Cost20 produced 9 simple gate passes. The best pass was keep12/cost20/regime252: relative return 15.1888, Sharpe 1.1153, max drawdown -0.2523, capacity-limited trades 0, tail mean IC 0.0469, tail-IC p-value 0.0460.
+- Regime180 also produced cost20 passes, including keep15/cost20/regime180 with relative return 13.9788, max drawdown -0.2776, and tail-IC p-value 0.0409.
+- Cost30 still produced 0 passes. The closest row was keep12/cost30/regime252 with relative return 0.0712 and significant tail-IC p-value 0.0460, but max drawdown was -0.3021. A narrow keep11/13/14 probe did not rescue the case; keep13/cost30/regime252 had relative return 0.2636 but tail-IC p-value 0.0505 and max drawdown -0.3021.
+
+Audit judgment: longer holding periods are rejected for this factor. Sticky holding is useful as a method lead because it improves the cost20 top6 shape and preserves selected-tail IC under regime180/252, but it still does not clear 30 bps. The next high-efficiency path is to formalize a turnover-aware overlay in the framework, then test whether a better cost model or execution schedule can reduce drawdown below -0.30 without losing tail-IC. Until that exists in the formal pipeline, no sticky result should be promoted.
+
+## Strict-Regime Threshold Probe
+
+Because the closest sticky top6/cost30 rows missed the drawdown gate by only a small margin, the office desktop tested whether a stricter positive-regime threshold could remove the weak dates without changing the factor. This local probe used the sticky overlay, cost30 only, regime180/252, keep-rank 10/12/13/15/20, and equal-weight benchmark momentum thresholds of 0.5%, 1%, 2%, 3%, and 5%.
+
+Key results:
+
+- No row passed the cost30 gate. All 50 cases were capacity-clean, and 17 had significant positive selected-holdings tail-IC, but drawdown or tail-IC still blocked every row.
+- The best relative-return row was keep20/cost30/regime252/threshold1%: relative return 1.9082, Sharpe 1.0208, tail-IC p-value 0.0467, capacity-limited trades 0, but max drawdown was -0.3253.
+- The closest drawdown/tail-IC trade-off was keep12/cost30/regime252/threshold1%: relative return 0.7456, max drawdown -0.3021, tail-IC p-value 0.0458. It still missed the drawdown gate.
+- Narrower keep-rank probes did not rescue the case. keep13/cost30/regime252/threshold1% had relative return 0.9471 and max drawdown -0.3021, but tail-IC p-value was 0.0503.
+
+Audit judgment: stricter regime thresholds do not solve the top6/sticky cost30 problem. The residual-gate top6 family remains useful at cost20, but further parameter tuning around regime thresholds is now low value. The next office mining path should move to a different signal construction or a formally implemented turnover-aware framework from the laptop branch, rather than continuing to overfit this same shape.
+
+## Momentum-Flow Tail-IC Recheck
+
+After moving away from residual-gate parameter tuning, the office desktop rechecked the two older momentum-flow candidates that had strong historical returns but negative RankIC: `large_plus_risk_momentum_10` and `extra_plus_momentum_10`. The run used the current selected-holdings tail-IC evidence path and covered 36 cases across top3/top5/top10, cost20/cost30, and regime150/regime180/regime252.
+
+Key results:
+
+- All 36 cases completed, but no row passed the combined return/drawdown/capacity/tail-IC gate.
+- All 36 rows had significant positive selected-holdings tail-IC, and all 18 cost30 rows also kept significant positive tail-IC. This confirms the older negative RankIC issue was hiding a strong traded-tail effect rather than a smoothly monotonic cross-section.
+- No row was capacity-clean. Even the lower-pressure top10 rows still had 40-62 capacity-limited trades, and top3/top5 variants had much larger max participation pressure.
+- Only two cost20 rows had max drawdown within -0.30; no cost30 row passed the drawdown limit.
+- Best raw result: `extra_plus_momentum_10/top3/cost20/regime150` had relative return 2592.7438, Sharpe 4.3754, and tail-IC p-value 0.0162, but failed with max drawdown -0.4115, 62 capacity-limited trades, and max participation 281.8%.
+- Closest cost30 drawdown row: `extra_plus_momentum_10/top5/cost30/regime252` had relative return 90.6725 and very strong tail-IC p-value 0.000060, but still failed with max drawdown -0.3023 and 69 capacity-limited trades.
+
+Audit judgment: both momentum-flow candidates are real tail signals, but their tradable evidence is blocked by capacity and drawdown. They are not promotion-ready. The only efficient follow-up worth testing was whether an amount gate could remove the capacity problem without destroying tail-IC.
+
+## Momentum-Flow Amount-Gate Prototype
+
+The office desktop then ran a local research-only amount-gate prototype for `large_plus_risk_momentum_10` and `extra_plus_momentum_10`. This did not change the formal factor registry. The prototype recomputed the two base factors, set signal-day factor values to null when amount was below 100m or 200m, then ran 32 cases across top5/top10, cost20/cost30, and regime150/regime252 through the same formal pipeline with precomputed factors.
+
+Key results:
+
+- All 32 cases completed and all became capacity-clean: capacity-limited trades were 0, with max participation below 5%.
+- The gate also removed the useful tail evidence. No row passed, and the leading rows no longer had significant selected-holdings tail-IC.
+- Best relative-return row: `large_plus_risk_momentum_10_amt100m_proto/top10/cost20/regime150` had relative return 6.1540 and capacity-limited trades 0, but max drawdown was -0.3411 and tail-IC p-value was 0.1285.
+- The 200m floor was worse: returns mostly turned negative, drawdown widened, and tail-IC remained insignificant.
+- `extra_plus_momentum_10` did not survive the amount-gate prototype; its previously strong tail evidence was tied to the lower-liquidity segment removed by the gate.
+
+Audit judgment: a simple signal-day amount floor solves capacity mechanically but destroys the momentum-flow edge. This path should not be formalized as a new production factor. The useful research conclusion is that `large_plus_risk_momentum_10` and `extra_plus_momentum_10` are micro/low-liquidity tail effects; future work should not spend more office cycles on simple amount floors for these signals. If revisited, it should be through a more explicit liquidity-neutral or execution-aware construction from the laptop framework, not another threshold sweep.
+
+## Momentum5 Low-Flow Tail-IC Screen
+
+The next office screen moved to the older 5-day momentum blends that looked more capacity-friendly in the early leaderboard: `large_plus_momentum_5` and `mf_low_plus_momentum_5`. The first run used the current selected-tail-IC validation path and covered 36 cases across top3/top5/top10, cost20/cost30, and regime150/regime180/regime252.
+
+Regime-screen results:
+
+- All 36 cases completed, but no row passed the combined gate.
+- 30 of 36 rows had significant positive selected-holdings tail-IC, including 15 cost30 rows.
+- No row was capacity-clean. The regime filters pushed the signals toward more crowded low-liquidity dates, with capacity-limited trades present in every row.
+- Only one row passed the -0.30 drawdown limit, and it still failed capacity.
+- Best raw row: `large_plus_momentum_5/top3/cost20/regime150` had relative return 1608.3431, Sharpe 5.2473, tail-IC p-value 0.0298, but failed with max drawdown -0.3206, 79 capacity-limited trades, and max participation 234.6%.
+- `large_plus_momentum_5/top5/cost20/regime150` had very strong tail-IC p-value 0.0000049, but max drawdown was -0.3233 and capacity-limited trades were 79.
+- `mf_low_plus_momentum_5` also had significant tail-IC in many rows, but drawdown was much worse: top3/cost20/regime150 had max drawdown -0.5160 and 35 capacity-limited trades.
+
+Because the earlier no-regime leaderboard had shown a milder `mf_low_plus_momentum_5/top5/cost20` profile, the office desktop ran a small no-regime tail-IC supplement covering 12 cases across the same two factors, top3/top5/top10, and cost20/cost30.
+
+No-regime supplement:
+
+- All 12 cases completed, but no row passed.
+- `large_plus_momentum_5/top5` and `top10` had strong selected-tail IC, but no-regime trading greatly worsened drawdown and capacity pressure. For example, top5/cost20 had relative return 263.5419 and tail-IC p-value 0.0000026, but max drawdown was -0.6461 with 140 capacity-limited trades.
+- `large_plus_momentum_5/top3` had the largest relative return, 4156.9112 at cost20, but selected-tail IC was not significant and max drawdown was -0.6215.
+- `mf_low_plus_momentum_5/top5/cost20` had relative return 57.6452, but selected-tail IC was not significant, max drawdown was -0.8103, and capacity-limited trades were 70.
+
+Audit judgment: the 5-day momentum blends are not tradable candidates under the current validation standard. They produce strong selected-tail evidence in some rows, but the edge is tied to unstable, capacity-stressed tails and severe drawdowns. Regime filters do not make them safer, and removing regime filters makes drawdown much worse. The office queue should not spend more cycles on simple top-N, regime, or amount-threshold variants of these two factors unless the laptop framework adds a materially different liquidity-neutral or execution-aware construction.
+
+## Low-Flow Minus Volatility Near-Miss
+
+The office desktop then rechecked `mf_low_minus_volatility_20`, the strongest remaining legacy candidate by old relative-return screens. The first run covered 18 cases across top5/top10/top20, cost20/cost30, and regime150/regime180/regime252 using the current selected-holdings tail-IC path.
+
+Regime-screen results:
+
+- All 18 cases completed, and all 18 had significant positive selected-holdings tail-IC.
+- The formal runner approved 11 rows on return and drawdown alone, but none passed the stricter office combined gate because every row had capacity-limited trades.
+- The strongest near-miss was `top10/cost30/regime150`: relative return 72.2635, Sharpe 1.2835, max drawdown -0.2748, selected-tail IC p-value 0.0010, but 61 capacity-limited trades and max participation 169.3%.
+- `top10/cost30/regime252` also cleared return, cost30, drawdown, and tail-IC with relative return 29.7799, max drawdown -0.2500, and tail-IC p-value 0.00042, but still had 48 capacity-limited trades.
+- Top20 reduced drawdown and strengthened tail-IC, but returns became too small at cost30 and capacity remained nonzero.
+
+Because this was the closest non-residual candidate so far, the office desktop ran a narrow research-only amount-gate rescue prototype. It tested signal-day amount floors of 100m and 200m for top10/top20, cost20/cost30, and regime150/regime180/regime252.
+
+Amount-gate rescue results:
+
+- All 24 prototype cases completed and all became capacity-clean, with capacity-limited trades 0 and max participation below 5%.
+- No row passed. The gate removed the economically useful return profile: every row had negative relative return and drawdown stayed far beyond the -0.30 limit.
+- Best relative-return prototype row was `amt100m/top10/cost20/regime150`, with relative return -2.6908, max drawdown -0.4240, and tail-IC p-value 0.000066.
+- Cost30 amount-gated rows were worse; `amt100m/top10/cost30/regime150` had relative return -9.1978 and max drawdown -0.6057 despite significant tail-IC.
+
+Audit judgment: `mf_low_minus_volatility_20` is the best current capacity-blocked near-miss, not a promotable factor. The ungated top10/regime family has unusually good cost30/tail-IC/drawdown evidence, but the edge depends on names that breach the current participation cap. A simple amount floor solves capacity but destroys returns and worsens drawdown, so it should not be formalized. If the laptop framework adds a liquidity-neutral ranking, position-size throttling, or execution-aware overlay, this factor deserves priority retesting; until then, office mining should not spend more cycles on plain amount-threshold variants.
+
+## Large-Minus-Liquidity Small-Capacity Recheck
+
+The office desktop then used the cached production factor matrix to recheck `large_minus_liquidity_20` under the current selected-holdings tail-IC gate. This closes the evidence gap between the earlier strict-validation candidate status and the later tail-IC framework. The run covered 24 cases across top5/top10/top20, cost20/cost30, and none/regime150/regime180/regime252 at the standard 1m portfolio value.
+
+Standard 1m capacity results:
+
+- All 24 cases completed, but no row passed the stricter office combined gate.
+- The best row was `top5/cost20/regime150`: relative return 91.0784, Sharpe 1.1886, max drawdown -0.2698, selected-tail IC p-value 0.0382, but 4 capacity-limited trades and max participation 18.2%.
+- The cleanest near-miss shape was top10/cost20. Regime150, regime180, and regime252 all had positive relative return, drawdown better than -0.30, and selected-tail IC p-values around 0.004, but each still had 1 capacity-limited trade at 1m.
+- Cost30 remained just outside the drawdown gate. The closest row was `top10/cost30/regime252`, with relative return 0.7778 and tail-IC p-value 0.0038, but max drawdown was -0.3055 and 1 trade still breached the participation cap.
+
+Because the capacity miss was small rather than structural, the office desktop ran a narrow capacity-sizing probe at 500k and 250k portfolio value for top5/top10, cost20/cost30, and regime150/regime180/regime252.
+
+Capacity-sizing results:
+
+- 24 sizing cases completed, with 8 combined-gate passes.
+- At 500k, `top10/cost20` passed for regime150, regime180, and regime252. The regime150 row had relative return 38.2135, max drawdown -0.2824, capacity-limited trades 0, max participation 4.55%, and tail-IC p-value 0.0040.
+- At 250k, `top10/cost20` also passed for regime150/regime180/regime252, and `top5/cost20` additionally passed for regime150 and regime180. The best 250k row was top5/cost20/regime150 with relative return 92.4234, max drawdown -0.2695, capacity-limited trades 0, max participation 4.55%, and tail-IC p-value 0.0382.
+- Cost30 did not pass even after sizing down. The closest cost30 row was top10/regime252 at 250k, with relative return 0.8645 and capacity-limited trades 0, but max drawdown was still -0.3047.
+
+Audit judgment: `large_minus_liquidity_20` should be treated as a small-capacity research candidate, not a general 1m-capacity promotion. The current best robust shape is `top10/cost20/regime150/180/252` at portfolio value up to roughly 500k under a 5% participation cap. This is the strongest current positive candidate after applying selected-tail IC, drawdown, and capacity together. It still fails the 30 bps stress test and should not be promoted to production, but it is worth handing to the laptop framework for formal capacity-aware validation and possible position-sizing rules.
+
+## Large-Minus-Liquidity Corrected Walk-Forward Audit
+
+After the small-capacity sizing pass, the office desktop ran a corrected rolling walk-forward check for `large_minus_liquidity_20/top10/cost20` at 500k portfolio value. The first 63-day walk-forward attempt was not used as evidence because the test window was shorter than the 150/180/252-day regime lookback, which created blocked or no-trade folds. The corrected run used 252 training days, 315 test days, and a 126-day step so the OOS window could warm up the longest regime filter.
+
+Corrected walk-forward results:
+
+- The corrected run covered regime150, regime180, and regime252 across 2 rolling folds. All three OOS tests completed and were capacity-clean: capacity-limited trades were 0, with max participation between 1.79% and 4.55%.
+- No row was accepted. The rejection was no longer a short-window/no-trade artifact; every OOS row had negative relative return versus the benchmark.
+- Regime150 had the best absolute OOS return profile, with test total return 5.1667, benchmark return 16.2554, relative return -11.0888, Sharpe 2.0094, max drawdown -0.2319, and tail-IC p-value 0.0938.
+- Regime180 had test total return 4.4334, benchmark return 16.2554, relative return -11.8220, Sharpe 2.0433, max drawdown -0.2046, and tail-IC p-value 0.1543.
+- Regime252 had the cleanest drawdown and participation, with test total return 4.1560, benchmark return 16.2554, relative return -12.0994, Sharpe 2.6061, max drawdown -0.1755, max participation 1.79%, but tail-IC p-value 0.4819.
+
+Audit judgment: this corrected OOS check downgrades `large_minus_liquidity_20` from "strongest current positive candidate" to "capacity-clean defensive near-miss." The factor can make money in absolute terms at small size with controlled drawdown, but it does not beat the benchmark in rolling OOS and the selected-tail IC weakens. It should not be promoted as a profitability factor in the current framework. The useful handoff to the laptop side is methodological: if this family is revisited, it needs benchmark-relative construction, dynamic beta/market exposure control, or a formal defensive sleeve objective rather than more top-N/regime threshold sweeps on the office desktop.
+
+## Residual-Gate Top6 Corrected Walk-Forward Audit
+
+The office desktop then reran the strongest residual-gate bridge candidate, `large_resid_liq_vol_amt_gate_20/top6`, with a corrected rolling walk-forward window. The run used 315 training days, 315 test days, a 63-day step, portfolio value 1m, cost20/cost30, and regime150/regime180/regime252. This avoided the earlier short-test-window artifact and gave both train and test windows enough room to warm up the longest 252-day regime filter.
+
+Corrected walk-forward results:
+
+- The run covered 6 cases across 2 rolling folds. All OOS tests completed and all were capacity-clean, with capacity-limited trades 0 and max participation 1.98%.
+- No row was accepted. Every case had negative mean OOS relative return versus the benchmark, so the failure is economic rather than a capacity or completion artifact.
+- Cost20/regime180 was the best relative-return row, with test total return 7.7171, benchmark return 14.4672, relative return -6.7501, Sharpe 1.7410, max drawdown -0.1649, adjusted IC p-value 0.0264, but selected-tail IC p-value 0.3426.
+- Cost20/regime150 had test total return 6.5518, relative return -7.9153, max drawdown -0.2318, adjusted IC p-value 0.0264, but selected-tail IC p-value 0.2839.
+- Cost20/regime252 was very low-drawdown but economically weak: test total return 0.8073, relative return -13.6598, max drawdown -0.1649, and selected-tail IC p-value 0.2437.
+- Cost30 did not rescue the shape. The best cost30 row, regime180, had test total return 4.9582, relative return -9.5089, max drawdown -0.2059, and selected-tail IC p-value 0.3426.
+
+Audit judgment: the corrected OOS run downgrades `large_resid_liq_vol_amt_gate_20/top6` from "cost20 strict-validation lead" to "in-sample bridge that does not survive benchmark-relative OOS." The factor remains useful as evidence that residualization plus amount gating controls capacity, but top6 should not be promoted or tuned further on the office desktop. More top-N, cost, holding-period, or stricter-positive-regime sweeps around this same shape are now low value unless the laptop framework introduces a materially different execution-aware or benchmark-relative objective.
+
+## Residual-Gate Weak-Regime Prototype
+
+Because both `large_minus_liquidity_20` and the residual-gate family looked more defensive than benchmark-beating in corrected OOS, the office desktop ran a research-only weak-regime prototype from the cached production factor matrix. The prototype did not add production factor code. It filtered `large_resid_liq_vol_amt_gate_20` signals to dates where equal-weight benchmark momentum was non-positive, <=5%, or <=10% over 150/180/252-day lookbacks, then tested top6/top10 at cost20/cost30 under the same return, drawdown, capacity, and selected-tail IC review.
+
+Prototype results:
+
+- The weak-regime probe covered 36 cases and produced 0 passes.
+- All leading rows were capacity-clean, but every row had negative relative return. The best relative-return row was top6/cost20 with 150-day momentum <=10%: total return 5.1981, benchmark return 13.3566, relative return -8.1585, max drawdown -0.6516, and tail-IC p-value 0.4575.
+- The 252-day weak-regime variants reduced drawdown but still did not beat the benchmark. Top6/cost20 with 252-day momentum <=5% had total return 1.6347, relative return -11.7218, max drawdown -0.1951, and tail-IC p-value 0.2846.
+- The only notable tail-IC survivor was top10/cost20 with 252-day momentum <=10%, with tail-IC p-value 0.0039, but it still had relative return -12.5385 and max drawdown -0.3380.
+
+Audit judgment: weak-regime filtering does not turn the residual-gate family into a profitability factor. It confirms the current signal is not simply being evaluated in the wrong market regime; when restricted to weaker benchmark momentum, returns and drawdown deteriorate or remain benchmark-inferior. The office queue should stop spending cycles on regime-threshold overlays for this factor family and move to genuinely new signal construction or wait for laptop-side benchmark-relative/position-sizing framework changes.

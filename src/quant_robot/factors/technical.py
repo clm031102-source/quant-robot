@@ -12,7 +12,9 @@ def compute_basic_factors(bars: pd.DataFrame, windows: tuple[int, ...] = (5, 20)
     if missing:
         raise ValueError(f"Bars are missing columns for factor calculation: {', '.join(missing)}")
 
-    frame = bars.sort_values(["asset_id", "date"]).copy()
+    frame = bars.copy()
+    frame["date"] = pd.to_datetime(frame["date"]).dt.date
+    frame = frame.sort_values(["asset_id", "date"])
     pieces: list[pd.DataFrame] = []
     for _, group in frame.groupby("asset_id", sort=False):
         enriched = group.copy()
@@ -35,7 +37,7 @@ def compute_basic_factors(bars: pd.DataFrame, windows: tuple[int, ...] = (5, 20)
                         enriched["volume"] / enriched["volume"].rolling(window).mean() - 1.0,
                         window,
                     ),
-                    _factor_frame(enriched, f"liquidity_{window}", _amihud(enriched["_return"], enriched["amount"]), window),
+                    _factor_frame(enriched, f"liquidity_{window}", _amihud(enriched["_return"], enriched["amount"]).rolling(window).mean(), window),
                 ]
             )
     if not pieces:

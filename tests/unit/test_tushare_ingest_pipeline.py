@@ -83,6 +83,12 @@ class FakeInvalidTushareDailyAdapter(FakeTushareDailyAdapter):
         )
 
 
+class FakeEmptyTushareDailyAdapter(FakeTushareDailyAdapter):
+    def fetch_daily_by_trade_date(self, trade_date: str):
+        self.calls.append(trade_date)
+        return pd.DataFrame(columns=["symbol", "date", "open", "high", "low", "close", "volume", "amount"])
+
+
 class TushareIngestPipelineTests(unittest.TestCase):
     def test_pipeline_writes_raw_processed_manifest_and_quality_report(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -109,6 +115,38 @@ class TushareIngestPipelineTests(unittest.TestCase):
             self.assertEqual(result["processed_rows"], 2)
             manifest = json.loads((Path(tmp) / "manifest.json").read_text(encoding="utf-8"))
             self.assertIn("daily:20240102", manifest["completed"])
+
+    def test_pipeline_refetches_completed_trade_date_when_raw_partition_is_empty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = DatasetStore(Path(tmp))
+            store.write_frame(
+                pd.DataFrame(columns=["symbol", "date", "open", "high", "low", "close", "volume", "amount"]),
+                "raw/tushare/daily",
+                {"trade_date": "20240102"},
+            )
+            (Path(tmp) / "manifest.json").write_text(
+                json.dumps({"completed": {"daily:20240102": {"rows": 0}}, "failed": {}, "metadata": {}}),
+                encoding="utf-8",
+            )
+
+            adapter = FakeTushareDailyAdapter()
+            result = run_tushare_daily_ingest(adapter, "2024-01-02", "2024-01-02", Path(tmp), resume=True)
+
+            self.assertEqual(adapter.calls, ["20240102"])
+            self.assertEqual(result["downloaded_trade_dates"], ["20240102"])
+            self.assertEqual(result["skipped_trade_dates"], [])
+            self.assertEqual(result["processed_rows"], 1)
+            manifest = json.loads((Path(tmp) / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["completed"]["daily:20240102"]["rows"], 1)
+
+    def test_pipeline_rejects_empty_raw_response_for_open_trade_date(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(RuntimeError, "empty raw response"):
+                run_tushare_daily_ingest(FakeEmptyTushareDailyAdapter(), "2024-01-02", "2024-01-02", Path(tmp))
+
+            manifest = json.loads((Path(tmp) / "manifest.json").read_text(encoding="utf-8"))
+            self.assertNotIn("daily:20240102", manifest["completed"])
+            self.assertIn("daily:20240102", manifest["failed"])
 
     def test_pipeline_marks_manifest_completed_only_after_processed_success(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -196,6 +234,65 @@ class TushareIngestPipelineTests(unittest.TestCase):
             self.assertAlmostEqual(result["adjustment_report"]["coverage"], 1.0)
             self.assertAlmostEqual(processed.loc[0, "adj_close"], processed.loc[0, "close"] * 2.0)
             self.assertAlmostEqual(processed.loc[1, "adj_close"], processed.loc[1, "close"] * 3.0)
+
+    def test_pipeline_falls_back_to_trade_date_adj_factor_when_range_response_is_empty(self):
+        class EmptyRangeFallbackAdjustedAdapter(FakeTushareDailyAdapter):
+            def fetch_adj_factor(self, ts_code: str = "", start_date: str = "", end_date: str = ""):
+                return pd.DataFrame(columns=["symbol", "date", "adj_factor"])
+
+            def fetch_adj_factor_by_trade_date(self, trade_date: str):
+                date = pd.to_datetime(trade_date, format="%Y%m%d").date()
+                factor = 2.0 if trade_date == "20240102" else 3.0
+                return pd.DataFrame(
+                    {
+                        "symbol": ["000001.SZ"],
+                        "date": [date],
+                        "adj_factor": [factor],
+                    }
+                )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_tushare_daily_ingest(EmptyRangeFallbackAdjustedAdapter(), "2024-01-02", "2024-01-03", Path(tmp))
+            processed = _read_processed_bars(Path(tmp), "CN", "2024").sort_values("date").reset_index(drop=True)
+
+            self.assertTrue(result["adjusted"])
+            self.assertEqual(result["adjustment_report"]["status"], "applied")
+            self.assertTrue(result["adjustment_report"]["fallback_used"])
+            self.assertEqual(result["adjustment_report"]["range_factor_rows"], 0)
+            self.assertEqual(result["adjustment_report"]["fallback_factor_rows"], 2)
+            self.assertAlmostEqual(processed.loc[0, "adj_close"], processed.loc[0, "close"] * 2.0)
+            self.assertAlmostEqual(processed.loc[1, "adj_close"], processed.loc[1, "close"] * 3.0)
+
+    def test_trade_date_adj_factor_fallback_retries_empty_date_response(self):
+        class RetryEmptyFallbackAdjustedAdapter(FakeTushareDailyAdapter):
+            def __init__(self) -> None:
+                super().__init__()
+                self.factor_calls_by_date = {}
+
+            def fetch_adj_factor(self, ts_code: str = "", start_date: str = "", end_date: str = ""):
+                return pd.DataFrame(columns=["symbol", "date", "adj_factor"])
+
+            def fetch_adj_factor_by_trade_date(self, trade_date: str):
+                self.factor_calls_by_date[trade_date] = self.factor_calls_by_date.get(trade_date, 0) + 1
+                if trade_date == "20240103" and self.factor_calls_by_date[trade_date] == 1:
+                    return pd.DataFrame(columns=["symbol", "date", "adj_factor"])
+                date = pd.to_datetime(trade_date, format="%Y%m%d").date()
+                factor = 2.0 if trade_date == "20240102" else 3.0
+                return pd.DataFrame(
+                    {
+                        "symbol": ["000001.SZ"],
+                        "date": [date],
+                        "adj_factor": [factor],
+                    }
+                )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            adapter = RetryEmptyFallbackAdjustedAdapter()
+            result = run_tushare_daily_ingest(adapter, "2024-01-02", "2024-01-03", Path(tmp))
+
+            self.assertTrue(result["adjusted"])
+            self.assertEqual(adapter.factor_calls_by_date["20240103"], 2)
+            self.assertEqual(result["adjustment_report"]["fallback_factor_rows"], 2)
 
     def test_pipeline_skips_adjusted_close_when_adj_factor_keys_duplicate(self):
         class DuplicateAdjustedAdapter(FakeTushareDailyAdapter):

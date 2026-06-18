@@ -80,6 +80,21 @@ Before starting work on the laptop, high-spec desktop, or office desktop, confir
 
 See `AGENTS.md`, `configs/workstations.json`, and `docs/workstation_protocol.md`.
 
+Before starting CN stock factor mining on a desktop, run the CN stock startup gate once for the current session. This keeps CN stock alpha research separate from CN ETF rotation research and confirms the latest audit-driven next-run protocol:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_factor_mining_startup_gate.py --config configs\factor_mining_startup_cn_stock.json --machine office_desktop --task factor_batch --branch codex/factor-batch-cn-stock-20260617 --current-branch codex/factor-batch-cn-stock-20260617 --market CN --asset-type stock --confirm-start
+```
+
+Then build the CN stock data manifest for the same local processed store:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_cn_stock_data_manifest.py --data-root data\processed\office_desktop_20260616_combined_research --output-dir data\reports\cn_stock_data_manifest
+```
+
+Both commands write local-only packets under `data/reports/` and do not authorize live trading or cloud push.
+CN `processed-bars` runs through `run_tushare_alpha_factory.py` and `run_experiment_grid.py` require a same-day cleared startup packet and a same-day non-blocked CN stock data manifest by default. The startup packet must include the repeatable mining protocol from the latest audit: review rejected directions, read the latest bootstrap, tail-RankIC, and monthly-persistence diagnostics, pre-register the hold20/top50 lead, test monthly loss-control or rebalance-phase sensitivity, and preserve tail/broad RankIC before touching OOS. If the data manifest is `review_required`, read the warnings first; use `--allow-review-required-data-manifest` only after explicitly accepting them for that run.
+
 For the daily safe-sync workflow, say `同步项目` or run an audit first:
 
 ```powershell
@@ -91,6 +106,8 @@ Only execute and push after the audit is clean:
 ```powershell
 python scripts\sync_project.py --machine office_desktop --task factor_batch --execute --push
 ```
+
+A clean sync audit has no blocked paths, no pending branch-integration work, and an empty `branch_discovery.errors` list. If branch discovery fails, fix the Git/ref problem before pushing so another workstation's factor branch is not missed.
 
 ## Run Core Checks
 
@@ -207,6 +224,39 @@ Outputs are written to `data/reports/walk_forward/` by default:
 - `walk_forward_folds.csv` when rolling mode is enabled
 
 Edit `configs/walk_forward.json` to change the split date, candidate grid, acceptance thresholds, and output path. CN ETF production configs can enable `rolling_train_days`, `rolling_test_days`, `rolling_step_days`, and `min_accepted_folds`. The test segment includes train-period warmup bars for rolling factor calculation, but signals and trades are restricted to out-of-sample dates.
+
+For the current desktop residual-regime validation profile, run:
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_desktop_factor_validation.py
+```
+
+This uses `configs/walk_forward_tushare_moneyflow_residual_regime.json` with processed bars and Tushare moneyflow inputs. A run with zero accepted candidates is still a valid strict-validation result when all train/test grids completed.
+The residual-regime config enables `precompute_factor_matrix` so each grid run reuses one production factor matrix across TopN, cost, and regime cases instead of recomputing the same residual factors for every case.
+
+To run the desktop validation check chain around that profile:
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_checks.py --profile desktop-validation --execute
+```
+
+The profile also builds a strict market-regime coverage pack from walk-forward test-fold `regime_curve.csv` files, requiring both allowed and blocked regime-filter dates, then builds a research-only promotion gate report and writes `docs/research/desktop_residual_regime_validation_latest.md`. The residual-regime promotion gate requires that coverage pack, blocks single-lookback regime wins, and treats out-of-sample Sharpe above `3.0` as an overfit blocker, so one-regime or too-good-to-be-true evidence cannot be promoted by running the promotion command alone. The summary command cross-checks the leaderboard against the walk-forward `manifest.json`, verifies promotion candidate case IDs, and records data-quality, promotion-gate, and regime-coverage status, so stale or mismatched validation artifacts fail instead of producing a misleading Markdown summary.
+
+The desktop profile's data-quality audit is pinned to the CN residual-regime data surface: `python scripts\run_data_quality_audit.py --data-root data\processed --market CN --output-dir data\reports\data_quality_gap_audit_tushare_moneyflow_residual_regime`. The residual-regime promotion gate consumes that audit JSON, so missing data-quality evidence stops the gate instead of being silently ignored. To build only the promotion report after a validation run:
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_promotion_report.py --config configs\promotion_gate_tushare_moneyflow_residual_regime.json
+```
+
+To rebuild only the syncable Markdown summary:
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_desktop_validation_summary.py
+```
 
 ## Run Signal Snapshot
 

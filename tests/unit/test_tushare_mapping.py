@@ -198,6 +198,12 @@ class TushareMappingTests(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertEqual(str(result.loc[0, "date"]), "2024-01-02")
 
+    def test_map_trade_cal_returns_standard_empty_frame_for_empty_provider_response(self):
+        result = map_tushare_trade_cal(pd.DataFrame(), open_only=True)
+
+        self.assertTrue(result.empty)
+        self.assertEqual(list(result.columns), ["exchange", "date", "is_open"])
+
     def test_map_stock_basic_builds_asset_fields(self):
         source = pd.DataFrame(
             {

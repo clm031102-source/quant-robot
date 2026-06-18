@@ -44,10 +44,12 @@ def run_tushare_daily_ingest(
     trade_dates = _trade_dates(adapter, start_date, end_date)
     for trade_date in trade_dates:
         key = _manifest_key(market, trade_date)
-        if resume and manifest.is_completed(key):
+        if resume and manifest.is_completed(key) and _raw_partition_has_rows(store, _raw_dataset(market), trade_date):
             skipped.append(trade_date)
             continue
         raw = _fetch_daily(adapter, trade_date, market)
+        if raw.empty:
+            _mark_empty_raw_response(manifest, key, trade_date)
         store.write_frame(raw, _raw_dataset(market), {"trade_date": trade_date})
         downloaded.append(trade_date)
         downloaded_rows_by_date[trade_date] = len(raw)
@@ -109,6 +111,23 @@ def _manifest_key(market: str, trade_date: str) -> str:
 
 def _raw_dataset(market: str) -> str:
     return "raw/tushare/fund_daily" if market == "CN_ETF" else "raw/tushare/daily"
+
+
+def _raw_partition_has_rows(store: DatasetStore, dataset: str, trade_date: str) -> bool:
+    partitions = {"trade_date": trade_date}
+    if not store.exists(dataset, partitions):
+        return False
+    try:
+        return len(store.read_frame(dataset, partitions)) > 0
+    except FileNotFoundError:
+        return False
+
+
+def _mark_empty_raw_response(manifest: IngestManifest, key: str, trade_date: str) -> None:
+    reason = f"empty raw response for open trade date {trade_date}"
+    manifest.mark_failed(key, reason=reason)
+    manifest.save()
+    raise RuntimeError(reason)
 
 
 def _load_raw_frames(store: DatasetStore, trade_dates: list[str], raw_frames_by_date: dict[str, pd.DataFrame], market: str) -> pd.DataFrame:
@@ -174,20 +193,22 @@ def _attach_adjusted_close(
     adj_factor = adapter.fetch_adj_factor("", start_date, end_date)  # type: ignore[attr-defined]
     audit["range_factor_rows"] = int(len(adj_factor))
     audit["factor_rows"] = int(len(adj_factor))
-    if adj_factor.empty:
-        audit["status"] = "empty_adj_factor"
-        return raw, False, audit
     source = raw.copy()
     source["date"] = pd.to_datetime(source["date"]).dt.date
+    if adj_factor.empty:
+        audit["status"] = "empty_adj_factor"
+        if hasattr(adapter, "fetch_adj_factor_by_trade_date"):
+            fallback = _fetch_adj_factor_for_source_dates(adapter, source, audit)
+            if not fallback.empty:
+                adjusted, audit = _try_attach_adj_factor(source, fallback, audit)
+                if adjusted is not None:
+                    return adjusted, True, audit
+        return raw, False, audit
     adjusted, audit = _try_attach_adj_factor(source, adj_factor, audit)
     if adjusted is not None:
         return adjusted, True, audit
     if audit["status"] == "partial_adj_factor_coverage" and hasattr(adapter, "fetch_adj_factor_by_trade_date"):
-        trade_dates = sorted(source["date"].unique())
-        fallback = _fetch_adj_factor_by_trade_dates(adapter, trade_dates)
-        audit["fallback_used"] = True
-        audit["fallback_trade_dates"] = [date.strftime("%Y%m%d") for date in trade_dates]
-        audit["fallback_factor_rows"] = int(len(fallback))
+        fallback = _fetch_adj_factor_for_source_dates(adapter, source, audit)
         if not fallback.empty:
             adjusted, audit = _try_attach_adj_factor(source, fallback, audit)
             if adjusted is not None:
@@ -195,11 +216,33 @@ def _attach_adjusted_close(
     return raw, False, audit
 
 
-def _fetch_adj_factor_by_trade_dates(adapter: TushareDailyAdapter, trade_dates: list[object]) -> pd.DataFrame:
+def _fetch_adj_factor_for_source_dates(
+    adapter: TushareDailyAdapter,
+    source: pd.DataFrame,
+    audit: dict[str, object],
+) -> pd.DataFrame:
+    trade_dates = sorted(source["date"].unique())
+    fallback = _fetch_adj_factor_by_trade_dates(adapter, trade_dates)
+    audit["fallback_used"] = True
+    audit["fallback_trade_dates"] = [date.strftime("%Y%m%d") for date in trade_dates]
+    audit["fallback_factor_rows"] = int(len(fallback))
+    return fallback
+
+
+def _fetch_adj_factor_by_trade_dates(
+    adapter: TushareDailyAdapter,
+    trade_dates: list[object],
+    empty_response_retries: int = 3,
+) -> pd.DataFrame:
     frames = []
     for trade_date in trade_dates:
         date_text = pd.to_datetime(trade_date).strftime("%Y%m%d")
-        frames.append(adapter.fetch_adj_factor_by_trade_date(date_text))  # type: ignore[attr-defined]
+        frame = pd.DataFrame()
+        for _ in range(max(1, empty_response_retries)):
+            frame = adapter.fetch_adj_factor_by_trade_date(date_text)  # type: ignore[attr-defined]
+            if not frame.empty:
+                break
+        frames.append(frame)
     frames = [frame for frame in frames if not frame.empty]
     if not frames:
         return pd.DataFrame(columns=["symbol", "date", "adj_factor"])

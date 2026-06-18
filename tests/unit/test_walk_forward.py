@@ -26,6 +26,7 @@ class WalkForwardTests(unittest.TestCase):
                     factor_windows=(2,),
                     top_n_values=(1,),
                     cost_bps_values=(0.0,),
+                    forward_horizon=2,
                 ),
                 output_dir=Path(tmp),
                 min_test_sharpe=0.0,
@@ -45,6 +46,12 @@ class WalkForwardTests(unittest.TestCase):
             self.assertTrue(all(row["test_trades"] > 0 for row in leaderboard))
             self.assertEqual([row["rank"] for row in leaderboard], list(range(1, 5)))
             self.assertIn("stability_score", leaderboard[0])
+            self.assertIn("test_tail_ic_p_value", leaderboard[0])
+            self.assertIn("test_tail_ic_observations", leaderboard[0])
+            self.assertIn("test_tail_significance_status", leaderboard[0])
+            self.assertIn("test_overlap_autocorr_adjusted_sharpe", leaderboard[0])
+            self.assertIn("test_overlap_effective_sample_size", leaderboard[0])
+            self.assertIn("test_overlap_risk_flag", leaderboard[0])
             self.assertTrue((Path(tmp) / "walk_forward_leaderboard.csv").exists())
             self.assertTrue((Path(tmp) / "walk_forward_leaderboard.json").exists())
             self.assertTrue((Path(tmp) / "manifest.json").exists())
@@ -198,6 +205,8 @@ class WalkForwardTests(unittest.TestCase):
                             "cost_bps_values": [5],
                             "rebalance_intervals": [5],
                             "benchmark_asset_id": "CN_ETF_XSHG_510300",
+                            "regime_lookback_values": [60, 120],
+                            "precompute_factor_matrix": True,
                         },
                         "min_test_relative_return": 0.02,
                         "max_test_drawdown": 0.20,
@@ -224,6 +233,8 @@ class WalkForwardTests(unittest.TestCase):
             self.assertEqual(config.experiment_grid.cost_bps_values, (5.0,))
             self.assertEqual(config.experiment_grid.rebalance_intervals, (5,))
             self.assertEqual(config.experiment_grid.benchmark_asset_id, "CN_ETF_XSHG_510300")
+            self.assertEqual(config.experiment_grid.regime_lookback_values, (60, 120))
+            self.assertTrue(config.experiment_grid.precompute_factor_matrix)
             self.assertEqual(config.rolling_train_days, 252)
             self.assertEqual(config.rolling_test_days, 63)
             self.assertEqual(config.rolling_step_days, 21)
