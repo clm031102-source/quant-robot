@@ -204,6 +204,70 @@ class MoneyflowTechnicalComboFactorTests(unittest.TestCase):
             check_like=True,
         )
 
+    def test_capacity_blend_rewards_amount_and_penalizes_illiquidity_before_selection(self):
+        self.assertIn("mf_low_capacity_blend_20", MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES)
+        bars = _multi_exposure_framework_bars()
+        moneyflow = _multi_exposure_framework_moneyflow_inputs()
+        factors = compute_moneyflow_technical_combo_factors(
+            bars,
+            moneyflow,
+            factor_names=("mf_low_capacity_blend_20",),
+        )
+        last_date = pd.Timestamp("2024-01-25").date()
+
+        selected = factors[
+            (factors["date"] == last_date) & (factors["factor_name"] == "mf_low_capacity_blend_20")
+        ].set_index("asset_id")["factor_value"]
+        raw_moneyflow = compute_moneyflow_factors(moneyflow, factor_names=("net_mf_amount_ratio_low",))
+        last_moneyflow = raw_moneyflow[
+            (raw_moneyflow["date"] == last_date) & (raw_moneyflow["factor_name"] == "net_mf_amount_ratio_low")
+        ].set_index("asset_id")["factor_value"]
+        technical = compute_basic_factors(bars, windows=(20,), factor_names=("liquidity_20",))
+        last_liquidity = technical[
+            (technical["date"] == last_date) & (technical["factor_name"] == "liquidity_20")
+        ].set_index("asset_id")["factor_value"]
+        last_bars = bars[pd.to_datetime(bars["date"]).dt.date == last_date].set_index("asset_id")
+        log_amount = pd.Series(np.log1p(last_bars["amount"].astype(float)), index=last_bars.index)
+        expected = _zscore(last_moneyflow) + _zscore(log_amount) - _zscore(last_liquidity)
+
+        pd.testing.assert_series_equal(
+            selected.sort_index(),
+            expected.sort_index(),
+            check_names=False,
+        )
+
+    def test_moneyflow_pressure_residuals_remove_liquidity_and_amount_exposure(self):
+        self.assertIn("mf_low_resid_liq_amt_20", MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES)
+        self.assertIn("small_sell_resid_liq_amt_20", MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES)
+        bars = _multi_exposure_framework_bars()
+        factors = compute_moneyflow_technical_combo_factors(
+            bars,
+            _multi_exposure_framework_moneyflow_inputs(),
+            factor_names=("mf_low_resid_liq_amt_20", "small_sell_resid_liq_amt_20"),
+        )
+        last_date = pd.Timestamp("2024-01-25").date()
+        technical = compute_basic_factors(bars, windows=(20,))
+        liquidity = technical[
+            (technical["date"] == last_date) & (technical["factor_name"] == "liquidity_20")
+        ].set_index("asset_id")["factor_value"]
+        last_bars = bars[pd.to_datetime(bars["date"]).dt.date == last_date].set_index("asset_id")
+        log_amount = pd.Series(np.log1p(last_bars["amount"].astype(float)), index=last_bars.index)
+
+        for factor_name in ("mf_low_resid_liq_amt_20", "small_sell_resid_liq_amt_20"):
+            selected = factors[
+                (factors["date"] == last_date) & (factors["factor_name"] == factor_name)
+            ].set_index("asset_id")["factor_value"]
+            aligned = pd.concat(
+                [selected, _zscore(liquidity), _zscore(log_amount)],
+                axis=1,
+                keys=["residual", "liquidity", "log_amount"],
+            ).dropna()
+
+            self.assertEqual(len(aligned), 6)
+            self.assertAlmostEqual(float(aligned["residual"].mean()), 0.0, places=12)
+            self.assertAlmostEqual(float(aligned["residual"].corr(aligned["liquidity"])), 0.0, places=12)
+            self.assertAlmostEqual(float(aligned["residual"].corr(aligned["log_amount"])), 0.0, places=12)
+
 
 def _combo_bars() -> pd.DataFrame:
     rows = []
@@ -414,10 +478,20 @@ def _multi_exposure_framework_moneyflow_inputs() -> pd.DataFrame:
         "CN_XSHE_000003": ("000003.SZ", 95.0),
         "CN_XSHG_600000": ("600000.SH", -70.0),
     }
+    small_sell_offsets = {
+        "CN_XSHE_000001": -30.0,
+        "CN_XSHE_000002": 45.0,
+        "CN_XSHG_600519": -15.0,
+        "CN_XSHG_601398": 20.0,
+        "CN_XSHE_000003": 60.0,
+        "CN_XSHG_600000": -55.0,
+    }
     for date in dates:
         for asset_id, (symbol, offset) in offsets.items():
             positive = max(offset, 0.0)
             negative = abs(min(offset, 0.0))
+            small_sell_positive = max(small_sell_offsets[asset_id], 0.0)
+            small_buy_positive = abs(min(small_sell_offsets[asset_id], 0.0))
             rows.append(
                 {
                     "date": date,
@@ -425,8 +499,8 @@ def _multi_exposure_framework_moneyflow_inputs() -> pd.DataFrame:
                     "symbol": symbol,
                     "market": "CN",
                     "source": "tushare_moneyflow",
-                    "buy_sm_amount": 100.0,
-                    "sell_sm_amount": 100.0,
+                    "buy_sm_amount": 100.0 + small_buy_positive,
+                    "sell_sm_amount": 100.0 + small_sell_positive,
                     "buy_md_amount": 100.0,
                     "sell_md_amount": 100.0,
                     "buy_lg_amount": 100.0 + positive,

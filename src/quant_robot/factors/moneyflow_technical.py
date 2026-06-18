@@ -114,6 +114,34 @@ MONEYFLOW_TECHNICAL_COMBO_SPECS: dict[str, ComboFactorSpec] = {
         liquidity_gate_quantile=0.5,
         liquidity_gate_factor="liquidity_20",
     ),
+    "mf_low_capacity_blend_20": ComboFactorSpec(
+        "net_mf_amount_ratio_low",
+        ("liquidity_20", "log_amount_20"),
+        "capacity_blend",
+        20,
+        "Low net moneyflow blended with traded amount reward and Amihud-style illiquidity penalty before selection.",
+    ),
+    "small_sell_capacity_blend_20": ComboFactorSpec(
+        "small_order_sell_pressure",
+        ("liquidity_20", "log_amount_20"),
+        "capacity_blend",
+        20,
+        "Small-order sell pressure blended with traded amount reward and Amihud-style illiquidity penalty before selection.",
+    ),
+    "mf_low_resid_liq_amt_20": ComboFactorSpec(
+        "net_mf_amount_ratio_low",
+        ("liquidity_20", "log_amount_20"),
+        "residual",
+        20,
+        "Low net moneyflow residualized against same-day Amihud-style illiquidity and log traded amount.",
+    ),
+    "small_sell_resid_liq_amt_20": ComboFactorSpec(
+        "small_order_sell_pressure",
+        ("liquidity_20", "log_amount_20"),
+        "residual",
+        20,
+        "Small-order sell pressure residualized against same-day Amihud-style illiquidity and log traded amount.",
+    ),
     "large_plus_risk_momentum_liquidity_gate_10": ComboFactorSpec(
         "large_order_net_amount_ratio",
         "risk_adjusted_momentum_10",
@@ -261,6 +289,8 @@ def _combo_values(merged: pd.DataFrame, spec: ComboFactorSpec, exposure_columns:
         values = moneyflow.copy()
     elif spec.operation == "residual":
         values = _cross_sectional_residuals(merged, moneyflow, exposures)
+    elif spec.operation == "capacity_blend":
+        values = _capacity_blend_values(exposures, moneyflow)
     else:
         raise ValueError(f"Unsupported combo operation: {spec.operation}")
     if spec.liquidity_gate_quantile is not None:
@@ -269,6 +299,14 @@ def _combo_values(merged: pd.DataFrame, spec: ComboFactorSpec, exposure_columns:
     if spec.amount_floor is not None:
         values = values.where(_amount_gate_mask(merged, spec.amount_floor))
     return values
+
+
+def _capacity_blend_values(exposures: pd.DataFrame, moneyflow: pd.Series) -> pd.Series:
+    if exposures.shape[1] != 2:
+        raise ValueError("capacity_blend requires liquidity and log amount exposures")
+    liquidity = exposures.iloc[:, 0]
+    log_amount = exposures.iloc[:, 1]
+    return moneyflow + log_amount - liquidity
 
 
 def _cross_sectional_residuals(merged: pd.DataFrame, target: pd.Series, exposures: pd.DataFrame) -> pd.Series:
