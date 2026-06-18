@@ -1,5 +1,6 @@
 {
   "markets": ["CN_ETF"],
+  "rotation_membership_required": true,
   "factor_names": [
     "momentum_20",
     "momentum_60",

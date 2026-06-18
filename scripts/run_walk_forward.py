@@ -15,6 +15,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 ensure_workspace_imports()
 
 from quant_robot.data.fixtures import load_demo_market_bars
+from quant_robot.experiments.runner import ExperimentGridConfig
 from quant_robot.storage.processed_bars import load_processed_bars
 from quant_robot.validation.walk_forward import load_walk_forward_config, run_walk_forward_validation
 
@@ -28,6 +29,9 @@ def run_walk_forward(
     config = load_walk_forward_config(config_path)
     if output_dir is not None:
         config = replace(config, output_dir=Path(output_dir))
+    experiment_grid = _attach_processed_cn_etf_rotation_membership(config.experiment_grid, source, Path(data_root))
+    if experiment_grid is not config.experiment_grid:
+        config = replace(config, experiment_grid=experiment_grid)
     bars = _load_bars(source, Path(data_root), config.experiment_grid.markets)
     return run_walk_forward_validation(bars, config)
 
@@ -90,6 +94,23 @@ def _load_bars(source: str, data_root: Path, markets: tuple[str, ...]) -> pd.Dat
     if not frames:
         raise ValueError("processed-bars source requires at least one specific market")
     return pd.concat(frames, ignore_index=True)
+
+
+def _attach_processed_cn_etf_rotation_membership(
+    config: ExperimentGridConfig,
+    source: str,
+    data_root: Path,
+) -> ExperimentGridConfig:
+    if source != "processed-bars":
+        return config
+    markets = {market.upper() for market in config.markets}
+    if "CN_ETF" not in markets:
+        return config
+    return replace(
+        config,
+        rotation_membership_root=config.rotation_membership_root or data_root,
+        rotation_membership_required=True,
+    )
 
 
 if __name__ == "__main__":

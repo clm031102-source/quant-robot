@@ -12,6 +12,9 @@ from quant_robot.data.sources.tushare_mapping import (
     map_tushare_adj_factor,
     map_tushare_daily,
     map_tushare_daily_basic,
+    map_tushare_etf_share_size,
+    map_tushare_fund_basic,
+    map_tushare_fund_portfolio,
     map_tushare_moneyflow,
     map_tushare_stock_basic,
     map_tushare_trade_cal,
@@ -87,6 +90,37 @@ class TushareAdapter(MarketDataAdapter):
         )
         return map_tushare_stock_basic(raw)
 
+    def fetch_fund_basic(self, market: str = "E", status: str = "L") -> pd.DataFrame:
+        raw = self._call(
+            self.client.fund_basic,
+            market=market,
+            status=status,
+            fields=(
+                "ts_code,name,management,custodian,fund_type,found_date,due_date,"
+                "list_date,issue_date,delist_date,status,invest_type,type,market"
+            ),
+        )
+        return map_tushare_fund_basic(raw)
+
+    def fetch_etf_share_size_by_trade_date(self, trade_date: str, exchange: str = "") -> pd.DataFrame:
+        raw = self._call(
+            self.client.etf_share_size,
+            trade_date=_date_to_tushare(trade_date),
+            exchange=exchange,
+            fields="trade_date,ts_code,etf_name,total_share,total_size,nav,close,exchange",
+        )
+        return map_tushare_etf_share_size(raw)
+
+    def fetch_fund_portfolio(self, ts_code: str, start_date: str = "", end_date: str = "") -> pd.DataFrame:
+        raw = self._call(
+            self.client.fund_portfolio,
+            ts_code=ts_code,
+            start_date=_date_to_tushare(start_date) if start_date else "",
+            end_date=_date_to_tushare(end_date) if end_date else "",
+            fields="ts_code,ann_date,end_date,symbol,mkv,amount,stk_mkv_ratio,stk_float_ratio",
+        )
+        return map_tushare_fund_portfolio(raw)
+
     @property
     def client(self) -> object:
         if self._client is None:
@@ -102,7 +136,8 @@ class TushareAdapter(MarketDataAdapter):
                 last_error = exc
                 if attempt < self.max_retries - 1:
                     sleep(self.retry_sleep_seconds)
-        raise RuntimeError(f"Tushare request failed after {self.max_retries} attempts") from last_error
+        detail = f": {last_error}" if last_error is not None else ""
+        raise RuntimeError(f"Tushare request failed after {self.max_retries} attempts{detail}") from last_error
 
 
 def _create_tushare_client() -> object:

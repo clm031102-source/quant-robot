@@ -148,6 +148,38 @@ class TushareIngestPipelineTests(unittest.TestCase):
             self.assertNotIn("daily:20240102", manifest["completed"])
             self.assertIn("daily:20240102", manifest["failed"])
 
+    def test_pipeline_resume_reuses_raw_partitions_without_manifest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            DatasetStore(root).write_frame(
+                pd.DataFrame(
+                    {
+                        "symbol": ["000001.SZ"],
+                        "date": [pd.Timestamp("2024-01-02").date()],
+                        "open": [10.0],
+                        "high": [11.0],
+                        "low": [9.5],
+                        "close": [10.5],
+                        "volume": [10000.0],
+                        "amount": [200000.0],
+                    }
+                ),
+                "raw/tushare/daily",
+                {"trade_date": "20240102"},
+            )
+
+            adapter = FakeTushareDailyAdapter()
+            result = run_tushare_daily_ingest(adapter, "2024-01-02", "2024-01-03", root, resume=True)
+
+            self.assertEqual(adapter.calls, ["20240103"])
+            self.assertEqual(result["downloaded_trade_dates"], ["20240103"])
+            self.assertEqual(result["reused_raw_trade_dates"], ["20240102"])
+            self.assertEqual(result["skipped_trade_dates"], ["20240102"])
+            self.assertEqual(result["processed_rows"], 2)
+            manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+            self.assertIn("daily:20240102", manifest["completed"])
+            self.assertIn("daily:20240103", manifest["completed"])
+
     def test_pipeline_marks_manifest_completed_only_after_processed_success(self):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(ValueError):

@@ -78,6 +78,37 @@ class PaperSimulationTests(unittest.TestCase):
         self.assertGreater(len(result["fills"]), 0)
         self.assertTrue(all(row["market"] == "CN_ETF" for row in result["fills"]))
 
+    def test_paper_simulation_filters_cn_etf_signals_to_rotation_membership(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bars = load_demo_market_bars()
+            membership = bars[bars["market"] == "CN_ETF"][["date", "asset_id", "market"]].copy()
+            membership["symbol"] = membership["asset_id"].astype(str)
+            membership["is_rotation_member"] = membership["asset_id"].eq("CN_ETF_XSHG_510300")
+            DatasetStore(root).write_frame(
+                membership,
+                "metadata/cn_etf_rotation_membership",
+                {"market": "CN_ETF"},
+            )
+            config = PaperSimulationConfig(
+                market="CN_ETF",
+                factor_name="momentum_2",
+                factor_windows=(2,),
+                top_n=4,
+                start_date="2024-01-04",
+                end_date="2024-01-10",
+                initial_cash=100000.0,
+                rotation_membership_root=root,
+                rotation_membership_required=True,
+            )
+
+            result = run_paper_simulation(bars, config)
+
+            self.assertGreater(len(result["intents"]), 0)
+            self.assertEqual({row["asset_id"] for row in result["intents"]}, {"CN_ETF_XSHG_510300"})
+            self.assertEqual(result["request"]["rotation_membership_root"], str(root))
+            self.assertTrue(result["request"]["rotation_membership_required"])
+
     def test_paper_simulation_uses_tushare_daily_basic_factor_inputs(self):
         with tempfile.TemporaryDirectory() as tmp:
             factor_root = Path(tmp) / "factor_inputs"

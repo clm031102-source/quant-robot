@@ -38,8 +38,10 @@ def run_tushare_daily_ingest(
     manifest = IngestManifest(output_path / "manifest.json")
     downloaded: list[str] = []
     skipped: list[str] = []
+    reused_raw: list[str] = []
     raw_frames_by_date: dict[str, pd.DataFrame] = {}
     downloaded_rows_by_date: dict[str, int] = {}
+    raw_dataset = _raw_dataset(market)
 
     trade_dates = _trade_dates(adapter, start_date, end_date)
     for trade_date in trade_dates:
@@ -47,10 +49,14 @@ def run_tushare_daily_ingest(
         if resume and manifest.is_completed(key) and _raw_partition_has_rows(store, _raw_dataset(market), trade_date):
             skipped.append(trade_date)
             continue
+        if resume and _raw_partition_has_rows(store, raw_dataset, trade_date):
+            skipped.append(trade_date)
+            reused_raw.append(trade_date)
+            continue
         raw = _fetch_daily(adapter, trade_date, market)
         if raw.empty:
             _mark_empty_raw_response(manifest, key, trade_date)
-        store.write_frame(raw, _raw_dataset(market), {"trade_date": trade_date})
+        store.write_frame(raw, raw_dataset, {"trade_date": trade_date})
         downloaded.append(trade_date)
         downloaded_rows_by_date[trade_date] = len(raw)
         raw_frames_by_date[trade_date] = raw
@@ -71,11 +77,15 @@ def run_tushare_daily_ingest(
         expected_dates = [pd.to_datetime(date, format="%Y%m%d").date() for date in trade_dates]
         report = build_quality_report(processed, expected_dates=expected_dates) if not processed.empty else _empty_report()
     except Exception as exc:
-        for trade_date in downloaded:
+        for trade_date in downloaded + reused_raw:
             manifest.mark_failed(_manifest_key(market, trade_date), reason=str(exc))
         manifest.save()
         raise
+    for trade_date in reused_raw:
+        downloaded_rows_by_date[trade_date] = len(store.read_frame(raw_dataset, {"trade_date": trade_date}))
     for trade_date in downloaded:
+        manifest.mark_completed(_manifest_key(market, trade_date), rows=downloaded_rows_by_date[trade_date])
+    for trade_date in reused_raw:
         manifest.mark_completed(_manifest_key(market, trade_date), rows=downloaded_rows_by_date[trade_date])
     manifest.save()
     (output_path / "quality_report.json").write_text(json.dumps(report, indent=2, sort_keys=True), encoding="utf-8")
@@ -84,6 +94,7 @@ def run_tushare_daily_ingest(
         "market": market,
         "downloaded_trade_dates": downloaded,
         "skipped_trade_dates": skipped,
+        "reused_raw_trade_dates": reused_raw,
         "processed_rows": int(len(processed)),
         "adjusted": adjusted,
         "adjustment_report": adjustment_report,

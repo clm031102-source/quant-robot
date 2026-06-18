@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+from typing import Any
+
+import pandas as pd
+
 from quant_robot.assets.models import Asset
 
 
@@ -20,6 +24,36 @@ DEFAULT_CN_ETFS: tuple[tuple[str, str], ...] = (
 
 def default_cn_etf_assets() -> list[Asset]:
     return [cn_etf_asset(symbol, name) for symbol, name in DEFAULT_CN_ETFS]
+
+
+def cn_etf_assets_from_tushare_fund_basic(frame: pd.DataFrame, as_of: str | None = None) -> list[Asset]:
+    filtered = filter_tushare_cn_etf_fund_basic(frame, as_of=as_of)
+    assets = [cn_etf_asset(str(row["symbol"]), str(row.get("name", ""))) for _, row in filtered.iterrows()]
+    return sorted(assets, key=lambda asset: asset.asset_id)
+
+
+def filter_tushare_cn_etf_fund_basic(frame: pd.DataFrame, as_of: str | None = None) -> pd.DataFrame:
+    if frame.empty:
+        return frame.copy()
+    required = ["symbol", "name", "market", "status"]
+    missing = [column for column in required if column not in frame.columns]
+    if missing:
+        raise ValueError(f"Tushare fund_basic universe is missing columns: {', '.join(missing)}")
+    source = frame.copy()
+    symbol = source["symbol"].astype(str).str.upper()
+    market = source["market"].astype(str).str.upper()
+    etf_mask = source["is_etf"] if "is_etf" in source.columns else _contains_etf(source)
+    exchange_mask = symbol.str.endswith((".SH", ".SZ"))
+    base_mask = market.eq("E") & etf_mask.astype(bool) & exchange_mask
+    if as_of:
+        active_mask = _listed_on_date(source, as_of)
+    elif "is_active" in source.columns:
+        active_mask = source["is_active"].astype(bool)
+    else:
+        active_mask = source["status"].astype(str).str.upper().eq("L")
+    filtered = source[base_mask & active_mask].copy()
+    filtered["symbol"] = symbol[filtered.index]
+    return filtered.sort_values(["symbol"]).reset_index(drop=True)
 
 
 def resolve_cn_etf_asset(symbol: str) -> Asset:
@@ -62,3 +96,25 @@ def _exchange_for_symbol(symbol: str) -> str:
     if suffix == "SZ":
         return "XSHE"
     raise ValueError(f"Unsupported CN ETF symbol suffix: {symbol}")
+
+
+def _contains_etf(frame: pd.DataFrame) -> pd.Series:
+    columns = [column for column in ["name", "fund_type", "invest_type", "type"] if column in frame.columns]
+    if not columns:
+        return pd.Series([False] * len(frame), index=frame.index)
+    haystack = frame[columns].fillna("").astype(str).agg(" ".join, axis=1).str.upper()
+    return haystack.str.contains("ETF", regex=False)
+
+
+def _listed_on_date(frame: pd.DataFrame, as_of: str) -> pd.Series:
+    as_of_date = pd.to_datetime(as_of).date()
+    list_dates = _date_series(frame.get("list_date"), frame.index)
+    delist_dates = _date_series(frame.get("delist_date"), frame.index)
+    return list_dates.notna() & (list_dates <= as_of_date) & (delist_dates.isna() | (delist_dates > as_of_date))
+
+
+def _date_series(values: Any, index: pd.Index) -> pd.Series:
+    if values is None:
+        return pd.Series([None] * len(index), index=index)
+    parsed = pd.to_datetime(pd.Series(list(values), index=index), errors="coerce")
+    return parsed.map(lambda value: value.date() if pd.notna(value) else None)

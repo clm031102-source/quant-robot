@@ -3,10 +3,16 @@ import unittest
 import pandas as pd
 
 from quant_robot.data.sources.tushare_mapping import (
+    ETF_SHARE_SIZE_COLUMNS,
+    FUND_BASIC_COLUMNS,
+    FUND_PORTFOLIO_COLUMNS,
     MONEYFLOW_COLUMNS,
     map_tushare_adj_factor,
     map_tushare_daily,
     map_tushare_daily_basic,
+    map_tushare_etf_share_size,
+    map_tushare_fund_basic,
+    map_tushare_fund_portfolio,
     map_tushare_moneyflow,
     map_tushare_stock_basic,
     map_tushare_trade_cal,
@@ -170,6 +176,29 @@ class TushareMappingTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             map_tushare_moneyflow(pd.DataFrame({"ts_code": ["000001.SZ"], "buy_sm_amount": [1.0]}))
 
+    def test_map_fund_portfolio_uses_ann_date_as_known_date(self):
+        source = pd.DataFrame(
+            {
+                "ts_code": ["510300.SH"],
+                "ann_date": ["20240110"],
+                "end_date": ["20231231"],
+                "symbol": ["600519.SH"],
+                "mkv": ["12345.6"],
+                "amount": ["100.0"],
+                "stk_mkv_ratio": ["4.37"],
+                "stk_float_ratio": ["0.01"],
+            }
+        )
+
+        result = map_tushare_fund_portfolio(source)
+
+        self.assertEqual(list(result.columns), FUND_PORTFOLIO_COLUMNS)
+        self.assertEqual(result.loc[0, "fund_symbol"], "510300.SH")
+        self.assertEqual(str(result.loc[0, "known_date"]), "2024-01-10")
+        self.assertEqual(str(result.loc[0, "period_end_date"]), "2023-12-31")
+        self.assertEqual(result.loc[0, "stock_symbol"], "600519.SH")
+        self.assertAlmostEqual(result.loc[0, "mkv"], 12345.6)
+
     def test_map_adj_factor_contract(self):
         source = pd.DataFrame({"ts_code": ["000001.SZ"], "trade_date": ["20240102"], "adj_factor": [101.2]})
 
@@ -236,6 +265,78 @@ class TushareMappingTests(unittest.TestCase):
 
         self.assertEqual(result.loc[0, "asset_id"], "CN_XBEI_430047")
         self.assertEqual(result.loc[0, "exchange"], "XBEI")
+
+    def test_map_fund_basic_marks_exchange_traded_active_etfs(self):
+        source = pd.DataFrame(
+            {
+                "ts_code": ["510300.SH", "000001.OF"],
+                "name": ["CSI 300 ETF", "CSI 300 ETF Link"],
+                "management": ["Manager A", "Manager B"],
+                "custodian": ["Bank A", "Bank B"],
+                "fund_type": ["Equity", "Equity"],
+                "found_date": ["20120528", "20120529"],
+                "due_date": ["", ""],
+                "list_date": ["20120601", ""],
+                "issue_date": ["20120501", "20120501"],
+                "delist_date": ["", ""],
+                "status": ["L", "L"],
+                "invest_type": ["Passive", "Passive"],
+                "type": ["ETF", "Linked"],
+                "market": ["E", "O"],
+            }
+        )
+
+        result = map_tushare_fund_basic(source)
+
+        etf_row = result[result["symbol"] == "510300.SH"].iloc[0]
+        linked_row = result[result["symbol"] == "000001.OF"].iloc[0]
+        self.assertEqual(list(result.columns), FUND_BASIC_COLUMNS)
+        self.assertEqual(str(etf_row["list_date"]), "2012-06-01")
+        self.assertTrue(bool(etf_row["is_active"]))
+        self.assertTrue(bool(etf_row["is_exchange_traded"]))
+        self.assertTrue(bool(etf_row["is_etf"]))
+        self.assertFalse(bool(linked_row["is_exchange_traded"]))
+
+    def test_map_fund_basic_returns_standard_empty_frame(self):
+        result = map_tushare_fund_basic(pd.DataFrame())
+
+        self.assertTrue(result.empty)
+        self.assertEqual(list(result.columns), FUND_BASIC_COLUMNS)
+
+    def test_map_etf_share_size_returns_standard_empty_frame(self):
+        result = map_tushare_etf_share_size(pd.DataFrame())
+
+        self.assertTrue(result.empty)
+        self.assertEqual(list(result.columns), ETF_SHARE_SIZE_COLUMNS)
+
+    def test_map_etf_share_size_normalizes_units_optional_fields_and_sorts_rows(self):
+        source = pd.DataFrame(
+            {
+                "trade_date": ["20240103", "20240102"],
+                "ts_code": ["159915.SZ", "510300.SH"],
+                "etf_name": ["ChiNext ETF", "CSI 300 ETF"],
+                "total_share": ["200.5", "100.5"],
+                "total_size": ["400.0", "500.0"],
+                "nav": ["2.01", "4.01"],
+                "close": ["2.03", "4.05"],
+                "exchange": ["SZSE", "SSE"],
+            }
+        )
+
+        result = map_tushare_etf_share_size(source)
+
+        self.assertEqual(result.loc[0, "symbol"], "510300.SH")
+        self.assertEqual(str(result.loc[0, "date"]), "2024-01-02")
+        self.assertEqual(result.loc[1, "symbol"], "159915.SZ")
+        self.assertEqual(result.loc[0, "name"], "CSI 300 ETF")
+        self.assertEqual(result.loc[0, "total_share"], 100.5 * 10000.0)
+        self.assertEqual(result.loc[0, "total_size"], 500.0 * 10000.0)
+        self.assertAlmostEqual(result.loc[1, "nav"], 2.01)
+        self.assertAlmostEqual(result.loc[1, "close"], 2.03)
+
+    def test_map_etf_share_size_requires_identity_columns(self):
+        with self.assertRaises(ValueError):
+            map_tushare_etf_share_size(pd.DataFrame({"ts_code": ["510300.SH"], "total_share": [1.0]}))
 
 
 if __name__ == "__main__":

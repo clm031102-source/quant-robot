@@ -188,6 +188,96 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(result.loc[0, "adj_close"], 3.1)
         self.assertEqual(result.loc[0, "amount"], 15500.0)
 
+    def test_tushare_adapter_fetches_exchange_traded_fund_basic(self):
+        class FakeTushare:
+            def fund_basic(self, **kwargs):
+                self.kwargs = kwargs
+                return pd.DataFrame(
+                    {
+                        "ts_code": ["510300.SH"],
+                        "name": ["CSI 300 ETF"],
+                        "management": ["Manager A"],
+                        "custodian": ["Bank A"],
+                        "fund_type": ["Equity"],
+                        "found_date": ["20120528"],
+                        "due_date": [""],
+                        "list_date": ["20120601"],
+                        "issue_date": ["20120501"],
+                        "delist_date": [""],
+                        "status": ["L"],
+                        "invest_type": ["Passive"],
+                        "type": ["ETF"],
+                        "market": ["E"],
+                    }
+                )
+
+        client = FakeTushare()
+        adapter = TushareAdapter(client=client)
+
+        result = adapter.fetch_fund_basic()
+
+        self.assertEqual(client.kwargs["market"], "E")
+        self.assertEqual(client.kwargs["status"], "L")
+        self.assertEqual(result.loc[0, "symbol"], "510300.SH")
+        self.assertTrue(bool(result.loc[0, "is_etf"]))
+
+    def test_tushare_adapter_fetches_etf_share_size_by_trade_date_and_exchange(self):
+        class FakeTushare:
+            def etf_share_size(self, **kwargs):
+                self.kwargs = kwargs
+                return pd.DataFrame(
+                    {
+                        "trade_date": ["20240102"],
+                        "ts_code": ["510300.SH"],
+                        "etf_name": ["CSI 300 ETF"],
+                        "total_share": [100.0],
+                        "total_size": [400.0],
+                        "nav": [4.0],
+                        "close": [4.04],
+                        "exchange": ["SSE"],
+                    }
+                )
+
+        client = FakeTushare()
+        adapter = TushareAdapter(client=client)
+
+        result = adapter.fetch_etf_share_size_by_trade_date("2024-01-02", exchange="SSE")
+
+        self.assertEqual(client.kwargs["trade_date"], "20240102")
+        self.assertEqual(client.kwargs["exchange"], "SSE")
+        self.assertIn("total_share", client.kwargs["fields"])
+        self.assertEqual(result.loc[0, "symbol"], "510300.SH")
+        self.assertEqual(result.loc[0, "total_size"], 400.0 * 10000.0)
+
+    def test_tushare_adapter_fetches_fund_portfolio(self):
+        class FakeTushare:
+            def fund_portfolio(self, **kwargs):
+                self.kwargs = kwargs
+                return pd.DataFrame(
+                    {
+                        "ts_code": ["510300.SH"],
+                        "ann_date": ["20240110"],
+                        "end_date": ["20231231"],
+                        "symbol": ["600519.SH"],
+                        "mkv": [123.4],
+                        "amount": [10.0],
+                        "stk_mkv_ratio": [4.37],
+                        "stk_float_ratio": [0.01],
+                    }
+                )
+
+        client = FakeTushare()
+        adapter = TushareAdapter(client=client)
+
+        result = adapter.fetch_fund_portfolio("510300.SH", start_date="2024-01-01", end_date="2024-12-31")
+
+        self.assertEqual(client.kwargs["ts_code"], "510300.SH")
+        self.assertEqual(client.kwargs["start_date"], "20240101")
+        self.assertEqual(client.kwargs["end_date"], "20241231")
+        self.assertIn("ann_date", client.kwargs["fields"])
+        self.assertEqual(result.loc[0, "fund_symbol"], "510300.SH")
+        self.assertEqual(str(result.loc[0, "known_date"]), "2024-01-10")
+
 
 if __name__ == "__main__":
     unittest.main()

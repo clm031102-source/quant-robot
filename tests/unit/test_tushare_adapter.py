@@ -113,6 +113,11 @@ class FakeTushareClient:
         )
 
 
+class FailingTushareClient(FakeTushareClient):
+    def fund_daily(self, **kwargs):
+        raise Exception("permission denied")
+
+
 class TushareAdapterTests(unittest.TestCase):
     def test_fetch_ohlcv_uses_injected_client_and_maps_daily_data(self):
         client = FakeTushareClient()
@@ -159,6 +164,12 @@ class TushareAdapterTests(unittest.TestCase):
         self.assertEqual(result.loc[0, "symbol"], "510300.SH")
         self.assertEqual(client.calls[0][0], "fund_daily")
         self.assertEqual(client.calls[0][1]["trade_date"], "20240102")
+
+    def test_provider_error_message_includes_original_failure_detail(self):
+        adapter = TushareAdapter(client=FailingTushareClient(), max_retries=1)
+
+        with self.assertRaisesRegex(RuntimeError, "permission denied"):
+            adapter.fetch_etf_daily_by_trade_date("20240102")
 
     def test_fetch_daily_basic_by_trade_date_maps_research_inputs(self):
         client = FakeTushareClient()

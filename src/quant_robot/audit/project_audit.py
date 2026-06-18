@@ -7,6 +7,9 @@ from pathlib import Path
 from typing import Any
 
 from quant_robot.data.readiness import check_parquet_readiness, check_tushare_readiness
+from quant_robot.factors.etf_moneyflow_basket import ETF_MONEYFLOW_BASKET_FACTOR_NAMES
+from quant_robot.factors.etf_share_size import ETF_SHARE_SIZE_FACTOR_NAMES
+from quant_robot.factors.etf_theme_breadth import etf_theme_breadth_factor_names
 from quant_robot.factors.moneyflow_technical import MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES
 from quant_robot.factors.tushare_inputs import DAILY_BASIC_FACTOR_NAMES
 from quant_robot.factors.tushare_moneyflow import MONEYFLOW_FACTOR_NAMES
@@ -40,8 +43,32 @@ TECHNICAL_FACTOR_PREFIXES = (
     "risk_adjusted_momentum",
     "reversal",
     "volatility",
+    "low_volatility",
+    "low_downside_volatility",
+    "drawdown_resilience",
     "volume_change",
     "liquidity",
+    "liquidity_resilience",
+    "amount_stability",
+    "average_amount",
+    "trend_resilience",
+    "risk_confirmed_momentum",
+    "defensive_reversal",
+    "liquidity_confirmed_breakout",
+    "market_relative_strength",
+    "momentum_dispersion_breakout",
+    "crash_recovery",
+    "recovery_quality",
+    "demand_pressure",
+    "quiet_accumulation",
+    "liquid_market_relative_strength",
+    "liquid_crash_recovery",
+    "liquid_recovery_quality",
+    "liquid_demand_pressure",
+    "liquid_quiet_accumulation",
+    "state_adaptive_trend_defense",
+    "state_stress_defensive_resilience",
+    "state_stress_recovery_leadership",
 )
 DEFAULT_FACTOR_SOURCE = "technical"
 DEFAULT_FACTOR_WINDOWS = (2, 3)
@@ -340,6 +367,12 @@ def _registered_factor_names(factor_source: str, factor_windows: tuple[int, ...]
         return set(MONEYFLOW_FACTOR_NAMES)
     if factor_source == "moneyflow_technical_combo":
         return set(MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES)
+    if factor_source == "etf_share_size":
+        return set(ETF_SHARE_SIZE_FACTOR_NAMES)
+    if factor_source == "etf_moneyflow_basket":
+        return set(ETF_MONEYFLOW_BASKET_FACTOR_NAMES)
+    if factor_source == "etf_theme_breadth":
+        return set(etf_theme_breadth_factor_names(factor_windows))
     if factor_source == "combined":
         return _technical_factor_names(factor_windows) | set(DAILY_BASIC_FACTOR_NAMES)
     return None

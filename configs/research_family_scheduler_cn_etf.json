@@ -1,0 +1,106 @@
+{
+  "stage": "research_family_scheduler_cn_etf",
+  "primary_market": "CN_ETF",
+  "research_only": true,
+  "min_active_primary_families": 3,
+  "max_budget_share_per_family": 0.35,
+  "stop_loss_policy": {
+    "max_repeated_failure_rounds": 2,
+    "max_rescue_iterations": 3
+  },
+  "families": [
+    {
+      "family_id": "cn_etf_price_rotation",
+      "market": "CN_ETF",
+      "hypothesis_family": "price_trend_reversal_rotation",
+      "status": "active",
+      "budget_share": 0.3,
+      "economic_thesis": "ETF relative strength, skip-window momentum, and short-horizon reversal can capture persistent fund rotation without stock-level selection.",
+      "next_action": "Mine full-history CN_ETF relative momentum, skip-momentum, and reversal factors with walk-forward gates."
+    },
+    {
+      "family_id": "cn_etf_liquidity_capacity",
+      "market": "CN_ETF",
+      "hypothesis_family": "liquidity_turnover_capacity",
+      "status": "active",
+      "budget_share": 0.25,
+      "economic_thesis": "ETF flows leave tradable traces in volume, amount, turnover stability, and liquidity crowding; costs and participation must be modeled from the start.",
+      "next_action": "Mine liquidity, turnover stability, and capacity-aware low-turnover factors on the full CN_ETF universe."
+    },
+    {
+      "family_id": "cn_etf_volatility_regime",
+      "market": "CN_ETF",
+      "hypothesis_family": "volatility_drawdown_regime",
+      "status": "active",
+      "budget_share": 0.2,
+      "economic_thesis": "ETF rotation should adapt to volatility compression, drawdown pressure, trend fragility, and defensive-asset regimes.",
+      "next_action": "Mine low-volatility, downside-risk, drawdown-control, and regime-gated ETF factors."
+    },
+    {
+      "family_id": "cn_etf_flow_breadth_aggregation",
+      "market": "CN_ETF",
+      "auxiliary_markets": ["CN"],
+      "hypothesis_family": "stock_flow_breadth_as_etf_feature",
+      "status": "exploratory",
+      "budget_share": 0.15,
+      "economic_thesis": "Stock-level moneyflow can still help when aggregated into ETF theme breadth, industry diffusion, and risk-appetite features aligned to ETF holdings or themes.",
+      "allowed_roles": [
+        "market_breadth_auxiliary",
+        "theme_flow_diffusion",
+        "industry_flow_proxy",
+        "risk_appetite_proxy"
+      ],
+      "forbidden_actions": [
+        "direct_cn_stock_selection",
+        "moneyflow_topn_rescue",
+        "stock_moneyflow_regime_rescue"
+      ],
+      "next_action": "Use CN moneyflow only after aggregation into ETF-level breadth or theme-flow features."
+    },
+    {
+      "family_id": "cn_etf_fund_structure",
+      "market": "CN_ETF",
+      "hypothesis_family": "fund_share_nav_structure",
+      "status": "exploratory",
+      "budget_share": 0.1,
+      "economic_thesis": "Fund share changes, scale proxies, NAV behavior, and premium/discount proxies may identify ETF demand pressure and crowded exits.",
+      "next_action": "Probe daily etf_share_size share-change, scale-change, NAV, and premium/discount proxies where Tushare permissions and coverage are sufficient."
+    },
+    {
+      "family_id": "cn_stock_moneyflow_selection",
+      "market": "CN",
+      "hypothesis_family": "direct_stock_moneyflow_selection",
+      "status": "auxiliary_only",
+      "budget_share": 0.0,
+      "failed_rounds": 5,
+      "rescue_iterations": 4,
+      "failure_reasons": [
+        "capacity_limited",
+        "cost30_sensitive",
+        "oos_relative_return_failed",
+        "tail_ic_unstable"
+      ],
+      "repeated_failure_reasons": [
+        "capacity_limited",
+        "oos_relative_return_failed",
+        "cost_sensitive"
+      ],
+      "economic_thesis": "Stock moneyflow had a plausible behavioral thesis, but direct stock-selection evidence repeatedly failed capacity, cost, OOS, and tail-IC gates.",
+      "allowed_roles": [
+        "market_breadth_auxiliary",
+        "theme_flow_diffusion",
+        "industry_flow_proxy",
+        "risk_appetite_proxy"
+      ],
+      "forbidden_actions": [
+        "direct_cn_stock_selection",
+        "topn_widening_rescue",
+        "liquidity_gate_rescue",
+        "amount_floor_rescue",
+        "single_regime_rescue",
+        "holding_period_rescue"
+      ],
+      "next_action": "Keep as auxiliary ETF-level aggregate input only; do not allocate another primary factor-mining batch to direct CN stock moneyflow."
+    }
+  ]
+}

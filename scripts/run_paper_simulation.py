@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -48,6 +49,8 @@ def run_simulation(
     max_drawdown_guard: float | None = None,
     guard_cooldown_periods: int = 0,
     positions_csv: str | Path | None = None,
+    rotation_membership_root: str | Path | None = None,
+    rotation_membership_required: bool = False,
     output_dir: str | Path | None = None,
 ) -> dict[str, Any]:
     bars = _load_bars(source, Path(data_root), market)
@@ -59,6 +62,8 @@ def run_simulation(
         factor_windows=factor_windows,
         factor_input_root=Path(factor_input_root) if factor_input_root is not None else None,
         moneyflow_input_root=Path(moneyflow_input_root) if moneyflow_input_root is not None else None,
+        rotation_membership_root=Path(rotation_membership_root) if rotation_membership_root is not None else None,
+        rotation_membership_required=rotation_membership_required,
         top_n=top_n,
         rebalance_interval=rebalance_interval,
         start_date=start_date,
@@ -78,6 +83,7 @@ def run_simulation(
         guard_cooldown_periods=guard_cooldown_periods,
         output_dir=None,
     )
+    config = _attach_processed_cn_etf_rotation_membership(config, source, Path(data_root))
     result = run_paper_simulation(bars, config, initial_positions=positions)
     if output_dir is not None:
         write_paper_simulation_artifacts(result, Path(output_dir))
@@ -112,6 +118,8 @@ def main() -> None:
     parser.add_argument("--max-drawdown-guard", type=float)
     parser.add_argument("--guard-cooldown-periods", default=0, type=int)
     parser.add_argument("--positions-csv")
+    parser.add_argument("--rotation-membership-root")
+    parser.add_argument("--rotation-membership-required", action="store_true")
     parser.add_argument("--output-dir", default="data/reports/paper_simulation")
     args = parser.parse_args()
     result = run_simulation(
@@ -141,6 +149,8 @@ def main() -> None:
         max_drawdown_guard=args.max_drawdown_guard,
         guard_cooldown_periods=args.guard_cooldown_periods,
         positions_csv=Path(args.positions_csv) if args.positions_csv else None,
+        rotation_membership_root=Path(args.rotation_membership_root) if args.rotation_membership_root else None,
+        rotation_membership_required=args.rotation_membership_required,
         output_dir=Path(args.output_dir),
     )
     print(
@@ -169,6 +179,20 @@ def _load_bars(source: str, data_root: Path, market: str) -> pd.DataFrame:
         return load_processed_bars(data_root, market)
     frames = [load_processed_bars(data_root, item) for item in DEFAULT_MARKETS]
     return pd.concat(frames, ignore_index=True)
+
+
+def _attach_processed_cn_etf_rotation_membership(
+    config: PaperSimulationConfig,
+    source: str,
+    data_root: Path,
+) -> PaperSimulationConfig:
+    if source != "processed-bars" or config.market.upper() != "CN_ETF":
+        return config
+    return replace(
+        config,
+        rotation_membership_root=config.rotation_membership_root or data_root,
+        rotation_membership_required=True,
+    )
 
 
 def _parse_windows(value: str) -> tuple[int, ...]:

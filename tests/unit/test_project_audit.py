@@ -93,6 +93,118 @@ class ProjectAuditTests(unittest.TestCase):
             )
             self.assertFalse(audit["summary"]["passes"])
 
+    def test_audit_accepts_registered_etf_share_size_factor_names(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "configs").mkdir()
+            (root / "configs" / "walk_forward_etf_share_size.json").write_text(
+                """{
+  "split_date": "2024-01-01",
+  "experiment_grid": {
+    "factor_source": "etf_share_size",
+    "factor_names": ["share_change_1d", "nav_premium_discount_low"],
+    "factor_windows": [1]
+  }
+}
+""",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            registry = audit["factor_config_registry"]
+            self.assertTrue(registry["passes"])
+            self.assertEqual(registry["unknown_factor_refs"], [])
+            self.assertEqual(registry["unsupported_factor_sources"], [])
+
+    def test_audit_accepts_registered_etf_moneyflow_basket_factor_names(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "configs").mkdir()
+            (root / "configs" / "walk_forward_etf_moneyflow_basket.json").write_text(
+                """{
+  "split_date": "2024-01-01",
+  "experiment_grid": {
+    "factor_source": "etf_moneyflow_basket",
+    "factor_names": ["etf_net_mf_amount_ratio", "etf_net_mf_positive_weight_low"],
+    "factor_windows": [1]
+  }
+}
+""",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            registry = audit["factor_config_registry"]
+            self.assertTrue(registry["passes"])
+            self.assertEqual(registry["unknown_factor_refs"], [])
+            self.assertEqual(registry["unsupported_factor_sources"], [])
+
+    def test_audit_accepts_registered_etf_theme_breadth_factor_names(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "configs").mkdir()
+            (root / "configs" / "walk_forward_etf_theme_breadth.json").write_text(
+                """{
+  "split_date": "2024-01-01",
+  "experiment_grid": {
+    "factor_source": "etf_theme_breadth",
+    "factor_names": ["theme_momentum_breadth_60", "theme_relative_strength_60"],
+    "factor_windows": [60]
+  }
+}
+""",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            registry = audit["factor_config_registry"]
+            self.assertTrue(registry["passes"])
+            self.assertEqual(registry["unknown_factor_refs"], [])
+            self.assertEqual(registry["unsupported_factor_sources"], [])
+
+    def test_audit_accepts_registered_cn_etf_technical_extension_factor_names(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "configs").mkdir()
+            (root / "configs" / "walk_forward_cn_etf_technical_extensions.json").write_text(
+                """{
+  "split_date": "2024-01-01",
+  "experiment_grid": {
+    "factor_names": [
+      "trend_resilience_60",
+      "market_relative_strength_60",
+      "momentum_dispersion_breakout_60",
+      "crash_recovery_60",
+      "recovery_quality_60",
+      "demand_pressure_60",
+      "quiet_accumulation_60",
+      "average_amount_60",
+      "liquid_market_relative_strength_60",
+      "liquid_crash_recovery_60",
+      "liquid_recovery_quality_60",
+      "liquid_demand_pressure_60",
+      "liquid_quiet_accumulation_60",
+      "state_adaptive_trend_defense_60",
+      "state_stress_defensive_resilience_60",
+      "state_stress_recovery_leadership_60"
+    ],
+    "factor_windows": [60]
+  }
+}
+""",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            registry = audit["factor_config_registry"]
+            self.assertTrue(registry["passes"])
+            self.assertEqual(registry["unknown_factor_refs"], [])
+            self.assertEqual(registry["unsupported_factor_sources"], [])
+
     def test_markdown_report_contains_core_sections(self):
         audit = {
             "summary": {"passes": True, "files_scanned": 2},

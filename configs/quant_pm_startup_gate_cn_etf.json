@@ -1,0 +1,57 @@
+{
+  "stage": "quant_pm_startup_gate_cn_etf",
+  "primary_market": "CN_ETF",
+  "research_family_config": "configs/research_family_scheduler_cn_etf.json",
+  "required_skills": [
+    "using-superpowers",
+    "data-routing",
+    "factor-research",
+    "quantitative-research",
+    "quant-analyst",
+    "lookahead-safety",
+    "transaction-cost-modeling",
+    "walk-forward-validation",
+    "strategy-pivot-designer",
+    "alpha-mine",
+    "alpha-autopilot"
+  ],
+  "required_reading": [
+    {
+      "path": "AGENTS.md",
+      "purpose": "Agent startup, branch, sync, data, and live-boundary protocol."
+    },
+    {
+      "path": "configs/workstations.json",
+      "purpose": "Machine roles, task types, branch policy, data policy, and safety policy."
+    },
+    {
+      "path": "docs/workstation_protocol.md",
+      "purpose": "Multi-computer coordination and daily sync protocol."
+    },
+    {
+      "path": "README.md",
+      "purpose": "Current project status, research-to-paper boundary, and CN_ETF workflow."
+    },
+    {
+      "path": "configs/research_family_scheduler_cn_etf.json",
+      "purpose": "Current CN_ETF research-family budget, stop-loss, and auxiliary-only moneyflow policy."
+    },
+    {
+      "path": "docs/research/research_family_scheduler_2026-06-17.md",
+      "purpose": "Research-family stop-loss rationale and ETF hypothesis portfolio."
+    },
+    {
+      "path": "docs/research/quant_pm_startup_gate_2026-06-17.md",
+      "purpose": "Repeatable Quant PM startup gate, pass criteria, and stop-before-work policy."
+    }
+  ],
+  "direction_rules": {
+    "final_signal_market": "CN_ETF",
+    "primary_data_source": "tushare_fund_daily_full_history",
+    "latest_data_required": true,
+    "full_history_required": true,
+    "direct_cn_stock_moneyflow": "auxiliary_only",
+    "research_to_paper_only": true,
+    "forbidden_primary_path": "direct_cn_stock_moneyflow_selection"
+  }
+}

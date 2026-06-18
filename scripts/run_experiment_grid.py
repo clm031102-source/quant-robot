@@ -43,6 +43,7 @@ def run_grid(
         allow_review_required_data_manifest=allow_review_required_data_manifest,
         data_root=Path(data_root),
     )
+    config = _attach_processed_cn_etf_rotation_membership(config, source, Path(data_root))
     bars = _load_bars(source, Path(data_root), config.markets)
     return run_experiment_grid(bars, config)
 
@@ -146,6 +147,23 @@ def _enforce_cn_stock_startup_gate(
         expected_source_root=data_root,
         allow_review_required=allow_review_required_data_manifest,
         context="CN processed-bars experiment grid",
+    )
+
+
+def _attach_processed_cn_etf_rotation_membership(
+    config: ExperimentGridConfig,
+    source: str,
+    data_root: Path,
+) -> ExperimentGridConfig:
+    if source != "processed-bars":
+        return config
+    markets = {market.upper() for market in config.markets}
+    if "CN_ETF" not in markets:
+        return config
+    return replace(
+        config,
+        rotation_membership_root=config.rotation_membership_root or data_root,
+        rotation_membership_required=True,
     )
 
 

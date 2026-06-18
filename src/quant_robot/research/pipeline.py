@@ -10,6 +10,12 @@ import pandas as pd
 
 from quant_robot.backtest.engine import run_factor_backtest
 from quant_robot.data.quality import validate_market_data
+from quant_robot.factors.etf_moneyflow_basket import (
+    aggregate_etf_moneyflow_basket_inputs,
+    compute_etf_moneyflow_basket_factors,
+)
+from quant_robot.factors.etf_share_size import compute_etf_share_size_factors
+from quant_robot.factors.etf_theme_breadth import compute_etf_theme_breadth_factors
 from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.factors.tushare_inputs import compute_daily_basic_factors
 from quant_robot.factors.moneyflow_technical import compute_moneyflow_technical_combo_factors
@@ -25,6 +31,10 @@ from quant_robot.research.groups import quantile_group_returns
 from quant_robot.research.ic import compute_ic
 from quant_robot.research.labels import make_forward_returns
 from quant_robot.research.long_short import long_short_returns
+from quant_robot.storage.etf_moneyflow_baskets import load_etf_moneyflow_baskets
+from quant_robot.storage.etf_share_size import load_etf_share_size_inputs
+from quant_robot.storage.cn_etf_theme_map import load_cn_etf_theme_map
+from quant_robot.storage.cn_etf_rotation_membership import filter_signals_to_cn_etf_rotation_membership
 from quant_robot.storage.factor_inputs import load_factor_inputs
 from quant_robot.storage.moneyflow_inputs import load_moneyflow_inputs
 
@@ -42,6 +52,10 @@ class ResearchPipelineConfig:
     factor_input_required: bool = False
     moneyflow_input_root: Path | None = None
     market: str = "ALL"
+    rotation_membership_root: Path | None = None
+    rotation_membership_required: bool = False
+    min_rotation_history_rows: int | None = None
+    min_rotation_live_members: int | None = None
     start_date: str | None = None
     end_date: str | None = None
     forward_horizon: int = 1
@@ -66,6 +80,8 @@ class ResearchPipelineConfig:
     max_drawdown_limit: float | None = None
     signal_start_date: str | None = None
     signal_end_date: str | None = None
+    min_signal_average_amount: float | None = None
+    signal_amount_window: int = 20
     output_dir: Path | None = None
 
 
@@ -88,6 +104,15 @@ def run_research_pipeline(
     labels = make_forward_returns(filtered, horizons=(config.forward_horizon,), execution_lag=config.execution_lag)
     selected = factors[factors["factor_name"] == config.factor_name].dropna(subset=["factor_value"]).reset_index(drop=True)
     selected = _filter_signals(selected, config)
+    selected = _filter_signals_by_average_amount(selected, filtered, config)
+    selected = filter_signals_to_cn_etf_rotation_membership(
+        selected,
+        root=config.rotation_membership_root,
+        market=config.market,
+        required=config.rotation_membership_required,
+        min_history_rows_to_date=config.min_rotation_history_rows,
+        min_live_members=config.min_rotation_live_members,
+    )
     regime = _regime_summary(filtered, selected, config)
     if config.regime_filter:
         selected = _apply_regime_filter(selected, regime["allowed_dates"])
@@ -196,12 +221,27 @@ def _filter_bars(bars: pd.DataFrame, config: ResearchPipelineConfig) -> pd.DataF
 
 def _load_factor_input_frame(config: ResearchPipelineConfig) -> pd.DataFrame:
     factor_source = config.factor_source
-    if factor_source not in {"technical", "tushare_daily_basic", "tushare_moneyflow", "moneyflow_technical_combo", "combined"}:
+    if factor_source not in {
+        "technical",
+        "tushare_daily_basic",
+        "tushare_moneyflow",
+        "moneyflow_technical_combo",
+        "etf_share_size",
+        "etf_moneyflow_basket",
+        "etf_theme_breadth",
+        "combined",
+    }:
         raise ValueError(f"Unsupported factor_source: {factor_source}")
     if factor_source == "technical":
         if config.factor_input_required and config.factor_input_root is None:
             raise ValueError("factor_input_root is required when factor_input_required is true")
         return pd.DataFrame()
+    if factor_source == "etf_share_size":
+        return _load_etf_share_size_inputs(config)
+    if factor_source == "etf_moneyflow_basket":
+        return _load_etf_moneyflow_basket_inputs(config)
+    if factor_source == "etf_theme_breadth":
+        return _load_etf_theme_map_inputs(config)
     if factor_source in {"tushare_moneyflow", "moneyflow_technical_combo"}:
         return _load_tushare_moneyflow_inputs(config)
     return _load_tushare_daily_basic_inputs(config)
@@ -242,9 +282,67 @@ def _load_tushare_moneyflow_inputs(config: ResearchPipelineConfig) -> pd.DataFra
     return frame.sort_values(["asset_id", "date"]).reset_index(drop=True)
 
 
+def _load_etf_share_size_inputs(config: ResearchPipelineConfig) -> pd.DataFrame:
+    if config.execution_lag < 1:
+        raise ValueError("execution_lag must be at least 1 for ETF share-size factors")
+    if config.factor_input_root is None:
+        raise ValueError("factor_input_root is required for ETF share-size factor sources")
+    market = config.market.upper()
+    if market == "ALL":
+        raise ValueError("ETF share-size inputs require a specific CN_ETF market")
+    if market != "CN_ETF":
+        raise ValueError("ETF share-size factor source requires market=CN_ETF")
+    frame = load_etf_share_size_inputs(config.factor_input_root, market)
+    if config.start_date:
+        frame = frame[pd.to_datetime(frame["date"]).dt.date >= pd.to_datetime(config.start_date).date()]
+    if config.end_date:
+        frame = frame[pd.to_datetime(frame["date"]).dt.date <= pd.to_datetime(config.end_date).date()]
+    return frame.sort_values(["asset_id", "date"]).reset_index(drop=True)
+
+
+def _load_etf_moneyflow_basket_inputs(config: ResearchPipelineConfig) -> pd.DataFrame:
+    if config.execution_lag < 1:
+        raise ValueError("execution_lag must be at least 1 for ETF moneyflow basket factors")
+    if config.factor_input_root is None:
+        raise ValueError("factor_input_root is required for ETF moneyflow basket mappings")
+    if config.moneyflow_input_root is None:
+        raise ValueError("moneyflow_input_root is required for ETF moneyflow basket factors")
+    market = config.market.upper()
+    if market == "ALL":
+        raise ValueError("ETF moneyflow basket inputs require a specific CN_ETF market")
+    if market != "CN_ETF":
+        raise ValueError("ETF moneyflow basket factor source requires market=CN_ETF")
+    moneyflow = load_moneyflow_inputs(config.moneyflow_input_root, "CN")
+    if config.start_date:
+        moneyflow = moneyflow[pd.to_datetime(moneyflow["date"]).dt.date >= pd.to_datetime(config.start_date).date()]
+    if config.end_date:
+        moneyflow = moneyflow[pd.to_datetime(moneyflow["date"]).dt.date <= pd.to_datetime(config.end_date).date()]
+    baskets = load_etf_moneyflow_baskets(config.factor_input_root, market)
+    return aggregate_etf_moneyflow_basket_inputs(moneyflow, baskets)
+
+
+def _load_etf_theme_map_inputs(config: ResearchPipelineConfig) -> pd.DataFrame:
+    if config.execution_lag < 1:
+        raise ValueError("execution_lag must be at least 1 for ETF theme breadth factors")
+    if config.factor_input_root is None:
+        raise ValueError("factor_input_root is required for ETF theme breadth factors")
+    market = config.market.upper()
+    if market == "ALL":
+        raise ValueError("ETF theme breadth inputs require a specific CN_ETF market")
+    if market != "CN_ETF":
+        raise ValueError("ETF theme breadth factor source requires market=CN_ETF")
+    return load_cn_etf_theme_map(config.factor_input_root, market)
+
+
 def _compute_factor_source(bars: pd.DataFrame, factor_inputs: pd.DataFrame, config: ResearchPipelineConfig) -> pd.DataFrame:
     if config.factor_source == "technical":
         return compute_basic_factors(bars, windows=config.factor_windows)
+    if config.factor_source == "etf_share_size":
+        return compute_etf_share_size_factors(factor_inputs)
+    if config.factor_source == "etf_moneyflow_basket":
+        return compute_etf_moneyflow_basket_factors(factor_inputs)
+    if config.factor_source == "etf_theme_breadth":
+        return compute_etf_theme_breadth_factors(bars, factor_inputs, windows=config.factor_windows)
     if config.factor_source == "tushare_moneyflow":
         return compute_moneyflow_factors(factor_inputs)
     if config.factor_source == "moneyflow_technical_combo":
@@ -280,6 +378,32 @@ def _filter_signals(factors: pd.DataFrame, config: ResearchPipelineConfig) -> pd
         keep_dates = set(signal_dates[:: config.rebalance_interval])
         frame = frame[pd.to_datetime(frame["date"]).dt.date.isin(keep_dates)]
     return frame.reset_index(drop=True)
+
+
+def _filter_signals_by_average_amount(
+    factors: pd.DataFrame,
+    bars: pd.DataFrame,
+    config: ResearchPipelineConfig,
+) -> pd.DataFrame:
+    if config.min_signal_average_amount is None:
+        return factors
+    if config.signal_amount_window < 1:
+        raise ValueError("signal_amount_window must be at least 1")
+    if factors.empty:
+        return factors
+    amount = bars[["asset_id", "date", "amount"]].copy()
+    amount["date"] = pd.to_datetime(amount["date"]).dt.date
+    amount = amount.sort_values(["asset_id", "date"])
+    amount["_signal_average_amount"] = amount.groupby("asset_id")["amount"].transform(
+        lambda values: values.rolling(config.signal_amount_window).mean()
+    )
+    merged = factors.merge(
+        amount[["asset_id", "date", "_signal_average_amount"]],
+        on=["asset_id", "date"],
+        how="left",
+    )
+    filtered = merged[pd.to_numeric(merged["_signal_average_amount"], errors="coerce") >= config.min_signal_average_amount]
+    return filtered.drop(columns=["_signal_average_amount"]).reset_index(drop=True)
 
 
 def _comparison_bars(bars: pd.DataFrame, config: ResearchPipelineConfig) -> pd.DataFrame:
@@ -457,6 +581,9 @@ def _config_dict(config: ResearchPipelineConfig, portfolio_scope: str, periods_p
     data["factor_windows"] = list(config.factor_windows)
     data["factor_input_root"] = str(config.factor_input_root) if config.factor_input_root is not None else None
     data["moneyflow_input_root"] = str(config.moneyflow_input_root) if config.moneyflow_input_root is not None else None
+    data["rotation_membership_root"] = (
+        str(config.rotation_membership_root) if config.rotation_membership_root is not None else None
+    )
     data["portfolio_scope"] = portfolio_scope
     data["periods_per_year"] = periods_per_year
     data["output_dir"] = str(config.output_dir) if config.output_dir is not None else None

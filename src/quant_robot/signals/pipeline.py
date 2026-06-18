@@ -12,6 +12,7 @@ from quant_robot.backtest.portfolio import select_top_n
 from quant_robot.data.quality import validate_market_data
 from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.portfolio.constraints import PortfolioConstraints, apply_portfolio_constraints
+from quant_robot.storage.cn_etf_rotation_membership import filter_signals_to_cn_etf_rotation_membership
 
 
 @dataclass(frozen=True)
@@ -19,6 +20,8 @@ class SignalPipelineConfig:
     factor_name: str = "momentum_2"
     factor_windows: tuple[int, ...] = (2, 3)
     market: str = "ALL"
+    rotation_membership_root: Path | None = None
+    rotation_membership_required: bool = False
     as_of_date: str | None = None
     top_n: int = 2
     portfolio_scope: str | None = None
@@ -57,6 +60,12 @@ def _build_signal_snapshot(
     as_of_date: Any,
 ) -> dict[str, Any]:
     selected = _latest_factor_slice(factors, config.factor_name, as_of_date)
+    selected = filter_signals_to_cn_etf_rotation_membership(
+        selected,
+        root=config.rotation_membership_root,
+        market=config.market,
+        required=config.rotation_membership_required,
+    )
     portfolio_scope = _resolve_portfolio_scope(config)
     ranked = select_top_n(selected, top_n=config.top_n, portfolio_scope=portfolio_scope)
     targets = _attach_latest_prices(ranked, filtered, as_of_date)
@@ -155,6 +164,9 @@ def _signal_date(targets: pd.DataFrame, fallback: pd.DataFrame) -> Any:
 def _config_dict(config: SignalPipelineConfig, portfolio_scope: str) -> dict[str, Any]:
     data = asdict(config)
     data["factor_windows"] = list(config.factor_windows)
+    data["rotation_membership_root"] = (
+        str(config.rotation_membership_root) if config.rotation_membership_root is not None else None
+    )
     data["portfolio_scope"] = portfolio_scope
     return data
 

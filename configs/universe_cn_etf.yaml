@@ -1,8 +1,18 @@
 market: CN_ETF
 source_priority:
+  - tushare
+fallback_source_priority:
   - tradingview_csv
   - akshare
-  - tushare
+universe_policy:
+  primary_source: tushare_fund_basic
+  primary_history_source: tushare_fund_daily
+  auxiliary_feature_sources:
+    - tushare_etf_share_size
+    - cn_stock_moneyflow_aggregates_only
+  latest_data_required: true
+  full_history_required: true
+  static_symbols_role: fallback_smoke_only
 symbols:
   - symbol: 510300.SH
     name: 沪深300 ETF
