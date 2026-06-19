@@ -430,3 +430,41 @@ Current status:
 - The stale residual walk-forward output from the wrong data root was deleted from `data/reports/walk_forward_tushare_moneyflow_residual_regime`.
 - The corrected residual/regime validation was restarted with authority bars and authority moneyflow inputs.
 - Results are not yet promotion evidence until the walk-forward leaderboard, market-regime coverage pack, promotion gate, and desktop validation summary all complete.
+
+### Residual/Regime 20-Fold Interim Checkpoint
+
+As of 2026-06-20 03:52 +0800, the corrected residual/regime run had completed 20 of the 38 authority-data rolling folds and had started `fold_21`.
+
+Interim evidence from the completed test leaderboards:
+
+- Completed test rows: 1,920.
+- Unique parameter cases: 96.
+- Complete folds: 20.
+- Runner-approved rows: 46 / 1,920.
+- Approved rows were clustered in `fold_05`, `fold_11`, and `fold_16`; `fold_20` had 0 approved rows.
+- No parameter case was approved in more than 2 of 20 folds.
+
+Best case-level rows by strict cross-fold survival:
+
+- `CN_large_minus_liquidity_20_top10_cost20_reb1_regime120`: approved in 2/20 folds, positive relative return in 10/20 folds, drawdown-clean in 18/20 folds, capacity-clean in 3/20 folds, mean overlap-adjusted Sharpe 0.079, mean relative return 5.28%, worst drawdown -36.6%, max participation 8.60x ADV.
+- `CN_large_resid_liquidity_20_top10_cost20_reb1_regime120`: approved in 2/20 folds, positive relative return in 10/20 folds, drawdown-clean in 17/20 folds, capacity-clean in 2/20 folds, mean overlap-adjusted Sharpe -0.118, mean relative return 3.19%, worst drawdown -38.1%, max participation 8.60x ADV.
+- `CN_large_resid_liq_vol_amt_20_top10_cost20_reb1_regime120`: approved in 2/20 folds, positive relative return in 10/20 folds, drawdown-clean in 17/20 folds, capacity-clean in 2/20 folds, mean overlap-adjusted Sharpe -0.266, mean relative return 2.92%, worst drawdown -38.0%, max participation 8.60x ADV.
+
+Factor-family aggregate after 20 folds:
+
+- `large_minus_liquidity_20`: 14 approved rows, 184 positive-relative rows, mean relative return 3.80%, mean overlap-adjusted Sharpe -0.714, worst drawdown -44.3%, max participation 17.20x ADV.
+- `large_resid_liquidity_20`: 11 approved rows, 174 positive-relative rows, mean relative return 1.79%, mean overlap-adjusted Sharpe -0.902, worst drawdown -47.4%, max participation 17.20x ADV.
+- `large_resid_liq_vol_amt_20`: 11 approved rows, 172 positive-relative rows, mean relative return 1.76%, mean overlap-adjusted Sharpe -0.969, worst drawdown -48.6%, max participation 17.20x ADV.
+- `large_resid_liq_vol_amt_gate_20`: 10 approved rows and 464 capacity-clean rows, but only 10 positive-relative rows, mean relative return -27.5%, mean overlap-adjusted Sharpe -4.095, worst drawdown -52.4%.
+
+Interim conclusion:
+
+- There is still no promotable or paper-ready residual/regime factor.
+- The apparent winners are local-window effects: approved rows are concentrated in a few folds and do not survive broad cross-fold stability.
+- Top5/top10 variants can show high single-fold returns, but they fail capacity and drawdown controls; the capacity-gated variant fixes capacity while destroying returns.
+- `large_minus_liquidity_20` remains the least-bad research line because it has the highest approved-row count and relative-return breadth, but it is not useful enough for promotion under the current gate.
+
+Immediate continuation:
+
+- `fold_21` completed at 2026-06-20 04:44 +0800 with 0 approved rows out of 96.
+- The top `fold_21` rows had high single-fold Sharpe, but were rejected because capacity-limited trades were present and IC/tail-IC significance was not present.
