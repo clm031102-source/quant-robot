@@ -10,6 +10,7 @@ from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.experiments.runner import (
     ExperimentGridConfig,
+    _resume_fingerprint,
     build_experiment_cases,
     load_experiment_grid_config,
     run_experiment_grid,
@@ -355,6 +356,142 @@ class ExperimentRunnerTests(unittest.TestCase):
         self.assertEqual(events[3]["status"], "completed")
         self.assertEqual(events[-1]["completed"], 2)
         self.assertEqual(events[-1]["cases"], 2)
+
+    def test_experiment_grid_checkpoints_each_completed_case(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = ExperimentGridConfig(
+                markets=("CN",),
+                factor_names=("momentum_2",),
+                factor_windows=(2,),
+                top_n_values=(1, 2),
+                cost_bps_values=(0.0,),
+                output_dir=Path(tmp),
+                write_case_artifacts=False,
+            )
+            pipeline_result = {
+                "data_mode": "research",
+                "metrics": {"total_return": 0.01, "annualized_return": 0.01, "annualized_volatility": 0.05, "sharpe": 0.2, "max_drawdown": -0.01},
+                "benchmark_metrics": {"benchmark_total_return": 0.0, "relative_return": 0.01, "excess_over_cash": 0.01},
+                "decision": {"decision_status": "approved", "rejection_reasons": []},
+                "factor_summary": {"mean_ic": 0.01, "ic_p_value": 0.5, "significance_status": "unknown"},
+                "artifact_rows": {"trades": 1, "holdings": 1},
+            }
+
+            with patch("quant_robot.experiments.runner.run_research_pipeline", return_value=pipeline_result):
+                result = run_experiment_grid(load_demo_market_bars(), config)
+
+            checkpoint_path = Path(tmp) / "partial_leaderboard.jsonl"
+            self.assertTrue(checkpoint_path.exists())
+            rows = [json.loads(line) for line in checkpoint_path.read_text(encoding="utf-8").splitlines()]
+            self.assertEqual([row["case_id"] for row in rows], [
+                "CN_momentum_2_top1_cost0_reb1",
+                "CN_momentum_2_top2_cost0_reb1",
+            ])
+            self.assertEqual([row["status"] for row in rows], ["completed", "completed"])
+            self.assertEqual([row["trades"] for row in rows], [1, 1])
+            self.assertEqual(len(result["leaderboard"]), 2)
+
+    def test_experiment_grid_resume_skips_completed_partial_cases(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp)
+            config = ExperimentGridConfig(
+                markets=("CN",),
+                factor_names=("momentum_2",),
+                factor_windows=(2,),
+                top_n_values=(1, 2),
+                cost_bps_values=(0.0,),
+                output_dir=output_dir,
+                write_case_artifacts=False,
+                resume_completed_cases=True,
+            )
+            completed_row = {
+                "case_id": "CN_momentum_2_top1_cost0_reb1",
+                "_grid_fingerprint": _resume_fingerprint(config),
+                "market": "CN",
+                "factor_source": "technical",
+                "factor_name": "momentum_2",
+                "factor_windows": [2],
+                "top_n": 1,
+                "cost_bps": 0.0,
+                "rebalance_interval": 1,
+                "regime_lookback": 20,
+                "status": "completed",
+                "error": None,
+                "data_mode": "research",
+                "trades": 1,
+                "sharpe": 0.9,
+            }
+            (output_dir / "partial_leaderboard.jsonl").write_text(json.dumps(completed_row) + "\n", encoding="utf-8")
+
+            pipeline_result = {
+                "data_mode": "research",
+                "metrics": {"total_return": 0.01, "annualized_return": 0.01, "annualized_volatility": 0.05, "sharpe": 0.2, "max_drawdown": -0.01},
+                "benchmark_metrics": {"benchmark_total_return": 0.0, "relative_return": 0.01, "excess_over_cash": 0.01},
+                "decision": {"decision_status": "approved", "rejection_reasons": []},
+                "factor_summary": {"mean_ic": 0.01, "ic_p_value": 0.5, "significance_status": "unknown"},
+                "artifact_rows": {"trades": 1, "holdings": 1},
+            }
+            events = []
+
+            with patch("quant_robot.experiments.runner.run_research_pipeline", return_value=pipeline_result) as pipeline:
+                result = run_experiment_grid(load_demo_market_bars(), config, progress=events.append)
+
+            pipeline.assert_called_once()
+            self.assertEqual(pipeline.call_args.args[1].top_n, 2)
+            self.assertEqual(result["summary"]["completed"], 2)
+            self.assertEqual({row["case_id"] for row in result["leaderboard"]}, {
+                "CN_momentum_2_top1_cost0_reb1",
+                "CN_momentum_2_top2_cost0_reb1",
+            })
+            self.assertIn("case_skipped", [event["event"] for event in events])
+            rows = [json.loads(line) for line in (output_dir / "partial_leaderboard.jsonl").read_text(encoding="utf-8").splitlines()]
+            self.assertEqual([row["case_id"] for row in rows], [
+                "CN_momentum_2_top1_cost0_reb1",
+                "CN_momentum_2_top2_cost0_reb1",
+            ])
+
+    def test_experiment_grid_resume_ignores_partial_rows_from_different_config(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp)
+            completed_row = {
+                "case_id": "CN_momentum_2_top1_cost0_reb1",
+                "_grid_fingerprint": "stale-config",
+                "status": "completed",
+                "trades": 1,
+                "sharpe": 0.9,
+            }
+            (output_dir / "partial_leaderboard.jsonl").write_text(json.dumps(completed_row) + "\n", encoding="utf-8")
+            config = ExperimentGridConfig(
+                markets=("CN",),
+                factor_names=("momentum_2",),
+                factor_windows=(2,),
+                top_n_values=(1, 2),
+                cost_bps_values=(0.0,),
+                output_dir=output_dir,
+                write_case_artifacts=False,
+                resume_completed_cases=True,
+            )
+            pipeline_result = {
+                "data_mode": "research",
+                "metrics": {"total_return": 0.01, "annualized_return": 0.01, "annualized_volatility": 0.05, "sharpe": 0.2, "max_drawdown": -0.01},
+                "benchmark_metrics": {"benchmark_total_return": 0.0, "relative_return": 0.01, "excess_over_cash": 0.01},
+                "decision": {"decision_status": "approved", "rejection_reasons": []},
+                "factor_summary": {"mean_ic": 0.01, "ic_p_value": 0.5, "significance_status": "unknown"},
+                "artifact_rows": {"trades": 1, "holdings": 1},
+            }
+            events = []
+
+            with patch("quant_robot.experiments.runner.run_research_pipeline", return_value=pipeline_result) as pipeline:
+                result = run_experiment_grid(load_demo_market_bars(), config, progress=events.append)
+
+            self.assertEqual(pipeline.call_count, 2)
+            self.assertEqual(result["summary"]["completed"], 2)
+            self.assertNotIn("case_skipped", [event["event"] for event in events])
+            rows = [json.loads(line) for line in (output_dir / "partial_leaderboard.jsonl").read_text(encoding="utf-8").splitlines()]
+            self.assertEqual([row["case_id"] for row in rows], [
+                "CN_momentum_2_top1_cost0_reb1",
+                "CN_momentum_2_top2_cost0_reb1",
+            ])
 
     def test_experiment_grid_can_precompute_tushare_daily_basic_factor_matrix_once(self):
         bars = load_demo_market_bars()

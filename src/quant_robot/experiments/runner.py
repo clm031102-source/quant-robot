@@ -63,6 +63,7 @@ class ExperimentGridConfig:
     rank_by: str = "sharpe"
     min_trades: int = 1
     precompute_factor_matrix: bool = False
+    resume_completed_cases: bool = False
 
 
 @dataclass(frozen=True)
@@ -155,6 +156,7 @@ def load_experiment_grid_config(path: str | Path) -> ExperimentGridConfig:
         rank_by=str(data.get("rank_by", ExperimentGridConfig.rank_by)),
         min_trades=int(data.get("min_trades", ExperimentGridConfig.min_trades)),
         precompute_factor_matrix=bool(data.get("precompute_factor_matrix", ExperimentGridConfig.precompute_factor_matrix)),
+        resume_completed_cases=bool(data.get("resume_completed_cases", ExperimentGridConfig.resume_completed_cases)),
     )
 
 
@@ -165,13 +167,21 @@ def run_experiment_grid(
 ) -> dict[str, Any]:
     _validate_config(config)
     cases = build_experiment_cases(config)
-    if config.precompute_factor_matrix:
+    resume_fingerprint = _resume_fingerprint(config)
+    resumed_rows = (
+        _load_resumable_rows(config.output_dir, cases, resume_fingerprint)
+        if config.resume_completed_cases
+        else {}
+    )
+    _prepare_partial_leaderboard(config.output_dir, resumed_rows.values())
+    remaining_cases = [case for case in cases if case.case_id not in resumed_rows]
+    if config.precompute_factor_matrix and remaining_cases:
         _emit_progress(
             progress,
             "precompute_start",
             factor_source=config.factor_source,
             factor_count=len(config.factor_names),
-            case_count=len(cases),
+            case_count=len(remaining_cases),
         )
         precomputed_factors = _precompute_factor_matrix(bars, config)
         _emit_progress(
@@ -179,16 +189,30 @@ def run_experiment_grid(
             "precompute_done",
             factor_source=config.factor_source,
             factor_count=len(config.factor_names),
-            case_count=len(cases),
+            case_count=len(remaining_cases),
             factor_rows=0 if precomputed_factors is None else len(precomputed_factors),
         )
     else:
         precomputed_factors = None
     rows = []
     for index, case in enumerate(cases, start=1):
+        if case.case_id in resumed_rows:
+            row = resumed_rows[case.case_id]
+            rows.append(row)
+            _emit_progress(
+                progress,
+                "case_skipped",
+                case_id=case.case_id,
+                case_index=index,
+                case_count=len(cases),
+                status=row["status"],
+                trades=row["trades"],
+            )
+            continue
         _emit_progress(progress, "case_start", case_id=case.case_id, case_index=index, case_count=len(cases))
         row = _run_case(bars, config, case, precomputed_factors)
         rows.append(row)
+        _append_partial_leaderboard_row(config.output_dir, row, resume_fingerprint=resume_fingerprint)
         _emit_progress(
             progress,
             "case_done",
@@ -529,6 +553,72 @@ def _write_grid_artifacts(output_dir: Path, result: dict[str, Any], leaderboard:
         "summary": result["summary"],
     }
     (output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _partial_leaderboard_path(output_dir: Path) -> Path:
+    return output_dir / "partial_leaderboard.jsonl"
+
+
+def _prepare_partial_leaderboard(output_dir: Path | None, rows: Any = ()) -> None:
+    if output_dir is None:
+        return
+    output_dir.mkdir(parents=True, exist_ok=True)
+    path = _partial_leaderboard_path(output_dir)
+    if path.exists():
+        path.unlink()
+    for row in rows:
+        _append_partial_leaderboard_row(output_dir, row)
+
+
+def _load_resumable_rows(
+    output_dir: Path | None,
+    cases: list[ExperimentCase],
+    resume_fingerprint: str,
+) -> dict[str, dict[str, Any]]:
+    if output_dir is None:
+        return {}
+    path = _partial_leaderboard_path(output_dir)
+    if not path.exists():
+        return {}
+    current_case_ids = {case.case_id for case in cases}
+    rows: dict[str, dict[str, Any]] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        case_id = str(row.get("case_id", ""))
+        status = str(row.get("status", ""))
+        if (
+            case_id in current_case_ids
+            and status in {"completed", "no_trades"}
+            and row.get("_grid_fingerprint") == resume_fingerprint
+        ):
+            rows[case_id] = _sanitize(row)
+    return rows
+
+
+def _append_partial_leaderboard_row(
+    output_dir: Path | None,
+    row: dict[str, Any],
+    *,
+    resume_fingerprint: str | None = None,
+) -> None:
+    if output_dir is None:
+        return
+    payload = dict(row)
+    if resume_fingerprint is not None:
+        payload["_grid_fingerprint"] = resume_fingerprint
+    path = _partial_leaderboard_path(output_dir)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(_sanitize(payload), sort_keys=True) + "\n")
+
+
+def _resume_fingerprint(config: ExperimentGridConfig) -> str:
+    data = _config_dict(config)
+    for key in ("output_dir", "write_case_artifacts", "resume_completed_cases"):
+        data.pop(key, None)
+    return json.dumps(_sanitize(data), sort_keys=True, separators=(",", ":"))
 
 
 def _config_dict(config: ExperimentGridConfig) -> dict[str, Any]:

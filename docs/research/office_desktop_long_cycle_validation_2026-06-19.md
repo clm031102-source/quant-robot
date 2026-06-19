@@ -165,6 +165,92 @@ The run reached 8 of 12 cases before this sync closeout and was stopped before a
 
 The repository change that survives from that attempt is the progress instrumentation above. Future long-cycle grid runs should use the stderr progress stream so a stuck or expensive case is visible before deciding whether to continue, narrow the grid, or terminate.
 
+## PB Incremental Long-Cycle Rerun
+
+After adding case-level checkpointing, the office desktop completed the missing `pb_inverse` daily-basic width stress subset:
+
+- Factor: `pb_inverse`
+- Cases: topN 100/200 x cost 10/20 bps
+- Period: 2015-01-05 through 2024-12-31
+- No 2025 validation or 2026 final holdout read.
+
+Result:
+
+- Completed cases: 4.
+- Runner-approved cases: 0.
+- Capacity-clean cases: 0.
+- Drawdown-clean cases at -30%: 0.
+- Overlap-adjusted Sharpe >= 1 cases: 0.
+- Positive benchmark-relative return cases: 0.
+- Positive significant selected-tail RankIC cases: 0.
+- Strict promotable cases: 0.
+
+Best row by overlap-adjusted Sharpe:
+
+- `CN_pb_inverse_top100_cost10_reb5`
+- Annualized return: 0.78%.
+- Sharpe: 0.127.
+- Overlap-adjusted Sharpe: 0.066.
+- Win rate: 46.7%.
+- Max drawdown: -61.9%.
+- Benchmark-relative return: -1222.1%.
+- Capacity-limited trades: 23.
+
+Interpretation:
+
+- `pb_inverse` has positive full-universe RankIC over the long sample, but the top-N traded expression fails.
+- The portfolio has severe drawdown, weak Sharpe, capacity breaches, and deeply negative benchmark-relative performance.
+- Selected-tail RankIC does not confirm that the top-N basket captures the full-universe signal.
+- Decision: reject `pb_inverse` as a standalone CN-stock profitability factor under this protocol.
+
+Process note:
+
+- `partial_leaderboard.jsonl` worked as intended and preserved completed cases during long runs.
+- Runtime evidence shows a new efficiency target: cost-only variants rerun the same signal path. Future workflow should reuse signal/holdings artifacts across cost scenarios.
+
+## Dividend Yield Incremental Long-Cycle Rerun
+
+The office desktop then completed the `dv_ttm` daily-basic width stress subset using the new checkpoint/resume flow:
+
+- Factor: `dv_ttm`
+- Cases: topN 100/200 x cost 10/20 bps
+- Period: 2015-01-05 through 2024-12-31
+- No 2025 validation or 2026 final holdout read.
+
+Result:
+
+- Completed cases: 4.
+- Runner-approved cases: 0.
+- Capacity-clean cases: 0.
+- Drawdown-clean cases at -30%: 0.
+- Overlap-adjusted Sharpe >= 1 cases: 0.
+- Positive benchmark-relative return cases: 0.
+- Positive significant selected-tail RankIC cases: 0.
+- Strict promotable cases: 0.
+
+Best row by overlap-adjusted Sharpe:
+
+- `CN_dv_ttm_top100_cost10_reb5`
+- Annualized return: 2.56%.
+- Sharpe: 0.269.
+- Overlap-adjusted Sharpe: 0.144.
+- Win rate: 52.9%.
+- Max drawdown: -55.4%.
+- Benchmark-relative return: -1188.0%.
+- Capacity-limited trades: 128.
+
+Interpretation:
+
+- `dv_ttm` is stronger than `pb_inverse` on standalone absolute metrics, and the full-universe RankIC is positive and significant.
+- It still fails as a tradable standalone profitability factor because drawdown, capacity, benchmark-relative performance, and selected-tail evidence all fail.
+- Decision: reject `dv_ttm` as a standalone CN-stock profitability factor under this protocol.
+
+Process note:
+
+- Checkpoint/resume is now implemented and test-covered.
+- Resume rows are guarded by a grid configuration fingerprint, so a same-name case from a different date window or parameter set is not reused.
+- Future efficiency work should reuse signal/holdings artifacts across cost-only variants; topN breadth variants may also share ranked signal generation.
+
 ## Follow-Up Queue
 
 Next office-desktop work should prioritize corrected-coverage reruns of older moneyflow and residualized candidates before treating any previous long-cycle report as promotion evidence. Reports produced before the authority-bars coverage fix should be considered stale unless rerun under the year-coverage gate.
