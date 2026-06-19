@@ -86,6 +86,17 @@ class DecisionRiskTests(unittest.TestCase):
         self.assertIn("relative_return_below_threshold", summary["rejection_reasons"])
         self.assertIn("drawdown_above_limit", summary["rejection_reasons"])
 
+    def test_decision_summary_rejects_capacity_limited_strategies(self):
+        summary = decision_summary(
+            {"max_drawdown": -0.10, "capacity_limited_trades": 1},
+            {"relative_return": 0.10},
+            min_relative_return=0.0,
+            max_drawdown_limit=0.20,
+        )
+
+        self.assertEqual(summary["decision_status"], "rejected")
+        self.assertIn("capacity_limited_trades_present", summary["rejection_reasons"])
+
 
 def _bars(price_paths: dict[str, list[float]]) -> pd.DataFrame:
     dates = list(pd.date_range("2024-01-01", periods=max(len(path) for path in price_paths.values())).date)
