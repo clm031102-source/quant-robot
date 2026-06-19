@@ -21,6 +21,9 @@ This pass converted a local audit issue into repeatable repository checks:
   - `mf_low_amount_bucket_rank_20`
   - `small_sell_amount_bucket_rank_20`
 - `tests/unit/test_moneyflow_technical_combo_factors.py` verifies that the amount-bucket rank factors compare moneyflow inside traded-amount tiers and gate thin names.
+- `src/quant_robot/experiments/runner.py` now accepts a progress callback and emits `precompute_start`, `precompute_done`, per-case `case_start` / `case_done`, and `grid_done` events.
+- `scripts/run_experiment_grid.py` now streams progress JSON lines to stderr for long authority-data runs, including bar-load start/done events.
+- `tests/unit/test_experiment_runner.py` and `tests/unit/test_experiment_grid_cli.py` cover progress callback forwarding and emitted event order.
 
 ## Data Coverage Finding
 
@@ -149,6 +152,18 @@ Both new factors are rejected as profitability candidates:
 - `small_sell_amount_bucket_rank_20`: rejected. Capacity-clean, but selected tail evidence inverted and drawdown remained too large.
 
 The useful output is methodological rather than a tradable factor: amount-tier ranking is now implemented and test-covered, but this specific moneyflow pair should not be promoted.
+
+## Closeout Note
+
+The office desktop started a corrected-coverage daily-basic value/yield width stress run for:
+
+- `dv_ttm`
+- `ps_ttm_inverse`
+- `pb_inverse`
+
+The run reached 8 of 12 cases before this sync closeout and was stopped before a complete leaderboard was produced. It is not counted as a completed factor result or promotion/rejection decision.
+
+The repository change that survives from that attempt is the progress instrumentation above. Future long-cycle grid runs should use the stderr progress stream so a stuck or expensive case is visible before deciding whether to continue, narrow the grid, or terminate.
 
 ## Follow-Up Queue
 

@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from dataclasses import replace
 from pathlib import Path
+from typing import Any, Callable
 
 import pandas as pd
 
@@ -32,6 +34,7 @@ def run_grid(
     authority_bars_config: str | Path | None = Path("configs/cn_stock_authority_bars_2015_2025.json"),
     allow_missing_startup_gate: bool = False,
     allow_review_required_data_manifest: bool = False,
+    progress: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, object]:
     config = load_experiment_grid_config(config_path) if config_path is not None else ExperimentGridConfig()
     if output_dir is not None:
@@ -45,9 +48,24 @@ def run_grid(
         allow_review_required_data_manifest=allow_review_required_data_manifest,
         data_root=Path(data_root),
     )
+    _emit_progress(
+        progress,
+        "load_bars_start",
+        source=source,
+        data_root=str(data_root),
+        markets=list(config.markets),
+    )
     bars = _load_bars(source, Path(data_root), config.markets, authority_bars_config=authority_bars_config)
+    _emit_progress(
+        progress,
+        "load_bars_done",
+        source=source,
+        data_root=str(data_root),
+        markets=list(config.markets),
+        bar_rows=len(bars),
+    )
     _enforce_authority_bar_year_coverage(source=source, bars=bars, config=config)
-    return run_experiment_grid(bars, config)
+    return run_experiment_grid(bars, config, progress=progress)
 
 
 def main() -> None:
@@ -92,6 +110,7 @@ def main() -> None:
         authority_bars_config=Path(args.authority_bars_config) if args.authority_bars_config else None,
         allow_missing_startup_gate=args.allow_missing_startup_gate,
         allow_review_required_data_manifest=args.allow_review_required_data_manifest,
+        progress=_stderr_progress,
     )
     print(json.dumps({"summary": result["summary"], "top": result["leaderboard"][:10]}, indent=2, sort_keys=True))
     try:
@@ -119,6 +138,20 @@ def assert_grid_succeeded(result: dict[str, object]) -> None:
         raise RuntimeError(f"experiment grid failed: {failed} failed case(s)" + (f" ({detail})" if detail else ""))
     if completed == 0:
         raise RuntimeError("experiment grid failed: no completed experiment cases")
+
+
+def _stderr_progress(event: dict[str, Any]) -> None:
+    print(json.dumps(event, sort_keys=True), file=sys.stderr, flush=True)
+
+
+def _emit_progress(
+    progress: Callable[[dict[str, Any]], None] | None,
+    event: str,
+    **fields: Any,
+) -> None:
+    if progress is None:
+        return
+    progress({"event": event, **fields})
 
 
 def _load_bars(

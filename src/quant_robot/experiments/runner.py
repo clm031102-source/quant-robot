@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -157,10 +158,47 @@ def load_experiment_grid_config(path: str | Path) -> ExperimentGridConfig:
     )
 
 
-def run_experiment_grid(bars: pd.DataFrame, config: ExperimentGridConfig) -> dict[str, Any]:
+def run_experiment_grid(
+    bars: pd.DataFrame,
+    config: ExperimentGridConfig,
+    progress: Callable[[dict[str, Any]], None] | None = None,
+) -> dict[str, Any]:
     _validate_config(config)
-    precomputed_factors = _precompute_factor_matrix(bars, config) if config.precompute_factor_matrix else None
-    rows = [_run_case(bars, config, case, precomputed_factors) for case in build_experiment_cases(config)]
+    cases = build_experiment_cases(config)
+    if config.precompute_factor_matrix:
+        _emit_progress(
+            progress,
+            "precompute_start",
+            factor_source=config.factor_source,
+            factor_count=len(config.factor_names),
+            case_count=len(cases),
+        )
+        precomputed_factors = _precompute_factor_matrix(bars, config)
+        _emit_progress(
+            progress,
+            "precompute_done",
+            factor_source=config.factor_source,
+            factor_count=len(config.factor_names),
+            case_count=len(cases),
+            factor_rows=0 if precomputed_factors is None else len(precomputed_factors),
+        )
+    else:
+        precomputed_factors = None
+    rows = []
+    for index, case in enumerate(cases, start=1):
+        _emit_progress(progress, "case_start", case_id=case.case_id, case_index=index, case_count=len(cases))
+        row = _run_case(bars, config, case, precomputed_factors)
+        rows.append(row)
+        _emit_progress(
+            progress,
+            "case_done",
+            case_id=case.case_id,
+            case_index=index,
+            case_count=len(cases),
+            status=row["status"],
+            trades=row["trades"],
+            error=row["error"],
+        )
     leaderboard = _rank_rows(rows, config.rank_by)
     result = {
         "config": _config_dict(config),
@@ -169,7 +207,14 @@ def run_experiment_grid(bars: pd.DataFrame, config: ExperimentGridConfig) -> dic
     }
     if config.output_dir is not None:
         _write_grid_artifacts(config.output_dir, result, leaderboard)
+    _emit_progress(progress, "grid_done", **result["summary"])
     return result
+
+
+def _emit_progress(progress: Callable[[dict[str, Any]], None] | None, event: str, **fields: Any) -> None:
+    if progress is None:
+        return
+    progress(_sanitize({"event": event, **fields}))
 
 
 def _run_case(

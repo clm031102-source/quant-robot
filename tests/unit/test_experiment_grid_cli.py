@@ -175,6 +175,26 @@ class ExperimentGridCliTests(unittest.TestCase):
             self.assertEqual(result, expected)
             load_bars.assert_called_once_with(authority_config, markets=("CN",))
             runner.assert_called_once()
+            self.assertIsNone(runner.call_args.kwargs.get("progress"))
+
+    def test_run_grid_passes_progress_callback_to_experiment_runner(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "grid.json"
+            config_path.write_text(
+                json.dumps({"markets": ["CN"], "factor_names": ["momentum_2"], "factor_windows": [2]}),
+                encoding="utf-8",
+            )
+            expected = {"summary": {"cases": 1, "completed": 1, "failed": 0}, "leaderboard": []}
+            events = []
+
+            with patch("scripts.run_experiment_grid.run_experiment_grid", return_value=expected) as runner:
+                run_grid(config_path=config_path, source="fixture", progress=events.append)
+
+            runner.call_args.kwargs["progress"]({"event": "probe"})
+            self.assertEqual([event["event"] for event in events], ["load_bars_start", "load_bars_done", "probe"])
+            self.assertEqual(events[0]["source"], "fixture")
+            self.assertGreater(events[1]["bar_rows"], 0)
 
     def test_authority_processed_cn_grid_rejects_missing_year_coverage(self):
         with tempfile.TemporaryDirectory() as tmp:

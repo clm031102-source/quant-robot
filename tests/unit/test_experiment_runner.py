@@ -312,6 +312,50 @@ class ExperimentRunnerTests(unittest.TestCase):
         self.assertEqual(len(pipeline.call_args_list), 4)
         self.assertTrue(all(call.kwargs["precomputed_factors"] is matrix for call in pipeline.call_args_list))
 
+    def test_experiment_grid_reports_precompute_and_case_progress(self):
+        bars = load_demo_market_bars()
+        matrix = compute_basic_factors(bars, windows=(2,))
+        events = []
+        config = ExperimentGridConfig(
+            markets=("CN",),
+            factor_names=("momentum_2",),
+            factor_windows=(2,),
+            top_n_values=(1, 2),
+            cost_bps_values=(0.0,),
+            precompute_factor_matrix=True,
+        )
+        pipeline_result = {
+            "data_mode": "research",
+            "metrics": {"total_return": 0.01, "annualized_return": 0.01, "annualized_volatility": 0.05, "sharpe": 0.2, "max_drawdown": -0.01},
+            "benchmark_metrics": {"benchmark_total_return": 0.0, "relative_return": 0.01, "excess_over_cash": 0.01},
+            "decision": {"decision_status": "approved", "rejection_reasons": []},
+            "factor_summary": {"mean_ic": 0.01, "ic_p_value": 0.5, "significance_status": "unknown"},
+            "artifact_rows": {"trades": 1, "holdings": 1},
+        }
+
+        with (
+            patch("quant_robot.experiments.runner.compute_basic_factors", return_value=matrix),
+            patch("quant_robot.experiments.runner.run_research_pipeline", return_value=pipeline_result),
+        ):
+            result = run_experiment_grid(bars, config, progress=events.append)
+
+        self.assertEqual(result["summary"]["completed"], 2)
+        self.assertEqual([event["event"] for event in events], [
+            "precompute_start",
+            "precompute_done",
+            "case_start",
+            "case_done",
+            "case_start",
+            "case_done",
+            "grid_done",
+        ])
+        self.assertEqual(events[0]["factor_source"], "technical")
+        self.assertEqual(events[0]["factor_count"], 1)
+        self.assertEqual(events[2]["case_id"], "CN_momentum_2_top1_cost0_reb1")
+        self.assertEqual(events[3]["status"], "completed")
+        self.assertEqual(events[-1]["completed"], 2)
+        self.assertEqual(events[-1]["cases"], 2)
+
     def test_experiment_grid_can_precompute_tushare_daily_basic_factor_matrix_once(self):
         bars = load_demo_market_bars()
         matrix = pd.DataFrame(columns=["date", "asset_id", "market", "factor_name", "factor_value", "lookback_window"])
