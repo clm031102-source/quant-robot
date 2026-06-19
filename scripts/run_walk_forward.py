@@ -15,6 +15,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 ensure_workspace_imports()
 
 from quant_robot.data.fixtures import load_demo_market_bars
+from quant_robot.storage.authority_bars import load_authority_processed_bars_from_config
 from quant_robot.storage.processed_bars import load_processed_bars
 from quant_robot.validation.walk_forward import load_walk_forward_config, run_walk_forward_validation
 
@@ -86,6 +87,8 @@ def _load_bars(source: str, data_root: Path, markets: tuple[str, ...]) -> pd.Dat
         return load_demo_market_bars()
     if source != "processed-bars":
         raise ValueError(f"Unsupported walk-forward source: {source}")
+    if data_root.is_file():
+        return load_authority_processed_bars_from_config(data_root, markets)
     frames = [load_processed_bars(data_root, market) for market in markets if market.upper() != "ALL"]
     if not frames:
         raise ValueError("processed-bars source requires at least one specific market")

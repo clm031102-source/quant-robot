@@ -405,3 +405,28 @@ Interpretation:
 - Methodological takeaway: low-turnover remains a diagnostic signal worth studying, but a hard liquidity floor is not enough. The next useful work should test risk-managed or capacity-tiered expressions rather than more simple value/turnover parameter tuning.
 
 Next office-desktop work should prioritize corrected-coverage reruns of older moneyflow and residualized candidates before treating any previous long-cycle report as promotion evidence. Reports produced before the authority-bars coverage fix should be considered stale unless rerun under the year-coverage gate. For daily-basic low-turnover, continue only through capacity-aware portfolio construction or risk-control transformations, not as a raw top-N long-only signal.
+
+## Residual/Regime Holdout Guard Fix
+
+The office desktop started the pre-wired residual moneyflow/regime validation profile and found a sample-boundary issue before accepting any new evidence:
+
+- Startup gate cleared for `office_desktop`, `factor_validation`, CN stock scope, commits/pushes disabled.
+- CN stock data manifest was `review_required` with no blockers; warnings were `extreme_return_rows_present` and `moneyflow_symbol_coverage_below_bars`.
+- The first profile attempt failed because the residual config pointed to missing `data/processed/tushare_moneyflow_inputs`.
+- Local authority moneyflow inputs exist through `configs/cn_stock_authority_moneyflow_inputs_2015_2025.json`; the residual and technical-combo walk-forward configs now point there.
+- A fold-schedule audit then found that default processed bars from `data/processed` would generate rolling folds through 2026-06-04, which would touch the final holdout.
+- The default desktop residual bars root now uses `configs/cn_stock_authority_bars_2015_2025.json`, and `scripts/run_walk_forward.py` can load authority bars configs directly.
+- Regression tests now cover both authority bars loading and the desktop default data root.
+
+Verification after the fix:
+
+- Affected unit tests: 44 passed.
+- Project audit: passed.
+- Corrected fold schedule: 38 folds, bars end at 2025-12-31, final fold test ends at 2025-12-02.
+- No 2026 final holdout dates are included in the corrected residual/regime run.
+
+Current status:
+
+- The stale residual walk-forward output from the wrong data root was deleted from `data/reports/walk_forward_tushare_moneyflow_residual_regime`.
+- The corrected residual/regime validation was restarted with authority bars and authority moneyflow inputs.
+- Results are not yet promotion evidence until the walk-forward leaderboard, market-regime coverage pack, promotion gate, and desktop validation summary all complete.

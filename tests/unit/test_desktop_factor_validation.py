@@ -14,6 +14,9 @@ from scripts.run_desktop_factor_validation import (
 
 
 class DesktopFactorValidationTests(unittest.TestCase):
+    def test_default_data_root_uses_authority_bars_config_to_keep_final_holdout_out(self):
+        self.assertEqual(DEFAULT_DATA_ROOT, Path("configs/cn_stock_authority_bars_2015_2025.json"))
+
     def test_default_run_targets_residual_regime_validation_and_allows_rejected_candidates(self):
         result = {"summary": {"cases": 1, "accepted": 0, "rejected": 1}, "leaderboard": []}
 

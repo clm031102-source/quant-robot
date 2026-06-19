@@ -21,7 +21,7 @@ from quant_robot.ops.batch12_validation_preflight import validate_batch12_valida
 
 
 DEFAULT_CONFIG_PATH = Path("configs/walk_forward_tushare_moneyflow_residual_regime.json")
-DEFAULT_DATA_ROOT = Path("data/processed")
+DEFAULT_DATA_ROOT = Path("configs/cn_stock_authority_bars_2015_2025.json")
 
 
 def run_desktop_factor_validation(

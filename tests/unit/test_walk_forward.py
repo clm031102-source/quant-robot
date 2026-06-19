@@ -7,12 +7,14 @@ import pandas as pd
 
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.experiments.runner import ExperimentGridConfig
+from quant_robot.storage.dataset_store import DatasetStore
 from quant_robot.validation.walk_forward import (
     WalkForwardConfig,
     _with_multiple_testing_evidence,
     load_walk_forward_config,
     run_walk_forward_validation,
 )
+from scripts.run_walk_forward import _load_bars
 
 
 class WalkForwardTests(unittest.TestCase):
@@ -240,6 +242,58 @@ class WalkForwardTests(unittest.TestCase):
             self.assertEqual(config.rolling_step_days, 21)
             self.assertEqual(config.min_accepted_folds, 3)
             self.assertAlmostEqual(config.multiple_testing_alpha, 0.01)
+
+    def test_processed_bars_source_accepts_authority_config_and_respects_segment_dates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "store"
+            bars = _authority_bar_fixture()
+            store = DatasetStore(root)
+            for year, frame in bars.groupby(pd.to_datetime(bars["date"]).dt.year):
+                store.write_frame(
+                    frame,
+                    "processed/bars",
+                    {"frequency": "1d", "market": "CN", "year": str(year)},
+                )
+            config_path = Path(tmp) / "authority_bars.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "market": "CN",
+                        "segments": [
+                            {
+                                "root": str(root),
+                                "start_date": "2025-12-30",
+                                "end_date": "2025-12-31",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            loaded = _load_bars("processed-bars", config_path, ("CN",))
+
+            self.assertEqual(len(loaded), 1)
+            self.assertEqual(str(pd.to_datetime(loaded["date"]).dt.date.max()), "2025-12-30")
+            self.assertNotIn("2026-01-05", {str(value) for value in loaded["date"]})
+
+
+def _authority_bar_fixture() -> pd.DataFrame:
+    base = load_demo_market_bars()
+    row = base[base["market"] == "CN"].head(1).copy()
+    frames = []
+    for date_value, close in [("2025-12-30", 10.0), ("2026-01-05", 11.0)]:
+        item = row.copy()
+        item["date"] = date_value
+        item["timestamp"] = pd.to_datetime(date_value).tz_localize("Asia/Shanghai").tz_convert("UTC")
+        item["close"] = close
+        item["adj_close"] = close
+        item["open"] = close
+        item["high"] = close
+        item["low"] = close
+        item["amount"] = item["volume"].astype(float) * close
+        frames.append(item)
+    return pd.concat(frames, ignore_index=True)
 
 
 if __name__ == "__main__":
