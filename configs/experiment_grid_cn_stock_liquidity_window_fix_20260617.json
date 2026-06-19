@@ -23,5 +23,6 @@
   "rank_by": "sharpe",
   "min_trades": 30,
   "precompute_factor_matrix": true,
+  "reuse_research_inputs": true,
   "output_dir": "data/reports/cn_stock_factor_liquidity_window_fix_20260617"
 }

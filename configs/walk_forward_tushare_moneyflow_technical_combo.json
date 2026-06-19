@@ -44,6 +44,8 @@
     "min_relative_return": 0.0,
     "max_drawdown_limit": 0.30,
     "rank_by": "sharpe",
-    "min_trades": 30
+    "min_trades": 30,
+    "precompute_factor_matrix": true,
+    "reuse_research_inputs": true
   }
 }

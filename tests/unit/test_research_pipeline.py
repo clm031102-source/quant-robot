@@ -9,7 +9,12 @@ import pandas as pd
 
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.factors.technical import compute_basic_factors
-from quant_robot.research.pipeline import ResearchPipelineConfig, _factor_summary, run_research_pipeline
+from quant_robot.research.pipeline import (
+    ResearchPipelineConfig,
+    _factor_summary,
+    prepare_research_pipeline_inputs,
+    run_research_pipeline,
+)
 from quant_robot.storage.dataset_store import DatasetStore
 from quant_robot.storage.processed_bars import load_processed_bars
 from scripts.run_research_pipeline import build_research_config, load_research_bars
@@ -535,6 +540,34 @@ class ResearchPipelineTests(unittest.TestCase):
 
         self.assertEqual(result["request"]["factor_source"], "moneyflow_technical_combo")
         self.assertGreater(result["artifact_rows"]["trades"], 0)
+
+    def test_pipeline_can_reuse_prepared_inputs_for_topn_and_cost_variants(self):
+        bars = load_demo_market_bars()
+        preparation_config = ResearchPipelineConfig(
+            factor_name="momentum_2",
+            factor_windows=(2,),
+            market="CN",
+            top_n=1,
+            cost_bps=0.0,
+        )
+        variant_config = ResearchPipelineConfig(
+            factor_name="momentum_2",
+            factor_windows=(2,),
+            market="CN",
+            top_n=2,
+            cost_bps=5.0,
+        )
+
+        prepared = prepare_research_pipeline_inputs(bars, preparation_config)
+        reused = run_research_pipeline(bars, variant_config, prepared_inputs=prepared)
+        direct = run_research_pipeline(bars, variant_config)
+
+        self.assertEqual(reused["metrics"], direct["metrics"])
+        self.assertEqual(reused["benchmark_metrics"], direct["benchmark_metrics"])
+        self.assertEqual(reused["factor_summary"], direct["factor_summary"])
+        self.assertEqual(reused["artifact_rows"], direct["artifact_rows"])
+        self.assertEqual(reused["trades"], direct["trades"])
+        self.assertEqual(reused["holdings"], direct["holdings"])
 
     def test_pipeline_requires_factor_input_root_when_requested(self):
         with self.assertRaisesRegex(ValueError, "factor_input_root"):

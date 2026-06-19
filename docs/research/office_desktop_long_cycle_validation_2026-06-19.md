@@ -249,8 +249,70 @@ Process note:
 
 - Checkpoint/resume is now implemented and test-covered.
 - Resume rows are guarded by a grid configuration fingerprint, so a same-name case from a different date window or parameter set is not reused.
-- Future efficiency work should reuse signal/holdings artifacts across cost-only variants; topN breadth variants may also share ranked signal generation.
+- Research-input reuse is now implemented and test-covered for topN/cost breadth variants.
+
+## Long-Cycle Runner Efficiency Upgrade
+
+The office desktop converted the observed duplicate-work bottleneck into a reusable runner feature:
+
+- `prepare_research_pipeline_inputs(...)` now builds the reusable side of a research run once: filtered bars, factor inputs, selected factor rows, forward labels, regime rows, IC, quantile groups, long-short returns, benchmark curve, portfolio scope, and annualization.
+- `run_research_pipeline(...)` can now consume prepared inputs and rerun only the topN/cost-sensitive backtest, selected-tail IC, benchmark comparison, decision, and artifact export.
+- `ExperimentGridConfig.reuse_research_inputs` caches prepared inputs inside a grid run.
+- The cache fingerprint excludes only runtime-only fields such as `top_n`, `cost_bps`, cost-model parameters, capital size, decision thresholds, cash return, and output path. It still includes factor name/source, market, sample dates, signal dates, horizon, lag, rebalance interval, quantiles, benchmark, portfolio scope, and regime settings.
+- Existing long-cycle CN-stock and Tushare moneyflow validation configs now enable `reuse_research_inputs`; the moneyflow walk-forward templates also enable factor-matrix precompute where appropriate.
+
+Expected effect:
+
+- Same factor, same long sample, same rebalance/regime, multiple topN/cost cases no longer recompute the expensive signal/label/IC/regime path.
+- This does not change the economics of any backtest result; it only removes repeated preparation work.
+- Checkpoint/resume and research-input reuse can be used together: completed case rows are still skipped first, then remaining cases share prepared inputs where safe.
+
+## Daily-Basic Capacity-Aware Composite Rerun
+
+The next pre-registered direction tested whether the strongest raw daily-basic cluster was just a capacity/illiquidity artifact. Four capacity-aware daily-basic composites were added and run over the same long-cycle protocol:
+
+- `turnover_rate_low_large_mv`
+- `turnover_rate_f_low_large_mv`
+- `dv_ttm_large_mv`
+- `ps_ttm_inverse_large_mv`
+
+Design:
+
+- Each factor blends the original signal's same-date cross-sectional z-score with `log(circ_mv)` cross-sectional z-score.
+- The aim is to keep the low-turnover / value intuition while explicitly rewarding larger, more tradable names before top-N selection.
+- Cases: 4 factors x topN 50/100/200 x cost 10/20 bps = 24.
+- Period: 2015-01-05 through 2024-12-31.
+- No 2025 validation or 2026 final holdout read.
+- Runner settings: `precompute_factor_matrix=true`, `resume_completed_cases=true`, `reuse_research_inputs=true`.
+
+Result:
+
+- Completed cases: 24.
+- Failed cases: 0.
+- Runner-approved cases: 0.
+- Positive benchmark-relative return cases: 0.
+- Drawdown-clean cases at -30%: 0.
+- Overlap-adjusted Sharpe >= 1 cases: 0.
+- Capacity-clean cases: 12.
+- Positive significant selected-tail RankIC cases: 14.
+- Strict promotable cases: 0.
+
+Best 10 bps rows by factor:
+
+- `ps_ttm_inverse_large_mv`, top50: annualized return -0.03%, Sharpe 0.067, overlap-adjusted Sharpe 0.033, win rate 50.9%, max drawdown -65.8%, benchmark-relative return -1237.7%, capacity-limited trades 1.
+- `dv_ttm_large_mv`, top200: annualized return -0.13%, Sharpe 0.040, overlap-adjusted Sharpe 0.022, win rate 54.1%, max drawdown -57.0%, benchmark-relative return -1239.9%, capacity-limited trades 2.
+- `turnover_rate_f_low_large_mv`, top200: annualized return -0.78%, Sharpe -0.033, overlap-adjusted Sharpe -0.017, win rate 48.4%, max drawdown -63.8%, benchmark-relative return -1253.7%, capacity-limited trades 0.
+- `turnover_rate_low_large_mv`, top50: annualized return -1.25%, Sharpe -0.038, overlap-adjusted Sharpe -0.019, win rate 51.6%, max drawdown -66.7%, benchmark-relative return -1252.6%, capacity-limited trades 0.
+
+Interpretation:
+
+- The large-market-cap blend reduced capacity pressure for the low-turnover variants, but it also removed the profitable part of the raw low-turnover signal.
+- The PS and dividend variants are slightly less bad on overlap-adjusted Sharpe, but they still fail relative return, drawdown, and in several cases capacity.
+- This is evidence that the original daily-basic low-turnover edge is heavily tied to a neglected/illiquid tail. A blunt large-cap blend is not enough.
+- Decision: reject all four as standalone factors. Future work should try liquidity-neutral buckets or explicit capacity-tiered portfolios rather than a single large-cap additive blend.
 
 ## Follow-Up Queue
+
+Size-bucket-neutral daily-basic factors are now registered and configured for the same 2015-2024 long-cycle protocol. The office sync stopped the unfinished run before any leaderboard result was produced, so the next factor-mining session should resume this config rather than treat it as evidence.
 
 Next office-desktop work should prioritize corrected-coverage reruns of older moneyflow and residualized candidates before treating any previous long-cycle report as promotion evidence. Reports produced before the authority-bars coverage fix should be considered stale unless rerun under the year-coverage gate.

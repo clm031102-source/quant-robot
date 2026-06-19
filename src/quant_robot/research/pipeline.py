@@ -73,14 +73,49 @@ class ResearchPipelineConfig:
     output_dir: Path | None = None
 
 
+@dataclass(frozen=True)
+class ResearchPipelinePreparedInputs:
+    input_fingerprint: str
+    data_mode: str
+    filtered: pd.DataFrame
+    factor_inputs: pd.DataFrame
+    selected: pd.DataFrame
+    labels: pd.DataFrame
+    regime: dict[str, Any]
+    ic: pd.DataFrame
+    groups: pd.DataFrame
+    long_short: pd.DataFrame
+    portfolio_scope: str
+    periods_per_year: float
+    benchmark_curve: pd.DataFrame
+
+
 def run_research_pipeline(
     bars: pd.DataFrame,
     config: ResearchPipelineConfig,
     *,
     precomputed_factors: pd.DataFrame | None = None,
+    prepared_inputs: ResearchPipelinePreparedInputs | None = None,
 ) -> dict[str, Any]:
-    if config.rebalance_interval < 1:
-        raise ValueError("rebalance_interval must be at least 1")
+    _validate_pipeline_config(config)
+    if prepared_inputs is None:
+        prepared_inputs = prepare_research_pipeline_inputs(
+            bars,
+            config,
+            precomputed_factors=precomputed_factors,
+        )
+    else:
+        _require_matching_prepared_inputs(prepared_inputs, config)
+    return _run_research_pipeline_from_inputs(prepared_inputs, config)
+
+
+def prepare_research_pipeline_inputs(
+    bars: pd.DataFrame,
+    config: ResearchPipelineConfig,
+    *,
+    precomputed_factors: pd.DataFrame | None = None,
+) -> ResearchPipelinePreparedInputs:
+    _validate_pipeline_config(config)
     filtered = _filter_bars(bars, config)
     validate_market_data(filtered)
     factor_inputs = pd.DataFrame() if precomputed_factors is not None else _load_factor_input_frame(config)
@@ -100,31 +135,52 @@ def run_research_pipeline(
     long_short = long_short_returns(selected, labels, quantiles=config.quantiles)
     portfolio_scope = _resolve_portfolio_scope(config)
     periods_per_year = _resolve_periods_per_year(config)
+    benchmark_curve = build_benchmark_curve(_comparison_bars(filtered, config), benchmark_asset_id=config.benchmark_asset_id)
+    return ResearchPipelinePreparedInputs(
+        input_fingerprint=research_input_fingerprint(config),
+        data_mode="fixture" if set(filtered["source"].astype(str)) == {"fixture"} else "research",
+        filtered=filtered,
+        factor_inputs=factor_inputs,
+        selected=selected,
+        labels=labels,
+        regime=regime,
+        ic=ic,
+        groups=groups,
+        long_short=long_short,
+        portfolio_scope=portfolio_scope,
+        periods_per_year=periods_per_year,
+        benchmark_curve=benchmark_curve,
+    )
+
+
+def _run_research_pipeline_from_inputs(
+    prepared: ResearchPipelinePreparedInputs,
+    config: ResearchPipelineConfig,
+) -> dict[str, Any]:
     backtest = run_factor_backtest(
-        selected,
-        filtered,
+        prepared.selected,
+        prepared.filtered,
         top_n=config.top_n,
         cost_bps=config.cost_bps,
-        portfolio_scope=portfolio_scope,
+        portfolio_scope=prepared.portfolio_scope,
         execution_lag=config.execution_lag,
         holding_period=config.forward_horizon,
         rebalance_interval=config.rebalance_interval,
         target_gross_exposure=config.target_gross_exposure,
-        periods_per_year=periods_per_year,
+        periods_per_year=prepared.periods_per_year,
         commission_bps=config.commission_bps,
         slippage_bps=config.slippage_bps,
         market_impact_bps=config.market_impact_bps,
         max_participation_rate=config.max_participation_rate,
         portfolio_value=config.portfolio_value,
     )
-    tail_ic = compute_ic(backtest.positions, labels)
+    tail_ic = compute_ic(backtest.positions, prepared.labels)
     drawdown = _drawdown_curve(backtest.equity_curve)
-    benchmark_curve = build_benchmark_curve(_comparison_bars(filtered, config), benchmark_asset_id=config.benchmark_asset_id)
     benchmark_metrics = compare_strategy_to_benchmark(
         backtest.equity_curve,
-        benchmark_curve,
+        prepared.benchmark_curve,
         cash_annual_return=config.cash_annual_return,
-        periods_per_year=periods_per_year,
+        periods_per_year=prepared.periods_per_year,
     )
     decision = decision_summary(
         backtest.metrics,
@@ -132,38 +188,38 @@ def run_research_pipeline(
         min_relative_return=config.min_relative_return,
         max_drawdown_limit=config.max_drawdown_limit,
     )
-    summary = {**_factor_summary(ic), **_tail_factor_summary(tail_ic)}
+    summary = {**_factor_summary(prepared.ic), **_tail_factor_summary(tail_ic)}
     result = _sanitize(
         {
-            "data_mode": "fixture" if set(filtered["source"].astype(str)) == {"fixture"} else "research",
-            "request": _config_dict(config, portfolio_scope, periods_per_year),
+            "data_mode": prepared.data_mode,
+            "request": _config_dict(config, prepared.portfolio_scope, prepared.periods_per_year),
             "metrics": backtest.metrics,
             "benchmark_metrics": benchmark_metrics,
             "decision": decision,
-            "regime": {key: value for key, value in regime.items() if key not in {"allowed_dates", "rows"}},
+            "regime": {key: value for key, value in prepared.regime.items() if key not in {"allowed_dates", "rows"}},
             "factor_summary": summary,
             "artifact_rows": {
-                "bars": len(filtered),
-                "factor_inputs": len(factor_inputs),
-                "factors": len(selected),
-                "labels": len(labels),
-                "ic": len(ic),
+                "bars": len(prepared.filtered),
+                "factor_inputs": len(prepared.factor_inputs),
+                "factors": len(prepared.selected),
+                "labels": len(prepared.labels),
+                "ic": len(prepared.ic),
                 "tail_ic": len(tail_ic),
-                "group_returns": len(groups),
-                "long_short": len(long_short),
+                "group_returns": len(prepared.groups),
+                "long_short": len(prepared.long_short),
                 "trades": len(backtest.trades),
                 "holdings": len(backtest.positions),
-                "benchmark": len(benchmark_curve),
-                "regime": len(regime["rows"]),
+                "benchmark": len(prepared.benchmark_curve),
+                "regime": len(prepared.regime["rows"]),
             },
             "equity_curve": _records(backtest.equity_curve),
-            "benchmark_curve": _records(benchmark_curve),
+            "benchmark_curve": _records(prepared.benchmark_curve),
             "drawdown_curve": _records(drawdown),
-            "regime_curve": _records(regime["rows"]),
-            "ic": _records(ic),
+            "regime_curve": _records(prepared.regime["rows"]),
+            "ic": _records(prepared.ic),
             "tail_ic": _records(tail_ic),
-            "group_returns": _records(groups),
-            "long_short": _records(long_short),
+            "group_returns": _records(prepared.groups),
+            "long_short": _records(prepared.long_short),
             "trades": _records(backtest.trades),
             "holdings": _records(backtest.positions),
         }
@@ -173,17 +229,55 @@ def run_research_pipeline(
             config.output_dir,
             result,
             backtest.equity_curve,
-            benchmark_curve,
+            prepared.benchmark_curve,
             drawdown,
-            regime["rows"],
-            ic,
+            prepared.regime["rows"],
+            prepared.ic,
             tail_ic,
-            groups,
-            long_short,
+            prepared.groups,
+            prepared.long_short,
             backtest.trades,
             backtest.positions,
         )
     return result
+
+
+_RESEARCH_INPUT_RUNTIME_CONFIG_KEYS = {
+    "top_n",
+    "cost_bps",
+    "cash_annual_return",
+    "target_gross_exposure",
+    "commission_bps",
+    "slippage_bps",
+    "market_impact_bps",
+    "max_participation_rate",
+    "portfolio_value",
+    "min_relative_return",
+    "max_drawdown_limit",
+    "output_dir",
+}
+
+
+def research_input_fingerprint(config: ResearchPipelineConfig) -> str:
+    data = _config_dict(
+        config,
+        _resolve_portfolio_scope(config),
+        _resolve_periods_per_year(config),
+    )
+    for key in _RESEARCH_INPUT_RUNTIME_CONFIG_KEYS:
+        data.pop(key, None)
+    return json.dumps(_sanitize(data), sort_keys=True, separators=(",", ":"))
+
+
+def _validate_pipeline_config(config: ResearchPipelineConfig) -> None:
+    if config.rebalance_interval < 1:
+        raise ValueError("rebalance_interval must be at least 1")
+
+
+def _require_matching_prepared_inputs(prepared: ResearchPipelinePreparedInputs, config: ResearchPipelineConfig) -> None:
+    expected = research_input_fingerprint(config)
+    if prepared.input_fingerprint != expected:
+        raise ValueError("prepared research inputs do not match the research pipeline configuration")
 
 
 def _filter_bars(bars: pd.DataFrame, config: ResearchPipelineConfig) -> pd.DataFrame:

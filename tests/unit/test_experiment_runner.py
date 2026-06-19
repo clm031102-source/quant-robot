@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pandas as pd
@@ -313,6 +314,42 @@ class ExperimentRunnerTests(unittest.TestCase):
         self.assertEqual(len(pipeline.call_args_list), 4)
         self.assertTrue(all(call.kwargs["precomputed_factors"] is matrix for call in pipeline.call_args_list))
 
+    def test_experiment_grid_can_reuse_research_inputs_across_topn_and_cost_variants(self):
+        config = ExperimentGridConfig(
+            markets=("CN",),
+            factor_names=("momentum_2",),
+            factor_windows=(2,),
+            top_n_values=(1, 2),
+            cost_bps_values=(0.0, 5.0),
+            reuse_research_inputs=True,
+        )
+        prepared = SimpleNamespace(selected=[1], labels=[1], ic=[1])
+        pipeline_result = {
+            "data_mode": "research",
+            "metrics": {
+                "total_return": 0.01,
+                "annualized_return": 0.01,
+                "annualized_volatility": 0.05,
+                "sharpe": 0.2,
+                "max_drawdown": -0.01,
+            },
+            "benchmark_metrics": {"benchmark_total_return": 0.0, "relative_return": 0.01, "excess_over_cash": 0.01},
+            "decision": {"decision_status": "approved", "rejection_reasons": []},
+            "factor_summary": {"mean_ic": 0.01, "ic_p_value": 0.5, "significance_status": "unknown"},
+            "artifact_rows": {"trades": 1, "holdings": 1},
+        }
+
+        with (
+            patch("quant_robot.experiments.runner.prepare_research_pipeline_inputs", return_value=prepared) as prepare,
+            patch("quant_robot.experiments.runner.run_research_pipeline", return_value=pipeline_result) as pipeline,
+        ):
+            result = run_experiment_grid(load_demo_market_bars(), config)
+
+        self.assertEqual(len(result["leaderboard"]), 4)
+        prepare.assert_called_once()
+        self.assertEqual(len(pipeline.call_args_list), 4)
+        self.assertTrue(all(call.kwargs["prepared_inputs"] is prepared for call in pipeline.call_args_list))
+
     def test_experiment_grid_reports_precompute_and_case_progress(self):
         bars = load_demo_market_bars()
         matrix = compute_basic_factors(bars, windows=(2,))
@@ -622,6 +659,7 @@ class ExperimentRunnerTests(unittest.TestCase):
                         "target_gross_exposure": 0.9,
                         "regime_lookback_values": [60, 120],
                         "precompute_factor_matrix": True,
+                        "reuse_research_inputs": True,
                         "write_case_artifacts": False,
                         "output_dir": str(Path(tmp) / "reports"),
                     }
@@ -639,6 +677,7 @@ class ExperimentRunnerTests(unittest.TestCase):
             self.assertAlmostEqual(config.target_gross_exposure, 0.9)
             self.assertEqual(config.regime_lookback_values, (60, 120))
             self.assertTrue(config.precompute_factor_matrix)
+            self.assertTrue(config.reuse_research_inputs)
             self.assertFalse(config.write_case_artifacts)
             self.assertEqual(config.output_dir, Path(tmp) / "reports")
 

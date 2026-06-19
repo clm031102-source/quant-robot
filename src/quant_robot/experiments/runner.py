@@ -13,7 +13,12 @@ from quant_robot.factors.moneyflow_technical import compute_moneyflow_technical_
 from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.factors.tushare_inputs import compute_daily_basic_factors
 from quant_robot.factors.tushare_moneyflow import compute_moneyflow_factors
-from quant_robot.research.pipeline import ResearchPipelineConfig, run_research_pipeline
+from quant_robot.research.pipeline import (
+    ResearchPipelineConfig,
+    prepare_research_pipeline_inputs,
+    research_input_fingerprint,
+    run_research_pipeline,
+)
 from quant_robot.storage.factor_inputs import load_factor_inputs
 from quant_robot.storage.moneyflow_inputs import load_moneyflow_inputs
 
@@ -64,6 +69,7 @@ class ExperimentGridConfig:
     min_trades: int = 1
     precompute_factor_matrix: bool = False
     resume_completed_cases: bool = False
+    reuse_research_inputs: bool = False
 
 
 @dataclass(frozen=True)
@@ -157,6 +163,7 @@ def load_experiment_grid_config(path: str | Path) -> ExperimentGridConfig:
         min_trades=int(data.get("min_trades", ExperimentGridConfig.min_trades)),
         precompute_factor_matrix=bool(data.get("precompute_factor_matrix", ExperimentGridConfig.precompute_factor_matrix)),
         resume_completed_cases=bool(data.get("resume_completed_cases", ExperimentGridConfig.resume_completed_cases)),
+        reuse_research_inputs=bool(data.get("reuse_research_inputs", ExperimentGridConfig.reuse_research_inputs)),
     )
 
 
@@ -195,6 +202,7 @@ def run_experiment_grid(
     else:
         precomputed_factors = None
     rows = []
+    research_inputs_by_key = {}
     for index, case in enumerate(cases, start=1):
         if case.case_id in resumed_rows:
             row = resumed_rows[case.case_id]
@@ -210,7 +218,15 @@ def run_experiment_grid(
             )
             continue
         _emit_progress(progress, "case_start", case_id=case.case_id, case_index=index, case_count=len(cases))
-        row = _run_case(bars, config, case, precomputed_factors)
+        prepared_inputs = _prepare_cached_research_inputs(
+            bars,
+            config,
+            case,
+            precomputed_factors,
+            research_inputs_by_key,
+            progress,
+        )
+        row = _run_case(bars, config, case, precomputed_factors, prepared_inputs=prepared_inputs)
         rows.append(row)
         _append_partial_leaderboard_row(config.output_dir, row, resume_fingerprint=resume_fingerprint)
         _emit_progress(
@@ -246,56 +262,102 @@ def _run_case(
     grid_config: ExperimentGridConfig,
     case: ExperimentCase,
     precomputed_factors: pd.DataFrame | None = None,
+    *,
+    prepared_inputs: Any | None = None,
 ) -> dict[str, Any]:
     try:
-        output_dir = (
-            grid_config.output_dir / case.case_id
-            if grid_config.output_dir is not None and grid_config.write_case_artifacts
-            else None
-        )
         result = run_research_pipeline(
             bars,
-            ResearchPipelineConfig(
-                factor_name=case.factor_name,
-                factor_source=grid_config.factor_source,
-                factor_windows=case.factor_windows,
-                factor_input_root=grid_config.factor_input_root,
-                factor_input_required=grid_config.factor_input_required,
-                moneyflow_input_root=grid_config.moneyflow_input_root,
-                market=case.market,
-                start_date=grid_config.start_date,
-                end_date=grid_config.end_date,
-                forward_horizon=grid_config.forward_horizon,
-                execution_lag=grid_config.execution_lag,
-                rebalance_interval=case.rebalance_interval,
-                quantiles=grid_config.quantiles,
-                top_n=case.top_n,
-                cost_bps=case.cost_bps,
-                portfolio_scope=grid_config.portfolio_scope,
-                periods_per_year=grid_config.periods_per_year,
-                benchmark_asset_id=grid_config.benchmark_asset_id,
-                cash_annual_return=grid_config.cash_annual_return,
-                regime_filter=grid_config.regime_filter,
-                regime_lookback=case.regime_lookback,
-                target_gross_exposure=grid_config.target_gross_exposure,
-                commission_bps=grid_config.commission_bps,
-                slippage_bps=grid_config.slippage_bps,
-                market_impact_bps=grid_config.market_impact_bps,
-                max_participation_rate=grid_config.max_participation_rate,
-                portfolio_value=grid_config.portfolio_value,
-                min_relative_return=grid_config.min_relative_return,
-                max_drawdown_limit=grid_config.max_drawdown_limit,
-                signal_start_date=grid_config.signal_start_date,
-                signal_end_date=grid_config.signal_end_date,
-                output_dir=output_dir,
-            ),
+            _pipeline_config(grid_config, case, output_dir=_case_output_dir(grid_config, case)),
             precomputed_factors=precomputed_factors,
+            prepared_inputs=prepared_inputs,
         )
         trades = int(result["artifact_rows"]["trades"])
         status = "completed" if trades >= grid_config.min_trades else "no_trades"
         return _row(case, status, None, trades, result)
     except Exception as exc:
         return _row(case, "failed", str(exc), 0, None)
+
+
+def _prepare_cached_research_inputs(
+    bars: pd.DataFrame,
+    grid_config: ExperimentGridConfig,
+    case: ExperimentCase,
+    precomputed_factors: pd.DataFrame | None,
+    research_inputs_by_key: dict[str, Any],
+    progress: Callable[[dict[str, Any]], None] | None,
+) -> Any | None:
+    if not grid_config.reuse_research_inputs:
+        return None
+    preparation_config = _pipeline_config(grid_config, case, output_dir=None)
+    cache_key = research_input_fingerprint(preparation_config)
+    if cache_key not in research_inputs_by_key:
+        _emit_progress(progress, "research_inputs_prepare_start", case_id=case.case_id)
+        prepared = prepare_research_pipeline_inputs(
+            bars,
+            preparation_config,
+            precomputed_factors=precomputed_factors,
+        )
+        research_inputs_by_key[cache_key] = prepared
+        _emit_progress(
+            progress,
+            "research_inputs_prepare_done",
+            case_id=case.case_id,
+            factors=len(prepared.selected),
+            labels=len(prepared.labels),
+            ic=len(prepared.ic),
+        )
+    else:
+        _emit_progress(progress, "research_inputs_reuse", case_id=case.case_id)
+    return research_inputs_by_key[cache_key]
+
+
+def _case_output_dir(grid_config: ExperimentGridConfig, case: ExperimentCase) -> Path | None:
+    if grid_config.output_dir is None or not grid_config.write_case_artifacts:
+        return None
+    return grid_config.output_dir / case.case_id
+
+
+def _pipeline_config(
+    grid_config: ExperimentGridConfig,
+    case: ExperimentCase,
+    *,
+    output_dir: Path | None,
+) -> ResearchPipelineConfig:
+    return ResearchPipelineConfig(
+        factor_name=case.factor_name,
+        factor_source=grid_config.factor_source,
+        factor_windows=case.factor_windows,
+        factor_input_root=grid_config.factor_input_root,
+        factor_input_required=grid_config.factor_input_required,
+        moneyflow_input_root=grid_config.moneyflow_input_root,
+        market=case.market,
+        start_date=grid_config.start_date,
+        end_date=grid_config.end_date,
+        forward_horizon=grid_config.forward_horizon,
+        execution_lag=grid_config.execution_lag,
+        rebalance_interval=case.rebalance_interval,
+        quantiles=grid_config.quantiles,
+        top_n=case.top_n,
+        cost_bps=case.cost_bps,
+        portfolio_scope=grid_config.portfolio_scope,
+        periods_per_year=grid_config.periods_per_year,
+        benchmark_asset_id=grid_config.benchmark_asset_id,
+        cash_annual_return=grid_config.cash_annual_return,
+        regime_filter=grid_config.regime_filter,
+        regime_lookback=case.regime_lookback,
+        target_gross_exposure=grid_config.target_gross_exposure,
+        commission_bps=grid_config.commission_bps,
+        slippage_bps=grid_config.slippage_bps,
+        market_impact_bps=grid_config.market_impact_bps,
+        max_participation_rate=grid_config.max_participation_rate,
+        portfolio_value=grid_config.portfolio_value,
+        min_relative_return=grid_config.min_relative_return,
+        max_drawdown_limit=grid_config.max_drawdown_limit,
+        signal_start_date=grid_config.signal_start_date,
+        signal_end_date=grid_config.signal_end_date,
+        output_dir=output_dir,
+    )
 
 
 def _precompute_factor_matrix(bars: pd.DataFrame, config: ExperimentGridConfig) -> pd.DataFrame | None:
@@ -616,7 +678,7 @@ def _append_partial_leaderboard_row(
 
 def _resume_fingerprint(config: ExperimentGridConfig) -> str:
     data = _config_dict(config)
-    for key in ("output_dir", "write_case_artifacts", "resume_completed_cases"):
+    for key in ("output_dir", "write_case_artifacts", "resume_completed_cases", "reuse_research_inputs"):
         data.pop(key, None)
     return json.dumps(_sanitize(data), sort_keys=True, separators=(",", ":"))
 
