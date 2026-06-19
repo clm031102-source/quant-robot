@@ -10,6 +10,10 @@ import pandas as pd
 
 from quant_robot.backtest.engine import run_factor_backtest
 from quant_robot.data.quality import validate_market_data
+from quant_robot.factors.daily_basic_technical_combo import (
+    DAILY_BASIC_TECHNICAL_COMBO_FACTOR_NAMES,
+    compute_daily_basic_technical_combo_factors,
+)
 from quant_robot.factors.technical import compute_basic_factors, technical_factor_names
 from quant_robot.factors.tushare_inputs import DAILY_BASIC_FACTOR_NAMES, compute_daily_basic_factors
 from quant_robot.factors.moneyflow_technical import (
@@ -294,7 +298,14 @@ def _filter_bars(bars: pd.DataFrame, config: ResearchPipelineConfig) -> pd.DataF
 
 def _load_factor_input_frame(config: ResearchPipelineConfig) -> pd.DataFrame:
     factor_source = config.factor_source
-    if factor_source not in {"technical", "tushare_daily_basic", "tushare_moneyflow", "moneyflow_technical_combo", "combined"}:
+    if factor_source not in {
+        "technical",
+        "tushare_daily_basic",
+        "daily_basic_technical_combo",
+        "tushare_moneyflow",
+        "moneyflow_technical_combo",
+        "combined",
+    }:
         raise ValueError(f"Unsupported factor_source: {factor_source}")
     if factor_source == "technical":
         if config.factor_input_required and config.factor_input_root is None:
@@ -357,6 +368,10 @@ def _compute_factor_source(bars: pd.DataFrame, factor_inputs: pd.DataFrame, conf
         if config.factor_name not in DAILY_BASIC_FACTOR_NAMES:
             return _empty_factor_frame()
         return compute_daily_basic_factors(factor_inputs, factor_names=(config.factor_name,))
+    if config.factor_source == "daily_basic_technical_combo":
+        if config.factor_name not in DAILY_BASIC_TECHNICAL_COMBO_FACTOR_NAMES:
+            return _empty_factor_frame()
+        return compute_daily_basic_technical_combo_factors(bars, factor_inputs, factor_names=(config.factor_name,))
     pieces = []
     if config.factor_name in technical_factor_names(config.factor_windows):
         pieces.append(compute_basic_factors(bars, windows=config.factor_windows, factor_names=(config.factor_name,)))

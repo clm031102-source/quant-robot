@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from quant_robot.data.readiness import check_parquet_readiness, check_tushare_readiness
+from quant_robot.factors.daily_basic_technical_combo import DAILY_BASIC_TECHNICAL_COMBO_FACTOR_NAMES
 from quant_robot.factors.moneyflow_technical import MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES
 from quant_robot.factors.tushare_inputs import DAILY_BASIC_FACTOR_NAMES
 from quant_robot.factors.tushare_moneyflow import MONEYFLOW_FACTOR_NAMES
@@ -336,6 +337,8 @@ def _registered_factor_names(factor_source: str, factor_windows: tuple[int, ...]
         return _technical_factor_names(factor_windows)
     if factor_source == "tushare_daily_basic":
         return set(DAILY_BASIC_FACTOR_NAMES)
+    if factor_source == "daily_basic_technical_combo":
+        return set(DAILY_BASIC_TECHNICAL_COMBO_FACTOR_NAMES)
     if factor_source == "tushare_moneyflow":
         return set(MONEYFLOW_FACTOR_NAMES)
     if factor_source == "moneyflow_technical_combo":

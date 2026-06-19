@@ -313,6 +313,95 @@ Interpretation:
 
 ## Follow-Up Queue
 
-Size-bucket-neutral daily-basic factors are now registered and configured for the same 2015-2024 long-cycle protocol. The office sync stopped the unfinished run before any leaderboard result was produced, so the next factor-mining session should resume this config rather than treat it as evidence.
+## Daily-Basic Size-Bucket-Neutral Rerun
 
-Next office-desktop work should prioritize corrected-coverage reruns of older moneyflow and residualized candidates before treating any previous long-cycle report as promotion evidence. Reports produced before the authority-bars coverage fix should be considered stale unless rerun under the year-coverage gate.
+The office desktop resumed and completed the size-bucket-neutral daily-basic rerun after the sync. The run used a fresh startup gate and CN stock data manifest:
+
+- Startup gate: cleared for `office_desktop`, `factor_validation`, CN stock scope.
+- Data manifest: `review_required` with no blockers; warnings were `extreme_return_rows_present` and `moneyflow_symbol_coverage_below_bars`.
+- Factors:
+  - `turnover_rate_low_mv_bucket_rank`
+  - `turnover_rate_f_low_mv_bucket_rank`
+  - `dv_ttm_mv_bucket_rank`
+  - `ps_ttm_inverse_mv_bucket_rank`
+- Cases: 4 factors x topN 50/100/200 x cost 10/20 bps = 24.
+- Period: 2015-01-05 through 2024-12-31.
+- No 2025 validation or 2026 final holdout read.
+- Runner settings: `precompute_factor_matrix=true`, `resume_completed_cases=true`, `reuse_research_inputs=true`.
+
+Result:
+
+- Completed cases: 24.
+- Failed cases: 0.
+- Runner-approved cases: 0.
+- Capacity-clean cases with zero limited trades: 0.
+- Max-participation <= 1% cases: 0.
+- Positive benchmark-relative return cases: 11.
+- Drawdown-clean cases at -30%: 0.
+- Overlap-adjusted Sharpe >= 1 cases: 0.
+- Positive significant selected-tail RankIC cases: 6.
+- Strict promotable cases: 0.
+
+Best 10 bps rows by factor:
+
+- `turnover_rate_low_mv_bucket_rank`, top50: annualized return 49.43%, Sharpe 2.096, overlap-adjusted Sharpe 0.940, win rate 60.4%, max drawdown -58.9%, benchmark-relative return 1973.3%, capacity-limited trades 1574, max participation 30.3x ADV.
+- `turnover_rate_f_low_mv_bucket_rank`, top50: annualized return 44.00%, Sharpe 1.913, overlap-adjusted Sharpe 0.854, win rate 58.2%, max drawdown -64.9%, benchmark-relative return 1383.5%, capacity-limited trades 1586, max participation 30.3x ADV.
+- `ps_ttm_inverse_mv_bucket_rank`, top50: annualized return 6.26%, Sharpe 0.520, overlap-adjusted Sharpe 0.266, win rate 52.0%, max drawdown -62.8%, benchmark-relative return -1065.0%, capacity-limited trades 91.
+- `dv_ttm_mv_bucket_rank`, top50: annualized return 5.04%, Sharpe 0.423, overlap-adjusted Sharpe 0.222, win rate 54.3%, max drawdown -54.9%, benchmark-relative return -1143.1%, capacity-limited trades 224.
+
+Watchlist, not promotion:
+
+- Ten parameter rows met a loose research-watch filter of positive relative return, annualized return > 10%, Sharpe > 1, and significant positive RankIC.
+- All ten came from the two low-turnover families; none came from dividend yield or inverse PS.
+- All ten still failed hard gates because drawdown exceeded -30% and capacity-limited trades were present.
+
+Interpretation:
+
+- Size-bucket neutralization preserved the long-cycle low-turnover signal, unlike the blunt large-market-cap blend.
+- The edge is not ready for promotion: every row fails drawdown and capacity, and no row reaches overlap-adjusted Sharpe >= 1 after overlapping-return correction.
+- Dividend yield and inverse PS bucket ranks should be rejected as standalone directions under this protocol.
+- The next aligned direction is not more value-parameter tuning. It is a capacity-constrained low-turnover transformation: liquidity floor, ADV/amount gate, position-cap-aware selection, or explicit capacity-tiered portfolio construction.
+
+## Daily-Basic Liquid Low-Turnover Rerun
+
+The office desktop then tested a stricter liquidity-gated version of the low-turnover signal through the new `daily_basic_technical_combo` factor source:
+
+- `turnover_rate_low_liquid_mv_bucket_rank`
+- `turnover_rate_f_low_liquid_mv_bucket_rank`
+
+Design:
+
+- Compute a 20-day rolling ADV proxy from stock bars `amount`.
+- Rank liquidity inside each size bucket, not globally, so small-cap buckets are not automatically removed.
+- Keep only the more liquid half of each size bucket, then rank low turnover inside the same bucket.
+- Cases: 2 factors x topN 50/100/200 x cost 10/20 bps = 12.
+- Period: 2015-01-05 through 2024-12-31.
+- No 2025 validation or 2026 final holdout read.
+- Runner settings: `precompute_factor_matrix=true`, `resume_completed_cases=true`, `reuse_research_inputs=true`.
+
+Result:
+
+- Completed cases: 12.
+- Failed cases: 0.
+- Runner-approved cases: 0.
+- Capacity-clean cases with zero limited trades: 0.
+- Max-participation <= 1% cases: 0.
+- Positive benchmark-relative return cases: 0.
+- Drawdown-clean cases at -30%: 0.
+- Overlap-adjusted Sharpe >= 1 cases: 0.
+- Positive significant selected-tail RankIC cases: 0.
+- Strict promotable cases: 0.
+
+Best 10 bps rows by factor:
+
+- `turnover_rate_low_liquid_mv_bucket_rank`, top200: annualized return 1.20%, Sharpe 0.170, overlap-adjusted Sharpe 0.090, win rate 49.4%, max drawdown -57.9%, benchmark-relative return -1200.6%, capacity-limited trades 20, max participation 7.58x ADV.
+- `turnover_rate_f_low_liquid_mv_bucket_rank`, top200: annualized return 0.66%, Sharpe 0.116, overlap-adjusted Sharpe 0.061, win rate 49.0%, max drawdown -62.6%, benchmark-relative return -1218.7%, capacity-limited trades 19, max participation 7.58x ADV.
+
+Interpretation:
+
+- The liquidity gate materially reduced capacity pressure compared with the raw size-bucket low-turnover factors, but it also destroyed the top-N profitability.
+- Full-universe RankIC stayed positive and significant, while selected-tail RankIC turned weak or negative. The tradable basket is not capturing the apparent universe-level signal.
+- Decision: reject both liquid-gated factors as standalone candidates.
+- Methodological takeaway: low-turnover remains a diagnostic signal worth studying, but a hard liquidity floor is not enough. The next useful work should test risk-managed or capacity-tiered expressions rather than more simple value/turnover parameter tuning.
+
+Next office-desktop work should prioritize corrected-coverage reruns of older moneyflow and residualized candidates before treating any previous long-cycle report as promotion evidence. Reports produced before the authority-bars coverage fix should be considered stale unless rerun under the year-coverage gate. For daily-basic low-turnover, continue only through capacity-aware portfolio construction or risk-control transformations, not as a raw top-N long-only signal.

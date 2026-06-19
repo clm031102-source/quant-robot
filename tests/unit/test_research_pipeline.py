@@ -366,6 +366,30 @@ class ResearchPipelineTests(unittest.TestCase):
             self.assertGreater(result["artifact_rows"]["factors"], 0)
             self.assertGreater(result["artifact_rows"]["ic"], 0)
 
+    def test_pipeline_runs_daily_basic_technical_combo_factor_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bars = load_demo_market_bars()
+            _write_daily_basic_factor_inputs(Path(tmp), bars)
+
+            result = run_research_pipeline(
+                bars,
+                ResearchPipelineConfig(
+                    factor_name="turnover_rate_low_liquid_mv_bucket_rank",
+                    factor_source="daily_basic_technical_combo",
+                    factor_input_root=Path(tmp),
+                    factor_input_required=True,
+                    market="CN",
+                    top_n=1,
+                    execution_lag=1,
+                ),
+            )
+
+            self.assertEqual(result["request"]["factor_source"], "daily_basic_technical_combo")
+            self.assertEqual(result["request"]["factor_input_root"], str(Path(tmp)))
+            self.assertGreater(result["artifact_rows"]["factor_inputs"], 0)
+            self.assertGreater(result["artifact_rows"]["factors"], 0)
+            self.assertGreater(result["artifact_rows"]["ic"], 0)
+
     def test_pipeline_computes_only_requested_tushare_daily_basic_factor(self):
         with tempfile.TemporaryDirectory() as tmp:
             bars = load_demo_market_bars()

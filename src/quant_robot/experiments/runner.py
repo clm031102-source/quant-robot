@@ -11,6 +11,7 @@ import pandas as pd
 
 from quant_robot.factors.moneyflow_technical import compute_moneyflow_technical_combo_factors
 from quant_robot.factors.technical import compute_basic_factors
+from quant_robot.factors.daily_basic_technical_combo import compute_daily_basic_technical_combo_factors
 from quant_robot.factors.tushare_inputs import compute_daily_basic_factors
 from quant_robot.factors.tushare_moneyflow import compute_moneyflow_factors
 from quant_robot.research.pipeline import (
@@ -367,6 +368,9 @@ def _precompute_factor_matrix(bars: pd.DataFrame, config: ExperimentGridConfig) 
     if config.factor_source == "tushare_daily_basic":
         factor_inputs = _load_grid_factor_inputs(config)
         return compute_daily_basic_factors(factor_inputs, factor_names=config.factor_names)
+    if config.factor_source == "daily_basic_technical_combo":
+        factor_inputs = _load_grid_factor_inputs(config)
+        return compute_daily_basic_technical_combo_factors(source_bars, factor_inputs, factor_names=config.factor_names)
     if config.factor_source == "tushare_moneyflow":
         moneyflow_inputs = _load_grid_moneyflow_inputs(config)
         return compute_moneyflow_factors(moneyflow_inputs, factor_names=config.factor_names)
