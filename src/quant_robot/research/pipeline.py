@@ -14,6 +14,13 @@ from quant_robot.factors.daily_basic_technical_combo import (
     DAILY_BASIC_TECHNICAL_COMBO_FACTOR_NAMES,
     compute_daily_basic_technical_combo_factors,
 )
+from quant_robot.factors.etf_moneyflow_basket import (
+    ETF_MONEYFLOW_BASKET_FACTOR_NAMES,
+    aggregate_etf_moneyflow_basket_inputs,
+    compute_etf_moneyflow_basket_factors,
+)
+from quant_robot.factors.etf_share_size import ETF_SHARE_SIZE_FACTOR_NAMES, compute_etf_share_size_factors
+from quant_robot.factors.etf_theme_breadth import compute_etf_theme_breadth_factors, etf_theme_breadth_factor_names
 from quant_robot.factors.technical import compute_basic_factors, technical_factor_names
 from quant_robot.factors.tushare_inputs import DAILY_BASIC_FACTOR_NAMES, compute_daily_basic_factors
 from quant_robot.factors.moneyflow_technical import (
@@ -32,6 +39,9 @@ from quant_robot.research.groups import quantile_group_returns
 from quant_robot.research.ic import compute_ic
 from quant_robot.research.labels import make_forward_returns
 from quant_robot.research.long_short import long_short_returns
+from quant_robot.storage.cn_etf_theme_map import load_cn_etf_theme_map
+from quant_robot.storage.etf_moneyflow_baskets import load_etf_moneyflow_baskets
+from quant_robot.storage.etf_share_size import load_etf_share_size_inputs
 from quant_robot.schema.factors import FACTOR_COLUMNS
 from quant_robot.storage.factor_inputs import load_factor_inputs
 from quant_robot.storage.moneyflow_inputs import load_moneyflow_inputs
@@ -304,6 +314,9 @@ def _load_factor_input_frame(config: ResearchPipelineConfig) -> pd.DataFrame:
         "daily_basic_technical_combo",
         "tushare_moneyflow",
         "moneyflow_technical_combo",
+        "etf_share_size",
+        "etf_moneyflow_basket",
+        "etf_theme_breadth",
         "combined",
     }:
         raise ValueError(f"Unsupported factor_source: {factor_source}")
@@ -311,6 +324,12 @@ def _load_factor_input_frame(config: ResearchPipelineConfig) -> pd.DataFrame:
         if config.factor_input_required and config.factor_input_root is None:
             raise ValueError("factor_input_root is required when factor_input_required is true")
         return pd.DataFrame()
+    if factor_source == "etf_share_size":
+        return _load_etf_share_size_inputs(config)
+    if factor_source == "etf_moneyflow_basket":
+        return _load_etf_moneyflow_basket_inputs(config)
+    if factor_source == "etf_theme_breadth":
+        return _load_etf_theme_map_inputs(config)
     if factor_source in {"tushare_moneyflow", "moneyflow_technical_combo"}:
         return _load_tushare_moneyflow_inputs(config)
     return _load_tushare_daily_basic_inputs(config)
@@ -351,11 +370,75 @@ def _load_tushare_moneyflow_inputs(config: ResearchPipelineConfig) -> pd.DataFra
     return frame.sort_values(["asset_id", "date"]).reset_index(drop=True)
 
 
+def _load_etf_share_size_inputs(config: ResearchPipelineConfig) -> pd.DataFrame:
+    if config.execution_lag < 1:
+        raise ValueError("execution_lag must be at least 1 for ETF share-size factors")
+    if config.factor_input_root is None:
+        raise ValueError("factor_input_root is required for ETF share-size factor sources")
+    market = config.market.upper()
+    if market == "ALL":
+        raise ValueError("ETF share-size inputs require a specific CN_ETF market")
+    if market != "CN_ETF":
+        raise ValueError("ETF share-size factor source requires market=CN_ETF")
+    frame = load_etf_share_size_inputs(config.factor_input_root, market)
+    if config.start_date:
+        frame = frame[pd.to_datetime(frame["date"]).dt.date >= pd.to_datetime(config.start_date).date()]
+    if config.end_date:
+        frame = frame[pd.to_datetime(frame["date"]).dt.date <= pd.to_datetime(config.end_date).date()]
+    return frame.sort_values(["asset_id", "date"]).reset_index(drop=True)
+
+
+def _load_etf_moneyflow_basket_inputs(config: ResearchPipelineConfig) -> pd.DataFrame:
+    if config.execution_lag < 1:
+        raise ValueError("execution_lag must be at least 1 for ETF moneyflow basket factors")
+    if config.factor_input_root is None:
+        raise ValueError("factor_input_root is required for ETF moneyflow basket mappings")
+    if config.moneyflow_input_root is None:
+        raise ValueError("moneyflow_input_root is required for ETF moneyflow basket factors")
+    market = config.market.upper()
+    if market == "ALL":
+        raise ValueError("ETF moneyflow basket inputs require a specific CN_ETF market")
+    if market != "CN_ETF":
+        raise ValueError("ETF moneyflow basket factor source requires market=CN_ETF")
+    moneyflow = load_moneyflow_inputs(config.moneyflow_input_root, "CN")
+    if config.start_date:
+        moneyflow = moneyflow[pd.to_datetime(moneyflow["date"]).dt.date >= pd.to_datetime(config.start_date).date()]
+    if config.end_date:
+        moneyflow = moneyflow[pd.to_datetime(moneyflow["date"]).dt.date <= pd.to_datetime(config.end_date).date()]
+    baskets = load_etf_moneyflow_baskets(config.factor_input_root, market)
+    return aggregate_etf_moneyflow_basket_inputs(moneyflow, baskets)
+
+
+def _load_etf_theme_map_inputs(config: ResearchPipelineConfig) -> pd.DataFrame:
+    if config.execution_lag < 1:
+        raise ValueError("execution_lag must be at least 1 for ETF theme breadth factors")
+    if config.factor_input_root is None:
+        raise ValueError("factor_input_root is required for ETF theme breadth factors")
+    market = config.market.upper()
+    if market == "ALL":
+        raise ValueError("ETF theme breadth inputs require a specific CN_ETF market")
+    if market != "CN_ETF":
+        raise ValueError("ETF theme breadth factor source requires market=CN_ETF")
+    return load_cn_etf_theme_map(config.factor_input_root, market)
+
+
 def _compute_factor_source(bars: pd.DataFrame, factor_inputs: pd.DataFrame, config: ResearchPipelineConfig) -> pd.DataFrame:
     if config.factor_source == "technical":
         if config.factor_name not in technical_factor_names(config.factor_windows):
             return _empty_factor_frame()
         return compute_basic_factors(bars, windows=config.factor_windows, factor_names=(config.factor_name,))
+    if config.factor_source == "etf_share_size":
+        if config.factor_name not in ETF_SHARE_SIZE_FACTOR_NAMES:
+            return _empty_factor_frame()
+        return compute_etf_share_size_factors(factor_inputs)
+    if config.factor_source == "etf_moneyflow_basket":
+        if config.factor_name not in ETF_MONEYFLOW_BASKET_FACTOR_NAMES:
+            return _empty_factor_frame()
+        return compute_etf_moneyflow_basket_factors(factor_inputs)
+    if config.factor_source == "etf_theme_breadth":
+        if config.factor_name not in etf_theme_breadth_factor_names(config.factor_windows):
+            return _empty_factor_frame()
+        return compute_etf_theme_breadth_factors(bars, factor_inputs, windows=config.factor_windows)
     if config.factor_source == "tushare_moneyflow":
         if config.factor_name not in MONEYFLOW_FACTOR_NAMES:
             return _empty_factor_frame()

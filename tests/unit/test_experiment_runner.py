@@ -214,6 +214,83 @@ class ExperimentRunnerTests(unittest.TestCase):
             self.assertEqual(result["config"]["factor_source"], "tushare_daily_basic")
             self.assertEqual(result["config"]["factor_input_root"], str(root))
 
+    def test_experiment_grid_runs_etf_share_size_factor_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bars = load_demo_market_bars()
+            _write_etf_share_size_inputs(root, bars)
+            config = ExperimentGridConfig(
+                markets=("CN_ETF",),
+                factor_source="etf_share_size",
+                factor_input_root=root,
+                factor_input_required=True,
+                factor_names=("share_change_1d",),
+                factor_windows=(1,),
+                top_n_values=(1,),
+                cost_bps_values=(5.0,),
+            )
+
+            result = run_experiment_grid(bars, config)
+
+            row = result["leaderboard"][0]
+            self.assertEqual(row["status"], "completed")
+            self.assertEqual(row["factor_name"], "share_change_1d")
+            self.assertEqual(result["config"]["factor_source"], "etf_share_size")
+            self.assertEqual(result["config"]["factor_input_root"], str(root))
+
+    def test_experiment_grid_runs_etf_moneyflow_basket_factor_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bars = load_demo_market_bars()
+            _write_moneyflow_inputs(root, bars)
+            _write_etf_moneyflow_baskets(root, bars)
+            config = ExperimentGridConfig(
+                markets=("CN_ETF",),
+                factor_source="etf_moneyflow_basket",
+                factor_input_root=root,
+                factor_input_required=True,
+                moneyflow_input_root=root,
+                factor_names=("etf_net_mf_amount_ratio",),
+                factor_windows=(1,),
+                top_n_values=(1,),
+                cost_bps_values=(5.0,),
+                precompute_factor_matrix=True,
+            )
+
+            result = run_experiment_grid(bars, config)
+
+            row = result["leaderboard"][0]
+            self.assertEqual(row["status"], "completed")
+            self.assertEqual(row["factor_name"], "etf_net_mf_amount_ratio")
+            self.assertEqual(result["config"]["factor_source"], "etf_moneyflow_basket")
+            self.assertEqual(result["config"]["factor_input_root"], str(root))
+            self.assertEqual(result["config"]["moneyflow_input_root"], str(root))
+
+    def test_experiment_grid_runs_etf_theme_breadth_factor_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bars = _theme_breadth_runner_bars()
+            _write_etf_theme_fund_basic(root, bars)
+            config = ExperimentGridConfig(
+                markets=("CN_ETF",),
+                factor_source="etf_theme_breadth",
+                factor_input_root=root,
+                factor_input_required=True,
+                factor_names=("theme_momentum_breadth_2",),
+                factor_windows=(2,),
+                top_n_values=(1,),
+                cost_bps_values=(5.0,),
+                precompute_factor_matrix=True,
+            )
+
+            result = run_experiment_grid(bars, config)
+
+            row = result["leaderboard"][0]
+            self.assertEqual(row["status"], "completed")
+            self.assertEqual(row["factor_name"], "theme_momentum_breadth_2")
+            self.assertEqual(result["config"]["factor_source"], "etf_theme_breadth")
+            self.assertEqual(result["config"]["factor_input_root"], str(root))
+
     def test_experiment_grid_coerces_none_metrics_without_failing_case(self):
         config = ExperimentGridConfig(
             markets=("CN",),
@@ -788,6 +865,166 @@ def _write_daily_basic_factor_inputs(root: Path, bars: pd.DataFrame) -> None:
         "processed/factor_inputs",
         {"frequency": "1d", "market": "CN", "year": "2024"},
     )
+
+
+def _write_etf_share_size_inputs(root: Path, bars: pd.DataFrame) -> None:
+    from quant_robot.storage.dataset_store import DatasetStore
+
+    rows = []
+    for asset_index, (asset_id, group) in enumerate(bars[bars["market"] == "CN_ETF"].groupby("asset_id", sort=True), start=1):
+        symbol = group["symbol"].iloc[0]
+        for index, row in group.reset_index(drop=True).iterrows():
+            rows.append(
+                {
+                    "date": row["date"],
+                    "asset_id": asset_id,
+                    "symbol": symbol,
+                    "market": "CN_ETF",
+                    "source": "tushare_etf_share_size",
+                    "total_share": 10_000_000.0 + index * 100_000.0 * asset_index,
+                    "total_size": 40_000_000.0 + index * 800_000.0 * asset_index,
+                    "nav": row["close"],
+                    "close": row["close"] * (1.0 + 0.001 * asset_index),
+                    "share_change_1d": pd.NA if index == 0 else 0.01 * asset_index,
+                    "size_change_1d": pd.NA if index == 0 else 0.02 * asset_index,
+                    "nav_premium_discount": 0.001 * asset_index,
+                }
+            )
+    DatasetStore(root).write_frame(
+        pd.DataFrame(rows),
+        "processed/etf_share_size",
+        {"frequency": "1d", "market": "CN_ETF", "year": "2024"},
+    )
+
+
+def _write_moneyflow_inputs(root: Path, bars: pd.DataFrame) -> None:
+    from quant_robot.storage.dataset_store import DatasetStore
+
+    rows = []
+    for _, row in bars[bars["market"] == "CN"].reset_index(drop=True).iterrows():
+        rows.append(
+            {
+                "date": row["date"],
+                "asset_id": row["asset_id"],
+                "symbol": row["symbol"],
+                "market": "CN",
+                "source": "tushare_moneyflow",
+                "buy_sm_amount": 100.0,
+                "sell_sm_amount": 80.0,
+                "buy_md_amount": 300.0,
+                "sell_md_amount": 250.0,
+                "buy_lg_amount": 500.0,
+                "sell_lg_amount": 450.0,
+                "buy_elg_amount": 700.0,
+                "sell_elg_amount": 650.0,
+                "net_mf_amount": 120.0,
+            }
+        )
+    DatasetStore(root).write_frame(
+        pd.DataFrame(rows),
+        "processed/moneyflow_inputs",
+        {"frequency": "1d", "market": "CN", "year": "2024"},
+    )
+
+
+def _write_etf_moneyflow_baskets(root: Path, bars: pd.DataFrame) -> None:
+    from quant_robot.storage.dataset_store import DatasetStore
+
+    cn_assets = bars[bars["market"] == "CN"].drop_duplicates("asset_id").sort_values("asset_id")
+    etf_assets = bars[bars["market"] == "CN_ETF"].drop_duplicates("asset_id").sort_values("asset_id")
+    rows = []
+    for etf in etf_assets.itertuples(index=False):
+        for stock in cn_assets.itertuples(index=False):
+            rows.append(
+                {
+                    "etf_asset_id": etf.asset_id,
+                    "etf_symbol": etf.symbol,
+                    "stock_asset_id": stock.asset_id,
+                    "stock_symbol": stock.symbol,
+                    "weight": 1.0,
+                    "known_date": pd.Timestamp("2024-01-01").date(),
+                    "end_date": pd.NaT,
+                    "source": "fixture_basket",
+                }
+            )
+    DatasetStore(root).write_frame(
+        pd.DataFrame(rows),
+        "metadata/etf_moneyflow_baskets",
+        {"market": "CN_ETF"},
+    )
+
+
+def _write_etf_theme_fund_basic(root: Path, bars: pd.DataFrame) -> None:
+    from quant_robot.storage.dataset_store import DatasetStore
+
+    etf_assets = bars[bars["market"] == "CN_ETF"].drop_duplicates("asset_id").sort_values("asset_id")
+    names = ["华泰柏瑞沪深300ETF", "南方中证500ETF", "华夏中证全指证券公司ETF", "国泰中证全指证券公司ETF"]
+    rows = []
+    for index, row in enumerate(etf_assets.itertuples(index=False)):
+        rows.append(
+            {
+                "symbol": row.symbol,
+                "name": names[index % len(names)],
+                "market": "E",
+                "status": "L",
+                "fund_type": "equity",
+                "type": "equity",
+                "is_etf": True,
+                "list_date": "2024-01-01",
+                "delist_date": None,
+            }
+        )
+    DatasetStore(root).write_frame(
+        pd.DataFrame(rows),
+        "metadata/tushare_fund_basic",
+        {"market": "E", "snapshot": "2024-01-01"},
+    )
+
+
+def _theme_breadth_runner_bars() -> pd.DataFrame:
+    rows = []
+    dates = pd.date_range("2024-01-01", periods=8).date
+    paths = {
+        "CN_ETF_XSHG_510300": [10.0, 10.2, 10.5, 10.8, 11.2, 11.5, 11.8, 12.0],
+        "CN_ETF_XSHG_510500": [8.0, 8.1, 8.2, 8.4, 8.5, 8.7, 8.8, 9.0],
+        "CN_ETF_XSHG_512880": [5.0, 5.1, 5.3, 5.6, 5.8, 6.1, 6.2, 6.4],
+        "CN_ETF_XSHG_512000": [4.0, 4.0, 4.1, 4.1, 4.2, 4.2, 4.3, 4.3],
+    }
+    symbols = {
+        "CN_ETF_XSHG_510300": "510300.SH",
+        "CN_ETF_XSHG_510500": "510500.SH",
+        "CN_ETF_XSHG_512880": "512880.SH",
+        "CN_ETF_XSHG_512000": "512000.SH",
+    }
+    for asset_id, prices in paths.items():
+        for date, price in zip(dates, prices, strict=True):
+            rows.append(
+                {
+                    "asset_id": asset_id,
+                    "symbol": symbols[asset_id],
+                    "market": "CN_ETF",
+                    "exchange": "XSHG",
+                    "asset_type": "etf",
+                    "timestamp": pd.Timestamp(date).tz_localize("UTC"),
+                    "date": date,
+                    "timezone": "Asia/Shanghai",
+                    "calendar": "XSHG",
+                    "frequency": "1d",
+                    "source": "fixture",
+                    "open": price,
+                    "high": price * 1.01,
+                    "low": price * 0.99,
+                    "close": price,
+                    "vwap": price,
+                    "adj_close": price,
+                    "volume": 1000.0,
+                    "amount": price * 1000.0,
+                    "currency": "CNY",
+                    "adjusted": True,
+                    "ingested_at": pd.Timestamp("2024-01-01T00:00:00Z"),
+                }
+            )
+    return pd.DataFrame(rows)
 
 
 if __name__ == "__main__":
