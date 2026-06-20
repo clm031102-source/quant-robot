@@ -92,6 +92,8 @@ def _load_bars(
             raise ValueError("authority_bars_config is required for authority-processed-bars source")
         return load_authority_processed_bars_from_config(authority_bars_config, markets=markets)
     if source == "processed-bars":
+        if data_root.is_file():
+            return load_authority_processed_bars_from_config(data_root, markets=markets)
         frames = [load_processed_bars(data_root, market) for market in markets if market.upper() != "ALL"]
         if not frames:
             raise ValueError("processed-bars source requires at least one specific market")

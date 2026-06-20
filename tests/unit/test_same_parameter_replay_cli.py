@@ -5,7 +5,9 @@ from pathlib import Path
 
 import pandas as pd
 
-from scripts.run_same_parameter_full_sample_replay import run_same_parameter_full_sample_replay_from_files
+from quant_robot.data.fixtures import load_demo_market_bars
+from quant_robot.storage.dataset_store import DatasetStore
+from scripts.run_same_parameter_full_sample_replay import _load_bars, run_same_parameter_full_sample_replay_from_files
 
 
 class SameParameterReplayCliTests(unittest.TestCase):
@@ -64,6 +66,44 @@ class SameParameterReplayCliTests(unittest.TestCase):
             self.assertEqual(pack["stage"], "same_parameter_full_sample_replay")
             self.assertEqual(pack["summary"]["candidates"], 1)
             self.assertTrue((root / "out" / "same_parameter_full_sample_replay.csv").exists())
+
+    def test_processed_bars_source_accepts_authority_config_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            store_root = root / "store"
+            bars = load_demo_market_bars()
+            cn_bars = bars[bars["market"] == "CN"].copy()
+            DatasetStore(store_root).write_frame(
+                cn_bars,
+                "processed/bars",
+                {"frequency": "1d", "market": "CN", "year": "2024"},
+            )
+            config_path = root / "authority_bars.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "market": "CN",
+                        "segments": [
+                            {
+                                "root": str(store_root),
+                                "start_date": "2024-01-02",
+                                "end_date": "2024-01-14",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            loaded = _load_bars(
+                source="processed-bars",
+                data_root=config_path,
+                markets=("CN",),
+                authority_bars_config=None,
+            )
+
+            self.assertFalse(loaded.empty)
+            self.assertEqual(set(loaded["market"]), {"CN"})
 
 
 if __name__ == "__main__":
