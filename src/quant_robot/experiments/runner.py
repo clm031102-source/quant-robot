@@ -423,6 +423,12 @@ def _row(case: ExperimentCase, status: str, error: str | None, trades: int, resu
     metrics = result["metrics"] if result is not None else {}
     benchmark_metrics = result["benchmark_metrics"] if result is not None else {}
     decision = result["decision"] if result is not None else {}
+    decision_status = str(decision.get("decision_status", "unknown"))
+    decision_reasons = list(decision.get("rejection_reasons", []) or [])
+    if status == "no_trades":
+        decision_status = "rejected"
+        if "insufficient_oos_trades" not in decision_reasons:
+            decision_reasons.append("insufficient_oos_trades")
     factor_summary = result["factor_summary"] if result is not None else {}
     artifact_rows = result["artifact_rows"] if result is not None else {}
     group_summary = _group_return_summary(result.get("group_returns", []) if result is not None else [])
@@ -477,8 +483,8 @@ def _row(case: ExperimentCase, status: str, error: str | None, trades: int, resu
             "benchmark_total_return": _number(benchmark_metrics.get("benchmark_total_return"), 0.0),
             "relative_return": _number(benchmark_metrics.get("relative_return"), 0.0),
             "excess_over_cash": _number(benchmark_metrics.get("excess_over_cash"), 0.0),
-            "decision_status": str(decision.get("decision_status", "unknown")),
-            "decision_reasons": decision.get("rejection_reasons", []),
+            "decision_status": decision_status,
+            "decision_reasons": decision_reasons,
             "mean_ic": _number(factor_summary.get("mean_ic"), 0.0),
             "mean_rank_ic": _number(factor_summary.get("mean_rank_ic"), 0.0),
             "icir": _number(factor_summary.get("icir"), 0.0),

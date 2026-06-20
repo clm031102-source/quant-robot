@@ -163,6 +163,8 @@ class ExperimentRunnerTests(unittest.TestCase):
 
         self.assertEqual(result["leaderboard"][0]["status"], "no_trades")
         self.assertEqual(result["leaderboard"][0]["trades"], 0)
+        self.assertEqual(result["leaderboard"][0]["decision_status"], "rejected")
+        self.assertIn("insufficient_oos_trades", result["leaderboard"][0]["decision_reasons"])
 
     def test_experiment_grid_rejects_factor_window_mismatch(self):
         config = ExperimentGridConfig(

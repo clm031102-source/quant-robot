@@ -648,3 +648,168 @@ Interim conclusion:
 - The gated residual factor should be treated as rejected as a standalone line unless a new, pre-registered thesis explains and controls its narrow favorable windows.
 - `large_minus_liquidity_20` remains a research lead because it has the best breadth, but current capacity constraints still block any promotion.
 - No factor is promotable or paper-ready at 26/38 folds.
+
+### Residual/Regime 27-Fold Interim Checkpoint
+
+As of 2026-06-20 10:27 +0800, `fold_27` had completed and `fold_28` had been created.
+
+`fold_27` evidence:
+
+- `fold_27` approved rows: 3 / 96.
+- `fold_27` primary significant-positive IC rows: 0 / 96.
+- `fold_27` tail significant-positive IC rows: 72 / 96.
+- The approved rows were all top20/cost20/regime252 variants:
+  - `CN_large_minus_liquidity_20_top20_cost20_reb1_regime252`: overlap-adjusted Sharpe 2.00, annualized return 57.5%, relative return 2.5%, win rate 56.4%, max drawdown -9.9%, max participation 0.030x ADV.
+  - `CN_large_resid_liquidity_20_top20_cost20_reb1_regime252`: overlap-adjusted Sharpe 1.91, annualized return 54.4%, relative return 2.0%, win rate 56.4%, max drawdown -9.8%, max participation 0.030x ADV.
+  - `CN_large_resid_liq_vol_amt_20_top20_cost20_reb1_regime252`: overlap-adjusted Sharpe 1.66, annualized return 46.6%, relative return 0.8%, win rate 54.5%, max drawdown -10.9%, max participation 0.030x ADV.
+- All three approved rows had `significance_status = not_significant` and `tail_significance_status = significant_positive`, so the evidence is tail-local rather than full-sample IC robust.
+
+27-fold aggregation:
+
+- Complete folds: 27 / 38.
+- Completed test rows: 2,592.
+- Runner-approved rows: 77 / 2,592.
+- Approved rows by fold: `fold_05` 18, `fold_11` 24, `fold_16` 4, `fold_22` 20, `fold_23` 8, `fold_27` 3.
+- Best strict-survival gated case remains `CN_large_resid_liq_vol_amt_gate_20_top5_cost20_reb1_regime120`, approved in 4/27 folds, positive relative return in only 4/27, capacity-clean in 25/27, mean overlap-adjusted Sharpe -2.01, mean relative return -17.8%, worst drawdown -46.8%.
+- Best breadth case remains `CN_large_minus_liquidity_20_top10_cost20_reb1_regime120`, approved in 2/27 folds, positive relative return in 16/27, drawdown-clean in 25/27, capacity-clean in only 3/27, significant primary IC in 9/27, mean overlap-adjusted Sharpe 1.20, mean relative return 15.43%, worst drawdown -36.6%, max participation 8.60x ADV.
+
+Factor-family aggregate after 27 folds:
+
+- `large_resid_liq_vol_amt_gate_20`: 38 approved rows, 608/648 capacity-clean rows, mean overlap-adjusted Sharpe -3.52 and mean relative return -24.27%.
+- `large_minus_liquidity_20`: 15 approved rows, 321 positive-relative rows, mean overlap-adjusted Sharpe 0.41, mean relative return 14.04%, but only 64/648 capacity-clean rows.
+- `large_resid_liquidity_20`: 12 approved rows, 307 positive-relative rows, mean overlap-adjusted Sharpe 0.19, mean relative return 11.00%, capacity still poor.
+- `large_resid_liq_vol_amt_20`: 12 approved rows, 307 positive-relative rows, mean overlap-adjusted Sharpe 0.14, mean relative return 11.03%, capacity still poor.
+
+Interim conclusion:
+
+- `fold_27` interrupts the three-fold zero-approved streak, but it does not rescue the factor set. The new approvals are top20/regime252, tail-IC-only, and small relative-return wins.
+- The strongest continuing lead is still `large_minus_liquidity_20`, especially top10/top20 variants, but current evidence says "research lead with capacity caveat", not "tradable/paper-ready factor".
+- No factor is promotable or paper-ready at 27/38 folds.
+
+### Residual/Regime 28-Fold Interim Checkpoint
+
+As of 2026-06-20 11:26 +0800, `fold_28` had completed and `fold_29` had been created.
+
+`fold_28` evidence:
+
+- `fold_28` approved rows: 0 / 96.
+- `fold_28` primary significant-positive IC rows: 0 / 96.
+- `fold_28` tail significant-positive IC rows: 38 / 96.
+- `fold_28` positive-relative rows: 27 / 96.
+- `fold_28` capacity-clean rows: 24 / 96.
+- The highest overlap-adjusted Sharpe rows were rejected for capacity-limited trades. The top row, `CN_large_minus_liquidity_20_top5_cost20_reb1_regime120`, had overlap-adjusted Sharpe 4.44, annualized return 544.8%, relative return 41.2%, win rate 59.3%, max drawdown -14.4%, but 6 capacity-limited trades and max participation 4.19x ADV.
+
+28-fold aggregation:
+
+- Complete folds: 28 / 38.
+- Completed test rows: 2,688.
+- Runner-approved rows: 77 / 2,688.
+- Approved rows remain concentrated in `fold_05`, `fold_11`, `fold_16`, `fold_22`, `fold_23`, and `fold_27`.
+- Best strict-survival gated case remains `CN_large_resid_liq_vol_amt_gate_20_top5_cost20_reb1_regime120`, approved in 4/28 folds, positive relative return in only 4/28, capacity-clean in 26/28, mean overlap-adjusted Sharpe -2.04, mean relative return -18.2%, worst drawdown -46.8%.
+- Best breadth case remains `CN_large_minus_liquidity_20_top10_cost20_reb1_regime120`, approved in 2/28 folds, positive relative return in 17/28, drawdown-clean in 26/28, capacity-clean in only 3/28, significant primary IC in 9/28, mean overlap-adjusted Sharpe 1.22, mean relative return 14.98%, worst drawdown -36.6%, max participation 8.60x ADV.
+
+Factor-family aggregate after 28 folds:
+
+- `large_resid_liq_vol_amt_gate_20`: 38 approved rows, 632/672 capacity-clean rows, mean overlap-adjusted Sharpe -3.51 and mean relative return -24.34%.
+- `large_minus_liquidity_20`: 15 approved rows, 332 positive-relative rows, mean overlap-adjusted Sharpe 0.43, mean relative return 13.66%, but only 64/672 capacity-clean rows.
+- `large_resid_liquidity_20`: 12 approved rows, 315 positive-relative rows, mean overlap-adjusted Sharpe 0.18, mean relative return 10.44%, capacity still poor.
+- `large_resid_liq_vol_amt_20`: 12 approved rows, 315 positive-relative rows, mean overlap-adjusted Sharpe 0.14, mean relative return 10.53%, capacity still poor.
+
+Interim conclusion:
+
+- `fold_28` reverses the tiny `fold_27` approved-row improvement: no row survived the full gate.
+- High single-fold Sharpe in `fold_28` is not actionable because it is paired with capacity failures and non-significant primary IC.
+- `large_minus_liquidity_20` remains the only line worth monitoring, but promotion is still blocked by capacity and sparse approvals.
+- No factor is promotable or paper-ready at 28/38 folds.
+
+### Residual/Regime 29-Fold Interim Checkpoint And Gate Hygiene Finding
+
+As of 2026-06-20 12:28 +0800, `fold_29` had completed and `fold_30` had been created.
+
+`fold_29` raw evidence:
+
+- Raw `fold_29` `decision_status = approved` rows: 54 / 96.
+- `fold_29` primary significant-positive IC rows: 36 / 96.
+- `fold_29` tail significant-positive IC rows: 32 / 96.
+- `fold_29` positive-relative rows: 75 / 96.
+- `fold_29` capacity-clean rows: 60 / 96.
+
+Gate hygiene finding:
+
+- 48 of the 54 raw approved rows were `status = no_trades`, `trades = 0`, `holdings = 0`, `significance_status = insufficient_data`, and `tail_significance_status = insufficient_data`.
+- These rows appeared approved because the single-fold experiment decision layer only checked relative return, drawdown, and capacity. When the strategy made no trades while the benchmark fell, `relative_return = 0 - benchmark_return` was positive, so the row had no rejection reason.
+- This is not a valid alpha result. It is a reporting/gate hygiene issue in the per-fold experiment leaderboard, not evidence of 54 usable factors.
+- The code path has been hardened locally after this checkpoint: `status = no_trades` rows are now forced to `decision_status = rejected` with `insufficient_oos_trades` in `decision_reasons`. The currently running 38-fold process was launched before that code fix, so this run's remaining raw per-fold `decision_status` fields should be interpreted with a status/trades correction.
+
+Corrected `fold_29` evidence:
+
+- Effective approved rows after excluding `no_trades` / insufficient-trade rows: 6 / 96.
+- All 6 effective approved rows were `large_resid_liq_vol_amt_gate_20` with `regime_lookback = 180`.
+- The best effective approved row was `CN_large_resid_liq_vol_amt_gate_20_top5_cost20_reb1_regime180`: overlap-adjusted Sharpe 1.31, annualized return 63.5%, relative return 57.5%, win rate 44.8%, max drawdown -10.6%, no capacity-limited trades, but `significance_status = not_significant` and `tail_significance_status = not_significant`.
+- Other effective approved rows included negative Sharpe and negative annualized return but positive relative return because the benchmark fell sharply. These are not paper-ready signals.
+
+29-fold corrected aggregation:
+
+- Complete folds: 29 / 38.
+- Completed test rows: 2,784.
+- Raw runner-approved rows: 131 / 2,784.
+- Effective runner-approved rows after no-trades correction: 59 / 2,784.
+- Effective approved rows by fold: `fold_05` 18, `fold_16` 4, `fold_22` 20, `fold_23` 8, `fold_27` 3, `fold_29` 6. The prior raw `fold_11` approved set is now suspect under the same no-trades hygiene lens and should be re-read with status/trades correction.
+- Best corrected strict-survival gated case: `CN_large_resid_liq_vol_amt_gate_20_top5_cost20_reb1_regime180`, effective-approved in 4/29 folds, positive relative return in only 4/29, capacity-clean in 27/29, mean overlap-adjusted Sharpe -1.96, mean relative return -16.9%, worst drawdown -46.8%.
+- Best breadth case remains `CN_large_minus_liquidity_20_top5_cost20_reb1_regime180`, positive relative in 23/29 folds, significant primary IC in 12/29, but effective-approved in 0/29 because capacity is never clean for that exact top5 case.
+
+Factor-family aggregate after 29 folds, using corrected effective approvals:
+
+- `large_resid_liq_vol_amt_gate_20`: 38 effective approved rows, 656/696 capacity-clean rows, mean overlap-adjusted Sharpe -3.44, mean relative return -22.45%.
+- `large_minus_liquidity_20`: 9 effective approved rows, 351 positive-relative rows, mean overlap-adjusted Sharpe 0.42, mean relative return 14.53%, but only 76/696 capacity-clean rows.
+- `large_resid_liquidity_20`: 6 effective approved rows, 334 positive-relative rows, mean overlap-adjusted Sharpe 0.16, mean relative return 11.34%, capacity still poor.
+- `large_resid_liq_vol_amt_20`: 6 effective approved rows, 334 positive-relative rows, mean overlap-adjusted Sharpe 0.11, mean relative return 11.37%, capacity still poor.
+
+Interim conclusion:
+
+- `fold_29` does not create 54 useful discoveries. After correcting the no-trades approval bug, it adds only 6 local effective approvals, none with significant IC.
+- The per-fold `decision_status` field is now treated as contaminated for this already-running batch whenever `status != completed` or `trades < 30`. Effective approval must require completed status and sufficient trades.
+- `large_minus_liquidity_20` remains the main research lead by breadth and mean relative return, but capacity failure remains the binding blocker.
+- No factor is promotable or paper-ready at 29/38 folds.
+
+### Residual/Regime 30-Fold Interim Checkpoint
+
+As of 2026-06-20 13:30 +0800, `fold_30` had completed and `fold_31` had been created.
+
+`fold_30` raw evidence:
+
+- Raw `fold_30` `decision_status = approved` rows: 96 / 96.
+- `fold_30` primary significant-positive IC rows: 0 / 96.
+- `fold_30` tail significant-positive IC rows: 0 / 96.
+- `fold_30` positive-relative rows: 96 / 96.
+- `fold_30` capacity-clean rows: 96 / 96.
+
+Corrected `fold_30` evidence:
+
+- Effective approved rows after status/trades correction: 0 / 96.
+- Every raw approved row in `fold_30` was `status = no_trades`, `trades = 0`, `holdings = 0`, `significance_status = insufficient_data`, and `tail_significance_status = insufficient_data`.
+- The positive relative return came from making no trades while the benchmark declined, not from an alpha signal.
+
+30-fold corrected aggregation:
+
+- Complete folds: 30 / 38.
+- Completed test rows: 2,880.
+- Raw runner-approved rows: 227 / 2,880.
+- Effective runner-approved rows after no-trades correction: 59 / 2,880.
+- Effective approved rows by fold are unchanged from 29 folds: `fold_05` 18, `fold_16` 4, `fold_22` 20, `fold_23` 8, `fold_27` 3, `fold_29` 6.
+- Best corrected strict-survival gated case: `CN_large_resid_liq_vol_amt_gate_20_top5_cost20_reb1_regime180`, effective-approved in 4/30 folds, positive relative return in 5/30, capacity-clean in 28/30, mean overlap-adjusted Sharpe -1.90, mean relative return -16.2%, worst drawdown -46.8%.
+- Best breadth case remains `CN_large_minus_liquidity_20_top5_cost20_reb1_regime180`, positive relative in 24/30 folds, significant primary IC in 12/30, but effective-approved in 0/30 because capacity/trade-quality gates block it.
+
+Factor-family aggregate after 30 folds, using corrected effective approvals:
+
+- `large_resid_liq_vol_amt_gate_20`: 38 effective approved rows, 680/720 capacity-clean rows, mean overlap-adjusted Sharpe -3.32, mean relative return -21.56%.
+- `large_minus_liquidity_20`: 9 effective approved rows, 375 positive-relative rows, mean overlap-adjusted Sharpe 0.41, mean relative return 14.19%, but only 100/720 capacity-clean rows.
+- `large_resid_liquidity_20`: 6 effective approved rows, 358 positive-relative rows, mean overlap-adjusted Sharpe 0.16, mean relative return 11.10%, capacity still poor.
+- `large_resid_liq_vol_amt_20`: 6 effective approved rows, 358 positive-relative rows, mean overlap-adjusted Sharpe 0.11, mean relative return 11.14%, capacity still poor.
+
+Interim conclusion:
+
+- `fold_30` is a pure no-trades / benchmark-decline artifact under the raw per-fold decision field and adds zero effective approved rows.
+- The 30-fold evidence strengthens the rejection of raw approval counts as a discovery metric. All subsequent interim counts for this already-running batch must use effective approvals.
+- `large_minus_liquidity_20` remains a research lead by breadth, but still fails capacity and effective approval tests.
+- No factor is promotable or paper-ready at 30/38 folds.
