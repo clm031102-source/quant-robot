@@ -566,6 +566,8 @@ def _grid_from_mapping(data: dict[str, Any]) -> ExperimentGridConfig:
         rank_by=str(data.get("rank_by", ExperimentGridConfig.rank_by)),
         min_trades=int(data.get("min_trades", ExperimentGridConfig.min_trades)),
         precompute_factor_matrix=bool(data.get("precompute_factor_matrix", ExperimentGridConfig.precompute_factor_matrix)),
+        resume_completed_cases=bool(data.get("resume_completed_cases", ExperimentGridConfig.resume_completed_cases)),
+        reuse_research_inputs=bool(data.get("reuse_research_inputs", ExperimentGridConfig.reuse_research_inputs)),
     )
 
 

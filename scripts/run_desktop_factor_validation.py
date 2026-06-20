@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import argparse
 import json
+from datetime import date
 from pathlib import Path
+from typing import Any
 
 try:
     from scripts.bootstrap import ensure_workspace_imports
@@ -60,13 +62,75 @@ def _preflight_desktop_inputs(config_path: str | Path, source: str, data_root: s
     if not root.exists():
         raise FileNotFoundError(f"Processed bars data root does not exist: {root}")
     config = load_walk_forward_config(config_path)
+    factor_input_root = config.experiment_grid.factor_input_root
+    if config.experiment_grid.factor_source in {"tushare_daily_basic", "daily_basic_technical_combo"}:
+        _require_factor_input_root(factor_input_root, label="daily-basic")
+        _validate_factor_input_coverage(root, factor_input_root, label="daily-basic")
     moneyflow_root = config.experiment_grid.moneyflow_input_root
-    if config.experiment_grid.factor_source == "moneyflow_technical_combo" and moneyflow_root is not None:
-        if not moneyflow_root.exists():
-            raise FileNotFoundError(
-                "Desktop factor validation requires Tushare moneyflow inputs at "
-                f"{moneyflow_root}. Run or sync the local Tushare moneyflow input pipeline before validation."
-            )
+    if config.experiment_grid.factor_source in {"tushare_moneyflow", "moneyflow_technical_combo"}:
+        _require_factor_input_root(moneyflow_root, label="moneyflow")
+        _validate_factor_input_coverage(root, moneyflow_root, label="moneyflow")
+
+
+def _require_factor_input_root(path: Path | None, *, label: str) -> None:
+    if path is not None and path.exists():
+        return
+    target = path if path is not None else "<missing>"
+    input_name = "moneyflow inputs" if label == "moneyflow" else f"{label} factor inputs"
+    raise FileNotFoundError(
+        f"Desktop factor validation requires Tushare {input_name} at "
+        f"{target}. Run or sync the local Tushare {label} input pipeline before validation."
+    )
+
+
+def _validate_factor_input_coverage(data_root: Path, factor_input_root: Path | None, *, label: str) -> None:
+    if factor_input_root is None or not data_root.is_file() or not factor_input_root.is_file():
+        return
+    bars_end = _authority_config_end_date(data_root)
+    inputs_end = _authority_config_end_date(factor_input_root)
+    if bars_end is None or inputs_end is None or inputs_end >= bars_end:
+        return
+    raise ValueError(
+        f"{label} factor input coverage ends at {inputs_end.isoformat()}, "
+        f"before authority bars coverage ends at {bars_end.isoformat()}. "
+        "Use a bars config whose date range matches available factor inputs or backfill the factor inputs first."
+    )
+
+
+def _authority_config_end_date(path: Path) -> date | None:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+    end_dates = [
+        parsed
+        for parsed in (_parse_date(segment.get("end_date")) for segment in _segments(data))
+        if parsed is not None
+    ]
+    return max(end_dates) if end_dates else None
+
+
+def _segments(data: Any) -> list[dict[str, Any]]:
+    if not isinstance(data, dict):
+        return []
+    segments = data.get("segments", [])
+    if not isinstance(segments, list):
+        return []
+    return [segment for segment in segments if isinstance(segment, dict)]
+
+
+def _parse_date(value: Any) -> date | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    if len(text) == 8 and text.isdigit():
+        text = f"{text[:4]}-{text[4:6]}-{text[6:]}"
+    try:
+        return date.fromisoformat(text)
+    except ValueError:
+        return None
 
 
 def main() -> None:

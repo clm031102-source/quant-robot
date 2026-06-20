@@ -49,6 +49,19 @@ DESKTOP_VALIDATION_CHECK_NAMES = (
     "data_quality_audit",
 )
 
+DAILY_BASIC_VALIDATION_CONFIG = "configs/walk_forward_cn_stock_daily_basic_value_low_turnover_bucket_20260620.json"
+DAILY_BASIC_AUTHORITY_BARS_CONFIG = "configs/cn_stock_authority_bars_2015_2024.json"
+DAILY_BASIC_VALIDATION_ROOT = "data/reports/walk_forward_cn_stock_daily_basic_value_low_turnover_bucket_20260620"
+DAILY_BASIC_DATA_QUALITY_DIR = (
+    "data/reports/data_quality_gap_audit_cn_stock_daily_basic_value_low_turnover_bucket_20260620"
+)
+DAILY_BASIC_PROGRESS_AUDIT_DIR = (
+    "data/reports/walk_forward_progress_audit_cn_stock_daily_basic_value_low_turnover_bucket_20260620"
+)
+DAILY_BASIC_REGIME_COVERAGE_DIR = (
+    "data/reports/market_regime_coverage_cn_stock_daily_basic_value_low_turnover_bucket_20260620"
+)
+
 
 def build_check_plan(python_executable: str = sys.executable, profile: str = "full") -> list[CheckStep]:
     full_plan = [
@@ -152,6 +165,63 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
             ),
             CheckStep("desktop_validation_summary", [python_executable, "scripts/run_desktop_validation_summary.py"]),
         ]
+    if profile == "desktop-daily-basic-validation":
+        selected = set(DESKTOP_VALIDATION_CHECK_NAMES)
+        return [
+            *_desktop_validation_safety_steps(
+                full_plan,
+                selected,
+                python_executable,
+                data_root=DAILY_BASIC_AUTHORITY_BARS_CONFIG,
+                data_quality_output_dir=DAILY_BASIC_DATA_QUALITY_DIR,
+            ),
+            CheckStep(
+                "desktop_daily_basic_factor_validation",
+                [
+                    python_executable,
+                    "scripts/run_desktop_factor_validation.py",
+                    "--config",
+                    DAILY_BASIC_VALIDATION_CONFIG,
+                    "--source",
+                    "processed-bars",
+                    "--data-root",
+                    DAILY_BASIC_AUTHORITY_BARS_CONFIG,
+                ],
+            ),
+            CheckStep(
+                "desktop_daily_basic_walk_forward_progress_audit",
+                [
+                    python_executable,
+                    "scripts/run_walk_forward_progress_audit.py",
+                    "--walk-forward-root",
+                    DAILY_BASIC_VALIDATION_ROOT,
+                    "--output-dir",
+                    DAILY_BASIC_PROGRESS_AUDIT_DIR,
+                    "--expected-folds",
+                    "38",
+                ],
+            ),
+            CheckStep(
+                "desktop_daily_basic_market_regime_coverage",
+                [
+                    python_executable,
+                    "scripts/run_market_regime_coverage.py",
+                    "--regime-curve-glob",
+                    f"{DAILY_BASIC_VALIDATION_ROOT}/fold_*/test/*/regime_curve.csv",
+                    "--output-dir",
+                    DAILY_BASIC_REGIME_COVERAGE_DIR,
+                    "--min-regimes",
+                    "2",
+                    "--min-rows-per-regime",
+                    "5",
+                    "--min-allowed-rows",
+                    "5",
+                    "--min-blocked-rows",
+                    "5",
+                    "--require-sufficient",
+                ],
+            ),
+        ]
     raise ValueError(f"Unsupported check profile: {profile}")
 
 
@@ -165,18 +235,27 @@ def _desktop_validation_safety_steps(
     full_plan: list[CheckStep],
     selected: set[str],
     python_executable: str,
+    *,
+    data_root: str = "configs/cn_stock_authority_bars_2015_2025.json",
+    data_quality_output_dir: str = "data/reports/data_quality_gap_audit_tushare_moneyflow_residual_regime",
 ) -> list[CheckStep]:
     steps: list[CheckStep] = []
     for step in full_plan:
         if step.name not in selected:
             continue
-        steps.append(_with_desktop_validation_context(step))
+        steps.append(
+            _with_desktop_validation_context(
+                step,
+                data_root=data_root,
+                data_quality_output_dir=data_quality_output_dir,
+            )
+        )
         if step.name == "data_catalog":
-            steps.extend(_desktop_validation_cn_stock_preflight(python_executable))
+            steps.extend(_desktop_validation_cn_stock_preflight(python_executable, data_root=data_root))
     return steps
 
 
-def _desktop_validation_cn_stock_preflight(python_executable: str) -> list[CheckStep]:
+def _desktop_validation_cn_stock_preflight(python_executable: str, *, data_root: str) -> list[CheckStep]:
     return [
         CheckStep(
             "cn_stock_factor_mining_startup_gate",
@@ -202,7 +281,7 @@ def _desktop_validation_cn_stock_preflight(python_executable: str) -> list[Check
                 python_executable,
                 "scripts/run_cn_stock_data_manifest.py",
                 "--data-root",
-                "configs/cn_stock_authority_bars_2015_2025.json",
+                data_root,
                 "--market",
                 "CN",
                 "--output-dir",
@@ -212,7 +291,7 @@ def _desktop_validation_cn_stock_preflight(python_executable: str) -> list[Check
     ]
 
 
-def _with_desktop_validation_context(step: CheckStep) -> CheckStep:
+def _with_desktop_validation_context(step: CheckStep, *, data_root: str, data_quality_output_dir: str) -> CheckStep:
     if step.name == "data_quality_audit":
         return CheckStep(
             step.name,
@@ -220,11 +299,11 @@ def _with_desktop_validation_context(step: CheckStep) -> CheckStep:
                 step.command[0],
                 "scripts/run_data_quality_audit.py",
                 "--data-root",
-                "configs/cn_stock_authority_bars_2015_2025.json",
+                data_root,
                 "--market",
                 "CN",
                 "--output-dir",
-                "data/reports/data_quality_gap_audit_tushare_moneyflow_residual_regime",
+                data_quality_output_dir,
             ],
             uses_network=step.uses_network,
         )
@@ -251,7 +330,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run local Quant Robot checks.")
     parser.add_argument(
         "--profile",
-        choices=["full", "laptop", "desktop-validation"],
+        choices=["full", "laptop", "desktop-validation", "desktop-daily-basic-validation"],
         default="full",
         help="Select the check plan size.",
     )

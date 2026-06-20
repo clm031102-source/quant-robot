@@ -215,6 +215,8 @@ class WalkForwardTests(unittest.TestCase):
                             "benchmark_asset_id": "CN_ETF_XSHG_510300",
                             "regime_lookback_values": [60, 120],
                             "precompute_factor_matrix": True,
+                            "reuse_research_inputs": True,
+                            "resume_completed_cases": True,
                         },
                         "min_test_relative_return": 0.02,
                         "max_test_drawdown": 0.20,
@@ -243,6 +245,8 @@ class WalkForwardTests(unittest.TestCase):
             self.assertEqual(config.experiment_grid.benchmark_asset_id, "CN_ETF_XSHG_510300")
             self.assertEqual(config.experiment_grid.regime_lookback_values, (60, 120))
             self.assertTrue(config.experiment_grid.precompute_factor_matrix)
+            self.assertTrue(config.experiment_grid.reuse_research_inputs)
+            self.assertTrue(config.experiment_grid.resume_completed_cases)
             self.assertEqual(config.rolling_train_days, 252)
             self.assertEqual(config.rolling_test_days, 63)
             self.assertEqual(config.rolling_step_days, 21)

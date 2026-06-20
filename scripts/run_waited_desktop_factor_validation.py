@@ -15,15 +15,13 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 ensure_workspace_imports()
 
 try:
-    from scripts.run_desktop_factor_validation import (
-        DEFAULT_DATA_ROOT,
-        run_desktop_factor_validation,
-    )
+    from scripts.run_desktop_factor_validation import run_desktop_factor_validation
 except ModuleNotFoundError:  # pragma: no cover - direct script execution
-    from run_desktop_factor_validation import DEFAULT_DATA_ROOT, run_desktop_factor_validation
+    from run_desktop_factor_validation import run_desktop_factor_validation
 
 
 DEFAULT_CONFIG_PATH = Path("configs/walk_forward_cn_stock_daily_basic_value_low_turnover_bucket_20260620.json")
+DEFAULT_DATA_ROOT = Path("configs/cn_stock_authority_bars_2015_2024.json")
 DEFAULT_LOG_PATH = Path("data/reports/automation/waited_desktop_factor_validation.log")
 DEFAULT_SUMMARY_PATH = Path("data/reports/automation/waited_desktop_factor_validation_summary.json")
 

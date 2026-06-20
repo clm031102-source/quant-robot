@@ -7,6 +7,25 @@ from scripts.run_waited_desktop_factor_validation import run_waited_desktop_fact
 
 
 class WaitedDesktopFactorValidationTests(unittest.TestCase):
+    def test_daily_basic_default_uses_matching_2015_2024_authority_bars(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            events = []
+
+            def runner(**kwargs):
+                events.append(("runner", kwargs))
+                return {"summary": {"accepted": 0}, "leaderboard": []}
+
+            run_waited_desktop_factor_validation(
+                log_path=root / "queue.log",
+                summary_path=root / "queue_summary.json",
+                runner=runner,
+                timestamp=lambda: "2026-06-20T16:05:00+08:00",
+            )
+
+            self.assertEqual(events[0][0], "runner")
+            self.assertEqual(events[0][1]["data_root"], Path("configs/cn_stock_authority_bars_2015_2024.json"))
+
     def test_waits_for_blocking_pids_before_running_validation_and_writes_summary(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

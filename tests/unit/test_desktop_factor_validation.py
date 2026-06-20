@@ -118,6 +118,125 @@ class DesktopFactorValidationTests(unittest.TestCase):
             with self.assertRaisesRegex(FileNotFoundError, "Tushare moneyflow inputs"):
                 _preflight_desktop_inputs(config_path, "processed-bars", data_root)
 
+    def test_preflight_blocks_daily_basic_inputs_that_end_before_authority_bars(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bars_config = root / "bars.json"
+            factor_inputs_config = root / "daily_basic_inputs.json"
+            config_path = root / "walk_forward_daily_basic.json"
+            bars_config.write_text(
+                json.dumps(
+                    {
+                        "market": "CN",
+                        "segments": [
+                            {"root": "bars_a", "end_date": "2024-12-31"},
+                            {"root": "bars_b", "start_date": "2025-01-01", "end_date": "2025-12-31"},
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            factor_inputs_config.write_text(
+                json.dumps(
+                    {
+                        "market": "CN",
+                        "segments": [{"root": "daily_basic", "end_date": "2024-12-31"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "split_date": "2025-01-02",
+                        "experiment_grid": {
+                            "markets": ["CN"],
+                            "factor_source": "tushare_daily_basic",
+                            "factor_input_root": str(factor_inputs_config),
+                            "factor_input_required": True,
+                            "factor_names": ["turnover_rate_low_mv_bucket_rank"],
+                            "factor_windows": [1],
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "daily-basic factor input coverage"):
+                _preflight_desktop_inputs(config_path, "processed-bars", bars_config)
+
+    def test_preflight_blocks_missing_daily_basic_inputs_for_processed_bars(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            data_root = root / "data" / "processed"
+            data_root.mkdir(parents=True)
+            config_path = root / "walk_forward_daily_basic.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "split_date": "2025-01-02",
+                        "experiment_grid": {
+                            "markets": ["CN"],
+                            "factor_source": "tushare_daily_basic",
+                            "factor_input_root": str(root / "missing_daily_basic_inputs.json"),
+                            "factor_input_required": True,
+                            "factor_names": ["turnover_rate_low_mv_bucket_rank"],
+                            "factor_windows": [1],
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(FileNotFoundError, "daily-basic factor inputs"):
+                _preflight_desktop_inputs(config_path, "processed-bars", data_root)
+
+    def test_preflight_blocks_moneyflow_inputs_that_end_before_authority_bars(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bars_config = root / "bars.json"
+            moneyflow_config = root / "moneyflow_inputs.json"
+            config_path = root / "walk_forward_moneyflow.json"
+            bars_config.write_text(
+                json.dumps(
+                    {
+                        "market": "CN",
+                        "segments": [
+                            {"root": "bars_a", "end_date": "2024-12-31"},
+                            {"root": "bars_b", "start_date": "2025-01-01", "end_date": "2025-12-31"},
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            moneyflow_config.write_text(
+                json.dumps(
+                    {
+                        "market": "CN",
+                        "segments": [{"root": "moneyflow", "end_date": "2024-12-31"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "split_date": "2025-01-02",
+                        "experiment_grid": {
+                            "markets": ["CN"],
+                            "factor_source": "moneyflow_technical_combo",
+                            "moneyflow_input_root": str(moneyflow_config),
+                            "factor_names": ["large_resid_liq_vol_amt_gate_20"],
+                            "factor_windows": [20],
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "moneyflow factor input coverage"):
+                _preflight_desktop_inputs(config_path, "processed-bars", bars_config)
+
 
 def _cleared_batch12_preflight_packet() -> dict:
     return {

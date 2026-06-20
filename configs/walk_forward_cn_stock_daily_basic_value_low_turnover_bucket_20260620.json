@@ -39,6 +39,7 @@
     "min_trades": 30,
     "precompute_factor_matrix": true,
     "reuse_research_inputs": true,
+    "resume_completed_cases": true,
     "regime_filter": true,
     "regime_lookback": 180,
     "regime_lookback_values": [120, 180, 252]

@@ -261,6 +261,103 @@ class CheckPlanTests(unittest.TestCase):
         )
         self.assertEqual(plan[-1].command, ["python", "scripts/run_desktop_validation_summary.py"])
 
+    def test_desktop_daily_basic_validation_profile_runs_soft_capacity_bucket_validation(self):
+        plan = build_check_plan("python", profile="desktop-daily-basic-validation")
+
+        names = [step.name for step in plan]
+        self.assertEqual(
+            names,
+            [
+                "unit_and_integration_tests",
+                "compile_python",
+                "project_audit",
+                "readiness_check",
+                "provider_status",
+                "data_catalog",
+                "cn_stock_factor_mining_startup_gate",
+                "cn_stock_data_manifest",
+                "data_quality_audit",
+                "desktop_daily_basic_factor_validation",
+                "desktop_daily_basic_walk_forward_progress_audit",
+                "desktop_daily_basic_market_regime_coverage",
+            ],
+        )
+        self.assertTrue(all(not step.uses_network for step in plan))
+        data_quality = next(step for step in plan if step.name == "data_quality_audit")
+        self.assertEqual(
+            data_quality.command,
+            [
+                "python",
+                "scripts/run_data_quality_audit.py",
+                "--data-root",
+                "configs/cn_stock_authority_bars_2015_2024.json",
+                "--market",
+                "CN",
+                "--output-dir",
+                "data/reports/data_quality_gap_audit_cn_stock_daily_basic_value_low_turnover_bucket_20260620",
+            ],
+        )
+        data_manifest = next(step for step in plan if step.name == "cn_stock_data_manifest")
+        self.assertEqual(
+            data_manifest.command,
+            [
+                "python",
+                "scripts/run_cn_stock_data_manifest.py",
+                "--data-root",
+                "configs/cn_stock_authority_bars_2015_2024.json",
+                "--market",
+                "CN",
+                "--output-dir",
+                "data/reports/cn_stock_data_manifest",
+            ],
+        )
+        self.assertEqual(
+            plan[-3].command,
+            [
+                "python",
+                "scripts/run_desktop_factor_validation.py",
+                "--config",
+                "configs/walk_forward_cn_stock_daily_basic_value_low_turnover_bucket_20260620.json",
+                "--source",
+                "processed-bars",
+                "--data-root",
+                "configs/cn_stock_authority_bars_2015_2024.json",
+            ],
+        )
+        self.assertEqual(
+            plan[-2].command,
+            [
+                "python",
+                "scripts/run_walk_forward_progress_audit.py",
+                "--walk-forward-root",
+                "data/reports/walk_forward_cn_stock_daily_basic_value_low_turnover_bucket_20260620",
+                "--output-dir",
+                "data/reports/walk_forward_progress_audit_cn_stock_daily_basic_value_low_turnover_bucket_20260620",
+                "--expected-folds",
+                "38",
+            ],
+        )
+        self.assertEqual(
+            plan[-1].command,
+            [
+                "python",
+                "scripts/run_market_regime_coverage.py",
+                "--regime-curve-glob",
+                "data/reports/walk_forward_cn_stock_daily_basic_value_low_turnover_bucket_20260620/fold_*/test/*/regime_curve.csv",
+                "--output-dir",
+                "data/reports/market_regime_coverage_cn_stock_daily_basic_value_low_turnover_bucket_20260620",
+                "--min-regimes",
+                "2",
+                "--min-rows-per-regime",
+                "5",
+                "--min-allowed-rows",
+                "5",
+                "--min-blocked-rows",
+                "5",
+                "--require-sufficient",
+            ],
+        )
+
     def test_unknown_check_profile_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "Unsupported check profile"):
             build_check_plan("python", profile="moonbase")
