@@ -20,6 +20,7 @@ class PromotionGateConfig:
     provider_status: Path | None = None
     quality_report: Path | None = None
     market_regime_coverage: Path | None = None
+    long_cycle_replay: Path | None = None
     output_dir: Path | None = None
     min_oos_trades: int = 20
     min_oos_sharpe: float = 0.50
@@ -44,6 +45,7 @@ class PromotionGateConfig:
     require_provider_ready_for_promotion: bool = False
     max_provider_status_age_days: int | None = None
     require_market_regime_coverage: bool = False
+    require_long_cycle_replay: bool = False
     min_distinct_regime_lookbacks_for_family: int = 1
 
 
@@ -58,6 +60,7 @@ def load_promotion_gate_config(path: str | Path) -> PromotionGateConfig:
         provider_status=_optional_path(data.get("provider_status")),
         quality_report=_optional_path(data.get("quality_report")),
         market_regime_coverage=_optional_path(data.get("market_regime_coverage")),
+        long_cycle_replay=_optional_path(data.get("long_cycle_replay")),
         output_dir=_optional_path(data.get("output_dir")),
         min_oos_trades=int(data.get("min_oos_trades", PromotionGateConfig.min_oos_trades)),
         min_oos_sharpe=float(data.get("min_oos_sharpe", PromotionGateConfig.min_oos_sharpe)),
@@ -94,6 +97,9 @@ def load_promotion_gate_config(path: str | Path) -> PromotionGateConfig:
         require_market_regime_coverage=bool(
             data.get("require_market_regime_coverage", PromotionGateConfig.require_market_regime_coverage)
         ),
+        require_long_cycle_replay=bool(
+            data.get("require_long_cycle_replay", PromotionGateConfig.require_long_cycle_replay)
+        ),
         min_distinct_regime_lookbacks_for_family=int(
             data.get(
                 "min_distinct_regime_lookbacks_for_family",
@@ -112,6 +118,7 @@ def run_promotion_gate(config: PromotionGateConfig) -> dict[str, Any]:
     provider_status = _read_json(config.provider_status) if config.provider_status else None
     quality_report = _read_json(config.quality_report) if config.quality_report else None
     market_regime_coverage = _read_optional_json(config.market_regime_coverage) if config.market_regime_coverage else None
+    long_cycle_replay = _read_optional_json(config.long_cycle_replay) if config.long_cycle_replay else None
     report = build_promotion_report(
         walk_forward_rows,
         experiment_rows=experiment_rows,
@@ -119,6 +126,7 @@ def run_promotion_gate(config: PromotionGateConfig) -> dict[str, Any]:
         provider_status=provider_status,
         quality_report=quality_report,
         market_regime_coverage=market_regime_coverage,
+        long_cycle_replay=long_cycle_replay,
         config=config,
     )
     if config.output_dir is not None:
@@ -134,6 +142,7 @@ def build_promotion_report(
     provider_status: dict[str, Any] | None = None,
     quality_report: dict[str, Any] | None = None,
     market_regime_coverage: dict[str, Any] | None = None,
+    long_cycle_replay: dict[str, Any] | None = None,
     config: PromotionGateConfig = PromotionGateConfig(),
 ) -> dict[str, Any]:
     experiment_by_case = {str(row.get("case_id")): row for row in experiment_rows or []}
@@ -141,6 +150,7 @@ def build_promotion_report(
     if paper_manifest is not None:
         paper_evidence.append(paper_manifest)
     accepted_regime_lookbacks_by_family = _accepted_regime_lookbacks_by_family(walk_forward_rows)
+    long_cycle_by_case = _long_cycle_replay_by_case(long_cycle_replay)
     candidates = [
         _candidate_report(
             row,
@@ -149,6 +159,7 @@ def build_promotion_report(
             provider_status,
             quality_report,
             market_regime_coverage,
+            long_cycle_by_case,
             accepted_regime_lookbacks_by_family,
             config,
         )
@@ -182,6 +193,7 @@ def _candidate_report(
     provider_status: dict[str, Any] | None,
     quality_report: dict[str, Any] | None,
     market_regime_coverage: dict[str, Any] | None,
+    long_cycle_by_case: dict[str, dict[str, Any]] | None,
     accepted_regime_lookbacks_by_family: dict[tuple[str, str, int | None, float | None], set[int]],
     config: PromotionGateConfig,
 ) -> dict[str, Any]:
@@ -230,6 +242,9 @@ def _candidate_report(
     warnings.extend(quality_reasons["warnings"])
 
     blocking.extend(_market_regime_reasons(market_regime_coverage, config))
+    long_cycle_summary = _long_cycle_summary(case_id, long_cycle_by_case, config)
+    blocking.extend(long_cycle_summary["blocking"])
+    warnings.extend(long_cycle_summary["warnings"])
 
     paper_summary = _paper_summary(row, paper_manifests, config)
     blocking.extend(paper_summary["blocking"])
@@ -303,6 +318,7 @@ def _candidate_report(
                 "max_drawdown": paper_summary["paper_max_drawdown"],
             },
             "market_regime_coverage": _market_regime_summary(market_regime_coverage),
+            "long_cycle_replay": long_cycle_summary["summary"],
             "duplicate_of": None,
             "duplicate_similarity": 0.0,
             "_signal_signature": sorted(paper_summary["signal_signature"]),
@@ -528,6 +544,91 @@ def _market_regime_summary(market_regime_coverage: dict[str, Any] | None) -> dic
         "cleared": bool(decision.get("market_regime_coverage_cleared")) or str(market_regime_coverage.get("status")) == "sufficient",
         "blockers": decision.get("blockers", []) if isinstance(decision.get("blockers", []), list) else [],
     }
+
+
+def _long_cycle_replay_by_case(long_cycle_replay: dict[str, Any] | None) -> dict[str, dict[str, Any]] | None:
+    if long_cycle_replay is None:
+        return None
+    rows = long_cycle_replay.get("candidate_decisions", [])
+    if not isinstance(rows, list):
+        return {}
+    return {
+        str(row.get("case_id")): row
+        for row in rows
+        if isinstance(row, dict) and row.get("case_id")
+    }
+
+
+def _long_cycle_summary(
+    case_id: str,
+    long_cycle_by_case: dict[str, dict[str, Any]] | None,
+    config: PromotionGateConfig,
+) -> dict[str, Any]:
+    empty_summary = {
+        "present": False,
+        "decision_status": None,
+        "long_cycle_coverage_status": None,
+        "lookahead_audit_status": None,
+        "overfit_audit_status": None,
+        "cost_capacity_audit_status": None,
+        "overlap_audit_status": None,
+        "strict_split_status": None,
+        "reasons": [],
+    }
+    if not config.require_long_cycle_replay:
+        return {"blocking": [], "warnings": [], "summary": empty_summary}
+    if long_cycle_by_case is None:
+        return {
+            "blocking": ["long_cycle_replay_missing"],
+            "warnings": [],
+            "summary": empty_summary,
+        }
+    row = long_cycle_by_case.get(case_id)
+    if row is None:
+        return {
+            "blocking": ["long_cycle_replay_candidate_missing"],
+            "warnings": [],
+            "summary": empty_summary,
+        }
+    blocking: list[str] = []
+    warnings: list[str] = []
+    decision_status = str(row.get("decision_status") or "")
+    if decision_status != "validation_candidate":
+        blocking.append("long_cycle_replay_not_validation_candidate")
+    status_fields = {
+        "long_cycle_coverage_status": "long_cycle_coverage",
+        "lookahead_audit_status": "long_cycle_lookahead_audit",
+        "cost_capacity_audit_status": "long_cycle_cost_capacity_audit",
+        "strict_split_status": "long_cycle_strict_split",
+    }
+    for field, reason_prefix in status_fields.items():
+        status = str(row.get(field) or "")
+        if status and status != "pass" and status != "sufficient":
+            blocking.append(f"{reason_prefix}_{status}")
+    overlap_status = str(row.get("overlap_audit_status") or "")
+    if overlap_status == "block":
+        blocking.append("long_cycle_overlap_audit_block")
+    elif overlap_status and overlap_status != "pass":
+        warnings.append(f"long_cycle_overlap_audit_{overlap_status}")
+    overfit_status = str(row.get("overfit_audit_status") or "")
+    if overfit_status == "block":
+        blocking.append("long_cycle_overfit_audit_block")
+    elif overfit_status and overfit_status != "pass":
+        warnings.append(f"long_cycle_overfit_audit_{overfit_status}")
+    replay_reasons = _string_list(row.get("reasons"))
+    warnings.extend(f"long_cycle_reason:{reason}" for reason in replay_reasons)
+    summary = {
+        "present": True,
+        "decision_status": decision_status or None,
+        "long_cycle_coverage_status": row.get("long_cycle_coverage_status"),
+        "lookahead_audit_status": row.get("lookahead_audit_status"),
+        "overfit_audit_status": row.get("overfit_audit_status"),
+        "cost_capacity_audit_status": row.get("cost_capacity_audit_status"),
+        "overlap_audit_status": row.get("overlap_audit_status"),
+        "strict_split_status": row.get("strict_split_status"),
+        "reasons": replay_reasons,
+    }
+    return {"blocking": _dedupe(blocking), "warnings": _dedupe(warnings), "summary": summary}
 
 
 def _accepted_regime_lookbacks_by_family(rows: list[dict[str, Any]]) -> dict[tuple[str, str, int | None, float | None], set[int]]:
@@ -856,6 +957,14 @@ def _optional_text(value: Any) -> str | None:
 
 def _dedupe(values: list[str]) -> list[str]:
     return list(dict.fromkeys(values))
+
+
+def _string_list(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    if value is None:
+        return []
+    return [str(value)]
 
 
 def _sanitize(value: Any) -> Any:

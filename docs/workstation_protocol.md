@@ -131,6 +131,15 @@ python scripts\run_desktop_factor_validation.py
 
 This runs `configs/walk_forward_tushare_moneyflow_residual_regime.json` on local processed bars and Tushare moneyflow inputs. It allows zero accepted candidates because a clean rejection set is still useful evidence. It should still fail on train/test grid errors, missing data, or unsafe repository state.
 
+For strict long-cycle CN stock validation, prefer the project profiles below instead of hand-written queue commands. Each profile runs the CN stock startup gate, manifest, data-quality audit, walk-forward validation, progress audit, same-parameter long-cycle replay coverage, regime coverage, and the matching promotion gate when configured. The strict promotion configs require the long-cycle replay pack, so missing replay evidence or failed lookahead/cost/capacity/split audits block promotion even if someone runs the promotion command by itself:
+
+```powershell
+python scripts\run_checks.py --profile desktop-validation --execute
+python scripts\run_checks.py --profile desktop-daily-basic-validation --execute
+python scripts\run_checks.py --profile desktop-daily-basic-value-size-liquidity-validation --execute
+python scripts\run_checks.py --profile desktop-price-volume-technical-validation --execute
+```
+
 Use the detailed checklist in `docs/research/desktop_residual_regime_validation_runbook_2026-06-16.md`.
 
 ## CN Stock Factor Mining Startup Gate

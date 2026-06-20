@@ -242,7 +242,16 @@ $env:PYTHONPATH='src'
 python scripts\run_checks.py --profile desktop-validation --execute
 ```
 
-The profile also builds a strict market-regime coverage pack from walk-forward test-fold `regime_curve.csv` files, requiring both allowed and blocked regime-filter dates, then builds a research-only promotion gate report and writes `docs/research/desktop_residual_regime_validation_latest.md`. The residual-regime promotion gate requires that coverage pack, blocks single-lookback regime wins, and treats out-of-sample Sharpe above `3.0` as an overfit blocker, so one-regime or too-good-to-be-true evidence cannot be promoted by running the promotion command alone. The summary command cross-checks the leaderboard against the walk-forward `manifest.json`, verifies promotion candidate case IDs, and records data-quality, promotion-gate, and regime-coverage status, so stale or mismatched validation artifacts fail instead of producing a misleading Markdown summary.
+Additional strict CN stock long-cycle validation profiles are available for follow-up lines after the startup gate and data manifest checks. These profiles also run same-parameter long-cycle replay coverage before regime and promotion gates:
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_checks.py --profile desktop-daily-basic-validation --execute
+python scripts\run_checks.py --profile desktop-daily-basic-value-size-liquidity-validation --execute
+python scripts\run_checks.py --profile desktop-price-volume-technical-validation --execute
+```
+
+The profile also builds a strict market-regime coverage pack from walk-forward test-fold `regime_curve.csv` files, requiring both allowed and blocked regime-filter dates, then builds a research-only promotion gate report and writes `docs/research/desktop_residual_regime_validation_latest.md`. The residual-regime promotion gate requires that coverage pack plus the same-parameter long-cycle replay pack, blocks single-lookback regime wins, blocks missing or failed long-cycle replay audits, and treats out-of-sample Sharpe above `3.0` as an overfit blocker, so one-regime, short-window, or too-good-to-be-true evidence cannot be promoted by running the promotion command alone. The summary command cross-checks the leaderboard against the walk-forward `manifest.json`, verifies promotion candidate case IDs, and records data-quality, promotion-gate, and regime-coverage status, so stale or mismatched validation artifacts fail instead of producing a misleading Markdown summary.
 
 The desktop profile's data-quality audit is pinned to the CN residual-regime data surface: `python scripts\run_data_quality_audit.py --data-root data\processed --market CN --output-dir data\reports\data_quality_gap_audit_tushare_moneyflow_residual_regime`. The residual-regime promotion gate consumes that audit JSON, so missing data-quality evidence stops the gate instead of being silently ignored. To build only the promotion report after a validation run:
 

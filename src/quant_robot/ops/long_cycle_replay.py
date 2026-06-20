@@ -242,6 +242,11 @@ def _candidate_decision(registry_row: dict[str, Any], source_row: dict[str, Any]
     total_return = _number(source_row.get("total_return", source_row.get("discovery_total_return")), 0.0)
     if total_return < 0.0:
         reasons.append("negative_return")
+    lookahead_status = _lookahead_audit_status(source_row, reasons)
+    cost_capacity_status = _cost_capacity_audit_status(source_row, reasons)
+    overlap_status = _overlap_audit_status(source_row, reasons)
+    strict_split_status = _strict_split_status(source_row, reasons)
+    overfit_status = "warning" if "high_sharpe_overfit_warning" in reasons else "pass"
 
     if "negative_return" in reasons:
         status = "discard"
@@ -258,12 +263,72 @@ def _candidate_decision(registry_row: dict[str, Any], source_row: dict[str, Any]
         "replay_status": "blocked" if coverage.get("status") != "sufficient" else "audit_only",
         "reasons": reasons,
         "long_cycle_coverage_status": coverage.get("status"),
-        "lookahead_audit_status": "not_run",
-        "overfit_audit_status": "warning" if "high_sharpe_overfit_warning" in reasons else "not_run",
-        "cost_capacity_audit_status": "not_run",
-        "overlap_audit_status": "not_run",
-        "strict_split_status": "not_run",
+        "lookahead_audit_status": lookahead_status,
+        "overfit_audit_status": overfit_status,
+        "cost_capacity_audit_status": cost_capacity_status,
+        "overlap_audit_status": overlap_status,
+        "strict_split_status": strict_split_status,
     }
+
+
+def _lookahead_audit_status(row: dict[str, Any], reasons: list[str]) -> str:
+    lag = _optional_number(row.get("execution_lag", row.get("lag")))
+    if lag is None:
+        reasons.append("execution_lag_missing")
+        return "warning"
+    if lag < 1:
+        reasons.append("same_day_execution_lag")
+        return "block"
+    return "pass"
+
+
+def _cost_capacity_audit_status(row: dict[str, Any], reasons: list[str]) -> str:
+    status = "pass"
+    cost = _optional_number(row.get("cost_bps", row.get("test_cost_bps")))
+    if cost is None:
+        reasons.append("transaction_cost_missing")
+        status = "warning"
+    elif cost <= 0:
+        reasons.append("missing_positive_transaction_cost")
+        status = "block"
+    participation = _optional_number(row.get("max_participation_rate", row.get("test_max_participation_rate")))
+    if participation is None:
+        reasons.append("capacity_participation_missing")
+        return "block" if status == "block" else "warning"
+    if participation > 0.01:
+        reasons.append("capacity_participation_too_high")
+        return "block"
+    return status
+
+
+def _overlap_audit_status(row: dict[str, Any], reasons: list[str]) -> str:
+    value = _optional_number(
+        row.get(
+            "overlap_autocorr_adjusted_sharpe",
+            row.get("test_overlap_autocorr_adjusted_sharpe"),
+        )
+    )
+    if value is None:
+        reasons.append("overlap_adjusted_sharpe_missing")
+        return "warning"
+    if abs(value) > 3.0:
+        reasons.append("overlap_adjusted_sharpe_overfit_warning")
+        return "warning"
+    return "pass"
+
+
+def _strict_split_status(row: dict[str, Any], reasons: list[str]) -> str:
+    train_start = _optional_date(row.get("train_start_date"))
+    train_end = _optional_date(row.get("train_end_date"))
+    test_start = _optional_date(row.get("test_start_date"))
+    if test_start is None or (train_start is None and train_end is None):
+        reasons.append("strict_split_dates_missing")
+        return "warning"
+    split_boundary = train_end or train_start
+    if test_start <= split_boundary:
+        reasons.append("test_starts_before_train_end")
+        return "block"
+    return "pass"
 
 
 def _frame(rows: list[dict[str, Any]] | pd.DataFrame) -> pd.DataFrame:
@@ -304,6 +369,26 @@ def _number(value: Any, default: float = 0.0) -> float:
     except (TypeError, ValueError):
         return default
     return number if math.isfinite(number) else default
+
+
+def _optional_number(value: Any) -> float | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _optional_date(value: Any) -> date | None:
+    if value is None:
+        return None
+    try:
+        parsed = pd.to_datetime(value)
+    except (TypeError, ValueError):
+        return None
+    if pd.isna(parsed):
+        return None
+    return parsed.date()
 
 
 def _dict(value: Any) -> dict[str, Any]:

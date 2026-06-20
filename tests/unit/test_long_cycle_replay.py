@@ -9,6 +9,7 @@ from quant_robot.ops.long_cycle_replay import (
     build_long_cycle_coverage,
     build_long_cycle_coverage_from_manifest,
     build_long_cycle_replay_pack,
+    build_long_cycle_replay_pack_from_coverage,
     write_long_cycle_replay_pack,
 )
 
@@ -160,6 +161,68 @@ class LongCycleReplayTests(unittest.TestCase):
         self.assertEqual(pack["candidate_decisions"][0]["decision_status"], "research_lead")
         self.assertIn("long_cycle_coverage_insufficient", pack["candidate_decisions"][0]["reasons"])
         self.assertIn("high_sharpe_overfit_warning", pack["candidate_decisions"][0]["reasons"])
+
+    def test_replay_pack_audits_bias_cost_capacity_overlap_and_split_fields(self):
+        coverage = {
+            "status": "sufficient",
+            "market": "CN",
+            "required_start": "2015-01-01",
+            "date_start": "2015-01-05",
+            "date_end": "2025-12-31",
+            "blockers": [],
+        }
+        candidates = [
+            {
+                "case_id": "clean_case",
+                "market": "CN",
+                "factor_name": "factor_x",
+                "sharpe": 0.8,
+                "cost_bps": 10,
+                "execution_lag": 1,
+                "max_participation_rate": 0.01,
+                "overlap_autocorr_adjusted_sharpe": 0.7,
+                "train_start_date": "2016-01-01",
+                "test_start_date": "2017-01-01",
+                "test_end_date": "2017-03-31",
+            },
+            {
+                "case_id": "biased_case",
+                "market": "CN",
+                "factor_name": "factor_y",
+                "sharpe": 1.2,
+                "cost_bps": 0,
+                "execution_lag": 0,
+                "max_participation_rate": 0.08,
+                "train_start_date": "2017-01-01",
+                "test_start_date": "2016-12-01",
+            },
+        ]
+
+        pack = build_long_cycle_replay_pack_from_coverage(
+            candidates,
+            coverage,
+            market="CN",
+            required_start="2015-01-01",
+        )
+
+        by_case = {row["case_id"]: row for row in pack["candidate_decisions"]}
+        self.assertEqual(by_case["clean_case"]["lookahead_audit_status"], "pass")
+        self.assertEqual(by_case["clean_case"]["cost_capacity_audit_status"], "pass")
+        self.assertEqual(by_case["clean_case"]["overlap_audit_status"], "pass")
+        self.assertEqual(by_case["clean_case"]["strict_split_status"], "pass")
+        self.assertEqual(by_case["clean_case"]["overfit_audit_status"], "pass")
+
+        biased = by_case["biased_case"]
+        self.assertEqual(biased["decision_status"], "research_lead")
+        self.assertEqual(biased["lookahead_audit_status"], "block")
+        self.assertEqual(biased["cost_capacity_audit_status"], "block")
+        self.assertEqual(biased["overlap_audit_status"], "warning")
+        self.assertEqual(biased["strict_split_status"], "block")
+        self.assertIn("same_day_execution_lag", biased["reasons"])
+        self.assertIn("missing_positive_transaction_cost", biased["reasons"])
+        self.assertIn("capacity_participation_too_high", biased["reasons"])
+        self.assertIn("overlap_adjusted_sharpe_missing", biased["reasons"])
+        self.assertIn("test_starts_before_train_end", biased["reasons"])
 
     def test_writer_emits_json_markdown_and_csv_artifacts(self):
         pack = {

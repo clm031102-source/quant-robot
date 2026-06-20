@@ -342,6 +342,109 @@ class PromotionGateTests(unittest.TestCase):
         self.assertIn("market_regime_coverage_not_sufficient", row["blocking_reasons"])
         self.assertIn("market_regimes_below_minimum", row["blocking_reasons"])
 
+    def test_promotion_blocks_candidate_without_required_long_cycle_replay(self):
+        report = build_promotion_report(
+            walk_forward_rows=[_accepted_walk_forward_row("CN_ETF_momentum_60_top1_cost5_reb5", "momentum_60")],
+            paper_manifest=_paper_manifest(
+                case_id="CN_ETF_momentum_60_top1_cost5_reb5",
+                factor_name="momentum_60",
+                sharpe=0.80,
+                total_return=0.20,
+            ),
+            config=PromotionGateConfig(
+                min_oos_sharpe=0.5,
+                min_paper_sharpe=0.5,
+                require_long_cycle_replay=True,
+            ),
+        )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "blocked")
+        self.assertIn("long_cycle_replay_missing", row["blocking_reasons"])
+
+    def test_promotion_blocks_candidate_with_failed_long_cycle_replay_audits(self):
+        replay_pack = {
+            "stage": "long_cycle_factor_replay",
+            "coverage": {"status": "sufficient"},
+            "candidate_decisions": [
+                {
+                    "case_id": "CN_ETF_momentum_60_top1_cost5_reb5",
+                    "decision_status": "research_lead",
+                    "reasons": ["same_day_execution_lag", "capacity_participation_too_high"],
+                    "long_cycle_coverage_status": "sufficient",
+                    "lookahead_audit_status": "block",
+                    "overfit_audit_status": "pass",
+                    "cost_capacity_audit_status": "block",
+                    "overlap_audit_status": "pass",
+                    "strict_split_status": "pass",
+                }
+            ],
+        }
+
+        report = build_promotion_report(
+            walk_forward_rows=[_accepted_walk_forward_row("CN_ETF_momentum_60_top1_cost5_reb5", "momentum_60")],
+            paper_manifest=_paper_manifest(
+                case_id="CN_ETF_momentum_60_top1_cost5_reb5",
+                factor_name="momentum_60",
+                sharpe=0.80,
+                total_return=0.20,
+            ),
+            long_cycle_replay=replay_pack,
+            config=PromotionGateConfig(
+                min_oos_sharpe=0.5,
+                min_paper_sharpe=0.5,
+                require_long_cycle_replay=True,
+            ),
+        )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "blocked")
+        self.assertIn("long_cycle_replay_not_validation_candidate", row["blocking_reasons"])
+        self.assertIn("long_cycle_lookahead_audit_block", row["blocking_reasons"])
+        self.assertIn("long_cycle_cost_capacity_audit_block", row["blocking_reasons"])
+        self.assertIn("long_cycle_reason:same_day_execution_lag", row["warnings"])
+        self.assertEqual(row["long_cycle_replay"]["decision_status"], "research_lead")
+
+    def test_promotion_accepts_candidate_with_required_long_cycle_replay_audits(self):
+        replay_pack = {
+            "stage": "long_cycle_factor_replay",
+            "coverage": {"status": "sufficient"},
+            "candidate_decisions": [
+                {
+                    "case_id": "CN_ETF_momentum_60_top1_cost5_reb5",
+                    "decision_status": "validation_candidate",
+                    "reasons": [],
+                    "long_cycle_coverage_status": "sufficient",
+                    "lookahead_audit_status": "pass",
+                    "overfit_audit_status": "pass",
+                    "cost_capacity_audit_status": "pass",
+                    "overlap_audit_status": "pass",
+                    "strict_split_status": "pass",
+                }
+            ],
+        }
+
+        report = build_promotion_report(
+            walk_forward_rows=[_accepted_walk_forward_row("CN_ETF_momentum_60_top1_cost5_reb5", "momentum_60")],
+            paper_manifest=_paper_manifest(
+                case_id="CN_ETF_momentum_60_top1_cost5_reb5",
+                factor_name="momentum_60",
+                sharpe=0.80,
+                total_return=0.20,
+            ),
+            long_cycle_replay=replay_pack,
+            config=PromotionGateConfig(
+                min_oos_sharpe=0.5,
+                min_paper_sharpe=0.5,
+                require_long_cycle_replay=True,
+            ),
+        )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "paper_ready")
+        self.assertEqual(row["long_cycle_replay"]["decision_status"], "validation_candidate")
+        self.assertEqual(row["long_cycle_replay"]["lookahead_audit_status"], "pass")
+
     def test_promotion_blocks_candidate_accepted_by_only_one_regime_lookback_when_required(self):
         accepted = _accepted_walk_forward_row("CN_momentum_60_top1_cost5_reb1_regime150", "momentum_60")
         accepted["regime_lookback"] = 150
@@ -451,7 +554,9 @@ class PromotionGateTests(unittest.TestCase):
                   "walk_forward_leaderboard": "walk_forward.csv",
                   "required_factor_source": "tushare_daily_basic",
                   "max_adjusted_ic_p_value": 0.05,
-                  "max_tail_ic_p_value": 0.05
+                  "max_tail_ic_p_value": 0.05,
+                  "long_cycle_replay": "long_cycle/long_cycle_replay_pack.json",
+                  "require_long_cycle_replay": true
                 }
                 """,
                 encoding="utf-8",
@@ -462,6 +567,8 @@ class PromotionGateTests(unittest.TestCase):
         self.assertEqual(config.required_factor_source, "tushare_daily_basic")
         self.assertAlmostEqual(config.max_adjusted_ic_p_value, 0.05)
         self.assertAlmostEqual(config.max_tail_ic_p_value, 0.05)
+        self.assertEqual(config.long_cycle_replay, Path("long_cycle/long_cycle_replay_pack.json"))
+        self.assertTrue(config.require_long_cycle_replay)
 
     def test_residual_regime_promotion_config_uses_strict_moneyflow_combo_controls(self):
         config = load_promotion_gate_config("configs/promotion_gate_tushare_moneyflow_residual_regime.json")
@@ -487,6 +594,24 @@ class PromotionGateTests(unittest.TestCase):
             Path("data/reports/data_quality_gap_audit_tushare_moneyflow_residual_regime/data_quality_gap_audit.json"),
         )
         self.assertTrue(config.require_market_regime_coverage)
+        self.assertEqual(
+            config.long_cycle_replay,
+            Path("data/reports/long_cycle_factor_replay_tushare_moneyflow_residual_regime/long_cycle_replay_pack.json"),
+        )
+        self.assertTrue(config.require_long_cycle_replay)
+
+    def test_strict_cn_stock_promotion_configs_require_long_cycle_replay(self):
+        config_paths = [
+            "configs/promotion_gate_tushare_moneyflow_residual_regime.json",
+            "configs/promotion_gate_cn_stock_daily_basic_value_size_liquidity_20260620.json",
+            "configs/promotion_gate_cn_stock_price_volume_technical_20260620.json",
+        ]
+
+        for config_path in config_paths:
+            with self.subTest(config_path=config_path):
+                config = load_promotion_gate_config(config_path)
+                self.assertTrue(config.require_long_cycle_replay)
+                self.assertIsNotNone(config.long_cycle_replay)
 
     def test_promotion_blocks_stale_or_unready_provider_status_when_required(self):
         report = build_promotion_report(

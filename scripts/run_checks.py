@@ -62,6 +62,50 @@ DAILY_BASIC_PROGRESS_AUDIT_DIR = (
 DAILY_BASIC_REGIME_COVERAGE_DIR = (
     "data/reports/market_regime_coverage_cn_stock_daily_basic_value_low_turnover_bucket_20260620"
 )
+RESIDUAL_LONG_CYCLE_REPLAY_DIR = "data/reports/long_cycle_factor_replay_tushare_moneyflow_residual_regime"
+DAILY_BASIC_LONG_CYCLE_REPLAY_DIR = (
+    "data/reports/long_cycle_factor_replay_cn_stock_daily_basic_value_low_turnover_bucket_20260620"
+)
+DAILY_BASIC_VALUE_SIZE_LIQUIDITY_VALIDATION_CONFIG = (
+    "configs/walk_forward_cn_stock_daily_basic_value_size_liquidity_20260620.json"
+)
+DAILY_BASIC_VALUE_SIZE_LIQUIDITY_PROMOTION_CONFIG = (
+    "configs/promotion_gate_cn_stock_daily_basic_value_size_liquidity_20260620.json"
+)
+DAILY_BASIC_VALUE_SIZE_LIQUIDITY_VALIDATION_ROOT = (
+    "data/reports/walk_forward_cn_stock_daily_basic_value_size_liquidity_20260620"
+)
+DAILY_BASIC_VALUE_SIZE_LIQUIDITY_DATA_QUALITY_DIR = (
+    "data/reports/data_quality_gap_audit_cn_stock_daily_basic_value_size_liquidity_20260620"
+)
+DAILY_BASIC_VALUE_SIZE_LIQUIDITY_PROGRESS_AUDIT_DIR = (
+    "data/reports/walk_forward_progress_audit_cn_stock_daily_basic_value_size_liquidity_20260620"
+)
+DAILY_BASIC_VALUE_SIZE_LIQUIDITY_REGIME_COVERAGE_DIR = (
+    "data/reports/market_regime_coverage_cn_stock_daily_basic_value_size_liquidity_20260620"
+)
+DAILY_BASIC_VALUE_SIZE_LIQUIDITY_LONG_CYCLE_REPLAY_DIR = (
+    "data/reports/long_cycle_factor_replay_cn_stock_daily_basic_value_size_liquidity_20260620"
+)
+PRICE_VOLUME_TECHNICAL_VALIDATION_CONFIG = (
+    "configs/walk_forward_cn_stock_price_volume_technical_20260620.json"
+)
+PRICE_VOLUME_TECHNICAL_PROMOTION_CONFIG = (
+    "configs/promotion_gate_cn_stock_price_volume_technical_20260620.json"
+)
+PRICE_VOLUME_TECHNICAL_VALIDATION_ROOT = "data/reports/walk_forward_cn_stock_price_volume_technical_20260620"
+PRICE_VOLUME_TECHNICAL_DATA_QUALITY_DIR = (
+    "data/reports/data_quality_gap_audit_cn_stock_price_volume_technical_20260620"
+)
+PRICE_VOLUME_TECHNICAL_PROGRESS_AUDIT_DIR = (
+    "data/reports/walk_forward_progress_audit_cn_stock_price_volume_technical_20260620"
+)
+PRICE_VOLUME_TECHNICAL_REGIME_COVERAGE_DIR = (
+    "data/reports/market_regime_coverage_cn_stock_price_volume_technical_20260620"
+)
+PRICE_VOLUME_TECHNICAL_LONG_CYCLE_REPLAY_DIR = (
+    "data/reports/long_cycle_factor_replay_cn_stock_price_volume_technical_20260620"
+)
 
 
 def build_check_plan(python_executable: str = sys.executable, profile: str = "full") -> list[CheckStep]:
@@ -135,6 +179,12 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
                     "38",
                 ],
             ),
+            _long_cycle_replay_step(
+                "desktop_long_cycle_factor_replay",
+                python_executable=python_executable,
+                validation_root="data/reports/walk_forward_tushare_moneyflow_residual_regime",
+                output_dir=RESIDUAL_LONG_CYCLE_REPLAY_DIR,
+            ),
             CheckStep(
                 "desktop_market_regime_coverage",
                 [
@@ -203,6 +253,12 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
                     "38",
                 ],
             ),
+            _long_cycle_replay_step(
+                "desktop_daily_basic_long_cycle_factor_replay",
+                python_executable=python_executable,
+                validation_root=DAILY_BASIC_VALIDATION_ROOT,
+                output_dir=DAILY_BASIC_LONG_CYCLE_REPLAY_DIR,
+            ),
             CheckStep(
                 "desktop_daily_basic_market_regime_coverage",
                 [
@@ -224,6 +280,40 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
                 ],
             ),
         ]
+    if profile == "desktop-daily-basic-value-size-liquidity-validation":
+        selected = set(DESKTOP_VALIDATION_CHECK_NAMES)
+        return _desktop_factor_validation_gate_chain(
+            full_plan,
+            selected,
+            python_executable,
+            name_prefix="desktop_daily_basic_value_size_liquidity",
+            data_root=DAILY_BASIC_AUTHORITY_BARS_CONFIG,
+            daily_basic_root=DAILY_BASIC_AUTHORITY_INPUTS_CONFIG,
+            data_quality_output_dir=DAILY_BASIC_VALUE_SIZE_LIQUIDITY_DATA_QUALITY_DIR,
+            validation_config=DAILY_BASIC_VALUE_SIZE_LIQUIDITY_VALIDATION_CONFIG,
+            validation_root=DAILY_BASIC_VALUE_SIZE_LIQUIDITY_VALIDATION_ROOT,
+            progress_audit_dir=DAILY_BASIC_VALUE_SIZE_LIQUIDITY_PROGRESS_AUDIT_DIR,
+            regime_coverage_dir=DAILY_BASIC_VALUE_SIZE_LIQUIDITY_REGIME_COVERAGE_DIR,
+            long_cycle_replay_dir=DAILY_BASIC_VALUE_SIZE_LIQUIDITY_LONG_CYCLE_REPLAY_DIR,
+            promotion_config=DAILY_BASIC_VALUE_SIZE_LIQUIDITY_PROMOTION_CONFIG,
+        )
+    if profile == "desktop-price-volume-technical-validation":
+        selected = set(DESKTOP_VALIDATION_CHECK_NAMES)
+        return _desktop_factor_validation_gate_chain(
+            full_plan,
+            selected,
+            python_executable,
+            name_prefix="desktop_price_volume_technical",
+            data_root="configs/cn_stock_authority_bars_2015_2025.json",
+            daily_basic_root=None,
+            data_quality_output_dir=PRICE_VOLUME_TECHNICAL_DATA_QUALITY_DIR,
+            validation_config=PRICE_VOLUME_TECHNICAL_VALIDATION_CONFIG,
+            validation_root=PRICE_VOLUME_TECHNICAL_VALIDATION_ROOT,
+            progress_audit_dir=PRICE_VOLUME_TECHNICAL_PROGRESS_AUDIT_DIR,
+            regime_coverage_dir=PRICE_VOLUME_TECHNICAL_REGIME_COVERAGE_DIR,
+            long_cycle_replay_dir=PRICE_VOLUME_TECHNICAL_LONG_CYCLE_REPLAY_DIR,
+            promotion_config=PRICE_VOLUME_TECHNICAL_PROMOTION_CONFIG,
+        )
     raise ValueError(f"Unsupported check profile: {profile}")
 
 
@@ -308,6 +398,121 @@ def _desktop_validation_cn_stock_preflight(
     ]
 
 
+def _desktop_factor_validation_gate_chain(
+    full_plan: list[CheckStep],
+    selected: set[str],
+    python_executable: str,
+    *,
+    name_prefix: str,
+    data_root: str,
+    daily_basic_root: str | None,
+    data_quality_output_dir: str,
+    validation_config: str,
+    validation_root: str,
+    progress_audit_dir: str,
+    regime_coverage_dir: str,
+    long_cycle_replay_dir: str,
+    promotion_config: str,
+) -> list[CheckStep]:
+    return [
+        *_desktop_validation_safety_steps(
+            full_plan,
+            selected,
+            python_executable,
+            data_root=data_root,
+            daily_basic_root=daily_basic_root,
+            data_quality_output_dir=data_quality_output_dir,
+        ),
+        CheckStep(
+            f"{name_prefix}_factor_validation",
+            [
+                python_executable,
+                "scripts/run_desktop_factor_validation.py",
+                "--config",
+                validation_config,
+                "--source",
+                "processed-bars",
+                "--data-root",
+                data_root,
+            ],
+        ),
+        CheckStep(
+            f"{name_prefix}_walk_forward_progress_audit",
+            [
+                python_executable,
+                "scripts/run_walk_forward_progress_audit.py",
+                "--walk-forward-root",
+                validation_root,
+                "--output-dir",
+                progress_audit_dir,
+                "--expected-folds",
+                "38",
+            ],
+        ),
+        _long_cycle_replay_step(
+            f"{name_prefix}_long_cycle_factor_replay",
+            python_executable=python_executable,
+            validation_root=validation_root,
+            output_dir=long_cycle_replay_dir,
+        ),
+        CheckStep(
+            f"{name_prefix}_market_regime_coverage",
+            [
+                python_executable,
+                "scripts/run_market_regime_coverage.py",
+                "--regime-curve-glob",
+                f"{validation_root}/fold_*/test/*/regime_curve.csv",
+                "--output-dir",
+                regime_coverage_dir,
+                "--min-regimes",
+                "2",
+                "--min-rows-per-regime",
+                "5",
+                "--min-allowed-rows",
+                "5",
+                "--min-blocked-rows",
+                "5",
+                "--require-sufficient",
+            ],
+        ),
+        CheckStep(
+            f"{name_prefix}_promotion_report",
+            [
+                python_executable,
+                "scripts/run_promotion_report.py",
+                "--config",
+                promotion_config,
+            ],
+        ),
+    ]
+
+
+def _long_cycle_replay_step(
+    name: str,
+    *,
+    python_executable: str,
+    validation_root: str,
+    output_dir: str,
+) -> CheckStep:
+    return CheckStep(
+        name,
+        [
+            python_executable,
+            "scripts/run_long_cycle_factor_replay.py",
+            "--candidates-csv",
+            f"{validation_root}/walk_forward_leaderboard.csv",
+            "--manifest-json",
+            "data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json",
+            "--market",
+            "CN",
+            "--required-start",
+            "2015-01-01",
+            "--output-dir",
+            output_dir,
+        ],
+    )
+
+
 def _with_desktop_validation_context(step: CheckStep, *, data_root: str, data_quality_output_dir: str) -> CheckStep:
     if step.name == "data_quality_audit":
         return CheckStep(
@@ -347,7 +552,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run local Quant Robot checks.")
     parser.add_argument(
         "--profile",
-        choices=["full", "laptop", "desktop-validation", "desktop-daily-basic-validation"],
+        choices=[
+            "full",
+            "laptop",
+            "desktop-validation",
+            "desktop-daily-basic-validation",
+            "desktop-daily-basic-value-size-liquidity-validation",
+            "desktop-price-volume-technical-validation",
+        ],
         default="full",
         help="Select the check plan size.",
     )

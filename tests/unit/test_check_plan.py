@@ -163,6 +163,7 @@ class CheckPlanTests(unittest.TestCase):
                 "data_quality_audit",
                 "desktop_factor_validation",
                 "desktop_walk_forward_progress_audit",
+                "desktop_long_cycle_factor_replay",
                 "desktop_market_regime_coverage",
                 "desktop_promotion_report",
                 "desktop_validation_summary",
@@ -216,9 +217,10 @@ class CheckPlanTests(unittest.TestCase):
                 "data/reports/data_quality_gap_audit_tushare_moneyflow_residual_regime",
             ],
         )
-        self.assertEqual(plan[-5].command, ["python", "scripts/run_desktop_factor_validation.py"])
+        factor_validation = next(step for step in plan if step.name == "desktop_factor_validation")
+        self.assertEqual(factor_validation.command, ["python", "scripts/run_desktop_factor_validation.py"])
         self.assertEqual(
-            plan[-4].command,
+            next(step for step in plan if step.name == "desktop_walk_forward_progress_audit").command,
             [
                 "python",
                 "scripts/run_walk_forward_progress_audit.py",
@@ -231,7 +233,24 @@ class CheckPlanTests(unittest.TestCase):
             ],
         )
         self.assertEqual(
-            plan[-3].command,
+            next(step for step in plan if step.name == "desktop_long_cycle_factor_replay").command,
+            [
+                "python",
+                "scripts/run_long_cycle_factor_replay.py",
+                "--candidates-csv",
+                "data/reports/walk_forward_tushare_moneyflow_residual_regime/walk_forward_leaderboard.csv",
+                "--manifest-json",
+                "data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json",
+                "--market",
+                "CN",
+                "--required-start",
+                "2015-01-01",
+                "--output-dir",
+                "data/reports/long_cycle_factor_replay_tushare_moneyflow_residual_regime",
+            ],
+        )
+        self.assertEqual(
+            next(step for step in plan if step.name == "desktop_market_regime_coverage").command,
             [
                 "python",
                 "scripts/run_market_regime_coverage.py",
@@ -251,7 +270,7 @@ class CheckPlanTests(unittest.TestCase):
             ],
         )
         self.assertEqual(
-            plan[-2].command,
+            next(step for step in plan if step.name == "desktop_promotion_report").command,
             [
                 "python",
                 "scripts/run_promotion_report.py",
@@ -259,7 +278,10 @@ class CheckPlanTests(unittest.TestCase):
                 "configs/promotion_gate_tushare_moneyflow_residual_regime.json",
             ],
         )
-        self.assertEqual(plan[-1].command, ["python", "scripts/run_desktop_validation_summary.py"])
+        self.assertEqual(
+            next(step for step in plan if step.name == "desktop_validation_summary").command,
+            ["python", "scripts/run_desktop_validation_summary.py"],
+        )
 
     def test_desktop_daily_basic_validation_profile_runs_soft_capacity_bucket_validation(self):
         plan = build_check_plan("python", profile="desktop-daily-basic-validation")
@@ -279,6 +301,7 @@ class CheckPlanTests(unittest.TestCase):
                 "data_quality_audit",
                 "desktop_daily_basic_factor_validation",
                 "desktop_daily_basic_walk_forward_progress_audit",
+                "desktop_daily_basic_long_cycle_factor_replay",
                 "desktop_daily_basic_market_regime_coverage",
             ],
         )
@@ -314,7 +337,7 @@ class CheckPlanTests(unittest.TestCase):
             ],
         )
         self.assertEqual(
-            plan[-3].command,
+            next(step for step in plan if step.name == "desktop_daily_basic_factor_validation").command,
             [
                 "python",
                 "scripts/run_desktop_factor_validation.py",
@@ -327,7 +350,7 @@ class CheckPlanTests(unittest.TestCase):
             ],
         )
         self.assertEqual(
-            plan[-2].command,
+            next(step for step in plan if step.name == "desktop_daily_basic_walk_forward_progress_audit").command,
             [
                 "python",
                 "scripts/run_walk_forward_progress_audit.py",
@@ -340,7 +363,24 @@ class CheckPlanTests(unittest.TestCase):
             ],
         )
         self.assertEqual(
-            plan[-1].command,
+            next(step for step in plan if step.name == "desktop_daily_basic_long_cycle_factor_replay").command,
+            [
+                "python",
+                "scripts/run_long_cycle_factor_replay.py",
+                "--candidates-csv",
+                "data/reports/walk_forward_cn_stock_daily_basic_value_low_turnover_bucket_20260620/walk_forward_leaderboard.csv",
+                "--manifest-json",
+                "data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json",
+                "--market",
+                "CN",
+                "--required-start",
+                "2015-01-01",
+                "--output-dir",
+                "data/reports/long_cycle_factor_replay_cn_stock_daily_basic_value_low_turnover_bucket_20260620",
+            ],
+        )
+        self.assertEqual(
+            next(step for step in plan if step.name == "desktop_daily_basic_market_regime_coverage").command,
             [
                 "python",
                 "scripts/run_market_regime_coverage.py",
@@ -357,6 +397,257 @@ class CheckPlanTests(unittest.TestCase):
                 "--min-blocked-rows",
                 "5",
                 "--require-sufficient",
+            ],
+        )
+
+    def test_desktop_daily_basic_value_size_liquidity_profile_runs_full_gate_chain(self):
+        plan = build_check_plan("python", profile="desktop-daily-basic-value-size-liquidity-validation")
+
+        names = [step.name for step in plan]
+        self.assertEqual(
+            names,
+            [
+                "unit_and_integration_tests",
+                "compile_python",
+                "project_audit",
+                "readiness_check",
+                "provider_status",
+                "data_catalog",
+                "cn_stock_factor_mining_startup_gate",
+                "cn_stock_data_manifest",
+                "data_quality_audit",
+                "desktop_daily_basic_value_size_liquidity_factor_validation",
+                "desktop_daily_basic_value_size_liquidity_walk_forward_progress_audit",
+                "desktop_daily_basic_value_size_liquidity_long_cycle_factor_replay",
+                "desktop_daily_basic_value_size_liquidity_market_regime_coverage",
+                "desktop_daily_basic_value_size_liquidity_promotion_report",
+            ],
+        )
+        data_manifest = next(step for step in plan if step.name == "cn_stock_data_manifest")
+        self.assertEqual(
+            data_manifest.command,
+            [
+                "python",
+                "scripts/run_cn_stock_data_manifest.py",
+                "--data-root",
+                "configs/cn_stock_authority_bars_2015_2024.json",
+                "--market",
+                "CN",
+                "--output-dir",
+                "data/reports/cn_stock_data_manifest",
+                "--daily-basic-root",
+                "configs/cn_stock_authority_daily_basic_inputs_2015_2024.json",
+            ],
+        )
+        data_quality = next(step for step in plan if step.name == "data_quality_audit")
+        self.assertEqual(
+            data_quality.command,
+            [
+                "python",
+                "scripts/run_data_quality_audit.py",
+                "--data-root",
+                "configs/cn_stock_authority_bars_2015_2024.json",
+                "--market",
+                "CN",
+                "--output-dir",
+                "data/reports/data_quality_gap_audit_cn_stock_daily_basic_value_size_liquidity_20260620",
+            ],
+        )
+        self.assertEqual(
+            next(step for step in plan if step.name == "desktop_daily_basic_value_size_liquidity_factor_validation").command,
+            [
+                "python",
+                "scripts/run_desktop_factor_validation.py",
+                "--config",
+                "configs/walk_forward_cn_stock_daily_basic_value_size_liquidity_20260620.json",
+                "--source",
+                "processed-bars",
+                "--data-root",
+                "configs/cn_stock_authority_bars_2015_2024.json",
+            ],
+        )
+        self.assertEqual(
+            next(step for step in plan if step.name == "desktop_daily_basic_value_size_liquidity_walk_forward_progress_audit").command,
+            [
+                "python",
+                "scripts/run_walk_forward_progress_audit.py",
+                "--walk-forward-root",
+                "data/reports/walk_forward_cn_stock_daily_basic_value_size_liquidity_20260620",
+                "--output-dir",
+                "data/reports/walk_forward_progress_audit_cn_stock_daily_basic_value_size_liquidity_20260620",
+                "--expected-folds",
+                "38",
+            ],
+        )
+        self.assertEqual(
+            next(step for step in plan if step.name == "desktop_daily_basic_value_size_liquidity_long_cycle_factor_replay").command,
+            [
+                "python",
+                "scripts/run_long_cycle_factor_replay.py",
+                "--candidates-csv",
+                "data/reports/walk_forward_cn_stock_daily_basic_value_size_liquidity_20260620/walk_forward_leaderboard.csv",
+                "--manifest-json",
+                "data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json",
+                "--market",
+                "CN",
+                "--required-start",
+                "2015-01-01",
+                "--output-dir",
+                "data/reports/long_cycle_factor_replay_cn_stock_daily_basic_value_size_liquidity_20260620",
+            ],
+        )
+        self.assertEqual(
+            next(step for step in plan if step.name == "desktop_daily_basic_value_size_liquidity_market_regime_coverage").command,
+            [
+                "python",
+                "scripts/run_market_regime_coverage.py",
+                "--regime-curve-glob",
+                "data/reports/walk_forward_cn_stock_daily_basic_value_size_liquidity_20260620/fold_*/test/*/regime_curve.csv",
+                "--output-dir",
+                "data/reports/market_regime_coverage_cn_stock_daily_basic_value_size_liquidity_20260620",
+                "--min-regimes",
+                "2",
+                "--min-rows-per-regime",
+                "5",
+                "--min-allowed-rows",
+                "5",
+                "--min-blocked-rows",
+                "5",
+                "--require-sufficient",
+            ],
+        )
+        self.assertEqual(
+            next(step for step in plan if step.name == "desktop_daily_basic_value_size_liquidity_promotion_report").command,
+            [
+                "python",
+                "scripts/run_promotion_report.py",
+                "--config",
+                "configs/promotion_gate_cn_stock_daily_basic_value_size_liquidity_20260620.json",
+            ],
+        )
+
+    def test_desktop_price_volume_technical_profile_runs_full_gate_chain_without_daily_basic_inputs(self):
+        plan = build_check_plan("python", profile="desktop-price-volume-technical-validation")
+
+        names = [step.name for step in plan]
+        self.assertEqual(
+            names,
+            [
+                "unit_and_integration_tests",
+                "compile_python",
+                "project_audit",
+                "readiness_check",
+                "provider_status",
+                "data_catalog",
+                "cn_stock_factor_mining_startup_gate",
+                "cn_stock_data_manifest",
+                "data_quality_audit",
+                "desktop_price_volume_technical_factor_validation",
+                "desktop_price_volume_technical_walk_forward_progress_audit",
+                "desktop_price_volume_technical_long_cycle_factor_replay",
+                "desktop_price_volume_technical_market_regime_coverage",
+                "desktop_price_volume_technical_promotion_report",
+            ],
+        )
+        data_manifest = next(step for step in plan if step.name == "cn_stock_data_manifest")
+        self.assertEqual(
+            data_manifest.command,
+            [
+                "python",
+                "scripts/run_cn_stock_data_manifest.py",
+                "--data-root",
+                "configs/cn_stock_authority_bars_2015_2025.json",
+                "--market",
+                "CN",
+                "--output-dir",
+                "data/reports/cn_stock_data_manifest",
+            ],
+        )
+        self.assertNotIn("--daily-basic-root", data_manifest.command)
+        data_quality = next(step for step in plan if step.name == "data_quality_audit")
+        self.assertEqual(
+            data_quality.command,
+            [
+                "python",
+                "scripts/run_data_quality_audit.py",
+                "--data-root",
+                "configs/cn_stock_authority_bars_2015_2025.json",
+                "--market",
+                "CN",
+                "--output-dir",
+                "data/reports/data_quality_gap_audit_cn_stock_price_volume_technical_20260620",
+            ],
+        )
+        self.assertEqual(
+            next(step for step in plan if step.name == "desktop_price_volume_technical_factor_validation").command,
+            [
+                "python",
+                "scripts/run_desktop_factor_validation.py",
+                "--config",
+                "configs/walk_forward_cn_stock_price_volume_technical_20260620.json",
+                "--source",
+                "processed-bars",
+                "--data-root",
+                "configs/cn_stock_authority_bars_2015_2025.json",
+            ],
+        )
+        self.assertEqual(
+            next(step for step in plan if step.name == "desktop_price_volume_technical_walk_forward_progress_audit").command,
+            [
+                "python",
+                "scripts/run_walk_forward_progress_audit.py",
+                "--walk-forward-root",
+                "data/reports/walk_forward_cn_stock_price_volume_technical_20260620",
+                "--output-dir",
+                "data/reports/walk_forward_progress_audit_cn_stock_price_volume_technical_20260620",
+                "--expected-folds",
+                "38",
+            ],
+        )
+        self.assertEqual(
+            next(step for step in plan if step.name == "desktop_price_volume_technical_long_cycle_factor_replay").command,
+            [
+                "python",
+                "scripts/run_long_cycle_factor_replay.py",
+                "--candidates-csv",
+                "data/reports/walk_forward_cn_stock_price_volume_technical_20260620/walk_forward_leaderboard.csv",
+                "--manifest-json",
+                "data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json",
+                "--market",
+                "CN",
+                "--required-start",
+                "2015-01-01",
+                "--output-dir",
+                "data/reports/long_cycle_factor_replay_cn_stock_price_volume_technical_20260620",
+            ],
+        )
+        self.assertEqual(
+            next(step for step in plan if step.name == "desktop_price_volume_technical_market_regime_coverage").command,
+            [
+                "python",
+                "scripts/run_market_regime_coverage.py",
+                "--regime-curve-glob",
+                "data/reports/walk_forward_cn_stock_price_volume_technical_20260620/fold_*/test/*/regime_curve.csv",
+                "--output-dir",
+                "data/reports/market_regime_coverage_cn_stock_price_volume_technical_20260620",
+                "--min-regimes",
+                "2",
+                "--min-rows-per-regime",
+                "5",
+                "--min-allowed-rows",
+                "5",
+                "--min-blocked-rows",
+                "5",
+                "--require-sufficient",
+            ],
+        )
+        self.assertEqual(
+            next(step for step in plan if step.name == "desktop_price_volume_technical_promotion_report").command,
+            [
+                "python",
+                "scripts/run_promotion_report.py",
+                "--config",
+                "configs/promotion_gate_cn_stock_price_volume_technical_20260620.json",
             ],
         )
 
