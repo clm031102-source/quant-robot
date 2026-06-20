@@ -14,6 +14,7 @@ class RiskCandidateSelectorTests(unittest.TestCase):
                     "market": "CN_ETF",
                     "factor_name": "liquidity_10",
                     "promotion_rank": 1,
+                    "promotion_status": "paper_ready",
                     "score": 40.0,
                     "duplicate_of": None,
                     "walk_forward": {
@@ -30,6 +31,7 @@ class RiskCandidateSelectorTests(unittest.TestCase):
                     "market": "CN_ETF",
                     "factor_name": "liquidity_20",
                     "promotion_rank": 2,
+                    "promotion_status": "paper_ready",
                     "score": 30.0,
                     "duplicate_of": None,
                     "walk_forward": {
@@ -46,6 +48,7 @@ class RiskCandidateSelectorTests(unittest.TestCase):
                     "market": "CN_ETF",
                     "factor_name": "liquidity_120",
                     "promotion_rank": 3,
+                    "promotion_status": "paper_ready",
                     "score": 35.0,
                     "duplicate_of": "safer_case",
                     "walk_forward": {
@@ -69,6 +72,7 @@ class RiskCandidateSelectorTests(unittest.TestCase):
         self.assertEqual(pack["stage"], "phase_5_1_risk_candidate_selector")
         self.assertEqual(pack["selection_status"], "risk_candidate_selected")
         self.assertEqual(pack["selected_candidate"]["case_id"], "safer_case")
+        self.assertEqual(pack["selected_candidate"]["promotion_status"], "paper_ready")
         self.assertEqual(pack["summary"]["risk_eligible_candidates"], 1)
         current = next(row for row in pack["candidates"] if row["case_id"] == "current_case")
         self.assertIn("walk_forward_drawdown_breach", current["rejection_reasons"])
@@ -85,6 +89,7 @@ class RiskCandidateSelectorTests(unittest.TestCase):
                     "market": "CN_ETF",
                     "factor_name": "liquidity_10",
                     "promotion_rank": 1,
+                    "promotion_status": "paper_ready",
                     "duplicate_of": None,
                     "walk_forward": {
                         "validation_status": "accepted",
@@ -105,6 +110,38 @@ class RiskCandidateSelectorTests(unittest.TestCase):
         self.assertFalse(pack["paper_trading_allowed"])
         self.assertIn("run_constrained_candidate_search", [item["action"] for item in pack["next_actions"]])
 
+    def test_blocks_candidate_rejected_by_promotion_gate(self):
+        promotion = {
+            "candidates": [
+                {
+                    "case_id": "blocked_by_long_cycle",
+                    "market": "CN_STOCK",
+                    "factor_name": "value_quality_combo",
+                    "promotion_rank": 1,
+                    "promotion_status": "blocked",
+                    "blocking_reasons": ["long_cycle_replay_not_validation_candidate"],
+                    "duplicate_of": None,
+                    "walk_forward": {
+                        "validation_status": "accepted",
+                        "test_sharpe": 1.1,
+                        "test_relative_return": 0.18,
+                        "test_max_drawdown": -0.08,
+                        "test_trades": 120,
+                    },
+                    "paper": {"matched": True, "sharpe": 0.9, "max_drawdown": -0.06, "total_return": 0.28},
+                }
+            ]
+        }
+
+        pack = build_risk_candidate_pack(promotion, {"decision": {"status": "blocked"}}, max_drawdown_limit=0.2)
+
+        self.assertEqual(pack["selection_status"], "no_risk_eligible_candidate")
+        self.assertIsNone(pack["selected_candidate"])
+        self.assertEqual(pack["summary"]["risk_eligible_candidates"], 0)
+        candidate = pack["candidates"][0]
+        self.assertIn("promotion_status_not_paper_ready", candidate["rejection_reasons"])
+        self.assertEqual(candidate["promotion_status"], "blocked")
+
     def test_aggressive_growth_tier_can_select_high_return_candidate_without_live_boundary(self):
         promotion = {
             "candidates": [
@@ -113,6 +150,7 @@ class RiskCandidateSelectorTests(unittest.TestCase):
                     "market": "CN_ETF",
                     "factor_name": "liquidity_10",
                     "promotion_rank": 1,
+                    "promotion_status": "paper_ready",
                     "score": 30.0,
                     "duplicate_of": None,
                     "walk_forward": {
@@ -129,6 +167,7 @@ class RiskCandidateSelectorTests(unittest.TestCase):
                     "market": "CN_ETF",
                     "factor_name": "liquidity_20",
                     "promotion_rank": 2,
+                    "promotion_status": "paper_ready",
                     "score": 42.0,
                     "duplicate_of": None,
                     "walk_forward": {

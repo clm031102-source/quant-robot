@@ -22,6 +22,7 @@ class RiskCandidateSelectorCliTests(unittest.TestCase):
                                 "market": "CN_ETF",
                                 "factor_name": "liquidity_20",
                                 "promotion_rank": 1,
+                                "promotion_status": "paper_ready",
                                 "duplicate_of": None,
                                 "walk_forward": {
                                     "validation_status": "accepted",

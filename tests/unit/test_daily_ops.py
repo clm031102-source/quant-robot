@@ -13,6 +13,7 @@ class DailyOpsTests(unittest.TestCase):
                 "market": "CN_ETF",
                 "factor_name": "liquidity_10",
                 "rank": 1,
+                "promotion_status": "paper_ready",
             }
         }
         readiness = {
@@ -61,7 +62,7 @@ class DailyOpsTests(unittest.TestCase):
 
     def test_non_manual_blockers_keep_daily_ops_blocked(self):
         pack = build_daily_ops_pack(
-            {"selected_candidate": {"case_id": "case_a", "market": "CN_ETF", "factor_name": "liquidity_10"}},
+            {"selected_candidate": {"case_id": "case_a", "market": "CN_ETF", "factor_name": "liquidity_10", "promotion_status": "paper_ready"}},
             {
                 "readiness_items": [{"track_id": "provider_readiness", "status": "block", "evidence": "provider missing"}],
                 "blocker_register": [{"blocker_id": "provider_readiness_not_ready", "track_id": "provider_readiness"}],
@@ -75,9 +76,33 @@ class DailyOpsTests(unittest.TestCase):
         self.assertEqual(pack["decision"]["blocking_reasons"], ["provider_readiness_not_ready"])
         self.assertEqual(pack["advisory_tickets"], [])
 
+    def test_promotion_blocked_candidate_keeps_daily_ops_blocked(self):
+        pack = build_daily_ops_pack(
+            {
+                "selected_candidate": {
+                    "case_id": "case_a",
+                    "market": "CN_STOCK",
+                    "factor_name": "value_quality_combo",
+                    "promotion_status": "blocked",
+                }
+            },
+            {"blocker_register": [{"blocker_id": "manual_live_review_not_enabled"}]},
+            {
+                "targets": [{"asset_id": "stock_a", "target_weight": 1.0}],
+                "rebalance_plan": [{"asset_id": "stock_a", "market": "CN_STOCK", "estimated_quantity_delta": 100.0}],
+            },
+            {"metrics": {"max_equity_drawdown": -0.04}, "fills": [], "guard_events": [], "execution_events": []},
+            run_date="2026-06-13",
+        )
+
+        self.assertEqual(pack["decision"]["status"], "blocked")
+        self.assertFalse(pack["decision"]["paper_trading_allowed"])
+        self.assertIn("promotion_status_not_paper_ready", pack["decision"]["blocking_reasons"])
+        self.assertEqual(pack["advisory_tickets"], [])
+
     def test_max_drawdown_breach_blocks_daily_ops_tickets(self):
         pack = build_daily_ops_pack(
-            {"selected_candidate": {"case_id": "case_a", "market": "CN_ETF", "factor_name": "liquidity_10"}},
+            {"selected_candidate": {"case_id": "case_a", "market": "CN_ETF", "factor_name": "liquidity_10", "promotion_status": "paper_ready"}},
             {"blocker_register": [{"blocker_id": "manual_live_review_not_enabled", "track_id": "manual_review_gate"}]},
             {
                 "targets": [{"asset_id": "asset_a", "target_weight": 1.0}],
@@ -96,7 +121,7 @@ class DailyOpsTests(unittest.TestCase):
 
     def test_write_daily_ops_pack_outputs_json_markdown_and_csvs(self):
         pack = build_daily_ops_pack(
-            {"selected_candidate": {"case_id": "case_a", "market": "CN_ETF", "factor_name": "liquidity_10"}},
+            {"selected_candidate": {"case_id": "case_a", "market": "CN_ETF", "factor_name": "liquidity_10", "promotion_status": "paper_ready"}},
             {"readiness_items": [], "blocker_register": []},
             {
                 "as_of_date": "2026-06-12",
@@ -118,7 +143,7 @@ class DailyOpsTests(unittest.TestCase):
 
     def test_blocked_daily_ops_ticket_csv_keeps_headers(self):
         pack = build_daily_ops_pack(
-            {"selected_candidate": {"case_id": "case_a", "market": "CN_ETF", "factor_name": "liquidity_10"}},
+            {"selected_candidate": {"case_id": "case_a", "market": "CN_ETF", "factor_name": "liquidity_10", "promotion_status": "paper_ready"}},
             {"blocker_register": [{"blocker_id": "manual_live_review_not_enabled"}]},
             {"targets": [], "rebalance_plan": [{"asset_id": "asset_a", "market": "CN_ETF", "estimated_quantity_delta": 100.0}]},
             {"metrics": {"max_equity_drawdown": -0.5}, "fills": [], "guard_events": [], "execution_events": []},
