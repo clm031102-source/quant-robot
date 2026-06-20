@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -41,6 +42,10 @@ def audit_walk_forward_progress(
     completed_folds = [fold for fold in fold_progress if fold["test_leaderboard"]]
     is_complete = len(completed_folds) >= expected_folds
     for row in rows:
+        row["regime_all_blocked_no_trade"] = (
+            str(row.get("status")) == "no_trades" and _case_regime_all_blocked(root_path, row)
+        )
+    for row in rows:
         row["passes_progress_row_gate"] = _passes_row_gate(
             row,
             min_trades=min_trades,
@@ -62,7 +67,17 @@ def audit_walk_forward_progress(
     robust_candidates = [row for row in case_summary if row["robust_progress_candidate"]]
     factor_summary = _factor_summary(rows)
     passing_fold_distribution = _passing_fold_distribution(rows)
-    claim_blockers = _claim_blockers(is_complete=is_complete, robust_count=len(robust_candidates))
+    no_trade_fold_distribution = _no_trade_fold_distribution(rows, root_path)
+    no_trade_rows = sum(int(row["no_trade_rows"]) for row in no_trade_fold_distribution)
+    regime_all_blocked_no_trade_rows = sum(
+        int(row["regime_all_blocked_no_trade_rows"]) for row in no_trade_fold_distribution
+    )
+    claim_blockers = _claim_blockers(
+        is_complete=is_complete,
+        robust_count=len(robust_candidates),
+        no_trade_fold_count=len(no_trade_fold_distribution),
+        regime_all_blocked_no_trade_count=regime_all_blocked_no_trade_rows,
+    )
     return {
         "summary": {
             "generated_at": generated_at or datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S %z"),
@@ -75,6 +90,12 @@ def audit_walk_forward_progress(
             "unique_factors": len({str(row.get("factor_name")) for row in rows if row.get("factor_name")}),
             "passing_fold_rows": sum(1 for row in rows if row["passes_progress_row_gate"]),
             "passing_folds": len(passing_fold_distribution),
+            "no_trade_rows": no_trade_rows,
+            "no_trade_folds": len(no_trade_fold_distribution),
+            "regime_all_blocked_no_trade_rows": regime_all_blocked_no_trade_rows,
+            "regime_all_blocked_no_trade_folds": sum(
+                1 for row in no_trade_fold_distribution if int(row["regime_all_blocked_no_trade_rows"]) > 0
+            ),
             "robust_case_candidates": len(robust_candidates),
             "can_promote_from_progress_audit": False,
             "conclusion": _conclusion(is_complete=is_complete, robust_count=len(robust_candidates)),
@@ -82,6 +103,7 @@ def audit_walk_forward_progress(
         },
         "fold_progress": fold_progress,
         "passing_fold_distribution": passing_fold_distribution,
+        "no_trade_fold_distribution": no_trade_fold_distribution,
         "factor_summary": factor_summary,
         "case_summary": case_summary,
         "robust_case_candidates": robust_candidates,
@@ -101,6 +123,10 @@ def render_progress_markdown(audit: dict[str, Any]) -> str:
         f"- Unique factors: {summary.get('unique_factors')}",
         f"- Passing fold rows: {summary.get('passing_fold_rows')}",
         f"- Passing folds: {summary.get('passing_folds')}",
+        f"- No-trade rows: {summary.get('no_trade_rows', 0)}",
+        f"- No-trade folds: {summary.get('no_trade_folds', 0)}",
+        f"- Regime all-blocked no-trade rows: {summary.get('regime_all_blocked_no_trade_rows', 0)}",
+        f"- Regime all-blocked no-trade folds: {summary.get('regime_all_blocked_no_trade_folds', 0)}",
         f"- Robust progress candidates: {summary.get('robust_case_candidates')}",
         f"- Conclusion: `{summary.get('conclusion')}`",
         "- Boundary: this progress audit cannot promote a factor; promotion still requires the formal gate.",
@@ -128,6 +154,33 @@ def render_progress_markdown(audit: dict[str, Any]) -> str:
             lines.append(f"| {_text(row.get('fold'))} | {_text(row.get('passing_rows'))} |")
     else:
         lines.append("| n/a | 0 |")
+    lines.extend(
+        [
+            "",
+            "## No-Trade Fold Distribution",
+            "",
+            "| Fold | No-Trade Rows | Rows | All Rows No-Trade | Regime All-Blocked No-Trade Rows |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+    )
+    no_trade_distribution = audit.get("no_trade_fold_distribution", [])
+    if no_trade_distribution:
+        for row in no_trade_distribution[:20]:
+            lines.append(
+                "| "
+                + " | ".join(
+                    [
+                        _text(row.get("fold")),
+                        _text(row.get("no_trade_rows")),
+                        _text(row.get("rows")),
+                        _text(row.get("all_rows_no_trade")),
+                        _text(row.get("regime_all_blocked_no_trade_rows", 0)),
+                    ]
+                )
+                + " |"
+            )
+    else:
+        lines.append("| n/a | 0 | 0 | False | 0 |")
     lines.extend(
         [
             "",
@@ -190,6 +243,8 @@ def render_progress_markdown(audit: dict[str, Any]) -> str:
             lines.append(
                 "- "
                 f"`{row['case_id']}` passing={row['passing_rows']}/{row['folds']} "
+                f"no_trade={_text(row.get('no_trade_rows', 0))} "
+                f"regime_all_blocked_no_trade={_text(row.get('regime_all_blocked_no_trade_rows', 0))} "
                 f"mean_sharpe={_metric(row['mean_sharpe'])}: {blockers_text}"
             )
     lines.extend(["", "This audit cannot promote factors by itself."])
@@ -275,6 +330,8 @@ def _case_summary(
         relative_returns = [_float(row.get("relative_return")) for row in case_rows]
         capacity_limited_trades = sum(_float(row.get("capacity_limited_trades")) for row in case_rows)
         max_participation = max((_float(row.get("max_participation_rate")) for row in case_rows), default=0.0)
+        no_trade_rows = sum(1 for row in case_rows if str(row.get("status")) == "no_trades")
+        regime_all_blocked_no_trade_rows = sum(1 for row in case_rows if row.get("regime_all_blocked_no_trade"))
         summary = {
             "case_id": str(key[0]),
             "factor_name": str(key[1]),
@@ -286,6 +343,8 @@ def _case_summary(
             "folds": folds,
             "passing_rows": passing_rows,
             "required_passing_rows": required_rows,
+            "no_trade_rows": no_trade_rows,
+            "regime_all_blocked_no_trade_rows": regime_all_blocked_no_trade_rows,
             "mean_sharpe": _mean_float(case_rows, "sharpe"),
             "median_sharpe": _median_float(case_rows, "sharpe"),
             "positive_sharpe_fraction": _positive_fraction(case_rows, "sharpe"),
@@ -342,6 +401,10 @@ def _case_blockers(
         blockers.append("walk_forward_incomplete")
     if int(row["passing_rows"]) < int(row["required_passing_rows"]):
         blockers.append("insufficient_passing_fold_coverage")
+    if int(row.get("no_trade_rows", 0)) > 0:
+        blockers.append("case_no_trades_present")
+    if int(row.get("regime_all_blocked_no_trade_rows", 0)) > 0:
+        blockers.append("case_regime_all_blocked_no_trades")
     if float(row["mean_sharpe"]) < case_min_mean_sharpe:
         blockers.append("mean_sharpe_below_progress_floor")
     if float(row["median_sharpe"]) < 0:
@@ -397,10 +460,92 @@ def _passing_fold_distribution(rows: list[dict[str, Any]]) -> list[dict[str, Any
     ]
 
 
-def _claim_blockers(*, is_complete: bool, robust_count: int) -> list[str]:
+def _no_trade_fold_distribution(rows: list[dict[str, Any]], root: Path) -> list[dict[str, Any]]:
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for row in rows:
+        grouped[str(row.get("fold"))].append(row)
+    distribution: list[dict[str, Any]] = []
+    for fold, fold_rows in grouped.items():
+        no_trade_case_rows = [row for row in fold_rows if str(row.get("status")) == "no_trades"]
+        no_trade_rows = len(no_trade_case_rows)
+        if no_trade_rows:
+            regime_all_blocked_no_trade_rows = sum(
+                1
+                for row in no_trade_case_rows
+                if row.get("regime_all_blocked_no_trade") or _case_regime_all_blocked(root, row)
+            )
+            distribution.append(
+                {
+                    "fold": fold,
+                    "no_trade_rows": no_trade_rows,
+                    "rows": len(fold_rows),
+                    "all_rows_no_trade": no_trade_rows == len(fold_rows),
+                    "regime_all_blocked_no_trade_rows": regime_all_blocked_no_trade_rows,
+                }
+            )
+    return sorted(distribution, key=lambda row: (-int(row["no_trade_rows"]), str(row["fold"])))
+
+
+def _case_regime_all_blocked(root: Path, row: dict[str, Any]) -> bool:
+    fold = str(row.get("fold") or "")
+    case_id = str(row.get("case_id") or "")
+    if not fold or not case_id:
+        return False
+    path = root / fold / "test" / case_id / "regime_curve.csv"
+    if not path.exists():
+        return False
+    records = _read_csv_records(path)
+    if not records:
+        return False
+    start_date, end_date = _fold_signal_window(root, fold)
+    scoped_records = records
+    if start_date and end_date:
+        scoped_records = [
+            record
+            for record in records
+            if start_date <= str(record.get("date") or "") <= end_date
+        ]
+        if not scoped_records:
+            return False
+    return all(not _truthy(record.get("regime_allowed")) for record in scoped_records)
+
+
+def _fold_signal_window(root: Path, fold: str) -> tuple[str | None, str | None]:
+    path = root / fold / "test" / "manifest.json"
+    if not path.exists():
+        return None, None
+    try:
+        manifest = json.loads(path.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError):
+        return None, None
+    config = manifest.get("config") if isinstance(manifest, dict) else {}
+    if not isinstance(config, dict):
+        return None, None
+    start_date = config.get("signal_start_date")
+    end_date = config.get("signal_end_date")
+    if not start_date or not end_date:
+        return None, None
+    return str(start_date), str(end_date)
+
+
+def _truthy(value: Any) -> bool:
+    return str(value).strip().lower() in {"1", "true", "yes", "y"}
+
+
+def _claim_blockers(
+    *,
+    is_complete: bool,
+    robust_count: int,
+    no_trade_fold_count: int,
+    regime_all_blocked_no_trade_count: int,
+) -> list[str]:
     blockers = ["requires_formal_promotion_gate"]
     if not is_complete:
         blockers.insert(0, "walk_forward_incomplete")
+    if no_trade_fold_count > 0:
+        blockers.append("no_trade_folds_present")
+    if regime_all_blocked_no_trade_count > 0:
+        blockers.append("regime_filter_all_blocked_no_trade_cases")
     if robust_count == 0:
         blockers.append("no_robust_progress_candidate")
     return blockers

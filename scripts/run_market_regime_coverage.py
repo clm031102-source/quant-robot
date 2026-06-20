@@ -30,6 +30,8 @@ def run_market_regime_coverage(
     min_rows_per_regime: int = 5,
     min_allowed_rows: int = 0,
     min_blocked_rows: int = 0,
+    min_signal_window_allowed_rows: int = 0,
+    min_signal_window_blocked_rows: int = 0,
     positive_threshold: float = 0.02,
     negative_threshold: float = -0.02,
     require_sufficient: bool = False,
@@ -41,6 +43,8 @@ def run_market_regime_coverage(
         min_rows_per_regime=min_rows_per_regime,
         min_allowed_rows=min_allowed_rows,
         min_blocked_rows=min_blocked_rows,
+        min_signal_window_allowed_rows=min_signal_window_allowed_rows,
+        min_signal_window_blocked_rows=min_signal_window_blocked_rows,
         positive_threshold=positive_threshold,
         negative_threshold=negative_threshold,
     )
@@ -61,8 +65,34 @@ def _read_regime_rows(regime_curve: str | Path, regime_curve_glob: str | None) -
     for path in paths:
         frame = pd.read_csv(path)
         frame["source_file"] = str(path)
+        frame = _annotate_signal_window(frame, path)
         frames.append(frame)
     return pd.concat(frames, ignore_index=True)
+
+
+def _annotate_signal_window(frame: pd.DataFrame, regime_curve_path: Path) -> pd.DataFrame:
+    manifest = _read_sibling_manifest(regime_curve_path)
+    config = manifest.get("config") if isinstance(manifest, dict) else {}
+    if not isinstance(config, dict):
+        return frame
+    start_date = config.get("signal_start_date")
+    end_date = config.get("signal_end_date")
+    if not start_date or not end_date or "date" not in frame.columns:
+        return frame
+    out = frame.copy()
+    dates = out["date"].astype(str).str[:10]
+    out["signal_window_member"] = dates.between(str(start_date), str(end_date))
+    return out
+
+
+def _read_sibling_manifest(regime_curve_path: Path) -> dict[str, Any]:
+    manifest_path = regime_curve_path.parent.parent / "manifest.json"
+    if not manifest_path.exists():
+        return {}
+    try:
+        return json.loads(manifest_path.read_text(encoding="utf-8-sig"))
+    except (OSError, json.JSONDecodeError):
+        return {}
 
 
 def main() -> None:
@@ -74,6 +104,8 @@ def main() -> None:
     parser.add_argument("--min-rows-per-regime", default=5, type=int)
     parser.add_argument("--min-allowed-rows", default=0, type=int)
     parser.add_argument("--min-blocked-rows", default=0, type=int)
+    parser.add_argument("--min-signal-window-allowed-rows", default=0, type=int)
+    parser.add_argument("--min-signal-window-blocked-rows", default=0, type=int)
     parser.add_argument("--positive-threshold", default=0.02, type=float)
     parser.add_argument("--negative-threshold", default=-0.02, type=float)
     parser.add_argument("--require-sufficient", action="store_true")
@@ -87,6 +119,8 @@ def main() -> None:
             min_rows_per_regime=args.min_rows_per_regime,
             min_allowed_rows=args.min_allowed_rows,
             min_blocked_rows=args.min_blocked_rows,
+            min_signal_window_allowed_rows=args.min_signal_window_allowed_rows,
+            min_signal_window_blocked_rows=args.min_signal_window_blocked_rows,
             positive_threshold=args.positive_threshold,
             negative_threshold=args.negative_threshold,
             require_sufficient=args.require_sufficient,

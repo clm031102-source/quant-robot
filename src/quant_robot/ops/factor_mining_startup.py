@@ -17,6 +17,7 @@ REQUIRED_LONG_CYCLE_DESIGN_ITEMS = [
     "same_parameter_full_sample_diagnostic",
     "rolling_walk_forward_train_test_split",
     "market_regime_coverage",
+    "market_regime_signal_window_coverage",
     "lookahead_bias_audit",
     "overfit_multiple_testing_audit",
     "source_performance_evidence_required",
@@ -25,6 +26,7 @@ REQUIRED_LONG_CYCLE_DESIGN_ITEMS = [
 REQUIRED_LONG_CYCLE_CONFIRMATIONS = [
     "same_parameter_full_sample_enabled",
     "market_regime_coverage_enabled",
+    "market_regime_signal_window_coverage_enabled",
     "lookahead_bias_audit_enabled",
     "overfit_multiple_testing_audit_enabled",
     "source_performance_evidence_gate_enabled",
@@ -145,12 +147,16 @@ def _validate_repeatable_mining_protocol(packet: dict[str, Any], *, context: str
     if missing_design_items:
         if any("source" in item for item in missing_design_items):
             raise ValueError(f"{context} startup gate lacks source-evidence experiment design: {path}")
+        if any("signal_window" in item for item in missing_design_items):
+            raise ValueError(f"{context} startup gate lacks signal-window regime experiment design: {path}")
         raise ValueError(f"{context} startup gate lacks long-cycle experiment design: {path}")
     confirmations = set(_list(protocol.get("confirm_before_each_run")))
     missing_confirmations = [item for item in REQUIRED_LONG_CYCLE_CONFIRMATIONS if item not in confirmations]
     if missing_confirmations:
         if any("source" in item for item in missing_confirmations):
             raise ValueError(f"{context} startup gate lacks source-evidence per-run confirmations: {path}")
+        if any("signal_window" in item for item in missing_confirmations):
+            raise ValueError(f"{context} startup gate lacks signal-window regime per-run confirmations: {path}")
         raise ValueError(f"{context} startup gate lacks long-cycle per-run confirmations: {path}")
 
 
@@ -207,6 +213,7 @@ def _pre_run_checklist(config: dict[str, Any]) -> list[str]:
         "Do not treat positive IC alone as tradable; require top-N return, cost, capacity, drawdown, and tail-IC review.",
         "Use same-parameter long-cycle replay before treating any short-window result as evidence.",
         "Require source-performance evidence and source_evidence_status=pass before promotion review.",
+        "Require signal-window regime coverage; do not let a hard regime filter clear every tradable signal date.",
         "Use walk-forward validation, regime coverage, realistic costs, capacity controls, overlap-aware statistics, and final holdout review.",
         "Do not tune parameters after reading final_holdout.",
         "Record rejected candidates and failed directions, not only winners.",
@@ -228,6 +235,7 @@ def _confirmation_questions(config: dict[str, Any]) -> list[str]:
         f"Confirm this run follows the next direction: {protocol.get('next_direction')}.",
         "Confirm historical candidates and parameters are replayed unchanged across the long cycle before new profitability claims.",
         "Confirm regime coverage, look-ahead audit, overfit/multiple-testing audit, overlap-aware return statistics, and cost/capacity stress are enabled.",
+        "Confirm signal-window regime coverage is enabled so regime filters cannot silently empty the trading window.",
         "Confirm source-performance evidence exists and promotion blocks missing source_evidence_status.",
         "Confirm 2026 data, when available, is treated as final holdout rather than a tuning set.",
         "Confirm a pre-registered candidate plan exists before generating candidates.",
@@ -287,6 +295,7 @@ def _repeatable_mining_protocol(config: dict[str, Any]) -> dict[str, Any]:
             "same_parameter_full_sample_diagnostic",
             "rolling_walk_forward_train_test_split",
             "market_regime_coverage",
+            "market_regime_signal_window_coverage",
             "lookahead_bias_audit",
             "overfit_multiple_testing_audit",
             "source_performance_evidence_required",
@@ -305,6 +314,7 @@ def _repeatable_mining_protocol(config: dict[str, Any]) -> dict[str, Any]:
             "long_cycle_replay_plan_read",
             "same_parameter_full_sample_enabled",
             "market_regime_coverage_enabled",
+            "market_regime_signal_window_coverage_enabled",
             "lookahead_bias_audit_enabled",
             "overfit_multiple_testing_audit_enabled",
             "source_performance_evidence_gate_enabled",

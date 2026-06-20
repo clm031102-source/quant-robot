@@ -19,6 +19,8 @@ def build_market_regime_coverage_pack(
     min_rows_per_regime: int = 5,
     min_allowed_rows: int = 0,
     min_blocked_rows: int = 0,
+    min_signal_window_allowed_rows: int = 0,
+    min_signal_window_blocked_rows: int = 0,
     positive_threshold: float = 0.02,
     negative_threshold: float = -0.02,
 ) -> dict[str, Any]:
@@ -28,6 +30,7 @@ def build_market_regime_coverage_pack(
     counts = {str(key): int(value) for key, value in eligible["regime_label"].value_counts().sort_index().items()} if not eligible.empty else {}
     regimes = sorted(regime for regime, count in counts.items() if count >= min_rows_per_regime)
     allowed_rows, blocked_rows = _allowed_blocked_counts(classified)
+    signal_window_rows, signal_window_allowed_rows, signal_window_blocked_rows = _signal_window_counts(classified)
     blockers: list[str] = []
     if classified.empty:
         blockers.append("market_regime_rows_missing")
@@ -37,6 +40,10 @@ def build_market_regime_coverage_pack(
         blockers.append("market_regime_allowed_rows_below_minimum")
     if blocked_rows < int(min_blocked_rows):
         blockers.append("market_regime_blocked_rows_below_minimum")
+    if signal_window_allowed_rows < int(min_signal_window_allowed_rows):
+        blockers.append("market_regime_signal_window_allowed_rows_below_minimum")
+    if signal_window_blocked_rows < int(min_signal_window_blocked_rows):
+        blockers.append("market_regime_signal_window_blocked_rows_below_minimum")
     status = "sufficient" if not blockers else "insufficient"
     pack = {
         "stage": STAGE,
@@ -51,6 +58,11 @@ def build_market_regime_coverage_pack(
             "blocked_rows": blocked_rows,
             "min_allowed_rows": int(min_allowed_rows),
             "min_blocked_rows": int(min_blocked_rows),
+            "signal_window_rows": signal_window_rows,
+            "signal_window_allowed_rows": signal_window_allowed_rows,
+            "signal_window_blocked_rows": signal_window_blocked_rows,
+            "min_signal_window_allowed_rows": int(min_signal_window_allowed_rows),
+            "min_signal_window_blocked_rows": int(min_signal_window_blocked_rows),
             "regimes": regimes,
             "regime_counts": counts,
             "observation_start": _date_value(classified["date"].min()) if "date" in classified else None,
@@ -92,6 +104,9 @@ def render_market_regime_coverage_markdown(pack: dict[str, Any]) -> str:
         f"- Minimum regimes: {summary.get('min_regimes', 0)}",
         f"- Allowed rows: {summary.get('allowed_rows', 0)}",
         f"- Blocked rows: {summary.get('blocked_rows', 0)}",
+        f"- Signal-window rows: {summary.get('signal_window_rows', 0)}",
+        f"- Signal-window allowed rows: {summary.get('signal_window_allowed_rows', 0)}",
+        f"- Signal-window blocked rows: {summary.get('signal_window_blocked_rows', 0)}",
         f"- Regimes: {', '.join(_as_list(summary.get('regimes')))}",
         f"- Cleared: {decision.get('market_regime_coverage_cleared', False)}",
         f"- Live boundary allowed: {pack.get('live_boundary_allowed', False)}",
@@ -116,7 +131,18 @@ def _classified_rows(frame: pd.DataFrame, positive_threshold: float, negative_th
         rows["regime_momentum"] = None
     rows["regime_momentum"] = pd.to_numeric(rows["regime_momentum"], errors="coerce")
     rows["regime_label"] = rows["regime_momentum"].apply(lambda value: _regime_label(value, positive_threshold, negative_threshold))
-    columns = [column for column in ("date", "regime_momentum", "regime_allowed", "regime_label") if column in rows.columns]
+    columns = [
+        column
+        for column in (
+            "date",
+            "regime_momentum",
+            "regime_allowed",
+            "signal_window_member",
+            "source_file",
+            "regime_label",
+        )
+        if column in rows.columns
+    ]
     return rows[columns].drop_duplicates().reset_index(drop=True)
 
 
@@ -127,6 +153,14 @@ def _allowed_blocked_counts(frame: pd.DataFrame) -> tuple[int, int]:
     allowed_rows = int((allowed == True).sum())  # noqa: E712
     blocked_rows = int((allowed == False).sum())  # noqa: E712
     return allowed_rows, blocked_rows
+
+
+def _signal_window_counts(frame: pd.DataFrame) -> tuple[int, int, int]:
+    if frame.empty or "signal_window_member" not in frame.columns:
+        return 0, 0, 0
+    signal_rows = frame[frame["signal_window_member"].map(_bool_value) == True]  # noqa: E712
+    allowed_rows, blocked_rows = _allowed_blocked_counts(signal_rows)
+    return int(len(signal_rows)), allowed_rows, blocked_rows
 
 
 def _bool_value(value: Any) -> bool | None:

@@ -86,6 +86,37 @@ class MarketRegimeCoverageCliTests(unittest.TestCase):
                     require_sufficient=True,
                 )
 
+    def test_run_market_regime_coverage_blocks_signal_window_without_allowed_rows(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fold_test = root / "fold_01" / "test"
+            curve = fold_test / "case_a" / "regime_curve.csv"
+            curve.parent.mkdir(parents=True)
+            (fold_test / "manifest.json").write_text(
+                '{"config": {"signal_start_date": "2026-01-02", "signal_end_date": "2026-01-03"}}',
+                encoding="utf-8",
+            )
+            pd.DataFrame(
+                [
+                    {"date": "2026-01-01", "regime_momentum": 0.05, "regime_allowed": True},
+                    {"date": "2026-01-02", "regime_momentum": -0.04, "regime_allowed": False},
+                    {"date": "2026-01-03", "regime_momentum": -0.03, "regime_allowed": False},
+                ]
+            ).to_csv(curve, index=False)
+
+            with self.assertRaisesRegex(RuntimeError, "market regime coverage is insufficient"):
+                run_market_regime_coverage(
+                    regime_curve_glob=str(root / "fold_*" / "test" / "*" / "regime_curve.csv"),
+                    output_dir=root / "market_regime_coverage",
+                    min_regimes=2,
+                    min_rows_per_regime=1,
+                    min_allowed_rows=1,
+                    min_blocked_rows=1,
+                    min_signal_window_allowed_rows=1,
+                    min_signal_window_blocked_rows=1,
+                    require_sufficient=True,
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

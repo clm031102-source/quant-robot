@@ -423,6 +423,58 @@ class FactorMiningStartupGateTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "source-evidence"):
                 validate_cleared_startup_gate_packet(path)
 
+    def test_validate_startup_gate_rejects_packet_without_signal_window_regime_protocol(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "factor_mining_startup_gate.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "generated_at": date.today().isoformat(),
+                        "status": "cleared",
+                        "summary": {"market": "CN", "asset_type": "stock"},
+                        "decision": {"startup_gate_cleared": True, "blockers": []},
+                        "research_direction": {
+                            "objective": "cn_stock_cross_sectional_alpha",
+                            "allowed_factor_families": ["price_volume"],
+                            "stage_policy": {
+                                "discovery": "Design and filter candidates only.",
+                                "long_cycle_replay": "Replay frozen parameters across the long cycle.",
+                                "validation": "Run OOS only after discovery evidence clears.",
+                                "final_holdout": "Read once; never tune after reading.",
+                            },
+                            "factor_family_rotation": {"max_failed_batches_before_rotation": 1},
+                        },
+                        "repeatable_mining_protocol": {
+                            "source_audit": "data/reports/cn_stock_factor_mining_20260617_batch_audit.md",
+                            "next_direction": "long_cycle_validation",
+                            "recently_rejected_directions": ["single_factor_top50_daily_long_only"],
+                            "required_experiment_design": [
+                                "long_cycle_same_parameter_replay",
+                                "same_parameter_full_sample_diagnostic",
+                                "rolling_walk_forward_train_test_split",
+                                "market_regime_coverage",
+                                "lookahead_bias_audit",
+                                "overfit_multiple_testing_audit",
+                                "source_performance_evidence_required",
+                                "source_evidence_status_gate",
+                            ],
+                            "confirm_before_each_run": [
+                                "same_parameter_full_sample_enabled",
+                                "market_regime_coverage_enabled",
+                                "lookahead_bias_audit_enabled",
+                                "overfit_multiple_testing_audit_enabled",
+                                "source_performance_evidence_gate_enabled",
+                                "promotion_source_evidence_gate_enabled",
+                            ],
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "signal-window regime"):
+                validate_cleared_startup_gate_packet(path)
+
     def test_default_startup_protocol_requires_source_evidence_gate(self) -> None:
         packet = build_factor_mining_startup_gate(
             {
@@ -464,6 +516,46 @@ class FactorMiningStartupGateTests(unittest.TestCase):
         self.assertIn("source_evidence_status_gate", protocol["required_experiment_design"])
         self.assertIn("source_performance_evidence_gate_enabled", protocol["confirm_before_each_run"])
         self.assertIn("promotion_source_evidence_gate_enabled", protocol["confirm_before_each_run"])
+
+    def test_default_startup_protocol_requires_signal_window_regime_gate(self) -> None:
+        packet = build_factor_mining_startup_gate(
+            {
+                "scope_id": "cn_stock_factor_mining",
+                "market": "CN",
+                "asset_type": "stock",
+                "allowed_machines": ["office_desktop"],
+                "allowed_tasks": ["factor_validation"],
+                "recommended_branch_prefixes": ["codex/factor-validation-cn-stock-"],
+                "required_confirmations": [
+                    "machine_confirmed",
+                    "task_confirmed",
+                    "branch_confirmed",
+                    "push_policy_confirmed",
+                    "cn_stock_scope_confirmed",
+                    "etf_scope_rejected",
+                ],
+            },
+            request={
+                "machine": "office_desktop",
+                "task": "factor_validation",
+                "branch": "codex/factor-validation-cn-stock-20260620",
+                "market": "CN",
+                "asset_type": "stock",
+                "confirmations": {
+                    "machine_confirmed": True,
+                    "task_confirmed": True,
+                    "branch_confirmed": True,
+                    "push_policy_confirmed": True,
+                    "cn_stock_scope_confirmed": True,
+                    "etf_scope_rejected": True,
+                },
+            },
+            current_branch="codex/factor-validation-cn-stock-20260620",
+        )
+
+        protocol = packet["repeatable_mining_protocol"]
+        self.assertIn("market_regime_signal_window_coverage", protocol["required_experiment_design"])
+        self.assertIn("market_regime_signal_window_coverage_enabled", protocol["confirm_before_each_run"])
 
 
 if __name__ == "__main__":
