@@ -573,6 +573,7 @@ def _long_cycle_summary(
         "cost_capacity_audit_status": None,
         "overlap_audit_status": None,
         "strict_split_status": None,
+        "source_evidence_status": None,
         "reasons": [],
     }
     if not config.require_long_cycle_replay:
@@ -605,6 +606,11 @@ def _long_cycle_summary(
         status = str(row.get(field) or "")
         if status and status != "pass" and status != "sufficient":
             blocking.append(f"{reason_prefix}_{status}")
+    source_evidence_status = str(row.get("source_evidence_status") or "")
+    if not source_evidence_status:
+        blocking.append("long_cycle_source_evidence_missing")
+    elif source_evidence_status != "pass":
+        blocking.append(f"long_cycle_source_evidence_{source_evidence_status}")
     overlap_status = str(row.get("overlap_audit_status") or "")
     if overlap_status == "block":
         blocking.append("long_cycle_overlap_audit_block")
@@ -626,6 +632,7 @@ def _long_cycle_summary(
         "cost_capacity_audit_status": row.get("cost_capacity_audit_status"),
         "overlap_audit_status": row.get("overlap_audit_status"),
         "strict_split_status": row.get("strict_split_status"),
+        "source_evidence_status": row.get("source_evidence_status"),
         "reasons": replay_reasons,
     }
     return {"blocking": _dedupe(blocking), "warnings": _dedupe(warnings), "summary": summary}

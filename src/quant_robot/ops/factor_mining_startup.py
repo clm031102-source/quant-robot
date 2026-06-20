@@ -19,12 +19,16 @@ REQUIRED_LONG_CYCLE_DESIGN_ITEMS = [
     "market_regime_coverage",
     "lookahead_bias_audit",
     "overfit_multiple_testing_audit",
+    "source_performance_evidence_required",
+    "source_evidence_status_gate",
 ]
 REQUIRED_LONG_CYCLE_CONFIRMATIONS = [
     "same_parameter_full_sample_enabled",
     "market_regime_coverage_enabled",
     "lookahead_bias_audit_enabled",
     "overfit_multiple_testing_audit_enabled",
+    "source_performance_evidence_gate_enabled",
+    "promotion_source_evidence_gate_enabled",
 ]
 
 
@@ -139,10 +143,14 @@ def _validate_repeatable_mining_protocol(packet: dict[str, Any], *, context: str
     design_items = set(_list(protocol.get("required_experiment_design")))
     missing_design_items = [item for item in REQUIRED_LONG_CYCLE_DESIGN_ITEMS if item not in design_items]
     if missing_design_items:
+        if any("source" in item for item in missing_design_items):
+            raise ValueError(f"{context} startup gate lacks source-evidence experiment design: {path}")
         raise ValueError(f"{context} startup gate lacks long-cycle experiment design: {path}")
     confirmations = set(_list(protocol.get("confirm_before_each_run")))
     missing_confirmations = [item for item in REQUIRED_LONG_CYCLE_CONFIRMATIONS if item not in confirmations]
     if missing_confirmations:
+        if any("source" in item for item in missing_confirmations):
+            raise ValueError(f"{context} startup gate lacks source-evidence per-run confirmations: {path}")
         raise ValueError(f"{context} startup gate lacks long-cycle per-run confirmations: {path}")
 
 
@@ -198,6 +206,7 @@ def _pre_run_checklist(config: dict[str, Any]) -> list[str]:
         "Do not keep mining one failed family; rotate direction after the configured failed-batch limit.",
         "Do not treat positive IC alone as tradable; require top-N return, cost, capacity, drawdown, and tail-IC review.",
         "Use same-parameter long-cycle replay before treating any short-window result as evidence.",
+        "Require source-performance evidence and source_evidence_status=pass before promotion review.",
         "Use walk-forward validation, regime coverage, realistic costs, capacity controls, overlap-aware statistics, and final holdout review.",
         "Do not tune parameters after reading final_holdout.",
         "Record rejected candidates and failed directions, not only winners.",
@@ -219,6 +228,7 @@ def _confirmation_questions(config: dict[str, Any]) -> list[str]:
         f"Confirm this run follows the next direction: {protocol.get('next_direction')}.",
         "Confirm historical candidates and parameters are replayed unchanged across the long cycle before new profitability claims.",
         "Confirm regime coverage, look-ahead audit, overfit/multiple-testing audit, overlap-aware return statistics, and cost/capacity stress are enabled.",
+        "Confirm source-performance evidence exists and promotion blocks missing source_evidence_status.",
         "Confirm 2026 data, when available, is treated as final holdout rather than a tuning set.",
         "Confirm a pre-registered candidate plan exists before generating candidates.",
         "Confirm cost and capacity gates are required before any candidate can advance.",
@@ -279,6 +289,8 @@ def _repeatable_mining_protocol(config: dict[str, Any]) -> dict[str, Any]:
             "market_regime_coverage",
             "lookahead_bias_audit",
             "overfit_multiple_testing_audit",
+            "source_performance_evidence_required",
+            "source_evidence_status_gate",
             "daily_champion_10bps_20bps_validation",
             "twenty_twenty_five_oos_only",
             "overlap_aware_return_statistics",
@@ -295,6 +307,8 @@ def _repeatable_mining_protocol(config: dict[str, Any]) -> dict[str, Any]:
             "market_regime_coverage_enabled",
             "lookahead_bias_audit_enabled",
             "overfit_multiple_testing_audit_enabled",
+            "source_performance_evidence_gate_enabled",
+            "promotion_source_evidence_gate_enabled",
             "previous_audit_read",
             "latest_bootstrap_diagnostic_read",
             "latest_tailrankic_batch_read",
