@@ -36,6 +36,12 @@ BOUNDARY_PHRASES = (
     "research only",
 )
 DISABLED_LIVE_BOUNDARY_FIELDS = ("live_order_allowed",)
+TEMPORAL_RISK_PATTERNS = (
+    ("negative_shift", re.compile(r"\.shift\s*\(\s*-")),
+    ("future_function", re.compile(r"\b(?:lead|look_forward|peek_future)\s*\(")),
+)
+FACTOR_IMPLEMENTATION_ROOTS = ("src/quant_robot/factors/", "quant_robot/factors/")
+FORWARD_LABEL_CONTEXT_PATHS = ("src/quant_robot/research/labels.py", "quant_robot/research/labels.py")
 TECHNICAL_FACTOR_PREFIXES = (
     "momentum",
     "risk_adjusted_momentum",
@@ -79,12 +85,14 @@ def collect_project_audit(root: str | Path = ".") -> dict[str, Any]:
     tushare = check_tushare_readiness()
     parquet = check_parquet_readiness()
     factor_config_registry = _audit_factor_config_registry(root_path)
+    temporal_safety = _audit_temporal_safety(root_path, files)
     safety_passes = not forbidden_hits
     mock_passes = all("mock" in file.lower() or "fixture" in file.lower() for file in mock_files)
     factor_config_passes = bool(factor_config_registry["passes"])
+    temporal_passes = bool(temporal_safety["passes"])
     return {
         "summary": {
-            "passes": safety_passes and mock_passes and factor_config_passes,
+            "passes": safety_passes and mock_passes and factor_config_passes and temporal_passes,
             "files_scanned": len(files),
         },
         "safety": {
@@ -103,6 +111,7 @@ def collect_project_audit(root: str | Path = ".") -> dict[str, Any]:
             "parquet_missing": list(parquet["missing"]),
         },
         "factor_config_registry": factor_config_registry,
+        "temporal_safety": temporal_safety,
     }
 
 
@@ -111,6 +120,7 @@ def render_markdown_report(audit: dict[str, Any]) -> str:
     mock = audit["mock_boundaries"]
     real_data = audit.get("real_data", {})
     factor_registry = audit.get("factor_config_registry", {})
+    temporal = audit.get("temporal_safety", {})
     lines = [
         "# Quant Robot Project Audit",
         "",
@@ -158,6 +168,21 @@ def render_markdown_report(audit: dict[str, Any]) -> str:
             f"{hit['path']} `{hit['factor_name']}` window {hit['factor_window']} "
             f"not in {hit['configured_windows']}"
         )
+    lines.extend(
+        [
+            "",
+            "## Temporal Safety",
+            "",
+            f"- Passes: {temporal.get('passes', False)}",
+            f"- Blocking future-data hits: {len(temporal.get('blocking_hits', []))}",
+            f"- Warning hits: {len(temporal.get('warning_hits', []))}",
+            f"- Forward-label context hits: {len(temporal.get('label_context_hits', []))}",
+        ]
+    )
+    for hit in temporal.get("blocking_hits", []):
+        lines.append(f"  - {hit['path']}:{hit['line']} `{hit['pattern']}`")
+    for hit in temporal.get("warning_hits", []):
+        lines.append(f"  - warning {hit['path']}:{hit['line']} `{hit['pattern']}`")
     lines.extend(
         [
             "",
@@ -242,6 +267,47 @@ def _is_implementation_file(relative_path: str) -> bool:
     if relative_path in SELF_AUDIT_FILES:
         return False
     return relative_path.endswith(".py") and relative_path.startswith(IMPLEMENTATION_ROOTS)
+
+
+def _audit_temporal_safety(root: Path, files: list[Path]) -> dict[str, Any]:
+    blocking_hits = []
+    warning_hits = []
+    label_context_hits = []
+    for path in files:
+        relative = _relative(path, root)
+        if not _is_implementation_file(relative):
+            continue
+        text = path.read_text(encoding="utf-8", errors="ignore")
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            for pattern_name, pattern in TEMPORAL_RISK_PATTERNS:
+                if pattern.search(line) is None:
+                    continue
+                hit = {
+                    "path": relative,
+                    "line": line_number,
+                    "pattern": pattern_name,
+                    "text": line.strip(),
+                }
+                if _is_factor_implementation_file(relative):
+                    blocking_hits.append(hit)
+                elif _is_forward_label_context(relative):
+                    label_context_hits.append(hit)
+                else:
+                    warning_hits.append(hit)
+    return {
+        "passes": not blocking_hits,
+        "blocking_hits": blocking_hits,
+        "warning_hits": warning_hits,
+        "label_context_hits": label_context_hits,
+    }
+
+
+def _is_factor_implementation_file(relative_path: str) -> bool:
+    return any(relative_path.startswith(root) for root in FACTOR_IMPLEMENTATION_ROOTS)
+
+
+def _is_forward_label_context(relative_path: str) -> bool:
+    return relative_path in FORWARD_LABEL_CONTEXT_PATHS
 
 
 def _audit_factor_config_registry(root: Path) -> dict[str, Any]:

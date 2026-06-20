@@ -93,6 +93,55 @@ class ProjectAuditTests(unittest.TestCase):
             )
             self.assertFalse(audit["summary"]["passes"])
 
+    def test_audit_blocks_negative_shift_inside_factor_implementations(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            factor_dir = root / "src" / "quant_robot" / "factors"
+            factor_dir.mkdir(parents=True)
+            (factor_dir / "leaky_factor.py").write_text(
+                "def compute(frame):\n"
+                "    return frame['adj_close'].shift(-1)\n",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            temporal = audit["temporal_safety"]
+            self.assertFalse(temporal["passes"])
+            self.assertEqual(
+                temporal["blocking_hits"],
+                [
+                    {
+                        "path": "src/quant_robot/factors/leaky_factor.py",
+                        "line": 2,
+                        "pattern": "negative_shift",
+                        "text": "return frame['adj_close'].shift(-1)",
+                    }
+                ],
+            )
+            self.assertFalse(audit["summary"]["passes"])
+
+    def test_audit_allows_forward_return_label_generation_as_label_context(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            label_dir = root / "src" / "quant_robot" / "research"
+            label_dir.mkdir(parents=True)
+            (label_dir / "labels.py").write_text(
+                "def make_forward_returns(group, execution_lag):\n"
+                "    entry = group['adj_close'].shift(-execution_lag)\n"
+                "    exit_ = group['adj_close'].shift(-(execution_lag + 5))\n"
+                "    return entry\n",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            temporal = audit["temporal_safety"]
+            self.assertTrue(temporal["passes"])
+            self.assertEqual(len(temporal["blocking_hits"]), 0)
+            self.assertEqual(len(temporal["label_context_hits"]), 2)
+            self.assertTrue(audit["summary"]["passes"])
+
     def test_markdown_report_contains_core_sections(self):
         audit = {
             "summary": {"passes": True, "files_scanned": 2},
@@ -106,6 +155,12 @@ class ProjectAuditTests(unittest.TestCase):
                 "unsupported_factor_sources": [],
                 "window_mismatches": [],
             },
+            "temporal_safety": {
+                "passes": True,
+                "blocking_hits": [],
+                "warning_hits": [],
+                "label_context_hits": [],
+            },
         }
 
         report = render_markdown_report(audit)
@@ -114,6 +169,7 @@ class ProjectAuditTests(unittest.TestCase):
         self.assertIn("Safety Boundary", report)
         self.assertIn("Mock Data Boundary", report)
         self.assertIn("Factor Config Registry", report)
+        self.assertIn("Temporal Safety", report)
 
 
 if __name__ == "__main__":
