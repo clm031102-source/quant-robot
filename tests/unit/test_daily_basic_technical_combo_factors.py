@@ -35,6 +35,40 @@ class DailyBasicTechnicalComboFactorTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unsupported daily-basic technical combo factor_names"):
             compute_daily_basic_technical_combo_factors(_bars(), _daily_basic_inputs(), factor_names=("missing",))
 
+    def test_adv_blend_low_turnover_keeps_illiquid_names_but_prefers_tradeable_peers(self):
+        factors = compute_daily_basic_technical_combo_factors(
+            _bars(),
+            _daily_basic_inputs(),
+            factor_names=("turnover_rate_low_adv_blend_mv_bucket_rank",),
+        )
+
+        rows = factors[factors["date"] == pd.Timestamp("2024-01-03").date()]
+        values = dict(zip(rows["asset_id"], rows["factor_value"], strict=True))
+
+        for bucket in range(5):
+            liquid_low = values[f"CN_TEST_LIQUID_LOW_TURN_{bucket}"]
+            illiquid_low = values[f"CN_TEST_ILLIQUID_LOW_TURN_{bucket}"]
+            liquid_high = values[f"CN_TEST_LIQUID_HIGH_TURN_{bucket}"]
+            self.assertFalse(pd.isna(illiquid_low))
+            self.assertGreater(liquid_low, illiquid_low)
+            self.assertGreater(illiquid_low, liquid_high)
+
+    def test_adv_blend_supports_free_float_turnover_variant(self):
+        factors = compute_daily_basic_technical_combo_factors(
+            _bars(),
+            _daily_basic_inputs(),
+            factor_names=("turnover_rate_f_low_adv_blend_mv_bucket_rank",),
+        )
+
+        rows = factors[factors["date"] == pd.Timestamp("2024-01-03").date()]
+        values = dict(zip(rows["asset_id"], rows["factor_value"], strict=True))
+
+        for bucket in range(5):
+            self.assertGreater(
+                values[f"CN_TEST_LIQUID_LOW_TURN_{bucket}"],
+                values[f"CN_TEST_LIQUID_HIGH_TURN_{bucket}"],
+            )
+
 
 def _bars() -> pd.DataFrame:
     rows = []

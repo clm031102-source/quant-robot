@@ -9,6 +9,8 @@ from quant_robot.schema.factors import FACTOR_COLUMNS
 DAILY_BASIC_TECHNICAL_COMBO_FACTOR_NAMES = (
     "turnover_rate_low_liquid_mv_bucket_rank",
     "turnover_rate_f_low_liquid_mv_bucket_rank",
+    "turnover_rate_low_adv_blend_mv_bucket_rank",
+    "turnover_rate_f_low_adv_blend_mv_bucket_rank",
 )
 
 
@@ -37,6 +39,18 @@ def compute_daily_basic_technical_combo_factors(
             frame["date"],
         ),
         "turnover_rate_f_low_liquid_mv_bucket_rank": lambda: _liquid_bucket_rank(
+            -pd.to_numeric(frame["turnover_rate_f"], errors="coerce"),
+            frame["circ_mv"],
+            frame["adv20_amount"],
+            frame["date"],
+        ),
+        "turnover_rate_low_adv_blend_mv_bucket_rank": lambda: _adv_blend_bucket_rank(
+            -pd.to_numeric(frame["turnover_rate"], errors="coerce"),
+            frame["circ_mv"],
+            frame["adv20_amount"],
+            frame["date"],
+        ),
+        "turnover_rate_f_low_adv_blend_mv_bucket_rank": lambda: _adv_blend_bucket_rank(
             -pd.to_numeric(frame["turnover_rate_f"], errors="coerce"),
             frame["circ_mv"],
             frame["adv20_amount"],
@@ -117,6 +131,40 @@ def _liquid_bucket_rank(
                 continue
             ranked = liquid["signal"].rank(method="average", pct=True)
             result.loc[liquid.index] = ranked.to_numpy(dtype=float)
+    return result
+
+
+def _adv_blend_bucket_rank(
+    signal: pd.Series,
+    circ_mv: pd.Series,
+    adv20_amount: pd.Series,
+    dates: pd.Series,
+    *,
+    size_bucket_count: int = 5,
+    signal_weight: float = 0.55,
+) -> pd.Series:
+    frame = pd.DataFrame(
+        {
+            "signal": pd.to_numeric(signal, errors="coerce"),
+            "size": _safe_log(circ_mv),
+            "adv20_amount": pd.to_numeric(adv20_amount, errors="coerce"),
+            "date": dates,
+        }
+    )
+    result = pd.Series(np.nan, index=frame.index, dtype=float)
+    valid = frame.dropna(subset=["signal", "size", "adv20_amount"])
+    liquidity_weight = 1.0 - signal_weight
+    for _, group in valid.groupby("date", sort=False):
+        bucket_total = min(size_bucket_count, len(group))
+        if bucket_total < 1:
+            continue
+        size_order = group["size"].rank(method="first")
+        buckets = pd.qcut(size_order, q=bucket_total, labels=False, duplicates="drop")
+        for _, bucket_group in group.groupby(buckets, sort=False):
+            signal_rank = bucket_group["signal"].rank(method="average", pct=True)
+            liquidity_rank = bucket_group["adv20_amount"].rank(method="average", pct=True)
+            blended = signal_weight * signal_rank + liquidity_weight * liquidity_rank
+            result.loc[bucket_group.index] = blended.rank(method="average", pct=True).to_numpy(dtype=float)
     return result
 
 

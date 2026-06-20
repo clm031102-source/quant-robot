@@ -75,6 +75,7 @@ def render_markdown(packet: dict[str, Any]) -> str:
         f"- Commits allowed: {summary.get('commits_allowed')}",
         f"- Pushes allowed: {summary.get('pushes_allowed')}",
         f"- Live boundary allowed: {packet.get('live_boundary_allowed', False)}",
+        f"- Required inputs: {', '.join(_list(packet.get('config_required_inputs')))}",
         "",
         "## Research Direction",
         "",

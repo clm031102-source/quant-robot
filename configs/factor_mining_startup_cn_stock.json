@@ -27,7 +27,8 @@
   "default_data_root": "data/processed/office_desktop_20260616_combined_research",
   "required_inputs": [
     "bars",
-    "moneyflow_inputs"
+    "moneyflow_inputs",
+    "daily_basic_inputs"
   ],
   "required_confirmations": [
     "machine_confirmed",
@@ -102,12 +103,14 @@
     },
     "repeatable_mining_protocol": {
       "source_audit": "data/reports/cn_stock_factor_mining_20260617_batch_audit.md",
-      "next_direction": "factor_validation_required_for_daily_champion_oos_candidates",
+      "next_direction": "soft_capacity_low_turnover_daily_basic_walk_forward",
       "recently_rejected_directions": [
         "single_factor_top50_daily_long_only",
         "liquid_trend_direct_long",
         "capacity_blind_microcap_tail",
         "moneyflow_only_lockin",
+        "daily_basic_large_mv_blunt_capacity_blend",
+        "daily_basic_hard_liquidity_low_turnover_gate",
         "regime_filter_as_default_drawdown_fix",
         "bootstrap_only_without_rankic_improvement",
         "broad_rankic_improvement_without_monthly_persistence",

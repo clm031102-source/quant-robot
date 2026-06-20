@@ -109,7 +109,12 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
             self.assertIn("single_family_lockin", packet["research_direction"]["forbidden_directions"])
             self.assertEqual(
                 packet["repeatable_mining_protocol"]["next_direction"],
-                "factor_validation_required_for_daily_champion_oos_candidates",
+                "soft_capacity_low_turnover_daily_basic_walk_forward",
+            )
+            self.assertIn("daily_basic_inputs", packet["config_required_inputs"])
+            self.assertIn(
+                "daily_basic_hard_liquidity_low_turnover_gate",
+                packet["repeatable_mining_protocol"]["recently_rejected_directions"],
             )
             self.assertIn(
                 "daily_champion_10bps_20bps_validation",

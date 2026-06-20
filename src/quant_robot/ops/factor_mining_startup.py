@@ -59,6 +59,7 @@ def build_factor_mining_startup_gate(
             "pushes_allowed": bool(request.get("pushes_allowed", False)),
         },
         "validation_windows": _dict(config.get("validation_windows")),
+        "config_required_inputs": _list(config.get("required_inputs")),
         "candidate_budget": _dict(config.get("candidate_budget")),
         "research_direction": _research_direction(config),
         "repeatable_mining_protocol": _repeatable_mining_protocol(config),

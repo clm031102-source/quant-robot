@@ -813,3 +813,51 @@ Interim conclusion:
 - The 30-fold evidence strengthens the rejection of raw approval counts as a discovery metric. All subsequent interim counts for this already-running batch must use effective approvals.
 - `large_minus_liquidity_20` remains a research lead by breadth, but still fails capacity and effective approval tests.
 - No factor is promotable or paper-ready at 30/38 folds.
+
+### Soft-Capacity Low-Turnover Pre-Registration
+
+As of 2026-06-20 13:39 +0800, the residual/regime moneyflow batch was still running `fold_31`.
+To avoid idle time and to move away from the increasingly rejected moneyflow-only line, the office desktop added a small pre-registered daily-basic technical-combo direction:
+
+- `turnover_rate_low_adv_blend_mv_bucket_rank`
+- `turnover_rate_f_low_adv_blend_mv_bucket_rank`
+
+Research rationale:
+
+- Prior daily-basic runs showed that raw low-turnover / size-bucket-neutral factors can have a visible return signal, but the signal is heavily tied to illiquid names and fails capacity/drawdown gates.
+- Prior hard liquidity gating reduced capacity pressure but also destroyed most of the signal.
+- The new factors keep market-cap bucket neutrality and replace the hard liquidity cutoff with a soft ADV blend: within each market-cap bucket, score `0.55 * low-turnover rank + 0.45 * ADV rank`, then rank the blended score.
+- This preserves low-turnover intuition while explicitly preferring more tradeable peers.
+
+Old daily-basic baseline read-through:
+
+- Four existing daily-basic long-cycle baseline leaderboards were re-read: large-market-cap capacity blend, size-bucket neutral, hard-liquidity low-turnover, and corrected turnover width stress.
+- Across 72 rows, there were 0 effective approved rows.
+- The strongest low-turnover rows had real-looking signal statistics but failed hard gates:
+  - `turnover_rate_low_mv_bucket_rank`, top50/cost10: overlap-adjusted Sharpe 0.94, annualized return 49.4%, win rate 60.4%, tail IC p-value 0.00093, but max drawdown -58.9%, 1,574 capacity-limited trades, and max participation 30.3x ADV.
+  - `turnover_rate_low`, top50/cost10: overlap-adjusted Sharpe 0.88, annualized return 64.8%, tail IC p-value 0.000000062, but max drawdown -47.1%, 2,606 capacity-limited trades, and max participation 333.3x ADV.
+- The large-market-cap blend produced 12/24 capacity-clean rows but 0 positive-relative rows, mean relative return -12.6, and mean overlap-adjusted Sharpe -0.035.
+- The hard-liquidity low-turnover gate produced 0 positive-relative rows, 0 capacity-clean rows, mean relative return -12.5, and mean overlap-adjusted Sharpe -0.012.
+- Therefore the soft-capacity test is not a parameter tune of a rejected winner. It is a new hypothesis aimed at the observed failure mode: keep the low-turnover anomaly visible while penalizing non-tradeable tails before the portfolio gate.
+
+Pre-registered validation config:
+
+- `configs/walk_forward_cn_stock_daily_basic_soft_capacity_turnover_20260620.json`
+- Scope: CN stocks, 2015-2024 daily-basic authority inputs, processed CN bars aligned through 2024-12-31.
+- Grid: 2 factors x topN 50/100/200 x cost 10/20 bps x regime lookback 120/180/252 = 36 parameter combinations.
+- Gate: 252-trading-day train, 63-trading-day test, 63-day step, OOS trades >= 30, relative return >= 0, max drawdown <= 30%, capacity cap 1% ADV, market impact 20 bps, multiple-testing alpha 0.05.
+- Data-root: `configs/cn_stock_authority_bars_2015_2024.json`, aligned with `configs/cn_stock_authority_daily_basic_inputs_2015_2024.json` so rolling folds do not enter a 2025 segment without daily-basic factor inputs.
+- Launch only after the active residual/regime moneyflow validation has finished:
+  - `.venv\Scripts\python.exe scripts\run_desktop_factor_validation.py --config configs\walk_forward_cn_stock_daily_basic_soft_capacity_turnover_20260620.json --data-root configs\cn_stock_authority_bars_2015_2024.json --source processed-bars`
+- Interpretive gate:
+  - Treat short-window wins as discovery only.
+  - Treat `decision_status = approved` as insufficient unless the aggregated walk-forward row is accepted after multiple-testing adjustment and capacity/drawdown/trade-count gates.
+  - Reject high Sharpe rows if max participation, capacity-limited trades, or drawdown remain similar to the old low-turnover baselines.
+  - Require the factor to improve on the old baseline by reducing capacity pressure without collapsing positive relative-return breadth.
+
+Implementation notes:
+
+- The factor implementation is covered by tests proving that the ADV blend keeps illiquid low-turnover names observable but ranks a tradeable low-turnover peer above them.
+- A real-data plumbing smoke over 2024-09-02 to 2024-12-31 confirmed that both new factors compute against authority CN processed bars and daily-basic inputs: 80 dates, 5,384 assets, 428,275 rows per factor, 422,913 non-null values per factor, and about 98.75% non-null coverage.
+- The CN stock factor-mining startup gate now points its repeatable `next_direction` to `soft_capacity_low_turnover_daily_basic_walk_forward`, lists `daily_basic_inputs` as a required input, and records the prior large-market-cap blunt blend and hard-liquidity low-turnover gate as rejected directions.
+- The config is intentionally small and should run only after the active residual/regime moneyflow validation finishes, so the office desktop does not run two heavy walk-forward jobs at once.
