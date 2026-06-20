@@ -65,7 +65,15 @@ DAILY_BASIC_PROGRESS_AUDIT_DIR = (
 DAILY_BASIC_REGIME_COVERAGE_DIR = (
     "data/reports/market_regime_coverage_cn_stock_daily_basic_value_low_turnover_bucket_20260620"
 )
+RESIDUAL_VALIDATION_CONFIG = "configs/walk_forward_tushare_moneyflow_residual_regime.json"
+RESIDUAL_AUTHORITY_BARS_CONFIG = "configs/cn_stock_authority_bars_2015_2025.json"
+RESIDUAL_SAME_PARAMETER_REPLAY_DIR = (
+    "data/reports/same_parameter_full_sample_replay_tushare_moneyflow_residual_regime"
+)
 RESIDUAL_LONG_CYCLE_REPLAY_DIR = "data/reports/long_cycle_factor_replay_tushare_moneyflow_residual_regime"
+DAILY_BASIC_SAME_PARAMETER_REPLAY_DIR = (
+    "data/reports/same_parameter_full_sample_replay_cn_stock_daily_basic_value_low_turnover_bucket_20260620"
+)
 DAILY_BASIC_LONG_CYCLE_REPLAY_DIR = (
     "data/reports/long_cycle_factor_replay_cn_stock_daily_basic_value_low_turnover_bucket_20260620"
 )
@@ -87,6 +95,9 @@ DAILY_BASIC_VALUE_SIZE_LIQUIDITY_PROGRESS_AUDIT_DIR = (
 DAILY_BASIC_VALUE_SIZE_LIQUIDITY_REGIME_COVERAGE_DIR = (
     "data/reports/market_regime_coverage_cn_stock_daily_basic_value_size_liquidity_20260620"
 )
+DAILY_BASIC_VALUE_SIZE_LIQUIDITY_SAME_PARAMETER_REPLAY_DIR = (
+    "data/reports/same_parameter_full_sample_replay_cn_stock_daily_basic_value_size_liquidity_20260620"
+)
 DAILY_BASIC_VALUE_SIZE_LIQUIDITY_LONG_CYCLE_REPLAY_DIR = (
     "data/reports/long_cycle_factor_replay_cn_stock_daily_basic_value_size_liquidity_20260620"
 )
@@ -105,6 +116,9 @@ PRICE_VOLUME_TECHNICAL_PROGRESS_AUDIT_DIR = (
 )
 PRICE_VOLUME_TECHNICAL_REGIME_COVERAGE_DIR = (
     "data/reports/market_regime_coverage_cn_stock_price_volume_technical_20260620"
+)
+PRICE_VOLUME_TECHNICAL_SAME_PARAMETER_REPLAY_DIR = (
+    "data/reports/same_parameter_full_sample_replay_cn_stock_price_volume_technical_20260620"
 )
 PRICE_VOLUME_TECHNICAL_LONG_CYCLE_REPLAY_DIR = (
     "data/reports/long_cycle_factor_replay_cn_stock_price_volume_technical_20260620"
@@ -182,10 +196,18 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
                     "38",
                 ],
             ),
+            _same_parameter_full_sample_replay_step(
+                "desktop_same_parameter_full_sample_replay",
+                python_executable=python_executable,
+                validation_root="data/reports/walk_forward_tushare_moneyflow_residual_regime",
+                validation_config=RESIDUAL_VALIDATION_CONFIG,
+                data_root=RESIDUAL_AUTHORITY_BARS_CONFIG,
+                output_dir=RESIDUAL_SAME_PARAMETER_REPLAY_DIR,
+            ),
             _long_cycle_replay_step(
                 "desktop_long_cycle_factor_replay",
                 python_executable=python_executable,
-                validation_root="data/reports/walk_forward_tushare_moneyflow_residual_regime",
+                candidates_csv=f"{RESIDUAL_SAME_PARAMETER_REPLAY_DIR}/same_parameter_full_sample_replay.csv",
                 output_dir=RESIDUAL_LONG_CYCLE_REPLAY_DIR,
             ),
             CheckStep(
@@ -260,10 +282,18 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
                     "38",
                 ],
             ),
+            _same_parameter_full_sample_replay_step(
+                "desktop_daily_basic_same_parameter_full_sample_replay",
+                python_executable=python_executable,
+                validation_root=DAILY_BASIC_VALIDATION_ROOT,
+                validation_config=DAILY_BASIC_VALIDATION_CONFIG,
+                data_root=DAILY_BASIC_AUTHORITY_BARS_CONFIG,
+                output_dir=DAILY_BASIC_SAME_PARAMETER_REPLAY_DIR,
+            ),
             _long_cycle_replay_step(
                 "desktop_daily_basic_long_cycle_factor_replay",
                 python_executable=python_executable,
-                validation_root=DAILY_BASIC_VALIDATION_ROOT,
+                candidates_csv=f"{DAILY_BASIC_SAME_PARAMETER_REPLAY_DIR}/same_parameter_full_sample_replay.csv",
                 output_dir=DAILY_BASIC_LONG_CYCLE_REPLAY_DIR,
             ),
             CheckStep(
@@ -314,6 +344,7 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
             validation_root=DAILY_BASIC_VALUE_SIZE_LIQUIDITY_VALIDATION_ROOT,
             progress_audit_dir=DAILY_BASIC_VALUE_SIZE_LIQUIDITY_PROGRESS_AUDIT_DIR,
             regime_coverage_dir=DAILY_BASIC_VALUE_SIZE_LIQUIDITY_REGIME_COVERAGE_DIR,
+            same_parameter_replay_dir=DAILY_BASIC_VALUE_SIZE_LIQUIDITY_SAME_PARAMETER_REPLAY_DIR,
             long_cycle_replay_dir=DAILY_BASIC_VALUE_SIZE_LIQUIDITY_LONG_CYCLE_REPLAY_DIR,
             promotion_config=DAILY_BASIC_VALUE_SIZE_LIQUIDITY_PROMOTION_CONFIG,
         )
@@ -331,6 +362,7 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
             validation_root=PRICE_VOLUME_TECHNICAL_VALIDATION_ROOT,
             progress_audit_dir=PRICE_VOLUME_TECHNICAL_PROGRESS_AUDIT_DIR,
             regime_coverage_dir=PRICE_VOLUME_TECHNICAL_REGIME_COVERAGE_DIR,
+            same_parameter_replay_dir=PRICE_VOLUME_TECHNICAL_SAME_PARAMETER_REPLAY_DIR,
             long_cycle_replay_dir=PRICE_VOLUME_TECHNICAL_LONG_CYCLE_REPLAY_DIR,
             promotion_config=PRICE_VOLUME_TECHNICAL_PROMOTION_CONFIG,
         )
@@ -431,6 +463,7 @@ def _desktop_factor_validation_gate_chain(
     validation_root: str,
     progress_audit_dir: str,
     regime_coverage_dir: str,
+    same_parameter_replay_dir: str,
     long_cycle_replay_dir: str,
     promotion_config: str,
 ) -> list[CheckStep]:
@@ -469,10 +502,18 @@ def _desktop_factor_validation_gate_chain(
                 "38",
             ],
         ),
+        _same_parameter_full_sample_replay_step(
+            f"{name_prefix}_same_parameter_full_sample_replay",
+            python_executable=python_executable,
+            validation_root=validation_root,
+            validation_config=validation_config,
+            data_root=data_root,
+            output_dir=same_parameter_replay_dir,
+        ),
         _long_cycle_replay_step(
             f"{name_prefix}_long_cycle_factor_replay",
             python_executable=python_executable,
-            validation_root=validation_root,
+            candidates_csv=f"{same_parameter_replay_dir}/same_parameter_full_sample_replay.csv",
             output_dir=long_cycle_replay_dir,
         ),
         CheckStep(
@@ -515,7 +556,7 @@ def _long_cycle_replay_step(
     name: str,
     *,
     python_executable: str,
-    validation_root: str,
+    candidates_csv: str,
     output_dir: str,
 ) -> CheckStep:
     return CheckStep(
@@ -524,7 +565,7 @@ def _long_cycle_replay_step(
             python_executable,
             "scripts/run_long_cycle_factor_replay.py",
             "--candidates-csv",
-            f"{validation_root}/walk_forward_leaderboard.csv",
+            candidates_csv,
             "--manifest-json",
             "data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json",
             "--market",
@@ -533,6 +574,38 @@ def _long_cycle_replay_step(
             "2015-01-01",
             "--output-dir",
             output_dir,
+        ],
+    )
+
+
+def _same_parameter_full_sample_replay_step(
+    name: str,
+    *,
+    python_executable: str,
+    validation_root: str,
+    validation_config: str,
+    data_root: str,
+    output_dir: str,
+) -> CheckStep:
+    return CheckStep(
+        name,
+        [
+            python_executable,
+            "scripts/run_same_parameter_full_sample_replay.py",
+            "--candidates-csv",
+            f"{validation_root}/walk_forward_leaderboard.csv",
+            "--base-config",
+            validation_config,
+            "--source",
+            "processed-bars",
+            "--data-root",
+            data_root,
+            "--output-dir",
+            output_dir,
+            "--start-date",
+            "2015-01-01",
+            "--end-date",
+            "2025-12-31",
         ],
     )
 

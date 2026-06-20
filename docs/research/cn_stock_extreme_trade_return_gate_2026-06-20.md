@@ -35,6 +35,7 @@ The long-cycle replay pack now separates coverage/source-metric audit from actua
 - `audit_only` means the pack only audited history coverage and upstream source metrics; it is not proof that frozen parameters were rerun across the full long cycle.
 - A candidate can reach `validation_candidate` in the long-cycle pack only when explicit replay evidence reports `same_parameter_full_sample_status`, `long_cycle_replay_status`, `full_sample_replay_status`, `performance_replay_status`, or `replay_status` as pass/completed.
 - Promotion gate blocks missing or `audit_only` replay status with `long_cycle_replay_status_missing` or `long_cycle_replay_status_audit_only`, even when source metrics, split, cost/capacity, and lookahead audits pass.
+- Desktop validation profiles now insert `scripts/run_same_parameter_full_sample_replay.py` between walk-forward progress audit and long-cycle replay. The long-cycle replay step consumes `same_parameter_full_sample_replay.csv`, not the raw walk-forward leaderboard, so source metrics come from an actual frozen-parameter full-sample rerun.
 
 ## Current Evidence
 
