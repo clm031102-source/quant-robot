@@ -275,9 +275,9 @@ def _run_case(
         )
         trades = int(result["artifact_rows"]["trades"])
         status = "completed" if trades >= grid_config.min_trades else "no_trades"
-        return _row(case, status, None, trades, result)
+        return _row(case, grid_config, status, None, trades, result)
     except Exception as exc:
-        return _row(case, "failed", str(exc), 0, None)
+        return _row(case, grid_config, "failed", str(exc), 0, None)
 
 
 def _prepare_cached_research_inputs(
@@ -419,7 +419,14 @@ def _load_grid_moneyflow_inputs(config: ExperimentGridConfig) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True).sort_values(["asset_id", "date"]).reset_index(drop=True)
 
 
-def _row(case: ExperimentCase, status: str, error: str | None, trades: int, result: dict[str, Any] | None) -> dict[str, Any]:
+def _row(
+    case: ExperimentCase,
+    grid_config: ExperimentGridConfig,
+    status: str,
+    error: str | None,
+    trades: int,
+    result: dict[str, Any] | None,
+) -> dict[str, Any]:
     metrics = result["metrics"] if result is not None else {}
     benchmark_metrics = result["benchmark_metrics"] if result is not None else {}
     decision = result["decision"] if result is not None else {}
@@ -442,6 +449,8 @@ def _row(case: ExperimentCase, status: str, error: str | None, trades: int, resu
             "factor_windows": list(case.factor_windows),
             "top_n": case.top_n,
             "cost_bps": case.cost_bps,
+            "forward_horizon": grid_config.forward_horizon,
+            "execution_lag": grid_config.execution_lag,
             "rebalance_interval": case.rebalance_interval,
             "regime_lookback": case.regime_lookback,
             "status": status,

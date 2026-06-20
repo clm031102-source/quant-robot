@@ -34,24 +34,29 @@ SOURCE_AUDIT_TEXT_FIELDS = (
 )
 
 SOURCE_AUDIT_NUMBER_FIELDS = (
-    ("mean_ic", ("mean_ic",)),
-    ("mean_rank_ic", ("mean_rank_ic", "discovery_rank_ic")),
-    ("tail_mean_ic", ("tail_mean_ic",)),
-    ("tail_mean_rank_ic", ("tail_mean_rank_ic", "discovery_tail_rank_ic")),
-    ("long_short_mean_return", ("long_short_mean_return",)),
+    ("mean_ic", ("mean_ic", "test_mean_ic")),
+    ("mean_rank_ic", ("mean_rank_ic", "test_mean_rank_ic", "discovery_rank_ic")),
+    ("tail_mean_ic", ("tail_mean_ic", "test_tail_mean_ic")),
+    ("tail_mean_rank_ic", ("tail_mean_rank_ic", "test_tail_mean_rank_ic", "discovery_tail_rank_ic")),
+    ("long_short_mean_return", ("long_short_mean_return", "test_long_short_mean_return")),
     (
         "long_short_positive_rate",
-        ("long_short_positive_rate", "monthly_return_prob_gt_zero", "discovery_monthly_probability_gt_zero"),
+        (
+            "long_short_positive_rate",
+            "test_long_short_positive_rate",
+            "monthly_return_prob_gt_zero",
+            "discovery_monthly_probability_gt_zero",
+        ),
     ),
-    ("total_return", ("total_return", "discovery_total_return")),
-    ("relative_return", ("relative_return",)),
-    ("sharpe", ("sharpe", "discovery_sharpe")),
-    ("max_drawdown", ("max_drawdown", "discovery_max_drawdown")),
-    ("turnover", ("turnover",)),
-    ("avg_participation_rate", ("avg_participation_rate",)),
+    ("total_return", ("total_return", "test_total_return", "mean_test_total_return", "discovery_total_return")),
+    ("relative_return", ("relative_return", "test_relative_return", "mean_test_relative_return")),
+    ("sharpe", ("sharpe", "test_sharpe", "mean_test_sharpe", "discovery_sharpe")),
+    ("max_drawdown", ("max_drawdown", "test_max_drawdown", "worst_test_max_drawdown", "discovery_max_drawdown")),
+    ("turnover", ("turnover", "test_turnover")),
+    ("avg_participation_rate", ("avg_participation_rate", "test_avg_participation_rate")),
     ("max_participation_rate", ("max_participation_rate", "test_max_participation_rate")),
-    ("capacity_limited_trades", ("capacity_limited_trades",)),
-    ("trades", ("trades",)),
+    ("capacity_limited_trades", ("capacity_limited_trades", "test_capacity_limited_trades")),
+    ("trades", ("trades", "test_trades", "total_test_trades")),
     ("cost_bps", ("cost_bps", "test_cost_bps")),
     ("execution_lag", ("execution_lag", "lag")),
     ("overlap_autocorr_adjusted_sharpe", ("overlap_autocorr_adjusted_sharpe", "test_overlap_autocorr_adjusted_sharpe")),
@@ -62,6 +67,17 @@ SOURCE_AUDIT_DATE_FIELDS = (
     "train_end_date",
     "test_start_date",
     "test_end_date",
+)
+
+CORE_SOURCE_EVIDENCE_FIELDS = (
+    "mean_rank_ic",
+    "long_short_mean_return",
+    "long_short_positive_rate",
+    "total_return",
+    "sharpe",
+    "max_drawdown",
+    "turnover",
+    "trades",
 )
 
 
@@ -318,6 +334,8 @@ def _candidate_decision(registry_row: dict[str, Any], source_row: dict[str, Any]
     overlap_status = _overlap_audit_status(source_row, reasons)
     strict_split_status = _strict_split_status(source_row, reasons)
     overfit_status = "warning" if "high_sharpe_overfit_warning" in reasons else "pass"
+    source_fields = _source_audit_fields(source_row)
+    source_evidence_status = _source_evidence_status(source_fields, reasons)
 
     if "negative_return" in reasons:
         status = "discard"
@@ -339,8 +357,9 @@ def _candidate_decision(registry_row: dict[str, Any], source_row: dict[str, Any]
         "cost_capacity_audit_status": cost_capacity_status,
         "overlap_audit_status": overlap_status,
         "strict_split_status": strict_split_status,
+        "source_evidence_status": source_evidence_status,
     }
-    decision.update(_source_audit_fields(source_row))
+    decision.update(source_fields)
     return decision
 
 
@@ -391,6 +410,15 @@ def _overlap_audit_status(row: dict[str, Any], reasons: list[str]) -> str:
 
 
 def _strict_split_status(row: dict[str, Any], reasons: list[str]) -> str:
+    declared_status = str(row.get("strict_split_status") or "").strip().lower()
+    declared_violations = _optional_number(row.get("strict_split_violations"))
+    declared_folds = _optional_number(row.get("strict_split_folds"))
+    if declared_status == "pass" and declared_violations == 0 and declared_folds is not None and declared_folds >= 1:
+        return "pass"
+    if declared_status == "block" or (declared_violations is not None and declared_violations > 0):
+        reasons.append("test_starts_before_train_end")
+        return "block"
+
     train_start = _optional_date(row.get("train_start_date"))
     train_end = _optional_date(row.get("train_end_date"))
     test_start = _optional_date(row.get("test_start_date"))
@@ -416,6 +444,7 @@ def _audit_status_counts(rows: list[dict[str, Any]]) -> dict[str, dict[str, int]
         "cost_capacity_audit_status",
         "overlap_audit_status",
         "strict_split_status",
+        "source_evidence_status",
     )
     result: dict[str, dict[str, int]] = {}
     for field in fields:
@@ -447,6 +476,14 @@ def _source_audit_fields(row: dict[str, Any]) -> dict[str, Any]:
         value = _optional_date(row.get(field))
         fields[field] = value.isoformat() if value else None
     return fields
+
+
+def _source_evidence_status(fields: dict[str, Any], reasons: list[str]) -> str:
+    missing = [field for field in CORE_SOURCE_EVIDENCE_FIELDS if _missing(fields.get(field))]
+    if missing:
+        reasons.append("source_performance_evidence_missing")
+        return "block"
+    return "pass"
 
 
 def _frame(rows: list[dict[str, Any]] | pd.DataFrame) -> pd.DataFrame:

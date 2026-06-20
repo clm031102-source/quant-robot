@@ -400,6 +400,151 @@ class LongCycleReplayTests(unittest.TestCase):
         self.assertIn("## Source Audit Missing Counts", markdown)
         self.assertIn("execution_lag", markdown)
 
+    def test_replay_pack_accepts_upstream_strict_split_audit_evidence(self):
+        coverage = {
+            "status": "sufficient",
+            "market": "CN",
+            "required_start": "2015-01-01",
+            "date_start": "2015-01-05",
+            "date_end": "2025-12-31",
+            "blockers": [],
+        }
+        candidates = [
+            {
+                "case_id": "audited_split_case",
+                "market": "CN",
+                "factor_name": "factor_split",
+                "sharpe": 0.9,
+                "total_return": 0.2,
+                "cost_bps": 10,
+                "execution_lag": 1,
+                "max_participation_rate": 0.006,
+                "overlap_autocorr_adjusted_sharpe": 0.7,
+                "strict_split_status": "pass",
+                "strict_split_violations": 0,
+                "strict_split_folds": 3,
+            }
+        ]
+
+        pack = build_long_cycle_replay_pack_from_coverage(
+            candidates,
+            coverage,
+            market="CN",
+            required_start="2015-01-01",
+        )
+
+        decision = pack["candidate_decisions"][0]
+        self.assertEqual(decision["strict_split_status"], "pass")
+        self.assertNotIn("strict_split_dates_missing", decision["reasons"])
+
+    def test_candidate_decisions_accept_walk_forward_test_metric_aliases(self):
+        coverage = {
+            "status": "sufficient",
+            "market": "CN",
+            "required_start": "2015-01-01",
+            "date_start": "2015-01-05",
+            "date_end": "2025-12-31",
+            "blockers": [],
+        }
+        candidates = [
+            {
+                "case_id": "walk_forward_metric_case",
+                "market": "CN",
+                "factor_name": "factor_walk_forward",
+                "test_mean_ic": 0.031,
+                "test_mean_rank_ic": 0.029,
+                "test_tail_mean_ic": 0.014,
+                "test_tail_mean_rank_ic": 0.012,
+                "test_long_short_mean_return": 0.006,
+                "test_long_short_positive_rate": 0.61,
+                "test_total_return": 0.27,
+                "test_relative_return": 0.08,
+                "test_sharpe": 1.42,
+                "test_max_drawdown": -0.12,
+                "test_turnover": 1.7,
+                "test_avg_participation_rate": 0.004,
+                "test_max_participation_rate": 0.007,
+                "test_capacity_limited_trades": 0,
+                "test_trades": 66,
+                "cost_bps": 10,
+                "execution_lag": 1,
+                "test_overlap_autocorr_adjusted_sharpe": 1.05,
+                "train_end_date": "2019-12-31",
+                "test_start_date": "2020-01-02",
+            }
+        ]
+
+        pack = build_long_cycle_replay_pack_from_coverage(
+            candidates,
+            coverage,
+            market="CN",
+            required_start="2015-01-01",
+        )
+
+        decision = pack["candidate_decisions"][0]
+        self.assertAlmostEqual(decision["mean_ic"], 0.031)
+        self.assertAlmostEqual(decision["mean_rank_ic"], 0.029)
+        self.assertAlmostEqual(decision["tail_mean_ic"], 0.014)
+        self.assertAlmostEqual(decision["tail_mean_rank_ic"], 0.012)
+        self.assertAlmostEqual(decision["long_short_mean_return"], 0.006)
+        self.assertAlmostEqual(decision["long_short_positive_rate"], 0.61)
+        self.assertAlmostEqual(decision["total_return"], 0.27)
+        self.assertAlmostEqual(decision["relative_return"], 0.08)
+        self.assertAlmostEqual(decision["sharpe"], 1.42)
+        self.assertAlmostEqual(decision["max_drawdown"], -0.12)
+        self.assertAlmostEqual(decision["turnover"], 1.7)
+        self.assertAlmostEqual(decision["avg_participation_rate"], 0.004)
+        self.assertAlmostEqual(decision["max_participation_rate"], 0.007)
+        self.assertEqual(decision["capacity_limited_trades"], 0)
+        self.assertEqual(decision["trades"], 66)
+        missing_counts = pack["summary"]["source_audit_missing_counts"]
+        self.assertEqual(missing_counts["sharpe"], 0)
+        self.assertEqual(missing_counts["total_return"], 0)
+        self.assertEqual(missing_counts["relative_return"], 0)
+        self.assertEqual(missing_counts["mean_rank_ic"], 0)
+        self.assertEqual(missing_counts["long_short_mean_return"], 0)
+        self.assertEqual(missing_counts["long_short_positive_rate"], 0)
+        self.assertEqual(missing_counts["turnover"], 0)
+        self.assertEqual(missing_counts["trades"], 0)
+
+    def test_replay_pack_blocks_validation_when_core_source_metrics_are_missing(self):
+        coverage = {
+            "status": "sufficient",
+            "market": "CN",
+            "required_start": "2015-01-01",
+            "date_start": "2015-01-05",
+            "date_end": "2025-12-31",
+            "blockers": [],
+        }
+        candidates = [
+            {
+                "case_id": "thin_evidence_case",
+                "market": "CN",
+                "factor_name": "factor_thin",
+                "test_total_return": 0.12,
+                "test_sharpe": 0.8,
+                "cost_bps": 10,
+                "execution_lag": 1,
+                "test_max_participation_rate": 0.004,
+                "test_overlap_autocorr_adjusted_sharpe": 0.7,
+                "strict_split_status": "pass",
+                "strict_split_violations": 0,
+                "strict_split_folds": 2,
+            }
+        ]
+
+        pack = build_long_cycle_replay_pack_from_coverage(
+            candidates,
+            coverage,
+            market="CN",
+            required_start="2015-01-01",
+        )
+
+        decision = pack["candidate_decisions"][0]
+        self.assertEqual(decision["decision_status"], "research_lead")
+        self.assertEqual(decision["source_evidence_status"], "block")
+        self.assertIn("source_performance_evidence_missing", decision["reasons"])
+
     def test_writer_emits_json_markdown_and_csv_artifacts(self):
         pack = {
             "stage": "long_cycle_factor_replay",

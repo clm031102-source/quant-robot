@@ -62,6 +62,20 @@ def run_walk_forward_validation(bars: pd.DataFrame, config: WalkForwardConfig) -
     train = run_experiment_grid(train_bars, train_config)
     test = run_experiment_grid(test_bars, test_config)
     rows = _merge_leaderboards(train["leaderboard"], test["leaderboard"], config)
+    rows = [
+        _sanitize(
+            {
+                **row,
+                **_split_evidence(
+                    train_start=_min_date(train_bars),
+                    train_end=_max_date(train_bars),
+                    test_start=_min_date(post_split_bars),
+                    test_end=_max_date(post_split_bars),
+                ),
+            }
+        )
+        for row in rows
+    ]
     leaderboard = _rank_rows(_with_multiple_testing_evidence(rows, config), config.rank_by)
     result = {
         "config": _config_dict(config),
@@ -99,16 +113,19 @@ def _run_rolling_walk_forward_validation(bars: pd.DataFrame, config: WalkForward
         train = run_experiment_grid(fold["train_bars"], train_config)
         test = run_experiment_grid(test_bars, test_config)
         merged = _merge_leaderboards(train["leaderboard"], test["leaderboard"], config)
+        split_evidence = _split_evidence(
+            train_start=fold["train_start_date"],
+            train_end=fold["train_end_date"],
+            test_start=fold["test_start_date"],
+            test_end=fold["test_end_date"],
+        )
         for row in merged:
             fold_rows.append(
                 _sanitize(
                     {
                         **row,
                         "fold": fold["fold"],
-                        "train_start_date": fold["train_start_date"],
-                        "train_end_date": fold["train_end_date"],
-                        "test_start_date": fold["test_start_date"],
-                        "test_end_date": fold["test_end_date"],
+                        **split_evidence,
                     }
                 )
             )
@@ -186,6 +203,53 @@ def _with_warmup_bars(train_bars: pd.DataFrame, post_split_bars: pd.DataFrame, w
     return pd.concat([warmup, post_split_bars], ignore_index=True).sort_values(["asset_id", "date"]).reset_index(drop=True)
 
 
+def _min_date(frame: pd.DataFrame) -> Any:
+    return pd.to_datetime(frame["date"]).dt.date.min()
+
+
+def _max_date(frame: pd.DataFrame) -> Any:
+    return pd.to_datetime(frame["date"]).dt.date.max()
+
+
+def _split_evidence(*, train_start: Any, train_end: Any, test_start: Any, test_end: Any) -> dict[str, Any]:
+    train_end_date = pd.to_datetime(train_end).date()
+    test_start_date = pd.to_datetime(test_start).date()
+    violations = 1 if test_start_date <= train_end_date else 0
+    return {
+        "train_start_date": train_start,
+        "train_end_date": train_end,
+        "test_start_date": test_start,
+        "test_end_date": test_end,
+        "strict_split_status": "pass" if violations == 0 else "block",
+        "strict_split_violations": violations,
+        "strict_split_folds": 1,
+    }
+
+
+def _aggregate_split_evidence(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    if not rows:
+        return {
+            "train_start_date": None,
+            "train_end_date": None,
+            "test_start_date": None,
+            "test_end_date": None,
+            "strict_split_status": "warning",
+            "strict_split_violations": 0,
+            "strict_split_folds": 0,
+        }
+    first = sorted(rows, key=lambda row: int(_metric(row, "fold")))[0]
+    violations = sum(int(_metric(row, "strict_split_violations")) for row in rows)
+    return {
+        "train_start_date": first.get("train_start_date"),
+        "train_end_date": first.get("train_end_date"),
+        "test_start_date": first.get("test_start_date"),
+        "test_end_date": first.get("test_end_date"),
+        "strict_split_status": "pass" if violations == 0 else "block",
+        "strict_split_violations": violations,
+        "strict_split_folds": len(rows),
+    }
+
+
 def _merge_leaderboards(
     train_rows: list[dict[str, Any]],
     test_rows: list[dict[str, Any]],
@@ -221,6 +285,8 @@ def _merged_row(
             "factor_windows": source.get("factor_windows", []),
             "top_n": source.get("top_n"),
             "cost_bps": source.get("cost_bps"),
+            "forward_horizon": source.get("forward_horizon", config.experiment_grid.forward_horizon),
+            "execution_lag": source.get("execution_lag", config.experiment_grid.execution_lag),
             "regime_lookback": source.get("regime_lookback"),
             "data_mode": _data_mode(train, test),
             "train_status": train.get("status") if train else "missing",
@@ -239,6 +305,14 @@ def _merged_row(
             "test_relative_return": test_relative_return,
             "train_win_rate": _metric(train, "win_rate"),
             "test_win_rate": _metric(test, "win_rate"),
+            "train_turnover": _metric(train, "turnover"),
+            "test_turnover": _metric(test, "turnover"),
+            "train_long_short_mean_return": _metric(train, "long_short_mean_return"),
+            "test_long_short_mean_return": _metric(test, "long_short_mean_return"),
+            "train_long_short_positive_rate": _metric(train, "long_short_positive_rate"),
+            "test_long_short_positive_rate": _metric(test, "long_short_positive_rate"),
+            "train_long_short_observations": int(_metric(train, "long_short_observations")),
+            "test_long_short_observations": int(_metric(test, "long_short_observations")),
             "train_decision_status": train.get("decision_status") if train else "missing",
             "test_decision_status": test.get("decision_status") if test else "missing",
             "train_sharpe": train_sharpe,
@@ -271,23 +345,35 @@ def _merged_row(
             "test_max_drawdown": test_max_drawdown,
             "train_mean_ic": _metric(train, "mean_ic"),
             "test_mean_ic": _metric(test, "mean_ic"),
+            "train_mean_rank_ic": _metric(train, "mean_rank_ic"),
+            "test_mean_rank_ic": _metric(test, "mean_rank_ic"),
             "train_ic_observations": int(_metric(train, "ic_observations")),
             "test_ic_observations": int(_metric(test, "ic_observations")),
             "train_ic_t_stat": _metric(train, "ic_t_stat"),
             "test_ic_t_stat": _metric(test, "ic_t_stat"),
             "train_ic_p_value": _metric_or(train, "ic_p_value", 1.0),
             "test_ic_p_value": _metric_or(test, "ic_p_value", 1.0),
+            "train_rank_ic_t_stat": _metric(train, "rank_ic_t_stat"),
+            "test_rank_ic_t_stat": _metric(test, "rank_ic_t_stat"),
+            "train_rank_ic_p_value": _metric_or(train, "rank_ic_p_value", 1.0),
+            "test_rank_ic_p_value": _metric_or(test, "rank_ic_p_value", 1.0),
             "train_positive_ic_rate": _metric(train, "positive_ic_rate"),
             "test_positive_ic_rate": _metric(test, "positive_ic_rate"),
             "test_significance_status": test.get("significance_status") if test else "missing",
             "train_tail_mean_ic": _metric(train, "tail_mean_ic"),
             "test_tail_mean_ic": _metric(test, "tail_mean_ic"),
+            "train_tail_mean_rank_ic": _metric(train, "tail_mean_rank_ic"),
+            "test_tail_mean_rank_ic": _metric(test, "tail_mean_rank_ic"),
             "train_tail_ic_observations": int(_metric(train, "tail_ic_observations")),
             "test_tail_ic_observations": int(_metric(test, "tail_ic_observations")),
             "train_tail_ic_t_stat": _metric(train, "tail_ic_t_stat"),
             "test_tail_ic_t_stat": _metric(test, "tail_ic_t_stat"),
             "train_tail_ic_p_value": _metric_or(train, "tail_ic_p_value", 1.0),
             "test_tail_ic_p_value": _metric_or(test, "tail_ic_p_value", 1.0),
+            "train_tail_rank_ic_t_stat": _metric(train, "tail_rank_ic_t_stat"),
+            "test_tail_rank_ic_t_stat": _metric(test, "tail_rank_ic_t_stat"),
+            "train_tail_rank_ic_p_value": _metric_or(train, "tail_rank_ic_p_value", 1.0),
+            "test_tail_rank_ic_p_value": _metric_or(test, "tail_rank_ic_p_value", 1.0),
             "train_tail_positive_ic_rate": _metric(train, "tail_positive_ic_rate"),
             "test_tail_positive_ic_rate": _metric(test, "tail_positive_ic_rate"),
             "test_tail_significance_status": test.get("tail_significance_status") if test else "missing",
@@ -341,7 +427,10 @@ def _aggregate_case_rows(case_id: str, rows: list[dict[str, Any]], config: WalkF
             "factor_windows": source.get("factor_windows", []),
             "top_n": source.get("top_n"),
             "cost_bps": source.get("cost_bps"),
+            "forward_horizon": source.get("forward_horizon", config.experiment_grid.forward_horizon),
+            "execution_lag": source.get("execution_lag", config.experiment_grid.execution_lag),
             "regime_lookback": source.get("regime_lookback"),
+            **_aggregate_split_evidence(rows),
             "data_mode": _aggregate_data_mode(rows),
             "train_status": _aggregate_status(rows, "train_status"),
             "test_status": _aggregate_status(rows, "test_status"),
@@ -367,6 +456,14 @@ def _aggregate_case_rows(case_id: str, rows: list[dict[str, Any]], config: WalkF
             "train_win_rate": _mean_metric(rows, "train_win_rate"),
             "test_win_rate": _mean_metric(rows, "test_win_rate"),
             "mean_test_win_rate": _mean_metric(rows, "test_win_rate"),
+            "train_turnover": _mean_metric(rows, "train_turnover"),
+            "test_turnover": _mean_metric(rows, "test_turnover"),
+            "train_long_short_mean_return": _mean_metric(rows, "train_long_short_mean_return"),
+            "test_long_short_mean_return": _mean_metric(rows, "test_long_short_mean_return"),
+            "train_long_short_positive_rate": _mean_metric(rows, "train_long_short_positive_rate"),
+            "test_long_short_positive_rate": _mean_metric(rows, "test_long_short_positive_rate"),
+            "train_long_short_observations": sum(int(_metric(row, "train_long_short_observations")) for row in rows),
+            "test_long_short_observations": sum(int(_metric(row, "test_long_short_observations")) for row in rows),
             "train_decision_status": _aggregate_status(rows, "train_decision_status"),
             "test_decision_status": _aggregate_status(rows, "test_decision_status"),
             "train_sharpe": _mean_metric(rows, "train_sharpe"),
@@ -405,23 +502,35 @@ def _aggregate_case_rows(case_id: str, rows: list[dict[str, Any]], config: WalkF
             "worst_test_max_drawdown": worst_test_max_drawdown,
             "train_mean_ic": _mean_metric(rows, "train_mean_ic"),
             "test_mean_ic": _mean_metric(rows, "test_mean_ic"),
+            "train_mean_rank_ic": _mean_metric(rows, "train_mean_rank_ic"),
+            "test_mean_rank_ic": _mean_metric(rows, "test_mean_rank_ic"),
             "train_ic_observations": sum(int(_metric(row, "train_ic_observations")) for row in rows),
             "test_ic_observations": sum(int(_metric(row, "test_ic_observations")) for row in rows),
             "train_ic_t_stat": _mean_metric(rows, "train_ic_t_stat"),
             "test_ic_t_stat": _mean_metric(rows, "test_ic_t_stat"),
             "train_ic_p_value": _max_metric(rows, "train_ic_p_value", default=1.0),
             "test_ic_p_value": _max_metric(rows, "test_ic_p_value", default=1.0),
+            "train_rank_ic_t_stat": _mean_metric(rows, "train_rank_ic_t_stat"),
+            "test_rank_ic_t_stat": _mean_metric(rows, "test_rank_ic_t_stat"),
+            "train_rank_ic_p_value": _max_metric(rows, "train_rank_ic_p_value", default=1.0),
+            "test_rank_ic_p_value": _max_metric(rows, "test_rank_ic_p_value", default=1.0),
             "train_positive_ic_rate": _min_metric(rows, "train_positive_ic_rate"),
             "test_positive_ic_rate": _min_metric(rows, "test_positive_ic_rate"),
             "test_significance_status": _aggregate_status(rows, "test_significance_status"),
             "train_tail_mean_ic": _mean_metric(rows, "train_tail_mean_ic"),
             "test_tail_mean_ic": _mean_metric(rows, "test_tail_mean_ic"),
+            "train_tail_mean_rank_ic": _mean_metric(rows, "train_tail_mean_rank_ic"),
+            "test_tail_mean_rank_ic": _mean_metric(rows, "test_tail_mean_rank_ic"),
             "train_tail_ic_observations": sum(int(_metric(row, "train_tail_ic_observations")) for row in rows),
             "test_tail_ic_observations": sum(int(_metric(row, "test_tail_ic_observations")) for row in rows),
             "train_tail_ic_t_stat": _mean_metric(rows, "train_tail_ic_t_stat"),
             "test_tail_ic_t_stat": _mean_metric(rows, "test_tail_ic_t_stat"),
             "train_tail_ic_p_value": _max_metric(rows, "train_tail_ic_p_value", default=1.0),
             "test_tail_ic_p_value": _max_metric(rows, "test_tail_ic_p_value", default=1.0),
+            "train_tail_rank_ic_t_stat": _mean_metric(rows, "train_tail_rank_ic_t_stat"),
+            "test_tail_rank_ic_t_stat": _mean_metric(rows, "test_tail_rank_ic_t_stat"),
+            "train_tail_rank_ic_p_value": _max_metric(rows, "train_tail_rank_ic_p_value", default=1.0),
+            "test_tail_rank_ic_p_value": _max_metric(rows, "test_tail_rank_ic_p_value", default=1.0),
             "train_tail_positive_ic_rate": _min_metric(rows, "train_tail_positive_ic_rate"),
             "test_tail_positive_ic_rate": _min_metric(rows, "test_tail_positive_ic_rate"),
             "test_tail_significance_status": _aggregate_status(rows, "test_tail_significance_status"),
@@ -684,4 +793,6 @@ def _sanitize(value: Any) -> Any:
         return [_sanitize(item) for item in value]
     if isinstance(value, float):
         return value if math.isfinite(value) else None
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
     return value
