@@ -307,6 +307,7 @@ class CheckPlanTests(unittest.TestCase):
                 "desktop_daily_basic_walk_forward_progress_audit",
                 "desktop_daily_basic_long_cycle_factor_replay",
                 "desktop_daily_basic_market_regime_coverage",
+                "desktop_daily_basic_promotion_report",
             ],
         )
         self.assertTrue(all(not step.uses_network for step in plan))
@@ -405,6 +406,15 @@ class CheckPlanTests(unittest.TestCase):
                 "--min-signal-window-blocked-rows",
                 "5",
                 "--require-sufficient",
+            ],
+        )
+        self.assertEqual(
+            next(step for step in plan if step.name == "desktop_daily_basic_promotion_report").command,
+            [
+                "python",
+                "scripts/run_promotion_report.py",
+                "--config",
+                "configs/promotion_gate_cn_stock_daily_basic_value_low_turnover_bucket_20260620.json",
             ],
         )
 

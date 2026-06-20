@@ -52,6 +52,9 @@ DESKTOP_VALIDATION_CHECK_NAMES = (
 DAILY_BASIC_VALIDATION_CONFIG = "configs/walk_forward_cn_stock_daily_basic_value_low_turnover_bucket_20260620.json"
 DAILY_BASIC_AUTHORITY_BARS_CONFIG = "configs/cn_stock_authority_bars_2015_2025.json"
 DAILY_BASIC_AUTHORITY_INPUTS_CONFIG = "configs/cn_stock_authority_daily_basic_inputs_2015_2025.json"
+DAILY_BASIC_PROMOTION_CONFIG = (
+    "configs/promotion_gate_cn_stock_daily_basic_value_low_turnover_bucket_20260620.json"
+)
 DAILY_BASIC_VALIDATION_ROOT = "data/reports/walk_forward_cn_stock_daily_basic_value_low_turnover_bucket_20260620"
 DAILY_BASIC_DATA_QUALITY_DIR = (
     "data/reports/data_quality_gap_audit_cn_stock_daily_basic_value_low_turnover_bucket_20260620"
@@ -285,6 +288,15 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
                     "--min-signal-window-blocked-rows",
                     "5",
                     "--require-sufficient",
+                ],
+            ),
+            CheckStep(
+                "desktop_daily_basic_promotion_report",
+                [
+                    python_executable,
+                    "scripts/run_promotion_report.py",
+                    "--config",
+                    DAILY_BASIC_PROMOTION_CONFIG,
                 ],
             ),
         ]

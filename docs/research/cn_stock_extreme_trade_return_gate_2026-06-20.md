@@ -26,6 +26,7 @@ The follow-on paper/risk chain now fails closed on promotion status:
 - Risk candidate selection only admits candidates whose promotion status is `paper_ready` or `manual_live_review`.
 - Daily ops adds `promotion_status_not_paper_ready` as a non-manual blocker when the selected candidate is blocked, research-only, or missing promotion status.
 - Risk selected candidates preserve `promotion_status` so downstream artifacts keep promotion-gate provenance instead of becoming bare case IDs.
+- The daily-basic low-turnover bucket validation profile now has its own strict promotion gate config and `run_checks.py` promotion-report step, matching the value/size/liquidity and price-volume validation lines.
 
 ## Current Evidence
 

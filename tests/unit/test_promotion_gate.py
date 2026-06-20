@@ -768,6 +768,7 @@ class PromotionGateTests(unittest.TestCase):
     def test_strict_cn_stock_promotion_configs_require_long_cycle_replay_and_progress_audit(self):
         config_paths = [
             "configs/promotion_gate_tushare_moneyflow_residual_regime.json",
+            "configs/promotion_gate_cn_stock_daily_basic_value_low_turnover_bucket_20260620.json",
             "configs/promotion_gate_cn_stock_daily_basic_value_size_liquidity_20260620.json",
             "configs/promotion_gate_cn_stock_price_volume_technical_20260620.json",
         ]
