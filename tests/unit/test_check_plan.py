@@ -162,6 +162,7 @@ class CheckPlanTests(unittest.TestCase):
                 "cn_stock_data_manifest",
                 "data_quality_audit",
                 "desktop_factor_validation",
+                "desktop_walk_forward_progress_audit",
                 "desktop_market_regime_coverage",
                 "desktop_promotion_report",
                 "desktop_validation_summary",
@@ -215,7 +216,20 @@ class CheckPlanTests(unittest.TestCase):
                 "data/reports/data_quality_gap_audit_tushare_moneyflow_residual_regime",
             ],
         )
-        self.assertEqual(plan[-4].command, ["python", "scripts/run_desktop_factor_validation.py"])
+        self.assertEqual(plan[-5].command, ["python", "scripts/run_desktop_factor_validation.py"])
+        self.assertEqual(
+            plan[-4].command,
+            [
+                "python",
+                "scripts/run_walk_forward_progress_audit.py",
+                "--walk-forward-root",
+                "data/reports/walk_forward_tushare_moneyflow_residual_regime",
+                "--output-dir",
+                "data/reports/walk_forward_progress_audit_tushare_moneyflow_residual_regime",
+                "--expected-folds",
+                "38",
+            ],
+        )
         self.assertEqual(
             plan[-3].command,
             [

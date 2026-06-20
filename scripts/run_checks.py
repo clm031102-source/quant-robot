@@ -109,6 +109,19 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
             *_desktop_validation_safety_steps(full_plan, selected, python_executable),
             CheckStep("desktop_factor_validation", [python_executable, "scripts/run_desktop_factor_validation.py"]),
             CheckStep(
+                "desktop_walk_forward_progress_audit",
+                [
+                    python_executable,
+                    "scripts/run_walk_forward_progress_audit.py",
+                    "--walk-forward-root",
+                    "data/reports/walk_forward_tushare_moneyflow_residual_regime",
+                    "--output-dir",
+                    "data/reports/walk_forward_progress_audit_tushare_moneyflow_residual_regime",
+                    "--expected-folds",
+                    "38",
+                ],
+            ),
+            CheckStep(
                 "desktop_market_regime_coverage",
                 [
                     python_executable,
