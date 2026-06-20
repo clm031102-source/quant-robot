@@ -10,6 +10,7 @@ import pandas as pd
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.factors.public_technical_tail_guard import compute_public_technical_tail_guard_factors
 from quant_robot.factors.public_trend_volume import compute_public_trend_volume_factors
+from quant_robot.factors.public_formula_price_volume import compute_public_formula_price_volume_factors
 from quant_robot.factors.public_technical_liquidity import compute_public_technical_liquidity_factors
 from quant_robot.factors.public_technical import compute_public_technical_factors
 from quant_robot.factors.technical import compute_basic_factors
@@ -163,6 +164,29 @@ class ResearchPipelineTests(unittest.TestCase):
             )
 
         self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("supertrend_volume_confirmed_10_3_20",))
+
+    def test_pipeline_computes_only_requested_public_formula_price_volume_factor(self):
+        bars = _synthetic_public_technical_bars(asset_count=3, day_count=70)
+        factors = compute_public_formula_price_volume_factors(
+            bars,
+            factor_names=("formula_pv_corr_reversal_20",),
+        )
+
+        with patch(
+            "quant_robot.research.pipeline.compute_public_formula_price_volume_factors",
+            return_value=factors,
+        ) as factor_builder:
+            run_research_pipeline(
+                bars,
+                ResearchPipelineConfig(
+                    factor_name="formula_pv_corr_reversal_20",
+                    factor_source="public_formula_price_volume",
+                    market="CN",
+                    top_n=1,
+                ),
+            )
+
+        self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("formula_pv_corr_reversal_20",))
 
     def test_pipeline_uses_forward_horizon_for_backtest_exit(self):
         config = ResearchPipelineConfig(factor_name="momentum_2", factor_windows=(2,), market="CN", top_n=1, forward_horizon=2)
@@ -507,6 +531,37 @@ class ResearchPipelineTests(unittest.TestCase):
                 )
 
             self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("value_liquid_low_tail_20",))
+
+    def test_pipeline_computes_only_requested_daily_basic_residual_composite_factor(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bars = load_demo_market_bars()
+            _write_daily_basic_factor_inputs(Path(tmp), bars)
+
+            with patch("quant_robot.research.pipeline.compute_daily_basic_residual_composite_factors") as factor_builder:
+                factor_builder.return_value = pd.DataFrame(
+                    {
+                        "date": [],
+                        "asset_id": [],
+                        "market": [],
+                        "factor_name": [],
+                        "factor_value": [],
+                        "lookback_window": [],
+                    }
+                )
+                run_research_pipeline(
+                    bars,
+                    ResearchPipelineConfig(
+                        factor_name="resid_value_quality_low_vol_20",
+                        factor_source="daily_basic_residual_composite",
+                        factor_input_root=Path(tmp),
+                        factor_input_required=True,
+                        market="CN",
+                        top_n=1,
+                        execution_lag=1,
+                    ),
+                )
+
+            self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("resid_value_quality_low_vol_20",))
 
     def test_pipeline_computes_only_requested_tushare_daily_basic_factor(self):
         with tempfile.TemporaryDirectory() as tmp:

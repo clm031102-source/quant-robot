@@ -109,6 +109,25 @@ class AuthorityBarsTests(unittest.TestCase):
             self.assertTrue(config.repair_adjusted_ratio_mass_jumps)
             self.assertEqual(config.adjusted_ratio_jump_threshold, 2.5)
             self.assertEqual(config.adjusted_ratio_mass_jump_asset_threshold, 25)
+            self.assertFalse(config.exclude_adjusted_ratio_jump_assets)
+
+    def test_load_authority_bars_config_reads_adjusted_ratio_jump_asset_exclusion(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "authority.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "market": "CN",
+                        "exclude_adjusted_ratio_jump_assets": True,
+                        "segments": [{"root": "data/processed/first"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            config = load_authority_bars_config(path)
+
+            self.assertTrue(config.exclude_adjusted_ratio_jump_assets)
 
     def test_authority_config_loader_repairs_mass_adjusted_ratio_jumps(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -146,6 +165,38 @@ class AuthorityBarsTests(unittest.TestCase):
             self.assertEqual(repaired.loc[2, "adj_close"], 11.0)
             self.assertEqual(repaired.loc[4, "adj_close"], 20.5)
             self.assertEqual(repaired.loc[5, "adj_close"], 21.0)
+
+    def test_authority_config_loader_excludes_assets_with_adjusted_ratio_jumps(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            store = root / "store"
+            _write_bars(
+                store,
+                [
+                    _bar("2024-01-02", asset_id="CN_XSHE_CLEAN", symbol="000001.SZ", close=10.0, adj_close=10.0),
+                    _bar("2024-01-03", asset_id="CN_XSHE_CLEAN", symbol="000001.SZ", close=10.5, adj_close=10.5),
+                    _bar("2024-01-04", asset_id="CN_XSHE_CLEAN", symbol="000001.SZ", close=11.0, adj_close=11.0),
+                    _bar("2024-01-02", asset_id="CN_XSHE_BAD", symbol="000002.SZ", close=20.0, adj_close=20.0),
+                    _bar("2024-01-03", asset_id="CN_XSHE_BAD", symbol="000002.SZ", close=20.5, adj_close=410.0),
+                    _bar("2024-01-04", asset_id="CN_XSHE_BAD", symbol="000002.SZ", close=21.0, adj_close=420.0),
+                ],
+            )
+            config_path = root / "authority.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "market": "CN",
+                        "exclude_adjusted_ratio_jump_assets": True,
+                        "adjusted_ratio_jump_threshold": 2.0,
+                        "segments": [{"root": str(store)}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            bars = load_authority_processed_bars_from_config(config_path, markets=("CN",))
+
+            self.assertEqual(set(bars["asset_id"]), {"CN_XSHE_CLEAN"})
 
 
 def _write_bars(root: Path, rows: list[dict]) -> None:

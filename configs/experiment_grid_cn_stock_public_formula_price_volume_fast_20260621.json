@@ -1,0 +1,51 @@
+{
+  "markets": [
+    "CN"
+  ],
+  "factor_source": "public_formula_price_volume",
+  "factor_names": [
+    "formula_pv_corr_reversal_20",
+    "formula_volume_contraction_reversal_20",
+    "formula_range_contraction_breakout_20"
+  ],
+  "factor_windows": [
+    20
+  ],
+  "top_n_values": [
+    50,
+    100
+  ],
+  "cost_bps_values": [
+    10.0
+  ],
+  "start_date": "2015-01-05",
+  "end_date": "2025-12-31",
+  "signal_start_date": "2015-01-05",
+  "signal_end_date": "2025-12-31",
+  "forward_horizon": 20,
+  "execution_lag": 1,
+  "rebalance_intervals": [
+    5,
+    10
+  ],
+  "quantiles": 5,
+  "portfolio_scope": "market",
+  "cash_annual_return": 0.0,
+  "regime_filter": true,
+  "regime_lookback_values": [
+    120
+  ],
+  "target_gross_exposure": 1.0,
+  "market_impact_bps": 20.0,
+  "max_participation_rate": 0.01,
+  "portfolio_value": 1000000.0,
+  "min_relative_return": 0.0,
+  "max_drawdown_limit": 0.5,
+  "output_dir": "data/reports/experiment_grid_cn_stock_public_formula_price_volume_fast_20260621_clean",
+  "write_case_artifacts": false,
+  "rank_by": "overlap_autocorr_adjusted_sharpe",
+  "min_trades": 30,
+  "precompute_factor_matrix": true,
+  "resume_completed_cases": true,
+  "reuse_research_inputs": true
+}

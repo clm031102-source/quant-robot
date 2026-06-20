@@ -193,6 +193,31 @@ class ProjectAuditTests(unittest.TestCase):
             self.assertEqual(registry["unknown_factor_refs"], [])
             self.assertEqual(registry["unsupported_factor_sources"], [])
 
+    def test_audit_accepts_registered_public_formula_price_volume_factor_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "configs").mkdir()
+            (root / "configs" / "walk_forward_public_formula_price_volume.json").write_text(
+                """{
+  "split_date": "2024-01-01",
+  "experiment_grid": {
+    "factor_source": "public_formula_price_volume",
+    "factor_names": ["formula_pv_corr_reversal_20", "formula_range_contraction_breakout_20"],
+    "factor_windows": [20]
+  }
+}
+""",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            registry = audit["factor_config_registry"]
+            self.assertTrue(registry["passes"])
+            self.assertEqual(registry["configs_scanned"], 1)
+            self.assertEqual(registry["unknown_factor_refs"], [])
+            self.assertEqual(registry["unsupported_factor_sources"], [])
+
     def test_audit_accepts_registered_daily_basic_value_liquidity_tail_factor_source(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -203,6 +228,31 @@ class ProjectAuditTests(unittest.TestCase):
   "experiment_grid": {
     "factor_source": "daily_basic_value_liquidity_tail",
     "factor_names": ["value_liquid_low_tail_20", "dividend_value_liquid_low_tail_20"],
+    "factor_windows": [20]
+  }
+}
+""",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            registry = audit["factor_config_registry"]
+            self.assertTrue(registry["passes"])
+            self.assertEqual(registry["configs_scanned"], 1)
+            self.assertEqual(registry["unknown_factor_refs"], [])
+            self.assertEqual(registry["unsupported_factor_sources"], [])
+
+    def test_audit_accepts_registered_daily_basic_residual_composite_factor_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "configs").mkdir()
+            (root / "configs" / "walk_forward_daily_basic_residual_composite.json").write_text(
+                """{
+  "split_date": "2024-01-01",
+  "experiment_grid": {
+    "factor_source": "daily_basic_residual_composite",
+    "factor_names": ["resid_value_quality_low_vol_20", "resid_value_reversal_low_tail_20"],
     "factor_windows": [20]
   }
 }

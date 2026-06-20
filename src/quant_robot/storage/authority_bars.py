@@ -28,6 +28,7 @@ class AuthorityBarsConfig:
     market: str
     segments: tuple[AuthorityBarSegment, ...]
     repair_adjusted_ratio_mass_jumps: bool = False
+    exclude_adjusted_ratio_jump_assets: bool = False
     adjusted_ratio_jump_threshold: float = 2.0
     adjusted_ratio_mass_jump_asset_threshold: int = 100
 
@@ -38,6 +39,7 @@ def load_authority_bars_config(path: str | Path) -> AuthorityBarsConfig:
         market=str(data.get("market", "CN")).upper(),
         segments=tuple(_segment(item) for item in data.get("segments", [])),
         repair_adjusted_ratio_mass_jumps=bool(data.get("repair_adjusted_ratio_mass_jumps", False)),
+        exclude_adjusted_ratio_jump_assets=bool(data.get("exclude_adjusted_ratio_jump_assets", False)),
         adjusted_ratio_jump_threshold=float(data.get("adjusted_ratio_jump_threshold", 2.0)),
         adjusted_ratio_mass_jump_asset_threshold=int(data.get("adjusted_ratio_mass_jump_asset_threshold", 100)),
     )
@@ -59,6 +61,11 @@ def load_authority_processed_bars_from_config(path: str | Path, markets: tuple[s
             bars,
             jump_threshold=config.adjusted_ratio_jump_threshold,
             mass_jump_asset_threshold=config.adjusted_ratio_mass_jump_asset_threshold,
+        )
+    if config.exclude_adjusted_ratio_jump_assets:
+        bars = exclude_adjusted_ratio_jump_assets(
+            bars,
+            jump_threshold=config.adjusted_ratio_jump_threshold,
         )
     validate_market_data(bars)
     return bars
@@ -104,6 +111,25 @@ def repair_adjusted_ratio_mass_jumps(
     cumulative_correction = event_correction.groupby(frame["asset_id"], sort=False).cumprod()
     repaired["adj_close"] = pd.to_numeric(repaired["adj_close"], errors="coerce") * cumulative_correction
     return repaired
+
+
+def exclude_adjusted_ratio_jump_assets(
+    bars: pd.DataFrame,
+    *,
+    jump_threshold: float = 2.0,
+) -> pd.DataFrame:
+    required = {"date", "asset_id", "close", "adj_close"}
+    if bars.empty or not required.issubset(bars.columns):
+        return bars.copy()
+    frame = bars.copy()
+    frame["date"] = pd.to_datetime(frame["date"], errors="coerce")
+    frame = frame.sort_values(["asset_id", "date"]).reset_index(drop=True)
+    ratio = pd.to_numeric(_adjusted_ratio(frame), errors="coerce")
+    jumps = _adjusted_ratio_jump_frame(frame, ratio, jump_threshold)
+    if jumps.empty:
+        return frame
+    blocked_assets = set(jumps["asset_id"].astype(str))
+    return frame[~frame["asset_id"].astype(str).isin(blocked_assets)].reset_index(drop=True)
 
 
 def load_authority_processed_dataset_from_config(

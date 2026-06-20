@@ -7,9 +7,11 @@ from pathlib import Path
 from typing import Any
 
 from quant_robot.data.readiness import check_parquet_readiness, check_tushare_readiness
+from quant_robot.factors.daily_basic_residual_composite import DAILY_BASIC_RESIDUAL_COMPOSITE_FACTOR_NAMES
 from quant_robot.factors.daily_basic_technical_combo import DAILY_BASIC_TECHNICAL_COMBO_FACTOR_NAMES
 from quant_robot.factors.daily_basic_value_liquidity_tail import DAILY_BASIC_VALUE_LIQUIDITY_TAIL_FACTOR_NAMES
 from quant_robot.factors.moneyflow_technical import MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES
+from quant_robot.factors.public_formula_price_volume import PUBLIC_FORMULA_PRICE_VOLUME_FACTOR_NAMES
 from quant_robot.factors.public_technical_liquidity import PUBLIC_TECHNICAL_LIQUIDITY_FACTOR_NAMES
 from quant_robot.factors.public_technical_tail_guard import PUBLIC_TECHNICAL_TAIL_GUARD_FACTOR_NAMES
 from quant_robot.factors.public_trend_volume import PUBLIC_TREND_VOLUME_FACTOR_NAMES
@@ -412,12 +414,16 @@ def _registered_factor_names(factor_source: str, factor_windows: tuple[int, ...]
         return set(PUBLIC_TECHNICAL_LIQUIDITY_FACTOR_NAMES)
     if factor_source == "public_technical_tail_guard":
         return set(PUBLIC_TECHNICAL_TAIL_GUARD_FACTOR_NAMES)
+    if factor_source == "public_formula_price_volume":
+        return set(PUBLIC_FORMULA_PRICE_VOLUME_FACTOR_NAMES)
     if factor_source == "public_trend_volume":
         return set(PUBLIC_TREND_VOLUME_FACTOR_NAMES)
     if factor_source == "tushare_daily_basic":
         return set(DAILY_BASIC_FACTOR_NAMES)
     if factor_source == "daily_basic_technical_combo":
         return set(DAILY_BASIC_TECHNICAL_COMBO_FACTOR_NAMES)
+    if factor_source == "daily_basic_residual_composite":
+        return set(DAILY_BASIC_RESIDUAL_COMPOSITE_FACTOR_NAMES)
     if factor_source == "daily_basic_value_liquidity_tail":
         return set(DAILY_BASIC_VALUE_LIQUIDITY_TAIL_FACTOR_NAMES)
     if factor_source == "tushare_moneyflow":

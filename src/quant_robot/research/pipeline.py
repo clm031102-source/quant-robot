@@ -14,6 +14,10 @@ from quant_robot.factors.daily_basic_technical_combo import (
     DAILY_BASIC_TECHNICAL_COMBO_FACTOR_NAMES,
     compute_daily_basic_technical_combo_factors,
 )
+from quant_robot.factors.daily_basic_residual_composite import (
+    DAILY_BASIC_RESIDUAL_COMPOSITE_FACTOR_NAMES,
+    compute_daily_basic_residual_composite_factors,
+)
 from quant_robot.factors.daily_basic_value_liquidity_tail import (
     DAILY_BASIC_VALUE_LIQUIDITY_TAIL_FACTOR_NAMES,
     compute_daily_basic_value_liquidity_tail_factors,
@@ -32,6 +36,10 @@ from quant_robot.factors.public_technical_liquidity import (
 from quant_robot.factors.public_technical_tail_guard import (
     PUBLIC_TECHNICAL_TAIL_GUARD_FACTOR_NAMES,
     compute_public_technical_tail_guard_factors,
+)
+from quant_robot.factors.public_formula_price_volume import (
+    PUBLIC_FORMULA_PRICE_VOLUME_FACTOR_NAMES,
+    compute_public_formula_price_volume_factors,
 )
 from quant_robot.factors.public_trend_volume import (
     PUBLIC_TREND_VOLUME_FACTOR_NAMES,
@@ -329,6 +337,7 @@ def _load_factor_input_frame(config: ResearchPipelineConfig) -> pd.DataFrame:
         "technical",
         "tushare_daily_basic",
         "daily_basic_technical_combo",
+        "daily_basic_residual_composite",
         "daily_basic_value_liquidity_tail",
         "tushare_moneyflow",
         "moneyflow_technical_combo",
@@ -338,11 +347,19 @@ def _load_factor_input_frame(config: ResearchPipelineConfig) -> pd.DataFrame:
         "public_technical",
         "public_technical_liquidity",
         "public_technical_tail_guard",
+        "public_formula_price_volume",
         "public_trend_volume",
         "combined",
     }:
         raise ValueError(f"Unsupported factor_source: {factor_source}")
-    if factor_source in {"technical", "public_technical", "public_technical_liquidity", "public_technical_tail_guard", "public_trend_volume"}:
+    if factor_source in {
+        "technical",
+        "public_technical",
+        "public_technical_liquidity",
+        "public_technical_tail_guard",
+        "public_formula_price_volume",
+        "public_trend_volume",
+    }:
         if config.factor_input_required and config.factor_input_root is None:
             raise ValueError("factor_input_root is required when factor_input_required is true")
         return pd.DataFrame()
@@ -461,6 +478,10 @@ def _compute_factor_source(bars: pd.DataFrame, factor_inputs: pd.DataFrame, conf
         if config.factor_name not in PUBLIC_TECHNICAL_TAIL_GUARD_FACTOR_NAMES:
             return _empty_factor_frame()
         return compute_public_technical_tail_guard_factors(bars, factor_names=(config.factor_name,))
+    if config.factor_source == "public_formula_price_volume":
+        if config.factor_name not in PUBLIC_FORMULA_PRICE_VOLUME_FACTOR_NAMES:
+            return _empty_factor_frame()
+        return compute_public_formula_price_volume_factors(bars, factor_names=(config.factor_name,))
     if config.factor_source == "public_trend_volume":
         if config.factor_name not in PUBLIC_TREND_VOLUME_FACTOR_NAMES:
             return _empty_factor_frame()
@@ -493,6 +514,10 @@ def _compute_factor_source(bars: pd.DataFrame, factor_inputs: pd.DataFrame, conf
         if config.factor_name not in DAILY_BASIC_TECHNICAL_COMBO_FACTOR_NAMES:
             return _empty_factor_frame()
         return compute_daily_basic_technical_combo_factors(bars, factor_inputs, factor_names=(config.factor_name,))
+    if config.factor_source == "daily_basic_residual_composite":
+        if config.factor_name not in DAILY_BASIC_RESIDUAL_COMPOSITE_FACTOR_NAMES:
+            return _empty_factor_frame()
+        return compute_daily_basic_residual_composite_factors(bars, factor_inputs, factor_names=(config.factor_name,))
     if config.factor_source == "daily_basic_value_liquidity_tail":
         if config.factor_name not in DAILY_BASIC_VALUE_LIQUIDITY_TAIL_FACTOR_NAMES:
             return _empty_factor_frame()
