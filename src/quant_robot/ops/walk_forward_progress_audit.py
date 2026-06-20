@@ -16,6 +16,7 @@ DEFAULT_MIN_CASE_PASSING_FRACTION = 0.25
 DEFAULT_ROW_MIN_SHARPE = 1.0
 DEFAULT_ROW_MAX_DRAWDOWN = 0.25
 DEFAULT_ROW_MAX_PARTICIPATION = 0.01
+DEFAULT_ROW_MAX_ABS_TRADE_GROSS_RETURN = 5.0
 DEFAULT_CASE_MIN_MEAN_SHARPE = 0.5
 DEFAULT_CASE_MAX_DRAWDOWN = 0.35
 DEFAULT_CASE_MIN_POSITIVE_RELATIVE_FRACTION = 0.55
@@ -304,6 +305,7 @@ def _passes_row_gate(
         and _float(row.get("max_drawdown")) >= -row_max_drawdown
         and _float(row.get("capacity_limited_trades")) == 0
         and _float(row.get("max_participation_rate"), default=float("inf")) <= row_max_participation
+        and not _extreme_trade_return(row)
     )
 
 
@@ -332,6 +334,7 @@ def _case_summary(
         max_participation = max((_float(row.get("max_participation_rate")) for row in case_rows), default=0.0)
         no_trade_rows = sum(1 for row in case_rows if str(row.get("status")) == "no_trades")
         regime_all_blocked_no_trade_rows = sum(1 for row in case_rows if row.get("regime_all_blocked_no_trade"))
+        extreme_trade_return_rows = sum(1 for row in case_rows if _extreme_trade_return(row))
         summary = {
             "case_id": str(key[0]),
             "factor_name": str(key[1]),
@@ -345,6 +348,7 @@ def _case_summary(
             "required_passing_rows": required_rows,
             "no_trade_rows": no_trade_rows,
             "regime_all_blocked_no_trade_rows": regime_all_blocked_no_trade_rows,
+            "extreme_trade_return_rows": extreme_trade_return_rows,
             "mean_sharpe": _mean_float(case_rows, "sharpe"),
             "median_sharpe": _median_float(case_rows, "sharpe"),
             "positive_sharpe_fraction": _positive_fraction(case_rows, "sharpe"),
@@ -357,6 +361,10 @@ def _case_summary(
             "worst_drawdown": min((_float(row.get("max_drawdown")) for row in case_rows), default=0.0),
             "capacity_limited_trades": capacity_limited_trades,
             "max_participation_rate": max_participation,
+            "max_abs_trade_gross_return": max(
+                (_float(row.get("max_abs_trade_gross_return")) for row in case_rows),
+                default=0.0,
+            ),
             "mean_tail_rank_ic_t_stat": _mean_float(case_rows, "tail_rank_ic_t_stat"),
             "mean_rank_ic_t_stat": _mean_float(case_rows, "rank_ic_t_stat"),
             "mean_overlap_adjusted_sharpe": _mean_float(case_rows, "overlap_autocorr_adjusted_sharpe"),
@@ -405,6 +413,8 @@ def _case_blockers(
         blockers.append("case_no_trades_present")
     if int(row.get("regime_all_blocked_no_trade_rows", 0)) > 0:
         blockers.append("case_regime_all_blocked_no_trades")
+    if int(row.get("extreme_trade_return_rows", 0)) > 0:
+        blockers.append("extreme_oos_trade_return")
     if float(row["mean_sharpe"]) < case_min_mean_sharpe:
         blockers.append("mean_sharpe_below_progress_floor")
     if float(row["median_sharpe"]) < 0:
@@ -442,6 +452,11 @@ def _factor_summary(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "capacity_limited_trades": sum(_float(row.get("capacity_limited_trades")) for row in factor_rows),
                 "max_participation_rate": max(
                     (_float(row.get("max_participation_rate")) for row in factor_rows), default=0.0
+                ),
+                "extreme_trade_return_rows": sum(1 for row in factor_rows if _extreme_trade_return(row)),
+                "max_abs_trade_gross_return": max(
+                    (_float(row.get("max_abs_trade_gross_return")) for row in factor_rows),
+                    default=0.0,
                 ),
                 "mean_tail_rank_ic_t_stat": _mean_float(factor_rows, "tail_rank_ic_t_stat"),
             }
@@ -530,6 +545,12 @@ def _fold_signal_window(root: Path, fold: str) -> tuple[str | None, str | None]:
 
 def _truthy(value: Any) -> bool:
     return str(value).strip().lower() in {"1", "true", "yes", "y"}
+
+
+def _extreme_trade_return(row: dict[str, Any]) -> bool:
+    if _truthy(row.get("extreme_trade_return_flag")):
+        return True
+    return _float(row.get("max_abs_trade_gross_return")) > DEFAULT_ROW_MAX_ABS_TRADE_GROSS_RETURN
 
 
 def _claim_blockers(

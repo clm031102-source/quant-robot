@@ -10,6 +10,9 @@ from quant_robot.backtest.portfolio import select_top_n
 from quant_robot.research.overlap import overlap_aware_return_stats
 
 
+EXTREME_TRADE_ABS_GROSS_RETURN_THRESHOLD = 5.0
+
+
 @dataclass(frozen=True)
 class BacktestResult:
     equity_curve: pd.DataFrame
@@ -85,6 +88,7 @@ def run_factor_backtest(
             holding_period=holding_period,
         )
     )
+    metrics.update(_trade_return_metrics(trades))
     if not trades.empty:
         metrics["turnover"] = float(trades.groupby("signal_date")["target_weight"].sum().mean())
         metrics["average_holdings"] = float(trades.groupby("signal_date")["asset_id"].nunique().mean())
@@ -102,6 +106,32 @@ def run_factor_backtest(
         metrics["max_participation_rate"] = 0.0
         metrics["capacity_limited_trades"] = 0
     return BacktestResult(equity_curve=equity_curve, positions=selected, trades=trades, metrics=metrics)
+
+
+def _trade_return_metrics(trades: pd.DataFrame) -> dict[str, float | bool]:
+    if trades.empty or "gross_return" not in trades.columns:
+        return {
+            "max_trade_gross_return": 0.0,
+            "max_abs_trade_gross_return": 0.0,
+            "p99_abs_trade_gross_return": 0.0,
+            "extreme_trade_return_flag": False,
+        }
+    gross = pd.to_numeric(trades["gross_return"], errors="coerce").dropna()
+    if gross.empty:
+        return {
+            "max_trade_gross_return": 0.0,
+            "max_abs_trade_gross_return": 0.0,
+            "p99_abs_trade_gross_return": 0.0,
+            "extreme_trade_return_flag": False,
+        }
+    abs_gross = gross.abs()
+    max_abs = float(abs_gross.max())
+    return {
+        "max_trade_gross_return": float(gross.max()),
+        "max_abs_trade_gross_return": max_abs,
+        "p99_abs_trade_gross_return": float(abs_gross.quantile(0.99)),
+        "extreme_trade_return_flag": bool(max_abs > EXTREME_TRADE_ABS_GROSS_RETURN_THRESHOLD),
+    }
 
 
 def _overlap_metrics(returns: pd.Series, *, periods_per_year: float, holding_period: int) -> dict[str, object]:

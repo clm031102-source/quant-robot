@@ -151,6 +151,36 @@ class WalkForwardProgressAuditTests(unittest.TestCase):
             self.assertEqual(audit["summary"]["robust_case_candidates"], 0)
             self.assertIn("participation_rate_above_progress_limit", audit["top_case_rejections"][0]["blockers"])
 
+    def test_extreme_trade_return_blocks_progress_candidate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            safe = _row(
+                case_id="case_a",
+                factor_name="factor_a",
+                decision_status="approved",
+                sharpe=1.5,
+                relative_return=0.2,
+                max_drawdown=-0.1,
+            )
+            extreme = _row(
+                case_id="case_a",
+                factor_name="factor_a",
+                decision_status="approved",
+                sharpe=1.4,
+                relative_return=0.2,
+                max_drawdown=-0.1,
+            )
+            extreme["max_abs_trade_gross_return"] = "6.0"
+            extreme["extreme_trade_return_flag"] = "True"
+            _write_fold_leaderboard(root, "fold_01", [safe])
+            _write_fold_leaderboard(root, "fold_02", [extreme])
+
+            audit = audit_walk_forward_progress(root, expected_folds=2, min_case_passing_rows=1)
+
+            self.assertEqual(audit["summary"]["passing_fold_rows"], 1)
+            self.assertEqual(audit["summary"]["robust_case_candidates"], 0)
+            self.assertIn("extreme_oos_trade_return", audit["top_case_rejections"][0]["blockers"])
+
     def test_no_trade_fold_is_summarized_and_blocks_claims(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

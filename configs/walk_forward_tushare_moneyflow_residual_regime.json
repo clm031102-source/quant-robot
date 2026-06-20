@@ -11,6 +11,7 @@
   "rolling_step_days": 63,
   "min_accepted_folds": 2,
   "multiple_testing_alpha": 0.05,
+  "max_test_abs_trade_gross_return": 5.0,
   "experiment_grid": {
     "markets": ["CN"],
     "factor_source": "moneyflow_technical_combo",

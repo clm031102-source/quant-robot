@@ -284,6 +284,32 @@ class BacktestTests(unittest.TestCase):
         self.assertEqual(result.metrics["capacity_limited_trades"], 1)
         self.assertGreater(result.metrics["max_participation_rate"], 0.10)
 
+    def test_backtest_flags_extreme_single_trade_returns(self):
+        factors = pd.DataFrame(
+            {
+                "date": [pd.Timestamp("2024-01-01").date()],
+                "asset_id": ["A"],
+                "market": ["US"],
+                "factor_name": ["momentum_1"],
+                "factor_value": [1.0],
+            }
+        )
+        bars = pd.DataFrame(
+            {
+                "date": pd.date_range("2024-01-01", periods=3).date,
+                "asset_id": ["A"] * 3,
+                "market": ["US"] * 3,
+                "adj_close": [100.0, 100.0, 700.0],
+            }
+        )
+
+        result = run_factor_backtest(factors, bars, top_n=1, cost_bps=0.0)
+
+        self.assertAlmostEqual(result.metrics["max_trade_gross_return"], 6.0)
+        self.assertAlmostEqual(result.metrics["max_abs_trade_gross_return"], 6.0)
+        self.assertAlmostEqual(result.metrics["p99_abs_trade_gross_return"], 6.0)
+        self.assertTrue(result.metrics["extreme_trade_return_flag"])
+
 
 if __name__ == "__main__":
     unittest.main()

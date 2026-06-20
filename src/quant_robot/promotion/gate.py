@@ -10,6 +10,9 @@ from typing import Any
 import pandas as pd
 
 
+MAX_ALLOWED_TRADE_ABS_GROSS_RETURN = 5.0
+
+
 @dataclass(frozen=True)
 class PromotionGateConfig:
     walk_forward_leaderboard: Path | None = None
@@ -254,6 +257,8 @@ def _candidate_report(
         blocking.append("insufficient_oos_trades")
     if config.max_oos_sharpe_for_promotion is not None and test_sharpe > config.max_oos_sharpe_for_promotion:
         blocking.append("oos_sharpe_overfit_flag")
+    if _walk_forward_extreme_trade_return(row):
+        blocking.append("extreme_oos_trade_return")
     if test_relative_return < config.min_oos_relative_return:
         blocking.append("relative_return_below_threshold")
     if test_max_drawdown < -abs(config.max_oos_drawdown):
@@ -331,6 +336,10 @@ def _candidate_report(
                 "test_tail_ic_p_value": test_tail_ic_p_value,
                 "test_tail_positive_ic_rate": _maybe_float(row.get("test_tail_positive_ic_rate")),
                 "test_tail_significance_status": test_tail_significance_status,
+                "test_max_trade_gross_return": _maybe_float(row.get("test_max_trade_gross_return")),
+                "test_max_abs_trade_gross_return": _maybe_float(row.get("test_max_abs_trade_gross_return")),
+                "test_p99_abs_trade_gross_return": _maybe_float(row.get("test_p99_abs_trade_gross_return")),
+                "test_extreme_trade_return_flag": _walk_forward_extreme_trade_return(row),
             },
             "experiment": _experiment_summary(experiment_row),
             "paper": {
@@ -866,6 +875,13 @@ def _tail_ic_evidence_reasons(
     if tail_significance_status is not None and tail_significance_status != "significant_positive":
         reasons.append("tail_ic_significance_below_threshold")
     return _dedupe(reasons)
+
+
+def _walk_forward_extreme_trade_return(row: dict[str, Any]) -> bool:
+    if _maybe_bool(row.get("test_extreme_trade_return_flag")) is True:
+        return True
+    max_abs = _maybe_float(row.get("test_max_abs_trade_gross_return"))
+    return bool(max_abs is not None and max_abs > MAX_ALLOWED_TRADE_ABS_GROSS_RETURN)
 
 
 def _experiment_summary(row: dict[str, Any] | None) -> dict[str, Any]:

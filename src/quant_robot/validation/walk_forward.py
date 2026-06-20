@@ -26,6 +26,7 @@ class WalkForwardConfig:
     rolling_step_days: int | None = None
     min_accepted_folds: int = 1
     multiple_testing_alpha: float = 0.05
+    max_test_abs_trade_gross_return: float | None = 5.0
 
 
 def load_walk_forward_config(path: str | Path) -> WalkForwardConfig:
@@ -46,6 +47,11 @@ def load_walk_forward_config(path: str | Path) -> WalkForwardConfig:
         rolling_step_days=int(data["rolling_step_days"]) if data.get("rolling_step_days") is not None else None,
         min_accepted_folds=int(data.get("min_accepted_folds", WalkForwardConfig.min_accepted_folds)),
         multiple_testing_alpha=float(data.get("multiple_testing_alpha", WalkForwardConfig.multiple_testing_alpha)),
+        max_test_abs_trade_gross_return=(
+            float(data["max_test_abs_trade_gross_return"])
+            if data.get("max_test_abs_trade_gross_return") is not None
+            else WalkForwardConfig.max_test_abs_trade_gross_return
+        ),
     )
 
 
@@ -275,7 +281,18 @@ def _merged_row(
     degradation = max(train_sharpe - test_sharpe, 0.0)
     stability_score = test_sharpe - degradation
     test_trades = int(_metric(test, "trades"))
-    reasons = _rejection_reasons(train, test, test_trades, test_sharpe, test_relative_return, test_max_drawdown, config)
+    train_extreme_trade_return_flag = _trade_return_flag(train, config)
+    test_extreme_trade_return_flag = _trade_return_flag(test, config)
+    reasons = _rejection_reasons(
+        train,
+        test,
+        test_trades,
+        test_sharpe,
+        test_relative_return,
+        test_max_drawdown,
+        test_extreme_trade_return_flag,
+        config,
+    )
     return _sanitize(
         {
             "case_id": case_id,
@@ -382,6 +399,14 @@ def _merged_row(
             "test_avg_participation_rate": _metric(test, "avg_participation_rate"),
             "test_max_participation_rate": _metric(test, "max_participation_rate"),
             "test_capacity_limited_trades": int(_metric(test, "capacity_limited_trades")),
+            "train_max_trade_gross_return": _metric(train, "max_trade_gross_return"),
+            "test_max_trade_gross_return": _metric(test, "max_trade_gross_return"),
+            "train_max_abs_trade_gross_return": _metric(train, "max_abs_trade_gross_return"),
+            "test_max_abs_trade_gross_return": _metric(test, "max_abs_trade_gross_return"),
+            "train_p99_abs_trade_gross_return": _metric(train, "p99_abs_trade_gross_return"),
+            "test_p99_abs_trade_gross_return": _metric(test, "p99_abs_trade_gross_return"),
+            "train_extreme_trade_return_flag": train_extreme_trade_return_flag,
+            "test_extreme_trade_return_flag": test_extreme_trade_return_flag,
             "folds": 1,
             "accepted_folds": 0 if reasons else 1,
             "rejected_folds": 1 if reasons else 0,
@@ -539,6 +564,14 @@ def _aggregate_case_rows(case_id: str, rows: list[dict[str, Any]], config: WalkF
             "test_avg_participation_rate": _mean_metric(rows, "test_avg_participation_rate"),
             "test_max_participation_rate": _max_metric(rows, "test_max_participation_rate"),
             "test_capacity_limited_trades": sum(int(_metric(row, "test_capacity_limited_trades")) for row in rows),
+            "train_max_trade_gross_return": _max_metric(rows, "train_max_trade_gross_return"),
+            "test_max_trade_gross_return": _max_metric(rows, "test_max_trade_gross_return"),
+            "train_max_abs_trade_gross_return": _max_metric(rows, "train_max_abs_trade_gross_return"),
+            "test_max_abs_trade_gross_return": _max_metric(rows, "test_max_abs_trade_gross_return"),
+            "train_p99_abs_trade_gross_return": _max_metric(rows, "train_p99_abs_trade_gross_return"),
+            "test_p99_abs_trade_gross_return": _max_metric(rows, "test_p99_abs_trade_gross_return"),
+            "train_extreme_trade_return_flag": any(bool(row.get("train_extreme_trade_return_flag")) for row in rows),
+            "test_extreme_trade_return_flag": any(bool(row.get("test_extreme_trade_return_flag")) for row in rows),
             "sharpe_degradation": _mean_metric(rows, "sharpe_degradation"),
             "stability_score": mean_stability_score,
             "mean_stability_score": mean_stability_score,
@@ -579,6 +612,7 @@ def _rejection_reasons(
     test_sharpe: float,
     test_relative_return: float,
     test_max_drawdown: float,
+    test_extreme_trade_return_flag: bool,
     config: WalkForwardConfig,
 ) -> list[str]:
     reasons = []
@@ -594,6 +628,8 @@ def _rejection_reasons(
         reasons.append("relative_return_below_threshold")
     if config.max_test_drawdown is not None and test_max_drawdown < -abs(config.max_test_drawdown):
         reasons.append("drawdown_above_limit")
+    if test_extreme_trade_return_flag:
+        reasons.append("extreme_oos_trade_return")
     return reasons
 
 
@@ -728,6 +764,28 @@ def _raw_metric(row: dict[str, Any] | None, key: str, default: Any) -> Any:
     if row is None:
         return default
     return row.get(key, default)
+
+
+def _trade_return_flag(row: dict[str, Any] | None, config: WalkForwardConfig) -> bool:
+    if row is None:
+        return False
+    if _bool_metric(row, "extreme_trade_return_flag"):
+        return True
+    threshold = config.max_test_abs_trade_gross_return
+    if threshold is None:
+        return False
+    return _metric(row, "max_abs_trade_gross_return") > abs(float(threshold))
+
+
+def _bool_metric(row: dict[str, Any] | None, key: str) -> bool:
+    if row is None:
+        return False
+    value = row.get(key)
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    return str(value).strip().lower() in {"1", "true", "yes", "y"}
 
 
 def _mean_metric(rows: list[dict[str, Any]], key: str) -> float:

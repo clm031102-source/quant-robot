@@ -10,6 +10,7 @@ from quant_robot.experiments.runner import ExperimentGridConfig
 from quant_robot.storage.dataset_store import DatasetStore
 from quant_robot.validation.walk_forward import (
     WalkForwardConfig,
+    _merged_row,
     _with_multiple_testing_evidence,
     load_walk_forward_config,
     run_walk_forward_validation,
@@ -149,6 +150,43 @@ class WalkForwardTests(unittest.TestCase):
 
         self.assertEqual(row["validation_status"], "rejected")
         self.assertIn("drawdown_above_limit", row["rejection_reasons"])
+
+    def test_walk_forward_rejects_extreme_oos_trade_returns(self):
+        config = WalkForwardConfig(
+            split_date="2024-01-08",
+            experiment_grid=ExperimentGridConfig(),
+            min_test_sharpe=-999.0,
+            multiple_testing_alpha=1.0,
+        )
+        train = {
+            "status": "completed",
+            "market": "CN",
+            "factor_name": "momentum_2",
+            "trades": 30,
+            "sharpe": 0.8,
+            "ic_p_value": 0.01,
+        }
+        test = {
+            "status": "completed",
+            "market": "CN",
+            "factor_name": "momentum_2",
+            "trades": 30,
+            "sharpe": 4.8,
+            "relative_return": 0.2,
+            "max_drawdown": -0.05,
+            "ic_p_value": 0.01,
+            "max_trade_gross_return": 6.0,
+            "max_abs_trade_gross_return": 6.0,
+            "p99_abs_trade_gross_return": 5.9,
+            "extreme_trade_return_flag": True,
+        }
+
+        row = _merged_row("CN_momentum_2_top1_cost0_reb1", train, test, config)
+
+        self.assertEqual(row["validation_status"], "rejected")
+        self.assertIn("extreme_oos_trade_return", row["rejection_reasons"])
+        self.assertTrue(row["test_extreme_trade_return_flag"])
+        self.assertAlmostEqual(row["test_max_abs_trade_gross_return"], 6.0)
 
     def test_walk_forward_test_split_uses_warmup_history_for_rolling_factors(self):
         bars = load_demo_market_bars()

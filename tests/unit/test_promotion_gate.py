@@ -855,6 +855,27 @@ class PromotionGateTests(unittest.TestCase):
         self.assertEqual(row["promotion_status"], "blocked")
         self.assertIn("fixture_data_not_promotable", row["blocking_reasons"])
 
+    def test_extreme_oos_trade_return_blocks_promotion_even_if_walk_forward_is_accepted(self):
+        walk_forward = _accepted_walk_forward_row("CN_ETF_momentum_20_top1_cost5_reb5", "momentum_20")
+        walk_forward["test_extreme_trade_return_flag"] = True
+        walk_forward["test_max_abs_trade_gross_return"] = 6.0
+
+        report = build_promotion_report(
+            walk_forward_rows=[walk_forward],
+            paper_manifest=_paper_manifest(
+                "CN_ETF_momentum_20_top1_cost5_reb5",
+                "momentum_20",
+                sharpe=0.80,
+                total_return=0.18,
+            ),
+            config=PromotionGateConfig(min_oos_sharpe=0.5, min_paper_sharpe=0.5),
+        )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "blocked")
+        self.assertIn("extreme_oos_trade_return", row["blocking_reasons"])
+        self.assertTrue(row["walk_forward"]["test_extreme_trade_return_flag"])
+
     def test_missing_relative_return_blocks_candidate_when_relative_gate_is_enabled(self):
         report = build_promotion_report(
             walk_forward_rows=[
