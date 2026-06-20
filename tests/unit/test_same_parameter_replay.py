@@ -236,6 +236,54 @@ class SameParameterReplayTests(unittest.TestCase):
             "CN_momentum_2_top2_cost5_reb1",
         ])
 
+    def test_same_parameter_replay_batches_are_resumable_by_default(self):
+        base = ExperimentGridConfig(
+            markets=("CN",),
+            factor_source="technical",
+            factor_names=("momentum_2",),
+            factor_windows=(2,),
+            top_n_values=(1,),
+            cost_bps_values=(0.0,),
+            forward_horizon=1,
+            execution_lag=1,
+            rebalance_intervals=(1,),
+            min_trades=1,
+            write_case_artifacts=False,
+            resume_completed_cases=False,
+        )
+        candidates = [
+            {
+                "case_id": "CN_momentum_2_top1_cost0_reb1",
+                "market": "CN",
+                "factor_source": "technical",
+                "factor_name": "momentum_2",
+                "top_n": 1,
+                "cost_bps": 0.0,
+                "forward_horizon": 1,
+                "execution_lag": 1,
+                "rebalance_interval": 1,
+            }
+        ]
+        result = {
+            "leaderboard": [
+                {"case_id": "CN_momentum_2_top1_cost0_reb1", "status": "completed", "trades": 10, "top_n": 1, "cost_bps": 0.0},
+            ]
+        }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("quant_robot.ops.same_parameter_replay.run_experiment_grid", return_value=result) as grid:
+                run_same_parameter_full_sample_replay(
+                    candidates,
+                    load_demo_market_bars(),
+                    base,
+                    output_dir=Path(tmp),
+                    start_date="2024-01-02",
+                    end_date="2024-01-14",
+                )
+
+        batch_config = grid.call_args.args[1]
+        self.assertTrue(batch_config.resume_completed_cases)
+
 
 if __name__ == "__main__":
     unittest.main()

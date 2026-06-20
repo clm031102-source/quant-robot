@@ -64,6 +64,7 @@ def build_same_parameter_replay_config(
         regime_lookback_values=regime_lookback_values,
         output_dir=Path(output_root) / _safe_path_token(case_id),
         write_case_artifacts=False,
+        resume_completed_cases=True,
     )
 
 
@@ -218,6 +219,7 @@ def _build_batch_replay_config(
         regime_lookback_values=regime_values or None,
         output_dir=Path(output_root) / f"batch_{batch_index:03d}",
         write_case_artifacts=False,
+        resume_completed_cases=True,
     )
 
 
