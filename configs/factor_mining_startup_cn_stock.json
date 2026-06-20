@@ -73,7 +73,12 @@
     "lookahead_bias_audit_confirmed",
     "overfit_multiple_testing_audit_confirmed",
     "overlap_adjusted_statistics_confirmed",
-    "cost_capacity_turnover_confirmed"
+    "cost_capacity_turnover_confirmed",
+    "round_governance_confirmed",
+    "three_round_review_gate_confirmed",
+    "ten_round_github_sync_gate_confirmed",
+    "public_reference_method_review_confirmed",
+    "waste_budget_stop_loss_confirmed"
   ],
   "research_direction": {
     "objective": "cn_stock_cross_sectional_alpha",
@@ -185,6 +190,38 @@
     "full_eval_top_candidates": 30,
     "pre_register_every_candidate": true,
     "record_rejected_candidates": true
+  },
+  "round_governance": {
+    "round_unit": "factor_family_batch",
+    "review_every_n_rounds": 3,
+    "sync_every_n_rounds": 10,
+    "three_round_review_required_actions": [
+      "factor_family_result_audit",
+      "reject_reason_histogram",
+      "direction_adjustment_decision",
+      "public_reference_method_review",
+      "budget_waste_stop_loss_review"
+    ],
+    "ten_round_sync_required_actions": [
+      "lightweight_stage_report",
+      "factor_registry_or_research_ledger_update",
+      "validation_command_rerun",
+      "github_safe_sync_after_validation",
+      "forbidden_data_and_secret_path_audit"
+    ],
+    "public_reference_projects": [
+      "qlib",
+      "alphalens",
+      "vectorbt",
+      "pyfolio",
+      "worldquant_101_alphas"
+    ],
+    "profitability_guardrails": [
+      "promotable_requires_cost_capacity_walk_forward_and_long_cycle_replay",
+      "research_lead_requires_cross_period_ic_or_portfolio_evidence",
+      "discard_single_family_after_repeated_same_blocker_failures",
+      "do_not_optimize_for_raw_sharpe_before_hard_gates"
+    ]
   },
   "universe_gate": {
     "exclude_st": true,

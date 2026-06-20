@@ -8,6 +8,10 @@ from types import SimpleNamespace
 import pandas as pd
 
 from quant_robot.data.fixtures import load_demo_market_bars
+from quant_robot.factors.public_technical_tail_guard import compute_public_technical_tail_guard_factors
+from quant_robot.factors.public_trend_volume import compute_public_trend_volume_factors
+from quant_robot.factors.public_technical_liquidity import compute_public_technical_liquidity_factors
+from quant_robot.factors.public_technical import compute_public_technical_factors
 from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.research.pipeline import (
     ResearchPipelineConfig,
@@ -76,6 +80,89 @@ class ResearchPipelineTests(unittest.TestCase):
             )
 
         self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("momentum_2",))
+
+    def test_pipeline_computes_only_requested_public_technical_factor(self):
+        bars = _synthetic_public_technical_bars(asset_count=3, day_count=45)
+        factors = compute_public_technical_factors(bars, factor_names=("donchian_position_20",))
+
+        with patch("quant_robot.research.pipeline.compute_public_technical_factors", return_value=factors) as factor_builder:
+            run_research_pipeline(
+                bars,
+                ResearchPipelineConfig(
+                    factor_name="donchian_position_20",
+                    factor_source="public_technical",
+                    market="CN",
+                    top_n=1,
+                ),
+            )
+
+        self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("donchian_position_20",))
+
+    def test_pipeline_computes_only_requested_public_technical_liquidity_factor(self):
+        bars = _synthetic_public_technical_bars(asset_count=3, day_count=45)
+        factors = compute_public_technical_liquidity_factors(bars, factor_names=("rsi_reversal_liquid_14_20",))
+
+        with patch(
+            "quant_robot.research.pipeline.compute_public_technical_liquidity_factors",
+            return_value=factors,
+        ) as factor_builder:
+            run_research_pipeline(
+                bars,
+                ResearchPipelineConfig(
+                    factor_name="rsi_reversal_liquid_14_20",
+                    factor_source="public_technical_liquidity",
+                    market="CN",
+                    top_n=1,
+                ),
+            )
+
+        self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("rsi_reversal_liquid_14_20",))
+
+    def test_pipeline_computes_only_requested_public_technical_tail_guard_factor(self):
+        bars = _synthetic_public_technical_bars(asset_count=3, day_count=45)
+        factors = compute_public_technical_tail_guard_factors(
+            bars,
+            factor_names=("bollinger_reversal_liquid_low_tail_20",),
+        )
+
+        with patch(
+            "quant_robot.research.pipeline.compute_public_technical_tail_guard_factors",
+            return_value=factors,
+        ) as factor_builder:
+            run_research_pipeline(
+                bars,
+                ResearchPipelineConfig(
+                    factor_name="bollinger_reversal_liquid_low_tail_20",
+                    factor_source="public_technical_tail_guard",
+                    market="CN",
+                    top_n=1,
+                ),
+            )
+
+        self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("bollinger_reversal_liquid_low_tail_20",))
+
+    def test_pipeline_computes_only_requested_public_trend_volume_factor(self):
+        bars = _synthetic_public_technical_bars(asset_count=3, day_count=70)
+        factors = compute_public_trend_volume_factors(
+            bars,
+            factor_names=("supertrend_volume_confirmed_10_3_20",),
+        )
+
+        with patch(
+            "quant_robot.research.pipeline.compute_public_trend_volume_factors",
+            return_value=factors,
+        ) as factor_builder:
+            run_research_pipeline(
+                bars,
+                ResearchPipelineConfig(
+                    factor_name="supertrend_volume_confirmed_10_3_20",
+                    factor_source="public_trend_volume",
+                    market="CN",
+                    top_n=1,
+                ),
+            )
+
+        self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("supertrend_volume_confirmed_10_3_20",))
 
     def test_pipeline_uses_forward_horizon_for_backtest_exit(self):
         config = ResearchPipelineConfig(factor_name="momentum_2", factor_windows=(2,), market="CN", top_n=1, forward_horizon=2)
@@ -389,6 +476,37 @@ class ResearchPipelineTests(unittest.TestCase):
             self.assertGreater(result["artifact_rows"]["factor_inputs"], 0)
             self.assertGreater(result["artifact_rows"]["factors"], 0)
             self.assertGreater(result["artifact_rows"]["ic"], 0)
+
+    def test_pipeline_computes_only_requested_daily_basic_value_liquidity_tail_factor(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bars = load_demo_market_bars()
+            _write_daily_basic_factor_inputs(Path(tmp), bars)
+
+            with patch("quant_robot.research.pipeline.compute_daily_basic_value_liquidity_tail_factors") as factor_builder:
+                factor_builder.return_value = pd.DataFrame(
+                    {
+                        "date": [],
+                        "asset_id": [],
+                        "market": [],
+                        "factor_name": [],
+                        "factor_value": [],
+                        "lookback_window": [],
+                    }
+                )
+                run_research_pipeline(
+                    bars,
+                    ResearchPipelineConfig(
+                        factor_name="value_liquid_low_tail_20",
+                        factor_source="daily_basic_value_liquidity_tail",
+                        factor_input_root=Path(tmp),
+                        factor_input_required=True,
+                        market="CN",
+                        top_n=1,
+                        execution_lag=1,
+                    ),
+                )
+
+            self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("value_liquid_low_tail_20",))
 
     def test_pipeline_computes_only_requested_tushare_daily_basic_factor(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -711,6 +829,42 @@ def _write_moneyflow_inputs(root: Path, bars: pd.DataFrame) -> None:
         "processed/moneyflow_inputs",
         {"frequency": "1d", "market": "CN", "year": "2024"},
     )
+
+
+def _synthetic_public_technical_bars(*, asset_count: int, day_count: int) -> pd.DataFrame:
+    dates = pd.date_range("2024-01-01", periods=day_count, freq="B")
+    ingested_at = pd.Timestamp("2026-06-21", tz="UTC")
+    rows = []
+    for asset_index in range(asset_count):
+        for day_index, date in enumerate(dates):
+            price = 10.0 + asset_index + day_index * (0.05 + asset_index * 0.01)
+            rows.append(
+                {
+                    "asset_id": f"CN_XSHG_{asset_index:06d}",
+                    "symbol": f"{asset_index:06d}.SH",
+                    "market": "CN",
+                    "exchange": "XSHG",
+                    "asset_type": "stock",
+                    "timestamp": date.tz_localize("Asia/Shanghai"),
+                    "date": date.date(),
+                    "timezone": "Asia/Shanghai",
+                    "calendar": "XSHG",
+                    "frequency": "1d",
+                    "open": price * 0.995,
+                    "high": price * 1.01,
+                    "low": price * 0.99,
+                    "close": price,
+                    "adj_close": price,
+                    "volume": 1_000_000 + asset_index * 10_000 + day_index * 1000,
+                    "amount": price * (1_000_000 + asset_index * 10_000 + day_index * 1000),
+                    "vwap": price,
+                    "currency": "CNY",
+                    "source": "fixture",
+                    "adjusted": True,
+                    "ingested_at": ingested_at,
+                }
+            )
+    return pd.DataFrame(rows)
 
 
 if __name__ == "__main__":

@@ -61,6 +61,7 @@ def render_markdown(packet: dict[str, Any]) -> str:
     decision = _dict(packet.get("decision"))
     research_direction = _dict(packet.get("research_direction"))
     protocol = _dict(packet.get("repeatable_mining_protocol"))
+    governance = _dict(packet.get("round_governance"))
     stage_policy = _dict(research_direction.get("stage_policy"))
     rotation = _dict(research_direction.get("factor_family_rotation"))
     lines = [
@@ -102,6 +103,16 @@ def render_markdown(packet: dict[str, Any]) -> str:
         f"- Recently rejected directions: {', '.join(_list(protocol.get('recently_rejected_directions')))}",
         f"- Required experiment design: {', '.join(_list(protocol.get('required_experiment_design')))}",
         f"- Confirm before each run: {', '.join(_list(protocol.get('confirm_before_each_run')))}",
+        "",
+        "## Round Governance",
+        "",
+        f"- Round unit: {governance.get('round_unit')}",
+        f"- Review cadence: every {governance.get('review_every_n_rounds')} rounds",
+        f"- GitHub sync cadence: every {governance.get('sync_every_n_rounds')} rounds",
+        f"- Three-round review actions: {', '.join(_list(governance.get('three_round_review_required_actions')))}",
+        f"- Ten-round sync actions: {', '.join(_list(governance.get('ten_round_sync_required_actions')))}",
+        f"- Public reference projects: {', '.join(_list(governance.get('public_reference_projects')))}",
+        f"- Profitability guardrails: {', '.join(_list(governance.get('profitability_guardrails')))}",
         "",
         "## Decision",
         "",

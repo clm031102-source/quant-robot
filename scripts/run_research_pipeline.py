@@ -26,7 +26,19 @@ def main() -> None:
     parser.add_argument("--factor", default="momentum_2")
     parser.add_argument(
         "--factor-source",
-        choices=["technical", "tushare_daily_basic", "tushare_moneyflow", "moneyflow_technical_combo", "combined"],
+        choices=[
+            "technical",
+            "public_technical",
+            "public_technical_liquidity",
+            "public_technical_tail_guard",
+            "public_trend_volume",
+            "tushare_daily_basic",
+            "daily_basic_technical_combo",
+            "daily_basic_value_liquidity_tail",
+            "tushare_moneyflow",
+            "moneyflow_technical_combo",
+            "combined",
+        ],
         default="technical",
     )
     parser.add_argument("--factor-windows", default="2,3")

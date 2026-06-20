@@ -63,7 +63,11 @@ def _preflight_desktop_inputs(config_path: str | Path, source: str, data_root: s
         raise FileNotFoundError(f"Processed bars data root does not exist: {root}")
     config = load_walk_forward_config(config_path)
     factor_input_root = config.experiment_grid.factor_input_root
-    if config.experiment_grid.factor_source in {"tushare_daily_basic", "daily_basic_technical_combo"}:
+    if config.experiment_grid.factor_source in {
+        "tushare_daily_basic",
+        "daily_basic_technical_combo",
+        "daily_basic_value_liquidity_tail",
+    }:
         _require_factor_input_root(factor_input_root, label="daily-basic")
         _validate_factor_input_coverage(root, factor_input_root, label="daily-basic")
     moneyflow_root = config.experiment_grid.moneyflow_input_root

@@ -1,0 +1,51 @@
+{
+  "markets": [
+    "CN"
+  ],
+  "factor_source": "public_trend_volume",
+  "factor_names": [
+    "anti_obv_breakout_low_tail_20"
+  ],
+  "factor_windows": [
+    10,
+    20
+  ],
+  "top_n_values": [
+    30,
+    50,
+    100
+  ],
+  "cost_bps_values": [
+    10.0
+  ],
+  "start_date": "2015-01-05",
+  "end_date": "2025-12-31",
+  "signal_start_date": "2015-01-05",
+  "signal_end_date": "2025-12-31",
+  "forward_horizon": 20,
+  "execution_lag": 1,
+  "rebalance_intervals": [
+    5,
+    10
+  ],
+  "quantiles": 5,
+  "portfolio_scope": "market",
+  "regime_filter": true,
+  "regime_lookback_values": [
+    60,
+    120
+  ],
+  "target_gross_exposure": 1.0,
+  "market_impact_bps": 20.0,
+  "max_participation_rate": 0.01,
+  "portfolio_value": 1000000.0,
+  "min_relative_return": 0.0,
+  "max_drawdown_limit": 0.5,
+  "rank_by": "overlap_autocorr_adjusted_sharpe",
+  "min_trades": 30,
+  "precompute_factor_matrix": true,
+  "resume_completed_cases": true,
+  "reuse_research_inputs": true,
+  "write_case_artifacts": false,
+  "output_dir": "data/reports/experiment_grid_cn_stock_anti_obv_regime_focus_20260621"
+}

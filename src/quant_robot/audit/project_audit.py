@@ -8,7 +8,12 @@ from typing import Any
 
 from quant_robot.data.readiness import check_parquet_readiness, check_tushare_readiness
 from quant_robot.factors.daily_basic_technical_combo import DAILY_BASIC_TECHNICAL_COMBO_FACTOR_NAMES
+from quant_robot.factors.daily_basic_value_liquidity_tail import DAILY_BASIC_VALUE_LIQUIDITY_TAIL_FACTOR_NAMES
 from quant_robot.factors.moneyflow_technical import MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES
+from quant_robot.factors.public_technical_liquidity import PUBLIC_TECHNICAL_LIQUIDITY_FACTOR_NAMES
+from quant_robot.factors.public_technical_tail_guard import PUBLIC_TECHNICAL_TAIL_GUARD_FACTOR_NAMES
+from quant_robot.factors.public_trend_volume import PUBLIC_TREND_VOLUME_FACTOR_NAMES
+from quant_robot.factors.public_technical import PUBLIC_TECHNICAL_FACTOR_NAMES
 from quant_robot.factors.tushare_inputs import DAILY_BASIC_FACTOR_NAMES
 from quant_robot.factors.tushare_moneyflow import MONEYFLOW_FACTOR_NAMES
 
@@ -401,10 +406,20 @@ def _factor_windows(value: Any) -> tuple[int, ...]:
 def _registered_factor_names(factor_source: str, factor_windows: tuple[int, ...]) -> set[str] | None:
     if factor_source == "technical":
         return _technical_factor_names(factor_windows)
+    if factor_source == "public_technical":
+        return set(PUBLIC_TECHNICAL_FACTOR_NAMES)
+    if factor_source == "public_technical_liquidity":
+        return set(PUBLIC_TECHNICAL_LIQUIDITY_FACTOR_NAMES)
+    if factor_source == "public_technical_tail_guard":
+        return set(PUBLIC_TECHNICAL_TAIL_GUARD_FACTOR_NAMES)
+    if factor_source == "public_trend_volume":
+        return set(PUBLIC_TREND_VOLUME_FACTOR_NAMES)
     if factor_source == "tushare_daily_basic":
         return set(DAILY_BASIC_FACTOR_NAMES)
     if factor_source == "daily_basic_technical_combo":
         return set(DAILY_BASIC_TECHNICAL_COMBO_FACTOR_NAMES)
+    if factor_source == "daily_basic_value_liquidity_tail":
+        return set(DAILY_BASIC_VALUE_LIQUIDITY_TAIL_FACTOR_NAMES)
     if factor_source == "tushare_moneyflow":
         return set(MONEYFLOW_FACTOR_NAMES)
     if factor_source == "moneyflow_technical_combo":

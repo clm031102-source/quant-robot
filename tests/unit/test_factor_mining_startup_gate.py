@@ -615,6 +615,117 @@ class FactorMiningStartupGateTests(unittest.TestCase):
         self.assertIn("walk_forward_progress_audit", protocol["required_experiment_design"])
         self.assertIn("promotion_progress_audit_gate_enabled", protocol["confirm_before_each_run"])
 
+    def test_default_startup_protocol_requires_round_governance(self) -> None:
+        packet = build_factor_mining_startup_gate(
+            {
+                "scope_id": "cn_stock_factor_mining",
+                "market": "CN",
+                "asset_type": "stock",
+                "allowed_machines": ["office_desktop"],
+                "allowed_tasks": ["factor_validation"],
+                "recommended_branch_prefixes": ["codex/factor-validation-cn-stock-"],
+                "required_confirmations": [
+                    "machine_confirmed",
+                    "task_confirmed",
+                    "branch_confirmed",
+                    "push_policy_confirmed",
+                    "cn_stock_scope_confirmed",
+                    "etf_scope_rejected",
+                ],
+            },
+            request={
+                "machine": "office_desktop",
+                "task": "factor_validation",
+                "branch": "codex/factor-validation-cn-stock-20260620",
+                "market": "CN",
+                "asset_type": "stock",
+                "confirmations": {
+                    "machine_confirmed": True,
+                    "task_confirmed": True,
+                    "branch_confirmed": True,
+                    "push_policy_confirmed": True,
+                    "cn_stock_scope_confirmed": True,
+                    "etf_scope_rejected": True,
+                },
+            },
+            current_branch="codex/factor-validation-cn-stock-20260620",
+        )
+
+        governance = packet["round_governance"]
+        self.assertEqual(governance["round_unit"], "factor_family_batch")
+        self.assertEqual(governance["review_every_n_rounds"], 3)
+        self.assertEqual(governance["sync_every_n_rounds"], 10)
+        self.assertIn("direction_adjustment_decision", governance["three_round_review_required_actions"])
+        self.assertIn("github_safe_sync_after_validation", governance["ten_round_sync_required_actions"])
+        self.assertIn("qlib", governance["public_reference_projects"])
+        self.assertIn("alphalens", governance["public_reference_projects"])
+        self.assertIn(
+            "three_round_review_gate_enabled",
+            packet["repeatable_mining_protocol"]["confirm_before_each_run"],
+        )
+        self.assertIn(
+            "ten_round_github_sync_gate_enabled",
+            packet["repeatable_mining_protocol"]["confirm_before_each_run"],
+        )
+        self.assertTrue(any("3 rounds" in item for item in packet["pre_run_checklist"]))
+        self.assertTrue(any("10 rounds" in item for item in packet["pre_run_checklist"]))
+
+    def test_validate_startup_gate_rejects_packet_without_round_governance(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "factor_mining_startup_gate.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "generated_at": date.today().isoformat(),
+                        "status": "cleared",
+                        "summary": {"market": "CN", "asset_type": "stock"},
+                        "decision": {"startup_gate_cleared": True, "blockers": []},
+                        "research_direction": {
+                            "objective": "cn_stock_cross_sectional_alpha",
+                            "allowed_factor_families": ["price_volume"],
+                            "stage_policy": {
+                                "discovery": "Design and filter candidates only.",
+                                "long_cycle_replay": "Replay frozen parameters across the long cycle.",
+                                "validation": "Run OOS only after discovery evidence clears.",
+                                "final_holdout": "Read once; never tune after reading.",
+                            },
+                            "factor_family_rotation": {"max_failed_batches_before_rotation": 1},
+                        },
+                        "repeatable_mining_protocol": {
+                            "source_audit": "data/reports/cn_stock_factor_mining_20260617_batch_audit.md",
+                            "next_direction": "long_cycle_validation",
+                            "recently_rejected_directions": ["single_factor_top50_daily_long_only"],
+                            "required_experiment_design": [
+                                "long_cycle_same_parameter_replay",
+                                "same_parameter_full_sample_diagnostic",
+                                "rolling_walk_forward_train_test_split",
+                                "walk_forward_progress_audit",
+                                "market_regime_coverage",
+                                "market_regime_signal_window_coverage",
+                                "lookahead_bias_audit",
+                                "overfit_multiple_testing_audit",
+                                "source_performance_evidence_required",
+                                "source_evidence_status_gate",
+                            ],
+                            "confirm_before_each_run": [
+                                "same_parameter_full_sample_enabled",
+                                "promotion_progress_audit_gate_enabled",
+                                "market_regime_coverage_enabled",
+                                "market_regime_signal_window_coverage_enabled",
+                                "lookahead_bias_audit_enabled",
+                                "overfit_multiple_testing_audit_enabled",
+                                "source_performance_evidence_gate_enabled",
+                                "promotion_source_evidence_gate_enabled",
+                            ],
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "round governance"):
+                validate_cleared_startup_gate_packet(path)
+
 
 if __name__ == "__main__":
     unittest.main()

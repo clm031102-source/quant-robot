@@ -106,6 +106,80 @@ class CnStockDataManifestTests(unittest.TestCase):
         self.assertIn("moneyflow_date_coverage_before_bars", manifest["decision"]["warnings"])
         self.assertIn("daily_basic_date_coverage_before_bars", manifest["decision"]["warnings"])
 
+    def test_manifest_warns_on_adjusted_ratio_jump_without_mass_jump(self) -> None:
+        bars = pd.DataFrame(
+            {
+                "date": ["2024-01-02", "2024-01-03"],
+                "asset_id": ["000001.SZ", "000001.SZ"],
+                "symbol": ["000001.SZ", "000001.SZ"],
+                "market": ["CN", "CN"],
+                "asset_type": ["stock", "stock"],
+                "close": [10.0, 10.5],
+                "adj_close": [10.0, 525.0],
+                "volume": [1000, 1100],
+                "amount": [10000.0, 11100.0],
+            }
+        )
+
+        manifest = build_cn_stock_data_manifest(
+            bars=bars,
+            moneyflow_inputs=None,
+            source_root=Path("data/processed/demo"),
+            adjusted_ratio_jump_threshold=2.0,
+        )
+
+        self.assertEqual(manifest["summary"]["adjusted_ratio_jump_rows"], 1)
+        self.assertEqual(manifest["summary"]["adjusted_ratio_jump_assets"], 1)
+        self.assertGreater(manifest["summary"]["adjusted_ratio_jump_max"], 2.0)
+        self.assertIn("adjusted_ratio_jump_rows_present", manifest["decision"]["warnings"])
+        self.assertNotIn("adjusted_ratio_mass_jump_dates_present", manifest["decision"]["warnings"])
+
+        with tempfile.TemporaryDirectory() as tmp:
+            write_cn_stock_data_manifest(Path(tmp), manifest)
+
+            packet = validate_cn_stock_data_manifest_packet(
+                Path(tmp) / "cn_stock_data_manifest.json",
+                allow_review_required=True,
+            )
+
+        self.assertEqual(packet["status"], "review_required")
+
+    def test_manifest_treats_mass_adjusted_ratio_jump_as_critical_warning(self) -> None:
+        bars = pd.DataFrame(
+            {
+                "date": ["2024-01-02", "2024-01-03", "2024-01-02", "2024-01-03"],
+                "asset_id": ["000001.SZ", "000001.SZ", "000002.SZ", "000002.SZ"],
+                "symbol": ["000001.SZ", "000001.SZ", "000002.SZ", "000002.SZ"],
+                "market": ["CN", "CN", "CN", "CN"],
+                "asset_type": ["stock", "stock", "stock", "stock"],
+                "close": [10.0, 10.5, 20.0, 20.5],
+                "adj_close": [10.0, 525.0, 20.0, 410.0],
+                "volume": [1000, 1100, 2000, 2100],
+                "amount": [10000.0, 11100.0, 20000.0, 22000.0],
+            }
+        )
+
+        manifest = build_cn_stock_data_manifest(
+            bars=bars,
+            moneyflow_inputs=None,
+            source_root=Path("data/processed/demo"),
+            adjusted_ratio_jump_threshold=2.0,
+            adjusted_ratio_mass_jump_asset_threshold=2,
+        )
+
+        self.assertEqual(manifest["summary"]["adjusted_ratio_jump_rows"], 2)
+        self.assertEqual(manifest["summary"]["adjusted_ratio_mass_jump_dates"], {"2024-01-03": 2})
+        self.assertIn("adjusted_ratio_mass_jump_dates_present", manifest["decision"]["warnings"])
+
+        with tempfile.TemporaryDirectory() as tmp:
+            write_cn_stock_data_manifest(Path(tmp), manifest)
+
+            with self.assertRaisesRegex(ValueError, "critical data manifest warning"):
+                validate_cn_stock_data_manifest_packet(
+                    Path(tmp) / "cn_stock_data_manifest.json",
+                    allow_review_required=True,
+                )
+
     def test_manifest_blocks_non_cn_or_non_stock_bars(self) -> None:
         bars = pd.DataFrame(
             {

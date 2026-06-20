@@ -16,8 +16,13 @@ from quant_robot.factors.etf_moneyflow_basket import (
 from quant_robot.factors.etf_share_size import compute_etf_share_size_factors
 from quant_robot.factors.etf_theme_breadth import compute_etf_theme_breadth_factors
 from quant_robot.factors.moneyflow_technical import compute_moneyflow_technical_combo_factors
+from quant_robot.factors.public_technical_liquidity import compute_public_technical_liquidity_factors
+from quant_robot.factors.public_technical_tail_guard import compute_public_technical_tail_guard_factors
+from quant_robot.factors.public_trend_volume import compute_public_trend_volume_factors
+from quant_robot.factors.public_technical import compute_public_technical_factors
 from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.factors.daily_basic_technical_combo import compute_daily_basic_technical_combo_factors
+from quant_robot.factors.daily_basic_value_liquidity_tail import compute_daily_basic_value_liquidity_tail_factors
 from quant_robot.factors.tushare_inputs import compute_daily_basic_factors
 from quant_robot.factors.tushare_moneyflow import compute_moneyflow_factors
 from quant_robot.research.pipeline import (
@@ -374,6 +379,14 @@ def _precompute_factor_matrix(bars: pd.DataFrame, config: ExperimentGridConfig) 
     source_bars = _filter_bars_for_precompute(bars, config)
     if config.factor_source == "technical":
         return compute_basic_factors(source_bars, windows=config.factor_windows, factor_names=config.factor_names)
+    if config.factor_source == "public_technical":
+        return compute_public_technical_factors(source_bars, factor_names=config.factor_names)
+    if config.factor_source == "public_technical_liquidity":
+        return compute_public_technical_liquidity_factors(source_bars, factor_names=config.factor_names)
+    if config.factor_source == "public_technical_tail_guard":
+        return compute_public_technical_tail_guard_factors(source_bars, factor_names=config.factor_names)
+    if config.factor_source == "public_trend_volume":
+        return compute_public_trend_volume_factors(source_bars, factor_names=config.factor_names)
     if config.factor_source == "etf_share_size":
         return compute_etf_share_size_factors(_load_grid_etf_share_size_inputs(config))
     if config.factor_source == "etf_moneyflow_basket":
@@ -390,6 +403,9 @@ def _precompute_factor_matrix(bars: pd.DataFrame, config: ExperimentGridConfig) 
     if config.factor_source == "daily_basic_technical_combo":
         factor_inputs = _load_grid_factor_inputs(config)
         return compute_daily_basic_technical_combo_factors(source_bars, factor_inputs, factor_names=config.factor_names)
+    if config.factor_source == "daily_basic_value_liquidity_tail":
+        factor_inputs = _load_grid_factor_inputs(config)
+        return compute_daily_basic_value_liquidity_tail_factors(source_bars, factor_inputs, factor_names=config.factor_names)
     if config.factor_source == "tushare_moneyflow":
         moneyflow_inputs = _load_grid_moneyflow_inputs(config)
         return compute_moneyflow_factors(moneyflow_inputs, factor_names=config.factor_names)

@@ -34,6 +34,19 @@ REQUIRED_LONG_CYCLE_CONFIRMATIONS = [
     "source_performance_evidence_gate_enabled",
     "promotion_source_evidence_gate_enabled",
 ]
+REQUIRED_ROUND_GOVERNANCE_DESIGN_ITEMS = [
+    "round_number_tracking",
+    "three_round_review_audit",
+    "ten_round_result_packaging",
+    "public_reference_method_check",
+    "waste_budget_stop_loss",
+]
+REQUIRED_ROUND_GOVERNANCE_CONFIRMATIONS = [
+    "three_round_review_gate_enabled",
+    "ten_round_github_sync_gate_enabled",
+    "public_reference_method_review_enabled",
+    "waste_budget_stop_loss_enabled",
+]
 
 
 def build_factor_mining_startup_gate(
@@ -71,6 +84,7 @@ def build_factor_mining_startup_gate(
         "candidate_budget": _dict(config.get("candidate_budget")),
         "research_direction": _research_direction(config),
         "repeatable_mining_protocol": _repeatable_mining_protocol(config),
+        "round_governance": _round_governance(config),
         "pre_run_checklist": _pre_run_checklist(config),
         "confirmation_questions": _confirmation_questions(config),
         "decision": {
@@ -107,6 +121,7 @@ def validate_cleared_startup_gate_packet(
         raise ValueError(f"{context} startup gate scope mismatch: {path}")
     _validate_research_direction(packet, context=context, path=path)
     _validate_repeatable_mining_protocol(packet, context=context, path=path)
+    _validate_round_governance(packet, context=context, path=path)
     return packet
 
 
@@ -164,6 +179,32 @@ def _validate_repeatable_mining_protocol(packet: dict[str, Any], *, context: str
         if any("signal_window" in item for item in missing_confirmations):
             raise ValueError(f"{context} startup gate lacks signal-window regime per-run confirmations: {path}")
         raise ValueError(f"{context} startup gate lacks long-cycle per-run confirmations: {path}")
+    missing_governance_items = [item for item in REQUIRED_ROUND_GOVERNANCE_DESIGN_ITEMS if item not in design_items]
+    missing_governance_confirmations = [
+        item for item in REQUIRED_ROUND_GOVERNANCE_CONFIRMATIONS if item not in confirmations
+    ]
+    if missing_governance_items or missing_governance_confirmations:
+        raise ValueError(f"{context} startup gate lacks round governance protocol: {path}")
+
+
+def _validate_round_governance(packet: dict[str, Any], *, context: str, path: Path) -> None:
+    governance = _dict(packet.get("round_governance"))
+    if not governance:
+        raise ValueError(f"{context} startup gate round governance is missing: {path}")
+    if governance.get("round_unit") != "factor_family_batch":
+        raise ValueError(f"{context} startup gate round governance uses an unsupported round unit: {path}")
+    if governance.get("review_every_n_rounds") != 3:
+        raise ValueError(f"{context} startup gate round governance must review every 3 rounds: {path}")
+    if governance.get("sync_every_n_rounds") != 10:
+        raise ValueError(f"{context} startup gate round governance must sync every 10 rounds: {path}")
+    if not _list(governance.get("three_round_review_required_actions")):
+        raise ValueError(f"{context} startup gate round governance lacks review actions: {path}")
+    if not _list(governance.get("ten_round_sync_required_actions")):
+        raise ValueError(f"{context} startup gate round governance lacks sync actions: {path}")
+    public_reference_projects = set(_list(governance.get("public_reference_projects")))
+    for project in ("qlib", "alphalens", "vectorbt", "pyfolio"):
+        if project not in public_reference_projects:
+            raise ValueError(f"{context} startup gate round governance lacks public reference project {project}: {path}")
 
 
 def _blockers(
@@ -205,6 +246,7 @@ def _blockers(
 def _pre_run_checklist(config: dict[str, Any]) -> list[str]:
     direction = _research_direction(config)
     protocol = _repeatable_mining_protocol(config)
+    governance = _round_governance(config)
     return [
         "Confirm CN stock scope before mining; do not mix ETF rotation evidence into this run.",
         "Confirm machine, task type, branch, and commit/push policy before starting.",
@@ -224,6 +266,9 @@ def _pre_run_checklist(config: dict[str, Any]) -> list[str]:
         "Use walk-forward validation, regime coverage, realistic costs, capacity controls, overlap-aware statistics, and final holdout review.",
         "Do not tune parameters after reading final_holdout.",
         "Record rejected candidates and failed directions, not only winners.",
+        f"After every {governance.get('review_every_n_rounds')} rounds, stop mining to review evidence, reject reasons, family ROI, and direction changes.",
+        f"After every {governance.get('sync_every_n_rounds')} rounds, package lightweight results and run GitHub safe-sync only after validation and secret/data-path checks.",
+        f"Before extending a weak direction, compare the method against public references: {', '.join(_list(governance.get('public_reference_projects')))}.",
         f"Keep excluded markets out of the run: {', '.join(_list(config.get('forbidden_markets')))}.",
     ]
 
@@ -233,6 +278,7 @@ def _confirmation_questions(config: dict[str, Any]) -> list[str]:
     asset_type = str(config.get("asset_type", "stock"))
     branch_prefixes = _branch_prefixes(config) or ["codex/factor-batch-cn-stock-"]
     protocol = _repeatable_mining_protocol(config)
+    governance = _round_governance(config)
     return [
         f"Confirm {market} {asset_type} scope and reject ETF rotation scope for this run.",
         "Confirm the machine is allowed for factor_batch or factor_validation.",
@@ -249,6 +295,9 @@ def _confirmation_questions(config: dict[str, Any]) -> list[str]:
         "Confirm a pre-registered candidate plan exists before generating candidates.",
         "Confirm cost and capacity gates are required before any candidate can advance.",
         "Confirm failed single-family directions will be recorded and rotated away from.",
+        f"Confirm every {governance.get('review_every_n_rounds')} factor-mining rounds trigger review, audit, and direction adjustment before new runs.",
+        f"Confirm every {governance.get('sync_every_n_rounds')} factor-mining rounds trigger lightweight result packaging and GitHub safe-sync review.",
+        f"Confirm public-method references are reviewed before burning more budget: {', '.join(_list(governance.get('public_reference_projects')))}.",
     ]
 
 
@@ -287,6 +336,65 @@ def _research_direction(config: dict[str, Any]) -> dict[str, Any]:
 def _repeatable_mining_protocol(config: dict[str, Any]) -> dict[str, Any]:
     direction = _dict(config.get("research_direction"))
     raw = _dict(direction.get("repeatable_mining_protocol")) or _dict(config.get("repeatable_mining_protocol"))
+    default_required_experiment_design = [
+        "long_cycle_same_parameter_replay",
+        "same_parameter_full_sample_diagnostic",
+        "rolling_walk_forward_train_test_split",
+        "walk_forward_progress_audit",
+        "market_regime_coverage",
+        "market_regime_signal_window_coverage",
+        "lookahead_bias_audit",
+        "overfit_multiple_testing_audit",
+        "source_performance_evidence_required",
+        "source_evidence_status_gate",
+        "daily_champion_10bps_20bps_validation",
+        "twenty_twenty_five_oos_only",
+        "overlap_aware_return_statistics",
+        "daily_vs_every2_every3_controls",
+        "cost_capacity_turnover_stress",
+        "cumulative_multiple_testing_accounting",
+        "no_parameter_tuning_during_oos",
+        "final_holdout_only_after_oos_clearance",
+    ]
+    default_confirm_before_each_run = [
+        "long_cycle_replay_plan_read",
+        "same_parameter_full_sample_enabled",
+        "promotion_progress_audit_gate_enabled",
+        "market_regime_coverage_enabled",
+        "market_regime_signal_window_coverage_enabled",
+        "lookahead_bias_audit_enabled",
+        "overfit_multiple_testing_audit_enabled",
+        "source_performance_evidence_gate_enabled",
+        "promotion_source_evidence_gate_enabled",
+        "previous_audit_read",
+        "latest_bootstrap_diagnostic_read",
+        "latest_tailrankic_batch_read",
+        "latest_monthly_persistence_batch_read",
+        "latest_monthly_loss_control_batch_read",
+        "latest_threshold_robustness_batch_read",
+        "latest_rankic_enhancement_batch_read",
+        "latest_champion_staggered_schedule_batch_read",
+        "batch12_validation_handoff_read",
+        "prev_month_neg1_gate_pre_registered",
+        "downside_range_champion_pre_registered",
+        "daily_champion_oos_candidates_pre_registered",
+        "factor_validation_branch_confirmed",
+        "oos_2025_only_validation_plan_registered",
+        "overlap_adjusted_statistics_plan_enabled",
+        "cumulative_multiple_testing_gate_enabled",
+        "cost_capacity_turnover_stress_enabled",
+        "daily_vs_every2_every3_controls_enabled",
+        "cost_capacity_gate_enabled",
+        "final_holdout_not_touched",
+    ]
+    required_experiment_design = _unique_preserving_order(
+        (_list(raw.get("required_experiment_design")) or default_required_experiment_design)
+        + REQUIRED_ROUND_GOVERNANCE_DESIGN_ITEMS
+    )
+    confirm_before_each_run = _unique_preserving_order(
+        (_list(raw.get("confirm_before_each_run")) or default_confirm_before_each_run)
+        + REQUIRED_ROUND_GOVERNANCE_CONFIRMATIONS
+    )
     return {
         "source_audit": str(raw.get("source_audit", DEFAULT_AUDIT_REPORT)),
         "next_direction": str(raw.get("next_direction", DEFAULT_NEXT_DIRECTION)),
@@ -297,58 +405,47 @@ def _repeatable_mining_protocol(config: dict[str, Any]) -> dict[str, Any]:
             "capacity_blind_microcap_tail",
             "moneyflow_only_lockin",
         ],
-        "required_experiment_design": _list(raw.get("required_experiment_design"))
+        "required_experiment_design": required_experiment_design,
+        "confirm_before_each_run": confirm_before_each_run,
+    }
+
+
+def _round_governance(config: dict[str, Any]) -> dict[str, Any]:
+    raw = _dict(config.get("round_governance"))
+    return {
+        "round_unit": str(raw.get("round_unit", "factor_family_batch")),
+        "review_every_n_rounds": int(raw.get("review_every_n_rounds", 3)),
+        "sync_every_n_rounds": int(raw.get("sync_every_n_rounds", 10)),
+        "three_round_review_required_actions": _list(raw.get("three_round_review_required_actions"))
         or [
-            "long_cycle_same_parameter_replay",
-            "same_parameter_full_sample_diagnostic",
-            "rolling_walk_forward_train_test_split",
-            "walk_forward_progress_audit",
-            "market_regime_coverage",
-            "market_regime_signal_window_coverage",
-            "lookahead_bias_audit",
-            "overfit_multiple_testing_audit",
-            "source_performance_evidence_required",
-            "source_evidence_status_gate",
-            "daily_champion_10bps_20bps_validation",
-            "twenty_twenty_five_oos_only",
-            "overlap_aware_return_statistics",
-            "daily_vs_every2_every3_controls",
-            "cost_capacity_turnover_stress",
-            "cumulative_multiple_testing_accounting",
-            "no_parameter_tuning_during_oos",
-            "final_holdout_only_after_oos_clearance",
+            "factor_family_result_audit",
+            "reject_reason_histogram",
+            "direction_adjustment_decision",
+            "public_reference_method_review",
+            "budget_waste_stop_loss_review",
         ],
-        "confirm_before_each_run": _list(raw.get("confirm_before_each_run"))
+        "ten_round_sync_required_actions": _list(raw.get("ten_round_sync_required_actions"))
         or [
-            "long_cycle_replay_plan_read",
-            "same_parameter_full_sample_enabled",
-            "promotion_progress_audit_gate_enabled",
-            "market_regime_coverage_enabled",
-            "market_regime_signal_window_coverage_enabled",
-            "lookahead_bias_audit_enabled",
-            "overfit_multiple_testing_audit_enabled",
-            "source_performance_evidence_gate_enabled",
-            "promotion_source_evidence_gate_enabled",
-            "previous_audit_read",
-            "latest_bootstrap_diagnostic_read",
-            "latest_tailrankic_batch_read",
-            "latest_monthly_persistence_batch_read",
-            "latest_monthly_loss_control_batch_read",
-            "latest_threshold_robustness_batch_read",
-            "latest_rankic_enhancement_batch_read",
-            "latest_champion_staggered_schedule_batch_read",
-            "batch12_validation_handoff_read",
-            "prev_month_neg1_gate_pre_registered",
-            "downside_range_champion_pre_registered",
-            "daily_champion_oos_candidates_pre_registered",
-            "factor_validation_branch_confirmed",
-            "oos_2025_only_validation_plan_registered",
-            "overlap_adjusted_statistics_plan_enabled",
-            "cumulative_multiple_testing_gate_enabled",
-            "cost_capacity_turnover_stress_enabled",
-            "daily_vs_every2_every3_controls_enabled",
-            "cost_capacity_gate_enabled",
-            "final_holdout_not_touched",
+            "lightweight_stage_report",
+            "factor_registry_or_research_ledger_update",
+            "validation_command_rerun",
+            "github_safe_sync_after_validation",
+            "forbidden_data_and_secret_path_audit",
+        ],
+        "public_reference_projects": _list(raw.get("public_reference_projects"))
+        or [
+            "qlib",
+            "alphalens",
+            "vectorbt",
+            "pyfolio",
+            "worldquant_101_alphas",
+        ],
+        "profitability_guardrails": _list(raw.get("profitability_guardrails"))
+        or [
+            "promotable_requires_cost_capacity_walk_forward_and_long_cycle_replay",
+            "research_lead_requires_cross_period_ic_or_portfolio_evidence",
+            "discard_single_family_after_repeated_same_blocker_failures",
+            "do_not_optimize_for_raw_sharpe_before_hard_gates",
         ],
     }
 
@@ -363,6 +460,17 @@ def _list(value: Any) -> list[str]:
     if value is None:
         return []
     return [str(value)]
+
+
+def _unique_preserving_order(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    unique = []
+    for item in items:
+        if item in seen:
+            continue
+        seen.add(item)
+        unique.append(item)
+    return unique
 
 
 def _branch_prefixes(config: dict[str, Any]) -> list[str]:

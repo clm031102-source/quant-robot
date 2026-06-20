@@ -117,6 +117,19 @@ Every new CN stock mining run must confirm the structured direction in `configs/
 - historical candidates and newly proposed candidates must be run through same-parameter long-cycle replay before any profitability claim
 - the review must include regime coverage, look-ahead risk, overfit/multiple-testing risk, overlap-aware statistics, and cost/capacity stress
 
+## Round Governance
+
+Each factor-mining round is a `factor_family_batch`: one coherent factor family or public-indicator family with pre-registered candidates, data checks, IC screening, portfolio evaluation, and recorded rejection/promotion evidence.
+
+The startup gate now carries a round-governance packet:
+
+- after every 3 rounds, stop new mining and audit the previous rounds before continuing
+- the 3-round review must summarize factor families, candidate counts, IC pass counts, portfolio pass counts, research leads, promotable candidates, rejection reasons, and the next direction decision
+- after every 10 rounds, package lightweight results, update the factor registry or research ledger, rerun validation commands, audit forbidden data/secret paths, and only then perform GitHub safe-sync when the sync script allows it
+- weak or repeatedly rejected directions must be compared against public reference methods before more budget is spent
+- default public references are `qlib`, `alphalens`, `vectorbt`, `pyfolio`, and `worldquant_101_alphas`
+- raw Sharpe does not override hard gates: cost, capacity, walk-forward, long-cycle replay, and multiple-testing controls come first
+
 ## Repeatable Mining Protocol
 
 The 2026-06-17 batch audit is now part of the startup packet, but it is no longer enough by itself. Before each new CN stock mining or validation run, confirm that the source audit, long-cycle replay plan, latest bootstrap diagnostic, completed tail-RankIC broad-RankIC batch, completed monthly-persistence sensitivity batch, completed monthly loss-control/phase batch, completed previous-month threshold-robustness batch, completed RankIC-enhancement batch, completed Batch 12 champion staggered-schedule batch, and Batch 12 validation handoff have been read. Batch 12 created discovery-only candidates, so the next controlled task is same-parameter long-cycle replay and formal validation on a factor-validation branch, not another blind discovery batch.

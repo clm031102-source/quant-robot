@@ -8,6 +8,10 @@ from unittest.mock import patch
 import pandas as pd
 
 from quant_robot.data.fixtures import load_demo_market_bars
+from quant_robot.factors.public_technical_tail_guard import compute_public_technical_tail_guard_factors
+from quant_robot.factors.public_trend_volume import compute_public_trend_volume_factors
+from quant_robot.factors.public_technical_liquidity import compute_public_technical_liquidity_factors
+from quant_robot.factors.public_technical import compute_public_technical_factors
 from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.experiments.runner import (
     ExperimentGridConfig,
@@ -213,6 +217,89 @@ class ExperimentRunnerTests(unittest.TestCase):
             self.assertEqual(row["factor_name"], "pb_inverse")
             self.assertEqual(result["config"]["factor_source"], "tushare_daily_basic")
             self.assertEqual(result["config"]["factor_input_root"], str(root))
+
+    def test_experiment_grid_precomputes_public_technical_factor_matrix(self):
+        bars = _synthetic_public_technical_bars(asset_count=3, day_count=45)
+        config = ExperimentGridConfig(
+            markets=("CN",),
+            factor_source="public_technical",
+            factor_names=("donchian_position_20",),
+            top_n_values=(1,),
+            cost_bps_values=(0.0,),
+            precompute_factor_matrix=True,
+        )
+        factors = compute_public_technical_factors(bars, factor_names=("donchian_position_20",))
+
+        with patch("quant_robot.experiments.runner.compute_public_technical_factors", return_value=factors) as factor_builder:
+            run_experiment_grid(bars, config)
+
+        self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("donchian_position_20",))
+
+    def test_experiment_grid_precomputes_public_technical_liquidity_factor_matrix(self):
+        bars = _synthetic_public_technical_bars(asset_count=3, day_count=45)
+        config = ExperimentGridConfig(
+            markets=("CN",),
+            factor_source="public_technical_liquidity",
+            factor_names=("rsi_reversal_liquid_14_20",),
+            top_n_values=(1,),
+            cost_bps_values=(0.0,),
+            precompute_factor_matrix=True,
+        )
+        factors = compute_public_technical_liquidity_factors(bars, factor_names=("rsi_reversal_liquid_14_20",))
+
+        with patch(
+            "quant_robot.experiments.runner.compute_public_technical_liquidity_factors",
+            return_value=factors,
+        ) as factor_builder:
+            run_experiment_grid(bars, config)
+
+        self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("rsi_reversal_liquid_14_20",))
+
+    def test_experiment_grid_precomputes_public_technical_tail_guard_factor_matrix(self):
+        bars = _synthetic_public_technical_bars(asset_count=3, day_count=45)
+        config = ExperimentGridConfig(
+            markets=("CN",),
+            factor_source="public_technical_tail_guard",
+            factor_names=("bollinger_reversal_liquid_low_tail_20",),
+            top_n_values=(1,),
+            cost_bps_values=(0.0,),
+            precompute_factor_matrix=True,
+        )
+        factors = compute_public_technical_tail_guard_factors(
+            bars,
+            factor_names=("bollinger_reversal_liquid_low_tail_20",),
+        )
+
+        with patch(
+            "quant_robot.experiments.runner.compute_public_technical_tail_guard_factors",
+            return_value=factors,
+        ) as factor_builder:
+            run_experiment_grid(bars, config)
+
+        self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("bollinger_reversal_liquid_low_tail_20",))
+
+    def test_experiment_grid_precomputes_public_trend_volume_factor_matrix(self):
+        bars = _synthetic_public_technical_bars(asset_count=3, day_count=70)
+        config = ExperimentGridConfig(
+            markets=("CN",),
+            factor_source="public_trend_volume",
+            factor_names=("supertrend_volume_confirmed_10_3_20",),
+            top_n_values=(1,),
+            cost_bps_values=(0.0,),
+            precompute_factor_matrix=True,
+        )
+        factors = compute_public_trend_volume_factors(
+            bars,
+            factor_names=("supertrend_volume_confirmed_10_3_20",),
+        )
+
+        with patch(
+            "quant_robot.experiments.runner.compute_public_trend_volume_factors",
+            return_value=factors,
+        ) as factor_builder:
+            run_experiment_grid(bars, config)
+
+        self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("supertrend_volume_confirmed_10_3_20",))
 
     def test_experiment_grid_runs_etf_share_size_factor_source(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -682,6 +769,44 @@ class ExperimentRunnerTests(unittest.TestCase):
         self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("turnover_rate_low_liquid_mv_bucket_rank",))
         self.assertTrue(all(call.kwargs["precomputed_factors"] is matrix for call in pipeline.call_args_list))
 
+    def test_experiment_grid_can_precompute_daily_basic_value_liquidity_tail_factor_matrix_once(self):
+        bars = load_demo_market_bars()
+        matrix = pd.DataFrame(columns=["date", "asset_id", "market", "factor_name", "factor_value", "lookback_window"])
+        config = ExperimentGridConfig(
+            markets=("CN",),
+            factor_source="daily_basic_value_liquidity_tail",
+            factor_input_root=Path("authority_daily_basic.json"),
+            factor_input_required=True,
+            factor_names=("value_liquid_low_tail_20",),
+            factor_windows=(20,),
+            top_n_values=(1, 2),
+            cost_bps_values=(5.0,),
+            precompute_factor_matrix=True,
+        )
+        pipeline_result = {
+            "data_mode": "research",
+            "metrics": {"total_return": 0.01, "annualized_return": 0.01, "annualized_volatility": 0.05, "sharpe": 0.2, "max_drawdown": -0.01},
+            "benchmark_metrics": {"benchmark_total_return": 0.0, "relative_return": 0.01, "excess_over_cash": 0.01},
+            "decision": {"decision_status": "approved", "rejection_reasons": []},
+            "factor_summary": {"mean_ic": 0.01, "ic_p_value": 0.5, "significance_status": "unknown"},
+            "artifact_rows": {"trades": 1, "holdings": 1},
+        }
+
+        with (
+            patch("quant_robot.experiments.runner.load_factor_inputs", return_value=pd.DataFrame({"date": [], "asset_id": []})) as loader,
+            patch("quant_robot.experiments.runner.compute_daily_basic_value_liquidity_tail_factors", return_value=matrix) as factor_builder,
+            patch("quant_robot.experiments.runner.run_research_pipeline", return_value=pipeline_result) as pipeline,
+        ):
+            result = run_experiment_grid(bars, config)
+
+        self.assertEqual(len(result["leaderboard"]), 2)
+        loader.assert_called_once_with(Path("authority_daily_basic.json"), "CN")
+        factor_builder.assert_called_once()
+        precompute_bars = factor_builder.call_args.args[0]
+        self.assertEqual(set(precompute_bars["market"]), {"CN"})
+        self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("value_liquid_low_tail_20",))
+        self.assertTrue(all(call.kwargs["precomputed_factors"] is matrix for call in pipeline.call_args_list))
+
     def test_experiment_grid_can_precompute_tushare_moneyflow_factor_matrix_once(self):
         bars = load_demo_market_bars()
         matrix = pd.DataFrame(columns=["date", "asset_id", "market", "factor_name", "factor_value", "lookback_window"])
@@ -1022,6 +1147,42 @@ def _theme_breadth_runner_bars() -> pd.DataFrame:
                     "currency": "CNY",
                     "adjusted": True,
                     "ingested_at": pd.Timestamp("2024-01-01T00:00:00Z"),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def _synthetic_public_technical_bars(*, asset_count: int, day_count: int) -> pd.DataFrame:
+    rows = []
+    dates = pd.date_range("2024-01-01", periods=day_count, freq="B")
+    ingested_at = pd.Timestamp("2026-06-21", tz="UTC")
+    for asset_index in range(asset_count):
+        for day_index, date in enumerate(dates):
+            price = 10.0 + asset_index + day_index * (0.05 + asset_index * 0.01)
+            rows.append(
+                {
+                    "asset_id": f"CN_XSHG_{asset_index:06d}",
+                    "symbol": f"{asset_index:06d}.SH",
+                    "market": "CN",
+                    "exchange": "XSHG",
+                    "asset_type": "stock",
+                    "timestamp": date.tz_localize("Asia/Shanghai"),
+                    "date": date.date(),
+                    "timezone": "Asia/Shanghai",
+                    "calendar": "XSHG",
+                    "frequency": "1d",
+                    "source": "fixture",
+                    "open": price * 0.995,
+                    "high": price * 1.01,
+                    "low": price * 0.99,
+                    "close": price,
+                    "vwap": price,
+                    "adj_close": price,
+                    "volume": 1_000_000 + asset_index * 10_000 + day_index * 1000,
+                    "amount": price * (1_000_000 + asset_index * 10_000 + day_index * 1000),
+                    "currency": "CNY",
+                    "adjusted": True,
+                    "ingested_at": ingested_at,
                 }
             )
     return pd.DataFrame(rows)

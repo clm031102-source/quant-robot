@@ -89,6 +89,9 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
             markdown = (output_dir / "factor_mining_startup_gate.md").read_text(encoding="utf-8")
             self.assertIn("Research Direction", markdown)
             self.assertIn("Repeatable Mining Protocol", markdown)
+            self.assertIn("Round Governance", markdown)
+            self.assertIn("Review cadence: every 3 rounds", markdown)
+            self.assertIn("GitHub sync cadence: every 10 rounds", markdown)
             self.assertIn("cn_stock_cross_sectional_alpha", markdown)
 
     def test_default_cn_stock_config_is_runnable(self) -> None:

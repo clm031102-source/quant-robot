@@ -11,6 +11,7 @@ import pandas as pd
 STAGE = "cn_stock_data_manifest"
 SAFETY_TEXT = "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
 CRITICAL_WARNINGS = {
+    "adjusted_ratio_mass_jump_dates_present",
     "daily_basic_date_coverage_before_bars",
     "moneyflow_date_coverage_before_bars",
 }
@@ -23,21 +24,29 @@ def build_cn_stock_data_manifest(
     daily_basic_inputs: pd.DataFrame | None = None,
     source_root: str | Path,
     extreme_return_threshold: float = 0.50,
+    adjusted_ratio_jump_threshold: float = 2.0,
+    adjusted_ratio_mass_jump_asset_threshold: int = 100,
     require_daily_basic_inputs: bool = False,
 ) -> dict[str, Any]:
     clean_bars = _prepare_bars(bars)
     clean_moneyflow = _prepare_moneyflow(moneyflow_inputs)
     clean_daily_basic = _prepare_daily_basic(daily_basic_inputs)
+    adjusted_ratio_jumps = _adjusted_ratio_jump_summary(
+        clean_bars,
+        adjusted_ratio_jump_threshold,
+        mass_jump_asset_threshold=adjusted_ratio_mass_jump_asset_threshold,
+    )
     blockers = _blockers(clean_bars)
     warnings = _warnings(
         clean_bars,
         clean_moneyflow,
         clean_daily_basic,
         extreme_return_threshold,
+        adjusted_ratio_jumps=adjusted_ratio_jumps,
         require_daily_basic_inputs=require_daily_basic_inputs,
     )
     status = "blocked" if blockers else "review_required" if warnings else "cleared"
-    summary = _summary(clean_bars, clean_moneyflow, clean_daily_basic, source_root)
+    summary = _summary(clean_bars, clean_moneyflow, clean_daily_basic, source_root, adjusted_ratio_jumps)
     manifest = {
         "stage": STAGE,
         "generated_at": date.today().isoformat(),
@@ -130,6 +139,10 @@ def render_cn_stock_data_manifest_markdown(manifest: dict[str, Any]) -> str:
         f"- Daily-basic symbols: {summary.get('daily_basic_symbols', 0)}",
         f"- Daily-basic date range: {summary.get('daily_basic_date_start')} to {summary.get('daily_basic_date_end')}",
         f"- Date range: {summary.get('date_start')} to {summary.get('date_end')}",
+        f"- Adjusted ratio jump rows: {summary.get('adjusted_ratio_jump_rows', 0)}",
+        f"- Adjusted ratio jump assets: {summary.get('adjusted_ratio_jump_assets', 0)}",
+        f"- Adjusted ratio jump max: {summary.get('adjusted_ratio_jump_max', 0.0)}",
+        f"- Adjusted ratio mass jump dates: {len(_dict(summary.get('adjusted_ratio_mass_jump_dates')))}",
         f"- Live boundary allowed: {manifest.get('live_boundary_allowed', False)}",
         "",
         "## Blockers",
@@ -174,6 +187,7 @@ def _summary(
     moneyflow: pd.DataFrame,
     daily_basic: pd.DataFrame,
     source_root: str | Path,
+    adjusted_ratio_jumps: dict[str, Any],
 ) -> dict[str, Any]:
     return {
         "source_root": str(source_root),
@@ -197,6 +211,13 @@ def _summary(
         "zero_volume_rows": _zero_count(bars, "volume"),
         "zero_amount_rows": _zero_count(bars, "amount"),
         "missing_adj_close_rows": _missing_count(bars, "adj_close"),
+        "adjusted_ratio_jump_rows": int(adjusted_ratio_jumps.get("rows", 0)),
+        "adjusted_ratio_jump_assets": int(adjusted_ratio_jumps.get("assets", 0)),
+        "adjusted_ratio_jump_max": float(adjusted_ratio_jumps.get("max_jump", 0.0)),
+        "adjusted_ratio_jump_threshold": float(adjusted_ratio_jumps.get("threshold", 0.0)),
+        "adjusted_ratio_jump_dates": dict(adjusted_ratio_jumps.get("dates", {})),
+        "adjusted_ratio_mass_jump_asset_threshold": int(adjusted_ratio_jumps.get("mass_jump_asset_threshold", 0)),
+        "adjusted_ratio_mass_jump_dates": dict(adjusted_ratio_jumps.get("mass_dates", {})),
     }
 
 
@@ -221,6 +242,7 @@ def _warnings(
     daily_basic: pd.DataFrame,
     extreme_return_threshold: float,
     *,
+    adjusted_ratio_jumps: dict[str, Any],
     require_daily_basic_inputs: bool,
 ) -> list[str]:
     warnings = []
@@ -232,6 +254,10 @@ def _warnings(
         warnings.append("missing_adj_close_rows_present")
     if _extreme_return_rows(bars, extreme_return_threshold) > 0:
         warnings.append("extreme_return_rows_present")
+    if int(adjusted_ratio_jumps.get("rows", 0)) > 0:
+        warnings.append("adjusted_ratio_jump_rows_present")
+    if adjusted_ratio_jumps.get("mass_dates"):
+        warnings.append("adjusted_ratio_mass_jump_dates_present")
     if not moneyflow.empty and _nunique(moneyflow, "symbol") < _nunique(bars, "symbol"):
         warnings.append("moneyflow_symbol_coverage_below_bars")
     if _date_ends_before(moneyflow, bars):
@@ -275,6 +301,57 @@ def _extreme_return_rows(bars: pd.DataFrame, threshold: float) -> int:
         returns = pd.to_numeric(group["adj_close"], errors="coerce").pct_change().abs()
         count += int((returns > threshold).sum())
     return count
+
+
+def _adjusted_ratio_jump_summary(
+    bars: pd.DataFrame,
+    threshold: float,
+    *,
+    mass_jump_asset_threshold: int,
+) -> dict[str, Any]:
+    required = {"date", "asset_id", "close", "adj_close"}
+    if bars.empty or not required.issubset(bars.columns):
+        return _empty_adjusted_ratio_jump_summary(threshold, mass_jump_asset_threshold)
+    frame = bars.loc[:, ["date", "asset_id", "close", "adj_close"]].copy()
+    frame["date"] = pd.to_datetime(frame["date"], errors="coerce")
+    close = pd.to_numeric(frame["close"], errors="coerce")
+    adj_close = pd.to_numeric(frame["adj_close"], errors="coerce")
+    frame["adjusted_ratio"] = adj_close / close.where(close > 0)
+    frame = frame.replace([float("inf"), float("-inf")], pd.NA)
+    frame = frame.dropna(subset=["date", "asset_id", "adjusted_ratio"]).sort_values(["asset_id", "date"])
+    if frame.empty:
+        return _empty_adjusted_ratio_jump_summary(threshold, mass_jump_asset_threshold)
+    previous = frame.groupby("asset_id", sort=False)["adjusted_ratio"].shift(1)
+    ratio_change = frame["adjusted_ratio"] / previous
+    ratio_change = pd.to_numeric(ratio_change, errors="coerce")
+    reciprocal = 1.0 / ratio_change.where(ratio_change != 0)
+    frame["adjusted_ratio_jump"] = pd.concat([ratio_change, reciprocal], axis=1).abs().max(axis=1)
+    jumps = frame[pd.to_numeric(frame["adjusted_ratio_jump"], errors="coerce") > float(threshold)]
+    if jumps.empty:
+        return _empty_adjusted_ratio_jump_summary(threshold, mass_jump_asset_threshold)
+    date_counts = jumps.groupby(jumps["date"].dt.date)["asset_id"].nunique().sort_index()
+    mass_dates = date_counts[date_counts >= int(mass_jump_asset_threshold)]
+    return {
+        "rows": int(len(jumps)),
+        "assets": int(jumps["asset_id"].nunique()),
+        "max_jump": float(pd.to_numeric(jumps["adjusted_ratio_jump"], errors="coerce").max()),
+        "threshold": float(threshold),
+        "mass_jump_asset_threshold": int(mass_jump_asset_threshold),
+        "dates": {str(day): int(count) for day, count in date_counts.items()},
+        "mass_dates": {str(day): int(count) for day, count in mass_dates.items()},
+    }
+
+
+def _empty_adjusted_ratio_jump_summary(threshold: float, mass_jump_asset_threshold: int) -> dict[str, Any]:
+    return {
+        "rows": 0,
+        "assets": 0,
+        "max_jump": 0.0,
+        "threshold": float(threshold),
+        "mass_jump_asset_threshold": int(mass_jump_asset_threshold),
+        "dates": {},
+        "mass_dates": {},
+    }
 
 
 def _zero_count(frame: pd.DataFrame, column: str) -> int:

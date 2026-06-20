@@ -27,6 +27,9 @@ class AuthorityBarSegment:
 class AuthorityBarsConfig:
     market: str
     segments: tuple[AuthorityBarSegment, ...]
+    repair_adjusted_ratio_mass_jumps: bool = False
+    adjusted_ratio_jump_threshold: float = 2.0
+    adjusted_ratio_mass_jump_asset_threshold: int = 100
 
 
 def load_authority_bars_config(path: str | Path) -> AuthorityBarsConfig:
@@ -34,6 +37,9 @@ def load_authority_bars_config(path: str | Path) -> AuthorityBarsConfig:
     return AuthorityBarsConfig(
         market=str(data.get("market", "CN")).upper(),
         segments=tuple(_segment(item) for item in data.get("segments", [])),
+        repair_adjusted_ratio_mass_jumps=bool(data.get("repair_adjusted_ratio_mass_jumps", False)),
+        adjusted_ratio_jump_threshold=float(data.get("adjusted_ratio_jump_threshold", 2.0)),
+        adjusted_ratio_mass_jump_asset_threshold=int(data.get("adjusted_ratio_mass_jump_asset_threshold", 100)),
     )
 
 
@@ -42,7 +48,62 @@ def load_authority_processed_bars_from_config(path: str | Path, markets: tuple[s
     requested = {market.upper() for market in markets if market.upper() != "ALL"}
     if requested and requested != {config.market}:
         raise ValueError(f"authority bars config market {config.market} does not match requested markets: {', '.join(sorted(requested))}")
-    return load_authority_processed_bars(config.segments, market=config.market)
+    bars = load_authority_processed_dataset(
+        config.segments,
+        market=config.market,
+        dataset="processed/bars",
+        duplicate_keys=AUTHORITY_DUPLICATE_KEYS,
+    )
+    if config.repair_adjusted_ratio_mass_jumps:
+        bars = repair_adjusted_ratio_mass_jumps(
+            bars,
+            jump_threshold=config.adjusted_ratio_jump_threshold,
+            mass_jump_asset_threshold=config.adjusted_ratio_mass_jump_asset_threshold,
+        )
+    validate_market_data(bars)
+    return bars
+
+
+def repair_adjusted_ratio_mass_jumps(
+    bars: pd.DataFrame,
+    *,
+    jump_threshold: float = 2.0,
+    mass_jump_asset_threshold: int = 100,
+) -> pd.DataFrame:
+    required = {"date", "asset_id", "close", "adj_close"}
+    if bars.empty or not required.issubset(bars.columns):
+        return bars.copy()
+    frame = bars.copy()
+    frame["date"] = pd.to_datetime(frame["date"], errors="coerce")
+    frame = frame.sort_values(["asset_id", "date"]).reset_index(drop=True)
+    ratio = pd.to_numeric(_adjusted_ratio(frame), errors="coerce")
+    jumps = _adjusted_ratio_jump_frame(frame, ratio, jump_threshold)
+    mass_dates = set(
+        jumps.groupby(jumps["date"].dt.date)["asset_id"]
+        .nunique()
+        .loc[lambda counts: counts >= int(mass_jump_asset_threshold)]
+        .index
+    )
+    if not mass_dates:
+        return frame
+    repaired = frame.copy()
+    previous_ratio = ratio.groupby(frame["asset_id"], sort=False).shift(1)
+    ratio_change = pd.to_numeric(ratio / previous_ratio, errors="coerce")
+    reciprocal = 1.0 / ratio_change.where(ratio_change != 0)
+    jump_score = pd.concat([ratio_change, reciprocal], axis=1).abs().max(axis=1)
+    event_mask = (
+        frame["date"].dt.date.isin(mass_dates)
+        & ratio.notna()
+        & previous_ratio.notna()
+        & (ratio > 0)
+        & (previous_ratio > 0)
+        & (pd.to_numeric(jump_score, errors="coerce") > float(jump_threshold))
+    )
+    event_correction = pd.Series(1.0, index=frame.index)
+    event_correction.loc[event_mask] = previous_ratio.loc[event_mask].astype(float) / ratio.loc[event_mask].astype(float)
+    cumulative_correction = event_correction.groupby(frame["asset_id"], sort=False).cumprod()
+    repaired["adj_close"] = pd.to_numeric(repaired["adj_close"], errors="coerce") * cumulative_correction
+    return repaired
 
 
 def load_authority_processed_dataset_from_config(
@@ -103,6 +164,23 @@ def _segment(data: dict[str, Any]) -> AuthorityBarSegment:
         end_date=data.get("end_date"),
         adjusted_only=bool(data.get("adjusted_only", True)),
     )
+
+
+def _adjusted_ratio(frame: pd.DataFrame) -> pd.Series:
+    close = pd.to_numeric(frame["close"], errors="coerce")
+    adj_close = pd.to_numeric(frame["adj_close"], errors="coerce")
+    return (adj_close / close.where(close > 0)).replace([float("inf"), float("-inf")], pd.NA)
+
+
+def _adjusted_ratio_jump_frame(frame: pd.DataFrame, ratio: pd.Series, threshold: float) -> pd.DataFrame:
+    work = frame.loc[:, ["date", "asset_id"]].copy()
+    work["adjusted_ratio"] = ratio
+    work = work.dropna(subset=["date", "asset_id", "adjusted_ratio"]).sort_values(["asset_id", "date"])
+    previous = work.groupby("asset_id", sort=False)["adjusted_ratio"].shift(1)
+    ratio_change = pd.to_numeric(work["adjusted_ratio"] / previous, errors="coerce")
+    reciprocal = 1.0 / ratio_change.where(ratio_change != 0)
+    work["adjusted_ratio_jump"] = pd.concat([ratio_change, reciprocal], axis=1).abs().max(axis=1)
+    return work[pd.to_numeric(work["adjusted_ratio_jump"], errors="coerce") > float(threshold)]
 
 
 def _load_segment(segment: AuthorityBarSegment, market: str, dataset: str) -> list[pd.DataFrame]:
