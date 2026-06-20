@@ -67,6 +67,7 @@
     "failed_direction_rotation_confirmed",
     "long_cycle_replay_plan_confirmed",
     "same_parameter_full_sample_confirmed",
+    "promotion_progress_audit_gate_confirmed",
     "market_regime_coverage_confirmed",
     "market_regime_signal_window_coverage_confirmed",
     "lookahead_bias_audit_confirmed",
@@ -130,6 +131,7 @@
         "long_cycle_same_parameter_replay",
         "same_parameter_full_sample_diagnostic",
         "rolling_walk_forward_train_test_split",
+        "walk_forward_progress_audit",
         "market_regime_coverage",
         "market_regime_signal_window_coverage",
         "lookahead_bias_audit",
@@ -148,6 +150,7 @@
       "confirm_before_each_run": [
         "long_cycle_replay_plan_read",
         "same_parameter_full_sample_enabled",
+        "promotion_progress_audit_gate_enabled",
         "market_regime_coverage_enabled",
         "market_regime_signal_window_coverage_enabled",
         "lookahead_bias_audit_enabled",

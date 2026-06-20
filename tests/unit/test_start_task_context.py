@@ -61,6 +61,13 @@ class StartTaskContextTests(unittest.TestCase):
 
             self.assertEqual(load_config(config_path), payload)
 
+    def test_factor_validation_policy_mentions_progress_audit_promotion_gate(self) -> None:
+        config = load_config(Path("configs/workstations.json"))
+        description = config["tasks"]["factor_validation"]["description"]
+
+        self.assertIn("long-cycle replay evidence", description)
+        self.assertIn("walk-forward progress audit evidence", description)
+
 
 if __name__ == "__main__":
     unittest.main()

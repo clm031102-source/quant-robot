@@ -342,6 +342,79 @@ class PromotionGateTests(unittest.TestCase):
         self.assertIn("market_regime_coverage_not_sufficient", row["blocking_reasons"])
         self.assertIn("market_regimes_below_minimum", row["blocking_reasons"])
 
+    def test_promotion_blocks_candidate_with_required_progress_audit_case_blockers(self):
+        case_id = "CN_ETF_momentum_60_top1_cost5_reb5"
+        progress_audit = {
+            "summary": {
+                "is_complete": True,
+                "claim_blockers": ["requires_formal_promotion_gate"],
+                "completed_folds": 12,
+                "expected_folds": 12,
+                "no_trade_rows": 2,
+                "regime_all_blocked_no_trade_rows": 2,
+                "robust_case_candidates": 0,
+            },
+            "case_summary": [
+                {
+                    "case_id": case_id,
+                    "blockers": ["case_no_trades_present", "case_regime_all_blocked_no_trades"],
+                    "folds": 12,
+                    "passing_rows": 3,
+                    "required_passing_rows": 4,
+                    "no_trade_rows": 2,
+                    "regime_all_blocked_no_trade_rows": 2,
+                    "robust_progress_candidate": False,
+                }
+            ],
+        }
+
+        report = build_promotion_report(
+            walk_forward_rows=[_accepted_walk_forward_row(case_id, "momentum_60")],
+            paper_manifest=_paper_manifest(
+                case_id=case_id,
+                factor_name="momentum_60",
+                sharpe=0.80,
+                total_return=0.20,
+            ),
+            walk_forward_progress_audit=progress_audit,
+            config=PromotionGateConfig(
+                min_oos_sharpe=0.5,
+                min_paper_sharpe=0.5,
+                require_walk_forward_progress_audit=True,
+            ),
+        )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "blocked")
+        self.assertIn("walk_forward_progress_case_no_trades_present", row["blocking_reasons"])
+        self.assertIn("walk_forward_progress_case_regime_all_blocked_no_trades", row["blocking_reasons"])
+        self.assertNotIn("walk_forward_progress_requires_formal_promotion_gate", row["blocking_reasons"])
+        self.assertEqual(row["walk_forward_progress"]["case"]["no_trade_rows"], 2)
+
+    def test_run_promotion_gate_treats_missing_required_progress_audit_as_blocker(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            leaderboard = root / "walk_forward.csv"
+            leaderboard.write_text(
+                "case_id,market,factor_name,top_n,cost_bps,validation_status,data_mode,test_trades,test_sharpe,test_relative_return,test_max_drawdown,stability_score\n"
+                "CN_ETF_momentum_60_top1_cost5_reb5,CN_ETF,momentum_60,1,5,accepted,research,80,0.8,0.06,-0.12,0.7\n",
+                encoding="utf-8",
+            )
+
+            report = run_promotion_gate(
+                PromotionGateConfig(
+                    walk_forward_leaderboard=leaderboard,
+                    walk_forward_progress_audit=root / "missing_progress_audit.json",
+                    require_walk_forward_progress_audit=True,
+                    min_oos_sharpe=0.5,
+                    min_paper_sharpe=0.5,
+                )
+            )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "blocked")
+        self.assertIn("walk_forward_progress_audit_missing", row["blocking_reasons"])
+
     def test_promotion_blocks_candidate_without_required_long_cycle_replay(self):
         report = build_promotion_report(
             walk_forward_rows=[_accepted_walk_forward_row("CN_ETF_momentum_60_top1_cost5_reb5", "momentum_60")],
@@ -638,6 +711,8 @@ class PromotionGateTests(unittest.TestCase):
                   "required_factor_source": "tushare_daily_basic",
                   "max_adjusted_ic_p_value": 0.05,
                   "max_tail_ic_p_value": 0.05,
+                  "walk_forward_progress_audit": "progress/walk_forward_progress_audit.json",
+                  "require_walk_forward_progress_audit": true,
                   "long_cycle_replay": "long_cycle/long_cycle_replay_pack.json",
                   "require_long_cycle_replay": true
                 }
@@ -650,6 +725,8 @@ class PromotionGateTests(unittest.TestCase):
         self.assertEqual(config.required_factor_source, "tushare_daily_basic")
         self.assertAlmostEqual(config.max_adjusted_ic_p_value, 0.05)
         self.assertAlmostEqual(config.max_tail_ic_p_value, 0.05)
+        self.assertEqual(config.walk_forward_progress_audit, Path("progress/walk_forward_progress_audit.json"))
+        self.assertTrue(config.require_walk_forward_progress_audit)
         self.assertEqual(config.long_cycle_replay, Path("long_cycle/long_cycle_replay_pack.json"))
         self.assertTrue(config.require_long_cycle_replay)
 
@@ -678,12 +755,17 @@ class PromotionGateTests(unittest.TestCase):
         )
         self.assertTrue(config.require_market_regime_coverage)
         self.assertEqual(
+            config.walk_forward_progress_audit,
+            Path("data/reports/walk_forward_progress_audit_tushare_moneyflow_residual_regime/walk_forward_progress_audit.json"),
+        )
+        self.assertTrue(config.require_walk_forward_progress_audit)
+        self.assertEqual(
             config.long_cycle_replay,
             Path("data/reports/long_cycle_factor_replay_tushare_moneyflow_residual_regime/long_cycle_replay_pack.json"),
         )
         self.assertTrue(config.require_long_cycle_replay)
 
-    def test_strict_cn_stock_promotion_configs_require_long_cycle_replay(self):
+    def test_strict_cn_stock_promotion_configs_require_long_cycle_replay_and_progress_audit(self):
         config_paths = [
             "configs/promotion_gate_tushare_moneyflow_residual_regime.json",
             "configs/promotion_gate_cn_stock_daily_basic_value_size_liquidity_20260620.json",
@@ -695,6 +777,8 @@ class PromotionGateTests(unittest.TestCase):
                 config = load_promotion_gate_config(config_path)
                 self.assertTrue(config.require_long_cycle_replay)
                 self.assertIsNotNone(config.long_cycle_replay)
+                self.assertTrue(config.require_walk_forward_progress_audit)
+                self.assertIsNotNone(config.walk_forward_progress_audit)
 
     def test_promotion_blocks_stale_or_unready_provider_status_when_required(self):
         report = build_promotion_report(

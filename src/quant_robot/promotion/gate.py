@@ -20,6 +20,7 @@ class PromotionGateConfig:
     provider_status: Path | None = None
     quality_report: Path | None = None
     market_regime_coverage: Path | None = None
+    walk_forward_progress_audit: Path | None = None
     long_cycle_replay: Path | None = None
     output_dir: Path | None = None
     min_oos_trades: int = 20
@@ -45,8 +46,12 @@ class PromotionGateConfig:
     require_provider_ready_for_promotion: bool = False
     max_provider_status_age_days: int | None = None
     require_market_regime_coverage: bool = False
+    require_walk_forward_progress_audit: bool = False
     require_long_cycle_replay: bool = False
     min_distinct_regime_lookbacks_for_family: int = 1
+
+
+_PROGRESS_AUDIT_CONTEXT_ONLY_BLOCKERS = {"requires_formal_promotion_gate"}
 
 
 def load_promotion_gate_config(path: str | Path) -> PromotionGateConfig:
@@ -60,6 +65,7 @@ def load_promotion_gate_config(path: str | Path) -> PromotionGateConfig:
         provider_status=_optional_path(data.get("provider_status")),
         quality_report=_optional_path(data.get("quality_report")),
         market_regime_coverage=_optional_path(data.get("market_regime_coverage")),
+        walk_forward_progress_audit=_optional_path(data.get("walk_forward_progress_audit")),
         long_cycle_replay=_optional_path(data.get("long_cycle_replay")),
         output_dir=_optional_path(data.get("output_dir")),
         min_oos_trades=int(data.get("min_oos_trades", PromotionGateConfig.min_oos_trades)),
@@ -97,6 +103,12 @@ def load_promotion_gate_config(path: str | Path) -> PromotionGateConfig:
         require_market_regime_coverage=bool(
             data.get("require_market_regime_coverage", PromotionGateConfig.require_market_regime_coverage)
         ),
+        require_walk_forward_progress_audit=bool(
+            data.get(
+                "require_walk_forward_progress_audit",
+                PromotionGateConfig.require_walk_forward_progress_audit,
+            )
+        ),
         require_long_cycle_replay=bool(
             data.get("require_long_cycle_replay", PromotionGateConfig.require_long_cycle_replay)
         ),
@@ -118,6 +130,9 @@ def run_promotion_gate(config: PromotionGateConfig) -> dict[str, Any]:
     provider_status = _read_json(config.provider_status) if config.provider_status else None
     quality_report = _read_json(config.quality_report) if config.quality_report else None
     market_regime_coverage = _read_optional_json(config.market_regime_coverage) if config.market_regime_coverage else None
+    walk_forward_progress_audit = (
+        _read_optional_json(config.walk_forward_progress_audit) if config.walk_forward_progress_audit else None
+    )
     long_cycle_replay = _read_optional_json(config.long_cycle_replay) if config.long_cycle_replay else None
     report = build_promotion_report(
         walk_forward_rows,
@@ -126,6 +141,7 @@ def run_promotion_gate(config: PromotionGateConfig) -> dict[str, Any]:
         provider_status=provider_status,
         quality_report=quality_report,
         market_regime_coverage=market_regime_coverage,
+        walk_forward_progress_audit=walk_forward_progress_audit,
         long_cycle_replay=long_cycle_replay,
         config=config,
     )
@@ -142,6 +158,7 @@ def build_promotion_report(
     provider_status: dict[str, Any] | None = None,
     quality_report: dict[str, Any] | None = None,
     market_regime_coverage: dict[str, Any] | None = None,
+    walk_forward_progress_audit: dict[str, Any] | None = None,
     long_cycle_replay: dict[str, Any] | None = None,
     config: PromotionGateConfig = PromotionGateConfig(),
 ) -> dict[str, Any]:
@@ -150,6 +167,7 @@ def build_promotion_report(
     if paper_manifest is not None:
         paper_evidence.append(paper_manifest)
     accepted_regime_lookbacks_by_family = _accepted_regime_lookbacks_by_family(walk_forward_rows)
+    progress_audit_by_case = _walk_forward_progress_by_case(walk_forward_progress_audit)
     long_cycle_by_case = _long_cycle_replay_by_case(long_cycle_replay)
     candidates = [
         _candidate_report(
@@ -159,6 +177,8 @@ def build_promotion_report(
             provider_status,
             quality_report,
             market_regime_coverage,
+            walk_forward_progress_audit,
+            progress_audit_by_case,
             long_cycle_by_case,
             accepted_regime_lookbacks_by_family,
             config,
@@ -193,6 +213,8 @@ def _candidate_report(
     provider_status: dict[str, Any] | None,
     quality_report: dict[str, Any] | None,
     market_regime_coverage: dict[str, Any] | None,
+    walk_forward_progress_audit: dict[str, Any] | None,
+    progress_audit_by_case: dict[str, dict[str, Any]] | None,
     long_cycle_by_case: dict[str, dict[str, Any]] | None,
     accepted_regime_lookbacks_by_family: dict[tuple[str, str, int | None, float | None], set[int]],
     config: PromotionGateConfig,
@@ -242,6 +264,9 @@ def _candidate_report(
     warnings.extend(quality_reasons["warnings"])
 
     blocking.extend(_market_regime_reasons(market_regime_coverage, config))
+    progress_summary = _walk_forward_progress_summary(case_id, walk_forward_progress_audit, progress_audit_by_case, config)
+    blocking.extend(progress_summary["blocking"])
+    warnings.extend(progress_summary["warnings"])
     long_cycle_summary = _long_cycle_summary(case_id, long_cycle_by_case, config)
     blocking.extend(long_cycle_summary["blocking"])
     warnings.extend(long_cycle_summary["warnings"])
@@ -318,6 +343,7 @@ def _candidate_report(
                 "max_drawdown": paper_summary["paper_max_drawdown"],
             },
             "market_regime_coverage": _market_regime_summary(market_regime_coverage),
+            "walk_forward_progress": progress_summary["summary"],
             "long_cycle_replay": long_cycle_summary["summary"],
             "duplicate_of": None,
             "duplicate_similarity": 0.0,
@@ -544,6 +570,98 @@ def _market_regime_summary(market_regime_coverage: dict[str, Any] | None) -> dic
         "cleared": bool(decision.get("market_regime_coverage_cleared")) or str(market_regime_coverage.get("status")) == "sufficient",
         "blockers": decision.get("blockers", []) if isinstance(decision.get("blockers", []), list) else [],
     }
+
+
+def _walk_forward_progress_by_case(walk_forward_progress_audit: dict[str, Any] | None) -> dict[str, dict[str, Any]] | None:
+    if walk_forward_progress_audit is None:
+        return None
+    rows = walk_forward_progress_audit.get("case_summary", [])
+    if not isinstance(rows, list):
+        return {}
+    return {
+        str(row.get("case_id")): row
+        for row in rows
+        if isinstance(row, dict) and row.get("case_id")
+    }
+
+
+def _walk_forward_progress_summary(
+    case_id: str,
+    walk_forward_progress_audit: dict[str, Any] | None,
+    progress_audit_by_case: dict[str, dict[str, Any]] | None,
+    config: PromotionGateConfig,
+) -> dict[str, Any]:
+    empty_summary = {
+        "present": False,
+        "claim_blockers": [],
+        "active_claim_blockers": [],
+        "is_complete": None,
+        "can_promote_from_progress_audit": None,
+        "completed_folds": None,
+        "expected_folds": None,
+        "no_trade_rows": None,
+        "no_trade_folds": None,
+        "regime_all_blocked_no_trade_rows": None,
+        "regime_all_blocked_no_trade_folds": None,
+        "robust_case_candidates": None,
+        "case": {"present": False},
+    }
+    if walk_forward_progress_audit is None:
+        blocking = ["walk_forward_progress_audit_missing"] if config.require_walk_forward_progress_audit else []
+        return {"blocking": blocking, "warnings": [], "summary": empty_summary}
+
+    summary = walk_forward_progress_audit.get("summary", {})
+    if not isinstance(summary, dict):
+        summary = {}
+    claim_blockers = _string_list(summary.get("claim_blockers"))
+    active_claim_blockers = [
+        blocker
+        for blocker in claim_blockers
+        if blocker not in _PROGRESS_AUDIT_CONTEXT_ONLY_BLOCKERS
+    ]
+    blocking: list[str] = []
+    if config.require_walk_forward_progress_audit:
+        if not summary:
+            blocking.append("walk_forward_progress_summary_missing")
+        blocking.extend(f"walk_forward_progress_{blocker}" for blocker in active_claim_blockers)
+
+    case_summary = (progress_audit_by_case or {}).get(case_id)
+    case_blockers: list[str] = []
+    if case_summary is None:
+        case_payload = {"present": False}
+        if config.require_walk_forward_progress_audit:
+            blocking.append("walk_forward_progress_case_missing")
+    else:
+        case_blockers = _string_list(case_summary.get("blockers"))
+        if config.require_walk_forward_progress_audit:
+            blocking.extend(f"walk_forward_progress_{blocker}" for blocker in case_blockers)
+        case_payload = {
+            "present": True,
+            "blockers": case_blockers,
+            "folds": _maybe_int(case_summary.get("folds")),
+            "passing_rows": _maybe_int(case_summary.get("passing_rows")),
+            "required_passing_rows": _maybe_int(case_summary.get("required_passing_rows")),
+            "no_trade_rows": _maybe_int(case_summary.get("no_trade_rows")),
+            "regime_all_blocked_no_trade_rows": _maybe_int(case_summary.get("regime_all_blocked_no_trade_rows")),
+            "robust_progress_candidate": _maybe_bool(case_summary.get("robust_progress_candidate")),
+        }
+
+    progress_summary = {
+        "present": True,
+        "claim_blockers": claim_blockers,
+        "active_claim_blockers": active_claim_blockers,
+        "is_complete": _maybe_bool(summary.get("is_complete")),
+        "can_promote_from_progress_audit": _maybe_bool(summary.get("can_promote_from_progress_audit")),
+        "completed_folds": _maybe_int(summary.get("completed_folds")),
+        "expected_folds": _maybe_int(summary.get("expected_folds")),
+        "no_trade_rows": _maybe_int(summary.get("no_trade_rows")),
+        "no_trade_folds": _maybe_int(summary.get("no_trade_folds")),
+        "regime_all_blocked_no_trade_rows": _maybe_int(summary.get("regime_all_blocked_no_trade_rows")),
+        "regime_all_blocked_no_trade_folds": _maybe_int(summary.get("regime_all_blocked_no_trade_folds")),
+        "robust_case_candidates": _maybe_int(summary.get("robust_case_candidates")),
+        "case": case_payload,
+    }
+    return {"blocking": _dedupe(blocking), "warnings": [], "summary": progress_summary}
 
 
 def _long_cycle_replay_by_case(long_cycle_replay: dict[str, Any] | None) -> dict[str, dict[str, Any]] | None:
@@ -893,6 +1011,8 @@ def _config_dict(config: PromotionGateConfig) -> dict[str, Any]:
         "provider_status",
         "quality_report",
         "market_regime_coverage",
+        "walk_forward_progress_audit",
+        "long_cycle_replay",
         "output_dir",
     ):
         data[key] = str(data[key]) if data[key] is not None else None

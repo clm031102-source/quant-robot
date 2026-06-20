@@ -54,7 +54,7 @@
       "branch": "codex/factor-batch-<topic-or-date>"
     },
     "factor_validation": {
-      "description": "Candidate factor validation, walk-forward reruns, same-parameter long-cycle replay checks, cost checks, market-regime coverage checks, robustness reviews, and desktop validation profiles via scripts/run_checks.py --profile <profile> --execute. Current strict CN stock profiles include desktop-validation, desktop-daily-basic-validation, desktop-daily-basic-value-size-liquidity-validation, and desktop-price-volume-technical-validation. CN stock validation reruns must first confirm the startup gate and CN stock data manifest; strict promotion configs require long-cycle replay evidence.",
+      "description": "Candidate factor validation, walk-forward reruns, same-parameter long-cycle replay checks, cost checks, market-regime coverage checks, robustness reviews, and desktop validation profiles via scripts/run_checks.py --profile <profile> --execute. Current strict CN stock profiles include desktop-validation, desktop-daily-basic-validation, desktop-daily-basic-value-size-liquidity-validation, and desktop-price-volume-technical-validation. CN stock validation reruns must first confirm the startup gate and CN stock data manifest; strict promotion configs require long-cycle replay evidence and walk-forward progress audit evidence.",
       "branch": "codex/factor-validation-<topic-or-date>"
     },
     "factor_review": {
