@@ -224,6 +224,182 @@ class LongCycleReplayTests(unittest.TestCase):
         self.assertIn("overlap_adjusted_sharpe_missing", biased["reasons"])
         self.assertIn("test_starts_before_train_end", biased["reasons"])
 
+    def test_candidate_decisions_carry_source_performance_metrics_for_audit(self):
+        coverage = {
+            "status": "sufficient",
+            "market": "CN",
+            "required_start": "2015-01-01",
+            "date_start": "2015-01-05",
+            "date_end": "2025-12-31",
+            "blockers": [],
+        }
+        candidates = [
+            {
+                "case_id": "metric_case",
+                "market": "CN",
+                "factor_name": "factor_metric",
+                "source_kind": "prototype_leaderboard",
+                "source_report": "report.csv",
+                "mean_rank_ic": 0.041,
+                "tail_mean_rank_ic": 0.018,
+                "total_return": 0.234,
+                "relative_return": 0.051,
+                "sharpe": 1.23,
+                "long_short_positive_rate": 0.57,
+                "max_drawdown": -0.19,
+                "turnover": 1.8,
+                "trades": 120,
+                "cost_bps": 10,
+                "execution_lag": 1,
+                "max_participation_rate": 0.006,
+                "overlap_autocorr_adjusted_sharpe": 0.94,
+                "train_end_date": "2019-12-31",
+                "test_start_date": "2020-01-02",
+            },
+            {
+                "case_id": "missing_metric_case",
+                "market": "CN",
+                "factor_name": "factor_missing_metric",
+            },
+        ]
+
+        pack = build_long_cycle_replay_pack_from_coverage(
+            candidates,
+            coverage,
+            market="CN",
+            required_start="2015-01-01",
+        )
+
+        by_case = {row["case_id"]: row for row in pack["candidate_decisions"]}
+        decision = by_case["metric_case"]
+        self.assertEqual(decision["source_kind"], "prototype_leaderboard")
+        self.assertEqual(decision["source_report"], "report.csv")
+        self.assertAlmostEqual(decision["mean_rank_ic"], 0.041)
+        self.assertAlmostEqual(decision["tail_mean_rank_ic"], 0.018)
+        self.assertAlmostEqual(decision["total_return"], 0.234)
+        self.assertAlmostEqual(decision["relative_return"], 0.051)
+        self.assertAlmostEqual(decision["sharpe"], 1.23)
+        self.assertAlmostEqual(decision["long_short_positive_rate"], 0.57)
+        self.assertAlmostEqual(decision["max_drawdown"], -0.19)
+        self.assertAlmostEqual(decision["turnover"], 1.8)
+        self.assertEqual(decision["trades"], 120)
+        self.assertEqual(decision["cost_bps"], 10)
+        self.assertEqual(decision["execution_lag"], 1)
+        self.assertAlmostEqual(decision["max_participation_rate"], 0.006)
+        self.assertAlmostEqual(decision["overlap_autocorr_adjusted_sharpe"], 0.94)
+        self.assertEqual(decision["train_end_date"], "2019-12-31")
+        self.assertEqual(decision["test_start_date"], "2020-01-02")
+        self.assertIsNone(by_case["missing_metric_case"]["sharpe"])
+        self.assertIsNone(by_case["missing_metric_case"]["total_return"])
+
+    def test_replay_pack_summary_counts_reasons_and_audit_statuses(self):
+        coverage = {
+            "status": "sufficient",
+            "market": "CN",
+            "required_start": "2015-01-01",
+            "date_start": "2015-01-05",
+            "date_end": "2025-12-31",
+            "blockers": [],
+        }
+        candidates = [
+            {
+                "case_id": "clean_case",
+                "market": "CN",
+                "factor_name": "factor_clean",
+                "sharpe": 0.8,
+                "total_return": 0.2,
+                "cost_bps": 10,
+                "execution_lag": 1,
+                "max_participation_rate": 0.006,
+                "overlap_autocorr_adjusted_sharpe": 0.7,
+                "train_end_date": "2019-12-31",
+                "test_start_date": "2020-01-02",
+            },
+            {
+                "case_id": "bad_case",
+                "market": "CN",
+                "factor_name": "factor_bad",
+                "sharpe": 4.2,
+                "total_return": -0.1,
+                "cost_bps": 0,
+                "execution_lag": 0,
+                "max_participation_rate": 0.03,
+                "train_end_date": "2020-01-02",
+                "test_start_date": "2019-12-31",
+            },
+        ]
+
+        pack = build_long_cycle_replay_pack_from_coverage(
+            candidates,
+            coverage,
+            market="CN",
+            required_start="2015-01-01",
+        )
+
+        summary = pack["summary"]
+        self.assertEqual(summary["reason_counts"]["negative_return"], 1)
+        self.assertEqual(summary["reason_counts"]["same_day_execution_lag"], 1)
+        self.assertEqual(summary["reason_counts"]["capacity_participation_too_high"], 1)
+        self.assertEqual(summary["audit_status_counts"]["lookahead_audit_status"]["pass"], 1)
+        self.assertEqual(summary["audit_status_counts"]["lookahead_audit_status"]["block"], 1)
+        self.assertEqual(summary["audit_status_counts"]["strict_split_status"]["pass"], 1)
+        self.assertEqual(summary["audit_status_counts"]["strict_split_status"]["block"], 1)
+        markdown = pack["markdown"]
+        self.assertIn("## Decision Summary", markdown)
+        self.assertIn("## Top Rejection Reasons", markdown)
+        self.assertIn("negative_return", markdown)
+
+    def test_replay_pack_summary_counts_missing_source_audit_fields(self):
+        coverage = {
+            "status": "sufficient",
+            "market": "CN",
+            "required_start": "2015-01-01",
+            "date_start": "2015-01-05",
+            "date_end": "2025-12-31",
+            "blockers": [],
+        }
+        candidates = [
+            {
+                "case_id": "complete_case",
+                "market": "CN",
+                "factor_name": "factor_complete",
+                "source_kind": "leaderboard",
+                "source_report": "report.csv",
+                "sharpe": 1.1,
+                "total_return": 0.2,
+                "cost_bps": 10,
+                "execution_lag": 1,
+                "max_participation_rate": 0.006,
+                "overlap_autocorr_adjusted_sharpe": 0.7,
+                "train_end_date": "2019-12-31",
+                "test_start_date": "2020-01-02",
+            },
+            {
+                "case_id": "missing_case",
+                "market": "CN",
+                "factor_name": "factor_missing",
+                "sharpe": 0.5,
+            },
+        ]
+
+        pack = build_long_cycle_replay_pack_from_coverage(
+            candidates,
+            coverage,
+            market="CN",
+            required_start="2015-01-01",
+        )
+
+        missing_counts = pack["summary"]["source_audit_missing_counts"]
+        self.assertEqual(missing_counts["source_kind"], 1)
+        self.assertEqual(missing_counts["source_report"], 1)
+        self.assertEqual(missing_counts["total_return"], 1)
+        self.assertEqual(missing_counts["execution_lag"], 1)
+        self.assertEqual(missing_counts["overlap_autocorr_adjusted_sharpe"], 1)
+        self.assertEqual(missing_counts["test_start_date"], 1)
+        markdown = pack["markdown"]
+        self.assertIn("## Source Audit Missing Counts", markdown)
+        self.assertIn("execution_lag", markdown)
+
     def test_writer_emits_json_markdown_and_csv_artifacts(self):
         pack = {
             "stage": "long_cycle_factor_replay",

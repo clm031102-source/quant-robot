@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 import json
 import math
 from datetime import date
@@ -25,6 +26,42 @@ PARAMETER_FIELDS = (
     "previous_month_return_threshold",
     "gate_name",
     "portfolio_scope",
+)
+
+SOURCE_AUDIT_TEXT_FIELDS = (
+    "source_kind",
+    "source_report",
+)
+
+SOURCE_AUDIT_NUMBER_FIELDS = (
+    ("mean_ic", ("mean_ic",)),
+    ("mean_rank_ic", ("mean_rank_ic", "discovery_rank_ic")),
+    ("tail_mean_ic", ("tail_mean_ic",)),
+    ("tail_mean_rank_ic", ("tail_mean_rank_ic", "discovery_tail_rank_ic")),
+    ("long_short_mean_return", ("long_short_mean_return",)),
+    (
+        "long_short_positive_rate",
+        ("long_short_positive_rate", "monthly_return_prob_gt_zero", "discovery_monthly_probability_gt_zero"),
+    ),
+    ("total_return", ("total_return", "discovery_total_return")),
+    ("relative_return", ("relative_return",)),
+    ("sharpe", ("sharpe", "discovery_sharpe")),
+    ("max_drawdown", ("max_drawdown", "discovery_max_drawdown")),
+    ("turnover", ("turnover",)),
+    ("avg_participation_rate", ("avg_participation_rate",)),
+    ("max_participation_rate", ("max_participation_rate", "test_max_participation_rate")),
+    ("capacity_limited_trades", ("capacity_limited_trades",)),
+    ("trades", ("trades",)),
+    ("cost_bps", ("cost_bps", "test_cost_bps")),
+    ("execution_lag", ("execution_lag", "lag")),
+    ("overlap_autocorr_adjusted_sharpe", ("overlap_autocorr_adjusted_sharpe", "test_overlap_autocorr_adjusted_sharpe")),
+)
+
+SOURCE_AUDIT_DATE_FIELDS = (
+    "train_start_date",
+    "train_end_date",
+    "test_start_date",
+    "test_end_date",
 )
 
 
@@ -182,6 +219,9 @@ def build_long_cycle_replay_pack_from_coverage(
             "research_lead": sum(1 for row in decisions if row["decision_status"] == "research_lead"),
             "validation_candidate": sum(1 for row in decisions if row["decision_status"] == "validation_candidate"),
             "paper_candidate": sum(1 for row in decisions if row["decision_status"] == "paper_candidate"),
+            "reason_counts": _reason_counts(decisions),
+            "audit_status_counts": _audit_status_counts(decisions),
+            "source_audit_missing_counts": _source_audit_missing_counts(decisions),
         },
         "coverage": coverage,
         "candidate_registry": registry,
@@ -224,6 +264,37 @@ def render_long_cycle_replay_markdown(pack: dict[str, Any]) -> str:
     ]
     blockers = _list(coverage.get("blockers"))
     lines.extend(f"- {blocker}" for blocker in blockers) if blockers else lines.append("- none")
+    lines.extend(["", "## Decision Summary", ""])
+    lines.extend(
+        [
+            f"- discard: {summary.get('discard', 0)}",
+            f"- research_lead: {summary.get('research_lead', 0)}",
+            f"- validation_candidate: {summary.get('validation_candidate', 0)}",
+            f"- paper_candidate: {summary.get('paper_candidate', 0)}",
+        ]
+    )
+    lines.extend(["", "## Top Rejection Reasons", ""])
+    reason_counts = _dict(summary.get("reason_counts"))
+    if reason_counts:
+        for reason, count in sorted(reason_counts.items(), key=lambda item: (-int(item[1]), item[0])):
+            lines.append(f"- {reason}: {count}")
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Audit Status Counts", ""])
+    audit_counts = _dict(summary.get("audit_status_counts"))
+    if audit_counts:
+        for field, counts in sorted(audit_counts.items()):
+            rendered = ", ".join(f"{status}={count}" for status, count in sorted(_dict(counts).items()))
+            lines.append(f"- {field}: {rendered}")
+    else:
+        lines.append("- none")
+    lines.extend(["", "## Source Audit Missing Counts", ""])
+    missing_counts = _dict(summary.get("source_audit_missing_counts"))
+    if missing_counts:
+        for field, count in sorted(missing_counts.items(), key=lambda item: (-int(item[1]), item[0])):
+            lines.append(f"- {field}: {count}")
+    else:
+        lines.append("- none")
     lines.extend(["", "## Candidate Decisions", ""])
     for row in pack.get("candidate_decisions", []):
         reasons = ", ".join(_list(row.get("reasons"))) or "none"
@@ -255,7 +326,7 @@ def _candidate_decision(registry_row: dict[str, Any], source_row: dict[str, Any]
     else:
         status = "validation_candidate"
 
-    return {
+    decision = {
         "case_id": case_id,
         "market": registry_row.get("market"),
         "factor_name": registry_row.get("factor_name"),
@@ -269,6 +340,8 @@ def _candidate_decision(registry_row: dict[str, Any], source_row: dict[str, Any]
         "overlap_audit_status": overlap_status,
         "strict_split_status": strict_split_status,
     }
+    decision.update(_source_audit_fields(source_row))
+    return decision
 
 
 def _lookahead_audit_status(row: dict[str, Any], reasons: list[str]) -> str:
@@ -331,6 +404,51 @@ def _strict_split_status(row: dict[str, Any], reasons: list[str]) -> str:
     return "pass"
 
 
+def _reason_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
+    counts = Counter(reason for row in rows for reason in _list(row.get("reasons")))
+    return dict(sorted(counts.items()))
+
+
+def _audit_status_counts(rows: list[dict[str, Any]]) -> dict[str, dict[str, int]]:
+    fields = (
+        "lookahead_audit_status",
+        "overfit_audit_status",
+        "cost_capacity_audit_status",
+        "overlap_audit_status",
+        "strict_split_status",
+    )
+    result: dict[str, dict[str, int]] = {}
+    for field in fields:
+        counts = Counter(str(row.get(field) or "missing") for row in rows)
+        result[field] = dict(sorted(counts.items()))
+    return result
+
+
+def _source_audit_missing_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
+    fields = (
+        list(SOURCE_AUDIT_TEXT_FIELDS)
+        + [output_field for output_field, _ in SOURCE_AUDIT_NUMBER_FIELDS]
+        + list(SOURCE_AUDIT_DATE_FIELDS)
+    )
+    return {
+        field: sum(1 for row in rows if _missing(row.get(field)))
+        for field in fields
+    }
+
+
+def _source_audit_fields(row: dict[str, Any]) -> dict[str, Any]:
+    fields: dict[str, Any] = {}
+    for field in SOURCE_AUDIT_TEXT_FIELDS:
+        value = row.get(field)
+        fields[field] = None if _missing(value) else str(value)
+    for output_field, source_fields in SOURCE_AUDIT_NUMBER_FIELDS:
+        fields[output_field] = _first_optional_number(row, source_fields)
+    for field in SOURCE_AUDIT_DATE_FIELDS:
+        value = _optional_date(row.get(field))
+        fields[field] = value.isoformat() if value else None
+    return fields
+
+
 def _frame(rows: list[dict[str, Any]] | pd.DataFrame) -> pd.DataFrame:
     if isinstance(rows, pd.DataFrame):
         return rows.copy()
@@ -377,6 +495,14 @@ def _optional_number(value: Any) -> float | None:
     except (TypeError, ValueError):
         return None
     return number if math.isfinite(number) else None
+
+
+def _first_optional_number(row: dict[str, Any], fields: tuple[str, ...]) -> float | None:
+    for field in fields:
+        number = _optional_number(row.get(field))
+        if number is not None:
+            return number
+    return None
 
 
 def _optional_date(value: Any) -> date | None:
