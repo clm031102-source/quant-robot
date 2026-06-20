@@ -15,6 +15,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 ensure_workspace_imports()
 
 from quant_robot.data.gap_audit import build_data_quality_gap_audit, write_data_quality_gap_audit
+from quant_robot.storage.authority_bars import load_authority_processed_bars_from_config
 from quant_robot.storage.processed_bars import load_processed_bars
 
 
@@ -29,7 +30,12 @@ def run_data_quality_audit(
     bars: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
     root = Path(data_root)
-    frame = bars if bars is not None else load_processed_bars(root, market)
+    if bars is not None:
+        frame = bars
+    elif root.is_file():
+        frame = load_authority_processed_bars_from_config(root, (market,))
+    else:
+        frame = load_processed_bars(root, market)
     audit = build_data_quality_gap_audit(frame, source_root=root)
     write_data_quality_gap_audit(output_dir, audit)
     return audit

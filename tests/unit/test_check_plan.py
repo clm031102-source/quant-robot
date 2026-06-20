@@ -173,7 +173,7 @@ class CheckPlanTests(unittest.TestCase):
                 "python",
                 "scripts/run_data_quality_audit.py",
                 "--data-root",
-                "data/processed",
+                "configs/cn_stock_authority_bars_2015_2025.json",
                 "--market",
                 "CN",
                 "--output-dir",
