@@ -35,13 +35,33 @@ class CnStockDataManifestTests(unittest.TestCase):
                 "net_mf_amount": [100.0, 120.0],
             }
         )
+        daily_basic = pd.DataFrame(
+            {
+                "date": ["2024-01-02", "2024-01-03"],
+                "asset_id": ["000001.SZ", "000001.SZ"],
+                "symbol": ["000001.SZ", "000001.SZ"],
+                "market": ["CN", "CN"],
+                "turnover_rate": [1.0, 1.2],
+            }
+        )
 
-        manifest = build_cn_stock_data_manifest(bars=bars, moneyflow_inputs=moneyflow, source_root=Path("data/processed/demo"))
+        manifest = build_cn_stock_data_manifest(
+            bars=bars,
+            moneyflow_inputs=moneyflow,
+            daily_basic_inputs=daily_basic,
+            source_root=Path("data/processed/demo"),
+        )
 
         self.assertEqual(manifest["status"], "review_required")
         self.assertEqual(manifest["summary"]["bar_rows"], 4)
         self.assertEqual(manifest["summary"]["bar_symbols"], 2)
         self.assertEqual(manifest["summary"]["moneyflow_symbols"], 1)
+        self.assertEqual(manifest["summary"]["daily_basic_symbols"], 1)
+        self.assertEqual(manifest["summary"]["daily_basic_rows"], 2)
+        self.assertEqual(manifest["summary"]["moneyflow_date_start"], "2024-01-02")
+        self.assertEqual(manifest["summary"]["moneyflow_date_end"], "2024-01-03")
+        self.assertEqual(manifest["summary"]["daily_basic_date_start"], "2024-01-02")
+        self.assertEqual(manifest["summary"]["daily_basic_date_end"], "2024-01-03")
         self.assertEqual(manifest["summary"]["date_start"], "2024-01-02")
         self.assertEqual(manifest["summary"]["date_end"], "2024-01-03")
         self.assertEqual(manifest["summary"]["bar_years"], [2024])
@@ -49,7 +69,42 @@ class CnStockDataManifestTests(unittest.TestCase):
         self.assertIn("zero_volume_rows_present", manifest["decision"]["warnings"])
         self.assertIn("extreme_return_rows_present", manifest["decision"]["warnings"])
         self.assertIn("moneyflow_symbol_coverage_below_bars", manifest["decision"]["warnings"])
+        self.assertIn("daily_basic_symbol_coverage_below_bars", manifest["decision"]["warnings"])
         self.assertFalse(manifest["live_boundary_allowed"])
+
+    def test_manifest_warns_when_daily_basic_or_moneyflow_dates_end_before_bars(self) -> None:
+        bars = pd.DataFrame(
+            {
+                "date": ["2024-01-02", "2024-01-03"],
+                "asset_id": ["000001.SZ", "000001.SZ"],
+                "symbol": ["000001.SZ", "000001.SZ"],
+                "market": ["CN", "CN"],
+                "asset_type": ["stock", "stock"],
+                "adj_close": [10.0, 10.1],
+                "volume": [1000, 1100],
+                "amount": [10000.0, 11100.0],
+            }
+        )
+        stale_inputs = pd.DataFrame(
+            {
+                "date": ["2024-01-02"],
+                "asset_id": ["000001.SZ"],
+                "symbol": ["000001.SZ"],
+                "market": ["CN"],
+            }
+        )
+
+        manifest = build_cn_stock_data_manifest(
+            bars=bars,
+            moneyflow_inputs=stale_inputs,
+            daily_basic_inputs=stale_inputs,
+            source_root=Path("data/processed/demo"),
+        )
+
+        self.assertEqual(manifest["summary"]["moneyflow_date_end"], "2024-01-02")
+        self.assertEqual(manifest["summary"]["daily_basic_date_end"], "2024-01-02")
+        self.assertIn("moneyflow_date_coverage_before_bars", manifest["decision"]["warnings"])
+        self.assertIn("daily_basic_date_coverage_before_bars", manifest["decision"]["warnings"])
 
     def test_manifest_blocks_non_cn_or_non_stock_bars(self) -> None:
         bars = pd.DataFrame(
@@ -135,6 +190,28 @@ class CnStockDataManifestTests(unittest.TestCase):
             packet = validate_cn_stock_data_manifest_packet(path, allow_review_required=True)
 
         self.assertEqual(packet["status"], "review_required")
+
+    def test_validate_manifest_rejects_critical_coverage_warning_even_with_review_ack(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "cn_stock_data_manifest.json"
+            path.write_text(
+                """{
+                  "generated_at": "%s",
+                  "status": "review_required",
+                  "summary": {"source_root": "data/processed/demo", "bar_rows": 10, "bar_symbols": 2},
+                  "decision": {
+                    "data_manifest_cleared": false,
+                    "blockers": [],
+                    "warnings": ["daily_basic_date_coverage_before_bars"]
+                  },
+                  "live_boundary_allowed": false
+                }"""
+                % date.today().isoformat(),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "critical data manifest warning"):
+                validate_cn_stock_data_manifest_packet(path, allow_review_required=True)
 
     def test_validate_manifest_rejects_blocked_or_mismatched_packet(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

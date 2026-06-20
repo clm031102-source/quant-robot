@@ -37,13 +37,62 @@ class CnStockDataManifestCliTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with patch("scripts.run_cn_stock_data_manifest.load_processed_bars", return_value=bars) as load_bars:
                 with patch("scripts.run_cn_stock_data_manifest.load_moneyflow_inputs", return_value=moneyflow) as load_moneyflow:
-                    manifest = run_cn_stock_data_manifest(data_root=Path("data/processed/demo"), output_dir=Path(tmp))
+                    with patch("scripts.run_cn_stock_data_manifest.load_factor_inputs") as load_daily_basic:
+                        manifest = run_cn_stock_data_manifest(data_root=Path("data/processed/demo"), output_dir=Path(tmp))
             self.assertTrue((Path(tmp) / "cn_stock_data_manifest.json").exists())
             self.assertTrue((Path(tmp) / "cn_stock_data_manifest.md").exists())
 
         load_bars.assert_called_once_with(Path("data/processed/demo"), "CN")
         load_moneyflow.assert_called_once_with(Path("data/processed/demo"), "CN")
+        load_daily_basic.assert_not_called()
         self.assertEqual(manifest["status"], "cleared")
+        self.assertEqual(manifest["summary"]["daily_basic_symbols"], 0)
+
+    def test_cli_runner_loads_daily_basic_only_from_explicit_root(self) -> None:
+        bars = pd.DataFrame(
+            {
+                "date": ["2024-01-02", "2024-01-03"],
+                "asset_id": ["000001.SZ", "000001.SZ"],
+                "symbol": ["000001.SZ", "000001.SZ"],
+                "market": ["CN", "CN"],
+                "asset_type": ["stock", "stock"],
+                "adj_close": [10.0, 10.1],
+                "volume": [1000, 1100],
+                "amount": [10000.0, 11100.0],
+            }
+        )
+        moneyflow = pd.DataFrame(
+            {
+                "date": ["2024-01-02", "2024-01-03"],
+                "asset_id": ["000001.SZ", "000001.SZ"],
+                "symbol": ["000001.SZ", "000001.SZ"],
+                "market": ["CN", "CN"],
+                "net_mf_amount": [100.0, 120.0],
+            }
+        )
+        daily_basic = pd.DataFrame(
+            {
+                "date": ["2024-01-02", "2024-01-03"],
+                "asset_id": ["000001.SZ", "000001.SZ"],
+                "symbol": ["000001.SZ", "000001.SZ"],
+                "market": ["CN", "CN"],
+                "turnover_rate": [1.0, 1.2],
+            }
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("scripts.run_cn_stock_data_manifest.load_processed_bars", return_value=bars):
+                with patch("scripts.run_cn_stock_data_manifest.load_moneyflow_inputs", return_value=moneyflow):
+                    with patch("scripts.run_cn_stock_data_manifest.load_factor_inputs", return_value=daily_basic) as load_daily_basic:
+                        manifest = run_cn_stock_data_manifest(
+                            data_root=Path("data/processed/demo"),
+                            output_dir=Path(tmp),
+                            daily_basic_root=Path("configs/daily_basic.json"),
+                        )
+
+        load_daily_basic.assert_called_once_with(Path("configs/daily_basic.json"), "CN")
+        self.assertEqual(manifest["status"], "cleared")
+        self.assertEqual(manifest["summary"]["daily_basic_symbols"], 1)
 
     def test_cli_runner_keeps_missing_moneyflow_as_review_warning(self) -> None:
         bars = pd.DataFrame(

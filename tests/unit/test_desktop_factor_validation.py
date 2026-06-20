@@ -191,6 +191,34 @@ class DesktopFactorValidationTests(unittest.TestCase):
             with self.assertRaisesRegex(FileNotFoundError, "daily-basic factor inputs"):
                 _preflight_desktop_inputs(config_path, "processed-bars", data_root)
 
+    def test_preflight_blocks_desktop_configs_missing_strict_validation_controls(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            data_root = root / "data" / "processed"
+            data_root.mkdir(parents=True)
+            factor_inputs = root / "daily_basic_inputs.json"
+            factor_inputs.write_text(json.dumps({"segments": []}), encoding="utf-8")
+            config_path = root / "walk_forward_daily_basic.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "split_date": "2025-01-02",
+                        "experiment_grid": {
+                            "markets": ["CN"],
+                            "factor_source": "tushare_daily_basic",
+                            "factor_input_root": str(factor_inputs),
+                            "factor_input_required": True,
+                            "factor_names": ["turnover_rate_low_mv_bucket_rank"],
+                            "factor_windows": [1],
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "strict desktop validation contract"):
+                _preflight_desktop_inputs(config_path, "processed-bars", data_root)
+
     def test_preflight_blocks_moneyflow_inputs_that_end_before_authority_bars(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

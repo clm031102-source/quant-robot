@@ -70,6 +70,63 @@ def _preflight_desktop_inputs(config_path: str | Path, source: str, data_root: s
     if config.experiment_grid.factor_source in {"tushare_moneyflow", "moneyflow_technical_combo"}:
         _require_factor_input_root(moneyflow_root, label="moneyflow")
         _validate_factor_input_coverage(root, moneyflow_root, label="moneyflow")
+    _validate_strict_desktop_validation_contract(config)
+
+
+def _validate_strict_desktop_validation_contract(config: Any) -> None:
+    grid = config.experiment_grid
+    blockers: list[str] = []
+    rolling_values = {
+        "rolling_train_days": config.rolling_train_days,
+        "rolling_test_days": config.rolling_test_days,
+        "rolling_step_days": config.rolling_step_days,
+    }
+    for name, value in rolling_values.items():
+        if value is None or int(value) < 1:
+            blockers.append(name)
+    if config.min_test_trades < 30:
+        blockers.append("min_test_trades")
+    if grid.min_trades < 30:
+        blockers.append("experiment_grid.min_trades")
+    if config.min_test_relative_return is None:
+        blockers.append("min_test_relative_return")
+    if grid.min_relative_return is None:
+        blockers.append("experiment_grid.min_relative_return")
+    if config.max_test_drawdown is None:
+        blockers.append("max_test_drawdown")
+    if grid.max_drawdown_limit is None:
+        blockers.append("experiment_grid.max_drawdown_limit")
+    if not (0.0 < config.multiple_testing_alpha <= 0.05):
+        blockers.append("multiple_testing_alpha")
+    if grid.execution_lag < 1:
+        blockers.append("experiment_grid.execution_lag")
+    if grid.forward_horizon < 1:
+        blockers.append("experiment_grid.forward_horizon")
+    if not grid.rebalance_intervals or any(interval < 1 for interval in grid.rebalance_intervals):
+        blockers.append("experiment_grid.rebalance_intervals")
+    if not grid.cost_bps_values or not any(cost > 0 for cost in grid.cost_bps_values):
+        blockers.append("experiment_grid.cost_bps_values")
+    if grid.market_impact_bps <= 0:
+        blockers.append("experiment_grid.market_impact_bps")
+    if grid.max_participation_rate is None or not (0.0 < grid.max_participation_rate <= 0.05):
+        blockers.append("experiment_grid.max_participation_rate")
+    if grid.portfolio_value <= 0:
+        blockers.append("experiment_grid.portfolio_value")
+    if not grid.regime_filter:
+        blockers.append("experiment_grid.regime_filter")
+    if grid.regime_lookback_values is None or len(grid.regime_lookback_values) < 2:
+        blockers.append("experiment_grid.regime_lookback_values")
+    if not grid.precompute_factor_matrix:
+        blockers.append("experiment_grid.precompute_factor_matrix")
+    if not grid.reuse_research_inputs:
+        blockers.append("experiment_grid.reuse_research_inputs")
+    if not grid.resume_completed_cases:
+        blockers.append("experiment_grid.resume_completed_cases")
+    if blockers:
+        raise ValueError(
+            "strict desktop validation contract is not satisfied; missing or weak controls: "
+            + ", ".join(blockers)
+        )
 
 
 def _require_factor_input_root(path: Path | None, *, label: str) -> None:

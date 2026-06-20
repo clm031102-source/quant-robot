@@ -51,6 +51,7 @@ DESKTOP_VALIDATION_CHECK_NAMES = (
 
 DAILY_BASIC_VALIDATION_CONFIG = "configs/walk_forward_cn_stock_daily_basic_value_low_turnover_bucket_20260620.json"
 DAILY_BASIC_AUTHORITY_BARS_CONFIG = "configs/cn_stock_authority_bars_2015_2024.json"
+DAILY_BASIC_AUTHORITY_INPUTS_CONFIG = "configs/cn_stock_authority_daily_basic_inputs_2015_2024.json"
 DAILY_BASIC_VALIDATION_ROOT = "data/reports/walk_forward_cn_stock_daily_basic_value_low_turnover_bucket_20260620"
 DAILY_BASIC_DATA_QUALITY_DIR = (
     "data/reports/data_quality_gap_audit_cn_stock_daily_basic_value_low_turnover_bucket_20260620"
@@ -173,6 +174,7 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
                 selected,
                 python_executable,
                 data_root=DAILY_BASIC_AUTHORITY_BARS_CONFIG,
+                daily_basic_root=DAILY_BASIC_AUTHORITY_INPUTS_CONFIG,
                 data_quality_output_dir=DAILY_BASIC_DATA_QUALITY_DIR,
             ),
             CheckStep(
@@ -237,6 +239,7 @@ def _desktop_validation_safety_steps(
     python_executable: str,
     *,
     data_root: str = "configs/cn_stock_authority_bars_2015_2025.json",
+    daily_basic_root: str | None = None,
     data_quality_output_dir: str = "data/reports/data_quality_gap_audit_tushare_moneyflow_residual_regime",
 ) -> list[CheckStep]:
     steps: list[CheckStep] = []
@@ -251,11 +254,34 @@ def _desktop_validation_safety_steps(
             )
         )
         if step.name == "data_catalog":
-            steps.extend(_desktop_validation_cn_stock_preflight(python_executable, data_root=data_root))
+            steps.extend(
+                _desktop_validation_cn_stock_preflight(
+                    python_executable,
+                    data_root=data_root,
+                    daily_basic_root=daily_basic_root,
+                )
+            )
     return steps
 
 
-def _desktop_validation_cn_stock_preflight(python_executable: str, *, data_root: str) -> list[CheckStep]:
+def _desktop_validation_cn_stock_preflight(
+    python_executable: str,
+    *,
+    data_root: str,
+    daily_basic_root: str | None,
+) -> list[CheckStep]:
+    manifest_command = [
+        python_executable,
+        "scripts/run_cn_stock_data_manifest.py",
+        "--data-root",
+        data_root,
+        "--market",
+        "CN",
+        "--output-dir",
+        "data/reports/cn_stock_data_manifest",
+    ]
+    if daily_basic_root:
+        manifest_command.extend(["--daily-basic-root", daily_basic_root])
     return [
         CheckStep(
             "cn_stock_factor_mining_startup_gate",
@@ -277,16 +303,7 @@ def _desktop_validation_cn_stock_preflight(python_executable: str, *, data_root:
         ),
         CheckStep(
             "cn_stock_data_manifest",
-            [
-                python_executable,
-                "scripts/run_cn_stock_data_manifest.py",
-                "--data-root",
-                data_root,
-                "--market",
-                "CN",
-                "--output-dir",
-                "data/reports/cn_stock_data_manifest",
-            ],
+            manifest_command,
         ),
     ]
 

@@ -10,21 +10,34 @@ import pandas as pd
 
 STAGE = "cn_stock_data_manifest"
 SAFETY_TEXT = "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+CRITICAL_WARNINGS = {
+    "daily_basic_date_coverage_before_bars",
+    "moneyflow_date_coverage_before_bars",
+}
 
 
 def build_cn_stock_data_manifest(
     *,
     bars: pd.DataFrame,
     moneyflow_inputs: pd.DataFrame | None,
+    daily_basic_inputs: pd.DataFrame | None = None,
     source_root: str | Path,
     extreme_return_threshold: float = 0.50,
+    require_daily_basic_inputs: bool = False,
 ) -> dict[str, Any]:
     clean_bars = _prepare_bars(bars)
     clean_moneyflow = _prepare_moneyflow(moneyflow_inputs)
+    clean_daily_basic = _prepare_daily_basic(daily_basic_inputs)
     blockers = _blockers(clean_bars)
-    warnings = _warnings(clean_bars, clean_moneyflow, extreme_return_threshold)
+    warnings = _warnings(
+        clean_bars,
+        clean_moneyflow,
+        clean_daily_basic,
+        extreme_return_threshold,
+        require_daily_basic_inputs=require_daily_basic_inputs,
+    )
     status = "blocked" if blockers else "review_required" if warnings else "cleared"
-    summary = _summary(clean_bars, clean_moneyflow, source_root)
+    summary = _summary(clean_bars, clean_moneyflow, clean_daily_basic, source_root)
     manifest = {
         "stage": STAGE,
         "generated_at": date.today().isoformat(),
@@ -35,7 +48,7 @@ def build_cn_stock_data_manifest(
             "blockers": blockers,
             "warnings": warnings,
         },
-        "symbol_coverage": _symbol_coverage(clean_bars, clean_moneyflow),
+        "symbol_coverage": _symbol_coverage(clean_bars, clean_moneyflow, clean_daily_basic),
         "safety": SAFETY_TEXT,
         "live_boundary_allowed": False,
     }
@@ -73,9 +86,17 @@ def validate_cn_stock_data_manifest_packet(
     summary = _dict(packet.get("summary"))
     decision = _dict(packet.get("decision"))
     blockers = _list(decision.get("blockers"))
+    warnings = _list(decision.get("warnings"))
     status = str(packet.get("status", "unknown"))
     if status == "blocked" or blockers:
         raise ValueError(f"{context} data manifest is blocked: {path}")
+    critical_warnings = sorted(set(warnings).intersection(CRITICAL_WARNINGS))
+    if critical_warnings:
+        raise ValueError(
+            f"{context} critical data manifest warning: "
+            + ", ".join(critical_warnings)
+            + f" in {path}"
+        )
     if status == "review_required" and not allow_review_required:
         raise ValueError(f"{context} data manifest review required: {path}")
     if status not in {"cleared", "review_required"}:
@@ -104,6 +125,10 @@ def render_cn_stock_data_manifest_markdown(manifest: dict[str, Any]) -> str:
         f"- Bar symbols: {summary.get('bar_symbols', 0)}",
         f"- Moneyflow rows: {summary.get('moneyflow_rows', 0)}",
         f"- Moneyflow symbols: {summary.get('moneyflow_symbols', 0)}",
+        f"- Moneyflow date range: {summary.get('moneyflow_date_start')} to {summary.get('moneyflow_date_end')}",
+        f"- Daily-basic rows: {summary.get('daily_basic_rows', 0)}",
+        f"- Daily-basic symbols: {summary.get('daily_basic_symbols', 0)}",
+        f"- Daily-basic date range: {summary.get('daily_basic_date_start')} to {summary.get('daily_basic_date_end')}",
         f"- Date range: {summary.get('date_start')} to {summary.get('date_end')}",
         f"- Live boundary allowed: {manifest.get('live_boundary_allowed', False)}",
         "",
@@ -135,7 +160,21 @@ def _prepare_moneyflow(moneyflow_inputs: pd.DataFrame | None) -> pd.DataFrame:
     return frame
 
 
-def _summary(bars: pd.DataFrame, moneyflow: pd.DataFrame, source_root: str | Path) -> dict[str, Any]:
+def _prepare_daily_basic(daily_basic_inputs: pd.DataFrame | None) -> pd.DataFrame:
+    if daily_basic_inputs is None:
+        return pd.DataFrame()
+    frame = daily_basic_inputs.copy()
+    if "date" in frame.columns:
+        frame["date"] = pd.to_datetime(frame["date"], errors="coerce")
+    return frame
+
+
+def _summary(
+    bars: pd.DataFrame,
+    moneyflow: pd.DataFrame,
+    daily_basic: pd.DataFrame,
+    source_root: str | Path,
+) -> dict[str, Any]:
     return {
         "source_root": str(source_root),
         "bar_rows": int(len(bars)),
@@ -144,6 +183,13 @@ def _summary(bars: pd.DataFrame, moneyflow: pd.DataFrame, source_root: str | Pat
         "moneyflow_rows": int(len(moneyflow)),
         "moneyflow_symbols": _nunique(moneyflow, "symbol"),
         "moneyflow_asset_ids": _nunique(moneyflow, "asset_id"),
+        "moneyflow_date_start": _date_value(moneyflow["date"].min()) if "date" in moneyflow else None,
+        "moneyflow_date_end": _date_value(moneyflow["date"].max()) if "date" in moneyflow else None,
+        "daily_basic_rows": int(len(daily_basic)),
+        "daily_basic_symbols": _nunique(daily_basic, "symbol"),
+        "daily_basic_asset_ids": _nunique(daily_basic, "asset_id"),
+        "daily_basic_date_start": _date_value(daily_basic["date"].min()) if "date" in daily_basic else None,
+        "daily_basic_date_end": _date_value(daily_basic["date"].max()) if "date" in daily_basic else None,
         "date_start": _date_value(bars["date"].min()) if "date" in bars else None,
         "date_end": _date_value(bars["date"].max()) if "date" in bars else None,
         "bar_years": _years(bars),
@@ -169,7 +215,14 @@ def _blockers(bars: pd.DataFrame) -> list[str]:
     return blockers
 
 
-def _warnings(bars: pd.DataFrame, moneyflow: pd.DataFrame, extreme_return_threshold: float) -> list[str]:
+def _warnings(
+    bars: pd.DataFrame,
+    moneyflow: pd.DataFrame,
+    daily_basic: pd.DataFrame,
+    extreme_return_threshold: float,
+    *,
+    require_daily_basic_inputs: bool,
+) -> list[str]:
     warnings = []
     if _zero_count(bars, "volume") > 0:
         warnings.append("zero_volume_rows_present")
@@ -181,15 +234,24 @@ def _warnings(bars: pd.DataFrame, moneyflow: pd.DataFrame, extreme_return_thresh
         warnings.append("extreme_return_rows_present")
     if not moneyflow.empty and _nunique(moneyflow, "symbol") < _nunique(bars, "symbol"):
         warnings.append("moneyflow_symbol_coverage_below_bars")
+    if _date_ends_before(moneyflow, bars):
+        warnings.append("moneyflow_date_coverage_before_bars")
     if moneyflow.empty:
         warnings.append("moneyflow_inputs_missing")
+    if not daily_basic.empty and _nunique(daily_basic, "symbol") < _nunique(bars, "symbol"):
+        warnings.append("daily_basic_symbol_coverage_below_bars")
+    if _date_ends_before(daily_basic, bars):
+        warnings.append("daily_basic_date_coverage_before_bars")
+    if require_daily_basic_inputs and daily_basic.empty:
+        warnings.append("daily_basic_inputs_missing")
     return warnings
 
 
-def _symbol_coverage(bars: pd.DataFrame, moneyflow: pd.DataFrame) -> list[dict[str, Any]]:
+def _symbol_coverage(bars: pd.DataFrame, moneyflow: pd.DataFrame, daily_basic: pd.DataFrame) -> list[dict[str, Any]]:
     if bars.empty or "symbol" not in bars:
         return []
     moneyflow_symbols = set(moneyflow["symbol"].dropna().astype(str)) if "symbol" in moneyflow else set()
+    daily_basic_symbols = set(daily_basic["symbol"].dropna().astype(str)) if "symbol" in daily_basic else set()
     rows = []
     for symbol, group in bars.groupby("symbol", sort=True):
         rows.append(
@@ -199,6 +261,7 @@ def _symbol_coverage(bars: pd.DataFrame, moneyflow: pd.DataFrame) -> list[dict[s
                 "date_start": _date_value(group["date"].min()) if "date" in group else None,
                 "date_end": _date_value(group["date"].max()) if "date" in group else None,
                 "has_moneyflow": str(symbol) in moneyflow_symbols,
+                "has_daily_basic": str(symbol) in daily_basic_symbols,
             }
         )
     return rows
@@ -237,6 +300,16 @@ def _date_value(value: Any) -> str | None:
     if value is None or pd.isna(value):
         return None
     return str(value)[:10]
+
+
+def _date_ends_before(candidate: pd.DataFrame, bars: pd.DataFrame) -> bool:
+    if candidate.empty or bars.empty or "date" not in candidate or "date" not in bars:
+        return False
+    candidate_end = pd.to_datetime(candidate["date"], errors="coerce").max()
+    bars_end = pd.to_datetime(bars["date"], errors="coerce").max()
+    if pd.isna(candidate_end) or pd.isna(bars_end):
+        return False
+    return bool(candidate_end < bars_end)
 
 
 def _years(frame: pd.DataFrame) -> list[int]:

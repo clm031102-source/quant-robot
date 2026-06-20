@@ -309,6 +309,8 @@ class CheckPlanTests(unittest.TestCase):
                 "CN",
                 "--output-dir",
                 "data/reports/cn_stock_data_manifest",
+                "--daily-basic-root",
+                "configs/cn_stock_authority_daily_basic_inputs_2015_2024.json",
             ],
         )
         self.assertEqual(
