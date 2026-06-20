@@ -11,6 +11,7 @@ import pandas as pd
 
 
 MAX_ALLOWED_TRADE_ABS_GROSS_RETURN = 5.0
+LONG_CYCLE_REPLAY_PASS_STATUSES = {"pass", "passed", "complete", "completed"}
 
 
 @dataclass(frozen=True)
@@ -694,6 +695,7 @@ def _long_cycle_summary(
     empty_summary = {
         "present": False,
         "decision_status": None,
+        "replay_status": None,
         "long_cycle_coverage_status": None,
         "lookahead_audit_status": None,
         "overfit_audit_status": None,
@@ -723,6 +725,11 @@ def _long_cycle_summary(
     decision_status = str(row.get("decision_status") or "")
     if decision_status != "validation_candidate":
         blocking.append("long_cycle_replay_not_validation_candidate")
+    replay_status = str(row.get("replay_status") or "")
+    if not replay_status:
+        blocking.append("long_cycle_replay_status_missing")
+    elif replay_status.lower() not in LONG_CYCLE_REPLAY_PASS_STATUSES:
+        blocking.append(f"long_cycle_replay_status_{_status_token(replay_status)}")
     status_fields = {
         "long_cycle_coverage_status": "long_cycle_coverage",
         "lookahead_audit_status": "long_cycle_lookahead_audit",
@@ -753,6 +760,7 @@ def _long_cycle_summary(
     summary = {
         "present": True,
         "decision_status": decision_status or None,
+        "replay_status": row.get("replay_status"),
         "long_cycle_coverage_status": row.get("long_cycle_coverage_status"),
         "lookahead_audit_status": row.get("lookahead_audit_status"),
         "overfit_audit_status": row.get("overfit_audit_status"),
@@ -1096,6 +1104,10 @@ def _optional_text(value: Any) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _status_token(value: str) -> str:
+    return "_".join(str(value).strip().lower().replace("-", "_").split())
 
 
 def _dedupe(values: list[str]) -> list[str]:

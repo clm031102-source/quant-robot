@@ -560,6 +560,48 @@ class PromotionGateTests(unittest.TestCase):
         self.assertIn("long_cycle_source_evidence_missing", row["blocking_reasons"])
         self.assertIsNone(row["long_cycle_replay"]["source_evidence_status"])
 
+    def test_promotion_blocks_audit_only_long_cycle_replay(self):
+        replay_pack = {
+            "stage": "long_cycle_factor_replay",
+            "coverage": {"status": "sufficient"},
+            "candidate_decisions": [
+                {
+                    "case_id": "CN_ETF_momentum_60_top1_cost5_reb5",
+                    "decision_status": "validation_candidate",
+                    "replay_status": "audit_only",
+                    "reasons": [],
+                    "long_cycle_coverage_status": "sufficient",
+                    "lookahead_audit_status": "pass",
+                    "overfit_audit_status": "pass",
+                    "cost_capacity_audit_status": "pass",
+                    "overlap_audit_status": "pass",
+                    "strict_split_status": "pass",
+                    "source_evidence_status": "pass",
+                }
+            ],
+        }
+
+        report = build_promotion_report(
+            walk_forward_rows=[_accepted_walk_forward_row("CN_ETF_momentum_60_top1_cost5_reb5", "momentum_60")],
+            paper_manifest=_paper_manifest(
+                case_id="CN_ETF_momentum_60_top1_cost5_reb5",
+                factor_name="momentum_60",
+                sharpe=0.80,
+                total_return=0.20,
+            ),
+            long_cycle_replay=replay_pack,
+            config=PromotionGateConfig(
+                min_oos_sharpe=0.5,
+                min_paper_sharpe=0.5,
+                require_long_cycle_replay=True,
+            ),
+        )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "blocked")
+        self.assertIn("long_cycle_replay_status_audit_only", row["blocking_reasons"])
+        self.assertEqual(row["long_cycle_replay"]["replay_status"], "audit_only")
+
     def test_promotion_accepts_candidate_with_required_long_cycle_replay_audits(self):
         replay_pack = {
             "stage": "long_cycle_factor_replay",
@@ -568,6 +610,7 @@ class PromotionGateTests(unittest.TestCase):
                 {
                     "case_id": "CN_ETF_momentum_60_top1_cost5_reb5",
                     "decision_status": "validation_candidate",
+                    "replay_status": "pass",
                     "reasons": [],
                     "long_cycle_coverage_status": "sufficient",
                     "lookahead_audit_status": "pass",

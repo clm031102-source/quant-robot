@@ -80,6 +80,17 @@ CORE_SOURCE_EVIDENCE_FIELDS = (
     "trades",
 )
 
+ACTUAL_REPLAY_STATUS_FIELDS = (
+    "same_parameter_full_sample_status",
+    "long_cycle_replay_status",
+    "full_sample_replay_status",
+    "performance_replay_status",
+    "replay_status",
+)
+ACTUAL_REPLAY_PASS_STATUSES = {"pass", "passed", "complete", "completed"}
+ACTUAL_REPLAY_AUDIT_ONLY_STATUSES = {"audit_only", "source_audit_only", "coverage_only"}
+ACTUAL_REPLAY_BLOCK_STATUSES = {"block", "blocked", "fail", "failed", "error", "insufficient"}
+
 
 def build_candidate_registry(candidate_rows: list[dict[str, Any]] | pd.DataFrame) -> list[dict[str, Any]]:
     frame = _frame(candidate_rows)
@@ -336,6 +347,7 @@ def _candidate_decision(registry_row: dict[str, Any], source_row: dict[str, Any]
     overfit_status = "warning" if "high_sharpe_overfit_warning" in reasons else "pass"
     source_fields = _source_audit_fields(source_row)
     source_evidence_status = _source_evidence_status(source_fields, reasons)
+    replay_status = _performance_replay_status(source_row, coverage, reasons)
 
     if "negative_return" in reasons:
         status = "discard"
@@ -349,7 +361,7 @@ def _candidate_decision(registry_row: dict[str, Any], source_row: dict[str, Any]
         "market": registry_row.get("market"),
         "factor_name": registry_row.get("factor_name"),
         "decision_status": status,
-        "replay_status": "blocked" if coverage.get("status") != "sufficient" else "audit_only",
+        "replay_status": replay_status,
         "reasons": reasons,
         "long_cycle_coverage_status": coverage.get("status"),
         "lookahead_audit_status": lookahead_status,
@@ -439,6 +451,7 @@ def _reason_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
 
 def _audit_status_counts(rows: list[dict[str, Any]]) -> dict[str, dict[str, int]]:
     fields = (
+        "replay_status",
         "lookahead_audit_status",
         "overfit_audit_status",
         "cost_capacity_audit_status",
@@ -484,6 +497,26 @@ def _source_evidence_status(fields: dict[str, Any], reasons: list[str]) -> str:
         reasons.append("source_performance_evidence_missing")
         return "block"
     return "pass"
+
+
+def _performance_replay_status(row: dict[str, Any], coverage: dict[str, Any], reasons: list[str]) -> str:
+    if coverage.get("status") != "sufficient":
+        return "blocked"
+    raw_status = _first_text(row, ACTUAL_REPLAY_STATUS_FIELDS)
+    if raw_status is None:
+        reasons.append("same_parameter_full_sample_replay_missing")
+        return "audit_only"
+    status = raw_status.strip().lower()
+    if status in ACTUAL_REPLAY_PASS_STATUSES:
+        return "pass"
+    if status in ACTUAL_REPLAY_AUDIT_ONLY_STATUSES:
+        reasons.append("same_parameter_full_sample_replay_missing")
+        return "audit_only"
+    if status in ACTUAL_REPLAY_BLOCK_STATUSES:
+        reasons.append(f"same_parameter_full_sample_replay_{status}")
+        return "block"
+    reasons.append("same_parameter_full_sample_replay_unverified")
+    return "unverified"
 
 
 def _frame(rows: list[dict[str, Any]] | pd.DataFrame) -> pd.DataFrame:
@@ -539,6 +572,14 @@ def _first_optional_number(row: dict[str, Any], fields: tuple[str, ...]) -> floa
         number = _optional_number(row.get(field))
         if number is not None:
             return number
+    return None
+
+
+def _first_text(row: dict[str, Any], fields: tuple[str, ...]) -> str | None:
+    for field in fields:
+        value = row.get(field)
+        if not _missing(value) and str(value).strip():
+            return str(value)
     return None
 
 

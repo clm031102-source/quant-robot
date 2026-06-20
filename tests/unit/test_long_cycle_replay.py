@@ -507,6 +507,77 @@ class LongCycleReplayTests(unittest.TestCase):
         self.assertEqual(missing_counts["turnover"], 0)
         self.assertEqual(missing_counts["trades"], 0)
 
+    def test_replay_pack_requires_actual_same_parameter_full_sample_replay(self):
+        coverage = {
+            "status": "sufficient",
+            "market": "CN",
+            "required_start": "2015-01-01",
+            "date_start": "2015-01-05",
+            "date_end": "2025-12-31",
+            "blockers": [],
+        }
+        candidates = [
+            {
+                "case_id": "source_only_case",
+                "market": "CN",
+                "factor_name": "factor_source_only",
+                "test_mean_rank_ic": 0.029,
+                "test_long_short_mean_return": 0.006,
+                "test_long_short_positive_rate": 0.61,
+                "test_total_return": 0.27,
+                "test_sharpe": 1.42,
+                "test_max_drawdown": -0.12,
+                "test_turnover": 1.7,
+                "test_trades": 66,
+                "cost_bps": 10,
+                "execution_lag": 1,
+                "test_max_participation_rate": 0.007,
+                "test_overlap_autocorr_adjusted_sharpe": 1.05,
+                "strict_split_status": "pass",
+                "strict_split_violations": 0,
+                "strict_split_folds": 3,
+            },
+            {
+                "case_id": "full_sample_replayed_case",
+                "market": "CN",
+                "factor_name": "factor_replayed",
+                "same_parameter_full_sample_status": "pass",
+                "test_mean_rank_ic": 0.031,
+                "test_long_short_mean_return": 0.007,
+                "test_long_short_positive_rate": 0.63,
+                "test_total_return": 0.31,
+                "test_sharpe": 1.55,
+                "test_max_drawdown": -0.10,
+                "test_turnover": 1.4,
+                "test_trades": 80,
+                "cost_bps": 10,
+                "execution_lag": 1,
+                "test_max_participation_rate": 0.006,
+                "test_overlap_autocorr_adjusted_sharpe": 0.92,
+                "strict_split_status": "pass",
+                "strict_split_violations": 0,
+                "strict_split_folds": 3,
+            },
+        ]
+
+        pack = build_long_cycle_replay_pack_from_coverage(
+            candidates,
+            coverage,
+            market="CN",
+            required_start="2015-01-01",
+        )
+
+        by_case = {row["case_id"]: row for row in pack["candidate_decisions"]}
+        source_only = by_case["source_only_case"]
+        self.assertEqual(source_only["decision_status"], "research_lead")
+        self.assertEqual(source_only["replay_status"], "audit_only")
+        self.assertIn("same_parameter_full_sample_replay_missing", source_only["reasons"])
+
+        replayed = by_case["full_sample_replayed_case"]
+        self.assertEqual(replayed["decision_status"], "validation_candidate")
+        self.assertEqual(replayed["replay_status"], "pass")
+        self.assertNotIn("same_parameter_full_sample_replay_missing", replayed["reasons"])
+
     def test_replay_pack_blocks_validation_when_core_source_metrics_are_missing(self):
         coverage = {
             "status": "sufficient",

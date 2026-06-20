@@ -28,6 +28,14 @@ The follow-on paper/risk chain now fails closed on promotion status:
 - Risk selected candidates preserve `promotion_status` so downstream artifacts keep promotion-gate provenance instead of becoming bare case IDs.
 - The daily-basic low-turnover bucket validation profile now has its own strict promotion gate config and `run_checks.py` promotion-report step, matching the value/size/liquidity and price-volume validation lines.
 
+## Same-Parameter Replay Gate
+
+The long-cycle replay pack now separates coverage/source-metric audit from actual same-parameter full-sample replay:
+
+- `audit_only` means the pack only audited history coverage and upstream source metrics; it is not proof that frozen parameters were rerun across the full long cycle.
+- A candidate can reach `validation_candidate` in the long-cycle pack only when explicit replay evidence reports `same_parameter_full_sample_status`, `long_cycle_replay_status`, `full_sample_replay_status`, `performance_replay_status`, or `replay_status` as pass/completed.
+- Promotion gate blocks missing or `audit_only` replay status with `long_cycle_replay_status_missing` or `long_cycle_replay_status_audit_only`, even when source metrics, split, cost/capacity, and lookahead audits pass.
+
 ## Current Evidence
 
 The residual moneyflow/regime validation is still incomplete and not promotable:
