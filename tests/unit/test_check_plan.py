@@ -317,7 +317,7 @@ class CheckPlanTests(unittest.TestCase):
                 "python",
                 "scripts/run_data_quality_audit.py",
                 "--data-root",
-                "configs/cn_stock_authority_bars_2015_2024.json",
+                "configs/cn_stock_authority_bars_2015_2025.json",
                 "--market",
                 "CN",
                 "--output-dir",
@@ -331,13 +331,13 @@ class CheckPlanTests(unittest.TestCase):
                 "python",
                 "scripts/run_cn_stock_data_manifest.py",
                 "--data-root",
-                "configs/cn_stock_authority_bars_2015_2024.json",
+                "configs/cn_stock_authority_bars_2015_2025.json",
                 "--market",
                 "CN",
                 "--output-dir",
                 "data/reports/cn_stock_data_manifest",
                 "--daily-basic-root",
-                "configs/cn_stock_authority_daily_basic_inputs_2015_2024.json",
+                "configs/cn_stock_authority_daily_basic_inputs_2015_2025.json",
             ],
         )
         self.assertEqual(
@@ -350,7 +350,7 @@ class CheckPlanTests(unittest.TestCase):
                 "--source",
                 "processed-bars",
                 "--data-root",
-                "configs/cn_stock_authority_bars_2015_2024.json",
+                "configs/cn_stock_authority_bars_2015_2025.json",
             ],
         )
         self.assertEqual(
@@ -438,13 +438,13 @@ class CheckPlanTests(unittest.TestCase):
                 "python",
                 "scripts/run_cn_stock_data_manifest.py",
                 "--data-root",
-                "configs/cn_stock_authority_bars_2015_2024.json",
+                "configs/cn_stock_authority_bars_2015_2025.json",
                 "--market",
                 "CN",
                 "--output-dir",
                 "data/reports/cn_stock_data_manifest",
                 "--daily-basic-root",
-                "configs/cn_stock_authority_daily_basic_inputs_2015_2024.json",
+                "configs/cn_stock_authority_daily_basic_inputs_2015_2025.json",
             ],
         )
         data_quality = next(step for step in plan if step.name == "data_quality_audit")
@@ -454,7 +454,7 @@ class CheckPlanTests(unittest.TestCase):
                 "python",
                 "scripts/run_data_quality_audit.py",
                 "--data-root",
-                "configs/cn_stock_authority_bars_2015_2024.json",
+                "configs/cn_stock_authority_bars_2015_2025.json",
                 "--market",
                 "CN",
                 "--output-dir",
@@ -471,7 +471,7 @@ class CheckPlanTests(unittest.TestCase):
                 "--source",
                 "processed-bars",
                 "--data-root",
-                "configs/cn_stock_authority_bars_2015_2024.json",
+                "configs/cn_stock_authority_bars_2015_2025.json",
             ],
         )
         self.assertEqual(

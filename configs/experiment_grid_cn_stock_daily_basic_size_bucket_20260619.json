@@ -8,7 +8,7 @@
     "ps_ttm_inverse_mv_bucket_rank"
   ],
   "factor_windows": [1],
-  "factor_input_root": "configs/cn_stock_authority_daily_basic_inputs_2015_2024.json",
+  "factor_input_root": "configs/cn_stock_authority_daily_basic_inputs_2015_2025.json",
   "factor_input_required": true,
   "top_n_values": [50, 100, 200],
   "cost_bps_values": [10, 20],

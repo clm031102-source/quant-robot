@@ -482,6 +482,11 @@ def _write_case_artifacts(output_dir: Path, result: dict[str, Any]) -> None:
 
 
 def _render_report(manifest: dict[str, Any], leaderboard: pd.DataFrame) -> str:
+    rows = leaderboard.to_dict(orient="records")
+    tail_direction_failures = sum(1 for row in rows if row.get("tail_rank_ic_direction_ok") is False)
+    extreme_trade_flags = sum(1 for row in rows if bool(row.get("extreme_trade_return_flag", False)))
+    max_trade_return = max((_number(row.get("max_trade_gross_return")) for row in rows), default=0.0)
+    p99_trade_return = max((_number(row.get("p99_trade_gross_return")) for row in rows), default=0.0)
     lines = [
         "# CN Stock Batch12 OOS Validation",
         "",
@@ -492,14 +497,27 @@ def _render_report(manifest: dict[str, Any], leaderboard: pd.DataFrame) -> str:
         f"- Paper-ready: {manifest['summary']['paper_ready']}",
         f"- Research leads: {manifest['summary']['research_lead']}",
         "",
-        "| Case | Role | Cost | Interval | Return | Sharpe | Win | Max DD | Relative | Ovlp Sharpe | Cap Trades | Lead | Paper |",
-        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | --- |",
+        "## Blocking Signals",
+        "",
+        f"- tail_rank_ic_direction_failed={tail_direction_failures}",
+        f"- extreme_trade_return_flag={extreme_trade_flags}",
+        f"- max_trade_gross_return={_fmt(max_trade_return)}",
+        f"- p99_trade_gross_return={_fmt(p99_trade_return)}",
+        "",
+        "| Case | Role | Cost | Interval | Return | Sharpe | Win | Max DD | Relative | "
+        "Mean RankIC | Tail RankIC | Tail OK | Max Trade | P99 Trade | Extreme | "
+        "Ovlp Sharpe | Cap Trades | Lead | Paper |",
+        "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | "
+        "--- | ---: | ---: | --- | ---: | ---: | --- | --- |",
     ]
-    for row in leaderboard.to_dict(orient="records"):
+    for row in rows:
         lines.append(
             f"| {row['case_id']} | {row['role']} | {_fmt(row['cost_bps'])} | {row['schedule_interval']} | "
             f"{_fmt(row['total_return'])} | {_fmt(row['sharpe'])} | {_fmt(row['win_rate'])} | "
             f"{_fmt(row['max_drawdown'])} | {_fmt(row['relative_return'])} | "
+            f"{_fmt(row.get('mean_rank_ic'))} | {_fmt(row.get('tail_mean_rank_ic'))} | "
+            f"{row.get('tail_rank_ic_direction_ok')} | {_fmt(row.get('max_trade_gross_return'))} | "
+            f"{_fmt(row.get('p99_trade_gross_return'))} | {row.get('extreme_trade_return_flag')} | "
             f"{_fmt(row['overlap_autocorr_adjusted_sharpe'])} | {row['capacity_limited_trades']} | "
             f"{row['research_lead']} | {row['paper_ready']} |"
         )

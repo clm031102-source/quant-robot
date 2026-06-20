@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from quant_robot.ops.batch12_oos_validation import (
+    _render_report,
     _row_from_result,
     build_batch12_oos_case_specs,
     run_batch12_oos_validation,
@@ -154,6 +155,49 @@ class Batch12OosValidationTests(unittest.TestCase):
         self.assertTrue(row["extreme_trade_return_flag"])
         self.assertFalse(row["research_lead"])
         self.assertFalse(row["paper_ready"])
+
+    def test_report_surfaces_rejection_blockers_next_to_high_backtest_metrics(self):
+        manifest = {
+            "status": "completed",
+            "validation_window": {"start": "2025-01-01", "end": "2025-12-31"},
+            "final_holdout_touched": False,
+            "summary": {"cases": 1, "paper_ready": 0, "research_lead": 0},
+        }
+        leaderboard = pd.DataFrame(
+            [
+                {
+                    "case_id": "high_sharpe_but_rejected",
+                    "role": "frozen_candidate",
+                    "cost_bps": 10.0,
+                    "schedule_interval": 1,
+                    "total_return": 974.57,
+                    "sharpe": 5.46,
+                    "win_rate": 0.58,
+                    "max_drawdown": -0.03,
+                    "relative_return": 962.49,
+                    "mean_rank_ic": 0.071,
+                    "tail_mean_rank_ic": -0.074,
+                    "tail_rank_ic_direction_ok": False,
+                    "max_trade_gross_return": 58.91,
+                    "p99_trade_gross_return": 26.06,
+                    "extreme_trade_return_flag": True,
+                    "overlap_autocorr_adjusted_sharpe": 1.63,
+                    "capacity_limited_trades": 0,
+                    "research_lead": False,
+                    "paper_ready": False,
+                }
+            ]
+        )
+
+        report = _render_report(manifest, leaderboard)
+
+        self.assertIn("## Blocking Signals", report)
+        self.assertIn("tail_rank_ic_direction_failed=1", report)
+        self.assertIn("extreme_trade_return_flag=1", report)
+        self.assertIn("Tail RankIC", report)
+        self.assertIn("Max Trade", report)
+        self.assertIn("P99 Trade", report)
+        self.assertIn("False", report)
 
 
 def _handoff() -> dict:

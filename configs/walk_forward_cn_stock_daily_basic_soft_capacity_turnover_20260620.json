@@ -14,7 +14,7 @@
   "experiment_grid": {
     "markets": ["CN"],
     "factor_source": "daily_basic_technical_combo",
-    "factor_input_root": "configs/cn_stock_authority_daily_basic_inputs_2015_2024.json",
+    "factor_input_root": "configs/cn_stock_authority_daily_basic_inputs_2015_2025.json",
     "factor_input_required": true,
     "factor_names": [
       "turnover_rate_low_adv_blend_mv_bucket_rank",

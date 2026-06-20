@@ -50,8 +50,8 @@ DESKTOP_VALIDATION_CHECK_NAMES = (
 )
 
 DAILY_BASIC_VALIDATION_CONFIG = "configs/walk_forward_cn_stock_daily_basic_value_low_turnover_bucket_20260620.json"
-DAILY_BASIC_AUTHORITY_BARS_CONFIG = "configs/cn_stock_authority_bars_2015_2024.json"
-DAILY_BASIC_AUTHORITY_INPUTS_CONFIG = "configs/cn_stock_authority_daily_basic_inputs_2015_2024.json"
+DAILY_BASIC_AUTHORITY_BARS_CONFIG = "configs/cn_stock_authority_bars_2015_2025.json"
+DAILY_BASIC_AUTHORITY_INPUTS_CONFIG = "configs/cn_stock_authority_daily_basic_inputs_2015_2025.json"
 DAILY_BASIC_VALIDATION_ROOT = "data/reports/walk_forward_cn_stock_daily_basic_value_low_turnover_bucket_20260620"
 DAILY_BASIC_DATA_QUALITY_DIR = (
     "data/reports/data_quality_gap_audit_cn_stock_daily_basic_value_low_turnover_bucket_20260620"

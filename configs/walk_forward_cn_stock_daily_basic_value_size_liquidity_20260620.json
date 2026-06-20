@@ -14,7 +14,7 @@
   "experiment_grid": {
     "markets": ["CN"],
     "factor_source": "tushare_daily_basic",
-    "factor_input_root": "configs/cn_stock_authority_daily_basic_inputs_2015_2024.json",
+    "factor_input_root": "configs/cn_stock_authority_daily_basic_inputs_2015_2025.json",
     "factor_input_required": true,
     "factor_names": [
       "pe_ttm_inverse",

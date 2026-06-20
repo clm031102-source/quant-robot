@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
@@ -21,7 +23,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 
 
 DEFAULT_CONFIG_PATH = Path("configs/walk_forward_cn_stock_daily_basic_value_low_turnover_bucket_20260620.json")
-DEFAULT_DATA_ROOT = Path("configs/cn_stock_authority_bars_2015_2024.json")
+DEFAULT_DATA_ROOT = Path("configs/cn_stock_authority_bars_2015_2025.json")
 DEFAULT_LOG_PATH = Path("data/reports/automation/waited_desktop_factor_validation.log")
 DEFAULT_SUMMARY_PATH = Path("data/reports/automation/waited_desktop_factor_validation_summary.json")
 
@@ -121,15 +123,35 @@ def _process_is_running(pid: int) -> bool:
 
         return psutil.pid_exists(pid)
     except ImportError:  # pragma: no cover - fallback for minimal envs
-        try:
-            import os
-
-            if hasattr(os, "kill"):
-                os.kill(pid, 0)
-                return True
-        except OSError:
-            return False
+        pass
+    try:
+        if hasattr(os, "kill"):
+            os.kill(pid, 0)
+            return True
+    except OSError:
+        if os.name == "nt":
+            return _windows_pid_exists(pid)
         return False
+    return _windows_pid_exists(pid) if os.name == "nt" else False
+
+
+def _windows_pid_exists(pid: int) -> bool:
+    if os.name != "nt":
+        return False
+    try:
+        result = subprocess.run(
+            ["tasklist", "/FI", f"PID eq {int(pid)}", "/FO", "CSV", "/NH"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired, ValueError):
+        return False
+    if result.returncode != 0:
+        return False
+    needle = f'"{int(pid)}"'
+    return any(needle in line for line in result.stdout.splitlines())
 
 
 def _timestamp() -> str:
