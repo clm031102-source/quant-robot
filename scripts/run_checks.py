@@ -606,6 +606,7 @@ def _same_parameter_full_sample_replay_step(
             "2015-01-01",
             "--end-date",
             "2025-12-31",
+            "--allow-review-required-data-manifest",
         ],
     )
 

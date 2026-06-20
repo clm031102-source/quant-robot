@@ -1,6 +1,7 @@
 import unittest
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.experiments.runner import ExperimentGridConfig
@@ -168,6 +169,72 @@ class SameParameterReplayTests(unittest.TestCase):
             self.assertIn(pack["replay_rows"][0]["same_parameter_full_sample_status"], {"pass", "block"})
             self.assertTrue((Path(tmp) / "same_parameter_full_sample_replay.csv").exists())
             self.assertTrue((Path(tmp) / "same_parameter_full_sample_replay.json").exists())
+
+    def test_run_same_parameter_full_sample_replay_batches_compatible_candidates_once(self):
+        base = ExperimentGridConfig(
+            markets=("CN",),
+            factor_source="technical",
+            factor_names=("momentum_2",),
+            factor_windows=(2,),
+            top_n_values=(1,),
+            cost_bps_values=(0.0,),
+            forward_horizon=1,
+            execution_lag=1,
+            rebalance_intervals=(1,),
+            min_trades=1,
+            write_case_artifacts=False,
+            precompute_factor_matrix=True,
+        )
+        candidates = [
+            {
+                "case_id": "CN_momentum_2_top1_cost0_reb1",
+                "market": "CN",
+                "factor_source": "technical",
+                "factor_name": "momentum_2",
+                "top_n": 1,
+                "cost_bps": 0.0,
+                "forward_horizon": 1,
+                "execution_lag": 1,
+                "rebalance_interval": 1,
+            },
+            {
+                "case_id": "CN_momentum_2_top2_cost5_reb1",
+                "market": "CN",
+                "factor_source": "technical",
+                "factor_name": "momentum_2",
+                "top_n": 2,
+                "cost_bps": 5.0,
+                "forward_horizon": 1,
+                "execution_lag": 1,
+                "rebalance_interval": 1,
+            },
+        ]
+        result = {
+            "leaderboard": [
+                {"case_id": "CN_momentum_2_top1_cost0_reb1", "status": "completed", "trades": 10, "top_n": 1, "cost_bps": 0.0},
+                {"case_id": "CN_momentum_2_top2_cost5_reb1", "status": "completed", "trades": 8, "top_n": 2, "cost_bps": 5.0},
+            ]
+        }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("quant_robot.ops.same_parameter_replay.run_experiment_grid", return_value=result) as grid:
+                pack = run_same_parameter_full_sample_replay(
+                    candidates,
+                    load_demo_market_bars(),
+                    base,
+                    output_dir=Path(tmp),
+                    start_date="2024-01-02",
+                    end_date="2024-01-14",
+                )
+
+        self.assertEqual(grid.call_count, 1)
+        batch_config = grid.call_args.args[1]
+        self.assertEqual(batch_config.top_n_values, (1, 2))
+        self.assertEqual(batch_config.cost_bps_values, (0.0, 5.0))
+        self.assertEqual([row["replay_case_id"] for row in pack["replay_rows"]], [
+            "CN_momentum_2_top1_cost0_reb1",
+            "CN_momentum_2_top2_cost5_reb1",
+        ])
 
 
 if __name__ == "__main__":

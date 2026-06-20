@@ -252,6 +252,7 @@ class CheckPlanTests(unittest.TestCase):
                 "2015-01-01",
                 "--end-date",
                 "2025-12-31",
+                "--allow-review-required-data-manifest",
             ],
         )
         self.assertEqual(
@@ -308,6 +309,23 @@ class CheckPlanTests(unittest.TestCase):
             next(step for step in plan if step.name == "desktop_validation_summary").command,
             ["python", "scripts/run_desktop_validation_summary.py"],
         )
+
+    def test_desktop_same_parameter_replay_steps_acknowledge_review_required_manifest(self):
+        profiles = [
+            "desktop-validation",
+            "desktop-daily-basic-validation",
+            "desktop-daily-basic-value-size-liquidity-validation",
+            "desktop-price-volume-technical-validation",
+        ]
+
+        for profile in profiles:
+            with self.subTest(profile=profile):
+                plan = build_check_plan("python", profile=profile)
+                replay_steps = [step for step in plan if step.name.endswith("_same_parameter_full_sample_replay")]
+
+                self.assertTrue(replay_steps)
+                for step in replay_steps:
+                    self.assertIn("--allow-review-required-data-manifest", step.command)
 
     def test_desktop_daily_basic_validation_profile_runs_soft_capacity_bucket_validation(self):
         plan = build_check_plan("python", profile="desktop-daily-basic-validation")
@@ -409,6 +427,7 @@ class CheckPlanTests(unittest.TestCase):
                 "2015-01-01",
                 "--end-date",
                 "2025-12-31",
+                "--allow-review-required-data-manifest",
             ],
         )
         self.assertEqual(
@@ -561,6 +580,7 @@ class CheckPlanTests(unittest.TestCase):
                 "2015-01-01",
                 "--end-date",
                 "2025-12-31",
+                "--allow-review-required-data-manifest",
             ],
         )
         self.assertEqual(
@@ -712,6 +732,7 @@ class CheckPlanTests(unittest.TestCase):
                 "2015-01-01",
                 "--end-date",
                 "2025-12-31",
+                "--allow-review-required-data-manifest",
             ],
         )
         self.assertEqual(
