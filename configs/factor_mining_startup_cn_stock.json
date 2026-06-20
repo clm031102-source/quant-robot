@@ -63,7 +63,14 @@
     "cost_capacity_turnover_stress_confirmed",
     "cumulative_multiple_testing_gate_confirmed",
     "capacity_cost_gate_confirmed",
-    "failed_direction_rotation_confirmed"
+    "failed_direction_rotation_confirmed",
+    "long_cycle_replay_plan_confirmed",
+    "same_parameter_full_sample_confirmed",
+    "market_regime_coverage_confirmed",
+    "lookahead_bias_audit_confirmed",
+    "overfit_multiple_testing_audit_confirmed",
+    "overlap_adjusted_statistics_confirmed",
+    "cost_capacity_turnover_confirmed"
   ],
   "research_direction": {
     "objective": "cn_stock_cross_sectional_alpha",
@@ -83,9 +90,10 @@
       "capacity_blind_microcap_tail"
     ],
     "stage_policy": {
-      "discovery": "Use 2023-07-03 through 2024-12-31 only for candidate design and first-pass filtering.",
-      "validation": "Use 2025-01-01 through 2025-12-31 only after discovery evidence clears cost, capacity, drawdown, and tail checks.",
-      "final_holdout": "Use 2026-01-01 through 2026-06-15 as a read-once final holdout; never tune after reading it."
+      "discovery": "Use candidate design and quick screens only to pre-register economic hypotheses; do not claim profitability from short discovery windows.",
+      "long_cycle_replay": "Before new promotion claims, replay historical candidates and parameters unchanged across the available long cycle, default 2015-01-01 through 2025-12-31 for CN stock authority data.",
+      "validation": "Use rolling walk-forward train/test folds, regime coverage, costs, capacity, overlap-aware statistics, and cumulative multiple-testing accounting before any candidate can advance.",
+      "final_holdout": "Use 2026 data, when available, as a read-once final holdout only after long-cycle replay and OOS validation clear; never tune after reading it."
     },
     "factor_family_rotation": {
       "max_failed_batches_before_rotation": 1,
@@ -115,8 +123,14 @@
         "overlapping_holdings_as_independent_returns"
       ],
       "required_experiment_design": [
+        "long_cycle_same_parameter_replay",
+        "same_parameter_full_sample_diagnostic",
+        "rolling_walk_forward_train_test_split",
+        "market_regime_coverage",
+        "lookahead_bias_audit",
+        "overfit_multiple_testing_audit",
         "daily_champion_10bps_20bps_validation",
-        "twenty_twenty_five_oos_only",
+        "twenty_fifteen_to_twenty_twenty_five_authority_data_replay",
         "overlap_aware_return_statistics",
         "daily_vs_every2_every3_controls",
         "cost_capacity_turnover_stress",
@@ -125,6 +139,11 @@
         "final_holdout_only_after_oos_clearance"
       ],
       "confirm_before_each_run": [
+        "long_cycle_replay_plan_read",
+        "same_parameter_full_sample_enabled",
+        "market_regime_coverage_enabled",
+        "lookahead_bias_audit_enabled",
+        "overfit_multiple_testing_audit_enabled",
         "previous_audit_read",
         "latest_bootstrap_diagnostic_read",
         "latest_tailrankic_batch_read",
@@ -163,10 +182,20 @@
     "max_position_adv_participation": 0.05
   },
   "validation_windows": {
+    "long_cycle_replay": {
+      "start": "2015-01-01",
+      "end": "2025-12-31",
+      "purpose": "same-parameter replay and cycle/regime coverage audit before new mining claims"
+    },
+    "same_parameter_full_sample": {
+      "start": "2015-01-01",
+      "end": "2025-12-31",
+      "purpose": "diagnostic full-sample rerun with frozen parameters; not promotion evidence by itself"
+    },
     "discovery": {
       "start": "2023-07-03",
       "end": "2024-12-31",
-      "purpose": "candidate discovery only"
+      "purpose": "legacy candidate discovery only; short-window evidence must be replayed across long cycle before use"
     },
     "validation": {
       "start": "2025-01-01",

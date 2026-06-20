@@ -285,6 +285,7 @@ def _valid_startup_gate_packet_json() -> str:
                 "forbidden_directions": ["cn_etf_rotation", "single_family_lockin", "oos_tuning"],
                 "stage_policy": {
                     "discovery": "Design and filter candidates only.",
+                    "long_cycle_replay": "Replay frozen parameters across the long cycle.",
                     "validation": "Run OOS only after discovery evidence clears.",
                     "final_holdout": "Read once; never tune after reading.",
                 },
@@ -299,10 +300,20 @@ def _valid_startup_gate_packet_json() -> str:
                 "next_direction": "two_stage_portfolio_construction_and_holding_sensitivity",
                 "recently_rejected_directions": ["single_factor_top50_daily_long_only"],
                 "required_experiment_design": [
+                    "long_cycle_same_parameter_replay",
+                    "same_parameter_full_sample_diagnostic",
+                    "rolling_walk_forward_train_test_split",
+                    "market_regime_coverage",
+                    "lookahead_bias_audit",
+                    "overfit_multiple_testing_audit",
                     "rank_band_vs_topn_comparison",
                     "holding_period_and_rebalance_sensitivity",
                 ],
                 "confirm_before_each_run": [
+                    "same_parameter_full_sample_enabled",
+                    "market_regime_coverage_enabled",
+                    "lookahead_bias_audit_enabled",
+                    "overfit_multiple_testing_audit_enabled",
                     "previous_audit_read",
                     "next_direction_pre_registered",
                     "oos_holdout_not_touched",

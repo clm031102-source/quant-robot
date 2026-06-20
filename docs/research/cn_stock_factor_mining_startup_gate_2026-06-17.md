@@ -2,9 +2,9 @@
 
 ## Purpose
 
-This gate turns the 2026-06-17 audit decision into a repeatable pre-run checklist for A-share CN stock factor mining.
+This gate turns the 2026-06-17 audit decision and the later long-cycle process correction into a repeatable pre-run checklist for A-share CN stock factor mining.
 
-Run it before every new CN stock factor batch, validation rerun, or review pass. It confirms that the office/high-spec desktop is working on `market=CN`, `asset_type=stock`, and that ETF rotation evidence is out of scope for the run. After Batch 12, the next controlled task is 2025 validation of the two daily champion candidates, so create or switch to a factor-validation branch before running the validation gate.
+Run it before every new CN stock factor batch, validation rerun, or review pass. It confirms that the office/high-spec desktop is working on `market=CN`, `asset_type=stock`, and that ETF rotation evidence is out of scope for the run. The default research posture is now long-cycle first: short-window discovery evidence must be replayed with unchanged parameters across the available 2015-2025 authority-data cycle before it can influence new mining direction or promotion review.
 
 ## Default Validation Command
 
@@ -114,10 +114,12 @@ Every new CN stock mining run must confirm the structured direction in `configs/
 - forbidden directions: ETF rotation, single-family lock-in, OOS tuning, IC-only promotion, capacity-blind microcap tails
 - failed single-family batches must be recorded and rotated away from after the configured failed-batch limit
 - positive IC alone is not enough; top-N returns, costs, capacity, drawdown, and tail-IC checks decide whether a candidate can advance
+- historical candidates and newly proposed candidates must be run through same-parameter long-cycle replay before any profitability claim
+- the review must include regime coverage, look-ahead risk, overfit/multiple-testing risk, overlap-aware statistics, and cost/capacity stress
 
 ## Repeatable Mining Protocol
 
-The 2026-06-17 batch audit is now part of the startup packet. Before each new CN stock mining or validation run, confirm that the source audit, latest bootstrap diagnostic, completed tail-RankIC broad-RankIC batch, completed monthly-persistence sensitivity batch, completed monthly loss-control/phase batch, completed previous-month threshold-robustness batch, completed RankIC-enhancement batch, completed Batch 12 champion staggered-schedule batch, and Batch 12 validation handoff have been read. Batch 12 created discovery-only OOS candidates, so the next controlled task is formal 2025 validation on a factor-validation branch, not another blind discovery batch.
+The 2026-06-17 batch audit is now part of the startup packet, but it is no longer enough by itself. Before each new CN stock mining or validation run, confirm that the source audit, long-cycle replay plan, latest bootstrap diagnostic, completed tail-RankIC broad-RankIC batch, completed monthly-persistence sensitivity batch, completed monthly loss-control/phase batch, completed previous-month threshold-robustness batch, completed RankIC-enhancement batch, completed Batch 12 champion staggered-schedule batch, and Batch 12 validation handoff have been read. Batch 12 created discovery-only candidates, so the next controlled task is same-parameter long-cycle replay and formal validation on a factor-validation branch, not another blind discovery batch.
 
 Default next direction:
 
@@ -145,13 +147,16 @@ Recently rejected directions:
 
 Required experiment design for the next validation pass:
 
-- validate only the two Batch 12 daily champion candidates at 10 bps and 20 bps
-- use `2025-01-01` through `2025-12-31` only; do not read 2026 final holdout
+- replay historical candidates and their frozen parameters across `2015-01-01` through `2025-12-31` when authority data coverage allows
+- treat full-sample same-parameter results as diagnostic evidence, not direct promotion evidence
+- validate the two Batch 12 daily champion candidates at 10 bps and 20 bps only after long-cycle replay and audit gates are explicit
+- use rolling walk-forward train/test splits; do not tune parameters after seeing validation or final-holdout evidence
+- include regime coverage, look-ahead audit, overfit/multiple-testing audit, and capacity stress before any candidate can advance
 - include overlap-aware return statistics because hold20 with daily schedules creates non-independent returns
 - compare daily champions against every2/every3 controls as sanity checks
 - carry forward cumulative multiple-testing accounting; do not reset p-values after choosing a champion
 - keep cost, capacity, turnover, drawdown, RankIC, Tail RankIC, and monthly stability gates active
-- do not tune parameters, thresholds, factor components, or schedule choices during OOS validation
+- do not tune parameters, thresholds, factor components, or schedule choices during long-cycle replay, OOS validation, or final-holdout review
 
 ## Required Startup Confirmations
 
@@ -189,6 +194,13 @@ The gate blocks unless these items are explicitly confirmed:
 - cumulative multiple-testing gate confirmed
 - cost and capacity gate confirmed
 - failed direction rotation confirmed
+- long-cycle replay plan confirmed
+- same-parameter full-sample diagnostic confirmed
+- market regime coverage confirmed
+- look-ahead bias audit confirmed
+- overfit/multiple-testing audit confirmed
+- overlap-adjusted statistics confirmed
+- cost/capacity/turnover confirmed
 
 Use `--confirm-start` only after those items are true in the current session.
 
@@ -209,10 +221,12 @@ Do not promote either candidate to the factor library unless 2025 validation sur
 
 Default split:
 
-- discovery: `2023-07-03` through `2024-12-31`
-- validation: `2025-01-01` through `2025-12-31`
-- final holdout: `2026-01-01` through `2026-06-15`
+- long-cycle replay: `2015-01-01` through `2025-12-31`
+- same-parameter full-sample diagnostic: `2015-01-01` through `2025-12-31`
+- legacy discovery: `2023-07-03` through `2024-12-31`, only for candidate design and first-pass filtering
+- rolling validation: walk-forward train/test folds with costs, capacity, overlap-aware statistics, regime coverage, and multiple-testing accounting
+- final holdout: `2026-01-01` onward when available, read once only after long-cycle replay and validation clear
 
 Do not tune parameters after reading the 2026 final holdout.
 
-Promotion remains blocked unless the candidate survives IC/RankIC significance, cost, capacity, drawdown, minimum-trade, regime, and walk-forward gates.
+Promotion remains blocked unless the candidate survives same-parameter long-cycle replay, IC/RankIC significance, cost, capacity, drawdown, minimum-trade, regime, overlap-aware statistics, multiple-testing, and walk-forward gates.

@@ -11,6 +11,21 @@ SAFETY_TEXT = "Research-to-review only. No broker connection, no account reads, 
 REQUIRED_RESEARCH_OBJECTIVE = "cn_stock_cross_sectional_alpha"
 DEFAULT_AUDIT_REPORT = "data/reports/cn_stock_factor_mining_20260617_batch_audit.md"
 DEFAULT_NEXT_DIRECTION = "factor_validation_required_for_daily_champion_oos_candidates"
+REQUIRED_LONG_CYCLE_STAGE = "long_cycle_replay"
+REQUIRED_LONG_CYCLE_DESIGN_ITEMS = [
+    "long_cycle_same_parameter_replay",
+    "same_parameter_full_sample_diagnostic",
+    "rolling_walk_forward_train_test_split",
+    "market_regime_coverage",
+    "lookahead_bias_audit",
+    "overfit_multiple_testing_audit",
+]
+REQUIRED_LONG_CYCLE_CONFIRMATIONS = [
+    "same_parameter_full_sample_enabled",
+    "market_regime_coverage_enabled",
+    "lookahead_bias_audit_enabled",
+    "overfit_multiple_testing_audit_enabled",
+]
 
 
 def build_factor_mining_startup_gate(
@@ -99,6 +114,8 @@ def _validate_research_direction(packet: dict[str, Any], *, context: str, path: 
     missing_stages = [stage for stage in ("discovery", "validation", "final_holdout") if stage not in stage_policy]
     if missing_stages:
         raise ValueError(f"{context} startup gate research direction lacks stage policy: {path}")
+    if REQUIRED_LONG_CYCLE_STAGE not in stage_policy:
+        raise ValueError(f"{context} startup gate lacks long-cycle replay stage policy: {path}")
     rotation = _dict(research_direction.get("factor_family_rotation"))
     if rotation.get("max_failed_batches_before_rotation") is None:
         raise ValueError(f"{context} startup gate research direction lacks rotation policy: {path}")
@@ -118,6 +135,14 @@ def _validate_repeatable_mining_protocol(packet: dict[str, Any], *, context: str
         raise ValueError(f"{context} startup gate repeatable mining protocol lacks experiment design: {path}")
     if not _list(protocol.get("confirm_before_each_run")):
         raise ValueError(f"{context} startup gate repeatable mining protocol lacks per-run confirmations: {path}")
+    design_items = set(_list(protocol.get("required_experiment_design")))
+    missing_design_items = [item for item in REQUIRED_LONG_CYCLE_DESIGN_ITEMS if item not in design_items]
+    if missing_design_items:
+        raise ValueError(f"{context} startup gate lacks long-cycle experiment design: {path}")
+    confirmations = set(_list(protocol.get("confirm_before_each_run")))
+    missing_confirmations = [item for item in REQUIRED_LONG_CYCLE_CONFIRMATIONS if item not in confirmations]
+    if missing_confirmations:
+        raise ValueError(f"{context} startup gate lacks long-cycle per-run confirmations: {path}")
 
 
 def _blockers(
@@ -171,7 +196,8 @@ def _pre_run_checklist(config: dict[str, Any]) -> list[str]:
         f"Confirm the pre-registered batch spans allowed factor families: {', '.join(_list(direction.get('allowed_factor_families')))}.",
         "Do not keep mining one failed family; rotate direction after the configured failed-batch limit.",
         "Do not treat positive IC alone as tradable; require top-N return, cost, capacity, drawdown, and tail-IC review.",
-        "Use walk-forward validation, realistic costs, capacity controls, and 2026 final holdout review.",
+        "Use same-parameter long-cycle replay before treating any short-window result as evidence.",
+        "Use walk-forward validation, regime coverage, realistic costs, capacity controls, overlap-aware statistics, and final holdout review.",
         "Do not tune parameters after reading final_holdout.",
         "Record rejected candidates and failed directions, not only winners.",
         f"Keep excluded markets out of the run: {', '.join(_list(config.get('forbidden_markets')))}.",
@@ -190,8 +216,9 @@ def _confirmation_questions(config: dict[str, Any]) -> list[str]:
         "Confirm whether commits are allowed and pushes are disabled unless manually approved.",
         f"Confirm the audit optimization plan was reviewed: {protocol.get('source_audit')}.",
         f"Confirm this run follows the next direction: {protocol.get('next_direction')}.",
-        "Confirm the latest Batch 12 daily champion candidates are pre-registered for 2025 validation only, with overlap-aware return statistics, cost stress, and no 2026 final-holdout read.",
-        "Confirm 2026 data is treated as final holdout rather than a tuning set.",
+        "Confirm historical candidates and parameters are replayed unchanged across the long cycle before new profitability claims.",
+        "Confirm regime coverage, look-ahead audit, overfit/multiple-testing audit, overlap-aware return statistics, and cost/capacity stress are enabled.",
+        "Confirm 2026 data, when available, is treated as final holdout rather than a tuning set.",
         "Confirm a pre-registered candidate plan exists before generating candidates.",
         "Confirm cost and capacity gates are required before any candidate can advance.",
         "Confirm failed single-family directions will be recorded and rotated away from.",
@@ -217,6 +244,7 @@ def _research_direction(config: dict[str, Any]) -> dict[str, Any]:
         "stage_policy": _dict(raw.get("stage_policy"))
         or {
             "discovery": "Design and filter candidates only.",
+            "long_cycle_replay": "Replay historical candidates and parameters unchanged across the available long cycle before new mining claims.",
             "validation": "Run OOS only after discovery evidence clears.",
             "final_holdout": "Read once; never tune after reading.",
         },
@@ -244,6 +272,12 @@ def _repeatable_mining_protocol(config: dict[str, Any]) -> dict[str, Any]:
         ],
         "required_experiment_design": _list(raw.get("required_experiment_design"))
         or [
+            "long_cycle_same_parameter_replay",
+            "same_parameter_full_sample_diagnostic",
+            "rolling_walk_forward_train_test_split",
+            "market_regime_coverage",
+            "lookahead_bias_audit",
+            "overfit_multiple_testing_audit",
             "daily_champion_10bps_20bps_validation",
             "twenty_twenty_five_oos_only",
             "overlap_aware_return_statistics",
@@ -255,6 +289,11 @@ def _repeatable_mining_protocol(config: dict[str, Any]) -> dict[str, Any]:
         ],
         "confirm_before_each_run": _list(raw.get("confirm_before_each_run"))
         or [
+            "long_cycle_replay_plan_read",
+            "same_parameter_full_sample_enabled",
+            "market_regime_coverage_enabled",
+            "lookahead_bias_audit_enabled",
+            "overfit_multiple_testing_audit_enabled",
             "previous_audit_read",
             "latest_bootstrap_diagnostic_read",
             "latest_tailrankic_batch_read",

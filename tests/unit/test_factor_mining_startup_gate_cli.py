@@ -119,6 +119,24 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
                 "final_holdout_not_touched",
                 packet["repeatable_mining_protocol"]["confirm_before_each_run"],
             )
+            self.assertEqual(packet["validation_windows"]["long_cycle_replay"]["start"], "2015-01-01")
+            self.assertEqual(packet["validation_windows"]["same_parameter_full_sample"]["start"], "2015-01-01")
+            self.assertIn(
+                "long_cycle_same_parameter_replay",
+                packet["repeatable_mining_protocol"]["required_experiment_design"],
+            )
+            self.assertIn(
+                "market_regime_coverage_enabled",
+                packet["repeatable_mining_protocol"]["confirm_before_each_run"],
+            )
+            self.assertIn(
+                "lookahead_bias_audit_enabled",
+                packet["repeatable_mining_protocol"]["confirm_before_each_run"],
+            )
+            self.assertIn(
+                "overfit_multiple_testing_audit_enabled",
+                packet["repeatable_mining_protocol"]["confirm_before_each_run"],
+            )
             self.assertIn(
                 "batch12_validation_handoff_read",
                 packet["repeatable_mining_protocol"]["confirm_before_each_run"],

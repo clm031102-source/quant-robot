@@ -326,6 +326,7 @@ class FactorMiningStartupGateTests(unittest.TestCase):
                             "allowed_factor_families": ["price_volume"],
                             "stage_policy": {
                                 "discovery": "Design and filter candidates only.",
+                                "long_cycle_replay": "Replay frozen parameters across the long cycle.",
                                 "validation": "Run OOS only after discovery evidence clears.",
                                 "final_holdout": "Read once; never tune after reading.",
                             },
@@ -337,6 +338,41 @@ class FactorMiningStartupGateTests(unittest.TestCase):
             )
 
             with self.assertRaisesRegex(ValueError, "repeatable mining protocol"):
+                validate_cleared_startup_gate_packet(path)
+
+    def test_validate_startup_gate_rejects_packet_without_long_cycle_protocol(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "factor_mining_startup_gate.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "generated_at": date.today().isoformat(),
+                        "status": "cleared",
+                        "summary": {"market": "CN", "asset_type": "stock"},
+                        "decision": {"startup_gate_cleared": True, "blockers": []},
+                        "research_direction": {
+                            "objective": "cn_stock_cross_sectional_alpha",
+                            "allowed_factor_families": ["price_volume"],
+                            "stage_policy": {
+                                "discovery": "Design and filter candidates only.",
+                                "validation": "Run OOS only after discovery evidence clears.",
+                                "final_holdout": "Read once; never tune after reading.",
+                            },
+                            "factor_family_rotation": {"max_failed_batches_before_rotation": 1},
+                        },
+                        "repeatable_mining_protocol": {
+                            "source_audit": "data/reports/cn_stock_factor_mining_20260617_batch_audit.md",
+                            "next_direction": "legacy_short_window_validation",
+                            "recently_rejected_directions": ["single_factor_top50_daily_long_only"],
+                            "required_experiment_design": ["twenty_twenty_five_oos_only"],
+                            "confirm_before_each_run": ["final_holdout_not_touched"],
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "long-cycle"):
                 validate_cleared_startup_gate_packet(path)
 
 
