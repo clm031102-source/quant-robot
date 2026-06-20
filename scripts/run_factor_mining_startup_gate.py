@@ -26,7 +26,7 @@ def run_factor_mining_startup_gate(
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
     machine: str,
     task: str,
-    branch: str,
+    branch: str | None = None,
     current_branch: str | None = None,
     market: str = "CN",
     asset_type: str = "stock",
@@ -36,19 +36,21 @@ def run_factor_mining_startup_gate(
 ) -> dict[str, Any]:
     config = _load_config(config_path)
     confirmations = {name: True for name in _list(config.get("required_confirmations"))} if confirm_start else {}
+    resolved_current_branch = current_branch or _current_branch()
+    resolved_branch = branch or resolved_current_branch
     packet = build_factor_mining_startup_gate(
         config,
         request={
             "machine": machine,
             "task": task,
-            "branch": branch,
+            "branch": resolved_branch,
             "market": market,
             "asset_type": asset_type,
             "commits_allowed": commits_allowed,
             "pushes_allowed": pushes_allowed,
             "confirmations": confirmations,
         },
-        current_branch=current_branch or _current_branch(),
+        current_branch=resolved_current_branch,
     )
     _write_packet(output_dir, packet)
     return packet
@@ -124,7 +126,7 @@ def main() -> None:
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--machine", required=True)
     parser.add_argument("--task", required=True)
-    parser.add_argument("--branch", required=True)
+    parser.add_argument("--branch")
     parser.add_argument("--current-branch")
     parser.add_argument("--market", default="CN")
     parser.add_argument("--asset-type", default="stock")

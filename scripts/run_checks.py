@@ -106,7 +106,7 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
     if profile == "desktop-validation":
         selected = set(DESKTOP_VALIDATION_CHECK_NAMES)
         return [
-            *(_with_desktop_validation_context(step) for step in full_plan if step.name in selected),
+            *_desktop_validation_safety_steps(full_plan, selected, python_executable),
             CheckStep("desktop_factor_validation", [python_executable, "scripts/run_desktop_factor_validation.py"]),
             CheckStep(
                 "desktop_market_regime_coverage",
@@ -146,6 +146,57 @@ def _with_laptop_context(step: CheckStep) -> CheckStep:
     if step.name in {"recent_data_refresh", "tushare_activation_gate"}:
         return CheckStep(step.name, [*step.command, "--machine", "laptop"], uses_network=step.uses_network)
     return step
+
+
+def _desktop_validation_safety_steps(
+    full_plan: list[CheckStep],
+    selected: set[str],
+    python_executable: str,
+) -> list[CheckStep]:
+    steps: list[CheckStep] = []
+    for step in full_plan:
+        if step.name not in selected:
+            continue
+        steps.append(_with_desktop_validation_context(step))
+        if step.name == "data_catalog":
+            steps.extend(_desktop_validation_cn_stock_preflight(python_executable))
+    return steps
+
+
+def _desktop_validation_cn_stock_preflight(python_executable: str) -> list[CheckStep]:
+    return [
+        CheckStep(
+            "cn_stock_factor_mining_startup_gate",
+            [
+                python_executable,
+                "scripts/run_factor_mining_startup_gate.py",
+                "--config",
+                "configs/factor_mining_startup_cn_stock.json",
+                "--machine",
+                "office_desktop",
+                "--task",
+                "factor_validation",
+                "--market",
+                "CN",
+                "--asset-type",
+                "stock",
+                "--confirm-start",
+            ],
+        ),
+        CheckStep(
+            "cn_stock_data_manifest",
+            [
+                python_executable,
+                "scripts/run_cn_stock_data_manifest.py",
+                "--data-root",
+                "configs/cn_stock_authority_bars_2015_2025.json",
+                "--market",
+                "CN",
+                "--output-dir",
+                "data/reports/cn_stock_data_manifest",
+            ],
+        ),
+    ]
 
 
 def _with_desktop_validation_context(step: CheckStep) -> CheckStep:

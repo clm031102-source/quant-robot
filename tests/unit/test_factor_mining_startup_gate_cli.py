@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from scripts.run_factor_mining_startup_gate import run_factor_mining_startup_gate
 
@@ -146,6 +147,25 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
                 "batch12_validation_handoff_read",
                 packet["repeatable_mining_protocol"]["confirm_before_each_run"],
             )
+
+    def test_run_factor_mining_startup_gate_can_infer_current_branch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch(
+                "scripts.run_factor_mining_startup_gate._current_branch",
+                return_value="codex/factor-validation-cn-stock-20260620",
+            ):
+                packet = run_factor_mining_startup_gate(
+                    output_dir=Path(tmp),
+                    machine="office_desktop",
+                    task="factor_validation",
+                    market="CN",
+                    asset_type="stock",
+                    confirm_start=True,
+                )
+
+            self.assertEqual(packet["status"], "cleared")
+            self.assertEqual(packet["summary"]["branch"], "codex/factor-validation-cn-stock-20260620")
+            self.assertEqual(packet["summary"]["current_branch"], "codex/factor-validation-cn-stock-20260620")
 
 
 if __name__ == "__main__":

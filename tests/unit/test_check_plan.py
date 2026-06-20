@@ -158,6 +158,8 @@ class CheckPlanTests(unittest.TestCase):
                 "readiness_check",
                 "provider_status",
                 "data_catalog",
+                "cn_stock_factor_mining_startup_gate",
+                "cn_stock_data_manifest",
                 "data_quality_audit",
                 "desktop_factor_validation",
                 "desktop_market_regime_coverage",
@@ -166,6 +168,39 @@ class CheckPlanTests(unittest.TestCase):
             ],
         )
         self.assertTrue(all(not step.uses_network for step in plan))
+        startup_gate = next(step for step in plan if step.name == "cn_stock_factor_mining_startup_gate")
+        self.assertEqual(
+            startup_gate.command,
+            [
+                "python",
+                "scripts/run_factor_mining_startup_gate.py",
+                "--config",
+                "configs/factor_mining_startup_cn_stock.json",
+                "--machine",
+                "office_desktop",
+                "--task",
+                "factor_validation",
+                "--market",
+                "CN",
+                "--asset-type",
+                "stock",
+                "--confirm-start",
+            ],
+        )
+        data_manifest = next(step for step in plan if step.name == "cn_stock_data_manifest")
+        self.assertEqual(
+            data_manifest.command,
+            [
+                "python",
+                "scripts/run_cn_stock_data_manifest.py",
+                "--data-root",
+                "configs/cn_stock_authority_bars_2015_2025.json",
+                "--market",
+                "CN",
+                "--output-dir",
+                "data/reports/cn_stock_data_manifest",
+            ],
+        )
         data_quality = next(step for step in plan if step.name == "data_quality_audit")
         self.assertEqual(
             data_quality.command,

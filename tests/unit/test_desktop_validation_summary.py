@@ -17,11 +17,16 @@ class DesktopValidationSummaryTests(unittest.TestCase):
                 "top_n": "5",
                 "cost_bps": "20",
                 "mean_test_sharpe": "1.2",
+                "mean_test_annualized_return": "0.18",
                 "test_overlap_autocorr_adjusted_sharpe": "0.8",
                 "test_overlap_effective_sample_size": "42",
                 "test_overlap_risk_flag": "True",
                 "mean_test_relative_return": "0.3",
+                "mean_test_win_rate": "0.61",
                 "worst_test_max_drawdown": "-0.2",
+                "total_test_trades": "88",
+                "test_capacity_limited_trades": "0",
+                "test_max_participation_rate": "0.04",
                 "accepted_folds": "2",
                 "folds": "2",
                 "adjusted_ic_p_value": "0.01",
@@ -72,6 +77,14 @@ class DesktopValidationSummaryTests(unittest.TestCase):
         self.assertIn("research-to-paper only", summary)
         self.assertIn("Tail IC p", summary)
         self.assertIn("Adj Sharpe", summary)
+        self.assertIn("Ann Ret", summary)
+        self.assertIn("Win Rate", summary)
+        self.assertIn("Trades", summary)
+        self.assertIn("Cap Trades", summary)
+        self.assertIn("Max Part", summary)
+        self.assertIn("0.18", summary)
+        self.assertIn("0.61", summary)
+        self.assertIn("88", summary)
         self.assertIn("Eff N", summary)
         self.assertIn("0.8", summary)
         self.assertIn("42", summary)

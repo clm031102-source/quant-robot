@@ -15,6 +15,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 ensure_workspace_imports()
 
 from quant_robot.ops.cn_stock_data_manifest import build_cn_stock_data_manifest, write_cn_stock_data_manifest
+from quant_robot.storage.authority_bars import load_authority_processed_bars_from_config
 from quant_robot.storage.moneyflow_inputs import load_moneyflow_inputs
 from quant_robot.storage.processed_bars import load_processed_bars
 
@@ -35,7 +36,12 @@ def run_cn_stock_data_manifest(
     if market_upper != "CN":
         raise ValueError("CN stock data manifest only supports market='CN'")
     root = Path(data_root)
-    bar_frame = bars if bars is not None else load_processed_bars(root, market_upper)
+    if bars is not None:
+        bar_frame = bars
+    elif root.is_file():
+        bar_frame = load_authority_processed_bars_from_config(root, (market_upper,))
+    else:
+        bar_frame = load_processed_bars(root, market_upper)
     moneyflow_frame = moneyflow_inputs if moneyflow_inputs is not None else _load_moneyflow_or_none(root, market_upper)
     manifest = build_cn_stock_data_manifest(bars=bar_frame, moneyflow_inputs=moneyflow_frame, source_root=root)
     write_cn_stock_data_manifest(output_dir, manifest)
