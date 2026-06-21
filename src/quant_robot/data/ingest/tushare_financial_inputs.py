@@ -23,10 +23,13 @@ def run_tushare_fina_indicator_ingest(
     resume: bool = True,
     market: str = "CN",
     ts_codes: list[str] | None = None,
+    empty_response_policy: str = "fail",
 ) -> dict[str, object]:
     market = market.upper()
     if market != "CN":
         raise ValueError(f"Unsupported Tushare financial-input market: {market}")
+    if empty_response_policy not in {"fail", "record"}:
+        raise ValueError(f"Unsupported empty_response_policy: {empty_response_policy}")
     output_path = Path(output_dir)
     store = DatasetStore(output_path)
     manifest = IngestManifest(output_path / "manifest.json")
@@ -37,15 +40,20 @@ def run_tushare_fina_indicator_ingest(
     skipped: list[tuple[str, str]] = []
     raw_frames_by_request: dict[tuple[str, str], pd.DataFrame] = {}
     downloaded_rows_by_request: dict[tuple[str, str], int] = {}
+    empty_requests: list[tuple[str, str]] = []
 
     for ts_code, period in requests:
         key = _manifest_key(period, ts_code)
-        if resume and manifest.is_completed(key) and _raw_partition_has_rows(store, _raw_dataset(), period, ts_code):
+        if resume and manifest.is_completed(key) and _raw_partition_exists(store, _raw_dataset(), period, ts_code):
             skipped.append((ts_code, period))
+            if _manifest_completed_rows(manifest, key) == 0:
+                empty_requests.append((ts_code, period))
             continue
         raw = adapter.fetch_fina_indicator(ts_code=ts_code, period=period)
         if raw.empty:
-            _mark_empty_raw_response(manifest, key, period)
+            if empty_response_policy == "fail":
+                _mark_empty_raw_response(manifest, key, period)
+            empty_requests.append((ts_code, period))
         store.write_frame(raw, _raw_dataset(), _raw_partitions(period, ts_code))
         downloaded.append((ts_code, period))
         downloaded_rows_by_request[(ts_code, period)] = len(raw)
@@ -79,6 +87,7 @@ def run_tushare_fina_indicator_ingest(
         "skipped_periods": _unique_periods(skipped),
         "downloaded_requests": [_request_label(ts_code, period) for ts_code, period in downloaded],
         "skipped_requests": [_request_label(ts_code, period) for ts_code, period in skipped],
+        "empty_requests": [_request_label(ts_code, period) for ts_code, period in empty_requests],
         "processed_rows": int(len(processed)),
         "quality_report": report,
     }
@@ -104,6 +113,17 @@ def _raw_partition_has_rows(store: DatasetStore, dataset: str, period: str, ts_c
         return len(store.read_frame(dataset, partitions)) > 0
     except FileNotFoundError:
         return False
+
+
+def _raw_partition_exists(store: DatasetStore, dataset: str, period: str, ts_code: str = "") -> bool:
+    return store.exists(dataset, _raw_partitions(period, ts_code))
+
+
+def _manifest_completed_rows(manifest: IngestManifest, key: str) -> int | None:
+    row = manifest.data.get("completed", {}).get(key, {})
+    if not isinstance(row, dict) or "rows" not in row:
+        return None
+    return int(row["rows"])
 
 
 def _mark_empty_raw_response(manifest: IngestManifest, key: str, period: str) -> None:
@@ -155,9 +175,10 @@ def _normalize_fina_indicator(raw: pd.DataFrame, market: str) -> pd.DataFrame:
     missing = [column for column in required if column not in raw.columns]
     if missing:
         raise ValueError(f"Tushare fina_indicator inputs are missing columns: {', '.join(missing)}")
-    source = raw.copy()
+    source = raw.drop_duplicates(FINA_INDICATOR_COLUMNS, keep="last").copy()
     source["ann_date"] = pd.to_datetime(source["ann_date"]).dt.date
     source["end_date"] = pd.to_datetime(source["end_date"]).dt.date
+    source = source.drop_duplicates(["symbol", "ann_date", "end_date"], keep="last").copy()
     source["date"] = source["ann_date"]
     source["asset_id"] = source["symbol"].map(_asset_id_from_tushare_symbol)
     source["market"] = market

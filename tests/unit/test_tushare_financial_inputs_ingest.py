@@ -57,6 +57,42 @@ class FakeEmptyFinaIndicatorAdapter(FakeTushareFinaIndicatorAdapter):
         )
 
 
+class FakeMixedEmptyFinaIndicatorAdapter(FakeTushareFinaIndicatorAdapter):
+    def fetch_fina_indicator(self, period: str, ts_code: str = ""):
+        if ts_code == "600519.SH":
+            self.calls.append((ts_code, period))
+            return pd.DataFrame(
+                columns=[
+                    "symbol",
+                    "ann_date",
+                    "end_date",
+                    "roe",
+                    "roa",
+                    "grossprofit_margin",
+                    "netprofit_margin",
+                    "netprofit_yoy",
+                    "or_yoy",
+                    "ocfps",
+                    "cfps",
+                ]
+            )
+        return super().fetch_fina_indicator(period, ts_code=ts_code)
+
+
+class FakeDuplicateFinaIndicatorAdapter(FakeTushareFinaIndicatorAdapter):
+    def fetch_fina_indicator(self, period: str, ts_code: str = ""):
+        frame = super().fetch_fina_indicator(period, ts_code=ts_code)
+        return pd.concat([frame, frame], ignore_index=True)
+
+
+class FakeSameKeyRestatedFinaIndicatorAdapter(FakeTushareFinaIndicatorAdapter):
+    def fetch_fina_indicator(self, period: str, ts_code: str = ""):
+        frame = super().fetch_fina_indicator(period, ts_code=ts_code)
+        restated = frame.copy()
+        restated.loc[:, "ocfps"] = 1.25
+        return pd.concat([frame, restated], ignore_index=True)
+
+
 class TushareFinancialInputsIngestTests(unittest.TestCase):
     def test_fina_indicator_ingest_writes_raw_processed_manifest_and_quality_report(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -118,6 +154,85 @@ class TushareFinancialInputsIngestTests(unittest.TestCase):
             manifest = json.loads((Path(tmp) / "manifest.json").read_text(encoding="utf-8"))
             self.assertIn("fina_indicator:000001.SZ:20240331", manifest["completed"])
             self.assertIn("fina_indicator:600519.SH:20240331", manifest["completed"])
+
+    def test_fina_indicator_ingest_can_record_empty_symbol_periods_for_backfill_smoke(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            adapter = FakeMixedEmptyFinaIndicatorAdapter()
+
+            result = run_tushare_fina_indicator_ingest(
+                adapter,
+                ["20240331"],
+                Path(tmp),
+                ts_codes=["000001.SZ", "600519.SH"],
+                empty_response_policy="record",
+            )
+
+            self.assertEqual(adapter.calls, [("000001.SZ", "20240331"), ("600519.SH", "20240331")])
+            self.assertEqual(result["processed_rows"], 1)
+            self.assertEqual(result["empty_requests"], ["600519.SH:20240331"])
+            manifest = json.loads((Path(tmp) / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["completed"]["fina_indicator:600519.SH:20240331"]["rows"], 0)
+            self.assertNotIn("fina_indicator:600519.SH:20240331", manifest["failed"])
+
+    def test_fina_indicator_ingest_resume_skips_recorded_empty_symbol_periods(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            run_tushare_fina_indicator_ingest(
+                FakeMixedEmptyFinaIndicatorAdapter(),
+                ["20240331"],
+                Path(tmp),
+                ts_codes=["000001.SZ", "600519.SH"],
+                empty_response_policy="record",
+            )
+            second_adapter = FakeMixedEmptyFinaIndicatorAdapter()
+
+            result = run_tushare_fina_indicator_ingest(
+                second_adapter,
+                ["20240331"],
+                Path(tmp),
+                ts_codes=["000001.SZ", "600519.SH"],
+                resume=True,
+                empty_response_policy="record",
+            )
+
+            self.assertEqual(second_adapter.calls, [])
+            self.assertEqual(result["skipped_requests"], ["000001.SZ:20240331", "600519.SH:20240331"])
+            self.assertEqual(result["empty_requests"], ["600519.SH:20240331"])
+            self.assertEqual(result["processed_rows"], 1)
+
+    def test_fina_indicator_ingest_deduplicates_identical_financial_rows(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_tushare_fina_indicator_ingest(
+                FakeDuplicateFinaIndicatorAdapter(),
+                ["20240331"],
+                Path(tmp),
+                ts_codes=["000001.SZ"],
+            )
+
+            self.assertEqual(result["processed_rows"], 1)
+            self.assertEqual(result["quality_report"]["duplicate_rows"], 0)
+            processed = DatasetStore(Path(tmp)).read_frame(
+                "processed/fina_indicator_inputs",
+                {"frequency": "1q", "market": "CN", "year": "2024"},
+            )
+            self.assertEqual(len(processed), 1)
+
+    def test_fina_indicator_ingest_deduplicates_same_key_restated_financial_rows(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_tushare_fina_indicator_ingest(
+                FakeSameKeyRestatedFinaIndicatorAdapter(),
+                ["20240331"],
+                Path(tmp),
+                ts_codes=["000001.SZ"],
+            )
+
+            self.assertEqual(result["processed_rows"], 1)
+            self.assertEqual(result["quality_report"]["duplicate_rows"], 0)
+            processed = DatasetStore(Path(tmp)).read_frame(
+                "processed/fina_indicator_inputs",
+                {"frequency": "1q", "market": "CN", "year": "2024"},
+            )
+            self.assertEqual(len(processed), 1)
+            self.assertEqual(float(processed["ocfps"].iloc[0]), 1.25)
 
 
 if __name__ == "__main__":
