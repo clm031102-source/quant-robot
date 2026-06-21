@@ -871,6 +871,82 @@ class ExperimentRunnerTests(unittest.TestCase):
         self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("resid_value_quality_low_vol_20",))
         self.assertTrue(all(call.kwargs["precomputed_factors"] is matrix for call in pipeline.call_args_list))
 
+    def test_experiment_grid_can_precompute_daily_basic_smart_money_quality_factor_matrix_once(self):
+        bars = load_demo_market_bars()
+        matrix = pd.DataFrame(columns=["date", "asset_id", "market", "factor_name", "factor_value", "lookback_window"])
+        config = ExperimentGridConfig(
+            markets=("CN",),
+            factor_source="daily_basic_smart_money_quality",
+            factor_input_root=Path("authority_daily_basic.json"),
+            factor_input_required=True,
+            factor_names=("smart_money_quality_lowvol_20",),
+            factor_windows=(20,),
+            top_n_values=(1, 2),
+            cost_bps_values=(5.0,),
+            precompute_factor_matrix=True,
+        )
+        pipeline_result = {
+            "data_mode": "research",
+            "metrics": {"total_return": 0.01, "annualized_return": 0.01, "annualized_volatility": 0.05, "sharpe": 0.2, "max_drawdown": -0.01},
+            "benchmark_metrics": {"benchmark_total_return": 0.0, "relative_return": 0.01, "excess_over_cash": 0.01},
+            "decision": {"decision_status": "approved", "rejection_reasons": []},
+            "factor_summary": {"mean_ic": 0.01, "ic_p_value": 0.5, "significance_status": "unknown"},
+            "artifact_rows": {"trades": 1, "holdings": 1},
+        }
+
+        with (
+            patch("quant_robot.experiments.runner.load_factor_inputs", return_value=pd.DataFrame({"date": [], "asset_id": []})) as loader,
+            patch("quant_robot.experiments.runner.compute_daily_basic_smart_money_quality_factors", return_value=matrix) as factor_builder,
+            patch("quant_robot.experiments.runner.run_research_pipeline", return_value=pipeline_result) as pipeline,
+        ):
+            result = run_experiment_grid(bars, config)
+
+        self.assertEqual(len(result["leaderboard"]), 2)
+        loader.assert_called_once_with(Path("authority_daily_basic.json"), "CN")
+        factor_builder.assert_called_once()
+        precompute_bars = factor_builder.call_args.args[0]
+        self.assertEqual(set(precompute_bars["market"]), {"CN"})
+        self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("smart_money_quality_lowvol_20",))
+        self.assertTrue(all(call.kwargs["precomputed_factors"] is matrix for call in pipeline.call_args_list))
+
+    def test_experiment_grid_can_precompute_daily_basic_public_risk_filter_bridge_matrix_once(self):
+        bars = load_demo_market_bars()
+        matrix = pd.DataFrame(columns=["date", "asset_id", "market", "factor_name", "factor_value", "lookback_window"])
+        config = ExperimentGridConfig(
+            markets=("CN",),
+            factor_source="daily_basic_public_risk_filter_bridge",
+            factor_input_root=Path("authority_daily_basic.json"),
+            factor_input_required=True,
+            factor_names=("risk_filter_bridge_equal_20",),
+            factor_windows=(20,),
+            top_n_values=(1, 2),
+            cost_bps_values=(5.0,),
+            precompute_factor_matrix=True,
+        )
+        pipeline_result = {
+            "data_mode": "research",
+            "metrics": {"total_return": 0.01, "annualized_return": 0.01, "annualized_volatility": 0.05, "sharpe": 0.2, "max_drawdown": -0.01},
+            "benchmark_metrics": {"benchmark_total_return": 0.0, "relative_return": 0.01, "excess_over_cash": 0.01},
+            "decision": {"decision_status": "approved", "rejection_reasons": []},
+            "factor_summary": {"mean_ic": 0.01, "ic_p_value": 0.5, "significance_status": "unknown"},
+            "artifact_rows": {"trades": 1, "holdings": 1},
+        }
+
+        with (
+            patch("quant_robot.experiments.runner.load_factor_inputs", return_value=pd.DataFrame({"date": [], "asset_id": []})) as loader,
+            patch("quant_robot.experiments.runner.compute_daily_basic_public_risk_filter_bridge_factors", return_value=matrix) as factor_builder,
+            patch("quant_robot.experiments.runner.run_research_pipeline", return_value=pipeline_result) as pipeline,
+        ):
+            result = run_experiment_grid(bars, config)
+
+        self.assertEqual(len(result["leaderboard"]), 2)
+        loader.assert_called_once_with(Path("authority_daily_basic.json"), "CN")
+        factor_builder.assert_called_once()
+        precompute_bars = factor_builder.call_args.args[0]
+        self.assertEqual(set(precompute_bars["market"]), {"CN"})
+        self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("risk_filter_bridge_equal_20",))
+        self.assertTrue(all(call.kwargs["precomputed_factors"] is matrix for call in pipeline.call_args_list))
+
     def test_experiment_grid_can_precompute_tushare_moneyflow_factor_matrix_once(self):
         bars = load_demo_market_bars()
         matrix = pd.DataFrame(columns=["date", "asset_id", "market", "factor_name", "factor_value", "lookback_window"])

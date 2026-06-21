@@ -18,6 +18,14 @@ from quant_robot.factors.daily_basic_residual_composite import (
     DAILY_BASIC_RESIDUAL_COMPOSITE_FACTOR_NAMES,
     compute_daily_basic_residual_composite_factors,
 )
+from quant_robot.factors.daily_basic_smart_money_quality import (
+    DAILY_BASIC_SMART_MONEY_QUALITY_FACTOR_NAMES,
+    compute_daily_basic_smart_money_quality_factors,
+)
+from quant_robot.factors.daily_basic_public_risk_filter_bridge import (
+    DAILY_BASIC_PUBLIC_RISK_FILTER_BRIDGE_FACTOR_NAMES,
+    compute_daily_basic_public_risk_filter_bridge_factors,
+)
 from quant_robot.factors.daily_basic_value_liquidity_tail import (
     DAILY_BASIC_VALUE_LIQUIDITY_TAIL_FACTOR_NAMES,
     compute_daily_basic_value_liquidity_tail_factors,
@@ -346,6 +354,8 @@ def _load_factor_input_frame(config: ResearchPipelineConfig) -> pd.DataFrame:
         "tushare_daily_basic",
         "daily_basic_technical_combo",
         "daily_basic_residual_composite",
+        "daily_basic_smart_money_quality",
+        "daily_basic_public_risk_filter_bridge",
         "daily_basic_value_liquidity_tail",
         "tushare_moneyflow",
         "moneyflow_technical_combo",
@@ -526,6 +536,18 @@ def _compute_factor_source(bars: pd.DataFrame, factor_inputs: pd.DataFrame, conf
         if config.factor_name not in DAILY_BASIC_RESIDUAL_COMPOSITE_FACTOR_NAMES:
             return _empty_factor_frame()
         return compute_daily_basic_residual_composite_factors(bars, factor_inputs, factor_names=(config.factor_name,))
+    if config.factor_source == "daily_basic_smart_money_quality":
+        if config.factor_name not in DAILY_BASIC_SMART_MONEY_QUALITY_FACTOR_NAMES:
+            return _empty_factor_frame()
+        return compute_daily_basic_smart_money_quality_factors(bars, factor_inputs, factor_names=(config.factor_name,))
+    if config.factor_source == "daily_basic_public_risk_filter_bridge":
+        if config.factor_name not in DAILY_BASIC_PUBLIC_RISK_FILTER_BRIDGE_FACTOR_NAMES:
+            return _empty_factor_frame()
+        return compute_daily_basic_public_risk_filter_bridge_factors(
+            bars,
+            factor_inputs,
+            factor_names=(config.factor_name,),
+        )
     if config.factor_source == "daily_basic_value_liquidity_tail":
         if config.factor_name not in DAILY_BASIC_VALUE_LIQUIDITY_TAIL_FACTOR_NAMES:
             return _empty_factor_frame()

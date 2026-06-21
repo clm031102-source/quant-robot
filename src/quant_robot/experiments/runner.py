@@ -24,6 +24,10 @@ from quant_robot.factors.public_technical import compute_public_technical_factor
 from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.factors.daily_basic_technical_combo import compute_daily_basic_technical_combo_factors
 from quant_robot.factors.daily_basic_residual_composite import compute_daily_basic_residual_composite_factors
+from quant_robot.factors.daily_basic_smart_money_quality import compute_daily_basic_smart_money_quality_factors
+from quant_robot.factors.daily_basic_public_risk_filter_bridge import (
+    compute_daily_basic_public_risk_filter_bridge_factors,
+)
 from quant_robot.factors.daily_basic_value_liquidity_tail import compute_daily_basic_value_liquidity_tail_factors
 from quant_robot.factors.tushare_inputs import compute_daily_basic_factors
 from quant_robot.factors.tushare_moneyflow import compute_moneyflow_factors
@@ -416,6 +420,16 @@ def _precompute_factor_matrix(bars: pd.DataFrame, config: ExperimentGridConfig) 
     if config.factor_source == "daily_basic_residual_composite":
         factor_inputs = _load_grid_factor_inputs(config)
         return compute_daily_basic_residual_composite_factors(source_bars, factor_inputs, factor_names=config.factor_names)
+    if config.factor_source == "daily_basic_smart_money_quality":
+        factor_inputs = _load_grid_factor_inputs(config)
+        return compute_daily_basic_smart_money_quality_factors(source_bars, factor_inputs, factor_names=config.factor_names)
+    if config.factor_source == "daily_basic_public_risk_filter_bridge":
+        factor_inputs = _load_grid_factor_inputs(config)
+        return compute_daily_basic_public_risk_filter_bridge_factors(
+            source_bars,
+            factor_inputs,
+            factor_names=config.factor_names,
+        )
     if config.factor_source == "daily_basic_value_liquidity_tail":
         factor_inputs = _load_grid_factor_inputs(config)
         return compute_daily_basic_value_liquidity_tail_factors(source_bars, factor_inputs, factor_names=config.factor_names)

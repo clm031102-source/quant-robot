@@ -8,6 +8,10 @@ from typing import Any
 
 from quant_robot.data.readiness import check_parquet_readiness, check_tushare_readiness
 from quant_robot.factors.daily_basic_residual_composite import DAILY_BASIC_RESIDUAL_COMPOSITE_FACTOR_NAMES
+from quant_robot.factors.daily_basic_smart_money_quality import DAILY_BASIC_SMART_MONEY_QUALITY_FACTOR_NAMES
+from quant_robot.factors.daily_basic_public_risk_filter_bridge import (
+    DAILY_BASIC_PUBLIC_RISK_FILTER_BRIDGE_FACTOR_NAMES,
+)
 from quant_robot.factors.daily_basic_technical_combo import DAILY_BASIC_TECHNICAL_COMBO_FACTOR_NAMES
 from quant_robot.factors.daily_basic_value_liquidity_tail import DAILY_BASIC_VALUE_LIQUIDITY_TAIL_FACTOR_NAMES
 from quant_robot.factors.etf_theme_breadth import etf_theme_breadth_factor_names
@@ -427,6 +431,10 @@ def _registered_factor_names(factor_source: str, factor_windows: tuple[int, ...]
         return set(DAILY_BASIC_TECHNICAL_COMBO_FACTOR_NAMES)
     if factor_source == "daily_basic_residual_composite":
         return set(DAILY_BASIC_RESIDUAL_COMPOSITE_FACTOR_NAMES)
+    if factor_source == "daily_basic_smart_money_quality":
+        return set(DAILY_BASIC_SMART_MONEY_QUALITY_FACTOR_NAMES)
+    if factor_source == "daily_basic_public_risk_filter_bridge":
+        return set(DAILY_BASIC_PUBLIC_RISK_FILTER_BRIDGE_FACTOR_NAMES)
     if factor_source == "daily_basic_value_liquidity_tail":
         return set(DAILY_BASIC_VALUE_LIQUIDITY_TAIL_FACTOR_NAMES)
     if factor_source == "etf_theme_breadth":

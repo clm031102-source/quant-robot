@@ -51,11 +51,15 @@ REQUIRED_TRANSLATION_LAYER_DESIGN_ITEMS = [
     "ic_to_portfolio_gap_audit_before_topn_expansion",
     "industry_neutral_ic_audit_for_stock_factors",
     "translation_layer_required_after_strong_ic_rejection",
+    "bottom_exclusion_overlay_audit_for_strong_ic_rejected_topn",
+    "bottom_exclusion_costed_walk_forward_before_promotion",
 ]
 REQUIRED_TRANSLATION_LAYER_CONFIRMATIONS = [
     "ic_to_portfolio_gap_audit_read",
     "industry_neutral_ic_audit_enabled",
     "translation_layer_plan_registered",
+    "bottom_exclusion_overlay_audit_read",
+    "bottom_exclusion_costed_walk_forward_registered",
 ]
 
 

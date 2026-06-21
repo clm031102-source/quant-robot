@@ -66,6 +66,8 @@ def _preflight_desktop_inputs(config_path: str | Path, source: str, data_root: s
     if config.experiment_grid.factor_source in {
         "tushare_daily_basic",
         "daily_basic_technical_combo",
+        "daily_basic_smart_money_quality",
+        "daily_basic_public_risk_filter_bridge",
         "daily_basic_value_liquidity_tail",
     }:
         _require_factor_input_root(factor_input_root, label="daily-basic")

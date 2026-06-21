@@ -293,6 +293,56 @@ class ProjectAuditTests(unittest.TestCase):
             self.assertEqual(registry["unknown_factor_refs"], [])
             self.assertEqual(registry["unsupported_factor_sources"], [])
 
+    def test_audit_accepts_registered_daily_basic_smart_money_quality_factor_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "configs").mkdir()
+            (root / "configs" / "walk_forward_daily_basic_smart_money_quality.json").write_text(
+                """{
+  "split_date": "2024-01-01",
+  "experiment_grid": {
+    "factor_source": "daily_basic_smart_money_quality",
+    "factor_names": ["smart_money_quality_lowvol_20", "smart_money_efficiency_lowvol_20"],
+    "factor_windows": [20]
+  }
+}
+""",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            registry = audit["factor_config_registry"]
+            self.assertTrue(registry["passes"])
+            self.assertEqual(registry["configs_scanned"], 1)
+            self.assertEqual(registry["unknown_factor_refs"], [])
+            self.assertEqual(registry["unsupported_factor_sources"], [])
+
+    def test_audit_accepts_registered_daily_basic_public_risk_filter_bridge_factor_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "configs").mkdir()
+            (root / "configs" / "walk_forward_daily_basic_public_risk_filter_bridge.json").write_text(
+                """{
+  "split_date": "2024-01-01",
+  "experiment_grid": {
+    "factor_source": "daily_basic_public_risk_filter_bridge",
+    "factor_names": ["risk_filter_bridge_equal_20", "risk_filter_bridge_anti_obv_weighted_20"],
+    "factor_windows": [20]
+  }
+}
+""",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            registry = audit["factor_config_registry"]
+            self.assertTrue(registry["passes"])
+            self.assertEqual(registry["configs_scanned"], 1)
+            self.assertEqual(registry["unknown_factor_refs"], [])
+            self.assertEqual(registry["unsupported_factor_sources"], [])
+
     def test_audit_accepts_registered_etf_theme_breadth_factor_source(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

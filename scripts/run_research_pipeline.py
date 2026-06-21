@@ -34,6 +34,8 @@ def main() -> None:
             "public_trend_volume",
             "tushare_daily_basic",
             "daily_basic_technical_combo",
+            "daily_basic_smart_money_quality",
+            "daily_basic_public_risk_filter_bridge",
             "daily_basic_value_liquidity_tail",
             "tushare_moneyflow",
             "moneyflow_technical_combo",

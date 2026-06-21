@@ -593,6 +593,68 @@ class ResearchPipelineTests(unittest.TestCase):
 
             self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("resid_value_quality_low_vol_20",))
 
+    def test_pipeline_computes_only_requested_daily_basic_smart_money_quality_factor(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bars = load_demo_market_bars()
+            _write_daily_basic_factor_inputs(Path(tmp), bars)
+
+            with patch("quant_robot.research.pipeline.compute_daily_basic_smart_money_quality_factors") as factor_builder:
+                factor_builder.return_value = pd.DataFrame(
+                    {
+                        "date": [],
+                        "asset_id": [],
+                        "market": [],
+                        "factor_name": [],
+                        "factor_value": [],
+                        "lookback_window": [],
+                    }
+                )
+                run_research_pipeline(
+                    bars,
+                    ResearchPipelineConfig(
+                        factor_name="smart_money_quality_lowvol_20",
+                        factor_source="daily_basic_smart_money_quality",
+                        factor_input_root=Path(tmp),
+                        factor_input_required=True,
+                        market="CN",
+                        top_n=1,
+                        execution_lag=1,
+                    ),
+                )
+
+            self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("smart_money_quality_lowvol_20",))
+
+    def test_pipeline_computes_only_requested_daily_basic_public_risk_filter_bridge_factor(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bars = load_demo_market_bars()
+            _write_daily_basic_factor_inputs(Path(tmp), bars)
+
+            with patch("quant_robot.research.pipeline.compute_daily_basic_public_risk_filter_bridge_factors") as factor_builder:
+                factor_builder.return_value = pd.DataFrame(
+                    {
+                        "date": [],
+                        "asset_id": [],
+                        "market": [],
+                        "factor_name": [],
+                        "factor_value": [],
+                        "lookback_window": [],
+                    }
+                )
+                run_research_pipeline(
+                    bars,
+                    ResearchPipelineConfig(
+                        factor_name="risk_filter_bridge_equal_20",
+                        factor_source="daily_basic_public_risk_filter_bridge",
+                        factor_input_root=Path(tmp),
+                        factor_input_required=True,
+                        market="CN",
+                        top_n=1,
+                        execution_lag=1,
+                    ),
+                )
+
+            self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("risk_filter_bridge_equal_20",))
+
     def test_pipeline_computes_only_requested_tushare_daily_basic_factor(self):
         with tempfile.TemporaryDirectory() as tmp:
             bars = load_demo_market_bars()

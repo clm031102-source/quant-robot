@@ -710,10 +710,15 @@ class FactorMiningStartupGateTests(unittest.TestCase):
         self.assertIn("ic_to_portfolio_gap_audit_before_topn_expansion", protocol["required_experiment_design"])
         self.assertIn("industry_neutral_ic_audit_for_stock_factors", protocol["required_experiment_design"])
         self.assertIn("translation_layer_required_after_strong_ic_rejection", protocol["required_experiment_design"])
+        self.assertIn("bottom_exclusion_overlay_audit_for_strong_ic_rejected_topn", protocol["required_experiment_design"])
+        self.assertIn("bottom_exclusion_costed_walk_forward_before_promotion", protocol["required_experiment_design"])
         self.assertIn("ic_to_portfolio_gap_audit_read", protocol["confirm_before_each_run"])
         self.assertIn("industry_neutral_ic_audit_enabled", protocol["confirm_before_each_run"])
         self.assertIn("translation_layer_plan_registered", protocol["confirm_before_each_run"])
+        self.assertIn("bottom_exclusion_overlay_audit_read", protocol["confirm_before_each_run"])
+        self.assertIn("bottom_exclusion_costed_walk_forward_registered", protocol["confirm_before_each_run"])
         self.assertTrue(any("industry-neutral IC" in item for item in packet["pre_run_checklist"]))
+        self.assertTrue(any("bottom-quantile exclusion" in item for item in packet["pre_run_checklist"]))
 
     def test_validate_startup_gate_rejects_packet_without_round_governance(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
