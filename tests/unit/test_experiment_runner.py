@@ -965,6 +965,7 @@ class ExperimentRunnerTests(unittest.TestCase):
                         "precompute_factor_matrix": True,
                         "reuse_research_inputs": True,
                         "write_case_artifacts": False,
+                        "asset_universe_path": str(Path(tmp) / "universe.json"),
                         "output_dir": str(Path(tmp) / "reports"),
                     }
                 ),
@@ -983,6 +984,7 @@ class ExperimentRunnerTests(unittest.TestCase):
             self.assertTrue(config.precompute_factor_matrix)
             self.assertTrue(config.reuse_research_inputs)
             self.assertFalse(config.write_case_artifacts)
+            self.assertEqual(config.asset_universe_path, Path(tmp) / "universe.json")
             self.assertEqual(config.output_dir, Path(tmp) / "reports")
 
     def test_load_experiment_grid_config_accepts_utf8_bom(self):

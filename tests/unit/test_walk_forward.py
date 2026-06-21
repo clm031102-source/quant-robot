@@ -269,6 +269,7 @@ class WalkForwardTests(unittest.TestCase):
                             "rebalance_intervals": [5],
                             "benchmark_asset_id": "CN_ETF_XSHG_510300",
                             "regime_lookback_values": [60, 120],
+                            "asset_universe_path": str(Path(tmp) / "universe.json"),
                             "precompute_factor_matrix": True,
                             "reuse_research_inputs": True,
                             "resume_completed_cases": True,
@@ -299,6 +300,7 @@ class WalkForwardTests(unittest.TestCase):
             self.assertEqual(config.experiment_grid.rebalance_intervals, (5,))
             self.assertEqual(config.experiment_grid.benchmark_asset_id, "CN_ETF_XSHG_510300")
             self.assertEqual(config.experiment_grid.regime_lookback_values, (60, 120))
+            self.assertEqual(config.experiment_grid.asset_universe_path, Path(tmp) / "universe.json")
             self.assertTrue(config.experiment_grid.precompute_factor_matrix)
             self.assertTrue(config.experiment_grid.reuse_research_inputs)
             self.assertTrue(config.experiment_grid.resume_completed_cases)

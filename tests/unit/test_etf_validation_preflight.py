@@ -58,6 +58,30 @@ class ETFValidationPreflightTests(unittest.TestCase):
         self.assertEqual(packet["decision"]["blockers"], [])
         self.assertGreaterEqual(packet["summary"]["median_allowed_rebalance_dates"], 4)
 
+    def test_preflight_respects_asset_universe_path(self) -> None:
+        bars = _bars(asset_count=6, benchmark_trend="up")
+        with tempfile.TemporaryDirectory() as tmp:
+            universe_path = Path(tmp) / "universe.json"
+            universe_path.write_text(
+                '{"selected_asset_ids": ["ETF_000", "ETF_001", "ETF_002"]}',
+                encoding="utf-8",
+            )
+            config = _config(asset_universe_path=universe_path)
+
+            packet = build_etf_validation_preflight(
+                bars,
+                config,
+                policy=ETFValidationPreflightPolicy(
+                    min_assets=3,
+                    min_rebalance_opportunities_per_fold=4,
+                    min_median_allowed_rebalance_dates=4,
+                    max_zero_allowed_fold_rate=0.0,
+                ),
+            )
+
+        self.assertEqual(packet["summary"]["asset_count"], 3)
+        self.assertEqual(packet["status"], "cleared")
+
     def test_write_preflight_packet_writes_json_and_markdown(self) -> None:
         packet = build_etf_validation_preflight(
             _bars(asset_count=6, benchmark_trend="up"),
@@ -72,7 +96,7 @@ class ETFValidationPreflightTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / "etf_validation_preflight.md").exists())
 
 
-def _config() -> WalkForwardConfig:
+def _config(asset_universe_path: Path | None = None) -> WalkForwardConfig:
     return WalkForwardConfig(
         split_date="2024-01-01",
         experiment_grid=ExperimentGridConfig(
@@ -85,6 +109,7 @@ def _config() -> WalkForwardConfig:
             benchmark_asset_id="ETF_000",
             regime_filter=True,
             regime_lookback_values=(3,),
+            asset_universe_path=asset_universe_path,
         ),
         min_test_trades=4,
         rolling_train_days=10,

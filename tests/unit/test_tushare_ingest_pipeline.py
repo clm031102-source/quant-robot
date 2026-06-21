@@ -89,6 +89,25 @@ class FakeEmptyTushareDailyAdapter(FakeTushareDailyAdapter):
         return pd.DataFrame(columns=["symbol", "date", "open", "high", "low", "close", "volume", "amount"])
 
 
+class FakePartiallyEmptyTushareETFAdapter(FakeTushareDailyAdapter):
+    def fetch_etf_daily_by_trade_date(self, trade_date: str):
+        self.calls.append(f"etf:{trade_date}")
+        if trade_date == "20240102":
+            return pd.DataFrame(columns=["symbol", "date", "open", "high", "low", "close", "volume", "amount"])
+        return pd.DataFrame(
+            {
+                "symbol": ["510300.SH"],
+                "date": [pd.to_datetime(trade_date, format="%Y%m%d").date()],
+                "open": [4.0],
+                "high": [4.1],
+                "low": [3.9],
+                "close": [4.05],
+                "volume": [100000.0],
+                "amount": [405000.0],
+            }
+        )
+
+
 class TushareIngestPipelineTests(unittest.TestCase):
     def test_pipeline_writes_raw_processed_manifest_and_quality_report(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -147,6 +166,20 @@ class TushareIngestPipelineTests(unittest.TestCase):
             manifest = json.loads((Path(tmp) / "manifest.json").read_text(encoding="utf-8"))
             self.assertNotIn("daily:20240102", manifest["completed"])
             self.assertIn("daily:20240102", manifest["failed"])
+
+    def test_pipeline_records_and_skips_empty_cn_etf_raw_response(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            adapter = FakePartiallyEmptyTushareETFAdapter()
+
+            result = run_tushare_daily_ingest(adapter, "2024-01-02", "2024-01-03", Path(tmp), market="CN_ETF")
+
+            self.assertEqual(adapter.calls, ["etf:20240102", "etf:20240103"])
+            self.assertEqual(result["empty_raw_trade_dates"], ["20240102"])
+            self.assertEqual(result["downloaded_trade_dates"], ["20240103"])
+            self.assertEqual(result["processed_rows"], 1)
+            manifest = json.loads((Path(tmp) / "manifest.json").read_text(encoding="utf-8"))
+            self.assertIn("CN_ETF:daily:20240102", manifest["failed"])
+            self.assertIn("CN_ETF:daily:20240103", manifest["completed"])
 
     def test_pipeline_marks_manifest_completed_only_after_processed_success(self):
         with tempfile.TemporaryDirectory() as tmp:

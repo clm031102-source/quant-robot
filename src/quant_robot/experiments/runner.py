@@ -80,6 +80,7 @@ class ExperimentGridConfig:
     max_drawdown_limit: float | None = None
     signal_start_date: str | None = None
     signal_end_date: str | None = None
+    asset_universe_path: Path | None = None
     output_dir: Path | None = None
     write_case_artifacts: bool = True
     rank_by: str = "sharpe"
@@ -174,6 +175,7 @@ def load_experiment_grid_config(path: str | Path) -> ExperimentGridConfig:
         max_drawdown_limit=float(data["max_drawdown_limit"]) if data.get("max_drawdown_limit") is not None else None,
         signal_start_date=data.get("signal_start_date"),
         signal_end_date=data.get("signal_end_date"),
+        asset_universe_path=Path(data["asset_universe_path"]) if data.get("asset_universe_path") else None,
         output_dir=Path(data["output_dir"]) if data.get("output_dir") else None,
         write_case_artifacts=bool(data.get("write_case_artifacts", ExperimentGridConfig.write_case_artifacts)),
         rank_by=str(data.get("rank_by", ExperimentGridConfig.rank_by)),
@@ -190,6 +192,7 @@ def run_experiment_grid(
     progress: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     _validate_config(config)
+    bars = _filter_bars_for_asset_universe(bars, config)
     cases = build_experiment_cases(config)
     resume_fingerprint = _resume_fingerprint(config)
     resumed_rows = (
@@ -437,6 +440,35 @@ def _filter_bars_for_precompute(bars: pd.DataFrame, config: ExperimentGridConfig
     if config.end_date:
         frame = frame[pd.to_datetime(frame["date"]).dt.date <= pd.to_datetime(config.end_date).date()]
     return frame.sort_values(["asset_id", "date"]).reset_index(drop=True)
+
+
+def _filter_bars_for_asset_universe(bars: pd.DataFrame, config: ExperimentGridConfig) -> pd.DataFrame:
+    if config.asset_universe_path is None:
+        return bars
+    selected_asset_ids = _load_asset_universe_ids(config.asset_universe_path)
+    if config.benchmark_asset_id is not None and config.benchmark_asset_id not in selected_asset_ids:
+        raise ValueError(
+            "asset_universe_path must include benchmark_asset_id: "
+            f"{config.benchmark_asset_id}"
+        )
+    frame = bars[bars["asset_id"].astype(str).isin(selected_asset_ids)].copy()
+    if frame.empty:
+        raise ValueError(f"asset_universe_path selected no bars: {config.asset_universe_path}")
+    return frame.reset_index(drop=True)
+
+
+def _load_asset_universe_ids(path: str | Path) -> set[str]:
+    payload = json.loads(Path(path).read_text(encoding="utf-8-sig"))
+    if isinstance(payload, dict):
+        values = payload.get("selected_asset_ids", [])
+    elif isinstance(payload, list):
+        values = payload
+    else:
+        raise ValueError("asset_universe_path must contain a JSON list or selected_asset_ids")
+    selected = {str(value) for value in values if str(value)}
+    if not selected:
+        raise ValueError("asset_universe_path contains no selected_asset_ids")
+    return selected
 
 
 def _load_grid_etf_share_size_inputs(config: ExperimentGridConfig) -> pd.DataFrame:
@@ -795,6 +827,7 @@ def _config_dict(config: ExperimentGridConfig) -> dict[str, Any]:
     data["regime_lookback_values"] = (
         list(config.regime_lookback_values) if config.regime_lookback_values is not None else None
     )
+    data["asset_universe_path"] = str(config.asset_universe_path) if config.asset_universe_path is not None else None
     data["output_dir"] = str(config.output_dir) if config.output_dir is not None else None
     return data
 

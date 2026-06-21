@@ -707,6 +707,7 @@ def _grid_from_mapping(data: dict[str, Any]) -> ExperimentGridConfig:
         max_drawdown_limit=float(data["max_drawdown_limit"]) if data.get("max_drawdown_limit") is not None else None,
         signal_start_date=data.get("signal_start_date"),
         signal_end_date=data.get("signal_end_date"),
+        asset_universe_path=Path(data["asset_universe_path"]) if data.get("asset_universe_path") else None,
         output_dir=None,
         rank_by=str(data.get("rank_by", ExperimentGridConfig.rank_by)),
         min_trades=int(data.get("min_trades", ExperimentGridConfig.min_trades)),
@@ -725,6 +726,11 @@ def _config_dict(config: WalkForwardConfig) -> dict[str, Any]:
     )
     data["experiment_grid"]["moneyflow_input_root"] = (
         str(config.experiment_grid.moneyflow_input_root) if config.experiment_grid.moneyflow_input_root is not None else None
+    )
+    data["experiment_grid"]["asset_universe_path"] = (
+        str(config.experiment_grid.asset_universe_path)
+        if config.experiment_grid.asset_universe_path is not None
+        else None
     )
     data["experiment_grid"]["markets"] = list(config.experiment_grid.markets)
     data["experiment_grid"]["factor_names"] = list(config.experiment_grid.factor_names)

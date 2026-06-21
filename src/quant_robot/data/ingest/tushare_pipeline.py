@@ -38,6 +38,7 @@ def run_tushare_daily_ingest(
     manifest = IngestManifest(output_path / "manifest.json")
     downloaded: list[str] = []
     skipped: list[str] = []
+    empty_raw_trade_dates: list[str] = []
     raw_frames_by_date: dict[str, pd.DataFrame] = {}
     downloaded_rows_by_date: dict[str, int] = {}
 
@@ -49,6 +50,10 @@ def run_tushare_daily_ingest(
             continue
         raw = _fetch_daily(adapter, trade_date, market)
         if raw.empty:
+            if _allow_empty_raw_response(market):
+                _record_empty_raw_response(manifest, key, trade_date)
+                empty_raw_trade_dates.append(trade_date)
+                continue
             _mark_empty_raw_response(manifest, key, trade_date)
         store.write_frame(raw, _raw_dataset(market), {"trade_date": trade_date})
         downloaded.append(trade_date)
@@ -84,6 +89,7 @@ def run_tushare_daily_ingest(
         "market": market,
         "downloaded_trade_dates": downloaded,
         "skipped_trade_dates": skipped,
+        "empty_raw_trade_dates": empty_raw_trade_dates,
         "processed_rows": int(len(processed)),
         "adjusted": adjusted,
         "adjustment_report": adjustment_report,
@@ -128,6 +134,16 @@ def _mark_empty_raw_response(manifest: IngestManifest, key: str, trade_date: str
     manifest.mark_failed(key, reason=reason)
     manifest.save()
     raise RuntimeError(reason)
+
+
+def _record_empty_raw_response(manifest: IngestManifest, key: str, trade_date: str) -> None:
+    reason = f"empty raw response for open trade date {trade_date}"
+    manifest.mark_failed(key, reason=reason)
+    manifest.save()
+
+
+def _allow_empty_raw_response(market: str) -> bool:
+    return market.upper() == "CN_ETF"
 
 
 def _load_raw_frames(store: DatasetStore, trade_dates: list[str], raw_frames_by_date: dict[str, pd.DataFrame], market: str) -> pd.DataFrame:

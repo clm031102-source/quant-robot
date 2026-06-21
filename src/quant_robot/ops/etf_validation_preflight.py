@@ -105,8 +105,25 @@ def _market_bars(bars: pd.DataFrame, config: WalkForwardConfig) -> pd.DataFrame:
     frame = bars.copy()
     if markets:
         frame = frame[frame["market"].astype(str).str.upper().isin(markets)].copy()
+    if config.experiment_grid.asset_universe_path is not None:
+        selected_asset_ids = _load_asset_universe_ids(config.experiment_grid.asset_universe_path)
+        frame = frame[frame["asset_id"].astype(str).isin(selected_asset_ids)].copy()
     frame["date"] = pd.to_datetime(frame["date"]).dt.date
     return frame.sort_values(["asset_id", "date"]).reset_index(drop=True)
+
+
+def _load_asset_universe_ids(path: str | Path) -> set[str]:
+    payload = json.loads(Path(path).read_text(encoding="utf-8-sig"))
+    if isinstance(payload, dict):
+        values = payload.get("selected_asset_ids", [])
+    elif isinstance(payload, list):
+        values = payload
+    else:
+        raise ValueError("asset_universe_path must contain a JSON list or selected_asset_ids")
+    selected = {str(value) for value in values if str(value)}
+    if not selected:
+        raise ValueError("asset_universe_path contains no selected_asset_ids")
+    return selected
 
 
 def _fold_summaries(bars: pd.DataFrame, config: WalkForwardConfig) -> list[dict[str, Any]]:
