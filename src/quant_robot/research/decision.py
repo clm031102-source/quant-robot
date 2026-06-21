@@ -85,6 +85,7 @@ def decision_summary(
     relative_return = _number(benchmark_metrics.get("relative_return"))
     max_dd = _number(strategy_metrics.get("max_drawdown"))
     capacity_limited_trades = int(_number(strategy_metrics.get("capacity_limited_trades")))
+    calendar_limited_trades = int(_number(strategy_metrics.get("calendar_limited_trades")))
     if min_total_return is not None and total_return < float(min_total_return):
         reasons.append("total_return_below_threshold")
     if min_relative_return is not None and relative_return < float(min_relative_return):
@@ -93,6 +94,8 @@ def decision_summary(
         reasons.append("drawdown_above_limit")
     if capacity_limited_trades > 0:
         reasons.append("capacity_limited_trades_present")
+    if calendar_limited_trades > 0:
+        reasons.append("calendar_limited_trades_present")
     return {
         "decision_status": "approved" if not reasons else "rejected",
         "rejection_reasons": reasons,
@@ -100,6 +103,7 @@ def decision_summary(
         "relative_return": relative_return,
         "max_drawdown": max_dd,
         "capacity_limited_trades": capacity_limited_trades,
+        "calendar_limited_trades": calendar_limited_trades,
         "min_total_return": min_total_return,
         "min_relative_return": min_relative_return,
         "max_drawdown_limit": max_drawdown_limit,

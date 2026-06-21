@@ -45,6 +45,36 @@ class IngestCliTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / "moneyflow_input_quality_report.json").exists())
             self.assertGreater(result["processed_rows"], 0)
 
+    def test_tushare_fina_indicator_fixture_ingest_writes_financial_inputs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_ingest(
+                source="tushare-fina-indicator-fixture",
+                market="CN",
+                output_dir=Path(tmp),
+                start_date="2024-03-31",
+                end_date="2024-06-30",
+            )
+
+            self.assertEqual(result["dataset"], "fina_indicator")
+            self.assertTrue((Path(tmp) / "manifest.json").exists())
+            self.assertTrue((Path(tmp) / "financial_input_quality_report.json").exists())
+            self.assertGreater(result["processed_rows"], 0)
+
+    def test_tushare_fina_indicator_fixture_ingest_accepts_symbol_subset(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_ingest(
+                source="tushare-fina-indicator-fixture",
+                market="CN",
+                output_dir=Path(tmp),
+                start_date="2024-03-31",
+                end_date="2024-03-31",
+                symbols=["000001.SZ"],
+            )
+
+            self.assertEqual(result["dataset"], "fina_indicator")
+            self.assertEqual(result["processed_rows"], 1)
+            self.assertEqual(result["downloaded_requests"], ["000001.SZ:20240331"])
+
 
 if __name__ == "__main__":
     unittest.main()

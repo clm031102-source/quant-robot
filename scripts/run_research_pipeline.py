@@ -13,6 +13,7 @@ ensure_workspace_imports()
 
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.research.pipeline import ResearchPipelineConfig, run_research_pipeline
+from quant_robot.storage.authority_bars import load_authority_processed_bars_from_config
 from quant_robot.storage.processed_bars import load_processed_bars
 
 DEFAULT_MARKETS = ("CN", "CN_ETF", "HK", "US", "CRYPTO")
@@ -60,6 +61,8 @@ def main() -> None:
     parser.add_argument("--regime-lookback", default=20, type=int)
     parser.add_argument("--min-relative-return", type=float)
     parser.add_argument("--max-drawdown-limit", type=float)
+    parser.add_argument("--min-signal-amount", type=float)
+    parser.add_argument("--max-calendar-holding-days", type=int)
     parser.add_argument("--start-date")
     parser.add_argument("--end-date")
     parser.add_argument("--signal-start-date")
@@ -112,6 +115,8 @@ def build_research_config(args: argparse.Namespace) -> ResearchPipelineConfig:
         regime_lookback=args.regime_lookback,
         min_relative_return=args.min_relative_return,
         max_drawdown_limit=args.max_drawdown_limit,
+        min_signal_amount=getattr(args, "min_signal_amount", None),
+        max_calendar_holding_days=getattr(args, "max_calendar_holding_days", None),
         signal_start_date=args.signal_start_date,
         signal_end_date=args.signal_end_date,
         output_dir=Path(args.output_dir),
@@ -124,6 +129,8 @@ def load_research_bars(source: str, data_root: Path, market: str) -> object:
     if source != "processed-bars":
         raise ValueError(f"Unsupported research source: {source}")
     market_upper = market.upper()
+    if data_root.is_file():
+        return load_authority_processed_bars_from_config(data_root, (market_upper,))
     if market_upper != "ALL":
         return load_processed_bars(data_root, market_upper)
     import pandas as pd

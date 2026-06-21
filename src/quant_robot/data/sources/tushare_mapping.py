@@ -46,6 +46,20 @@ DAILY_BASIC_COLUMNS = [
     "circ_mv",
 ]
 
+FINA_INDICATOR_COLUMNS = [
+    "symbol",
+    "ann_date",
+    "end_date",
+    "roe",
+    "roa",
+    "grossprofit_margin",
+    "netprofit_margin",
+    "netprofit_yoy",
+    "or_yoy",
+    "ocfps",
+    "cfps",
+]
+
 FUND_BASIC_COLUMNS = [
     "symbol",
     "name",
@@ -81,6 +95,7 @@ STOCK_BASIC_COLUMNS = [
 
 _MONEYFLOW_NUMERIC_COLUMNS = [column for column in MONEYFLOW_COLUMNS if column not in {"symbol", "date"}]
 _DAILY_BASIC_NUMERIC_COLUMNS = [column for column in DAILY_BASIC_COLUMNS if column not in {"symbol", "date"}]
+_FINA_INDICATOR_NUMERIC_COLUMNS = [column for column in FINA_INDICATOR_COLUMNS if column not in {"symbol", "ann_date", "end_date"}]
 
 
 def map_tushare_daily(frame: pd.DataFrame) -> pd.DataFrame:
@@ -118,6 +133,23 @@ def map_tushare_daily_basic(frame: pd.DataFrame) -> pd.DataFrame:
     for column in _DAILY_BASIC_NUMERIC_COLUMNS:
         mapped[column] = pd.to_numeric(source[column], errors="coerce") if column in source.columns else pd.NA
     return mapped[DAILY_BASIC_COLUMNS].sort_values(["symbol", "date"]).reset_index(drop=True)
+
+
+def map_tushare_fina_indicator(frame: pd.DataFrame) -> pd.DataFrame:
+    if frame.empty:
+        return pd.DataFrame(columns=FINA_INDICATOR_COLUMNS)
+    _require_columns(frame, ["ts_code", "ann_date", "end_date"], "tushare fina_indicator")
+    source = frame.copy()
+    mapped = pd.DataFrame(
+        {
+            "symbol": source["ts_code"],
+            "ann_date": pd.to_datetime(source["ann_date"], format="%Y%m%d").dt.date,
+            "end_date": pd.to_datetime(source["end_date"], format="%Y%m%d").dt.date,
+        }
+    )
+    for column in _FINA_INDICATOR_NUMERIC_COLUMNS:
+        mapped[column] = pd.to_numeric(source[column], errors="coerce") if column in source.columns else pd.NA
+    return mapped[FINA_INDICATOR_COLUMNS].sort_values(["symbol", "end_date", "ann_date"]).reset_index(drop=True)
 
 
 def map_tushare_fund_basic(frame: pd.DataFrame) -> pd.DataFrame:

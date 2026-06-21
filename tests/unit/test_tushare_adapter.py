@@ -92,6 +92,24 @@ class FakeTushareClient:
             }
         )
 
+    def fina_indicator(self, **kwargs):
+        self.calls.append(("fina_indicator", kwargs))
+        return pd.DataFrame(
+            {
+                "ts_code": [kwargs.get("ts_code", "000001.SZ") or "000001.SZ"],
+                "ann_date": ["20240425"],
+                "end_date": [kwargs.get("period", "20240331") or "20240331"],
+                "roe": [11.2],
+                "roa": [0.92],
+                "grossprofit_margin": [28.5],
+                "netprofit_margin": [12.3],
+                "netprofit_yoy": [8.7],
+                "or_yoy": [6.5],
+                "ocfps": [1.24],
+                "cfps": [1.8],
+            }
+        )
+
     def adj_factor(self, **kwargs):
         self.calls.append(("adj_factor", kwargs))
         return pd.DataFrame({"ts_code": ["000001.SZ"], "trade_date": ["20240102"], "adj_factor": [100.0]})
@@ -208,6 +226,19 @@ class TushareAdapterTests(unittest.TestCase):
         self.assertAlmostEqual(result.loc[0, "net_mf_amount"], 120.0)
         self.assertEqual(client.calls[0][0], "moneyflow")
         self.assertEqual(client.calls[0][1]["trade_date"], "20240102")
+
+    def test_fetch_fina_indicator_maps_pit_profitability_fields(self):
+        client = FakeTushareClient()
+        adapter = TushareAdapter(client=client)
+
+        result = adapter.fetch_fina_indicator(period="2024-03-31")
+
+        self.assertEqual(result.loc[0, "symbol"], "000001.SZ")
+        self.assertEqual(result.loc[0, "ann_date"].isoformat(), "2024-04-25")
+        self.assertEqual(result.loc[0, "end_date"].isoformat(), "2024-03-31")
+        self.assertAlmostEqual(result.loc[0, "roe"], 11.2)
+        self.assertEqual(client.calls[0][0], "fina_indicator")
+        self.assertEqual(client.calls[0][1]["period"], "20240331")
 
     def test_fetch_metadata_methods_map_contracts(self):
         adapter = TushareAdapter(client=FakeTushareClient())

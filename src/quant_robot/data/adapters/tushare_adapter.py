@@ -12,6 +12,7 @@ from quant_robot.data.sources.tushare_mapping import (
     map_tushare_adj_factor,
     map_tushare_daily,
     map_tushare_daily_basic,
+    map_tushare_fina_indicator,
     map_tushare_fund_basic,
     map_tushare_moneyflow,
     map_tushare_stock_basic,
@@ -55,6 +56,22 @@ class TushareAdapter(MarketDataAdapter):
     def fetch_moneyflow_by_trade_date(self, trade_date: str) -> pd.DataFrame:
         raw = self._call(self.client.moneyflow, trade_date=_date_to_tushare(trade_date))
         return map_tushare_moneyflow(raw)
+
+    def fetch_fina_indicator(
+        self,
+        ts_code: str = "",
+        period: str = "",
+        start_date: str = "",
+        end_date: str = "",
+    ) -> pd.DataFrame:
+        raw = self._call(
+            self.client.fina_indicator,
+            ts_code=ts_code,
+            period=_date_to_tushare(period) if period else "",
+            start_date=_date_to_tushare(start_date) if start_date else "",
+            end_date=_date_to_tushare(end_date) if end_date else "",
+        )
+        return map_tushare_fina_indicator(raw)
 
     def fetch_adj_factor(self, ts_code: str = "", start_date: str = "", end_date: str = "") -> pd.DataFrame:
         raw = self._call(

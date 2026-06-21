@@ -30,6 +30,10 @@ from quant_robot.factors.daily_basic_value_liquidity_tail import (
     DAILY_BASIC_VALUE_LIQUIDITY_TAIL_FACTOR_NAMES,
     compute_daily_basic_value_liquidity_tail_factors,
 )
+from quant_robot.factors.daily_basic_public_quality_value_momentum import (
+    DAILY_BASIC_PUBLIC_QVM_FACTOR_NAMES,
+    compute_daily_basic_public_quality_value_momentum_factors,
+)
 from quant_robot.factors.etf_moneyflow_basket import (
     ETF_MONEYFLOW_BASKET_FACTOR_NAMES,
     aggregate_etf_moneyflow_basket_inputs,
@@ -114,6 +118,8 @@ class ResearchPipelineConfig:
     slippage_bps: float | None = None
     market_impact_bps: float = 0.0
     max_participation_rate: float | None = None
+    min_signal_amount: float | None = None
+    max_calendar_holding_days: int | None = None
     portfolio_value: float = 1_000_000.0
     min_total_return: float | None = None
     min_relative_return: float | None = None
@@ -222,6 +228,8 @@ def _run_research_pipeline_from_inputs(
         slippage_bps=config.slippage_bps,
         market_impact_bps=config.market_impact_bps,
         max_participation_rate=config.max_participation_rate,
+        min_signal_amount=config.min_signal_amount,
+        max_calendar_holding_days=config.max_calendar_holding_days,
         portfolio_value=config.portfolio_value,
         selection_method=config.selection_method,
     )
@@ -304,6 +312,8 @@ _RESEARCH_INPUT_RUNTIME_CONFIG_KEYS = {
     "slippage_bps",
     "market_impact_bps",
     "max_participation_rate",
+    "min_signal_amount",
+    "max_calendar_holding_days",
     "portfolio_value",
     "min_total_return",
     "min_relative_return",
@@ -358,6 +368,7 @@ def _load_factor_input_frame(config: ResearchPipelineConfig) -> pd.DataFrame:
         "daily_basic_smart_money_quality",
         "daily_basic_public_risk_filter_bridge",
         "daily_basic_value_liquidity_tail",
+        "daily_basic_public_quality_value_momentum",
         "tushare_moneyflow",
         "moneyflow_technical_combo",
         "etf_share_size",
@@ -559,6 +570,14 @@ def _compute_factor_source(bars: pd.DataFrame, factor_inputs: pd.DataFrame, conf
         if config.factor_name not in DAILY_BASIC_VALUE_LIQUIDITY_TAIL_FACTOR_NAMES:
             return _empty_factor_frame()
         return compute_daily_basic_value_liquidity_tail_factors(bars, factor_inputs, factor_names=(config.factor_name,))
+    if config.factor_source == "daily_basic_public_quality_value_momentum":
+        if config.factor_name not in DAILY_BASIC_PUBLIC_QVM_FACTOR_NAMES:
+            return _empty_factor_frame()
+        return compute_daily_basic_public_quality_value_momentum_factors(
+            bars,
+            factor_inputs,
+            factor_names=(config.factor_name,),
+        )
     pieces = []
     if config.factor_name in technical_factor_names(config.factor_windows):
         pieces.append(compute_basic_factors(bars, windows=config.factor_windows, factor_names=(config.factor_name,)))

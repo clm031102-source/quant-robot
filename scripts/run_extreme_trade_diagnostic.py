@@ -129,6 +129,8 @@ def _pipeline_config(
         slippage_bps=grid.slippage_bps,
         market_impact_bps=grid.market_impact_bps,
         max_participation_rate=grid.max_participation_rate,
+        min_signal_amount=grid.min_signal_amount,
+        max_calendar_holding_days=grid.max_calendar_holding_days,
         portfolio_value=grid.portfolio_value,
         min_relative_return=grid.min_relative_return,
         max_drawdown_limit=grid.max_drawdown_limit,

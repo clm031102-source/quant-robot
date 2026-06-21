@@ -218,6 +218,40 @@ class ResearchPipelineTests(unittest.TestCase):
         self.assertEqual({row["asset_id"] for row in result["holdings"]}, {"TECH_A", "BANK_A"})
         self.assertEqual(result["request"]["selection_method"], "industry_neutral_top_n")
 
+    def test_pipeline_passes_tradeability_gates_to_backtest(self):
+        bars = _synthetic_public_technical_bars(asset_count=2, day_count=3)
+        asset_ids = sorted(bars["asset_id"].unique())
+        signal_date = min(pd.to_datetime(bars["date"]).dt.date.unique())
+        factors = pd.DataFrame(
+            {
+                "date": [signal_date, signal_date],
+                "asset_id": asset_ids,
+                "market": ["CN", "CN"],
+                "factor_name": ["factor", "factor"],
+                "factor_value": [10.0, 9.0],
+            }
+        )
+        bars.loc[bars["asset_id"] == asset_ids[0], "amount"] = 1_000.0
+        bars.loc[bars["asset_id"] == asset_ids[1], "amount"] = 50_000_000.0
+
+        result = run_research_pipeline(
+            bars,
+            ResearchPipelineConfig(
+                factor_name="factor",
+                market="CN",
+                top_n=1,
+                cost_bps=0.0,
+                min_signal_amount=10_000_000.0,
+                max_calendar_holding_days=60,
+            ),
+            precomputed_factors=factors,
+        )
+
+        self.assertEqual({row["asset_id"] for row in result["trades"]}, {asset_ids[1]})
+        self.assertEqual(result["request"]["min_signal_amount"], 10_000_000.0)
+        self.assertEqual(result["request"]["max_calendar_holding_days"], 60)
+        self.assertEqual(result["metrics"]["signals_filtered_min_signal_amount"], 1)
+
     def test_pipeline_uses_forward_horizon_for_backtest_exit(self):
         config = ResearchPipelineConfig(factor_name="momentum_2", factor_windows=(2,), market="CN", top_n=1, forward_horizon=2)
 
@@ -394,6 +428,33 @@ class ResearchPipelineTests(unittest.TestCase):
             result = load_research_bars("processed-bars", root, "ALL")
 
             self.assertEqual(set(result["market"]), {"CN", "CN_ETF", "HK", "US", "CRYPTO"})
+
+    def test_research_cli_loader_accepts_authority_bars_config_for_single_market(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            store_root = root / "store"
+            config_path = root / "authority_bars.json"
+            bars = load_demo_market_bars()
+            cn_bars = bars[bars["market"] == "CN"].reset_index(drop=True)
+            DatasetStore(store_root).write_frame(
+                cn_bars,
+                "processed/bars",
+                {"frequency": "1d", "market": "CN", "year": "2024"},
+            )
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "market": "CN",
+                        "segments": [{"root": str(store_root), "end_date": "2024-12-31"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = load_research_bars("processed-bars", config_path, "CN")
+
+            self.assertEqual(len(result), len(cn_bars))
+            self.assertEqual(set(result["market"]), {"CN"})
 
     def test_research_cli_config_builder_passes_factor_input_options(self):
         args = SimpleNamespace(
@@ -654,6 +715,37 @@ class ResearchPipelineTests(unittest.TestCase):
                 )
 
             self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("risk_filter_bridge_equal_20",))
+
+    def test_pipeline_computes_only_requested_daily_basic_public_qvm_factor(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bars = load_demo_market_bars()
+            _write_daily_basic_factor_inputs(Path(tmp), bars)
+
+            with patch("quant_robot.research.pipeline.compute_daily_basic_public_quality_value_momentum_factors") as factor_builder:
+                factor_builder.return_value = pd.DataFrame(
+                    {
+                        "date": [],
+                        "asset_id": [],
+                        "market": [],
+                        "factor_name": [],
+                        "factor_value": [],
+                        "lookback_window": [],
+                    }
+                )
+                run_research_pipeline(
+                    bars,
+                    ResearchPipelineConfig(
+                        factor_name="public_qvm_value_momentum_lowvol_20",
+                        factor_source="daily_basic_public_quality_value_momentum",
+                        factor_input_root=Path(tmp),
+                        factor_input_required=True,
+                        market="CN",
+                        top_n=1,
+                        execution_lag=1,
+                    ),
+                )
+
+            self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("public_qvm_value_momentum_lowvol_20",))
 
     def test_pipeline_computes_only_requested_tushare_daily_basic_factor(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -16,6 +16,7 @@ ensure_workspace_imports()
 from quant_robot.assets.models import Asset
 from quant_robot.data.adapters.tushare_adapter import TushareAdapter
 from quant_robot.data.ingest.tushare_factor_inputs import run_tushare_daily_basic_ingest
+from quant_robot.data.ingest.tushare_financial_inputs import run_tushare_fina_indicator_ingest
 from quant_robot.data.ingest.tushare_moneyflow_inputs import run_tushare_moneyflow_ingest
 from quant_robot.data.ingest.tushare_pipeline import run_tushare_daily_ingest
 from quant_robot.data.normalize import normalize_ohlcv
@@ -29,6 +30,7 @@ def run_ingest(
     output_dir: Path | str,
     start_date: str = "2024-01-02",
     end_date: str = "2024-01-06",
+    symbols: list[str] | None = None,
 ) -> dict[str, object]:
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -44,10 +46,27 @@ def run_ingest(
         return run_tushare_moneyflow_ingest(_FixtureTushareAdapter(), start_date, end_date, output_path, market=market)
     if source == "tushare-moneyflow":
         return run_tushare_moneyflow_ingest(TushareAdapter(), start_date, end_date, output_path, market=market)
+    if source == "tushare-fina-indicator-fixture":
+        return run_tushare_fina_indicator_ingest(
+            _FixtureTushareAdapter(),
+            _quarter_end_periods(start_date, end_date),
+            output_path,
+            market=market,
+            ts_codes=symbols,
+        )
+    if source == "tushare-fina-indicator":
+        return run_tushare_fina_indicator_ingest(
+            TushareAdapter(),
+            _quarter_end_periods(start_date, end_date),
+            output_path,
+            market=market,
+            ts_codes=symbols or _default_financial_smoke_symbols(),
+        )
     if source != "fixture":
         raise RuntimeError(
             "Supported sources are fixture, tushare-fixture, tushare, "
-            "tushare-factor-fixture, tushare-factor, tushare-moneyflow-fixture, and tushare-moneyflow"
+            "tushare-factor-fixture, tushare-factor, tushare-moneyflow-fixture, "
+            "tushare-moneyflow, tushare-fina-indicator-fixture, and tushare-fina-indicator"
         )
     asset = _fixture_asset(market)
     raw = _fixture_raw_bars()
@@ -147,6 +166,26 @@ class _FixtureTushareAdapter:
             }
         )
 
+    def fetch_fina_indicator(self, period: str, ts_code: str = "") -> pd.DataFrame:
+        period_date = pd.to_datetime(period, format="%Y%m%d").date()
+        ann_date = (pd.Timestamp(period_date) + pd.Timedelta(days=25)).date()
+        symbols = [ts_code] if ts_code else ["000001.SZ", "600519.SH"]
+        return pd.DataFrame(
+            {
+                "symbol": symbols,
+                "ann_date": [ann_date] * len(symbols),
+                "end_date": [period_date] * len(symbols),
+                "roe": [11.2 + index for index, _ in enumerate(symbols)],
+                "roa": [0.92 + index for index, _ in enumerate(symbols)],
+                "grossprofit_margin": [28.5 + index for index, _ in enumerate(symbols)],
+                "netprofit_margin": [12.3 + index for index, _ in enumerate(symbols)],
+                "netprofit_yoy": [8.7 + index for index, _ in enumerate(symbols)],
+                "or_yoy": [6.5 + index for index, _ in enumerate(symbols)],
+                "ocfps": [1.24 + index for index, _ in enumerate(symbols)],
+                "cfps": [1.8 + index for index, _ in enumerate(symbols)],
+            }
+        )
+
 
 def _fixture_asset(market: str) -> Asset:
     market_upper = market.upper()
@@ -159,6 +198,20 @@ def _fixture_asset(market: str) -> Asset:
     if market_upper == "CRYPTO":
         return Asset("CRYPTO_BINANCE_BTC_USDT", "BTC/USDT", "CRYPTO", "BINANCE", "crypto_spot", "USDT", "UTC", "24/7")
     raise ValueError(f"Unsupported fixture market: {market}")
+
+
+def _quarter_end_periods(start_date: str, end_date: str) -> list[str]:
+    quarters = pd.period_range(start=pd.to_datetime(start_date), end=pd.to_datetime(end_date), freq="Q")
+    return [period.end_time.strftime("%Y%m%d") for period in quarters]
+
+
+def _default_financial_smoke_symbols() -> list[str]:
+    return ["000001.SZ"]
+
+
+def _parse_symbols(value: str) -> list[str] | None:
+    symbols = [item.strip() for item in value.split(",") if item.strip()]
+    return symbols or None
 
 
 def _fixture_raw_bars() -> pd.DataFrame:
@@ -185,8 +238,16 @@ def main() -> None:
     parser.add_argument("--output-dir", default="data/processed/ingest_fixture")
     parser.add_argument("--start-date", default="2024-01-02")
     parser.add_argument("--end-date", default="2024-01-06")
+    parser.add_argument("--symbols", default="", help="Comma-separated symbols for symbol-scoped financial ingests.")
     args = parser.parse_args()
-    result = run_ingest(args.source, args.market, Path(args.output_dir), args.start_date, args.end_date)
+    result = run_ingest(
+        args.source,
+        args.market,
+        Path(args.output_dir),
+        args.start_date,
+        args.end_date,
+        symbols=_parse_symbols(args.symbols),
+    )
     print(json.dumps(result, indent=2, sort_keys=True))
 
 

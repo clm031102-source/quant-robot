@@ -30,6 +30,9 @@ from quant_robot.factors.daily_basic_public_risk_filter_bridge import (
     compute_daily_basic_public_risk_filter_bridge_factors,
 )
 from quant_robot.factors.daily_basic_value_liquidity_tail import compute_daily_basic_value_liquidity_tail_factors
+from quant_robot.factors.daily_basic_public_quality_value_momentum import (
+    compute_daily_basic_public_quality_value_momentum_factors,
+)
 from quant_robot.factors.tushare_inputs import compute_daily_basic_factors
 from quant_robot.factors.tushare_moneyflow import compute_moneyflow_factors
 from quant_robot.research.pipeline import (
@@ -80,6 +83,8 @@ class ExperimentGridConfig:
     slippage_bps: float | None = None
     market_impact_bps: float = 0.0
     max_participation_rate: float | None = None
+    min_signal_amount: float | None = None
+    max_calendar_holding_days: int | None = None
     portfolio_value: float = 1_000_000.0
     min_total_return: float | None = None
     min_relative_return: float | None = None
@@ -176,6 +181,10 @@ def load_experiment_grid_config(path: str | Path) -> ExperimentGridConfig:
         slippage_bps=float(data["slippage_bps"]) if data.get("slippage_bps") is not None else None,
         market_impact_bps=float(data.get("market_impact_bps", ExperimentGridConfig.market_impact_bps)),
         max_participation_rate=float(data["max_participation_rate"]) if data.get("max_participation_rate") is not None else None,
+        min_signal_amount=float(data["min_signal_amount"]) if data.get("min_signal_amount") is not None else None,
+        max_calendar_holding_days=(
+            int(data["max_calendar_holding_days"]) if data.get("max_calendar_holding_days") is not None else None
+        ),
         portfolio_value=float(data.get("portfolio_value", ExperimentGridConfig.portfolio_value)),
         min_total_return=float(data["min_total_return"]) if data.get("min_total_return") is not None else None,
         min_relative_return=float(data["min_relative_return"]) if data.get("min_relative_return") is not None else None,
@@ -378,6 +387,8 @@ def _pipeline_config(
         slippage_bps=grid_config.slippage_bps,
         market_impact_bps=grid_config.market_impact_bps,
         max_participation_rate=grid_config.max_participation_rate,
+        min_signal_amount=grid_config.min_signal_amount,
+        max_calendar_holding_days=grid_config.max_calendar_holding_days,
         portfolio_value=grid_config.portfolio_value,
         min_total_return=grid_config.min_total_return,
         min_relative_return=grid_config.min_relative_return,
@@ -436,6 +447,13 @@ def _precompute_factor_matrix(bars: pd.DataFrame, config: ExperimentGridConfig) 
     if config.factor_source == "daily_basic_value_liquidity_tail":
         factor_inputs = _load_grid_factor_inputs(config)
         return compute_daily_basic_value_liquidity_tail_factors(source_bars, factor_inputs, factor_names=config.factor_names)
+    if config.factor_source == "daily_basic_public_quality_value_momentum":
+        factor_inputs = _load_grid_factor_inputs(config)
+        return compute_daily_basic_public_quality_value_momentum_factors(
+            source_bars,
+            factor_inputs,
+            factor_names=config.factor_names,
+        )
     if config.factor_source == "tushare_moneyflow":
         moneyflow_inputs = _load_grid_moneyflow_inputs(config)
         return compute_moneyflow_factors(moneyflow_inputs, factor_names=config.factor_names)
@@ -617,6 +635,13 @@ def _row(
             "avg_participation_rate": _number(metrics.get("avg_participation_rate"), 0.0),
             "max_participation_rate": _number(metrics.get("max_participation_rate"), 0.0),
             "capacity_limited_trades": int(_number(metrics.get("capacity_limited_trades"), 0.0)),
+            "signals_filtered_min_signal_amount": int(_number(metrics.get("signals_filtered_min_signal_amount"), 0.0)),
+            "signal_amount_filter_threshold": _number(metrics.get("signal_amount_filter_threshold"), 0.0),
+            "calendar_limited_trades": int(_number(metrics.get("calendar_limited_trades"), 0.0)),
+            "calendar_holding_gate_days": int(_number(metrics.get("calendar_holding_gate_days"), 0.0)),
+            "max_calendar_holding_days": int(_number(metrics.get("max_calendar_holding_days"), 0.0)),
+            "p99_calendar_holding_days": _number(metrics.get("p99_calendar_holding_days"), 0.0),
+            "max_skipped_calendar_holding_days": int(_number(metrics.get("max_skipped_calendar_holding_days"), 0.0)),
             "max_trade_gross_return": _number(metrics.get("max_trade_gross_return"), 0.0),
             "max_abs_trade_gross_return": _number(metrics.get("max_abs_trade_gross_return"), 0.0),
             "p99_abs_trade_gross_return": _number(metrics.get("p99_abs_trade_gross_return"), 0.0),

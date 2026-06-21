@@ -3,11 +3,13 @@ import unittest
 import pandas as pd
 
 from quant_robot.data.sources.tushare_mapping import (
+    FINA_INDICATOR_COLUMNS,
     FUND_BASIC_COLUMNS,
     MONEYFLOW_COLUMNS,
     map_tushare_adj_factor,
     map_tushare_daily,
     map_tushare_daily_basic,
+    map_tushare_fina_indicator,
     map_tushare_fund_basic,
     map_tushare_moneyflow,
     map_tushare_stock_basic,
@@ -127,6 +129,41 @@ class TushareMappingTests(unittest.TestCase):
         )
         self.assertAlmostEqual(result.loc[0, "pb"], 5.5)
         self.assertTrue(pd.isna(result.loc[0, "pe_ttm"]))
+
+    def test_map_fina_indicator_normalizes_pit_profitability_fields(self):
+        source = pd.DataFrame(
+            {
+                "ts_code": ["000001.SZ"],
+                "ann_date": ["20240425"],
+                "end_date": ["20240331"],
+                "roe": ["11.2"],
+                "roa": ["0.92"],
+                "grossprofit_margin": ["28.5"],
+                "netprofit_margin": ["12.3"],
+                "netprofit_yoy": ["8.7"],
+                "or_yoy": ["6.5"],
+                "ocfps": ["1.24"],
+                "cfps": ["1.8"],
+            }
+        )
+
+        result = map_tushare_fina_indicator(source)
+
+        self.assertEqual(list(result.columns), FINA_INDICATOR_COLUMNS)
+        self.assertEqual(result.loc[0, "symbol"], "000001.SZ")
+        self.assertEqual(str(result.loc[0, "ann_date"]), "2024-04-25")
+        self.assertEqual(str(result.loc[0, "end_date"]), "2024-03-31")
+        self.assertAlmostEqual(result.loc[0, "roe"], 11.2)
+        self.assertAlmostEqual(result.loc[0, "roa"], 0.92)
+
+    def test_map_fina_indicator_creates_missing_optional_profitability_columns(self):
+        source = pd.DataFrame({"ts_code": ["600519.SH"], "ann_date": ["20240403"], "end_date": ["20231231"], "roe": ["31.5"]})
+
+        result = map_tushare_fina_indicator(source)
+
+        self.assertEqual(list(result.columns), FINA_INDICATOR_COLUMNS)
+        self.assertAlmostEqual(result.loc[0, "roe"], 31.5)
+        self.assertTrue(pd.isna(result.loc[0, "grossprofit_margin"]))
 
     def test_map_fund_basic_normalizes_etf_metadata(self):
         source = pd.DataFrame(

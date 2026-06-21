@@ -343,6 +343,31 @@ class ProjectAuditTests(unittest.TestCase):
             self.assertEqual(registry["unknown_factor_refs"], [])
             self.assertEqual(registry["unsupported_factor_sources"], [])
 
+    def test_audit_accepts_registered_daily_basic_public_qvm_factor_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "configs").mkdir()
+            (root / "configs" / "walk_forward_daily_basic_public_qvm.json").write_text(
+                """{
+  "split_date": "2024-01-01",
+  "experiment_grid": {
+    "factor_source": "daily_basic_public_quality_value_momentum",
+    "factor_names": ["public_qvm_value_momentum_lowvol_20", "public_qvm_value_reversal_quality_20"],
+    "factor_windows": [20]
+  }
+}
+""",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            registry = audit["factor_config_registry"]
+            self.assertTrue(registry["passes"])
+            self.assertEqual(registry["configs_scanned"], 1)
+            self.assertEqual(registry["unknown_factor_refs"], [])
+            self.assertEqual(registry["unsupported_factor_sources"], [])
+
     def test_audit_accepts_registered_etf_theme_breadth_factor_source(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -48,6 +48,7 @@ class ExtremeTradeDiagnosticCliTests(unittest.TestCase):
                 )
 
             self.assertEqual(diagnostic["summary"]["extreme_trades"], 1)
+            self.assertEqual(diagnostic["summary"]["capacity_limited_trades"], 1)
             load_bars.assert_called_once()
             passed_config = pipeline.call_args.args[1]
             self.assertEqual(passed_config.factor_source, "daily_basic_value_liquidity_tail")
@@ -56,6 +57,8 @@ class ExtremeTradeDiagnosticCliTests(unittest.TestCase):
             self.assertEqual(passed_config.cost_bps, 10.0)
             self.assertTrue((output_dir / "extreme_trade_diagnostic.json").exists())
             self.assertTrue((output_dir / "extreme_trade_diagnostic.csv").exists())
+            self.assertTrue((output_dir / "capacity_limited_trades.csv").exists())
+            self.assertTrue((output_dir / "top_weighted_return_trades.csv").exists())
             self.assertTrue((output_dir / "extreme_trade_diagnostic.md").exists())
 
 
@@ -70,7 +73,11 @@ def _trades() -> pd.DataFrame:
                 "market": "CN",
                 "factor_name": "value_low_turnover_low_tail_20",
                 "gross_return": 6.0,
+                "weighted_return": 0.03,
                 "target_weight": 0.01,
+                "entry_amount": 50000.0,
+                "participation_rate": 0.20,
+                "capacity_limited": True,
             }
         ]
     )

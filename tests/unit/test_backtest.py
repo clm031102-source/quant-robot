@@ -318,6 +318,79 @@ class BacktestTests(unittest.TestCase):
         self.assertEqual(result.metrics["capacity_limited_trades"], 1)
         self.assertGreater(result.metrics["max_participation_rate"], 0.10)
 
+    def test_backtest_filters_low_signal_amount_before_top_n_selection(self):
+        factors = pd.DataFrame(
+            {
+                "date": [pd.Timestamp("2024-01-01").date()] * 2,
+                "asset_id": ["ILLQ", "LIQ"],
+                "market": ["CN", "CN"],
+                "factor_name": ["turnover_rate_low", "turnover_rate_low"],
+                "factor_value": [10.0, 9.0],
+            }
+        )
+        bars = pd.DataFrame(
+            {
+                "date": list(pd.date_range("2024-01-01", periods=3).date) * 2,
+                "asset_id": ["ILLQ"] * 3 + ["LIQ"] * 3,
+                "market": ["CN"] * 6,
+                "adj_close": [10.0, 10.0, 11.0, 20.0, 20.0, 22.0],
+                "amount": [1_000.0, 1_000.0, 1_000.0, 50_000_000.0, 50_000_000.0, 50_000_000.0],
+            }
+        )
+
+        result = run_factor_backtest(
+            factors,
+            bars,
+            top_n=1,
+            cost_bps=0.0,
+            min_signal_amount=10_000_000.0,
+        )
+
+        self.assertEqual(set(result.trades["asset_id"]), {"LIQ"})
+        self.assertEqual(result.metrics["signals_filtered_min_signal_amount"], 1)
+        self.assertEqual(result.metrics["signal_amount_filter_threshold"], 10_000_000.0)
+
+    def test_backtest_skips_trades_when_calendar_holding_exceeds_gate(self):
+        factors = pd.DataFrame(
+            {
+                "date": [pd.Timestamp("2024-01-01").date()],
+                "asset_id": ["SUSP"],
+                "market": ["CN"],
+                "factor_name": ["turnover_rate_low"],
+                "factor_value": [1.0],
+            }
+        )
+        bars = pd.DataFrame(
+            {
+                "date": [
+                    pd.Timestamp("2024-01-01").date(),
+                    pd.Timestamp("2024-01-02").date(),
+                    pd.Timestamp("2024-01-03").date(),
+                    pd.Timestamp("2024-05-01").date(),
+                ],
+                "asset_id": ["SUSP"] * 4,
+                "market": ["CN"] * 4,
+                "adj_close": [10.0, 10.0, 10.5, 11.0],
+                "amount": [100_000_000.0] * 4,
+            }
+        )
+
+        ungated = run_factor_backtest(factors, bars, top_n=1, cost_bps=0.0, holding_period=2)
+        gated = run_factor_backtest(
+            factors,
+            bars,
+            top_n=1,
+            cost_bps=0.0,
+            holding_period=2,
+            max_calendar_holding_days=30,
+        )
+
+        self.assertEqual(len(ungated.trades), 1)
+        self.assertGreater(ungated.metrics["max_calendar_holding_days"], 30)
+        self.assertTrue(gated.trades.empty)
+        self.assertEqual(gated.metrics["calendar_limited_trades"], 1)
+        self.assertEqual(gated.metrics["max_calendar_holding_days"], 0)
+
     def test_backtest_flags_extreme_single_trade_returns(self):
         factors = pd.DataFrame(
             {
