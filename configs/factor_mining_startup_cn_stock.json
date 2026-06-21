@@ -78,7 +78,10 @@
     "three_round_review_gate_confirmed",
     "ten_round_github_sync_gate_confirmed",
     "public_reference_method_review_confirmed",
-    "waste_budget_stop_loss_confirmed"
+    "waste_budget_stop_loss_confirmed",
+    "ic_portfolio_gap_audit_confirmed",
+    "industry_neutral_ic_audit_confirmed",
+    "translation_layer_plan_confirmed"
   ],
   "research_direction": {
     "objective": "cn_stock_cross_sectional_alpha",
@@ -109,8 +112,8 @@
       "record_rejected_families": true
     },
     "repeatable_mining_protocol": {
-      "source_audit": "data/reports/cn_stock_factor_mining_20260617_batch_audit.md",
-      "next_direction": "factor_validation_required_for_daily_champion_oos_candidates",
+      "source_audit": "docs/research/cn_stock_industry_neutral_ic_audit_round48_2026-06-21.md",
+      "next_direction": "industry_neutral_portfolio_backtest_for_public_formula_signals",
       "recently_rejected_directions": [
         "single_factor_top50_daily_long_only",
         "liquid_trend_direct_long",
@@ -130,7 +133,9 @@
         "component_mining_without_rankic_confirmation",
         "p_value_reset_after_champion_selection",
         "daily_schedule_sharpe_without_oos_validation",
-        "overlapping_holdings_as_independent_returns"
+        "overlapping_holdings_as_independent_returns",
+        "raw_public_formula_topn_expansion_without_translation_layer",
+        "industry_blind_topn_after_strong_ic_rejection"
       ],
       "required_experiment_design": [
         "long_cycle_same_parameter_replay",
@@ -150,7 +155,10 @@
         "cost_capacity_turnover_stress",
         "cumulative_multiple_testing_accounting",
         "no_parameter_tuning_during_oos",
-        "final_holdout_only_after_oos_clearance"
+        "final_holdout_only_after_oos_clearance",
+        "ic_to_portfolio_gap_audit_before_topn_expansion",
+        "industry_neutral_ic_audit_for_stock_factors",
+        "translation_layer_required_after_strong_ic_rejection"
       ],
       "confirm_before_each_run": [
         "long_cycle_replay_plan_read",
@@ -181,7 +189,10 @@
         "daily_vs_every2_every3_controls_enabled",
         "cost_capacity_turnover_stress_enabled",
         "cost_capacity_gate_enabled",
-        "final_holdout_not_touched"
+        "final_holdout_not_touched",
+        "ic_to_portfolio_gap_audit_read",
+        "industry_neutral_ic_audit_enabled",
+        "translation_layer_plan_registered"
       ]
     }
   },
@@ -199,6 +210,7 @@
       "factor_family_result_audit",
       "reject_reason_histogram",
       "direction_adjustment_decision",
+      "translation_layer_audit",
       "public_reference_method_review",
       "budget_waste_stop_loss_review"
     ],
@@ -220,7 +232,8 @@
       "promotable_requires_cost_capacity_walk_forward_and_long_cycle_replay",
       "research_lead_requires_cross_period_ic_or_portfolio_evidence",
       "discard_single_family_after_repeated_same_blocker_failures",
-      "do_not_optimize_for_raw_sharpe_before_hard_gates"
+      "do_not_optimize_for_raw_sharpe_before_hard_gates",
+      "strong_ic_rejected_long_only_requires_gap_and_industry_neutral_audit_before_more_topn"
     ]
   },
   "universe_gate": {

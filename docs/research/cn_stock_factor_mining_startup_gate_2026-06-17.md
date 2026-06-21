@@ -134,9 +134,11 @@ The startup gate now carries a round-governance packet:
 
 The 2026-06-17 batch audit is now part of the startup packet, but it is no longer enough by itself. Before each new CN stock mining or validation run, confirm that the source audit, long-cycle replay plan, latest bootstrap diagnostic, completed tail-RankIC broad-RankIC batch, completed monthly-persistence sensitivity batch, completed monthly loss-control/phase batch, completed previous-month threshold-robustness batch, completed RankIC-enhancement batch, completed Batch 12 champion staggered-schedule batch, and Batch 12 validation handoff have been read. Batch 12 created discovery-only candidates, so the next controlled task is same-parameter long-cycle replay and formal validation on a factor-validation branch, not another blind discovery batch.
 
+2026-06-21 update: Round48 added an industry-neutral IC audit for the Round12 public price-volume formula family. The audit showed that the strongest public formula signals are not merely industry beta; all three retained strong within-industry RankIC. Therefore, after a strong-IC but rejected long-only result, the startup protocol now requires both IC-to-portfolio gap audit and industry-neutral IC audit before any more raw TopN parameter sweeps.
+
 Default next direction:
 
-- `factor_validation_required_for_daily_champion_oos_candidates`
+- `industry_neutral_portfolio_backtest_for_public_formula_signals`
 
 Recently rejected directions:
 
@@ -157,6 +159,8 @@ Recently rejected directions:
 - p-value reset after champion selection
 - daily schedule Sharpe treated as valid without OOS validation
 - overlapping holdings treated as independent daily observations
+- raw public formula TopN expansion without a translation layer
+- industry-blind TopN after strong IC but rejected long-only evidence
 
 Required experiment design for the next validation pass:
 
@@ -170,6 +174,9 @@ Required experiment design for the next validation pass:
 - carry forward cumulative multiple-testing accounting; do not reset p-values after choosing a champion
 - keep cost, capacity, turnover, drawdown, RankIC, Tail RankIC, and monthly stability gates active
 - do not tune parameters, thresholds, factor components, or schedule choices during long-cycle replay, OOS validation, or final-holdout review
+- run IC-to-portfolio gap and industry-neutral IC audits before extending a strong-IC failed-long-only family
+- if within-industry RankIC survives, test industry-neutral portfolio construction or bottom-quantile exclusion before more raw TopN sweeps
+- if within-industry RankIC disappears, translate the signal to industry breadth, risk state, or ETF/theme bridge logic instead of stock TopN
 
 ## Required Startup Confirmations
 
@@ -214,8 +221,34 @@ The gate blocks unless these items are explicitly confirmed:
 - overfit/multiple-testing audit confirmed
 - overlap-adjusted statistics confirmed
 - cost/capacity/turnover confirmed
+- IC-to-portfolio gap audit confirmed
+- industry-neutral IC audit confirmed
+- translation-layer plan confirmed
 
 Use `--confirm-start` only after those items are true in the current session.
+
+## Translation-Layer Audit Requirement
+
+When a CN stock factor family has strong IC but fails long-only portfolio gates, do not keep adding TopN, cost, or rebalance variants. First run:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_ic_portfolio_gap_audit.py `
+  --leaderboard <leaderboard.csv> `
+  --output-dir data\reports\<ic-gap-audit-dir>
+```
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_industry_neutral_ic_audit.py `
+  --grid-config <experiment-grid.json> `
+  --stock-basic data\processed\cn_stock_metadata `
+  --output-dir data\reports\<industry-neutral-audit-dir>
+```
+
+The next experiment must follow the audit:
+
+- within-industry IC survives: test industry-neutral ranking, bottom-quantile exclusion, or risk/capacity-aware portfolio construction
+- IC is industry-exposure dominated: translate to industry breadth or ETF/theme bridge logic
+- IC is weak: rotate factor family with a public-method hypothesis
 
 ## Next Controlled Research Direction
 

@@ -10,6 +10,9 @@ PUBLIC_FORMULA_PRICE_VOLUME_FACTOR_NAMES = (
     "formula_pv_corr_reversal_20",
     "formula_volume_contraction_reversal_20",
     "formula_range_contraction_breakout_20",
+    "formula_range_contraction_breakout_liquid_20",
+    "formula_range_contraction_breakout_lowvol_20",
+    "formula_range_contraction_breakout_liquid_lowvol_20",
     "formula_pv_corr_momentum_confirmed_20_60",
     "formula_volume_contraction_momentum_confirmed_20_60",
 )
@@ -29,6 +32,9 @@ def compute_public_formula_price_volume_factors(
         "formula_pv_corr_reversal_20": _pv_corr_reversal_score(frame),
         "formula_volume_contraction_reversal_20": _volume_contraction_reversal_score(frame),
         "formula_range_contraction_breakout_20": _range_contraction_breakout_score(frame),
+        "formula_range_contraction_breakout_liquid_20": _range_contraction_breakout_liquid_score(frame),
+        "formula_range_contraction_breakout_lowvol_20": _range_contraction_breakout_lowvol_score(frame),
+        "formula_range_contraction_breakout_liquid_lowvol_20": _range_contraction_breakout_liquid_lowvol_score(frame),
         "formula_pv_corr_momentum_confirmed_20_60": _pv_corr_momentum_confirmed_score(frame),
         "formula_volume_contraction_momentum_confirmed_20_60": _volume_contraction_momentum_confirmed_score(frame),
     }
@@ -102,12 +108,35 @@ def _volume_contraction_reversal_score(frame: pd.DataFrame) -> pd.Series:
 
 
 def _range_contraction_breakout_score(frame: pd.DataFrame) -> pd.Series:
+    value = _range_contraction_breakout_raw_score(frame)
+    return value.where(frame["formula_price_volume_tradeable"].fillna(False))
+
+
+def _range_contraction_breakout_liquid_score(frame: pd.DataFrame) -> pd.Series:
+    value = _range_contraction_breakout_raw_score(frame) + 0.10 * _liquidity_score(frame)
+    return value.where(frame["formula_price_volume_tradeable"].fillna(False))
+
+
+def _range_contraction_breakout_lowvol_score(frame: pd.DataFrame) -> pd.Series:
+    value = _range_contraction_breakout_raw_score(frame) + 0.10 * _low_tail_score(frame)
+    return value.where(frame["formula_price_volume_tradeable"].fillna(False))
+
+
+def _range_contraction_breakout_liquid_lowvol_score(frame: pd.DataFrame) -> pd.Series:
     value = (
+        _range_contraction_breakout_raw_score(frame)
+        + 0.07 * _liquidity_score(frame)
+        + 0.07 * _low_tail_score(frame)
+    )
+    return value.where(frame["formula_price_volume_tradeable"].fillna(False))
+
+
+def _range_contraction_breakout_raw_score(frame: pd.DataFrame) -> pd.Series:
+    return (
         0.45 * _cs_z(frame, pd.to_numeric(frame["range_position_20"], errors="coerce")).fillna(0.0)
         + 0.35 * _cs_z(frame, -pd.to_numeric(frame["hl_range_20"], errors="coerce")).fillna(0.0)
         + 0.20 * _cs_z(frame, -pd.to_numeric(frame["downside_vol_20"], errors="coerce")).fillna(0.0)
     )
-    return value.where(frame["formula_price_volume_tradeable"].fillna(False))
 
 
 def _pv_corr_momentum_confirmed_score(frame: pd.DataFrame) -> pd.Series:
@@ -161,6 +190,13 @@ def _low_tail_score(frame: pd.DataFrame) -> pd.Series:
         _cs_z(frame, -pd.to_numeric(frame["downside_vol_20"], errors="coerce")).fillna(0.0)
         + 0.50 * _cs_z(frame, -pd.to_numeric(frame["hl_range_20"], errors="coerce")).fillna(0.0)
     )
+
+
+def _liquidity_score(frame: pd.DataFrame) -> pd.Series:
+    adv20 = pd.to_numeric(frame["adv20_amount"], errors="coerce")
+    with np.errstate(divide="ignore", invalid="ignore"):
+        log_adv20 = np.log(adv20.where(adv20 > 0.0))
+    return _cs_z(frame, log_adv20).fillna(0.0)
 
 
 def _cs_rank(frame: pd.DataFrame, values: pd.Series) -> pd.Series:

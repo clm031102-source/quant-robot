@@ -24,6 +24,8 @@ class PublicTrendVolumeFactorTests(unittest.TestCase):
                 "anti_supertrend_volume_confirmed_10_3_20",
                 "anti_smart_money_trend_20",
                 "anti_obv_breakout_low_tail_20",
+                "supertrend_volume_capacity_strict_10_3_20",
+                "obv_breakout_capacity_strict_20",
             ),
         )
 
@@ -58,6 +60,25 @@ class PublicTrendVolumeFactorTests(unittest.TestCase):
         values = dict(zip(rows["asset_id"], rows["factor_value"], strict=True))
 
         self.assertGreater(values["CN_TEST_CONFIRMED_TREND"], values["CN_TEST_WEAK_VOLUME_TREND"])
+
+    def test_capacity_strict_variants_filter_unstable_liquidity(self):
+        factors = compute_public_trend_volume_factors(
+            _bars(day_count=70),
+            factor_names=(
+                "supertrend_volume_capacity_strict_10_3_20",
+                "obv_breakout_capacity_strict_20",
+            ),
+        )
+        rows = factors[factors["date"] == pd.Timestamp("2024-04-05").date()]
+        values = {
+            (row["asset_id"], row["factor_name"]): row["factor_value"]
+            for _, row in rows.iterrows()
+        }
+
+        self.assertFalse(pd.isna(values[("CN_TEST_CONFIRMED_TREND", "supertrend_volume_capacity_strict_10_3_20")]))
+        self.assertFalse(pd.isna(values[("CN_TEST_CONFIRMED_TREND", "obv_breakout_capacity_strict_20")]))
+        self.assertTrue(pd.isna(values[("CN_TEST_UNSTABLE_LIQUIDITY_TREND", "supertrend_volume_capacity_strict_10_3_20")]))
+        self.assertTrue(pd.isna(values[("CN_TEST_UNSTABLE_LIQUIDITY_TREND", "obv_breakout_capacity_strict_20")]))
 
     def test_anti_trend_volume_factors_invert_matching_public_signal(self):
         bars = _bars(day_count=70)
@@ -100,12 +121,14 @@ def _bars(*, day_count: int, future_spike: bool = False) -> pd.DataFrame:
         "CN_TEST_WEAK_VOLUME_TREND": _steady_trend_path(start=10.0, step=0.05, day_count=path_count),
         "CN_TEST_ILLIQUID_TREND": _steady_trend_path(start=10.0, step=0.09, day_count=path_count),
         "CN_TEST_HIGH_TAIL_TREND": _high_tail_path(day_count=path_count),
+        "CN_TEST_UNSTABLE_LIQUIDITY_TREND": _steady_trend_path(start=10.0, step=0.07, day_count=path_count),
     }
     amounts = {
-        "CN_TEST_CONFIRMED_TREND": _accumulating_amounts(path_count, base=5_000_000.0),
-        "CN_TEST_WEAK_VOLUME_TREND": [5_000_000.0] * path_count,
+        "CN_TEST_CONFIRMED_TREND": _accumulating_amounts(path_count, base=8_000_000.0),
+        "CN_TEST_WEAK_VOLUME_TREND": [8_000_000.0] * path_count,
         "CN_TEST_ILLIQUID_TREND": [100_000.0] * path_count,
         "CN_TEST_HIGH_TAIL_TREND": _accumulating_amounts(path_count, base=4_900_000.0),
+        "CN_TEST_UNSTABLE_LIQUIDITY_TREND": _unstable_amounts(path_count),
     }
     rows = []
     for asset_id, prices in assets.items():
@@ -141,6 +164,13 @@ def _high_tail_path(*, day_count: int) -> list[float]:
 
 def _accumulating_amounts(day_count: int, *, base: float) -> list[float]:
     return [base * (1.0 + 0.01 * index) for index in range(day_count)]
+
+
+def _unstable_amounts(day_count: int) -> list[float]:
+    amounts = _accumulating_amounts(day_count, base=9_000_000.0)
+    for index in range(56, day_count, 7):
+        amounts[index] = 10_000.0
+    return amounts
 
 
 if __name__ == "__main__":

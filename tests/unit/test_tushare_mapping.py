@@ -242,9 +242,15 @@ class TushareMappingTests(unittest.TestCase):
             {
                 "ts_code": ["000001.SZ"],
                 "symbol": ["000001"],
+                "area": ["深圳"],
+                "industry": ["银行"],
+                "market": ["主板"],
                 "name": ["平安银行"],
                 "exchange": ["SZSE"],
                 "list_status": ["L"],
+                "list_date": ["19910403"],
+                "delist_date": [None],
+                "is_hs": ["S"],
             }
         )
 
@@ -253,6 +259,11 @@ class TushareMappingTests(unittest.TestCase):
         self.assertEqual(result.loc[0, "asset_id"], "CN_XSHE_000001")
         self.assertEqual(result.loc[0, "market"], "CN")
         self.assertEqual(result.loc[0, "currency"], "CNY")
+        self.assertEqual(result.loc[0, "area"], "深圳")
+        self.assertEqual(result.loc[0, "industry"], "银行")
+        self.assertEqual(result.loc[0, "stock_market"], "主板")
+        self.assertEqual(str(result.loc[0, "list_date"]), "1991-04-03")
+        self.assertEqual(result.loc[0, "is_hs"], "S")
 
     def test_map_stock_basic_maps_beijing_exchange(self):
         source = pd.DataFrame(

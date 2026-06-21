@@ -106,9 +106,15 @@ class FakeTushareClient:
             {
                 "ts_code": ["000001.SZ"],
                 "symbol": ["000001"],
+                "area": ["深圳"],
+                "industry": ["银行"],
+                "market": ["主板"],
                 "name": ["平安银行"],
                 "exchange": ["SZSE"],
                 "list_status": ["L"],
+                "list_date": ["19910403"],
+                "delist_date": [None],
+                "is_hs": ["S"],
             }
         )
 
@@ -207,8 +213,23 @@ class TushareAdapterTests(unittest.TestCase):
         adapter = TushareAdapter(client=FakeTushareClient())
 
         self.assertEqual(str(adapter.fetch_trade_calendar("20240101", "20240131").loc[0, "date"]), "2024-01-02")
-        self.assertEqual(adapter.fetch_stock_basic().loc[0, "asset_id"], "CN_XSHE_000001")
+        stock_basic = adapter.fetch_stock_basic()
+        self.assertEqual(stock_basic.loc[0, "asset_id"], "CN_XSHE_000001")
+        self.assertEqual(stock_basic.loc[0, "industry"], "银行")
         self.assertEqual(adapter.fetch_adj_factor("000001.SZ", "20240101", "20240131").loc[0, "adj_factor"], 100.0)
+
+    def test_fetch_stock_basic_requests_industry_metadata_fields(self):
+        client = FakeTushareClient()
+        adapter = TushareAdapter(client=client)
+
+        adapter.fetch_stock_basic()
+
+        call = client.calls[-1]
+        self.assertEqual(call[0], "stock_basic")
+        fields = call[1]["fields"]
+        self.assertIn("industry", fields)
+        self.assertIn("area", fields)
+        self.assertIn("list_date", fields)
 
     def test_fetch_fund_basic_maps_etf_metadata(self):
         client = FakeTushareClient()

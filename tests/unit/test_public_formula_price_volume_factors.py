@@ -20,6 +20,9 @@ class PublicFormulaPriceVolumeFactorTests(unittest.TestCase):
                 "formula_pv_corr_reversal_20",
                 "formula_volume_contraction_reversal_20",
                 "formula_range_contraction_breakout_20",
+                "formula_range_contraction_breakout_liquid_20",
+                "formula_range_contraction_breakout_lowvol_20",
+                "formula_range_contraction_breakout_liquid_lowvol_20",
                 "formula_pv_corr_momentum_confirmed_20_60",
                 "formula_volume_contraction_momentum_confirmed_20_60",
             ),
@@ -59,6 +62,40 @@ class PublicFormulaPriceVolumeFactorTests(unittest.TestCase):
         values = _values_on_last_date(factors)
 
         self.assertGreater(values["CN_FORMULA_TIGHT_BREAKOUT"], values["CN_FORMULA_CHOPPY"])
+
+    def test_range_contraction_liquid_variant_prefers_more_liquid_peer(self):
+        module = _formula_module()
+
+        factors = module.compute_public_formula_price_volume_factors(
+            _bars(day_count=70),
+            factor_names=("formula_range_contraction_breakout_liquid_20",),
+        )
+        values = _values_on_last_date(factors)
+
+        self.assertGreater(values["CN_FORMULA_TIGHT_BREAKOUT"], values["CN_FORMULA_TIGHT_BREAKOUT_LOW_LIQ"])
+
+    def test_range_contraction_lowvol_variant_prefers_smoother_peer(self):
+        module = _formula_module()
+
+        factors = module.compute_public_formula_price_volume_factors(
+            _bars(day_count=70),
+            factor_names=("formula_range_contraction_breakout_lowvol_20",),
+        )
+        values = _values_on_last_date(factors)
+
+        self.assertGreater(values["CN_FORMULA_TIGHT_BREAKOUT"], values["CN_FORMULA_TIGHT_BREAKOUT_BUMPY"])
+
+    def test_range_contraction_composite_keeps_tradeable_filter(self):
+        module = _formula_module()
+
+        factors = module.compute_public_formula_price_volume_factors(
+            _bars(day_count=70),
+            factor_names=("formula_range_contraction_breakout_liquid_lowvol_20",),
+        )
+        values = _values_on_last_date(factors)
+
+        self.assertTrue(pd.isna(values["CN_FORMULA_ILLIQUID"]))
+        self.assertTrue(pd.isna(values["CN_FORMULA_HIGH_TAIL"]))
 
     def test_momentum_confirmed_formula_excludes_declining_reversal_trap(self):
         module = _formula_module()
@@ -114,6 +151,8 @@ def _bars(*, day_count: int, future_spike: bool = False) -> pd.DataFrame:
         "CN_FORMULA_CONFIRMATION": _rising_path(day_count=path_count),
         "CN_FORMULA_CONFIRMED_PULLBACK": _confirmed_pullback_path(day_count=path_count),
         "CN_FORMULA_TIGHT_BREAKOUT": _tight_breakout_path(day_count=path_count),
+        "CN_FORMULA_TIGHT_BREAKOUT_LOW_LIQ": _tight_breakout_path(day_count=path_count),
+        "CN_FORMULA_TIGHT_BREAKOUT_BUMPY": _bumpy_tight_breakout_path(day_count=path_count),
         "CN_FORMULA_CHOPPY": _choppy_path(day_count=path_count),
         "CN_FORMULA_ILLIQUID": _declining_path(day_count=path_count),
         "CN_FORMULA_HIGH_TAIL": _high_tail_path(day_count=path_count),
@@ -123,6 +162,8 @@ def _bars(*, day_count: int, future_spike: bool = False) -> pd.DataFrame:
         "CN_FORMULA_CONFIRMATION": _rising_amounts(path_count, base=7_000_000.0),
         "CN_FORMULA_CONFIRMED_PULLBACK": _rising_amounts(path_count, base=7_500_000.0),
         "CN_FORMULA_TIGHT_BREAKOUT": _flat_amounts(path_count, base=11_200_000.0),
+        "CN_FORMULA_TIGHT_BREAKOUT_LOW_LIQ": _flat_amounts(path_count, base=10_500_000.0),
+        "CN_FORMULA_TIGHT_BREAKOUT_BUMPY": _flat_amounts(path_count, base=11_200_000.0),
         "CN_FORMULA_CHOPPY": _flat_amounts(path_count, base=11_300_000.0),
         "CN_FORMULA_ILLIQUID": _flat_amounts(path_count, base=50_000.0),
         "CN_FORMULA_HIGH_TAIL": _rising_amounts(path_count, base=5_400_000.0),
@@ -164,6 +205,13 @@ def _confirmed_pullback_path(*, day_count: int) -> list[float]:
 
 def _tight_breakout_path(*, day_count: int) -> list[float]:
     return [10.0 + 0.01 * index + (0.20 if index > day_count - 10 else 0.0) for index in range(day_count)]
+
+
+def _bumpy_tight_breakout_path(*, day_count: int) -> list[float]:
+    prices = _tight_breakout_path(day_count=day_count)
+    for index in range(30, day_count, 9):
+        prices[index] = prices[index - 1] * 0.96
+    return prices
 
 
 def _choppy_path(*, day_count: int) -> list[float]:

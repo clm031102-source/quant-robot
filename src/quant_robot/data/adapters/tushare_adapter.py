@@ -84,7 +84,7 @@ class TushareAdapter(MarketDataAdapter):
             self.client.stock_basic,
             exchange="",
             list_status=list_status,
-            fields="ts_code,symbol,name,exchange,list_status",
+            fields="ts_code,symbol,name,area,industry,market,exchange,list_status,list_date,delist_date,is_hs",
         )
         return map_tushare_stock_basic(raw)
 

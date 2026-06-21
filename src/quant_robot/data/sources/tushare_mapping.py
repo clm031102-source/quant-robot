@@ -60,6 +60,25 @@ FUND_BASIC_COLUMNS = [
     "found_date",
 ]
 
+STOCK_BASIC_COLUMNS = [
+    "asset_id",
+    "symbol",
+    "market",
+    "exchange",
+    "asset_type",
+    "currency",
+    "timezone",
+    "calendar",
+    "name",
+    "is_active",
+    "area",
+    "industry",
+    "stock_market",
+    "list_date",
+    "delist_date",
+    "is_hs",
+]
+
 _MONEYFLOW_NUMERIC_COLUMNS = [column for column in MONEYFLOW_COLUMNS if column not in {"symbol", "date"}]
 _DAILY_BASIC_NUMERIC_COLUMNS = [column for column in DAILY_BASIC_COLUMNS if column not in {"symbol", "date"}]
 
@@ -173,6 +192,8 @@ def map_tushare_trade_cal(frame: pd.DataFrame, open_only: bool = True) -> pd.Dat
 
 
 def map_tushare_stock_basic(frame: pd.DataFrame) -> pd.DataFrame:
+    if frame.empty:
+        return pd.DataFrame(columns=STOCK_BASIC_COLUMNS)
     required = ["ts_code", "symbol", "name", "exchange", "list_status"]
     _require_columns(frame, required, "tushare stock_basic")
     exchange = frame["exchange"].map({"SSE": "XSHG", "SZSE": "XSHE", "BSE": "XBEI"}).fillna(frame["exchange"])
@@ -188,8 +209,14 @@ def map_tushare_stock_basic(frame: pd.DataFrame) -> pd.DataFrame:
             "calendar": exchange,
             "name": frame["name"],
             "is_active": frame["list_status"] == "L",
+            "area": _optional_text(frame, "area"),
+            "industry": _optional_text(frame, "industry"),
+            "stock_market": _optional_text(frame, "market"),
+            "list_date": _optional_date(frame, "list_date"),
+            "delist_date": _optional_date(frame, "delist_date"),
+            "is_hs": _optional_text(frame, "is_hs"),
         }
-    ).sort_values(["asset_id"]).reset_index(drop=True)
+    )[STOCK_BASIC_COLUMNS].sort_values(["asset_id"]).reset_index(drop=True)
 
 
 def _optional_text(frame: pd.DataFrame, column: str) -> pd.Series:

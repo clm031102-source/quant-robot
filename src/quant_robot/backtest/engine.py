@@ -6,7 +6,7 @@ import pandas as pd
 
 from quant_robot.backtest.costs import capacity_limited, estimate_trade_cost_rate
 from quant_robot.backtest.metrics import summarize_returns
-from quant_robot.backtest.portfolio import select_top_n
+from quant_robot.backtest.portfolio import select_industry_neutral_top_n, select_top_n
 from quant_robot.research.overlap import overlap_aware_return_stats
 
 
@@ -37,6 +37,7 @@ def run_factor_backtest(
     market_impact_bps: float = 0.0,
     max_participation_rate: float | None = None,
     portfolio_value: float = 1_000_000.0,
+    selection_method: str = "top_n",
 ) -> BacktestResult:
     required_factor_columns = ["date", "asset_id", "market", "factor_name", "factor_value"]
     required_bar_columns = ["date", "asset_id", "market", "adj_close"]
@@ -58,7 +59,12 @@ def run_factor_backtest(
     factors = _normalize_date_column(factors)
     bars = _normalize_date_column(bars)
     selected = _scale_signal_sleeves(
-        select_top_n(factors, top_n=top_n, portfolio_scope=portfolio_scope),
+        _select_positions(
+            factors,
+            top_n=top_n,
+            portfolio_scope=portfolio_scope,
+            selection_method=selection_method,
+        ),
         holding_period,
         rebalance_interval,
         target_gross_exposure,
@@ -106,6 +112,20 @@ def run_factor_backtest(
         metrics["max_participation_rate"] = 0.0
         metrics["capacity_limited_trades"] = 0
     return BacktestResult(equity_curve=equity_curve, positions=selected, trades=trades, metrics=metrics)
+
+
+def _select_positions(
+    factors: pd.DataFrame,
+    *,
+    top_n: int,
+    portfolio_scope: str,
+    selection_method: str,
+) -> pd.DataFrame:
+    if selection_method == "top_n":
+        return select_top_n(factors, top_n=top_n, portfolio_scope=portfolio_scope)
+    if selection_method == "industry_neutral_top_n":
+        return select_industry_neutral_top_n(factors, top_n=top_n, portfolio_scope=portfolio_scope)
+    raise ValueError("selection_method must be 'top_n' or 'industry_neutral_top_n'")
 
 
 def _trade_return_metrics(trades: pd.DataFrame) -> dict[str, float | bool]:

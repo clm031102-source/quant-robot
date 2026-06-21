@@ -188,6 +188,36 @@ class ResearchPipelineTests(unittest.TestCase):
 
         self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("formula_pv_corr_reversal_20",))
 
+    def test_pipeline_can_use_industry_neutral_portfolio_selection(self):
+        bars = _industry_neutral_pipeline_bars()
+        signal_date = pd.Timestamp("2024-01-02").date()
+        factors = pd.DataFrame(
+            {
+                "date": [signal_date] * 4,
+                "asset_id": ["TECH_A", "TECH_B", "BANK_A", "BANK_B"],
+                "market": ["CN"] * 4,
+                "factor_name": ["formula"] * 4,
+                "factor_value": [100.0, 99.0, 2.0, 1.0],
+                "industry": ["Tech", "Tech", "Bank", "Bank"],
+            }
+        )
+
+        result = run_research_pipeline(
+            bars,
+            ResearchPipelineConfig(
+                factor_name="formula",
+                market="CN",
+                top_n=2,
+                cost_bps=0.0,
+                forward_horizon=1,
+                selection_method="industry_neutral_top_n",
+            ),
+            precomputed_factors=factors,
+        )
+
+        self.assertEqual({row["asset_id"] for row in result["holdings"]}, {"TECH_A", "BANK_A"})
+        self.assertEqual(result["request"]["selection_method"], "industry_neutral_top_n")
+
     def test_pipeline_uses_forward_horizon_for_backtest_exit(self):
         config = ResearchPipelineConfig(factor_name="momentum_2", factor_windows=(2,), market="CN", top_n=1, forward_horizon=2)
 
@@ -819,6 +849,20 @@ def _falling_regime_bars() -> pd.DataFrame:
                 }
             )
     return pd.DataFrame(rows)
+
+
+def _industry_neutral_pipeline_bars() -> pd.DataFrame:
+    base = load_demo_market_bars()
+    cn_assets = list(base[base["market"] == "CN"]["asset_id"].unique())
+    source_assets = [cn_assets[0], cn_assets[0], cn_assets[1], cn_assets[1]]
+    target_assets = ["TECH_A", "TECH_B", "BANK_A", "BANK_B"]
+    frames = []
+    for source_asset, target_asset in zip(source_assets, target_assets, strict=True):
+        frame = base[base["asset_id"] == source_asset].copy()
+        frame["asset_id"] = target_asset
+        frame["symbol"] = target_asset
+        frames.append(frame)
+    return pd.concat(frames, ignore_index=True).sort_values(["asset_id", "date"]).reset_index(drop=True)
 
 
 def _write_daily_basic_factor_inputs(root: Path, bars: pd.DataFrame) -> None:

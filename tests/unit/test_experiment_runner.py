@@ -135,6 +135,7 @@ class ExperimentRunnerTests(unittest.TestCase):
                 factor_windows=(2,),
                 top_n_values=(1,),
                 cost_bps_values=(0.0,),
+                min_total_return=0.02,
                 output_dir=Path(tmp),
                 write_case_artifacts=False,
             )
@@ -152,6 +153,7 @@ class ExperimentRunnerTests(unittest.TestCase):
 
             passed_config = pipeline.call_args.args[1]
             self.assertIsNone(passed_config.output_dir)
+            self.assertAlmostEqual(passed_config.min_total_return, 0.02)
             self.assertTrue((Path(tmp) / "leaderboard.csv").exists())
             self.assertFalse((Path(tmp) / "CN_momentum_2_top1_cost0_reb1").exists())
 
@@ -959,6 +961,7 @@ class ExperimentRunnerTests(unittest.TestCase):
                         "cost_bps_values": [5],
                         "rebalance_intervals": [5],
                         "benchmark_asset_id": "CN_ETF_XSHG_510300",
+                        "min_total_return": 0.02,
                         "min_relative_return": 0.01,
                         "target_gross_exposure": 0.9,
                         "regime_lookback_values": [60, 120],
@@ -978,6 +981,7 @@ class ExperimentRunnerTests(unittest.TestCase):
             self.assertEqual(config.factor_names, ("momentum_2",))
             self.assertEqual(config.rebalance_intervals, (5,))
             self.assertEqual(config.benchmark_asset_id, "CN_ETF_XSHG_510300")
+            self.assertAlmostEqual(config.min_total_return, 0.02)
             self.assertAlmostEqual(config.min_relative_return, 0.01)
             self.assertAlmostEqual(config.target_gross_exposure, 0.9)
             self.assertEqual(config.regime_lookback_values, (60, 120))

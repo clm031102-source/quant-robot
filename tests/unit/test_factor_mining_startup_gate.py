@@ -670,6 +670,51 @@ class FactorMiningStartupGateTests(unittest.TestCase):
         self.assertTrue(any("3 rounds" in item for item in packet["pre_run_checklist"]))
         self.assertTrue(any("10 rounds" in item for item in packet["pre_run_checklist"]))
 
+    def test_default_startup_protocol_requires_translation_audits(self) -> None:
+        packet = build_factor_mining_startup_gate(
+            {
+                "scope_id": "cn_stock_factor_mining",
+                "market": "CN",
+                "asset_type": "stock",
+                "allowed_machines": ["office_desktop"],
+                "allowed_tasks": ["factor_validation"],
+                "recommended_branch_prefixes": ["codex/factor-validation-cn-stock-"],
+                "required_confirmations": [
+                    "machine_confirmed",
+                    "task_confirmed",
+                    "branch_confirmed",
+                    "push_policy_confirmed",
+                    "cn_stock_scope_confirmed",
+                    "etf_scope_rejected",
+                ],
+            },
+            request={
+                "machine": "office_desktop",
+                "task": "factor_validation",
+                "branch": "codex/factor-validation-cn-stock-20260620",
+                "market": "CN",
+                "asset_type": "stock",
+                "confirmations": {
+                    "machine_confirmed": True,
+                    "task_confirmed": True,
+                    "branch_confirmed": True,
+                    "push_policy_confirmed": True,
+                    "cn_stock_scope_confirmed": True,
+                    "etf_scope_rejected": True,
+                },
+            },
+            current_branch="codex/factor-validation-cn-stock-20260620",
+        )
+
+        protocol = packet["repeatable_mining_protocol"]
+        self.assertIn("ic_to_portfolio_gap_audit_before_topn_expansion", protocol["required_experiment_design"])
+        self.assertIn("industry_neutral_ic_audit_for_stock_factors", protocol["required_experiment_design"])
+        self.assertIn("translation_layer_required_after_strong_ic_rejection", protocol["required_experiment_design"])
+        self.assertIn("ic_to_portfolio_gap_audit_read", protocol["confirm_before_each_run"])
+        self.assertIn("industry_neutral_ic_audit_enabled", protocol["confirm_before_each_run"])
+        self.assertIn("translation_layer_plan_registered", protocol["confirm_before_each_run"])
+        self.assertTrue(any("industry-neutral IC" in item for item in packet["pre_run_checklist"]))
+
     def test_validate_startup_gate_rejects_packet_without_round_governance(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "factor_mining_startup_gate.json"

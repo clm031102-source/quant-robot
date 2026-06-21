@@ -114,6 +114,40 @@ class BacktestTests(unittest.TestCase):
         self.assertAlmostEqual(float(result.trades["target_weight"].sum()), 1.0)
         self.assertAlmostEqual(result.metrics["turnover"], 1.0)
 
+    def test_backtest_can_select_industry_neutral_top_n(self):
+        factors = pd.DataFrame(
+            {
+                "date": [pd.Timestamp("2024-01-01").date()] * 4,
+                "asset_id": ["TECH_A", "TECH_B", "BANK_A", "BANK_B"],
+                "market": ["CN"] * 4,
+                "factor_name": ["formula"] * 4,
+                "factor_value": [100.0, 99.0, 2.0, 1.0],
+                "industry": ["Tech", "Tech", "Bank", "Bank"],
+            }
+        )
+        bars = pd.DataFrame(
+            {
+                "date": list(pd.date_range("2024-01-01", periods=3).date) * 4,
+                "asset_id": ["TECH_A"] * 3 + ["TECH_B"] * 3 + ["BANK_A"] * 3 + ["BANK_B"] * 3,
+                "market": ["CN"] * 12,
+                "adj_close": [10.0, 10.0, 11.0, 10.0, 10.0, 12.0, 10.0, 10.0, 13.0, 10.0, 10.0, 14.0],
+            }
+        )
+
+        raw = run_factor_backtest(factors, bars, top_n=2, cost_bps=0.0)
+        neutral = run_factor_backtest(
+            factors,
+            bars,
+            top_n=2,
+            cost_bps=0.0,
+            selection_method="industry_neutral_top_n",
+        )
+
+        self.assertEqual(set(raw.trades["asset_id"]), {"TECH_A", "TECH_B"})
+        self.assertEqual(set(neutral.trades["asset_id"]), {"TECH_A", "BANK_A"})
+        self.assertEqual(set(neutral.positions["industry"]), {"Tech", "Bank"})
+        self.assertAlmostEqual(float(neutral.trades["target_weight"].sum()), 1.0)
+
     def test_backtest_holding_period_controls_exit_date(self):
         factors = pd.DataFrame(
             {

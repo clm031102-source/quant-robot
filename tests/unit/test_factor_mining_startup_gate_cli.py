@@ -113,7 +113,7 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
             self.assertIn("single_family_lockin", packet["research_direction"]["forbidden_directions"])
             self.assertEqual(
                 packet["repeatable_mining_protocol"]["next_direction"],
-                "factor_validation_required_for_daily_champion_oos_candidates",
+                "industry_neutral_portfolio_backtest_for_public_formula_signals",
             )
             self.assertIn("daily_basic_inputs", packet["config_required_inputs"])
             self.assertIn(
@@ -121,7 +121,7 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
                 packet["repeatable_mining_protocol"]["recently_rejected_directions"],
             )
             self.assertIn(
-                "daily_champion_10bps_20bps_validation",
+                "industry_neutral_ic_audit_for_stock_factors",
                 packet["repeatable_mining_protocol"]["required_experiment_design"],
             )
             self.assertIn(
@@ -148,6 +148,10 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
             )
             self.assertIn(
                 "batch12_validation_handoff_read",
+                packet["repeatable_mining_protocol"]["confirm_before_each_run"],
+            )
+            self.assertIn(
+                "industry_neutral_ic_audit_enabled",
                 packet["repeatable_mining_protocol"]["confirm_before_each_run"],
             )
 

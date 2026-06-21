@@ -179,7 +179,12 @@ def build_long_cycle_coverage_from_manifest(
     market: str,
     required_start: str = "2015-01-01",
 ) -> dict[str, Any]:
-    summary = _dict(manifest.get("summary"))
+    summary = dict(_dict(manifest.get("summary")))
+    if not summary.get("date_start") or not summary.get("date_end") or not summary.get("bar_trade_dates_by_year"):
+        derived_summary = _daily_ingest_summary_from_manifest(manifest, market=market)
+        for key, value in derived_summary.items():
+            if _missing(summary.get(key)) or summary.get(key) in ("", {}):
+                summary[key] = value
     date_start = str(summary.get("date_start") or "")[:10] or None
     date_end = str(summary.get("date_end") or "")[:10] or None
     blockers: list[str] = []
@@ -626,6 +631,51 @@ def _coerce_year_counts(value: Any) -> dict[str, int]:
         except (TypeError, ValueError):
             continue
     return counts
+
+
+def _daily_ingest_summary_from_manifest(manifest: dict[str, Any], *, market: str) -> dict[str, Any]:
+    completed = _dict(manifest.get("completed"))
+    rows_by_date: dict[date, int] = {}
+    market_key = market.upper()
+    for key, raw in completed.items():
+        parsed_date = _daily_ingest_key_date(str(key), market=market_key)
+        if parsed_date is None:
+            continue
+        rows = int(_number(_dict(raw).get("rows") if isinstance(raw, dict) else raw, 0.0))
+        rows_by_date[parsed_date] = rows_by_date.get(parsed_date, 0) + rows
+
+    if not rows_by_date:
+        return {}
+
+    dates = sorted(rows_by_date)
+    return {
+        "date_start": dates[0].isoformat(),
+        "date_end": dates[-1].isoformat(),
+        "bar_rows": sum(rows_by_date.values()),
+        "bar_asset_ids": max(rows_by_date.values()),
+        "bar_trade_dates_by_year": _trade_dates_by_year(pd.Series(pd.to_datetime(dates))),
+    }
+
+
+def _daily_ingest_key_date(key: str, *, market: str) -> date | None:
+    parts = key.split(":")
+    if len(parts) == 3:
+        key_market, dataset, raw_date = parts
+        if key_market.upper() != market or dataset != "daily":
+            return None
+    elif len(parts) == 2:
+        dataset, raw_date = parts
+        if dataset != "daily":
+            return None
+    else:
+        return None
+    try:
+        parsed = pd.to_datetime(raw_date, format="%Y%m%d")
+    except (TypeError, ValueError):
+        return None
+    if pd.isna(parsed):
+        return None
+    return parsed.date()
 
 
 def _year_coverage_blockers(

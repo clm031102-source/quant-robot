@@ -78,6 +78,29 @@ class LongCycleReplayTests(unittest.TestCase):
         self.assertEqual(coverage["asset_ids"], 5634)
         self.assertIn("history_starts_after_required_cycle_start", coverage["blockers"])
 
+    def test_coverage_can_be_built_from_completed_daily_ingest_manifest(self):
+        manifest = {
+            "completed": {
+                "CN_ETF:daily:20200102": {"rows": 2},
+                "CN_ETF:daily:20200103": {"rows": 3},
+                "CN_ETF:daily:20210104": {"rows": 4},
+                "CN:daily:20200102": {"rows": 99},
+                "CN_ETF:moneyflow:20200102": {"rows": 88},
+            },
+            "failed": {
+                "CN_ETF:daily:20200106": "empty raw response",
+            },
+        }
+
+        coverage = build_long_cycle_coverage_from_manifest(manifest, market="CN_ETF", required_start="2015-01-01")
+
+        self.assertEqual(coverage["date_start"], "2020-01-02")
+        self.assertEqual(coverage["date_end"], "2021-01-04")
+        self.assertEqual(coverage["bar_rows"], 9)
+        self.assertEqual(coverage["asset_ids"], 4)
+        self.assertEqual(coverage["bar_trade_dates_by_year"], {"2020": 2, "2021": 1})
+        self.assertIn("history_starts_after_required_cycle_start", coverage["blockers"])
+
     def test_coverage_blocks_discontinuous_or_thin_years(self):
         bars = pd.DataFrame(
             {

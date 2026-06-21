@@ -47,6 +47,16 @@ REQUIRED_ROUND_GOVERNANCE_CONFIRMATIONS = [
     "public_reference_method_review_enabled",
     "waste_budget_stop_loss_enabled",
 ]
+REQUIRED_TRANSLATION_LAYER_DESIGN_ITEMS = [
+    "ic_to_portfolio_gap_audit_before_topn_expansion",
+    "industry_neutral_ic_audit_for_stock_factors",
+    "translation_layer_required_after_strong_ic_rejection",
+]
+REQUIRED_TRANSLATION_LAYER_CONFIRMATIONS = [
+    "ic_to_portfolio_gap_audit_read",
+    "industry_neutral_ic_audit_enabled",
+    "translation_layer_plan_registered",
+]
 
 
 def build_factor_mining_startup_gate(
@@ -122,6 +132,7 @@ def validate_cleared_startup_gate_packet(
     _validate_research_direction(packet, context=context, path=path)
     _validate_repeatable_mining_protocol(packet, context=context, path=path)
     _validate_round_governance(packet, context=context, path=path)
+    _validate_translation_layer_protocol(packet, context=context, path=path)
     return packet
 
 
@@ -207,6 +218,16 @@ def _validate_round_governance(packet: dict[str, Any], *, context: str, path: Pa
             raise ValueError(f"{context} startup gate round governance lacks public reference project {project}: {path}")
 
 
+def _validate_translation_layer_protocol(packet: dict[str, Any], *, context: str, path: Path) -> None:
+    protocol = _dict(packet.get("repeatable_mining_protocol"))
+    design_items = set(_list(protocol.get("required_experiment_design")))
+    confirmations = set(_list(protocol.get("confirm_before_each_run")))
+    missing_design_items = [item for item in REQUIRED_TRANSLATION_LAYER_DESIGN_ITEMS if item not in design_items]
+    missing_confirmations = [item for item in REQUIRED_TRANSLATION_LAYER_CONFIRMATIONS if item not in confirmations]
+    if missing_design_items or missing_confirmations:
+        raise ValueError(f"{context} startup gate lacks translation-layer audit protocol: {path}")
+
+
 def _blockers(
     config: dict[str, Any],
     request: dict[str, Any],
@@ -259,6 +280,8 @@ def _pre_run_checklist(config: dict[str, Any]) -> list[str]:
         f"Confirm the pre-registered batch spans allowed factor families: {', '.join(_list(direction.get('allowed_factor_families')))}.",
         "Do not keep mining one failed family; rotate direction after the configured failed-batch limit.",
         "Do not treat positive IC alone as tradable; require top-N return, cost, capacity, drawdown, and tail-IC review.",
+        "After strong IC but rejected long-only results, run IC-to-portfolio gap and industry-neutral IC audits before more TopN sweeps.",
+        "Confirm whether the next step is an industry-neutral IC portfolio, a bottom-quantile exclusion overlay, or a stock-to-industry/ETF bridge.",
         "Use same-parameter long-cycle replay before treating any short-window result as evidence.",
         "Require walk-forward progress audit in promotion review; no-trade and regime-all-blocked cases stay rejected.",
         "Require source-performance evidence and source_evidence_status=pass before promotion review.",
@@ -294,6 +317,8 @@ def _confirmation_questions(config: dict[str, Any]) -> list[str]:
         "Confirm 2026 data, when available, is treated as final holdout rather than a tuning set.",
         "Confirm a pre-registered candidate plan exists before generating candidates.",
         "Confirm cost and capacity gates are required before any candidate can advance.",
+        "Confirm IC-to-portfolio gap and industry-neutral IC audits are read before extending a strong-IC failed-long-only family.",
+        "Confirm a translation-layer plan is registered before more raw TopN parameter sweeps.",
         "Confirm failed single-family directions will be recorded and rotated away from.",
         f"Confirm every {governance.get('review_every_n_rounds')} factor-mining rounds trigger review, audit, and direction adjustment before new runs.",
         f"Confirm every {governance.get('sync_every_n_rounds')} factor-mining rounds trigger lightweight result packaging and GitHub safe-sync review.",
@@ -390,10 +415,12 @@ def _repeatable_mining_protocol(config: dict[str, Any]) -> dict[str, Any]:
     required_experiment_design = _unique_preserving_order(
         (_list(raw.get("required_experiment_design")) or default_required_experiment_design)
         + REQUIRED_ROUND_GOVERNANCE_DESIGN_ITEMS
+        + REQUIRED_TRANSLATION_LAYER_DESIGN_ITEMS
     )
     confirm_before_each_run = _unique_preserving_order(
         (_list(raw.get("confirm_before_each_run")) or default_confirm_before_each_run)
         + REQUIRED_ROUND_GOVERNANCE_CONFIRMATIONS
+        + REQUIRED_TRANSLATION_LAYER_CONFIRMATIONS
     )
     return {
         "source_audit": str(raw.get("source_audit", DEFAULT_AUDIT_REPORT)),

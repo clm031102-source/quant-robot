@@ -94,6 +94,7 @@ class ResearchPipelineConfig:
     top_n: int = 2
     cost_bps: float = 5.0
     portfolio_scope: str | None = None
+    selection_method: str = "top_n"
     periods_per_year: float | None = None
     benchmark_asset_id: str | None = None
     cash_annual_return: float = 0.0
@@ -105,6 +106,7 @@ class ResearchPipelineConfig:
     market_impact_bps: float = 0.0
     max_participation_rate: float | None = None
     portfolio_value: float = 1_000_000.0
+    min_total_return: float | None = None
     min_relative_return: float | None = None
     max_drawdown_limit: float | None = None
     signal_start_date: str | None = None
@@ -212,6 +214,7 @@ def _run_research_pipeline_from_inputs(
         market_impact_bps=config.market_impact_bps,
         max_participation_rate=config.max_participation_rate,
         portfolio_value=config.portfolio_value,
+        selection_method=config.selection_method,
     )
     tail_ic = compute_ic(backtest.positions, prepared.labels)
     drawdown = _drawdown_curve(backtest.equity_curve)
@@ -224,6 +227,7 @@ def _run_research_pipeline_from_inputs(
     decision = decision_summary(
         backtest.metrics,
         benchmark_metrics,
+        min_total_return=config.min_total_return,
         min_relative_return=config.min_relative_return,
         max_drawdown_limit=config.max_drawdown_limit,
     )
@@ -286,11 +290,13 @@ _RESEARCH_INPUT_RUNTIME_CONFIG_KEYS = {
     "cost_bps",
     "cash_annual_return",
     "target_gross_exposure",
+    "selection_method",
     "commission_bps",
     "slippage_bps",
     "market_impact_bps",
     "max_participation_rate",
     "portfolio_value",
+    "min_total_return",
     "min_relative_return",
     "max_drawdown_limit",
     "output_dir",
@@ -311,6 +317,8 @@ def research_input_fingerprint(config: ResearchPipelineConfig) -> str:
 def _validate_pipeline_config(config: ResearchPipelineConfig) -> None:
     if config.rebalance_interval < 1:
         raise ValueError("rebalance_interval must be at least 1")
+    if config.selection_method not in {"top_n", "industry_neutral_top_n"}:
+        raise ValueError("selection_method must be 'top_n' or 'industry_neutral_top_n'")
 
 
 def _require_matching_prepared_inputs(prepared: ResearchPipelinePreparedInputs, config: ResearchPipelineConfig) -> None:

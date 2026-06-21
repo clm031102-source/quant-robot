@@ -703,6 +703,7 @@ def _grid_from_mapping(data: dict[str, Any]) -> ExperimentGridConfig:
         market_impact_bps=float(data.get("market_impact_bps", ExperimentGridConfig.market_impact_bps)),
         max_participation_rate=float(data["max_participation_rate"]) if data.get("max_participation_rate") is not None else None,
         portfolio_value=float(data.get("portfolio_value", ExperimentGridConfig.portfolio_value)),
+        min_total_return=float(data["min_total_return"]) if data.get("min_total_return") is not None else None,
         min_relative_return=float(data["min_relative_return"]) if data.get("min_relative_return") is not None else None,
         max_drawdown_limit=float(data["max_drawdown_limit"]) if data.get("max_drawdown_limit") is not None else None,
         signal_start_date=data.get("signal_start_date"),

@@ -13,6 +13,8 @@ PUBLIC_TREND_VOLUME_FACTOR_NAMES = (
     "anti_supertrend_volume_confirmed_10_3_20",
     "anti_smart_money_trend_20",
     "anti_obv_breakout_low_tail_20",
+    "supertrend_volume_capacity_strict_10_3_20",
+    "obv_breakout_capacity_strict_20",
 )
 
 
@@ -37,6 +39,8 @@ def compute_public_trend_volume_factors(
         "anti_supertrend_volume_confirmed_10_3_20": -supertrend_volume,
         "anti_smart_money_trend_20": -smart_money_trend,
         "anti_obv_breakout_low_tail_20": -obv_breakout,
+        "supertrend_volume_capacity_strict_10_3_20": supertrend_volume.where(frame["capacity_strict_tradeable"].fillna(False)),
+        "obv_breakout_capacity_strict_20": obv_breakout.where(frame["capacity_strict_tradeable"].fillna(False)),
     }
     pieces = [_factor_frame(frame, name, values_by_name[name]) for name in requested]
     if not pieces:
@@ -83,6 +87,7 @@ def _feature_frame(bars: pd.DataFrame) -> pd.DataFrame:
         item["return_1d"] = returns
         item["momentum_20"] = price.pct_change(20)
         item["adv20_amount"] = amount.rolling(20).mean()
+        item["amount_stability_20"] = amount.rolling(20).min() / amount.rolling(20).mean().replace(0.0, np.nan)
         item["amount_trend_20"] = (amount.rolling(5).mean() / amount.rolling(20).mean().replace(0.0, np.nan)) - 1.0
         item["smart_money_pressure_20"] = (positive_flow - negative_flow) / total_directional_flow
         item["obv_slope_20"] = (obv - obv.shift(20)) / amount.rolling(20).sum().replace(0.0, np.nan)
@@ -103,6 +108,14 @@ def _feature_frame(bars: pd.DataFrame) -> pd.DataFrame:
         & (out["downside_vol_rank"] <= 0.75)
         & ((out["hl_range_rank"] <= 0.85) | (hl_range <= 0.08))
         & (pd.to_numeric(out["return_1d"], errors="coerce").abs() <= 0.50)
+    )
+    out["capacity_strict_tradeable"] = (
+        out["trend_volume_tradeable"].fillna(False)
+        & (out["adv20_rank"] >= 0.80)
+        & (out["downside_vol_rank"] <= 0.60)
+        & ((out["hl_range_rank"] <= 0.70) | (hl_range <= 0.05))
+        & (pd.to_numeric(out["amount_stability_20"], errors="coerce") >= 0.25)
+        & (pd.to_numeric(out["return_1d"], errors="coerce").abs() <= 0.20)
     )
     return out
 

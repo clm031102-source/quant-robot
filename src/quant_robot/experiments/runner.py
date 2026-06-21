@@ -76,6 +76,7 @@ class ExperimentGridConfig:
     market_impact_bps: float = 0.0
     max_participation_rate: float | None = None
     portfolio_value: float = 1_000_000.0
+    min_total_return: float | None = None
     min_relative_return: float | None = None
     max_drawdown_limit: float | None = None
     signal_start_date: str | None = None
@@ -171,6 +172,7 @@ def load_experiment_grid_config(path: str | Path) -> ExperimentGridConfig:
         market_impact_bps=float(data.get("market_impact_bps", ExperimentGridConfig.market_impact_bps)),
         max_participation_rate=float(data["max_participation_rate"]) if data.get("max_participation_rate") is not None else None,
         portfolio_value=float(data.get("portfolio_value", ExperimentGridConfig.portfolio_value)),
+        min_total_return=float(data["min_total_return"]) if data.get("min_total_return") is not None else None,
         min_relative_return=float(data["min_relative_return"]) if data.get("min_relative_return") is not None else None,
         max_drawdown_limit=float(data["max_drawdown_limit"]) if data.get("max_drawdown_limit") is not None else None,
         signal_start_date=data.get("signal_start_date"),
@@ -372,6 +374,7 @@ def _pipeline_config(
         market_impact_bps=grid_config.market_impact_bps,
         max_participation_rate=grid_config.max_participation_rate,
         portfolio_value=grid_config.portfolio_value,
+        min_total_return=grid_config.min_total_return,
         min_relative_return=grid_config.min_relative_return,
         max_drawdown_limit=grid_config.max_drawdown_limit,
         signal_start_date=grid_config.signal_start_date,
