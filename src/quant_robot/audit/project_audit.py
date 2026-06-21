@@ -17,6 +17,7 @@ from quant_robot.factors.daily_basic_value_liquidity_tail import DAILY_BASIC_VAL
 from quant_robot.factors.etf_theme_breadth import etf_theme_breadth_factor_names
 from quant_robot.factors.moneyflow_technical import MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES
 from quant_robot.factors.public_formula_price_volume import PUBLIC_FORMULA_PRICE_VOLUME_FACTOR_NAMES
+from quant_robot.factors.public_rsrs import PUBLIC_RSRS_FACTOR_NAMES
 from quant_robot.factors.public_technical_liquidity import PUBLIC_TECHNICAL_LIQUIDITY_FACTOR_NAMES
 from quant_robot.factors.public_technical_tail_guard import PUBLIC_TECHNICAL_TAIL_GUARD_FACTOR_NAMES
 from quant_robot.factors.public_trend_volume import PUBLIC_TREND_VOLUME_FACTOR_NAMES
@@ -423,6 +424,8 @@ def _registered_factor_names(factor_source: str, factor_windows: tuple[int, ...]
         return set(PUBLIC_TECHNICAL_TAIL_GUARD_FACTOR_NAMES)
     if factor_source == "public_formula_price_volume":
         return set(PUBLIC_FORMULA_PRICE_VOLUME_FACTOR_NAMES)
+    if factor_source == "public_rsrs":
+        return set(PUBLIC_RSRS_FACTOR_NAMES)
     if factor_source == "public_trend_volume":
         return set(PUBLIC_TREND_VOLUME_FACTOR_NAMES)
     if factor_source == "tushare_daily_basic":

@@ -49,6 +49,7 @@ from quant_robot.factors.public_formula_price_volume import (
     PUBLIC_FORMULA_PRICE_VOLUME_FACTOR_NAMES,
     compute_public_formula_price_volume_factors,
 )
+from quant_robot.factors.public_rsrs import PUBLIC_RSRS_FACTOR_NAMES, compute_public_rsrs_factors
 from quant_robot.factors.public_trend_volume import (
     PUBLIC_TREND_VOLUME_FACTOR_NAMES,
     compute_public_trend_volume_factors,
@@ -366,6 +367,7 @@ def _load_factor_input_frame(config: ResearchPipelineConfig) -> pd.DataFrame:
         "public_technical_liquidity",
         "public_technical_tail_guard",
         "public_formula_price_volume",
+        "public_rsrs",
         "public_trend_volume",
         "combined",
     }:
@@ -376,6 +378,7 @@ def _load_factor_input_frame(config: ResearchPipelineConfig) -> pd.DataFrame:
         "public_technical_liquidity",
         "public_technical_tail_guard",
         "public_formula_price_volume",
+        "public_rsrs",
         "public_trend_volume",
     }:
         if config.factor_input_required and config.factor_input_root is None:
@@ -500,6 +503,10 @@ def _compute_factor_source(bars: pd.DataFrame, factor_inputs: pd.DataFrame, conf
         if config.factor_name not in PUBLIC_FORMULA_PRICE_VOLUME_FACTOR_NAMES:
             return _empty_factor_frame()
         return compute_public_formula_price_volume_factors(bars, factor_names=(config.factor_name,))
+    if config.factor_source == "public_rsrs":
+        if config.factor_name not in PUBLIC_RSRS_FACTOR_NAMES:
+            return _empty_factor_frame()
+        return compute_public_rsrs_factors(bars, factor_names=(config.factor_name,))
     if config.factor_source == "public_trend_volume":
         if config.factor_name not in PUBLIC_TREND_VOLUME_FACTOR_NAMES:
             return _empty_factor_frame()

@@ -38,12 +38,18 @@ REQUIRED_ROUND_GOVERNANCE_DESIGN_ITEMS = [
     "round_number_tracking",
     "three_round_review_audit",
     "ten_round_result_packaging",
+    "three_round_review_after_every_three_factor_batches",
+    "ten_round_github_sync_after_every_ten_factor_batches",
     "public_reference_method_check",
     "waste_budget_stop_loss",
 ]
 REQUIRED_ROUND_GOVERNANCE_CONFIRMATIONS = [
     "three_round_review_gate_enabled",
     "ten_round_github_sync_gate_enabled",
+    "three_round_review_cadence_confirmed",
+    "ten_round_github_sync_cadence_confirmed",
+    "public_reference_method_cadence_confirmed",
+    "budget_stop_loss_cadence_confirmed",
     "public_reference_method_review_enabled",
     "waste_budget_stop_loss_enabled",
 ]

@@ -113,7 +113,11 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
             self.assertIn("single_family_lockin", packet["research_direction"]["forbidden_directions"])
             self.assertEqual(
                 packet["repeatable_mining_protocol"]["next_direction"],
-                "round70_lightweight_sync_then_market_regime_cash_overlay_for_risk_filter_research_leads",
+                "round81_public_supertrend_exclusion_preregistration",
+            )
+            self.assertEqual(
+                packet["repeatable_mining_protocol"]["source_audit"],
+                "docs/research/cn_stock_round80_lightweight_sync_2026-06-21.md",
             )
             self.assertIn("daily_basic_inputs", packet["config_required_inputs"])
             self.assertIn(
@@ -139,6 +143,94 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
             self.assertIn(
                 "market_regime_cash_overlay_registered",
                 packet["repeatable_mining_protocol"]["confirm_before_each_run"],
+            )
+            self.assertIn(
+                "dynamic_market_state_cash_overlay_registered",
+                packet["repeatable_mining_protocol"]["confirm_before_each_run"],
+            )
+            self.assertIn(
+                "round72_dynamic_cash_overlay_audit_read",
+                packet["repeatable_mining_protocol"]["confirm_before_each_run"],
+            )
+            self.assertIn(
+                "round73_benchmark_beta_exposure_audit_read",
+                packet["repeatable_mining_protocol"]["confirm_before_each_run"],
+            )
+            self.assertIn(
+                "beta_hedged_spread_translation_audit_after_beta_diagnostic",
+                packet["repeatable_mining_protocol"]["required_experiment_design"],
+            )
+            self.assertIn(
+                "round74_beta_hedged_spread_audit_read",
+                packet["repeatable_mining_protocol"]["confirm_before_each_run"],
+            )
+            self.assertIn(
+                "round75_beta_hedged_spread_stress_audit_read",
+                packet["repeatable_mining_protocol"]["confirm_before_each_run"],
+            )
+            self.assertIn(
+                "round76_public_rsrs_preregistration_read",
+                packet["repeatable_mining_protocol"]["confirm_before_each_run"],
+            )
+            self.assertIn(
+                "round74_76_three_round_review_read",
+                packet["repeatable_mining_protocol"]["confirm_before_each_run"],
+            )
+            self.assertIn(
+                "round77_public_rsrs_long_cycle_audit_read",
+                packet["repeatable_mining_protocol"]["confirm_before_each_run"],
+            )
+            self.assertIn(
+                "public_rsrs_reversal_translation_audit_after_round77",
+                packet["repeatable_mining_protocol"]["required_experiment_design"],
+            )
+            self.assertIn(
+                "public_rsrs_direct_topn_positive_direction",
+                packet["repeatable_mining_protocol"]["recently_rejected_directions"],
+            )
+            self.assertIn(
+                "public_rsrs_industry_neutral_topn_as_promotion_candidate",
+                packet["repeatable_mining_protocol"]["recently_rejected_directions"],
+            )
+            self.assertIn(
+                "public_rsrs_bottom_exclusion_costed_walk_forward_after_round78",
+                packet["repeatable_mining_protocol"]["required_experiment_design"],
+            )
+            self.assertIn(
+                "round78_public_rsrs_translation_audit_read",
+                packet["repeatable_mining_protocol"]["confirm_before_each_run"],
+            )
+            self.assertIn(
+                "round79_public_rsrs_bottom_exclusion_walk_forward_read",
+                packet["repeatable_mining_protocol"]["confirm_before_each_run"],
+            )
+            self.assertIn(
+                "round71_79_work_report_read",
+                packet["repeatable_mining_protocol"]["confirm_before_each_run"],
+            )
+            self.assertIn(
+                "round80_lightweight_sync_report_read",
+                packet["repeatable_mining_protocol"]["confirm_before_each_run"],
+            )
+            self.assertIn(
+                "public_rsrs_bottom_exclusion_costed_walk_forward_promotion",
+                packet["repeatable_mining_protocol"]["recently_rejected_directions"],
+            )
+            self.assertIn(
+                "public_supertrend_pre_registration_after_rsrs_hibernation",
+                packet["repeatable_mining_protocol"]["required_experiment_design"],
+            )
+            self.assertIn(
+                "spread_candidate_cost_impact_execution_stress_before_paper_readiness",
+                packet["repeatable_mining_protocol"]["required_experiment_design"],
+            )
+            self.assertIn(
+                "three_round_review_cadence_confirmed",
+                packet["repeatable_mining_protocol"]["confirm_before_each_run"],
+            )
+            self.assertIn(
+                "ten_round_github_sync_after_every_ten_factor_batches",
+                packet["repeatable_mining_protocol"]["required_experiment_design"],
             )
             self.assertIn(
                 "final_holdout_not_touched",

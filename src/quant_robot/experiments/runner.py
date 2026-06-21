@@ -17,6 +17,7 @@ from quant_robot.factors.etf_share_size import compute_etf_share_size_factors
 from quant_robot.factors.etf_theme_breadth import compute_etf_theme_breadth_factors
 from quant_robot.factors.moneyflow_technical import compute_moneyflow_technical_combo_factors
 from quant_robot.factors.public_formula_price_volume import compute_public_formula_price_volume_factors
+from quant_robot.factors.public_rsrs import compute_public_rsrs_factors
 from quant_robot.factors.public_technical_liquidity import compute_public_technical_liquidity_factors
 from quant_robot.factors.public_technical_tail_guard import compute_public_technical_tail_guard_factors
 from quant_robot.factors.public_trend_volume import compute_public_trend_volume_factors
@@ -399,6 +400,8 @@ def _precompute_factor_matrix(bars: pd.DataFrame, config: ExperimentGridConfig) 
         return compute_public_technical_tail_guard_factors(source_bars, factor_names=config.factor_names)
     if config.factor_source == "public_formula_price_volume":
         return compute_public_formula_price_volume_factors(source_bars, factor_names=config.factor_names)
+    if config.factor_source == "public_rsrs":
+        return compute_public_rsrs_factors(source_bars, factor_names=config.factor_names)
     if config.factor_source == "public_trend_volume":
         return compute_public_trend_volume_factors(source_bars, factor_names=config.factor_names)
     if config.factor_source == "etf_share_size":

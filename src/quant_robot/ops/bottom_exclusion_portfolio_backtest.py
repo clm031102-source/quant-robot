@@ -371,6 +371,7 @@ def _basket_stats(
     portfolio_value: float,
     target_gross_exposure: float,
     periods_per_year: float,
+    date_exposure: dict[Any, float] | None = None,
 ) -> dict[str, Any]:
     selected = group.loc[selected_mask].copy()
     if selected.empty:
@@ -379,7 +380,8 @@ def _basket_stats(
     sleeve_scale = 1.0 if holding_period <= 1 else min(float(rebalance_interval) / float(holding_period), 1.0)
     signal_group = ["date", "market"]
     counts = selected.groupby(signal_group)["asset_id"].transform("count")
-    selected["target_weight"] = float(target_gross_exposure) * sleeve_scale / counts
+    exposure = _signal_exposure(selected, target_gross_exposure=target_gross_exposure, date_exposure=date_exposure)
+    selected["target_weight"] = exposure * sleeve_scale / counts
     selected["participation_rate"] = _participation_rate(selected["target_weight"], selected["entry_amount"], portfolio_value)
     selected["cost_rate"] = _cost_rate(
         selected["participation_rate"],
@@ -419,6 +421,18 @@ def _basket_stats(
     metrics["max_participation_rate"] = float(selected["participation_rate"].max())
     metrics["capacity_limited_trades"] = int(selected["capacity_limited"].sum())
     return {"curve": curve, "metrics": metrics}
+
+
+def _signal_exposure(
+    selected: pd.DataFrame,
+    *,
+    target_gross_exposure: float,
+    date_exposure: dict[Any, float] | None,
+) -> pd.Series:
+    if not date_exposure:
+        return pd.Series(float(target_gross_exposure), index=selected.index)
+    exposure = selected["date"].map(lambda value: _number(date_exposure.get(value), default=float(target_gross_exposure)))
+    return exposure.clip(lower=0.0, upper=float(target_gross_exposure)).astype(float)
 
 
 def _fold_summary(strategy_curve: pd.DataFrame, benchmark_curve: pd.DataFrame, *, periods_per_year: float) -> list[dict[str, Any]]:
