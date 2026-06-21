@@ -94,6 +94,31 @@ class EtfThemeBreadthTests(unittest.TestCase):
         self.assertAlmostEqual(tech_relative, 0.075)
         self.assertAlmostEqual(broad_breadth, 0.0)
 
+    def test_liquid_theme_strength_breaks_theme_ties_toward_more_tradable_etfs(self):
+        bars = _theme_fixture_bars()
+        bars["amount"] = bars["asset_id"].map(
+            {
+                "CN_ETF_XSHG_510001": 10_000_000.0,
+                "CN_ETF_XSHG_510002": 1_000_000.0,
+                "CN_ETF_XSHG_510003": 8_000_000.0,
+                "CN_ETF_XSHG_510004": 2_000_000.0,
+            }
+        )
+        theme_map = pd.DataFrame(
+            {
+                "asset_id": ["CN_ETF_XSHG_510001", "CN_ETF_XSHG_510002", "CN_ETF_XSHG_510003", "CN_ETF_XSHG_510004"],
+                "theme": ["sector_tech", "sector_tech", "broad_market", "broad_market"],
+                "known_date": [pd.Timestamp("2024-01-01").date()] * 4,
+            }
+        )
+
+        factors = compute_etf_theme_breadth_factors(bars, theme_map, windows=(2,))
+
+        day = pd.Timestamp("2024-01-03").date()
+        high_liquidity = _factor_value(factors, "CN_ETF_XSHG_510001", day, "theme_rank_strength_liquid_2")
+        low_liquidity = _factor_value(factors, "CN_ETF_XSHG_510002", day, "theme_rank_strength_liquid_2")
+        self.assertGreater(high_liquidity, low_liquidity)
+
 
 def _theme_fixture_bars() -> pd.DataFrame:
     dates = pd.date_range("2024-01-01", periods=4).date

@@ -12,6 +12,7 @@ from quant_robot.data.sources.tushare_mapping import (
     map_tushare_adj_factor,
     map_tushare_daily,
     map_tushare_daily_basic,
+    map_tushare_fund_basic,
     map_tushare_moneyflow,
     map_tushare_stock_basic,
     map_tushare_trade_cal,
@@ -86,6 +87,17 @@ class TushareAdapter(MarketDataAdapter):
             fields="ts_code,symbol,name,exchange,list_status",
         )
         return map_tushare_stock_basic(raw)
+
+    def fetch_fund_basic(self, market: str = "E") -> pd.DataFrame:
+        raw = self._call(
+            self.client.fund_basic,
+            market=market,
+            fields=(
+                "ts_code,name,market,status,fund_type,type,invest_type,"
+                "list_date,delist_date,found_date"
+            ),
+        )
+        return map_tushare_fund_basic(raw)
 
     @property
     def client(self) -> object:

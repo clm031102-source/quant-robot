@@ -11,8 +11,10 @@ TECHNICAL_FACTOR_PREFIXES = (
     "risk_adjusted_momentum",
     "reversal",
     "volatility",
+    "low_volatility",
     "volume_change",
     "liquidity",
+    "high_liquidity",
 )
 
 
@@ -43,8 +45,10 @@ def compute_basic_factors(
             risk_adjusted_name = f"risk_adjusted_momentum_{window}"
             reversal_name = f"reversal_{window}"
             volatility_name = f"volatility_{window}"
+            low_volatility_name = f"low_volatility_{window}"
             volume_change_name = f"volume_change_{window}"
             liquidity_name = f"liquidity_{window}"
+            high_liquidity_name = f"high_liquidity_{window}"
             if momentum_name in requested:
                 pieces.append(_factor_frame(enriched, momentum_name, _momentum(enriched["adj_close"], window), window))
             if risk_adjusted_name in requested:
@@ -59,7 +63,11 @@ def compute_basic_factors(
             if reversal_name in requested:
                 pieces.append(_factor_frame(enriched, reversal_name, -_momentum(enriched["adj_close"], window), window))
             if volatility_name in requested:
-                pieces.append(_factor_frame(enriched, volatility_name, enriched["_return"].rolling(window).std(ddof=0), window))
+                volatility = enriched["_return"].rolling(window).std(ddof=0)
+                pieces.append(_factor_frame(enriched, volatility_name, volatility, window))
+            if low_volatility_name in requested:
+                volatility = enriched["_return"].rolling(window).std(ddof=0)
+                pieces.append(_factor_frame(enriched, low_volatility_name, -volatility, window))
             if volume_change_name in requested:
                 pieces.append(
                     _factor_frame(
@@ -70,8 +78,12 @@ def compute_basic_factors(
                     )
                 )
             if liquidity_name in requested:
+                liquidity = _amihud(enriched["_return"], enriched["amount"]).rolling(window).mean()
+                pieces.append(_factor_frame(enriched, liquidity_name, liquidity, window))
+            if high_liquidity_name in requested:
+                liquidity = _amihud(enriched["_return"], enriched["amount"]).rolling(window).mean()
                 pieces.append(
-                    _factor_frame(enriched, liquidity_name, _amihud(enriched["_return"], enriched["amount"]).rolling(window).mean(), window)
+                    _factor_frame(enriched, high_liquidity_name, -liquidity, window)
                 )
     if not pieces:
         return pd.DataFrame(columns=FACTOR_COLUMNS)

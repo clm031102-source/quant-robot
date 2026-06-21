@@ -10,6 +10,7 @@ from quant_robot.data.readiness import check_parquet_readiness, check_tushare_re
 from quant_robot.factors.daily_basic_residual_composite import DAILY_BASIC_RESIDUAL_COMPOSITE_FACTOR_NAMES
 from quant_robot.factors.daily_basic_technical_combo import DAILY_BASIC_TECHNICAL_COMBO_FACTOR_NAMES
 from quant_robot.factors.daily_basic_value_liquidity_tail import DAILY_BASIC_VALUE_LIQUIDITY_TAIL_FACTOR_NAMES
+from quant_robot.factors.etf_theme_breadth import etf_theme_breadth_factor_names
 from quant_robot.factors.moneyflow_technical import MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES
 from quant_robot.factors.public_formula_price_volume import PUBLIC_FORMULA_PRICE_VOLUME_FACTOR_NAMES
 from quant_robot.factors.public_technical_liquidity import PUBLIC_TECHNICAL_LIQUIDITY_FACTOR_NAMES
@@ -54,8 +55,10 @@ TECHNICAL_FACTOR_PREFIXES = (
     "risk_adjusted_momentum",
     "reversal",
     "volatility",
+    "low_volatility",
     "volume_change",
     "liquidity",
+    "high_liquidity",
 )
 DEFAULT_FACTOR_SOURCE = "technical"
 DEFAULT_FACTOR_WINDOWS = (2, 3)
@@ -426,6 +429,8 @@ def _registered_factor_names(factor_source: str, factor_windows: tuple[int, ...]
         return set(DAILY_BASIC_RESIDUAL_COMPOSITE_FACTOR_NAMES)
     if factor_source == "daily_basic_value_liquidity_tail":
         return set(DAILY_BASIC_VALUE_LIQUIDITY_TAIL_FACTOR_NAMES)
+    if factor_source == "etf_theme_breadth":
+        return set(etf_theme_breadth_factor_names(factor_windows))
     if factor_source == "tushare_moneyflow":
         return set(MONEYFLOW_FACTOR_NAMES)
     if factor_source == "moneyflow_technical_combo":

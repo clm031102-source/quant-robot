@@ -46,6 +46,20 @@ DAILY_BASIC_COLUMNS = [
     "circ_mv",
 ]
 
+FUND_BASIC_COLUMNS = [
+    "symbol",
+    "name",
+    "market",
+    "status",
+    "fund_type",
+    "type",
+    "invest_type",
+    "is_etf",
+    "list_date",
+    "delist_date",
+    "found_date",
+]
+
 _MONEYFLOW_NUMERIC_COLUMNS = [column for column in MONEYFLOW_COLUMNS if column not in {"symbol", "date"}]
 _DAILY_BASIC_NUMERIC_COLUMNS = [column for column in DAILY_BASIC_COLUMNS if column not in {"symbol", "date"}]
 
@@ -85,6 +99,29 @@ def map_tushare_daily_basic(frame: pd.DataFrame) -> pd.DataFrame:
     for column in _DAILY_BASIC_NUMERIC_COLUMNS:
         mapped[column] = pd.to_numeric(source[column], errors="coerce") if column in source.columns else pd.NA
     return mapped[DAILY_BASIC_COLUMNS].sort_values(["symbol", "date"]).reset_index(drop=True)
+
+
+def map_tushare_fund_basic(frame: pd.DataFrame) -> pd.DataFrame:
+    if frame.empty:
+        return pd.DataFrame(columns=FUND_BASIC_COLUMNS)
+    _require_columns(frame, ["ts_code", "name"], "tushare fund_basic")
+    source = frame.copy()
+    mapped = pd.DataFrame(
+        {
+            "symbol": source["ts_code"],
+            "name": _optional_text(source, "name"),
+            "market": _optional_text(source, "market"),
+            "status": _optional_text(source, "status"),
+            "fund_type": _optional_text(source, "fund_type"),
+            "type": _optional_text(source, "type"),
+            "invest_type": _optional_text(source, "invest_type"),
+            "list_date": _optional_date(source, "list_date"),
+            "delist_date": _optional_date(source, "delist_date"),
+            "found_date": _optional_date(source, "found_date"),
+        }
+    )
+    mapped["is_etf"] = _fund_basic_is_etf(mapped)
+    return mapped[FUND_BASIC_COLUMNS].sort_values(["symbol"]).reset_index(drop=True)
 
 
 def map_tushare_moneyflow(frame: pd.DataFrame) -> pd.DataFrame:
@@ -153,6 +190,24 @@ def map_tushare_stock_basic(frame: pd.DataFrame) -> pd.DataFrame:
             "is_active": frame["list_status"] == "L",
         }
     ).sort_values(["asset_id"]).reset_index(drop=True)
+
+
+def _optional_text(frame: pd.DataFrame, column: str) -> pd.Series:
+    if column not in frame.columns:
+        return pd.Series([""] * len(frame), index=frame.index)
+    return frame[column].fillna("").astype(str)
+
+
+def _optional_date(frame: pd.DataFrame, column: str) -> pd.Series:
+    if column not in frame.columns:
+        return pd.Series([pd.NaT] * len(frame), index=frame.index)
+    return pd.to_datetime(frame[column], errors="coerce").dt.date
+
+
+def _fund_basic_is_etf(frame: pd.DataFrame) -> pd.Series:
+    columns = ["name", "fund_type", "type", "invest_type"]
+    haystack = frame[columns].fillna("").astype(str).agg(" ".join, axis=1).str.upper()
+    return haystack.str.contains("ETF", regex=False)
 
 
 def _require_columns(frame: pd.DataFrame, required: list[str], label: str) -> None:

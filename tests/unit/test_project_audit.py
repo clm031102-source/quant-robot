@@ -118,6 +118,31 @@ class ProjectAuditTests(unittest.TestCase):
             self.assertEqual(registry["unknown_factor_refs"], [])
             self.assertEqual(registry["unsupported_factor_sources"], [])
 
+    def test_audit_accepts_defensive_technical_factor_names(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "configs").mkdir()
+            (root / "configs" / "walk_forward_defensive_technical.json").write_text(
+                """{
+  "split_date": "2024-01-01",
+  "experiment_grid": {
+    "factor_source": "technical",
+    "factor_names": ["low_volatility_20", "high_liquidity_20"],
+    "factor_windows": [20]
+  }
+}
+""",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            registry = audit["factor_config_registry"]
+            self.assertTrue(registry["passes"])
+            self.assertEqual(registry["configs_scanned"], 1)
+            self.assertEqual(registry["unknown_factor_refs"], [])
+            self.assertEqual(registry["unsupported_factor_sources"], [])
+
     def test_audit_accepts_registered_public_technical_liquidity_factor_source(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -254,6 +279,31 @@ class ProjectAuditTests(unittest.TestCase):
     "factor_source": "daily_basic_residual_composite",
     "factor_names": ["resid_value_quality_low_vol_20", "resid_value_reversal_low_tail_20"],
     "factor_windows": [20]
+  }
+}
+""",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            registry = audit["factor_config_registry"]
+            self.assertTrue(registry["passes"])
+            self.assertEqual(registry["configs_scanned"], 1)
+            self.assertEqual(registry["unknown_factor_refs"], [])
+            self.assertEqual(registry["unsupported_factor_sources"], [])
+
+    def test_audit_accepts_registered_etf_theme_breadth_factor_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "configs").mkdir()
+            (root / "configs" / "walk_forward_etf_theme_breadth.json").write_text(
+                """{
+  "split_date": "2024-01-01",
+  "experiment_grid": {
+    "factor_source": "etf_theme_breadth",
+    "factor_names": ["theme_rank_strength_liquid_20", "theme_risk_adjusted_strength_liquid_60"],
+    "factor_windows": [20, 60]
   }
 }
 """,

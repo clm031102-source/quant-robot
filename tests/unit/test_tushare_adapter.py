@@ -112,6 +112,23 @@ class FakeTushareClient:
             }
         )
 
+    def fund_basic(self, **kwargs):
+        self.calls.append(("fund_basic", kwargs))
+        return pd.DataFrame(
+            {
+                "ts_code": ["510300.SH"],
+                "name": ["CSI 300 ETF"],
+                "market": [kwargs.get("market", "E")],
+                "fund_type": ["ETF"],
+                "type": ["ETF"],
+                "invest_type": ["Passive"],
+                "status": ["L"],
+                "list_date": ["20120528"],
+                "delist_date": [None],
+                "found_date": ["20120528"],
+            }
+        )
+
 
 class TushareAdapterTests(unittest.TestCase):
     def test_fetch_ohlcv_uses_injected_client_and_maps_daily_data(self):
@@ -192,6 +209,17 @@ class TushareAdapterTests(unittest.TestCase):
         self.assertEqual(str(adapter.fetch_trade_calendar("20240101", "20240131").loc[0, "date"]), "2024-01-02")
         self.assertEqual(adapter.fetch_stock_basic().loc[0, "asset_id"], "CN_XSHE_000001")
         self.assertEqual(adapter.fetch_adj_factor("000001.SZ", "20240101", "20240131").loc[0, "adj_factor"], 100.0)
+
+    def test_fetch_fund_basic_maps_etf_metadata(self):
+        client = FakeTushareClient()
+        adapter = TushareAdapter(client=client)
+
+        result = adapter.fetch_fund_basic("E")
+
+        self.assertEqual(result.loc[0, "symbol"], "510300.SH")
+        self.assertTrue(bool(result.loc[0, "is_etf"]))
+        self.assertEqual(client.calls[0][0], "fund_basic")
+        self.assertEqual(client.calls[0][1]["market"], "E")
 
 
 if __name__ == "__main__":

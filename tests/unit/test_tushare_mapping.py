@@ -3,10 +3,12 @@ import unittest
 import pandas as pd
 
 from quant_robot.data.sources.tushare_mapping import (
+    FUND_BASIC_COLUMNS,
     MONEYFLOW_COLUMNS,
     map_tushare_adj_factor,
     map_tushare_daily,
     map_tushare_daily_basic,
+    map_tushare_fund_basic,
     map_tushare_moneyflow,
     map_tushare_stock_basic,
     map_tushare_trade_cal,
@@ -125,6 +127,37 @@ class TushareMappingTests(unittest.TestCase):
         )
         self.assertAlmostEqual(result.loc[0, "pb"], 5.5)
         self.assertTrue(pd.isna(result.loc[0, "pe_ttm"]))
+
+    def test_map_fund_basic_normalizes_etf_metadata(self):
+        source = pd.DataFrame(
+            {
+                "ts_code": ["510300.SH", "150001.SZ"],
+                "name": ["CSI 300 ETF", "Structured Fund"],
+                "market": ["E", "E"],
+                "fund_type": ["ETF", "LOF"],
+                "type": ["ETF", "LOF"],
+                "invest_type": ["Passive", "Active"],
+                "status": ["L", "D"],
+                "list_date": ["20120528", "20120817"],
+                "delist_date": [None, "20150814"],
+                "found_date": ["20120528", "20120817"],
+            }
+        )
+
+        result = map_tushare_fund_basic(source)
+
+        self.assertEqual(list(result.columns), FUND_BASIC_COLUMNS)
+        self.assertEqual(result.loc[0, "symbol"], "150001.SZ")
+        self.assertFalse(bool(result.loc[0, "is_etf"]))
+        self.assertEqual(result.loc[1, "symbol"], "510300.SH")
+        self.assertTrue(bool(result.loc[1, "is_etf"]))
+        self.assertEqual(str(result.loc[1, "list_date"]), "2012-05-28")
+
+    def test_map_fund_basic_returns_standard_empty_frame_for_empty_provider_response(self):
+        result = map_tushare_fund_basic(pd.DataFrame())
+
+        self.assertTrue(result.empty)
+        self.assertEqual(list(result.columns), FUND_BASIC_COLUMNS)
 
     def test_map_moneyflow_returns_standard_empty_frame_for_empty_provider_response(self):
         result = map_tushare_moneyflow(pd.DataFrame())
