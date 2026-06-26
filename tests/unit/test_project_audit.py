@@ -205,6 +205,97 @@ class ProjectAuditTests(unittest.TestCase):
             self.assertEqual(registry["unknown_factor_refs"], [])
             self.assertEqual(registry["unsupported_factor_sources"], [])
 
+    def test_audit_accepts_registered_public_and_daily_basic_extension_sources(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "configs").mkdir()
+            (root / "configs" / "experiment_public_trend_volume.json").write_text(
+                """{
+  "factor_source": "public_trend_volume",
+  "factor_names": ["smart_money_trend_20", "anti_obv_breakout_low_tail_20"],
+  "factor_windows": [20]
+}
+""",
+                encoding="utf-8",
+            )
+            (root / "configs" / "experiment_daily_basic_residual_composite.json").write_text(
+                """{
+  "factor_source": "daily_basic_residual_composite",
+  "factor_names": ["resid_value_quality_low_vol_20"],
+  "factor_windows": [20]
+}
+""",
+                encoding="utf-8",
+            )
+            (root / "configs" / "experiment_public_formula_price_volume.json").write_text(
+                """{
+  "factor_source": "public_formula_price_volume",
+  "factor_names": ["formula_range_contraction_breakout_liquid_lowvol_20"],
+  "factor_windows": [20]
+}
+""",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            registry = audit["factor_config_registry"]
+            self.assertTrue(registry["passes"])
+            self.assertEqual(registry["unknown_factor_refs"], [])
+            self.assertEqual(registry["unsupported_factor_sources"], [])
+
+    def test_audit_accepts_legacy_capacity_alias_factor_names(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "configs").mkdir()
+            (root / "configs" / "experiment_daily_basic_legacy_aliases.json").write_text(
+                """{
+  "factor_source": "tushare_daily_basic",
+  "factor_names": [
+    "turnover_rate_low_large_mv",
+    "turnover_rate_f_low_large_mv",
+    "dv_ttm_mv_bucket_rank",
+    "ps_ttm_inverse_mv_bucket_rank"
+  ],
+  "factor_windows": [1]
+}
+""",
+                encoding="utf-8",
+            )
+            (root / "configs" / "walk_forward_liquid_theme_breadth_legacy_aliases.json").write_text(
+                """{
+  "experiment_grid": {
+    "factor_source": "etf_theme_breadth",
+    "factor_names": [
+      "theme_relative_strength_liquid_20",
+      "theme_rank_strength_liquid_20",
+      "theme_risk_adjusted_strength_liquid_20"
+    ],
+    "factor_windows": [20]
+  }
+}
+""",
+                encoding="utf-8",
+            )
+            (root / "configs" / "walk_forward_high_liquidity_legacy_alias.json").write_text(
+                """{
+  "experiment_grid": {
+    "factor_source": "technical",
+    "factor_names": ["high_liquidity_20"],
+    "factor_windows": [20]
+  }
+}
+""",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            registry = audit["factor_config_registry"]
+            self.assertTrue(registry["passes"])
+            self.assertEqual(registry["unknown_factor_refs"], [])
+            self.assertEqual(registry["unsupported_factor_sources"], [])
+
     def test_markdown_report_contains_core_sections(self):
         audit = {
             "summary": {"passes": True, "files_scanned": 2},
