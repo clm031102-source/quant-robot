@@ -1,0 +1,150 @@
+{
+  "stage": "cn_stock_profit_sprint_simulation_shortlist",
+  "generated_at": "2026-06-27",
+  "machine_role": "office_desktop",
+  "task_type": "factor_validation",
+  "branch": "codex/factor-validation-cn-stock-24h-profit-sprint-20260627",
+  "safety": "research-to-review only; no broker connection, no account reads, no order placement, no live trading",
+  "final_holdout_2026": {
+    "status": "sealed",
+    "policy": "Do not run 2026 final holdout until the project intentionally enters final validation.",
+    "read_once_required": true
+  },
+  "shared_base": {
+    "market": "CN_STOCK",
+    "base_factor": "turnover_rate_low",
+    "portfolio": {
+      "top_n": 50,
+      "holding_period": 20,
+      "rebalance_interval": 5,
+      "execution_lag": 1,
+      "entry_cash_for_untradeable": true
+    },
+    "data_safety_filters": {
+      "exclude_asset_prefixes": [
+        "CN_XBEI"
+      ],
+      "max_abs_daily_return_quarantine": 0.5
+    },
+    "current_cost_rate": 0.001
+  },
+  "simulation_candidates": [
+    {
+      "id": "primary_high_return",
+      "status": "simulation_shortlist_default",
+      "formula": "turnover_rate_low Top50 hold20 reb5 cost_rate_0.001 + replace_drop_turnover_f_low10 + entry_cash + vol_target_6_lb84",
+      "replacement_filter": {
+        "field": "turnover_rate_f",
+        "action": "replace_filtered_candidates",
+        "drop_bottom_fraction": 0.1
+      },
+      "volatility_target": {
+        "target_annual_vol": 0.06,
+        "lookback_events": 84
+      },
+      "external_regime_overlay": null,
+      "evidence": {
+        "full_sample_total_return": 1.7708,
+        "full_sample_annualized_return": 0.0635,
+        "full_sample_sharpe": 0.960,
+        "full_sample_overlap_sharpe": 0.517,
+        "full_sample_max_drawdown": -0.2888,
+        "mean_oos_annualized_return": 0.0786,
+        "worst_oos_drawdown": -0.2400,
+        "cost_30bps_total_return_fixed_exposure": 1.3029,
+        "cost_30bps_strict_pass": 0.6333,
+        "csi500_beta_r2": 0.2508,
+        "csi500_beta_hedged_annualized_return": 0.0632,
+        "csi500_beta_hedged_overlap_sharpe": 0.826
+      }
+    },
+    {
+      "id": "primary_defensive_zz500",
+      "status": "simulation_shortlist_preferred_defensive",
+      "formula": "primary_high_return + zz500_mom120_neg_half",
+      "replacement_filter": {
+        "field": "turnover_rate_f",
+        "action": "replace_filtered_candidates",
+        "drop_bottom_fraction": 0.1
+      },
+      "volatility_target": {
+        "target_annual_vol": 0.06,
+        "lookback_events": 84
+      },
+      "external_regime_overlay": {
+        "benchmark_asset_id": "CN_ETF_XSHG_510500",
+        "signal": "120_day_momentum",
+        "risk_off_condition": "momentum < 0",
+        "risk_off_exposure_multiplier": 0.5,
+        "decision_timing": "use ETF data available before strategy decision_date"
+      },
+      "evidence": {
+        "full_sample_total_return": 1.4729,
+        "full_sample_annualized_return": 0.0562,
+        "full_sample_sharpe": 1.001,
+        "full_sample_overlap_sharpe": 0.536,
+        "full_sample_max_drawdown": -0.2038,
+        "mean_oos_annualized_return": 0.0605,
+        "worst_oos_drawdown": -0.1487,
+        "cost_30bps_total_return_fixed_exposure": 1.1475,
+        "cost_30bps_strict_pass": 0.9,
+        "csi500_beta_r2": 0.2341,
+        "csi500_beta_hedged_annualized_return": 0.0559,
+        "csi500_beta_hedged_overlap_sharpe": 0.890
+      }
+    },
+    {
+      "id": "safer_defensive_zz500",
+      "status": "simulation_shortlist_ultra_defensive_reference",
+      "formula": "turnover_rate_low Top50 hold20 reb5 cost_rate_0.001 + cash_low_turnover_f_bottom20 + entry_cash + vol_target_5_lb84 + zz500_mom120_neg_half",
+      "cash_filter": {
+        "field": "turnover_rate_f",
+        "action": "cash_filtered_entry_trades",
+        "cash_bottom_fraction": 0.2
+      },
+      "volatility_target": {
+        "target_annual_vol": 0.05,
+        "lookback_events": 84
+      },
+      "external_regime_overlay": {
+        "benchmark_asset_id": "CN_ETF_XSHG_510500",
+        "signal": "120_day_momentum",
+        "risk_off_condition": "momentum < 0",
+        "risk_off_exposure_multiplier": 0.5,
+        "decision_timing": "use ETF data available before strategy decision_date"
+      },
+      "evidence": {
+        "full_sample_total_return": 1.1476,
+        "full_sample_annualized_return": 0.0473,
+        "full_sample_sharpe": 0.996,
+        "full_sample_overlap_sharpe": 0.534,
+        "full_sample_max_drawdown": -0.1494,
+        "mean_oos_annualized_return": 0.0472,
+        "worst_oos_drawdown": -0.1168,
+        "csi500_beta_r2": 0.2115,
+        "csi500_beta_hedged_annualized_return": 0.0469,
+        "csi500_beta_hedged_overlap_sharpe": 0.861
+      }
+    }
+  ],
+  "superseded_outputs": [
+    {
+      "path": "data/reports/round346_24h_profit_sprint_cost_stress_primary_aggressive_20260627",
+      "reason": "vol-target exposure recomputation failed to reproduce official current-cost events"
+    },
+    {
+      "path": "data/reports/round347_24h_profit_sprint_benchmark_beta_audit_20260627",
+      "reason": "reported OLS residuals after subtracting intercept; corrected audit uses strategy_return - beta * benchmark_return"
+    }
+  ],
+  "source_docs": [
+    "docs/research/cn_stock_round340_candidate_comparison_pack_2026-06-27.md",
+    "docs/research/cn_stock_round341_turnover_f_threshold_sensitivity_2026-06-27.md",
+    "docs/research/cn_stock_round342_trade_capacity_stress_2026-06-27.md",
+    "docs/research/cn_stock_round343_self_risk_overlay_2026-06-27.md",
+    "docs/research/cn_stock_round344_external_etf_regime_overlay_2026-06-27.md",
+    "docs/research/cn_stock_round345_candidate_external_regime_comparison_2026-06-27.md",
+    "docs/research/cn_stock_round346_cost_stress_fixed_exposure_2026-06-27.md",
+    "docs/research/cn_stock_round347_benchmark_beta_audit_2026-06-27.md"
+  ]
+}
