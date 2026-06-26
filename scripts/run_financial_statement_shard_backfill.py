@@ -316,6 +316,12 @@ def _max_optional_date(values: Any) -> str | None:
 
 def _write_report(output_dir: Path, result: dict[str, Any]) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
+    quality_report = result.get("ingest", {}).get("quality_report", {})
+    if isinstance(quality_report, dict) and quality_report:
+        (output_dir / "financial_statement_quality_report.json").write_text(
+            json.dumps(quality_report, indent=2, sort_keys=True, default=str),
+            encoding="utf-8",
+        )
     (output_dir / "financial_statement_shard_backfill.json").write_text(
         json.dumps(result, indent=2, sort_keys=True, default=str),
         encoding="utf-8",
