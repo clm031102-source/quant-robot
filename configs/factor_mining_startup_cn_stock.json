@@ -595,7 +595,14 @@
     "round275_backfill_route_verified_with_shard9_completion",
     "round275_zero_factor_generation_confirmed",
     "round276_continue_statement_backfill_or_rotate_required",
-    "round276_no_candidate_generation_without_source_ready"
+    "round276_no_candidate_generation_without_source_ready",
+    "round276_financial_reporting_timeliness_backfill_progress_read",
+    "round276_source_coverage_240_below_1000_confirmed",
+    "round276_empty_request_watch_item_repaired_confirmed",
+    "round276_backfill_route_verified_with_clean_shard10_offset0_5",
+    "round276_zero_factor_generation_confirmed",
+    "round277_continue_statement_backfill_or_rotate_required",
+    "round277_no_candidate_generation_without_source_ready"
   ],
   "research_direction": {
     "objective": "cn_stock_cross_sectional_alpha",
@@ -648,8 +655,8 @@
       "review_after_n_rounds": 3
     },
     "repeatable_mining_protocol": {
-      "source_audit": "docs/research/cn_stock_round275_financial_reporting_timeliness_backfill_progress_2026-06-26.md",
-      "next_direction": "round276_continue_financial_reporting_timeliness_backfill_until_1000_symbols_or_rotate_with_empty_request_watch",
+      "source_audit": "docs/research/cn_stock_round276_financial_reporting_timeliness_backfill_progress_2026-06-26.md",
+      "next_direction": "round277_continue_financial_reporting_timeliness_backfill_until_1000_symbols_or_rotate_with_empty_request_watch",
       "recently_rejected_directions": [
         "round270_financial_reporting_timeliness_candidate_generation_from_100_symbol_cache",
         "round270_claiming_financial_reporting_timeliness_ready_without_full_market_coverage",
@@ -1180,7 +1187,11 @@
         "round275_financial_reporting_timeliness_factor_generation_at_231_symbols",
         "round275_short_sample_ic_screen_before_source_gate",
         "round275_portfolio_grid_before_source_gate",
-        "round275_ignoring_empty_request_watch_item"
+        "round275_ignoring_empty_request_watch_item",
+        "round276_financial_reporting_timeliness_factor_generation_at_240_symbols",
+        "round276_short_sample_ic_screen_before_source_gate",
+        "round276_portfolio_grid_before_source_gate",
+        "round276_claiming_empty_request_watch_resolved_permanently_after_one_clean_round"
       ],
       "required_experiment_design": [
         "long_cycle_same_parameter_replay",
@@ -1894,7 +1905,10 @@
         "round273_275_three_round_review_before_next_family",
         "round275_aggregate_union_source_coverage_gate",
         "round276_source_ready_before_candidate_generation",
-        "round276_empty_request_rate_watch_before_blind_continuation"
+        "round276_empty_request_rate_watch_before_blind_continuation",
+        "round276_aggregate_union_source_coverage_gate",
+        "round277_source_ready_before_candidate_generation",
+        "round277_empty_request_rate_watch_before_blind_continuation"
       ],
       "confirm_before_each_run": [
         "long_cycle_replay_plan_read",
@@ -2883,17 +2897,24 @@
         "round275_backfill_route_verified_with_shard9_completion",
         "round275_zero_factor_generation_confirmed",
         "round276_continue_statement_backfill_or_rotate_required",
-        "round276_no_candidate_generation_without_source_ready"
+        "round276_no_candidate_generation_without_source_ready",
+        "round276_financial_reporting_timeliness_backfill_progress_read",
+        "round276_source_coverage_240_below_1000_confirmed",
+        "round276_empty_request_watch_item_repaired_confirmed",
+        "round276_backfill_route_verified_with_clean_shard10_offset0_5",
+        "round276_zero_factor_generation_confirmed",
+        "round277_continue_statement_backfill_or_rotate_required",
+        "round277_no_candidate_generation_without_source_ready"
       ]
     }
   },
   "round_state": {
-    "last_completed_round": 275,
-    "next_round": 276,
+    "last_completed_round": 276,
+    "next_round": 277,
     "last_three_round_review": "docs/research/cn_stock_round273_275_three_round_review_2026-06-26.md",
-    "last_three_round_decision": "financial_reporting_timeliness_backfill_viable_but_empty_request_watch_and_coverage_below_gate",
+    "last_three_round_decision": "financial_reporting_timeliness_backfill_clean_but_coverage_still_below_gate",
     "family_rotation_required": true,
-    "next_direction": "round276_continue_financial_reporting_timeliness_backfill_until_1000_symbols_or_rotate_with_empty_request_watch",
+    "next_direction": "round277_continue_financial_reporting_timeliness_backfill_until_1000_symbols_or_rotate_with_empty_request_watch",
     "blocked_reentry_families": [
       "accounting_quality_realized_statement_formula_mutations",
       "statement_cash_conversion_muted_reaction",
@@ -2934,18 +2955,18 @@
     ],
     "required_before_next_round": [
       "round273_275_three_round_review_read",
-      "round275_financial_reporting_timeliness_backfill_progress_read",
-      "round275_source_coverage_231_below_1000_confirmed",
-      "round275_empty_request_watch_item_confirmed",
-      "round276_continue_statement_backfill_or_rotate_required",
-      "round276_no_candidate_generation_without_source_ready",
+      "round276_financial_reporting_timeliness_backfill_progress_read",
+      "round276_source_coverage_240_below_1000_confirmed",
+      "round276_empty_request_watch_item_repaired_confirmed",
+      "round277_continue_statement_backfill_or_rotate_required",
+      "round277_no_candidate_generation_without_source_ready",
       "keep_final_holdout_blocked"
     ],
     "source_backfill_required": true
   },
   "method_optimization_contract": {
-    "source_audit": "docs/research/cn_stock_round275_financial_reporting_timeliness_backfill_progress_2026-06-26.md",
-    "next_allowed_direction": "round276_continue_financial_reporting_timeliness_backfill_until_1000_symbols_or_rotate_with_empty_request_watch",
+    "source_audit": "docs/research/cn_stock_round276_financial_reporting_timeliness_backfill_progress_2026-06-26.md",
+    "next_allowed_direction": "round277_continue_financial_reporting_timeliness_backfill_until_1000_symbols_or_rotate_with_empty_request_watch",
     "hibernated_families": [
       "public_risk_filter_bridge",
       "public_supertrend",
@@ -3132,7 +3153,12 @@
       "round275_financial_reporting_timeliness_aggregate_coverage_231_below_1000",
       "round275_empty_request_watch_item_before_more_blind_backfill",
       "round275_no_factor_generation_before_1000_symbol_source_gate",
-      "round276_continue_financial_reporting_timeliness_backfill_or_rotate_with_empty_request_watch"
+      "round276_continue_financial_reporting_timeliness_backfill_or_rotate_with_empty_request_watch",
+      "round276_financial_reporting_timeliness_backfill_channel_still_viable",
+      "round276_financial_reporting_timeliness_aggregate_coverage_240_below_1000",
+      "round276_empty_request_watch_item_repaired_but_monitor_continues",
+      "round276_no_factor_generation_before_1000_symbol_source_gate",
+      "round277_continue_financial_reporting_timeliness_backfill_or_rotate_with_empty_request_watch"
     ]
   },
   "candidate_budget": {
