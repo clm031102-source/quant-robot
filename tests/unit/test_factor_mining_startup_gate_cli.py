@@ -139,11 +139,11 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
             )
             self.assertEqual(
                 packet["repeatable_mining_protocol"]["next_direction"],
-                "round277_continue_financial_reporting_timeliness_backfill_until_1000_symbols_or_rotate_with_empty_request_watch",
+                "round278_continue_financial_reporting_timeliness_backfill_until_1000_symbols_or_rotate_with_endpoint_empty_watch",
             )
             self.assertEqual(
                 packet["repeatable_mining_protocol"]["source_audit"],
-                "docs/research/cn_stock_round276_financial_reporting_timeliness_backfill_progress_2026-06-26.md",
+                "docs/research/cn_stock_round277_financial_reporting_timeliness_backfill_progress_2026-06-26.md",
             )
             self.assertIn(
                 "data_source_availability_audit_before_family_selection",
@@ -156,17 +156,17 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
             method_contract = packet["method_optimization_contract"]
             self.assertEqual(
                 method_contract["next_allowed_direction"],
-                "round277_continue_financial_reporting_timeliness_backfill_until_1000_symbols_or_rotate_with_empty_request_watch",
+                "round278_continue_financial_reporting_timeliness_backfill_until_1000_symbols_or_rotate_with_endpoint_empty_watch",
             )
-            self.assertEqual(packet["round_state"]["last_completed_round"], 276)
-            self.assertEqual(packet["round_state"]["next_round"], 277)
+            self.assertEqual(packet["round_state"]["last_completed_round"], 277)
+            self.assertEqual(packet["round_state"]["next_round"], 278)
             self.assertEqual(
                 packet["round_state"]["last_three_round_review"],
                 "docs/research/cn_stock_round273_275_three_round_review_2026-06-26.md",
             )
             self.assertEqual(
                 packet["round_state"]["last_three_round_decision"],
-                "financial_reporting_timeliness_backfill_clean_but_coverage_still_below_gate",
+                "financial_reporting_timeliness_backfill_viable_but_empty_request_watch_remains_and_coverage_below_gate",
             )
             self.assertTrue(packet["round_state"]["family_rotation_required"])
             self.assertIn(
@@ -174,19 +174,19 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
                 packet["round_state"]["required_before_next_round"],
             )
             self.assertIn(
-                "round276_source_coverage_240_below_1000_confirmed",
+                "round277_source_coverage_249_below_1000_confirmed",
                 packet["round_state"]["required_before_next_round"],
             )
             self.assertIn(
-                "round276_empty_request_watch_item_repaired_confirmed",
+                "round277_empty_request_watch_item_recurred_confirmed",
                 packet["round_state"]["required_before_next_round"],
             )
             self.assertIn(
-                "round277_continue_statement_backfill_or_rotate_required",
+                "round278_continue_statement_backfill_or_rotate_required",
                 packet["round_state"]["required_before_next_round"],
             )
             self.assertIn(
-                "round277_no_candidate_generation_without_source_ready",
+                "round278_no_candidate_generation_without_source_ready",
                 packet["round_state"]["required_before_next_round"],
             )
             self.assertIn(
@@ -1571,18 +1571,18 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
             )
             self.assertEqual(
                 protocol["next_direction"],
-                "round277_continue_financial_reporting_timeliness_backfill_until_1000_symbols_or_rotate_with_empty_request_watch",
+                "round278_continue_financial_reporting_timeliness_backfill_until_1000_symbols_or_rotate_with_endpoint_empty_watch",
             )
             self.assertEqual(
                 protocol["source_audit"],
-                "docs/research/cn_stock_round276_financial_reporting_timeliness_backfill_progress_2026-06-26.md",
+                "docs/research/cn_stock_round277_financial_reporting_timeliness_backfill_progress_2026-06-26.md",
             )
             self.assertIn(
-                "round277_source_ready_before_candidate_generation",
+                "round278_source_ready_before_candidate_generation",
                 protocol["required_experiment_design"],
             )
             self.assertIn(
-                "round277_empty_request_rate_watch_before_blind_continuation",
+                "round278_endpoint_empty_and_duplicate_watch_before_blind_continuation",
                 protocol["required_experiment_design"],
             )
             self.assertIn(
