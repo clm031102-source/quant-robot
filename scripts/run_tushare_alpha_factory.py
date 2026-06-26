@@ -13,6 +13,7 @@ for path in (SRC_ROOT, PROJECT_ROOT):
 
 from quant_robot.research.alpha_factory import AlphaFactoryConfig, run_tushare_alpha_factory
 from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manifest_packet
+from quant_robot.ops.factor_mining_candidate_plan_gate import validate_candidate_plan_gate_packet
 from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet
 from scripts.run_research_pipeline import load_research_bars
 
@@ -40,6 +41,7 @@ def run_alpha_factory_cli(
     require_capacity_controls: bool = True,
     startup_gate_packet: str | Path | None = Path("data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"),
     data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
+    candidate_plan_gate_packet: str | Path | None = Path("data/reports/factor_mining_candidate_plan_gate/factor_mining_candidate_plan_gate.json"),
     allow_missing_startup_gate: bool = False,
     allow_review_required_data_manifest: bool = False,
 ) -> dict[str, object]:
@@ -48,6 +50,7 @@ def run_alpha_factory_cli(
         market=market,
         startup_gate_packet=startup_gate_packet,
         data_manifest_packet=data_manifest_packet,
+        candidate_plan_gate_packet=candidate_plan_gate_packet,
         allow_missing_startup_gate=allow_missing_startup_gate,
         allow_review_required_data_manifest=allow_review_required_data_manifest,
         data_root=Path(data_root),
@@ -118,6 +121,11 @@ def main() -> None:
         help="CN stock data manifest packet required for processed CN runs.",
     )
     parser.add_argument(
+        "--candidate-plan-gate-packet",
+        default="data/reports/factor_mining_candidate_plan_gate/factor_mining_candidate_plan_gate.json",
+        help="Cleared CN stock candidate plan gate packet required before processed CN factor generation.",
+    )
+    parser.add_argument(
         "--allow-review-required-data-manifest",
         action="store_true",
         help="Allow a reviewed CN stock data manifest that has warnings but no blockers.",
@@ -146,6 +154,7 @@ def main() -> None:
         require_capacity_controls=not args.allow_missing_capacity_controls,
         startup_gate_packet=Path(args.startup_gate_packet) if args.startup_gate_packet else None,
         data_manifest_packet=Path(args.data_manifest_packet) if args.data_manifest_packet else None,
+        candidate_plan_gate_packet=Path(args.candidate_plan_gate_packet) if args.candidate_plan_gate_packet else None,
         allow_missing_startup_gate=args.allow_missing_startup_gate,
         allow_review_required_data_manifest=args.allow_review_required_data_manifest,
     )
@@ -167,6 +176,7 @@ def _enforce_cn_stock_startup_gate(
     market: str,
     startup_gate_packet: str | Path | None,
     data_manifest_packet: str | Path | None,
+    candidate_plan_gate_packet: str | Path | None,
     allow_missing_startup_gate: bool,
     allow_review_required_data_manifest: bool,
     data_root: Path,
@@ -183,6 +193,10 @@ def _enforce_cn_stock_startup_gate(
         data_manifest_packet,
         expected_source_root=data_root,
         allow_review_required=allow_review_required_data_manifest,
+        context="CN processed-bars alpha factory",
+    )
+    validate_candidate_plan_gate_packet(
+        candidate_plan_gate_packet,
         context="CN processed-bars alpha factory",
     )
 

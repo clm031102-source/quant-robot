@@ -350,6 +350,76 @@ class BacktestTests(unittest.TestCase):
         self.assertEqual(result.metrics["signals_filtered_min_signal_amount"], 1)
         self.assertEqual(result.metrics["signal_amount_filter_threshold"], 10_000_000.0)
 
+    def test_backtest_applies_entry_mask_and_delays_untradeable_exit_when_present(self):
+        factors = pd.DataFrame(
+            {
+                "date": [pd.Timestamp("2024-01-01").date()] * 3,
+                "asset_id": ["ENTRY_BLOCKED", "EXIT_BLOCKED", "TRADEABLE"],
+                "market": ["CN", "CN", "CN"],
+                "factor_name": ["masked_factor", "masked_factor", "masked_factor"],
+                "factor_value": [30.0, 20.0, 10.0],
+            }
+        )
+        bars = pd.DataFrame(
+            {
+                "date": list(pd.date_range("2024-01-01", periods=4).date) * 3,
+                "asset_id": ["ENTRY_BLOCKED"] * 4 + ["EXIT_BLOCKED"] * 4 + ["TRADEABLE"] * 4,
+                "market": ["CN"] * 12,
+                "adj_close": [10.0, 10.0, 11.0, 12.0, 20.0, 20.0, 21.0, 22.0, 30.0, 30.0, 33.0, 34.0],
+                "entry_tradeable": [True, False, True, True, True, True, True, True, True, True, True, True],
+                "exit_tradeable": [True, True, True, True, True, True, False, True, True, True, True, True],
+            }
+        )
+
+        result = run_factor_backtest(factors, bars, top_n=3, cost_bps=0.0)
+
+        self.assertEqual(set(result.trades["asset_id"]), {"EXIT_BLOCKED", "TRADEABLE"})
+        delayed = result.trades[result.trades["asset_id"] == "EXIT_BLOCKED"].iloc[0]
+        self.assertEqual(delayed["exit_date"], pd.Timestamp("2024-01-04").date())
+        self.assertEqual(result.metrics["trades_filtered_entry_tradeability"], 1)
+        self.assertEqual(result.metrics["trades_filtered_exit_tradeability"], 0)
+        self.assertEqual(result.metrics["trades_delayed_exit_tradeability"], 1)
+        self.assertEqual(result.metrics["tradeability_filtered_trades"], 1)
+
+    def test_backtest_does_not_delay_exit_beyond_calendar_holding_cap(self):
+        dates = list(pd.bdate_range("2025-01-02", periods=30).date)
+        factors = pd.DataFrame(
+            {
+                "date": [dates[0]],
+                "asset_id": ["A"],
+                "market": ["CN"],
+                "factor_name": ["masked_exit"],
+                "factor_value": [1.0],
+            }
+        )
+        bars = pd.DataFrame(
+            {
+                "date": dates,
+                "asset_id": ["A"] * len(dates),
+                "market": ["CN"] * len(dates),
+                "adj_close": [10.0 + i * 0.1 for i in range(len(dates))],
+                "entry_tradeable": [True] * len(dates),
+                "exit_tradeable": [True, True, False, False, False, False, False, False, False, False, True]
+                + [True] * (len(dates) - 11),
+            }
+        )
+
+        result = run_factor_backtest(
+            factors,
+            bars,
+            top_n=1,
+            cost_bps=0.0,
+            execution_lag=1,
+            holding_period=2,
+            max_calendar_holding_days=5,
+        )
+
+        self.assertEqual(len(result.trades), 0)
+        self.assertEqual(result.metrics["trades_filtered_exit_tradeability"], 1)
+        self.assertEqual(result.metrics["trades_delayed_exit_tradeability"], 0)
+        self.assertEqual(result.metrics["max_tradeability_exit_delay_days"], 0)
+        self.assertEqual(result.metrics["calendar_limited_trades"], 0)
+
     def test_backtest_skips_trades_when_calendar_holding_exceeds_gate(self):
         factors = pd.DataFrame(
             {

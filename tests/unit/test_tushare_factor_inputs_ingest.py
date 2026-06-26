@@ -83,6 +83,55 @@ class FakeEmptyDailyBasicAdapter(FakeTushareDailyBasicAdapter):
         )
 
 
+class FakeTransientEmptyDailyBasicAdapter(FakeTushareDailyBasicAdapter):
+    def fetch_daily_basic_by_trade_date(self, trade_date: str):
+        self.calls.append(trade_date)
+        if self.calls.count(trade_date) == 1:
+            return pd.DataFrame(
+                columns=[
+                    "symbol",
+                    "date",
+                    "turnover_rate",
+                    "turnover_rate_f",
+                    "volume_ratio",
+                    "pe",
+                    "pe_ttm",
+                    "pb",
+                    "ps",
+                    "ps_ttm",
+                    "dv_ratio",
+                    "dv_ttm",
+                    "total_share",
+                    "float_share",
+                    "free_share",
+                    "total_mv",
+                    "circ_mv",
+                ]
+            )
+        date = pd.to_datetime(trade_date, format="%Y%m%d").date()
+        return pd.DataFrame(
+            {
+                "symbol": ["000001.SZ", "600519.SH"],
+                "date": [date, date],
+                "turnover_rate": [1.0, 0.5],
+                "turnover_rate_f": [1.2, 0.6],
+                "volume_ratio": [1.1, 0.9],
+                "pe": [8.0, 30.0],
+                "pe_ttm": [7.5, 28.0],
+                "pb": [0.8, 10.0],
+                "ps": [1.2, 15.0],
+                "ps_ttm": [1.1, 14.0],
+                "dv_ratio": [3.0, 1.5],
+                "dv_ttm": [3.2, 1.6],
+                "total_share": [1000.0, 2000.0],
+                "float_share": [800.0, 1200.0],
+                "free_share": [600.0, 1000.0],
+                "total_mv": [120000.0, 300000.0],
+                "circ_mv": [90000.0, 200000.0],
+            }
+        )
+
+
 class TushareFactorInputsIngestTests(unittest.TestCase):
     def test_daily_basic_ingest_writes_raw_processed_manifest_and_quality_report(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -141,6 +190,23 @@ class TushareFactorInputsIngestTests(unittest.TestCase):
             self.assertEqual(result["processed_rows"], 2)
             manifest = json.loads((Path(tmp) / "manifest.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["completed"]["daily_basic:20240102"]["rows"], 2)
+
+    def test_daily_basic_ingest_retries_transient_empty_raw_response(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            adapter = FakeTransientEmptyDailyBasicAdapter()
+
+            result = run_tushare_daily_basic_ingest(
+                adapter,
+                "2024-01-02",
+                "2024-01-02",
+                Path(tmp),
+                empty_response_retries=1,
+                empty_response_retry_sleep_seconds=0.0,
+            )
+
+            self.assertEqual(adapter.calls, ["20240102", "20240102"])
+            self.assertEqual(result["downloaded_trade_dates"], ["20240102"])
+            self.assertEqual(result["processed_rows"], 2)
 
     def test_daily_basic_rejects_empty_raw_response_for_open_trade_date(self):
         with tempfile.TemporaryDirectory() as tmp:

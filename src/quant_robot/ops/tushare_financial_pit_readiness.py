@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 import json
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 import pandas as pd
 
@@ -25,20 +25,32 @@ STAGE = "tushare_financial_pit_readiness"
 SAFETY = "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
 
 
-def audit_tushare_financial_pit_readiness(roots: Iterable[str | Path]) -> dict[str, Any]:
+def audit_tushare_financial_pit_readiness(
+    roots: Iterable[str | Path],
+    *,
+    required_column_groups: Mapping[str, Iterable[str]] | None = None,
+) -> dict[str, Any]:
     root_paths = [Path(root) for root in roots]
+    normalised_required_groups = _normalise_required_column_groups(required_column_groups)
     datasets = [_audit_file(path, root) for root in root_paths for path in _candidate_files(root)]
     financial_like = [row for row in datasets if row["financial_like"]]
     pit_ready = [row for row in financial_like if row["pit_status"] == "pass"]
+    profitability_ready = [row for row in pit_ready if row["profitability_columns"]]
+    group_rows = _required_column_group_rows(pit_ready, normalised_required_groups)
     blockers: list[str] = []
     if not financial_like:
         blockers.append("missing_financial_statement_or_indicator_dataset")
     if financial_like and not any(row["pit_date_columns"] for row in financial_like):
         blockers.append("missing_pit_date_columns")
-    if financial_like and not any(row["profitability_columns"] for row in financial_like):
+    if financial_like and not normalised_required_groups and not any(row["profitability_columns"] for row in financial_like):
         blockers.append("missing_profitability_columns")
-    if financial_like and not pit_ready:
+    if financial_like and normalised_required_groups and not pit_ready:
+        blockers.append("no_pit_ready_financial_dataset")
+    if financial_like and not normalised_required_groups and not profitability_ready:
         blockers.append("no_pit_ready_profitability_dataset")
+    for row in group_rows:
+        if not row["passes"]:
+            blockers.append(f"missing_required_financial_column_group:{row['group_id']}")
     result = {
         "stage": STAGE,
         "generated_at": date.today().isoformat(),
@@ -49,8 +61,11 @@ def audit_tushare_financial_pit_readiness(roots: Iterable[str | Path]) -> dict[s
             "files_scanned": len(datasets),
             "financial_like_datasets": len(financial_like),
             "pit_ready_datasets": len(pit_ready),
+            "required_column_group_count": len(group_rows),
+            "required_column_groups_passing": sum(1 for row in group_rows if row["passes"]),
         },
         "datasets": financial_like,
+        "required_column_groups": group_rows,
         "live_boundary_allowed": False,
         "safety": SAFETY,
     }
@@ -106,6 +121,19 @@ def render_tushare_financial_pit_readiness_markdown(result: dict[str, Any]) -> s
                 rows=row.get("rows"),
             )
         )
+    groups = result.get("required_column_groups", []) or []
+    if groups:
+        lines.extend(["", "## Required Column Groups", ""])
+        for row in groups:
+            lines.append(
+                "- {group}: passes={passes}, required={required}, missing={missing}, matching={matching}".format(
+                    group=row.get("group_id"),
+                    passes=row.get("passes"),
+                    required="|".join(row.get("required_columns", []) or []),
+                    missing="|".join(row.get("missing_columns", []) or []) or "none",
+                    matching=len(row.get("matching_dataset_paths", []) or []),
+                )
+            )
     return "\n".join(lines) + "\n"
 
 
@@ -133,7 +161,7 @@ def _audit_file(path: Path, root: Path) -> dict[str, Any]:
             error = str(exc)
     pit_columns = [column for column in PIT_DATE_COLUMNS if column in columns]
     profitability_columns = [column for column in PROFITABILITY_COLUMNS if column in columns]
-    pit_status = "pass" if pit_columns and profitability_columns and error is None else "block"
+    pit_status = "pass" if pit_columns and error is None else "block"
     return {
         "path": str(path),
         "root": str(root),
@@ -145,6 +173,51 @@ def _audit_file(path: Path, root: Path) -> dict[str, Any]:
         "rows": rows,
         "error": error,
     }
+
+
+def _required_column_group_rows(
+    pit_ready_datasets: list[dict[str, Any]],
+    required_column_groups: Mapping[str, Iterable[str]] | None,
+) -> list[dict[str, Any]]:
+    groups = _normalise_required_column_groups(required_column_groups)
+    rows: list[dict[str, Any]] = []
+    available_columns = {
+        column
+        for dataset in pit_ready_datasets
+        for column in dataset.get("columns", []) or []
+    }
+    for group_id, required_columns in groups.items():
+        required = list(required_columns)
+        matching = [
+            dataset
+            for dataset in pit_ready_datasets
+            if set(required).issubset(set(dataset.get("columns", []) or []))
+        ]
+        missing = [column for column in required if column not in available_columns]
+        rows.append(
+            {
+                "group_id": group_id,
+                "required_columns": required,
+                "passes": bool(matching),
+                "missing_columns": [] if matching else missing,
+                "matching_dataset_paths": [str(dataset.get("path", "")) for dataset in matching],
+            }
+        )
+    return rows
+
+
+def _normalise_required_column_groups(
+    required_column_groups: Mapping[str, Iterable[str]] | None,
+) -> dict[str, list[str]]:
+    if not required_column_groups:
+        return {}
+    output: dict[str, list[str]] = {}
+    for group_id, columns in required_column_groups.items():
+        clean_group = str(group_id).strip()
+        clean_columns = [str(column).strip() for column in columns if str(column).strip()]
+        if clean_group and clean_columns:
+            output[clean_group] = clean_columns
+    return output
 
 
 def _financial_haystack(path: Path, root: Path) -> str:

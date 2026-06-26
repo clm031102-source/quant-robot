@@ -243,6 +243,31 @@ class ProjectAuditTests(unittest.TestCase):
             self.assertEqual(registry["unknown_factor_refs"], [])
             self.assertEqual(registry["unsupported_factor_sources"], [])
 
+    def test_audit_accepts_registered_information_discreteness_factor_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "configs").mkdir()
+            (root / "configs" / "walk_forward_information_discreteness.json").write_text(
+                """{
+  "split_date": "2024-01-01",
+  "experiment_grid": {
+    "factor_source": "information_discreteness",
+    "factor_names": ["fip_smooth_momentum_quality_60_20", "fip_discrete_jump_reversal_20_5"],
+    "factor_windows": [20, 60]
+  }
+}
+""",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            registry = audit["factor_config_registry"]
+            self.assertTrue(registry["passes"])
+            self.assertEqual(registry["configs_scanned"], 1)
+            self.assertEqual(registry["unknown_factor_refs"], [])
+            self.assertEqual(registry["unsupported_factor_sources"], [])
+
     def test_audit_accepts_registered_daily_basic_value_liquidity_tail_factor_source(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -328,6 +353,56 @@ class ProjectAuditTests(unittest.TestCase):
   "experiment_grid": {
     "factor_source": "daily_basic_public_risk_filter_bridge",
     "factor_names": ["risk_filter_bridge_equal_20", "risk_filter_bridge_anti_obv_weighted_20"],
+    "factor_windows": [20]
+  }
+}
+""",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            registry = audit["factor_config_registry"]
+            self.assertTrue(registry["passes"])
+            self.assertEqual(registry["configs_scanned"], 1)
+            self.assertEqual(registry["unknown_factor_refs"], [])
+            self.assertEqual(registry["unsupported_factor_sources"], [])
+
+    def test_audit_accepts_registered_daily_basic_public_anomaly_ensemble_factor_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "configs").mkdir()
+            (root / "configs" / "walk_forward_daily_basic_public_anomaly_ensemble.json").write_text(
+                """{
+  "split_date": "2024-01-01",
+  "experiment_grid": {
+    "factor_source": "daily_basic_public_anomaly_residual_ensemble",
+    "factor_names": ["public_anomaly_residual_equal_weight_20", "public_anomaly_residual_agreement_20"],
+    "factor_windows": [20]
+  }
+}
+""",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            registry = audit["factor_config_registry"]
+            self.assertTrue(registry["passes"])
+            self.assertEqual(registry["configs_scanned"], 1)
+            self.assertEqual(registry["unknown_factor_refs"], [])
+            self.assertEqual(registry["unsupported_factor_sources"], [])
+
+    def test_audit_accepts_registered_liquidity_shock_recovery_factor_source(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "configs").mkdir()
+            (root / "configs" / "walk_forward_liquidity_shock_recovery.json").write_text(
+                """{
+  "split_date": "2024-01-01",
+  "experiment_grid": {
+    "factor_source": "liquidity_shock_recovery",
+    "factor_names": ["amihud_shock_reversal_recovery_20_5", "liquidity_recovery_quality_composite_20"],
     "factor_windows": [20]
   }
 }

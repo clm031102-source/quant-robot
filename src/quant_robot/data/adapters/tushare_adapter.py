@@ -10,10 +10,13 @@ from quant_robot.config.secrets import require_env_secret
 from quant_robot.data.adapters.base import FetchRequest, MarketDataAdapter, require_optional_dependency
 from quant_robot.data.sources.tushare_mapping import (
     map_tushare_adj_factor,
+    map_tushare_balance_sheet,
+    map_tushare_cashflow_statement,
     map_tushare_daily,
     map_tushare_daily_basic,
     map_tushare_fina_indicator,
     map_tushare_fund_basic,
+    map_tushare_income_statement,
     map_tushare_moneyflow,
     map_tushare_stock_basic,
     map_tushare_trade_cal,
@@ -57,6 +60,64 @@ class TushareAdapter(MarketDataAdapter):
         raw = self._call(self.client.moneyflow, trade_date=_date_to_tushare(trade_date))
         return map_tushare_moneyflow(raw)
 
+    def fetch_margin_detail_by_trade_date(self, trade_date: str) -> pd.DataFrame:
+        return self._call(self.client.margin_detail, trade_date=_date_to_tushare(trade_date))
+
+    def fetch_hk_hold_by_trade_date(self, trade_date: str) -> pd.DataFrame:
+        return self._call(self.client.hk_hold, trade_date=_date_to_tushare(trade_date))
+
+    def fetch_moneyflow_hsgt_by_trade_date(self, trade_date: str) -> pd.DataFrame:
+        return self._call(self.client.moneyflow_hsgt, trade_date=_date_to_tushare(trade_date))
+
+    def fetch_top_list_by_trade_date(self, trade_date: str) -> pd.DataFrame:
+        return self._call(self.client.top_list, trade_date=_date_to_tushare(trade_date))
+
+    def fetch_top_inst_by_trade_date(self, trade_date: str) -> pd.DataFrame:
+        return self._call(self.client.top_inst, trade_date=_date_to_tushare(trade_date))
+
+    def fetch_index_daily(self, ts_code: str, start_date: str, end_date: str) -> pd.DataFrame:
+        return self._call(
+            self.client.index_daily,
+            ts_code=ts_code,
+            start_date=_date_to_tushare(start_date),
+            end_date=_date_to_tushare(end_date),
+        )
+
+    def fetch_index_dailybasic(self, ts_code: str, start_date: str, end_date: str) -> pd.DataFrame:
+        return self._call(
+            self.client.index_dailybasic,
+            ts_code=ts_code,
+            start_date=_date_to_tushare(start_date),
+            end_date=_date_to_tushare(end_date),
+        )
+
+    def fetch_index_weight(self, index_code: str, start_date: str, end_date: str) -> pd.DataFrame:
+        return self._call(
+            self.client.index_weight,
+            index_code=index_code,
+            start_date=_date_to_tushare(start_date),
+            end_date=_date_to_tushare(end_date),
+        )
+
+    def fetch_shibor_by_date(self, date: str) -> pd.DataFrame:
+        return self._call(self.client.shibor, date=_date_to_tushare(date))
+
+    def fetch_shibor_lpr(self) -> pd.DataFrame:
+        return self._call(self.client.shibor_lpr)
+
+    def fetch_stk_limit_by_trade_date(self, trade_date: str) -> pd.DataFrame:
+        return self._call(self.client.stk_limit, trade_date=_date_to_tushare(trade_date))
+
+    def fetch_suspend_d_by_date(self, trade_date: str) -> pd.DataFrame:
+        return self._call(self.client.suspend_d, trade_date=_date_to_tushare(trade_date))
+
+    def fetch_namechange(self, start_date: str, end_date: str) -> pd.DataFrame:
+        return self._call(
+            self.client.namechange,
+            start_date=_date_to_tushare(start_date),
+            end_date=_date_to_tushare(end_date),
+        )
+
     def fetch_fina_indicator(
         self,
         ts_code: str = "",
@@ -72,6 +133,54 @@ class TushareAdapter(MarketDataAdapter):
             end_date=_date_to_tushare(end_date) if end_date else "",
         )
         return map_tushare_fina_indicator(raw)
+
+    def fetch_income_statement(
+        self,
+        ts_code: str = "",
+        period: str = "",
+        start_date: str = "",
+        end_date: str = "",
+    ) -> pd.DataFrame:
+        raw = self._call(
+            self.client.income,
+            ts_code=ts_code,
+            period=_date_to_tushare(period) if period else "",
+            start_date=_date_to_tushare(start_date) if start_date else "",
+            end_date=_date_to_tushare(end_date) if end_date else "",
+        )
+        return map_tushare_income_statement(raw)
+
+    def fetch_balance_sheet(
+        self,
+        ts_code: str = "",
+        period: str = "",
+        start_date: str = "",
+        end_date: str = "",
+    ) -> pd.DataFrame:
+        raw = self._call(
+            self.client.balancesheet,
+            ts_code=ts_code,
+            period=_date_to_tushare(period) if period else "",
+            start_date=_date_to_tushare(start_date) if start_date else "",
+            end_date=_date_to_tushare(end_date) if end_date else "",
+        )
+        return map_tushare_balance_sheet(raw)
+
+    def fetch_cashflow_statement(
+        self,
+        ts_code: str = "",
+        period: str = "",
+        start_date: str = "",
+        end_date: str = "",
+    ) -> pd.DataFrame:
+        raw = self._call(
+            self.client.cashflow,
+            ts_code=ts_code,
+            period=_date_to_tushare(period) if period else "",
+            start_date=_date_to_tushare(start_date) if start_date else "",
+            end_date=_date_to_tushare(end_date) if end_date else "",
+        )
+        return map_tushare_cashflow_statement(raw)
 
     def fetch_adj_factor(self, ts_code: str = "", start_date: str = "", end_date: str = "") -> pd.DataFrame:
         raw = self._call(

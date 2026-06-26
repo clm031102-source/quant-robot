@@ -262,16 +262,39 @@ def _build_trades(
     rows = []
     calendar_limited_trades = 0
     max_skipped_calendar_holding_days = 0
+    trades_filtered_entry_tradeability = 0
+    trades_filtered_exit_tradeability = 0
+    trades_delayed_exit_tradeability = 0
+    max_tradeability_exit_delay_days = 0
     for row in selected.itertuples(index=False):
         asset_bars = bar_lookup.get(row.asset_id)
         if asset_bars is None:
             continue
         needed_future_bars = execution_lag + holding_period
-        future = asset_bars[asset_bars["date"] > row.date].head(needed_future_bars)
+        future = asset_bars[asset_bars["date"] > row.date]
         if len(future) < needed_future_bars:
             continue
         entry = future.iloc[execution_lag - 1]
-        exit_ = future.iloc[execution_lag + holding_period - 1]
+        if not _tradeability_allowed(entry, "entry_tradeable"):
+            trades_filtered_entry_tradeability += 1
+            continue
+        planned_exit_offset = execution_lag + holding_period - 1
+        planned_exit = future.iloc[planned_exit_offset]
+        exit_, delayed = _resolve_tradeable_exit(
+            future,
+            planned_exit_offset,
+            entry_date=entry["date"],
+            max_calendar_holding_days=max_calendar_holding_days,
+        )
+        if exit_ is None:
+            trades_filtered_exit_tradeability += 1
+            continue
+        if delayed:
+            trades_delayed_exit_tradeability += 1
+            max_tradeability_exit_delay_days = max(
+                max_tradeability_exit_delay_days,
+                _calendar_holding_days(planned_exit["date"], exit_["date"]),
+            )
         calendar_holding_days = _calendar_holding_days(entry["date"], exit_["date"])
         if max_calendar_holding_days is not None and calendar_holding_days > int(max_calendar_holding_days):
             calendar_limited_trades += 1
@@ -313,6 +336,13 @@ def _build_trades(
         "calendar_limited_trades": int(calendar_limited_trades),
         "calendar_holding_gate_days": int(max_calendar_holding_days or 0),
         "max_skipped_calendar_holding_days": int(max_skipped_calendar_holding_days),
+        "trades_filtered_entry_tradeability": int(trades_filtered_entry_tradeability),
+        "trades_filtered_exit_tradeability": int(trades_filtered_exit_tradeability),
+        "trades_delayed_exit_tradeability": int(trades_delayed_exit_tradeability),
+        "max_tradeability_exit_delay_days": int(max_tradeability_exit_delay_days),
+        "tradeability_filtered_trades": int(
+            trades_filtered_entry_tradeability + trades_filtered_exit_tradeability
+        ),
     }
     if not rows:
         return (
@@ -355,6 +385,37 @@ def _entry_amount(entry: pd.Series) -> float:
     except (TypeError, ValueError):
         return 0.0
     return value if value > 0.0 else 0.0
+
+
+def _tradeability_allowed(row: pd.Series, column: str) -> bool:
+    if column not in row.index:
+        return True
+    value = row.get(column)
+    if value is None or pd.isna(value):
+        return False
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+    return bool(value)
+
+
+def _resolve_tradeable_exit(
+    future: pd.DataFrame,
+    planned_exit_offset: int,
+    *,
+    entry_date: object | None = None,
+    max_calendar_holding_days: int | None = None,
+) -> tuple[pd.Series | None, bool]:
+    planned_exit = future.iloc[planned_exit_offset]
+    if _tradeability_allowed(planned_exit, "exit_tradeable"):
+        return planned_exit, False
+    for offset in range(planned_exit_offset + 1, len(future)):
+        candidate = future.iloc[offset]
+        if max_calendar_holding_days is not None and entry_date is not None:
+            if _calendar_holding_days(entry_date, candidate["date"]) > int(max_calendar_holding_days):
+                break
+        if _tradeability_allowed(candidate, "exit_tradeable"):
+            return candidate, True
+    return None, False
 
 
 def _calendar_holding_days(entry_date: object, exit_date: object) -> int:

@@ -1,0 +1,107 @@
+[
+  {
+    "family_id": "industry_leader_lag_residual_diffusion",
+    "status": "eligible",
+    "score": 87,
+    "data_readiness": "ready_from_ohlcv_amount_and_stock_basic_industry_metadata",
+    "novelty_vs_recent_failures": "within_industry_leader_laggard_diffusion_not_plain_industry_breadth_or_public_trend_strength",
+    "public_reference_tags": [
+      "industry_momentum",
+      "lead_lag",
+      "slow_information_diffusion",
+      "Hou_2007_industry_momentum",
+      "peer_effects"
+    ],
+    "required_controls": [
+      "public_source_leader_lag_information_diffusion_registered",
+      "industry_membership_available_on_signal_date",
+      "liquid_leader_definition_frozen_before_ic",
+      "no_same_day_forward_label_leakage",
+      "tradeability_mask_required",
+      "own_stock_momentum_reversal_reference_dedup",
+      "industry_style_residual_evaluation",
+      "capacity_safe_universe_and_adv_participation",
+      "multiple_testing_accounting",
+      "no_portfolio_grid_before_residual_ic_shape_prescreen",
+      "china_regime_coverage_required"
+    ],
+    "reason": "Tests a public slow-information-diffusion anomaly: lagged moves from liquid industry leaders may predict same-industry laggards after removing own momentum/reversal, industry, size, liquidity, volatility, and public technical reference exposure. This is intentionally distinct from the failed Round69 plain industry-breadth bridge and the failed Round219 ADX/KAMA/Aroon trend-strength family.",
+    "next_action": "round220_industry_leader_lag_residual_preregistration"
+  },
+  {
+    "family_id": "public_trend_strength_state_residual",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_long_cycle",
+    "novelty_vs_recent_failures": "failed_round219_residual_prescreen",
+    "public_reference_tags": [
+      "ADX",
+      "KAMA",
+      "Aroon",
+      "WilliamsR"
+    ],
+    "required_controls": [],
+    "reason": "Round219 tested six public trend-strength state factors on 2015-2025 CN stocks. All six failed residual mean IC and residual yearly stability; five also had high size/liquidity/volatility exposure.",
+    "next_action": "do_not_tune_adx_kama_aroon_or_trend_strength_composites"
+  },
+  {
+    "family_id": "direct_profitability_quality_formula_tuning",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_stratified_pit_shard",
+    "novelty_vs_recent_failures": "failed_round217",
+    "public_reference_tags": [],
+    "required_controls": [],
+    "reason": "Round217 tested 14 PIT profitability-quality candidates across 28 controlled IC tests and found zero Bonferroni/FDR leads.",
+    "next_action": "do_not_reopen_direct_profitability_quality_without_new_mechanism"
+  },
+  {
+    "family_id": "pit_profitability_event_revision",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_round153",
+    "novelty_vs_recent_failures": "failed_neutral_ic_and_reference_dedup",
+    "public_reference_tags": [],
+    "required_controls": [],
+    "reason": "Round153 PIT profitability event/revision candidates produced zero FDR-significant tests and zero industry/size/liquidity-neutral gate passes.",
+    "next_action": "do_not_reopen_without_new_endpoint_or_distinct_event_timing_thesis"
+  },
+  {
+    "family_id": "calendar_seasonality",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_round164_165",
+    "novelty_vs_recent_failures": "failed_cost_capacity_preflight",
+    "public_reference_tags": [],
+    "required_controls": [],
+    "reason": "Round164 found one pre-holiday residual IC lead, but Round165 cost/capacity preflight rejected all 12 cases with zero walk-forward candidates.",
+    "next_action": "do_not_tune_calendar_windows_or_cost_assumptions"
+  },
+  {
+    "family_id": "tradeability_limit_events",
+    "status": "control_only_not_alpha",
+    "score": 45,
+    "data_readiness": "official_masks_ready",
+    "novelty_vs_recent_failures": "standalone_alpha_failed",
+    "public_reference_tags": [],
+    "required_controls": [
+      "limit_up_down_mask",
+      "suspension_st_filter",
+      "new_listing_retirement_filter",
+      "extreme_turnover_trade_filter"
+    ],
+    "reason": "Tradeability remains mandatory as a mask/capacity control. Prior standalone limit/tradeability proxy alpha screens had zero promotable leads.",
+    "next_action": "use_as_filter_control_only"
+  },
+  {
+    "family_id": "external_northbound_margin_credit",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_existing_feed",
+    "novelty_vs_recent_failures": "failed_round191_193",
+    "public_reference_tags": [],
+    "required_controls": [],
+    "reason": "Northbound and margin-credit variants failed weak IC shape, residual materiality, or redundancy checks in prior rounds.",
+    "next_action": "data_feed_expansion_only_not_factor_tuning"
+  }
+]

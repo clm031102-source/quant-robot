@@ -35,11 +35,13 @@ def run_fina_indicator_symbol_shard_plan_cli(
     symbols_per_shard: int = 100,
     max_requests_per_shard: int = 5000,
     exclude_suffixes: list[str] | None = None,
+    stratify_by: list[str] | None = None,
     allow_blocked_plan: bool = False,
 ) -> dict[str, Any]:
     all_symbols = list(symbols or [])
     all_symbols.extend(_read_symbols_file(symbols_file))
-    all_symbols.extend(_read_stock_basic_symbols(stock_basic_root))
+    stock_basic_metadata = _read_stock_basic_metadata(stock_basic_root)
+    all_symbols.extend(_symbols_from_metadata(stock_basic_metadata))
     result = build_fina_indicator_symbol_shard_plan(
         symbols=all_symbols,
         start_period=start_period,
@@ -47,6 +49,8 @@ def run_fina_indicator_symbol_shard_plan_cli(
         symbols_per_shard=symbols_per_shard,
         max_requests_per_shard=max_requests_per_shard,
         exclude_suffixes=exclude_suffixes,
+        symbol_metadata=stock_basic_metadata,
+        stratify_by=stratify_by,
     )
     write_fina_indicator_symbol_shard_plan(output_dir, result)
     if not allow_blocked_plan and not result["summary"]["passes"]:
@@ -65,6 +69,11 @@ def main() -> None:
     parser.add_argument("--symbols-per-shard", type=int, default=100)
     parser.add_argument("--max-requests-per-shard", type=int, default=5000)
     parser.add_argument("--exclude-suffixes", default="", help="Comma-separated suffixes to exclude, for example BJ.")
+    parser.add_argument(
+        "--stratify-by",
+        default="",
+        help="Comma-separated metadata columns used to round-robin symbols, for example industry,exchange,list_year.",
+    )
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--allow-blocked-plan", action="store_true")
     args = parser.parse_args()
@@ -77,6 +86,7 @@ def main() -> None:
         symbols_per_shard=args.symbols_per_shard,
         max_requests_per_shard=args.max_requests_per_shard,
         exclude_suffixes=_parse_symbols(args.exclude_suffixes),
+        stratify_by=_parse_symbols(args.stratify_by),
         output_dir=Path(args.output_dir),
         allow_blocked_plan=args.allow_blocked_plan,
     )
@@ -102,12 +112,12 @@ def _read_symbols_file(path: str | Path | None) -> list[str]:
     return [line.strip() for line in text.splitlines() if line.strip()]
 
 
-def _read_stock_basic_symbols(root: str | Path | None) -> list[str]:
+def _read_stock_basic_metadata(root: str | Path | None) -> pd.DataFrame | None:
     if not root:
-        return []
+        return None
     root_path = Path(root)
     files = [root_path] if root_path.is_file() else sorted(root_path.rglob("*"))
-    symbols: list[str] = []
+    frames: list[pd.DataFrame] = []
     for path in files:
         if not path.is_file():
             continue
@@ -117,11 +127,20 @@ def _read_stock_basic_symbols(root: str | Path | None) -> list[str]:
             frame = pd.read_csv(path)
         else:
             continue
-        if "symbol" in frame.columns:
-            symbols.extend(str(value) for value in frame["symbol"].dropna())
-        elif "ts_code" in frame.columns:
-            symbols.extend(str(value) for value in frame["ts_code"].dropna())
-    return symbols
+        frames.append(frame)
+    if not frames:
+        return None
+    return pd.concat(frames, ignore_index=True)
+
+
+def _symbols_from_metadata(metadata: pd.DataFrame | None) -> list[str]:
+    if metadata is None or metadata.empty:
+        return []
+    if "symbol" in metadata.columns:
+        return [str(value) for value in metadata["symbol"].dropna()]
+    if "ts_code" in metadata.columns:
+        return [str(value) for value in metadata["ts_code"].dropna()]
+    return []
 
 
 if __name__ == "__main__":

@@ -1,0 +1,237 @@
+{
+  "stage": "round207_52week_high_quality_candidate_preregistration",
+  "market": "CN",
+  "asset_type": "stock",
+  "research_scope": "CN stock cross-sectional alpha discovery only",
+  "family_rotation_policy": {
+    "current_family_id": "anchor_momentum_52week_quality",
+    "current_family_round_count": 1,
+    "max_rounds_before_review": 3,
+    "three_round_review_completed": false,
+    "hibernated_families": [
+      {
+        "family": "moneyflow_residual_regime",
+        "reason": "prior long-cycle validation remained capacity/regime-local and not paper-ready"
+      },
+      {
+        "family": "public_rsrs_channel",
+        "reason": "Round79 accepted folds were 0/7"
+      },
+      {
+        "family": "public_technical_supertrend",
+        "reason": "Round82 accepted folds were 0/7"
+      },
+      {
+        "family": "qvm_quality_value_momentum",
+        "reason": "Round87 accepted folds were 0/7"
+      },
+      {
+        "family": "public_formula_price_volume",
+        "reason": "Round61-63 showed weak overlap-adjusted Sharpe and excessive drawdown"
+      },
+      {
+        "family": "daily_basic_low_turnover",
+        "reason": "Round84-85 capacity-clean replay reduced the headline alpha to non-promotable evidence"
+      },
+      {
+        "family": "daily_basic_free_float_supply_quality",
+        "reason": "Round145 final holdout failed all aggregate-accepted candidates"
+      },
+      {
+        "family": "price_volume_shock_reversal",
+        "reason": "Round158 produced zero residual research leads"
+      },
+      {
+        "family": "public_technical_failure_reversal",
+        "reason": "Round156 residual alpha failed after reference dedup"
+      },
+      {
+        "family": "pit_profitability_event_revision",
+        "reason": "Round153 controlled PIT neutral prescreen found zero research leads"
+      },
+      {
+        "family": "calendar_seasonality",
+        "reason": "Round165 cost/capacity preflight failed and family was hibernated"
+      },
+      {
+        "family": "external_margin_credit",
+        "reason": "Round193 neutral dedup found residual IC failure"
+      },
+      {
+        "family": "event_factor_direct_alpha",
+        "reason": "Round206 event factor control gate allows controls only, not standalone event alpha"
+      }
+    ],
+    "blocked_families": [
+      {
+        "family": "cn_etf_rotation",
+        "reason": "office_desktop current mandate is CN stock factor mining, not ETF rotation"
+      }
+    ]
+  },
+  "research_control_plan": {
+    "declared_controls": {
+      "cn_stock_tradeability": [
+        "limit_up_down_filter",
+        "suspension_filter",
+        "st_flag_filter",
+        "new_listing_age_filter",
+        "delisting_risk_filter",
+        "board_permission_filter"
+      ],
+      "financial_pit_timing": [
+        "ann_date_or_effective_date_lag",
+        "financial_revision_announcement_handling",
+        "report_release_lag_not_period_end",
+        "no_period_end_only_financial_signal"
+      ],
+      "industry_style_neutralization": [
+        "industry_exposure_report",
+        "size_exposure_report",
+        "value_lowvol_momentum_liquidity_decomposition",
+        "neutralized_or_residual_factor_matrix"
+      ],
+      "etf_rotation_scope_boundary": [
+        "stock_scope_confirmed",
+        "etf_rotation_evidence_rejected_for_stock_factor",
+        "cn_etf_dedicated_signal_pack_separate"
+      ],
+      "portfolio_construction": [
+        "risk_budget_position_sizing",
+        "volatility_targeting_or_volatility_budget",
+        "industry_weight_constraints",
+        "turnover_constraints",
+        "stop_loss_or_de_risk_rules"
+      ],
+      "strict_statistics": [
+        "deflated_sharpe",
+        "purged_cpcv",
+        "white_reality_check_or_fdr",
+        "parameter_sensitivity_heatmap",
+        "multiple_testing_accounting"
+      ],
+      "china_market_regime": [
+        "policy_liquidity_regime",
+        "credit_cycle_proxy",
+        "northbound_margin_turnover_temperature",
+        "index_location_state",
+        "signal_window_regime_coverage"
+      ],
+      "event_factors": [
+        "earnings_forecast_or_statement_event_audit",
+        "dividend_ex_right_event_audit",
+        "buyback_holder_unlock_event_audit",
+        "index_rebalance_event_audit",
+        "event_contamination_extreme_return_audit"
+      ]
+    },
+    "policy": "Declaration permits research screening only. Portfolio grids and promotion stay blocked until residual IC, quantile shape, style exposure, cost/capacity, walk-forward, and final-holdout gates pass."
+  },
+  "evaluation_gate": {
+    "next_required_gate": "round207_52week_high_quality_residual_ic_quantile_turnover_prescreen",
+    "required_metrics": [
+      "mean_spearman_ic",
+      "rank_ic_t_stat",
+      "industry_neutral_ic",
+      "style_residual_ic",
+      "quantile_monotonicity",
+      "top_bottom_spread",
+      "average_top_quantile_turnover",
+      "limit_up_down_tradeability_audit"
+    ],
+    "multiple_testing_accounting_required": true,
+    "portfolio_grid_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_available_for_tuning": false
+  },
+  "promotion_policy": {
+    "promotion_allowed": false,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "requires_long_cycle_replay": true,
+    "requires_same_parameter_full_sample": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true,
+    "requires_no_lookahead_audit": true,
+    "requires_overfit_multiple_testing_control": true,
+    "requires_overlap_adjusted_statistics": true,
+    "requires_parameter_sensitivity": true,
+    "requires_final_holdout_read_once": true,
+    "requires_tradeability_survivorship_audit": true,
+    "requires_industry_style_neutralization": true,
+    "requires_source_performance_evidence": true
+  },
+  "candidates": [
+    {
+      "factor_name": "high_52w_proximity_liquid_quality_252_20",
+      "family": "anchor_momentum_52week_quality",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "public_reference:52_week_high_momentum_anchor",
+      "economic_rationale": "Stocks near their 52-week high can exhibit anchored momentum, but this candidate requires liquidity, path efficiency, and low-volatility controls before any portfolio translation.",
+      "formula_template": "0.45*cs_z(close/rolling_max(close,252)-1)+0.25*cs_z(return_efficiency_20)+0.20*cs_z(log_adv20)+0.10*cs_z(-realized_vol_20)",
+      "direction": "higher_is_better",
+      "required_fields": [
+        "adj_close",
+        "amount"
+      ],
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "high_52w_pullback_resilience_252_20",
+      "family": "anchor_momentum_52week_quality",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "public_reference:52_week_high_pullback_resilience",
+      "economic_rationale": "A controlled pullback near a long-term high may identify resilient demand rather than overextended chasing; residual and quantile tests must prove it is not ordinary momentum.",
+      "formula_template": "0.40*cs_z(close/rolling_max(close,252)-1)+0.30*cs_z(-drawdown_from_20d_high)+0.20*cs_z(return_efficiency_20)+0.10*cs_z(log_adv20)",
+      "direction": "higher_is_better",
+      "required_fields": [
+        "adj_close",
+        "high",
+        "amount"
+      ],
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "high_52w_breakout_amount_confirmation_252_20",
+      "family": "anchor_momentum_52week_quality",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "public_reference:52_week_high_breakout_confirmation",
+      "economic_rationale": "A long-horizon price anchor with moderate amount confirmation is tested as a demand-confirmation hypothesis, not as a raw trend-following TopN rule.",
+      "formula_template": "0.40*cs_z(close/rolling_max(close,252)-1)+0.30*cs_z(amount_trend_20_60)+0.20*cs_z(return_efficiency_20)+0.10*cs_z(log_adv20)",
+      "direction": "higher_is_better",
+      "required_fields": [
+        "adj_close",
+        "amount"
+      ],
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "high_52w_low_drawdown_residual_anchor_252_60",
+      "family": "anchor_momentum_52week_quality",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "public_reference:52_week_high_low_drawdown_anchor",
+      "economic_rationale": "This variant tests whether stocks that stay close to long-horizon highs with lower realized drawdown contain information beyond generic low volatility and size exposure.",
+      "formula_template": "0.45*cs_z(close/rolling_max(close,252)-1)+0.25*cs_z(-max_drawdown_60)+0.20*cs_z(-realized_vol_60)+0.10*cs_z(log_adv20)",
+      "direction": "higher_is_better",
+      "required_fields": [
+        "adj_close",
+        "amount"
+      ],
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    }
+  ],
+  "live_boundary_allowed": false,
+  "safety": "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+}

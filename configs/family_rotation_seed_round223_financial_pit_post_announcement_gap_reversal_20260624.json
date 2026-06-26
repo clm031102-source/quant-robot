@@ -1,0 +1,44 @@
+{
+  "family": "financial_pit_post_announcement_gap_reversal",
+  "next_direction": "round223_financial_pit_post_announcement_gap_reversal_preregistration",
+  "source_audit": "docs/research/cn_stock_round222_financial_pit_post_announcement_drift_residual_prescreen_2026-06-24.md",
+  "mechanism": "Round222 showed that the registered post-announcement gap-underreaction sign is backwards: event gap has significant negative 5-day RankIC. Pre-register the inverse as a gap-overreaction reversal hypothesis before any further IC or portfolio work.",
+  "candidate_ideas": [
+    "pead_gap_overreaction_reversal_1_5",
+    "pead_gap_overreaction_reversal_volume_confirmed_1_5",
+    "pead_gap_overreaction_reversal_low_liquidity_penalized_1_5",
+    "pead_gap_overreaction_reversal_size_neutral_candidate_1_5",
+    "pead_gap_overreaction_reversal_quality_conditioned_1_5"
+  ],
+  "mandatory_controls": [
+    "round222_residual_prescreen_read",
+    "inverse_sign_requires_fresh_preregistration",
+    "no_reuse_of_wrong_signed_underreaction_candidate_as_promotion",
+    "financial_pit_signal_date_filter_required",
+    "ann_date_available_date_signal_date_preserved",
+    "event_day_reaction_available_next_trade_date_only",
+    "tradeability_mask_required",
+    "industry_style_residual_evaluation",
+    "size_liquidity_neutral_survival_required",
+    "multiple_testing_accounting",
+    "no_portfolio_grid_before_residual_ic_shape_prescreen",
+    "china_regime_coverage_required"
+  ],
+  "blocked_continuations": [
+    "round222_pead_underreaction_continuation_parameter_tuning_after_zero_research_leads",
+    "round222_pead_portfolio_grid_after_zero_residual_research_leads",
+    "round222_pead_wrong_signed_gap_underreaction_reuse_without_preregistration"
+  ],
+  "promotion_policy": {
+    "portfolio_grid_allowed_before_residual_prescreen": false,
+    "promotion_allowed": false,
+    "requires_long_cycle_replay": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true,
+    "requires_multiple_testing_accounting": true,
+    "requires_no_same_day_event_reaction_leakage": true,
+    "requires_size_liquidity_neutral_survival": true
+  },
+  "safety": "research_to_review_only_no_broker_no_live_account_no_orders"
+}

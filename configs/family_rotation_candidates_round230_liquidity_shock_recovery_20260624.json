@@ -1,0 +1,82 @@
+[
+  {
+    "family_id": "liquidity_shock_recovery",
+    "status": "eligible",
+    "score": 87,
+    "data_readiness": "ready_from_adjusted_ohlcv_amount_and_tradeability_masks",
+    "novelty_vs_recent_failures": "pure_ohlcv_liquidity_impact_recovery_not_moneyflow_not_supertrend_not_public_anomaly",
+    "public_reference_tags": [
+      "Amihud illiquidity",
+      "liquidity shock reversal",
+      "price impact absorption",
+      "volume shock normalization"
+    ],
+    "required_controls": [
+      "public_method_source_registered",
+      "no_moneyflow_dependency",
+      "no_same_day_forward_label_leakage",
+      "tradeability_mask_required",
+      "industry_style_residual_evaluation",
+      "amihud_liquidity_shock_interpretability",
+      "multiple_testing_accounting",
+      "no_portfolio_grid_before_residual_prescreen",
+      "china_regime_coverage_required"
+    ],
+    "reason": "Uses OHLCV-only liquidity impact and recovery variables to search for post-shock absorption/reversal residual alpha. This rotates away from Round229's style-exposure-dominated public anomaly path and avoids moneyflow lock-in.",
+    "next_action": "round230_liquidity_shock_recovery_preregistration"
+  },
+  {
+    "family_id": "public_anomaly_residual_ensemble_risk_budget",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_round229",
+    "novelty_vs_recent_failures": "failed_round229",
+    "reason": "Round229 showed raw IC but zero residual research leads and high size/liquidity/vol exposure blockers.",
+    "next_action": "do_not_tune_weights_or_portfolio_grid_without_new_orthogonal_exposure_repair"
+  },
+  {
+    "family_id": "public_trend_strength_state_residual",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_round219",
+    "novelty_vs_recent_failures": "failed_round219",
+    "reason": "Round219 produced zero residual research leads.",
+    "next_action": "do_not_reopen_public_trend_state_as_parameter_sweep"
+  },
+  {
+    "family_id": "industry_leader_lag",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_round220",
+    "novelty_vs_recent_failures": "failed_round220",
+    "reason": "Round220 long-cycle sharded prescreen produced zero residual research leads.",
+    "next_action": "do_not_reopen_without_new_industry_information_channel"
+  },
+  {
+    "family_id": "information_discreteness_path_quality",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_round221",
+    "novelty_vs_recent_failures": "failed_round221",
+    "reason": "Round221 full long-cycle residual prescreen produced zero residual research leads.",
+    "next_action": "do_not_reopen_as_plain_momentum_or_path_smoothness_sweep"
+  },
+  {
+    "family_id": "financial_post_announcement_gap_reversal",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_round225",
+    "novelty_vs_recent_failures": "failed_round225_walk_forward",
+    "reason": "Round225 accepted zero walk-forward candidates after cost/capacity/regime checks.",
+    "next_action": "no_gap_reversal_grid_expansion_without_new_orthogonal_repair"
+  },
+  {
+    "family_id": "external_macro_northbound_margin_credit",
+    "status": "blocked_by_data_gap",
+    "score": 40,
+    "data_readiness": "partial_external_feed_history_available",
+    "novelty_vs_recent_failures": "data_dependent",
+    "reason": "Potentially useful but previous external-feed work showed frequency and coverage blockers; do not consume more mining budget until data audit clears.",
+    "next_action": "coverage_and_frequency_audit_before_factor_preregistration"
+  }
+]

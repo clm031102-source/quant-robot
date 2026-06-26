@@ -1,0 +1,163 @@
+{
+  "stage": "round231_index_rebalance_passive_flow_preregistration",
+  "scope": {
+    "market": "CN",
+    "asset_type": "stock",
+    "machine": "office_desktop",
+    "task": "factor_validation",
+    "branch": "codex/factor-validation-cn-stock-long-cycle-20260618"
+  },
+  "family_rotation_policy": {
+    "current_family_id": "index_rebalance_passive_flow",
+    "current_family_round_count": 1,
+    "max_rounds_before_review": 3,
+    "three_round_review_completed": true,
+    "hibernated_families": [
+      "liquidity_shock_recovery_without_new_orthogonal_repair",
+      "public_anomaly_residual_ensemble_risk_budget_without_new_exposure_repair",
+      "public_trend_strength_state_residual",
+      "industry_leader_lag",
+      "information_discreteness_path_quality",
+      "financial_post_announcement_gap_reversal",
+      "public_supertrend",
+      "public_risk_filter_bridge",
+      "direct_profitability_quality_formula_tuning"
+    ],
+    "blocked_families": [
+      "external_macro_northbound_margin_credit_without_coverage_audit",
+      "buyback_holder_unlock_without_share_float_or_pledge_backfill"
+    ]
+  },
+  "research_control_plan": {
+    "declared_controls": {
+      "cn_stock_tradeability": [
+        "limit_up_down_filter",
+        "suspension_filter",
+        "st_flag_filter",
+        "new_listing_age_filter",
+        "delisting_risk_filter",
+        "board_permission_filter"
+      ],
+      "financial_pit_timing": [
+        "ann_date_or_effective_date_lag",
+        "financial_revision_announcement_handling",
+        "report_release_lag_not_period_end",
+        "no_period_end_only_financial_signal"
+      ],
+      "industry_style_neutralization": [
+        "industry_exposure_report",
+        "size_exposure_report",
+        "value_lowvol_momentum_liquidity_decomposition",
+        "neutralized_or_residual_factor_matrix"
+      ],
+      "etf_rotation_scope_boundary": [
+        "stock_scope_confirmed",
+        "etf_rotation_evidence_rejected_for_stock_factor",
+        "cn_etf_dedicated_signal_pack_separate"
+      ],
+      "portfolio_construction": [
+        "risk_budget_position_sizing",
+        "volatility_targeting_or_volatility_budget",
+        "industry_weight_constraints",
+        "turnover_constraints",
+        "stop_loss_or_de_risk_rules"
+      ],
+      "strict_statistics": [
+        "deflated_sharpe",
+        "purged_cpcv",
+        "white_reality_check_or_fdr",
+        "parameter_sensitivity_heatmap",
+        "multiple_testing_accounting"
+      ],
+      "china_market_regime": [
+        "policy_liquidity_regime",
+        "credit_cycle_proxy",
+        "northbound_margin_turnover_temperature",
+        "index_location_state",
+        "signal_window_regime_coverage"
+      ],
+      "event_factors": [
+        "earnings_forecast_or_statement_event_audit",
+        "dividend_ex_right_event_audit",
+        "buyback_holder_unlock_event_audit",
+        "index_rebalance_event_audit",
+        "event_contamination_extreme_return_audit"
+      ]
+    },
+    "policy": "Round231 candidates are research-screen only. The only allowed empirical step is PIT event IC plus industry/size neutralization from index rebalance available dates. Portfolio grids and promotion are blocked."
+  },
+  "promotion_policy": {
+    "promotion_allowed": false,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "requires_long_cycle_replay": true,
+    "requires_same_parameter_full_sample": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true,
+    "requires_no_lookahead_audit": true,
+    "requires_overfit_multiple_testing_control": true,
+    "requires_overlap_adjusted_statistics": true,
+    "requires_parameter_sensitivity": true,
+    "requires_final_holdout_read_once": true,
+    "requires_tradeability_survivorship_audit": true,
+    "requires_industry_style_neutralization": true,
+    "requires_source_performance_evidence": true
+  },
+  "candidates": [
+    {
+      "factor_name": "index_rebalance_add_pressure_1d",
+      "family": "index_rebalance_passive_flow",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "Index rebalance passive-flow and event-study literature; implemented from Tushare index_weight snapshots using next-trade-date availability.",
+      "economic_rationale": "New index inclusion can create short-term passive demand and attention effects after the index-weight snapshot becomes tradeable information.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "index_rebalance_remove_pressure_1d",
+      "family": "index_rebalance_passive_flow",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "Index rebalance deletion/supply-pressure literature; implemented from Tushare index_weight events.",
+      "economic_rationale": "Index removals can create forced passive selling pressure; the factor is encoded negative on removals so higher values mean less removal pressure.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "index_rebalance_weight_up_pressure_1d",
+      "family": "index_rebalance_passive_flow",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "Index rebalance weight-change passive-flow literature.",
+      "economic_rationale": "Large positive index-weight changes can proxy incremental passive demand without using stock-level OHLCV technical patterns.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "index_rebalance_weight_down_pressure_1d",
+      "family": "index_rebalance_passive_flow",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "Index rebalance weight-change passive-flow literature.",
+      "economic_rationale": "Large downweights can proxy passive selling pressure; the factor is encoded negative on downweights so higher values mean less selling pressure.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "index_rebalance_abs_flow_pressure_1d",
+      "family": "index_rebalance_passive_flow",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "Index rebalance attention/liquidity-demand event-study template.",
+      "economic_rationale": "Absolute index-weight change can proxy event attention and passive-flow intensity; direction is fixed before reading results and must survive neutral gates.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    }
+  ]
+}

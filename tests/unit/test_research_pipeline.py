@@ -8,7 +8,10 @@ from types import SimpleNamespace
 import pandas as pd
 
 from quant_robot.data.fixtures import load_demo_market_bars
+from quant_robot.factors.information_discreteness import compute_information_discreteness_factors
+from quant_robot.factors.liquidity_shock_recovery import compute_liquidity_shock_recovery_factors
 from quant_robot.factors.public_technical_tail_guard import compute_public_technical_tail_guard_factors
+from quant_robot.factors.public_trend_strength_state import compute_public_trend_strength_state_factors
 from quant_robot.factors.public_trend_volume import compute_public_trend_volume_factors
 from quant_robot.factors.public_formula_price_volume import compute_public_formula_price_volume_factors
 from quant_robot.factors.public_technical_liquidity import compute_public_technical_liquidity_factors
@@ -164,6 +167,75 @@ class ResearchPipelineTests(unittest.TestCase):
             )
 
         self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("supertrend_volume_confirmed_10_3_20",))
+
+    def test_pipeline_computes_only_requested_public_trend_strength_state_factor(self):
+        bars = _synthetic_public_technical_bars(asset_count=3, day_count=75)
+        factors = compute_public_trend_strength_state_factors(
+            bars,
+            factor_names=("williams_range_failure_reversal_14_20",),
+        )
+
+        with patch(
+            "quant_robot.research.pipeline.compute_public_trend_strength_state_factors",
+            return_value=factors,
+        ) as factor_builder:
+            run_research_pipeline(
+                bars,
+                ResearchPipelineConfig(
+                    factor_name="williams_range_failure_reversal_14_20",
+                    factor_source="public_trend_strength_state",
+                    market="CN",
+                    top_n=1,
+                ),
+            )
+
+        self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("williams_range_failure_reversal_14_20",))
+
+    def test_pipeline_computes_only_requested_information_discreteness_factor(self):
+        bars = _synthetic_public_technical_bars(asset_count=3, day_count=95)
+        factors = compute_information_discreteness_factors(
+            bars,
+            factor_names=("fip_smooth_momentum_quality_60_20",),
+        )
+
+        with patch(
+            "quant_robot.research.pipeline.compute_information_discreteness_factors",
+            return_value=factors,
+        ) as factor_builder:
+            run_research_pipeline(
+                bars,
+                ResearchPipelineConfig(
+                    factor_name="fip_smooth_momentum_quality_60_20",
+                    factor_source="information_discreteness",
+                    market="CN",
+                    top_n=1,
+                ),
+            )
+
+        self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("fip_smooth_momentum_quality_60_20",))
+
+    def test_pipeline_computes_only_requested_liquidity_shock_recovery_factor(self):
+        bars = _synthetic_public_technical_bars(asset_count=3, day_count=95)
+        factors = compute_liquidity_shock_recovery_factors(
+            bars,
+            factor_names=("amihud_shock_reversal_recovery_20_5",),
+        )
+
+        with patch(
+            "quant_robot.research.pipeline.compute_liquidity_shock_recovery_factors",
+            return_value=factors,
+        ) as factor_builder:
+            run_research_pipeline(
+                bars,
+                ResearchPipelineConfig(
+                    factor_name="amihud_shock_reversal_recovery_20_5",
+                    factor_source="liquidity_shock_recovery",
+                    market="CN",
+                    top_n=1,
+                ),
+            )
+
+        self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("amihud_shock_reversal_recovery_20_5",))
 
     def test_pipeline_computes_only_requested_public_formula_price_volume_factor(self):
         bars = _synthetic_public_technical_bars(asset_count=3, day_count=70)
@@ -715,6 +787,37 @@ class ResearchPipelineTests(unittest.TestCase):
                 )
 
             self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("risk_filter_bridge_equal_20",))
+
+    def test_pipeline_computes_only_requested_daily_basic_public_anomaly_ensemble_factor(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bars = load_demo_market_bars()
+            _write_daily_basic_factor_inputs(Path(tmp), bars)
+
+            with patch("quant_robot.research.pipeline.compute_daily_basic_public_anomaly_residual_ensemble_factors") as factor_builder:
+                factor_builder.return_value = pd.DataFrame(
+                    {
+                        "date": [],
+                        "asset_id": [],
+                        "market": [],
+                        "factor_name": [],
+                        "factor_value": [],
+                        "lookback_window": [],
+                    }
+                )
+                run_research_pipeline(
+                    bars,
+                    ResearchPipelineConfig(
+                        factor_name="public_anomaly_residual_equal_weight_20",
+                        factor_source="daily_basic_public_anomaly_residual_ensemble",
+                        factor_input_root=Path(tmp),
+                        factor_input_required=True,
+                        market="CN",
+                        top_n=1,
+                        execution_lag=1,
+                    ),
+                )
+
+            self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("public_anomaly_residual_equal_weight_20",))
 
     def test_pipeline_computes_only_requested_daily_basic_public_qvm_factor(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -60,6 +60,75 @@ FINA_INDICATOR_COLUMNS = [
     "cfps",
 ]
 
+STATEMENT_KEY_COLUMNS = [
+    "symbol",
+    "ann_date",
+    "end_date",
+    "report_type",
+    "comp_type",
+    "end_type",
+]
+
+INCOME_STATEMENT_COLUMNS = STATEMENT_KEY_COLUMNS + [
+    "netprofit",
+    "n_income",
+    "n_income_attr_p",
+    "total_revenue",
+    "revenue",
+    "total_cogs",
+    "operate_profit",
+    "total_profit",
+    "income_tax",
+]
+
+BALANCE_SHEET_COLUMNS = STATEMENT_KEY_COLUMNS + [
+    "total_assets",
+    "total_liab",
+    "total_cur_assets",
+    "total_cur_liab",
+    "total_hldr_eqy_exc_min_int",
+    "total_hldr_eqy_inc_min_int",
+    "total_liab_hldr_eqy",
+    "inventories",
+    "accounts_receiv",
+    "accounts_pay",
+]
+
+CASHFLOW_STATEMENT_COLUMNS = STATEMENT_KEY_COLUMNS + [
+    "net_profit",
+    "n_cashflow_act",
+    "free_cashflow",
+    "c_cash_equ_end_period",
+    "c_cash_equ_beg_period",
+]
+
+FINANCIAL_STATEMENT_COLUMNS = STATEMENT_KEY_COLUMNS + [
+    "netprofit",
+    "n_income",
+    "n_income_attr_p",
+    "net_profit",
+    "n_cashflow_act",
+    "free_cashflow",
+    "total_assets",
+    "total_liab",
+    "total_cur_assets",
+    "total_cur_liab",
+    "total_hldr_eqy_exc_min_int",
+    "total_hldr_eqy_inc_min_int",
+    "total_liab_hldr_eqy",
+    "inventories",
+    "accounts_receiv",
+    "accounts_pay",
+    "total_revenue",
+    "revenue",
+    "total_cogs",
+    "operate_profit",
+    "total_profit",
+    "income_tax",
+    "c_cash_equ_end_period",
+    "c_cash_equ_beg_period",
+]
+
 FUND_BASIC_COLUMNS = [
     "symbol",
     "name",
@@ -96,6 +165,9 @@ STOCK_BASIC_COLUMNS = [
 _MONEYFLOW_NUMERIC_COLUMNS = [column for column in MONEYFLOW_COLUMNS if column not in {"symbol", "date"}]
 _DAILY_BASIC_NUMERIC_COLUMNS = [column for column in DAILY_BASIC_COLUMNS if column not in {"symbol", "date"}]
 _FINA_INDICATOR_NUMERIC_COLUMNS = [column for column in FINA_INDICATOR_COLUMNS if column not in {"symbol", "ann_date", "end_date"}]
+_INCOME_STATEMENT_NUMERIC_COLUMNS = [column for column in INCOME_STATEMENT_COLUMNS if column not in STATEMENT_KEY_COLUMNS + ["netprofit"]]
+_BALANCE_SHEET_NUMERIC_COLUMNS = [column for column in BALANCE_SHEET_COLUMNS if column not in STATEMENT_KEY_COLUMNS]
+_CASHFLOW_STATEMENT_NUMERIC_COLUMNS = [column for column in CASHFLOW_STATEMENT_COLUMNS if column not in STATEMENT_KEY_COLUMNS]
 
 
 def map_tushare_daily(frame: pd.DataFrame) -> pd.DataFrame:
@@ -150,6 +222,40 @@ def map_tushare_fina_indicator(frame: pd.DataFrame) -> pd.DataFrame:
     for column in _FINA_INDICATOR_NUMERIC_COLUMNS:
         mapped[column] = pd.to_numeric(source[column], errors="coerce") if column in source.columns else pd.NA
     return mapped[FINA_INDICATOR_COLUMNS].sort_values(["symbol", "end_date", "ann_date"]).reset_index(drop=True)
+
+
+def map_tushare_income_statement(frame: pd.DataFrame) -> pd.DataFrame:
+    if frame.empty:
+        return pd.DataFrame(columns=INCOME_STATEMENT_COLUMNS)
+    source = frame.copy()
+    _require_columns(source, ["ts_code", "ann_date", "end_date"], "tushare income")
+    mapped = _statement_key_frame(source)
+    mapped["netprofit"] = _first_available_numeric(source, ["n_income_attr_p", "n_income", "net_profit"])
+    for column in _INCOME_STATEMENT_NUMERIC_COLUMNS:
+        mapped[column] = _optional_numeric(source, column)
+    return mapped[INCOME_STATEMENT_COLUMNS].sort_values(["symbol", "end_date", "ann_date"]).reset_index(drop=True)
+
+
+def map_tushare_balance_sheet(frame: pd.DataFrame) -> pd.DataFrame:
+    if frame.empty:
+        return pd.DataFrame(columns=BALANCE_SHEET_COLUMNS)
+    source = frame.copy()
+    _require_columns(source, ["ts_code", "ann_date", "end_date"], "tushare balancesheet")
+    mapped = _statement_key_frame(source)
+    for column in _BALANCE_SHEET_NUMERIC_COLUMNS:
+        mapped[column] = _optional_numeric(source, column)
+    return mapped[BALANCE_SHEET_COLUMNS].sort_values(["symbol", "end_date", "ann_date"]).reset_index(drop=True)
+
+
+def map_tushare_cashflow_statement(frame: pd.DataFrame) -> pd.DataFrame:
+    if frame.empty:
+        return pd.DataFrame(columns=CASHFLOW_STATEMENT_COLUMNS)
+    source = frame.copy()
+    _require_columns(source, ["ts_code", "ann_date", "end_date"], "tushare cashflow")
+    mapped = _statement_key_frame(source)
+    for column in _CASHFLOW_STATEMENT_NUMERIC_COLUMNS:
+        mapped[column] = _optional_numeric(source, column)
+    return mapped[CASHFLOW_STATEMENT_COLUMNS].sort_values(["symbol", "end_date", "ann_date"]).reset_index(drop=True)
 
 
 def map_tushare_fund_basic(frame: pd.DataFrame) -> pd.DataFrame:
@@ -261,6 +367,33 @@ def _optional_date(frame: pd.DataFrame, column: str) -> pd.Series:
     if column not in frame.columns:
         return pd.Series([pd.NaT] * len(frame), index=frame.index)
     return pd.to_datetime(frame[column], errors="coerce").dt.date
+
+
+def _optional_numeric(frame: pd.DataFrame, column: str) -> pd.Series:
+    if column not in frame.columns:
+        return pd.Series([pd.NA] * len(frame), index=frame.index)
+    return pd.to_numeric(frame[column], errors="coerce")
+
+
+def _first_available_numeric(frame: pd.DataFrame, columns: list[str]) -> pd.Series:
+    values = pd.Series([pd.NA] * len(frame), index=frame.index)
+    for column in columns:
+        if column in frame.columns:
+            values = values.fillna(pd.to_numeric(frame[column], errors="coerce"))
+    return values
+
+
+def _statement_key_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    return pd.DataFrame(
+        {
+            "symbol": frame["ts_code"],
+            "ann_date": pd.to_datetime(frame["ann_date"], format="%Y%m%d", errors="coerce").dt.date,
+            "end_date": pd.to_datetime(frame["end_date"], format="%Y%m%d", errors="coerce").dt.date,
+            "report_type": _optional_text(frame, "report_type"),
+            "comp_type": _optional_text(frame, "comp_type"),
+            "end_type": _optional_text(frame, "end_type"),
+        }
+    )
 
 
 def _fund_basic_is_etf(frame: pd.DataFrame) -> pd.Series:

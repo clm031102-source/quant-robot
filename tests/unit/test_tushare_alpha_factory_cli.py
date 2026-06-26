@@ -11,6 +11,12 @@ from unittest.mock import patch
 import pandas as pd
 
 from quant_robot.data.fixtures import load_demo_market_bars
+from quant_robot.ops.factor_mining_candidate_plan_gate import (
+    build_factor_mining_candidate_plan_gate,
+    default_cn_stock_pre_mining_control_plan,
+    default_cn_stock_promotion_policy,
+)
+from quant_robot.ops.factor_mining_startup import build_factor_mining_startup_gate
 from quant_robot.storage.dataset_store import DatasetStore
 from scripts.run_tushare_alpha_factory import run_alpha_factory_cli
 
@@ -177,6 +183,8 @@ class TushareAlphaFactoryCliTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
+            candidate_plan_gate = root / "factor_mining_candidate_plan_gate.json"
+            candidate_plan_gate.write_text(_valid_candidate_plan_gate_packet_json(), encoding="utf-8")
             bars = load_demo_market_bars()
             expected = {"summary": {"hypothesis_count": 1}, "candidate_leaderboard": []}
 
@@ -191,6 +199,7 @@ class TushareAlphaFactoryCliTests(unittest.TestCase):
                         top_n=1,
                         startup_gate_packet=gate_packet,
                         data_manifest_packet=data_manifest,
+                        candidate_plan_gate_packet=candidate_plan_gate,
                     )
 
             self.assertEqual(result, expected)
@@ -213,6 +222,41 @@ class TushareAlphaFactoryCliTests(unittest.TestCase):
                         output_dir=root / "factory",
                         top_n=1,
                         startup_gate_packet=gate_packet,
+                    )
+
+            load_bars.assert_not_called()
+
+    def test_processed_cn_alpha_factory_requires_candidate_plan_gate_after_data_manifest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            gate_packet = root / "factor_mining_startup_gate.json"
+            gate_packet.write_text(_valid_startup_gate_packet_json(), encoding="utf-8")
+            data_manifest = root / "cn_stock_data_manifest.json"
+            data_manifest.write_text(
+                json.dumps(
+                    {
+                        "generated_at": date.today().isoformat(),
+                        "status": "cleared",
+                        "summary": {"source_root": root.as_posix(), "bar_rows": 10, "bar_symbols": 2},
+                        "decision": {"data_manifest_cleared": True, "blockers": [], "warnings": []},
+                        "live_boundary_allowed": False,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with patch("scripts.run_tushare_alpha_factory.load_research_bars") as load_bars:
+                with self.assertRaisesRegex(ValueError, "candidate plan gate"):
+                    run_alpha_factory_cli(
+                        source="processed-bars",
+                        data_root=root,
+                        market="CN",
+                        factor_input_root=root / "factor_inputs",
+                        output_dir=root / "factory",
+                        top_n=1,
+                        startup_gate_packet=gate_packet,
+                        data_manifest_packet=data_manifest,
+                        candidate_plan_gate_packet=root / "missing_candidate_plan_gate.json",
                     )
 
             load_bars.assert_not_called()
@@ -309,96 +353,61 @@ def _write_moneyflow_inputs(root: Path, bars: pd.DataFrame) -> None:
 
 
 def _valid_startup_gate_packet_json() -> str:
-    return json.dumps(
-        {
-            "generated_at": date.today().isoformat(),
-            "status": "cleared",
-            "summary": {"market": "CN", "asset_type": "stock"},
-            "research_direction": {
-                "objective": "cn_stock_cross_sectional_alpha",
-                "allowed_factor_families": ["price_volume", "daily_basic", "moneyflow", "composite"],
-                "forbidden_directions": ["cn_etf_rotation", "single_family_lockin", "oos_tuning"],
-                "stage_policy": {
-                    "discovery": "Design and filter candidates only.",
-                    "long_cycle_replay": "Replay frozen parameters across the long cycle.",
-                    "validation": "Run OOS only after discovery evidence clears.",
-                    "final_holdout": "Read once; never tune after reading.",
-                },
-                "factor_family_rotation": {
-                    "max_failed_batches_before_rotation": 1,
-                    "max_single_family_share": 0.5,
-                    "record_rejected_families": True,
-                },
-            },
-            "repeatable_mining_protocol": {
-                "source_audit": "data/reports/cn_stock_factor_mining_20260617_batch_audit.md",
-                "next_direction": "two_stage_portfolio_construction_and_holding_sensitivity",
-                "recently_rejected_directions": ["single_factor_top50_daily_long_only"],
-                "required_experiment_design": [
-                    "long_cycle_same_parameter_replay",
-                    "same_parameter_full_sample_diagnostic",
-                    "rolling_walk_forward_train_test_split",
-                    "walk_forward_progress_audit",
-                    "market_regime_coverage",
-                    "market_regime_signal_window_coverage",
-                    "lookahead_bias_audit",
-                    "overfit_multiple_testing_audit",
-                    "source_performance_evidence_required",
-                    "source_evidence_status_gate",
-                    "round_number_tracking",
-                    "three_round_review_audit",
-                    "ten_round_result_packaging",
-                    "three_round_review_after_every_three_factor_batches",
-                    "ten_round_github_sync_after_every_ten_factor_batches",
-                    "public_reference_method_check",
-                    "waste_budget_stop_loss",
-                    "ic_to_portfolio_gap_audit_before_topn_expansion",
-                    "industry_neutral_ic_audit_for_stock_factors",
-                    "translation_layer_required_after_strong_ic_rejection",
-                    "bottom_exclusion_overlay_audit_for_strong_ic_rejected_topn",
-                    "bottom_exclusion_costed_walk_forward_before_promotion",
-                    "rank_band_vs_topn_comparison",
-                    "holding_period_and_rebalance_sensitivity",
-                ],
-                "confirm_before_each_run": [
-                    "same_parameter_full_sample_enabled",
-                    "promotion_progress_audit_gate_enabled",
-                    "market_regime_coverage_enabled",
-                    "market_regime_signal_window_coverage_enabled",
-                    "lookahead_bias_audit_enabled",
-                    "overfit_multiple_testing_audit_enabled",
-                    "source_performance_evidence_gate_enabled",
-                    "promotion_source_evidence_gate_enabled",
-                    "three_round_review_gate_enabled",
-                    "ten_round_github_sync_gate_enabled",
-                    "three_round_review_cadence_confirmed",
-                    "ten_round_github_sync_cadence_confirmed",
-                    "public_reference_method_cadence_confirmed",
-                    "budget_stop_loss_cadence_confirmed",
-                    "public_reference_method_review_enabled",
-                    "waste_budget_stop_loss_enabled",
-                    "ic_to_portfolio_gap_audit_read",
-                    "industry_neutral_ic_audit_enabled",
-                    "translation_layer_plan_registered",
-                    "bottom_exclusion_overlay_audit_read",
-                    "bottom_exclusion_costed_walk_forward_registered",
-                    "previous_audit_read",
-                    "next_direction_pre_registered",
-                    "oos_holdout_not_touched",
-                ],
-            },
-            "round_governance": {
-                "round_unit": "factor_family_batch",
-                "review_every_n_rounds": 3,
-                "sync_every_n_rounds": 10,
-                "three_round_review_required_actions": ["direction_adjustment_decision"],
-                "ten_round_sync_required_actions": ["github_safe_sync_after_validation"],
-                "public_reference_projects": ["qlib", "alphalens", "vectorbt", "pyfolio"],
-                "profitability_guardrails": ["do_not_optimize_for_raw_sharpe_before_hard_gates"],
-            },
-            "decision": {"startup_gate_cleared": True, "blockers": []},
-        }
+    config = {
+        "scope_id": "cn_stock_factor_mining",
+        "market": "CN",
+        "asset_type": "stock",
+        "allowed_machines": ["office_desktop"],
+        "allowed_tasks": ["factor_validation"],
+        "recommended_branch_prefixes": ["codex/factor-validation-cn-stock-"],
+        "required_confirmations": [
+            "machine_confirmed",
+            "task_confirmed",
+            "branch_confirmed",
+            "push_policy_confirmed",
+            "cn_stock_scope_confirmed",
+            "etf_scope_rejected",
+        ],
+    }
+    branch = "codex/factor-validation-cn-stock-test"
+    packet = build_factor_mining_startup_gate(
+        config,
+        request={
+            "machine": "office_desktop",
+            "task": "factor_validation",
+            "branch": branch,
+            "market": "CN",
+            "asset_type": "stock",
+            "confirmations": {name: True for name in config["required_confirmations"]},
+        },
+        current_branch=branch,
     )
+    return json.dumps(packet)
+
+
+def _valid_candidate_plan_gate_packet_json() -> str:
+    packet = build_factor_mining_candidate_plan_gate(
+        {
+            "stage": "test_preregistration",
+            "research_control_plan": default_cn_stock_pre_mining_control_plan(),
+            "promotion_policy": default_cn_stock_promotion_policy(),
+            "candidates": [
+                {
+                    "factor_name": "test_cn_stock_public_reference_factor",
+                    "family": "public_reference",
+                    "market": "CN",
+                    "asset_type": "stock",
+                    "registration_status": "pre_registered",
+                    "hypothesis_source": "public_reference:test",
+                    "economic_rationale": "A documented public anomaly adapted to CN stock controls.",
+                    "portfolio_backtest_allowed": False,
+                    "promotion_allowed": False,
+                }
+            ],
+        },
+        gate_stage="discovery",
+    )
+    return json.dumps(packet)
 
 
 if __name__ == "__main__":

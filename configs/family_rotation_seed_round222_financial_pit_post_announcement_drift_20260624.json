@@ -1,0 +1,48 @@
+{
+  "family": "financial_pit_post_announcement_drift",
+  "next_direction": "round222_financial_pit_post_announcement_drift_preregistration",
+  "mechanism": "Post-earnings-announcement drift and underreaction using point-in-time financial announcement availability. Event-day reaction may only be used after it is observable and tradable.",
+  "candidate_ideas": [
+    "pead_event_reaction_continuation_1_20",
+    "pead_event_gap_underreaction_1_20",
+    "pead_volume_disagreement_drift_1_20",
+    "pead_late_announcer_risk_reversal_5_20",
+    "pead_positive_fundamental_change_low_reaction_20",
+    "pead_negative_surprise_reaction_avoidance_20",
+    "pead_reaction_quality_residual_composite_20"
+  ],
+  "mandatory_controls": [
+    "financial_pit_signal_date_filter_required",
+    "ann_date_available_date_signal_date_preserved",
+    "no_same_day_announcement_reaction_trading",
+    "event_day_reaction_available_next_trade_date_only",
+    "financial_coverage_audit_before_ic",
+    "tradeability_mask_required",
+    "industry_style_residual_evaluation",
+    "profitability_valuation_reference_dedup_required",
+    "event_family_reference_dedup_required",
+    "multiple_testing_accounting",
+    "no_portfolio_grid_before_residual_ic_shape_prescreen",
+    "china_regime_coverage_required"
+  ],
+  "blocked_continuations": [
+    "round221_information_discreteness_parameter_tuning_after_zero_residual_leads",
+    "round221_information_discreteness_portfolio_grid_after_zero_residual_leads",
+    "round221_q2_smoke_single_candidate_continuation_after_full_sample_failure",
+    "round220_industry_leader_lag_parameter_tuning_after_full_sample_residual_failure",
+    "round219_public_trend_strength_state_window_tuning_after_zero_residual_leads",
+    "direct_profitability_quality_formula_tuning_under_post_announcement_name"
+  ],
+  "promotion_policy": {
+    "portfolio_grid_allowed_before_residual_prescreen": false,
+    "promotion_allowed": false,
+    "requires_financial_coverage_audit": true,
+    "requires_long_cycle_replay": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true,
+    "requires_multiple_testing_accounting": true,
+    "requires_no_same_day_event_reaction_leakage": true
+  },
+  "safety": "research_to_review_only_no_broker_no_live_account_no_orders"
+}

@@ -1,0 +1,165 @@
+{
+  "stage": "round232_dragon_tiger_attention_reversal_event_preregistration",
+  "scope": {
+    "market": "CN",
+    "asset_type": "stock",
+    "machine": "office_desktop",
+    "task": "factor_validation",
+    "branch": "codex/factor-validation-cn-stock-long-cycle-20260618"
+  },
+  "family_rotation_policy": {
+    "current_family_id": "dragon_tiger_attention_reversal_event",
+    "current_family_round_count": 1,
+    "max_rounds_before_review": 3,
+    "three_round_review_completed": true,
+    "hibernated_families": [
+      "public_anomaly_residual_ensemble_risk_budget_without_new_exposure_repair",
+      "liquidity_shock_recovery_without_new_orthogonal_repair",
+      "index_rebalance_passive_flow_without_new_orthogonal_repair",
+      "public_trend_strength_state_residual",
+      "industry_leader_lag",
+      "information_discreteness_path_quality",
+      "financial_post_announcement_gap_reversal",
+      "public_supertrend",
+      "public_risk_filter_bridge",
+      "direct_profitability_quality_formula_tuning",
+      "daily_basic_valuation_reversion_standalone"
+    ],
+    "blocked_families": [
+      "external_macro_northbound_margin_credit_without_coverage_audit",
+      "buyback_holder_unlock_without_share_float_or_pledge_backfill"
+    ]
+  },
+  "research_control_plan": {
+    "declared_controls": {
+      "cn_stock_tradeability": [
+        "limit_up_down_filter",
+        "suspension_filter",
+        "st_flag_filter",
+        "new_listing_age_filter",
+        "delisting_risk_filter",
+        "board_permission_filter"
+      ],
+      "financial_pit_timing": [
+        "ann_date_or_effective_date_lag",
+        "financial_revision_announcement_handling",
+        "report_release_lag_not_period_end",
+        "no_period_end_only_financial_signal"
+      ],
+      "industry_style_neutralization": [
+        "industry_exposure_report",
+        "size_exposure_report",
+        "value_lowvol_momentum_liquidity_decomposition",
+        "neutralized_or_residual_factor_matrix"
+      ],
+      "etf_rotation_scope_boundary": [
+        "stock_scope_confirmed",
+        "etf_rotation_evidence_rejected_for_stock_factor",
+        "cn_etf_dedicated_signal_pack_separate"
+      ],
+      "portfolio_construction": [
+        "risk_budget_position_sizing",
+        "volatility_targeting_or_volatility_budget",
+        "industry_weight_constraints",
+        "turnover_constraints",
+        "stop_loss_or_de_risk_rules"
+      ],
+      "strict_statistics": [
+        "deflated_sharpe",
+        "purged_cpcv",
+        "white_reality_check_or_fdr",
+        "parameter_sensitivity_heatmap",
+        "multiple_testing_accounting"
+      ],
+      "china_market_regime": [
+        "policy_liquidity_regime",
+        "credit_cycle_proxy",
+        "northbound_margin_turnover_temperature",
+        "index_location_state",
+        "signal_window_regime_coverage"
+      ],
+      "event_factors": [
+        "earnings_forecast_or_statement_event_audit",
+        "dividend_ex_right_event_audit",
+        "buyback_holder_unlock_event_audit",
+        "index_rebalance_event_audit",
+        "event_contamination_extreme_return_audit"
+      ]
+    },
+    "policy": "Round232 candidates are research-screen only. The only allowed empirical steps are Dragon-Tiger list coverage audit followed by PIT event IC plus industry/size neutralization from next-trade-date availability. Portfolio grids and promotion are blocked."
+  },
+  "promotion_policy": {
+    "promotion_allowed": false,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "requires_long_cycle_replay": true,
+    "requires_same_parameter_full_sample": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true,
+    "requires_no_lookahead_audit": true,
+    "requires_overfit_multiple_testing_control": true,
+    "requires_overlap_adjusted_statistics": true,
+    "requires_parameter_sensitivity": true,
+    "requires_final_holdout_read_once": true,
+    "requires_tradeability_survivorship_audit": true,
+    "requires_industry_style_neutralization": true,
+    "requires_source_performance_evidence": true
+  },
+  "candidates": [
+    {
+      "factor_name": "dragon_tiger_abnormal_attention_reversal_1d",
+      "family": "dragon_tiger_attention_reversal_event",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "Tushare top_list public Dragon-Tiger abnormal-trading disclosure; behavioral attention and overreaction reversal event literature.",
+      "economic_rationale": "A stock appearing on the Dragon-Tiger list after abnormal trading may be crowded by short-term attention. The pre-registered direction tests next-session reversal after disclosure, not same-day trading.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "dragon_tiger_net_buy_continuation_1d",
+      "family": "dragon_tiger_attention_reversal_event",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "Tushare top_list buy/sell/net amount fields; short-horizon informed-flow continuation hypothesis with publication lag.",
+      "economic_rationale": "Large disclosed net buying relative to listed-day turnover can proxy informed demand that may continue briefly after public disclosure, subject to size and industry neutralization.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "dragon_tiger_net_sell_exhaustion_reversal_1d",
+      "family": "dragon_tiger_attention_reversal_event",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "Tushare top_list sell/net amount fields; forced-selling exhaustion and attention reversal template.",
+      "economic_rationale": "Heavy disclosed net selling after abnormal trading may signal temporary supply exhaustion. The direction is fixed before reading results and must survive neutral gates.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "dragon_tiger_institutional_net_buy_pressure_1d",
+      "family": "dragon_tiger_attention_reversal_event",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "Tushare top_inst institutional seat transaction detail; institution participation as public disclosed flow imbalance.",
+      "economic_rationale": "Institutional net buy disclosed by Dragon-Tiger seats may contain a cleaner informed-demand component than aggregate abnormal attention, but only after next-trade-date PIT alignment.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "dragon_tiger_institutional_disagreement_abs_pressure_1d",
+      "family": "dragon_tiger_attention_reversal_event",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "Tushare top_inst buy/sell seat detail; public event-disagreement and liquidity-demand template.",
+      "economic_rationale": "Large absolute institutional trading pressure can proxy attention and disagreement; it is a separate pre-registered test from directional net-buy continuation.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    }
+  ]
+}

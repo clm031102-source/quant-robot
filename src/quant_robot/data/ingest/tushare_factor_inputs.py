@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from time import sleep
 from typing import Protocol
 
 import pandas as pd
@@ -26,6 +27,8 @@ def run_tushare_daily_basic_ingest(
     output_dir: str | Path,
     resume: bool = True,
     market: str = "CN",
+    empty_response_retries: int = 3,
+    empty_response_retry_sleep_seconds: float = 1.0,
 ) -> dict[str, object]:
     market = market.upper()
     if market != "CN":
@@ -44,7 +47,12 @@ def run_tushare_daily_basic_ingest(
         if resume and manifest.is_completed(key) and _raw_partition_has_rows(store, _raw_dataset(), trade_date):
             skipped.append(trade_date)
             continue
-        raw = adapter.fetch_daily_basic_by_trade_date(trade_date)
+        raw = _fetch_non_empty_daily_basic(
+            adapter,
+            trade_date,
+            empty_response_retries=empty_response_retries,
+            retry_sleep_seconds=empty_response_retry_sleep_seconds,
+        )
         if raw.empty:
             _mark_empty_raw_response(manifest, key, trade_date)
         store.write_frame(raw, _raw_dataset(), {"trade_date": trade_date})
@@ -87,6 +95,24 @@ def _trade_dates(adapter: TushareDailyBasicAdapter, start_date: str, end_date: s
     calendar = adapter.fetch_trade_calendar(start_date, end_date)
     dates = pd.to_datetime(calendar["date"]).dt.strftime("%Y%m%d")
     return list(dates)
+
+
+def _fetch_non_empty_daily_basic(
+    adapter: TushareDailyBasicAdapter,
+    trade_date: str,
+    *,
+    empty_response_retries: int,
+    retry_sleep_seconds: float,
+) -> pd.DataFrame:
+    attempts = max(int(empty_response_retries), 0) + 1
+    raw = pd.DataFrame()
+    for attempt in range(attempts):
+        raw = adapter.fetch_daily_basic_by_trade_date(trade_date)
+        if not raw.empty:
+            return raw
+        if attempt < attempts - 1 and retry_sleep_seconds > 0.0:
+            sleep(float(retry_sleep_seconds))
+    return raw
 
 
 def _manifest_key(trade_date: str) -> str:

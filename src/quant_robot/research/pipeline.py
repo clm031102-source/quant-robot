@@ -26,6 +26,10 @@ from quant_robot.factors.daily_basic_public_risk_filter_bridge import (
     DAILY_BASIC_PUBLIC_RISK_FILTER_BRIDGE_FACTOR_NAMES,
     compute_daily_basic_public_risk_filter_bridge_factors,
 )
+from quant_robot.factors.daily_basic_public_anomaly_residual_ensemble import (
+    DAILY_BASIC_PUBLIC_ANOMALY_RESIDUAL_ENSEMBLE_FACTOR_NAMES,
+    compute_daily_basic_public_anomaly_residual_ensemble_factors,
+)
 from quant_robot.factors.daily_basic_value_liquidity_tail import (
     DAILY_BASIC_VALUE_LIQUIDITY_TAIL_FACTOR_NAMES,
     compute_daily_basic_value_liquidity_tail_factors,
@@ -41,6 +45,14 @@ from quant_robot.factors.etf_moneyflow_basket import (
 )
 from quant_robot.factors.etf_share_size import ETF_SHARE_SIZE_FACTOR_NAMES, compute_etf_share_size_factors
 from quant_robot.factors.etf_theme_breadth import compute_etf_theme_breadth_factors, etf_theme_breadth_factor_names
+from quant_robot.factors.information_discreteness import (
+    INFORMATION_DISCRETENESS_FACTOR_NAMES,
+    compute_information_discreteness_factors,
+)
+from quant_robot.factors.liquidity_shock_recovery import (
+    LIQUIDITY_SHOCK_RECOVERY_FACTOR_NAMES,
+    compute_liquidity_shock_recovery_factors,
+)
 from quant_robot.factors.public_technical_liquidity import (
     PUBLIC_TECHNICAL_LIQUIDITY_FACTOR_NAMES,
     compute_public_technical_liquidity_factors,
@@ -48,6 +60,10 @@ from quant_robot.factors.public_technical_liquidity import (
 from quant_robot.factors.public_technical_tail_guard import (
     PUBLIC_TECHNICAL_TAIL_GUARD_FACTOR_NAMES,
     compute_public_technical_tail_guard_factors,
+)
+from quant_robot.factors.public_trend_strength_state import (
+    PUBLIC_TREND_STRENGTH_STATE_FACTOR_NAMES,
+    compute_public_trend_strength_state_factors,
 )
 from quant_robot.factors.public_formula_price_volume import (
     PUBLIC_FORMULA_PRICE_VOLUME_FACTOR_NAMES,
@@ -367,6 +383,7 @@ def _load_factor_input_frame(config: ResearchPipelineConfig) -> pd.DataFrame:
         "daily_basic_residual_composite",
         "daily_basic_smart_money_quality",
         "daily_basic_public_risk_filter_bridge",
+        "daily_basic_public_anomaly_residual_ensemble",
         "daily_basic_value_liquidity_tail",
         "daily_basic_public_quality_value_momentum",
         "tushare_moneyflow",
@@ -380,6 +397,9 @@ def _load_factor_input_frame(config: ResearchPipelineConfig) -> pd.DataFrame:
         "public_formula_price_volume",
         "public_rsrs",
         "public_trend_volume",
+        "public_trend_strength_state",
+        "information_discreteness",
+        "liquidity_shock_recovery",
         "combined",
     }:
         raise ValueError(f"Unsupported factor_source: {factor_source}")
@@ -391,6 +411,9 @@ def _load_factor_input_frame(config: ResearchPipelineConfig) -> pd.DataFrame:
         "public_formula_price_volume",
         "public_rsrs",
         "public_trend_volume",
+        "public_trend_strength_state",
+        "information_discreteness",
+        "liquidity_shock_recovery",
     }:
         if config.factor_input_required and config.factor_input_root is None:
             raise ValueError("factor_input_root is required when factor_input_required is true")
@@ -522,6 +545,18 @@ def _compute_factor_source(bars: pd.DataFrame, factor_inputs: pd.DataFrame, conf
         if config.factor_name not in PUBLIC_TREND_VOLUME_FACTOR_NAMES:
             return _empty_factor_frame()
         return compute_public_trend_volume_factors(bars, factor_names=(config.factor_name,))
+    if config.factor_source == "public_trend_strength_state":
+        if config.factor_name not in PUBLIC_TREND_STRENGTH_STATE_FACTOR_NAMES:
+            return _empty_factor_frame()
+        return compute_public_trend_strength_state_factors(bars, factor_names=(config.factor_name,))
+    if config.factor_source == "information_discreteness":
+        if config.factor_name not in INFORMATION_DISCRETENESS_FACTOR_NAMES:
+            return _empty_factor_frame()
+        return compute_information_discreteness_factors(bars, factor_names=(config.factor_name,))
+    if config.factor_source == "liquidity_shock_recovery":
+        if config.factor_name not in LIQUIDITY_SHOCK_RECOVERY_FACTOR_NAMES:
+            return _empty_factor_frame()
+        return compute_liquidity_shock_recovery_factors(bars, factor_names=(config.factor_name,))
     if config.factor_source == "etf_share_size":
         if config.factor_name not in ETF_SHARE_SIZE_FACTOR_NAMES:
             return _empty_factor_frame()
@@ -562,6 +597,14 @@ def _compute_factor_source(bars: pd.DataFrame, factor_inputs: pd.DataFrame, conf
         if config.factor_name not in DAILY_BASIC_PUBLIC_RISK_FILTER_BRIDGE_FACTOR_NAMES:
             return _empty_factor_frame()
         return compute_daily_basic_public_risk_filter_bridge_factors(
+            bars,
+            factor_inputs,
+            factor_names=(config.factor_name,),
+        )
+    if config.factor_source == "daily_basic_public_anomaly_residual_ensemble":
+        if config.factor_name not in DAILY_BASIC_PUBLIC_ANOMALY_RESIDUAL_ENSEMBLE_FACTOR_NAMES:
+            return _empty_factor_frame()
+        return compute_daily_basic_public_anomaly_residual_ensemble_factors(
             bars,
             factor_inputs,
             factor_names=(config.factor_name,),

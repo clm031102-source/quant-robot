@@ -12,10 +12,15 @@ from quant_robot.factors.daily_basic_smart_money_quality import DAILY_BASIC_SMAR
 from quant_robot.factors.daily_basic_public_risk_filter_bridge import (
     DAILY_BASIC_PUBLIC_RISK_FILTER_BRIDGE_FACTOR_NAMES,
 )
+from quant_robot.factors.daily_basic_public_anomaly_residual_ensemble import (
+    DAILY_BASIC_PUBLIC_ANOMALY_RESIDUAL_ENSEMBLE_FACTOR_NAMES,
+)
 from quant_robot.factors.daily_basic_public_quality_value_momentum import DAILY_BASIC_PUBLIC_QVM_FACTOR_NAMES
 from quant_robot.factors.daily_basic_technical_combo import DAILY_BASIC_TECHNICAL_COMBO_FACTOR_NAMES
 from quant_robot.factors.daily_basic_value_liquidity_tail import DAILY_BASIC_VALUE_LIQUIDITY_TAIL_FACTOR_NAMES
 from quant_robot.factors.etf_theme_breadth import etf_theme_breadth_factor_names
+from quant_robot.factors.information_discreteness import INFORMATION_DISCRETENESS_FACTOR_NAMES
+from quant_robot.factors.liquidity_shock_recovery import LIQUIDITY_SHOCK_RECOVERY_FACTOR_NAMES
 from quant_robot.factors.moneyflow_technical import MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES
 from quant_robot.factors.public_formula_price_volume import PUBLIC_FORMULA_PRICE_VOLUME_FACTOR_NAMES
 from quant_robot.factors.public_rsrs import PUBLIC_RSRS_FACTOR_NAMES
@@ -429,6 +434,10 @@ def _registered_factor_names(factor_source: str, factor_windows: tuple[int, ...]
         return set(PUBLIC_RSRS_FACTOR_NAMES)
     if factor_source == "public_trend_volume":
         return set(PUBLIC_TREND_VOLUME_FACTOR_NAMES)
+    if factor_source == "information_discreteness":
+        return set(INFORMATION_DISCRETENESS_FACTOR_NAMES)
+    if factor_source == "liquidity_shock_recovery":
+        return set(LIQUIDITY_SHOCK_RECOVERY_FACTOR_NAMES)
     if factor_source == "tushare_daily_basic":
         return set(DAILY_BASIC_FACTOR_NAMES)
     if factor_source == "daily_basic_technical_combo":
@@ -439,6 +448,8 @@ def _registered_factor_names(factor_source: str, factor_windows: tuple[int, ...]
         return set(DAILY_BASIC_SMART_MONEY_QUALITY_FACTOR_NAMES)
     if factor_source == "daily_basic_public_risk_filter_bridge":
         return set(DAILY_BASIC_PUBLIC_RISK_FILTER_BRIDGE_FACTOR_NAMES)
+    if factor_source == "daily_basic_public_anomaly_residual_ensemble":
+        return set(DAILY_BASIC_PUBLIC_ANOMALY_RESIDUAL_ENSEMBLE_FACTOR_NAMES)
     if factor_source == "daily_basic_public_quality_value_momentum":
         return set(DAILY_BASIC_PUBLIC_QVM_FACTOR_NAMES)
     if factor_source == "daily_basic_value_liquidity_tail":

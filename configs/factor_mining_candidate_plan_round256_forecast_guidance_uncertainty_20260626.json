@@ -1,0 +1,153 @@
+{
+  "stage": "round256_forecast_guidance_uncertainty_preregistration",
+  "source_audit": "docs/research/cn_stock_round255_forecast_express_event_cache_pit_prescreen_2026-06-25.md",
+  "round": 256,
+  "research_control_plan": {
+    "declared_controls": {
+      "cn_stock_tradeability": [
+        "limit_up_down_filter",
+        "suspension_filter",
+        "st_flag_filter",
+        "new_listing_age_filter",
+        "delisting_risk_filter",
+        "board_permission_filter"
+      ],
+      "financial_pit_timing": [
+        "ann_date_or_effective_date_lag",
+        "financial_revision_announcement_handling",
+        "report_release_lag_not_period_end",
+        "no_period_end_only_financial_signal"
+      ],
+      "industry_style_neutralization": [
+        "industry_exposure_report",
+        "size_exposure_report",
+        "value_lowvol_momentum_liquidity_decomposition",
+        "neutralized_or_residual_factor_matrix"
+      ],
+      "etf_rotation_scope_boundary": [
+        "stock_scope_confirmed",
+        "etf_rotation_evidence_rejected_for_stock_factor",
+        "cn_etf_dedicated_signal_pack_separate"
+      ],
+      "portfolio_construction": [
+        "risk_budget_position_sizing",
+        "volatility_targeting_or_volatility_budget",
+        "industry_weight_constraints",
+        "turnover_constraints",
+        "stop_loss_or_de_risk_rules"
+      ],
+      "strict_statistics": [
+        "deflated_sharpe",
+        "purged_cpcv",
+        "white_reality_check_or_fdr",
+        "parameter_sensitivity_heatmap",
+        "multiple_testing_accounting"
+      ],
+      "china_market_regime": [
+        "policy_liquidity_regime",
+        "credit_cycle_proxy",
+        "northbound_margin_turnover_temperature",
+        "index_location_state",
+        "signal_window_regime_coverage"
+      ],
+      "event_factors": [
+        "earnings_forecast_or_statement_event_audit",
+        "dividend_ex_right_event_audit",
+        "buyback_holder_unlock_event_audit",
+        "index_rebalance_event_audit",
+        "event_contamination_extreme_return_audit"
+      ]
+    },
+    "policy": "Round256 may screen only pre-registered CN stock forecast-guidance uncertainty factors. This is not a promotion or portfolio-grid permission."
+  },
+  "evaluation_gate": {
+    "required_metrics": [
+      "point_in_time_ann_date_alignment",
+      "industry_neutral_ic",
+      "size_liquidity_neutral_ic",
+      "yearly_ic_stability",
+      "quantile_monotonicity",
+      "fdr_multiple_testing",
+      "event_snapshot_coverage_audit"
+    ],
+    "multiple_testing_accounting_required": true,
+    "final_holdout_available_for_tuning": false
+  },
+  "promotion_policy": {
+    "promotion_allowed": false,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "requires_long_cycle_replay": true,
+    "requires_same_parameter_full_sample": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true,
+    "requires_no_lookahead_audit": true,
+    "requires_overfit_multiple_testing_control": true,
+    "requires_overlap_adjusted_statistics": true,
+    "requires_parameter_sensitivity": true,
+    "requires_final_holdout_read_once": true,
+    "requires_tradeability_survivorship_audit": true,
+    "requires_industry_style_neutralization": true,
+    "requires_source_performance_evidence": true
+  },
+  "family_rotation_policy": {
+    "current_family_id": "forecast_guidance_uncertainty",
+    "current_family_round_count": 1,
+    "max_rounds_before_review": 3,
+    "three_round_review_completed": true,
+    "hibernated_families": [
+      {
+        "family": "old_event_forecast_profit_revision_1q_after_round254_low_power_failure",
+        "reason": "Round254 old forecast revision formula was low power."
+      },
+      {
+        "family": "standalone_forecast_express_event_surprise_after_round255_zero_leads",
+        "reason": "Round255 standalone express surprise produced zero research leads."
+      },
+      {
+        "family": "event_contextual_underreaction_raw_event_context_blends_after_round250_residual_failure",
+        "reason": "Round250 residual audit found zero pass."
+      },
+      {
+        "family": "small_sample_statement_industry_relative_surprise_after_round253_zero_leads",
+        "reason": "Round253 sample was underpowered and produced zero leads."
+      }
+    ],
+    "blocked_families": []
+  },
+  "candidates": [
+    {
+      "factor_name": "event_forecast_guidance_confidence_1q",
+      "family": "forecast_guidance_uncertainty",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "public_reference:earnings_guidance_uncertainty_post_announcement_drift",
+      "economic_rationale": "Positive narrow forecast guidance may proxy management confidence and lower uncertainty, distinct from old raw forecast revision or express-surprise level signals.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "event_forecast_uncertainty_compression_1q",
+      "family": "forecast_guidance_uncertainty",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "public_reference:forecast_range_uncertainty",
+      "economic_rationale": "Smaller forecast ranges normalized by midpoint magnitude test whether lower earnings uncertainty is rewarded after the announcement date.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "event_forecast_positive_floor_skew_1q",
+      "family": "forecast_guidance_uncertainty",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "public_reference:management_guidance_floor_signal",
+      "economic_rationale": "A high positive lower-bound forecast tests asymmetric management confidence rather than a sign flip of the old forecast surprise formula.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    }
+  ]
+}

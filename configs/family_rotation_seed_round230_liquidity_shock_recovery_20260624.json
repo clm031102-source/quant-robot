@@ -1,0 +1,31 @@
+{
+  "family": "liquidity_shock_recovery",
+  "next_direction": "round230_liquidity_shock_recovery_preregistration",
+  "mechanism": "After an A-share experiences a short liquidity/price-impact shock, a lagged recovery state can indicate tradable absorption rather than continuing distress. Candidates use only OHLCV amount, Amihud-style impact, range shock, volume normalization, and downside-volatility controls.",
+  "candidate_ideas": [
+    "amihud_shock_reversal_recovery_20_5",
+    "volume_shock_absorption_reversal_20_5",
+    "range_shock_liquidity_recovery_20_10",
+    "downside_liquidity_resilience_20",
+    "liquidity_recovery_quality_composite_20"
+  ],
+  "mandatory_controls": [
+    "public_method_source_registered",
+    "no_moneyflow_dependency",
+    "no_same_day_forward_label_leakage",
+    "tradeability_mask_required",
+    "industry_style_residual_evaluation",
+    "amihud_liquidity_shock_interpretability",
+    "multiple_testing_accounting",
+    "no_portfolio_grid_before_residual_prescreen",
+    "china_regime_coverage_required"
+  ],
+  "promotion_policy": {
+    "portfolio_grid_allowed_before_residual_prescreen": false,
+    "promotion_allowed": false,
+    "requires_long_cycle_replay": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true
+  }
+}

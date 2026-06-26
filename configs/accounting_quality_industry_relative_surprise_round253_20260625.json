@@ -1,0 +1,60 @@
+{
+  "stage": "round253_accounting_quality_industry_relative_surprise",
+  "market": "CN",
+  "asset_type": "stock",
+  "family": "accounting_quality_industry_relative_surprise",
+  "machine": "office_desktop",
+  "branch": "codex/factor-validation-cn-stock-long-cycle-20260618",
+  "source_startup_gate": "data/reports/round253_startup_method_protocol_20260625/factor_mining_startup_gate.json",
+  "source_audit": "docs/research/cn_stock_round252_public_reference_multi_family_full_replay_2026-06-25.md",
+  "result_report": "data/reports/round253_accounting_quality_industry_relative_surprise_130_symbol_20260625/accounting_quality_statement_residual_ic_shape_prescreen.json",
+  "candidate_family_thesis": "PIT financial statement profitability and cash-conversion changes may matter when they are surprising relative to same-industry peers reporting in the same signal-date cluster.",
+  "candidate_names": [
+    "aq_industry_relative_profitability_surprise",
+    "aq_industry_relative_asset_disciplined_surprise",
+    "aq_industry_relative_cash_conversion_surprise"
+  ],
+  "inputs": {
+    "statement_roots_pattern": "data/processed/round(236|237|238|241|242|243)_financial_statement*",
+    "bars_roots": [
+      "data/processed/cn_stock_long_history_2015_202306",
+      "data/processed/office_desktop_20260616_combined_research"
+    ],
+    "daily_basic_roots": [
+      "data/processed/cn_stock_long_history_2015_202306",
+      "data/processed/office_desktop_20260617_daily_basic_factor_inputs"
+    ],
+    "stock_basic_path": "data/processed/cn_stock_metadata"
+  },
+  "evaluation_policy": {
+    "analysis_start_date": "2015-01-01",
+    "analysis_end_date": "2025-12-31",
+    "final_holdout_included": false,
+    "horizons": [
+      5,
+      20
+    ],
+    "execution_lag": 1,
+    "min_cross_section": 30,
+    "min_ic_observations": 8,
+    "promotion_allowed": false,
+    "portfolio_grid_allowed": false
+  },
+  "result_summary": {
+    "candidate_count": 3,
+    "test_count": 6,
+    "factor_rows": 1910,
+    "aligned_rows": 3820,
+    "ic_observations_per_test": 8,
+    "fdr_significant_tests": 0,
+    "neutral_gate_pass_tests": 0,
+    "research_leads": 0,
+    "promotion_allowed_candidates": 0
+  },
+  "decision": {
+    "status": "rejected_underpowered_zero_leads",
+    "reason": "The fresh industry-relative surprise construction avoids old direct formula reuse, but the current 130-symbol PIT statement sample leaves only 8 IC observations per test and every row fails FDR, IC sign/shape, and neutral gates.",
+    "next_direction": "round254_rotate_after_industry_relative_surprise_residual_ic_shape_failure"
+  },
+  "safety": "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+}

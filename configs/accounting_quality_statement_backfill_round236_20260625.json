@@ -1,0 +1,1397 @@
+{
+  "stage": "round236_accounting_quality_statement_full_universe_shard_backfill",
+  "market": "CN",
+  "asset_type": "stock",
+  "family": "accounting_accruals_cashflow_quality",
+  "next_direction": "round237_accounting_quality_100_symbol_efficiency_and_formula_smoke_before_more_full_universe_backfill",
+  "source_reports": {
+    "round235_limited_smoke": "data/processed/round235_financial_statement_limited_smoke_20260625/financial_statement_limited_backfill_smoke.json",
+    "round236_symbol_shard_plan": "data/reports/round236_financial_statement_symbol_shard_plan_20260625/financial_statement_symbol_shard_plan.json",
+    "round236_pilot_first2_fullcycle": "data/processed/round236_financial_statement_pilot_first2_fullcycle_20260625/financial_statement_limited_backfill_smoke.json",
+    "round236_pilot_first2_readiness": "data/reports/round236_financial_statement_pilot_first2_fullcycle_readiness_20260625/tushare_financial_pit_readiness.json",
+    "round236_shard1_aggregate_readiness": "data/reports/round236_financial_statement_shard1_aggregate_readiness_20260625/tushare_financial_pit_readiness.json",
+    "round236_shard2_aggregate_readiness": "data/reports/round236_financial_statement_shard2_aggregate_readiness_20260625/tushare_financial_pit_readiness.json",
+    "round236_shard3_offsets0_2_4_readiness": "data/reports/round236_financial_statement_shard3_offsets0_2_4_readiness_20260625/tushare_financial_pit_readiness.json",
+    "round236_shard3_offsets6_8_10_readiness": "data/reports/round236_financial_statement_shard3_offsets6_8_10_readiness_20260625/tushare_financial_pit_readiness.json",
+    "round236_shard3_offsets12_14_16_readiness": "data/reports/round236_financial_statement_shard3_offsets12_14_16_readiness_20260625/tushare_financial_pit_readiness.json",
+    "round236_shard3_aggregate_readiness": "data/reports/round236_financial_statement_shard3_aggregate_readiness_20260625/tushare_financial_pit_readiness.json",
+    "round236_shard3_offset18_shard4_offsets0_2_readiness": "data/reports/round236_financial_statement_shard3_offset18_shard4_offsets0_2_readiness_20260625/tushare_financial_pit_readiness.json",
+    "round236_shard4_offsets4_6_8_readiness": "data/reports/round236_financial_statement_shard4_offsets4_6_8_readiness_20260625/tushare_financial_pit_readiness.json",
+    "round236_shard4_offsets10_12_14_readiness": "data/reports/round236_financial_statement_shard4_offsets10_12_14_readiness_20260625/tushare_financial_pit_readiness.json",
+    "round236_shard4_offsets16_18_shard5_offset0_readiness": "data/reports/round236_financial_statement_shard4_offsets16_18_shard5_offset0_readiness_20260625/tushare_financial_pit_readiness.json",
+    "round236_shard4_aggregate_readiness": "data/reports/round236_financial_statement_shard4_aggregate_readiness_20260625/tushare_financial_pit_readiness.json",
+    "round236_shard5_offsets2_4_6_readiness": "data/reports/round236_financial_statement_shard5_offsets2_4_6_readiness_20260625/tushare_financial_pit_readiness.json",
+    "round236_shard5_offsets8_10_12_readiness": "data/reports/round236_financial_statement_shard5_offsets8_10_12_readiness_20260625/tushare_financial_pit_readiness.json",
+    "round236_shard5_offsets14_16_18_readiness": "data/reports/round236_financial_statement_shard5_offsets14_16_18_readiness_20260625/tushare_financial_pit_readiness.json",
+    "round236_shard5_aggregate_readiness": "data/reports/round236_financial_statement_shard5_aggregate_readiness_20260625/tushare_financial_pit_readiness.json",
+    "round237_100_symbol_efficiency_audit": "docs/research/cn_stock_round237_accounting_quality_100_symbol_efficiency_audit_2026-06-25.md",
+    "round237_statement_formula_smoke_plan": "configs/accounting_quality_statement_smoke_plan_round237_20260625.json",
+    "round237_formula_smoke_100_symbol": "data/reports/round237_accounting_quality_statement_formula_smoke_20260625/accounting_quality_statement_formula_smoke.json",
+    "round237_shard6_offset0_limit5_throughput_gate": "data/processed/round237_financial_statement_shard6_offset0_limit5_throughput_gate_20260625/financial_statement_shard_backfill.json",
+    "round237_shard6_offset0_limit5_formula_smoke": "data/reports/round237_accounting_quality_statement_formula_smoke_shard6_offset0_limit5_20260625/accounting_quality_statement_formula_smoke.json",
+    "round237_formula_smoke_105_symbol": "data/reports/round237_accounting_quality_statement_formula_smoke_105_symbol_20260625/accounting_quality_statement_formula_smoke.json",
+    "round237_shard6_offset5_limit5_backfill": "data/processed/round237_financial_statement_shard6_offset5_limit5_20260625/financial_statement_shard_backfill.json",
+    "round237_shard6_offset5_limit5_formula_smoke": "data/reports/round237_accounting_quality_statement_formula_smoke_shard6_offset5_limit5_20260625/accounting_quality_statement_formula_smoke.json",
+    "round237_formula_smoke_110_symbol_full": "data/reports/round237_accounting_quality_statement_formula_smoke_110_symbol_full_20260625/accounting_quality_statement_formula_smoke.json",
+    "round238_shard6_offset10_limit5_backfill": "data/processed/round238_financial_statement_shard6_offset10_limit5_20260625/financial_statement_shard_backfill.json",
+    "round238_shard6_offset10_limit5_formula_smoke": "data/reports/round238_accounting_quality_statement_formula_smoke_shard6_offset10_limit5_20260625/accounting_quality_statement_formula_smoke.json",
+    "round238_formula_smoke_115_symbol_full": "data/reports/round238_accounting_quality_statement_formula_smoke_115_symbol_full_20260625/accounting_quality_statement_formula_smoke.json",
+    "round238_matrix_label_smoke_115_symbol": "data/reports/round238_accounting_quality_statement_matrix_label_smoke_115_symbol_20260625/accounting_quality_statement_matrix_label_smoke.json",
+    "round239_residual_ic_shape_prescreen_115_symbol": "data/reports/round239_accounting_quality_statement_residual_ic_shape_prescreen_115_symbol_20260625/accounting_quality_statement_residual_ic_shape_prescreen.json",
+    "round240_repaired_candidate_prescreen_115_symbol": "data/reports/round240_accounting_quality_repaired_candidate_prescreen_115_symbol_20260625/accounting_quality_statement_residual_ic_shape_prescreen.json",
+    "round241_shard6_offset15_limit5_backfill": "data/processed/round241_financial_statement_shard6_offset15_limit5_20260625/financial_statement_shard_backfill.json",
+    "round241_shard6_offset15_limit5_formula_smoke": "data/reports/round241_accounting_quality_statement_formula_smoke_shard6_offset15_limit5_20260625/accounting_quality_statement_formula_smoke.json",
+    "round241_formula_smoke_120_symbol_full": "data/reports/round241_accounting_quality_formula_smoke_120_symbol_20260625/accounting_quality_statement_formula_smoke.json",
+    "round241_matrix_label_smoke_120_symbol": "data/reports/round241_accounting_quality_matrix_label_smoke_120_symbol_20260625/accounting_quality_statement_matrix_label_smoke.json",
+    "round241_raw_residual_ic_shape_prescreen_120_symbol": "data/reports/round241_accounting_quality_raw_prescreen_120_symbol_20260625/accounting_quality_statement_residual_ic_shape_prescreen.json",
+    "round241_repaired_candidate_prescreen_120_symbol": "data/reports/round241_accounting_quality_repaired_prescreen_120_symbol_20260625/accounting_quality_statement_residual_ic_shape_prescreen.json",
+    "round242_shard7_offset0_limit5_backfill": "data/processed/round242_financial_statement_shard7_offset0_limit5_20260625/financial_statement_shard_backfill.json",
+    "round242_shard7_offset0_limit5_formula_smoke": "data/reports/round242_accounting_quality_statement_formula_smoke_shard7_offset0_limit5_20260625/accounting_quality_statement_formula_smoke.json",
+    "round242_formula_smoke_125_symbol_full": "data/reports/round242_accounting_quality_formula_smoke_125_symbol_20260625/accounting_quality_statement_formula_smoke.json",
+    "round242_matrix_label_smoke_125_symbol": "data/reports/round242_accounting_quality_matrix_label_smoke_125_symbol_20260625/accounting_quality_statement_matrix_label_smoke.json",
+    "round242_raw_residual_ic_shape_prescreen_125_symbol": "data/reports/round242_accounting_quality_raw_prescreen_125_symbol_20260625/accounting_quality_statement_residual_ic_shape_prescreen.json",
+    "round242_repaired_candidate_prescreen_125_symbol": "data/reports/round242_accounting_quality_repaired_prescreen_125_symbol_20260625/accounting_quality_statement_residual_ic_shape_prescreen.json",
+    "round243_shard7_offset5_limit5_backfill": "data/processed/round243_financial_statement_shard7_offset5_limit5_20260625/financial_statement_shard_backfill.json",
+    "round243_shard7_offset5_limit5_formula_smoke": "data/reports/round243_accounting_quality_statement_formula_smoke_shard7_offset5_limit5_20260625/accounting_quality_statement_formula_smoke.json",
+    "round243_formula_smoke_130_symbol_full": "data/reports/round243_accounting_quality_formula_smoke_130_symbol_20260625/accounting_quality_statement_formula_smoke.json",
+    "round243_matrix_label_smoke_130_symbol": "data/reports/round243_accounting_quality_matrix_label_smoke_130_symbol_20260625/accounting_quality_statement_matrix_label_smoke.json",
+    "round243_new_substructure_seed": "configs/accounting_quality_new_substructure_seed_round243_20260625.json"
+  },
+  "required_column_groups": {
+    "accounting_accrual_quality": [
+      "netprofit",
+      "n_cashflow_act",
+      "total_assets"
+    ],
+    "asset_growth_quality": [
+      "total_assets",
+      "total_liab",
+      "total_cur_assets",
+      "total_cur_liab"
+    ]
+  },
+  "full_universe_shard_plan": {
+    "symbols": 5208,
+    "excluded_symbols": 321,
+    "excluded_suffixes": [
+      "BJ"
+    ],
+    "periods": 44,
+    "endpoint_count": 3,
+    "shards": 261,
+    "symbols_per_shard": 20,
+    "max_endpoint_requests_per_shard": 3000,
+    "total_base_request_count": 229152,
+    "total_endpoint_request_count": 687456,
+    "stratification": [
+      "industry",
+      "exchange",
+      "list_year"
+    ]
+  },
+  "round237_efficiency_gate": {
+    "completed_subshards": 50,
+    "total_subshards_at_symbol_limit_2": 2604,
+    "remaining_subshards_at_symbol_limit_2": 2554,
+    "completed_symbols": 100,
+    "total_symbols": 5208,
+    "symbol_coverage_pct": 1.9201,
+    "completed_endpoint_requests": 13200,
+    "total_endpoint_requests": 687456,
+    "remaining_endpoint_requests": 674256,
+    "endpoint_coverage_pct": 1.9201,
+    "empty_requests": 149,
+    "empty_request_rate_pct": 1.1288,
+    "remaining_hours_if_5_min_per_2_symbol_subshard": 212.83,
+    "remaining_hours_if_9_min_per_2_symbol_subshard": 383.1,
+    "formula_smoke_report": "data/reports/round237_accounting_quality_statement_formula_smoke_20260625/accounting_quality_statement_formula_smoke.json",
+    "formula_smoke_rows_before_dedup": 4387,
+    "formula_smoke_rows": 4386,
+    "formula_smoke_unique_symbols": 100,
+    "duplicate_key_rows_asset_end_ann_report_type": 1,
+    "core_formula_coverage_pct": 97.72,
+    "throughput_gate_result": {
+      "shard_id": 6,
+      "symbol_offset": 0,
+      "symbol_limit": 5,
+      "symbols": [
+        "000428.SZ",
+        "000778.SZ",
+        "000557.SZ",
+        "000426.SZ",
+        "000630.SZ"
+      ],
+      "wall_clock_seconds_approx": 578,
+      "endpoint_requests": 660,
+      "processed_rows": 220,
+      "empty_requests": 0,
+      "readiness_passes": true,
+      "required_column_groups_passing": 2,
+      "formula_smoke_passes": true,
+      "formula_smoke_duplicate_key_rows": 0,
+      "decision": "symbol_limit_5_is_allowed_for_next_statement_backfill_segments_with_same_pit_and_formula_smoke_gates"
+    },
+    "second_symbol_limit_5_gate_result": {
+      "shard_id": 6,
+      "symbol_offset": 5,
+      "symbol_limit": 5,
+      "symbols": [
+        "000612.SZ",
+        "000001.SZ",
+        "002162.SZ",
+        "000505.SZ",
+        "000702.SZ"
+      ],
+      "endpoint_requests": 660,
+      "processed_rows": 221,
+      "empty_requests": 8,
+      "readiness_passes": true,
+      "required_column_groups_passing": 2,
+      "formula_smoke_passes": true,
+      "formula_smoke_duplicate_key_rows": 1,
+      "decision": "second_non_overlapping_symbol_limit_5_segment_passed_continue_with_symbol_limit_5_and_same_gates"
+    },
+    "third_symbol_limit_5_gate_result": {
+      "shard_id": 6,
+      "symbol_offset": 10,
+      "symbol_limit": 5,
+      "symbols": [
+        "000506.SZ",
+        "000938.SZ",
+        "600608.SH",
+        "000551.SZ",
+        "000423.SZ"
+      ],
+      "endpoint_requests": 660,
+      "processed_rows": 220,
+      "empty_requests": 18,
+      "readiness_passes": true,
+      "required_column_groups_passing": 2,
+      "formula_smoke_passes": true,
+      "formula_smoke_duplicate_key_rows": 0,
+      "decision": "third_non_overlapping_symbol_limit_5_segment_passed_continue_with_symbol_limit_5_and_same_gates"
+    },
+    "fourth_symbol_limit_5_gate_result": {
+      "shard_id": 6,
+      "symbol_offset": 15,
+      "symbol_limit": 5,
+      "symbols": [
+        "300106.SZ",
+        "000681.SZ",
+        "000927.SZ",
+        "000421.SZ",
+        "601601.SH"
+      ],
+      "endpoint_requests": 660,
+      "processed_rows": 220,
+      "empty_requests": 18,
+      "readiness_passes": true,
+      "required_column_groups_passing": 2,
+      "formula_smoke_passes": true,
+      "formula_smoke_duplicate_key_rows": 0,
+      "decision": "fourth_non_overlapping_symbol_limit_5_segment_passed_and_completed_shard6"
+    },
+    "fifth_symbol_limit_5_gate_result": {
+      "shard_id": 7,
+      "symbol_offset": 0,
+      "symbol_limit": 5,
+      "symbols": [
+        "000509.SZ",
+        "000014.SZ",
+        "600611.SH",
+        "603569.SH",
+        "000056.SZ"
+      ],
+      "endpoint_requests": 660,
+      "processed_rows": 221,
+      "empty_requests": 15,
+      "readiness_passes": true,
+      "required_column_groups_passing": 2,
+      "formula_smoke_passes": true,
+      "formula_smoke_duplicate_key_rows": 0,
+      "decision": "fifth_non_overlapping_symbol_limit_5_segment_passed_but_same_raw_repaired_cash_accrual_family_stays_stopped_after_125_symbol_zero_leads"
+    },
+    "sixth_symbol_limit_5_gate_result": {
+      "shard_id": 7,
+      "symbol_offset": 5,
+      "symbol_limit": 5,
+      "symbols": [
+        "000619.SZ",
+        "000048.SZ",
+        "000816.SZ",
+        "000553.SZ",
+        "000793.SZ"
+      ],
+      "endpoint_requests": 660,
+      "processed_rows": 220,
+      "empty_requests": 7,
+      "readiness_passes": true,
+      "required_column_groups_passing": 2,
+      "formula_smoke_passes": true,
+      "formula_smoke_duplicate_key_rows": 0,
+      "decision": "sixth_non_overlapping_symbol_limit_5_segment_passed_130_symbol_data_readiness_only_old_family_ic_skipped"
+    },
+    "current_cumulative_formula_smoke": {
+      "report": "data/reports/round243_accounting_quality_formula_smoke_130_symbol_20260625/accounting_quality_statement_formula_smoke.json",
+      "passes": true,
+      "source_roots": 56,
+      "source_files": 672,
+      "statement_rows_before_dedup": 5709,
+      "statement_rows": 5707,
+      "unique_symbols": 130,
+      "duplicate_key_rows": 2,
+      "formula_count": 5,
+      "formulas_with_values": 5,
+      "core_formula_coverage_pct": 97.0913
+    },
+    "current_matrix_label_smoke": {
+      "report": "data/reports/round243_accounting_quality_matrix_label_smoke_130_symbol_20260625/accounting_quality_statement_matrix_label_smoke.json",
+      "passes": true,
+      "statement_assets": 130,
+      "statement_rows": 5707,
+      "duplicate_key_rows": 2,
+      "bar_assets": 130,
+      "bar_rows": 346226,
+      "factor_count": 5,
+      "factor_value_rows": 25383,
+      "label_rows": 661614,
+      "label_aligned_rows": 50766,
+      "label_coverage": 1.0,
+      "alignment_violation_rows": 0,
+      "horizons": [
+        5,
+        20
+      ],
+      "execution_lag": 1,
+      "min_ann_date": "2015-04-18",
+      "max_ann_date": "2025-10-31",
+      "min_signal_date": "2015-04-20",
+      "max_signal_date": "2025-11-11",
+      "next_allowed_gate": "new_accounting_quality_substructure_implementation_before_ic_prescreen"
+    },
+    "current_residual_ic_shape_prescreen": {
+      "report": "data/reports/round242_accounting_quality_raw_prescreen_125_symbol_20260625/accounting_quality_statement_residual_ic_shape_prescreen.json",
+      "passes": true,
+      "candidate_count": 5,
+      "test_count": 10,
+      "factor_rows": 24398,
+      "aligned_rows": 48796,
+      "fdr_significant_tests": 0,
+      "neutral_gate_pass_tests": 0,
+      "research_leads": 0,
+      "promotion_allowed_candidates": 0,
+      "next_direction": "stop_same_raw_cash_accrual_family_after_115_120_125_symbol_zero_leads"
+    },
+    "current_repaired_candidate_prescreen": {
+      "report": "data/reports/round242_accounting_quality_repaired_prescreen_125_symbol_20260625/accounting_quality_statement_residual_ic_shape_prescreen.json",
+      "passes": true,
+      "candidate_count": 3,
+      "test_count": 6,
+      "factor_rows": 5601,
+      "aligned_rows": 11202,
+      "fdr_significant_tests": 0,
+      "neutral_gate_pass_tests": 0,
+      "research_leads": 0,
+      "promotion_allowed_candidates": 0,
+      "best_raw_ic": 0.02760085486092058,
+      "best_icir": 0.22973666631771822,
+      "best_ic_t_stat": 1.3784199979063094,
+      "next_direction": "rotate_to_revision_surprise_abnormal_accrual_change_or_post_announcement_drift_before_any_portfolio_grid"
+    },
+    "decision": "round243_130_symbol_data_readiness_passed_old_raw_repaired_accounting_quality_ic_skipped_new_substructure_required_before_more_mining"
+  },
+  "pilot_result": {
+    "symbols": [
+      "000066.SZ",
+      "300029.SZ"
+    ],
+    "periods": 44,
+    "endpoint_requests": 264,
+    "processed_rows": 88,
+    "empty_requests": 1,
+    "readiness_passes": true,
+    "required_column_groups_passing": 2
+  },
+  "vip_permission_audit": {
+    "income_vip": "blocked_no_permission",
+    "balancesheet_vip": "blocked_no_permission",
+    "cashflow_vip": "blocked_no_permission",
+    "report": "docs/research/cn_stock_round236_tushare_statement_vip_permission_audit_2026-06-25.md",
+    "decision": "ordinary_per_symbol_statement_endpoints_required_until_permission_changes"
+  },
+  "subshard_progress": {
+    "completed_segments": [
+      {
+        "shard_id": 1,
+        "symbol_offset": 0,
+        "symbol_limit": 2,
+        "symbols": [
+          "000066.SZ",
+          "300029.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "balancesheet:000066.SZ:20220331"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 1,
+        "symbol_offset": 2,
+        "symbol_limit": 2,
+        "symbols": [
+          "000519.SZ",
+          "000538.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "balancesheet:000519.SZ:20220331"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 1,
+        "symbol_offset": 4,
+        "symbol_limit": 2,
+        "symbols": [
+          "002329.SZ",
+          "000676.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 1,
+        "symbol_offset": 6,
+        "symbol_limit": 2,
+        "symbols": [
+          "000906.SZ",
+          "000407.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "balancesheet:000906.SZ:20200630"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 1,
+        "symbol_offset": 8,
+        "symbol_limit": 2,
+        "symbols": [
+          "601318.SH",
+          "000020.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 1,
+        "symbol_offset": 10,
+        "symbol_limit": 2,
+        "symbols": [
+          "000002.SZ",
+          "002357.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "balancesheet:000002.SZ:20240930"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 1,
+        "symbol_offset": 12,
+        "symbol_limit": 2,
+        "symbols": [
+          "603223.SH",
+          "000007.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "income:603223.SH:20150331",
+          "balancesheet:603223.SH:20150331"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 1,
+        "symbol_offset": 14,
+        "symbol_limit": 2,
+        "symbols": [
+          "000055.SZ",
+          "000019.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 1,
+        "symbol_offset": 16,
+        "symbol_limit": 2,
+        "symbols": [
+          "000570.SZ",
+          "000525.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "income:000570.SZ:20230930"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 1,
+        "symbol_offset": 18,
+        "symbol_limit": 2,
+        "symbols": [
+          "000719.SZ",
+          "000513.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 2,
+        "symbol_offset": 0,
+        "symbol_limit": 2,
+        "symbols": [
+          "000510.SZ",
+          "000852.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 2,
+        "symbol_offset": 2,
+        "symbol_limit": 2,
+        "symbols": [
+          "000420.SZ",
+          "000006.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 2,
+        "symbol_offset": 4,
+        "symbol_limit": 2,
+        "symbols": [
+          "000504.SZ",
+          "000028.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 2,
+        "symbol_offset": 6,
+        "symbol_limit": 2,
+        "symbols": [
+          "002049.SZ",
+          "000058.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 2,
+        "symbol_offset": 8,
+        "symbol_limit": 2,
+        "symbols": [
+          "000626.SZ",
+          "000729.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "cashflow:000729.SZ:20160331"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 2,
+        "symbol_offset": 10,
+        "symbol_limit": 2,
+        "symbols": [
+          "600604.SH",
+          "000859.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 2,
+        "symbol_offset": 12,
+        "symbol_limit": 2,
+        "symbols": [
+          "000532.SZ",
+          "000910.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "income:000532.SZ:20150630",
+          "cashflow:000532.SZ:20150630"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 2,
+        "symbol_offset": 14,
+        "symbol_limit": 2,
+        "symbols": [
+          "000016.SZ",
+          "000629.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 2,
+        "symbol_offset": 16,
+        "symbol_limit": 2,
+        "symbols": [
+          "000528.SZ",
+          "000607.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "balancesheet:000528.SZ:20160331",
+          "cashflow:000607.SZ:20160930",
+          "income:000607.SZ:20180930",
+          "income:000607.SZ:20181231"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 2,
+        "symbol_offset": 18,
+        "symbol_limit": 2,
+        "symbols": [
+          "000032.SZ",
+          "000665.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 3,
+        "symbol_offset": 0,
+        "symbol_limit": 2,
+        "symbols": [
+          "000011.SZ",
+          "000652.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "income:000652.SZ:20150930"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 3,
+        "symbol_offset": 2,
+        "symbol_limit": 2,
+        "symbols": [
+          "001696.SZ",
+          "000526.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "balancesheet:000526.SZ:20160930",
+          "cashflow:000526.SZ:20190630"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 3,
+        "symbol_offset": 4,
+        "symbol_limit": 2,
+        "symbols": [
+          "000507.SZ",
+          "000558.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 3,
+        "symbol_offset": 6,
+        "symbol_limit": 2,
+        "symbols": [
+          "000524.SZ",
+          "002094.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 3,
+        "symbol_offset": 8,
+        "symbol_limit": 2,
+        "symbols": [
+          "000655.SZ",
+          "000017.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "balancesheet:000655.SZ:20210331"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 3,
+        "symbol_offset": 10,
+        "symbol_limit": 2,
+        "symbols": [
+          "000089.SZ",
+          "000410.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "income:000410.SZ:20160331",
+          "income:000089.SZ:20180930",
+          "balancesheet:000089.SZ:20200331",
+          "income:000410.SZ:20211231",
+          "cashflow:000410.SZ:20251231"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 3,
+        "symbol_offset": 12,
+        "symbol_limit": 2,
+        "symbols": [
+          "000530.SZ",
+          "000592.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 3,
+        "symbol_offset": 14,
+        "symbol_limit": 2,
+        "symbols": [
+          "000565.SZ",
+          "002211.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "balancesheet:002211.SZ:20170630",
+          "cashflow:002211.SZ:20230930"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 3,
+        "symbol_offset": 16,
+        "symbol_limit": 2,
+        "symbols": [
+          "000601.SZ",
+          "000598.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "income:000601.SZ:20160630",
+          "cashflow:000598.SZ:20221231",
+          "balancesheet:000598.SZ:20250630"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 3,
+        "symbol_offset": 18,
+        "symbol_limit": 2,
+        "symbols": [
+          "000401.SZ",
+          "000520.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "income:000520.SZ:20170331",
+          "cashflow:000520.SZ:20240930"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 4,
+        "symbol_offset": 0,
+        "symbol_limit": 2,
+        "symbols": [
+          "000550.SZ",
+          "000757.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "cashflow:000550.SZ:20150630"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 4,
+        "symbol_offset": 2,
+        "symbol_limit": 2,
+        "symbols": [
+          "000030.SZ",
+          "000798.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "income:000798.SZ:20191231",
+          "balancesheet:000030.SZ:20221231",
+          "balancesheet:000030.SZ:20231231"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 4,
+        "symbol_offset": 4,
+        "symbol_limit": 2,
+        "symbols": [
+          "001872.SZ",
+          "000027.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 89,
+        "empty_requests": [],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 4,
+        "symbol_offset": 6,
+        "symbol_limit": 2,
+        "symbols": [
+          "000723.SZ",
+          "000552.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "income:000723.SZ:20160930",
+          "cashflow:000723.SZ:20210331"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 4,
+        "symbol_offset": 8,
+        "symbol_limit": 2,
+        "symbols": [
+          "000708.SZ",
+          "000544.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 4,
+        "symbol_offset": 10,
+        "symbol_limit": 2,
+        "symbols": [
+          "000012.SZ",
+          "000518.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "cashflow:000012.SZ:20160930",
+          "income:000012.SZ:20210630",
+          "balancesheet:000518.SZ:20230630"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 4,
+        "symbol_offset": 12,
+        "symbol_limit": 2,
+        "symbols": [
+          "300959.SZ",
+          "002121.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 73,
+        "empty_requests": [
+          "income:300959.SZ:20150331",
+          "balancesheet:300959.SZ:20150331",
+          "cashflow:300959.SZ:20150331",
+          "income:300959.SZ:20150630",
+          "balancesheet:300959.SZ:20150630",
+          "cashflow:300959.SZ:20150630",
+          "income:300959.SZ:20150930",
+          "balancesheet:300959.SZ:20150930",
+          "cashflow:300959.SZ:20150930",
+          "cashflow:300959.SZ:20151231",
+          "income:300959.SZ:20160331",
+          "balancesheet:300959.SZ:20160331",
+          "cashflow:300959.SZ:20160331",
+          "income:300959.SZ:20160630",
+          "balancesheet:300959.SZ:20160630",
+          "cashflow:300959.SZ:20160630",
+          "cashflow:300959.SZ:20160930",
+          "income:300959.SZ:20161231",
+          "balancesheet:300959.SZ:20161231",
+          "cashflow:300959.SZ:20161231",
+          "income:300959.SZ:20170331",
+          "balancesheet:300959.SZ:20170331",
+          "cashflow:300959.SZ:20170331",
+          "income:002121.SZ:20170331",
+          "income:300959.SZ:20170630",
+          "balancesheet:300959.SZ:20170630",
+          "cashflow:300959.SZ:20170630",
+          "income:300959.SZ:20170930",
+          "balancesheet:300959.SZ:20170930",
+          "cashflow:300959.SZ:20170930",
+          "income:300959.SZ:20180331",
+          "balancesheet:300959.SZ:20180331",
+          "cashflow:300959.SZ:20180331",
+          "income:300959.SZ:20180630",
+          "balancesheet:300959.SZ:20180630",
+          "cashflow:300959.SZ:20180630",
+          "income:300959.SZ:20180930",
+          "balancesheet:300959.SZ:20180930",
+          "cashflow:300959.SZ:20180930",
+          "income:300959.SZ:20190331",
+          "balancesheet:300959.SZ:20190331",
+          "cashflow:300959.SZ:20190331",
+          "income:300959.SZ:20190630",
+          "balancesheet:300959.SZ:20190630",
+          "cashflow:300959.SZ:20190630",
+          "income:300959.SZ:20190930",
+          "balancesheet:300959.SZ:20190930",
+          "cashflow:300959.SZ:20190930",
+          "balancesheet:300959.SZ:20200331",
+          "balancesheet:300959.SZ:20200930",
+          "balancesheet:300959.SZ:20210930",
+          "balancesheet:002121.SZ:20211231",
+          "balancesheet:002121.SZ:20220331",
+          "income:300959.SZ:20240630"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 4,
+        "symbol_offset": 14,
+        "symbol_limit": 2,
+        "symbols": [
+          "002024.SZ",
+          "000009.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "balancesheet:002024.SZ:20150630",
+          "income:002024.SZ:20150930",
+          "balancesheet:000009.SZ:20160331",
+          "income:002024.SZ:20160630",
+          "balancesheet:002024.SZ:20190630",
+          "cashflow:002024.SZ:20200930",
+          "income:000009.SZ:20200930",
+          "income:000009.SZ:20210930",
+          "income:000009.SZ:20220630",
+          "income:000009.SZ:20230630",
+          "cashflow:000009.SZ:20230630",
+          "balancesheet:002024.SZ:20240630",
+          "income:002024.SZ:20250930"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 4,
+        "symbol_offset": 16,
+        "symbol_limit": 2,
+        "symbols": [
+          "000568.SZ",
+          "000501.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "cashflow:000568.SZ:20150630",
+          "income:000501.SZ:20160331",
+          "cashflow:000501.SZ:20170630",
+          "income:000568.SZ:20181231",
+          "balancesheet:000501.SZ:20190630",
+          "income:000568.SZ:20240630",
+          "balancesheet:000568.SZ:20241231"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 4,
+        "symbol_offset": 18,
+        "symbol_limit": 2,
+        "symbols": [
+          "000637.SZ",
+          "000968.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "balancesheet:000968.SZ:20160930",
+          "balancesheet:000637.SZ:20170331",
+          "cashflow:000968.SZ:20170331",
+          "balancesheet:000968.SZ:20170630",
+          "cashflow:000968.SZ:20181231",
+          "balancesheet:000637.SZ:20210630",
+          "balancesheet:000968.SZ:20210630",
+          "balancesheet:000637.SZ:20210930",
+          "cashflow:000968.SZ:20220630",
+          "income:000637.SZ:20240630",
+          "income:000968.SZ:20240630",
+          "balancesheet:000968.SZ:20250930"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 5,
+        "symbol_offset": 0,
+        "symbol_limit": 2,
+        "symbols": [
+          "000554.SZ",
+          "000795.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "balancesheet:000795.SZ:20150331",
+          "balancesheet:000795.SZ:20160331",
+          "cashflow:000554.SZ:20160930",
+          "balancesheet:000795.SZ:20180630",
+          "cashflow:000795.SZ:20180630",
+          "cashflow:000554.SZ:20181231",
+          "balancesheet:000554.SZ:20200930",
+          "income:000795.SZ:20210630",
+          "cashflow:000554.SZ:20230630",
+          "balancesheet:000795.SZ:20250930",
+          "income:000795.SZ:20251231"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 5,
+        "symbol_offset": 2,
+        "symbol_limit": 2,
+        "symbols": [
+          "000713.SZ",
+          "000099.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "income:000713.SZ:20150331",
+          "income:000713.SZ:20200930",
+          "balancesheet:000713.SZ:20200930"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 5,
+        "symbol_offset": 4,
+        "symbol_limit": 2,
+        "symbols": [
+          "000869.SZ",
+          "000850.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "income:000850.SZ:20150331",
+          "income:000850.SZ:20150630",
+          "income:000869.SZ:20210630",
+          "cashflow:000850.SZ:20220630"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 5,
+        "symbol_offset": 6,
+        "symbol_limit": 2,
+        "symbols": [
+          "002021.SZ",
+          "000025.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 89,
+        "empty_requests": [
+          "cashflow:002021.SZ:20160331",
+          "income:000025.SZ:20180630",
+          "income:002021.SZ:20200331"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 5,
+        "symbol_offset": 8,
+        "symbol_limit": 2,
+        "symbols": [
+          "000697.SZ",
+          "300008.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 5,
+        "symbol_offset": 10,
+        "symbol_limit": 2,
+        "symbols": [
+          "002047.SZ",
+          "000686.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 5,
+        "symbol_offset": 12,
+        "symbol_limit": 2,
+        "symbols": [
+          "000759.SZ",
+          "000548.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "cashflow:000759.SZ:20230930"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 5,
+        "symbol_offset": 14,
+        "symbol_limit": 2,
+        "symbols": [
+          "000004.SZ",
+          "000848.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 5,
+        "symbol_offset": 16,
+        "symbol_limit": 2,
+        "symbols": [
+          "002209.SZ",
+          "000008.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [
+          "income:000008.SZ:20160930",
+          "cashflow:000008.SZ:20201231"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 5,
+        "symbol_offset": 18,
+        "symbol_limit": 2,
+        "symbols": [
+          "000547.SZ",
+          "000488.SZ"
+        ],
+        "endpoint_requests": 264,
+        "processed_rows": 88,
+        "empty_requests": [],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 6,
+        "symbol_offset": 0,
+        "symbol_limit": 5,
+        "symbols": [
+          "000428.SZ",
+          "000778.SZ",
+          "000557.SZ",
+          "000426.SZ",
+          "000630.SZ"
+        ],
+        "endpoint_requests": 660,
+        "processed_rows": 220,
+        "empty_requests": [],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 6,
+        "symbol_offset": 5,
+        "symbol_limit": 5,
+        "symbols": [
+          "000612.SZ",
+          "000001.SZ",
+          "002162.SZ",
+          "000505.SZ",
+          "000702.SZ"
+        ],
+        "endpoint_requests": 660,
+        "processed_rows": 221,
+        "empty_requests": [
+          "balancesheet:000702.SZ:20230331",
+          "balancesheet:000001.SZ:20230630",
+          "cashflow:002162.SZ:20240930",
+          "balancesheet:000001.SZ:20250331",
+          "cashflow:000505.SZ:20250630",
+          "income:000612.SZ:20250930",
+          "balancesheet:000612.SZ:20250930",
+          "cashflow:000505.SZ:20250930"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 6,
+        "symbol_offset": 10,
+        "symbol_limit": 5,
+        "symbols": [
+          "000506.SZ",
+          "000938.SZ",
+          "600608.SH",
+          "000551.SZ",
+          "000423.SZ"
+        ],
+        "endpoint_requests": 660,
+        "processed_rows": 220,
+        "empty_requests": [
+          "balancesheet:600608.SH:20150630",
+          "income:000551.SZ:20150630",
+          "income:600608.SH:20160630",
+          "income:600608.SH:20161231",
+          "cashflow:000423.SZ:20170331",
+          "balancesheet:000423.SZ:20170930",
+          "income:000938.SZ:20191231",
+          "balancesheet:000423.SZ:20200630",
+          "income:600608.SH:20201231",
+          "income:600608.SH:20210331",
+          "balancesheet:600608.SH:20210331",
+          "cashflow:000423.SZ:20211231",
+          "income:600608.SH:20220630",
+          "balancesheet:600608.SH:20230331",
+          "cashflow:000506.SZ:20230930",
+          "income:000551.SZ:20240930",
+          "income:600608.SH:20251231",
+          "balancesheet:000423.SZ:20251231"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 6,
+        "symbol_offset": 15,
+        "symbol_limit": 5,
+        "symbols": [
+          "300106.SZ",
+          "000681.SZ",
+          "000927.SZ",
+          "000421.SZ",
+          "601601.SH"
+        ],
+        "endpoint_requests": 660,
+        "processed_rows": 220,
+        "empty_requests": [
+          "cashflow:000421.SZ:20150331",
+          "income:000927.SZ:20150930",
+          "cashflow:300106.SZ:20160630",
+          "income:000681.SZ:20160930",
+          "income:300106.SZ:20161231",
+          "balancesheet:000927.SZ:20161231",
+          "cashflow:601601.SH:20161231",
+          "balancesheet:601601.SH:20170331",
+          "cashflow:000927.SZ:20171231",
+          "cashflow:000421.SZ:20171231",
+          "cashflow:601601.SH:20180630",
+          "income:300106.SZ:20181231",
+          "cashflow:000421.SZ:20201231",
+          "balancesheet:000681.SZ:20230930",
+          "cashflow:601601.SH:20240630",
+          "income:601601.SH:20250930",
+          "balancesheet:000681.SZ:20251231",
+          "balancesheet:000927.SZ:20251231"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 7,
+        "symbol_offset": 0,
+        "symbol_limit": 5,
+        "symbols": [
+          "000509.SZ",
+          "000014.SZ",
+          "600611.SH",
+          "603569.SH",
+          "000056.SZ"
+        ],
+        "endpoint_requests": 660,
+        "processed_rows": 221,
+        "empty_requests": [
+          "income:000509.SZ:20150331",
+          "balancesheet:603569.SH:20150331",
+          "balancesheet:603569.SH:20150930",
+          "cashflow:000509.SZ:20151231",
+          "income:000056.SZ:20151231",
+          "balancesheet:000509.SZ:20160930",
+          "income:603569.SH:20160930",
+          "income:000509.SZ:20170930",
+          "income:000014.SZ:20180630",
+          "balancesheet:603569.SH:20180930",
+          "cashflow:000056.SZ:20200331",
+          "balancesheet:000014.SZ:20200630",
+          "income:600611.SH:20220630",
+          "income:000014.SZ:20230930",
+          "income:000509.SZ:20240930"
+        ],
+        "readiness_passes": true
+      },
+      {
+        "shard_id": 7,
+        "symbol_offset": 5,
+        "symbol_limit": 5,
+        "symbols": [
+          "000619.SZ",
+          "000048.SZ",
+          "000816.SZ",
+          "000553.SZ",
+          "000793.SZ"
+        ],
+        "endpoint_requests": 660,
+        "processed_rows": 220,
+        "empty_requests": [
+          "round243_summary_empty_request_count_7"
+        ],
+        "readiness_passes": true
+      }
+    ],
+    "completed_symbol_count": 130,
+    "completed_endpoint_requests": 17160,
+    "completed_processed_rows": 5709,
+    "completed_empty_request_count": 215,
+    "latest_audit": {
+      "scope": "round243_shard7_offset5_limit5_sixth_symbol_limit_5_gate_and_full_130_symbol_formula_matrix_data_readiness",
+      "completed_subshards": 1,
+      "new_symbols": 5,
+      "new_endpoint_requests": 660,
+      "new_processed_rows": 220,
+      "new_empty_request_count": 7,
+      "throughput_gate_report": "data/processed/round243_financial_statement_shard7_offset5_limit5_20260625/financial_statement_shard_backfill.json",
+      "formula_smoke_report": "data/reports/round243_accounting_quality_statement_formula_smoke_shard7_offset5_limit5_20260625/accounting_quality_statement_formula_smoke.json",
+      "cumulative_formula_smoke_report": "data/reports/round243_accounting_quality_formula_smoke_130_symbol_20260625/accounting_quality_statement_formula_smoke.json",
+      "matrix_label_smoke_report": "data/reports/round243_accounting_quality_matrix_label_smoke_130_symbol_20260625/accounting_quality_statement_matrix_label_smoke.json",
+      "residual_ic_shape_prescreen_report": "data/reports/round242_accounting_quality_raw_prescreen_125_symbol_20260625/accounting_quality_statement_residual_ic_shape_prescreen.json",
+      "repaired_candidate_prescreen_report": "data/reports/round242_accounting_quality_repaired_prescreen_125_symbol_20260625/accounting_quality_statement_residual_ic_shape_prescreen.json",
+      "readiness_passes": true,
+      "formula_smoke_passes": true,
+      "matrix_label_smoke_passes": true,
+      "old_family_ic_prescreen_rerun": false,
+      "residual_ic_shape_prescreen_passes": false,
+      "repaired_candidate_prescreen_passes": false,
+      "data_shape_notes": [
+        "round243_shard7_offset5_limit5_duplicate_rows_0",
+        "round243_shard7_offset5_limit5_symbols_5_endpoint_requests_660_processed_rows_220_empty_requests_7",
+        "round243_full_130_symbol_formula_smoke_source_roots_56_statement_rows_5707_duplicate_rows_2_unique_symbols_130",
+        "round243_130_symbol_matrix_label_smoke_factor_rows_25383_label_rows_50766_coverage_1_alignment_violations_0",
+        "old_raw_repaired_cash_accrual_family_not_rerun_round243_after_zero_leads_across_115_120_125",
+        "new_accounting_quality_substructure_seed_required_before_next_ic"
+      ],
+      "decision": "round243_data_prep_successful_but_no_new_alpha_claim; rotate_to_new_accounting_quality_substructure_before_more_mining"
+    },
+    "next_segment": {
+      "shard_id": 7,
+      "symbol_offset": 10,
+      "symbol_limit": 5,
+      "planned_symbols": [
+        "000566.SZ",
+        "000545.SZ",
+        "002278.SZ",
+        "000677.SZ",
+        "000029.SZ"
+      ]
+    },
+    "next_segment_status": "data_prep_only_after_round243; next_ic_requires_new_accounting_quality_substructure_implementation",
+    "progress_report": "docs/research/cn_stock_round236_financial_statement_shard_progress_2026-06-25.md"
+  },
+  "execution_policy": {
+    "execute_one_shard_or_subshard_at_a_time": true,
+    "resume_required": true,
+    "readiness_after_each_shard_required": true,
+    "commit_data_allowed": false,
+    "factor_preregistration_allowed_before_full_universe_statement_readiness": false,
+    "portfolio_grid_allowed_before_residual_ic_shape_prescreen": false,
+    "promotion_allowed": false,
+    "final_holdout_touched": false,
+    "round237_formula_smoke_required_before_more_full_universe_backfill": true,
+    "deduplicate_statement_keys_before_factor_matrix": true,
+    "throughput_gate_required_before_more_two_symbol_subshards": true,
+    "accounting_quality_matrix_label_smoke_required_before_ic": true,
+    "accounting_quality_matrix_label_smoke_passed": true,
+    "ic_prescreen_allowed_after_label_smoke": false,
+    "ic_prescreen_allowed_after_new_substructure_implementation": true,
+    "accounting_quality_residual_ic_shape_prescreen_completed": true,
+    "accounting_quality_residual_ic_shape_research_leads": 0,
+    "accounting_quality_repaired_candidate_prescreen_completed": true,
+    "accounting_quality_repaired_candidate_research_leads": 0,
+    "raw_accounting_quality_portfolio_grid_allowed": false,
+    "repaired_accounting_quality_portfolio_grid_allowed": false,
+    "old_cash_accrual_ic_rerun_allowed": false,
+    "same_raw_repaired_cash_accrual_family_stopped_after_three_zero_lead_replays": true,
+    "next_candidate_design_requires_new_substructure_before_more_mining": true
+  },
+  "candidate_ideas_after_full_readiness": [
+    "aq_abnormal_accrual_change_reversal",
+    "aq_profitability_revision_surprise",
+    "aq_post_statement_announcement_drift",
+    "aq_balance_sheet_stress_relief",
+    "aq_industry_relative_margin_acceleration"
+  ],
+  "safety": "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+}

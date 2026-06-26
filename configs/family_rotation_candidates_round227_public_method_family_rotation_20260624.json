@@ -1,0 +1,108 @@
+[
+  {
+    "family_id": "public_anomaly_residual_ensemble_risk_budget",
+    "status": "eligible",
+    "score": 91,
+    "data_readiness": "ready_from_bars_daily_basic_tradeability_masks_and_existing_style_controls",
+    "novelty_vs_recent_failures": "multi_source_fixed_weight_residual_ensemble_not_single_indicator_topn_reentry",
+    "public_reference_tags": [
+      "multi_factor_model",
+      "value_quality_momentum_lowvol_liquidity",
+      "industry_style_residualization",
+      "risk_budget_portfolio_construction"
+    ],
+    "required_controls": [
+      "multi_source_public_anomaly_source_evidence",
+      "fixed_weight_no_parameter_fit",
+      "tradeability_mask_required",
+      "industry_style_residual_evaluation",
+      "strict_multiple_testing_accounting",
+      "regime_coverage_by_signal_window",
+      "portfolio_grid_blocked_before_residual_prescreen",
+      "no_reuse_hibernated_single_family_as_standalone"
+    ],
+    "reason": "Use a fixed-weight, source-declared public anomaly ensemble after residualizing industry and style exposures. This tests whether broad public anomaly agreement is stronger than the many failed single-family TopN lines, while blocking parameter fitting and standalone reuse of hibernated factors.",
+    "next_action": "round228_public_anomaly_residual_ensemble_preregistration"
+  },
+  {
+    "family_id": "financial_post_announcement_gap_reversal",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_walk_forward",
+    "novelty_vs_recent_failures": "failed_round225",
+    "reason": "Round225 found zero accepted walk-forward cases; reducing capital fixed capacity but did not fix fold instability or drawdown.",
+    "next_action": "do_not_expand_gap_reversal_grid_without_new_orthogonal_repair"
+  },
+  {
+    "family_id": "public_risk_filter_bridge",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_round57_75",
+    "novelty_vs_recent_failures": "failed_translation_layers",
+    "reason": "Bottom-tail diagnostics were useful, but static/dynamic overlays and corrected beta-hedged spreads failed after costs and stress.",
+    "next_action": "keep_as_diagnostic_only_not_alpha_family"
+  },
+  {
+    "family_id": "public_supertrend_or_single_trend_volume",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested",
+    "novelty_vs_recent_failures": "failed_public_indicator_lines",
+    "reason": "SuperTrend, anti-SuperTrend, and single trend-volume filters failed promotion or bottom-exclusion walk-forward gates.",
+    "next_action": "do_not_reenter_as_standalone_indicator_family"
+  },
+  {
+    "family_id": "public_trend_strength_state_residual",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_round219",
+    "novelty_vs_recent_failures": "failed_full_sample_residual_prescreen",
+    "reason": "Round219 public trend-strength state residual prescreen produced zero residual research leads.",
+    "next_action": "do_not_tune_windows_or_restart_adx_kama_aroon_without_new_mechanism"
+  },
+  {
+    "family_id": "industry_leader_lag",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_round220",
+    "novelty_vs_recent_failures": "failed_full_sample_residual_prescreen",
+    "reason": "Round220 smoke lead did not survive full long-cycle residual prescreen.",
+    "next_action": "do_not_run_portfolio_grid_after_zero_residual_leads"
+  },
+  {
+    "family_id": "information_discreteness",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_round221",
+    "novelty_vs_recent_failures": "failed_full_sample_residual_prescreen",
+    "reason": "Round221 sharded full residual prescreen produced zero residual research leads.",
+    "next_action": "do_not_tune_information_discreteness_windows_after_zero_leads"
+  },
+  {
+    "family_id": "direct_profitability_quality_formula_tuning",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "partial_financial_pit_path_available",
+    "novelty_vs_recent_failures": "failed_round217",
+    "reason": "Round217 stratified PIT profitability-quality IC screen found zero Bonferroni/FDR leads.",
+    "next_action": "keep_financial_pit_infrastructure_but_do_not_tune_direct_formulas"
+  },
+  {
+    "family_id": "external_northbound_crowding_reversal",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "short_processed_history_available",
+    "novelty_vs_recent_failures": "failed_round213",
+    "reason": "Round213 had tiny IC and wrong quantile shape; zero strict research leads.",
+    "next_action": "rotate_away_from_northbound_until_new_data_or_mechanism"
+  },
+  {
+    "family_id": "buyback_holder_unlock_event_alpha",
+    "status": "blocked_by_data_gap",
+    "score": 25,
+    "data_readiness": "local_coverage_not_ready",
+    "novelty_vs_recent_failures": "potential_event_family_but_feed_blocked",
+    "reason": "Event controls mark buyback/holder/unlock coverage as blocked locally; use as contamination audit only until data is ready.",
+    "next_action": "audit_event_feed_coverage_before_factor_preregistration"
+  }
+]

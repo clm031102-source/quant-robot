@@ -15,6 +15,7 @@ from quant_robot.factors.etf_moneyflow_basket import (
 )
 from quant_robot.factors.etf_share_size import compute_etf_share_size_factors
 from quant_robot.factors.etf_theme_breadth import compute_etf_theme_breadth_factors
+from quant_robot.factors.liquidity_shock_recovery import compute_liquidity_shock_recovery_factors
 from quant_robot.factors.moneyflow_technical import compute_moneyflow_technical_combo_factors
 from quant_robot.factors.public_formula_price_volume import compute_public_formula_price_volume_factors
 from quant_robot.factors.public_rsrs import compute_public_rsrs_factors
@@ -28,6 +29,9 @@ from quant_robot.factors.daily_basic_residual_composite import compute_daily_bas
 from quant_robot.factors.daily_basic_smart_money_quality import compute_daily_basic_smart_money_quality_factors
 from quant_robot.factors.daily_basic_public_risk_filter_bridge import (
     compute_daily_basic_public_risk_filter_bridge_factors,
+)
+from quant_robot.factors.daily_basic_public_anomaly_residual_ensemble import (
+    compute_daily_basic_public_anomaly_residual_ensemble_factors,
 )
 from quant_robot.factors.daily_basic_value_liquidity_tail import compute_daily_basic_value_liquidity_tail_factors
 from quant_robot.factors.daily_basic_public_quality_value_momentum import (
@@ -415,6 +419,8 @@ def _precompute_factor_matrix(bars: pd.DataFrame, config: ExperimentGridConfig) 
         return compute_public_rsrs_factors(source_bars, factor_names=config.factor_names)
     if config.factor_source == "public_trend_volume":
         return compute_public_trend_volume_factors(source_bars, factor_names=config.factor_names)
+    if config.factor_source == "liquidity_shock_recovery":
+        return compute_liquidity_shock_recovery_factors(source_bars, factor_names=config.factor_names)
     if config.factor_source == "etf_share_size":
         return compute_etf_share_size_factors(_load_grid_etf_share_size_inputs(config))
     if config.factor_source == "etf_moneyflow_basket":
@@ -440,6 +446,13 @@ def _precompute_factor_matrix(bars: pd.DataFrame, config: ExperimentGridConfig) 
     if config.factor_source == "daily_basic_public_risk_filter_bridge":
         factor_inputs = _load_grid_factor_inputs(config)
         return compute_daily_basic_public_risk_filter_bridge_factors(
+            source_bars,
+            factor_inputs,
+            factor_names=config.factor_names,
+        )
+    if config.factor_source == "daily_basic_public_anomaly_residual_ensemble":
+        factor_inputs = _load_grid_factor_inputs(config)
+        return compute_daily_basic_public_anomaly_residual_ensemble_factors(
             source_bars,
             factor_inputs,
             factor_names=config.factor_names,

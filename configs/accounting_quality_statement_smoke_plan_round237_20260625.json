@@ -1,0 +1,282 @@
+{
+  "stage": "round237_accounting_quality_100_symbol_efficiency_and_formula_smoke_plan",
+  "market": "CN",
+  "asset_type": "stock",
+  "family": "accounting_accruals_cashflow_quality",
+  "source_progress_config": "configs/accounting_quality_statement_backfill_round236_20260625.json",
+  "source_progress_report": "docs/research/cn_stock_round236_financial_statement_shard_progress_2026-06-25.md",
+  "method_audit_report": "docs/research/cn_stock_round237_accounting_quality_100_symbol_efficiency_audit_2026-06-25.md",
+  "coverage_snapshot": {
+    "completed_subshards": 50,
+    "total_subshards_at_symbol_limit_2": 2604,
+    "remaining_subshards_at_symbol_limit_2": 2554,
+    "completed_symbols": 100,
+    "total_symbols": 5208,
+    "symbol_coverage_pct": 1.9201,
+    "completed_endpoint_requests": 13200,
+    "total_endpoint_requests": 687456,
+    "remaining_endpoint_requests": 674256,
+    "endpoint_coverage_pct": 1.9201,
+    "completed_processed_rows": 4387,
+    "empty_requests": 149,
+    "empty_request_rate_pct": 1.1288
+  },
+  "current_cumulative_snapshot_after_throughput_gate": {
+    "completed_symbols": 130,
+    "completed_endpoint_requests": 17160,
+    "completed_processed_rows": 5709,
+    "empty_requests": 215,
+    "latest_formula_smoke_report": "data/reports/round243_accounting_quality_formula_smoke_130_symbol_20260625/accounting_quality_statement_formula_smoke.json",
+    "latest_label_smoke_report": "data/reports/round243_accounting_quality_matrix_label_smoke_130_symbol_20260625/accounting_quality_statement_matrix_label_smoke.json",
+    "latest_residual_ic_shape_prescreen_report": "data/reports/round242_accounting_quality_raw_prescreen_125_symbol_20260625/accounting_quality_statement_residual_ic_shape_prescreen.json",
+    "latest_repaired_candidate_prescreen_report": "data/reports/round242_accounting_quality_repaired_prescreen_125_symbol_20260625/accounting_quality_statement_residual_ic_shape_prescreen.json",
+    "formula_smoke_passes": true,
+    "label_smoke_passes": true,
+    "residual_ic_shape_prescreen_passes": true,
+    "repaired_candidate_prescreen_passes": true,
+    "old_family_ic_prescreen_rerun_in_round243": false,
+    "old_family_ic_prescreen_status": "not_rerun_round243_old_raw_repaired_cash_accrual_family_blocked_after_zero_leads_at_115_120_125_symbols",
+    "source_roots": 56,
+    "source_files": 672,
+    "statement_rows_before_dedup": 5709,
+    "statement_rows": 5707,
+    "unique_symbols": 130,
+    "duplicate_key_rows": 2,
+    "core_formula_coverage_pct": 97.0913,
+    "label_smoke_factor_value_rows": 25383,
+    "label_smoke_label_aligned_rows": 50766,
+    "label_smoke_label_coverage": 1.0,
+    "label_smoke_alignment_violation_rows": 0,
+    "residual_ic_shape_test_count": 10,
+    "residual_ic_shape_fdr_significant_tests": 0,
+    "residual_ic_shape_neutral_gate_pass_tests": 0,
+    "residual_ic_shape_research_leads": 0,
+    "repaired_candidate_test_count": 6,
+    "repaired_candidate_fdr_significant_tests": 0,
+    "repaired_candidate_neutral_gate_pass_tests": 0,
+    "repaired_candidate_research_leads": 0
+  },
+  "throughput_risk": {
+    "ordinary_per_symbol_statement_endpoints_required": true,
+    "vip_statement_endpoints_available": false,
+    "remaining_hours_if_5_min_per_2_symbol_subshard": 212.83,
+    "remaining_hours_if_9_min_per_2_symbol_subshard": 383.1,
+    "symbol_limit_5_gate": {
+      "report": "data/processed/round237_financial_statement_shard6_offset0_limit5_throughput_gate_20260625/financial_statement_shard_backfill.json",
+      "formula_smoke_report": "data/reports/round237_accounting_quality_statement_formula_smoke_shard6_offset0_limit5_20260625/accounting_quality_statement_formula_smoke.json",
+      "symbols": [
+        "000428.SZ",
+        "000778.SZ",
+        "000557.SZ",
+        "000426.SZ",
+        "000630.SZ"
+      ],
+      "wall_clock_seconds_approx": 578,
+      "endpoint_requests": 660,
+      "processed_rows": 220,
+      "empty_requests": 0,
+      "readiness_passes": true,
+      "formula_smoke_passes": true,
+      "duplicate_key_rows": 0
+    },
+    "symbol_limit_5_second_gate": {
+      "report": "data/processed/round237_financial_statement_shard6_offset5_limit5_20260625/financial_statement_shard_backfill.json",
+      "formula_smoke_report": "data/reports/round237_accounting_quality_statement_formula_smoke_shard6_offset5_limit5_20260625/accounting_quality_statement_formula_smoke.json",
+      "symbols": [
+        "000612.SZ",
+        "000001.SZ",
+        "002162.SZ",
+        "000505.SZ",
+        "000702.SZ"
+      ],
+      "endpoint_requests": 660,
+      "processed_rows": 221,
+      "empty_requests": 8,
+      "readiness_passes": true,
+      "formula_smoke_passes": true,
+      "duplicate_key_rows": 1
+    },
+    "symbol_limit_5_third_gate": {
+      "report": "data/processed/round238_financial_statement_shard6_offset10_limit5_20260625/financial_statement_shard_backfill.json",
+      "formula_smoke_report": "data/reports/round238_accounting_quality_statement_formula_smoke_shard6_offset10_limit5_20260625/accounting_quality_statement_formula_smoke.json",
+      "symbols": [
+        "000506.SZ",
+        "000938.SZ",
+        "600608.SH",
+        "000551.SZ",
+        "000423.SZ"
+      ],
+      "endpoint_requests": 660,
+      "processed_rows": 220,
+      "empty_requests": 18,
+      "readiness_passes": true,
+      "formula_smoke_passes": true,
+      "duplicate_key_rows": 0
+    },
+    "symbol_limit_5_fourth_gate": {
+      "report": "data/processed/round241_financial_statement_shard6_offset15_limit5_20260625/financial_statement_shard_backfill.json",
+      "formula_smoke_report": "data/reports/round241_accounting_quality_statement_formula_smoke_shard6_offset15_limit5_20260625/accounting_quality_statement_formula_smoke.json",
+      "symbols": [
+        "300106.SZ",
+        "000681.SZ",
+        "000927.SZ",
+        "000421.SZ",
+        "601601.SH"
+      ],
+      "endpoint_requests": 660,
+      "processed_rows": 220,
+      "empty_requests": 18,
+      "readiness_passes": true,
+      "formula_smoke_passes": true,
+      "duplicate_key_rows": 0
+    },
+    "symbol_limit_5_fifth_gate": {
+      "report": "data/processed/round242_financial_statement_shard7_offset0_limit5_20260625/financial_statement_shard_backfill.json",
+      "formula_smoke_report": "data/reports/round242_accounting_quality_statement_formula_smoke_shard7_offset0_limit5_20260625/accounting_quality_statement_formula_smoke.json",
+      "symbols": [
+        "000509.SZ",
+        "000014.SZ",
+        "600611.SH",
+        "603569.SH",
+        "000056.SZ"
+      ],
+      "endpoint_requests": 660,
+      "processed_rows": 221,
+      "empty_requests": 15,
+      "readiness_passes": true,
+      "formula_smoke_passes": true,
+      "duplicate_key_rows": 0
+    },
+    "symbol_limit_5_sixth_gate": {
+      "report": "data/processed/round243_financial_statement_shard7_offset5_limit5_20260625/financial_statement_shard_backfill.json",
+      "formula_smoke_report": "data/reports/round243_accounting_quality_statement_formula_smoke_shard7_offset5_limit5_20260625/accounting_quality_statement_formula_smoke.json",
+      "symbols": [
+        "000619.SZ",
+        "000048.SZ",
+        "000816.SZ",
+        "000553.SZ",
+        "000793.SZ"
+      ],
+      "endpoint_requests": 660,
+      "processed_rows": 220,
+      "empty_requests": 7,
+      "readiness_passes": true,
+      "formula_smoke_passes": true,
+      "duplicate_key_rows": 0
+    },
+    "decision": "six_symbol_limit_5_gates_completed_130_symbol_data_readiness_passed; old_raw_repaired_cash_accrual_ic_not_rerun; next_step_requires_new_accounting_quality_substructure"
+  },
+  "existing_tool_compatibility": {
+    "pead_matrix_label_smoke_uses_fina_indicator_inputs": true,
+    "pead_matrix_label_smoke_requires_fields": [
+      "ann_date",
+      "end_date",
+      "signal_date",
+      "netprofit_yoy"
+    ],
+    "round236_statement_inputs_are_compatible_without_adapter": false,
+    "reason": "Round236 statement inputs contain netprofit, n_cashflow_act, total_assets, total_liab, total_cur_assets, and total_cur_liab. The existing PEAD tools are announcement-drift/fina_indicator tools, not statement-accounting-quality formula tools."
+  },
+  "statement_formula_smoke_snapshot": {
+    "repeatable_script": "scripts/run_accounting_quality_statement_formula_smoke.py",
+    "repeatable_module": "src/quant_robot/ops/accounting_quality_statement_formula_smoke.py",
+    "unit_tests": [
+      "tests/unit/test_accounting_quality_statement_formula_smoke.py",
+      "tests/unit/test_accounting_quality_statement_formula_smoke_cli.py"
+    ],
+    "latest_output_report": "data/reports/round243_accounting_quality_formula_smoke_130_symbol_20260625/accounting_quality_statement_formula_smoke.json",
+    "passes": true,
+    "source_roots": 56,
+    "source_files": 672,
+    "missing_roots": [],
+    "statement_rows_before_dedup": 5709,
+    "statement_rows": 5707,
+    "unique_symbols": 130,
+    "unique_symbol_report_periods": 5705,
+    "duplicate_key_rows_asset_end_ann_report_type": 2,
+    "ann_date_min": "2015-04-18",
+    "ann_date_max": "2026-04-30",
+    "end_date_min": "2015-03-31",
+    "end_date_max": "2025-12-31",
+    "formula_coverage": {
+      "low_total_accruals_to_assets_raw": {
+        "formula": "(netprofit - n_cashflow_act) / total_assets; lower is better",
+        "valid_rows": 5541,
+        "coverage_pct_of_statement_rows": 97.0913,
+        "symbols_with_values": 130,
+        "ann_date_min": "2015-04-18",
+        "ann_date_max": "2026-04-30"
+      },
+      "cashflow_minus_netprofit_to_assets_raw": {
+        "formula": "(n_cashflow_act - netprofit) / total_assets; higher is better",
+        "valid_rows": 5541,
+        "coverage_pct_of_statement_rows": 97.0913,
+        "symbols_with_values": 130,
+        "ann_date_min": "2015-04-18",
+        "ann_date_max": "2026-04-30"
+      },
+      "low_asset_growth_quality_raw": {
+        "formula": "-pct_change_4q(total_assets); higher means lower one-year asset growth",
+        "valid_rows": 5084,
+        "coverage_pct_of_statement_rows": 89.0836,
+        "symbols_with_values": 130,
+        "ann_date_min": "2016-04-19",
+        "ann_date_max": "2026-04-30"
+      },
+      "working_capital_accruals_to_assets_raw": {
+        "formula": "delta_4q(total_cur_assets - total_cur_liab) / total_assets",
+        "valid_rows": 4926,
+        "coverage_pct_of_statement_rows": 86.3151,
+        "symbols_with_values": 126,
+        "ann_date_min": "2016-04-19",
+        "ann_date_max": "2026-04-30"
+      },
+      "earnings_cash_conversion_improvement_yoy_raw": {
+        "formula": "delta_4q((n_cashflow_act - netprofit) / total_assets)",
+        "valid_rows": 4910,
+        "coverage_pct_of_statement_rows": 86.0347,
+        "symbols_with_values": 130,
+        "ann_date_min": "2016-04-19",
+        "ann_date_max": "2026-04-30"
+      }
+    }
+  },
+  "round237_required_gates_before_more_backfill": {
+    "formula_coverage_smoke_required": true,
+    "deduplicate_asset_end_ann_report_type_required": true,
+    "pit_signal_date_rule_required": "signal_date must be first tradable date after ann_date; no same-day close execution",
+    "cross_section_min_symbols_required_before_ic": 30,
+    "label_alignment_required_before_ic": true,
+    "accounting_quality_matrix_label_smoke_required_before_ic": true,
+    "accounting_quality_matrix_label_smoke_passed": true,
+    "accounting_quality_residual_ic_shape_prescreen_completed": true,
+    "accounting_quality_residual_ic_shape_research_leads": 0,
+    "accounting_quality_repaired_candidate_prescreen_completed": true,
+    "accounting_quality_repaired_candidate_research_leads": 0,
+    "round243_old_family_ic_prescreen_rerun": false,
+    "round243_new_substructure_seed_required": true,
+    "regime_and_long_cycle_backtest_required_before_promotion": true,
+    "multiple_testing_log_required": true,
+    "capacity_and_cost_model_required": true,
+    "survivorship_and_listing_status_audit_required": true,
+    "final_holdout_allowed": false
+  },
+  "allowed_next_actions": [
+    "Implement or preregister configs/accounting_quality_new_substructure_seed_round243_20260625.json before any new IC or portfolio grid.",
+    "Rotate next candidate design to a different accounting-quality substructure such as revision surprise, abnormal accrual change, post-announcement drift, balance-sheet stress relief, or industry-relative margin acceleration.",
+    "Deduplicate statement keys before any factor matrix is persisted.",
+    "PIT signal-date and label-alignment smoke passed for the 130-symbol sample with zero alignment violations.",
+    "If statement backfill continues, shard7 offset10 limit5 is data-prep only, not a same-formula mining retry.",
+    "Raw/repaired cash-accrual formulas produced 0 leads across 115, 120, and 125 symbols; stop same-family tuning.",
+    "Apply A-share tradeability, PIT announcement timing, industry/style neutralization, portfolio construction, strict statistics, China-regime, and event-factor controls before promotion."
+  ],
+  "blocked_actions": [
+    "Do not preregister accounting-quality factors from only formula coverage.",
+    "Do not run walk-forward or portfolio conversion for the five raw accounting-quality formulas from the 125-symbol residual IC shape prescreen.",
+    "Do not rerun or tune the old raw/repaired cash-accrual candidates as Round243 evidence after zero leads at 115, 120, and 125 symbols.",
+    "Do not run portfolio grids before residual IC shape, walk-forward, cost/capacity, and regime coverage checks.",
+    "Do not claim profitability or promotion readiness from formula coverage alone.",
+    "Do not touch final holdout."
+  ],
+  "safety": "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+}

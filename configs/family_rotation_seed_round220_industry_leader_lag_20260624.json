@@ -1,0 +1,42 @@
+{
+  "family": "industry_leader_lag_residual_diffusion",
+  "next_direction": "round220_industry_leader_lag_residual_preregistration",
+  "mechanism": "Lagged moves from highly liquid industry leaders may transmit information to same-industry laggards with slower adjustment. Candidates must test within-industry diffusion after removing own momentum/reversal, industry, size, liquidity, volatility, and public technical reference exposure.",
+  "candidate_ideas": [
+    "industry_leader_laggard_gap_reversion_5_20",
+    "industry_leader_breakout_laggard_followthrough_10_5",
+    "industry_leader_volume_confirmed_diffusion_5_20",
+    "industry_peer_dispersion_compression_reversal_20_5",
+    "industry_leader_pullback_resilience_10_5",
+    "industry_laggard_lowvol_catchup_composite_20"
+  ],
+  "mandatory_controls": [
+    "public_source_leader_lag_information_diffusion_registered",
+    "industry_membership_available_on_signal_date",
+    "liquid_leader_definition_frozen_before_ic",
+    "no_same_day_forward_label_leakage",
+    "tradeability_mask_required",
+    "own_stock_momentum_reversal_reference_dedup",
+    "industry_style_residual_evaluation",
+    "capacity_safe_universe_and_adv_participation",
+    "multiple_testing_accounting",
+    "no_portfolio_grid_before_residual_ic_shape_prescreen",
+    "china_regime_coverage_required"
+  ],
+  "blocked_before_prescreen": [
+    "plain_industry_relative_strength_rank",
+    "same_day_industry_return_signal",
+    "industry_breadth_bridge_replay_without_leader_lag_gap",
+    "portfolio_grid_before_residual_ic_shape",
+    "parameter_expansion_after_raw_ic_only"
+  ],
+  "promotion_policy": {
+    "portfolio_grid_allowed_before_residual_prescreen": false,
+    "promotion_allowed": false,
+    "requires_long_cycle_replay": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true,
+    "requires_multiple_testing_control": true
+  }
+}

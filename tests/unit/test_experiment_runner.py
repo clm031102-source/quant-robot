@@ -8,6 +8,7 @@ from unittest.mock import patch
 import pandas as pd
 
 from quant_robot.data.fixtures import load_demo_market_bars
+from quant_robot.factors.liquidity_shock_recovery import compute_liquidity_shock_recovery_factors
 from quant_robot.factors.public_technical_tail_guard import compute_public_technical_tail_guard_factors
 from quant_robot.factors.public_trend_volume import compute_public_trend_volume_factors
 from quant_robot.factors.public_formula_price_volume import compute_public_formula_price_volume_factors
@@ -364,6 +365,29 @@ class ExperimentRunnerTests(unittest.TestCase):
             run_experiment_grid(bars, config)
 
         self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("formula_pv_corr_reversal_20",))
+
+    def test_experiment_grid_precomputes_liquidity_shock_recovery_factor_matrix(self):
+        bars = _synthetic_public_technical_bars(asset_count=3, day_count=95)
+        config = ExperimentGridConfig(
+            markets=("CN",),
+            factor_source="liquidity_shock_recovery",
+            factor_names=("amihud_shock_reversal_recovery_20_5",),
+            top_n_values=(1,),
+            cost_bps_values=(0.0,),
+            precompute_factor_matrix=True,
+        )
+        factors = compute_liquidity_shock_recovery_factors(
+            bars,
+            factor_names=("amihud_shock_reversal_recovery_20_5",),
+        )
+
+        with patch(
+            "quant_robot.experiments.runner.compute_liquidity_shock_recovery_factors",
+            return_value=factors,
+        ) as factor_builder:
+            run_experiment_grid(bars, config)
+
+        self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("amihud_shock_reversal_recovery_20_5",))
 
     def test_experiment_grid_runs_etf_share_size_factor_source(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -983,6 +1007,44 @@ class ExperimentRunnerTests(unittest.TestCase):
         precompute_bars = factor_builder.call_args.args[0]
         self.assertEqual(set(precompute_bars["market"]), {"CN"})
         self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("risk_filter_bridge_equal_20",))
+        self.assertTrue(all(call.kwargs["precomputed_factors"] is matrix for call in pipeline.call_args_list))
+
+    def test_experiment_grid_can_precompute_daily_basic_public_anomaly_ensemble_matrix_once(self):
+        bars = load_demo_market_bars()
+        matrix = pd.DataFrame(columns=["date", "asset_id", "market", "factor_name", "factor_value", "lookback_window"])
+        config = ExperimentGridConfig(
+            markets=("CN",),
+            factor_source="daily_basic_public_anomaly_residual_ensemble",
+            factor_input_root=Path("authority_daily_basic.json"),
+            factor_input_required=True,
+            factor_names=("public_anomaly_residual_equal_weight_20",),
+            factor_windows=(20,),
+            top_n_values=(1, 2),
+            cost_bps_values=(5.0,),
+            precompute_factor_matrix=True,
+        )
+        pipeline_result = {
+            "data_mode": "research",
+            "metrics": {"total_return": 0.01, "annualized_return": 0.01, "annualized_volatility": 0.05, "sharpe": 0.2, "max_drawdown": -0.01},
+            "benchmark_metrics": {"benchmark_total_return": 0.0, "relative_return": 0.01, "excess_over_cash": 0.01},
+            "decision": {"decision_status": "approved", "rejection_reasons": []},
+            "factor_summary": {"mean_ic": 0.01, "ic_p_value": 0.5, "significance_status": "unknown"},
+            "artifact_rows": {"trades": 1, "holdings": 1},
+        }
+
+        with (
+            patch("quant_robot.experiments.runner.load_factor_inputs", return_value=pd.DataFrame({"date": [], "asset_id": []})) as loader,
+            patch("quant_robot.experiments.runner.compute_daily_basic_public_anomaly_residual_ensemble_factors", return_value=matrix) as factor_builder,
+            patch("quant_robot.experiments.runner.run_research_pipeline", return_value=pipeline_result) as pipeline,
+        ):
+            result = run_experiment_grid(bars, config)
+
+        self.assertEqual(len(result["leaderboard"]), 2)
+        loader.assert_called_once_with(Path("authority_daily_basic.json"), "CN")
+        factor_builder.assert_called_once()
+        precompute_bars = factor_builder.call_args.args[0]
+        self.assertEqual(set(precompute_bars["market"]), {"CN"})
+        self.assertEqual(factor_builder.call_args.kwargs["factor_names"], ("public_anomaly_residual_equal_weight_20",))
         self.assertTrue(all(call.kwargs["precomputed_factors"] is matrix for call in pipeline.call_args_list))
 
     def test_experiment_grid_can_precompute_daily_basic_public_qvm_matrix_once(self):

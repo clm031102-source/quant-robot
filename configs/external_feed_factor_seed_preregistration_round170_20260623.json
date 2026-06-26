@@ -1,0 +1,182 @@
+{
+  "created_at": "2026-06-23",
+  "market": "CN",
+  "asset_type": "stock",
+  "stage": "round170_external_feed_factor_seed_preregistration",
+  "source_processed_root": "data/processed/tushare_external_feeds_round170_smoke_20260623",
+  "source_audit": "docs/research/cn_stock_external_feed_processed_write_smoke_and_factor_seed_preregistration_round170_2026-06-23.md",
+  "pit_policy": {
+    "join_date_column": "available_date",
+    "forbidden_join_date_column": "date",
+    "signal_rule": "External feed observations may only join a stock signal date when available_date <= signal_date; same-day joins on raw date are forbidden.",
+    "final_holdout_policy": "No 2026 tuning. 2026 remains final holdout until a candidate passes long-cycle and walk-forward gates."
+  },
+  "promotion_policy": {
+    "promotion_allowed": false,
+    "reason": "Round170 only preregisters factor seeds and verifies a small processed-write smoke.",
+    "required_before_promotion": [
+      "round171_external_feed_factor_matrix_join_smoke",
+      "long_cycle_processed_external_feed_backfill_or_coverage_plan",
+      "ic_quantile_turnover_prescreen",
+      "reference_correlation_dedup",
+      "cost_capacity_portfolio_bridge",
+      "rolling_walk_forward",
+      "regime_and_event_stress_audit"
+    ]
+  },
+  "blocked_uses": [
+    "external_feed_ingestion_smoke_as_profitability_evidence",
+    "external_feed_same_day_signal_join_without_available_date",
+    "aggregate_hsgt_or_shibor_as_standalone_stock_rank",
+    "hsgt_top10_as_broad_cross_sectional_factor",
+    "hk_hold_without_non_cn_symbol_filter",
+    "lpr_factor_before_lpr_coverage_is_non_missing",
+    "portfolio_grid_before_factor_matrix_join_smoke"
+  ],
+  "factor_seeds": [
+    {
+      "factor_name": "margin_financing_acceleration_exhaustion_20",
+      "family": "external_margin_credit",
+      "seed_type": "cross_sectional",
+      "hypothesis_source": "market_microstructure:margin_financing_crowding_exhaustion",
+      "hypothesis": "Rapid financing-buy acceleration can mark crowded demand exhaustion; test negative forward-return relation after liquidity and size controls.",
+      "primary_feed": "external_margin_detail",
+      "required_columns": [
+        "symbol",
+        "available_date",
+        "rzmre",
+        "rzye"
+      ],
+      "expression_plan": "rank(ts_delta(rzmre, 5) / ts_mean(abs(rzmre), 20)) with high-rzye crowding guard; direction preregistered as negative.",
+      "horizons": [
+        5,
+        20
+      ],
+      "minimum_history_days": 25,
+      "neutralization_required": [
+        "industry",
+        "size",
+        "liquidity"
+      ]
+    },
+    {
+      "factor_name": "margin_balance_crowding_reversal_20",
+      "family": "external_margin_credit",
+      "seed_type": "cross_sectional",
+      "hypothesis_source": "market_microstructure:margin_balance_crowding_reversal",
+      "hypothesis": "Persistently high financing balance relative to its own trailing level can be a crowded-position reversal proxy.",
+      "primary_feed": "external_margin_detail",
+      "required_columns": [
+        "symbol",
+        "available_date",
+        "rzye"
+      ],
+      "expression_plan": "-rank(rzye / ts_mean(rzye, 20) - 1)",
+      "horizons": [
+        10,
+        20
+      ],
+      "minimum_history_days": 25,
+      "neutralization_required": [
+        "industry",
+        "size",
+        "liquidity"
+      ]
+    },
+    {
+      "factor_name": "northbound_hold_ratio_accumulation_20",
+      "family": "external_northbound",
+      "seed_type": "cross_sectional",
+      "hypothesis_source": "market_microstructure:northbound_institutional_accumulation",
+      "hypothesis": "Gradual northbound holding-ratio accumulation may proxy informed institutional demand, but must be tested against crowded-flow reversal.",
+      "primary_feed": "external_hk_hold",
+      "required_columns": [
+        "symbol",
+        "available_date",
+        "hold_ratio"
+      ],
+      "expression_plan": "rank(ts_delta(hold_ratio, 20)) with missing and coverage filters; direction preregistered as positive.",
+      "horizons": [
+        20
+      ],
+      "minimum_history_days": 25,
+      "neutralization_required": [
+        "industry",
+        "size",
+        "liquidity",
+        "low_volatility"
+      ]
+    },
+    {
+      "factor_name": "northbound_hold_accumulation_flow_regime_20",
+      "family": "external_northbound_regime_interaction",
+      "seed_type": "interaction",
+      "hypothesis_source": "market_microstructure:northbound_stock_accumulation_x_aggregate_flow_regime",
+      "hypothesis": "Stock-level northbound accumulation should be separated by aggregate northbound flow regime; the same stock signal may reverse during broad outflow stress.",
+      "primary_feed": "external_hk_hold",
+      "secondary_feed": "external_hsgt_flow",
+      "required_columns": [
+        "symbol",
+        "available_date",
+        "hold_ratio",
+        "north_money"
+      ],
+      "expression_plan": "rank(ts_delta(hold_ratio, 20)) interacted with trailing 5d/20d north_money regime; no standalone aggregate-flow rank.",
+      "horizons": [
+        20
+      ],
+      "minimum_history_days": 25,
+      "neutralization_required": [
+        "industry",
+        "size",
+        "liquidity"
+      ]
+    },
+    {
+      "factor_name": "index_location_value_liquidity_regime_20",
+      "family": "external_index_regime",
+      "seed_type": "regime_control",
+      "hypothesis_source": "china_market_regime:index_location_value_liquidity_state",
+      "hypothesis": "Index valuation and turnover state may identify when reversal/carry factors are allowed or blocked; it is not a standalone stock-ranking factor.",
+      "primary_feed": "external_index_state",
+      "required_columns": [
+        "available_date",
+        "close",
+        "turnover_rate",
+        "pe",
+        "pb"
+      ],
+      "expression_plan": "market-level regime features from index drawdown, turnover, PE/PB z-scores; use only as interaction/gating variable.",
+      "horizons": [
+        20
+      ],
+      "minimum_history_days": 60,
+      "neutralization_required": [
+        "market_beta_exposure_audit"
+      ]
+    },
+    {
+      "factor_name": "shibor_liquidity_tightening_regime_20",
+      "family": "external_macro_liquidity",
+      "seed_type": "regime_control",
+      "hypothesis_source": "macro_liquidity:shibor_term_structure_tightening",
+      "hypothesis": "SHIBOR level/slope changes can flag credit-liquidity tightening regimes where leverage/crowding signals should be stress-gated.",
+      "primary_feed": "external_macro_rates",
+      "required_columns": [
+        "available_date",
+        "shibor_1m",
+        "shibor_3m",
+        "shibor_1y"
+      ],
+      "expression_plan": "market-level shibor_3m minus shibor_1m and 20d changes; no standalone stock cross-sectional rank.",
+      "horizons": [
+        20
+      ],
+      "minimum_history_days": 60,
+      "neutralization_required": [
+        "market_regime_coverage_audit"
+      ],
+      "coverage_note": "LPR columns are excluded until non-missing LPR coverage is proven."
+    }
+  ]
+}

@@ -1,0 +1,78 @@
+[
+  {
+    "family_id": "information_discreteness_path_quality",
+    "status": "eligible",
+    "score": 89,
+    "data_readiness": "ready_from_cn_stock_daily_ohlcv_amount",
+    "novelty_vs_recent_failures": "tests return path smoothness and discrete jump share, not moneyflow, industry leader-lag, profitability-quality, valuation, northbound, or public trend-strength-state",
+    "public_reference_tags": [
+      "frog_in_the_pan",
+      "information_discreteness",
+      "continuous_information_momentum",
+      "investor_inattention",
+      "path_quality"
+    ],
+    "required_controls": [
+      "public_source_fip_information_discreteness_registered",
+      "not_plain_momentum_or_reversal_rank",
+      "path_smoothness_jump_share_definitions_frozen_before_ic",
+      "no_same_day_forward_label_leakage",
+      "tradeability_mask_required",
+      "momentum_reversal_lowvol_liquidity_reference_dedup",
+      "industry_style_residual_evaluation",
+      "capacity_safe_universe_and_adv_participation",
+      "multiple_testing_accounting",
+      "no_portfolio_grid_before_residual_ic_shape_prescreen",
+      "china_regime_coverage_required"
+    ],
+    "reason": "The FIP/information-discreteness thesis is public and behaviorally interpretable: gradual continuous information can be underreacted to, while dramatic discrete moves attract attention and should not be treated as the same momentum. This is orthogonal enough to justify one residual prescreen after Round220 produced zero residual research leads.",
+    "next_action": "round221_information_discreteness_residual_prescreen"
+  },
+  {
+    "family_id": "industry_leader_lag_residual_diffusion",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_long_cycle_sharded",
+    "novelty_vs_recent_failures": "failed_round220_full_sample_residual_gate",
+    "public_reference_tags": [
+      "industry_momentum",
+      "lead_lag",
+      "slow_information_diffusion"
+    ],
+    "required_controls": [],
+    "reason": "Round220 full 2015-2025 sharded residual prescreen found zero residual research leads across six candidates. The best residual IC candidate still failed raw yearly stability; the smoke lead failed 2025 and residual IC materiality.",
+    "next_action": "do_not_tune_industry_leader_lag_or_convert_smoke_leads_to_portfolios"
+  },
+  {
+    "family_id": "public_trend_strength_state_residual",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_long_cycle",
+    "novelty_vs_recent_failures": "failed_round219_residual_prescreen",
+    "public_reference_tags": [
+      "ADX",
+      "KAMA",
+      "Aroon",
+      "WilliamsR"
+    ],
+    "required_controls": [],
+    "reason": "Round219 tested six public trend-strength-state factors on 2015-2025 CN stocks. All six failed residual mean IC and residual yearly stability; five also had high size/liquidity/volatility exposure.",
+    "next_action": "do_not_tune_adx_kama_aroon_or_trend_strength_composites"
+  },
+  {
+    "family_id": "tradeability_limit_events",
+    "status": "control_only_not_alpha",
+    "score": 45,
+    "data_readiness": "official_masks_ready",
+    "novelty_vs_recent_failures": "standalone_alpha_failed",
+    "public_reference_tags": [],
+    "required_controls": [
+      "limit_up_down_mask",
+      "suspension_st_filter",
+      "new_listing_retirement_filter",
+      "extreme_turnover_trade_filter"
+    ],
+    "reason": "Tradeability remains mandatory as a mask/capacity control. Prior standalone limit/tradeability proxy alpha screens had zero promotable leads.",
+    "next_action": "use_as_filter_control_only"
+  }
+]

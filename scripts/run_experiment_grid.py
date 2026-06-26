@@ -19,6 +19,7 @@ ensure_workspace_imports()
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.experiments.runner import ExperimentGridConfig, load_experiment_grid_config, run_experiment_grid
 from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manifest_packet
+from quant_robot.ops.factor_mining_candidate_plan_gate import validate_candidate_plan_gate_packet
 from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet
 from quant_robot.storage.authority_bars import load_authority_processed_bars_from_config
 from quant_robot.storage.processed_bars import load_processed_bars
@@ -31,6 +32,7 @@ def run_grid(
     output_dir: str | Path | None = None,
     startup_gate_packet: str | Path | None = Path("data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"),
     data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
+    candidate_plan_gate_packet: str | Path | None = Path("data/reports/factor_mining_candidate_plan_gate/factor_mining_candidate_plan_gate.json"),
     authority_bars_config: str | Path | None = Path("configs/cn_stock_authority_bars_2015_2025.json"),
     allow_missing_startup_gate: bool = False,
     allow_review_required_data_manifest: bool = False,
@@ -44,6 +46,7 @@ def run_grid(
         markets=config.markets,
         startup_gate_packet=startup_gate_packet,
         data_manifest_packet=data_manifest_packet,
+        candidate_plan_gate_packet=candidate_plan_gate_packet,
         allow_missing_startup_gate=allow_missing_startup_gate,
         allow_review_required_data_manifest=allow_review_required_data_manifest,
         data_root=Path(data_root),
@@ -95,6 +98,11 @@ def main() -> None:
         help="CN stock data manifest packet required for processed CN grids.",
     )
     parser.add_argument(
+        "--candidate-plan-gate-packet",
+        default="data/reports/factor_mining_candidate_plan_gate/factor_mining_candidate_plan_gate.json",
+        help="Cleared CN stock candidate plan gate packet required before processed CN experiment grids.",
+    )
+    parser.add_argument(
         "--allow-review-required-data-manifest",
         action="store_true",
         help="Allow a reviewed CN stock data manifest that has warnings but no blockers.",
@@ -107,6 +115,7 @@ def main() -> None:
         output_dir=Path(args.output_dir) if args.output_dir else None,
         startup_gate_packet=Path(args.startup_gate_packet) if args.startup_gate_packet else None,
         data_manifest_packet=Path(args.data_manifest_packet) if args.data_manifest_packet else None,
+        candidate_plan_gate_packet=Path(args.candidate_plan_gate_packet) if args.candidate_plan_gate_packet else None,
         authority_bars_config=Path(args.authority_bars_config) if args.authority_bars_config else None,
         allow_missing_startup_gate=args.allow_missing_startup_gate,
         allow_review_required_data_manifest=args.allow_review_required_data_manifest,
@@ -201,6 +210,7 @@ def _enforce_cn_stock_startup_gate(
     markets: tuple[str, ...],
     startup_gate_packet: str | Path | None,
     data_manifest_packet: str | Path | None,
+    candidate_plan_gate_packet: str | Path | None,
     allow_missing_startup_gate: bool,
     allow_review_required_data_manifest: bool,
     data_root: Path,
@@ -217,6 +227,10 @@ def _enforce_cn_stock_startup_gate(
         data_manifest_packet,
         expected_source_root=data_root,
         allow_review_required=allow_review_required_data_manifest,
+        context="CN processed-bars experiment grid",
+    )
+    validate_candidate_plan_gate_packet(
+        candidate_plan_gate_packet,
         context="CN processed-bars experiment grid",
     )
 
