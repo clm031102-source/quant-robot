@@ -127,6 +127,22 @@ class DailyBasicCleanPortfolioDiagnosticTests(unittest.TestCase):
         self.assertFalse(frame.empty)
         self.assertEqual(set(frame["lookback_window"]), {1})
 
+    def test_daily_basic_technical_combo_factor_builds(self) -> None:
+        bars = _bars(asset_count=12, day_count=80)
+        daily_basic = _daily_basic(bars)
+
+        factors = build_daily_basic_factor_frames(
+            bars,
+            daily_basic,
+            candidate_factor_names=("turnover_rate_low_liquid_mv_bucket_rank",),
+            min_signal_date_amount=1.0,
+        )
+
+        frame = factors["turnover_rate_low_liquid_mv_bucket_rank"]
+        self.assertFalse(frame.empty)
+        self.assertEqual(set(frame["lookback_window"]), {20})
+        self.assertIn("adv20_amount", frame.columns)
+
     def test_daily_basic_factor_frame_can_run_fast_portfolio_diagnostic(self) -> None:
         bars = _bars()
         daily_basic = _daily_basic(bars)

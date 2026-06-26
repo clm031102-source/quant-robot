@@ -19,6 +19,10 @@ from quant_robot.factors.daily_basic_residual_composite import (
     DAILY_BASIC_RESIDUAL_COMPOSITE_FACTOR_NAMES,
     compute_daily_basic_residual_composite_factors,
 )
+from quant_robot.factors.daily_basic_technical_combo import (
+    DAILY_BASIC_TECHNICAL_COMBO_FACTOR_NAMES,
+    compute_daily_basic_technical_combo_factors,
+)
 from quant_robot.factors.daily_basic_value_yield_risk_repair import (
     DAILY_BASIC_VALUE_YIELD_RISK_REPAIR_FACTOR_NAMES,
     compute_daily_basic_value_yield_risk_repair_factors,
@@ -281,6 +285,9 @@ def build_daily_basic_factor_frames(
     risk_repair_names = tuple(name for name in requested if name in DAILY_BASIC_VALUE_YIELD_RISK_REPAIR_FACTOR_NAMES)
     if risk_repair_names:
         pieces.append(compute_daily_basic_value_yield_risk_repair_factors(bars, daily_basic, factor_names=risk_repair_names))
+    technical_combo_names = tuple(name for name in requested if name in DAILY_BASIC_TECHNICAL_COMBO_FACTOR_NAMES)
+    if technical_combo_names:
+        pieces.append(compute_daily_basic_technical_combo_factors(bars, daily_basic, factor_names=technical_combo_names))
     raw_daily_basic_names = tuple(name for name in requested if name in DAILY_BASIC_FACTOR_NAMES)
     if raw_daily_basic_names:
         raw = compute_daily_basic_factors(daily_basic)
@@ -291,6 +298,7 @@ def build_daily_basic_factor_frames(
         - set(residual_names)
         - set(champion_names)
         - set(risk_repair_names)
+        - set(technical_combo_names)
         - set(raw_daily_basic_names)
     )
     if carry_names:
