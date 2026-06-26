@@ -13,6 +13,11 @@ NEXT_CANDIDATE_PLAN = "round270_financial_reporting_timeliness_candidate_plan_ga
 NEXT_BACKFILL = "round270_financial_reporting_timeliness_backfill_or_retire_before_factor_generation"
 
 REQUIRED_FIELDS = ("symbol", "ann_date", "end_date")
+TIMELINESS_COLUMN_VARIANTS = (
+    ("symbol", "ann_date", "end_date"),
+    ("ts_code", "ann_date", "end_date"),
+    ("asset_id", "ann_date", "end_date"),
+)
 
 
 def summarize_financial_reporting_timeliness_source_audit(
@@ -109,14 +114,28 @@ def load_financial_reporting_timeliness_frames(financial_roots: Iterable[str | P
             continue
         pieces = []
         for path in sorted(root.rglob("*.parquet")):
-            try:
-                frame = pd.read_parquet(path)
-            except Exception:
-                continue
+            frame = _read_timeliness_columns(path)
             if not frame.empty:
                 pieces.append(frame)
         frames[root.name or str(root)] = pd.concat(pieces, ignore_index=True) if pieces else pd.DataFrame()
     return frames
+
+
+def _read_timeliness_columns(path: Path) -> pd.DataFrame:
+    for columns in TIMELINESS_COLUMN_VARIANTS:
+        try:
+            frame = pd.read_parquet(path, columns=list(columns))
+        except Exception:
+            continue
+        if frame.empty:
+            return pd.DataFrame(columns=REQUIRED_FIELDS)
+        output = frame.copy()
+        if "symbol" not in output and "ts_code" in output:
+            output["symbol"] = output["ts_code"]
+        if "symbol" not in output and "asset_id" in output:
+            output["symbol"] = output["asset_id"]
+        return output[list(REQUIRED_FIELDS)]
+    return pd.DataFrame(columns=REQUIRED_FIELDS)
 
 
 def _aggregate_frames(frames: Iterable[pd.DataFrame]) -> pd.DataFrame:
