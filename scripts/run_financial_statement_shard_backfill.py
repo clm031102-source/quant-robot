@@ -101,6 +101,11 @@ def run_financial_statement_shard_backfill_cli(
         [output_path],
         required_column_groups=REQUIRED_COLUMN_GROUPS,
     )
+    readiness_summary = readiness["summary"]
+    quality_summary = ingest.get("summary", {}) if isinstance(ingest.get("summary"), dict) else {}
+    quality_blockers = [str(blocker) for blocker in quality_summary.get("blockers", []) or []]
+    readiness_blockers = [str(blocker) for blocker in readiness_summary.get("blockers", []) or []]
+    blockers = sorted(dict.fromkeys(quality_blockers + readiness_blockers))
     result = {
         "stage": STAGE,
         "plan_json": str(plan_json),
@@ -110,7 +115,8 @@ def run_financial_statement_shard_backfill_cli(
         "ingest": ingest,
         "readiness": _without_markdown(readiness),
         "summary": {
-            "passes": bool(readiness["summary"]["passes"]),
+            "passes": bool(quality_summary.get("passes", False)) and bool(readiness_summary["passes"]),
+            "blockers": blockers,
             "shard_id": shard_id,
             "symbol_offset": symbol_offset,
             "symbol_limit": symbol_limit,
@@ -126,9 +132,16 @@ def run_financial_statement_shard_backfill_cli(
             "active_symbol_period_count": active_symbol_period_count,
             "prelisting_skipped_symbol_period_count": len(skipped_symbol_periods),
             "prelisting_skipped_endpoint_request_count": len(skipped_symbol_periods) * len(ENDPOINT_COLUMNS),
-            "required_column_group_count": readiness["summary"]["required_column_group_count"],
-            "required_column_groups_passing": readiness["summary"]["required_column_groups_passing"],
-            "readiness_blockers": readiness["summary"]["blockers"],
+            "required_column_group_count": quality_summary.get(
+                "required_column_group_count",
+                readiness_summary["required_column_group_count"],
+            ),
+            "required_column_groups_passing": quality_summary.get(
+                "required_column_groups_passing",
+                readiness_summary["required_column_groups_passing"],
+            ),
+            "quality_blockers": quality_blockers,
+            "readiness_blockers": readiness_blockers,
         },
         "prelisting_skipped_symbol_periods": skipped_symbol_periods,
         "live_boundary_allowed": False,
@@ -410,7 +423,9 @@ def _render_markdown(result: dict[str, Any]) -> str:
         f"- Required column groups passing: {summary['required_column_groups_passing']} / {summary['required_column_group_count']}",
         f"- Empty requests: {summary['empty_request_count']}",
         f"- Skipped requests: {summary['skipped_request_count']}",
-        f"- Readiness blockers: {', '.join(summary['readiness_blockers']) or 'none'}",
+        f"- Quality blockers: {', '.join(summary.get('quality_blockers', [])) or 'none'}",
+        f"- Readiness blockers: {', '.join(summary.get('readiness_blockers', [])) or 'none'}",
+        f"- Blockers: {', '.join(summary.get('blockers', [])) or 'none'}",
         f"- Live boundary allowed: {result['live_boundary_allowed']}",
         f"- Safety: {result['safety']}",
         "",

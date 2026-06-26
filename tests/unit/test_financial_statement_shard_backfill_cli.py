@@ -14,6 +14,43 @@ from tests.unit.test_tushare_financial_statement_ingest import FakeFinancialStat
 
 
 class FinancialStatementShardBackfillCliTests(unittest.TestCase):
+    def test_top_level_summary_uses_final_ingest_quality_gate(self) -> None:
+        class MissingCurrentAssetFieldsAdapter(FakeFinancialStatementAdapter):
+            def fetch_balance_sheet(self, period: str, ts_code: str = "") -> pd.DataFrame:
+                frame = super().fetch_balance_sheet(period, ts_code=ts_code)
+                frame["total_cur_assets"] = None
+                frame["total_cur_liab"] = None
+                return frame
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plan = build_financial_statement_symbol_shard_plan(
+                symbols=["000001.SZ"],
+                start_period="2024-03-31",
+                end_period="2024-03-31",
+                symbols_per_shard=1,
+                max_endpoint_requests_per_shard=3,
+            )
+            plan_dir = root / "plan"
+            write_financial_statement_symbol_shard_plan(plan_dir, plan)
+
+            result = run_financial_statement_shard_backfill_cli(
+                plan_json=plan_dir / "financial_statement_symbol_shard_plan.json",
+                shard_id=1,
+                output_dir=root / "subshard",
+                max_endpoint_requests=3,
+                adapter=MissingCurrentAssetFieldsAdapter(),
+            )
+
+            self.assertTrue(result["readiness"]["summary"]["passes"])
+            self.assertFalse(result["ingest"]["summary"]["passes"])
+            self.assertFalse(result["summary"]["passes"])
+            self.assertEqual(result["summary"]["required_column_groups_passing"], 1)
+            self.assertIn(
+                "missing_required_financial_column_group:asset_growth_quality",
+                result["summary"]["quality_blockers"],
+            )
+
     def test_runs_symbol_limited_subshard_from_plan(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
