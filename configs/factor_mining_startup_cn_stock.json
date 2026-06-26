@@ -747,7 +747,18 @@
     "round292_zero_factor_generation_confirmed",
     "round293_continue_statement_backfill_with_stock_basic_prelisting_filter_required",
     "round293_pre_run_aggregate_overlap_preview_required",
-    "round293_no_candidate_generation_without_source_ready"
+    "round293_no_candidate_generation_without_source_ready",
+    "round293_overlap_preview_shard16_offset15_4_of_5_net_new_split_around_existing_confirmed",
+    "round293_overlap_preview_shard16_offset16_4_of_4_net_new_confirmed",
+    "round293_financial_reporting_timeliness_backfill_progress_read",
+    "round293_source_coverage_353_below_1000_confirmed",
+    "round293_empty_requests_zero_confirmed",
+    "round293_duplicate_rows_zero_confirmed",
+    "round293_quality_report_rows_176_assets_4_confirmed",
+    "round293_zero_factor_generation_confirmed",
+    "round294_detect_shard16_tail_then_continue_shard17_backfill_required",
+    "round294_pre_run_aggregate_overlap_preview_required",
+    "round294_no_candidate_generation_without_source_ready"
   ],
   "research_direction": {
     "objective": "cn_stock_cross_sectional_alpha",
@@ -800,8 +811,8 @@
       "review_after_n_rounds": 3
     },
     "repeatable_mining_protocol": {
-      "source_audit": "docs/research/cn_stock_round292_financial_reporting_timeliness_backfill_progress_2026-06-26.md",
-      "next_direction": "round293_continue_financial_reporting_timeliness_backfill_with_stock_basic_prelisting_filter_overlap_preview_quality_report_recompute_guard_and_empty_response_watch_until_1000_symbols",
+      "source_audit": "docs/research/cn_stock_round293_financial_reporting_timeliness_backfill_progress_2026-06-26.md",
+      "next_direction": "round294_detect_shard16_tail_then_continue_financial_reporting_timeliness_backfill_on_shard17_with_stock_basic_prelisting_filter_overlap_preview_quality_report_recompute_guard_and_empty_response_watch_until_1000_symbols",
       "recently_rejected_directions": [
         "round270_financial_reporting_timeliness_candidate_generation_from_100_symbol_cache",
         "round270_claiming_financial_reporting_timeliness_ready_without_full_market_coverage",
@@ -2198,7 +2209,15 @@
         "round293_pre_run_aggregate_overlap_preview_before_live_endpoint_requests",
         "round293_financial_statement_quality_report_must_match_recomputed_combined_group_details",
         "round293_scan_ahead_if_preview_net_new_ratio_below_80pct",
-        "round293_split_backfill_around_existing_symbols_when_preview_identifies_overlap"
+        "round293_split_backfill_around_existing_symbols_when_preview_identifies_overlap",
+        "round294_source_ready_before_candidate_generation",
+        "round294_stock_basic_prelisting_period_filter_before_statement_backfill",
+        "round294_true_endpoint_empty_monitoring_after_prelisting_filter",
+        "round294_shard_tail_transition_preview_before_live_endpoint_requests",
+        "round294_pre_run_aggregate_overlap_preview_before_live_endpoint_requests",
+        "round294_financial_statement_quality_report_must_match_recomputed_combined_group_details",
+        "round294_scan_ahead_if_preview_net_new_ratio_below_80pct",
+        "round294_split_backfill_around_existing_symbols_when_preview_identifies_overlap"
       ],
       "confirm_before_each_run": [
         "long_cycle_replay_plan_read",
@@ -3351,17 +3370,28 @@
         "round292_zero_factor_generation_confirmed",
         "round293_continue_statement_backfill_with_stock_basic_prelisting_filter_required",
         "round293_pre_run_aggregate_overlap_preview_required",
-        "round293_no_candidate_generation_without_source_ready"
+        "round293_no_candidate_generation_without_source_ready",
+        "round293_overlap_preview_shard16_offset15_4_of_5_net_new_split_around_existing_confirmed",
+        "round293_overlap_preview_shard16_offset16_4_of_4_net_new_confirmed",
+        "round293_financial_reporting_timeliness_backfill_progress_read",
+        "round293_source_coverage_353_below_1000_confirmed",
+        "round293_empty_requests_zero_confirmed",
+        "round293_duplicate_rows_zero_confirmed",
+        "round293_quality_report_rows_176_assets_4_confirmed",
+        "round293_zero_factor_generation_confirmed",
+        "round294_detect_shard16_tail_then_continue_shard17_backfill_required",
+        "round294_pre_run_aggregate_overlap_preview_required",
+        "round294_no_candidate_generation_without_source_ready"
       ]
     }
   },
   "round_state": {
-    "last_completed_round": 292,
-    "next_round": 293,
+    "last_completed_round": 293,
+    "next_round": 294,
     "last_three_round_review": "docs/research/cn_stock_round289_291_three_round_review_2026-06-26.md",
     "last_three_round_decision": "financial_reporting_timeliness_backfill_continue_after_round289_291_review_with_overlap_preview_timeout_budget_and_empty_response_watch",
     "family_rotation_required": true,
-    "next_direction": "round293_continue_financial_reporting_timeliness_backfill_with_stock_basic_prelisting_filter_overlap_preview_quality_report_recompute_guard_and_empty_response_watch_until_1000_symbols",
+    "next_direction": "round294_detect_shard16_tail_then_continue_financial_reporting_timeliness_backfill_on_shard17_with_stock_basic_prelisting_filter_overlap_preview_quality_report_recompute_guard_and_empty_response_watch_until_1000_symbols",
     "blocked_reentry_families": [
       "accounting_quality_realized_statement_formula_mutations",
       "statement_cash_conversion_muted_reaction",
@@ -3527,13 +3557,24 @@
       "round293_continue_statement_backfill_with_stock_basic_prelisting_filter_required",
       "round293_pre_run_aggregate_overlap_preview_required",
       "round293_no_candidate_generation_without_source_ready",
+      "round293_overlap_preview_shard16_offset15_4_of_5_net_new_split_around_existing_confirmed",
+      "round293_overlap_preview_shard16_offset16_4_of_4_net_new_confirmed",
+      "round293_financial_reporting_timeliness_backfill_progress_read",
+      "round293_source_coverage_353_below_1000_confirmed",
+      "round293_empty_requests_zero_confirmed",
+      "round293_duplicate_rows_zero_confirmed",
+      "round293_quality_report_rows_176_assets_4_confirmed",
+      "round293_zero_factor_generation_confirmed",
+      "round294_detect_shard16_tail_then_continue_shard17_backfill_required",
+      "round294_pre_run_aggregate_overlap_preview_required",
+      "round294_no_candidate_generation_without_source_ready",
       "keep_final_holdout_blocked"
     ],
     "source_backfill_required": true
   },
   "method_optimization_contract": {
-    "source_audit": "docs/research/cn_stock_round292_financial_reporting_timeliness_backfill_progress_2026-06-26.md",
-    "next_allowed_direction": "round293_continue_financial_reporting_timeliness_backfill_with_stock_basic_prelisting_filter_overlap_preview_quality_report_recompute_guard_and_empty_response_watch_until_1000_symbols",
+    "source_audit": "docs/research/cn_stock_round293_financial_reporting_timeliness_backfill_progress_2026-06-26.md",
+    "next_allowed_direction": "round294_detect_shard16_tail_then_continue_financial_reporting_timeliness_backfill_on_shard17_with_stock_basic_prelisting_filter_overlap_preview_quality_report_recompute_guard_and_empty_response_watch_until_1000_symbols",
     "hibernated_families": [
       "public_risk_filter_bridge",
       "public_supertrend",
@@ -3838,7 +3879,14 @@
       "round292_duplicate_rows_zero",
       "round292_quality_report_group_blocker_recompute_fix",
       "round292_no_factor_generation_before_1000_symbol_source_gate",
-      "round293_continue_financial_reporting_timeliness_backfill_with_stock_basic_prelisting_filter"
+      "round293_continue_financial_reporting_timeliness_backfill_with_stock_basic_prelisting_filter",
+      "round293_pre_run_aggregate_overlap_preview_before_live_endpoint_requests",
+      "round293_split_around_existing_symbol_000034_before_live_requests",
+      "round293_financial_reporting_timeliness_aggregate_coverage_353_below_1000",
+      "round293_empty_requests_zero",
+      "round293_duplicate_rows_zero",
+      "round293_no_factor_generation_before_1000_symbol_source_gate",
+      "round294_detect_shard16_tail_then_continue_shard17_backfill_with_stock_basic_prelisting_filter"
     ]
   },
   "candidate_budget": {
