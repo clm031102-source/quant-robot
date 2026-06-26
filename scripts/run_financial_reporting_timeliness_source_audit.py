@@ -35,8 +35,9 @@ def run_financial_reporting_timeliness_source_audit_cli(
     min_unique_symbols: int = 1000,
     min_end_years: int = 8,
 ) -> dict[str, Any]:
+    roots = _expand_financial_roots(tuple(Path(path) for path in financial_roots))
     result = build_financial_reporting_timeliness_source_audit(
-        financial_roots=tuple(Path(path) for path in financial_roots),
+        financial_roots=roots,
         analysis_start_date=analysis_start_date,
         analysis_end_date=analysis_end_date,
         min_unique_symbols=min_unique_symbols,
@@ -78,6 +79,22 @@ def main() -> None:
             sort_keys=True,
         )
     )
+
+
+def _expand_financial_roots(financial_roots: Iterable[Path]) -> tuple[Path, ...]:
+    expanded: list[Path] = []
+    for root in financial_roots:
+        if root.is_dir() and root.name == "processed":
+            children = [
+                child
+                for child in sorted(root.iterdir())
+                if child.is_dir() and ("financial_statement" in child.name or "financial_pit_signal" in child.name)
+            ]
+            if children:
+                expanded.extend(children)
+                continue
+        expanded.append(root)
+    return tuple(expanded)
 
 
 if __name__ == "__main__":
