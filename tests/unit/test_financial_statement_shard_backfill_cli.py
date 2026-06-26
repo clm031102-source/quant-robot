@@ -3,6 +3,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import pandas as pd
+
 from quant_robot.ops.financial_statement_symbol_shard_plan import write_financial_statement_symbol_shard_plan
 from quant_robot.ops.financial_statement_symbol_shard_plan import build_financial_statement_symbol_shard_plan
 from scripts.run_financial_statement_shard_backfill import run_financial_statement_shard_backfill_cli
@@ -42,6 +44,44 @@ class FinancialStatementShardBackfillCliTests(unittest.TestCase):
             self.assertEqual(result["readiness"]["summary"]["required_column_groups_passing"], 2)
             self.assertTrue((root / "subshard" / "financial_statement_shard_backfill.json").exists())
             self.assertTrue((root / "subshard" / "financial_statement_shard_backfill.md").exists())
+
+    def test_stock_basic_list_date_skips_pre_listing_statement_periods(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plan = build_financial_statement_symbol_shard_plan(
+                symbols=["000001.SZ", "300997.SZ"],
+                start_period="2020-12-31",
+                end_period="2021-06-30",
+                symbols_per_shard=2,
+                max_endpoint_requests_per_shard=12,
+            )
+            plan_dir = root / "plan"
+            write_financial_statement_symbol_shard_plan(plan_dir, plan)
+            stock_basic = root / "stock_basic.csv"
+            pd.DataFrame(
+                {
+                    "ts_code": ["000001.SZ", "300997.SZ"],
+                    "list_date": ["19910403", "20210602"],
+                }
+            ).to_csv(stock_basic, index=False)
+            adapter = FakeFinancialStatementAdapter()
+
+            result = run_financial_statement_shard_backfill_cli(
+                plan_json=plan_dir / "financial_statement_symbol_shard_plan.json",
+                shard_id=1,
+                max_endpoint_requests=12,
+                output_dir=root / "subshard",
+                stock_basic_path=stock_basic,
+                adapter=adapter,
+            )
+
+            self.assertTrue(result["summary"]["passes"])
+            self.assertEqual(result["summary"]["endpoint_request_count"], 12)
+            self.assertEqual(result["summary"]["prelisting_skipped_symbol_period_count"], 2)
+            self.assertEqual(result["summary"]["prelisting_skipped_endpoint_request_count"], 6)
+            self.assertNotIn(("income", "300997.SZ", "20201231"), adapter.calls)
+            self.assertNotIn(("income", "300997.SZ", "20210331"), adapter.calls)
+            self.assertIn(("income", "300997.SZ", "20210630"), adapter.calls)
 
     def test_blocks_when_subshard_endpoint_budget_is_exceeded(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

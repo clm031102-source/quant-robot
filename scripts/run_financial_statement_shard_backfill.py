@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
+
 try:
     from scripts.bootstrap import ensure_workspace_imports
 except ModuleNotFoundError:  # pragma: no cover - direct script execution
@@ -38,13 +40,16 @@ def run_financial_statement_shard_backfill_cli(
     adapter_max_retries: int = 3,
     adapter_retry_sleep_seconds: float = 1.0,
     adapter_request_sleep_seconds: float = 0.0,
+    stock_basic_path: str | Path | None = None,
     adapter: object | None = None,
 ) -> dict[str, Any]:
     plan = _read_plan(plan_json)
     shard = _select_shard(plan, shard_id)
     periods = [str(period) for period in plan.get("periods", []) or []]
     symbols = _slice_symbols([str(symbol) for symbol in shard.get("symbols", []) or []], symbol_offset, symbol_limit)
-    endpoint_request_count = len(symbols) * len(periods) * len(ENDPOINT_COLUMNS)
+    symbol_periods, skipped_symbol_periods = _filter_prelisting_symbol_periods(symbols, periods, stock_basic_path)
+    active_symbol_period_count = sum(len(values) for values in symbol_periods.values())
+    endpoint_request_count = active_symbol_period_count * len(ENDPOINT_COLUMNS)
     if endpoint_request_count > max_endpoint_requests:
         raise RuntimeError(
             "Financial statement shard endpoint request budget blocked: "
@@ -54,6 +59,8 @@ def run_financial_statement_shard_backfill_cli(
         raise RuntimeError("Financial statement shard backfill has no symbols after offset/limit slicing")
     if not periods:
         raise RuntimeError("Financial statement shard backfill plan has no periods")
+    if active_symbol_period_count <= 0:
+        raise RuntimeError("Financial statement shard backfill has no symbol-periods after stock_basic filtering")
 
     output_path = Path(output_dir)
     active_adapter = adapter or TushareAdapter(
@@ -61,15 +68,34 @@ def run_financial_statement_shard_backfill_cli(
         retry_sleep_seconds=adapter_retry_sleep_seconds,
         request_sleep_seconds=adapter_request_sleep_seconds,
     )
-    ingest = run_tushare_financial_statement_ingest(
-        active_adapter,
-        periods,
-        output_path,
-        resume=True,
-        market="CN",
-        ts_codes=symbols,
-        empty_response_policy="record",
-    )
+    if skipped_symbol_periods:
+        ingests = []
+        for symbol in symbols:
+            filtered_periods = symbol_periods.get(symbol, [])
+            if not filtered_periods:
+                continue
+            ingests.append(
+                run_tushare_financial_statement_ingest(
+                    active_adapter,
+                    filtered_periods,
+                    output_path,
+                    resume=True,
+                    market="CN",
+                    ts_codes=[symbol],
+                    empty_response_policy="record",
+                )
+            )
+        ingest = _combine_ingest_results(ingests)
+    else:
+        ingest = run_tushare_financial_statement_ingest(
+            active_adapter,
+            periods,
+            output_path,
+            resume=True,
+            market="CN",
+            ts_codes=symbols,
+            empty_response_policy="record",
+        )
     readiness = audit_tushare_financial_pit_readiness(
         [output_path],
         required_column_groups=REQUIRED_COLUMN_GROUPS,
@@ -95,10 +121,15 @@ def run_financial_statement_shard_backfill_cli(
             "processed_rows": ingest["processed_rows"],
             "empty_request_count": len(ingest.get("empty_requests", []) or []),
             "skipped_request_count": len(ingest.get("skipped_requests", []) or []),
+            "planned_symbol_period_count": len(symbols) * len(periods),
+            "active_symbol_period_count": active_symbol_period_count,
+            "prelisting_skipped_symbol_period_count": len(skipped_symbol_periods),
+            "prelisting_skipped_endpoint_request_count": len(skipped_symbol_periods) * len(ENDPOINT_COLUMNS),
             "required_column_group_count": readiness["summary"]["required_column_group_count"],
             "required_column_groups_passing": readiness["summary"]["required_column_groups_passing"],
             "readiness_blockers": readiness["summary"]["blockers"],
         },
+        "prelisting_skipped_symbol_periods": skipped_symbol_periods,
         "live_boundary_allowed": False,
         "safety": SAFETY,
     }
@@ -116,6 +147,7 @@ def main() -> None:
     parser.add_argument("--adapter-max-retries", type=int, default=3)
     parser.add_argument("--adapter-retry-sleep-seconds", type=float, default=1.0)
     parser.add_argument("--adapter-request-sleep-seconds", type=float, default=0.0)
+    parser.add_argument("--stock-basic-path", default=None)
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     args = parser.parse_args()
     result = run_financial_statement_shard_backfill_cli(
@@ -127,6 +159,7 @@ def main() -> None:
         adapter_max_retries=args.adapter_max_retries,
         adapter_retry_sleep_seconds=args.adapter_retry_sleep_seconds,
         adapter_request_sleep_seconds=args.adapter_request_sleep_seconds,
+        stock_basic_path=Path(args.stock_basic_path) if args.stock_basic_path else None,
         output_dir=Path(args.output_dir),
     )
     print(json.dumps({"summary": result["summary"], "output_dir": args.output_dir}, indent=2, sort_keys=True))
@@ -158,6 +191,85 @@ def _shard_without_symbols(shard: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in shard.items() if key != "symbols"}
 
 
+def _filter_prelisting_symbol_periods(
+    symbols: list[str],
+    periods: list[str],
+    stock_basic_path: str | Path | None,
+) -> tuple[dict[str, list[str]], list[str]]:
+    output = {symbol: list(periods) for symbol in symbols}
+    if not stock_basic_path:
+        return output, []
+    list_dates = _load_stock_basic_list_dates(stock_basic_path)
+    skipped: list[str] = []
+    for symbol in symbols:
+        list_date = list_dates.get(symbol)
+        if pd.isna(list_date):
+            continue
+        kept = []
+        for period in periods:
+            period_date = pd.to_datetime(str(period), format="%Y%m%d", errors="coerce")
+            if pd.isna(period_date) or period_date.date() >= list_date:
+                kept.append(period)
+            else:
+                skipped.append(f"{symbol}:{period}:before_list_date:{list_date.isoformat()}")
+        output[symbol] = kept
+    return output, skipped
+
+
+def _load_stock_basic_list_dates(path: str | Path) -> dict[str, Any]:
+    root = Path(path)
+    files = [root] if root.is_file() else sorted(root.rglob("*.parquet")) + sorted(root.rglob("*.csv"))
+    frames = []
+    for file in files:
+        if file.suffix.lower() == ".parquet":
+            frames.append(pd.read_parquet(file))
+        elif file.suffix.lower() == ".csv":
+            frames.append(pd.read_csv(file))
+    if not frames:
+        return {}
+    frame = pd.concat(frames, ignore_index=True)
+    symbol_column = "symbol" if "symbol" in frame else "ts_code" if "ts_code" in frame else None
+    if not symbol_column or "list_date" not in frame:
+        return {}
+    frame = frame[[symbol_column, "list_date"]].rename(columns={symbol_column: "symbol"}).dropna(subset=["symbol"]).copy()
+    frame["symbol"] = frame["symbol"].astype(str).str.strip().str.upper()
+    frame["list_date"] = _parse_stock_basic_list_date(frame["list_date"])
+    frame = frame.dropna(subset=["list_date"]).drop_duplicates("symbol", keep="last")
+    return dict(zip(frame["symbol"], frame["list_date"], strict=False))
+
+
+def _parse_stock_basic_list_date(values: pd.Series) -> pd.Series:
+    text = values.astype("string").str.strip()
+    parsed = pd.to_datetime(text, errors="coerce")
+    ymd_mask = text.str.fullmatch(r"\d{8}").fillna(False)
+    if ymd_mask.any():
+        parsed.loc[ymd_mask] = pd.to_datetime(text.loc[ymd_mask], format="%Y%m%d", errors="coerce")
+    return parsed.dt.date
+
+
+def _combine_ingest_results(ingests: list[dict[str, Any]]) -> dict[str, Any]:
+    if not ingests:
+        return {
+            "source": "tushare",
+            "dataset": "financial_statement",
+            "market": "CN",
+            "downloaded_periods": [],
+            "skipped_periods": [],
+            "downloaded_requests": [],
+            "skipped_requests": [],
+            "empty_requests": [],
+            "processed_rows": 0,
+        }
+    combined = dict(ingests[-1])
+    for key in ["downloaded_periods", "skipped_periods", "downloaded_requests", "skipped_requests", "empty_requests"]:
+        values: list[Any] = []
+        for ingest in ingests:
+            values.extend(ingest.get(key, []) or [])
+        combined[key] = sorted(dict.fromkeys(values)) if key.endswith("_periods") else values
+    combined["processed_rows"] = sum(int(ingest.get("processed_rows", 0)) for ingest in ingests)
+    return combined
+
+
 def _write_report(output_dir: Path, result: dict[str, Any]) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "financial_statement_shard_backfill.json").write_text(
@@ -185,6 +297,10 @@ def _render_markdown(result: dict[str, Any]) -> str:
         f"- Endpoint requests: {summary['endpoint_request_count']}",
         f"- Max endpoint requests: {summary['max_endpoint_requests']}",
         f"- Processed rows: {summary['processed_rows']}",
+        f"- Planned symbol-periods: {summary['planned_symbol_period_count']}",
+        f"- Active symbol-periods: {summary['active_symbol_period_count']}",
+        f"- Pre-listing skipped symbol-periods: {summary['prelisting_skipped_symbol_period_count']}",
+        f"- Pre-listing skipped endpoint requests: {summary['prelisting_skipped_endpoint_request_count']}",
         f"- Required column groups passing: {summary['required_column_groups_passing']} / {summary['required_column_group_count']}",
         f"- Empty requests: {summary['empty_request_count']}",
         f"- Skipped requests: {summary['skipped_request_count']}",
@@ -197,6 +313,10 @@ def _render_markdown(result: dict[str, Any]) -> str:
     ]
     for symbol in result.get("selected_symbols", []) or []:
         lines.append(f"- `{symbol}`")
+    if result.get("prelisting_skipped_symbol_periods"):
+        lines.extend(["", "## Pre-Listing Skipped Symbol-Periods", ""])
+        for item in result.get("prelisting_skipped_symbol_periods", []) or []:
+            lines.append(f"- `{item}`")
     return "\n".join(lines) + "\n"
 
 
