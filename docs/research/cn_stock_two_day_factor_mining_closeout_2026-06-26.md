@@ -16,7 +16,7 @@ The main result is strict but useful:
 - live/manual signals: 0
 - families with apparent raw leads that survived hard follow-up gates: 0
 - reusable infrastructure and process gates: material improvement
-- latest source-construction checkpoint: 317 unique CN stock symbols, still below the 1,000-symbol source gate
+- latest source-construction checkpoint: 322 unique CN stock symbols, still below the 1,000-symbol source gate
 
 This is not a success as alpha production. It is a success as damage control and research-method correction. The process now blocks short-sample profitability claims, ETF/CN-stock scope confusion, raw TopN conversion, and same-family parameter tuning after zero robust leads.
 
@@ -75,9 +75,9 @@ The standalone express surprise factor was rejected, but the cache and PIT loadi
 
 The startup config now records:
 
-- last completed round: 285
-- next round: 286
-- next direction: `round286_continue_financial_reporting_timeliness_backfill_with_stock_basic_prelisting_filter_and_overlap_preview_until_1000_symbols`
+- last completed round: 286
+- next round: 287
+- next direction: `round287_continue_financial_reporting_timeliness_backfill_with_stock_basic_prelisting_filter_and_overlap_preview_until_1000_symbols`
 - three-round review cadence
 - ten-round packaging cadence
 - blocked re-entry families
@@ -141,8 +141,9 @@ Coverage checkpoints:
 | after Round283 | 86 | 66,098 | 307 | false |
 | after Round284 | 87 | 67,142 | 312 | false |
 | after Round285 | 88 | 68,253 | 317 | false |
+| after Round286 | 89 | 69,370 | 322 | false |
 
-The source gate requires at least 1,000 unique symbols. The current coverage is 317, or 31.7% of the minimum.
+The source gate requires at least 1,000 unique symbols. The current coverage is 322, or 32.2% of the minimum.
 
 ## Round275 Closeout
 
@@ -162,9 +163,9 @@ New watch item:
 - The route remains viable because readiness passed and coverage still increased.
 - Round276 must monitor empty-request and duplicate-row rates before more blind continuation.
 
-## Rounds276-285 Closeout
+## Rounds276-286 Closeout
 
-Rounds276-285 continued the same source-construction route instead of prematurely mining factors.
+Rounds276-286 continued the same source-construction route instead of prematurely mining factors.
 
 | Round | Segment Work | Incremental Unique Symbols | Processed Rows | Empty Requests | Duplicate Rows | Result |
 |---:|---|---:|---:|---:|---:|---|
@@ -178,6 +179,7 @@ Rounds276-285 continued the same source-construction route instead of prematurel
 | 283 | shard14 offset0 | +5 | 198 | 0 | 0 | readiness passed; standard quality report now writes combined multi-symbol summary |
 | 284 | shard14 offset5 | +5 | 208 | 0 | 0 | readiness passed; pre-listing filter saved 36 endpoint requests |
 | 285 | shard14 offset10 | +5 | 220 | 0 | 0 | readiness passed; overlap preview found 5 / 5 net-new symbols |
+| 286 | shard14 offset15 | +5 | 220 | 0 | 0 | readiness passed; overlap preview found 5 / 5 net-new symbols |
 
 Useful engineering output from these ten rounds:
 
@@ -185,7 +187,7 @@ Useful engineering output from these ten rounds:
 - shard 11 completed;
 - shard 12 completed;
 - shard 13 effective non-overlap positions completed;
-- aggregate source coverage increased from 231 to 317 unique symbols;
+- aggregate source coverage increased from 231 to 322 unique symbols;
 - the Round278 empty-request cluster was diagnosed as pre-listing request waste;
 - the backfill CLI now supports a mandatory stock-basic pre-listing filter;
 - the Round279 combined quality-report bug was fixed and regression-tested;
@@ -196,8 +198,9 @@ Useful engineering output from these ten rounds:
 - Round283 found and fixed a second quality-report issue: when pre-listing filters force per-symbol ingests, the standard `financial_statement_quality_report.json` is now overwritten with the combined multi-symbol summary instead of the final symbol's summary.
 - Round284 completed the required 282-284 three-round review and tightened the next-run rule: scan ahead if preview net-new ratio drops materially below 80%.
 - Round285 confirmed the overlap-preview rule is efficient on shard14 offset10: all five names were net-new, 660 endpoint requests produced 220 rows, and post-filter empty requests stayed at 0.
+- Round286 continued the same efficient path on shard14 offset15: all five names were net-new, 660 endpoint requests produced 220 rows, and post-filter empty requests stayed at 0.
 
-Factor outcome across Rounds276-285:
+Factor outcome across Rounds276-286:
 
 - new factor names: 0
 - research leads: 0
@@ -237,13 +240,13 @@ The factor results are poor for structural reasons:
 
 Do not return to blind moneyflow, raw public-indicator, or same-family parameter sweeps.
 
-The next allowed work is Round286:
+The next allowed work is Round287:
 
 ```text
 financial reporting timeliness backfill with stock-basic pre-listing filter and aggregate-overlap preview
 ```
 
-Round286 must do one of two things:
+Round287 must do one of two things:
 
 1. Continue financial reporting timeliness backfill with the stock-basic pre-listing filter and a pre-run aggregate-overlap preview.
 2. Rotate only if the backfill route stops increasing coverage, becomes too costly, or fails required PIT field readiness.
@@ -264,8 +267,8 @@ Latest closeout verification:
 
 - JSON validation passed for `configs/factor_mining_startup_cn_stock.json`.
 - 62 relevant unit tests passed.
-- Project audit passed with 1,792 files scanned and 0 factor registry unknowns.
+- Project audit passed with 1,793 files scanned and 0 factor registry unknowns.
 - `git diff --check` passed.
 - exact Tushare token scan passed for committed configs, docs, and tests.
-- Round286 startup gate should clear with Round285 completed and Round286 next before the next live endpoint spend.
+- Round287 startup gate should clear with Round286 completed and Round287 next before the next live endpoint spend.
 - staged path audit confirmed no `data/` or `logs/` paths were committed.
