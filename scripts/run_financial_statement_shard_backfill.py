@@ -267,7 +267,51 @@ def _combine_ingest_results(ingests: list[dict[str, Any]]) -> dict[str, Any]:
             values.extend(ingest.get(key, []) or [])
         combined[key] = sorted(dict.fromkeys(values)) if key.endswith("_periods") else values
     combined["processed_rows"] = sum(int(ingest.get("processed_rows", 0)) for ingest in ingests)
+    quality_report = _combine_quality_reports([ingest.get("quality_report", {}) for ingest in ingests])
+    if quality_report:
+        combined["quality_report"] = quality_report
+        combined["summary"] = quality_report["summary"]
     return combined
+
+
+def _combine_quality_reports(reports: list[Any]) -> dict[str, Any]:
+    valid_reports = [report for report in reports if isinstance(report, dict) and isinstance(report.get("summary"), dict)]
+    if not valid_reports:
+        return {}
+    combined = dict(valid_reports[-1])
+    summaries = [report["summary"] for report in valid_reports]
+    blockers = sorted({str(blocker) for summary in summaries for blocker in summary.get("blockers", []) or []})
+    combined_summary = dict(summaries[-1])
+    combined_summary.update(
+        {
+            "passes": not blockers and all(bool(summary.get("passes", False)) for summary in summaries),
+            "blockers": blockers,
+            "rows": sum(int(summary.get("rows", 0) or 0) for summary in summaries),
+            "assets": sum(int(summary.get("assets", 0) or 0) for summary in summaries),
+            "duplicate_rows": sum(int(summary.get("duplicate_rows", 0) or 0) for summary in summaries),
+            "missing_asset_id_rows": sum(int(summary.get("missing_asset_id_rows", 0) or 0) for summary in summaries),
+            "required_column_group_count": max(int(summary.get("required_column_group_count", 0) or 0) for summary in summaries),
+            "required_column_groups_passing": min(
+                int(summary.get("required_column_groups_passing", 0) or 0) for summary in summaries
+            ),
+            "ann_date_start": _min_optional_date(summary.get("ann_date_start") for summary in summaries),
+            "ann_date_end": _max_optional_date(summary.get("ann_date_end") for summary in summaries),
+            "report_period_start": _min_optional_date(summary.get("report_period_start") for summary in summaries),
+            "report_period_end": _max_optional_date(summary.get("report_period_end") for summary in summaries),
+        }
+    )
+    combined["summary"] = combined_summary
+    return combined
+
+
+def _min_optional_date(values: Any) -> str | None:
+    clean = [str(value) for value in values if value]
+    return min(clean) if clean else None
+
+
+def _max_optional_date(values: Any) -> str | None:
+    clean = [str(value) for value in values if value]
+    return max(clean) if clean else None
 
 
 def _write_report(output_dir: Path, result: dict[str, Any]) -> None:
