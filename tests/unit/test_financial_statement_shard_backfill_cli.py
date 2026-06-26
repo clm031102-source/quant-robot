@@ -8,6 +8,7 @@ import pandas as pd
 
 from quant_robot.ops.financial_statement_symbol_shard_plan import write_financial_statement_symbol_shard_plan
 from quant_robot.ops.financial_statement_symbol_shard_plan import build_financial_statement_symbol_shard_plan
+from scripts.run_financial_statement_shard_backfill import _combine_quality_reports
 from scripts.run_financial_statement_shard_backfill import run_financial_statement_shard_backfill_cli
 from tests.unit.test_tushare_financial_statement_ingest import FakeFinancialStatementAdapter
 
@@ -145,6 +146,85 @@ class FinancialStatementShardBackfillCliTests(unittest.TestCase):
                 retry_sleep_seconds=12.5,
                 request_sleep_seconds=0.35,
             )
+
+    def test_combined_quality_report_recomputes_group_blockers_from_all_segments(self) -> None:
+        first_report = {
+            "summary": {
+                "passes": False,
+                "blockers": ["missing_required_financial_column_group:asset_growth_quality"],
+                "rows": 1,
+                "assets": 1,
+                "market": "CN",
+                "required_column_group_count": 2,
+                "required_column_groups_passing": 1,
+                "duplicate_rows": 0,
+                "missing_asset_id_rows": 0,
+                "ann_date_start": "2024-04-01",
+                "ann_date_end": "2024-04-01",
+                "report_period_start": "2024-03-31",
+                "report_period_end": "2024-03-31",
+            },
+            "required_column_groups": [
+                {
+                    "group_id": "accounting_accrual_quality",
+                    "required_columns": ["netprofit", "n_cashflow_act", "total_assets"],
+                    "passes": True,
+                    "missing_columns": [],
+                    "non_null_columns": ["netprofit", "n_cashflow_act", "total_assets"],
+                },
+                {
+                    "group_id": "asset_growth_quality",
+                    "required_columns": ["total_assets", "total_liab", "total_cur_assets", "total_cur_liab"],
+                    "passes": False,
+                    "missing_columns": ["total_liab", "total_cur_assets", "total_cur_liab"],
+                    "non_null_columns": ["total_assets"],
+                },
+            ],
+        }
+        second_report = {
+            "summary": {
+                "passes": True,
+                "blockers": [],
+                "rows": 2,
+                "assets": 1,
+                "market": "CN",
+                "required_column_group_count": 2,
+                "required_column_groups_passing": 2,
+                "duplicate_rows": 0,
+                "missing_asset_id_rows": 0,
+                "ann_date_start": "2024-04-02",
+                "ann_date_end": "2024-04-02",
+                "report_period_start": "2024-03-31",
+                "report_period_end": "2024-06-30",
+            },
+            "required_column_groups": [
+                {
+                    "group_id": "accounting_accrual_quality",
+                    "required_columns": ["netprofit", "n_cashflow_act", "total_assets"],
+                    "passes": True,
+                    "missing_columns": [],
+                    "non_null_columns": ["netprofit", "n_cashflow_act", "total_assets"],
+                },
+                {
+                    "group_id": "asset_growth_quality",
+                    "required_columns": ["total_assets", "total_liab", "total_cur_assets", "total_cur_liab"],
+                    "passes": True,
+                    "missing_columns": [],
+                    "non_null_columns": ["total_assets", "total_liab", "total_cur_assets", "total_cur_liab"],
+                },
+            ],
+        }
+
+        combined = _combine_quality_reports([first_report, second_report])
+
+        self.assertTrue(combined["summary"]["passes"])
+        self.assertEqual(combined["summary"]["blockers"], [])
+        self.assertEqual(combined["summary"]["rows"], 3)
+        self.assertEqual(combined["summary"]["assets"], 2)
+        self.assertEqual(combined["summary"]["required_column_groups_passing"], 2)
+        group_map = {group["group_id"]: group for group in combined["required_column_groups"]}
+        self.assertTrue(group_map["asset_growth_quality"]["passes"])
+        self.assertEqual(group_map["asset_growth_quality"]["missing_columns"], [])
 
 
 if __name__ == "__main__":
