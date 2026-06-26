@@ -27,6 +27,7 @@ DEFAULT_PLAN_JSON = Path("data/reports/round236_financial_statement_symbol_shard
 DEFAULT_OUTPUT_DIR = Path("data/processed/round236_financial_statement_shard_backfill")
 STAGE = "tushare_financial_statement_shard_backfill"
 SAFETY = "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+GROUP_BLOCKER_PREFIX = "missing_required_financial_column_group:"
 
 
 def run_financial_statement_shard_backfill_cli(
@@ -280,28 +281,83 @@ def _combine_quality_reports(reports: list[Any]) -> dict[str, Any]:
         return {}
     combined = dict(valid_reports[-1])
     summaries = [report["summary"] for report in valid_reports]
-    blockers = sorted({str(blocker) for summary in summaries for blocker in summary.get("blockers", []) or []})
+    required_column_groups = _combine_required_column_groups(valid_reports)
+    group_blockers = [
+        f"{GROUP_BLOCKER_PREFIX}{group['group_id']}" for group in required_column_groups if not bool(group.get("passes"))
+    ]
+    other_blockers = [
+        str(blocker)
+        for summary in summaries
+        for blocker in summary.get("blockers", []) or []
+        if not str(blocker).startswith(GROUP_BLOCKER_PREFIX)
+    ]
+    blockers = sorted(dict.fromkeys(other_blockers + group_blockers))
     combined_summary = dict(summaries[-1])
     combined_summary.update(
         {
-            "passes": not blockers and all(bool(summary.get("passes", False)) for summary in summaries),
+            "passes": not blockers,
             "blockers": blockers,
             "rows": sum(int(summary.get("rows", 0) or 0) for summary in summaries),
             "assets": sum(int(summary.get("assets", 0) or 0) for summary in summaries),
             "duplicate_rows": sum(int(summary.get("duplicate_rows", 0) or 0) for summary in summaries),
             "missing_asset_id_rows": sum(int(summary.get("missing_asset_id_rows", 0) or 0) for summary in summaries),
-            "required_column_group_count": max(int(summary.get("required_column_group_count", 0) or 0) for summary in summaries),
-            "required_column_groups_passing": min(
-                int(summary.get("required_column_groups_passing", 0) or 0) for summary in summaries
-            ),
+            "required_column_group_count": len(required_column_groups),
+            "required_column_groups_passing": int(sum(1 for group in required_column_groups if group.get("passes"))),
             "ann_date_start": _min_optional_date(summary.get("ann_date_start") for summary in summaries),
             "ann_date_end": _max_optional_date(summary.get("ann_date_end") for summary in summaries),
             "report_period_start": _min_optional_date(summary.get("report_period_start") for summary in summaries),
             "report_period_end": _max_optional_date(summary.get("report_period_end") for summary in summaries),
         }
     )
+    combined["required_column_groups"] = required_column_groups
     combined["summary"] = combined_summary
     return combined
+
+
+def _combine_required_column_groups(reports: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    groups: dict[str, dict[str, Any]] = {}
+    order: list[str] = []
+    for report in reports:
+        for group in report.get("required_column_groups", []) or []:
+            if not isinstance(group, dict) or not group.get("group_id"):
+                continue
+            group_id = str(group["group_id"])
+            if group_id not in groups:
+                order.append(group_id)
+                groups[group_id] = {
+                    "group_id": group_id,
+                    "required_columns": list(group.get("required_columns", []) or []),
+                    "non_null_columns": set(),
+                }
+            if not groups[group_id]["required_columns"] and group.get("required_columns"):
+                groups[group_id]["required_columns"] = list(group.get("required_columns", []) or [])
+            groups[group_id]["non_null_columns"].update(str(column) for column in group.get("non_null_columns", []) or [])
+    for group_id, columns in REQUIRED_COLUMN_GROUPS.items():
+        if group_id not in groups:
+            order.append(group_id)
+            groups[group_id] = {
+                "group_id": group_id,
+                "required_columns": list(columns),
+                "non_null_columns": set(),
+            }
+        elif not groups[group_id]["required_columns"]:
+            groups[group_id]["required_columns"] = list(columns)
+    combined_groups: list[dict[str, Any]] = []
+    for group_id in order:
+        group = groups[group_id]
+        required_columns = [str(column) for column in group.get("required_columns", []) or []]
+        non_null_columns = [column for column in required_columns if column in group["non_null_columns"]]
+        missing_columns = [column for column in required_columns if column not in group["non_null_columns"]]
+        combined_groups.append(
+            {
+                "group_id": group_id,
+                "required_columns": required_columns,
+                "passes": not missing_columns,
+                "missing_columns": missing_columns,
+                "non_null_columns": non_null_columns,
+            }
+        )
+    return combined_groups
 
 
 def _min_optional_date(values: Any) -> str | None:
