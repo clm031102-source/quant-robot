@@ -111,12 +111,15 @@ class EventFactorPreregistrationTests(unittest.TestCase):
         )
 
         self.assertTrue(result["summary"]["passes"])
-        self.assertEqual(result["summary"]["available_candidate_count"], 5)
-        self.assertEqual(result["summary"]["blocked_candidate_count"], 3)
+        self.assertEqual(result["summary"]["available_candidate_count"], 7)
+        self.assertEqual(result["summary"]["blocked_candidate_count"], 6)
         available_names = {candidate["factor_name"] for candidate in result["available_candidates"]}
         blocked_names = {candidate["factor_name"] for candidate in result["blocked_candidates"]}
         self.assertIn("event_repurchase_amount_to_mv_20", available_names)
+        self.assertIn("event_repurchase_amount_to_adv20_industry_relative_20", available_names)
+        self.assertIn("event_repurchase_amount_to_adv20_liquidity_residual_20", available_names)
         self.assertIn("event_top_holder_concentration_change_1q", available_names)
+        self.assertIn("event_forecast_express_disagreement_1q", blocked_names)
         self.assertIn("event_express_profit_surprise_1q", blocked_names)
         self.assertIn("event_share_unlock_pressure_60", blocked_names)
         self.assertIn("event_pledge_ratio_relief_1q", blocked_names)

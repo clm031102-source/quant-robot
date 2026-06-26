@@ -33,10 +33,21 @@ AVAILABLE_ROUND146_EVENT_FACTORS = {
     "event_express_profit_surprise_1q",
     "event_dividend_cash_yield_announced_1y",
     "event_repurchase_amount_to_mv_20",
+    "event_repurchase_amount_to_adv20_industry_relative_20",
+    "event_repurchase_amount_to_adv20_liquidity_residual_20",
     "event_holder_number_contraction_2q",
     "event_share_unlock_pressure_60",
     "event_top_holder_concentration_change_1q",
     "event_pledge_ratio_relief_1q",
+}
+REPURCHASE_AMOUNT_TO_ADV20_FACTORS = {
+    "event_repurchase_amount_to_mv_20",
+    "event_repurchase_amount_to_adv20_industry_relative_20",
+    "event_repurchase_amount_to_adv20_liquidity_residual_20",
+}
+REPURCHASE_CONTEXTUAL_REPAIR_FACTORS = {
+    "event_repurchase_amount_to_adv20_industry_relative_20",
+    "event_repurchase_amount_to_adv20_liquidity_residual_20",
 }
 FORECAST_GUIDANCE_UNCERTAINTY_FACTORS = {
     "event_forecast_guidance_confidence_1q",
@@ -208,7 +219,7 @@ def compute_event_factor_frame(
             pieces.append(_express_profit_surprise_factor(event_frames.get("express"), spec, metadata))
         elif spec.factor_name == "event_dividend_cash_yield_announced_1y":
             pieces.append(_dividend_factor(event_frames.get("dividend"), spec, clean_bars, metadata))
-        elif spec.factor_name == "event_repurchase_amount_to_mv_20":
+        elif spec.factor_name in REPURCHASE_AMOUNT_TO_ADV20_FACTORS:
             pieces.append(_repurchase_factor(event_frames.get("repurchase"), spec, metadata))
         elif spec.factor_name == "event_holder_number_contraction_2q":
             pieces.append(_holder_number_factor(event_frames.get("stk_holdernumber"), spec, metadata))
@@ -252,6 +263,7 @@ def compute_event_factor_frame(
         .sort_values(["factor_name", "date", "asset_id"])
         .reset_index(drop=True)
     )
+    grouped = _apply_repurchase_contextual_repairs(grouped, metadata)
     return grouped
 
 
@@ -920,12 +932,47 @@ def _attach_bar_context(frame: pd.DataFrame, bars: pd.DataFrame) -> pd.DataFrame
     context = _bar_context(bars)
     output = frame.merge(context, on=["date", "asset_id", "market"], how="left", validate="many_to_one")
     if "factor_name" in output:
-        mask = output["factor_name"] == "event_repurchase_amount_to_mv_20"
+        mask = output["factor_name"].isin(REPURCHASE_AMOUNT_TO_ADV20_FACTORS)
         output.loc[mask, "factor_value"] = (
             pd.to_numeric(output.loc[mask, "factor_value"], errors="coerce")
             / pd.to_numeric(output.loc[mask, "adv20_amount"], errors="coerce").where(output.loc[mask, "adv20_amount"] > 0)
         )
     return output
+
+
+def _apply_repurchase_contextual_repairs(frame: pd.DataFrame, metadata: pd.DataFrame) -> pd.DataFrame:
+    if frame.empty or not set(frame["factor_name"]).intersection(REPURCHASE_CONTEXTUAL_REPAIR_FACTORS):
+        return frame
+    output = frame.copy()
+    industry_meta = metadata[["asset_id", "industry"]].drop_duplicates("asset_id", keep="last")
+    if "industry" in output:
+        output = output.drop(columns=["industry"])
+    output = output.merge(industry_meta, on="asset_id", how="left", validate="many_to_one")
+    output["industry"] = output["industry"].fillna("").astype(str)
+
+    industry_mask = output["factor_name"] == "event_repurchase_amount_to_adv20_industry_relative_20"
+    if industry_mask.any():
+        eligible = industry_mask & (output["industry"].str.strip() != "")
+        industry_median = output.loc[eligible].groupby(["date", "market", "industry"])["factor_value"].transform("median")
+        output.loc[eligible, "factor_value"] = output.loc[eligible, "factor_value"] - industry_median
+        output.loc[industry_mask & ~eligible, "factor_value"] = pd.NA
+
+    residual_mask = output["factor_name"] == "event_repurchase_amount_to_adv20_liquidity_residual_20"
+    if residual_mask.any():
+        for (_, _), index in output.loc[residual_mask].groupby(["date", "market"], sort=False).groups.items():
+            group = output.loc[index]
+            residual = _simple_residual(
+                pd.to_numeric(group["factor_value"], errors="coerce").rank(method="average"),
+                pd.to_numeric(group["log_adv20"], errors="coerce"),
+            )
+            output.loc[index, "factor_value"] = residual
+
+    return (
+        output.drop(columns=["industry"])
+        .dropna(subset=["factor_value"])
+        .sort_values(["factor_name", "date", "asset_id"])
+        .reset_index(drop=True)
+    )
 
 
 def _bar_context(bars: pd.DataFrame) -> pd.DataFrame:

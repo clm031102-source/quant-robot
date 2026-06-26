@@ -11,6 +11,8 @@ from quant_robot.ops.public_anomaly_residual_ensemble_prescreen import (
     NEXT_DIRECTION_WITHOUT_LEADS,
     STAGE,
     build_public_anomaly_residual_ensemble_factor_frame,
+    build_public_anomaly_style_clean_signal_frame,
+    style_clean_public_anomaly_factor_name,
     summarize_public_anomaly_residual_ensemble_prescreen,
     write_public_anomaly_residual_ensemble_prescreen,
 )
@@ -157,6 +159,37 @@ class PublicAnomalyResidualEnsemblePrescreenTests(unittest.TestCase):
         self.assertIn("amount", factors.columns)
         self.assertIn("adv20_amount", factors.columns)
         self.assertNotIn("CN_TEST_ILLIQUID", set(factors.dropna(subset=["factor_value"])["asset_id"]))
+
+    def test_style_clean_signal_frame_uses_distinct_factor_names(self) -> None:
+        factor_frame, labels, _reference_frame, exposure_frame = _synthetic_frames(assets=45)
+        raw_name = "public_anomaly_residual_equal_weight_20"
+        clean_name = style_clean_public_anomaly_factor_name(raw_name)
+
+        clean = build_public_anomaly_style_clean_signal_frame(
+            factor_frame,
+            exposure_frame,
+            raw_candidate_factor_names=(raw_name,),
+            min_cross_section=15,
+            min_industries=2,
+            min_assets_per_industry=2,
+        )
+
+        self.assertFalse(clean.empty)
+        self.assertEqual(set(clean["factor_name"]), {clean_name})
+        self.assertNotIn(raw_name, set(clean["factor_name"]))
+        result = summarize_public_anomaly_residual_ensemble_prescreen(
+            clean,
+            labels,
+            reference_factor_frame=pd.DataFrame(),
+            exposure_frame=exposure_frame,
+            candidate_factor_names=(clean_name,),
+            horizons=(5,),
+            min_cross_section=15,
+            min_ic_observations=4,
+            min_residual_icir=0.0,
+        )
+        self.assertEqual(result["summary"]["candidate_count"], 1)
+        self.assertEqual(result["results"][0]["factor_name"], clean_name)
 
     def test_writer_outputs_structured_round229_audit_files(self) -> None:
         factor_frame, labels, reference_frame, exposure_frame = _synthetic_frames(assets=45)

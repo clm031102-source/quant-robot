@@ -239,6 +239,50 @@ class EventFactorPitIcPrescreenTests(unittest.TestCase):
         )
         self.assertTrue((factors["date"] > factors["event_date"]).all())
 
+    def test_compute_event_factor_frame_supports_repurchase_contextual_repair_specs(self) -> None:
+        bars = _synthetic_bars(days=12, assets=4)
+        stock_basic = _stock_basic(4)
+        specs = {spec.factor_name: spec for spec in default_event_factor_candidate_specs()}
+        repurchase = pd.DataFrame(
+            {
+                "ts_code": ["000000.SZ", "000001.SZ", "000002.SZ", "000003.SZ"],
+                "ann_date": ["20240109"] * 4,
+                "amount": [40_000_000.0, 20_000_000.0, 80_000_000.0, 20_000_000.0],
+            }
+        )
+
+        factors = compute_event_factor_frame(
+            {"repurchase": repurchase},
+            bars,
+            stock_basic,
+            candidate_specs=[
+                specs["event_repurchase_amount_to_adv20_industry_relative_20"],
+                specs["event_repurchase_amount_to_adv20_liquidity_residual_20"],
+            ],
+            pit_lag_trade_days=1,
+        )
+
+        self.assertEqual(
+            set(factors["factor_name"]),
+            {
+                "event_repurchase_amount_to_adv20_industry_relative_20",
+                "event_repurchase_amount_to_adv20_liquidity_residual_20",
+            },
+        )
+        self.assertEqual(set(pd.to_datetime(factors["date"]).dt.date.astype(str)), {"2024-01-10"})
+        self.assertTrue(factors["adv20_amount"].notna().all())
+        industry_relative = factors[
+            factors["factor_name"] == "event_repurchase_amount_to_adv20_industry_relative_20"
+        ].merge(stock_basic[["asset_id", "industry"]], on="asset_id", how="left")
+        industry_sums = industry_relative.groupby("industry")["factor_value"].sum().abs()
+        self.assertTrue((industry_sums < 1e-9).all())
+
+        residual = factors[
+            factors["factor_name"] == "event_repurchase_amount_to_adv20_liquidity_residual_20"
+        ]
+        corr = residual["factor_value"].corr(residual["log_adv20"])
+        self.assertLess(abs(float(corr)), 1e-9)
+
     def test_summarize_requires_industry_and_size_neutral_ic_before_lead(self) -> None:
         dates = pd.bdate_range("2024-01-03", periods=8)
         factor_rows = []

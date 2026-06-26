@@ -486,9 +486,13 @@ def summarize_industry_leader_lag_residual_prescreen(
             raw_ic_rows.extend(raw_obs)
             industry_ic_rows.extend(industry_obs)
             residual_ic_rows.extend(residual_obs)
-            raw_yearly_rows.extend([{"factor_name": factor_name, **row} for row in raw_yearly])
-            industry_yearly_rows.extend([{"factor_name": factor_name, **row} for row in industry_yearly])
-            residual_yearly_rows.extend([{"factor_name": factor_name, **row} for row in residual_yearly])
+            raw_yearly_rows.extend([{"factor_name": factor_name, "horizon": int(horizon), **row} for row in raw_yearly])
+            industry_yearly_rows.extend(
+                [{"factor_name": factor_name, "horizon": int(horizon), **row} for row in industry_yearly]
+            )
+            residual_yearly_rows.extend(
+                [{"factor_name": factor_name, "horizon": int(horizon), **row} for row in residual_yearly]
+            )
 
     residual_lead_count = int(sum(row["residual_research_lead"] for row in results))
     next_direction = NEXT_DIRECTION_WITH_LEADS if residual_lead_count else NEXT_DIRECTION_WITHOUT_LEADS
@@ -676,9 +680,13 @@ def summarize_industry_leader_lag_streaming_prescreen(
             raw_ic_rows.extend(raw_obs)
             industry_ic_rows.extend(industry_obs)
             residual_ic_rows.extend(residual_obs)
-            raw_yearly_rows.extend([{"factor_name": factor_name, **row} for row in raw_yearly])
-            industry_yearly_rows.extend([{"factor_name": factor_name, **row} for row in industry_yearly])
-            residual_yearly_rows.extend([{"factor_name": factor_name, **row} for row in residual_yearly])
+            raw_yearly_rows.extend([{"factor_name": factor_name, "horizon": int(horizon), **row} for row in raw_yearly])
+            industry_yearly_rows.extend(
+                [{"factor_name": factor_name, "horizon": int(horizon), **row} for row in industry_yearly]
+            )
+            residual_yearly_rows.extend(
+                [{"factor_name": factor_name, "horizon": int(horizon), **row} for row in residual_yearly]
+            )
 
     residual_lead_count = int(sum(row["residual_research_lead"] for row in results))
     next_direction = NEXT_DIRECTION_WITH_LEADS if residual_lead_count else NEXT_DIRECTION_WITHOUT_LEADS
@@ -899,9 +907,10 @@ def write_industry_leader_lag_residual_prescreen(output_dir: str | Path, result:
     _write_csv(output_path / "industry_leader_lag_residual_prescreen_results.csv", result.get("results", []), RESULT_COLUMNS)
     _write_csv(output_path / "industry_leader_lag_reference_correlations.csv", result.get("reference_correlations", []), ["lead_factor_name", *REFERENCE_CORRELATION_COLUMNS])
     _write_csv(output_path / "industry_leader_lag_exposure_correlations.csv", result.get("exposure_correlations", []), ["lead_factor_name", *EXPOSURE_CORRELATION_COLUMNS])
-    _write_csv(output_path / "industry_leader_lag_raw_yearly_ic.csv", result.get("raw_yearly_ic", []), ["factor_name", *YEARLY_IC_COLUMNS])
-    _write_csv(output_path / "industry_leader_lag_industry_neutral_yearly_ic.csv", result.get("industry_neutral_yearly_ic", []), ["factor_name", *YEARLY_IC_COLUMNS])
-    _write_csv(output_path / "industry_leader_lag_residual_yearly_ic.csv", result.get("residual_yearly_ic", []), ["factor_name", *YEARLY_IC_COLUMNS])
+    yearly_columns = ["factor_name", "horizon", *YEARLY_IC_COLUMNS]
+    _write_csv(output_path / "industry_leader_lag_raw_yearly_ic.csv", result.get("raw_yearly_ic", []), yearly_columns)
+    _write_csv(output_path / "industry_leader_lag_industry_neutral_yearly_ic.csv", result.get("industry_neutral_yearly_ic", []), yearly_columns)
+    _write_csv(output_path / "industry_leader_lag_residual_yearly_ic.csv", result.get("residual_yearly_ic", []), yearly_columns)
     _write_csv(output_path / "industry_leader_lag_raw_ic_observations.csv", result.get("raw_ic_observations", []), IC_OBSERVATION_COLUMNS)
     _write_csv(output_path / "industry_leader_lag_industry_neutral_ic_observations.csv", result.get("industry_neutral_ic_observations", []), IC_OBSERVATION_COLUMNS)
     _write_csv(output_path / "industry_leader_lag_residual_ic_observations.csv", result.get("residual_ic_observations", []), IC_OBSERVATION_COLUMNS)

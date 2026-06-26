@@ -52,6 +52,12 @@ from quant_robot.ops.public_trend_strength_state_residual_prescreen import (
     build_public_trend_strength_state_reference_frame,
     summarize_public_trend_strength_state_residual_prescreen,
 )
+from quant_robot.ops.public_technical_failure_reversal_neutral_dedup import (
+    DEFAULT_RESIDUAL_EXPOSURES,
+    _merge_lead_exposures,
+    industry_neutralize_technical_lead,
+    residualize_technical_lead,
+)
 
 
 STAGE = "public_anomaly_residual_ensemble_prescreen"
@@ -59,6 +65,7 @@ ROUND228_SOURCE_REPORT = "docs/research/cn_stock_round228_public_anomaly_residua
 NEXT_DIRECTION_WITH_LEADS = "round230_public_anomaly_residual_ensemble_cost_capacity_walk_forward_preflight"
 NEXT_DIRECTION_WITHOUT_LEADS = "round230_rotate_after_public_anomaly_residual_ensemble_failure"
 FAMILY = "public_anomaly_residual_ensemble_risk_budget"
+STYLE_CLEAN_SUFFIX = "_style_clean_signal"
 
 
 def build_public_anomaly_residual_ensemble_prescreen(
@@ -84,7 +91,14 @@ def build_public_anomaly_residual_ensemble_prescreen(
     min_residual_mean_ic: float = 0.02,
     min_residual_icir: float = 0.20,
     min_residual_positive_ic_rate: float = 0.55,
+    style_clean_signals: bool = False,
+    style_clean_passes: int = 1,
 ) -> dict[str, Any]:
+    summary_candidate_factor_names = _candidate_names_for_signal_mode(
+        candidate_factor_names,
+        style_clean_signals=style_clean_signals,
+        style_clean_passes=style_clean_passes,
+    )
     bars = load_public_reference_multi_family_bars(
         bars_roots,
         analysis_start_date=analysis_start_date,
@@ -111,6 +125,16 @@ def build_public_anomaly_residual_ensemble_prescreen(
         candidate_factor_names=candidate_factor_names,
         min_signal_date_amount=min_signal_date_amount,
     )
+    if style_clean_signals:
+        factor_frame = build_public_anomaly_style_clean_signal_frame(
+            factor_frame,
+            exposure_frame,
+            raw_candidate_factor_names=candidate_factor_names,
+            min_cross_section=min_cross_section,
+            min_industries=min_industries,
+            min_assets_per_industry=min_assets_per_industry,
+            style_clean_passes=style_clean_passes,
+        )
     reference_frame = build_public_trend_strength_state_reference_frame(bars, exposure_frame)
     labels = build_public_trend_strength_state_labels(features, horizons=tuple(horizons))
     result = summarize_public_anomaly_residual_ensemble_prescreen(
@@ -118,7 +142,7 @@ def build_public_anomaly_residual_ensemble_prescreen(
         labels,
         reference_factor_frame=reference_frame,
         exposure_frame=exposure_frame,
-        candidate_factor_names=candidate_factor_names,
+        candidate_factor_names=summary_candidate_factor_names,
         horizons=tuple(horizons),
         sample_every_n_dates=sample_every_n_dates,
         min_cross_section=min_cross_section,
@@ -142,6 +166,7 @@ def build_public_anomaly_residual_ensemble_prescreen(
         analysis_end_date=analysis_end_date,
     )
     result["capacity_policy"] = _capacity_policy(min_signal_date_amount)
+    result["signal_neutralization_policy"] = _signal_neutralization_policy(style_clean_signals, style_clean_passes)
     result["sampling_policy"] = _sampling_policy(sample_every_n_dates)
     result["markdown"] = render_public_anomaly_residual_ensemble_prescreen_markdown(result)
     return result
@@ -173,6 +198,8 @@ def build_public_anomaly_residual_ensemble_sharded_prescreen(
     min_residual_mean_ic: float = 0.02,
     min_residual_icir: float = 0.20,
     min_residual_positive_ic_rate: float = 0.55,
+    style_clean_signals: bool = False,
+    style_clean_passes: int = 1,
 ) -> dict[str, Any]:
     analysis_start = pd.Timestamp(analysis_start_date).normalize()
     analysis_end = pd.Timestamp(analysis_end_date).normalize()
@@ -183,8 +210,13 @@ def build_public_anomaly_residual_ensemble_sharded_prescreen(
         raise ValueError("lookback_calendar_days and forward_calendar_days must be non-negative")
 
     stock_basic_frame = _stock_basic_frame(stock_basic)
+    summary_candidate_factor_names = _candidate_names_for_signal_mode(
+        candidate_factor_names,
+        style_clean_signals=style_clean_signals,
+        style_clean_passes=style_clean_passes,
+    )
     shard_rows: list[dict[str, Any]] = []
-    stream = _empty_stream_state(candidate_factor_names)
+    stream = _empty_stream_state(summary_candidate_factor_names)
     data_stats = _empty_stream_data_stats()
     for shard_start, shard_end in _year_signal_shards(analysis_start, analysis_end):
         load_start = shard_start - pd.Timedelta(days=int(lookback_calendar_days))
@@ -214,6 +246,16 @@ def build_public_anomaly_residual_ensemble_sharded_prescreen(
             candidate_factor_names=candidate_factor_names,
             min_signal_date_amount=min_signal_date_amount,
         )
+        if style_clean_signals:
+            factor_frame = build_public_anomaly_style_clean_signal_frame(
+                factor_frame,
+                exposure_frame,
+                raw_candidate_factor_names=candidate_factor_names,
+                min_cross_section=min_cross_section,
+                min_industries=min_industries,
+                min_assets_per_industry=min_assets_per_industry,
+                style_clean_passes=style_clean_passes,
+            )
         reference_frame = (
             build_public_trend_strength_state_reference_frame(bars, exposure_frame)
             if reference_mode == "full"
@@ -239,7 +281,7 @@ def build_public_anomaly_residual_ensemble_sharded_prescreen(
             labels=labels,
             reference_frame=reference_frame,
             exposure_frame=exposure_frame,
-            candidate_factor_names=candidate_factor_names,
+            candidate_factor_names=summary_candidate_factor_names,
             horizons=tuple(horizons),
             sample_every_n_dates=sample_every_n_dates,
             min_cross_section=min_cross_section,
@@ -265,7 +307,7 @@ def build_public_anomaly_residual_ensemble_sharded_prescreen(
 
     result = summarize_industry_leader_lag_streaming_prescreen(
         stream,
-        candidate_factor_names=candidate_factor_names,
+        candidate_factor_names=summary_candidate_factor_names,
         horizons=tuple(horizons),
         min_ic_observations=min_ic_observations,
         min_industries=min_industries,
@@ -277,7 +319,7 @@ def build_public_anomaly_residual_ensemble_sharded_prescreen(
         min_residual_icir=min_residual_icir,
         min_residual_positive_ic_rate=min_residual_positive_ic_rate,
     )
-    _retag_public_anomaly_result(result, candidate_factor_names)
+    _retag_public_anomaly_result(result, summary_candidate_factor_names)
     result["source_context"]["sharded_full_cycle_prescreen"] = True
     result["source_context"]["signal_window_policy"] = "padding rows are used for feature/label construction only and removed before IC"
     result["bars_roots"] = [str(Path(root)) for root in bars_roots]
@@ -290,6 +332,7 @@ def build_public_anomaly_residual_ensemble_sharded_prescreen(
         analysis_end_date=analysis_end.date().isoformat(),
     )
     result["capacity_policy"] = _capacity_policy(min_signal_date_amount)
+    result["signal_neutralization_policy"] = _signal_neutralization_policy(style_clean_signals, style_clean_passes)
     result["sampling_policy"] = _sampling_policy(sample_every_n_dates)
     result["reference_policy"] = _reference_policy(reference_mode, result)
     result["sharding_policy"] = {
@@ -343,6 +386,78 @@ def build_public_anomaly_residual_ensemble_factor_frame(
         .sort_values(["factor_name", "date", "asset_id"])
         .reset_index(drop=True)
     )
+
+
+def build_public_anomaly_style_clean_signal_frame(
+    factor_frame: pd.DataFrame,
+    exposure_frame: pd.DataFrame,
+    *,
+    raw_candidate_factor_names: Sequence[str],
+    min_cross_section: int = 30,
+    min_industries: int = 2,
+    min_assets_per_industry: int = 2,
+    style_clean_passes: int = 1,
+) -> pd.DataFrame:
+    clean_passes = max(1, int(style_clean_passes))
+    factors = _normalise_factor_frame(factor_frame)
+    exposure = _normalise_exposure_frame(exposure_frame)
+    pieces: list[pd.DataFrame] = []
+    for raw_name in raw_candidate_factor_names:
+        clean_name = style_clean_public_anomaly_factor_name(raw_name, style_clean_passes=clean_passes)
+        lead = factors[factors["factor_name"] == raw_name].reset_index(drop=True)
+        if lead.empty:
+            continue
+        current = lead
+        for pass_index in range(1, clean_passes + 1):
+            pass_output_name = clean_name if pass_index == clean_passes else f"{raw_name}_style_clean_pass{pass_index}_intermediate"
+            lead_with_exposures = _merge_lead_exposures(current, exposure)
+            lead_with_exposures = lead_with_exposures.loc[:, ~lead_with_exposures.columns.duplicated()].copy()
+            industry = industry_neutralize_technical_lead(
+                lead_with_exposures,
+                industry_factor_name=f"{raw_name}_style_clean_pass{pass_index}_industry_neutral_signal",
+                min_industries=min_industries,
+                min_assets_per_industry=min_assets_per_industry,
+            )
+            current = residualize_technical_lead(
+                industry,
+                exposure_names=DEFAULT_RESIDUAL_EXPOSURES,
+                residual_factor_name=pass_output_name,
+                min_cross_section=min_cross_section,
+            )
+            if current.empty:
+                break
+        if current.empty:
+            continue
+        current = current.loc[:, ~current.columns.duplicated()].copy()
+        current["family"] = f"{FAMILY}_style_clean"
+        pieces.append(current)
+    if not pieces:
+        return _empty_public_anomaly_factor_frame()
+    return (
+        pd.concat(pieces, ignore_index=True)
+        .dropna(subset=["factor_value"])
+        .sort_values(["factor_name", "date", "asset_id"])
+        .reset_index(drop=True)
+    )
+
+
+def style_clean_public_anomaly_factor_name(raw_factor_name: str, *, style_clean_passes: int = 1) -> str:
+    name = str(raw_factor_name)
+    clean_passes = max(1, int(style_clean_passes))
+    suffix = STYLE_CLEAN_SUFFIX if clean_passes == 1 else f"_style_clean{clean_passes}_signal"
+    return name if name.endswith(suffix) else f"{name}{suffix}"
+
+
+def _candidate_names_for_signal_mode(
+    candidate_factor_names: Sequence[str],
+    *,
+    style_clean_signals: bool,
+    style_clean_passes: int = 1,
+) -> tuple[str, ...]:
+    raw = tuple(str(name) for name in candidate_factor_names)
+    if not style_clean_signals:
+        return raw
+    return tuple(style_clean_public_anomaly_factor_name(name, style_clean_passes=style_clean_passes) for name in raw)
 
 
 def summarize_public_anomaly_residual_ensemble_prescreen(
@@ -403,9 +518,10 @@ def write_public_anomaly_residual_ensemble_prescreen(output_dir: str | Path, res
     _write_csv(output_path / "public_anomaly_residual_ensemble_prescreen_results.csv", result.get("results", []), RESULT_COLUMNS)
     _write_csv(output_path / "public_anomaly_residual_ensemble_reference_correlations.csv", result.get("reference_correlations", []), ["lead_factor_name", *REFERENCE_CORRELATION_COLUMNS])
     _write_csv(output_path / "public_anomaly_residual_ensemble_exposure_correlations.csv", result.get("exposure_correlations", []), ["lead_factor_name", *EXPOSURE_CORRELATION_COLUMNS])
-    _write_csv(output_path / "public_anomaly_residual_ensemble_raw_yearly_ic.csv", result.get("raw_yearly_ic", []), ["factor_name", *YEARLY_IC_COLUMNS])
-    _write_csv(output_path / "public_anomaly_residual_ensemble_industry_neutral_yearly_ic.csv", result.get("industry_neutral_yearly_ic", []), ["factor_name", *YEARLY_IC_COLUMNS])
-    _write_csv(output_path / "public_anomaly_residual_ensemble_residual_yearly_ic.csv", result.get("residual_yearly_ic", []), ["factor_name", *YEARLY_IC_COLUMNS])
+    yearly_columns = ["factor_name", "horizon", *YEARLY_IC_COLUMNS]
+    _write_csv(output_path / "public_anomaly_residual_ensemble_raw_yearly_ic.csv", result.get("raw_yearly_ic", []), yearly_columns)
+    _write_csv(output_path / "public_anomaly_residual_ensemble_industry_neutral_yearly_ic.csv", result.get("industry_neutral_yearly_ic", []), yearly_columns)
+    _write_csv(output_path / "public_anomaly_residual_ensemble_residual_yearly_ic.csv", result.get("residual_yearly_ic", []), yearly_columns)
     _write_csv(output_path / "public_anomaly_residual_ensemble_raw_ic_observations.csv", result.get("raw_ic_observations", []), IC_OBSERVATION_COLUMNS)
     _write_csv(output_path / "public_anomaly_residual_ensemble_industry_neutral_ic_observations.csv", result.get("industry_neutral_ic_observations", []), IC_OBSERVATION_COLUMNS)
     _write_csv(output_path / "public_anomaly_residual_ensemble_residual_ic_observations.csv", result.get("residual_ic_observations", []), IC_OBSERVATION_COLUMNS)
@@ -544,6 +660,25 @@ def _capacity_policy(min_signal_date_amount: float) -> dict[str, Any]:
         "min_signal_date_amount": min_signal_date_amount,
         "adv20_amount_filter_enabled": True,
         "portfolio_grid_blocked_before_residual_prescreen": True,
+    }
+
+
+def _signal_neutralization_policy(style_clean_signals: bool, style_clean_passes: int = 1) -> dict[str, Any]:
+    clean_passes = max(1, int(style_clean_passes))
+    return {
+        "style_clean_signals": bool(style_clean_signals),
+        "style_clean_passes": clean_passes if style_clean_signals else 0,
+        "style_clean_suffix": (
+            STYLE_CLEAN_SUFFIX if clean_passes == 1 else f"_style_clean{clean_passes}_signal"
+        )
+        if style_clean_signals
+        else None,
+        "cleaning_order": (
+            "repeat: industry demean candidate values, then residualize candidate values against size, liquidity, volatility, amount trend, and recent return exposures before IC screening"
+            if style_clean_signals
+            else "raw public anomaly ensemble candidate values are screened; industry and style residualization are evaluation controls only"
+        ),
+        "portfolio_grid_allowed_before_residual_prescreen": False,
     }
 
 

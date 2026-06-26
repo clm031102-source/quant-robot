@@ -254,6 +254,14 @@ class TushareAdapter(MarketDataAdapter):
         )
         return map_tushare_fund_portfolio(raw)
 
+    def fetch_report_rc(self, start_date: str = "", end_date: str = "", ts_code: str = "") -> pd.DataFrame:
+        kwargs = {
+            "start_date": _date_to_tushare(start_date) if start_date else "",
+            "end_date": _date_to_tushare(end_date) if end_date else "",
+            "ts_code": ts_code,
+        }
+        return self._call(self.client.report_rc, **{key: value for key, value in kwargs.items() if value})
+
     @property
     def client(self) -> object:
         if self._client is None:

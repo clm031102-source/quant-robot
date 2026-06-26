@@ -155,6 +155,38 @@ def default_event_factor_candidate_specs() -> list[EventFactorCandidateSpec]:
             expected_failure_modes=("announced_not_executed", "amount_unit_mismatch", "small_cap_capacity_tail"),
         ),
         EventFactorCandidateSpec(
+            factor_name="event_repurchase_amount_to_adv20_industry_relative_20",
+            family="buyback_event_repair",
+            formula_template="(repurchase_amount/adv20) - same_signal_date_industry_median(repurchase_amount/adv20)",
+            direction="higher_is_better",
+            required_endpoints=("repurchase",),
+            required_fields=("ann_date", "amount"),
+            event_date_fields=("ann_date",),
+            windows=(20,),
+            economic_rationale=(
+                "Buyback strength should be more useful when it is large relative to industry peers announcing "
+                "at the same signal date, reducing industry-cycle and announcement-cluster exposure."
+            ),
+            public_reference_tags=("buyback_anomaly", "industry_neutral_event_study", "shareholder_yield"),
+            expected_failure_modes=("small_industry_event_cohort", "announced_not_executed", "pre_2018_repurchase_coverage_gap"),
+        ),
+        EventFactorCandidateSpec(
+            factor_name="event_repurchase_amount_to_adv20_liquidity_residual_20",
+            family="buyback_event_repair",
+            formula_template="daily_rank_residual(repurchase_amount/adv20 ~ log(ADV20))",
+            direction="higher_is_better",
+            required_endpoints=("repurchase",),
+            required_fields=("ann_date", "amount"),
+            event_date_fields=("ann_date",),
+            windows=(20,),
+            economic_rationale=(
+                "Round147/248 repurchase evidence was attractive but exposed to size/liquidity and redundancy; "
+                "testing the daily liquidity residual asks whether any independent buyback signal remains."
+            ),
+            public_reference_tags=("buyback_anomaly", "liquidity_neutral_factor", "event_study"),
+            expected_failure_modes=("residual_variance_collapse", "pre_2018_repurchase_coverage_gap", "event_sample_sparse"),
+        ),
+        EventFactorCandidateSpec(
             factor_name="event_holder_number_contraction_2q",
             family="holder_crowding",
             formula_template="cs_z(-(holder_num / lag(holder_num,2)-1))",

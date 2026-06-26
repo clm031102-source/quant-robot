@@ -69,6 +69,8 @@ def run_public_anomaly_residual_ensemble_prescreen_cli(
     min_residual_mean_ic: float = 0.02,
     min_residual_icir: float = 0.20,
     min_residual_positive_ic_rate: float = 0.55,
+    style_clean_signals: bool = False,
+    style_clean_passes: int = 1,
     factor_frame: pd.DataFrame | None = None,
     labels: pd.DataFrame | None = None,
     reference_factor_frame: pd.DataFrame | None = None,
@@ -120,6 +122,8 @@ def run_public_anomaly_residual_ensemble_prescreen_cli(
             min_residual_mean_ic=min_residual_mean_ic,
             min_residual_icir=min_residual_icir,
             min_residual_positive_ic_rate=min_residual_positive_ic_rate,
+            style_clean_signals=style_clean_signals,
+            style_clean_passes=style_clean_passes,
         )
     else:
         result = build_public_anomaly_residual_ensemble_prescreen(
@@ -144,6 +148,8 @@ def run_public_anomaly_residual_ensemble_prescreen_cli(
             min_residual_mean_ic=min_residual_mean_ic,
             min_residual_icir=min_residual_icir,
             min_residual_positive_ic_rate=min_residual_positive_ic_rate,
+            style_clean_signals=style_clean_signals,
+            style_clean_passes=style_clean_passes,
         )
     write_public_anomaly_residual_ensemble_prescreen(output_dir, result)
     return result
@@ -183,6 +189,8 @@ def main() -> None:
     parser.add_argument("--min-residual-mean-ic", type=float, default=0.02)
     parser.add_argument("--min-residual-icir", type=float, default=0.20)
     parser.add_argument("--min-residual-positive-ic-rate", type=float, default=0.55)
+    parser.add_argument("--style-clean-signals", action="store_true")
+    parser.add_argument("--style-clean-passes", type=int, default=1)
     args = parser.parse_args()
     result = run_public_anomaly_residual_ensemble_prescreen_cli(
         bars_roots=tuple(Path(path) for path in (args.bars_root or DEFAULT_BARS_ROOTS)),
@@ -211,12 +219,15 @@ def main() -> None:
         min_residual_mean_ic=args.min_residual_mean_ic,
         min_residual_icir=args.min_residual_icir,
         min_residual_positive_ic_rate=args.min_residual_positive_ic_rate,
+        style_clean_signals=args.style_clean_signals,
+        style_clean_passes=args.style_clean_passes,
     )
     print(
         json.dumps(
             {
                 "summary": result["summary"],
                 "promotion_policy": result.get("promotion_policy", {}),
+                "signal_neutralization_policy": result.get("signal_neutralization_policy", {}),
                 "data_window": result.get("data_window", {}),
                 "next_direction": result["summary"].get("next_direction"),
                 "output_dir": str(Path(args.output_dir)),
