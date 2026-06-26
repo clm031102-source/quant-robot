@@ -16,7 +16,7 @@ The main result is strict but useful:
 - live/manual signals: 0
 - families with apparent raw leads that survived hard follow-up gates: 0
 - reusable infrastructure and process gates: material improvement
-- latest source-construction checkpoint: 284 unique CN stock symbols, still below the 1,000-symbol source gate
+- latest source-construction checkpoint: 307 unique CN stock symbols, still below the 1,000-symbol source gate
 
 This is not a success as alpha production. It is a success as damage control and research-method correction. The process now blocks short-sample profitability claims, ETF/CN-stock scope confusion, raw TopN conversion, and same-family parameter tuning after zero robust leads.
 
@@ -75,9 +75,9 @@ The standalone express surprise factor was rejected, but the cache and PIT loadi
 
 The startup config now records:
 
-- last completed round: 281
-- next round: 282
-- next direction: `round282_continue_financial_reporting_timeliness_backfill_with_stock_basic_prelisting_filter_and_overlap_preview_until_1000_symbols`
+- last completed round: 283
+- next round: 284
+- next direction: `round284_continue_financial_reporting_timeliness_backfill_with_stock_basic_prelisting_filter_and_overlap_preview_until_1000_symbols`
 - three-round review cadence
 - ten-round packaging cadence
 - blocked re-entry families
@@ -137,8 +137,10 @@ Coverage checkpoints:
 | after Round279 | 77 | 56,760 | 267 | false |
 | after Round280 | 79 | 58,982 | 277 | false |
 | after Round281 | 81 | 61,139 | 284 | false |
+| after Round282 | 85 | 65,110 | 302 | false |
+| after Round283 | 86 | 66,098 | 307 | false |
 
-The source gate requires at least 1,000 unique symbols. The current coverage is 284, or 28.4% of the minimum.
+The source gate requires at least 1,000 unique symbols. The current coverage is 307, or 30.7% of the minimum.
 
 ## Round275 Closeout
 
@@ -158,9 +160,9 @@ New watch item:
 - The route remains viable because readiness passed and coverage still increased.
 - Round276 must monitor empty-request and duplicate-row rates before more blind continuation.
 
-## Rounds276-281 Closeout
+## Rounds276-283 Closeout
 
-Rounds276-281 continued the same source-construction route instead of prematurely mining factors.
+Rounds276-283 continued the same source-construction route instead of prematurely mining factors.
 
 | Round | Segment Work | Incremental Unique Symbols | Processed Rows | Empty Requests | Duplicate Rows | Result |
 |---:|---|---:|---:|---:|---:|---|
@@ -170,21 +172,26 @@ Rounds276-281 continued the same source-construction route instead of prematurel
 | 279 | shard11 offset10/15 | +10 | 414 | 0 | 0 | readiness passed; stock-basic pre-listing filter saved 78 endpoint requests |
 | 280 | shard12 offset0/5 | +10 | 443 | 0 | 3 | readiness passed; duplicate watch remains active |
 | 281 | shard12 offset10/15 | +7 | 430 | 0 | 0 | readiness passed; 3 fetched symbols already existed in older PIT source |
+| 282 | shard13 effective non-overlap positions | +18 | 792 | 0 | 0 | readiness passed; 2 already-covered symbols skipped before live requests |
+| 283 | shard14 offset0 | +5 | 198 | 0 | 0 | readiness passed; standard quality report now writes combined multi-symbol summary |
 
-Useful engineering output from these six rounds:
+Useful engineering output from these seven rounds:
 
 - shard 10 completed;
 - shard 11 completed;
 - shard 12 completed;
-- aggregate source coverage increased from 231 to 284 unique symbols;
+- shard 13 effective non-overlap positions completed;
+- aggregate source coverage increased from 231 to 307 unique symbols;
 - the Round278 empty-request cluster was diagnosed as pre-listing request waste;
 - the backfill CLI now supports a mandatory stock-basic pre-listing filter;
 - the Round279 combined quality-report bug was fixed and regression-tested;
 - Round280 proved the filter must remain mandatory even when a segment has zero pre-listing skips;
 - Round281 exposed a new efficiency requirement: preview aggregate symbol overlap before live endpoint requests;
 - a reusable overlap preview script now checks expected net-new symbols before spending live endpoint budget.
+- Round282 used that preview to skip `000514.SZ` and `000151.SZ` before live endpoint requests, saving roughly 264 endpoint requests versus blind contiguous blocks.
+- Round283 found and fixed a second quality-report issue: when pre-listing filters force per-symbol ingests, the standard `financial_statement_quality_report.json` is now overwritten with the combined multi-symbol summary instead of the final symbol's summary.
 
-Factor outcome across Rounds276-281:
+Factor outcome across Rounds276-283:
 
 - new factor names: 0
 - research leads: 0
@@ -224,24 +231,16 @@ The factor results are poor for structural reasons:
 
 Do not return to blind moneyflow, raw public-indicator, or same-family parameter sweeps.
 
-The next allowed work is Round282:
+The next allowed work is Round284:
 
 ```text
-shard_id=13, symbol_offset=0, symbol_limit=5
+financial reporting timeliness backfill with stock-basic pre-listing filter and aggregate-overlap preview
 ```
 
-Expected first segment:
-
-```text
-002181.SZ, 000597.SZ, 000635.SZ, 002337.SZ, 000703.SZ
-```
-
-Round282 must do one of two things:
+Round284 must do one of two things:
 
 1. Continue financial reporting timeliness backfill with the stock-basic pre-listing filter and a pre-run aggregate-overlap preview.
 2. Rotate only if the backfill route stops increasing coverage, becomes too costly, or fails required PIT field readiness.
-
-The first Round282 preview already reports 5 / 5 expected net-new symbols for shard13 offset0.
 
 Blocked shortcuts:
 
@@ -251,15 +250,16 @@ Blocked shortcuts:
 - no paper-ready or live-signal claim;
 - no final-holdout access;
 - no ignoring aggregate symbol overlap after Round281.
+- no trusting a per-symbol quality report after a multi-symbol ingest; the standard quality file must match the combined ingest summary.
 
 ## Verification
 
 Latest closeout verification:
 
 - JSON validation passed for `configs/factor_mining_startup_cn_stock.json`.
-- 61 relevant unit tests passed.
-- Project audit passed with 1,783 files scanned and 0 factor registry unknowns.
+- 62 relevant unit tests passed.
+- Project audit passed with 1,788 files scanned and 0 factor registry unknowns.
 - `git diff --check` passed.
 - exact Tushare token scan passed for committed configs, docs, and tests.
-- Round282 startup gate cleared with Round281 completed and Round282 next.
+- Round284 startup gate should clear with Round283 completed and Round284 next before the next live endpoint spend.
 - staged path audit confirmed no `data/` or `logs/` paths were committed.

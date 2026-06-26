@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -80,6 +81,9 @@ class FinancialStatementShardBackfillCliTests(unittest.TestCase):
             self.assertEqual(result["summary"]["processed_rows"], 4)
             self.assertEqual(result["ingest"]["summary"]["rows"], 4)
             self.assertEqual(result["ingest"]["summary"]["assets"], 2)
+            quality_report = json.loads((root / "subshard" / "financial_statement_quality_report.json").read_text())
+            self.assertEqual(quality_report["summary"]["rows"], 4)
+            self.assertEqual(quality_report["summary"]["assets"], 2)
             self.assertEqual(result["summary"]["prelisting_skipped_symbol_period_count"], 2)
             self.assertEqual(result["summary"]["prelisting_skipped_endpoint_request_count"], 6)
             self.assertNotIn(("income", "300997.SZ", "20201231"), adapter.calls)
