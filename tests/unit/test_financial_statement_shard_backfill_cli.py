@@ -77,6 +77,9 @@ class FinancialStatementShardBackfillCliTests(unittest.TestCase):
 
             self.assertTrue(result["summary"]["passes"])
             self.assertEqual(result["summary"]["endpoint_request_count"], 12)
+            self.assertEqual(result["summary"]["processed_rows"], 4)
+            self.assertEqual(result["ingest"]["summary"]["rows"], 4)
+            self.assertEqual(result["ingest"]["summary"]["assets"], 2)
             self.assertEqual(result["summary"]["prelisting_skipped_symbol_period_count"], 2)
             self.assertEqual(result["summary"]["prelisting_skipped_endpoint_request_count"], 6)
             self.assertNotIn(("income", "300997.SZ", "20201231"), adapter.calls)
