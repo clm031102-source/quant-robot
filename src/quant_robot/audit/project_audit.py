@@ -7,10 +7,35 @@ from pathlib import Path
 from typing import Any
 
 from quant_robot.data.readiness import check_parquet_readiness, check_tushare_readiness
+from quant_robot.factors.cn_stock_champion import CN_STOCK_CHAMPION_FACTOR_NAMES
+from quant_robot.factors.daily_basic_public_anomaly_residual_ensemble import (
+    DAILY_BASIC_PUBLIC_ANOMALY_RESIDUAL_ENSEMBLE_FACTOR_NAMES,
+)
+from quant_robot.factors.daily_basic_public_quality_value_momentum import DAILY_BASIC_PUBLIC_QVM_FACTOR_NAMES
+from quant_robot.factors.daily_basic_public_risk_filter_bridge import (
+    DAILY_BASIC_PUBLIC_RISK_FILTER_BRIDGE_FACTOR_NAMES,
+)
+from quant_robot.factors.daily_basic_residual_composite import DAILY_BASIC_RESIDUAL_COMPOSITE_FACTOR_NAMES
+from quant_robot.factors.daily_basic_smart_money_quality import DAILY_BASIC_SMART_MONEY_QUALITY_FACTOR_NAMES
+from quant_robot.factors.daily_basic_technical_combo import DAILY_BASIC_TECHNICAL_COMBO_FACTOR_NAMES
+from quant_robot.factors.daily_basic_value_liquidity_tail import DAILY_BASIC_VALUE_LIQUIDITY_TAIL_FACTOR_NAMES
 from quant_robot.factors.etf_moneyflow_basket import ETF_MONEYFLOW_BASKET_FACTOR_NAMES
 from quant_robot.factors.etf_share_size import ETF_SHARE_SIZE_FACTOR_NAMES
 from quant_robot.factors.etf_theme_breadth import etf_theme_breadth_factor_names
+from quant_robot.factors.industry_breadth_regime import INDUSTRY_BREADTH_REGIME_FACTOR_NAMES
+from quant_robot.factors.industry_leader_lag import INDUSTRY_LEADER_LAG_FACTOR_NAMES
+from quant_robot.factors.information_discreteness import INFORMATION_DISCRETENESS_FACTOR_NAMES
+from quant_robot.factors.liquidity_shock_recovery import LIQUIDITY_SHOCK_RECOVERY_FACTOR_NAMES
+from quant_robot.factors.listing_age_board import LISTING_AGE_BOARD_FACTOR_NAMES
 from quant_robot.factors.moneyflow_technical import MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES
+from quant_robot.factors.official_tradeability_events import OFFICIAL_TRADEABILITY_EVENT_FACTOR_NAMES
+from quant_robot.factors.public_formula_price_volume import PUBLIC_FORMULA_PRICE_VOLUME_FACTOR_NAMES
+from quant_robot.factors.public_rsrs import PUBLIC_RSRS_FACTOR_NAMES
+from quant_robot.factors.public_technical import PUBLIC_TECHNICAL_FACTOR_NAMES
+from quant_robot.factors.public_technical_liquidity import PUBLIC_TECHNICAL_LIQUIDITY_FACTOR_NAMES
+from quant_robot.factors.public_technical_tail_guard import PUBLIC_TECHNICAL_TAIL_GUARD_FACTOR_NAMES
+from quant_robot.factors.public_trend_strength_state import PUBLIC_TREND_STRENGTH_STATE_FACTOR_NAMES
+from quant_robot.factors.public_trend_volume import PUBLIC_TREND_VOLUME_FACTOR_NAMES
 from quant_robot.factors.tushare_inputs import DAILY_BASIC_FACTOR_NAMES
 from quant_robot.factors.tushare_moneyflow import MONEYFLOW_FACTOR_NAMES
 
@@ -48,6 +73,7 @@ TECHNICAL_FACTOR_PREFIXES = (
     "drawdown_resilience",
     "volume_change",
     "liquidity",
+    "high_liquidity",
     "liquidity_resilience",
     "amount_stability",
     "average_amount",
@@ -69,6 +95,21 @@ TECHNICAL_FACTOR_PREFIXES = (
     "state_adaptive_trend_defense",
     "state_stress_defensive_resilience",
     "state_stress_recovery_leadership",
+)
+DAILY_BASIC_LEGACY_CAPACITY_FACTOR_NAMES = (
+    "turnover_rate_low_large_mv",
+    "turnover_rate_f_low_large_mv",
+    "dv_ttm_large_mv",
+    "ps_ttm_inverse_large_mv",
+    "turnover_rate_low_mv_bucket_rank",
+    "turnover_rate_f_low_mv_bucket_rank",
+    "dv_ttm_mv_bucket_rank",
+    "ps_ttm_inverse_mv_bucket_rank",
+)
+ETF_THEME_BREADTH_LEGACY_LIQUID_PREFIXES = (
+    "theme_relative_strength_liquid",
+    "theme_rank_strength_liquid",
+    "theme_risk_adjusted_strength_liquid",
 )
 DEFAULT_FACTOR_SOURCE = "technical"
 DEFAULT_FACTOR_WINDOWS = (2, 3)
@@ -362,24 +403,71 @@ def _registered_factor_names(factor_source: str, factor_windows: tuple[int, ...]
     if factor_source == "technical":
         return _technical_factor_names(factor_windows)
     if factor_source == "tushare_daily_basic":
-        return set(DAILY_BASIC_FACTOR_NAMES)
+        return set(DAILY_BASIC_FACTOR_NAMES) | set(DAILY_BASIC_LEGACY_CAPACITY_FACTOR_NAMES)
     if factor_source == "tushare_moneyflow":
         return set(MONEYFLOW_FACTOR_NAMES)
     if factor_source == "moneyflow_technical_combo":
         return set(MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES)
+    if factor_source == "cn_stock_champion":
+        return set(CN_STOCK_CHAMPION_FACTOR_NAMES)
+    if factor_source == "daily_basic_public_anomaly_residual_ensemble":
+        return set(DAILY_BASIC_PUBLIC_ANOMALY_RESIDUAL_ENSEMBLE_FACTOR_NAMES)
+    if factor_source == "daily_basic_public_quality_value_momentum":
+        return set(DAILY_BASIC_PUBLIC_QVM_FACTOR_NAMES)
+    if factor_source == "daily_basic_public_risk_filter_bridge":
+        return set(DAILY_BASIC_PUBLIC_RISK_FILTER_BRIDGE_FACTOR_NAMES)
+    if factor_source == "daily_basic_residual_composite":
+        return set(DAILY_BASIC_RESIDUAL_COMPOSITE_FACTOR_NAMES)
+    if factor_source == "daily_basic_smart_money_quality":
+        return set(DAILY_BASIC_SMART_MONEY_QUALITY_FACTOR_NAMES)
+    if factor_source == "daily_basic_technical_combo":
+        return set(DAILY_BASIC_TECHNICAL_COMBO_FACTOR_NAMES)
+    if factor_source == "daily_basic_value_liquidity_tail":
+        return set(DAILY_BASIC_VALUE_LIQUIDITY_TAIL_FACTOR_NAMES)
     if factor_source == "etf_share_size":
         return set(ETF_SHARE_SIZE_FACTOR_NAMES)
     if factor_source == "etf_moneyflow_basket":
         return set(ETF_MONEYFLOW_BASKET_FACTOR_NAMES)
     if factor_source == "etf_theme_breadth":
-        return set(etf_theme_breadth_factor_names(factor_windows))
+        return _etf_theme_breadth_factor_names(factor_windows)
+    if factor_source == "industry_breadth_regime":
+        return set(INDUSTRY_BREADTH_REGIME_FACTOR_NAMES)
+    if factor_source == "industry_leader_lag":
+        return set(INDUSTRY_LEADER_LAG_FACTOR_NAMES)
+    if factor_source == "information_discreteness":
+        return set(INFORMATION_DISCRETENESS_FACTOR_NAMES)
+    if factor_source == "liquidity_shock_recovery":
+        return set(LIQUIDITY_SHOCK_RECOVERY_FACTOR_NAMES)
+    if factor_source == "listing_age_board":
+        return set(LISTING_AGE_BOARD_FACTOR_NAMES)
+    if factor_source == "official_tradeability_events":
+        return set(OFFICIAL_TRADEABILITY_EVENT_FACTOR_NAMES)
+    if factor_source == "public_formula_price_volume":
+        return set(PUBLIC_FORMULA_PRICE_VOLUME_FACTOR_NAMES)
+    if factor_source == "public_rsrs":
+        return set(PUBLIC_RSRS_FACTOR_NAMES)
+    if factor_source == "public_technical":
+        return set(PUBLIC_TECHNICAL_FACTOR_NAMES)
+    if factor_source == "public_technical_liquidity":
+        return set(PUBLIC_TECHNICAL_LIQUIDITY_FACTOR_NAMES)
+    if factor_source == "public_technical_tail_guard":
+        return set(PUBLIC_TECHNICAL_TAIL_GUARD_FACTOR_NAMES)
+    if factor_source == "public_trend_strength_state":
+        return set(PUBLIC_TREND_STRENGTH_STATE_FACTOR_NAMES)
+    if factor_source == "public_trend_volume":
+        return set(PUBLIC_TREND_VOLUME_FACTOR_NAMES)
     if factor_source == "combined":
-        return _technical_factor_names(factor_windows) | set(DAILY_BASIC_FACTOR_NAMES)
+        return _technical_factor_names(factor_windows) | set(DAILY_BASIC_FACTOR_NAMES) | set(DAILY_BASIC_LEGACY_CAPACITY_FACTOR_NAMES)
     return None
 
 
 def _technical_factor_names(windows: tuple[int, ...]) -> set[str]:
     return {f"{prefix}_{window}" for prefix in TECHNICAL_FACTOR_PREFIXES for window in windows}
+
+
+def _etf_theme_breadth_factor_names(windows: tuple[int, ...]) -> set[str]:
+    legacy_liquid_names = {f"{prefix}_{window}" for prefix in ETF_THEME_BREADTH_LEGACY_LIQUID_PREFIXES for window in windows}
+    return set(etf_theme_breadth_factor_names(windows)) | legacy_liquid_names
 
 
 def _parse_technical_factor_window(factor_name: str) -> int | None:
