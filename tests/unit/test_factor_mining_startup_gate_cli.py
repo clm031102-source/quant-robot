@@ -139,11 +139,11 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
             )
             self.assertEqual(
                 packet["repeatable_mining_protocol"]["next_direction"],
-                "round291_continue_financial_reporting_timeliness_backfill_with_stock_basic_prelisting_filter_overlap_preview_empty_response_watch_until_1000_symbols_then_round289_291_review",
+                "round292_continue_financial_reporting_timeliness_backfill_with_stock_basic_prelisting_filter_overlap_preview_timeout_budget_and_empty_response_watch_until_1000_symbols_after_round289_291_review",
             )
             self.assertEqual(
                 packet["repeatable_mining_protocol"]["source_audit"],
-                "docs/research/cn_stock_round290_financial_reporting_timeliness_backfill_progress_2026-06-26.md",
+                "docs/research/cn_stock_round291_financial_reporting_timeliness_backfill_progress_2026-06-26.md",
             )
             self.assertIn(
                 "data_source_availability_audit_before_family_selection",
@@ -156,17 +156,17 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
             method_contract = packet["method_optimization_contract"]
             self.assertEqual(
                 method_contract["next_allowed_direction"],
-                "round291_continue_financial_reporting_timeliness_backfill_with_stock_basic_prelisting_filter_overlap_preview_empty_response_watch_until_1000_symbols_then_round289_291_review",
+                "round292_continue_financial_reporting_timeliness_backfill_with_stock_basic_prelisting_filter_overlap_preview_timeout_budget_and_empty_response_watch_until_1000_symbols_after_round289_291_review",
             )
-            self.assertEqual(packet["round_state"]["last_completed_round"], 290)
-            self.assertEqual(packet["round_state"]["next_round"], 291)
+            self.assertEqual(packet["round_state"]["last_completed_round"], 291)
+            self.assertEqual(packet["round_state"]["next_round"], 292)
             self.assertEqual(
                 packet["round_state"]["last_three_round_review"],
-                "docs/research/cn_stock_round286_288_three_round_review_2026-06-26.md",
+                "docs/research/cn_stock_round289_291_three_round_review_2026-06-26.md",
             )
             self.assertEqual(
                 packet["round_state"]["last_three_round_decision"],
-                "financial_reporting_timeliness_backfill_continue_with_stock_basic_prelisting_filter_overlap_split_backfill_guard_after_round286_288_review",
+                "financial_reporting_timeliness_backfill_continue_after_round289_291_review_with_overlap_preview_timeout_budget_and_empty_response_watch",
             )
             self.assertTrue(packet["round_state"]["family_rotation_required"])
             self.assertIn(
@@ -375,6 +375,30 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
             )
             self.assertIn(
                 "round291_three_round_review_after_completion_required",
+                packet["round_state"]["required_before_next_round"],
+            )
+            self.assertIn(
+                "round291_overlap_preview_shard16_offset5_5_of_5_net_new_confirmed",
+                packet["round_state"]["required_before_next_round"],
+            )
+            self.assertIn(
+                "round291_source_coverage_344_below_1000_confirmed",
+                packet["round_state"]["required_before_next_round"],
+            )
+            self.assertIn(
+                "round291_empty_requests_5_after_prelisting_filter_flagged",
+                packet["round_state"]["required_before_next_round"],
+            )
+            self.assertIn(
+                "round291_backfill_timeout_root_cause_external_api_slow_not_failed_output_confirmed",
+                packet["round_state"]["required_before_next_round"],
+            )
+            self.assertIn(
+                "round289_291_three_round_review_read",
+                packet["round_state"]["required_before_next_round"],
+            )
+            self.assertIn(
+                "round292_pre_run_aggregate_overlap_preview_required",
                 packet["round_state"]["required_before_next_round"],
             )
             self.assertIn(
@@ -1759,11 +1783,11 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
             )
             self.assertEqual(
                 protocol["next_direction"],
-                "round291_continue_financial_reporting_timeliness_backfill_with_stock_basic_prelisting_filter_overlap_preview_empty_response_watch_until_1000_symbols_then_round289_291_review",
+                "round292_continue_financial_reporting_timeliness_backfill_with_stock_basic_prelisting_filter_overlap_preview_timeout_budget_and_empty_response_watch_until_1000_symbols_after_round289_291_review",
             )
             self.assertEqual(
                 protocol["source_audit"],
-                "docs/research/cn_stock_round290_financial_reporting_timeliness_backfill_progress_2026-06-26.md",
+                "docs/research/cn_stock_round291_financial_reporting_timeliness_backfill_progress_2026-06-26.md",
             )
             self.assertIn(
                 "round282_source_ready_before_candidate_generation",
@@ -1819,6 +1843,10 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
             )
             self.assertIn(
                 "round291_must_trigger_round289_291_three_round_review_after_completion",
+                protocol["required_experiment_design"],
+            )
+            self.assertIn(
+                "round292_timeout_budget_allows_slow_external_api_completion_before_retry",
                 protocol["required_experiment_design"],
             )
             self.assertIn(
