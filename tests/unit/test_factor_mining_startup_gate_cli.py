@@ -139,11 +139,11 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
             )
             self.assertEqual(
                 packet["repeatable_mining_protocol"]["next_direction"],
-                "round300_continue_financial_reporting_timeliness_backfill_on_shard18_offset10_with_overlap_preview_stock_basic_prelisting_filter_quality_report_recompute_guard_until_1000_symbols",
+                "round301_continue_financial_reporting_timeliness_backfill_on_shard18_offset15_with_overlap_preview_stock_basic_prelisting_filter_quality_report_recompute_guard_then_round299_301_review_until_1000_symbols",
             )
             self.assertEqual(
                 packet["repeatable_mining_protocol"]["source_audit"],
-                "docs/research/cn_stock_round299_financial_reporting_timeliness_backfill_progress_2026-06-26.md",
+                "docs/research/cn_stock_round300_financial_reporting_timeliness_backfill_progress_2026-06-27.md",
             )
             self.assertIn(
                 "data_source_availability_audit_before_family_selection",
@@ -156,10 +156,10 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
             method_contract = packet["method_optimization_contract"]
             self.assertEqual(
                 method_contract["next_allowed_direction"],
-                "round300_continue_financial_reporting_timeliness_backfill_on_shard18_offset10_with_overlap_preview_stock_basic_prelisting_filter_quality_report_recompute_guard_until_1000_symbols",
+                "round301_continue_financial_reporting_timeliness_backfill_on_shard18_offset15_with_overlap_preview_stock_basic_prelisting_filter_quality_report_recompute_guard_then_round299_301_review_until_1000_symbols",
             )
-            self.assertEqual(packet["round_state"]["last_completed_round"], 299)
-            self.assertEqual(packet["round_state"]["next_round"], 300)
+            self.assertEqual(packet["round_state"]["last_completed_round"], 300)
+            self.assertEqual(packet["round_state"]["next_round"], 301)
             self.assertEqual(
                 packet["round_state"]["last_three_round_review"],
                 "docs/research/cn_stock_round296_298_three_round_review_2026-06-26.md",
@@ -543,6 +543,26 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
             )
             self.assertIn(
                 "round300_start_from_shard18_offset10_required",
+                packet["round_state"]["required_before_next_round"],
+            )
+            self.assertIn(
+                "round300_overlap_preview_shard18_offset10_5_of_5_net_new_confirmed",
+                packet["round_state"]["required_before_next_round"],
+            )
+            self.assertIn(
+                "round300_backfilled_shard18_offset10_limit5_confirmed",
+                packet["round_state"]["required_before_next_round"],
+            )
+            self.assertIn(
+                "round300_source_coverage_384_below_1000_confirmed",
+                packet["round_state"]["required_before_next_round"],
+            )
+            self.assertIn(
+                "round301_start_from_shard18_offset15_required",
+                packet["round_state"]["required_before_next_round"],
+            )
+            self.assertIn(
+                "round301_three_round_review_after_completion_required",
                 packet["round_state"]["required_before_next_round"],
             )
             self.assertIn(
@@ -1931,11 +1951,11 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
             )
             self.assertEqual(
                 protocol["next_direction"],
-                "round300_continue_financial_reporting_timeliness_backfill_on_shard18_offset10_with_overlap_preview_stock_basic_prelisting_filter_quality_report_recompute_guard_until_1000_symbols",
+                "round301_continue_financial_reporting_timeliness_backfill_on_shard18_offset15_with_overlap_preview_stock_basic_prelisting_filter_quality_report_recompute_guard_then_round299_301_review_until_1000_symbols",
             )
             self.assertEqual(
                 protocol["source_audit"],
-                "docs/research/cn_stock_round299_financial_reporting_timeliness_backfill_progress_2026-06-26.md",
+                "docs/research/cn_stock_round300_financial_reporting_timeliness_backfill_progress_2026-06-27.md",
             )
             self.assertIn(
                 "round282_source_ready_before_candidate_generation",
@@ -2063,6 +2083,14 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
             )
             self.assertIn(
                 "round300_pre_run_aggregate_overlap_preview_before_live_endpoint_requests",
+                protocol["required_experiment_design"],
+            )
+            self.assertIn(
+                "round301_pre_run_aggregate_overlap_preview_before_live_endpoint_requests",
+                protocol["required_experiment_design"],
+            )
+            self.assertIn(
+                "round301_must_trigger_round299_301_three_round_review_after_completion",
                 protocol["required_experiment_design"],
             )
             self.assertIn(
