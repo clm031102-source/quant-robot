@@ -1,0 +1,153 @@
+{
+  "stage": "round258_daily_basic_valuation_reversion_repair_audit_preregistration",
+  "source_audit": "docs/research/cn_stock_round257_daily_basic_full_sample_replay_2026-06-26.md",
+  "round": 258,
+  "research_control_plan": {
+    "declared_controls": {
+      "cn_stock_tradeability": [
+        "limit_up_down_filter",
+        "suspension_filter",
+        "st_flag_filter",
+        "new_listing_age_filter",
+        "delisting_risk_filter",
+        "board_permission_filter"
+      ],
+      "financial_pit_timing": [
+        "ann_date_or_effective_date_lag",
+        "financial_revision_announcement_handling",
+        "report_release_lag_not_period_end",
+        "no_period_end_only_financial_signal"
+      ],
+      "industry_style_neutralization": [
+        "industry_exposure_report",
+        "size_exposure_report",
+        "value_lowvol_momentum_liquidity_decomposition",
+        "neutralized_or_residual_factor_matrix"
+      ],
+      "etf_rotation_scope_boundary": [
+        "stock_scope_confirmed",
+        "etf_rotation_evidence_rejected_for_stock_factor",
+        "cn_etf_dedicated_signal_pack_separate"
+      ],
+      "portfolio_construction": [
+        "risk_budget_position_sizing",
+        "volatility_targeting_or_volatility_budget",
+        "industry_weight_constraints",
+        "turnover_constraints",
+        "stop_loss_or_de_risk_rules"
+      ],
+      "strict_statistics": [
+        "deflated_sharpe",
+        "purged_cpcv",
+        "white_reality_check_or_fdr",
+        "parameter_sensitivity_heatmap",
+        "multiple_testing_accounting"
+      ],
+      "china_market_regime": [
+        "policy_liquidity_regime",
+        "credit_cycle_proxy",
+        "northbound_margin_turnover_temperature",
+        "index_location_state",
+        "signal_window_regime_coverage"
+      ],
+      "event_factors": [
+        "earnings_forecast_or_statement_event_audit",
+        "dividend_ex_right_event_audit",
+        "buyback_holder_unlock_event_audit",
+        "index_rebalance_event_audit",
+        "event_contamination_extreme_return_audit"
+      ]
+    },
+    "policy": "Round258 may only audit coverage repair and industry/style exposure for the frozen Round257 diagnostic valuation-reversion line. This plan forbids portfolio-grid search, direction flips, new windows, and promotion."
+  },
+  "evaluation_gate": {
+    "required_metrics": [
+      "original_required_field_coverage",
+      "replacement_field_coverage_before_portfolio_evidence",
+      "repaired_candidate_same_parameter_full_sample_prescreen",
+      "quantile_shape",
+      "industry_style_residual_ic",
+      "style_coverage_ratio",
+      "industry_coverage",
+      "final_holdout_excluded"
+    ],
+    "multiple_testing_accounting_required": true,
+    "final_holdout_available_for_tuning": false
+  },
+  "promotion_policy": {
+    "promotion_allowed": false,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "requires_long_cycle_replay": true,
+    "requires_same_parameter_full_sample": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true,
+    "requires_no_lookahead_audit": true,
+    "requires_overfit_multiple_testing_control": true,
+    "requires_overlap_adjusted_statistics": true,
+    "requires_parameter_sensitivity": true,
+    "requires_final_holdout_read_once": true,
+    "requires_tradeability_survivorship_audit": true,
+    "requires_industry_style_neutralization": true,
+    "requires_source_performance_evidence": true
+  },
+  "family_rotation_policy": {
+    "current_family_id": "daily_basic_valuation_reversion_coverage_repair_style_exposure_audit",
+    "current_family_round_count": 1,
+    "max_rounds_before_review": 3,
+    "three_round_review_completed": true,
+    "hibernated_families": [
+      {
+        "family": "forecast_guidance_uncertainty_after_round256_zero_research_leads",
+        "reason": "Round256 produced zero research leads."
+      },
+      {
+        "family": "daily_basic_direct_portfolio_grid_after_round257_zero_strict_research_leads",
+        "reason": "Round257 found zero strict research leads despite FDR-significant IC."
+      },
+      {
+        "family": "daily_basic_crowding_or_value_direction_flip_after_round257_quantile_shape_failure",
+        "reason": "Round257 crowding/value variants showed negative or weak quantile shape; sign flips are not allowed after reading results."
+      }
+    ],
+    "blocked_families": []
+  },
+  "audit_policy": {
+    "analysis_start_date": "2015-01-01",
+    "analysis_end_date": "2025-12-31",
+    "final_holdout_start": "2026-01-01",
+    "final_holdout_use": "excluded_from_tuning_and_audit",
+    "parameter_expansion_allowed": false,
+    "direction_flip_allowed": false,
+    "portfolio_grid_allowed": false,
+    "repair_field_substitution": {
+      "original_field": "dv_ttm",
+      "replacement_field": "dv_ratio",
+      "must_be_justified_by_coverage_before_portfolio_results": true
+    }
+  },
+  "candidates": [
+    {
+      "factor_name": "daily_basic_valuation_reversion_quality_60",
+      "family": "valuation_stability_original_coverage_diagnostic",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "round257_full_sample_replay:public_reference:value_reversion:fama_french_value",
+      "economic_rationale": "The original frozen valuation-reversion factor showed strong long-cycle IC but failed required-field clean coverage, so Round258 audits whether the blocker is repairable before any portfolio use.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "daily_basic_valuation_reversion_dvratio_quality_60",
+      "family": "valuation_stability_coverage_repair",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "round210_coverage_audit:dv_ratio_replacement_for_dv_ttm",
+      "economic_rationale": "This repair keeps the original pb/ps valuation-reversion structure and substitutes dv_ratio for the low-coverage dv_ttm field only after a coverage audit; it must still survive shape and industry/style residual tests.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    }
+  ]
+}

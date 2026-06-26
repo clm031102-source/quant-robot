@@ -1,0 +1,114 @@
+{
+  "round": 246,
+  "date": "2026-06-25",
+  "machine": "office_desktop",
+  "task": "factor_validation",
+  "branch": "codex/factor-validation-cn-stock-long-cycle-20260618",
+  "family": "accounting_quality_statement_event_drift",
+  "status": "tested_rejected",
+  "report": "data/reports/round246_accounting_quality_statement_event_drift_residual_ic_130_symbol_20260625/accounting_quality_statement_residual_ic_shape_prescreen.json",
+  "result_csv": "data/reports/round246_accounting_quality_statement_event_drift_residual_ic_130_symbol_20260625/accounting_quality_statement_residual_ic_results.csv",
+  "source": {
+    "statement_root_count": 56,
+    "bars_roots": [
+      "data/processed/cn_stock_long_history_2015_202306",
+      "data/processed/office_desktop_20260616_combined_research"
+    ],
+    "daily_basic_roots": [
+      "data/processed/cn_stock_long_history_2015_202306",
+      "data/processed/office_desktop_20260617_daily_basic_factor_inputs"
+    ],
+    "stock_basic_path": "data/processed/cn_stock_metadata"
+  },
+  "candidate": {
+    "factor_name": "aq_cash_conversion_muted_reaction_drift",
+    "source_factor": "earnings_cash_conversion_improvement_yoy_raw",
+    "formula": "0.5 * within-date rank(earnings_cash_conversion_improvement_yoy_raw) + 0.5 * within-date rank(-abs(signal_close / pre_announcement_close - 1))",
+    "horizons": [
+      5,
+      20
+    ],
+    "execution_lag": 1,
+    "candidate_count": 1
+  },
+  "pit_policy": {
+    "signal_date_rule": "first_trade_date_strictly_after_ann_date",
+    "event_reaction_rule": "last close before ann_date to signal_date close",
+    "same_day_announcement_trading_allowed": false,
+    "same_day_event_reaction_trading_allowed": false,
+    "label_entry_rule": "entry_date is after factor date through execution_lag=1",
+    "final_holdout_included": false
+  },
+  "data_window": {
+    "bar_assets": 130,
+    "bar_rows": 332562,
+    "min_bar_date": "2015-01-05",
+    "max_bar_date": "2025-12-31",
+    "min_signal_date": "2016-04-20",
+    "max_signal_date": "2025-11-11",
+    "min_label_date": "2015-01-05",
+    "max_label_date": "2025-12-23"
+  },
+  "summary": {
+    "passes_data_gate": true,
+    "blockers": [],
+    "factor_rows": 4786,
+    "label_rows": 661614,
+    "aligned_rows": 9572,
+    "test_count": 2,
+    "multiple_testing_lead_count": 0,
+    "neutral_gate_pass_count": 0,
+    "research_lead_count": 0,
+    "promotion_allowed_candidates": 0,
+    "next_direction": "round247_accounting_quality_rotate_to_profitability_revision_or_event_context"
+  },
+  "results": [
+    {
+      "factor_name": "aq_cash_conversion_muted_reaction_drift",
+      "horizon": 20,
+      "mean_spearman_ic": 0.03732158564128379,
+      "icir": 0.26403596339025265,
+      "ic_t_stat": 1.516771132634328,
+      "ic_p_value": 0.12932447776740583,
+      "fdr_significant": false,
+      "ic_positive_rate": 0.6363636363636364,
+      "quantile_spread": -0.00020689119647109475,
+      "quantile_monotonicity": 0.09999999999999999,
+      "mean_industry_neutral_rank_ic": -0.013655112654363864,
+      "industry_neutral_rank_ic_t_stat": -0.1314984096536359,
+      "mean_size_neutral_rank_ic": 0.03470971069229682,
+      "size_neutral_rank_ic_t_stat": 1.6349030166364578,
+      "mean_liquidity_neutral_rank_ic": 0.015440280051552258,
+      "liquidity_neutral_rank_ic_t_stat": 0.6530716757021577,
+      "research_lead": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "aq_cash_conversion_muted_reaction_drift",
+      "horizon": 5,
+      "mean_spearman_ic": -0.019600090848409264,
+      "icir": -0.13873295841166058,
+      "ic_t_stat": -0.7969601707353393,
+      "ic_p_value": 0.4254741634362305,
+      "fdr_significant": false,
+      "ic_positive_rate": 0.3939393939393939,
+      "quantile_spread": -0.005873923840952271,
+      "quantile_monotonicity": -0.7,
+      "mean_industry_neutral_rank_ic": -0.19423587699280606,
+      "industry_neutral_rank_ic_t_stat": -1.8586208466668779,
+      "mean_size_neutral_rank_ic": -0.012801957139162967,
+      "size_neutral_rank_ic_t_stat": -0.526297097361684,
+      "mean_liquidity_neutral_rank_ic": -0.02199972507708315,
+      "liquidity_neutral_rank_ic_t_stat": -0.85416853424767,
+      "research_lead": false,
+      "promotion_allowed": false
+    }
+  ],
+  "decision": {
+    "paper_ready_allowed": false,
+    "portfolio_backtest_allowed": false,
+    "reason": "The 20-day IC is positive but not statistically significant after multiple testing, quantile spread is negative, industry-neutral IC is negative, and no neutral gate passes. The 5-day horizon is directionally negative.",
+    "avoid_retesting_same_shape_without_new_information": true
+  },
+  "safety": "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+}

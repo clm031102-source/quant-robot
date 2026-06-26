@@ -286,6 +286,128 @@ class FactorTests(unittest.TestCase):
         self.assertAlmostEqual(liquidity_3, sum(daily_amihud) / 3)
         self.assertNotEqual(liquidity_2, liquidity_3)
 
+    def test_basic_factors_can_compute_only_requested_factor_names(self):
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["A"] * 4,
+                "market": ["US"] * 4,
+                "date": pd.date_range("2024-01-01", periods=4).date,
+                "adj_close": [100.0, 110.0, 121.0, 133.1],
+                "volume": [100.0, 100.0, 100.0, 100.0],
+                "amount": [10000.0, 11000.0, 12100.0, 13310.0],
+            }
+        )
+
+        factors = compute_basic_factors(bars, windows=(2, 3), factor_names=("momentum_2",))
+
+        self.assertEqual(set(factors["factor_name"]), {"momentum_2"})
+        self.assertEqual(set(factors["lookback_window"]), {2})
+
+    def test_basic_factors_reject_unknown_requested_factor_names(self):
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["A"] * 4,
+                "market": ["US"] * 4,
+                "date": pd.date_range("2024-01-01", periods=4).date,
+                "adj_close": [100.0, 110.0, 121.0, 133.1],
+                "volume": [100.0, 100.0, 100.0, 100.0],
+                "amount": [10000.0, 11000.0, 12100.0, 13310.0],
+            }
+        )
+
+        with self.assertRaisesRegex(ValueError, "Unsupported technical factor_names"):
+            compute_basic_factors(bars, windows=(2,), factor_names=("momentum_5", "not_a_factor"))
+
+    def test_liquidity_factor_uses_rolling_amihud_window(self):
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["A"] * 4,
+                "market": ["US"] * 4,
+                "date": pd.date_range("2024-01-01", periods=4).date,
+                "adj_close": [100.0, 110.0, 99.0, 118.8],
+                "volume": [100.0, 100.0, 100.0, 100.0],
+                "amount": [10000.0, 11000.0, 9900.0, 11880.0],
+            }
+        )
+
+        factors = compute_basic_factors(bars, windows=(2, 3))
+        last_date = pd.Timestamp("2024-01-04").date()
+        liquidity_2 = factors[
+            (factors["date"] == last_date)
+            & (factors["factor_name"] == "liquidity_2")
+        ].iloc[0]["factor_value"]
+        liquidity_3 = factors[
+            (factors["date"] == last_date)
+            & (factors["factor_name"] == "liquidity_3")
+        ].iloc[0]["factor_value"]
+        daily_amihud = [
+            abs(0.10) / 11000.0,
+            abs(-0.10) / 9900.0,
+            abs(0.20) / 11880.0,
+        ]
+
+        self.assertAlmostEqual(liquidity_2, sum(daily_amihud[-2:]) / 2)
+        self.assertAlmostEqual(liquidity_3, sum(daily_amihud) / 3)
+        self.assertNotEqual(liquidity_2, liquidity_3)
+
+    def test_low_volatility_factor_is_negative_realized_volatility(self):
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["A"] * 4,
+                "market": ["US"] * 4,
+                "date": pd.date_range("2024-01-01", periods=4).date,
+                "adj_close": [100.0, 110.0, 99.0, 118.8],
+                "volume": [100.0, 100.0, 100.0, 100.0],
+                "amount": [10000.0, 11000.0, 9900.0, 11880.0],
+            }
+        )
+
+        factors = compute_basic_factors(bars, windows=(2,), factor_names=("volatility_2", "low_volatility_2"))
+        last_date = pd.Timestamp("2024-01-04").date()
+        volatility = factors[
+            (factors["date"] == last_date)
+            & (factors["factor_name"] == "volatility_2")
+        ].iloc[0]["factor_value"]
+        low_volatility = factors[
+            (factors["date"] == last_date)
+            & (factors["factor_name"] == "low_volatility_2")
+        ].iloc[0]["factor_value"]
+
+        self.assertAlmostEqual(low_volatility, -volatility)
+
+    def test_high_liquidity_factor_is_negative_amihud_illiquidity(self):
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["A"] * 4 + ["B"] * 4,
+                "market": ["US"] * 8,
+                "date": list(pd.date_range("2024-01-01", periods=4).date) * 2,
+                "adj_close": [100.0, 110.0, 99.0, 118.8, 100.0, 110.0, 99.0, 118.8],
+                "volume": [100.0] * 8,
+                "amount": [10000.0, 11000.0, 9900.0, 11880.0, 1000.0, 1100.0, 990.0, 1188.0],
+            }
+        )
+
+        factors = compute_basic_factors(bars, windows=(2,), factor_names=("liquidity_2", "high_liquidity_2"))
+        last_date = pd.Timestamp("2024-01-04").date()
+        liquidity_a = factors[
+            (factors["asset_id"] == "A")
+            & (factors["date"] == last_date)
+            & (factors["factor_name"] == "liquidity_2")
+        ].iloc[0]["factor_value"]
+        high_liquidity_a = factors[
+            (factors["asset_id"] == "A")
+            & (factors["date"] == last_date)
+            & (factors["factor_name"] == "high_liquidity_2")
+        ].iloc[0]["factor_value"]
+        high_liquidity_b = factors[
+            (factors["asset_id"] == "B")
+            & (factors["date"] == last_date)
+            & (factors["factor_name"] == "high_liquidity_2")
+        ].iloc[0]["factor_value"]
+
+        self.assertAlmostEqual(high_liquidity_a, -liquidity_a)
+        self.assertGreater(high_liquidity_a, high_liquidity_b)
+
 
 if __name__ == "__main__":
     unittest.main()

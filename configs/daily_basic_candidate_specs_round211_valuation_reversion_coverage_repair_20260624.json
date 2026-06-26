@@ -1,0 +1,50 @@
+{
+  "stage": "round211_daily_basic_valuation_reversion_coverage_repair_preregistration",
+  "source_audit": "docs/research/cn_stock_round210_daily_basic_valuation_coverage_audit_2026-06-24.md",
+  "source_coverage_audit_output": "data/reports/round210_daily_basic_valuation_coverage_audit_20260624/daily_basic_valuation_coverage_audit_summary.json",
+  "scope": {
+    "market": "CN",
+    "asset_type": "stock",
+    "family": "daily_basic_valuation_stability_coverage_repair",
+    "repair_reason": "Round132 raw valuation reversion was strong but blocked by dv_ttm coverage; Round210 found dv_ratio passes coverage as a preregistered replacement candidate."
+  },
+  "candidate_specs": [
+    {
+      "factor_name": "daily_basic_valuation_reversion_dvratio_quality_60",
+      "family": "valuation_stability_coverage_repair",
+      "formula_template": "0.45*cs_z(-pb_z_60)+0.30*cs_z(-ps_ttm_z_60)+0.25*cs_z(dv_ratio)",
+      "direction": "higher_is_better",
+      "windows": [
+        60
+      ],
+      "required_fields": [
+        "pb",
+        "ps_ttm",
+        "dv_ratio"
+      ],
+      "economic_rationale": "Rolling valuation mean reversion using cleanly covered dividend ratio as the yield leg. This is a coverage repair of a prior strong signal, not a parameter expansion.",
+      "public_reference_tags": [
+        "value_reversion",
+        "fama_french_value",
+        "dividend_yield",
+        "coverage_repair"
+      ],
+      "expected_failure_modes": [
+        "field_substitution_changes_economics",
+        "coverage_repair_overfit",
+        "sector_value_trap",
+        "portfolio_translation_gap"
+      ],
+      "source_evidence_status": "round210_coverage_repair_preregistered_not_empirical_alpha",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    }
+  ],
+  "promotion_policy": {
+    "portfolio_backtest_allowed": false,
+    "promotion_allowed": false,
+    "requires_fresh_prescreen": true,
+    "requires_long_cycle_walk_forward_after_prescreen_lead": true,
+    "requires_cost_capacity_regime_and_tradeability_gates": true
+  }
+}

@@ -1,0 +1,107 @@
+[
+  {
+    "family_id": "financial_pit_post_announcement_drift",
+    "status": "eligible",
+    "score": 87,
+    "data_readiness": "round202_filtered_financial_pit_root_ready_for_coverage_audit_before_ic",
+    "novelty_vs_recent_failures": "uses point_in_time_announcement_event_timing_not_price_shape_or_direct_profitability_formula_tuning",
+    "public_reference_tags": [
+      "post_earnings_announcement_drift",
+      "earnings_announcement_underreaction",
+      "event_study",
+      "financial_pit_timing"
+    ],
+    "required_controls": [
+      "financial_pit_signal_date_filter_required",
+      "ann_date_available_date_signal_date_preserved",
+      "no_same_day_announcement_reaction_trading",
+      "event_day_reaction_available_next_trade_date_only",
+      "financial_coverage_audit_before_ic",
+      "tradeability_mask_required",
+      "industry_style_residual_evaluation",
+      "profitability_valuation_reference_dedup_required",
+      "event_family_reference_dedup_required",
+      "multiple_testing_accounting",
+      "no_portfolio_grid_before_residual_ic_shape_prescreen",
+      "china_regime_coverage_required"
+    ],
+    "reason": "Public PEAD and announcement-underreaction literature suggests that investors may underreact to financial announcement information. The Round222 implementation must use PIT announcement availability and post-announcement reaction only after it is tradable. This is orthogonal to the failed Round219 trend-state, Round220 industry diffusion, and Round221 FIP price-path families.",
+    "next_action": "round222_financial_pit_post_announcement_drift_preregistration"
+  },
+  {
+    "family_id": "information_discreteness_path_quality",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_long_cycle_sharded",
+    "novelty_vs_recent_failures": "failed_round221_full_sample_residual_gate",
+    "public_reference_tags": [
+      "frog_in_the_pan",
+      "information_discreteness",
+      "path_quality"
+    ],
+    "required_controls": [],
+    "reason": "Round221 tested six FIP candidates on 2015-2025 CN stocks. All six failed residual mean IC, residual ICIR, yearly stability, and exposure gates. The best residual IC was only 0.0141.",
+    "next_action": "do_not_tune_fip_windows_or_run_portfolio_grid_after_zero_residual_leads"
+  },
+  {
+    "family_id": "industry_leader_lag_residual_diffusion",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_long_cycle_sharded",
+    "novelty_vs_recent_failures": "failed_round220_full_sample_residual_gate",
+    "public_reference_tags": [
+      "industry_momentum",
+      "lead_lag",
+      "slow_information_diffusion"
+    ],
+    "required_controls": [],
+    "reason": "Round220 found zero promotable residual candidates. The best residual IC candidate failed raw yearly stability and the smoke lead failed 2025.",
+    "next_action": "do_not_tune_leader_lag_definitions_after_full_sample_failure"
+  },
+  {
+    "family_id": "public_trend_strength_state_residual",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_long_cycle",
+    "novelty_vs_recent_failures": "failed_round219_residual_gate",
+    "public_reference_tags": [
+      "ADX",
+      "KAMA",
+      "Aroon",
+      "WilliamsR"
+    ],
+    "required_controls": [],
+    "reason": "Round219 found zero residual research leads across six public trend-state candidates. The family had weak residual IC, yearly instability, and high exposure.",
+    "next_action": "do_not_tune_public_trend_state_windows_after_round219_failure"
+  },
+  {
+    "family_id": "direct_profitability_quality_formula_tuning",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested",
+    "novelty_vs_recent_failures": "failed_round217_and_round153",
+    "public_reference_tags": [
+      "quality",
+      "profitability"
+    ],
+    "required_controls": [],
+    "reason": "Direct PIT profitability-quality metrics and revision formulas already failed controlled IC/FDR screens. Round222 may use financial events, but not direct formula tuning under a new name.",
+    "next_action": "only_allow_event_timing_hypothesis_with_new_preregistration"
+  },
+  {
+    "family_id": "tradeability_limit_events",
+    "status": "control_only_not_alpha",
+    "score": 45,
+    "data_readiness": "official_masks_ready",
+    "novelty_vs_recent_failures": "standalone_alpha_failed",
+    "public_reference_tags": [],
+    "required_controls": [
+      "limit_up_down_mask",
+      "suspension_st_filter",
+      "new_listing_retirement_filter",
+      "extreme_turnover_trade_filter"
+    ],
+    "reason": "Tradeability remains a mandatory execution and capacity control, but standalone limit/tradeability event alpha is hibernated.",
+    "next_action": "use_as_filter_control_only"
+  }
+]

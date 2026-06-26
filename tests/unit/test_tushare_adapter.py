@@ -92,6 +92,81 @@ class FakeTushareClient:
             }
         )
 
+    def fina_indicator(self, **kwargs):
+        self.calls.append(("fina_indicator", kwargs))
+        return pd.DataFrame(
+            {
+                "ts_code": [kwargs.get("ts_code", "000001.SZ") or "000001.SZ"],
+                "ann_date": ["20240425"],
+                "end_date": [kwargs.get("period", "20240331") or "20240331"],
+                "roe": [11.2],
+                "roa": [0.92],
+                "grossprofit_margin": [28.5],
+                "netprofit_margin": [12.3],
+                "netprofit_yoy": [8.7],
+                "or_yoy": [6.5],
+                "ocfps": [1.24],
+                "cfps": [1.8],
+            }
+        )
+
+    def income(self, **kwargs):
+        self.calls.append(("income", kwargs))
+        return pd.DataFrame(
+            {
+                "ts_code": [kwargs.get("ts_code", "000001.SZ") or "000001.SZ"],
+                "ann_date": ["20240425"],
+                "end_date": [kwargs.get("period", "20240331") or "20240331"],
+                "report_type": ["1"],
+                "comp_type": ["1"],
+                "end_type": ["1"],
+                "n_income_attr_p": [120.5],
+                "n_income": [130.0],
+                "total_revenue": [1000.0],
+                "revenue": [900.0],
+                "total_cogs": [800.0],
+                "operate_profit": [150.0],
+                "total_profit": [145.0],
+                "income_tax": [24.5],
+            }
+        )
+
+    def balancesheet(self, **kwargs):
+        self.calls.append(("balancesheet", kwargs))
+        return pd.DataFrame(
+            {
+                "ts_code": [kwargs.get("ts_code", "000001.SZ") or "000001.SZ"],
+                "ann_date": ["20240425"],
+                "end_date": [kwargs.get("period", "20240331") or "20240331"],
+                "report_type": ["1"],
+                "comp_type": ["1"],
+                "end_type": ["1"],
+                "total_assets": [1200.0],
+                "total_liab": [700.0],
+                "total_cur_assets": [500.0],
+                "total_cur_liab": [300.0],
+                "inventories": [80.0],
+                "accounts_receiv": [90.0],
+                "accounts_pay": [60.0],
+            }
+        )
+
+    def cashflow(self, **kwargs):
+        self.calls.append(("cashflow", kwargs))
+        return pd.DataFrame(
+            {
+                "ts_code": [kwargs.get("ts_code", "000001.SZ") or "000001.SZ"],
+                "ann_date": ["20240425"],
+                "end_date": [kwargs.get("period", "20240331") or "20240331"],
+                "report_type": ["1"],
+                "comp_type": ["1"],
+                "end_type": ["1"],
+                "net_profit": [121.0],
+                "n_cashflow_act": [98.0],
+                "free_cashflow": [75.0],
+            }
+        )
+
     def adj_factor(self, **kwargs):
         self.calls.append(("adj_factor", kwargs))
         return pd.DataFrame({"ts_code": ["000001.SZ"], "trade_date": ["20240102"], "adj_factor": [100.0]})
@@ -106,9 +181,108 @@ class FakeTushareClient:
             {
                 "ts_code": ["000001.SZ"],
                 "symbol": ["000001"],
+                "area": ["深圳"],
+                "industry": ["银行"],
+                "market": ["主板"],
                 "name": ["平安银行"],
                 "exchange": ["SZSE"],
                 "list_status": ["L"],
+                "list_date": ["19910403"],
+                "delist_date": [None],
+                "is_hs": ["S"],
+            }
+        )
+
+    def stk_limit(self, **kwargs):
+        self.calls.append(("stk_limit", kwargs))
+        return pd.DataFrame(
+            {
+                "ts_code": ["000001.SZ"],
+                "trade_date": [kwargs.get("trade_date", "20240102") or "20240102"],
+                "up_limit": [11.0],
+                "down_limit": [9.0],
+            }
+        )
+
+    def suspend_d(self, **kwargs):
+        self.calls.append(("suspend_d", kwargs))
+        return pd.DataFrame(
+            {
+                "ts_code": ["000001.SZ"],
+                "trade_date": [kwargs.get("trade_date", "20240102") or "20240102"],
+                "suspend_timing": ["09:30"],
+                "suspend_type": ["S"],
+            }
+        )
+
+    def namechange(self, **kwargs):
+        self.calls.append(("namechange", kwargs))
+        return pd.DataFrame(
+            {
+                "ts_code": ["000001.SZ"],
+                "name": ["Ping An Bank"],
+                "start_date": [kwargs.get("start_date", "20240102") or "20240102"],
+                "end_date": [kwargs.get("end_date", "20240103") or "20240103"],
+                "ann_date": [kwargs.get("start_date", "20240102") or "20240102"],
+                "change_reason": ["rename"],
+            }
+        )
+
+    def fund_basic(self, **kwargs):
+        self.calls.append(("fund_basic", kwargs))
+        return pd.DataFrame(
+            {
+                "ts_code": ["510300.SH"],
+                "name": ["CSI 300 ETF"],
+                "market": [kwargs.get("market", "E")],
+                "fund_type": ["ETF"],
+                "type": ["ETF"],
+                "invest_type": ["Passive"],
+                "status": ["L"],
+                "list_date": ["20120528"],
+                "delist_date": [None],
+                "found_date": ["20120528"],
+            }
+        )
+
+    def index_weight(self, **kwargs):
+        self.calls.append(("index_weight", kwargs))
+        return pd.DataFrame(
+            {
+                "index_code": [kwargs.get("index_code", "000300.SH") or "000300.SH"],
+                "con_code": ["000001.SZ"],
+                "trade_date": [kwargs.get("start_date", "20240101") or "20240101"],
+                "weight": [1.25],
+            }
+        )
+
+    def top_list(self, **kwargs):
+        self.calls.append(("top_list", kwargs))
+        return pd.DataFrame(
+            {
+                "trade_date": [kwargs.get("trade_date", "20240102") or "20240102"],
+                "ts_code": ["000001.SZ"],
+                "name": ["Ping An Bank"],
+                "amount": [1000.0],
+                "net_amount": [120.0],
+                "net_rate": [12.0],
+                "amount_rate": [8.0],
+                "reason": ["abnormal"],
+            }
+        )
+
+    def top_inst(self, **kwargs):
+        self.calls.append(("top_inst", kwargs))
+        return pd.DataFrame(
+            {
+                "trade_date": [kwargs.get("trade_date", "20240102") or "20240102"],
+                "ts_code": ["000001.SZ"],
+                "exalter": ["institution"],
+                "side": ["buy"],
+                "buy": [300.0],
+                "sell": [100.0],
+                "net_buy": [200.0],
+                "reason": ["abnormal"],
             }
         )
 
@@ -197,12 +371,111 @@ class TushareAdapterTests(unittest.TestCase):
         self.assertEqual(client.calls[0][0], "moneyflow")
         self.assertEqual(client.calls[0][1]["trade_date"], "20240102")
 
+    def test_fetch_fina_indicator_maps_pit_profitability_fields(self):
+        client = FakeTushareClient()
+        adapter = TushareAdapter(client=client)
+
+        result = adapter.fetch_fina_indicator(period="2024-03-31")
+
+        self.assertEqual(result.loc[0, "symbol"], "000001.SZ")
+        self.assertEqual(result.loc[0, "ann_date"].isoformat(), "2024-04-25")
+        self.assertEqual(result.loc[0, "end_date"].isoformat(), "2024-03-31")
+        self.assertAlmostEqual(result.loc[0, "roe"], 11.2)
+        self.assertEqual(client.calls[0][0], "fina_indicator")
+        self.assertEqual(client.calls[0][1]["period"], "20240331")
+
+    def test_fetch_financial_statements_map_accounting_quality_fields(self):
+        client = FakeTushareClient()
+        adapter = TushareAdapter(client=client)
+
+        income = adapter.fetch_income_statement(ts_code="000001.SZ", period="2024-03-31")
+        balance = adapter.fetch_balance_sheet(ts_code="000001.SZ", period="2024-03-31")
+        cashflow = adapter.fetch_cashflow_statement(ts_code="000001.SZ", period="2024-03-31")
+
+        self.assertAlmostEqual(income.loc[0, "netprofit"], 120.5)
+        self.assertAlmostEqual(balance.loc[0, "total_assets"], 1200.0)
+        self.assertAlmostEqual(cashflow.loc[0, "n_cashflow_act"], 98.0)
+        self.assertEqual([call[0] for call in client.calls[-3:]], ["income", "balancesheet", "cashflow"])
+        self.assertEqual(client.calls[-3][1]["period"], "20240331")
+
     def test_fetch_metadata_methods_map_contracts(self):
         adapter = TushareAdapter(client=FakeTushareClient())
 
         self.assertEqual(str(adapter.fetch_trade_calendar("20240101", "20240131").loc[0, "date"]), "2024-01-02")
-        self.assertEqual(adapter.fetch_stock_basic().loc[0, "asset_id"], "CN_XSHE_000001")
+        stock_basic = adapter.fetch_stock_basic()
+        self.assertEqual(stock_basic.loc[0, "asset_id"], "CN_XSHE_000001")
+        self.assertEqual(stock_basic.loc[0, "industry"], "银行")
         self.assertEqual(adapter.fetch_adj_factor("000001.SZ", "20240101", "20240131").loc[0, "adj_factor"], 100.0)
+
+    def test_fetch_stock_basic_requests_industry_metadata_fields(self):
+        client = FakeTushareClient()
+        adapter = TushareAdapter(client=client)
+
+        adapter.fetch_stock_basic()
+
+        call = client.calls[-1]
+        self.assertEqual(call[0], "stock_basic")
+        fields = call[1]["fields"]
+        self.assertIn("industry", fields)
+        self.assertIn("area", fields)
+        self.assertIn("list_date", fields)
+
+    def test_fetch_fund_basic_maps_etf_metadata(self):
+        client = FakeTushareClient()
+        adapter = TushareAdapter(client=client)
+
+        result = adapter.fetch_fund_basic("E")
+
+        self.assertEqual(result.loc[0, "symbol"], "510300.SH")
+        self.assertTrue(bool(result.loc[0, "is_etf"]))
+        self.assertEqual(client.calls[0][0], "fund_basic")
+        self.assertEqual(client.calls[0][1]["market"], "E")
+
+    def test_fetch_tradeability_feeds_calls_official_tushare_endpoints(self):
+        client = FakeTushareClient()
+        adapter = TushareAdapter(client=client)
+
+        limit = adapter.fetch_stk_limit_by_trade_date("2024-01-02")
+        suspend = adapter.fetch_suspend_d_by_date("2024-01-02")
+        namechange = adapter.fetch_namechange("2024-01-02", "2024-01-31")
+
+        self.assertEqual(limit.loc[0, "up_limit"], 11.0)
+        self.assertEqual(suspend.loc[0, "suspend_type"], "S")
+        self.assertEqual(namechange.loc[0, "change_reason"], "rename")
+        self.assertEqual(client.calls[-3][0], "stk_limit")
+        self.assertEqual(client.calls[-3][1]["trade_date"], "20240102")
+        self.assertEqual(client.calls[-2][0], "suspend_d")
+        self.assertEqual(client.calls[-2][1]["trade_date"], "20240102")
+        self.assertEqual(client.calls[-1][0], "namechange")
+        self.assertEqual(client.calls[-1][1]["start_date"], "20240102")
+        self.assertEqual(client.calls[-1][1]["end_date"], "20240131")
+
+    def test_fetch_index_weight_calls_official_tushare_endpoint(self):
+        client = FakeTushareClient()
+        adapter = TushareAdapter(client=client)
+
+        result = adapter.fetch_index_weight("000300.SH", "2024-01-01", "2024-01-31")
+
+        self.assertEqual(result.loc[0, "con_code"], "000001.SZ")
+        self.assertEqual(result.loc[0, "weight"], 1.25)
+        self.assertEqual(client.calls[-1][0], "index_weight")
+        self.assertEqual(client.calls[-1][1]["index_code"], "000300.SH")
+        self.assertEqual(client.calls[-1][1]["start_date"], "20240101")
+        self.assertEqual(client.calls[-1][1]["end_date"], "20240131")
+
+    def test_fetch_dragon_tiger_endpoints_by_trade_date(self):
+        client = FakeTushareClient()
+        adapter = TushareAdapter(client=client)
+
+        top_list = adapter.fetch_top_list_by_trade_date("2024-01-02")
+        top_inst = adapter.fetch_top_inst_by_trade_date("2024-01-02")
+
+        self.assertEqual(top_list.loc[0, "ts_code"], "000001.SZ")
+        self.assertEqual(top_inst.loc[0, "net_buy"], 200.0)
+        self.assertEqual(client.calls[-2][0], "top_list")
+        self.assertEqual(client.calls[-2][1]["trade_date"], "20240102")
+        self.assertEqual(client.calls[-1][0], "top_inst")
+        self.assertEqual(client.calls[-1][1]["trade_date"], "20240102")
 
 
 if __name__ == "__main__":

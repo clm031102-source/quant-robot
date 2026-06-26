@@ -1,0 +1,63 @@
+{
+  "family": "accounting_accruals_cashflow_quality_data_readiness",
+  "next_direction": "round235_accounting_quality_pit_statement_backfill_before_preregistration",
+  "mechanism": "Public accounting-quality anomalies such as accruals, cash-flow quality, asset growth, and earnings quality require point-in-time income, balance-sheet, and cash-flow statement fields. Round234 chooses data readiness/backfill because the required column-group audit blocked factor generation.",
+  "source_evidence": [
+    "docs/research/cn_stock_round217_profitability_quality_stratified_full100_ic_screen_2026-06-24.md",
+    "docs/research/cn_stock_round222_225_financial_pit_post_announcement_workflow",
+    "data/reports/round234_accounting_quality_required_field_readiness_20260625/tushare_financial_pit_readiness.json"
+  ],
+  "candidate_ideas": [
+    "accruals_quality_low_total_accruals_to_assets",
+    "cashflow_quality_ocf_minus_netprofit_to_assets",
+    "asset_growth_conservative_quality",
+    "working_capital_accruals_quality",
+    "earnings_cash_conversion_improvement_yoy",
+    "accounting_quality_composite_fixed_weight"
+  ],
+  "mandatory_controls": [
+    "public_accounting_anomaly_source_registered",
+    "required_financial_column_group_readiness_audit",
+    "balance_sheet_cashflow_income_pit_backfill_before_factor_generation",
+    "ann_date_available_date_signal_date_preserved",
+    "no_report_period_end_signal_leakage",
+    "tradeability_mask_required",
+    "industry_style_residual_evaluation",
+    "profitability_value_reference_dedup_required",
+    "strict_multiple_testing_accounting",
+    "no_portfolio_grid_before_residual_ic_shape_prescreen",
+    "china_regime_coverage_required",
+    "final_holdout_read_once_only"
+  ],
+  "required_column_groups": {
+    "accounting_accrual_quality": [
+      "netprofit",
+      "n_cashflow_act",
+      "total_assets"
+    ],
+    "asset_growth_quality": [
+      "total_assets",
+      "total_liab",
+      "total_cur_assets",
+      "total_cur_liab"
+    ]
+  },
+  "promotion_policy": {
+    "portfolio_grid_allowed_before_residual_prescreen": false,
+    "promotion_allowed": false,
+    "requires_long_cycle_replay": true,
+    "requires_same_parameter_full_sample": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true,
+    "requires_no_lookahead_audit": true,
+    "requires_overfit_multiple_testing_control": true,
+    "requires_overlap_adjusted_statistics": true,
+    "requires_parameter_sensitivity": true,
+    "requires_final_holdout_read_once": true,
+    "requires_tradeability_survivorship_audit": true,
+    "requires_industry_style_neutralization": true,
+    "requires_source_performance_evidence": true
+  },
+  "safety": "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+}

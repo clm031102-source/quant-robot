@@ -1,0 +1,42 @@
+{
+  "market": "CN",
+  "asset_type": "stock",
+  "risk_budget": {
+    "max_single_name_weight": 0.05,
+    "max_position_adv_participation": 0.01,
+    "max_gross_exposure": 1.0
+  },
+  "volatility_targeting": {
+    "enabled": true,
+    "target_annual_volatility": 0.15,
+    "max_annual_volatility": 0.25,
+    "lookback_days": 60
+  },
+  "industry_constraints": {
+    "max_industry_weight": 0.25,
+    "max_benchmark_relative_industry_deviation": 0.1,
+    "min_industry_count": 5
+  },
+  "turnover_controls": {
+    "max_one_way_turnover_per_rebalance": 0.35,
+    "max_annual_turnover": 6.0,
+    "max_cost_degradation_pct": 0.35,
+    "rebalance_churn_limit": 0.5
+  },
+  "drawdown_controls": {
+    "max_drawdown_soft_tolerance": 0.3,
+    "de_risk_drawdown_threshold": 0.3,
+    "hard_stop_drawdown_threshold": 0.45,
+    "capacity_tradeability_gates_remain_hard": true
+  },
+  "required_metric_pack": [
+    "total_return",
+    "annual_return",
+    "sharpe",
+    "cost_adjusted_sharpe",
+    "max_drawdown",
+    "win_rate",
+    "turnover",
+    "capacity_usage"
+  ]
+}

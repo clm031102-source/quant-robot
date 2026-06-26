@@ -1,0 +1,212 @@
+{
+  "stage": "round260_official_tradeability_event_state_preregistration",
+  "source_audit": "docs/research/cn_stock_round259_listing_age_board_structural_residual_prescreen_2026-06-26.md",
+  "round": 260,
+  "research_control_plan": {
+    "declared_controls": {
+      "cn_stock_tradeability": [
+        "limit_up_down_filter",
+        "suspension_filter",
+        "st_flag_filter",
+        "new_listing_age_filter",
+        "delisting_risk_filter",
+        "board_permission_filter"
+      ],
+      "financial_pit_timing": [
+        "ann_date_or_effective_date_lag",
+        "financial_revision_announcement_handling",
+        "report_release_lag_not_period_end",
+        "no_period_end_only_financial_signal"
+      ],
+      "industry_style_neutralization": [
+        "industry_exposure_report",
+        "size_exposure_report",
+        "value_lowvol_momentum_liquidity_decomposition",
+        "neutralized_or_residual_factor_matrix"
+      ],
+      "etf_rotation_scope_boundary": [
+        "stock_scope_confirmed",
+        "etf_rotation_evidence_rejected_for_stock_factor",
+        "cn_etf_dedicated_signal_pack_separate"
+      ],
+      "portfolio_construction": [
+        "risk_budget_position_sizing",
+        "volatility_targeting_or_volatility_budget",
+        "industry_weight_constraints",
+        "turnover_constraints",
+        "stop_loss_or_de_risk_rules"
+      ],
+      "strict_statistics": [
+        "deflated_sharpe",
+        "purged_cpcv",
+        "white_reality_check_or_fdr",
+        "parameter_sensitivity_heatmap",
+        "multiple_testing_accounting"
+      ],
+      "china_market_regime": [
+        "policy_liquidity_regime",
+        "credit_cycle_proxy",
+        "northbound_margin_turnover_temperature",
+        "index_location_state",
+        "signal_window_regime_coverage"
+      ],
+      "event_factors": [
+        "earnings_forecast_or_statement_event_audit",
+        "dividend_ex_right_event_audit",
+        "buyback_holder_unlock_event_audit",
+        "index_rebalance_event_audit",
+        "event_contamination_extreme_return_audit"
+      ]
+    },
+    "policy": "Round260 rotates after Round259 listing-age/board structural failure to official A-share tradeability-event state. This is not the old proxy limit-event line; it uses official mask cache data and permits only residual IC/reference-dedup screening."
+  },
+  "evaluation_gate": {
+    "required_metrics": [
+      "long_cycle_residual_ic",
+      "industry_neutral_ic",
+      "size_liquidity_vol_residual_ic",
+      "public_technical_reference_dedup",
+      "yearly_ic_stability",
+      "tradeability_capacity_filter",
+      "official_tradeability_mask_coverage",
+      "final_holdout_excluded"
+    ],
+    "multiple_testing_accounting_required": true,
+    "final_holdout_available_for_tuning": false
+  },
+  "promotion_policy": {
+    "promotion_allowed": false,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "requires_long_cycle_replay": true,
+    "requires_same_parameter_full_sample": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true,
+    "requires_no_lookahead_audit": true,
+    "requires_overfit_multiple_testing_control": true,
+    "requires_overlap_adjusted_statistics": true,
+    "requires_parameter_sensitivity": true,
+    "requires_final_holdout_read_once": true,
+    "requires_tradeability_survivorship_audit": true,
+    "requires_industry_style_neutralization": true,
+    "requires_source_performance_evidence": true
+  },
+  "family_rotation_policy": {
+    "current_family_id": "official_tradeability_event_state",
+    "current_family_round_count": 1,
+    "max_rounds_before_review": 3,
+    "three_round_review_completed": true,
+    "hibernated_families": [
+      {
+        "family": "listing_age_board_structural_constraints_after_round259_zero_residual_leads",
+        "reason": "Round259 produced zero residual research leads."
+      },
+      {
+        "family": "daily_basic_valuation_reversion_repair_after_round258_style_exposure_failure",
+        "reason": "Round258 repaired coverage but failed quantile shape and style residual retention."
+      },
+      {
+        "family": "tradeability_limit_event_portfolio_grid_after_round160_zero_proxy_leads",
+        "reason": "Old proxy limit-event line produced zero usable leads and did not use the official long-cycle mask cache."
+      },
+      {
+        "family": "public_supertrend",
+        "reason": "Public supertrend/single trend-volume routes were previously hibernated."
+      }
+    ],
+    "blocked_families": []
+  },
+  "audit_policy": {
+    "analysis_start_date": "2015-01-01",
+    "analysis_end_date": "2025-12-31",
+    "final_holdout_start": "2026-01-01",
+    "final_holdout_use": "excluded_from_tuning_and_prescreen",
+    "parameter_expansion_allowed": false,
+    "direction_flip_allowed": false,
+    "portfolio_grid_allowed": false,
+    "tradeability_mask_source": "data/processed/round199_tradeability_mask_cache_2015_2025_with_stock_basic_20260623",
+    "bars_roots": [
+      "data/processed/cn_stock_long_history_2015_202306",
+      "data/processed/office_desktop_20260616_combined_research"
+    ]
+  },
+  "candidates": [
+    {
+      "factor_name": "official_limit_down_reopen_rebound_5",
+      "family": "official_tradeability_event_state",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "a_share_official_tradeability:limit_down_reopen_pressure_release",
+      "economic_rationale": "After an official limit-down state clears, forced-selling pressure may mean-revert, but only if the signal survives industry/style residualization and capacity filters.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "official_limit_up_crowding_avoidance_3",
+      "family": "official_tradeability_event_state",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "a_share_official_tradeability:near_term_limit_up_crowding",
+      "economic_rationale": "Recent official limit-up states can represent crowded short-term buying pressure; this tests avoidance rather than chasing the move.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "official_limit_down_pressure_avoidance_5",
+      "family": "official_tradeability_event_state",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "a_share_official_tradeability:recent_limit_down_risk",
+      "economic_rationale": "Recent official limit-down states may signal unresolved selling pressure and exit risk; this tests an avoidance score.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "official_post_suspension_reopen_risk_avoidance_10",
+      "family": "official_tradeability_event_state",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "a_share_official_tradeability:suspension_resume_uncertainty",
+      "economic_rationale": "Recently suspended names can reopen with stale-price and liquidity risk; this tests whether avoiding recent reopen states has residual information.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "official_st_name_risk_avoidance_20",
+      "family": "official_tradeability_event_state",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "a_share_official_tradeability:st_name_risk",
+      "economic_rationale": "Official ST-name states can create trading restrictions and distress risk; this tests whether avoiding recent ST flags has residual return information.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "official_tradeability_cleanliness_20",
+      "family": "official_tradeability_event_state",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "a_share_official_tradeability:clean_tradability_persistence",
+      "economic_rationale": "Names with fewer official tradeability disruptions may be more investable; this tests a broad cleanliness score after neutralization.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "official_limit_state_recovery_quality_5",
+      "family": "official_tradeability_event_state",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "a_share_official_tradeability:limit_state_recovery_quality",
+      "economic_rationale": "A recovered limit-down state may differ from recent limit-up exhaustion and suspension risk; this fixed composite tests that state contrast without parameter tuning.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    }
+  ]
+}

@@ -24,6 +24,7 @@ DEFAULT_MIN_WALK_FORWARD_SHARPE = 0.3
 DEFAULT_MIN_RELATIVE_RETURN = 0.0
 DEFAULT_MIN_PAPER_SHARPE = 0.5
 DEFAULT_MIN_TRADES = 20
+PROMOTABLE_PROMOTION_STATUSES = {"paper_ready", "manual_live_review"}
 
 
 def build_risk_candidate_pack(
@@ -199,6 +200,8 @@ def _candidate_row(
 
 def _rejection_reasons(candidate: dict[str, Any], policy: dict[str, Any], daily_ops_pack: dict[str, Any]) -> list[str]:
     reasons: list[str] = []
+    if str(candidate.get("promotion_status") or "") not in PROMOTABLE_PROMOTION_STATUSES:
+        reasons.append("promotion_status_not_paper_ready")
     if candidate.get("duplicate_of"):
         reasons.append("duplicate_candidate")
     if candidate.get("walk_forward_status") != "accepted":
@@ -257,6 +260,7 @@ def _selected_candidate(eligible: list[dict[str, Any]], tiers: list[dict[str, An
         "risk_tier": selected.get("risk_tier"),
         "risk_tier_label": selected.get("risk_tier_label"),
         "promotion_rank": selected.get("promotion_rank"),
+        "promotion_status": selected.get("promotion_status"),
         "score": selected.get("score"),
         "walk_forward_sharpe": selected.get("walk_forward_sharpe"),
         "walk_forward_relative_return": selected.get("walk_forward_relative_return"),

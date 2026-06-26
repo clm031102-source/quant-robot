@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -46,6 +47,55 @@ class FactorInputLoaderTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(FileNotFoundError):
                 load_factor_inputs(Path(tmp), "CN")
+
+    def test_loader_accepts_authority_config_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            first = root / "first"
+            second = root / "second"
+            DatasetStore(first).write_frame(
+                pd.concat([_frame("2024-01-02"), _frame("2024-01-03")], ignore_index=True),
+                "processed/factor_inputs",
+                {"frequency": "1d", "market": "CN", "year": "2024"},
+            )
+            DatasetStore(second).write_frame(
+                pd.concat([_frame("2024-01-03"), _frame("2024-01-04")], ignore_index=True),
+                "processed/factor_inputs",
+                {"frequency": "1d", "market": "CN", "year": "2024"},
+            )
+            config = root / "authority_factor_inputs.json"
+            config.write_text(
+                json.dumps(
+                    {
+                        "market": "CN",
+                        "segments": [
+                            {"root": str(first), "end_date": "2024-01-02"},
+                            {"root": str(second), "start_date": "2024-01-03"},
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = load_factor_inputs(config, "CN")
+
+            self.assertEqual(pd.to_datetime(result["date"]).dt.strftime("%Y-%m-%d").tolist(), ["2024-01-02", "2024-01-03", "2024-01-04"])
+
+    def test_loader_rejects_duplicate_authority_factor_input_keys(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            first = root / "first"
+            second = root / "second"
+            DatasetStore(first).write_frame(_frame("2024-01-02"), "processed/factor_inputs", {"frequency": "1d", "market": "CN", "year": "2024"})
+            DatasetStore(second).write_frame(_frame("2024-01-02"), "processed/factor_inputs", {"frequency": "1d", "market": "CN", "year": "2024"})
+            config = root / "authority_factor_inputs.json"
+            config.write_text(
+                json.dumps({"market": "CN", "segments": [{"root": str(first)}, {"root": str(second)}]}),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "duplicate authority processed/factor_inputs"):
+                load_factor_inputs(config, "CN")
 
 
 def _frame(date: str) -> pd.DataFrame:

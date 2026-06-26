@@ -1,0 +1,33 @@
+{
+  "family": "public_trend_strength_state_residual",
+  "next_direction": "round219_public_trend_strength_state_preregistration",
+  "mechanism": "Lagged public trend-strength, trend-efficiency, and range-state indicators condition residual cross-sectional stock selection. The first gate is full-sample long-cycle IC shape plus industry/style residualization, not a portfolio parameter grid.",
+  "candidate_ideas": [
+    "adx_trend_strength_exhaustion_reversal_14_20",
+    "adx_choppiness_mean_reversion_quality_14_20",
+    "kama_efficiency_trend_decay_10_30",
+    "aroon_range_exhaustion_reversal_25_20",
+    "williams_range_failure_reversal_14_20",
+    "trend_strength_state_residual_composite_20"
+  ],
+  "mandatory_controls": [
+    "public_formula_source_registered",
+    "no_same_day_forward_label_leakage",
+    "tradeability_mask_required",
+    "industry_style_residual_evaluation",
+    "reference_dedup_against_rsrs_supertrend_bollinger_donchian",
+    "multiple_testing_accounting",
+    "no_portfolio_grid_before_ic_shape_residual_prescreen",
+    "china_regime_coverage_required"
+  ],
+  "promotion_policy": {
+    "portfolio_grid_allowed_before_residual_prescreen": false,
+    "promotion_allowed": false,
+    "requires_same_parameter_full_sample_replay": true,
+    "requires_long_cycle_replay": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true,
+    "requires_reference_dedup": true
+  }
+}

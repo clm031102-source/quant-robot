@@ -1,0 +1,186 @@
+{
+  "stage": "round243_new_accounting_quality_substructure_seed_after_cash_accrual_family_stop",
+  "family": "accounting_quality_new_substructure",
+  "market": "CN",
+  "asset_type": "stock",
+  "machine_role": "office_desktop_factor_validation",
+  "research_scope": "CN stock factor mining only; CN ETF rotation is a separate production target and must not be mixed into this candidate set.",
+  "source_reports": {
+    "round242_closeout": "docs/research/cn_stock_round242_accounting_quality_shard7_expansion_and_125_symbol_replay_2026-06-25.md",
+    "round243_slice_backfill": "data/processed/round243_financial_statement_shard7_offset5_limit5_20260625/financial_statement_shard_backfill.json",
+    "round243_slice_formula_smoke": "data/reports/round243_accounting_quality_statement_formula_smoke_shard7_offset5_limit5_20260625/accounting_quality_statement_formula_smoke.json",
+    "round243_130_symbol_formula_smoke": "data/reports/round243_accounting_quality_formula_smoke_130_symbol_20260625/accounting_quality_statement_formula_smoke.json",
+    "round243_130_symbol_matrix_label_smoke": "data/reports/round243_accounting_quality_matrix_label_smoke_130_symbol_20260625/accounting_quality_statement_matrix_label_smoke.json"
+  },
+  "data_readiness_snapshot": {
+    "statement_symbols": 130,
+    "statement_rows_before_dedup": 5709,
+    "statement_rows": 5707,
+    "source_roots": 56,
+    "source_files": 672,
+    "duplicate_key_rows_asset_end_ann_report_type": 2,
+    "matrix_factor_value_rows": 25383,
+    "matrix_label_aligned_rows": 50766,
+    "label_coverage": 1.0,
+    "alignment_violation_rows": 0,
+    "execution_lag": 1,
+    "horizons": [
+      5,
+      20
+    ]
+  },
+  "stopped_family": {
+    "name": "raw_and_repaired_cash_accrual_level_family",
+    "reason": "Zero research leads across 115, 120, and 125 symbol replays after raw and repaired variants.",
+    "round243_rerun_allowed": false,
+    "blocked_actions": [
+      "Do not rerun the five raw cash/accrual statement formulas as new Round243 evidence.",
+      "Do not tune the three repaired cash/accrual candidates without a new economic mechanism.",
+      "Do not convert formula coverage or data readiness into portfolio grids.",
+      "Do not touch final holdout while designing or tuning these candidates."
+    ]
+  },
+  "candidate_ideas": [
+    {
+      "factor_name": "aq_abnormal_accrual_change_reversal",
+      "substructure": "abnormal_accrual_change",
+      "hypothesis": "A sharp deterioration in accrual pressure relative to the firm's own trailing history and industry peers should predict reversal, especially when price has not fully reacted.",
+      "formula_sketch": "industry neutral residual of four-quarter change in accrual pressure versus the asset's trailing baseline; lower abnormal accrual pressure is better.",
+      "required_fields": [
+        "netprofit",
+        "n_cashflow_act",
+        "total_assets",
+        "ann_date",
+        "end_date"
+      ],
+      "why_different_from_stopped_family": "Uses abnormal change and residualization against history and industry, not the raw cash/accrual level ratio.",
+      "first_test": "PIT matrix-label smoke followed by residual IC shape prescreen with industry, size, liquidity, value, low-vol, and momentum controls."
+    },
+    {
+      "factor_name": "aq_profitability_revision_surprise",
+      "substructure": "profitability_revision_surprise",
+      "hypothesis": "Positive profitability revisions or unexpected acceleration after the true announcement date should drift if the market underreacts.",
+      "formula_sketch": "announcement-available change in profitability growth or margin proxy versus prior report expectation baseline.",
+      "required_fields": [
+        "netprofit",
+        "revenue_or_margin_proxy",
+        "ann_date",
+        "end_date"
+      ],
+      "coverage_risk": "Revenue or margin fields must be audited before implementation; do not fall back to report-period timing.",
+      "why_different_from_stopped_family": "Targets announcement surprise and revision timing instead of accrual quality level."
+    },
+    {
+      "factor_name": "aq_post_statement_announcement_drift",
+      "substructure": "event_window_post_announcement_drift",
+      "hypothesis": "Statements with improving cash conversion and muted event-window price reaction may continue drifting after announcement.",
+      "formula_sketch": "cash conversion improvement crossed with low announcement-window reaction, using first tradable signal date after ann_date.",
+      "required_fields": [
+        "n_cashflow_act",
+        "netprofit",
+        "total_assets",
+        "ann_date",
+        "event_window_return"
+      ],
+      "why_different_from_stopped_family": "Combines financial statement surprise with market underreaction, not standalone accounting ratios."
+    },
+    {
+      "factor_name": "aq_balance_sheet_stress_relief",
+      "substructure": "balance_sheet_stress_relief",
+      "hypothesis": "Balance-sheet stress falling while operating cash flow confirms earnings should identify improving solvency quality before broad repricing.",
+      "formula_sketch": "falling liability or current-liability stress conditioned on positive operating cash flow to earnings confirmation.",
+      "required_fields": [
+        "total_liab",
+        "total_cur_liab",
+        "total_assets",
+        "n_cashflow_act",
+        "netprofit",
+        "ann_date"
+      ],
+      "why_different_from_stopped_family": "Uses balance-sheet deleveraging and solvency relief rather than accrual-only levels."
+    },
+    {
+      "factor_name": "aq_industry_relative_margin_acceleration",
+      "substructure": "industry_relative_profitability_change",
+      "hypothesis": "Industry-relative improvement in profitability quality should matter more than absolute accounting quality in China's sector-driven market.",
+      "formula_sketch": "industry demeaned acceleration in profitability or cash conversion, residualized by size, liquidity, value, low-vol, and momentum.",
+      "required_fields": [
+        "industry",
+        "netprofit",
+        "n_cashflow_act",
+        "total_assets",
+        "ann_date"
+      ],
+      "why_different_from_stopped_family": "Starts from sector-relative change and style-neutral residuals, not standalone cross-sectional raw formulas."
+    }
+  ],
+  "mandatory_pre_mining_controls": {
+    "a_share_tradeability": [
+      "limit_up_down",
+      "suspension",
+      "ST_status",
+      "new_listing",
+      "delisting_risk",
+      "exchange_board_permission_filter"
+    ],
+    "financial_pit_timing": [
+      "announcement_date",
+      "revised_announcement",
+      "filing_lag",
+      "first_tradable_signal_after_ann_date",
+      "no_report_period_end_signal"
+    ],
+    "industry_style_neutralization": [
+      "industry",
+      "size",
+      "value",
+      "low_volatility",
+      "momentum",
+      "liquidity"
+    ],
+    "portfolio_construction": [
+      "risk_budget",
+      "volatility_target",
+      "industry_constraints",
+      "turnover_constraints",
+      "cost_capacity",
+      "drawdown_or_de_risk_rules"
+    ],
+    "strict_statistics": [
+      "deflated_sharpe",
+      "CPCV",
+      "white_reality_check",
+      "parameter_sensitivity_heatmap",
+      "overlap_adjusted_statistics",
+      "multiple_testing_log"
+    ],
+    "china_market_regime": [
+      "policy_easing_or_tightening",
+      "credit_cycle",
+      "northbound_flow",
+      "margin_financing_balance",
+      "turnover_temperature",
+      "index_location"
+    ],
+    "event_factor_context": [
+      "earnings_guidance",
+      "dividend_ex_right",
+      "buyback",
+      "shareholder_increase_decrease",
+      "lockup_expiry",
+      "index_rebalance"
+    ]
+  },
+  "promotion_policy": {
+    "data_readiness_only_is_not_alpha": true,
+    "requires_long_cycle_full_sample": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity": true,
+    "requires_regime_coverage": true,
+    "requires_industry_style_neutral_metrics": true,
+    "requires_multiple_testing_adjustment": true,
+    "manual_live_or_paper_ready_candidates": 0
+  },
+  "next_direction": "round244_implement_one_or_more_new_accounting_quality_substructure_formulas_before_ic_prescreen",
+  "safety": "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+}

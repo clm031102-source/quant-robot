@@ -114,6 +114,40 @@ class BacktestTests(unittest.TestCase):
         self.assertAlmostEqual(float(result.trades["target_weight"].sum()), 1.0)
         self.assertAlmostEqual(result.metrics["turnover"], 1.0)
 
+    def test_backtest_can_select_industry_neutral_top_n(self):
+        factors = pd.DataFrame(
+            {
+                "date": [pd.Timestamp("2024-01-01").date()] * 4,
+                "asset_id": ["TECH_A", "TECH_B", "BANK_A", "BANK_B"],
+                "market": ["CN"] * 4,
+                "factor_name": ["formula"] * 4,
+                "factor_value": [100.0, 99.0, 2.0, 1.0],
+                "industry": ["Tech", "Tech", "Bank", "Bank"],
+            }
+        )
+        bars = pd.DataFrame(
+            {
+                "date": list(pd.date_range("2024-01-01", periods=3).date) * 4,
+                "asset_id": ["TECH_A"] * 3 + ["TECH_B"] * 3 + ["BANK_A"] * 3 + ["BANK_B"] * 3,
+                "market": ["CN"] * 12,
+                "adj_close": [10.0, 10.0, 11.0, 10.0, 10.0, 12.0, 10.0, 10.0, 13.0, 10.0, 10.0, 14.0],
+            }
+        )
+
+        raw = run_factor_backtest(factors, bars, top_n=2, cost_bps=0.0)
+        neutral = run_factor_backtest(
+            factors,
+            bars,
+            top_n=2,
+            cost_bps=0.0,
+            selection_method="industry_neutral_top_n",
+        )
+
+        self.assertEqual(set(raw.trades["asset_id"]), {"TECH_A", "TECH_B"})
+        self.assertEqual(set(neutral.trades["asset_id"]), {"TECH_A", "BANK_A"})
+        self.assertEqual(set(neutral.positions["industry"]), {"Tech", "Bank"})
+        self.assertAlmostEqual(float(neutral.trades["target_weight"].sum()), 1.0)
+
     def test_backtest_holding_period_controls_exit_date(self):
         factors = pd.DataFrame(
             {
@@ -283,6 +317,175 @@ class BacktestTests(unittest.TestCase):
         self.assertGreater(trade["cost_rate"], round_trip_cost(5.0))
         self.assertEqual(result.metrics["capacity_limited_trades"], 1)
         self.assertGreater(result.metrics["max_participation_rate"], 0.10)
+
+    def test_backtest_filters_low_signal_amount_before_top_n_selection(self):
+        factors = pd.DataFrame(
+            {
+                "date": [pd.Timestamp("2024-01-01").date()] * 2,
+                "asset_id": ["ILLQ", "LIQ"],
+                "market": ["CN", "CN"],
+                "factor_name": ["turnover_rate_low", "turnover_rate_low"],
+                "factor_value": [10.0, 9.0],
+            }
+        )
+        bars = pd.DataFrame(
+            {
+                "date": list(pd.date_range("2024-01-01", periods=3).date) * 2,
+                "asset_id": ["ILLQ"] * 3 + ["LIQ"] * 3,
+                "market": ["CN"] * 6,
+                "adj_close": [10.0, 10.0, 11.0, 20.0, 20.0, 22.0],
+                "amount": [1_000.0, 1_000.0, 1_000.0, 50_000_000.0, 50_000_000.0, 50_000_000.0],
+            }
+        )
+
+        result = run_factor_backtest(
+            factors,
+            bars,
+            top_n=1,
+            cost_bps=0.0,
+            min_signal_amount=10_000_000.0,
+        )
+
+        self.assertEqual(set(result.trades["asset_id"]), {"LIQ"})
+        self.assertEqual(result.metrics["signals_filtered_min_signal_amount"], 1)
+        self.assertEqual(result.metrics["signal_amount_filter_threshold"], 10_000_000.0)
+
+    def test_backtest_applies_entry_mask_and_delays_untradeable_exit_when_present(self):
+        factors = pd.DataFrame(
+            {
+                "date": [pd.Timestamp("2024-01-01").date()] * 3,
+                "asset_id": ["ENTRY_BLOCKED", "EXIT_BLOCKED", "TRADEABLE"],
+                "market": ["CN", "CN", "CN"],
+                "factor_name": ["masked_factor", "masked_factor", "masked_factor"],
+                "factor_value": [30.0, 20.0, 10.0],
+            }
+        )
+        bars = pd.DataFrame(
+            {
+                "date": list(pd.date_range("2024-01-01", periods=4).date) * 3,
+                "asset_id": ["ENTRY_BLOCKED"] * 4 + ["EXIT_BLOCKED"] * 4 + ["TRADEABLE"] * 4,
+                "market": ["CN"] * 12,
+                "adj_close": [10.0, 10.0, 11.0, 12.0, 20.0, 20.0, 21.0, 22.0, 30.0, 30.0, 33.0, 34.0],
+                "entry_tradeable": [True, False, True, True, True, True, True, True, True, True, True, True],
+                "exit_tradeable": [True, True, True, True, True, True, False, True, True, True, True, True],
+            }
+        )
+
+        result = run_factor_backtest(factors, bars, top_n=3, cost_bps=0.0)
+
+        self.assertEqual(set(result.trades["asset_id"]), {"EXIT_BLOCKED", "TRADEABLE"})
+        delayed = result.trades[result.trades["asset_id"] == "EXIT_BLOCKED"].iloc[0]
+        self.assertEqual(delayed["exit_date"], pd.Timestamp("2024-01-04").date())
+        self.assertEqual(result.metrics["trades_filtered_entry_tradeability"], 1)
+        self.assertEqual(result.metrics["trades_filtered_exit_tradeability"], 0)
+        self.assertEqual(result.metrics["trades_delayed_exit_tradeability"], 1)
+        self.assertEqual(result.metrics["tradeability_filtered_trades"], 1)
+
+    def test_backtest_does_not_delay_exit_beyond_calendar_holding_cap(self):
+        dates = list(pd.bdate_range("2025-01-02", periods=30).date)
+        factors = pd.DataFrame(
+            {
+                "date": [dates[0]],
+                "asset_id": ["A"],
+                "market": ["CN"],
+                "factor_name": ["masked_exit"],
+                "factor_value": [1.0],
+            }
+        )
+        bars = pd.DataFrame(
+            {
+                "date": dates,
+                "asset_id": ["A"] * len(dates),
+                "market": ["CN"] * len(dates),
+                "adj_close": [10.0 + i * 0.1 for i in range(len(dates))],
+                "entry_tradeable": [True] * len(dates),
+                "exit_tradeable": [True, True, False, False, False, False, False, False, False, False, True]
+                + [True] * (len(dates) - 11),
+            }
+        )
+
+        result = run_factor_backtest(
+            factors,
+            bars,
+            top_n=1,
+            cost_bps=0.0,
+            execution_lag=1,
+            holding_period=2,
+            max_calendar_holding_days=5,
+        )
+
+        self.assertEqual(len(result.trades), 0)
+        self.assertEqual(result.metrics["trades_filtered_exit_tradeability"], 1)
+        self.assertEqual(result.metrics["trades_delayed_exit_tradeability"], 0)
+        self.assertEqual(result.metrics["max_tradeability_exit_delay_days"], 0)
+        self.assertEqual(result.metrics["calendar_limited_trades"], 0)
+
+    def test_backtest_skips_trades_when_calendar_holding_exceeds_gate(self):
+        factors = pd.DataFrame(
+            {
+                "date": [pd.Timestamp("2024-01-01").date()],
+                "asset_id": ["SUSP"],
+                "market": ["CN"],
+                "factor_name": ["turnover_rate_low"],
+                "factor_value": [1.0],
+            }
+        )
+        bars = pd.DataFrame(
+            {
+                "date": [
+                    pd.Timestamp("2024-01-01").date(),
+                    pd.Timestamp("2024-01-02").date(),
+                    pd.Timestamp("2024-01-03").date(),
+                    pd.Timestamp("2024-05-01").date(),
+                ],
+                "asset_id": ["SUSP"] * 4,
+                "market": ["CN"] * 4,
+                "adj_close": [10.0, 10.0, 10.5, 11.0],
+                "amount": [100_000_000.0] * 4,
+            }
+        )
+
+        ungated = run_factor_backtest(factors, bars, top_n=1, cost_bps=0.0, holding_period=2)
+        gated = run_factor_backtest(
+            factors,
+            bars,
+            top_n=1,
+            cost_bps=0.0,
+            holding_period=2,
+            max_calendar_holding_days=30,
+        )
+
+        self.assertEqual(len(ungated.trades), 1)
+        self.assertGreater(ungated.metrics["max_calendar_holding_days"], 30)
+        self.assertTrue(gated.trades.empty)
+        self.assertEqual(gated.metrics["calendar_limited_trades"], 1)
+        self.assertEqual(gated.metrics["max_calendar_holding_days"], 0)
+
+    def test_backtest_flags_extreme_single_trade_returns(self):
+        factors = pd.DataFrame(
+            {
+                "date": [pd.Timestamp("2024-01-01").date()],
+                "asset_id": ["A"],
+                "market": ["US"],
+                "factor_name": ["momentum_1"],
+                "factor_value": [1.0],
+            }
+        )
+        bars = pd.DataFrame(
+            {
+                "date": pd.date_range("2024-01-01", periods=3).date,
+                "asset_id": ["A"] * 3,
+                "market": ["US"] * 3,
+                "adj_close": [100.0, 100.0, 700.0],
+            }
+        )
+
+        result = run_factor_backtest(factors, bars, top_n=1, cost_bps=0.0)
+
+        self.assertAlmostEqual(result.metrics["max_trade_gross_return"], 6.0)
+        self.assertAlmostEqual(result.metrics["max_abs_trade_gross_return"], 6.0)
+        self.assertAlmostEqual(result.metrics["p99_abs_trade_gross_return"], 6.0)
+        self.assertTrue(result.metrics["extreme_trade_return_flag"])
 
 
 if __name__ == "__main__":

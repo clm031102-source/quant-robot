@@ -1,0 +1,42 @@
+{
+  "family": "information_discreteness_path_quality",
+  "next_direction": "round221_information_discreteness_residual_prescreen",
+  "mechanism": "Frog-in-the-pan inspired information discreteness: gradual, path-consistent price changes may be underreacted to, while discrete jump-driven moves are more visible and more likely to reverse. Candidates must test path quality after removing plain momentum/reversal, industry, size, liquidity, volatility, and public technical reference exposure.",
+  "candidate_ideas": [
+    "fip_smooth_momentum_quality_60_20",
+    "fip_smooth_momentum_skip5_60",
+    "fip_continuous_accumulation_low_jump_20_60",
+    "fip_discrete_jump_reversal_20_5",
+    "fip_smooth_pullback_resilience_60_20",
+    "fip_volume_confirmed_smooth_trend_20_60"
+  ],
+  "mandatory_controls": [
+    "public_source_fip_information_discreteness_registered",
+    "not_plain_momentum_or_reversal_rank",
+    "path_smoothness_jump_share_definitions_frozen_before_ic",
+    "no_same_day_forward_label_leakage",
+    "tradeability_mask_required",
+    "momentum_reversal_lowvol_liquidity_reference_dedup",
+    "industry_style_residual_evaluation",
+    "capacity_safe_universe_and_adv_participation",
+    "multiple_testing_accounting",
+    "no_portfolio_grid_before_residual_ic_shape_prescreen",
+    "china_regime_coverage_required"
+  ],
+  "blocked_before_prescreen": [
+    "plain_60_day_momentum_rank",
+    "plain_20_day_reversal_rank",
+    "jump_share_parameter_tuning_after_ic_read",
+    "portfolio_grid_before_residual_ic_shape",
+    "same_day_close_to_close_execution_without_lag"
+  ],
+  "promotion_policy": {
+    "portfolio_grid_allowed_before_residual_prescreen": false,
+    "promotion_allowed": false,
+    "requires_long_cycle_replay": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true,
+    "requires_multiple_testing_control": true
+  }
+}

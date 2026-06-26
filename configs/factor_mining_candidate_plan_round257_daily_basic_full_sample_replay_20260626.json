@@ -1,0 +1,252 @@
+{
+  "stage": "round257_daily_basic_full_sample_replay_preregistration",
+  "source_audit": "docs/research/cn_stock_round256_forecast_guidance_uncertainty_pit_prescreen_2026-06-26.md",
+  "round": 257,
+  "research_control_plan": {
+    "declared_controls": {
+      "cn_stock_tradeability": [
+        "limit_up_down_filter",
+        "suspension_filter",
+        "st_flag_filter",
+        "new_listing_age_filter",
+        "delisting_risk_filter",
+        "board_permission_filter"
+      ],
+      "financial_pit_timing": [
+        "ann_date_or_effective_date_lag",
+        "financial_revision_announcement_handling",
+        "report_release_lag_not_period_end",
+        "no_period_end_only_financial_signal"
+      ],
+      "industry_style_neutralization": [
+        "industry_exposure_report",
+        "size_exposure_report",
+        "value_lowvol_momentum_liquidity_decomposition",
+        "neutralized_or_residual_factor_matrix"
+      ],
+      "etf_rotation_scope_boundary": [
+        "stock_scope_confirmed",
+        "etf_rotation_evidence_rejected_for_stock_factor",
+        "cn_etf_dedicated_signal_pack_separate"
+      ],
+      "portfolio_construction": [
+        "risk_budget_position_sizing",
+        "volatility_targeting_or_volatility_budget",
+        "industry_weight_constraints",
+        "turnover_constraints",
+        "stop_loss_or_de_risk_rules"
+      ],
+      "strict_statistics": [
+        "deflated_sharpe",
+        "purged_cpcv",
+        "white_reality_check_or_fdr",
+        "parameter_sensitivity_heatmap",
+        "multiple_testing_accounting"
+      ],
+      "china_market_regime": [
+        "policy_liquidity_regime",
+        "credit_cycle_proxy",
+        "northbound_margin_turnover_temperature",
+        "index_location_state",
+        "signal_window_regime_coverage"
+      ],
+      "event_factors": [
+        "earnings_forecast_or_statement_event_audit",
+        "dividend_ex_right_event_audit",
+        "buyback_holder_unlock_event_audit",
+        "index_rebalance_event_audit",
+        "event_contamination_extreme_return_audit"
+      ]
+    },
+    "policy": "Round257 may only replay the frozen Round131/Round132 daily-basic non-price public carry candidate parameters across the 2015-2025 long cycle. This is a same-parameter audit, not parameter expansion, portfolio-grid permission, or promotion permission."
+  },
+  "evaluation_gate": {
+    "required_metrics": [
+      "same_parameter_full_sample_replay",
+      "daily_basic_field_coverage_clean_ratio",
+      "capacity_clean_ratio",
+      "fdr_multiple_testing",
+      "yearly_ic_stability",
+      "quantile_monotonicity",
+      "industry_style_exposure_followup_if_lead"
+    ],
+    "multiple_testing_accounting_required": true,
+    "final_holdout_available_for_tuning": false
+  },
+  "promotion_policy": {
+    "promotion_allowed": false,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "requires_long_cycle_replay": true,
+    "requires_same_parameter_full_sample": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true,
+    "requires_no_lookahead_audit": true,
+    "requires_overfit_multiple_testing_control": true,
+    "requires_overlap_adjusted_statistics": true,
+    "requires_parameter_sensitivity": true,
+    "requires_final_holdout_read_once": true,
+    "requires_tradeability_survivorship_audit": true,
+    "requires_industry_style_neutralization": true,
+    "requires_source_performance_evidence": true
+  },
+  "family_rotation_policy": {
+    "current_family_id": "daily_basic_non_price_public_carry_full_sample_replay",
+    "current_family_round_count": 1,
+    "max_rounds_before_review": 3,
+    "three_round_review_completed": true,
+    "hibernated_families": [
+      {
+        "family": "old_event_forecast_profit_revision_1q_after_round254_low_power_failure",
+        "reason": "Round254 old forecast revision formula was low power."
+      },
+      {
+        "family": "standalone_forecast_express_event_surprise_after_round255_zero_leads",
+        "reason": "Round255 standalone express surprise produced zero research leads."
+      },
+      {
+        "family": "forecast_guidance_uncertainty_after_round256_zero_research_leads",
+        "reason": "Round256 guidance uncertainty produced zero research leads."
+      },
+      {
+        "family": "event_contextual_underreaction_raw_event_context_blends_after_round250_residual_failure",
+        "reason": "Round250 residual audit found zero pass."
+      },
+      {
+        "family": "public_reference_multi_family_direct_grid_after_round252_zero_leads",
+        "reason": "Round252 public reference direct replay produced zero research leads."
+      },
+      {
+        "family": "main_force_divergence_direct_grid_after_round252_low_icir_quantile_failure",
+        "reason": "Round252 main-force direct replay failed ICIR and quantile shape."
+      }
+    ],
+    "blocked_families": []
+  },
+  "replay_policy": {
+    "frozen_source_rounds": [
+      "round131_daily_basic_non_price_public_carry_preregistration",
+      "round132_daily_basic_non_price_public_carry_prescreen"
+    ],
+    "analysis_start_date": "2015-01-01",
+    "analysis_end_date": "2025-12-31",
+    "final_holdout_start": "2026-01-01",
+    "final_holdout_use": "excluded_from_tuning_and_replay",
+    "parameter_expansion_allowed": false,
+    "direction_flip_allowed": false,
+    "same_family_new_grid_allowed": false,
+    "portfolio_backtest_allowed_before_prescreen": false
+  },
+  "candidates": [
+    {
+      "factor_name": "daily_basic_dividend_value_stability_carry_20",
+      "family": "dividend_value_carry",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "public_reference:dividend_yield:fama_french_value:alphalens",
+      "economic_rationale": "Dividend yield and inexpensive valuation are public carry/value ideas; valuation stability is frozen from the prior preregistration before measurement.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "daily_basic_value_yield_size_neutral_20",
+      "family": "dividend_value_carry",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "public_reference:fama_french_value:quality_value:alphalens",
+      "economic_rationale": "Value/yield is replayed with the original size-neutral carry template to test whether the signal survives beyond a size proxy.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "daily_basic_valuation_reversion_quality_60",
+      "family": "valuation_stability",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "public_reference:value_reversion:fama_french_value:alphalens",
+      "economic_rationale": "Rolling valuation mean reversion is a slow public value hypothesis replayed unchanged across the long cycle.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "daily_basic_valuation_dispersion_compression_60",
+      "family": "valuation_stability",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "public_reference:value_reversion:robust_value:alphalens",
+      "economic_rationale": "Valuation normalization is replayed unchanged to test whether non-extreme valuation compression carries stable cross-sectional information.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "daily_basic_free_float_supply_quality_20",
+      "family": "share_structure_quality",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "public_reference:share_structure:quality_value:alphalens",
+      "economic_rationale": "Share-structure quality plus value is replayed as a supply-side public hypothesis, not as a new float-structure parameter search.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "daily_basic_float_structure_value_blend_20",
+      "family": "share_structure_quality",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "public_reference:share_structure:dividend_yield:pyfolio",
+      "economic_rationale": "Float availability with value/yield is replayed unchanged to check whether implementability improves outside the short sample.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "daily_basic_volume_ratio_crowding_reversal_20",
+      "family": "crowding_balance",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "public_reference:crowding:contrarian_value:alphalens",
+      "economic_rationale": "Volume-ratio crowding reversal is replayed as a valuation-backed anti-crowding hypothesis using frozen daily-basic fields.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "daily_basic_crowding_value_yield_balance_20",
+      "family": "crowding_balance",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "public_reference:crowding:robust_value:alphalens",
+      "economic_rationale": "The original balanced crowding/value/yield template is replayed unchanged to avoid single-indicator crowding sweeps.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "daily_basic_midcap_value_yield_capacity_20",
+      "family": "capacity_aware_value",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "public_reference:fama_french_value:capacity_aware_value:pyfolio",
+      "economic_rationale": "Mid-cap value/yield is replayed unchanged to test a capacity-aware value thesis without turning into a large-cap repair grid.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "daily_basic_size_quality_value_stability_60",
+      "family": "capacity_aware_value",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "public_reference:quality_value:robust_value:pyfolio",
+      "economic_rationale": "Capacity-aware value with valuation stability is replayed unchanged to check whether stable valuation and implementability survive a full-cycle audit.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    }
+  ]
+}

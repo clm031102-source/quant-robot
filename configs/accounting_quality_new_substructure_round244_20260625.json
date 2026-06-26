@@ -1,0 +1,70 @@
+{
+  "stage": "round244_accounting_quality_new_substructure_implementation_and_prescreen",
+  "market": "CN",
+  "asset_type": "stock",
+  "family": "accounting_quality_new_substructure",
+  "source_seed": "configs/accounting_quality_new_substructure_seed_round243_20260625.json",
+  "implemented_factors": [
+    {
+      "factor_name": "aq_abnormal_accrual_change_reversal",
+      "formula": "-delta_4q((netprofit - n_cashflow_act) / total_assets)",
+      "economic_direction": "abnormal_accrual_pressure_falling_better",
+      "status": "implemented_prescreened_not_promoted"
+    },
+    {
+      "factor_name": "aq_balance_sheet_stress_relief",
+      "formula": "-delta_4q(0.5 * total_liab / total_assets + 0.5 * total_cur_liab / total_assets) + (n_cashflow_act - netprofit) / total_assets",
+      "economic_direction": "liability_stress_falling_with_cash_confirmation_better",
+      "status": "implemented_prescreened_not_promoted"
+    }
+  ],
+  "reports": {
+    "formula_smoke": "data/reports/round244_accounting_quality_new_substructure_formula_smoke_130_symbol_20260625/accounting_quality_statement_formula_smoke.json",
+    "matrix_label_smoke": "data/reports/round244_accounting_quality_new_substructure_matrix_label_smoke_130_symbol_20260625/accounting_quality_statement_matrix_label_smoke.json",
+    "new_substructure_residual_ic": "data/reports/round244_accounting_quality_new_substructure_residual_ic_prescreen_130_symbol_20260625/accounting_quality_statement_residual_ic_shape_prescreen.json",
+    "research_report": "docs/research/cn_stock_round244_accounting_quality_new_substructure_implementation_and_prescreen_2026-06-25.md",
+    "three_round_review": "docs/research/cn_stock_round242_244_three_round_review_2026-06-25.md"
+  },
+  "data_readiness": {
+    "statement_symbols": 130,
+    "formula_count": 7,
+    "formulas_with_values": 7,
+    "matrix_factor_count": 7,
+    "matrix_factor_value_rows": 34903,
+    "matrix_label_aligned_rows": 69806,
+    "alignment_violation_rows": 0
+  },
+  "new_substructure_prescreen": {
+    "candidate_count": 2,
+    "test_count": 4,
+    "factor_rows": 9520,
+    "aligned_rows": 19040,
+    "fdr_significant_tests": 0,
+    "neutral_gate_pass_tests": 0,
+    "research_leads": 0,
+    "promotion_allowed_candidates": 0,
+    "best_unadjusted_abs_ic": {
+      "factor_name": "aq_abnormal_accrual_change_reversal",
+      "horizon": 5,
+      "mean_spearman_ic": -0.05050669195731413,
+      "ic_t_stat": -2.291733111726911,
+      "ic_p_value": 0.02192104849367747,
+      "fdr_significant": false,
+      "interpretation": "directional audit only; not a lead because FDR, ICIR, positive-rate, quantile, and neutral gates failed"
+    },
+    "next_direction": "round245_accounting_quality_new_substructure_directional_audit_or_family_rotation"
+  },
+  "blocked_actions": [
+    "Do not promote either Round244 new substructure factor.",
+    "Do not run portfolio grids from these prescreen results.",
+    "Do not invert aq_abnormal_accrual_change_reversal and claim discovery without preregistering the directional audit and charging it as an additional hypothesis test.",
+    "Do not touch final holdout.",
+    "Do not mix old raw/repaired cash-accrual factors into the Round244 new-substructure IC conclusion."
+  ],
+  "allowed_next_actions": [
+    "Run a preregistered Round245 directional audit for the abnormal accrual change sign only if it is counted as a new hypothesis family test.",
+    "Implement another Round243 seed substructure, preferably post-statement announcement drift or profitability revision surprise, before any portfolio conversion.",
+    "Keep A-share tradeability, PIT timing, industry/style neutralization, cost/capacity, regime, and multiple-testing gates mandatory."
+  ],
+  "safety": "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+}

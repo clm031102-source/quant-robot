@@ -24,6 +24,7 @@ class DailyOpsCliTests(unittest.TestCase):
                             "market": "CN_ETF",
                             "factor_name": "liquidity_10",
                             "rank": 1,
+                            "promotion_status": "paper_ready",
                         }
                     }
                 ),
@@ -89,7 +90,7 @@ class DailyOpsCliTests(unittest.TestCase):
             simulation = root / "paper_simulation.json"
             output_dir = root / "daily_ops"
             promotion.write_text(
-                json.dumps({"selected_candidate": {"case_id": "case_a", "market": "CN_ETF", "factor_name": "liquidity_10"}}),
+                json.dumps({"selected_candidate": {"case_id": "case_a", "market": "CN_ETF", "factor_name": "liquidity_10", "promotion_status": "paper_ready"}}),
                 encoding="utf-8",
             )
             readiness.write_text(
@@ -140,6 +141,7 @@ class DailyOpsCliTests(unittest.TestCase):
                             "market": "CN_ETF",
                             "factor_name": "liquidity_10",
                             "rank": 1,
+                            "promotion_status": "paper_ready",
                         }
                     }
                 ),
@@ -232,6 +234,7 @@ class DailyOpsCliTests(unittest.TestCase):
                             "case_id": "CN_ETF_liquidity_10_top1_cost5_reb5",
                             "market": "CN_ETF",
                             "factor_name": "liquidity_10",
+                            "promotion_status": "paper_ready",
                         }
                     }
                 ),

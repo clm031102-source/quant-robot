@@ -76,21 +76,35 @@ def regime_allowed_dates(
 def decision_summary(
     strategy_metrics: dict[str, Any],
     benchmark_metrics: dict[str, Any],
+    min_total_return: float | None = None,
     min_relative_return: float | None = None,
     max_drawdown_limit: float | None = None,
 ) -> dict[str, Any]:
     reasons: list[str] = []
+    total_return = _number(strategy_metrics.get("total_return"))
     relative_return = _number(benchmark_metrics.get("relative_return"))
     max_dd = _number(strategy_metrics.get("max_drawdown"))
+    capacity_limited_trades = int(_number(strategy_metrics.get("capacity_limited_trades")))
+    calendar_limited_trades = int(_number(strategy_metrics.get("calendar_limited_trades")))
+    if min_total_return is not None and total_return < float(min_total_return):
+        reasons.append("total_return_below_threshold")
     if min_relative_return is not None and relative_return < float(min_relative_return):
         reasons.append("relative_return_below_threshold")
     if max_drawdown_limit is not None and max_dd < -abs(float(max_drawdown_limit)):
         reasons.append("drawdown_above_limit")
+    if capacity_limited_trades > 0:
+        reasons.append("capacity_limited_trades_present")
+    if calendar_limited_trades > 0:
+        reasons.append("calendar_limited_trades_present")
     return {
         "decision_status": "approved" if not reasons else "rejected",
         "rejection_reasons": reasons,
+        "total_return": total_return,
         "relative_return": relative_return,
         "max_drawdown": max_dd,
+        "capacity_limited_trades": capacity_limited_trades,
+        "calendar_limited_trades": calendar_limited_trades,
+        "min_total_return": min_total_return,
         "min_relative_return": min_relative_return,
         "max_drawdown_limit": max_drawdown_limit,
     }

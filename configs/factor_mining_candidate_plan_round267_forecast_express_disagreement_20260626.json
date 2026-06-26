@@ -1,0 +1,215 @@
+{
+  "stage": "round267_forecast_express_disagreement_preregistration",
+  "source_audit": "docs/research/cn_stock_round266_direction_optimization_gate_2026-06-26.md",
+  "source_data_evidence": "docs/research/cn_stock_round255_forecast_express_event_cache_pit_prescreen_2026-06-25.md",
+  "round": 267,
+  "market": "CN",
+  "asset_type": "stock",
+  "research_control_plan": {
+    "declared_controls": {
+      "cn_stock_tradeability": [
+        "limit_up_down_filter",
+        "suspension_filter",
+        "st_flag_filter",
+        "new_listing_age_filter",
+        "delisting_risk_filter",
+        "board_permission_filter"
+      ],
+      "financial_pit_timing": [
+        "ann_date_or_effective_date_lag",
+        "financial_revision_announcement_handling",
+        "report_release_lag_not_period_end",
+        "no_period_end_only_financial_signal"
+      ],
+      "source_sample_integrity": [
+        "endpoint_permission_or_cache_manifest",
+        "point_in_time_available_date_semantics",
+        "full_sample_2015_2025_same_parameter_replay",
+        "train_test_or_walk_forward_split_declared",
+        "future_function_static_audit",
+        "rejected_hypothesis_counting"
+      ],
+      "industry_style_neutralization": [
+        "industry_exposure_report",
+        "size_exposure_report",
+        "value_lowvol_momentum_liquidity_decomposition",
+        "neutralized_or_residual_factor_matrix"
+      ],
+      "etf_rotation_scope_boundary": [
+        "stock_scope_confirmed",
+        "etf_rotation_evidence_rejected_for_stock_factor",
+        "cn_etf_dedicated_signal_pack_separate"
+      ],
+      "portfolio_construction": [
+        "risk_budget_position_sizing",
+        "volatility_targeting_or_volatility_budget",
+        "industry_weight_constraints",
+        "turnover_constraints",
+        "stop_loss_or_de_risk_rules"
+      ],
+      "strict_statistics": [
+        "deflated_sharpe",
+        "purged_cpcv",
+        "white_reality_check_or_fdr",
+        "parameter_sensitivity_heatmap",
+        "multiple_testing_accounting"
+      ],
+      "china_market_regime": [
+        "policy_liquidity_regime",
+        "credit_cycle_proxy",
+        "northbound_margin_turnover_temperature",
+        "index_location_state",
+        "signal_window_regime_coverage"
+      ],
+      "event_factors": [
+        "earnings_forecast_or_statement_event_audit",
+        "dividend_ex_right_event_audit",
+        "buyback_holder_unlock_event_audit",
+        "index_rebalance_event_audit",
+        "event_contamination_extreme_return_audit"
+      ]
+    },
+    "policy": "Round267 may only pre-register the forecast/express disagreement event family after the Round266 direction gate. This is a source-proven, PIT event hypothesis plan, not portfolio-grid permission, promotion permission, or old standalone forecast/express re-entry."
+  },
+  "data_source_proof": {
+    "event_cache_root": "data/processed/round255_forecast_express_event_cache_20260625",
+    "forecast_rows": 78573,
+    "forecast_assets": 5728,
+    "forecast_date_range": "2015-01-01..2025-12-31",
+    "express_rows": 20304,
+    "express_assets": 4280,
+    "express_date_range": "2015-01-06..2025-10-22",
+    "available_date_rule": "use max(forecast_ann_date, express_ann_date), then shift to next tradable signal date with pit_lag_trade_days=1 and execution_lag=1",
+    "same_day_event_trading_allowed": false,
+    "final_holdout_available_for_tuning": false
+  },
+  "evaluation_gate": {
+    "required_metrics": [
+      "same_parameter_full_sample_replay",
+      "point_in_time_available_date_alignment",
+      "future_function_static_audit",
+      "industry_neutral_ic",
+      "size_liquidity_neutral_ic",
+      "style_residual_ic",
+      "yearly_ic_stability",
+      "2015_regime_contribution_breakout",
+      "quantile_monotonicity",
+      "top_quantile_turnover",
+      "profit_drawdown_winrate_report_if_residual_lead_exists",
+      "deflated_sharpe_or_fdr",
+      "cpcv_or_purged_walk_forward_preflight",
+      "white_reality_check_or_multiple_test_adjustment",
+      "parameter_sensitivity_heatmap"
+    ],
+    "multiple_testing_accounting_required": true,
+    "final_holdout_available_for_tuning": false
+  },
+  "promotion_policy": {
+    "promotion_allowed": false,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "requires_data_source_availability_proof": true,
+    "requires_long_cycle_replay": true,
+    "requires_same_parameter_full_sample": true,
+    "requires_full_sample_regime_coverage": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true,
+    "requires_no_lookahead_audit": true,
+    "requires_future_function_static_audit": true,
+    "requires_overfit_multiple_testing_control": true,
+    "requires_overlap_adjusted_statistics": true,
+    "requires_parameter_sensitivity": true,
+    "requires_parameter_sensitivity_heatmap": true,
+    "requires_deflated_sharpe_or_fdr": true,
+    "requires_cpcv_or_purged_walk_forward": true,
+    "requires_white_reality_check_or_multiple_test_adjustment": true,
+    "requires_profit_drawdown_winrate_report": true,
+    "requires_final_holdout_read_once": true,
+    "requires_tradeability_survivorship_audit": true,
+    "requires_industry_style_neutralization": true,
+    "requires_source_performance_evidence": true
+  },
+  "family_rotation_policy": {
+    "current_family_id": "forecast_express_disagreement_event",
+    "current_family_round_count": 1,
+    "max_rounds_before_review": 3,
+    "three_round_review_completed": true,
+    "hibernated_families": [
+      {
+        "family": "standalone_forecast_express_event_surprise_after_round255_zero_leads",
+        "reason": "Round255 standalone express surprise produced zero research leads and cannot be sign-flipped or rerun as raw TopN."
+      },
+      {
+        "family": "forecast_guidance_uncertainty_after_round256_zero_research_leads",
+        "reason": "Round256 forecast-guidance uncertainty produced zero research leads."
+      },
+      {
+        "family": "public_tradeable_indicator_composite_after_round265_zero_residual_leads",
+        "reason": "Round265 public technical composite failed full-sample residual screening."
+      },
+      {
+        "family": "daily_basic_direct_carry_value_after_round257_zero_strict_research_leads",
+        "reason": "Round257 daily-basic replay produced no strict promotable research lead."
+      },
+      {
+        "family": "low_turnover_repair_after_round126_and_round263_rejection",
+        "reason": "High raw returns were blocked by drawdown, overlap Sharpe, extreme-trade, capacity, and recovery-audit gates."
+      }
+    ],
+    "blocked_families": []
+  },
+  "screening_policy": {
+    "analysis_start_date": "2015-01-01",
+    "analysis_end_date": "2025-12-31",
+    "horizons": [
+      5,
+      20
+    ],
+    "pit_lag_trade_days": 1,
+    "execution_lag": 1,
+    "min_cross_section": 30,
+    "min_ic_observations": 8,
+    "min_industries": 2,
+    "min_assets_per_industry": 2,
+    "max_active_tests_before_fdr": 6,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "promotion_allowed": false
+  },
+  "candidates": [
+    {
+      "factor_name": "event_forecast_express_disagreement_1q",
+      "family": "forecast_express_disagreement_event",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "tushare_forecast_express_cache_round255:forecast_vs_express_disagreement",
+      "economic_rationale": "When earnings express information diverges from earlier management forecast ranges, the market may underreact to the correction in expectation. The signal uses only the later available event date and is distinct from the rejected standalone express surprise level.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "event_forecast_express_disagreement_industry_relative_1q",
+      "family": "forecast_express_disagreement_event",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "tushare_forecast_express_cache_round255:industry_relative_forecast_vs_express_disagreement",
+      "economic_rationale": "Round255 showed express information is polluted by industry and size exposure. This candidate tests only within-industry relative disagreement before any portfolio conversion.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "event_forecast_express_stale_forecast_correction_1q",
+      "family": "forecast_express_disagreement_event",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "tushare_forecast_express_cache_round255:stale_forecast_correction",
+      "economic_rationale": "A larger gap between stale forecast guidance and later express information may represent a stronger expectation update, but it must survive PIT timing, industry/style residualization, and yearly stability.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    }
+  ],
+  "next_gate_if_cleared": "round268_forecast_express_disagreement_pit_factor_implementation_and_full_sample_prescreen",
+  "safety": "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+}

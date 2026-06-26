@@ -1,0 +1,141 @@
+{
+  "round": 247,
+  "date": "2026-06-25",
+  "machine": "office_desktop",
+  "task": "factor_validation",
+  "branch": "codex/factor-validation-cn-stock-long-cycle-20260618",
+  "family": "accounting_quality_statement_profitability_revision",
+  "status": "tested_rejected",
+  "report": "data/reports/round247_accounting_quality_statement_profitability_revision_residual_ic_130_symbol_20260625/accounting_quality_statement_residual_ic_shape_prescreen.json",
+  "result_csv": "data/reports/round247_accounting_quality_statement_profitability_revision_residual_ic_130_symbol_20260625/accounting_quality_statement_residual_ic_results.csv",
+  "source": {
+    "statement_root_count": 56,
+    "bars_roots": [
+      "data/processed/cn_stock_long_history_2015_202306",
+      "data/processed/office_desktop_20260616_combined_research"
+    ],
+    "daily_basic_roots": [
+      "data/processed/cn_stock_long_history_2015_202306",
+      "data/processed/office_desktop_20260617_daily_basic_factor_inputs"
+    ],
+    "stock_basic_path": "data/processed/cn_stock_metadata"
+  },
+  "candidates": [
+    {
+      "factor_name": "aq_profitability_revision_cash_confirmed",
+      "formula": "delta_4q(netprofit / total_assets) + delta_4q(n_cashflow_act / total_assets)",
+      "hypothesis": "Realized profitability acceleration is more useful when operating cashflow accelerates too.",
+      "economic_direction": "higher_better"
+    },
+    {
+      "factor_name": "aq_profitability_revision_asset_disciplined",
+      "formula": "delta_4q(netprofit / total_assets) - abs(pct_change_4q(total_assets))",
+      "hypothesis": "Profitability acceleration is more credible when it is not driven by aggressive asset expansion.",
+      "economic_direction": "higher_better"
+    }
+  ],
+  "pit_policy": {
+    "signal_date_rule": "first_trade_date_strictly_after_ann_date",
+    "same_day_announcement_trading_allowed": false,
+    "label_entry_rule": "entry_date is after factor date through execution_lag=1",
+    "final_holdout_included": false
+  },
+  "data_window": {
+    "bar_assets": 130,
+    "bar_rows": 332562,
+    "min_bar_date": "2015-01-05",
+    "max_bar_date": "2025-12-31",
+    "min_signal_date": "2016-04-20",
+    "max_signal_date": "2025-11-11",
+    "min_label_date": "2015-01-05",
+    "max_label_date": "2025-12-23"
+  },
+  "summary": {
+    "passes_data_gate": true,
+    "blockers": [],
+    "factor_rows": 9651,
+    "label_rows": 661614,
+    "aligned_rows": 19302,
+    "candidate_count": 2,
+    "test_count": 4,
+    "multiple_testing_lead_count": 0,
+    "neutral_gate_pass_count": 0,
+    "research_lead_count": 0,
+    "promotion_allowed_candidates": 0,
+    "next_direction": "round248_rotate_to_external_revision_or_nonfinancial_event_context"
+  },
+  "results": [
+    {
+      "factor_name": "aq_profitability_revision_cash_confirmed",
+      "horizon": 5,
+      "mean_spearman_ic": -0.04827135963194548,
+      "icir": -0.3321988523853143,
+      "ic_t_stat": -1.9083371186354772,
+      "ic_p_value": 0.05634765842705342,
+      "fdr_significant": false,
+      "ic_positive_rate": 0.30303030303030304,
+      "quantile_spread": -0.005255646904552212,
+      "quantile_monotonicity": -0.7,
+      "mean_industry_neutral_rank_ic": -0.14911268041722092,
+      "mean_size_neutral_rank_ic": -0.045756865426681864,
+      "mean_liquidity_neutral_rank_ic": -0.042765411032838214,
+      "research_lead": false
+    },
+    {
+      "factor_name": "aq_profitability_revision_asset_disciplined",
+      "horizon": 5,
+      "mean_spearman_ic": -0.04017759484227124,
+      "icir": -0.26316038417809673,
+      "ic_t_stat": -1.5344755407714905,
+      "ic_p_value": 0.12491270605388288,
+      "fdr_significant": false,
+      "ic_positive_rate": 0.3235294117647059,
+      "quantile_spread": 0.00039116780370333575,
+      "quantile_monotonicity": 0.09999999999999999,
+      "mean_industry_neutral_rank_ic": 0.15003301283805728,
+      "mean_size_neutral_rank_ic": -0.043327511793197326,
+      "mean_liquidity_neutral_rank_ic": -0.03468580434377359,
+      "research_lead": false
+    },
+    {
+      "factor_name": "aq_profitability_revision_cash_confirmed",
+      "horizon": 20,
+      "mean_spearman_ic": -0.02410953080984987,
+      "icir": -0.19545702243222698,
+      "ic_t_stat": -1.1228151100677168,
+      "ic_p_value": 0.26151602664446116,
+      "fdr_significant": false,
+      "ic_positive_rate": 0.42424242424242425,
+      "quantile_spread": -0.003549000351616788,
+      "quantile_monotonicity": -0.6,
+      "mean_industry_neutral_rank_ic": -0.10796128452656886,
+      "mean_size_neutral_rank_ic": -0.014024033993566946,
+      "mean_liquidity_neutral_rank_ic": -0.017524947512648076,
+      "research_lead": false
+    },
+    {
+      "factor_name": "aq_profitability_revision_asset_disciplined",
+      "horizon": 20,
+      "mean_spearman_ic": -0.007347624560576064,
+      "icir": -0.041997170161576544,
+      "ic_t_stat": -0.24488347893178525,
+      "ic_p_value": 0.8065466541907017,
+      "fdr_significant": false,
+      "ic_positive_rate": 0.47058823529411764,
+      "quantile_spread": -0.0024006174505854477,
+      "quantile_monotonicity": -0.19999999999999998,
+      "mean_industry_neutral_rank_ic": -0.1814869793715332,
+      "mean_size_neutral_rank_ic": -0.009233701311293363,
+      "mean_liquidity_neutral_rank_ic": -0.0019412239217737113,
+      "research_lead": false
+    }
+  ],
+  "decision": {
+    "paper_ready_allowed": false,
+    "portfolio_backtest_allowed": false,
+    "walk_forward_allowed": false,
+    "reason": "Both realized profitability revision candidates are negative or near zero on raw IC, fail FDR, fail neutral gates, and have weak or negative quantile shape.",
+    "avoid_retesting_same_shape_without_new_information": true
+  },
+  "safety": "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+}

@@ -1,0 +1,95 @@
+[
+  {
+    "family_id": "accounting_accruals_cashflow_quality_data_readiness",
+    "status": "eligible",
+    "score": 82,
+    "data_readiness": "blocked_for_factor_generation_until_required_column_groups_are_backfilled",
+    "novelty_vs_recent_failures": "public_accounting_anomalies_not_direct_roe_roa_profitability_tuning_not_price_volume_not_event_attention",
+    "public_reference_tags": [
+      "accruals_anomaly",
+      "cash_flow_quality",
+      "asset_growth",
+      "earnings_quality",
+      "point_in_time_financial_statements"
+    ],
+    "required_controls": [
+      "public_accounting_anomaly_source_registered",
+      "required_financial_column_group_readiness_audit",
+      "balance_sheet_cashflow_income_pit_backfill_before_factor_generation",
+      "ann_date_available_date_signal_date_preserved",
+      "no_report_period_end_signal_leakage",
+      "tradeability_mask_required",
+      "industry_style_residual_evaluation",
+      "profitability_value_reference_dedup_required",
+      "strict_multiple_testing_accounting",
+      "no_portfolio_grid_before_residual_ic_shape_prescreen",
+      "china_regime_coverage_required",
+      "final_holdout_read_once_only"
+    ],
+    "reason": "The next high-expected-value line is a public accounting-quality anomaly family, but the Round234 required-field audit shows local PIT-ready datasets do not yet cover accrual and asset-growth column groups. The selected action is a data-readiness/backfill round, not factor generation or promotion.",
+    "next_action": "round235_accounting_quality_pit_statement_backfill_before_preregistration"
+  },
+  {
+    "family_id": "dragon_tiger_attention_reversal_event",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_full_2015_2025_and_size_residual_repair",
+    "novelty_vs_recent_failures": "failed_round232_round233",
+    "reason": "Round232 PIT prescreen produced zero direct leads, and Round233 size-residual repair still produced zero research leads with weak quantile monotonicity.",
+    "next_action": "do_not_expand_dragon_tiger_windows_or_portfolio_grid_without_new_orthogonal_mechanism"
+  },
+  {
+    "family_id": "financial_post_announcement_gap_reversal",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_round225",
+    "novelty_vs_recent_failures": "failed_zero_accepted_walk_forward",
+    "reason": "Round225 accepted zero walk-forward cases after cost, capacity, and regime gates.",
+    "next_action": "no_gap_reversal_grid_expansion_without_new_orthogonal_repair"
+  },
+  {
+    "family_id": "direct_profitability_quality_formula_tuning",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_round217_stratified_full100",
+    "novelty_vs_recent_failures": "failed_zero_fdr_leads",
+    "reason": "Round217 tested 14 PIT profitability-quality candidates and found zero Bonferroni/FDR leads; accounting quality must not reuse ROE/ROA/profit-margin tuning.",
+    "next_action": "only_allow_accounting_quality_after_new_statement_fields_and_preregistration"
+  },
+  {
+    "family_id": "public_anomaly_residual_ensemble_risk_budget",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_round229",
+    "novelty_vs_recent_failures": "failed_zero_residual_leads",
+    "reason": "Round229 showed raw IC but zero residual research leads and high style exposure blockers.",
+    "next_action": "do_not_tune_public_anomaly_weights_or_topn"
+  },
+  {
+    "family_id": "liquidity_shock_recovery",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_round230",
+    "novelty_vs_recent_failures": "failed_zero_residual_leads",
+    "reason": "Round230 produced zero residual research leads.",
+    "next_action": "do_not_tune_liquidity_shock_windows_or_portfolio_grid"
+  },
+  {
+    "family_id": "index_rebalance_passive_flow",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_round231",
+    "novelty_vs_recent_failures": "failed_zero_research_leads",
+    "reason": "Round231 produced zero research leads; opposite-sign diagnostics are not promotion evidence.",
+    "next_action": "do_not_flip_direction_or_add_more_indices_without_new_hypothesis"
+  },
+  {
+    "family_id": "buyback_holder_unlock_event_alpha",
+    "status": "blocked_by_data_gap",
+    "score": 25,
+    "data_readiness": "share_float_and_pledge_stat_not_ready",
+    "novelty_vs_recent_failures": "potential_event_family_but_feed_blocked",
+    "reason": "Event controls keep buyback/holder/unlock alpha blocked until missing event feeds are backfilled and PIT coverage passes.",
+    "next_action": "event_feed_backfill_before_factor_preregistration"
+  }
+]

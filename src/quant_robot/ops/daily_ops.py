@@ -11,6 +11,7 @@ import pandas as pd
 STAGE = "phase_5_0_daily_ops"
 PROFILE_DAILY_OPS_STAGE = "phase_5_5_profile_daily_ops_activation"
 MANUAL_ONLY_BLOCKERS = {"manual_live_review_not_enabled", "manual_live_review_enabled_blocked"}
+PROMOTABLE_PROMOTION_STATUSES = {"paper_ready", "manual_live_review"}
 DEFAULT_MAX_DRAWDOWN_LIMIT = -0.2
 TICKET_COLUMNS = [
     "ticket_id",
@@ -38,7 +39,7 @@ def build_daily_ops_pack(
     drawdown_limit = _normalized_drawdown_limit(max_drawdown_limit)
     risk_policy = _risk_policy(paper_simulation, drawdown_limit)
     profile_summary = _paper_profile_summary(paper_profile or {})
-    blockers = _merge_unique(_blocker_ids(readiness_board), risk_policy["risk_blockers"])
+    blockers = _merge_unique(_blocker_ids(readiness_board), _promotion_status_blockers(candidate) + risk_policy["risk_blockers"])
     non_manual_blockers = [blocker for blocker in blockers if blocker not in MANUAL_ONLY_BLOCKERS]
     status = "blocked" if non_manual_blockers else "paper_ready"
     tickets = [] if status == "blocked" else _advisory_tickets(signal_snapshot)
@@ -145,6 +146,12 @@ def _blocker_ids(readiness_board: dict[str, Any]) -> list[str]:
             if text not in blockers:
                 blockers.append(text)
     return blockers
+
+
+def _promotion_status_blockers(candidate: dict[str, Any]) -> list[str]:
+    if str(candidate.get("promotion_status") or "") in PROMOTABLE_PROMOTION_STATUSES:
+        return []
+    return ["promotion_status_not_paper_ready"]
 
 
 def _risk_policy(paper_simulation: dict[str, Any], max_drawdown_limit: float) -> dict[str, Any]:

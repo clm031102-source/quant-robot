@@ -1,0 +1,57 @@
+{
+  "markets": [
+    "CN_ETF"
+  ],
+  "factor_source": "public_trend_volume",
+  "factor_names": [
+    "supertrend_volume_confirmed_10_3_20",
+    "smart_money_trend_20",
+    "obv_breakout_low_tail_20",
+    "anti_supertrend_volume_confirmed_10_3_20",
+    "anti_smart_money_trend_20",
+    "anti_obv_breakout_low_tail_20"
+  ],
+  "factor_windows": [
+    20
+  ],
+  "top_n_values": [
+    1,
+    2
+  ],
+  "cost_bps_values": [
+    5.0,
+    10.0
+  ],
+  "start_date": "2015-01-05",
+  "end_date": "2026-05-22",
+  "signal_start_date": "2015-01-05",
+  "signal_end_date": "2026-05-22",
+  "forward_horizon": 5,
+  "execution_lag": 1,
+  "rebalance_intervals": [
+    5,
+    10
+  ],
+  "quantiles": 2,
+  "portfolio_scope": "market",
+  "benchmark_asset_id": "CN_ETF_XSHG_510300",
+  "cash_annual_return": 0.015,
+  "regime_filter": true,
+  "regime_lookback_values": [
+    60,
+    120
+  ],
+  "target_gross_exposure": 0.8,
+  "market_impact_bps": 2.0,
+  "max_participation_rate": 0.1,
+  "portfolio_value": 1000000.0,
+  "min_relative_return": 0.0,
+  "max_drawdown_limit": 0.25,
+  "output_dir": "data/reports/experiment_grid_cn_etf_public_trend_volume_20260621",
+  "write_case_artifacts": false,
+  "rank_by": "relative_return",
+  "min_trades": 20,
+  "precompute_factor_matrix": true,
+  "resume_completed_cases": true,
+  "reuse_research_inputs": true
+}

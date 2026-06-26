@@ -1,0 +1,81 @@
+{
+  "stage": "round245_accounting_quality_directional_audit",
+  "market": "CN",
+  "asset_type": "stock",
+  "family": "accounting_quality_new_substructure_directional_audit",
+  "source_round": "round244_accounting_quality_new_substructure_implementation_and_prescreen",
+  "source_report": "docs/research/cn_stock_round244_accounting_quality_new_substructure_implementation_and_prescreen_2026-06-25.md",
+  "audit_factor": {
+    "factor_name": "aq_abnormal_accrual_change_reversal_sign_flip_audit",
+    "source_factor_name": "aq_abnormal_accrual_change_reversal",
+    "formula": "-1 * aq_abnormal_accrual_change_reversal",
+    "reason": "Round244 showed a negative 5-day raw IC clue; the sign flip is preregistered and counted as a new hypothesis test instead of being treated as a free discovery.",
+    "promotion_allowed": false
+  },
+  "report": "data/reports/round245_accounting_quality_directional_audit_residual_ic_130_symbol_20260625/accounting_quality_statement_residual_ic_shape_prescreen.json",
+  "summary": {
+    "candidate_count": 1,
+    "test_count": 2,
+    "factor_rows": 4787,
+    "aligned_rows": 9574,
+    "multiple_testing_lead_count": 1,
+    "neutral_gate_pass_count": 0,
+    "research_lead_count": 0,
+    "promotion_allowed_candidates": 0,
+    "next_direction": "round246_accounting_quality_rotate_to_event_drift_or_profitability_revision"
+  },
+  "horizon_results": [
+    {
+      "horizon": 5,
+      "mean_spearman_ic": 0.05050669195731413,
+      "icir": 0.398939528165478,
+      "ic_t_stat": 2.291733111726911,
+      "ic_p_value": 0.02192104849367747,
+      "fdr_significant": true,
+      "ic_positive_rate": 0.6666666666666666,
+      "quantile_spread": 0.00823688669898068,
+      "quantile_monotonicity": 0.7999999999999999,
+      "mean_industry_neutral_rank_ic": 0.19313557470042594,
+      "industry_neutral_rank_ic_t_stat": 1.628917767103682,
+      "mean_size_neutral_rank_ic": 0.05141352079883007,
+      "size_neutral_rank_ic_t_stat": 2.349618409958826,
+      "mean_liquidity_neutral_rank_ic": 0.05194224723087637,
+      "liquidity_neutral_rank_ic_t_stat": 2.2750757990821833,
+      "research_lead": false,
+      "interpretation": "FDR and size/liquidity-neutral checks are positive, but the industry-neutral t-stat is below the gate; watchlist only."
+    },
+    {
+      "horizon": 20,
+      "mean_spearman_ic": 0.013428516173227864,
+      "icir": 0.09872437117459693,
+      "ic_t_stat": 0.5671283349525451,
+      "ic_p_value": 0.5706269932042825,
+      "fdr_significant": false,
+      "ic_positive_rate": 0.5454545454545454,
+      "quantile_spread": 0.008570295320296599,
+      "quantile_monotonicity": 0.49999999999999994,
+      "research_lead": false,
+      "interpretation": "Weak and rejected."
+    }
+  ],
+  "decision": {
+    "status": "watchlist_not_research_lead",
+    "reason": "The 5-day sign flip passed multiple-testing significance but failed the industry-neutral gate and remains below ICIR robustness expectations.",
+    "walk_forward_allowed": false,
+    "portfolio_grid_allowed": false,
+    "paper_ready_allowed": false,
+    "final_holdout_touched": false
+  },
+  "blocked_actions": [
+    "Do not promote the sign flip as a discovered factor.",
+    "Do not run portfolio grids or walk-forward from this audit alone.",
+    "Do not touch final holdout.",
+    "Do not continue tuning this sign flip without a preregistered industry-neutral repair and explicit hypothesis count."
+  ],
+  "allowed_next_actions": [
+    "Rotate Round246 to post-statement announcement drift or profitability revision surprise.",
+    "Optionally keep this sign flip on a watchlist until a larger PIT statement universe is available, but do not spend another full mining round on it now.",
+    "If revisited, require an industry-neutral repair and treat it as a new hypothesis."
+  ],
+  "safety": "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+}

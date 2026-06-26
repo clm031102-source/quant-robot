@@ -1,0 +1,29 @@
+{
+  "markets": ["CN"],
+  "factor_source": "public_technical_liquidity",
+  "factor_names": [
+    "rsi_reversal_liquid_14_20",
+    "bollinger_reversal_liquid_20"
+  ],
+  "factor_windows": [14, 20],
+  "top_n_values": [100],
+  "cost_bps_values": [10],
+  "start_date": "2015-01-01",
+  "end_date": "2025-12-31",
+  "forward_horizon": 20,
+  "execution_lag": 1,
+  "rebalance_intervals": [5],
+  "quantiles": 5,
+  "portfolio_scope": "market",
+  "portfolio_value": 1000000,
+  "market_impact_bps": 20,
+  "max_participation_rate": 0.01,
+  "min_relative_return": 0.0,
+  "max_drawdown_limit": 0.30,
+  "rank_by": "overlap_autocorr_adjusted_sharpe",
+  "min_trades": 30,
+  "precompute_factor_matrix": true,
+  "reuse_research_inputs": true,
+  "resume_completed_cases": true,
+  "output_dir": "data/reports/experiment_grid_cn_stock_public_technical_liquidity_fast_20260621"
+}

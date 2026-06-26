@@ -1,0 +1,51 @@
+{
+  "markets": [
+    "CN_ETF"
+  ],
+  "factor_source": "public_trend_volume",
+  "factor_names": [
+    "supertrend_volume_capacity_strict_10_3_20",
+    "obv_breakout_capacity_strict_20"
+  ],
+  "factor_windows": [
+    20
+  ],
+  "asset_universe_path": "data/reports/etf_liquid_universe_tushare_wide_2020_2024_round25/etf_liquid_universe.json",
+  "top_n_values": [
+    5,
+    10
+  ],
+  "cost_bps_values": [
+    5.0,
+    10.0
+  ],
+  "start_date": "2020-01-02",
+  "end_date": "2024-06-28",
+  "signal_start_date": "2020-01-02",
+  "signal_end_date": "2024-06-28",
+  "forward_horizon": 5,
+  "execution_lag": 1,
+  "rebalance_intervals": [
+    5,
+    10
+  ],
+  "quantiles": 2,
+  "portfolio_scope": "market",
+  "benchmark_asset_id": "CN_ETF_XSHG_510300",
+  "cash_annual_return": 0.015,
+  "regime_filter": false,
+  "target_gross_exposure": 0.6,
+  "market_impact_bps": 2.0,
+  "max_participation_rate": 0.01,
+  "portfolio_value": 100000.0,
+  "min_total_return": 0.0,
+  "min_relative_return": 0.0,
+  "max_drawdown_limit": 0.20,
+  "output_dir": "data/reports/experiment_grid_cn_etf_liquid_public_trend_volume_capacity_strict_small100k_minret_round45_20260621",
+  "write_case_artifacts": false,
+  "rank_by": "overlap_autocorr_adjusted_sharpe",
+  "min_trades": 100,
+  "precompute_factor_matrix": true,
+  "resume_completed_cases": true,
+  "reuse_research_inputs": true
+}

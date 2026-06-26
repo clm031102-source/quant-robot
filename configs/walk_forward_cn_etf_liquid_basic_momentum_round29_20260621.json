@@ -1,0 +1,61 @@
+{
+  "split_date": "2023-01-03",
+  "rank_by": "stability_score",
+  "min_test_trades": 20,
+  "min_test_sharpe": 0.0,
+  "min_test_relative_return": 0.0,
+  "max_test_drawdown": 0.25,
+  "rolling_train_days": 756,
+  "rolling_test_days": 126,
+  "rolling_step_days": 63,
+  "min_accepted_folds": 2,
+  "multiple_testing_alpha": 0.05,
+  "max_test_abs_trade_gross_return": 5.0,
+  "output_dir": "data/reports/walk_forward_cn_etf_liquid_basic_momentum_round29_20260621",
+  "experiment_grid": {
+    "markets": [
+      "CN_ETF"
+    ],
+    "factor_source": "technical",
+    "factor_names": [
+      "momentum_20",
+      "risk_adjusted_momentum_20",
+      "momentum_60",
+      "risk_adjusted_momentum_60"
+    ],
+    "factor_windows": [
+      20,
+      60
+    ],
+    "asset_universe_path": "data/reports/etf_liquid_universe_tushare_wide_2020_2024_round25/etf_liquid_universe.json",
+    "top_n_values": [
+      5
+    ],
+    "cost_bps_values": [
+      5.0
+    ],
+    "forward_horizon": 5,
+    "execution_lag": 1,
+    "rebalance_intervals": [
+      5,
+      10
+    ],
+    "quantiles": 2,
+    "portfolio_scope": "market",
+    "benchmark_asset_id": "CN_ETF_XSHG_510300",
+    "cash_annual_return": 0.015,
+    "regime_filter": false,
+    "target_gross_exposure": 0.8,
+    "market_impact_bps": 2.0,
+    "max_participation_rate": 0.1,
+    "portfolio_value": 1000000.0,
+    "min_relative_return": 0.0,
+    "max_drawdown_limit": 0.25,
+    "rank_by": "relative_return",
+    "min_trades": 20,
+    "precompute_factor_matrix": true,
+    "resume_completed_cases": true,
+    "reuse_research_inputs": true,
+    "write_case_artifacts": false
+  }
+}

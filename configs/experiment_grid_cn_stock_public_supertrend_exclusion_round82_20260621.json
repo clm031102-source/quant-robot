@@ -1,0 +1,43 @@
+{
+  "markets": [
+    "CN"
+  ],
+  "factor_source": "public_trend_volume",
+  "factor_names": [
+    "anti_supertrend_volume_confirmed_10_3_20"
+  ],
+  "factor_windows": [
+    10,
+    20
+  ],
+  "top_n_values": [
+    100
+  ],
+  "cost_bps_values": [
+    10.0
+  ],
+  "start_date": "2015-01-05",
+  "end_date": "2025-12-31",
+  "signal_start_date": "2015-01-05",
+  "signal_end_date": "2025-12-31",
+  "forward_horizon": 20,
+  "execution_lag": 1,
+  "rebalance_intervals": [
+    10
+  ],
+  "quantiles": 5,
+  "portfolio_scope": "market",
+  "target_gross_exposure": 0.6,
+  "market_impact_bps": 20.0,
+  "max_participation_rate": 0.01,
+  "portfolio_value": 1000000.0,
+  "min_relative_return": 0.0,
+  "max_drawdown_limit": 0.5,
+  "rank_by": "overlap_autocorr_adjusted_sharpe",
+  "min_trades": 30,
+  "precompute_factor_matrix": true,
+  "resume_completed_cases": true,
+  "reuse_research_inputs": true,
+  "write_case_artifacts": false,
+  "output_dir": "data/reports/experiment_grid_cn_stock_public_supertrend_exclusion_round82_20260621"
+}

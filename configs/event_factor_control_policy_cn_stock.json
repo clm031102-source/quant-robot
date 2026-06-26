@@ -1,0 +1,65 @@
+{
+  "scope_id": "cn_stock_event_factor_controls",
+  "controls": [
+    {
+      "blocked_endpoints": [],
+      "control_action": "hibernate",
+      "control_id": "earnings_forecast_events",
+      "dataset_refs": [
+        "docs/research/cn_stock_event_factor_preregistration_round146_2026-06-22.md",
+        "docs/research/cn_stock_event_factor_pit_ic_prescreen_round147_2026-06-22.md"
+      ],
+      "evidence": "Round146 preregistered event factors and smoked Tushare endpoints. Round147 PIT/IC prescreen found earnings forecast weak or negative overall after PIT and neutralized IC checks, with 0 promotable factors. This family is closed as a hibernated event-control, not as alpha evidence.",
+      "family_mining_allowed": false,
+      "neutralized_ic_audit_required": true,
+      "next_action": "Do not spend direct mining budget on forecast events unless a new orthogonal, pre-registered event hypothesis is supplied and it repeats PIT signal-date plus industry/style residual IC audits.",
+      "pit_signal_date_audit_required": true,
+      "standalone_alpha_claim_allowed": false,
+      "usable_endpoints": [
+        "forecast"
+      ]
+    },
+    {
+      "blocked_endpoints": [],
+      "control_action": "controlled_retest_only",
+      "control_id": "dividend_ex_right_events",
+      "dataset_refs": [
+        "docs/research/cn_stock_event_factor_preregistration_round146_2026-06-22.md",
+        "docs/research/cn_stock_event_factor_pit_ic_prescreen_round147_2026-06-22.md",
+        "docs/research/cn_stock_event_factor_neutral_lead_dedup_round148_2026-06-22.md"
+      ],
+      "evidence": "Round146 found dividend rows with ann_date, ex_date, and pay_date. Round147 produced one dividend research lead, but Round148 de-duplicated it against public daily-basic dividend and value exposure: raw IC stayed positive while public-yield exposure was high, residual ICIR fell below gate, and yearly stability failed. This is controlled-retest evidence only.",
+      "family_mining_allowed": false,
+      "neutralized_ic_audit_required": true,
+      "next_action": "Use dividend/ex-right data only after public-yield residualization, yearly stability, and long-cycle walk-forward evidence. Raw yield-like exposure cannot enter portfolio grids.",
+      "pit_signal_date_audit_required": true,
+      "standalone_alpha_claim_allowed": false,
+      "usable_endpoints": [
+        "dividend"
+      ]
+    },
+    {
+      "blocked_endpoints": [
+        "share_float",
+        "pledge_stat"
+      ],
+      "control_action": "coverage_blocked",
+      "control_id": "buyback_holder_change_unlock_events",
+      "dataset_refs": [
+        "docs/research/cn_stock_event_factor_preregistration_round146_2026-06-22.md",
+        "docs/research/cn_stock_event_factor_pit_ic_prescreen_round147_2026-06-22.md"
+      ],
+      "evidence": "Round146 found repurchase, holder-number, and top-holder rows. Round147 PIT/IC and neutral gates showed repurchase failed size-neutral retention, holder-number failed monotonicity and size-neutral quality, and top-holder remained weak. share_float and pledge_stat still have 0-row coverage, so this family is locally blocked instead of globally blocking non-event factor mining.",
+      "family_mining_allowed": false,
+      "neutralized_ic_audit_required": true,
+      "next_action": "Backfill share_float and pledge_stat before re-entering holder/unlock/buyback event candidates; until then keep this event family out of direct factor generation and portfolio grids.",
+      "pit_signal_date_audit_required": true,
+      "standalone_alpha_claim_allowed": false,
+      "usable_endpoints": [
+        "repurchase",
+        "holder_number",
+        "top_holder"
+      ]
+    }
+  ]
+}

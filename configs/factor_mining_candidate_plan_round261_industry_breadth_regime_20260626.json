@@ -1,0 +1,202 @@
+{
+  "stage": "round261_industry_breadth_regime_preregistration",
+  "source_audit": "docs/research/cn_stock_round260_official_tradeability_event_residual_prescreen_2026-06-26.md",
+  "round": 261,
+  "research_control_plan": {
+    "declared_controls": {
+      "cn_stock_tradeability": [
+        "limit_up_down_filter",
+        "suspension_filter",
+        "st_flag_filter",
+        "new_listing_age_filter",
+        "delisting_risk_filter",
+        "board_permission_filter"
+      ],
+      "financial_pit_timing": [
+        "ann_date_or_effective_date_lag",
+        "financial_revision_announcement_handling",
+        "report_release_lag_not_period_end",
+        "no_period_end_only_financial_signal"
+      ],
+      "industry_style_neutralization": [
+        "industry_exposure_report",
+        "size_exposure_report",
+        "value_lowvol_momentum_liquidity_decomposition",
+        "neutralized_or_residual_factor_matrix"
+      ],
+      "etf_rotation_scope_boundary": [
+        "stock_scope_confirmed",
+        "etf_rotation_evidence_rejected_for_stock_factor",
+        "cn_etf_dedicated_signal_pack_separate"
+      ],
+      "portfolio_construction": [
+        "risk_budget_position_sizing",
+        "volatility_targeting_or_volatility_budget",
+        "industry_weight_constraints",
+        "turnover_constraints",
+        "stop_loss_or_de_risk_rules"
+      ],
+      "strict_statistics": [
+        "deflated_sharpe",
+        "purged_cpcv",
+        "white_reality_check_or_fdr",
+        "parameter_sensitivity_heatmap",
+        "multiple_testing_accounting"
+      ],
+      "china_market_regime": [
+        "policy_liquidity_regime",
+        "credit_cycle_proxy",
+        "northbound_margin_turnover_temperature",
+        "index_location_state",
+        "signal_window_regime_coverage"
+      ],
+      "event_factors": [
+        "earnings_forecast_or_statement_event_audit",
+        "dividend_ex_right_event_audit",
+        "buyback_holder_unlock_event_audit",
+        "index_rebalance_event_audit",
+        "event_contamination_extreme_return_audit"
+      ]
+    },
+    "policy": "Round261 rotates after Round260 official tradeability-event state produced zero residual research leads. This family uses industry breadth and internal dispersion as a regime translation layer, not the old industry leader-lag or plain industry-relative-strength line."
+  },
+  "evaluation_gate": {
+    "required_metrics": [
+      "long_cycle_residual_ic",
+      "industry_neutral_ic",
+      "size_liquidity_vol_residual_ic",
+      "public_technical_reference_dedup",
+      "yearly_ic_stability",
+      "tradeability_capacity_filter",
+      "industry_breadth_state_coverage",
+      "final_holdout_excluded"
+    ],
+    "multiple_testing_accounting_required": true,
+    "final_holdout_available_for_tuning": false
+  },
+  "promotion_policy": {
+    "promotion_allowed": false,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "requires_long_cycle_replay": true,
+    "requires_same_parameter_full_sample": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true,
+    "requires_no_lookahead_audit": true,
+    "requires_overfit_multiple_testing_control": true,
+    "requires_overlap_adjusted_statistics": true,
+    "requires_parameter_sensitivity": true,
+    "requires_final_holdout_read_once": true,
+    "requires_tradeability_survivorship_audit": true,
+    "requires_industry_style_neutralization": true,
+    "requires_source_performance_evidence": true
+  },
+  "family_rotation_policy": {
+    "current_family_id": "industry_breadth_dispersion_regime_translation",
+    "current_family_round_count": 1,
+    "max_rounds_before_review": 3,
+    "three_round_review_completed": false,
+    "hibernated_families": [
+      {
+        "family": "official_tradeability_event_state_after_round260_zero_residual_leads",
+        "reason": "Round260 produced zero residual research leads; official tradeability state remains a control/risk layer."
+      },
+      {
+        "family": "listing_age_board_structural_constraints_after_round259_zero_residual_leads",
+        "reason": "Round259 produced zero residual research leads."
+      },
+      {
+        "family": "industry_leader_lag_residual_diffusion_after_round220_zero_residual_leads",
+        "reason": "Round220 tested leader-laggard diffusion; Round261 must use breadth/dispersion state rather than leader membership."
+      },
+      {
+        "family": "daily_basic_valuation_reversion_repair_after_round258_style_exposure_failure",
+        "reason": "Round258 repaired coverage but failed quantile shape and style residual retention."
+      }
+    ],
+    "blocked_families": []
+  },
+  "audit_policy": {
+    "analysis_start_date": "2015-01-01",
+    "analysis_end_date": "2025-12-31",
+    "final_holdout_start": "2026-01-01",
+    "final_holdout_use": "excluded_from_tuning_and_prescreen",
+    "parameter_expansion_allowed": false,
+    "direction_flip_allowed": false,
+    "portfolio_grid_allowed": false,
+    "bars_roots": [
+      "data/processed/cn_stock_long_history_2015_202306",
+      "data/processed/office_desktop_20260616_combined_research"
+    ],
+    "stock_basic": "data/processed/round198_tradeability_long_cycle_official_backfill_20260623/metadata/tushare_stock_basic"
+  },
+  "candidates": [
+    {
+      "factor_name": "industry_breadth_repair_laggard_rebound_20",
+      "family": "industry_breadth_dispersion_regime_translation",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "industry_breadth_state:improving_industry_laggard_rebound",
+      "economic_rationale": "When industry participation improves, lagging stocks may rebound if the effect survives industry/style residualization and capacity filters.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "industry_breadth_volume_confirmed_repair_20",
+      "family": "industry_breadth_dispersion_regime_translation",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "industry_breadth_state:volume_confirmed_repair",
+      "economic_rationale": "Improving industry breadth accompanied by stronger industry turnover may identify real participation repair rather than a thin rebound.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "industry_dispersion_compression_breakout_20",
+      "family": "industry_breadth_dispersion_regime_translation",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "industry_internal_dispersion:compression_to_breakout",
+      "economic_rationale": "Low internal industry dispersion plus improving breadth may precede a cleaner breakout state; this tests stock-level residual confirmation.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "industry_internal_dispersion_laggard_reversal_20",
+      "family": "industry_breadth_dispersion_regime_translation",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "industry_internal_dispersion:high_dispersion_laggard_reversal",
+      "economic_rationale": "High dispersion inside an industry may create relative-value reversal among extreme laggards, but only if yearly residual IC is stable.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "industry_breadth_overheat_runup_avoidance_10",
+      "family": "industry_breadth_dispersion_regime_translation",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "industry_breadth_state:overheated_participation_runup_avoidance",
+      "economic_rationale": "Very high industry breadth plus stock-specific run-up can be a crowding warning; this tests an avoidance score rather than chasing overheated moves.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "industry_breadth_turning_point_resilience_20",
+      "family": "industry_breadth_dispersion_regime_translation",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "industry_breadth_state:turning_point_resilience",
+      "economic_rationale": "Industry breadth turning up with stock-level relative resilience may capture early participation broadening before price-only trend signals dominate.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    }
+  ]
+}
+

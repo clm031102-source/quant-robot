@@ -1,0 +1,103 @@
+[
+  {
+    "family_id": "public_trend_strength_state_residual",
+    "status": "eligible",
+    "score": 89,
+    "data_readiness": "ready_from_adjusted_ohlcv_and_tradeability_masks",
+    "novelty_vs_recent_failures": "public_state_indicators_not_rsrs_supertrend_52w_or_donchian_reuse",
+    "public_reference_tags": [
+      "ADX",
+      "KAMA",
+      "Aroon",
+      "Choppiness",
+      "WilliamsR"
+    ],
+    "required_controls": [
+      "public_formula_source_registered",
+      "no_same_day_forward_label_leakage",
+      "tradeability_mask_required",
+      "industry_style_residual_evaluation",
+      "reference_dedup_against_rsrs_supertrend_bollinger_donchian",
+      "multiple_testing_accounting",
+      "no_portfolio_grid_before_ic_shape_residual_prescreen",
+      "china_regime_coverage_required"
+    ],
+    "reason": "Uses well-known trend-strength, trend-efficiency, and range-state indicators as lagged state variables for residual cross-sectional IC screening. It is not a replay of RSRS, SuperTrend, 52-week high, Donchian, moneyflow, direct valuation, or direct profitability-quality tuning.",
+    "next_action": "round219_public_trend_strength_state_preregistration"
+  },
+  {
+    "family_id": "direct_profitability_quality_formula_tuning",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_full_profitability_quality_shards",
+    "novelty_vs_recent_failures": "failed_round217",
+    "public_reference_tags": [],
+    "required_controls": [],
+    "reason": "Round217 tested 14 PIT profitability-quality candidates across 28 controlled IC tests with 1204 IC observations and found zero Bonferroni/FDR leads.",
+    "next_action": "do_not_tune_direct_formula_family_before_new_mechanism"
+  },
+  {
+    "family_id": "standalone_valuation_reversion",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested",
+    "novelty_vs_recent_failures": "failed_round212_residual_dedup",
+    "public_reference_tags": [],
+    "required_controls": [],
+    "reason": "Round212 showed the best raw daily-basic valuation candidate collapsed from raw IC 0.0677 to residual IC 0.0002 after industry/style controls.",
+    "next_action": "do_not_reopen_as_standalone_alpha_without_new_residual_mechanism"
+  },
+  {
+    "family_id": "external_northbound_crowding_reversal",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested_existing_feed",
+    "novelty_vs_recent_failures": "failed_round213_214",
+    "public_reference_tags": [],
+    "required_controls": [],
+    "reason": "External northbound crowding/reversal variants produced zero long-cycle leads in the existing feed.",
+    "next_action": "data_feed_expansion_only_not_factor_tuning"
+  },
+  {
+    "family_id": "public_rsrs_supertrend_failure_reversal",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "tested",
+    "novelty_vs_recent_failures": "failed_public_technical_residual_dedup",
+    "public_reference_tags": [
+      "RSRS",
+      "SuperTrend",
+      "Donchian"
+    ],
+    "required_controls": [],
+    "reason": "Prior public technical rounds found raw or industry-neutral signal pockets but failed residual/de-dup and costed walk-forward promotion gates.",
+    "next_action": "do_not_reopen_rsrs_supertrend_or_donchian_without_distinct_state_mechanism"
+  },
+  {
+    "family_id": "tradeability_limit_events",
+    "status": "control_only_not_alpha",
+    "score": 45,
+    "data_readiness": "proxy_run_completed",
+    "novelty_vs_recent_failures": "failed_round209_160_as_standalone_alpha",
+    "public_reference_tags": [],
+    "required_controls": [
+      "limit_up_down_mask",
+      "suspension_st_filter",
+      "new_listing_retirement_filter",
+      "extreme_turnover_trade_filter"
+    ],
+    "reason": "Tradeability and limit-event structure is mandatory as a mask and capacity control, but previous standalone proxy alpha screens found zero promotable leads.",
+    "next_action": "use_as_filter_control_only"
+  },
+  {
+    "family_id": "direct_event_factor_standalone_alpha",
+    "status": "hibernated",
+    "score": 0,
+    "data_readiness": "policy_blocked",
+    "novelty_vs_recent_failures": "failed_event_residual_dedup",
+    "public_reference_tags": [],
+    "required_controls": [],
+    "reason": "Event families remain research controls unless a new PIT feed and residual mechanism is preregistered. Direct event alpha claims are blocked by the event control policy.",
+    "next_action": "no_direct_event_alpha_claim"
+  }
+]

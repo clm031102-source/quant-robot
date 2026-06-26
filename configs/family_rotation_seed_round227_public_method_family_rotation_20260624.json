@@ -1,0 +1,320 @@
+{
+  "stage": "round227_public_method_family_rotation_candidate_plan",
+  "created_at": "2026-06-24",
+  "market": "CN",
+  "asset_type": "stock",
+  "research_scope": "CN stock cross-sectional alpha discovery only; not ETF rotation and not live trading",
+  "family": "public_anomaly_residual_ensemble_risk_budget",
+  "next_direction": "round228_public_anomaly_residual_ensemble_preregistration",
+  "mechanism": "Fixed-weight public anomaly agreement is tested only after industry/style residualization, tradeability controls, regime coverage, and multiple-testing accounting. This is not a single-indicator TopN restart.",
+  "source_evidence": [
+    "docs/research/cn_stock_round226_method_optimization_contract_2026-06-24.md",
+    "docs/research/cn_stock_round206_207_control_optimization_and_52week_prescreen_2026-06-24.md",
+    "docs/research/cn_stock_round209_tradeability_structure_quality_prescreen_2026-06-24.md",
+    "docs/research/cn_stock_round217_profitability_quality_stratified_full100_ic_screen_2026-06-24.md",
+    "docs/research/cn_stock_round225_financial_pit_gap_reversal_walk_forward_validation_2026-06-24.md"
+  ],
+  "family_rotation_policy": {
+    "current_family_id": "public_anomaly_residual_ensemble_risk_budget",
+    "current_family_round_count": 1,
+    "max_rounds_before_review": 3,
+    "three_round_review_completed": true,
+    "hibernated_families": [
+      {
+        "family": "financial_post_announcement_gap_reversal",
+        "reason": "Round225 produced zero accepted walk-forward cases."
+      },
+      {
+        "family": "public_risk_filter_bridge",
+        "reason": "Round75 stress rejected the corrected beta-hedged spread translation."
+      },
+      {
+        "family": "public_supertrend_or_single_trend_volume",
+        "reason": "Prior public indicator standalone and bottom-exclusion paths failed walk-forward gates."
+      },
+      {
+        "family": "public_trend_strength_state_residual",
+        "reason": "Round219 full-sample residual prescreen produced zero research leads."
+      },
+      {
+        "family": "industry_leader_lag",
+        "reason": "Round220 full long-cycle residual prescreen produced zero research leads."
+      },
+      {
+        "family": "information_discreteness",
+        "reason": "Round221 full long-cycle residual prescreen produced zero research leads."
+      },
+      {
+        "family": "direct_profitability_quality_formula_tuning",
+        "reason": "Round217 PIT profitability-quality controlled IC screen produced zero multiple-testing leads."
+      },
+      {
+        "family": "external_northbound_crowding_reversal",
+        "reason": "Round213 produced zero strict research leads and wrong quantile shape."
+      }
+    ],
+    "blocked_families": [
+      {
+        "family": "cn_etf_rotation",
+        "reason": "Current office_desktop mandate is CN stock factor mining, not ETF rotation."
+      },
+      {
+        "family": "buyback_holder_unlock_event_alpha",
+        "reason": "Local event coverage is not ready enough for factor preregistration."
+      }
+    ]
+  },
+  "research_control_plan": {
+    "declared_controls": {
+      "cn_stock_tradeability": [
+        "limit_up_down_filter",
+        "suspension_filter",
+        "st_flag_filter",
+        "new_listing_age_filter",
+        "delisting_risk_filter",
+        "board_permission_filter"
+      ],
+      "financial_pit_timing": [
+        "ann_date_or_effective_date_lag",
+        "financial_revision_announcement_handling",
+        "report_release_lag_not_period_end",
+        "no_period_end_only_financial_signal"
+      ],
+      "industry_style_neutralization": [
+        "industry_exposure_report",
+        "size_exposure_report",
+        "value_lowvol_momentum_liquidity_decomposition",
+        "neutralized_or_residual_factor_matrix"
+      ],
+      "etf_rotation_scope_boundary": [
+        "stock_scope_confirmed",
+        "etf_rotation_evidence_rejected_for_stock_factor",
+        "cn_etf_dedicated_signal_pack_separate"
+      ],
+      "portfolio_construction": [
+        "risk_budget_position_sizing",
+        "volatility_targeting_or_volatility_budget",
+        "industry_weight_constraints",
+        "turnover_constraints",
+        "stop_loss_or_de_risk_rules"
+      ],
+      "strict_statistics": [
+        "deflated_sharpe",
+        "purged_cpcv",
+        "white_reality_check_or_fdr",
+        "parameter_sensitivity_heatmap",
+        "multiple_testing_accounting"
+      ],
+      "china_market_regime": [
+        "policy_liquidity_regime",
+        "credit_cycle_proxy",
+        "northbound_margin_turnover_temperature",
+        "index_location_state",
+        "signal_window_regime_coverage"
+      ],
+      "event_factors": [
+        "earnings_forecast_or_statement_event_audit",
+        "dividend_ex_right_event_audit",
+        "buyback_holder_unlock_event_audit",
+        "index_rebalance_event_audit",
+        "event_contamination_extreme_return_audit"
+      ]
+    },
+    "policy": "Declaration permits discovery screening only. Portfolio grids, promotion, and final-holdout reads remain blocked until residual IC, shape, dedup, walk-forward, cost/capacity, regime, and source-evidence gates clear."
+  },
+  "evaluation_gate": {
+    "next_required_gate": "round228_public_anomaly_residual_ensemble_preregistration",
+    "required_metrics": [
+      "mean_spearman_ic",
+      "rank_ic_t_stat",
+      "ic_positive_rate",
+      "quantile_monotonicity",
+      "top_bottom_spread",
+      "average_top_quantile_turnover",
+      "industry_style_residual_ic_audit",
+      "source_family_correlation_dedup",
+      "parameter_sensitivity_heatmap_status",
+      "signal_window_regime_coverage"
+    ],
+    "multiple_testing_accounting_required": true,
+    "portfolio_grid_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_available_for_tuning": false
+  },
+  "promotion_policy": {
+    "promotion_allowed": false,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "requires_long_cycle_replay": true,
+    "requires_same_parameter_full_sample": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true,
+    "requires_no_lookahead_audit": true,
+    "requires_overfit_multiple_testing_control": true,
+    "requires_overlap_adjusted_statistics": true,
+    "requires_parameter_sensitivity": true,
+    "requires_final_holdout_read_once": true,
+    "requires_tradeability_survivorship_audit": true,
+    "requires_industry_style_neutralization": true,
+    "requires_source_performance_evidence": true
+  },
+  "factor_seeds": [
+    {
+      "factor_name": "public_anomaly_residual_equal_weight_20",
+      "family": "public_anomaly_residual_ensemble_risk_budget",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "seed_type": "cross_sectional",
+      "hypothesis_source": "public_reference:fixed_weight_multi_factor_anomaly_ensemble",
+      "hypothesis": "A fixed-weight blend of value, quality/stability, reversal, low-volatility, and liquidity/capacity features may be more robust than any single failed public indicator.",
+      "economic_rationale": "The ensemble should only count agreement among independent public anomalies after industry/style residualization; no learned weights or post-result sign flips are allowed.",
+      "expression_plan": "mean(zscore(value_proxy), zscore(quality_or_stability_proxy), zscore(reversal_proxy), zscore(lowvol_proxy), zscore(liquidity_capacity_proxy))",
+      "horizons": [
+        5,
+        20
+      ],
+      "neutralization_required": [
+        "industry",
+        "size",
+        "value",
+        "low_volatility",
+        "momentum",
+        "liquidity"
+      ],
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "public_anomaly_residual_agreement_20",
+      "family": "public_anomaly_residual_ensemble_risk_budget",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "seed_type": "cross_sectional",
+      "hypothesis_source": "public_reference:multi_factor_agreement_filter",
+      "hypothesis": "Names that rank well across at least three independent anomaly components may have better forward-return quality than single-component winners.",
+      "economic_rationale": "Agreement is used to reduce false positives from noisy single factors. It must survive residual IC and quantile-shape gates before any portfolio work.",
+      "expression_plan": "rank(count(component_rank > 0.6 for fixed public anomaly components))",
+      "horizons": [
+        5,
+        20
+      ],
+      "neutralization_required": [
+        "industry",
+        "size",
+        "value",
+        "low_volatility",
+        "momentum",
+        "liquidity"
+      ],
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "public_anomaly_residual_disagreement_risk_20",
+      "family": "public_anomaly_residual_ensemble_risk_budget",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "seed_type": "cross_sectional",
+      "hypothesis_source": "project_failure_audit:single_indicator_false_positive_control",
+      "hypothesis": "Large disagreement between public anomaly components may identify noisy single-factor false positives that should be excluded rather than bought.",
+      "economic_rationale": "This is an exclusion/risk diagnostic, not a standalone buy signal. It directly addresses prior IC-to-portfolio gaps.",
+      "expression_plan": "-rank(std(component_ranks))",
+      "horizons": [
+        5,
+        20
+      ],
+      "neutralization_required": [
+        "industry",
+        "size",
+        "value",
+        "low_volatility",
+        "momentum",
+        "liquidity"
+      ],
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "public_anomaly_residual_regime_conditioned_20",
+      "family": "public_anomaly_residual_ensemble_risk_budget",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "seed_type": "cross_sectional",
+      "hypothesis_source": "market_mechanism:china_regime_conditioned_public_anomaly",
+      "hypothesis": "Fixed public anomaly agreement may work only in allowed market temperature regimes; blocked-regime dates must be counted and cannot silently empty the sample.",
+      "economic_rationale": "This tests conditioning, not hindsight regime rescue. Signal-window regime coverage is a hard gate.",
+      "expression_plan": "public_anomaly_residual_equal_weight_20 with lagged regime-state eligibility mask",
+      "horizons": [
+        20
+      ],
+      "neutralization_required": [
+        "industry",
+        "size",
+        "value",
+        "low_volatility",
+        "momentum",
+        "liquidity"
+      ],
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    }
+  ],
+  "candidates": [
+    {
+      "factor_name": "public_anomaly_residual_equal_weight_20",
+      "family": "public_anomaly_residual_ensemble_risk_budget",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "public_reference:fixed_weight_multi_factor_anomaly_ensemble",
+      "economic_rationale": "Fixed public anomaly blend after residualization; no learned weights or post-result sign flips.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "public_anomaly_residual_agreement_20",
+      "family": "public_anomaly_residual_ensemble_risk_budget",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "public_reference:multi_factor_agreement_filter",
+      "economic_rationale": "Requires agreement among independent public anomaly components before a name can rank highly.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "public_anomaly_residual_disagreement_risk_20",
+      "family": "public_anomaly_residual_ensemble_risk_budget",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "project_failure_audit:single_indicator_false_positive_control",
+      "economic_rationale": "Uses disagreement as an exclusion/risk diagnostic, not as a standalone buy signal.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "public_anomaly_residual_regime_conditioned_20",
+      "family": "public_anomaly_residual_ensemble_risk_budget",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "market_mechanism:china_regime_conditioned_public_anomaly",
+      "economic_rationale": "Tests lagged China-regime conditioning with explicit signal-window coverage accounting.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    }
+  ],
+  "holdout_policy": {
+    "analysis_start_date": "2015-01-01",
+    "analysis_end_date": "2025-12-31",
+    "final_holdout_start": "2026-01-01",
+    "final_holdout_available_for_tuning": false,
+    "final_holdout_use": "read_once_only_after_prescreen_neutral_dedup_cost_capacity_walk_forward_regime_clearance"
+  },
+  "safety": "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+}

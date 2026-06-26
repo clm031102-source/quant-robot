@@ -1,0 +1,43 @@
+{
+  "scope_id": "cn_stock_china_market_regime_controls",
+  "market": "CN",
+  "asset_type": "stock",
+  "controls": [
+    {
+      "control_id": "policy_liquidity_regime",
+      "dataset_refs": ["processed/external_macro_rates"],
+      "usable_fields": ["shibor_on", "shibor_1w", "shibor_1m", "shibor_3m", "shibor_1y"],
+      "blocked_fields": ["lpr_1y", "lpr_5y"],
+      "available_date_required": true,
+      "pit_join_required": true,
+      "standalone_alpha_claim_allowed": false
+    },
+    {
+      "control_id": "credit_cycle_proxy",
+      "dataset_refs": ["processed/external_margin_detail"],
+      "usable_fields": ["rzye", "rzmre", "rzrqye"],
+      "blocked_fields": [],
+      "available_date_required": true,
+      "pit_join_required": true,
+      "standalone_alpha_claim_allowed": false
+    },
+    {
+      "control_id": "northbound_margin_turnover_temperature",
+      "dataset_refs": ["processed/external_hk_hold", "processed/external_hsgt_flow", "processed/external_margin_detail"],
+      "usable_fields": ["hold_vol", "hold_ratio", "north_money", "rzye"],
+      "blocked_fields": [],
+      "available_date_required": true,
+      "pit_join_required": true,
+      "standalone_alpha_claim_allowed": false
+    },
+    {
+      "control_id": "index_location_state",
+      "dataset_refs": ["processed/external_index_state"],
+      "usable_fields": ["close", "turnover_rate", "pe", "pe_ttm", "pb"],
+      "blocked_fields": [],
+      "available_date_required": true,
+      "pit_join_required": true,
+      "standalone_alpha_claim_allowed": false
+    }
+  ]
+}

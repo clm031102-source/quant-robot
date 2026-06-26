@@ -1,0 +1,76 @@
+{
+  "round": 248,
+  "market": "CN",
+  "asset_type": "stock",
+  "stage": "candidate_preregistration",
+  "family": "nonfinancial_event_contextual_underreaction",
+  "source_review": "docs/research/cn_stock_round245_247_three_round_review_2026-06-25.md",
+  "startup_gate_packet": "data/reports/round248_startup_method_protocol_20260625/factor_mining_startup_gate.json",
+  "reason_for_rotation": [
+    "round245_247_realized_statement_formula_mutations_produced_zero_research_leads",
+    "default_startup_direction_now_requires_external_revision_or_nonfinancial_event_context",
+    "avoid_repeating_moneyflow_or_statement_formula_parameter_mutations"
+  ],
+  "blocked_reentry_families": [
+    "accounting_quality_realized_statement_formula_mutations",
+    "statement_cash_conversion_muted_reaction",
+    "statement_profitability_revision_without_external_expectation_data",
+    "event_dividend_cash_yield_parameter_variants_after_round148_dedup_failure",
+    "dragon_tiger_attention_reversal_after_round232_233_size_residual_failure"
+  ],
+  "candidate_factors": [
+    {
+      "factor_name": "event_repurchase_underreaction_20",
+      "formula": "0.65*cs_z(repurchase_amount/adv20) + 0.35*cs_z(-pre_signal_return_20)",
+      "economic_hypothesis": "Buyback announcements are more likely to carry incremental information when the stock has not already rallied into the executable signal date."
+    },
+    {
+      "factor_name": "event_repurchase_quiet_volume_20",
+      "formula": "0.65*cs_z(repurchase_amount/adv20) + 0.35*cs_z(-amount_trend_5_20)",
+      "economic_hypothesis": "Buybacks with less short-term volume crowding should have lower chance of already being fully priced."
+    },
+    {
+      "factor_name": "event_holder_contraction_underreaction_20",
+      "formula": "0.65*cs_z(-holder_number_change) + 0.35*cs_z(-pre_signal_return_20)",
+      "economic_hypothesis": "Falling shareholder count may proxy ownership concentration, but should be tested only when price has not already reacted."
+    },
+    {
+      "factor_name": "event_holder_contraction_low_vol_20",
+      "formula": "0.65*cs_z(-holder_number_change) + 0.35*cs_z(-realized_vol_20)",
+      "economic_hypothesis": "Ownership concentration is less likely to be a crash-risk artifact when paired with lower recent volatility."
+    }
+  ],
+  "data_policy": {
+    "event_endpoints": [
+      "repurchase",
+      "stk_holdernumber"
+    ],
+    "event_start_year": 2015,
+    "event_end_year": 2025,
+    "analysis_start_date": "2015-01-01",
+    "analysis_end_date": "2025-12-31",
+    "include_final_holdout": false,
+    "final_holdout_start": "2026-01-01",
+    "pit_lag_trade_days": 1,
+    "execution_lag": 1,
+    "same_day_event_trading_allowed": false
+  },
+  "screening_policy": {
+    "horizons": [
+      5,
+      20
+    ],
+    "min_cross_section": 30,
+    "min_ic_observations": 8,
+    "min_industries": 2,
+    "min_assets_per_industry": 2,
+    "min_neutral_rank_ic": 0.01,
+    "min_neutral_ic_t_stat": 2.0,
+    "min_neutral_retention": 0.5,
+    "multiple_testing": "Bonferroni and Benjamini-Hochberg FDR across factor x horizon tests",
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "promotion_allowed": false
+  },
+  "next_gate_if_lead": "reference_dedup_walk_forward_cost_capacity_regime_after_contextual_event_lead",
+  "safety": "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+}

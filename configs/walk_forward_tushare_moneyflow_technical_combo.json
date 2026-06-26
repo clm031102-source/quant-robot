@@ -14,7 +14,7 @@
   "experiment_grid": {
     "markets": ["CN"],
     "factor_source": "moneyflow_technical_combo",
-    "moneyflow_input_root": "data/processed/tushare_moneyflow_inputs",
+    "moneyflow_input_root": "configs/cn_stock_authority_moneyflow_inputs_2015_2025.json",
     "factor_names": [
       "mf_low_plus_reversal_5",
       "small_sell_plus_reversal_5",
@@ -44,6 +44,8 @@
     "min_relative_return": 0.0,
     "max_drawdown_limit": 0.30,
     "rank_by": "sharpe",
-    "min_trades": 30
+    "min_trades": 30,
+    "precompute_factor_matrix": true,
+    "reuse_research_inputs": true
   }
 }
