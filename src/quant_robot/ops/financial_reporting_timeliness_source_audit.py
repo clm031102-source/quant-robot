@@ -35,11 +35,20 @@ def summarize_financial_reporting_timeliness_source_audit(
         for source_name, frame in sorted(financial_frames.items())
     ]
     year_rows = [row for profile in profiles for row in profile.pop("year_coverage")]
-    source_ready_count = sum(1 for profile in profiles if profile["source_ready"])
-    blockers = _dedupe(blocker for profile in profiles for blocker in profile["blockers"])
+    aggregate_profile = _profile_source(
+        "aggregate_union",
+        _aggregate_frames(financial_frames.values()),
+        analysis_start_date=analysis_start_date,
+        analysis_end_date=analysis_end_date,
+        min_unique_symbols=min_unique_symbols,
+        min_end_years=min_end_years,
+    )
+    year_rows.extend(aggregate_profile.pop("year_coverage"))
+    blockers = list(aggregate_profile["blockers"])
     if not profiles:
         blockers = ["no_financial_reporting_sources_provided"]
-    status = "source_ready" if source_ready_count > 0 else "blocked"
+    source_ready_count = 1 if aggregate_profile["source_ready"] else 0
+    status = "source_ready" if aggregate_profile["source_ready"] and profiles else "blocked"
     return {
         "stage": STAGE,
         "status": status,
@@ -51,11 +60,12 @@ def summarize_financial_reporting_timeliness_source_audit(
         "summary": {
             "source_count": int(len(profiles)),
             "source_ready_count": int(source_ready_count),
-            "row_count": int(sum(profile["row_count"] for profile in profiles)),
-            "unique_symbols": int(max((profile["unique_symbols"] for profile in profiles), default=0)),
+            "row_count": int(aggregate_profile["row_count"]),
+            "unique_symbols": int(aggregate_profile["unique_symbols"]),
             "min_unique_symbols": int(min_unique_symbols),
             "min_end_years": int(min_end_years),
         },
+        "aggregate_profile": aggregate_profile,
         "source_profiles": profiles,
         "year_coverage": year_rows,
         "gate": {
@@ -107,6 +117,11 @@ def load_financial_reporting_timeliness_frames(financial_roots: Iterable[str | P
                 pieces.append(frame)
         frames[root.name or str(root)] = pd.concat(pieces, ignore_index=True) if pieces else pd.DataFrame()
     return frames
+
+
+def _aggregate_frames(frames: Iterable[pd.DataFrame]) -> pd.DataFrame:
+    pieces = [frame for frame in frames if not frame.empty]
+    return pd.concat(pieces, ignore_index=True) if pieces else pd.DataFrame()
 
 
 def write_financial_reporting_timeliness_source_audit(output_dir: str | Path, result: Mapping[str, Any]) -> None:

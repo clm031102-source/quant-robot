@@ -13,13 +13,13 @@ from quant_robot.ops.financial_reporting_timeliness_source_audit import (
 )
 
 
-def _statement_rows(*, symbols: int, years: range) -> pd.DataFrame:
+def _statement_rows(*, symbols: int, years: range, symbol_offset: int = 0) -> pd.DataFrame:
     rows = []
     for year in years:
         for symbol_idx in range(symbols):
             rows.append(
                 {
-                    "symbol": f"{symbol_idx:06d}.SZ",
+                    "symbol": f"{symbol_idx + symbol_offset:06d}.SZ",
                     "ann_date": f"{year + 1}0430",
                     "end_date": f"{year}1231",
                     "report_type": "1",
@@ -63,6 +63,25 @@ class FinancialReportingTimelinessSourceAuditTests(unittest.TestCase):
         self.assertTrue(result["candidate_plan_allowed"])
         self.assertFalse(result["promotion_policy"]["portfolio_grid_allowed"])
         self.assertFalse(result["promotion_policy"]["promotion_allowed"])
+
+    def test_uses_aggregate_union_coverage_across_sharded_sources_for_source_gate(self) -> None:
+        result = summarize_financial_reporting_timeliness_source_audit(
+            financial_frames={
+                "statement_shard_1": _statement_rows(symbols=60, years=range(2015, 2026), symbol_offset=0),
+                "statement_shard_2": _statement_rows(symbols=60, years=range(2015, 2026), symbol_offset=60),
+            },
+            analysis_start_date="2015-01-01",
+            analysis_end_date="2025-12-31",
+            min_unique_symbols=100,
+            min_end_years=8,
+        )
+
+        self.assertEqual(result["status"], "source_ready")
+        self.assertEqual(result["summary"]["unique_symbols"], 120)
+        self.assertEqual(result["summary"]["source_ready_count"], 1)
+        self.assertEqual(result["aggregate_profile"]["source"], "aggregate_union")
+        self.assertEqual(result["aggregate_profile"]["unique_symbols"], 120)
+        self.assertTrue(result["candidate_plan_allowed"])
 
     def test_write_outputs_json_csv_and_markdown(self) -> None:
         result = summarize_financial_reporting_timeliness_source_audit(

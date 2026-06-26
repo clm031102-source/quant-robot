@@ -35,6 +35,9 @@ def run_financial_statement_shard_backfill_cli(
     symbol_offset: int = 0,
     symbol_limit: int | None = None,
     max_endpoint_requests: int = 3000,
+    adapter_max_retries: int = 3,
+    adapter_retry_sleep_seconds: float = 1.0,
+    adapter_request_sleep_seconds: float = 0.0,
     adapter: object | None = None,
 ) -> dict[str, Any]:
     plan = _read_plan(plan_json)
@@ -53,8 +56,13 @@ def run_financial_statement_shard_backfill_cli(
         raise RuntimeError("Financial statement shard backfill plan has no periods")
 
     output_path = Path(output_dir)
+    active_adapter = adapter or TushareAdapter(
+        max_retries=adapter_max_retries,
+        retry_sleep_seconds=adapter_retry_sleep_seconds,
+        request_sleep_seconds=adapter_request_sleep_seconds,
+    )
     ingest = run_tushare_financial_statement_ingest(
-        adapter or TushareAdapter(),
+        active_adapter,
         periods,
         output_path,
         resume=True,
@@ -105,6 +113,9 @@ def main() -> None:
     parser.add_argument("--symbol-offset", type=int, default=0)
     parser.add_argument("--symbol-limit", type=int, default=0)
     parser.add_argument("--max-endpoint-requests", type=int, default=3000)
+    parser.add_argument("--adapter-max-retries", type=int, default=3)
+    parser.add_argument("--adapter-retry-sleep-seconds", type=float, default=1.0)
+    parser.add_argument("--adapter-request-sleep-seconds", type=float, default=0.0)
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     args = parser.parse_args()
     result = run_financial_statement_shard_backfill_cli(
@@ -113,6 +124,9 @@ def main() -> None:
         symbol_offset=args.symbol_offset,
         symbol_limit=args.symbol_limit or None,
         max_endpoint_requests=args.max_endpoint_requests,
+        adapter_max_retries=args.adapter_max_retries,
+        adapter_retry_sleep_seconds=args.adapter_retry_sleep_seconds,
+        adapter_request_sleep_seconds=args.adapter_request_sleep_seconds,
         output_dir=Path(args.output_dir),
     )
     print(json.dumps({"summary": result["summary"], "output_dir": args.output_dir}, indent=2, sort_keys=True))

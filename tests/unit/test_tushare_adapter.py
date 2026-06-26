@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 import pandas as pd
 
@@ -344,6 +345,14 @@ class TushareAdapterTests(unittest.TestCase):
 
         with self.assertRaisesRegex(RuntimeError, "permission denied"):
             adapter.fetch_etf_daily_by_trade_date("20240102")
+
+    def test_successful_requests_can_be_throttled_for_rate_limits(self):
+        adapter = TushareAdapter(client=FakeTushareClient(), request_sleep_seconds=0.25)
+
+        with patch("quant_robot.data.adapters.tushare_adapter.sleep") as sleep_mock:
+            adapter.fetch_daily_by_trade_date("20240102")
+
+        sleep_mock.assert_called_once_with(0.25)
 
     def test_fetch_daily_basic_by_trade_date_maps_research_inputs(self):
         client = FakeTushareClient()
