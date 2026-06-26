@@ -561,7 +561,14 @@
     "round255_forecast_express_cache_completed_confirmed",
     "round255_event_express_profit_surprise_pit_prescreen_confirmed",
     "round255_event_express_zero_research_leads_confirmed",
-    "round255_forecast_express_standalone_hibernated_confirmed"
+    "round255_forecast_express_standalone_hibernated_confirmed",
+    "round271_financial_reporting_timeliness_backfill_audit_read",
+    "round271_aggregate_union_source_audit_confirmed",
+    "round271_source_coverage_195_below_1000_confirmed",
+    "round271_backfill_route_verified_with_throttled_shard7",
+    "round271_financial_reporting_timeliness_backfill_channel_viable_confirmed",
+    "round272_continue_statement_backfill_or_rotate_required",
+    "round272_no_candidate_generation_without_source_ready"
   ],
   "research_direction": {
     "objective": "cn_stock_cross_sectional_alpha",
@@ -614,8 +621,8 @@
       "review_after_n_rounds": 3
     },
     "repeatable_mining_protocol": {
-      "source_audit": "docs/research/cn_stock_round270_financial_reporting_timeliness_source_audit_2026-06-26.md",
-      "next_direction": "round271_financial_reporting_timeliness_backfill_or_retire_before_factor_generation",
+      "source_audit": "docs/research/cn_stock_round271_financial_reporting_timeliness_backfill_audit_2026-06-26.md",
+      "next_direction": "round272_continue_financial_reporting_timeliness_backfill_until_1000_symbols_or_rotate",
       "recently_rejected_directions": [
         "round270_financial_reporting_timeliness_candidate_generation_from_100_symbol_cache",
         "round270_claiming_financial_reporting_timeliness_ready_without_full_market_coverage",
@@ -1131,7 +1138,9 @@
         "external_feed_lpr_factor_before_non_missing_lpr_coverage",
         "external_feed_matrix_ready_seed_as_profitability_evidence",
         "external_feed_five_month_portfolio_grid_before_long_cycle_coverage",
-        "lpr_factor_before_lpr_coverage_is_non_missing"
+        "lpr_factor_before_lpr_coverage_is_non_missing",
+        "round271_financial_reporting_timeliness_factor_generation_at_195_symbols",
+        "round271_single_root_source_audit_without_aggregate_union_coverage"
       ],
       "required_experiment_design": [
         "long_cycle_same_parameter_replay",
@@ -1832,7 +1841,9 @@
         "round265_bars_loader_optimized_to_exclude_non_bar_processed_inputs",
         "round263_265_three_round_review_completed",
         "round266_direction_optimization_gate_completed",
-        "round267_must_use_new_source_or_orthogonal_family_preregistration"
+        "round267_must_use_new_source_or_orthogonal_family_preregistration",
+        "round271_aggregate_union_source_coverage_gate",
+        "round272_source_ready_before_candidate_generation"
       ],
       "confirm_before_each_run": [
         "long_cycle_replay_plan_read",
@@ -2787,17 +2798,24 @@
         "round269_forecast_express_disagreement_hibernated_confirmed",
         "round270_financial_reporting_timeliness_source_audit_required_confirmed",
         "round270_financial_reporting_timeliness_source_audit_confirmed",
-        "round270_source_coverage_blocked_candidate_generation_confirmed"
+        "round270_source_coverage_blocked_candidate_generation_confirmed",
+        "round271_financial_reporting_timeliness_backfill_audit_read",
+        "round271_aggregate_union_source_audit_confirmed",
+        "round271_source_coverage_195_below_1000_confirmed",
+        "round271_backfill_route_verified_with_throttled_shard7",
+        "round271_financial_reporting_timeliness_backfill_channel_viable_confirmed",
+        "round272_continue_statement_backfill_or_rotate_required",
+        "round272_no_candidate_generation_without_source_ready"
       ]
     }
   },
   "round_state": {
-    "last_completed_round": 270,
-    "next_round": 271,
+    "last_completed_round": 271,
+    "next_round": 272,
     "last_three_round_review": "docs/research/cn_stock_round266_268_three_round_review_2026-06-26.md",
-    "last_three_round_decision": "source_blocked_requires_backfill_or_rotation",
+    "last_three_round_decision": "financial_reporting_timeliness_backfill_viable_but_source_coverage_blocked",
     "family_rotation_required": true,
-    "next_direction": "round271_financial_reporting_timeliness_backfill_or_retire_before_factor_generation",
+    "next_direction": "round272_continue_financial_reporting_timeliness_backfill_until_1000_symbols_or_rotate",
     "blocked_reentry_families": [
       "accounting_quality_realized_statement_formula_mutations",
       "statement_cash_conversion_muted_reaction",
@@ -2837,16 +2855,18 @@
       "forecast_express_disagreement_after_round268_zero_research_leads"
     ],
     "required_before_next_round": [
-      "round270_financial_reporting_timeliness_source_audit_read",
-      "round270_source_coverage_blocked_candidate_generation_confirmed",
-      "round271_backfill_or_rotate_financial_reporting_timeliness_required",
-      "round271_no_candidate_generation_without_source_ready",
+      "round271_financial_reporting_timeliness_backfill_audit_read",
+      "round271_aggregate_union_source_audit_confirmed",
+      "round271_source_coverage_195_below_1000_confirmed",
+      "round272_continue_statement_backfill_or_rotate_required",
+      "round272_no_candidate_generation_without_source_ready",
       "keep_final_holdout_blocked"
-    ]
+    ],
+    "source_backfill_required": true
   },
   "method_optimization_contract": {
-    "source_audit": "docs/research/cn_stock_round270_financial_reporting_timeliness_source_audit_2026-06-26.md",
-    "next_allowed_direction": "round271_financial_reporting_timeliness_backfill_or_retire_before_factor_generation",
+    "source_audit": "docs/research/cn_stock_round271_financial_reporting_timeliness_backfill_audit_2026-06-26.md",
+    "next_allowed_direction": "round272_continue_financial_reporting_timeliness_backfill_until_1000_symbols_or_rotate",
     "hibernated_families": [
       "public_risk_filter_bridge",
       "public_supertrend",
@@ -3012,7 +3032,11 @@
       "round270_must_audit_financial_reporting_timeliness_source_coverage_before_candidates",
       "round270_financial_reporting_timeliness_source_audit_blocked_by_symbol_coverage",
       "no_financial_reporting_timeliness_candidate_generation_from_partial_cache",
-      "round271_must_backfill_or_rotate_before_factor_generation"
+      "round271_must_backfill_or_rotate_before_factor_generation",
+      "round271_financial_reporting_timeliness_backfill_channel_viable",
+      "round271_financial_reporting_timeliness_aggregate_coverage_195_below_1000",
+      "round271_no_factor_generation_before_1000_symbol_source_gate",
+      "round272_continue_financial_reporting_timeliness_backfill_or_rotate"
     ]
   },
   "candidate_budget": {
