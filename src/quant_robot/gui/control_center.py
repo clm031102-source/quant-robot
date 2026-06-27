@@ -59,6 +59,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "audit_scorecard": audit_scorecard,
         "operator_timeline": _operator_timeline(workflows, verification_gates, readiness_matrix, audit_scorecard),
         "run_history": _run_history_spec(),
+        "execution_receipts": _execution_receipts_spec(),
         "audit_packets": audit_packets,
         "audit_feedback": audit_feedback,
         "results": {
@@ -884,6 +885,28 @@ def _run_history_spec() -> dict[str, Any]:
             {"workflow_id": "paper_simulation", "label": "Run local paper simulation"},
             {"workflow_id": "daily_ops", "label": "Refresh Daily Ops"},
             {"workflow_id": "promotion_ops", "label": "Refresh Promotion Ops"},
+        ],
+    }
+
+
+def _execution_receipts_spec() -> dict[str, Any]:
+    return {
+        "stage": "gui_execution_receipts",
+        "storage_key": "quant_robot.gui.execution_receipts.v1",
+        "max_entries": 20,
+        "empty_state": "No structured workflow receipts recorded in this browser yet.",
+        "capture_events": [
+            {"workflow_id": "research_backtest", "label": "Research backtest receipt"},
+            {"workflow_id": "signal_snapshot", "label": "Advisory signal receipt"},
+            {"workflow_id": "paper_simulation", "label": "Paper simulation receipt"},
+        ],
+        "fields": [
+            "workflow_id",
+            "time",
+            "request",
+            "metrics",
+            "decision",
+            "safety",
         ],
     }
 

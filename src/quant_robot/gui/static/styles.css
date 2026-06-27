@@ -498,6 +498,7 @@ button {
 
 .operator-timeline-list,
 .run-history-list,
+.execution-receipt-list,
 .audit-repair-list {
   max-height: 236px;
 }

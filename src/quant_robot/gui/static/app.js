@@ -20,6 +20,7 @@ const state = {
   iterativeObservationExpansion: null,
   tushareActivationGate: null,
   runHistory: [],
+  executionReceipts: [],
 };
 
 const titles = {
@@ -75,6 +76,8 @@ const sourcePresets = {
 
 const RUN_HISTORY_STORAGE_KEY = "quant_robot.gui.run_history.v1";
 const RUN_HISTORY_LIMIT = 20;
+const EXECUTION_RECEIPT_STORAGE_KEY = "quant_robot.gui.execution_receipts.v1";
+const EXECUTION_RECEIPT_LIMIT = 20;
 
 document.addEventListener("DOMContentLoaded", async () => {
   bindNavigation();
@@ -259,6 +262,9 @@ async function runStartupWorkflows() {
       status: "completed",
       detail: "research, signals, paper, and promotion refreshed",
     });
+    appendExecutionReceipt(researchReceipt(state.research));
+    appendExecutionReceipt(signalReceipt(state.signals));
+    appendExecutionReceipt(paperReceipt(state.paper));
     showToast("Workflows refreshed");
   });
 }
@@ -298,6 +304,7 @@ async function runResearch() {
       status: "completed",
       detail: `${valueOf("market-select") || "ALL"} / ${valueOf("factor-select") || "momentum_2"}`,
     });
+    appendExecutionReceipt(researchReceipt(state.research));
     showToast("研究结果已更新");
   });
 }
@@ -329,6 +336,7 @@ async function runSignals() {
       status: "completed",
       detail: `top_n=${valueOf("signal-top-n") || "2"}`,
     });
+    appendExecutionReceipt(signalReceipt(state.signals));
     showToast("信号快照已生成");
   });
 }
@@ -367,6 +375,7 @@ async function runPaper() {
       status: "completed",
       detail: `${valueOf("paper-market-select") || "ALL"} / top_n=${valueOf("paper-top-n") || "2"}`,
     });
+    appendExecutionReceipt(paperReceipt(state.paper));
     showToast("纸面模拟已更新");
   });
 }
@@ -498,6 +507,7 @@ function renderControlCenter() {
   const operatorTimeline = control.operator_timeline || {};
   const timelineEvents = operatorTimeline.events || [];
   const runHistorySpec = control.run_history || {};
+  const executionReceiptSpec = control.execution_receipts || {};
   const runQueue = control.run_queue || {};
   const activeRun = runQueue.active || {};
   const queueSummary = runQueue.summary || {};
@@ -635,6 +645,7 @@ function renderControlCenter() {
     ["Boundary", safety.notice || "Research only", "danger"],
   ]);
   renderRunHistory(runHistorySpec);
+  renderExecutionReceipts(executionReceiptSpec);
 }
 
 function renderDashboard() {
@@ -1597,6 +1608,43 @@ function appendRunHistory(entry) {
   return nextEntry;
 }
 
+function loadExecutionReceipts(spec = {}) {
+  const storageKey = spec.storage_key || EXECUTION_RECEIPT_STORAGE_KEY;
+  const limit = Number(spec.max_entries || EXECUTION_RECEIPT_LIMIT);
+  try {
+    const raw = window.localStorage?.getItem(storageKey);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.slice(0, limit) : [];
+  } catch (_error) {
+    return [];
+  }
+}
+
+function saveExecutionReceipts(rows, spec = {}) {
+  const storageKey = spec.storage_key || EXECUTION_RECEIPT_STORAGE_KEY;
+  const limit = Number(spec.max_entries || EXECUTION_RECEIPT_LIMIT);
+  state.executionReceipts = rows.slice(0, limit);
+  try {
+    window.localStorage?.setItem(storageKey, JSON.stringify(state.executionReceipts));
+  } catch (_error) {
+    // Execution receipts are local evidence only; storage failures should not block a workflow.
+  }
+}
+
+function appendExecutionReceipt(receipt) {
+  if (!receipt) return null;
+  const spec = state.controlCenter?.execution_receipts || {};
+  const nextReceipt = {
+    time: new Date().toISOString(),
+    status: "completed",
+    safety: "research-to-paper only; no broker, account, or order side effects",
+    ...receipt,
+  };
+  saveExecutionReceipts([nextReceipt].concat(loadExecutionReceipts(spec)), spec);
+  renderExecutionReceipts(spec);
+  return nextReceipt;
+}
+
 function renderRunHistory(spec = {}) {
   const rows = loadRunHistory(spec);
   state.runHistory = rows;
@@ -1622,6 +1670,125 @@ function renderRunHistory(spec = {}) {
       </div>
     `;
   }).join("");
+}
+
+function renderExecutionReceipts(spec = {}) {
+  const rows = loadExecutionReceipts(spec);
+  state.executionReceipts = rows;
+  const target = byId("control-execution-receipts");
+  if (!target) return;
+  if (rows.length === 0) {
+    target.innerHTML = `
+      <div class="list-row warn">
+        <strong>No execution receipts</strong>
+        <span>${escapeHtml(spec.empty_state || "Run research, signals, or paper simulation to record a structured receipt.")}</span>
+      </div>
+    `;
+    return;
+  }
+  target.innerHTML = rows.map((item) => {
+    const metrics = item.metrics || {};
+    const request = item.request || {};
+    const statusClass = item.status === "completed" ? "ok" : item.status === "failed" ? "danger" : "warn";
+    const metricText = [
+      metrics.total_return != null ? `return=${formatPercent(metrics.total_return)}` : "",
+      metrics.sharpe != null ? `sharpe=${formatDecimal(metrics.sharpe)}` : "",
+      metrics.max_drawdown != null ? `dd=${formatPercent(metrics.max_drawdown)}` : "",
+      metrics.ending_equity != null ? `equity=${formatNumber(metrics.ending_equity)}` : "",
+      metrics.target_count != null ? `targets=${formatNumber(metrics.target_count)}` : "",
+    ].filter(Boolean).join(" / ");
+    const requestText = [
+      request.market,
+      request.factor_name || request.factor,
+      request.top_n != null ? `top_n=${request.top_n}` : "",
+      request.cost_bps != null ? `cost=${request.cost_bps}bps` : "",
+    ].filter(Boolean).join(" / ");
+    return `
+      <div class="list-row ${escapeHtml(statusClass)}">
+        <strong>${escapeHtml(item.label || item.workflow_id || "")}</strong>
+        <span>${escapeHtml(`${item.time || "--"} / ${requestText || "--"}`)}</span>
+        <span>${escapeHtml(metricText || item.decision || item.safety || "")}</span>
+        <span>${escapeHtml(item.safety || "")}</span>
+      </div>
+    `;
+  }).join("");
+}
+
+function researchReceipt(result = {}) {
+  const request = result.request || {};
+  const metrics = result.metrics || {};
+  const benchmark = result.benchmark_metrics || {};
+  const decision = result.decision || {};
+  return {
+    workflow_id: "research_backtest",
+    label: "Research backtest receipt",
+    request: {
+      market: request.market,
+      factor_name: request.factor_name,
+      top_n: request.top_n,
+      cost_bps: request.cost_bps,
+      start_date: request.start_date,
+      end_date: request.end_date,
+    },
+    metrics: {
+      total_return: metrics.total_return,
+      annualized_return: metrics.annualized_return,
+      sharpe: metrics.sharpe,
+      max_drawdown: metrics.max_drawdown,
+      win_rate: metrics.win_rate,
+      trade_count: metrics.trade_count,
+      relative_return: benchmark.relative_return,
+    },
+    decision: decision.decision_status || result.data_mode || "completed",
+    safety: "research calculation only; no broker, account, or order side effects",
+  };
+}
+
+function signalReceipt(result = {}) {
+  const request = result.request || {};
+  const targets = result.targets || [];
+  return {
+    workflow_id: "signal_snapshot",
+    label: "Advisory signal receipt",
+    request: {
+      market: request.market,
+      factor_name: request.factor_name,
+      top_n: request.top_n,
+      as_of_date: request.as_of_date,
+    },
+    metrics: {
+      target_count: targets.length,
+      target_gross_exposure: result.target_gross_exposure,
+      rebalance_count: (result.rebalance_plan || []).length,
+    },
+    decision: "advisory_only",
+    safety: "advisory targets only; executable=false and no order routing",
+  };
+}
+
+function paperReceipt(result = {}) {
+  const request = result.request || {};
+  const metrics = result.metrics || {};
+  return {
+    workflow_id: "paper_simulation",
+    label: "Paper simulation receipt",
+    request: {
+      market: request.market,
+      factor_name: request.factor_name,
+      top_n: request.top_n,
+      start_date: request.start_date,
+      end_date: request.end_date,
+    },
+    metrics: {
+      ending_equity: metrics.ending_equity,
+      total_return: metrics.total_return,
+      max_drawdown: metrics.max_drawdown,
+      guard_event_count: metrics.guard_event_count,
+      fill_count: (result.fills || []).length,
+    },
+    decision: "local_simulation_only",
+    safety: "local simulated fills only; no broker, account, or order side effects",
+  };
 }
 
 async function fetchJson(url) {
