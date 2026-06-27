@@ -3,9 +3,11 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 import pandas as pd
 
+import quant_robot.ops.shortlist_public_factor_source as source_module
 from quant_robot.ops.shortlist_public_factor_source import (
     build_shortlist_public_factor_source,
     write_shortlist_public_factor_source,
@@ -107,6 +109,102 @@ class ShortlistPublicFactorSourceTest(unittest.TestCase):
         self.assertEqual(values["public_factor_name"].tolist(), ["qlib_alpha158_return_std_position_blend_20"])
         self.assertEqual(values["asset_id"].tolist(), ["CN_XSHE_000001"])
         self.assertTrue(values["factor_value"].notna().all())
+
+    def test_family_outputs_are_narrowed_before_cross_family_concat(self) -> None:
+        bars = pd.DataFrame(
+            {
+                "date": pd.to_datetime(["2024-01-01"]),
+                "asset_id": ["CN_XSHE_000001"],
+                "market": ["CN"],
+                "adj_close": [10.0],
+                "high": [10.5],
+                "low": [9.5],
+                "amount": [20_000_000.0],
+            }
+        )
+        trades = pd.DataFrame({"asset_id": ["CN_XSHE_000001"], "signal_date": ["2024-01-01"]})
+
+        def wide_builder(input_bars: pd.DataFrame, factor_names: tuple[str, ...] | None) -> pd.DataFrame:
+            return pd.DataFrame(
+                {
+                    "date": pd.to_datetime(["2024-01-01"]),
+                    "asset_id": ["CN_XSHE_000001"],
+                    "market": ["CN"],
+                    "factor_name": ["wide_factor"],
+                    "factor_value": [1.0],
+                    "temporary_feature_blob": [object()],
+                }
+            )
+
+        original_concat = pd.concat
+
+        def assert_narrow_concat(objs, *args, **kwargs):
+            frames = list(objs)
+            for frame in frames:
+                self.assertNotIn("temporary_feature_blob", frame.columns)
+            return original_concat(frames, *args, **kwargs)
+
+        with patch.object(
+            source_module,
+            "FACTOR_FAMILIES",
+            (("wide_family", ("wide_factor",), wide_builder),),
+        ), patch.object(source_module.pd, "concat", side_effect=assert_narrow_concat):
+            result = build_shortlist_public_factor_source(
+                trades_source=trades,
+                bars_source=bars,
+                factor_names=("wide_factor",),
+            )
+
+        self.assertEqual(result["summary"]["factor_value_rows"], 1)
+
+    def test_family_outputs_are_targeted_before_cross_family_concat(self) -> None:
+        bars = pd.DataFrame(
+            {
+                "date": pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03"]),
+                "asset_id": ["CN_XSHE_000001", "CN_XSHE_000002", "CN_XSHE_000003"],
+                "market": ["CN", "CN", "CN"],
+                "adj_close": [10.0, 11.0, 12.0],
+                "high": [10.5, 11.5, 12.5],
+                "low": [9.5, 10.5, 11.5],
+                "amount": [20_000_000.0, 21_000_000.0, 22_000_000.0],
+            }
+        )
+        trades = pd.DataFrame({"asset_id": ["CN_XSHE_000001"], "signal_date": ["2024-01-01"]})
+
+        def full_universe_builder(input_bars: pd.DataFrame, factor_names: tuple[str, ...] | None) -> pd.DataFrame:
+            return pd.DataFrame(
+                {
+                    "date": pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03"]),
+                    "asset_id": ["CN_XSHE_000001", "CN_XSHE_000002", "CN_XSHE_000003"],
+                    "market": ["CN", "CN", "CN"],
+                    "factor_name": ["targeted_factor", "targeted_factor", "targeted_factor"],
+                    "factor_value": [1.0, 2.0, 3.0],
+                }
+            )
+
+        original_concat = pd.concat
+
+        def assert_target_only_concat(objs, *args, **kwargs):
+            frames = list(objs)
+            for frame in frames:
+                if {"date", "asset_id", "factor_value"}.issubset(frame.columns):
+                    self.assertEqual(pd.to_datetime(frame["date"]).dt.strftime("%Y-%m-%d").unique().tolist(), ["2024-01-01"])
+                    self.assertEqual(frame["asset_id"].unique().tolist(), ["CN_XSHE_000001"])
+            return original_concat(frames, *args, **kwargs)
+
+        with patch.object(
+            source_module,
+            "FACTOR_FAMILIES",
+            (("full_universe_family", ("targeted_factor",), full_universe_builder),),
+        ), patch.object(source_module.pd, "concat", side_effect=assert_target_only_concat):
+            result = build_shortlist_public_factor_source(
+                trades_source=trades,
+                bars_source=bars,
+                factor_names=("targeted_factor",),
+            )
+
+        values = result["factor_values"]
+        self.assertEqual(values["factor_value"].tolist(), [1.0])
 
     def test_writer_exports_value_source_and_coverage(self) -> None:
         dates = pd.date_range("2024-01-01", periods=24, freq="D")

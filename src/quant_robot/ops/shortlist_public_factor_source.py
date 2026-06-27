@@ -86,8 +86,7 @@ def build_shortlist_public_factor_source(
     else:
         bars = bars_source.copy()
     bars = _normalise_bars(bars)
-    factors = _compute_requested_public_factors(bars, requested)
-    values = _target_public_factor_values(targets, factors, requested)
+    values = _compute_targeted_public_factor_values(bars, targets, requested)
     coverage_rows = _coverage_rows(values, target_pair_count=len(targets))
     return {
         "stage": STAGE,
@@ -216,12 +215,56 @@ def _compute_requested_public_factors(bars: pd.DataFrame, requested: tuple[str, 
         frame = builder(bars, names)
         if frame.empty:
             continue
-        frame = frame.copy()
-        frame["public_factor_family"] = family_name
-        pieces.append(frame)
+        pieces.append(_normalise_public_factor_frame(frame, family_name=family_name))
     if not pieces:
         return pd.DataFrame(columns=["date", "asset_id", "public_factor_name", "factor_value"])
     factors = pd.concat(pieces, ignore_index=True)
+    return _finalise_public_factor_frame(factors)
+
+
+def _compute_targeted_public_factor_values(
+    bars: pd.DataFrame,
+    targets: pd.DataFrame,
+    requested: tuple[str, ...],
+) -> pd.DataFrame:
+    pieces: list[pd.DataFrame] = []
+    requested_set = set(requested)
+    for family_name, family_names, builder in FACTOR_FAMILIES:
+        names = tuple(name for name in family_names if name in requested_set)
+        if not names:
+            continue
+        frame = builder(bars, names)
+        if frame.empty:
+            frame = pd.DataFrame(columns=["date", "asset_id", "public_factor_name", "factor_value"])
+        else:
+            frame = _finalise_public_factor_frame(
+                _normalise_public_factor_frame(frame, family_name=family_name)
+            )
+        pieces.append(_target_public_factor_values(targets, frame, names))
+    if not pieces:
+        return _target_public_factor_values(
+            targets,
+            pd.DataFrame(columns=["date", "asset_id", "public_factor_name", "factor_value"]),
+            requested,
+        )
+    return pd.concat(pieces, ignore_index=True)
+
+
+def _normalise_public_factor_frame(frame: pd.DataFrame, *, family_name: str) -> pd.DataFrame:
+    keep = ["date", "asset_id", "market", "factor_name", "factor_value"]
+    missing = [column for column in keep if column not in frame]
+    if missing:
+        raise ValueError(
+            f"public factor family {family_name} output missing columns: {', '.join(missing)}"
+        )
+    out = frame[keep].copy()
+    out["public_factor_family"] = family_name
+    return out
+
+
+def _finalise_public_factor_frame(factors: pd.DataFrame) -> pd.DataFrame:
+    if factors.empty:
+        return pd.DataFrame(columns=["date", "asset_id", "public_factor_name", "factor_value"])
     factors["date"] = pd.to_datetime(factors["date"], errors="coerce")
     factors["asset_id"] = factors["asset_id"].astype(str)
     factors["public_factor_name"] = factors["factor_name"].astype(str)
