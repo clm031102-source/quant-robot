@@ -1,5 +1,6 @@
 const state = {
   snapshot: null,
+  controlCenter: null,
   research: null,
   signals: null,
   paper: null,
@@ -75,6 +76,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindNavigation();
   bindActions();
   await loadSnapshot();
+  await loadControlCenter();
   await loadProjectStatus();
   await loadDailyOps();
   await loadRiskCandidates();
@@ -126,6 +128,11 @@ async function loadSnapshot() {
   renderDashboard();
   renderDataCenter();
   renderLogs();
+}
+
+async function loadControlCenter() {
+  state.controlCenter = await fetchJson("/api/control/status");
+  renderControlCenter();
 }
 
 async function loadProjectStatus() {
@@ -426,6 +433,66 @@ function fillFactorSelect(factors) {
   });
 }
 
+function renderControlCenter() {
+  const control = state.controlCenter || {};
+  const work = control.work || {};
+  const backtest = control.backtest || {};
+  const method = control.method || {};
+  const safety = control.safety || {};
+  const automation = control.automation || {};
+  const metrics = state.research?.metrics || {};
+  const benchmark = state.research?.benchmark_metrics || {};
+  const paperMetrics = state.paper?.metrics || {};
+  const statusTag = byId("control-center-status");
+  if (statusTag) {
+    statusTag.textContent = control.status || "loading";
+    statusTag.classList.toggle("tag-warn", control.status !== "ready");
+  }
+  byId("control-work-status").innerHTML = statusRows([
+    ["Machine", work.machine || "--", work.machine ? "ok" : "muted"],
+    ["Task", work.task || "--", "muted"],
+    ["Branch", work.branch || "--", work.branch ? "ok" : "warn"],
+    ["Goal", work.goal || "--", "muted"],
+  ]);
+  byId("control-backtest-status").innerHTML = statusRows([
+    ["Source", `${backtest.source || "--"} / ${backtest.data_root || "--"}`, "ok"],
+    ["Market", `${backtest.market || "--"} / ${backtest.factor || "--"}`, "ok"],
+    ["TopN + cost", `${backtest.top_n ?? "--"} / ${backtest.cost_bps ?? "--"} bps`, "muted"],
+    ["Rebalance", `${backtest.rebalance_interval ?? "--"} bars / lag ${backtest.execution_lag ?? "--"}`, "muted"],
+    ["Window", `${backtest.start_date || "--"} to ${backtest.end_date || "--"}`, "muted"],
+    ["Benchmark", backtest.benchmark_asset_id || "--", "muted"],
+  ]);
+  byId("control-method-steps").innerHTML = (method.steps || []).map((item) => `
+    <div class="method-step">
+      <span>${escapeHtml(item.step ?? "")}</span>
+      <strong>${escapeHtml(item.name || "")}</strong>
+      <em>${escapeHtml(item.detail || "")}</em>
+    </div>
+  `).join("");
+  byId("control-result-slots").innerHTML = [
+    metric("Total return", formatPercent(metrics.total_return), "research"),
+    metric("Annualized", formatPercent(metrics.annualized_return), "research"),
+    metric("Sharpe", formatDecimal(metrics.sharpe), "research"),
+    metric("Max drawdown", formatPercent(metrics.max_drawdown), "research"),
+    metric("Win rate", formatPercent(metrics.win_rate), "research"),
+    metric("Trades", formatNumber(metrics.trade_count), "research"),
+    metric("Relative", formatPercent(benchmark.relative_return), "benchmark"),
+    metric("Paper equity", formatNumber(paperMetrics.ending_equity), "paper"),
+  ].join("");
+  byId("control-safety-boundary").innerHTML = statusRows([
+    ["Paper", safety.paper_trading_allowed ? "allowed by gates" : "blocked until gates pass", safety.paper_trading_allowed ? "ok" : "warn"],
+    ["Live", safety.live_trading_allowed ? "allowed" : "disabled", safety.live_trading_allowed ? "ok" : "danger"],
+    ["Broker", safety.broker_connection_allowed ? "enabled" : "no connection", safety.broker_connection_allowed ? "ok" : "danger"],
+    ["Orders", safety.order_placement_allowed ? "enabled" : "no order placement", safety.order_placement_allowed ? "ok" : "danger"],
+  ]);
+  byId("control-audit-cadence").innerHTML = statusRows([
+    ["Cadence", automation.cadence || "--", "ok"],
+    ["Audit", automation.name || "--", "muted"],
+    ["Output", automation.expected_output || "--", "muted"],
+    ["Boundary", safety.notice || "Research only", "danger"],
+  ]);
+}
+
 function renderDashboard() {
   const dashboard = state.snapshot?.dashboard || {};
   const metrics = state.research?.metrics || {};
@@ -512,6 +579,7 @@ function renderDashboard() {
     ["保护事件", formatNumber(paperMetrics.guard_event_count), paperMetrics.guard_event_count > 0 ? "warn" : "muted"],
     ["安全边界", dashboard.risk_notice || "Research only", "danger"],
   ]);
+  renderControlCenter();
   renderProjectStatus();
 }
 

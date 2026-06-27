@@ -103,6 +103,41 @@
         </section>
 
         <section id="page-dashboard" class="page active-page">
+          <section class="panel control-center-board" id="control-center-board">
+            <div class="panel-head">
+              <div>
+                <p class="section-kicker">Mission Control</p>
+                <h3>Quant Robot Control Center</h3>
+              </div>
+              <span class="tag tag-warn" id="control-center-status">loading</span>
+            </div>
+            <div class="control-center-grid">
+              <div class="control-cell">
+                <small>Current work</small>
+                <div id="control-work-status" class="status-list compact-status"></div>
+              </div>
+              <div class="control-cell">
+                <small>Backtest now</small>
+                <div id="control-backtest-status" class="status-list compact-status"></div>
+              </div>
+              <div class="control-cell control-wide">
+                <small>How it backtests</small>
+                <div id="control-method-steps" class="method-steps"></div>
+              </div>
+              <div class="control-cell">
+                <small>Result slots</small>
+                <div id="control-result-slots" class="metric-grid compact control-result-grid"></div>
+              </div>
+              <div class="control-cell">
+                <small>Paper / live boundary</small>
+                <div id="control-safety-boundary" class="status-list compact-status"></div>
+              </div>
+              <div class="control-cell">
+                <small>Audit cadence</small>
+                <div id="control-audit-cadence" class="status-list compact-status"></div>
+              </div>
+            </div>
+          </section>
           <div class="metric-grid metric-card-grid" id="dashboard-metrics"></div>
           <div class="page-grid two-grid">
             <section class="panel status-panel project-board">

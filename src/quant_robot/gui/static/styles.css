@@ -349,6 +349,105 @@ button {
   grid-template-columns: minmax(0, 1.65fr) minmax(280px, 0.72fr);
 }
 
+.control-center-board {
+  background: linear-gradient(180deg, #ffffff 0%, #f7faf8 100%);
+}
+
+.control-center-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(240px, 1fr) minmax(300px, 1.35fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.control-cell {
+  min-width: 0;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  padding: 11px;
+}
+
+.control-cell small {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.control-wide {
+  grid-row: span 2;
+}
+
+.compact-status .status-row {
+  min-height: 34px;
+  padding: 7px 0;
+}
+
+.method-steps {
+  display: grid;
+  gap: 7px;
+}
+
+.method-step {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 24px minmax(86px, 0.45fr) minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 7px;
+}
+
+.method-step:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.method-step span {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.method-step strong {
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.method-step em {
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.control-result-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.control-result-grid .metric-card {
+  min-height: 76px;
+  padding: 10px;
+  box-shadow: none;
+}
+
+.control-result-grid .metric-card strong {
+  font-size: 18px;
+}
+
 .two-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -665,10 +764,15 @@ th {
   .metric-grid,
   .metric-grid.compact,
   .operator-strip,
+  .control-center-grid,
   .dashboard-grid,
   .two-grid,
   .three-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .control-wide {
+    grid-row: auto;
   }
 }
 
@@ -722,6 +826,7 @@ th {
   .metric-grid,
   .metric-grid.compact,
   .operator-strip,
+  .control-center-grid,
   .dashboard-grid,
   .two-grid,
   .three-grid {

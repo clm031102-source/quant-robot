@@ -49,6 +49,22 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("research", snapshot["logs"])
         self.assertGreaterEqual(snapshot["dashboard"]["strategy_count"], 1)
 
+    def test_control_center_snapshot_exposes_work_backtest_method_and_safety(self):
+        from quant_robot.gui.control_center import build_control_center_snapshot
+
+        result = build_control_center_snapshot(repo_root=Path.cwd(), active_goal="Build GUI control center")
+
+        self.assertEqual(result["stage"], "gui_control_center")
+        self.assertIn("work", result)
+        self.assertIn("backtest", result)
+        self.assertIn("method", result)
+        self.assertIn("results", result)
+        self.assertIn("artifacts", result)
+        self.assertIn("safety", result)
+        self.assertIn("automation", result)
+        self.assertFalse(result["safety"]["live_trading_allowed"])
+        self.assertGreaterEqual(len(result["method"]["steps"]), 6)
+
     def test_demo_research_payload_contains_metrics_tables_decision_and_demo_label(self):
         result = run_demo_research(
             market="CN_ETF",
@@ -751,6 +767,13 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("项目作战台", html)
             self.assertIn("project-action-table", html)
             self.assertIn("operator-strip", html)
+            self.assertIn("control-center-board", html)
+            self.assertIn("control-work-status", html)
+            self.assertIn("control-backtest-status", html)
+            self.assertIn("control-method-steps", html)
+            self.assertIn("control-result-slots", html)
+            self.assertIn("control-safety-boundary", html)
+            self.assertIn("control-audit-cadence", html)
             self.assertIn("command-card", html)
             self.assertIn("page-grid", html)
             self.assertIn("metric-card", html)
@@ -820,7 +843,10 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("dailyPaperProfile", app_js)
             self.assertIn("dashboard-equity-source", app_js)
             self.assertIn("runStartupWorkflows", app_js)
+            self.assertIn("/api/control/status", app_js)
+            self.assertIn("renderControlCenter", app_js)
             startup_block = app_js.split('document.addEventListener("DOMContentLoaded", async () => {', 1)[1].split("});", 1)[0]
+            self.assertIn("await loadControlCenter();", startup_block)
             self.assertIn("await loadRiskCandidates();", startup_block)
             self.assertIn("await loadRecentDataRefresh();", startup_block)
             self.assertIn("await loadPostRefreshReplay();", startup_block)
@@ -835,6 +861,12 @@ class GuiHttpTests(unittest.TestCase):
 
             snapshot = _read_json(f"{base_url}/api/snapshot")
             self.assertEqual(snapshot["data_mode"], "demo_fixture")
+
+            control = _read_json(f"{base_url}/api/control/status")
+            self.assertEqual(control["stage"], "gui_control_center")
+            self.assertIn("backtest", control)
+            self.assertIn("method", control)
+            self.assertFalse(control["safety"]["live_trading_allowed"])
 
             project = _read_json(f"{base_url}/api/project/status")
             self.assertEqual(project["stage"], "gui_project_status")

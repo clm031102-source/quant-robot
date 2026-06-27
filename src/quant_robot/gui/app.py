@@ -6,6 +6,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+from quant_robot.gui.control_center import build_control_center_snapshot
 from quant_robot.gui.research_service import (
     build_constrained_search_snapshot,
     build_daily_ops_snapshot,
@@ -38,6 +39,9 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
     class GuiRequestHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
             parsed = urlparse(self.path)
+            if parsed.path == "/api/control/status":
+                self._send_json(build_control_center_snapshot())
+                return
             if parsed.path == "/api/snapshot":
                 self._send_json(build_gui_snapshot())
                 return
