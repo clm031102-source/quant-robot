@@ -441,6 +441,8 @@ function renderControlCenter() {
   const workflows = control.workflows || [];
   const reportLinks = control.report_links || [];
   const verificationGates = control.verification_gates || [];
+  const operatorChecklist = control.operator_checklist || {};
+  const checklistItems = operatorChecklist.items || [];
   const runQueue = control.run_queue || {};
   const activeRun = runQueue.active || {};
   const queueSummary = runQueue.summary || {};
@@ -469,6 +471,13 @@ function renderControlCenter() {
     ["Blocked", `${queueSummary.blocked ?? "--"} blocked`, (queueSummary.blocked ?? 0) > 0 ? "danger" : "ok"],
     ["Next", pendingRuns[0]?.label || blockedRuns[0]?.label || "--", pendingRuns.length ? "muted" : "warn"],
   ]);
+  byId("control-operator-checklist").innerHTML = checklistItems.slice(0, 7).map((item) => `
+    <div class="list-row ${escapeHtml(item.status === "ready" ? "ok" : item.status === "blocked" ? "danger" : "warn")}">
+      <strong>${escapeHtml(item.label || item.check_id || "")}</strong>
+      <span>${escapeHtml(item.status || "")}</span>
+      <span>${escapeHtml(item.detail || "")}</span>
+    </div>
+  `).join("");
   byId("control-backtest-status").innerHTML = statusRows([
     ["Source", `${backtest.source || "--"} / ${backtest.data_root || "--"}`, "ok"],
     ["Market", `${backtest.market || "--"} / ${backtest.factor || "--"}`, "ok"],

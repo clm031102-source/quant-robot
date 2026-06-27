@@ -15,6 +15,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     artifacts = _artifact_status(root)
     backtest = _default_backtest()
     workflows = _workflow_commands(backtest)
+    verification_gates = _verification_gates()
 
     return {
         "stage": "gui_control_center",
@@ -43,7 +44,8 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         },
         "workflows": workflows,
         "run_queue": _run_queue(workflows),
-        "verification_gates": _verification_gates(),
+        "verification_gates": verification_gates,
+        "operator_checklist": _operator_checklist(verification_gates, artifacts),
         "results": {
             "source": "Run research or paper workflow to populate live result values in the browser.",
             "metrics": [
@@ -276,6 +278,67 @@ def _verification_gates() -> list[dict[str, Any]]:
             "evidence": "Critical control center blocks remain visible and responsive on mobile.",
         },
     ]
+
+
+def _operator_checklist(verification_gates: list[dict[str, Any]], artifacts: list[dict[str, Any]]) -> dict[str, Any]:
+    required_gate_count = sum(1 for gate in verification_gates if str(gate.get("status", "")).startswith("required"))
+    missing_artifacts = [item for item in artifacts if item["status"] != "present"]
+    items = [
+        {
+            "check_id": "research_context",
+            "label": "CN_ETF research context",
+            "status": "ready",
+            "detail": "Current control-center defaults target CN_ETF local processed bars.",
+        },
+        {
+            "check_id": "verification_pack",
+            "label": "Verification pack before push",
+            "status": "required",
+            "detail": f"{required_gate_count} local verification gates must be rerun before publishing GUI changes.",
+        },
+        {
+            "check_id": "artifact_visibility",
+            "label": "Local artifact visibility",
+            "status": "ready" if not missing_artifacts else "required",
+            "detail": "Tracked GUI artifact links are present." if not missing_artifacts else f"{len(missing_artifacts)} local artifact links are missing.",
+        },
+        {
+            "check_id": "paper_boundary",
+            "label": "Paper simulation boundary",
+            "status": "required",
+            "detail": "Paper workflows are local simulations only; promotion gates must pass before operator use.",
+        },
+        {
+            "check_id": "startup_smoke",
+            "label": "Local startup smoke",
+            "status": "required",
+            "detail": "The local GUI server and /api/control/status must respond before operator use.",
+        },
+        {
+            "check_id": "live_boundary",
+            "label": "Live trading boundary",
+            "status": "blocked",
+            "detail": "Broker connection, account reads, order placement, and live trading remain disabled.",
+        },
+        {
+            "check_id": "audit_cadence",
+            "label": "5h GUI audit cadence",
+            "status": "ready",
+            "detail": "A recurring GUI audit should score the console and feed the next optimization round.",
+        },
+    ]
+    return {
+        "stage": "operator_checklist",
+        "summary": {
+            "research_ready": True,
+            "paper_ready": False,
+            "live_ready": False,
+            "ready": sum(1 for item in items if item["status"] == "ready"),
+            "required": sum(1 for item in items if item["status"] == "required"),
+            "blocked": sum(1 for item in items if item["status"] == "blocked"),
+        },
+        "items": items,
+    }
 
 
 def _report_links(root: Path, artifacts: list[dict[str, Any]]) -> list[dict[str, Any]]:
