@@ -381,6 +381,18 @@ def _project_to_template(
     unmatched_contribution = _number(unmatched["flagged_contribution"].sum()) if not unmatched.empty else 0.0
     unmatched_abs_contribution = _number(unmatched["flagged_abs_contribution"].sum()) if not unmatched.empty else 0.0
     total_abs_contribution = _number(contributions["flagged_abs_contribution"].sum()) if not contributions.empty else 0.0
+    unmatched_abs = pd.to_numeric(
+        unmatched.get("flagged_abs_contribution", 0.0),
+        errors="coerce",
+    ).fillna(0.0)
+    unmatched_nonzero = unmatched[unmatched_abs > 0.0]
+    unmatched_zero = unmatched[unmatched_abs <= 0.0]
+    unmatched_by_year: dict[str, float] = {}
+    if not unmatched_nonzero.empty:
+        yearly = unmatched_nonzero.assign(exit_year=pd.to_datetime(unmatched_nonzero["exit_date"]).dt.year).groupby(
+            "exit_year"
+        )["flagged_abs_contribution"].sum()
+        unmatched_by_year = {str(int(year)): _number(value) for year, value in yearly.items()}
     contribution_summary = {
         "flagged_trade_count": total_count,
         "matched_flagged_trade_count": matched_count,
@@ -388,6 +400,9 @@ def _project_to_template(
         "matched_flagged_contribution": matched_contribution,
         "unmatched_flagged_contribution": unmatched_contribution,
         "unmatched_abs_flagged_contribution": unmatched_abs_contribution,
+        "unmatched_nonzero_date_count": int(len(unmatched_nonzero)),
+        "unmatched_zero_date_count": int(len(unmatched_zero)),
+        "unmatched_abs_contribution_by_year": unmatched_by_year,
         "total_abs_flagged_contribution": total_abs_contribution,
         "unmatched_abs_contribution_share": (
             unmatched_abs_contribution / total_abs_contribution if total_abs_contribution > 0 else 0.0

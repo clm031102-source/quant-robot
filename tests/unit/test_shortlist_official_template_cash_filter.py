@@ -22,20 +22,20 @@ class ShortlistOfficialTemplateCashFilterTest(unittest.TestCase):
         )
         trades = pd.DataFrame(
             {
-                "asset_id": ["CN_XSHE_000001", "CN_XSHE_000002"],
-                "entry_date": ["2024-01-15", "2024-01-15"],
-                "exit_date": ["2024-02-01", "2024-02-15"],
-                "entry_cash_proxy_weighted_return": [-0.03, -0.04],
+                "asset_id": ["CN_XSHE_000001", "CN_XSHE_000002", "CN_XSHE_000003"],
+                "entry_date": ["2024-01-15", "2024-01-15", "2024-01-15"],
+                "exit_date": ["2024-02-01", "2024-02-15", "2024-02-22"],
+                "entry_cash_proxy_weighted_return": [-0.03, -0.04, 0.0],
             }
         )
         dragon = pd.DataFrame(
             {
-                "asset_id": ["CN_XSHE_000001", "CN_XSHE_000002"],
-                "date": ["2024-01-10", "2024-01-10"],
-                "available_date": ["2024-01-11", "2024-01-11"],
-                "top_list_event_count": [1, 1],
-                "top_list_net_amount_sum": [100.0, 200.0],
-                "top_list_abs_pct_change_max": [10.0, 9.8],
+                "asset_id": ["CN_XSHE_000001", "CN_XSHE_000002", "CN_XSHE_000003"],
+                "date": ["2024-01-10", "2024-01-10", "2024-01-10"],
+                "available_date": ["2024-01-11", "2024-01-11", "2024-01-11"],
+                "top_list_event_count": [1, 1, 1],
+                "top_list_net_amount_sum": [100.0, 200.0, 300.0],
+                "top_list_abs_pct_change_max": [10.0, 9.8, 10.1],
             }
         )
 
@@ -50,11 +50,14 @@ class ShortlistOfficialTemplateCashFilterTest(unittest.TestCase):
         )
 
         row = audit["rows"][0]
-        self.assertEqual(row["flagged_trade_count"], 2)
+        self.assertEqual(row["flagged_trade_count"], 3)
         self.assertEqual(row["matched_flagged_trade_count"], 1)
-        self.assertEqual(row["unmatched_flagged_trade_count"], 1)
+        self.assertEqual(row["unmatched_flagged_trade_count"], 2)
         self.assertAlmostEqual(row["matched_flagged_contribution"], -0.03)
         self.assertAlmostEqual(row["unmatched_flagged_contribution"], -0.04)
+        self.assertEqual(row["unmatched_nonzero_date_count"], 1)
+        self.assertEqual(row["unmatched_zero_date_count"], 1)
+        self.assertEqual(row["unmatched_abs_contribution_by_year"], {"2024": 0.04})
         self.assertIn("unmatched_flagged_contribution_above_limit", row["blockers"])
         period_rows = audit["period_return_frames"]["cash_dragon_hot_chase_20d"]
         self.assertAlmostEqual(period_rows[0]["period_return"], 0.04)
