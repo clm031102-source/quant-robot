@@ -443,6 +443,8 @@ function renderControlCenter() {
   const verificationGates = control.verification_gates || [];
   const operatorChecklist = control.operator_checklist || {};
   const checklistItems = operatorChecklist.items || [];
+  const executionPlan = control.execution_plan || {};
+  const executionSteps = executionPlan.steps || [];
   const runQueue = control.run_queue || {};
   const activeRun = runQueue.active || {};
   const queueSummary = runQueue.summary || {};
@@ -475,6 +477,13 @@ function renderControlCenter() {
     <div class="list-row ${escapeHtml(item.status === "ready" ? "ok" : item.status === "blocked" ? "danger" : "warn")}">
       <strong>${escapeHtml(item.label || item.check_id || "")}</strong>
       <span>${escapeHtml(item.status || "")}</span>
+      <span>${escapeHtml(item.detail || "")}</span>
+    </div>
+  `).join("");
+  byId("control-execution-plan").innerHTML = executionSteps.slice(0, 7).map((item) => `
+    <div class="list-row ${escapeHtml(item.status === "done" || item.status === "active" ? "ok" : item.status === "blocked" ? "danger" : "warn")}">
+      <strong>${escapeHtml(item.label || item.step_id || "")}</strong>
+      <span>${escapeHtml(item.status || "")} / ${escapeHtml(item.command || "")}</span>
       <span>${escapeHtml(item.detail || "")}</span>
     </div>
   `).join("");

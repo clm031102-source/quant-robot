@@ -46,6 +46,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "run_queue": _run_queue(workflows),
         "verification_gates": verification_gates,
         "operator_checklist": _operator_checklist(verification_gates, artifacts),
+        "execution_plan": _execution_plan(workflows, verification_gates),
         "results": {
             "source": "Run research or paper workflow to populate live result values in the browser.",
             "metrics": [
@@ -339,6 +340,76 @@ def _operator_checklist(verification_gates: list[dict[str, Any]], artifacts: lis
         },
         "items": items,
     }
+
+
+def _execution_plan(workflows: list[dict[str, Any]], verification_gates: list[dict[str, Any]]) -> dict[str, Any]:
+    verification_command = verification_gates[0]["command"] if verification_gates else "python -m unittest -v tests.unit.test_gui"
+    steps = [
+        {
+            "step_id": "context_gate",
+            "label": "Confirm workstation and branch context",
+            "status": "done",
+            "detail": "office_desktop / factor_review / codex GUI task branch.",
+            "command": "python scripts\\sync_project.py --machine office_desktop --task factor_review",
+        },
+        {
+            "step_id": "research_backtest",
+            "label": "Run CN_ETF research backtest",
+            "status": "active",
+            "detail": "Use local processed-bars defaults and current factor settings.",
+            "command": _workflow_command(workflows, "research_backtest"),
+        },
+        {
+            "step_id": "signal_snapshot",
+            "label": "Generate advisory signal snapshot",
+            "status": "queued",
+            "detail": "Create targets and rebalance plan with executable=false.",
+            "command": _workflow_command(workflows, "signal_snapshot"),
+        },
+        {
+            "step_id": "paper_simulation",
+            "label": "Run local paper simulation",
+            "status": "queued",
+            "detail": "Simulated fills only; no broker, account, or order side effects.",
+            "command": _workflow_command(workflows, "paper_simulation"),
+        },
+        {
+            "step_id": "verification_pack",
+            "label": "Run verification pack",
+            "status": "queued",
+            "detail": "GUI tests, project audit, compile check, sync audit, and browser smoke checks.",
+            "command": verification_command,
+        },
+        {
+            "step_id": "publish_branch",
+            "label": "Commit and push GUI branch",
+            "status": "queued",
+            "detail": "Only source, tests, docs, and lightweight summaries are syncable.",
+            "command": "git push origin codex/gui-control-center-mvp-20260627",
+        },
+        {
+            "step_id": "live_handoff",
+            "label": "Live trading handoff",
+            "status": "blocked",
+            "detail": SAFETY_NOTICE,
+            "command": "blocked by research-to-paper boundary",
+        },
+    ]
+    return {
+        "stage": "execution_plan",
+        "summary": {
+            "active_step": "research_backtest",
+            "queued": sum(1 for item in steps if item["status"] == "queued"),
+            "blocked": sum(1 for item in steps if item["status"] == "blocked"),
+            "done": sum(1 for item in steps if item["status"] == "done"),
+        },
+        "steps": steps,
+    }
+
+
+def _workflow_command(workflows: list[dict[str, Any]], workflow_id: str) -> str:
+    workflow = _workflow_by_id(workflows, workflow_id)
+    return workflow["command"] if workflow else ""
 
 
 def _report_links(root: Path, artifacts: list[dict[str, Any]]) -> list[dict[str, Any]]:
