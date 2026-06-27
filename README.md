@@ -6,6 +6,7 @@ The project is currently in a Phase 5.x research-to-paper stage. It has research
 
 ## Current Status
 
+- Cloud/research sync index: `docs/research/CURRENT_RESEARCH_INDEX.md`. Read this first after syncing on any workstation.
 - Current stage: Phase 5.15 paper ops runbook.
 - Latest selected paper profile: `cap60_guard12_cd3` for `CN_ETF_liquidity_10_top1_cost5_reb5`, risk tier `aggressive_growth`.
 - Daily Ops status: `paper_ready` with live boundary disabled.

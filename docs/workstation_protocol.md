@@ -1,4 +1,4 @@
-# Workstation Protocol
+﻿# Workstation Protocol
 
 This project can be worked on from a laptop, a high-spec desktop, and an office desktop. The machines are execution contexts; branches are named by work content.
 
