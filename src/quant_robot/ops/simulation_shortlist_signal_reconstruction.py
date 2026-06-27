@@ -153,6 +153,8 @@ def build_simulation_shortlist_signal_reconstruction(
             reconstructed_pre_overlay_return=("pre_overlay_return_contribution", "sum"),
             reconstructed_trade_count=("trade_id", "count"),
             trade_decision_date_count=("decision_date", "nunique"),
+            trade_min_decision_date=("decision_date", "min"),
+            trade_max_decision_date=("decision_date", "max"),
             reconstructed_gross_weight=("target_weight", lambda values: float(pd.Series(values).abs().sum())),
         )
     )
@@ -176,11 +178,17 @@ def build_simulation_shortlist_signal_reconstruction(
     collapsed_decision_dates = reconciliation["trade_decision_date_count"] > reconciliation[
         "event_decision_date_count"
     ]
+    decision_date_mismatch = (
+        (reconciliation["reconstructed_trade_count"] > 0)
+        & (
+            reconciliation["event_decision_date"].ne(reconciliation["trade_min_decision_date"])
+            | reconciliation["event_decision_date"].ne(reconciliation["trade_max_decision_date"])
+        )
+    )
 
-    exposure_after_decision = reconciliation["date"] > reconciliation["event_decision_date"]
     blockers: list[str] = []
-    if bool(exposure_after_decision.any()):
-        blockers.append("exit_timed_exposure_requires_entry_timed_rebuild")
+    if bool(decision_date_mismatch.any()):
+        blockers.append("event_decision_date_mismatch")
     if bool(collapsed_decision_dates.any()):
         blockers.append("event_decision_date_collapses_multiple_trade_decisions")
     if int(len(unmatched_trade_dates)) > 0:
@@ -220,17 +228,17 @@ def build_simulation_shortlist_signal_reconstruction(
                 "max_abs_return_reconciliation_diff": max_abs_diff,
                 "sum_abs_return_reconciliation_diff": _number(reconciliation["reconciliation_diff"].abs().sum()),
                 "max_reconstructed_gross_weight": _number(reconciliation["reconstructed_gross_weight"].max()),
-                "exit_timed_exposure_row_count": int(exposure_after_decision.sum()),
+                "event_decision_date_mismatch_count": int(decision_date_mismatch.sum()),
                 "collapsed_event_decision_date_count": int(collapsed_decision_dates.sum()),
             },
             "paper_readiness": {
                 "paper_ready": not blockers,
                 "blockers": blockers,
                 "interpretation": (
-                    "Exact event-return reconstruction is not the same as an entry-timed paper signal "
-                    "when exposures are keyed by exit/event date."
+                    "Exact event-return reconstruction is not paper-ready when event exposure dates "
+                    "do not align with trade entry decisions."
                     if blockers
-                    else "Asset-level signal rows reconcile and do not use exit-timed exposure."
+                    else "Asset-level signal rows reconcile and event exposure dates align with trade entry decisions."
                 ),
             },
             "signal_rows": signal_rows,
@@ -323,6 +331,8 @@ def _reconciliation_rows(frame: pd.DataFrame) -> list[dict[str, Any]]:
         "event_decision_date",
         "event_decision_date_count",
         "trade_decision_date_count",
+        "trade_min_decision_date",
+        "trade_max_decision_date",
         "event_period_return",
         "event_final_exposure",
         "reconstructed_period_return",
@@ -350,8 +360,15 @@ def _sanitize(value: Any) -> Any:
         return [_sanitize(item) for item in value]
     if isinstance(value, tuple):
         return [_sanitize(item) for item in value]
+    if value is pd.NaT:
+        return None
     if isinstance(value, pd.Timestamp):
         return value.date().isoformat()
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        pass
     if isinstance(value, np.generic):
         return _sanitize(value.item())
     if isinstance(value, float):

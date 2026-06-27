@@ -65,8 +65,14 @@ def build_simulation_shortlist_entry_timed_overlay(
         self_risk_threshold=self_risk_threshold,
         self_risk_exposure=self_risk_exposure,
     )
+    metric_returns = (
+        overlay.groupby("date", as_index=False)["period_return"]
+        .sum()
+        .sort_values("date")
+        .reset_index(drop=True)
+    )
     metrics = summarize_return_blocks(
-        overlay[["date", "period_return"]],
+        metric_returns,
         candidate_name=candidate_name,
         return_column="period_return",
         periods_per_year=periods_per_year,

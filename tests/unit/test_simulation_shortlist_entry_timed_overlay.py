@@ -55,6 +55,27 @@ class SimulationShortlistEntryTimedOverlayTest(unittest.TestCase):
             self.assertTrue((output / "simulation_shortlist_entry_timed_overlay.json").exists())
             self.assertTrue((output / "simulation_shortlist_entry_timed_events.csv").exists())
 
+    def test_metrics_aggregate_duplicate_exit_dates_before_scoring(self) -> None:
+        raw_events = pd.DataFrame(
+            {
+                "date": ["2024-01-10", "2024-01-10", "2024-02-10"],
+                "entry_date": ["2024-01-01", "2024-01-02", "2024-02-01"],
+                "period_return": [0.01, 0.02, 0.03],
+            }
+        )
+
+        result = build_simulation_shortlist_entry_timed_overlay(
+            raw_events,
+            candidate_name="duplicate_exit_dates",
+            date_column="date",
+            decision_date_column="entry_date",
+            target_annual_vol=9.99,
+            self_risk_threshold=-999.0,
+        )
+
+        self.assertEqual(len(result["event_rows"]), 3)
+        self.assertEqual(result["metrics"]["period_count"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()

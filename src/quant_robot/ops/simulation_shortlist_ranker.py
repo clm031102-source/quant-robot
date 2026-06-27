@@ -145,7 +145,10 @@ def _candidate_row(
     oos_strict_pass = _optional_number(evidence.get("oos_strict_pass_rate"))
     beta_hedged_ann = _optional_number(evidence.get("csi500_beta_hedged_annualized_return"))
     beta_hedged_drawdown = _optional_number(evidence.get("csi500_beta_hedged_max_drawdown"))
+    explicit_paper_ready = evidence.get("paper_ready")
 
+    if explicit_paper_ready is False and "not_paper_ready" in str(candidate.get("status") or ""):
+        blockers.append("not_paper_ready")
     if total_return <= 0.0:
         blockers.append("non_positive_total_return")
     if actual_ann <= 0.0:
@@ -167,6 +170,7 @@ def _candidate_row(
         "status": candidate.get("status"),
         "source_path": path_text,
         "return_column": resolved_column,
+        "paper_ready": bool(explicit_paper_ready) if explicit_paper_ready is not None else None,
         "selection_status": "blocked" if blockers else "simulation_observation_candidate",
         "duplicate_of": None,
         "blockers": blockers,
@@ -250,7 +254,7 @@ def _apply_duplicate_marks(
     *,
     duplicate_correlation: float,
 ) -> list[dict[str, Any]]:
-    ranked = sorted(rows, key=lambda row: -_number(row.get("score")))
+    ranked = sorted(rows, key=lambda row: (_duplicate_priority(row), -_number(row.get("score"))))
     canonical_ids: list[str] = []
     by_id = {str(row.get("candidate_id")): row for row in ranked}
     for row in ranked:
@@ -272,6 +276,15 @@ def _apply_duplicate_marks(
         else:
             canonical_ids.append(candidate_id)
     return [_sanitize(by_id[str(row.get("candidate_id"))]) for row in rows]
+
+
+def _duplicate_priority(row: dict[str, Any]) -> int:
+    status = str(row.get("status") or "")
+    if row.get("paper_ready") is True or status.startswith("paper_simulation"):
+        return 0
+    if "not_paper_ready" in status:
+        return 2
+    return 1
 
 
 def _pairwise_correlations(return_streams: dict[str, pd.Series]) -> list[dict[str, Any]]:

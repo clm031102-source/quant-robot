@@ -88,6 +88,51 @@ class SimulationShortlistRankerTest(unittest.TestCase):
             self.assertEqual(rows["first"]["duplicate_of"], "second")
             self.assertEqual(result["summary"]["duplicate_candidate_count"], 1)
 
+    def test_duplicate_selection_prefers_paper_ready_candidate_over_higher_score_research_observation(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            research_path = root / "research.csv"
+            paper_path = root / "paper.csv"
+            _write_returns(research_path, [0.03, 0.02, -0.01, 0.03, 0.02, 0.01])
+            _write_returns(paper_path, [0.03, 0.02, -0.01, 0.03, 0.02, 0.01])
+            config = {
+                "simulation_candidates": [
+                    _candidate(
+                        "research",
+                        research_path,
+                        mean_oos=0.09,
+                        strict_pass=0.9,
+                        hedged_ann=0.08,
+                        hedged_dd=-0.05,
+                        status="aggregate_entry_timed_research_observation_not_paper_ready",
+                        paper_ready=False,
+                    ),
+                    _candidate(
+                        "paper",
+                        paper_path,
+                        mean_oos=0.04,
+                        strict_pass=0.9,
+                        hedged_ann=0.03,
+                        hedged_dd=-0.05,
+                        status="paper_simulation_cohort_entry_timed_candidate",
+                        paper_ready=True,
+                    ),
+                ]
+            }
+
+            result = build_simulation_shortlist_ranking(
+                config,
+                repo_root=root,
+                periods_per_year=12.0,
+                holding_period=1,
+                duplicate_correlation=0.98,
+            )
+
+            rows = {row["candidate_id"]: row for row in result["rows"]}
+            self.assertEqual(rows["paper"]["selection_status"], "simulation_observation_candidate")
+            self.assertEqual(rows["research"]["selection_status"], "blocked")
+            self.assertIn("not_paper_ready", rows["research"]["blockers"])
+
 
 def _candidate(
     candidate_id: str,
@@ -97,22 +142,27 @@ def _candidate(
     strict_pass: float,
     hedged_ann: float,
     hedged_dd: float,
+    status: str = "simulation_shortlist",
+    paper_ready: bool | None = None,
 ) -> dict:
+    evidence = {
+        "mean_oos_annualized_return": mean_oos,
+        "oos_strict_pass_rate": strict_pass,
+        "csi500_beta_hedged_annualized_return": hedged_ann,
+        "csi500_beta_hedged_max_drawdown": hedged_dd,
+    }
+    if paper_ready is not None:
+        evidence["paper_ready"] = paper_ready
     return {
         "id": candidate_id,
-        "status": "simulation_shortlist",
+        "status": status,
         "formula": candidate_id,
         "event_return_source": {
             "path": str(path),
             "date_column": "date",
             "return_column": "period_return",
         },
-        "evidence": {
-            "mean_oos_annualized_return": mean_oos,
-            "oos_strict_pass_rate": strict_pass,
-            "csi500_beta_hedged_annualized_return": hedged_ann,
-            "csi500_beta_hedged_max_drawdown": hedged_dd,
-        },
+        "evidence": evidence,
     }
 
 

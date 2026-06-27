@@ -66,8 +66,8 @@ class SimulationShortlistSignalReconstructionTest(unittest.TestCase):
         self.assertEqual(result["summary"]["dragon_cash_trade_count"], 1)
         self.assertEqual(result["summary"]["public_tilt_trade_count"], 1)
         self.assertAlmostEqual(result["summary"]["max_abs_return_reconciliation_diff"], 0.0)
-        self.assertFalse(result["paper_readiness"]["paper_ready"])
-        self.assertIn("exit_timed_exposure_requires_entry_timed_rebuild", result["paper_readiness"]["blockers"])
+        self.assertTrue(result["paper_readiness"]["paper_ready"])
+        self.assertEqual(result["paper_readiness"]["blockers"], [])
 
         signals = pd.DataFrame(result["signal_rows"]).set_index("asset_id")
         self.assertAlmostEqual(signals.loc["CN_XSHE_000001", "pre_overlay_target_weight"], 0.6)
@@ -126,10 +126,12 @@ class SimulationShortlistSignalReconstructionTest(unittest.TestCase):
 
         self.assertAlmostEqual(result["summary"]["max_abs_return_reconciliation_diff"], 0.0)
         self.assertEqual(result["summary"]["collapsed_event_decision_date_count"], 1)
+        self.assertEqual(result["summary"]["event_decision_date_mismatch_count"], 1)
         self.assertIn(
             "event_decision_date_collapses_multiple_trade_decisions",
             result["paper_readiness"]["blockers"],
         )
+        self.assertIn("event_decision_date_mismatch", result["paper_readiness"]["blockers"])
 
     def test_writer_exports_signal_and_reconciliation_artifacts(self) -> None:
         result = {
@@ -137,7 +139,9 @@ class SimulationShortlistSignalReconstructionTest(unittest.TestCase):
             "summary": {"candidate_name": "demo"},
             "paper_readiness": {"paper_ready": False, "blockers": ["demo_blocker"]},
             "signal_rows": [{"asset_id": "CN_XSHE_000001", "target_weight": 0.1}],
-            "reconciliation_rows": [{"date": "2024-01-10", "reconciliation_diff": 0.0}],
+            "reconciliation_rows": [
+                {"date": "2024-01-10", "trade_max_decision_date": pd.NaT, "reconciliation_diff": 0.0}
+            ],
         }
 
         with TemporaryDirectory() as tmp:
