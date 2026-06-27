@@ -43,6 +43,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         },
         "workflows": workflows,
         "run_queue": _run_queue(workflows),
+        "verification_gates": _verification_gates(),
         "results": {
             "source": "Run research or paper workflow to populate live result values in the browser.",
             "metrics": [
@@ -214,6 +215,67 @@ def _workflow_by_id(workflows: list[dict[str, Any]], workflow_id: str) -> dict[s
         if workflow.get("workflow_id") == workflow_id:
             return workflow
     return None
+
+
+def _verification_gates() -> list[dict[str, Any]]:
+    return [
+        {
+            "gate_id": "gui_unit_tests",
+            "label": "GUI unit tests",
+            "command": "python -m unittest -v tests.unit.test_gui",
+            "status": "required_before_push",
+            "mode": "local",
+            "evidence": "26 GUI tests should pass before publishing GUI changes.",
+        },
+        {
+            "gate_id": "project_audit",
+            "label": "Project audit",
+            "command": "python scripts\\run_project_audit.py --json",
+            "status": "required_before_push",
+            "mode": "local",
+            "evidence": "Audit must report safety.passes=true and no forbidden token/data/broker hits.",
+        },
+        {
+            "gate_id": "gui_compile",
+            "label": "GUI compile check",
+            "command": "python -m compileall -q src\\quant_robot\\gui",
+            "status": "required_before_push",
+            "mode": "local",
+            "evidence": "Python GUI modules compile without syntax errors.",
+        },
+        {
+            "gate_id": "sync_audit",
+            "label": "Safe sync audit",
+            "command": "python scripts\\sync_project.py --machine office_desktop --task factor_review",
+            "status": "required_before_push",
+            "mode": "local",
+            "evidence": "Changed paths must be syncable with no branch discovery or safety blockers.",
+        },
+        {
+            "gate_id": "local_startup_smoke",
+            "label": "Local startup smoke",
+            "command": "python scripts\\run_gui.py --host 127.0.0.1 --port 8765",
+            "status": "required_for_operator_use",
+            "mode": "local",
+            "evidence": "Local /api/control/status returns stage=gui_control_center.",
+        },
+        {
+            "gate_id": "browser_desktop_smoke",
+            "label": "Desktop browser smoke",
+            "command": "Browser check http://127.0.0.1:8765/",
+            "status": "required_for_ui_change",
+            "mode": "local",
+            "evidence": "Run queue and verification gates render with no horizontal overflow or console errors.",
+        },
+        {
+            "gate_id": "browser_mobile_smoke",
+            "label": "Mobile browser smoke",
+            "command": "Browser check 390x844 http://127.0.0.1:8765/",
+            "status": "required_for_ui_change",
+            "mode": "local",
+            "evidence": "Critical control center blocks remain visible and responsive on mobile.",
+        },
+    ]
 
 
 def _report_links(root: Path, artifacts: list[dict[str, Any]]) -> list[dict[str, Any]]:

@@ -440,6 +440,7 @@ function renderControlCenter() {
   const method = control.method || {};
   const workflows = control.workflows || [];
   const reportLinks = control.report_links || [];
+  const verificationGates = control.verification_gates || [];
   const runQueue = control.run_queue || {};
   const activeRun = runQueue.active || {};
   const queueSummary = runQueue.summary || {};
@@ -504,6 +505,13 @@ function renderControlCenter() {
     <div class="list-row ${escapeHtml(item.status === "present" || item.status === "available" ? "ok" : "warn")}">
       <strong>${escapeHtml(item.label || item.kind || "")}</strong>
       <span>${escapeHtml(item.kind || "")} / ${escapeHtml(item.path || "")}</span>
+    </div>
+  `).join("");
+  byId("control-verification-gates").innerHTML = verificationGates.slice(0, 7).map((item) => `
+    <div class="list-row ${escapeHtml(item.status === "required_before_push" ? "warn" : "ok")}">
+      <strong>${escapeHtml(item.label || item.gate_id || "")}</strong>
+      <span>${escapeHtml(item.command || "")}</span>
+      <span>${escapeHtml(item.evidence || item.status || "")}</span>
     </div>
   `).join("");
   byId("control-safety-boundary").innerHTML = statusRows([
