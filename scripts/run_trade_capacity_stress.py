@@ -38,12 +38,12 @@ def parse_trade_sources(values: list[str]) -> dict[str, Path]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Stress test trade parquet participation rates under larger AUM.")
+    parser = argparse.ArgumentParser(description="Stress test trade CSV/Parquet participation rates under larger AUM.")
     parser.add_argument(
         "--trade-source",
         action="append",
         required=True,
-        help="Candidate trade parquet as candidate_name=path. Repeat for multiple candidates.",
+        help="Candidate trade CSV/Parquet as candidate_name=path. Repeat for multiple candidates.",
     )
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--multipliers", default="1,5,10,20,50,100")

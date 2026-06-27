@@ -69,11 +69,11 @@
       "evidence": {
         "full_sample_total_return": 1.7708,
         "full_sample_annualized_return": 0.0635,
-        "full_sample_sharpe": 0.960,
+        "full_sample_sharpe": 0.96,
         "full_sample_overlap_sharpe": 0.517,
         "full_sample_max_drawdown": -0.2888,
         "mean_oos_annualized_return": 0.0786,
-        "worst_oos_drawdown": -0.2400,
+        "worst_oos_drawdown": -0.24,
         "cost_30bps_total_return_fixed_exposure": 1.3029,
         "cost_30bps_strict_pass": 0.6333,
         "csi500_beta_r2": 0.2508,
@@ -114,7 +114,7 @@
         "decision_timing": "use ETF data available before strategy decision_date"
       },
       "evidence": {
-        "full_sample_total_return": 1.8120,
+        "full_sample_total_return": 1.812,
         "full_sample_annualized_return": 0.0645,
         "full_sample_sharpe": 0.987,
         "full_sample_overlap_sharpe": 0.532,
@@ -178,7 +178,7 @@
         "full_sample_overlap_sharpe": 0.5218,
         "full_sample_max_drawdown": -0.2979,
         "mean_oos_annualized_return": 0.0838,
-        "mean_oos_overlap_sharpe": 0.8610,
+        "mean_oos_overlap_sharpe": 0.861,
         "worst_oos_drawdown": -0.2498,
         "oos_strict_pass_rate": 0.9,
         "leave_one_year_min_annualized_return": 0.0405,
@@ -245,7 +245,7 @@
         "full_sample_sharpe": 1.174,
         "full_sample_overlap_sharpe": 0.6154,
         "full_sample_max_drawdown": -0.1614,
-        "mean_oos_annualized_return": 0.0760,
+        "mean_oos_annualized_return": 0.076,
         "mean_oos_overlap_sharpe": 0.8541,
         "worst_oos_drawdown": -0.1348,
         "oos_strict_pass_rate": 0.9,
@@ -304,15 +304,15 @@
         "full_sample_total_return": 2.1669,
         "full_sample_annualized_return": 0.0721,
         "full_sample_sharpe": 1.0355,
-        "full_sample_overlap_sharpe": 0.5580,
+        "full_sample_overlap_sharpe": 0.558,
         "full_sample_max_drawdown": -0.2984,
         "mean_oos_annualized_return": 0.0882,
         "mean_oos_overlap_sharpe": 0.9139,
         "worst_oos_drawdown": -0.2458,
         "oos_strict_pass_rate": 0.9,
-        "leave_one_year_min_annualized_return": 0.0450,
+        "leave_one_year_min_annualized_return": 0.045,
         "best_month_log_share_of_total": 0.4282,
-        "csi500_beta": 0.0420,
+        "csi500_beta": 0.042,
         "csi500_beta_r2": 0.2483,
         "csi500_beta_hedged_annualized_return": 0.0718,
         "csi500_beta_hedged_overlap_sharpe": 0.8857,
@@ -364,11 +364,11 @@
       },
       "evidence": {
         "full_sample_total_return": 1.6631,
-        "full_sample_annualized_return": 0.0610,
+        "full_sample_annualized_return": 0.061,
         "full_sample_sharpe": 1.1238,
         "full_sample_overlap_sharpe": 0.6065,
         "full_sample_max_drawdown": -0.2207,
-        "mean_oos_annualized_return": 0.0710,
+        "mean_oos_annualized_return": 0.071,
         "mean_oos_overlap_sharpe": 0.9623,
         "worst_oos_drawdown": -0.1668,
         "oos_strict_pass_rate": 0.9,
@@ -449,7 +449,7 @@
         "csi500_beta_hedged_overlap_sharpe": 1.0232,
         "csi500_beta_hedged_max_drawdown": -0.0971,
         "alpha_t_stat": 5.6503,
-        "pearson_correlation_to_qlib_top10_m150_self_neghalf": 0.9950,
+        "pearson_correlation_to_qlib_top10_m150_self_neghalf": 0.995,
         "annualized_return_diff_proxy_vs_qlib": 0.0011
       },
       "risk_caveat": "This is currently the strongest Alpha101 risk-budget observation, but it is highly correlated with the Qlib self-risk lane and should be treated as a possible replacement/variant rather than a fully independent factor family. Round415 found this exit-timed self-risk stream is not a direct paper-simulation handoff."
@@ -517,11 +517,11 @@
         "leave_one_year_min_annualized_return": 0.0262,
         "leave_one_year_min_overlap_sharpe": 0.3196,
         "best_month_log_share_of_total": 0.4984,
-        "csi500_beta": 0.0340,
+        "csi500_beta": 0.034,
         "csi500_beta_r2": 0.2226,
         "csi500_beta_hedged_annualized_return": 0.0549,
         "csi500_beta_hedged_overlap_sharpe": 0.7492,
-        "csi500_beta_hedged_max_drawdown": -0.1110,
+        "csi500_beta_hedged_max_drawdown": -0.111,
         "alpha_t_stat": 4.2482
       },
       "risk_caveat": "This is lower-return than the exit-timed Round407 stream, but it is the cleaner paper-simulation handoff because volatility target and self-risk exposure are decided at entry time."
@@ -557,7 +557,7 @@
         "drop_bottom_fraction": 0.1
       },
       "volatility_target": {
-        "target_annual_vol": 0.10,
+        "target_annual_vol": 0.1,
         "lookback_events": 84,
         "min_exposure": 0.25,
         "max_exposure": 1.15,
@@ -585,7 +585,7 @@
           "trade_pairs_missing_event_exposure"
         ],
         "full_sample_total_return": 2.0628,
-        "full_sample_annualized_return": 0.0700,
+        "full_sample_annualized_return": 0.07,
         "full_sample_sharpe": 0.9293,
         "full_sample_overlap_sharpe": 0.5122,
         "full_sample_max_drawdown": -0.2919,
@@ -595,11 +595,11 @@
         "worst_oos_drawdown": -0.2285,
         "oos_strict_pass_rate": 0.9,
         "positive_oos_rate": 0.9,
-        "min_oos_annualized_return": -0.0990,
+        "min_oos_annualized_return": -0.099,
         "min_oos_overlap_sharpe": -1.7907,
         "leave_one_year_min_annualized_return": 0.0483,
         "leave_one_year_min_overlap_sharpe": 0.4281,
-        "best_month_log_share_of_total": 0.4280,
+        "best_month_log_share_of_total": 0.428,
         "csi500_beta": 0.0458,
         "csi500_beta_r2": 0.2485,
         "csi500_beta_hedged_annualized_return": 0.0697,
@@ -668,7 +668,7 @@
         "full_sample_max_drawdown": -0.2918,
         "full_sample_win_rate": 0.4071,
         "mean_oos_annualized_return": 0.0853,
-        "mean_oos_overlap_sharpe": 0.8810,
+        "mean_oos_overlap_sharpe": 0.881,
         "worst_oos_drawdown": -0.2094,
         "oos_strict_pass_rate": 0.9,
         "positive_oos_rate": 0.9,
@@ -676,15 +676,15 @@
         "min_oos_overlap_sharpe": -1.5419,
         "leave_one_year_min_annualized_return": 0.0384,
         "leave_one_year_min_overlap_sharpe": 0.3749,
-        "best_month_log_share_of_total": 0.4800,
+        "best_month_log_share_of_total": 0.48,
         "csi500_beta": 0.0474,
         "csi500_beta_r2": 0.2851,
         "csi500_beta_hedged_annualized_return": 0.0623,
         "csi500_beta_hedged_overlap_sharpe": 0.7521,
-        "csi500_beta_hedged_max_drawdown": -0.1510,
+        "csi500_beta_hedged_max_drawdown": -0.151,
         "alpha_t_stat": 3.8685,
         "cost_stress": {
-          "cost5_total_return": 1.7660,
+          "cost5_total_return": 1.766,
           "cost5_annualized_return": 0.0606,
           "cost5_max_drawdown": -0.2836,
           "cost10_total_return": 1.6348,
@@ -739,12 +739,12 @@
         "decision_timing": "uses only already closed strategy event returns before current event date"
       },
       "evidence": {
-        "full_sample_total_return": 1.9310,
+        "full_sample_total_return": 1.931,
         "full_sample_annualized_return": 0.0671,
         "full_sample_sharpe": 1.173,
         "full_sample_overlap_sharpe": 0.617,
         "full_sample_max_drawdown": -0.1546,
-        "mean_oos_annualized_return": 0.0720,
+        "mean_oos_annualized_return": 0.072,
         "mean_oos_overlap_sharpe": 0.8536,
         "worst_oos_drawdown": -0.1275,
         "leave_one_year_min_annualized_return": 0.0442,
@@ -803,12 +803,12 @@
         "decision_timing": "uses only already closed strategy event returns before current event date"
       },
       "evidence": {
-        "full_sample_total_return": 1.8400,
+        "full_sample_total_return": 1.84,
         "full_sample_annualized_return": 0.0651,
         "full_sample_sharpe": 1.174,
         "full_sample_overlap_sharpe": 0.6386,
         "full_sample_max_drawdown": -0.1741,
-        "mean_oos_annualized_return": 0.0770,
+        "mean_oos_annualized_return": 0.077,
         "mean_oos_overlap_sharpe": 0.9295,
         "worst_oos_drawdown": -0.1386,
         "leave_one_year_min_annualized_return": 0.0429,
@@ -842,7 +842,7 @@
         "action": "cash_filtered_selected_entries",
         "cash_top_fraction": 0.2,
         "coverage_missing_share": 0.0001,
-        "projection_unmatched_abs_contribution": 0.0120,
+        "projection_unmatched_abs_contribution": 0.012,
         "projection_unmatched_abs_limit": 0.005,
         "coverage_status": "research_observation_only_until_selected_entry_projection_calendar_gate_is_repaired"
       },
@@ -923,7 +923,7 @@
         "cost_30bps_strict_pass": 0.9,
         "csi500_beta_r2": 0.2341,
         "csi500_beta_hedged_annualized_return": 0.0559,
-        "csi500_beta_hedged_overlap_sharpe": 0.890
+        "csi500_beta_hedged_overlap_sharpe": 0.89
       }
     },
     {
@@ -955,7 +955,7 @@
         "full_sample_total_return": 1.6199,
         "full_sample_annualized_return": 0.0599,
         "full_sample_sharpe": 0.989,
-        "full_sample_overlap_sharpe": 0.530,
+        "full_sample_overlap_sharpe": 0.53,
         "full_sample_max_drawdown": -0.2474,
         "mean_oos_annualized_return": 0.0695,
         "worst_oos_drawdown": -0.1955,
@@ -1041,7 +1041,7 @@
         "full_sample_annualized_return": 0.0486,
         "full_sample_sharpe": 1.076,
         "full_sample_overlap_sharpe": 0.573,
-        "full_sample_max_drawdown": -0.1590,
+        "full_sample_max_drawdown": -0.159,
         "mean_oos_annualized_return": 0.0501,
         "worst_oos_drawdown": -0.1202,
         "cost_30bps_total_return_fixed_exposure": 0.9615,
@@ -1173,7 +1173,7 @@
       "full_sample_overlap_sharpe": 0.4768,
       "full_sample_max_drawdown": -0.3006,
       "mean_oos_annualized_return": 0.0659,
-      "worst_oos_drawdown": -0.1530,
+      "worst_oos_drawdown": -0.153,
       "cost30_vt6_annualized_return": 0.0543,
       "cost30_vt6_max_drawdown": -0.3183
     },
@@ -1246,7 +1246,7 @@
     "output_dir": "data/reports/round381_24h_profit_sprint_dragon_tiger_selected_trade_event_audit_20260627",
     "decision": "promote dragon_hot_chase_20d and dragon_net_buy_20d to research quickcheck",
     "best_trade_level_delta": {
-      "dragon_hot_chase_20d": 0.0310,
+      "dragon_hot_chase_20d": 0.031,
       "dragon_net_buy_20d": 0.0272
     }
   },
@@ -1295,7 +1295,7 @@
     "decision": "add primary_high_return_dragon_hot_chase as a simulation observation lane",
     "best_lane": {
       "id": "dragon_hot_100",
-      "full_sample_total_return": 1.8120,
+      "full_sample_total_return": 1.812,
       "full_sample_annualized_return": 0.0645,
       "full_sample_overlap_sharpe": 0.5324,
       "full_sample_max_drawdown": -0.2857,
@@ -1325,7 +1325,7 @@
       "id": "cash_pv_weak_close_range_expansion_20d",
       "full_sample_total_return": 1.5103,
       "full_sample_annualized_return": 0.0572,
-      "full_sample_overlap_sharpe": 0.4290,
+      "full_sample_overlap_sharpe": 0.429,
       "full_sample_max_drawdown": -0.3515,
       "mean_oos_annualized_return": 0.0888,
       "mean_oos_overlap_sharpe": 0.8749,
@@ -1354,7 +1354,7 @@
       "full_sample_overlap_sharpe": 0.5379,
       "full_sample_max_drawdown": -0.2696,
       "mean_oos_annualized_return": 0.0774,
-      "mean_oos_overlap_sharpe": 0.8310,
+      "mean_oos_overlap_sharpe": 0.831,
       "worst_oos_drawdown": -0.2168
     },
     "reason": "market-temperature scaling reduces drawdown but gives up return; existing dragon_hot_100 remains better for the return objective"
@@ -1368,12 +1368,12 @@
     "decision": "add primary_high_return_dragon_hot_chase_self_risk_roll21 as a simulation risk-budget observation lane",
     "best_lane": {
       "id": "dragon_hot_100_self_roll21_sum_neg_half",
-      "full_sample_total_return": 1.9310,
+      "full_sample_total_return": 1.931,
       "full_sample_annualized_return": 0.0671,
       "full_sample_sharpe": 1.173,
       "full_sample_overlap_sharpe": 0.6172,
       "full_sample_max_drawdown": -0.1546,
-      "mean_oos_annualized_return": 0.0720,
+      "mean_oos_annualized_return": 0.072,
       "mean_oos_overlap_sharpe": 0.8536,
       "worst_oos_drawdown": -0.1275,
       "leave_one_year_min_annualized_return": 0.0442,
@@ -1458,8 +1458,8 @@
       "mean_oos_overlap_sharpe": 0.9612,
       "worst_oos_drawdown": -0.1942,
       "csi500_beta_r2": 0.2443,
-      "csi500_beta_hedged_annualized_return": 0.0640,
-      "csi500_beta_hedged_overlap_sharpe": 0.9240
+      "csi500_beta_hedged_annualized_return": 0.064,
+      "csi500_beta_hedged_overlap_sharpe": 0.924
     },
     "blocker": "public factor source missing share was above the configured gate"
   },
@@ -1472,11 +1472,11 @@
     "decision": "self-risk overlay is a more useful near-term improvement than expanding public indicator parameters",
     "best_risk_budget_lane": {
       "id": "dragon_hot_self_roll21_neg_half",
-      "full_sample_total_return": 1.9310,
+      "full_sample_total_return": 1.931,
       "full_sample_annualized_return": 0.0671,
       "full_sample_overlap_sharpe": 0.6172,
       "full_sample_max_drawdown": -0.1546,
-      "mean_oos_annualized_return": 0.0720,
+      "mean_oos_annualized_return": 0.072,
       "worst_oos_drawdown": -0.1275
     }
   },
@@ -1492,11 +1492,11 @@
     "decision": "add primary_high_return_dragon_hot_chase_adx_fullsource_roll42 as a simulation observation lane, not a promotable factor",
     "best_balanced_lane": {
       "id": "adx_fullsource_roll42_m3_half",
-      "full_sample_total_return": 1.8400,
+      "full_sample_total_return": 1.84,
       "full_sample_annualized_return": 0.0651,
       "full_sample_overlap_sharpe": 0.6386,
       "full_sample_max_drawdown": -0.1741,
-      "mean_oos_annualized_return": 0.0770,
+      "mean_oos_annualized_return": 0.077,
       "mean_oos_overlap_sharpe": 0.9295,
       "worst_oos_drawdown": -0.1386,
       "csi500_beta_r2": 0.2377,
@@ -1524,7 +1524,7 @@
       "id": "ps_dragon_100",
       "full_sample_annualized_return": 0.0572,
       "full_sample_overlap_sharpe": 0.5692,
-      "full_sample_max_drawdown": -0.2360,
+      "full_sample_max_drawdown": -0.236,
       "mean_oos_annualized_return": 0.0688,
       "worst_oos_drawdown": -0.1948
     },
@@ -1559,9 +1559,21 @@
     "beta_output_dir": "data/reports/round396_24h_profit_sprint_ps_on_dragon_threshold_beta_audit_20260627",
     "decision": "PS threshold curve is smooth risk-return trade-off; stop tuning until projection blocker is repaired",
     "threshold_curve_summary": {
-      "ps_top10": {"annualized_return": 0.0609, "overlap_sharpe": 0.5473, "max_drawdown": -0.2699},
-      "ps_top20": {"annualized_return": 0.0572, "overlap_sharpe": 0.5692, "max_drawdown": -0.2360},
-      "ps_top30": {"annualized_return": 0.0518, "overlap_sharpe": 0.5988, "max_drawdown": -0.1998}
+      "ps_top10": {
+        "annualized_return": 0.0609,
+        "overlap_sharpe": 0.5473,
+        "max_drawdown": -0.2699
+      },
+      "ps_top20": {
+        "annualized_return": 0.0572,
+        "overlap_sharpe": 0.5692,
+        "max_drawdown": -0.236
+      },
+      "ps_top30": {
+        "annualized_return": 0.0518,
+        "overlap_sharpe": 0.5988,
+        "max_drawdown": -0.1998
+      }
     }
   },
   "round394_396_audit": {
@@ -1575,7 +1587,7 @@
     "decision": "improve selected-entry projection blocker diagnostics; keep PS-on-Dragon promotion blocked",
     "code_change": "official-template projection now reports unmatched nonzero date count, zero date count, and unmatched absolute contribution by year",
     "ps_top20_unmatched_diagnostic": {
-      "unmatched_abs_contribution": 0.0120,
+      "unmatched_abs_contribution": 0.012,
       "unmatched_nonzero_date_count": 8,
       "unmatched_zero_date_count": 34,
       "unmatched_abs_contribution_by_year": {
@@ -1618,7 +1630,7 @@
       "full_sample_overlap_sharpe": 0.5218,
       "full_sample_max_drawdown": -0.2979,
       "mean_oos_annualized_return": 0.0838,
-      "mean_oos_overlap_sharpe": 0.8610,
+      "mean_oos_overlap_sharpe": 0.861,
       "worst_oos_drawdown": -0.2498,
       "leave_one_year_min_annualized_return": 0.0405,
       "csi500_beta": 0.0416,
@@ -1666,7 +1678,7 @@
       "full_sample_annualized_return": 0.0706,
       "full_sample_overlap_sharpe": 0.6154,
       "full_sample_max_drawdown": -0.1614,
-      "mean_oos_annualized_return": 0.0760,
+      "mean_oos_annualized_return": 0.076,
       "worst_oos_drawdown": -0.1348,
       "csi500_beta_hedged_annualized_return": 0.0702,
       "csi500_beta_hedged_overlap_sharpe": 0.9651
@@ -1717,7 +1729,7 @@
       "id": "tilt_a101_open_close_bottom10_m150_vt6_zz500_mult_1.00",
       "full_sample_total_return": 2.1669,
       "full_sample_annualized_return": 0.0721,
-      "full_sample_overlap_sharpe": 0.5580,
+      "full_sample_overlap_sharpe": 0.558,
       "full_sample_max_drawdown": -0.2984,
       "mean_oos_annualized_return": 0.0882,
       "worst_oos_drawdown": -0.2458,
@@ -1727,10 +1739,10 @@
     "best_balanced_lane": {
       "id": "cash_a101_open_close_top10_vt6_zz500_mult_0.75",
       "full_sample_total_return": 1.6631,
-      "full_sample_annualized_return": 0.0610,
+      "full_sample_annualized_return": 0.061,
       "full_sample_overlap_sharpe": 0.6065,
       "full_sample_max_drawdown": -0.2207,
-      "mean_oos_annualized_return": 0.0710,
+      "mean_oos_annualized_return": 0.071,
       "worst_oos_drawdown": -0.1668,
       "csi500_beta_hedged_annualized_return": 0.0606,
       "csi500_beta_hedged_overlap_sharpe": 0.9979
@@ -1780,7 +1792,7 @@
     "output_dir": "data/reports/round409_24h_profit_sprint_alpha101_vs_qlib_marginal_audit_20260627",
     "decision": "add alpha_tilt_open_neghalf as a stronger replacement/variant observation, not an independent factor family",
     "marginal_vs_qlib": {
-      "pearson_correlation": 0.9950,
+      "pearson_correlation": 0.995,
       "annualized_return_diff_proxy": 0.0011,
       "positive_diff_rate": 0.3945,
       "diff_t_stat": 2.9434
@@ -1881,7 +1893,7 @@
     "worst_oos_drawdown": -0.1546,
     "oos_strict_pass_rate": 0.7667,
     "beta_hedged_annualized_return": 0.0549,
-    "beta_hedged_max_drawdown": -0.1110,
+    "beta_hedged_max_drawdown": -0.111,
     "next_direction": "compare entry-timed candidate against simpler shortlist lanes in the paper simulation adapter and continue factor mining with entry-timed causality as a hard gate"
   },
   "round414_416_three_round_audit": {
@@ -1924,7 +1936,7 @@
     "candidate_count": 90,
     "paper_ready_count": 80,
     "best_candidate": "openclose_vt10_max1p15_sr42_x0p8",
-    "full_sample_annualized_return": 0.0700,
+    "full_sample_annualized_return": 0.07,
     "full_sample_max_drawdown": -0.2919,
     "mean_oos_annualized_return": 0.0961,
     "oos_strict_pass_rate": 0.9,
@@ -1985,6 +1997,24 @@
     "decision": "cohort-level signal reconstruction is now mandatory before paper-simulation handoff",
     "best_true_paper_ready_candidate": "paper_ready_cohort_dragon_hot_alpha101_openclose_entry_timed_vt08_max100_self_roll21_x08",
     "next_direction": "run heavier-cost cohort risk-budget grid or start paper-simulation adapter around the 10 bps cohort candidate"
+  },
+  "round424_cohort_heavy_cost_risk_budget_grid": {
+    "report": "docs/research/cn_stock_round424_cohort_heavy_cost_risk_budget_grid_2026-06-27.md",
+    "grid_output_dir": "data/reports/round424_24h_profit_sprint_cohort_heavy_cost_risk_budget_grid_20260627",
+    "oos_output_dir": "data/reports/round424_24h_profit_sprint_cohort_heavy_cost_top_oos_20260627",
+    "beta_output_dir": "data/reports/round424_24h_profit_sprint_cohort_heavy_cost_top_beta_20260627",
+    "cost30_best_output_dir": "data/reports/round424_24h_profit_sprint_cohort_heavy_cost30_best_20260627",
+    "candidate_count": 180,
+    "paper_ready_count": 44,
+    "best_cost20_candidate": "cost20_cohort_openclose_vt07_max1p0_sr21_x0p8",
+    "best_cost20_annualized_return": 0.0505,
+    "best_cost20_max_drawdown": -0.2996,
+    "best_cost20_oos_strict_pass_rate": 0.9,
+    "best_cost30_candidate": "cost30_cohort_openclose_vt07_max0p85_sr21_x0p8",
+    "best_cost30_annualized_return": 0.0423,
+    "best_cost30_max_drawdown": -0.2889,
+    "best_cost30_oos_strict_pass_rate": 0.7667,
+    "decision": "keep the 10 bps cohort candidate as default; use cost20 variant for heavier-cost simulation and cost30 variant only as defensive stress fallback"
   },
   "source_docs": [
     "docs/research/cn_stock_round340_candidate_comparison_pack_2026-06-27.md",
@@ -2080,6 +2110,2434 @@
     "docs/research/cn_stock_round421_cohort_entry_timed_repair_2026-06-27.md",
     "docs/research/cn_stock_round422_simulation_shortlist_with_cohort_entry_timed_2026-06-27.md",
     "docs/research/cn_stock_round423_cohort_entry_timed_cost_stress_2026-06-27.md",
-    "docs/research/cn_stock_round421_423_three_round_audit_2026-06-27.md"
-  ]
+    "docs/research/cn_stock_round421_423_three_round_audit_2026-06-27.md",
+    "docs/research/cn_stock_round424_cohort_heavy_cost_risk_budget_grid_2026-06-27.md",
+    "docs/research/cn_stock_round425_simulation_paper_handoff_2026-06-27.md",
+    "docs/research/cn_stock_round426_old_lead_salvage_and_rotation_audit_2026-06-27.md",
+    "docs/research/cn_stock_round427_public_technical_cohort_screen_2026-06-27.md",
+    "docs/research/cn_stock_round428_default_cohort_trade_extreme_audit_2026-06-27.md",
+    "docs/research/cn_stock_round426_428_three_round_audit_2026-06-27.md",
+    "docs/research/cn_stock_round430_extreme_trade_repair_profile_2026-06-27.md",
+    "docs/research/cn_stock_round431_public_tilt_risk_cap_repair_2026-06-27.md",
+    "docs/research/cn_stock_round432_delayed_exit_execution_repair_2026-06-27.md",
+    "docs/research/cn_stock_round430_432_three_round_audit_2026-06-27.md",
+    "docs/research/cn_stock_round433_delayed_exit_cost_stress_and_handoff_2026-06-27.md",
+    "docs/research/cn_stock_round434_calendar_overlay_audit_2026-06-27.md",
+    "docs/research/cn_stock_round435_zz500_regime_overlay_audit_2026-06-27.md",
+    "docs/research/cn_stock_round436_delayed_exit_exposure_audit_2026-06-27.md",
+    "docs/research/cn_stock_round434_436_three_round_audit_2026-06-27.md",
+    "docs/research/cn_stock_round437_statistical_reality_check_2026-06-27.md",
+    "docs/research/cn_stock_round438_public_indicator_delayed_exit_audit_2026-06-27.md",
+    "docs/research/cn_stock_round439_rsrs_formal_rebuild_audit_2026-06-27.md",
+    "docs/research/cn_stock_round437_439_three_round_audit_2026-06-27.md",
+    "docs/research/cn_stock_round440_anti_supertrend_formal_rebuild_audit_2026-06-27.md",
+    "docs/research/cn_stock_round441_capacity_safe_pv_source_support_2026-06-27.md",
+    "docs/research/cn_stock_round442_incremental_range_contraction_overlay_audit_2026-06-27.md",
+    "docs/research/cn_stock_round440_442_three_round_audit_2026-06-27.md",
+    "docs/research/cn_stock_round443_incremental_range_cpcv_bootstrap_audit_2026-06-27.md",
+    "docs/research/cn_stock_round444_capacity_safe_pv_selected_overlay_audit_2026-06-27.md",
+    "docs/research/cn_stock_round445_range_contraction_sensitivity_audit_2026-06-27.md",
+    "docs/research/cn_stock_round443_445_three_round_audit_2026-06-27.md",
+    "docs/research/cn_stock_round446_range_observation_paper_handoff_2026-06-27.md",
+    "docs/research/cn_stock_round447_pb_risk_cap_overlay_audit_2026-06-27.md",
+    "docs/research/cn_stock_round448_entry_known_attribute_projection_audit_2026-06-27.md",
+    "docs/research/cn_stock_round449_trade_group_and_entry_execution_risk_audit_2026-06-27.md",
+    "docs/research/cn_stock_round447_449_three_round_audit_2026-06-27.md",
+    "docs/research/cn_stock_round450_entry_limit_down_formal_rebuild_2026-06-27.md",
+    "docs/research/cn_stock_round451_entry_limit_down_cost_stress_2026-06-27.md",
+    "docs/research/cn_stock_round450_452_three_round_audit_2026-06-27.md",
+    "docs/research/cn_stock_round453_analyst_report_revision_preregistration_2026-06-27.md",
+    "docs/research/cn_stock_round453_analyst_report_revision_source_smoke_2026-06-27.md",
+    "docs/research/cn_stock_round454_source_efficiency_and_public_projection_redundancy_2026-06-27.md",
+    "docs/research/cn_stock_round455_simulation_blend_audit_2026-06-27.md",
+    "docs/research/cn_stock_round453_455_three_round_audit_2026-06-27.md",
+    "docs/research/cn_stock_round456_user_drawdown_tolerance_paper_priority_2026-06-27.md",
+    "docs/research/cn_stock_round457_range_q20_paper_readiness_hardening_2026-06-27.md",
+    "docs/research/cn_stock_round458_simulation_paper_ops_package_2026-06-27.md",
+    "docs/research/cn_stock_round456_458_three_round_audit_2026-06-27.md",
+    "docs/research/cn_stock_round460_independent_long_cycle_prescreen_2026-06-27.md",
+    "docs/research/cn_stock_round461_high_return_beta_audit_2026-06-27.md",
+    "docs/research/cn_stock_round462_q20_ps_gt10_risk_repair_2026-06-27.md",
+    "docs/research/cn_stock_round460_462_three_round_audit_2026-06-27.md",
+    "docs/research/cn_stock_profit_sprint_simulation_shortlist_runbook_2026-06-27.md"
+  ],
+  "paper_simulation_handoff_candidates": [
+    {
+      "id": "paper_ready_delayed_exit_m150_cost10_vt08_max100_self_roll21_x08",
+      "status": "paper_simulation_cohort_entry_timed_candidate",
+      "role": "default_10bps",
+      "cost_rate": 0.001,
+      "formula": "trade-level cohort source grouped by entry_date + delayed_exit_date; cash_dragon_hot_chase_20d + 1.50x bottom 10% alpha101_open_close_pressure_fade_10 tilt + delayed-exit return repair + entry-timed vol_target_8_lb84 max_exposure_1.00 + entry-timed self-risk roll21_sum_neg_0.80x",
+      "event_return_source": {
+        "path": "data/reports/round432_24h_profit_sprint_delayed_exit_m150_20260627/simulation_shortlist_entry_timed_events.csv",
+        "date_column": "date",
+        "return_column": "period_return"
+      },
+      "cohort_source": {
+        "path": "data/reports/round432_24h_profit_sprint_delayed_exit_m150_20260627/cohort_source_period_returns.csv",
+        "decision_date_column": "entry_date",
+        "exit_date_column": "date",
+        "cohort_count": 1113,
+        "unique_exit_date_count": 905
+      },
+      "event_filter": {
+        "family": "dragon_tiger_attention",
+        "action": "cash_filtered_selected_entries",
+        "condition": "top_list_abs_pct_change_max >= 9.5 and top_list_net_amount_sum > 0 within the lookback window",
+        "lookback_days": 22,
+        "official_template_projection_required": true
+      },
+      "public_factor_entry_tilt": {
+        "factor_source": "data/reports/round404_24h_profit_sprint_all_public_factor_source_for_dragon_hot_20260627/public_factor_values_for_shortlist.parquet",
+        "factor_name": "alpha101_open_close_pressure_fade_10",
+        "ranking_scope": "trade-level selected primary_low10 basket after Dragon-Tiger hot-chase cash filter on each signal_date",
+        "action": "increase_selected_entry_exposure",
+        "tilt_bottom_fraction": 0.1,
+        "exposure_multiplier": 1.5,
+        "coverage_missing_share": 0.0
+      },
+      "execution_repair": {
+        "policy": "delayed_exit_first_sellable_within_10_calendar_days",
+        "return_column": "delayed_exit_weighted_return",
+        "exit_date_column": "delayed_exit_date",
+        "zero_return_events_preserved": true
+      },
+      "volatility_target": {
+        "target_annual_vol": 0.08,
+        "lookback_events": 84,
+        "min_exposure": 0.25,
+        "max_exposure": 1.0,
+        "decision_timing": "entry_date; uses only already closed cohort returns before each entry decision"
+      },
+      "self_risk_overlay": {
+        "policy": "roll21_sum_neg_0.80x",
+        "action": "reduce_exposure_to_0.80",
+        "condition": "prior 21 closed cohort return sum < 0",
+        "decision_timing": "entry_date; uses only cohort returns closed before each entry decision"
+      },
+      "evidence": {
+        "paper_ready": true,
+        "full_sample_total_return": 2.1845873766350636,
+        "full_sample_annualized_return": 0.06663378777999296,
+        "full_sample_sharpe": 0.96770453928573,
+        "full_sample_overlap_sharpe": 0.49610373870692,
+        "full_sample_max_drawdown": -0.2621408725193348,
+        "full_sample_win_rate": 0.41325966850828727,
+        "mean_oos_annualized_return": 0.10043474482130647,
+        "mean_oos_overlap_sharpe": 0.8311156470242846,
+        "worst_oos_drawdown": -0.192967513869159,
+        "oos_strict_pass_rate": 0.9,
+        "positive_oos_rate": 0.9,
+        "leave_one_year_min_annualized_return": 0.05000830068979201,
+        "leave_one_year_min_overlap_sharpe": 0.4253913592612968,
+        "best_month_log_share_of_total": 0.45724027872890577,
+        "csi500_beta": 0.04803238929705283,
+        "csi500_beta_r2": 0.2707172178274726,
+        "csi500_beta_hedged_annualized_return": 0.0748541624513901,
+        "csi500_beta_hedged_overlap_sharpe": 0.7924335484685732,
+        "csi500_beta_hedged_max_drawdown": -0.1414304791269,
+        "alpha_t_stat": 4.364589223901907
+      },
+      "risk_caveat": "Default paper-simulation lane after Round433. OOS overlap is weaker than the old Round425 default, but full-sample, OOS annualized, drawdown, beta-hedged return, and causal execution treatment are stronger.",
+      "round433_supersedes": "paper_ready_cohort_dragon_hot_alpha101_openclose_entry_timed_vt08_max100_self_roll21_x08"
+    },
+    {
+      "id": "paper_ready_delayed_exit_m150_cost20_vt08_max100_self_roll21_x08",
+      "status": "paper_simulation_cohort_entry_timed_candidate",
+      "role": "heavier_cost_20bps",
+      "cost_rate": 0.002,
+      "formula": "same delayed-exit m150 pack under 20bps cost, VT 8%, max exposure 1.00, self-risk 0.80x",
+      "event_return_source": {
+        "path": "data/reports/round433_24h_profit_sprint_delayed_exit_cost20_m150_20260627/simulation_shortlist_entry_timed_events.csv",
+        "date_column": "date",
+        "return_column": "period_return"
+      },
+      "evidence": {
+        "paper_ready": true,
+        "full_sample_total_return": 1.875957264965208,
+        "full_sample_annualized_return": 0.060595725008536716,
+        "full_sample_sharpe": 0.8876772878165433,
+        "full_sample_overlap_sharpe": 0.4559842672152313,
+        "full_sample_max_drawdown": -0.28066991718008993,
+        "full_sample_win_rate": 0.4121546961325967,
+        "mean_oos_annualized_return": 0.0913198426409419,
+        "mean_oos_overlap_sharpe": 0.7587773955931821,
+        "worst_oos_drawdown": -0.19753188994293092,
+        "oos_strict_pass_rate": 0.7666666666666667,
+        "positive_oos_rate": 0.7666666666666667,
+        "leave_one_year_min_annualized_return": 0.04350524276251866,
+        "leave_one_year_min_overlap_sharpe": 0.37953653760414396,
+        "best_month_log_share_of_total": 0.4987392843735302,
+        "csi500_beta": 0.04789637614914835,
+        "csi500_beta_r2": 0.2704556054808813,
+        "csi500_beta_hedged_annualized_return": 0.0674403933500376,
+        "csi500_beta_hedged_overlap_sharpe": 0.7243663842773991,
+        "csi500_beta_hedged_max_drawdown": -0.14139511667508042,
+        "alpha_t_stat": 3.9657631518713052
+      },
+      "risk_caveat": "20bps lane remains economically useful, but OOS strict pass drops to 76.67%; use as heavier-cost paper-simulation lane, not evidence that cost drag is harmless."
+    },
+    {
+      "id": "paper_ready_delayed_exit_m150_cost30_vt075_max100_self_roll21_x08",
+      "status": "paper_simulation_cohort_entry_timed_candidate",
+      "role": "stress_fallback_30bps",
+      "cost_rate": 0.003,
+      "formula": "same delayed-exit m150 pack under 30bps cost, VT 7.5%, max exposure 1.00, self-risk 0.80x",
+      "event_return_source": {
+        "path": "data/reports/round433_24h_profit_sprint_delayed_exit_cost30_vt075_max100_m150_20260627/simulation_shortlist_entry_timed_events.csv",
+        "date_column": "date",
+        "return_column": "period_return"
+      },
+      "evidence": {
+        "paper_ready": true,
+        "full_sample_total_return": 1.5778856409165924,
+        "full_sample_annualized_return": 0.05415269274883783,
+        "full_sample_sharpe": 0.8093139956912443,
+        "full_sample_overlap_sharpe": 0.416224119231988,
+        "full_sample_max_drawdown": -0.2965798627064663,
+        "full_sample_win_rate": 0.40552486187845305,
+        "mean_oos_annualized_return": 0.0819672017947771,
+        "mean_oos_overlap_sharpe": 0.6844362095019126,
+        "worst_oos_drawdown": -0.20283294524862394,
+        "oos_strict_pass_rate": 0.7666666666666667,
+        "positive_oos_rate": 0.7666666666666667,
+        "leave_one_year_min_annualized_return": 0.03669698386112774,
+        "leave_one_year_min_overlap_sharpe": 0.32794990519589995,
+        "best_month_log_share_of_total": 0.5527649038780627,
+        "csi500_beta": 0.04711449375723929,
+        "csi500_beta_r2": 0.2687840543164528,
+        "csi500_beta_hedged_annualized_return": 0.059522810086654054,
+        "csi500_beta_hedged_overlap_sharpe": 0.650777975994796,
+        "csi500_beta_hedged_max_drawdown": -0.14360711558088302,
+        "alpha_t_stat": 3.567526714349215
+      },
+      "risk_caveat": "30bps stress fallback only. It stays inside the user's -30% full-sample drawdown tolerance after VT 7.5%, but OOS strict pass is weaker and best-month concentration is higher."
+    },
+    {
+      "id": "paper_ready_cohort_entry_timed_range_q10_m150_cost10_vt08_max100_self_roll21_x08",
+      "status": "paper_simulation_cohort_entry_timed_candidate",
+      "role": "diagnostic",
+      "cost_rate": 0.001,
+      "formula": "Round442 delayed-exit m150 base plus range_contraction_lowvol_reversal_20 top 10% incremental entry tilt at 1.50x; entry-timed vol_target_8_lb84 max_exposure_1.00 plus self-risk roll21_sum_neg_0.80x",
+      "event_return_source": {
+        "path": "data/reports/round442_24h_profit_sprint_delayed_exit_incremental_range_contraction_overlay_20260627/simulation_shortlist_entry_timed_events.csv",
+        "date_column": "date",
+        "return_column": "period_return"
+      },
+      "cohort_source": {
+        "path": "data/reports/round442_24h_profit_sprint_delayed_exit_incremental_range_contraction_overlay_20260627/cohort_source_period_returns.csv",
+        "decision_date_column": "entry_date",
+        "exit_date_column": "date",
+        "cohort_count": 1113,
+        "unique_exit_date_count": 905
+      },
+      "public_factor_entry_tilt": {
+        "factor_source": "data/reports/round441_24h_profit_sprint_capacity_safe_pv_range_contraction_source_20260627/public_factor_values_for_shortlist.parquet",
+        "factor_name": "range_contraction_lowvol_reversal_20",
+        "ranking_scope": "trade-level delayed-exit m150 base basket after Alpha101/Dragon base construction",
+        "action": "increase_selected_entry_exposure",
+        "tilt_top_fraction": 0.1,
+        "exposure_multiplier": 1.5,
+        "coverage_missing_share": 0.001890359168241966
+      },
+      "volatility_target": {
+        "target_annual_vol": 0.08,
+        "lookback_events": 84,
+        "min_exposure": 0.25,
+        "max_exposure": 1.0,
+        "decision_timing": "entry_date; uses only already closed cohort returns before each entry decision"
+      },
+      "self_risk_overlay": {
+        "policy": "roll21_sum_neg_0.80x",
+        "action": "reduce_exposure_to_0.80",
+        "condition": "prior 21 closed cohort return sum < 0",
+        "decision_timing": "entry_date; uses only cohort returns closed before each entry decision"
+      },
+      "evidence": {
+        "paper_ready": true,
+        "full_sample_total_return": 2.416950129147197,
+        "full_sample_annualized_return": 0.0708253903243019,
+        "full_sample_sharpe": 0.9840431018287754,
+        "full_sample_overlap_sharpe": 0.5052155601694761,
+        "full_sample_max_drawdown": -0.2699044118927373,
+        "full_sample_win_rate": 0.4198895027624309,
+        "mean_oos_annualized_return": 0.1069467979,
+        "mean_oos_overlap_sharpe": 0.8356918567,
+        "worst_oos_drawdown": -0.2059143779,
+        "oos_strict_pass_rate": 0.9,
+        "positive_oos_rate": 0.9,
+        "leave_one_year_min_annualized_return": 0.053232825772451475,
+        "leave_one_year_min_overlap_sharpe": 0.43479724843521433,
+        "best_month_log_share_of_total": 0.4536482839636908,
+        "incremental_delta_annualized_return_vs_base": 0.0041916025,
+        "incremental_delta_total_return_vs_base": 0.2323627525,
+        "incremental_delta_overlap_sharpe_vs_base": 0.0091118215,
+        "incremental_cpcv_annualized_win_rate": 0.9083333333,
+        "incremental_cpcv_strict_split_pass_rate": 0.675,
+        "incremental_bootstrap_delta_annualized_positive_rate": 0.993,
+        "incremental_bootstrap_delta_overlap_positive_rate": 0.89,
+        "incremental_bootstrap_drawdown_within_30pct_rate": 0.56,
+        "csi500_beta_hedged_annualized_return": 0.0800356603,
+        "csi500_beta_hedged_overlap_sharpe": 0.8076374047,
+        "csi500_beta_hedged_max_drawdown": -0.1354916897,
+        "alpha_t_stat": 4.4779566455
+      },
+      "risk_caveat": "Cost-robust range-contraction observation lane. It improves return and overlap versus the delayed-exit base, but incremental FDR in Round442 was not significant and bootstrap drawdown-within-30% rate is only about 56%; use for paper-simulation observation, not final alpha promotion."
+    },
+    {
+      "id": "paper_ready_cohort_entry_timed_range_q20_m175_cost10_vt08_max100_self_roll21_x08",
+      "status": "paper_simulation_cohort_entry_timed_candidate",
+      "role": "diagnostic",
+      "cost_rate": 0.001,
+      "formula": "Round445 delayed-exit m150 base plus range_contraction_lowvol_reversal_20 top 20% incremental entry tilt at 1.75x; entry-timed vol_target_8_lb84 max_exposure_1.00 plus self-risk roll21_sum_neg_0.80x",
+      "event_return_source": {
+        "path": "data/reports/round445_24h_profit_sprint_range_contraction_incremental_sensitivity_20260627/round445_range_q20_m175/simulation_shortlist_entry_timed_events.csv",
+        "date_column": "date",
+        "return_column": "period_return"
+      },
+      "cohort_source": {
+        "path": "data/reports/round445_24h_profit_sprint_range_contraction_incremental_sensitivity_20260627/round445_range_q20_m175/cohort_source_period_returns.csv",
+        "decision_date_column": "entry_date",
+        "exit_date_column": "date",
+        "cohort_count": 1113,
+        "unique_exit_date_count": 905
+      },
+      "public_factor_entry_tilt": {
+        "factor_source": "data/reports/round441_24h_profit_sprint_capacity_safe_pv_range_contraction_source_20260627/public_factor_values_for_shortlist.parquet",
+        "factor_name": "range_contraction_lowvol_reversal_20",
+        "ranking_scope": "trade-level delayed-exit m150 base basket after Alpha101/Dragon base construction",
+        "action": "increase_selected_entry_exposure",
+        "tilt_top_fraction": 0.2,
+        "exposure_multiplier": 1.75,
+        "coverage_missing_share": 0.001890359168241966
+      },
+      "volatility_target": {
+        "target_annual_vol": 0.08,
+        "lookback_events": 84,
+        "min_exposure": 0.25,
+        "max_exposure": 1.0,
+        "decision_timing": "entry_date; uses only already closed cohort returns before each entry decision"
+      },
+      "self_risk_overlay": {
+        "policy": "roll21_sum_neg_0.80x",
+        "action": "reduce_exposure_to_0.80",
+        "condition": "prior 21 closed cohort return sum < 0",
+        "decision_timing": "entry_date; uses only cohort returns closed before each entry decision"
+      },
+      "evidence": {
+        "paper_ready": true,
+        "full_sample_total_return": 2.803024243718542,
+        "full_sample_annualized_return": 0.07722826903048308,
+        "full_sample_sharpe": 0.997294398433961,
+        "full_sample_overlap_sharpe": 0.5120462366547203,
+        "full_sample_max_drawdown": -0.29314816494666684,
+        "full_sample_win_rate": 0.42099447513812155,
+        "mean_oos_annualized_return": 0.1173925898,
+        "mean_oos_overlap_sharpe": 0.8828270695,
+        "worst_oos_drawdown": -0.2273939882,
+        "oos_strict_pass_rate": 0.9,
+        "positive_oos_rate": 0.9,
+        "leave_one_year_min_annualized_return": 0.057133799477689706,
+        "leave_one_year_min_overlap_sharpe": 0.4381682372451687,
+        "best_month_log_share_of_total": 0.4457766312588443,
+        "incremental_delta_annualized_return_vs_base": 0.0105944813,
+        "incremental_delta_total_return_vs_base": 0.6184368671,
+        "incremental_delta_overlap_sharpe_vs_base": 0.0159424979,
+        "incremental_cpcv_annualized_win_rate": 0.8916666667,
+        "incremental_cpcv_strict_split_pass_rate": 0.6583333333,
+        "incremental_bootstrap_delta_annualized_positive_rate": 0.992,
+        "incremental_bootstrap_delta_overlap_positive_rate": 0.835,
+        "incremental_bootstrap_drawdown_within_30pct_rate": 0.544,
+        "csi500_beta": 0.049189393,
+        "csi500_beta_r2": 0.2391101281,
+        "csi500_beta_hedged_annualized_return": 0.0861909878,
+        "csi500_beta_hedged_overlap_sharpe": 0.9082790905,
+        "csi500_beta_hedged_max_drawdown": -0.1129057538,
+        "alpha_t_stat": 5.316685881
+      },
+      "risk_caveat": "Aggressive 10 bps range-contraction observation lane. It has the strongest current headline return inside the approximate 30% full-sample drawdown line, but it fails heavier-cost robustness because 20 bps VT 8% drawdown is about -31.07%; do not use as default unless paper simulation explicitly prioritizes return over cost/drawdown stability."
+    },
+    {
+      "id": "paper_ready_cohort_entry_timed_range_q20_m175_ps_gt10_cash_cost10_vt08_max100_self_roll21_x08",
+      "status": "paper_simulation_cohort_entry_timed_candidate",
+      "role": "diagnostic",
+      "cost_rate": 0.001,
+      "formula": "Round445 q20/m175 high-return lane plus entry-known PS TTM > 10 cash-out risk repair; entry-timed vol_target_8_lb84 max_exposure_1.00 plus self-risk roll21_sum_neg_0.80x",
+      "event_return_source": {
+        "path": "data/reports/round462_24h_profit_sprint_q20_tail_attribute_cash_filter_20260627/cash_ps_gt_10_official_template_period_returns.csv",
+        "date_column": "date",
+        "return_column": "period_return"
+      },
+      "cohort_source": {
+        "path": "data/reports/round462_24h_profit_sprint_q20_ps_gt10_filtered_trades_20260627/cohort_trade_rows_ps_gt10_cash.csv",
+        "decision_date_column": "entry_date",
+        "exit_date_column": "delayed_exit_date",
+        "cohort_count": 1113,
+        "unique_exit_date_count": 905
+      },
+      "risk_repair_filter": {
+        "field": "ps_ttm",
+        "operator": "gt",
+        "threshold": 10,
+        "action": "cash_out_trade_contribution",
+        "decision_timing": "entry-known daily_basic field at candidate entry",
+        "flagged_trade_count": 2351,
+        "flagged_trade_share": 0.0888846881
+      },
+      "evidence": {
+        "paper_ready": true,
+        "full_sample_total_return": 2.8484884757165205,
+        "full_sample_annualized_return": 0.07794143577038515,
+        "full_sample_sharpe": 1.0852924335053973,
+        "full_sample_overlap_sharpe": 0.565430805392886,
+        "full_sample_max_drawdown": -0.2542482236517434,
+        "full_sample_win_rate": 0.41878453038674035,
+        "mean_oos_annualized_return": 0.11644248994284206,
+        "mean_oos_overlap_sharpe": 0.9448615202831011,
+        "worst_oos_drawdown": -0.20881149106449737,
+        "oos_strict_pass_rate": 0.7666666667,
+        "positive_oos_rate": 0.9,
+        "leave_one_year_min_annualized_return": 0.05896997980835117,
+        "leave_one_year_min_overlap_sharpe": 0.4730037914109291,
+        "best_month_log_share_of_total": 0.398681735305035,
+        "incremental_delta_annualized_return_vs_q20": 0.0007131667,
+        "incremental_delta_total_return_vs_q20": 0.045464232,
+        "incremental_delta_overlap_sharpe_vs_q20": 0.0533845687,
+        "incremental_delta_max_drawdown_vs_q20": 0.0388999413,
+        "incremental_cpcv_annualized_win_rate": 0.5583333333,
+        "incremental_cpcv_drawdown_win_rate": 0.9666666667,
+        "incremental_cpcv_overlap_win_rate": 0.9416666667,
+        "incremental_cpcv_strict_split_pass_rate": 0.5,
+        "incremental_bootstrap_delta_annualized_positive_rate": 0.54,
+        "incremental_bootstrap_drawdown_win_rate": 0.982,
+        "incremental_bootstrap_overlap_win_rate": 0.978,
+        "incremental_bootstrap_strict_pass_rate": 0.316,
+        "csi500_beta": 0.0440139202,
+        "csi500_beta_r2": 0.225474014,
+        "csi500_beta_hedged_annualized_return": 0.0858911865,
+        "csi500_beta_hedged_overlap_sharpe": 0.9299242994,
+        "csi500_beta_hedged_max_drawdown": -0.1129940427,
+        "alpha_t_stat": 5.6795367058,
+        "cost20_annualized_return": 0.0701897972,
+        "cost20_overlap_sharpe": 0.5144051691,
+        "cost20_max_drawdown": -0.2677939569,
+        "cost30_total_return": 1.9697047343,
+        "cost30_annualized_return": 0.0624920505,
+        "cost30_overlap_sharpe": 0.4629553008,
+        "cost30_max_drawdown": -0.2813099618,
+        "cost30_mean_oos_annualized_return": 0.0944778776,
+        "cost30_mean_oos_overlap_sharpe": 0.7717213035,
+        "cost30_oos_strict_pass_rate": 0.6333333333,
+        "cost30_csi500_beta_hedged_annualized_return": 0.070287431,
+        "cost30_csi500_beta_hedged_overlap_sharpe": 0.7755150228,
+        "cost30_csi500_beta_hedged_max_drawdown": -0.127207484,
+        "capacity_safe_through_aum_multiplier": 20,
+        "capacity_unsafe_from_aum_multiplier": 50,
+        "extreme_contribution_share": 0.345179327
+      },
+      "risk_caveat": "Paper-simulation risk-repair lane, not a final alpha. It improves the q20/m175 high-return lane's drawdown, beta-adjusted quality, and approximate 20/30bps cost-stress drawdown, but OOS strict pass drops to 76.67%, cost30 strict OOS pass is only 63.33%, capacity remains unsafe from 50x, and tail contribution remains concentrated."
+    },
+    {
+      "id": "paper_ready_cohort_dragon_hot_alpha101_openclose_entry_timed_vt08_max100_self_roll21_x08",
+      "status": "paper_simulation_cohort_entry_timed_research_reference_not_paper_ready",
+      "formula": "trade-level cohort source grouped by entry_date + exit_date; cash_dragon_hot_chase_20d + 1.50x bottom 10% alpha101_open_close_pressure_fade_10 tilt + entry-timed vol_target_8_lb84 max_exposure_1.00 + entry-timed self-risk roll21_sum_neg_0.80x",
+      "event_return_source": {
+        "path": "data/reports/round421_24h_profit_sprint_cohort_entry_timed_best_cli_20260627/simulation_shortlist_entry_timed_events.csv",
+        "date_column": "date",
+        "return_column": "period_return"
+      },
+      "cohort_source": {
+        "path": "data/reports/round421_24h_profit_sprint_cohort_entry_timed_best_cli_20260627/cohort_source_period_returns.csv",
+        "decision_date_column": "entry_date",
+        "exit_date_column": "date",
+        "cohort_count": 1071,
+        "unique_exit_date_count": 872
+      },
+      "event_filter": {
+        "family": "dragon_tiger_attention",
+        "action": "cash_filtered_selected_entries",
+        "condition": "top_list_abs_pct_change_max >= 9.5 and top_list_net_amount_sum > 0 within the lookback window",
+        "lookback_days": 22,
+        "official_template_projection_required": true
+      },
+      "public_factor_entry_tilt": {
+        "factor_source": "data/reports/round404_24h_profit_sprint_all_public_factor_source_for_dragon_hot_20260627/public_factor_values_for_shortlist.parquet",
+        "factor_name": "alpha101_open_close_pressure_fade_10",
+        "ranking_scope": "trade-level selected primary_low10 basket after Dragon-Tiger hot-chase cash filter on each signal_date",
+        "action": "increase_selected_entry_exposure",
+        "tilt_bottom_fraction": 0.1,
+        "exposure_multiplier": 1.5,
+        "coverage_missing_share": 0.0
+      },
+      "replacement_filter": {
+        "field": "turnover_rate_f",
+        "action": "replace_filtered_candidates",
+        "drop_bottom_fraction": 0.1
+      },
+      "volatility_target": {
+        "target_annual_vol": 0.08,
+        "lookback_events": 84,
+        "min_exposure": 0.25,
+        "max_exposure": 1.0,
+        "decision_timing": "entry_date; uses only already closed cohort returns before each entry decision"
+      },
+      "self_risk_overlay": {
+        "policy": "roll21_sum_neg_0.80x",
+        "action": "reduce_exposure_to_0.80",
+        "condition": "prior 21 closed cohort return sum < 0",
+        "decision_timing": "entry_date; uses only cohort returns closed before each entry decision"
+      },
+      "evidence": {
+        "paper_ready": false,
+        "full_sample_total_return": 1.6348,
+        "full_sample_annualized_return": 0.0576,
+        "full_sample_sharpe": 0.8632,
+        "full_sample_overlap_sharpe": 0.4661,
+        "full_sample_max_drawdown": -0.2918,
+        "full_sample_win_rate": 0.4071,
+        "mean_oos_annualized_return": 0.0853,
+        "mean_oos_overlap_sharpe": 0.881,
+        "worst_oos_drawdown": -0.2094,
+        "oos_strict_pass_rate": 0.9,
+        "positive_oos_rate": 0.9,
+        "min_oos_annualized_return": -0.0829,
+        "min_oos_overlap_sharpe": -1.5419,
+        "leave_one_year_min_annualized_return": 0.0384,
+        "leave_one_year_min_overlap_sharpe": 0.3749,
+        "best_month_log_share_of_total": 0.48,
+        "csi500_beta": 0.0474,
+        "csi500_beta_r2": 0.2851,
+        "csi500_beta_hedged_annualized_return": 0.0623,
+        "csi500_beta_hedged_overlap_sharpe": 0.7521,
+        "csi500_beta_hedged_max_drawdown": -0.151,
+        "alpha_t_stat": 3.8685,
+        "cost_stress": {
+          "cost5_total_return": 1.766,
+          "cost5_annualized_return": 0.0606,
+          "cost5_max_drawdown": -0.2836,
+          "cost10_total_return": 1.6348,
+          "cost10_annualized_return": 0.0576,
+          "cost10_max_drawdown": -0.2918,
+          "cost20_total_return": 1.4093,
+          "cost20_annualized_return": 0.0521,
+          "cost20_max_drawdown": -0.3094,
+          "cost30_total_return": 1.1834,
+          "cost30_annualized_return": 0.0462,
+          "cost30_max_drawdown": -0.3294
+        },
+        "round428_extreme_trade_stress": {
+          "status": "conditional_risk_flag",
+          "audit_report": "docs/research/cn_stock_round428_default_cohort_trade_extreme_audit_2026-06-27.md",
+          "audit_output_dir": "data/reports/round428_24h_profit_sprint_default_cohort_trade_extreme_audit_20260627",
+          "active_final_trade_count": 26090,
+          "active_extreme_abs_gross_gt50_count": 190,
+          "active_extreme_abs_gross_gt100_count": 24,
+          "active_extreme_abs_gt50_contribution_share_of_total_return": 0.24996020969331012,
+          "exclude_abs_gross_gt50_total_return": 0.7624600680386944,
+          "exclude_abs_gross_gt50_annualized_return": 0.03409197786260676,
+          "exclude_abs_gross_gt50_overlap_sharpe": 0.31369515746808097,
+          "exclude_abs_gross_gt50_max_drawdown": -0.3307451499421519,
+          "blocker": "best_months_contribution_too_high",
+          "causality_note": "Realized gross-return exclusion is a diagnostic stress haircut only and must not be used as a live or paper-simulation entry rule.",
+          "required_repair": "profile extreme trades by entry-known features and test causal quarantine rules before treating the default as a clean simulation handoff"
+        }
+      },
+      "risk_caveat": "Round433 superseded this earlier Round425 handoff with the delayed-exit repair pack. Keep this only as a research reference because Round428 found unresolved entry-time extreme-tail concentration and its exit treatment was less realistic.",
+      "role": "research_reference",
+      "cost_rate": 0.001
+    },
+    {
+      "id": "cost20_cohort_openclose_vt07_max1p0_sr21_x0p8",
+      "status": "paper_simulation_cohort_entry_timed_research_reference_not_paper_ready",
+      "role": "research_reference",
+      "cost_rate": 0.002,
+      "formula": "trade-level cohort source grouped by entry_date + exit_date; cash_dragon_hot_chase_20d + 1.50x bottom 10% alpha101_open_close_pressure_fade_10 tilt + entry-timed vol_target_7_lb84 max_exposure_1.00 + entry-timed self-risk roll21_sum_neg_0.80x under 20bps cost",
+      "event_return_source": {
+        "path": "data/reports/round424_24h_profit_sprint_cohort_heavy_cost_risk_budget_grid_20260627/events/cost20_cohort_openclose_vt07_max1p0_sr21_x0p8_events.csv",
+        "date_column": "date",
+        "return_column": "period_return"
+      },
+      "evidence": {
+        "paper_ready": false,
+        "full_sample_total_return": 1.3462,
+        "full_sample_annualized_return": 0.0505,
+        "full_sample_sharpe": 0.788,
+        "full_sample_overlap_sharpe": 0.423,
+        "full_sample_max_drawdown": -0.2996,
+        "mean_oos_annualized_return": 0.0742,
+        "mean_oos_overlap_sharpe": 0.796,
+        "worst_oos_drawdown": -0.2139,
+        "oos_strict_pass_rate": 0.9,
+        "positive_oos_rate": 0.9,
+        "leave_one_year_min_annualized_return": 0.0311,
+        "best_month_log_share_of_total": 0.536,
+        "csi500_beta": 0.0456,
+        "csi500_beta_r2": 0.2821,
+        "csi500_beta_hedged_annualized_return": 0.0542,
+        "csi500_beta_hedged_overlap_sharpe": 0.669,
+        "csi500_beta_hedged_max_drawdown": -0.1524,
+        "alpha_t_stat": 3.49
+      },
+      "risk_caveat": "Round433 superseded this earlier high-cost lane with a delayed-exit 20bps candidate that has stronger total, annualized, drawdown, and beta-hedged evidence."
+    },
+    {
+      "id": "cost30_cohort_openclose_vt07_max0p85_sr21_x0p8",
+      "status": "paper_simulation_cohort_entry_timed_research_reference_not_paper_ready",
+      "role": "research_reference",
+      "cost_rate": 0.003,
+      "formula": "trade-level cohort source grouped by entry_date + exit_date; cash_dragon_hot_chase_20d + 1.50x bottom 10% alpha101_open_close_pressure_fade_10 tilt + entry-timed vol_target_7_lb84 max_exposure_0.85 + entry-timed self-risk roll21_sum_neg_0.80x under 30bps cost",
+      "event_return_source": {
+        "path": "data/reports/round424_24h_profit_sprint_cohort_heavy_cost30_best_20260627/simulation_shortlist_entry_timed_events.csv",
+        "date_column": "date",
+        "return_column": "period_return"
+      },
+      "evidence": {
+        "paper_ready": false,
+        "full_sample_total_return": 1.0487,
+        "full_sample_annualized_return": 0.0423,
+        "full_sample_sharpe": 0.727,
+        "full_sample_overlap_sharpe": 0.387,
+        "full_sample_max_drawdown": -0.2889,
+        "mean_oos_annualized_return": 0.058,
+        "mean_oos_overlap_sharpe": 0.721,
+        "worst_oos_drawdown": -0.1893,
+        "oos_strict_pass_rate": 0.7667,
+        "positive_oos_rate": 0.9,
+        "leave_one_year_min_annualized_return": 0.0223,
+        "best_month_log_share_of_total": 0.5954,
+        "csi500_beta": 0.0421,
+        "csi500_beta_r2": 0.2891,
+        "csi500_beta_hedged_annualized_return": 0.0449,
+        "csi500_beta_hedged_overlap_sharpe": 0.633,
+        "csi500_beta_hedged_max_drawdown": -0.1381,
+        "alpha_t_stat": 3.2
+      },
+      "risk_caveat": "Round433 superseded this earlier 30bps fallback with a delayed-exit 30bps VT 7.5% fallback that preserves higher annualized return while staying inside the -30% full-sample drawdown line."
+    }
+  ],
+  "round425_simulation_paper_handoff": {
+    "report": "docs/research/cn_stock_round425_simulation_paper_handoff_2026-06-27.md",
+    "output_dir": "data/reports/round425_24h_profit_sprint_simulation_paper_handoff_20260627",
+    "candidate_count": 3,
+    "ready_candidate_count": 3,
+    "blocked_candidate_count": 0,
+    "default_candidate": "paper_ready_cohort_dragon_hot_alpha101_openclose_entry_timed_vt08_max100_self_roll21_x08",
+    "default_annualized_return": 0.05759233391887397,
+    "default_max_drawdown": -0.29177375984170395,
+    "cost20_candidate": "cost20_cohort_openclose_vt07_max1p0_sr21_x0p8",
+    "cost20_annualized_return": 0.05052619449021534,
+    "cost20_max_drawdown": -0.29959504824824956,
+    "cost30_candidate": "cost30_cohort_openclose_vt07_max0p85_sr21_x0p8",
+    "cost30_annualized_return": 0.042322872864636096,
+    "cost30_max_drawdown": -0.28885100856914725,
+    "decision": "use the 10bps cohort candidate as default; use 20bps as heavier-cost lane and 30bps only as stress fallback; older event-level candidates remain research references until rebuilt at cohort-entry-timed granularity",
+    "round428_supersession_note": "Round428 later downgraded the 10bps default from clean default to conditional default pending entry-time extreme-trade risk repair; the Round425 metrics remain valid but are no longer sufficient alone for simulation readiness."
+  },
+  "round426_old_lead_salvage_and_rotation_audit": {
+    "report": "docs/research/cn_stock_round426_old_lead_salvage_and_rotation_audit_2026-06-27.md",
+    "decision": "no older lead is upgraded into the active paper-simulation shortlist; rotate to independent families instead of reviving failed or highly correlated lines",
+    "kept_paper_simulation_baseline": "paper_ready_cohort_dragon_hot_alpha101_openclose_entry_timed_vt08_max100_self_roll21_x08",
+    "hibernated_or_reference_only": [
+      "daily_basic_free_float_supply_quality_after_round145_final_holdout_failure",
+      "alpha101_qlib_dragon_hot_micro_variants_after_round418_redundancy",
+      "older_price_volume_low_turnover_residual_liquidity_reference_controls"
+    ],
+    "next_direction": "independent entry-time public technical, event, tradeability, or PIT accounting-quality families with long-cycle non-holdout gates before paper-ready labels"
+  },
+  "round427_public_technical_cohort_screen": {
+    "report": "docs/research/cn_stock_round427_public_technical_cohort_screen_2026-06-27.md",
+    "oos_output_dir": "data/reports/round427_24h_profit_sprint_public_technical_cohort_oos_20260627",
+    "beta_output_dir": "data/reports/round427_24h_profit_sprint_public_technical_cohort_beta_20260627",
+    "tested_non_alpha_public_technical_candidates": [
+      "rsrs_zscore_18_60_top10",
+      "rsrs_right_skew_18_60_top10",
+      "bollinger_reversal_20_top10",
+      "rsi_reversal_14_top10",
+      "donchian_position_20_bottom10",
+      "macd_histogram_12_26_9_bottom10"
+    ],
+    "best_public_technical_candidate": "rsrs_zscore_18_60_top10",
+    "best_public_technical_annualized_return": 0.053974561183837144,
+    "best_public_technical_max_drawdown": -0.306104261699902,
+    "baseline_default_annualized_return": 0.05759233391887397,
+    "baseline_default_max_drawdown": -0.29177375984170395,
+    "decision": "do not upgrade public technical cohort candidates; none beats the Round425 cohort baseline and the nearest RSRS candidate breaches the -30% drawdown line",
+    "next_direction": "rotate to event-context, tradeability microstructure, coverage-gated PIT accounting quality, or direct paper-simulation adapter work"
+  },
+  "round428_default_cohort_trade_extreme_audit": {
+    "report": "docs/research/cn_stock_round428_default_cohort_trade_extreme_audit_2026-06-27.md",
+    "output_dir": "data/reports/round428_24h_profit_sprint_default_cohort_trade_extreme_audit_20260627",
+    "candidate": "paper_ready_cohort_dragon_hot_alpha101_openclose_entry_timed_vt08_max100_self_roll21_x08",
+    "active_final_trade_count": 26090,
+    "active_extreme_abs_gross_gt50_count": 190,
+    "active_extreme_abs_gross_gt100_count": 24,
+    "active_extreme_abs_gt50_contribution_share_of_total_return": 0.24996020969331012,
+    "original_diagnostic_total_return": 1.6370567740115254,
+    "original_diagnostic_annualized_return": 0.04668834263404409,
+    "original_diagnostic_overlap_sharpe": 0.4357054674202411,
+    "original_diagnostic_max_drawdown": -0.29173323661138795,
+    "exclude_abs_gross_gt100_total_return": 1.3232681810448579,
+    "exclude_abs_gross_gt100_annualized_return": 0.05010546680099992,
+    "exclude_abs_gross_gt100_overlap_sharpe": 0.4195199284035722,
+    "exclude_abs_gross_gt100_max_drawdown": -0.32557403083286207,
+    "exclude_abs_gross_gt50_total_return": 0.7624600680386944,
+    "exclude_abs_gross_gt50_annualized_return": 0.03409197786260676,
+    "exclude_abs_gross_gt50_overlap_sharpe": 0.31369515746808097,
+    "exclude_abs_gross_gt50_max_drawdown": -0.3307451499421519,
+    "stress_blocker": "best_months_contribution_too_high",
+    "decision": "downgrade the Round425 default from clean default to conditional default pending entry-time extreme-risk repair",
+    "causality_note": "Realized gross-return exclusion is a diagnostic stress haircut only and must not be promoted as a paper-simulation or live entry rule.",
+    "next_direction": "profile active extreme trades by entry-known features and test causal quarantine rules before simulation handoff"
+  },
+  "round426_428_three_round_audit": {
+    "report": "docs/research/cn_stock_round426_428_three_round_audit_2026-06-27.md",
+    "rounds": [
+      426,
+      427,
+      428
+    ],
+    "new_promoted_factor_count": 0,
+    "conditional_candidate": "paper_ready_cohort_dragon_hot_alpha101_openclose_entry_timed_vt08_max100_self_roll21_x08",
+    "main_decision": "keep the Round425 candidate only as a conditional benchmark; prioritize entry-known extreme-risk repair before simulation handoff",
+    "rejected_or_hibernated_families": [
+      "old daily-basic free-float supply quality lead",
+      "highly correlated Alpha101/Qlib/Dragon-Hot micro-variants",
+      "coverage-clean public technical cohort overlays that trailed the default"
+    ],
+    "next_round": "Round430 entry-known extreme-risk profiling and causal quarantine tests",
+    "forbidden_repair": "do not use realized gross_return thresholds as a tradable entry filter because that is future information"
+  },
+  "round430_extreme_trade_repair_profile": {
+    "report": "docs/research/cn_stock_round430_extreme_trade_repair_profile_2026-06-27.md",
+    "default_rebuild_output_dir": "data/reports/round430_24h_profit_sprint_default_cohort_trade_profile_rebuild_20260627",
+    "default_extreme_profile_dir": "data/reports/round430_24h_profit_sprint_default_cohort_contributing_extreme_trade_profile_20260627",
+    "repair_oos_output_dir": "data/reports/round430_24h_profit_sprint_repair_oos_20260627",
+    "repair_beta_output_dir": "data/reports/round430_24h_profit_sprint_repair_beta_20260627",
+    "best_execution_stress_candidate": "round430_roundtrip_m150_stress",
+    "best_execution_stress_event_source": "data/reports/round430_24h_profit_sprint_repair_roundtrip_m150_20260627/simulation_shortlist_entry_timed_events.csv",
+    "default_metrics": {
+      "annualized_return": 0.05759233391887397,
+      "total_return": 1.634784432226183,
+      "overlap_sharpe": 0.46608004615771553,
+      "max_drawdown": -0.29177375984170706,
+      "mean_oos_annualized_return": 0.08532977949400625,
+      "mean_oos_overlap_sharpe": 0.8810241330629687,
+      "worst_oos_drawdown": -0.20939136852837037,
+      "beta_hedged_annualized_return": 0.06234026634755363,
+      "beta_hedged_overlap_sharpe": 0.7521236434325062,
+      "beta_hedged_max_drawdown": -0.1510144725500867,
+      "contributing_extreme_trade_count": 113,
+      "contributing_extreme_contribution_sum": 0.4091990545117701
+    },
+    "roundtrip_m150_metrics": {
+      "annualized_return": 0.0583234320824324,
+      "total_return": 1.6664755247847332,
+      "overlap_sharpe": 0.48621486643067585,
+      "max_drawdown": -0.25980305920722513,
+      "mean_oos_annualized_return": 0.08368956817390515,
+      "mean_oos_overlap_sharpe": 0.8727489797119533,
+      "worst_oos_drawdown": -0.19456893611643244,
+      "oos_strict_pass_rate": 0.9,
+      "beta_hedged_annualized_return": 0.06264196914000375,
+      "beta_hedged_overlap_sharpe": 0.7777972700751536,
+      "beta_hedged_max_drawdown": -0.1355328141213401,
+      "contributing_extreme_trade_count": 102,
+      "contributing_extreme_contribution_sum": 0.3679022493010223
+    },
+    "rejected_repairs": [
+      "tilt_m125",
+      "tilt_m100",
+      "roundtrip_m125"
+    ],
+    "decision": "upgrade roundtrip_m150 to best execution-stress research candidate, but do not mark it as a clean paper-simulation handoff because roundtrip cash proxy uses exit-date tradeability evidence",
+    "next_direction": "implement or run causal delayed-exit simulation for exit-blocked trades, then test entry-known high-turnover/high-PB risk budgets"
+  },
+  "round431_public_tilt_risk_cap_repair": {
+    "report": "docs/research/cn_stock_round431_public_tilt_risk_cap_repair_2026-06-27.md",
+    "decision": "reject public-tilt risk caps because they add threshold parameters while only marginally reducing drawdown and extreme contribution",
+    "baseline_candidate": "round430_roundtrip_m150_stress",
+    "baseline_metrics": {
+      "annualized_return": 0.0583234320824324,
+      "total_return": 1.6664755247847332,
+      "overlap_sharpe": 0.48621486643067585,
+      "max_drawdown": -0.25980305920722513,
+      "mean_oos_annualized_return": 0.08368956817390515,
+      "mean_oos_overlap_sharpe": 0.8727489797119533,
+      "worst_oos_drawdown": -0.19456893611643244,
+      "beta_hedged_annualized_return": 0.06264196914000375,
+      "beta_hedged_overlap_sharpe": 0.7777972700751536,
+      "beta_hedged_max_drawdown": -0.1355328141213401
+    },
+    "tested_caps": [
+      {
+        "id": "cap_turnoverf_gt3",
+        "rule": "public tilted trades with turnover_rate_f > 3.0 use 1.00x instead of 1.50x",
+        "capped_trade_count": 271,
+        "annualized_return": 0.05666,
+        "total_return": 1.5949,
+        "overlap_sharpe": 0.482,
+        "max_drawdown": -0.2595
+      },
+      {
+        "id": "cap_turnoverf_gt4",
+        "rule": "public tilted trades with turnover_rate_f > 4.0 use 1.00x instead of 1.50x",
+        "capped_trade_count": 148,
+        "annualized_return": 0.05771580926530473,
+        "total_return": 1.6401117220861487,
+        "overlap_sharpe": 0.48596616854283825,
+        "max_drawdown": -0.25696276194797174,
+        "mean_oos_annualized_return": 0.0834,
+        "mean_oos_overlap_sharpe": 0.872,
+        "worst_oos_drawdown": -0.1946,
+        "beta_hedged_annualized_return": 0.062,
+        "beta_hedged_overlap_sharpe": 0.768,
+        "beta_hedged_max_drawdown": -0.1385
+      },
+      {
+        "id": "cap_pb_gt3p6",
+        "rule": "public tilted trades with pb > 3.6 use 1.00x instead of 1.50x",
+        "capped_trade_count": 419,
+        "annualized_return": 0.05727041846494085,
+        "total_return": 1.620943114782389,
+        "overlap_sharpe": 0.48523737494994923,
+        "max_drawdown": -0.2561244990117931,
+        "mean_oos_annualized_return": 0.08244,
+        "mean_oos_overlap_sharpe": 0.866,
+        "worst_oos_drawdown": -0.1933,
+        "beta_hedged_annualized_return": 0.06148,
+        "beta_hedged_overlap_sharpe": 0.771,
+        "beta_hedged_max_drawdown": -0.138
+      }
+    ],
+    "next_direction": "do delayed-exit execution simulation instead of threshold tuning"
+  },
+  "round432_delayed_exit_execution_repair": {
+    "report": "docs/research/cn_stock_round432_delayed_exit_execution_repair_2026-06-27.md",
+    "repair_output_dir": "data/reports/round432_24h_profit_sprint_delayed_exit_return_repair_20260627",
+    "candidate_output_dir": "data/reports/round432_24h_profit_sprint_delayed_exit_m150_20260627",
+    "oos_output_dir": "data/reports/round432_24h_profit_sprint_delayed_exit_oos_20260627",
+    "beta_output_dir": "data/reports/round432_24h_profit_sprint_delayed_exit_beta_20260627",
+    "extreme_profile_dir": "data/reports/round432_24h_profit_sprint_delayed_exit_extreme_profile_20260627",
+    "block_audit_dir": "data/reports/round432_24h_profit_sprint_delayed_exit_block_audit_20260627",
+    "candidate": "round432_delayed_exit_m150",
+    "status": "current_best_research_to_paper_candidate_pending_heavy_cost_and_handoff",
+    "repair_summary": {
+      "source_trade_count": 26450,
+      "same_day_sellable_exit_count": 20158,
+      "delayed_exit_count": 209,
+      "entry_blocked_zero_return_trade_count": 6068,
+      "unresolved_exit_within_10_days_count": 15,
+      "max_observed_exit_delay_days": 10,
+      "missing_price_trade_count": 0
+    },
+    "metrics": {
+      "annualized_return": 0.066634,
+      "total_return": 2.1846,
+      "sharpe": 0.968,
+      "overlap_sharpe": 0.4961,
+      "max_drawdown": -0.2621,
+      "win_rate": 0.4133,
+      "event_count": 905,
+      "cohort_count": 1113,
+      "unique_exit_date_count": 905,
+      "mean_oos_annualized_return": 0.10043,
+      "mean_oos_overlap_sharpe": 0.831,
+      "worst_oos_drawdown": -0.193,
+      "oos_strict_pass_rate": 0.9,
+      "beta": 0.048,
+      "beta_r2": 0.271,
+      "beta_hedged_annualized_return": 0.07485,
+      "beta_hedged_overlap_sharpe": 0.792,
+      "beta_hedged_max_drawdown": -0.1414,
+      "alpha_t_stat": 4.36,
+      "contributing_active_trade_count": 20117,
+      "contributing_extreme_trade_count": 112,
+      "contributing_extreme_trade_rate": 0.00557,
+      "contributing_extreme_contribution_sum": 0.417,
+      "max_contributing_abs_gross_return": 2.5555,
+      "negative_extreme_count": 3,
+      "leave_one_year_min_annualized_return": 0.05,
+      "leave_one_year_min_overlap_sharpe": 0.425,
+      "best_three_month_log_share": 0.4572,
+      "worst_year": "2018",
+      "worst_year_return": -0.1563
+    },
+    "decision": "promote to current best research-to-paper candidate, but not paper-ready until heavy-cost stress and replay/handoff gate pass",
+    "remaining_caveat": "mean OOS overlap Sharpe is lower than the Round425 default despite stronger OOS annualized return and drawdown",
+    "next_direction": "run 20bps and 30bps delayed-exit cost stress, then replay through paper handoff gate"
+  },
+  "round430_432_three_round_audit": {
+    "report": "docs/research/cn_stock_round430_432_three_round_audit_2026-06-27.md",
+    "rounds": [
+      430,
+      431,
+      432
+    ],
+    "new_paper_ready_factor_count": 0,
+    "current_best_research_to_paper_candidate": "round432_delayed_exit_m150",
+    "main_decision": "use delayed-exit execution repair as the next candidate to stress, while keeping Round425 as the conditional handoff pack until delayed-exit passes heavy-cost and replay gates",
+    "rejected_or_limited_families": [
+      "roundtrip cash proxy as clean promotion because it uses exit-date tradeability evidence",
+      "public-tilt risk-cap threshold tuning because it adds parameters for marginal benefit"
+    ],
+    "next_round": "Round433 delayed-exit heavy-cost stress and handoff replay gate",
+    "forbidden_repair": "do not use realized gross_return thresholds or exit-date unsellability as entry filters"
+  },
+  "round433_delayed_exit_cost_stress_and_handoff": {
+    "report": "docs/research/cn_stock_round433_delayed_exit_cost_stress_and_handoff_2026-06-27.md",
+    "cost20_repair_output_dir": "data/reports/round433_24h_profit_sprint_delayed_exit_cost20_return_repair_20260627",
+    "cost30_repair_output_dir": "data/reports/round433_24h_profit_sprint_delayed_exit_cost30_return_repair_20260627",
+    "cost20_candidate_output_dir": "data/reports/round433_24h_profit_sprint_delayed_exit_cost20_m150_20260627",
+    "cost30_default_output_dir": "data/reports/round433_24h_profit_sprint_delayed_exit_cost30_m150_20260627",
+    "cost30_risk_budget_grid_note": "small pre-registered risk-budget grid; not a new alpha search",
+    "cost30_selected_output_dir": "data/reports/round433_24h_profit_sprint_delayed_exit_cost30_vt075_max100_m150_20260627",
+    "oos_output_dir": "data/reports/round433_24h_profit_sprint_delayed_exit_cost_stress_oos_20260627",
+    "block_output_dir": "data/reports/round433_24h_profit_sprint_delayed_exit_cost_stress_block_audit_20260627",
+    "beta_output_dir": "data/reports/round433_24h_profit_sprint_delayed_exit_cost_stress_beta_20260627",
+    "handoff_output_dir": "data/reports/round433_24h_profit_sprint_delayed_exit_paper_handoff_20260627",
+    "handoff_candidate_count": 6,
+    "handoff_ready_candidate_count": 3,
+    "handoff_blocked_reference_count": 3,
+    "new_handoff_default": "paper_ready_delayed_exit_m150_cost10_vt08_max100_self_roll21_x08",
+    "cost20_candidate": "paper_ready_delayed_exit_m150_cost20_vt08_max100_self_roll21_x08",
+    "cost30_candidate": "paper_ready_delayed_exit_m150_cost30_vt075_max100_self_roll21_x08",
+    "cost20_metrics": {
+      "annualized_return": 0.060595725008536716,
+      "total_return": 1.875957264965208,
+      "sharpe": 0.8876772878165433,
+      "overlap_sharpe": 0.4559842672152313,
+      "max_drawdown": -0.28066991718008993,
+      "mean_oos_annualized_return": 0.0913198426409419,
+      "mean_oos_overlap_sharpe": 0.7587773955931821,
+      "worst_oos_drawdown": -0.19753188994293092,
+      "oos_strict_pass_rate": 0.7666666666666667,
+      "beta_hedged_annualized_return": 0.0674403933500376,
+      "beta_hedged_overlap_sharpe": 0.7243663842773991,
+      "beta_hedged_max_drawdown": -0.14139511667508042,
+      "alpha_t_stat": 3.9657631518713052
+    },
+    "cost30_vt075_metrics": {
+      "annualized_return": 0.05415269274883783,
+      "total_return": 1.5778856409165924,
+      "sharpe": 0.8093139956912443,
+      "overlap_sharpe": 0.416224119231988,
+      "max_drawdown": -0.2965798627064663,
+      "mean_oos_annualized_return": 0.0819672017947771,
+      "mean_oos_overlap_sharpe": 0.6844362095019126,
+      "worst_oos_drawdown": -0.20283294524862394,
+      "oos_strict_pass_rate": 0.7666666666666667,
+      "beta_hedged_annualized_return": 0.059522810086654054,
+      "beta_hedged_overlap_sharpe": 0.650777975994796,
+      "beta_hedged_max_drawdown": -0.14360711558088302,
+      "alpha_t_stat": 3.567526714349215
+    },
+    "decision": "promote the delayed-exit pack to the active paper-simulation handoff set and downgrade the older Round425 default to research reference",
+    "remaining_caveats": [
+      "cost20 and cost30 OOS strict pass rates are 76.67%, weaker than the 10bps lane",
+      "30bps uses VT 7.5% to stay inside the drawdown tolerance",
+      "best-month concentration remains material at roughly 50% to 55% of total log return",
+      "2026 final holdout remains sealed"
+    ]
+  },
+  "round434_calendar_state_overlay_audit": {
+    "report": "docs/research/cn_stock_round434_calendar_overlay_audit_2026-06-27.md",
+    "state_overlay_output_dir": "data/reports/round434_24h_profit_sprint_calendar_state_overlay_audit_20260627",
+    "oos_output_dir": "data/reports/round434_24h_profit_sprint_calendar_overlay_oos_20260627",
+    "block_output_dir": "data/reports/round434_24h_profit_sprint_calendar_overlay_block_audit_20260627",
+    "beta_output_dir": "data/reports/round434_24h_profit_sprint_calendar_overlay_beta_20260627",
+    "selected_overlay": "zero_quarter_end5",
+    "overlay_rule": "do not open new cohorts during the final 5 trading days of quarter-end months",
+    "promotion_role": "paper_simulation_risk_overlay_candidate_not_independent_alpha",
+    "baseline_remains_default": true,
+    "cost10_overlay_metrics": {
+      "annualized_return": 0.06399865905181423,
+      "total_return": 2.046235336391565,
+      "overlap_sharpe": 0.5461018634817526,
+      "max_drawdown": -0.23198150899693526,
+      "mean_oos_annualized_return": 0.09428062655526226,
+      "mean_oos_overlap_sharpe": 0.9151270889203622,
+      "worst_oos_drawdown": -0.18196523996662106,
+      "oos_strict_pass_rate": 0.9,
+      "csi500_beta": 0.04233447895508188,
+      "beta_hedged_annualized_return": 0.07273164834575119,
+      "beta_hedged_overlap_sharpe": 0.8690303019295079,
+      "beta_hedged_max_drawdown": -0.12343825286392818,
+      "alpha_t_stat": 4.460407112806218
+    },
+    "cost20_overlay_metrics": {
+      "annualized_return": 0.05886172280662527,
+      "total_return": 1.792686792409829,
+      "overlap_sharpe": 0.5063060179739877,
+      "max_drawdown": -0.2405624356460716,
+      "mean_oos_annualized_return": 0.08668067833513622,
+      "mean_oos_overlap_sharpe": 0.8446741842348114,
+      "worst_oos_drawdown": -0.18624029923438468,
+      "oos_strict_pass_rate": 0.9,
+      "csi500_beta": 0.04229135230530378,
+      "beta_hedged_annualized_return": 0.06641522090711027,
+      "beta_hedged_overlap_sharpe": 0.8024602920951871,
+      "beta_hedged_max_drawdown": -0.12405711976590839,
+      "alpha_t_stat": 4.098260147153163
+    },
+    "cost30_overlay_metrics": {
+      "annualized_return": 0.05283950896945977,
+      "total_return": 1.5208267839223861,
+      "overlap_sharpe": 0.4645540799015557,
+      "max_drawdown": -0.2560993268709262,
+      "mean_oos_annualized_return": 0.07800997937166701,
+      "mean_oos_overlap_sharpe": 0.7689991018819846,
+      "worst_oos_drawdown": -0.19126652393318166,
+      "oos_strict_pass_rate": 0.7666666666666667,
+      "csi500_beta": 0.04152448529153776,
+      "beta_hedged_annualized_return": 0.059011875326965724,
+      "beta_hedged_overlap_sharpe": 0.7258724133378635,
+      "beta_hedged_max_drawdown": -0.12564671311796183,
+      "alpha_t_stat": 3.714202399852405
+    },
+    "decision": "include zero_quarter_end5 as a defensive paper-simulation lane while keeping the higher-return delayed-exit baseline as default",
+    "remaining_caveats": [
+      "the overlay reduces annualized return and total return versus baseline",
+      "it was discovered during the sprint and must be monitored as a risk-control hypothesis, not promoted as independent alpha",
+      "2026 final holdout remains sealed"
+    ]
+  },
+  "round435_zz500_regime_overlay_audit": {
+    "report": "docs/research/cn_stock_round435_zz500_regime_overlay_audit_2026-06-27.md",
+    "output_dir": "data/reports/round435_24h_profit_sprint_zz500_regime_overlay_audit_20260627",
+    "benchmark_source": "data/processed/etf_csv CN_ETF_XSHG_510500 adjusted close",
+    "lag_policy": "all market-state variables use the previous ETF trading day's close before decision_date",
+    "tested_states": [
+      "mom60_neg",
+      "mom120_neg",
+      "dd60_lt_10",
+      "dd60_lt_15",
+      "mom120_or_dd10",
+      "mom60_or_dd10"
+    ],
+    "tested_exposure_multipliers": [
+      0.75,
+      0.5,
+      0.0
+    ],
+    "best_triage_variant": "mom120_or_dd10_x0p75",
+    "cost10_best_variant_metrics": {
+      "annualized_return": 0.05888253570968516,
+      "delta_annualized_return": -0.007751252070307801,
+      "overlap_sharpe": 0.49083059427098447,
+      "delta_overlap_sharpe": -0.005273144435936905,
+      "max_drawdown": -0.24464191085672915,
+      "delta_max_drawdown": 0.01749896166260423
+    },
+    "cost20_best_variant_metrics": {
+      "annualized_return": 0.053659999511981304,
+      "delta_annualized_return": -0.0069357254965551896,
+      "overlap_sharpe": 0.45214787931484124,
+      "delta_overlap_sharpe": -0.003836387900390814,
+      "max_drawdown": -0.26071562519963576,
+      "delta_max_drawdown": 0.019954291980452732
+    },
+    "cost30_best_variant_metrics": {
+      "annualized_return": 0.04802987182220764,
+      "delta_annualized_return": -0.00612282092663019,
+      "overlap_sharpe": 0.4136004050086785,
+      "delta_overlap_sharpe": -0.0026237142233094812,
+      "max_drawdown": -0.27431502936809804,
+      "delta_max_drawdown": 0.02226483333836826
+    },
+    "decision": "reject ZZ500 momentum/drawdown regime overlays for the current delayed-exit candidate because no fixed state improved both annualized return and overlap Sharpe",
+    "blocked_followups": [
+      "do not tune ZZ500 regime lookbacks or thresholds around this candidate",
+      "do not relabel market-regime filtering as independent alpha",
+      "only revisit as portfolio-level risk budgeting in simulation"
+    ]
+  },
+  "round436_delayed_exit_exposure_audit": {
+    "report": "docs/research/cn_stock_round436_delayed_exit_exposure_audit_2026-06-27.md",
+    "full_exposure_output_dir": "data/reports/round436_24h_profit_sprint_delayed_exit_exposure_audit_20260627",
+    "active_exposure_output_dir": "data/reports/round436_24h_profit_sprint_delayed_exit_active_exposure_audit_20260627",
+    "active_trade_count": 20367,
+    "active_entry_date_count": 529,
+    "active_target_weight_sum": 101.835,
+    "active_return_contribution": 1.1245153377120134,
+    "industry_exposure_decision": "no industry cap overlay; active industry exposure passes p95 top-weight, HHI, and return-contribution concentration gates",
+    "industry_metrics": {
+      "average_group_count": 27.812854442344044,
+      "average_hhi": 0.04833512345427535,
+      "p95_top_weight_share": 0.16666666666666669,
+      "top_abs_return_contribution_share": 0.06721878834558803
+    },
+    "structural_concentration": {
+      "main_board_weight_share": 0.990917,
+      "main_board_abs_return_contribution_share": 0.9825642401124518,
+      "xshg_weight_share": 0.839741,
+      "xshg_abs_return_contribution_share": 0.7949664720445672,
+      "hs_h_weight_share": 0.737026,
+      "hs_h_abs_return_contribution_share": 0.676079494769353,
+      "same_day_exit_weight_share": 0.989738,
+      "same_day_exit_abs_return_contribution_share": 0.9598297769557934
+    },
+    "execution_risk_note": "delayed exits are only 1.03% active weight but contribute -0.0515 return; this is an execution-risk monitor, not a causal entry filter",
+    "decision": "keep active delayed-exit candidate; disclose main-board/XSHG/HS-H structural concentration and monitor delayed-exit losses in simulation",
+    "blocked_followups": [
+      "do not add industry caps before evidence of industry concentration failure",
+      "do not use delayed_exit_status as an entry filter because it is future exit-date information",
+      "do not describe the candidate as all-board or all-market neutral"
+    ]
+  },
+  "round434_436_three_round_audit": {
+    "report": "docs/research/cn_stock_round434_436_three_round_audit_2026-06-27.md",
+    "rounds": [
+      434,
+      435,
+      436
+    ],
+    "new_independent_alpha_count": 0,
+    "new_simulation_overlay_count": 1,
+    "selected_overlay": "zero_quarter_end5",
+    "selected_overlay_role": "defensive_paper_simulation_lane",
+    "default_lane": "paper_ready_delayed_exit_m150_cost10_vt08_max100_self_roll21_x08",
+    "main_decisions": [
+      "keep delayed-exit baseline as default return-seeking lane",
+      "carry zero_quarter_end5 as a defensive simulation lane",
+      "reject ZZ500 momentum/drawdown overlays for this candidate",
+      "do not add industry caps because active industry exposure passes concentration gates",
+      "disclose main-board/XSHG/HS-H structural concentration before simulation"
+    ],
+    "next_direction": "statistical reality checks, purged/CPCV robustness, or independent source only if coverage and PIT gates are already proven"
+  },
+  "round437_statistical_reality_check": {
+    "report": "docs/research/cn_stock_round437_statistical_reality_check_2026-06-27.md",
+    "experiment_output_dir": "data/reports/round437_24h_profit_sprint_statistical_reality_20260627",
+    "strict_reality_output_dir": "data/reports/round437_24h_profit_sprint_statistical_reality_check_20260627",
+    "candidate_count": 6,
+    "hypothesis_count": 6,
+    "metric_column": "overlap_autocorr_adjusted_sharpe",
+    "effective_sample_policy": "period_count / 4, minimum 30, to account for overlapping 20d holdings",
+    "multiple_testing": "Benjamini-Hochberg FDR across the six delayed-exit baseline and zero_quarter_end5 lanes",
+    "deflated_sharpe_pass_count": 6,
+    "fdr_significant_count": 0,
+    "statistical_candidate_count": 0,
+    "best_case_by_overlap_sharpe": "cost10_zero_qe",
+    "best_case_overlap_sharpe": 0.5461018634817526,
+    "best_case_p_value": 0.02066207450497859,
+    "best_case_fdr_adjusted_p_value": 0.06399730973794188,
+    "cpcv_split_count": 15,
+    "purge_observations": 4,
+    "embargo_observations": 4,
+    "top_purged_cpcv_rows": [
+      {
+        "candidate": "cost10_zero_qe",
+        "mean_annualized_return": 0.06467614800067222,
+        "min_annualized_return": -0.003463547601884165,
+        "mean_overlap_sharpe": 0.572820310706521,
+        "min_overlap_sharpe": -0.04039943961361112,
+        "worst_drawdown": -0.3040332295860152,
+        "positive_ann_rate": 0.9333333333333333,
+        "dd30_pass_rate": 0.9333333333333333
+      },
+      {
+        "candidate": "cost20_zero_qe",
+        "mean_annualized_return": 0.05950635528002933,
+        "min_annualized_return": -0.006531218744922129,
+        "mean_overlap_sharpe": 0.5284279397436433,
+        "min_overlap_sharpe": -0.0851657074359811,
+        "worst_drawdown": -0.31362587215258697,
+        "positive_ann_rate": 0.9333333333333333,
+        "dd30_pass_rate": 0.9333333333333333
+      },
+      {
+        "candidate": "cost10_base",
+        "mean_annualized_return": 0.06731781882919255,
+        "min_annualized_return": -0.002124409168362651,
+        "mean_overlap_sharpe": 0.5193927003363505,
+        "min_overlap_sharpe": -0.01930221911675871,
+        "worst_drawdown": -0.3287282546658251,
+        "positive_ann_rate": 0.9333333333333333,
+        "dd30_pass_rate": 0.8666666666666667
+      }
+    ],
+    "decision": "do not promote any lane as statistically final alpha; carry cost10_zero_qe as the defensive simulation lane and keep delayed-exit baseline as the default return-seeking lane",
+    "blocked_followups": [
+      "do not call a deflated-Sharpe pass alone a promotable result",
+      "do not tune quarter-end thresholds after seeing this result unless a new hypothesis is pre-registered and counted",
+      "do not describe zero_quarter_end5 as independent alpha",
+      "do not open the 2026 final holdout yet"
+    ],
+    "next_direction": "continue mining independent entry-known factors and improve cost/capacity modeling before simulation"
+  },
+  "round438_public_indicator_delayed_exit_audit": {
+    "report": "docs/research/cn_stock_round438_public_indicator_delayed_exit_audit_2026-06-27.md",
+    "public_factor_source": "data/reports/round404_24h_profit_sprint_all_public_factor_source_for_dragon_hot_20260627/public_factor_values_for_shortlist.parquet",
+    "cash_filter_output_dir": "data/reports/round438_24h_profit_sprint_public_indicator_delayed_exit_cash_filter_20260627",
+    "tilt_output_dir": "data/reports/round438_24h_profit_sprint_public_indicator_delayed_exit_tilt_20260627",
+    "oos_output_dir": "data/reports/round438_24h_profit_sprint_public_indicator_delayed_exit_oos_20260627",
+    "block_output_dir": "data/reports/round438_24h_profit_sprint_public_indicator_delayed_exit_block_audit_20260627",
+    "beta_output_dir": "data/reports/round438_24h_profit_sprint_public_indicator_delayed_exit_beta_20260627",
+    "stat_reality_output_dir": "data/reports/round438_24h_profit_sprint_public_indicator_delayed_exit_stat_reality_check_20260627",
+    "screened_cash_filter_candidate_count": 26,
+    "screened_tilt_candidate_count": 26,
+    "return_enhancement_candidate": "tilt_public_rsrs_z_top10",
+    "return_enhancement_factor": "rsrs_zscore_18_60",
+    "return_enhancement_side": "top10",
+    "return_enhancement_multiplier": 1.5,
+    "defensive_overlay_candidate": "cash_public_anti_supertrend_top10",
+    "defensive_overlay_factor": "supertrend_volume_confirmed_10_3_20",
+    "defensive_overlay_side": "top10",
+    "base_metrics": {
+      "annualized_return": 0.0666337878,
+      "total_return": 2.1845873766,
+      "overlap_sharpe": 0.4961037387,
+      "max_drawdown": -0.2621408725,
+      "win_rate": 0.4132596685,
+      "mean_oos_annualized_return": 0.1004347448,
+      "mean_oos_overlap_sharpe": 0.831115647,
+      "worst_oos_drawdown": -0.192968,
+      "beta_hedged_annualized_return": 0.0750189064,
+      "beta_hedged_overlap_sharpe": 0.797397739,
+      "beta_hedged_max_drawdown": -0.1266625227
+    },
+    "rsrs_z_tilt_metrics": {
+      "annualized_return": 0.0737318195,
+      "total_return": 2.5873701841,
+      "overlap_sharpe": 0.5060195411,
+      "max_drawdown": -0.2675381644,
+      "win_rate": 0.4121546961,
+      "leave_one_year_min_annualized_return": 0.0543423936,
+      "leave_one_year_min_overlap_sharpe": 0.433157042,
+      "best_three_month_log_return_share": 0.4518202656,
+      "mean_oos_annualized_return": 0.108319833,
+      "mean_oos_overlap_sharpe": 0.8544913054,
+      "oos_strict_pass_rate": 0.9,
+      "worst_oos_drawdown": -0.211473,
+      "beta_hedged_annualized_return": 0.0823511465,
+      "beta_hedged_overlap_sharpe": 0.8169125382,
+      "beta_hedged_max_drawdown": -0.1361371601,
+      "alpha_t_stat": 4.4109339
+    },
+    "cash_anti_supertrend_metrics": {
+      "annualized_return": 0.0672324063,
+      "total_return": 2.2168332182,
+      "overlap_sharpe": 0.5262536462,
+      "max_drawdown": -0.2398328691,
+      "win_rate": 0.4198895,
+      "leave_one_year_min_annualized_return": 0.0520292,
+      "leave_one_year_min_overlap_sharpe": 0.454697,
+      "best_three_month_log_return_share": 0.4222947,
+      "mean_oos_annualized_return": 0.1010843949,
+      "mean_oos_overlap_sharpe": 0.8577946056,
+      "oos_strict_pass_rate": 0.9,
+      "worst_oos_drawdown": -0.182899,
+      "beta_hedged_annualized_return": 0.0758850797,
+      "beta_hedged_overlap_sharpe": 0.8238977156,
+      "beta_hedged_max_drawdown": -0.1159859905,
+      "alpha_t_stat": 4.616937
+    },
+    "shortlist_level_statistical_reality": {
+      "hypothesis_count": 4,
+      "deflated_sharpe_pass_count": 4,
+      "fdr_significant_count": 4,
+      "statistical_candidate_count": 4,
+      "fdr_q_value_floor": 0.03553,
+      "caveat": "shortlist-level check after prior screens; not a complete multiple-testing accounting for every public-indicator idea tried"
+    },
+    "decision": "promote rsrs_z top10 tilt to the next formal rebuild/audit round as return enhancement; carry anti-supertrend top10 cashing as a defensive overlay watchlist; neither is paper-ready yet",
+    "blocked_followups": [
+      "do not call the Round438 public-indicator projection independent final alpha",
+      "do not rerun full public-factor materialization unless the factor source is missing",
+      "do not use sparse SuperTrend coverage without disclosure",
+      "do not open the 2026 final holdout yet"
+    ],
+    "next_direction": "Round439 formal cohort-entry rebuild and cost/OOS/block/beta/statistical audits for RSRS z top10; then test anti-supertrend as a defensive overlay if it still adds value"
+  },
+  "round439_rsrs_formal_rebuild_audit": {
+    "report": "docs/research/cn_stock_round439_rsrs_formal_rebuild_audit_2026-06-27.md",
+    "formal_rebuild_output_dir": "data/reports/round439_24h_profit_sprint_delayed_exit_rsrs_z_top10_formal_rebuild_20260627",
+    "oos_output_dir": "data/reports/round439_24h_profit_sprint_delayed_exit_rsrs_z_top10_oos_20260627",
+    "block_output_dir": "data/reports/round439_24h_profit_sprint_delayed_exit_rsrs_z_top10_block_audit_20260627",
+    "beta_output_dir": "data/reports/round439_24h_profit_sprint_delayed_exit_rsrs_z_top10_beta_20260627",
+    "candidate": "round439_delayed_exit_rsrs_z_top10_m150",
+    "factor": "rsrs_zscore_18_60",
+    "side": "top10",
+    "multiplier": 1.5,
+    "factor_missing_share": 0.011728631659639709,
+    "public_tilt_trade_count": 2916,
+    "base_metrics": {
+      "annualized_return": 0.0666337878,
+      "total_return": 2.1845873766,
+      "overlap_sharpe": 0.4961037387,
+      "max_drawdown": -0.2621408725,
+      "win_rate": 0.4132596685,
+      "mean_oos_annualized_return": 0.1004347448,
+      "mean_oos_overlap_sharpe": 0.831115647,
+      "oos_strict_pass_rate": 0.9,
+      "worst_oos_drawdown": -0.1929675139,
+      "beta_hedged_annualized_return": 0.0750189064,
+      "beta_hedged_overlap_sharpe": 0.797397739,
+      "beta_hedged_max_drawdown": -0.1266625227,
+      "alpha_t_stat": 4.4000996917
+    },
+    "formal_rsrs_z_top10_metrics": {
+      "annualized_return": 0.0633717609,
+      "total_return": 2.0141675201,
+      "overlap_sharpe": 0.4774013658,
+      "max_drawdown": -0.2710586485,
+      "win_rate": 0.4110497238,
+      "leave_one_year_min_annualized_return": 0.0476988275,
+      "leave_one_year_min_overlap_sharpe": 0.4045020927,
+      "best_three_month_log_return_share": 0.4859861046,
+      "mean_oos_annualized_return": 0.0975159725,
+      "mean_oos_overlap_sharpe": 0.8260591225,
+      "oos_strict_pass_rate": 0.7666666667,
+      "worst_oos_drawdown": -0.1976899086,
+      "beta_hedged_annualized_return": 0.0709492151,
+      "beta_hedged_overlap_sharpe": 0.7555573221,
+      "beta_hedged_max_drawdown": -0.1358736485,
+      "alpha_t_stat": 4.1861266304
+    },
+    "decision": "reject RSRS z top10 formal rebuild as a replacement or paper-simulation candidate because it is weaker than base on full-sample, OOS, block, and beta metrics",
+    "process_lesson": "public-indicator projection leads must pass formal cohort-entry rebuild before simulation-shortlist discussion",
+    "next_direction": "formally rebuild the anti-supertrend defensive cash overlay, then rotate away from public technical overlays if it also fails"
+  },
+  "round437_439_three_round_audit": {
+    "report": "docs/research/cn_stock_round437_439_three_round_audit_2026-06-27.md",
+    "rounds": [
+      437,
+      438,
+      439
+    ],
+    "new_paper_ready_candidate_count": 0,
+    "new_projection_lead_count": 2,
+    "formal_rebuild_pass_count": 0,
+    "rejected_formal_candidate": "round439_delayed_exit_rsrs_z_top10_m150",
+    "default_lane": "paper_ready_delayed_exit_m150_cost10_vt08_max100_self_roll21_x08",
+    "main_decisions": [
+      "keep delayed-exit baseline as default paper-simulation candidate",
+      "keep zero_quarter_end5 only as a defensive simulation lane",
+      "reject RSRS z top10 after formal rebuild",
+      "require cohort-entry formal rebuild before any public-indicator projection can enter the shortlist",
+      "next formally test anti-supertrend cashing as a defensive overlay"
+    ],
+    "next_direction": "Round440 formal anti-supertrend cash rebuild or rotate away from public technical overlays if it fails"
+  },
+  "round440_anti_supertrend_formal_rebuild_audit": {
+    "report": "docs/research/cn_stock_round440_anti_supertrend_formal_rebuild_audit_2026-06-27.md",
+    "formal_rebuild_output_dir": "data/reports/round440_24h_profit_sprint_delayed_exit_anti_supertrend_cash_formal_rebuild_20260627",
+    "oos_output_dir": "data/reports/round440_24h_profit_sprint_delayed_exit_anti_supertrend_cash_oos_20260627",
+    "block_output_dir": "data/reports/round440_24h_profit_sprint_delayed_exit_anti_supertrend_cash_block_audit_20260627",
+    "beta_output_dir": "data/reports/round440_24h_profit_sprint_delayed_exit_anti_supertrend_cash_beta_20260627",
+    "candidate": "round440_delayed_exit_anti_supertrend_top10_cash",
+    "factor": "supertrend_volume_confirmed_10_3_20",
+    "side": "top10",
+    "public_factor_multiplier": 0.0,
+    "factor_missing_share": 0.8360291299348409,
+    "public_cashed_trade_count": 725,
+    "base_metrics": {
+      "annualized_return": 0.0666337878,
+      "total_return": 2.1845873766,
+      "overlap_sharpe": 0.4961037387,
+      "max_drawdown": -0.2621408725,
+      "win_rate": 0.4132596685,
+      "mean_oos_annualized_return": 0.1004347448,
+      "mean_oos_overlap_sharpe": 0.831115647,
+      "oos_strict_pass_rate": 0.9,
+      "worst_oos_drawdown": -0.1929675139,
+      "beta_hedged_annualized_return": 0.0750189064,
+      "beta_hedged_overlap_sharpe": 0.797397739,
+      "beta_hedged_max_drawdown": -0.1266625227,
+      "alpha_t_stat": 4.4000996917
+    },
+    "formal_anti_supertrend_cash_metrics": {
+      "annualized_return": 0.0576826974,
+      "total_return": 1.7373735349,
+      "overlap_sharpe": 0.4679655845,
+      "max_drawdown": -0.2753581293,
+      "win_rate": 0.4121546961,
+      "leave_one_year_min_annualized_return": 0.042894978,
+      "leave_one_year_min_overlap_sharpe": 0.3953726513,
+      "best_three_month_log_return_share": 0.4725916189,
+      "mean_oos_annualized_return": 0.0890614802,
+      "mean_oos_overlap_sharpe": 0.8097241164,
+      "oos_strict_pass_rate": 0.7666666667,
+      "worst_oos_drawdown": -0.1804907025,
+      "beta_hedged_annualized_return": 0.0647856079,
+      "beta_hedged_overlap_sharpe": 0.7630651793,
+      "beta_hedged_max_drawdown": -0.1147521913,
+      "alpha_t_stat": 4.1068511298
+    },
+    "decision": "reject anti-supertrend cash formal rebuild because the drawdown reduction is too expensive and factor coverage is sparse",
+    "direction_change": "stop public technical overlay mining for now and rotate to event-context underreaction or liquidity/tradeability microstructure",
+    "next_direction": "Round441 independent family screen using available PIT event-context or liquidity sources"
+  },
+  "round441_capacity_safe_pv_source_support": {
+    "report": "docs/research/cn_stock_round441_capacity_safe_pv_source_support_2026-06-27.md",
+    "source_output_dir": "data/reports/round441_24h_profit_sprint_capacity_safe_pv_range_contraction_source_20260627",
+    "factor_value_source": "data/reports/round441_24h_profit_sprint_capacity_safe_pv_range_contraction_source_20260627/public_factor_values_for_shortlist.parquet",
+    "factor": "range_contraction_lowvol_reversal_20",
+    "target_pair_count": 26450,
+    "matched_factor_value_count": 26400,
+    "missing_factor_share": 0.001890359168241984,
+    "code_changes": [
+      "shortlist_public_factor_source registers capacity_safe_price_volume factors",
+      "simulation_shortlist_cohort_entry_timed supports --weight-column",
+      "simulation_shortlist_cohort_entry_timed supports --disable-dragon-cash-filter",
+      "stale final_* columns are dropped before recomputing final trade rows"
+    ],
+    "verification": [
+      "python -m unittest tests.unit.test_shortlist_public_factor_source",
+      "python -m unittest tests.unit.test_simulation_shortlist_cohort_entry_timed tests.unit.test_simulation_shortlist_cohort_entry_timed_cli"
+    ],
+    "decision": "use capacity-safe PV source only for formal incremental overlay tests; do not treat historical IC prescreen as portfolio evidence"
+  },
+  "round442_incremental_range_contraction_overlay_audit": {
+    "report": "docs/research/cn_stock_round442_incremental_range_contraction_overlay_audit_2026-06-27.md",
+    "factor": "range_contraction_lowvol_reversal_20",
+    "side": "top10",
+    "multiplier": 1.5,
+    "source_output_dir": "data/reports/round441_24h_profit_sprint_capacity_safe_pv_range_contraction_source_20260627",
+    "cost10_output_dir": "data/reports/round442_24h_profit_sprint_delayed_exit_incremental_range_contraction_overlay_20260627",
+    "cost20_output_dir": "data/reports/round442_24h_profit_sprint_delayed_exit_cost20_incremental_range_contraction_overlay_20260627",
+    "cost30_vt070_output_dir": "data/reports/round442_24h_profit_sprint_delayed_exit_cost30_vt070_incremental_range_contraction_overlay_20260627",
+    "oos_output_dir": "data/reports/round442_24h_profit_sprint_incremental_range_contraction_oos_20260627",
+    "cost_oos_output_dir": "data/reports/round442_24h_profit_sprint_incremental_range_contraction_cost_oos_20260627",
+    "cost30_vt070_oos_output_dir": "data/reports/round442_24h_profit_sprint_incremental_range_contraction_cost30_vt070_oos_20260627",
+    "block_output_dir": "data/reports/round442_24h_profit_sprint_incremental_range_contraction_cost_block_audit_20260627",
+    "beta_output_dir": "data/reports/round442_24h_profit_sprint_incremental_range_contraction_cost_beta_20260627",
+    "stat_reality_output_dir": "data/reports/round442_24h_profit_sprint_incremental_range_contraction_stat_reality_check_20260627",
+    "base_cost10_metrics": {
+      "annualized_return": 0.0666337878,
+      "total_return": 2.1845873766,
+      "overlap_sharpe": 0.4961037387,
+      "max_drawdown": -0.2621408725,
+      "mean_oos_annualized_return": 0.1004347448,
+      "oos_strict_pass_rate": 0.9,
+      "beta_hedged_annualized_return": 0.0750189064
+    },
+    "incremental_range_cost10_metrics": {
+      "annualized_return": 0.0708253903,
+      "total_return": 2.4169501291,
+      "sharpe": 0.9840431018,
+      "overlap_sharpe": 0.5052155602,
+      "max_drawdown": -0.2699044119,
+      "win_rate": 0.4198895028,
+      "leave_one_year_min_annualized_return": 0.0532328258,
+      "leave_one_year_min_overlap_sharpe": 0.4347972484,
+      "best_three_month_log_return_share": 0.453648284,
+      "mean_oos_annualized_return": 0.1069467979,
+      "mean_oos_overlap_sharpe": 0.8356918567,
+      "oos_strict_pass_rate": 0.9,
+      "worst_oos_drawdown": -0.2059143779,
+      "beta_hedged_annualized_return": 0.0800356603,
+      "beta_hedged_overlap_sharpe": 0.8076374047,
+      "beta_hedged_max_drawdown": -0.1354916897,
+      "alpha_t_stat": 4.4779566455
+    },
+    "incremental_range_cost20_metrics": {
+      "annualized_return": 0.0645795258,
+      "total_return": 2.0762358198,
+      "overlap_sharpe": 0.465835504,
+      "max_drawdown": -0.2887479066,
+      "mean_oos_annualized_return": 0.0974442172,
+      "oos_strict_pass_rate": 0.9,
+      "beta_hedged_annualized_return": 0.0724069827
+    },
+    "incremental_range_cost30_vt070_metrics": {
+      "annualized_return": 0.0558114412,
+      "total_return": 1.6517036486,
+      "overlap_sharpe": 0.4222193715,
+      "max_drawdown": -0.2997201248,
+      "mean_oos_annualized_return": 0.0830746877,
+      "oos_strict_pass_rate": 0.7666666667,
+      "beta_hedged_annualized_return": 0.0618300999
+    },
+    "corrected_statistical_reality": {
+      "p_value_policy": "two-sided normal p-value from overlap_newey_west_t_stat_mean",
+      "hypothesis_count": 6,
+      "deflated_sharpe_pass_count": 6,
+      "fdr_significant_count": 0,
+      "statistical_candidate_count": 0,
+      "best_case": "incremental_range_cost10",
+      "best_case_p_value": 0.0322863351,
+      "best_case_fdr_q_value": 0.0777746005
+    },
+    "decision": "promote incremental_range_cost10 to simulation-observation watchlist as the best return-seeking candidate found after formal incremental overlay correction; do not call it final alpha",
+    "next_direction": "run stricter CPCV/bootstrap, paper handoff review, and three-round audit before replacing the current default"
+  },
+  "round440_442_three_round_audit": {
+    "report": "docs/research/cn_stock_round440_442_three_round_audit_2026-06-27.md",
+    "rounds": [
+      440,
+      441,
+      442
+    ],
+    "decision": "stop ordinary public technical overlay mining; use capacity-safe price-volume and other point-in-time families only as formal incremental overlays",
+    "best_current_new_lead": "incremental_range_cost10",
+    "promotion_status": "simulation_observation_only_not_final_alpha"
+  },
+  "round443_incremental_range_cpcv_bootstrap_audit": {
+    "report": "docs/research/cn_stock_round443_incremental_range_cpcv_bootstrap_audit_2026-06-27.md",
+    "output_dir": "data/reports/round443_24h_profit_sprint_incremental_range_cpcv_bootstrap_audit_20260627",
+    "factor": "range_contraction_lowvol_reversal_20",
+    "method": {
+      "cpcv_blocks": 10,
+      "cpcv_test_blocks": 3,
+      "cpcv_split_count": 120,
+      "bootstrap_iterations": 1000,
+      "bootstrap_block": "calendar_quarter",
+      "periods_per_year": 50.4,
+      "holding_period": 20
+    },
+    "cost10": {
+      "delta_annualized_return": 0.0041916025,
+      "delta_total_return": 0.2323627525,
+      "delta_overlap_sharpe": 0.0091118215,
+      "incremental_max_drawdown": -0.2699044119,
+      "yearly_delta_positive_rate": 0.8181818182,
+      "cpcv_annualized_win_rate": 0.9083333333,
+      "cpcv_strict_split_pass_rate": 0.675,
+      "bootstrap_delta_annualized_positive_rate": 0.993,
+      "bootstrap_delta_overlap_positive_rate": 0.884,
+      "bootstrap_drawdown_within_30pct_rate": 0.579
+    },
+    "cost20": {
+      "delta_annualized_return": 0.0039838008,
+      "delta_total_return": 0.2002785549,
+      "delta_overlap_sharpe": 0.0098512367,
+      "incremental_max_drawdown": -0.2887479066,
+      "yearly_delta_positive_rate": 0.8181818182,
+      "cpcv_annualized_win_rate": 0.9,
+      "cpcv_strict_split_pass_rate": 0.675,
+      "bootstrap_delta_annualized_positive_rate": 0.99,
+      "bootstrap_delta_overlap_positive_rate": 0.92,
+      "bootstrap_drawdown_within_30pct_rate": 0.558
+    },
+    "cost30": {
+      "delta_annualized_return": 0.0016587484,
+      "delta_total_return": 0.0738180077,
+      "delta_overlap_sharpe": 0.0059952523,
+      "incremental_max_drawdown": -0.2997201248,
+      "yearly_delta_positive_rate": 0.6363636364,
+      "cpcv_annualized_win_rate": 0.6833333333,
+      "cpcv_strict_split_pass_rate": 0.6,
+      "bootstrap_delta_annualized_positive_rate": 0.86,
+      "bootstrap_delta_overlap_positive_rate": 0.725,
+      "bootstrap_drawdown_within_30pct_rate": 0.534
+    },
+    "decision": "keep cost10 as return-seeking simulation-observation candidate; cost20 as heavy-cost monitor; cost30 as stress fallback; final statistical candidates remain zero"
+  },
+  "round444_capacity_safe_pv_selected_overlay_audit": {
+    "report": "docs/research/cn_stock_round444_capacity_safe_pv_selected_overlay_audit_2026-06-27.md",
+    "source_output_dir": "data/reports/round444_24h_profit_sprint_capacity_safe_pv_selected_source_20260627",
+    "tested_factors": [
+      "bollinger_reversal_lowvol_liquid_20",
+      "amount_stability_reversal_5_20",
+      "pv_corr_reversal_capacity_safe_20"
+    ],
+    "coverage_missing_share": 0.0018903592,
+    "results": {
+      "bollinger_reversal_lowvol_liquid_20": {
+        "annualized_return": 0.0694994239,
+        "total_return": 2.3417675299,
+        "overlap_sharpe": 0.4929424173,
+        "max_drawdown": -0.276873463
+      },
+      "amount_stability_reversal_5_20": {
+        "annualized_return": 0.0679218308,
+        "total_return": 2.2543524979,
+        "overlap_sharpe": 0.4836298422,
+        "max_drawdown": -0.2808228504
+      },
+      "pv_corr_reversal_capacity_safe_20": {
+        "annualized_return": 0.0691363078,
+        "total_return": 2.3214528702,
+        "overlap_sharpe": 0.4934313726,
+        "max_drawdown": -0.2753585532
+      }
+    },
+    "decision": "reject all three as promoted simulation candidates because they do not beat range_q10_m150 on combined return and overlap quality"
+  },
+  "round445_range_contraction_sensitivity_audit": {
+    "report": "docs/research/cn_stock_round445_range_contraction_sensitivity_audit_2026-06-27.md",
+    "grid_output_dir": "data/reports/round445_24h_profit_sprint_range_contraction_incremental_sensitivity_20260627",
+    "oos_output_dir": "data/reports/round445_24h_profit_sprint_range_sensitivity_oos_20260627",
+    "block_output_dir": "data/reports/round445_24h_profit_sprint_range_sensitivity_block_audit_20260627",
+    "stat_reality_output_dir": "data/reports/round445_24h_profit_sprint_range_contraction_stat_reality_check_20260627",
+    "incremental_cpcv_bootstrap_output_dir": "data/reports/round445_24h_profit_sprint_range_sensitivity_incremental_cpcv_bootstrap_20260627",
+    "factor": "range_contraction_lowvol_reversal_20",
+    "grid": {
+      "top_fractions": [
+        0.05,
+        0.1,
+        0.15,
+        0.2
+      ],
+      "multipliers": [
+        1.25,
+        1.5,
+        1.75,
+        2.0
+      ]
+    },
+    "best_full_sample_return_row": {
+      "case_id": "range_q20_m200",
+      "annualized_return": 0.0802298276,
+      "total_return": 2.9978635018,
+      "overlap_sharpe": 0.5149098936,
+      "max_drawdown": -0.3029652606,
+      "decision": "reject as default because full-sample drawdown breaches the approximate 30pct line"
+    },
+    "aggressive_observation": {
+      "case_id": "range_q20_m175",
+      "annualized_return": 0.077228269,
+      "total_return": 2.8030242437,
+      "overlap_sharpe": 0.5120462367,
+      "max_drawdown": -0.2931481649,
+      "mean_oos_annualized_return": 0.1173925898,
+      "oos_strict_pass_rate": 0.9,
+      "incremental_bootstrap_delta_ann_positive_rate": 0.992,
+      "incremental_bootstrap_drawdown_within_30pct_rate": 0.544,
+      "decision": "aggressive 10bps simulation-observation lane only"
+    },
+    "cost_robust_observation": {
+      "case_id": "range_q10_m150",
+      "annualized_return": 0.0708253903,
+      "total_return": 2.4169501291,
+      "overlap_sharpe": 0.5052155602,
+      "max_drawdown": -0.2699044119,
+      "cost20_annualized_return": 0.0645795258,
+      "cost20_max_drawdown": -0.2887479066,
+      "cost30_vt070_annualized_return": 0.0558114412,
+      "cost30_vt070_max_drawdown": -0.2997201248,
+      "decision": "more cost-robust range observation lane"
+    },
+    "decision": "add range_q20_m175 as aggressive observation; keep range_q10_m150 as cost-robust observation; stop widening this grid"
+  },
+  "round443_445_three_round_audit": {
+    "report": "docs/research/cn_stock_round443_445_three_round_audit_2026-06-27.md",
+    "rounds": [
+      443,
+      444,
+      445
+    ],
+    "decision": "range-contraction increment is useful for simulation observation; reject adjacent low-vol expression hopping; use range_q20_m175 only as aggressive lane and range_q10_m150 as cost-robust lane",
+    "next_direction": "paper-simulation handoff/ranking for selected range lanes or rotate to genuinely different point-in-time factor family"
+  },
+  "round446_range_observation_paper_handoff": {
+    "report": "docs/research/cn_stock_round446_range_observation_paper_handoff_2026-06-27.md",
+    "output_dir": "data/reports/round446_24h_profit_sprint_range_observation_paper_handoff_20260627",
+    "candidate_count": 8,
+    "ready_candidate_count": 5,
+    "blocked_candidate_count": 3,
+    "default_candidate": "paper_ready_delayed_exit_m150_cost10_vt08_max100_self_roll21_x08",
+    "range_cost_robust_observation": "paper_ready_cohort_entry_timed_range_q10_m150_cost10_vt08_max100_self_roll21_x08",
+    "range_aggressive_observation": "paper_ready_cohort_entry_timed_range_q20_m175_cost10_vt08_max100_self_roll21_x08",
+    "range_q10_m150": {
+      "annualized_return": 0.0708253903,
+      "total_return": 2.4169501291,
+      "overlap_sharpe": 0.5052155602,
+      "max_drawdown": -0.2699044119,
+      "oos_strict_pass_rate": 0.9,
+      "role": "diagnostic"
+    },
+    "range_q20_m175": {
+      "annualized_return": 0.077228269,
+      "total_return": 2.8030242437,
+      "overlap_sharpe": 0.5120462367,
+      "max_drawdown": -0.2931481649,
+      "oos_strict_pass_rate": 0.9,
+      "role": "diagnostic"
+    },
+    "decision": "keep delayed-exit cost10 as default; add range_q10_m150 and range_q20_m175 as paper-simulation observation lanes only, not final alpha promotions",
+    "next_direction": "rotate away from range-contraction parameter widening toward a genuinely different point-in-time family"
+  },
+  "round447_pb_risk_cap_overlay_audit": {
+    "report": "docs/research/cn_stock_round447_pb_risk_cap_overlay_audit_2026-06-27.md",
+    "fair_cost_block_output_dir": "data/reports/round447_24h_profit_sprint_pb_risk_cap_fair_cost_block_audit_20260627",
+    "fair_cost_oos_output_dir": "data/reports/round447_24h_profit_sprint_pb_risk_cap_fair_cost_oos_audit_20260627",
+    "incremental_cpcv_bootstrap_output_dir": "data/reports/round447_24h_profit_sprint_pb_risk_cap_incremental_cpcv_bootstrap_fair_20260627",
+    "stat_reality_output_dir": "data/reports/round447_24h_profit_sprint_pb_risk_cap_stat_reality_fair_20260627",
+    "factor": "range_contraction_lowvol_reversal_20",
+    "overlay": {
+      "side": "top20",
+      "multiplier": 1.75,
+      "risk_cap_column": "pb",
+      "risk_cap_condition": "pb > 4",
+      "best_risk_cap_multiplier": 0.5
+    },
+    "fair_controls": {
+      "cost20_control_output_dir": "data/reports/round447_24h_profit_sprint_cost20_range_q20_m175_control_rerun_20260627",
+      "cost30_vt070_control_output_dir": "data/reports/round447_24h_profit_sprint_cost30_vt070_range_q20_m175_control_rerun_20260627",
+      "reason": "Round447 reran no-cap controls through the same current entrypoint before judging PB-cap variants."
+    },
+    "pb_cap050_cost20": {
+      "annualized_return": 0.0730092402,
+      "total_return": 2.3844528491,
+      "overlap_sharpe": 0.498200622,
+      "max_drawdown": -0.3026465643,
+      "mean_oos_annualized_return": 0.1146138171,
+      "oos_strict_pass_rate": 0.9,
+      "incremental_bootstrap_annualized_win_rate": 0.688,
+      "incremental_bootstrap_overlap_win_rate": 0.98,
+      "incremental_bootstrap_drawdown_win_rate": 0.974
+    },
+    "pb_cap050_cost30_vt070": {
+      "annualized_return": 0.0629004941,
+      "total_return": 1.8731889444,
+      "overlap_sharpe": 0.4502616747,
+      "max_drawdown": -0.3139683669,
+      "best_month_log_share_of_total": 0.5272069232,
+      "mean_oos_annualized_return": 0.0972305327,
+      "oos_strict_pass_rate": 0.9,
+      "incremental_bootstrap_annualized_win_rate": 0.72,
+      "incremental_bootstrap_overlap_win_rate": 0.986,
+      "incremental_bootstrap_drawdown_win_rate": 0.982,
+      "blocker": "best_months_contribution_too_high_under_strict_50pct_gate"
+    },
+    "statistical_reality": {
+      "hypothesis_count": 15,
+      "deflated_sharpe_pass_count": 15,
+      "fdr_significant_count": 0,
+      "statistical_candidate_count": 0,
+      "best_case": "q20_cost10_pbcap050",
+      "top_fdr_q_value": 0.0704213958
+    },
+    "decision": "keep range_q20_m175_pb_gt4_cap050 as a risk-budget simulation observation candidate only; do not promote or make default because the edge is incremental, FDR remains zero, and 30 bps concentration/drawdown risk is unresolved",
+    "next_direction": "rotate away from range/PB tuning toward a different point-in-time factor family"
+  },
+  "round448_entry_known_attribute_projection_audit": {
+    "report": "docs/research/cn_stock_round448_entry_known_attribute_projection_audit_2026-06-27.md",
+    "projection_output_dir": "data/reports/round448_24h_profit_sprint_entry_known_attribute_projection_20260627",
+    "block_audit_output_dir": "data/reports/round448_24h_profit_sprint_entry_known_attribute_block_audit_20260627",
+    "incremental_robustness_output_dir": "data/reports/round448_24h_profit_sprint_entry_known_attribute_incremental_robustness_20260627",
+    "baseline": {
+      "case_id": "replace_drop_turnover_f_low10_vol_target_6_lb84",
+      "annualized_return": 0.063523467,
+      "total_return": 1.7707697927,
+      "overlap_sharpe": 0.5168844016,
+      "max_drawdown": -0.2888046727
+    },
+    "projection_only_leads": {
+      "ps_gt10": {
+        "condition": "cash selected trades with ps_ttm > 10",
+        "delta_annualized_return": 0.0018550691,
+        "delta_total_return": 0.0810676696,
+        "delta_overlap_sharpe": 0.0539505001,
+        "delta_max_drawdown": 0.0180864405,
+        "cpcv_annualized_win_rate": 0.675,
+        "bootstrap_annualized_win_rate": 0.622,
+        "bootstrap_overlap_win_rate": 0.941,
+        "bootstrap_drawdown_win_rate": 0.972,
+        "year_win_rate": 0.7272727273
+      },
+      "pb_gt6": {
+        "condition": "cash selected trades with pb > 6",
+        "delta_annualized_return": 0.0016040911,
+        "delta_total_return": 0.0699708957,
+        "delta_overlap_sharpe": 0.0423198882,
+        "delta_max_drawdown": 0.0027423721,
+        "cpcv_annualized_win_rate": 0.5833333333,
+        "bootstrap_annualized_win_rate": 0.642,
+        "bootstrap_overlap_win_rate": 0.903,
+        "bootstrap_drawdown_win_rate": 0.923,
+        "year_win_rate": 0.6363636364
+      }
+    },
+    "rejected_or_defensive_only": [
+      "pe_gt100",
+      "pb_gt4",
+      "circ_mv_gt5000k",
+      "turnover_f_lt1",
+      "turnover_f_gt5",
+      "dv_missing",
+      "participation_gt0004",
+      "circ_mv_lt500k"
+    ],
+    "decision": "do not add Round448 candidates to the active paper-simulation handoff set; keep ps_gt10 and pb_gt6 as projection-only valuation risk-filter leads and stop widening the valuation-threshold grid",
+    "next_direction": "rotate to a genuinely different point-in-time family with stronger economic rationale"
+  },
+  "round449_trade_group_and_entry_execution_risk_audit": {
+    "report": "docs/research/cn_stock_round449_trade_group_and_entry_execution_risk_audit_2026-06-27.md",
+    "group_contribution_output_dir": "data/reports/round449_24h_profit_sprint_trade_group_contribution_20260627",
+    "exposure_audit_output_dir": "data/reports/round449_24h_profit_sprint_trade_exposure_audit_20260627",
+    "projection_output_dir": "data/reports/round449_24h_profit_sprint_trade_attribute_projection_20260627",
+    "incremental_robustness_output_dir": "data/reports/round449_24h_profit_sprint_trade_attribute_incremental_robustness_20260627",
+    "block_audit_output_dir": "data/reports/round449_24h_profit_sprint_trade_attribute_block_audit_20260627",
+    "baseline": {
+      "case_id": "replace_drop_turnover_f_low10_vol_target_6_lb84",
+      "annualized_return": 0.063523467,
+      "total_return": 1.7707697927,
+      "overlap_sharpe": 0.5168844016,
+      "max_drawdown": -0.2888046727
+    },
+    "entry_limit_down_execution_observation": {
+      "condition": "entry_blocked_reasons == limit_down_like;limit_down_official",
+      "delta_annualized_return": 0.0027356068,
+      "delta_total_return": 0.1203228412,
+      "delta_overlap_sharpe": 0.0297035397,
+      "delta_max_drawdown": 0.0001286607,
+      "cpcv_annualized_win_rate": 0.7083333333,
+      "bootstrap_annualized_win_rate": 0.748,
+      "year_win_rate": 0.4545454545,
+      "role": "execution-risk rule observation, not standalone alpha"
+    },
+    "industry_blacklist_diagnostic": {
+      "worst10_delta_annualized_return": 0.0044296435,
+      "worst10_delta_total_return": 0.1972765704,
+      "worst10_delta_overlap_sharpe": 0.0634123709,
+      "worst10_delta_max_drawdown": 0.0206894347,
+      "worst10_cpcv_annualized_win_rate": 0.9416666667,
+      "worst10_bootstrap_annualized_win_rate": 0.971,
+      "overfit_warning": "selected from full-sample contribution; diagnostic only before external rationale and formal rebuild"
+    },
+    "rejected_or_diagnostic_only": [
+      "exit_limit_down_diag_future_info",
+      "metadata_missing",
+      "non_hs",
+      "xshe",
+      "non_xshg"
+    ],
+    "decision": "do not add Round449 candidates to active handoff; entry-limit-down may be pre-registered for execution-layer rebuild, industry blacklist is data-snooping diagnostic only",
+    "next_direction": "formal cohort-entry rebuild only for entry-known execution rule, otherwise rotate to new PIT source"
+  },
+  "round447_449_three_round_audit": {
+    "report": "docs/research/cn_stock_round447_449_three_round_audit_2026-06-27.md",
+    "rounds": [
+      447,
+      448,
+      449
+    ],
+    "new_promoted_independent_alpha_count": 0,
+    "new_simulation_observation_count": 1,
+    "simulation_observation": "entry_limit_down_execution_rule_candidate",
+    "main_decisions": [
+      "PB cap050 is modest risk-budget observation only",
+      "ps_gt10/pb_gt6 are projection-only valuation risk filters",
+      "entry-limit-down is an execution rule candidate, not standalone alpha",
+      "industry blacklist remains overfit diagnostic until externally justified and formally rebuilt"
+    ],
+    "next_direction": "stop range/PB/valuation/industry full-sample tuning; either formally rebuild entry-limit-down execution rule or rotate to new PIT source"
+  },
+  "round450_entry_limit_down_formal_rebuild": {
+    "report": "docs/research/cn_stock_round450_entry_limit_down_formal_rebuild_2026-06-27.md",
+    "reusable_support": {
+      "script": "scripts/run_simulation_shortlist_cohort_entry_timed.py",
+      "module": "src/quant_robot/ops/simulation_shortlist_cohort_entry_timed.py",
+      "cli_argument": "--entry-attribute-cash-rule",
+      "rule_spec": "entry_limit_down=entry_blocked_reasons:eq:limit_down_like;limit_down_official"
+    },
+    "output_dir": "data/reports/round450_24h_profit_sprint_entry_limit_down_formal_rebuild_20260627",
+    "oos_output_dir": "data/reports/round450_24h_profit_sprint_entry_limit_down_formal_oos_20260627",
+    "block_output_dir": "data/reports/round450_24h_profit_sprint_entry_limit_down_formal_block_audit_20260627",
+    "incremental_robustness_output_dir": "data/reports/round450_24h_profit_sprint_entry_limit_down_formal_incremental_robustness_20260627",
+    "beta_output_dir": "data/reports/round450_24h_profit_sprint_entry_limit_down_formal_beta_20260627",
+    "stat_reality_output_dir": "data/reports/round450_24h_profit_sprint_entry_limit_down_formal_stat_reality_20260627",
+    "base": {
+      "case_id": "round432_delayed_exit_m150",
+      "annualized_return": 0.0666337878,
+      "total_return": 2.1845873766,
+      "overlap_sharpe": 0.4961037387,
+      "max_drawdown": -0.2621408725,
+      "mean_oos_annualized_return": 0.1004347448,
+      "mean_oos_overlap_sharpe": 0.831115647,
+      "oos_strict_pass_rate": 0.9
+    },
+    "candidate": {
+      "case_id": "round450_delayed_exit_m150_entry_limit_down_cash",
+      "entry_attribute_cash_trade_count": 178,
+      "annualized_return": 0.0682851255,
+      "total_return": 2.2742892935,
+      "sharpe": 0.9950230102,
+      "overlap_sharpe": 0.5149721239,
+      "max_drawdown": -0.2487536105,
+      "win_rate": 0.4132596685,
+      "leave_one_year_min_annualized_return": 0.0501078869,
+      "leave_one_year_min_overlap_sharpe": 0.4324795352,
+      "best_month_log_share_of_total": 0.4465318557,
+      "mean_oos_annualized_return": 0.1001788481,
+      "mean_oos_overlap_sharpe": 0.8295742555,
+      "worst_oos_drawdown": -0.1937988124,
+      "oos_strict_pass_rate": 0.9,
+      "incremental_cpcv_annualized_win_rate": 0.6833333333,
+      "incremental_bootstrap_annualized_win_rate": 0.785,
+      "incremental_bootstrap_overlap_win_rate": 0.857,
+      "incremental_bootstrap_drawdown_win_rate": 0.869,
+      "incremental_year_win_rate": 0.3636363636,
+      "csi500_beta": 0.0473774334,
+      "csi500_beta_r2": 0.2655852988,
+      "csi500_beta_hedged_annualized_return": 0.0757332424,
+      "csi500_beta_hedged_overlap_sharpe": 0.7999740199,
+      "csi500_beta_hedged_max_drawdown": -0.1386266252,
+      "alpha_t_stat": 4.415383855,
+      "statistical_reality": {
+        "hypothesis_count": 2,
+        "deflated_sharpe_pass_count": 2,
+        "fdr_significant_count": 2,
+        "best_case": "entry_limit_down"
+      }
+    },
+    "decision": "paper-simulation comparison observation only; do not replace default because OOS mean annualized/overlap are slightly weaker and incremental year-win is low",
+    "next_direction": "add to handoff comparison only if simulation stage wants execution-risk variant; otherwise rotate to new PIT family, do not tune more entry/exit tradeability strings"
+  },
+  "round451_entry_limit_down_cost_stress": {
+    "report": "docs/research/cn_stock_round451_entry_limit_down_cost_stress_2026-06-27.md",
+    "cost20": {
+      "base_case_id": "round433_delayed_exit_cost20_m150",
+      "candidate_case_id": "round451_delayed_exit_cost20_m150_entry_limit_down_cash",
+      "base_annualized_return": 0.060595725,
+      "candidate_annualized_return": 0.0622787677,
+      "base_total_return": 1.875957265,
+      "candidate_total_return": 1.9590185568,
+      "base_overlap_sharpe": 0.4559842672,
+      "candidate_overlap_sharpe": 0.4746348954,
+      "base_max_drawdown": -0.2806699172,
+      "candidate_max_drawdown": -0.2582796366,
+      "base_mean_oos_annualized_return": 0.0913198426,
+      "candidate_mean_oos_annualized_return": 0.0910755536,
+      "base_mean_oos_overlap_sharpe": 0.7587773956,
+      "candidate_mean_oos_overlap_sharpe": 0.7572048211,
+      "candidate_incremental_cpcv_annualized_win_rate": 0.7,
+      "candidate_incremental_bootstrap_annualized_win_rate": 0.787,
+      "candidate_incremental_year_win_rate": 0.3636363636,
+      "candidate_beta_hedged_annualized_return": 0.0683585912,
+      "candidate_beta_hedged_overlap_sharpe": 0.7322336815,
+      "candidate_alpha_t_stat": 4.0189161134
+    },
+    "cost30_vt075": {
+      "base_case_id": "round433_delayed_exit_cost30_vt075_max100_m150",
+      "candidate_case_id": "round451_delayed_exit_cost30_vt075_entry_limit_down_cash",
+      "base_annualized_return": 0.0541526927,
+      "candidate_annualized_return": 0.0558964131,
+      "base_total_return": 1.5778856409,
+      "candidate_total_return": 1.6555383209,
+      "base_overlap_sharpe": 0.4162241192,
+      "candidate_overlap_sharpe": 0.434801794,
+      "base_max_drawdown": -0.2965798627,
+      "candidate_max_drawdown": -0.2739534866,
+      "base_mean_oos_annualized_return": 0.0819672018,
+      "candidate_mean_oos_annualized_return": 0.0817747447,
+      "base_mean_oos_overlap_sharpe": 0.6844362095,
+      "candidate_mean_oos_overlap_sharpe": 0.6836825366,
+      "candidate_incremental_cpcv_annualized_win_rate": 0.7666666667,
+      "candidate_incremental_bootstrap_annualized_win_rate": 0.804,
+      "candidate_incremental_year_win_rate": 0.6363636364,
+      "candidate_beta_hedged_annualized_return": 0.0605661844,
+      "candidate_beta_hedged_overlap_sharpe": 0.6593706172,
+      "candidate_alpha_t_stat": 3.6272679908
+    },
+    "decision": "keep entry-limit-down as a simulation comparison observation only; full-sample and beta improve under cost stress but OOS mean annualized/overlap still trail the corresponding bases",
+    "next_direction": "do not tune adjacent tradeability strings; rotate to another PIT source or run the three-round audit after one more distinct action"
+  },
+  "round450_452_three_round_audit": {
+    "report": "docs/research/cn_stock_round450_452_three_round_audit_2026-06-27.md",
+    "rounds": [
+      450,
+      451,
+      452
+    ],
+    "new_promoted_independent_alpha_count": 0,
+    "new_simulation_observation_count": 1,
+    "simulation_observation": "entry_limit_down_execution_rule_candidate",
+    "default_remains": "paper_ready_delayed_exit_m150_cost10_vt08_max100_self_roll21_x08",
+    "main_decisions": [
+      "entry-limit-down is an execution-risk simulation comparison lane only",
+      "OOS mean annualized return and OOS overlap Sharpe do not beat the matched bases",
+      "stop adjacent entry/exit tradeability-string tuning",
+      "rotate to a genuinely different point-in-time family through startup and candidate-plan gates"
+    ],
+    "hibernated_next": [
+      "entry_blocked_reasons_string_neighborhoods",
+      "exit_blocked_reasons_string_neighborhoods",
+      "rsrs_supertrend_public_indicator_variants",
+      "pb_ps_pe_threshold_widening",
+      "full_sample_industry_blacklists",
+      "daily_basic_free_float_salvage",
+      "old_northbound_margin_revival_without_new_data_quality_proof"
+    ],
+    "next_direction": "run gated pre-registration for a different PIT information source before the next mining batch"
+  },
+  "round453_analyst_report_revision_source_smoke": {
+    "report": "docs/research/cn_stock_round453_analyst_report_revision_source_smoke_2026-06-27.md",
+    "candidate_plan": "configs/factor_mining_candidate_plan_round453_analyst_report_revision_20260627.json",
+    "candidate_plan_gate_output_dir": "data/reports/round453_analyst_report_revision_candidate_plan_gate_20260627",
+    "source_smoke_output_dir": "data/reports/round453_analyst_report_revision_source_smoke_jan2024_20260627",
+    "source": "Tushare report_rc",
+    "pre_registered_candidates": [
+      "analyst_target_upside_60",
+      "analyst_np_revision_90",
+      "analyst_eps_revision_90",
+      "analyst_revision_target_composite_90"
+    ],
+    "source_smoke": {
+      "rows": 0,
+      "assets": 0,
+      "fetched_windows": 0,
+      "failed_windows": 1,
+      "provider_limit": "report_rc frequency limit exceeded, 2 requests per day"
+    },
+    "decision": "hibernate analyst-report revision during the 24h sprint unless a local PIT cache appears; do not run portfolio or promotion gates",
+    "new_promoted_independent_alpha_count": 0,
+    "new_simulation_observation_count": 0,
+    "next_direction": "Round454 must make a fast source-efficiency decision before any new factor generation"
+  },
+  "round454_source_efficiency_and_public_projection_redundancy": {
+    "report": "docs/research/cn_stock_round454_source_efficiency_and_public_projection_redundancy_2026-06-27.md",
+    "analyst_report_revision": {
+      "source": "Tushare report_rc",
+      "status": "blocked_by_provider_frequency_limit",
+      "fetched_windows": 0,
+      "failed_windows": 1,
+      "rows": 0,
+      "assets": 0,
+      "provider_limit": "2 requests per day"
+    },
+    "financial_reporting_timeliness": {
+      "min_unique_symbols_required": 1000,
+      "latest_unique_symbols": 394,
+      "latest_row_count": 84499,
+      "source_count": 112,
+      "source_ready_count": 0,
+      "round302_endpoint_requests": 609,
+      "round302_net_new_symbols": 6,
+      "decision": "do not continue slow backfill in the 24h sprint without a credible coverage plan"
+    },
+    "public_projection_redundancy": {
+      "alpha_volume_div_vs_alpha_open_tilt_correlation": 0.9976,
+      "alpha_volume_div_vs_dragon_base_correlation": 0.9991,
+      "alpha_gap_fade_vs_dragon_base_correlation": 0.9991,
+      "round406_alpha_open_neighborhood_correlation_range": [
+        0.979,
+        0.98
+      ],
+      "decision": "do not expand adjacent public Alpha101 projection variants without independent return-stream evidence"
+    },
+    "new_promoted_independent_alpha_count": 0,
+    "new_simulation_observation_count": 0,
+    "next_direction": "Round455 blend audit on current simulation-shortlist event streams"
+  },
+  "round455_simulation_blend_audit": {
+    "report": "docs/research/cn_stock_round455_simulation_blend_audit_2026-06-27.md",
+    "tool": {
+      "module": "src/quant_robot/ops/simulation_shortlist_blend_audit.py",
+      "cli": "scripts/run_simulation_shortlist_blend_audit.py",
+      "tests": "tests/unit/test_simulation_shortlist_blend_audit.py"
+    },
+    "output_dir": "data/reports/round455_24h_profit_sprint_simulation_blend_audit_20260627",
+    "source_count": 4,
+    "case_count": 34,
+    "pass_case_count": 4,
+    "blocked_case_count": 30,
+    "best_case_id": "range_q20_100",
+    "best_case": {
+      "annualized_return": 0.077228269,
+      "total_return": 2.8030242437,
+      "sharpe": 0.9973,
+      "overlap_sharpe": 0.5120462367,
+      "max_drawdown": -0.2931481649,
+      "win_rate": 0.421
+    },
+    "component_return_correlation_range": [
+      0.9928282198,
+      0.998836095
+    ],
+    "decision": "no blend candidate promoted; keep range_q20_100 as an aggressive existing observation only",
+    "new_promoted_independent_alpha_count": 0,
+    "new_simulation_observation_count": 0,
+    "next_direction": "Round453-455 three-round audit before any new mining batch"
+  },
+  "round453_455_three_round_audit": {
+    "report": "docs/research/cn_stock_round453_455_three_round_audit_2026-06-27.md",
+    "rounds": [
+      453,
+      454,
+      455
+    ],
+    "new_promoted_independent_alpha_count": 0,
+    "new_simulation_observation_count": 0,
+    "main_decisions": [
+      "hibernate analyst-report revision during the 24h sprint unless local PIT cache appears",
+      "do not continue financial-reporting-timeliness slow backfill inside the 24h sprint",
+      "stop adjacent public Alpha101 projection expansion after high return-stream correlations",
+      "stop simulation-shortlist weight blending among highly correlated streams"
+    ],
+    "active_aggressive_observation": "range_q20_m175",
+    "active_aggressive_observation_metrics": {
+      "annualized_return": 0.077228269,
+      "total_return": 2.8030242437,
+      "overlap_sharpe": 0.5120462367,
+      "max_drawdown": -0.2931481649
+    },
+    "next_direction": "Round456 rotate to cached independent PIT source or simulation-readiness hardening for existing best lanes"
+  },
+  "round456_user_drawdown_tolerance_paper_priority": {
+    "report": "docs/research/cn_stock_round456_user_drawdown_tolerance_paper_priority_2026-06-27.md",
+    "ranker_output_dir": "data/reports/round456_24h_profit_sprint_user_drawdown_tolerance_ranker_20260627",
+    "paper_handoff_output_dir": "data/reports/round456_24h_profit_sprint_user_drawdown_tolerance_paper_handoff_20260627",
+    "drawdown_gate": -0.3,
+    "simulation_ranker": {
+      "candidate_count": 17,
+      "eligible_candidate_count": 7,
+      "duplicate_candidate_count": 9,
+      "blocked_candidate_count": 1,
+      "best_research_observation": "primary_high_return_dragon_hot_chase_alpha101_openclose_tilt_m150_self_roll21",
+      "best_research_observation_metrics": {
+        "annualized_return": 0.0752383608,
+        "total_return": 2.3214567597,
+        "overlap_sharpe": 0.6446127733,
+        "sharpe": 1.2290936854,
+        "max_drawdown": -0.1644958738,
+        "mean_oos_annualized_return": 0.0805,
+        "oos_strict_pass_rate": 0.9,
+        "beta_hedged_annualized_return": 0.0749
+      }
+    },
+    "paper_handoff": {
+      "candidate_count": 8,
+      "ready_candidate_count": 5,
+      "blocked_candidate_count": 3,
+      "default_candidate_id": "paper_ready_delayed_exit_m150_cost10_vt08_max100_self_roll21_x08",
+      "primary_high_return_candidate_id": "paper_ready_cohort_entry_timed_range_q20_m175_cost10_vt08_max100_self_roll21_x08",
+      "primary_high_return_metrics": {
+        "annualized_return": 0.077228269,
+        "total_return": 2.8030242437,
+        "overlap_sharpe": 0.5120462367,
+        "max_drawdown": -0.2931481649,
+        "win_rate": 0.4209944751,
+        "mean_oos_annualized_return": 0.1173925898,
+        "oos_strict_pass_rate": 0.9
+      },
+      "default_candidate_metrics": {
+        "annualized_return": 0.0666337878,
+        "total_return": 2.1845873766,
+        "overlap_sharpe": 0.4961037387,
+        "max_drawdown": -0.2621408725,
+        "mean_oos_annualized_return": 0.1004347448,
+        "oos_strict_pass_rate": 0.9
+      }
+    },
+    "decision": "keep conservative default for comparison, but explicitly mark range_q20_m175 as the primary high-return paper-simulation lane under the user's 30pct drawdown tolerance",
+    "new_promoted_independent_alpha_count": 0,
+    "new_paper_simulation_candidate_identity_count": 0,
+    "new_high_return_paper_priority_count": 1,
+    "next_direction": "Round457 high-return paper-candidate simulation readiness hardening; no more range-parameter widening"
+  },
+  "round457_range_q20_paper_readiness_hardening": {
+    "report": "docs/research/cn_stock_round457_range_q20_paper_readiness_hardening_2026-06-27.md",
+    "replay_output_dir": "data/reports/round457_24h_profit_sprint_current_shortlist_replay_20260627",
+    "capacity_output_dir": "data/reports/round457_24h_profit_sprint_range_q20_capacity_stress_20260627",
+    "extreme_trade_profile_output_dir": "data/reports/round457_24h_profit_sprint_range_q20_extreme_trade_profile_20260627",
+    "primary_high_return_paper_candidate_id": "paper_ready_cohort_entry_timed_range_q20_m175_cost10_vt08_max100_self_roll21_x08",
+    "paper_candidate_metrics": {
+      "annualized_return": 0.077228269,
+      "total_return": 2.8030242437,
+      "overlap_sharpe": 0.5120462367,
+      "max_drawdown": -0.2931481649,
+      "mean_oos_annualized_return": 0.1173925898,
+      "oos_strict_pass_rate": 0.9
+    },
+    "schema_and_replay": {
+      "current_shortlist_replay_status": "passed",
+      "current_shortlist_replayed_candidate_count": 17,
+      "event_fields_present": [
+        "date",
+        "decision_date",
+        "raw_period_return",
+        "vol_target_exposure",
+        "source_period_return",
+        "prior_roll21_sum",
+        "self_risk_exposure",
+        "final_exposure",
+        "period_return",
+        "equity",
+        "drawdown"
+      ],
+      "trade_count": 26450,
+      "cohort_count": 1113,
+      "unique_exit_date_count": 905,
+      "missing_factor_share": 0.0018903592,
+      "public_tilt_trade_count": 5808,
+      "self_risk_guard_event_share": 0.3638814016
+    },
+    "capacity_stress": {
+      "safe_through_aum_multiplier": 20,
+      "unsafe_from_aum_multiplier": 50,
+      "entry_allowed_rows": 20382,
+      "entry_blocked_rows": 6068,
+      "entry_blocked_rate": 0.2294139887,
+      "multiplier20_p99_participation_rate": 0.0119651219,
+      "multiplier20_max_participation_rate": 0.0256013632,
+      "multiplier50_breach_trades": 6,
+      "multiplier50_breach_rate": 0.0002943774,
+      "multiplier100_breach_trades": 477,
+      "multiplier100_breach_rate": 0.0234030026
+    },
+    "cost_stress": {
+      "cost20_vt8_annualized_return": 0.0706054929,
+      "cost20_vt8_max_drawdown": -0.3107473173,
+      "cost20_vt75_annualized_return": 0.06901329,
+      "cost20_vt75_max_drawdown": -0.3063086245,
+      "cost30_vt7_annualized_return": 0.0605677512,
+      "cost30_vt7_max_drawdown": -0.3203991131
+    },
+    "extreme_trade_profile": {
+      "active_trade_count": 26090,
+      "extreme_trade_count": 123,
+      "extreme_trade_rate": 0.00471445,
+      "positive_extreme_trade_count": 119,
+      "negative_extreme_trade_count": 4,
+      "max_abs_gross_return": 2.5402298851,
+      "total_contribution_sum": 1.3904586197,
+      "extreme_contribution_sum": 0.4895771759,
+      "extreme_contribution_share": 0.3521084,
+      "main_risk_clusters": [
+        "delayed_exit_status_delayed_exit",
+        "supermarket_retail",
+        "glass",
+        "semiconductor",
+        "biopharma",
+        "electrical_equipment"
+      ]
+    },
+    "decision": "retain range_q20_m175 as 10bps high-return paper-simulation lane with explicit capacity and tail-risk monitoring; do not make it conservative default or final promoted alpha",
+    "new_promoted_independent_alpha_count": 0,
+    "new_high_return_paper_priority_count": 0,
+    "next_direction": "Round458 paper operations package for default plus high-return lane, or rotate to independent cached PIT source"
+  },
+  "round458_simulation_paper_ops_package": {
+    "report": "docs/research/cn_stock_round458_simulation_paper_ops_package_2026-06-27.md",
+    "output_dir": "data/reports/round458_24h_profit_sprint_simulation_paper_ops_package_20260627",
+    "status": "paper_ops_package_ready",
+    "blockers": [],
+    "warnings": [
+      "capacity_not_clean_at_large_aum",
+      "default_lane_kept_for_baseline_not_return_maximization",
+      "final_holdout_sealed_promotion_blocked",
+      "high_return_beta_hedged_metrics_missing",
+      "high_return_cost_stress_drawdown_below_user_limit",
+      "high_return_drawdown_near_user_limit",
+      "high_return_lane_is_diagnostic_role",
+      "high_return_tail_contribution_concentrated",
+      "shortlist_streams_highly_correlated"
+    ],
+    "paper_lanes": [
+      {
+        "lane_role": "baseline_comparison",
+        "candidate_id": "paper_ready_delayed_exit_m150_cost10_vt08_max100_self_roll21_x08",
+        "annualized_return": 0.0666337878,
+        "total_return": 2.1845873766,
+        "overlap_sharpe": 0.4961037387,
+        "max_drawdown": -0.2621408725,
+        "oos_strict_pass_rate": 0.9
+      },
+      {
+        "lane_role": "primary_high_return_observation",
+        "candidate_id": "paper_ready_cohort_entry_timed_range_q20_m175_cost10_vt08_max100_self_roll21_x08",
+        "annualized_return": 0.077228269,
+        "total_return": 2.8030242437,
+        "overlap_sharpe": 0.5120462367,
+        "max_drawdown": -0.2931481649,
+        "oos_strict_pass_rate": 0.9
+      }
+    ],
+    "risk_controls": {
+      "max_user_drawdown": -0.3,
+      "capacity_safe_through_aum_multiplier": 20,
+      "capacity_unsafe_from_aum_multiplier": 50,
+      "extreme_contribution_share": 0.3521084,
+      "worst_cost_stress_drawdown": -0.3203991131
+    },
+    "decision": "paper observation can proceed with the conservative default lane and the primary high-return lane; final promotion remains blocked by sealed holdout, cost stress, tail concentration, and same-family correlation",
+    "new_independent_alpha_count": 0,
+    "new_paper_ops_package_count": 1,
+    "next_direction": "Round459 three-round audit for Round456-458, then rotate to independent cached PIT source or different public technical family"
+  },
+  "round456_458_three_round_audit": {
+    "report": "docs/research/cn_stock_round456_458_three_round_audit_2026-06-27.md",
+    "rounds": [
+      456,
+      457,
+      458
+    ],
+    "new_independent_alpha_count": 0,
+    "new_final_promoted_signal_count": 0,
+    "new_paper_ops_package_count": 1,
+    "paper_lanes_ready": [
+      "paper_ready_delayed_exit_m150_cost10_vt08_max100_self_roll21_x08",
+      "paper_ready_cohort_entry_timed_range_q20_m175_cost10_vt08_max100_self_roll21_x08"
+    ],
+    "main_decisions": [
+      "keep default delayed-exit lane as baseline comparison",
+      "use range_q20_m175 as primary high-return paper lane only",
+      "do not widen range parameters or blend correlated shortlist streams",
+      "rotate next mining block to an independent long-cycle prescreen"
+    ],
+    "blocked_after_review": [
+      "range_parameter_widening",
+      "same_family_range_alpha101_dragon_hot_projection",
+      "weight_blending_highly_correlated_streams",
+      "promotion_from_paper_ready_status"
+    ],
+    "next_direction": "Round460 independent long-cycle prescreen: overnight/intraday gap, information discreteness, 52-week-high quality, or distinct trend-strength state"
+  },
+  "round460_independent_long_cycle_prescreen": {
+    "report": "docs/research/cn_stock_round460_independent_long_cycle_prescreen_2026-06-27.md",
+    "high_52week_quality_output_dir": "data/reports/round460_24h_profit_sprint_high_52week_quality_prescreen_20260627",
+    "overnight_intraday_gap_status": "timed_out_before_result_write",
+    "information_discreteness_status": "non_sharded_memory_error_before_result_write",
+    "high_52week_quality": {
+      "candidate_count": 4,
+      "test_count": 12,
+      "aligned_rows": 113427632,
+      "factor_rows": 38085208,
+      "label_rows": 32140060,
+      "fdr_significant_count": 12,
+      "research_lead_count": 0,
+      "promotion_allowed_candidates": 0,
+      "strongest_wrong_way_row": {
+        "factor_name": "high_52w_breakout_amount_confirmation_252_20",
+        "horizon": 20,
+        "mean_spearman_ic": -0.0614966479,
+        "icir": -0.3951126796,
+        "ic_t_stat": -19.881668011,
+        "ic_positive_rate": 0.3428120063,
+        "quantile_spread": -0.0720437571,
+        "quantile_monotonicity": -0.7
+      }
+    },
+    "historical_reentry_audit": {
+      "round109_overnight_intraday_gap": "0 research leads; no parameter expansion without a new orthogonal mechanism",
+      "round208_inverse_52week_overextension": "0 research leads; direct sign flip is not allowed as a fresh discovery",
+      "round221_information_discreteness": "0 residual research leads; non-sharded reruns are not useful after the full sharded failure"
+    },
+    "decision": "no independent alpha or paper-ready signal from Round460; hibernate direct 52-week, FIP, and OHLC gap re-entry unless a new orthogonal data source changes the hypothesis",
+    "new_independent_alpha_count": 0,
+    "new_paper_ready_signal_count": 0,
+    "new_promotion_candidate_count": 0,
+    "next_direction": "Round461 must prefer a genuinely new PIT information axis, source-efficiency audit, or paper-readiness hardening; do not retry the Round460 families as parameter tuning"
+  },
+  "round461_high_return_beta_audit": {
+    "report": "docs/research/cn_stock_round461_high_return_beta_audit_2026-06-27.md",
+    "output_dir": "data/reports/round461_24h_profit_sprint_high_return_beta_audit_20260627",
+    "candidate": "paper_ready_cohort_entry_timed_range_q20_m175_cost10_vt08_max100_self_roll21_x08",
+    "event_benchmark_return_source": "data/reports/round461_24h_profit_sprint_high_return_beta_audit_20260627/event_benchmark_returns.csv",
+    "event_beta_audit": "data/reports/round461_24h_profit_sprint_high_return_beta_audit_20260627/shortlist_event_beta_audit.json",
+    "paper_handoff_output_dir": "data/reports/round461_24h_profit_sprint_beta_refreshed_paper_handoff_20260627",
+    "paper_ops_package_output_dir": "data/reports/round461_24h_profit_sprint_beta_refreshed_paper_ops_package_20260627",
+    "csi500_result": {
+      "beta": 0.049189393,
+      "r_squared": 0.2391101281,
+      "alpha_annualized": 0.08502558,
+      "alpha_t_stat": 5.316685881,
+      "strategy_annualized_return": 0.077228269,
+      "strategy_total_return": 2.8030242437,
+      "strategy_max_drawdown": -0.2931481649,
+      "hedged_annualized_return": 0.0861909878,
+      "hedged_overlap_sharpe": 0.9082790905,
+      "hedged_max_drawdown": -0.1129057538
+    },
+    "hs300_result": {
+      "beta": 0.059196332,
+      "r_squared": 0.1958925073,
+      "alpha_annualized": 0.0848150894,
+      "alpha_t_stat": 5.1590337702,
+      "hedged_annualized_return": 0.0858255798,
+      "hedged_overlap_sharpe": 0.757547695,
+      "hedged_max_drawdown": -0.324461339
+    },
+    "decision": "close high-return lane beta-metric gap; q20/m175 is not merely hidden CSI500 beta, but remains paper-simulation only because cost stress, tail concentration, capacity, and sealed-holdout risks remain",
+    "new_independent_alpha_count": 0,
+    "new_promotion_candidate_count": 0,
+    "beta_gap_closed": true,
+    "paper_ops_package_status": "paper_ops_package_ready",
+    "paper_ops_blockers": [],
+    "closed_warning": "high_return_beta_hedged_metrics_missing",
+    "remaining_warnings": [
+      "capacity_not_clean_at_large_aum",
+      "default_lane_kept_for_baseline_not_return_maximization",
+      "final_holdout_sealed_promotion_blocked",
+      "high_return_cost_stress_drawdown_below_user_limit",
+      "high_return_drawdown_near_user_limit",
+      "high_return_lane_is_diagnostic_role",
+      "high_return_tail_contribution_concentrated",
+      "shortlist_streams_highly_correlated"
+    ],
+    "next_direction": "Round462 should repair high-return tail/cost/capacity risk or rotate to a genuinely new PIT information source; do not reopen Round460 rejected families as parameter tuning"
+  },
+  "round462_q20_ps_gt10_risk_repair": {
+    "report": "docs/research/cn_stock_round462_q20_ps_gt10_risk_repair_2026-06-27.md",
+    "attribute_cash_filter_output_dir": "data/reports/round462_24h_profit_sprint_q20_tail_attribute_cash_filter_20260627",
+    "filtered_trades_output_dir": "data/reports/round462_24h_profit_sprint_q20_ps_gt10_filtered_trades_20260627",
+    "oos_output_dir": "data/reports/round462_24h_profit_sprint_q20_ps_gt10_oos_20260627",
+    "incremental_robustness_output_dir": "data/reports/round462_24h_profit_sprint_q20_ps_gt10_incremental_robustness_20260627",
+    "beta_output_dir": "data/reports/round462_24h_profit_sprint_q20_ps_gt10_beta_audit_20260627",
+    "capacity_output_dir": "data/reports/round462_24h_profit_sprint_q20_ps_gt10_capacity_stress_20260627",
+    "extreme_trade_profile_output_dir": "data/reports/round462_24h_profit_sprint_q20_ps_gt10_extreme_trade_profile_20260627",
+    "cost_stress_output_dir": "data/reports/round462_24h_profit_sprint_q20_ps_gt10_cost_stress_20260627",
+    "cost30_oos_output_dir": "data/reports/round462_24h_profit_sprint_q20_ps_gt10_cost30_oos_20260627",
+    "cost30_beta_output_dir": "data/reports/round462_24h_profit_sprint_q20_ps_gt10_cost30_beta_audit_20260627",
+    "paper_handoff_output_dir": "data/reports/round462_24h_profit_sprint_ps_gt10_paper_handoff_20260627",
+    "paper_ops_package_output_dir": "data/reports/round462_24h_profit_sprint_ps_gt10_paper_ops_package_20260627",
+    "paper_ops_package_status": "paper_ops_package_ready",
+    "paper_ops_package_blockers": [],
+    "paper_ops_package_warnings": [
+      "capacity_not_clean_at_large_aum",
+      "default_lane_kept_for_baseline_not_return_maximization",
+      "final_holdout_sealed_promotion_blocked",
+      "high_return_lane_is_diagnostic_role",
+      "high_return_tail_contribution_concentrated",
+      "shortlist_streams_highly_correlated"
+    ],
+    "candidate": "paper_ready_cohort_entry_timed_range_q20_m175_ps_gt10_cash_cost10_vt08_max100_self_roll21_x08",
+    "risk_filter": "entry-known ps_ttm > 10 cash-out",
+    "cost10_metrics": {
+      "total_return": 2.8484884757,
+      "annualized_return": 0.0779414358,
+      "overlap_sharpe": 0.5654308054,
+      "max_drawdown": -0.2542482237,
+      "oos_strict_pass_rate": 0.7666666667,
+      "csi500_beta_hedged_annualized_return": 0.0858911865,
+      "csi500_beta_hedged_overlap_sharpe": 0.9299242994,
+      "csi500_beta_hedged_max_drawdown": -0.1129940427
+    },
+    "cost30_metrics": {
+      "total_return": 1.9697047343,
+      "annualized_return": 0.0624920505,
+      "overlap_sharpe": 0.4629553008,
+      "max_drawdown": -0.2813099618,
+      "oos_strict_pass_rate": 0.6333333333,
+      "csi500_beta_hedged_annualized_return": 0.070287431,
+      "csi500_beta_hedged_overlap_sharpe": 0.7755150228,
+      "csi500_beta_hedged_max_drawdown": -0.127207484
+    },
+    "capacity": {
+      "safe_through_aum_multiplier": 20,
+      "unsafe_from_aum_multiplier": 50,
+      "breach_trades_at_50x": 5,
+      "breach_trades_at_100x": 465
+    },
+    "tail": {
+      "extreme_contribution_share": 0.345179327,
+      "original_q20_extreme_contribution_share": 0.3520976237
+    },
+    "decision": "add as paper-simulation risk-repair lane; do not promote as final alpha because OOS strict pass falls, cost30 OOS strict pass is only 63.33%, capacity remains unsafe from 50x, and tail concentration remains high",
+    "new_independent_alpha_count": 0,
+    "new_paper_ready_signal_count": 1,
+    "new_promotion_candidate_count": 0,
+    "next_direction": "Round463 three-round audit for Rounds 460-462 before any new mining batch"
+  },
+  "round460_462_three_round_audit": {
+    "report": "docs/research/cn_stock_round460_462_three_round_audit_2026-06-27.md",
+    "audited_rounds": [
+      460,
+      461,
+      462
+    ],
+    "new_independent_alpha_count": 0,
+    "new_paper_ready_signal_count": 1,
+    "new_promotion_candidate_count": 0,
+    "paper_ops_package_status": "paper_ops_package_ready",
+    "paper_ops_package_blockers": [],
+    "best_high_return_paper_lane": "paper_ready_cohort_entry_timed_range_q20_m175_ps_gt10_cash_cost10_vt08_max100_self_roll21_x08",
+    "default_paper_lane": "paper_ready_delayed_exit_m150_cost10_vt08_max100_self_roll21_x08",
+    "decision": "close sprint work; carry default and ps_gt10 high-return risk-repair lanes into reportable paper-simulation package, but do not promote to final alpha or live use",
+    "next_allowed_direction_if_work_resumes": "paper_simulation_packaging_or_new_pit_source_not_q20_threshold_tuning"
+  }
 }

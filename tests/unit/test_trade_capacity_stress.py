@@ -67,6 +67,25 @@ class TradeCapacityStressTest(unittest.TestCase):
             self.assertTrue((output_dir / "trade_capacity_stress_summary.json").exists())
             self.assertTrue((output_dir / "trade_capacity_stress_rows.csv").exists())
 
+    def test_build_trade_capacity_stress_accepts_csv_sources(self) -> None:
+        with TemporaryDirectory() as tmp:
+            source = Path(tmp) / "trades.csv"
+            pd.DataFrame({"participation_rate": [0.01, 0.02], "entry_allowed": [True, True]}).to_csv(
+                source,
+                index=False,
+            )
+
+            audit = build_trade_capacity_stress(
+                {"csv_candidate": source},
+                multipliers=(1, 4),
+                max_participation_rate=0.05,
+            )
+
+            self.assertEqual(audit["sources"]["csv_candidate"], str(source))
+            self.assertEqual(audit["summary"]["candidate_count"], 1)
+            self.assertEqual(audit["summary"]["safe_rows"], 1)
+            self.assertEqual(audit["summary"]["unsafe_rows"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

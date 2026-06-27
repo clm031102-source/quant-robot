@@ -11,6 +11,9 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 
 ensure_workspace_imports()
 
+from quant_robot.ops.shortlist_trade_attribute_cash_filter import (  # noqa: E402
+    parse_attribute_filter_spec,
+)
 from quant_robot.ops.simulation_shortlist_cohort_entry_timed import (  # noqa: E402
     build_simulation_shortlist_cohort_entry_timed,
     write_simulation_shortlist_cohort_entry_timed,
@@ -34,7 +37,17 @@ def main() -> None:
     parser.add_argument("--dragon-candidate", default="dragon_hot_chase_20d")
     parser.add_argument("--public-factor-quantile", type=float, default=0.10)
     parser.add_argument("--public-factor-exposure-multiplier", type=float, default=1.50)
+    parser.add_argument("--public-factor-tilt-risk-cap-column", default=None)
+    parser.add_argument("--public-factor-tilt-risk-cap-operator", default="gt")
+    parser.add_argument("--public-factor-tilt-risk-cap-value", type=float, default=None)
+    parser.add_argument("--public-factor-tilt-risk-cap-multiplier", type=float, default=1.0)
     parser.add_argument("--trade-return-column", default="entry_cash_proxy_weighted_return")
+    parser.add_argument("--trade-signal-date-column", default="signal_date")
+    parser.add_argument("--trade-entry-date-column", default="entry_date")
+    parser.add_argument("--trade-exit-date-column", default="exit_date")
+    parser.add_argument("--weight-column", default="target_weight")
+    parser.add_argument("--disable-dragon-cash-filter", action="store_true")
+    parser.add_argument("--entry-attribute-cash-rule", action="append", default=[])
     parser.add_argument("--target-annual-vol", type=float, default=0.08)
     parser.add_argument("--lookback-events", type=int, default=84)
     parser.add_argument("--min-exposure", type=float, default=0.25)
@@ -54,7 +67,19 @@ def main() -> None:
         dragon_candidate=args.dragon_candidate,
         public_factor_quantile=args.public_factor_quantile,
         public_factor_exposure_multiplier=args.public_factor_exposure_multiplier,
+        public_factor_tilt_risk_cap_column=args.public_factor_tilt_risk_cap_column,
+        public_factor_tilt_risk_cap_operator=args.public_factor_tilt_risk_cap_operator,
+        public_factor_tilt_risk_cap_value=args.public_factor_tilt_risk_cap_value,
+        public_factor_tilt_risk_cap_multiplier=args.public_factor_tilt_risk_cap_multiplier,
         trade_return_column=args.trade_return_column,
+        trade_signal_date_column=args.trade_signal_date_column,
+        trade_entry_date_column=args.trade_entry_date_column,
+        trade_exit_date_column=args.trade_exit_date_column,
+        weight_column=args.weight_column,
+        apply_dragon_cash_filter=not args.disable_dragon_cash_filter,
+        entry_attribute_cash_rules=tuple(
+            parse_attribute_filter_spec(value) for value in args.entry_attribute_cash_rule
+        ),
         target_annual_vol=args.target_annual_vol,
         lookback_events=args.lookback_events,
         min_exposure=args.min_exposure,

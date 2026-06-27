@@ -22,6 +22,7 @@ METRIC_KEYS = (
     "max_drawdown",
     "win_rate",
 )
+NUMERIC_OPERATORS = {"gt", "ge", "lt", "le", "between"}
 
 
 @dataclass(frozen=True)
@@ -168,8 +169,10 @@ def parse_attribute_filter_spec(value: str) -> AttributeFilterSpec:
     values = tuple(item.strip() for item in raw_values.split(",") if item.strip())
     if not name.strip() or not column or not operator:
         raise ValueError("candidate name, column, and operator are required")
-    if operator in {"eq", "ne", "in", "not_in"} and not values:
+    if operator in {"eq", "ne", "in", "not_in", *NUMERIC_OPERATORS} and not values:
         raise ValueError(f"operator {operator} requires at least one value")
+    if operator == "between" and len(values) != 2:
+        raise ValueError("operator between requires exactly two numeric values")
     return AttributeFilterSpec(name=name.strip(), column=column, operator=operator, values=values)
 
 
@@ -227,9 +230,37 @@ def _flag_trades(trades: pd.DataFrame, spec: AttributeFilterSpec) -> pd.DataFram
         mask = normalized.isin(values)
     elif spec.operator == "not_in":
         mask = ~normalized.isin(values)
+    elif spec.operator in NUMERIC_OPERATORS:
+        numeric = pd.to_numeric(series, errors="coerce")
+        thresholds = tuple(_parse_numeric_filter_value(value, spec=spec) for value in spec.values)
+        if spec.operator == "gt":
+            mask = numeric > thresholds[0]
+        elif spec.operator == "ge":
+            mask = numeric >= thresholds[0]
+        elif spec.operator == "lt":
+            mask = numeric < thresholds[0]
+        elif spec.operator == "le":
+            mask = numeric <= thresholds[0]
+        elif spec.operator == "between":
+            low, high = sorted((thresholds[0], thresholds[1]))
+            mask = numeric.between(low, high, inclusive="both")
+        else:  # pragma: no cover - guarded by NUMERIC_OPERATORS
+            raise ValueError(f"unsupported operator: {spec.operator}")
     else:
         raise ValueError(f"unsupported operator: {spec.operator}")
     return trades[mask.fillna(False)].copy()
+
+
+def _parse_numeric_filter_value(value: str, *, spec: AttributeFilterSpec) -> float:
+    try:
+        number = float(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"operator {spec.operator} for {spec.column} requires numeric values"
+        ) from exc
+    if not math.isfinite(number):
+        raise ValueError(f"operator {spec.operator} for {spec.column} requires finite numeric values")
+    return number
 
 
 def _project_to_template(

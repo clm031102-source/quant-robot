@@ -64,6 +64,58 @@ class ShortlistTradeAttributeCashFilterTest(unittest.TestCase):
 
         self.assertEqual(audit["rows"][0]["flagged_trade_count"], 1)
 
+    def test_numeric_operator_projects_flagged_contribution(self) -> None:
+        template = pd.DataFrame(
+            {
+                "date": pd.to_datetime(["2020-01-10", "2020-01-17"]),
+                "period_return": [0.02, 0.01],
+            }
+        )
+        trades = pd.DataFrame(
+            {
+                "exit_date": pd.to_datetime(["2020-01-10", "2020-01-10", "2020-01-17"]),
+                "entry_cash_proxy_weighted_return": [-0.01, 0.004, -0.006],
+                "turnover_rate_f": [6.0, 3.0, 8.0],
+            }
+        )
+
+        audit = build_trade_attribute_cash_filter_audit(
+            template_period_returns=template,
+            trades_source=trades,
+            candidates=(parse_attribute_filter_spec("high_turnover=turnover_rate_f:gt:5"),),
+            periods_per_year=52.0,
+            holding_period=4,
+        )
+
+        row = audit["rows"][0]
+        self.assertEqual(row["flagged_trade_count"], 2)
+        self.assertAlmostEqual(row["matched_flagged_contribution"], -0.016)
+        frame = pd.DataFrame(audit["period_return_frames"]["cash_high_turnover"])
+        self.assertAlmostEqual(frame.loc[0, "period_return"], 0.03)
+        self.assertAlmostEqual(frame.loc[1, "period_return"], 0.016)
+
+    def test_numeric_between_operator_flags_inclusive_range(self) -> None:
+        template = pd.DataFrame({"date": pd.to_datetime(["2020-01-10"]), "period_return": [0.01]})
+        trades = pd.DataFrame(
+            {
+                "exit_date": pd.to_datetime(["2020-01-10", "2020-01-10", "2020-01-10"]),
+                "entry_cash_proxy_weighted_return": [0.002, -0.003, -0.004],
+                "pb": [1.0, 3.0, 5.0],
+            }
+        )
+
+        audit = build_trade_attribute_cash_filter_audit(
+            template_period_returns=template,
+            trades_source=trades,
+            candidates=(parse_attribute_filter_spec("mid_pb=pb:between:2,5"),),
+            periods_per_year=52.0,
+            holding_period=4,
+        )
+
+        row = audit["rows"][0]
+        self.assertEqual(row["flagged_trade_count"], 2)
+        self.assertAlmostEqual(row["matched_flagged_contribution"], -0.007)
+
     def test_write_outputs_rows_and_period_returns(self) -> None:
         with TemporaryDirectory() as tmp:
             template = pd.DataFrame({"date": pd.to_datetime(["2020-01-10"]), "period_return": [0.01]})

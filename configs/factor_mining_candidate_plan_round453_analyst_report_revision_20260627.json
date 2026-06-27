@@ -1,0 +1,227 @@
+{
+  "stage": "round453_analyst_report_revision_preregistration",
+  "round": 453,
+  "market": "CN",
+  "asset_type": "stock",
+  "source_audit": "docs/research/cn_stock_round450_452_three_round_audit_2026-06-27.md",
+  "source_plan_doc": "docs/research/cn_stock_round453_analyst_report_revision_preregistration_2026-06-27.md",
+  "scope": {
+    "machine": "office_desktop",
+    "task": "factor_validation",
+    "branch": "codex/factor-validation-cn-stock-24h-profit-sprint-20260627"
+  },
+  "research_control_plan": {
+    "declared_controls": {
+      "cn_stock_tradeability": [
+        "limit_up_down_filter",
+        "suspension_filter",
+        "st_flag_filter",
+        "new_listing_age_filter",
+        "delisting_risk_filter",
+        "board_permission_filter"
+      ],
+      "financial_pit_timing": [
+        "ann_date_or_effective_date_lag",
+        "financial_revision_announcement_handling",
+        "report_release_lag_not_period_end",
+        "no_period_end_only_financial_signal"
+      ],
+      "source_sample_integrity": [
+        "endpoint_permission_or_cache_manifest",
+        "point_in_time_available_date_semantics",
+        "full_sample_2015_2025_same_parameter_replay",
+        "train_test_or_walk_forward_split_declared",
+        "future_function_static_audit",
+        "rejected_hypothesis_counting"
+      ],
+      "industry_style_neutralization": [
+        "industry_exposure_report",
+        "size_exposure_report",
+        "value_lowvol_momentum_liquidity_decomposition",
+        "neutralized_or_residual_factor_matrix"
+      ],
+      "etf_rotation_scope_boundary": [
+        "stock_scope_confirmed",
+        "etf_rotation_evidence_rejected_for_stock_factor",
+        "cn_etf_dedicated_signal_pack_separate"
+      ],
+      "portfolio_construction": [
+        "risk_budget_position_sizing",
+        "volatility_targeting_or_volatility_budget",
+        "industry_weight_constraints",
+        "turnover_constraints",
+        "stop_loss_or_de_risk_rules"
+      ],
+      "strict_statistics": [
+        "deflated_sharpe",
+        "purged_cpcv",
+        "white_reality_check_or_fdr",
+        "parameter_sensitivity_heatmap",
+        "multiple_testing_accounting"
+      ],
+      "china_market_regime": [
+        "policy_liquidity_regime",
+        "credit_cycle_proxy",
+        "northbound_margin_turnover_temperature",
+        "index_location_state",
+        "signal_window_regime_coverage"
+      ],
+      "event_factors": [
+        "earnings_forecast_or_statement_event_audit",
+        "dividend_ex_right_event_audit",
+        "buyback_holder_unlock_event_audit",
+        "index_rebalance_event_audit",
+        "event_contamination_extreme_return_audit"
+      ]
+    },
+    "policy": "Round453 may only test analyst report revision as a new external-expectation PIT source. It is research-screen only; portfolio grids, promotion, and 2026 tuning are blocked."
+  },
+  "data_source_plan": {
+    "endpoint": "Tushare report_rc",
+    "local_cache_status_before_round": "not_found",
+    "first_step": "small-window source smoke and PIT normalization",
+    "smoke_start_date": "2024-01-01",
+    "smoke_end_date": "2025-12-31",
+    "long_cycle_start_date": "2015-01-01",
+    "long_cycle_end_date": "2025-12-31",
+    "provider_limit_policy": "use monthly windows and resume; do not start all-window cache if smoke fails or row-cap warnings require smaller windows",
+    "available_date_rule": "report_date shifted to first later tradable date plus pit_lag_trade_days; same-day report trading is blocked",
+    "final_holdout_available_for_tuning": false
+  },
+  "source_smoke_result": {
+    "status": "blocked_by_provider_frequency_limit",
+    "report": "docs/research/cn_stock_round453_analyst_report_revision_source_smoke_2026-06-27.md",
+    "output_dir": "data/reports/round453_analyst_report_revision_source_smoke_jan2024_20260627",
+    "window_start": "2024-01-01",
+    "window_end": "2024-01-31",
+    "rows": 0,
+    "assets": 0,
+    "fetched_windows": 0,
+    "failed_windows": 1,
+    "provider_limit": "Tushare report_rc returned frequency limit exceeded, 2 requests per day",
+    "decision": "hibernate analyst_report_revision for the 24h sprint unless a local cached PIT source appears"
+  },
+  "evaluation_gate": {
+    "required_metrics": [
+      "source_smoke_rows_assets_date_range",
+      "point_in_time_report_date_to_signal_date_alignment",
+      "same_parameter_full_sample_replay_if_source_ready",
+      "industry_neutral_ic",
+      "size_liquidity_neutral_ic",
+      "style_residual_ic",
+      "quantile_monotonicity",
+      "yearly_ic_stability",
+      "2015_regime_contribution_breakout",
+      "top_quantile_turnover",
+      "cost_capacity_preflight_if_prescreen_lead_exists",
+      "deflated_sharpe_or_fdr",
+      "purged_cpcv_or_walk_forward_preflight",
+      "parameter_sensitivity_heatmap"
+    ],
+    "multiple_testing_accounting_required": true,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "promotion_allowed": false
+  },
+  "promotion_policy": {
+    "promotion_allowed": false,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "requires_data_source_availability_proof": true,
+    "requires_long_cycle_replay": true,
+    "requires_same_parameter_full_sample": true,
+    "requires_full_sample_regime_coverage": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true,
+    "requires_no_lookahead_audit": true,
+    "requires_future_function_static_audit": true,
+    "requires_overfit_multiple_testing_control": true,
+    "requires_overlap_adjusted_statistics": true,
+    "requires_parameter_sensitivity": true,
+    "requires_parameter_sensitivity_heatmap": true,
+    "requires_deflated_sharpe_or_fdr": true,
+    "requires_cpcv_or_purged_walk_forward": true,
+    "requires_white_reality_check_or_multiple_test_adjustment": true,
+    "requires_profit_drawdown_winrate_report": true,
+    "requires_final_holdout_read_once": true,
+    "requires_tradeability_survivorship_audit": true,
+    "requires_industry_style_neutralization": true,
+    "requires_source_performance_evidence": true
+  },
+  "family_rotation_policy": {
+    "current_family_id": "analyst_expectation_revision",
+    "current_family_round_count": 1,
+    "max_rounds_before_review": 3,
+    "three_round_review_completed": true,
+    "hibernated_families": [
+      {
+        "family": "entry_blocked_reasons_string_neighborhoods_after_round450_452_audit",
+        "reason": "Round450-452 found only an execution observation and stopped adjacent entry string tuning."
+      },
+      {
+        "family": "exit_blocked_reasons_string_neighborhoods_after_round450_452_audit",
+        "reason": "Exit-time filters risk future information and should remain diagnostic unless separately causal."
+      },
+      {
+        "family": "rsrs_supertrend_public_indicator_variants_after_round439_440_failures",
+        "reason": "RSRS and anti-supertrend failed formal cohort-entry rebuilds."
+      },
+      {
+        "family": "pb_ps_pe_threshold_widening_after_round448_452_audits",
+        "reason": "Valuation threshold projections were modest and not robust enough for more tuning."
+      },
+      {
+        "family": "forecast_express_disagreement_after_round268_zero_research_leads",
+        "reason": "Prior forecast/express disagreement prescreen produced zero usable research leads."
+      }
+    ],
+    "blocked_families": []
+  },
+  "candidates": [
+    {
+      "factor_name": "analyst_target_upside_60",
+      "family": "analyst_expectation_revision",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "Tushare report_rc target price and report date; sell-side expectation revision literature.",
+      "economic_rationale": "Target-price upside can proxy external expectation imbalance when shifted to a later tradable signal date and controlled for coverage bias.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "analyst_np_revision_90",
+      "family": "analyst_expectation_revision",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "Tushare report_rc net-profit forecast revisions.",
+      "economic_rationale": "Upward net-profit forecast revisions can capture improving expectations before realized statements, but only if coverage, industry, size, and liquidity bias are neutralized.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "analyst_eps_revision_90",
+      "family": "analyst_expectation_revision",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "Tushare report_rc EPS forecast revisions.",
+      "economic_rationale": "EPS revisions are a standard expectation-revision anomaly template and are distinct from old price-volume and moneyflow searches.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "analyst_revision_target_composite_90",
+      "family": "analyst_expectation_revision",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "Tushare report_rc target, NP, EPS, and rating fields combined with one frozen formula.",
+      "economic_rationale": "A frozen composite can test whether multiple analyst-expectation dimensions add independent information without opening a parameter grid.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    }
+  ],
+  "next_gate_if_cleared": "blocked_after_source_smoke_rotate_to_round454_source_efficiency_decision",
+  "safety": "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+}

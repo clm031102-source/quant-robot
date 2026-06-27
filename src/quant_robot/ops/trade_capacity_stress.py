@@ -78,7 +78,7 @@ def build_trade_capacity_stress(
             sources[candidate_name] = "<dataframe>"
         else:
             source_path = Path(source)
-            frame = pd.read_parquet(source_path)
+            frame = _read_trade_source(source_path)
             sources[candidate_name] = str(source_path)
         rows.extend(
             summarize_capacity_stress(
@@ -118,6 +118,15 @@ def write_trade_capacity_stress(output_dir: str | Path, audit: dict[str, Any]) -
         json.dumps(_sanitize(audit), indent=2, sort_keys=True),
         encoding="utf-8",
     )
+
+
+def _read_trade_source(path: Path) -> pd.DataFrame:
+    suffix = path.suffix.lower()
+    if suffix == ".csv":
+        return pd.read_csv(path)
+    if suffix in {".parquet", ".pq"}:
+        return pd.read_parquet(path)
+    raise ValueError(f"unsupported trade source extension: {path.suffix}")
 
 
 def _series_stat(series: pd.Series, stat: str) -> float:

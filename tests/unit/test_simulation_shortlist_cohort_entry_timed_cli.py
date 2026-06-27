@@ -25,6 +25,8 @@ class SimulationShortlistCohortEntryTimedCliTest(unittest.TestCase):
                     "exit_date": ["2024-01-10"],
                     "target_weight": [1.0],
                     "entry_cash_proxy_weighted_return": [0.02],
+                    "turnover_rate_f": [5.0],
+                    "entry_blocked_reasons": ["limit_down_like;limit_down_official"],
                 }
             ).to_csv(trades, index=False)
             pd.DataFrame(
@@ -68,6 +70,16 @@ class SimulationShortlistCohortEntryTimedCliTest(unittest.TestCase):
                     "9.99",
                     "--self-risk-threshold",
                     "-999",
+                    "--public-factor-exposure-multiplier",
+                    "2.0",
+                    "--public-factor-tilt-risk-cap-column",
+                    "turnover_rate_f",
+                    "--public-factor-tilt-risk-cap-operator",
+                    "gt",
+                    "--public-factor-tilt-risk-cap-value",
+                    "3.0",
+                    "--entry-attribute-cash-rule",
+                    "entry_limit_down=entry_blocked_reasons:eq:limit_down_like;limit_down_official",
                     "--output-dir",
                     str(output),
                 ],
@@ -77,6 +89,8 @@ class SimulationShortlistCohortEntryTimedCliTest(unittest.TestCase):
             )
 
             self.assertIn("demo", completed.stdout)
+            self.assertIn("public_tilt_risk_capped_trade_count", completed.stdout)
+            self.assertIn("entry_attribute_cash_trade_count", completed.stdout)
             self.assertTrue((output / "simulation_shortlist_cohort_entry_timed.json").exists())
 
 

@@ -24,6 +24,10 @@ from quant_robot.factors.public_trend_volume import (
 from quant_robot.ops.capacity_safe_price_volume_prescreen import (
     DEFAULT_ANALYSIS_END_DATE,
     DEFAULT_ANALYSIS_START_DATE,
+    compute_capacity_safe_price_volume_factors,
+)
+from quant_robot.ops.capacity_safe_price_volume_preregistration import (
+    default_capacity_safe_price_volume_candidate_specs,
 )
 from quant_robot.ops.public_alpha101_capacity_safe_preregistration import (
     default_public_alpha101_candidate_specs,
@@ -46,6 +50,9 @@ DEFAULT_BARS_ROOTS = (
 FactorBuilder = Callable[[pd.DataFrame, tuple[str, ...] | None], pd.DataFrame]
 
 PUBLIC_ALPHA101_FACTOR_NAMES = tuple(spec.factor_name for spec in default_public_alpha101_candidate_specs())
+CAPACITY_SAFE_PRICE_VOLUME_FACTOR_NAMES = tuple(
+    spec.factor_name for spec in default_capacity_safe_price_volume_candidate_specs()
+)
 
 
 def _compute_public_alpha101_factors(bars: pd.DataFrame, factor_names: tuple[str, ...] | None) -> pd.DataFrame:
@@ -54,8 +61,26 @@ def _compute_public_alpha101_factors(bars: pd.DataFrame, factor_names: tuple[str
     return compute_public_alpha101_capacity_safe_factors(bars, candidate_specs=specs)
 
 
+def _compute_capacity_safe_price_volume_factors(
+    bars: pd.DataFrame,
+    factor_names: tuple[str, ...] | None,
+) -> pd.DataFrame:
+    requested = set(factor_names or CAPACITY_SAFE_PRICE_VOLUME_FACTOR_NAMES)
+    specs = [
+        spec
+        for spec in default_capacity_safe_price_volume_candidate_specs()
+        if spec.factor_name in requested
+    ]
+    return compute_capacity_safe_price_volume_factors(bars, candidate_specs=specs)
+
+
 FACTOR_FAMILIES: tuple[tuple[str, tuple[str, ...], FactorBuilder], ...] = (
     ("public_alpha101_capacity_safe", PUBLIC_ALPHA101_FACTOR_NAMES, _compute_public_alpha101_factors),
+    (
+        "capacity_safe_price_volume",
+        CAPACITY_SAFE_PRICE_VOLUME_FACTOR_NAMES,
+        _compute_capacity_safe_price_volume_factors,
+    ),
     ("public_trend_strength_state", PUBLIC_TREND_STRENGTH_STATE_FACTOR_NAMES, compute_public_trend_strength_state_factors),
     ("public_trend_volume", PUBLIC_TREND_VOLUME_FACTOR_NAMES, compute_public_trend_volume_factors),
     ("public_technical", PUBLIC_TECHNICAL_FACTOR_NAMES, compute_public_technical_factors),

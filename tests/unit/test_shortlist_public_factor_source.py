@@ -110,6 +110,55 @@ class ShortlistPublicFactorSourceTest(unittest.TestCase):
         self.assertEqual(values["asset_id"].tolist(), ["CN_XSHE_000001"])
         self.assertTrue(values["factor_value"].notna().all())
 
+    def test_supports_capacity_safe_price_volume_factor_values(self) -> None:
+        dates = pd.date_range("2024-01-01", periods=80, freq="D")
+        frames = []
+        for index in range(8):
+            asset_id = f"CN_XSHE_00010{index}"
+            rows = []
+            for day, trade_date in enumerate(dates):
+                reversal = -0.05 * (day % 6) if index % 2 else 0.04 * (day % 5)
+                drift = day * (0.01 + index * 0.002)
+                close = 12.0 + index * 0.8 + drift + reversal
+                high = close * (1.01 + (index % 3) * 0.002)
+                low = close * (0.99 - (index % 2) * 0.002)
+                amount = 20_000_000.0 + index * 1_000_000.0 + (day % 7) * 100_000.0
+                rows.append(
+                    {
+                        "date": trade_date,
+                        "asset_id": asset_id,
+                        "market": "CN",
+                        "open": close * 0.998,
+                        "high": high,
+                        "low": low,
+                        "close": close,
+                        "adj_close": close,
+                        "volume": amount / close,
+                        "amount": amount,
+                    }
+                )
+            frames.append(pd.DataFrame(rows))
+        bars = pd.concat(frames, ignore_index=True)
+        trades = pd.DataFrame(
+            {
+                "asset_id": ["CN_XSHE_000100"],
+                "signal_date": ["2024-03-20"],
+            }
+        )
+
+        result = build_shortlist_public_factor_source(
+            trades_source=trades,
+            bars_source=bars,
+            factor_names=("range_contraction_lowvol_reversal_20",),
+        )
+
+        values = result["factor_values"]
+        self.assertEqual(result["summary"]["target_pair_count"], 1)
+        self.assertEqual(result["coverage_rows"][0]["public_factor_name"], "range_contraction_lowvol_reversal_20")
+        self.assertEqual(values["public_factor_family"].tolist(), ["capacity_safe_price_volume"])
+        self.assertEqual(values["asset_id"].tolist(), ["CN_XSHE_000100"])
+        self.assertTrue(values["factor_value"].notna().all())
+
     def test_family_outputs_are_narrowed_before_cross_family_concat(self) -> None:
         bars = pd.DataFrame(
             {
