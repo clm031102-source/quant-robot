@@ -497,6 +497,7 @@ function renderControlCenter() {
   const checklistItems = operatorChecklist.items || [];
   const executionPlan = control.execution_plan || {};
   const executionSteps = executionPlan.steps || [];
+  const workflowTrace = control.workflow_trace || {};
   const startupHealth = control.startup_health || {};
   const readinessMatrix = control.readiness_matrix || {};
   const readinessRows = readinessMatrix.rows || [];
@@ -555,6 +556,7 @@ function renderControlCenter() {
       <span>${escapeHtml(item.detail || "")}</span>
     </div>
   `).join("");
+  byId("control-workflow-trace").innerHTML = renderWorkflowTrace(workflowTrace);
   byId("control-startup-health").innerHTML = renderStartupHealth(startupHealth);
   byId("control-readiness-matrix").innerHTML = readinessRows.slice(0, 4).map((item) => `
     <div class="list-row ${escapeHtml(item.status === "ready" ? "ok" : item.status === "blocked" ? "danger" : "warn")}">
@@ -1607,6 +1609,37 @@ function renderAuditIterationPlan(plan = {}) {
     <div class="list-row warn">
       <strong>No audit iteration actions</strong>
       <span>Run the independent GUI audit before the next optimization round.</span>
+    </div>
+  `);
+}
+
+function renderWorkflowTrace(trace = {}) {
+  const summary = trace.summary || {};
+  const rows = trace.rows || [];
+  const headerClass = summary.live_trading_allowed ? "danger" : summary.current_status === "ready_to_run" ? "ok" : "warn";
+  const header = `
+    <div class="list-row ${escapeHtml(headerClass)}">
+      <strong>${escapeHtml(`${summary.current_workflow || "--"} / ${summary.current_status || "--"}`)}</strong>
+      <span>${escapeHtml(`paper_only=${summary.paper_only ? "true" : "false"} / live=${summary.live_trading_allowed ? "enabled" : "disabled"}`)}</span>
+      <span>${escapeHtml(`${summary.evidence_storage_key || "--"} / ${summary.next_endpoint || ""}`)}</span>
+    </div>
+  `;
+  const body = rows.slice(0, 9).map((item) => {
+    const status = item.status || "";
+    const statusClass = status === "blocked" ? "danger" : ["active", "ready", "publish_ready"].includes(status) ? "ok" : "warn";
+    return `
+      <div class="list-row ${escapeHtml(statusClass)}">
+        <strong>${escapeHtml(item.label || item.trace_id || "")}</strong>
+        <span>${escapeHtml(`${status || "--"} / ${item.source_workflow || ""}`)}</span>
+        <span>${escapeHtml(item.command || item.endpoint || "")}</span>
+        <span>${escapeHtml(item.evidence || item.next_action || "")}</span>
+      </div>
+    `;
+  }).join("");
+  return header + (body || `
+    <div class="list-row warn">
+      <strong>No workflow trace</strong>
+      <span>The control API must expose the active workflow, queued steps, evidence storage, verification gates, and live boundary.</span>
     </div>
   `);
 }

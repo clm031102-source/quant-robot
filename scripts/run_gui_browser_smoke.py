@@ -45,6 +45,7 @@ def run_gui_browser_smoke(
                     "control-center-board",
                     "control-backtest-status",
                     "control-backtest-provenance",
+                    "control-workflow-trace",
                     "control-result-evidence",
                     "control-startup-health",
                     "control-audit-feedback",
@@ -64,10 +65,11 @@ def run_gui_browser_smoke(
             and "renderControlCenter" in str(app_js.get("body", ""))
             and "renderStartupHealth" in str(app_js.get("body", ""))
             and "renderBacktestProvenance" in str(app_js.get("body", ""))
+            and "renderWorkflowTrace" in str(app_js.get("body", ""))
             and "renderResultEvidence" in str(app_js.get("body", ""))
             and "renderAuditFeedback" in str(app_js.get("body", ""))
             and "renderAuditIterationPlan" in str(app_js.get("body", "")),
-            "Frontend script includes control-center, startup-health, backtest-provenance, result-evidence, audit-feedback, and audit-iteration renderers.",
+            "Frontend script includes control-center, startup-health, backtest-provenance, workflow-trace, result-evidence, audit-feedback, and audit-iteration renderers.",
             app_js.get("error") or "Frontend script is missing required renderer hooks.",
         )
     )
@@ -118,6 +120,19 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "workflow_trace_panel",
+            "Workflow trace contract",
+            control.get("ok")
+            and control_body.get("workflow_trace", {}).get("stage") == "gui_workflow_trace"
+            and bool(control_body.get("workflow_trace", {}).get("rows"))
+            and control_body.get("workflow_trace", {}).get("summary", {}).get("paper_only") is True
+            and control_body.get("workflow_trace", {}).get("summary", {}).get("live_trading_allowed") is False,
+            "Control API exposes a workflow trace that links active work, queued steps, evidence storage, verification, audit, publish, and live-blocked boundary.",
+            control.get("error") or "Control API is missing workflow trace rows.",
+        )
+    )
+    checks.append(
+        _check(
             "audit_feedback_panel",
             "Audit feedback contract",
             control.get("ok")
@@ -146,10 +161,11 @@ def run_gui_browser_smoke(
             and "@media" in str(styles_css.get("body", ""))
             and ".startup-health-list" in str(styles_css.get("body", ""))
             and ".backtest-provenance-list" in str(styles_css.get("body", ""))
+            and ".workflow-trace-list" in str(styles_css.get("body", ""))
             and ".result-evidence-list" in str(styles_css.get("body", ""))
             and ".audit-feedback-list" in str(styles_css.get("body", ""))
             and ".audit-iteration-list" in str(styles_css.get("body", "")),
-            "Stylesheet contains responsive breakpoints plus startup-health, backtest-provenance, result-evidence, audit-feedback, and audit-iteration sizing rules.",
+            "Stylesheet contains responsive breakpoints plus startup-health, backtest-provenance, workflow-trace, result-evidence, audit-feedback, and audit-iteration sizing rules.",
             styles_css.get("error") or "Stylesheet is missing responsive or audit-iteration layout rules.",
         )
     )

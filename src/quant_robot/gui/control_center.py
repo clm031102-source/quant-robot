@@ -21,6 +21,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     artifacts = _artifact_status(root)
     backtest = _default_backtest()
     workflows = _workflow_commands(backtest)
+    run_queue = _run_queue(workflows)
     verification_gates = _verification_gates()
     readiness_matrix = _readiness_matrix(workflows, verification_gates, artifacts)
     audit_packets = _audit_packets(root)
@@ -42,6 +43,14 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     audit_feedback = _audit_feedback(audit_packet_source, audit_packets)
     audit_iteration_plan = _audit_iteration_plan(audit_feedback, audit_scorecard, verification_gates, readiness_matrix)
     release_readiness = _release_readiness(verification_gates, audit_packets, readiness_matrix)
+    workflow_trace = _workflow_trace(
+        workflows,
+        run_queue,
+        startup_health,
+        result_evidence,
+        release_readiness,
+        execution_receipts,
+    )
 
     return {
         "stage": "gui_control_center",
@@ -69,12 +78,13 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
             ],
         },
         "workflows": workflows,
-        "run_queue": _run_queue(workflows),
+        "run_queue": run_queue,
         "verification_gates": verification_gates,
         "operator_checklist": _operator_checklist(verification_gates, artifacts),
         "execution_plan": _execution_plan(workflows, verification_gates),
         "startup_health": startup_health,
         "backtest_provenance": backtest_provenance,
+        "workflow_trace": workflow_trace,
         "readiness_matrix": readiness_matrix,
         "release_readiness": release_readiness,
         "audit_scorecard": audit_scorecard,
@@ -727,6 +737,156 @@ def _result_evidence(workflows: list[dict[str, Any]], execution_receipts: dict[s
         },
         "rows": rows,
     }
+
+
+def _workflow_trace(
+    workflows: list[dict[str, Any]],
+    run_queue: dict[str, Any],
+    startup_health: dict[str, Any],
+    result_evidence: dict[str, Any],
+    release_readiness: dict[str, Any],
+    execution_receipts: dict[str, Any],
+) -> dict[str, Any]:
+    active = run_queue.get("active", {}) if isinstance(run_queue.get("active"), dict) else {}
+    active_workflow = str(active.get("workflow_id") or "research_backtest")
+    active_status = str(active.get("status") or "ready_to_run")
+    research_command = _workflow_command(workflows, "research_backtest")
+    signal_command = _workflow_command(workflows, "signal_snapshot")
+    paper_command = _workflow_command(workflows, "paper_simulation")
+    receipt_storage_key = str(execution_receipts.get("storage_key") or "quant_robot.gui.execution_receipts.v1")
+    startup_status = str(startup_health.get("summary", {}).get("status") or "needs_evidence")
+    result_summary = result_evidence.get("summary", {}) if isinstance(result_evidence.get("summary"), dict) else {}
+    release_rows = release_readiness.get("rows", []) if isinstance(release_readiness.get("rows"), list) else []
+    verification_command = _release_row_command(
+        release_rows,
+        "gui_unit_tests",
+        "python -m unittest -v tests.unit.test_gui",
+    )
+    audit_command = _release_row_command(
+        release_rows,
+        "independent_gui_audit_packet",
+        "python scripts\\run_gui_control_center_audit.py --output-dir data\\reports\\gui_control_center_audit",
+    )
+    rows = [
+        {
+            "trace_id": "startup_health",
+            "label": "Confirm local GUI startup health",
+            "status": "ready" if startup_status == "ready" else "required",
+            "source_workflow": "gui_start",
+            "command": "GET /api/control/status",
+            "endpoint": "/api/control/status",
+            "evidence": str(startup_health.get("summary", {}).get("next_action") or "Control status and browser smoke evidence gate operator use."),
+            "next_action": "Use this health check before running research workflows.",
+        },
+        {
+            "trace_id": "research_backtest",
+            "label": "Run CN_ETF research backtest",
+            "status": "active",
+            "source_workflow": "research_backtest",
+            "command": research_command,
+            "endpoint": _workflow_endpoint(workflows, "research_backtest"),
+            "evidence": "Research metrics populate total return, annualized return, Sharpe, drawdown, win rate, trade count, and benchmark comparison.",
+            "next_action": "Run research before advisory signals and paper simulation.",
+        },
+        {
+            "trace_id": "result_evidence",
+            "label": "Record result evidence",
+            "status": str(result_summary.get("status") or "awaiting_workflow_run"),
+            "source_workflow": "browser_receipts",
+            "command": f"browser localStorage {receipt_storage_key}",
+            "endpoint": "localStorage",
+            "evidence": "Structured receipts connect displayed metrics to the workflow that produced them.",
+            "next_action": str(result_summary.get("next_action") or research_command),
+        },
+        {
+            "trace_id": "signal_snapshot",
+            "label": "Generate advisory signal snapshot",
+            "status": "queued",
+            "source_workflow": "signal_snapshot",
+            "command": signal_command,
+            "endpoint": _workflow_endpoint(workflows, "signal_snapshot"),
+            "evidence": "Targets and rebalance intent stay advisory with executable=false.",
+            "next_action": "Run after research metrics are refreshed.",
+        },
+        {
+            "trace_id": "paper_simulation",
+            "label": "Run local paper simulation",
+            "status": "queued",
+            "source_workflow": "paper_simulation",
+            "command": paper_command,
+            "endpoint": _workflow_endpoint(workflows, "paper_simulation"),
+            "evidence": "Paper fills are local simulations only and do not touch broker, account, or order systems.",
+            "next_action": "Run after research and advisory signal checks.",
+        },
+        {
+            "trace_id": "verification_pack",
+            "label": "Run verification pack",
+            "status": "required",
+            "source_workflow": "verification",
+            "command": verification_command,
+            "endpoint": "local command",
+            "evidence": "GUI tests, compile checks, project audit, browser smoke, and sync audit must pass before publishing.",
+            "next_action": "Run before committing or pushing GUI changes.",
+        },
+        {
+            "trace_id": "audit_packet",
+            "label": "Run independent GUI audit",
+            "status": "packet_required",
+            "source_workflow": "independent_gui_audit",
+            "command": audit_command,
+            "endpoint": "data/reports/gui_control_center_audit",
+            "evidence": "The 5h GUI audit scores the console and feeds the next optimization round.",
+            "next_action": "Re-run after each substantial GUI improvement.",
+        },
+        {
+            "trace_id": "publish_branch",
+            "label": "Publish syncable GUI branch",
+            "status": "publish_ready",
+            "source_workflow": "git_sync",
+            "command": "python scripts\\sync_project.py --machine office_desktop --task factor_review --execute --push",
+            "endpoint": "GitHub task branch",
+            "evidence": "Only source, tests, docs, configs, and lightweight summaries are syncable.",
+            "next_action": "Push after verification and sync audit are clean.",
+        },
+        {
+            "trace_id": "live_boundary",
+            "label": "Keep live trading blocked",
+            "status": "blocked",
+            "source_workflow": "live_trading",
+            "command": "blocked by research-to-paper boundary",
+            "endpoint": "none",
+            "evidence": SAFETY_NOTICE,
+            "next_action": "Do not connect broker, read accounts, place orders, or enable live trading from this GUI.",
+        },
+    ]
+    return {
+        "stage": "gui_workflow_trace",
+        "summary": {
+            "current_workflow": active_workflow,
+            "current_status": active_status,
+            "next_endpoint": _workflow_endpoint(workflows, active_workflow) or research_command,
+            "evidence_storage_key": receipt_storage_key,
+            "paper_only": bool(result_summary.get("paper_only", True)),
+            "live_trading_allowed": False,
+            "steps": len(rows),
+            "queued": sum(1 for row in rows if row["status"] == "queued"),
+            "required": sum(1 for row in rows if row["status"] in {"required", "packet_required"}),
+            "blocked": sum(1 for row in rows if row["status"] == "blocked"),
+        },
+        "rows": rows,
+    }
+
+
+def _release_row_command(rows: list[dict[str, Any]], check_id: str, fallback: str) -> str:
+    for row in rows:
+        if row.get("check_id") == check_id and row.get("command"):
+            return str(row["command"])
+    return fallback
+
+
+def _workflow_endpoint(workflows: list[dict[str, Any]], workflow_id: str) -> str:
+    workflow = _workflow_by_id(workflows, workflow_id)
+    return str(workflow.get("endpoint", "")) if workflow else ""
 
 
 def _release_readiness(
