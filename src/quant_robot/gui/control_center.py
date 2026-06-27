@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -7,6 +8,7 @@ from typing import Any
 
 
 SAFETY_NOTICE = "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading."
+GUI_AUDIT_PACKET_PATH = Path("data/reports/gui_control_center_audit/gui_control_center_audit.json")
 
 
 def build_control_center_snapshot(repo_root: str | Path | None = None, active_goal: str | None = None) -> dict[str, Any]:
@@ -18,7 +20,10 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     verification_gates = _verification_gates()
     readiness_matrix = _readiness_matrix(workflows, verification_gates, artifacts)
     audit_packets = _audit_packets(root)
-    audit_scorecard = _audit_scorecard(verification_gates, readiness_matrix, artifacts, audit_packets)
+    audit_packet_source = _load_gui_audit_packet(root)
+    latest_gui_audit = audit_packet_source.get("packet") if audit_packet_source.get("status") == "packet_present" else None
+    audit_scorecard = _audit_scorecard(verification_gates, readiness_matrix, artifacts, audit_packets, latest_gui_audit)
+    audit_feedback = _audit_feedback(audit_packet_source, audit_packets)
 
     return {
         "stage": "gui_control_center",
@@ -55,6 +60,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "operator_timeline": _operator_timeline(workflows, verification_gates, readiness_matrix, audit_scorecard),
         "run_history": _run_history_spec(),
         "audit_packets": audit_packets,
+        "audit_feedback": audit_feedback,
         "results": {
             "source": "Run research or paper workflow to populate live result values in the browser.",
             "metrics": [
@@ -483,6 +489,7 @@ def _audit_scorecard(
     readiness_matrix: dict[str, Any],
     artifacts: list[dict[str, Any]],
     audit_packets: dict[str, Any] | None = None,
+    latest_gui_audit: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     required_gate_count = sum(1 for gate in verification_gates if str(gate.get("status", "")).startswith("required"))
     browser_gate_count = sum(1 for gate in verification_gates if "browser" in str(gate.get("gate_id", "")))
@@ -491,6 +498,7 @@ def _audit_scorecard(
     audit_packet_summary = (audit_packets or {}).get("summary", {})
     independent_audit_complete = bool(audit_packet_summary.get("independent_audit_complete"))
     required_missing_packets = int(audit_packet_summary.get("required_missing", 0) or 0)
+    independent_audit_actions = _audit_packet_next_actions(latest_gui_audit) if latest_gui_audit else []
     categories = [
         {
             "category_id": "work_visibility",
@@ -543,27 +551,46 @@ def _audit_scorecard(
     ]
     total_score = sum(item["score"] for item in categories)
     max_score = sum(item["max_score"] for item in categories)
-    repair_queue = [
-        {
-            "priority": "P0",
-            "action": "Run independent 5h GUI audit",
-            "reason": "The visible score is a local self-check; the separate audit agent must still issue a scored review.",
-        },
-        {
-            "priority": "P1",
-            "action": "Attach audit findings to next optimization round",
-            "reason": "The GUI should turn each 5h scorecard into visible fixes and acceptance gates.",
-        },
-        {
-            "priority": "P2",
-            "action": "Generate missing audit packets" if required_missing_packets else "Review linked audit packets during next audit",
-            "reason": (
-                f"{required_missing_packets} required audit packet links are missing."
-                if required_missing_packets
-                else "Audit packet links are visible; use them as the evidence spine for the next independent review."
-            ),
-        },
-    ]
+    repair_queue = []
+    if latest_gui_audit:
+        actionable_audit_actions = [
+            action for action in independent_audit_actions if action.get("action") != "Run independent 5h GUI audit"
+        ]
+        first_action = actionable_audit_actions[0] if actionable_audit_actions else {}
+        repair_queue.append(
+            {
+                "priority": first_action.get("priority", "P1"),
+                "action": first_action.get("action", "Apply independent GUI audit next actions"),
+                "reason": first_action.get("reason", "The latest independent audit packet is now the next optimization input."),
+            }
+        )
+    else:
+        repair_queue.append(
+            {
+                "priority": "P0",
+                "action": "Run independent 5h GUI audit",
+                "reason": "The visible score is a local self-check; the separate audit agent must still issue a scored review.",
+            }
+        )
+    repair_queue.extend(
+        [
+            {
+                "priority": "P1",
+                "action": "Attach audit findings to next optimization round",
+                "reason": "The GUI should turn each 5h scorecard into visible fixes and acceptance gates.",
+            },
+            {
+                "priority": "P2",
+                "action": "Generate missing audit packets" if required_missing_packets else "Review linked audit packets during next audit",
+                "reason": (
+                    f"{required_missing_packets} required audit packet links are missing."
+                    if required_missing_packets
+                    else "Audit packet links are visible; use them as the evidence spine for the next independent review."
+                ),
+            },
+        ]
+    )
+    repair_queue = _dedupe_audit_actions(repair_queue)
     return {
         "stage": "gui_audit_scorecard",
         "summary": {
@@ -572,7 +599,9 @@ def _audit_scorecard(
             "cadence_hours": 5,
             "automation_id": "gui-5h",
             "independent_audit_complete": independent_audit_complete,
-            "score_source": "local_self_check_not_independent_audit",
+            "score_source": "independent_gui_audit_packet" if latest_gui_audit else "local_self_check_not_independent_audit",
+            "independent_audit_score": latest_gui_audit.get("score") if latest_gui_audit else None,
+            "independent_audit_verdict": latest_gui_audit.get("verdict") if latest_gui_audit else "",
             "required_gate_count": required_gate_count,
             "missing_artifact_count": missing_artifact_count,
             "required_missing_audit_packets": required_missing_packets,
@@ -585,6 +614,147 @@ def _audit_scorecard(
             "agent_role": "Independent GUI control center auditor",
         },
     }
+
+
+def _load_gui_audit_packet(root: Path) -> dict[str, Any]:
+    target = root / GUI_AUDIT_PACKET_PATH
+    if not target.exists():
+        return {
+            "status": "packet_missing",
+            "path": str(GUI_AUDIT_PACKET_PATH),
+            "packet": None,
+            "error": "",
+        }
+    try:
+        packet = json.loads(target.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {
+            "status": "packet_invalid",
+            "path": str(GUI_AUDIT_PACKET_PATH),
+            "packet": None,
+            "error": str(exc),
+        }
+    if not isinstance(packet, dict):
+        return {
+            "status": "packet_invalid",
+            "path": str(GUI_AUDIT_PACKET_PATH),
+            "packet": None,
+            "error": "The GUI audit packet must be a JSON object.",
+        }
+    return {
+        "status": "packet_present",
+        "path": str(GUI_AUDIT_PACKET_PATH),
+        "packet": packet,
+        "error": "",
+    }
+
+
+def _audit_feedback(packet_source: dict[str, Any], audit_packets: dict[str, Any]) -> dict[str, Any]:
+    status = str(packet_source.get("status", "packet_missing"))
+    packet = packet_source.get("packet") if status == "packet_present" else None
+    required_missing = int((audit_packets.get("summary") or {}).get("required_missing", 0) or 0)
+    source_path = str(packet_source.get("path") or GUI_AUDIT_PACKET_PATH)
+    if isinstance(packet, dict):
+        next_actions = _dedupe_audit_actions([
+            action for action in _audit_packet_next_actions(packet) if action.get("action") != "Run independent 5h GUI audit"
+        ])
+        if not next_actions:
+            next_actions = [
+                {
+                    "priority": "P2",
+                    "action": "Review independent audit packet",
+                    "reason": "The packet has no explicit next_actions; operator review should decide the next GUI improvement.",
+                }
+            ]
+        return {
+            "stage": "gui_audit_feedback",
+            "status": "packet_present",
+            "summary": {
+                "source_path": source_path,
+                "score": packet.get("score"),
+                "max_score": packet.get("max_score"),
+                "verdict": packet.get("verdict", ""),
+                "generated_at": packet.get("generated_at", ""),
+                "next_action_count": len(next_actions),
+                "required_missing_audit_packets": required_missing,
+            },
+            "next_actions": next_actions[:6],
+            "evidence": "Latest independent GUI audit packet is feeding the next optimization round.",
+        }
+    if status == "packet_invalid":
+        next_actions = [
+            {
+                "priority": "P0",
+                "action": "Regenerate independent 5h GUI audit",
+                "reason": packet_source.get("error", "The current audit packet cannot be parsed."),
+            }
+        ]
+    else:
+        next_actions = [
+            {
+                "priority": "P0",
+                "action": "Run independent 5h GUI audit",
+                "reason": "No parseable independent audit packet is available for the feedback loop.",
+                "command": "python scripts\\run_gui_control_center_audit.py --output-dir data\\reports\\gui_control_center_audit",
+            }
+        ]
+    return {
+        "stage": "gui_audit_feedback",
+        "status": status,
+        "summary": {
+            "source_path": source_path,
+            "score": None,
+            "max_score": None,
+            "verdict": "",
+            "generated_at": "",
+            "next_action_count": len(next_actions),
+            "required_missing_audit_packets": required_missing,
+        },
+        "next_actions": next_actions,
+        "evidence": "Create a valid independent GUI audit packet before using audit feedback as optimization input.",
+    }
+
+
+def _audit_packet_next_actions(packet: dict[str, Any] | None) -> list[dict[str, Any]]:
+    if not packet:
+        return []
+    rows = packet.get("next_actions", [])
+    if not isinstance(rows, list):
+        return []
+    normalized: list[dict[str, Any]] = []
+    for index, item in enumerate(rows):
+        default_priority = "P1" if index == 0 else "P2"
+        if isinstance(item, dict):
+            action = item.get("action") or item.get("name") or item.get("title") or "Review audit finding"
+            reason = item.get("reason") or item.get("detail") or item.get("evidence") or ""
+            normalized.append(
+                {
+                    "priority": str(item.get("priority") or default_priority),
+                    "action": str(action),
+                    "reason": str(reason),
+                }
+            )
+        else:
+            normalized.append(
+                {
+                    "priority": default_priority,
+                    "action": str(item),
+                    "reason": "Imported from the independent GUI audit packet.",
+                }
+            )
+    return normalized
+
+
+def _dedupe_audit_actions(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    deduped: list[dict[str, Any]] = []
+    seen_actions: set[str] = set()
+    for row in rows:
+        action = str(row.get("action", ""))
+        if action in seen_actions:
+            continue
+        seen_actions.add(action)
+        deduped.append(row)
+    return deduped
 
 
 def _audit_packets(root: Path) -> dict[str, Any]:

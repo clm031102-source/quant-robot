@@ -494,6 +494,7 @@ function renderControlCenter() {
   const auditRepairQueue = auditScorecard.repair_queue || [];
   const auditPackets = control.audit_packets || {};
   const auditPacketRows = auditPackets.rows || [];
+  const auditFeedback = control.audit_feedback || {};
   const operatorTimeline = control.operator_timeline || {};
   const timelineEvents = operatorTimeline.events || [];
   const runHistorySpec = control.run_history || {};
@@ -549,9 +550,9 @@ function renderControlCenter() {
   byId("control-audit-scorecard").innerHTML = [
     `
     <div class="list-row warn">
-      <strong>${escapeHtml(`${auditSummary.local_self_check_score ?? "--"} / ${auditSummary.max_score ?? "--"} local self-check`)}</strong>
+      <strong>${escapeHtml(`${auditSummary.independent_audit_score ?? auditSummary.local_self_check_score ?? "--"} / ${auditSummary.max_score ?? "--"} ${auditSummary.score_source === "independent_gui_audit_packet" ? "independent audit" : "local self-check"}`)}</strong>
       <span>${escapeHtml(`${auditSummary.cadence_hours ?? "--"}h cadence / ${auditSummary.automation_id || "audit automation"}`)}</span>
-      <span>${escapeHtml(auditSummary.independent_audit_complete ? "Independent audit complete" : "Independent 5h audit still required")}</span>
+      <span>${escapeHtml(auditSummary.independent_audit_complete ? `Independent audit complete / ${auditSummary.independent_audit_verdict || "review"}` : "Independent 5h audit still required")}</span>
     </div>
     `,
   ].concat(auditCategories.slice(0, 6).map((item) => `
@@ -562,6 +563,7 @@ function renderControlCenter() {
     </div>
   `)).join("");
   byId("control-audit-packets").innerHTML = renderAuditPackets(auditPacketRows);
+  byId("control-audit-feedback").innerHTML = renderAuditFeedback(auditFeedback);
   byId("control-operator-timeline").innerHTML = timelineEvents.slice(0, 7).map((item) => `
     <div class="list-row ${escapeHtml(item.status === "done" || item.status === "active" ? "ok" : item.status === "blocked" ? "danger" : "warn")}">
       <strong>${escapeHtml(item.label || item.event_id || "")}</strong>
@@ -1529,6 +1531,33 @@ function renderAuditPackets(rows) {
       </div>
     `;
   }).join("");
+}
+
+function renderAuditFeedback(feedback = {}) {
+  const summary = feedback.summary || {};
+  const actions = feedback.next_actions || [];
+  const status = feedback.status || "packet_missing";
+  const statusClass = status === "packet_present" ? "ok" : status === "packet_invalid" ? "danger" : "warn";
+  const scoreText = summary.score == null ? "--" : `${summary.score} / ${summary.max_score ?? "--"}`;
+  const header = `
+    <div class="list-row ${escapeHtml(statusClass)}">
+      <strong>${escapeHtml(`${scoreText} / ${summary.verdict || status}`)}</strong>
+      <span>${escapeHtml(summary.generated_at || summary.source_path || "")}</span>
+      <span>${escapeHtml(feedback.evidence || "")}</span>
+    </div>
+  `;
+  const actionRows = actions.slice(0, 5).map((item) => `
+    <div class="list-row ${escapeHtml(item.priority === "P0" ? "danger" : item.priority === "P1" ? "warn" : "ok")}">
+      <strong>${escapeHtml(`${item.priority || "--"} / ${item.action || ""}`)}</strong>
+      <span>${escapeHtml(item.reason || item.command || "")}</span>
+    </div>
+  `).join("");
+  return header + (actionRows || `
+    <div class="list-row warn">
+      <strong>No audit feedback actions</strong>
+      <span>Review the independent audit packet before the next GUI optimization round.</span>
+    </div>
+  `);
 }
 
 function loadRunHistory(spec = {}) {

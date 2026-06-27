@@ -492,6 +492,10 @@ button {
   max-height: 236px;
 }
 
+.audit-feedback-list {
+  max-height: 236px;
+}
+
 .operator-timeline-list,
 .run-history-list,
 .audit-repair-list {

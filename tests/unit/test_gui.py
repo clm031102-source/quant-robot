@@ -71,6 +71,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("operator_timeline", result)
         self.assertIn("run_history", result)
         self.assertIn("audit_packets", result)
+        self.assertIn("audit_feedback", result)
         self.assertIn("safety", result)
         self.assertIn("automation", result)
         self.assertFalse(result["safety"]["live_trading_allowed"])
@@ -100,9 +101,14 @@ class GuiSnapshotTests(unittest.TestCase):
             result["audit_packets"]["summary"]["independent_audit_complete"],
         )
         self.assertGreaterEqual(len(result["audit_scorecard"]["categories"]), 5)
-        self.assertGreaterEqual(len(result["audit_scorecard"]["repair_queue"]), 3)
+        self.assertGreaterEqual(len(result["audit_scorecard"]["repair_queue"]), 2)
         self.assertTrue(any(item["category_id"] == "paper_live_boundary" for item in result["audit_scorecard"]["categories"]))
-        self.assertTrue(any(item["priority"] == "P0" for item in result["audit_scorecard"]["repair_queue"]))
+        if result["audit_packets"]["summary"]["independent_audit_complete"]:
+            self.assertFalse(
+                any(item["action"] == "Run independent 5h GUI audit" for item in result["audit_scorecard"]["repair_queue"])
+            )
+        else:
+            self.assertTrue(any(item["priority"] == "P0" for item in result["audit_scorecard"]["repair_queue"]))
         self.assertEqual(result["operator_timeline"]["stage"], "operator_timeline")
         self.assertGreaterEqual(len(result["operator_timeline"]["events"]), 6)
         self.assertTrue(any(item["event_id"] == "audit_repair_queue" for item in result["operator_timeline"]["events"]))
@@ -116,10 +122,65 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertTrue(any(item["packet_id"] == "project_audit" for item in result["audit_packets"]["rows"]))
         self.assertTrue(any(item["packet_id"] == "promotion_review_packet" for item in result["audit_packets"]["rows"]))
         self.assertTrue(any("run_gui_control_center_audit.py" in item["command"] for item in result["audit_packets"]["rows"]))
+        self.assertEqual(result["audit_feedback"]["stage"], "gui_audit_feedback")
+        self.assertIn(result["audit_feedback"]["status"], {"packet_present", "packet_missing", "packet_invalid"})
+        self.assertIn("required_missing_audit_packets", result["audit_feedback"]["summary"])
+        self.assertIn("next_action_count", result["audit_feedback"]["summary"])
         self.assertTrue(any(item["kind"] == "logs" for item in result["report_links"]))
         self.assertTrue(any(item["kind"] == "audit_packet" for item in result["report_links"]))
         self.assertEqual(result["run_queue"]["active"]["workflow_id"], "research_backtest")
         self.assertGreaterEqual(result["run_queue"]["summary"]["pending"], 1)
+
+    def test_control_center_uses_independent_audit_packet_as_next_optimization_input(self):
+        from quant_robot.gui.control_center import build_control_center_snapshot
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            packet_dir = root / "data" / "reports" / "gui_control_center_audit"
+            packet_dir.mkdir(parents=True)
+            (packet_dir / "gui_control_center_audit.json").write_text(
+                json.dumps(
+                    {
+                        "stage": "gui_control_center_independent_audit",
+                        "generated_at": "2026-06-28T00:00:00+00:00",
+                        "score": 88,
+                        "max_score": 100,
+                        "verdict": "needs_repair",
+                        "next_actions": [
+                            {
+                                "priority": "P1",
+                                "action": "Tighten audit feedback loop",
+                                "reason": "Use packet-driven fixes as the next GUI optimization queue.",
+                            },
+                            {
+                                "priority": "P1",
+                                "action": "Tighten audit feedback loop",
+                                "reason": "Duplicate packet actions should not clutter the GUI queue.",
+                            }
+                        ],
+                        "safety": {"live_trading_allowed": False},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = build_control_center_snapshot(repo_root=root)
+
+        self.assertTrue(result["audit_scorecard"]["summary"]["independent_audit_complete"])
+        self.assertEqual(result["audit_scorecard"]["summary"]["score_source"], "independent_gui_audit_packet")
+        self.assertEqual(result["audit_scorecard"]["summary"]["independent_audit_score"], 88)
+        self.assertEqual(result["audit_scorecard"]["summary"]["independent_audit_verdict"], "needs_repair")
+        self.assertEqual(result["audit_feedback"]["status"], "packet_present")
+        self.assertEqual(result["audit_feedback"]["summary"]["score"], 88)
+        self.assertEqual(result["audit_feedback"]["summary"]["verdict"], "needs_repair")
+        self.assertTrue(
+            any(item["action"] == "Tighten audit feedback loop" for item in result["audit_feedback"]["next_actions"])
+        )
+        feedback_actions = [item["action"] for item in result["audit_feedback"]["next_actions"]]
+        self.assertEqual(feedback_actions.count("Tighten audit feedback loop"), 1)
+        self.assertFalse(
+            any(item["action"] == "Run independent 5h GUI audit" for item in result["audit_scorecard"]["repair_queue"])
+        )
 
     def test_gui_control_center_audit_script_writes_packet(self):
         from scripts.run_gui_control_center_audit import run_gui_control_center_audit
@@ -856,6 +917,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("control-audit-repair-queue", html)
             self.assertIn("control-run-history", html)
             self.assertIn("control-audit-packets", html)
+            self.assertIn("control-audit-feedback", html)
             self.assertIn("control-method-steps", html)
             self.assertIn("control-result-slots", html)
             self.assertIn("control-workflow-commands", html)
@@ -943,10 +1005,12 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("control-audit-repair-queue", app_js)
             self.assertIn("control-run-history", app_js)
             self.assertIn("control-audit-packets", app_js)
+            self.assertIn("control-audit-feedback", app_js)
             self.assertIn("RUN_HISTORY_STORAGE_KEY", app_js)
             self.assertIn("appendRunHistory", app_js)
             self.assertIn("renderRunHistory", app_js)
             self.assertIn("renderAuditPackets", app_js)
+            self.assertIn("renderAuditFeedback", app_js)
             self.assertIn("localStorage", app_js)
             self.assertIn("control-workflow-commands", app_js)
             self.assertIn("control-report-links", app_js)
@@ -983,6 +1047,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("operator_timeline", control)
             self.assertIn("run_history", control)
             self.assertIn("audit_packets", control)
+            self.assertIn("audit_feedback", control)
             self.assertFalse(control["safety"]["live_trading_allowed"])
 
             project = _read_json(f"{base_url}/api/project/status")
