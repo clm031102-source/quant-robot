@@ -438,6 +438,8 @@ function renderControlCenter() {
   const work = control.work || {};
   const backtest = control.backtest || {};
   const method = control.method || {};
+  const workflows = control.workflows || [];
+  const reportLinks = control.report_links || [];
   const safety = control.safety || {};
   const automation = control.automation || {};
   const metrics = state.research?.metrics || {};
@@ -479,6 +481,19 @@ function renderControlCenter() {
     metric("Relative", formatPercent(benchmark.relative_return), "benchmark"),
     metric("Paper equity", formatNumber(paperMetrics.ending_equity), "paper"),
   ].join("");
+  byId("control-workflow-commands").innerHTML = workflows.slice(0, 5).map((item) => `
+    <div class="list-row">
+      <strong>${escapeHtml(item.label || item.workflow_id || "")}</strong>
+      <span>${escapeHtml(item.command || "")}</span>
+      <span>${escapeHtml(item.safety || item.mode || "local")}</span>
+    </div>
+  `).join("");
+  byId("control-report-links").innerHTML = reportLinks.slice(0, 8).map((item) => `
+    <div class="list-row ${escapeHtml(item.status === "present" || item.status === "available" ? "ok" : "warn")}">
+      <strong>${escapeHtml(item.label || item.kind || "")}</strong>
+      <span>${escapeHtml(item.kind || "")} / ${escapeHtml(item.path || "")}</span>
+    </div>
+  `).join("");
   byId("control-safety-boundary").innerHTML = statusRows([
     ["Paper", safety.paper_trading_allowed ? "allowed by gates" : "blocked until gates pass", safety.paper_trading_allowed ? "ok" : "warn"],
     ["Live", safety.live_trading_allowed ? "allowed" : "disabled", safety.live_trading_allowed ? "ok" : "danger"],

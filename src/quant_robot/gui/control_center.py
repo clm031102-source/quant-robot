@@ -13,6 +13,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     root = Path(repo_root) if repo_root is not None else _repo_root()
     branch = _git_branch(root)
     artifacts = _artifact_status(root)
+    backtest = _default_backtest()
 
     return {
         "stage": "gui_control_center",
@@ -25,25 +26,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
             or "Build and continuously improve the Quant Robot GUI control center MVP.",
             "branch_policy": "Use a codex/ task branch for GUI work; keep main stable.",
         },
-        "backtest": {
-            "source": "processed-bars",
-            "data_root": "data/processed/etf_csv",
-            "market": "CN_ETF",
-            "factor": "momentum_2",
-            "factor_windows": "5,10,20,60,120",
-            "top_n": 2,
-            "cost_bps": 5.0,
-            "rebalance_interval": 5,
-            "execution_lag": 1,
-            "forward_horizon": 1,
-            "start_date": "2026-01-01",
-            "end_date": "2026-05-21",
-            "benchmark_asset_id": "CN_ETF_XSHG_510300",
-            "cash_annual_return": 0.015,
-            "regime_filter": True,
-            "regime_lookback": 3,
-            "max_drawdown_limit": 0.25,
-        },
+        "backtest": backtest,
         "method": {
             "title": "Backtest path",
             "steps": [
@@ -57,6 +40,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
                 {"step": 8, "name": "Record artifacts", "detail": "Expose local reports and logs without committing generated data."},
             ],
         },
+        "workflows": _workflow_commands(backtest),
         "results": {
             "source": "Run research or paper workflow to populate live result values in the browser.",
             "metrics": [
@@ -71,6 +55,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
             ],
         },
         "artifacts": artifacts,
+        "report_links": _report_links(root, artifacts),
         "safety": {
             "notice": SAFETY_NOTICE,
             "paper_trading_allowed": False,
@@ -89,6 +74,107 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parents[3]
+
+
+def _default_backtest() -> dict[str, Any]:
+    return {
+        "source": "processed-bars",
+        "data_root": "data/processed/etf_csv",
+        "market": "CN_ETF",
+        "factor": "momentum_2",
+        "factor_windows": "5,10,20,60,120",
+        "top_n": 2,
+        "cost_bps": 5.0,
+        "rebalance_interval": 5,
+        "execution_lag": 1,
+        "forward_horizon": 1,
+        "start_date": "2026-01-01",
+        "end_date": "2026-05-21",
+        "benchmark_asset_id": "CN_ETF_XSHG_510300",
+        "cash_annual_return": 0.015,
+        "regime_filter": True,
+        "regime_lookback": 3,
+        "max_drawdown_limit": 0.25,
+    }
+
+
+def _workflow_commands(backtest: dict[str, Any]) -> list[dict[str, Any]]:
+    query = (
+        f"source={backtest['source']}&data_root={backtest['data_root']}&market={backtest['market']}"
+        f"&factor={backtest['factor']}&factor_windows={backtest['factor_windows']}&top_n={backtest['top_n']}"
+        f"&cost_bps={backtest['cost_bps']}&start_date={backtest['start_date']}&end_date={backtest['end_date']}"
+        f"&rebalance_interval={backtest['rebalance_interval']}&benchmark_asset_id={backtest['benchmark_asset_id']}"
+        f"&cash_annual_return={backtest['cash_annual_return']}&regime_filter=true&regime_lookback={backtest['regime_lookback']}"
+        f"&max_drawdown_limit={backtest['max_drawdown_limit']}"
+    )
+    return [
+        {
+            "workflow_id": "gui_start",
+            "label": "Start local GUI",
+            "command": "python scripts\\run_gui.py --host 127.0.0.1 --port 8765",
+            "endpoint": "/",
+            "mode": "local",
+            "safety": "no broker, no account reads, no orders",
+        },
+        {
+            "workflow_id": "research_backtest",
+            "label": "Run research backtest",
+            "command": f"GET /api/research?{query}",
+            "endpoint": f"/api/research?{query}",
+            "mode": "local",
+            "safety": "research calculation only",
+        },
+        {
+            "workflow_id": "signal_snapshot",
+            "label": "Generate advisory signal snapshot",
+            "command": (
+                f"GET /api/signals?source={backtest['source']}&data_root={backtest['data_root']}"
+                f"&market={backtest['market']}&factor={backtest['factor']}&top_n={backtest['top_n']}"
+                "&max_asset_weight=0.4&min_cash_weight=0.1"
+            ),
+            "endpoint": "/api/signals",
+            "mode": "local",
+            "safety": "advisory targets only, executable=false",
+        },
+        {
+            "workflow_id": "paper_simulation",
+            "label": "Run local paper simulation",
+            "command": (
+                f"GET /api/paper?source={backtest['source']}&data_root={backtest['data_root']}"
+                f"&market={backtest['market']}&factor={backtest['factor']}&top_n={backtest['top_n']}"
+                f"&start_date={backtest['start_date']}&end_date={backtest['end_date']}"
+                "&initial_cash=100000&commission_bps=5&slippage_bps=5&max_asset_weight=0.4&min_cash_weight=0.1"
+            ),
+            "endpoint": "/api/paper",
+            "mode": "local",
+            "safety": "simulated fills only",
+        },
+        {
+            "workflow_id": "project_audit",
+            "label": "Run project audit",
+            "command": "python scripts\\run_project_audit.py --json",
+            "endpoint": "",
+            "mode": "local",
+            "safety": "code and config audit only",
+        },
+    ]
+
+
+def _report_links(root: Path, artifacts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    links = [
+        {"kind": "logs", "label": "GUI logs page", "path": "#page-logs", "status": "available"},
+        {"kind": "reports", "label": "Local report directory", "path": "data/reports", "status": "present" if (root / "data/reports").exists() else "missing"},
+    ]
+    links.extend(
+        {
+            "kind": "artifact",
+            "label": artifact["artifact_id"],
+            "path": artifact["path"],
+            "status": artifact["status"],
+        }
+        for artifact in artifacts
+    )
+    return links
 
 
 def _git_branch(root: Path) -> str:

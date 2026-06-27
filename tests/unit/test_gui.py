@@ -60,10 +60,15 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("method", result)
         self.assertIn("results", result)
         self.assertIn("artifacts", result)
+        self.assertIn("workflows", result)
+        self.assertIn("report_links", result)
         self.assertIn("safety", result)
         self.assertIn("automation", result)
         self.assertFalse(result["safety"]["live_trading_allowed"])
         self.assertGreaterEqual(len(result["method"]["steps"]), 6)
+        self.assertGreaterEqual(len(result["workflows"]), 4)
+        self.assertTrue(all(item["mode"] == "local" for item in result["workflows"]))
+        self.assertTrue(any(item["kind"] == "logs" for item in result["report_links"]))
 
     def test_demo_research_payload_contains_metrics_tables_decision_and_demo_label(self):
         result = run_demo_research(
@@ -772,6 +777,8 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("control-backtest-status", html)
             self.assertIn("control-method-steps", html)
             self.assertIn("control-result-slots", html)
+            self.assertIn("control-workflow-commands", html)
+            self.assertIn("control-report-links", html)
             self.assertIn("control-safety-boundary", html)
             self.assertIn("control-audit-cadence", html)
             self.assertIn("command-card", html)
@@ -845,6 +852,8 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("runStartupWorkflows", app_js)
             self.assertIn("/api/control/status", app_js)
             self.assertIn("renderControlCenter", app_js)
+            self.assertIn("control-workflow-commands", app_js)
+            self.assertIn("control-report-links", app_js)
             startup_block = app_js.split('document.addEventListener("DOMContentLoaded", async () => {', 1)[1].split("});", 1)[0]
             self.assertIn("await loadControlCenter();", startup_block)
             self.assertIn("await loadRiskCandidates();", startup_block)
@@ -866,6 +875,8 @@ class GuiHttpTests(unittest.TestCase):
             self.assertEqual(control["stage"], "gui_control_center")
             self.assertIn("backtest", control)
             self.assertIn("method", control)
+            self.assertIn("workflows", control)
+            self.assertIn("report_links", control)
             self.assertFalse(control["safety"]["live_trading_allowed"])
 
             project = _read_json(f"{base_url}/api/project/status")
