@@ -45,10 +45,11 @@ def run_gui_browser_smoke(
                     "control-center-board",
                     "control-backtest-status",
                     "control-audit-feedback",
+                    "control-audit-iteration-plan",
                     "control-safety-boundary",
                 ]
             ),
-            "Home page exposes the control-center board, backtest status, audit feedback, and safety boundary.",
+            "Home page exposes the control-center board, backtest status, audit feedback, audit iteration plan, and safety boundary.",
             index_html.get("error") or "Home page is missing one or more required GUI anchors.",
         )
     )
@@ -58,8 +59,9 @@ def run_gui_browser_smoke(
             "Frontend script",
             app_js.get("ok")
             and "renderControlCenter" in str(app_js.get("body", ""))
-            and "renderAuditFeedback" in str(app_js.get("body", "")),
-            "Frontend script includes control-center and audit-feedback renderers.",
+            and "renderAuditFeedback" in str(app_js.get("body", ""))
+            and "renderAuditIterationPlan" in str(app_js.get("body", "")),
+            "Frontend script includes control-center, audit-feedback, and audit-iteration renderers.",
             app_js.get("error") or "Frontend script is missing required renderer hooks.",
         )
     )
@@ -86,13 +88,25 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "audit_iteration_plan_panel",
+            "Audit iteration plan contract",
+            control.get("ok")
+            and control_body.get("audit_iteration_plan", {}).get("stage") == "gui_audit_iteration_plan"
+            and bool(control_body.get("audit_iteration_plan", {}).get("rows")),
+            "Control API exposes audit_iteration_plan rows that turn audit findings into visible acceptance gates.",
+            control.get("error") or "Control API is missing audit_iteration_plan rows.",
+        )
+    )
+    checks.append(
+        _check(
             "responsive_contract",
             "Responsive layout contract",
             styles_css.get("ok")
             and "@media" in str(styles_css.get("body", ""))
-            and ".audit-feedback-list" in str(styles_css.get("body", "")),
-            "Stylesheet contains responsive breakpoints and audit-feedback sizing rules.",
-            styles_css.get("error") or "Stylesheet is missing responsive or audit-feedback layout rules.",
+            and ".audit-feedback-list" in str(styles_css.get("body", ""))
+            and ".audit-iteration-list" in str(styles_css.get("body", "")),
+            "Stylesheet contains responsive breakpoints plus audit-feedback and audit-iteration sizing rules.",
+            styles_css.get("error") or "Stylesheet is missing responsive or audit-iteration layout rules.",
         )
     )
     safety = control_body.get("safety", {}) if isinstance(control_body.get("safety"), dict) else {}

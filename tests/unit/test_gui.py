@@ -74,6 +74,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("execution_receipts", result)
         self.assertIn("audit_packets", result)
         self.assertIn("audit_feedback", result)
+        self.assertIn("audit_iteration_plan", result)
         self.assertIn("safety", result)
         self.assertIn("automation", result)
         self.assertFalse(result["safety"]["live_trading_allowed"])
@@ -156,6 +157,20 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn(result["audit_feedback"]["status"], {"packet_present", "packet_missing", "packet_invalid"})
         self.assertIn("required_missing_audit_packets", result["audit_feedback"]["summary"])
         self.assertIn("next_action_count", result["audit_feedback"]["summary"])
+        self.assertEqual(result["audit_iteration_plan"]["stage"], "gui_audit_iteration_plan")
+        self.assertIn("active_actions", result["audit_iteration_plan"]["summary"])
+        self.assertIn("source", result["audit_iteration_plan"]["summary"])
+        self.assertGreaterEqual(len(result["audit_iteration_plan"]["rows"]), 1)
+        self.assertTrue(all(item.get("verification_command") for item in result["audit_iteration_plan"]["rows"]))
+        self.assertTrue(all(item.get("acceptance_evidence") for item in result["audit_iteration_plan"]["rows"]))
+        self.assertTrue(
+            any(
+                item["action_id"] == "live_boundary_guard"
+                and item["status"] == "blocked_expected"
+                and "No broker connection" in item["acceptance_evidence"]
+                for item in result["audit_iteration_plan"]["rows"]
+            )
+        )
         self.assertTrue(any(item["kind"] == "logs" for item in result["report_links"]))
         self.assertTrue(any(item["kind"] == "audit_packet" for item in result["report_links"]))
         self.assertEqual(result["run_queue"]["active"]["workflow_id"], "research_backtest")
@@ -206,6 +221,16 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertTrue(
             any(item["action"] == "Tighten audit feedback loop" for item in result["audit_feedback"]["next_actions"])
         )
+        self.assertEqual(result["audit_iteration_plan"]["summary"]["source"], "independent_gui_audit_packet")
+        self.assertEqual(result["audit_iteration_plan"]["summary"]["audit_score"], 88)
+        self.assertTrue(
+            any(
+                item["action"] == "Tighten audit feedback loop"
+                and item["status"] == "queued"
+                and "next GUI optimization queue" in item["acceptance_evidence"]
+                for item in result["audit_iteration_plan"]["rows"]
+            )
+        )
         feedback_actions = [item["action"] for item in result["audit_feedback"]["next_actions"]]
         self.assertEqual(feedback_actions.count("Tighten audit feedback loop"), 1)
         self.assertFalse(
@@ -254,6 +279,7 @@ class GuiSnapshotTests(unittest.TestCase):
                 self.assertIn("index_html", check_ids)
                 self.assertIn("control_status_api", check_ids)
                 self.assertIn("audit_feedback_panel", check_ids)
+                self.assertIn("audit_iteration_plan_panel", check_ids)
                 self.assertIn("responsive_contract", check_ids)
                 self.assertIn("live_boundary", check_ids)
                 self.assertFalse(packet["safety"]["live_trading_allowed"])
@@ -984,6 +1010,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("control-execution-receipts", html)
             self.assertIn("control-audit-packets", html)
             self.assertIn("control-audit-feedback", html)
+            self.assertIn("control-audit-iteration-plan", html)
             self.assertIn("control-method-steps", html)
             self.assertIn("control-result-slots", html)
             self.assertIn("control-workflow-commands", html)
@@ -1085,6 +1112,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("paperReceipt", app_js)
             self.assertIn("renderAuditPackets", app_js)
             self.assertIn("renderAuditFeedback", app_js)
+            self.assertIn("renderAuditIterationPlan", app_js)
             self.assertIn("renderReleaseReadiness", app_js)
             self.assertIn("localStorage", app_js)
             self.assertIn("control-workflow-commands", app_js)
@@ -1125,6 +1153,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("execution_receipts", control)
             self.assertIn("audit_packets", control)
             self.assertIn("audit_feedback", control)
+            self.assertIn("audit_iteration_plan", control)
             self.assertFalse(control["safety"]["live_trading_allowed"])
 
             project = _read_json(f"{base_url}/api/project/status")

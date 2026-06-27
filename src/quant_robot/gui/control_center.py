@@ -24,6 +24,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     latest_gui_audit = audit_packet_source.get("packet") if audit_packet_source.get("status") == "packet_present" else None
     audit_scorecard = _audit_scorecard(verification_gates, readiness_matrix, artifacts, audit_packets, latest_gui_audit)
     audit_feedback = _audit_feedback(audit_packet_source, audit_packets)
+    audit_iteration_plan = _audit_iteration_plan(audit_feedback, audit_scorecard, verification_gates, readiness_matrix)
     release_readiness = _release_readiness(verification_gates, audit_packets, readiness_matrix)
 
     return {
@@ -64,6 +65,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "execution_receipts": _execution_receipts_spec(),
         "audit_packets": audit_packets,
         "audit_feedback": audit_feedback,
+        "audit_iteration_plan": audit_iteration_plan,
         "results": {
             "source": "Run research or paper workflow to populate live result values in the browser.",
             "metrics": [
@@ -800,6 +802,92 @@ def _audit_feedback(packet_source: dict[str, Any], audit_packets: dict[str, Any]
         "next_actions": next_actions,
         "evidence": "Create a valid independent GUI audit packet before using audit feedback as optimization input.",
     }
+
+
+def _audit_iteration_plan(
+    audit_feedback: dict[str, Any],
+    audit_scorecard: dict[str, Any],
+    verification_gates: list[dict[str, Any]],
+    readiness_matrix: dict[str, Any],
+) -> dict[str, Any]:
+    score_summary = audit_scorecard.get("summary", {})
+    source = str(score_summary.get("score_source") or "local_self_check_not_independent_audit")
+    feedback_status = str(audit_feedback.get("status") or "packet_missing")
+    next_actions = [
+        item for item in audit_feedback.get("next_actions", []) if isinstance(item, dict)
+    ]
+    rows: list[dict[str, Any]] = []
+    for index, action in enumerate(next_actions[:6]):
+        action_label = str(action.get("action") or "Review audit finding")
+        reason = str(action.get("reason") or "The next GUI audit should confirm this finding has an operator-visible fix.")
+        rows.append(
+            {
+                "action_id": _audit_action_id(action_label, index),
+                "priority": str(action.get("priority") or ("P1" if index == 0 else "P2")),
+                "action": action_label,
+                "status": "queued" if feedback_status == "packet_present" else "blocked_missing_audit",
+                "source": source,
+                "acceptance_evidence": reason,
+                "verification_command": _audit_iteration_verification_command(action_label, verification_gates),
+                "next_review": "Re-run the independent 5h GUI audit after this action is implemented.",
+            }
+        )
+
+    live_row = next(
+        (row for row in readiness_matrix.get("rows", []) if row.get("mode_id") == "live_trading"),
+        {},
+    )
+    rows.append(
+        {
+            "action_id": "live_boundary_guard",
+            "priority": "P0",
+            "action": "Keep live trading boundary blocked",
+            "status": "blocked_expected",
+            "source": "project_safety_policy",
+            "acceptance_evidence": str(live_row.get("evidence") or live_row.get("guardrail") or SAFETY_NOTICE),
+            "verification_command": _gate_command(verification_gates, "project_audit"),
+            "next_review": "Every GUI audit must keep broker/account/order/live trading disabled.",
+        }
+    )
+    active_actions = sum(1 for row in rows if row["status"] == "queued")
+    blocked_expected = sum(1 for row in rows if row["status"] == "blocked_expected")
+    return {
+        "stage": "gui_audit_iteration_plan",
+        "summary": {
+            "source": source,
+            "audit_score": score_summary.get("independent_audit_score")
+            if source == "independent_gui_audit_packet"
+            else score_summary.get("local_self_check_score"),
+            "max_score": score_summary.get("max_score"),
+            "verdict": score_summary.get("independent_audit_verdict", ""),
+            "cadence_hours": score_summary.get("cadence_hours", 5),
+            "active_actions": active_actions,
+            "blocked_expected": blocked_expected,
+            "next_action": rows[0]["action"] if rows else "Run independent 5h GUI audit",
+        },
+        "rows": rows,
+    }
+
+
+def _audit_action_id(action: str, index: int) -> str:
+    lowered = action.strip().lower()
+    chars = [char if char.isalnum() else "_" for char in lowered]
+    slug = "_".join(part for part in "".join(chars).split("_") if part)
+    return slug[:48] or f"audit_action_{index + 1}"
+
+
+def _audit_iteration_verification_command(action: str, verification_gates: list[dict[str, Any]]) -> str:
+    lowered = action.lower()
+    if "packet" in lowered or "audit" in lowered:
+        return "python scripts\\run_gui_control_center_audit.py --output-dir data\\reports\\gui_control_center_audit"
+    if "browser" in lowered or "visible" in lowered or "render" in lowered:
+        return "Browser check http://127.0.0.1:8765/ and 390x844"
+    return _gate_command(verification_gates, "gui_unit_tests")
+
+
+def _gate_command(verification_gates: list[dict[str, Any]], gate_id: str) -> str:
+    gate = next((item for item in verification_gates if item.get("gate_id") == gate_id), {})
+    return str(gate.get("command") or "python -m unittest -v tests.unit.test_gui")
 
 
 def _audit_packet_next_actions(packet: dict[str, Any] | None) -> list[dict[str, Any]]:

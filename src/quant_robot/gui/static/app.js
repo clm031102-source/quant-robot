@@ -505,6 +505,7 @@ function renderControlCenter() {
   const auditPackets = control.audit_packets || {};
   const auditPacketRows = auditPackets.rows || [];
   const auditFeedback = control.audit_feedback || {};
+  const auditIterationPlan = control.audit_iteration_plan || {};
   const operatorTimeline = control.operator_timeline || {};
   const timelineEvents = operatorTimeline.events || [];
   const runHistorySpec = control.run_history || {};
@@ -576,6 +577,7 @@ function renderControlCenter() {
   `)).join("");
   byId("control-audit-packets").innerHTML = renderAuditPackets(auditPacketRows);
   byId("control-audit-feedback").innerHTML = renderAuditFeedback(auditFeedback);
+  byId("control-audit-iteration-plan").innerHTML = renderAuditIterationPlan(auditIterationPlan);
   byId("control-operator-timeline").innerHTML = timelineEvents.slice(0, 7).map((item) => `
     <div class="list-row ${escapeHtml(item.status === "done" || item.status === "active" ? "ok" : item.status === "blocked" ? "danger" : "warn")}">
       <strong>${escapeHtml(item.label || item.event_id || "")}</strong>
@@ -1569,6 +1571,36 @@ function renderAuditFeedback(feedback = {}) {
     <div class="list-row warn">
       <strong>No audit feedback actions</strong>
       <span>Review the independent audit packet before the next GUI optimization round.</span>
+    </div>
+  `);
+}
+
+function renderAuditIterationPlan(plan = {}) {
+  const summary = plan.summary || {};
+  const rows = plan.rows || [];
+  const headerClass = summary.active_actions > 0 ? "warn" : "ok";
+  const header = `
+    <div class="list-row ${escapeHtml(headerClass)}">
+      <strong>${escapeHtml(`${summary.audit_score ?? "--"} / ${summary.max_score ?? "--"} ${summary.source || "audit source"}`)}</strong>
+      <span>${escapeHtml(`actions=${summary.active_actions ?? "--"} / cadence=${summary.cadence_hours ?? "--"}h`)}</span>
+      <span>${escapeHtml(summary.next_action || "")}</span>
+    </div>
+  `;
+  const body = rows.slice(0, 7).map((item) => {
+    const status = item.status || "";
+    const statusClass = status === "blocked_expected" ? "ok" : status === "blocked_missing_audit" ? "danger" : item.priority === "P1" ? "warn" : "ok";
+    return `
+      <div class="list-row ${escapeHtml(statusClass)}">
+        <strong>${escapeHtml(`${item.priority || "--"} / ${item.action || item.action_id || ""}`)}</strong>
+        <span>${escapeHtml(`${status || "--"} / ${item.verification_command || ""}`)}</span>
+        <span>${escapeHtml(item.acceptance_evidence || item.next_review || "")}</span>
+      </div>
+    `;
+  }).join("");
+  return header + (body || `
+    <div class="list-row warn">
+      <strong>No audit iteration actions</strong>
+      <span>Run the independent GUI audit before the next optimization round.</span>
     </div>
   `);
 }

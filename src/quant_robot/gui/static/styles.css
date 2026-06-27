@@ -500,6 +500,10 @@ button {
   max-height: 236px;
 }
 
+.audit-iteration-list {
+  max-height: 236px;
+}
+
 .operator-timeline-list,
 .run-history-list,
 .execution-receipt-list,
