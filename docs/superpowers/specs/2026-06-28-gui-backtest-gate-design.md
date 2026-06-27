@@ -42,12 +42,12 @@ The default panel is intentionally conservative but aligned with the user's tole
 - `sharpe >= 1.0`
 - `total_return >= 0.0`
 - `annualized_return >= 0.05`
-- `max_drawdown <= 0.30`
+- `max_drawdown >= -0.30` because project drawdown metrics are stored as negative values.
 - `win_rate >= 0.50`
 - `trade_count >= 5`
 - `benchmark_relative_return >= 0.0`
-- `paper_ending_equity >= 100000`
-- `execution_receipts` must be present in browser local storage.
+- `paper_ending_equity >= paper_request.initial_cash`
+- `execution_receipts >= 2` and must match the currently displayed research and paper workflow requests.
 - `live_trading_allowed` must remain false.
 
 ## Data Contract
@@ -84,7 +84,7 @@ The default panel is intentionally conservative but aligned with the user's tole
 
 ## UI Design
 
-The panel sits next to result evidence because it answers the next natural question: not just what the metrics are, but whether they meet the paper-handoff floor. Each row shows the metric name, current value or `--`, comparator, threshold, status, and evidence. Live trading is rendered as a positive blocked boundary when disabled.
+The panel sits next to result evidence because it answers the next natural question: not just what the metrics are, but whether they meet the paper-handoff floor. Each row shows the metric name, current value or `--`, comparator, threshold, status, and evidence. The header may show `metrics floor only` when all rows pass but the backend still has `paper_candidate_allowed == false`; the GUI must not promote a result beyond the backend safety contract. Live trading is rendered as a positive blocked boundary when disabled.
 
 ## Testing
 
@@ -100,6 +100,6 @@ The iteration is acceptable when:
 
 - The Dashboard renders a Backtest Gate panel.
 - The panel evaluates current research/paper metrics when they are loaded.
-- Missing metrics are shown as awaiting, not pass/fail.
+- Missing metrics or stale/unmatched receipts are shown as awaiting, not pass/fail.
 - Live trading remains explicitly blocked.
 - GUI unit tests, browser smoke, project audit, independent GUI audit, and real browser desktop/mobile checks pass.

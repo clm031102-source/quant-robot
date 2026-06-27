@@ -194,3 +194,17 @@ git add docs/superpowers/specs/2026-06-28-gui-backtest-gate-design.md docs/super
 git commit -m "feat: add gui backtest gate"
 git push origin codex/gui-control-center-mvp-20260627
 ```
+
+### Task 5: Audit Repair Patch
+
+Independent GUI auditors found that the first implementation could mislead the operator in three ways:
+
+- Drawdown used the wrong sign convention. Project `max_drawdown` values are negative, so the gate must use `max_drawdown >= -0.30`, not `<= 0.30`.
+- Browser receipts must be tied to the currently displayed research and paper requests. Counting all localStorage receipts is not sufficient.
+- The frontend must not label a result as a paper candidate when the backend summary still has `paper_candidate_allowed == false`.
+
+Repair acceptance:
+
+- Unit tests assert the negative drawdown threshold and request-bound receipt metadata.
+- Static frontend assertions require request matching, current safety lookup, paper initial-cash thresholding, and gate rerender after receipt append.
+- Node VM validation confirms stale receipts do not pass the gate, fresh matching research/paper receipts do pass the receipt row, severe negative drawdown fails, and live-trading regressions fail; browser DOM validation confirms the corrected gate renders without overflow.

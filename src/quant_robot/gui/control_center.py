@@ -784,11 +784,11 @@ def _backtest_gate(workflows: list[dict[str, Any]], execution_receipts: dict[str
             label="Max drawdown",
             metric_key="max_drawdown",
             source="research_metrics",
-            comparator="<=",
-            threshold=0.30,
+            comparator=">=",
+            threshold=-0.30,
             value_type="percent",
             command=research_command,
-            evidence="Allow drawdown up to 30% only when return and Sharpe gates are visible.",
+            evidence="Repo drawdown metrics are negative; require max_drawdown >= -30% before paper-observation consideration.",
         ),
         _gate_row(
             gate_id="win_rate",
@@ -833,17 +833,20 @@ def _backtest_gate(workflows: list[dict[str, Any]], execution_receipts: dict[str
             value_type="currency",
             command=paper_command,
             evidence="Paper simulation should not finish below initial cash before observation handoff.",
+            threshold_source="paper_request.initial_cash",
         ),
         _gate_row(
             gate_id="execution_receipts",
             label="Execution receipts",
             metric_key="stored_receipts",
             source="browser_receipts",
-            comparator=">",
-            threshold=0,
+            comparator=">=",
+            threshold=2,
             value_type="number",
             command=f"browser localStorage {receipt_storage_key}",
-            evidence="Require browser-local receipts that tie displayed metrics to workflow runs.",
+            evidence="Require current research and paper receipts that match the displayed workflow requests.",
+            receipt_workflow_ids=["research_backtest", "paper_simulation"],
+            requires_current_request=True,
         ),
         {
             "gate_id": "live_boundary",
@@ -869,7 +872,7 @@ def _backtest_gate(workflows: list[dict[str, Any]], execution_receipts: dict[str
             "receipt_storage_key": receipt_storage_key,
             "next_action": research_command,
             "threshold_count": len(rows),
-            "max_drawdown_threshold": 0.30,
+            "max_drawdown_threshold": -0.30,
         },
         "rows": rows,
     }
@@ -886,8 +889,9 @@ def _gate_row(
     value_type: str,
     command: str,
     evidence: str,
+    **extra: Any,
 ) -> dict[str, Any]:
-    return {
+    row = {
         "gate_id": gate_id,
         "label": label,
         "metric_key": metric_key,
@@ -900,6 +904,8 @@ def _gate_row(
         "command": command,
         "evidence": evidence,
     }
+    row.update(extra)
+    return row
 
 
 def _workflow_trace(

@@ -528,6 +528,8 @@ function renderControlCenter() {
   const metrics = state.research?.metrics || {};
   const benchmark = state.research?.benchmark_metrics || {};
   const paperMetrics = state.paper?.metrics || {};
+  const researchRequest = state.research?.request || {};
+  const paperRequest = state.paper?.request || {};
   const executionReceipts = loadExecutionReceipts(executionReceiptSpec);
   const statusTag = byId("control-center-status");
   if (statusTag) {
@@ -617,6 +619,9 @@ function renderControlCenter() {
     benchmark,
     paperMetrics,
     executionReceipts,
+    researchRequest,
+    paperRequest,
+    state.controlCenter?.safety || safety,
   );
   byId("control-method-steps").innerHTML = (method.steps || []).map((item) => `
     <div class="method-step">
@@ -1750,28 +1755,45 @@ function renderResultEvidence(evidence = {}) {
   `);
 }
 
-function renderBacktestGate(gate = {}, metrics = {}, benchmark = {}, paperMetrics = {}, executionReceipts = []) {
+function renderBacktestGate(
+  gate = {},
+  metrics = {},
+  benchmark = {},
+  paperMetrics = {},
+  executionReceipts = [],
+  researchRequest = {},
+  paperRequest = {},
+  safety = {},
+) {
   const summary = gate.summary || {};
   const rows = gate.rows || [];
   const evaluated = rows.map((item) => {
-    const value = gateMetricValue(item, metrics, benchmark, paperMetrics, executionReceipts);
-    return { item, value, result: evaluateGateRow(item, value) };
+    const value = gateMetricValue(item, metrics, benchmark, paperMetrics, executionReceipts, researchRequest, paperRequest, safety);
+    const threshold = gateThresholdValue(item, paperRequest);
+    return { item, value, threshold, result: evaluateGateRow(item, value, threshold) };
   });
   const failures = evaluated.filter((row) => row.result.status === "failed").length;
   const awaiting = evaluated.filter((row) => row.result.status === "awaiting_metric").length;
   const passed = evaluated.filter((row) => row.result.status === "passed" || row.result.status === "blocked_expected").length;
   const headerClass = failures > 0 ? "danger" : awaiting > 0 ? "warn" : "ok";
+  const headerStatus = failures > 0
+    ? "blocked"
+    : awaiting > 0
+      ? "awaiting metrics"
+      : summary.paper_candidate_allowed
+        ? "paper candidate"
+        : "metrics floor only";
   const header = `
     <div class="list-row ${escapeHtml(headerClass)}">
-      <strong>${escapeHtml(`Backtest gate / ${failures > 0 ? "blocked" : awaiting > 0 ? "awaiting metrics" : "paper candidate"}`)}</strong>
+      <strong>${escapeHtml(`Backtest gate / ${headerStatus}`)}</strong>
       <span>${escapeHtml(`passed=${passed} / awaiting=${awaiting} / failed=${failures}`)}</span>
       <span>${escapeHtml(`risk=${summary.risk_profile || "--"} / live=${summary.live_trading_allowed ? "enabled" : "disabled"}`)}</span>
     </div>
   `;
-  const body = evaluated.slice(0, 10).map(({ item, value, result }) => `
+  const body = evaluated.slice(0, 10).map(({ item, value, threshold, result }) => `
     <div class="list-row ${escapeHtml(result.statusClass)}">
       <strong>${escapeHtml(`${item.label || item.gate_id || ""}: ${formatGateValue(value, item.value_type)}`)}</strong>
-      <span>${escapeHtml(`${result.status} / ${item.comparator || ""} ${formatGateValue(item.threshold, item.value_type)}`)}</span>
+      <span>${escapeHtml(`${result.status} / ${item.comparator || ""} ${formatGateValue(threshold, item.value_type)}`)}</span>
       <span>${escapeHtml(item.evidence || item.command || "")}</span>
     </div>
   `).join("");
@@ -1783,16 +1805,82 @@ function renderBacktestGate(gate = {}, metrics = {}, benchmark = {}, paperMetric
   `);
 }
 
-function gateMetricValue(item = {}, metrics = {}, benchmark = {}, paperMetrics = {}, executionReceipts = []) {
+function gateMetricValue(
+  item = {},
+  metrics = {},
+  benchmark = {},
+  paperMetrics = {},
+  executionReceipts = [],
+  researchRequest = {},
+  paperRequest = {},
+  safety = {},
+) {
   if (item.gate_id === "benchmark_relative_return") return benchmark.relative_return;
   if (item.gate_id === "paper_ending_equity") return paperMetrics.ending_equity;
-  if (item.gate_id === "execution_receipts") return executionReceipts.length;
-  if (item.gate_id === "live_boundary") return false;
+  if (item.gate_id === "execution_receipts") return matchedExecutionReceiptCount(item, executionReceipts, researchRequest, paperRequest);
+  if (item.gate_id === "live_boundary") return safety.live_trading_allowed;
   return metrics[item.metric_key];
 }
 
-function evaluateGateRow(item = {}, value) {
-  if (item.gate_id === "live_boundary") return { status: "blocked_expected", statusClass: "ok" };
+function gateThresholdValue(item = {}, paperRequest = {}) {
+  if (item.threshold_source === "paper_request.initial_cash") return paperInitialCash(paperRequest);
+  return item.threshold;
+}
+
+function paperInitialCash(paperRequest = {}) {
+  const requested = Number(paperRequest.initial_cash);
+  if (Number.isFinite(requested)) return requested;
+  const inputValue = Number(valueOf("paper-initial-cash") || 100000);
+  return Number.isFinite(inputValue) ? inputValue : 100000;
+}
+
+function matchedExecutionReceiptCount(item = {}, executionReceipts = [], researchRequest = {}, paperRequest = {}) {
+  const requiredWorkflows = Array.isArray(item.receipt_workflow_ids) && item.receipt_workflow_ids.length
+    ? item.receipt_workflow_ids
+    : ["research_backtest", "paper_simulation"];
+  const matchedWorkflows = new Set();
+  executionReceipts.forEach((receipt) => {
+    const workflowId = receipt?.workflow_id || "";
+    if (!requiredWorkflows.includes(workflowId)) return;
+    const currentRequest = workflowId === "paper_simulation" ? paperRequest : researchRequest;
+    if (item.requires_current_request && !requestMatchesReceipt(receipt, currentRequest)) return;
+    matchedWorkflows.add(workflowId);
+  });
+  return matchedWorkflows.size;
+}
+
+function requestMatchesReceipt(receipt = {}, currentRequest = {}) {
+  const receiptRequest = receipt.request || {};
+  const keys = ["market", "factor_name", "top_n", "cost_bps", "start_date", "end_date", "initial_cash"];
+  const comparableKeys = keys.filter((key) => (
+    normalizeRequestValue(requestValue(receiptRequest, key)) !== ""
+    || normalizeRequestValue(requestValue(currentRequest, key)) !== ""
+  ));
+  if (comparableKeys.length === 0) return false;
+  return comparableKeys.every((key) => (
+    normalizeRequestValue(requestValue(receiptRequest, key)) === normalizeRequestValue(requestValue(currentRequest, key))
+  ));
+}
+
+function requestValue(request = {}, key) {
+  if (key === "factor_name") return request.factor_name ?? request.factor;
+  return request[key];
+}
+
+function normalizeRequestValue(value) {
+  if (value == null || value === "") return "";
+  const text = String(value).trim();
+  if (!text) return "";
+  const number = Number(text);
+  return Number.isFinite(number) ? String(number) : text;
+}
+
+function evaluateGateRow(item = {}, value, thresholdValue = item.threshold) {
+  if (item.gate_id === "live_boundary") {
+    return value === false
+      ? { status: "blocked_expected", statusClass: "ok" }
+      : { status: "failed", statusClass: "danger" };
+  }
   const number = Number(value);
   if (value == null || value === "" || !Number.isFinite(number)) {
     return { status: "awaiting_metric", statusClass: "warn" };
@@ -1800,7 +1888,7 @@ function evaluateGateRow(item = {}, value) {
   if (item.gate_id === "execution_receipts" && number === 0) {
     return { status: "awaiting_metric", statusClass: "warn" };
   }
-  const threshold = Number(item.threshold);
+  const threshold = Number(thresholdValue);
   let passed = false;
   if (item.comparator === ">=") passed = number >= threshold;
   if (item.comparator === ">") passed = number > threshold;
@@ -1920,6 +2008,7 @@ function appendExecutionReceipt(receipt) {
   };
   saveExecutionReceipts([nextReceipt].concat(loadExecutionReceipts(spec)), spec);
   renderExecutionReceipts(spec);
+  renderControlCenter();
   return nextReceipt;
 }
 
@@ -2056,6 +2145,7 @@ function paperReceipt(result = {}) {
       top_n: request.top_n,
       start_date: request.start_date,
       end_date: request.end_date,
+      initial_cash: request.initial_cash,
     },
     metrics: {
       ending_equity: metrics.ending_equity,
