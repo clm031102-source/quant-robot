@@ -497,6 +497,7 @@ function renderControlCenter() {
   const executionSteps = executionPlan.steps || [];
   const readinessMatrix = control.readiness_matrix || {};
   const readinessRows = readinessMatrix.rows || [];
+  const releaseReadiness = control.release_readiness || {};
   const auditScorecard = control.audit_scorecard || {};
   const auditSummary = auditScorecard.summary || {};
   const auditCategories = auditScorecard.categories || [];
@@ -557,6 +558,7 @@ function renderControlCenter() {
       <span>${escapeHtml(item.guardrail || item.next_action || "")}</span>
     </div>
   `).join("");
+  byId("control-release-readiness").innerHTML = renderReleaseReadiness(releaseReadiness);
   byId("control-audit-scorecard").innerHTML = [
     `
     <div class="list-row warn">
@@ -1567,6 +1569,36 @@ function renderAuditFeedback(feedback = {}) {
     <div class="list-row warn">
       <strong>No audit feedback actions</strong>
       <span>Review the independent audit packet before the next GUI optimization round.</span>
+    </div>
+  `);
+}
+
+function renderReleaseReadiness(readiness = {}) {
+  const summary = readiness.summary || {};
+  const rows = readiness.rows || [];
+  const headerClass = summary.push_ready ? "ok" : summary.missing_required ? "danger" : "warn";
+  const header = `
+    <div class="list-row ${escapeHtml(headerClass)}">
+      <strong>${escapeHtml(summary.push_ready ? "Push ready" : "Manual verification required")}</strong>
+      <span>${escapeHtml(`evidence=${summary.evidence_ready ? "ready" : "missing"} / manual=${summary.manual_required ?? "--"} / missing=${summary.missing_required ?? "--"}`)}</span>
+      <span>${escapeHtml(summary.next_action || "")}</span>
+    </div>
+  `;
+  const body = rows.slice(0, 8).map((item) => {
+    const status = item.status || "";
+    const statusClass = status === "passed_evidence" || status === "blocked_expected" ? "ok" : status === "missing_required" ? "danger" : "warn";
+    return `
+      <div class="list-row ${escapeHtml(statusClass)}">
+        <strong>${escapeHtml(item.label || item.check_id || "")}</strong>
+        <span>${escapeHtml(status || "--")}</span>
+        <span>${escapeHtml(item.evidence || item.command || "")}</span>
+      </div>
+    `;
+  }).join("");
+  return header + (body || `
+    <div class="list-row warn">
+      <strong>No release readiness rows</strong>
+      <span>Run the control-center snapshot to populate local release gates.</span>
     </div>
   `);
 }

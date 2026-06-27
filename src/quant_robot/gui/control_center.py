@@ -24,6 +24,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     latest_gui_audit = audit_packet_source.get("packet") if audit_packet_source.get("status") == "packet_present" else None
     audit_scorecard = _audit_scorecard(verification_gates, readiness_matrix, artifacts, audit_packets, latest_gui_audit)
     audit_feedback = _audit_feedback(audit_packet_source, audit_packets)
+    release_readiness = _release_readiness(verification_gates, audit_packets, readiness_matrix)
 
     return {
         "stage": "gui_control_center",
@@ -56,6 +57,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "operator_checklist": _operator_checklist(verification_gates, artifacts),
         "execution_plan": _execution_plan(workflows, verification_gates),
         "readiness_matrix": readiness_matrix,
+        "release_readiness": release_readiness,
         "audit_scorecard": audit_scorecard,
         "operator_timeline": _operator_timeline(workflows, verification_gates, readiness_matrix, audit_scorecard),
         "run_history": _run_history_spec(),
@@ -243,7 +245,7 @@ def _verification_gates() -> list[dict[str, Any]]:
             "command": "python -m unittest -v tests.unit.test_gui",
             "status": "required_before_push",
             "mode": "local",
-            "evidence": "26 GUI tests should pass before publishing GUI changes.",
+            "evidence": "The GUI unit test suite should pass before publishing GUI changes.",
         },
         {
             "gate_id": "project_audit",
@@ -480,6 +482,90 @@ def _readiness_matrix(
             "live_ready": False,
             "required_gate_count": len(required_gates),
             "missing_artifact_count": len(missing_artifacts),
+        },
+        "rows": rows,
+    }
+
+
+def _release_readiness(
+    verification_gates: list[dict[str, Any]],
+    audit_packets: dict[str, Any],
+    readiness_matrix: dict[str, Any],
+) -> dict[str, Any]:
+    gate_by_id = {gate.get("gate_id"): gate for gate in verification_gates}
+    packet_by_id = {row.get("packet_id"): row for row in audit_packets.get("rows", [])}
+
+    def gate_row(gate_id: str, status: str = "manual_required") -> dict[str, Any]:
+        gate = gate_by_id.get(gate_id, {})
+        return {
+            "check_id": gate_id,
+            "label": gate.get("label", gate_id),
+            "status": status,
+            "command": gate.get("command", ""),
+            "evidence": gate.get("evidence", "Run this local verification command before publishing GUI changes."),
+        }
+
+    def packet_row(packet_id: str, check_id: str) -> dict[str, Any]:
+        packet = packet_by_id.get(packet_id, {})
+        present = packet.get("status") == "present"
+        return {
+            "check_id": check_id,
+            "label": packet.get("label", packet_id),
+            "status": "passed_evidence" if present else "missing_required",
+            "command": packet.get("command", ""),
+            "evidence": (
+                f"Evidence packet present at {packet.get('markdown_path') or packet.get('path', '')}."
+                if present
+                else packet.get("evidence", "Required evidence packet is missing.")
+            ),
+        }
+
+    live_row = next(
+        (row for row in readiness_matrix.get("rows", []) if row.get("mode_id") == "live_trading"),
+        {},
+    )
+    paper_row = next(
+        (row for row in readiness_matrix.get("rows", []) if row.get("mode_id") == "paper_simulation"),
+        {},
+    )
+    rows = [
+        gate_row("gui_unit_tests"),
+        gate_row("gui_compile"),
+        gate_row("sync_audit"),
+        packet_row("project_audit", "project_audit_packet"),
+        packet_row("browser_smoke", "browser_smoke_packet"),
+        packet_row("independent_gui_audit", "independent_gui_audit_packet"),
+        {
+            "check_id": "paper_boundary",
+            "label": paper_row.get("label", "Paper simulation"),
+            "status": paper_row.get("status", "requires_gates"),
+            "command": paper_row.get("next_action", ""),
+            "evidence": paper_row.get("guardrail", "Paper workflow requires local readiness gates."),
+        },
+        {
+            "check_id": "live_boundary",
+            "label": live_row.get("label", "Live trading"),
+            "status": "blocked_expected",
+            "command": "blocked by research-to-paper boundary",
+            "evidence": live_row.get("guardrail", SAFETY_NOTICE),
+        },
+    ]
+    manual_required = sum(1 for row in rows if row["status"] == "manual_required")
+    missing_required = sum(1 for row in rows if row["status"] == "missing_required")
+    passed_evidence = sum(1 for row in rows if row["status"] == "passed_evidence")
+    blocked_expected = sum(1 for row in rows if row["status"] == "blocked_expected")
+    return {
+        "stage": "gui_release_readiness",
+        "summary": {
+            "evidence_ready": missing_required == 0,
+            "push_ready": manual_required == 0 and missing_required == 0,
+            "paper_ready": bool(readiness_matrix.get("summary", {}).get("paper_ready")),
+            "live_ready": False,
+            "manual_required": manual_required,
+            "missing_required": missing_required,
+            "passed_evidence": passed_evidence,
+            "blocked_expected": blocked_expected,
+            "next_action": "Run manual verification pack" if manual_required else "Review release evidence",
         },
         "rows": rows,
     }

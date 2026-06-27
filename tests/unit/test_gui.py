@@ -67,6 +67,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("operator_checklist", result)
         self.assertIn("execution_plan", result)
         self.assertIn("readiness_matrix", result)
+        self.assertIn("release_readiness", result)
         self.assertIn("audit_scorecard", result)
         self.assertIn("operator_timeline", result)
         self.assertIn("run_history", result)
@@ -95,6 +96,21 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertGreaterEqual(len(result["readiness_matrix"]["rows"]), 4)
         self.assertTrue(any(item["mode_id"] == "paper_simulation" for item in result["readiness_matrix"]["rows"]))
         self.assertTrue(any(item["mode_id"] == "live_trading" and item["status"] == "blocked" for item in result["readiness_matrix"]["rows"]))
+        self.assertEqual(result["release_readiness"]["stage"], "gui_release_readiness")
+        self.assertIn("evidence_ready", result["release_readiness"]["summary"])
+        self.assertIn("manual_required", result["release_readiness"]["summary"])
+        readiness_ids = {item["check_id"] for item in result["release_readiness"]["rows"]}
+        self.assertIn("gui_unit_tests", readiness_ids)
+        self.assertIn("project_audit_packet", readiness_ids)
+        self.assertIn("browser_smoke_packet", readiness_ids)
+        self.assertIn("independent_gui_audit_packet", readiness_ids)
+        self.assertIn("live_boundary", readiness_ids)
+        self.assertTrue(
+            any(
+                item["check_id"] == "live_boundary" and item["status"] == "blocked_expected"
+                for item in result["release_readiness"]["rows"]
+            )
+        )
         self.assertEqual(result["audit_scorecard"]["stage"], "gui_audit_scorecard")
         self.assertEqual(result["audit_scorecard"]["summary"]["cadence_hours"], 5)
         self.assertEqual(
@@ -960,6 +976,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("control-operator-checklist", html)
             self.assertIn("control-execution-plan", html)
             self.assertIn("control-readiness-matrix", html)
+            self.assertIn("control-release-readiness", html)
             self.assertIn("control-audit-scorecard", html)
             self.assertIn("control-operator-timeline", html)
             self.assertIn("control-audit-repair-queue", html)
@@ -1049,6 +1066,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("control-operator-checklist", app_js)
             self.assertIn("control-execution-plan", app_js)
             self.assertIn("control-readiness-matrix", app_js)
+            self.assertIn("control-release-readiness", app_js)
             self.assertIn("control-audit-scorecard", app_js)
             self.assertIn("control-operator-timeline", app_js)
             self.assertIn("control-audit-repair-queue", app_js)
@@ -1067,6 +1085,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("paperReceipt", app_js)
             self.assertIn("renderAuditPackets", app_js)
             self.assertIn("renderAuditFeedback", app_js)
+            self.assertIn("renderReleaseReadiness", app_js)
             self.assertIn("localStorage", app_js)
             self.assertIn("control-workflow-commands", app_js)
             self.assertIn("control-report-links", app_js)
@@ -1099,6 +1118,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("operator_checklist", control)
             self.assertIn("execution_plan", control)
             self.assertIn("readiness_matrix", control)
+            self.assertIn("release_readiness", control)
             self.assertIn("audit_scorecard", control)
             self.assertIn("operator_timeline", control)
             self.assertIn("run_history", control)

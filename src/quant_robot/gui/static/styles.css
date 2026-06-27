@@ -484,6 +484,10 @@ button {
   max-height: 236px;
 }
 
+.release-readiness-list {
+  max-height: 236px;
+}
+
 .audit-scorecard-list {
   max-height: 236px;
 }
