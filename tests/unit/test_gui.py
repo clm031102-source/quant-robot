@@ -70,6 +70,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("audit_scorecard", result)
         self.assertIn("operator_timeline", result)
         self.assertIn("run_history", result)
+        self.assertIn("audit_packets", result)
         self.assertIn("safety", result)
         self.assertIn("automation", result)
         self.assertFalse(result["safety"]["live_trading_allowed"])
@@ -94,7 +95,10 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertTrue(any(item["mode_id"] == "live_trading" and item["status"] == "blocked" for item in result["readiness_matrix"]["rows"]))
         self.assertEqual(result["audit_scorecard"]["stage"], "gui_audit_scorecard")
         self.assertEqual(result["audit_scorecard"]["summary"]["cadence_hours"], 5)
-        self.assertFalse(result["audit_scorecard"]["summary"]["independent_audit_complete"])
+        self.assertEqual(
+            result["audit_scorecard"]["summary"]["independent_audit_complete"],
+            result["audit_packets"]["summary"]["independent_audit_complete"],
+        )
         self.assertGreaterEqual(len(result["audit_scorecard"]["categories"]), 5)
         self.assertGreaterEqual(len(result["audit_scorecard"]["repair_queue"]), 3)
         self.assertTrue(any(item["category_id"] == "paper_live_boundary" for item in result["audit_scorecard"]["categories"]))
@@ -106,9 +110,37 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertEqual(result["run_history"]["stage"], "gui_run_history")
         self.assertEqual(result["run_history"]["storage_key"], "quant_robot.gui.run_history.v1")
         self.assertGreaterEqual(result["run_history"]["max_entries"], 20)
+        self.assertEqual(result["audit_packets"]["stage"], "gui_audit_packets")
+        self.assertGreaterEqual(result["audit_packets"]["summary"]["tracked_packets"], 4)
+        self.assertTrue(any(item["packet_id"] == "independent_gui_audit" for item in result["audit_packets"]["rows"]))
+        self.assertTrue(any(item["packet_id"] == "project_audit" for item in result["audit_packets"]["rows"]))
+        self.assertTrue(any(item["packet_id"] == "promotion_review_packet" for item in result["audit_packets"]["rows"]))
+        self.assertTrue(any("run_gui_control_center_audit.py" in item["command"] for item in result["audit_packets"]["rows"]))
         self.assertTrue(any(item["kind"] == "logs" for item in result["report_links"]))
+        self.assertTrue(any(item["kind"] == "audit_packet" for item in result["report_links"]))
         self.assertEqual(result["run_queue"]["active"]["workflow_id"], "research_backtest")
         self.assertGreaterEqual(result["run_queue"]["summary"]["pending"], 1)
+
+    def test_gui_control_center_audit_script_writes_packet(self):
+        from scripts.run_gui_control_center_audit import run_gui_control_center_audit
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_dir = Path(tmpdir) / "gui_control_center_audit"
+
+            packet = run_gui_control_center_audit(repo_root=Path.cwd(), output_dir=output_dir)
+
+            self.assertEqual(packet["stage"], "gui_control_center_independent_audit")
+            self.assertGreaterEqual(packet["score"], 1)
+            self.assertGreaterEqual(packet["max_score"], packet["score"])
+            self.assertIn("scorecard", packet)
+            self.assertIn("audit_packets", packet)
+            self.assertIn("next_actions", packet)
+            self.assertFalse(packet["safety"]["live_trading_allowed"])
+            self.assertTrue((output_dir / "gui_control_center_audit.json").exists())
+            self.assertTrue((output_dir / "gui_control_center_audit.md").exists())
+            markdown = (output_dir / "gui_control_center_audit.md").read_text(encoding="utf-8")
+            self.assertIn("GUI Control Center Independent Audit", markdown)
+            self.assertIn("Research-to-paper only", markdown)
 
     def test_demo_research_payload_contains_metrics_tables_decision_and_demo_label(self):
         result = run_demo_research(
@@ -823,6 +855,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("control-operator-timeline", html)
             self.assertIn("control-audit-repair-queue", html)
             self.assertIn("control-run-history", html)
+            self.assertIn("control-audit-packets", html)
             self.assertIn("control-method-steps", html)
             self.assertIn("control-result-slots", html)
             self.assertIn("control-workflow-commands", html)
@@ -909,9 +942,11 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("control-operator-timeline", app_js)
             self.assertIn("control-audit-repair-queue", app_js)
             self.assertIn("control-run-history", app_js)
+            self.assertIn("control-audit-packets", app_js)
             self.assertIn("RUN_HISTORY_STORAGE_KEY", app_js)
             self.assertIn("appendRunHistory", app_js)
             self.assertIn("renderRunHistory", app_js)
+            self.assertIn("renderAuditPackets", app_js)
             self.assertIn("localStorage", app_js)
             self.assertIn("control-workflow-commands", app_js)
             self.assertIn("control-report-links", app_js)
@@ -947,6 +982,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("audit_scorecard", control)
             self.assertIn("operator_timeline", control)
             self.assertIn("run_history", control)
+            self.assertIn("audit_packets", control)
             self.assertFalse(control["safety"]["live_trading_allowed"])
 
             project = _read_json(f"{base_url}/api/project/status")

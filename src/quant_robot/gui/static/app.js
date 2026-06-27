@@ -492,6 +492,8 @@ function renderControlCenter() {
   const auditSummary = auditScorecard.summary || {};
   const auditCategories = auditScorecard.categories || [];
   const auditRepairQueue = auditScorecard.repair_queue || [];
+  const auditPackets = control.audit_packets || {};
+  const auditPacketRows = auditPackets.rows || [];
   const operatorTimeline = control.operator_timeline || {};
   const timelineEvents = operatorTimeline.events || [];
   const runHistorySpec = control.run_history || {};
@@ -559,6 +561,7 @@ function renderControlCenter() {
       <span>${escapeHtml(item.evidence || "")}</span>
     </div>
   `)).join("");
+  byId("control-audit-packets").innerHTML = renderAuditPackets(auditPacketRows);
   byId("control-operator-timeline").innerHTML = timelineEvents.slice(0, 7).map((item) => `
     <div class="list-row ${escapeHtml(item.status === "done" || item.status === "active" ? "ok" : item.status === "blocked" ? "danger" : "warn")}">
       <strong>${escapeHtml(item.label || item.event_id || "")}</strong>
@@ -1503,6 +1506,29 @@ function barChart(rows, xKey, yKey, color) {
 
 function emptyChart(label) {
   return `<svg viewBox="0 0 520 240" role="img" aria-label="${escapeHtml(label)}"><rect width="520" height="240" fill="${chartTheme.background}"></rect><text x="30" y="122" fill="${chartTheme.muted}">${escapeSvg(label)}</text></svg>`;
+}
+
+function renderAuditPackets(rows) {
+  if (!rows || rows.length === 0) {
+    return `
+      <div class="list-row warn">
+        <strong>No audit packets configured</strong>
+        <span>Run the GUI control-center audit to create the evidence spine.</span>
+      </div>
+    `;
+  }
+  return rows.slice(0, 6).map((item) => {
+    const status = item.status || "";
+    const statusClass = status === "present" ? "ok" : item.required ? "danger" : "warn";
+    return `
+      <div class="list-row ${escapeHtml(statusClass)}">
+        <strong>${escapeHtml(item.label || item.packet_id || "")}</strong>
+        <span>${escapeHtml(`${status || "--"} / ${item.cadence || ""}`)}</span>
+        <span>${escapeHtml(item.markdown_path || item.path || "")}</span>
+        <span>${escapeHtml(item.command || "")}</span>
+      </div>
+    `;
+  }).join("");
 }
 
 function loadRunHistory(spec = {}) {

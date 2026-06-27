@@ -17,7 +17,8 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     workflows = _workflow_commands(backtest)
     verification_gates = _verification_gates()
     readiness_matrix = _readiness_matrix(workflows, verification_gates, artifacts)
-    audit_scorecard = _audit_scorecard(verification_gates, readiness_matrix, artifacts)
+    audit_packets = _audit_packets(root)
+    audit_scorecard = _audit_scorecard(verification_gates, readiness_matrix, artifacts, audit_packets)
 
     return {
         "stage": "gui_control_center",
@@ -53,6 +54,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "audit_scorecard": audit_scorecard,
         "operator_timeline": _operator_timeline(workflows, verification_gates, readiness_matrix, audit_scorecard),
         "run_history": _run_history_spec(),
+        "audit_packets": audit_packets,
         "results": {
             "source": "Run research or paper workflow to populate live result values in the browser.",
             "metrics": [
@@ -67,7 +69,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
             ],
         },
         "artifacts": artifacts,
-        "report_links": _report_links(root, artifacts),
+        "report_links": _report_links(root, artifacts, audit_packets),
         "safety": {
             "notice": SAFETY_NOTICE,
             "paper_trading_allowed": False,
@@ -480,11 +482,15 @@ def _audit_scorecard(
     verification_gates: list[dict[str, Any]],
     readiness_matrix: dict[str, Any],
     artifacts: list[dict[str, Any]],
+    audit_packets: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     required_gate_count = sum(1 for gate in verification_gates if str(gate.get("status", "")).startswith("required"))
     browser_gate_count = sum(1 for gate in verification_gates if "browser" in str(gate.get("gate_id", "")))
     missing_artifact_count = sum(1 for artifact in artifacts if artifact["status"] != "present")
     live_ready = bool(readiness_matrix.get("summary", {}).get("live_ready"))
+    audit_packet_summary = (audit_packets or {}).get("summary", {})
+    independent_audit_complete = bool(audit_packet_summary.get("independent_audit_complete"))
+    required_missing_packets = int(audit_packet_summary.get("required_missing", 0) or 0)
     categories = [
         {
             "category_id": "work_visibility",
@@ -550,8 +556,12 @@ def _audit_scorecard(
         },
         {
             "priority": "P2",
-            "action": "Add report deep links for audit packets",
-            "reason": "Operators should be able to open the latest audit packet from the control center.",
+            "action": "Generate missing audit packets" if required_missing_packets else "Review linked audit packets during next audit",
+            "reason": (
+                f"{required_missing_packets} required audit packet links are missing."
+                if required_missing_packets
+                else "Audit packet links are visible; use them as the evidence spine for the next independent review."
+            ),
         },
     ]
     return {
@@ -561,10 +571,11 @@ def _audit_scorecard(
             "max_score": max_score,
             "cadence_hours": 5,
             "automation_id": "gui-5h",
-            "independent_audit_complete": False,
+            "independent_audit_complete": independent_audit_complete,
             "score_source": "local_self_check_not_independent_audit",
             "required_gate_count": required_gate_count,
             "missing_artifact_count": missing_artifact_count,
+            "required_missing_audit_packets": required_missing_packets,
         },
         "categories": categories,
         "repair_queue": repair_queue,
@@ -574,6 +585,117 @@ def _audit_scorecard(
             "agent_role": "Independent GUI control center auditor",
         },
     }
+
+
+def _audit_packets(root: Path) -> dict[str, Any]:
+    rows = [
+        _audit_packet_row(
+            root,
+            packet_id="independent_gui_audit",
+            label="Independent 5h GUI audit",
+            path=Path("data/reports/gui_control_center_audit/gui_control_center_audit.json"),
+            markdown_path=Path("data/reports/gui_control_center_audit/gui_control_center_audit.md"),
+            command="python scripts\\run_gui_control_center_audit.py --output-dir data\\reports\\gui_control_center_audit",
+            required=True,
+            role="Independent GUI control center auditor",
+            cadence="Every 5 hours",
+        ),
+        _audit_packet_row(
+            root,
+            packet_id="project_audit",
+            label="Project safety audit",
+            path=Path("data/reports/project_audit/project_audit.json"),
+            markdown_path=Path("data/reports/project_audit/project_audit.md"),
+            command="python scripts\\run_project_audit.py --json",
+            required=True,
+            role="Repository safety gate",
+            cadence="Before each GUI push",
+        ),
+        _audit_packet_row(
+            root,
+            packet_id="promotion_review_packet",
+            label="Promotion review packet",
+            path=Path("data/reports/promotion_review/promotion_review_packet.json"),
+            markdown_path=Path("data/reports/promotion_review/promotion_review_packet.md"),
+            command="python scripts\\run_promotion_review.py --output-dir data\\reports\\promotion_review",
+            required=False,
+            role="Paper-readiness evidence",
+            cadence="When promotion evidence changes",
+        ),
+        _audit_packet_row(
+            root,
+            packet_id="browser_smoke",
+            label="GUI browser smoke evidence",
+            path=Path("data/reports/gui_browser_smoke/gui_browser_smoke.json"),
+            markdown_path=Path("data/reports/gui_browser_smoke/gui_browser_smoke.md"),
+            command="Browser check http://127.0.0.1:8765/ desktop and 390x844 mobile",
+            required=True,
+            role="Frontend operator usability gate",
+            cadence="Before each GUI push",
+        ),
+    ]
+    required_missing = [row for row in rows if row["required"] and row["status"] != "present"]
+    present_rows = [row for row in rows if row["status"] == "present"]
+    return {
+        "stage": "gui_audit_packets",
+        "summary": {
+            "tracked_packets": len(rows),
+            "present": len(present_rows),
+            "missing": sum(1 for row in rows if row["status"] != "present"),
+            "required_missing": len(required_missing),
+            "independent_audit_complete": any(
+                row["packet_id"] == "independent_gui_audit" and row["status"] == "present" for row in rows
+            ),
+            "latest_packet": _latest_packet_label(present_rows),
+        },
+        "rows": rows,
+    }
+
+
+def _audit_packet_row(
+    root: Path,
+    *,
+    packet_id: str,
+    label: str,
+    path: Path,
+    markdown_path: Path,
+    command: str,
+    required: bool,
+    role: str,
+    cadence: str,
+) -> dict[str, Any]:
+    json_target = root / path
+    markdown_target = root / markdown_path
+    present_target = json_target if json_target.exists() else markdown_target if markdown_target.exists() else None
+    return {
+        "packet_id": packet_id,
+        "label": label,
+        "status": "present" if present_target else "missing",
+        "required": required,
+        "path": str(path),
+        "markdown_path": str(markdown_path),
+        "command": command,
+        "role": role,
+        "cadence": cadence,
+        "updated_at": _mtime_text(present_target) if present_target else "",
+        "evidence": "Local audit packet is available." if present_target else "Generate or attach this audit evidence before relying on the console score.",
+    }
+
+
+def _latest_packet_label(rows: list[dict[str, Any]]) -> str:
+    dated = [row for row in rows if row.get("updated_at")]
+    if not dated:
+        return ""
+    return max(dated, key=lambda row: str(row.get("updated_at", ""))).get("label", "")
+
+
+def _mtime_text(path: Path | None) -> str:
+    if path is None:
+        return ""
+    try:
+        return str(path.stat().st_mtime_ns)
+    except OSError:
+        return ""
 
 
 def _run_history_spec() -> dict[str, Any]:
@@ -675,11 +797,20 @@ def _workflow_command(workflows: list[dict[str, Any]], workflow_id: str) -> str:
     return workflow["command"] if workflow else ""
 
 
-def _report_links(root: Path, artifacts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _report_links(root: Path, artifacts: list[dict[str, Any]], audit_packets: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     links = [
         {"kind": "logs", "label": "GUI logs page", "path": "#page-logs", "status": "available"},
         {"kind": "reports", "label": "Local report directory", "path": "data/reports", "status": "present" if (root / "data/reports").exists() else "missing"},
     ]
+    for packet in (audit_packets or {}).get("rows", []):
+        links.append(
+            {
+                "kind": "audit_packet",
+                "label": packet.get("label", packet.get("packet_id", "")),
+                "path": packet.get("markdown_path") or packet.get("path", ""),
+                "status": packet.get("status", "missing"),
+            }
+        )
     links.extend(
         {
             "kind": "artifact",
