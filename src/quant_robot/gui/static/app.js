@@ -19,6 +19,7 @@ const state = {
   expandedObservationReplay: null,
   iterativeObservationExpansion: null,
   tushareActivationGate: null,
+  verificationResult: null,
   runHistory: [],
   executionReceipts: [],
 };
@@ -121,6 +122,11 @@ function bindActions() {
   byId("run-promotion").addEventListener("click", runPromotionOps);
   byId("data-source-select").addEventListener("change", () => {
     applySourcePreset(true);
+  });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-verification-gate]");
+    if (!button) return;
+    runVerificationGate(button.dataset.verificationGate || "", button);
   });
 }
 
@@ -499,6 +505,7 @@ function renderControlCenter() {
   const workflows = control.workflows || [];
   const reportLinks = control.report_links || [];
   const verificationGates = control.verification_gates || [];
+  const verificationRunner = control.verification_runner || {};
   const operatorChecklist = control.operator_checklist || {};
   const checklistItems = operatorChecklist.items || [];
   const executionPlan = control.execution_plan || {};
@@ -667,6 +674,7 @@ function renderControlCenter() {
       <span>${escapeHtml(item.evidence || item.status || "")}</span>
     </div>
   `).join("");
+  byId("control-verification-runner").innerHTML = renderVerificationRunner(verificationRunner, state.verificationResult);
   byId("control-safety-boundary").innerHTML = statusRows([
     ["Paper", safety.paper_trading_allowed ? "allowed by gates" : "blocked until gates pass", safety.paper_trading_allowed ? "ok" : "warn"],
     ["Live", safety.live_trading_allowed ? "allowed" : "disabled", safety.live_trading_allowed ? "ok" : "danger"],
@@ -1705,6 +1713,46 @@ function renderWorkflowTrace(trace = {}) {
   `);
 }
 
+function renderVerificationRunner(runner = {}, latest = null) {
+  const summary = runner.summary || {};
+  const rows = runner.rows || [];
+  const header = `
+    <div class="list-row ok">
+      <strong>${escapeHtml(`Allowed gates ${summary.allowed ?? rows.length}`)}</strong>
+      <span>${escapeHtml(`live_trading_allowed=${summary.live_trading_allowed === true ? "true" : "false"} / orders=false`)}</span>
+      <span>${escapeHtml(summary.next_action || "Run a local verification gate and inspect the receipt.")}</span>
+    </div>
+  `;
+  const body = rows.slice(0, 5).map((item) => `
+    <div class="list-row verification-runner-row ${escapeHtml(item.allowed ? "warn" : "danger")}">
+      <strong>${escapeHtml(item.label || item.gate_id || "")}</strong>
+      <span>${escapeHtml(item.command || "")}</span>
+      <div class="runner-row-actions">
+        <button class="secondary-button verification-run-button" type="button" data-verification-gate="${escapeHtml(item.gate_id || "")}">Run</button>
+        <span>${escapeHtml(item.endpoint || `/api/control/verification?gate_id=${item.gate_id || ""}`)}</span>
+      </div>
+    </div>
+  `).join("");
+  const receipt = latest ? `
+    <div class="list-row ${escapeHtml(latest.status === "passed" ? "ok" : latest.status === "blocked" ? "danger" : "warn")}">
+      <strong>${escapeHtml(`Latest ${latest.gate_id || "--"} / ${latest.status || "--"}`)}</strong>
+      <span>${escapeHtml(`returncode=${latest.returncode ?? "--"} / ${latest.duration_seconds ?? "--"}s`)}</span>
+      <span>${escapeHtml(latest.stdout_tail || latest.stderr_tail || latest.safety?.notice || "")}</span>
+    </div>
+  ` : `
+    <div class="list-row warn">
+      <strong>No local verification receipt</strong>
+      <span>Run gui_compile first before publishing GUI changes.</span>
+    </div>
+  `;
+  return header + (body || `
+    <div class="list-row danger">
+      <strong>No allowlisted gates</strong>
+      <span>Verification runner is disabled until gate metadata is restored.</span>
+    </div>
+  `) + receipt;
+}
+
 function renderWorkspaceSync(sync = {}) {
   const summary = sync.summary || {};
   const rows = sync.rows || [];
@@ -2266,6 +2314,41 @@ function paperReceipt(result = {}) {
     decision: "local_simulation_only",
     safety: "local simulated fills only; no broker, account, or order side effects",
   };
+}
+
+async function runVerificationGate(gateId, button = null) {
+  if (!gateId) return;
+  const label = button?.textContent || "";
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Running";
+  }
+  byId("run-state-label").textContent = "running";
+  try {
+    const result = await fetchJson(`/api/control/verification?gate_id=${encodeURIComponent(gateId)}`);
+    state.verificationResult = result;
+    renderControlCenter();
+    showToast(`Verification ${result.status || "finished"}: ${gateId}`, result.status !== "passed");
+  } catch (error) {
+    state.verificationResult = {
+      stage: "gui_verification_result",
+      gate_id: gateId,
+      status: "failed",
+      returncode: null,
+      duration_seconds: 0,
+      stdout_tail: "",
+      stderr_tail: error.message || "Verification request failed",
+      safety: { live_trading_allowed: false, order_placement_allowed: false },
+    };
+    renderControlCenter();
+    showToast(error.message || "Verification request failed", true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = label || "Run";
+    }
+    byId("run-state-label").textContent = "ready";
+  }
 }
 
 async function fetchJson(url) {

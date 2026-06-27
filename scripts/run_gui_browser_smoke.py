@@ -54,10 +54,11 @@ def run_gui_browser_smoke(
                     "control-audit-feedback",
                     "control-audit-iteration-plan",
                     "control-audit-scheduler",
+                    "control-verification-runner",
                     "control-safety-boundary",
                 ]
             ),
-            "Home page exposes the control-center board, backtest status, backtest provenance, result evidence, startup health, audit feedback, audit iteration plan, and safety boundary.",
+            "Home page exposes the control-center board, backtest status, backtest provenance, result evidence, startup health, audit feedback, audit iteration plan, verification runner, and safety boundary.",
             index_html.get("error") or "Home page is missing one or more required GUI anchors.",
         )
     )
@@ -76,8 +77,11 @@ def run_gui_browser_smoke(
             and "renderResultEvidence" in str(app_js.get("body", ""))
             and "renderAuditFeedback" in str(app_js.get("body", ""))
             and "renderAuditIterationPlan" in str(app_js.get("body", ""))
-            and "renderAuditScheduler" in str(app_js.get("body", "")),
-            "Frontend script includes control-center, startup-health, backtest-provenance, backtest-gate, workflow-trace, result-evidence, audit-feedback, audit-iteration, and audit-scheduler renderers.",
+            and "renderAuditScheduler" in str(app_js.get("body", ""))
+            and "renderVerificationRunner" in str(app_js.get("body", ""))
+            and "runVerificationGate" in str(app_js.get("body", ""))
+            and "/api/control/verification?gate_id=" in str(app_js.get("body", "")),
+            "Frontend script includes control-center, startup-health, backtest-provenance, backtest-gate, workflow-trace, result-evidence, audit-feedback, audit-iteration, audit-scheduler, and verification-runner hooks.",
             app_js.get("error") or "Frontend script is missing required renderer hooks.",
         )
     )
@@ -213,6 +217,19 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "verification_runner_panel",
+            "Verification runner contract",
+            control.get("ok")
+            and control_body.get("verification_runner", {}).get("stage") == "gui_verification_runner"
+            and bool(control_body.get("verification_runner", {}).get("rows"))
+            and control_body.get("verification_runner", {}).get("summary", {}).get("live_trading_allowed") is False
+            and "gui_compile" in control_body.get("verification_runner", {}).get("summary", {}).get("allowed_gate_ids", []),
+            "Control API exposes an allowlisted verification runner with gui_compile and live trading disabled.",
+            control.get("error") or "Control API is missing verification_runner rows.",
+        )
+    )
+    checks.append(
+        _check(
             "responsive_contract",
             "Responsive layout contract",
             styles_css.get("ok")
@@ -226,8 +243,9 @@ def run_gui_browser_smoke(
             and ".result-evidence-list" in str(styles_css.get("body", ""))
             and ".audit-feedback-list" in str(styles_css.get("body", ""))
             and ".audit-iteration-list" in str(styles_css.get("body", ""))
-            and ".audit-scheduler-list" in str(styles_css.get("body", "")),
-            "Stylesheet contains responsive breakpoints plus startup-health, backtest-provenance, backtest-gate, workflow-trace, result-evidence, audit-feedback, audit-iteration, and audit-scheduler sizing rules.",
+            and ".audit-scheduler-list" in str(styles_css.get("body", ""))
+            and ".verification-runner-list" in str(styles_css.get("body", "")),
+            "Stylesheet contains responsive breakpoints plus startup-health, backtest-provenance, backtest-gate, workflow-trace, result-evidence, audit-feedback, audit-iteration, audit-scheduler, and verification-runner sizing rules.",
             styles_css.get("error") or "Stylesheet is missing responsive or audit-iteration layout rules.",
         )
     )

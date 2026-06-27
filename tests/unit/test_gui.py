@@ -67,6 +67,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("process_monitor", result)
         self.assertIn("run_queue", result)
         self.assertIn("verification_gates", result)
+        self.assertIn("verification_runner", result)
         self.assertIn("operator_checklist", result)
         self.assertIn("execution_plan", result)
         self.assertIn("startup_health", result)
@@ -93,6 +94,14 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertTrue(all(item["mode"] == "local" for item in result["verification_gates"]))
         self.assertTrue(any("test_gui" in item["command"] for item in result["verification_gates"]))
         self.assertTrue(any("run_project_audit.py" in item["command"] for item in result["verification_gates"]))
+        self.assertEqual(result["verification_runner"]["stage"], "gui_verification_runner")
+        self.assertFalse(result["verification_runner"]["summary"]["live_trading_allowed"])
+        self.assertIn("gui_compile", result["verification_runner"]["summary"]["allowed_gate_ids"])
+        runner_row_ids = {item["gate_id"] for item in result["verification_runner"]["rows"]}
+        self.assertIn("gui_compile", runner_row_ids)
+        self.assertTrue(
+            all(str(item.get("endpoint", "")).startswith("/api/control/verification?gate_id=") for item in result["verification_runner"]["rows"])
+        )
         self.assertEqual(result["operator_checklist"]["stage"], "operator_checklist")
         self.assertFalse(result["operator_checklist"]["summary"]["live_ready"])
         self.assertGreaterEqual(result["operator_checklist"]["summary"]["required"], 3)
@@ -402,6 +411,31 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("96 / 100", row_values["last_audit_packet"])
         self.assertIn("Research-to-paper only", row_values["safety_boundary"])
 
+    def test_control_verification_runner_allows_only_registered_local_gates(self):
+        from quant_robot.gui.control_center import build_verification_runner_snapshot, run_verification_gate
+
+        runner = build_verification_runner_snapshot()
+        allowed_ids = {row["gate_id"] for row in runner["rows"]}
+
+        self.assertEqual(runner["stage"], "gui_verification_runner")
+        self.assertIn("gui_compile", allowed_ids)
+        self.assertFalse(runner["summary"]["live_trading_allowed"])
+        self.assertTrue(all(row["allowed"] for row in runner["rows"]))
+
+        result = run_verification_gate("gui_compile", repo_root=Path.cwd())
+
+        self.assertEqual(result["stage"], "gui_verification_result")
+        self.assertEqual(result["gate_id"], "gui_compile")
+        self.assertEqual(result["status"], "passed")
+        self.assertEqual(result["returncode"], 0)
+        self.assertFalse(result["safety"]["live_trading_allowed"])
+
+        rejected = run_verification_gate("live_trading", repo_root=Path.cwd())
+
+        self.assertEqual(rejected["status"], "blocked")
+        self.assertEqual(rejected["returncode"], None)
+        self.assertFalse(rejected["safety"]["live_trading_allowed"])
+
     def test_control_center_uses_independent_audit_packet_as_next_optimization_input(self):
         from quant_robot.gui.control_center import build_control_center_snapshot
 
@@ -575,6 +609,7 @@ class GuiSnapshotTests(unittest.TestCase):
                 self.assertIn("workspace_sync_panel", check_ids)
                 self.assertIn("process_monitor_panel", check_ids)
                 self.assertIn("audit_scheduler_panel", check_ids)
+                self.assertIn("verification_runner_panel", check_ids)
                 self.assertIn("audit_feedback_panel", check_ids)
                 self.assertIn("audit_iteration_plan_panel", check_ids)
                 self.assertIn("responsive_contract", check_ids)
@@ -1321,6 +1356,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("control-workflow-commands", html)
             self.assertIn("control-report-links", html)
             self.assertIn("control-verification-gates", html)
+            self.assertIn("control-verification-runner", html)
             self.assertIn("control-safety-boundary", html)
             self.assertIn("control-audit-cadence", html)
             self.assertIn("command-card", html)
@@ -1446,6 +1482,10 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("control-workflow-commands", app_js)
             self.assertIn("control-report-links", app_js)
             self.assertIn("control-verification-gates", app_js)
+            self.assertIn("control-verification-runner", app_js)
+            self.assertIn("/api/control/verification?gate_id=", app_js)
+            self.assertIn("runVerificationGate", app_js)
+            self.assertIn("renderVerificationRunner", app_js)
             startup_block = app_js.split('document.addEventListener("DOMContentLoaded", async () => {', 1)[1].split("});", 1)[0]
             self.assertIn("await loadControlCenter();", startup_block)
             self.assertIn("await loadRiskCandidates();", startup_block)
@@ -1474,6 +1514,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("process_monitor", control)
             self.assertIn("run_queue", control)
             self.assertIn("verification_gates", control)
+            self.assertIn("verification_runner", control)
             self.assertIn("operator_checklist", control)
             self.assertIn("execution_plan", control)
             self.assertIn("workflow_trace", control)
@@ -1574,6 +1615,12 @@ class GuiHttpTests(unittest.TestCase):
             refresh = _read_json(f"{base_url}/api/promotion/evidence-refresh")
             self.assertEqual(refresh["stage"], "phase_3_0_evidence_refresh")
             self.assertGreaterEqual(len(refresh["ordered_actions"]), 1)
+
+            verification = _read_json(f"{base_url}/api/control/verification?gate_id=gui_compile")
+            self.assertEqual(verification["stage"], "gui_verification_result")
+            self.assertEqual(verification["gate_id"], "gui_compile")
+            self.assertEqual(verification["status"], "passed")
+            self.assertFalse(verification["safety"]["live_trading_allowed"])
         finally:
             server.shutdown()
             thread.join(timeout=5)

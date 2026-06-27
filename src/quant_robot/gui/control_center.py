@@ -19,6 +19,12 @@ RESOLVED_AUDIT_LOOP_ACTIONS = {
     "Attach audit findings to next optimization round",
     "Review linked audit packets during next audit",
 }
+VERIFICATION_RUNNER_GATE_IDS = ("gui_compile", "project_audit", "sync_audit")
+VERIFICATION_RUNNER_TIMEOUT_SECONDS = {
+    "gui_compile": 120,
+    "project_audit": 180,
+    "sync_audit": 180,
+}
 
 
 def build_control_center_snapshot(repo_root: str | Path | None = None, active_goal: str | None = None) -> dict[str, Any]:
@@ -31,6 +37,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     workflows = _workflow_commands(backtest)
     run_queue = _run_queue(workflows)
     verification_gates = _verification_gates()
+    verification_runner = build_verification_runner_snapshot(verification_gates)
     readiness_matrix = _readiness_matrix(workflows, verification_gates, artifacts)
     audit_packets = _audit_packets(root)
     startup_health = _startup_health(workflows, verification_gates, audit_packets)
@@ -93,6 +100,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "workflows": workflows,
         "run_queue": run_queue,
         "verification_gates": verification_gates,
+        "verification_runner": verification_runner,
         "operator_checklist": _operator_checklist(verification_gates, artifacts),
         "execution_plan": _execution_plan(workflows, verification_gates),
         "startup_health": startup_health,
@@ -343,6 +351,164 @@ def _verification_gates() -> list[dict[str, Any]]:
             "evidence": "Critical control center blocks remain visible and responsive on mobile.",
         },
     ]
+
+
+def build_verification_runner_snapshot(verification_gates: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    gates = verification_gates if verification_gates is not None else _verification_gates()
+    gate_by_id = {str(gate.get("gate_id", "")): gate for gate in gates}
+    rows: list[dict[str, Any]] = []
+    for gate_id in VERIFICATION_RUNNER_GATE_IDS:
+        gate = gate_by_id.get(gate_id)
+        if not gate:
+            continue
+        rows.append(
+            {
+                "gate_id": gate_id,
+                "label": gate.get("label", gate_id),
+                "command": gate.get("command", ""),
+                "endpoint": f"/api/control/verification?gate_id={gate_id}",
+                "mode": "local",
+                "status": "ready_to_run",
+                "allowed": True,
+                "timeout_seconds": VERIFICATION_RUNNER_TIMEOUT_SECONDS.get(gate_id, 120),
+                "safety": "allowlisted local verification only; no broker, account, order, or live-trading side effects",
+            }
+        )
+    return {
+        "stage": "gui_verification_runner",
+        "summary": {
+            "allowed": len(rows),
+            "allowed_gate_ids": [row["gate_id"] for row in rows],
+            "live_trading_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "next_action": "Run allowlisted verification gates locally and inspect the returned receipt before publishing.",
+        },
+        "rows": rows,
+    }
+
+
+def run_verification_gate(
+    gate_id: str,
+    repo_root: str | Path | None = None,
+    timeout: int | None = None,
+) -> dict[str, Any]:
+    root = Path(repo_root) if repo_root is not None else _repo_root()
+    runner = build_verification_runner_snapshot()
+    row_by_id = {str(row.get("gate_id", "")): row for row in runner.get("rows", [])}
+    row = row_by_id.get(gate_id)
+    command_args = _verification_runner_command_args(gate_id)
+    safety = _verification_runner_safety()
+    if row is None or command_args is None:
+        return {
+            "stage": "gui_verification_result",
+            "gate_id": gate_id,
+            "status": "blocked",
+            "returncode": None,
+            "command": "",
+            "duration_seconds": 0.0,
+            "stdout_tail": "",
+            "stderr_tail": "Gate is not registered in the GUI allowlist.",
+            "started_at": "",
+            "finished_at": datetime.now(UTC).isoformat(timespec="seconds"),
+            "safety": safety,
+        }
+
+    timeout_seconds = timeout if timeout is not None else int(row.get("timeout_seconds", 120))
+    timeout_seconds = max(1, min(int(timeout_seconds), 300))
+    started = datetime.now(UTC)
+    try:
+        completed = subprocess.run(
+            command_args,
+            cwd=root,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout_seconds,
+        )
+    except subprocess.TimeoutExpired as exc:
+        finished = datetime.now(UTC)
+        return {
+            "stage": "gui_verification_result",
+            "gate_id": gate_id,
+            "status": "timeout",
+            "returncode": None,
+            "command": row.get("command", ""),
+            "duration_seconds": round((finished - started).total_seconds(), 3),
+            "stdout_tail": _tail_text(exc.stdout),
+            "stderr_tail": _tail_text(exc.stderr) or f"Timed out after {timeout_seconds} seconds.",
+            "started_at": started.isoformat(timespec="seconds"),
+            "finished_at": finished.isoformat(timespec="seconds"),
+            "safety": safety,
+        }
+    except OSError as exc:
+        finished = datetime.now(UTC)
+        return {
+            "stage": "gui_verification_result",
+            "gate_id": gate_id,
+            "status": "failed",
+            "returncode": None,
+            "command": row.get("command", ""),
+            "duration_seconds": round((finished - started).total_seconds(), 3),
+            "stdout_tail": "",
+            "stderr_tail": _tail_text(str(exc)),
+            "started_at": started.isoformat(timespec="seconds"),
+            "finished_at": finished.isoformat(timespec="seconds"),
+            "safety": safety,
+        }
+
+    finished = datetime.now(UTC)
+    return {
+        "stage": "gui_verification_result",
+        "gate_id": gate_id,
+        "status": "passed" if completed.returncode == 0 else "failed",
+        "returncode": completed.returncode,
+        "command": row.get("command", ""),
+        "duration_seconds": round((finished - started).total_seconds(), 3),
+        "stdout_tail": _tail_text(completed.stdout),
+        "stderr_tail": _tail_text(completed.stderr),
+        "started_at": started.isoformat(timespec="seconds"),
+        "finished_at": finished.isoformat(timespec="seconds"),
+        "safety": safety,
+    }
+
+
+def _verification_runner_command_args(gate_id: str) -> list[str] | None:
+    commands = {
+        "gui_compile": [sys.executable, "-m", "compileall", "-q", "src\\quant_robot\\gui"],
+        "project_audit": [sys.executable, "scripts\\run_project_audit.py", "--json"],
+        "sync_audit": [
+            sys.executable,
+            "scripts\\sync_project.py",
+            "--machine",
+            "office_desktop",
+            "--task",
+            "factor_review",
+        ],
+    }
+    return commands.get(gate_id)
+
+
+def _verification_runner_safety() -> dict[str, Any]:
+    return {
+        "notice": SAFETY_NOTICE,
+        "paper_only": True,
+        "live_trading_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+    }
+
+
+def _tail_text(value: Any, max_chars: int = 2000) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        text = value.decode("utf-8", errors="replace")
+    else:
+        text = str(value)
+    return text[-max_chars:]
 
 
 def _operator_checklist(verification_gates: list[dict[str, Any]], artifacts: list[dict[str, Any]]) -> dict[str, Any]:
