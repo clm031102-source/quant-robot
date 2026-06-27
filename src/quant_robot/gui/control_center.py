@@ -17,6 +17,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     workflows = _workflow_commands(backtest)
     verification_gates = _verification_gates()
     readiness_matrix = _readiness_matrix(workflows, verification_gates, artifacts)
+    audit_scorecard = _audit_scorecard(verification_gates, readiness_matrix, artifacts)
 
     return {
         "stage": "gui_control_center",
@@ -49,7 +50,8 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "operator_checklist": _operator_checklist(verification_gates, artifacts),
         "execution_plan": _execution_plan(workflows, verification_gates),
         "readiness_matrix": readiness_matrix,
-        "audit_scorecard": _audit_scorecard(verification_gates, readiness_matrix, artifacts),
+        "audit_scorecard": audit_scorecard,
+        "operator_timeline": _operator_timeline(workflows, verification_gates, readiness_matrix, audit_scorecard),
         "results": {
             "source": "Run research or paper workflow to populate live result values in the browser.",
             "metrics": [
@@ -575,6 +577,83 @@ def _audit_scorecard(
             "expected_output": "0-100 score, category scores, required fixes, and next optimization list.",
             "agent_role": "Independent GUI control center auditor",
         },
+    }
+
+
+def _operator_timeline(
+    workflows: list[dict[str, Any]],
+    verification_gates: list[dict[str, Any]],
+    readiness_matrix: dict[str, Any],
+    audit_scorecard: dict[str, Any],
+) -> dict[str, Any]:
+    repair_queue = audit_scorecard.get("repair_queue", [])
+    required_gate_count = len([gate for gate in verification_gates if str(gate.get("status", "")).startswith("required")])
+    repair_count = len(repair_queue)
+    events = [
+        {
+            "event_id": "context_gate",
+            "label": "Context gate",
+            "status": "done",
+            "detail": "office_desktop / factor_review / codex GUI task branch.",
+            "command": "python scripts\\sync_project.py --machine office_desktop --task factor_review",
+        },
+        {
+            "event_id": "research_backtest",
+            "label": "CN_ETF research backtest",
+            "status": "active",
+            "detail": "Current primary workflow: run local processed-bars research with visible method and parameters.",
+            "command": _workflow_command(workflows, "research_backtest"),
+        },
+        {
+            "event_id": "signal_snapshot",
+            "label": "Advisory signal snapshot",
+            "status": "queued",
+            "detail": "Generate target weights with executable=false after research refresh.",
+            "command": _workflow_command(workflows, "signal_snapshot"),
+        },
+        {
+            "event_id": "paper_simulation",
+            "label": "Paper simulation gate",
+            "status": "requires_gates",
+            "detail": "Local simulated fills only; promotion and readiness gates must remain visible before operator use.",
+            "command": _workflow_command(workflows, "paper_simulation"),
+        },
+        {
+            "event_id": "verification_pack",
+            "label": "Verification pack",
+            "status": "required",
+            "detail": f"{required_gate_count} required GUI, audit, compile, sync, and browser gates before push.",
+            "command": verification_gates[0]["command"] if verification_gates else "python -m unittest -v tests.unit.test_gui",
+        },
+        {
+            "event_id": "audit_repair_queue",
+            "label": "Audit repair queue",
+            "status": "required",
+            "detail": f"{repair_count} repair actions queued from the local scorecard and 5h audit protocol.",
+            "command": repair_queue[0]["action"] if repair_queue else "No audit repair actions queued",
+        },
+        {
+            "event_id": "live_handoff",
+            "label": "Live trading handoff",
+            "status": "blocked",
+            "detail": readiness_matrix.get("rows", [])[-1].get("guardrail", SAFETY_NOTICE)
+            if readiness_matrix.get("rows")
+            else SAFETY_NOTICE,
+            "command": "blocked by research-to-paper boundary",
+        },
+    ]
+    return {
+        "stage": "operator_timeline",
+        "summary": {
+            "current_event": "research_backtest",
+            "events": len(events),
+            "active": sum(1 for item in events if item["status"] == "active"),
+            "queued": sum(1 for item in events if item["status"] == "queued"),
+            "required": sum(1 for item in events if item["status"] in {"required", "requires_gates"}),
+            "blocked": sum(1 for item in events if item["status"] == "blocked"),
+            "repair_count": repair_count,
+        },
+        "events": events,
     }
 
 

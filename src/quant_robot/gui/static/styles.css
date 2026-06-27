@@ -488,6 +488,11 @@ button {
   max-height: 236px;
 }
 
+.operator-timeline-list,
+.audit-repair-list {
+  max-height: 236px;
+}
+
 .two-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }

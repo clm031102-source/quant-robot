@@ -450,6 +450,9 @@ function renderControlCenter() {
   const auditScorecard = control.audit_scorecard || {};
   const auditSummary = auditScorecard.summary || {};
   const auditCategories = auditScorecard.categories || [];
+  const auditRepairQueue = auditScorecard.repair_queue || [];
+  const operatorTimeline = control.operator_timeline || {};
+  const timelineEvents = operatorTimeline.events || [];
   const runQueue = control.run_queue || {};
   const activeRun = runQueue.active || {};
   const queueSummary = runQueue.summary || {};
@@ -514,6 +517,19 @@ function renderControlCenter() {
       <span>${escapeHtml(item.evidence || "")}</span>
     </div>
   `)).join("");
+  byId("control-operator-timeline").innerHTML = timelineEvents.slice(0, 7).map((item) => `
+    <div class="list-row ${escapeHtml(item.status === "done" || item.status === "active" ? "ok" : item.status === "blocked" ? "danger" : "warn")}">
+      <strong>${escapeHtml(item.label || item.event_id || "")}</strong>
+      <span>${escapeHtml(item.status || "")} / ${escapeHtml(item.command || "")}</span>
+      <span>${escapeHtml(item.detail || "")}</span>
+    </div>
+  `).join("");
+  byId("control-audit-repair-queue").innerHTML = auditRepairQueue.slice(0, 4).map((item) => `
+    <div class="list-row ${escapeHtml(item.priority === "P0" ? "danger" : item.priority === "P1" ? "warn" : "ok")}">
+      <strong>${escapeHtml(`${item.priority || "--"} / ${item.action || ""}`)}</strong>
+      <span>${escapeHtml(item.reason || "")}</span>
+    </div>
+  `).join("");
   byId("control-backtest-status").innerHTML = statusRows([
     ["Source", `${backtest.source || "--"} / ${backtest.data_root || "--"}`, "ok"],
     ["Market", `${backtest.market || "--"} / ${backtest.factor || "--"}`, "ok"],
