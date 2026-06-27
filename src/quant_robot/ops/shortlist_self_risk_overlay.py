@@ -110,7 +110,14 @@ def build_shortlist_self_risk_overlay(
             return_column=source_return_column,
             date_column=source_date_column,
         )
-        state = _build_prior_state(period_returns)
+        state = _build_prior_state(
+            _load_period_returns_with_schema(
+                source_path,
+                return_column=resolved_column,
+                date_column=source_date_column,
+                fallback_period_returns=period_returns,
+            )
+        )
         for policy in policies:
             candidate_name = _candidate_name(str(base_name), policy.name)
             event_frame = _apply_policy(
@@ -227,8 +234,38 @@ def write_shortlist_self_risk_overlay(output_dir: str | Path, audit: dict[str, A
     )
 
 
+def _load_period_returns_with_schema(
+    source: str | Path | pd.DataFrame,
+    *,
+    return_column: str,
+    date_column: str,
+    fallback_period_returns: pd.DataFrame,
+) -> pd.DataFrame:
+    frame = source.copy() if isinstance(source, pd.DataFrame) else pd.read_csv(Path(source))
+    if date_column not in frame or return_column not in frame:
+        return fallback_period_returns
+    working = frame.copy()
+    working["date"] = pd.to_datetime(working[date_column], errors="coerce")
+    working["period_return"] = pd.to_numeric(working[return_column], errors="coerce").fillna(0.0)
+    working = working.dropna(subset=["date"]).sort_values("date").reset_index(drop=True)
+    if working.empty:
+        return fallback_period_returns
+    if not working["date"].duplicated().any():
+        return working
+    metadata_columns = [
+        column
+        for column in working.columns
+        if column not in {date_column, return_column, "date", "period_return"}
+    ]
+    metadata = working.groupby("date", as_index=False)[metadata_columns].first() if metadata_columns else None
+    summed = working.groupby("date", as_index=False)["period_return"].sum()
+    if metadata is None:
+        return summed
+    return metadata.merge(summed, on="date", how="right").sort_values("date").reset_index(drop=True)
+
+
 def _build_prior_state(period_returns: pd.DataFrame) -> pd.DataFrame:
-    frame = period_returns[["date", "period_return"]].copy()
+    frame = period_returns.copy()
     frame["date"] = pd.to_datetime(frame["date"], errors="coerce")
     frame["source_period_return"] = pd.to_numeric(frame["period_return"], errors="coerce").fillna(0.0)
     frame = frame.dropna(subset=["date"]).sort_values("date").reset_index(drop=True)
@@ -241,7 +278,7 @@ def _build_prior_state(period_returns: pd.DataFrame) -> pd.DataFrame:
     prior_peak = prior_equity.cummax().replace(0.0, np.nan)
     frame["prior_equity"] = prior_equity
     frame["prior_drawdown"] = (prior_equity / prior_peak - 1.0).fillna(0.0)
-    return frame.drop(columns=["period_return"])
+    return frame.drop(columns=["period_return"], errors="ignore")
 
 
 def _apply_policy(
@@ -265,28 +302,43 @@ def _apply_policy(
     frame["policy"] = policy.name
     frame["source_return_column"] = source_return_column
     frame["self_risk_exposure"] = exposure.clip(lower=0.0, upper=1.0)
+    if "final_exposure" in frame.columns:
+        frame["source_final_exposure"] = pd.to_numeric(frame["final_exposure"], errors="coerce").fillna(1.0)
+        frame["final_exposure"] = frame["source_final_exposure"] * frame["self_risk_exposure"]
     frame["period_return"] = frame["source_period_return"] * frame["self_risk_exposure"]
     frame["equity"] = (1.0 + frame["period_return"]).cumprod()
     peak = frame["equity"].cummax().replace(0.0, np.nan)
     frame["drawdown"] = (frame["equity"] / peak - 1.0).fillna(0.0)
-    return frame[
-        [
-            "date",
-            "base_name",
-            "candidate_name",
-            "policy",
-            "source_return_column",
-            "source_period_return",
-            "prior_roll21_sum",
-            "prior_roll42_sum",
-            "prior_equity",
-            "prior_drawdown",
-            "self_risk_exposure",
-            "period_return",
-            "equity",
-            "drawdown",
-        ]
+    return frame[_ordered_event_columns(frame)]
+
+
+def _ordered_event_columns(frame: pd.DataFrame) -> list[str]:
+    preferred = [
+        "date",
+        "decision_date",
+        "execution_date",
+        "asset_id",
+        "base_name",
+        "candidate_name",
+        "policy",
+        "source_return_column",
+        "source_period_return",
+        "riskoff_multiplier",
+        "regime_guard_exposure",
+        "source_final_exposure",
+        "final_exposure",
+        "prior_roll21_sum",
+        "prior_roll42_sum",
+        "prior_equity",
+        "prior_drawdown",
+        "self_risk_exposure",
+        "period_return",
+        "equity",
+        "drawdown",
     ]
+    ordered = [column for column in preferred if column in frame.columns]
+    ordered.extend(column for column in frame.columns if column not in set(ordered))
+    return ordered
 
 
 def _policy_mask(frame: pd.DataFrame, policy: SelfRiskPolicy) -> pd.Series:
