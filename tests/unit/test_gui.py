@@ -119,12 +119,16 @@ class GuiSnapshotTests(unittest.TestCase):
             result["audit_packets"]["summary"]["independent_audit_complete"],
         )
         self.assertGreaterEqual(len(result["audit_scorecard"]["categories"]), 5)
-        self.assertGreaterEqual(len(result["audit_scorecard"]["repair_queue"]), 2)
         self.assertTrue(any(item["category_id"] == "paper_live_boundary" for item in result["audit_scorecard"]["categories"]))
+        self.assertTrue(any(item["category_id"] == "audit_feedback_loop" for item in result["audit_scorecard"]["categories"]))
         if result["audit_packets"]["summary"]["independent_audit_complete"]:
             self.assertFalse(
                 any(item["action"] == "Run independent 5h GUI audit" for item in result["audit_scorecard"]["repair_queue"])
             )
+            if result["audit_packets"]["summary"]["required_missing"] == 0:
+                repair_actions = {item["action"] for item in result["audit_scorecard"]["repair_queue"]}
+                self.assertNotIn("Attach audit findings to next optimization round", repair_actions)
+                self.assertNotIn("Review linked audit packets during next audit", repair_actions)
         else:
             self.assertTrue(any(item["priority"] == "P0" for item in result["audit_scorecard"]["repair_queue"]))
         self.assertEqual(result["operator_timeline"]["stage"], "operator_timeline")
@@ -250,13 +254,76 @@ class GuiSnapshotTests(unittest.TestCase):
             self.assertGreaterEqual(packet["max_score"], packet["score"])
             self.assertIn("scorecard", packet)
             self.assertIn("audit_packets", packet)
+            self.assertIn("audit_iteration_plan", packet)
             self.assertIn("next_actions", packet)
+            category_ids = {item["category_id"] for item in packet["scorecard"]["categories"]}
+            self.assertIn("audit_feedback_loop", category_ids)
+            action_names = {item["action"] for item in packet["next_actions"]}
+            self.assertNotIn("Attach audit findings to next optimization round", action_names)
+            self.assertNotIn("Review linked audit packets during next audit", action_names)
+            self.assertEqual(packet["audit_iteration_plan"]["summary"]["audit_score"], packet["score"])
+            self.assertEqual(packet["audit_iteration_plan"]["summary"]["verdict"], packet["verdict"])
+            if not packet["next_actions"]:
+                self.assertEqual(packet["audit_iteration_plan"]["summary"]["active_actions"], 0)
             self.assertFalse(packet["safety"]["live_trading_allowed"])
             self.assertTrue((output_dir / "gui_control_center_audit.json").exists())
             self.assertTrue((output_dir / "gui_control_center_audit.md").exists())
             markdown = (output_dir / "gui_control_center_audit.md").read_text(encoding="utf-8")
             self.assertIn("GUI Control Center Independent Audit", markdown)
+            self.assertIn("Audit Iteration Plan", markdown)
             self.assertIn("Research-to-paper only", markdown)
+
+    def test_gui_control_center_audit_normalizes_iteration_plan_when_old_findings_clear(self):
+        from scripts.run_gui_control_center_audit import run_gui_control_center_audit
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            audit_dir = root / "data" / "reports" / "gui_control_center_audit"
+            audit_dir.mkdir(parents=True)
+            (audit_dir / "gui_control_center_audit.json").write_text(
+                json.dumps(
+                    {
+                        "stage": "gui_control_center_independent_audit",
+                        "generated_at": "2026-06-28T00:00:00+00:00",
+                        "score": 92,
+                        "max_score": 100,
+                        "verdict": "needs_repair",
+                        "next_actions": [
+                            {
+                                "priority": "P1",
+                                "action": "Attach audit findings to next optimization round",
+                                "reason": "The old generic finding should be treated as closed.",
+                            },
+                            {
+                                "priority": "P2",
+                                "action": "Review linked audit packets during next audit",
+                                "reason": "The old packet-review finding should be treated as closed.",
+                            },
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            for relative in [
+                "data/reports/project_audit/project_audit.json",
+                "data/reports/gui_browser_smoke/gui_browser_smoke.json",
+            ]:
+                target = root / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("{}", encoding="utf-8")
+
+            output_dir = root / "data" / "reports" / "gui_control_center_audit_next"
+            packet = run_gui_control_center_audit(repo_root=root, output_dir=output_dir)
+
+        self.assertEqual(packet["verdict"], "clear")
+        self.assertEqual(packet["next_actions"], [])
+        self.assertEqual(packet["audit_iteration_plan"]["summary"]["audit_score"], packet["score"])
+        self.assertEqual(packet["audit_iteration_plan"]["summary"]["verdict"], "clear")
+        self.assertEqual(packet["audit_iteration_plan"]["summary"]["active_actions"], 0)
+        self.assertEqual(
+            [row["action_id"] for row in packet["audit_iteration_plan"]["rows"]],
+            ["live_boundary_guard"],
+        )
 
     def test_gui_browser_smoke_script_writes_evidence_packet(self):
         from scripts.run_gui_browser_smoke import run_gui_browser_smoke
@@ -1114,6 +1181,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("renderAuditFeedback", app_js)
             self.assertIn("renderAuditIterationPlan", app_js)
             self.assertIn("renderReleaseReadiness", app_js)
+            self.assertIn("auditCategories.slice(0, 7)", app_js)
             self.assertIn("localStorage", app_js)
             self.assertIn("control-workflow-commands", app_js)
             self.assertIn("control-report-links", app_js)

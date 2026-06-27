@@ -9,6 +9,10 @@ from typing import Any
 
 SAFETY_NOTICE = "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading."
 GUI_AUDIT_PACKET_PATH = Path("data/reports/gui_control_center_audit/gui_control_center_audit.json")
+RESOLVED_AUDIT_LOOP_ACTIONS = {
+    "Attach audit findings to next optimization round",
+    "Review linked audit packets during next audit",
+}
 
 
 def build_control_center_snapshot(repo_root: str | Path | None = None, active_goal: str | None = None) -> dict[str, Any]:
@@ -587,45 +591,46 @@ def _audit_scorecard(
     audit_packet_summary = (audit_packets or {}).get("summary", {})
     independent_audit_complete = bool(audit_packet_summary.get("independent_audit_complete"))
     required_missing_packets = int(audit_packet_summary.get("required_missing", 0) or 0)
+    audit_feedback_loop_ready = independent_audit_complete and required_missing_packets == 0
     independent_audit_actions = _audit_packet_next_actions(latest_gui_audit) if latest_gui_audit else []
     categories = [
         {
             "category_id": "work_visibility",
             "label": "Work visibility",
-            "score": 16,
-            "max_score": 18,
+            "score": 15,
+            "max_score": 16,
             "status": "good",
             "evidence": "Run queue, operator checklist, execution plan, and readiness matrix are visible.",
         },
         {
             "category_id": "backtest_transparency",
             "label": "Backtest transparency",
-            "score": 17,
-            "max_score": 18,
+            "score": 15,
+            "max_score": 16,
             "status": "good",
             "evidence": "Control center exposes data source, market, factor, windows, TopN, cost, lag, and method steps.",
         },
         {
             "category_id": "paper_live_boundary",
             "label": "Paper/live boundary",
-            "score": 20 if not live_ready else 0,
-            "max_score": 20,
+            "score": 18 if not live_ready else 0,
+            "max_score": 18,
             "status": "blocked_live",
             "evidence": SAFETY_NOTICE,
         },
         {
             "category_id": "runtime_observability",
             "label": "Runtime observability",
-            "score": 15,
-            "max_score": 16,
+            "score": 13,
+            "max_score": 14,
             "status": "good",
             "evidence": "Current work, local workflow commands, and browser-persisted run history are visible.",
         },
         {
             "category_id": "verification_coverage",
             "label": "Verification coverage",
-            "score": 14,
-            "max_score": 16,
+            "score": 13,
+            "max_score": 14,
             "status": "good",
             "evidence": f"{required_gate_count} required gates tracked, including {browser_gate_count} browser smoke gates.",
         },
@@ -633,9 +638,21 @@ def _audit_scorecard(
             "category_id": "frontend_usability",
             "label": "Frontend usability",
             "score": 10 if missing_artifact_count == 0 else 8,
-            "max_score": 12,
+            "max_score": 10,
             "status": "good" if missing_artifact_count == 0 else "needs_artifacts",
             "evidence": f"{missing_artifact_count} tracked local artifact links are missing.",
+        },
+        {
+            "category_id": "audit_feedback_loop",
+            "label": "Audit feedback loop",
+            "score": 12 if audit_feedback_loop_ready else 6 if independent_audit_complete else 0,
+            "max_score": 12,
+            "status": "good" if audit_feedback_loop_ready else "needs_audit_packets",
+            "evidence": (
+                "Independent audit, project audit, browser smoke evidence, and audit iteration plan are connected."
+                if audit_feedback_loop_ready
+                else f"{required_missing_packets} required audit evidence packets are missing from the feedback loop."
+            ),
         },
     ]
     total_score = sum(item["score"] for item in categories)
@@ -643,16 +660,23 @@ def _audit_scorecard(
     repair_queue = []
     if latest_gui_audit:
         actionable_audit_actions = [
-            action for action in independent_audit_actions if action.get("action") != "Run independent 5h GUI audit"
+            action
+            for action in independent_audit_actions
+            if action.get("action") != "Run independent 5h GUI audit"
+            and not (
+                audit_feedback_loop_ready
+                and action.get("action") in RESOLVED_AUDIT_LOOP_ACTIONS
+            )
         ]
-        first_action = actionable_audit_actions[0] if actionable_audit_actions else {}
-        repair_queue.append(
-            {
-                "priority": first_action.get("priority", "P1"),
-                "action": first_action.get("action", "Apply independent GUI audit next actions"),
-                "reason": first_action.get("reason", "The latest independent audit packet is now the next optimization input."),
-            }
-        )
+        if actionable_audit_actions:
+            first_action = actionable_audit_actions[0]
+            repair_queue.append(
+                {
+                    "priority": first_action.get("priority", "P1"),
+                    "action": first_action.get("action", "Apply independent GUI audit next actions"),
+                    "reason": first_action.get("reason", "The latest independent audit packet is now the next optimization input."),
+                }
+            )
     else:
         repair_queue.append(
             {
@@ -661,24 +685,22 @@ def _audit_scorecard(
                 "reason": "The visible score is a local self-check; the separate audit agent must still issue a scored review.",
             }
         )
-    repair_queue.extend(
-        [
+    if not audit_feedback_loop_ready:
+        repair_queue.append(
             {
                 "priority": "P1",
                 "action": "Attach audit findings to next optimization round",
                 "reason": "The GUI should turn each 5h scorecard into visible fixes and acceptance gates.",
-            },
+            }
+        )
+    if required_missing_packets:
+        repair_queue.append(
             {
                 "priority": "P2",
-                "action": "Generate missing audit packets" if required_missing_packets else "Review linked audit packets during next audit",
-                "reason": (
-                    f"{required_missing_packets} required audit packet links are missing."
-                    if required_missing_packets
-                    else "Audit packet links are visible; use them as the evidence spine for the next independent review."
-                ),
-            },
-        ]
-    )
+                "action": "Generate missing audit packets",
+                "reason": f"{required_missing_packets} required audit packet links are missing.",
+            }
+        )
     repair_queue = _dedupe_audit_actions(repair_queue)
     return {
         "stage": "gui_audit_scorecard",
@@ -747,7 +769,8 @@ def _audit_feedback(packet_source: dict[str, Any], audit_packets: dict[str, Any]
         next_actions = _dedupe_audit_actions([
             action for action in _audit_packet_next_actions(packet) if action.get("action") != "Run independent 5h GUI audit"
         ])
-        if not next_actions:
+        verdict = str(packet.get("verdict", ""))
+        if not next_actions and verdict != "clear":
             next_actions = [
                 {
                     "priority": "P2",
@@ -762,13 +785,17 @@ def _audit_feedback(packet_source: dict[str, Any], audit_packets: dict[str, Any]
                 "source_path": source_path,
                 "score": packet.get("score"),
                 "max_score": packet.get("max_score"),
-                "verdict": packet.get("verdict", ""),
+                "verdict": verdict,
                 "generated_at": packet.get("generated_at", ""),
                 "next_action_count": len(next_actions),
                 "required_missing_audit_packets": required_missing,
             },
             "next_actions": next_actions[:6],
-            "evidence": "Latest independent GUI audit packet is feeding the next optimization round.",
+            "evidence": (
+                "Latest independent GUI audit packet is clear; no repair actions are queued."
+                if not next_actions and verdict == "clear"
+                else "Latest independent GUI audit packet is feeding the next optimization round."
+            ),
         }
     if status == "packet_invalid":
         next_actions = [

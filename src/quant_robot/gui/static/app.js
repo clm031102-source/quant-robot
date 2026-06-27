@@ -568,7 +568,7 @@ function renderControlCenter() {
       <span>${escapeHtml(auditSummary.independent_audit_complete ? `Independent audit complete / ${auditSummary.independent_audit_verdict || "review"}` : "Independent 5h audit still required")}</span>
     </div>
     `,
-  ].concat(auditCategories.slice(0, 6).map((item) => `
+  ].concat(auditCategories.slice(0, 7).map((item) => `
     <div class="list-row ${escapeHtml(item.status === "good" ? "ok" : item.status === "blocked_live" ? "danger" : "warn")}">
       <strong>${escapeHtml(item.label || item.category_id || "")}</strong>
       <span>${escapeHtml(`${item.score ?? "--"} / ${item.max_score ?? "--"} / ${item.status || ""}`)}</span>

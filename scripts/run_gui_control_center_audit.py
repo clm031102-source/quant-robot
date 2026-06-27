@@ -26,20 +26,32 @@ def run_gui_control_center_audit(
     snapshot = build_control_center_snapshot(repo_root=repo_root)
     scorecard = snapshot.get("audit_scorecard", {})
     summary = scorecard.get("summary", {})
+    next_actions = _next_actions(scorecard, snapshot.get("audit_packets", {}))
+    score = int(summary.get("local_self_check_score", 0) or 0)
+    max_score = int(summary.get("max_score", 0) or 0)
+    verdict = _verdict(scorecard)
+    audit_iteration_plan = _audit_iteration_plan_for_packet(
+        snapshot.get("audit_iteration_plan", {}),
+        next_actions,
+        score=score,
+        max_score=max_score,
+        verdict=verdict,
+    )
     packet = {
         "stage": "gui_control_center_independent_audit",
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
-        "score": int(summary.get("local_self_check_score", 0) or 0),
-        "max_score": int(summary.get("max_score", 0) or 0),
-        "verdict": _verdict(scorecard),
+        "score": score,
+        "max_score": max_score,
+        "verdict": verdict,
         "scorecard": {
             "summary": summary,
             "categories": scorecard.get("categories", []),
             "repair_queue": scorecard.get("repair_queue", []),
         },
         "audit_packets": snapshot.get("audit_packets", {}),
+        "audit_iteration_plan": audit_iteration_plan,
         "verification_gates": snapshot.get("verification_gates", []),
-        "next_actions": _next_actions(scorecard, snapshot.get("audit_packets", {})),
+        "next_actions": next_actions,
         "safety": snapshot.get("safety", {"notice": SAFETY_NOTICE, "live_trading_allowed": False}),
     }
     _write_packet(Path(output_dir), packet)
@@ -78,6 +90,42 @@ def _next_actions(scorecard: dict[str, Any], audit_packets: dict[str, Any]) -> l
     return actions
 
 
+def _audit_iteration_plan_for_packet(
+    audit_iteration_plan: dict[str, Any],
+    next_actions: list[dict[str, Any]],
+    *,
+    score: int,
+    max_score: int,
+    verdict: str,
+) -> dict[str, Any]:
+    if next_actions or not isinstance(audit_iteration_plan, dict):
+        normalized = dict(audit_iteration_plan)
+        summary = dict(normalized.get("summary", {}))
+        summary.update({"audit_score": score, "max_score": max_score, "verdict": verdict})
+        normalized["summary"] = summary
+        return normalized
+    rows = [
+        row
+        for row in audit_iteration_plan.get("rows", [])
+        if isinstance(row, dict) and row.get("status") == "blocked_expected"
+    ]
+    summary = dict(audit_iteration_plan.get("summary", {}))
+    summary.update(
+        {
+            "active_actions": 0,
+            "audit_score": score,
+            "max_score": max_score,
+            "verdict": verdict,
+            "blocked_expected": len(rows),
+            "next_action": rows[0].get("action", "No audit repair actions queued") if rows else "No audit repair actions queued",
+        }
+    )
+    normalized = dict(audit_iteration_plan)
+    normalized["summary"] = summary
+    normalized["rows"] = rows
+    return normalized
+
+
 def _write_packet(output_dir: Path, packet: dict[str, Any]) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "gui_control_center_audit.json").write_text(
@@ -104,6 +152,23 @@ def _render_markdown(packet: dict[str, Any]) -> str:
             f"- {category.get('label', category.get('category_id', 'category'))}: "
             f"{category.get('score', 0)} / {category.get('max_score', 0)} "
             f"({category.get('status', '')})"
+        )
+    iteration_plan = packet.get("audit_iteration_plan", {})
+    iteration_summary = iteration_plan.get("summary", {}) if isinstance(iteration_plan, dict) else {}
+    rows.extend(
+        [
+            "",
+            "## Audit Iteration Plan",
+            f"- Source: {iteration_summary.get('source', '')}",
+            f"- Active actions: {iteration_summary.get('active_actions', 0)}",
+            f"- Blocked expected: {iteration_summary.get('blocked_expected', 0)}",
+        ]
+    )
+    iteration_rows = iteration_plan.get("rows", []) if isinstance(iteration_plan, dict) else []
+    for item in iteration_rows:
+        rows.append(
+            f"- [{item.get('priority', 'P2')}] {item.get('action', '')}: "
+            f"{item.get('status', '')}; verify with {item.get('verification_command', '')}"
         )
     rows.extend(["", "## Next Actions"])
     actions = packet.get("next_actions", [])
