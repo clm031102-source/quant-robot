@@ -293,6 +293,7 @@ async function refreshResearch() {
   renderFactorResearch();
   renderBacktest();
   renderDecision();
+  renderControlCenter();
 }
 
 async function runResearch() {
@@ -325,6 +326,7 @@ async function refreshSignals() {
   state.signals = await fetchJson(`/api/signals?${params.toString()}`);
   renderSignals();
   renderDashboard();
+  renderControlCenter();
 }
 
 async function runSignals() {
@@ -364,6 +366,7 @@ async function refreshPaper() {
   state.paper = await fetchJson(`/api/paper?${params.toString()}`);
   renderDashboard();
   renderPaper();
+  renderControlCenter();
 }
 
 async function runPaper() {
@@ -488,6 +491,7 @@ function renderControlCenter() {
   const work = control.work || {};
   const backtest = control.backtest || {};
   const backtestProvenance = control.backtest_provenance || {};
+  const backtestGate = control.backtest_gate || {};
   const resultEvidence = control.result_evidence || {};
   const method = control.method || {};
   const workflows = control.workflows || [];
@@ -524,6 +528,7 @@ function renderControlCenter() {
   const metrics = state.research?.metrics || {};
   const benchmark = state.research?.benchmark_metrics || {};
   const paperMetrics = state.paper?.metrics || {};
+  const executionReceipts = loadExecutionReceipts(executionReceiptSpec);
   const statusTag = byId("control-center-status");
   if (statusTag) {
     statusTag.textContent = control.status || "loading";
@@ -606,6 +611,13 @@ function renderControlCenter() {
     ["Benchmark", backtest.benchmark_asset_id || "--", "muted"],
   ]);
   byId("control-backtest-provenance").innerHTML = renderBacktestProvenance(backtestProvenance);
+  byId("control-backtest-gate").innerHTML = renderBacktestGate(
+    backtestGate,
+    metrics,
+    benchmark,
+    paperMetrics,
+    executionReceipts,
+  );
   byId("control-method-steps").innerHTML = (method.steps || []).map((item) => `
     <div class="method-step">
       <span>${escapeHtml(item.step ?? "")}</span>
@@ -1736,6 +1748,75 @@ function renderResultEvidence(evidence = {}) {
       <span>Run research, signals, or paper simulation to connect result metrics to workflow receipts.</span>
     </div>
   `);
+}
+
+function renderBacktestGate(gate = {}, metrics = {}, benchmark = {}, paperMetrics = {}, executionReceipts = []) {
+  const summary = gate.summary || {};
+  const rows = gate.rows || [];
+  const evaluated = rows.map((item) => {
+    const value = gateMetricValue(item, metrics, benchmark, paperMetrics, executionReceipts);
+    return { item, value, result: evaluateGateRow(item, value) };
+  });
+  const failures = evaluated.filter((row) => row.result.status === "failed").length;
+  const awaiting = evaluated.filter((row) => row.result.status === "awaiting_metric").length;
+  const passed = evaluated.filter((row) => row.result.status === "passed" || row.result.status === "blocked_expected").length;
+  const headerClass = failures > 0 ? "danger" : awaiting > 0 ? "warn" : "ok";
+  const header = `
+    <div class="list-row ${escapeHtml(headerClass)}">
+      <strong>${escapeHtml(`Backtest gate / ${failures > 0 ? "blocked" : awaiting > 0 ? "awaiting metrics" : "paper candidate"}`)}</strong>
+      <span>${escapeHtml(`passed=${passed} / awaiting=${awaiting} / failed=${failures}`)}</span>
+      <span>${escapeHtml(`risk=${summary.risk_profile || "--"} / live=${summary.live_trading_allowed ? "enabled" : "disabled"}`)}</span>
+    </div>
+  `;
+  const body = evaluated.slice(0, 10).map(({ item, value, result }) => `
+    <div class="list-row ${escapeHtml(result.statusClass)}">
+      <strong>${escapeHtml(`${item.label || item.gate_id || ""}: ${formatGateValue(value, item.value_type)}`)}</strong>
+      <span>${escapeHtml(`${result.status} / ${item.comparator || ""} ${formatGateValue(item.threshold, item.value_type)}`)}</span>
+      <span>${escapeHtml(item.evidence || item.command || "")}</span>
+    </div>
+  `).join("");
+  return header + (body || `
+    <div class="list-row warn">
+      <strong>No backtest gate</strong>
+      <span>The control API must expose metric thresholds before paper-observation decisions are shown.</span>
+    </div>
+  `);
+}
+
+function gateMetricValue(item = {}, metrics = {}, benchmark = {}, paperMetrics = {}, executionReceipts = []) {
+  if (item.gate_id === "benchmark_relative_return") return benchmark.relative_return;
+  if (item.gate_id === "paper_ending_equity") return paperMetrics.ending_equity;
+  if (item.gate_id === "execution_receipts") return executionReceipts.length;
+  if (item.gate_id === "live_boundary") return false;
+  return metrics[item.metric_key];
+}
+
+function evaluateGateRow(item = {}, value) {
+  if (item.gate_id === "live_boundary") return { status: "blocked_expected", statusClass: "ok" };
+  const number = Number(value);
+  if (value == null || value === "" || !Number.isFinite(number)) {
+    return { status: "awaiting_metric", statusClass: "warn" };
+  }
+  if (item.gate_id === "execution_receipts" && number === 0) {
+    return { status: "awaiting_metric", statusClass: "warn" };
+  }
+  const threshold = Number(item.threshold);
+  let passed = false;
+  if (item.comparator === ">=") passed = number >= threshold;
+  if (item.comparator === ">") passed = number > threshold;
+  if (item.comparator === "<=") passed = number <= threshold;
+  if (item.comparator === "<") passed = number < threshold;
+  if (item.comparator === "==") passed = value === item.threshold;
+  return passed ? { status: "passed", statusClass: "ok" } : { status: "failed", statusClass: "danger" };
+}
+
+function formatGateValue(value, valueType) {
+  if (value == null || value === "") return "--";
+  if (valueType === "percent") return formatPercent(value);
+  if (valueType === "decimal") return formatDecimal(value);
+  if (valueType === "currency") return formatNumber(value);
+  if (valueType === "boolean") return String(Boolean(value));
+  return formatNumber(value);
 }
 
 function renderReleaseReadiness(readiness = {}) {

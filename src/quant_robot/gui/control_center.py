@@ -29,6 +29,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     backtest_provenance = _backtest_provenance(backtest, workflows)
     execution_receipts = _execution_receipts_spec()
     result_evidence = _result_evidence(workflows, execution_receipts)
+    backtest_gate = _backtest_gate(workflows, execution_receipts)
     audit_packet_source = _load_gui_audit_packet(root)
     latest_gui_audit = audit_packet_source.get("packet") if audit_packet_source.get("status") == "packet_present" else None
     audit_scorecard = _audit_scorecard(
@@ -84,6 +85,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "execution_plan": _execution_plan(workflows, verification_gates),
         "startup_health": startup_health,
         "backtest_provenance": backtest_provenance,
+        "backtest_gate": backtest_gate,
         "workflow_trace": workflow_trace,
         "readiness_matrix": readiness_matrix,
         "release_readiness": release_readiness,
@@ -736,6 +738,167 @@ def _result_evidence(workflows: list[dict[str, Any]], execution_receipts: dict[s
             "next_action": research_endpoint,
         },
         "rows": rows,
+    }
+
+
+def _backtest_gate(workflows: list[dict[str, Any]], execution_receipts: dict[str, Any]) -> dict[str, Any]:
+    research_command = _workflow_command(workflows, "research_backtest")
+    paper_command = _workflow_command(workflows, "paper_simulation")
+    receipt_storage_key = execution_receipts.get("storage_key", "quant_robot.gui.execution_receipts.v1")
+    rows = [
+        _gate_row(
+            gate_id="sharpe",
+            label="Sharpe",
+            metric_key="sharpe",
+            source="research_metrics",
+            comparator=">=",
+            threshold=1.0,
+            value_type="decimal",
+            command=research_command,
+            evidence="Require Sharpe >= 1.0 before paper-observation consideration.",
+        ),
+        _gate_row(
+            gate_id="total_return",
+            label="Total return",
+            metric_key="total_return",
+            source="research_metrics",
+            comparator=">=",
+            threshold=0.0,
+            value_type="percent",
+            command=research_command,
+            evidence="Require non-negative total return before paper-observation consideration.",
+        ),
+        _gate_row(
+            gate_id="annualized_return",
+            label="Annualized return",
+            metric_key="annualized_return",
+            source="research_metrics",
+            comparator=">=",
+            threshold=0.05,
+            value_type="percent",
+            command=research_command,
+            evidence="Require annualized return >= 5% before paper-observation consideration.",
+        ),
+        _gate_row(
+            gate_id="max_drawdown",
+            label="Max drawdown",
+            metric_key="max_drawdown",
+            source="research_metrics",
+            comparator="<=",
+            threshold=0.30,
+            value_type="percent",
+            command=research_command,
+            evidence="Allow drawdown up to 30% only when return and Sharpe gates are visible.",
+        ),
+        _gate_row(
+            gate_id="win_rate",
+            label="Win rate",
+            metric_key="win_rate",
+            source="research_metrics",
+            comparator=">=",
+            threshold=0.50,
+            value_type="percent",
+            command=research_command,
+            evidence="Require win rate >= 50% before paper-observation consideration.",
+        ),
+        _gate_row(
+            gate_id="trade_count",
+            label="Trade count",
+            metric_key="trade_count",
+            source="research_metrics",
+            comparator=">=",
+            threshold=5,
+            value_type="number",
+            command=research_command,
+            evidence="Require at least five simulated trades so one-off outcomes are not overread.",
+        ),
+        _gate_row(
+            gate_id="benchmark_relative_return",
+            label="Benchmark relative return",
+            metric_key="benchmark_relative_return",
+            source="benchmark_metrics",
+            comparator=">=",
+            threshold=0.0,
+            value_type="percent",
+            command=research_command,
+            evidence="Require non-negative relative return versus the configured CN_ETF benchmark.",
+        ),
+        _gate_row(
+            gate_id="paper_ending_equity",
+            label="Paper ending equity",
+            metric_key="paper_ending_equity",
+            source="paper_metrics",
+            comparator=">=",
+            threshold=100000.0,
+            value_type="currency",
+            command=paper_command,
+            evidence="Paper simulation should not finish below initial cash before observation handoff.",
+        ),
+        _gate_row(
+            gate_id="execution_receipts",
+            label="Execution receipts",
+            metric_key="stored_receipts",
+            source="browser_receipts",
+            comparator=">",
+            threshold=0,
+            value_type="number",
+            command=f"browser localStorage {receipt_storage_key}",
+            evidence="Require browser-local receipts that tie displayed metrics to workflow runs.",
+        ),
+        {
+            "gate_id": "live_boundary",
+            "label": "Live trading boundary",
+            "metric_key": "live_trading_allowed",
+            "source": "safety",
+            "comparator": "==",
+            "threshold": False,
+            "value_type": "boolean",
+            "severity": "hard_block",
+            "status": "blocked_expected",
+            "command": "blocked by research-to-paper boundary",
+            "evidence": SAFETY_NOTICE,
+        },
+    ]
+    return {
+        "stage": "gui_backtest_gate",
+        "summary": {
+            "status": "awaiting_research_result",
+            "paper_candidate_allowed": False,
+            "live_trading_allowed": False,
+            "risk_profile": "paper_observation_candidate",
+            "receipt_storage_key": receipt_storage_key,
+            "next_action": research_command,
+            "threshold_count": len(rows),
+            "max_drawdown_threshold": 0.30,
+        },
+        "rows": rows,
+    }
+
+
+def _gate_row(
+    *,
+    gate_id: str,
+    label: str,
+    metric_key: str,
+    source: str,
+    comparator: str,
+    threshold: float,
+    value_type: str,
+    command: str,
+    evidence: str,
+) -> dict[str, Any]:
+    return {
+        "gate_id": gate_id,
+        "label": label,
+        "metric_key": metric_key,
+        "source": source,
+        "comparator": comparator,
+        "threshold": threshold,
+        "value_type": value_type,
+        "severity": "paper_required",
+        "status": "awaiting_metric",
+        "command": command,
+        "evidence": evidence,
     }
 
 

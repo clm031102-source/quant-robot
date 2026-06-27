@@ -492,6 +492,10 @@ button {
   max-height: 236px;
 }
 
+.backtest-gate-list {
+  max-height: 236px;
+}
+
 .result-evidence-list {
   max-height: 236px;
 }
