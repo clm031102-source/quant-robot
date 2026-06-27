@@ -47,6 +47,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "verification_gates": verification_gates,
         "operator_checklist": _operator_checklist(verification_gates, artifacts),
         "execution_plan": _execution_plan(workflows, verification_gates),
+        "readiness_matrix": _readiness_matrix(workflows, verification_gates, artifacts),
         "results": {
             "source": "Run research or paper workflow to populate live result values in the browser.",
             "metrics": [
@@ -404,6 +405,69 @@ def _execution_plan(workflows: list[dict[str, Any]], verification_gates: list[di
             "done": sum(1 for item in steps if item["status"] == "done"),
         },
         "steps": steps,
+    }
+
+
+def _readiness_matrix(
+    workflows: list[dict[str, Any]],
+    verification_gates: list[dict[str, Any]],
+    artifacts: list[dict[str, Any]],
+) -> dict[str, Any]:
+    required_gates = [gate for gate in verification_gates if str(gate.get("status", "")).startswith("required")]
+    missing_artifacts = [artifact for artifact in artifacts if artifact["status"] != "present"]
+    rows = [
+        {
+            "mode_id": "research_backtest",
+            "label": "Research backtest",
+            "status": "ready",
+            "scope": "CN_ETF local research",
+            "guardrail": "Local processed bars or demo fixtures; no broker/account/order access.",
+            "next_action": _workflow_command(workflows, "research_backtest"),
+            "evidence": "Backtest method, parameters, result slots, and verification pack are visible in Mission Control.",
+        },
+        {
+            "mode_id": "signal_snapshot",
+            "label": "Advisory signal snapshot",
+            "status": "ready",
+            "scope": "Advisory targets only",
+            "guardrail": "Rebalance plans stay executable=false and do not route orders.",
+            "next_action": _workflow_command(workflows, "signal_snapshot"),
+            "evidence": "Signal workflow produces target weights and rebalance intent for operator review.",
+        },
+        {
+            "mode_id": "paper_simulation",
+            "label": "Paper simulation",
+            "status": "requires_gates",
+            "scope": "Local simulated fills",
+            "guardrail": "Run promotion/readiness gates before operator use; generated data stays out of Git.",
+            "next_action": _workflow_command(workflows, "paper_simulation"),
+            "evidence": (
+                f"{len(required_gates)} required gates tracked; "
+                f"{len(missing_artifacts)} local artifact links currently missing."
+            ),
+        },
+        {
+            "mode_id": "live_trading",
+            "label": "Live trading",
+            "status": "blocked",
+            "scope": "Broker/account/order side effects",
+            "guardrail": SAFETY_NOTICE,
+            "next_action": "Blocked by research-to-paper boundary",
+            "evidence": "No broker connection, account reads, order placement, or live trading.",
+        },
+    ]
+    return {
+        "stage": "readiness_matrix",
+        "summary": {
+            "ready": sum(1 for row in rows if row["status"] == "ready"),
+            "requires_gates": sum(1 for row in rows if row["status"] == "requires_gates"),
+            "blocked": sum(1 for row in rows if row["status"] == "blocked"),
+            "paper_ready": False,
+            "live_ready": False,
+            "required_gate_count": len(required_gates),
+            "missing_artifact_count": len(missing_artifacts),
+        },
+        "rows": rows,
     }
 
 

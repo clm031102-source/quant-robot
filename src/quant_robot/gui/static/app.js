@@ -445,6 +445,8 @@ function renderControlCenter() {
   const checklistItems = operatorChecklist.items || [];
   const executionPlan = control.execution_plan || {};
   const executionSteps = executionPlan.steps || [];
+  const readinessMatrix = control.readiness_matrix || {};
+  const readinessRows = readinessMatrix.rows || [];
   const runQueue = control.run_queue || {};
   const activeRun = runQueue.active || {};
   const queueSummary = runQueue.summary || {};
@@ -485,6 +487,13 @@ function renderControlCenter() {
       <strong>${escapeHtml(item.label || item.step_id || "")}</strong>
       <span>${escapeHtml(item.status || "")} / ${escapeHtml(item.command || "")}</span>
       <span>${escapeHtml(item.detail || "")}</span>
+    </div>
+  `).join("");
+  byId("control-readiness-matrix").innerHTML = readinessRows.slice(0, 4).map((item) => `
+    <div class="list-row ${escapeHtml(item.status === "ready" ? "ok" : item.status === "blocked" ? "danger" : "warn")}">
+      <strong>${escapeHtml(item.label || item.mode_id || "")}</strong>
+      <span>${escapeHtml(item.status || "")} / ${escapeHtml(item.scope || "")}</span>
+      <span>${escapeHtml(item.guardrail || item.next_action || "")}</span>
     </div>
   `).join("");
   byId("control-backtest-status").innerHTML = statusRows([
