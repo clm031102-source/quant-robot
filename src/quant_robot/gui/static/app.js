@@ -20,6 +20,7 @@ const state = {
   iterativeObservationExpansion: null,
   tushareActivationGate: null,
   verificationResult: null,
+  activeOperation: null,
   runHistory: [],
   executionReceipts: [],
 };
@@ -497,6 +498,7 @@ function renderControlCenter() {
   const work = control.work || {};
   const workspaceSync = control.workspace_sync || {};
   const processMonitor = control.process_monitor || {};
+  const activeOperationSpec = control.active_operation || {};
   const backtest = control.backtest || {};
   const backtestProvenance = control.backtest_provenance || {};
   const backtestGate = control.backtest_gate || {};
@@ -554,6 +556,7 @@ function renderControlCenter() {
   ]);
   byId("control-workspace-sync").innerHTML = renderWorkspaceSync(workspaceSync);
   byId("control-process-monitor").innerHTML = renderProcessMonitor(processMonitor);
+  byId("control-active-operation").innerHTML = renderActiveOperation(activeOperationSpec, state.activeOperation);
   byId("control-run-queue").innerHTML = statusRows([
     ["Active", activeRun.label || "--", activeRun.workflow_id ? "ok" : "muted"],
     ["Status", activeRun.status || "--", activeRun.status === "ready_to_run" ? "ok" : "warn"],
@@ -1818,6 +1821,41 @@ function renderProcessMonitor(monitor = {}) {
   `);
 }
 
+function renderActiveOperation(spec = {}, active = null) {
+  const summary = spec.summary || {};
+  const rows = spec.rows || [];
+  const operation = active || {};
+  const isRunning = operation.status === "running";
+  const statusClass = isRunning ? "warn" : operation.status === "failed" ? "danger" : operation.status === "completed" ? "ok" : "muted";
+  const duration = operation.started_at
+    ? `${Math.max(0, Math.round(((operation.finished_at ? Date.parse(operation.finished_at) : Date.now()) - Date.parse(operation.started_at)) / 1000))}s`
+    : "--";
+  const header = `
+    <div class="list-row ${escapeHtml(statusClass)}">
+      <strong>${escapeHtml(operation.label || (isRunning ? "Running" : "No active operation"))}</strong>
+      <span>${escapeHtml(`${operation.status || "waiting"} / ${operation.workflow_id || "browser_runtime"} / ${duration}`)}</span>
+      <span>${escapeHtml(operation.detail || summary.next_action || "")}</span>
+    </div>
+  `;
+  const supported = (summary.supported_workflow_ids || []).join(" / ");
+  const body = [
+    `
+    <div class="list-row ok">
+      <strong>Tracked workflows</strong>
+      <span>${escapeHtml(supported || "research_backtest / signal_snapshot / paper_simulation / verification_runner")}</span>
+      <span>${escapeHtml(summary.receipt_source || "browser receipts")}</span>
+    </div>
+    `,
+  ].concat(rows.slice(0, 3).map((item) => `
+    <div class="list-row ${escapeHtml(item.status === "blocked_live" ? "danger" : item.status === "waiting" ? "warn" : "ok")}">
+      <strong>${escapeHtml(item.label || item.check_id || "")}</strong>
+      <span>${escapeHtml(`${item.status || "--"} / ${item.source || ""}`)}</span>
+      <span>${escapeHtml(item.evidence || "")}</span>
+    </div>
+  `)).join("");
+  return header + body;
+}
+
 function renderStartupHealth(health = {}) {
   const summary = health.summary || {};
   const rows = health.rows || [];
@@ -2319,6 +2357,12 @@ function paperReceipt(result = {}) {
 async function runVerificationGate(gateId, button = null) {
   if (!gateId) return;
   const label = button?.textContent || "";
+  const activeOperation = beginActiveOperation({
+    workflow_id: "verification_runner",
+    label: `Run verification gate ${gateId}`,
+    detail: `/api/control/verification?gate_id=${gateId}`,
+    safety: "allowlisted local verification only; no broker, account, order, or live-trading side effects",
+  });
   if (button) {
     button.disabled = true;
     button.textContent = "Running";
@@ -2327,6 +2371,7 @@ async function runVerificationGate(gateId, button = null) {
   try {
     const result = await fetchJson(`/api/control/verification?gate_id=${encodeURIComponent(gateId)}`);
     state.verificationResult = result;
+    finishActiveOperation(activeOperation, result.status === "passed" ? "completed" : "failed", `returncode=${result.returncode ?? "--"} / ${result.status || "--"}`);
     renderControlCenter();
     showToast(`Verification ${result.status || "finished"}: ${gateId}`, result.status !== "passed");
   } catch (error) {
@@ -2340,6 +2385,7 @@ async function runVerificationGate(gateId, button = null) {
       stderr_tail: error.message || "Verification request failed",
       safety: { live_trading_allowed: false, order_placement_allowed: false },
     };
+    finishActiveOperation(activeOperation, "failed", error.message || "Verification request failed");
     renderControlCenter();
     showToast(error.message || "Verification request failed", true);
   } finally {
@@ -2357,15 +2403,77 @@ async function fetchJson(url) {
   return response.json();
 }
 
-async function withBusy(buttonId, action) {
+function beginActiveOperation(operation = {}) {
+  const now = new Date().toISOString();
+  state.activeOperation = {
+    operation_id: operation.operation_id || `${operation.workflow_id || "operation"}-${Date.now()}`,
+    workflow_id: operation.workflow_id || "browser_operation",
+    label: operation.label || "Browser operation",
+    status: "running",
+    started_at: now,
+    finished_at: "",
+    detail: operation.detail || "",
+    safety: operation.safety || "research-to-paper only; no broker, account, or order side effects",
+  };
+  renderControlCenter();
+  return state.activeOperation;
+}
+
+function finishActiveOperation(operation = null, status = "completed", detail = "") {
+  const current = operation || state.activeOperation;
+  if (!current) return null;
+  state.activeOperation = {
+    ...current,
+    status,
+    finished_at: new Date().toISOString(),
+    detail: detail || current.detail || "",
+  };
+  renderControlCenter();
+  return state.activeOperation;
+}
+
+function operationForButton(buttonId) {
+  const specs = {
+    "run-research": {
+      workflow_id: "research_backtest",
+      label: "Run research backtest",
+      detail: () => `${valueOf("market-select") || "ALL"} / ${valueOf("factor-select") || "momentum_2"} / top_n=${valueOf("research-top-n") || "2"}`,
+      safety: "research calculation only; no broker, account, or order side effects",
+    },
+    "run-signals": {
+      workflow_id: "signal_snapshot",
+      label: "Generate advisory signal snapshot",
+      detail: () => `${valueOf("market-select") || "ALL"} / top_n=${valueOf("signal-top-n") || "2"}`,
+      safety: "advisory targets only; executable=false and no order routing",
+    },
+    "run-paper": {
+      workflow_id: "paper_simulation",
+      label: "Run local paper simulation",
+      detail: () => `${valueOf("paper-market-select") || "ALL"} / top_n=${valueOf("paper-top-n") || "2"} / cash=${valueOf("paper-initial-cash") || "100000"}`,
+      safety: "local simulated fills only; no broker, account, or order side effects",
+    },
+  };
+  const spec = specs[buttonId];
+  if (!spec) return null;
+  return {
+    ...spec,
+    detail: typeof spec.detail === "function" ? spec.detail() : spec.detail,
+  };
+}
+
+async function withBusy(buttonId, action, operation = null) {
   const button = byId(buttonId);
   const label = button.textContent;
+  const activeOperationSpec = operation || operationForButton(buttonId);
+  const activeOperation = activeOperationSpec ? beginActiveOperation(activeOperationSpec) : null;
   button.disabled = true;
   button.textContent = "运行中";
   byId("run-state-label").textContent = "running";
   try {
     await action();
+    if (activeOperation) finishActiveOperation(activeOperation, "completed");
   } catch (error) {
+    if (activeOperation) finishActiveOperation(activeOperation, "failed", error.message || "Operation failed");
     showToast(error.message || "运行失败", true);
   } finally {
     button.disabled = false;

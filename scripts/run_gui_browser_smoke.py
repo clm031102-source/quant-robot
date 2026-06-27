@@ -49,6 +49,7 @@ def run_gui_browser_smoke(
                     "control-workflow-trace",
                     "control-workspace-sync",
                     "control-process-monitor",
+                    "control-active-operation",
                     "control-result-evidence",
                     "control-startup-health",
                     "control-audit-feedback",
@@ -58,7 +59,7 @@ def run_gui_browser_smoke(
                     "control-safety-boundary",
                 ]
             ),
-            "Home page exposes the control-center board, backtest status, backtest provenance, result evidence, startup health, audit feedback, audit iteration plan, verification runner, and safety boundary.",
+            "Home page exposes the control-center board, backtest status, active operation, backtest provenance, result evidence, startup health, audit feedback, audit iteration plan, verification runner, and safety boundary.",
             index_html.get("error") or "Home page is missing one or more required GUI anchors.",
         )
     )
@@ -74,6 +75,9 @@ def run_gui_browser_smoke(
             and "renderWorkflowTrace" in str(app_js.get("body", ""))
             and "renderWorkspaceSync" in str(app_js.get("body", ""))
             and "renderProcessMonitor" in str(app_js.get("body", ""))
+            and "renderActiveOperation" in str(app_js.get("body", ""))
+            and "beginActiveOperation" in str(app_js.get("body", ""))
+            and "finishActiveOperation" in str(app_js.get("body", ""))
             and "renderResultEvidence" in str(app_js.get("body", ""))
             and "renderAuditFeedback" in str(app_js.get("body", ""))
             and "renderAuditIterationPlan" in str(app_js.get("body", ""))
@@ -81,7 +85,7 @@ def run_gui_browser_smoke(
             and "renderVerificationRunner" in str(app_js.get("body", ""))
             and "runVerificationGate" in str(app_js.get("body", ""))
             and "/api/control/verification?gate_id=" in str(app_js.get("body", "")),
-            "Frontend script includes control-center, startup-health, backtest-provenance, backtest-gate, workflow-trace, result-evidence, audit-feedback, audit-iteration, audit-scheduler, and verification-runner hooks.",
+            "Frontend script includes control-center, active-operation, startup-health, backtest-provenance, backtest-gate, workflow-trace, result-evidence, audit-feedback, audit-iteration, audit-scheduler, and verification-runner hooks.",
             app_js.get("error") or "Frontend script is missing required renderer hooks.",
         )
     )
@@ -182,6 +186,20 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "active_operation_panel",
+            "Active operation contract",
+            control.get("ok")
+            and control_body.get("active_operation", {}).get("stage") == "gui_active_operation"
+            and bool(control_body.get("active_operation", {}).get("rows"))
+            and control_body.get("active_operation", {}).get("summary", {}).get("live_trading_allowed") is False
+            and "research_backtest" in control_body.get("active_operation", {}).get("summary", {}).get("supported_workflow_ids", [])
+            and "verification_runner" in control_body.get("active_operation", {}).get("summary", {}).get("supported_workflow_ids", []),
+            "Control API exposes browser-managed active operation tracking for research, paper, signal, and verification work.",
+            control.get("error") or "Control API is missing active_operation rows.",
+        )
+    )
+    checks.append(
+        _check(
             "audit_feedback_panel",
             "Audit feedback contract",
             control.get("ok")
@@ -240,12 +258,13 @@ def run_gui_browser_smoke(
             and ".workflow-trace-list" in str(styles_css.get("body", ""))
             and ".workspace-sync-list" in str(styles_css.get("body", ""))
             and ".process-monitor-list" in str(styles_css.get("body", ""))
+            and ".active-operation-list" in str(styles_css.get("body", ""))
             and ".result-evidence-list" in str(styles_css.get("body", ""))
             and ".audit-feedback-list" in str(styles_css.get("body", ""))
             and ".audit-iteration-list" in str(styles_css.get("body", ""))
             and ".audit-scheduler-list" in str(styles_css.get("body", ""))
             and ".verification-runner-list" in str(styles_css.get("body", "")),
-            "Stylesheet contains responsive breakpoints plus startup-health, backtest-provenance, backtest-gate, workflow-trace, result-evidence, audit-feedback, audit-iteration, audit-scheduler, and verification-runner sizing rules.",
+            "Stylesheet contains responsive breakpoints plus active-operation, startup-health, backtest-provenance, backtest-gate, workflow-trace, result-evidence, audit-feedback, audit-iteration, audit-scheduler, and verification-runner sizing rules.",
             styles_css.get("error") or "Stylesheet is missing responsive or audit-iteration layout rules.",
         )
     )

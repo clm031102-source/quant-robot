@@ -526,6 +526,17 @@ button {
   max-height: 236px;
 }
 
+.active-operation-list {
+  max-height: 236px;
+}
+
+.active-operation-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+
 .startup-health-list {
   max-height: 236px;
 }

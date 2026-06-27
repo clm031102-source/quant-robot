@@ -32,6 +32,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     branch = _git_branch(root)
     workspace_sync = _workspace_sync(root, branch)
     process_monitor = _process_monitor(root)
+    active_operation = _active_operation_spec()
     artifacts = _artifact_status(root)
     backtest = _default_backtest()
     workflows = _workflow_commands(backtest)
@@ -84,6 +85,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "backtest": backtest,
         "workspace_sync": workspace_sync,
         "process_monitor": process_monitor,
+        "active_operation": active_operation,
         "method": {
             "title": "Backtest path",
             "steps": [
@@ -282,6 +284,53 @@ def _run_queue(workflows: list[dict[str, Any]]) -> dict[str, Any]:
             for item in pending
         ],
         "blocked": blocked,
+    }
+
+
+def _active_operation_spec() -> dict[str, Any]:
+    supported_workflows = [
+        "research_backtest",
+        "signal_snapshot",
+        "paper_simulation",
+        "verification_runner",
+    ]
+    return {
+        "stage": "gui_active_operation",
+        "summary": {
+            "status": "browser_managed",
+            "active": False,
+            "supported_workflow_ids": supported_workflows,
+            "state_source": "browser_runtime",
+            "receipt_source": "browser localStorage + API receipts",
+            "live_trading_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "next_action": "The browser marks an operation running before calling a workflow API and keeps the latest receipt visible after completion.",
+        },
+        "rows": [
+            {
+                "check_id": "current_browser_operation",
+                "label": "Current browser operation",
+                "status": "waiting",
+                "source": "state.activeOperation",
+                "evidence": "Updated immediately when the operator starts research, signal, paper, or verification work from the GUI.",
+            },
+            {
+                "check_id": "last_browser_receipt",
+                "label": "Last browser receipt",
+                "status": "waiting",
+                "source": "run_history/execution_receipts/verification_result",
+                "evidence": "Completed operations stay visible with status, timing, request parameters, metrics, or verification return code.",
+            },
+            {
+                "check_id": "safe_boundary",
+                "label": "Safe boundary",
+                "status": "blocked_live",
+                "source": "safety",
+                "evidence": SAFETY_NOTICE,
+            },
+        ],
     }
 
 
