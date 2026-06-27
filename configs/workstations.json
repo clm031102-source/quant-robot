@@ -4,6 +4,7 @@
       "description": "Portable laptop for architecture, audits, documentation, sync, and light factor smoke checks.",
       "allowed_tasks": [
         "architecture_ops",
+        "factor_integration",
         "factor_smoke",
         "factor_review",
         "project_sync"
@@ -54,7 +55,7 @@
       "branch": "codex/factor-batch-<topic-or-date>"
     },
     "factor_validation": {
-      "description": "Candidate factor validation, walk-forward reruns, cost checks, market-regime coverage checks, robustness reviews, and desktop residual-regime validation via scripts/run_checks.py --profile desktop-validation --execute. CN stock validation reruns must first confirm the startup gate and CN stock data manifest.",
+      "description": "Candidate factor validation, walk-forward reruns, long-cycle replay evidence, walk-forward progress audit evidence, cost checks, market-regime coverage checks, robustness reviews, and desktop residual-regime validation via scripts/run_checks.py --profile desktop-validation --execute. CN stock validation reruns must first confirm the startup gate and CN stock data manifest.",
       "branch": "codex/factor-validation-<topic-or-date>"
     },
     "factor_review": {

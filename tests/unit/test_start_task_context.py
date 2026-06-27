@@ -68,6 +68,13 @@ class StartTaskContextTests(unittest.TestCase):
         self.assertIn("long-cycle replay evidence", description)
         self.assertIn("walk-forward progress audit evidence", description)
 
+    def test_factor_integration_has_an_explicit_owner_machine(self) -> None:
+        config = load_config(Path("configs/workstations.json"))
+
+        self.assertIn("factor_integration", config["machines"]["laptop"]["allowed_tasks"])
+        self.assertNotIn("factor_integration", config["machines"]["office_desktop"]["allowed_tasks"])
+        self.assertNotIn("factor_integration", config["machines"]["highspec_desktop"]["allowed_tasks"])
+
 
 if __name__ == "__main__":
     unittest.main()
