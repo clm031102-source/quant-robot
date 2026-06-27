@@ -3,7 +3,9 @@ from __future__ import annotations
 import fnmatch
 import json
 import os
+import re
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -20,6 +22,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     root = Path(repo_root) if repo_root is not None else _repo_root()
     branch = _git_branch(root)
     workspace_sync = _workspace_sync(root, branch)
+    process_monitor = _process_monitor(root)
     artifacts = _artifact_status(root)
     backtest = _default_backtest()
     workflows = _workflow_commands(backtest)
@@ -42,6 +45,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         latest_gui_audit,
         backtest_provenance,
         result_evidence,
+        process_monitor,
     )
     audit_feedback = _audit_feedback(audit_packet_source, audit_packets)
     audit_iteration_plan = _audit_iteration_plan(audit_feedback, audit_scorecard, verification_gates, readiness_matrix)
@@ -68,6 +72,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         },
         "backtest": backtest,
         "workspace_sync": workspace_sync,
+        "process_monitor": process_monitor,
         "method": {
             "title": "Backtest path",
             "steps": [
@@ -1153,6 +1158,7 @@ def _audit_scorecard(
     latest_gui_audit: dict[str, Any] | None = None,
     backtest_provenance: dict[str, Any] | None = None,
     result_evidence: dict[str, Any] | None = None,
+    process_monitor: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     required_gate_count = sum(1 for gate in verification_gates if str(gate.get("status", "")).startswith("required"))
     browser_gate_count = sum(1 for gate in verification_gates if "browser" in str(gate.get("gate_id", "")))
@@ -1173,6 +1179,10 @@ def _audit_scorecard(
     result_evidence_ready = (
         (result_evidence or {}).get("stage") == "gui_result_evidence"
         and bool((result_evidence or {}).get("rows"))
+    )
+    process_monitor_ready = (
+        (process_monitor or {}).get("stage") == "gui_process_monitor"
+        and bool((process_monitor or {}).get("rows"))
     )
     independent_audit_actions = _audit_packet_next_actions(latest_gui_audit) if latest_gui_audit else []
     categories = [
@@ -1207,13 +1217,13 @@ def _audit_scorecard(
         {
             "category_id": "runtime_observability",
             "label": "Runtime observability",
-            "score": 14 if result_evidence_ready else 13,
+            "score": 14 if result_evidence_ready and process_monitor_ready else 13,
             "max_score": 14,
-            "status": "good" if result_evidence_ready else "needs_result_evidence",
+            "status": "good" if result_evidence_ready and process_monitor_ready else "needs_runtime_evidence",
             "evidence": (
-                "Startup health, result evidence, current work, local workflow commands, and browser-persisted run history are visible."
-                if result_evidence_ready
-                else "Runtime view needs result evidence that maps metrics to workflow receipts and next commands."
+                "Startup health, process monitor, result evidence, current work, local workflow commands, and browser-persisted run history are visible."
+                if result_evidence_ready and process_monitor_ready
+                else "Runtime view needs both local process monitor evidence and result evidence that maps metrics to workflow receipts."
             ),
         },
         {
@@ -1811,6 +1821,187 @@ def _report_links(root: Path, artifacts: list[dict[str, Any]], audit_packets: di
         for artifact in artifacts
     )
     return links
+
+
+def _process_monitor(root: Path) -> dict[str, Any]:
+    current_pid = os.getpid()
+    queried_rows = _normalize_process_rows(_query_related_processes(root), current_pid=current_pid)
+    rows = _dedupe_process_rows([_current_process_row(current_pid), *queried_rows])
+    gui_detected = any(row.get("role") == "gui_server" for row in rows)
+    active_job_roles = {"browser_smoke", "gui_audit", "project_audit", "factor_job", "verification_job"}
+    running_jobs = sum(1 for row in rows if row.get("role") in active_job_roles)
+    status = "observing" if rows else "unknown"
+    return {
+        "stage": "gui_process_monitor",
+        "summary": {
+            "status": status,
+            "current_pid": current_pid,
+            "related_processes": len(rows),
+            "running_jobs": running_jobs,
+            "gui_server_detected": gui_detected,
+            "paper_only": True,
+            "live_trading_allowed": False,
+            "poll_command": "GET /api/control/status",
+            "next_action": (
+                "Review active local research, smoke, and audit processes before launching more work."
+                if running_jobs
+                else "No extra GUI worker jobs detected; launch research, paper, or verification workflows from the console."
+            ),
+        },
+        "rows": rows,
+    }
+
+
+def _current_process_row(current_pid: int) -> dict[str, Any]:
+    command = " ".join([Path(sys.executable).name, *sys.argv])
+    rows = _normalize_process_rows(
+        [
+            {
+                "process_id": current_pid,
+                "name": Path(sys.executable).name,
+                "command_line": command,
+                "created_at": "",
+            }
+        ],
+        current_pid=current_pid,
+    )
+    row = rows[0] if rows else {}
+    row["check_id"] = "current_process"
+    row["label"] = "Current API process"
+    return row
+
+
+def _query_related_processes(root: Path) -> list[dict[str, Any]]:
+    if os.name != "nt":
+        return []
+    script = rf"""
+$ErrorActionPreference = 'Stop'
+Get-CimInstance Win32_Process |
+  Where-Object {{
+    $_.CommandLine -and
+    $_.CommandLine -notmatch "Get-CimInstance Win32_Process" -and
+    $_.Name -match "python|py|powershell" -and (
+      $_.CommandLine -match "quant_robot|run_gui|run_project_audit|run_gui_browser_smoke|run_gui_control_center_audit|sync_project|scripts[\\/]+run_|unittest|pytest|compileall"
+    )
+  }} |
+  Select-Object ProcessId,Name,CommandLine,CreationDate |
+  ConvertTo-Json -Depth 3
+"""
+    try:
+        completed = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", script],
+            cwd=root,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if completed.returncode != 0 or not completed.stdout.strip():
+        return []
+    try:
+        parsed = json.loads(completed.stdout)
+    except json.JSONDecodeError:
+        return []
+    if isinstance(parsed, dict):
+        return [parsed]
+    if isinstance(parsed, list):
+        return [item for item in parsed if isinstance(item, dict)]
+    return []
+
+
+def _normalize_process_rows(rows: Any, current_pid: int | None = None) -> list[dict[str, Any]]:
+    if isinstance(rows, dict):
+        source_rows = [rows]
+    elif isinstance(rows, list):
+        source_rows = [row for row in rows if isinstance(row, dict)]
+    else:
+        source_rows = []
+    normalized: list[dict[str, Any]] = []
+    for item in source_rows:
+        process_id = _int_or_none(item.get("ProcessId", item.get("process_id", item.get("pid"))))
+        if process_id is None:
+            continue
+        command = _redact_command_line(str(item.get("CommandLine", item.get("command_line", item.get("command", ""))) or ""))
+        name = str(item.get("Name", item.get("name", "process")) or "process")
+        role = _process_role(command, process_id=process_id, current_pid=current_pid)
+        normalized.append(
+            {
+                "check_id": "current_process" if current_pid is not None and process_id == current_pid else f"process_{process_id}",
+                "label": _process_label(role),
+                "process_id": process_id,
+                "name": name,
+                "role": role,
+                "status": "running",
+                "started_at": str(item.get("CreationDate", item.get("created_at", "")) or ""),
+                "command": command or name,
+                "paper_only": True,
+                "live_trading_allowed": False,
+                "evidence": "Local process observation only; no broker, account, order, or live-trading side effects.",
+            }
+        )
+    return normalized
+
+
+def _process_role(command: str, *, process_id: int, current_pid: int | None = None) -> str:
+    lowered = command.lower()
+    if "run_gui.py" in lowered or "quant_robot.gui" in lowered:
+        return "gui_server"
+    if "run_gui_browser_smoke.py" in lowered:
+        return "browser_smoke"
+    if "run_gui_control_center_audit.py" in lowered:
+        return "gui_audit"
+    if "run_project_audit.py" in lowered or "sync_project.py" in lowered:
+        return "project_audit"
+    if "unittest" in lowered or "pytest" in lowered or "compileall" in lowered:
+        return "verification_job"
+    if "factor" in lowered or "backtest" in lowered or "research" in lowered:
+        return "factor_job"
+    if current_pid is not None and process_id == current_pid:
+        return "current_snapshot"
+    return "related_python"
+
+
+def _process_label(role: str) -> str:
+    labels = {
+        "gui_server": "GUI server",
+        "browser_smoke": "Browser smoke",
+        "gui_audit": "GUI audit",
+        "project_audit": "Project audit",
+        "verification_job": "Verification job",
+        "factor_job": "Factor or backtest job",
+        "current_snapshot": "Current API process",
+        "related_python": "Related process",
+    }
+    return labels.get(role, "Related process")
+
+
+def _dedupe_process_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    deduped: list[dict[str, Any]] = []
+    seen: set[int] = set()
+    for row in rows:
+        process_id = row.get("process_id")
+        if not isinstance(process_id, int) or process_id in seen:
+            continue
+        seen.add(process_id)
+        deduped.append(row)
+    return deduped
+
+
+def _int_or_none(value: Any) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _redact_command_line(command: str) -> str:
+    redacted = re.sub(r"(?i)(tushare[_-]?token|token|api[_-]?key)=([^\s&]+)", r"\1=<redacted>", command)
+    redacted = re.sub(r"(?i)(--(?:tushare[_-]?token|token|api[_-]?key))\s+\S+", r"\1 <redacted>", redacted)
+    if len(redacted) > 360:
+        return f"{redacted[:340]} ... <truncated>"
+    return redacted
 
 
 def _workspace_sync(root: Path, branch: str) -> dict[str, Any]:

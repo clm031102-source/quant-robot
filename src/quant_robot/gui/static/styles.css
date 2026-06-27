@@ -321,6 +321,7 @@ button {
   padding: 13px 14px;
   display: grid;
   align-content: space-between;
+  overflow: hidden;
 }
 
 .metric-card strong {
@@ -337,6 +338,13 @@ button {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.25;
+}
+
+.metric-card small,
+.metric-card strong,
+.metric-card span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .page-grid {
@@ -485,6 +493,10 @@ button {
 }
 
 .workspace-sync-list {
+  max-height: 236px;
+}
+
+.process-monitor-list {
   max-height: 236px;
 }
 

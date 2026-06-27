@@ -64,6 +64,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("workflows", result)
         self.assertIn("report_links", result)
         self.assertIn("workspace_sync", result)
+        self.assertIn("process_monitor", result)
         self.assertIn("run_queue", result)
         self.assertIn("verification_gates", result)
         self.assertIn("operator_checklist", result)
@@ -275,6 +276,13 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("upstream_sync", sync_row_ids)
         self.assertIn("safe_sync_policy", sync_row_ids)
         self.assertIn("publish_command", sync_row_ids)
+        self.assertEqual(result["process_monitor"]["stage"], "gui_process_monitor")
+        self.assertIn(result["process_monitor"]["summary"]["status"], {"observing", "unknown"})
+        self.assertIn("current_pid", result["process_monitor"]["summary"])
+        self.assertIn("related_processes", result["process_monitor"]["summary"])
+        self.assertFalse(result["process_monitor"]["summary"]["live_trading_allowed"])
+        process_row_ids = {item["check_id"] for item in result["process_monitor"]["rows"]}
+        self.assertIn("current_process", process_row_ids)
         self.assertEqual(result["run_queue"]["active"]["workflow_id"], "research_backtest")
         self.assertGreaterEqual(result["run_queue"]["summary"]["pending"], 1)
 
@@ -295,6 +303,40 @@ class GuiSnapshotTests(unittest.TestCase):
                 "tests/unit/test_gui.py",
             ],
         )
+
+    def test_process_monitor_normalizes_related_process_roles_without_live_permissions(self):
+        from quant_robot.gui.control_center import _normalize_process_rows
+
+        rows = _normalize_process_rows(
+            [
+                {
+                    "ProcessId": 101,
+                    "Name": "python.exe",
+                    "CommandLine": "python scripts\\run_gui.py --host 127.0.0.1 --port 8765",
+                    "CreationDate": "20260628083000.000000+480",
+                },
+                {
+                    "ProcessId": 202,
+                    "Name": "python.exe",
+                    "CommandLine": "python scripts\\run_gui_browser_smoke.py --base-url http://127.0.0.1:8765",
+                    "CreationDate": "",
+                },
+                {
+                    "ProcessId": 303,
+                    "Name": "python.exe",
+                    "CommandLine": "python scripts\\run_project_audit.py --json",
+                    "CreationDate": "",
+                },
+            ],
+            current_pid=101,
+        )
+
+        roles = {row["process_id"]: row["role"] for row in rows}
+        self.assertEqual(roles[101], "gui_server")
+        self.assertEqual(roles[202], "browser_smoke")
+        self.assertEqual(roles[303], "project_audit")
+        self.assertTrue(all(row["paper_only"] for row in rows))
+        self.assertTrue(all(row["live_trading_allowed"] is False for row in rows))
 
     def test_control_center_uses_independent_audit_packet_as_next_optimization_input(self):
         from quant_robot.gui.control_center import build_control_center_snapshot
@@ -467,6 +509,7 @@ class GuiSnapshotTests(unittest.TestCase):
                 self.assertIn("result_evidence_panel", check_ids)
                 self.assertIn("workflow_trace_panel", check_ids)
                 self.assertIn("workspace_sync_panel", check_ids)
+                self.assertIn("process_monitor_panel", check_ids)
                 self.assertIn("audit_feedback_panel", check_ids)
                 self.assertIn("audit_iteration_plan_panel", check_ids)
                 self.assertIn("responsive_contract", check_ids)
@@ -1192,6 +1235,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("control-execution-plan", html)
             self.assertIn("control-workflow-trace", html)
             self.assertIn("control-workspace-sync", html)
+            self.assertIn("control-process-monitor", html)
             self.assertIn("control-startup-health", html)
             self.assertIn("control-backtest-provenance", html)
             self.assertIn("control-backtest-gate", html)
@@ -1290,6 +1334,8 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("control-workflow-trace", app_js)
             self.assertIn("control-workspace-sync", app_js)
             self.assertIn("renderWorkspaceSync", app_js)
+            self.assertIn("control-process-monitor", app_js)
+            self.assertIn("renderProcessMonitor", app_js)
             self.assertIn("control-startup-health", app_js)
             self.assertIn("control-backtest-provenance", app_js)
             self.assertIn("control-backtest-gate", app_js)
@@ -1357,6 +1403,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("workflows", control)
             self.assertIn("report_links", control)
             self.assertIn("workspace_sync", control)
+            self.assertIn("process_monitor", control)
             self.assertIn("run_queue", control)
             self.assertIn("verification_gates", control)
             self.assertIn("operator_checklist", control)

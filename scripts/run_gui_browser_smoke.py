@@ -48,6 +48,7 @@ def run_gui_browser_smoke(
                     "control-backtest-gate",
                     "control-workflow-trace",
                     "control-workspace-sync",
+                    "control-process-monitor",
                     "control-result-evidence",
                     "control-startup-health",
                     "control-audit-feedback",
@@ -70,6 +71,7 @@ def run_gui_browser_smoke(
             and "renderBacktestGate" in str(app_js.get("body", ""))
             and "renderWorkflowTrace" in str(app_js.get("body", ""))
             and "renderWorkspaceSync" in str(app_js.get("body", ""))
+            and "renderProcessMonitor" in str(app_js.get("body", ""))
             and "renderResultEvidence" in str(app_js.get("body", ""))
             and "renderAuditFeedback" in str(app_js.get("body", ""))
             and "renderAuditIterationPlan" in str(app_js.get("body", "")),
@@ -161,6 +163,19 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "process_monitor_panel",
+            "Process monitor contract",
+            control.get("ok")
+            and control_body.get("process_monitor", {}).get("stage") == "gui_process_monitor"
+            and bool(control_body.get("process_monitor", {}).get("rows"))
+            and "current_pid" in control_body.get("process_monitor", {}).get("summary", {})
+            and control_body.get("process_monitor", {}).get("summary", {}).get("live_trading_allowed") is False,
+            "Control API exposes current PID, related local GUI/research jobs, and paper-only process safety status.",
+            control.get("error") or "Control API is missing process_monitor rows.",
+        )
+    )
+    checks.append(
+        _check(
             "audit_feedback_panel",
             "Audit feedback contract",
             control.get("ok")
@@ -192,6 +207,7 @@ def run_gui_browser_smoke(
             and ".backtest-gate-list" in str(styles_css.get("body", ""))
             and ".workflow-trace-list" in str(styles_css.get("body", ""))
             and ".workspace-sync-list" in str(styles_css.get("body", ""))
+            and ".process-monitor-list" in str(styles_css.get("body", ""))
             and ".result-evidence-list" in str(styles_css.get("body", ""))
             and ".audit-feedback-list" in str(styles_css.get("body", ""))
             and ".audit-iteration-list" in str(styles_css.get("body", "")),

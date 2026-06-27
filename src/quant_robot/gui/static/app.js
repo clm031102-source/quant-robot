@@ -490,6 +490,7 @@ function renderControlCenter() {
   const control = state.controlCenter || {};
   const work = control.work || {};
   const workspaceSync = control.workspace_sync || {};
+  const processMonitor = control.process_monitor || {};
   const backtest = control.backtest || {};
   const backtestProvenance = control.backtest_provenance || {};
   const backtestGate = control.backtest_gate || {};
@@ -544,6 +545,7 @@ function renderControlCenter() {
     ["Goal", work.goal || "--", "muted"],
   ]);
   byId("control-workspace-sync").innerHTML = renderWorkspaceSync(workspaceSync);
+  byId("control-process-monitor").innerHTML = renderProcessMonitor(processMonitor);
   byId("control-run-queue").innerHTML = statusRows([
     ["Active", activeRun.label || "--", activeRun.workflow_id ? "ok" : "muted"],
     ["Status", activeRun.status || "--", activeRun.status === "ready_to_run" ? "ok" : "warn"],
@@ -1691,6 +1693,39 @@ function renderWorkspaceSync(sync = {}) {
     <div class="list-row warn">
       <strong>No workspace sync status</strong>
       <span>Git branch, worktree, upstream, and sync policy should be visible before publishing.</span>
+    </div>
+  `);
+}
+
+function renderProcessMonitor(monitor = {}) {
+  const summary = monitor.summary || {};
+  const rows = monitor.rows || [];
+  const status = summary.status || "unknown";
+  const headerClass = status === "observing" ? "ok" : "warn";
+  const header = `
+    <div class="list-row ${escapeHtml(headerClass)}">
+      <strong>${escapeHtml(`Processes / ${status}`)}</strong>
+      <span>${escapeHtml(`pid=${summary.current_pid ?? "--"} / related=${summary.related_processes ?? "--"} / jobs=${summary.running_jobs ?? "--"}`)}</span>
+      <span>${escapeHtml(`gui=${summary.gui_server_detected ? "detected" : "not detected"} / live=${summary.live_trading_allowed ? "enabled" : "disabled"}`)}</span>
+      <span>${escapeHtml(summary.next_action || "")}</span>
+    </div>
+  `;
+  const body = rows.slice(0, 7).map((item) => {
+    const role = item.role || "";
+    const statusClass = item.live_trading_allowed ? "danger" : role === "current_snapshot" || role === "gui_server" ? "ok" : "warn";
+    return `
+      <div class="list-row ${escapeHtml(statusClass)}">
+        <strong>${escapeHtml(`${item.label || item.check_id || ""} / ${item.process_id ?? "--"}`)}</strong>
+        <span>${escapeHtml(`${item.status || "--"} / ${role || "--"} / ${item.name || ""}`)}</span>
+        <span>${escapeHtml(item.command || "")}</span>
+        <span>${escapeHtml(item.evidence || "")}</span>
+      </div>
+    `;
+  }).join("");
+  return header + (body || `
+    <div class="list-row warn">
+      <strong>No process monitor data</strong>
+      <span>The control API should expose current GUI, audit, smoke, and research processes.</span>
     </div>
   `);
 }
