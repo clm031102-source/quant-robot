@@ -53,6 +53,7 @@ def run_gui_browser_smoke(
                     "control-startup-health",
                     "control-audit-feedback",
                     "control-audit-iteration-plan",
+                    "control-audit-scheduler",
                     "control-safety-boundary",
                 ]
             ),
@@ -74,8 +75,9 @@ def run_gui_browser_smoke(
             and "renderProcessMonitor" in str(app_js.get("body", ""))
             and "renderResultEvidence" in str(app_js.get("body", ""))
             and "renderAuditFeedback" in str(app_js.get("body", ""))
-            and "renderAuditIterationPlan" in str(app_js.get("body", "")),
-            "Frontend script includes control-center, startup-health, backtest-provenance, backtest-gate, workflow-trace, result-evidence, audit-feedback, and audit-iteration renderers.",
+            and "renderAuditIterationPlan" in str(app_js.get("body", ""))
+            and "renderAuditScheduler" in str(app_js.get("body", "")),
+            "Frontend script includes control-center, startup-health, backtest-provenance, backtest-gate, workflow-trace, result-evidence, audit-feedback, audit-iteration, and audit-scheduler renderers.",
             app_js.get("error") or "Frontend script is missing required renderer hooks.",
         )
     )
@@ -198,6 +200,19 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "audit_scheduler_panel",
+            "Audit scheduler contract",
+            control.get("ok")
+            and control_body.get("audit_scheduler", {}).get("stage") == "gui_audit_scheduler"
+            and bool(control_body.get("audit_scheduler", {}).get("rows"))
+            and control_body.get("audit_scheduler", {}).get("summary", {}).get("automation_id") == "gui-5h"
+            and control_body.get("audit_scheduler", {}).get("summary", {}).get("live_trading_allowed") is False,
+            "Control API exposes gui-5h heartbeat status, latest audit age, next due status, and paper-only safety boundary.",
+            control.get("error") or "Control API is missing audit_scheduler rows.",
+        )
+    )
+    checks.append(
+        _check(
             "responsive_contract",
             "Responsive layout contract",
             styles_css.get("ok")
@@ -210,8 +225,9 @@ def run_gui_browser_smoke(
             and ".process-monitor-list" in str(styles_css.get("body", ""))
             and ".result-evidence-list" in str(styles_css.get("body", ""))
             and ".audit-feedback-list" in str(styles_css.get("body", ""))
-            and ".audit-iteration-list" in str(styles_css.get("body", "")),
-            "Stylesheet contains responsive breakpoints plus startup-health, backtest-provenance, backtest-gate, workflow-trace, result-evidence, audit-feedback, and audit-iteration sizing rules.",
+            and ".audit-iteration-list" in str(styles_css.get("body", ""))
+            and ".audit-scheduler-list" in str(styles_css.get("body", "")),
+            "Stylesheet contains responsive breakpoints plus startup-health, backtest-provenance, backtest-gate, workflow-trace, result-evidence, audit-feedback, audit-iteration, and audit-scheduler sizing rules.",
             styles_css.get("error") or "Stylesheet is missing responsive or audit-iteration layout rules.",
         )
     )

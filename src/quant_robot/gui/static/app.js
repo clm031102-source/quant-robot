@@ -516,6 +516,7 @@ function renderControlCenter() {
   const auditPacketRows = auditPackets.rows || [];
   const auditFeedback = control.audit_feedback || {};
   const auditIterationPlan = control.audit_iteration_plan || {};
+  const auditScheduler = control.audit_scheduler || {};
   const operatorTimeline = control.operator_timeline || {};
   const timelineEvents = operatorTimeline.events || [];
   const runHistorySpec = control.run_history || {};
@@ -595,6 +596,7 @@ function renderControlCenter() {
   byId("control-audit-packets").innerHTML = renderAuditPackets(auditPacketRows);
   byId("control-audit-feedback").innerHTML = renderAuditFeedback(auditFeedback);
   byId("control-audit-iteration-plan").innerHTML = renderAuditIterationPlan(auditIterationPlan);
+  byId("control-audit-scheduler").innerHTML = renderAuditScheduler(auditScheduler);
   byId("control-operator-timeline").innerHTML = timelineEvents.slice(0, 7).map((item) => `
     <div class="list-row ${escapeHtml(item.status === "done" || item.status === "active" ? "ok" : item.status === "blocked" ? "danger" : "warn")}">
       <strong>${escapeHtml(item.label || item.event_id || "")}</strong>
@@ -673,7 +675,7 @@ function renderControlCenter() {
   ]);
   byId("control-audit-cadence").innerHTML = statusRows([
     ["Cadence", automation.cadence || "--", "ok"],
-    ["Audit", automation.name || "--", "muted"],
+    ["Audit", `${automation.name || "--"} / ${automation.status || "--"}`, automation.status === "active" ? "ok" : "warn"],
     ["Output", automation.expected_output || "--", "muted"],
     ["Boundary", safety.notice || "Research only", "danger"],
   ]);
@@ -1632,6 +1634,44 @@ function renderAuditIterationPlan(plan = {}) {
       <span>Run the independent GUI audit before the next optimization round.</span>
     </div>
   `);
+}
+
+function renderAuditScheduler(scheduler = {}) {
+  const summary = scheduler.summary || {};
+  const rows = scheduler.rows || [];
+  const status = summary.status || "unknown";
+  const dueStatus = summary.next_due_status || "unknown";
+  const headerClass = status === "active" && dueStatus !== "due_now" ? "ok" : dueStatus === "due_now" ? "warn" : "danger";
+  const header = `
+    <div class="list-row ${escapeHtml(headerClass)}">
+      <strong>${escapeHtml(`5h audit / ${status}`)}</strong>
+      <span>${escapeHtml(`${summary.automation_id || "--"} / ${summary.automation_kind || "--"} / ${summary.rrule || "--"}`)}</span>
+      <span>${escapeHtml(`last=${formatSchedulerAge(summary.last_audit_age_hours)} / next=${summary.next_due_status || "--"}`)}</span>
+      <span>${escapeHtml(summary.next_action || "")}</span>
+    </div>
+  `;
+  const body = rows.slice(0, 6).map((item) => {
+    const rowStatus = item.status || "";
+    const statusClass = rowStatus === "ready" || rowStatus === "blocked_expected" ? "ok" : rowStatus === "missing" ? "danger" : "warn";
+    return `
+      <div class="list-row ${escapeHtml(statusClass)}">
+        <strong>${escapeHtml(item.label || item.check_id || "")}</strong>
+        <span>${escapeHtml(`${rowStatus || "--"} / ${item.value || ""}`)}</span>
+        <span>${escapeHtml(item.evidence || "")}</span>
+      </div>
+    `;
+  }).join("");
+  return header + (body || `
+    <div class="list-row warn">
+      <strong>No audit scheduler data</strong>
+      <span>The control API should expose gui-5h heartbeat status and latest audit age.</span>
+    </div>
+  `);
+}
+
+function formatSchedulerAge(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? `${number.toFixed(2)}h` : "--";
 }
 
 function renderWorkflowTrace(trace = {}) {

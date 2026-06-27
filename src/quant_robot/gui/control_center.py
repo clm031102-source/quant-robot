@@ -6,12 +6,15 @@ import os
 import re
 import subprocess
 import sys
+import tomllib
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 
 SAFETY_NOTICE = "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading."
 GUI_AUDIT_PACKET_PATH = Path("data/reports/gui_control_center_audit/gui_control_center_audit.json")
+GUI_AUDIT_AUTOMATION_ID = "gui-5h"
 RESOLVED_AUDIT_LOOP_ACTIONS = {
     "Attach audit findings to next optimization round",
     "Review linked audit packets during next audit",
@@ -49,6 +52,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     )
     audit_feedback = _audit_feedback(audit_packet_source, audit_packets)
     audit_iteration_plan = _audit_iteration_plan(audit_feedback, audit_scorecard, verification_gates, readiness_matrix)
+    audit_scheduler = _audit_scheduler(root, audit_packet_source)
     release_readiness = _release_readiness(verification_gates, audit_packets, readiness_matrix)
     workflow_trace = _workflow_trace(
         workflows,
@@ -104,6 +108,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "audit_packets": audit_packets,
         "audit_feedback": audit_feedback,
         "audit_iteration_plan": audit_iteration_plan,
+        "audit_scheduler": audit_scheduler,
         "results": {
             "source": "Run research or paper workflow to populate live result values in the browser.",
             "metrics": [
@@ -129,8 +134,9 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
             "order_placement_allowed": False,
         },
         "automation": {
-            "cadence": "Every 5 hours",
-            "name": "GUI control center audit",
+            "cadence": audit_scheduler["summary"].get("cadence", "Every 5 hours"),
+            "name": audit_scheduler["summary"].get("name", "GUI control center audit"),
+            "status": audit_scheduler["summary"].get("status", "unknown"),
             "expected_output": "Score, required fixes, and next optimization list.",
         },
     }
@@ -1361,6 +1367,190 @@ def _load_gui_audit_packet(root: Path) -> dict[str, Any]:
         "packet": packet,
         "error": "",
     }
+
+
+def _audit_scheduler(root: Path, packet_source: dict[str, Any]) -> dict[str, Any]:
+    automation = _load_automation_config(GUI_AUDIT_AUTOMATION_ID)
+    automation_config = automation.get("config") if automation.get("status") == "present" else {}
+    automation_status = str(automation_config.get("status") or automation.get("status") or "unknown").lower()
+    cadence_hours = _rrule_cadence_hours(str(automation_config.get("rrule") or "")) or 5
+    packet = packet_source.get("packet") if packet_source.get("status") == "packet_present" else None
+    generated_at = _audit_packet_generated_at(packet, root / GUI_AUDIT_PACKET_PATH)
+    now = datetime.now(UTC)
+    last_audit_age_hours = _age_hours(generated_at, now)
+    next_due_at = generated_at + timedelta(hours=cadence_hours) if generated_at else None
+    next_due_status = _next_due_status(
+        automation_status,
+        last_audit_age_hours,
+        cadence_hours,
+        packet_source.get("status") == "packet_present",
+    )
+    config_status = "ready" if automation_status == "active" else "missing" if automation_status == "missing" else "warn"
+    packet_status = "ready" if packet_source.get("status") == "packet_present" else "missing"
+    rows = [
+        {
+            "check_id": "automation_config",
+            "label": "GUI audit heartbeat",
+            "status": config_status,
+            "value": (
+                f"{str(automation_config.get('status', automation.get('status', 'unknown'))).upper()} / "
+                f"{automation_config.get('kind', '--')} / {automation_config.get('rrule', '--')}"
+            ),
+            "evidence": str(automation.get("path") or "No local gui-5h automation.toml found."),
+        },
+        {
+            "check_id": "last_audit_packet",
+            "label": "Latest independent audit",
+            "status": packet_status,
+            "value": _audit_packet_value(packet, generated_at),
+            "evidence": str(packet_source.get("path") or GUI_AUDIT_PACKET_PATH),
+        },
+        {
+            "check_id": "next_due",
+            "label": "Next audit due",
+            "status": "ready" if next_due_status == "on_schedule" else "required" if next_due_status == "due_now" else "warn",
+            "value": _iso_text(next_due_at) if next_due_at else "--",
+            "evidence": f"cadence={cadence_hours}h / age={_format_hours(last_audit_age_hours)} / status={next_due_status}",
+        },
+        {
+            "check_id": "safety_boundary",
+            "label": "Audit safety boundary",
+            "status": "blocked_expected",
+            "value": SAFETY_NOTICE,
+            "evidence": "The 5h audit may score and recommend fixes; it must not connect brokers, read accounts, place orders, or enable live trading.",
+        },
+    ]
+    return {
+        "stage": "gui_audit_scheduler",
+        "summary": {
+            "automation_id": GUI_AUDIT_AUTOMATION_ID,
+            "status": automation_status if automation_status in {"active", "paused", "missing"} else "unknown",
+            "automation_kind": str(automation_config.get("kind") or ""),
+            "name": str(automation_config.get("name") or "GUI control center audit"),
+            "rrule": str(automation_config.get("rrule") or ""),
+            "cadence": f"Every {cadence_hours} hours",
+            "cadence_hours": cadence_hours,
+            "last_audit_generated_at": _iso_text(generated_at),
+            "last_audit_age_hours": last_audit_age_hours,
+            "last_audit_score": packet.get("score") if isinstance(packet, dict) else None,
+            "last_audit_verdict": packet.get("verdict", "") if isinstance(packet, dict) else "",
+            "next_due_at": _iso_text(next_due_at),
+            "next_due_status": next_due_status,
+            "config_status": automation.get("status", "unknown"),
+            "target_thread_id": str(automation_config.get("target_thread_id") or ""),
+            "live_trading_allowed": False,
+            "next_action": _audit_scheduler_next_action(automation_status, next_due_status),
+        },
+        "rows": rows,
+    }
+
+
+def _load_automation_config(automation_id: str) -> dict[str, Any]:
+    target = _codex_home() / "automations" / automation_id / "automation.toml"
+    if not target.exists():
+        return {"status": "missing", "path": str(target), "config": {}, "error": ""}
+    try:
+        config = tomllib.loads(target.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError, UnicodeDecodeError) as exc:
+        return {"status": "invalid", "path": str(target), "config": {}, "error": str(exc)}
+    return {"status": "present", "path": str(target), "config": config, "error": ""}
+
+
+def _codex_home() -> Path:
+    configured = os.environ.get("CODEX_HOME")
+    return Path(configured) if configured else Path.home() / ".codex"
+
+
+def _rrule_cadence_hours(rrule: str) -> int:
+    parts = {
+        item.split("=", 1)[0].upper(): item.split("=", 1)[1]
+        for item in rrule.split(";")
+        if "=" in item
+    }
+    interval = _int_or_none(parts.get("INTERVAL")) or 1
+    freq = str(parts.get("FREQ", "")).upper()
+    if freq == "HOURLY":
+        return interval
+    if freq == "DAILY":
+        return interval * 24
+    return 0
+
+
+def _audit_packet_generated_at(packet: Any, path: Path) -> datetime | None:
+    if isinstance(packet, dict):
+        parsed = _parse_datetime(str(packet.get("generated_at") or ""))
+        if parsed:
+            return parsed
+    try:
+        return datetime.fromtimestamp(path.stat().st_mtime, tz=UTC)
+    except OSError:
+        return None
+
+
+def _parse_datetime(value: str) -> datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _age_hours(started_at: datetime | None, now: datetime) -> float | None:
+    if started_at is None:
+        return None
+    return round(max(0.0, (now - started_at).total_seconds() / 3600.0), 2)
+
+
+def _next_due_status(
+    automation_status: str,
+    last_audit_age_hours: float | None,
+    cadence_hours: int,
+    packet_present: bool,
+) -> str:
+    if automation_status == "missing":
+        return "automation_missing"
+    if automation_status == "paused":
+        return "paused"
+    if not packet_present or last_audit_age_hours is None:
+        return "audit_packet_missing"
+    if cadence_hours <= 0:
+        return "unknown_cadence"
+    return "due_now" if last_audit_age_hours >= cadence_hours else "on_schedule"
+
+
+def _audit_packet_value(packet: Any, generated_at: datetime | None) -> str:
+    if not isinstance(packet, dict):
+        return "No parseable GUI audit packet."
+    return (
+        f"{packet.get('score', '--')} / {packet.get('max_score', '--')} / "
+        f"{packet.get('verdict', '--')} / {_iso_text(generated_at)}"
+    )
+
+
+def _audit_scheduler_next_action(automation_status: str, next_due_status: str) -> str:
+    if automation_status == "missing":
+        return "Create or restore the gui-5h heartbeat automation."
+    if automation_status == "paused":
+        return "Resume the gui-5h heartbeat before relying on 5h audit cadence."
+    if next_due_status == "due_now":
+        return "Run the independent GUI audit now and feed findings into the next optimization round."
+    if next_due_status == "audit_packet_missing":
+        return "Generate the independent GUI audit packet."
+    return "Keep iterating; the 5h GUI audit cadence is visible."
+
+
+def _iso_text(value: datetime | None) -> str:
+    if value is None:
+        return ""
+    return value.astimezone(UTC).isoformat(timespec="seconds")
+
+
+def _format_hours(value: float | None) -> str:
+    return "--" if value is None else f"{value:.2f}h"
 
 
 def _audit_feedback(packet_source: dict[str, Any], audit_packets: dict[str, Any]) -> dict[str, Any]:

@@ -82,6 +82,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("audit_packets", result)
         self.assertIn("audit_feedback", result)
         self.assertIn("audit_iteration_plan", result)
+        self.assertIn("audit_scheduler", result)
         self.assertIn("safety", result)
         self.assertIn("automation", result)
         self.assertFalse(result["safety"]["live_trading_allowed"])
@@ -263,6 +264,17 @@ class GuiSnapshotTests(unittest.TestCase):
                 for item in result["audit_iteration_plan"]["rows"]
             )
         )
+        self.assertEqual(result["audit_scheduler"]["stage"], "gui_audit_scheduler")
+        self.assertEqual(result["audit_scheduler"]["summary"]["automation_id"], "gui-5h")
+        self.assertEqual(result["audit_scheduler"]["summary"]["cadence_hours"], 5)
+        self.assertIn(result["audit_scheduler"]["summary"]["status"], {"active", "missing", "paused", "unknown"})
+        self.assertIn("last_audit_age_hours", result["audit_scheduler"]["summary"])
+        self.assertIn("next_due_status", result["audit_scheduler"]["summary"])
+        scheduler_row_ids = {item["check_id"] for item in result["audit_scheduler"]["rows"]}
+        self.assertIn("automation_config", scheduler_row_ids)
+        self.assertIn("last_audit_packet", scheduler_row_ids)
+        self.assertIn("next_due", scheduler_row_ids)
+        self.assertIn("safety_boundary", scheduler_row_ids)
         self.assertTrue(any(item["kind"] == "logs" for item in result["report_links"]))
         self.assertTrue(any(item["kind"] == "audit_packet" for item in result["report_links"]))
         self.assertEqual(result["workspace_sync"]["stage"], "gui_workspace_sync")
@@ -337,6 +349,58 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertEqual(roles[303], "project_audit")
         self.assertTrue(all(row["paper_only"] for row in rows))
         self.assertTrue(all(row["live_trading_allowed"] is False for row in rows))
+
+    def test_audit_scheduler_reads_gui_heartbeat_config_and_audit_packet(self):
+        from quant_robot.gui.control_center import build_control_center_snapshot
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            audit_dir = root / "data" / "reports" / "gui_control_center_audit"
+            audit_dir.mkdir(parents=True)
+            (audit_dir / "gui_control_center_audit.json").write_text(
+                json.dumps(
+                    {
+                        "stage": "gui_control_center_independent_audit",
+                        "generated_at": "2026-06-28T00:00:00+00:00",
+                        "score": 96,
+                        "max_score": 100,
+                        "verdict": "clear",
+                        "next_actions": [],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            codex_home = root / ".codex"
+            automation_dir = codex_home / "automations" / "gui-5h"
+            automation_dir.mkdir(parents=True)
+            (automation_dir / "automation.toml").write_text(
+                "\n".join(
+                    [
+                        'id = "gui-5h"',
+                        'kind = "heartbeat"',
+                        'name = "GUI control center 5h audit"',
+                        'status = "ACTIVE"',
+                        'rrule = "FREQ=HOURLY;INTERVAL=5"',
+                        'target_thread_id = "thread-123"',
+                    ]
+                ),
+                encoding="utf-8",
+            )
+
+            with patch.dict("os.environ", {"CODEX_HOME": str(codex_home)}):
+                result = build_control_center_snapshot(repo_root=root)
+
+        scheduler = result["audit_scheduler"]
+        self.assertEqual(scheduler["summary"]["status"], "active")
+        self.assertEqual(scheduler["summary"]["automation_kind"], "heartbeat")
+        self.assertEqual(scheduler["summary"]["cadence_hours"], 5)
+        self.assertEqual(scheduler["summary"]["last_audit_score"], 96)
+        self.assertEqual(scheduler["summary"]["last_audit_verdict"], "clear")
+        self.assertFalse(scheduler["summary"]["live_trading_allowed"])
+        row_values = {row["check_id"]: row["value"] for row in scheduler["rows"]}
+        self.assertIn("ACTIVE", row_values["automation_config"])
+        self.assertIn("96 / 100", row_values["last_audit_packet"])
+        self.assertIn("Research-to-paper only", row_values["safety_boundary"])
 
     def test_control_center_uses_independent_audit_packet_as_next_optimization_input(self):
         from quant_robot.gui.control_center import build_control_center_snapshot
@@ -510,6 +574,7 @@ class GuiSnapshotTests(unittest.TestCase):
                 self.assertIn("workflow_trace_panel", check_ids)
                 self.assertIn("workspace_sync_panel", check_ids)
                 self.assertIn("process_monitor_panel", check_ids)
+                self.assertIn("audit_scheduler_panel", check_ids)
                 self.assertIn("audit_feedback_panel", check_ids)
                 self.assertIn("audit_iteration_plan_panel", check_ids)
                 self.assertIn("responsive_contract", check_ids)
@@ -1249,6 +1314,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("control-audit-packets", html)
             self.assertIn("control-audit-feedback", html)
             self.assertIn("control-audit-iteration-plan", html)
+            self.assertIn("control-audit-scheduler", html)
             self.assertIn("control-method-steps", html)
             self.assertIn("control-result-slots", html)
             self.assertIn("control-result-evidence", html)
@@ -1348,6 +1414,8 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("control-execution-receipts", app_js)
             self.assertIn("control-audit-packets", app_js)
             self.assertIn("control-audit-feedback", app_js)
+            self.assertIn("control-audit-scheduler", app_js)
+            self.assertIn("renderAuditScheduler", app_js)
             self.assertIn("RUN_HISTORY_STORAGE_KEY", app_js)
             self.assertIn("EXECUTION_RECEIPT_STORAGE_KEY", app_js)
             self.assertIn("appendRunHistory", app_js)
@@ -1421,6 +1489,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("audit_packets", control)
             self.assertIn("audit_feedback", control)
             self.assertIn("audit_iteration_plan", control)
+            self.assertIn("audit_scheduler", control)
             self.assertFalse(control["safety"]["live_trading_allowed"])
 
             project = _read_json(f"{base_url}/api/project/status")
