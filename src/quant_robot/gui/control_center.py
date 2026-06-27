@@ -26,6 +26,8 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     audit_packets = _audit_packets(root)
     startup_health = _startup_health(workflows, verification_gates, audit_packets)
     backtest_provenance = _backtest_provenance(backtest, workflows)
+    execution_receipts = _execution_receipts_spec()
+    result_evidence = _result_evidence(workflows, execution_receipts)
     audit_packet_source = _load_gui_audit_packet(root)
     latest_gui_audit = audit_packet_source.get("packet") if audit_packet_source.get("status") == "packet_present" else None
     audit_scorecard = _audit_scorecard(
@@ -35,6 +37,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         audit_packets,
         latest_gui_audit,
         backtest_provenance,
+        result_evidence,
     )
     audit_feedback = _audit_feedback(audit_packet_source, audit_packets)
     audit_iteration_plan = _audit_iteration_plan(audit_feedback, audit_scorecard, verification_gates, readiness_matrix)
@@ -77,7 +80,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "audit_scorecard": audit_scorecard,
         "operator_timeline": _operator_timeline(workflows, verification_gates, readiness_matrix, audit_scorecard),
         "run_history": _run_history_spec(),
-        "execution_receipts": _execution_receipts_spec(),
+        "execution_receipts": execution_receipts,
         "audit_packets": audit_packets,
         "audit_feedback": audit_feedback,
         "audit_iteration_plan": audit_iteration_plan,
@@ -94,6 +97,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
                 {"key": "paper_ending_equity", "label": "Paper ending equity"},
             ],
         },
+        "result_evidence": result_evidence,
         "artifacts": artifacts,
         "report_links": _report_links(root, artifacts, audit_packets),
         "safety": {
@@ -647,6 +651,84 @@ def _backtest_provenance(backtest: dict[str, Any], workflows: list[dict[str, Any
     }
 
 
+def _result_evidence(workflows: list[dict[str, Any]], execution_receipts: dict[str, Any]) -> dict[str, Any]:
+    research_endpoint = _workflow_command(workflows, "research_backtest")
+    signal_endpoint = _workflow_command(workflows, "signal_snapshot")
+    paper_endpoint = _workflow_command(workflows, "paper_simulation")
+    receipt_storage_key = execution_receipts.get("storage_key", "quant_robot.gui.execution_receipts.v1")
+    rows = [
+        {
+            "check_id": "research_metrics",
+            "label": "Research result metrics",
+            "status": "awaiting_run",
+            "source_workflow": "research_backtest",
+            "command": research_endpoint,
+            "metric_keys": ["total_return", "annualized_return", "sharpe", "max_drawdown", "win_rate", "trade_count"],
+            "detail": "Run the research backtest to populate total return, annualized return, Sharpe, drawdown, win rate, and trade count.",
+        },
+        {
+            "check_id": "benchmark_metrics",
+            "label": "Benchmark comparison",
+            "status": "awaiting_run",
+            "source_workflow": "research_backtest",
+            "command": research_endpoint,
+            "metric_keys": ["benchmark_relative_return"],
+            "detail": "Research results should include benchmark relative return against the configured CN_ETF benchmark.",
+        },
+        {
+            "check_id": "signal_metrics",
+            "label": "Signal snapshot metrics",
+            "status": "awaiting_run",
+            "source_workflow": "signal_snapshot",
+            "command": signal_endpoint,
+            "metric_keys": ["target_count", "target_gross_exposure", "rebalance_count"],
+            "detail": "Run advisory signals to record target count, gross exposure, and non-executable rebalance intent.",
+        },
+        {
+            "check_id": "paper_metrics",
+            "label": "Paper simulation metrics",
+            "status": "awaiting_run",
+            "source_workflow": "paper_simulation",
+            "command": paper_endpoint,
+            "metric_keys": ["paper_ending_equity", "fill_count", "guard_event_count"],
+            "detail": "Run local paper simulation to populate ending equity, simulated fills, and guard events.",
+        },
+        {
+            "check_id": "execution_receipts",
+            "label": "Execution receipts",
+            "status": "browser_local",
+            "source_workflow": "browser_receipts",
+            "command": f"browser localStorage {receipt_storage_key}",
+            "metric_keys": ["stored_receipts"],
+            "detail": "The browser stores structured receipts for research, signal, and paper workflow runs.",
+        },
+        {
+            "check_id": "live_boundary",
+            "label": "Live result boundary",
+            "status": "blocked_live",
+            "source_workflow": "live_trading",
+            "command": "blocked by research-to-paper boundary",
+            "metric_keys": ["live_trading_allowed", "order_placement_allowed"],
+            "detail": SAFETY_NOTICE,
+        },
+    ]
+    return {
+        "stage": "gui_result_evidence",
+        "summary": {
+            "status": "awaiting_workflow_run",
+            "receipt_storage_key": receipt_storage_key,
+            "research_endpoint": research_endpoint,
+            "signal_endpoint": signal_endpoint,
+            "paper_endpoint": paper_endpoint,
+            "paper_only": True,
+            "live_trading_allowed": False,
+            "metric_groups": len(rows),
+            "next_action": research_endpoint,
+        },
+        "rows": rows,
+    }
+
+
 def _release_readiness(
     verification_gates: list[dict[str, Any]],
     audit_packets: dict[str, Any],
@@ -738,6 +820,7 @@ def _audit_scorecard(
     audit_packets: dict[str, Any] | None = None,
     latest_gui_audit: dict[str, Any] | None = None,
     backtest_provenance: dict[str, Any] | None = None,
+    result_evidence: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     required_gate_count = sum(1 for gate in verification_gates if str(gate.get("status", "")).startswith("required"))
     browser_gate_count = sum(1 for gate in verification_gates if "browser" in str(gate.get("gate_id", "")))
@@ -754,6 +837,10 @@ def _audit_scorecard(
     backtest_provenance_ready = (
         (backtest_provenance or {}).get("stage") == "backtest_provenance"
         and bool((backtest_provenance or {}).get("rows"))
+    )
+    result_evidence_ready = (
+        (result_evidence or {}).get("stage") == "gui_result_evidence"
+        and bool((result_evidence or {}).get("rows"))
     )
     independent_audit_actions = _audit_packet_next_actions(latest_gui_audit) if latest_gui_audit else []
     categories = [
@@ -788,10 +875,14 @@ def _audit_scorecard(
         {
             "category_id": "runtime_observability",
             "label": "Runtime observability",
-            "score": 14,
+            "score": 14 if result_evidence_ready else 13,
             "max_score": 14,
-            "status": "good",
-            "evidence": "Startup health, current work, local workflow commands, and browser-persisted run history are visible.",
+            "status": "good" if result_evidence_ready else "needs_result_evidence",
+            "evidence": (
+                "Startup health, result evidence, current work, local workflow commands, and browser-persisted run history are visible."
+                if result_evidence_ready
+                else "Runtime view needs result evidence that maps metrics to workflow receipts and next commands."
+            ),
         },
         {
             "category_id": "verification_coverage",

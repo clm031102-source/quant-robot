@@ -488,6 +488,10 @@ button {
   max-height: 236px;
 }
 
+.result-evidence-list {
+  max-height: 236px;
+}
+
 .readiness-matrix {
   max-height: 236px;
 }

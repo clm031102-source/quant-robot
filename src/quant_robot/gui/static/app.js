@@ -488,6 +488,7 @@ function renderControlCenter() {
   const work = control.work || {};
   const backtest = control.backtest || {};
   const backtestProvenance = control.backtest_provenance || {};
+  const resultEvidence = control.result_evidence || {};
   const method = control.method || {};
   const workflows = control.workflows || [];
   const reportLinks = control.report_links || [];
@@ -620,6 +621,7 @@ function renderControlCenter() {
     metric("Relative", formatPercent(benchmark.relative_return), "benchmark"),
     metric("Paper equity", formatNumber(paperMetrics.ending_equity), "paper"),
   ].join("");
+  byId("control-result-evidence").innerHTML = renderResultEvidence(resultEvidence);
   byId("control-workflow-commands").innerHTML = workflows.slice(0, 5).map((item) => `
     <div class="list-row">
       <strong>${escapeHtml(item.label || item.workflow_id || "")}</strong>
@@ -1666,6 +1668,39 @@ function renderBacktestProvenance(provenance = {}) {
     <div class="list-row warn">
       <strong>No backtest provenance</strong>
       <span>The control API must expose source, parameter, endpoint, output, and safety provenance for each backtest.</span>
+    </div>
+  `);
+}
+
+function renderResultEvidence(evidence = {}) {
+  const summary = evidence.summary || {};
+  const rows = evidence.rows || [];
+  const headerClass = summary.live_trading_allowed ? "danger" : summary.status === "ready" ? "ok" : "warn";
+  const header = `
+    <div class="list-row ${escapeHtml(headerClass)}">
+      <strong>${escapeHtml(`Result evidence / ${summary.status || "--"}`)}</strong>
+      <span>${escapeHtml(`paper_only=${summary.paper_only ? "true" : "false"} / live=${summary.live_trading_allowed ? "enabled" : "disabled"}`)}</span>
+      <span>${escapeHtml(summary.next_action || summary.research_endpoint || "")}</span>
+    </div>
+  `;
+  const body = rows.slice(0, 7).map((item) => {
+    const status = item.status || "";
+    const statusClass = status === "browser_local" || status === "ready" ? "ok" : status === "blocked_live" ? "danger" : "warn";
+    const metricText = Array.isArray(item.metric_keys) ? item.metric_keys.join(", ") : "";
+    return `
+      <div class="list-row ${escapeHtml(statusClass)}">
+        <strong>${escapeHtml(item.label || item.check_id || "")}</strong>
+        <span>${escapeHtml(`${status || "--"} / ${item.source_workflow || ""}`)}</span>
+        <span>${escapeHtml(metricText || "")}</span>
+        <span>${escapeHtml(item.command || "")}</span>
+        <span>${escapeHtml(item.detail || "")}</span>
+      </div>
+    `;
+  }).join("");
+  return header + (body || `
+    <div class="list-row warn">
+      <strong>No result evidence</strong>
+      <span>Run research, signals, or paper simulation to connect result metrics to workflow receipts.</span>
     </div>
   `);
 }
