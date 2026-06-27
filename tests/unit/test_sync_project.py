@@ -1,6 +1,8 @@
 import unittest
+import subprocess
 
 from scripts.sync_project import (
+    _cleanup_topic_branches_when_requested,
     audit_local_topic_branches,
     audit_remote_research_branches,
     audit_remote_topic_branches,
@@ -403,6 +405,70 @@ class SyncProjectTests(unittest.TestCase):
         )
 
         self.assertEqual(commands, [])
+
+    def test_cleanup_skips_local_branches_used_by_worktrees(self) -> None:
+        calls: list[list[str]] = []
+
+        def fake_git(args: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
+            calls.append(args)
+            if args == ["branch", "-d", "codex/old-local"]:
+                return subprocess.CompletedProcess(
+                    ["git", *args],
+                    1,
+                    "",
+                    "error: cannot delete branch 'codex/old-local' used by worktree at 'C:/tmp/wt'",
+                )
+            return subprocess.CompletedProcess(["git", *args], 0, "", "")
+
+        import scripts.sync_project as sync_project
+
+        original_git = sync_project._git
+        sync_project._git = fake_git
+        try:
+            plan = {"topic_branch_integration": {}, "local_topic_branch_cleanup": {}, "actions": []}
+
+            _cleanup_topic_branches_when_requested(
+                requested=True,
+                plan=plan,
+                remote_cleanup=[
+                    {
+                        "branch": "origin/codex/old-remote",
+                        "commit": "abc123",
+                        "status": "merged_to_stable_branch",
+                    }
+                ],
+                local_cleanup=[
+                    {
+                        "branch": "codex/old-local",
+                        "commit": "def456",
+                        "status": "merged_to_stable_branch",
+                    }
+                ],
+                current_branch="codex/current-work",
+            )
+        finally:
+            sync_project._git = original_git
+
+        self.assertEqual(
+            calls,
+            [
+                ["push", "origin", "--delete", "codex/old-remote"],
+                ["branch", "-d", "codex/old-local"],
+            ],
+        )
+        self.assertEqual(plan["topic_branch_integration"]["cleaned"], ["origin/codex/old-remote"])
+        self.assertEqual(
+            plan["local_topic_branch_cleanup"]["skipped"],
+            [
+                {
+                    "branch": "codex/old-local",
+                    "reason": "branch_used_by_worktree",
+                    "detail": "error: cannot delete branch 'codex/old-local' used by worktree at 'C:/tmp/wt'",
+                }
+            ],
+        )
+        self.assertIn("cleaned_topic_branches", plan["actions"])
+        self.assertIn("skipped_local_worktree_branches", plan["actions"])
 
     def test_execute_plan_blocks_core_sync_when_topic_branch_is_pending(self) -> None:
         plan = build_sync_plan(

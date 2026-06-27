@@ -468,14 +468,51 @@ def _cleanup_topic_branches_when_requested(
         current_branch=current_branch,
     )
     cleaned: list[str] = []
+    skipped_local: list[dict[str, str]] = []
     for command in commands:
-        _git(command)
+        result = _git(command, check=False)
+        if result.returncode != 0:
+            if _cleanup_failed_due_to_worktree_branch(command, result):
+                skipped_local.append(
+                    {
+                        "branch": command[2],
+                        "reason": "branch_used_by_worktree",
+                        "detail": _cleanup_failure_detail(result),
+                    }
+                )
+                continue
+            raise subprocess.CalledProcessError(
+                result.returncode,
+                ["git", *command],
+                output=result.stdout,
+                stderr=result.stderr,
+            )
         if command[:3] == ["push", "origin", "--delete"]:
             cleaned.append(f"origin/{command[3]}")
         elif command[:2] == ["branch", "-d"]:
             cleaned.append(command[2])
     plan["topic_branch_integration"]["cleaned"] = cleaned
-    plan["actions"].append("cleaned_topic_branches" if cleaned else "no_topic_branches_to_clean")
+    if skipped_local:
+        plan.setdefault("local_topic_branch_cleanup", {})["skipped"] = skipped_local
+    if cleaned:
+        plan["actions"].append("cleaned_topic_branches")
+    elif not skipped_local:
+        plan["actions"].append("no_topic_branches_to_clean")
+    if skipped_local:
+        plan["actions"].append("skipped_local_worktree_branches")
+
+
+def _cleanup_failed_due_to_worktree_branch(
+    command: list[str],
+    result: subprocess.CompletedProcess[str],
+) -> bool:
+    if command[:2] != ["branch", "-d"]:
+        return False
+    return "used by worktree" in _cleanup_failure_detail(result).lower()
+
+
+def _cleanup_failure_detail(result: subprocess.CompletedProcess[str]) -> str:
+    return (result.stderr.strip() or result.stdout.strip() or "git branch cleanup failed").strip()
 
 
 def run_project_audit_validation() -> dict[str, Any]:
