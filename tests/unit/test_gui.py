@@ -122,6 +122,12 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertTrue(any(item["packet_id"] == "project_audit" for item in result["audit_packets"]["rows"]))
         self.assertTrue(any(item["packet_id"] == "promotion_review_packet" for item in result["audit_packets"]["rows"]))
         self.assertTrue(any("run_gui_control_center_audit.py" in item["command"] for item in result["audit_packets"]["rows"]))
+        self.assertTrue(
+            any(
+                item["packet_id"] == "browser_smoke" and "run_gui_browser_smoke.py" in item["command"]
+                for item in result["audit_packets"]["rows"]
+            )
+        )
         self.assertEqual(result["audit_feedback"]["stage"], "gui_audit_feedback")
         self.assertIn(result["audit_feedback"]["status"], {"packet_present", "packet_missing", "packet_invalid"})
         self.assertIn("required_missing_audit_packets", result["audit_feedback"]["summary"])
@@ -202,6 +208,40 @@ class GuiSnapshotTests(unittest.TestCase):
             markdown = (output_dir / "gui_control_center_audit.md").read_text(encoding="utf-8")
             self.assertIn("GUI Control Center Independent Audit", markdown)
             self.assertIn("Research-to-paper only", markdown)
+
+    def test_gui_browser_smoke_script_writes_evidence_packet(self):
+        from scripts.run_gui_browser_smoke import run_gui_browser_smoke
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), create_gui_handler())
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        base_url = f"http://127.0.0.1:{server.server_port}"
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                output_dir = Path(tmpdir) / "gui_browser_smoke"
+
+                packet = run_gui_browser_smoke(base_url=base_url, output_dir=output_dir)
+
+                self.assertEqual(packet["stage"], "gui_browser_smoke_evidence")
+                self.assertEqual(packet["status"], "passed")
+                self.assertEqual(packet["summary"]["failed"], 0)
+                self.assertGreaterEqual(packet["summary"]["passed"], 5)
+                check_ids = {row["check_id"] for row in packet["checks"]}
+                self.assertIn("index_html", check_ids)
+                self.assertIn("control_status_api", check_ids)
+                self.assertIn("audit_feedback_panel", check_ids)
+                self.assertIn("responsive_contract", check_ids)
+                self.assertIn("live_boundary", check_ids)
+                self.assertFalse(packet["safety"]["live_trading_allowed"])
+                self.assertTrue((output_dir / "gui_browser_smoke.json").exists())
+                self.assertTrue((output_dir / "gui_browser_smoke.md").exists())
+                markdown = (output_dir / "gui_browser_smoke.md").read_text(encoding="utf-8")
+                self.assertIn("GUI Browser Smoke Evidence", markdown)
+                self.assertIn("Research-to-paper only", markdown)
+        finally:
+            server.shutdown()
+            thread.join(timeout=5)
+            server.server_close()
 
     def test_demo_research_payload_contains_metrics_tables_decision_and_demo_label(self):
         result = run_demo_research(

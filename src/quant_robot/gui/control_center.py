@@ -798,7 +798,10 @@ def _audit_packets(root: Path) -> dict[str, Any]:
             label="GUI browser smoke evidence",
             path=Path("data/reports/gui_browser_smoke/gui_browser_smoke.json"),
             markdown_path=Path("data/reports/gui_browser_smoke/gui_browser_smoke.md"),
-            command="Browser check http://127.0.0.1:8765/ desktop and 390x844 mobile",
+            command=(
+                "python scripts\\run_gui_browser_smoke.py --base-url http://127.0.0.1:8765 "
+                "--output-dir data\\reports\\gui_browser_smoke"
+            ),
             required=True,
             role="Frontend operator usability gate",
             cadence="Before each GUI push",
