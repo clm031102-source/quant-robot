@@ -62,6 +62,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("artifacts", result)
         self.assertIn("workflows", result)
         self.assertIn("report_links", result)
+        self.assertIn("run_queue", result)
         self.assertIn("safety", result)
         self.assertIn("automation", result)
         self.assertFalse(result["safety"]["live_trading_allowed"])
@@ -69,6 +70,8 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertGreaterEqual(len(result["workflows"]), 4)
         self.assertTrue(all(item["mode"] == "local" for item in result["workflows"]))
         self.assertTrue(any(item["kind"] == "logs" for item in result["report_links"]))
+        self.assertEqual(result["run_queue"]["active"]["workflow_id"], "research_backtest")
+        self.assertGreaterEqual(result["run_queue"]["summary"]["pending"], 1)
 
     def test_demo_research_payload_contains_metrics_tables_decision_and_demo_label(self):
         result = run_demo_research(
@@ -775,6 +778,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("control-center-board", html)
             self.assertIn("control-work-status", html)
             self.assertIn("control-backtest-status", html)
+            self.assertIn("control-run-queue", html)
             self.assertIn("control-method-steps", html)
             self.assertIn("control-result-slots", html)
             self.assertIn("control-workflow-commands", html)
@@ -852,6 +856,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("runStartupWorkflows", app_js)
             self.assertIn("/api/control/status", app_js)
             self.assertIn("renderControlCenter", app_js)
+            self.assertIn("control-run-queue", app_js)
             self.assertIn("control-workflow-commands", app_js)
             self.assertIn("control-report-links", app_js)
             startup_block = app_js.split('document.addEventListener("DOMContentLoaded", async () => {', 1)[1].split("});", 1)[0]
@@ -877,6 +882,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("method", control)
             self.assertIn("workflows", control)
             self.assertIn("report_links", control)
+            self.assertIn("run_queue", control)
             self.assertFalse(control["safety"]["live_trading_allowed"])
 
             project = _read_json(f"{base_url}/api/project/status")

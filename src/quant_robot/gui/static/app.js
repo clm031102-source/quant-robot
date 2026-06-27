@@ -440,6 +440,11 @@ function renderControlCenter() {
   const method = control.method || {};
   const workflows = control.workflows || [];
   const reportLinks = control.report_links || [];
+  const runQueue = control.run_queue || {};
+  const activeRun = runQueue.active || {};
+  const queueSummary = runQueue.summary || {};
+  const pendingRuns = runQueue.pending || [];
+  const blockedRuns = runQueue.blocked || [];
   const safety = control.safety || {};
   const automation = control.automation || {};
   const metrics = state.research?.metrics || {};
@@ -455,6 +460,13 @@ function renderControlCenter() {
     ["Task", work.task || "--", "muted"],
     ["Branch", work.branch || "--", work.branch ? "ok" : "warn"],
     ["Goal", work.goal || "--", "muted"],
+  ]);
+  byId("control-run-queue").innerHTML = statusRows([
+    ["Active", activeRun.label || "--", activeRun.workflow_id ? "ok" : "muted"],
+    ["Status", activeRun.status || "--", activeRun.status === "ready_to_run" ? "ok" : "warn"],
+    ["Pending", `${queueSummary.pending ?? "--"} queued`, (queueSummary.pending ?? 0) > 0 ? "warn" : "muted"],
+    ["Blocked", `${queueSummary.blocked ?? "--"} blocked`, (queueSummary.blocked ?? 0) > 0 ? "danger" : "ok"],
+    ["Next", pendingRuns[0]?.label || blockedRuns[0]?.label || "--", pendingRuns.length ? "muted" : "warn"],
   ]);
   byId("control-backtest-status").innerHTML = statusRows([
     ["Source", `${backtest.source || "--"} / ${backtest.data_root || "--"}`, "ok"],

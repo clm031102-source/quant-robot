@@ -14,6 +14,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     branch = _git_branch(root)
     artifacts = _artifact_status(root)
     backtest = _default_backtest()
+    workflows = _workflow_commands(backtest)
 
     return {
         "stage": "gui_control_center",
@@ -40,7 +41,8 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
                 {"step": 8, "name": "Record artifacts", "detail": "Expose local reports and logs without committing generated data."},
             ],
         },
-        "workflows": _workflow_commands(backtest),
+        "workflows": workflows,
+        "run_queue": _run_queue(workflows),
         "results": {
             "source": "Run research or paper workflow to populate live result values in the browser.",
             "metrics": [
@@ -158,6 +160,60 @@ def _workflow_commands(backtest: dict[str, Any]) -> list[dict[str, Any]]:
             "safety": "code and config audit only",
         },
     ]
+
+
+def _run_queue(workflows: list[dict[str, Any]]) -> dict[str, Any]:
+    active = _workflow_by_id(workflows, "research_backtest")
+    pending = [
+        _workflow_by_id(workflows, "signal_snapshot"),
+        _workflow_by_id(workflows, "paper_simulation"),
+        _workflow_by_id(workflows, "project_audit"),
+    ]
+    pending = [item for item in pending if item]
+    blocked = [
+        {
+            "workflow_id": "live_trading",
+            "label": "Live trading handoff",
+            "status": "blocked",
+            "reason": "Research-to-paper boundary is active; broker/account/order actions are disabled.",
+        }
+    ]
+    return {
+        "stage": "gui_run_queue",
+        "active": {
+            "workflow_id": active["workflow_id"] if active else "none",
+            "label": active["label"] if active else "No active workflow",
+            "status": "ready_to_run",
+            "mode": active["mode"] if active else "local",
+            "command": active["command"] if active else "",
+            "safety": active["safety"] if active else SAFETY_NOTICE,
+        },
+        "summary": {
+            "active": 1 if active else 0,
+            "pending": len(pending),
+            "blocked": len(blocked),
+            "completed": 0,
+        },
+        "pending": [
+            {
+                "workflow_id": item["workflow_id"],
+                "label": item["label"],
+                "status": "queued",
+                "mode": item["mode"],
+                "command": item["command"],
+                "safety": item["safety"],
+            }
+            for item in pending
+        ],
+        "blocked": blocked,
+    }
+
+
+def _workflow_by_id(workflows: list[dict[str, Any]], workflow_id: str) -> dict[str, Any] | None:
+    for workflow in workflows:
+        if workflow.get("workflow_id") == workflow_id:
+            return workflow
+    return None
 
 
 def _report_links(root: Path, artifacts: list[dict[str, Any]]) -> list[dict[str, Any]]:

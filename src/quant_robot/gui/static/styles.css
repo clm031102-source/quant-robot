@@ -368,6 +368,11 @@ button {
   padding: 11px;
 }
 
+.control-queue-cell {
+  border-color: rgba(0, 121, 107, 0.28);
+  background: #f4fbf7;
+}
+
 .control-cell small {
   display: block;
   margin-bottom: 8px;
