@@ -24,6 +24,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     verification_gates = _verification_gates()
     readiness_matrix = _readiness_matrix(workflows, verification_gates, artifacts)
     audit_packets = _audit_packets(root)
+    startup_health = _startup_health(workflows, verification_gates, audit_packets)
     audit_packet_source = _load_gui_audit_packet(root)
     latest_gui_audit = audit_packet_source.get("packet") if audit_packet_source.get("status") == "packet_present" else None
     audit_scorecard = _audit_scorecard(verification_gates, readiness_matrix, artifacts, audit_packets, latest_gui_audit)
@@ -61,6 +62,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "verification_gates": verification_gates,
         "operator_checklist": _operator_checklist(verification_gates, artifacts),
         "execution_plan": _execution_plan(workflows, verification_gates),
+        "startup_health": startup_health,
         "readiness_matrix": readiness_matrix,
         "release_readiness": release_readiness,
         "audit_scorecard": audit_scorecard,
@@ -493,6 +495,78 @@ def _readiness_matrix(
     }
 
 
+def _startup_health(
+    workflows: list[dict[str, Any]],
+    verification_gates: list[dict[str, Any]],
+    audit_packets: dict[str, Any],
+) -> dict[str, Any]:
+    gate_by_id = {gate.get("gate_id"): gate for gate in verification_gates}
+    packet_by_id = {row.get("packet_id"): row for row in audit_packets.get("rows", [])}
+    browser_packet = packet_by_id.get("browser_smoke", {})
+    browser_smoke_ready = browser_packet.get("status") == "present"
+    local_startup_ready = browser_smoke_ready
+
+    def gate_row(gate_id: str, *, ready: bool | None = None) -> dict[str, Any]:
+        gate = gate_by_id.get(gate_id, {})
+        row_ready = browser_smoke_ready if ready is None else ready
+        return {
+            "check_id": gate_id,
+            "label": gate.get("label", gate_id),
+            "status": "ready" if row_ready else "manual_required",
+            "command": gate.get("command", ""),
+            "evidence": gate.get("evidence", "Run the local startup verification gate."),
+        }
+
+    packet_present = browser_packet.get("status") == "present"
+    rows = [
+        gate_row("local_startup_smoke", ready=local_startup_ready),
+        {
+            "check_id": "control_status_api",
+            "label": "Control status API",
+            "status": "ready" if local_startup_ready else "manual_required",
+            "command": "GET /api/control/status",
+            "evidence": "Control API must return stage=gui_control_center.",
+        },
+        gate_row("browser_desktop_smoke"),
+        gate_row("browser_mobile_smoke"),
+        {
+            "check_id": "browser_smoke_packet",
+            "label": browser_packet.get("label", "GUI browser smoke evidence"),
+            "status": "ready" if packet_present else "missing_required",
+            "command": browser_packet.get(
+                "command",
+                "python scripts\\run_gui_browser_smoke.py --base-url http://127.0.0.1:8765 --output-dir data\\reports\\gui_browser_smoke",
+            ),
+            "evidence": (
+                f"Evidence packet present at {browser_packet.get('markdown_path') or browser_packet.get('path', '')}."
+                if packet_present
+                else browser_packet.get("evidence", "GUI browser smoke evidence packet is missing.")
+            ),
+        },
+    ]
+    ready_count = sum(1 for row in rows if row["status"] == "ready")
+    manual_required = sum(1 for row in rows if row["status"] == "manual_required")
+    missing_required = sum(1 for row in rows if row["status"] == "missing_required")
+    return {
+        "stage": "gui_startup_health",
+        "summary": {
+            "status": "ready" if local_startup_ready and browser_smoke_ready and missing_required == 0 else "needs_evidence",
+            "local_startup_ready": local_startup_ready,
+            "browser_smoke_ready": browser_smoke_ready,
+            "control_status_endpoint": "/api/control/status",
+            "ready": ready_count,
+            "manual_required": manual_required,
+            "missing_required": missing_required,
+            "next_action": (
+                "Browser smoke evidence is current"
+                if local_startup_ready and browser_smoke_ready and missing_required == 0
+                else _workflow_command(workflows, "gui_start")
+            ),
+        },
+        "rows": rows,
+    }
+
+
 def _release_readiness(
     verification_gates: list[dict[str, Any]],
     audit_packets: dict[str, Any],
@@ -589,6 +663,10 @@ def _audit_scorecard(
     missing_artifact_count = sum(1 for artifact in artifacts if artifact["status"] != "present")
     live_ready = bool(readiness_matrix.get("summary", {}).get("live_ready"))
     audit_packet_summary = (audit_packets or {}).get("summary", {})
+    startup_health_ready = any(
+        row.get("packet_id") == "browser_smoke" and row.get("status") == "present"
+        for row in (audit_packets or {}).get("rows", [])
+    )
     independent_audit_complete = bool(audit_packet_summary.get("independent_audit_complete"))
     required_missing_packets = int(audit_packet_summary.get("required_missing", 0) or 0)
     audit_feedback_loop_ready = independent_audit_complete and required_missing_packets == 0
@@ -597,10 +675,10 @@ def _audit_scorecard(
         {
             "category_id": "work_visibility",
             "label": "Work visibility",
-            "score": 15,
+            "score": 16,
             "max_score": 16,
             "status": "good",
-            "evidence": "Run queue, operator checklist, execution plan, and readiness matrix are visible.",
+            "evidence": "Run queue, operator checklist, execution plan, startup health, and readiness matrix are visible.",
         },
         {
             "category_id": "backtest_transparency",
@@ -621,18 +699,21 @@ def _audit_scorecard(
         {
             "category_id": "runtime_observability",
             "label": "Runtime observability",
-            "score": 13,
+            "score": 14,
             "max_score": 14,
             "status": "good",
-            "evidence": "Current work, local workflow commands, and browser-persisted run history are visible.",
+            "evidence": "Startup health, current work, local workflow commands, and browser-persisted run history are visible.",
         },
         {
             "category_id": "verification_coverage",
             "label": "Verification coverage",
-            "score": 13,
+            "score": 14 if startup_health_ready else 13,
             "max_score": 14,
-            "status": "good",
-            "evidence": f"{required_gate_count} required gates tracked, including {browser_gate_count} browser smoke gates.",
+            "status": "good" if startup_health_ready else "needs_browser_smoke",
+            "evidence": (
+                f"{required_gate_count} required gates tracked, including {browser_gate_count} browser smoke gates; "
+                f"startup browser evidence is {'present' if startup_health_ready else 'missing'}."
+            ),
         },
         {
             "category_id": "frontend_usability",

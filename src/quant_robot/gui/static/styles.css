@@ -480,6 +480,10 @@ button {
   max-height: 236px;
 }
 
+.startup-health-list {
+  max-height: 236px;
+}
+
 .readiness-matrix {
   max-height: 236px;
 }

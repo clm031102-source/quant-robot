@@ -495,6 +495,7 @@ function renderControlCenter() {
   const checklistItems = operatorChecklist.items || [];
   const executionPlan = control.execution_plan || {};
   const executionSteps = executionPlan.steps || [];
+  const startupHealth = control.startup_health || {};
   const readinessMatrix = control.readiness_matrix || {};
   const readinessRows = readinessMatrix.rows || [];
   const releaseReadiness = control.release_readiness || {};
@@ -552,6 +553,7 @@ function renderControlCenter() {
       <span>${escapeHtml(item.detail || "")}</span>
     </div>
   `).join("");
+  byId("control-startup-health").innerHTML = renderStartupHealth(startupHealth);
   byId("control-readiness-matrix").innerHTML = readinessRows.slice(0, 4).map((item) => `
     <div class="list-row ${escapeHtml(item.status === "ready" ? "ok" : item.status === "blocked" ? "danger" : "warn")}">
       <strong>${escapeHtml(item.label || item.mode_id || "")}</strong>
@@ -1601,6 +1603,37 @@ function renderAuditIterationPlan(plan = {}) {
     <div class="list-row warn">
       <strong>No audit iteration actions</strong>
       <span>Run the independent GUI audit before the next optimization round.</span>
+    </div>
+  `);
+}
+
+function renderStartupHealth(health = {}) {
+  const summary = health.summary || {};
+  const rows = health.rows || [];
+  const ready = summary.status === "ready";
+  const headerClass = ready ? "ok" : summary.missing_required ? "danger" : "warn";
+  const header = `
+    <div class="list-row ${escapeHtml(headerClass)}">
+      <strong>${escapeHtml(ready ? "Local startup ready" : "Startup evidence required")}</strong>
+      <span>${escapeHtml(`status=${summary.status || "--"} / browser=${summary.browser_smoke_ready ? "ready" : "missing"}`)}</span>
+      <span>${escapeHtml(`${summary.control_status_endpoint || "/api/control/status"} / ${summary.next_action || ""}`)}</span>
+    </div>
+  `;
+  const body = rows.slice(0, 6).map((item) => {
+    const status = item.status || "";
+    const statusClass = status === "ready" ? "ok" : status === "missing_required" ? "danger" : "warn";
+    return `
+      <div class="list-row ${escapeHtml(statusClass)}">
+        <strong>${escapeHtml(item.label || item.check_id || "")}</strong>
+        <span>${escapeHtml(`${status || "--"} / ${item.command || ""}`)}</span>
+        <span>${escapeHtml(item.evidence || "")}</span>
+      </div>
+    `;
+  }).join("");
+  return header + (body || `
+    <div class="list-row warn">
+      <strong>No startup health rows</strong>
+      <span>Run the local GUI startup and browser smoke before operator use.</span>
     </div>
   `);
 }

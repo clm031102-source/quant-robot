@@ -44,12 +44,13 @@ def run_gui_browser_smoke(
                 for token in [
                     "control-center-board",
                     "control-backtest-status",
+                    "control-startup-health",
                     "control-audit-feedback",
                     "control-audit-iteration-plan",
                     "control-safety-boundary",
                 ]
             ),
-            "Home page exposes the control-center board, backtest status, audit feedback, audit iteration plan, and safety boundary.",
+            "Home page exposes the control-center board, backtest status, startup health, audit feedback, audit iteration plan, and safety boundary.",
             index_html.get("error") or "Home page is missing one or more required GUI anchors.",
         )
     )
@@ -59,9 +60,10 @@ def run_gui_browser_smoke(
             "Frontend script",
             app_js.get("ok")
             and "renderControlCenter" in str(app_js.get("body", ""))
+            and "renderStartupHealth" in str(app_js.get("body", ""))
             and "renderAuditFeedback" in str(app_js.get("body", ""))
             and "renderAuditIterationPlan" in str(app_js.get("body", "")),
-            "Frontend script includes control-center, audit-feedback, and audit-iteration renderers.",
+            "Frontend script includes control-center, startup-health, audit-feedback, and audit-iteration renderers.",
             app_js.get("error") or "Frontend script is missing required renderer hooks.",
         )
     )
@@ -75,6 +77,17 @@ def run_gui_browser_smoke(
         )
     )
     control_body = control.get("body", {}) if isinstance(control.get("body"), dict) else {}
+    checks.append(
+        _check(
+            "startup_health_panel",
+            "Startup health contract",
+            control.get("ok")
+            and control_body.get("startup_health", {}).get("stage") == "gui_startup_health"
+            and bool(control_body.get("startup_health", {}).get("rows")),
+            "Control API exposes startup_health rows for local startup, control API, browser smoke, and smoke evidence.",
+            control.get("error") or "Control API is missing startup_health rows.",
+        )
+    )
     checks.append(
         _check(
             "audit_feedback_panel",
@@ -103,9 +116,10 @@ def run_gui_browser_smoke(
             "Responsive layout contract",
             styles_css.get("ok")
             and "@media" in str(styles_css.get("body", ""))
+            and ".startup-health-list" in str(styles_css.get("body", ""))
             and ".audit-feedback-list" in str(styles_css.get("body", ""))
             and ".audit-iteration-list" in str(styles_css.get("body", "")),
-            "Stylesheet contains responsive breakpoints plus audit-feedback and audit-iteration sizing rules.",
+            "Stylesheet contains responsive breakpoints plus startup-health, audit-feedback, and audit-iteration sizing rules.",
             styles_css.get("error") or "Stylesheet is missing responsive or audit-iteration layout rules.",
         )
     )
