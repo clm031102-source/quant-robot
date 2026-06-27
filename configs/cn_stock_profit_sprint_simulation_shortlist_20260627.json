@@ -82,6 +82,107 @@
       }
     },
     {
+      "id": "primary_high_return_dragon_hot_chase",
+      "status": "simulation_shortlist_event_overlay_observation",
+      "formula": "primary_high_return + cash selected entries with recent Dragon-Tiger hot-chase net-buy attention",
+      "event_return_source": {
+        "path": "data/reports/round384_24h_profit_sprint_dragon_tiger_vt6_zz500_projection_20260627/dragon_hot_chase_vt6_zz500_mult_1.00_cost10_events.csv",
+        "date_column": "date",
+        "return_column": "period_return"
+      },
+      "event_filter": {
+        "family": "dragon_tiger_attention",
+        "action": "cash_filtered_selected_entries",
+        "condition": "top_list_abs_pct_change_max >= 9.5 and top_list_net_amount_sum > 0 within the lookback window",
+        "lookback_days": 22,
+        "official_template_projection_required": true
+      },
+      "replacement_filter": {
+        "field": "turnover_rate_f",
+        "action": "replace_filtered_candidates",
+        "drop_bottom_fraction": 0.1
+      },
+      "volatility_target": {
+        "target_annual_vol": 0.06,
+        "lookback_events": 84
+      },
+      "external_regime_overlay": {
+        "benchmark_asset_id": "CN_ETF_XSHG_510500",
+        "signal": "120_day_momentum",
+        "risk_off_condition": "momentum < 0",
+        "risk_off_exposure_multiplier": 1.0,
+        "decision_timing": "use ETF data available before strategy decision_date"
+      },
+      "evidence": {
+        "full_sample_total_return": 1.8120,
+        "full_sample_annualized_return": 0.0645,
+        "full_sample_sharpe": 0.987,
+        "full_sample_overlap_sharpe": 0.532,
+        "full_sample_max_drawdown": -0.2857,
+        "mean_oos_annualized_return": 0.0802,
+        "worst_oos_drawdown": -0.2368,
+        "official_template_unmatched_abs_contribution": 0.00033,
+        "csi500_beta_r2": 0.2496,
+        "csi500_beta_hedged_annualized_return": 0.0641,
+        "csi500_beta_hedged_overlap_sharpe": 0.843
+      }
+    },
+    {
+      "id": "primary_high_return_dragon_hot_chase_self_risk_roll21",
+      "status": "simulation_shortlist_risk_budget_observation",
+      "formula": "primary_high_return_dragon_hot_chase + self-risk roll21_sum_neg_half",
+      "event_return_source": {
+        "path": "data/reports/round387_24h_profit_sprint_self_risk_overlay_on_dragon_hot_20260627/dragon_hot_100_self_roll21_sum_neg_half_events.csv",
+        "date_column": "date",
+        "return_column": "period_return"
+      },
+      "event_filter": {
+        "family": "dragon_tiger_attention",
+        "action": "cash_filtered_selected_entries",
+        "condition": "top_list_abs_pct_change_max >= 9.5 and top_list_net_amount_sum > 0 within the lookback window",
+        "lookback_days": 22,
+        "official_template_projection_required": true
+      },
+      "replacement_filter": {
+        "field": "turnover_rate_f",
+        "action": "replace_filtered_candidates",
+        "drop_bottom_fraction": 0.1
+      },
+      "volatility_target": {
+        "target_annual_vol": 0.06,
+        "lookback_events": 84
+      },
+      "external_regime_overlay": {
+        "benchmark_asset_id": "CN_ETF_XSHG_510500",
+        "signal": "120_day_momentum",
+        "risk_off_condition": "momentum < 0",
+        "risk_off_exposure_multiplier": 1.0,
+        "decision_timing": "use ETF data available before strategy decision_date"
+      },
+      "self_risk_overlay": {
+        "policy": "roll21_sum_neg_half",
+        "action": "half_exposure",
+        "condition": "prior 21-event strategy return sum < 0",
+        "decision_timing": "uses only already closed strategy event returns before current event date"
+      },
+      "evidence": {
+        "full_sample_total_return": 1.9310,
+        "full_sample_annualized_return": 0.0671,
+        "full_sample_sharpe": 1.173,
+        "full_sample_overlap_sharpe": 0.617,
+        "full_sample_max_drawdown": -0.1546,
+        "mean_oos_annualized_return": 0.0720,
+        "mean_oos_overlap_sharpe": 0.8536,
+        "worst_oos_drawdown": -0.1275,
+        "leave_one_year_min_annualized_return": 0.0442,
+        "csi500_beta": 0.0333,
+        "csi500_beta_r2": 0.2348,
+        "csi500_beta_hedged_annualized_return": 0.0668,
+        "csi500_beta_hedged_overlap_sharpe": 0.9786,
+        "csi500_beta_hedged_max_drawdown": -0.0949
+      }
+    },
+    {
       "id": "primary_defensive_zz500",
       "status": "simulation_shortlist_preferred_defensive",
       "formula": "primary_high_return + zz500_mom120_neg_half",
@@ -415,6 +516,226 @@
     "current_simulation_candidate_count": 5,
     "blocked_generated_event_source_count": 1
   },
+  "round379_public_defensive_oos_split": {
+    "report": "docs/research/cn_stock_round379_public_defensive_oos_split_2026-06-27.md",
+    "output_dir": "data/reports/round379_24h_profit_sprint_public_defensive_oos_split_20260627",
+    "decision": "do not add a public defensive filter to the simulation shortlist; keep ADX and KAMA filters as drawdown-prioritized research leads",
+    "best_research_leads": [
+      "adx_filter_zz500_50",
+      "kama_filter_zz500_50"
+    ],
+    "process_upgrade": "added reusable shortlist OOS split audit for frozen event-return sources"
+  },
+  "round379_381_audit": {
+    "report": "docs/research/cn_stock_round379_381_three_round_audit_2026-06-27.md",
+    "decision": "public defensive filters remain research-only; forecast/express selected-trade filters rejected; Dragon-Tiger hot attention promoted to research quickcheck",
+    "next_direction": "continue Dragon-Tiger event-risk filter, but require official event-calendar reconstruction before shortlist consideration"
+  },
+  "round380_forecast_express_selected_trade_event_audit": {
+    "report": "docs/research/cn_stock_round380_forecast_express_selected_trade_event_audit_2026-06-27.md",
+    "output_dir": "data/reports/round380_24h_profit_sprint_forecast_express_selected_trade_event_audit_20260627",
+    "decision": "reject simple recent forecast/express selected-trade cash filters",
+    "reason": "negative forecast/express flags have positive full-cycle entry-cash contribution inside the primary selected basket"
+  },
+  "round381_dragon_tiger_selected_trade_event_audit": {
+    "report": "docs/research/cn_stock_round381_dragon_tiger_selected_trade_event_audit_2026-06-27.md",
+    "output_dir": "data/reports/round381_24h_profit_sprint_dragon_tiger_selected_trade_event_audit_20260627",
+    "decision": "promote dragon_hot_chase_20d and dragon_net_buy_20d to research quickcheck",
+    "best_trade_level_delta": {
+      "dragon_hot_chase_20d": 0.0310,
+      "dragon_net_buy_20d": 0.0272
+    }
+  },
+  "round382_dragon_tiger_cash_filter_quickcheck": {
+    "report": "docs/research/cn_stock_round382_dragon_tiger_cash_filter_quickcheck_2026-06-27.md",
+    "quickcheck_output_dir": "data/reports/round382_24h_profit_sprint_dragon_tiger_cash_filter_quickcheck_20260627",
+    "oos_output_dir": "data/reports/round382_24h_profit_sprint_dragon_tiger_cash_filter_oos_20260627",
+    "calendar_parity_output_dir": "data/reports/round382_24h_profit_sprint_dragon_tiger_naive_calendar_parity_20260627",
+    "decision": "keep cash_dragon_hot_chase_20d as a research lead only; block simulation consideration until official calendar reconstruction passes",
+    "research_lead": {
+      "id": "cash_dragon_hot_chase_20d",
+      "naive_total_return": 1.5456,
+      "naive_annualized_return": 0.0555,
+      "naive_overlap_sharpe": 0.4332,
+      "naive_max_drawdown": -0.3428,
+      "mean_oos_annualized_return": 0.0882,
+      "mean_oos_overlap_sharpe": 0.9013,
+      "worst_oos_drawdown": -0.2425
+    },
+    "parity_status": "blocked"
+  },
+  "round383_dragon_tiger_official_template_projection": {
+    "report": "docs/research/cn_stock_round383_dragon_tiger_official_template_projection_2026-06-27.md",
+    "projection_output_dir": "data/reports/round383_24h_profit_sprint_dragon_tiger_official_template_projection_20260627",
+    "oos_output_dir": "data/reports/round383_24h_profit_sprint_dragon_tiger_official_template_oos_20260627",
+    "block_output_dir": "data/reports/round383_24h_profit_sprint_dragon_tiger_official_template_block_audit_20260627",
+    "decision": "promote cash_dragon_hot_chase_20d from research lead to package-level comparison",
+    "best_official_template_candidate": {
+      "id": "cash_dragon_hot_chase_20d",
+      "full_sample_total_return": 1.5979,
+      "full_sample_annualized_return": 0.0594,
+      "full_sample_overlap_sharpe": 0.4541,
+      "full_sample_max_drawdown": -0.3287,
+      "mean_oos_annualized_return": 0.0906,
+      "mean_oos_overlap_sharpe": 0.8982,
+      "worst_oos_drawdown": -0.2368,
+      "unmatched_abs_flagged_contribution": 0.00033
+    }
+  },
+  "round384_dragon_tiger_vt6_zz500_projection": {
+    "report": "docs/research/cn_stock_round384_dragon_tiger_vt6_zz500_projection_2026-06-27.md",
+    "projection_output_dir": "data/reports/round384_24h_profit_sprint_dragon_tiger_vt6_zz500_projection_20260627",
+    "oos_output_dir": "data/reports/round384_24h_profit_sprint_dragon_tiger_vt6_zz500_oos_20260627",
+    "block_output_dir": "data/reports/round384_24h_profit_sprint_dragon_tiger_vt6_zz500_block_audit_20260627",
+    "beta_output_dir": "data/reports/round384_24h_profit_sprint_dragon_tiger_vt6_zz500_beta_audit_20260627",
+    "decision": "add primary_high_return_dragon_hot_chase as a simulation observation lane",
+    "best_lane": {
+      "id": "dragon_hot_100",
+      "full_sample_total_return": 1.8120,
+      "full_sample_annualized_return": 0.0645,
+      "full_sample_overlap_sharpe": 0.5324,
+      "full_sample_max_drawdown": -0.2857,
+      "mean_oos_annualized_return": 0.0802,
+      "mean_oos_overlap_sharpe": 0.8693,
+      "worst_oos_drawdown": -0.2368,
+      "csi500_beta_r2": 0.2496,
+      "csi500_beta_hedged_annualized_return": 0.0641,
+      "csi500_beta_hedged_overlap_sharpe": 0.8429
+    },
+    "incremental_edge_assessment": "useful but small; consistent across full-sample, OOS, block, and beta checks"
+  },
+  "round382_384_audit": {
+    "report": "docs/research/cn_stock_round382_384_three_round_audit_2026-06-27.md",
+    "decision": "Dragon-Tiger hot-chase is a usable event-risk overlay observation, not a new standalone alpha family",
+    "process_upgrade": "event-risk filters must use official-template projection or calendar parity before shortlist consideration",
+    "next_direction": "rotate to other factor families after recording this overlay"
+  },
+  "round385_price_volume_entry_filter_projection": {
+    "report": "docs/research/cn_stock_round385_price_volume_entry_filter_projection_2026-06-27.md",
+    "projection_output_dir": "data/reports/round385_24h_profit_sprint_price_volume_entry_filter_projection_20260627",
+    "oos_output_dir": "data/reports/round385_24h_profit_sprint_price_volume_entry_filter_oos_20260627",
+    "block_output_dir": "data/reports/round385_24h_profit_sprint_price_volume_entry_filter_block_audit_20260627",
+    "beta_output_dir": "data/reports/round385_24h_profit_sprint_price_volume_entry_filter_beta_audit_20260627",
+    "decision": "do not add a public price-volume entry filter to the simulation shortlist",
+    "best_research_note": {
+      "id": "cash_pv_weak_close_range_expansion_20d",
+      "full_sample_total_return": 1.5103,
+      "full_sample_annualized_return": 0.0572,
+      "full_sample_overlap_sharpe": 0.4290,
+      "full_sample_max_drawdown": -0.3515,
+      "mean_oos_annualized_return": 0.0888,
+      "mean_oos_overlap_sharpe": 0.8749,
+      "worst_oos_drawdown": -0.2397,
+      "csi500_beta_r2": 0.2665,
+      "csi500_beta_hedged_annualized_return": 0.0569,
+      "csi500_beta_hedged_overlap_sharpe": 0.7126
+    },
+    "rejected_for_shortlist": [
+      "pv_downtrend_high_vol_60d",
+      "pv_overheat_volume_climax_20d",
+      "pv_breakdown_volume_spike_20d",
+      "pv_short_squeeze_exhaustion_5d"
+    ],
+    "process_upgrade": "added reusable selected-trade price-volume entry filter projection; public technical bad-state filters must be tested as selected-entry contribution effects before shortlist use"
+  },
+  "round386_market_temperature_overlay": {
+    "report": "docs/research/cn_stock_round386_market_temperature_overlay_2026-06-27.md",
+    "projection_output_dir": "data/reports/round386_24h_profit_sprint_market_temperature_overlay_projection_20260627",
+    "oos_output_dir": "data/reports/round386_24h_profit_sprint_market_temperature_overlay_oos_20260627",
+    "decision": "do not add a market-temperature overlay to the simulation shortlist",
+    "best_defensive_reference": {
+      "id": "dragon_hot_100_temp_high_dispersion_mult_0.50",
+      "full_sample_total_return": 1.6881,
+      "full_sample_annualized_return": 0.0616,
+      "full_sample_overlap_sharpe": 0.5379,
+      "full_sample_max_drawdown": -0.2696,
+      "mean_oos_annualized_return": 0.0774,
+      "mean_oos_overlap_sharpe": 0.8310,
+      "worst_oos_drawdown": -0.2168
+    },
+    "reason": "market-temperature scaling reduces drawdown but gives up return; existing dragon_hot_100 remains better for the return objective"
+  },
+  "round387_self_risk_overlay_on_dragon_hot": {
+    "report": "docs/research/cn_stock_round387_self_risk_overlay_on_dragon_hot_2026-06-27.md",
+    "projection_output_dir": "data/reports/round387_24h_profit_sprint_self_risk_overlay_on_dragon_hot_20260627",
+    "oos_output_dir": "data/reports/round387_24h_profit_sprint_self_risk_overlay_on_dragon_hot_oos_20260627",
+    "block_output_dir": "data/reports/round387_24h_profit_sprint_self_risk_overlay_on_dragon_hot_block_audit_20260627",
+    "beta_output_dir": "data/reports/round387_24h_profit_sprint_self_risk_overlay_on_dragon_hot_beta_audit_20260627",
+    "decision": "add primary_high_return_dragon_hot_chase_self_risk_roll21 as a simulation risk-budget observation lane",
+    "best_lane": {
+      "id": "dragon_hot_100_self_roll21_sum_neg_half",
+      "full_sample_total_return": 1.9310,
+      "full_sample_annualized_return": 0.0671,
+      "full_sample_sharpe": 1.173,
+      "full_sample_overlap_sharpe": 0.6172,
+      "full_sample_max_drawdown": -0.1546,
+      "mean_oos_annualized_return": 0.0720,
+      "mean_oos_overlap_sharpe": 0.8536,
+      "worst_oos_drawdown": -0.1275,
+      "leave_one_year_min_annualized_return": 0.0442,
+      "csi500_beta_r2": 0.2348,
+      "csi500_beta_hedged_annualized_return": 0.0668,
+      "csi500_beta_hedged_overlap_sharpe": 0.9786,
+      "csi500_beta_hedged_max_drawdown": -0.0949
+    },
+    "interpretation": "not a new stock-selection alpha; useful risk-budget overlay because full-sample improves but OOS return remains below dragon_hot_100 baseline"
+  },
+  "round385_387_audit": {
+    "report": "docs/research/cn_stock_round385_387_three_round_audit_2026-06-27.md",
+    "decision": "reject price-volume and market-temperature additions; promote self-risk roll21_sum_neg_half as a simulation risk-budget observation",
+    "process_upgrade": "run self-risk overlay suite and event beta audit for every high-return event lane before simulation handoff",
+    "next_direction": "continue event-timing filters, industry/style exposure constraints, ETF-aware risk-budget profiles, and capacity stress"
+  },
+  "round388_primary_self_risk_cost_stress": {
+    "report": "docs/research/cn_stock_round388_primary_self_risk_cost_stress_2026-06-27.md",
+    "projection_output_dir": "data/reports/round388_24h_profit_sprint_primary_self_risk_cost_stress_20260627",
+    "oos_output_dir": "data/reports/round388_24h_profit_sprint_primary_self_risk_cost_stress_oos_20260627",
+    "decision": "supports roll21_sum_neg_half as a risk-budget observation, not a default replacement",
+    "cost30_self_risk": {
+      "full_sample_annualized_return": 0.0557,
+      "full_sample_overlap_sharpe": 0.5113,
+      "full_sample_max_drawdown": -0.1736,
+      "mean_oos_annualized_return": 0.0552,
+      "mean_oos_overlap_sharpe": 0.6383,
+      "worst_oos_drawdown": -0.1352,
+      "strict_pass_rate": 0.7667
+    },
+    "interpretation": "self-risk improves full-sample risk-return at all cost levels and controls drawdown in OOS, but baseline retains higher mean OOS return"
+  },
+  "round389_trade_attribute_cash_filter": {
+    "report": "docs/research/cn_stock_round389_trade_attribute_cash_filter_2026-06-27.md",
+    "projection_output_dir": "data/reports/round389_24h_profit_sprint_trade_attribute_cash_filter_projection_20260627",
+    "decision": "do not add board, metadata, or northbound-eligibility selected-trade cash filters",
+    "best_non_improving_reference": {
+      "id": "cash_missing_stock_market",
+      "full_sample_annualized_return": 0.0562,
+      "full_sample_overlap_sharpe": 0.4278,
+      "full_sample_max_drawdown": -0.3462,
+      "matched_flagged_contribution": 0.0158
+    },
+    "process_upgrade": "added generic selected-trade attribute cash-filter projection for board, industry, exchange, HS eligibility, and other frozen trade attributes"
+  },
+  "round390_trade_group_contribution_audit": {
+    "report": "docs/research/cn_stock_round390_trade_group_contribution_audit_2026-06-27.md",
+    "output_dir": "data/reports/round390_24h_profit_sprint_trade_group_contribution_audit_20260627",
+    "decision": "do not add hard industry, board, exchange, or HS bucket filters",
+    "industry_summary": {
+      "group_count": 97,
+      "best_group": "汽车配件",
+      "best_group_contribution": 0.1041,
+      "best_group_share": 0.1098,
+      "worst_group": "工程机械",
+      "worst_group_contribution": -0.0129,
+      "top5_net_share": 0.3131,
+      "top10_gross_share": 0.3851
+    },
+    "process_upgrade": "added reusable selected-trade group contribution audit before industry/style/board rules are allowed into shortlist consideration"
+  },
+  "round388_390_audit": {
+    "report": "docs/research/cn_stock_round388_390_three_round_audit_2026-06-27.md",
+    "decision": "keep self-risk as risk-budget observation; reject structural bucket filters; use industry metadata for concentration control, not hard alpha mining",
+    "next_direction": "industry-aware exposure caps, public indicator families, corporate-event timing, and capacity stress"
+  },
   "source_docs": [
     "docs/research/cn_stock_round340_candidate_comparison_pack_2026-06-27.md",
     "docs/research/cn_stock_round341_turnover_f_threshold_sensitivity_2026-06-27.md",
@@ -450,6 +771,22 @@
     "docs/research/cn_stock_round373_375_three_round_audit_2026-06-27.md",
     "docs/research/cn_stock_round376_event_calendar_rule_diagnosis_2026-06-27.md",
     "docs/research/cn_stock_round377_raw_generation_handoff_policy_2026-06-27.md",
-    "docs/research/cn_stock_round376_378_three_round_audit_2026-06-27.md"
+    "docs/research/cn_stock_round376_378_three_round_audit_2026-06-27.md",
+    "docs/research/cn_stock_round379_public_defensive_oos_split_2026-06-27.md",
+    "docs/research/cn_stock_round379_381_three_round_audit_2026-06-27.md",
+    "docs/research/cn_stock_round380_forecast_express_selected_trade_event_audit_2026-06-27.md",
+    "docs/research/cn_stock_round381_dragon_tiger_selected_trade_event_audit_2026-06-27.md",
+    "docs/research/cn_stock_round382_dragon_tiger_cash_filter_quickcheck_2026-06-27.md",
+    "docs/research/cn_stock_round383_dragon_tiger_official_template_projection_2026-06-27.md",
+    "docs/research/cn_stock_round384_dragon_tiger_vt6_zz500_projection_2026-06-27.md",
+    "docs/research/cn_stock_round382_384_three_round_audit_2026-06-27.md",
+    "docs/research/cn_stock_round385_price_volume_entry_filter_projection_2026-06-27.md",
+    "docs/research/cn_stock_round386_market_temperature_overlay_2026-06-27.md",
+    "docs/research/cn_stock_round387_self_risk_overlay_on_dragon_hot_2026-06-27.md",
+    "docs/research/cn_stock_round385_387_three_round_audit_2026-06-27.md",
+    "docs/research/cn_stock_round388_primary_self_risk_cost_stress_2026-06-27.md",
+    "docs/research/cn_stock_round389_trade_attribute_cash_filter_2026-06-27.md",
+    "docs/research/cn_stock_round390_trade_group_contribution_audit_2026-06-27.md",
+    "docs/research/cn_stock_round388_390_three_round_audit_2026-06-27.md"
   ]
 }
