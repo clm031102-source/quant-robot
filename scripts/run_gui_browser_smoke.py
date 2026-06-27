@@ -50,6 +50,7 @@ def run_gui_browser_smoke(
                     "control-workspace-sync",
                     "control-process-monitor",
                     "control-active-operation",
+                    "control-operation-ledger",
                     "control-result-evidence",
                     "control-startup-health",
                     "control-audit-feedback",
@@ -76,6 +77,7 @@ def run_gui_browser_smoke(
             and "renderWorkspaceSync" in str(app_js.get("body", ""))
             and "renderProcessMonitor" in str(app_js.get("body", ""))
             and "renderActiveOperation" in str(app_js.get("body", ""))
+            and "renderOperationLedger" in str(app_js.get("body", ""))
             and "beginActiveOperation" in str(app_js.get("body", ""))
             and "finishActiveOperation" in str(app_js.get("body", ""))
             and "renderResultEvidence" in str(app_js.get("body", ""))
@@ -200,6 +202,19 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "operation_ledger_panel",
+            "Operation ledger contract",
+            control.get("ok")
+            and control_body.get("operation_ledger", {}).get("stage") == "gui_operation_ledger"
+            and "entry_count" in control_body.get("operation_ledger", {}).get("summary", {})
+            and control_body.get("operation_ledger", {}).get("summary", {}).get("live_trading_allowed") is False
+            and control_body.get("operation_ledger", {}).get("summary", {}).get("order_placement_allowed") is False,
+            "Control API exposes a server-side operation ledger with recent workflow receipts and paper-only safety status.",
+            control.get("error") or "Control API is missing operation_ledger summary data.",
+        )
+    )
+    checks.append(
+        _check(
             "audit_feedback_panel",
             "Audit feedback contract",
             control.get("ok")
@@ -259,6 +274,7 @@ def run_gui_browser_smoke(
             and ".workspace-sync-list" in str(styles_css.get("body", ""))
             and ".process-monitor-list" in str(styles_css.get("body", ""))
             and ".active-operation-list" in str(styles_css.get("body", ""))
+            and ".operation-ledger-list" in str(styles_css.get("body", ""))
             and ".result-evidence-list" in str(styles_css.get("body", ""))
             and ".audit-feedback-list" in str(styles_css.get("body", ""))
             and ".audit-iteration-list" in str(styles_css.get("body", ""))

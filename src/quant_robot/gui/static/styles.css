@@ -530,6 +530,10 @@ button {
   max-height: 236px;
 }
 
+.operation-ledger-list {
+  max-height: 236px;
+}
+
 .active-operation-meta {
   display: flex;
   flex-wrap: wrap;

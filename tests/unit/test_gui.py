@@ -66,6 +66,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("workspace_sync", result)
         self.assertIn("process_monitor", result)
         self.assertIn("active_operation", result)
+        self.assertIn("operation_ledger", result)
         self.assertIn("run_queue", result)
         self.assertIn("verification_gates", result)
         self.assertIn("verification_runner", result)
@@ -112,6 +113,8 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("current_browser_operation", active_operation_ids)
         self.assertIn("last_browser_receipt", active_operation_ids)
         self.assertIn("safe_boundary", active_operation_ids)
+        self.assertEqual(result["operation_ledger"]["stage"], "gui_operation_ledger")
+        self.assertFalse(result["operation_ledger"]["summary"]["live_trading_allowed"])
         self.assertEqual(result["operator_checklist"]["stage"], "operator_checklist")
         self.assertFalse(result["operator_checklist"]["summary"]["live_ready"])
         self.assertGreaterEqual(result["operator_checklist"]["summary"]["required"], 3)
@@ -446,6 +449,47 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertEqual(rejected["returncode"], None)
         self.assertFalse(rejected["safety"]["live_trading_allowed"])
 
+    def test_operation_ledger_records_lightweight_safe_workflow_receipts(self):
+        from quant_robot.gui.control_center import build_control_center_snapshot
+        from quant_robot.gui.operation_ledger import append_operation_ledger_entry, build_operation_ledger_snapshot
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            entry = append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="research_backtest",
+                label="Run research backtest",
+                status="completed",
+                command="GET /api/research?market=CN_ETF&factor=momentum_2",
+                request={"market": "CN_ETF", "factor_name": "momentum_2", "top_n": 2},
+                result={
+                    "stage": "gui_research_result",
+                    "metrics": {
+                        "total_return": 0.1234,
+                        "annualized_return": 0.231,
+                        "sharpe": 1.87,
+                        "max_drawdown": -0.18,
+                        "win_rate": 0.58,
+                    },
+                },
+            )
+            snapshot = build_operation_ledger_snapshot(repo_root=root)
+            control = build_control_center_snapshot(repo_root=root)
+
+        self.assertEqual(entry["workflow_id"], "research_backtest")
+        self.assertEqual(entry["status"], "completed")
+        self.assertFalse(entry["safety"]["live_trading_allowed"])
+        self.assertFalse(entry["safety"]["order_placement_allowed"])
+        self.assertIn("sharpe=1.87", entry["metric_summary"])
+        self.assertEqual(snapshot["stage"], "gui_operation_ledger")
+        self.assertEqual(snapshot["summary"]["entry_count"], 1)
+        self.assertEqual(snapshot["summary"]["latest_workflow_id"], "research_backtest")
+        self.assertFalse(snapshot["summary"]["live_trading_allowed"])
+        self.assertTrue(snapshot["summary"]["path"].endswith("data/reports/gui_operation_ledger/gui_operation_ledger.json"))
+        self.assertEqual(snapshot["rows"][0]["workflow_id"], "research_backtest")
+        self.assertEqual(control["operation_ledger"]["stage"], "gui_operation_ledger")
+        self.assertEqual(control["operation_ledger"]["summary"]["latest_workflow_id"], "research_backtest")
+
     def test_control_center_uses_independent_audit_packet_as_next_optimization_input(self):
         from quant_robot.gui.control_center import build_control_center_snapshot
 
@@ -619,6 +663,7 @@ class GuiSnapshotTests(unittest.TestCase):
                 self.assertIn("workspace_sync_panel", check_ids)
                 self.assertIn("process_monitor_panel", check_ids)
                 self.assertIn("active_operation_panel", check_ids)
+                self.assertIn("operation_ledger_panel", check_ids)
                 self.assertIn("audit_scheduler_panel", check_ids)
                 self.assertIn("verification_runner_panel", check_ids)
                 self.assertIn("audit_feedback_panel", check_ids)
@@ -1348,6 +1393,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("control-workspace-sync", html)
             self.assertIn("control-process-monitor", html)
             self.assertIn("control-active-operation", html)
+            self.assertIn("control-operation-ledger", html)
             self.assertIn("control-startup-health", html)
             self.assertIn("control-backtest-provenance", html)
             self.assertIn("control-backtest-gate", html)
@@ -1454,6 +1500,8 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("renderActiveOperation", app_js)
             self.assertIn("beginActiveOperation", app_js)
             self.assertIn("finishActiveOperation", app_js)
+            self.assertIn("control-operation-ledger", app_js)
+            self.assertIn("renderOperationLedger", app_js)
             self.assertIn("control-startup-health", app_js)
             self.assertIn("control-backtest-provenance", app_js)
             self.assertIn("control-backtest-gate", app_js)
@@ -1529,6 +1577,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("workspace_sync", control)
             self.assertIn("process_monitor", control)
             self.assertIn("active_operation", control)
+            self.assertIn("operation_ledger", control)
             self.assertIn("run_queue", control)
             self.assertIn("verification_gates", control)
             self.assertIn("verification_runner", control)
@@ -1638,6 +1687,12 @@ class GuiHttpTests(unittest.TestCase):
             self.assertEqual(verification["gate_id"], "gui_compile")
             self.assertEqual(verification["status"], "passed")
             self.assertFalse(verification["safety"]["live_trading_allowed"])
+
+            ledger = _read_json(f"{base_url}/api/control/operation-ledger")
+            self.assertEqual(ledger["stage"], "gui_operation_ledger")
+            self.assertGreaterEqual(ledger["summary"]["entry_count"], 1)
+            self.assertEqual(ledger["rows"][0]["workflow_id"], "verification_runner")
+            self.assertFalse(ledger["summary"]["live_trading_allowed"])
         finally:
             server.shutdown()
             thread.join(timeout=5)

@@ -499,6 +499,7 @@ function renderControlCenter() {
   const workspaceSync = control.workspace_sync || {};
   const processMonitor = control.process_monitor || {};
   const activeOperationSpec = control.active_operation || {};
+  const operationLedger = control.operation_ledger || {};
   const backtest = control.backtest || {};
   const backtestProvenance = control.backtest_provenance || {};
   const backtestGate = control.backtest_gate || {};
@@ -557,6 +558,7 @@ function renderControlCenter() {
   byId("control-workspace-sync").innerHTML = renderWorkspaceSync(workspaceSync);
   byId("control-process-monitor").innerHTML = renderProcessMonitor(processMonitor);
   byId("control-active-operation").innerHTML = renderActiveOperation(activeOperationSpec, state.activeOperation);
+  byId("control-operation-ledger").innerHTML = renderOperationLedger(operationLedger);
   byId("control-run-queue").innerHTML = statusRows([
     ["Active", activeRun.label || "--", activeRun.workflow_id ? "ok" : "muted"],
     ["Status", activeRun.status || "--", activeRun.status === "ready_to_run" ? "ok" : "warn"],
@@ -1854,6 +1856,42 @@ function renderActiveOperation(spec = {}, active = null) {
     </div>
   `)).join("");
   return header + body;
+}
+
+function renderOperationLedger(ledger = {}) {
+  const summary = ledger.summary || {};
+  const rows = ledger.rows || [];
+  const hasRows = rows.length > 0;
+  const header = `
+    <div class="list-row ${escapeHtml(hasRows ? "ok" : "warn")}">
+      <strong>${escapeHtml(hasRows ? "Recent server operation" : "No server operation logged")}</strong>
+      <span>${escapeHtml(`entries=${summary.entry_count ?? 0} / latest=${summary.latest_workflow_id || "--"} / ${summary.latest_status || "--"}`)}</span>
+      <span>${escapeHtml(`path=${summary.path || "data/reports/gui_operation_ledger/gui_operation_ledger.json"}`)}</span>
+      <span>${escapeHtml(`live=${summary.live_trading_allowed ? "enabled" : "disabled"} / orders=${summary.order_placement_allowed ? "enabled" : "disabled"}`)}</span>
+    </div>
+  `;
+  const body = rows.slice(0, 6).map((item) => {
+    const status = item.status || "";
+    const statusClass = status === "completed" || status === "passed"
+      ? "ok"
+      : status === "failed" || status === "blocked"
+        ? "danger"
+        : "warn";
+    return `
+      <div class="list-row ${escapeHtml(statusClass)}">
+        <strong>${escapeHtml(item.label || item.workflow_id || "")}</strong>
+        <span>${escapeHtml(`${item.recorded_at || "--"} / ${status || "--"} / ${item.workflow_id || "--"}`)}</span>
+        <span>${escapeHtml(item.request_summary || item.command || "")}</span>
+        <span>${escapeHtml(item.metric_summary || item.stage || "")}</span>
+      </div>
+    `;
+  }).join("");
+  return header + (body || `
+    <div class="list-row warn">
+      <strong>Awaiting workflow receipt</strong>
+      <span>Run research, signal, paper, or verification from this GUI to create a server-side receipt.</span>
+    </div>
+  `);
 }
 
 function renderStartupHealth(health = {}) {

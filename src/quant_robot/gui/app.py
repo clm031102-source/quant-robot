@@ -7,6 +7,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from quant_robot.gui.control_center import build_control_center_snapshot, run_verification_gate
+from quant_robot.gui.operation_ledger import append_operation_ledger_entry, build_operation_ledger_snapshot
 from quant_robot.gui.research_service import (
     build_constrained_search_snapshot,
     build_daily_ops_snapshot,
@@ -42,9 +43,22 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
             if parsed.path == "/api/control/status":
                 self._send_json(build_control_center_snapshot())
                 return
+            if parsed.path == "/api/control/operation-ledger":
+                self._send_json(build_operation_ledger_snapshot(Path.cwd()))
+                return
             if parsed.path == "/api/control/verification":
                 query = parse_qs(parsed.query)
-                self._send_json(run_verification_gate(gate_id=_first(query, "gate_id", "")))
+                gate_id = _first(query, "gate_id", "")
+                result = run_verification_gate(gate_id=gate_id)
+                _record_operation(
+                    workflow_id="verification_runner",
+                    label=f"Run verification gate {gate_id}",
+                    status=result.get("status", "unknown"),
+                    command=f"GET {parsed.path}?{parsed.query}",
+                    request={"gate_id": gate_id},
+                    result=result,
+                )
+                self._send_json(result)
                 return
             if parsed.path == "/api/snapshot":
                 self._send_json(build_gui_snapshot())
@@ -134,30 +148,37 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                 return
             if parsed.path == "/api/research":
                 query = parse_qs(parsed.query)
-                self._send_json(
-                    run_gui_research(
-                        source=_first(query, "source", "demo_fixture"),
-                        data_root=_optional(query, "data_root"),
-                        market=_first(query, "market", "ALL"),
-                        factor_name=_first(query, "factor", "momentum_2"),
-                        factor_windows=_optional_windows(query, "factor_windows"),
-                        top_n=int(_first(query, "top_n", "2")),
-                        cost_bps=float(_first(query, "cost_bps", "5")),
-                        start_date=_optional(query, "start_date"),
-                        end_date=_optional(query, "end_date"),
-                        forward_horizon=int(_first(query, "forward_horizon", "1")),
-                        execution_lag=int(_first(query, "execution_lag", "1")),
-                        rebalance_interval=int(_first(query, "rebalance_interval", "1")),
-                        portfolio_scope=_optional(query, "portfolio_scope"),
-                        periods_per_year=_optional_float(query, "periods_per_year"),
-                        benchmark_asset_id=_optional(query, "benchmark_asset_id"),
-                        cash_annual_return=float(_first(query, "cash_annual_return", "0")),
-                        regime_filter=_bool(_first(query, "regime_filter", "false")),
-                        regime_lookback=int(_first(query, "regime_lookback", "20")),
-                        min_relative_return=_optional_float(query, "min_relative_return"),
-                        max_drawdown_limit=_optional_float(query, "max_drawdown_limit"),
-                    )
+                result = run_gui_research(
+                    source=_first(query, "source", "demo_fixture"),
+                    data_root=_optional(query, "data_root"),
+                    market=_first(query, "market", "ALL"),
+                    factor_name=_first(query, "factor", "momentum_2"),
+                    factor_windows=_optional_windows(query, "factor_windows"),
+                    top_n=int(_first(query, "top_n", "2")),
+                    cost_bps=float(_first(query, "cost_bps", "5")),
+                    start_date=_optional(query, "start_date"),
+                    end_date=_optional(query, "end_date"),
+                    forward_horizon=int(_first(query, "forward_horizon", "1")),
+                    execution_lag=int(_first(query, "execution_lag", "1")),
+                    rebalance_interval=int(_first(query, "rebalance_interval", "1")),
+                    portfolio_scope=_optional(query, "portfolio_scope"),
+                    periods_per_year=_optional_float(query, "periods_per_year"),
+                    benchmark_asset_id=_optional(query, "benchmark_asset_id"),
+                    cash_annual_return=float(_first(query, "cash_annual_return", "0")),
+                    regime_filter=_bool(_first(query, "regime_filter", "false")),
+                    regime_lookback=int(_first(query, "regime_lookback", "20")),
+                    min_relative_return=_optional_float(query, "min_relative_return"),
+                    max_drawdown_limit=_optional_float(query, "max_drawdown_limit"),
                 )
+                _record_operation(
+                    workflow_id="research_backtest",
+                    label="Run research backtest",
+                    status="completed",
+                    command=f"GET {parsed.path}?{parsed.query}",
+                    request=result.get("request", {}),
+                    result=result,
+                )
+                self._send_json(result)
                 return
             if parsed.path == "/api/research/demo":
                 query = parse_qs(parsed.query)
@@ -196,22 +217,29 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                 return
             if parsed.path == "/api/signals":
                 query = parse_qs(parsed.query)
-                self._send_json(
-                    run_gui_signal_snapshot(
-                        source=_first(query, "source", "demo_fixture"),
-                        data_root=_optional(query, "data_root"),
-                        market=_first(query, "market", "ALL"),
-                        factor_name=_first(query, "factor", "momentum_2"),
-                        factor_windows=_optional_windows(query, "factor_windows"),
-                        top_n=int(_first(query, "top_n", "2")),
-                        as_of_date=_optional(query, "as_of_date"),
-                        max_asset_weight=float(_first(query, "max_asset_weight", "1")),
-                        max_market_weight=float(_first(query, "max_market_weight", "1")),
-                        max_gross_exposure=float(_first(query, "max_gross_exposure", "1")),
-                        min_cash_weight=float(_first(query, "min_cash_weight", "0")),
-                        portfolio_value=float(_first(query, "portfolio_value", "100000")),
-                    )
+                result = run_gui_signal_snapshot(
+                    source=_first(query, "source", "demo_fixture"),
+                    data_root=_optional(query, "data_root"),
+                    market=_first(query, "market", "ALL"),
+                    factor_name=_first(query, "factor", "momentum_2"),
+                    factor_windows=_optional_windows(query, "factor_windows"),
+                    top_n=int(_first(query, "top_n", "2")),
+                    as_of_date=_optional(query, "as_of_date"),
+                    max_asset_weight=float(_first(query, "max_asset_weight", "1")),
+                    max_market_weight=float(_first(query, "max_market_weight", "1")),
+                    max_gross_exposure=float(_first(query, "max_gross_exposure", "1")),
+                    min_cash_weight=float(_first(query, "min_cash_weight", "0")),
+                    portfolio_value=float(_first(query, "portfolio_value", "100000")),
                 )
+                _record_operation(
+                    workflow_id="signal_snapshot",
+                    label="Generate advisory signal snapshot",
+                    status="completed",
+                    command=f"GET {parsed.path}?{parsed.query}",
+                    request=result.get("request", {}),
+                    result=result,
+                )
+                self._send_json(result)
                 return
             if parsed.path == "/api/paper/demo":
                 query = parse_qs(parsed.query)
@@ -236,29 +264,36 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                 return
             if parsed.path == "/api/paper":
                 query = parse_qs(parsed.query)
-                self._send_json(
-                    run_gui_paper_simulation(
-                        source=_first(query, "source", "demo_fixture"),
-                        data_root=_optional(query, "data_root"),
-                        market=_first(query, "market", "ALL"),
-                        factor_name=_first(query, "factor", "momentum_2"),
-                        factor_windows=_optional_windows(query, "factor_windows"),
-                        top_n=int(_first(query, "top_n", "2")),
-                        rebalance_interval=int(_first(query, "rebalance_interval", "1")),
-                        start_date=_optional(query, "start_date"),
-                        end_date=_optional(query, "end_date"),
-                        initial_cash=float(_first(query, "initial_cash", "100000")),
-                        commission_bps=float(_first(query, "commission_bps", "5")),
-                        slippage_bps=float(_first(query, "slippage_bps", "5")),
-                        max_asset_weight=float(_first(query, "max_asset_weight", "1")),
-                        max_market_weight=float(_first(query, "max_market_weight", "1")),
-                        max_gross_exposure=float(_first(query, "max_gross_exposure", "1")),
-                        min_cash_weight=float(_first(query, "min_cash_weight", "0")),
-                        periods_per_year=_optional_float(query, "periods_per_year"),
-                        max_drawdown_guard=_optional_float(query, "max_drawdown_guard"),
-                        guard_cooldown_periods=int(_first(query, "guard_cooldown_periods", "0")),
-                    )
+                result = run_gui_paper_simulation(
+                    source=_first(query, "source", "demo_fixture"),
+                    data_root=_optional(query, "data_root"),
+                    market=_first(query, "market", "ALL"),
+                    factor_name=_first(query, "factor", "momentum_2"),
+                    factor_windows=_optional_windows(query, "factor_windows"),
+                    top_n=int(_first(query, "top_n", "2")),
+                    rebalance_interval=int(_first(query, "rebalance_interval", "1")),
+                    start_date=_optional(query, "start_date"),
+                    end_date=_optional(query, "end_date"),
+                    initial_cash=float(_first(query, "initial_cash", "100000")),
+                    commission_bps=float(_first(query, "commission_bps", "5")),
+                    slippage_bps=float(_first(query, "slippage_bps", "5")),
+                    max_asset_weight=float(_first(query, "max_asset_weight", "1")),
+                    max_market_weight=float(_first(query, "max_market_weight", "1")),
+                    max_gross_exposure=float(_first(query, "max_gross_exposure", "1")),
+                    min_cash_weight=float(_first(query, "min_cash_weight", "0")),
+                    periods_per_year=_optional_float(query, "periods_per_year"),
+                    max_drawdown_guard=_optional_float(query, "max_drawdown_guard"),
+                    guard_cooldown_periods=int(_first(query, "guard_cooldown_periods", "0")),
                 )
+                _record_operation(
+                    workflow_id="paper_simulation",
+                    label="Run local paper simulation",
+                    status="completed",
+                    command=f"GET {parsed.path}?{parsed.query}",
+                    request=result.get("request", {}),
+                    result=result,
+                )
+                self._send_json(result)
                 return
             if parsed.path == "/api/promotion/ops":
                 query = parse_qs(parsed.query)
@@ -332,6 +367,29 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
 
 def create_server(host: str = "127.0.0.1", port: int = 8765) -> ThreadingHTTPServer:
     return ThreadingHTTPServer((host, port), create_gui_handler())
+
+
+def _record_operation(
+    *,
+    workflow_id: str,
+    label: str,
+    status: str,
+    command: str,
+    request: dict[str, object] | None,
+    result: dict[str, object],
+) -> None:
+    try:
+        append_operation_ledger_entry(
+            repo_root=Path.cwd(),
+            workflow_id=workflow_id,
+            label=label,
+            status=status,
+            command=command,
+            request=request if isinstance(request, dict) else {},
+            result=result,
+        )
+    except OSError:
+        return
 
 
 def _first(query: dict[str, list[str]], key: str, default: str) -> str:

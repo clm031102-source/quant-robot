@@ -11,6 +11,8 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from quant_robot.gui.operation_ledger import build_operation_ledger_snapshot
+
 
 SAFETY_NOTICE = "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading."
 GUI_AUDIT_PACKET_PATH = Path("data/reports/gui_control_center_audit/gui_control_center_audit.json")
@@ -33,6 +35,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     workspace_sync = _workspace_sync(root, branch)
     process_monitor = _process_monitor(root)
     active_operation = _active_operation_spec()
+    operation_ledger = build_operation_ledger_snapshot(root)
     artifacts = _artifact_status(root)
     backtest = _default_backtest()
     workflows = _workflow_commands(backtest)
@@ -86,6 +89,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "workspace_sync": workspace_sync,
         "process_monitor": process_monitor,
         "active_operation": active_operation,
+        "operation_ledger": operation_ledger,
         "method": {
             "title": "Backtest path",
             "steps": [
