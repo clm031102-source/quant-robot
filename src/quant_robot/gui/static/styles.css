@@ -484,6 +484,10 @@ button {
   max-height: 236px;
 }
 
+.backtest-provenance-list {
+  max-height: 236px;
+}
+
 .readiness-matrix {
   max-height: 236px;
 }

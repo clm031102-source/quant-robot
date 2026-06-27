@@ -25,9 +25,17 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     readiness_matrix = _readiness_matrix(workflows, verification_gates, artifacts)
     audit_packets = _audit_packets(root)
     startup_health = _startup_health(workflows, verification_gates, audit_packets)
+    backtest_provenance = _backtest_provenance(backtest, workflows)
     audit_packet_source = _load_gui_audit_packet(root)
     latest_gui_audit = audit_packet_source.get("packet") if audit_packet_source.get("status") == "packet_present" else None
-    audit_scorecard = _audit_scorecard(verification_gates, readiness_matrix, artifacts, audit_packets, latest_gui_audit)
+    audit_scorecard = _audit_scorecard(
+        verification_gates,
+        readiness_matrix,
+        artifacts,
+        audit_packets,
+        latest_gui_audit,
+        backtest_provenance,
+    )
     audit_feedback = _audit_feedback(audit_packet_source, audit_packets)
     audit_iteration_plan = _audit_iteration_plan(audit_feedback, audit_scorecard, verification_gates, readiness_matrix)
     release_readiness = _release_readiness(verification_gates, audit_packets, readiness_matrix)
@@ -63,6 +71,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "operator_checklist": _operator_checklist(verification_gates, artifacts),
         "execution_plan": _execution_plan(workflows, verification_gates),
         "startup_health": startup_health,
+        "backtest_provenance": backtest_provenance,
         "readiness_matrix": readiness_matrix,
         "release_readiness": release_readiness,
         "audit_scorecard": audit_scorecard,
@@ -567,6 +576,77 @@ def _startup_health(
     }
 
 
+def _backtest_provenance(backtest: dict[str, Any], workflows: list[dict[str, Any]]) -> dict[str, Any]:
+    research_endpoint = _workflow_command(workflows, "research_backtest")
+    paper_endpoint = _workflow_command(workflows, "paper_simulation")
+    rows = [
+        {
+            "check_id": "data_scope",
+            "label": "Data scope",
+            "status": "ready",
+            "detail": (
+                f"{backtest['source']} reads {backtest['data_root']} for {backtest['market']} "
+                f"from {backtest['start_date']} to {backtest['end_date']}."
+            ),
+        },
+        {
+            "check_id": "factor_inputs",
+            "label": "Factor inputs",
+            "status": "ready",
+            "detail": (
+                f"{backtest['factor']} with windows {backtest['factor_windows']} ranks top "
+                f"{backtest['top_n']} assets against {backtest['benchmark_asset_id']}."
+            ),
+        },
+        {
+            "check_id": "execution_model",
+            "label": "Execution model",
+            "status": "ready",
+            "detail": (
+                f"Rebalance every {backtest['rebalance_interval']} bars with lag "
+                f"{backtest['execution_lag']} and forward horizon {backtest['forward_horizon']}."
+            ),
+        },
+        {
+            "check_id": "cost_model",
+            "label": "Cost and risk model",
+            "status": "ready",
+            "detail": (
+                f"Cost {backtest['cost_bps']} bps, cash annual return {backtest['cash_annual_return']}, "
+                f"regime filter={backtest['regime_filter']} lookback={backtest['regime_lookback']}, "
+                f"max drawdown limit={backtest['max_drawdown_limit']}."
+            ),
+        },
+        {
+            "check_id": "output_metrics",
+            "label": "Output metrics",
+            "status": "ready",
+            "detail": "Reports total return, annualized return, Sharpe, max drawdown, win rate, trades, benchmark relative return, and paper equity.",
+        },
+        {
+            "check_id": "paper_live_boundary",
+            "label": "Paper/live boundary",
+            "status": "blocked_live",
+            "detail": SAFETY_NOTICE,
+        },
+    ]
+    return {
+        "stage": "backtest_provenance",
+        "summary": {
+            "status": "ready",
+            "market": backtest["market"],
+            "factor": backtest["factor"],
+            "data_root": backtest["data_root"],
+            "research_endpoint": research_endpoint,
+            "paper_endpoint": paper_endpoint,
+            "paper_only": True,
+            "live_trading_allowed": False,
+            "row_count": len(rows),
+        },
+        "rows": rows,
+    }
+
+
 def _release_readiness(
     verification_gates: list[dict[str, Any]],
     audit_packets: dict[str, Any],
@@ -657,6 +737,7 @@ def _audit_scorecard(
     artifacts: list[dict[str, Any]],
     audit_packets: dict[str, Any] | None = None,
     latest_gui_audit: dict[str, Any] | None = None,
+    backtest_provenance: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     required_gate_count = sum(1 for gate in verification_gates if str(gate.get("status", "")).startswith("required"))
     browser_gate_count = sum(1 for gate in verification_gates if "browser" in str(gate.get("gate_id", "")))
@@ -670,6 +751,10 @@ def _audit_scorecard(
     independent_audit_complete = bool(audit_packet_summary.get("independent_audit_complete"))
     required_missing_packets = int(audit_packet_summary.get("required_missing", 0) or 0)
     audit_feedback_loop_ready = independent_audit_complete and required_missing_packets == 0
+    backtest_provenance_ready = (
+        (backtest_provenance or {}).get("stage") == "backtest_provenance"
+        and bool((backtest_provenance or {}).get("rows"))
+    )
     independent_audit_actions = _audit_packet_next_actions(latest_gui_audit) if latest_gui_audit else []
     categories = [
         {
@@ -683,10 +768,14 @@ def _audit_scorecard(
         {
             "category_id": "backtest_transparency",
             "label": "Backtest transparency",
-            "score": 15,
+            "score": 16 if backtest_provenance_ready else 15,
             "max_score": 16,
-            "status": "good",
-            "evidence": "Control center exposes data source, market, factor, windows, TopN, cost, lag, and method steps.",
+            "status": "good" if backtest_provenance_ready else "needs_provenance",
+            "evidence": (
+                "Control center exposes data source, market, factor, windows, TopN, cost, lag, method steps, and backtest provenance."
+                if backtest_provenance_ready
+                else "Control center needs a backtest provenance panel with source, endpoint, output, and boundary evidence."
+            ),
         },
         {
             "category_id": "paper_live_boundary",

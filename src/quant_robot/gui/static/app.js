@@ -487,6 +487,7 @@ function renderControlCenter() {
   const control = state.controlCenter || {};
   const work = control.work || {};
   const backtest = control.backtest || {};
+  const backtestProvenance = control.backtest_provenance || {};
   const method = control.method || {};
   const workflows = control.workflows || [];
   const reportLinks = control.report_links || [];
@@ -601,6 +602,7 @@ function renderControlCenter() {
     ["Window", `${backtest.start_date || "--"} to ${backtest.end_date || "--"}`, "muted"],
     ["Benchmark", backtest.benchmark_asset_id || "--", "muted"],
   ]);
+  byId("control-backtest-provenance").innerHTML = renderBacktestProvenance(backtestProvenance);
   byId("control-method-steps").innerHTML = (method.steps || []).map((item) => `
     <div class="method-step">
       <span>${escapeHtml(item.step ?? "")}</span>
@@ -1634,6 +1636,36 @@ function renderStartupHealth(health = {}) {
     <div class="list-row warn">
       <strong>No startup health rows</strong>
       <span>Run the local GUI startup and browser smoke before operator use.</span>
+    </div>
+  `);
+}
+
+function renderBacktestProvenance(provenance = {}) {
+  const summary = provenance.summary || {};
+  const rows = provenance.rows || [];
+  const headerClass = summary.status === "ready" ? "ok" : "warn";
+  const header = `
+    <div class="list-row ${escapeHtml(headerClass)}">
+      <strong>${escapeHtml(`${summary.market || "--"} / ${summary.factor || "--"}`)}</strong>
+      <span>${escapeHtml(`paper_only=${summary.paper_only ? "true" : "false"} / live=${summary.live_trading_allowed ? "enabled" : "disabled"}`)}</span>
+      <span>${escapeHtml(summary.research_endpoint || "")}</span>
+    </div>
+  `;
+  const body = rows.slice(0, 7).map((item) => {
+    const status = item.status || "";
+    const statusClass = status === "ready" ? "ok" : status === "blocked_live" ? "danger" : "warn";
+    return `
+      <div class="list-row ${escapeHtml(statusClass)}">
+        <strong>${escapeHtml(item.label || item.check_id || "")}</strong>
+        <span>${escapeHtml(status || "--")}</span>
+        <span>${escapeHtml(item.detail || "")}</span>
+      </div>
+    `;
+  }).join("");
+  return header + (body || `
+    <div class="list-row warn">
+      <strong>No backtest provenance</strong>
+      <span>The control API must expose source, parameter, endpoint, output, and safety provenance for each backtest.</span>
     </div>
   `);
 }
