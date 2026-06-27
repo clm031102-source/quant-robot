@@ -94,6 +94,41 @@
       }
     },
     {
+      "id": "primary_balanced_zz500_75",
+      "status": "simulation_shortlist_return_risk_balanced_observation",
+      "formula": "primary_high_return + zz500_mom120_neg_mult_0.75",
+      "replacement_filter": {
+        "field": "turnover_rate_f",
+        "action": "replace_filtered_candidates",
+        "drop_bottom_fraction": 0.1
+      },
+      "volatility_target": {
+        "target_annual_vol": 0.06,
+        "lookback_events": 84
+      },
+      "external_regime_overlay": {
+        "benchmark_asset_id": "CN_ETF_XSHG_510500",
+        "signal": "120_day_momentum",
+        "risk_off_condition": "momentum < 0",
+        "risk_off_exposure_multiplier": 0.75,
+        "decision_timing": "use ETF data available before strategy decision_date"
+      },
+      "evidence": {
+        "full_sample_total_return": 1.6199,
+        "full_sample_annualized_return": 0.0599,
+        "full_sample_sharpe": 0.989,
+        "full_sample_overlap_sharpe": 0.530,
+        "full_sample_max_drawdown": -0.2474,
+        "mean_oos_annualized_return": 0.0695,
+        "worst_oos_drawdown": -0.1955,
+        "cost_30bps_total_return_fixed_exposure": 1.2257,
+        "cost_30bps_strict_pass": 0.7667,
+        "csi500_beta_r2": 0.2484,
+        "csi500_beta_hedged_annualized_return": 0.0596,
+        "csi500_beta_hedged_overlap_sharpe": 0.876
+      }
+    },
+    {
       "id": "safer_defensive_zz500",
       "status": "simulation_shortlist_ultra_defensive_reference",
       "formula": "turnover_rate_low Top50 hold20 reb5 cost_rate_0.001 + cash_low_turnover_f_bottom20 + entry_cash + vol_target_5_lb84 + zz500_mom120_neg_half",
@@ -125,6 +160,48 @@
         "csi500_beta_hedged_annualized_return": 0.0469,
         "csi500_beta_hedged_overlap_sharpe": 0.861
       }
+    },
+    {
+      "id": "primary_ps_filtered_defensive_zz500",
+      "status": "simulation_shortlist_quality_filter_defensive_observation",
+      "formula": "primary_high_return + cash selected entries with top 20% selected-basket ps_ttm + zz500_mom120_neg_half",
+      "secondary_filter": {
+        "field": "ps_ttm",
+        "ranking_scope": "selected primary_low10_vol6 basket on each signal_date",
+        "action": "cash_filtered_selected_entries",
+        "cash_top_fraction": 0.2,
+        "replacement": false
+      },
+      "replacement_filter": {
+        "field": "turnover_rate_f",
+        "action": "replace_filtered_candidates",
+        "drop_bottom_fraction": 0.1
+      },
+      "volatility_target": {
+        "target_annual_vol": 0.06,
+        "lookback_events": 84
+      },
+      "external_regime_overlay": {
+        "benchmark_asset_id": "CN_ETF_XSHG_510500",
+        "signal": "120_day_momentum",
+        "risk_off_condition": "momentum < 0",
+        "risk_off_exposure_multiplier": 0.5,
+        "decision_timing": "use ETF data available before strategy decision_date"
+      },
+      "evidence": {
+        "full_sample_total_return": 1.1929,
+        "full_sample_annualized_return": 0.0486,
+        "full_sample_sharpe": 1.076,
+        "full_sample_overlap_sharpe": 0.573,
+        "full_sample_max_drawdown": -0.1590,
+        "mean_oos_annualized_return": 0.0501,
+        "worst_oos_drawdown": -0.1202,
+        "cost_30bps_total_return_fixed_exposure": 0.9615,
+        "cost_30bps_strict_pass": 0.7667,
+        "csi500_beta_r2": 0.2256,
+        "csi500_beta_hedged_annualized_return": 0.0483,
+        "csi500_beta_hedged_overlap_sharpe": 0.943
+      }
     }
   ],
   "superseded_outputs": [
@@ -137,6 +214,57 @@
       "reason": "reported OLS residuals after subtracting intercept; corrected audit uses strategy_return - beta * benchmark_return"
     }
   ],
+  "block_dependence_audit": {
+    "round": 356,
+    "report": "docs/research/cn_stock_round356_shortlist_block_dependence_audit_2026-06-27.md",
+    "output_dir": "data/reports/round356_24h_profit_sprint_shortlist_block_dependence_audit_20260627",
+    "result": "all five candidates passed leave-one-year and top-three-month concentration checks",
+    "worst_removed_year": 2015,
+    "min_leave_one_year_annualized_return": {
+      "primary_high_return": 0.0376,
+      "primary_balanced_zz500_75": 0.0341,
+      "primary_defensive_zz500": 0.0305,
+      "safer_defensive_zz500": 0.0316,
+      "primary_ps_filtered_defensive_zz500": 0.0274
+    },
+    "best_three_month_log_share": {
+      "primary_high_return": 0.4638,
+      "primary_balanced_zz500_75": 0.4584,
+      "primary_defensive_zz500": 0.4666,
+      "safer_defensive_zz500": 0.4622,
+      "primary_ps_filtered_defensive_zz500": 0.4375
+    }
+  },
+  "strict_block_gate_sensitivity": {
+    "round": 357,
+    "report": "docs/research/cn_stock_round357_strict_block_gate_sensitivity_2026-06-27.md",
+    "output_dir": "data/reports/round357_24h_profit_sprint_strict_shortlist_block_gate_sensitivity_20260627",
+    "strict_gate_result": "0 of 5 candidates passed deliberately strict concentration/leave-one-year gates",
+    "interpretation": "use as ranking and fragility evidence, not as a hard shortlist rejection",
+    "preferred_simulation_lanes_after_sensitivity": [
+      "primary_high_return",
+      "primary_balanced_zz500_75",
+      "primary_defensive_zz500",
+      "primary_ps_filtered_defensive_zz500"
+    ],
+    "deemphasized_lanes": [
+      "safer_defensive_zz500"
+    ]
+  },
+  "round356_358_audit": {
+    "report": "docs/research/cn_stock_round356_358_three_round_audit_2026-06-27.md",
+    "decision": "keep four simulation lanes and one de-emphasized ultra-defensive reference",
+    "retained_simulation_lanes": [
+      "primary_high_return",
+      "primary_balanced_zz500_75",
+      "primary_defensive_zz500",
+      "primary_ps_filtered_defensive_zz500"
+    ],
+    "reference_lanes": [
+      "safer_defensive_zz500"
+    ],
+    "main_risk": "all retained lanes are related variants of the same low-turnover repair family, not independent alpha factors"
+  },
   "source_docs": [
     "docs/research/cn_stock_round340_candidate_comparison_pack_2026-06-27.md",
     "docs/research/cn_stock_round341_turnover_f_threshold_sensitivity_2026-06-27.md",
@@ -145,6 +273,14 @@
     "docs/research/cn_stock_round344_external_etf_regime_overlay_2026-06-27.md",
     "docs/research/cn_stock_round345_candidate_external_regime_comparison_2026-06-27.md",
     "docs/research/cn_stock_round346_cost_stress_fixed_exposure_2026-06-27.md",
-    "docs/research/cn_stock_round347_benchmark_beta_audit_2026-06-27.md"
+    "docs/research/cn_stock_round347_benchmark_beta_audit_2026-06-27.md",
+    "docs/research/cn_stock_round350_zz500_riskoff_multiplier_sensitivity_2026-06-27.md",
+    "docs/research/cn_stock_round351_zz500_75_cost_beta_quickcheck_2026-06-27.md",
+    "docs/research/cn_stock_round353_primary_secondary_filter_quickscreen_2026-06-27.md",
+    "docs/research/cn_stock_round354_ps_filter_cost_beta_quickcheck_2026-06-27.md",
+    "docs/research/cn_stock_round355_shortlist_return_overlap_2026-06-27.md",
+    "docs/research/cn_stock_round356_shortlist_block_dependence_audit_2026-06-27.md",
+    "docs/research/cn_stock_round357_strict_block_gate_sensitivity_2026-06-27.md",
+    "docs/research/cn_stock_round356_358_three_round_audit_2026-06-27.md"
   ]
 }

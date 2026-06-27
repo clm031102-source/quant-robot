@@ -29,8 +29,10 @@ Config:
 | Tier | Candidate ID | Use |
 |---|---|---|
 | High-return default | `primary_high_return` | Main candidate if return is prioritized and around 30% drawdown is acceptable |
+| Balanced observation | `primary_balanced_zz500_75` | Return/risk middle lane; useful if the user accepts mid-20% drawdown for higher return |
 | Preferred defensive | `primary_defensive_zz500` | Main candidate if drawdown/cost robustness matters more |
 | Ultra-defensive reference | `safer_defensive_zz500` | Benchmark for low-drawdown simulation; not the main return candidate |
+| Quality-filter defensive observation | `primary_ps_filtered_defensive_zz500` | Defensive comparison that cashes selected high-PS entries instead of replacing them |
 
 ## Parameters
 
@@ -57,6 +59,35 @@ Key evidence:
 - worst OOS drawdown: -24.00%;
 - 30 bps fixed-exposure cost stress total: +130.29%;
 - CSI500 beta R2: 0.251.
+
+### `primary_balanced_zz500_75`
+
+Formula:
+
+`primary_high_return + zz500_mom120_neg_mult_0.75`
+
+External regime:
+
+- benchmark: `CN_ETF_XSHG_510500`;
+- signal: 120-day ETF momentum;
+- risk-off rule: if momentum is negative before decision date, multiply exposure by 0.75.
+
+Key evidence:
+
+- total return: +161.99%;
+- annualized return: +5.99%;
+- Sharpe: 0.989;
+- overlap Sharpe: 0.530;
+- max drawdown: -24.74%;
+- mean OOS annualized return: +6.95%;
+- worst OOS drawdown: -19.55%;
+- 30 bps fixed-exposure cost stress total: +122.57%;
+- 30 bps strict pass: 76.67%;
+- CSI500 beta-hedged annualized return: +5.96%.
+
+Interpretation:
+
+This is a simulation observation lane, not a replacement for `primary_defensive_zz500`. It is materially stronger on return than the 50% defensive version, but weaker on 30 bps cost strict-pass robustness.
 
 ### `primary_defensive_zz500`
 
@@ -106,6 +137,41 @@ Key evidence:
 - worst OOS drawdown: -11.68%;
 - CSI500 beta-hedged annualized return: +4.69%.
 
+### `primary_ps_filtered_defensive_zz500`
+
+Formula:
+
+`primary_high_return + cash selected entries with top 20% selected-basket ps_ttm + zz500_mom120_neg_half`
+
+Secondary filter:
+
+- start from the selected `primary_low10_vol6` basket;
+- rank selected entries by `ps_ttm` on each signal date;
+- cash entries in the highest 20% selected-basket PS rank;
+- do not replace filtered entries.
+
+External regime:
+
+- same CSI500 120-day momentum half-exposure overlay as `primary_defensive_zz500`.
+
+Key evidence:
+
+- total return: +119.29%;
+- annualized return: +4.86%;
+- Sharpe: 1.076;
+- overlap Sharpe: 0.573;
+- max drawdown: -15.90%;
+- mean OOS annualized return: +5.01%;
+- worst OOS drawdown: -12.02%;
+- 30 bps fixed-exposure cost stress total: +96.15%;
+- 30 bps strict pass: 76.67%;
+- CSI500 beta-hedged annualized return: +4.83%;
+- CSI500 beta-hedged overlap Sharpe: 0.943.
+
+Interpretation:
+
+This is a defensive observation lane. It is not the return engine, but it is useful for comparing whether a valuation-quality cash filter can reduce tail risk while keeping positive return.
+
 ## Do Not Use
 
 These outputs are superseded and must not be used as evidence:
@@ -132,11 +198,33 @@ Do not run the 2026 holdout until all are true:
 4. The user explicitly starts final validation or simulation-readiness review.
 5. The run is recorded as read-once holdout usage.
 
+## Block Dependence Check
+
+Round356 added a reusable block-dependence audit:
+
+`scripts/run_shortlist_return_block_audit.py`
+
+Result:
+
+- all five shortlist candidates stayed positive after removing the most important year;
+- the most sensitive removed year is 2015 for every candidate;
+- top three months contributed about 43.75% to 46.66% of total log return, below the 70% blocker threshold;
+- 2026 final holdout remains sealed.
+
+This does not make the candidates paper-ready. It does reduce the concern that the current shortlist is only one lucky year or one lucky month cluster.
+
+Round357 stress-tested stricter block gates:
+
+- 0 of 5 candidates passed when requiring at least +3% leave-one-year annualized return, at least 0.40 leave-one-year overlap Sharpe, and no more than 45% top-three-month log contribution;
+- this is a warning against overselling the family as smooth all-regime alpha;
+- the useful ranking is: balanced 75% and defensive 50% are the best core simulation candidates, high-return is a drawdown-tolerant lane, PS-filter is a defensive diagnostic lane.
+
 ## Current Recommendation
 
-Use two candidates in the next simulation stage:
+Use three active candidates in the next simulation stage:
 
 - `primary_high_return` for return-seeking simulation;
+- `primary_balanced_zz500_75` for return/risk middle simulation;
 - `primary_defensive_zz500` for the more realistic default if drawdown and cost robustness matter.
 
-Keep `safer_defensive_zz500` as a low-drawdown reference, not as the primary return engine.
+Keep `primary_ps_filtered_defensive_zz500` as a defensive diagnostic lane. Keep `safer_defensive_zz500` only as an ultra-defensive reference unless the next stage explicitly needs a low-drawdown benchmark.
