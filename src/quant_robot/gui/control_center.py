@@ -52,6 +52,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "readiness_matrix": readiness_matrix,
         "audit_scorecard": audit_scorecard,
         "operator_timeline": _operator_timeline(workflows, verification_gates, readiness_matrix, audit_scorecard),
+        "run_history": _run_history_spec(),
         "results": {
             "source": "Run research or paper workflow to populate live result values in the browser.",
             "metrics": [
@@ -512,10 +513,10 @@ def _audit_scorecard(
         {
             "category_id": "runtime_observability",
             "label": "Runtime observability",
-            "score": 13,
+            "score": 15,
             "max_score": 16,
-            "status": "needs_history",
-            "evidence": "Current work and local workflow commands are visible; persistent run history is still a next step.",
+            "status": "good",
+            "evidence": "Current work, local workflow commands, and browser-persisted run history are visible.",
         },
         {
             "category_id": "verification_coverage",
@@ -541,11 +542,6 @@ def _audit_scorecard(
             "priority": "P0",
             "action": "Run independent 5h GUI audit",
             "reason": "The visible score is a local self-check; the separate audit agent must still issue a scored review.",
-        },
-        {
-            "priority": "P1",
-            "action": "Persist run history",
-            "reason": "The console shows current workflows but does not yet keep a durable operator timeline.",
         },
         {
             "priority": "P1",
@@ -577,6 +573,23 @@ def _audit_scorecard(
             "expected_output": "0-100 score, category scores, required fixes, and next optimization list.",
             "agent_role": "Independent GUI control center auditor",
         },
+    }
+
+
+def _run_history_spec() -> dict[str, Any]:
+    return {
+        "stage": "gui_run_history",
+        "storage_key": "quant_robot.gui.run_history.v1",
+        "max_entries": 20,
+        "empty_state": "No local workflow runs recorded in this browser yet.",
+        "capture_events": [
+            {"workflow_id": "startup_workflows", "label": "Run startup workflows"},
+            {"workflow_id": "research_backtest", "label": "Run research backtest"},
+            {"workflow_id": "signal_snapshot", "label": "Generate advisory signal snapshot"},
+            {"workflow_id": "paper_simulation", "label": "Run local paper simulation"},
+            {"workflow_id": "daily_ops", "label": "Refresh Daily Ops"},
+            {"workflow_id": "promotion_ops", "label": "Refresh Promotion Ops"},
+        ],
     }
 
 

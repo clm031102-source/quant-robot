@@ -19,6 +19,7 @@ const state = {
   expandedObservationReplay: null,
   iterativeObservationExpansion: null,
   tushareActivationGate: null,
+  runHistory: [],
 };
 
 const titles = {
@@ -71,6 +72,9 @@ const sourcePresets = {
     rebalanceInterval: "1",
   },
 };
+
+const RUN_HISTORY_STORAGE_KEY = "quant_robot.gui.run_history.v1";
+const RUN_HISTORY_LIMIT = 20;
 
 document.addEventListener("DOMContentLoaded", async () => {
   bindNavigation();
@@ -132,6 +136,7 @@ async function loadSnapshot() {
 
 async function loadControlCenter() {
   state.controlCenter = await fetchJson("/api/control/status");
+  state.runHistory = loadRunHistory(state.controlCenter?.run_history || {});
   renderControlCenter();
 }
 
@@ -248,6 +253,12 @@ async function runStartupWorkflows() {
     await refreshSignals();
     await refreshPaper();
     await refreshPromotionOps();
+    appendRunHistory({
+      workflow_id: "startup_workflows",
+      label: "Run startup workflows",
+      status: "completed",
+      detail: "research, signals, paper, and promotion refreshed",
+    });
     showToast("Workflows refreshed");
   });
 }
@@ -281,6 +292,12 @@ async function refreshResearch() {
 async function runResearch() {
   await withBusy("run-research", async () => {
     await refreshResearch();
+    appendRunHistory({
+      workflow_id: "research_backtest",
+      label: "Run research backtest",
+      status: "completed",
+      detail: `${valueOf("market-select") || "ALL"} / ${valueOf("factor-select") || "momentum_2"}`,
+    });
     showToast("研究结果已更新");
   });
 }
@@ -306,6 +323,12 @@ async function refreshSignals() {
 async function runSignals() {
   await withBusy("run-signals", async () => {
     await refreshSignals();
+    appendRunHistory({
+      workflow_id: "signal_snapshot",
+      label: "Generate advisory signal snapshot",
+      status: "completed",
+      detail: `top_n=${valueOf("signal-top-n") || "2"}`,
+    });
     showToast("信号快照已生成");
   });
 }
@@ -338,6 +361,12 @@ async function refreshPaper() {
 async function runPaper() {
   await withBusy("run-paper", async () => {
     await refreshPaper();
+    appendRunHistory({
+      workflow_id: "paper_simulation",
+      label: "Run local paper simulation",
+      status: "completed",
+      detail: `${valueOf("paper-market-select") || "ALL"} / top_n=${valueOf("paper-top-n") || "2"}`,
+    });
     showToast("纸面模拟已更新");
   });
 }
@@ -400,6 +429,12 @@ async function runDailyOps() {
     renderIterativeObservationExpansion();
     renderTushareActivationGate();
     renderDashboard();
+    appendRunHistory({
+      workflow_id: "daily_ops",
+      label: "Refresh Daily Ops",
+      status: "completed",
+      detail: "risk gates and observation packs refreshed",
+    });
     showToast("Daily operations refreshed");
   });
 }
@@ -420,6 +455,12 @@ async function refreshPromotionOps() {
 async function runPromotionOps() {
   await withBusy("run-promotion", async () => {
     await refreshPromotionOps();
+    appendRunHistory({
+      workflow_id: "promotion_ops",
+      label: "Refresh Promotion Ops",
+      status: "completed",
+      detail: "promotion review and evidence refresh loaded",
+    });
     showToast("Promotion operations refreshed");
   });
 }
@@ -453,6 +494,7 @@ function renderControlCenter() {
   const auditRepairQueue = auditScorecard.repair_queue || [];
   const operatorTimeline = control.operator_timeline || {};
   const timelineEvents = operatorTimeline.events || [];
+  const runHistorySpec = control.run_history || {};
   const runQueue = control.run_queue || {};
   const activeRun = runQueue.active || {};
   const queueSummary = runQueue.summary || {};
@@ -587,6 +629,7 @@ function renderControlCenter() {
     ["Output", automation.expected_output || "--", "muted"],
     ["Boundary", safety.notice || "Research only", "danger"],
   ]);
+  renderRunHistory(runHistorySpec);
 }
 
 function renderDashboard() {
@@ -1460,6 +1503,70 @@ function barChart(rows, xKey, yKey, color) {
 
 function emptyChart(label) {
   return `<svg viewBox="0 0 520 240" role="img" aria-label="${escapeHtml(label)}"><rect width="520" height="240" fill="${chartTheme.background}"></rect><text x="30" y="122" fill="${chartTheme.muted}">${escapeSvg(label)}</text></svg>`;
+}
+
+function loadRunHistory(spec = {}) {
+  const storageKey = spec.storage_key || RUN_HISTORY_STORAGE_KEY;
+  const limit = Number(spec.max_entries || RUN_HISTORY_LIMIT);
+  try {
+    const raw = window.localStorage?.getItem(storageKey);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.slice(0, limit) : [];
+  } catch (_error) {
+    return [];
+  }
+}
+
+function saveRunHistory(rows, spec = {}) {
+  const storageKey = spec.storage_key || RUN_HISTORY_STORAGE_KEY;
+  const limit = Number(spec.max_entries || RUN_HISTORY_LIMIT);
+  state.runHistory = rows.slice(0, limit);
+  try {
+    window.localStorage?.setItem(storageKey, JSON.stringify(state.runHistory));
+  } catch (_error) {
+    // Local history should never block the workflow action.
+  }
+}
+
+function appendRunHistory(entry) {
+  const spec = state.controlCenter?.run_history || {};
+  const nextEntry = {
+    time: new Date().toISOString(),
+    workflow_id: entry.workflow_id || "workflow",
+    label: entry.label || entry.workflow_id || "Workflow",
+    status: entry.status || "completed",
+    detail: entry.detail || "",
+  };
+  saveRunHistory([nextEntry].concat(loadRunHistory(spec)), spec);
+  renderRunHistory(spec);
+  return nextEntry;
+}
+
+function renderRunHistory(spec = {}) {
+  const rows = loadRunHistory(spec);
+  state.runHistory = rows;
+  const target = byId("control-run-history");
+  if (!target) return;
+  if (rows.length === 0) {
+    target.innerHTML = `
+      <div class="list-row warn">
+        <strong>No local run history</strong>
+        <span>${escapeHtml(spec.empty_state || "Run a local workflow to record it in this browser.")}</span>
+      </div>
+    `;
+    return;
+  }
+  target.innerHTML = rows.map((item) => {
+    const status = item.status || "";
+    const statusClass = status === "completed" ? "ok" : status === "failed" ? "danger" : "warn";
+    return `
+      <div class="list-row ${escapeHtml(statusClass)}">
+        <strong>${escapeHtml(item.label || item.workflow_id || "")}</strong>
+        <span>${escapeHtml(`${status || "--"} / ${item.time || "--"}`)}</span>
+        <span>${escapeHtml(item.detail || "")}</span>
+      </div>
+    `;
+  }).join("");
 }
 
 async function fetchJson(url) {
