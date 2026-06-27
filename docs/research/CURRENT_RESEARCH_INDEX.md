@@ -2,28 +2,39 @@
 
 Last updated: 2026-06-27
 
-Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which branches are active, which branches must be preserved, and how to avoid repeating stale factor-mining directions.
+Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
 ## Current Cloud State
 
 - Stable branch: `main`
-- Current active CN stock sprint branch: `codex/factor-validation-cn-stock-24h-profit-sprint-20260627`
-- Current sprint role: CN stock factor-validation and paper-simulation packaging evidence
-- Current sprint status: pushed to GitHub, not merged into `main`
-- Current sprint merge policy: review from laptop or integration branch before merging to `main`
+- Remote HEAD: `origin/main`
+- Current remote topic branches: none
+- Remote branch cleanup status: complete
+- Latest integrated cloud commit: `c02d0736`
 - Live-trading boundary: disabled; research-to-paper only
+- Latest cloud audit report: `docs/research/cloud_project_audit_2026-06-27.md`
+
+All durable code, configs, tests, and lightweight reports that were previously on cloud topic branches are now integrated into `main`. New non-trivial work should start from latest `main`, then create a task branch using the branch policy in `configs/workstations.json`.
 
 ## Branches To Keep
-
-Keep these branches until the stated condition is met:
 
 | Branch | Status | Keep Until |
 | --- | --- | --- |
 | `main` | stable branch | always |
-| `codex/factor-validation-cn-stock-24h-profit-sprint-20260627` | active CN stock sprint evidence branch | merged into `main` or intentionally archived after laptop review |
-| `codex/factor-batch-cn-etf-20260617` | pending CN ETF research branch | ETF material is reviewed and either integrated into `main` or explicitly archived in the branch integration manifest |
 
-Do not delete `codex/factor-batch-cn-etf-20260617` as routine cleanup. It contains CN ETF data-sync, startup-gate, scheduler, factor, walk-forward, and test work that is relevant to the ETF-rotation project direction.
+Do not create long-lived remote topic branches for routine desktop factor batches. Push task branches only when they contain code/config/docs that need cross-machine review, and delete them after they are merged or explicitly archived.
+
+## Deleted historical branches
+
+These branches were merged or absorbed into `main` on 2026-06-27 and then deleted from GitHub:
+
+| Branch | Final Role | Result |
+| --- | --- | --- |
+| `codex/factor-validation-cn-stock-24h-profit-sprint-20260627` | CN stock factor-validation and paper-simulation evidence | integrated into `main` |
+| `codex/factor-batch-cn-etf-20260617` | CN ETF data-sync, startup-gate, scheduler, factor, walk-forward, and test work | integrated through `codex/factor-integration-cn-etf-20260627`, then deleted |
+| `codex/factor-integration-cn-etf-20260627` | temporary integration branch for the CN ETF branch cleanup | integrated into `main`, then deleted |
+
+If one of these names appears again as a remote branch, treat it as a regression unless there is a new dated integration plan explaining why it was recreated.
 
 ## Safe Branch Cleanup Rule
 
@@ -32,19 +43,18 @@ Merged topic branches may be removed from GitHub only when the safe-sync audit r
 Use:
 
 ```powershell
-python scripts\sync_project.py --machine <machine> --task <task> --execute --cleanup-topic-branches
+python scripts\sync_project.py --machine laptop --task project_sync --execute --cleanup-topic-branches
 ```
 
 Do not delete:
 
 - `main`
-- the current active sprint branch
 - any branch listed under `research_branch_integration.pending`
 - any branch that is not an ancestor of `origin/main` unless it is explicitly marked as ignored or absorbed in `configs/factor_branch_integration_manifest.json`
 
 ## Current CN Stock Paper Package
 
-The current CN stock sprint produced a paper-simulation package, not a final promotable alpha.
+The latest CN stock sprint produced a paper-simulation package, not a final promotable alpha.
 
 Primary docs:
 
@@ -66,17 +76,34 @@ Promotion status:
 - Final promotable/live alpha: `0`
 - Final holdout: sealed
 
+## Current CN ETF Framework
+
+The CN ETF branch material is now part of `main`. The integrated ETF framework includes:
+
+- Tushare `fund_basic`, `fund_daily`, `etf_share_size`, and fund-portfolio paths
+- CN ETF readiness gate and rotation membership checks
+- CN ETF research-family scheduler and Quant PM startup gate
+- ETF share-size, moneyflow-basket, theme-breadth, and technical extension factors
+- Unit tests for ETF data readiness, Tushare ETF sync, ETF factor builders, project audit, and startup gate
+
+Before material desktop ETF research work, run:
+
+```powershell
+python scripts\run_quant_pm_startup_gate.py --machine highspec_desktop --task factor_batch --branch <current-branch>
+```
+
+This gate must keep the primary research market as `CN_ETF` and must keep direct `CN` stock moneyflow selection as `auxiliary_only`.
+
 ## Multi-Workstation Rules
 
 Laptop:
 
 - Use for architecture, audits, branch integration, mainline merge decisions, and cloud cleanup review.
-- Before reviewing current CN stock sprint work, fetch GitHub and inspect `codex/factor-validation-cn-stock-24h-profit-sprint-20260627`.
-- Before resuming ETF work, inspect `codex/factor-batch-cn-etf-20260617`.
+- `factor_integration` is assigned to the laptop so desktop factor machines do not accidentally merge research branches into `main`.
 
 Office desktop:
 
-- Use for CN stock factor batches, validation reruns, and paper-package evidence.
+- Use for CN stock factor batches, validation reruns, and data-quality checks.
 - Do not run ETF rotation work here unless explicitly assigned.
 - Do not continue q20 threshold tuning without a new orthogonal data source or a paper-simulation monitoring reason.
 
@@ -110,8 +137,8 @@ GitHub must not contain:
 
 ## Current Cleanup Priorities
 
-1. Keep this index updated whenever a sprint branch is pushed or merged.
-2. Clean remote branches that are already merged to `main`.
-3. Preserve and separately review `codex/factor-batch-cn-etf-20260617`.
-4. Merge or archive the current CN stock sprint branch after laptop review.
-5. If docs keep growing, create dated sub-index pages rather than moving historical files and breaking existing config references.
+1. Keep this index updated whenever a sprint branch is pushed, merged, or deleted.
+2. Keep `origin/main` as the only durable cloud branch unless active cross-machine review requires a temporary topic branch.
+3. Run `python scripts\sync_project.py --machine laptop --task project_sync` after every branch cleanup.
+4. If docs keep growing, create dated sub-index pages rather than moving historical files and breaking existing config references.
+5. Treat recreated historical branch names as suspicious until their new purpose is documented.
