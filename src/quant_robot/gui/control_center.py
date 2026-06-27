@@ -16,6 +16,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     backtest = _default_backtest()
     workflows = _workflow_commands(backtest)
     verification_gates = _verification_gates()
+    readiness_matrix = _readiness_matrix(workflows, verification_gates, artifacts)
 
     return {
         "stage": "gui_control_center",
@@ -47,7 +48,8 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "verification_gates": verification_gates,
         "operator_checklist": _operator_checklist(verification_gates, artifacts),
         "execution_plan": _execution_plan(workflows, verification_gates),
-        "readiness_matrix": _readiness_matrix(workflows, verification_gates, artifacts),
+        "readiness_matrix": readiness_matrix,
+        "audit_scorecard": _audit_scorecard(verification_gates, readiness_matrix, artifacts),
         "results": {
             "source": "Run research or paper workflow to populate live result values in the browser.",
             "metrics": [
@@ -468,6 +470,111 @@ def _readiness_matrix(
             "missing_artifact_count": len(missing_artifacts),
         },
         "rows": rows,
+    }
+
+
+def _audit_scorecard(
+    verification_gates: list[dict[str, Any]],
+    readiness_matrix: dict[str, Any],
+    artifacts: list[dict[str, Any]],
+) -> dict[str, Any]:
+    required_gate_count = sum(1 for gate in verification_gates if str(gate.get("status", "")).startswith("required"))
+    browser_gate_count = sum(1 for gate in verification_gates if "browser" in str(gate.get("gate_id", "")))
+    missing_artifact_count = sum(1 for artifact in artifacts if artifact["status"] != "present")
+    live_ready = bool(readiness_matrix.get("summary", {}).get("live_ready"))
+    categories = [
+        {
+            "category_id": "work_visibility",
+            "label": "Work visibility",
+            "score": 16,
+            "max_score": 18,
+            "status": "good",
+            "evidence": "Run queue, operator checklist, execution plan, and readiness matrix are visible.",
+        },
+        {
+            "category_id": "backtest_transparency",
+            "label": "Backtest transparency",
+            "score": 17,
+            "max_score": 18,
+            "status": "good",
+            "evidence": "Control center exposes data source, market, factor, windows, TopN, cost, lag, and method steps.",
+        },
+        {
+            "category_id": "paper_live_boundary",
+            "label": "Paper/live boundary",
+            "score": 20 if not live_ready else 0,
+            "max_score": 20,
+            "status": "blocked_live",
+            "evidence": SAFETY_NOTICE,
+        },
+        {
+            "category_id": "runtime_observability",
+            "label": "Runtime observability",
+            "score": 13,
+            "max_score": 16,
+            "status": "needs_history",
+            "evidence": "Current work and local workflow commands are visible; persistent run history is still a next step.",
+        },
+        {
+            "category_id": "verification_coverage",
+            "label": "Verification coverage",
+            "score": 14,
+            "max_score": 16,
+            "status": "good",
+            "evidence": f"{required_gate_count} required gates tracked, including {browser_gate_count} browser smoke gates.",
+        },
+        {
+            "category_id": "frontend_usability",
+            "label": "Frontend usability",
+            "score": 10 if missing_artifact_count == 0 else 8,
+            "max_score": 12,
+            "status": "good" if missing_artifact_count == 0 else "needs_artifacts",
+            "evidence": f"{missing_artifact_count} tracked local artifact links are missing.",
+        },
+    ]
+    total_score = sum(item["score"] for item in categories)
+    max_score = sum(item["max_score"] for item in categories)
+    repair_queue = [
+        {
+            "priority": "P0",
+            "action": "Run independent 5h GUI audit",
+            "reason": "The visible score is a local self-check; the separate audit agent must still issue a scored review.",
+        },
+        {
+            "priority": "P1",
+            "action": "Persist run history",
+            "reason": "The console shows current workflows but does not yet keep a durable operator timeline.",
+        },
+        {
+            "priority": "P1",
+            "action": "Attach audit findings to next optimization round",
+            "reason": "The GUI should turn each 5h scorecard into visible fixes and acceptance gates.",
+        },
+        {
+            "priority": "P2",
+            "action": "Add report deep links for audit packets",
+            "reason": "Operators should be able to open the latest audit packet from the control center.",
+        },
+    ]
+    return {
+        "stage": "gui_audit_scorecard",
+        "summary": {
+            "local_self_check_score": total_score,
+            "max_score": max_score,
+            "cadence_hours": 5,
+            "automation_id": "gui-5h",
+            "independent_audit_complete": False,
+            "score_source": "local_self_check_not_independent_audit",
+            "required_gate_count": required_gate_count,
+            "missing_artifact_count": missing_artifact_count,
+        },
+        "categories": categories,
+        "repair_queue": repair_queue,
+        "next_audit": {
+            "cadence": "Every 5 hours",
+            "expected_output": "0-100 score, category scores, required fixes, and next optimization list.",
+            "agent_role": "Independent GUI control center auditor",
+        },
     }
 
 

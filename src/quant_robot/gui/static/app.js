@@ -447,6 +447,9 @@ function renderControlCenter() {
   const executionSteps = executionPlan.steps || [];
   const readinessMatrix = control.readiness_matrix || {};
   const readinessRows = readinessMatrix.rows || [];
+  const auditScorecard = control.audit_scorecard || {};
+  const auditSummary = auditScorecard.summary || {};
+  const auditCategories = auditScorecard.categories || [];
   const runQueue = control.run_queue || {};
   const activeRun = runQueue.active || {};
   const queueSummary = runQueue.summary || {};
@@ -496,6 +499,21 @@ function renderControlCenter() {
       <span>${escapeHtml(item.guardrail || item.next_action || "")}</span>
     </div>
   `).join("");
+  byId("control-audit-scorecard").innerHTML = [
+    `
+    <div class="list-row warn">
+      <strong>${escapeHtml(`${auditSummary.local_self_check_score ?? "--"} / ${auditSummary.max_score ?? "--"} local self-check`)}</strong>
+      <span>${escapeHtml(`${auditSummary.cadence_hours ?? "--"}h cadence / ${auditSummary.automation_id || "audit automation"}`)}</span>
+      <span>${escapeHtml(auditSummary.independent_audit_complete ? "Independent audit complete" : "Independent 5h audit still required")}</span>
+    </div>
+    `,
+  ].concat(auditCategories.slice(0, 6).map((item) => `
+    <div class="list-row ${escapeHtml(item.status === "good" ? "ok" : item.status === "blocked_live" ? "danger" : "warn")}">
+      <strong>${escapeHtml(item.label || item.category_id || "")}</strong>
+      <span>${escapeHtml(`${item.score ?? "--"} / ${item.max_score ?? "--"} / ${item.status || ""}`)}</span>
+      <span>${escapeHtml(item.evidence || "")}</span>
+    </div>
+  `)).join("");
   byId("control-backtest-status").innerHTML = statusRows([
     ["Source", `${backtest.source || "--"} / ${backtest.data_root || "--"}`, "ok"],
     ["Market", `${backtest.market || "--"} / ${backtest.factor || "--"}`, "ok"],

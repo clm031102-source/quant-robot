@@ -484,6 +484,10 @@ button {
   max-height: 236px;
 }
 
+.audit-scorecard-list {
+  max-height: 236px;
+}
+
 .two-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
