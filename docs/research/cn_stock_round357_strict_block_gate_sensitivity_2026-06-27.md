@@ -32,7 +32,7 @@ These gates are intentionally stricter than Round356 and are used to identify we
 | `primary_high_return` | +6.35% | 0.517 | +3.76% | 0.386 | 46.38% | `weak_overlap_when_year_removed`; `best_months_contribution_too_high` |
 | `primary_balanced_zz500_75` | +5.99% | 0.530 | +3.41% | 0.411 | 45.84% | `best_months_contribution_too_high` |
 | `primary_defensive_zz500` | +5.62% | 0.536 | +3.05% | 0.435 | 46.66% | `best_months_contribution_too_high` |
-| `safer_defensive_zz500` | +5.36% | 0.533 | +3.16% | 0.414 | 46.22% | `best_months_contribution_too_high` |
+| `safer_defensive_zz500` | +4.73% | 0.534 | +2.52% | 0.443 | 48.26% | `leave_one_year_annualized_return_below_min`; `best_months_contribution_too_high` |
 | `primary_ps_filtered_defensive_zz500` | +4.86% | 0.573 | +2.74% | 0.492 | 43.75% | `leave_one_year_annualized_return_below_min` |
 
 ## Interpretation
@@ -46,7 +46,7 @@ Ranking under strict gates:
 1. `primary_balanced_zz500_75`: only slightly above the concentration cutoff and keeps leave-one-year annualized return above 3%.
 2. `primary_defensive_zz500`: best default robustness profile, but top-three-month concentration is still above 45%.
 3. `primary_ps_filtered_defensive_zz500`: best concentration and overlap profile, but return floor after removing 2015 falls to +2.74%.
-4. `safer_defensive_zz500`: conservative, but does not beat the preferred defensive line enough to deserve primary status.
+4. `safer_defensive_zz500`: lowest drawdown, but after the correct final overlay stream it fails both the +3% leave-one-year floor and the 45% concentration gate.
 5. `primary_high_return`: best total return, but strict audit shows the clearest fragility after removing 2015.
 
 ## Direction Decision

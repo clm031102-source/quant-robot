@@ -20,8 +20,8 @@ from quant_robot.ops.shortlist_return_block_audit import (  # noqa: E402
 DEFAULT_OUTPUT_DIR = Path("data/reports/shortlist_return_block_audit")
 
 
-def parse_return_sources(values: list[str]) -> dict[str, Path]:
-    sources: dict[str, Path] = {}
+def parse_return_sources(values: list[str]) -> dict[str, dict[str, str]]:
+    sources: dict[str, dict[str, str]] = {}
     for value in values:
         if "=" not in value:
             raise ValueError("--return-source must use candidate_name=path")
@@ -29,7 +29,16 @@ def parse_return_sources(values: list[str]) -> dict[str, Path]:
         name = name.strip()
         if not name:
             raise ValueError("--return-source candidate_name cannot be empty")
-        sources[name] = Path(path.strip())
+        path = path.strip()
+        return_column = None
+        if "|" in path:
+            path, return_column = path.rsplit("|", 1)
+            path = path.strip()
+            return_column = return_column.strip() or None
+        spec = {"path": str(Path(path))}
+        if return_column:
+            spec["return_column"] = return_column
+        sources[name] = spec
     return sources
 
 

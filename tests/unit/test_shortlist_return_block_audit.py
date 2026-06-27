@@ -80,6 +80,27 @@ class ShortlistReturnBlockAuditTest(unittest.TestCase):
             self.assertTrue((root / "out" / "shortlist_return_block_audit.json").exists())
             self.assertTrue((root / "out" / "shortlist_return_block_audit_rows.csv").exists())
 
+    def test_build_audit_allows_source_specific_return_column(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "candidate.csv"
+            pd.DataFrame(
+                {
+                    "date": ["2021-01-31", "2021-02-28"],
+                    "period_return": [-0.50, -0.50],
+                    "overlay_return": [0.01, 0.02],
+                }
+            ).to_csv(source, index=False)
+
+            audit = build_shortlist_return_block_audit(
+                {"overlay_candidate": {"path": source, "return_column": "overlay_return"}},
+                periods_per_year=12.0,
+                holding_period=1,
+            )
+
+            self.assertEqual(audit["rows"][0]["return_column"], "overlay_return")
+            self.assertGreater(audit["rows"][0]["total_return"], 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

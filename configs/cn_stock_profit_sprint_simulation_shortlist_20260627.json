@@ -33,6 +33,11 @@
       "id": "primary_high_return",
       "status": "simulation_shortlist_default",
       "formula": "turnover_rate_low Top50 hold20 reb5 cost_rate_0.001 + replace_drop_turnover_f_low10 + entry_cash + vol_target_6_lb84",
+      "event_return_source": {
+        "path": "data/reports/round351_24h_profit_sprint_zz500_75_cost_beta_quickcheck_20260627/primary_low10_vol6_zz500_mult_1.00_cost10_events.csv",
+        "date_column": "date",
+        "return_column": "period_return"
+      },
       "replacement_filter": {
         "field": "turnover_rate_f",
         "action": "replace_filtered_candidates",
@@ -62,6 +67,11 @@
       "id": "primary_defensive_zz500",
       "status": "simulation_shortlist_preferred_defensive",
       "formula": "primary_high_return + zz500_mom120_neg_half",
+      "event_return_source": {
+        "path": "data/reports/round351_24h_profit_sprint_zz500_75_cost_beta_quickcheck_20260627/primary_low10_vol6_zz500_mult_0.50_cost10_events.csv",
+        "date_column": "date",
+        "return_column": "period_return"
+      },
       "replacement_filter": {
         "field": "turnover_rate_f",
         "action": "replace_filtered_candidates",
@@ -97,6 +107,11 @@
       "id": "primary_balanced_zz500_75",
       "status": "simulation_shortlist_return_risk_balanced_observation",
       "formula": "primary_high_return + zz500_mom120_neg_mult_0.75",
+      "event_return_source": {
+        "path": "data/reports/round351_24h_profit_sprint_zz500_75_cost_beta_quickcheck_20260627/primary_low10_vol6_zz500_mult_0.75_cost10_events.csv",
+        "date_column": "date",
+        "return_column": "period_return"
+      },
       "replacement_filter": {
         "field": "turnover_rate_f",
         "action": "replace_filtered_candidates",
@@ -132,6 +147,11 @@
       "id": "safer_defensive_zz500",
       "status": "simulation_shortlist_ultra_defensive_reference",
       "formula": "turnover_rate_low Top50 hold20 reb5 cost_rate_0.001 + cash_low_turnover_f_bottom20 + entry_cash + vol_target_5_lb84 + zz500_mom120_neg_half",
+      "event_return_source": {
+        "path": "data/reports/round345_24h_profit_sprint_candidate_external_regime_comparison_20260627/safer_cash_bottom20_vol5_zz500_mom120_neg_half_events.csv",
+        "date_column": "date",
+        "return_column": "overlay_return"
+      },
       "cash_filter": {
         "field": "turnover_rate_f",
         "action": "cash_filtered_entry_trades",
@@ -165,6 +185,11 @@
       "id": "primary_ps_filtered_defensive_zz500",
       "status": "simulation_shortlist_quality_filter_defensive_observation",
       "formula": "primary_high_return + cash selected entries with top 20% selected-basket ps_ttm + zz500_mom120_neg_half",
+      "event_return_source": {
+        "path": "data/reports/round354_24h_profit_sprint_ps_filter_cost_beta_quickcheck_20260627/cash_ps_high20_selected_riskoff_0.50_cost10_events.csv",
+        "date_column": "date",
+        "return_column": "period_return_variant"
+      },
       "secondary_filter": {
         "field": "ps_ttm",
         "ranking_scope": "selected primary_low10_vol6 basket on each signal_date",
@@ -224,14 +249,14 @@
       "primary_high_return": 0.0376,
       "primary_balanced_zz500_75": 0.0341,
       "primary_defensive_zz500": 0.0305,
-      "safer_defensive_zz500": 0.0316,
+      "safer_defensive_zz500": 0.0252,
       "primary_ps_filtered_defensive_zz500": 0.0274
     },
     "best_three_month_log_share": {
       "primary_high_return": 0.4638,
       "primary_balanced_zz500_75": 0.4584,
       "primary_defensive_zz500": 0.4666,
-      "safer_defensive_zz500": 0.4622,
+      "safer_defensive_zz500": 0.4826,
       "primary_ps_filtered_defensive_zz500": 0.4375
     }
   },
@@ -239,7 +264,7 @@
     "round": 357,
     "report": "docs/research/cn_stock_round357_strict_block_gate_sensitivity_2026-06-27.md",
     "output_dir": "data/reports/round357_24h_profit_sprint_strict_shortlist_block_gate_sensitivity_20260627",
-    "strict_gate_result": "0 of 5 candidates passed deliberately strict concentration/leave-one-year gates",
+    "strict_gate_result": "0 of 5 candidates passed deliberately strict concentration/leave-one-year gates; safer_defensive_zz500 was corrected to use overlay_return",
     "interpretation": "use as ranking and fragility evidence, not as a hard shortlist rejection",
     "preferred_simulation_lanes_after_sensitivity": [
       "primary_high_return",
@@ -265,6 +290,55 @@
     ],
     "main_risk": "all retained lanes are related variants of the same low-turnover repair family, not independent alpha factors"
   },
+  "simulation_shortlist_replay": {
+    "round": 361,
+    "report": "docs/research/cn_stock_round361_simulation_shortlist_replay_2026-06-27.md",
+    "output_dir": "data/reports/round361_24h_profit_sprint_simulation_shortlist_replay_20260627",
+    "status": "passed",
+    "candidate_count": 5,
+    "blocked_candidate_count": 0,
+    "metric_tolerance": 0.005,
+    "bug_fixed": "safer_defensive_zz500 event source now uses overlay_return instead of pre-regime period_return"
+  },
+  "simulation_shortlist_event_schema_replay": {
+    "round": 363,
+    "report": "docs/research/cn_stock_round363_simulation_shortlist_event_schema_replay_2026-06-27.md",
+    "output_dir": "data/reports/round363_24h_profit_sprint_simulation_shortlist_event_schema_replay_20260627",
+    "status": "passed",
+    "candidate_count": 5,
+    "blocked_candidate_count": 0,
+    "checks": [
+      "decision_date_present_for_structured_candidates",
+      "final_exposure_present_for_vol_or_regime_candidates",
+      "riskoff_multiplier_matches_config_when_declared",
+      "decision_date_not_after_event_date",
+      "final_exposure_nonnegative_sane_range"
+    ]
+  },
+  "round360_362_audit": {
+    "report": "docs/research/cn_stock_round360_362_three_round_audit_2026-06-27.md",
+    "decision": "config-to-event replay is now mandatory before simulation handoff",
+    "remaining_gap": "retained lanes still need a raw-data-to-event generation entrypoint"
+  },
+  "round363_365_audit": {
+    "report": "docs/research/cn_stock_round363_365_three_round_audit_2026-06-27.md",
+    "decision": "event-schema replay is mandatory; ADX public-indicator filter remains a defensive research lead only",
+    "rejected_for_shortlist": [
+      "public_adx_trend_strength_exhaustion_reversal_14_20_cash_bottom20_on_primary_low10"
+    ],
+    "reason": "ADX improved defensive drawdown in some views but did not beat the primary defensive shortlist on OOS return/overlap."
+  },
+  "round366_368_audit": {
+    "report": "docs/research/cn_stock_round366_368_three_round_audit_2026-06-27.md",
+    "decision": "do not add mainboard pre-rank replacement to simulation shortlist",
+    "rejected_for_shortlist": [
+      "replace_drop_turnover_f_low10_mainboard_prerank",
+      "replace_drop_turnover_f_low10_mainboard_prerank_vol_target_4_lb84",
+      "replace_drop_turnover_f_low10_mainboard_prerank_vol_target_6_lb84"
+    ],
+    "reason": "mainboard pre-rank replacement raises entry tradability and return but keeps drawdown above the tolerated risk band after vol-target wrapping",
+    "process_upgrade": "run shortlist exposure audit and pre-rank replacement checks before treating untradeable cash exposure as wasted alpha"
+  },
   "source_docs": [
     "docs/research/cn_stock_round340_candidate_comparison_pack_2026-06-27.md",
     "docs/research/cn_stock_round341_turnover_f_threshold_sensitivity_2026-06-27.md",
@@ -281,6 +355,16 @@
     "docs/research/cn_stock_round355_shortlist_return_overlap_2026-06-27.md",
     "docs/research/cn_stock_round356_shortlist_block_dependence_audit_2026-06-27.md",
     "docs/research/cn_stock_round357_strict_block_gate_sensitivity_2026-06-27.md",
-    "docs/research/cn_stock_round356_358_three_round_audit_2026-06-27.md"
+    "docs/research/cn_stock_round356_358_three_round_audit_2026-06-27.md",
+    "docs/research/cn_stock_round361_simulation_shortlist_replay_2026-06-27.md",
+    "docs/research/cn_stock_round360_362_three_round_audit_2026-06-27.md",
+    "docs/research/cn_stock_round363_simulation_shortlist_event_schema_replay_2026-06-27.md",
+    "docs/research/cn_stock_round364_public_indicator_on_primary_replacement_quickcheck_2026-06-27.md",
+    "docs/research/cn_stock_round365_public_adx_filter_oos_split_2026-06-27.md",
+    "docs/research/cn_stock_round363_365_three_round_audit_2026-06-27.md",
+    "docs/research/cn_stock_round366_primary_low10_industry_board_exposure_audit_2026-06-27.md",
+    "docs/research/cn_stock_round367_turnover_low_mainboard_prerank_replacement_2026-06-27.md",
+    "docs/research/cn_stock_round368_mainboard_prerank_robustness_2026-06-27.md",
+    "docs/research/cn_stock_round366_368_three_round_audit_2026-06-27.md"
   ]
 }

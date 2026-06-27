@@ -26,7 +26,7 @@ RETURN_COLUMN_CANDIDATES = (
 
 
 def build_shortlist_return_block_audit(
-    return_sources: Mapping[str, str | Path | pd.DataFrame],
+    return_sources: Mapping[str, str | Path | pd.DataFrame | Mapping[str, Any]],
     *,
     return_column: str | None = None,
     date_column: str = "date",
@@ -39,10 +39,15 @@ def build_shortlist_return_block_audit(
 ) -> dict[str, Any]:
     rows = []
     for candidate_name, source in return_sources.items():
-        returns, resolved_column = load_candidate_period_returns(
+        source_path, source_return_column, source_date_column = _normalise_source_spec(
             source,
-            return_column=return_column,
-            date_column=date_column,
+            default_return_column=return_column,
+            default_date_column=date_column,
+        )
+        returns, resolved_column = load_candidate_period_returns(
+            source_path,
+            return_column=source_return_column,
+            date_column=source_date_column,
         )
         rows.append(
             summarize_return_blocks(
@@ -90,6 +95,24 @@ def build_shortlist_return_block_audit(
             "reason": "Block audits are pre-simulation robustness checks only; final holdout remains sealed.",
         },
     }
+
+
+def _normalise_source_spec(
+    source: str | Path | pd.DataFrame | Mapping[str, Any],
+    *,
+    default_return_column: str | None,
+    default_date_column: str,
+) -> tuple[str | Path | pd.DataFrame, str | None, str]:
+    if isinstance(source, Mapping) and not isinstance(source, pd.DataFrame):
+        path = source.get("path")
+        if path is None:
+            raise ValueError("source spec missing path")
+        return (
+            path,
+            str(source.get("return_column")) if source.get("return_column") else default_return_column,
+            str(source.get("date_column") or default_date_column),
+        )
+    return source, default_return_column, default_date_column
 
 
 def load_candidate_period_returns(

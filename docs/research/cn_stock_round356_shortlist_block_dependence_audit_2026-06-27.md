@@ -35,10 +35,12 @@ The audit used the five current simulation shortlist event-return streams:
 | `primary_high_return` | `round351` `primary_low10_vol6_zz500_mult_1.00_cost10_events.csv` |
 | `primary_balanced_zz500_75` | `round351` `primary_low10_vol6_zz500_mult_0.75_cost10_events.csv` |
 | `primary_defensive_zz500` | `round351` `primary_low10_vol6_zz500_mult_0.50_cost10_events.csv` |
-| `safer_defensive_zz500` | `round345` `safer_cash_bottom20_vol5_zz500_mom120_neg_half_events.csv` |
+| `safer_defensive_zz500` | `round345` `safer_cash_bottom20_vol5_zz500_mom120_neg_half_events.csv`, using `overlay_return` |
 | `primary_ps_filtered_defensive_zz500` | `round354` `cash_ps_high20_selected_riskoff_0.50_cost10_events.csv` |
 
 For `primary_ps_filtered_defensive_zz500`, the audit auto-selected `period_return_variant` because that is the filtered/costed return stream.
+
+For `safer_defensive_zz500`, the audit uses `overlay_return` because `period_return` is the pre-regime base stream in the Round345 event file.
 
 ## Gate Settings
 
@@ -56,7 +58,7 @@ For `primary_ps_filtered_defensive_zz500`, the audit auto-selected `period_retur
 | `primary_high_return` | +177.08% | +6.35% | 0.517 | -28.88% | +3.76% | 0.386 | 46.38% | 2015 | none |
 | `primary_balanced_zz500_75` | +161.99% | +5.99% | 0.530 | -24.74% | +3.41% | 0.411 | 45.84% | 2015 | none |
 | `primary_defensive_zz500` | +147.29% | +5.62% | 0.536 | -20.38% | +3.05% | 0.435 | 46.66% | 2015 | none |
-| `safer_defensive_zz500` | +137.10% | +5.36% | 0.533 | -21.98% | +3.16% | 0.414 | 46.22% | 2015 | none |
+| `safer_defensive_zz500` | +114.76% | +4.73% | 0.534 | -14.94% | +2.52% | 0.443 | 48.26% | 2015 | none |
 | `primary_ps_filtered_defensive_zz500` | +119.29% | +4.86% | 0.573 | -15.90% | +2.74% | 0.492 | 43.75% | 2015 | none |
 
 ## Interpretation
@@ -65,7 +67,8 @@ The shortlist is not a single-year artifact under this audit.
 
 All five candidates remain positive after deleting the most important year. The weakest leave-one-year result is still positive:
 
-- `primary_ps_filtered_defensive_zz500`: +2.74% annualized after the worst year removal.
+- `safer_defensive_zz500`: +2.52% annualized after the worst year removal.
+- `primary_ps_filtered_defensive_zz500`: +2.74%.
 - `primary_defensive_zz500`: +3.05%.
 - `primary_balanced_zz500_75`: +3.41%.
 - `primary_high_return`: +3.76%.
@@ -77,7 +80,7 @@ The worst year remains 2018 for all candidates:
 - high-return default: -19.68%;
 - balanced 75%: -15.79%;
 - defensive 50%: -11.73%;
-- safer defensive: -15.74%;
+- safer defensive: -9.04%;
 - PS-filter defensive: -9.24%.
 
 The PS-filter defensive lane has the best concentration profile and overlap Sharpe, but lower total return. It remains a defensive observation lane, not the main return engine.

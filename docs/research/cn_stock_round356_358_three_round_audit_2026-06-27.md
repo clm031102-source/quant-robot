@@ -39,7 +39,7 @@ Keep four simulation lanes and one reference lane.
 | `primary_balanced_zz500_75` | Keep as middle lane | Best compromise after strict block sensitivity; only concentration blocker |
 | `primary_defensive_zz500` | Keep as default robustness lane | Strong cost/pass profile and robust leave-one-year overlap |
 | `primary_ps_filtered_defensive_zz500` | Keep as defensive diagnostic lane | Best overlap/concentration profile, lower return floor |
-| `safer_defensive_zz500` | De-emphasize as ultra-defensive reference | Does not add enough independent information beyond `primary_defensive_zz500` |
+| `safer_defensive_zz500` | De-emphasize as ultra-defensive reference | Lowest drawdown, but weaker corrected leave-one-year return and no independent information beyond `primary_defensive_zz500` |
 
 ## What This Says About Direction
 

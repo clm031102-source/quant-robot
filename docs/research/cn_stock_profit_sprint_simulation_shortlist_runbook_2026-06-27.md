@@ -188,6 +188,53 @@ Rejected defaults:
 - strategy self-risk cash overlays;
 - direct public-indicator cash filters from Round336.
 
+## Mandatory Replay Gates
+
+Before packaging any shortlist candidate for simulation, run both replay gates:
+
+```powershell
+.venv\Scripts\python.exe scripts\run_simulation_shortlist_replay.py --config configs\cn_stock_profit_sprint_simulation_shortlist_20260627.json --output-dir data\reports\round363_24h_profit_sprint_simulation_shortlist_event_schema_replay_20260627 --metric-tolerance 0.005
+```
+
+The replay must show:
+
+- `status` is `passed`;
+- `blocked_candidate_count` is 0;
+- every candidate has a valid return column;
+- structured candidates have `decision_date`;
+- volatility-target or regime-overlay candidates have `final_exposure`;
+- declared ZZ500 risk-off multipliers match the event stream when the event file declares a multiplier.
+
+Round363 passed these checks for all five candidates.
+
+## Exposure / Pre-Rank Gates
+
+Round366-368 added two required controls for any candidate that changes untradeable positions, board eligibility, or replacement behavior:
+
+```powershell
+.venv\Scripts\python.exe scripts\run_shortlist_exposure_audit.py --trades <trades_with_tradeability.parquet> --output-dir <exposure_audit_output> --group-column industry --group-column stock_market
+```
+
+```powershell
+.venv\Scripts\python.exe scripts\run_turnover_low_prerank_replacement.py --output-dir <prerank_replacement_output> --exclude-asset-prefix CN_XBEI --max-abs-daily-return-quarantine 0.50
+```
+
+The evidence must distinguish:
+
+- true alpha improvement;
+- reduced wasted weight from board-permission or ST/delisting blocks;
+- accidental risk reduction from cashing untradeable positions;
+- added crash exposure from replacing previously cashed positions.
+
+Round368 rejected `replace_drop_turnover_f_low10_mainboard_prerank` for simulation shortlist use:
+
+- entry allowed rate improved to 95.75%;
+- annualized return improved to 6.86%;
+- max drawdown worsened to -48.95%;
+- even `vol_target_4_lb84` still had -36.71% max drawdown.
+
+So board-permission pre-ranking is now a process control, not a promoted alpha line.
+
 ## Before 2026 Holdout
 
 Do not run the 2026 holdout until all are true:
@@ -208,7 +255,7 @@ Result:
 
 - all five shortlist candidates stayed positive after removing the most important year;
 - the most sensitive removed year is 2015 for every candidate;
-- top three months contributed about 43.75% to 46.66% of total log return, below the 70% blocker threshold;
+- top three months contributed about 43.75% to 48.26% of total log return, below the 70% blocker threshold;
 - 2026 final holdout remains sealed.
 
 This does not make the candidates paper-ready. It does reduce the concern that the current shortlist is only one lucky year or one lucky month cluster.
@@ -217,7 +264,13 @@ Round357 stress-tested stricter block gates:
 
 - 0 of 5 candidates passed when requiring at least +3% leave-one-year annualized return, at least 0.40 leave-one-year overlap Sharpe, and no more than 45% top-three-month log contribution;
 - this is a warning against overselling the family as smooth all-regime alpha;
-- the useful ranking is: balanced 75% and defensive 50% are the best core simulation candidates, high-return is a drawdown-tolerant lane, PS-filter is a defensive diagnostic lane.
+- the useful ranking is: balanced 75% and defensive 50% are the best core simulation candidates, high-return is a drawdown-tolerant lane, PS-filter is a defensive diagnostic lane, safer defensive is only an ultra-defensive reference.
+
+Round361 added a replay check:
+
+`scripts/run_simulation_shortlist_replay.py`
+
+It verifies that the event-return files reproduce the metrics stored in the config. This caught and fixed the `safer_defensive_zz500` source-column issue: the final CSI500-regime stream is `overlay_return`, not `period_return`.
 
 ## Current Recommendation
 
