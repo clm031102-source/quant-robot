@@ -489,6 +489,7 @@ function fillFactorSelect(factors) {
 function renderControlCenter() {
   const control = state.controlCenter || {};
   const work = control.work || {};
+  const workspaceSync = control.workspace_sync || {};
   const backtest = control.backtest || {};
   const backtestProvenance = control.backtest_provenance || {};
   const backtestGate = control.backtest_gate || {};
@@ -542,6 +543,7 @@ function renderControlCenter() {
     ["Branch", work.branch || "--", work.branch ? "ok" : "warn"],
     ["Goal", work.goal || "--", "muted"],
   ]);
+  byId("control-workspace-sync").innerHTML = renderWorkspaceSync(workspaceSync);
   byId("control-run-queue").innerHTML = statusRows([
     ["Active", activeRun.label || "--", activeRun.workflow_id ? "ok" : "muted"],
     ["Status", activeRun.status || "--", activeRun.status === "ready_to_run" ? "ok" : "warn"],
@@ -1657,6 +1659,38 @@ function renderWorkflowTrace(trace = {}) {
     <div class="list-row warn">
       <strong>No workflow trace</strong>
       <span>The control API must expose the active workflow, queued steps, evidence storage, verification gates, and live boundary.</span>
+    </div>
+  `);
+}
+
+function renderWorkspaceSync(sync = {}) {
+  const summary = sync.summary || {};
+  const rows = sync.rows || [];
+  const status = summary.status || "unknown";
+  const headerClass = status === "clean" ? "ok" : status === "dirty" ? "warn" : "danger";
+  const header = `
+    <div class="list-row ${escapeHtml(headerClass)}">
+      <strong>${escapeHtml(`Workspace / ${status}`)}</strong>
+      <span>${escapeHtml(`${summary.current_branch || "--"} / ${summary.head || "--"}`)}</span>
+      <span>${escapeHtml(`behind=${summary.behind ?? "--"} / ahead=${summary.ahead ?? "--"} / changed=${summary.changed_paths ?? "--"}`)}</span>
+      <span>${escapeHtml(summary.next_action || "")}</span>
+    </div>
+  `;
+  const body = rows.slice(0, 6).map((item) => {
+    const rowStatus = item.status || "";
+    const statusClass = rowStatus === "ready" || rowStatus === "clean" ? "ok" : rowStatus === "blocked" || rowStatus === "behind" ? "danger" : "warn";
+    return `
+      <div class="list-row ${escapeHtml(statusClass)}">
+        <strong>${escapeHtml(item.label || item.check_id || "")}</strong>
+        <span>${escapeHtml(`${rowStatus || "--"} / ${item.value || ""}`)}</span>
+        <span>${escapeHtml(item.evidence || "")}</span>
+      </div>
+    `;
+  }).join("");
+  return header + (body || `
+    <div class="list-row warn">
+      <strong>No workspace sync status</strong>
+      <span>Git branch, worktree, upstream, and sync policy should be visible before publishing.</span>
     </div>
   `);
 }

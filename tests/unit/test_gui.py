@@ -63,6 +63,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("artifacts", result)
         self.assertIn("workflows", result)
         self.assertIn("report_links", result)
+        self.assertIn("workspace_sync", result)
         self.assertIn("run_queue", result)
         self.assertIn("verification_gates", result)
         self.assertIn("operator_checklist", result)
@@ -263,8 +264,37 @@ class GuiSnapshotTests(unittest.TestCase):
         )
         self.assertTrue(any(item["kind"] == "logs" for item in result["report_links"]))
         self.assertTrue(any(item["kind"] == "audit_packet" for item in result["report_links"]))
+        self.assertEqual(result["workspace_sync"]["stage"], "gui_workspace_sync")
+        self.assertIn(result["workspace_sync"]["summary"]["status"], {"clean", "dirty", "unknown"})
+        self.assertIn("current_branch", result["workspace_sync"]["summary"])
+        self.assertIn("upstream_sync", result["workspace_sync"]["summary"])
+        self.assertIn("head", result["workspace_sync"]["summary"])
+        sync_row_ids = {item["check_id"] for item in result["workspace_sync"]["rows"]}
+        self.assertIn("current_branch", sync_row_ids)
+        self.assertIn("worktree", sync_row_ids)
+        self.assertIn("upstream_sync", sync_row_ids)
+        self.assertIn("safe_sync_policy", sync_row_ids)
+        self.assertIn("publish_command", sync_row_ids)
         self.assertEqual(result["run_queue"]["active"]["workflow_id"], "research_backtest")
         self.assertGreaterEqual(result["run_queue"]["summary"]["pending"], 1)
+
+    def test_workspace_sync_preserves_git_porcelain_leading_status_space(self):
+        from quant_robot.gui.control_center import _parse_git_status_paths
+
+        paths = _parse_git_status_paths(
+            " M scripts/run_gui_browser_smoke.py\n"
+            "M  src/quant_robot/gui/control_center.py\n"
+            "?? tests/unit/test_gui.py\n"
+        )
+
+        self.assertEqual(
+            paths,
+            [
+                "scripts/run_gui_browser_smoke.py",
+                "src/quant_robot/gui/control_center.py",
+                "tests/unit/test_gui.py",
+            ],
+        )
 
     def test_control_center_uses_independent_audit_packet_as_next_optimization_input(self):
         from quant_robot.gui.control_center import build_control_center_snapshot
@@ -436,6 +466,7 @@ class GuiSnapshotTests(unittest.TestCase):
                 self.assertIn("backtest_gate_panel", check_ids)
                 self.assertIn("result_evidence_panel", check_ids)
                 self.assertIn("workflow_trace_panel", check_ids)
+                self.assertIn("workspace_sync_panel", check_ids)
                 self.assertIn("audit_feedback_panel", check_ids)
                 self.assertIn("audit_iteration_plan_panel", check_ids)
                 self.assertIn("responsive_contract", check_ids)
@@ -1160,6 +1191,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("control-operator-checklist", html)
             self.assertIn("control-execution-plan", html)
             self.assertIn("control-workflow-trace", html)
+            self.assertIn("control-workspace-sync", html)
             self.assertIn("control-startup-health", html)
             self.assertIn("control-backtest-provenance", html)
             self.assertIn("control-backtest-gate", html)
@@ -1256,6 +1288,8 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("control-operator-checklist", app_js)
             self.assertIn("control-execution-plan", app_js)
             self.assertIn("control-workflow-trace", app_js)
+            self.assertIn("control-workspace-sync", app_js)
+            self.assertIn("renderWorkspaceSync", app_js)
             self.assertIn("control-startup-health", app_js)
             self.assertIn("control-backtest-provenance", app_js)
             self.assertIn("control-backtest-gate", app_js)
@@ -1322,6 +1356,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("result_evidence", control)
             self.assertIn("workflows", control)
             self.assertIn("report_links", control)
+            self.assertIn("workspace_sync", control)
             self.assertIn("run_queue", control)
             self.assertIn("verification_gates", control)
             self.assertIn("operator_checklist", control)

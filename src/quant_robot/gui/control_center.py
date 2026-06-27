@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fnmatch
 import json
 import os
 import subprocess
@@ -18,6 +19,7 @@ RESOLVED_AUDIT_LOOP_ACTIONS = {
 def build_control_center_snapshot(repo_root: str | Path | None = None, active_goal: str | None = None) -> dict[str, Any]:
     root = Path(repo_root) if repo_root is not None else _repo_root()
     branch = _git_branch(root)
+    workspace_sync = _workspace_sync(root, branch)
     artifacts = _artifact_status(root)
     backtest = _default_backtest()
     workflows = _workflow_commands(backtest)
@@ -65,6 +67,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
             "branch_policy": "Use a codex/ task branch for GUI work; keep main stable.",
         },
         "backtest": backtest,
+        "workspace_sync": workspace_sync,
         "method": {
             "title": "Backtest path",
             "steps": [
@@ -1808,6 +1811,204 @@ def _report_links(root: Path, artifacts: list[dict[str, Any]], audit_packets: di
         for artifact in artifacts
     )
     return links
+
+
+def _workspace_sync(root: Path, branch: str) -> dict[str, Any]:
+    changed_paths = _git_changed_paths(root)
+    upstream_sync = _git_text(root, ["rev-list", "--left-right", "--count", "@{upstream}...HEAD"])
+    head = _git_text(root, ["log", "-1", "--format=%h %s"])
+    classification = _classify_workspace_paths(root, changed_paths)
+    behind, ahead = _parse_upstream_sync(upstream_sync)
+    blocked_count = len(classification["blocked"])
+    syncable_count = len(classification["syncable"])
+    ignored_count = len(classification["ignored"])
+    is_unknown = branch == "unknown" or head == "unknown"
+    status = "unknown" if is_unknown else "dirty" if changed_paths else "clean"
+    next_action = (
+        "Inspect repository manually; git metadata is unavailable."
+        if status == "unknown"
+        else "Remove or ignore forbidden paths before syncing."
+        if blocked_count
+        else "Run verification and safe sync before push."
+        if changed_paths
+        else "Workspace is clean; continue GUI iteration or pull latest main when integrating."
+    )
+    rows = [
+        {
+            "check_id": "current_branch",
+            "label": "Current branch",
+            "status": "ready" if branch.startswith("codex/") else "warn" if branch not in {"", "unknown"} else "unknown",
+            "value": branch,
+            "evidence": "Task branches should use the codex/ prefix; keep main stable.",
+        },
+        {
+            "check_id": "head_commit",
+            "label": "HEAD",
+            "status": "ready" if head != "unknown" else "unknown",
+            "value": head,
+            "evidence": "Latest local commit visible to the operator.",
+        },
+        {
+            "check_id": "worktree",
+            "label": "Worktree",
+            "status": "clean" if not changed_paths and not is_unknown else "dirty" if changed_paths else "unknown",
+            "value": f"{len(changed_paths)} changed path(s)",
+            "evidence": _path_preview(changed_paths),
+        },
+        {
+            "check_id": "upstream_sync",
+            "label": "Upstream sync",
+            "status": "ready" if behind == 0 else "behind" if behind > 0 else "unknown",
+            "value": upstream_sync,
+            "evidence": f"behind={behind if behind >= 0 else '--'} / ahead={ahead if ahead >= 0 else '--'}",
+        },
+        {
+            "check_id": "safe_sync_policy",
+            "label": "Safe sync policy",
+            "status": "blocked" if blocked_count else "ready",
+            "value": f"syncable={syncable_count} / blocked={blocked_count} / ignored={ignored_count}",
+            "evidence": "Only source, tests, configs, docs, and lightweight summaries are syncable.",
+        },
+        {
+            "check_id": "publish_command",
+            "label": "Publish command",
+            "status": "required",
+            "value": "python scripts\\sync_project.py --machine office_desktop --task factor_review --execute --push",
+            "evidence": "Run after tests, compile checks, project audit, browser smoke, and sync audit pass.",
+        },
+    ]
+    return {
+        "stage": "gui_workspace_sync",
+        "summary": {
+            "status": status,
+            "current_branch": branch,
+            "head": head,
+            "upstream_sync": upstream_sync,
+            "behind": behind,
+            "ahead": ahead,
+            "changed_paths": len(changed_paths),
+            "syncable_paths": syncable_count,
+            "blocked_paths": blocked_count,
+            "ignored_paths": ignored_count,
+            "next_action": next_action,
+        },
+        "classification": classification,
+        "rows": rows,
+    }
+
+
+def _git_text(root: Path, args: list[str], timeout: int = 3) -> str:
+    try:
+        completed = subprocess.run(
+            ["git", *args],
+            cwd=root,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
+    if completed.returncode != 0:
+        return "unknown"
+    return completed.stdout.strip() or "unknown"
+
+
+def _git_changed_paths(root: Path) -> list[str]:
+    try:
+        completed = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=root,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=3,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if completed.returncode != 0:
+        return []
+    return _parse_git_status_paths(completed.stdout.rstrip("\n"))
+
+
+def _parse_git_status_paths(status: str) -> list[str]:
+    paths: list[str] = []
+    for line in status.splitlines():
+        if len(line) < 4:
+            continue
+        raw_path = line[3:].strip().strip('"')
+        if " -> " in raw_path:
+            paths.extend(part.strip().strip('"') for part in raw_path.split(" -> ", 1))
+        else:
+            paths.append(raw_path)
+    return [path for path in paths if path]
+
+
+def _classify_workspace_paths(root: Path, paths: list[str]) -> dict[str, list[str]]:
+    config = _load_workstation_config(root)
+    sync_policy = config.get("sync_policy", {}) if isinstance(config.get("sync_policy"), dict) else {}
+    data_policy = config.get("data_policy", {}) if isinstance(config.get("data_policy"), dict) else {}
+    allowed_patterns = [str(item) for item in sync_policy.get("allowed_paths", [])]
+    forbidden_patterns = [str(item) for item in sync_policy.get("forbidden_paths", [])]
+    forbidden_patterns.extend(str(item) for item in data_policy.get("ignored_paths", []))
+    syncable: list[str] = []
+    blocked: list[str] = []
+    ignored: list[str] = []
+    for path in paths:
+        normalized = _normalize_repo_path(path)
+        if _matches_repo_path(normalized, forbidden_patterns) and normalized != ".env.example":
+            blocked.append(normalized)
+        elif _matches_repo_path(normalized, allowed_patterns):
+            syncable.append(normalized)
+        else:
+            ignored.append(normalized)
+    return {
+        "syncable": syncable,
+        "blocked": blocked,
+        "ignored": ignored,
+    }
+
+
+def _load_workstation_config(root: Path) -> dict[str, Any]:
+    path = root / "configs" / "workstations.json"
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _normalize_repo_path(path: str) -> str:
+    return path.replace("\\", "/").strip()
+
+
+def _matches_repo_path(path: str, patterns: list[str]) -> bool:
+    for pattern in patterns:
+        normalized = _normalize_repo_path(pattern)
+        if normalized.endswith("/"):
+            prefix = normalized[:-1]
+            if path == prefix or path.startswith(normalized):
+                return True
+        elif path == normalized or fnmatch.fnmatch(path, normalized):
+            return True
+    return False
+
+
+def _parse_upstream_sync(value: str) -> tuple[int, int]:
+    parts = value.replace("\t", " ").split()
+    if len(parts) < 2:
+        return -1, -1
+    try:
+        return int(parts[0]), int(parts[1])
+    except ValueError:
+        return -1, -1
+
+
+def _path_preview(paths: list[str]) -> str:
+    if not paths:
+        return "No changed paths."
+    preview = ", ".join(paths[:3])
+    suffix = "" if len(paths) <= 3 else f", +{len(paths) - 3} more"
+    return f"Changed: {preview}{suffix}"
 
 
 def _git_branch(root: Path) -> str:

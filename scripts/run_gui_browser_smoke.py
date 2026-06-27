@@ -47,6 +47,7 @@ def run_gui_browser_smoke(
                     "control-backtest-provenance",
                     "control-backtest-gate",
                     "control-workflow-trace",
+                    "control-workspace-sync",
                     "control-result-evidence",
                     "control-startup-health",
                     "control-audit-feedback",
@@ -68,6 +69,7 @@ def run_gui_browser_smoke(
             and "renderBacktestProvenance" in str(app_js.get("body", ""))
             and "renderBacktestGate" in str(app_js.get("body", ""))
             and "renderWorkflowTrace" in str(app_js.get("body", ""))
+            and "renderWorkspaceSync" in str(app_js.get("body", ""))
             and "renderResultEvidence" in str(app_js.get("body", ""))
             and "renderAuditFeedback" in str(app_js.get("body", ""))
             and "renderAuditIterationPlan" in str(app_js.get("body", "")),
@@ -147,6 +149,18 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "workspace_sync_panel",
+            "Workspace sync contract",
+            control.get("ok")
+            and control_body.get("workspace_sync", {}).get("stage") == "gui_workspace_sync"
+            and bool(control_body.get("workspace_sync", {}).get("rows"))
+            and "current_branch" in control_body.get("workspace_sync", {}).get("summary", {}),
+            "Control API exposes workspace branch, worktree, upstream, and safe-sync policy status.",
+            control.get("error") or "Control API is missing workspace_sync rows.",
+        )
+    )
+    checks.append(
+        _check(
             "audit_feedback_panel",
             "Audit feedback contract",
             control.get("ok")
@@ -177,6 +191,7 @@ def run_gui_browser_smoke(
             and ".backtest-provenance-list" in str(styles_css.get("body", ""))
             and ".backtest-gate-list" in str(styles_css.get("body", ""))
             and ".workflow-trace-list" in str(styles_css.get("body", ""))
+            and ".workspace-sync-list" in str(styles_css.get("body", ""))
             and ".result-evidence-list" in str(styles_css.get("body", ""))
             and ".audit-feedback-list" in str(styles_css.get("body", ""))
             and ".audit-iteration-list" in str(styles_css.get("body", "")),
