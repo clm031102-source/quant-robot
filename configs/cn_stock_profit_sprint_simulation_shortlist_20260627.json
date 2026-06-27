@@ -10,6 +10,24 @@
     "policy": "Do not run 2026 final holdout until the project intentionally enters final validation.",
     "read_once_required": true
   },
+  "raw_generation_policy": {
+    "parity_gate_required": true,
+    "simulation_event_source_policy": "use_frozen_validated_event_sources_until_raw_generation_parity_passes",
+    "minimum_status_for_raw_generated_event_source": "event_calendar_parity_passed",
+    "reason": "Round376 confirmed that the frozen Round338/Round339 low10 event stream is internally exact, while the Round367 raw-generated stream has date-calendar drift. Do not replace frozen simulation event sources with raw-generated files until the parity gate passes.",
+    "blocked_generated_event_sources": [
+      {
+        "path": "data/reports/round367_24h_profit_sprint_turnover_low_mainboard_prerank_replacement_20260627/replace_drop_turnover_f_low10_entry_cash_after_period_returns.csv",
+        "status": "blocked",
+        "reference": "data/reports/round339_24h_profit_sprint_replacement_filters_voltarget_wrappers_20260627/replace_drop_turnover_f_low10_base_period_returns.csv",
+        "blockers": [
+          "missing_generated_dates",
+          "extra_generated_dates",
+          "date_return_drift"
+        ]
+      }
+    ]
+  },
   "shared_base": {
     "market": "CN_STOCK",
     "base_factor": "turnover_rate_low",
@@ -339,6 +357,64 @@
     "reason": "mainboard pre-rank replacement raises entry tradability and return but keeps drawdown above the tolerated risk band after vol-target wrapping",
     "process_upgrade": "run shortlist exposure audit and pre-rank replacement checks before treating untradeable cash exposure as wasted alpha"
   },
+  "round370_372_audit": {
+    "report": "docs/research/cn_stock_round370_372_three_round_audit_2026-06-27.md",
+    "decision": "keep mainboard_prerank_vt6_zz500_half as a research lead only; do not add it to the simulation shortlist",
+    "research_lead": {
+      "id": "mainboard_prerank_vt6_zz500_half",
+      "formula": "replace_drop_turnover_f_low10_mainboard_prerank + vol_target_6_lb84 + zz500_mom120_neg_half",
+      "full_sample_total_return": 1.6784,
+      "full_sample_annualized_return": 0.0654,
+      "full_sample_overlap_sharpe": 0.4768,
+      "full_sample_max_drawdown": -0.3006,
+      "mean_oos_annualized_return": 0.0659,
+      "worst_oos_drawdown": -0.1530,
+      "cost30_vt6_annualized_return": 0.0543,
+      "cost30_vt6_max_drawdown": -0.3183
+    },
+    "reason": "the lead is squeezed between existing primary_high_return and primary_defensive_zz500; it adds complexity without a clear shortlist win"
+  },
+  "round373_375_audit": {
+    "report": "docs/research/cn_stock_round373_375_three_round_audit_2026-06-27.md",
+    "decision": "raw-data-to-event generation is not yet simulation-ready; event-calendar parity gate is mandatory before replacing official event sources",
+    "parity_gate": {
+      "script": "scripts/run_shortlist_event_calendar_parity.py",
+      "reference": "data/reports/round339_24h_profit_sprint_replacement_filters_voltarget_wrappers_20260627/replace_drop_turnover_f_low10_base_period_returns.csv",
+      "generated": "data/reports/round367_24h_profit_sprint_turnover_low_mainboard_prerank_replacement_20260627/replace_drop_turnover_f_low10_entry_cash_after_period_returns.csv",
+      "status": "blocked",
+      "missing_generated_dates": 98,
+      "extra_generated_dates": 132,
+      "date_return_drift_count": 261,
+      "total_return_drift": -0.0626
+    },
+    "next_required_fix": "diagnose and reproduce the official event-calendar aggregation rule before raw-generated event streams can be used for simulation handoff"
+  },
+  "round376_377_generation_handoff_policy": {
+    "diagnosis_report": "docs/research/cn_stock_round376_event_calendar_rule_diagnosis_2026-06-27.md",
+    "policy_report": "docs/research/cn_stock_round377_raw_generation_handoff_policy_2026-06-27.md",
+    "decision": "keep simulation candidates on frozen replay-validated event sources; block raw-generated replacement event files until calendar parity passes",
+    "reference_vs_official": {
+      "common_dates": 834,
+      "missing_dates": 0,
+      "extra_dates": 0,
+      "max_abs_return_diff": 0.0
+    },
+    "reference_vs_round367_generated": {
+      "common_dates": 736,
+      "missing_generated_dates": 98,
+      "extra_generated_dates": 132,
+      "date_return_diff_gt_1bp": 218,
+      "max_abs_return_diff_common": 0.005741,
+      "return_correlation_common": 0.9994
+    },
+    "process_upgrade": "simulation shortlist config validation now requires raw_generation_policy and rejects candidates using blocked generated event sources"
+  },
+  "round376_378_audit": {
+    "report": "docs/research/cn_stock_round376_378_three_round_audit_2026-06-27.md",
+    "decision": "continue simulation handoff with frozen replay-validated event sources; move raw generation parity to a separate blocked engineering track; resume independent factor-family mining",
+    "current_simulation_candidate_count": 5,
+    "blocked_generated_event_source_count": 1
+  },
   "source_docs": [
     "docs/research/cn_stock_round340_candidate_comparison_pack_2026-06-27.md",
     "docs/research/cn_stock_round341_turnover_f_threshold_sensitivity_2026-06-27.md",
@@ -365,6 +441,15 @@
     "docs/research/cn_stock_round366_primary_low10_industry_board_exposure_audit_2026-06-27.md",
     "docs/research/cn_stock_round367_turnover_low_mainboard_prerank_replacement_2026-06-27.md",
     "docs/research/cn_stock_round368_mainboard_prerank_robustness_2026-06-27.md",
-    "docs/research/cn_stock_round366_368_three_round_audit_2026-06-27.md"
+    "docs/research/cn_stock_round366_368_three_round_audit_2026-06-27.md",
+    "docs/research/cn_stock_round370_mainboard_prerank_zz500_regime_overlay_2026-06-27.md",
+    "docs/research/cn_stock_round371_mainboard_zz500_robustness_2026-06-27.md",
+    "docs/research/cn_stock_round370_372_three_round_audit_2026-06-27.md",
+    "docs/research/cn_stock_round373_raw_generation_parity_audit_2026-06-27.md",
+    "docs/research/cn_stock_round374_event_calendar_parity_gate_2026-06-27.md",
+    "docs/research/cn_stock_round373_375_three_round_audit_2026-06-27.md",
+    "docs/research/cn_stock_round376_event_calendar_rule_diagnosis_2026-06-27.md",
+    "docs/research/cn_stock_round377_raw_generation_handoff_policy_2026-06-27.md",
+    "docs/research/cn_stock_round376_378_three_round_audit_2026-06-27.md"
   ]
 }

@@ -19,6 +19,11 @@ class SimulationShortlistCheckTest(unittest.TestCase):
                 "simulation_candidates": [
                     {"id": "primary", "status": "shortlist", "formula": "demo", "evidence": {"ann": 0.1}}
                 ],
+                "raw_generation_policy": {
+                    "parity_gate_required": True,
+                    "simulation_event_source_policy": "use_frozen_validated_event_sources_until_raw_generation_parity_passes",
+                    "blocked_generated_event_sources": [{"path": "data/reports/generated.csv", "status": "blocked"}],
+                },
                 "source_docs": ["docs/research/ok.md"],
                 "superseded_outputs": [{"path": "data/reports/bad", "reason": "superseded"}],
             }
@@ -46,6 +51,34 @@ class SimulationShortlistCheckTest(unittest.TestCase):
             self.assertIn("source_docs_include_superseded_output:data/reports/bad", result["blockers"])
             self.assertIn("candidate_missing_formula:primary", result["blockers"])
             self.assertIn("candidate_missing_evidence:primary", result["blockers"])
+            self.assertIn("raw_generation_policy_missing_or_invalid", result["blockers"])
+
+    def test_validate_simulation_shortlist_config_blocks_unapproved_raw_generated_event_source(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config = {
+                "final_holdout_2026": {"status": "sealed", "read_once_required": True},
+                "simulation_candidates": [
+                    {
+                        "id": "primary",
+                        "status": "shortlist",
+                        "formula": "demo",
+                        "event_return_source": {"path": "data/reports/generated.csv"},
+                        "evidence": {"ann": 0.1},
+                    }
+                ],
+                "raw_generation_policy": {
+                    "parity_gate_required": True,
+                    "simulation_event_source_policy": "use_frozen_validated_event_sources_until_raw_generation_parity_passes",
+                    "blocked_generated_event_sources": [{"path": "data/reports/generated.csv", "status": "blocked"}],
+                },
+                "source_docs": [],
+                "superseded_outputs": [],
+            }
+
+            result = validate_simulation_shortlist_config(config, repo_root=root)
+
+            self.assertIn("candidate_uses_blocked_generated_event_source:primary", result["blockers"])
 
 
 if __name__ == "__main__":
