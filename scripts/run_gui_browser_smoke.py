@@ -43,6 +43,7 @@ def run_gui_browser_smoke(
                 token in str(index_html.get("body", ""))
                 for token in [
                     "control-center-board",
+                    "control-action-center",
                     "control-backtest-status",
                     "control-backtest-provenance",
                     "control-backtest-gate",
@@ -75,6 +76,9 @@ def run_gui_browser_smoke(
             "Frontend script",
             app_js.get("ok")
             and "renderControlCenter" in str(app_js.get("body", ""))
+            and "renderActionCenter" in str(app_js.get("body", ""))
+            and "runActionCenterWorkflow" in str(app_js.get("body", ""))
+            and "data-action-workflow" in str(app_js.get("body", ""))
             and "renderStartupHealth" in str(app_js.get("body", ""))
             and "renderBacktestProvenance" in str(app_js.get("body", ""))
             and "renderBacktestGate" in str(app_js.get("body", ""))
@@ -124,6 +128,31 @@ def run_gui_browser_smoke(
             and bool(control_body.get("startup_health", {}).get("rows")),
             "Control API exposes startup_health rows for local startup, control API, browser smoke, and smoke evidence.",
             control.get("error") or "Control API is missing startup_health rows.",
+        )
+    )
+    checks.append(
+        _check(
+            "action_center_panel",
+            "Action center contract",
+            control.get("ok")
+            and control_body.get("action_center", {}).get("stage") == "gui_action_center"
+            and bool(control_body.get("action_center", {}).get("rows"))
+            and control_body.get("action_center", {}).get("summary", {}).get("live_trading_allowed") is False,
+            "Control API exposes prioritized next actions with runnable local workflow links.",
+            control.get("error") or "Control API is missing action_center rows.",
+        )
+    )
+    checks.append(
+        _check(
+            "action_center_frontend",
+            "Action center frontend",
+            index_html.get("ok")
+            and "control-action-center" in str(index_html.get("body", ""))
+            and app_js.get("ok")
+            and "renderActionCenter" in str(app_js.get("body", ""))
+            and "runActionCenterWorkflow" in str(app_js.get("body", "")),
+            "Frontend exposes an action center with safe workflow buttons.",
+            index_html.get("error") or app_js.get("error") or "Action center frontend hooks are missing.",
         )
     )
     checks.append(
@@ -378,6 +407,7 @@ def run_gui_browser_smoke(
             and ".active-operation-list" in str(styles_css.get("body", ""))
             and ".operation-ledger-list" in str(styles_css.get("body", ""))
             and ".trade-mode-control-list" in str(styles_css.get("body", ""))
+            and ".action-center-list" in str(styles_css.get("body", ""))
             and ".request-preview-list" in str(styles_css.get("body", ""))
             and ".result-freshness-list" in str(styles_css.get("body", ""))
             and ".ledger-evidence-list" in str(styles_css.get("body", ""))

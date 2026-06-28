@@ -61,6 +61,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("results", result)
         self.assertIn("result_evidence", result)
         self.assertIn("ledger_evidence", result)
+        self.assertIn("action_center", result)
         self.assertIn("artifacts", result)
         self.assertIn("workflows", result)
         self.assertIn("report_links", result)
@@ -192,6 +193,16 @@ class GuiSnapshotTests(unittest.TestCase):
         audit_category_ids = {item["category_id"] for item in result["audit_scorecard"]["categories"]}
         self.assertIn("server_ledger_evidence", audit_category_ids)
         self.assertIn("ledger_current_receipts", result["audit_scorecard"]["summary"])
+        self.assertEqual(result["action_center"]["stage"], "gui_action_center")
+        self.assertFalse(result["action_center"]["summary"]["live_trading_allowed"])
+        self.assertGreaterEqual(result["action_center"]["summary"]["action_count"], 1)
+        self.assertIn(result["action_center"]["summary"]["status"], {"ready", "review", "blocked"})
+        action_rows = result["action_center"]["rows"]
+        self.assertTrue(all(item.get("priority") for item in action_rows))
+        self.assertTrue(all("runnable" in item for item in action_rows))
+        self.assertTrue(all(item.get("command") for item in action_rows if item.get("runnable")))
+        self.assertTrue(all(item.get("safety") for item in action_rows))
+        self.assertTrue(any(item.get("workflow_id") in {"research_backtest", "signal_snapshot", "paper_simulation", "verification_runner"} for item in action_rows))
         self.assertEqual(result["backtest_gate"]["stage"], "gui_backtest_gate")
         self.assertFalse(result["backtest_gate"]["summary"]["live_trading_allowed"])
         self.assertFalse(result["backtest_gate"]["summary"]["paper_candidate_allowed"])
@@ -600,6 +611,15 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertEqual(evidence["summary"]["current_receipts"], 1)
         self.assertGreaterEqual(evidence["summary"]["missing_or_stale"], 2)
         self.assertFalse(evidence["summary"]["live_trading_allowed"])
+        action_center = result["action_center"]
+        self.assertEqual(action_center["stage"], "gui_action_center")
+        action_ids = {item["action_id"] for item in action_center["rows"]}
+        self.assertIn("refresh_paper_simulation", action_ids)
+        self.assertNotIn("enable_live_trading", action_ids)
+        action_by_id = {item["action_id"]: item for item in action_center["rows"]}
+        self.assertTrue(action_by_id["refresh_paper_simulation"]["runnable"])
+        self.assertEqual(action_by_id["refresh_paper_simulation"]["workflow_id"], "paper_simulation")
+        self.assertFalse(action_center["summary"]["live_trading_allowed"])
 
     def test_control_center_uses_independent_audit_packet_as_next_optimization_input(self):
         from quant_robot.gui.control_center import build_control_center_snapshot
@@ -1508,6 +1528,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("control-work-status", html)
             self.assertIn("control-backtest-status", html)
             self.assertIn("control-run-queue", html)
+            self.assertIn("control-action-center", html)
             self.assertIn("control-operator-checklist", html)
             self.assertIn("control-execution-plan", html)
             self.assertIn("control-workflow-trace", html)
@@ -1615,6 +1636,10 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("/api/control/status", app_js)
             self.assertIn("renderControlCenter", app_js)
             self.assertIn("control-run-queue", app_js)
+            self.assertIn("control-action-center", app_js)
+            self.assertIn("renderActionCenter", app_js)
+            self.assertIn("runActionCenterWorkflow", app_js)
+            self.assertIn("data-action-workflow", app_js)
             self.assertIn("control-operator-checklist", app_js)
             self.assertIn("control-execution-plan", app_js)
             self.assertIn("control-workflow-trace", app_js)
@@ -1723,6 +1748,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("operation_ledger", control)
             self.assertIn("trade_mode_control", control)
             self.assertIn("run_queue", control)
+            self.assertIn("action_center", control)
             self.assertIn("verification_gates", control)
             self.assertIn("verification_runner", control)
             self.assertIn("operator_checklist", control)
@@ -1743,6 +1769,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("round_checkpoint_report", control)
             self.assertIn("audit_scheduler", control)
             self.assertEqual(control["ledger_evidence"]["stage"], "gui_ledger_evidence")
+            self.assertEqual(control["action_center"]["stage"], "gui_action_center")
             self.assertFalse(control["safety"]["live_trading_allowed"])
             self.assertFalse(control["trade_mode_control"]["summary"]["live_trading_allowed"])
             self.assertTrue(control["trade_mode_control"]["summary"]["paper_simulation_available"])

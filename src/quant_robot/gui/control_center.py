@@ -67,6 +67,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     )
     audit_feedback = _audit_feedback(audit_packet_source, audit_packets)
     audit_iteration_plan = _audit_iteration_plan(audit_feedback, audit_scorecard, verification_gates, readiness_matrix)
+    action_center = _action_center(ledger_evidence, audit_iteration_plan, verification_runner)
     audit_scheduler = _audit_scheduler(root, audit_packet_source, operation_ledger)
     round_checkpoint_report = _round_checkpoint_report(
         latest_gui_audit,
@@ -103,6 +104,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "active_operation": active_operation,
         "operation_ledger": operation_ledger,
         "trade_mode_control": trade_mode_control,
+        "action_center": action_center,
         "method": {
             "title": "Backtest path",
             "steps": [
@@ -1163,6 +1165,142 @@ def _ledger_evidence_row(expected: dict[str, str], operation_ledger: dict[str, A
             else f"{expected.get('label', workflow_id)} with the displayed current command."
         ),
     }
+
+
+def _action_center(
+    ledger_evidence: dict[str, Any],
+    audit_iteration_plan: dict[str, Any],
+    verification_runner: dict[str, Any],
+) -> dict[str, Any]:
+    actions: list[dict[str, Any]] = []
+    for row in ledger_evidence.get("rows", []) if isinstance(ledger_evidence, dict) else []:
+        if not isinstance(row, dict) or row.get("freshness") == "current":
+            continue
+        action = _ledger_action(row)
+        if action:
+            actions.append(action)
+
+    for row in audit_iteration_plan.get("rows", []) if isinstance(audit_iteration_plan, dict) else []:
+        if not isinstance(row, dict) or row.get("status") == "blocked_expected":
+            continue
+        actions.append(
+            {
+                "action_id": f"audit_{row.get('action_id') or _slug(row.get('action') or 'review')}",
+                "priority": str(row.get("priority") or "P2"),
+                "label": str(row.get("action") or row.get("action_id") or "Review audit action"),
+                "status": str(row.get("status") or "review"),
+                "workflow_id": "audit_review",
+                "runnable": False,
+                "command": str(row.get("verification_command") or ""),
+                "endpoint": "",
+                "button_label": "",
+                "reason": str(row.get("acceptance_evidence") or row.get("next_review") or ""),
+                "source": "audit_iteration_plan",
+                "safety": SAFETY_NOTICE,
+            }
+        )
+
+    if not actions:
+        actions.append(_verification_action(verification_runner, "gui_compile", priority="P2"))
+
+    deduped = _dedupe_actions(actions)
+    deduped.sort(key=lambda item: (_priority_rank(item.get("priority", "P3")), item.get("action_id", "")))
+    runnable_count = sum(1 for item in deduped if item.get("runnable"))
+    blocked_count = sum(1 for item in deduped if not item.get("runnable"))
+    first = deduped[0] if deduped else {}
+    return {
+        "stage": "gui_action_center",
+        "summary": {
+            "status": "ready" if runnable_count else "review" if deduped else "blocked",
+            "action_count": len(deduped),
+            "runnable_actions": runnable_count,
+            "blocked_actions": blocked_count,
+            "next_action": first.get("label", "Review control center state."),
+            "paper_only": True,
+            "live_trading_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+        },
+        "rows": deduped[:8],
+        "safety": _verification_runner_safety(),
+    }
+
+
+def _ledger_action(row: dict[str, Any]) -> dict[str, Any] | None:
+    workflow_id = str(row.get("workflow_id") or "")
+    priority_by_workflow = {
+        "research_backtest": "P1",
+        "signal_snapshot": "P2",
+        "paper_simulation": "P2",
+        "verification_runner": "P2",
+    }
+    if workflow_id not in priority_by_workflow:
+        return None
+    command = str(row.get("current_command") or "")
+    action_id = "run_verification_gui_compile" if workflow_id == "verification_runner" else f"refresh_{workflow_id}"
+    return {
+        "action_id": action_id,
+        "priority": priority_by_workflow[workflow_id],
+        "label": str(row.get("label") or workflow_id),
+        "status": "ready_to_run",
+        "workflow_id": workflow_id,
+        "verification_gate": "gui_compile" if workflow_id == "verification_runner" else "",
+        "runnable": True,
+        "command": command,
+        "endpoint": _command_endpoint(command),
+        "button_label": "Run",
+        "reason": f"Server receipt is {row.get('freshness', 'missing')}; refresh the current command before trusting metrics.",
+        "source": "ledger_evidence",
+        "safety": SAFETY_NOTICE,
+    }
+
+
+def _verification_action(verification_runner: dict[str, Any], gate_id: str, *, priority: str) -> dict[str, Any]:
+    command = _verification_endpoint(verification_runner, gate_id)
+    return {
+        "action_id": f"run_verification_{gate_id}",
+        "priority": priority,
+        "label": f"Run verification gate {gate_id}",
+        "status": "ready_to_run",
+        "workflow_id": "verification_runner",
+        "verification_gate": gate_id,
+        "runnable": True,
+        "command": command,
+        "endpoint": _command_endpoint(command),
+        "button_label": "Run",
+        "reason": "Keep the local GUI verification evidence fresh before publishing.",
+        "source": "verification_runner",
+        "safety": "allowlisted local verification only; no broker, account, order, or live-trading side effects",
+    }
+
+
+def _dedupe_actions(actions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    seen: set[str] = set()
+    deduped: list[dict[str, Any]] = []
+    for action in actions:
+        action_id = str(action.get("action_id") or "")
+        if action_id in seen:
+            continue
+        seen.add(action_id)
+        deduped.append(action)
+    return deduped
+
+
+def _priority_rank(priority: str) -> int:
+    return {"P0": 0, "P1": 1, "P2": 2, "P3": 3}.get(str(priority), 9)
+
+
+def _slug(value: Any) -> str:
+    text = re.sub(r"[^a-zA-Z0-9]+", "_", str(value or "").strip().lower()).strip("_")
+    return text or "action"
+
+
+def _command_endpoint(command: str) -> str:
+    text = str(command or "").strip()
+    if text.startswith("GET "):
+        return text[4:]
+    return ""
 
 
 def _verification_endpoint(verification_runner: dict[str, Any], gate_id: str) -> str:

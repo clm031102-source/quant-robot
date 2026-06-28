@@ -538,6 +538,10 @@ button {
   max-height: 236px;
 }
 
+.action-center-list {
+  max-height: 278px;
+}
+
 .request-preview-list {
   max-height: 236px;
 }

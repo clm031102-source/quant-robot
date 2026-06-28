@@ -166,6 +166,11 @@ function bindActions() {
     if (!button) return;
     runVerificationGate(button.dataset.verificationGate || "", button);
   });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-action-workflow]");
+    if (!button) return;
+    runActionCenterWorkflow(button.dataset.actionWorkflow || "", button);
+  });
 }
 
 function bindRequestPreviewInputs() {
@@ -747,6 +752,7 @@ function renderControlCenter() {
   const runHistorySpec = control.run_history || {};
   const executionReceiptSpec = control.execution_receipts || {};
   const runQueue = control.run_queue || {};
+  const actionCenter = control.action_center || {};
   const activeRun = runQueue.active || {};
   const queueSummary = runQueue.summary || {};
   const pendingRuns = runQueue.pending || [];
@@ -782,6 +788,7 @@ function renderControlCenter() {
     ["Blocked", `${queueSummary.blocked ?? "--"} blocked`, (queueSummary.blocked ?? 0) > 0 ? "danger" : "ok"],
     ["Next", pendingRuns[0]?.label || blockedRuns[0]?.label || "--", pendingRuns.length ? "muted" : "warn"],
   ]);
+  byId("control-action-center").innerHTML = renderActionCenter(actionCenter);
   byId("control-operator-checklist").innerHTML = checklistItems.slice(0, 7).map((item) => `
     <div class="list-row ${escapeHtml(item.status === "ready" ? "ok" : item.status === "blocked" ? "danger" : "warn")}">
       <strong>${escapeHtml(item.label || item.check_id || "")}</strong>
@@ -2052,6 +2059,54 @@ function renderWorkspaceSync(sync = {}) {
   `);
 }
 
+function renderActionCenter(actionCenter = {}) {
+  const summary = actionCenter.summary || {};
+  const rows = actionCenter.rows || [];
+  const headerClass = summary.live_trading_allowed
+    ? "danger"
+    : summary.runnable_actions > 0
+      ? "ok"
+      : rows.length > 0
+        ? "warn"
+        : "danger";
+  const header = `
+    <div class="list-row ${escapeHtml(headerClass)}">
+      <strong>${escapeHtml(`Next actions / ${summary.status || "--"}`)}</strong>
+      <span>${escapeHtml(`runnable=${summary.runnable_actions ?? 0} / blocked=${summary.blocked_actions ?? 0}`)}</span>
+      <span>${escapeHtml(summary.next_action || "")}</span>
+    </div>
+  `;
+  const body = rows.slice(0, 8).map((item) => {
+    const priority = item.priority || "P2";
+    const statusClass = item.runnable
+      ? (priority === "P0" ? "danger" : priority === "P1" ? "warn" : "ok")
+      : "warn";
+    const button = item.runnable ? `
+      <button
+        class="ghost-button verification-run-button"
+        type="button"
+        data-action-workflow="${escapeHtml(item.workflow_id || "")}"
+        data-action-verification-gate="${escapeHtml(item.verification_gate || "")}"
+      >${escapeHtml(item.button_label || "Run")}</button>
+    ` : "";
+    return `
+      <div class="list-row ${escapeHtml(statusClass)}">
+        <strong>${escapeHtml(`${priority} / ${item.label || item.action_id || ""}`)}</strong>
+        <span>${escapeHtml(`${item.status || "--"} / ${item.source || ""}`)}</span>
+        <span>${escapeHtml(item.reason || "")}</span>
+        <span>${escapeHtml(item.command || "")}</span>
+        <span>${button}</span>
+      </div>
+    `;
+  }).join("");
+  return header + (body || `
+    <div class="list-row warn">
+      <strong>No action center rows</strong>
+      <span>Run the control status API to derive the next safe GUI action.</span>
+    </div>
+  `);
+}
+
 function renderProcessMonitor(monitor = {}) {
   const summary = monitor.summary || {};
   const rows = monitor.rows || [];
@@ -2773,6 +2828,39 @@ async function runVerificationGate(gateId, button = null) {
       button.textContent = label || "Run";
     }
     byId("run-state-label").textContent = "ready";
+  }
+}
+
+async function runActionCenterWorkflow(workflowId, button = null) {
+  if (!workflowId) return;
+  const original = button?.textContent || "";
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Running";
+  }
+  try {
+    if (workflowId === "research_backtest") {
+      await runResearch();
+      return;
+    }
+    if (workflowId === "signal_snapshot") {
+      await runSignals();
+      return;
+    }
+    if (workflowId === "paper_simulation") {
+      await runPaper();
+      return;
+    }
+    if (workflowId === "verification_runner") {
+      await runVerificationGate(button?.dataset.actionVerificationGate || "gui_compile", button);
+      return;
+    }
+    showToast(`Unsupported action workflow: ${workflowId}`, true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = original || "Run";
+    }
   }
 }
 
