@@ -389,6 +389,7 @@ function renderRequestPreview() {
     `).join("");
   }
   renderResultFreshness();
+  renderParameterConsistency();
 }
 
 function applyControlDefaults() {
@@ -490,6 +491,71 @@ function renderResultFreshness() {
   `).join("");
 }
 
+function renderParameterConsistency(authority = state.controlCenter?.parameter_authority || {}) {
+  const target = byId("control-parameter-consistency");
+  if (!target) return;
+  const rows = parameterConsistencyRows(authority);
+  const driftCount = rows.filter((row) => row.status !== "current").length;
+  const summary = authority.summary || {};
+  const headerClass = driftCount > 0 ? "warn" : "ok";
+  const headerStatus = driftCount > 0 ? "drift" : (summary.status || "current");
+  const header = `
+    <div class="list-row ${escapeHtml(headerClass)}">
+      <strong>${escapeHtml(`Parameter authority / ${headerStatus}`)}</strong>
+      <span>${escapeHtml(`workflows=${rows.length} / drift=${driftCount}`)}</span>
+      <span>${escapeHtml(summary.next_action || "Current form parameters match canonical workflow requests.")}</span>
+    </div>
+  `;
+  const body = rows.map((row) => `
+    <div class="list-row ${escapeHtml(row.status === "current" ? "ok" : "warn")}">
+      <strong>${escapeHtml(`${row.label} / ${row.status}`)}</strong>
+      <span>${escapeHtml(`mismatch=${row.mismatchKeys.length ? row.mismatchKeys.join(", ") : "none"}`)}</span>
+      <span>${escapeHtml(`form=${requestFreshnessSummary(row.formRequest)}`)}</span>
+      <span>${escapeHtml(`canonical=${requestFreshnessSummary(row.canonicalRequest)}`)}</span>
+    </div>
+  `).join("");
+  target.innerHTML = header + (body || `
+    <div class="list-row warn">
+      <strong>No parameter authority</strong>
+      <span>Load control-center status to compare current form parameters with workflow requests.</span>
+    </div>
+  `);
+}
+
+function parameterConsistencyRows(authority = {}) {
+  const authorityRows = Array.isArray(authority.rows) ? authority.rows : [];
+  return authorityRows.map((item) => {
+    const workflowId = item.workflow_id || "";
+    const currentParams = paramsForWorkflow(workflowId);
+    const formRequest = requestObjectFromParams(currentParams);
+    const canonicalRequest = item.canonical_request || {};
+    const comparisonKeys = Array.isArray(item.comparison_keys) ? item.comparison_keys : [];
+    const mismatchKeys = parameterMismatchKeys(formRequest, canonicalRequest, comparisonKeys);
+    return {
+      workflowId,
+      label: item.label || workflowId,
+      status: mismatchKeys.length === 0 ? "current" : "drift",
+      mismatchKeys,
+      formRequest,
+      canonicalRequest,
+    };
+  });
+}
+
+function paramsForWorkflow(workflowId) {
+  if (workflowId === "research_backtest") return buildResearchParams();
+  if (workflowId === "signal_snapshot") return buildSignalParams();
+  if (workflowId === "paper_simulation") return buildPaperParams();
+  return new URLSearchParams();
+}
+
+function parameterMismatchKeys(formRequest = {}, canonicalRequest = {}, keys = []) {
+  return keys.filter((key) => (
+    normalizeRequestValue(requestValue(formRequest, key))
+    !== normalizeRequestValue(requestValue(canonicalRequest, key))
+  ));
+}
+
 function resultFreshnessRow(label, result, params, keys, detail) {
   const currentRequest = requestObjectFromParams(params);
   const resultRequest = result?.request || {};
@@ -518,12 +584,27 @@ function requestObjectFromParams(params) {
   return {
     market: params.get("market") || "",
     factor_name: params.get("factor") || params.get("factor_name") || "",
+    factor_windows: params.get("factor_windows") || "",
     top_n: params.get("top_n") || "",
     cost_bps: params.get("cost_bps") || "",
     start_date: params.get("start_date") || "",
     end_date: params.get("end_date") || "",
     as_of_date: params.get("as_of_date") || "",
+    execution_lag: params.get("execution_lag") || "",
+    forward_horizon: params.get("forward_horizon") || "",
+    rebalance_interval: params.get("rebalance_interval") || "",
+    benchmark_asset_id: params.get("benchmark_asset_id") || "",
+    cash_annual_return: params.get("cash_annual_return") || "",
+    regime_filter: params.get("regime_filter") || "",
+    regime_lookback: params.get("regime_lookback") || "",
+    max_drawdown_limit: params.get("max_drawdown_limit") || "",
     initial_cash: params.get("initial_cash") || "",
+    commission_bps: params.get("commission_bps") || "",
+    slippage_bps: params.get("slippage_bps") || "",
+    max_asset_weight: params.get("max_asset_weight") || "",
+    max_market_weight: params.get("max_market_weight") || "",
+    max_gross_exposure: params.get("max_gross_exposure") || "",
+    min_cash_weight: params.get("min_cash_weight") || "",
   };
 }
 
@@ -947,6 +1028,7 @@ function renderControlCenter() {
     metric("Paper equity", formatNumber(paperMetrics.ending_equity), "paper"),
   ].join("");
   renderResultFreshness();
+  renderParameterConsistency(control.parameter_authority || {});
   byId("control-ledger-evidence").innerHTML = renderLedgerEvidence(ledgerEvidence);
   byId("control-result-evidence").innerHTML = renderResultEvidence(resultEvidence);
   byId("control-workflow-commands").innerHTML = workflows.slice(0, 5).map((item) => `
@@ -2562,8 +2644,15 @@ function requestValue(request = {}, key) {
 
 function normalizeRequestValue(value) {
   if (value == null || value === "") return "";
+  if (Array.isArray(value)) return value.map((item) => normalizeRequestValue(item)).join(",");
+  if (typeof value === "boolean") return value ? "true" : "false";
   const text = String(value).trim();
   if (!text) return "";
+  if (text.includes(",")) {
+    return text.split(",").map((item) => normalizeRequestValue(item)).join(",");
+  }
+  const lower = text.toLowerCase();
+  if (lower === "true" || lower === "false") return lower;
   const number = Number(text);
   return Number.isFinite(number) ? String(number) : text;
 }

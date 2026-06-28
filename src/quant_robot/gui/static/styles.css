@@ -550,6 +550,10 @@ button {
   max-height: 236px;
 }
 
+.parameter-consistency-list {
+  max-height: 236px;
+}
+
 .ledger-evidence-list {
   max-height: 236px;
 }

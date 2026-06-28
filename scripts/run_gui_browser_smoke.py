@@ -55,6 +55,7 @@ def run_gui_browser_smoke(
                     "control-trade-mode-control",
                     "control-request-preview",
                     "control-result-freshness",
+                    "control-parameter-consistency",
                     "control-ledger-evidence",
                     "control-result-evidence",
                     "control-startup-health",
@@ -90,6 +91,8 @@ def run_gui_browser_smoke(
             and "renderOperationLedger" in str(app_js.get("body", ""))
             and "renderTradeModeControl" in str(app_js.get("body", ""))
             and "renderRequestPreview" in str(app_js.get("body", ""))
+            and "renderParameterConsistency" in str(app_js.get("body", ""))
+            and "parameterMismatchKeys" in str(app_js.get("body", ""))
             and "buildResearchParams" in str(app_js.get("body", ""))
             and "buildSignalParams" in str(app_js.get("body", ""))
             and "buildPaperParams" in str(app_js.get("body", ""))
@@ -157,6 +160,35 @@ def run_gui_browser_smoke(
             and 'valueOf("paper-max-gross-exposure")' in str(app_js.get("body", "")),
             "Control API exposes canonical form defaults and frontend applies them before request preview rendering.",
             control.get("error") or "Control API or frontend is missing canonical form default synchronization.",
+        )
+    )
+    authority_rows = control_body.get("parameter_authority", {}).get("rows", [])
+    checks.append(
+        _check(
+            "parameter_authority_panel",
+            "Parameter authority contract",
+            control.get("ok")
+            and control_body.get("parameter_authority", {}).get("stage") == "gui_parameter_authority"
+            and control_body.get("parameter_authority", {}).get("summary", {}).get("status") == "ready"
+            and control_body.get("parameter_authority", {}).get("summary", {}).get("live_trading_allowed") is False
+            and {
+                row.get("workflow_id")
+                for row in authority_rows
+                if isinstance(row, dict)
+            }
+            == {"research_backtest", "signal_snapshot", "paper_simulation"}
+            and _authority_by_id(control_body, "research_backtest").get("canonical_request", {}).get("factor_name")
+            == control_body.get("backtest", {}).get("factor")
+            and "execution_lag"
+            in _authority_by_id(control_body, "research_backtest").get("comparison_keys", [])
+            and "forward_horizon"
+            in _authority_by_id(control_body, "research_backtest").get("comparison_keys", [])
+            and "max_market_weight"
+            in _authority_by_id(control_body, "paper_simulation").get("comparison_keys", [])
+            and _authority_by_id(control_body, "paper_simulation").get("canonical_request", {}).get("max_market_weight")
+            == control_body.get("form_defaults", {}).get("paper", {}).get("max_market_weight"),
+            "Control API exposes parameter authority rows that bind GUI defaults to canonical workflow requests.",
+            control.get("error") or "Control API is missing parameter_authority rows or key comparison fields.",
         )
     )
     checks.append(
@@ -308,8 +340,11 @@ def run_gui_browser_smoke(
             "Request preview contract",
             index_html.get("ok")
             and "control-request-preview" in str(index_html.get("body", ""))
+            and "control-parameter-consistency" in str(index_html.get("body", ""))
             and app_js.get("ok")
             and "renderRequestPreview" in str(app_js.get("body", ""))
+            and "renderParameterConsistency" in str(app_js.get("body", ""))
+            and "parameterMismatchKeys" in str(app_js.get("body", ""))
             and "buildResearchParams" in str(app_js.get("body", ""))
             and "buildSignalParams" in str(app_js.get("body", ""))
             and "buildPaperParams" in str(app_js.get("body", ""))
@@ -439,6 +474,7 @@ def run_gui_browser_smoke(
             and ".action-center-list" in str(styles_css.get("body", ""))
             and ".request-preview-list" in str(styles_css.get("body", ""))
             and ".result-freshness-list" in str(styles_css.get("body", ""))
+            and ".parameter-consistency-list" in str(styles_css.get("body", ""))
             and ".ledger-evidence-list" in str(styles_css.get("body", ""))
             and ".result-evidence-list" in str(styles_css.get("body", ""))
             and ".audit-feedback-list" in str(styles_css.get("body", ""))
@@ -517,6 +553,14 @@ def _workflow_by_id(control_body: dict[str, Any], workflow_id: str) -> dict[str,
     for workflow in control_body.get("workflows", []) if isinstance(control_body, dict) else []:
         if isinstance(workflow, dict) and workflow.get("workflow_id") == workflow_id:
             return workflow
+    return {}
+
+
+def _authority_by_id(control_body: dict[str, Any], workflow_id: str) -> dict[str, Any]:
+    authority = control_body.get("parameter_authority", {}) if isinstance(control_body, dict) else {}
+    for row in authority.get("rows", []) if isinstance(authority, dict) else []:
+        if isinstance(row, dict) and row.get("workflow_id") == workflow_id:
+            return row
     return {}
 
 

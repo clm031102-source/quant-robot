@@ -42,6 +42,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     backtest = _default_backtest()
     form_defaults = _form_defaults(backtest)
     workflows = _workflow_commands(form_defaults)
+    parameter_authority = _parameter_authority(form_defaults, workflows)
     run_queue = _run_queue(workflows)
     trade_mode_control = _trade_mode_control(workflows)
     verification_gates = _verification_gates()
@@ -102,6 +103,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         },
         "backtest": backtest,
         "form_defaults": form_defaults,
+        "parameter_authority": parameter_authority,
         "workspace_sync": workspace_sync,
         "process_monitor": process_monitor,
         "active_operation": active_operation,
@@ -447,6 +449,130 @@ def _workflow_request_specs(form_defaults: dict[str, Any]) -> dict[str, dict[str
             },
         },
     }
+
+
+def _parameter_authority(form_defaults: dict[str, Any], workflows: list[dict[str, Any]]) -> dict[str, Any]:
+    specs = {
+        "research_backtest": {
+            "label": "Research backtest",
+            "defaults_key": "research",
+            "comparison_keys": [
+                "market",
+                "factor_name",
+                "factor_windows",
+                "top_n",
+                "cost_bps",
+                "start_date",
+                "end_date",
+                "execution_lag",
+                "forward_horizon",
+                "rebalance_interval",
+                "benchmark_asset_id",
+                "cash_annual_return",
+                "regime_filter",
+                "regime_lookback",
+                "max_drawdown_limit",
+            ],
+        },
+        "signal_snapshot": {
+            "label": "Signal snapshot",
+            "defaults_key": "signal",
+            "comparison_keys": [
+                "market",
+                "factor_name",
+                "factor_windows",
+                "top_n",
+                "as_of_date",
+                "max_asset_weight",
+                "max_market_weight",
+                "max_gross_exposure",
+                "min_cash_weight",
+            ],
+        },
+        "paper_simulation": {
+            "label": "Paper simulation",
+            "defaults_key": "paper",
+            "comparison_keys": [
+                "market",
+                "factor_name",
+                "factor_windows",
+                "top_n",
+                "rebalance_interval",
+                "start_date",
+                "end_date",
+                "initial_cash",
+                "commission_bps",
+                "slippage_bps",
+                "max_asset_weight",
+                "max_market_weight",
+                "max_gross_exposure",
+                "min_cash_weight",
+            ],
+        },
+    }
+    rows: list[dict[str, Any]] = []
+    for workflow_id, spec in specs.items():
+        workflow = _workflow_by_id(workflows, workflow_id) or {}
+        canonical_request = workflow.get("request", {}) if isinstance(workflow.get("request"), dict) else {}
+        defaults = form_defaults.get(str(spec["defaults_key"]), {})
+        rows.append(
+            {
+                "workflow_id": workflow_id,
+                "label": spec["label"],
+                "status": "canonical",
+                "defaults_key": spec["defaults_key"],
+                "authority_source": "form_defaults -> workflow.request -> frontend parameter consistency",
+                "comparison_keys": spec["comparison_keys"],
+                "canonical_request": canonical_request,
+                "canonical_summary": _request_brief(canonical_request),
+                "form_default_summary": _request_brief(_defaults_request_view(defaults)),
+                "endpoint": str(workflow.get("endpoint") or ""),
+                "command": str(workflow.get("command") or ""),
+                "paper_only": True,
+                "live_trading_allowed": False,
+                "safety": SAFETY_NOTICE,
+            }
+        )
+    return {
+        "stage": "gui_parameter_authority",
+        "summary": {
+            "status": "ready",
+            "authority_source": "form_defaults",
+            "workflow_count": len(rows),
+            "frontend_checker": "renderParameterConsistency",
+            "next_action": "Keep current form parameters aligned with these canonical workflow requests before running actions.",
+            "paper_only": True,
+            "live_trading_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+        },
+        "rows": rows,
+        "safety": _verification_runner_safety(),
+    }
+
+
+def _defaults_request_view(defaults: dict[str, Any]) -> dict[str, Any]:
+    result = dict(defaults)
+    if "factor" in result and "factor_name" not in result:
+        result["factor_name"] = result["factor"]
+    return result
+
+
+def _request_brief(request: dict[str, Any]) -> str:
+    return " / ".join(
+        part
+        for part in [
+            str(request.get("market") or ""),
+            str(request.get("factor_name") or request.get("factor") or ""),
+            f"top_n={request.get('top_n')}" if request.get("top_n") not in {None, ""} else "",
+            f"cost={request.get('cost_bps')}bps" if request.get("cost_bps") not in {None, ""} else "",
+            f"cash={request.get('initial_cash')}" if request.get("initial_cash") not in {None, ""} else "",
+            str(request.get("start_date") or request.get("as_of_date") or ""),
+            str(request.get("end_date") or ""),
+        ]
+        if part
+    ) or "--"
 
 
 def _workflow_endpoint_from_query(path: str, query: dict[str, Any]) -> str:

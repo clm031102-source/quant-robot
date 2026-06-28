@@ -62,6 +62,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("results", result)
         self.assertIn("result_evidence", result)
         self.assertIn("ledger_evidence", result)
+        self.assertIn("parameter_authority", result)
         self.assertIn("action_center", result)
         self.assertIn("artifacts", result)
         self.assertIn("workflows", result)
@@ -215,6 +216,16 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertTrue(all(item.get("current_command") for item in result["ledger_evidence"]["rows"]))
         self.assertTrue(all("matches_current_command" in item for item in result["ledger_evidence"]["rows"]))
         self.assertTrue(all("matches_current_request" in item for item in result["ledger_evidence"]["rows"]))
+        self.assertEqual(result["parameter_authority"]["stage"], "gui_parameter_authority")
+        self.assertEqual(result["parameter_authority"]["summary"]["status"], "ready")
+        self.assertFalse(result["parameter_authority"]["summary"]["live_trading_allowed"])
+        authority_rows = {item["workflow_id"]: item for item in result["parameter_authority"]["rows"]}
+        self.assertEqual(set(authority_rows), {"research_backtest", "signal_snapshot", "paper_simulation"})
+        self.assertIn("execution_lag", authority_rows["research_backtest"]["comparison_keys"])
+        self.assertIn("forward_horizon", authority_rows["research_backtest"]["comparison_keys"])
+        self.assertIn("max_gross_exposure", authority_rows["paper_simulation"]["comparison_keys"])
+        self.assertEqual(authority_rows["research_backtest"]["canonical_request"]["factor_name"], result["backtest"]["factor"])
+        self.assertEqual(authority_rows["paper_simulation"]["canonical_request"]["max_market_weight"], result["form_defaults"]["paper"]["max_market_weight"])
         audit_category_ids = {item["category_id"] for item in result["audit_scorecard"]["categories"]}
         self.assertIn("server_ledger_evidence", audit_category_ids)
         self.assertIn("ledger_current_receipts", result["audit_scorecard"]["summary"])
@@ -1697,6 +1708,9 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("renderTradeModeControl", app_js)
             self.assertIn("control-request-preview", app_js)
             self.assertIn("renderRequestPreview", app_js)
+            self.assertIn("control-parameter-consistency", html)
+            self.assertIn("renderParameterConsistency", app_js)
+            self.assertIn("parameterMismatchKeys", app_js)
             self.assertIn("buildResearchParams", app_js)
             build_research_block = app_js.split("function buildResearchParams()", 1)[1].split("function buildSignalParams", 1)[0]
             self.assertIn('valueOf("execution-lag")', build_research_block)
@@ -1786,6 +1800,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertEqual(control["stage"], "gui_control_center")
             self.assertIn("backtest", control)
             self.assertIn("form_defaults", control)
+            self.assertIn("parameter_authority", control)
             self.assertIn("method", control)
             self.assertIn("result_evidence", control)
             self.assertIn("ledger_evidence", control)
@@ -1823,6 +1838,13 @@ class GuiHttpTests(unittest.TestCase):
             self.assertFalse(control["trade_mode_control"]["summary"]["live_trading_allowed"])
             self.assertTrue(control["trade_mode_control"]["summary"]["paper_simulation_available"])
             self.assertEqual(control["form_defaults"]["research"]["factor"], control["backtest"]["factor"])
+            self.assertEqual(control["parameter_authority"]["summary"]["status"], "ready")
+            control_authority_rows = {item["workflow_id"]: item for item in control["parameter_authority"]["rows"]}
+            self.assertEqual(
+                control_authority_rows["research_backtest"]["canonical_request"]["factor_name"],
+                control["backtest"]["factor"],
+            )
+            self.assertIn("max_market_weight", control_authority_rows["paper_simulation"]["comparison_keys"])
 
             project = _read_json(f"{base_url}/api/project/status")
             self.assertEqual(project["stage"], "gui_project_status")
