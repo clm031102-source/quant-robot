@@ -542,6 +542,10 @@ button {
   max-height: 278px;
 }
 
+.workflow-preflight-list {
+  max-height: 278px;
+}
+
 .request-preview-list {
   max-height: 236px;
 }

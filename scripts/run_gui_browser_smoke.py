@@ -44,6 +44,7 @@ def run_gui_browser_smoke(
                 for token in [
                     "control-center-board",
                     "control-action-center",
+                    "control-workflow-preflight",
                     "control-backtest-status",
                     "control-backtest-provenance",
                     "control-backtest-gate",
@@ -79,6 +80,7 @@ def run_gui_browser_smoke(
             and "renderControlCenter" in str(app_js.get("body", ""))
             and "applyControlDefaults" in str(app_js.get("body", ""))
             and "renderActionCenter" in str(app_js.get("body", ""))
+            and "renderWorkflowPreflight" in str(app_js.get("body", ""))
             and "runActionCenterWorkflow" in str(app_js.get("body", ""))
             and "data-action-workflow" in str(app_js.get("body", ""))
             and "renderStartupHealth" in str(app_js.get("body", ""))
@@ -191,6 +193,30 @@ def run_gui_browser_smoke(
             control.get("error") or "Control API is missing parameter_authority rows or key comparison fields.",
         )
     )
+    preflight_rows = control_body.get("workflow_preflight", {}).get("rows", [])
+    checks.append(
+        _check(
+            "workflow_preflight_panel",
+            "Workflow preflight contract",
+            control.get("ok")
+            and control_body.get("workflow_preflight", {}).get("stage") == "gui_workflow_preflight"
+            and control_body.get("workflow_preflight", {}).get("summary", {}).get("status") == "review"
+            and control_body.get("workflow_preflight", {}).get("summary", {}).get("review_count", 0) >= 1
+            and control_body.get("workflow_preflight", {}).get("summary", {}).get("live_trading_allowed") is False
+            and {
+                row.get("workflow_id")
+                for row in preflight_rows
+                if isinstance(row, dict)
+            }
+            == {"research_backtest", "signal_snapshot", "paper_simulation", "verification_runner", "live_trading"}
+            and _preflight_by_id(control_body, "research_backtest").get("runnable") is True
+            and "GET GET" not in str(_preflight_by_id(control_body, "verification_runner").get("command", ""))
+            and _preflight_by_id(control_body, "live_trading").get("status") == "blocked"
+            and _preflight_by_id(control_body, "live_trading").get("runnable") is False,
+            "Control API exposes run preflight rows for research, signal, paper, verification, and live-blocked boundary.",
+            control.get("error") or "Control API is missing workflow_preflight rows or safety states.",
+        )
+    )
     checks.append(
         _check(
             "action_center_panel",
@@ -209,8 +235,10 @@ def run_gui_browser_smoke(
             "Action center frontend",
             index_html.get("ok")
             and "control-action-center" in str(index_html.get("body", ""))
+            and "control-workflow-preflight" in str(index_html.get("body", ""))
             and app_js.get("ok")
             and "renderActionCenter" in str(app_js.get("body", ""))
+            and "renderWorkflowPreflight" in str(app_js.get("body", ""))
             and "runActionCenterWorkflow" in str(app_js.get("body", "")),
             "Frontend exposes an action center with safe workflow buttons.",
             index_html.get("error") or app_js.get("error") or "Action center frontend hooks are missing.",
@@ -472,6 +500,7 @@ def run_gui_browser_smoke(
             and ".operation-ledger-list" in str(styles_css.get("body", ""))
             and ".trade-mode-control-list" in str(styles_css.get("body", ""))
             and ".action-center-list" in str(styles_css.get("body", ""))
+            and ".workflow-preflight-list" in str(styles_css.get("body", ""))
             and ".request-preview-list" in str(styles_css.get("body", ""))
             and ".result-freshness-list" in str(styles_css.get("body", ""))
             and ".parameter-consistency-list" in str(styles_css.get("body", ""))
@@ -559,6 +588,14 @@ def _workflow_by_id(control_body: dict[str, Any], workflow_id: str) -> dict[str,
 def _authority_by_id(control_body: dict[str, Any], workflow_id: str) -> dict[str, Any]:
     authority = control_body.get("parameter_authority", {}) if isinstance(control_body, dict) else {}
     for row in authority.get("rows", []) if isinstance(authority, dict) else []:
+        if isinstance(row, dict) and row.get("workflow_id") == workflow_id:
+            return row
+    return {}
+
+
+def _preflight_by_id(control_body: dict[str, Any], workflow_id: str) -> dict[str, Any]:
+    preflight = control_body.get("workflow_preflight", {}) if isinstance(control_body, dict) else {}
+    for row in preflight.get("rows", []) if isinstance(preflight, dict) else []:
         if isinstance(row, dict) and row.get("workflow_id") == workflow_id:
             return row
     return {}

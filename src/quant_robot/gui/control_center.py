@@ -49,6 +49,13 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     verification_runner = build_verification_runner_snapshot(verification_gates)
     ledger_evidence = _ledger_evidence(workflows, operation_ledger, verification_runner)
     readiness_matrix = _readiness_matrix(workflows, verification_gates, artifacts)
+    workflow_preflight = _workflow_preflight(
+        workflows,
+        parameter_authority,
+        ledger_evidence,
+        readiness_matrix,
+        verification_runner,
+    )
     audit_packets = _audit_packets(root)
     startup_health = _startup_health(workflows, verification_gates, audit_packets)
     backtest_provenance = _backtest_provenance(backtest, workflows)
@@ -104,6 +111,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "backtest": backtest,
         "form_defaults": form_defaults,
         "parameter_authority": parameter_authority,
+        "workflow_preflight": workflow_preflight,
         "workspace_sync": workspace_sync,
         "process_monitor": process_monitor,
         "active_operation": active_operation,
@@ -573,6 +581,265 @@ def _request_brief(request: dict[str, Any]) -> str:
         ]
         if part
     ) or "--"
+
+
+def _workflow_preflight(
+    workflows: list[dict[str, Any]],
+    parameter_authority: dict[str, Any],
+    ledger_evidence: dict[str, Any],
+    readiness_matrix: dict[str, Any],
+    verification_runner: dict[str, Any],
+) -> dict[str, Any]:
+    rows = [
+        _preflight_workflow_row(
+            workflows,
+            parameter_authority,
+            ledger_evidence,
+            readiness_matrix,
+            "research_backtest",
+            "Research backtest",
+            "research",
+            "Run",
+        ),
+        _preflight_workflow_row(
+            workflows,
+            parameter_authority,
+            ledger_evidence,
+            readiness_matrix,
+            "signal_snapshot",
+            "Signal snapshot",
+            "advisory_signal",
+            "Run",
+        ),
+        _preflight_workflow_row(
+            workflows,
+            parameter_authority,
+            ledger_evidence,
+            readiness_matrix,
+            "paper_simulation",
+            "Paper simulation",
+            "paper_simulation",
+            "Run",
+        ),
+        _preflight_verification_row(verification_runner, ledger_evidence),
+        _preflight_live_row(),
+    ]
+    runnable_count = sum(1 for row in rows if row["runnable"])
+    blocked_count = sum(1 for row in rows if row["status"] == "blocked")
+    review_count = sum(1 for row in rows if _preflight_row_needs_review(row))
+    next_runnable = next((row for row in rows if row["runnable"]), {})
+    return {
+        "stage": "gui_workflow_preflight",
+        "summary": {
+            "status": "review" if review_count else "ready",
+            "runnable_count": runnable_count,
+            "blocked_count": blocked_count,
+            "review_count": review_count,
+            "tracked_workflows": len(rows),
+            "next_action": (
+                f"Run {next_runnable.get('label', 'workflow')} after preflight review."
+                if next_runnable
+                else "Review preflight blockers."
+            ),
+            "paper_only": True,
+            "live_trading_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+        },
+        "rows": rows,
+        "safety": _verification_runner_safety(),
+    }
+
+
+def _preflight_workflow_row(
+    workflows: list[dict[str, Any]],
+    parameter_authority: dict[str, Any],
+    ledger_evidence: dict[str, Any],
+    readiness_matrix: dict[str, Any],
+    workflow_id: str,
+    label: str,
+    mode: str,
+    button_label: str,
+) -> dict[str, Any]:
+    workflow = _workflow_by_id(workflows, workflow_id) or {}
+    authority = _parameter_authority_row(parameter_authority, workflow_id)
+    ledger = _ledger_evidence_by_id(ledger_evidence, workflow_id)
+    readiness = _readiness_row_by_id(readiness_matrix, workflow_id)
+    readiness_status = str(readiness.get("status") or "ready")
+    status = "gate_controlled" if workflow_id == "paper_simulation" and readiness_status != "ready" else "ready_to_run"
+    checks = [
+        _preflight_check(
+            "parameter_authority",
+            "Parameter authority",
+            "passed" if authority else "missing",
+            authority.get("canonical_summary", "") if authority else "No canonical workflow request found.",
+        ),
+        _preflight_check(
+            "execution_boundary",
+            "Execution boundary",
+            "passed",
+            "Local research, advisory signal, or paper simulation only; no broker/account/order side effects.",
+        ),
+        _preflight_check(
+            "readiness",
+            "Mode readiness",
+            readiness_status if readiness_status else "ready",
+            readiness.get("evidence") or readiness.get("guardrail") or "Readiness matrix row is available.",
+        ),
+        _preflight_check(
+            "server_receipt",
+            "Server receipt",
+            "current" if ledger.get("freshness") == "current" else "refresh_after_run",
+            ledger.get("next_action") or "Run this workflow to refresh server-side evidence.",
+        ),
+    ]
+    return {
+        "workflow_id": workflow_id,
+        "label": label,
+        "mode": mode,
+        "status": status,
+        "runnable": bool(workflow.get("endpoint")),
+        "endpoint": str(workflow.get("endpoint") or ""),
+        "command": str(workflow.get("command") or ""),
+        "button_label": button_label,
+        "reason": readiness.get("guardrail") or SAFETY_NOTICE,
+        "checks": checks,
+        "permissions": _preflight_permissions(
+            research_api=workflow_id in {"research_backtest", "signal_snapshot"},
+            paper_simulation=workflow_id == "paper_simulation",
+        ),
+        "paper_only": True,
+        "live_trading_allowed": False,
+        "safety": SAFETY_NOTICE,
+    }
+
+
+def _preflight_verification_row(verification_runner: dict[str, Any], ledger_evidence: dict[str, Any]) -> dict[str, Any]:
+    endpoint = _verification_preflight_endpoint(verification_runner, "gui_compile")
+    ledger = _ledger_evidence_by_id(ledger_evidence, "verification_runner")
+    allowed = "gui_compile" in verification_runner.get("summary", {}).get("allowed_gate_ids", [])
+    return {
+        "workflow_id": "verification_runner",
+        "label": "Verification runner",
+        "mode": "local_verification",
+        "status": "ready_to_run" if allowed else "blocked",
+        "runnable": bool(endpoint and allowed),
+        "endpoint": endpoint,
+        "command": f"GET {endpoint}" if endpoint else "",
+        "button_label": "Run",
+        "reason": "Allowlisted local verification gates only.",
+        "checks": [
+            _preflight_check(
+                "allowlist",
+                "Gate allowlist",
+                "passed" if allowed else "blocked",
+                "gui_compile is allowlisted for browser-triggered local verification."
+                if allowed
+                else "gui_compile is not in the verification runner allowlist.",
+            ),
+            _preflight_check(
+                "execution_boundary",
+                "Execution boundary",
+                "passed",
+                "Local compile/project/sync audit commands only; no broker/account/order side effects.",
+            ),
+            _preflight_check(
+                "server_receipt",
+                "Server receipt",
+                "current" if ledger.get("freshness") == "current" else "refresh_after_run",
+                ledger.get("next_action") or "Run gui_compile to refresh verification evidence.",
+            ),
+        ],
+        "permissions": _preflight_permissions(research_api=False, paper_simulation=False),
+        "paper_only": True,
+        "live_trading_allowed": False,
+        "safety": SAFETY_NOTICE,
+    }
+
+
+def _preflight_live_row() -> dict[str, Any]:
+    return {
+        "workflow_id": "live_trading",
+        "label": "Live trading",
+        "mode": "live_trading",
+        "status": "blocked",
+        "runnable": False,
+        "endpoint": "",
+        "command": "blocked by research-to-paper boundary",
+        "button_label": "",
+        "reason": SAFETY_NOTICE,
+        "checks": [
+            _preflight_check("live_boundary", "Live boundary", "blocked", SAFETY_NOTICE),
+            _preflight_check("broker_connection", "Broker connection", "blocked", "No broker connection is allowed."),
+            _preflight_check("order_placement", "Order placement", "blocked", "No order placement is allowed."),
+        ],
+        "permissions": _preflight_permissions(research_api=False, paper_simulation=False),
+        "paper_only": True,
+        "live_trading_allowed": False,
+        "safety": SAFETY_NOTICE,
+    }
+
+
+def _preflight_check(check_id: str, label: str, status: str, evidence: str) -> dict[str, Any]:
+    return {
+        "check_id": check_id,
+        "label": label,
+        "status": status,
+        "evidence": evidence,
+    }
+
+
+def _preflight_row_needs_review(row: dict[str, Any]) -> bool:
+    if row.get("workflow_id") == "live_trading":
+        return False
+    if row.get("status") in {"gate_controlled", "blocked"}:
+        return True
+    clean_statuses = {"passed", "current", "ready"}
+    return any(
+        isinstance(check, dict) and check.get("status") not in clean_statuses
+        for check in row.get("checks", [])
+    )
+
+
+def _verification_preflight_endpoint(verification_runner: dict[str, Any], gate_id: str) -> str:
+    command_or_endpoint = _verification_endpoint(verification_runner, gate_id)
+    if command_or_endpoint.startswith("GET "):
+        return command_or_endpoint.removeprefix("GET ").strip()
+    return command_or_endpoint if command_or_endpoint.startswith("/api/") else ""
+
+
+def _preflight_permissions(*, research_api: bool, paper_simulation: bool) -> dict[str, Any]:
+    return {
+        "research_api_allowed": research_api,
+        "paper_simulation_allowed": paper_simulation,
+        "paper_trading_allowed": False,
+        "live_trading_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+    }
+
+
+def _parameter_authority_row(parameter_authority: dict[str, Any], workflow_id: str) -> dict[str, Any]:
+    for row in parameter_authority.get("rows", []) if isinstance(parameter_authority, dict) else []:
+        if isinstance(row, dict) and row.get("workflow_id") == workflow_id:
+            return row
+    return {}
+
+
+def _ledger_evidence_by_id(ledger_evidence: dict[str, Any], workflow_id: str) -> dict[str, Any]:
+    for row in ledger_evidence.get("rows", []) if isinstance(ledger_evidence, dict) else []:
+        if isinstance(row, dict) and row.get("workflow_id") == workflow_id:
+            return row
+    return {}
+
+
+def _readiness_row_by_id(readiness_matrix: dict[str, Any], mode_id: str) -> dict[str, Any]:
+    for row in readiness_matrix.get("rows", []) if isinstance(readiness_matrix, dict) else []:
+        if isinstance(row, dict) and row.get("mode_id") == mode_id:
+            return row
+    return {}
 
 
 def _workflow_endpoint_from_query(path: str, query: dict[str, Any]) -> str:

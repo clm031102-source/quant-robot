@@ -898,6 +898,7 @@ function renderControlCenter() {
   const executionReceiptSpec = control.execution_receipts || {};
   const runQueue = control.run_queue || {};
   const actionCenter = control.action_center || {};
+  const workflowPreflight = control.workflow_preflight || {};
   const activeRun = runQueue.active || {};
   const queueSummary = runQueue.summary || {};
   const pendingRuns = runQueue.pending || [];
@@ -934,6 +935,7 @@ function renderControlCenter() {
     ["Next", pendingRuns[0]?.label || blockedRuns[0]?.label || "--", pendingRuns.length ? "muted" : "warn"],
   ]);
   byId("control-action-center").innerHTML = renderActionCenter(actionCenter);
+  byId("control-workflow-preflight").innerHTML = renderWorkflowPreflight(workflowPreflight);
   byId("control-operator-checklist").innerHTML = checklistItems.slice(0, 7).map((item) => `
     <div class="list-row ${escapeHtml(item.status === "ready" ? "ok" : item.status === "blocked" ? "danger" : "warn")}">
       <strong>${escapeHtml(item.label || item.check_id || "")}</strong>
@@ -2251,6 +2253,60 @@ function renderActionCenter(actionCenter = {}) {
       <span>Run the control status API to derive the next safe GUI action.</span>
     </div>
   `);
+}
+
+function renderWorkflowPreflight(preflight = {}) {
+  const summary = preflight.summary || {};
+  const rows = preflight.rows || [];
+  const headerClass = summary.live_trading_allowed
+    ? "danger"
+    : (summary.blocked_count ?? 0) > 1
+      ? "warn"
+      : "ok";
+  const header = `
+    <div class="list-row ${escapeHtml(headerClass)}">
+      <strong>${escapeHtml(`Run preflight / ${summary.status || "--"}`)}</strong>
+      <span>${escapeHtml(`runnable=${summary.runnable_count ?? 0} / blocked=${summary.blocked_count ?? 0}`)}</span>
+      <span>${escapeHtml(summary.next_action || "")}</span>
+    </div>
+  `;
+  const body = rows.slice(0, 6).map((item) => {
+    const status = item.status || "";
+    const statusClass = item.live_trading_allowed
+      ? "danger"
+      : status === "blocked"
+        ? "danger"
+        : item.runnable
+          ? "ok"
+          : "warn";
+    const checks = Array.isArray(item.checks)
+      ? item.checks.map((check) => `${check.check_id || check.label || "check"}=${check.status || "--"}`).join(" / ")
+      : "";
+    return `
+      <div class="list-row ${escapeHtml(statusClass)}">
+        <strong>${escapeHtml(`${item.label || item.workflow_id || ""} / ${status || "--"}`)}</strong>
+        <span>${escapeHtml(`mode=${item.mode || "--"} / runnable=${item.runnable ? "true" : "false"}`)}</span>
+        <span>${escapeHtml(checks)}</span>
+        <span>${escapeHtml(workflowPreflightEndpointSummary(item))}</span>
+      </div>
+    `;
+  }).join("");
+  return header + (body || `
+    <div class="list-row warn">
+      <strong>No workflow preflight rows</strong>
+      <span>Control status should expose run readiness before workflow buttons are used.</span>
+    </div>
+  `);
+}
+
+function workflowPreflightEndpointSummary(item = {}) {
+  const endpoint = item.endpoint || "";
+  if (endpoint.startsWith("/api/control/verification")) return endpoint;
+  if (endpoint.startsWith("/api/")) return endpoint.split("?")[0];
+  const command = item.command || "";
+  if (command.startsWith("GET /api/control/verification")) return command.replace("GET ", "");
+  if (command.startsWith("GET /api/")) return command.replace("GET ", "").split("?")[0];
+  return command || item.reason || "";
 }
 
 function renderProcessMonitor(monitor = {}) {
