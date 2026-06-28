@@ -57,6 +57,7 @@ def run_gui_browser_smoke(
                     "control-result-evidence",
                     "control-startup-health",
                     "control-audit-feedback",
+                    "control-round-checkpoint-report",
                     "control-audit-iteration-plan",
                     "control-audit-scheduler",
                     "control-verification-runner",
@@ -92,6 +93,7 @@ def run_gui_browser_smoke(
             and "finishActiveOperation" in str(app_js.get("body", ""))
             and "renderResultEvidence" in str(app_js.get("body", ""))
             and "renderAuditFeedback" in str(app_js.get("body", ""))
+            and "renderRoundCheckpointReport" in str(app_js.get("body", ""))
             and "renderAuditIterationPlan" in str(app_js.get("body", ""))
             and "renderAuditScheduler" in str(app_js.get("body", ""))
             and "renderVerificationRunner" in str(app_js.get("body", ""))
@@ -280,6 +282,30 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "round_checkpoint_report_panel",
+            "Five-round report contract",
+            control.get("ok")
+            and control_body.get("round_checkpoint_report", {}).get("stage") == "gui_round_checkpoint_report"
+            and control_body.get("round_checkpoint_report", {}).get("summary", {}).get("cadence_rounds") == 5
+            and bool(control_body.get("round_checkpoint_report", {}).get("flow_plan", {}).get("next_steps")),
+            "Control API exposes the latest five-round checkpoint report with next flow-plan steps.",
+            control.get("error") or "Control API is missing round_checkpoint_report data.",
+        )
+    )
+    checks.append(
+        _check(
+            "round_checkpoint_frontend",
+            "Five-round report frontend",
+            index_html.get("ok")
+            and "control-round-checkpoint-report" in str(index_html.get("body", ""))
+            and app_js.get("ok")
+            and "renderRoundCheckpointReport" in str(app_js.get("body", "")),
+            "Frontend exposes a five-round checkpoint report panel.",
+            index_html.get("error") or app_js.get("error") or "Five-round checkpoint frontend hooks are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "audit_scheduler_panel",
             "Audit scheduler contract",
             control.get("ok")
@@ -330,6 +356,7 @@ def run_gui_browser_smoke(
             and ".result-freshness-list" in str(styles_css.get("body", ""))
             and ".result-evidence-list" in str(styles_css.get("body", ""))
             and ".audit-feedback-list" in str(styles_css.get("body", ""))
+            and ".round-checkpoint-list" in str(styles_css.get("body", ""))
             and ".audit-iteration-list" in str(styles_css.get("body", ""))
             and ".audit-scheduler-list" in str(styles_css.get("body", ""))
             and ".verification-runner-list" in str(styles_css.get("body", "")),

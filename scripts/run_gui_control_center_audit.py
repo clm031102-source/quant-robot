@@ -37,6 +37,14 @@ def run_gui_control_center_audit(
         max_score=max_score,
         verdict=verdict,
     )
+    round_checkpoint_report = _round_checkpoint_report(
+        snapshot,
+        score=score,
+        max_score=max_score,
+        verdict=verdict,
+        next_actions=next_actions,
+        audit_iteration_plan=audit_iteration_plan,
+    )
     packet = {
         "stage": "gui_control_center_independent_audit",
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
@@ -50,6 +58,7 @@ def run_gui_control_center_audit(
         },
         "audit_packets": snapshot.get("audit_packets", {}),
         "audit_iteration_plan": audit_iteration_plan,
+        "round_checkpoint_report": round_checkpoint_report,
         "verification_gates": snapshot.get("verification_gates", []),
         "next_actions": next_actions,
         "safety": snapshot.get("safety", {"notice": SAFETY_NOTICE, "live_trading_allowed": False}),
@@ -126,6 +135,127 @@ def _audit_iteration_plan_for_packet(
     return normalized
 
 
+def _round_checkpoint_report(
+    snapshot: dict[str, Any],
+    *,
+    score: int,
+    max_score: int,
+    verdict: str,
+    next_actions: list[dict[str, Any]],
+    audit_iteration_plan: dict[str, Any],
+) -> dict[str, Any]:
+    operation_ledger = snapshot.get("operation_ledger", {})
+    ledger_summary = operation_ledger.get("summary", {}) if isinstance(operation_ledger, dict) else {}
+    scheduler_summary = (snapshot.get("audit_scheduler", {}) or {}).get("summary", {})
+    recent_work = [
+        _round_work_item(row)
+        for row in (operation_ledger.get("rows", []) if isinstance(operation_ledger, dict) else [])[:5]
+        if isinstance(row, dict)
+    ]
+    cadence_rounds = int(scheduler_summary.get("cadence_rounds") or 5)
+    current_round = int(scheduler_summary.get("current_round") or ledger_summary.get("entry_count") or 0)
+    flow_plan = _round_flow_plan(
+        next_actions,
+        audit_iteration_plan,
+        snapshot.get("verification_gates", []),
+    )
+    return {
+        "stage": "gui_round_checkpoint_report",
+        "summary": {
+            "status": "ready",
+            "current_round": current_round,
+            "completed_rounds": len(recent_work),
+            "cadence_rounds": cadence_rounds,
+            "rounds_until_next_audit": scheduler_summary.get("rounds_until_next_audit"),
+            "next_review_trigger": f"Every {cadence_rounds} completed GUI rounds; fallback every 5 hours.",
+            "audit_score": score,
+            "max_score": max_score,
+            "verdict": verdict,
+            "repair_action_count": len(next_actions),
+            "live_trading_allowed": False,
+        },
+        "recent_work": recent_work,
+        "flow_plan": flow_plan,
+        "safety": snapshot.get("safety", {"notice": SAFETY_NOTICE, "live_trading_allowed": False}),
+    }
+
+
+def _round_work_item(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "operation_id": str(row.get("operation_id") or ""),
+        "recorded_at": str(row.get("recorded_at") or ""),
+        "workflow_id": str(row.get("workflow_id") or ""),
+        "label": str(row.get("label") or row.get("workflow_id") or ""),
+        "status": str(row.get("status") or ""),
+        "request_summary": str(row.get("request_summary") or ""),
+        "metric_summary": str(row.get("metric_summary") or ""),
+        "command": str(row.get("command") or ""),
+    }
+
+
+def _round_flow_plan(
+    next_actions: list[dict[str, Any]],
+    audit_iteration_plan: dict[str, Any],
+    verification_gates: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if next_actions:
+        next_steps = [
+            {
+                "priority": str(item.get("priority") or "P2"),
+                "action": str(item.get("action") or "Review audit action"),
+                "reason": str(item.get("reason") or ""),
+                "verification": _verification_for_action(item, audit_iteration_plan, verification_gates),
+            }
+            for item in next_actions[:5]
+            if isinstance(item, dict)
+        ]
+    else:
+        next_steps = [
+            {
+                "priority": "P1",
+                "action": "Continue the next GUI optimization round from the largest remaining operator blind spot.",
+                "reason": "The latest audit is clear; keep improving observability, safety gates, and workflow clarity.",
+                "verification": "python -m unittest -v tests.unit.test_gui",
+            },
+            {
+                "priority": "P2",
+                "action": "Generate the next five-round checkpoint report after five more completed GUI rounds.",
+                "reason": "The objective requires an audit report and next flow plan every five rounds.",
+                "verification": "python scripts\\run_gui_control_center_audit.py --output-dir data\\reports\\gui_control_center_audit",
+            },
+        ]
+    return {
+        "status": "ready",
+        "next_steps": next_steps,
+        "verification_plan": [
+            {
+                "gate_id": str(item.get("gate_id") or ""),
+                "label": str(item.get("label") or ""),
+                "command": str(item.get("command") or ""),
+            }
+            for item in verification_gates[:5]
+            if isinstance(item, dict)
+        ],
+        "safety": SAFETY_NOTICE,
+    }
+
+
+def _verification_for_action(
+    action: dict[str, Any],
+    audit_iteration_plan: dict[str, Any],
+    verification_gates: list[dict[str, Any]],
+) -> str:
+    action_name = str(action.get("action") or "")
+    rows = audit_iteration_plan.get("rows", []) if isinstance(audit_iteration_plan, dict) else []
+    for row in rows:
+        if isinstance(row, dict) and str(row.get("action") or "") == action_name:
+            return str(row.get("verification_command") or "")
+    for gate in verification_gates:
+        if isinstance(gate, dict) and gate.get("gate_id") == "gui_unit_tests":
+            return str(gate.get("command") or "python -m unittest -v tests.unit.test_gui")
+    return "python -m unittest -v tests.unit.test_gui"
+
+
 def _write_packet(output_dir: Path, packet: dict[str, Any]) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "gui_control_center_audit.json").write_text(
@@ -169,6 +299,32 @@ def _render_markdown(packet: dict[str, Any]) -> str:
         rows.append(
             f"- [{item.get('priority', 'P2')}] {item.get('action', '')}: "
             f"{item.get('status', '')}; verify with {item.get('verification_command', '')}"
+        )
+    checkpoint = packet.get("round_checkpoint_report", {})
+    checkpoint_summary = checkpoint.get("summary", {}) if isinstance(checkpoint, dict) else {}
+    rows.extend(
+        [
+            "",
+            "## Five-Round Checkpoint Report",
+            f"- Current round: {checkpoint_summary.get('current_round', 0)}",
+            f"- Completed rounds summarized: {checkpoint_summary.get('completed_rounds', 0)}",
+            f"- Cadence: every {checkpoint_summary.get('cadence_rounds', 5)} GUI rounds",
+            f"- Verdict: {checkpoint_summary.get('verdict', '')}",
+            "",
+            "### Recent GUI Work",
+        ]
+    )
+    for item in checkpoint.get("recent_work", [])[:5] if isinstance(checkpoint, dict) else []:
+        rows.append(
+            f"- {item.get('recorded_at', '')} / {item.get('workflow_id', '')} / "
+            f"{item.get('status', '')}: {item.get('request_summary', '') or item.get('metric_summary', '')}"
+        )
+    flow_plan = checkpoint.get("flow_plan", {}) if isinstance(checkpoint, dict) else {}
+    rows.extend(["", "### Next Flow Plan"])
+    for item in flow_plan.get("next_steps", []):
+        rows.append(
+            f"- [{item.get('priority', 'P2')}] {item.get('action', '')}: "
+            f"{item.get('reason', '')}; verify with {item.get('verification', '')}"
         )
     rows.extend(["", "## Next Actions"])
     actions = packet.get("next_actions", [])

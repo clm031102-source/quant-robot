@@ -738,6 +738,7 @@ function renderControlCenter() {
   const auditPackets = control.audit_packets || {};
   const auditPacketRows = auditPackets.rows || [];
   const auditFeedback = control.audit_feedback || {};
+  const roundCheckpointReport = control.round_checkpoint_report || {};
   const auditIterationPlan = control.audit_iteration_plan || {};
   const auditScheduler = control.audit_scheduler || {};
   const operatorTimeline = control.operator_timeline || {};
@@ -821,6 +822,7 @@ function renderControlCenter() {
   `)).join("");
   byId("control-audit-packets").innerHTML = renderAuditPackets(auditPacketRows);
   byId("control-audit-feedback").innerHTML = renderAuditFeedback(auditFeedback);
+  byId("control-round-checkpoint-report").innerHTML = renderRoundCheckpointReport(roundCheckpointReport);
   byId("control-audit-iteration-plan").innerHTML = renderAuditIterationPlan(auditIterationPlan);
   byId("control-audit-scheduler").innerHTML = renderAuditScheduler(auditScheduler);
   byId("control-operator-timeline").innerHTML = timelineEvents.slice(0, 7).map((item) => `
@@ -1830,6 +1832,47 @@ function renderAuditFeedback(feedback = {}) {
     <div class="list-row warn">
       <strong>No audit feedback actions</strong>
       <span>Review the independent audit packet before the next GUI optimization round.</span>
+    </div>
+  `);
+}
+
+function renderRoundCheckpointReport(report = {}) {
+  const summary = report.summary || {};
+  const recentWork = report.recent_work || [];
+  const flowPlan = report.flow_plan || {};
+  const nextSteps = flowPlan.next_steps || [];
+  const status = summary.status || "missing";
+  const headerClass = summary.live_trading_allowed ? "danger" : status === "missing" ? "warn" : "ok";
+  const header = `
+    <div class="list-row ${escapeHtml(headerClass)}">
+      <strong>${escapeHtml(`Round ${summary.current_round ?? 0} / ${summary.audit_score ?? "--"}-${summary.max_score ?? "--"} / ${summary.verdict || status}`)}</strong>
+      <span>${escapeHtml(`cadence=${summary.cadence_rounds ?? 5} rounds / summarized=${summary.completed_rounds ?? 0} / remaining=${summary.rounds_until_next_audit ?? "--"}`)}</span>
+      <span>${escapeHtml(summary.next_review_trigger || "Generate a checkpoint report every five GUI rounds.")}</span>
+    </div>
+  `;
+  const workRows = recentWork.slice(0, 5).map((item) => `
+    <div class="list-row ${escapeHtml(item.status === "failed" ? "danger" : item.status === "completed" || item.status === "passed" ? "ok" : "warn")}">
+      <strong>${escapeHtml(item.label || item.workflow_id || "")}</strong>
+      <span>${escapeHtml(`${item.recorded_at || "--"} / ${item.status || "--"}`)}</span>
+      <span>${escapeHtml(item.request_summary || item.metric_summary || item.command || "")}</span>
+    </div>
+  `).join("");
+  const planRows = nextSteps.slice(0, 5).map((item) => `
+    <div class="list-row ${escapeHtml(item.priority === "P0" ? "danger" : item.priority === "P1" ? "warn" : "ok")}">
+      <strong>${escapeHtml(`${item.priority || "--"} / ${item.action || ""}`)}</strong>
+      <span>${escapeHtml(item.reason || "")}</span>
+      <span>${escapeHtml(item.verification || "")}</span>
+    </div>
+  `).join("");
+  return header + (workRows || `
+    <div class="list-row warn">
+      <strong>No recent GUI rounds</strong>
+      <span>Run GUI workflows or verification gates to populate the five-round report.</span>
+    </div>
+  `) + (planRows || `
+    <div class="list-row warn">
+      <strong>No next flow plan</strong>
+      <span>Run the independent GUI audit to generate the next flow plan.</span>
     </div>
   `);
 }

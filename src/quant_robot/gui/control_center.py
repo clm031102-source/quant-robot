@@ -66,6 +66,14 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     audit_feedback = _audit_feedback(audit_packet_source, audit_packets)
     audit_iteration_plan = _audit_iteration_plan(audit_feedback, audit_scorecard, verification_gates, readiness_matrix)
     audit_scheduler = _audit_scheduler(root, audit_packet_source, operation_ledger)
+    round_checkpoint_report = _round_checkpoint_report(
+        latest_gui_audit,
+        operation_ledger,
+        audit_scheduler,
+        audit_scorecard,
+        audit_iteration_plan,
+        verification_gates,
+    )
     release_readiness = _release_readiness(verification_gates, audit_packets, readiness_matrix)
     workflow_trace = _workflow_trace(
         workflows,
@@ -124,6 +132,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "execution_receipts": execution_receipts,
         "audit_packets": audit_packets,
         "audit_feedback": audit_feedback,
+        "round_checkpoint_report": round_checkpoint_report,
         "audit_iteration_plan": audit_iteration_plan,
         "audit_scheduler": audit_scheduler,
         "results": {
@@ -2092,6 +2101,148 @@ def _audit_packet_next_actions(packet: dict[str, Any] | None) -> list[dict[str, 
                 }
             )
     return normalized
+
+
+def _round_checkpoint_report(
+    latest_gui_audit: dict[str, Any] | None,
+    operation_ledger: dict[str, Any],
+    audit_scheduler: dict[str, Any],
+    audit_scorecard: dict[str, Any],
+    audit_iteration_plan: dict[str, Any],
+    verification_gates: list[dict[str, Any]],
+) -> dict[str, Any]:
+    packet_report = latest_gui_audit.get("round_checkpoint_report") if isinstance(latest_gui_audit, dict) else None
+    if isinstance(packet_report, dict) and packet_report.get("stage") == "gui_round_checkpoint_report":
+        return _normalize_round_checkpoint_report(packet_report, audit_scheduler, verification_gates)
+    return _live_round_checkpoint_report(operation_ledger, audit_scheduler, audit_scorecard, audit_iteration_plan, verification_gates)
+
+
+def _normalize_round_checkpoint_report(
+    report: dict[str, Any],
+    audit_scheduler: dict[str, Any],
+    verification_gates: list[dict[str, Any]],
+) -> dict[str, Any]:
+    normalized = dict(report)
+    summary = dict(normalized.get("summary", {}))
+    scheduler_summary = audit_scheduler.get("summary", {}) if isinstance(audit_scheduler, dict) else {}
+    summary.setdefault("cadence_rounds", scheduler_summary.get("cadence_rounds", GUI_AUDIT_CADENCE_ROUNDS))
+    summary.setdefault("current_round", scheduler_summary.get("current_round", 0))
+    summary.setdefault("next_review_trigger", f"Every {summary.get('cadence_rounds', GUI_AUDIT_CADENCE_ROUNDS)} completed GUI rounds; fallback every 5 hours.")
+    summary.setdefault("live_trading_allowed", False)
+    normalized["summary"] = summary
+    normalized["recent_work"] = [
+        row for row in normalized.get("recent_work", []) if isinstance(row, dict)
+    ][:5]
+    flow_plan = dict(normalized.get("flow_plan", {}))
+    flow_plan.setdefault("status", "ready")
+    flow_plan.setdefault("next_steps", _default_round_next_steps())
+    flow_plan.setdefault("verification_plan", _verification_plan_rows(verification_gates))
+    flow_plan.setdefault("safety", SAFETY_NOTICE)
+    normalized["flow_plan"] = flow_plan
+    normalized.setdefault("safety", _verification_runner_safety())
+    return normalized
+
+
+def _live_round_checkpoint_report(
+    operation_ledger: dict[str, Any],
+    audit_scheduler: dict[str, Any],
+    audit_scorecard: dict[str, Any],
+    audit_iteration_plan: dict[str, Any],
+    verification_gates: list[dict[str, Any]],
+) -> dict[str, Any]:
+    ledger_summary = operation_ledger.get("summary", {}) if isinstance(operation_ledger, dict) else {}
+    scheduler_summary = audit_scheduler.get("summary", {}) if isinstance(audit_scheduler, dict) else {}
+    score_summary = audit_scorecard.get("summary", {}) if isinstance(audit_scorecard, dict) else {}
+    recent_work = [
+        _round_work_item(row)
+        for row in (operation_ledger.get("rows", []) if isinstance(operation_ledger, dict) else [])[:5]
+        if isinstance(row, dict)
+    ]
+    next_steps = _round_next_steps_from_iteration_plan(audit_iteration_plan) or _default_round_next_steps()
+    cadence_rounds = int(scheduler_summary.get("cadence_rounds") or GUI_AUDIT_CADENCE_ROUNDS)
+    current_round = int(scheduler_summary.get("current_round") or ledger_summary.get("entry_count") or 0)
+    return {
+        "stage": "gui_round_checkpoint_report",
+        "summary": {
+            "status": "live_preview",
+            "current_round": current_round,
+            "completed_rounds": len(recent_work),
+            "cadence_rounds": cadence_rounds,
+            "rounds_until_next_audit": scheduler_summary.get("rounds_until_next_audit"),
+            "next_review_trigger": f"Every {cadence_rounds} completed GUI rounds; fallback every 5 hours.",
+            "audit_score": score_summary.get("independent_audit_score") or score_summary.get("local_self_check_score"),
+            "max_score": score_summary.get("max_score"),
+            "verdict": score_summary.get("independent_audit_verdict", ""),
+            "repair_action_count": len(audit_scorecard.get("repair_queue", [])) if isinstance(audit_scorecard, dict) else 0,
+            "live_trading_allowed": False,
+        },
+        "recent_work": recent_work,
+        "flow_plan": {
+            "status": "ready",
+            "next_steps": next_steps,
+            "verification_plan": _verification_plan_rows(verification_gates),
+            "safety": SAFETY_NOTICE,
+        },
+        "safety": _verification_runner_safety(),
+    }
+
+
+def _round_work_item(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "operation_id": str(row.get("operation_id") or ""),
+        "recorded_at": str(row.get("recorded_at") or ""),
+        "workflow_id": str(row.get("workflow_id") or ""),
+        "label": str(row.get("label") or row.get("workflow_id") or ""),
+        "status": str(row.get("status") or ""),
+        "request_summary": str(row.get("request_summary") or ""),
+        "metric_summary": str(row.get("metric_summary") or ""),
+        "command": str(row.get("command") or ""),
+    }
+
+
+def _round_next_steps_from_iteration_plan(audit_iteration_plan: dict[str, Any]) -> list[dict[str, Any]]:
+    if not isinstance(audit_iteration_plan, dict):
+        return []
+    rows = [row for row in audit_iteration_plan.get("rows", []) if isinstance(row, dict)]
+    active_rows = [row for row in rows if row.get("status") not in {"blocked_expected"}]
+    return [
+        {
+            "priority": str(row.get("priority") or "P2"),
+            "action": str(row.get("action") or row.get("action_id") or "Review audit action"),
+            "reason": str(row.get("acceptance_evidence") or row.get("next_review") or ""),
+            "verification": str(row.get("verification_command") or "python -m unittest -v tests.unit.test_gui"),
+        }
+        for row in active_rows[:5]
+    ]
+
+
+def _default_round_next_steps() -> list[dict[str, Any]]:
+    return [
+        {
+            "priority": "P1",
+            "action": "Continue the next GUI optimization round from the largest remaining operator blind spot.",
+            "reason": "The latest audit has no active repair queue; keep improving workflow visibility and safety clarity.",
+            "verification": "python -m unittest -v tests.unit.test_gui",
+        },
+        {
+            "priority": "P2",
+            "action": "Generate the next five-round checkpoint report after five more completed GUI rounds.",
+            "reason": "The active goal requires an audit report and next flow plan every five rounds.",
+            "verification": "python scripts\\run_gui_control_center_audit.py --output-dir data\\reports\\gui_control_center_audit",
+        },
+    ]
+
+
+def _verification_plan_rows(verification_gates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "gate_id": str(item.get("gate_id") or ""),
+            "label": str(item.get("label") or ""),
+            "command": str(item.get("command") or ""),
+        }
+        for item in verification_gates[:5]
+        if isinstance(item, dict)
+    ]
 
 
 def _dedupe_audit_actions(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:

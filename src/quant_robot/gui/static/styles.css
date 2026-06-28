@@ -589,6 +589,10 @@ button {
   max-height: 236px;
 }
 
+.round-checkpoint-list {
+  max-height: 278px;
+}
+
 .audit-iteration-list {
   max-height: 236px;
 }
