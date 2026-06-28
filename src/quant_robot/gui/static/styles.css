@@ -542,6 +542,10 @@ button {
   max-height: 236px;
 }
 
+.result-freshness-list {
+  max-height: 236px;
+}
+
 .active-operation-meta {
   display: flex;
   flex-wrap: wrap;

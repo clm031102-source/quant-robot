@@ -53,6 +53,7 @@ def run_gui_browser_smoke(
                     "control-operation-ledger",
                     "control-trade-mode-control",
                     "control-request-preview",
+                    "control-result-freshness",
                     "control-result-evidence",
                     "control-startup-health",
                     "control-audit-feedback",
@@ -85,6 +86,8 @@ def run_gui_browser_smoke(
             and "buildResearchParams" in str(app_js.get("body", ""))
             and "buildSignalParams" in str(app_js.get("body", ""))
             and "buildPaperParams" in str(app_js.get("body", ""))
+            and "renderResultFreshness" in str(app_js.get("body", ""))
+            and "requestMatchesCurrentParams" in str(app_js.get("body", ""))
             and "beginActiveOperation" in str(app_js.get("body", ""))
             and "finishActiveOperation" in str(app_js.get("body", ""))
             and "renderResultEvidence" in str(app_js.get("body", ""))
@@ -247,8 +250,9 @@ def run_gui_browser_smoke(
             and "renderRequestPreview" in str(app_js.get("body", ""))
             and "buildResearchParams" in str(app_js.get("body", ""))
             and "buildSignalParams" in str(app_js.get("body", ""))
-            and "buildPaperParams" in str(app_js.get("body", "")),
-            "Frontend exposes a live request preview panel using the same research, signal, and paper parameter builders as workflow execution.",
+            and "buildPaperParams" in str(app_js.get("body", ""))
+            and "renderResultFreshness" in str(app_js.get("body", "")),
+            "Frontend exposes a live request preview panel and result freshness checks using the same research, signal, and paper parameter builders as workflow execution.",
             index_html.get("error") or app_js.get("error") or "Request preview frontend hooks are missing.",
         )
     )
@@ -282,8 +286,15 @@ def run_gui_browser_smoke(
             and control_body.get("audit_scheduler", {}).get("stage") == "gui_audit_scheduler"
             and bool(control_body.get("audit_scheduler", {}).get("rows"))
             and control_body.get("audit_scheduler", {}).get("summary", {}).get("automation_id") == "gui-5h"
+            and control_body.get("audit_scheduler", {}).get("summary", {}).get("cadence_rounds") == 5
+            and "rounds_until_next_audit" in control_body.get("audit_scheduler", {}).get("summary", {})
+            and "next_flow_plan_required" in control_body.get("audit_scheduler", {}).get("summary", {})
+            and {
+                row.get("check_id")
+                for row in control_body.get("audit_scheduler", {}).get("rows", [])
+            }.issuperset({"round_cadence", "next_flow_plan"})
             and control_body.get("audit_scheduler", {}).get("summary", {}).get("live_trading_allowed") is False,
-            "Control API exposes gui-5h heartbeat status, latest audit age, next due status, and paper-only safety boundary.",
+            "Control API exposes five-round audit cadence, gui-5h heartbeat fallback, latest audit age, next flow plan status, and paper-only safety boundary.",
             control.get("error") or "Control API is missing audit_scheduler rows.",
         )
     )
@@ -316,6 +327,7 @@ def run_gui_browser_smoke(
             and ".operation-ledger-list" in str(styles_css.get("body", ""))
             and ".trade-mode-control-list" in str(styles_css.get("body", ""))
             and ".request-preview-list" in str(styles_css.get("body", ""))
+            and ".result-freshness-list" in str(styles_css.get("body", ""))
             and ".result-evidence-list" in str(styles_css.get("body", ""))
             and ".audit-feedback-list" in str(styles_css.get("body", ""))
             and ".audit-iteration-list" in str(styles_css.get("body", ""))

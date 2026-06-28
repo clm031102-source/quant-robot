@@ -302,13 +302,21 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertEqual(result["audit_scheduler"]["stage"], "gui_audit_scheduler")
         self.assertEqual(result["audit_scheduler"]["summary"]["automation_id"], "gui-5h")
         self.assertEqual(result["audit_scheduler"]["summary"]["cadence_hours"], 5)
+        self.assertEqual(result["audit_scheduler"]["summary"]["cadence_rounds"], 5)
+        self.assertEqual(result["audit_scheduler"]["summary"]["current_round"], result["operation_ledger"]["summary"]["entry_count"])
+        self.assertIn("rounds_until_next_audit", result["audit_scheduler"]["summary"])
+        self.assertIn("next_round_audit_due_status", result["audit_scheduler"]["summary"])
+        self.assertIn("next_report_required", result["audit_scheduler"]["summary"])
+        self.assertIn("next_flow_plan_required", result["audit_scheduler"]["summary"])
         self.assertIn(result["audit_scheduler"]["summary"]["status"], {"active", "missing", "paused", "unknown"})
         self.assertIn("last_audit_age_hours", result["audit_scheduler"]["summary"])
         self.assertIn("next_due_status", result["audit_scheduler"]["summary"])
         scheduler_row_ids = {item["check_id"] for item in result["audit_scheduler"]["rows"]}
         self.assertIn("automation_config", scheduler_row_ids)
+        self.assertIn("round_cadence", scheduler_row_ids)
         self.assertIn("last_audit_packet", scheduler_row_ids)
         self.assertIn("next_due", scheduler_row_ids)
+        self.assertIn("next_flow_plan", scheduler_row_ids)
         self.assertIn("safety_boundary", scheduler_row_ids)
         self.assertTrue(any(item["kind"] == "logs" for item in result["report_links"]))
         self.assertTrue(any(item["kind"] == "audit_packet" for item in result["report_links"]))
@@ -387,6 +395,7 @@ class GuiSnapshotTests(unittest.TestCase):
 
     def test_audit_scheduler_reads_gui_heartbeat_config_and_audit_packet(self):
         from quant_robot.gui.control_center import build_control_center_snapshot
+        from quant_robot.gui.operation_ledger import append_operation_ledger_entry
 
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -405,6 +414,16 @@ class GuiSnapshotTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
+            for index in range(5):
+                append_operation_ledger_entry(
+                    repo_root=root,
+                    workflow_id="gui_iteration",
+                    label=f"GUI iteration round {index + 1}",
+                    status="completed",
+                    command="python -m unittest -v tests.unit.test_gui",
+                    request={"round": index + 1},
+                    result={"metrics": {"returncode": 0}},
+                )
             codex_home = root / ".codex"
             automation_dir = codex_home / "automations" / "gui-5h"
             automation_dir.mkdir(parents=True)
@@ -429,13 +448,29 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertEqual(scheduler["summary"]["status"], "active")
         self.assertEqual(scheduler["summary"]["automation_kind"], "heartbeat")
         self.assertEqual(scheduler["summary"]["cadence_hours"], 5)
+        self.assertEqual(scheduler["summary"]["cadence_rounds"], 5)
+        self.assertEqual(scheduler["summary"]["current_round"], 5)
+        self.assertEqual(scheduler["summary"]["rounds_until_next_audit"], 0)
+        self.assertEqual(scheduler["summary"]["next_round_audit_due_status"], "due_now")
+        self.assertTrue(scheduler["summary"]["next_report_required"])
+        self.assertTrue(scheduler["summary"]["next_flow_plan_required"])
         self.assertEqual(scheduler["summary"]["last_audit_score"], 96)
         self.assertEqual(scheduler["summary"]["last_audit_verdict"], "clear")
         self.assertFalse(scheduler["summary"]["live_trading_allowed"])
         row_values = {row["check_id"]: row["value"] for row in scheduler["rows"]}
         self.assertIn("ACTIVE", row_values["automation_config"])
+        self.assertIn("round 5", row_values["round_cadence"])
         self.assertIn("96 / 100", row_values["last_audit_packet"])
+        self.assertIn("audit report + next flow plan", row_values["next_flow_plan"])
         self.assertIn("Research-to-paper only", row_values["safety_boundary"])
+
+    def test_audit_scheduler_paused_heartbeat_keeps_round_cadence_primary(self):
+        from quant_robot.gui.control_center import _audit_scheduler_next_action
+
+        action = _audit_scheduler_next_action("paused", "on_schedule")
+
+        self.assertIn("5-round audit cadence", action)
+        self.assertIn("time-based fallback", action)
 
     def test_control_verification_runner_allows_only_registered_local_gates(self):
         from quant_robot.gui.control_center import build_verification_runner_snapshot, run_verification_gate
@@ -1409,6 +1444,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("control-operation-ledger", html)
             self.assertIn("control-trade-mode-control", html)
             self.assertIn("control-request-preview", html)
+            self.assertIn("control-result-freshness", html)
             self.assertIn("control-startup-health", html)
             self.assertIn("control-backtest-provenance", html)
             self.assertIn("control-backtest-gate", html)
@@ -1525,6 +1561,10 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("buildSignalParams", app_js)
             self.assertIn("buildPaperParams", app_js)
             self.assertIn("REQUEST_PREVIEW_INPUT_IDS", app_js)
+            self.assertIn("control-result-freshness", app_js)
+            self.assertIn("renderResultFreshness", app_js)
+            self.assertIn("requestObjectFromParams", app_js)
+            self.assertIn("requestMatchesCurrentParams", app_js)
             self.assertIn("control-startup-health", app_js)
             self.assertIn("control-backtest-provenance", app_js)
             self.assertIn("control-backtest-gate", app_js)

@@ -17,6 +17,7 @@ from quant_robot.gui.operation_ledger import build_operation_ledger_snapshot
 SAFETY_NOTICE = "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading."
 GUI_AUDIT_PACKET_PATH = Path("data/reports/gui_control_center_audit/gui_control_center_audit.json")
 GUI_AUDIT_AUTOMATION_ID = "gui-5h"
+GUI_AUDIT_CADENCE_ROUNDS = 5
 RESOLVED_AUDIT_LOOP_ACTIONS = {
     "Attach audit findings to next optimization round",
     "Review linked audit packets during next audit",
@@ -64,7 +65,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     )
     audit_feedback = _audit_feedback(audit_packet_source, audit_packets)
     audit_iteration_plan = _audit_iteration_plan(audit_feedback, audit_scorecard, verification_gates, readiness_matrix)
-    audit_scheduler = _audit_scheduler(root, audit_packet_source)
+    audit_scheduler = _audit_scheduler(root, audit_packet_source, operation_ledger)
     release_readiness = _release_readiness(verification_gates, audit_packets, readiness_matrix)
     workflow_trace = _workflow_trace(
         workflows,
@@ -150,7 +151,10 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
             "order_placement_allowed": False,
         },
         "automation": {
-            "cadence": audit_scheduler["summary"].get("cadence", "Every 5 hours"),
+            "cadence": audit_scheduler["summary"].get(
+                "cadence",
+                f"Every {GUI_AUDIT_CADENCE_ROUNDS} GUI rounds; fallback every 5 hours",
+            ),
             "name": audit_scheduler["summary"].get("name", "GUI control center audit"),
             "status": audit_scheduler["summary"].get("status", "unknown"),
             "expected_output": "Score, required fixes, and next optimization list.",
@@ -1611,6 +1615,7 @@ def _audit_scorecard(
             "local_self_check_score": total_score,
             "max_score": max_score,
             "cadence_hours": 5,
+            "cadence_rounds": GUI_AUDIT_CADENCE_ROUNDS,
             "automation_id": "gui-5h",
             "independent_audit_complete": independent_audit_complete,
             "score_source": "independent_gui_audit_packet" if latest_gui_audit else "local_self_check_not_independent_audit",
@@ -1623,7 +1628,7 @@ def _audit_scorecard(
         "categories": categories,
         "repair_queue": repair_queue,
         "next_audit": {
-            "cadence": "Every 5 hours",
+            "cadence": f"Every {GUI_AUDIT_CADENCE_ROUNDS} GUI rounds; fallback every 5 hours",
             "expected_output": "0-100 score, category scores, required fixes, and next optimization list.",
             "agent_role": "Independent GUI control center auditor",
         },
@@ -1663,11 +1668,18 @@ def _load_gui_audit_packet(root: Path) -> dict[str, Any]:
     }
 
 
-def _audit_scheduler(root: Path, packet_source: dict[str, Any]) -> dict[str, Any]:
+def _audit_scheduler(root: Path, packet_source: dict[str, Any], operation_ledger: dict[str, Any] | None = None) -> dict[str, Any]:
     automation = _load_automation_config(GUI_AUDIT_AUTOMATION_ID)
     automation_config = automation.get("config") if automation.get("status") == "present" else {}
     automation_status = str(automation_config.get("status") or automation.get("status") or "unknown").lower()
     cadence_hours = _rrule_cadence_hours(str(automation_config.get("rrule") or "")) or 5
+    cadence_rounds = GUI_AUDIT_CADENCE_ROUNDS
+    current_round = _current_gui_round(operation_ledger or {})
+    rounds_until_next_audit = _rounds_until_next_audit(current_round, cadence_rounds)
+    next_round_audit_due_status = (
+        "due_now" if current_round > 0 and rounds_until_next_audit == 0 else "collecting_rounds"
+    )
+    round_report_required = next_round_audit_due_status == "due_now"
     packet = packet_source.get("packet") if packet_source.get("status") == "packet_present" else None
     generated_at = _audit_packet_generated_at(packet, root / GUI_AUDIT_PACKET_PATH)
     now = datetime.now(UTC)
@@ -1693,6 +1705,16 @@ def _audit_scheduler(root: Path, packet_source: dict[str, Any]) -> dict[str, Any
             "evidence": str(automation.get("path") or "No local gui-5h automation.toml found."),
         },
         {
+            "check_id": "round_cadence",
+            "label": "Round audit cadence",
+            "status": "required" if round_report_required else "ready",
+            "value": (
+                f"round {current_round} / every {cadence_rounds} rounds / "
+                f"{rounds_until_next_audit} rounds until audit"
+            ),
+            "evidence": "Every five completed GUI rounds require an audit report and next flow plan before the next optimization cycle.",
+        },
+        {
             "check_id": "last_audit_packet",
             "label": "Latest independent audit",
             "status": packet_status,
@@ -1707,11 +1729,22 @@ def _audit_scheduler(root: Path, packet_source: dict[str, Any]) -> dict[str, Any
             "evidence": f"cadence={cadence_hours}h / age={_format_hours(last_audit_age_hours)} / status={next_due_status}",
         },
         {
+            "check_id": "next_flow_plan",
+            "label": "Audit report + next flow plan",
+            "status": "required" if round_report_required else "ready",
+            "value": (
+                "audit report + next flow plan required"
+                if round_report_required
+                else "continue current plan until the next 5-round checkpoint"
+            ),
+            "evidence": "The checkpoint must summarize completed GUI work, audit score, issues, and the next process plan.",
+        },
+        {
             "check_id": "safety_boundary",
             "label": "Audit safety boundary",
             "status": "blocked_expected",
             "value": SAFETY_NOTICE,
-            "evidence": "The 5h audit may score and recommend fixes; it must not connect brokers, read accounts, place orders, or enable live trading.",
+            "evidence": "The audit may score and recommend fixes; it must not connect brokers, read accounts, place orders, or enable live trading.",
         },
     ]
     return {
@@ -1722,8 +1755,14 @@ def _audit_scheduler(root: Path, packet_source: dict[str, Any]) -> dict[str, Any
             "automation_kind": str(automation_config.get("kind") or ""),
             "name": str(automation_config.get("name") or "GUI control center audit"),
             "rrule": str(automation_config.get("rrule") or ""),
-            "cadence": f"Every {cadence_hours} hours",
+            "cadence": f"Every {cadence_rounds} GUI rounds; fallback every {cadence_hours} hours",
             "cadence_hours": cadence_hours,
+            "cadence_rounds": cadence_rounds,
+            "current_round": current_round,
+            "rounds_until_next_audit": rounds_until_next_audit,
+            "next_round_audit_due_status": next_round_audit_due_status,
+            "next_report_required": round_report_required,
+            "next_flow_plan_required": round_report_required,
             "last_audit_generated_at": _iso_text(generated_at),
             "last_audit_age_hours": last_audit_age_hours,
             "last_audit_score": packet.get("score") if isinstance(packet, dict) else None,
@@ -1733,10 +1772,31 @@ def _audit_scheduler(root: Path, packet_source: dict[str, Any]) -> dict[str, Any
             "config_status": automation.get("status", "unknown"),
             "target_thread_id": str(automation_config.get("target_thread_id") or ""),
             "live_trading_allowed": False,
-            "next_action": _audit_scheduler_next_action(automation_status, next_due_status),
+            "next_action": (
+                "Write the five-round audit report and next flow plan before continuing GUI optimization."
+                if round_report_required
+                else _audit_scheduler_next_action(automation_status, next_due_status)
+            ),
         },
         "rows": rows,
     }
+
+
+def _current_gui_round(operation_ledger: dict[str, Any]) -> int:
+    summary = operation_ledger.get("summary", {}) if isinstance(operation_ledger, dict) else {}
+    try:
+        return max(0, int(summary.get("entry_count") or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _rounds_until_next_audit(current_round: int, cadence_rounds: int) -> int:
+    if cadence_rounds <= 0:
+        return 0
+    if current_round <= 0:
+        return cadence_rounds
+    remainder = current_round % cadence_rounds
+    return 0 if remainder == 0 else cadence_rounds - remainder
 
 
 def _load_automation_config(automation_id: str) -> dict[str, Any]:
@@ -1829,7 +1889,7 @@ def _audit_scheduler_next_action(automation_status: str, next_due_status: str) -
     if automation_status == "missing":
         return "Create or restore the gui-5h heartbeat automation."
     if automation_status == "paused":
-        return "Resume the gui-5h heartbeat before relying on 5h audit cadence."
+        return "Continue the 5-round audit cadence; resume gui-5h only as a time-based fallback."
     if next_due_status == "due_now":
         return "Run the independent GUI audit now and feed findings into the next optimization round."
     if next_due_status == "audit_packet_missing":
@@ -2051,13 +2111,13 @@ def _audit_packets(root: Path) -> dict[str, Any]:
         _audit_packet_row(
             root,
             packet_id="independent_gui_audit",
-            label="Independent 5h GUI audit",
+            label="Independent five-round GUI audit",
             path=Path("data/reports/gui_control_center_audit/gui_control_center_audit.json"),
             markdown_path=Path("data/reports/gui_control_center_audit/gui_control_center_audit.md"),
             command="python scripts\\run_gui_control_center_audit.py --output-dir data\\reports\\gui_control_center_audit",
             required=True,
             role="Independent GUI control center auditor",
-            cadence="Every 5 hours",
+            cadence=f"Every {GUI_AUDIT_CADENCE_ROUNDS} GUI rounds; fallback every 5 hours",
         ),
         _audit_packet_row(
             root,
@@ -2248,7 +2308,7 @@ def _operator_timeline(
             "event_id": "audit_repair_queue",
             "label": "Audit repair queue",
             "status": "required",
-            "detail": f"{repair_count} repair actions queued from the local scorecard and 5h audit protocol.",
+            "detail": f"{repair_count} repair actions queued from the local scorecard and five-round audit protocol.",
             "command": repair_queue[0]["action"] if repair_queue else "No audit repair actions queued",
         },
         {

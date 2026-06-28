@@ -336,7 +336,6 @@ function buildPaperParams() {
 
 function renderRequestPreview() {
   const target = byId("control-request-preview");
-  if (!target) return;
   const researchParams = buildResearchParams();
   const signalParams = buildSignalParams();
   const paperParams = buildPaperParams();
@@ -363,14 +362,17 @@ function renderRequestPreview() {
       detail: "local paper-only simulation request",
     },
   ];
-  target.innerHTML = rows.map((row) => `
-    <div class="list-row ${escapeHtml(row.status)}">
-      <strong>${escapeHtml(row.label)}</strong>
-      <span>${escapeHtml(row.endpoint)}</span>
-      <span>${escapeHtml(requestPreviewSummary(row.params))}</span>
-      <span>${escapeHtml(row.detail)}</span>
-    </div>
-  `).join("");
+  if (target) {
+    target.innerHTML = rows.map((row) => `
+      <div class="list-row ${escapeHtml(row.status)}">
+        <strong>${escapeHtml(row.label)}</strong>
+        <span>${escapeHtml(row.endpoint)}</span>
+        <span>${escapeHtml(requestPreviewSummary(row.params))}</span>
+        <span>${escapeHtml(row.detail)}</span>
+      </div>
+    `).join("");
+  }
+  renderResultFreshness();
 }
 
 function requestPreviewSummary(params) {
@@ -383,6 +385,103 @@ function requestPreviewSummary(params) {
     `cost=${params.get("cost_bps") || params.get("commission_bps") || "--"}bps`,
     `window=${params.get("start_date") || params.get("as_of_date") || "--"} to ${params.get("end_date") || params.get("as_of_date") || "--"}`,
   ].join(" / ");
+}
+
+function renderResultFreshness() {
+  const target = byId("control-result-freshness");
+  if (!target) return;
+  const rows = [
+    resultFreshnessRow(
+      "Research result",
+      state.research,
+      buildResearchParams(),
+      ["market", "factor_name", "top_n", "cost_bps", "start_date", "end_date"],
+      "Run research after changing market, factor, TopN, cost, or date window.",
+    ),
+    resultFreshnessRow(
+      "Signal result",
+      state.signals,
+      buildSignalParams(),
+      ["market", "factor_name", "top_n", "as_of_date"],
+      "Regenerate advisory signals after changing factor, TopN, or signal date.",
+    ),
+    resultFreshnessRow(
+      "Paper result",
+      state.paper,
+      buildPaperParams(),
+      ["market", "factor_name", "top_n", "start_date", "end_date", "initial_cash"],
+      "Rerun paper simulation after changing market, factor, TopN, date window, or initial cash.",
+    ),
+  ];
+  target.innerHTML = rows.map((row) => `
+    <div class="list-row ${escapeHtml(row.statusClass)}">
+      <strong>${escapeHtml(`${row.label} / ${row.status}`)}</strong>
+      <span>${escapeHtml(row.currentSummary)}</span>
+      <span>${escapeHtml(row.resultSummary)}</span>
+      <span>${escapeHtml(row.detail)}</span>
+    </div>
+  `).join("");
+}
+
+function resultFreshnessRow(label, result, params, keys, detail) {
+  const currentRequest = requestObjectFromParams(params);
+  const resultRequest = result?.request || {};
+  if (!result || !result.request) {
+    return {
+      label,
+      status: "not_run",
+      statusClass: "warn",
+      currentSummary: `current=${requestFreshnessSummary(currentRequest)}`,
+      resultSummary: "result=not available yet",
+      detail,
+    };
+  }
+  const isCurrent = requestMatchesCurrentParams(resultRequest, params, keys);
+  return {
+    label,
+    status: isCurrent ? "current" : "stale",
+    statusClass: isCurrent ? "ok" : "warn",
+    currentSummary: `current=${requestFreshnessSummary(currentRequest)}`,
+    resultSummary: `result=${requestFreshnessSummary(resultRequest)}`,
+    detail: isCurrent ? "Displayed metrics match the current form parameters." : detail,
+  };
+}
+
+function requestObjectFromParams(params) {
+  return {
+    market: params.get("market") || "",
+    factor_name: params.get("factor") || params.get("factor_name") || "",
+    top_n: params.get("top_n") || "",
+    cost_bps: params.get("cost_bps") || "",
+    start_date: params.get("start_date") || "",
+    end_date: params.get("end_date") || "",
+    as_of_date: params.get("as_of_date") || "",
+    initial_cash: params.get("initial_cash") || "",
+  };
+}
+
+function requestMatchesCurrentParams(resultRequest = {}, currentParams = new URLSearchParams(), keys = []) {
+  const currentRequest = requestObjectFromParams(currentParams);
+  const comparableKeys = keys.filter((key) => (
+    normalizeRequestValue(requestValue(resultRequest, key)) !== ""
+    || normalizeRequestValue(requestValue(currentRequest, key)) !== ""
+  ));
+  if (comparableKeys.length === 0) return false;
+  return comparableKeys.every((key) => (
+    normalizeRequestValue(requestValue(resultRequest, key)) === normalizeRequestValue(requestValue(currentRequest, key))
+  ));
+}
+
+function requestFreshnessSummary(request = {}) {
+  return [
+    request.market || "",
+    request.factor_name || request.factor || "",
+    request.top_n != null && request.top_n !== "" ? `top_n=${request.top_n}` : "",
+    request.cost_bps != null && request.cost_bps !== "" ? `cost=${request.cost_bps}bps` : "",
+    request.initial_cash != null && request.initial_cash !== "" ? `cash=${request.initial_cash}` : "",
+    request.start_date || request.as_of_date || "",
+    request.end_date || "",
+  ].filter(Boolean).join(" / ") || "--";
 }
 
 function applySourcePreset(force) {
@@ -709,8 +808,8 @@ function renderControlCenter() {
     `
     <div class="list-row warn">
       <strong>${escapeHtml(`${auditSummary.independent_audit_score ?? auditSummary.local_self_check_score ?? "--"} / ${auditSummary.max_score ?? "--"} ${auditSummary.score_source === "independent_gui_audit_packet" ? "independent audit" : "local self-check"}`)}</strong>
-      <span>${escapeHtml(`${auditSummary.cadence_hours ?? "--"}h cadence / ${auditSummary.automation_id || "audit automation"}`)}</span>
-      <span>${escapeHtml(auditSummary.independent_audit_complete ? `Independent audit complete / ${auditSummary.independent_audit_verdict || "review"}` : "Independent 5h audit still required")}</span>
+      <span>${escapeHtml(`${auditSummary.cadence_rounds ?? 5} rounds / ${auditSummary.cadence_hours ?? "--"}h fallback / ${auditSummary.automation_id || "audit automation"}`)}</span>
+      <span>${escapeHtml(auditSummary.independent_audit_complete ? `Independent audit complete / ${auditSummary.independent_audit_verdict || "review"}` : "Independent audit still required")}</span>
     </div>
     `,
   ].concat(auditCategories.slice(0, 7).map((item) => `
@@ -773,6 +872,7 @@ function renderControlCenter() {
     metric("Relative", formatPercent(benchmark.relative_return), "benchmark"),
     metric("Paper equity", formatNumber(paperMetrics.ending_equity), "paper"),
   ].join("");
+  renderResultFreshness();
   byId("control-result-evidence").innerHTML = renderResultEvidence(resultEvidence);
   byId("control-workflow-commands").innerHTML = workflows.slice(0, 5).map((item) => `
     <div class="list-row">
@@ -1741,7 +1841,7 @@ function renderAuditIterationPlan(plan = {}) {
   const header = `
     <div class="list-row ${escapeHtml(headerClass)}">
       <strong>${escapeHtml(`${summary.audit_score ?? "--"} / ${summary.max_score ?? "--"} ${summary.source || "audit source"}`)}</strong>
-      <span>${escapeHtml(`actions=${summary.active_actions ?? "--"} / cadence=${summary.cadence_hours ?? "--"}h`)}</span>
+      <span>${escapeHtml(`actions=${summary.active_actions ?? "--"} / cadence=${summary.cadence_rounds ?? 5} rounds`)}</span>
       <span>${escapeHtml(summary.next_action || "")}</span>
     </div>
   `;
@@ -1769,16 +1869,18 @@ function renderAuditScheduler(scheduler = {}) {
   const rows = scheduler.rows || [];
   const status = summary.status || "unknown";
   const dueStatus = summary.next_due_status || "unknown";
-  const headerClass = status === "active" && dueStatus !== "due_now" ? "ok" : dueStatus === "due_now" ? "warn" : "danger";
+  const roundDueStatus = summary.next_round_audit_due_status || "unknown";
+  const reportRequired = Boolean(summary.next_report_required || summary.next_flow_plan_required);
+  const headerClass = reportRequired || dueStatus === "due_now" ? "warn" : status === "active" ? "ok" : "danger";
   const header = `
     <div class="list-row ${escapeHtml(headerClass)}">
-      <strong>${escapeHtml(`5h audit / ${status}`)}</strong>
+      <strong>${escapeHtml(`${summary.cadence_rounds ?? 5}-round audit / ${roundDueStatus}`)}</strong>
       <span>${escapeHtml(`${summary.automation_id || "--"} / ${summary.automation_kind || "--"} / ${summary.rrule || "--"}`)}</span>
-      <span>${escapeHtml(`last=${formatSchedulerAge(summary.last_audit_age_hours)} / next=${summary.next_due_status || "--"}`)}</span>
+      <span>${escapeHtml(`round=${summary.current_round ?? 0} / remaining=${summary.rounds_until_next_audit ?? "--"} / fallback=${formatSchedulerAge(summary.last_audit_age_hours)}`)}</span>
       <span>${escapeHtml(summary.next_action || "")}</span>
     </div>
   `;
-  const body = rows.slice(0, 6).map((item) => {
+  const body = rows.slice(0, 8).map((item) => {
     const rowStatus = item.status || "";
     const statusClass = rowStatus === "ready" || rowStatus === "blocked_expected" ? "ok" : rowStatus === "missing" ? "danger" : "warn";
     return `
