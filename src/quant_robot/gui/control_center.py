@@ -40,6 +40,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     backtest = _default_backtest()
     workflows = _workflow_commands(backtest)
     run_queue = _run_queue(workflows)
+    trade_mode_control = _trade_mode_control(workflows)
     verification_gates = _verification_gates()
     verification_runner = build_verification_runner_snapshot(verification_gates)
     readiness_matrix = _readiness_matrix(workflows, verification_gates, artifacts)
@@ -90,6 +91,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "process_monitor": process_monitor,
         "active_operation": active_operation,
         "operation_ledger": operation_ledger,
+        "trade_mode_control": trade_mode_control,
         "method": {
             "title": "Backtest path",
             "steps": [
@@ -343,6 +345,79 @@ def _workflow_by_id(workflows: list[dict[str, Any]], workflow_id: str) -> dict[s
         if workflow.get("workflow_id") == workflow_id:
             return workflow
     return None
+
+
+def _trade_mode_control(workflows: list[dict[str, Any]]) -> dict[str, Any]:
+    research = _workflow_by_id(workflows, "research_backtest") or {}
+    paper = _workflow_by_id(workflows, "paper_simulation") or {}
+
+    def permissions(*, research_api: bool = False, paper_simulation: bool = False) -> dict[str, Any]:
+        return {
+            "research_api_allowed": research_api,
+            "paper_simulation_allowed": paper_simulation,
+            "paper_trading_allowed": False,
+            "live_trading_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+        }
+
+    rows = [
+        {
+            "mode_id": "research",
+            "label": "Research backtest",
+            "status": "ready",
+            "entrypoint": research.get("command", "GET /api/research"),
+            "scope": "Local factor and portfolio research on configured data.",
+            "permissions": permissions(research_api=True),
+            "guardrail": "Computes metrics only; no broker, account, or order side effects.",
+            "next_action": research.get("command", ""),
+        },
+        {
+            "mode_id": "paper_simulation",
+            "label": "Paper simulation",
+            "status": "gate_controlled",
+            "entrypoint": paper.get("command", "GET /api/paper"),
+            "scope": "Local simulated fills, positions, equity, and guard events.",
+            "permissions": permissions(research_api=True, paper_simulation=True),
+            "guardrail": "Simulation output is local evidence; promotion gates still decide operator use.",
+            "next_action": paper.get("command", ""),
+        },
+        {
+            "mode_id": "live_trading",
+            "label": "Live trading",
+            "status": "blocked",
+            "entrypoint": "blocked by research-to-paper boundary",
+            "scope": "Broker/account/order side effects.",
+            "permissions": permissions(),
+            "guardrail": SAFETY_NOTICE,
+            "next_action": "Manual architecture and safety work required before any live capability exists.",
+        },
+    ]
+    return {
+        "stage": "gui_trade_mode_control",
+        "summary": {
+            "default_mode": "research",
+            "mode_count": len(rows),
+            "research_available": True,
+            "paper_simulation_available": True,
+            "paper_trading_allowed": False,
+            "live_trading_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "next_action": "Use research or paper simulation endpoints; live trading remains blocked.",
+        },
+        "rows": rows,
+        "safety": {
+            "notice": SAFETY_NOTICE,
+            "paper_only": True,
+            "live_trading_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+        },
+    }
 
 
 def _verification_gates() -> list[dict[str, Any]]:

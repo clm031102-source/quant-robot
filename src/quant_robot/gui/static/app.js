@@ -500,6 +500,7 @@ function renderControlCenter() {
   const processMonitor = control.process_monitor || {};
   const activeOperationSpec = control.active_operation || {};
   const operationLedger = control.operation_ledger || {};
+  const tradeModeControl = control.trade_mode_control || {};
   const backtest = control.backtest || {};
   const backtestProvenance = control.backtest_provenance || {};
   const backtestGate = control.backtest_gate || {};
@@ -559,6 +560,7 @@ function renderControlCenter() {
   byId("control-process-monitor").innerHTML = renderProcessMonitor(processMonitor);
   byId("control-active-operation").innerHTML = renderActiveOperation(activeOperationSpec, state.activeOperation);
   byId("control-operation-ledger").innerHTML = renderOperationLedger(operationLedger);
+  byId("control-trade-mode-control").innerHTML = renderTradeModeControl(tradeModeControl);
   byId("control-run-queue").innerHTML = statusRows([
     ["Active", activeRun.label || "--", activeRun.workflow_id ? "ok" : "muted"],
     ["Status", activeRun.status || "--", activeRun.status === "ready_to_run" ? "ok" : "warn"],
@@ -1890,6 +1892,47 @@ function renderOperationLedger(ledger = {}) {
     <div class="list-row warn">
       <strong>Awaiting workflow receipt</strong>
       <span>Run research, signal, paper, or verification from this GUI to create a server-side receipt.</span>
+    </div>
+  `);
+}
+
+function renderTradeModeControl(control = {}) {
+  const summary = control.summary || {};
+  const rows = control.rows || [];
+  const header = `
+    <div class="list-row ${escapeHtml(summary.live_trading_allowed ? "danger" : "ok")}">
+      <strong>${escapeHtml(`Default mode: ${summary.default_mode || "research"}`)}</strong>
+      <span>${escapeHtml(`paper_sim=${summary.paper_simulation_available ? "available" : "blocked"} / live=${summary.live_trading_allowed ? "enabled" : "blocked"}`)}</span>
+      <span>${escapeHtml(summary.next_action || "Use research and paper simulation modes only.")}</span>
+    </div>
+  `;
+  const body = rows.map((item) => {
+    const permissions = item.permissions || {};
+    const status = item.status || "";
+    const statusClass = status === "ready"
+      ? "ok"
+      : status === "blocked"
+        ? "danger"
+        : "warn";
+    const permissionText = [
+      permissions.research_api_allowed ? "research_api" : "",
+      permissions.paper_simulation_allowed ? "paper_sim" : "",
+      permissions.order_placement_allowed ? "orders" : "orders=false",
+      permissions.live_trading_allowed ? "live" : "live=false",
+    ].filter(Boolean).join(" / ");
+    return `
+      <div class="list-row ${escapeHtml(statusClass)}">
+        <strong>${escapeHtml(item.label || item.mode_id || "")}</strong>
+        <span>${escapeHtml(`${status || "--"} / ${permissionText}`)}</span>
+        <span>${escapeHtml(item.entrypoint || "")}</span>
+        <span>${escapeHtml(item.guardrail || item.scope || "")}</span>
+      </div>
+    `;
+  }).join("");
+  return header + (body || `
+    <div class="list-row warn">
+      <strong>No mode rows</strong>
+      <span>The control API should expose research, paper simulation, and live trading mode rows.</span>
     </div>
   `);
 }

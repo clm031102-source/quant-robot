@@ -534,6 +534,10 @@ button {
   max-height: 236px;
 }
 
+.trade-mode-control-list {
+  max-height: 236px;
+}
+
 .active-operation-meta {
   display: flex;
   flex-wrap: wrap;

@@ -51,6 +51,7 @@ def run_gui_browser_smoke(
                     "control-process-monitor",
                     "control-active-operation",
                     "control-operation-ledger",
+                    "control-trade-mode-control",
                     "control-result-evidence",
                     "control-startup-health",
                     "control-audit-feedback",
@@ -78,6 +79,7 @@ def run_gui_browser_smoke(
             and "renderProcessMonitor" in str(app_js.get("body", ""))
             and "renderActiveOperation" in str(app_js.get("body", ""))
             and "renderOperationLedger" in str(app_js.get("body", ""))
+            and "renderTradeModeControl" in str(app_js.get("body", ""))
             and "beginActiveOperation" in str(app_js.get("body", ""))
             and "finishActiveOperation" in str(app_js.get("body", ""))
             and "renderResultEvidence" in str(app_js.get("body", ""))
@@ -215,6 +217,23 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "trade_mode_control_panel",
+            "Trade mode control contract",
+            control.get("ok")
+            and control_body.get("trade_mode_control", {}).get("stage") == "gui_trade_mode_control"
+            and control_body.get("trade_mode_control", {}).get("summary", {}).get("paper_simulation_available") is True
+            and control_body.get("trade_mode_control", {}).get("summary", {}).get("live_trading_allowed") is False
+            and {
+                row.get("mode_id")
+                for row in control_body.get("trade_mode_control", {}).get("rows", [])
+            }
+            == {"research", "paper_simulation", "live_trading"},
+            "Control API exposes research, paper simulation, and live-trading modes with live trading blocked.",
+            control.get("error") or "Control API is missing trade_mode_control mode rows.",
+        )
+    )
+    checks.append(
+        _check(
             "audit_feedback_panel",
             "Audit feedback contract",
             control.get("ok")
@@ -275,6 +294,7 @@ def run_gui_browser_smoke(
             and ".process-monitor-list" in str(styles_css.get("body", ""))
             and ".active-operation-list" in str(styles_css.get("body", ""))
             and ".operation-ledger-list" in str(styles_css.get("body", ""))
+            and ".trade-mode-control-list" in str(styles_css.get("body", ""))
             and ".result-evidence-list" in str(styles_css.get("body", ""))
             and ".audit-feedback-list" in str(styles_css.get("body", ""))
             and ".audit-iteration-list" in str(styles_css.get("body", ""))
