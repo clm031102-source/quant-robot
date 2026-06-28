@@ -717,6 +717,7 @@ function renderControlCenter() {
   const backtestProvenance = control.backtest_provenance || {};
   const backtestGate = control.backtest_gate || {};
   const resultEvidence = control.result_evidence || {};
+  const ledgerEvidence = control.ledger_evidence || {};
   const method = control.method || {};
   const workflows = control.workflows || [];
   const reportLinks = control.report_links || [];
@@ -875,6 +876,7 @@ function renderControlCenter() {
     metric("Paper equity", formatNumber(paperMetrics.ending_equity), "paper"),
   ].join("");
   renderResultFreshness();
+  byId("control-ledger-evidence").innerHTML = renderLedgerEvidence(ledgerEvidence);
   byId("control-result-evidence").innerHTML = renderResultEvidence(resultEvidence);
   byId("control-workflow-commands").innerHTML = workflows.slice(0, 5).map((item) => `
     <div class="list-row">
@@ -2285,6 +2287,44 @@ function renderResultEvidence(evidence = {}) {
     <div class="list-row warn">
       <strong>No result evidence</strong>
       <span>Run research, signals, or paper simulation to connect result metrics to workflow receipts.</span>
+    </div>
+  `);
+}
+
+function renderLedgerEvidence(evidence = {}) {
+  const summary = evidence.summary || {};
+  const rows = evidence.rows || [];
+  const headerClass = summary.live_trading_allowed
+    ? "danger"
+    : summary.status === "current"
+      ? "ok"
+      : summary.status === "partial"
+        ? "warn"
+        : "danger";
+  const header = `
+    <div class="list-row ${escapeHtml(headerClass)}">
+      <strong>${escapeHtml(`Server receipts / ${summary.status || "--"}`)}</strong>
+      <span>${escapeHtml(`current=${summary.current_receipts ?? 0} / missing_or_stale=${summary.missing_or_stale ?? 0}`)}</span>
+      <span>${escapeHtml(summary.next_action || "")}</span>
+    </div>
+  `;
+  const body = rows.slice(0, 6).map((item) => {
+    const freshness = item.freshness || "";
+    const statusClass = freshness === "current" ? "ok" : freshness === "failed_current" ? "danger" : "warn";
+    return `
+      <div class="list-row ${escapeHtml(statusClass)}">
+        <strong>${escapeHtml(`${item.label || item.workflow_id || ""} / ${freshness || "--"}`)}</strong>
+        <span>${escapeHtml(`${item.status || "--"} / matches=${item.matches_current_command ? "true" : "false"}`)}</span>
+        <span>${escapeHtml(item.latest_recorded_at || "no server receipt")}</span>
+        <span>${escapeHtml(item.latest_request_summary || item.current_command || "")}</span>
+        <span>${escapeHtml(item.next_action || "")}</span>
+      </div>
+    `;
+  }).join("");
+  return header + (body || `
+    <div class="list-row warn">
+      <strong>No server ledger evidence</strong>
+      <span>Run research, signals, paper, or verification from this GUI to create server-side receipts.</span>
     </div>
   `);
 }

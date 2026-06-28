@@ -60,6 +60,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("method", result)
         self.assertIn("results", result)
         self.assertIn("result_evidence", result)
+        self.assertIn("ledger_evidence", result)
         self.assertIn("artifacts", result)
         self.assertIn("workflows", result)
         self.assertIn("report_links", result)
@@ -178,6 +179,19 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("live_boundary", result_evidence_ids)
         self.assertTrue(any("sharpe" in item.get("metric_keys", []) for item in result["result_evidence"]["rows"]))
         self.assertTrue(all(item.get("source_workflow") for item in result["result_evidence"]["rows"] if item["check_id"] != "live_boundary"))
+        self.assertEqual(result["ledger_evidence"]["stage"], "gui_ledger_evidence")
+        self.assertFalse(result["ledger_evidence"]["summary"]["live_trading_allowed"])
+        self.assertIn(result["ledger_evidence"]["summary"]["status"], {"current", "partial", "needs_current_receipts"})
+        ledger_workflows = {item["workflow_id"] for item in result["ledger_evidence"]["rows"]}
+        self.assertIn("research_backtest", ledger_workflows)
+        self.assertIn("signal_snapshot", ledger_workflows)
+        self.assertIn("paper_simulation", ledger_workflows)
+        self.assertIn("verification_runner", ledger_workflows)
+        self.assertTrue(all(item.get("current_command") for item in result["ledger_evidence"]["rows"]))
+        self.assertTrue(all("matches_current_command" in item for item in result["ledger_evidence"]["rows"]))
+        audit_category_ids = {item["category_id"] for item in result["audit_scorecard"]["categories"]}
+        self.assertIn("server_ledger_evidence", audit_category_ids)
+        self.assertIn("ledger_current_receipts", result["audit_scorecard"]["summary"])
         self.assertEqual(result["backtest_gate"]["stage"], "gui_backtest_gate")
         self.assertFalse(result["backtest_gate"]["summary"]["live_trading_allowed"])
         self.assertFalse(result["backtest_gate"]["summary"]["paper_candidate_allowed"])
@@ -544,6 +558,48 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertEqual(snapshot["rows"][0]["workflow_id"], "research_backtest")
         self.assertEqual(control["operation_ledger"]["stage"], "gui_operation_ledger")
         self.assertEqual(control["operation_ledger"]["summary"]["latest_workflow_id"], "research_backtest")
+
+    def test_ledger_evidence_distinguishes_current_from_stale_server_receipts(self):
+        from quant_robot.gui.control_center import build_control_center_snapshot
+        from quant_robot.gui.operation_ledger import append_operation_ledger_entry
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            initial = build_control_center_snapshot(repo_root=root)
+            commands = {item["workflow_id"]: item["command"] for item in initial["workflows"]}
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="paper_simulation",
+                label="Run local paper simulation",
+                status="completed",
+                command="GET /api/paper?market=CN_ETF&factor=old_factor&top_n=1",
+                request={"market": "CN_ETF", "factor_name": "old_factor", "top_n": 1},
+                result={"stage": "gui_paper_simulation", "metrics": {"ending_equity": 99800}},
+            )
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="research_backtest",
+                label="Run research backtest",
+                status="completed",
+                command=commands["research_backtest"],
+                request={"market": "CN_ETF", "factor_name": "momentum_2", "top_n": 2},
+                result={"stage": "gui_research_result", "metrics": {"sharpe": 1.87}},
+            )
+
+            result = build_control_center_snapshot(repo_root=root)
+
+        evidence = result["ledger_evidence"]
+        rows = {item["workflow_id"]: item for item in evidence["rows"]}
+        self.assertEqual(evidence["stage"], "gui_ledger_evidence")
+        self.assertEqual(rows["research_backtest"]["freshness"], "current")
+        self.assertTrue(rows["research_backtest"]["matches_current_command"])
+        self.assertEqual(rows["research_backtest"]["latest_command"], rows["research_backtest"]["current_command"])
+        self.assertEqual(rows["paper_simulation"]["freshness"], "stale")
+        self.assertFalse(rows["paper_simulation"]["matches_current_command"])
+        self.assertIn("Run local paper simulation", rows["paper_simulation"]["next_action"])
+        self.assertEqual(evidence["summary"]["current_receipts"], 1)
+        self.assertGreaterEqual(evidence["summary"]["missing_or_stale"], 2)
+        self.assertFalse(evidence["summary"]["live_trading_allowed"])
 
     def test_control_center_uses_independent_audit_packet_as_next_optimization_input(self):
         from quant_robot.gui.control_center import build_control_center_snapshot
@@ -1462,6 +1518,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("control-trade-mode-control", html)
             self.assertIn("control-request-preview", html)
             self.assertIn("control-result-freshness", html)
+            self.assertIn("control-ledger-evidence", html)
             self.assertIn("control-startup-health", html)
             self.assertIn("control-backtest-provenance", html)
             self.assertIn("control-backtest-gate", html)
@@ -1581,6 +1638,8 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("REQUEST_PREVIEW_INPUT_IDS", app_js)
             self.assertIn("control-result-freshness", app_js)
             self.assertIn("renderResultFreshness", app_js)
+            self.assertIn("control-ledger-evidence", app_js)
+            self.assertIn("renderLedgerEvidence", app_js)
             self.assertIn("requestObjectFromParams", app_js)
             self.assertIn("requestMatchesCurrentParams", app_js)
             self.assertIn("control-startup-health", app_js)
@@ -1655,6 +1714,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("backtest", control)
             self.assertIn("method", control)
             self.assertIn("result_evidence", control)
+            self.assertIn("ledger_evidence", control)
             self.assertIn("workflows", control)
             self.assertIn("report_links", control)
             self.assertIn("workspace_sync", control)
@@ -1682,6 +1742,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("audit_iteration_plan", control)
             self.assertIn("round_checkpoint_report", control)
             self.assertIn("audit_scheduler", control)
+            self.assertEqual(control["ledger_evidence"]["stage"], "gui_ledger_evidence")
             self.assertFalse(control["safety"]["live_trading_allowed"])
             self.assertFalse(control["trade_mode_control"]["summary"]["live_trading_allowed"])
             self.assertTrue(control["trade_mode_control"]["summary"]["paper_simulation_available"])

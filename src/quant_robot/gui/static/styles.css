@@ -546,6 +546,10 @@ button {
   max-height: 236px;
 }
 
+.ledger-evidence-list {
+  max-height: 236px;
+}
+
 .active-operation-meta {
   display: flex;
   flex-wrap: wrap;

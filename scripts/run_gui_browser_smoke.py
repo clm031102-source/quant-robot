@@ -54,6 +54,7 @@ def run_gui_browser_smoke(
                     "control-trade-mode-control",
                     "control-request-preview",
                     "control-result-freshness",
+                    "control-ledger-evidence",
                     "control-result-evidence",
                     "control-startup-health",
                     "control-audit-feedback",
@@ -88,6 +89,7 @@ def run_gui_browser_smoke(
             and "buildSignalParams" in str(app_js.get("body", ""))
             and "buildPaperParams" in str(app_js.get("body", ""))
             and "renderResultFreshness" in str(app_js.get("body", ""))
+            and "renderLedgerEvidence" in str(app_js.get("body", ""))
             and "requestMatchesCurrentParams" in str(app_js.get("body", ""))
             and "beginActiveOperation" in str(app_js.get("body", ""))
             and "finishActiveOperation" in str(app_js.get("body", ""))
@@ -260,6 +262,30 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "ledger_evidence_panel",
+            "Server ledger evidence contract",
+            control.get("ok")
+            and control_body.get("ledger_evidence", {}).get("stage") == "gui_ledger_evidence"
+            and bool(control_body.get("ledger_evidence", {}).get("rows"))
+            and control_body.get("ledger_evidence", {}).get("summary", {}).get("live_trading_allowed") is False,
+            "Control API exposes server-side receipt freshness against current workflow commands.",
+            control.get("error") or "Control API is missing ledger_evidence rows.",
+        )
+    )
+    checks.append(
+        _check(
+            "ledger_evidence_frontend",
+            "Server ledger evidence frontend",
+            index_html.get("ok")
+            and "control-ledger-evidence" in str(index_html.get("body", ""))
+            and app_js.get("ok")
+            and "renderLedgerEvidence" in str(app_js.get("body", "")),
+            "Frontend exposes the server ledger evidence panel.",
+            index_html.get("error") or app_js.get("error") or "Ledger evidence frontend hooks are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "audit_feedback_panel",
             "Audit feedback contract",
             control.get("ok")
@@ -354,6 +380,7 @@ def run_gui_browser_smoke(
             and ".trade-mode-control-list" in str(styles_css.get("body", ""))
             and ".request-preview-list" in str(styles_css.get("body", ""))
             and ".result-freshness-list" in str(styles_css.get("body", ""))
+            and ".ledger-evidence-list" in str(styles_css.get("body", ""))
             and ".result-evidence-list" in str(styles_css.get("body", ""))
             and ".audit-feedback-list" in str(styles_css.get("body", ""))
             and ".round-checkpoint-list" in str(styles_css.get("body", ""))

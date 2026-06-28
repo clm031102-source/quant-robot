@@ -44,6 +44,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     trade_mode_control = _trade_mode_control(workflows)
     verification_gates = _verification_gates()
     verification_runner = build_verification_runner_snapshot(verification_gates)
+    ledger_evidence = _ledger_evidence(workflows, operation_ledger, verification_runner)
     readiness_matrix = _readiness_matrix(workflows, verification_gates, artifacts)
     audit_packets = _audit_packets(root)
     startup_health = _startup_health(workflows, verification_gates, audit_packets)
@@ -61,6 +62,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         latest_gui_audit,
         backtest_provenance,
         result_evidence,
+        ledger_evidence,
         process_monitor,
     )
     audit_feedback = _audit_feedback(audit_packet_source, audit_packets)
@@ -149,6 +151,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
             ],
         },
         "result_evidence": result_evidence,
+        "ledger_evidence": ledger_evidence,
         "artifacts": artifacts,
         "report_links": _report_links(root, artifacts, audit_packets),
         "safety": {
@@ -1062,6 +1065,119 @@ def _result_evidence(workflows: list[dict[str, Any]], execution_receipts: dict[s
     }
 
 
+def _ledger_evidence(
+    workflows: list[dict[str, Any]],
+    operation_ledger: dict[str, Any],
+    verification_runner: dict[str, Any],
+) -> dict[str, Any]:
+    expected = [
+        {
+            "workflow_id": "research_backtest",
+            "label": "Run research backtest",
+            "current_command": _workflow_command(workflows, "research_backtest"),
+        },
+        {
+            "workflow_id": "signal_snapshot",
+            "label": "Generate advisory signal snapshot",
+            "current_command": _workflow_command(workflows, "signal_snapshot"),
+        },
+        {
+            "workflow_id": "paper_simulation",
+            "label": "Run local paper simulation",
+            "current_command": _workflow_command(workflows, "paper_simulation"),
+        },
+        {
+            "workflow_id": "verification_runner",
+            "label": "Run verification gate gui_compile",
+            "current_command": _verification_endpoint(verification_runner, "gui_compile"),
+        },
+    ]
+    rows = [
+        _ledger_evidence_row(item, operation_ledger)
+        for item in expected
+    ]
+    current_receipts = sum(1 for row in rows if row["freshness"] == "current")
+    missing_or_stale = sum(1 for row in rows if row["freshness"] in {"missing", "stale", "failed_current"})
+    status = "current" if current_receipts == len(rows) else "partial" if current_receipts else "needs_current_receipts"
+    next_row = next((row for row in rows if row["freshness"] != "current"), rows[0] if rows else {})
+    return {
+        "stage": "gui_ledger_evidence",
+        "summary": {
+            "status": status,
+            "current_receipts": current_receipts,
+            "missing_or_stale": missing_or_stale,
+            "tracked_workflows": len(rows),
+            "source": operation_ledger.get("summary", {}).get("path", "data/reports/gui_operation_ledger/gui_operation_ledger.json")
+            if isinstance(operation_ledger, dict)
+            else "data/reports/gui_operation_ledger/gui_operation_ledger.json",
+            "next_action": next_row.get("next_action", "Run current GUI workflows to refresh server-side receipts."),
+            "paper_only": True,
+            "live_trading_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+        },
+        "rows": rows,
+        "safety": _verification_runner_safety(),
+    }
+
+
+def _ledger_evidence_row(expected: dict[str, str], operation_ledger: dict[str, Any]) -> dict[str, Any]:
+    workflow_id = expected["workflow_id"]
+    rows = operation_ledger.get("rows", []) if isinstance(operation_ledger, dict) else []
+    latest = next(
+        (row for row in rows if isinstance(row, dict) and row.get("workflow_id") == workflow_id),
+        None,
+    )
+    current_command = expected.get("current_command", "")
+    latest_command = str(latest.get("command") or "") if latest else ""
+    matches_current_command = bool(latest) and _normalize_command(latest_command) == _normalize_command(current_command)
+    latest_status = str(latest.get("status") or "") if latest else ""
+    if not latest:
+        freshness = "missing"
+        status = "awaiting_run"
+    elif not matches_current_command:
+        freshness = "stale"
+        status = latest_status or "stale"
+    elif latest_status in {"completed", "passed"}:
+        freshness = "current"
+        status = latest_status
+    else:
+        freshness = "failed_current"
+        status = latest_status or "failed"
+    return {
+        "workflow_id": workflow_id,
+        "label": expected.get("label", workflow_id),
+        "freshness": freshness,
+        "status": status,
+        "matches_current_command": matches_current_command,
+        "current_command": current_command,
+        "latest_command": latest_command,
+        "latest_recorded_at": str(latest.get("recorded_at") or "") if latest else "",
+        "latest_request_summary": str(latest.get("request_summary") or "") if latest else "",
+        "latest_metric_summary": str(latest.get("metric_summary") or "") if latest else "",
+        "source": "server_operation_ledger",
+        "next_action": (
+            "Covered by the latest server-side receipt."
+            if freshness == "current"
+            else f"{expected.get('label', workflow_id)} with the displayed current command."
+        ),
+    }
+
+
+def _verification_endpoint(verification_runner: dict[str, Any], gate_id: str) -> str:
+    rows = verification_runner.get("rows", []) if isinstance(verification_runner, dict) else []
+    for row in rows:
+        if isinstance(row, dict) and row.get("gate_id") == gate_id:
+            endpoint = str(row.get("endpoint") or "")
+            return f"GET {endpoint}" if endpoint else str(row.get("command") or "")
+    return f"GET /api/control/verification?gate_id={gate_id}"
+
+
+def _normalize_command(command: str) -> str:
+    return str(command or "").strip().replace("\\", "/")
+
+
 def _backtest_gate(workflows: list[dict[str, Any]], execution_receipts: dict[str, Any]) -> dict[str, Any]:
     research_command = _workflow_command(workflows, "research_backtest")
     paper_command = _workflow_command(workflows, "paper_simulation")
@@ -1471,6 +1587,7 @@ def _audit_scorecard(
     latest_gui_audit: dict[str, Any] | None = None,
     backtest_provenance: dict[str, Any] | None = None,
     result_evidence: dict[str, Any] | None = None,
+    ledger_evidence: dict[str, Any] | None = None,
     process_monitor: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     required_gate_count = sum(1 for gate in verification_gates if str(gate.get("status", "")).startswith("required"))
@@ -1493,6 +1610,16 @@ def _audit_scorecard(
         (result_evidence or {}).get("stage") == "gui_result_evidence"
         and bool((result_evidence or {}).get("rows"))
     )
+    ledger_evidence_ready = (
+        (ledger_evidence or {}).get("stage") == "gui_ledger_evidence"
+        and bool((ledger_evidence or {}).get("rows"))
+    )
+    ledger_evidence_summary = (
+        (ledger_evidence or {}).get("summary", {})
+        if isinstance((ledger_evidence or {}).get("summary"), dict)
+        else {}
+    )
+    ledger_current_receipts = int(ledger_evidence_summary.get("current_receipts", 0) or 0)
     process_monitor_ready = (
         (process_monitor or {}).get("stage") == "gui_process_monitor"
         and bool((process_monitor or {}).get("rows"))
@@ -1530,13 +1657,25 @@ def _audit_scorecard(
         {
             "category_id": "runtime_observability",
             "label": "Runtime observability",
-            "score": 14 if result_evidence_ready and process_monitor_ready else 13,
-            "max_score": 14,
+            "score": 10 if result_evidence_ready and process_monitor_ready else 9,
+            "max_score": 10,
             "status": "good" if result_evidence_ready and process_monitor_ready else "needs_runtime_evidence",
             "evidence": (
                 "Startup health, process monitor, result evidence, current work, local workflow commands, and browser-persisted run history are visible."
                 if result_evidence_ready and process_monitor_ready
                 else "Runtime view needs both local process monitor evidence and result evidence that maps metrics to workflow receipts."
+            ),
+        },
+        {
+            "category_id": "server_ledger_evidence",
+            "label": "Server ledger evidence",
+            "score": 4 if ledger_evidence_ready else 0,
+            "max_score": 4,
+            "status": "good" if ledger_evidence_ready else "missing_server_receipts",
+            "evidence": (
+                f"Server operation ledger checks current workflow receipts; current={ledger_current_receipts}."
+                if ledger_evidence_ready
+                else "Control center must expose server-side ledger freshness for research, signal, paper, and verification workflows."
             ),
         },
         {
@@ -1617,6 +1756,14 @@ def _audit_scorecard(
                 "reason": f"{required_missing_packets} required audit packet links are missing.",
             }
         )
+    if not ledger_evidence_ready:
+        repair_queue.append(
+            {
+                "priority": "P1",
+                "action": "Expose server ledger freshness",
+                "reason": "The GUI must show whether server-side receipts match the current workflow commands.",
+            }
+        )
     repair_queue = _dedupe_audit_actions(repair_queue)
     return {
         "stage": "gui_audit_scorecard",
@@ -1633,6 +1780,7 @@ def _audit_scorecard(
             "required_gate_count": required_gate_count,
             "missing_artifact_count": missing_artifact_count,
             "required_missing_audit_packets": required_missing_packets,
+            "ledger_current_receipts": ledger_current_receipts,
         },
         "categories": categories,
         "repair_queue": repair_queue,
