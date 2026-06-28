@@ -61,6 +61,7 @@ def _build_entry(
         "label": label,
         "status": status,
         "command": command,
+        "request": _json_safe(request),
         "request_summary": _request_summary(request),
         "metric_summary": _metric_summary(metrics, result),
         "stage": result.get("stage", ""),
@@ -122,6 +123,18 @@ def _request_summary(request: dict[str, Any]) -> str:
     ]
     parts = [f"{key}={request[key]}" for key in keys if request.get(key) not in {None, ""}]
     return " / ".join(parts)
+
+
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    if isinstance(value, Path):
+        return str(value)
+    return str(value)
 
 
 def _metric_summary(metrics: dict[str, Any], result: dict[str, Any]) -> str:

@@ -53,13 +53,15 @@ const sourcePresets = {
   "processed-bars": {
     dataRoot: "data/processed/etf_csv",
     market: "CN_ETF",
-    factor: "liquidity_10",
+    factor: "momentum_2",
     factorWindows: "5,10,20,60,120",
     startDate: "2026-01-01",
     endDate: "2026-05-21",
     signalDate: "2026-05-21",
     paperStartDate: "2026-01-01",
     paperEndDate: "2026-05-21",
+    executionLag: "1",
+    forwardHorizon: "1",
     rebalanceInterval: "5",
   },
   demo_fixture: {
@@ -72,6 +74,8 @@ const sourcePresets = {
     signalDate: "2024-01-13",
     paperStartDate: "2024-01-04",
     paperEndDate: "2024-01-12",
+    executionLag: "1",
+    forwardHorizon: "1",
     rebalanceInterval: "1",
   },
 };
@@ -88,6 +92,8 @@ const REQUEST_PREVIEW_INPUT_IDS = [
   "factor-windows",
   "start-date",
   "end-date",
+  "execution-lag",
+  "forward-horizon",
   "research-top-n",
   "research-cost-bps",
   "rebalance-interval",
@@ -112,6 +118,8 @@ const REQUEST_PREVIEW_INPUT_IDS = [
   "paper-commission-bps",
   "paper-slippage-bps",
   "paper-max-asset-weight",
+  "paper-max-market-weight",
+  "paper-max-gross-exposure",
   "paper-min-cash-weight",
   "paper-drawdown-guard",
   "paper-guard-cooldown",
@@ -197,6 +205,7 @@ async function loadSnapshot() {
 
 async function loadControlCenter() {
   state.controlCenter = await fetchJson("/api/control/status");
+  applyControlDefaults();
   state.runHistory = loadRunHistory(state.controlCenter?.run_history || {});
   renderControlCenter();
 }
@@ -288,6 +297,8 @@ function buildResearchParams() {
     cost_bps: valueOf("research-cost-bps") || "5",
     start_date: valueOf("start-date"),
     end_date: valueOf("end-date"),
+    execution_lag: valueOf("execution-lag") || "1",
+    forward_horizon: valueOf("forward-horizon") || "1",
     rebalance_interval: valueOf("rebalance-interval") || "1",
     benchmark_asset_id: valueOf("benchmark-asset-id"),
     cash_annual_return: valueOf("cash-annual-return") || "0",
@@ -329,8 +340,8 @@ function buildPaperParams() {
     commission_bps: valueOf("paper-commission-bps") || "5",
     slippage_bps: valueOf("paper-slippage-bps") || "5",
     max_asset_weight: valueOf("paper-max-asset-weight") || "1",
-    max_market_weight: "1",
-    max_gross_exposure: "1",
+    max_market_weight: valueOf("paper-max-market-weight") || "1",
+    max_gross_exposure: valueOf("paper-max-gross-exposure") || "1",
     min_cash_weight: valueOf("paper-min-cash-weight") || "0",
     max_drawdown_guard: valueOf("paper-drawdown-guard"),
     guard_cooldown_periods: valueOf("paper-guard-cooldown") || "0",
@@ -378,6 +389,57 @@ function renderRequestPreview() {
     `).join("");
   }
   renderResultFreshness();
+}
+
+function applyControlDefaults() {
+  const defaults = state.controlCenter?.form_defaults || {};
+  if (defaults.stage !== "gui_form_defaults") return;
+  const research = defaults.research || {};
+  const signal = defaults.signal || {};
+  const paper = defaults.paper || {};
+
+  setValue("data-source-select", research.source || "processed-bars");
+  setValue("data-root-input", research.data_root || "");
+  setValue("market-select", research.market || "CN_ETF");
+  setFactorValue("factor-select", research.factor || "momentum_2");
+  setValue("factor-windows", research.factor_windows || "");
+  setValue("start-date", research.start_date || "");
+  setValue("end-date", research.end_date || "");
+  setValue("execution-lag", research.execution_lag ?? "");
+  setValue("forward-horizon", research.forward_horizon ?? "");
+  setValue("research-top-n", research.top_n ?? "");
+  setValue("research-cost-bps", research.cost_bps ?? "");
+  setValue("rebalance-interval", research.rebalance_interval ?? "");
+  setValue("benchmark-asset-id", research.benchmark_asset_id || "");
+  setValue("cash-annual-return", research.cash_annual_return ?? "");
+  if (byId("regime-filter")) byId("regime-filter").checked = Boolean(research.regime_filter);
+  setValue("regime-lookback", research.regime_lookback ?? "");
+  setValue("min-relative-return", research.min_relative_return ?? "");
+  setValue("max-drawdown-limit", research.max_drawdown_limit ?? "");
+
+  setValue("signal-top-n", signal.top_n ?? research.top_n ?? "");
+  setValue("signal-as-of", signal.as_of_date || research.end_date || "");
+  setValue("max-asset-weight", signal.max_asset_weight ?? "");
+  setValue("max-market-weight", signal.max_market_weight ?? "");
+  setValue("max-gross-exposure", signal.max_gross_exposure ?? "");
+  setValue("min-cash-weight", signal.min_cash_weight ?? "");
+
+  setValue("paper-market-select", paper.market || research.market || "CN_ETF");
+  setFactorValue("paper-factor-select", paper.factor || research.factor || "momentum_2");
+  setValue("paper-top-n", paper.top_n ?? research.top_n ?? "");
+  setValue("paper-start-date", paper.start_date || research.start_date || "");
+  setValue("paper-end-date", paper.end_date || research.end_date || "");
+  setValue("paper-initial-cash", paper.initial_cash ?? "");
+  setValue("paper-commission-bps", paper.commission_bps ?? "");
+  setValue("paper-slippage-bps", paper.slippage_bps ?? "");
+  setValue("paper-max-asset-weight", paper.max_asset_weight ?? "");
+  setValue("paper-max-market-weight", paper.max_market_weight ?? "");
+  setValue("paper-max-gross-exposure", paper.max_gross_exposure ?? "");
+  setValue("paper-min-cash-weight", paper.min_cash_weight ?? "");
+  setValue("paper-drawdown-guard", paper.max_drawdown_guard ?? "");
+  setValue("paper-guard-cooldown", paper.guard_cooldown_periods ?? "");
+
+  renderRequestPreview();
 }
 
 function requestPreviewSummary(params) {
@@ -499,6 +561,8 @@ function applySourcePreset(force) {
   setValue("signal-as-of", preset.signalDate);
   setValue("paper-start-date", preset.paperStartDate);
   setValue("paper-end-date", preset.paperEndDate);
+  setValue("execution-lag", preset.executionLag);
+  setValue("forward-horizon", preset.forwardHorizon);
   setValue("rebalance-interval", preset.rebalanceInterval);
   if (force || !valueOf("market-select") || valueOf("market-select") === "ALL") {
     setValue("market-select", preset.market);

@@ -57,6 +57,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertEqual(result["stage"], "gui_control_center")
         self.assertIn("work", result)
         self.assertIn("backtest", result)
+        self.assertIn("form_defaults", result)
         self.assertIn("method", result)
         self.assertIn("results", result)
         self.assertIn("result_evidence", result)
@@ -93,10 +94,33 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("safety", result)
         self.assertIn("automation", result)
         self.assertFalse(result["safety"]["live_trading_allowed"])
+        self.assertEqual(result["form_defaults"]["stage"], "gui_form_defaults")
+        self.assertEqual(result["form_defaults"]["research"]["factor"], result["backtest"]["factor"])
+        self.assertEqual(result["form_defaults"]["research"]["factor_windows"], result["backtest"]["factor_windows"])
+        self.assertEqual(result["form_defaults"]["research"]["start_date"], result["backtest"]["start_date"])
+        self.assertEqual(result["form_defaults"]["research"]["end_date"], result["backtest"]["end_date"])
+        self.assertEqual(result["form_defaults"]["research"]["top_n"], result["backtest"]["top_n"])
+        self.assertEqual(result["form_defaults"]["research"]["rebalance_interval"], result["backtest"]["rebalance_interval"])
+        self.assertEqual(result["form_defaults"]["research"]["execution_lag"], result["backtest"]["execution_lag"])
+        self.assertEqual(result["form_defaults"]["research"]["forward_horizon"], result["backtest"]["forward_horizon"])
+        self.assertEqual(result["form_defaults"]["signal"]["factor"], result["backtest"]["factor"])
+        self.assertEqual(result["form_defaults"]["signal"]["as_of_date"], result["backtest"]["end_date"])
+        self.assertEqual(result["form_defaults"]["paper"]["factor"], result["backtest"]["factor"])
+        self.assertEqual(result["form_defaults"]["paper"]["initial_cash"], 100000)
+        self.assertEqual(result["form_defaults"]["paper"]["max_market_weight"], 1)
+        self.assertEqual(result["form_defaults"]["paper"]["max_gross_exposure"], 1)
         self.assertGreaterEqual(len(result["method"]["steps"]), 6)
         self.assertGreaterEqual(len(result["workflows"]), 4)
         self.assertGreaterEqual(len(result["verification_gates"]), 5)
         self.assertTrue(all(item["mode"] == "local" for item in result["workflows"]))
+        workflow_by_id = {item["workflow_id"]: item for item in result["workflows"]}
+        self.assertEqual(workflow_by_id["research_backtest"]["request"]["factor_name"], result["backtest"]["factor"])
+        self.assertEqual(workflow_by_id["research_backtest"]["request"]["execution_lag"], result["backtest"]["execution_lag"])
+        self.assertIn(f"execution_lag={result['backtest']['execution_lag']}", workflow_by_id["research_backtest"]["command"])
+        self.assertIn(f"forward_horizon={result['backtest']['forward_horizon']}", workflow_by_id["research_backtest"]["command"])
+        self.assertEqual(workflow_by_id["signal_snapshot"]["request"]["factor_name"], result["backtest"]["factor"])
+        self.assertEqual(workflow_by_id["paper_simulation"]["request"]["max_market_weight"], result["form_defaults"]["paper"]["max_market_weight"])
+        self.assertEqual(workflow_by_id["paper_simulation"]["request"]["max_gross_exposure"], result["form_defaults"]["paper"]["max_gross_exposure"])
         self.assertTrue(all(item["mode"] == "local" for item in result["verification_gates"]))
         self.assertTrue(any("test_gui" in item["command"] for item in result["verification_gates"]))
         self.assertTrue(any("run_project_audit.py" in item["command"] for item in result["verification_gates"]))
@@ -190,6 +214,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("verification_runner", ledger_workflows)
         self.assertTrue(all(item.get("current_command") for item in result["ledger_evidence"]["rows"]))
         self.assertTrue(all("matches_current_command" in item for item in result["ledger_evidence"]["rows"]))
+        self.assertTrue(all("matches_current_request" in item for item in result["ledger_evidence"]["rows"]))
         audit_category_ids = {item["category_id"] for item in result["audit_scorecard"]["categories"]}
         self.assertIn("server_ledger_evidence", audit_category_ids)
         self.assertIn("ledger_current_receipts", result["audit_scorecard"]["summary"])
@@ -567,6 +592,8 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertFalse(snapshot["summary"]["live_trading_allowed"])
         self.assertTrue(snapshot["summary"]["path"].endswith("data/reports/gui_operation_ledger/gui_operation_ledger.json"))
         self.assertEqual(snapshot["rows"][0]["workflow_id"], "research_backtest")
+        self.assertEqual(snapshot["rows"][0]["request"]["factor_name"], "momentum_2")
+        self.assertEqual(snapshot["rows"][0]["request"]["top_n"], 2)
         self.assertEqual(control["operation_ledger"]["stage"], "gui_operation_ledger")
         self.assertEqual(control["operation_ledger"]["summary"]["latest_workflow_id"], "research_backtest")
 
@@ -577,7 +604,7 @@ class GuiSnapshotTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             initial = build_control_center_snapshot(repo_root=root)
-            commands = {item["workflow_id"]: item["command"] for item in initial["workflows"]}
+            workflow_by_id = {item["workflow_id"]: item for item in initial["workflows"]}
             append_operation_ledger_entry(
                 repo_root=root,
                 workflow_id="paper_simulation",
@@ -592,8 +619,8 @@ class GuiSnapshotTests(unittest.TestCase):
                 workflow_id="research_backtest",
                 label="Run research backtest",
                 status="completed",
-                command=commands["research_backtest"],
-                request={"market": "CN_ETF", "factor_name": "momentum_2", "top_n": 2},
+                command="GET /api/research?top_n=2&factor=momentum_2&market=CN_ETF",
+                request=workflow_by_id["research_backtest"]["request"],
                 result={"stage": "gui_research_result", "metrics": {"sharpe": 1.87}},
             )
 
@@ -604,9 +631,12 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertEqual(evidence["stage"], "gui_ledger_evidence")
         self.assertEqual(rows["research_backtest"]["freshness"], "current")
         self.assertTrue(rows["research_backtest"]["matches_current_command"])
-        self.assertEqual(rows["research_backtest"]["latest_command"], rows["research_backtest"]["current_command"])
+        self.assertTrue(rows["research_backtest"]["matches_current_request"])
+        self.assertNotEqual(rows["research_backtest"]["latest_command"], rows["research_backtest"]["current_command"])
+        self.assertEqual(rows["research_backtest"]["current_request"]["factor_name"], "momentum_2")
         self.assertEqual(rows["paper_simulation"]["freshness"], "stale")
         self.assertFalse(rows["paper_simulation"]["matches_current_command"])
+        self.assertFalse(rows["paper_simulation"]["matches_current_request"])
         self.assertIn("Run local paper simulation", rows["paper_simulation"]["next_action"])
         self.assertEqual(evidence["summary"]["current_receipts"], 1)
         self.assertGreaterEqual(evidence["summary"]["missing_or_stale"], 2)
@@ -1584,6 +1614,10 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("constrained-frontier-table", html)
             self.assertIn("paper-profile-status", html)
             self.assertIn("paper-profile-attempt-table", html)
+            self.assertIn("execution-lag", html)
+            self.assertIn("forward-horizon", html)
+            self.assertIn("paper-max-market-weight", html)
+            self.assertIn("paper-max-gross-exposure", html)
             self.assertIn("recent-data-refresh-status", html)
             self.assertIn("recent-data-refresh-action-table", html)
             self.assertIn("recent-data-refresh-coverage", html)
@@ -1635,6 +1669,12 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("runStartupWorkflows", app_js)
             self.assertIn("/api/control/status", app_js)
             self.assertIn("renderControlCenter", app_js)
+            self.assertIn("applyControlDefaults", app_js)
+            self.assertIn("state.controlCenter?.form_defaults", app_js)
+            self.assertIn('setValue("execution-lag"', app_js)
+            self.assertIn('setValue("forward-horizon"', app_js)
+            self.assertIn('setValue("paper-max-market-weight"', app_js)
+            self.assertIn('setValue("paper-max-gross-exposure"', app_js)
             self.assertIn("control-run-queue", app_js)
             self.assertIn("control-action-center", app_js)
             self.assertIn("renderActionCenter", app_js)
@@ -1658,8 +1698,14 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("control-request-preview", app_js)
             self.assertIn("renderRequestPreview", app_js)
             self.assertIn("buildResearchParams", app_js)
+            build_research_block = app_js.split("function buildResearchParams()", 1)[1].split("function buildSignalParams", 1)[0]
+            self.assertIn('valueOf("execution-lag")', build_research_block)
+            self.assertIn('valueOf("forward-horizon")', build_research_block)
             self.assertIn("buildSignalParams", app_js)
             self.assertIn("buildPaperParams", app_js)
+            build_paper_block = app_js.split("function buildPaperParams()", 1)[1].split("function renderRequestPreview", 1)[0]
+            self.assertIn('valueOf("paper-max-market-weight")', build_paper_block)
+            self.assertIn('valueOf("paper-max-gross-exposure")', build_paper_block)
             self.assertIn("REQUEST_PREVIEW_INPUT_IDS", app_js)
             self.assertIn("control-result-freshness", app_js)
             self.assertIn("renderResultFreshness", app_js)
@@ -1719,6 +1765,8 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("renderVerificationRunner", app_js)
             startup_block = app_js.split('document.addEventListener("DOMContentLoaded", async () => {', 1)[1].split("});", 1)[0]
             self.assertIn("await loadControlCenter();", startup_block)
+            load_control_block = app_js.split("async function loadControlCenter()", 1)[1].split("async function loadProjectStatus", 1)[0]
+            self.assertIn("applyControlDefaults();", load_control_block)
             self.assertIn("await loadRiskCandidates();", startup_block)
             self.assertIn("await loadRecentDataRefresh();", startup_block)
             self.assertIn("await loadPostRefreshReplay();", startup_block)
@@ -1737,6 +1785,7 @@ class GuiHttpTests(unittest.TestCase):
             control = _read_json(f"{base_url}/api/control/status")
             self.assertEqual(control["stage"], "gui_control_center")
             self.assertIn("backtest", control)
+            self.assertIn("form_defaults", control)
             self.assertIn("method", control)
             self.assertIn("result_evidence", control)
             self.assertIn("ledger_evidence", control)
@@ -1773,6 +1822,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertFalse(control["safety"]["live_trading_allowed"])
             self.assertFalse(control["trade_mode_control"]["summary"]["live_trading_allowed"])
             self.assertTrue(control["trade_mode_control"]["summary"]["paper_simulation_available"])
+            self.assertEqual(control["form_defaults"]["research"]["factor"], control["backtest"]["factor"])
 
             project = _read_json(f"{base_url}/api/project/status")
             self.assertEqual(project["stage"], "gui_project_status")

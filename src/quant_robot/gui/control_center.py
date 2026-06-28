@@ -10,6 +10,7 @@ import tomllib
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlencode
 
 from quant_robot.gui.operation_ledger import build_operation_ledger_snapshot
 
@@ -39,7 +40,8 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     operation_ledger = build_operation_ledger_snapshot(root)
     artifacts = _artifact_status(root)
     backtest = _default_backtest()
-    workflows = _workflow_commands(backtest)
+    form_defaults = _form_defaults(backtest)
+    workflows = _workflow_commands(form_defaults)
     run_queue = _run_queue(workflows)
     trade_mode_control = _trade_mode_control(workflows)
     verification_gates = _verification_gates()
@@ -99,6 +101,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
             "branch_policy": "Use a codex/ task branch for GUI work; keep main stable.",
         },
         "backtest": backtest,
+        "form_defaults": form_defaults,
         "workspace_sync": workspace_sync,
         "process_monitor": process_monitor,
         "active_operation": active_operation,
@@ -202,15 +205,80 @@ def _default_backtest() -> dict[str, Any]:
     }
 
 
-def _workflow_commands(backtest: dict[str, Any]) -> list[dict[str, Any]]:
-    query = (
-        f"source={backtest['source']}&data_root={backtest['data_root']}&market={backtest['market']}"
-        f"&factor={backtest['factor']}&factor_windows={backtest['factor_windows']}&top_n={backtest['top_n']}"
-        f"&cost_bps={backtest['cost_bps']}&start_date={backtest['start_date']}&end_date={backtest['end_date']}"
-        f"&rebalance_interval={backtest['rebalance_interval']}&benchmark_asset_id={backtest['benchmark_asset_id']}"
-        f"&cash_annual_return={backtest['cash_annual_return']}&regime_filter=true&regime_lookback={backtest['regime_lookback']}"
-        f"&max_drawdown_limit={backtest['max_drawdown_limit']}"
-    )
+def _form_defaults(backtest: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "stage": "gui_form_defaults",
+        "summary": {
+            "status": "ready",
+            "source": backtest["source"],
+            "market": backtest["market"],
+            "factor": backtest["factor"],
+            "paper_only": True,
+            "live_trading_allowed": False,
+            "next_action": "Apply these defaults to GUI form controls before running workflow buttons.",
+        },
+        "research": {
+            "source": backtest["source"],
+            "data_root": backtest["data_root"],
+            "market": backtest["market"],
+            "factor": backtest["factor"],
+            "factor_windows": backtest["factor_windows"],
+            "top_n": backtest["top_n"],
+            "cost_bps": backtest["cost_bps"],
+            "execution_lag": backtest["execution_lag"],
+            "forward_horizon": backtest["forward_horizon"],
+            "rebalance_interval": backtest["rebalance_interval"],
+            "benchmark_asset_id": backtest["benchmark_asset_id"],
+            "cash_annual_return": backtest["cash_annual_return"],
+            "regime_filter": backtest["regime_filter"],
+            "regime_lookback": backtest["regime_lookback"],
+            "min_relative_return": "",
+            "max_drawdown_limit": backtest["max_drawdown_limit"],
+            "start_date": backtest["start_date"],
+            "end_date": backtest["end_date"],
+        },
+        "signal": {
+            "source": backtest["source"],
+            "data_root": backtest["data_root"],
+            "market": backtest["market"],
+            "factor": backtest["factor"],
+            "factor_windows": backtest["factor_windows"],
+            "top_n": backtest["top_n"],
+            "as_of_date": backtest["end_date"],
+            "max_asset_weight": 0.4,
+            "max_market_weight": 1,
+            "max_gross_exposure": 1,
+            "min_cash_weight": 0.1,
+        },
+        "paper": {
+            "source": backtest["source"],
+            "data_root": backtest["data_root"],
+            "market": backtest["market"],
+            "factor": backtest["factor"],
+            "factor_windows": backtest["factor_windows"],
+            "top_n": backtest["top_n"],
+            "rebalance_interval": backtest["rebalance_interval"],
+            "start_date": backtest["start_date"],
+            "end_date": backtest["end_date"],
+            "initial_cash": 100000,
+            "commission_bps": 5,
+            "slippage_bps": 5,
+            "max_asset_weight": 0.4,
+            "max_market_weight": 1,
+            "max_gross_exposure": 1,
+            "min_cash_weight": 0.1,
+            "max_drawdown_guard": "",
+            "guard_cooldown_periods": 0,
+        },
+        "safety": _verification_runner_safety(),
+    }
+
+
+def _workflow_commands(form_defaults: dict[str, Any]) -> list[dict[str, Any]]:
+    specs = _workflow_request_specs(form_defaults)
+    research = specs["research_backtest"]
+    signal = specs["signal_snapshot"]
+    paper = specs["paper_simulation"]
     return [
         {
             "workflow_id": "gui_start",
@@ -223,33 +291,30 @@ def _workflow_commands(backtest: dict[str, Any]) -> list[dict[str, Any]]:
         {
             "workflow_id": "research_backtest",
             "label": "Run research backtest",
-            "command": f"GET /api/research?{query}",
-            "endpoint": f"/api/research?{query}",
+            "command": f"GET {research['endpoint']}",
+            "endpoint": research["endpoint"],
+            "request": research["request"],
+            "query": research["query"],
             "mode": "local",
             "safety": "research calculation only",
         },
         {
             "workflow_id": "signal_snapshot",
             "label": "Generate advisory signal snapshot",
-            "command": (
-                f"GET /api/signals?source={backtest['source']}&data_root={backtest['data_root']}"
-                f"&market={backtest['market']}&factor={backtest['factor']}&top_n={backtest['top_n']}"
-                "&max_asset_weight=0.4&min_cash_weight=0.1"
-            ),
-            "endpoint": "/api/signals",
+            "command": f"GET {signal['endpoint']}",
+            "endpoint": signal["endpoint"],
+            "request": signal["request"],
+            "query": signal["query"],
             "mode": "local",
             "safety": "advisory targets only, executable=false",
         },
         {
             "workflow_id": "paper_simulation",
             "label": "Run local paper simulation",
-            "command": (
-                f"GET /api/paper?source={backtest['source']}&data_root={backtest['data_root']}"
-                f"&market={backtest['market']}&factor={backtest['factor']}&top_n={backtest['top_n']}"
-                f"&start_date={backtest['start_date']}&end_date={backtest['end_date']}"
-                "&initial_cash=100000&commission_bps=5&slippage_bps=5&max_asset_weight=0.4&min_cash_weight=0.1"
-            ),
-            "endpoint": "/api/paper",
+            "command": f"GET {paper['endpoint']}",
+            "endpoint": paper["endpoint"],
+            "request": paper["request"],
+            "query": paper["query"],
             "mode": "local",
             "safety": "simulated fills only",
         },
@@ -262,6 +327,154 @@ def _workflow_commands(backtest: dict[str, Any]) -> list[dict[str, Any]]:
             "safety": "code and config audit only",
         },
     ]
+
+
+def _workflow_request_specs(form_defaults: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    research = form_defaults["research"]
+    signal = form_defaults["signal"]
+    paper = form_defaults["paper"]
+    research_query = {
+        "market": research["market"],
+        "factor": research["factor"],
+        "factor_windows": research["factor_windows"],
+        "top_n": research["top_n"],
+        "cost_bps": research["cost_bps"],
+        "start_date": research["start_date"],
+        "end_date": research["end_date"],
+        "forward_horizon": research["forward_horizon"],
+        "execution_lag": research["execution_lag"],
+        "rebalance_interval": research["rebalance_interval"],
+        "benchmark_asset_id": research["benchmark_asset_id"],
+        "cash_annual_return": research["cash_annual_return"],
+        "regime_filter": research["regime_filter"],
+        "regime_lookback": research["regime_lookback"],
+        "min_relative_return": research["min_relative_return"],
+        "max_drawdown_limit": research["max_drawdown_limit"],
+        "source": research["source"],
+        "data_root": research["data_root"],
+    }
+    signal_query = {
+        "market": signal["market"],
+        "factor": signal["factor"],
+        "factor_windows": signal["factor_windows"],
+        "top_n": signal["top_n"],
+        "as_of_date": signal["as_of_date"],
+        "max_asset_weight": signal["max_asset_weight"],
+        "max_market_weight": signal["max_market_weight"],
+        "max_gross_exposure": signal["max_gross_exposure"],
+        "min_cash_weight": signal["min_cash_weight"],
+        "source": signal["source"],
+        "data_root": signal["data_root"],
+    }
+    paper_query = {
+        "market": paper["market"],
+        "factor": paper["factor"],
+        "factor_windows": paper["factor_windows"],
+        "top_n": paper["top_n"],
+        "rebalance_interval": paper["rebalance_interval"],
+        "start_date": paper["start_date"],
+        "end_date": paper["end_date"],
+        "initial_cash": paper["initial_cash"],
+        "commission_bps": paper["commission_bps"],
+        "slippage_bps": paper["slippage_bps"],
+        "max_asset_weight": paper["max_asset_weight"],
+        "max_market_weight": paper["max_market_weight"],
+        "max_gross_exposure": paper["max_gross_exposure"],
+        "min_cash_weight": paper["min_cash_weight"],
+        "max_drawdown_guard": paper["max_drawdown_guard"],
+        "guard_cooldown_periods": paper["guard_cooldown_periods"],
+        "source": paper["source"],
+        "data_root": paper["data_root"],
+    }
+    return {
+        "research_backtest": {
+            "endpoint": _workflow_endpoint_from_query("/api/research", research_query),
+            "query": research_query,
+            "request": {
+                "market": research["market"],
+                "factor_name": research["factor"],
+                "factor_windows": _factor_windows_list(research["factor_windows"]),
+                "top_n": research["top_n"],
+                "cost_bps": research["cost_bps"],
+                "start_date": research["start_date"],
+                "end_date": research["end_date"],
+                "forward_horizon": research["forward_horizon"],
+                "execution_lag": research["execution_lag"],
+                "rebalance_interval": research["rebalance_interval"],
+                "benchmark_asset_id": research["benchmark_asset_id"],
+                "cash_annual_return": research["cash_annual_return"],
+                "regime_filter": research["regime_filter"],
+                "regime_lookback": research["regime_lookback"],
+                "min_relative_return": _optional_number(research["min_relative_return"]),
+                "max_drawdown_limit": research["max_drawdown_limit"],
+            },
+        },
+        "signal_snapshot": {
+            "endpoint": _workflow_endpoint_from_query("/api/signals", signal_query),
+            "query": signal_query,
+            "request": {
+                "market": signal["market"],
+                "factor_name": signal["factor"],
+                "factor_windows": _factor_windows_list(signal["factor_windows"]),
+                "top_n": signal["top_n"],
+                "as_of_date": signal["as_of_date"],
+                "max_asset_weight": signal["max_asset_weight"],
+                "max_market_weight": signal["max_market_weight"],
+                "max_gross_exposure": signal["max_gross_exposure"],
+                "min_cash_weight": signal["min_cash_weight"],
+            },
+        },
+        "paper_simulation": {
+            "endpoint": _workflow_endpoint_from_query("/api/paper", paper_query),
+            "query": paper_query,
+            "request": {
+                "market": paper["market"],
+                "factor_name": paper["factor"],
+                "factor_windows": _factor_windows_list(paper["factor_windows"]),
+                "top_n": paper["top_n"],
+                "rebalance_interval": paper["rebalance_interval"],
+                "start_date": paper["start_date"],
+                "end_date": paper["end_date"],
+                "initial_cash": paper["initial_cash"],
+                "commission_bps": paper["commission_bps"],
+                "slippage_bps": paper["slippage_bps"],
+                "max_asset_weight": paper["max_asset_weight"],
+                "max_market_weight": paper["max_market_weight"],
+                "max_gross_exposure": paper["max_gross_exposure"],
+                "min_cash_weight": paper["min_cash_weight"],
+                "max_drawdown_guard": _optional_number(paper["max_drawdown_guard"]),
+                "guard_cooldown_periods": paper["guard_cooldown_periods"],
+            },
+        },
+    }
+
+
+def _workflow_endpoint_from_query(path: str, query: dict[str, Any]) -> str:
+    return f"{path}?{urlencode([(key, _query_value(value)) for key, value in query.items()])}"
+
+
+def _query_value(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (list, tuple)):
+        return ",".join(_query_value(item) for item in value)
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    if value is None:
+        return ""
+    return str(value)
+
+
+def _factor_windows_list(value: Any) -> list[int]:
+    if isinstance(value, (list, tuple)):
+        return [int(item) for item in value]
+    return [int(part.strip()) for part in str(value or "").split(",") if part.strip()]
+
+
+def _optional_number(value: Any) -> float | None:
+    if value in {None, ""}:
+        return None
+    return float(value)
 
 
 def _run_queue(workflows: list[dict[str, Any]]) -> dict[str, Any]:
@@ -1077,21 +1290,25 @@ def _ledger_evidence(
             "workflow_id": "research_backtest",
             "label": "Run research backtest",
             "current_command": _workflow_command(workflows, "research_backtest"),
+            "current_request": _workflow_request(workflows, "research_backtest"),
         },
         {
             "workflow_id": "signal_snapshot",
             "label": "Generate advisory signal snapshot",
             "current_command": _workflow_command(workflows, "signal_snapshot"),
+            "current_request": _workflow_request(workflows, "signal_snapshot"),
         },
         {
             "workflow_id": "paper_simulation",
             "label": "Run local paper simulation",
             "current_command": _workflow_command(workflows, "paper_simulation"),
+            "current_request": _workflow_request(workflows, "paper_simulation"),
         },
         {
             "workflow_id": "verification_runner",
             "label": "Run verification gate gui_compile",
             "current_command": _verification_endpoint(verification_runner, "gui_compile"),
+            "current_request": {"gate_id": "gui_compile"},
         },
     ]
     rows = [
@@ -1124,7 +1341,7 @@ def _ledger_evidence(
     }
 
 
-def _ledger_evidence_row(expected: dict[str, str], operation_ledger: dict[str, Any]) -> dict[str, Any]:
+def _ledger_evidence_row(expected: dict[str, Any], operation_ledger: dict[str, Any]) -> dict[str, Any]:
     workflow_id = expected["workflow_id"]
     rows = operation_ledger.get("rows", []) if isinstance(operation_ledger, dict) else []
     latest = next(
@@ -1132,8 +1349,12 @@ def _ledger_evidence_row(expected: dict[str, str], operation_ledger: dict[str, A
         None,
     )
     current_command = expected.get("current_command", "")
+    current_request = expected.get("current_request", {})
     latest_command = str(latest.get("command") or "") if latest else ""
-    matches_current_command = bool(latest) and _normalize_command(latest_command) == _normalize_command(current_command)
+    latest_request = latest.get("request", {}) if latest and isinstance(latest.get("request"), dict) else {}
+    matches_current_request = bool(latest_request) and _request_matches(latest_request, current_request)
+    legacy_command_match = bool(latest) and _normalize_command(latest_command) == _normalize_command(current_command)
+    matches_current_command = bool(latest) and (matches_current_request or (not latest_request and legacy_command_match))
     latest_status = str(latest.get("status") or "") if latest else ""
     if not latest:
         freshness = "missing"
@@ -1153,8 +1374,11 @@ def _ledger_evidence_row(expected: dict[str, str], operation_ledger: dict[str, A
         "freshness": freshness,
         "status": status,
         "matches_current_command": matches_current_command,
+        "matches_current_request": matches_current_request,
         "current_command": current_command,
+        "current_request": current_request,
         "latest_command": latest_command,
+        "latest_request": latest_request,
         "latest_recorded_at": str(latest.get("recorded_at") or "") if latest else "",
         "latest_request_summary": str(latest.get("request_summary") or "") if latest else "",
         "latest_metric_summary": str(latest.get("metric_summary") or "") if latest else "",
@@ -1165,6 +1389,38 @@ def _ledger_evidence_row(expected: dict[str, str], operation_ledger: dict[str, A
             else f"{expected.get('label', workflow_id)} with the displayed current command."
         ),
     }
+
+
+def _request_matches(actual: dict[str, Any], expected: dict[str, Any]) -> bool:
+    if not isinstance(actual, dict) or not isinstance(expected, dict) or not expected:
+        return False
+    for key, expected_value in expected.items():
+        actual_value = actual.get(key)
+        if actual_value is None and key == "factor_name":
+            actual_value = actual.get("factor")
+        if _normalize_request_value(actual_value) != _normalize_request_value(expected_value):
+            return False
+    return True
+
+
+def _normalize_request_value(value: Any) -> str:
+    if value is None or value == "":
+        return ""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (list, tuple)):
+        return ",".join(_normalize_request_value(item) for item in value)
+    text = str(value).strip()
+    if "," in text:
+        return ",".join(_normalize_request_value(item) for item in text.split(","))
+    lower = text.lower()
+    if lower in {"true", "false"}:
+        return lower
+    try:
+        number = float(text)
+    except ValueError:
+        return text
+    return f"{number:g}"
 
 
 def _action_center(
@@ -2776,6 +3032,12 @@ def _operator_timeline(
 def _workflow_command(workflows: list[dict[str, Any]], workflow_id: str) -> str:
     workflow = _workflow_by_id(workflows, workflow_id)
     return workflow["command"] if workflow else ""
+
+
+def _workflow_request(workflows: list[dict[str, Any]], workflow_id: str) -> dict[str, Any]:
+    workflow = _workflow_by_id(workflows, workflow_id)
+    request = workflow.get("request", {}) if workflow else {}
+    return request if isinstance(request, dict) else {}
 
 
 def _report_links(root: Path, artifacts: list[dict[str, Any]], audit_packets: dict[str, Any] | None = None) -> list[dict[str, Any]]:

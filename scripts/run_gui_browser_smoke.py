@@ -76,6 +76,7 @@ def run_gui_browser_smoke(
             "Frontend script",
             app_js.get("ok")
             and "renderControlCenter" in str(app_js.get("body", ""))
+            and "applyControlDefaults" in str(app_js.get("body", ""))
             and "renderActionCenter" in str(app_js.get("body", ""))
             and "runActionCenterWorkflow" in str(app_js.get("body", ""))
             and "data-action-workflow" in str(app_js.get("body", ""))
@@ -128,6 +129,34 @@ def run_gui_browser_smoke(
             and bool(control_body.get("startup_health", {}).get("rows")),
             "Control API exposes startup_health rows for local startup, control API, browser smoke, and smoke evidence.",
             control.get("error") or "Control API is missing startup_health rows.",
+        )
+    )
+    checks.append(
+        _check(
+            "form_defaults_contract",
+            "Form defaults contract",
+            control.get("ok")
+            and control_body.get("form_defaults", {}).get("stage") == "gui_form_defaults"
+            and control_body.get("form_defaults", {}).get("research", {}).get("factor")
+            == control_body.get("backtest", {}).get("factor")
+            and _workflow_by_id(control_body, "research_backtest").get("request", {}).get("factor_name")
+            == control_body.get("backtest", {}).get("factor")
+            and _workflow_by_id(control_body, "research_backtest").get("request", {}).get("execution_lag")
+            == control_body.get("backtest", {}).get("execution_lag")
+            and _workflow_by_id(control_body, "research_backtest").get("request", {}).get("forward_horizon")
+            == control_body.get("backtest", {}).get("forward_horizon")
+            and _workflow_by_id(control_body, "paper_simulation").get("request", {}).get("max_market_weight")
+            == control_body.get("form_defaults", {}).get("paper", {}).get("max_market_weight")
+            and _workflow_by_id(control_body, "paper_simulation").get("request", {}).get("max_gross_exposure")
+            == control_body.get("form_defaults", {}).get("paper", {}).get("max_gross_exposure")
+            and app_js.get("ok")
+            and "applyControlDefaults" in str(app_js.get("body", ""))
+            and 'valueOf("execution-lag")' in str(app_js.get("body", ""))
+            and 'valueOf("forward-horizon")' in str(app_js.get("body", ""))
+            and 'valueOf("paper-max-market-weight")' in str(app_js.get("body", ""))
+            and 'valueOf("paper-max-gross-exposure")' in str(app_js.get("body", "")),
+            "Control API exposes canonical form defaults and frontend applies them before request preview rendering.",
+            control.get("error") or "Control API or frontend is missing canonical form default synchronization.",
         )
     )
     checks.append(
@@ -482,6 +511,13 @@ def _fetch_json(base_url: str, path: str, timeout: float) -> dict[str, Any]:
     except json.JSONDecodeError as exc:
         result.update({"ok": False, "error": str(exc), "body": {}})
     return result
+
+
+def _workflow_by_id(control_body: dict[str, Any], workflow_id: str) -> dict[str, Any]:
+    for workflow in control_body.get("workflows", []) if isinstance(control_body, dict) else []:
+        if isinstance(workflow, dict) and workflow.get("workflow_id") == workflow_id:
+            return workflow
+    return {}
 
 
 def _check(check_id: str, label: str, passed: Any, evidence: str, failure: str) -> dict[str, Any]:
