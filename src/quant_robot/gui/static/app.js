@@ -80,10 +80,47 @@ const RUN_HISTORY_STORAGE_KEY = "quant_robot.gui.run_history.v1";
 const RUN_HISTORY_LIMIT = 20;
 const EXECUTION_RECEIPT_STORAGE_KEY = "quant_robot.gui.execution_receipts.v1";
 const EXECUTION_RECEIPT_LIMIT = 20;
+const REQUEST_PREVIEW_INPUT_IDS = [
+  "data-source-select",
+  "data-root-input",
+  "market-select",
+  "factor-select",
+  "factor-windows",
+  "start-date",
+  "end-date",
+  "research-top-n",
+  "research-cost-bps",
+  "rebalance-interval",
+  "benchmark-asset-id",
+  "cash-annual-return",
+  "regime-filter",
+  "regime-lookback",
+  "min-relative-return",
+  "max-drawdown-limit",
+  "signal-top-n",
+  "signal-as-of",
+  "max-asset-weight",
+  "max-market-weight",
+  "max-gross-exposure",
+  "min-cash-weight",
+  "paper-market-select",
+  "paper-factor-select",
+  "paper-top-n",
+  "paper-start-date",
+  "paper-end-date",
+  "paper-initial-cash",
+  "paper-commission-bps",
+  "paper-slippage-bps",
+  "paper-max-asset-weight",
+  "paper-min-cash-weight",
+  "paper-drawdown-guard",
+  "paper-guard-cooldown",
+];
 
 document.addEventListener("DOMContentLoaded", async () => {
   bindNavigation();
   bindActions();
+  bindRequestPreviewInputs();
   await loadSnapshot();
   await loadControlCenter();
   await loadProjectStatus();
@@ -128,6 +165,15 @@ function bindActions() {
     const button = event.target.closest("[data-verification-gate]");
     if (!button) return;
     runVerificationGate(button.dataset.verificationGate || "", button);
+  });
+}
+
+function bindRequestPreviewInputs() {
+  REQUEST_PREVIEW_INPUT_IDS.forEach((id) => {
+    const element = byId(id);
+    if (!element) return;
+    element.addEventListener("input", renderRequestPreview);
+    element.addEventListener("change", renderRequestPreview);
   });
 }
 
@@ -228,6 +274,117 @@ function addSourceParams(params) {
   if (dataRoot) params.set("data_root", dataRoot);
 }
 
+function buildResearchParams() {
+  const params = new URLSearchParams({
+    market: valueOf("market-select"),
+    factor: valueOf("factor-select") || "momentum_2",
+    factor_windows: valueOf("factor-windows"),
+    top_n: valueOf("research-top-n") || "2",
+    cost_bps: valueOf("research-cost-bps") || "5",
+    start_date: valueOf("start-date"),
+    end_date: valueOf("end-date"),
+    rebalance_interval: valueOf("rebalance-interval") || "1",
+    benchmark_asset_id: valueOf("benchmark-asset-id"),
+    cash_annual_return: valueOf("cash-annual-return") || "0",
+    regime_filter: byId("regime-filter")?.checked ? "true" : "false",
+    regime_lookback: valueOf("regime-lookback") || "20",
+    min_relative_return: valueOf("min-relative-return"),
+    max_drawdown_limit: valueOf("max-drawdown-limit"),
+  });
+  addSourceParams(params);
+  return params;
+}
+
+function buildSignalParams() {
+  const params = new URLSearchParams({
+    market: valueOf("market-select"),
+    factor: valueOf("factor-select") || "momentum_2",
+    factor_windows: valueOf("factor-windows"),
+    top_n: valueOf("signal-top-n") || "2",
+    as_of_date: valueOf("signal-as-of"),
+    max_asset_weight: valueOf("max-asset-weight") || "1",
+    max_market_weight: valueOf("max-market-weight") || "1",
+    max_gross_exposure: valueOf("max-gross-exposure") || "1",
+    min_cash_weight: valueOf("min-cash-weight") || "0",
+  });
+  addSourceParams(params);
+  return params;
+}
+
+function buildPaperParams() {
+  const params = new URLSearchParams({
+    market: valueOf("paper-market-select"),
+    factor: valueOf("paper-factor-select") || "momentum_2",
+    factor_windows: valueOf("factor-windows"),
+    top_n: valueOf("paper-top-n") || "2",
+    rebalance_interval: valueOf("rebalance-interval") || "1",
+    start_date: valueOf("paper-start-date"),
+    end_date: valueOf("paper-end-date"),
+    initial_cash: valueOf("paper-initial-cash") || "100000",
+    commission_bps: valueOf("paper-commission-bps") || "5",
+    slippage_bps: valueOf("paper-slippage-bps") || "5",
+    max_asset_weight: valueOf("paper-max-asset-weight") || "1",
+    max_market_weight: "1",
+    max_gross_exposure: "1",
+    min_cash_weight: valueOf("paper-min-cash-weight") || "0",
+    max_drawdown_guard: valueOf("paper-drawdown-guard"),
+    guard_cooldown_periods: valueOf("paper-guard-cooldown") || "0",
+  });
+  addSourceParams(params);
+  return params;
+}
+
+function renderRequestPreview() {
+  const target = byId("control-request-preview");
+  if (!target) return;
+  const researchParams = buildResearchParams();
+  const signalParams = buildSignalParams();
+  const paperParams = buildPaperParams();
+  const rows = [
+    {
+      label: "Research backtest",
+      status: "ok",
+      endpoint: `/api/research?${researchParams.toString()}`,
+      params: researchParams,
+      detail: "full parameter backtest request",
+    },
+    {
+      label: "Signal snapshot",
+      status: "warn",
+      endpoint: `/api/signals?${signalParams.toString()}`,
+      params: signalParams,
+      detail: "advisory target-weight request",
+    },
+    {
+      label: "Paper simulation",
+      status: "warn",
+      endpoint: `/api/paper?${paperParams.toString()}`,
+      params: paperParams,
+      detail: "local paper-only simulation request",
+    },
+  ];
+  target.innerHTML = rows.map((row) => `
+    <div class="list-row ${escapeHtml(row.status)}">
+      <strong>${escapeHtml(row.label)}</strong>
+      <span>${escapeHtml(row.endpoint)}</span>
+      <span>${escapeHtml(requestPreviewSummary(row.params))}</span>
+      <span>${escapeHtml(row.detail)}</span>
+    </div>
+  `).join("");
+}
+
+function requestPreviewSummary(params) {
+  return [
+    `source=${params.get("source") || "--"}`,
+    `market=${params.get("market") || "--"}`,
+    `factor=${params.get("factor") || "--"}`,
+    `windows=${params.get("factor_windows") || "--"}`,
+    `top_n=${params.get("top_n") || "--"}`,
+    `cost=${params.get("cost_bps") || params.get("commission_bps") || "--"}bps`,
+    `window=${params.get("start_date") || params.get("as_of_date") || "--"} to ${params.get("end_date") || params.get("as_of_date") || "--"}`,
+  ].join(" / ");
+}
+
 function applySourcePreset(force) {
   const source = valueOf("data-source-select") || "processed-bars";
   const preset = sourcePresets[source] || sourcePresets.demo_fixture;
@@ -247,6 +404,7 @@ function applySourcePreset(force) {
   setFactorValue("paper-factor-select", preset.factor);
   byId("data-mode-label").textContent = source;
   byId("mode-pill").textContent = `${source} / local`;
+  renderRequestPreview();
 }
 
 function setFactorValue(id, value) {
@@ -278,23 +436,7 @@ async function runStartupWorkflows() {
 
 async function refreshResearch() {
   byId("active-market-label").textContent = valueOf("market-select") || "ALL";
-  const params = new URLSearchParams({
-    market: valueOf("market-select"),
-    factor: valueOf("factor-select") || "momentum_2",
-    factor_windows: valueOf("factor-windows"),
-    top_n: valueOf("research-top-n") || "2",
-    cost_bps: valueOf("research-cost-bps") || "5",
-    start_date: valueOf("start-date"),
-    end_date: valueOf("end-date"),
-    rebalance_interval: valueOf("rebalance-interval") || "1",
-    benchmark_asset_id: valueOf("benchmark-asset-id"),
-    cash_annual_return: valueOf("cash-annual-return") || "0",
-    regime_filter: byId("regime-filter").checked ? "true" : "false",
-    regime_lookback: valueOf("regime-lookback") || "20",
-    min_relative_return: valueOf("min-relative-return"),
-    max_drawdown_limit: valueOf("max-drawdown-limit"),
-  });
-  addSourceParams(params);
+  const params = buildResearchParams();
   state.research = await fetchJson(`/api/research?${params.toString()}`);
   renderDashboard();
   renderFactorResearch();
@@ -318,18 +460,7 @@ async function runResearch() {
 }
 
 async function refreshSignals() {
-  const params = new URLSearchParams({
-    market: valueOf("market-select"),
-    factor: valueOf("factor-select") || "momentum_2",
-    factor_windows: valueOf("factor-windows"),
-    top_n: valueOf("signal-top-n") || "2",
-    as_of_date: valueOf("signal-as-of"),
-    max_asset_weight: valueOf("max-asset-weight") || "1",
-    max_market_weight: valueOf("max-market-weight") || "1",
-    max_gross_exposure: valueOf("max-gross-exposure") || "1",
-    min_cash_weight: valueOf("min-cash-weight") || "0",
-  });
-  addSourceParams(params);
+  const params = buildSignalParams();
   state.signals = await fetchJson(`/api/signals?${params.toString()}`);
   renderSignals();
   renderDashboard();
@@ -351,25 +482,7 @@ async function runSignals() {
 }
 
 async function refreshPaper() {
-  const params = new URLSearchParams({
-    market: valueOf("paper-market-select"),
-    factor: valueOf("paper-factor-select") || "momentum_2",
-    factor_windows: valueOf("factor-windows"),
-    top_n: valueOf("paper-top-n") || "2",
-    rebalance_interval: valueOf("rebalance-interval") || "1",
-    start_date: valueOf("paper-start-date"),
-    end_date: valueOf("paper-end-date"),
-    initial_cash: valueOf("paper-initial-cash") || "100000",
-    commission_bps: valueOf("paper-commission-bps") || "5",
-    slippage_bps: valueOf("paper-slippage-bps") || "5",
-    max_asset_weight: valueOf("paper-max-asset-weight") || "1",
-    max_market_weight: "1",
-    max_gross_exposure: "1",
-    min_cash_weight: valueOf("paper-min-cash-weight") || "0",
-    max_drawdown_guard: valueOf("paper-drawdown-guard"),
-    guard_cooldown_periods: valueOf("paper-guard-cooldown") || "0",
-  });
-  addSourceParams(params);
+  const params = buildPaperParams();
   state.paper = await fetchJson(`/api/paper?${params.toString()}`);
   renderDashboard();
   renderPaper();

@@ -538,6 +538,10 @@ button {
   max-height: 236px;
 }
 
+.request-preview-list {
+  max-height: 236px;
+}
+
 .active-operation-meta {
   display: flex;
   flex-wrap: wrap;

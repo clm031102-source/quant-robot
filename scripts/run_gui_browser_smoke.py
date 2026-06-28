@@ -52,6 +52,7 @@ def run_gui_browser_smoke(
                     "control-active-operation",
                     "control-operation-ledger",
                     "control-trade-mode-control",
+                    "control-request-preview",
                     "control-result-evidence",
                     "control-startup-health",
                     "control-audit-feedback",
@@ -80,6 +81,10 @@ def run_gui_browser_smoke(
             and "renderActiveOperation" in str(app_js.get("body", ""))
             and "renderOperationLedger" in str(app_js.get("body", ""))
             and "renderTradeModeControl" in str(app_js.get("body", ""))
+            and "renderRequestPreview" in str(app_js.get("body", ""))
+            and "buildResearchParams" in str(app_js.get("body", ""))
+            and "buildSignalParams" in str(app_js.get("body", ""))
+            and "buildPaperParams" in str(app_js.get("body", ""))
             and "beginActiveOperation" in str(app_js.get("body", ""))
             and "finishActiveOperation" in str(app_js.get("body", ""))
             and "renderResultEvidence" in str(app_js.get("body", ""))
@@ -234,6 +239,21 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "request_preview_panel",
+            "Request preview contract",
+            index_html.get("ok")
+            and "control-request-preview" in str(index_html.get("body", ""))
+            and app_js.get("ok")
+            and "renderRequestPreview" in str(app_js.get("body", ""))
+            and "buildResearchParams" in str(app_js.get("body", ""))
+            and "buildSignalParams" in str(app_js.get("body", ""))
+            and "buildPaperParams" in str(app_js.get("body", "")),
+            "Frontend exposes a live request preview panel using the same research, signal, and paper parameter builders as workflow execution.",
+            index_html.get("error") or app_js.get("error") or "Request preview frontend hooks are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "audit_feedback_panel",
             "Audit feedback contract",
             control.get("ok")
@@ -295,6 +315,7 @@ def run_gui_browser_smoke(
             and ".active-operation-list" in str(styles_css.get("body", ""))
             and ".operation-ledger-list" in str(styles_css.get("body", ""))
             and ".trade-mode-control-list" in str(styles_css.get("body", ""))
+            and ".request-preview-list" in str(styles_css.get("body", ""))
             and ".result-evidence-list" in str(styles_css.get("body", ""))
             and ".audit-feedback-list" in str(styles_css.get("body", ""))
             and ".audit-iteration-list" in str(styles_css.get("body", ""))
