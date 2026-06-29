@@ -27,6 +27,8 @@ const state = {
   executionReceipts: [],
   safeRunResolver: null,
   beginnerTaskId: "",
+  manualFormOverride: false,
+  manualFormOverrideReason: "",
 };
 
 const titles = {
@@ -282,6 +284,7 @@ function bindActions() {
     if (event.target?.id === "safe-run-modal") resolveSafeWorkflow(false);
   });
   byId("data-source-select").addEventListener("change", () => {
+    markManualFormOverride("data_source_select");
     applySourcePreset(true);
   });
   document.addEventListener("keydown", (event) => {
@@ -308,6 +311,16 @@ function bindActions() {
     const button = event.target.closest("[data-factor-beginner-jump]");
     if (!button) return;
     jumpToBeginnerTarget(button.dataset.factorBeginnerJump || "factor-leaderboard-table", state.leaderboardTab);
+  });
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-factor-apply-row], [data-factor-run-row]");
+    if (!button) return;
+    event.preventDefault();
+    const row = leaderboardRowFromButton(button);
+    applyLeaderboardRowToForms(row);
+    if (button.matches("[data-factor-run-row]")) {
+      await runBeginnerAction("research_backtest", button);
+    }
   });
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-beginner-parameter-jump]");
@@ -391,8 +404,12 @@ function bindRequestPreviewInputs() {
   REQUEST_PREVIEW_INPUT_IDS.forEach((id) => {
     const element = byId(id);
     if (!element) return;
-    element.addEventListener("input", renderRequestPreview);
-    element.addEventListener("change", renderRequestPreview);
+    const renderWithManualOverride = (event) => {
+      if (event?.isTrusted) markManualFormOverride(id);
+      renderRequestPreview();
+    };
+    element.addEventListener("input", renderWithManualOverride);
+    element.addEventListener("change", renderWithManualOverride);
   });
 }
 
@@ -930,6 +947,10 @@ function renderRequestPreview() {
 function applyControlDefaults() {
   const defaults = state.controlCenter?.form_defaults || {};
   if (defaults.stage !== "gui_form_defaults") return;
+  if (state.manualFormOverride) {
+    renderRequestPreview();
+    return;
+  }
   const research = defaults.research || {};
   const signal = defaults.signal || {};
   const paper = defaults.paper || {};
@@ -1168,6 +1189,7 @@ function requestFreshnessSummary(request = {}) {
 }
 
 function applySourcePreset(force) {
+  if (force) markManualFormOverride("source_preset");
   const source = valueOf("data-source-select") || "processed-bars";
   const preset = sourcePresets[source] || sourcePresets.demo_fixture;
   setValue("data-root-input", preset.dataRoot);
@@ -1194,14 +1216,32 @@ function applySourcePreset(force) {
 function setFactorValue(id, value) {
   const select = byId(id);
   if (!select) return;
+  ensureFactorOption(select, value);
   if ([...select.options].some((option) => option.value === value)) {
     select.value = value;
   }
 }
 
+function ensureFactorOption(selectOrId, value) {
+  const select = typeof selectOrId === "string" ? byId(selectOrId) : selectOrId;
+  const factor = String(value || "").trim();
+  if (!select || !factor) return;
+  if ([...select.options].some((option) => option.value === factor)) return;
+  const option = document.createElement("option");
+  option.value = factor;
+  option.textContent = `${factor}（排行榜候选）`;
+  option.dataset.factorSource = "leaderboard";
+  select.appendChild(option);
+}
+
 function paramsObject(params) {
   if (!params || typeof params.entries !== "function") return {};
   return Object.fromEntries(params.entries());
+}
+
+function markManualFormOverride(reason = "manual") {
+  state.manualFormOverride = true;
+  state.manualFormOverrideReason = reason;
 }
 
 function endpointWithParams(path, params) {
@@ -3134,16 +3174,106 @@ function renderFactorLeaderboard() {
   byId("factor-leaderboard-table").innerHTML = renderFactorLeaderboardTable(rows);
 }
 
+function leaderboardValue(row = {}, ...keys) {
+  const sources = [row.params || {}, row, row.all_data || {}];
+  for (const key of keys) {
+    for (const source of sources) {
+      if (source[key] != null && source[key] !== "") return source[key];
+    }
+  }
+  return "";
+}
+
+function leaderboardInputValue(value) {
+  if (Array.isArray(value)) return value.join(",");
+  if (value == null) return "";
+  return String(value).trim();
+}
+
+function normalizeLeaderboardWindowValue(value) {
+  const text = leaderboardInputValue(value);
+  if (!text) return "";
+  const numbers = text
+    .replaceAll("[", "")
+    .replaceAll("]", "")
+    .split(",")
+    .map((item) => Number(String(item).trim()))
+    .filter((item) => Number.isInteger(item) && item > 0);
+  return numbers.length ? Array.from(new Set(numbers)).join(",") : text;
+}
+
+function leaderboardRowPayload(row = {}) {
+  return {
+    case_id: leaderboardInputValue(row.case_id),
+    market: leaderboardInputValue(leaderboardValue(row, "market")),
+    factor_name: leaderboardInputValue(leaderboardValue(row, "factor_name", "factor")),
+    factor_windows: normalizeLeaderboardWindowValue(leaderboardValue(row, "factor_windows", "windows", "lookback_windows")),
+    top_n: leaderboardInputValue(leaderboardValue(row, "top_n", "topN", "top")),
+    cost_bps: leaderboardInputValue(leaderboardValue(row, "cost_bps", "cost", "transaction_cost_bps")),
+    start_date: leaderboardInputValue(leaderboardValue(row, "start_date", "train_start_date", "backtest_start_date")),
+    end_date: leaderboardInputValue(leaderboardValue(row, "end_date", "test_end_date", "backtest_end_date")),
+    execution_lag: leaderboardInputValue(leaderboardValue(row, "execution_lag", "lag")),
+    forward_horizon: leaderboardInputValue(leaderboardValue(row, "forward_horizon", "horizon")),
+    rebalance_interval: leaderboardInputValue(leaderboardValue(row, "rebalance_interval", "rebalance", "holding_period")),
+  };
+}
+
+function leaderboardRowFromButton(button) {
+  try {
+    return JSON.parse(decodeURIComponent(button?.dataset?.factorRow || "{}"));
+  } catch (_error) {
+    return {};
+  }
+}
+
+function applyLeaderboardRowToForms(row = {}) {
+  markManualFormOverride("factor_leaderboard_row");
+  const factor = leaderboardInputValue(row.factor_name);
+  const market = leaderboardInputValue(row.market);
+  if (market) {
+    setValue("market-select", market);
+    setValue("paper-market-select", market);
+  }
+  if (factor) {
+    setFactorValue("factor-select", factor);
+    setFactorValue("paper-factor-select", factor);
+  }
+  if (row.factor_windows) setValue("factor-windows", leaderboardInputValue(row.factor_windows));
+  if (row.top_n) {
+    setValue("research-top-n", leaderboardInputValue(row.top_n));
+    setValue("signal-top-n", leaderboardInputValue(row.top_n));
+    setValue("paper-top-n", leaderboardInputValue(row.top_n));
+  }
+  if (row.cost_bps) setValue("research-cost-bps", leaderboardInputValue(row.cost_bps));
+  if (row.start_date) {
+    setValue("start-date", leaderboardInputValue(row.start_date));
+    setValue("paper-start-date", leaderboardInputValue(row.start_date));
+  }
+  if (row.end_date) {
+    setValue("end-date", leaderboardInputValue(row.end_date));
+    setValue("signal-as-of", leaderboardInputValue(row.end_date));
+    setValue("paper-end-date", leaderboardInputValue(row.end_date));
+  }
+  if (row.execution_lag) setValue("execution-lag", leaderboardInputValue(row.execution_lag));
+  if (row.forward_horizon) setValue("forward-horizon", leaderboardInputValue(row.forward_horizon));
+  if (row.rebalance_interval) setValue("rebalance-interval", leaderboardInputValue(row.rebalance_interval));
+  renderRequestPreview();
+  renderControlCenter();
+  showToast(`已套用排行榜候选：${factor || row.case_id || "当前行"}`);
+  jumpToBeginnerTarget("beginner-parameter-explainer", state.leaderboardTab);
+}
+
 function renderFactorLeaderboardTable(rows) {
   if (!rows.length) {
     const board = getActiveLeaderboard();
-    return `<tr><td colspan="17">${escapeHtml(board.empty_message || "暂无候选")}</td></tr>`;
+    return `<tr><td colspan="18">${escapeHtml(board.empty_message || "暂无候选")}</td></tr>`;
   }
   const head = `
     <tr>
       <th>排名</th>
       <th>结论</th>
       <th>因子 / case</th>
+      <th>操作</th>
       <th>市场</th>
       <th>总收益</th>
       <th>年化</th>
@@ -3164,11 +3294,18 @@ function renderFactorLeaderboardTable(rows) {
     const params = row.params && Object.keys(row.params).length ? JSON.stringify(row.params) : "--";
     const allData = row.all_data && Object.keys(row.all_data).length ? JSON.stringify(row.all_data, null, 2) : "{}";
     const badges = (row.audit_badges || []).map((badge) => `<span class="mini-badge">${escapeHtml(badge)}</span>`).join(" ");
+    const rowPayload = encodeURIComponent(JSON.stringify(leaderboardRowPayload(row)));
     return `
       <tr>
         <td>${formatNumber(row.rank)}</td>
         <td><strong>${escapeHtml(row.promotion_label || "--")}</strong><br><span class="muted">${escapeHtml(row.plain_conclusion || "--")}</span></td>
         <td><strong>${escapeHtml(row.factor_name || "--")}</strong><br><span class="muted">${escapeHtml(row.case_id || "--")}</span></td>
+        <td>
+          <span class="factor-row-actions">
+            <button class="secondary-button" type="button" data-factor-apply-row="true" data-factor-row="${escapeHtml(rowPayload)}">套用参数</button>
+            <button class="primary-button" type="button" data-factor-run-row="true" data-factor-row="${escapeHtml(rowPayload)}">套用并回测</button>
+          </span>
+        </td>
         <td>${escapeHtml(row.market || "--")}</td>
         <td>${formatPercent(row.total_return)}</td>
         <td>${formatPercent(row.annualized_return)}</td>

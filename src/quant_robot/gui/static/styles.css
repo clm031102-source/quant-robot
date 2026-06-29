@@ -1113,6 +1113,20 @@ button {
   white-space: normal;
 }
 
+.factor-row-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 138px;
+}
+
+.factor-row-actions button {
+  flex: 1 1 66px;
+  min-height: 34px;
+  padding: 7px 9px;
+  white-space: normal;
+}
+
 .mini-badge {
   display: inline-flex;
   align-items: center;
