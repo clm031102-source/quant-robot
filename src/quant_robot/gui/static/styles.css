@@ -1527,6 +1527,70 @@ th {
   padding: 16px;
 }
 
+.safe-run-beginner-summary {
+  display: grid;
+  gap: 4px;
+  border: 1px solid rgba(0, 121, 107, 0.28);
+  border-radius: var(--radius);
+  background: #f4fbf7;
+  padding: 11px;
+  margin-bottom: 10px;
+}
+
+.safe-run-beginner-summary strong {
+  color: var(--green);
+  font-size: 16px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.safe-run-beginner-summary span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.safe-run-beginner-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.safe-run-beginner-card {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  padding: 9px;
+}
+
+.safe-run-beginner-card.danger {
+  border-color: rgba(173, 63, 60, 0.3);
+  background: #fff7f5;
+}
+
+.safe-run-beginner-card small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.3;
+  margin-bottom: 4px;
+}
+
+.safe-run-beginner-card strong {
+  display: block;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.safe-run-beginner-card.danger strong {
+  color: var(--red);
+}
+
 .safe-run-params {
   max-width: 100%;
   max-height: 220px;
@@ -1740,6 +1804,10 @@ th {
   }
 
   .beginner-result-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .safe-run-beginner-grid {
     grid-template-columns: 1fr;
   }
 }

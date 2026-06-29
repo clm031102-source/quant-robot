@@ -1109,6 +1109,81 @@ function endpointWithParams(path, params) {
   return query ? `${path}?${query}` : path;
 }
 
+function safeWorkflowPlainOutcome(spec = {}) {
+  const request = spec.request || {};
+  const workflowId = spec.workflow_id || "local_workflow";
+  const market = request.market || request.paper_market || "CN_ETF";
+  const factor = request.factor || request.factor_name || "当前因子";
+  if (workflowId === "research_backtest") {
+    return `会用 ${market} / ${factor} 跑本地回测，生成总收益、年化、Sharpe、最大回撤和胜率。`;
+  }
+  if (workflowId === "signal_snapshot") {
+    return `会用 ${market} / ${factor} 生成本地建议信号和目标仓位，不会发出真实订单。`;
+  }
+  if (workflowId === "paper_simulation") {
+    return `会用 ${market} / ${factor} 做本地模拟盘回放，生成模拟成交、权益和回撤。`;
+  }
+  if (workflowId === "verification_runner") {
+    return `会运行允许名单里的本地检查：${request.gate_id || "verification"}，只返回检查结果。`;
+  }
+  if (workflowId === "startup_workflows") {
+    return "会刷新研究回测、信号快照、纸面模拟和候选推广面板，仍然全部在本地执行。";
+  }
+  if (workflowId === "daily_ops") {
+    return "会读取本地报告包，刷新日常运营、风险候选、观察样本和数据状态。";
+  }
+  if (workflowId === "promotion_ops") {
+    return "会读取本地推广证据包，刷新候选推广、复核清单和证据刷新状态。";
+  }
+  return spec.label || "会执行一个本地研究工作流。";
+}
+
+function safeWorkflowNextPlace(spec = {}) {
+  const workflowId = spec.workflow_id || "local_workflow";
+  if (workflowId === "research_backtest") return "完成后看：结果人话判读、结果指标、回测闸门。";
+  if (workflowId === "signal_snapshot") return "完成后看：信号快照、目标仓位、运行历史。";
+  if (workflowId === "paper_simulation") return "完成后看：模拟盘权益、模拟盘交接、结果证据。";
+  if (workflowId === "verification_runner") return "完成后看：验证执行器、操作回执、审计评分。";
+  if (workflowId === "startup_workflows") return "完成后看：首页状态灯、结果判读、排行榜和模拟盘交接。";
+  if (workflowId === "daily_ops") return "完成后看：日常运营、风险候选、观察样本和数据闸门。";
+  if (workflowId === "promotion_ops") return "完成后看：候选推广、复核清单、证据刷新。";
+  return "完成后看：控制台操作回执和运行历史。";
+}
+
+function safeWorkflowBeginnerSummary(spec = {}) {
+  return {
+    title: spec.label || spec.workflow_id || "本地工作流",
+    outcome: safeWorkflowPlainOutcome(spec),
+    risk: "不会连接券商、不会读取真实账户、不会生成真实订单、不会自动实盘交易。",
+    next: safeWorkflowNextPlace(spec),
+  };
+}
+
+function renderSafeWorkflowBeginnerSummary(spec = {}) {
+  const summary = safeWorkflowBeginnerSummary(spec);
+  const summaryTarget = byId("safe-run-beginner-summary");
+  const outcomeTarget = byId("safe-run-outcome");
+  const riskTarget = byId("safe-run-risk-boundary");
+  const nextTarget = byId("safe-run-next-place");
+  if (!summaryTarget || !outcomeTarget || !riskTarget || !nextTarget) return;
+  summaryTarget.innerHTML = `
+    <strong>${escapeHtml(summary.title)}</strong>
+    <span>${escapeHtml("确认后只会在本机执行，完成前可以取消。")}</span>
+  `;
+  outcomeTarget.innerHTML = `
+    <small>${escapeHtml("会发生什么")}</small>
+    <strong>${escapeHtml(summary.outcome)}</strong>
+  `;
+  riskTarget.innerHTML = `
+    <small>${escapeHtml("不会发生什么")}</small>
+    <strong>${escapeHtml(summary.risk)}</strong>
+  `;
+  nextTarget.innerHTML = `
+    <small>${escapeHtml("跑完看哪里")}</small>
+    <strong>${escapeHtml(summary.next)}</strong>
+  `;
+}
+
 async function confirmSafeWorkflow(spec = {}) {
   const modal = byId("safe-run-modal");
   if (!modal) {
@@ -1119,6 +1194,7 @@ async function confirmSafeWorkflow(spec = {}) {
     state.safeRunResolver = null;
   }
   byId("safe-run-title").textContent = spec.title || "确认本地运行";
+  renderSafeWorkflowBeginnerSummary(spec);
   byId("safe-run-body").innerHTML = statusRows([
     ["将要执行", spec.label || spec.workflow_id || "本地工作流", "warn"],
     ["运行边界", "只读取本地数据或本地报告，只生成研究、信号、回测、模拟或验证结果。", "ok"],
