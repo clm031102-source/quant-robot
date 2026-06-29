@@ -4555,6 +4555,105 @@ const GUI_ZH_REPLACEMENTS = [
   ["Paper observation gate", "模拟盘观察闸门"],
   ["Run preflight", "运行前检查"],
   ["Mode control", "模式控制"],
+  ["Default mode: research", "默认模式：研究"],
+  ["Use research or paper simulation endpoints; live trading remains blocked.", "只允许研究和本地模拟盘入口；实盘交易保持阻断。"],
+  ["Simulation output is local evidence; promotion gates still decide operator use.", "模拟盘输出只是本地证据；是否可给操作员使用仍由推广闸门决定。"],
+  ["No extra GUI worker jobs detected; launch research, paper, or verification workflows from the console.", "没有额外 GUI 工作进程；需要时从控制台启动研究、模拟盘或验证任务。"],
+  ["Local process observation only; no broker, account, order, or live-trading side effects.", "仅本地查看进程；不会触碰券商、账户、订单或实盘交易。"],
+  ["Current control-center defaults target CN_ETF local processed bars.", "当前中控默认使用 CN_ETF 本地清洗行情。"],
+  ["Paper workflows are local simulations only; promotion gates must pass before operator use.", "模拟盘流程只在本地运行；必须通过推广闸门后才可给操作员使用。"],
+  ["The local GUI server and /api/control/status must respond before operator use.", "给操作员使用前，本地 GUI 服务和 /api/control/status 必须正常响应。"],
+  ["Run verification gate", "运行验证闸门"],
+  ["Run startup workflows", "运行启动工作流"],
+  ["research, signals, paper, and promotion refreshed", "研究、信号、模拟盘和候选推广已刷新"],
+  ["Run a local verification gate and inspect the receipt.", "运行一个本地验证闸门，并检查回执。"],
+  ["No allowlisted gates", "暂无允许的验证闸门"],
+  ["Verification runner is disabled until gate metadata is restored.", "验证闸门元数据恢复前，验证执行器会保持禁用。"],
+  ["Allowed gates", "允许的验证闸门"],
+  ["Local startup", "本地启动"],
+  ["Local startup smoke", "本地启动冒烟"],
+  ["Desktop browser smoke", "桌面浏览器冒烟"],
+  ["Mobile browser smoke", "移动端浏览器冒烟"],
+  ["Control status API", "中控状态 API"],
+  ["GUI browser smoke evidence", "GUI 浏览器冒烟证据"],
+  ["Local /api/control/status returns stage=gui_control_center.", "本地 /api/control/status 已返回 gui_control_center 阶段。"],
+  ["Control API must return stage=gui_control_center.", "中控 API 必须返回 gui_control_center 阶段。"],
+  ["Run queue and verification gates render with no horizontal overflow or console errors.", "运行队列和验证闸门渲染正常，没有横向溢出或控制台错误。"],
+  ["Critical control center blocks remain visible and responsive on mobile.", "移动端仍能看清并操作关键中控模块。"],
+  ["Evidence packet present at", "证据包位于"],
+  ["GUI browser smoke evidence packet is missing.", "GUI 浏览器冒烟证据包缺失。"],
+  ["Computes metrics only; no broker, account, or order side effects.", "仅计算指标；无券商、账户或下单副作用。"],
+  ["blocked by research-to-paper boundary", "按研究到模拟盘边界阻断"],
+  ["Blocked by research-to-paper boundary", "按研究到模拟盘边界阻断"],
+  ["after preflight review.", "完成运行前检查后执行。"],
+  ["Run allowlisted verification gates locally and inspect the returned receipt before publishing.", "发布前在本地运行白名单验证闸门，并检查返回回执。"],
+  ["No local verification receipt", "暂无本地验证回执"],
+  ["Run gui_compile first before publishing GUI changes.", "发布 GUI 改动前先运行 gui_compile。"],
+  ["GUI tests, project audit, compile check, sync audit, and browser smoke checks.", "GUI 测试、项目审计、编译检查、安全同步审计和浏览器冒烟都要通过。"],
+  ["GUI tests, compile checks, project audit, browser smoke, and sync audit must pass before publishing.", "发布前必须通过 GUI 测试、编译检查、项目审计、浏览器冒烟和安全同步审计。"],
+  ["Research metrics populate total return, annualized return, Sharpe, drawdown, win rate, trade count, and benchmark comparison.", "研究指标会展示总收益、年化收益、夏普、回撤、胜率、交易次数和基准对比。"],
+  ["Structured receipts connect displayed metrics to the workflow that produced them.", "结构化回执会把页面指标和生成它的工作流连起来。"],
+  ["Paper fills are local simulations only and do not touch broker, account, or order systems.", "模拟盘成交只在本地模拟，不会触碰券商、账户或订单系统。"],
+  ["Local processed bars or demo fixtures; no broker/account/order access.", "使用本地清洗行情或演示数据；不访问券商、账户或订单。"],
+  ["Run promotion/readiness gates before operator use; generated data stays out of Git.", "给操作员使用前先跑推广和就绪闸门；生成数据不进 Git。"],
+  ["Browser check", "浏览器检查"],
+  ["Run research backtest with the displayed current command.", "运行当前显示命令完成研究回测。"],
+  ["Run local paper simulation with the displayed current command.", "运行当前显示命令完成本地模拟盘。"],
+  ["preflight row(s) still need review before treating this as a paper-observation candidate.", "条预检仍需复核，暂不能当作模拟盘观察候选。"],
+  ["Keep live trading disabled; only research and local paper simulation are allowed.", "保持实盘交易禁用；只允许研究和本地模拟盘。"],
+  ["The GUI must see passing backtest-gate metrics and matching current receipts before any paper-observation handoff.", "进入模拟盘观察交接前，GUI 必须看到通过的回测闸门指标和匹配当前参数的回执。"],
+  ["The control API must expose metric thresholds before paper-observation decisions are shown.", "显示模拟盘观察判断前，中控 API 必须给出指标门槛。"],
+  ["no current server receipt", "暂无当前服务端回执"],
+  ["no server receipt", "暂无服务端回执"],
+  ["current server receipt", "当前服务端回执"],
+  ["paper-observation", "模拟盘观察"],
+  ["status=", "状态="],
+  ["browser=", "浏览器="],
+  ["gui=", "界面="],
+  ["live=", "实盘="],
+  ["live=false", "实盘=否"],
+  ["orders=false", "订单=否"],
+  ["evidence is current", "证据为当前"],
+  ["matches_current_request=False", "匹配当前请求=否"],
+  ["matches_current_request=True", "匹配当前请求=是"],
+  ["freshness=", "新旧状态="],
+  ["awaiting=", "等待="],
+  ["sharpe, total_return, annualized_return, max_drawdown, win_rate, trade_count, benchmark_relative_return, paper_ending_equity, stored_receipts", "夏普、总收益、年化收益、最大回撤、胜率、交易次数、相对基准收益、模拟盘期末权益、存储回执"],
+  ["Advisory signal snapshot", "建议信号快照"],
+  ["advisory signal snapshot", "建议信号快照"],
+  ["research_backtest", "研究回测"],
+  ["verification_runner", "验证执行器"],
+  ["observing", "监控中"],
+  ["research_api", "研究接口"],
+  ["paper_sim", "模拟盘"],
+  ["paper_simulation", "模拟盘"],
+  ["advisory_signal", "建议信号"],
+  ["local_verification", "本地验证"],
+  ["server_receipt", "服务端回执"],
+  ["server_receipts", "服务端回执"],
+  ["refresh_after_run", "运行后刷新"],
+  ["requires_gates", "需要闸门"],
+  ["allowlist", "白名单"],
+  ["live_trading_allowed", "允许实盘交易"],
+  ["order_placement_allowed", "允许下单"],
+  ["ledger_evidence", "证据账本"],
+  ["live_boundary", "实盘边界"],
+  ["live_trading", "实盘交易"],
+  ["broker_connection", "券商连接"],
+  ["paper_only", "仅模拟盘"],
+  ["browser_smoke_ready", "浏览器冒烟就绪"],
+  ["returncode", "返回码"],
+  ["metric_passed", "指标通过"],
+  ["candidate", "候选"],
+  ["orders", "订单"],
+  ["jobs", "任务"],
+  ["related", "相关"],
+  ["pid", "进程号"],
+  ["awaiting_workflow_run", "等待工作流运行"],
+  ["browser_receipts", "浏览器回执"],
+  ["packet_missing", "审计包缺失"],
+  ["workflow_preflight", "工作流预检"],
+  ["stored_receipts", "存储回执"],
   ["Workspace", "工作区"],
   ["Machine", "机器"],
   ["Task", "任务"],
@@ -4982,7 +5081,7 @@ function renderVerificationRunner(runner = {}, latest = null) {
       <strong>${escapeHtml(item.label || item.gate_id || "")}</strong>
       <span>${escapeHtml(item.command || "")}</span>
       <div class="runner-row-actions">
-        <button class="secondary-button verification-run-button" type="button" data-verification-gate="${escapeHtml(item.gate_id || "")}">Run</button>
+        <button class="secondary-button verification-run-button" type="button" data-verification-gate="${escapeHtml(item.gate_id || "")}">${escapeHtml(item.button_label || "Run")}</button>
         <span>${escapeHtml(item.endpoint || `/api/control/verification?gate_id=${item.gate_id || ""}`)}</span>
       </div>
     </div>
@@ -4995,8 +5094,8 @@ function renderVerificationRunner(runner = {}, latest = null) {
     </div>
   ` : `
     <div class="list-row warn">
-      <strong>No local verification receipt</strong>
-      <span>Run gui_compile first before publishing GUI changes.</span>
+      <strong>暂无本地验证回执</strong>
+      <span>发布 GUI 改动前先运行 gui_compile。</span>
     </div>
   `;
   return header + (body || `
@@ -6037,9 +6136,9 @@ async function runVerificationGate(gateId, button = null) {
   if (!confirmed) return;
   const activeOperation = beginActiveOperation({
     workflow_id: "verification_runner",
-    label: `Run verification gate ${gateId}`,
+    label: `运行验证闸门 ${gateId}`,
     detail: `/api/control/verification?gate_id=${gateId}`,
-    safety: "allowlisted local verification only; no broker, account, order, or live-trading side effects",
+    safety: "仅运行白名单本地验证；无券商、账户、订单或实盘交易副作用",
   });
   if (button) {
     button.disabled = true;
@@ -6051,7 +6150,7 @@ async function runVerificationGate(gateId, button = null) {
     state.verificationResult = result;
     finishActiveOperation(activeOperation, result.status === "passed" ? "completed" : "failed", `returncode=${result.returncode ?? "--"} / ${result.status || "--"}`);
     renderControlCenter();
-    showToast(`Verification ${result.status || "finished"}: ${gateId}`, result.status !== "passed");
+    showToast(`验证${zhConsoleText(result.status || "完成")}：${gateId}`, result.status !== "passed");
   } catch (error) {
     state.verificationResult = {
       stage: "gui_verification_result",
@@ -6069,7 +6168,7 @@ async function runVerificationGate(gateId, button = null) {
   } finally {
     if (button) {
       button.disabled = false;
-      button.textContent = label || "Run";
+      button.textContent = label || "运行";
     }
     byId("run-state-label").textContent = "就绪";
   }
@@ -6108,7 +6207,7 @@ async function runActionCenterWorkflow(workflowId, button = null) {
   } finally {
     if (button) {
       button.disabled = false;
-      button.textContent = original || "Run";
+      button.textContent = original || "运行";
     }
     syncCurrentBacktestRuntimeGuard();
   }
