@@ -1472,6 +1472,41 @@ button {
   color: var(--accent-2);
 }
 
+.beginner-parameter-runtime {
+  display: inline-grid;
+  gap: 3px;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 7px;
+  border: 1px solid rgba(0, 121, 107, 0.22);
+  border-radius: var(--radius);
+  background: #f6fbf8;
+  padding: 6px 8px;
+  overflow-wrap: anywhere;
+}
+
+.beginner-parameter-runtime.ok {
+  border-color: rgba(54, 119, 84, 0.28);
+  background: #f6fbf8;
+}
+
+.beginner-parameter-runtime.warn {
+  border-color: rgba(189, 108, 33, 0.34);
+  background: #fff7e8;
+}
+
+.beginner-parameter-head .beginner-parameter-runtime strong {
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.beginner-parameter-runtime small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .beginner-parameter-actions {
   display: flex;
   justify-content: flex-end;
@@ -1484,6 +1519,11 @@ button {
   min-height: 32px;
   padding: 6px 10px;
   white-space: normal;
+}
+
+.beginner-parameter-actions .primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .beginner-parameter-rows {

@@ -342,6 +342,12 @@ function bindActions() {
     jumpToBeginnerTarget(button.dataset.beginnerParameterJump || "control-request-preview", state.leaderboardTab);
   });
   document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-beginner-parameter-runtime-jump]");
+    if (!button) return;
+    event.preventDefault();
+    jumpToBeginnerTarget(button.dataset.beginnerParameterRuntimeJump || "factor-runtime-gap-panel", state.leaderboardTab);
+  });
+  document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-beginner-result-jump]");
     if (!button) return;
     event.preventDefault();
@@ -714,6 +720,26 @@ function beginnerParameterRows(researchParams, signalParams, paperParams) {
   ];
 }
 
+function parameterRuntimeStatus(researchParams = buildResearchParams()) {
+  const factor = parameterPlainValue(researchParams, "factor", "");
+  return factorRuntimeStatus({ factor_name: factor });
+}
+
+function renderBeginnerParameterActions(runtime = { runnable: true }) {
+  const runtimeState = runtime.runnable ? "runtime" : "missing";
+  if (runtime.runnable) {
+    return `
+      <button class="secondary-button" type="button" data-beginner-parameter-jump="control-request-preview">看请求详情</button>
+      <button class="primary-button" type="button" data-beginner-action="research_backtest" data-beginner-parameter-runtime="${runtimeState}">本地回测当前参数</button>
+    `;
+  }
+  return `
+    <button class="secondary-button" type="button" data-beginner-parameter-jump="control-request-preview">看请求详情</button>
+    <button class="secondary-button" type="button" data-beginner-parameter-runtime-jump="factor-runtime-gap-panel">看运行缺口</button>
+    <button class="primary-button" type="button" data-beginner-parameter-runtime="${runtimeState}" disabled>需先注册后回测</button>
+  `;
+}
+
 function renderBeginnerParameterExplainer(
   researchParams = buildResearchParams(),
   signalParams = buildSignalParams(),
@@ -729,16 +755,20 @@ function renderBeginnerParameterExplainer(
   const dateWindow = parameterDateWindow(researchParams);
   const topN = parameterPlainValue(researchParams, "top_n");
   const cost = parameterBpsText(parameterPlainValue(researchParams, "cost_bps"));
-  const tone = market === "CN_ETF" && source === "processed-bars" ? "ok" : "warn";
+  const runtime = parameterRuntimeStatus(researchParams);
+  const tone = market === "CN_ETF" && source === "processed-bars" && runtime.runnable ? "ok" : "warn";
   summaryTarget.innerHTML = `
     <div class="beginner-parameter-head ${escapeHtml(tone)}">
       <div>
         <strong>${escapeHtml(`现在会用 ${market} 的 ${factor} 做本地研究`)}</strong>
         <span>${escapeHtml(`${dateWindow} / Top${topN} / 成本 ${cost}`)}</span>
+        <span class="beginner-parameter-runtime ${escapeHtml(runtime.tone)}" data-beginner-parameter-runtime="${runtime.runnable ? "runtime" : "missing"}">
+          <strong>${escapeHtml(runtime.label)}</strong>
+          <small>${escapeHtml(runtime.detail)}</small>
+        </span>
       </div>
       <div class="beginner-parameter-actions">
-        <button class="secondary-button" type="button" data-beginner-parameter-jump="control-request-preview">看请求详情</button>
-        <button class="primary-button" type="button" data-beginner-action="research_backtest">本地回测当前参数</button>
+        ${renderBeginnerParameterActions(runtime)}
       </div>
     </div>
   `;
