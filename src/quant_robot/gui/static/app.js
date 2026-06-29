@@ -1378,6 +1378,53 @@ function endpointWithParams(path, params) {
   return query ? `${path}?${query}` : path;
 }
 
+function friendlyCommandText(value = "") {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const command = raw.replace(/^GET\s+/i, "");
+  const apiIndex = command.indexOf("/api/");
+  if (apiIndex >= 0) {
+    const apiText = command.slice(apiIndex);
+    try {
+      return friendlyApiText(new URL(apiText, "http://local"));
+    } catch (_error) {
+      return zhConsoleText(command.split("?")[0] || raw);
+    }
+  }
+  return zhConsoleText(raw);
+}
+
+function friendlyApiText(url) {
+  const params = url.searchParams;
+  const labels = {
+    "/api/research": "研究回测接口",
+    "/api/paper": "本地模拟盘接口",
+    "/api/signals": "建议信号接口",
+    "/api/control/verification": "本地验证接口",
+    "/api/control/status": "中控状态接口",
+    "/api/daily/ops": "日常运营接口",
+    "/api/promotion/ops": "候选推广接口",
+  };
+  const market = params.get("market");
+  const factor = params.get("factor") || params.get("factor_name");
+  const topN = params.get("top_n");
+  const cost = params.get("cost_bps");
+  const start = params.get("start_date");
+  const end = params.get("end_date");
+  const asOf = params.get("as_of_date");
+  const gate = params.get("gate_id");
+  return [
+    labels[url.pathname] || zhConsoleText(url.pathname),
+    market || "",
+    factor || "",
+    topN ? `TopN=${topN}` : "",
+    cost ? `成本=${cost}bps` : "",
+    start || end ? `${start || "--"} 至 ${end || "--"}` : "",
+    asOf ? `日期=${asOf}` : "",
+    gate ? `闸门=${gate}` : "",
+  ].filter(Boolean).join(" / ");
+}
+
 function safeWorkflowPlainOutcome(spec = {}) {
   const request = spec.request || {};
   const workflowId = spec.workflow_id || "local_workflow";
@@ -1844,7 +1891,7 @@ function renderControlCenter() {
   byId("control-execution-plan").innerHTML = executionSteps.slice(0, 7).map((item) => `
     <div class="list-row ${escapeHtml(item.status === "done" || item.status === "active" ? "ok" : item.status === "blocked" ? "danger" : "warn")}">
       <strong>${escapeHtml(item.label || item.step_id || "")}</strong>
-      <span>${escapeHtml(item.status || "")} / ${escapeHtml(item.command || "")}</span>
+      <span>${escapeHtml(item.status || "")} / ${escapeHtml(friendlyCommandText(item.command || ""))}</span>
       <span>${escapeHtml(item.detail || "")}</span>
     </div>
   `).join("");
@@ -1881,7 +1928,7 @@ function renderControlCenter() {
   byId("control-operator-timeline").innerHTML = timelineEvents.slice(0, 7).map((item) => `
     <div class="list-row ${escapeHtml(item.status === "done" || item.status === "active" ? "ok" : item.status === "blocked" ? "danger" : "warn")}">
       <strong>${escapeHtml(item.label || item.event_id || "")}</strong>
-      <span>${escapeHtml(item.status || "")} / ${escapeHtml(item.command || "")}</span>
+      <span>${escapeHtml(item.status || "")} / ${escapeHtml(friendlyCommandText(item.command || ""))}</span>
       <span>${escapeHtml(item.detail || "")}</span>
     </div>
   `).join("");
@@ -4619,6 +4666,24 @@ const GUI_ZH_REPLACEMENTS = [
   ["freshness=", "新旧状态="],
   ["awaiting=", "等待="],
   ["sharpe, total_return, annualized_return, max_drawdown, win_rate, trade_count, benchmark_relative_return, paper_ending_equity, stored_receipts", "夏普、总收益、年化收益、最大回撤、胜率、交易次数、相对基准收益、模拟盘期末权益、存储回执"],
+  ["Data scope", "数据范围"],
+  ["Factor inputs", "因子输入"],
+  ["Execution model", "执行模型"],
+  ["Cost and risk model", "成本和风控模型"],
+  ["Output metrics", "输出指标"],
+  ["processed-bars reads", "读取本地清洗行情"],
+  ["with windows", "按窗口"],
+  ["ranks top", "选择排名前"],
+  ["assets against", "个标的，对比基准"],
+  ["Rebalance every", "每"],
+  ["bars with lag", "根K线调仓，执行滞后"],
+  ["and forward horizon", "预测周期"],
+  ["Cost ", "成本 "],
+  ["bps, cash annual return", "bps，现金年化收益"],
+  ["regime filter=", "市场状态过滤="],
+  [" lookback=", " 回看周期="],
+  ["max drawdown limit=", "最大回撤限制="],
+  ["Reports total return, annualized return, Sharpe, max drawdown, win rate, trades, benchmark relative return, and paper equity.", "报告总收益、年化收益、夏普、最大回撤、胜率、交易次数、相对基准收益和模拟盘权益。"],
   ["Advisory signal snapshot", "建议信号快照"],
   ["advisory signal snapshot", "建议信号快照"],
   ["research_backtest", "研究回测"],
@@ -5043,7 +5108,7 @@ function renderWorkflowTrace(trace = {}) {
     <div class="list-row ${escapeHtml(headerClass)}">
       <strong>${escapeHtml(`${summary.current_workflow || "--"} / ${summary.current_status || "--"}`)}</strong>
       <span>${escapeHtml(`paper_only=${summary.paper_only ? "true" : "false"} / live=${summary.live_trading_allowed ? "enabled" : "disabled"}`)}</span>
-      <span>${escapeHtml(`${summary.evidence_storage_key || "--"} / ${summary.next_endpoint || ""}`)}</span>
+      <span>${escapeHtml(`${summary.evidence_storage_key || "--"} / ${friendlyCommandText(summary.next_endpoint || "")}`)}</span>
     </div>
   `;
   const body = rows.slice(0, 9).map((item) => {
@@ -5053,15 +5118,15 @@ function renderWorkflowTrace(trace = {}) {
       <div class="list-row ${escapeHtml(statusClass)}">
         <strong>${escapeHtml(item.label || item.trace_id || "")}</strong>
         <span>${escapeHtml(`${status || "--"} / ${item.source_workflow || ""}`)}</span>
-        <span>${escapeHtml(item.command || item.endpoint || "")}</span>
+        <span>${escapeHtml(friendlyCommandText(item.command || item.endpoint || ""))}</span>
         <span>${escapeHtml(item.evidence || item.next_action || "")}</span>
       </div>
     `;
   }).join("");
   return header + (body || `
     <div class="list-row warn">
-      <strong>No workflow trace</strong>
-      <span>The control API must expose the active workflow, queued steps, evidence storage, verification gates, and live boundary.</span>
+      <strong>暂无工作流追踪</strong>
+      <span>中控 API 需要展示当前工作流、队列步骤、证据存储、验证闸门和实盘边界。</span>
     </div>
   `);
 }
@@ -5100,8 +5165,8 @@ function renderVerificationRunner(runner = {}, latest = null) {
   `;
   return header + (body || `
     <div class="list-row danger">
-      <strong>No allowlisted gates</strong>
-      <span>Verification runner is disabled until gate metadata is restored.</span>
+      <strong>暂无允许的验证闸门</strong>
+      <span>验证闸门元数据恢复前，验证执行器会保持禁用。</span>
     </div>
   `) + receipt;
 }
@@ -5115,7 +5180,7 @@ function renderWorkspaceSync(sync = {}) {
     <div class="list-row ${escapeHtml(headerClass)}">
       <strong>${escapeHtml(`Workspace / ${status}`)}</strong>
       <span>${escapeHtml(`${summary.current_branch || "--"} / ${summary.head || "--"}`)}</span>
-      <span>${escapeHtml(`behind=${summary.behind ?? "--"} / ahead=${summary.ahead ?? "--"} / changed=${summary.changed_paths ?? "--"}`)}</span>
+      <span>${escapeHtml(`落后=${summary.behind ?? "--"} / 超前=${summary.ahead ?? "--"} / 变更=${summary.changed_paths ?? "--"}`)}</span>
       <span>${escapeHtml(summary.next_action || "")}</span>
     </div>
   `;
@@ -5132,8 +5197,8 @@ function renderWorkspaceSync(sync = {}) {
   }).join("");
   return header + (body || `
     <div class="list-row warn">
-      <strong>No workspace sync status</strong>
-      <span>Git branch, worktree, upstream, and sync policy should be visible before publishing.</span>
+      <strong>暂无工作区同步状态</strong>
+      <span>发布前需要看到 Git 分支、工作区、上游和同步策略。</span>
     </div>
   `);
 }
@@ -5173,15 +5238,15 @@ function renderActionCenter(actionCenter = {}) {
         <strong>${escapeHtml(zhConsoleText(`${priority} / ${item.label || item.action_id || ""}`))}</strong>
         <span>${escapeHtml(zhConsoleText(`${item.status || "--"} / ${item.source || ""}`))}</span>
         <span>${escapeHtml(zhConsoleText(item.reason || ""))}</span>
-        <span>${escapeHtml(item.command || "")}</span>
+        <span>${escapeHtml(friendlyCommandText(item.command || ""))}</span>
         <span>${button}</span>
       </div>
     `;
   }).join("");
   return header + (body || `
     <div class="list-row warn">
-      <strong>No action center rows</strong>
-      <span>Run the control status API to derive the next safe GUI action.</span>
+      <strong>暂无下一步动作</strong>
+      <span>运行中控状态接口后，会生成下一步安全操作建议。</span>
     </div>
   `);
 }
@@ -5337,8 +5402,8 @@ function renderProcessMonitor(monitor = {}) {
   }).join("");
   return header + (body || `
     <div class="list-row warn">
-      <strong>No process monitor data</strong>
-      <span>The control API should expose current GUI, audit, smoke, and research processes.</span>
+      <strong>暂无进程监控数据</strong>
+      <span>中控 API 需要展示当前 GUI、审计、冒烟和研究进程。</span>
     </div>
   `);
 }
@@ -5421,7 +5486,7 @@ function renderTradeModeControl(control = {}) {
     <div class="list-row ${escapeHtml(summary.live_trading_allowed ? "danger" : "ok")}">
       <strong>${escapeHtml(`Default mode: ${summary.default_mode || "research"}`)}</strong>
       <span>${escapeHtml(`paper_sim=${summary.paper_simulation_available ? "available" : "blocked"} / live=${summary.live_trading_allowed ? "enabled" : "blocked"}`)}</span>
-      <span>${escapeHtml(summary.next_action || "Use research and paper simulation modes only.")}</span>
+      <span>${escapeHtml(summary.next_action || "只允许研究和本地模拟盘模式。")}</span>
     </div>
   `;
   const body = rows.map((item) => {
@@ -5442,15 +5507,15 @@ function renderTradeModeControl(control = {}) {
       <div class="list-row ${escapeHtml(statusClass)}">
         <strong>${escapeHtml(item.label || item.mode_id || "")}</strong>
         <span>${escapeHtml(`${status || "--"} / ${permissionText}`)}</span>
-        <span>${escapeHtml(item.entrypoint || "")}</span>
+        <span>${escapeHtml(friendlyCommandText(item.entrypoint || ""))}</span>
         <span>${escapeHtml(item.guardrail || item.scope || "")}</span>
       </div>
     `;
   }).join("");
   return header + (body || `
     <div class="list-row warn">
-      <strong>No mode rows</strong>
-      <span>The control API should expose research, paper simulation, and live trading mode rows.</span>
+      <strong>暂无模式行</strong>
+      <span>中控 API 需要展示研究、模拟盘和实盘模式。</span>
     </div>
   `);
 }
@@ -5494,7 +5559,7 @@ function renderBacktestProvenance(provenance = {}) {
     <div class="list-row ${escapeHtml(headerClass)}">
       <strong>${escapeHtml(`${summary.market || "--"} / ${summary.factor || "--"}`)}</strong>
       <span>${escapeHtml(`paper_only=${summary.paper_only ? "true" : "false"} / live=${summary.live_trading_allowed ? "enabled" : "disabled"}`)}</span>
-      <span>${escapeHtml(summary.research_endpoint || "")}</span>
+      <span>${escapeHtml(friendlyCommandText(summary.research_endpoint || ""))}</span>
     </div>
   `;
   const body = rows.slice(0, 7).map((item) => {
@@ -5510,8 +5575,8 @@ function renderBacktestProvenance(provenance = {}) {
   }).join("");
   return header + (body || `
     <div class="list-row warn">
-      <strong>No backtest provenance</strong>
-      <span>The control API must expose source, parameter, endpoint, output, and safety provenance for each backtest.</span>
+      <strong>暂无回测溯源</strong>
+      <span>中控 API 需要展示每次回测的数据源、参数、端点、输出和安全溯源。</span>
     </div>
   `);
 }
@@ -5543,8 +5608,8 @@ function renderResultEvidence(evidence = {}) {
   }).join("");
   return header + (body || `
     <div class="list-row warn">
-      <strong>No result evidence</strong>
-      <span>Run research, signals, or paper simulation to connect result metrics to workflow receipts.</span>
+      <strong>暂无结果证据</strong>
+      <span>运行研究、信号或模拟盘后，会把结果指标连接到工作流回执。</span>
     </div>
   `);
 }
@@ -5611,14 +5676,14 @@ function renderPaperReadiness(
               ? "review"
               : summary.status || "review";
   const headerClass = safety.live_trading_allowed || metricFailures > 0 ? "danger" : candidateReady ? "ok" : "warn";
-  const serverReceiptText = `server_receipts=${serverReceipts}/${requiredServerReceipts || "--"}`;
-  const browserReceiptText = `browser_receipts=${browserReceipts}/${requiredBrowserReceipts || "--"}`;
-  const metricSummaryText = `metric_passed=${metricPassed}/${metricGateRows.length || "--"} / awaiting=${metricAwaiting} / failed=${metricFailures}`;
-  const liveSummaryText = `live_boundary=${liveBlockedExpected ? "expected_block" : "review"}`;
+  const serverReceiptText = `服务端回执=${serverReceipts}/${requiredServerReceipts || "--"}`;
+  const browserReceiptText = `浏览器回执=${browserReceipts}/${requiredBrowserReceipts || "--"}`;
+  const metricSummaryText = `指标通过=${metricPassed}/${metricGateRows.length || "--"} / 等待=${metricAwaiting} / 失败=${metricFailures}`;
+  const liveSummaryText = `实盘边界=${liveBlockedExpected ? "预期阻断" : "需复核"}`;
   const header = `
     <div class="list-row ${escapeHtml(headerClass)}">
       <strong>${escapeHtml(zhConsoleText(`Paper readiness / ${dynamicStatus}`))}</strong>
-      <span>${escapeHtml(`${serverReceiptText} / ${browserReceiptText} / candidate=${candidateReady ? "yes" : "no"}`)}</span>
+      <span>${escapeHtml(`${serverReceiptText} / ${browserReceiptText} / 候选=${candidateReady ? "是" : "否"}`)}</span>
       <span>${escapeHtml(`${metricSummaryText} / ${liveSummaryText}`)}</span>
     </div>
   `;
@@ -5653,8 +5718,8 @@ function renderPaperReadiness(
   }).join("");
   return header + (body || `
     <div class="list-row warn">
-      <strong>No paper readiness handoff</strong>
-      <span>Run current research and paper workflows, then evaluate receipts, metrics, preflight, gates, and live boundary.</span>
+      <strong>暂无模拟盘交接</strong>
+      <span>先运行当前研究和模拟盘工作流，再评估回执、指标、预检、闸门和实盘边界。</span>
     </div>
   `);
 }
@@ -5671,8 +5736,8 @@ function renderLedgerEvidence(evidence = {}) {
         : "danger";
   const header = `
     <div class="list-row ${escapeHtml(headerClass)}">
-      <strong>${escapeHtml(`Server receipts / ${summary.status || "--"}`)}</strong>
-      <span>${escapeHtml(`current=${summary.current_receipts ?? 0} / missing_or_stale=${summary.missing_or_stale ?? 0}`)}</span>
+      <strong>${escapeHtml(`服务端回执 / ${summary.status || "--"}`)}</strong>
+      <span>${escapeHtml(`当前=${summary.current_receipts ?? 0} / 缺失或过期=${summary.missing_or_stale ?? 0}`)}</span>
       <span>${escapeHtml(summary.next_action || "")}</span>
     </div>
   `;
@@ -5691,8 +5756,8 @@ function renderLedgerEvidence(evidence = {}) {
   }).join("");
   return header + (body || `
     <div class="list-row warn">
-      <strong>No server ledger evidence</strong>
-      <span>Run research, signals, paper, or verification from this GUI to create server-side receipts.</span>
+      <strong>暂无服务端回执账本</strong>
+      <span>从这个 GUI 运行研究、信号、模拟盘或验证任务后，会生成服务端回执。</span>
     </div>
   `);
 }
@@ -5719,12 +5784,12 @@ function renderBacktestGate(
       ? "awaiting metrics"
       : summary.paper_candidate_allowed
         ? "paper candidate"
-        : "metrics floor only";
+        : "只检查指标门槛";
   const header = `
     <div class="list-row ${escapeHtml(headerClass)}">
       <strong>${escapeHtml(zhConsoleText(`Backtest gate / ${headerStatus}`))}</strong>
       <span>${escapeHtml(`passed=${passed} / awaiting=${awaiting} / failed=${failures}`)}</span>
-      <span>${escapeHtml(`risk=${summary.risk_profile || "--"} / live=${summary.live_trading_allowed ? "enabled" : "disabled"}`)}</span>
+      <span>${escapeHtml(`风险=${summary.risk_profile || "--"} / live=${summary.live_trading_allowed ? "enabled" : "disabled"}`)}</span>
     </div>
   `;
   const body = evaluated.slice(0, 10).map(({ item, value, threshold, result }) => `
@@ -5736,8 +5801,8 @@ function renderBacktestGate(
   `).join("");
   return header + (body || `
     <div class="list-row warn">
-      <strong>No backtest gate</strong>
-      <span>The control API must expose metric thresholds before paper-observation decisions are shown.</span>
+      <strong>暂无回测闸门</strong>
+      <span>显示模拟盘观察判断前，中控 API 必须给出指标门槛。</span>
     </div>
   `);
 }
@@ -5876,7 +5941,7 @@ function renderReleaseReadiness(readiness = {}) {
   const header = `
     <div class="list-row ${escapeHtml(headerClass)}">
       <strong>${escapeHtml(summary.push_ready ? "Push ready" : "Manual verification required")}</strong>
-      <span>${escapeHtml(`evidence=${summary.evidence_ready ? "ready" : "missing"} / manual=${summary.manual_required ?? "--"} / missing=${summary.missing_required ?? "--"}`)}</span>
+      <span>${escapeHtml(`证据=${summary.evidence_ready ? "ready" : "missing"} / 人工=${summary.manual_required ?? "--"} / 缺失=${summary.missing_required ?? "--"}`)}</span>
       <span>${escapeHtml(summary.next_action || "")}</span>
     </div>
   `;
@@ -5893,8 +5958,8 @@ function renderReleaseReadiness(readiness = {}) {
   }).join("");
   return header + (body || `
     <div class="list-row warn">
-      <strong>No release readiness rows</strong>
-      <span>Run the control-center snapshot to populate local release gates.</span>
+      <strong>暂无发布就绪检查行</strong>
+      <span>刷新中控台快照后会填充本地发布闸门。</span>
     </div>
   `);
 }
