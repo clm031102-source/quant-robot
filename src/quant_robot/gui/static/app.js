@@ -725,12 +725,60 @@ function parameterRuntimeStatus(researchParams = buildResearchParams()) {
   return factorRuntimeStatus({ factor_name: factor });
 }
 
+function runtimeGuardAttr(actionId) {
+  return actionId === "research_backtest" ? 'data-runtime-guard="research_backtest"' : "";
+}
+
+function currentBacktestRuntimeGuard() {
+  const runtime = parameterRuntimeStatus();
+  return {
+    ...runtime,
+    blocked: !runtime.runnable,
+    blockedLabel: "需先注册后回测",
+    target: "factor-runtime-gap-panel",
+  };
+}
+
+function syncCurrentBacktestRuntimeGuard() {
+  const guard = currentBacktestRuntimeGuard();
+  document.querySelectorAll('[data-runtime-guard="research_backtest"]').forEach((button) => {
+    const currentText = (button.textContent || "").trim();
+    if (currentText && currentText !== guard.blockedLabel && currentText !== "运行中") {
+      button.dataset.runtimeOriginalText = currentText;
+    }
+    if (guard.blocked) {
+      button.dataset.runtimeGuardState = "blocked";
+      button.classList.add("runtime-guarded-action");
+      button.disabled = true;
+      button.textContent = guard.blockedLabel;
+      button.title = guard.detail;
+      return;
+    }
+    if (button.dataset.runtimeGuardState === "blocked") {
+      button.disabled = false;
+      button.textContent = button.dataset.runtimeOriginalText || "本地回测当前参数";
+    }
+    button.dataset.runtimeGuardState = "ready";
+    button.classList.remove("runtime-guarded-action");
+    if (button.title === guard.detail) button.removeAttribute("title");
+  });
+  return guard;
+}
+
+function blockCurrentBacktestRuntime(guard = currentBacktestRuntimeGuard()) {
+  if (!guard.blocked) return false;
+  syncCurrentBacktestRuntimeGuard();
+  showToast(guard.detail, true);
+  jumpToBeginnerTarget(guard.target, state.leaderboardTab);
+  return true;
+}
+
 function renderBeginnerParameterActions(runtime = { runnable: true }) {
   const runtimeState = runtime.runnable ? "runtime" : "missing";
   if (runtime.runnable) {
     return `
       <button class="secondary-button" type="button" data-beginner-parameter-jump="control-request-preview">看请求详情</button>
-      <button class="primary-button" type="button" data-beginner-action="research_backtest" data-beginner-parameter-runtime="${runtimeState}">本地回测当前参数</button>
+      <button class="primary-button" type="button" data-beginner-action="research_backtest" data-beginner-parameter-runtime="${runtimeState}" ${runtimeGuardAttr("research_backtest")}>本地回测当前参数</button>
     `;
   }
   return `
@@ -927,7 +975,7 @@ function renderBeginnerResultInterpreter(
   root.classList.add(verdict.tone);
   const actions = (verdict.actions || []).map((action) => {
     const attrs = action.action
-      ? `data-beginner-action="${escapeHtml(action.action)}"`
+      ? `data-beginner-action="${escapeHtml(action.action)}" ${runtimeGuardAttr(action.action)}`
       : `data-beginner-result-jump="${escapeHtml(action.jump || "control-backtest-gate")}"`;
     return `<button class="${escapeHtml(action.tone || "secondary-button")}" type="button" ${attrs}>${escapeHtml(action.label)}</button>`;
   }).join("");
@@ -985,6 +1033,7 @@ function renderRequestPreview() {
   renderBeginnerParameterExplainer(researchParams, signalParams, paperParams);
   renderResultFreshness();
   renderParameterConsistency();
+  syncCurrentBacktestRuntimeGuard();
 }
 
 function applyControlDefaults() {
@@ -1450,6 +1499,7 @@ async function refreshResearch() {
 }
 
 async function runResearch() {
+  if (blockCurrentBacktestRuntime()) return;
   const params = buildResearchParams();
   const confirmed = await confirmSafeWorkflow({
     workflow_id: "research_backtest",
@@ -1903,6 +1953,7 @@ function renderControlCenter() {
   renderBeginnerTaskWizard();
   renderBeginnerTroubleshooter();
   renderBeginnerProgress();
+  syncCurrentBacktestRuntimeGuard();
 }
 
 function renderDashboard() {
@@ -2034,6 +2085,7 @@ function renderFactorLeaderboard() {
   ]);
   renderFactorBeginnerExplainer(activeBoard, rows);
   byId("factor-leaderboard-table").innerHTML = renderFactorLeaderboardTable(rows);
+  syncCurrentBacktestRuntimeGuard();
 }
 
 function factorBeginnerTone(row = {}) {
@@ -2122,7 +2174,7 @@ function renderFactorBeginnerExplainer(activeBoard = {}, rows = []) {
       </div>
       <div class="factor-beginner-actions">
         <button class="secondary-button" type="button" data-factor-beginner-jump="factor-leaderboard-table">看完整排行榜</button>
-        <button class="primary-button" type="button" data-beginner-action="research_backtest">本地回测当前参数</button>
+        <button class="primary-button" type="button" data-beginner-action="research_backtest" ${runtimeGuardAttr("research_backtest")}>本地回测当前参数</button>
       </div>
     </div>
   `;
@@ -2355,6 +2407,15 @@ function renderBeginnerVerdict() {
   button.dataset.beginnerAction = next.action || "";
   button.dataset.beginnerTarget = next.target || "";
   button.dataset.leaderboardTab = next.leaderboardTab || "";
+  if (next.action === "research_backtest") {
+    button.dataset.runtimeGuard = "research_backtest";
+  } else {
+    delete button.dataset.runtimeGuard;
+    button.dataset.runtimeGuardState = "ready";
+    button.classList.remove("runtime-guarded-action");
+    button.disabled = false;
+  }
+  syncCurrentBacktestRuntimeGuard();
 }
 
 function beginnerRecommendedTaskId() {
@@ -2437,6 +2498,7 @@ function renderBeginnerTaskWizard() {
         data-beginner-task-run="true"
         data-beginner-task-action="${escapeHtml(primaryAction)}"
         data-beginner-task-target="${escapeHtml(primaryTarget)}"
+        ${runtimeGuardAttr(primaryAction)}
         ${running ? "disabled" : ""}
       >${escapeHtml(running ? "等待当前任务结束" : primaryLabel)}</button>
       ${secondaryButton}
@@ -3018,7 +3080,7 @@ function renderBeginnerProgress() {
   stepsTarget.innerHTML = statusRows(beginnerProgressStepRows(progress));
   const actionButtons = beginnerProgressActionButtons(progress).map((item) => {
     const attrs = item.action
-      ? `data-beginner-action="${escapeHtml(item.action)}" data-beginner-progress-action="${escapeHtml(item.action)}"`
+      ? `data-beginner-action="${escapeHtml(item.action)}" data-beginner-progress-action="${escapeHtml(item.action)}" ${runtimeGuardAttr(item.action)}`
       : `data-beginner-progress-jump="${escapeHtml(item.jump || progress.target)}"`;
     return `
       <button
@@ -3042,6 +3104,7 @@ function renderBeginnerProgress() {
   `;
   recoveryTarget.innerHTML = renderBeginnerProgressRecovery(progress);
   renderBeginnerDataTrust(progress);
+  syncCurrentBacktestRuntimeGuard();
 }
 
 function renderBeginnerGuide() {
@@ -3052,7 +3115,7 @@ function renderBeginnerGuide() {
   listNode.innerHTML = BEGINNER_STEPS.map((step, index) => {
     const stateInfo = beginnerStepState(step.id);
     const buttonAttrs = step.action
-      ? `data-beginner-action="${escapeHtml(step.action)}"`
+      ? `data-beginner-action="${escapeHtml(step.action)}" ${runtimeGuardAttr(step.action)}`
       : `data-beginner-target="${escapeHtml(step.target || "")}" data-leaderboard-tab="${escapeHtml(step.leaderboardTab || "")}"`;
     return `
       <article class="beginner-step ${escapeHtml(stateInfo.tone)}">
@@ -3069,7 +3132,7 @@ function renderBeginnerGuide() {
   const nextStep = nextBeginnerStep();
   const nextState = beginnerStepState(nextStep.id);
   const nextAttrs = nextStep.action
-    ? `data-beginner-action="${escapeHtml(nextStep.action)}"`
+    ? `data-beginner-action="${escapeHtml(nextStep.action)}" ${runtimeGuardAttr(nextStep.action)}`
     : `data-beginner-target="${escapeHtml(nextStep.target || "")}" data-leaderboard-tab="${escapeHtml(nextStep.leaderboardTab || "")}"`;
   actionNode.innerHTML = `
     <div class="beginner-primary-card ${escapeHtml(nextState.tone)}">
@@ -3084,6 +3147,7 @@ function renderBeginnerGuide() {
     ["不要直接用", "CN 个股榜、全部历史榜、单次高收益都不能直接变成实盘 ETF 信号。", "danger"],
     ["点执行前", "所有执行按钮都会弹出安全确认，取消不会产生任何结果。", "warn"],
   ]);
+  syncCurrentBacktestRuntimeGuard();
 }
 
 function jumpToBeginnerTarget(targetId, leaderboardTab = "") {
@@ -3138,6 +3202,7 @@ function scrollBehaviorForDistance(currentTop, targetTop) {
 
 async function runBeginnerAction(actionId, button = null) {
   if (!actionId) return;
+  if (actionId === "research_backtest" && blockCurrentBacktestRuntime()) return;
   await runActionCenterWorkflow(actionId, button);
 }
 
@@ -5800,6 +5865,7 @@ async function runVerificationGate(gateId, button = null) {
 
 async function runActionCenterWorkflow(workflowId, button = null) {
   if (!workflowId) return;
+  if (workflowId === "research_backtest" && blockCurrentBacktestRuntime()) return;
   const original = button?.textContent || "";
   if (button) {
     button.disabled = true;
@@ -5832,6 +5898,7 @@ async function runActionCenterWorkflow(workflowId, button = null) {
       button.disabled = false;
       button.textContent = original || "Run";
     }
+    syncCurrentBacktestRuntimeGuard();
   }
 }
 

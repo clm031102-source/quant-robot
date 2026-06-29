@@ -130,7 +130,7 @@
             </div>
             <div class="beginner-verdict-side">
               <div id="beginner-verdict-reason" class="status-list compact-status"></div>
-              <button id="beginner-next-button" class="primary-button" type="button" data-beginner-next="true">查看下一步</button>
+              <button id="beginner-next-button" class="primary-button" type="button" data-beginner-next="true" data-runtime-guard="research_backtest">查看下一步</button>
             </div>
           </section>
           <section class="panel beginner-task-wizard" id="beginner-task-wizard" data-beginner-task-root="true">
@@ -201,7 +201,7 @@
               <div class="control-cell control-wide console-command-cell">
                 <small>操作控制台</small>
                 <div id="control-command-deck" class="console-command-deck">
-                  <button class="primary-button console-command-button" type="button" data-console-action="research_backtest" data-action-workflow="research_backtest">本地回测当前参数</button>
+                  <button class="primary-button console-command-button" type="button" data-console-action="research_backtest" data-action-workflow="research_backtest" data-runtime-guard="research_backtest">本地回测当前参数</button>
                   <button class="secondary-button console-command-button" type="button" data-console-action="signal_snapshot" data-action-workflow="signal_snapshot">生成本地建议信号</button>
                   <button class="secondary-button console-command-button" type="button" data-console-action="paper_simulation" data-action-workflow="paper_simulation">本地模拟盘回放</button>
                   <button class="ghost-button console-command-button" type="button" data-console-action="gui_compile" data-action-workflow="verification_runner" data-action-verification-gate="gui_compile">GUI 编译检查</button>
@@ -558,7 +558,7 @@
               <label>最大回撤上限
                 <input id="max-drawdown-limit" type="number" step="0.01" value="0.25">
               </label>
-              <button id="run-research" class="primary-button command-action" type="button">本地回测当前参数</button>
+              <button id="run-research" class="primary-button command-action" type="button" data-runtime-guard="research_backtest">本地回测当前参数</button>
             </div>
           </section>
 
