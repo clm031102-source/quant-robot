@@ -284,6 +284,12 @@ function bindActions() {
     jumpToBeginnerTarget(button.dataset.beginnerRecoveryJump || "control-active-operation", state.leaderboardTab);
   });
   document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-beginner-data-trust-jump]");
+    if (!button) return;
+    event.preventDefault();
+    jumpToBeginnerTarget(button.dataset.beginnerDataTrustJump || "control-request-preview", state.leaderboardTab);
+  });
+  document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-beginner-action]");
     if (!button) return;
     runBeginnerAction(button.dataset.beginnerAction || "", button);
@@ -2412,6 +2418,167 @@ function renderBeginnerProgressRecovery(progress = beginnerProgressState()) {
   `).join("");
 }
 
+function dayCountBetween(startDate, endDate) {
+  if (!startDate || !endDate) return NaN;
+  const start = Date.parse(`${startDate}T00:00:00Z`);
+  const end = Date.parse(`${endDate}T00:00:00Z`);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return NaN;
+  return Math.round((end - start) / 86400000) + 1;
+}
+
+function beginnerDataTrustState(progress = beginnerProgressState()) {
+  const source = valueOf("data-source-select")
+    || state.research?.data_source
+    || state.research?.source
+    || state.snapshot?.data_mode
+    || "processed-bars";
+  const market = valueOf("market-select") || state.research?.market || "CN_ETF";
+  const startDate = valueOf("start-date") || state.research?.start_date || "";
+  const endDate = valueOf("end-date") || state.research?.end_date || "";
+  const sampleDays = dayCountBetween(startDate, endDate);
+  const sourceKey = String(source).toLowerCase();
+  const marketKey = String(market).toUpperCase();
+  const isDemo = sourceKey.includes("demo");
+  const wrongMarket = marketKey !== "CN_ETF";
+  const hasCurrentResearch = Boolean(state.research);
+  const onlyReceipt = !hasCurrentResearch && beginnerHasReceipt("research_backtest");
+  const hasNoResult = !hasCurrentResearch && !onlyReceipt && progress.status !== "running";
+  const veryShortSample = Number.isFinite(sampleDays) && sampleDays < 365;
+  const shortSample = Number.isFinite(sampleDays) && sampleDays < 1095;
+  const resultText = progress.status === "running"
+    ? "当前正在本地运行，还不能把结果当结论。"
+    : hasCurrentResearch
+      ? "当前页面已有本轮回测结果，可以继续看结果判读和闸门。"
+      : onlyReceipt
+        ? "只有浏览器历史回执，不一定对应当前参数。"
+        : "当前参数还没跑出页面结果。";
+
+  let tone = "ok";
+  let tag = "可继续研究";
+  let title = "数据来源可继续研究";
+  let summary = "当前是 CN_ETF 主线、非演示数据，并且样本窗口足够做进一步检查。";
+  let target = "control-backtest-gate";
+  let button = "看回测闸门";
+
+  if (progress.status === "running") {
+    tone = "warn";
+    tag = "等待结果";
+    title = "正在运行，先别下结论";
+    summary = "等当前本地任务完成，再判断收益、回撤、胜率和 Sharpe 是否可信。";
+    target = "control-active-operation";
+    button = "看当前操作";
+  } else if (isDemo) {
+    tone = "danger";
+    tag = "演示数据";
+    title = "演示数据不能下结论";
+    summary = "这只能用来熟悉按钮和流程，不能判断因子是否赚钱。";
+    target = "beginner-parameter-explainer";
+    button = "看数据源";
+  } else if (wrongMarket) {
+    tone = "danger";
+    tag = "非主线";
+    title = "当前不是 CN_ETF 主线";
+    summary = "如果目标是 ETF 轮动，非 CN_ETF 结果不能直接当作可用结论。";
+    target = "beginner-parameter-explainer";
+    button = "看市场参数";
+  } else if (onlyReceipt) {
+    tone = "warn";
+    tag = "旧回执";
+    title = "这是历史回执，不一定是当前参数";
+    summary = "先核对回执和请求参数；不确定时重新跑当前参数。";
+    target = "control-execution-receipts";
+    button = "核对回执";
+  } else if (hasNoResult) {
+    tone = "warn";
+    tag = "未回测";
+    title = "当前参数还没有结果";
+    summary = "先本地回测当前参数，再看收益、回撤、胜率和 Sharpe。";
+    target = "beginner-parameter-explainer";
+    button = "看当前参数";
+  } else if (veryShortSample) {
+    tone = "danger";
+    tag = "样本太短";
+    title = "样本不到一年，不能下结论";
+    summary = "短样本很容易被单一行情周期误导，必须拉长窗口复核。";
+    target = "control-request-preview";
+    button = "看日期窗口";
+  } else if (shortSample) {
+    tone = "warn";
+    tag = "样本偏短";
+    title = "样本不足三年，需要谨慎";
+    summary = "可以试跑流程，但不能把它当成稳定盈利因子的证据。";
+    target = "control-request-preview";
+    button = "看日期窗口";
+  }
+
+  return {
+    tone,
+    tag,
+    title,
+    summary,
+    target,
+    button,
+    source,
+    market,
+    startDate,
+    endDate,
+    sampleDays,
+    resultText,
+    isDemo,
+    wrongMarket,
+    hasCurrentResearch,
+    onlyReceipt,
+  };
+}
+
+function beginnerDataTrustRows(trust = beginnerDataTrustState()) {
+  const sourceTone = trust.isDemo ? "danger" : "ok";
+  const marketTone = trust.wrongMarket ? "danger" : "ok";
+  const sampleText = Number.isFinite(trust.sampleDays)
+    ? `${trust.startDate || "--"} 至 ${trust.endDate || "--"} / ${formatNumber(trust.sampleDays)} 天`
+    : `${trust.startDate || "--"} 至 ${trust.endDate || "--"} / 天数未知`;
+  const sampleTone = Number.isFinite(trust.sampleDays)
+    ? trust.sampleDays < 365
+      ? "danger"
+      : trust.sampleDays < 1095
+        ? "warn"
+        : "ok"
+    : "warn";
+  const resultTone = trust.hasCurrentResearch ? "ok" : "warn";
+  return [
+    ["数据源", parameterSourceText(trust.source, valueOf("data-root-input")), sourceTone],
+    ["研究主线", `${trust.market || "--"} / 目标主线应为 CN_ETF`, marketTone],
+    ["样本窗口", sampleText, sampleTone],
+    ["结果状态", trust.resultText, resultTone],
+  ];
+}
+
+function renderBeginnerDataTrust(progress = beginnerProgressState()) {
+  const target = byId("beginner-data-trust-card");
+  if (!target) return;
+  const trust = beginnerDataTrustState(progress);
+  const tagClass = trust.tone === "danger" ? "tag tag-danger" : trust.tone === "warn" ? "tag tag-warn" : "tag";
+  target.className = `beginner-data-trust-card ${trust.tone}`;
+  target.innerHTML = `
+    <div class="beginner-data-trust-head">
+      <div>
+        <small>数据可信度</small>
+        <strong>${escapeHtml(trust.title)}</strong>
+        <span>${escapeHtml(trust.summary)}</span>
+      </div>
+      <span class="${escapeHtml(tagClass)}">${escapeHtml(trust.tag)}</span>
+    </div>
+    <div class="status-list compact-status beginner-data-trust-rows">
+      ${statusRows(beginnerDataTrustRows(trust))}
+    </div>
+    <div class="beginner-data-trust-actions">
+      <button class="secondary-button" type="button" data-beginner-data-trust-jump="beginner-parameter-explainer">看当前参数</button>
+      <button class="secondary-button" type="button" data-beginner-data-trust-jump="control-request-preview">看请求预览</button>
+      <button class="primary-button" type="button" data-beginner-data-trust-jump="${escapeHtml(trust.target)}">${escapeHtml(trust.button)}</button>
+    </div>
+  `;
+}
+
 function renderBeginnerProgress() {
   const root = byId("beginner-progress-board");
   const statusTarget = byId("beginner-progress-status");
@@ -2460,6 +2627,7 @@ function renderBeginnerProgress() {
     </div>
   `;
   recoveryTarget.innerHTML = renderBeginnerProgressRecovery(progress);
+  renderBeginnerDataTrust(progress);
 }
 
 function renderBeginnerGuide() {
