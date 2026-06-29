@@ -379,6 +379,18 @@ function bindActions() {
     jumpToBeginnerTarget(button.dataset.beginnerDataTrustJump || "control-request-preview", state.leaderboardTab);
   });
   document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-beginner-evidence-match-jump]");
+    if (!button) return;
+    event.preventDefault();
+    jumpToBeginnerTarget(button.dataset.beginnerEvidenceMatchJump || "control-result-freshness", state.leaderboardTab);
+  });
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-beginner-evidence-match-action]");
+    if (!button) return;
+    event.preventDefault();
+    await runBeginnerAction(button.dataset.beginnerEvidenceMatchAction || "", button);
+  });
+  document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-beginner-task-select]");
     if (!button) return;
     event.preventDefault();
@@ -1133,25 +1145,25 @@ function renderResultFreshness() {
   if (!target) return;
   const rows = [
     resultFreshnessRow(
-      "Research result",
+      "研究回测结果",
       state.research,
       buildResearchParams(),
       ["market", "factor_name", "top_n", "cost_bps", "start_date", "end_date"],
-      "Run research after changing market, factor, TopN, cost, or date window.",
+      "修改市场、因子、TopN、成本或日期后，需要重新跑研究回测。",
     ),
     resultFreshnessRow(
-      "Signal result",
+      "信号快照结果",
       state.signals,
       buildSignalParams(),
       ["market", "factor_name", "top_n", "as_of_date"],
-      "Regenerate advisory signals after changing factor, TopN, or signal date.",
+      "修改因子、TopN 或信号日期后，需要重新生成建议信号。",
     ),
     resultFreshnessRow(
-      "Paper result",
+      "模拟盘结果",
       state.paper,
       buildPaperParams(),
       ["market", "factor_name", "top_n", "start_date", "end_date", "initial_cash"],
-      "Rerun paper simulation after changing market, factor, TopN, date window, or initial cash.",
+      "修改市场、因子、TopN、日期窗口或初始资金后，需要重新跑本地模拟盘。",
     ),
   ];
   target.innerHTML = rows.map((row) => `
@@ -1235,21 +1247,21 @@ function resultFreshnessRow(label, result, params, keys, detail) {
   if (!result || !result.request) {
     return {
       label,
-      status: "not_run",
+      status: "未运行",
       statusClass: "warn",
-      currentSummary: `current=${requestFreshnessSummary(currentRequest)}`,
-      resultSummary: "result=not available yet",
+      currentSummary: `当前参数=${requestFreshnessSummary(currentRequest)}`,
+      resultSummary: "页面结果=暂无",
       detail,
     };
   }
   const isCurrent = requestMatchesCurrentParams(resultRequest, params, keys);
   return {
     label,
-    status: isCurrent ? "current" : "stale",
+    status: isCurrent ? "当前" : "已过期",
     statusClass: isCurrent ? "ok" : "warn",
-    currentSummary: `current=${requestFreshnessSummary(currentRequest)}`,
-    resultSummary: `result=${requestFreshnessSummary(resultRequest)}`,
-    detail: isCurrent ? "Displayed metrics match the current form parameters." : detail,
+    currentSummary: `当前参数=${requestFreshnessSummary(currentRequest)}`,
+    resultSummary: `页面结果=${requestFreshnessSummary(resultRequest)}`,
+    detail: isCurrent ? "页面指标匹配当前表单参数。" : detail,
   };
 }
 
@@ -2723,6 +2735,17 @@ function beginnerLatestReceipt() {
   return loadExecutionReceipts(state.controlCenter?.execution_receipts || {})[0] || null;
 }
 
+function beginnerResearchReceipts() {
+  const rows = Array.isArray(state.executionReceipts) && state.executionReceipts.length
+    ? state.executionReceipts
+    : loadExecutionReceipts(state.controlCenter?.execution_receipts || {});
+  return rows.filter((receipt) => receipt?.workflow_id === "research_backtest");
+}
+
+function beginnerLatestResearchReceipt() {
+  return beginnerResearchReceipts()[0] || null;
+}
+
 function beginnerLatestRunHistory() {
   if (Array.isArray(state.runHistory) && state.runHistory.length) return state.runHistory[0];
   return loadRunHistory(state.controlCenter?.run_history || {})[0] || null;
@@ -2929,7 +2952,153 @@ function dayCountBetween(startDate, endDate) {
   return Math.round((end - start) / 86400000) + 1;
 }
 
+function beginnerEvidenceMatchState() {
+  const params = buildResearchParams();
+  const currentRequest = requestObjectFromParams(params);
+  const resultRequest = state.research?.request || {};
+  const receipt = beginnerLatestResearchReceipt();
+  const hasResult = Boolean(state.research?.request);
+  const hasReceipt = Boolean(receipt);
+  const resultCurrent = hasResult && requestMatchesCurrentParams(
+    resultRequest,
+    params,
+    ["market", "factor_name", "top_n", "cost_bps", "start_date", "end_date"],
+  );
+  const receiptCurrent = hasReceipt && requestMatchesReceipt(receipt, currentRequest);
+  const resultSummary = hasResult ? requestFreshnessSummary(resultRequest) : "暂无页面回测结果";
+  const receiptSummary = hasReceipt ? requestFreshnessSummary(receipt.request || {}) : "暂无浏览器研究回执";
+  const currentSummary = requestFreshnessSummary(currentRequest);
+
+  if (state.activeOperation?.status === "running") {
+    return {
+      tone: "warn",
+      tag: "等待新结果",
+      title: "正在运行，先不要读收益曲线",
+      summary: "等当前本地任务返回以后，再判断收益、回撤、胜率和 Sharpe 是否属于当前参数。",
+      currentRequest,
+      resultRequest,
+      receipt,
+      hasResult,
+      hasReceipt,
+      resultCurrent,
+      receiptCurrent,
+      rows: [
+        ["当前参数", currentSummary, "ok"],
+        ["页面结果", "运行中，旧指标暂时不能当结论", "warn"],
+        ["浏览器回执", receiptSummary, hasReceipt ? "warn" : "muted"],
+      ],
+    };
+  }
+
+  if (resultCurrent) {
+    return {
+      tone: "ok",
+      tag: "已匹配",
+      title: "页面结果匹配当前参数",
+      summary: "现在看到的收益、回撤、胜率和 Sharpe 可以继续进入闸门复核；仍然不能跳过 OOS、回撤和样本检查。",
+      currentRequest,
+      resultRequest,
+      receipt,
+      hasResult,
+      hasReceipt,
+      resultCurrent,
+      receiptCurrent,
+      rows: [
+        ["当前参数", currentSummary, "ok"],
+        ["页面结果", resultSummary, "ok"],
+        ["浏览器回执", receiptSummary, receiptCurrent ? "ok" : hasReceipt ? "warn" : "muted"],
+      ],
+    };
+  }
+
+  if (receiptCurrent) {
+    return {
+      tone: "warn",
+      tag: "只有回执",
+      title: "浏览器回执匹配，但页面结果还没加载",
+      summary: "可以先核对回执；如果要看完整收益曲线和闸门，建议重新跑当前参数。",
+      currentRequest,
+      resultRequest,
+      receipt,
+      hasResult,
+      hasReceipt,
+      resultCurrent,
+      receiptCurrent,
+      rows: [
+        ["当前参数", currentSummary, "ok"],
+        ["页面结果", hasResult ? resultSummary : "暂无页面回测结果", hasResult ? "warn" : "muted"],
+        ["浏览器回执", receiptSummary, "ok"],
+      ],
+    };
+  }
+
+  if (hasResult || hasReceipt) {
+    return {
+      tone: "danger",
+      tag: "不匹配",
+      title: "不要信这条收益曲线",
+      summary: "页面结果或浏览器回执不是当前参数；当前选择变过以后，旧收益、Sharpe、胜率都不能当作当前因子的证据。",
+      currentRequest,
+      resultRequest,
+      receipt,
+      hasResult,
+      hasReceipt,
+      resultCurrent,
+      receiptCurrent,
+      rows: [
+        ["当前参数", currentSummary, "ok"],
+        ["页面结果", resultSummary, hasResult ? "danger" : "muted"],
+        ["浏览器回执", receiptSummary, hasReceipt ? "danger" : "muted"],
+      ],
+    };
+  }
+
+  return {
+    tone: "warn",
+    tag: "无证据",
+    title: "当前参数还没有回测证据",
+    summary: "先跑一次当前参数，跑完再看收益、回撤、胜率和 Sharpe；不要把排行榜或历史回执当当前结论。",
+    currentRequest,
+    resultRequest,
+    receipt,
+    hasResult,
+    hasReceipt,
+    resultCurrent,
+    receiptCurrent,
+    rows: [
+      ["当前参数", currentSummary, "ok"],
+      ["页面结果", "暂无页面回测结果", "warn"],
+      ["浏览器回执", "暂无浏览器研究回执", "warn"],
+    ],
+  };
+}
+
+function renderBeginnerEvidenceMatch(match = beginnerEvidenceMatchState()) {
+  const tagClass = match.tone === "danger" ? "tag tag-danger" : match.tone === "warn" ? "tag tag-warn" : "tag";
+  return `
+    <div class="beginner-evidence-match ${escapeHtml(match.tone)}" data-beginner-evidence-match-root="true">
+      <div class="beginner-evidence-match-head">
+        <div>
+          <small>当前证据匹配</small>
+          <strong>${escapeHtml(match.title)}</strong>
+          <span>${escapeHtml(match.summary)}</span>
+        </div>
+        <span class="${escapeHtml(tagClass)}">${escapeHtml(match.tag)}</span>
+      </div>
+      <div class="status-list compact-status beginner-evidence-match-rows">
+        ${statusRows(match.rows || [])}
+      </div>
+      <div class="beginner-evidence-match-actions">
+        <button class="primary-button" type="button" data-beginner-evidence-match-action="research_backtest" ${runtimeGuardAttr("research_backtest")}>重新跑当前参数</button>
+        <button class="secondary-button" type="button" data-beginner-evidence-match-jump="control-execution-receipts">核对回执</button>
+        <button class="secondary-button" type="button" data-beginner-evidence-match-jump="control-result-freshness">看新旧匹配</button>
+      </div>
+    </div>
+  `;
+}
+
 function beginnerDataTrustState(progress = beginnerProgressState()) {
+  const evidence = beginnerEvidenceMatchState();
   const source = valueOf("data-source-select")
     || state.research?.data_source
     || state.research?.source
@@ -2943,18 +3112,21 @@ function beginnerDataTrustState(progress = beginnerProgressState()) {
   const marketKey = String(market).toUpperCase();
   const isDemo = sourceKey.includes("demo");
   const wrongMarket = marketKey !== "CN_ETF";
-  const hasCurrentResearch = Boolean(state.research);
-  const onlyReceipt = !hasCurrentResearch && beginnerHasReceipt("research_backtest");
+  const hasCurrentResearch = evidence.resultCurrent;
+  const onlyReceipt = !hasCurrentResearch && evidence.receiptCurrent;
+  const hasStaleEvidence = !hasCurrentResearch && !onlyReceipt && (evidence.hasResult || evidence.hasReceipt);
   const hasNoResult = !hasCurrentResearch && !onlyReceipt && progress.status !== "running";
   const veryShortSample = Number.isFinite(sampleDays) && sampleDays < 365;
   const shortSample = Number.isFinite(sampleDays) && sampleDays < 1095;
   const resultText = progress.status === "running"
     ? "当前正在本地运行，还不能把结果当结论。"
     : hasCurrentResearch
-      ? "当前页面已有本轮回测结果，可以继续看结果判读和闸门。"
+      ? "当前页面回测结果匹配当前参数，可以继续看结果判读和闸门。"
       : onlyReceipt
-        ? "只有浏览器历史回执，不一定对应当前参数。"
-        : "当前参数还没跑出页面结果。";
+        ? "只有浏览器回执匹配当前参数，页面结果还需要重新加载或复跑。"
+        : hasStaleEvidence
+          ? "已有历史结果或回执，但不是当前参数，不能当结论。"
+          : "当前参数还没跑出页面结果。";
 
   let tone = "ok";
   let tag = "可继续研究";
@@ -2986,11 +3158,18 @@ function beginnerDataTrustState(progress = beginnerProgressState()) {
     button = "看市场参数";
   } else if (onlyReceipt) {
     tone = "warn";
-    tag = "旧回执";
-    title = "这是历史回执，不一定是当前参数";
-    summary = "先核对回执和请求参数；不确定时重新跑当前参数。";
+    tag = "仅回执";
+    title = "只有浏览器回执匹配当前参数";
+    summary = "先核对回执；如果要看完整收益曲线和闸门，建议重新跑当前参数。";
     target = "control-execution-receipts";
     button = "核对回执";
+  } else if (hasStaleEvidence) {
+    tone = "danger";
+    tag = "证据不匹配";
+    title = "当前页面证据不是当前参数";
+    summary = "参数变过以后，旧收益、Sharpe、胜率不能当作当前因子的证据。";
+    target = "control-result-freshness";
+    button = "看新旧匹配";
   } else if (hasNoResult) {
     tone = "warn";
     tag = "未回测";
@@ -3031,6 +3210,8 @@ function beginnerDataTrustState(progress = beginnerProgressState()) {
     wrongMarket,
     hasCurrentResearch,
     onlyReceipt,
+    hasStaleEvidence,
+    evidence,
   };
 }
 
@@ -3074,6 +3255,7 @@ function renderBeginnerDataTrust(progress = beginnerProgressState()) {
     <div class="status-list compact-status beginner-data-trust-rows">
       ${statusRows(beginnerDataTrustRows(trust))}
     </div>
+    ${renderBeginnerEvidenceMatch(trust.evidence)}
     <div class="beginner-data-trust-actions">
       <button class="secondary-button" type="button" data-beginner-data-trust-jump="beginner-parameter-explainer">看当前参数</button>
       <button class="secondary-button" type="button" data-beginner-data-trust-jump="control-request-preview">看请求预览</button>
