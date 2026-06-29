@@ -4106,6 +4106,7 @@ function renderDailyTradeAdvisory() {
     ["下一步", summary.next_action || "先复核信号，再看模拟盘，不自动下单。", "warn"],
     ["错误", (pack.signal_errors || []).map((item) => item.factor_name || item.case_id).join(" / ") || "无", pack.signal_errors?.length ? "warn" : "ok"],
   ]);
+  renderDailyPretradeWorkflow(pack.pretrade_workflow || {});
   byId("daily-trade-factor-table").innerHTML = tableRows(pack.factors || [], [
     "rank",
     "factor_name",
@@ -4137,6 +4138,33 @@ function renderDailyTradeAdvisory() {
     "live_order_allowed",
     "manual_instruction",
   ]);
+}
+
+function renderDailyPretradeWorkflow(workflow) {
+  const steps = Array.isArray(workflow.steps) ? workflow.steps : [];
+  const cards = Array.isArray(workflow.beginner_cards) ? workflow.beginner_cards : [];
+  const stepTone = (status) => {
+    if (["ready", "done", "completed"].includes(status)) return "ok";
+    if (["blocked", "failed"].includes(status)) return "danger";
+    return "warn";
+  };
+  byId("daily-pretrade-workflow-steps").innerHTML = steps.length
+    ? steps.map((step) => `
+      <div class="list-row ${escapeHtml(stepTone(step.status || ""))}">
+        <strong>${escapeHtml(`${step.step_number || ""}. ${step.title || step.step_id || ""}`)}</strong>
+        <span>${escapeHtml(zhConsoleText(`${step.status || "--"} / ${step.evidence || ""}`))}</span>
+        <span>${escapeHtml(zhConsoleText(step.plain_action || ""))}</span>
+      </div>
+    `).join("")
+    : statusRows([["暂无今日流程", "先点击生成今日前三交易建议。", "warn"]]);
+  byId("daily-pretrade-beginner-cards").innerHTML = cards.length
+    ? cards.map((card) => `
+      <div class="list-row warn">
+        <strong>${escapeHtml(card.title || card.card_id || "")}</strong>
+        <span>${escapeHtml(card.text || "")}</span>
+      </div>
+    `).join("")
+    : statusRows([["暂无新手提示", "等待今日建议生成后展示。", "warn"]]);
 }
 
 function renderDailyOps() {
@@ -5009,6 +5037,8 @@ const GUI_ZH_REPLACEMENTS = [
   ["completed_with_blockers", "完成但有阻断项"],
   ["needs_evidence", "需要证据"],
   ["manual_required", "需要人工验证"],
+  ["manual_only", "仅人工操作"],
+  ["required", "必需"],
   ["manual_advisory_ready", "今日建议已生成"],
   ["waiting_for_signals", "等待信号生成"],
   ["allowed", "允许"],

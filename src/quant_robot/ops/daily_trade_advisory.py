@@ -11,6 +11,7 @@ import pandas as pd
 
 
 STAGE = "phase_6_0_daily_trade_advisory"
+PRETRADE_WORKFLOW_STAGE = "phase_6_1_daily_pretrade_workflow"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 
 
@@ -98,8 +99,107 @@ def build_daily_trade_advisory_pack(
         "operator_checklist": _operator_checklist(),
         "markdown": "",
     }
+    pack["pretrade_workflow"] = build_daily_pretrade_workflow(pack)
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
+
+
+def build_daily_pretrade_workflow(pack: dict[str, Any]) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    factors = [row for row in pack.get("factors", []) if isinstance(row, dict)]
+    signal_cards = [row for row in pack.get("signal_cards", []) if isinstance(row, dict)]
+    targets = [row for row in pack.get("combined_targets", []) if isinstance(row, dict)]
+    manual_plan = [row for row in pack.get("manual_trade_plan", []) if isinstance(row, dict)]
+    signal_count = _int(summary.get("signal_count"), 0)
+    selected_count = _int(summary.get("selected_factor_count"), len(factors))
+    target_count = _int(summary.get("combined_target_count"), len(targets))
+    manual_count = _int(summary.get("manual_ticket_count"), len(manual_plan))
+    market = str(pack.get("market") or _first_market(factors) or "CN_ETF").upper()
+    signal_errors = [row for row in signal_cards if row.get("status") == "signal_error"]
+    signal_ready = signal_count > 0 and target_count > 0 and not signal_errors
+    scope_ready = market == "CN_ETF"
+    readiness_status = "manual_review_required" if scope_ready and signal_ready else "waiting_for_signals"
+    steps = [
+        {
+            "step_number": 1,
+            "step_id": "scope_and_data",
+            "title": "确认研究对象和数据",
+            "status": "ready" if scope_ready else "blocked",
+            "plain_action": f"确认今天只看 {market} 主线，数据来自本地清洗行情，不把 CN 个股择股结果直接当 ETF 轮动信号。",
+            "evidence": f"市场={market}；入选因子={selected_count}；运行日期={pack.get('run_date', '')}",
+            "automation_allowed": False,
+        },
+        {
+            "step_number": 2,
+            "step_id": "factor_signal_review",
+            "title": "复核前三因子和今日信号",
+            "status": "ready" if signal_ready else "blocked",
+            "plain_action": "先看前三因子、信号数量、目标 ETF 和过拟合标签；信号不足时不要进入下一步。",
+            "evidence": f"信号={signal_count}/{selected_count}；目标ETF={target_count}",
+            "automation_allowed": False,
+        },
+        {
+            "step_number": 3,
+            "step_id": "paper_simulation_review",
+            "title": "查看模拟盘表现",
+            "status": "required" if signal_ready else "waiting",
+            "plain_action": "把今天的建议和对应参数放进本地模拟盘，先看净值、回撤、成交、保护事件，再决定是否继续。",
+            "evidence": "需要模拟盘回放或最近 paper 回执；单日信号不能直接等同可实盘盈利。",
+            "automation_allowed": False,
+        },
+        {
+            "step_number": 4,
+            "step_id": "risk_and_cash_review",
+            "title": "人工核对风险和现金",
+            "status": "required" if signal_ready else "waiting",
+            "plain_action": "核对目标仓位、单 ETF 上限、总仓位、现金余量、流动性、涨跌停和是否能承受回撤。",
+            "evidence": f"手工工单={manual_count}；系统建议仍需人工风险复核。",
+            "automation_allowed": False,
+        },
+        {
+            "step_number": 5,
+            "step_id": "manual_broker_execution",
+            "title": "只允许人工券商端操作",
+            "status": "manual_only",
+            "plain_action": "系统不会下单；如果你决定实盘，只能由你本人打开券商软件，逐项核对 ETF 代码、价格、金额和风险后手工操作。",
+            "evidence": "live_order_allowed=false；broker_connection_allowed=false；order_placement_allowed=false。",
+            "automation_allowed": False,
+        },
+    ]
+    workflow = {
+        "stage": PRETRADE_WORKFLOW_STAGE,
+        "run_date": pack.get("run_date", date.today().isoformat()),
+        "summary": {
+            "readiness_status": readiness_status,
+            "step_count": len(steps),
+            "signal_ready": signal_ready,
+            "manual_review_required": True,
+            "paper_simulation_required": True,
+            "live_order_allowed": False,
+            "broker_connection_allowed": False,
+            "order_placement_allowed": False,
+            "primary_next_step": "先完成模拟盘和风险复核，再决定是否人工操作。" if signal_ready else "先生成完整今日信号。",
+        },
+        "steps": steps,
+        "beginner_cards": [
+            {
+                "card_id": "first_read",
+                "title": "第一眼先看什么",
+                "text": "先看前三因子是否有信号，再看目标 ETF 数量和是否出现错误。",
+            },
+            {
+                "card_id": "risk_read",
+                "title": "第二眼看风险",
+                "text": "收益和年化不是唯一标准，还要看回撤、模拟盘、流动性和仓位是否能承受。",
+            },
+            {
+                "card_id": "manual_boundary",
+                "title": "最后只做人工决定",
+                "text": "软件只给建议和复核清单，不连接券商、不读取账户、不自动下单。",
+            },
+        ],
+    }
+    return _sanitize(workflow)
 
 
 def write_daily_trade_advisory_pack(output_dir: str | Path, pack: dict[str, Any]) -> None:
@@ -310,6 +410,14 @@ def _operator_checklist() -> list[dict[str, Any]]:
             "text": "系统不连接券商、不读取账户、不自动下单；如实盘，只能由人手工在券商端操作。",
         },
     ]
+
+
+def _first_market(rows: list[dict[str, Any]]) -> str | None:
+    for row in rows:
+        market = str(row.get("market") or "").strip()
+        if market:
+            return market
+    return None
 
 
 def _float(value: Any, default: float = 0.0) -> float:

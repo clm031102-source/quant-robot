@@ -5,6 +5,7 @@ from pathlib import Path
 
 from quant_robot.ops.daily_trade_advisory import (
     build_daily_trade_advisory_pack,
+    build_daily_pretrade_workflow,
     select_daily_top_factor_candidates,
     write_daily_trade_advisory_pack,
 )
@@ -82,6 +83,44 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
             self.assertTrue((output_dir / "daily_trade_advisory_targets.csv").exists())
             payload = json.loads((output_dir / "daily_trade_advisory_pack.json").read_text(encoding="utf-8"))
             self.assertEqual(payload["stage"], "phase_6_0_daily_trade_advisory")
+
+    def test_builds_beginner_pretrade_workflow_from_daily_advisory(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF", "sharpe": 1.2},
+                {"rank": 2, "case_id": "c2", "factor_name": "reversal_2", "market": "CN_ETF", "sharpe": 0.8},
+                {"rank": 3, "case_id": "c3", "factor_name": "volatility_2", "market": "CN_ETF", "sharpe": 0.7},
+            ],
+            [
+                _signal("c1", "momentum_2", {"510300": 0.4}),
+                _signal("c2", "reversal_2", {"588000": 0.3}),
+                _signal("c3", "volatility_2", {"159915": 0.2}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+        )
+
+        workflow = build_daily_pretrade_workflow(pack)
+
+        self.assertEqual(workflow["stage"], "phase_6_1_daily_pretrade_workflow")
+        self.assertEqual(workflow["summary"]["readiness_status"], "manual_review_required")
+        self.assertFalse(workflow["summary"]["live_order_allowed"])
+        self.assertFalse(workflow["summary"]["broker_connection_allowed"])
+        self.assertEqual(workflow["summary"]["step_count"], 5)
+        self.assertEqual(
+            [step["step_id"] for step in workflow["steps"]],
+            [
+                "scope_and_data",
+                "factor_signal_review",
+                "paper_simulation_review",
+                "risk_and_cash_review",
+                "manual_broker_execution",
+            ],
+        )
+        self.assertEqual(workflow["steps"][1]["status"], "ready")
+        self.assertEqual(workflow["steps"][-1]["status"], "manual_only")
+        self.assertIn("系统不会下单", workflow["steps"][-1]["plain_action"])
+        self.assertTrue(any("先看前三因子" in card["text"] for card in workflow["beginner_cards"]))
 
 
 def _signal(case_id: str, factor_name: str, weights: dict[str, float]) -> dict[str, object]:
