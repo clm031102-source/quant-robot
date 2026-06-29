@@ -223,6 +223,7 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
     target_count = _int(summary.get("combined_target_count"), len(targets))
     manual_count = _int(summary.get("manual_ticket_count"), len(manual_plan))
     signal_errors = [row for row in signal_cards if row.get("status") == "signal_error"]
+    freshness = _pretrade_signal_freshness(pack, signal_cards)
     invalid_sizing_tickets = [
         str(row.get("ticket_id") or row.get("asset_id") or "")
         for row in manual_plan
@@ -243,6 +244,8 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
         blockers.append("signal_errors")
     if invalid_sizing_tickets:
         blockers.append("price_or_sizing_missing")
+    if signal_count > 0 and not freshness["fresh_for_run_date"]:
+        blockers.append("stale_signal_date")
 
     manual_action_candidate = not blockers and manual_count > 0
     traffic_light = "yellow" if manual_action_candidate else "red"
@@ -262,6 +265,11 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
             "check_id": "signal_ready",
             "status": "pass" if signal_count > 0 and target_count > 0 and not signal_errors else "blocked",
             "text": f"今日信号={signal_count}/{selected_count}，目标ETF={target_count}。",
+        },
+        {
+            "check_id": "signal_freshness",
+            "status": "pass" if freshness["fresh_for_run_date"] else ("waiting" if not freshness["latest_signal_date"] else "blocked"),
+            "text": f"运行日期={freshness['run_date']}；最新信号日期={freshness['latest_signal_date'] or '无'}。",
         },
         {
             "check_id": "price_and_board_lot",
@@ -315,6 +323,7 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
             "order_placement_allowed": False,
             "blockers": blockers,
             "warnings": warnings,
+            "freshness": freshness,
             "summary": {
                 "selected_factor_count": selected_count,
                 "signal_count": signal_count,
@@ -332,30 +341,68 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def _pretrade_signal_freshness(pack: dict[str, Any], signal_cards: list[dict[str, Any]]) -> dict[str, Any]:
+    run_date = str(pack.get("run_date") or date.today().isoformat())
+    signal_dates = sorted(
+        {
+            str(row.get("signal_date") or row.get("as_of_date") or "").strip()
+            for row in signal_cards
+            if isinstance(row, dict) and str(row.get("signal_date") or row.get("as_of_date") or "").strip()
+        }
+    )
+    latest_signal_date = signal_dates[-1] if signal_dates else None
+    stale_signal_dates = [item for item in signal_dates if item != run_date]
+    return {
+        "run_date": run_date,
+        "latest_signal_date": latest_signal_date,
+        "signal_dates": signal_dates,
+        "stale_signal_dates": stale_signal_dates,
+        "fresh_for_run_date": bool(latest_signal_date) and not stale_signal_dates and latest_signal_date == run_date,
+    }
+
+
 def _build_manual_broker_handoff(pack: dict[str, Any]) -> dict[str, Any]:
     readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else _build_pretrade_readiness(pack)
     manual_plan = [row for row in pack.get("manual_trade_plan", []) if isinstance(row, dict)]
-    copyable_tickets = [_broker_handoff_ticket(index, row) for index, row in enumerate(manual_plan, start=1)]
+    blocking_reasons = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
+    can_show_tickets = bool(readiness.get("manual_action_candidate"))
+    copyable_tickets = [
+        _broker_handoff_ticket(index, row)
+        for index, row in enumerate(manual_plan, start=1)
+        if can_show_tickets
+    ]
     rounded_value = sum(_float(row.get("rounded_value"), 0.0) for row in manual_plan)
     cash_delta = sum(_float(row.get("cash_delta_after_rounding"), 0.0) for row in manual_plan)
     target_value = sum(_float(row.get("target_value"), 0.0) for row in manual_plan)
-    status = "review_only" if copyable_tickets else "waiting_for_tickets"
+    if copyable_tickets:
+        status = "review_only"
+    elif "stale_signal_date" in blocking_reasons:
+        status = "blocked_by_freshness"
+    elif blocking_reasons:
+        status = "blocked_by_readiness"
+    else:
+        status = "waiting_for_tickets"
+    if copyable_tickets:
+        operator_summary = "这些内容只是给你在券商软件里逐项人工核对，不能被系统自动提交；价格以券商端实时行情为准。"
+    elif status == "blocked_by_freshness":
+        operator_summary = "信号日期不是运行日期当天，不能进入人工券商核对；先刷新数据或选择正确的信号日期。"
+    elif blocking_reasons:
+        operator_summary = "盘前判定仍有阻断项，不能进入人工券商核对。"
+    else:
+        operator_summary = "还没有可核对票据；先生成今日信号和盘前判定。"
     return _sanitize(
         {
             "stage": MANUAL_BROKER_HANDOFF_STAGE,
             "run_date": pack.get("run_date", date.today().isoformat()),
             "status": status,
-            "operator_summary": (
-                "这些内容只是给你在券商软件里逐项人工核对，不能被系统自动提交；价格以券商端实时行情为准。"
-                if copyable_tickets
-                else "还没有可核对票据；先生成今日信号和盘前判定。"
-            ),
+            "operator_summary": operator_summary,
             "ready_for_auto_order": False,
             "live_order_allowed": False,
             "broker_connection_allowed": False,
             "account_read_allowed": False,
             "order_placement_allowed": False,
             "paper_simulation_required": True,
+            "blocking_reasons": blocking_reasons,
             "summary": {
                 "ticket_count": len(copyable_tickets),
                 "target_value": target_value,

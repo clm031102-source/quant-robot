@@ -4149,6 +4149,7 @@ function renderDailyTradeAdvisory() {
 
 function renderDailyPretradeReadiness(readiness) {
   const summary = readiness.summary || {};
+  const freshness = readiness.freshness || {};
   const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
   const warnings = Array.isArray(readiness.warnings) ? readiness.warnings : [];
   const confirmations = Array.isArray(readiness.required_confirmations) ? readiness.required_confirmations : [];
@@ -4160,6 +4161,7 @@ function renderDailyPretradeReadiness(readiness) {
     ["目标金额", formatNumber(summary.target_value), "muted"],
     ["取整后金额", formatNumber(summary.rounded_value), "muted"],
     ["取整后剩余", formatNumber(summary.cash_delta_after_rounding), "muted"],
+    ["信号日期", `运行=${freshness.run_date || "--"} / 最新=${freshness.latest_signal_date || "--"}`, freshness.fresh_for_run_date ? "ok" : "danger"],
     ["自动下单", readiness.live_order_allowed ? "允许" : "禁止", "danger"],
     ["阻断项", blockers.length ? blockers.join(" / ") : "无结构化阻断项", blockers.length ? "danger" : "ok"],
     ["提醒", warnings.join(" / ") || "即使黄灯，也必须人工核对模拟盘、价格、现金和风险。", "warn"],
@@ -4172,7 +4174,7 @@ function renderDailyPretradeReadiness(readiness) {
         <span>${escapeHtml(item.text || "")}</span>
       </div>
     `).join("")
-    : statusRows([["暂无盘前判定", "先生成今日前三交易建议。", "warn"]]);
+    : statusRows([["signal_freshness", "暂无信号日期判定；先生成今日前三交易建议。", "warn"]]);
   byId("daily-pretrade-readiness-action-table").innerHTML = tableRows(readiness.action_sequence || [], [
     "step_number",
     "ticket_id",

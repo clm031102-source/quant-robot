@@ -117,6 +117,28 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("manual_only_boundary", {item["check_id"] for item in readiness["required_confirmations"]})
         self.assertEqual(pack["pretrade_workflow"]["pretrade_readiness"], readiness)
 
+    def test_pretrade_readiness_blocks_stale_signal_dates_before_manual_handoff(self):
+        pack = build_daily_trade_advisory_pack(
+            [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
+            [_signal("c1", "momentum_2", {"510300": 0.333}, latest_price=3.2, signal_date="2026-05-21")],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+        )
+
+        readiness = pack["pretrade_readiness"]
+        handoff = pack["manual_broker_handoff"]
+
+        self.assertEqual(readiness["traffic_light"], "red")
+        self.assertFalse(readiness["manual_action_candidate"])
+        self.assertIn("stale_signal_date", readiness["blockers"])
+        self.assertEqual(readiness["freshness"]["run_date"], "2026-06-29")
+        self.assertEqual(readiness["freshness"]["latest_signal_date"], "2026-05-21")
+        self.assertFalse(readiness["freshness"]["fresh_for_run_date"])
+        self.assertIn("signal_freshness", {item["check_id"] for item in readiness["required_confirmations"]})
+        self.assertEqual(handoff["status"], "blocked_by_freshness")
+        self.assertEqual(handoff["copyable_tickets"], [])
+        self.assertIn("stale_signal_date", handoff["blocking_reasons"])
+
     def test_manual_broker_handoff_builds_copyable_review_cards_without_orders(self):
         pack = build_daily_trade_advisory_pack(
             [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
@@ -222,6 +244,7 @@ def _signal(
     factor_name: str,
     weights: dict[str, float],
     latest_price: float = 1.0,
+    signal_date: str = "2026-06-29",
 ) -> dict[str, object]:
     targets = []
     rebalance = []
@@ -233,7 +256,7 @@ def _signal(
                 "market": "CN_ETF",
                 "target_weight": weight,
                 "latest_price": latest_price,
-                "signal_date": "2026-06-29",
+                "signal_date": signal_date,
             }
         )
         rebalance.append(
@@ -251,8 +274,8 @@ def _signal(
     return {
         "case_id": case_id,
         "factor_name": factor_name,
-        "as_of_date": "2026-06-29",
-        "signal_date": "2026-06-29",
+        "as_of_date": signal_date,
+        "signal_date": signal_date,
         "targets": targets,
         "rebalance_plan": rebalance,
     }
