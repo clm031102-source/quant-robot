@@ -464,6 +464,18 @@ def _operator_next_actions(
     summary = readiness.get("summary") if isinstance(readiness.get("summary"), dict) else {}
     run_date = str(readiness.get("run_date") or pack.get("run_date") or date.today().isoformat())
     latest_signal_date = freshness.get("latest_signal_date") or "无"
+    workflow_by_action = {
+        "regenerate_daily_top3_signal": "daily_trade_advisory",
+        "run_paper_simulation": "paper_simulation",
+    }
+    label_by_action = {
+        "refresh_cn_etf_data": "查看刷新面板",
+        "regenerate_daily_top3_signal": "重新生成建议",
+        "run_paper_simulation": "运行模拟盘复核",
+        "inspect_factor_runtime_gap": "查看运行缺口",
+        "review_risk_and_cash": "查看风险判定",
+        "manual_broker_review": "查看人工票据",
+    }
 
     def action(
         action_id: str,
@@ -482,6 +494,10 @@ def _operator_next_actions(
             "why": why,
             "expected_result": expected_result,
             "gui_target": gui_target,
+            "cta_label": label_by_action.get(action_id, "查看位置"),
+            "cta_target": gui_target,
+            "cta_type": "run" if workflow_by_action.get(action_id) else "jump",
+            "action_workflow": workflow_by_action.get(action_id),
             "automation_allowed": False,
             "live_order_allowed": False,
             "broker_connection_allowed": False,

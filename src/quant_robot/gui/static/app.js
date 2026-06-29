@@ -4203,9 +4203,30 @@ function renderDailyPretradeNextActions(actions) {
         <span>${escapeHtml(zhConsoleText(`${item.status || "--"} / ${item.action_id || ""}`))}</span>
         <span>${escapeHtml(item.plain_action || "")}</span>
         <span>${escapeHtml(item.why || "")}</span>
+        ${dailyNextActionButtons(item)}
       </div>
     `).join("")
     : statusRows([["refresh_cn_etf_data", "暂无下一步动作；先生成今日前三交易建议。", "warn"]]);
+}
+
+function dailyNextActionButtons(item = {}) {
+  const actionId = item.action_id || "";
+  const workflow = item.action_workflow || "";
+  const target = item.cta_target || item.gui_target || "daily-pretrade-next-actions";
+  const label = item.cta_label || (workflow ? "运行这一步" : "查看位置");
+  if (workflow) {
+    return `
+      <span class="beginner-task-actions daily-next-action-buttons">
+        <button class="primary-button" type="button" data-daily-next-action="${escapeRawHtml(actionId)}" data-beginner-action="${escapeRawHtml(workflow)}">${escapeHtml(label)}</button>
+        <button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(target)}">看对应位置</button>
+      </span>
+    `;
+  }
+  return `
+    <span class="beginner-task-actions daily-next-action-buttons">
+      <button class="primary-button" type="button" data-daily-next-action="${escapeRawHtml(actionId)}" data-beginner-target="${escapeRawHtml(target)}">${escapeHtml(label)}</button>
+    </span>
+  `;
 }
 
 function renderManualBrokerHandoff(handoff) {

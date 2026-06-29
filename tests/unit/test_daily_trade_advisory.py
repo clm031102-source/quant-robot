@@ -141,6 +141,11 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(pack["operator_next_actions"][0]["action_id"], "refresh_cn_etf_data")
         self.assertEqual(pack["operator_next_actions"][0]["status"], "blocked_until_done")
         self.assertIn("stale_signal_date", pack["operator_next_actions"][0]["why"])
+        self.assertEqual(pack["operator_next_actions"][0]["cta_target"], "recent-data-refresh-status")
+        self.assertEqual(pack["operator_next_actions"][0]["cta_label"], "查看刷新面板")
+        self.assertIsNone(pack["operator_next_actions"][0]["action_workflow"])
+        self.assertEqual(pack["operator_next_actions"][1]["action_workflow"], "daily_trade_advisory")
+        self.assertEqual(pack["operator_next_actions"][2]["action_workflow"], "paper_simulation")
         self.assertEqual(pack["pretrade_workflow"]["summary"]["primary_next_action_id"], "refresh_cn_etf_data")
 
     def test_manual_broker_handoff_builds_copyable_review_cards_without_orders(self):
@@ -175,6 +180,10 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(pack["operator_next_actions"][0]["action_id"], "run_paper_simulation")
         self.assertEqual(pack["operator_next_actions"][0]["status"], "required_before_manual_ticket")
         self.assertFalse(pack["operator_next_actions"][0]["automation_allowed"])
+        self.assertEqual(pack["operator_next_actions"][0]["action_workflow"], "paper_simulation")
+        self.assertEqual(pack["operator_next_actions"][0]["cta_label"], "运行模拟盘复核")
+        self.assertEqual(pack["operator_next_actions"][1]["cta_target"], "daily-pretrade-readiness-verdict")
+        self.assertEqual(pack["operator_next_actions"][2]["cta_target"], "daily-manual-broker-handoff-ticket-table")
         self.assertEqual(pack["pretrade_workflow"]["summary"]["primary_next_action_id"], "run_paper_simulation")
 
     def test_pretrade_readiness_blocks_when_signals_are_missing(self):
