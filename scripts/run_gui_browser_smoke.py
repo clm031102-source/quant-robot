@@ -43,8 +43,18 @@ def run_gui_browser_smoke(
                 token in str(index_html.get("body", ""))
                 for token in [
                     "control-center-board",
+                    "量化机器人中控台",
+                    "办公室电脑作战台",
+                    "操作控制台",
+                    "运行队列",
+                    "下一步动作",
+                    "运行前检查",
+                    "当前回测",
+                    "模拟盘交接",
                     "control-action-center",
+                    "data-console-action",
                     "control-workflow-preflight",
+                    "control-paper-readiness",
                     "control-backtest-status",
                     "control-backtest-provenance",
                     "control-backtest-gate",
@@ -80,7 +90,18 @@ def run_gui_browser_smoke(
             and "renderControlCenter" in str(app_js.get("body", ""))
             and "applyControlDefaults" in str(app_js.get("body", ""))
             and "renderActionCenter" in str(app_js.get("body", ""))
+            and "renderConsoleCommandDeck" in str(app_js.get("body", ""))
+            and "zhConsoleText" in str(app_js.get("body", ""))
+            and "GUI_ZH_REPLACEMENTS" in str(app_js.get("body", ""))
+            and "data-console-action" in str(app_js.get("body", ""))
+            and "项目安全审计" in str(app_js.get("body", ""))
             and "renderWorkflowPreflight" in str(app_js.get("body", ""))
+            and "renderPaperReadiness" in str(app_js.get("body", ""))
+            and "evaluateBacktestGateRows" in str(app_js.get("body", ""))
+            and "server_receipts=" in str(app_js.get("body", ""))
+            and "browser_receipts=" in str(app_js.get("body", ""))
+            and "metric_passed=" in str(app_js.get("body", ""))
+            and "expected_block" in str(app_js.get("body", ""))
             and "runActionCenterWorkflow" in str(app_js.get("body", ""))
             and "data-action-workflow" in str(app_js.get("body", ""))
             and "renderStartupHealth" in str(app_js.get("body", ""))
@@ -266,6 +287,26 @@ def run_gui_browser_smoke(
             and control_body.get("backtest_gate", {}).get("summary", {}).get("live_trading_allowed") is False,
             "Control API exposes backtest gate thresholds for paper-observation decisions while live trading stays disabled.",
             control.get("error") or "Control API is missing backtest gate rows.",
+        )
+    )
+    paper_readiness_rows = control_body.get("paper_readiness", {}).get("rows", [])
+    checks.append(
+        _check(
+            "paper_readiness_panel",
+            "Paper readiness handoff contract",
+            control.get("ok")
+            and control_body.get("paper_readiness", {}).get("stage") == "gui_paper_readiness_handoff"
+            and bool(paper_readiness_rows)
+            and control_body.get("paper_readiness", {}).get("summary", {}).get("paper_candidate_allowed") is False
+            and control_body.get("paper_readiness", {}).get("summary", {}).get("live_trading_allowed") is False
+            and {
+                row.get("check_id")
+                for row in paper_readiness_rows
+                if isinstance(row, dict)
+            }
+            >= {"research_receipt", "paper_receipt", "metric_floor", "preflight_review", "paper_gate", "live_boundary"},
+            "Control API exposes a paper-readiness handoff that combines receipts, metric floors, preflight review, backtest gates, and live-blocked boundary.",
+            control.get("error") or "Control API is missing paper_readiness rows or safety states.",
         )
     )
     checks.append(

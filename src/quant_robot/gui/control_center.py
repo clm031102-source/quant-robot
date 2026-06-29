@@ -62,6 +62,13 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     execution_receipts = _execution_receipts_spec()
     result_evidence = _result_evidence(workflows, execution_receipts)
     backtest_gate = _backtest_gate(workflows, execution_receipts)
+    paper_readiness = _paper_readiness_handoff(
+        workflows,
+        workflow_preflight,
+        ledger_evidence,
+        result_evidence,
+        backtest_gate,
+    )
     audit_packet_source = _load_gui_audit_packet(root)
     latest_gui_audit = audit_packet_source.get("packet") if audit_packet_source.get("status") == "packet_present" else None
     audit_scorecard = _audit_scorecard(
@@ -140,6 +147,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "startup_health": startup_health,
         "backtest_provenance": backtest_provenance,
         "backtest_gate": backtest_gate,
+        "paper_readiness": paper_readiness,
         "workflow_trace": workflow_trace,
         "readiness_matrix": readiness_matrix,
         "release_readiness": release_readiness,
@@ -2099,6 +2107,152 @@ def _backtest_gate(workflows: list[dict[str, Any]], execution_receipts: dict[str
             "max_drawdown_threshold": -0.30,
         },
         "rows": rows,
+    }
+
+
+def _paper_readiness_handoff(
+    workflows: list[dict[str, Any]],
+    workflow_preflight: dict[str, Any],
+    ledger_evidence: dict[str, Any],
+    result_evidence: dict[str, Any],
+    backtest_gate: dict[str, Any],
+) -> dict[str, Any]:
+    required_workflows = ["research_backtest", "paper_simulation"]
+    research_ledger = _ledger_evidence_by_id(ledger_evidence, "research_backtest")
+    paper_ledger = _ledger_evidence_by_id(ledger_evidence, "paper_simulation")
+    preflight_summary = workflow_preflight.get("summary", {}) if isinstance(workflow_preflight, dict) else {}
+    gate_summary = backtest_gate.get("summary", {}) if isinstance(backtest_gate, dict) else {}
+    result_summary = result_evidence.get("summary", {}) if isinstance(result_evidence, dict) else {}
+    gate_rows = backtest_gate.get("rows", []) if isinstance(backtest_gate, dict) else []
+    metric_keys = [
+        str(row.get("metric_key"))
+        for row in gate_rows
+        if isinstance(row, dict)
+        and row.get("metric_key")
+        and row.get("gate_id") != "live_boundary"
+    ]
+    current_receipts = sum(
+        1
+        for ledger_row in [research_ledger, paper_ledger]
+        if ledger_row.get("freshness") == "current"
+    )
+    missing_or_stale_receipts = len(required_workflows) - current_receipts
+    review_count = int(preflight_summary.get("review_count") or 0)
+    if missing_or_stale_receipts:
+        status = "awaiting_current_evidence"
+    elif review_count:
+        status = "review"
+    else:
+        status = "review"
+    rows = [
+        _paper_readiness_receipt_row(
+            "research_receipt",
+            "Current research receipt",
+            "research_backtest",
+            research_ledger,
+            _workflow_command(workflows, "research_backtest"),
+        ),
+        _paper_readiness_receipt_row(
+            "paper_receipt",
+            "Current paper receipt",
+            "paper_simulation",
+            paper_ledger,
+            _workflow_command(workflows, "paper_simulation"),
+        ),
+        {
+            "check_id": "metric_floor",
+            "label": "Metric floor",
+            "status": "awaiting_metrics",
+            "source": "backtest_gate",
+            "source_workflow": "research_backtest",
+            "metric_keys": metric_keys,
+            "threshold_count": len(gate_rows),
+            "next_action": str(gate_summary.get("next_action") or result_summary.get("research_endpoint") or _workflow_command(workflows, "research_backtest")),
+            "evidence": "Run current research and paper workflows, then evaluate return, Sharpe, drawdown, win rate, benchmark-relative return, receipts, and paper equity floors.",
+        },
+        {
+            "check_id": "preflight_review",
+            "label": "Run preflight review",
+            "status": "ready" if review_count == 0 else "review",
+            "source": "gui_workflow_preflight",
+            "source_workflow": "workflow_preflight",
+            "review_count": review_count,
+            "next_action": str(preflight_summary.get("next_action") or "Review run preflight before paper handoff."),
+            "evidence": f"{review_count} preflight row(s) still need review before treating this as a paper-observation candidate.",
+        },
+        {
+            "check_id": "paper_gate",
+            "label": "Paper observation gate",
+            "status": "awaiting_gate_result",
+            "source": "gui_backtest_gate",
+            "source_workflow": "research_backtest",
+            "paper_candidate_allowed": False,
+            "next_action": str(gate_summary.get("next_action") or _workflow_command(workflows, "research_backtest")),
+            "evidence": "The GUI must see passing backtest-gate metrics and matching current receipts before any paper-observation handoff.",
+        },
+        {
+            "check_id": "live_boundary",
+            "label": "Live trading boundary",
+            "status": "blocked_live",
+            "source": "safety",
+            "source_workflow": "live_trading",
+            "permissions": _verification_runner_safety(),
+            "next_action": "Keep live trading disabled; only research and local paper simulation are allowed.",
+            "evidence": SAFETY_NOTICE,
+        },
+    ]
+    return {
+        "stage": "gui_paper_readiness_handoff",
+        "summary": {
+            "status": status,
+            "current_receipts": current_receipts,
+            "missing_or_stale_receipts": missing_or_stale_receipts,
+            "required_workflows": required_workflows,
+            "metric_keys": metric_keys,
+            "receipt_storage_key": gate_summary.get("receipt_storage_key") or result_summary.get("receipt_storage_key"),
+            "paper_candidate_allowed": False,
+            "live_trading_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "next_action": next(
+                (row["next_action"] for row in rows if row["status"] not in {"current", "ready", "blocked_live"}),
+                "Continue evidence review before paper handoff.",
+            ),
+            "paper_only": True,
+        },
+        "rows": rows,
+        "safety": _verification_runner_safety(),
+    }
+
+
+def _paper_readiness_receipt_row(
+    check_id: str,
+    label: str,
+    workflow_id: str,
+    ledger_row: dict[str, Any],
+    command: str,
+) -> dict[str, Any]:
+    freshness = str(ledger_row.get("freshness") or "missing")
+    status = "current" if freshness == "current" else "awaiting_current_receipt"
+    latest = str(ledger_row.get("latest_recorded_at") or "no current server receipt")
+    next_action = str(ledger_row.get("next_action") or command or f"Run current {workflow_id}.")
+    evidence = (
+        f"freshness={freshness}; matches_current_request={ledger_row.get('matches_current_request')}; "
+        f"latest={latest}"
+    )
+    return {
+        "check_id": check_id,
+        "label": label,
+        "status": status,
+        "source": "gui_ledger_evidence",
+        "source_workflow": workflow_id,
+        "freshness": freshness,
+        "matches_current_command": bool(ledger_row.get("matches_current_command")),
+        "matches_current_request": bool(ledger_row.get("matches_current_request")),
+        "current_command": command,
+        "next_action": next_action,
+        "evidence": evidence,
     }
 
 

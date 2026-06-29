@@ -32,8 +32,8 @@ const titles = {
   decision: "决策风控",
   signals: "信号快照",
   paper: "纸面模拟",
-  daily: "Daily Ops",
-  promotion: "Promotion Ops",
+  daily: "日常运营",
+  promotion: "候选推广",
   data: "数据中心",
   logs: "日志报告",
 };
@@ -175,7 +175,7 @@ function bindActions() {
     runVerificationGate(button.dataset.verificationGate || "", button);
   });
   document.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-action-workflow]");
+    const button = event.target.closest("[data-action-workflow], [data-console-action]");
     if (!button) return;
     runActionCenterWorkflow(button.dataset.actionWorkflow || "", button);
   });
@@ -866,6 +866,7 @@ function renderControlCenter() {
   const backtest = control.backtest || {};
   const backtestProvenance = control.backtest_provenance || {};
   const backtestGate = control.backtest_gate || {};
+  const paperReadiness = control.paper_readiness || {};
   const resultEvidence = control.result_evidence || {};
   const ledgerEvidence = control.ledger_evidence || {};
   const method = control.method || {};
@@ -935,6 +936,13 @@ function renderControlCenter() {
     ["Next", pendingRuns[0]?.label || blockedRuns[0]?.label || "--", pendingRuns.length ? "muted" : "warn"],
   ]);
   byId("control-action-center").innerHTML = renderActionCenter(actionCenter);
+  byId("control-command-deck-status").innerHTML = renderConsoleCommandDeck(
+    activeOperationSpec,
+    state.activeOperation,
+    executionReceipts,
+    state.verificationResult,
+    safety,
+  );
   byId("control-workflow-preflight").innerHTML = renderWorkflowPreflight(workflowPreflight);
   byId("control-operator-checklist").innerHTML = checklistItems.slice(0, 7).map((item) => `
     <div class="list-row ${escapeHtml(item.status === "ready" ? "ok" : item.status === "blocked" ? "danger" : "warn")}">
@@ -1003,6 +1011,17 @@ function renderControlCenter() {
   ]);
   byId("control-backtest-provenance").innerHTML = renderBacktestProvenance(backtestProvenance);
   byId("control-backtest-gate").innerHTML = renderBacktestGate(
+    backtestGate,
+    metrics,
+    benchmark,
+    paperMetrics,
+    executionReceipts,
+    researchRequest,
+    paperRequest,
+    state.controlCenter?.safety || safety,
+  );
+  byId("control-paper-readiness").innerHTML = renderPaperReadiness(
+    paperReadiness,
     backtestGate,
     metrics,
     benchmark,
@@ -1825,13 +1844,86 @@ function renderLogs() {
 }
 
 function metric(label, value, meta) {
-  return `<div class="metric-card"><small>${escapeHtml(label)}</small><strong>${escapeHtml(String(value))}</strong><span>${escapeHtml(meta || "")}</span></div>`;
+  return `<div class="metric-card"><small>${escapeHtml(zhConsoleText(label))}</small><strong>${escapeHtml(zhConsoleText(String(value)))}</strong><span>${escapeHtml(zhConsoleText(meta || ""))}</span></div>`;
 }
 
 function statusRows(rows) {
   return rows.map(([label, value, tone]) => `
-    <div class="list-row ${escapeHtml(tone || "")}"><strong>${escapeHtml(label)}</strong><span>${escapeHtml(value || "")}</span></div>
+    <div class="list-row ${escapeHtml(tone || "")}"><strong>${escapeHtml(zhConsoleText(label))}</strong><span>${escapeHtml(zhConsoleText(value || ""))}</span></div>
   `).join("");
+}
+
+const GUI_ZH_REPLACEMENTS = [
+  ["Next actions", "下一步动作"],
+  ["Run research backtest", "运行研究回测"],
+  ["Generate advisory signal snapshot", "生成信号快照"],
+  ["Run local paper simulation", "运行本地模拟盘"],
+  ["Research backtest", "研究回测"],
+  ["Signal snapshot", "信号快照"],
+  ["Paper simulation", "模拟盘"],
+  ["Live trading boundary", "实盘交易边界"],
+  ["Live trading", "实盘交易"],
+  ["Backtest gate", "回测闸门"],
+  ["Paper readiness", "模拟盘交接"],
+  ["Metric floor", "指标门槛"],
+  ["Current research receipt", "当前研究回执"],
+  ["Current paper receipt", "当前模拟盘回执"],
+  ["Paper observation gate", "模拟盘观察闸门"],
+  ["Run preflight", "运行前检查"],
+  ["Mode control", "模式控制"],
+  ["Workspace", "工作区"],
+  ["Machine", "机器"],
+  ["Task", "任务"],
+  ["Branch", "分支"],
+  ["Goal", "目标"],
+  ["Active", "当前"],
+  ["Status", "状态"],
+  ["Pending", "排队"],
+  ["Blocked", "阻塞"],
+  ["Next", "下一步"],
+  ["Source", "来源"],
+  ["Market", "市场"],
+  ["TopN + cost", "TopN 与成本"],
+  ["Rebalance", "调仓"],
+  ["Window", "日期窗口"],
+  ["Benchmark", "基准"],
+  ["ready_to_run", "可运行"],
+  ["gate_controlled", "受闸门控制"],
+  ["awaiting_metrics", "等待指标"],
+  ["awaiting_metric", "等待指标"],
+  ["awaiting_current_receipt", "等待当前回执"],
+  ["awaiting_browser_receipts", "等待浏览器回执"],
+  ["awaiting_server_receipts", "等待服务端回执"],
+  ["blocked_expected", "预期阻断"],
+  ["blocked_live", "实盘已阻断"],
+  ["not_run", "未运行"],
+  ["missing", "缺失"],
+  ["stale", "过期"],
+  ["current", "当前"],
+  ["ready", "就绪"],
+  ["review", "需复核"],
+  ["running", "运行中"],
+  ["waiting", "等待"],
+  ["completed", "完成"],
+  ["passed", "通过"],
+  ["failed", "失败"],
+  ["blocked", "阻断"],
+  ["queued", "排队"],
+  ["runnable", "可运行"],
+  ["paper_candidate", "模拟盘候选"],
+  ["Research-to-paper only. No broker connection, no account reads, no order placement, no live trading.", "仅研究到模拟盘；不连接券商、不读取账户、不真实下单、不启用实盘。"],
+  ["No broker connection, no account reads, no order placement, no live trading.", "不连接券商、不读取账户、不真实下单、不启用实盘。"],
+  ["Server receipt is stale; refresh the current command before trusting metrics.", "服务端回执已过期；信任指标前需要按当前参数重跑。"],
+  ["Server receipt is missing; refresh the current command before trusting metrics.", "缺少服务端回执；信任指标前需要按当前参数重跑。"],
+  ["Run", "运行"],
+];
+
+function zhConsoleText(value) {
+  let text = String(value ?? "");
+  GUI_ZH_REPLACEMENTS.forEach(([source, target]) => {
+    text = text.replaceAll(source, target);
+  });
+  return text;
 }
 
 function tableRows(rows, columns) {
@@ -2219,9 +2311,9 @@ function renderActionCenter(actionCenter = {}) {
         : "danger";
   const header = `
     <div class="list-row ${escapeHtml(headerClass)}">
-      <strong>${escapeHtml(`Next actions / ${summary.status || "--"}`)}</strong>
+      <strong>${escapeHtml(zhConsoleText(`Next actions / ${summary.status || "--"}`))}</strong>
       <span>${escapeHtml(`runnable=${summary.runnable_actions ?? 0} / blocked=${summary.blocked_actions ?? 0}`)}</span>
-      <span>${escapeHtml(summary.next_action || "")}</span>
+      <span>${escapeHtml(zhConsoleText(summary.next_action || ""))}</span>
     </div>
   `;
   const body = rows.slice(0, 8).map((item) => {
@@ -2235,13 +2327,13 @@ function renderActionCenter(actionCenter = {}) {
         type="button"
         data-action-workflow="${escapeHtml(item.workflow_id || "")}"
         data-action-verification-gate="${escapeHtml(item.verification_gate || "")}"
-      >${escapeHtml(item.button_label || "Run")}</button>
+      >${escapeHtml(zhConsoleText(item.button_label || "Run"))}</button>
     ` : "";
     return `
       <div class="list-row ${escapeHtml(statusClass)}">
-        <strong>${escapeHtml(`${priority} / ${item.label || item.action_id || ""}`)}</strong>
-        <span>${escapeHtml(`${item.status || "--"} / ${item.source || ""}`)}</span>
-        <span>${escapeHtml(item.reason || "")}</span>
+        <strong>${escapeHtml(zhConsoleText(`${priority} / ${item.label || item.action_id || ""}`))}</strong>
+        <span>${escapeHtml(zhConsoleText(`${item.status || "--"} / ${item.source || ""}`))}</span>
+        <span>${escapeHtml(zhConsoleText(item.reason || ""))}</span>
         <span>${escapeHtml(item.command || "")}</span>
         <span>${button}</span>
       </div>
@@ -2255,6 +2347,75 @@ function renderActionCenter(actionCenter = {}) {
   `);
 }
 
+function renderConsoleCommandDeck(
+  activeOperationSpec = {},
+  activeOperation = null,
+  executionReceipts = [],
+  verificationResult = null,
+  safety = {},
+) {
+  const latestResearch = executionReceipts.find((item) => item.workflow_id === "research_backtest") || {};
+  const latestPaper = executionReceipts.find((item) => item.workflow_id === "paper_simulation") || {};
+  const current = activeOperation || {};
+  const activeSpecSummary = activeOperationSpec.summary || {};
+  const rows = [
+    {
+      label: "当前动作",
+      status: current.status || activeSpecSummary.status || "idle",
+      detail: current.label || activeSpecSummary.next_action || "等待选择操作控制台按钮",
+      meta: current.detail || activeSpecSummary.supported_workflow_ids?.join(" / ") || "研究回测 / 信号快照 / 模拟盘 / 本地验证",
+    },
+    {
+      label: "最近研究回执",
+      status: latestResearch.status || "missing",
+      detail: latestResearch.time || "还没有浏览器研究回执",
+      meta: receiptMetricText(latestResearch),
+    },
+    {
+      label: "最近模拟盘回执",
+      status: latestPaper.status || "missing",
+      detail: latestPaper.time || "还没有浏览器模拟盘回执",
+      meta: receiptMetricText(latestPaper),
+    },
+    {
+      label: "最近验证",
+      status: verificationResult?.status || "not_run",
+      detail: verificationResult?.gate_id || "可运行 GUI 编译、项目安全审计、同步预检",
+      meta: verificationResult ? `returncode=${verificationResult.returncode ?? "--"}` : "verification_runner",
+    },
+    {
+      label: "安全边界",
+      status: safety.live_trading_allowed ? "danger" : "expected_block",
+      detail: safety.live_trading_allowed ? "实盘通道异常开启" : "实盘、券商、账户读取、真实下单全部关闭",
+      meta: safety.notice || "Research-to-paper only",
+    },
+  ];
+  return rows.map((item) => {
+    const statusClass = item.status === "completed" || item.status === "passed" || item.status === "expected_block"
+      ? "ok"
+      : item.status === "failed" || item.status === "danger"
+        ? "danger"
+        : "warn";
+    return `
+      <div class="list-row ${escapeHtml(statusClass)}">
+        <strong>${escapeHtml(zhConsoleText(`${item.label} / ${item.status}`))}</strong>
+        <span>${escapeHtml(zhConsoleText(item.detail || ""))}</span>
+        <span>${escapeHtml(zhConsoleText(item.meta || ""))}</span>
+      </div>
+    `;
+  }).join("");
+}
+
+function receiptMetricText(receipt = {}) {
+  const metrics = receipt.metrics || {};
+  return [
+    metrics.total_return != null ? `收益=${formatPercent(metrics.total_return)}` : "",
+    metrics.sharpe != null ? `Sharpe=${formatDecimal(metrics.sharpe)}` : "",
+    metrics.max_drawdown != null ? `回撤=${formatPercent(metrics.max_drawdown)}` : "",
+    metrics.ending_equity != null ? `权益=${formatNumber(metrics.ending_equity)}` : "",
+  ].filter(Boolean).join(" / ") || "等待运行后写入回执";
+}
+
 function renderWorkflowPreflight(preflight = {}) {
   const summary = preflight.summary || {};
   const rows = preflight.rows || [];
@@ -2265,9 +2426,9 @@ function renderWorkflowPreflight(preflight = {}) {
       : "ok";
   const header = `
     <div class="list-row ${escapeHtml(headerClass)}">
-      <strong>${escapeHtml(`Run preflight / ${summary.status || "--"}`)}</strong>
+      <strong>${escapeHtml(zhConsoleText(`Run preflight / ${summary.status || "--"}`))}</strong>
       <span>${escapeHtml(`runnable=${summary.runnable_count ?? 0} / blocked=${summary.blocked_count ?? 0}`)}</span>
-      <span>${escapeHtml(summary.next_action || "")}</span>
+      <span>${escapeHtml(zhConsoleText(summary.next_action || ""))}</span>
     </div>
   `;
   const body = rows.slice(0, 6).map((item) => {
@@ -2284,8 +2445,8 @@ function renderWorkflowPreflight(preflight = {}) {
       : "";
     return `
       <div class="list-row ${escapeHtml(statusClass)}">
-        <strong>${escapeHtml(`${item.label || item.workflow_id || ""} / ${status || "--"}`)}</strong>
-        <span>${escapeHtml(`mode=${item.mode || "--"} / runnable=${item.runnable ? "true" : "false"}`)}</span>
+        <strong>${escapeHtml(zhConsoleText(`${item.label || item.workflow_id || ""} / ${status || "--"}`))}</strong>
+        <span>${escapeHtml(zhConsoleText(`mode=${item.mode || "--"} / runnable=${item.runnable ? "true" : "false"}`))}</span>
         <span>${escapeHtml(checks)}</span>
         <span>${escapeHtml(workflowPreflightEndpointSummary(item))}</span>
       </div>
@@ -2548,6 +2709,116 @@ function renderResultEvidence(evidence = {}) {
   `);
 }
 
+function renderPaperReadiness(
+  readiness = {},
+  gate = {},
+  metrics = {},
+  benchmark = {},
+  paperMetrics = {},
+  executionReceipts = [],
+  researchRequest = {},
+  paperRequest = {},
+  safety = {},
+) {
+  const summary = readiness.summary || {};
+  const rows = readiness.rows || [];
+  const evaluated = evaluateBacktestGateRows(
+    gate,
+    metrics,
+    benchmark,
+    paperMetrics,
+    executionReceipts,
+    researchRequest,
+    paperRequest,
+    safety,
+  );
+  const nonLiveGateRows = evaluated.filter(({ item }) => item.gate_id !== "live_boundary");
+  const metricGateRows = nonLiveGateRows.filter(({ item }) => item.gate_id !== "execution_receipts");
+  const receiptGate = evaluated.find(({ item }) => item.gate_id === "execution_receipts") || {};
+  const liveGate = evaluated.find(({ item }) => item.gate_id === "live_boundary") || {};
+  const metricFailures = metricGateRows.filter((row) => row.result.status === "failed").length;
+  const metricAwaiting = metricGateRows.filter((row) => row.result.status === "awaiting_metric").length;
+  const metricPassed = metricGateRows.filter((row) => row.result.status === "passed").length;
+  const requiredWorkflows = summary.required_workflows || [];
+  const serverReceipts = Number(summary.current_receipts || 0);
+  const requiredServerReceipts = requiredWorkflows.length || 0;
+  const browserReceipts = Number(receiptGate.value || 0);
+  const requiredBrowserReceipts = Number(receiptGate.threshold || requiredServerReceipts || 0);
+  const serverReady = requiredServerReceipts > 0 && serverReceipts >= requiredServerReceipts;
+  const browserReady = requiredBrowserReceipts > 0 && browserReceipts >= requiredBrowserReceipts;
+  const liveBlockedExpected = liveGate.result?.status === "blocked_expected";
+  const preflightReviewCount = Number((rows.find((item) => item.check_id === "preflight_review") || {}).review_count || 0);
+  const candidateReady = (
+    metricGateRows.length > 0
+    && metricFailures === 0
+    && metricAwaiting === 0
+    && serverReady
+    && browserReady
+    && preflightReviewCount === 0
+    && liveBlockedExpected
+  );
+  const dynamicStatus = candidateReady
+    ? "paper_candidate"
+    : metricFailures > 0
+      ? "blocked"
+      : metricAwaiting > 0
+        ? "awaiting_metrics"
+        : !browserReady
+          ? "awaiting_browser_receipts"
+          : !serverReady
+            ? "awaiting_server_receipts"
+            : preflightReviewCount > 0
+              ? "review"
+              : summary.status || "review";
+  const headerClass = safety.live_trading_allowed || metricFailures > 0 ? "danger" : candidateReady ? "ok" : "warn";
+  const serverReceiptText = `server_receipts=${serverReceipts}/${requiredServerReceipts || "--"}`;
+  const browserReceiptText = `browser_receipts=${browserReceipts}/${requiredBrowserReceipts || "--"}`;
+  const metricSummaryText = `metric_passed=${metricPassed}/${metricGateRows.length || "--"} / awaiting=${metricAwaiting} / failed=${metricFailures}`;
+  const liveSummaryText = `live_boundary=${liveBlockedExpected ? "expected_block" : "review"}`;
+  const header = `
+    <div class="list-row ${escapeHtml(headerClass)}">
+      <strong>${escapeHtml(zhConsoleText(`Paper readiness / ${dynamicStatus}`))}</strong>
+      <span>${escapeHtml(`${serverReceiptText} / ${browserReceiptText} / candidate=${candidateReady ? "yes" : "no"}`)}</span>
+      <span>${escapeHtml(`${metricSummaryText} / ${liveSummaryText}`)}</span>
+    </div>
+  `;
+  const body = rows.slice(0, 7).map((item) => {
+    let status = item.status || "";
+    let detail = item.evidence || "";
+    if (item.check_id === "metric_floor") {
+      status = metricFailures > 0 ? "failed" : metricAwaiting > 0 ? "awaiting_metrics" : "passed";
+      detail = `${metricSummaryText}; ${metricGateRows.map(({ item: gateItem, value, threshold, result }) => `${gateItem.gate_id}:${result.status} ${formatGateValue(value, gateItem.value_type)}/${formatGateValue(threshold, gateItem.value_type)}`).join(" / ")}`;
+    }
+    if (item.check_id === "paper_gate") {
+      status = candidateReady ? "paper_candidate" : dynamicStatus;
+      detail = `${serverReceiptText}; ${browserReceiptText}; ${metricSummaryText}; ${liveSummaryText}`;
+    }
+    if (item.check_id === "live_boundary" && liveBlockedExpected) {
+      status = "expected_block";
+    }
+    const statusClass = status === "current" || status === "ready" || status === "passed" || status === "paper_candidate" || status === "expected_block"
+      ? "ok"
+      : status === "blocked" || status === "failed"
+        ? "danger"
+        : "warn";
+    const metricText = Array.isArray(item.metric_keys) ? item.metric_keys.join(", ") : "";
+    return `
+      <div class="list-row ${escapeHtml(statusClass)}">
+        <strong>${escapeHtml(zhConsoleText(item.label || item.check_id || ""))}</strong>
+        <span>${escapeHtml(zhConsoleText(`${status || "--"} / ${item.source_workflow || item.source || ""}`))}</span>
+        <span>${escapeHtml(zhConsoleText(metricText || detail || ""))}</span>
+        <span>${escapeHtml(zhConsoleText(item.next_action || item.current_command || ""))}</span>
+      </div>
+    `;
+  }).join("");
+  return header + (body || `
+    <div class="list-row warn">
+      <strong>No paper readiness handoff</strong>
+      <span>Run current research and paper workflows, then evaluate receipts, metrics, preflight, gates, and live boundary.</span>
+    </div>
+  `);
+}
+
 function renderLedgerEvidence(evidence = {}) {
   const summary = evidence.summary || {};
   const rows = evidence.rows || [];
@@ -2597,12 +2868,7 @@ function renderBacktestGate(
   safety = {},
 ) {
   const summary = gate.summary || {};
-  const rows = gate.rows || [];
-  const evaluated = rows.map((item) => {
-    const value = gateMetricValue(item, metrics, benchmark, paperMetrics, executionReceipts, researchRequest, paperRequest, safety);
-    const threshold = gateThresholdValue(item, paperRequest);
-    return { item, value, threshold, result: evaluateGateRow(item, value, threshold) };
-  });
+  const evaluated = evaluateBacktestGateRows(gate, metrics, benchmark, paperMetrics, executionReceipts, researchRequest, paperRequest, safety);
   const failures = evaluated.filter((row) => row.result.status === "failed").length;
   const awaiting = evaluated.filter((row) => row.result.status === "awaiting_metric").length;
   const passed = evaluated.filter((row) => row.result.status === "passed" || row.result.status === "blocked_expected").length;
@@ -2616,16 +2882,16 @@ function renderBacktestGate(
         : "metrics floor only";
   const header = `
     <div class="list-row ${escapeHtml(headerClass)}">
-      <strong>${escapeHtml(`Backtest gate / ${headerStatus}`)}</strong>
+      <strong>${escapeHtml(zhConsoleText(`Backtest gate / ${headerStatus}`))}</strong>
       <span>${escapeHtml(`passed=${passed} / awaiting=${awaiting} / failed=${failures}`)}</span>
       <span>${escapeHtml(`risk=${summary.risk_profile || "--"} / live=${summary.live_trading_allowed ? "enabled" : "disabled"}`)}</span>
     </div>
   `;
   const body = evaluated.slice(0, 10).map(({ item, value, threshold, result }) => `
     <div class="list-row ${escapeHtml(result.statusClass)}">
-      <strong>${escapeHtml(`${item.label || item.gate_id || ""}: ${formatGateValue(value, item.value_type)}`)}</strong>
-      <span>${escapeHtml(`${result.status} / ${item.comparator || ""} ${formatGateValue(threshold, item.value_type)}`)}</span>
-      <span>${escapeHtml(item.evidence || item.command || "")}</span>
+      <strong>${escapeHtml(zhConsoleText(`${item.label || item.gate_id || ""}: ${formatGateValue(value, item.value_type)}`))}</strong>
+      <span>${escapeHtml(zhConsoleText(`${result.status} / ${item.comparator || ""} ${formatGateValue(threshold, item.value_type)}`))}</span>
+      <span>${escapeHtml(zhConsoleText(item.evidence || item.command || ""))}</span>
     </div>
   `).join("");
   return header + (body || `
@@ -2634,6 +2900,24 @@ function renderBacktestGate(
       <span>The control API must expose metric thresholds before paper-observation decisions are shown.</span>
     </div>
   `);
+}
+
+function evaluateBacktestGateRows(
+  gate = {},
+  metrics = {},
+  benchmark = {},
+  paperMetrics = {},
+  executionReceipts = [],
+  researchRequest = {},
+  paperRequest = {},
+  safety = {},
+) {
+  const rows = gate.rows || [];
+  return rows.map((item) => {
+    const value = gateMetricValue(item, metrics, benchmark, paperMetrics, executionReceipts, researchRequest, paperRequest, safety);
+    const threshold = gateThresholdValue(item, paperRequest);
+    return { item, value, threshold, result: evaluateGateRow(item, value, threshold) };
+  });
 }
 
 function gateMetricValue(
@@ -3008,7 +3292,7 @@ async function runVerificationGate(gateId, button = null) {
   });
   if (button) {
     button.disabled = true;
-    button.textContent = "Running";
+    button.textContent = "运行中";
   }
   byId("run-state-label").textContent = "running";
   try {
@@ -3045,7 +3329,7 @@ async function runActionCenterWorkflow(workflowId, button = null) {
   const original = button?.textContent || "";
   if (button) {
     button.disabled = true;
-    button.textContent = "Running";
+    button.textContent = "运行中";
   }
   try {
     if (workflowId === "research_backtest") {

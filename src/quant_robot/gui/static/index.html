@@ -106,174 +106,190 @@
           <section class="panel control-center-board" id="control-center-board">
             <div class="panel-head">
               <div>
-                <p class="section-kicker">Mission Control</p>
-                <h3>Quant Robot Control Center</h3>
+                <p class="section-kicker">量化机器人中控台</p>
+                <h3>办公室电脑作战台</h3>
               </div>
               <span class="tag tag-warn" id="control-center-status">loading</span>
             </div>
             <div class="control-center-grid">
+              <div class="control-cell control-wide console-command-cell">
+                <small>操作控制台</small>
+                <div id="control-command-deck" class="console-command-deck">
+                  <button class="primary-button console-command-button" type="button" data-console-action="research_backtest" data-action-workflow="research_backtest">开始研究回测</button>
+                  <button class="secondary-button console-command-button" type="button" data-console-action="signal_snapshot" data-action-workflow="signal_snapshot">生成信号快照</button>
+                  <button class="secondary-button console-command-button" type="button" data-console-action="paper_simulation" data-action-workflow="paper_simulation">运行模拟盘</button>
+                  <button class="ghost-button console-command-button" type="button" data-console-action="gui_compile" data-action-workflow="verification_runner" data-action-verification-gate="gui_compile">GUI 编译检查</button>
+                  <button class="ghost-button console-command-button" type="button" data-console-action="project_audit" data-action-workflow="verification_runner" data-action-verification-gate="project_audit">项目安全审计</button>
+                  <button class="ghost-button console-command-button" type="button" data-console-action="sync_audit" data-action-workflow="verification_runner" data-action-verification-gate="sync_audit">同步预检</button>
+                </div>
+                <div id="control-command-deck-status" class="control-list console-command-status"></div>
+              </div>
               <div class="control-cell control-queue-cell">
-                <small>Run queue</small>
+                <small>运行队列</small>
                 <div id="control-run-queue" class="status-list compact-status"></div>
               </div>
               <div class="control-cell control-wide">
-                <small>Action center</small>
+                <small>下一步动作</small>
                 <div id="control-action-center" class="control-list action-center-list"></div>
               </div>
               <div class="control-cell control-wide">
-                <small>Run preflight</small>
+                <small>运行前检查</small>
                 <div id="control-workflow-preflight" class="control-list workflow-preflight-list"></div>
               </div>
               <div class="control-cell">
-                <small>Process monitor</small>
+                <small>进程监控</small>
                 <div id="control-process-monitor" class="control-list process-monitor-list"></div>
               </div>
               <div class="control-cell">
-                <small>Active operation</small>
+                <small>当前操作</small>
                 <div id="control-active-operation" class="control-list active-operation-list"></div>
               </div>
               <div class="control-cell">
-                <small>Operation ledger</small>
+                <small>操作回执</small>
                 <div id="control-operation-ledger" class="control-list operation-ledger-list"></div>
               </div>
               <div class="control-cell">
-                <small>Mode control</small>
+                <small>模式控制</small>
                 <div id="control-trade-mode-control" class="control-list trade-mode-control-list"></div>
               </div>
               <div class="control-cell">
-                <small>Operator checklist</small>
+                <small>操作者清单</small>
                 <div id="control-operator-checklist" class="control-list operator-checklist"></div>
               </div>
               <div class="control-cell">
-                <small>Execution plan</small>
+                <small>执行计划</small>
                 <div id="control-execution-plan" class="control-list execution-plan-list"></div>
               </div>
               <div class="control-cell">
-                <small>Workflow trace</small>
+                <small>流程追踪</small>
                 <div id="control-workflow-trace" class="control-list workflow-trace-list"></div>
               </div>
               <div class="control-cell">
-                <small>Startup health</small>
+                <small>启动健康</small>
                 <div id="control-startup-health" class="control-list startup-health-list"></div>
               </div>
               <div class="control-cell">
-                <small>Readiness matrix</small>
+                <small>准备矩阵</small>
                 <div id="control-readiness-matrix" class="control-list readiness-matrix"></div>
               </div>
               <div class="control-cell">
-                <small>Release readiness</small>
+                <small>发布准备</small>
                 <div id="control-release-readiness" class="control-list release-readiness-list"></div>
               </div>
               <div class="control-cell">
-                <small>Audit scorecard</small>
+                <small>审计评分</small>
                 <div id="control-audit-scorecard" class="control-list audit-scorecard-list"></div>
               </div>
               <div class="control-cell">
-                <small>Audit packets</small>
+                <small>审计包</small>
                 <div id="control-audit-packets" class="control-list audit-packet-list"></div>
               </div>
               <div class="control-cell">
-                <small>Audit feedback</small>
+                <small>审计反馈</small>
                 <div id="control-audit-feedback" class="control-list audit-feedback-list"></div>
               </div>
               <div class="control-cell control-wide">
-                <small>Five-round report</small>
+                <small>五轮报告</small>
                 <div id="control-round-checkpoint-report" class="control-list round-checkpoint-list"></div>
               </div>
               <div class="control-cell">
-                <small>Audit iteration plan</small>
+                <small>审计迭代计划</small>
                 <div id="control-audit-iteration-plan" class="control-list audit-iteration-list"></div>
               </div>
               <div class="control-cell">
-                <small>Audit scheduler</small>
+                <small>审计调度</small>
                 <div id="control-audit-scheduler" class="control-list audit-scheduler-list"></div>
               </div>
               <div class="control-cell">
-                <small>Operator timeline</small>
+                <small>操作时间线</small>
                 <div id="control-operator-timeline" class="control-list operator-timeline-list"></div>
               </div>
               <div class="control-cell">
-                <small>Run history</small>
+                <small>运行历史</small>
                 <div id="control-run-history" class="control-list run-history-list"></div>
               </div>
               <div class="control-cell">
-                <small>Execution receipts</small>
+                <small>浏览器回执</small>
                 <div id="control-execution-receipts" class="control-list execution-receipt-list"></div>
               </div>
               <div class="control-cell">
-                <small>Audit repair queue</small>
+                <small>审计修复队列</small>
                 <div id="control-audit-repair-queue" class="control-list audit-repair-list"></div>
               </div>
               <div class="control-cell">
-                <small>Verification gates</small>
+                <small>验证闸门</small>
                 <div id="control-verification-gates" class="control-list verification-list"></div>
               </div>
               <div class="control-cell">
-                <small>Verification runner</small>
+                <small>验证执行器</small>
                 <div id="control-verification-runner" class="control-list verification-runner-list"></div>
               </div>
               <div class="control-cell">
-                <small>Current work</small>
+                <small>当前工作</small>
                 <div id="control-work-status" class="status-list compact-status"></div>
               </div>
               <div class="control-cell">
-                <small>Workspace sync</small>
+                <small>工作区同步</small>
                 <div id="control-workspace-sync" class="control-list workspace-sync-list"></div>
               </div>
               <div class="control-cell">
-                <small>Backtest now</small>
+                <small>当前回测</small>
                 <div id="control-backtest-status" class="status-list compact-status"></div>
               </div>
               <div class="control-cell">
-                <small>Backtest provenance</small>
+                <small>回测来源</small>
                 <div id="control-backtest-provenance" class="control-list backtest-provenance-list"></div>
               </div>
               <div class="control-cell">
-                <small>Backtest gate</small>
+                <small>回测闸门</small>
                 <div id="control-backtest-gate" class="control-list backtest-gate-list"></div>
               </div>
+              <div class="control-cell">
+                <small>模拟盘交接</small>
+                <div id="control-paper-readiness" class="control-list paper-readiness-list"></div>
+              </div>
               <div class="control-cell control-wide">
-                <small>Request preview</small>
+                <small>请求预览</small>
                 <div id="control-request-preview" class="control-list request-preview-list"></div>
               </div>
               <div class="control-cell control-wide">
-                <small>Parameter consistency</small>
+                <small>参数一致性</small>
                 <div id="control-parameter-consistency" class="control-list parameter-consistency-list"></div>
               </div>
               <div class="control-cell">
-                <small>Result freshness</small>
+                <small>结果新鲜度</small>
                 <div id="control-result-freshness" class="control-list result-freshness-list"></div>
               </div>
               <div class="control-cell">
-                <small>Server evidence</small>
+                <small>服务端证据</small>
                 <div id="control-ledger-evidence" class="control-list ledger-evidence-list"></div>
               </div>
               <div class="control-cell control-wide">
-                <small>How it backtests</small>
+                <small>回测方法</small>
                 <div id="control-method-steps" class="method-steps"></div>
               </div>
               <div class="control-cell">
-                <small>Result slots</small>
+                <small>结果指标</small>
                 <div id="control-result-slots" class="metric-grid compact control-result-grid"></div>
               </div>
               <div class="control-cell">
-                <small>Result evidence</small>
+                <small>结果证据</small>
                 <div id="control-result-evidence" class="control-list result-evidence-list"></div>
               </div>
               <div class="control-cell">
-                <small>Local workflows</small>
+                <small>本地工作流</small>
                 <div id="control-workflow-commands" class="control-list"></div>
               </div>
               <div class="control-cell">
-                <small>Logs / reports</small>
+                <small>日志与报告</small>
                 <div id="control-report-links" class="control-list"></div>
               </div>
               <div class="control-cell">
-                <small>Paper / live boundary</small>
+                <small>实盘边界</small>
                 <div id="control-safety-boundary" class="status-list compact-status"></div>
               </div>
               <div class="control-cell">
-                <small>Audit cadence</small>
+                <small>审计节奏</small>
                 <div id="control-audit-cadence" class="status-list compact-status"></div>
               </div>
             </div>

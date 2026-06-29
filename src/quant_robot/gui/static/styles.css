@@ -381,6 +381,30 @@ button {
   background: #f4fbf7;
 }
 
+.console-command-cell {
+  border-color: rgba(0, 121, 107, 0.32);
+  background: #f7fbf9;
+}
+
+.console-command-deck {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.console-command-button {
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 9px;
+  justify-content: center;
+  white-space: normal;
+}
+
+.console-command-status {
+  max-height: 176px;
+}
+
 .control-cell small {
   display: block;
   margin-bottom: 8px;
@@ -578,6 +602,10 @@ button {
 }
 
 .backtest-gate-list {
+  max-height: 236px;
+}
+
+.paper-readiness-list {
   max-height: 236px;
 }
 
