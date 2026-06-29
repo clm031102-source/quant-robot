@@ -1034,6 +1034,110 @@ button {
   box-shadow: none;
 }
 
+.beginner-result-interpreter {
+  display: grid;
+  gap: 9px;
+}
+
+.beginner-result-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 9px;
+}
+
+.beginner-result-head strong {
+  display: block;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.beginner-result-head span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+}
+
+.beginner-result-head.ok strong,
+.beginner-result-metric.ok strong {
+  color: var(--green);
+}
+
+.beginner-result-head.warn strong,
+.beginner-result-metric.warn strong {
+  color: var(--accent-2);
+}
+
+.beginner-result-head.danger strong,
+.beginner-result-metric.danger strong {
+  color: var(--red);
+}
+
+.beginner-result-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.beginner-result-actions button {
+  min-height: 32px;
+  padding: 6px 10px;
+  white-space: normal;
+}
+
+.beginner-result-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.beginner-result-metric {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 9px;
+}
+
+.beginner-result-metric small,
+.beginner-result-metric span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.beginner-result-metric strong {
+  display: block;
+  color: var(--ink);
+  font-size: 17px;
+  line-height: 1.25;
+  margin: 3px 0;
+  overflow-wrap: anywhere;
+}
+
+.beginner-result-rows {
+  display: grid;
+  gap: 7px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.beginner-result-rows .list-row {
+  background: var(--surface);
+  box-shadow: none;
+}
+
 .ledger-evidence-list {
   max-height: 236px;
 }
@@ -1601,6 +1705,22 @@ th {
   .beginner-parameter-actions button {
     flex: 1 1 170px;
   }
+
+  .beginner-result-head {
+    grid-template-columns: 1fr;
+  }
+
+  .beginner-result-actions {
+    justify-content: stretch;
+  }
+
+  .beginner-result-actions button {
+    flex: 1 1 170px;
+  }
+
+  .beginner-result-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 520px) {
@@ -1617,5 +1737,9 @@ th {
   .operator-item strong,
   .metric-card strong {
     font-size: 18px;
+  }
+
+  .beginner-result-metrics {
+    grid-template-columns: 1fr;
   }
 }

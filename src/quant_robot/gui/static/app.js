@@ -265,6 +265,12 @@ function bindActions() {
     jumpToBeginnerTarget(button.dataset.beginnerParameterJump || "control-request-preview", state.leaderboardTab);
   });
   document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-beginner-result-jump]");
+    if (!button) return;
+    event.preventDefault();
+    jumpToBeginnerTarget(button.dataset.beginnerResultJump || "control-backtest-gate", state.leaderboardTab);
+  });
+  document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-beginner-action]");
     if (!button) return;
     runBeginnerAction(button.dataset.beginnerAction || "", button);
@@ -607,6 +613,175 @@ function renderBeginnerParameterExplainer(
     </div>
   `;
   rowsTarget.innerHTML = statusRows(beginnerParameterRows(researchParams, signalParams, paperParams));
+}
+
+function beginnerResultMetric(label, value, detail, tone = "muted") {
+  return `
+    <div class="beginner-result-metric ${escapeHtml(tone)}">
+      <small>${escapeHtml(label)}</small>
+      <strong>${escapeHtml(value)}</strong>
+      <span>${escapeHtml(detail)}</span>
+    </div>
+  `;
+}
+
+function beginnerResultGateSummary(evaluatedRows = []) {
+  return {
+    failed: evaluatedRows.filter((row) => row.result?.status === "failed").length,
+    awaiting: evaluatedRows.filter((row) => row.result?.status === "awaiting_metric").length,
+    passed: evaluatedRows.filter((row) => ["passed", "blocked_expected"].includes(row.result?.status)).length,
+    total: evaluatedRows.length,
+  };
+}
+
+function beginnerResultVerdict(
+  metrics = {},
+  benchmark = {},
+  paperMetrics = {},
+  evaluatedRows = [],
+  paperReadiness = {},
+  safety = {},
+) {
+  const hasResearch = Number.isFinite(Number(metrics.total_return)) || Number.isFinite(Number(metrics.sharpe));
+  const hasPaper = Number.isFinite(Number(paperMetrics.ending_equity)) || Number.isFinite(Number(paperMetrics.total_return));
+  const gates = beginnerResultGateSummary(evaluatedRows);
+  const totalReturn = Number(metrics.total_return);
+  const annualized = Number(metrics.annualized_return);
+  const sharpe = Number(metrics.sharpe);
+  const maxDrawdown = Number(metrics.max_drawdown);
+  const winRate = Number(metrics.win_rate);
+  const relativeReturn = Number(benchmark.relative_return);
+  const paperStatus = paperReadiness.summary?.status || "review";
+  const liveBlocked = safety.live_trading_allowed === false && safety.order_placement_allowed === false;
+  const metricRows = [
+    beginnerResultMetric("总收益", formatPercent(metrics.total_return), "赚了多少", Number.isFinite(totalReturn) && totalReturn > 0 ? "ok" : "warn"),
+    beginnerResultMetric("年化", formatPercent(metrics.annualized_return), "折算到一年", Number.isFinite(annualized) && annualized > 0 ? "ok" : "warn"),
+    beginnerResultMetric("Sharpe", formatDecimal(metrics.sharpe), "收益是否平稳", Number.isFinite(sharpe) && sharpe >= 1 ? "ok" : "warn"),
+    beginnerResultMetric("最大回撤", formatPercent(metrics.max_drawdown), "中途最大亏损", Number.isFinite(maxDrawdown) && Math.abs(maxDrawdown) <= 0.3 ? "ok" : "warn"),
+    beginnerResultMetric("胜率", formatPercent(metrics.win_rate), "赚钱周期占比", Number.isFinite(winRate) && winRate >= 0.5 ? "ok" : "warn"),
+    beginnerResultMetric("相对基准", formatPercent(benchmark.relative_return), "是否跑赢基准", Number.isFinite(relativeReturn) && relativeReturn > 0 ? "ok" : "warn"),
+  ];
+
+  if (!hasResearch) {
+    return {
+      tone: "warn",
+      title: "还没有当前回测结果",
+      summary: "先运行一次本地回测，软件才知道这组参数的收益、回撤、胜率和 Sharpe。",
+      metricRows,
+      reasonRows: [
+        ["现在能做", "点击本地回测当前参数，先得到一份可判读的研究结果。", "warn"],
+        ["先别做", "不要在没有当前回测结果时直接生成模拟盘结论。", "danger"],
+        ["安全边界", "本地回测只读取本地数据，不连接券商、不读取账户、不下单。", "ok"],
+      ],
+      actions: [
+        { label: "本地回测当前参数", action: "research_backtest", tone: "primary-button" },
+        { label: "看当前参数", jump: "beginner-parameter-explainer", tone: "secondary-button" },
+      ],
+    };
+  }
+
+  if (gates.failed > 0) {
+    return {
+      tone: "danger",
+      title: "结果还不能推进",
+      summary: `当前有 ${gates.failed} 个关键闸门未通过。收益再好看，也要先解释失败项。`,
+      metricRows,
+      reasonRows: [
+        ["收益质量", `总收益 ${formatPercent(metrics.total_return)}，Sharpe ${formatDecimal(metrics.sharpe)}；先看是否只是单段行情贡献。`, "warn"],
+        ["回撤风险", `最大回撤 ${formatPercent(metrics.max_drawdown)}；你能接受 30% 左右回撤，但闸门失败仍要复核原因。`, "danger"],
+        ["证据状态", `${gates.passed}/${gates.total} 个闸门通过，${gates.awaiting} 个等待指标。`, "warn"],
+        ["下一步", "打开回测闸门，逐条看失败项，而不是直接进入模拟盘。", "danger"],
+      ],
+      actions: [
+        { label: "看回测闸门", jump: "control-backtest-gate", tone: "primary-button" },
+        { label: "看结果证据", jump: "control-result-evidence", tone: "secondary-button" },
+      ],
+    };
+  }
+
+  if (gates.awaiting > 0 || !hasPaper || paperStatus !== "paper_candidate") {
+    return {
+      tone: "warn",
+      title: "可以复核，但还不是可推广信号",
+      summary: "研究回测已有结果，下一步应补齐当前模拟盘和证据链，仍然不能当实盘信号。",
+      metricRows,
+      reasonRows: [
+        ["收益质量", `总收益 ${formatPercent(metrics.total_return)}，年化 ${formatPercent(metrics.annualized_return)}，Sharpe ${formatDecimal(metrics.sharpe)}。`, Number.isFinite(sharpe) && sharpe >= 1 ? "ok" : "warn"],
+        ["回撤风险", `最大回撤 ${formatPercent(metrics.max_drawdown)}，胜率 ${formatPercent(metrics.win_rate)}；回撤高时要看能否长期承受。`, Math.abs(maxDrawdown) <= 0.3 ? "ok" : "warn"],
+        ["证据状态", hasPaper ? `已有模拟盘权益 ${formatNumber(paperMetrics.ending_equity)}。` : "还缺当前参数的本地模拟盘回放。", hasPaper ? "ok" : "warn"],
+        ["下一步", "先做本地模拟盘回放，再看模拟盘交接和结果证据。", "warn"],
+      ],
+      actions: [
+        { label: "本地模拟盘回放", action: "paper_simulation", tone: "primary-button" },
+        { label: "看模拟盘交接", jump: "control-paper-readiness", tone: "secondary-button" },
+      ],
+    };
+  }
+
+  return {
+    tone: "ok",
+    title: "可以进入纸面观察",
+    summary: "当前研究结果和模拟盘证据相对完整，但仍只属于本地研究到纸面模拟，不是实盘下单信号。",
+    metricRows,
+    reasonRows: [
+      ["收益质量", `总收益 ${formatPercent(metrics.total_return)}，Sharpe ${formatDecimal(metrics.sharpe)}，相对基准 ${formatPercent(benchmark.relative_return)}。`, "ok"],
+      ["回撤风险", `最大回撤 ${formatPercent(metrics.max_drawdown)}；继续观察不同市场阶段是否恶化。`, Math.abs(maxDrawdown) <= 0.3 ? "ok" : "warn"],
+      ["证据状态", `闸门 ${gates.passed}/${gates.total} 已通过，模拟盘权益 ${formatNumber(paperMetrics.ending_equity)}。`, "ok"],
+      ["安全边界", liveBlocked ? "实盘仍被硬阻断：无券商、无账户、无订单。" : "安全边界异常，必须先审计。", liveBlocked ? "ok" : "danger"],
+    ],
+    actions: [
+      { label: "看模拟盘交接", jump: "control-paper-readiness", tone: "primary-button" },
+      { label: "看结果证据", jump: "control-result-evidence", tone: "secondary-button" },
+    ],
+  };
+}
+
+function renderBeginnerResultInterpreter(
+  backtestGate = {},
+  paperReadiness = {},
+  metrics = {},
+  benchmark = {},
+  paperMetrics = {},
+  executionReceipts = [],
+  researchRequest = {},
+  paperRequest = {},
+  safety = {},
+) {
+  const root = byId("beginner-result-interpreter");
+  const summaryTarget = byId("beginner-result-summary");
+  const metricsTarget = byId("beginner-result-metrics");
+  const rowsTarget = byId("beginner-result-rows");
+  if (!root || !summaryTarget || !metricsTarget || !rowsTarget) return;
+  const evaluatedRows = evaluateBacktestGateRows(
+    backtestGate,
+    metrics,
+    benchmark,
+    paperMetrics,
+    executionReceipts,
+    researchRequest,
+    paperRequest,
+    safety,
+  );
+  const verdict = beginnerResultVerdict(metrics, benchmark, paperMetrics, evaluatedRows, paperReadiness, safety);
+  ["ok", "warn", "danger", "muted"].forEach((tone) => root.classList.remove(tone));
+  root.classList.add(verdict.tone);
+  const actions = (verdict.actions || []).map((action) => {
+    const attrs = action.action
+      ? `data-beginner-action="${escapeHtml(action.action)}"`
+      : `data-beginner-result-jump="${escapeHtml(action.jump || "control-backtest-gate")}"`;
+    return `<button class="${escapeHtml(action.tone || "secondary-button")}" type="button" ${attrs}>${escapeHtml(action.label)}</button>`;
+  }).join("");
+  summaryTarget.innerHTML = `
+    <div class="beginner-result-head ${escapeHtml(verdict.tone)}">
+      <div>
+        <strong>${escapeHtml(verdict.title)}</strong>
+        <span>${escapeHtml(verdict.summary)}</span>
+      </div>
+      <div class="beginner-result-actions">${actions}</div>
+    </div>
+  `;
+  metricsTarget.innerHTML = verdict.metricRows.join("");
+  rowsTarget.innerHTML = statusRows(verdict.reasonRows);
 }
 
 function renderRequestPreview() {
@@ -1416,6 +1591,17 @@ function renderControlCenter() {
     metric("Relative", formatPercent(benchmark.relative_return), "benchmark"),
     metric("Paper equity", formatNumber(paperMetrics.ending_equity), "paper"),
   ].join("");
+  renderBeginnerResultInterpreter(
+    backtestGate,
+    paperReadiness,
+    metrics,
+    benchmark,
+    paperMetrics,
+    executionReceipts,
+    researchRequest,
+    paperRequest,
+    state.controlCenter?.safety || safety,
+  );
   renderResultFreshness();
   renderParameterConsistency(control.parameter_authority || {});
   byId("control-ledger-evidence").innerHTML = renderLedgerEvidence(ledgerEvidence);
