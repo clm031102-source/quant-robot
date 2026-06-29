@@ -330,6 +330,12 @@ function bindActions() {
     jumpToBeginnerTarget("factor-leaderboard-table", state.leaderboardTab);
   });
   document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-factor-runtime-gap-apply]");
+    if (!button) return;
+    event.preventDefault();
+    applyLeaderboardRowToForms(leaderboardRowFromButton(button));
+  });
+  document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-beginner-parameter-jump]");
     if (!button) return;
     event.preventDefault();
@@ -3268,10 +3274,11 @@ function leaderboardRuntimeRows(rows = []) {
   const byFactor = new Map();
   missing.forEach((row) => {
     const key = row.factor_name || "unknown";
-    const item = byFactor.get(key) || { factor_name: key, count: 0, case_id: row.case_id, source_file: row.source_file };
+    const item = byFactor.get(key) || { factor_name: key, count: 0, case_id: row.case_id, source_file: row.source_file, sample_row: row };
     item.count += 1;
     if (!item.case_id && row.case_id) item.case_id = row.case_id;
     if (!item.source_file && row.source_file) item.source_file = row.source_file;
+    if (!item.sample_row) item.sample_row = row;
     byFactor.set(key, item);
   });
   return {
@@ -3280,6 +3287,11 @@ function leaderboardRuntimeRows(rows = []) {
     missing,
     unique_missing: Array.from(byFactor.values()),
   };
+}
+
+function leaderboardRuntimeGapRowPayload(item = {}) {
+  const row = item.sample_row || item;
+  return encodeURIComponent(JSON.stringify(leaderboardRowPayload(row)));
 }
 
 function renderFactorRuntimeGapPanel(rows = []) {
@@ -3306,13 +3318,19 @@ function renderFactorRuntimeGapPanel(rows = []) {
     `;
     return;
   }
-  listTarget.innerHTML = audit.unique_missing.slice(0, 5).map((item) => `
-    <div class="factor-runtime-gap-row warn">
-      <strong>${escapeHtml(item.factor_name)}</strong>
-      <span>${escapeHtml(`${item.count} 个参数组合需要注册；示例 ${item.case_id || "--"}`)}</span>
-      <button class="secondary-button factor-runtime-gap-action" type="button" data-factor-runtime-gap-action="true">看榜单行</button>
-    </div>
-  `).join("");
+  listTarget.innerHTML = audit.unique_missing.slice(0, 5).map((item) => {
+    const rowPayload = leaderboardRuntimeGapRowPayload(item);
+    return `
+      <div class="factor-runtime-gap-row warn">
+        <strong>${escapeHtml(item.factor_name)}</strong>
+        <span>${escapeHtml(`${item.count} 个参数组合需要注册；示例 ${item.case_id || "--"}`)}</span>
+        <span class="factor-runtime-gap-actions">
+          <button class="secondary-button factor-runtime-gap-apply" type="button" data-factor-runtime-gap-apply="true" data-factor-row="${escapeHtml(rowPayload)}">套用示例参数</button>
+          <button class="secondary-button factor-runtime-gap-action" type="button" data-factor-runtime-gap-action="true">看榜单行</button>
+        </span>
+      </div>
+    `;
+  }).join("");
 }
 
 function leaderboardRowFromButton(button) {

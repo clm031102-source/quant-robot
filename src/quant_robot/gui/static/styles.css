@@ -1069,8 +1069,16 @@ button {
   border-color: rgba(54, 119, 84, 0.24);
 }
 
-.factor-runtime-gap-action {
+.factor-runtime-gap-actions {
   grid-row: span 2;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.factor-runtime-gap-action,
+.factor-runtime-gap-apply {
   min-height: 32px;
   white-space: normal;
 }
