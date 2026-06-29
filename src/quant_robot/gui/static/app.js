@@ -1733,6 +1733,7 @@ async function runDailyTradeAdvisory() {
       status: "completed",
       detail: `signals ${state.dailyTradeAdvisory?.summary?.signal_count ?? 0} / manual only`,
     });
+    appendExecutionReceipt(dailyTradeAdvisoryReceipt(state.dailyTradeAdvisory));
     showToast("今日前三交易建议已生成");
   });
 }
@@ -6512,6 +6513,9 @@ function renderExecutionReceipts(spec = {}) {
     const request = item.request || {};
     const statusClass = item.status === "completed" ? "ok" : item.status === "failed" ? "danger" : "warn";
     const metricText = [
+      metrics.traffic_light ? `灯号=${metrics.traffic_light}` : "",
+      metrics.signal_count != null ? `信号=${formatNumber(metrics.signal_count)}` : "",
+      metrics.manual_ticket_count != null ? `票据=${formatNumber(metrics.manual_ticket_count)}` : "",
       metrics.total_return != null ? `收益=${formatPercent(metrics.total_return)}` : "",
       metrics.sharpe != null ? `夏普=${formatDecimal(metrics.sharpe)}` : "",
       metrics.max_drawdown != null ? `回撤=${formatPercent(metrics.max_drawdown)}` : "",
@@ -6610,6 +6614,34 @@ function paperReceipt(result = {}) {
     },
     decision: "local_simulation_only",
     safety: "local simulated fills only; no broker, account, or order side effects",
+  };
+}
+
+function dailyTradeAdvisoryReceipt(result = {}) {
+  const summary = result.summary || {};
+  const readiness = result.pretrade_readiness || {};
+  const handoff = result.manual_broker_handoff || {};
+  const firstAction = Array.isArray(result.operator_next_actions) ? result.operator_next_actions[0] || {} : {};
+  return {
+    workflow_id: "daily_trade_advisory",
+    label: "Daily trade advisory receipt",
+    request: {
+      market: result.market,
+      source: result.source,
+      as_of_date: result.run_date,
+      portfolio_value: summary.target_value,
+    },
+    metrics: {
+      selected_factor_count: summary.selected_factor_count,
+      signal_count: summary.signal_count,
+      target_count: summary.combined_target_count ?? result.combined_target_count,
+      manual_ticket_count: summary.manual_ticket_count,
+      traffic_light: readiness.traffic_light,
+      blocker_count: Array.isArray(readiness.blockers) ? readiness.blockers.length : 0,
+      copyable_ticket_count: Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets.length : 0,
+    },
+    decision: firstAction.action_id || readiness.traffic_light || "daily_advisory",
+    safety: "daily advisory only; manual review required; no broker, account, or order side effects",
   };
 }
 
