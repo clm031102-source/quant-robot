@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Quant Robot Local Console</title>
+    <title>量化机器人本地中控台</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="/styles.css">
   </head>
@@ -13,7 +13,7 @@
         <div class="brand">
           <div class="brand-mark">QR</div>
           <div class="brand-copy">
-            <h1>Quant Robot</h1>
+            <h1>量化机器人</h1>
             <p>本地多市场研究终端</p>
           </div>
         </div>
@@ -45,11 +45,11 @@
           </button>
           <button class="nav-item" data-page="daily" type="button">
             <span class="nav-index">07</span>
-            <span><strong>Daily Ops</strong><small>risk gate</small></span>
+            <span><strong>日常运营</strong><small>风控闸门</small></span>
           </button>
           <button class="nav-item" data-page="promotion" type="button">
             <span class="nav-index">08</span>
-            <span><strong>Promotion Ops</strong><small>gate evidence</small></span>
+            <span><strong>候选推广</strong><small>闸门证据</small></span>
           </button>
           <button class="nav-item" data-page="data" type="button">
             <span class="nav-index">09</span>
@@ -64,7 +64,7 @@
         <div class="safety-card">
           <span class="status-dot danger-dot"></span>
           <div>
-            <strong>Research only</strong>
+            <strong>仅研究模式</strong>
             <span>无券商连接。无账户读取。无真实下单。</span>
           </div>
         </div>
@@ -73,24 +73,24 @@
       <main class="workspace">
         <header class="topbar">
           <div class="title-block">
-            <p class="eyebrow">local research console</p>
+            <p class="eyebrow">本地研究中控台</p>
             <h2 id="page-title">总览</h2>
           </div>
           <div class="status-cluster">
-            <button id="run-startup-workflows" class="secondary-button" type="button" title="Run research, signals, paper, and promotion refresh manually">Run Workflows</button>
-            <span class="mode-pill" id="mode-pill">loading</span>
-            <span class="mode-pill danger">No broker</span>
+            <button id="run-startup-workflows" class="secondary-button" type="button" title="手动运行研究回测、信号快照、纸面模拟和候选刷新">运行工作流</button>
+            <span class="mode-pill" id="mode-pill">加载中</span>
+            <span class="mode-pill danger">无券商连接</span>
           </div>
         </header>
 
         <section class="operator-strip" aria-label="运行状态">
           <div class="operator-item">
             <small>数据模式</small>
-            <strong id="data-mode-label">loading</strong>
+            <strong id="data-mode-label">加载中</strong>
           </div>
           <div class="operator-item">
             <small>执行边界</small>
-            <strong id="broker-status-label">No broker</strong>
+            <strong id="broker-status-label">无券商连接</strong>
           </div>
           <div class="operator-item">
             <small>当前市场</small>
@@ -98,7 +98,7 @@
           </div>
           <div class="operator-item">
             <small>任务状态</small>
-            <strong id="run-state-label">idle</strong>
+            <strong id="run-state-label">待命</strong>
           </div>
         </section>
 
@@ -109,7 +109,7 @@
                 <p class="section-kicker">量化机器人中控台</p>
                 <h3>办公室电脑作战台</h3>
               </div>
-              <span class="tag tag-warn" id="control-center-status">loading</span>
+                <span class="tag tag-warn" id="control-center-status">加载中</span>
             </div>
             <div class="control-center-grid">
               <div class="control-cell control-wide console-command-cell">
@@ -299,20 +299,20 @@
             <section class="panel status-panel project-board">
               <div class="panel-head">
                 <div>
-                  <p class="section-kicker">Operator board</p>
+                  <p class="section-kicker">操作面板</p>
                   <h3>项目作战台</h3>
                 </div>
-                <span class="tag tag-warn" id="project-status-tag">loading</span>
+                <span class="tag tag-warn" id="project-status-tag">加载中</span>
               </div>
               <div id="project-status-list" class="status-list"></div>
             </section>
             <section class="panel table-panel project-actions">
               <div class="panel-head">
                 <div>
-                  <p class="section-kicker">Next local commands</p>
+                  <p class="section-kicker">下一步本地命令</p>
                   <h3>下一步本地动作</h3>
                 </div>
-                <span class="tag">local only</span>
+                <span class="tag">仅本地</span>
               </div>
               <div class="table-wrap scroll-table">
                 <table><tbody id="project-action-table"></tbody></table>
@@ -323,17 +323,17 @@
             <section class="panel chart-panel emphasis-panel">
               <div class="panel-head">
                 <div>
-                  <p class="section-kicker">Research equity</p>
+                  <p class="section-kicker">研究净值</p>
                   <h3>研究净值</h3>
                 </div>
-                <span class="tag" id="dashboard-equity-source">loading</span>
+                <span class="tag" id="dashboard-equity-source">加载中</span>
               </div>
               <div id="dashboard-equity" class="chart-box"></div>
             </section>
             <section class="panel status-panel">
               <div class="panel-head">
                 <div>
-                  <p class="section-kicker">Admission</p>
+                  <p class="section-kicker">准入判断</p>
                   <h3>准入状态</h3>
                 </div>
                 <span class="tag tag-warn">Phase 2.6</span>
@@ -347,16 +347,16 @@
           <section class="command-card research-controls" aria-label="因子研究参数">
             <div class="command-head">
               <h3>研究参数</h3>
-              <span class="tag">factor lab</span>
+              <span class="tag">因子实验室</span>
             </div>
             <div class="form-grid">
-              <label>Data source
+              <label>数据源
                 <select id="data-source-select">
-                  <option value="processed-bars" selected>processed-bars / CN ETF CSV</option>
-                  <option value="demo_fixture">demo fixture</option>
+                  <option value="processed-bars" selected>本地 processed-bars / A股ETF CSV</option>
+                  <option value="demo_fixture">演示数据</option>
                 </select>
               </label>
-              <label>Data root
+              <label>数据目录
                 <input id="data-root-input" value="data/processed/etf_csv">
               </label>
               <label>市场
@@ -372,25 +372,25 @@
               <label>因子
                 <select id="factor-select" class="factor-select"></select>
               </label>
-              <label>Factor windows
-                <input id="factor-windows" value="5,10,20,60,120">
+              <label>因子窗口
+                <input id="factor-windows" value="2,5,10,20,60,120">
               </label>
               <label>开始
-                <input id="start-date" type="date" value="2026-01-01">
+                <input id="start-date" type="date" value="2016-01-01">
               </label>
               <label>结束
                 <input id="end-date" type="date" value="2026-05-21">
               </label>
-              <label>Execution lag
+              <label>执行滞后
                 <input id="execution-lag" type="number" min="1" max="20" value="1">
               </label>
-              <label>Forward horizon
+              <label>预测周期
                 <input id="forward-horizon" type="number" min="1" max="60" value="1">
               </label>
-              <label>Top N
+              <label>持仓数 TopN
                 <input id="research-top-n" type="number" min="1" max="8" value="2">
               </label>
-              <label>Rebalance
+              <label>调仓间隔
                 <input id="rebalance-interval" type="number" min="1" max="60" value="5">
               </label>
               <label>成本 bps
@@ -404,7 +404,7 @@
               </label>
               <label class="toggle-field">
                 <input id="regime-filter" type="checkbox" checked>
-                <span>Regime 过滤</span>
+                <span>市场状态过滤</span>
               </label>
               <label>Regime 窗口
                 <input id="regime-lookback" type="number" min="1" max="252" value="3">
@@ -473,7 +473,7 @@
             </section>
           </div>
           <section class="panel status-panel">
-            <div class="panel-head"><h3>准入原因</h3><span class="tag tag-warn">research gate</span></div>
+            <div class="panel-head"><h3>准入原因</h3><span class="tag tag-warn">研究闸门</span></div>
             <div id="decision-log" class="status-list"></div>
           </section>
         </section>
@@ -482,7 +482,7 @@
           <section class="command-card signal-controls" aria-label="信号参数">
             <div class="command-head">
               <h3>信号参数</h3>
-              <span class="tag">targets</span>
+              <span class="tag">目标仓位</span>
             </div>
             <div class="form-grid compact-form">
               <label>信号日期
@@ -524,7 +524,7 @@
           <section class="command-card paper-controls" aria-label="纸面模拟参数">
             <div class="command-head">
               <h3>模拟参数</h3>
-              <span class="tag">paper loop</span>
+              <span class="tag">模拟闭环</span>
             </div>
             <div class="form-grid">
               <label>市场
@@ -541,7 +541,7 @@
                 <select id="paper-factor-select" class="factor-select"></select>
               </label>
               <label>开始
-                <input id="paper-start-date" type="date" value="2026-01-01">
+                <input id="paper-start-date" type="date" value="2016-01-01">
               </label>
               <label>结束
                 <input id="paper-end-date" type="date" value="2026-05-21">
@@ -549,7 +549,7 @@
               <label>初始资金
                 <input id="paper-initial-cash" type="number" min="1000" step="1000" value="100000">
               </label>
-              <label>Top N
+              <label>持仓数 TopN
                 <input id="paper-top-n" type="number" min="1" max="8" value="2">
               </label>
               <label>佣金 bps
@@ -587,7 +587,7 @@
               <div id="paper-equity-chart" class="chart-box tall"></div>
             </section>
             <section class="panel chart-panel">
-              <div class="panel-head"><h3>仓位暴露</h3><span class="tag tag-warn">local only</span></div>
+              <div class="panel-head"><h3>仓位暴露</h3><span class="tag tag-warn">仅本地</span></div>
               <div id="paper-exposure-chart" class="chart-box tall"></div>
             </section>
           </div>
@@ -606,7 +606,7 @@
         <section id="page-daily" class="page">
           <section class="command-card daily-controls" aria-label="daily operations">
             <div class="command-head">
-              <h3>Daily Operations</h3>
+              <h3>日常运营</h3>
               <span class="tag tag-warn">Phase 5.0</span>
             </div>
             <div class="form-grid compact-form">
@@ -643,7 +643,7 @@
               <label>Tushare activation gate pack
                 <input id="tushare-activation-gate-pack-path" value="data/reports/tushare_activation_gate/tushare_activation_gate_pack.json">
               </label>
-              <button id="run-daily-ops" class="primary-button command-action" type="button">Refresh Daily Ops</button>
+              <button id="run-daily-ops" class="primary-button command-action" type="button">刷新日常运营</button>
             </div>
           </section>
 
@@ -652,159 +652,159 @@
             <section class="panel status-panel daily-ops-board">
               <div class="panel-head">
                 <div>
-                  <p class="section-kicker">Operator decision</p>
+                  <p class="section-kicker">操作决策</p>
                   <h3>运营闸门</h3>
                 </div>
-                <span class="tag tag-warn" id="daily-ops-tag">loading</span>
+                <span class="tag tag-warn" id="daily-ops-tag">加载中</span>
               </div>
               <div id="daily-ops-status" class="status-list"></div>
             </section>
             <section class="panel table-panel">
-              <div class="panel-head"><h3>Blockers</h3><span class="tag tag-warn">must clear</span></div>
+              <div class="panel-head"><h3>阻断项</h3><span class="tag tag-warn">必须清理</span></div>
               <div class="table-wrap scroll-table"><table><tbody id="daily-ops-blocker-table"></tbody></table></div>
             </section>
           </div>
           <div class="metric-grid compact metric-card-grid" id="observation-sufficiency-metrics"></div>
           <div class="page-grid two-grid">
             <section class="panel status-panel observation-sufficiency-board">
-              <div class="panel-head"><h3>Observation Sufficiency</h3><span class="tag tag-warn" id="observation-sufficiency-tag">loading</span></div>
+              <div class="panel-head"><h3>观察样本充足性</h3><span class="tag tag-warn" id="observation-sufficiency-tag">加载中</span></div>
               <div id="observation-sufficiency-status" class="status-list"></div>
             </section>
             <section class="panel table-panel">
-              <div class="panel-head"><h3>Sufficiency Actions</h3><span class="tag">sample gate</span></div>
+              <div class="panel-head"><h3>样本补足动作</h3><span class="tag">样本闸门</span></div>
               <div class="table-wrap scroll-table"><table><tbody id="observation-sufficiency-action-table"></tbody></table></div>
             </section>
           </div>
           <div class="metric-grid compact metric-card-grid" id="expanded-observation-replay-metrics"></div>
           <div class="page-grid two-grid">
             <section class="panel status-panel expanded-observation-replay-board">
-              <div class="panel-head"><h3>Expanded Observation Replay</h3><span class="tag tag-warn" id="expanded-observation-replay-tag">loading</span></div>
+              <div class="panel-head"><h3>扩展观察回放</h3><span class="tag tag-warn" id="expanded-observation-replay-tag">加载中</span></div>
               <div id="expanded-observation-replay-status" class="status-list"></div>
             </section>
             <section class="panel table-panel">
-              <div class="panel-head"><h3>Expanded Replay Actions</h3><span class="tag">extended sample</span></div>
+              <div class="panel-head"><h3>扩展回放动作</h3><span class="tag">扩展样本</span></div>
               <div class="table-wrap scroll-table"><table><tbody id="expanded-observation-replay-action-table"></tbody></table></div>
             </section>
           </div>
           <div class="metric-grid compact metric-card-grid" id="iterative-observation-expansion-metrics"></div>
           <div class="page-grid two-grid">
             <section class="panel status-panel iterative-observation-expansion-board">
-              <div class="panel-head"><h3>Iterative Observation Expansion</h3><span class="tag tag-warn" id="iterative-observation-expansion-tag">loading</span></div>
+              <div class="panel-head"><h3>迭代观察扩展</h3><span class="tag tag-warn" id="iterative-observation-expansion-tag">加载中</span></div>
               <div id="iterative-observation-expansion-status" class="status-list"></div>
             </section>
             <section class="panel table-panel">
-              <div class="panel-head"><h3>Expansion Actions</h3><span class="tag">multi-round</span></div>
+              <div class="panel-head"><h3>扩展动作</h3><span class="tag">多轮</span></div>
               <div class="table-wrap scroll-table"><table><tbody id="iterative-observation-expansion-action-table"></tbody></table></div>
             </section>
           </div>
           <section class="panel table-panel">
-            <div class="panel-head"><h3>Expansion Rounds</h3><span class="tag">sample path</span></div>
+            <div class="panel-head"><h3>扩展轮次</h3><span class="tag">样本路径</span></div>
             <div class="table-wrap scroll-table"><table><tbody id="iterative-observation-expansion-round-table"></tbody></table></div>
           </section>
           <div class="metric-grid compact metric-card-grid" id="tushare-activation-gate-metrics"></div>
           <div class="page-grid two-grid">
             <section class="panel status-panel tushare-activation-gate-board">
-              <div class="panel-head"><h3>Tushare Activation Gate</h3><span class="tag tag-warn" id="tushare-activation-gate-tag">loading</span></div>
+              <div class="panel-head"><h3>Tushare 启用闸门</h3><span class="tag tag-warn" id="tushare-activation-gate-tag">加载中</span></div>
               <div id="tushare-activation-gate-status" class="status-list"></div>
             </section>
             <section class="panel table-panel">
-              <div class="panel-head"><h3>Activation Actions</h3><span class="tag">paper-only</span></div>
+              <div class="panel-head"><h3>启用动作</h3><span class="tag">仅纸面</span></div>
               <div class="table-wrap scroll-table"><table><tbody id="tushare-activation-gate-action-table"></tbody></table></div>
             </section>
           </div>
           <section class="panel table-panel">
-            <div class="panel-head"><h3>Activation Stage Ledger</h3><span class="tag">5.7 to 5.11</span></div>
+            <div class="panel-head"><h3>启用阶段台账</h3><span class="tag">5.7 到 5.11</span></div>
             <div class="table-wrap scroll-table"><table><tbody id="tushare-activation-gate-ledger-table"></tbody></table></div>
           </section>
           <div class="page-grid two-grid">
             <section class="panel table-panel">
-              <div class="panel-head"><h3>Advisory Tickets</h3><span class="tag tag-warn">live_order_allowed=false</span></div>
+              <div class="panel-head"><h3>建议工单</h3><span class="tag tag-warn">实盘下单=false</span></div>
               <div class="table-wrap scroll-table"><table><tbody id="daily-ops-ticket-table"></tbody></table></div>
             </section>
             <section class="panel status-panel">
-              <div class="panel-head"><h3>Risk Policy</h3><span class="tag">hard gate</span></div>
+              <div class="panel-head"><h3>风险规则</h3><span class="tag">硬闸门</span></div>
               <div id="daily-ops-risk-policy" class="status-list"></div>
             </section>
           </div>
           <div class="page-grid two-grid">
             <section class="panel status-panel risk-candidate-board">
-              <div class="panel-head"><h3>Risk Candidate Selector</h3><span class="tag tag-warn" id="risk-candidate-tag">loading</span></div>
+              <div class="panel-head"><h3>风险候选筛选器</h3><span class="tag tag-warn" id="risk-candidate-tag">加载中</span></div>
               <div id="risk-candidate-status" class="status-list"></div>
             </section>
             <section class="panel table-panel">
-              <div class="panel-head"><h3>Risk Candidate Actions</h3><span class="tag">next search</span></div>
+              <div class="panel-head"><h3>风险候选动作</h3><span class="tag">下一轮搜索</span></div>
               <div class="table-wrap scroll-table"><table><tbody id="risk-candidate-action-table"></tbody></table></div>
             </section>
           </div>
           <div class="page-grid two-grid">
             <section class="panel status-panel constrained-search-board">
-              <div class="panel-head"><h3>Constrained Search</h3><span class="tag tag-warn" id="constrained-search-tag">loading</span></div>
+              <div class="panel-head"><h3>约束搜索</h3><span class="tag tag-warn" id="constrained-search-tag">加载中</span></div>
               <div id="constrained-search-status" class="status-list"></div>
             </section>
             <section class="panel table-panel">
-              <div class="panel-head"><h3>Frontier Candidates</h3><span class="tag">near miss</span></div>
+              <div class="panel-head"><h3>前沿候选</h3><span class="tag">接近达标</span></div>
               <div class="table-wrap scroll-table"><table><tbody id="constrained-frontier-table"></tbody></table></div>
             </section>
           </div>
           <div class="page-grid two-grid">
             <section class="panel status-panel paper-profile-board">
-              <div class="panel-head"><h3>Paper Profile Optimizer</h3><span class="tag tag-warn" id="paper-profile-tag">loading</span></div>
+              <div class="panel-head"><h3>模拟盘参数优化器</h3><span class="tag tag-warn" id="paper-profile-tag">加载中</span></div>
               <div id="paper-profile-status" class="status-list"></div>
             </section>
             <section class="panel table-panel">
-              <div class="panel-head"><h3>Profile Attempts</h3><span class="tag">risk sweep</span></div>
+              <div class="panel-head"><h3>参数尝试</h3><span class="tag">风险扫描</span></div>
               <div class="table-wrap scroll-table"><table><tbody id="paper-profile-attempt-table"></tbody></table></div>
             </section>
           </div>
           <div class="metric-grid compact metric-card-grid" id="profile-observation-metrics"></div>
           <div class="page-grid two-grid">
             <section class="panel status-panel profile-observation-board">
-              <div class="panel-head"><h3>Profile Observation</h3><span class="tag tag-warn" id="profile-observation-tag">loading</span></div>
+              <div class="panel-head"><h3>参数观察</h3><span class="tag tag-warn" id="profile-observation-tag">加载中</span></div>
               <div id="profile-observation-status" class="status-list"></div>
             </section>
             <section class="panel table-panel">
-              <div class="panel-head"><h3>Observation Actions</h3><span class="tag">next local step</span></div>
+              <div class="panel-head"><h3>观察动作</h3><span class="tag">下一步本地动作</span></div>
               <div class="table-wrap scroll-table"><table><tbody id="profile-observation-action-table"></tbody></table></div>
             </section>
           </div>
           <div class="metric-grid compact metric-card-grid" id="recent-data-refresh-metrics"></div>
           <div class="page-grid two-grid">
             <section class="panel status-panel recent-data-refresh-board">
-              <div class="panel-head"><h3>Recent Data Refresh</h3><span class="tag tag-warn" id="recent-data-refresh-tag">loading</span></div>
+              <div class="panel-head"><h3>近期数据刷新</h3><span class="tag tag-warn" id="recent-data-refresh-tag">加载中</span></div>
               <div id="recent-data-refresh-status" class="status-list"></div>
             </section>
             <section class="panel status-panel">
-              <div class="panel-head"><h3>Refresh Coverage</h3><span class="tag">data gate</span></div>
+              <div class="panel-head"><h3>刷新覆盖度</h3><span class="tag">数据闸门</span></div>
               <div id="recent-data-refresh-coverage" class="status-list"></div>
             </section>
           </div>
           <section class="panel table-panel">
-            <div class="panel-head"><h3>Recent Refresh Actions</h3><span class="tag">token gate</span></div>
+            <div class="panel-head"><h3>近期刷新动作</h3><span class="tag">Token 闸门</span></div>
             <div class="table-wrap scroll-table"><table><tbody id="recent-data-refresh-action-table"></tbody></table></div>
           </section>
           <div class="metric-grid compact metric-card-grid" id="post-refresh-replay-metrics"></div>
           <div class="page-grid two-grid">
             <section class="panel status-panel post-refresh-replay-board">
-              <div class="panel-head"><h3>Post Refresh Replay</h3><span class="tag tag-warn" id="post-refresh-replay-tag">loading</span></div>
+              <div class="panel-head"><h3>刷新后回放</h3><span class="tag tag-warn" id="post-refresh-replay-tag">加载中</span></div>
               <div id="post-refresh-replay-status" class="status-list"></div>
             </section>
             <section class="panel table-panel">
-              <div class="panel-head"><h3>Post Replay Actions</h3><span class="tag">paper gate</span></div>
+              <div class="panel-head"><h3>回放后动作</h3><span class="tag">纸面闸门</span></div>
               <div class="table-wrap scroll-table"><table><tbody id="post-refresh-replay-action-table"></tbody></table></div>
             </section>
           </div>
           <div class="page-grid two-grid">
             <section class="panel table-panel">
-              <div class="panel-head"><h3>Stop Rules</h3><span class="tag tag-warn">hard gate</span></div>
+              <div class="panel-head"><h3>停止规则</h3><span class="tag tag-warn">硬闸门</span></div>
               <div class="table-wrap scroll-table"><table><tbody id="profile-observation-rule-table"></tbody></table></div>
             </section>
             <section class="panel table-panel">
-              <div class="panel-head"><h3>Observation Ledger</h3><span class="tag">paper only</span></div>
+              <div class="panel-head"><h3>观察台账</h3><span class="tag">仅纸面</span></div>
               <div class="table-wrap scroll-table"><table><tbody id="profile-observation-ledger-table"></tbody></table></div>
             </section>
           </div>
           <section class="panel table-panel">
-            <div class="panel-head"><h3>Risk Screened Candidates</h3><span class="tag">top 30</span></div>
+            <div class="panel-head"><h3>风险筛选候选</h3><span class="tag">前 30</span></div>
             <div class="table-wrap scroll-table"><table><tbody id="risk-candidate-table"></tbody></table></div>
           </section>
         </section>
@@ -812,7 +812,7 @@
         <section id="page-promotion" class="page">
           <section class="command-card promotion-controls" aria-label="promotion operations">
             <div class="command-head">
-              <h3>Promotion Operations</h3>
+              <h3>候选推广运营</h3>
               <span class="tag tag-warn">Phase 2.8</span>
             </div>
             <div class="form-grid compact-form">
@@ -825,52 +825,52 @@
               <label>Quality report
                 <input id="promotion-quality-path" value="data/processed/etf_csv/quality_report_cn_etf.json">
               </label>
-              <button id="run-promotion" class="primary-button command-action" type="button">Refresh Ops</button>
+              <button id="run-promotion" class="primary-button command-action" type="button">刷新运营</button>
             </div>
           </section>
 
           <div class="metric-grid compact metric-card-grid" id="promotion-metrics"></div>
           <div class="page-grid two-grid">
             <section class="panel status-panel">
-              <div class="panel-head"><h3>Review Packet</h3><span class="tag">Phase 2.9</span></div>
+              <div class="panel-head"><h3>复核包</h3><span class="tag">阶段 2.9</span></div>
               <div id="promotion-review-status" class="status-list"></div>
             </section>
             <section class="panel table-panel">
-              <div class="panel-head"><h3>Review Checklist</h3><span class="tag tag-warn">pre-API</span></div>
+              <div class="panel-head"><h3>复核清单</h3><span class="tag tag-warn">API 前置</span></div>
               <div class="table-wrap scroll-table"><table><tbody id="promotion-review-checklist"></tbody></table></div>
             </section>
           </div>
           <section class="panel review-panel">
-            <div class="panel-head"><h3>Review Markdown</h3><span class="tag">artifact</span></div>
+            <div class="panel-head"><h3>复核 Markdown</h3><span class="tag">产物</span></div>
             <pre id="promotion-review-markdown" class="review-markdown"></pre>
           </section>
           <div class="page-grid two-grid">
             <section class="panel status-panel">
-              <div class="panel-head"><h3>Evidence Refresh</h3><span class="tag">Phase 3.0</span></div>
+              <div class="panel-head"><h3>证据刷新</h3><span class="tag">阶段 3.0</span></div>
               <div id="evidence-refresh-status" class="status-list"></div>
             </section>
             <section class="panel table-panel">
-              <div class="panel-head"><h3>Refresh Actions</h3><span class="tag tag-warn">ordered</span></div>
+              <div class="panel-head"><h3>刷新动作</h3><span class="tag tag-warn">已排序</span></div>
               <div class="table-wrap scroll-table"><table><tbody id="evidence-refresh-action-table"></tbody></table></div>
             </section>
           </div>
           <div class="page-grid two-grid">
             <section class="panel status-panel">
-              <div class="panel-head"><h3>Live Review Blockers</h3><span class="tag tag-warn">local gate</span></div>
+              <div class="panel-head"><h3>实盘复核阻断项</h3><span class="tag tag-warn">本地闸门</span></div>
               <div id="promotion-blockers" class="status-list"></div>
             </section>
             <section class="panel status-panel">
-              <div class="panel-head"><h3>Next Actions</h3><span class="tag">operator</span></div>
+              <div class="panel-head"><h3>下一步动作</h3><span class="tag">操作员</span></div>
               <div id="promotion-action-list" class="status-list"></div>
             </section>
           </div>
           <div class="page-grid two-grid">
             <section class="panel table-panel">
-              <div class="panel-head"><h3>Candidate Evidence</h3><span class="tag">promotion_ops</span></div>
+              <div class="panel-head"><h3>候选证据</h3><span class="tag">推广运营</span></div>
               <div class="table-wrap scroll-table"><table><tbody id="promotion-candidate-table"></tbody></table></div>
             </section>
             <section class="panel table-panel">
-              <div class="panel-head"><h3>Duplicate Clusters</h3><span class="tag tag-warn">dedupe</span></div>
+              <div class="panel-head"><h3>重复聚类</h3><span class="tag tag-warn">去重</span></div>
               <div class="table-wrap scroll-table"><table><tbody id="promotion-duplicate-table"></tbody></table></div>
             </section>
           </div>

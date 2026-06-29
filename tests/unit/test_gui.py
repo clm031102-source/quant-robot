@@ -100,6 +100,9 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertEqual(result["form_defaults"]["stage"], "gui_form_defaults")
         self.assertEqual(result["form_defaults"]["research"]["factor"], result["backtest"]["factor"])
         self.assertEqual(result["form_defaults"]["research"]["factor_windows"], result["backtest"]["factor_windows"])
+        selected_window = result["backtest"]["factor"].rsplit("_", 1)[-1]
+        self.assertIn(selected_window, result["backtest"]["factor_windows"].split(","))
+        self.assertLessEqual(result["backtest"]["start_date"], "2016-01-01")
         self.assertEqual(result["form_defaults"]["research"]["start_date"], result["backtest"]["start_date"])
         self.assertEqual(result["form_defaults"]["research"]["end_date"], result["backtest"]["end_date"])
         self.assertEqual(result["form_defaults"]["research"]["top_n"], result["backtest"]["top_n"])
@@ -1604,7 +1607,7 @@ class GuiHttpTests(unittest.TestCase):
         base_url = f"http://127.0.0.1:{server.server_port}"
         try:
             html = _read_text(f"{base_url}/")
-            self.assertIn("Quant Robot Local Console", html)
+            self.assertIn("量化机器人本地中控台", html)
             self.assertIn('rel="icon"', html)
             self.assertIn('href="data:,"', html)
             self.assertIn("信号快照", html)
@@ -1799,12 +1802,15 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("renderParameterConsistency", app_js)
             self.assertIn("parameterMismatchKeys", app_js)
             self.assertIn("buildResearchParams", app_js)
+            self.assertIn("function factorWindowCsvForFactor", app_js)
             build_research_block = app_js.split("function buildResearchParams()", 1)[1].split("function buildSignalParams", 1)[0]
+            self.assertIn("factorWindowCsvForFactor(factor", build_research_block)
             self.assertIn('valueOf("execution-lag")', build_research_block)
             self.assertIn('valueOf("forward-horizon")', build_research_block)
             self.assertIn("buildSignalParams", app_js)
             self.assertIn("buildPaperParams", app_js)
             build_paper_block = app_js.split("function buildPaperParams()", 1)[1].split("function renderRequestPreview", 1)[0]
+            self.assertIn("factorWindowCsvForFactor(factor", build_paper_block)
             self.assertIn('valueOf("paper-max-market-weight")', build_paper_block)
             self.assertIn('valueOf("paper-max-gross-exposure")', build_paper_block)
             self.assertIn("REQUEST_PREVIEW_INPUT_IDS", app_js)
@@ -1864,6 +1870,8 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("/api/control/verification?gate_id=", app_js)
             self.assertIn("runVerificationGate", app_js)
             self.assertIn("renderVerificationRunner", app_js)
+            self.assertIn("const phraseReplacements", app_js)
+            self.assertIn("return String(zhConsoleText(value))", app_js)
             startup_block = app_js.split('document.addEventListener("DOMContentLoaded", async () => {', 1)[1].split("});", 1)[0]
             self.assertIn("await loadControlCenter();", startup_block)
             load_control_block = app_js.split("async function loadControlCenter()", 1)[1].split("async function loadProjectStatus", 1)[0]

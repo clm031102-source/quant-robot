@@ -54,11 +54,11 @@ const sourcePresets = {
     dataRoot: "data/processed/etf_csv",
     market: "CN_ETF",
     factor: "momentum_2",
-    factorWindows: "5,10,20,60,120",
-    startDate: "2026-01-01",
+    factorWindows: "2,5,10,20,60,120",
+    startDate: "2016-01-01",
     endDate: "2026-05-21",
     signalDate: "2026-05-21",
-    paperStartDate: "2026-01-01",
+    paperStartDate: "2016-01-01",
     paperEndDate: "2026-05-21",
     executionLag: "1",
     forwardHorizon: "1",
@@ -192,10 +192,10 @@ function bindRequestPreviewInputs() {
 
 async function loadSnapshot() {
   state.snapshot = await fetchJson("/api/snapshot");
-  byId("mode-pill").textContent = `${state.snapshot.data_mode} / local`;
-  byId("data-mode-label").textContent = state.snapshot.data_mode || "local";
-  byId("broker-status-label").textContent = state.snapshot.risk?.account_connected ? "connected" : "No broker";
-  byId("run-state-label").textContent = "ready";
+  byId("mode-pill").textContent = `${zhConsoleText(state.snapshot.data_mode)} / 本地`;
+  byId("data-mode-label").textContent = zhConsoleText(state.snapshot.data_mode || "local");
+  byId("broker-status-label").textContent = state.snapshot.risk?.account_connected ? "已连接" : "无券商连接";
+  byId("run-state-label").textContent = "就绪";
   fillFactorSelect(state.snapshot.available_factors || []);
   applySourcePreset(false);
   renderDashboard();
@@ -288,11 +288,24 @@ function addSourceParams(params) {
   if (dataRoot) params.set("data_root", dataRoot);
 }
 
+function factorWindowCsvForFactor(factor, rawWindows) {
+  const windows = new Set();
+  String(rawWindows || "")
+    .split(",")
+    .map((item) => Number(item.trim()))
+    .filter((value) => Number.isInteger(value) && value > 0)
+    .forEach((value) => windows.add(value));
+  const suffix = String(factor || "").match(/_(\d+)$/);
+  if (suffix) windows.add(Number(suffix[1]));
+  return Array.from(windows).sort((left, right) => left - right).join(",");
+}
+
 function buildResearchParams() {
+  const factor = valueOf("factor-select") || "momentum_2";
   const params = new URLSearchParams({
     market: valueOf("market-select"),
-    factor: valueOf("factor-select") || "momentum_2",
-    factor_windows: valueOf("factor-windows"),
+    factor,
+    factor_windows: factorWindowCsvForFactor(factor, valueOf("factor-windows")),
     top_n: valueOf("research-top-n") || "2",
     cost_bps: valueOf("research-cost-bps") || "5",
     start_date: valueOf("start-date"),
@@ -312,10 +325,11 @@ function buildResearchParams() {
 }
 
 function buildSignalParams() {
+  const factor = valueOf("factor-select") || "momentum_2";
   const params = new URLSearchParams({
     market: valueOf("market-select"),
-    factor: valueOf("factor-select") || "momentum_2",
-    factor_windows: valueOf("factor-windows"),
+    factor,
+    factor_windows: factorWindowCsvForFactor(factor, valueOf("factor-windows")),
     top_n: valueOf("signal-top-n") || "2",
     as_of_date: valueOf("signal-as-of"),
     max_asset_weight: valueOf("max-asset-weight") || "1",
@@ -328,10 +342,11 @@ function buildSignalParams() {
 }
 
 function buildPaperParams() {
+  const factor = valueOf("paper-factor-select") || "momentum_2";
   const params = new URLSearchParams({
     market: valueOf("paper-market-select"),
-    factor: valueOf("paper-factor-select") || "momentum_2",
-    factor_windows: valueOf("factor-windows"),
+    factor,
+    factor_windows: factorWindowCsvForFactor(factor, valueOf("factor-windows")),
     top_n: valueOf("paper-top-n") || "2",
     rebalance_interval: valueOf("rebalance-interval") || "1",
     start_date: valueOf("paper-start-date"),
@@ -652,7 +667,7 @@ function applySourcePreset(force) {
   setFactorValue("factor-select", preset.factor);
   setFactorValue("paper-factor-select", preset.factor);
   byId("data-mode-label").textContent = source;
-  byId("mode-pill").textContent = `${source} / local`;
+  byId("mode-pill").textContent = `${zhConsoleText(source)} / 本地`;
   renderRequestPreview();
 }
 
@@ -914,7 +929,7 @@ function renderControlCenter() {
   const executionReceipts = loadExecutionReceipts(executionReceiptSpec);
   const statusTag = byId("control-center-status");
   if (statusTag) {
-    statusTag.textContent = control.status || "loading";
+    statusTag.textContent = zhConsoleText(control.status || "loading");
     statusTag.classList.toggle("tag-warn", control.status !== "ready");
   }
   byId("control-work-status").innerHTML = statusRows([
@@ -1189,7 +1204,7 @@ function renderProjectStatus() {
   const status = project.overall_status || "loading";
   const tag = byId("project-status-tag");
   if (tag) {
-    tag.textContent = status;
+    tag.textContent = zhConsoleText(status);
     tag.classList.toggle("tag-warn", status !== "clear" && status !== "pass");
   }
   byId("project-status-list").innerHTML = statusRows([
@@ -1314,7 +1329,7 @@ function renderDailyOps() {
   const status = decision.status || (daily.artifact_present ? "unknown" : "missing");
   const tag = byId("daily-ops-tag");
   if (tag) {
-    tag.textContent = status;
+    tag.textContent = zhConsoleText(status);
     tag.classList.toggle("tag-warn", status !== "paper_ready");
   }
   byId("daily-ops-metrics").innerHTML = [
@@ -1367,7 +1382,7 @@ function renderRiskCandidates() {
   const status = pack.selection_status || (pack.artifact_present ? "unknown" : "missing");
   const tag = byId("risk-candidate-tag");
   if (tag) {
-    tag.textContent = status;
+    tag.textContent = zhConsoleText(status);
     tag.classList.toggle("tag-warn", !["risk_candidate_selected", "risk_tier_candidate_selected"].includes(status));
   }
   byId("risk-candidate-status").innerHTML = statusRows([
@@ -1404,7 +1419,7 @@ function renderConstrainedSearch() {
   const status = pack.selection_status || (pack.artifact_present ? "unknown" : "missing");
   const tag = byId("constrained-search-tag");
   if (tag) {
-    tag.textContent = status;
+    tag.textContent = zhConsoleText(status);
     tag.classList.toggle("tag-warn", !["risk_candidate_selected", "risk_tier_candidate_selected"].includes(status));
   }
   byId("constrained-search-status").innerHTML = statusRows([
@@ -1438,7 +1453,7 @@ function renderPaperProfiles() {
   const status = pack.selection_status || (pack.artifact_present ? "unknown" : "missing");
   const tag = byId("paper-profile-tag");
   if (tag) {
-    tag.textContent = status;
+    tag.textContent = zhConsoleText(status);
     tag.classList.toggle("tag-warn", !["paper_profile_selected", "risk_tier_profile_selected"].includes(status));
   }
   byId("paper-profile-status").innerHTML = statusRows([
@@ -1474,7 +1489,7 @@ function renderProfileObservation() {
   const status = decision.observation_status || (pack.artifact_present ? "unknown" : "missing");
   const tag = byId("profile-observation-tag");
   if (tag) {
-    tag.textContent = status;
+    tag.textContent = zhConsoleText(status);
     tag.classList.toggle("tag-warn", !decision.paper_observation_allowed);
   }
   byId("profile-observation-metrics").innerHTML = [
@@ -1529,7 +1544,7 @@ function renderRecentDataRefresh() {
   const status = pack.status || (pack.artifact_present ? "unknown" : "missing");
   const tag = byId("recent-data-refresh-tag");
   if (tag) {
-    tag.textContent = status;
+    tag.textContent = zhConsoleText(status);
     tag.classList.toggle("tag-warn", !decision.signal_data_stale_cleared);
   }
   byId("recent-data-refresh-metrics").innerHTML = [
@@ -1574,7 +1589,7 @@ function renderPostRefreshReplay() {
   const status = pack.status || (pack.artifact_present ? "unknown" : "missing");
   const tag = byId("post-refresh-replay-tag");
   if (tag) {
-    tag.textContent = status;
+    tag.textContent = zhConsoleText(status);
     tag.classList.toggle("tag-warn", !decision.post_refresh_replay_allowed);
   }
   byId("post-refresh-replay-metrics").innerHTML = [
@@ -1611,7 +1626,7 @@ function renderObservationSufficiency() {
   const status = pack.status || (pack.artifact_present ? "unknown" : "missing");
   const tag = byId("observation-sufficiency-tag");
   if (tag) {
-    tag.textContent = status;
+    tag.textContent = zhConsoleText(status);
     tag.classList.toggle("tag-warn", !decision.observation_sufficiency_cleared);
   }
   byId("observation-sufficiency-metrics").innerHTML = [
@@ -1651,7 +1666,7 @@ function renderExpandedObservationReplay() {
   const status = pack.status || (pack.artifact_present ? "unknown" : "missing");
   const tag = byId("expanded-observation-replay-tag");
   if (tag) {
-    tag.textContent = status;
+    tag.textContent = zhConsoleText(status);
     tag.classList.toggle("tag-warn", !decision.expanded_observation_cleared);
   }
   byId("expanded-observation-replay-metrics").innerHTML = [
@@ -1688,7 +1703,7 @@ function renderIterativeObservationExpansion() {
   const status = pack.status || (pack.artifact_present ? "unknown" : "missing");
   const tag = byId("iterative-observation-expansion-tag");
   if (tag) {
-    tag.textContent = status;
+    tag.textContent = zhConsoleText(status);
     tag.classList.toggle("tag-warn", !decision.iterative_observation_cleared);
   }
   byId("iterative-observation-expansion-metrics").innerHTML = [
@@ -1743,7 +1758,7 @@ function renderTushareActivationGate() {
   const status = pack.status || (pack.artifact_present ? "unknown" : "missing");
   const tag = byId("tushare-activation-gate-tag");
   if (tag) {
-    tag.textContent = status;
+    tag.textContent = zhConsoleText(status);
     tag.classList.toggle("tag-warn", !decision.paper_continuation_allowed);
   }
   byId("tushare-activation-gate-metrics").innerHTML = [
@@ -1855,10 +1870,124 @@ function statusRows(rows) {
 
 const GUI_ZH_REPLACEMENTS = [
   ["Next actions", "下一步动作"],
+  ["Control API", "中控 API"],
+  ["Browser smoke", "浏览器冒烟"],
+  ["Project audit", "项目审计"],
+  ["GUI unit tests", "GUI 单元测试"],
+  ["GUI compile check", "GUI 编译检查"],
+  ["Safe sync audit", "安全同步审计"],
+  ["Current API process", "当前 API 进程"],
+  ["Processes", "进程"],
+  ["detected", "已检测到"],
+  ["not detected", "未检测到"],
+  ["Current browser operation", "当前浏览器操作"],
+  ["Tracked workflows", "已跟踪工作流"],
+  ["browser receipts", "浏览器回执"],
+  ["The browser marks an operation running before calling a workflow API and keeps the latest receipt visible after completion.", "调用工作流 API 前会标记为运行中，并在完成后保留最新回执。"],
+  ["browser localStorage + API receipts", "浏览器本地存储 + API 回执"],
+  ["Updated immediately when the operator starts research, signal, paper, or verification work from the GUI.", "操作员从 GUI 启动研究、信号、模拟盘或验证任务时会立即更新。"],
+  ["Last browser receipt", "最近浏览器回执"],
+  ["Completed operations stay visible with status, timing, request parameters, metrics, or verification return code.", "已完成操作会保留状态、耗时、请求参数、指标或验证返回码。"],
+  ["Recent server operation", "最近服务端操作"],
+  ["No active operation", "没有正在执行的操作"],
+  ["No process monitor data", "暂无进程监控数据"],
+  ["The control API should expose current GUI, audit, smoke, and research processes.", "中控 API 应展示当前 GUI、审计、烟测和研究进程。"],
+  ["No workflow preflight rows", "暂无工作流预检行"],
+  ["Control status should expose run readiness before workflow buttons are used.", "使用工作流按钮前，中控状态应展示运行就绪情况。"],
+  ["No local run history", "暂无本机运行历史"],
+  ["No execution receipts", "暂无执行回执"],
+  ["No backtest provenance", "暂无回测溯源"],
+  ["No backtest gate", "暂无回测闸门"],
+  ["No release readiness rows", "暂无发布就绪检查行"],
+  ["Manual verification required", "需要人工验证"],
+  ["Push ready", "可以推送"],
+  ["Run a local workflow to record it in this browser.", "运行一次本地工作流后会在本浏览器记录历史。"],
+  ["Run research, signals, or paper simulation to record a structured receipt.", "运行研究回测、信号快照或纸面模拟后会记录结构化回执。"],
+  ["Run the control-center snapshot to populate local release gates.", "刷新中控台快照后会填充本地发布闸门。"],
+  ["The control API must expose source, parameter, endpoint, output, and safety provenance for each backtest.", "中控 API 必须展示每次回测的数据源、参数、端点、输出和安全溯源。"],
+  ["Work visibility", "工作可视性"],
+  ["Backtest transparency", "回测透明度"],
+  ["Paper handoff", "模拟盘交接"],
+  ["Audit cadence", "审计节奏"],
+  ["Keep live trading boundary blocked", "保持实盘边界阻断"],
+  ["No broker connection, account reads, order placement, or live trading.", "无券商连接、账户读取、下单或实盘交易。"],
+  ["5-round audit", "五轮审计"],
+  ["Write the five-round audit report and next flow plan before continuing GUI implementation.", "继续 GUI 实现前先写五轮审计报告和下一步流程计划。"],
+  ["Write the five-round audit report and next flow plan before continuing GUI optimization.", "继续 GUI 优化前先写五轮审计报告和下一步流程计划。"],
+  ["GUI audit heartbeat", "GUI 审计心跳"],
+  ["Round audit cadence", "轮次审计节奏"],
+  ["Result evidence", "结果证据"],
+  ["Release readiness", "发布就绪"],
+  ["Operator timeline", "操作时间线"],
+  ["Audit repair queue", "审计修复队列"],
+  ["Round checkpoint", "轮次复盘"],
+  ["Audit iteration", "审计迭代"],
+  ["Verification runner", "验证执行器"],
+  ["Workflow commands", "工作流命令"],
+  ["Report links", "报告链接"],
+  ["Safety boundary", "安全边界"],
+  ["Data source", "数据源"],
+  ["Data root", "数据目录"],
+  ["Factor windows", "因子窗口"],
+  ["Execution lag", "执行滞后"],
+  ["Forward horizon", "预测周期"],
+  ["Initial cash", "初始资金"],
+  ["Commission", "佣金"],
+  ["Slippage", "滑点"],
+  ["Max drawdown", "最大回撤"],
+  ["Win rate", "胜率"],
+  ["Total return", "总收益"],
+  ["Annualized return", "年化收益"],
+  ["Sharpe", "夏普"],
+  ["Trade count", "交易次数"],
+  ["Benchmark relative return", "相对基准收益"],
+  ["Paper ending equity", "模拟盘期末权益"],
   ["Run research backtest", "运行研究回测"],
+  ["Refresh Daily Ops", "刷新日常运营"],
+  ["Refresh Promotion Ops", "刷新候选推广"],
+  ["Daily Ops", "日常运营"],
+  ["Promotion Ops", "候选推广"],
+  ["Activation Gate", "启用闸门"],
+  ["Recent Ready", "近期数据就绪"],
+  ["Recent Data", "近期数据"],
+  ["Post Replay", "刷新后回放"],
+  ["Tushare activation", "Tushare 启用"],
+  ["Promotion blockers", "推广阻断项"],
+  ["Sample Gate", "样本闸门"],
+  ["Expanded Replay", "扩展回放"],
+  ["Iterative Gate", "迭代闸门"],
+  ["Observation", "观察"],
+  ["Blockers", "阻断项"],
+  ["Artifact", "产物"],
+  ["Decision", "决策"],
+  ["Paper profile", "模拟盘参数"],
+  ["Paper trading", "纸面交易"],
+  ["Live boundary", "实盘边界"],
+  ["Safety", "安全边界"],
+  ["Selection", "筛选"],
+  ["Eligible candidates", "合格候选"],
+  ["Paper matched", "纸面匹配"],
+  ["Selected", "已选择"],
+  ["Risk tier", "风险层级"],
+  ["Attempts", "尝试次数"],
+  ["Eligible profiles", "合格参数"],
+  ["Stop reasons", "停止原因"],
+  ["Warning reasons", "预警原因"],
+  ["Observed fills", "观察成交"],
+  ["Estimated days", "预计天数"],
+  ["Suggested window", "建议窗口"],
+  ["Threshold relaxation", "阈值放宽"],
+  ["Recent refresh", "近期刷新"],
+  ["Post replay", "刷新后回放"],
   ["Generate advisory signal snapshot", "生成信号快照"],
   ["Run local paper simulation", "运行本地模拟盘"],
   ["Research backtest", "研究回测"],
+  ["Research backtest receipt", "研究回测回执"],
+  ["Advisory signal receipt", "建议信号回执"],
+  ["Paper simulation receipt", "模拟盘回执"],
+  ["full parameter backtest request", "完整参数回测请求"],
+  ["advisory target-weight request", "建议目标仓位请求"],
+  ["local paper-only simulation request", "本地纸面模拟请求"],
   ["Signal snapshot", "信号快照"],
   ["Paper simulation", "模拟盘"],
   ["Live trading boundary", "实盘交易边界"],
@@ -1895,6 +2024,7 @@ const GUI_ZH_REPLACEMENTS = [
   ["awaiting_browser_receipts", "等待浏览器回执"],
   ["awaiting_server_receipts", "等待服务端回执"],
   ["blocked_expected", "预期阻断"],
+  ["expected_block", "预期阻断"],
   ["blocked_live", "实盘已阻断"],
   ["not_run", "未运行"],
   ["missing", "缺失"],
@@ -1910,9 +2040,53 @@ const GUI_ZH_REPLACEMENTS = [
   ["blocked", "阻断"],
   ["queued", "排队"],
   ["runnable", "可运行"],
+  ["idle", "待命"],
+  ["loading", "加载中"],
+  ["browser_runtime", "浏览器运行态"],
+  ["browser_managed", "浏览器管理"],
+  ["due_now", "现在到期"],
+  ["good", "良好"],
+  ["dirty", "有变更"],
+  ["clean", "干净"],
+  ["clear", "通过"],
+  ["unknown", "未知"],
+  ["present", "存在"],
+  ["available", "可用"],
+  ["required_before_push", "推送前必需"],
+  ["passed_evidence", "证据通过"],
+  ["missing_required", "缺少必需项"],
+  ["yes", "是"],
+  ["no", "否"],
+  ["true", "是"],
+  ["false", "否"],
+  ["enabled", "启用"],
+  ["disabled", "禁用"],
   ["paper_candidate", "模拟盘候选"],
+  ["receipt", "回执"],
+  ["paper_ready", "模拟盘就绪"],
+  ["paper_profile_selected", "已选择模拟盘参数"],
+  ["risk_tier_profile_selected", "已选择风险层级参数"],
+  ["risk_candidate_selected", "已选择风险候选"],
+  ["risk_tier_candidate_selected", "已选择风险层级候选"],
+  ["paper_observation_ready", "纸面观察就绪"],
+  ["completed_with_blockers", "完成但有阻断项"],
+  ["needs_evidence", "需要证据"],
+  ["manual_required", "需要人工验证"],
+  ["allowed", "允许"],
+  ["cleared", "通过"],
+  ["stopped", "停止"],
+  ["breached", "突破"],
+  ["none", "无"],
+  ["local", "本地"],
+  ["latest", "最新"],
+  ["artifact", "产物"],
   ["Research-to-paper only. No broker connection, no account reads, no order placement, no live trading.", "仅研究到模拟盘；不连接券商、不读取账户、不真实下单、不启用实盘。"],
   ["No broker connection, no account reads, no order placement, no live trading.", "不连接券商、不读取账户、不真实下单、不启用实盘。"],
+  ["Research only. No broker, no orders, no live trading.", "仅研究模式。无券商连接、无真实下单、无实盘交易。"],
+  ["Research only. No broker, 否 orders, 否 live trading.", "仅研究模式。无券商连接、无真实下单、无实盘交易。"],
+  ["research calculation only; no broker, account, or order side effects", "仅研究计算；无券商、账户或下单副作用"],
+  ["advisory targets only; executable=false and no order routing", "仅建议信号；不可执行且无订单路由"],
+  ["local simulated fills only; no broker, account, or order side effects", "仅本地模拟成交；无券商、账户或下单副作用"],
   ["Server receipt is stale; refresh the current command before trusting metrics.", "服务端回执已过期；信任指标前需要按当前参数重跑。"],
   ["Server receipt is missing; refresh the current command before trusting metrics.", "缺少服务端回执；信任指标前需要按当前参数重跑。"],
   ["Run", "运行"],
@@ -1920,10 +2094,21 @@ const GUI_ZH_REPLACEMENTS = [
 
 function zhConsoleText(value) {
   let text = String(value ?? "");
-  GUI_ZH_REPLACEMENTS.forEach(([source, target]) => {
+  const phraseReplacements = GUI_ZH_REPLACEMENTS
+    .filter(([source]) => !/^[a-z_]+$/.test(source))
+    .sort(([left], [right]) => String(right).length - String(left).length);
+  const tokenReplacements = GUI_ZH_REPLACEMENTS.filter(([source]) => /^[a-z_]+$/.test(source));
+  phraseReplacements.forEach(([source, target]) => {
     text = text.replaceAll(source, target);
   });
+  tokenReplacements.forEach(([source, target]) => {
+    text = text.replace(new RegExp(`\\b${escapeRegExp(source)}\\b`, "g"), target);
+  });
   return text;
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function tableRows(rows, columns) {
@@ -2523,7 +2708,7 @@ function renderActiveOperation(spec = {}, active = null) {
   const body = [
     `
     <div class="list-row ok">
-      <strong>Tracked workflows</strong>
+      <strong>${escapeHtml("Tracked workflows")}</strong>
       <span>${escapeHtml(supported || "research_backtest / signal_snapshot / paper_simulation / verification_runner")}</span>
       <span>${escapeHtml(summary.receipt_source || "browser receipts")}</span>
     </div>
@@ -3294,7 +3479,7 @@ async function runVerificationGate(gateId, button = null) {
     button.disabled = true;
     button.textContent = "运行中";
   }
-  byId("run-state-label").textContent = "running";
+  byId("run-state-label").textContent = "运行中";
   try {
     const result = await fetchJson(`/api/control/verification?gate_id=${encodeURIComponent(gateId)}`);
     state.verificationResult = result;
@@ -3320,7 +3505,7 @@ async function runVerificationGate(gateId, button = null) {
       button.disabled = false;
       button.textContent = label || "Run";
     }
-    byId("run-state-label").textContent = "ready";
+    byId("run-state-label").textContent = "就绪";
   }
 }
 
@@ -3428,7 +3613,7 @@ async function withBusy(buttonId, action, operation = null) {
   const activeOperation = activeOperationSpec ? beginActiveOperation(activeOperationSpec) : null;
   button.disabled = true;
   button.textContent = "运行中";
-  byId("run-state-label").textContent = "running";
+  byId("run-state-label").textContent = "运行中";
   try {
     await action();
     if (activeOperation) finishActiveOperation(activeOperation, "completed");
@@ -3438,7 +3623,7 @@ async function withBusy(buttonId, action, operation = null) {
   } finally {
     button.disabled = false;
     button.textContent = label;
-    byId("run-state-label").textContent = "ready";
+    byId("run-state-label").textContent = "就绪";
   }
 }
 
@@ -3494,7 +3679,7 @@ function formatPercent(value) {
 }
 
 function escapeHtml(value) {
-  return String(value)
+  return String(zhConsoleText(value))
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
