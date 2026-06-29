@@ -26,6 +26,7 @@ const state = {
   runHistory: [],
   executionReceipts: [],
   safeRunResolver: null,
+  beginnerTaskId: "",
 };
 
 const titles = {
@@ -179,6 +180,53 @@ const BEGINNER_STEPS = [
     action: "paper_simulation",
   },
 ];
+const BEGINNER_TASKS = [
+  {
+    id: "safety",
+    title: "我想先确认安全吗",
+    plain: "适合第一次打开软件，先确认这里只有本地研究和纸面模拟。",
+    result: "不会连接券商、不会读取账户、不会真实下单。",
+    evidence: "看安全边界",
+    target: "control-safety-boundary",
+    primaryLabel: "看安全边界",
+    tone: "ok",
+  },
+  {
+    id: "backtest",
+    title: "我想跑一次回测",
+    plain: "适合已经选好 CN_ETF、因子、日期和成本后，跑当前参数。",
+    result: "会打开安全确认，确认后只调用本地回测接口。",
+    evidence: "跑完看收益、回撤、胜率和 Sharpe。",
+    action: "research_backtest",
+    target: "beginner-result-interpreter",
+    primaryLabel: "本地回测当前参数",
+    tone: "warn",
+  },
+  {
+    id: "trust",
+    title: "我想判断结果能不能信",
+    plain: "适合已经有回测或回执时，核对数据源、样本长度、当前参数和闸门。",
+    result: "会跳到数据可信度、请求预览或回测闸门，不会重新运行。",
+    evidence: "先看是否 CN_ETF、是否长样本、是否只是历史回执。",
+    target: "beginner-data-trust-card",
+    secondaryTarget: "control-backtest-gate",
+    primaryLabel: "看可信度",
+    secondaryLabel: "看回测闸门",
+    tone: "ok",
+  },
+  {
+    id: "paper",
+    title: "我想做模拟盘回放",
+    plain: "适合回测结果已经复核过，再进入本地纸面模拟。",
+    result: "会打开安全确认，确认后只生成本地模拟盘回放。",
+    evidence: "跑完看模拟盘交接、成交、权益和风控事件。",
+    action: "paper_simulation",
+    target: "control-paper-readiness",
+    primaryLabel: "本地模拟盘回放",
+    requiresResearch: true,
+    tone: "warn",
+  },
+];
 
 document.addEventListener("DOMContentLoaded", async () => {
   bindNavigation();
@@ -186,6 +234,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindRequestPreviewInputs();
   renderFactorGlossary();
   renderBeginnerVerdict();
+  renderBeginnerTaskWizard();
   renderBeginnerGuide();
   renderBeginnerProgress();
   await loadSnapshot();
@@ -288,6 +337,25 @@ function bindActions() {
     if (!button) return;
     event.preventDefault();
     jumpToBeginnerTarget(button.dataset.beginnerDataTrustJump || "control-request-preview", state.leaderboardTab);
+  });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-beginner-task-select]");
+    if (!button) return;
+    event.preventDefault();
+    state.beginnerTaskId = button.dataset.beginnerTaskSelect || "";
+    renderBeginnerTaskWizard();
+  });
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-beginner-task-run]");
+    if (!button) return;
+    event.preventDefault();
+    const actionId = button.dataset.beginnerTaskAction || "";
+    const targetId = button.dataset.beginnerTaskTarget || "";
+    if (actionId) {
+      await runBeginnerAction(actionId, button);
+      return;
+    }
+    jumpToBeginnerTarget(targetId, button.dataset.leaderboardTab || state.leaderboardTab);
   });
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-beginner-action]");
@@ -1736,6 +1804,7 @@ function renderControlCenter() {
   ]);
   renderRunHistory(runHistorySpec);
   renderExecutionReceipts(executionReceiptSpec);
+  renderBeginnerTaskWizard();
   renderBeginnerProgress();
 }
 
@@ -1783,6 +1852,7 @@ function renderDashboard() {
   const activeFactorBoard = getActiveLeaderboard();
   renderOrdinaryHome();
   renderBeginnerVerdict();
+  renderBeginnerTaskWizard();
   renderBeginnerGuide();
   renderBeginnerProgress();
   renderFactorBeginnerExplainer(activeFactorBoard, activeFactorBoard.rows || []);
@@ -2024,6 +2094,7 @@ function setLeaderboardTab(tab) {
   renderFactorBeginnerExplainer(activeBoard, activeBoard.rows || []);
   renderOrdinaryHome();
   renderBeginnerVerdict();
+  renderBeginnerTaskWizard();
   renderBeginnerProgress();
 }
 
@@ -2185,6 +2256,99 @@ function renderBeginnerVerdict() {
   button.dataset.beginnerAction = next.action || "";
   button.dataset.beginnerTarget = next.target || "";
   button.dataset.leaderboardTab = next.leaderboardTab || "";
+}
+
+function beginnerRecommendedTaskId() {
+  const active = state.activeOperation || {};
+  if (active.status === "running") return "trust";
+  if (!state.snapshot) return "safety";
+  if (!state.research) return "backtest";
+  if (!state.paper) return "trust";
+  return "trust";
+}
+
+function beginnerTaskRows(task = {}) {
+  const running = state.activeOperation?.status === "running";
+  const needsResearch = Boolean(task.requiresResearch && !state.research);
+  return [
+    ["适合什么时候", task.plain || "--", "ok"],
+    ["点了会发生什么", needsResearch ? "还不能直接模拟盘，会先引导你跑当前参数回测。" : task.result || "--", needsResearch ? "warn" : "ok"],
+    ["点完看哪里", task.evidence || "看控制台证据。", "ok"],
+    ["当前限制", running ? "当前已有本地任务在运行，先等它结束。" : "仍然只在本地研究/纸面模拟边界内。", running ? "warn" : "muted"],
+  ];
+}
+
+function renderBeginnerTaskWizard() {
+  const root = byId("beginner-task-wizard");
+  const list = byId("beginner-task-intent-list");
+  const detail = byId("beginner-task-detail");
+  const tag = byId("beginner-task-tag");
+  if (!root || !list || !detail || !tag) return;
+  const recommendedId = beginnerRecommendedTaskId();
+  const selectedId = state.beginnerTaskId || recommendedId;
+  const selected = BEGINNER_TASKS.find((task) => task.id === selectedId) || BEGINNER_TASKS[0];
+  const running = state.activeOperation?.status === "running";
+  const needsResearch = Boolean(selected.requiresResearch && !state.research);
+  const primaryAction = needsResearch ? "research_backtest" : selected.action || "";
+  const primaryTarget = primaryAction ? "" : selected.target || "control-action-center";
+  const primaryLabel = needsResearch ? "先本地回测" : selected.primaryLabel || "查看";
+  const tagTone = running ? "tag tag-warn" : selected.id === recommendedId ? "tag" : "tag tag-warn";
+  ["ok", "warn", "danger", "muted"].forEach((tone) => root.classList.remove(tone));
+  root.classList.add(running ? "warn" : selected.tone || "ok");
+  tag.className = tagTone;
+  tag.textContent = selected.id === recommendedId ? "推荐" : "已选择";
+  list.innerHTML = BEGINNER_TASKS.map((task) => {
+    const isActive = task.id === selected.id;
+    const isRecommended = task.id === recommendedId;
+    return `
+      <button
+        class="beginner-task-card ${escapeHtml(isActive ? "active" : "")}"
+        type="button"
+        data-beginner-task-select="${escapeHtml(task.id)}"
+      >
+        <small>${escapeHtml(isRecommended ? "推荐" : "可选")}</small>
+        <strong>${escapeHtml(task.title)}</strong>
+        <span>${escapeHtml(task.plain)}</span>
+      </button>
+    `;
+  }).join("");
+  const secondaryButton = selected.secondaryTarget ? `
+    <button
+      class="secondary-button"
+      type="button"
+      data-beginner-task-run="true"
+      data-beginner-task-target="${escapeHtml(selected.secondaryTarget)}"
+    >${escapeHtml(selected.secondaryLabel || "看更多证据")}</button>
+  ` : "";
+  detail.innerHTML = `
+    <div class="beginner-task-detail-head">
+      <div>
+        <small>当前任务</small>
+        <strong>${escapeHtml(selected.title)}</strong>
+        <span>${escapeHtml(needsResearch ? "这一步需要先有当前参数回测结果，软件会先带你跑回测。" : selected.result)}</span>
+      </div>
+    </div>
+    <div class="status-list compact-status beginner-task-rows">
+      ${statusRows(beginnerTaskRows(selected))}
+    </div>
+    <div class="beginner-task-actions">
+      <button
+        class="primary-button"
+        type="button"
+        data-beginner-task-run="true"
+        data-beginner-task-action="${escapeHtml(primaryAction)}"
+        data-beginner-task-target="${escapeHtml(primaryTarget)}"
+        ${running ? "disabled" : ""}
+      >${escapeHtml(running ? "等待当前任务结束" : primaryLabel)}</button>
+      ${secondaryButton}
+      <button
+        class="secondary-button"
+        type="button"
+        data-beginner-task-run="true"
+        data-beginner-task-target="${escapeHtml(selected.target || "control-action-center")}"
+      >看证据位置</button>
+    </div>
+  `;
 }
 
 function beginnerWorkflowLabel(workflowId = "") {
@@ -4934,6 +5098,7 @@ function appendRunHistory(entry) {
   };
   saveRunHistory([nextEntry].concat(loadRunHistory(spec)), spec);
   renderRunHistory(spec);
+  renderBeginnerTaskWizard();
   renderBeginnerProgress();
   return nextEntry;
 }
