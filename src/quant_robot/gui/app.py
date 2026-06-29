@@ -14,6 +14,7 @@ from quant_robot.gui.research_service import (
     build_evidence_refresh_snapshot,
     build_expanded_observation_replay_snapshot,
     build_factor_leaderboard_snapshot,
+    build_daily_trade_advisory_snapshot,
     build_promotion_ops_snapshot,
     build_promotion_review_snapshot,
     build_gui_snapshot,
@@ -88,6 +89,33 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
             if parsed.path == "/api/daily/ops":
                 query = parse_qs(parsed.query)
                 self._send_json(build_daily_ops_snapshot(daily_ops_pack=_optional(query, "daily_ops_pack")))
+                return
+            if parsed.path == "/api/trade/daily-advisory":
+                query = parse_qs(parsed.query)
+                result = build_daily_trade_advisory_snapshot(
+                    reports_root=_optional(query, "reports_root"),
+                    configs_root=_optional(query, "configs_root"),
+                    source=_first(query, "source", "processed-bars"),
+                    data_root=_optional(query, "data_root"),
+                    market=_first(query, "market", "CN_ETF"),
+                    limit=int(_first(query, "limit", "3")),
+                    as_of_date=_optional(query, "as_of_date"),
+                    portfolio_value=float(_first(query, "portfolio_value", "100000")),
+                    default_top_n=int(_first(query, "top_n", "2")),
+                    max_asset_weight=float(_first(query, "max_asset_weight", "0.4")),
+                    max_market_weight=float(_first(query, "max_market_weight", "1")),
+                    max_gross_exposure=float(_first(query, "max_gross_exposure", "1")),
+                    min_cash_weight=float(_first(query, "min_cash_weight", "0.1")),
+                )
+                _record_operation(
+                    workflow_id="daily_trade_advisory",
+                    label="Generate top-three manual trade advisory",
+                    status="completed",
+                    command=f"GET {parsed.path}?{parsed.query}",
+                    request=result.get("summary", {}),
+                    result=result,
+                )
+                self._send_json(result)
                 return
             if parsed.path == "/api/risk/candidates":
                 query = parse_qs(parsed.query)

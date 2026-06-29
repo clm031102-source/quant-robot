@@ -11,14 +11,19 @@ from typing import Any
 import pandas as pd
 
 from quant_robot.data.readiness import check_parquet_readiness, check_tushare_readiness
+from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.gui.fixtures import mock_data
 from quant_robot.paper.simulator import PaperSimulationConfig, run_paper_simulation
 from quant_robot.portfolio.rebalance import build_rebalance_plan
 from quant_robot.ops.evidence_refresh import build_evidence_refresh_plan
+from quant_robot.ops.daily_trade_advisory import (
+    build_daily_trade_advisory_pack,
+    select_daily_top_factor_candidates,
+)
 from quant_robot.ops.promotion_console import build_promotion_operations_console
 from quant_robot.ops.review_packet import build_promotion_review_packet
 from quant_robot.research.pipeline import ResearchPipelineConfig, run_research_pipeline
-from quant_robot.signals.pipeline import SignalPipelineConfig, generate_signal_snapshot
+from quant_robot.signals.pipeline import SignalPipelineConfig, generate_signal_snapshot, generate_signal_snapshot_from_factors
 from quant_robot.storage.processed_bars import load_processed_bars
 
 
@@ -424,6 +429,223 @@ def build_daily_ops_snapshot(daily_ops_pack: str | Path | None = None) -> dict[s
             ),
         }
     )
+
+
+def build_daily_trade_advisory_snapshot(
+    reports_root: str | Path | None = None,
+    configs_root: str | Path | None = None,
+    source: str = "processed-bars",
+    data_root: str | Path | None = DEFAULT_GUI_PROCESSED_ROOT,
+    market: str = PRIMARY_FACTOR_MARKET,
+    limit: int = 3,
+    as_of_date: str | None = None,
+    portfolio_value: float = 100000.0,
+    default_top_n: int = 2,
+    max_asset_weight: float = 0.4,
+    max_market_weight: float = 1.0,
+    max_gross_exposure: float = 1.0,
+    min_cash_weight: float = 0.1,
+) -> dict[str, Any]:
+    leaderboard = build_factor_leaderboard_snapshot(
+        reports_root=reports_root,
+        configs_root=configs_root,
+        limit=20,
+    )
+    runnable_factors = [str(name) for name in build_gui_snapshot().get("available_factors", [])]
+    candidates = select_daily_top_factor_candidates(
+        leaderboard,
+        runnable_factor_names=runnable_factors,
+        limit=limit,
+        primary_market=market.upper(),
+    )
+    fallback_used = False
+    if not candidates:
+        fallback_used = True
+        candidates = _runtime_daily_trade_candidates(runnable_factors, market=market.upper(), limit=limit)
+
+    signals, signal_errors = _daily_trade_signal_snapshots(
+        candidates,
+        source=source,
+        data_root=data_root,
+        market=market,
+        default_top_n=default_top_n,
+        as_of_date=as_of_date,
+        max_asset_weight=max_asset_weight,
+        max_market_weight=max_market_weight,
+        max_gross_exposure=max_gross_exposure,
+        min_cash_weight=min_cash_weight,
+        portfolio_value=portfolio_value,
+    )
+
+    pack = build_daily_trade_advisory_pack(
+        candidates,
+        signals,
+        portfolio_value=portfolio_value,
+        max_gross_exposure=max_gross_exposure,
+    )
+    pack["selected_candidates"] = candidates
+    pack["leaderboard_summary"] = leaderboard.get("summary", {})
+    pack["fallback_used"] = fallback_used
+    pack["signal_errors"] = signal_errors
+    pack["source"] = source
+    pack["data_root"] = str(data_root) if data_root is not None else ""
+    pack["market"] = market.upper()
+    return _sanitize(pack)
+
+
+def _daily_trade_signal_snapshots(
+    candidates: list[dict[str, Any]],
+    source: str,
+    data_root: str | Path | None,
+    market: str,
+    default_top_n: int,
+    as_of_date: str | None,
+    max_asset_weight: float,
+    max_market_weight: float,
+    max_gross_exposure: float,
+    min_cash_weight: float,
+    portfolio_value: float,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    source_name = _normalize_gui_source(source)
+    try:
+        bars = _load_gui_bars(source_name, data_root, market)
+        factor_bars = _bars_until_as_of_date(bars, as_of_date)
+        factors = compute_basic_factors(factor_bars, windows=_daily_trade_factor_windows(candidates))
+    except Exception as exc:
+        errors = [
+            {
+                "case_id": candidate.get("case_id"),
+                "factor_name": candidate.get("factor_name"),
+                "error": str(exc),
+            }
+            for candidate in candidates
+        ]
+        return errors, errors
+
+    signals: list[dict[str, Any]] = []
+    signal_errors: list[dict[str, Any]] = []
+    for candidate in candidates:
+        params = candidate.get("params") if isinstance(candidate.get("params"), dict) else {}
+        factor_name = str(candidate.get("factor_name") or "")
+        try:
+            config = SignalPipelineConfig(
+                factor_name=factor_name,
+                factor_windows=_resolve_factor_windows(factor_name, _candidate_factor_windows(candidate)),
+                market=market,
+                as_of_date=as_of_date,
+                top_n=_candidate_int(params, ("top_n", "topN"), default_top_n),
+                max_asset_weight=max_asset_weight,
+                max_market_weight=max_market_weight,
+                max_gross_exposure=max_gross_exposure,
+                min_cash_weight=min_cash_weight,
+            )
+            snapshot = generate_signal_snapshot_from_factors(bars, factors, config)
+            targets = pd.DataFrame(snapshot["targets"])
+            latest_prices = (
+                targets[["asset_id", "latest_price"]]
+                if not targets.empty
+                else pd.DataFrame(columns=["asset_id", "latest_price"])
+            )
+            rebalance_plan = build_rebalance_plan(
+                targets,
+                pd.DataFrame(columns=["asset_id", "quantity"]),
+                latest_prices,
+                portfolio_value=portfolio_value,
+            )
+            signal = {
+                **snapshot,
+                "case_id": candidate.get("case_id"),
+                "factor_name": factor_name,
+                "data_mode": mock_data.DATA_MODE if source_name == "demo_fixture" else snapshot["data_mode"],
+                "data_source": source_name,
+                "notice": (
+                    mock_data.DEMO_NOTICE
+                    if source_name == "demo_fixture"
+                    else "Processed bars research data. No broker account, no live trading, no order placement."
+                ),
+                "portfolio_value": portfolio_value,
+                "rebalance_plan": _records(rebalance_plan),
+            }
+            signals.append(signal)
+        except Exception as exc:
+            error_row = {
+                "case_id": candidate.get("case_id"),
+                "factor_name": factor_name,
+                "error": str(exc),
+            }
+            signal_errors.append(error_row)
+            signals.append(error_row)
+    return signals, signal_errors
+
+
+def _bars_until_as_of_date(bars: pd.DataFrame, as_of_date: str | None) -> pd.DataFrame:
+    if not as_of_date:
+        return bars
+    cutoff = pd.to_datetime(as_of_date).date()
+    return bars[pd.to_datetime(bars["date"]).dt.date <= cutoff].copy()
+
+
+def _daily_trade_factor_windows(candidates: list[dict[str, Any]]) -> tuple[int, ...]:
+    windows: set[int] = set()
+    for candidate in candidates:
+        factor_name = str(candidate.get("factor_name") or "")
+        windows.update(_resolve_factor_windows(factor_name, _candidate_factor_windows(candidate)))
+    return tuple(sorted(windows)) or (2, 3)
+
+
+def _runtime_daily_trade_candidates(factor_names: list[str], market: str, limit: int) -> list[dict[str, Any]]:
+    preferred = ["momentum_2", "reversal_2", "volatility_2", "liquidity_2", "volume_change_2"]
+    ordered = [name for name in preferred if name in set(factor_names)]
+    ordered.extend(name for name in factor_names if name not in ordered)
+    rows = []
+    for index, factor_name in enumerate(ordered[: max(1, int(limit))], start=1):
+        rows.append(
+            {
+                "rank": index,
+                "case_id": f"runtime_baseline_{factor_name}",
+                "factor_name": factor_name,
+                "market": market,
+                "family": "runtime_baseline",
+                "promotion_label": "可运行基线信号",
+                "plain_conclusion": "排行榜里暂时没有可运行前三候选时，用内置可运行因子生成手工建议；这不是可推广盈利承诺。",
+                "params": {"top_n": 2},
+                "signalable": True,
+            }
+        )
+    return rows
+
+
+def _candidate_factor_windows(candidate: dict[str, Any]) -> tuple[int, ...] | None:
+    params = candidate.get("params") if isinstance(candidate.get("params"), dict) else {}
+    value = params.get("factor_windows") or candidate.get("factor_windows")
+    if isinstance(value, list):
+        return tuple(int(item) for item in value if str(item).strip())
+    if isinstance(value, str) and value.strip():
+        text = value.strip()
+        if text.startswith("[") and text.endswith("]"):
+            try:
+                parsed = json.loads(text)
+            except json.JSONDecodeError:
+                parsed = None
+            if isinstance(parsed, list):
+                return tuple(int(item) for item in parsed if str(item).strip())
+        cleaned = text.replace("[", "").replace("]", "")
+        return tuple(int(part.strip()) for part in cleaned.split(",") if part.strip().isdigit())
+    factor_name = str(candidate.get("factor_name") or "")
+    suffix = factor_name.rsplit("_", 1)[-1]
+    if suffix.isdigit():
+        return (int(suffix),)
+    return None
+
+
+def _candidate_int(params: dict[str, Any], keys: tuple[str, ...], default: int) -> int:
+    for key in keys:
+        if params.get(key) not in {None, ""}:
+            try:
+                return int(float(str(params[key]).replace(",", "")))
+            except (TypeError, ValueError):
+                continue
+    return int(default)
 
 
 def build_risk_candidate_snapshot(risk_candidate_pack: str | Path | None = None) -> dict[str, Any]:

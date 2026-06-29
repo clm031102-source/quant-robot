@@ -9,6 +9,7 @@ const state = {
   evidenceRefresh: null,
   projectStatus: null,
   dailyOps: null,
+  dailyTradeAdvisory: null,
   riskCandidates: null,
   constrainedSearch: null,
   paperProfiles: null,
@@ -130,6 +131,8 @@ const REQUEST_PREVIEW_INPUT_IDS = [
   "paper-min-cash-weight",
   "paper-drawdown-guard",
   "paper-guard-cooldown",
+  "daily-trade-as-of",
+  "daily-trade-portfolio-value",
 ];
 const GLOSSARY_TERMS = [
   ["Sharpe", "单位波动换来的收益。越高越好，但异常高要先怀疑过拟合。"],
@@ -231,7 +234,7 @@ const BEGINNER_TASKS = [
   },
 ];
 
-document.addEventListener("DOMContentLoaded", async () => {
+document.addEventListener("DOMContentLoaded", () => {
   bindNavigation();
   bindActions();
   bindRequestPreviewInputs();
@@ -241,22 +244,43 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderBeginnerTroubleshooter();
   renderBeginnerGuide();
   renderBeginnerProgress();
-  await loadSnapshot();
-  await loadFactorLeaderboard();
-  await loadControlCenter();
-  await loadProjectStatus();
-  await loadDailyOps();
-  await loadRiskCandidates();
-  await loadConstrainedSearch();
-  await loadPaperProfiles();
-  await loadProfileObservation();
-  await loadRecentDataRefresh();
-  await loadPostRefreshReplay();
-  await loadObservationSufficiency();
-  await loadExpandedObservationReplay();
-  await loadIterativeObservationExpansion();
-  await loadTushareActivationGate();
+  initializeApp();
 });
+
+async function initializeApp() {
+  await safeLoadPanel("snapshot", loadSnapshot);
+  await Promise.allSettled([
+    safeLoadPanel("factor_leaderboard", loadFactorLeaderboard),
+    safeLoadPanel("control_center", loadControlCenter),
+  ]);
+  await safeLoadPanel("daily_trade_advisory", loadDailyTradeAdvisory);
+  loadSecondaryPanels();
+}
+
+async function loadSecondaryPanels() {
+  await Promise.allSettled([
+    safeLoadPanel("project_status", loadProjectStatus),
+    safeLoadPanel("daily_ops", loadDailyOps),
+    safeLoadPanel("risk_candidates", loadRiskCandidates),
+    safeLoadPanel("constrained_search", loadConstrainedSearch),
+    safeLoadPanel("paper_profiles", loadPaperProfiles),
+    safeLoadPanel("profile_observation", loadProfileObservation),
+    safeLoadPanel("recent_data_refresh", loadRecentDataRefresh),
+    safeLoadPanel("post_refresh_replay", loadPostRefreshReplay),
+    safeLoadPanel("observation_sufficiency", loadObservationSufficiency),
+    safeLoadPanel("expanded_observation_replay", loadExpandedObservationReplay),
+    safeLoadPanel("iterative_observation_expansion", loadIterativeObservationExpansion),
+    safeLoadPanel("tushare_activation_gate", loadTushareActivationGate),
+  ]);
+}
+
+async function safeLoadPanel(panelId, loader) {
+  try {
+    await loader();
+  } catch (error) {
+    console.error(`panel load failed: ${panelId}`, error);
+  }
+}
 
 function bindNavigation() {
   document.querySelectorAll(".nav-item").forEach((button) => {
@@ -278,6 +302,7 @@ function bindActions() {
   byId("run-signals").addEventListener("click", runSignals);
   byId("run-paper").addEventListener("click", runPaper);
   byId("run-daily-ops").addEventListener("click", runDailyOps);
+  byId("run-daily-trade-advisory").addEventListener("click", runDailyTradeAdvisory);
   byId("run-promotion").addEventListener("click", runPromotionOps);
   byId("safe-run-cancel")?.addEventListener("click", () => resolveSafeWorkflow(false));
   byId("safe-run-confirm")?.addEventListener("click", () => resolveSafeWorkflow(true));
@@ -489,6 +514,13 @@ async function loadDailyOps() {
   renderDashboard();
 }
 
+async function loadDailyTradeAdvisory() {
+  const params = buildDailyTradeAdvisoryParams();
+  state.dailyTradeAdvisory = await fetchJson(`/api/trade/daily-advisory?${params.toString()}`);
+  renderDailyTradeAdvisory();
+  renderDashboard();
+}
+
 async function loadRiskCandidates() {
   state.riskCandidates = await fetchJson("/api/risk/candidates");
   renderRiskCandidates();
@@ -603,6 +635,22 @@ function buildSignalParams() {
     max_market_weight: valueOf("max-market-weight") || "1",
     max_gross_exposure: valueOf("max-gross-exposure") || "1",
     min_cash_weight: valueOf("min-cash-weight") || "0",
+  });
+  addSourceParams(params);
+  return params;
+}
+
+function buildDailyTradeAdvisoryParams() {
+  const params = new URLSearchParams({
+    market: valueOf("market-select") || "CN_ETF",
+    limit: "3",
+    top_n: valueOf("signal-top-n") || "2",
+    as_of_date: valueOf("daily-trade-as-of") || valueOf("signal-as-of"),
+    portfolio_value: valueOf("daily-trade-portfolio-value") || valueOf("paper-initial-cash") || "100000",
+    max_asset_weight: valueOf("max-asset-weight") || "0.4",
+    max_market_weight: valueOf("max-market-weight") || "1",
+    max_gross_exposure: valueOf("max-gross-exposure") || "1",
+    min_cash_weight: valueOf("min-cash-weight") || "0.1",
   });
   addSourceParams(params);
   return params;
@@ -1666,6 +1714,29 @@ async function runPaper() {
   });
 }
 
+async function runDailyTradeAdvisory() {
+  const params = buildDailyTradeAdvisoryParams();
+  const confirmed = await confirmSafeWorkflow({
+    workflow_id: "daily_trade_advisory",
+    label: "生成今日前三因子手工交易建议",
+    endpoint: endpointWithParams("/api/trade/daily-advisory", params),
+    request: paramsObject(params),
+  });
+  if (!confirmed) return;
+  await withBusy("run-daily-trade-advisory", async () => {
+    state.dailyTradeAdvisory = await fetchJson(`/api/trade/daily-advisory?${params.toString()}`);
+    renderDailyTradeAdvisory();
+    renderDashboard();
+    appendRunHistory({
+      workflow_id: "daily_trade_advisory",
+      label: "Generate top-three manual trade advisory",
+      status: "completed",
+      detail: `signals ${state.dailyTradeAdvisory?.summary?.signal_count ?? 0} / manual only`,
+    });
+    showToast("今日前三交易建议已生成");
+  });
+}
+
 async function runDailyOps() {
   const params = new URLSearchParams({
     daily_ops_pack: valueOf("daily-ops-pack-path"),
@@ -2052,6 +2123,8 @@ function renderDashboard() {
   const daily = state.dailyOps || {};
   const dailyDecision = daily.decision || {};
   const dailyPaperProfile = daily.paper_profile || {};
+  const dailyTrade = state.dailyTradeAdvisory || {};
+  const dailyTradeSummary = dailyTrade.summary || {};
   const riskCandidates = state.riskCandidates || {};
   const constrained = state.constrainedSearch || {};
   const profiles = state.paperProfiles || {};
@@ -2097,6 +2170,7 @@ function renderDashboard() {
     metric("候选记录", factorSummary.candidate_rows ?? "--", "历史参数组合"),
     metric("报告唯一因子", factorSummary.report_factor_names ?? "--", "本地报告"),
     metric("Top20", (factorLedger.top20 || []).length || "--", "排行榜"),
+    metric("今日前三建议", dailyTradeSummary.signal_count ?? "--", dailyTradeSummary.manual_execution_required ? "人工复核" : "等待信号"),
     metric("Daily Ops", dailyDecision.status || "--", dailyDecision.paper_trading_allowed ? "paper allowed" : "blocked"),
     metric("Daily Profile", dailyPaperProfile.profile_id || "--", dailyPaperProfile.risk_tier || "no overlay"),
     metric("风险候选", riskCandidates.summary?.risk_eligible_candidates ?? "--", riskCandidates.selection_status || "selector"),
@@ -2122,6 +2196,8 @@ function renderDashboard() {
     { label: "基准", color: chartTheme.benchmark, rows: state.research?.benchmark_curve || [], yKey: "benchmark_equity" },
   ]);
   byId("dashboard-status").innerHTML = statusRows([
+    ["今日前三建议", `${dailyTradeSummary.signal_count ?? "--"} / factors ${dailyTradeSummary.selected_factor_count ?? "--"}`, dailyTradeSummary.signal_count > 0 ? "ok" : "warn"],
+    ["今日执行边界", dailyTradeSummary.order_placement_allowed ? "允许下单" : "禁止自动下单；仅人工复核", "danger"],
     ["Daily Ops", `${dailyDecision.status || "--"} / tickets ${daily.ticket_count ?? "--"}`, dailyDecision.status === "paper_ready" ? "ok" : "warn"],
     ["Daily profile", `${dailyPaperProfile.profile_id || "none"} / ${dailyPaperProfile.risk_tier || "--"}`, dailyPaperProfile.profile_id ? "ok" : "muted"],
     ["Risk candidates", `${riskCandidates.selection_status || "--"} / eligible ${riskCandidates.summary?.tier_eligible_candidates ?? riskCandidates.summary?.risk_eligible_candidates ?? "--"}`, ["risk_candidate_selected", "risk_tier_candidate_selected"].includes(riskCandidates.selection_status) ? "ok" : "warn"],
@@ -2346,14 +2422,14 @@ function renderFactorLeaderboardTable(rows) {
   const head = `
     <tr>
       <th>排名</th>
-      <th>因子 / case</th>
+      <th>因子 / 编号</th>
       <th>市场</th>
       <th>总收益</th>
       <th>年化</th>
-      <th>Sharpe</th>
+      <th>夏普</th>
       <th>最大回撤</th>
       <th>胜率</th>
-      <th>RankIC</th>
+      <th>排序相关性</th>
       <th>交易数</th>
       <th>参数</th>
       <th>质量</th>
@@ -2486,7 +2562,13 @@ function beginnerVerdict() {
         ["不能做", "不能因为某个收益指标好看就跳过审计。", "danger"],
         ["下一步", `先清理 ${blockerCount} 个阻断项。`, "danger"],
       ],
-      next: { ...BEGINNER_STEPS[0], button: "看安全边界" },
+      next: {
+        id: "repair",
+        title: "先处理阻断项",
+        plain: "打开修复队列，先看为什么不能推进模拟盘。",
+        button: "看阻断与修复队列",
+        target: "control-audit-repair-queue",
+      },
     };
   }
   if (!primaryRows.length) {
@@ -3817,15 +3899,15 @@ function renderFactorLeaderboardTable(rows) {
     <tr>
       <th>排名</th>
       <th>结论</th>
-      <th>因子 / case</th>
+      <th>因子 / 编号</th>
       <th>操作</th>
       <th>市场</th>
       <th>总收益</th>
       <th>年化</th>
-      <th>Sharpe</th>
+      <th>夏普</th>
       <th>最大回撤</th>
       <th>胜率</th>
-      <th>RankIC</th>
+      <th>排序相关性</th>
       <th>交易数</th>
       <th>参数</th>
       <th>审计标签</th>
@@ -3996,6 +4078,65 @@ function renderPaper() {
   byId("paper-exposure-chart").innerHTML = lineChart(paper.equity_curve || [], "gross_exposure", chartTheme.benchmark, "Gross exposure");
   byId("paper-fill-table").innerHTML = tableRows(paper.fills || [], ["signal_date", "execution_date", "asset_id", "market", "side", "quantity", "fill_price", "fee"]);
   byId("paper-guard-table").innerHTML = tableRows(paper.guard_events || [], ["date", "event_type", "drawdown", "blocked_buy_intents", "cooldown_remaining"]);
+}
+
+function renderDailyTradeAdvisory() {
+  const pack = state.dailyTradeAdvisory || {};
+  const summary = pack.summary || {};
+  const tag = byId("daily-trade-advisory-tag");
+  const signalCount = Number(summary.signal_count || 0);
+  const selectedCount = Number(summary.selected_factor_count || 0);
+  const status = signalCount > 0 ? "manual_advisory_ready" : "waiting_for_signals";
+  if (tag) {
+    tag.textContent = zhConsoleText(status);
+    tag.classList.toggle("tag-warn", signalCount === 0);
+  }
+  byId("daily-trade-advisory-metrics").innerHTML = [
+    metric("前三因子", selectedCount || "--", pack.fallback_used ? "可运行基线兜底" : "排行榜候选"),
+    metric("信号数", signalCount || "--", pack.run_date || "today"),
+    metric("目标ETF", summary.combined_target_count ?? pack.combined_target_count ?? "--", pack.market || "CN_ETF"),
+    metric("手工工单", summary.manual_ticket_count ?? pack.manual_trade_plan?.length ?? "--", "系统不下单"),
+    metric("实盘自动化", summary.live_trading_allowed ? "允许" : "禁止", "research-to-paper"),
+    metric("下单权限", summary.order_placement_allowed ? "允许" : "禁止", "manual only"),
+  ].join("");
+  byId("daily-trade-advisory-status").innerHTML = statusRows([
+    ["来源", pack.fallback_used ? "排行榜无可运行前三，使用可运行基线兜底" : "从 CN_ETF 排行榜取可运行前三候选", pack.fallback_used ? "warn" : "ok"],
+    ["信号状态", `${signalCount} / ${selectedCount}`, signalCount > 0 ? "ok" : "warn"],
+    ["执行边界", pack.safety || "Research-to-paper only", "danger"],
+    ["下一步", summary.next_action || "先复核信号，再看模拟盘，不自动下单。", "warn"],
+    ["错误", (pack.signal_errors || []).map((item) => item.factor_name || item.case_id).join(" / ") || "无", pack.signal_errors?.length ? "warn" : "ok"],
+  ]);
+  byId("daily-trade-factor-table").innerHTML = tableRows(pack.factors || [], [
+    "rank",
+    "factor_name",
+    "case_id",
+    "market",
+    "sharpe",
+    "annualized_return",
+    "max_drawdown",
+    "win_rate",
+    "rank_ic",
+    "promotion_label",
+  ]);
+  byId("daily-trade-target-table").innerHTML = tableRows(pack.combined_targets || [], [
+    "asset_id",
+    "market",
+    "target_weight",
+    "target_value",
+    "latest_price",
+    "source_factors",
+    "executable",
+  ]);
+  byId("daily-trade-manual-table").innerHTML = tableRows(pack.manual_trade_plan || [], [
+    "ticket_id",
+    "asset_id",
+    "side",
+    "target_weight",
+    "target_value",
+    "source_factors",
+    "live_order_allowed",
+    "manual_instruction",
+  ]);
 }
 
 function renderDailyOps() {
@@ -4868,6 +5009,8 @@ const GUI_ZH_REPLACEMENTS = [
   ["completed_with_blockers", "完成但有阻断项"],
   ["needs_evidence", "需要证据"],
   ["manual_required", "需要人工验证"],
+  ["manual_advisory_ready", "今日建议已生成"],
+  ["waiting_for_signals", "等待信号生成"],
   ["allowed", "允许"],
   ["cleared", "通过"],
   ["stopped", "停止"],
@@ -5398,6 +5541,25 @@ function receiptMetricText(receipt = {}) {
   ].filter(Boolean).join(" / ") || "等待运行后写入回执";
 }
 
+function workflowPreflightModeText(item = {}) {
+  return zhConsoleText(item.mode || "--");
+}
+
+function workflowPreflightCheckText(check = {}) {
+  const labels = {
+    parameter_authority: "参数一致",
+    execution_boundary: "执行边界",
+    readiness: "运行就绪",
+    server_receipt: "服务端回执",
+    live_boundary: "实盘边界",
+    broker_connection: "券商连接",
+    order_placement: "下单权限",
+    whitelist: "白名单",
+  };
+  const id = check.check_id || check.label || "check";
+  return `${labels[id] || zhConsoleText(id)}=${zhConsoleText(check.status || "--")}`;
+}
+
 function renderWorkflowPreflight(preflight = {}) {
   const summary = preflight.summary || {};
   const rows = preflight.rows || [];
@@ -5408,8 +5570,8 @@ function renderWorkflowPreflight(preflight = {}) {
       : "ok";
   const header = `
     <div class="list-row ${escapeHtml(headerClass)}">
-      <strong>${escapeHtml(zhConsoleText(`Run preflight / ${summary.status || "--"}`))}</strong>
-      <span>${escapeHtml(`runnable=${summary.runnable_count ?? 0} / blocked=${summary.blocked_count ?? 0}`)}</span>
+      <strong>${escapeHtml(`运行前检查 / ${zhConsoleText(summary.status || "--")}`)}</strong>
+      <span>${escapeHtml(`可运行=${summary.runnable_count ?? 0} / 阻断=${summary.blocked_count ?? 0}`)}</span>
       <span>${escapeHtml(zhConsoleText(summary.next_action || ""))}</span>
     </div>
   `;
@@ -5423,12 +5585,12 @@ function renderWorkflowPreflight(preflight = {}) {
           ? "ok"
           : "warn";
     const checks = Array.isArray(item.checks)
-      ? item.checks.map((check) => `${check.check_id || check.label || "check"}=${check.status || "--"}`).join(" / ")
+      ? item.checks.map((check) => workflowPreflightCheckText(check)).join(" / ")
       : "";
     return `
       <div class="list-row ${escapeHtml(statusClass)}">
         <strong>${escapeHtml(zhConsoleText(`${item.label || item.workflow_id || ""} / ${status || "--"}`))}</strong>
-        <span>${escapeHtml(zhConsoleText(`mode=${item.mode || "--"} / runnable=${item.runnable ? "true" : "false"}`))}</span>
+        <span>${escapeHtml(`模式=${workflowPreflightModeText(item)} / 可运行=${item.runnable ? "是" : "否"}`)}</span>
         <span>${escapeHtml(checks)}</span>
         <span>${escapeHtml(workflowPreflightEndpointSummary(item))}</span>
       </div>
@@ -5444,11 +5606,11 @@ function renderWorkflowPreflight(preflight = {}) {
 
 function workflowPreflightEndpointSummary(item = {}) {
   const endpoint = item.endpoint || "";
-  if (endpoint.startsWith("/api/control/verification")) return endpoint;
-  if (endpoint.startsWith("/api/")) return endpoint.split("?")[0];
+  if (endpoint.startsWith("/api/control/verification")) return friendlyCommandText(endpoint);
+  if (endpoint.startsWith("/api/")) return friendlyCommandText(endpoint.split("?")[0]);
   const command = item.command || "";
-  if (command.startsWith("GET /api/control/verification")) return command.replace("GET ", "");
-  if (command.startsWith("GET /api/")) return command.replace("GET ", "").split("?")[0];
+  if (command.startsWith("GET /api/control/verification")) return friendlyCommandText(command.replace("GET ", ""));
+  if (command.startsWith("GET /api/")) return friendlyCommandText(command.replace("GET ", "").split("?")[0]);
   return command || item.reason || "";
 }
 
@@ -6362,6 +6524,10 @@ async function runActionCenterWorkflow(workflowId, button = null) {
     }
     if (workflowId === "signal_snapshot") {
       await runSignals();
+      return;
+    }
+    if (workflowId === "daily_trade_advisory") {
+      await runDailyTradeAdvisory();
       return;
     }
     if (workflowId === "paper_simulation") {

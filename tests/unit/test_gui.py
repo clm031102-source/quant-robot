@@ -12,11 +12,14 @@ import pandas as pd
 
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.gui.app import create_gui_handler
+from quant_robot.gui.desktop_app import DESKTOP_APP_COPY, DesktopGuiController, find_available_port
 from quant_robot.gui.research_service import (
     build_constrained_search_snapshot,
+    build_daily_trade_advisory_snapshot,
     build_daily_ops_snapshot,
     build_expanded_observation_replay_snapshot,
     build_factor_leaderboard_snapshot,
+    _candidate_factor_windows,
     build_promotion_ops_snapshot,
     build_promotion_review_snapshot,
     build_evidence_refresh_snapshot,
@@ -38,6 +41,96 @@ from quant_robot.gui.research_service import (
     run_demo_signal_snapshot,
 )
 from quant_robot.storage.dataset_store import DatasetStore
+
+
+class GuiDesktopAppTests(unittest.TestCase):
+    def test_desktop_controller_starts_local_gui_and_opens_beginner_console(self):
+        events: list[object] = []
+
+        class FakeServer:
+            def serve_forever(self) -> None:
+                events.append("serve_forever")
+
+            def shutdown(self) -> None:
+                events.append("shutdown")
+
+            def server_close(self) -> None:
+                events.append("server_close")
+
+        def server_factory(host: str, port: int) -> FakeServer:
+            events.append(("server_factory", host, port))
+            return FakeServer()
+
+        opened: list[str] = []
+        controller = DesktopGuiController(
+            host="127.0.0.1",
+            port=9001,
+            server_factory=server_factory,
+            browser_open=opened.append,
+        )
+
+        state = controller.open_console()
+
+        self.assertEqual(state.status, "running")
+        self.assertEqual(state.url, "http://127.0.0.1:9001/")
+        self.assertEqual(opened, ["http://127.0.0.1:9001/"])
+        self.assertIn("新手", DESKTOP_APP_COPY["title"])
+        self.assertIn("不连接券商", state.safety_text)
+        self.assertIn(("server_factory", "127.0.0.1", 9001), events)
+        self.assertIsNotNone(controller.thread)
+        self.assertTrue(controller.thread.daemon)
+
+        stopped = controller.stop()
+
+        self.assertEqual(stopped.status, "stopped")
+        self.assertIn("shutdown", events)
+        self.assertIn("server_close", events)
+
+    def test_desktop_controller_falls_back_when_default_port_is_busy(self):
+        used_ports: list[int] = []
+
+        class FakeServer:
+            def serve_forever(self) -> None:
+                return
+
+            def shutdown(self) -> None:
+                return
+
+            def server_close(self) -> None:
+                return
+
+        def server_factory(host: str, port: int) -> FakeServer:
+            used_ports.append(port)
+            if port == 8765:
+                raise OSError("address already in use")
+            return FakeServer()
+
+        controller = DesktopGuiController(
+            host="127.0.0.1",
+            port=8765,
+            port_scan_limit=3,
+            server_factory=server_factory,
+            browser_open=lambda _url: None,
+        )
+
+        state = controller.start()
+
+        self.assertEqual(state.status, "running")
+        self.assertEqual(state.port, 8766)
+        self.assertEqual(state.url, "http://127.0.0.1:8766/")
+        self.assertEqual(used_ports[:2], [8765, 8766])
+        controller.stop()
+
+    def test_desktop_launcher_files_are_beginner_facing(self):
+        launcher = Path("scripts/run_desktop_app.py")
+        batch_file = Path("scripts/start_quant_robot_desktop.bat")
+
+        self.assertTrue(launcher.exists())
+        self.assertTrue(batch_file.exists())
+        self.assertIn("run_desktop_app", launcher.read_text(encoding="utf-8"))
+        self.assertIn("--no-open", launcher.read_text(encoding="utf-8"))
+        self.assertIn("scripts\\run_desktop_app.py", batch_file.read_text(encoding="utf-8"))
+        self.assertIn("research-to-paper", batch_file.read_text(encoding="utf-8"))
 
 
 class GuiSnapshotTests(unittest.TestCase):
@@ -109,6 +202,26 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("all_data", snapshot["top20"][0])
         self.assertIn("params", snapshot["top20"][0])
         self.assertIn("source_path", snapshot["top20"][0])
+
+    def test_daily_trade_advisory_parses_leaderboard_factor_window_lists(self):
+        self.assertEqual(
+            _candidate_factor_windows(
+                {
+                    "factor_name": "volume_change_20",
+                    "params": {"factor_windows": "[5, 10, 20]"},
+                }
+            ),
+            (5, 10, 20),
+        )
+
+    def test_daily_trade_advisory_exposes_selected_candidate_alias(self):
+        snapshot = build_daily_trade_advisory_snapshot(source="demo_fixture", market="CN_ETF", limit=3)
+
+        self.assertEqual(snapshot["stage"], "phase_6_0_daily_trade_advisory")
+        self.assertIn("factors", snapshot)
+        self.assertIn("selected_candidates", snapshot)
+        self.assertEqual(snapshot["selected_candidates"], snapshot["factors"])
+        self.assertLessEqual(snapshot["summary"]["selected_factor_count"], 3)
 
     def test_factor_leaderboard_segments_primary_etf_and_auxiliary_stock_rows(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1999,8 +2112,17 @@ class GuiHttpTests(unittest.TestCase):
                 self.assertIn("leaderboardScoreText(row)", leaderboard_table_block)
                 self.assertIn("leaderboardQualityText(row.ranking_quality)", leaderboard_table_block)
                 self.assertIn("leaderboardParamsText(row)", leaderboard_table_block)
+                self.assertIn("<th>因子 / 编号</th>", leaderboard_table_block)
+                self.assertIn("<th>夏普</th>", leaderboard_table_block)
+                self.assertIn("<th>排序相关性</th>", leaderboard_table_block)
                 self.assertNotIn('${row.score_metric || "--"}=', leaderboard_table_block)
                 self.assertNotIn("JSON.stringify(row.params)", leaderboard_table_block)
+                self.assertNotIn("<th>因子 / case</th>", leaderboard_table_block)
+                self.assertNotIn("<th>因子 / CASE</th>", leaderboard_table_block)
+                self.assertNotIn("<th>Sharpe</th>", leaderboard_table_block)
+                self.assertNotIn("<th>SHARPE</th>", leaderboard_table_block)
+                self.assertNotIn("<th>RankIC</th>", leaderboard_table_block)
+                self.assertNotIn("<th>RANKIC</th>", leaderboard_table_block)
             self.assertIn("renderBeginnerParameterExplainer", app_js)
             self.assertIn("beginnerParameterRows", app_js)
             self.assertIn("parameterRuntimeStatus", app_js)
@@ -2029,6 +2151,10 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("BEGINNER_TASKS", app_js)
             self.assertIn("beginnerVerdict", app_js)
             self.assertIn("renderBeginnerVerdict", app_js)
+            blocker_verdict_block = app_js.split("if (blockerCount > 0)", 1)[1].split("if (!primaryRows.length)", 1)[0]
+            self.assertIn('button: "看阻断与修复队列"', blocker_verdict_block)
+            self.assertIn('target: "control-audit-repair-queue"', blocker_verdict_block)
+            self.assertNotIn('button: "看安全边界"', blocker_verdict_block)
             self.assertIn("beginnerRecommendedTaskId", app_js)
             self.assertIn("beginnerTaskRows", app_js)
             self.assertIn("renderBeginnerTaskWizard", app_js)
@@ -2411,8 +2537,19 @@ class GuiHttpTests(unittest.TestCase):
             self.assertNotIn("manual=", release_readiness_block)
             self.assertNotIn("missing=", release_readiness_block)
             workflow_preflight_block = app_js.split("function renderWorkflowPreflight", 1)[1].split("function workflowPreflightEndpointSummary", 1)[0]
+            self.assertIn("workflowPreflightCheckText", app_js)
+            self.assertIn("workflowPreflightModeText", app_js)
+            self.assertIn("模式=", workflow_preflight_block)
+            self.assertIn("可运行=", workflow_preflight_block)
+            self.assertIn("workflowPreflightCheckText(check)", workflow_preflight_block)
             self.assertIn("暂无运行前检查行", workflow_preflight_block)
             self.assertIn("使用工作流按钮前，中控状态应展示运行就绪情况。", workflow_preflight_block)
+            self.assertNotIn("mode=", workflow_preflight_block)
+            self.assertNotIn("runnable=", workflow_preflight_block)
+            endpoint_summary_block = app_js.split("function workflowPreflightEndpointSummary", 1)[1].split("function renderProcessMonitor", 1)[0]
+            self.assertIn("friendlyCommandText(endpoint)", endpoint_summary_block)
+            self.assertIn('friendlyCommandText(command.replace("GET ", ""))', endpoint_summary_block)
+            self.assertNotIn("return endpoint;", endpoint_summary_block)
             self.assertNotIn("<strong>No workflow preflight rows</strong>", workflow_preflight_block)
             operation_ledger_block = app_js.split("function renderOperationLedger", 1)[1].split("function renderTradeModeControl", 1)[0]
             self.assertIn("暂无服务端操作记录", operation_ledger_block)
@@ -2463,17 +2600,26 @@ class GuiHttpTests(unittest.TestCase):
             self.assertNotIn("Startup evidence required", startup_health_block)
             self.assertNotIn("<strong>No startup health rows</strong>", startup_health_block)
             self.assertIn("return String(zhConsoleText(value))", app_js)
-            startup_block = app_js.split('document.addEventListener("DOMContentLoaded", async () => {', 1)[1].split("});", 1)[0]
-            self.assertIn("await loadControlCenter();", startup_block)
+            startup_block = app_js.split('document.addEventListener("DOMContentLoaded", () => {', 1)[1].split("});", 1)[0]
+            self.assertIn("initializeApp();", startup_block)
+            initialize_block = app_js.split("async function initializeApp()", 1)[1].split(
+                "async function loadSecondaryPanels", 1
+            )[0]
+            self.assertIn('safeLoadPanel("control_center", loadControlCenter)', initialize_block)
+            self.assertIn('safeLoadPanel("daily_trade_advisory", loadDailyTradeAdvisory)', initialize_block)
+            secondary_block = app_js.split("async function loadSecondaryPanels()", 1)[1].split(
+                "function bindNavigation", 1
+            )[0]
             load_control_block = app_js.split("async function loadControlCenter()", 1)[1].split("async function loadProjectStatus", 1)[0]
             self.assertIn("applyControlDefaults();", load_control_block)
-            self.assertIn("await loadRiskCandidates();", startup_block)
-            self.assertIn("await loadRecentDataRefresh();", startup_block)
-            self.assertIn("await loadPostRefreshReplay();", startup_block)
-            self.assertIn("await loadObservationSufficiency();", startup_block)
-            self.assertIn("await loadExpandedObservationReplay();", startup_block)
-            self.assertIn("await loadIterativeObservationExpansion();", startup_block)
-            self.assertIn("await loadTushareActivationGate();", startup_block)
+            self.assertLess(app_js.index('safeLoadPanel("daily_trade_advisory", loadDailyTradeAdvisory)'), app_js.index("async function loadSecondaryPanels"))
+            self.assertIn('safeLoadPanel("risk_candidates", loadRiskCandidates)', secondary_block)
+            self.assertIn('safeLoadPanel("recent_data_refresh", loadRecentDataRefresh)', secondary_block)
+            self.assertIn('safeLoadPanel("post_refresh_replay", loadPostRefreshReplay)', secondary_block)
+            self.assertIn('safeLoadPanel("observation_sufficiency", loadObservationSufficiency)', secondary_block)
+            self.assertIn('safeLoadPanel("expanded_observation_replay", loadExpandedObservationReplay)', secondary_block)
+            self.assertIn('safeLoadPanel("iterative_observation_expansion", loadIterativeObservationExpansion)', secondary_block)
+            self.assertIn('safeLoadPanel("tushare_activation_gate", loadTushareActivationGate)', secondary_block)
             self.assertNotIn("await runResearch();", startup_block)
             self.assertNotIn("await runSignals();", startup_block)
             self.assertNotIn("await runPaper();", startup_block)
@@ -2557,6 +2703,15 @@ class GuiHttpTests(unittest.TestCase):
             daily_ops = _read_json(f"{base_url}/api/daily/ops")
             self.assertEqual(daily_ops["stage"], "gui_daily_ops")
             self.assertIn("decision", daily_ops)
+
+            trade_advisory = _read_json(f"{base_url}/api/trade/daily-advisory?source=demo_fixture&market=CN_ETF&limit=3")
+            self.assertEqual(trade_advisory["stage"], "phase_6_0_daily_trade_advisory")
+            self.assertIn("summary", trade_advisory)
+            self.assertFalse(trade_advisory["summary"]["live_trading_allowed"])
+            self.assertFalse(trade_advisory["summary"]["order_placement_allowed"])
+            self.assertTrue(trade_advisory["summary"]["manual_execution_required"])
+            self.assertEqual(trade_advisory["selected_candidates"], trade_advisory["factors"])
+            self.assertLessEqual(trade_advisory["summary"]["selected_factor_count"], 3)
 
             risk_candidates = _read_json(f"{base_url}/api/risk/candidates")
             self.assertEqual(risk_candidates["stage"], "gui_risk_candidate_selector")

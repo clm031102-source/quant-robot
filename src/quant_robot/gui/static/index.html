@@ -203,6 +203,7 @@
                 <div id="control-command-deck" class="console-command-deck">
                   <button class="primary-button console-command-button" type="button" data-console-action="research_backtest" data-action-workflow="research_backtest" data-runtime-guard="research_backtest">本地回测当前参数</button>
                   <button class="secondary-button console-command-button" type="button" data-console-action="signal_snapshot" data-action-workflow="signal_snapshot">生成本地建议信号</button>
+                  <button class="secondary-button console-command-button" type="button" data-console-action="daily_trade_advisory" data-action-workflow="daily_trade_advisory">生成今日前三建议</button>
                   <button class="secondary-button console-command-button" type="button" data-console-action="paper_simulation" data-action-workflow="paper_simulation">本地模拟盘回放</button>
                   <button class="ghost-button console-command-button" type="button" data-console-action="gui_compile" data-action-workflow="verification_runner" data-action-verification-gate="gui_compile">GUI 编译检查</button>
                   <button class="ghost-button console-command-button" type="button" data-console-action="project_audit" data-action-workflow="verification_runner" data-action-verification-gate="project_audit">项目安全审计</button>
@@ -786,9 +787,44 @@
               <label>Tushare activation gate pack
                 <input id="tushare-activation-gate-pack-path" value="data/reports/tushare_activation_gate/tushare_activation_gate_pack.json">
               </label>
+              <label>今日建议信号日期
+                <input id="daily-trade-as-of" type="date" value="2026-05-21">
+              </label>
+              <label>建议账户规模
+                <input id="daily-trade-portfolio-value" type="number" min="1000" step="1000" value="100000">
+              </label>
               <button id="run-daily-ops" class="primary-button command-action" type="button">刷新日常运营</button>
+              <button id="run-daily-trade-advisory" class="secondary-button command-action" type="button">生成今日前三交易建议</button>
             </div>
           </section>
+
+          <div class="metric-grid compact metric-card-grid" id="daily-trade-advisory-metrics"></div>
+          <div class="page-grid two-grid">
+            <section class="panel status-panel daily-trade-advisory-board">
+              <div class="panel-head">
+                <div>
+                  <p class="section-kicker">今日手工建议</p>
+                  <h3>前三因子信号</h3>
+                </div>
+                <span class="tag tag-warn" id="daily-trade-advisory-tag">加载中</span>
+              </div>
+              <div id="daily-trade-advisory-status" class="status-list"></div>
+            </section>
+            <section class="panel table-panel">
+              <div class="panel-head"><h3>前三因子</h3><span class="tag">只取 CN_ETF 可运行候选</span></div>
+              <div class="table-wrap scroll-table"><table><tbody id="daily-trade-factor-table"></tbody></table></div>
+            </section>
+          </div>
+          <div class="page-grid two-grid">
+            <section class="panel table-panel">
+              <div class="panel-head"><h3>合并目标仓位</h3><span class="tag">手工复核</span></div>
+              <div class="table-wrap scroll-table"><table><tbody id="daily-trade-target-table"></tbody></table></div>
+            </section>
+            <section class="panel table-panel">
+              <div class="panel-head"><h3>手工执行计划</h3><span class="tag tag-warn">系统不下单</span></div>
+              <div class="table-wrap scroll-table"><table><tbody id="daily-trade-manual-table"></tbody></table></div>
+            </section>
+          </div>
 
           <div class="metric-grid compact metric-card-grid" id="daily-ops-metrics"></div>
           <div class="page-grid two-grid">

@@ -296,6 +296,7 @@ def _workflow_commands(form_defaults: dict[str, Any]) -> list[dict[str, Any]]:
     specs = _workflow_request_specs(form_defaults)
     research = specs["research_backtest"]
     signal = specs["signal_snapshot"]
+    daily_trade = specs["daily_trade_advisory"]
     paper = specs["paper_simulation"]
     return [
         {
@@ -325,6 +326,16 @@ def _workflow_commands(form_defaults: dict[str, Any]) -> list[dict[str, Any]]:
             "query": signal["query"],
             "mode": "local",
             "safety": "advisory targets only, executable=false",
+        },
+        {
+            "workflow_id": "daily_trade_advisory",
+            "label": "Generate top-three manual trade advisory",
+            "command": f"GET {daily_trade['endpoint']}",
+            "endpoint": daily_trade["endpoint"],
+            "request": daily_trade["request"],
+            "query": daily_trade["query"],
+            "mode": "local",
+            "safety": "top-three advisory only, executable=false, no broker orders",
         },
         {
             "workflow_id": "paper_simulation",
@@ -384,6 +395,19 @@ def _workflow_request_specs(form_defaults: dict[str, Any]) -> dict[str, dict[str
         "source": signal["source"],
         "data_root": signal["data_root"],
     }
+    daily_trade_query = {
+        "market": signal["market"],
+        "limit": 3,
+        "top_n": signal["top_n"],
+        "as_of_date": signal["as_of_date"],
+        "portfolio_value": paper["initial_cash"],
+        "max_asset_weight": signal["max_asset_weight"],
+        "max_market_weight": signal["max_market_weight"],
+        "max_gross_exposure": signal["max_gross_exposure"],
+        "min_cash_weight": signal["min_cash_weight"],
+        "source": signal["source"],
+        "data_root": signal["data_root"],
+    }
     paper_query = {
         "market": paper["market"],
         "factor": paper["factor"],
@@ -436,6 +460,21 @@ def _workflow_request_specs(form_defaults: dict[str, Any]) -> dict[str, dict[str
                 "factor_windows": _factor_windows_list(signal["factor_windows"]),
                 "top_n": signal["top_n"],
                 "as_of_date": signal["as_of_date"],
+                "max_asset_weight": signal["max_asset_weight"],
+                "max_market_weight": signal["max_market_weight"],
+                "max_gross_exposure": signal["max_gross_exposure"],
+                "min_cash_weight": signal["min_cash_weight"],
+            },
+        },
+        "daily_trade_advisory": {
+            "endpoint": _workflow_endpoint_from_query("/api/trade/daily-advisory", daily_trade_query),
+            "query": daily_trade_query,
+            "request": {
+                "market": signal["market"],
+                "limit": 3,
+                "top_n": signal["top_n"],
+                "as_of_date": signal["as_of_date"],
+                "portfolio_value": paper["initial_cash"],
                 "max_asset_weight": signal["max_asset_weight"],
                 "max_market_weight": signal["max_market_weight"],
                 "max_gross_exposure": signal["max_gross_exposure"],
