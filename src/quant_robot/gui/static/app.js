@@ -185,6 +185,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindActions();
   bindRequestPreviewInputs();
   renderFactorGlossary();
+  renderBeginnerVerdict();
   renderBeginnerGuide();
   await loadSnapshot();
   await loadFactorLeaderboard();
@@ -239,6 +240,13 @@ function bindActions() {
     const button = event.target.closest(".segmented-button[data-leaderboard-tab]");
     if (!button) return;
     setLeaderboardTab(button.dataset.leaderboardTab || "primary_cn_etf");
+  });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-beginner-next]");
+    if (!button) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    runBeginnerNext(button);
   });
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-beginner-target]");
@@ -1341,6 +1349,7 @@ function renderDashboard() {
   const factorLedger = state.factorLeaderboard || {};
   const factorSummary = factorLedger.summary || {};
   renderOrdinaryHome();
+  renderBeginnerVerdict();
   renderBeginnerGuide();
   byId("dashboard-equity-source").textContent = state.research?.data_source || valueOf("data-source-select") || state.snapshot?.data_mode || "local";
   byId("dashboard-metrics").innerHTML = [
@@ -1484,6 +1493,7 @@ function setLeaderboardTab(tab) {
   state.leaderboardTab = tab || "primary_cn_etf";
   renderFactorLeaderboard();
   renderOrdinaryHome();
+  renderBeginnerVerdict();
 }
 
 function renderFactorGlossary() {
@@ -1528,6 +1538,122 @@ function nextBeginnerStep() {
   if (!state.research) return BEGINNER_STEPS[2];
   if (!state.paper) return BEGINNER_STEPS[4];
   return BEGINNER_STEPS[3];
+}
+
+function beginnerVerdict() {
+  const ledger = state.factorLeaderboard || {};
+  const primaryRows = ledger.leaderboards?.primary_cn_etf?.rows || [];
+  const project = state.projectStatus || {};
+  const blockerCount = Number(project.blocker_count || 0);
+  const topPrimary = primaryRows[0] || null;
+  if (!state.snapshot) {
+    return {
+      tone: "warn",
+      light: "黄灯",
+      title: "正在加载本地研究状态",
+      summary: "先等首页、控制台和排行榜加载完成，软件会自动给出下一步。",
+      reasonRows: [
+        ["当前能做", "查看安全边界和新手流程。", "warn"],
+        ["不能做", "不要根据加载中的信息判断因子是否可用。", "danger"],
+        ["下一步", "确认安全边界。", "ok"],
+      ],
+      next: BEGINNER_STEPS[0],
+    };
+  }
+  if (blockerCount > 0) {
+    return {
+      tone: "danger",
+      light: "红灯",
+      title: "先处理阻断项",
+      summary: "项目当前还有阻断项，不能把候选直接推进到模拟盘观察。",
+      reasonRows: [
+        ["当前能做", "查看控制台里的阻断项、审计反馈和安全边界。", "warn"],
+        ["不能做", "不能因为某个收益指标好看就跳过审计。", "danger"],
+        ["下一步", `先清理 ${blockerCount} 个阻断项。`, "danger"],
+      ],
+      next: { ...BEGINNER_STEPS[0], button: "看安全边界" },
+    };
+  }
+  if (!primaryRows.length) {
+    return {
+      tone: "warn",
+      light: "黄灯",
+      title: "还没有可看的 CN_ETF 主线候选",
+      summary: "先不要看 CN 个股辅助榜或全部历史榜，把注意力放回 ETF 主线。",
+      reasonRows: [
+        ["当前能做", "查看 CN_ETF 主线榜是否为空，以及排行榜来源说明。", "warn"],
+        ["不能做", "不能把 CN 个股资金流选股结果直接当成 ETF 轮动信号。", "danger"],
+        ["下一步", "先定位到 CN_ETF 主线榜。", "ok"],
+      ],
+      next: BEGINNER_STEPS[1],
+    };
+  }
+  if (!state.research) {
+    return {
+      tone: "warn",
+      light: "黄灯",
+      title: "可以先跑一次本地回测",
+      summary: "已有 CN_ETF 主线候选，但还没有当前参数的本地回测结果。",
+      reasonRows: [
+        ["当前能做", `先看排第一的候选：${topPrimary?.factor_name || "--"}。`, "ok"],
+        ["不能做", "不能只看排行榜，不看收益、回撤、胜率和夏普。", "danger"],
+        ["下一步", "运行本地回测当前参数。", "ok"],
+      ],
+      next: BEGINNER_STEPS[2],
+    };
+  }
+  if (!state.paper) {
+    return {
+      tone: "warn",
+      light: "黄灯",
+      title: "已有回测，先复核再做本地模拟盘",
+      summary: "现在需要看回测闸门和证据来源，再决定是否做纸面模拟回放。",
+      reasonRows: [
+        ["当前能做", "检查收益、回撤、胜率、Sharpe、成本和样本来源。", "ok"],
+        ["不能做", "不能把短样本或单次高收益直接当成可推广盈利因子。", "danger"],
+        ["下一步", "查看回测闸门；确认后再本地模拟盘回放。", "warn"],
+      ],
+      next: BEGINNER_STEPS[3],
+    };
+  }
+  return {
+    tone: "ok",
+    light: "绿灯",
+    title: "已完成一轮研究到本地模拟盘回放",
+    summary: "可以查看结果证据、回测闸门和模拟盘交接，但仍然不是实盘信号。",
+    reasonRows: [
+      ["当前能做", "复核结果证据、模拟盘权益和审计包。", "ok"],
+      ["不能做", "仍然不能连接券商、读取账户或真实下单。", "danger"],
+      ["下一步", "回看回测闸门和结果证据，决定下一轮优化方向。", "ok"],
+    ],
+    next: BEGINNER_STEPS[3],
+  };
+}
+
+function renderBeginnerVerdict() {
+  const board = byId("beginner-verdict-board");
+  const light = byId("beginner-safety-light");
+  const title = byId("beginner-verdict-title");
+  const summary = byId("beginner-verdict-summary");
+  const reason = byId("beginner-verdict-reason");
+  const button = byId("beginner-next-button");
+  if (!board || !light || !title || !summary || !reason || !button) return;
+  const verdict = beginnerVerdict();
+  ["ok", "warn", "danger", "muted"].forEach((tone) => {
+    board.classList.remove(tone);
+    light.classList.remove(tone);
+  });
+  board.classList.add(verdict.tone);
+  light.classList.add(verdict.tone);
+  light.textContent = verdict.light;
+  title.textContent = verdict.title;
+  summary.textContent = verdict.summary;
+  reason.innerHTML = statusRows(verdict.reasonRows);
+  const next = verdict.next || nextBeginnerStep();
+  button.textContent = next.button || "查看下一步";
+  button.dataset.beginnerAction = next.action || "";
+  button.dataset.beginnerTarget = next.target || "";
+  button.dataset.leaderboardTab = next.leaderboardTab || "";
 }
 
 function renderBeginnerGuide() {
@@ -1583,19 +1709,49 @@ function jumpToBeginnerTarget(targetId, leaderboardTab = "") {
     if (nav && !page.classList.contains("active-page")) nav.click();
   }
   const workspace = document.querySelector(".workspace");
-  if (workspace && workspace.scrollHeight > workspace.clientHeight + 1) {
+  const workspaceOverflowY = workspace ? getComputedStyle(workspace).overflowY : "";
+  if (workspace && /auto|scroll|overlay/.test(workspaceOverflowY) && workspace.scrollHeight > workspace.clientHeight + 1) {
     const workspaceRect = workspace.getBoundingClientRect();
     const targetRect = target.getBoundingClientRect();
     const targetTop = workspace.scrollTop + targetRect.top - workspaceRect.top - 96;
-    workspace.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+    workspace.scrollTo({
+      top: Math.max(0, targetTop),
+      behavior: scrollBehaviorForDistance(workspace.scrollTop, targetTop),
+    });
     return;
   }
-  window.scrollTo({ top: Math.max(0, target.getBoundingClientRect().top + window.scrollY - 96), behavior: "smooth" });
+  const documentScroller = document.scrollingElement || document.documentElement;
+  if (documentScroller?.scrollTo) {
+    const targetTop = documentScroller.scrollTop + target.getBoundingClientRect().top - 96;
+    documentScroller.scrollTo({
+      top: Math.max(0, targetTop),
+      behavior: scrollBehaviorForDistance(documentScroller.scrollTop, targetTop),
+    });
+    return;
+  }
+  const windowTargetTop = target.getBoundingClientRect().top + window.scrollY - 96;
+  window.scrollTo({
+    top: Math.max(0, windowTargetTop),
+    behavior: scrollBehaviorForDistance(window.scrollY, windowTargetTop),
+  });
+}
+
+function scrollBehaviorForDistance(currentTop, targetTop) {
+  return Math.abs(Number(targetTop || 0) - Number(currentTop || 0)) > 2400 ? "auto" : "smooth";
 }
 
 async function runBeginnerAction(actionId, button = null) {
   if (!actionId) return;
   await runActionCenterWorkflow(actionId, button);
+}
+
+async function runBeginnerNext(button) {
+  const actionId = button?.dataset?.beginnerAction || "";
+  if (actionId) {
+    await runBeginnerAction(actionId, button);
+    return;
+  }
+  jumpToBeginnerTarget(button?.dataset?.beginnerTarget || "", button?.dataset?.leaderboardTab || "");
 }
 
 function renderOrdinaryHome() {

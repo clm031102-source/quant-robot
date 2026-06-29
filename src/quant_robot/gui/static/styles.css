@@ -373,6 +373,87 @@ button {
   align-items: start;
 }
 
+.beginner-verdict-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(260px, 0.75fr);
+  gap: 14px;
+  align-items: stretch;
+  border-left: 4px solid var(--warn);
+  background: #fffdf7;
+}
+
+.beginner-verdict-board.ok {
+  border-left-color: var(--accent);
+  background: #f6fbf8;
+}
+
+.beginner-verdict-board.danger {
+  border-left-color: var(--danger);
+  background: #fff8f7;
+}
+
+.beginner-verdict-main {
+  display: grid;
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  min-width: 0;
+}
+
+.beginner-safety-light {
+  display: grid;
+  place-items: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 999px;
+  border: 2px solid rgba(189, 108, 33, 0.38);
+  background: #fff4dc;
+  color: #935411;
+  font-weight: 900;
+  box-shadow: 0 8px 18px rgba(88, 72, 48, 0.08);
+}
+
+.beginner-safety-light.ok {
+  border-color: rgba(54, 119, 84, 0.42);
+  background: #eaf7ef;
+  color: var(--accent);
+}
+
+.beginner-safety-light.danger {
+  border-color: rgba(173, 63, 60, 0.42);
+  background: #fdecea;
+  color: var(--danger);
+}
+
+.beginner-verdict-copy {
+  min-width: 0;
+}
+
+.beginner-verdict-copy h3 {
+  margin: 3px 0 6px;
+  font-size: 21px;
+  overflow-wrap: anywhere;
+}
+
+.beginner-verdict-copy p:last-child {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.beginner-verdict-side {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+#beginner-next-button {
+  justify-content: center;
+  min-height: 42px;
+  white-space: normal;
+}
+
 .beginner-guide-board {
   border-left: 4px solid var(--blue);
   background: #fbfcff;
@@ -1208,6 +1289,7 @@ th {
   .metric-grid.compact,
   .operator-strip,
   .ordinary-home-grid,
+  .beginner-verdict-board,
   .beginner-guide-layout,
   .control-center-grid,
   .dashboard-grid,
@@ -1273,6 +1355,7 @@ th {
   .metric-grid.compact,
   .operator-strip,
   .ordinary-home-grid,
+  .beginner-verdict-board,
   .beginner-guide-layout,
   .control-center-grid,
   .dashboard-grid,
@@ -1296,6 +1379,15 @@ th {
 
   .beginner-step-button {
     grid-column: 1 / -1;
+  }
+
+  .beginner-verdict-main {
+    grid-template-columns: 1fr;
+  }
+
+  .beginner-safety-light {
+    width: 68px;
+    height: 68px;
   }
 }
 
