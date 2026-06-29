@@ -324,6 +324,12 @@ function bindActions() {
     }
   });
   document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-factor-runtime-gap-action]");
+    if (!button) return;
+    event.preventDefault();
+    jumpToBeginnerTarget("factor-leaderboard-table", state.leaderboardTab);
+  });
+  document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-beginner-parameter-jump]");
     if (!button) return;
     event.preventDefault();
@@ -3172,6 +3178,7 @@ function renderFactorLeaderboard() {
     ["榜单说明", activeBoard.description || activeBoard.empty_message || "--", state.leaderboardTab === "primary_cn_etf" ? "ok" : "warn"],
     ["安全边界", "排行榜只用于研究和本地模拟盘观察，不代表可实盘自动交易。", "danger"],
   ]);
+  renderFactorRuntimeGapPanel(rows);
   byId("factor-leaderboard-table").innerHTML = renderFactorLeaderboardTable(rows);
 }
 
@@ -3244,6 +3251,68 @@ function factorRuntimeStatus(row = {}) {
       ? "榜单里有这个候选，但当前运行下拉框没有；可以先套用查看参数，注册到运行因子后再回测。"
       : "这行没有可识别的因子名，不能直接回测。",
   };
+}
+
+function leaderboardRuntimeRows(rows = []) {
+  const runtimeRows = rows.map((row) => {
+    const payload = leaderboardRowPayload(row);
+    return {
+      ...payload,
+      promotion_label: leaderboardInputValue(row.promotion_label),
+      plain_conclusion: leaderboardInputValue(row.plain_conclusion),
+      source_file: leaderboardInputValue(row.source_file || row.source_path),
+      runtime: factorRuntimeStatus(payload),
+    };
+  });
+  const missing = runtimeRows.filter((row) => !row.runtime.runnable);
+  const byFactor = new Map();
+  missing.forEach((row) => {
+    const key = row.factor_name || "unknown";
+    const item = byFactor.get(key) || { factor_name: key, count: 0, case_id: row.case_id, source_file: row.source_file };
+    item.count += 1;
+    if (!item.case_id && row.case_id) item.case_id = row.case_id;
+    if (!item.source_file && row.source_file) item.source_file = row.source_file;
+    byFactor.set(key, item);
+  });
+  return {
+    rows: runtimeRows,
+    runnable: runtimeRows.filter((row) => row.runtime.runnable),
+    missing,
+    unique_missing: Array.from(byFactor.values()),
+  };
+}
+
+function renderFactorRuntimeGapPanel(rows = []) {
+  const panel = byId("factor-runtime-gap-panel");
+  const summaryTarget = byId("factor-runtime-gap-summary");
+  const listTarget = byId("factor-runtime-gap-list");
+  if (!panel || !summaryTarget || !listTarget) return;
+  const audit = leaderboardRuntimeRows(rows);
+  const missingCount = audit.missing.length;
+  const runnableCount = audit.runnable.length;
+  panel.classList.toggle("ok", missingCount === 0);
+  panel.classList.toggle("warn", missingCount > 0);
+  summaryTarget.innerHTML = statusRows([
+    ["可直接回测", `${runnableCount} 个榜单参数组合`, runnableCount ? "ok" : "warn"],
+    ["需要先注册", `${missingCount} 个榜单参数组合 / ${audit.unique_missing.length} 个唯一因子`, missingCount ? "warn" : "ok"],
+    ["新手该怎么做", missingCount ? "黄色行先别点回测；先套用参数查看，等因子注册到运行下拉框后再回测。" : "当前榜单都能从 GUI 直接套用并本地回测。", missingCount ? "warn" : "ok"],
+  ]);
+  if (!missingCount) {
+    listTarget.innerHTML = `
+      <div class="factor-runtime-gap-row ok">
+        <strong>当前没有运行缺口</strong>
+        <span>排行榜里的因子都在当前运行下拉框里。</span>
+      </div>
+    `;
+    return;
+  }
+  listTarget.innerHTML = audit.unique_missing.slice(0, 5).map((item) => `
+    <div class="factor-runtime-gap-row warn">
+      <strong>${escapeHtml(item.factor_name)}</strong>
+      <span>${escapeHtml(`${item.count} 个参数组合需要注册；示例 ${item.case_id || "--"}`)}</span>
+      <button class="secondary-button factor-runtime-gap-action" type="button" data-factor-runtime-gap-action="true">看榜单行</button>
+    </div>
+  `).join("");
 }
 
 function leaderboardRowFromButton(button) {

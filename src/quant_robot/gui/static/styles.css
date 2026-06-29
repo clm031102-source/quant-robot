@@ -1020,6 +1020,61 @@ button {
   background: #fff8f7;
 }
 
+.factor-runtime-gap-panel {
+  margin: 12px 0;
+  border: 1px solid rgba(189, 108, 33, 0.24);
+  border-left: 4px solid var(--warn);
+  border-radius: var(--radius);
+  background: #fffdf7;
+  padding: 10px;
+}
+
+.factor-runtime-gap-panel.ok {
+  border-color: rgba(54, 119, 84, 0.28);
+  border-left-color: var(--accent);
+  background: #f6fbf8;
+}
+
+.factor-runtime-gap-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.factor-runtime-gap-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 8px;
+  align-items: center;
+  min-width: 0;
+  border: 1px solid rgba(189, 108, 33, 0.22);
+  border-radius: var(--radius);
+  background: #ffffff;
+  padding: 8px;
+}
+
+.factor-runtime-gap-row strong,
+.factor-runtime-gap-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.factor-runtime-gap-row span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.factor-runtime-gap-row.ok {
+  border-color: rgba(54, 119, 84, 0.24);
+}
+
+.factor-runtime-gap-action {
+  grid-row: span 2;
+  min-height: 32px;
+  white-space: normal;
+}
+
 .factor-beginner-copy {
   min-width: 0;
 }
