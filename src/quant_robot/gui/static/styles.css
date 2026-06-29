@@ -1120,11 +1120,34 @@ button {
   min-width: 138px;
 }
 
+.factor-row-runtime {
+  flex: 1 0 100%;
+  justify-content: center;
+  margin: 0;
+}
+
+.factor-row-runtime.ok {
+  border-color: rgba(54, 119, 84, 0.28);
+  background: #f2f8f4;
+  color: var(--accent);
+}
+
+.factor-row-runtime.warn {
+  border-color: rgba(189, 108, 33, 0.32);
+  background: #fff7e8;
+  color: var(--warn);
+}
+
 .factor-row-actions button {
   flex: 1 1 66px;
   min-height: 34px;
   padding: 7px 9px;
   white-space: normal;
+}
+
+.factor-row-actions .primary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
 }
 
 .mini-badge {

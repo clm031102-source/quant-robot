@@ -316,6 +316,7 @@ function bindActions() {
     const button = event.target.closest("[data-factor-apply-row], [data-factor-run-row]");
     if (!button) return;
     event.preventDefault();
+    if (button.matches("[data-factor-run-row]") && button.disabled) return;
     const row = leaderboardRowFromButton(button);
     applyLeaderboardRowToForms(row);
     if (button.matches("[data-factor-run-row]")) {
@@ -3218,6 +3219,33 @@ function leaderboardRowPayload(row = {}) {
   };
 }
 
+function runtimeFactorNames() {
+  return new Set((state.snapshot?.available_factors || [])
+    .map((name) => leaderboardInputValue(name))
+    .filter(Boolean));
+}
+
+function factorRuntimeStatus(row = {}) {
+  const factor = leaderboardInputValue(row.factor_name);
+  const runnable = Boolean(factor && runtimeFactorNames().has(factor));
+  if (runnable) {
+    return {
+      runnable: true,
+      label: "可直接回测",
+      tone: "ok",
+      detail: "当前后端已注册这个因子，可以直接套用并本地回测。",
+    };
+  }
+  return {
+    runnable: false,
+    label: factor ? "需先注册" : "因子缺失",
+    tone: "warn",
+    detail: factor
+      ? "榜单里有这个候选，但当前运行下拉框没有；可以先套用查看参数，注册到运行因子后再回测。"
+      : "这行没有可识别的因子名，不能直接回测。",
+  };
+}
+
 function leaderboardRowFromButton(button) {
   try {
     return JSON.parse(decodeURIComponent(button?.dataset?.factorRow || "{}"));
@@ -3295,6 +3323,7 @@ function renderFactorLeaderboardTable(rows) {
     const allData = row.all_data && Object.keys(row.all_data).length ? JSON.stringify(row.all_data, null, 2) : "{}";
     const badges = (row.audit_badges || []).map((badge) => `<span class="mini-badge">${escapeHtml(badge)}</span>`).join(" ");
     const rowPayload = encodeURIComponent(JSON.stringify(leaderboardRowPayload(row)));
+    const runtime = factorRuntimeStatus(leaderboardRowPayload(row));
     return `
       <tr>
         <td>${formatNumber(row.rank)}</td>
@@ -3302,8 +3331,9 @@ function renderFactorLeaderboardTable(rows) {
         <td><strong>${escapeHtml(row.factor_name || "--")}</strong><br><span class="muted">${escapeHtml(row.case_id || "--")}</span></td>
         <td>
           <span class="factor-row-actions">
+            <span class="mini-badge factor-row-runtime ${escapeHtml(runtime.tone)}" data-factor-runtime="${runtime.runnable ? "runtime" : "missing"}" title="${escapeHtml(runtime.detail)}">${escapeHtml(runtime.label)}</span>
             <button class="secondary-button" type="button" data-factor-apply-row="true" data-factor-row="${escapeHtml(rowPayload)}">套用参数</button>
-            <button class="primary-button" type="button" data-factor-run-row="true" data-factor-row="${escapeHtml(rowPayload)}">套用并回测</button>
+            <button class="primary-button" type="button" data-factor-run-row="true" data-factor-row="${escapeHtml(rowPayload)}" title="${escapeHtml(runtime.detail)}"${runtime.runnable ? "" : " disabled"}>套用并回测</button>
           </span>
         </td>
         <td>${escapeHtml(row.market || "--")}</td>
