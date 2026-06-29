@@ -254,6 +254,11 @@ function bindActions() {
     jumpToBeginnerTarget(button.dataset.beginnerTarget || "", button.dataset.leaderboardTab || "");
   });
   document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-factor-beginner-jump]");
+    if (!button) return;
+    jumpToBeginnerTarget(button.dataset.factorBeginnerJump || "factor-leaderboard-table", state.leaderboardTab);
+  });
+  document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-beginner-action]");
     if (!button) return;
     runBeginnerAction(button.dataset.beginnerAction || "", button);
@@ -1348,9 +1353,11 @@ function renderDashboard() {
   const provider = project.provider_remediation || {};
   const factorLedger = state.factorLeaderboard || {};
   const factorSummary = factorLedger.summary || {};
+  const activeFactorBoard = getActiveLeaderboard();
   renderOrdinaryHome();
   renderBeginnerVerdict();
   renderBeginnerGuide();
+  renderFactorBeginnerExplainer(activeFactorBoard, activeFactorBoard.rows || []);
   byId("dashboard-equity-source").textContent = state.research?.data_source || valueOf("data-source-select") || state.snapshot?.data_mode || "local";
   byId("dashboard-metrics").innerHTML = [
     metric("项目状态", project.overall_status || "--", `阻塞 ${project.blocker_count ?? "--"}`),
@@ -1429,7 +1436,100 @@ function renderFactorLeaderboard() {
     ["排序依据", summary.ranking_basis || "--", "muted"],
     ["跳过文件", `${summary.report_files_skipped ?? 0}`, summary.report_files_skipped > 0 ? "warn" : "ok"],
   ]);
+  renderFactorBeginnerExplainer(activeBoard, rows);
   byId("factor-leaderboard-table").innerHTML = renderFactorLeaderboardTable(rows);
+}
+
+function factorBeginnerTone(row = {}) {
+  if (state.leaderboardTab !== "primary_cn_etf" || row.market !== "CN_ETF") return "warn";
+  const quality = String(row.ranking_quality || "").toLowerCase();
+  const label = String(row.promotion_label || "");
+  if (quality.includes("rejected") || label.includes("不可")) return "danger";
+  if (label.includes("模拟盘") || label.includes("继续研究")) return "ok";
+  return "warn";
+}
+
+function factorBeginnerMetric(label, value, explanation, tone = "muted") {
+  return `
+    <div class="factor-beginner-metric ${escapeHtml(tone)}">
+      <small>${escapeHtml(label)}</small>
+      <strong>${escapeHtml(value)}</strong>
+      <span>${escapeHtml(explanation)}</span>
+    </div>
+  `;
+}
+
+function metricTone(value, good, warn = null, direction = "higher") {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "muted";
+  if (direction === "lower") {
+    if (number <= good) return "ok";
+    if (warn == null || number <= warn) return "warn";
+    return "danger";
+  }
+  if (number >= good) return "ok";
+  if (warn == null || number >= warn) return "warn";
+  return "danger";
+}
+
+function renderFactorBeginnerExplainer(activeBoard = {}, rows = []) {
+  const target = byId("factor-beginner-explainer");
+  if (!target) return;
+  if (!rows.length) {
+    target.innerHTML = `
+      <div class="factor-beginner-card warn">
+        <div class="factor-beginner-copy">
+          <p class="section-kicker">新手因子解读</p>
+          <h3>当前榜单还没有候选</h3>
+          <p>先确认数据、配置和主线市场，避免把空榜误认为已经没有研究方向。</p>
+        </div>
+        <div class="factor-beginner-actions">
+          <button class="secondary-button" type="button" data-beginner-target="factor-inventory-note">看榜单来源</button>
+        </div>
+      </div>
+    `;
+    return;
+  }
+  const row = rows[0] || {};
+  const tone = factorBeginnerTone(row);
+  const reasons = (row.ranking_reasons || []).join(" / ") || row.ranking_quality || "暂无额外风险说明";
+  const conclusion = row.plain_conclusion || row.promotion_label || activeBoard.description || "先看指标，再看审计。";
+  const marketHint = row.market === "CN_ETF"
+    ? "这是 ETF 主线候选，仍需长周期、OOS、成本和风控复核。"
+    : "这不是 ETF 主线榜，只能辅助研究，不能直接变成 ETF 轮动信号。";
+  const maxDrawdownTone = metricTone(row.max_drawdown, -0.3, -0.45, "higher");
+  target.innerHTML = `
+    <div class="factor-beginner-card ${escapeHtml(tone)}">
+      <div class="factor-beginner-copy">
+        <p class="section-kicker">新手因子解读</p>
+        <h3>${escapeHtml(row.factor_name || "--")}</h3>
+        <p>${escapeHtml(conclusion)}</p>
+        <div class="factor-beginner-tags">
+          <span>${escapeHtml(activeBoard.label || "当前榜单")}</span>
+          <span>${escapeHtml(row.case_id || "--")}</span>
+          <span>${escapeHtml(row.promotion_label || "待审计")}</span>
+        </div>
+      </div>
+      <div class="factor-beginner-metrics">
+        ${factorBeginnerMetric("总收益", formatPercent(row.total_return), "样本期累计收益", metricTone(row.total_return, 0.3, 0.05))}
+        ${factorBeginnerMetric("年化", formatPercent(row.annualized_return), "折算到一年后的速度", metricTone(row.annualized_return, 0.12, 0.03))}
+        ${factorBeginnerMetric("Sharpe", formatDecimal(row.sharpe), "收益和波动的平衡", metricTone(row.sharpe, 1.0, 0.4))}
+        ${factorBeginnerMetric("最大回撤", formatPercent(row.max_drawdown), "最难熬的亏损幅度", maxDrawdownTone)}
+        ${factorBeginnerMetric("胜率", formatPercent(row.win_rate), "盈利周期占比", metricTone(row.win_rate, 0.55, 0.48))}
+      </div>
+      <div class="factor-beginner-risk status-list compact-status">
+        ${statusRows([
+          ["能不能直接用", marketHint, row.market === "CN_ETF" ? "warn" : "danger"],
+          ["为什么排这里", `${row.score_metric || "--"}=${formatDecimal(row.primary_score)} / ${row.ranking_quality || "--"}`, tone],
+          ["需要注意", reasons, tone === "ok" ? "warn" : tone],
+        ])}
+      </div>
+      <div class="factor-beginner-actions">
+        <button class="secondary-button" type="button" data-factor-beginner-jump="factor-leaderboard-table">看完整排行榜</button>
+        <button class="primary-button" type="button" data-beginner-action="research_backtest">本地回测当前参数</button>
+      </div>
+    </div>
+  `;
 }
 
 function renderFactorLeaderboardTable(rows) {
@@ -1492,6 +1592,8 @@ function getActiveLeaderboard() {
 function setLeaderboardTab(tab) {
   state.leaderboardTab = tab || "primary_cn_etf";
   renderFactorLeaderboard();
+  const activeBoard = getActiveLeaderboard();
+  renderFactorBeginnerExplainer(activeBoard, activeBoard.rows || []);
   renderOrdinaryHome();
   renderBeginnerVerdict();
 }
