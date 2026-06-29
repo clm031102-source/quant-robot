@@ -1036,21 +1036,21 @@ function renderRequestPreview() {
   const paperParams = buildPaperParams();
   const rows = [
     {
-      label: "Research backtest",
+      label: "研究回测",
       status: "ok",
       endpoint: `/api/research?${researchParams.toString()}`,
       params: researchParams,
       detail: "full parameter backtest request",
     },
     {
-      label: "Signal snapshot",
+      label: "建议信号",
       status: "warn",
       endpoint: `/api/signals?${signalParams.toString()}`,
       params: signalParams,
       detail: "advisory target-weight request",
     },
     {
-      label: "Paper simulation",
+      label: "本地模拟盘",
       status: "warn",
       endpoint: `/api/paper?${paperParams.toString()}`,
       params: paperParams,
@@ -1061,7 +1061,7 @@ function renderRequestPreview() {
     target.innerHTML = rows.map((row) => `
       <div class="list-row ${escapeHtml(row.status)}">
         <strong>${escapeHtml(row.label)}</strong>
-        <span>${escapeHtml(row.endpoint)}</span>
+        <span>${escapeHtml(friendlyCommandText(row.endpoint))}</span>
         <span>${escapeHtml(requestPreviewSummary(row.params))}</span>
         <span>${escapeHtml(row.detail)}</span>
       </div>
@@ -1130,13 +1130,13 @@ function applyControlDefaults() {
 
 function requestPreviewSummary(params) {
   return [
-    `source=${params.get("source") || "--"}`,
-    `market=${params.get("market") || "--"}`,
-    `factor=${params.get("factor") || "--"}`,
-    `windows=${params.get("factor_windows") || "--"}`,
-    `top_n=${params.get("top_n") || "--"}`,
-    `cost=${params.get("cost_bps") || params.get("commission_bps") || "--"}bps`,
-    `window=${params.get("start_date") || params.get("as_of_date") || "--"} to ${params.get("end_date") || params.get("as_of_date") || "--"}`,
+    `数据源=${params.get("source") || "--"}`,
+    `市场=${params.get("market") || "--"}`,
+    `因子=${params.get("factor") || "--"}`,
+    `窗口=${params.get("factor_windows") || "--"}`,
+    `TopN=${params.get("top_n") || "--"}`,
+    `成本=${params.get("cost_bps") || params.get("commission_bps") || "--"}bps`,
+    `日期=${params.get("start_date") || params.get("as_of_date") || "--"} 至 ${params.get("end_date") || params.get("as_of_date") || "--"}`,
   ].join(" / ");
 }
 
@@ -1186,23 +1186,23 @@ function renderParameterConsistency(authority = state.controlCenter?.parameter_a
   const headerStatus = driftCount > 0 ? "drift" : (summary.status || "current");
   const header = `
     <div class="list-row ${escapeHtml(headerClass)}">
-      <strong>${escapeHtml(`Parameter authority / ${headerStatus}`)}</strong>
-      <span>${escapeHtml(`workflows=${rows.length} / drift=${driftCount}`)}</span>
-      <span>${escapeHtml(summary.next_action || "Current form parameters match canonical workflow requests.")}</span>
+      <strong>${escapeHtml(`参数权威 / ${headerStatus}`)}</strong>
+      <span>${escapeHtml(`工作流=${rows.length} / 偏离=${driftCount}`)}</span>
+      <span>${escapeHtml(summary.next_action || "当前表单参数匹配标准工作流请求。")}</span>
     </div>
   `;
   const body = rows.map((row) => `
     <div class="list-row ${escapeHtml(row.status === "current" ? "ok" : "warn")}">
       <strong>${escapeHtml(`${row.label} / ${row.status}`)}</strong>
-      <span>${escapeHtml(`mismatch=${row.mismatchKeys.length ? row.mismatchKeys.join(", ") : "none"}`)}</span>
-      <span>${escapeHtml(`form=${requestFreshnessSummary(row.formRequest)}`)}</span>
-      <span>${escapeHtml(`canonical=${requestFreshnessSummary(row.canonicalRequest)}`)}</span>
+        <span>${escapeHtml(`不一致=${row.mismatchKeys.length ? row.mismatchKeys.join(", ") : "无"}`)}</span>
+        <span>${escapeHtml(`表单=${requestFreshnessSummary(row.formRequest)}`)}</span>
+        <span>${escapeHtml(`标准=${requestFreshnessSummary(row.canonicalRequest)}`)}</span>
     </div>
   `).join("");
   target.innerHTML = header + (body || `
     <div class="list-row warn">
-      <strong>No parameter authority</strong>
-      <span>Load control-center status to compare current form parameters with workflow requests.</span>
+      <strong>暂无参数权威表</strong>
+      <span>加载中控状态后，会比较当前表单参数和标准工作流请求。</span>
     </div>
   `);
 }
@@ -1309,9 +1309,9 @@ function requestFreshnessSummary(request = {}) {
   return [
     request.market || "",
     request.factor_name || request.factor || "",
-    request.top_n != null && request.top_n !== "" ? `top_n=${request.top_n}` : "",
-    request.cost_bps != null && request.cost_bps !== "" ? `cost=${request.cost_bps}bps` : "",
-    request.initial_cash != null && request.initial_cash !== "" ? `cash=${request.initial_cash}` : "",
+    request.top_n != null && request.top_n !== "" ? `TopN=${request.top_n}` : "",
+    request.cost_bps != null && request.cost_bps !== "" ? `成本=${request.cost_bps}bps` : "",
+    request.initial_cash != null && request.initial_cash !== "" ? `初始资金=${request.initial_cash}` : "",
     request.start_date || request.as_of_date || "",
     request.end_date || "",
   ].filter(Boolean).join(" / ") || "--";
@@ -1629,7 +1629,7 @@ async function runSignals() {
       workflow_id: "signal_snapshot",
       label: "Generate advisory signal snapshot",
       status: "completed",
-      detail: `top_n=${valueOf("signal-top-n") || "2"}`,
+      detail: `TopN=${valueOf("signal-top-n") || "2"}`,
     });
     appendExecutionReceipt(signalReceipt(state.signals));
     showToast("信号快照已生成");
@@ -1659,7 +1659,7 @@ async function runPaper() {
       workflow_id: "paper_simulation",
       label: "Run local paper simulation",
       status: "completed",
-      detail: `${valueOf("paper-market-select") || "ALL"} / top_n=${valueOf("paper-top-n") || "2"}`,
+      detail: `${valueOf("paper-market-select") || "ALL"} / TopN=${valueOf("paper-top-n") || "2"}`,
     });
     appendExecutionReceipt(paperReceipt(state.paper));
     showToast("纸面模拟已更新");
@@ -2165,7 +2165,7 @@ function renderFactorLeaderboard() {
   ].join("");
   byId("factor-inventory-note").innerHTML = statusRows([
     ["展示口径", summary.note || "下拉框不是历史挖因子总账；排行榜来自配置和本地报告聚合。", "ok"],
-    ["排序依据", summary.ranking_basis || "--", "muted"],
+    ["排序依据", leaderboardRankingBasisText(summary.ranking_basis || "--"), "muted"],
     ["跳过文件", `${summary.report_files_skipped ?? 0}`, summary.report_files_skipped > 0 ? "warn" : "ok"],
   ]);
   renderFactorBeginnerExplainer(activeBoard, rows);
@@ -2205,6 +2205,83 @@ function metricTone(value, good, warn = null, direction = "higher") {
   return "danger";
 }
 
+function leaderboardMetricLabel(metric = "") {
+  const labels = {
+    sharpe: "夏普",
+    total_return: "总收益",
+    annualized_return: "年化收益",
+    max_drawdown: "最大回撤",
+    win_rate: "胜率",
+    rank_ic: "RankIC",
+    mean_ic: "平均IC",
+    paper_sharpe: "模拟盘夏普",
+    walk_forward_sharpe: "走前夏普",
+    oos_sharpe: "样本外夏普",
+    test_sharpe: "测试夏普",
+    score: "综合分",
+  };
+  const key = String(metric || "").toLowerCase();
+  return labels[key] || String(metric || "--").replaceAll("_", " ");
+}
+
+function leaderboardQualityText(value = "") {
+  const normalized = String(value || "").toLowerCase();
+  const labels = {
+    qualified: "合格",
+    ok: "正常",
+    rejected: "已拒绝",
+    thin_sample: "样本偏薄",
+    missing_metric: "缺少指标",
+    no_score: "无评分",
+  };
+  return labels[normalized] || zhConsoleText(value || "--");
+}
+
+function leaderboardReasonText(value = "") {
+  return String(zhConsoleText(value || ""))
+    .replaceAll("sharpe=", "夏普=")
+    .replaceAll("rank_ic=", "RankIC=")
+    .replaceAll("total_return=", "总收益=")
+    .replaceAll("annualized_return=", "年化收益=")
+    .replaceAll("max_drawdown=", "最大回撤=")
+    .replaceAll("win_rate=", "胜率=")
+    .replaceAll("qualified", "合格")
+    .replaceAll("ok", "正常");
+}
+
+function leaderboardRankingBasisText(value = "") {
+  const raw = String(value || "");
+  if (raw.toLowerCase().includes("qualified rows first")) {
+    return "先看合格候选，再按模拟盘/走前/样本外/测试夏普、夏普、RankIC、平均IC、综合分、总收益排序。";
+  }
+  return leaderboardReasonText(raw)
+    .replaceAll("paper/walk-forward/oos/test sharpe", "模拟盘/走前/样本外/测试夏普")
+    .replaceAll("sharpe", "夏普")
+    .replaceAll("rank IC", "RankIC")
+    .replaceAll("mean IC", "平均IC")
+    .replaceAll("score", "综合分")
+    .replaceAll("total return", "总收益");
+}
+
+function leaderboardParamsText(row = {}) {
+  const payload = leaderboardRowPayload(row);
+  const pieces = [
+    payload.factor_windows ? `窗口=${payload.factor_windows}` : "",
+    payload.top_n ? `TopN=${payload.top_n}` : "",
+    payload.cost_bps ? `成本=${payload.cost_bps}bps` : "",
+    payload.rebalance_interval ? `调仓=${payload.rebalance_interval}` : "",
+    payload.execution_lag ? `执行滞后=${payload.execution_lag}` : "",
+    payload.forward_horizon ? `预测=${payload.forward_horizon}` : "",
+    payload.start_date && payload.end_date ? `日期=${payload.start_date} 至 ${payload.end_date}` : "",
+  ].filter(Boolean);
+  return pieces.join(" / ") || "--";
+}
+
+function leaderboardScoreText(row = {}) {
+  const metric = leaderboardMetricLabel(row.score_metric || "--");
+  return `${metric}=${formatDecimal(row.primary_score)}`;
+}
+
 function renderFactorBeginnerExplainer(activeBoard = {}, rows = []) {
   const target = byId("factor-beginner-explainer");
   if (!target) return;
@@ -2225,7 +2302,7 @@ function renderFactorBeginnerExplainer(activeBoard = {}, rows = []) {
   }
   const row = rows[0] || {};
   const tone = factorBeginnerTone(row);
-  const reasons = (row.ranking_reasons || []).join(" / ") || row.ranking_quality || "暂无额外风险说明";
+  const reasons = leaderboardReasonText((row.ranking_reasons || []).join(" / ") || row.ranking_quality || "暂无额外风险说明");
   const conclusion = row.plain_conclusion || row.promotion_label || activeBoard.description || "先看指标，再看审计。";
   const marketHint = row.market === "CN_ETF"
     ? "这是 ETF 主线候选，仍需长周期、OOS、成本和风控复核。"
@@ -2253,7 +2330,7 @@ function renderFactorBeginnerExplainer(activeBoard = {}, rows = []) {
       <div class="factor-beginner-risk status-list compact-status">
         ${statusRows([
           ["能不能直接用", marketHint, row.market === "CN_ETF" ? "warn" : "danger"],
-          ["为什么排这里", `${row.score_metric || "--"}=${formatDecimal(row.primary_score)} / ${row.ranking_quality || "--"}`, tone],
+          ["为什么排这里", `${leaderboardScoreText(row)} / ${leaderboardQualityText(row.ranking_quality)}`, tone],
           ["需要注意", reasons, tone === "ok" ? "warn" : tone],
         ])}
       </div>
@@ -2286,7 +2363,7 @@ function renderFactorLeaderboardTable(rows) {
     </tr>
   `;
   const body = rows.map((row) => {
-    const params = row.params && Object.keys(row.params).length ? JSON.stringify(row.params) : "--";
+    const params = leaderboardParamsText(row);
     const allData = row.all_data && Object.keys(row.all_data).length ? JSON.stringify(row.all_data, null, 2) : "{}";
     return `
       <tr>
@@ -2300,9 +2377,9 @@ function renderFactorLeaderboardTable(rows) {
         <td>${formatPercent(row.win_rate)}</td>
         <td>${formatDecimal(row.rank_ic)}</td>
         <td>${formatNumber(row.trade_count)}</td>
-        <td><code>${escapeRawHtml(params)}</code></td>
-        <td>${escapeHtml(row.ranking_quality || "--")}<br><span class="muted">${escapeHtml((row.ranking_reasons || []).join(" / ") || "ok")}</span></td>
-        <td>${escapeHtml(`${row.score_metric || "--"}=${formatDecimal(row.primary_score)}`)}</td>
+        <td><code>${escapeHtml(params)}</code></td>
+        <td>${escapeHtml(leaderboardQualityText(row.ranking_quality))}<br><span class="muted">${escapeHtml(leaderboardReasonText((row.ranking_reasons || []).join(" / ") || "ok"))}</span></td>
+        <td>${escapeHtml(leaderboardScoreText(row))}</td>
         <td><span class="muted">${escapeHtml(row.source_file || row.source_path || "--")}</span></td>
         <td><details><summary>展开</summary><pre class="json-cell">${escapeRawHtml(allData)}</pre></details></td>
       </tr>
@@ -3529,7 +3606,7 @@ function renderFactorLeaderboard() {
   byId("factor-inventory-note").innerHTML = statusRows([
     ["口径", summary.note || "下拉因子不是历史挖掘总数；排行榜来自配置和本地报告聚合。", "ok"],
     ["主线", `默认只看 ${summary.primary_market || "CN_ETF"}，CN 个股研究只能辅助，不能直接变成 ETF 轮动信号。`, "danger"],
-    ["排序依据", summary.ranking_basis || "--", "muted"],
+    ["排序依据", leaderboardRankingBasisText(summary.ranking_basis || "--"), "muted"],
     ["跳过文件", `${summary.report_files_skipped ?? 0}`, summary.report_files_skipped > 0 ? "warn" : "ok"],
   ]);
   byId("factor-leaderboard-explanation").innerHTML = statusRows([
@@ -3759,9 +3836,9 @@ function renderFactorLeaderboardTable(rows) {
     </tr>
   `;
   const body = rows.map((row) => {
-    const params = row.params && Object.keys(row.params).length ? JSON.stringify(row.params) : "--";
+    const params = leaderboardParamsText(row);
     const allData = row.all_data && Object.keys(row.all_data).length ? JSON.stringify(row.all_data, null, 2) : "{}";
-    const badges = (row.audit_badges || []).map((badge) => `<span class="mini-badge">${escapeHtml(badge)}</span>`).join(" ");
+    const badges = (row.audit_badges || []).map((badge) => `<span class="mini-badge">${escapeHtml(leaderboardReasonText(badge))}</span>`).join(" ");
     const rowPayload = encodeURIComponent(JSON.stringify(leaderboardRowPayload(row)));
     const runtime = factorRuntimeStatus(leaderboardRowPayload(row));
     return `
@@ -3784,10 +3861,10 @@ function renderFactorLeaderboardTable(rows) {
         <td>${formatPercent(row.win_rate)}</td>
         <td>${formatDecimal(row.rank_ic)}</td>
         <td>${formatNumber(row.trade_count)}</td>
-        <td><code>${escapeRawHtml(params)}</code></td>
+        <td><code>${escapeHtml(params)}</code></td>
         <td>${badges || "--"}</td>
-        <td>${escapeHtml(row.ranking_quality || "--")}<br><span class="muted">${escapeHtml((row.ranking_reasons || []).join(" / ") || "ok")}</span></td>
-        <td>${escapeHtml(`${row.score_metric || "--"}=${formatDecimal(row.primary_score)}`)}</td>
+        <td>${escapeHtml(leaderboardQualityText(row.ranking_quality))}<br><span class="muted">${escapeHtml(leaderboardReasonText((row.ranking_reasons || []).join(" / ") || "ok"))}</span></td>
+        <td>${escapeHtml(leaderboardScoreText(row))}</td>
         <td><span class="muted">${escapeHtml(row.source_file || row.source_path || "--")}</span></td>
         <td><details><summary>展开</summary><pre class="json-cell">${escapeRawHtml(allData)}</pre></details></td>
       </tr>
@@ -4868,7 +4945,7 @@ function multiLineChart(series) {
     points: (item.rows || []).map((row) => Number(row[item.yKey])).filter((value) => Number.isFinite(value)),
   }));
   const all = normalized.flatMap((item) => item.points);
-  if (all.length === 0) return emptyChart("No data");
+  if (all.length === 0) return emptyChart("暂无数据");
   let minY = Math.min(...all);
   let maxY = Math.max(...all);
   if (minY === maxY) {
@@ -4907,7 +4984,7 @@ function multiLineChart(series) {
 
 function barChart(rows, xKey, yKey, color) {
   const points = rows.map((row) => ({ label: String(row[xKey]), value: Number(row[yKey]) })).filter((point) => Number.isFinite(point.value));
-  if (points.length === 0) return emptyChart("No data");
+  if (points.length === 0) return emptyChart("暂无数据");
   const width = 560;
   const height = 260;
   const pad = { left: 46, right: 18, top: 24, bottom: 44 };
@@ -4943,8 +5020,8 @@ function renderAuditPackets(rows) {
   if (!rows || rows.length === 0) {
     return `
       <div class="list-row warn">
-        <strong>No audit packets configured</strong>
-        <span>Run the GUI control-center audit to create the evidence spine.</span>
+        <strong>暂无审计包配置</strong>
+        <span>运行 GUI 中控台审计后，会生成证据主线。</span>
       </div>
     `;
   }
@@ -4983,8 +5060,8 @@ function renderAuditFeedback(feedback = {}) {
   `).join("");
   return header + (actionRows || `
     <div class="list-row warn">
-      <strong>No audit feedback actions</strong>
-      <span>Review the independent audit packet before the next GUI optimization round.</span>
+      <strong>暂无审计反馈动作</strong>
+      <span>下一轮 GUI 优化前，先复核独立审计包。</span>
     </div>
   `);
 }
@@ -4999,8 +5076,8 @@ function renderRoundCheckpointReport(report = {}) {
   const header = `
     <div class="list-row ${escapeHtml(headerClass)}">
       <strong>${escapeHtml(`Round ${summary.current_round ?? 0} / ${summary.audit_score ?? "--"}-${summary.max_score ?? "--"} / ${summary.verdict || status}`)}</strong>
-      <span>${escapeHtml(`cadence=${summary.cadence_rounds ?? 5} rounds / summarized=${summary.completed_rounds ?? 0} / remaining=${summary.rounds_until_next_audit ?? "--"}`)}</span>
-      <span>${escapeHtml(summary.next_review_trigger || "Generate a checkpoint report every five GUI rounds.")}</span>
+      <span>${escapeHtml(`节奏=${summary.cadence_rounds ?? 5}轮 / 已汇总=${summary.completed_rounds ?? 0} / 剩余=${summary.rounds_until_next_audit ?? "--"}`)}</span>
+      <span>${escapeHtml(summary.next_review_trigger || "每五轮 GUI 工作生成一次复盘报告。")}</span>
     </div>
   `;
   const workRows = recentWork.slice(0, 5).map((item) => `
@@ -5019,13 +5096,13 @@ function renderRoundCheckpointReport(report = {}) {
   `).join("");
   return header + (workRows || `
     <div class="list-row warn">
-      <strong>No recent GUI rounds</strong>
-      <span>Run GUI workflows or verification gates to populate the five-round report.</span>
+      <strong>暂无近期 GUI 轮次</strong>
+      <span>运行 GUI 工作流或验证闸门后，会填充五轮复盘报告。</span>
     </div>
   `) + (planRows || `
     <div class="list-row warn">
-      <strong>No next flow plan</strong>
-      <span>Run the independent GUI audit to generate the next flow plan.</span>
+      <strong>暂无下一步流程计划</strong>
+      <span>运行独立 GUI 审计后，会生成下一步流程计划。</span>
     </div>
   `);
 }
@@ -5037,7 +5114,7 @@ function renderAuditIterationPlan(plan = {}) {
   const header = `
     <div class="list-row ${escapeHtml(headerClass)}">
       <strong>${escapeHtml(`${summary.audit_score ?? "--"} / ${summary.max_score ?? "--"} ${summary.source || "audit source"}`)}</strong>
-      <span>${escapeHtml(`actions=${summary.active_actions ?? "--"} / cadence=${summary.cadence_rounds ?? 5} rounds`)}</span>
+      <span>${escapeHtml(`动作=${summary.active_actions ?? "--"} / 节奏=${summary.cadence_rounds ?? 5}轮`)}</span>
       <span>${escapeHtml(summary.next_action || "")}</span>
     </div>
   `;
@@ -5054,8 +5131,8 @@ function renderAuditIterationPlan(plan = {}) {
   }).join("");
   return header + (body || `
     <div class="list-row warn">
-      <strong>No audit iteration actions</strong>
-      <span>Run the independent GUI audit before the next optimization round.</span>
+      <strong>暂无审计迭代动作</strong>
+      <span>下一轮优化前，先运行独立 GUI 审计。</span>
     </div>
   `);
 }
@@ -5089,8 +5166,8 @@ function renderAuditScheduler(scheduler = {}) {
   }).join("");
   return header + (body || `
     <div class="list-row warn">
-      <strong>No audit scheduler data</strong>
-      <span>The control API should expose gui-5h heartbeat status and latest audit age.</span>
+      <strong>暂无审计调度数据</strong>
+      <span>中控 API 需要展示 gui-5h 心跳状态和最近审计时间。</span>
     </div>
   `);
 }
@@ -5359,8 +5436,8 @@ function renderWorkflowPreflight(preflight = {}) {
   }).join("");
   return header + (body || `
     <div class="list-row warn">
-      <strong>No workflow preflight rows</strong>
-      <span>Control status should expose run readiness before workflow buttons are used.</span>
+      <strong>暂无运行前检查行</strong>
+      <span>使用工作流按钮前，中控状态应展示运行就绪情况。</span>
     </div>
   `);
 }
@@ -5443,16 +5520,34 @@ function renderActiveOperation(spec = {}, active = null) {
   return header + body;
 }
 
+function operationLedgerText(value = "") {
+  return String(zhConsoleText(value || ""))
+    .replaceAll("market=", "市场=")
+    .replaceAll("factor_name=", "因子=")
+    .replaceAll("factor=", "因子=")
+    .replaceAll("top_n=", "TopN=")
+    .replaceAll("cost_bps=", "成本bps=")
+    .replaceAll("start_date=", "开始=")
+    .replaceAll("end_date=", "结束=")
+    .replaceAll("cash=", "初始资金=")
+    .replaceAll("gate_id=", "闸门=")
+    .replaceAll("returncode=", "返回码=")
+    .replaceAll("live=enabled", "实盘=启用")
+    .replaceAll("live=disabled", "实盘=禁用")
+    .replaceAll("orders=enabled", "下单=启用")
+    .replaceAll("orders=disabled", "下单=禁用");
+}
+
 function renderOperationLedger(ledger = {}) {
   const summary = ledger.summary || {};
   const rows = ledger.rows || [];
   const hasRows = rows.length > 0;
   const header = `
     <div class="list-row ${escapeHtml(hasRows ? "ok" : "warn")}">
-      <strong>${escapeHtml(hasRows ? "Recent server operation" : "No server operation logged")}</strong>
-      <span>${escapeHtml(`entries=${summary.entry_count ?? 0} / latest=${summary.latest_workflow_id || "--"} / ${summary.latest_status || "--"}`)}</span>
-      <span>${escapeHtml(`path=${summary.path || "data/reports/gui_operation_ledger/gui_operation_ledger.json"}`)}</span>
-      <span>${escapeHtml(`live=${summary.live_trading_allowed ? "enabled" : "disabled"} / orders=${summary.order_placement_allowed ? "enabled" : "disabled"}`)}</span>
+      <strong>${escapeHtml(hasRows ? "最近服务端操作" : "暂无服务端操作记录")}</strong>
+      <span>${escapeHtml(`记录=${summary.entry_count ?? 0} / 最新=${summary.latest_workflow_id || "--"} / ${summary.latest_status || "--"}`)}</span>
+      <span>${escapeHtml(`账本=${summary.path || "data/reports/gui_operation_ledger/gui_operation_ledger.json"}`)}</span>
+      <span>${escapeHtml(`实盘=${summary.live_trading_allowed ? "启用" : "禁用"} / 下单=${summary.order_placement_allowed ? "启用" : "禁用"}`)}</span>
     </div>
   `;
   const body = rows.slice(0, 6).map((item) => {
@@ -5466,15 +5561,15 @@ function renderOperationLedger(ledger = {}) {
       <div class="list-row ${escapeHtml(statusClass)}">
         <strong>${escapeHtml(item.label || item.workflow_id || "")}</strong>
         <span>${escapeHtml(`${item.recorded_at || "--"} / ${status || "--"} / ${item.workflow_id || "--"}`)}</span>
-        <span>${escapeHtml(item.request_summary || item.command || "")}</span>
-        <span>${escapeHtml(item.metric_summary || item.stage || "")}</span>
+        <span>${escapeHtml(operationLedgerText(item.request_summary || item.command || ""))}</span>
+        <span>${escapeHtml(operationLedgerText(item.metric_summary || item.stage || ""))}</span>
       </div>
     `;
   }).join("");
   return header + (body || `
     <div class="list-row warn">
-      <strong>Awaiting workflow receipt</strong>
-      <span>Run research, signal, paper, or verification from this GUI to create a server-side receipt.</span>
+      <strong>等待工作流回执</strong>
+      <span>从这个 GUI 运行研究、信号、模拟盘或验证任务后，会生成服务端回执。</span>
     </div>
   `);
 }
@@ -5527,7 +5622,7 @@ function renderStartupHealth(health = {}) {
   const headerClass = ready ? "ok" : summary.missing_required ? "danger" : "warn";
   const header = `
     <div class="list-row ${escapeHtml(headerClass)}">
-      <strong>${escapeHtml(ready ? "Local startup ready" : "Startup evidence required")}</strong>
+      <strong>${escapeHtml(ready ? "本地启动就绪" : "需要启动证据")}</strong>
       <span>${escapeHtml(`status=${summary.status || "--"} / browser=${summary.browser_smoke_ready ? "ready" : "missing"}`)}</span>
       <span>${escapeHtml(`${summary.control_status_endpoint || "/api/control/status"} / ${summary.next_action || ""}`)}</span>
     </div>
@@ -5545,8 +5640,8 @@ function renderStartupHealth(health = {}) {
   }).join("");
   return header + (body || `
     <div class="list-row warn">
-      <strong>No startup health rows</strong>
-      <span>Run the local GUI startup and browser smoke before operator use.</span>
+      <strong>暂无启动健康行</strong>
+      <span>给操作员使用前，先运行本地 GUI 启动和浏览器冒烟。</span>
     </div>
   `);
 }
@@ -5934,15 +6029,28 @@ function formatGateValue(value, valueType) {
   return formatNumber(value);
 }
 
+function releaseReadinessText(value = "") {
+  return operationLedgerText(value)
+    .replaceAll("Push ready", "可以推送")
+    .replaceAll("Manual verification required", "需要人工验证")
+    .replaceAll("No audit repair actions queued", "暂无审计修复动作排队")
+    .replaceAll("No audit repair actions 排队", "暂无审计修复动作排队")
+    .replaceAll("Verification pack", "验证包")
+    .replaceAll("required", "必需")
+    .replaceAll("before push", "推送前")
+    .replaceAll("ready", "就绪")
+    .replaceAll("missing", "缺失");
+}
+
 function renderReleaseReadiness(readiness = {}) {
   const summary = readiness.summary || {};
   const rows = readiness.rows || [];
   const headerClass = summary.push_ready ? "ok" : summary.missing_required ? "danger" : "warn";
   const header = `
     <div class="list-row ${escapeHtml(headerClass)}">
-      <strong>${escapeHtml(summary.push_ready ? "Push ready" : "Manual verification required")}</strong>
-      <span>${escapeHtml(`证据=${summary.evidence_ready ? "ready" : "missing"} / 人工=${summary.manual_required ?? "--"} / 缺失=${summary.missing_required ?? "--"}`)}</span>
-      <span>${escapeHtml(summary.next_action || "")}</span>
+      <strong>${escapeHtml(summary.push_ready ? "可以推送" : "需要人工验证")}</strong>
+      <span>${escapeHtml(`证据=${summary.evidence_ready ? "就绪" : "缺失"} / 人工=${summary.manual_required ?? "--"} / 缺失=${summary.missing_required ?? "--"}`)}</span>
+      <span>${escapeHtml(releaseReadinessText(summary.next_action || ""))}</span>
     </div>
   `;
   const body = rows.slice(0, 8).map((item) => {
@@ -5952,7 +6060,7 @@ function renderReleaseReadiness(readiness = {}) {
       <div class="list-row ${escapeHtml(statusClass)}">
         <strong>${escapeHtml(item.label || item.check_id || "")}</strong>
         <span>${escapeHtml(status || "--")}</span>
-        <span>${escapeHtml(item.evidence || item.command || "")}</span>
+        <span>${escapeHtml(releaseReadinessText(item.evidence || item.command || ""))}</span>
       </div>
     `;
   }).join("");
@@ -6088,17 +6196,17 @@ function renderExecutionReceipts(spec = {}) {
     const request = item.request || {};
     const statusClass = item.status === "completed" ? "ok" : item.status === "failed" ? "danger" : "warn";
     const metricText = [
-      metrics.total_return != null ? `return=${formatPercent(metrics.total_return)}` : "",
-      metrics.sharpe != null ? `sharpe=${formatDecimal(metrics.sharpe)}` : "",
-      metrics.max_drawdown != null ? `dd=${formatPercent(metrics.max_drawdown)}` : "",
-      metrics.ending_equity != null ? `equity=${formatNumber(metrics.ending_equity)}` : "",
-      metrics.target_count != null ? `targets=${formatNumber(metrics.target_count)}` : "",
+      metrics.total_return != null ? `收益=${formatPercent(metrics.total_return)}` : "",
+      metrics.sharpe != null ? `夏普=${formatDecimal(metrics.sharpe)}` : "",
+      metrics.max_drawdown != null ? `回撤=${formatPercent(metrics.max_drawdown)}` : "",
+      metrics.ending_equity != null ? `权益=${formatNumber(metrics.ending_equity)}` : "",
+      metrics.target_count != null ? `目标数=${formatNumber(metrics.target_count)}` : "",
     ].filter(Boolean).join(" / ");
     const requestText = [
       request.market,
       request.factor_name || request.factor,
-      request.top_n != null ? `top_n=${request.top_n}` : "",
-      request.cost_bps != null ? `cost=${request.cost_bps}bps` : "",
+      request.top_n != null ? `TopN=${request.top_n}` : "",
+      request.cost_bps != null ? `成本=${request.cost_bps}bps` : "",
     ].filter(Boolean).join(" / ");
     return `
       <div class="list-row ${escapeHtml(statusClass)}">
@@ -6318,19 +6426,19 @@ function operationForButton(buttonId) {
     "run-research": {
       workflow_id: "research_backtest",
       label: "Run research backtest",
-      detail: () => `${valueOf("market-select") || "ALL"} / ${valueOf("factor-select") || "momentum_2"} / top_n=${valueOf("research-top-n") || "2"}`,
+      detail: () => `${valueOf("market-select") || "ALL"} / ${valueOf("factor-select") || "momentum_2"} / TopN=${valueOf("research-top-n") || "2"}`,
       safety: "research calculation only; no broker, account, or order side effects",
     },
     "run-signals": {
       workflow_id: "signal_snapshot",
       label: "Generate advisory signal snapshot",
-      detail: () => `${valueOf("market-select") || "ALL"} / top_n=${valueOf("signal-top-n") || "2"}`,
+      detail: () => `${valueOf("market-select") || "ALL"} / TopN=${valueOf("signal-top-n") || "2"}`,
       safety: "advisory targets only; executable=false and no order routing",
     },
     "run-paper": {
       workflow_id: "paper_simulation",
       label: "Run local paper simulation",
-      detail: () => `${valueOf("paper-market-select") || "ALL"} / top_n=${valueOf("paper-top-n") || "2"} / cash=${valueOf("paper-initial-cash") || "100000"}`,
+      detail: () => `${valueOf("paper-market-select") || "ALL"} / TopN=${valueOf("paper-top-n") || "2"} / 初始资金=${valueOf("paper-initial-cash") || "100000"}`,
       safety: "local simulated fills only; no broker, account, or order side effects",
     },
   };
