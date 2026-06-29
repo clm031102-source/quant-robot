@@ -235,6 +235,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderFactorGlossary();
   renderBeginnerVerdict();
   renderBeginnerTaskWizard();
+  renderBeginnerTroubleshooter();
   renderBeginnerGuide();
   renderBeginnerProgress();
   await loadSnapshot();
@@ -356,6 +357,18 @@ function bindActions() {
       return;
     }
     jumpToBeginnerTarget(targetId, button.dataset.leaderboardTab || state.leaderboardTab);
+  });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-beginner-troubleshooter-jump]");
+    if (!button) return;
+    event.preventDefault();
+    jumpToBeginnerTarget(button.dataset.beginnerTroubleshooterJump || "control-active-operation", state.leaderboardTab);
+  });
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-beginner-troubleshooter-action]");
+    if (!button) return;
+    event.preventDefault();
+    await runBeginnerAction(button.dataset.beginnerTroubleshooterAction || "", button);
   });
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-beginner-action]");
@@ -1805,6 +1818,7 @@ function renderControlCenter() {
   renderRunHistory(runHistorySpec);
   renderExecutionReceipts(executionReceiptSpec);
   renderBeginnerTaskWizard();
+  renderBeginnerTroubleshooter();
   renderBeginnerProgress();
 }
 
@@ -1853,6 +1867,7 @@ function renderDashboard() {
   renderOrdinaryHome();
   renderBeginnerVerdict();
   renderBeginnerTaskWizard();
+  renderBeginnerTroubleshooter();
   renderBeginnerGuide();
   renderBeginnerProgress();
   renderFactorBeginnerExplainer(activeFactorBoard, activeFactorBoard.rows || []);
@@ -2095,6 +2110,7 @@ function setLeaderboardTab(tab) {
   renderOrdinaryHome();
   renderBeginnerVerdict();
   renderBeginnerTaskWizard();
+  renderBeginnerTroubleshooter();
   renderBeginnerProgress();
 }
 
@@ -2349,6 +2365,157 @@ function renderBeginnerTaskWizard() {
       >看证据位置</button>
     </div>
   `;
+}
+
+function beginnerTroubleshooterState() {
+  const progress = beginnerProgressState();
+  const trust = beginnerDataTrustState(progress);
+  const project = state.projectStatus || {};
+  const blockerCount = Number(project.blocker_count || 0);
+  const active = state.activeOperation || {};
+  const latestReceipt = beginnerLatestReceipt() || {};
+  const latestHistory = beginnerLatestRunHistory() || {};
+  const failed = active.status === "failed" || latestReceipt.status === "failed" || latestHistory.status === "failed";
+  const latestWorkflow = active.workflow_id || latestReceipt.workflow_id || latestHistory.workflow_id || "research_backtest";
+
+  let stateInfo = {
+    tone: "ok",
+    tag: "可继续",
+    title: "暂时没有明显问题",
+    summary: "可以继续看数据可信度、回测闸门和模拟盘交接，不要跳过证据。",
+    reason: "当前没有发现运行失败、项目阻断、演示数据、非 CN_ETF 主线或短样本硬问题。",
+    avoid: "不要把单次高收益直接当成可推广盈利因子。",
+    next: "继续核对回测闸门和结果证据。",
+    target: "control-backtest-gate",
+    targetLabel: "看回测闸门",
+    action: state.research && !state.paper ? "paper_simulation" : "",
+    actionLabel: state.research && !state.paper ? "本地模拟盘回放" : "",
+  };
+
+  if (progress.status === "running") {
+    stateInfo = {
+      tone: "warn",
+      tag: "运行中",
+      title: "当前已有任务在运行",
+      summary: "先等当前本地任务结束，不要连续点多个运行按钮。",
+      reason: active.detail || progress.summary || "浏览器已经记录了一个正在运行的本地工作流。",
+      avoid: "不要重复点击回测、信号或模拟盘按钮。",
+      next: "去看当前操作和运行队列，等状态变成完成或失败。",
+      target: "control-active-operation",
+      targetLabel: "看当前操作",
+    };
+  } else if (failed) {
+    stateInfo = {
+      tone: "danger",
+      tag: "刚失败",
+      title: "刚才的本地任务失败了",
+      summary: "先看失败原因，再决定是修参数还是重新跑。",
+      reason: active.detail || latestReceipt.detail || latestHistory.detail || progress.summary || "最新回执标记为 failed。",
+      avoid: "不要在失败原因没看清前继续做模拟盘或推广判断。",
+      next: "先看失败原因；如果只是参数或临时接口问题，再重新跑当前回测。",
+      target: "control-active-operation",
+      targetLabel: "看失败原因",
+      action: latestWorkflow === "research_backtest" ? "research_backtest" : "",
+      actionLabel: latestWorkflow === "research_backtest" ? "重新跑当前回测" : "",
+    };
+  } else if (blockerCount > 0) {
+    stateInfo = {
+      tone: "danger",
+      tag: "有阻断",
+      title: "项目还有阻断项",
+      summary: `当前项目有 ${blockerCount} 个阻断项，先修复再谈模拟盘或推广。`,
+      reason: project.overall_status || "项目状态里仍有 blocker。",
+      avoid: "不要绕过审计修复队列，也不要只看收益指标。",
+      next: "打开审计修复队列和运行前检查。",
+      target: "control-audit-repair-queue",
+      targetLabel: "看修复队列",
+    };
+  } else if (trust.isDemo || trust.wrongMarket || trust.tone === "danger") {
+    stateInfo = {
+      tone: "danger",
+      tag: "不可下结论",
+      title: trust.title || "当前数据不能下结论",
+      summary: trust.summary || "先修正数据源、市场或样本窗口。",
+      reason: trust.resultText || "数据可信度卡给出了红灯。",
+      avoid: "不要把演示数据、非 CN_ETF 或一年以内样本当成盈利因子证据。",
+      next: "先看当前参数和请求预览，确认数据源、市场和日期窗口。",
+      target: trust.target || "beginner-data-trust-card",
+      targetLabel: trust.button || "看可信度",
+    };
+  } else if (trust.onlyReceipt || trust.tone === "warn") {
+    stateInfo = {
+      tone: "warn",
+      tag: trust.tag || "需核对",
+      title: trust.title || "当前结果需要核对",
+      summary: trust.summary || "先确认这是不是当前参数对应的结果。",
+      reason: trust.resultText || "数据可信度卡给出了黄灯。",
+      avoid: "不要把历史回执或偏短样本直接当成当前结论。",
+      next: "不确定时重新跑当前参数，跑完再看回测闸门。",
+      target: trust.target || "beginner-data-trust-card",
+      targetLabel: trust.button || "看可信度",
+      action: !state.research || trust.onlyReceipt ? "research_backtest" : "",
+      actionLabel: !state.research || trust.onlyReceipt ? "重新跑当前回测" : "",
+    };
+  } else if (!state.research) {
+    stateInfo = {
+      tone: "warn",
+      tag: "未回测",
+      title: "当前参数还没有页面结果",
+      summary: "先跑一次本地回测，才有收益、回撤、胜率和 Sharpe 可以看。",
+      reason: "当前页面没有 state.research 结果。",
+      avoid: "不要只看排行榜就判断因子可用。",
+      next: "看当前参数，确认无误后本地回测。",
+      target: "beginner-parameter-explainer",
+      targetLabel: "看当前参数",
+      action: "research_backtest",
+      actionLabel: "本地回测当前参数",
+    };
+  }
+
+  return stateInfo;
+}
+
+function beginnerTroubleshooterRows(info = beginnerTroubleshooterState()) {
+  return [
+    ["为什么", info.reason || "--", info.tone],
+    ["先不要做", info.avoid || "不要跳过证据。", info.tone === "ok" ? "muted" : "danger"],
+    ["下一步", info.next || "先看证据位置。", info.tone === "danger" ? "warn" : "ok"],
+    ["安全边界", "所有按钮仍然只做本地研究/纸面模拟，不连接券商、不读账户、不真实下单。", "danger"],
+  ];
+}
+
+function renderBeginnerTroubleshooter() {
+  const root = byId("beginner-troubleshooter");
+  const summary = byId("beginner-troubleshooter-summary");
+  const rows = byId("beginner-troubleshooter-rows");
+  const tag = byId("beginner-troubleshooter-tag");
+  if (!root || !summary || !rows || !tag) return;
+  const info = beginnerTroubleshooterState();
+  ["ok", "warn", "danger", "muted"].forEach((tone) => root.classList.remove(tone));
+  root.classList.add(info.tone || "warn");
+  tag.className = info.tone === "danger" ? "tag tag-danger" : info.tone === "warn" ? "tag tag-warn" : "tag";
+  tag.textContent = info.tag || "检查";
+  const actionButton = info.action ? `
+    <button
+      class="primary-button"
+      type="button"
+      data-beginner-troubleshooter-action="${escapeHtml(info.action)}"
+      ${state.activeOperation?.status === "running" ? "disabled" : ""}
+    >${escapeHtml(info.actionLabel || "重新运行")}</button>
+  ` : "";
+  summary.innerHTML = `
+    <div class="beginner-troubleshooter-head">
+      <div>
+        <strong>${escapeHtml(info.title)}</strong>
+        <span>${escapeHtml(info.summary)}</span>
+      </div>
+      <div class="beginner-troubleshooter-actions">
+        <button class="secondary-button" type="button" data-beginner-troubleshooter-jump="${escapeHtml(info.target || "control-active-operation")}">${escapeHtml(info.targetLabel || "看证据")}</button>
+        ${actionButton}
+      </div>
+    </div>
+  `;
+  rows.innerHTML = statusRows(beginnerTroubleshooterRows(info));
 }
 
 function beginnerWorkflowLabel(workflowId = "") {
@@ -2840,6 +3007,7 @@ function jumpToBeginnerTarget(targetId, leaderboardTab = "") {
   if (leaderboardTab) setLeaderboardTab(leaderboardTab);
   const target = byId(targetId);
   if (!target) return;
+  const scrollTarget = jumpTargetForScroll(target);
   const page = target.closest(".page");
   if (page?.id?.startsWith("page-")) {
     const pageName = page.id.replace("page-", "");
@@ -2850,7 +3018,7 @@ function jumpToBeginnerTarget(targetId, leaderboardTab = "") {
   const workspaceOverflowY = workspace ? getComputedStyle(workspace).overflowY : "";
   if (workspace && /auto|scroll|overlay/.test(workspaceOverflowY) && workspace.scrollHeight > workspace.clientHeight + 1) {
     const workspaceRect = workspace.getBoundingClientRect();
-    const targetRect = target.getBoundingClientRect();
+    const targetRect = scrollTarget.getBoundingClientRect();
     const targetTop = workspace.scrollTop + targetRect.top - workspaceRect.top - 96;
     workspace.scrollTo({
       top: Math.max(0, targetTop),
@@ -2860,18 +3028,25 @@ function jumpToBeginnerTarget(targetId, leaderboardTab = "") {
   }
   const documentScroller = document.scrollingElement || document.documentElement;
   if (documentScroller?.scrollTo) {
-    const targetTop = documentScroller.scrollTop + target.getBoundingClientRect().top - 96;
+    const targetTop = documentScroller.scrollTop + scrollTarget.getBoundingClientRect().top - 96;
     documentScroller.scrollTo({
       top: Math.max(0, targetTop),
       behavior: scrollBehaviorForDistance(documentScroller.scrollTop, targetTop),
     });
     return;
   }
-  const windowTargetTop = target.getBoundingClientRect().top + window.scrollY - 96;
+  const windowTargetTop = scrollTarget.getBoundingClientRect().top + window.scrollY - 96;
   window.scrollTo({
     top: Math.max(0, windowTargetTop),
     behavior: scrollBehaviorForDistance(window.scrollY, windowTargetTop),
   });
+}
+
+function jumpTargetForScroll(target) {
+  if (!target) return null;
+  const rect = target.getBoundingClientRect();
+  if (rect.width > 0 && rect.height > 0) return target;
+  return target.closest(".control-cell, .panel") || target;
 }
 
 function scrollBehaviorForDistance(currentTop, targetTop) {
@@ -5099,6 +5274,7 @@ function appendRunHistory(entry) {
   saveRunHistory([nextEntry].concat(loadRunHistory(spec)), spec);
   renderRunHistory(spec);
   renderBeginnerTaskWizard();
+  renderBeginnerTroubleshooter();
   renderBeginnerProgress();
   return nextEntry;
 }

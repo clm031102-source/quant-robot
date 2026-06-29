@@ -571,6 +571,75 @@ button {
   white-space: normal;
 }
 
+.beginner-troubleshooter {
+  border-left: 4px solid var(--accent);
+  background: #f7fbf8;
+}
+
+.beginner-troubleshooter.warn {
+  border-left-color: var(--warn);
+  background: #fffdf7;
+}
+
+.beginner-troubleshooter.danger {
+  border-left-color: var(--danger);
+  background: #fff8f7;
+}
+
+.beginner-troubleshooter-summary {
+  min-width: 0;
+}
+
+.beginner-troubleshooter-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  border: 1px solid rgba(101, 112, 106, 0.18);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.82);
+  padding: 14px;
+}
+
+.beginner-troubleshooter-head div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.beginner-troubleshooter-head strong {
+  color: var(--ink);
+  font-size: 19px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.beginner-troubleshooter-head span {
+  color: var(--muted);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.beginner-troubleshooter-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.beginner-troubleshooter-actions button {
+  white-space: normal;
+}
+
+.beginner-troubleshooter-rows {
+  margin-top: 10px;
+}
+
+.beginner-troubleshooter-rows .list-row {
+  grid-template-columns: minmax(120px, 0.25fr) minmax(0, 1fr);
+}
+
 .beginner-progress-board {
   border-left: 4px solid var(--warn);
   background: #fffdf7;
@@ -2054,6 +2123,19 @@ th {
   }
 
   .beginner-task-actions button {
+    flex: 1 1 170px;
+  }
+
+  .beginner-troubleshooter-head,
+  .beginner-troubleshooter-rows .list-row {
+    grid-template-columns: 1fr;
+  }
+
+  .beginner-troubleshooter-actions {
+    justify-content: stretch;
+  }
+
+  .beginner-troubleshooter-actions button {
     flex: 1 1 170px;
   }
 
