@@ -187,6 +187,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   renderFactorGlossary();
   renderBeginnerVerdict();
   renderBeginnerGuide();
+  renderBeginnerProgress();
   await loadSnapshot();
   await loadFactorLeaderboard();
   await loadControlCenter();
@@ -269,6 +270,12 @@ function bindActions() {
     if (!button) return;
     event.preventDefault();
     jumpToBeginnerTarget(button.dataset.beginnerResultJump || "control-backtest-gate", state.leaderboardTab);
+  });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-beginner-progress-jump]");
+    if (!button) return;
+    event.preventDefault();
+    jumpToBeginnerTarget(button.dataset.beginnerProgressJump || "control-operation-ledger", state.leaderboardTab);
   });
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-beginner-action]");
@@ -1717,6 +1724,7 @@ function renderControlCenter() {
   ]);
   renderRunHistory(runHistorySpec);
   renderExecutionReceipts(executionReceiptSpec);
+  renderBeginnerProgress();
 }
 
 function renderDashboard() {
@@ -1764,6 +1772,7 @@ function renderDashboard() {
   renderOrdinaryHome();
   renderBeginnerVerdict();
   renderBeginnerGuide();
+  renderBeginnerProgress();
   renderFactorBeginnerExplainer(activeFactorBoard, activeFactorBoard.rows || []);
   byId("dashboard-equity-source").textContent = state.research?.data_source || valueOf("data-source-select") || state.snapshot?.data_mode || "local";
   byId("dashboard-metrics").innerHTML = [
@@ -2003,6 +2012,7 @@ function setLeaderboardTab(tab) {
   renderFactorBeginnerExplainer(activeBoard, activeBoard.rows || []);
   renderOrdinaryHome();
   renderBeginnerVerdict();
+  renderBeginnerProgress();
 }
 
 function renderFactorGlossary() {
@@ -2163,6 +2173,174 @@ function renderBeginnerVerdict() {
   button.dataset.beginnerAction = next.action || "";
   button.dataset.beginnerTarget = next.target || "";
   button.dataset.leaderboardTab = next.leaderboardTab || "";
+}
+
+function beginnerWorkflowLabel(workflowId = "") {
+  const labels = {
+    research_backtest: "本地回测",
+    signal_snapshot: "信号快照",
+    paper_simulation: "模拟盘回放",
+    verification_runner: "本地验证",
+    startup_workflows: "启动工作流",
+    daily_ops: "日常运营刷新",
+    promotion_ops: "候选推广刷新",
+  };
+  return labels[workflowId] || workflowId || "本地工作流";
+}
+
+function beginnerWorkflowTarget(workflowId = "", status = "") {
+  if (status === "failed") return "control-active-operation";
+  if (workflowId === "research_backtest" && !state.research) return "control-execution-receipts";
+  const targets = {
+    research_backtest: "beginner-result-interpreter",
+    signal_snapshot: "control-execution-receipts",
+    paper_simulation: "control-paper-readiness",
+    verification_runner: "control-verification-runner",
+    startup_workflows: "control-execution-receipts",
+    daily_ops: "daily-ops-status",
+    promotion_ops: "promotion-review-status",
+  };
+  return targets[workflowId] || "control-operation-ledger";
+}
+
+function beginnerLatestReceipt() {
+  if (Array.isArray(state.executionReceipts) && state.executionReceipts.length) return state.executionReceipts[0];
+  return loadExecutionReceipts(state.controlCenter?.execution_receipts || {})[0] || null;
+}
+
+function beginnerLatestRunHistory() {
+  if (Array.isArray(state.runHistory) && state.runHistory.length) return state.runHistory[0];
+  return loadRunHistory(state.controlCenter?.run_history || {})[0] || null;
+}
+
+function beginnerHasReceipt(workflowId = "") {
+  const rows = Array.isArray(state.executionReceipts) && state.executionReceipts.length
+    ? state.executionReceipts
+    : loadExecutionReceipts(state.controlCenter?.execution_receipts || {});
+  return rows.some((receipt) => receipt?.workflow_id === workflowId);
+}
+
+function beginnerProgressMetricText(receipt = {}) {
+  const metrics = receipt.metrics || {};
+  const parts = [
+    metrics.total_return != null ? `总收益 ${formatPercent(metrics.total_return)}` : "",
+    metrics.annualized_return != null ? `年化 ${formatPercent(metrics.annualized_return)}` : "",
+    metrics.sharpe != null ? `Sharpe ${formatDecimal(metrics.sharpe)}` : "",
+    metrics.max_drawdown != null ? `最大回撤 ${formatPercent(metrics.max_drawdown)}` : "",
+    metrics.win_rate != null ? `胜率 ${formatPercent(metrics.win_rate)}` : "",
+    metrics.ending_equity != null ? `权益 ${formatNumber(metrics.ending_equity)}` : "",
+    metrics.target_count != null ? `目标 ${formatNumber(metrics.target_count)} 个` : "",
+  ].filter(Boolean);
+  return parts.slice(0, 4).join(" / ");
+}
+
+function beginnerProgressState() {
+  const active = state.activeOperation || null;
+  const latestReceipt = beginnerLatestReceipt();
+  const latestHistory = beginnerLatestRunHistory();
+  if (active?.status === "running") {
+    return {
+      tone: "warn",
+      tag: "运行中",
+      status: "running",
+      workflowId: active.workflow_id || "",
+      title: `正在运行：${beginnerWorkflowLabel(active.workflow_id)}`,
+      summary: active.detail || "本地接口正在计算，请等它返回。这里不会连接券商、账户或真实订单。",
+      detail: active.safety || "仅研究到纸面模拟。",
+      target: "control-active-operation",
+      targetLabel: "看当前操作",
+      actionText: "先不要连续点多个运行按钮，等当前任务结束后再看结果。",
+    };
+  }
+  const finalOperation = active && ["completed", "failed"].includes(active.status) ? active : null;
+  const latest = finalOperation || latestReceipt || latestHistory;
+  if (!latest) {
+    return {
+      tone: "warn",
+      tag: "未开始",
+      status: "idle",
+      workflowId: "research_backtest",
+      title: "还没有开始本轮本地运行",
+      summary: "先用当前参数跑一次本地回测，软件会记录运行历史、浏览器回执和结果解释。",
+      detail: "所有运行都停留在本地研究/纸面模拟边界内。",
+      target: "beginner-parameter-explainer",
+      targetLabel: "先看当前参数",
+      action: "research_backtest",
+      actionLabel: "本地回测当前参数",
+      actionText: "第一步建议先跑回测，不要直接跳到模拟盘。",
+    };
+  }
+  const workflowId = latest.workflow_id || "workflow";
+  const failed = latest.status === "failed";
+  const metricText = beginnerProgressMetricText(latestReceipt || {});
+  const hasCurrentResearch = Boolean(state.research);
+  return {
+    tone: failed ? "danger" : "ok",
+    tag: failed ? "失败" : "已完成",
+    status: failed ? "failed" : "completed",
+    workflowId,
+    title: `${failed ? "刚才失败" : "最近完成"}：${beginnerWorkflowLabel(workflowId)}`,
+    summary: metricText || latest.detail || latest.decision || "本地运行已经留下记录，可以继续看证据和结果。",
+    detail: latest.safety || "仍然只是研究/纸面模拟，不是实盘信号。",
+    target: beginnerWorkflowTarget(workflowId, latest.status),
+    targetLabel: failed ? "看失败原因" : (workflowId === "research_backtest" && !hasCurrentResearch ? "看浏览器回执" : "看结果证据"),
+    action: workflowId === "research_backtest" && !failed && hasCurrentResearch ? "paper_simulation" : "",
+    actionLabel: workflowId === "research_backtest" && !failed && hasCurrentResearch ? "本地模拟盘回放" : "",
+    actionText: failed
+      ? "先修复失败原因，再重新运行。"
+      : workflowId === "research_backtest" && !hasCurrentResearch
+        ? "先核对这条回执是否对应当前参数，不确定就重新跑当前参数。"
+        : "先看结果是否可信，再决定是否推进下一步。",
+  };
+}
+
+function beginnerProgressStepRows(progress = beginnerProgressState()) {
+  const hasResearchResult = Boolean(state.research || beginnerHasReceipt("research_backtest"));
+  const hasPaperResult = Boolean(state.paper || beginnerHasReceipt("paper_simulation"));
+  return [
+    ["1. 参数", valueOf("market-select") ? `${valueOf("market-select")} / ${valueOf("factor-select") || "--"} / TopN ${valueOf("research-top-n") || "--"}` : "等待本地状态加载", valueOf("market-select") ? "ok" : "warn"],
+    ["2. 本地运行", progress.status === "running" ? "正在跑，请等待返回" : progress.status === "idle" ? "还没开始本轮运行" : `${progress.tag} / ${beginnerWorkflowLabel(progress.workflowId)}`, progress.tone],
+    ["3. 结果解释", hasResearchResult ? (state.research ? "已有当前回测结果可读" : "已有浏览器回测回执可读") : "跑完回测后这里会出现收益、回撤、胜率和 Sharpe", hasResearchResult ? "ok" : "warn"],
+    ["4. 模拟盘", hasPaperResult ? (state.paper ? "已有当前本地模拟盘回放" : "已有浏览器模拟盘回执") : "必须先确认回测可信，再做纸面模拟", hasPaperResult ? "ok" : "muted"],
+  ];
+}
+
+function renderBeginnerProgress() {
+  const root = byId("beginner-progress-board");
+  const statusTarget = byId("beginner-progress-status");
+  const stepsTarget = byId("beginner-progress-steps");
+  const nextTarget = byId("beginner-progress-next");
+  const tag = byId("beginner-progress-tag");
+  if (!root || !statusTarget || !stepsTarget || !nextTarget || !tag) return;
+  const progress = beginnerProgressState();
+  ["ok", "warn", "danger", "muted"].forEach((tone) => root.classList.remove(tone));
+  root.classList.add(progress.tone);
+  tag.textContent = progress.tag;
+  tag.classList.toggle("tag-warn", progress.tone === "warn");
+  tag.classList.toggle("tag-danger", progress.tone === "danger");
+  statusTarget.innerHTML = `
+    <div class="beginner-progress-card ${escapeHtml(progress.tone)}">
+      <small>${escapeHtml(beginnerWorkflowLabel(progress.workflowId))}</small>
+      <strong>${escapeHtml(progress.title)}</strong>
+      <span>${escapeHtml(progress.summary)}</span>
+      <em>${escapeHtml(progress.detail)}</em>
+    </div>
+  `;
+  stepsTarget.innerHTML = statusRows(beginnerProgressStepRows(progress));
+  const actionButton = progress.action ? `
+    <button class="primary-button" type="button" data-beginner-action="${escapeHtml(progress.action)}">${escapeHtml(progress.actionLabel || "开始运行")}</button>
+  ` : "";
+  nextTarget.innerHTML = `
+    <div class="list-row ${escapeHtml(progress.tone)}">
+      <strong>下一步</strong>
+      <span>${escapeHtml(progress.actionText || "看完证据后再决定下一步。")}</span>
+    </div>
+    <div class="list-row ok">
+      <strong>去查看</strong>
+      <span><button class="secondary-button" type="button" data-beginner-progress-jump="${escapeHtml(progress.target)}">${escapeHtml(progress.targetLabel || "看证据")}</button></span>
+      <span>${actionButton}</span>
+    </div>
+  `;
 }
 
 function renderBeginnerGuide() {
@@ -4469,6 +4647,7 @@ function appendRunHistory(entry) {
   };
   saveRunHistory([nextEntry].concat(loadRunHistory(spec)), spec);
   renderRunHistory(spec);
+  renderBeginnerProgress();
   return nextEntry;
 }
 

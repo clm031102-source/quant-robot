@@ -252,6 +252,12 @@ button {
   color: var(--red);
 }
 
+.tag-danger {
+  border-color: rgba(173, 63, 60, 0.42);
+  background: #fff1f0;
+  color: var(--danger);
+}
+
 .operator-strip {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -451,6 +457,88 @@ button {
 #beginner-next-button {
   justify-content: center;
   min-height: 42px;
+  white-space: normal;
+}
+
+.beginner-progress-board {
+  border-left: 4px solid var(--warn);
+  background: #fffdf7;
+}
+
+.beginner-progress-board.ok {
+  border-left-color: var(--accent);
+  background: #f6fbf8;
+}
+
+.beginner-progress-board.danger {
+  border-left-color: var(--danger);
+  background: #fff8f7;
+}
+
+.beginner-progress-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.95fr) minmax(260px, 1fr) minmax(260px, 0.9fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.beginner-progress-status {
+  min-width: 0;
+}
+
+.beginner-progress-card {
+  min-height: 100%;
+  border: 1px solid rgba(189, 108, 33, 0.28);
+  border-radius: var(--radius);
+  background: #fff7e8;
+  padding: 14px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.beginner-progress-card.ok {
+  border-color: rgba(54, 119, 84, 0.28);
+  background: #eef8f2;
+}
+
+.beginner-progress-card.danger {
+  border-color: rgba(173, 63, 60, 0.28);
+  background: #fff0ef;
+}
+
+.beginner-progress-card small {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.beginner-progress-card strong {
+  color: var(--ink);
+  font-size: 20px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.beginner-progress-card span,
+.beginner-progress-card em {
+  color: var(--muted);
+  line-height: 1.48;
+  overflow-wrap: anywhere;
+}
+
+.beginner-progress-card em {
+  font-style: normal;
+  font-size: 13px;
+}
+
+.beginner-progress-next .list-row span {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.beginner-progress-next button {
   white-space: normal;
 }
 
@@ -1645,6 +1733,7 @@ th {
   .ordinary-home-grid,
   .beginner-verdict-board,
   .beginner-guide-layout,
+  .beginner-progress-layout,
   .factor-beginner-card,
   .control-center-grid,
   .dashboard-grid,
@@ -1712,6 +1801,7 @@ th {
   .ordinary-home-grid,
   .beginner-verdict-board,
   .beginner-guide-layout,
+  .beginner-progress-layout,
   .factor-beginner-card,
   .control-center-grid,
   .dashboard-grid,
