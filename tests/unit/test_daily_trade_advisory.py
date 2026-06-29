@@ -117,6 +117,36 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("manual_only_boundary", {item["check_id"] for item in readiness["required_confirmations"]})
         self.assertEqual(pack["pretrade_workflow"]["pretrade_readiness"], readiness)
 
+    def test_manual_broker_handoff_builds_copyable_review_cards_without_orders(self):
+        pack = build_daily_trade_advisory_pack(
+            [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
+            [_signal("c1", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+        )
+
+        handoff = pack["manual_broker_handoff"]
+
+        self.assertEqual(handoff["stage"], "phase_6_3_manual_broker_handoff")
+        self.assertEqual(handoff["status"], "review_only")
+        self.assertFalse(handoff["ready_for_auto_order"])
+        self.assertFalse(handoff["live_order_allowed"])
+        self.assertFalse(handoff["broker_connection_allowed"])
+        self.assertFalse(handoff["order_placement_allowed"])
+        self.assertEqual(handoff["summary"]["ticket_count"], 1)
+        self.assertAlmostEqual(handoff["summary"]["rounded_value"], 33280.0)
+        self.assertIn("paper_simulation_required", {item["check_id"] for item in handoff["confirmation_checklist"]})
+        self.assertIn("manual_only_boundary", {item["check_id"] for item in handoff["confirmation_checklist"]})
+        ticket = handoff["copyable_tickets"][0]
+        self.assertEqual(ticket["asset_id"], "510300")
+        self.assertEqual(ticket["rounded_quantity"], 10400)
+        self.assertFalse(ticket["live_order_allowed"])
+        self.assertTrue(ticket["do_not_submit_until_checked"])
+        self.assertIn("510300", ticket["copy_text"])
+        self.assertIn("10400", ticket["copy_text"])
+        self.assertIn("系统不会下单", ticket["copy_text"])
+        self.assertEqual(pack["pretrade_workflow"]["manual_broker_handoff"], handoff)
+
     def test_pretrade_readiness_blocks_when_signals_are_missing(self):
         pack = build_daily_trade_advisory_pack(
             [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],

@@ -4107,6 +4107,7 @@ function renderDailyTradeAdvisory() {
     ["错误", (pack.signal_errors || []).map((item) => item.factor_name || item.case_id).join(" / ") || "无", pack.signal_errors?.length ? "warn" : "ok"],
   ]);
   renderDailyPretradeReadiness(pack.pretrade_readiness || {});
+  renderManualBrokerHandoff(pack.manual_broker_handoff || {});
   renderDailyPretradeWorkflow(pack.pretrade_workflow || {});
   byId("daily-trade-factor-table").innerHTML = tableRows(pack.factors || [], [
     "rank",
@@ -4182,6 +4183,41 @@ function renderDailyPretradeReadiness(readiness) {
     "rounded_value",
     "cash_delta_after_rounding",
     "live_order_allowed",
+  ]);
+}
+
+function renderManualBrokerHandoff(handoff) {
+  const summary = handoff.summary || {};
+  const checklist = Array.isArray(handoff.confirmation_checklist) ? handoff.confirmation_checklist : [];
+  const tickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
+  byId("daily-manual-broker-handoff-status").innerHTML = statusRows([
+    ["状态", handoff.status || "waiting_for_tickets", tickets.length ? "warn" : "danger"],
+    ["结论", handoff.operator_summary || "还没有可核对票据。", tickets.length ? "warn" : "danger"],
+    ["票据数量", formatNumber(summary.ticket_count), tickets.length ? "warn" : "muted"],
+    ["取整后金额", formatNumber(summary.rounded_value), "muted"],
+    ["取整后剩余", formatNumber(summary.cash_delta_after_rounding), "muted"],
+    ["自动下单", handoff.ready_for_auto_order ? "允许" : "禁止", "danger"],
+    ["模拟盘复核", handoff.paper_simulation_required ? "必需" : "未要求", handoff.paper_simulation_required ? "warn" : "muted"],
+  ]);
+  byId("daily-manual-broker-handoff-checklist").innerHTML = checklist.length
+    ? checklist.map((item) => `
+      <div class="list-row ${escapeHtml(item.status === "blocked_for_automation" ? "danger" : "warn")}">
+        <strong>${escapeHtml(item.check_id || "")}</strong>
+        <span>${escapeHtml(zhConsoleText(item.status || "--"))}</span>
+        <span>${escapeHtml(item.text || "")}</span>
+      </div>
+    `).join("")
+    : statusRows([["暂无手工核对清单", "先生成今日前三交易建议。", "warn"]]);
+  byId("daily-manual-broker-handoff-ticket-table").innerHTML = tableRows(tickets, [
+    "step_number",
+    "asset_id",
+    "side",
+    "reference_price",
+    "rounded_quantity",
+    "rounded_value",
+    "cash_delta_after_rounding",
+    "live_order_allowed",
+    "copy_text",
   ]);
 }
 

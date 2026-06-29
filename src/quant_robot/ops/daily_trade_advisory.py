@@ -13,6 +13,7 @@ import pandas as pd
 STAGE = "phase_6_0_daily_trade_advisory"
 PRETRADE_WORKFLOW_STAGE = "phase_6_1_daily_pretrade_workflow"
 PRETRADE_READINESS_STAGE = "phase_6_2_manual_pretrade_readiness"
+MANUAL_BROKER_HANDOFF_STAGE = "phase_6_3_manual_broker_handoff"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 
@@ -102,6 +103,7 @@ def build_daily_trade_advisory_pack(
         "markdown": "",
     }
     pack["pretrade_readiness"] = _build_pretrade_readiness(pack)
+    pack["manual_broker_handoff"] = _build_manual_broker_handoff(pack)
     pack["pretrade_workflow"] = build_daily_pretrade_workflow(pack)
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
@@ -123,6 +125,7 @@ def build_daily_pretrade_workflow(pack: dict[str, Any]) -> dict[str, Any]:
     scope_ready = market == "CN_ETF"
     readiness_status = "manual_review_required" if scope_ready and signal_ready else "waiting_for_signals"
     readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else _build_pretrade_readiness(pack)
+    handoff = pack.get("manual_broker_handoff") if isinstance(pack.get("manual_broker_handoff"), dict) else _build_manual_broker_handoff(pack)
     steps = [
         {
             "step_number": 1,
@@ -186,6 +189,7 @@ def build_daily_pretrade_workflow(pack: dict[str, Any]) -> dict[str, Any]:
         },
         "steps": steps,
         "pretrade_readiness": readiness,
+        "manual_broker_handoff": handoff,
         "beginner_cards": [
             {
                 "card_id": "first_read",
@@ -326,6 +330,97 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
             "safety": SAFETY_NOTICE,
         }
     )
+
+
+def _build_manual_broker_handoff(pack: dict[str, Any]) -> dict[str, Any]:
+    readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else _build_pretrade_readiness(pack)
+    manual_plan = [row for row in pack.get("manual_trade_plan", []) if isinstance(row, dict)]
+    copyable_tickets = [_broker_handoff_ticket(index, row) for index, row in enumerate(manual_plan, start=1)]
+    rounded_value = sum(_float(row.get("rounded_value"), 0.0) for row in manual_plan)
+    cash_delta = sum(_float(row.get("cash_delta_after_rounding"), 0.0) for row in manual_plan)
+    target_value = sum(_float(row.get("target_value"), 0.0) for row in manual_plan)
+    status = "review_only" if copyable_tickets else "waiting_for_tickets"
+    return _sanitize(
+        {
+            "stage": MANUAL_BROKER_HANDOFF_STAGE,
+            "run_date": pack.get("run_date", date.today().isoformat()),
+            "status": status,
+            "operator_summary": (
+                "这些内容只是给你在券商软件里逐项人工核对，不能被系统自动提交；价格以券商端实时行情为准。"
+                if copyable_tickets
+                else "还没有可核对票据；先生成今日信号和盘前判定。"
+            ),
+            "ready_for_auto_order": False,
+            "live_order_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "paper_simulation_required": True,
+            "summary": {
+                "ticket_count": len(copyable_tickets),
+                "target_value": target_value,
+                "rounded_value": rounded_value,
+                "cash_delta_after_rounding": cash_delta,
+                "traffic_light": readiness.get("traffic_light"),
+                "manual_action_candidate": bool(readiness.get("manual_action_candidate")),
+            },
+            "confirmation_checklist": [
+                {
+                    "check_id": "paper_simulation_required",
+                    "status": "required",
+                    "text": "先查看本地模拟盘、回撤、成交和保护事件；不要把单日信号直接当盈利保证。",
+                },
+                {
+                    "check_id": "verify_broker_realtime_price",
+                    "status": "required",
+                    "text": "券商端实时价格如果和本地参考价明显不同，必须重新估算份额和现金。",
+                },
+                {
+                    "check_id": "verify_cash_and_position_limit",
+                    "status": "required",
+                    "text": "核对账户现金、单 ETF 上限、总仓位上限和你能承受的回撤。",
+                },
+                {
+                    "check_id": "manual_only_boundary",
+                    "status": "blocked_for_automation",
+                    "text": "系统不连接券商、不读取账户、不生成实盘委托、不自动下单。",
+                },
+            ],
+            "copyable_tickets": copyable_tickets,
+            "safety": SAFETY_NOTICE,
+        }
+    )
+
+
+def _broker_handoff_ticket(index: int, row: dict[str, Any]) -> dict[str, Any]:
+    asset_id = str(row.get("asset_id") or "")
+    side = str(row.get("side") or "buy_or_adjust")
+    latest_price = _float_or_none(row.get("latest_price"))
+    rounded_quantity = _int(row.get("rounded_quantity"), 0)
+    rounded_value = _float(row.get("rounded_value"), 0.0)
+    cash_delta = _float(row.get("cash_delta_after_rounding"), 0.0)
+    reference_price = "--" if latest_price is None else f"{latest_price:.4f}"
+    copy_text = (
+        f"{index}. ETF {asset_id}；方向={side}；参考价={reference_price}；"
+        f"按 {BOARD_LOT_SIZE} 份一手取整数量={rounded_quantity}；"
+        f"参考金额={rounded_value:.2f}；取整后剩余现金约={cash_delta:.2f}。"
+        "请在券商端核对实时价格、代码、现金和风险；系统不会下单。"
+    )
+    return {
+        "step_number": index,
+        "ticket_id": row.get("ticket_id"),
+        "asset_id": asset_id,
+        "side": side,
+        "reference_price": latest_price,
+        "rounded_quantity": rounded_quantity,
+        "rounded_value": rounded_value,
+        "cash_delta_after_rounding": cash_delta,
+        "source_factors": row.get("source_factors"),
+        "copy_text": copy_text,
+        "do_not_submit_until_checked": True,
+        "live_order_allowed": False,
+        "order_placement_allowed": False,
+    }
 
 
 def write_daily_trade_advisory_pack(output_dir: str | Path, pack: dict[str, Any]) -> None:
