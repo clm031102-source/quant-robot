@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import csv
 import json
 import math
+import time
 from pathlib import Path
 from typing import Any
 
@@ -40,6 +42,69 @@ DEFAULT_OBSERVATION_SUFFICIENCY_PACK = Path("data/reports/observation_sufficienc
 DEFAULT_EXPANDED_OBSERVATION_REPLAY_PACK = Path("data/reports/expanded_observation_replay/expanded_observation_replay_pack.json")
 DEFAULT_ITERATIVE_OBSERVATION_EXPANSION_PACK = Path("data/reports/iterative_observation_expansion/iterative_observation_expansion_pack.json")
 DEFAULT_TUSHARE_ACTIVATION_GATE_PACK = Path("data/reports/tushare_activation_gate/tushare_activation_gate_pack.json")
+DEFAULT_FACTOR_LEADERBOARD_REPORTS_ROOT = Path("data/reports")
+DEFAULT_FACTOR_LEADERBOARD_CONFIGS_ROOT = Path("configs")
+DEFAULT_FACTOR_LEADERBOARD_CACHE = Path("data/reports/gui_factor_leaderboard_cache/gui_factor_leaderboard_cache.json")
+FACTOR_LEADERBOARD_FILE_KEYWORDS = (
+    "leaderboard",
+    "candidate",
+    "factor",
+    "prescreen",
+    "walk_forward",
+    "portfolio",
+    "paper",
+    "promotion",
+    "optimizer",
+    "results",
+    "summary",
+)
+FACTOR_LEADERBOARD_SCORE_PRIORITY = (
+    "paper_sharpe",
+    "walk_forward_sharpe",
+    "oos_sharpe",
+    "test_sharpe",
+    "sharpe",
+    "sharpe_ratio",
+    "rank_ic",
+    "mean_rank_ic",
+    "mean_ic",
+    "score",
+    "total_return",
+)
+FACTOR_LEADERBOARD_METRIC_ALIASES = {
+    "total_return": ("total_return", "paper_total_return", "strategy_total_return", "net_total_return", "return_total"),
+    "annualized_return": ("annualized_return", "annual_return", "paper_annualized_return", "cagr"),
+    "sharpe": ("sharpe", "sharpe_ratio", "paper_sharpe", "walk_forward_sharpe", "oos_sharpe", "test_sharpe"),
+    "max_drawdown": ("max_drawdown", "max_equity_drawdown", "paper_max_drawdown", "max_dd"),
+    "win_rate": ("win_rate", "hit_rate", "positive_rate", "pct_profitable_periods"),
+    "rank_ic": ("rank_ic", "mean_rank_ic", "avg_rank_ic"),
+    "mean_ic": ("mean_ic", "ic_mean", "ic"),
+    "trade_count": ("trade_count", "trades", "n_trades", "num_trades", "fill_count", "fills"),
+    "sample_count": ("sample_count", "observations", "n_obs", "ic_observations", "periods", "fold_count"),
+}
+FACTOR_LEADERBOARD_PARAM_KEYS = (
+    "top_n",
+    "topN",
+    "cost_bps",
+    "commission_bps",
+    "slippage_bps",
+    "rebalance_interval",
+    "holding_period",
+    "lookback",
+    "factor_window",
+    "factor_windows",
+    "execution_lag",
+    "forward_horizon",
+    "market",
+    "portfolio_scope",
+    "max_asset_weight",
+    "max_market_weight",
+    "max_gross_exposure",
+    "max_drawdown_guard",
+    "risk_tier",
+    "profile_id",
+    "portfolio_value",
+)
 
 
 def build_gui_snapshot() -> dict[str, Any]:
@@ -111,6 +176,89 @@ def build_gui_snapshot() -> dict[str, Any]:
             ],
         }
     )
+
+
+def build_factor_leaderboard_snapshot(
+    reports_root: str | Path | None = None,
+    configs_root: str | Path | None = None,
+    limit: int = 20,
+    max_files: int = 2000,
+    max_file_bytes: int = 8_000_000,
+    max_csv_rows_per_file: int = 500,
+) -> dict[str, Any]:
+    report_root = Path(reports_root) if reports_root else DEFAULT_FACTOR_LEADERBOARD_REPORTS_ROOT
+    config_root = Path(configs_root) if configs_root else DEFAULT_FACTOR_LEADERBOARD_CONFIGS_ROOT
+    safe_limit = max(1, min(int(limit or 20), 100))
+    cached = _read_factor_leaderboard_cache(report_root, config_root, safe_limit)
+    if cached is not None:
+        return cached
+    runtime_factors = build_gui_snapshot().get("available_factors", [])
+    config_inventory = _collect_config_factor_inventory(config_root)
+    report_inventory = _collect_report_candidate_inventory(
+        report_root,
+        max_files=max_files,
+        max_file_bytes=max_file_bytes,
+        max_csv_rows_per_file=max_csv_rows_per_file,
+    )
+    candidate_rows = report_inventory["rows"]
+    deduped_rows = _dedupe_leaderboard_rows(candidate_rows)
+    ranked_rows = sorted(
+        deduped_rows,
+        key=lambda row: (
+            1 if row.get("ranking_quality") == "qualified" else 0,
+            _numeric_sort_value(row.get("primary_score")),
+            _numeric_sort_value(row.get("total_return")),
+            _numeric_sort_value(row.get("annualized_return")),
+        ),
+        reverse=True,
+    )
+    top_rows = []
+    for index, row in enumerate(ranked_rows[:safe_limit], start=1):
+        top_rows.append({**row, "rank": index})
+
+    runtime_names = sorted({str(name) for name in runtime_factors if str(name).strip()})
+    config_names = sorted(config_inventory["factor_names"])
+    report_names = sorted(
+        {
+            str(row.get("factor_name"))
+            for row in candidate_rows
+            if row.get("factor_name") and str(row.get("factor_name")).strip()
+        }
+    )
+    all_names = sorted(set(runtime_names) | set(config_names) | set(report_names))
+
+    snapshot = _sanitize(
+        {
+            "stage": "gui_factor_leaderboard",
+            "reports_root": str(report_root),
+            "configs_root": str(config_root),
+            "summary": {
+                "runtime_dropdown_factor_names": len(runtime_names),
+                "config_factor_names": len(config_names),
+                "report_factor_names": len(report_names),
+                "unique_factor_names": len(all_names),
+                "candidate_rows": report_inventory["candidate_rows"],
+                "deduped_candidate_rows": len(deduped_rows),
+                "report_files_scanned": report_inventory["files_scanned"],
+                "report_files_with_candidates": report_inventory["files_with_candidates"],
+                "report_files_skipped": report_inventory["files_skipped"],
+                "config_files_scanned": config_inventory["files_scanned"],
+                "top_n": safe_limit,
+                "ranking_basis": "qualified rows first, then first available score among paper/walk-forward/oos/test sharpe, sharpe, rank IC, mean IC, score, total return",
+                "note": "The factor dropdown is only the runnable preset list; this ledger aggregates config factor names and historical report candidate rows.",
+            },
+            "factor_names": {
+                "from_runtime_dropdown": runtime_names,
+                "from_configs": config_names,
+                "from_reports": report_names,
+                "all_unique": all_names,
+            },
+            "top20": top_rows,
+            "warnings": report_inventory["warnings"],
+        }
+    )
+    _write_factor_leaderboard_cache(report_root, config_root, snapshot)
+    return snapshot
 
 
 def build_project_status_snapshot(
@@ -1096,6 +1244,509 @@ def _read_optional_json(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _collect_config_factor_inventory(config_root: Path) -> dict[str, Any]:
+    names: set[str] = set()
+    files_scanned = 0
+    if not config_root.exists():
+        return {"factor_names": names, "files_scanned": files_scanned}
+    for path in sorted(config_root.rglob("*.json")):
+        if not path.is_file():
+            continue
+        payload = _read_json_any(path)
+        if payload is None:
+            continue
+        files_scanned += 1
+        _collect_factor_names_from_config(payload, names)
+    return {"factor_names": names, "files_scanned": files_scanned}
+
+
+def _read_factor_leaderboard_cache(report_root: Path, config_root: Path, limit: int) -> dict[str, Any] | None:
+    if report_root != DEFAULT_FACTOR_LEADERBOARD_REPORTS_ROOT or config_root != DEFAULT_FACTOR_LEADERBOARD_CONFIGS_ROOT:
+        return None
+    if not DEFAULT_FACTOR_LEADERBOARD_CACHE.exists():
+        return None
+    try:
+        age_seconds = time.time() - DEFAULT_FACTOR_LEADERBOARD_CACHE.stat().st_mtime
+    except OSError:
+        return None
+    if age_seconds > 1800:
+        return None
+    cached = _read_json_any(DEFAULT_FACTOR_LEADERBOARD_CACHE)
+    if not isinstance(cached, dict) or cached.get("stage") != "gui_factor_leaderboard":
+        return None
+    rows = cached.get("top20") if isinstance(cached.get("top20"), list) else []
+    cached["top20"] = rows[:limit]
+    if isinstance(cached.get("summary"), dict):
+        cached["summary"]["top_n"] = limit
+        cached["summary"]["cache_status"] = "hit"
+        cached["summary"]["cache_age_seconds"] = int(age_seconds)
+    return cached
+
+
+def _write_factor_leaderboard_cache(report_root: Path, config_root: Path, snapshot: dict[str, Any]) -> None:
+    if report_root != DEFAULT_FACTOR_LEADERBOARD_REPORTS_ROOT or config_root != DEFAULT_FACTOR_LEADERBOARD_CONFIGS_ROOT:
+        return
+    try:
+        DEFAULT_FACTOR_LEADERBOARD_CACHE.parent.mkdir(parents=True, exist_ok=True)
+        cache_payload = dict(snapshot)
+        if isinstance(cache_payload.get("summary"), dict):
+            cache_payload["summary"] = {**cache_payload["summary"], "cache_status": "miss_written"}
+        DEFAULT_FACTOR_LEADERBOARD_CACHE.write_text(json.dumps(cache_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError:
+        return
+
+
+def _collect_factor_names_from_config(value: Any, names: set[str], parent_key: str = "") -> None:
+    if isinstance(value, dict):
+        for key, item in value.items():
+            lowered = str(key).lower()
+            if lowered in {"factor_name", "source_factor_name", "lead_factor_name", "public_factor_name"}:
+                _add_factor_name(item, names)
+            elif lowered in {"factor_names", "candidate_factor_names", "candidate_names"}:
+                _add_factor_name(item, names)
+            _collect_factor_names_from_config(item, names, lowered)
+        return
+    if isinstance(value, list):
+        if parent_key in {"factor_names", "candidate_factor_names", "candidate_names"}:
+            _add_factor_name(value, names)
+        else:
+            for item in value:
+                _collect_factor_names_from_config(item, names, parent_key)
+
+
+def _add_factor_name(value: Any, names: set[str]) -> None:
+    if isinstance(value, str):
+        text = value.strip()
+        if _looks_like_factor_name(text):
+            names.add(text)
+        return
+    if isinstance(value, (list, tuple, set)):
+        for item in value:
+            _add_factor_name(item, names)
+
+
+def _looks_like_factor_name(text: str) -> bool:
+    if not text or len(text) > 180:
+        return False
+    lowered = text.lower()
+    if any(separator in text for separator in ("/", "\\", ":", "\n", "\r")):
+        return False
+    if lowered.endswith((".json", ".csv", ".parquet", ".md", ".py", ".txt", ".log")):
+        return False
+    if lowered in {"cn", "cn_etf", "hk", "us", "crypto", "all", "market", "factor"}:
+        return False
+    return any(ch.isalpha() for ch in text)
+
+
+def _collect_report_candidate_inventory(
+    report_root: Path,
+    *,
+    max_files: int,
+    max_file_bytes: int,
+    max_csv_rows_per_file: int,
+) -> dict[str, Any]:
+    rows: list[dict[str, Any]] = []
+    files_scanned = 0
+    files_with_candidates = 0
+    files_skipped = 0
+    warnings: list[str] = []
+    if not report_root.exists():
+        return {
+            "rows": rows,
+            "candidate_rows": 0,
+            "files_scanned": files_scanned,
+            "files_with_candidates": files_with_candidates,
+            "files_skipped": files_skipped,
+            "warnings": [f"missing reports root: {report_root}"],
+        }
+
+    candidate_files = list(_iter_factor_report_files(report_root))[:max_files]
+    for path in candidate_files:
+        try:
+            file_size = path.stat().st_size
+        except OSError:
+            files_skipped += 1
+            continue
+        if file_size > max_file_bytes:
+            files_skipped += 1
+            warnings.append(f"skipped large report file: {path}")
+            continue
+        before = len(rows)
+        if path.suffix.lower() == ".json":
+            payload = _read_json_any(path)
+            if payload is not None:
+                _collect_candidate_rows_from_json(payload, path, rows)
+        elif path.suffix.lower() == ".csv":
+            _collect_candidate_rows_from_csv(path, rows, max_rows=max_csv_rows_per_file)
+        files_scanned += 1
+        if len(rows) > before:
+            files_with_candidates += 1
+
+    return {
+        "rows": rows,
+        "candidate_rows": len(rows),
+        "files_scanned": files_scanned,
+        "files_with_candidates": files_with_candidates,
+        "files_skipped": files_skipped,
+        "warnings": warnings[:20],
+    }
+
+
+def _iter_factor_report_files(report_root: Path) -> list[Path]:
+    files: dict[str, Path] = {}
+    seed_file = report_root / "round303_24h_profit_sprint_candidate_metric_files.txt"
+    if seed_file.exists():
+        try:
+            for line in seed_file.read_text(encoding="utf-8").splitlines():
+                candidate = Path(line.strip())
+                if not candidate.is_absolute():
+                    candidate = Path.cwd() / candidate
+                if _is_factor_report_file(candidate):
+                    files[str(candidate)] = candidate
+        except OSError:
+            pass
+
+    try:
+        children = sorted(report_root.iterdir(), key=lambda item: item.name.lower())
+    except OSError:
+        return []
+
+    for child in children:
+        if child.is_file() and _is_factor_report_file(child):
+            files[str(child)] = child
+            continue
+        if not child.is_dir() or not _should_scan_report_dir(child.name):
+            continue
+        scanned_in_dir = 0
+        for path in child.rglob("*"):
+            if scanned_in_dir >= 80:
+                break
+            if _is_factor_report_file(path):
+                files[str(path)] = path
+                scanned_in_dir += 1
+    return sorted(files.values(), key=lambda item: str(item).lower())
+
+
+def _should_scan_report_dir(name: str) -> bool:
+    lowered = name.lower()
+    skip_markers = (
+        "desktop_factor_mining_20260616_0800",
+        "gui_browser_smoke",
+        "gui_control_center_audit",
+        "quant_pm_startup_gate",
+        "automation",
+        "data_manifest",
+    )
+    if any(marker in lowered for marker in skip_markers):
+        return False
+    return any(keyword in lowered for keyword in FACTOR_LEADERBOARD_FILE_KEYWORDS) or "round" in lowered
+
+
+def _is_factor_report_file(path: Path) -> bool:
+    if not path.is_file() or path.suffix.lower() not in {".json", ".csv"}:
+        return False
+    name = path.name.lower()
+    path_text = str(path).lower()
+    if name in {"quality_report_cn_etf.json", "gui_operation_ledger.json"}:
+        return False
+    return any(keyword in name or keyword in path_text for keyword in FACTOR_LEADERBOARD_FILE_KEYWORDS)
+
+
+def _collect_candidate_rows_from_json(value: Any, source_path: Path, rows: list[dict[str, Any]]) -> None:
+    if isinstance(value, dict):
+        row = _candidate_row_from_mapping(value, source_path)
+        if row is not None:
+            rows.append(row)
+        for item in value.values():
+            _collect_candidate_rows_from_json(item, source_path, rows)
+        return
+    if isinstance(value, list):
+        for item in value:
+            _collect_candidate_rows_from_json(item, source_path, rows)
+
+
+def _collect_candidate_rows_from_csv(path: Path, rows: list[dict[str, Any]], *, max_rows: int) -> None:
+    try:
+        with path.open("r", encoding="utf-8-sig", newline="") as handle:
+            reader = csv.DictReader(handle)
+            for index, raw_row in enumerate(reader):
+                if index >= max_rows:
+                    break
+                row = _candidate_row_from_mapping(raw_row, path)
+                if row is not None:
+                    rows.append(row)
+    except (OSError, csv.Error, UnicodeDecodeError):
+        return
+
+
+def _candidate_row_from_mapping(mapping: dict[str, Any], source_path: Path) -> dict[str, Any] | None:
+    flat = _flatten_scalar_mapping(mapping)
+    identity = _candidate_identity(flat)
+    has_metric = any(_lookup_numeric_metric(flat, aliases) is not None for aliases in FACTOR_LEADERBOARD_METRIC_ALIASES.values())
+    if not identity or not has_metric:
+        return None
+    factor_name = str(
+        _first_present(
+            flat,
+            (
+                "factor_name",
+                "factor",
+                "public_factor_name",
+                "lead_factor_name",
+                "source_factor_name",
+                "candidate_factor_name",
+            ),
+        )
+        or identity
+        or ""
+    )
+    case_id = str(
+        _first_present(flat, ("case_id", "candidate_id", "profile_id", "strategy_id", "id"))
+        or identity
+        or ""
+    )
+    if not factor_name and not case_id:
+        return None
+
+    normalized: dict[str, Any] = {
+        "factor_name": factor_name,
+        "case_id": case_id,
+        "market": _first_present(flat, ("market", "universe", "asset_market")) or _infer_market_from_text(f"{case_id} {factor_name} {source_path}"),
+        "family": _first_present(flat, ("family", "factor_family", "research_family", "source_family")) or _infer_family_from_text(f"{case_id} {factor_name}"),
+        "status": _first_present(flat, ("status", "decision_status", "selection_status", "promotion_status", "gate_status")) or "",
+        "decision": _first_present(flat, ("decision", "recommendation", "verdict", "promotion_decision")) or "",
+        "source_path": str(source_path),
+        "source_file": source_path.name,
+        "params": _extract_candidate_params(flat),
+        "all_data": {key: _coerce_scalar(value) for key, value in flat.items()},
+    }
+    for canonical, aliases in FACTOR_LEADERBOARD_METRIC_ALIASES.items():
+        normalized[canonical] = _lookup_numeric_metric(flat, aliases)
+    score_metric, score = _leaderboard_score(flat, normalized)
+    normalized["score_metric"] = score_metric
+    normalized["primary_score"] = score
+    quality, quality_reasons = _leaderboard_quality(normalized)
+    normalized["ranking_quality"] = quality
+    normalized["ranking_reasons"] = quality_reasons
+    if normalized["primary_score"] is None and not has_metric:
+        return None
+    return normalized
+
+
+def _flatten_scalar_mapping(mapping: dict[str, Any], prefix: str = "") -> dict[str, Any]:
+    flat: dict[str, Any] = {}
+    for key, value in mapping.items():
+        text_key = str(key)
+        dotted = f"{prefix}.{text_key}" if prefix else text_key
+        if isinstance(value, dict):
+            flat.update(_flatten_scalar_mapping(value, dotted))
+        elif isinstance(value, (list, tuple)):
+            scalar_items = [_coerce_scalar(item) for item in value if not isinstance(item, (dict, list, tuple))]
+            if scalar_items and len(scalar_items) == len(value):
+                flat[dotted] = ", ".join(str(item) for item in scalar_items[:20])
+        else:
+            flat[dotted] = _coerce_scalar(value)
+    return flat
+
+
+def _coerce_scalar(value: Any) -> Any:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        number = float(value)
+        if math.isfinite(number):
+            return value
+        return None
+    text = str(value).strip()
+    if text == "":
+        return ""
+    try:
+        number = float(text.replace(",", ""))
+    except ValueError:
+        return text
+    if math.isfinite(number):
+        return number
+    return text
+
+
+def _candidate_identity(flat: dict[str, Any]) -> str:
+    value = _first_present(
+        flat,
+        (
+            "case_id",
+            "candidate_id",
+            "factor_name",
+            "factor",
+            "public_factor_name",
+            "lead_factor_name",
+            "source_factor_name",
+            "profile_id",
+            "strategy_id",
+        ),
+    )
+    return str(value).strip() if value is not None else ""
+
+
+def _first_present(flat: dict[str, Any], keys: tuple[str, ...]) -> Any:
+    for key in keys:
+        if key in flat and flat[key] not in {None, ""}:
+            return flat[key]
+    for key in keys:
+        suffix = f".{key}"
+        for flat_key, value in flat.items():
+            if flat_key.endswith(suffix) and value not in {None, ""}:
+                return value
+    return None
+
+
+def _lookup_numeric_metric(flat: dict[str, Any], aliases: tuple[str, ...]) -> float | None:
+    for alias in aliases:
+        value = flat.get(alias)
+        number = _to_float(value)
+        if number is not None:
+            return number
+    for alias in aliases:
+        suffix = f".{alias}"
+        for key, value in flat.items():
+            if key.endswith(suffix):
+                number = _to_float(value)
+                if number is not None:
+                    return number
+    return None
+
+
+def _to_float(value: Any) -> float | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        number = float(str(value).replace(",", ""))
+    except (TypeError, ValueError):
+        return None
+    if math.isfinite(number):
+        return number
+    return None
+
+
+def _leaderboard_score(flat: dict[str, Any], normalized: dict[str, Any]) -> tuple[str, float | None]:
+    for metric in FACTOR_LEADERBOARD_SCORE_PRIORITY:
+        number = _lookup_numeric_metric(flat, (metric,))
+        if number is not None:
+            return metric, number
+    for metric in ("sharpe", "rank_ic", "mean_ic", "score", "total_return"):
+        number = _to_float(normalized.get(metric))
+        if number is not None:
+            return metric, number
+    return "", None
+
+
+def _extract_candidate_params(flat: dict[str, Any]) -> dict[str, Any]:
+    params: dict[str, Any] = {}
+    for key, value in flat.items():
+        leaf = key.rsplit(".", 1)[-1]
+        if leaf in FACTOR_LEADERBOARD_PARAM_KEYS or key.startswith(("params.", "request.", "config.")):
+            if value not in {None, ""} and len(params) < 24:
+                params[leaf] = value
+    return params
+
+
+def _leaderboard_quality(row: dict[str, Any]) -> tuple[str, list[str]]:
+    reasons: list[str] = []
+    trade_count = _to_float(row.get("trade_count"))
+    sample_count = _to_float(row.get("sample_count"))
+    source_path = str(row.get("source_path", "")).lower()
+    if trade_count is None and sample_count is None:
+        reasons.append("missing_sample_evidence")
+    if trade_count is not None and trade_count < 30:
+        reasons.append("trade_count_below_30")
+    if sample_count is not None and sample_count < 30:
+        reasons.append("sample_count_below_30")
+    if "smoke" in source_path:
+        reasons.append("smoke_artifact")
+    if row.get("score_metric") == "total_return" and row.get("sharpe") is None and row.get("rank_ic") is None:
+        reasons.append("return_only_metric")
+    return ("thin_sample" if reasons else "qualified", reasons)
+
+
+def _infer_market_from_text(text: str) -> str:
+    upper = text.upper()
+    for market in ("CN_ETF", "CRYPTO", "CN", "HK", "US"):
+        if market in upper:
+            return market
+    return ""
+
+
+def _infer_family_from_text(text: str) -> str:
+    lowered = text.lower()
+    family_markers = (
+        "moneyflow",
+        "turnover",
+        "supertrend",
+        "rsrs",
+        "alpha101",
+        "public",
+        "daily_basic",
+        "profitability",
+        "accounting_quality",
+        "event",
+        "liquidity",
+        "volatility",
+        "momentum",
+        "reversal",
+        "smart_money",
+    )
+    for marker in family_markers:
+        if marker in lowered:
+            return marker
+    return ""
+
+
+def _dedupe_leaderboard_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    best_by_key: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        key = _leaderboard_row_key(row)
+        current = best_by_key.get(key)
+        if current is None or _numeric_sort_value(row.get("primary_score")) > _numeric_sort_value(current.get("primary_score")):
+            best_by_key[key] = row
+    return list(best_by_key.values())
+
+
+def _leaderboard_row_key(row: dict[str, Any]) -> str:
+    params = row.get("params") if isinstance(row.get("params"), dict) else {}
+    if row.get("case_id"):
+        key_payload = {
+            "case_id": row.get("case_id"),
+            "factor_name": row.get("factor_name"),
+            "market": row.get("market"),
+        }
+        return json.dumps(key_payload, ensure_ascii=False, sort_keys=True, default=str)
+    key_payload = {
+        "case_id": row.get("case_id"),
+        "factor_name": row.get("factor_name"),
+        "market": row.get("market"),
+        "top_n": params.get("top_n") or params.get("topN"),
+        "cost_bps": params.get("cost_bps"),
+        "rebalance_interval": params.get("rebalance_interval"),
+        "holding_period": params.get("holding_period"),
+    }
+    return json.dumps(key_payload, ensure_ascii=False, sort_keys=True, default=str)
+
+
+def _numeric_sort_value(value: Any) -> float:
+    number = _to_float(value)
+    if number is None:
+        return float("-inf")
+    return number
+
+
+def _read_json_any(path: Path) -> Any:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return None
 
 
 def _risk_from_backtest(metrics: dict[str, float], equity_curve: pd.DataFrame, trades: pd.DataFrame) -> dict[str, Any]:

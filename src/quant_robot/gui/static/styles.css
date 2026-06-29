@@ -679,6 +679,10 @@ button {
   margin-bottom: 12px;
 }
 
+.panel-head.subhead {
+  margin-top: 16px;
+}
+
 .panel h3,
 .command-head h3 {
   font-size: 16px;
@@ -818,6 +822,18 @@ select:focus {
 .table-wrap {
   width: 100%;
   overflow-x: auto;
+}
+
+.json-cell {
+  max-width: 460px;
+  max-height: 260px;
+  margin: 8px 0 0;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--ink);
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .scroll-table {

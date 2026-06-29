@@ -16,6 +16,7 @@ from quant_robot.gui.research_service import (
     build_constrained_search_snapshot,
     build_daily_ops_snapshot,
     build_expanded_observation_replay_snapshot,
+    build_factor_leaderboard_snapshot,
     build_promotion_ops_snapshot,
     build_promotion_review_snapshot,
     build_evidence_refresh_snapshot,
@@ -48,6 +49,66 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertEqual({market["market"] for market in snapshot["markets"]}, {"CN", "CN_ETF", "HK", "US", "CRYPTO"})
         self.assertIn("research", snapshot["logs"])
         self.assertGreaterEqual(snapshot["dashboard"]["strategy_count"], 1)
+
+    def test_factor_leaderboard_snapshot_aggregates_configs_and_report_candidates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            reports_root = root / "reports"
+            configs_root = root / "configs"
+            (reports_root / "round999").mkdir(parents=True)
+            configs_root.mkdir()
+            (configs_root / "experiment.json").write_text(
+                json.dumps(
+                    {
+                        "experiment_grid": {
+                            "factor_names": ["momentum_2", "turnover_rate_low_large_mv"],
+                        },
+                        "factor_name": "public_supertrend_state",
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            leaderboard = [
+                {
+                    "case_id": f"case_{index:02d}",
+                    "factor_name": f"factor_{index:02d}",
+                    "market": "CN_ETF",
+                    "total_return": 0.01 * index,
+                    "annualized_return": 0.002 * index,
+                    "sharpe": 0.1 * index,
+                    "max_drawdown": -0.01 * index,
+                    "win_rate": 0.5 + index / 1000,
+                    "rank_ic": 0.001 * index,
+                    "trade_count": 30 + index,
+                    "params": {"top_n": (index % 5) + 1, "cost_bps": 5},
+                    "decision_status": "rejected" if index < 24 else "watchlist",
+                }
+                for index in range(25)
+            ]
+            (reports_root / "round999" / "candidate_leaderboard.json").write_text(
+                json.dumps({"stage": "unit_round", "leaderboard": leaderboard}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+
+            snapshot = build_factor_leaderboard_snapshot(
+                reports_root=reports_root,
+                configs_root=configs_root,
+                limit=20,
+            )
+
+        self.assertEqual(snapshot["stage"], "gui_factor_leaderboard")
+        self.assertGreaterEqual(snapshot["summary"]["config_factor_names"], 3)
+        self.assertEqual(snapshot["summary"]["candidate_rows"], 25)
+        self.assertEqual(snapshot["summary"]["top_n"], 20)
+        self.assertEqual(len(snapshot["top20"]), 20)
+        self.assertEqual(snapshot["top20"][0]["factor_name"], "factor_24")
+        self.assertEqual(snapshot["top20"][0]["score_metric"], "sharpe")
+        self.assertIn("momentum_2", snapshot["factor_names"]["from_configs"])
+        self.assertIn("factor_00", snapshot["factor_names"]["from_reports"])
+        self.assertIn("all_data", snapshot["top20"][0])
+        self.assertIn("params", snapshot["top20"][0])
+        self.assertIn("source_path", snapshot["top20"][0])
 
     def test_control_center_snapshot_exposes_work_backtest_method_and_safety(self):
         from quant_robot.gui.control_center import build_control_center_snapshot
@@ -1616,6 +1677,10 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("决策风控", html)
             self.assertIn("项目作战台", html)
             self.assertIn("project-action-table", html)
+            self.assertIn("factor-inventory-metrics", html)
+            self.assertIn("factor-leaderboard-table", html)
+            self.assertIn("因子资产总账", html)
+            self.assertIn("Top20 因子排行榜", html)
             self.assertIn("operator-strip", html)
             self.assertIn("control-center-board", html)
             self.assertIn("量化机器人中控台", html)
@@ -1743,6 +1808,8 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("renderIterativeObservationExpansion", app_js)
             self.assertIn("/api/risk/tushare-activation-gate", app_js)
             self.assertIn("renderTushareActivationGate", app_js)
+            self.assertIn("/api/factors/leaderboard", app_js)
+            self.assertIn("renderFactorLeaderboard", app_js)
             self.assertIn("risk_tier", app_js)
             self.assertIn("dailyPaperProfile", app_js)
             self.assertIn("dashboard-equity-source", app_js)
@@ -2007,6 +2074,11 @@ class GuiHttpTests(unittest.TestCase):
             self.assertEqual(activation["stage"], "gui_tushare_activation_gate")
             self.assertIn("stage_ledger", activation)
 
+            factor_leaderboard = _read_json(f"{base_url}/api/factors/leaderboard?limit=20")
+            self.assertEqual(factor_leaderboard["stage"], "gui_factor_leaderboard")
+            self.assertIn("summary", factor_leaderboard)
+            self.assertIn("top20", factor_leaderboard)
+
             research = _read_json(
                 f"{base_url}/api/research/demo?market=CN_ETF&factor=momentum_2&top_n=2&cost_bps=5"
                 "&benchmark_asset_id=CN_ETF_XSHG_510300&cash_annual_return=0.015&regime_filter=true&regime_lookback=3"
@@ -2057,6 +2129,60 @@ class GuiHttpTests(unittest.TestCase):
             server.shutdown()
             thread.join(timeout=5)
             server.server_close()
+
+    def test_http_app_serves_factor_leaderboard_from_requested_roots(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            reports_root = root / "reports"
+            configs_root = root / "configs"
+            reports_root.mkdir()
+            configs_root.mkdir()
+            (configs_root / "grid.json").write_text(
+                json.dumps({"factor_names": ["cn_etf_public_indicator_combo"]}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            (reports_root / "leaderboard.json").write_text(
+                json.dumps(
+                    {
+                        "candidate_leaderboard": [
+                            {
+                                "case_id": "cn_etf_public_indicator_combo_top2_cost5",
+                                "factor_name": "cn_etf_public_indicator_combo",
+                                "market": "CN_ETF",
+                                "sharpe": 1.23,
+                                "total_return": 0.42,
+                                "annualized_return": 0.12,
+                                "max_drawdown": -0.18,
+                                "win_rate": 0.57,
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+            server = ThreadingHTTPServer(("127.0.0.1", 0), create_gui_handler())
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            base_url = f"http://127.0.0.1:{server.server_port}"
+            query = urlencode(
+                {
+                    "reports_root": str(reports_root),
+                    "configs_root": str(configs_root),
+                    "limit": "20",
+                }
+            )
+            try:
+                result = _read_json(f"{base_url}/api/factors/leaderboard?{query}")
+            finally:
+                server.shutdown()
+                thread.join(timeout=5)
+                server.server_close()
+
+        self.assertEqual(result["stage"], "gui_factor_leaderboard")
+        self.assertEqual(result["summary"]["candidate_rows"], 1)
+        self.assertEqual(result["top20"][0]["factor_name"], "cn_etf_public_indicator_combo")
+        self.assertEqual(result["top20"][0]["score_metric"], "sharpe")
 
     def test_http_app_runs_processed_research_workflow(self):
         with tempfile.TemporaryDirectory() as tmp:

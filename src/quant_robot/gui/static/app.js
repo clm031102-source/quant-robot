@@ -19,6 +19,7 @@ const state = {
   expandedObservationReplay: null,
   iterativeObservationExpansion: null,
   tushareActivationGate: null,
+  factorLeaderboard: null,
   verificationResult: null,
   activeOperation: null,
   runHistory: [],
@@ -130,6 +131,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   bindActions();
   bindRequestPreviewInputs();
   await loadSnapshot();
+  await loadFactorLeaderboard();
   await loadControlCenter();
   await loadProjectStatus();
   await loadDailyOps();
@@ -201,6 +203,12 @@ async function loadSnapshot() {
   renderDashboard();
   renderDataCenter();
   renderLogs();
+}
+
+async function loadFactorLeaderboard() {
+  state.factorLeaderboard = await fetchJson("/api/factors/leaderboard?limit=20");
+  renderFactorLeaderboard();
+  renderDashboard();
 }
 
 async function loadControlCenter() {
@@ -1143,9 +1151,15 @@ function renderDashboard() {
   const candidate = project.selected_candidate || {};
   const dataGaps = project.data_gaps || {};
   const provider = project.provider_remediation || {};
+  const factorLedger = state.factorLeaderboard || {};
+  const factorSummary = factorLedger.summary || {};
   byId("dashboard-equity-source").textContent = state.research?.data_source || valueOf("data-source-select") || state.snapshot?.data_mode || "local";
   byId("dashboard-metrics").innerHTML = [
     metric("项目状态", project.overall_status || "--", `阻塞 ${project.blocker_count ?? "--"}`),
+    metric("因子总数", factorSummary.unique_factor_names ?? "--", "配置/报告/下拉框并集"),
+    metric("候选记录", factorSummary.candidate_rows ?? "--", "历史参数组合"),
+    metric("报告唯一因子", factorSummary.report_factor_names ?? "--", "本地报告"),
+    metric("Top20", (factorLedger.top20 || []).length || "--", "排行榜"),
     metric("Daily Ops", dailyDecision.status || "--", dailyDecision.paper_trading_allowed ? "paper allowed" : "blocked"),
     metric("Daily Profile", dailyPaperProfile.profile_id || "--", dailyPaperProfile.risk_tier || "no overlay"),
     metric("风险候选", riskCandidates.summary?.risk_eligible_candidates ?? "--", riskCandidates.selection_status || "selector"),
@@ -1192,6 +1206,78 @@ function renderDashboard() {
   ]);
   renderControlCenter();
   renderProjectStatus();
+  renderFactorLeaderboard();
+}
+
+function renderFactorLeaderboard() {
+  const ledger = state.factorLeaderboard || {};
+  const summary = ledger.summary || {};
+  const rows = ledger.top20 || [];
+  const tag = byId("factor-leaderboard-tag");
+  if (tag) {
+    tag.textContent = rows.length ? `${rows.length} 条` : "加载中";
+    tag.classList.toggle("tag-warn", rows.length === 0);
+  }
+  byId("factor-inventory-metrics").innerHTML = [
+    metric("运行下拉框", summary.runtime_dropdown_factor_names ?? "--", "可直接手动回测"),
+    metric("配置因子名", summary.config_factor_names ?? "--", "configs JSON"),
+    metric("报告因子名", summary.report_factor_names ?? "--", "data/reports"),
+    metric("候选行数", summary.candidate_rows ?? "--", "case/参数组合"),
+    metric("去重候选", summary.deduped_candidate_rows ?? "--", "排行榜池"),
+    metric("扫描文件", summary.report_files_scanned ?? "--", `${summary.report_files_with_candidates ?? "--"} 命中`),
+  ].join("");
+  byId("factor-inventory-note").innerHTML = statusRows([
+    ["展示口径", summary.note || "下拉框不是历史挖因子总账；排行榜来自配置和本地报告聚合。", "ok"],
+    ["排序依据", summary.ranking_basis || "--", "muted"],
+    ["跳过文件", `${summary.report_files_skipped ?? 0}`, summary.report_files_skipped > 0 ? "warn" : "ok"],
+  ]);
+  byId("factor-leaderboard-table").innerHTML = renderFactorLeaderboardTable(rows);
+}
+
+function renderFactorLeaderboardTable(rows) {
+  const head = `
+    <tr>
+      <th>排名</th>
+      <th>因子 / case</th>
+      <th>市场</th>
+      <th>总收益</th>
+      <th>年化</th>
+      <th>Sharpe</th>
+      <th>最大回撤</th>
+      <th>胜率</th>
+      <th>RankIC</th>
+      <th>交易数</th>
+      <th>参数</th>
+      <th>质量</th>
+      <th>排序依据</th>
+      <th>来源</th>
+      <th>全部数据</th>
+    </tr>
+  `;
+  const body = rows.map((row) => {
+    const params = row.params && Object.keys(row.params).length ? JSON.stringify(row.params) : "--";
+    const allData = row.all_data && Object.keys(row.all_data).length ? JSON.stringify(row.all_data, null, 2) : "{}";
+    return `
+      <tr>
+        <td>${formatNumber(row.rank)}</td>
+        <td><strong>${escapeHtml(row.factor_name || "--")}</strong><br><span class="muted">${escapeHtml(row.case_id || "--")}</span></td>
+        <td>${escapeHtml(row.market || "--")}</td>
+        <td>${formatPercent(row.total_return)}</td>
+        <td>${formatPercent(row.annualized_return)}</td>
+        <td>${formatDecimal(row.sharpe)}</td>
+        <td>${formatPercent(row.max_drawdown)}</td>
+        <td>${formatPercent(row.win_rate)}</td>
+        <td>${formatDecimal(row.rank_ic)}</td>
+        <td>${formatNumber(row.trade_count)}</td>
+        <td><code>${escapeRawHtml(params)}</code></td>
+        <td>${escapeHtml(row.ranking_quality || "--")}<br><span class="muted">${escapeHtml((row.ranking_reasons || []).join(" / ") || "ok")}</span></td>
+        <td>${escapeHtml(`${row.score_metric || "--"}=${formatDecimal(row.primary_score)}`)}</td>
+        <td><span class="muted">${escapeHtml(row.source_file || row.source_path || "--")}</span></td>
+        <td><details><summary>展开</summary><pre class="json-cell">${escapeRawHtml(allData)}</pre></details></td>
+      </tr>
+    `;
+  }).join("");
+  return `${head}${body}`;
 }
 
 function renderProjectStatus() {
@@ -3680,6 +3766,15 @@ function formatPercent(value) {
 
 function escapeHtml(value) {
   return String(zhConsoleText(value))
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function escapeRawHtml(value) {
+  return String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")

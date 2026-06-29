@@ -13,6 +13,7 @@ from quant_robot.gui.research_service import (
     build_daily_ops_snapshot,
     build_evidence_refresh_snapshot,
     build_expanded_observation_replay_snapshot,
+    build_factor_leaderboard_snapshot,
     build_promotion_ops_snapshot,
     build_promotion_review_snapshot,
     build_gui_snapshot,
@@ -62,6 +63,16 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                 return
             if parsed.path == "/api/snapshot":
                 self._send_json(build_gui_snapshot())
+                return
+            if parsed.path == "/api/factors/leaderboard":
+                query = parse_qs(parsed.query)
+                self._send_json(
+                    build_factor_leaderboard_snapshot(
+                        reports_root=_optional(query, "reports_root"),
+                        configs_root=_optional(query, "configs_root"),
+                        limit=int(_first(query, "limit", "20")),
+                    )
+                )
                 return
             if parsed.path == "/api/project/status":
                 query = parse_qs(parsed.query)
