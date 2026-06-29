@@ -90,6 +90,7 @@ const RUN_HISTORY_STORAGE_KEY = "quant_robot.gui.run_history.v1";
 const RUN_HISTORY_LIMIT = 20;
 const EXECUTION_RECEIPT_STORAGE_KEY = "quant_robot.gui.execution_receipts.v1";
 const EXECUTION_RECEIPT_LIMIT = 20;
+const RUNTIME_GUARDED_ACTIONS = new Set(["research_backtest", "startup_workflows"]);
 const REQUEST_PREVIEW_INPUT_IDS = [
   "data-source-select",
   "data-root-input",
@@ -346,6 +347,12 @@ function bindActions() {
     if (!button) return;
     event.preventDefault();
     jumpToBeginnerTarget(button.dataset.beginnerParameterRuntimeJump || "factor-runtime-gap-panel", state.leaderboardTab);
+  });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-runtime-guard-help-jump]");
+    if (!button) return;
+    event.preventDefault();
+    jumpToBeginnerTarget(button.dataset.runtimeGuardHelpJump || "factor-runtime-gap-panel", state.leaderboardTab);
   });
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-beginner-result-jump]");
@@ -725,8 +732,12 @@ function parameterRuntimeStatus(researchParams = buildResearchParams()) {
   return factorRuntimeStatus({ factor_name: factor });
 }
 
+function isRuntimeGuardedAction(actionId) {
+  return RUNTIME_GUARDED_ACTIONS.has(actionId);
+}
+
 function runtimeGuardAttr(actionId) {
-  return actionId === "research_backtest" ? 'data-runtime-guard="research_backtest"' : "";
+  return isRuntimeGuardedAction(actionId) ? `data-runtime-guard="${escapeHtml(actionId)}"` : "";
 }
 
 function currentBacktestRuntimeGuard() {
@@ -741,7 +752,8 @@ function currentBacktestRuntimeGuard() {
 
 function syncCurrentBacktestRuntimeGuard() {
   const guard = currentBacktestRuntimeGuard();
-  document.querySelectorAll('[data-runtime-guard="research_backtest"]').forEach((button) => {
+  document.querySelectorAll("[data-runtime-guard]").forEach((button) => {
+    if (!isRuntimeGuardedAction(button.dataset.runtimeGuard || "")) return;
     const currentText = (button.textContent || "").trim();
     if (currentText && currentText !== guard.blockedLabel && currentText !== "运行中") {
       button.dataset.runtimeOriginalText = currentText;
@@ -763,6 +775,19 @@ function syncCurrentBacktestRuntimeGuard() {
     if (button.title === guard.detail) button.removeAttribute("title");
   });
   return guard;
+}
+
+function renderRuntimeGuardHelp(actionId = "research_backtest", guard = currentBacktestRuntimeGuard()) {
+  if (!isRuntimeGuardedAction(actionId) || !guard.blocked) return "";
+  const factor = parameterPlainValue(buildResearchParams(), "factor", "当前因子");
+  const actionText = actionId === "startup_workflows" ? "一键刷新也会先跑当前回测" : "当前回测入口";
+  return `
+    <div class="runtime-guard-help warn" data-runtime-guard-help="${escapeHtml(actionId)}">
+      <strong>为什么现在不能运行</strong>
+      <span>${escapeHtml(`${actionText} 已暂停：${factor} 还没有注册到后端运行因子，下拉框不能直接生成回测结果。`)}</span>
+      <button class="secondary-button" type="button" data-runtime-guard-help-jump="${escapeHtml(guard.target)}">看运行缺口</button>
+    </div>
+  `;
 }
 
 function blockCurrentBacktestRuntime(guard = currentBacktestRuntimeGuard()) {
@@ -1458,6 +1483,7 @@ function resolveSafeWorkflow(confirmed) {
 }
 
 async function runStartupWorkflows() {
+  if (blockCurrentBacktestRuntime()) return;
   const confirmed = await confirmSafeWorkflow({
     workflow_id: "startup_workflows",
     label: "刷新研究、信号、模拟盘和候选推广面板",
@@ -2509,6 +2535,7 @@ function renderBeginnerTaskWizard() {
         data-beginner-task-target="${escapeHtml(selected.target || "control-action-center")}"
       >看证据位置</button>
     </div>
+    ${renderRuntimeGuardHelp(primaryAction)}
   `;
 }
 
@@ -3101,6 +3128,7 @@ function renderBeginnerProgress() {
       <strong>新手行动台</strong>
       <span class="beginner-progress-actions">${actionButtons}</span>
     </div>
+    ${renderRuntimeGuardHelp("research_backtest")}
   `;
   recoveryTarget.innerHTML = renderBeginnerProgressRecovery(progress);
   renderBeginnerDataTrust(progress);
@@ -3140,6 +3168,7 @@ function renderBeginnerGuide() {
       <strong>${escapeHtml(nextStep.title)}</strong>
       <span>${escapeHtml(nextStep.plain)}</span>
       <button class="primary-button" type="button" ${nextAttrs}>${escapeHtml(nextStep.button)}</button>
+      ${renderRuntimeGuardHelp(nextStep.action || "")}
     </div>
   `;
   helpNode.innerHTML = statusRows([
@@ -4919,7 +4948,7 @@ function renderConsoleCommandDeck(
       meta: safety.notice || "Research-to-paper only",
     },
   ];
-  return rows.map((item) => {
+  const body = rows.map((item) => {
     const statusClass = item.status === "completed" || item.status === "passed" || item.status === "expected_block"
       ? "ok"
       : item.status === "failed" || item.status === "danger"
@@ -4933,6 +4962,7 @@ function renderConsoleCommandDeck(
       </div>
     `;
   }).join("");
+  return body + renderRuntimeGuardHelp("startup_workflows");
 }
 
 function receiptMetricText(receipt = {}) {
