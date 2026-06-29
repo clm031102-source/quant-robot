@@ -549,6 +549,24 @@ button {
   white-space: normal;
 }
 
+.beginner-progress-recovery {
+  margin-top: 12px;
+}
+
+.beginner-progress-recovery .list-row {
+  grid-template-columns: minmax(140px, 0.32fr) minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.beginner-recovery-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.beginner-recovery-actions button {
+  white-space: normal;
+}
+
 .beginner-guide-board {
   border-left: 4px solid var(--blue);
   background: #fbfcff;
@@ -1881,6 +1899,18 @@ th {
 
   .beginner-result-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .beginner-progress-recovery .list-row {
+    grid-template-columns: 1fr;
+  }
+
+  .beginner-recovery-actions {
+    justify-content: stretch;
+  }
+
+  .beginner-recovery-actions button {
+    flex: 1 1 180px;
   }
 }
 

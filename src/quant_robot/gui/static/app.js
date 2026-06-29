@@ -278,6 +278,12 @@ function bindActions() {
     jumpToBeginnerTarget(button.dataset.beginnerProgressJump || "control-operation-ledger", state.leaderboardTab);
   });
   document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-beginner-recovery-jump]");
+    if (!button) return;
+    event.preventDefault();
+    jumpToBeginnerTarget(button.dataset.beginnerRecoveryJump || "control-active-operation", state.leaderboardTab);
+  });
+  document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-beginner-action]");
     if (!button) return;
     runBeginnerAction(button.dataset.beginnerAction || "", button);
@@ -2333,13 +2339,87 @@ function beginnerProgressActionButtons(progress = beginnerProgressState()) {
   return actions;
 }
 
+function beginnerProgressRecoveryRows(progress = beginnerProgressState()) {
+  const project = state.projectStatus || {};
+  const blockerCount = Number(project.blocker_count || 0);
+  const active = state.activeOperation || {};
+  const latestReceipt = beginnerLatestReceipt() || {};
+  const latestHistory = beginnerLatestRunHistory() || {};
+  const latestFailed = active.status === "failed" || latestReceipt.status === "failed" || latestHistory.status === "failed";
+  if (progress.status === "running") {
+    return [{
+      label: "正在运行",
+      value: "先等当前任务结束，不要连续点击多个运行按钮。",
+      tone: "warn",
+      target: "control-active-operation",
+      button: "看当前操作",
+    }];
+  }
+  if (progress.status === "failed" || latestFailed) {
+    return [{
+      label: "刚才运行失败",
+      value: progress.summary || active.detail || latestHistory.detail || latestReceipt.decision || "先看失败原因，再重新运行。",
+      tone: "danger",
+      target: "control-active-operation",
+      button: "看失败原因",
+    }];
+  }
+  if (blockerCount > 0) {
+    return [{
+      label: "还有阻断项",
+      value: `当前项目有 ${blockerCount} 个阻断项，先看修复队列和运行前检查。`,
+      tone: "danger",
+      target: "control-audit-repair-queue",
+      button: "看修复队列",
+    }];
+  }
+  if (!state.research && beginnerHasReceipt("research_backtest")) {
+    return [{
+      label: "只有浏览器回执",
+      value: "已有历史回测回执，但当前页面还没有加载本轮回测结果；不确定就重新跑当前参数。",
+      tone: "warn",
+      target: "control-execution-receipts",
+      button: "核对回执",
+    }];
+  }
+  if (!state.research) {
+    return [{
+      label: "还没跑当前回测",
+      value: "先跑当前参数回测，跑完再看收益、回撤、胜率和 Sharpe。",
+      tone: "warn",
+      target: "beginner-parameter-explainer",
+      button: "看当前参数",
+    }];
+  }
+  return [{
+    label: "没有需要恢复的失败",
+    value: "现在可以继续看结果闸门和模拟盘交接，不要跳过证据。",
+    tone: "ok",
+    target: "control-backtest-gate",
+    button: "看回测闸门",
+  }];
+}
+
+function renderBeginnerProgressRecovery(progress = beginnerProgressState()) {
+  return beginnerProgressRecoveryRows(progress).map((item) => `
+    <div class="list-row ${escapeHtml(item.tone || "warn")}">
+      <strong>${escapeHtml(item.label)}</strong>
+      <span>${escapeHtml(item.value)}</span>
+      <span class="beginner-recovery-actions">
+        <button class="secondary-button" type="button" data-beginner-recovery-jump="${escapeHtml(item.target || "control-active-operation")}">${escapeHtml(item.button || "去处理")}</button>
+      </span>
+    </div>
+  `).join("");
+}
+
 function renderBeginnerProgress() {
   const root = byId("beginner-progress-board");
   const statusTarget = byId("beginner-progress-status");
   const stepsTarget = byId("beginner-progress-steps");
   const nextTarget = byId("beginner-progress-next");
+  const recoveryTarget = byId("beginner-progress-recovery");
   const tag = byId("beginner-progress-tag");
-  if (!root || !statusTarget || !stepsTarget || !nextTarget || !tag) return;
+  if (!root || !statusTarget || !stepsTarget || !nextTarget || !recoveryTarget || !tag) return;
   const progress = beginnerProgressState();
   ["ok", "warn", "danger", "muted"].forEach((tone) => root.classList.remove(tone));
   root.classList.add(progress.tone);
@@ -2379,6 +2459,7 @@ function renderBeginnerProgress() {
       <span class="beginner-progress-actions">${actionButtons}</span>
     </div>
   `;
+  recoveryTarget.innerHTML = renderBeginnerProgressRecovery(progress);
 }
 
 function renderBeginnerGuide() {
