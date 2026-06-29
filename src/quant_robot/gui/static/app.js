@@ -4107,6 +4107,7 @@ function renderDailyTradeAdvisory() {
     ["错误", (pack.signal_errors || []).map((item) => item.factor_name || item.case_id).join(" / ") || "无", pack.signal_errors?.length ? "warn" : "ok"],
   ]);
   renderDailyPretradeReadiness(pack.pretrade_readiness || {});
+  renderDailyPretradeNextActions(pack.operator_next_actions || pack.pretrade_workflow?.operator_next_actions || []);
   renderManualBrokerHandoff(pack.manual_broker_handoff || {});
   renderDailyPretradeWorkflow(pack.pretrade_workflow || {});
   byId("daily-trade-factor-table").innerHTML = tableRows(pack.factors || [], [
@@ -4186,6 +4187,25 @@ function renderDailyPretradeReadiness(readiness) {
     "cash_delta_after_rounding",
     "live_order_allowed",
   ]);
+}
+
+function renderDailyPretradeNextActions(actions) {
+  const rows = Array.isArray(actions) ? actions : [];
+  const toneForAction = (status) => {
+    if (["blocked_until_done"].includes(status)) return "danger";
+    if (["required_before_manual_ticket", "manual_only", "waiting"].includes(status)) return "warn";
+    return "muted";
+  };
+  byId("daily-pretrade-next-actions").innerHTML = rows.length
+    ? rows.map((item, index) => `
+      <div class="list-row ${escapeHtml(toneForAction(item.status || ""))}">
+        <strong>${escapeHtml(`${index + 1}. ${item.title || item.action_id || ""}`)}</strong>
+        <span>${escapeHtml(zhConsoleText(`${item.status || "--"} / ${item.action_id || ""}`))}</span>
+        <span>${escapeHtml(item.plain_action || "")}</span>
+        <span>${escapeHtml(item.why || "")}</span>
+      </div>
+    `).join("")
+    : statusRows([["refresh_cn_etf_data", "暂无下一步动作；先生成今日前三交易建议。", "warn"]]);
 }
 
 function renderManualBrokerHandoff(handoff) {

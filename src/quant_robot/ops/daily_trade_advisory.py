@@ -104,6 +104,11 @@ def build_daily_trade_advisory_pack(
     }
     pack["pretrade_readiness"] = _build_pretrade_readiness(pack)
     pack["manual_broker_handoff"] = _build_manual_broker_handoff(pack)
+    pack["operator_next_actions"] = _operator_next_actions(
+        pack,
+        pack["pretrade_readiness"],
+        pack["manual_broker_handoff"],
+    )
     pack["pretrade_workflow"] = build_daily_pretrade_workflow(pack)
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
@@ -126,6 +131,12 @@ def build_daily_pretrade_workflow(pack: dict[str, Any]) -> dict[str, Any]:
     readiness_status = "manual_review_required" if scope_ready and signal_ready else "waiting_for_signals"
     readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else _build_pretrade_readiness(pack)
     handoff = pack.get("manual_broker_handoff") if isinstance(pack.get("manual_broker_handoff"), dict) else _build_manual_broker_handoff(pack)
+    operator_next_actions = (
+        pack.get("operator_next_actions")
+        if isinstance(pack.get("operator_next_actions"), list)
+        else _operator_next_actions(pack, readiness, handoff)
+    )
+    primary_action = operator_next_actions[0] if operator_next_actions else {}
     steps = [
         {
             "step_number": 1,
@@ -185,11 +196,14 @@ def build_daily_pretrade_workflow(pack: dict[str, Any]) -> dict[str, Any]:
             "live_order_allowed": False,
             "broker_connection_allowed": False,
             "order_placement_allowed": False,
+            "primary_next_action_id": primary_action.get("action_id"),
+            "primary_next_action_title": primary_action.get("title"),
             "primary_next_step": "先完成模拟盘和风险复核，再决定是否人工操作。" if signal_ready else "先生成完整今日信号。",
         },
         "steps": steps,
         "pretrade_readiness": readiness,
         "manual_broker_handoff": handoff,
+        "operator_next_actions": operator_next_actions,
         "beginner_cards": [
             {
                 "card_id": "first_read",
@@ -437,6 +451,168 @@ def _build_manual_broker_handoff(pack: dict[str, Any]) -> dict[str, Any]:
             "safety": SAFETY_NOTICE,
         }
     )
+
+
+def _operator_next_actions(
+    pack: dict[str, Any],
+    readiness: dict[str, Any],
+    handoff: dict[str, Any],
+) -> list[dict[str, Any]]:
+    blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
+    blocker_set = set(blockers)
+    freshness = readiness.get("freshness") if isinstance(readiness.get("freshness"), dict) else {}
+    summary = readiness.get("summary") if isinstance(readiness.get("summary"), dict) else {}
+    run_date = str(readiness.get("run_date") or pack.get("run_date") or date.today().isoformat())
+    latest_signal_date = freshness.get("latest_signal_date") or "无"
+
+    def action(
+        action_id: str,
+        status: str,
+        title: str,
+        plain_action: str,
+        why: str,
+        expected_result: str,
+        gui_target: str,
+    ) -> dict[str, Any]:
+        return {
+            "action_id": action_id,
+            "status": status,
+            "title": title,
+            "plain_action": plain_action,
+            "why": why,
+            "expected_result": expected_result,
+            "gui_target": gui_target,
+            "automation_allowed": False,
+            "live_order_allowed": False,
+            "broker_connection_allowed": False,
+            "order_placement_allowed": False,
+        }
+
+    if "non_cn_etf_scope" in blocker_set:
+        return [
+            action(
+                "return_to_cn_etf_scope",
+                "blocked_until_done",
+                "先切回 CN_ETF 主线",
+                "当前不是 CN_ETF 轮动主线，不能把其他市场或个股信号当作 ETF 实盘依据。",
+                "non_cn_etf_scope",
+                "每日交易建议只保留 CN_ETF 候选和 CN_ETF 信号。",
+                "daily-trade-advisory-status",
+            )
+        ]
+
+    if "stale_signal_date" in blocker_set:
+        return [
+            action(
+                "refresh_cn_etf_data",
+                "blocked_until_done",
+                "先刷新 CN_ETF 今日数据",
+                "最新信号日期不是运行当天，先刷新本地 CN_ETF 行情和因子输入，再重新生成今日建议。",
+                f"stale_signal_date: run_date={run_date}, latest_signal_date={latest_signal_date}",
+                "最新信号日期等于运行日期，红灯阻断项消失。",
+                "recent-data-refresh-status",
+            ),
+            action(
+                "regenerate_daily_top3_signal",
+                "waiting",
+                "重新生成今日前三交易建议",
+                "数据刷新后再生成前三因子信号，不沿用旧信号。",
+                "需要用刷新后的数据重新计算目标 ETF。",
+                "生成 run_date 当天的 signal_cards 和手工复核票据。",
+                "daily-trade-advisory-status",
+            ),
+            action(
+                "run_paper_simulation",
+                "waiting",
+                "再跑模拟盘复核",
+                "只有当天信号生成后，才进入模拟盘和风险复核。",
+                "旧信号不能直接进入模拟盘或人工券商核对。",
+                "得到当天信号对应的纸面表现和风险摘要。",
+                "paper-metrics",
+            ),
+        ]
+
+    if "signal_not_ready" in blocker_set or "signal_errors" in blocker_set:
+        return [
+            action(
+                "regenerate_daily_top3_signal",
+                "blocked_until_done",
+                "先生成完整今日信号",
+                "前三因子还没有形成可操作的今日目标仓位，不能进入人工复核。",
+                "signal_not_ready/signal_errors",
+                "signal_count、target_count、manual_ticket_count 都大于 0。",
+                "daily-trade-advisory-status",
+            ),
+            action(
+                "inspect_factor_runtime_gap",
+                "waiting",
+                "查看为什么信号没生成",
+                "如果生成失败，检查因子是否在运行列表、数据日期和参数窗口是否匹配。",
+                f"signal_count={summary.get('signal_count', 0)}, target_count={summary.get('target_count', 0)}",
+                "找到缺失因子或缺失数据，不再盲目点击执行。",
+                "factor-runtime-gap-list",
+            ),
+        ]
+
+    if "price_or_sizing_missing" in blocker_set:
+        return [
+            action(
+                "verify_price_and_board_lot",
+                "blocked_until_done",
+                "先补齐价格和一手取整",
+                "有票据缺少可用价格或份额取整结果，不能给人工券商核对。",
+                "price_or_sizing_missing",
+                "每张票据都有参考价、取整份额、取整金额和剩余现金。",
+                "daily-pretrade-readiness-action-table",
+            )
+        ]
+
+    if readiness.get("manual_action_candidate"):
+        actions = [
+            action(
+                "run_paper_simulation",
+                "required_before_manual_ticket",
+                "先跑模拟盘复核",
+                "黄灯只表示可以进入人工复核，不代表可以直接买；先看模拟盘、回撤和成交。",
+                "manual_action_candidate=true, paper_simulation_required=true",
+                "确认当天信号在模拟盘里没有触发不可接受的回撤、成交或保护事件。",
+                "paper-metrics",
+            ),
+            action(
+                "review_risk_and_cash",
+                "required_before_manual_ticket",
+                "再人工核对风险和现金",
+                "核对单 ETF 上限、总仓位、现金余量、流动性和你能承受的最大回撤。",
+                "manual review required before any broker-side action",
+                "确认风险预算允许今天继续人工复核。",
+                "daily-pretrade-readiness-verdict",
+            ),
+        ]
+        if handoff.get("status") == "review_only":
+            actions.append(
+                action(
+                    "manual_broker_review",
+                    "manual_only",
+                    "最后才看人工券商票据",
+                    "只把票据当成核对清单；是否在券商端操作必须由你本人决定。",
+                    "system never submits orders",
+                    "在券商端逐项人工核对代码、价格、份额、金额和风险。",
+                    "daily-manual-broker-handoff-ticket-table",
+                )
+            )
+        return actions
+
+    return [
+        action(
+            "inspect_red_light_blockers",
+            "blocked_until_done",
+            "先处理红灯阻断项",
+            "当前状态不能进入人工操作，先看阻断项和确认清单。",
+            "/".join(blockers) or "unknown_blocker",
+            "红灯阻断项消失后，再进入模拟盘和人工复核。",
+            "daily-pretrade-readiness-status",
+        )
+    ]
 
 
 def _broker_handoff_ticket(index: int, row: dict[str, Any]) -> dict[str, Any]:

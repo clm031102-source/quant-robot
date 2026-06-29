@@ -223,9 +223,11 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("pretrade_workflow", snapshot)
         self.assertIn("pretrade_readiness", snapshot)
         self.assertIn("manual_broker_handoff", snapshot)
+        self.assertIn("operator_next_actions", snapshot)
         self.assertEqual(snapshot["selected_candidates"], snapshot["factors"])
         self.assertEqual(snapshot["pretrade_workflow"]["stage"], "phase_6_1_daily_pretrade_workflow")
         self.assertFalse(snapshot["pretrade_workflow"]["summary"]["live_order_allowed"])
+        self.assertIn("primary_next_action_id", snapshot["pretrade_workflow"]["summary"])
         self.assertEqual(snapshot["pretrade_readiness"]["stage"], "phase_6_2_manual_pretrade_readiness")
         self.assertFalse(snapshot["pretrade_readiness"]["live_order_allowed"])
         self.assertIn("freshness", snapshot["pretrade_readiness"])
@@ -233,6 +235,8 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertEqual(snapshot["manual_broker_handoff"]["stage"], "phase_6_3_manual_broker_handoff")
         self.assertFalse(snapshot["manual_broker_handoff"]["order_placement_allowed"])
         self.assertEqual(len(snapshot["pretrade_workflow"]["steps"]), 5)
+        self.assertGreaterEqual(len(snapshot["operator_next_actions"]), 1)
+        self.assertEqual(snapshot["operator_next_actions"][0]["automation_allowed"], False)
         self.assertLessEqual(snapshot["summary"]["selected_factor_count"], 3)
 
     def test_factor_leaderboard_segments_primary_etf_and_auxiliary_stock_rows(self):
@@ -2037,6 +2041,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("daily-manual-broker-handoff-checklist", html)
             self.assertIn("daily-pretrade-workflow-steps", html)
             self.assertIn("daily-pretrade-beginner-cards", html)
+            self.assertIn("daily-pretrade-next-actions", html)
             self.assertIn("risk-candidate-status", html)
             self.assertIn("risk-candidate-action-table", html)
             self.assertIn("constrained-search-status", html)
@@ -2085,6 +2090,9 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("manual_broker_handoff", app_js)
             self.assertIn("renderDailyPretradeWorkflow", app_js)
             self.assertIn("pretrade_workflow", app_js)
+            self.assertIn("renderDailyPretradeNextActions", app_js)
+            self.assertIn("operator_next_actions", app_js)
+            self.assertIn("refresh_cn_etf_data", app_js)
             daily_manual_table_block = app_js.split('byId("daily-trade-manual-table")', 1)[1].split("]);", 1)[0]
             self.assertIn('"latest_price"', daily_manual_table_block)
             self.assertIn('"estimated_quantity"', daily_manual_table_block)

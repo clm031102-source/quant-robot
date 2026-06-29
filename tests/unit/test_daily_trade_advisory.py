@@ -138,6 +138,10 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(handoff["status"], "blocked_by_freshness")
         self.assertEqual(handoff["copyable_tickets"], [])
         self.assertIn("stale_signal_date", handoff["blocking_reasons"])
+        self.assertEqual(pack["operator_next_actions"][0]["action_id"], "refresh_cn_etf_data")
+        self.assertEqual(pack["operator_next_actions"][0]["status"], "blocked_until_done")
+        self.assertIn("stale_signal_date", pack["operator_next_actions"][0]["why"])
+        self.assertEqual(pack["pretrade_workflow"]["summary"]["primary_next_action_id"], "refresh_cn_etf_data")
 
     def test_manual_broker_handoff_builds_copyable_review_cards_without_orders(self):
         pack = build_daily_trade_advisory_pack(
@@ -168,6 +172,10 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("10400", ticket["copy_text"])
         self.assertIn("系统不会下单", ticket["copy_text"])
         self.assertEqual(pack["pretrade_workflow"]["manual_broker_handoff"], handoff)
+        self.assertEqual(pack["operator_next_actions"][0]["action_id"], "run_paper_simulation")
+        self.assertEqual(pack["operator_next_actions"][0]["status"], "required_before_manual_ticket")
+        self.assertFalse(pack["operator_next_actions"][0]["automation_allowed"])
+        self.assertEqual(pack["pretrade_workflow"]["summary"]["primary_next_action_id"], "run_paper_simulation")
 
     def test_pretrade_readiness_blocks_when_signals_are_missing(self):
         pack = build_daily_trade_advisory_pack(
