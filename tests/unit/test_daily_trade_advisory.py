@@ -93,6 +93,45 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertFalse(ticket["executable"])
         self.assertIn("系统不会下单", ticket["manual_instruction"])
 
+    def test_pretrade_readiness_summarizes_manual_action_without_live_permissions(self):
+        pack = build_daily_trade_advisory_pack(
+            [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
+            [_signal("c1", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+        )
+
+        readiness = pack["pretrade_readiness"]
+
+        self.assertEqual(readiness["stage"], "phase_6_2_manual_pretrade_readiness")
+        self.assertEqual(readiness["traffic_light"], "yellow")
+        self.assertTrue(readiness["manual_action_candidate"])
+        self.assertFalse(readiness["live_order_allowed"])
+        self.assertFalse(readiness["broker_connection_allowed"])
+        self.assertFalse(readiness["order_placement_allowed"])
+        self.assertEqual(readiness["blockers"], [])
+        self.assertAlmostEqual(readiness["summary"]["target_value"], 33300.0)
+        self.assertAlmostEqual(readiness["summary"]["rounded_value"], 33280.0)
+        self.assertAlmostEqual(readiness["summary"]["cash_delta_after_rounding"], 20.0)
+        self.assertEqual(readiness["action_sequence"][0]["rounded_quantity"], 10400)
+        self.assertIn("manual_only_boundary", {item["check_id"] for item in readiness["required_confirmations"]})
+        self.assertEqual(pack["pretrade_workflow"]["pretrade_readiness"], readiness)
+
+    def test_pretrade_readiness_blocks_when_signals_are_missing(self):
+        pack = build_daily_trade_advisory_pack(
+            [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
+            [],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+        )
+
+        readiness = pack["pretrade_readiness"]
+
+        self.assertEqual(readiness["traffic_light"], "red")
+        self.assertFalse(readiness["manual_action_candidate"])
+        self.assertIn("signal_not_ready", readiness["blockers"])
+        self.assertEqual(readiness["summary"]["manual_ticket_count"], 0)
+
     def test_write_daily_trade_advisory_outputs_operator_files(self):
         pack = build_daily_trade_advisory_pack(
             [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],

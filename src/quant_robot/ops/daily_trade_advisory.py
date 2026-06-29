@@ -12,6 +12,7 @@ import pandas as pd
 
 STAGE = "phase_6_0_daily_trade_advisory"
 PRETRADE_WORKFLOW_STAGE = "phase_6_1_daily_pretrade_workflow"
+PRETRADE_READINESS_STAGE = "phase_6_2_manual_pretrade_readiness"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 
@@ -100,6 +101,7 @@ def build_daily_trade_advisory_pack(
         "operator_checklist": _operator_checklist(),
         "markdown": "",
     }
+    pack["pretrade_readiness"] = _build_pretrade_readiness(pack)
     pack["pretrade_workflow"] = build_daily_pretrade_workflow(pack)
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
@@ -120,6 +122,7 @@ def build_daily_pretrade_workflow(pack: dict[str, Any]) -> dict[str, Any]:
     signal_ready = signal_count > 0 and target_count > 0 and not signal_errors
     scope_ready = market == "CN_ETF"
     readiness_status = "manual_review_required" if scope_ready and signal_ready else "waiting_for_signals"
+    readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else _build_pretrade_readiness(pack)
     steps = [
         {
             "step_number": 1,
@@ -182,6 +185,7 @@ def build_daily_pretrade_workflow(pack: dict[str, Any]) -> dict[str, Any]:
             "primary_next_step": "先完成模拟盘和风险复核，再决定是否人工操作。" if signal_ready else "先生成完整今日信号。",
         },
         "steps": steps,
+        "pretrade_readiness": readiness,
         "beginner_cards": [
             {
                 "card_id": "first_read",
@@ -201,6 +205,127 @@ def build_daily_pretrade_workflow(pack: dict[str, Any]) -> dict[str, Any]:
         ],
     }
     return _sanitize(workflow)
+
+
+def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    factors = [row for row in pack.get("factors", []) if isinstance(row, dict)]
+    signal_cards = [row for row in pack.get("signal_cards", []) if isinstance(row, dict)]
+    targets = [row for row in pack.get("combined_targets", []) if isinstance(row, dict)]
+    manual_plan = [row for row in pack.get("manual_trade_plan", []) if isinstance(row, dict)]
+    market = str(pack.get("market") or _first_market(factors) or "CN_ETF").upper()
+    selected_count = _int(summary.get("selected_factor_count"), len(factors))
+    signal_count = _int(summary.get("signal_count"), 0)
+    target_count = _int(summary.get("combined_target_count"), len(targets))
+    manual_count = _int(summary.get("manual_ticket_count"), len(manual_plan))
+    signal_errors = [row for row in signal_cards if row.get("status") == "signal_error"]
+    invalid_sizing_tickets = [
+        str(row.get("ticket_id") or row.get("asset_id") or "")
+        for row in manual_plan
+        if _float_or_none(row.get("latest_price")) is None or row.get("rounded_quantity") is None
+    ]
+    zero_lot_tickets = [
+        str(row.get("ticket_id") or row.get("asset_id") or "")
+        for row in manual_plan
+        if _float(row.get("target_value"), 0.0) > 0 and _float(row.get("rounded_quantity"), 0.0) <= 0
+    ]
+
+    blockers: list[str] = []
+    if market != "CN_ETF":
+        blockers.append("non_cn_etf_scope")
+    if signal_count <= 0 or target_count <= 0 or manual_count <= 0:
+        blockers.append("signal_not_ready")
+    if signal_errors:
+        blockers.append("signal_errors")
+    if invalid_sizing_tickets:
+        blockers.append("price_or_sizing_missing")
+
+    manual_action_candidate = not blockers and manual_count > 0
+    traffic_light = "yellow" if manual_action_candidate else "red"
+    operator_verdict = (
+        "可进入人工复核：先核对模拟盘、价格、现金和风险，再由本人决定是否在券商端手工操作；系统不会下单。"
+        if manual_action_candidate
+        else "不可进入人工操作：今日信号、价格或研究范围仍有阻断项，先处理红灯问题。"
+    )
+
+    required_confirmations = [
+        {
+            "check_id": "cn_etf_scope",
+            "status": "pass" if market == "CN_ETF" else "blocked",
+            "text": f"研究主线必须是 CN_ETF；当前 market={market}。",
+        },
+        {
+            "check_id": "signal_ready",
+            "status": "pass" if signal_count > 0 and target_count > 0 and not signal_errors else "blocked",
+            "text": f"今日信号={signal_count}/{selected_count}，目标ETF={target_count}。",
+        },
+        {
+            "check_id": "price_and_board_lot",
+            "status": "pass" if manual_count > 0 and not invalid_sizing_tickets else ("waiting" if manual_count == 0 else "blocked"),
+            "text": f"手工票据={manual_count}；按 {BOARD_LOT_SIZE} 份一手向下取整。",
+        },
+        {
+            "check_id": "paper_and_risk_review",
+            "status": "required" if manual_action_candidate else "waiting",
+            "text": "必须先看模拟盘、最大回撤、流动性、仓位上限和现金余量。",
+        },
+        {
+            "check_id": "manual_only_boundary",
+            "status": "required",
+            "text": "系统不连接券商、不读取账户、不生成实盘委托、不自动下单。",
+        },
+    ]
+
+    action_sequence = [
+        {
+            "step_number": index,
+            "ticket_id": row.get("ticket_id"),
+            "asset_id": row.get("asset_id"),
+            "side": row.get("side"),
+            "latest_price": row.get("latest_price"),
+            "rounded_quantity": row.get("rounded_quantity"),
+            "rounded_value": row.get("rounded_value"),
+            "cash_delta_after_rounding": row.get("cash_delta_after_rounding"),
+            "source_factors": row.get("source_factors"),
+            "live_order_allowed": False,
+            "manual_instruction": row.get("manual_instruction"),
+        }
+        for index, row in enumerate(manual_plan, start=1)
+    ]
+
+    warnings = ["即使黄灯，也只代表可以进入人工复核，不代表策略已被证明能稳定盈利。"]
+    if zero_lot_tickets:
+        warnings.append(f"以下票据按一手取整后为 0，不能直接买入：{', '.join(zero_lot_tickets)}。")
+    if signal_errors:
+        warnings.append("有入选因子没有生成同日信号，不能当作可操作建议。")
+
+    return _sanitize(
+        {
+            "stage": PRETRADE_READINESS_STAGE,
+            "run_date": pack.get("run_date", date.today().isoformat()),
+            "traffic_light": traffic_light,
+            "operator_verdict": operator_verdict,
+            "manual_action_candidate": manual_action_candidate,
+            "live_order_allowed": False,
+            "broker_connection_allowed": False,
+            "order_placement_allowed": False,
+            "blockers": blockers,
+            "warnings": warnings,
+            "summary": {
+                "selected_factor_count": selected_count,
+                "signal_count": signal_count,
+                "target_count": target_count,
+                "manual_ticket_count": manual_count,
+                "target_value": sum(_float(row.get("target_value"), 0.0) for row in manual_plan),
+                "rounded_value": sum(_float(row.get("rounded_value"), 0.0) for row in manual_plan),
+                "cash_delta_after_rounding": sum(_float(row.get("cash_delta_after_rounding"), 0.0) for row in manual_plan),
+                "board_lot_size": BOARD_LOT_SIZE,
+            },
+            "required_confirmations": required_confirmations,
+            "action_sequence": action_sequence,
+            "safety": SAFETY_NOTICE,
+        }
+    )
 
 
 def write_daily_trade_advisory_pack(output_dir: str | Path, pack: dict[str, Any]) -> None:

@@ -4106,6 +4106,7 @@ function renderDailyTradeAdvisory() {
     ["下一步", summary.next_action || "先复核信号，再看模拟盘，不自动下单。", "warn"],
     ["错误", (pack.signal_errors || []).map((item) => item.factor_name || item.case_id).join(" / ") || "无", pack.signal_errors?.length ? "warn" : "ok"],
   ]);
+  renderDailyPretradeReadiness(pack.pretrade_readiness || {});
   renderDailyPretradeWorkflow(pack.pretrade_workflow || {});
   byId("daily-trade-factor-table").innerHTML = tableRows(pack.factors || [], [
     "rank",
@@ -4142,6 +4143,45 @@ function renderDailyTradeAdvisory() {
     "source_factors",
     "live_order_allowed",
     "manual_instruction",
+  ]);
+}
+
+function renderDailyPretradeReadiness(readiness) {
+  const summary = readiness.summary || {};
+  const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
+  const warnings = Array.isArray(readiness.warnings) ? readiness.warnings : [];
+  const confirmations = Array.isArray(readiness.required_confirmations) ? readiness.required_confirmations : [];
+  const light = readiness.traffic_light || "red";
+  const verdictTone = light === "red" ? "danger" : "warn";
+  byId("daily-pretrade-readiness-verdict").innerHTML = statusRows([
+    ["总灯号", light === "yellow" ? "黄灯：只能进入人工复核" : "红灯：不能进入人工操作", verdictTone],
+    ["结论", readiness.operator_verdict || "等待今日信号和手工票据生成。", verdictTone],
+    ["目标金额", formatNumber(summary.target_value), "muted"],
+    ["取整后金额", formatNumber(summary.rounded_value), "muted"],
+    ["取整后剩余", formatNumber(summary.cash_delta_after_rounding), "muted"],
+    ["自动下单", readiness.live_order_allowed ? "允许" : "禁止", "danger"],
+    ["阻断项", blockers.length ? blockers.join(" / ") : "无结构化阻断项", blockers.length ? "danger" : "ok"],
+    ["提醒", warnings.join(" / ") || "即使黄灯，也必须人工核对模拟盘、价格、现金和风险。", "warn"],
+  ]);
+  byId("daily-pretrade-readiness-status").innerHTML = confirmations.length
+    ? confirmations.map((item) => `
+      <div class="list-row ${escapeHtml(item.status === "pass" ? "ok" : item.status === "blocked" ? "danger" : "warn")}">
+        <strong>${escapeHtml(item.check_id || "")}</strong>
+        <span>${escapeHtml(zhConsoleText(item.status || "--"))}</span>
+        <span>${escapeHtml(item.text || "")}</span>
+      </div>
+    `).join("")
+    : statusRows([["暂无盘前判定", "先生成今日前三交易建议。", "warn"]]);
+  byId("daily-pretrade-readiness-action-table").innerHTML = tableRows(readiness.action_sequence || [], [
+    "step_number",
+    "ticket_id",
+    "asset_id",
+    "side",
+    "latest_price",
+    "rounded_quantity",
+    "rounded_value",
+    "cash_delta_after_rounding",
+    "live_order_allowed",
   ]);
 }
 

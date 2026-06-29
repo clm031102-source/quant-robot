@@ -800,6 +800,23 @@
 
           <div class="metric-grid compact metric-card-grid" id="daily-trade-advisory-metrics"></div>
           <div class="page-grid two-grid">
+            <section class="panel status-panel daily-pretrade-readiness-board">
+              <div class="panel-head">
+                <div>
+                  <p class="section-kicker">盘前总判定</p>
+                  <h3>今天能不能进入人工复核</h3>
+                </div>
+                <span class="tag tag-warn">不自动下单</span>
+              </div>
+              <div id="daily-pretrade-readiness-verdict" class="status-list"></div>
+              <div id="daily-pretrade-readiness-status" class="status-list compact-status"></div>
+            </section>
+            <section class="panel table-panel">
+              <div class="panel-head"><h3>人工操作顺序</h3><span class="tag tag-warn">券商端手工核对</span></div>
+              <div class="table-wrap scroll-table"><table><tbody id="daily-pretrade-readiness-action-table"></tbody></table></div>
+            </section>
+          </div>
+          <div class="page-grid two-grid">
             <section class="panel status-panel daily-pretrade-workflow-board">
               <div class="panel-head">
                 <div>
