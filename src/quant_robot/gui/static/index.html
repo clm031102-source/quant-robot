@@ -103,6 +103,22 @@
         </section>
 
         <section id="page-dashboard" class="page active-page">
+          <section class="panel ordinary-home-board" id="ordinary-home-board">
+            <div class="panel-head">
+              <div>
+                <p class="section-kicker">普通模式首页</p>
+                <h3>先看结论，再看细节</h3>
+              </div>
+              <span class="tag tag-warn">研究到模拟盘，不接实盘</span>
+            </div>
+            <div class="ordinary-home-grid">
+              <div>
+                <div class="metric-grid compact metric-card-grid" id="ordinary-status-metrics"></div>
+                <div id="ordinary-next-action" class="status-list compact-status"></div>
+              </div>
+              <div id="ordinary-mainline-warning" class="status-list compact-status"></div>
+            </div>
+          </section>
           <section class="panel control-center-board" id="control-center-board">
             <div class="panel-head">
               <div>
@@ -115,9 +131,9 @@
               <div class="control-cell control-wide console-command-cell">
                 <small>操作控制台</small>
                 <div id="control-command-deck" class="console-command-deck">
-                  <button class="primary-button console-command-button" type="button" data-console-action="research_backtest" data-action-workflow="research_backtest">开始研究回测</button>
-                  <button class="secondary-button console-command-button" type="button" data-console-action="signal_snapshot" data-action-workflow="signal_snapshot">生成信号快照</button>
-                  <button class="secondary-button console-command-button" type="button" data-console-action="paper_simulation" data-action-workflow="paper_simulation">运行模拟盘</button>
+                  <button class="primary-button console-command-button" type="button" data-console-action="research_backtest" data-action-workflow="research_backtest">本地回测当前参数</button>
+                  <button class="secondary-button console-command-button" type="button" data-console-action="signal_snapshot" data-action-workflow="signal_snapshot">生成本地建议信号</button>
+                  <button class="secondary-button console-command-button" type="button" data-console-action="paper_simulation" data-action-workflow="paper_simulation">本地模拟盘回放</button>
                   <button class="ghost-button console-command-button" type="button" data-console-action="gui_compile" data-action-workflow="verification_runner" data-action-verification-gate="gui_compile">GUI 编译检查</button>
                   <button class="ghost-button console-command-button" type="button" data-console-action="project_audit" data-action-workflow="verification_runner" data-action-verification-gate="project_audit">项目安全审计</button>
                   <button class="ghost-button console-command-button" type="button" data-console-action="sync_audit" data-action-workflow="verification_runner" data-action-verification-gate="sync_audit">同步预检</button>
@@ -305,6 +321,12 @@
             </div>
             <div class="metric-grid compact metric-card-grid" id="factor-inventory-metrics"></div>
             <div id="factor-inventory-note" class="status-list compact-status"></div>
+            <div class="leaderboard-toolbar" aria-label="因子排行榜分组">
+              <button id="leaderboard-tab-primary" class="segmented-button active" type="button" data-leaderboard-tab="primary_cn_etf">CN_ETF 主线榜</button>
+              <button id="leaderboard-tab-cn" class="segmented-button" type="button" data-leaderboard-tab="cn_stock_research">CN 个股研究榜</button>
+              <button id="leaderboard-tab-all" class="segmented-button" type="button" data-leaderboard-tab="all_history">全部历史榜</button>
+            </div>
+            <div id="factor-leaderboard-explanation" class="status-list compact-status"></div>
             <div class="panel-head subhead">
               <div>
                 <p class="section-kicker">按可用指标排序</p>
@@ -315,6 +337,16 @@
             <div class="table-wrap scroll-table">
               <table><tbody id="factor-leaderboard-table"></tbody></table>
             </div>
+          </section>
+          <section class="panel factor-glossary" id="factor-glossary">
+            <div class="panel-head">
+              <div>
+                <p class="section-kicker">指标解释</p>
+                <h3>排行榜术语</h3>
+              </div>
+              <span class="tag">人话版</span>
+            </div>
+            <div id="factor-glossary-list" class="glossary-grid"></div>
           </section>
           <div class="page-grid two-grid">
             <section class="panel status-panel project-board">
@@ -436,7 +468,7 @@
               <label>最大回撤上限
                 <input id="max-drawdown-limit" type="number" step="0.01" value="0.25">
               </label>
-              <button id="run-research" class="primary-button command-action" type="button">运行研究</button>
+              <button id="run-research" class="primary-button command-action" type="button">本地回测当前参数</button>
             </div>
           </section>
 
@@ -524,7 +556,7 @@
               <label>现金下限
                 <input id="min-cash-weight" type="number" min="0" max="0.95" step="0.05" value="0.1">
               </label>
-              <button id="run-signals" class="primary-button command-action" type="button">生成信号</button>
+              <button id="run-signals" class="primary-button command-action" type="button">生成本地建议信号</button>
             </div>
           </section>
 
@@ -597,7 +629,7 @@
               <label>冷却期
                 <input id="paper-guard-cooldown" type="number" min="0" max="30" value="3">
               </label>
-              <button id="run-paper" class="primary-button command-action" type="button">运行模拟</button>
+              <button id="run-paper" class="primary-button command-action" type="button">本地模拟盘回放</button>
             </div>
           </section>
 
@@ -932,6 +964,23 @@
           </div>
         </section>
       </main>
+    </div>
+    <div id="safe-run-modal" class="modal-backdrop" hidden>
+      <section class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="safe-run-title">
+        <div class="panel-head">
+          <div>
+            <p class="section-kicker">安全确认</p>
+            <h3 id="safe-run-title">确认本地运行</h3>
+          </div>
+          <span class="tag tag-warn">不会连接券商</span>
+        </div>
+        <div id="safe-run-body" class="status-list compact-status"></div>
+        <pre id="safe-run-params" class="json-cell safe-run-params"></pre>
+        <div class="modal-actions">
+          <button id="safe-run-cancel" class="secondary-button" type="button">取消</button>
+          <button id="safe-run-confirm" class="primary-button" type="button">确认本地运行</button>
+        </div>
+      </section>
     </div>
     <div id="toast" class="toast" hidden></div>
     <script src="/app.js"></script>

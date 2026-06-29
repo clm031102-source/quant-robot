@@ -20,10 +20,12 @@ const state = {
   iterativeObservationExpansion: null,
   tushareActivationGate: null,
   factorLeaderboard: null,
+  leaderboardTab: "primary_cn_etf",
   verificationResult: null,
   activeOperation: null,
   runHistory: [],
   executionReceipts: [],
+  safeRunResolver: null,
 };
 
 const titles = {
@@ -125,11 +127,26 @@ const REQUEST_PREVIEW_INPUT_IDS = [
   "paper-drawdown-guard",
   "paper-guard-cooldown",
 ];
+const GLOSSARY_TERMS = [
+  ["Sharpe", "单位波动换来的收益。越高越好，但异常高要先怀疑过拟合。"],
+  ["最大回撤", "从最高点跌到最低点的最大亏损幅度。收益高但回撤大，需要看你是否能承受。"],
+  ["胜率", "盈利交易或盈利周期占比。高胜率不等于高收益，还要看亏损大小。"],
+  ["RankIC", "因子排序和未来收益排序的相关性。正值且稳定，说明排序有信息量。"],
+  ["年化", "把样本收益折算到一年。样本短时容易失真，必须看长周期/OOS。"],
+  ["bps", "万分之一。5 bps 就是 0.05%，常用来表示佣金或滑点。"],
+  ["TopN", "每次选择排名最靠前的 N 个标的。N 越小越集中，收益和回撤都可能更极端。"],
+  ["case", "一次具体参数组合的编号，不等于唯一因子。"],
+  ["Regime", "市场状态过滤，例如只在宽松/强趋势环境交易。"],
+  ["Gross cap", "总仓位上限。0.9 表示最多用 90% 资金，留 10% 现金。"],
+  ["processed-bars", "本地已经清洗好的行情数据，用于回测和模拟，不会联网下单。"],
+  ["paper", "本地模拟盘或纸面回放，只产生模拟成交，不连接账户。"],
+];
 
 document.addEventListener("DOMContentLoaded", async () => {
   bindNavigation();
   bindActions();
   bindRequestPreviewInputs();
+  renderFactorGlossary();
   await loadSnapshot();
   await loadFactorLeaderboard();
   await loadControlCenter();
@@ -168,8 +185,21 @@ function bindActions() {
   byId("run-paper").addEventListener("click", runPaper);
   byId("run-daily-ops").addEventListener("click", runDailyOps);
   byId("run-promotion").addEventListener("click", runPromotionOps);
+  byId("safe-run-cancel")?.addEventListener("click", () => resolveSafeWorkflow(false));
+  byId("safe-run-confirm")?.addEventListener("click", () => resolveSafeWorkflow(true));
+  byId("safe-run-modal")?.addEventListener("click", (event) => {
+    if (event.target?.id === "safe-run-modal") resolveSafeWorkflow(false);
+  });
   byId("data-source-select").addEventListener("change", () => {
     applySourcePreset(true);
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !byId("safe-run-modal")?.hidden) resolveSafeWorkflow(false);
+  });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-leaderboard-tab]");
+    if (!button) return;
+    setLeaderboardTab(button.dataset.leaderboardTab || "primary_cn_etf");
   });
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-verification-gate]");
@@ -687,7 +717,68 @@ function setFactorValue(id, value) {
   }
 }
 
+function paramsObject(params) {
+  if (!params || typeof params.entries !== "function") return {};
+  return Object.fromEntries(params.entries());
+}
+
+function endpointWithParams(path, params) {
+  const query = params && typeof params.toString === "function" ? params.toString() : "";
+  return query ? `${path}?${query}` : path;
+}
+
+async function confirmSafeWorkflow(spec = {}) {
+  const modal = byId("safe-run-modal");
+  if (!modal) {
+    return window.confirm("确认只在本地运行，不连接券商、不读取账户、不真实下单？");
+  }
+  if (state.safeRunResolver) {
+    state.safeRunResolver(false);
+    state.safeRunResolver = null;
+  }
+  byId("safe-run-title").textContent = spec.title || "确认本地运行";
+  byId("safe-run-body").innerHTML = statusRows([
+    ["将要执行", spec.label || spec.workflow_id || "本地工作流", "warn"],
+    ["运行边界", "只读取本地数据或本地报告，只生成研究、信号、回测、模拟或验证结果。", "ok"],
+    ["绝不会做", "不连接券商，不读取真实账户，不生成真实订单，不进行自动实盘交易。", "danger"],
+    ["接口/命令", spec.endpoint || spec.command || "--", "muted"],
+  ]);
+  byId("safe-run-params").textContent = JSON.stringify(
+    {
+      workflow_id: spec.workflow_id || "local_workflow",
+      request: spec.request || {},
+      endpoint: spec.endpoint || "",
+      safety: "local only; no broker; no account; no real order; no live trading",
+    },
+    null,
+    2,
+  );
+  modal.hidden = false;
+  return new Promise((resolve) => {
+    state.safeRunResolver = resolve;
+  });
+}
+
+function resolveSafeWorkflow(confirmed) {
+  const modal = byId("safe-run-modal");
+  if (modal) modal.hidden = true;
+  const resolver = state.safeRunResolver;
+  state.safeRunResolver = null;
+  if (resolver) resolver(Boolean(confirmed));
+}
+
 async function runStartupWorkflows() {
+  const confirmed = await confirmSafeWorkflow({
+    workflow_id: "startup_workflows",
+    label: "刷新研究、信号、模拟盘和候选推广面板",
+    endpoint: "/api/research + /api/signals + /api/paper + /api/promotion/ops",
+    request: {
+      market: valueOf("market-select") || "CN_ETF",
+      factor_name: valueOf("factor-select") || "momentum_2",
+      paper_market: valueOf("paper-market-select") || "CN_ETF",
+    },
+  });
+  if (!confirmed) return;
   await withBusy("run-startup-workflows", async () => {
     await refreshResearch();
     await refreshSignals();
@@ -718,6 +809,14 @@ async function refreshResearch() {
 }
 
 async function runResearch() {
+  const params = buildResearchParams();
+  const confirmed = await confirmSafeWorkflow({
+    workflow_id: "research_backtest",
+    label: "本地回测当前参数",
+    endpoint: endpointWithParams("/api/research", params),
+    request: paramsObject(params),
+  });
+  if (!confirmed) return;
   await withBusy("run-research", async () => {
     await refreshResearch();
     appendRunHistory({
@@ -740,6 +839,14 @@ async function refreshSignals() {
 }
 
 async function runSignals() {
+  const params = buildSignalParams();
+  const confirmed = await confirmSafeWorkflow({
+    workflow_id: "signal_snapshot",
+    label: "生成本地建议信号",
+    endpoint: endpointWithParams("/api/signals", params),
+    request: paramsObject(params),
+  });
+  if (!confirmed) return;
   await withBusy("run-signals", async () => {
     await refreshSignals();
     appendRunHistory({
@@ -762,6 +869,14 @@ async function refreshPaper() {
 }
 
 async function runPaper() {
+  const params = buildPaperParams();
+  const confirmed = await confirmSafeWorkflow({
+    workflow_id: "paper_simulation",
+    label: "本地模拟盘回放",
+    endpoint: endpointWithParams("/api/paper", params),
+    request: paramsObject(params),
+  });
+  if (!confirmed) return;
   await withBusy("run-paper", async () => {
     await refreshPaper();
     appendRunHistory({
@@ -809,6 +924,17 @@ async function runDailyOps() {
   const activationParams = new URLSearchParams({
     tushare_activation_gate_pack: valueOf("tushare-activation-gate-pack-path"),
   });
+  const confirmed = await confirmSafeWorkflow({
+    workflow_id: "daily_ops",
+    label: "刷新本地日常运营与风险闸门",
+    endpoint: "/api/daily/ops + /api/risk/* + /api/data/*",
+    request: {
+      daily_ops_pack: valueOf("daily-ops-pack-path"),
+      risk_candidate_pack: valueOf("risk-candidate-pack-path"),
+      paper_profile_pack: valueOf("paper-profile-pack-path"),
+    },
+  });
+  if (!confirmed) return;
   await withBusy("run-daily-ops", async () => {
     state.dailyOps = await fetchJson(`/api/daily/ops?${params.toString()}`);
     state.riskCandidates = await fetchJson(`/api/risk/candidates?${riskParams.toString()}`);
@@ -857,6 +983,18 @@ async function refreshPromotionOps() {
 }
 
 async function runPromotionOps() {
+  const params = new URLSearchParams({
+    promotion_report: valueOf("promotion-report-path"),
+    provider_status: valueOf("promotion-provider-path"),
+    quality_report: valueOf("promotion-quality-path"),
+  });
+  const confirmed = await confirmSafeWorkflow({
+    workflow_id: "promotion_ops",
+    label: "刷新候选推广审计",
+    endpoint: endpointWithParams("/api/promotion/ops", params),
+    request: paramsObject(params),
+  });
+  if (!confirmed) return;
   await withBusy("run-promotion", async () => {
     await refreshPromotionOps();
     appendRunHistory({
@@ -1153,6 +1291,7 @@ function renderDashboard() {
   const provider = project.provider_remediation || {};
   const factorLedger = state.factorLeaderboard || {};
   const factorSummary = factorLedger.summary || {};
+  renderOrdinaryHome();
   byId("dashboard-equity-source").textContent = state.research?.data_source || valueOf("data-source-select") || state.snapshot?.data_mode || "local";
   byId("dashboard-metrics").innerHTML = [
     metric("项目状态", project.overall_status || "--", `阻塞 ${project.blocker_count ?? "--"}`),
@@ -1270,6 +1409,156 @@ function renderFactorLeaderboardTable(rows) {
         <td>${formatDecimal(row.rank_ic)}</td>
         <td>${formatNumber(row.trade_count)}</td>
         <td><code>${escapeRawHtml(params)}</code></td>
+        <td>${escapeHtml(row.ranking_quality || "--")}<br><span class="muted">${escapeHtml((row.ranking_reasons || []).join(" / ") || "ok")}</span></td>
+        <td>${escapeHtml(`${row.score_metric || "--"}=${formatDecimal(row.primary_score)}`)}</td>
+        <td><span class="muted">${escapeHtml(row.source_file || row.source_path || "--")}</span></td>
+        <td><details><summary>展开</summary><pre class="json-cell">${escapeRawHtml(allData)}</pre></details></td>
+      </tr>
+    `;
+  }).join("");
+  return `${head}${body}`;
+}
+
+function getActiveLeaderboard() {
+  const ledger = state.factorLeaderboard || {};
+  const boards = ledger.leaderboards || {};
+  return boards[state.leaderboardTab] || boards.primary_cn_etf || {
+    label: "CN_ETF 主线榜",
+    description: "等待因子排行榜加载。",
+    rows: ledger.top20 || [],
+    empty_message: "排行榜加载中。",
+  };
+}
+
+function setLeaderboardTab(tab) {
+  state.leaderboardTab = tab || "primary_cn_etf";
+  renderFactorLeaderboard();
+  renderOrdinaryHome();
+}
+
+function renderFactorGlossary() {
+  const container = byId("factor-glossary-list");
+  if (!container) return;
+  container.innerHTML = GLOSSARY_TERMS.map(([term, explanation]) => `
+    <div class="glossary-item">
+      <strong>${escapeHtml(term)}</strong>
+      <span>${escapeHtml(explanation)}</span>
+    </div>
+  `).join("");
+}
+
+function renderOrdinaryHome() {
+  const metricsNode = byId("ordinary-status-metrics");
+  const actionNode = byId("ordinary-next-action");
+  const warningNode = byId("ordinary-mainline-warning");
+  if (!metricsNode || !actionNode || !warningNode) return;
+  const ledger = state.factorLeaderboard || {};
+  const summary = ledger.summary || {};
+  const primaryBoard = ledger.leaderboards?.primary_cn_etf || {};
+  const primaryRows = primaryBoard.rows || [];
+  const topPrimary = primaryRows[0] || null;
+  const project = state.projectStatus || {};
+  const paperMetrics = state.paper?.metrics || {};
+  metricsNode.innerHTML = [
+    metric("当前主线", summary.primary_market || "CN_ETF", "默认只看 ETF 轮动"),
+    metric("主线候选", summary.primary_market_deduped_candidate_rows ?? "--", "CN_ETF 去重参数组合"),
+    metric("全部候选", summary.deduped_candidate_rows ?? "--", "所有市场历史去重"),
+    metric("模拟权益", formatNumber(paperMetrics.ending_equity), "本地 paper 结果"),
+  ].join("");
+  actionNode.innerHTML = statusRows([
+    ["现在该看", primaryRows.length ? "CN_ETF 主线榜 Top20" : "先补 CN_ETF 主线候选", primaryRows.length ? "ok" : "warn"],
+    ["最靠前候选", topPrimary ? `${topPrimary.factor_name || "--"} / ${topPrimary.promotion_label || "--"}` : "暂无主线候选", topPrimary ? "ok" : "warn"],
+    ["项目状态", project.overall_status || "加载中", project.blocker_count ? "warn" : "ok"],
+  ]);
+  warningNode.innerHTML = statusRows([
+    ["主线提醒", "默认榜单只展示 CN_ETF。CN 个股资金流、择股类结果只能辅助研究，不能直接替代 ETF 轮动信号。", "danger"],
+    ["推广口径", "只有通过长周期、OOS、滚动、成本和风险审计的主线候选，才可能进入模拟盘观察。", "warn"],
+    ["安全边界", "本软件当前只做研究和本地模拟盘，不连接券商、不读取账户、不真实下单。", "danger"],
+  ]);
+}
+
+function renderFactorLeaderboard() {
+  const ledger = state.factorLeaderboard || {};
+  const summary = ledger.summary || {};
+  const activeBoard = getActiveLeaderboard();
+  const rows = activeBoard.rows || [];
+  const tag = byId("factor-leaderboard-tag");
+  if (tag) {
+    tag.textContent = rows.length ? `${activeBoard.label || "排行榜"} ${rows.length} 条` : "无候选";
+    tag.classList.toggle("tag-warn", rows.length === 0);
+  }
+  document.querySelectorAll("[data-leaderboard-tab]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.leaderboardTab === state.leaderboardTab);
+  });
+  byId("factor-inventory-metrics").innerHTML = [
+    metric("可运行下拉因子", summary.runtime_dropdown_factor_names ?? "--", "能直接手动回测"),
+    metric("配置因子名", summary.config_factor_names ?? "--", "configs JSON"),
+    metric("报告因子名", summary.report_factor_names ?? "--", "data/reports"),
+    metric("全部候选记录", summary.candidate_rows ?? "--", "case/参数组合"),
+    metric("去重候选记录", summary.deduped_candidate_rows ?? "--", "排行榜池"),
+    metric("CN_ETF 主线候选", summary.primary_market_deduped_candidate_rows ?? "--", "默认推广口径"),
+    metric("CN 个股辅助候选", summary.cn_stock_candidate_rows ?? "--", "不能直接用于 ETF"),
+    metric("扫描文件", summary.report_files_scanned ?? "--", `${summary.report_files_with_candidates ?? "--"} 命中`),
+  ].join("");
+  byId("factor-inventory-note").innerHTML = statusRows([
+    ["口径", summary.note || "下拉因子不是历史挖掘总数；排行榜来自配置和本地报告聚合。", "ok"],
+    ["主线", `默认只看 ${summary.primary_market || "CN_ETF"}，CN 个股研究只能辅助，不能直接变成 ETF 轮动信号。`, "danger"],
+    ["排序依据", summary.ranking_basis || "--", "muted"],
+    ["跳过文件", `${summary.report_files_skipped ?? 0}`, summary.report_files_skipped > 0 ? "warn" : "ok"],
+  ]);
+  byId("factor-leaderboard-explanation").innerHTML = statusRows([
+    ["当前榜单", activeBoard.label || "--", rows.length ? "ok" : "warn"],
+    ["榜单说明", activeBoard.description || activeBoard.empty_message || "--", state.leaderboardTab === "primary_cn_etf" ? "ok" : "warn"],
+    ["安全边界", "排行榜只用于研究和本地模拟盘观察，不代表可实盘自动交易。", "danger"],
+  ]);
+  byId("factor-leaderboard-table").innerHTML = renderFactorLeaderboardTable(rows);
+}
+
+function renderFactorLeaderboardTable(rows) {
+  if (!rows.length) {
+    const board = getActiveLeaderboard();
+    return `<tr><td colspan="17">${escapeHtml(board.empty_message || "暂无候选")}</td></tr>`;
+  }
+  const head = `
+    <tr>
+      <th>排名</th>
+      <th>结论</th>
+      <th>因子 / case</th>
+      <th>市场</th>
+      <th>总收益</th>
+      <th>年化</th>
+      <th>Sharpe</th>
+      <th>最大回撤</th>
+      <th>胜率</th>
+      <th>RankIC</th>
+      <th>交易数</th>
+      <th>参数</th>
+      <th>审计标签</th>
+      <th>质量</th>
+      <th>排序依据</th>
+      <th>来源</th>
+      <th>全部数据</th>
+    </tr>
+  `;
+  const body = rows.map((row) => {
+    const params = row.params && Object.keys(row.params).length ? JSON.stringify(row.params) : "--";
+    const allData = row.all_data && Object.keys(row.all_data).length ? JSON.stringify(row.all_data, null, 2) : "{}";
+    const badges = (row.audit_badges || []).map((badge) => `<span class="mini-badge">${escapeHtml(badge)}</span>`).join(" ");
+    return `
+      <tr>
+        <td>${formatNumber(row.rank)}</td>
+        <td><strong>${escapeHtml(row.promotion_label || "--")}</strong><br><span class="muted">${escapeHtml(row.plain_conclusion || "--")}</span></td>
+        <td><strong>${escapeHtml(row.factor_name || "--")}</strong><br><span class="muted">${escapeHtml(row.case_id || "--")}</span></td>
+        <td>${escapeHtml(row.market || "--")}</td>
+        <td>${formatPercent(row.total_return)}</td>
+        <td>${formatPercent(row.annualized_return)}</td>
+        <td>${formatDecimal(row.sharpe)}</td>
+        <td>${formatPercent(row.max_drawdown)}</td>
+        <td>${formatPercent(row.win_rate)}</td>
+        <td>${formatDecimal(row.rank_ic)}</td>
+        <td>${formatNumber(row.trade_count)}</td>
+        <td><code>${escapeRawHtml(params)}</code></td>
+        <td>${badges || "--"}</td>
         <td>${escapeHtml(row.ranking_quality || "--")}<br><span class="muted">${escapeHtml((row.ranking_reasons || []).join(" / ") || "ok")}</span></td>
         <td>${escapeHtml(`${row.score_metric || "--"}=${formatDecimal(row.primary_score)}`)}</td>
         <td><span class="muted">${escapeHtml(row.source_file || row.source_path || "--")}</span></td>
@@ -3555,6 +3844,13 @@ function paperReceipt(result = {}) {
 async function runVerificationGate(gateId, button = null) {
   if (!gateId) return;
   const label = button?.textContent || "";
+  const confirmed = await confirmSafeWorkflow({
+    workflow_id: "verification_runner",
+    label: `运行本地验证闸门：${gateId}`,
+    endpoint: `/api/control/verification?gate_id=${gateId}`,
+    request: { gate_id: gateId },
+  });
+  if (!confirmed) return;
   const activeOperation = beginActiveOperation({
     workflow_id: "verification_runner",
     label: `Run verification gate ${gateId}`,

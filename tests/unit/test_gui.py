@@ -110,6 +110,98 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("params", snapshot["top20"][0])
         self.assertIn("source_path", snapshot["top20"][0])
 
+    def test_factor_leaderboard_segments_primary_etf_and_auxiliary_stock_rows(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            reports_root = root / "reports"
+            configs_root = root / "configs"
+            (reports_root / "round100").mkdir(parents=True)
+            (reports_root / "gui_factor_leaderboard_cache").mkdir()
+            configs_root.mkdir()
+            (configs_root / "grid.json").write_text(
+                json.dumps({"factor_names": ["cn_etf_supertrend_state", "cn_stock_moneyflow_aux"]}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            rows = [
+                {
+                    "case_id": "CN_ETF_supertrend_top2_cost5",
+                    "factor_name": "cn_etf_supertrend_state",
+                    "market": "CN_ETF",
+                    "paper_sharpe": 1.42,
+                    "total_return": 0.68,
+                    "annualized_return": 0.16,
+                    "max_drawdown": -0.21,
+                    "win_rate": 0.59,
+                    "rank_ic": 0.042,
+                    "trade_count": 64,
+                    "sample_count": 560,
+                    "oos_sharpe": 1.08,
+                    "status": "watchlist",
+                    "params": {"top_n": 2, "cost_bps": 5},
+                },
+                {
+                    "case_id": "CN_moneyflow_rank_top10",
+                    "factor_name": "cn_stock_moneyflow_aux",
+                    "market": "CN",
+                    "sharpe": 2.3,
+                    "total_return": 1.2,
+                    "annualized_return": 0.28,
+                    "max_drawdown": -0.34,
+                    "win_rate": 0.61,
+                    "rank_ic": 0.05,
+                    "trade_count": 80,
+                    "sample_count": 700,
+                    "params": {"top_n": 10, "cost_bps": 5},
+                },
+            ]
+            (reports_root / "round100" / "candidate_leaderboard.json").write_text(
+                json.dumps({"candidate_leaderboard": rows}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            (reports_root / "gui_factor_leaderboard_cache" / "gui_factor_leaderboard_cache.json").write_text(
+                json.dumps(
+                    {
+                        "stage": "gui_factor_leaderboard",
+                        "top20": [
+                            {
+                                "case_id": "stale_cache_row",
+                                "factor_name": "cache_should_not_appear",
+                                "market": "CN_ETF",
+                                "sharpe": 99,
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
+
+            snapshot = build_factor_leaderboard_snapshot(
+                reports_root=reports_root,
+                configs_root=configs_root,
+                limit=20,
+            )
+
+        self.assertEqual(snapshot["summary"]["primary_market"], "CN_ETF")
+        self.assertEqual(snapshot["summary"]["candidate_rows_by_market"]["CN_ETF"], 1)
+        self.assertEqual(snapshot["summary"]["candidate_rows_by_market"]["CN"], 1)
+        self.assertEqual(snapshot["summary"]["primary_market_candidate_rows"], 1)
+        self.assertIn("leaderboards", snapshot)
+        self.assertEqual(snapshot["leaderboards"]["primary_cn_etf"]["rows"][0]["market"], "CN_ETF")
+        self.assertEqual(snapshot["leaderboards"]["cn_stock_research"]["rows"][0]["market"], "CN")
+        self.assertEqual(len(snapshot["leaderboards"]["all_history"]["rows"]), 2)
+        primary_row = snapshot["leaderboards"]["primary_cn_etf"]["rows"][0]
+        stock_row = snapshot["leaderboards"]["cn_stock_research"]["rows"][0]
+        self.assertTrue(primary_row["is_primary_market"])
+        self.assertIn(primary_row["promotion_label"], {"可进模拟盘观察", "可继续研究"})
+        self.assertIn("CN_ETF 主线", primary_row["plain_conclusion"])
+        self.assertFalse(stock_row["is_primary_market"])
+        self.assertEqual(stock_row["market_role"], "cn_stock_auxiliary")
+        self.assertIn("非ETF主线", stock_row["audit_badges"])
+        self.assertIn("不能直接用于ETF轮动", stock_row["plain_conclusion"])
+        self.assertNotIn("cache_should_not_appear", snapshot["factor_names"]["from_reports"])
+        self.assertTrue(all(row.get("source_file") != "gui_factor_leaderboard_cache.json" for row in snapshot["top20"]))
+
     def test_control_center_snapshot_exposes_work_backtest_method_and_safety(self):
         from quant_robot.gui.control_center import build_control_center_snapshot
 
@@ -1679,6 +1771,17 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("project-action-table", html)
             self.assertIn("factor-inventory-metrics", html)
             self.assertIn("factor-leaderboard-table", html)
+            self.assertIn("ordinary-home-board", html)
+            self.assertIn("ordinary-status-metrics", html)
+            self.assertIn("ordinary-next-action", html)
+            self.assertIn("ordinary-mainline-warning", html)
+            self.assertIn("leaderboard-tab-primary", html)
+            self.assertIn("leaderboard-tab-cn", html)
+            self.assertIn("leaderboard-tab-all", html)
+            self.assertIn("factor-leaderboard-explanation", html)
+            self.assertIn("factor-glossary", html)
+            self.assertIn("safe-run-modal", html)
+            self.assertIn("safe-run-confirm", html)
             self.assertIn("因子资产总账", html)
             self.assertIn("Top20 因子排行榜", html)
             self.assertIn("operator-strip", html)
@@ -1693,9 +1796,9 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("模拟盘交接", html)
             self.assertIn("实盘边界", html)
             self.assertIn("data-console-action", html)
-            self.assertIn("开始研究回测", html)
-            self.assertIn("生成信号快照", html)
-            self.assertIn("运行模拟盘", html)
+            self.assertIn("本地回测当前参数", html)
+            self.assertIn("生成本地建议信号", html)
+            self.assertIn("本地模拟盘回放", html)
             self.assertIn("GUI 编译检查", html)
             self.assertIn("项目安全审计", html)
             self.assertIn("同步预检", html)
@@ -1810,6 +1913,12 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("renderTushareActivationGate", app_js)
             self.assertIn("/api/factors/leaderboard", app_js)
             self.assertIn("renderFactorLeaderboard", app_js)
+            self.assertIn("renderOrdinaryHome", app_js)
+            self.assertIn("renderFactorGlossary", app_js)
+            self.assertIn("setLeaderboardTab", app_js)
+            self.assertIn("confirmSafeWorkflow", app_js)
+            self.assertIn("GLOSSARY_TERMS", app_js)
+            self.assertIn("leaderboards", app_js)
             self.assertIn("risk_tier", app_js)
             self.assertIn("dailyPaperProfile", app_js)
             self.assertIn("dashboard-equity-source", app_js)

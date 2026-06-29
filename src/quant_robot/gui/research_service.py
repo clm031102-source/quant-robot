@@ -4,6 +4,7 @@ import csv
 import json
 import math
 import time
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +46,22 @@ DEFAULT_TUSHARE_ACTIVATION_GATE_PACK = Path("data/reports/tushare_activation_gat
 DEFAULT_FACTOR_LEADERBOARD_REPORTS_ROOT = Path("data/reports")
 DEFAULT_FACTOR_LEADERBOARD_CONFIGS_ROOT = Path("configs")
 DEFAULT_FACTOR_LEADERBOARD_CACHE = Path("data/reports/gui_factor_leaderboard_cache/gui_factor_leaderboard_cache.json")
+FACTOR_LEADERBOARD_CACHE_VERSION = 2
+PRIMARY_FACTOR_MARKET = "CN_ETF"
+FACTOR_LEADERBOARD_GROUPS = {
+    "primary_cn_etf": {
+        "label": "CN_ETF 主线榜",
+        "description": "只展示 A 股 ETF 轮动主线候选，默认先看这张榜。",
+    },
+    "cn_stock_research": {
+        "label": "CN 个股辅助研究榜",
+        "description": "只展示 A 股个股研究候选，不能直接当 ETF 轮动信号。",
+    },
+    "all_history": {
+        "label": "全部历史榜",
+        "description": "展示所有市场历史候选，用来盘点资产，不作为默认推广依据。",
+    },
+}
 FACTOR_LEADERBOARD_FILE_KEYWORDS = (
     "leaderboard",
     "candidate",
@@ -105,6 +122,20 @@ FACTOR_LEADERBOARD_PARAM_KEYS = (
     "profile_id",
     "portfolio_value",
 )
+FACTOR_LEADERBOARD_IDENTITY_KEYS = {
+    "case_id",
+    "candidate_id",
+    "factor_name",
+    "factor",
+    "public_factor_name",
+    "lead_factor_name",
+    "source_factor_name",
+    "profile_id",
+    "strategy_id",
+}
+FACTOR_LEADERBOARD_METRIC_KEYS = set(FACTOR_LEADERBOARD_SCORE_PRIORITY) | {
+    alias for aliases in FACTOR_LEADERBOARD_METRIC_ALIASES.values() for alias in aliases
+}
 
 
 def build_gui_snapshot() -> dict[str, Any]:
@@ -182,7 +213,7 @@ def build_factor_leaderboard_snapshot(
     reports_root: str | Path | None = None,
     configs_root: str | Path | None = None,
     limit: int = 20,
-    max_files: int = 2000,
+    max_files: int = 400,
     max_file_bytes: int = 8_000_000,
     max_csv_rows_per_file: int = 500,
 ) -> dict[str, Any]:
@@ -202,19 +233,9 @@ def build_factor_leaderboard_snapshot(
     )
     candidate_rows = report_inventory["rows"]
     deduped_rows = _dedupe_leaderboard_rows(candidate_rows)
-    ranked_rows = sorted(
-        deduped_rows,
-        key=lambda row: (
-            1 if row.get("ranking_quality") == "qualified" else 0,
-            _numeric_sort_value(row.get("primary_score")),
-            _numeric_sort_value(row.get("total_return")),
-            _numeric_sort_value(row.get("annualized_return")),
-        ),
-        reverse=True,
-    )
-    top_rows = []
-    for index, row in enumerate(ranked_rows[:safe_limit], start=1):
-        top_rows.append({**row, "rank": index})
+    ranked_rows = _sort_leaderboard_rows(deduped_rows)
+    leaderboards = _build_factor_leaderboards(ranked_rows, safe_limit)
+    top_rows = leaderboards["all_history"]["rows"]
 
     runtime_names = sorted({str(name) for name in runtime_factors if str(name).strip()})
     config_names = sorted(config_inventory["factor_names"])
@@ -226,22 +247,37 @@ def build_factor_leaderboard_snapshot(
         }
     )
     all_names = sorted(set(runtime_names) | set(config_names) | set(report_names))
+    candidate_rows_by_market = _count_rows_by_market(candidate_rows)
+    deduped_rows_by_market = _count_rows_by_market(deduped_rows)
+    unique_factor_names_by_market = _count_factor_names_by_market(candidate_rows)
 
     snapshot = _sanitize(
         {
             "stage": "gui_factor_leaderboard",
+            "cache_version": FACTOR_LEADERBOARD_CACHE_VERSION,
             "reports_root": str(report_root),
             "configs_root": str(config_root),
             "summary": {
+                "primary_market": PRIMARY_FACTOR_MARKET,
                 "runtime_dropdown_factor_names": len(runtime_names),
                 "config_factor_names": len(config_names),
                 "report_factor_names": len(report_names),
                 "unique_factor_names": len(all_names),
                 "candidate_rows": report_inventory["candidate_rows"],
                 "deduped_candidate_rows": len(deduped_rows),
+                "candidate_rows_by_market": candidate_rows_by_market,
+                "deduped_candidate_rows_by_market": deduped_rows_by_market,
+                "unique_factor_names_by_market": unique_factor_names_by_market,
+                "primary_market_candidate_rows": candidate_rows_by_market.get(PRIMARY_FACTOR_MARKET, 0),
+                "primary_market_deduped_candidate_rows": deduped_rows_by_market.get(PRIMARY_FACTOR_MARKET, 0),
+                "primary_market_unique_factor_names": unique_factor_names_by_market.get(PRIMARY_FACTOR_MARKET, 0),
+                "cn_stock_candidate_rows": candidate_rows_by_market.get("CN", 0),
+                "cn_stock_unique_factor_names": unique_factor_names_by_market.get("CN", 0),
                 "report_files_scanned": report_inventory["files_scanned"],
                 "report_files_with_candidates": report_inventory["files_with_candidates"],
                 "report_files_skipped": report_inventory["files_skipped"],
+                "scan_file_cap": max_files,
+                "scan_mode": "fast_gui_candidate_summary_scan",
                 "config_files_scanned": config_inventory["files_scanned"],
                 "top_n": safe_limit,
                 "ranking_basis": "qualified rows first, then first available score among paper/walk-forward/oos/test sharpe, sharpe, rank IC, mean IC, score, total return",
@@ -253,6 +289,7 @@ def build_factor_leaderboard_snapshot(
                 "from_reports": report_names,
                 "all_unique": all_names,
             },
+            "leaderboards": leaderboards,
             "top20": top_rows,
             "warnings": report_inventory["warnings"],
         }
@@ -1276,6 +1313,12 @@ def _read_factor_leaderboard_cache(report_root: Path, config_root: Path, limit: 
     cached = _read_json_any(DEFAULT_FACTOR_LEADERBOARD_CACHE)
     if not isinstance(cached, dict) or cached.get("stage") != "gui_factor_leaderboard":
         return None
+    if cached.get("cache_version") != FACTOR_LEADERBOARD_CACHE_VERSION:
+        return None
+    if isinstance(cached.get("leaderboards"), dict):
+        for board in cached["leaderboards"].values():
+            if isinstance(board, dict) and isinstance(board.get("rows"), list):
+                board["rows"] = board["rows"][:limit]
     rows = cached.get("top20") if isinstance(cached.get("top20"), list) else []
     cached["top20"] = rows[:limit]
     if isinstance(cached.get("summary"), dict):
@@ -1296,6 +1339,68 @@ def _write_factor_leaderboard_cache(report_root: Path, config_root: Path, snapsh
         DEFAULT_FACTOR_LEADERBOARD_CACHE.write_text(json.dumps(cache_payload, ensure_ascii=False, indent=2), encoding="utf-8")
     except OSError:
         return
+
+
+def _sort_leaderboard_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(
+        rows,
+        key=lambda row: (
+            1 if row.get("ranking_quality") == "qualified" else 0,
+            1 if row.get("is_primary_market") else 0,
+            _numeric_sort_value(row.get("primary_score")),
+            _numeric_sort_value(row.get("total_return")),
+            _numeric_sort_value(row.get("annualized_return")),
+        ),
+        reverse=True,
+    )
+
+
+def _rank_leaderboard_rows(rows: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
+    return [{**row, "rank": index} for index, row in enumerate(rows[:limit], start=1)]
+
+
+def _build_factor_leaderboards(rows: list[dict[str, Any]], limit: int) -> dict[str, Any]:
+    primary_rows = [row for row in rows if row.get("market") == PRIMARY_FACTOR_MARKET]
+    cn_rows = [row for row in rows if row.get("market") == "CN"]
+    return {
+        "primary_cn_etf": {
+            **FACTOR_LEADERBOARD_GROUPS["primary_cn_etf"],
+            "market": PRIMARY_FACTOR_MARKET,
+            "rows": _rank_leaderboard_rows(primary_rows, limit),
+            "row_count": len(primary_rows),
+            "empty_message": "当前没有 CN_ETF 主线候选。先补 ETF 主线回测，再看全部历史榜。",
+        },
+        "cn_stock_research": {
+            **FACTOR_LEADERBOARD_GROUPS["cn_stock_research"],
+            "market": "CN",
+            "rows": _rank_leaderboard_rows(cn_rows, limit),
+            "row_count": len(cn_rows),
+            "empty_message": "当前没有 CN 个股辅助研究候选。",
+        },
+        "all_history": {
+            **FACTOR_LEADERBOARD_GROUPS["all_history"],
+            "market": "ALL",
+            "rows": _rank_leaderboard_rows(rows, limit),
+            "row_count": len(rows),
+            "empty_message": "当前没有可展示的历史候选。",
+        },
+    }
+
+
+def _count_rows_by_market(rows: list[dict[str, Any]]) -> dict[str, int]:
+    counter = Counter(str(row.get("market") or "UNKNOWN") for row in rows)
+    return dict(sorted(counter.items()))
+
+
+def _count_factor_names_by_market(rows: list[dict[str, Any]]) -> dict[str, int]:
+    names_by_market: dict[str, set[str]] = {}
+    for row in rows:
+        market = str(row.get("market") or "UNKNOWN")
+        factor_name = str(row.get("factor_name") or "").strip()
+        if not factor_name:
+            continue
+        names_by_market.setdefault(market, set()).add(factor_name)
+    return {market: len(names) for market, names in sorted(names_by_market.items())}
 
 
 def _collect_factor_names_from_config(value: Any, names: set[str], parent_key: str = "") -> None:
@@ -1362,7 +1467,7 @@ def _collect_report_candidate_inventory(
             "warnings": [f"missing reports root: {report_root}"],
         }
 
-    candidate_files = list(_iter_factor_report_files(report_root))[:max_files]
+    candidate_files = _select_factor_report_files(list(_iter_factor_report_files(report_root)), max_files)
     for path in candidate_files:
         try:
             file_size = path.stat().st_size
@@ -1392,6 +1497,24 @@ def _collect_report_candidate_inventory(
         "files_skipped": files_skipped,
         "warnings": warnings[:20],
     }
+
+
+def _select_factor_report_files(files: list[Path], max_files: int) -> list[Path]:
+    if len(files) <= max_files:
+        return files
+    primary_files = [path for path in files if _path_mentions_primary_market(path)]
+    auxiliary_files = [path for path in files if not _path_mentions_primary_market(path)]
+    primary_quota = min(len(primary_files), max(1, int(max_files * 0.7)))
+    selected = primary_files[:primary_quota]
+    selected.extend(auxiliary_files[: max_files - len(selected)])
+    if len(selected) < max_files:
+        selected.extend(primary_files[primary_quota : primary_quota + (max_files - len(selected))])
+    return selected[:max_files]
+
+
+def _path_mentions_primary_market(path: Path) -> bool:
+    text = str(path).lower()
+    return "cn_etf" in text or "etf" in text
 
 
 def _iter_factor_report_files(report_root: Path) -> list[Path]:
@@ -1426,7 +1549,24 @@ def _iter_factor_report_files(report_root: Path) -> list[Path]:
             if _is_factor_report_file(path):
                 files[str(path)] = path
                 scanned_in_dir += 1
-    return sorted(files.values(), key=lambda item: str(item).lower())
+    return sorted(files.values(), key=_factor_report_file_sort_key)
+
+
+def _factor_report_file_sort_key(path: Path) -> tuple[int, int, str]:
+    text = str(path).lower()
+    name = path.name.lower()
+    market_priority = 0 if ("cn_etf" in text or "etf" in text) else 1
+    if "leaderboard" in name:
+        file_priority = 0
+    elif "candidate" in name:
+        file_priority = 1
+    elif "factor_summary" in name or "summary" in name:
+        file_priority = 2
+    elif "promotion" in name or "paper" in name or "portfolio" in name:
+        file_priority = 3
+    else:
+        file_priority = 4
+    return (market_priority, file_priority, text)
 
 
 def _should_scan_report_dir(name: str) -> bool:
@@ -1435,6 +1575,7 @@ def _should_scan_report_dir(name: str) -> bool:
         "desktop_factor_mining_20260616_0800",
         "gui_browser_smoke",
         "gui_control_center_audit",
+        "gui_factor_leaderboard_cache",
         "quant_pm_startup_gate",
         "automation",
         "data_manifest",
@@ -1449,22 +1590,73 @@ def _is_factor_report_file(path: Path) -> bool:
         return False
     name = path.name.lower()
     path_text = str(path).lower()
-    if name in {"quality_report_cn_etf.json", "gui_operation_ledger.json"}:
+    if name in {"quality_report_cn_etf.json", "gui_operation_ledger.json", "gui_factor_leaderboard_cache.json"}:
+        return False
+    if "gui_factor_leaderboard_cache" in path_text:
+        return False
+    detail_file_markers = (
+        "diagnostics",
+        "ic_observations",
+        "monthly_ic",
+        "yearly_ic",
+        "daily_ic",
+        "group_returns",
+        "equity_curve",
+        "drawdown",
+        "holdings",
+        "positions",
+        "fills",
+        "orders",
+        "rebalance_plan",
+        "trade_log",
+        "raw_rows",
+    )
+    if any(marker in name for marker in detail_file_markers):
+        return False
+    detail_file_names = {
+        "benchmark_metrics.json",
+        "decision.json",
+        "metrics.json",
+        "ic.csv",
+        "long_short.csv",
+        "regime_curve.csv",
+        "benchmark_curve.csv",
+        "cn_etf_universe_selection.csv",
+    }
+    if name in detail_file_names:
         return False
     return any(keyword in name or keyword in path_text for keyword in FACTOR_LEADERBOARD_FILE_KEYWORDS)
 
 
 def _collect_candidate_rows_from_json(value: Any, source_path: Path, rows: list[dict[str, Any]]) -> None:
     if isinstance(value, dict):
-        row = _candidate_row_from_mapping(value, source_path)
-        if row is not None:
-            rows.append(row)
+        if _mapping_may_be_factor_candidate(value):
+            row = _candidate_row_from_mapping(value, source_path)
+            if row is not None:
+                rows.append(row)
         for item in value.values():
             _collect_candidate_rows_from_json(item, source_path, rows)
         return
     if isinstance(value, list):
         for item in value:
             _collect_candidate_rows_from_json(item, source_path, rows)
+
+
+def _mapping_may_be_factor_candidate(mapping: dict[str, Any]) -> bool:
+    keys = _collect_candidate_key_leaves(mapping, depth=2)
+    return bool(keys & FACTOR_LEADERBOARD_IDENTITY_KEYS) and bool(keys & FACTOR_LEADERBOARD_METRIC_KEYS)
+
+
+def _collect_candidate_key_leaves(value: Any, *, depth: int) -> set[str]:
+    if not isinstance(value, dict):
+        return set()
+    keys: set[str] = set()
+    for key, item in value.items():
+        leaf = str(key).rsplit(".", 1)[-1].lower()
+        keys.add(leaf)
+        if depth > 0 and isinstance(item, dict):
+            keys.update(_collect_candidate_key_leaves(item, depth=depth - 1))
+    return keys
 
 
 def _collect_candidate_rows_from_csv(path: Path, rows: list[dict[str, Any]], *, max_rows: int) -> None:
@@ -1524,12 +1716,26 @@ def _candidate_row_from_mapping(mapping: dict[str, Any], source_path: Path) -> d
     }
     for canonical, aliases in FACTOR_LEADERBOARD_METRIC_ALIASES.items():
         normalized[canonical] = _lookup_numeric_metric(flat, aliases)
+    normalized["has_oos_evidence"] = (
+        _lookup_numeric_metric(
+            flat,
+            (
+                "oos_sharpe",
+                "out_of_sample_sharpe",
+                "walk_forward_sharpe",
+                "validation_sharpe",
+                "test_sharpe",
+            ),
+        )
+        is not None
+    )
     score_metric, score = _leaderboard_score(flat, normalized)
     normalized["score_metric"] = score_metric
     normalized["primary_score"] = score
     quality, quality_reasons = _leaderboard_quality(normalized)
     normalized["ranking_quality"] = quality
     normalized["ranking_reasons"] = quality_reasons
+    _apply_factor_leaderboard_verdict(normalized)
     if normalized["primary_score"] is None and not has_metric:
         return None
     return normalized
@@ -1651,6 +1857,70 @@ def _extract_candidate_params(flat: dict[str, Any]) -> dict[str, Any]:
             if value not in {None, ""} and len(params) < 24:
                 params[leaf] = value
     return params
+
+
+def _apply_factor_leaderboard_verdict(row: dict[str, Any]) -> None:
+    market = str(row.get("market") or "").upper()
+    is_primary = market == PRIMARY_FACTOR_MARKET
+    market_role = _leaderboard_market_role(market)
+    badges: list[str] = []
+    quality = str(row.get("ranking_quality") or "")
+    score = _to_float(row.get("primary_score"))
+    sharpe = _to_float(row.get("sharpe"))
+    drawdown = _to_float(row.get("max_drawdown"))
+    has_oos = bool(row.get("has_oos_evidence"))
+
+    row["market"] = market
+    row["market_role"] = market_role
+    row["is_primary_market"] = is_primary
+
+    if not is_primary:
+        badges.append("非ETF主线")
+        if market == "CN":
+            badges.append("CN个股辅助")
+            row["promotion_label"] = "仅辅助研究"
+            row["plain_conclusion"] = "这是 CN 个股辅助研究，不是 CN_ETF 主线，不能直接用于ETF轮动或模拟盘推广。"
+        else:
+            badges.append("非主线市场")
+            row["promotion_label"] = "仅历史参考"
+            row["plain_conclusion"] = "这条候选不属于 CN_ETF 主线，不能直接用于当前 ETF 轮动项目。"
+    else:
+        badges.append("CN_ETF主线")
+        if quality != "qualified":
+            badges.append("样本不足")
+            row["promotion_label"] = "不可推广"
+            row["plain_conclusion"] = "这是 CN_ETF 主线候选，但样本或交易证据不足，不能推广。"
+        else:
+            if not has_oos:
+                badges.append("缺OOS")
+            if (score is not None and score >= 3.0) or (sharpe is not None and sharpe >= 3.0):
+                badges.append("疑似过拟合")
+            if drawdown is not None and abs(drawdown) >= 0.30:
+                badges.append("大回撤")
+            if "疑似过拟合" in badges:
+                row["promotion_label"] = "疑似过拟合"
+                row["plain_conclusion"] = "这是 CN_ETF 主线候选，但收益或 Sharpe 异常高，必须做 OOS、滚动和参数敏感性审计。"
+            elif has_oos and str(row.get("score_metric") or "").startswith(("paper", "walk_forward", "oos", "test")):
+                row["promotion_label"] = "可进模拟盘观察"
+                row["plain_conclusion"] = "这是 CN_ETF 主线候选，已有样本和 OOS/滚动证据，可进入模拟盘观察，但仍不能实盘自动交易。"
+            elif has_oos:
+                row["promotion_label"] = "可继续研究"
+                row["plain_conclusion"] = "这是 CN_ETF 主线候选，已有部分验证证据，适合继续扩样本和审计。"
+            else:
+                row["promotion_label"] = "仅研究线索"
+                row["plain_conclusion"] = "这是 CN_ETF 主线候选，但缺少 OOS/滚动证据，先当研究线索。"
+
+    row["audit_badges"] = badges
+
+
+def _leaderboard_market_role(market: str) -> str:
+    if market == PRIMARY_FACTOR_MARKET:
+        return "primary_cn_etf"
+    if market == "CN":
+        return "cn_stock_auxiliary"
+    if market:
+        return "other_market_auxiliary"
+    return "unknown_market"
 
 
 def _leaderboard_quality(row: dict[str, Any]) -> tuple[str, list[str]]:
