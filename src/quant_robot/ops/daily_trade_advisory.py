@@ -13,6 +13,7 @@ import pandas as pd
 STAGE = "phase_6_0_daily_trade_advisory"
 PRETRADE_WORKFLOW_STAGE = "phase_6_1_daily_pretrade_workflow"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
+BOARD_LOT_SIZE = 100
 
 
 def select_daily_top_factor_candidates(
@@ -375,6 +376,7 @@ def _combined_targets(
 def _manual_trade_plan(combined_targets: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows = []
     for index, target in enumerate(combined_targets, start=1):
+        sizing = _manual_ticket_sizing(target, board_lot_size=BOARD_LOT_SIZE)
         rows.append(
             {
                 "ticket_id": f"daily-top3-{index:03d}",
@@ -383,6 +385,9 @@ def _manual_trade_plan(combined_targets: list[dict[str, Any]]) -> list[dict[str,
                 "side": "buy_or_adjust",
                 "target_weight": target.get("target_weight"),
                 "target_value": target.get("target_value"),
+                "latest_price": target.get("latest_price"),
+                "board_lot_size": BOARD_LOT_SIZE,
+                **sizing,
                 "source_factors": ", ".join(target.get("source_factors", [])),
                 "executable": False,
                 "live_order_allowed": False,
@@ -390,6 +395,29 @@ def _manual_trade_plan(combined_targets: list[dict[str, Any]]) -> list[dict[str,
             }
         )
     return rows
+
+
+def _manual_ticket_sizing(target: dict[str, Any], board_lot_size: int = BOARD_LOT_SIZE) -> dict[str, Any]:
+    target_value = _float_or_none(target.get("target_value"))
+    latest_price = _float_or_none(target.get("latest_price"))
+    if target_value is None or latest_price is None or latest_price <= 0:
+        return {
+            "estimated_quantity": None,
+            "rounded_quantity": None,
+            "rounded_value": None,
+            "cash_delta_after_rounding": None,
+            "quantity_note": "缺少可用价格，不能估算份额；必须人工核对行情。",
+        }
+    estimated_quantity = target_value / latest_price
+    rounded_quantity = int(math.floor(estimated_quantity / board_lot_size) * board_lot_size)
+    rounded_value = rounded_quantity * latest_price
+    return {
+        "estimated_quantity": estimated_quantity,
+        "rounded_quantity": rounded_quantity,
+        "rounded_value": rounded_value,
+        "cash_delta_after_rounding": target_value - rounded_value,
+        "quantity_note": f"按 {board_lot_size} 份一手向下取整；仅供人工复核，系统不会下单。",
+    }
 
 
 def _operator_checklist() -> list[dict[str, Any]]:

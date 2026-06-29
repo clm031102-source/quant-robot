@@ -2065,6 +2065,12 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("/api/daily/ops", app_js)
             self.assertIn("renderDailyPretradeWorkflow", app_js)
             self.assertIn("pretrade_workflow", app_js)
+            daily_manual_table_block = app_js.split('byId("daily-trade-manual-table")', 1)[1].split("]);", 1)[0]
+            self.assertIn('"latest_price"', daily_manual_table_block)
+            self.assertIn('"estimated_quantity"', daily_manual_table_block)
+            self.assertIn('"rounded_quantity"', daily_manual_table_block)
+            self.assertIn('"rounded_value"', daily_manual_table_block)
+            self.assertIn('"cash_delta_after_rounding"', daily_manual_table_block)
             self.assertIn("/api/risk/candidates", app_js)
             self.assertIn("/api/risk/constrained-search", app_js)
             self.assertIn("/api/risk/paper-profiles", app_js)

@@ -65,8 +65,33 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(pack["combined_target_count"], 3)
         self.assertGreater(pack["combined_targets"][0]["target_value"], 0)
         self.assertTrue(all(not row["executable"] for row in pack["manual_trade_plan"]))
+        self.assertTrue(all(row["board_lot_size"] == 100 for row in pack["manual_trade_plan"]))
+        self.assertTrue(all(row["estimated_quantity"] > 0 for row in pack["manual_trade_plan"]))
+        self.assertTrue(all(row["rounded_quantity"] % 100 == 0 for row in pack["manual_trade_plan"]))
+        self.assertTrue(all(row["rounded_value"] == row["rounded_quantity"] * row["latest_price"] for row in pack["manual_trade_plan"]))
+        self.assertTrue(all("cash_delta_after_rounding" in row for row in pack["manual_trade_plan"]))
         self.assertIn("manual", pack["operator_checklist"][0]["check_id"])
         self.assertIn("不连接券商", pack["safety"])
+
+    def test_manual_plan_rounds_to_board_lot_without_enabling_orders(self):
+        pack = build_daily_trade_advisory_pack(
+            [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
+            [_signal("c1", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+        )
+
+        ticket = pack["manual_trade_plan"][0]
+
+        self.assertAlmostEqual(ticket["target_value"], 33300.0)
+        self.assertAlmostEqual(ticket["latest_price"], 3.2)
+        self.assertAlmostEqual(ticket["estimated_quantity"], 10406.25)
+        self.assertEqual(ticket["rounded_quantity"], 10400)
+        self.assertAlmostEqual(ticket["rounded_value"], 33280.0)
+        self.assertAlmostEqual(ticket["cash_delta_after_rounding"], 20.0)
+        self.assertFalse(ticket["live_order_allowed"])
+        self.assertFalse(ticket["executable"])
+        self.assertIn("系统不会下单", ticket["manual_instruction"])
 
     def test_write_daily_trade_advisory_outputs_operator_files(self):
         pack = build_daily_trade_advisory_pack(
@@ -123,7 +148,12 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertTrue(any("先看前三因子" in card["text"] for card in workflow["beginner_cards"]))
 
 
-def _signal(case_id: str, factor_name: str, weights: dict[str, float]) -> dict[str, object]:
+def _signal(
+    case_id: str,
+    factor_name: str,
+    weights: dict[str, float],
+    latest_price: float = 1.0,
+) -> dict[str, object]:
     targets = []
     rebalance = []
     for asset_id, weight in weights.items():
@@ -133,7 +163,7 @@ def _signal(case_id: str, factor_name: str, weights: dict[str, float]) -> dict[s
                 "asset_id": asset_id,
                 "market": "CN_ETF",
                 "target_weight": weight,
-                "latest_price": 1.0,
+                "latest_price": latest_price,
                 "signal_date": "2026-06-29",
             }
         )
@@ -144,7 +174,7 @@ def _signal(case_id: str, factor_name: str, weights: dict[str, float]) -> dict[s
                 "target_weight": weight,
                 "target_value": target_value,
                 "delta_value": target_value,
-                "estimated_quantity_delta": target_value,
+                "estimated_quantity_delta": target_value / latest_price,
                 "action": "increase",
                 "executable": False,
             }
