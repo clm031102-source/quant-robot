@@ -2305,6 +2305,34 @@ function beginnerProgressStepRows(progress = beginnerProgressState()) {
   ];
 }
 
+function beginnerProgressActionButtons(progress = beginnerProgressState()) {
+  const running = progress.status === "running";
+  const actions = [
+    {
+      label: progress.targetLabel || "看证据",
+      title: "先看当前状态对应的证据位置。",
+      jump: progress.target || "control-operation-ledger",
+      style: "secondary-button",
+      disabled: false,
+    },
+    {
+      label: "重新跑当前回测",
+      title: "只跑当前表单参数的本地回测。",
+      action: "research_backtest",
+      style: "secondary-button",
+      disabled: running,
+    },
+    {
+      label: "一键安全刷新全流程",
+      title: "按安全顺序刷新回测、信号、模拟盘和候选推广。",
+      action: "startup_workflows",
+      style: "primary-button",
+      disabled: running,
+    },
+  ];
+  return actions;
+}
+
 function renderBeginnerProgress() {
   const root = byId("beginner-progress-board");
   const statusTarget = byId("beginner-progress-status");
@@ -2327,18 +2355,28 @@ function renderBeginnerProgress() {
     </div>
   `;
   stepsTarget.innerHTML = statusRows(beginnerProgressStepRows(progress));
-  const actionButton = progress.action ? `
-    <button class="primary-button" type="button" data-beginner-action="${escapeHtml(progress.action)}">${escapeHtml(progress.actionLabel || "开始运行")}</button>
-  ` : "";
+  const actionButtons = beginnerProgressActionButtons(progress).map((item) => {
+    const attrs = item.action
+      ? `data-beginner-action="${escapeHtml(item.action)}" data-beginner-progress-action="${escapeHtml(item.action)}"`
+      : `data-beginner-progress-jump="${escapeHtml(item.jump || progress.target)}"`;
+    return `
+      <button
+        class="${escapeHtml(item.style || "secondary-button")}"
+        type="button"
+        title="${escapeHtml(item.title || item.label)}"
+        ${attrs}
+        ${item.disabled ? "disabled" : ""}
+      >${escapeHtml(item.label)}</button>
+    `;
+  }).join("");
   nextTarget.innerHTML = `
     <div class="list-row ${escapeHtml(progress.tone)}">
       <strong>下一步</strong>
       <span>${escapeHtml(progress.actionText || "看完证据后再决定下一步。")}</span>
     </div>
     <div class="list-row ok">
-      <strong>去查看</strong>
-      <span><button class="secondary-button" type="button" data-beginner-progress-jump="${escapeHtml(progress.target)}">${escapeHtml(progress.targetLabel || "看证据")}</button></span>
-      <span>${actionButton}</span>
+      <strong>新手行动台</strong>
+      <span class="beginner-progress-actions">${actionButtons}</span>
     </div>
   `;
 }
@@ -4904,6 +4942,10 @@ async function runActionCenterWorkflow(workflowId, button = null) {
     }
     if (workflowId === "paper_simulation") {
       await runPaper();
+      return;
+    }
+    if (workflowId === "startup_workflows") {
+      await runStartupWorkflows();
       return;
     }
     if (workflowId === "verification_runner") {

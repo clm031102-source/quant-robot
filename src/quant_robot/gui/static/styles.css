@@ -538,6 +538,13 @@ button {
   min-width: 0;
 }
 
+.beginner-progress-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
 .beginner-progress-next button {
   white-space: normal;
 }
