@@ -259,6 +259,12 @@ function bindActions() {
     jumpToBeginnerTarget(button.dataset.factorBeginnerJump || "factor-leaderboard-table", state.leaderboardTab);
   });
   document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-beginner-parameter-jump]");
+    if (!button) return;
+    event.preventDefault();
+    jumpToBeginnerTarget(button.dataset.beginnerParameterJump || "control-request-preview", state.leaderboardTab);
+  });
+  document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-beginner-action]");
     if (!button) return;
     runBeginnerAction(button.dataset.beginnerAction || "", button);
@@ -465,6 +471,144 @@ function buildPaperParams() {
   return params;
 }
 
+function parameterPlainValue(params, key, fallback = "--") {
+  const value = params?.get ? params.get(key) : params?.[key];
+  return value === undefined || value === null || value === "" ? fallback : String(value);
+}
+
+function parameterSourceText(source, dataRoot) {
+  if (source === "processed-bars") {
+    return `本地清洗行情${dataRoot && dataRoot !== "--" ? `：${dataRoot}` : ""}`;
+  }
+  if (source === "demo_fixture") return "演示数据，只适合试操作，不适合判断因子";
+  return source || "--";
+}
+
+function parameterBpsText(value, fallback = "--") {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return `${number} bps（约 ${formatPercent(number / 10000)}）`;
+}
+
+function parameterWeightText(value, fallback = "--") {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  if (number <= 1) return formatPercent(number);
+  return String(value);
+}
+
+function parameterDateWindow(params, startKey = "start_date", endKey = "end_date") {
+  const start = parameterPlainValue(params, startKey);
+  const end = parameterPlainValue(params, endKey);
+  if (start === "--" && end === "--") return "--";
+  return `${start} 至 ${end}`;
+}
+
+function beginnerParameterRows(researchParams, signalParams, paperParams) {
+  const source = parameterPlainValue(researchParams, "source");
+  const market = parameterPlainValue(researchParams, "market");
+  const factor = parameterPlainValue(researchParams, "factor");
+  const windows = parameterPlainValue(researchParams, "factor_windows");
+  const topN = parameterPlainValue(researchParams, "top_n");
+  const paperTopN = parameterPlainValue(paperParams, "top_n");
+  const signalTopN = parameterPlainValue(signalParams, "top_n");
+  const dataRoot = parameterPlainValue(researchParams, "data_root");
+  const regimeFilter = parameterPlainValue(researchParams, "regime_filter", "false");
+  const regimeLookback = parameterPlainValue(researchParams, "regime_lookback");
+  const maxAsset = parameterPlainValue(paperParams, "max_asset_weight");
+  const maxMarket = parameterPlainValue(paperParams, "max_market_weight");
+  const maxGross = parameterPlainValue(paperParams, "max_gross_exposure");
+  const minCash = parameterPlainValue(paperParams, "min_cash_weight");
+  const drawdownGuard = parameterPlainValue(paperParams, "max_drawdown_guard");
+  const guardText = drawdownGuard === "--" ? "未设置自动止损闸门" : `回撤到 ${parameterWeightText(drawdownGuard)} 后触发保护`;
+
+  return [
+    [
+      "数据来源",
+      `${parameterSourceText(source, dataRoot)}。这决定回测是不是用本地清洗后的真实 ETF 数据。`,
+      source === "processed-bars" ? "ok" : "warn",
+    ],
+    [
+      "研究标的",
+      `${market}。主线应该是 CN_ETF；如果不是，先别把结果当成 ETF 轮动结论。`,
+      market === "CN_ETF" ? "ok" : "warn",
+    ],
+    [
+      "回测区间",
+      `${parameterDateWindow(researchParams)}。这是用来判断因子长期表现的样本范围。`,
+      "ok",
+    ],
+    [
+      "因子和窗口",
+      `${factor}，窗口 ${windows}。窗口越短越敏感，窗口越长越偏趋势确认。`,
+      "ok",
+    ],
+    [
+      "每次买几只",
+      `研究 Top${topN}，信号 Top${signalTopN}，模拟盘 Top${paperTopN}。TopN 越小越集中，收益和回撤都可能更极端。`,
+      topN === signalTopN && topN === paperTopN ? "ok" : "warn",
+    ],
+    [
+      "交易成本",
+      `研究成本 ${parameterBpsText(parameterPlainValue(researchParams, "cost_bps"))}；模拟盘佣金 ${parameterBpsText(parameterPlainValue(paperParams, "commission_bps"))}，滑点 ${parameterBpsText(parameterPlainValue(paperParams, "slippage_bps"))}。`,
+      "ok",
+    ],
+    [
+      "执行假设",
+      `信号延迟 ${parameterPlainValue(researchParams, "execution_lag")} 天，预测 ${parameterPlainValue(researchParams, "forward_horizon")} 天，换仓间隔 ${parameterPlainValue(researchParams, "rebalance_interval")} 天。`,
+      "ok",
+    ],
+    [
+      "市场状态过滤",
+      regimeFilter === "true"
+        ? `已开启，回看 ${regimeLookback} 天；只在允许的市场状态里交易。`
+        : "未开启；会完整承受样本里的牛熊震荡。",
+      regimeFilter === "true" ? "ok" : "warn",
+    ],
+    [
+      "模拟盘风控",
+      `单资产 ${parameterWeightText(maxAsset)}，单市场 ${parameterWeightText(maxMarket)}，总仓位 ${parameterWeightText(maxGross)}，最低现金 ${parameterWeightText(minCash)}；${guardText}。`,
+      maxGross !== "--" && Number(maxGross) <= 1 ? "ok" : "warn",
+    ],
+    [
+      "安全边界",
+      "这里只做本地研究、建议信号和纸面模拟；不会读取账户、连接券商或真实下单。",
+      "ok",
+    ],
+  ];
+}
+
+function renderBeginnerParameterExplainer(
+  researchParams = buildResearchParams(),
+  signalParams = buildSignalParams(),
+  paperParams = buildPaperParams(),
+) {
+  const root = byId("beginner-parameter-explainer");
+  const summaryTarget = byId("beginner-parameter-summary");
+  const rowsTarget = byId("beginner-parameter-rows");
+  if (!root || !summaryTarget || !rowsTarget) return;
+  const source = parameterPlainValue(researchParams, "source");
+  const market = parameterPlainValue(researchParams, "market");
+  const factor = parameterPlainValue(researchParams, "factor");
+  const dateWindow = parameterDateWindow(researchParams);
+  const topN = parameterPlainValue(researchParams, "top_n");
+  const cost = parameterBpsText(parameterPlainValue(researchParams, "cost_bps"));
+  const tone = market === "CN_ETF" && source === "processed-bars" ? "ok" : "warn";
+  summaryTarget.innerHTML = `
+    <div class="beginner-parameter-head ${escapeHtml(tone)}">
+      <div>
+        <strong>${escapeHtml(`现在会用 ${market} 的 ${factor} 做本地研究`)}</strong>
+        <span>${escapeHtml(`${dateWindow} / Top${topN} / 成本 ${cost}`)}</span>
+      </div>
+      <div class="beginner-parameter-actions">
+        <button class="secondary-button" type="button" data-beginner-parameter-jump="control-request-preview">看请求详情</button>
+        <button class="primary-button" type="button" data-beginner-action="research_backtest">本地回测当前参数</button>
+      </div>
+    </div>
+  `;
+  rowsTarget.innerHTML = statusRows(beginnerParameterRows(researchParams, signalParams, paperParams));
+}
+
 function renderRequestPreview() {
   const target = byId("control-request-preview");
   const researchParams = buildResearchParams();
@@ -503,6 +647,7 @@ function renderRequestPreview() {
       </div>
     `).join("");
   }
+  renderBeginnerParameterExplainer(researchParams, signalParams, paperParams);
   renderResultFreshness();
   renderParameterConsistency();
 }

@@ -969,6 +969,71 @@ button {
   max-height: 236px;
 }
 
+.beginner-parameter-explainer {
+  display: grid;
+  gap: 9px;
+}
+
+.beginner-parameter-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 9px;
+}
+
+.beginner-parameter-head strong {
+  display: block;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.beginner-parameter-head span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+}
+
+.beginner-parameter-head.ok strong {
+  color: var(--green);
+}
+
+.beginner-parameter-head.warn strong {
+  color: var(--accent-2);
+}
+
+.beginner-parameter-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.beginner-parameter-actions button {
+  min-height: 32px;
+  padding: 6px 10px;
+  white-space: normal;
+}
+
+.beginner-parameter-rows {
+  display: grid;
+  gap: 7px;
+  max-height: 352px;
+  overflow: auto;
+}
+
+.beginner-parameter-rows .list-row {
+  background: var(--surface);
+  box-shadow: none;
+}
+
 .ledger-evidence-list {
   max-height: 236px;
 }
@@ -1523,6 +1588,18 @@ th {
 
   .factor-beginner-actions button {
     flex: 1 1 160px;
+  }
+
+  .beginner-parameter-head {
+    grid-template-columns: 1fr;
+  }
+
+  .beginner-parameter-actions {
+    justify-content: stretch;
+  }
+
+  .beginner-parameter-actions button {
+    flex: 1 1 170px;
   }
 }
 
