@@ -141,12 +141,51 @@ const GLOSSARY_TERMS = [
   ["processed-bars", "本地已经清洗好的行情数据，用于回测和模拟，不会联网下单。"],
   ["paper", "本地模拟盘或纸面回放，只产生模拟成交，不连接账户。"],
 ];
+const BEGINNER_STEPS = [
+  {
+    id: "safety",
+    title: "先确认安全",
+    plain: "确认软件只做研究和本地模拟，不会连接券商、账户或真实订单。",
+    button: "看安全边界",
+    target: "control-safety-boundary",
+  },
+  {
+    id: "leaderboard",
+    title: "只看 ETF 主线",
+    plain: "默认先看 CN_ETF 主线榜，CN 个股只是辅助研究。",
+    button: "看 CN_ETF 主线榜",
+    target: "factor-leaderboard-table",
+    leaderboardTab: "primary_cn_etf",
+  },
+  {
+    id: "research",
+    title: "跑一次本地回测",
+    plain: "用当前参数做本地回测，先看收益、回撤、胜率和夏普。",
+    button: "本地回测当前参数",
+    action: "research_backtest",
+  },
+  {
+    id: "result",
+    title: "看结果能不能信",
+    plain: "看回测来源、闸门、是否缺 OOS、是否疑似过拟合。",
+    button: "看回测闸门",
+    target: "control-backtest-gate",
+  },
+  {
+    id: "paper",
+    title: "再做模拟盘回放",
+    plain: "只有研究结果看起来合理，才进入本地模拟盘回放。",
+    button: "本地模拟盘回放",
+    action: "paper_simulation",
+  },
+];
 
 document.addEventListener("DOMContentLoaded", async () => {
   bindNavigation();
   bindActions();
   bindRequestPreviewInputs();
   renderFactorGlossary();
+  renderBeginnerGuide();
   await loadSnapshot();
   await loadFactorLeaderboard();
   await loadControlCenter();
@@ -197,9 +236,19 @@ function bindActions() {
     if (event.key === "Escape" && !byId("safe-run-modal")?.hidden) resolveSafeWorkflow(false);
   });
   document.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-leaderboard-tab]");
+    const button = event.target.closest(".segmented-button[data-leaderboard-tab]");
     if (!button) return;
     setLeaderboardTab(button.dataset.leaderboardTab || "primary_cn_etf");
+  });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-beginner-target]");
+    if (!button) return;
+    jumpToBeginnerTarget(button.dataset.beginnerTarget || "", button.dataset.leaderboardTab || "");
+  });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-beginner-action]");
+    if (!button) return;
+    runBeginnerAction(button.dataset.beginnerAction || "", button);
   });
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-verification-gate]");
@@ -1292,6 +1341,7 @@ function renderDashboard() {
   const factorLedger = state.factorLeaderboard || {};
   const factorSummary = factorLedger.summary || {};
   renderOrdinaryHome();
+  renderBeginnerGuide();
   byId("dashboard-equity-source").textContent = state.research?.data_source || valueOf("data-source-select") || state.snapshot?.data_mode || "local";
   byId("dashboard-metrics").innerHTML = [
     metric("项目状态", project.overall_status || "--", `阻塞 ${project.blocker_count ?? "--"}`),
@@ -1447,6 +1497,107 @@ function renderFactorGlossary() {
   `).join("");
 }
 
+function beginnerStepState(stepId) {
+  const ledger = state.factorLeaderboard || {};
+  const primaryRows = ledger.leaderboards?.primary_cn_etf?.rows || [];
+  const project = state.projectStatus || {};
+  if (stepId === "safety") {
+    return state.snapshot ? { label: "已确认", tone: "ok" } : { label: "加载中", tone: "warn" };
+  }
+  if (stepId === "leaderboard") {
+    return primaryRows.length ? { label: `${primaryRows.length} 条可看`, tone: "ok" } : { label: "等待主线榜", tone: "warn" };
+  }
+  if (stepId === "research") {
+    return state.research ? { label: "已有回测", tone: "ok" } : { label: "建议执行", tone: "warn" };
+  }
+  if (stepId === "result") {
+    if (project.blocker_count > 0) return { label: "有阻断项", tone: "danger" };
+    return state.research ? { label: "可复核", tone: "ok" } : { label: "先跑回测", tone: "warn" };
+  }
+  if (stepId === "paper") {
+    return state.paper ? { label: "已有模拟", tone: "ok" } : { label: "回测后再做", tone: state.research ? "warn" : "muted" };
+  }
+  return { label: "--", tone: "muted" };
+}
+
+function nextBeginnerStep() {
+  const ledger = state.factorLeaderboard || {};
+  const primaryRows = ledger.leaderboards?.primary_cn_etf?.rows || [];
+  if (!state.snapshot) return BEGINNER_STEPS[0];
+  if (!primaryRows.length) return BEGINNER_STEPS[1];
+  if (!state.research) return BEGINNER_STEPS[2];
+  if (!state.paper) return BEGINNER_STEPS[4];
+  return BEGINNER_STEPS[3];
+}
+
+function renderBeginnerGuide() {
+  const listNode = byId("beginner-step-list");
+  const actionNode = byId("beginner-primary-action");
+  const helpNode = byId("beginner-help-text");
+  if (!listNode || !actionNode || !helpNode) return;
+  listNode.innerHTML = BEGINNER_STEPS.map((step, index) => {
+    const stateInfo = beginnerStepState(step.id);
+    const buttonAttrs = step.action
+      ? `data-beginner-action="${escapeHtml(step.action)}"`
+      : `data-beginner-target="${escapeHtml(step.target || "")}" data-leaderboard-tab="${escapeHtml(step.leaderboardTab || "")}"`;
+    return `
+      <article class="beginner-step ${escapeHtml(stateInfo.tone)}">
+        <div class="beginner-step-index">${index + 1}</div>
+        <div class="beginner-step-copy">
+          <strong>${escapeHtml(step.title)}</strong>
+          <span>${escapeHtml(step.plain)}</span>
+          <small>${escapeHtml(stateInfo.label)}</small>
+        </div>
+        <button class="secondary-button beginner-step-button" type="button" ${buttonAttrs}>${escapeHtml(step.button)}</button>
+      </article>
+    `;
+  }).join("");
+  const nextStep = nextBeginnerStep();
+  const nextState = beginnerStepState(nextStep.id);
+  const nextAttrs = nextStep.action
+    ? `data-beginner-action="${escapeHtml(nextStep.action)}"`
+    : `data-beginner-target="${escapeHtml(nextStep.target || "")}" data-leaderboard-tab="${escapeHtml(nextStep.leaderboardTab || "")}"`;
+  actionNode.innerHTML = `
+    <div class="beginner-primary-card ${escapeHtml(nextState.tone)}">
+      <small>下一步建议</small>
+      <strong>${escapeHtml(nextStep.title)}</strong>
+      <span>${escapeHtml(nextStep.plain)}</span>
+      <button class="primary-button" type="button" ${nextAttrs}>${escapeHtml(nextStep.button)}</button>
+    </div>
+  `;
+  helpNode.innerHTML = statusRows([
+    ["小白规则", "先确认安全，再只看 CN_ETF 主线，再回测，再看闸门，最后才做本地模拟。", "ok"],
+    ["不要直接用", "CN 个股榜、全部历史榜、单次高收益都不能直接变成实盘 ETF 信号。", "danger"],
+    ["点执行前", "所有执行按钮都会弹出安全确认，取消不会产生任何结果。", "warn"],
+  ]);
+}
+
+function jumpToBeginnerTarget(targetId, leaderboardTab = "") {
+  if (leaderboardTab) setLeaderboardTab(leaderboardTab);
+  const target = byId(targetId);
+  if (!target) return;
+  const page = target.closest(".page");
+  if (page?.id?.startsWith("page-")) {
+    const pageName = page.id.replace("page-", "");
+    const nav = document.querySelector(`.nav-item[data-page="${pageName}"]`);
+    if (nav && !page.classList.contains("active-page")) nav.click();
+  }
+  const workspace = document.querySelector(".workspace");
+  if (workspace && workspace.scrollHeight > workspace.clientHeight + 1) {
+    const workspaceRect = workspace.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const targetTop = workspace.scrollTop + targetRect.top - workspaceRect.top - 96;
+    workspace.scrollTo({ top: Math.max(0, targetTop), behavior: "smooth" });
+    return;
+  }
+  window.scrollTo({ top: Math.max(0, target.getBoundingClientRect().top + window.scrollY - 96), behavior: "smooth" });
+}
+
+async function runBeginnerAction(actionId, button = null) {
+  if (!actionId) return;
+  await runActionCenterWorkflow(actionId, button);
+}
+
 function renderOrdinaryHome() {
   const metricsNode = byId("ordinary-status-metrics");
   const actionNode = byId("ordinary-next-action");
@@ -1487,7 +1638,7 @@ function renderFactorLeaderboard() {
     tag.textContent = rows.length ? `${activeBoard.label || "排行榜"} ${rows.length} 条` : "无候选";
     tag.classList.toggle("tag-warn", rows.length === 0);
   }
-  document.querySelectorAll("[data-leaderboard-tab]").forEach((button) => {
+  document.querySelectorAll(".segmented-button[data-leaderboard-tab]").forEach((button) => {
     button.classList.toggle("active", button.dataset.leaderboardTab === state.leaderboardTab);
   });
   byId("factor-inventory-metrics").innerHTML = [

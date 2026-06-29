@@ -373,6 +373,111 @@ button {
   align-items: start;
 }
 
+.beginner-guide-board {
+  border-left: 4px solid var(--blue);
+  background: #fbfcff;
+}
+
+.beginner-guide-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.75fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.beginner-step-list {
+  display: grid;
+  gap: 9px;
+}
+
+.beginner-step {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) minmax(120px, auto);
+  gap: 10px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 10px;
+}
+
+.beginner-step.ok {
+  border-color: rgba(54, 119, 84, 0.34);
+}
+
+.beginner-step.warn {
+  border-color: rgba(189, 108, 33, 0.36);
+}
+
+.beginner-step.danger {
+  border-color: rgba(173, 63, 60, 0.36);
+}
+
+.beginner-step-index {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: #eef5fb;
+  color: var(--blue);
+  font-weight: 800;
+}
+
+.beginner-step-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.beginner-step-copy strong {
+  overflow-wrap: anywhere;
+}
+
+.beginner-step-copy span,
+.beginner-step-copy small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.beginner-step-button {
+  justify-content: center;
+  white-space: normal;
+}
+
+.beginner-side {
+  display: grid;
+  gap: 10px;
+}
+
+.beginner-primary-card {
+  display: grid;
+  gap: 9px;
+  border: 1px solid rgba(63, 111, 148, 0.28);
+  border-radius: var(--radius);
+  background: #f5f9fd;
+  padding: 12px;
+}
+
+.beginner-primary-card small {
+  color: var(--muted);
+  text-transform: uppercase;
+  font-size: 11px;
+}
+
+.beginner-primary-card strong {
+  font-size: 18px;
+}
+
+.beginner-primary-card span {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .control-center-grid {
   display: grid;
   grid-template-columns: minmax(220px, 0.9fr) minmax(240px, 1fr) minmax(300px, 1.35fr);
@@ -1103,6 +1208,7 @@ th {
   .metric-grid.compact,
   .operator-strip,
   .ordinary-home-grid,
+  .beginner-guide-layout,
   .control-center-grid,
   .dashboard-grid,
   .two-grid,
@@ -1167,6 +1273,7 @@ th {
   .metric-grid.compact,
   .operator-strip,
   .ordinary-home-grid,
+  .beginner-guide-layout,
   .control-center-grid,
   .dashboard-grid,
   .two-grid,
@@ -1181,6 +1288,14 @@ th {
 
   table {
     min-width: 640px;
+  }
+
+  .beginner-step {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  .beginner-step-button {
+    grid-column: 1 / -1;
   }
 }
 
