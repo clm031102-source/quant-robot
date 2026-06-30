@@ -5757,6 +5757,7 @@ function renderDailyTradeAdvisory() {
   renderDailyLiveReadinessGate(pack.daily_live_readiness_gate || {});
   renderDailyTradeDecisionSheet(pack.daily_trade_decision_sheet || {});
   renderDailySignalExecutionBridge(pack.daily_signal_execution_bridge || {});
+  renderDailyDeploymentReadiness(pack.daily_deployment_readiness || {});
   renderDailyRealWorldHandoffGate(pack.real_world_manual_handoff_gate || {});
   renderDailyTradingSystemBlueprint(pack.trading_system_blueprint || {});
   renderDailyPretradeReadiness(pack.pretrade_readiness || {});
@@ -6110,6 +6111,86 @@ function renderDailySignalExecutionBridge(bridge = {}) {
       </span>
     </div>
   `).join("") : statusRows([["闸门", "等待 OOS、成本、模拟盘、人工复核等闸门信息。", "warn"]]);
+}
+
+function renderDailyDeploymentReadiness(readiness = {}) {
+  const summaryTarget = byId("daily-deployment-readiness-summary");
+  const sequenceTarget = byId("daily-deployment-readiness-sequence");
+  const ticketTarget = byId("daily-deployment-readiness-tickets");
+  const gateTarget = byId("daily-deployment-readiness-gates");
+  const controlTarget = byId("daily-deployment-readiness-controls");
+  if (!summaryTarget || !sequenceTarget || !ticketTarget || !gateTarget || !controlTarget) return;
+  const summary = readiness.summary || {};
+  const decision = summary.decision || "waiting_for_candidate_pool";
+  const tone = decision.includes("blocked") ? "danger" : decision.includes("candidate") ? "warn" : "warn";
+  const workflowButton = summary.next_workflow_id ? `
+    <button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(summary.next_workflow_id)}">${escapeHtml(summary.next_label || "运行下一步")}</button>
+  ` : "";
+  const targetButton = summary.next_target_id ? `
+    <button class="${escapeHtml(workflowButton ? "secondary-button" : "primary-button")}" type="button" data-beginner-target="${escapeRawHtml(summary.next_target_id)}">${escapeHtml(workflowButton ? "看证据" : summary.next_label || "看下一步")}</button>
+  ` : "";
+  summaryTarget.innerHTML = statusRows([
+    ["今日结论", summary.plain_answer || zhConsoleText(decision), tone],
+    ["下一步", summary.next_label || "等待今日交易准备包", tone],
+    ["Top3 规则", summary.direct_buy_from_top3_allowed ? "异常：允许直买" : "前三只是候选，禁止直买", summary.direct_buy_from_top3_allowed ? "danger" : "ok"],
+    ["模拟盘", summary.paper_rehearsal_allowed ? "可进入同参数模拟盘复核" : "暂时不能进入模拟盘复核", summary.paper_rehearsal_allowed ? "warn" : "danger"],
+    ["人工材料", summary.manual_review_material_ready ? "已有可复核票据" : "还没有可复核票据", summary.manual_review_material_ready ? "warn" : "danger"],
+    ["系统权限", summary.order_placement_allowed || summary.broker_connection_allowed ? "异常：权限越界" : "不连接券商、不读账户、不自动下单", summary.order_placement_allowed || summary.broker_connection_allowed ? "danger" : "ok"],
+  ]) + `
+    <div class="list-row ${escapeHtml(tone)}">
+      <strong>${escapeHtml("现在点这里")}</strong>
+      <span>${escapeHtml(summary.next_label || "先生成今日前三建议")}</span>
+      <span class="beginner-task-actions">${workflowButton}${targetButton}</span>
+    </div>
+  `;
+
+  const sequence = Array.isArray(readiness.daily_operating_sequence) ? readiness.daily_operating_sequence : [];
+  sequenceTarget.innerHTML = sequence.length ? sequence.map((item) => `
+    <div class="list-row ${escapeHtml(dailyTradeSystemStageTone(item.status || ""))}">
+      <strong>${escapeHtml(`${item.step_number || "--"}. ${item.label || item.step_id || ""}`)}</strong>
+      <span>${escapeHtml(`${zhConsoleText(item.status || "waiting")} / ${item.plain_action || ""}`)}</span>
+      <span>${escapeHtml(item.evidence || "")}</span>
+      <span class="beginner-task-actions">
+        ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+        ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
+      </span>
+    </div>
+  `).join("") : statusRows([["落地顺序", "等待生成今日交易准备包。", "warn"]]);
+
+  const tickets = Array.isArray(readiness.manual_buy_sell_preview) ? readiness.manual_buy_sell_preview : [];
+  ticketTarget.innerHTML = tickets.length ? tickets.map((item) => `
+    <div class="list-row warn">
+      <strong>${escapeHtml(`${item.step_number || "--"}. ${item.asset_id || "--"} / ${zhConsoleText(item.operation || item.side || "review")}`)}</strong>
+      <span>${escapeHtml(`参考价=${formatNumber(item.reference_price)} / 数量=${formatNumber(item.rounded_quantity)} / 金额=${formatNumber(item.rounded_value)} / 权重=${formatPercent(item.target_weight)}`)}</span>
+      <span>${escapeHtml(item.plain_instruction || "只用于人工复核，不是订单。")}</span>
+      <span class="beginner-task-actions">
+        <button class="secondary-button" type="button" data-beginner-target="daily-manual-broker-handoff-ticket-table">${escapeHtml("看完整票据")}</button>
+      </span>
+    </div>
+  `).join("") : statusRows([["买卖预览", "暂无可人工核对票据；没有票据就不要进入券商端操作。", "danger"]]);
+
+  const gates = Array.isArray(readiness.readiness_gates) ? readiness.readiness_gates : [];
+  gateTarget.innerHTML = gates.length ? gates.map((item) => `
+    <div class="list-row ${escapeHtml(dailyTradeSystemStageTone(item.status || ""))}">
+      <strong>${escapeHtml(item.label || item.gate_id || "")}</strong>
+      <span>${escapeHtml(`${zhConsoleText(item.status || "waiting")} / ${item.plain_requirement || ""}`)}</span>
+      <span class="beginner-task-actions">
+        ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+        ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
+      </span>
+    </div>
+  `).join("") : statusRows([["准备闸门", "等待准备包加载。", "warn"]]);
+
+  const controls = Array.isArray(readiness.profitability_controls) ? readiness.profitability_controls : [];
+  controlTarget.innerHTML = controls.length ? controls.map((item) => `
+    <div class="list-row warn">
+      <strong>${escapeHtml(item.label || item.control_id || "")}</strong>
+      <span>${escapeHtml(item.plain_control || "")}</span>
+      <span class="beginner-task-actions">
+        ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
+      </span>
+    </div>
+  `).join("") : statusRows([["盈利控制", "等待长样本、样本外、成本、回撤、容量和未来函数控制项。", "warn"]]);
 }
 
 function renderDailyRealWorldHandoffGate(gate = {}) {
@@ -9499,6 +9580,7 @@ function appendExecutionReceipt(receipt) {
   renderExecutionReceipts(spec);
   renderDailyTradeDecisionSheet(state.dailyTradeAdvisory?.daily_trade_decision_sheet || {});
   renderDailySignalExecutionBridge(state.dailyTradeAdvisory?.daily_signal_execution_bridge || {});
+  renderDailyDeploymentReadiness(state.dailyTradeAdvisory?.daily_deployment_readiness || {});
   renderDailyRealWorldHandoffGate(state.dailyTradeAdvisory?.real_world_manual_handoff_gate || {});
   renderOrdinaryHome();
   renderDailyCommandRail();

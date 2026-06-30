@@ -326,6 +326,13 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("daily-signal-execution-paper", html)
         self.assertIn("renderDailySignalExecutionBridge", app_js)
         self.assertIn("daily_signal_execution_bridge", app_js)
+        self.assertIn("daily-deployment-readiness", html)
+        self.assertIn("daily-deployment-readiness-summary", html)
+        self.assertIn("daily-deployment-readiness-sequence", html)
+        self.assertIn("daily-deployment-readiness-tickets", html)
+        self.assertIn("daily-deployment-readiness-gates", html)
+        self.assertIn("renderDailyDeploymentReadiness", app_js)
+        self.assertIn("daily_deployment_readiness", app_js)
         self.assertIn("renderOrdinaryExecutionBridgeStrip", app_js)
         self.assertIn("applyDailyPaperHandoffToForm", app_js)
         self.assertIn("data-daily-paper-handoff-apply", app_js)
@@ -457,6 +464,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("trading_system_blueprint", snapshot)
         self.assertIn("daily_signal_execution_bridge", snapshot)
         self.assertIn("real_world_manual_handoff_gate", snapshot)
+        self.assertIn("daily_deployment_readiness", snapshot)
         self.assertEqual(snapshot["selected_candidates"], snapshot["factors"])
         self.assertEqual(snapshot["pretrade_workflow"]["stage"], "phase_6_1_daily_pretrade_workflow")
         self.assertFalse(snapshot["pretrade_workflow"]["summary"]["live_order_allowed"])
@@ -505,6 +513,13 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("paper_simulation_receipt", {item["gate_id"] for item in real_world_gate["go_live_blockers"]})
         self.assertIn("capital_deployment_ladder", real_world_gate)
         self.assertIn("production_manual_review", {item["stage_id"] for item in real_world_gate["capital_deployment_ladder"]})
+        deployment = snapshot["daily_deployment_readiness"]
+        self.assertEqual(deployment["stage"], "phase_6_18_daily_deployment_readiness_pack")
+        self.assertTrue(deployment["summary"]["daily_top3_supported"])
+        self.assertFalse(deployment["summary"]["direct_buy_from_top3_allowed"])
+        self.assertFalse(deployment["summary"]["order_placement_allowed"])
+        self.assertIn("same_parameter_paper_rehearsal", {item["step_id"] for item in deployment["daily_operating_sequence"]})
+        self.assertIn("paper_simulation_receipt", {item["gate_id"] for item in deployment["readiness_gates"]})
         self.assertEqual(snapshot["live_transition_plan"]["summary"]["selected_risk_profile_id"], "conservative_10dd")
         self.assertEqual(snapshot["summary"]["risk_profile_id"], "conservative_10dd")
         self.assertIn("small_capital_review_gate", {gate["gate_id"] for gate in snapshot["live_transition_plan"]["evidence_gates"]})
@@ -552,6 +567,17 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertFalse(any(row["manual_trade_allowed"] for row in snapshot["selected_candidates"]))
         self.assertFalse(snapshot["pretrade_readiness"]["manual_action_candidate"])
         self.assertIn("fallback_baseline_not_tradeable", snapshot["pretrade_readiness"]["blockers"])
+        self.assertEqual(
+            snapshot["daily_deployment_readiness"]["summary"]["decision"],
+            "blocked_pretrade_red_light",
+        )
+        self.assertFalse(snapshot["daily_deployment_readiness"]["summary"]["paper_rehearsal_allowed"])
+        self.assertFalse(snapshot["daily_deployment_readiness"]["summary"]["manual_review_material_ready"])
+        self.assertEqual(snapshot["daily_deployment_readiness"]["manual_buy_sell_preview"], [])
+        self.assertIn(
+            "qualified_candidate_gate",
+            {row["gate_id"] for row in snapshot["daily_deployment_readiness"]["readiness_gates"]},
+        )
         self.assertEqual(
             snapshot["real_world_manual_handoff_gate"]["summary"]["decision"],
             "blocked_pretrade_red_light",
