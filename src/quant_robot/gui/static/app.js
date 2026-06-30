@@ -3970,8 +3970,13 @@ function renderPostCloseManualFormStatus(journalReceipt = null) {
   if (!target) return;
   const form = postCloseManualReviewForm();
   const executionSummary = form.manual_execution_audit?.summary || {};
+  const riskState = form.risk_state || postCloseRiskStateForm();
   const recorded = form.manual_note_count > 0 || Boolean(journalReceipt);
+  const riskStateSummary = riskState.risk_state_recorded
+    ? `盈亏=${formatPercent(riskState.today_pnl_pct)} / 回撤=${formatPercent(riskState.current_drawdown_pct)} / 连亏=${formatNumber(riskState.consecutive_loss_days)} / 冷却=${formatNumber(riskState.cooldown_days_remaining)}`
+    : "未填写；明天风险闸门会缺少盘后风险状态";
   target.innerHTML = statusRows([
+    ["风险状态", riskStateSummary, riskState.risk_state_recorded ? "ok" : "warn"],
     ["人工记录状态", recorded ? "manual_review_recorded" : "waiting_manual_review_notes", recorded ? "ok" : "warn"],
     ["今天实际选择", manualOutcomeLabel(form.manual_outcome), "warn"],
     ["备注数量", `${formatNumber(form.manual_note_count)} 条 / 不要填写账户号、委托号、券商客户号`, form.manual_note_count ? "ok" : "warn"],
@@ -3997,12 +4002,14 @@ function postCloseManualReviewForm() {
   const manualOutcome = valueOf("post-close-manual-outcome") || "skipped_no_trade";
   const manualExecutionReviews = manualExecutionReviewRowsFromInput();
   const manualExecutionAudit = localManualExecutionAudit(state.dailyTradeAdvisory || {}, manualExecutionReviews);
+  const riskState = postCloseRiskStateForm();
   return {
     manual_outcome: manualOutcome,
     manual_outcome_label: manualOutcomeLabel(manualOutcome),
     manual_note: manualNote,
     risk_note: riskNote,
     next_day_note: nextDayNote,
+    risk_state: riskState,
     manual_note_count: [manualNote, riskNote, nextDayNote].filter(Boolean).length,
     manual_execution_reviews: manualExecutionReviews,
     manual_execution_review_count: manualExecutionReviews.length,
@@ -4013,6 +4020,44 @@ function postCloseManualReviewForm() {
     order_placement_allowed: false,
     auto_order_allowed: false,
   };
+}
+
+function postCloseRiskStateForm() {
+  const todayPnl = percentInputNumberOrNull("post-close-today-pnl-pct");
+  const currentDrawdownRaw = percentInputNumberOrNull("post-close-current-drawdown-pct");
+  const currentDrawdown = Number.isFinite(currentDrawdownRaw) ? Math.abs(currentDrawdownRaw) : null;
+  const consecutiveLossDays = nonNegativeIntegerInputNumberOrNull("post-close-consecutive-loss-days");
+  const cooldownDaysRemaining = nonNegativeIntegerInputNumberOrNull("post-close-cooldown-days-remaining");
+  const todayLoss = Number.isFinite(todayPnl) && todayPnl < 0 ? Math.abs(todayPnl) : null;
+  const riskStateRecorded = [todayPnl, currentDrawdown, consecutiveLossDays, cooldownDaysRemaining]
+    .some((value) => Number.isFinite(value));
+  return {
+    source: riskStateRecorded ? "post_close_manual_form" : "post_close_manual_form_empty",
+    today_pnl_pct: Number.isFinite(todayPnl) ? todayPnl : null,
+    today_loss_pct: Number.isFinite(todayLoss) ? todayLoss : null,
+    current_drawdown_pct: Number.isFinite(currentDrawdown) ? currentDrawdown : null,
+    consecutive_loss_days: Number.isFinite(consecutiveLossDays) ? consecutiveLossDays : null,
+    cooldown_days_remaining: Number.isFinite(cooldownDaysRemaining) ? cooldownDaysRemaining : null,
+    risk_state_recorded: riskStateRecorded,
+    risk_state_observed: riskStateRecorded,
+    broker_connection_allowed: false,
+    account_read_allowed: false,
+    order_placement_allowed: false,
+    auto_order_allowed: false,
+    safety: "local risk state only; no broker, account, or order side effects",
+  };
+}
+
+function percentInputNumberOrNull(id) {
+  const value = numberOrNull(valueOf(id));
+  if (!Number.isFinite(value)) return null;
+  return Math.abs(value) > 1 ? value / 100 : value;
+}
+
+function nonNegativeIntegerInputNumberOrNull(id) {
+  const value = numberOrNull(valueOf(id));
+  if (!Number.isFinite(value)) return null;
+  return Math.max(0, Math.trunc(value));
 }
 
 function manualExecutionReviewRowsFromInput() {
@@ -11885,7 +11930,7 @@ function postCloseJournalReceipt(result = {}) {
   const manualReview = result.manual_review || postCloseManualReviewForm();
   const manualExecutionAudit = result.manual_execution_audit || manualReview.manual_execution_audit || localManualExecutionAudit(trade);
   const manualExecutionSummary = manualExecutionAudit.summary || {};
-  const riskState = result.risk_state || {};
+  const riskState = result.risk_state || manualReview.risk_state || postCloseRiskStateForm();
   return {
     workflow_id: "post_close_journal",
     label: "Post-close journal receipt",
