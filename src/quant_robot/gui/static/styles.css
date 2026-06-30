@@ -460,6 +460,28 @@ button {
   white-space: normal;
 }
 
+.beginner-live-handoff-board {
+  border-left: 4px solid var(--accent-2);
+  background: #fffaf4;
+}
+
+.beginner-live-handoff-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(300px, 1.2fr) minmax(260px, 1fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.beginner-live-handoff-layout .list-row {
+  align-items: center;
+}
+
+.beginner-live-handoff-layout .list-row strong,
+.beginner-live-handoff-layout .list-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .beginner-task-wizard {
   border-left: 4px solid var(--blue);
   background: #fbfcff;
@@ -2255,6 +2277,7 @@ th {
   .operator-strip,
   .ordinary-home-grid,
   .beginner-verdict-board,
+  .beginner-live-handoff-layout,
   .beginner-task-layout,
   .beginner-guide-layout,
   .beginner-progress-layout,
@@ -2324,6 +2347,7 @@ th {
   .operator-strip,
   .ordinary-home-grid,
   .beginner-verdict-board,
+  .beginner-live-handoff-layout,
   .beginner-task-layout,
   .beginner-guide-layout,
   .beginner-progress-layout,

@@ -240,6 +240,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindRequestPreviewInputs();
   renderFactorGlossary();
   renderBeginnerVerdict();
+  renderBeginnerLiveHandoff();
   renderBeginnerTaskWizard();
   renderBeginnerTroubleshooter();
   renderBeginnerGuide();
@@ -445,6 +446,18 @@ function bindActions() {
     if (!button) return;
     event.preventDefault();
     await runBeginnerAction(button.dataset.beginnerTroubleshooterAction || "", button);
+  });
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-live-handoff-action]");
+    if (!button) return;
+    event.preventDefault();
+    await runBeginnerAction(button.dataset.liveHandoffAction || "", button);
+  });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-live-handoff-target]");
+    if (!button) return;
+    event.preventDefault();
+    jumpToBeginnerTarget(button.dataset.liveHandoffTarget || "daily-readiness-primary-action", state.leaderboardTab);
   });
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-beginner-action]");
@@ -2110,6 +2123,7 @@ function renderControlCenter() {
   renderBeginnerTaskWizard();
   renderBeginnerTroubleshooter();
   renderBeginnerProgress();
+  renderBeginnerLiveHandoff();
   syncCurrentBacktestRuntimeGuard();
 }
 
@@ -2163,6 +2177,7 @@ function renderDashboard() {
   renderBeginnerTroubleshooter();
   renderBeginnerGuide();
   renderBeginnerProgress();
+  renderBeginnerLiveHandoff();
   renderFactorBeginnerExplainer(activeFactorBoard, activeFactorBoard.rows || []);
   byId("dashboard-equity-source").textContent = state.research?.data_source || valueOf("data-source-select") || state.snapshot?.data_mode || "local";
   byId("dashboard-metrics").innerHTML = [
@@ -2486,6 +2501,7 @@ function setLeaderboardTab(tab) {
   renderBeginnerTaskWizard();
   renderBeginnerTroubleshooter();
   renderBeginnerProgress();
+  renderBeginnerLiveHandoff();
 }
 
 function renderFactorGlossary() {
@@ -4081,6 +4097,7 @@ function renderPaper() {
   byId("paper-guard-table").innerHTML = tableRows(paper.guard_events || [], ["date", "event_type", "drawdown", "blocked_buy_intents", "cooldown_remaining"]);
   renderDailyReadinessCard();
   renderDailyEvidenceChain();
+  renderBeginnerLiveHandoff();
 }
 
 function renderDailyTradeAdvisory() {
@@ -4115,6 +4132,7 @@ function renderDailyTradeAdvisory() {
   renderDailyPretradeWorkflow(pack.pretrade_workflow || {});
   renderDailyReadinessCard();
   renderDailyEvidenceChain();
+  renderBeginnerLiveHandoff();
   byId("daily-trade-factor-table").innerHTML = tableRows(pack.factors || [], [
     "rank",
     "factor_name",
@@ -4264,6 +4282,151 @@ function dailyReadinessDecision() {
     target_id: firstAction.cta_target || firstAction.gui_target || "daily-pretrade-next-actions",
     action_workflow: "daily_trade_advisory",
   };
+}
+
+function renderBeginnerLiveHandoff() {
+  const statusTarget = byId("beginner-live-handoff-status");
+  const stepsTarget = byId("beginner-live-handoff-steps");
+  const ticketsTarget = byId("beginner-live-handoff-tickets");
+  if (!statusTarget || !stepsTarget || !ticketsTarget) return;
+  const decision = dailyReadinessDecision();
+  const trade = state.dailyTradeAdvisory || {};
+  const summary = trade.summary || {};
+  const readiness = trade.pretrade_readiness || {};
+  statusTarget.innerHTML = statusRows([
+    ["今天结论", decision.title || "等待今日建议", decision.tone || "warn"],
+    ["为什么", decision.reason || "先加载今日前三因子、信号和模拟盘回执。", decision.tone || "warn"],
+    ["操作边界", "这是人工实盘前交接，不会自动下单，也不会连接券商。", "danger"],
+    ["当前证据", `因子=${formatNumber(summary.selected_factor_count || 0)} / 信号=${formatNumber(summary.signal_count || 0)} / 灯号=${readiness.traffic_light || "unknown"}`, "muted"],
+  ]);
+  stepsTarget.innerHTML = beginnerLiveHandoffSteps().map((item) => `
+    <div class="list-row ${escapeHtml(item.tone)}">
+      <strong>${escapeHtml(item.step)}</strong>
+      <span>${escapeHtml(item.detail)}</span>
+      <span class="beginner-task-actions">
+        ${beginnerLiveHandoffButton(item)}
+      </span>
+    </div>
+  `).join("");
+  ticketsTarget.innerHTML = beginnerLiveHandoffTickets().map((item) => `
+    <div class="list-row ${escapeHtml(item.tone)}">
+      <strong>${escapeHtml(item.title)}</strong>
+      <span>${escapeHtml(item.detail)}</span>
+      <span>${escapeHtml(item.note)}</span>
+    </div>
+  `).join("");
+}
+
+function beginnerLiveHandoffSteps() {
+  const trade = state.dailyTradeAdvisory || {};
+  const summary = trade.summary || {};
+  const readiness = trade.pretrade_readiness || {};
+  const freshness = readiness.freshness || {};
+  const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
+  const tickets = beginnerLiveTicketRows();
+  const selectedCount = Number(summary.selected_factor_count || 0);
+  const signalCount = Number(summary.signal_count || 0);
+  const signalFresh = freshness.fresh_for_run_date === true;
+  const paperReceipt = latestExecutionReceipt("paper_simulation");
+  const dailyReceipt = latestExecutionReceipt("daily_trade_advisory");
+  const ticketReady = tickets.length > 0 && blockers.length === 0;
+  return [
+    {
+      step: "1. 刷新 CN_ETF 数据",
+      tone: signalFresh ? "ok" : "danger",
+      detail: signalFresh
+        ? `信号日期已匹配 ${freshness.run_date || "--"}。`
+        : `信号过期：运行日=${freshness.run_date || "--"} / 最新信号=${freshness.latest_signal_date || "--"}。`,
+      workflow: signalFresh ? "" : "daily_ops",
+      target: "recent-data-refresh-status",
+      button: signalFresh ? "看数据证据" : "刷新日常运营",
+    },
+    {
+      step: "2. 生成今日前三因子/信号",
+      tone: signalFresh && selectedCount > 0 && signalCount > 0 ? "ok" : "warn",
+      detail: `前三因子=${formatNumber(selectedCount)} / 建议信号=${formatNumber(signalCount)} / 回执=${dailyReceipt ? "有" : "无"}。`,
+      workflow: signalFresh && signalCount > 0 ? "" : "daily_trade_advisory",
+      target: "daily-trade-factor-table",
+      button: signalFresh && signalCount > 0 ? "看前三因子" : "生成今日建议",
+    },
+    {
+      step: "3. 跑本地模拟盘复核",
+      tone: paperReceipt ? "ok" : "warn",
+      detail: paperReceipt
+        ? `最近模拟盘回执=${paperReceipt.time || "--"}。`
+        : "还没有模拟盘回执，不能把单日信号当成可操作结论。",
+      workflow: paperReceipt ? "" : "paper_simulation",
+      target: "paper-metrics",
+      button: paperReceipt ? "看模拟盘指标" : "运行模拟盘",
+    },
+    {
+      step: "4. 生成人工券商票据",
+      tone: ticketReady ? "warn" : "danger",
+      detail: ticketReady
+        ? `已有 ${formatNumber(tickets.length)} 张人工券商票据，仍需人工核对。`
+        : "票据为空或仍有阻断项，今天不能照着买。",
+      workflow: ticketReady ? "" : "daily_trade_advisory",
+      target: "daily-manual-broker-handoff-ticket-table",
+      button: ticketReady ? "看人工票据" : "补齐票据",
+    },
+    {
+      step: "5. 人工核对后再去券商端操作",
+      tone: ticketReady ? "warn" : "danger",
+      detail: ticketReady
+        ? "只把下方票据作为手工核对清单；价格、数量、现金和风险都要在券商端再确认。"
+        : "红灯或票据缺失时，先不要买，也不要手工补单。",
+      target: "daily-trade-manual-table",
+      button: "看手工执行计划",
+    },
+  ];
+}
+
+function beginnerLiveHandoffButton(item = {}) {
+  if (item.workflow) {
+    return `<button class="primary-button" type="button" data-live-handoff-action="${escapeRawHtml(item.workflow)}">${escapeHtml(item.button || "运行")}</button>`;
+  }
+  if (item.target) {
+    return `<button class="secondary-button" type="button" data-live-handoff-target="${escapeRawHtml(item.target)}">${escapeHtml(item.button || "看证据")}</button>`;
+  }
+  return "";
+}
+
+function beginnerLiveHandoffTickets() {
+  const tickets = beginnerLiveTicketRows();
+  if (tickets.length === 0) {
+    return [{
+      title: "人工券商票据：暂无",
+      detail: "没有可复制给人工核对的买卖清单。",
+      note: "不会自动下单；红灯时今天先别买。",
+      tone: "danger",
+    }];
+  }
+  return tickets.slice(0, 3).map((ticket, index) => {
+    const asset = ticket.asset_id || ticket.symbol || "--";
+    const side = ticket.side || ticket.action || "review";
+    const quantity = ticket.rounded_quantity ?? ticket.estimated_quantity ?? "--";
+    const value = ticket.rounded_value ?? ticket.target_value;
+    return {
+      title: `人工券商票据 ${index + 1}: ${asset}`,
+      detail: `${side} / 数量=${formatNumber(quantity)} / 金额=${formatNumber(value)} / 权重=${formatPercent(ticket.target_weight)}`,
+      note: ticket.manual_instruction || ticket.copy_text || "人工核对 ETF、价格、数量、现金和风险后，再在券商端手动处理。",
+      tone: "warn",
+    };
+  });
+}
+
+function beginnerLiveTicketRows() {
+  const trade = state.dailyTradeAdvisory || {};
+  const readiness = trade.pretrade_readiness || {};
+  const handoff = trade.manual_broker_handoff || {};
+  const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
+  const tickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
+  const manualPlan = Array.isArray(trade.manual_trade_plan) ? trade.manual_trade_plan : [];
+  const handoffStatus = handoff.status || "";
+  if (tickets.length) return tickets;
+  if (blockers.length > 0) return [];
+  if (!readiness.manual_action_candidate) return [];
+  return ["ready", "manual_review_required"].includes(handoffStatus) ? manualPlan : [];
 }
 
 function renderDailyEvidenceChain() {
@@ -6615,6 +6778,7 @@ function appendRunHistory(entry) {
   renderBeginnerTaskWizard();
   renderBeginnerTroubleshooter();
   renderBeginnerProgress();
+  renderBeginnerLiveHandoff();
   return nextEntry;
 }
 
@@ -6654,6 +6818,7 @@ function appendExecutionReceipt(receipt) {
   renderExecutionReceipts(spec);
   renderDailyReadinessCard();
   renderDailyEvidenceChain();
+  renderBeginnerLiveHandoff();
   renderControlCenter();
   return nextReceipt;
 }
