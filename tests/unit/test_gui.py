@@ -311,6 +311,17 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertNotIn("TUSHARE_TOKEN", body)
         self.assertNotIn("order placement", body.lower())
 
+    def test_daily_page_exposes_trading_system_blueprint_panel(self):
+        html = Path("src/quant_robot/gui/static/index.html").read_text(encoding="utf-8")
+        app_js = Path("src/quant_robot/gui/static/app.js").read_text(encoding="utf-8")
+
+        self.assertIn("daily-trading-system-blueprint", html)
+        self.assertIn("daily-trading-system-blueprint-summary", html)
+        self.assertIn("daily-trading-system-blueprint-evidence", html)
+        self.assertIn("daily-trading-system-blueprint-actions", html)
+        self.assertIn("renderDailyTradingSystemBlueprint", app_js)
+        self.assertIn("trading_system_blueprint", app_js)
+
 
 class GuiSnapshotTests(unittest.TestCase):
     def test_snapshot_marks_demo_data_and_includes_required_sections(self):
@@ -411,11 +422,24 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("daily_trade_decision_sheet", snapshot)
         self.assertIn("operator_next_actions", snapshot)
         self.assertIn("live_transition_plan", snapshot)
+        self.assertIn("trading_system_blueprint", snapshot)
         self.assertEqual(snapshot["selected_candidates"], snapshot["factors"])
         self.assertEqual(snapshot["pretrade_workflow"]["stage"], "phase_6_1_daily_pretrade_workflow")
         self.assertFalse(snapshot["pretrade_workflow"]["summary"]["live_order_allowed"])
         self.assertEqual(snapshot["live_transition_plan"]["stage"], "phase_6_7_live_transition_plan")
         self.assertFalse(snapshot["live_transition_plan"]["summary"]["order_placement_allowed"])
+        self.assertEqual(snapshot["trading_system_blueprint"]["stage"], "phase_6_15_daily_trading_system_blueprint")
+        self.assertTrue(snapshot["trading_system_blueprint"]["summary"]["daily_top3_signal_supported"])
+        self.assertFalse(snapshot["trading_system_blueprint"]["summary"]["direct_live_trading_supported"])
+        self.assertFalse(snapshot["trading_system_blueprint"]["candidate_pool_policy"]["direct_buy_from_leaderboard_allowed"])
+        self.assertIn("paper_simulation_receipt", {item["evidence_id"] for item in snapshot["trading_system_blueprint"]["evidence_chain"]})
+        self.assertIn("manual_broker_review", {item["step_id"] for item in snapshot["trading_system_blueprint"]["operator_buy_process"]})
+        self.assertTrue(
+            all(
+                item["order_placement_allowed"] is False
+                for item in snapshot["trading_system_blueprint"]["operator_buy_process"]
+            )
+        )
         self.assertEqual(snapshot["live_transition_plan"]["summary"]["selected_risk_profile_id"], "conservative_10dd")
         self.assertEqual(snapshot["summary"]["risk_profile_id"], "conservative_10dd")
         self.assertIn("small_capital_review_gate", {gate["gate_id"] for gate in snapshot["live_transition_plan"]["evidence_gates"]})

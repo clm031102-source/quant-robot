@@ -29,6 +29,7 @@ DAILY_LIVE_PILOT_BRIEF_STAGE = "phase_6_11_daily_live_pilot_brief"
 SMALL_CAPITAL_OBSERVATION_GATE_STAGE = "phase_6_12_small_capital_observation_gate"
 MANUAL_TICKET_EXPORT_STAGE = "phase_6_13_manual_ticket_export"
 DAILY_TRADE_DECISION_SHEET_STAGE = "phase_6_14_daily_trade_decision_sheet"
+DAILY_TRADING_SYSTEM_BLUEPRINT_STAGE = "phase_6_15_daily_trading_system_blueprint"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 DEFAULT_RISK_PROFILE_ID = "balanced_20dd"
@@ -196,7 +197,9 @@ def build_daily_trade_advisory_pack(
     pack["daily_live_pilot_brief"] = build_daily_live_pilot_brief(pack)
     pack["manual_ticket_export"] = build_manual_ticket_export(pack)
     pack["daily_trade_decision_sheet"] = build_daily_trade_decision_sheet(pack)
+    pack["trading_system_blueprint"] = build_daily_trading_system_blueprint(pack)
     pack["summary"]["live_transition_status"] = pack["live_transition_plan"]["summary"]["status"]
+    pack["summary"]["trading_system_status"] = pack["trading_system_blueprint"]["summary"]["status"]
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
 
@@ -2344,6 +2347,277 @@ def build_daily_trade_decision_sheet(pack: dict[str, Any]) -> dict[str, Any]:
             "safety": SAFETY_NOTICE,
         }
     )
+
+
+def build_daily_trading_system_blueprint(pack: dict[str, Any]) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
+    live_plan = pack.get("live_transition_plan") if isinstance(pack.get("live_transition_plan"), dict) else {}
+    decision_sheet = pack.get("daily_trade_decision_sheet") if isinstance(pack.get("daily_trade_decision_sheet"), dict) else {}
+    factors = [row for row in pack.get("factors", []) if isinstance(row, dict)]
+    signal_cards = [row for row in pack.get("signal_cards", []) if isinstance(row, dict)]
+    targets = [row for row in pack.get("combined_targets", []) if isinstance(row, dict)]
+    tickets = [row for row in pack.get("manual_trade_plan", []) if isinstance(row, dict)]
+    blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
+    market = str(pack.get("market") or _first_market(factors) or "CN_ETF").upper()
+    selected_count = _int(summary.get("selected_factor_count"), len(factors))
+    signal_count = _int(summary.get("signal_count"), 0)
+    target_count = _int(summary.get("combined_target_count"), len(targets))
+    ticket_count = _int(summary.get("manual_ticket_count"), len(tickets))
+    signal_errors = [row for row in signal_cards if row.get("status") == "signal_error"]
+    signal_ready = signal_count > 0 and target_count > 0 and not signal_errors
+    manual_ticket_ready = ticket_count > 0 and not blockers
+    if blockers:
+        status = "blocked_red_light"
+    elif manual_ticket_ready:
+        status = "paper_first_manual_review"
+    elif signal_ready:
+        status = "build_manual_tickets"
+    else:
+        status = "waiting_for_today_signal"
+
+    evidence_chain = [
+        _trading_system_evidence(
+            "startup_gate",
+            "CN_ETF 主线闸门",
+            "ready" if market == "CN_ETF" else "blocked",
+            f"primary_market={market}",
+            "control-startup-health",
+        ),
+        _trading_system_evidence(
+            "factor_leaderboard_top3",
+            "每日前三候选因子",
+            "ready" if selected_count > 0 else "waiting",
+            f"selected_factors={selected_count}; direct_buy_from_leaderboard=false",
+            "daily-trade-factor-table",
+        ),
+        _trading_system_evidence(
+            "today_signal_snapshot",
+            "当日信号和目标仓位",
+            "ready" if signal_ready else ("blocked" if blockers else "waiting"),
+            f"signals={signal_count}; targets={target_count}; signal_errors={len(signal_errors)}",
+            "daily-trade-target-table",
+        ),
+        _trading_system_evidence(
+            "manual_ticket_pack",
+            "人工复核票据",
+            "ready" if manual_ticket_ready else ("blocked" if blockers else "waiting"),
+            f"manual_tickets={ticket_count}; board_lot_size={BOARD_LOT_SIZE}",
+            "daily-manual-broker-handoff-ticket-table",
+        ),
+        _trading_system_evidence(
+            "paper_simulation_receipt",
+            "同参数模拟盘回执",
+            "required",
+            "browser_local_receipt_required=true; no live conclusion without paper review",
+            "paper-metrics",
+            "paper_simulation",
+        ),
+        _trading_system_evidence(
+            "post_close_journal",
+            "盘后复盘反馈",
+            "required",
+            "record execute/skip reason, slippage, drawdown, and next-day review items",
+            "beginner-post-close-journal-board",
+            "post_close_journal",
+        ),
+        _trading_system_evidence(
+            "small_capital_observation_gate",
+            "小资金人工观察闸门",
+            "locked",
+            "requires promotion, observation sufficiency, paper evidence, and manual review",
+            "beginner-live-handoff-board",
+        ),
+    ]
+    operator_buy_process = [
+        _trading_system_operator_step(
+            1,
+            "open_daily_command",
+            "生成今日前三建议",
+            "ready" if selected_count > 0 else "waiting",
+            "先从 CN_ETF 可运行候选里取前三因子，不允许从历史排行榜直接买。",
+            "run-daily-trade-advisory",
+            "daily_trade_advisory",
+        ),
+        _trading_system_operator_step(
+            2,
+            "review_today_signal",
+            "复核当日信号",
+            "ready" if signal_ready else ("blocked" if blockers else "waiting"),
+            "确认信号日期、目标 ETF、目标权重、参数和过拟合标签；无同日信号就停止。",
+            "daily-trade-decision-top3",
+        ),
+        _trading_system_operator_step(
+            3,
+            "run_paper_simulation",
+            "先跑同参数模拟盘",
+            "required" if manual_ticket_ready else ("blocked" if blockers else "waiting"),
+            "用相同因子、TopN、成本和仓位参数跑本地模拟盘，查看收益、回撤、成交和保护事件。",
+            "paper-metrics",
+            "paper_simulation",
+        ),
+        _trading_system_operator_step(
+            4,
+            "review_manual_tickets",
+            "核对人工票据",
+            "ready" if manual_ticket_ready else ("blocked" if blockers else "waiting"),
+            "逐项核对 ETF、方向、参考价、目标金额、100 份取整、现金差额和来源因子。",
+            "daily-manual-broker-handoff-ticket-table",
+        ),
+        _trading_system_operator_step(
+            5,
+            "manual_broker_review",
+            "券商端只做人工复核",
+            "manual_only",
+            "如果你本人决定继续，只能另行打开券商端人工核对代码、实时价格、份额、现金和风险；系统不连接、不读取、不下单。",
+            "daily-manual-broker-handoff-ticket-table",
+        ),
+        _trading_system_operator_step(
+            6,
+            "post_close_journal",
+            "收盘后写回执",
+            "required",
+            "记录执行或跳过的原因，把真实演练反馈回到下一轮因子审计和流程优化。",
+            "beginner-post-close-journal-board",
+            "post_close_journal",
+        ),
+    ]
+    system_layers = [
+        _trading_system_layer("research_layer", "因子研究层", "用长期样本、OOS、成本和闸门筛候选，不把短期排行榜当结论。"),
+        _trading_system_layer("signal_layer", "每日信号层", "每天只把可运行 CN_ETF 候选转换成当日 ETF 目标仓位。"),
+        _trading_system_layer("portfolio_layer", "组合约束层", "叠加总仓位、单 ETF 上限、现金下限、100 份取整和红灯阻断。"),
+        _trading_system_layer("paper_layer", "模拟盘层", "同参数本地模拟盘先观察收益、回撤、成交和保护事件。"),
+        _trading_system_layer("manual_review_layer", "人工复核层", "只输出人工复核票据，不接券商、不读账户、不自动下单。"),
+        _trading_system_layer("feedback_layer", "盘后反馈层", "把执行、跳过、滑点和风险问题写回下一轮审计。"),
+    ]
+    return _sanitize(
+        {
+            "stage": DAILY_TRADING_SYSTEM_BLUEPRINT_STAGE,
+            "run_date": pack.get("run_date", date.today().isoformat()),
+            "safety": SAFETY_NOTICE,
+            "summary": {
+                "status": status,
+                "primary_market": market,
+                "system_type": "daily_cn_etf_paper_first_manual_review_system",
+                "daily_top3_signal_supported": market == "CN_ETF",
+                "direct_live_trading_supported": False,
+                "manual_execution_required": True,
+                "paper_simulation_required": True,
+                "post_close_journal_required": True,
+                "selected_factor_count": selected_count,
+                "today_signal_count": signal_count,
+                "target_count": target_count,
+                "manual_ticket_count": ticket_count,
+                "blocker_count": len(blockers),
+                "live_transition_status": (live_plan.get("summary") or {}).get("status"),
+                "decision_sheet_status": (decision_sheet.get("summary") or {}).get("decision"),
+                "live_trading_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+                "operator_summary": _trading_system_operator_summary(status),
+            },
+            "candidate_pool_policy": {
+                "selection_scope": "CN_ETF",
+                "top_factor_limit": 3,
+                "source": "qualified_factor_leaderboard_then_signal_snapshot",
+                "direct_buy_from_leaderboard_allowed": False,
+                "cn_stock_moneyflow_primary_allowed": False,
+                "required_metrics": [
+                    "Sharpe",
+                    "annualized_return",
+                    "max_drawdown",
+                    "win_rate",
+                    "RankIC",
+                    "trade_count",
+                    "OOS/paper evidence",
+                ],
+                "anti_overfit_policy": "排行榜只能选候选，必须经过当日信号、模拟盘回执、风险和人工复核。",
+            },
+            "system_layers": system_layers,
+            "evidence_chain": evidence_chain,
+            "operator_buy_process": operator_buy_process,
+            "risk_controls": [
+                "只允许 CN_ETF 主线信号进入每日交易建议。",
+                "没有同日信号、同参数模拟盘或人工票据时不进入人工券商复核。",
+                "总收益和年化不能覆盖过拟合、回撤、容量、流动性和交易成本风险。",
+                "真实交易只能由人离开系统后在券商端逐项人工决定。",
+            ],
+            "missing_for_manual_observation": [
+                item["evidence_id"]
+                for item in evidence_chain
+                if item["status"] in {"blocked", "waiting", "required", "locked"}
+            ],
+        }
+    )
+
+
+def _trading_system_evidence(
+    evidence_id: str,
+    label: str,
+    status: str,
+    evidence: str,
+    gui_target: str,
+    workflow_id: str = "",
+) -> dict[str, Any]:
+    return {
+        "evidence_id": evidence_id,
+        "label": label,
+        "status": status,
+        "evidence": evidence,
+        "gui_target": gui_target,
+        "workflow_id": workflow_id,
+        "automation_allowed": False,
+        "live_order_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+    }
+
+
+def _trading_system_operator_step(
+    step_number: int,
+    step_id: str,
+    title: str,
+    status: str,
+    plain_action: str,
+    gui_target: str,
+    workflow_id: str = "",
+) -> dict[str, Any]:
+    return {
+        "step_number": step_number,
+        "step_id": step_id,
+        "title": title,
+        "status": status,
+        "plain_action": plain_action,
+        "gui_target": gui_target,
+        "workflow_id": workflow_id,
+        "automation_allowed": False,
+        "live_order_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+    }
+
+
+def _trading_system_layer(layer_id: str, label: str, responsibility: str) -> dict[str, Any]:
+    return {
+        "layer_id": layer_id,
+        "label": label,
+        "responsibility": responsibility,
+        "order_placement_allowed": False,
+    }
+
+
+def _trading_system_operator_summary(status: str) -> str:
+    messages = {
+        "blocked_red_light": "今天还不能进入人工操作，先处理信号、数据或风险红灯。",
+        "paper_first_manual_review": "今天最多进入模拟盘优先的人工复核，仍不是自动实盘。",
+        "build_manual_tickets": "已有当日信号，先补全人工票据和同参数模拟盘。",
+        "waiting_for_today_signal": "先生成当日 CN_ETF 前三因子信号，再看后续证据。",
+    }
+    return messages.get(status, "按每日交易系统证据链逐步推进。")
 
 
 def _build_daily_trade_system_state(

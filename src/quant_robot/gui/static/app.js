@@ -5532,6 +5532,7 @@ function renderDailyTradeAdvisory() {
   renderDailyPortfolioValueHelp();
   renderDailyLiveReadinessGate(pack.daily_live_readiness_gate || {});
   renderDailyTradeDecisionSheet(pack.daily_trade_decision_sheet || {});
+  renderDailyTradingSystemBlueprint(pack.trading_system_blueprint || {});
   renderDailyPretradeReadiness(pack.pretrade_readiness || {});
   renderDailyPretradeNextActions(pack.operator_next_actions || pack.pretrade_workflow?.operator_next_actions || []);
   renderManualBrokerHandoff(pack.manual_broker_handoff || {});
@@ -5809,6 +5810,63 @@ function renderDailyTradeDecisionSheet(sheet = {}) {
       </div>
     `;
   }).join("") : statusRows([["缺失证据", "暂无结构化缺失项；仍需人工确认模拟盘、风险、现金和券商端实时价格。", "warn"]]);
+}
+
+function renderDailyTradingSystemBlueprint(blueprint = {}) {
+  const summaryTarget = byId("daily-trading-system-blueprint-summary");
+  const flowTarget = byId("daily-trading-system-blueprint-flow");
+  const evidenceTarget = byId("daily-trading-system-blueprint-evidence");
+  const actionTarget = byId("daily-trading-system-blueprint-actions");
+  if (!summaryTarget || !flowTarget || !evidenceTarget || !actionTarget) return;
+  const summary = blueprint.summary || {};
+  const policy = blueprint.candidate_pool_policy || {};
+  const layers = Array.isArray(blueprint.system_layers) ? blueprint.system_layers : [];
+  const evidence = Array.isArray(blueprint.evidence_chain) ? blueprint.evidence_chain : [];
+  const actions = Array.isArray(blueprint.operator_buy_process) ? blueprint.operator_buy_process : [];
+  const status = summary.status || "waiting_for_today_signal";
+  const statusTone = status.includes("blocked") ? "danger" : "warn";
+  summaryTarget.innerHTML = statusRows([
+    ["系统状态", zhConsoleText(status), statusTone],
+    ["今日前三", summary.daily_top3_signal_supported ? "支持，但只能进证据链" : "不支持", summary.daily_top3_signal_supported ? "warn" : "danger"],
+    ["候选池", `${policy.selection_scope || "CN_ETF"} / Top${formatNumber(policy.top_factor_limit || 3)} / 排行榜直买=${policy.direct_buy_from_leaderboard_allowed ? "允许" : "禁止"}`, policy.direct_buy_from_leaderboard_allowed ? "danger" : "ok"],
+    ["今日证据", `信号=${formatNumber(summary.today_signal_count || 0)} / 目标=${formatNumber(summary.target_count || 0)} / 票据=${formatNumber(summary.manual_ticket_count || 0)} / 阻断=${formatNumber(summary.blocker_count || 0)}`, summary.blocker_count ? "danger" : "warn"],
+    ["实盘自动化", summary.direct_live_trading_supported ? "异常开启" : "不支持", summary.direct_live_trading_supported ? "danger" : "ok"],
+    ["下一句", summary.operator_summary || "按每日交易系统证据链逐步推进。", statusTone],
+  ]);
+  flowTarget.innerHTML = layers.length ? layers.map((item, index) => `
+    <div class="list-row warn">
+      <strong>${escapeHtml(`${index + 1}. ${item.label || item.layer_id || ""}`)}</strong>
+      <span>${escapeHtml(item.responsibility || "")}</span>
+      <span>${escapeHtml(item.order_placement_allowed ? "异常：允许下单" : "下单权限=禁止")}</span>
+    </div>
+  `).join("") : statusRows([["系统分层", "等待今日交易系统蓝图加载。", "warn"]]);
+  evidenceTarget.innerHTML = evidence.length ? evidence.map((item) => {
+    const rowTone = item.status === "ready" ? "ok" : item.status === "blocked" || item.status === "locked" ? "danger" : "warn";
+    return `
+      <div class="list-row ${escapeHtml(rowTone)}">
+        <strong>${escapeHtml(item.label || item.evidence_id || "")}</strong>
+        <span>${escapeHtml(`${zhConsoleText(item.status || "waiting")} / ${item.evidence || ""}`)}</span>
+        <span class="beginner-task-actions">
+          ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行这一步")}</button>` : ""}
+          ${item.gui_target ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.gui_target)}">${escapeHtml("看证据")}</button>` : ""}
+        </span>
+      </div>
+    `;
+  }).join("") : statusRows([["证据链", "等待今日前三信号、模拟盘和人工票据证据。", "warn"]]);
+  actionTarget.innerHTML = actions.length ? actions.map((item) => {
+    const rowTone = dailyTradeSystemStageTone(item.status || "");
+    return `
+      <div class="list-row ${escapeHtml(rowTone)}">
+        <strong>${escapeHtml(`${item.step_number || "--"}. ${item.title || item.step_id || ""}`)}</strong>
+        <span>${escapeHtml(`${zhConsoleText(item.status || "waiting")} / ${item.plain_action || ""}`)}</span>
+        <span>${escapeHtml(item.order_placement_allowed ? "异常：允许下单" : "系统下单=禁止")}</span>
+        <span class="beginner-task-actions">
+          ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+          ${item.gui_target ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.gui_target)}">${escapeHtml("查看")}</button>` : ""}
+        </span>
+      </div>
+    `;
+  }).join("") : statusRows([["操作步骤", "先生成今日前三建议，再看是否进入模拟盘和人工复核。", "warn"]]);
 }
 
 function renderDailyTradeSystemState(system = {}, runtime = {}, target = byId("daily-trade-system-state")) {
