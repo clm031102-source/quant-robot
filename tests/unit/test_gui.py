@@ -5,7 +5,7 @@ import unittest
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import Request, urlopen
 
 import pandas as pd
@@ -472,6 +472,12 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("daily_same_parameter_paper_rehearsal", app_js)
         self.assertIn("ready_for_same_parameter_paper", app_js)
         self.assertIn("run_each_top3_candidate_with_locked_params", app_js)
+        self.assertIn("data-same-parameter-paper-run", app_js)
+        self.assertIn("sameParameterPaperRequestFromButton", app_js)
+        self.assertIn("applySameParameterPaperToForm", app_js)
+        self.assertIn("runSameParameterPaperSimulation", app_js)
+        self.assertIn("same_parameter_lock_id", app_js)
+        self.assertIn("same_parameter_request_id", app_js)
         self.assertIn("function todayIsoDate", app_js)
         self.assertIn("function applyDailyTradeDateDefault", app_js)
         self.assertIn("staleDailyDateDefaults", app_js)
@@ -593,6 +599,21 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertEqual(snapshot["candidate_pool_top20"]["stage"], "phase_6_22_daily_candidate_pool_top20")
         self.assertIn("rows", snapshot["candidate_pool_top20"])
         self.assertFalse(snapshot["candidate_pool_top20"]["summary"]["direct_buy_from_leaderboard_allowed"])
+        same_paper = snapshot["daily_same_parameter_paper_rehearsal"]
+        self.assertEqual(same_paper["stage"], "phase_6_27_daily_same_parameter_paper_rehearsal")
+        self.assertGreaterEqual(len(same_paper["recommended_requests"]), 1)
+        same_paper_request = same_paper["recommended_requests"][0]
+        self.assertEqual(same_paper_request["same_parameter_lock_id"], same_paper["lock_id"])
+        self.assertEqual(same_paper_request["same_parameter_request_id"], same_paper_request["request_id"])
+        self.assertIn("/api/paper?", same_paper_request["request_url"])
+        self.assertIn("query_string", same_paper_request)
+        query = parse_qs(urlparse(same_paper_request["request_url"]).query)
+        self.assertEqual(query["market"], ["CN_ETF"])
+        self.assertEqual(query["factor"], [same_paper_request["factor"]])
+        self.assertEqual(query["top_n"], [str(same_paper_request["top_n"])])
+        self.assertEqual(query["same_parameter_lock_id"], [same_paper["lock_id"]])
+        self.assertEqual(query["same_parameter_request_id"], [same_paper_request["request_id"]])
+        self.assertFalse(same_paper_request["order_placement_allowed"])
         self.assertEqual(snapshot["selected_candidates"], snapshot["factors"])
         self.assertEqual(snapshot["pretrade_workflow"]["stage"], "phase_6_1_daily_pretrade_workflow")
         self.assertFalse(snapshot["pretrade_workflow"]["summary"]["live_order_allowed"])
@@ -4262,6 +4283,14 @@ class GuiHttpTests(unittest.TestCase):
             self.assertGreater(len(paper["fills"]), 0)
             self.assertIn("guard_events", paper)
             self.assertFalse(paper["intents"][0]["executable"])
+
+            locked_paper = _read_json(
+                f"{base_url}/api/paper?source=demo_fixture&market=CN_ETF&factor=momentum_2&top_n=2"
+                "&same_parameter_lock_id=lock_test_001&same_parameter_request_id=top3-paper-001&case_id=case_lock_001"
+            )
+            self.assertEqual(locked_paper["request"]["same_parameter_lock_id"], "lock_test_001")
+            self.assertEqual(locked_paper["request"]["same_parameter_request_id"], "top3-paper-001")
+            self.assertEqual(locked_paper["request"]["case_id"], "case_lock_001")
 
             promotion = _read_json(f"{base_url}/api/promotion/ops")
             self.assertEqual(promotion["stage"], "phase_2_8_promotion_operations")

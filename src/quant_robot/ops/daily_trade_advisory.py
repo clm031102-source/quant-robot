@@ -9,6 +9,7 @@ from collections import defaultdict
 from datetime import date
 from pathlib import Path
 from typing import Any, Iterable
+from urllib.parse import urlencode
 
 import pandas as pd
 
@@ -5965,6 +5966,7 @@ def build_daily_same_parameter_paper_rehearsal(pack: dict[str, Any]) -> dict[str
         "allocation_manifest": allocation_manifest,
     }
     lock_id = _same_parameter_lock_id(lock_payload)
+    locked_requests = [_same_parameter_request_with_lock(row, lock_id) for row in requests]
     return _sanitize(
         {
             "stage": DAILY_SAME_PARAMETER_PAPER_REHEARSAL_STAGE,
@@ -5996,7 +5998,7 @@ def build_daily_same_parameter_paper_rehearsal(pack: dict[str, Any]) -> dict[str
                 "auto_order_allowed": False,
             },
             "lock_id": lock_id,
-            "recommended_requests": requests,
+            "recommended_requests": locked_requests,
             "combined_target_manifest": combined_manifest,
             "allocation_manifest": allocation_manifest,
             "lock_rules": _same_parameter_lock_rules(lock_id),
@@ -6063,6 +6065,8 @@ def _same_parameter_paper_request(
         "factor_windows": _paper_factor_windows(params.get("factor_windows") or candidate.get("factor_windows"), factor_name),
         "top_n": _int(params.get("top_n") or params.get("topN"), 2),
         "rebalance_interval": _int(params.get("rebalance_interval") or params.get("holding_period"), 1),
+        "start_date": params.get("start_date") or summary.get("start_date") or pack.get("start_date"),
+        "end_date": params.get("end_date") or summary.get("end_date") or pack.get("end_date") or signal_as_of,
         "as_of_date": signal_as_of,
         "initial_cash": portfolio_value,
         "commission_bps": cost_bps,
@@ -6077,6 +6081,44 @@ def _same_parameter_paper_request(
         "account_read_allowed": False,
         "auto_order_allowed": False,
     }
+
+
+def _same_parameter_request_with_lock(request: dict[str, Any], lock_id: str) -> dict[str, Any]:
+    row = dict(request)
+    row["same_parameter_lock_id"] = lock_id
+    row["same_parameter_request_id"] = row.get("request_id")
+    query_string = _same_parameter_paper_query(row)
+    row["query_string"] = query_string
+    row["request_url"] = f"{row.get('endpoint') or '/api/paper'}?{query_string}"
+    return row
+
+
+def _same_parameter_paper_query(request: dict[str, Any]) -> str:
+    request_id = request.get("same_parameter_request_id") or request.get("request_id")
+    pairs = [
+        ("source", request.get("source")),
+        ("market", request.get("market")),
+        ("factor", request.get("factor") or request.get("factor_name")),
+        ("factor_windows", request.get("factor_windows")),
+        ("top_n", request.get("top_n")),
+        ("rebalance_interval", request.get("rebalance_interval")),
+        ("start_date", request.get("start_date")),
+        ("end_date", request.get("end_date")),
+        ("as_of_date", request.get("as_of_date")),
+        ("run_date", request.get("as_of_date")),
+        ("initial_cash", request.get("initial_cash")),
+        ("commission_bps", request.get("commission_bps")),
+        ("slippage_bps", request.get("slippage_bps")),
+        ("max_asset_weight", request.get("max_asset_weight")),
+        ("max_market_weight", request.get("max_market_weight")),
+        ("max_gross_exposure", request.get("max_gross_exposure")),
+        ("min_cash_weight", request.get("min_cash_weight")),
+        ("risk_profile_id", request.get("risk_profile_id")),
+        ("same_parameter_lock_id", request.get("same_parameter_lock_id")),
+        ("same_parameter_request_id", request_id),
+        ("case_id", request.get("case_id")),
+    ]
+    return urlencode([(key, str(value)) for key, value in pairs if value is not None and str(value) != ""])
 
 
 def _same_parameter_combined_manifest_row(index: int, row: dict[str, Any]) -> dict[str, Any]:

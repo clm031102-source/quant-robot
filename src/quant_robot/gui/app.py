@@ -342,6 +342,11 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                     operation_request["as_of_date"] = _optional(query, "as_of_date")
                 if _optional(query, "run_date"):
                     operation_request["run_date"] = _optional(query, "run_date")
+                for key in ("same_parameter_lock_id", "same_parameter_request_id", "case_id", "risk_profile_id"):
+                    value = _optional(query, key)
+                    if value:
+                        operation_request[key] = value
+                result["request"] = operation_request
                 _record_operation(
                     workflow_id="paper_simulation",
                     label="Run local paper simulation",

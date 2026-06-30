@@ -450,6 +450,13 @@ function bindActions() {
     event.stopImmediatePropagation();
     await runDailyPaperHandoffSimulation(button);
   });
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-same-parameter-paper-run]");
+    if (!button) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    await runSameParameterPaperSimulation(button);
+  });
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-beginner-parameter-jump]");
     if (!button) return;
@@ -862,6 +869,7 @@ function buildDailyTradeAdvisoryParams() {
 }
 
 function buildPaperParams() {
+  const lockedRequest = arguments[0] || null;
   const factor = valueOf("paper-factor-select") || "momentum_2";
   const operationDate = valueOf("daily-trade-as-of") || valueOf("signal-as-of") || valueOf("paper-end-date");
   const params = new URLSearchParams({
@@ -885,7 +893,18 @@ function buildPaperParams() {
     guard_cooldown_periods: valueOf("paper-guard-cooldown") || "0",
   });
   addSourceParams(params);
+  appendSameParameterPaperMetadata(params, lockedRequest);
   return params;
+}
+
+function appendSameParameterPaperMetadata(params, lockedRequest = null) {
+  const request = lockedRequest && typeof lockedRequest === "object" ? lockedRequest : {};
+  const lockId = request.same_parameter_lock_id || request.lock_id;
+  const requestId = request.same_parameter_request_id || request.request_id;
+  if (lockId) params.set("same_parameter_lock_id", String(lockId));
+  if (requestId) params.set("same_parameter_request_id", String(requestId));
+  if (request.case_id) params.set("case_id", String(request.case_id));
+  if (request.risk_profile_id) params.set("risk_profile_id", String(request.risk_profile_id));
 }
 
 function parameterPlainValue(params, key, fallback = "--") {
@@ -5786,6 +5805,76 @@ async function runDailyPaperHandoffSimulation(button) {
   await runBeginnerAction("paper_simulation", button);
 }
 
+function sameParameterPaperRequestFromButton(button) {
+  try {
+    const payload = button?.dataset?.sameParameterPaperRun || "{}";
+    return JSON.parse(decodeURIComponent(payload));
+  } catch (_error) {
+    return {};
+  }
+}
+
+function applySameParameterPaperToForm(request = {}) {
+  markManualFormOverride("same_parameter_paper_lock");
+  if (request.source) {
+    setValue("data-source-select", String(request.source));
+    applySourcePreset(false);
+  }
+  if (request.data_root) setValue("data-root-input", String(request.data_root));
+  applyDailyPaperHandoffToForm(request);
+  if (request.start_date) setValue("paper-start-date", leaderboardInputValue(request.start_date));
+  if (request.end_date) setValue("paper-end-date", leaderboardInputValue(request.end_date));
+  if (request.as_of_date) {
+    setValue("daily-trade-as-of", leaderboardInputValue(request.as_of_date));
+    setValue("signal-as-of", leaderboardInputValue(request.as_of_date));
+  }
+  if (request.run_date && !request.as_of_date) {
+    setValue("daily-trade-as-of", leaderboardInputValue(request.run_date));
+    setValue("signal-as-of", leaderboardInputValue(request.run_date));
+  }
+  renderRequestPreview();
+  renderControlCenter();
+  showToast(`已锁定同参数模拟盘：${request.same_parameter_request_id || request.request_id || request.factor || "Top3"}`);
+  activatePage("paper", true);
+  jumpToBeginnerTarget("paper-metrics");
+}
+
+async function runSameParameterPaperSimulation(button) {
+  const request = sameParameterPaperRequestFromButton(button);
+  applySameParameterPaperToForm(request);
+  const params = buildPaperParams(request);
+  const confirmed = await confirmSafeWorkflow({
+    workflow_id: "paper_simulation",
+    label: "Top3 同参数本地模拟盘复核",
+    endpoint: endpointWithParams("/api/paper", params),
+    request: paramsObject(params),
+  });
+  if (!confirmed) return;
+  const original = button?.textContent || "";
+  if (button) {
+    button.disabled = true;
+    button.textContent = "运行中";
+  }
+  await withBusy("run-paper", async () => {
+    state.paper = await fetchJson(`/api/paper?${params.toString()}`);
+    renderDashboard();
+    renderPaper();
+    renderControlCenter();
+    appendRunHistory({
+      workflow_id: "paper_simulation",
+      label: "Run locked same-parameter Top3 paper simulation",
+      status: "completed",
+      detail: `${request.factor || valueOf("paper-factor-select") || "--"} / lock=${request.same_parameter_lock_id || request.lock_id || "--"}`,
+    });
+    appendExecutionReceipt(paperReceipt(state.paper));
+    showToast("同参数模拟盘已更新");
+  });
+  if (button) {
+    button.disabled = false;
+    button.textContent = original || "运行模拟盘";
+  }
+}
+
 function renderFactorLeaderboardTable(rows) {
   if (!rows.length) {
     const board = getActiveLeaderboard();
@@ -7328,6 +7417,14 @@ function dailyPreExecutionTone(status = "", trafficLight = "") {
   return "warn";
 }
 
+function sameParameterPaperRunPayload(item = {}) {
+  try {
+    return encodeURIComponent(JSON.stringify(item || {}));
+  } catch (_error) {
+    return encodeURIComponent("{}");
+  }
+}
+
 function renderDailySameParameterPaperRehearsal(rehearsal = {}) {
   const summaryTarget = byId("daily-same-parameter-paper-summary");
   const requestTarget = byId("daily-same-parameter-paper-requests");
@@ -7357,8 +7454,9 @@ function renderDailySameParameterPaperRehearsal(rehearsal = {}) {
       <strong>${escapeHtml(`${item.rank || ""}. ${item.factor || "--"} / ${item.request_id || ""}`)}</strong>
       <span>${escapeHtml(`window=${item.factor_windows || "--"} / topN=${formatNumber(item.top_n || 0)} / cost=${formatNumber(item.commission_bps || 0)}bps / date=${item.as_of_date || "--"}`)}</span>
       <span>${escapeHtml(`cash=${formatNumber(item.initial_cash || 0)} / gross=${formatPercent(item.max_gross_exposure)} / single=${formatPercent(item.max_asset_weight)} / min_cash=${formatPercent(item.min_cash_weight)}`)}</span>
+      <span>${escapeHtml(`lock=${item.same_parameter_lock_id || summary.lock_id || "--"} / endpoint=${item.request_url || item.endpoint || "/api/paper"}`)}</span>
       <span class="beginner-task-actions">
-        <button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id || "paper_simulation")}">${escapeHtml("运行模拟盘")}</button>
+        <button class="primary-button" type="button" data-same-parameter-paper-run="${escapeRawHtml(sameParameterPaperRunPayload(item))}">${escapeHtml("填参并运行同参数模拟盘")}</button>
       </span>
     </div>
   `).join("") : statusRows([["Top3 模拟请求", "没有锁定请求；先生成今日 CN_ETF Top3 信号。", "danger"]]);
@@ -11236,6 +11334,10 @@ function paperReceipt(result = {}) {
       min_cash_weight: request.min_cash_weight,
       max_drawdown_guard: request.max_drawdown_guard,
       guard_cooldown_periods: request.guard_cooldown_periods,
+      same_parameter_lock_id: request.same_parameter_lock_id,
+      same_parameter_request_id: request.same_parameter_request_id,
+      case_id: request.case_id,
+      risk_profile_id: request.risk_profile_id,
     },
     metrics: {
       ending_equity: metrics.ending_equity,
