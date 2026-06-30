@@ -252,6 +252,49 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertNotIn("research_only", {row["case_id"] for row in selected})
         self.assertNotIn("thin_sample", {row["case_id"] for row in selected})
 
+    def test_daily_top_three_blocks_legacy_rows_without_oos_or_paper_gate(self):
+        leaderboard = {
+            "leaderboards": {
+                "primary_cn_etf": {
+                    "rows": [
+                        {
+                            "rank": 1,
+                            "case_id": "legacy_high_sharpe",
+                            "factor_name": "momentum_2",
+                            "market": "CN_ETF",
+                            "sharpe": 3.2,
+                            "annualized_return": 0.58,
+                        },
+                        {
+                            "rank": 2,
+                            "case_id": "paper_ready",
+                            "factor_name": "liquidity_2",
+                            "market": "CN_ETF",
+                            "status": "paper_ready",
+                            "sharpe": 0.9,
+                        },
+                    ]
+                }
+            }
+        }
+
+        selected = select_daily_top_factor_candidates(
+            leaderboard,
+            runnable_factor_names={"momentum_2", "liquidity_2"},
+            limit=3,
+        )
+        pool = build_daily_candidate_pool_top20(
+            leaderboard,
+            selected_candidates=selected,
+            runnable_factor_names={"momentum_2", "liquidity_2"},
+        )
+
+        self.assertEqual([row["case_id"] for row in selected], ["paper_ready"])
+        rows_by_case = {row["case_id"]: row for row in pool["rows"]}
+        self.assertEqual(rows_by_case["legacy_high_sharpe"]["selection_status"], "blocked")
+        self.assertEqual(rows_by_case["legacy_high_sharpe"]["selection_reason"], "missing_paper_ready_or_oos_gate")
+        self.assertFalse(rows_by_case["legacy_high_sharpe"]["advisory_eligible"])
+
     def test_builds_manual_only_trade_pack_from_three_signals(self):
         candidates = [
             {"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF", "sharpe": 1.2},

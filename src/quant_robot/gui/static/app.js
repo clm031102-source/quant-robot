@@ -10937,6 +10937,32 @@ function paperReceipt(result = {}) {
   };
 }
 
+function dailyPaperRequestSignature(result = {}) {
+  const bridge = result.daily_signal_execution_bridge || {};
+  const handoff = bridge.paper_simulation_handoff || result.paper_simulation_handoff || {};
+  const request = handoff.recommended_request || {};
+  return {
+    source: request.source,
+    market: request.market,
+    factor_name: request.factor_name || request.factor,
+    factor: request.factor || request.factor_name,
+    factor_windows: request.factor_windows,
+    top_n: request.top_n,
+    rebalance_interval: request.rebalance_interval,
+    as_of_date: result.run_date || request.as_of_date || request.run_date,
+    run_date: result.run_date || request.run_date || request.as_of_date,
+    initial_cash: request.initial_cash,
+    commission_bps: request.commission_bps,
+    slippage_bps: request.slippage_bps,
+    max_asset_weight: request.max_asset_weight,
+    max_market_weight: request.max_market_weight,
+    max_gross_exposure: request.max_gross_exposure,
+    min_cash_weight: request.min_cash_weight,
+    max_drawdown_guard: request.max_drawdown_guard,
+    guard_cooldown_periods: request.guard_cooldown_periods,
+  };
+}
+
 function dailyTradeAdvisoryReceipt(result = {}) {
   const summary = result.summary || {};
   const readiness = result.pretrade_readiness || {};
@@ -10952,6 +10978,7 @@ function dailyTradeAdvisoryReceipt(result = {}) {
       portfolio_value: summary.target_value,
       risk_profile_id: summary.risk_profile_id,
       applied_max_gross_exposure: summary.applied_max_gross_exposure,
+      paper_request_signature: dailyPaperRequestSignature(result),
     },
     metrics: {
       selected_factor_count: summary.selected_factor_count,

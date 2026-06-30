@@ -392,6 +392,8 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("data-daily-paper-handoff-apply", app_js)
         self.assertIn("dailyPaperReceiptStatus", app_js)
         self.assertIn("paperReceiptMatchesRequest", app_js)
+        self.assertIn("dailyPaperRequestSignature", app_js)
+        self.assertIn("paper_request_signature", app_js)
         self.assertIn("renderDailyPaperReceiptStatusRows", app_js)
         self.assertIn('latestExecutionReceipt("paper_simulation")', app_js)
         self.assertIn('data-beginner-action="paper_simulation"', app_js)
@@ -1528,6 +1530,136 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertTrue(ledger["rows"][0]["post_close_journal_ready"])
         self.assertTrue(ledger["rows"][0]["manual_execution_clean"])
         self.assertTrue(ledger["rows"][0]["completed_loop"])
+
+    def test_daily_closure_ledger_blocks_mismatched_same_parameter_paper_receipt(self):
+        from quant_robot.gui.control_center import build_control_center_snapshot
+        from quant_robot.gui.operation_ledger import append_operation_ledger_entry
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            expected_paper_request = {
+                "market": "CN_ETF",
+                "factor_name": "momentum_2",
+                "top_n": 2,
+                "commission_bps": 5,
+                "max_gross_exposure": 0.6,
+                "as_of_date": "2026-06-30",
+            }
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="daily_trade_advisory",
+                label="Generate top-three manual trade advisory",
+                status="completed",
+                request={
+                    "market": "CN_ETF",
+                    "as_of_date": "2026-06-30",
+                    "paper_request_signature": expected_paper_request,
+                },
+                result={"metrics": {"signal_count": 3, "selected_factor_count": 3}},
+            )
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="paper_simulation",
+                label="Run local paper simulation",
+                status="completed",
+                request={
+                    "market": "CN_ETF",
+                    "factor_name": "reversal_2",
+                    "top_n": 2,
+                    "commission_bps": 5,
+                    "max_gross_exposure": 0.6,
+                    "as_of_date": "2026-06-30",
+                },
+                result={"stage": "gui_paper_simulation", "metrics": {"total_return": 0.12, "max_drawdown": -0.18}},
+            )
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="post_close_journal",
+                label="Post-close journal receipt",
+                status="completed",
+                request={"market": "CN_ETF", "as_of_date": "2026-06-30"},
+                result={
+                    "metrics": {
+                        "manual_review_recorded": True,
+                        "manual_execution_decision": "manual_execution_evidence_ready",
+                        "manual_execution_missing_review_count": 0,
+                        "manual_execution_guardrail_breach_count": 0,
+                        "manual_execution_slippage_breach_count": 0,
+                    }
+                },
+            )
+
+            control = build_control_center_snapshot(repo_root=root)
+
+        row = control["daily_closure_ledger"]["rows"][0]
+        self.assertTrue(row["top3_signal_ready"])
+        self.assertFalse(row["same_parameter_paper_ready"])
+        self.assertEqual(row["paper_request_match_status"], "mismatched")
+        self.assertIn("factor_name", row["paper_request_mismatch_keys"])
+        self.assertIn("paper_simulation", row["missing_steps"])
+        self.assertFalse(row["completed_loop"])
+
+    def test_daily_closure_ledger_accepts_matching_signature_with_factor_window_list(self):
+        from quant_robot.gui.control_center import build_control_center_snapshot
+        from quant_robot.gui.operation_ledger import append_operation_ledger_entry
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            expected_paper_request = {
+                "market": "CN_ETF",
+                "factor_name": "momentum_2",
+                "factor_windows": [2, 5, 20],
+                "top_n": "2",
+                "commission_bps": "5.0",
+                "as_of_date": "2026-06-30",
+            }
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="daily_trade_advisory",
+                label="Generate top-three manual trade advisory",
+                status="completed",
+                request={"market": "CN_ETF", "as_of_date": "2026-06-30", "paper_request_signature": expected_paper_request},
+                result={"metrics": {"signal_count": 3, "selected_factor_count": 3}},
+            )
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="paper_simulation",
+                label="Run local paper simulation",
+                status="completed",
+                request={
+                    "market": "cn_etf",
+                    "factor": "momentum_2",
+                    "factor_windows": [2, 5, 20],
+                    "top_n": 2,
+                    "commission_bps": 5,
+                    "as_of_date": "2026-06-30",
+                },
+                result={"stage": "gui_paper_simulation", "metrics": {"total_return": 0.12, "max_drawdown": -0.18}},
+            )
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="post_close_journal",
+                label="Post-close journal receipt",
+                status="completed",
+                request={"market": "CN_ETF", "as_of_date": "2026-06-30"},
+                result={
+                    "metrics": {
+                        "manual_review_recorded": True,
+                        "manual_execution_decision": "manual_execution_evidence_ready",
+                        "manual_execution_missing_review_count": 0,
+                        "manual_execution_guardrail_breach_count": 0,
+                        "manual_execution_slippage_breach_count": 0,
+                    }
+                },
+            )
+
+            control = build_control_center_snapshot(repo_root=root)
+
+        row = control["daily_closure_ledger"]["rows"][0]
+        self.assertTrue(row["same_parameter_paper_ready"])
+        self.assertEqual(row["paper_request_match_status"], "matched")
+        self.assertEqual(row["paper_request_mismatch_keys"], [])
+        self.assertTrue(row["completed_loop"])
 
     def test_control_center_promotes_only_clean_server_closure_streak_to_small_capital_candidate(self):
         from quant_robot.gui.control_center import build_control_center_snapshot

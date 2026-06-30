@@ -10,6 +10,25 @@ from typing import Any
 LEDGER_PATH = Path("data/reports/gui_operation_ledger/gui_operation_ledger.json")
 MAX_LEDGER_ENTRIES = 50
 SAFETY_NOTICE = "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading."
+PAPER_REQUEST_SIGNATURE_KEYS = (
+    "source",
+    "market",
+    "factor_name",
+    "factor_windows",
+    "top_n",
+    "rebalance_interval",
+    "initial_cash",
+    "commission_bps",
+    "slippage_bps",
+    "max_asset_weight",
+    "max_market_weight",
+    "max_gross_exposure",
+    "min_cash_weight",
+    "max_drawdown_guard",
+    "guard_cooldown_periods",
+    "as_of_date",
+    "run_date",
+)
 
 
 def append_operation_ledger_entry(
@@ -343,6 +362,11 @@ def _empty_closure_row(date_key: str) -> dict[str, Any]:
         "manual_execution_clean": False,
         "manual_execution_blocked": False,
         "manual_execution_missing_review": False,
+        "paper_receipt_completed": False,
+        "expected_paper_request_signature": {},
+        "latest_paper_request_signature": {},
+        "paper_request_match_status": "missing",
+        "paper_request_mismatch_keys": [],
         "latest_daily_trade_receipt": "",
         "latest_paper_receipt": "",
         "latest_post_close_receipt": "",
@@ -365,8 +389,10 @@ def _apply_closure_entry(row: dict[str, Any], entry: dict[str, Any]) -> None:
         if signal_count > 0 or selected_count > 0:
             row["top3_signal_ready"] = True
             row["latest_daily_trade_receipt"] = recorded_at
+            row["expected_paper_request_signature"] = _daily_expected_paper_signature(entry)
     elif workflow_id == "paper_simulation":
-        row["same_parameter_paper_ready"] = True
+        row["paper_receipt_completed"] = True
+        row["latest_paper_request_signature"] = _request_signature(request)
         row["latest_paper_receipt"] = recorded_at
     elif workflow_id == "post_close_journal":
         row["post_close_journal_ready"] = bool(metrics.get("manual_review_recorded", True))
@@ -387,6 +413,7 @@ def _apply_closure_entry(row: dict[str, Any], entry: dict[str, Any]) -> None:
 
 
 def _finalize_closure_row(row: dict[str, Any]) -> dict[str, Any]:
+    row = _finalize_same_parameter_paper(row)
     missing = []
     if not row.get("top3_signal_ready"):
         missing.append("daily_trade_advisory")
@@ -404,6 +431,93 @@ def _finalize_closure_row(row: dict[str, Any]) -> dict[str, Any]:
         "live_trading_allowed": False,
         "order_placement_allowed": False,
     }
+
+
+def _finalize_same_parameter_paper(row: dict[str, Any]) -> dict[str, Any]:
+    paper_done = bool(row.get("paper_receipt_completed"))
+    expected = row.get("expected_paper_request_signature") if isinstance(row.get("expected_paper_request_signature"), dict) else {}
+    latest = row.get("latest_paper_request_signature") if isinstance(row.get("latest_paper_request_signature"), dict) else {}
+    if not paper_done:
+        row["same_parameter_paper_ready"] = False
+        row["paper_request_match_status"] = "missing"
+        row["paper_request_mismatch_keys"] = []
+        return row
+    if expected:
+        mismatches = _signature_mismatch_keys(latest, expected)
+        row["same_parameter_paper_ready"] = not mismatches
+        row["paper_request_match_status"] = "matched" if not mismatches else "mismatched"
+        row["paper_request_mismatch_keys"] = mismatches
+        return row
+    row["same_parameter_paper_ready"] = True
+    row["paper_request_match_status"] = "legacy_unverified"
+    row["paper_request_mismatch_keys"] = []
+    return row
+
+
+def _daily_expected_paper_signature(entry: dict[str, Any]) -> dict[str, Any]:
+    request = entry.get("request", {}) if isinstance(entry.get("request"), dict) else {}
+    for key in ("paper_request_signature", "same_parameter_paper_request", "paper_simulation_request"):
+        value = request.get(key)
+        if isinstance(value, dict):
+            return _request_signature(value)
+    return {}
+
+
+def _request_signature(request: dict[str, Any]) -> dict[str, Any]:
+    if not isinstance(request, dict):
+        return {}
+    source: dict[str, Any] = dict(request)
+    if not source.get("factor_name") and source.get("factor") not in {None, ""}:
+        source["factor_name"] = source.get("factor")
+    signature: dict[str, Any] = {}
+    for key in PAPER_REQUEST_SIGNATURE_KEYS:
+        value = source.get(key)
+        if value is None or value == "":
+            continue
+        signature[key] = _canonical_signature_value(key, value)
+    return signature
+
+
+def _signature_mismatch_keys(actual: dict[str, Any], expected: dict[str, Any]) -> list[str]:
+    mismatches: list[str] = []
+    for key, expected_value in expected.items():
+        if actual.get(key) != expected_value:
+            mismatches.append(key)
+    return mismatches
+
+
+def _canonical_signature_value(key: str, value: Any) -> Any:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return round(float(value), 10)
+    text = str(value).strip()
+    if key == "market":
+        return text.upper()
+    if key == "factor_windows":
+        if isinstance(value, (list, tuple)):
+            return ",".join(str(item).strip() for item in value if str(item).strip())
+        return text.replace(" ", "")
+    if key in {
+        "top_n",
+        "rebalance_interval",
+        "initial_cash",
+        "commission_bps",
+        "slippage_bps",
+        "max_asset_weight",
+        "max_market_weight",
+        "max_gross_exposure",
+        "min_cash_weight",
+        "max_drawdown_guard",
+        "guard_cooldown_periods",
+    }:
+        try:
+            return round(float(text), 10)
+        except ValueError:
+            return text
+    if isinstance(value, (dict, list, tuple)):
+        return json.dumps(_json_safe(value), sort_keys=True, ensure_ascii=False)
+    return text
 
 
 def _closure_next_action(rows: list[dict[str, Any]]) -> str:

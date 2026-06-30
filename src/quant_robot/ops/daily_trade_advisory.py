@@ -316,20 +316,6 @@ def _daily_advisory_candidate_eligibility(row: dict[str, Any]) -> tuple[bool, st
     if row.get("has_oos_evidence") is True and score_metric.startswith(("paper", "walk_forward", "oos", "test")):
         return (True, "oos_or_paper_evidence")
 
-    metadata_keys = {
-        "status",
-        "decision",
-        "promotion_status",
-        "gate_status",
-        "selection_status",
-        "review_status",
-        "promotion_label",
-        "ranking_quality",
-        "has_oos_evidence",
-        "score_metric",
-    }
-    if not (metadata_keys & set(row)):
-        return (True, "legacy_runnable_candidate")
     return (False, "missing_paper_ready_or_oos_gate")
 
 
