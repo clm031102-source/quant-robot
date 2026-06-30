@@ -16,6 +16,7 @@ DESKTOP_APP_COPY = {
     "title": "量化机器人新手桌面中控台",
     "subtitle": "一键打开本地研究、信号、模拟盘和手工交易建议。",
     "safety": "research-to-paper only；不连接券商、不读取账户、不真实下单。",
+    "status_panel_title": "新手先看这里",
     "primary_button": "启动并打开中控台",
     "today_action_button": "打开今日行动",
     "daily_button": "打开今日交易检查",
@@ -25,6 +26,44 @@ DESKTOP_APP_COPY = {
 }
 DEFAULT_INITIAL_PAGE = "dashboard"
 DEFAULT_INITIAL_TARGET_ID = "ordinary-daily-action-card"
+DESKTOP_BEGINNER_STATUS_ROWS = (
+    {
+        "row_id": "today_action",
+        "label": "第一步",
+        "detail": "先看“今天先做哪一步”，它会告诉你该生成建议、跑模拟盘，还是看证据。",
+        "page": "dashboard",
+        "target": "ordinary-daily-action-card",
+        "broker_connection_allowed": False,
+        "order_placement_allowed": False,
+    },
+    {
+        "row_id": "daily_check",
+        "label": "交易前",
+        "detail": "再看今日交易检查，确认盘前红灯、目标仓位、人工票据和交易包完整度。",
+        "page": "daily",
+        "target": "daily-pretrade-beginner-cards",
+        "broker_connection_allowed": False,
+        "order_placement_allowed": False,
+    },
+    {
+        "row_id": "factor_leaderboard",
+        "label": "看因子",
+        "detail": "排行榜展示 Sharpe、年化、回撤、胜率和 RankIC，但排行榜不能直接当买入指令。",
+        "page": "dashboard",
+        "target": "factor-leaderboard-table",
+        "broker_connection_allowed": False,
+        "order_placement_allowed": False,
+    },
+    {
+        "row_id": "safety_boundary",
+        "label": "安全边界",
+        "detail": "软件不会连接券商、不会读取账户、不会自动下单；真实交易必须人工复核。",
+        "page": "dashboard",
+        "target": "control-safety-boundary",
+        "broker_connection_allowed": False,
+        "order_placement_allowed": False,
+    },
+)
 
 DESKTOP_APP_PAGES = {
     "dashboard",
@@ -154,6 +193,10 @@ class DesktopGuiController:
         return DesktopAppState(status=status, host=self.host, port=self.port, url=self.url, message=message)
 
 
+def desktop_beginner_status_rows() -> tuple[dict[str, object], ...]:
+    return DESKTOP_BEGINNER_STATUS_ROWS
+
+
 def run_desktop_app(
     host: str = "127.0.0.1",
     port: int = 8765,
@@ -172,7 +215,7 @@ def run_desktop_app(
 
     root = tk.Tk()
     root.title(DESKTOP_APP_COPY["title"])
-    root.geometry("560x330")
+    root.geometry("620x430")
     root.resizable(False, False)
 
     status_var = tk.StringVar(value="未启动")
@@ -184,6 +227,13 @@ def run_desktop_app(
     ttk.Label(frame, text=DESKTOP_APP_COPY["title"], font=("", 16, "bold")).pack(anchor="w")
     ttk.Label(frame, text=DESKTOP_APP_COPY["subtitle"], wraplength=460).pack(anchor="w", pady=(8, 12))
     ttk.Label(frame, textvariable=safety_var, foreground="#ad3f3c", wraplength=460).pack(anchor="w")
+    ttk.Label(frame, text=DESKTOP_APP_COPY["status_panel_title"], font=("", 11, "bold")).pack(anchor="w", pady=(12, 4))
+    for item in desktop_beginner_status_rows():
+        ttk.Label(
+            frame,
+            text=f"{item['label']}：{item['detail']}",
+            wraplength=560,
+        ).pack(anchor="w", pady=(1, 0))
     ttk.Label(frame, textvariable=status_var).pack(anchor="w", pady=(12, 4))
     ttk.Label(frame, textvariable=url_var).pack(anchor="w")
 

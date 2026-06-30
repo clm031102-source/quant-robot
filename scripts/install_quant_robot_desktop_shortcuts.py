@@ -5,6 +5,15 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+try:
+    from scripts.bootstrap import ensure_workspace_imports
+except ModuleNotFoundError:  # pragma: no cover - direct script execution
+    from bootstrap import ensure_workspace_imports
+
+ensure_workspace_imports()
+
+from quant_robot.gui.desktop_app import desktop_beginner_status_rows
+
 
 @dataclass(frozen=True)
 class DesktopShortcutSpec:
@@ -63,6 +72,7 @@ def build_shortcut_script(repo_root: Path, spec: DesktopShortcutSpec) -> str:
 
 def build_beginner_readme(shortcuts: tuple[DesktopShortcutSpec, ...] = DEFAULT_DESKTOP_SHORTCUTS) -> str:
     shortcut_lines = "\n".join(f"- {spec.filename}" for spec in shortcuts)
+    status_lines = "\n".join(f"- {row['label']}：{row['detail']}" for row in desktop_beginner_status_rows())
     return "\n".join(
         [
             "量化机器人新手说明",
@@ -71,6 +81,9 @@ def build_beginner_readme(shortcuts: tuple[DesktopShortcutSpec, ...] = DEFAULT_D
             "第二步：如果要做交易前检查，双击「量化机器人-今日交易检查.bat」。",
             "第三步：如果想看历史表现，双击「量化机器人-因子排行榜.bat」。",
             "第四步：如果运行失败或看不懂结果，双击「量化机器人-日志报告.bat」。",
+            "",
+            "打开后先看：",
+            status_lines,
             "",
             "桌面入口：",
             shortcut_lines,

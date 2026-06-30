@@ -16,6 +16,7 @@ from quant_robot.gui.desktop_app import (
     DESKTOP_APP_COPY,
     DesktopAppState,
     DesktopGuiController,
+    desktop_beginner_status_rows,
     find_available_port,
     main as desktop_app_main,
 )
@@ -183,6 +184,19 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("logs_button", DESKTOP_APP_COPY)
         self.assertIn("今日交易检查", DESKTOP_APP_COPY["daily_button"])
 
+    def test_desktop_beginner_status_rows_explain_first_actions_and_safety(self):
+        rows = desktop_beginner_status_rows()
+        rows_by_id = {row["row_id"]: row for row in rows}
+
+        self.assertEqual(rows[0]["row_id"], "today_action")
+        self.assertIn("ordinary-daily-action-card", rows_by_id["today_action"]["target"])
+        self.assertIn("今天先做哪一步", rows_by_id["today_action"]["detail"])
+        self.assertIn("daily-pretrade-beginner-cards", rows_by_id["daily_check"]["target"])
+        self.assertIn("Sharpe", rows_by_id["factor_leaderboard"]["detail"])
+        self.assertIn("不会连接券商", rows_by_id["safety_boundary"]["detail"])
+        self.assertFalse(rows_by_id["safety_boundary"]["broker_connection_allowed"])
+        self.assertFalse(rows_by_id["safety_boundary"]["order_placement_allowed"])
+
     def test_desktop_cli_accepts_beginner_workflow_deep_link_options(self):
         calls: list[dict[str, object]] = []
 
@@ -268,6 +282,8 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("python scripts\\run_desktop_app.py --page dashboard --target-id ordinary-daily-action-card", shortcut_bodies_by_id["today_action"])
         self.assertEqual(readme_path.name, "量化机器人-先读我.txt")
         self.assertIn("第一步", readme_text)
+        self.assertIn("今天先做哪一步", readme_text)
+        self.assertIn("Sharpe", readme_text)
         self.assertIn("今日交易检查", readme_text)
         self.assertIn("因子排行榜", readme_text)
         self.assertIn("日志报告", readme_text)
