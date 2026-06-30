@@ -34,6 +34,7 @@ DAILY_SIGNAL_EXECUTION_BRIDGE_STAGE = "phase_6_16_daily_signal_execution_bridge"
 REAL_WORLD_MANUAL_HANDOFF_GATE_STAGE = "phase_6_17_real_world_manual_handoff_gate"
 DAILY_DEPLOYMENT_READINESS_STAGE = "phase_6_18_daily_deployment_readiness_pack"
 LIVE_PROFITABILITY_READINESS_STAGE = "phase_6_19_live_profitability_readiness_scorecard"
+DAILY_FACTOR_HEALTH_MONITOR_STAGE = "phase_6_20_daily_factor_health_monitor"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 DEFAULT_RISK_PROFILE_ID = "balanced_20dd"
@@ -271,12 +272,14 @@ def build_daily_trade_advisory_pack(
     pack["real_world_manual_handoff_gate"] = build_real_world_manual_handoff_gate(pack)
     pack["daily_deployment_readiness"] = build_daily_deployment_readiness_pack(pack)
     pack["live_profitability_readiness"] = build_live_profitability_readiness_scorecard(pack)
+    pack["daily_factor_health_monitor"] = build_daily_factor_health_monitor(pack)
     pack["summary"]["live_transition_status"] = pack["live_transition_plan"]["summary"]["status"]
     pack["summary"]["trading_system_status"] = pack["trading_system_blueprint"]["summary"]["status"]
     pack["summary"]["execution_bridge_status"] = pack["daily_signal_execution_bridge"]["summary"]["status"]
     pack["summary"]["real_world_handoff_status"] = pack["real_world_manual_handoff_gate"]["summary"]["decision"]
     pack["summary"]["deployment_readiness_status"] = pack["daily_deployment_readiness"]["summary"]["decision"]
     pack["summary"]["live_profitability_readiness_status"] = pack["live_profitability_readiness"]["summary"]["decision"]
+    pack["summary"]["factor_health_status"] = pack["daily_factor_health_monitor"]["summary"]["decision"]
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
 
@@ -3875,6 +3878,371 @@ def build_live_profitability_readiness_scorecard(pack: dict[str, Any]) -> dict[s
             "deployment_readiness_summary": deployment.get("summary") if isinstance(deployment.get("summary"), dict) else {},
         }
     )
+
+
+def build_daily_factor_health_monitor(pack: dict[str, Any]) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    factors = [row for row in pack.get("factors", []) if isinstance(row, dict)]
+    evidence = _live_profitability_evidence_snapshot(pack.get("live_profitability_evidence_snapshot"))
+    flags = evidence.get("flags", {}) if isinstance(evidence.get("flags"), dict) else {}
+    research_evidence_ready = all(
+        bool(flags.get(key))
+        for key in (
+            "walk_forward_oos_passed",
+            "lookahead_bias_audit_passed",
+            "multiple_testing_control_passed",
+            "transaction_cost_capacity_passed",
+        )
+    )
+    market = str(pack.get("market") or _first_market(factors) or "CN_ETF").upper()
+    factor_rows = [
+        _daily_factor_health_row(row, research_evidence_ready=research_evidence_ready)
+        for row in factors
+    ]
+    healthy_count = sum(1 for row in factor_rows if row["health_status"] == "healthy_for_paper_observation")
+    watch_count = sum(1 for row in factor_rows if row["health_status"] == "watch")
+    retire_count = sum(1 for row in factor_rows if row["health_status"] == "retire_candidate")
+    if not factor_rows:
+        decision = "waiting_for_top3_candidates"
+        plain_answer = "还没有今日 Top3 因子，先生成 CN_ETF 今日前三候选和同日信号。"
+        next_label = "生成今日前三建议"
+        next_target = "run-daily-trade-advisory"
+        next_workflow = "daily_trade_advisory"
+    elif retire_count:
+        decision = "retire_or_reduce_weight_required"
+        plain_answer = "Top3 里有退役或降权候选，不能把排行榜前三直接推到实盘；先替换、降权或只做观察。"
+        next_label = "先处理退役候选"
+        next_target = "daily-factor-health-rows"
+        next_workflow = ""
+    elif watch_count:
+        decision = "factor_health_watch_required"
+        plain_answer = "Top3 暂无硬性退役项，但仍有证据或稳定性缺口；只允许同参数模拟盘观察。"
+        next_label = "跑同参数模拟盘"
+        next_target = "paper-metrics"
+        next_workflow = "paper_simulation"
+    else:
+        decision = "factor_health_clear_for_paper"
+        plain_answer = "Top3 因子健康门暂时通过，可以进入同参数模拟盘和人工复核；仍不允许直接买入。"
+        next_label = "跑同参数模拟盘"
+        next_target = "paper-metrics"
+        next_workflow = "paper_simulation"
+
+    return _sanitize(
+        {
+            "stage": DAILY_FACTOR_HEALTH_MONITOR_STAGE,
+            "run_date": pack.get("run_date", date.today().isoformat()),
+            "safety": SAFETY_NOTICE,
+            "summary": {
+                "decision": decision,
+                "plain_answer": plain_answer,
+                "primary_market": market,
+                "selected_factor_count": _int(summary.get("selected_factor_count"), len(factor_rows)),
+                "healthy_count": healthy_count,
+                "watch_count": watch_count,
+                "retire_candidate_count": retire_count,
+                "research_evidence_ready": research_evidence_ready,
+                "retirement_required_before_live": retire_count > 0,
+                "paper_observation_allowed": bool(factor_rows) and retire_count == 0,
+                "top3_auto_buy_allowed": False,
+                "direct_buy_from_top3_allowed": False,
+                "profitability_claim_allowed": False,
+                "real_money_allowed": False,
+                "live_order_allowed": False,
+                "live_trading_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+                "next_label": next_label,
+                "next_target_id": next_target,
+                "next_workflow_id": next_workflow,
+            },
+            "factor_rows": factor_rows,
+            "recommended_actions": _daily_factor_health_actions(
+                decision=decision,
+                retire_count=retire_count,
+                watch_count=watch_count,
+                has_factors=bool(factor_rows),
+                next_label=next_label,
+                next_target=next_target,
+                next_workflow=next_workflow,
+            ),
+            "evidence_snapshot": evidence,
+            "health_rules": [
+                {
+                    "rule_id": "retire_candidate",
+                    "plain_rule": "负 Sharpe、RankIC 为负、30% 级别回撤、样本少于 30 笔、胜率低于 48% 或兜底基线，都不能进入实盘推广。",
+                    "order_placement_allowed": False,
+                },
+                {
+                    "rule_id": "watch",
+                    "plain_rule": "指标没有硬伤但证据不足、RankIC 太弱、胜率不够或样本偏薄时，只做同参数模拟盘观察。",
+                    "order_placement_allowed": False,
+                },
+                {
+                    "rule_id": "healthy_for_paper_observation",
+                    "plain_rule": "健康只表示可以继续同参数模拟盘和人工复核，不表示可以自动下单或保证盈利。",
+                    "order_placement_allowed": False,
+                },
+            ],
+        }
+    )
+
+
+def _daily_factor_health_row(
+    candidate: dict[str, Any],
+    *,
+    research_evidence_ready: bool,
+) -> dict[str, Any]:
+    factor_name = str(candidate.get("factor_name") or candidate.get("factor") or "").strip()
+    market = str(candidate.get("market") or "CN_ETF").upper()
+    sharpe = _daily_factor_health_metric(candidate, "sharpe", "oos_sharpe", "test_sharpe", "paper_sharpe")
+    annualized_return = _daily_factor_health_metric(
+        candidate,
+        "annualized_return",
+        "annual_return",
+        "cagr",
+        "paper_annualized_return",
+    )
+    total_return = _daily_factor_health_metric(candidate, "total_return", "return", "paper_total_return")
+    max_drawdown = _daily_factor_health_metric(
+        candidate,
+        "max_drawdown",
+        "max_dd",
+        "max_equity_drawdown",
+        "paper_max_drawdown",
+    )
+    win_rate = _daily_factor_health_metric(candidate, "win_rate", "monthly_win_rate", "paper_win_rate")
+    rank_ic = _daily_factor_health_metric(candidate, "rank_ic", "RankIC", "mean_ic", "ic_mean")
+    trade_count_value = _daily_factor_health_metric(candidate, "trade_count", "n_trades", "num_trades", "paper_trade_count")
+    trade_count = _int(trade_count_value, 0) if trade_count_value is not None else 0
+    drawdown_abs = abs(max_drawdown) if max_drawdown is not None else None
+    reasons: list[str] = []
+
+    if market != "CN_ETF":
+        reasons.append("wrong_market")
+    if bool(candidate.get("fallback_baseline")):
+        reasons.append("fallback_baseline")
+    if sharpe is None:
+        reasons.append("missing_sharpe")
+    elif sharpe < 0:
+        reasons.append("negative_sharpe")
+    elif sharpe < 0.5:
+        reasons.append("low_sharpe")
+    if drawdown_abs is None:
+        reasons.append("missing_drawdown")
+    elif drawdown_abs >= 0.30:
+        reasons.append("high_drawdown")
+    elif drawdown_abs >= 0.25:
+        reasons.append("elevated_drawdown")
+    if win_rate is None:
+        reasons.append("missing_win_rate")
+    elif win_rate < 0.48:
+        reasons.append("low_win_rate")
+    elif win_rate < 0.55:
+        reasons.append("weak_win_rate")
+    if rank_ic is None:
+        reasons.append("missing_rank_ic")
+    elif rank_ic < 0:
+        reasons.append("negative_rank_ic")
+    elif abs(rank_ic) < 0.02:
+        reasons.append("weak_rank_ic")
+    if trade_count <= 0:
+        reasons.append("missing_trade_count")
+    elif trade_count < 30:
+        reasons.append("thin_trade_count")
+    elif trade_count < 60:
+        reasons.append("limited_trade_count")
+    if not research_evidence_ready:
+        reasons.append("missing_research_evidence")
+
+    retire_reasons = {
+        "wrong_market",
+        "fallback_baseline",
+        "negative_sharpe",
+        "high_drawdown",
+        "negative_rank_ic",
+        "thin_trade_count",
+        "low_win_rate",
+    }
+    if any(reason in retire_reasons for reason in reasons):
+        health_status = "retire_candidate"
+        decision = "exclude_or_reduce_before_paper"
+        required_action = "先暂停、降权或替换这个因子；不要把它作为今日实盘候选。"
+    elif reasons:
+        health_status = "watch"
+        decision = "paper_observe_only"
+        required_action = "只做同参数模拟盘观察，盘后记录表现；不要扩大资金。"
+    else:
+        health_status = "healthy_for_paper_observation"
+        decision = "paper_observation_allowed_not_order"
+        required_action = "可以进入同参数模拟盘和人工复核，但仍不是买入指令。"
+
+    return {
+        "rank": _int(candidate.get("rank"), 0),
+        "case_id": str(candidate.get("case_id") or factor_name),
+        "factor_name": factor_name,
+        "market": market,
+        "family": candidate.get("family"),
+        "health_status": health_status,
+        "decision": decision,
+        "required_action": required_action,
+        "reason_codes": reasons,
+        "plain_diagnosis": _daily_factor_health_reason_text(reasons),
+        "metrics": {
+            "sharpe": sharpe,
+            "annualized_return": annualized_return,
+            "total_return": total_return,
+            "max_drawdown": max_drawdown,
+            "win_rate": win_rate,
+            "rank_ic": rank_ic,
+            "trade_count": trade_count,
+        },
+        "params": candidate.get("params") if isinstance(candidate.get("params"), dict) else {},
+        "target_id": "daily-factor-health-rows",
+        "workflow_id": "paper_simulation" if health_status != "retire_candidate" else "",
+        "automation_allowed": False,
+        "live_order_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
+
+
+def _daily_factor_health_metric(candidate: dict[str, Any], *keys: str) -> float | None:
+    for key in keys:
+        if key not in candidate:
+            continue
+        value = _daily_factor_health_float(candidate.get(key))
+        if value is not None:
+            if key in {"win_rate", "monthly_win_rate", "paper_win_rate"} and value > 1:
+                return value / 100.0
+            return value
+    return None
+
+
+def _daily_factor_health_float(value: Any) -> float | None:
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value) if math.isfinite(float(value)) else None
+    text = str(value).strip().replace(",", "")
+    if not text:
+        return None
+    scale = 1.0
+    if text.endswith("%"):
+        text = text[:-1].strip()
+        scale = 0.01
+    try:
+        number = float(text)
+    except (TypeError, ValueError):
+        return None
+    number *= scale
+    return number if math.isfinite(number) else None
+
+
+def _daily_factor_health_reason_text(reasons: list[str]) -> str:
+    if not reasons:
+        return "核心指标和研究证据暂时没有触发退役门；继续用模拟盘观察，不能宣称稳定盈利。"
+    labels = {
+        "wrong_market": "不是 CN_ETF 主线",
+        "fallback_baseline": "兜底基线不能推广",
+        "missing_sharpe": "缺少 Sharpe",
+        "negative_sharpe": "Sharpe 为负",
+        "low_sharpe": "Sharpe 偏低",
+        "missing_drawdown": "缺少回撤",
+        "high_drawdown": "回撤达到 30% 级别",
+        "elevated_drawdown": "回撤偏高",
+        "missing_win_rate": "缺少胜率",
+        "low_win_rate": "胜率低于 48%",
+        "weak_win_rate": "胜率未达到 55%",
+        "missing_rank_ic": "缺少 RankIC",
+        "negative_rank_ic": "RankIC 为负",
+        "weak_rank_ic": "RankIC 太弱",
+        "missing_trade_count": "缺少交易样本",
+        "thin_trade_count": "交易样本少于 30 笔",
+        "limited_trade_count": "交易样本少于 60 笔",
+        "missing_research_evidence": "缺少 OOS/未来函数/多重检验/成本容量证据",
+    }
+    return "；".join(labels.get(reason, reason) for reason in reasons)
+
+
+def _daily_factor_health_actions(
+    *,
+    decision: str,
+    retire_count: int,
+    watch_count: int,
+    has_factors: bool,
+    next_label: str,
+    next_target: str,
+    next_workflow: str,
+) -> list[dict[str, Any]]:
+    actions = [
+        _daily_factor_health_action(
+            "follow_factor_health_next_step",
+            next_label,
+            f"当前因子健康结论={decision}；先处理健康门，再看票据或模拟盘。",
+            next_target,
+            "next",
+            next_workflow,
+        )
+    ]
+    if retire_count:
+        actions.append(
+            _daily_factor_health_action(
+                "retire_bad_factor",
+                "退役或降权问题因子",
+                f"有 {retire_count} 个 Top3 因子触发退役门，先从今日候选里剔除、降权或改为只观察。",
+                "factor-leaderboard-table",
+                "required",
+            )
+        )
+    if watch_count or (has_factors and not retire_count):
+        actions.append(
+            _daily_factor_health_action(
+                "run_same_parameter_paper",
+                "同参数模拟盘观察",
+                "健康门没有硬性退役项时，用同一组因子、TopN、成本和风险档位先跑模拟盘。",
+                "paper-metrics",
+                "allowed" if not retire_count else "waiting",
+                "paper_simulation" if not retire_count else "",
+            )
+        )
+    actions.append(
+        _daily_factor_health_action(
+            "block_direct_top3_buy",
+            "禁止排行榜直买",
+            "Top3 因子是候选入口，不是实盘指令；系统不连接券商、不读取账户、不自动下单。",
+            "control-safety-boundary",
+            "forbidden",
+        )
+    )
+    return actions
+
+
+def _daily_factor_health_action(
+    action_id: str,
+    label: str,
+    plain_action: str,
+    target_id: str,
+    status: str,
+    workflow_id: str = "",
+) -> dict[str, Any]:
+    return {
+        "action_id": action_id,
+        "label": label,
+        "status": status,
+        "plain_action": plain_action,
+        "target_id": target_id,
+        "workflow_id": workflow_id,
+        "automation_allowed": False,
+        "live_order_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
 
 
 def _live_profitability_evidence_snapshot(snapshot: dict[str, Any] | None) -> dict[str, Any]:

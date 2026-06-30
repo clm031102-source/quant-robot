@@ -358,6 +358,14 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("renderDailyPaperManualReviewRows", app_js)
         self.assertIn("dailyPaperManualReviewRow", app_js)
         self.assertIn("daily-manual-broker-handoff-ticket-table", app_js)
+        self.assertIn("daily-factor-health-monitor", html)
+        self.assertIn("daily-factor-health-summary", html)
+        self.assertIn("daily-factor-health-rows", html)
+        self.assertIn("daily-factor-health-actions", html)
+        self.assertIn("renderDailyFactorHealthMonitor", app_js)
+        self.assertIn("daily_factor_health_monitor", app_js)
+        self.assertIn("factor_health_status", app_js)
+        self.assertIn("retire_candidate", app_js)
         self.assertIn("daily-trading-system-blueprint", html)
         self.assertIn("daily-trading-system-blueprint-summary", html)
         self.assertIn("daily-trading-system-blueprint-evidence", html)
@@ -478,6 +486,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("real_world_manual_handoff_gate", snapshot)
         self.assertIn("daily_deployment_readiness", snapshot)
         self.assertIn("live_profitability_readiness", snapshot)
+        self.assertIn("daily_factor_health_monitor", snapshot)
         self.assertEqual(snapshot["selected_candidates"], snapshot["factors"])
         self.assertEqual(snapshot["pretrade_workflow"]["stage"], "phase_6_1_daily_pretrade_workflow")
         self.assertFalse(snapshot["pretrade_workflow"]["summary"]["live_order_allowed"])
@@ -545,6 +554,15 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("matched_paper_receipts", {item["gate_id"] for item in profitability["hard_gates"]})
         self.assertIn("follow_primary_next_step", {item["action_id"] for item in profitability["today_allowed_actions"]})
         self.assertIn("direct_buy_top3", {item["action_id"] for item in profitability["forbidden_actions"]})
+        health = snapshot["daily_factor_health_monitor"]
+        self.assertEqual(health["stage"], "phase_6_20_daily_factor_health_monitor")
+        self.assertIn(
+            health["summary"]["decision"],
+            {"factor_health_watch_required", "retire_or_reduce_weight_required", "factor_health_clear_for_paper"},
+        )
+        self.assertFalse(health["summary"]["top3_auto_buy_allowed"])
+        self.assertFalse(health["summary"]["order_placement_allowed"])
+        self.assertTrue(all(row["order_placement_allowed"] is False for row in health["factor_rows"]))
         self.assertEqual(snapshot["live_transition_plan"]["summary"]["selected_risk_profile_id"], "conservative_10dd")
         self.assertEqual(snapshot["summary"]["risk_profile_id"], "conservative_10dd")
         self.assertIn("small_capital_review_gate", {gate["gate_id"] for gate in snapshot["live_transition_plan"]["evidence_gates"]})

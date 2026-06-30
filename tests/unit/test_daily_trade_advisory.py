@@ -1001,6 +1001,81 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         )
         self.assertEqual(readiness["summary"]["next_target_id"], "beginner-live-handoff-board")
 
+    def test_daily_pack_exposes_factor_health_monitor_for_top3_retirement_gate(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {
+                    "rank": 1,
+                    "case_id": "healthy_oos",
+                    "factor_name": "momentum_quality_combo",
+                    "market": "CN_ETF",
+                    "sharpe": 1.35,
+                    "annualized_return": 0.18,
+                    "max_drawdown": -0.14,
+                    "win_rate": 0.59,
+                    "rank_ic": 0.045,
+                    "trade_count": 96,
+                },
+                {
+                    "rank": 2,
+                    "case_id": "bad_decay",
+                    "factor_name": "turnover_chase_combo",
+                    "market": "CN_ETF",
+                    "sharpe": -0.2,
+                    "annualized_return": 0.05,
+                    "max_drawdown": -0.36,
+                    "win_rate": 0.42,
+                    "rank_ic": -0.03,
+                    "trade_count": 12,
+                },
+                {
+                    "rank": 3,
+                    "case_id": "watch_thin",
+                    "factor_name": "low_vol_overlay",
+                    "market": "CN_ETF",
+                    "sharpe": 0.72,
+                    "annualized_return": 0.09,
+                    "max_drawdown": -0.18,
+                    "win_rate": 0.53,
+                    "rank_ic": 0.011,
+                    "trade_count": 40,
+                },
+            ],
+            [
+                _signal("healthy_oos", "momentum_quality_combo", {"510300": 0.4}),
+                _signal("bad_decay", "turnover_chase_combo", {"588000": 0.3}),
+                _signal("watch_thin", "low_vol_overlay", {"159915": 0.2}),
+            ],
+            run_date="2026-06-30",
+            portfolio_value=100000,
+            evidence_snapshot={
+                "walk_forward_oos_passed": True,
+                "lookahead_bias_audit_passed": True,
+                "multiple_testing_control_passed": True,
+                "transaction_cost_capacity_passed": True,
+            },
+        )
+
+        monitor = pack["daily_factor_health_monitor"]
+
+        self.assertEqual(monitor["stage"], "phase_6_20_daily_factor_health_monitor")
+        self.assertEqual(pack["summary"]["factor_health_status"], "retire_or_reduce_weight_required")
+        self.assertEqual(monitor["summary"]["selected_factor_count"], 3)
+        self.assertEqual(monitor["summary"]["healthy_count"], 1)
+        self.assertEqual(monitor["summary"]["watch_count"], 1)
+        self.assertEqual(monitor["summary"]["retire_candidate_count"], 1)
+        self.assertFalse(monitor["summary"]["top3_auto_buy_allowed"])
+        self.assertFalse(monitor["summary"]["order_placement_allowed"])
+        self.assertTrue(monitor["summary"]["retirement_required_before_live"])
+        rows = {row["factor_name"]: row for row in monitor["factor_rows"]}
+        self.assertEqual(rows["momentum_quality_combo"]["health_status"], "healthy_for_paper_observation")
+        self.assertEqual(rows["turnover_chase_combo"]["health_status"], "retire_candidate")
+        self.assertIn("high_drawdown", rows["turnover_chase_combo"]["reason_codes"])
+        self.assertIn("negative_rank_ic", rows["turnover_chase_combo"]["reason_codes"])
+        self.assertEqual(rows["low_vol_overlay"]["health_status"], "watch")
+        self.assertTrue(all(row["order_placement_allowed"] is False for row in monitor["factor_rows"]))
+        self.assertIn("retire_bad_factor", {item["action_id"] for item in monitor["recommended_actions"]})
+
     def test_daily_pack_exposes_small_capital_observation_gate(self):
         pack = build_daily_trade_advisory_pack(
             [

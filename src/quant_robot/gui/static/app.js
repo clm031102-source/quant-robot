@@ -5772,6 +5772,7 @@ function renderDailyTradeAdvisory() {
   renderDailySignalExecutionBridge(pack.daily_signal_execution_bridge || {});
   renderDailyDeploymentReadiness(pack.daily_deployment_readiness || {});
   renderLiveProfitabilityReadiness(pack.live_profitability_readiness || {});
+  renderDailyFactorHealthMonitor(pack.daily_factor_health_monitor || {});
   renderDailyRealWorldHandoffGate(pack.real_world_manual_handoff_gate || {});
   renderDailyTradingSystemBlueprint(pack.trading_system_blueprint || {});
   renderDailyPretradeReadiness(pack.pretrade_readiness || {});
@@ -6407,6 +6408,84 @@ function renderLiveProfitabilityReadiness(readiness = {}) {
       </span>
     </div>
   `).join("") : statusRows([["稳定性控制", "等待加载回撤熔断、参数敏感性、滑点复盘、因子衰减和退役闭环。", "warn"]]);
+}
+
+function renderDailyFactorHealthMonitor(monitor = {}) {
+  const summaryTarget = byId("daily-factor-health-summary");
+  const rowTarget = byId("daily-factor-health-rows");
+  const actionTarget = byId("daily-factor-health-actions");
+  const ruleTarget = byId("daily-factor-health-rules");
+  if (!summaryTarget || !rowTarget || !actionTarget) return;
+  const summary = monitor.summary || {};
+  const packSummary = state.dailyTradeAdvisory?.summary || {};
+  const decision = summary.decision || packSummary.factor_health_status || "waiting_for_top3_candidates";
+  const tone = dailyFactorHealthTone(decision);
+  const workflowButton = summary.next_workflow_id ? `
+    <button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(summary.next_workflow_id)}">${escapeHtml(summary.next_label || "运行下一步")}</button>
+  ` : "";
+  const targetButton = summary.next_target_id ? `
+    <button class="${escapeHtml(workflowButton ? "secondary-button" : "primary-button")}" type="button" data-beginner-target="${escapeRawHtml(summary.next_target_id)}">${escapeHtml(workflowButton ? "查看证据" : summary.next_label || "查看下一步")}</button>
+  ` : "";
+  summaryTarget.innerHTML = statusRows([
+    ["因子健康结论", summary.plain_answer || zhConsoleText(decision), tone],
+    ["Top3 健康分布", `健康=${formatNumber(summary.healthy_count || 0)} / 观察=${formatNumber(summary.watch_count || 0)} / 退役候选=${formatNumber(summary.retire_candidate_count || 0)}`, summary.retire_candidate_count ? "danger" : summary.watch_count ? "warn" : summary.healthy_count ? "ok" : "warn"],
+    ["研究证据", summary.research_evidence_ready ? "OOS、未来函数、多重检验、成本容量证据已标记通过" : "还缺 OOS、未来函数、多重检验或成本容量证据", summary.research_evidence_ready ? "ok" : "warn"],
+    ["排行榜直买", summary.top3_auto_buy_allowed || summary.direct_buy_from_top3_allowed ? "异常：允许直买" : "禁止：Top3 只是候选入口", summary.top3_auto_buy_allowed || summary.direct_buy_from_top3_allowed ? "danger" : "ok"],
+    ["系统权限", summary.order_placement_allowed || summary.broker_connection_allowed ? "异常：权限越界" : "不连接券商、不读账户、不自动下单", summary.order_placement_allowed || summary.broker_connection_allowed ? "danger" : "ok"],
+  ]) + `
+    <div class="list-row ${escapeHtml(tone)}">
+      <strong>${escapeHtml("现在先做")}</strong>
+      <span>${escapeHtml(summary.next_label || "先生成今日前三建议")}</span>
+      <span class="beginner-task-actions">${workflowButton}${targetButton}</span>
+    </div>
+  `;
+
+  const rows = Array.isArray(monitor.factor_rows) ? monitor.factor_rows : [];
+  rowTarget.innerHTML = rows.length ? rows.map((item, index) => {
+    const metrics = item.metrics || {};
+    const rowTone = dailyFactorHealthTone(item.health_status || item.decision || "");
+    return `
+      <div class="list-row ${escapeHtml(rowTone)}">
+        <strong>${escapeHtml(`${item.rank || index + 1}. ${item.factor_name || "--"} / ${zhConsoleText(item.health_status || "watch")}`)}</strong>
+        <span>${escapeHtml(`Sharpe=${formatDecimal(metrics.sharpe)} / 年化=${formatPercent(metrics.annualized_return)} / 回撤=${formatPercent(metrics.max_drawdown)} / 胜率=${formatPercent(metrics.win_rate)} / RankIC=${formatDecimal(metrics.rank_ic)} / 样本=${formatNumber(metrics.trade_count || 0)}`)}</span>
+        <span>${escapeHtml(item.plain_diagnosis || item.required_action || "只作为候选，不是买入指令。")}</span>
+        <span>${escapeHtml(item.required_action || "先复核，再模拟盘观察。")}</span>
+        <span class="beginner-task-actions">
+          ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+          ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
+        </span>
+      </div>
+    `;
+  }).join("") : statusRows([["等待因子健康检查", "先生成今日前三 CN_ETF 建议，系统再判断哪些因子可观察、哪些要退役。", "warn"]]);
+
+  const actions = Array.isArray(monitor.recommended_actions) ? monitor.recommended_actions : [];
+  actionTarget.innerHTML = actions.length ? actions.map((item) => `
+    <div class="list-row ${escapeHtml(dailyFactorHealthTone(item.status || ""))}">
+      <strong>${escapeHtml(item.label || item.action_id || "")}</strong>
+      <span>${escapeHtml(item.plain_action || "")}</span>
+      <span class="beginner-task-actions">
+        ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+        ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
+      </span>
+    </div>
+  `).join("") : statusRows([["下一步", "等待因子健康结论加载。", "warn"]]);
+
+  if (ruleTarget) {
+    const rules = Array.isArray(monitor.health_rules) ? monitor.health_rules : [];
+    ruleTarget.innerHTML = rules.length ? rules.map((item) => `
+      <div class="list-row ${escapeHtml(item.rule_id === "retire_candidate" ? "danger" : "warn")}">
+        <strong>${escapeHtml(zhConsoleText(item.rule_id || "health_rule"))}</strong>
+        <span>${escapeHtml(item.plain_rule || "")}</span>
+      </div>
+    `).join("") : statusRows([["健康规则", "退役候选先处理；健康也只代表可以模拟盘观察，不代表可以买。", "warn"]]);
+  }
+}
+
+function dailyFactorHealthTone(status = "") {
+  const text = String(status || "").toLowerCase();
+  if (text.includes("retire") || text.includes("exclude") || text.includes("forbidden") || text.includes("danger")) return "danger";
+  if (text.includes("healthy") || text.includes("clear") || text.includes("allowed")) return "ok";
+  return "warn";
 }
 
 function renderDailyRealWorldHandoffGate(gate = {}) {
@@ -9831,6 +9910,7 @@ function appendExecutionReceipt(receipt) {
   renderDailySignalExecutionBridge(state.dailyTradeAdvisory?.daily_signal_execution_bridge || {});
   renderDailyDeploymentReadiness(state.dailyTradeAdvisory?.daily_deployment_readiness || {});
   renderLiveProfitabilityReadiness(state.dailyTradeAdvisory?.live_profitability_readiness || {});
+  renderDailyFactorHealthMonitor(state.dailyTradeAdvisory?.daily_factor_health_monitor || {});
   renderDailyRealWorldHandoffGate(state.dailyTradeAdvisory?.real_world_manual_handoff_gate || {});
   renderOrdinaryHome();
   renderDailyCommandRail();
