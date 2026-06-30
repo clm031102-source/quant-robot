@@ -2995,6 +2995,12 @@ def build_daily_operator_mission_control(pack: dict[str, Any]) -> dict[str, Any]
         for row in pre_execution_rows
         if str(row.get("asset_id") or "").strip()
     }
+    factor_health = (
+        pack.get("daily_factor_health_monitor")
+        if isinstance(pack.get("daily_factor_health_monitor"), dict)
+        else build_daily_factor_health_monitor(pack)
+    )
+    health_summary = factor_health.get("summary") if isinstance(factor_health.get("summary"), dict) else {}
     blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
     missing_evidence = [row for row in decision_sheet.get("missing_evidence", []) if isinstance(row, dict)]
     operator_inputs = [row for row in recipe.get("operator_inputs_required", []) if isinstance(row, dict)]
@@ -3010,6 +3016,16 @@ def build_daily_operator_mission_control(pack: dict[str, Any]) -> dict[str, Any]
     input_blocked_count = _count_status(operator_inputs, "blocked")
     capacity_blocked_count = sum(1 for row in pre_execution_rows if bool(row.get("capacity_blocked")))
     liquidity_evidence_missing_count = sum(1 for row in pre_execution_rows if bool(row.get("liquidity_evidence_missing")))
+    manual_clean_count = _int(health_summary.get("manual_execution_clean_receipts"), 0)
+    manual_blocked_count = _int(health_summary.get("manual_execution_blocked_receipts"), 0)
+    manual_missing_review_count = _int(health_summary.get("manual_execution_missing_review_receipts"), 0)
+    next_session_quarantine_required = bool(health_summary.get("next_session_quarantine_required"))
+    next_session_reuse_status = str(health_summary.get("next_session_reuse_status") or "waiting_for_top3_candidates")
+    execution_feedback_status = _operator_execution_feedback_status(
+        manual_blocked_count=manual_blocked_count,
+        manual_missing_review_count=manual_missing_review_count,
+        manual_clean_count=manual_clean_count,
+    )
     primary_next_step_id = str(recipe_summary.get("primary_next_step_id") or _operator_primary_step(sheet_summary))
     mission_status = _operator_mission_status(
         decision=str(sheet_summary.get("decision") or ""),
@@ -3018,6 +3034,7 @@ def build_daily_operator_mission_control(pack: dict[str, Any]) -> dict[str, Any]
         ticket_count=ticket_count,
         input_missing_count=input_missing_count,
         input_blocked_count=input_blocked_count,
+        execution_feedback_status=execution_feedback_status,
     )
     next_actions = _operator_mission_next_actions(
         recipe_summary=recipe_summary,
@@ -3025,6 +3042,8 @@ def build_daily_operator_mission_control(pack: dict[str, Any]) -> dict[str, Any]
         input_manual_count=input_manual_count,
         input_missing_count=input_missing_count,
         ticket_count=ticket_count,
+        execution_feedback_status=execution_feedback_status,
+        next_session_quarantine_required=next_session_quarantine_required,
     )
     return _sanitize(
         {
@@ -3052,6 +3071,12 @@ def build_daily_operator_mission_control(pack: dict[str, Any]) -> dict[str, Any]
                 "max_participation_rate": pre_execution_summary.get("max_participation_rate"),
                 "paper_rehearsal_allowed": bool(pre_execution_summary.get("paper_rehearsal_allowed")),
                 "manual_broker_review_allowed": bool(pre_execution_summary.get("manual_broker_review_allowed")),
+                "execution_feedback_status": execution_feedback_status,
+                "next_session_quarantine_required": next_session_quarantine_required,
+                "next_session_reuse_status": next_session_reuse_status,
+                "manual_execution_clean_receipts": manual_clean_count,
+                "manual_execution_blocked_receipts": manual_blocked_count,
+                "manual_execution_missing_review_receipts": manual_missing_review_count,
                 "paper_simulation_required": True,
                 "manual_review_required": True,
                 "live_trading_allowed": False,
@@ -3073,6 +3098,12 @@ def build_daily_operator_mission_control(pack: dict[str, Any]) -> dict[str, Any]
                 pre_execution_summary=pre_execution_summary,
                 capacity_blocked_count=capacity_blocked_count,
                 liquidity_evidence_missing_count=liquidity_evidence_missing_count,
+                execution_feedback_status=execution_feedback_status,
+                next_session_quarantine_required=next_session_quarantine_required,
+                next_session_reuse_status=next_session_reuse_status,
+                manual_clean_count=manual_clean_count,
+                manual_blocked_count=manual_blocked_count,
+                manual_missing_review_count=manual_missing_review_count,
             ),
             "next_actions": next_actions,
             "visible_ticket_summary": [
@@ -3109,7 +3140,10 @@ def _operator_mission_status(
     ticket_count: int,
     input_missing_count: int,
     input_blocked_count: int,
+    execution_feedback_status: str,
 ) -> str:
+    if execution_feedback_status == "blocked_manual_execution_audit":
+        return "blocked_execution_feedback"
     if decision.startswith("blocked") or blockers or input_blocked_count:
         return "blocked_pretrade_review_required"
     if primary_next_step_id == "run_same_parameter_paper":
@@ -3119,6 +3153,19 @@ def _operator_mission_status(
     if ticket_count > 0:
         return "manual_review_material_ready"
     return "waiting_for_today_signal"
+
+
+def _operator_execution_feedback_status(
+    *,
+    manual_blocked_count: int,
+    manual_missing_review_count: int,
+    manual_clean_count: int,
+) -> str:
+    if manual_blocked_count > 0 or manual_missing_review_count > 0:
+        return "blocked_manual_execution_audit"
+    if manual_clean_count >= 5:
+        return "clean_feedback_ready"
+    return "waiting_for_execution_feedback"
 
 
 def _operator_mission_cards(
@@ -3135,6 +3182,12 @@ def _operator_mission_cards(
     pre_execution_summary: dict[str, Any],
     capacity_blocked_count: int,
     liquidity_evidence_missing_count: int,
+    execution_feedback_status: str,
+    next_session_quarantine_required: bool,
+    next_session_reuse_status: str,
+    manual_clean_count: int,
+    manual_blocked_count: int,
+    manual_missing_review_count: int,
 ) -> list[dict[str, Any]]:
     missing_ids = {str(row.get("check_id") or "") for row in missing_evidence}
     red_blocked = bool(blockers) or input_blocked_count > 0
@@ -3200,6 +3253,24 @@ def _operator_mission_cards(
             "daily-pre-execution-guard",
         ),
         card(
+            "execution_feedback",
+            "成交反馈",
+            "blocked"
+            if execution_feedback_status == "blocked_manual_execution_audit"
+            else "missing"
+            if next_session_quarantine_required
+            else "ready"
+            if execution_feedback_status == "clean_feedback_ready"
+            else "waiting",
+            (
+                f"status={execution_feedback_status}; clean={manual_clean_count}; "
+                f"blocked={manual_blocked_count}; missing_review={manual_missing_review_count}; "
+                f"next_session={next_session_reuse_status}"
+            ),
+            "daily-factor-health-monitor",
+            "post_close_journal" if execution_feedback_status == "blocked_manual_execution_audit" else "",
+        ),
+        card(
             "post_close_journal",
             "盘后复盘",
             "missing" if "post_close_journal_plan" in missing_ids else "waiting",
@@ -3224,6 +3295,8 @@ def _operator_mission_next_actions(
     input_manual_count: int,
     input_missing_count: int,
     ticket_count: int,
+    execution_feedback_status: str,
+    next_session_quarantine_required: bool,
 ) -> list[dict[str, Any]]:
     rows = [
         {
@@ -3236,6 +3309,19 @@ def _operator_mission_next_actions(
             "order_placement_allowed": False,
         }
     ]
+    if execution_feedback_status == "blocked_manual_execution_audit":
+        rows.insert(
+            0,
+            {
+                "action_id": "review_execution_feedback",
+                "label": "先复核成交反馈",
+                "status": "blocked",
+                "plain_action": "上一轮人工成交、滑点或缺回执没有清理前，不要把 Top3 直接复用于下一次人工复核。",
+                "target_id": "daily-factor-health-monitor",
+                "workflow_id": "post_close_journal",
+                "order_placement_allowed": False,
+            },
+        )
     if input_manual_count or input_missing_count:
         rows.append(
             {

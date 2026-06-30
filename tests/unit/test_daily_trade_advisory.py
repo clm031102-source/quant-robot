@@ -2900,6 +2900,16 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(monitor["summary"]["next_session_reuse_status"], "quarantine_pending_evidence")
         self.assertEqual(rule_by_id["manual_execution_exception"]["status"], "blocked")
         self.assertEqual(rule_by_id["manual_execution_exception"]["observed_count"], 1)
+        mission = pack["daily_operator_mission_control"]
+        mission_cards = {row["card_id"]: row for row in mission["cards"]}
+        self.assertEqual(mission["summary"]["mission_status"], "blocked_execution_feedback")
+        self.assertTrue(mission["summary"]["next_session_quarantine_required"])
+        self.assertEqual(mission["summary"]["next_session_reuse_status"], "quarantine_pending_evidence")
+        self.assertEqual(mission["summary"]["manual_execution_clean_receipts"], 4)
+        self.assertEqual(mission["summary"]["manual_execution_blocked_receipts"], 1)
+        self.assertEqual(mission["summary"]["execution_feedback_status"], "blocked_manual_execution_audit")
+        self.assertEqual(mission_cards["execution_feedback"]["status"], "blocked")
+        self.assertIn("review_execution_feedback", {row["action_id"] for row in mission["next_actions"]})
 
     def test_daily_pack_exposes_small_capital_observation_gate(self):
         pack = build_daily_trade_advisory_pack(
