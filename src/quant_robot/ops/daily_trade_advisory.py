@@ -123,11 +123,16 @@ def build_daily_trade_advisory_pack(
         portfolio_value=portfolio_value,
         max_gross_exposure=applied_max_gross_exposure,
     )
-    position_rows = _current_position_rows(current_positions)
-    manual_plan = _manual_trade_plan(
-        combined_targets,
-        current_positions=position_rows,
-        portfolio_value=portfolio_value,
+    position_validation = _current_position_validation(current_positions, combined_targets)
+    position_rows = position_validation["rows"] if position_validation["status"] != "error" else []
+    manual_plan = (
+        []
+        if position_validation["status"] == "error"
+        else _manual_trade_plan(
+            combined_targets,
+            current_positions=position_rows,
+            portfolio_value=portfolio_value,
+        )
     )
     pack = {
         "stage": STAGE,
@@ -139,6 +144,8 @@ def build_daily_trade_advisory_pack(
             "combined_target_count": len(combined_targets),
             "manual_ticket_count": len(manual_plan),
             "current_position_count": len(position_rows),
+            "current_position_issue_count": position_validation["issue_count"],
+            "current_position_status": position_validation["status"],
             "manual_execution_required": True,
             "paper_simulation_recommended": True,
             "risk_profile_id": selected_profile.get("profile_id") if selected_profile else "custom_current_parameters",
@@ -156,6 +163,7 @@ def build_daily_trade_advisory_pack(
         "combined_target_count": len(combined_targets),
         "combined_targets": combined_targets,
         "current_positions": position_rows,
+        "current_position_validation": position_validation,
         "manual_trade_plan": manual_plan,
         "operator_checklist": _operator_checklist(),
         "markdown": "",
@@ -774,6 +782,8 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
     signal_cards = [row for row in pack.get("signal_cards", []) if isinstance(row, dict)]
     targets = [row for row in pack.get("combined_targets", []) if isinstance(row, dict)]
     manual_plan = [row for row in pack.get("manual_trade_plan", []) if isinstance(row, dict)]
+    position_validation = pack.get("current_position_validation") if isinstance(pack.get("current_position_validation"), dict) else {}
+    position_issues = [row for row in position_validation.get("issues", []) if isinstance(row, dict)]
     market = str(pack.get("market") or _first_market(factors) or "CN_ETF").upper()
     selected_count = _int(summary.get("selected_factor_count"), len(factors))
     signal_count = _int(summary.get("signal_count"), 0)
@@ -801,6 +811,8 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
         blockers.append("signal_errors")
     if invalid_sizing_tickets:
         blockers.append("price_or_sizing_missing")
+    if position_validation.get("status") == "error":
+        blockers.append("current_position_input_invalid")
     if signal_count > 0 and not freshness["fresh_for_run_date"]:
         blockers.append("stale_signal_date")
 
@@ -832,6 +844,14 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
             "check_id": "price_and_board_lot",
             "status": "pass" if manual_count > 0 and not invalid_sizing_tickets else ("waiting" if manual_count == 0 else "blocked"),
             "text": f"手工票据={manual_count}；按 {BOARD_LOT_SIZE} 份一手向下取整。",
+        },
+        {
+            "check_id": "current_position_input",
+            "status": "blocked" if position_validation.get("status") == "error" else ("pass" if position_validation.get("status") == "ok" else "waiting"),
+            "text": (
+                f"当前持仓输入状态={position_validation.get('status') or 'not_provided'}；"
+                f"已接收={position_validation.get('accepted_count', 0)}；问题={position_validation.get('issue_count', 0)}。"
+            ),
         },
         {
             "check_id": "paper_and_risk_review",
@@ -872,6 +892,8 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
         warnings.append(f"以下票据按一手取整后为 0，不能直接买入：{', '.join(zero_lot_tickets)}。")
     if signal_errors:
         warnings.append("有入选因子没有生成同日信号，不能当作可操作建议。")
+    if position_issues:
+        warnings.append("当前持仓输入有问题：" + "；".join(str(item.get("message") or item.get("issue_id")) for item in position_issues[:3]))
 
     return _sanitize(
         {
@@ -891,6 +913,8 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
                 "signal_count": signal_count,
                 "target_count": target_count,
                 "manual_ticket_count": manual_count,
+                "current_position_count": position_validation.get("accepted_count", 0),
+                "current_position_issue_count": position_validation.get("issue_count", 0),
                 "target_value": sum(_float(row.get("target_value"), 0.0) for row in manual_plan),
                 "rounded_value": sum(_float(row.get("rounded_value"), 0.0) for row in manual_plan),
                 "cash_delta_after_rounding": sum(_float(row.get("cash_delta_after_rounding"), 0.0) for row in manual_plan),
@@ -1536,28 +1560,96 @@ def _manual_ticket_sizing(target: dict[str, Any], board_lot_size: int = BOARD_LO
     }
 
 
-def _current_position_rows(current_positions: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+def _current_position_validation(
+    current_positions: list[dict[str, Any]] | None,
+    combined_targets: list[dict[str, Any]],
+) -> dict[str, Any]:
+    target_prices = {
+        str(row.get("asset_id") or ""): _float_or_none(row.get("latest_price"))
+        for row in combined_targets
+        if isinstance(row, dict) and str(row.get("asset_id") or "").strip()
+    }
     rows = []
-    for item in current_positions or []:
+    issues = []
+    raw_rows = current_positions or []
+    for index, item in enumerate(raw_rows, start=1):
         if not isinstance(item, dict):
+            issues.append(_current_position_issue(index, "current_position_invalid_row", "持仓行不是可识别的表格行。"))
+            continue
+        if item.get("__parse_error"):
+            issues.append(_current_position_issue(index, "current_position_parse_error", f"持仓输入格式无法解析：{item.get('__parse_error')}"))
             continue
         forbidden = sorted(FORBIDDEN_REAL_ACCOUNT_COLUMNS & set(item))
         if forbidden:
-            raise ValueError("current_positions contains real account or broker columns: " + ", ".join(forbidden))
+            issues.append(
+                _current_position_issue(
+                    index,
+                    "current_position_forbidden_field",
+                    "当前持仓不能包含账户、券商或订单字段：" + ", ".join(forbidden),
+                )
+            )
+            continue
         asset_id = str(item.get("asset_id") or "").strip()
         quantity = _float_or_none(item.get("quantity"))
-        if not asset_id or quantity is None:
+        if not asset_id:
+            issues.append(_current_position_issue(index, "current_position_missing_asset_id", "当前持仓缺少 ETF 代码 asset_id。"))
+            continue
+        if quantity is None:
+            issues.append(_current_position_issue(index, "current_position_missing_quantity", f"{asset_id} 缺少可用数量 quantity。"))
+            continue
+        latest_price = _float_or_none(item.get("latest_price"))
+        if latest_price is None and target_prices.get(asset_id) is None:
+            issues.append(
+                _current_position_issue(
+                    index,
+                    "current_position_missing_price",
+                    f"{asset_id} 不在今日目标里，且没有 latest_price，无法估算卖出或保留金额。",
+                )
+            )
             continue
         row = {
             "asset_id": asset_id,
             "quantity": quantity,
             "market": item.get("market") or "CN_ETF",
         }
-        latest_price = _float_or_none(item.get("latest_price"))
         if latest_price is not None:
             row["latest_price"] = latest_price
         rows.append(row)
-    return rows
+    if issues:
+        status = "error"
+    elif rows:
+        status = "ok"
+    else:
+        status = "not_provided"
+    return _sanitize(
+        {
+            "status": status,
+            "accepted_count": len(rows) if status != "error" else 0,
+            "issue_count": len(issues),
+            "issues": issues,
+            "rows": rows if status != "error" else [],
+            "manual_rebalance_allowed": status != "error",
+            "plain_summary": _current_position_validation_summary(status, len(rows), issues),
+        }
+    )
+
+
+def _current_position_issue(row_number: int, issue_id: str, message: str) -> dict[str, Any]:
+    return {
+        "row_number": row_number,
+        "issue_id": issue_id,
+        "severity": "error",
+        "message": message,
+        "manual_rebalance_allowed": False,
+    }
+
+
+def _current_position_validation_summary(status: str, accepted_count: int, issues: list[dict[str, Any]]) -> str:
+    if status == "ok":
+        return f"已接收 {accepted_count} 条当前持仓，将按净买卖差额生成手工复核票据。"
+    if status == "error":
+        return "当前持仓输入有问题，今天不能生成可人工核对的买卖票据；请先修正持仓表。"
+    return "未填写当前持仓，将按目标仓位估算买入金额；进入实盘前建议先手填当前持仓。"
 
 
 def _rebalance_latest_prices(

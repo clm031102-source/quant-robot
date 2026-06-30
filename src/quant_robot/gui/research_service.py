@@ -591,21 +591,24 @@ def _parse_current_positions_input(current_positions: str | list[dict[str, Any]]
     if not text:
         return []
     if text.startswith("["):
-        parsed = json.loads(text)
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError as exc:
+            return [{"__parse_error": str(exc)}]
         return [dict(row) for row in parsed if isinstance(row, dict)] if isinstance(parsed, list) else []
     rows = []
     reader = csv.DictReader(text.splitlines())
+    if not reader.fieldnames:
+        return [{"__parse_error": "CSV 缺少表头，请使用 asset_id,quantity,latest_price。"}]
     for row in reader:
         if not row:
             continue
-        rows.append(
-            {
-                "asset_id": (row.get("asset_id") or row.get("symbol") or "").strip(),
-                "quantity": row.get("quantity") or row.get("shares") or row.get("holding"),
-                "latest_price": row.get("latest_price") or row.get("price") or "",
-                "market": (row.get("market") or "CN_ETF").strip(),
-            }
-        )
+        item = {str(key): value for key, value in row.items() if key is not None}
+        item["asset_id"] = (row.get("asset_id") or row.get("symbol") or "").strip()
+        item["quantity"] = row.get("quantity") or row.get("shares") or row.get("holding")
+        item["latest_price"] = row.get("latest_price") or row.get("price") or ""
+        item["market"] = (row.get("market") or "CN_ETF").strip()
+        rows.append(item)
     return rows
 
 

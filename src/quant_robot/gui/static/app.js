@@ -4677,6 +4677,7 @@ function renderPaper() {
 function renderDailyTradeAdvisory() {
   const pack = state.dailyTradeAdvisory || {};
   const summary = pack.summary || {};
+  const positionValidation = pack.current_position_validation || {};
   const tag = byId("daily-trade-advisory-tag");
   const signalCount = Number(summary.signal_count || 0);
   const selectedCount = Number(summary.selected_factor_count || 0);
@@ -4697,6 +4698,7 @@ function renderDailyTradeAdvisory() {
   byId("daily-trade-advisory-status").innerHTML = statusRows([
     ["来源", pack.fallback_used ? "排行榜无可运行前三，使用可运行基线兜底" : "从 CN_ETF 排行榜取可运行前三候选", pack.fallback_used ? "warn" : "ok"],
     ["信号状态", `${signalCount} / ${selectedCount}`, signalCount > 0 ? "ok" : "warn"],
+    ["当前持仓", positionValidation.plain_summary || "未填写当前持仓；将按目标仓位估算。", positionValidation.status === "error" ? "danger" : positionValidation.status === "ok" ? "ok" : "warn"],
     ["执行边界", pack.safety || "Research-to-paper only", "danger"],
     ["下一步", summary.next_action || "先复核信号，再看模拟盘，不自动下单。", "warn"],
     ["错误", (pack.signal_errors || []).map((item) => item.factor_name || item.case_id).join(" / ") || "无", pack.signal_errors?.length ? "warn" : "ok"],

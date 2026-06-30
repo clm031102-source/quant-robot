@@ -2917,6 +2917,16 @@ class GuiHttpTests(unittest.TestCase):
             self.assertEqual(len(trade_advisory["pretrade_workflow"]["steps"]), 5)
             self.assertLessEqual(trade_advisory["summary"]["selected_factor_count"], 3)
 
+            invalid_positions = _read_json(
+                f"{base_url}/api/trade/daily-advisory?source=demo_fixture&market=CN_ETF&limit=3"
+                "&current_positions=asset_id%2Cquantity%2Clatest_price%2Caccount_id%0ACN_ETF_XSHG_510300%2C1000%2C4.864%2Creal"
+            )
+            self.assertEqual(invalid_positions["stage"], "phase_6_0_daily_trade_advisory")
+            self.assertEqual(invalid_positions["current_position_validation"]["status"], "error")
+            self.assertIn("current_position_input_invalid", invalid_positions["pretrade_readiness"]["blockers"])
+            self.assertEqual(invalid_positions["manual_trade_plan"], [])
+            self.assertFalse(invalid_positions["summary"]["order_placement_allowed"])
+
             risk_candidates = _read_json(f"{base_url}/api/risk/candidates")
             self.assertEqual(risk_candidates["stage"], "gui_risk_candidate_selector")
             self.assertIn("selection_status", risk_candidates)

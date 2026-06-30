@@ -119,6 +119,26 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertFalse(ticket["live_order_allowed"])
         self.assertFalse(ticket["executable"])
 
+    def test_current_position_account_fields_are_blocked_without_crashing(self):
+        pack = build_daily_trade_advisory_pack(
+            [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
+            [_signal("c1", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            current_positions=[{"asset_id": "510300", "quantity": 1000, "latest_price": 3.2, "account_id": "real"}],
+        )
+
+        validation = pack["current_position_validation"]
+        readiness = pack["pretrade_readiness"]
+
+        self.assertEqual(validation["status"], "error")
+        self.assertEqual(validation["accepted_count"], 0)
+        self.assertEqual(pack["summary"]["current_position_issue_count"], 1)
+        self.assertIn("current_position_input_invalid", readiness["blockers"])
+        self.assertFalse(readiness["manual_action_candidate"])
+        self.assertEqual(pack["manual_trade_plan"], [])
+        self.assertFalse(pack["summary"]["order_placement_allowed"])
+
     def test_pretrade_readiness_summarizes_manual_action_without_live_permissions(self):
         pack = build_daily_trade_advisory_pack(
             [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
