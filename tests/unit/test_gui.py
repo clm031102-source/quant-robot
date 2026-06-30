@@ -230,12 +230,21 @@ class GuiDesktopAppTests(unittest.TestCase):
             )
 
             written = {Path(item["path"]).name: Path(item["path"]).read_text(encoding="utf-8") for item in result["shortcuts"]}
+            readme_path = Path(result["readme_path"])
+            readme_text = readme_path.read_text(encoding="utf-8")
 
         self.assertEqual(result["stage"], "desktop_shortcut_install")
         self.assertFalse(result["safety"]["broker_connection_allowed"])
         self.assertFalse(result["safety"]["account_read_allowed"])
         self.assertFalse(result["safety"]["order_placement_allowed"])
         self.assertEqual(len(result["shortcuts"]), len(DEFAULT_DESKTOP_SHORTCUTS))
+        self.assertEqual(readme_path.name, "量化机器人-先读我.txt")
+        self.assertIn("第一步", readme_text)
+        self.assertIn("今日交易检查", readme_text)
+        self.assertIn("因子排行榜", readme_text)
+        self.assertIn("日志报告", readme_text)
+        self.assertIn("不会连接券商", readme_text)
+        self.assertIn("不会自动下单", readme_text)
         self.assertIn("量化机器人-今日交易检查.bat", written)
         self.assertIn("量化机器人-因子排行榜.bat", written)
         self.assertIn("量化机器人-日志报告.bat", written)
@@ -244,6 +253,7 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("research-to-paper only", written["量化机器人-日志报告.bat"])
         self.assertNotIn("broker", written["量化机器人-今日交易检查.bat"].lower().replace("no broker", ""))
         self.assertNotIn("TUSHARE_TOKEN", "\n".join(written.values()))
+        self.assertNotIn("TUSHARE_TOKEN", readme_text)
 
     def test_desktop_shortcut_install_batch_is_beginner_safe(self):
         batch_file = Path("scripts/install_quant_robot_desktop_shortcuts.bat")

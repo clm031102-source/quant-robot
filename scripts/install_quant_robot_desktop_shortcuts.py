@@ -33,6 +33,7 @@ DEFAULT_DESKTOP_SHORTCUTS = (
         page="logs",
     ),
 )
+README_FILENAME = "量化机器人-先读我.txt"
 
 
 def default_desktop_dir() -> Path:
@@ -49,6 +50,30 @@ def build_shortcut_script(repo_root: Path, spec: DesktopShortcutSpec) -> str:
             "echo Quant Robot beginner launcher (research-to-paper only; no broker/account/order/live trading).",
             f"python scripts\\run_desktop_app.py --page {spec.page}{target_arg}",
             "pause",
+            "",
+        ]
+    )
+
+
+def build_beginner_readme(shortcuts: tuple[DesktopShortcutSpec, ...] = DEFAULT_DESKTOP_SHORTCUTS) -> str:
+    shortcut_lines = "\n".join(f"- {spec.filename}" for spec in shortcuts)
+    return "\n".join(
+        [
+            "量化机器人新手说明",
+            "",
+            "第一步：双击「量化机器人-今日交易检查.bat」，先看今天能不能做。",
+            "第二步：如果想看历史表现，双击「量化机器人-因子排行榜.bat」。",
+            "第三步：如果运行失败或看不懂结果，双击「量化机器人-日志报告.bat」。",
+            "",
+            "桌面入口：",
+            shortcut_lines,
+            "",
+            "安全边界：",
+            "- 这个软件只做本地研究、信号查看、模拟盘和人工复核。",
+            "- 不会连接券商。",
+            "- 不会读取真实账户。",
+            "- 不会自动下单。",
+            "- 任何真实交易都必须人工打开券商软件后再核对。",
             "",
         ]
     )
@@ -75,12 +100,15 @@ def install_desktop_shortcuts(
                 "target_id": spec.target_id,
             }
         )
+    readme_path = destination / README_FILENAME
+    readme_path.write_text(build_beginner_readme(shortcuts), encoding="utf-8")
 
     return {
         "stage": "desktop_shortcut_install",
         "output_dir": str(destination),
         "repo_root": str(root),
         "shortcuts": written,
+        "readme_path": str(readme_path),
         "safety": {
             "mode": "research-to-paper only",
             "broker_connection_allowed": False,
