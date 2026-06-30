@@ -1014,6 +1014,94 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         )
         self.assertEqual(readiness["summary"]["next_target_id"], "beginner-live-handoff-board")
 
+    def test_daily_pack_exposes_real_money_transition_gate_without_auto_orders(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {
+                    "rank": 1,
+                    "case_id": "c1",
+                    "factor_name": "momentum_quality_combo",
+                    "market": "CN_ETF",
+                    "sharpe": 1.35,
+                    "annualized_return": 0.18,
+                    "max_drawdown": -0.14,
+                    "win_rate": 0.59,
+                    "rank_ic": 0.045,
+                    "trade_count": 96,
+                },
+                {
+                    "rank": 2,
+                    "case_id": "c2",
+                    "factor_name": "low_vol_overlay",
+                    "market": "CN_ETF",
+                    "sharpe": 1.05,
+                    "annualized_return": 0.14,
+                    "max_drawdown": -0.11,
+                    "win_rate": 0.57,
+                    "rank_ic": 0.033,
+                    "trade_count": 80,
+                },
+                {
+                    "rank": 3,
+                    "case_id": "c3",
+                    "factor_name": "breadth_trend_state",
+                    "market": "CN_ETF",
+                    "sharpe": 0.98,
+                    "annualized_return": 0.12,
+                    "max_drawdown": -0.10,
+                    "win_rate": 0.56,
+                    "rank_ic": 0.028,
+                    "trade_count": 72,
+                },
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.2}),
+                _signal("c2", "low_vol_overlay", {"588000": 0.2}),
+                _signal("c3", "breadth_trend_state", {"159915": 0.2}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="aggressive_30dd",
+            evidence_snapshot={
+                "walk_forward_oos_passed": True,
+                "lookahead_bias_audit_passed": True,
+                "multiple_testing_control_passed": True,
+                "transaction_cost_capacity_passed": True,
+                "matched_paper_receipts": 5,
+                "post_close_journals": 5,
+                "paper_ready_observations": 20,
+            },
+        )
+
+        gate = pack["daily_real_money_transition_gate"]
+
+        self.assertEqual(gate["stage"], "phase_6_21_daily_real_money_transition_gate")
+        self.assertEqual(gate["summary"]["decision"], "production_manual_review_candidate")
+        self.assertEqual(gate["summary"]["capital_mode"], "production_manual_review_only")
+        self.assertTrue(gate["summary"]["small_capital_observation_candidate"])
+        self.assertTrue(gate["summary"]["production_manual_review_candidate"])
+        self.assertFalse(gate["summary"]["real_money_allowed"])
+        self.assertFalse(gate["summary"]["live_order_allowed"])
+        self.assertFalse(gate["summary"]["broker_connection_allowed"])
+        self.assertFalse(gate["summary"]["account_read_allowed"])
+        self.assertFalse(gate["summary"]["order_placement_allowed"])
+        self.assertFalse(gate["summary"]["auto_order_allowed"])
+        self.assertEqual(pack["summary"]["real_money_transition_status"], "production_manual_review_candidate")
+        row_by_id = {row["gate_id"]: row for row in gate["preflight_rows"]}
+        self.assertEqual(row_by_id["factor_health"]["status"], "pass")
+        self.assertEqual(row_by_id["paper_receipts"]["status"], "pass")
+        self.assertEqual(row_by_id["post_close_journals"]["status"], "pass")
+        self.assertEqual(row_by_id["manual_ticket_risk_budget"]["status"], "pass")
+        self.assertEqual(row_by_id["research_only_safety_boundary"]["status"], "pass")
+        self.assertIn("open_external_broker_manually", {row["step_id"] for row in gate["operator_script"]})
+        self.assertIn("record_post_close_journal", {row["step_id"] for row in gate["operator_script"]})
+        self.assertIn("direct_buy_top3", {row["action_id"] for row in gate["forbidden_actions"]})
+        self.assertIn("skip_paper_and_journal", {row["action_id"] for row in gate["forbidden_actions"]})
+        self.assertTrue(gate["manual_execution_preview"])
+        self.assertIn("risk_budget", gate["manual_execution_preview"][0])
+        self.assertIn("manual_skip_conditions", gate["manual_execution_preview"][0])
+        self.assertTrue(all(not row["order_placement_allowed"] for row in gate["operator_script"]))
+
     def test_daily_pack_exposes_factor_health_monitor_for_top3_retirement_gate(self):
         pack = build_daily_trade_advisory_pack(
             [

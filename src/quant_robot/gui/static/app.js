@@ -5772,6 +5772,7 @@ function renderDailyTradeAdvisory() {
   renderDailySignalExecutionBridge(pack.daily_signal_execution_bridge || {});
   renderDailyDeploymentReadiness(pack.daily_deployment_readiness || {});
   renderLiveProfitabilityReadiness(pack.live_profitability_readiness || {});
+  renderDailyRealMoneyTransitionGate(pack.daily_real_money_transition_gate || {});
   renderDailyFactorHealthMonitor(pack.daily_factor_health_monitor || {});
   renderDailyRealWorldHandoffGate(pack.real_world_manual_handoff_gate || {});
   renderDailyTradingSystemBlueprint(pack.trading_system_blueprint || {});
@@ -6408,6 +6409,73 @@ function renderLiveProfitabilityReadiness(readiness = {}) {
       </span>
     </div>
   `).join("") : statusRows([["稳定性控制", "等待加载回撤熔断、参数敏感性、滑点复盘、因子衰减和退役闭环。", "warn"]]);
+}
+
+function renderDailyRealMoneyTransitionGate(gate = {}) {
+  const summaryTarget = byId("daily-real-money-transition-summary");
+  const preflightTarget = byId("daily-real-money-transition-preflight");
+  const scriptTarget = byId("daily-real-money-transition-script");
+  const ticketsTarget = byId("daily-real-money-transition-tickets");
+  if (!summaryTarget || !preflightTarget || !scriptTarget || !ticketsTarget) return;
+  const summary = gate.summary || {};
+  const decision = summary.decision || "generate_same_day_signal_first";
+  const tone = decision.includes("blocked") || decision.includes("rotate") ? "danger" : decision.includes("candidate") ? "warn" : "warn";
+  const workflowButton = summary.next_workflow_id ? `
+    <button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(summary.next_workflow_id)}">${escapeHtml(summary.next_label || "运行下一步")}</button>
+  ` : "";
+  const targetButton = summary.next_target_id ? `
+    <button class="${escapeHtml(workflowButton ? "secondary-button" : "primary-button")}" type="button" data-beginner-target="${escapeRawHtml(summary.next_target_id)}">${escapeHtml(workflowButton ? "看证据" : summary.next_label || "看下一步")}</button>
+  ` : "";
+  summaryTarget.innerHTML = statusRows([
+    ["今日总结论", summary.plain_answer || zhConsoleText(decision), tone],
+    ["资金阶段", `${summary.capital_mode || "--"} / 评分=${formatNumber(summary.readiness_score_pct || 0)}/100`, summary.production_manual_review_candidate ? "ok" : "warn"],
+    ["今日证据", `信号=${formatNumber(summary.signal_count || 0)} / 目标=${formatNumber(summary.target_count || 0)} / 票据=${formatNumber(summary.manual_ticket_count || 0)}`, summary.manual_ticket_count ? "warn" : "danger"],
+    ["观察样本", `模拟=${formatNumber(summary.matched_paper_receipts || 0)} / 复盘=${formatNumber(summary.post_close_journal_receipts || 0)} / paper-ready=${formatNumber(summary.paper_ready_observations || 0)}`, summary.production_manual_review_candidate ? "ok" : "warn"],
+    ["真实资金权限", summary.real_money_allowed || summary.order_placement_allowed ? "异常：权限越界" : "不连接券商、不读账户、不自动下单", summary.real_money_allowed || summary.order_placement_allowed ? "danger" : "ok"],
+  ]) + `
+    <div class="list-row ${escapeHtml(tone)}">
+      <strong>${escapeHtml("现在先做")}</strong>
+      <span>${escapeHtml(summary.next_label || "先生成今日信号或补齐证据")}</span>
+      <span class="beginner-task-actions">${workflowButton}${targetButton}</span>
+    </div>
+  `;
+
+  const preflightRows = Array.isArray(gate.preflight_rows) ? gate.preflight_rows : [];
+  preflightTarget.innerHTML = preflightRows.length ? preflightRows.map((item) => `
+    <div class="list-row ${escapeHtml(dailyTradeSystemStageTone(item.status || ""))}">
+      <strong>${escapeHtml(item.label || item.gate_id || "")}</strong>
+      <span>${escapeHtml(`${zhConsoleText(item.status || "waiting")} / ${item.plain_requirement || ""}`)}</span>
+      <span class="beginner-task-actions">
+        ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+        ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
+      </span>
+    </div>
+  `).join("") : statusRows([["前置闸门", "等待每日交易建议加载后显示范围、健康、红灯、模拟回执、复盘和票据风险。", "warn"]]);
+
+  const scriptRows = Array.isArray(gate.operator_script) ? gate.operator_script : [];
+  scriptTarget.innerHTML = scriptRows.length ? scriptRows.map((item) => `
+    <div class="list-row ${escapeHtml(dailyTradeSystemStageTone(item.status || ""))}">
+      <strong>${escapeHtml(`${item.step_number || "--"}. ${item.label || item.step_id || ""}`)}</strong>
+      <span>${escapeHtml(`${zhConsoleText(item.status || "waiting")} / ${item.plain_action || ""}`)}</span>
+      <span class="beginner-task-actions">
+        ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+        ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
+      </span>
+    </div>
+  `).join("") : statusRows([["操作脚本", "等待系统生成今日总闸门后显示从 Top3 到模拟盘、票据、人工决策和收盘复盘的步骤。", "warn"]]);
+
+  const tickets = Array.isArray(gate.manual_execution_preview) ? gate.manual_execution_preview : [];
+  ticketsTarget.innerHTML = tickets.length ? tickets.map((item) => {
+    const risk = item.risk_budget || {};
+    const blocked = Array.isArray(item.manual_skip_conditions) && item.manual_skip_conditions.some((condition) => condition.status === "blocked");
+    return `
+      <div class="list-row ${escapeHtml(blocked ? "danger" : "warn")}">
+        <strong>${escapeHtml(`${item.step_number || "--"}. ${item.asset_id || "--"} ${zhConsoleText(item.side || "")}`)}</strong>
+        <span>${escapeHtml(`数量=${formatNumber(item.rounded_quantity || 0)} / 金额=${formatNumber(item.rounded_value)} / 单ETF上限=${formatPercent(risk.max_single_etf_weight)} / 票据风险=${formatNumber(risk.ticket_adverse_move_loss)}`)}</span>
+        <span>${escapeHtml(blocked ? "触发跳过条件，不能推进。" : "仅供人工核对，不是订单。")}</span>
+      </div>
+    `;
+  }).join("") : statusRows([["人工票据", "暂无可人工核对票据；没有票据就不要进入券商端操作。", "danger"]]);
 }
 
 function renderDailyFactorHealthMonitor(monitor = {}) {

@@ -380,6 +380,13 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("renderDailyRealWorldHandoffGate", app_js)
         self.assertIn("renderDailyRealWorldCapitalLadder", app_js)
         self.assertIn("real_world_manual_handoff_gate", app_js)
+        self.assertIn("daily-real-money-transition-gate", html)
+        self.assertIn("daily-real-money-transition-summary", html)
+        self.assertIn("daily-real-money-transition-preflight", html)
+        self.assertIn("daily-real-money-transition-script", html)
+        self.assertIn("daily-real-money-transition-tickets", html)
+        self.assertIn("renderDailyRealMoneyTransitionGate", app_js)
+        self.assertIn("daily_real_money_transition_gate", app_js)
 
 
 class GuiSnapshotTests(unittest.TestCase):
@@ -487,6 +494,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("daily_deployment_readiness", snapshot)
         self.assertIn("live_profitability_readiness", snapshot)
         self.assertIn("daily_factor_health_monitor", snapshot)
+        self.assertIn("daily_real_money_transition_gate", snapshot)
         self.assertEqual(snapshot["selected_candidates"], snapshot["factors"])
         self.assertEqual(snapshot["pretrade_workflow"]["stage"], "phase_6_1_daily_pretrade_workflow")
         self.assertFalse(snapshot["pretrade_workflow"]["summary"]["live_order_allowed"])
@@ -563,6 +571,23 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertFalse(health["summary"]["top3_auto_buy_allowed"])
         self.assertFalse(health["summary"]["order_placement_allowed"])
         self.assertTrue(all(row["order_placement_allowed"] is False for row in health["factor_rows"]))
+        transition = snapshot["daily_real_money_transition_gate"]
+        self.assertEqual(transition["stage"], "phase_6_21_daily_real_money_transition_gate")
+        self.assertIn(
+            transition["summary"]["decision"],
+            {
+                "paper_rehearsal_required",
+                "rotate_or_reduce_top3_first",
+                "blocked_pretrade_red_light",
+                "production_manual_review_candidate",
+                "small_capital_manual_observation_candidate",
+            },
+        )
+        self.assertFalse(transition["summary"]["real_money_allowed"])
+        self.assertFalse(transition["summary"]["order_placement_allowed"])
+        self.assertIn("manual_ticket_risk_budget", {row["gate_id"] for row in transition["preflight_rows"]})
+        self.assertIn("open_external_broker_manually", {row["step_id"] for row in transition["operator_script"]})
+        self.assertIn("direct_buy_top3", {row["action_id"] for row in transition["forbidden_actions"]})
         self.assertEqual(snapshot["live_transition_plan"]["summary"]["selected_risk_profile_id"], "conservative_10dd")
         self.assertEqual(snapshot["summary"]["risk_profile_id"], "conservative_10dd")
         self.assertIn("small_capital_review_gate", {gate["gate_id"] for gate in snapshot["live_transition_plan"]["evidence_gates"]})

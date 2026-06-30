@@ -35,6 +35,7 @@ REAL_WORLD_MANUAL_HANDOFF_GATE_STAGE = "phase_6_17_real_world_manual_handoff_gat
 DAILY_DEPLOYMENT_READINESS_STAGE = "phase_6_18_daily_deployment_readiness_pack"
 LIVE_PROFITABILITY_READINESS_STAGE = "phase_6_19_live_profitability_readiness_scorecard"
 DAILY_FACTOR_HEALTH_MONITOR_STAGE = "phase_6_20_daily_factor_health_monitor"
+DAILY_REAL_MONEY_TRANSITION_GATE_STAGE = "phase_6_21_daily_real_money_transition_gate"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 DEFAULT_RISK_PROFILE_ID = "balanced_20dd"
@@ -274,6 +275,7 @@ def build_daily_trade_advisory_pack(
     pack["daily_deployment_readiness"] = build_daily_deployment_readiness_pack(pack)
     pack["live_profitability_readiness"] = build_live_profitability_readiness_scorecard(pack)
     pack["daily_factor_health_monitor"] = build_daily_factor_health_monitor(pack)
+    pack["daily_real_money_transition_gate"] = build_daily_real_money_transition_gate(pack)
     pack["summary"]["live_transition_status"] = pack["live_transition_plan"]["summary"]["status"]
     pack["summary"]["trading_system_status"] = pack["trading_system_blueprint"]["summary"]["status"]
     pack["summary"]["execution_bridge_status"] = pack["daily_signal_execution_bridge"]["summary"]["status"]
@@ -281,6 +283,7 @@ def build_daily_trade_advisory_pack(
     pack["summary"]["deployment_readiness_status"] = pack["daily_deployment_readiness"]["summary"]["decision"]
     pack["summary"]["live_profitability_readiness_status"] = pack["live_profitability_readiness"]["summary"]["decision"]
     pack["summary"]["factor_health_status"] = pack["daily_factor_health_monitor"]["summary"]["decision"]
+    pack["summary"]["real_money_transition_status"] = pack["daily_real_money_transition_gate"]["summary"]["decision"]
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
 
@@ -4101,6 +4104,590 @@ def build_daily_factor_health_monitor(pack: dict[str, Any]) -> dict[str, Any]:
             ],
         }
     )
+
+
+def build_daily_real_money_transition_gate(pack: dict[str, Any]) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
+    validation = pack.get("current_position_validation") if isinstance(pack.get("current_position_validation"), dict) else {}
+    handoff = pack.get("manual_broker_handoff") if isinstance(pack.get("manual_broker_handoff"), dict) else {}
+    health = pack.get("daily_factor_health_monitor") if isinstance(pack.get("daily_factor_health_monitor"), dict) else {}
+    profitability = pack.get("live_profitability_readiness") if isinstance(pack.get("live_profitability_readiness"), dict) else {}
+    health_summary = health.get("summary") if isinstance(health.get("summary"), dict) else {}
+    profitability_summary = profitability.get("summary") if isinstance(profitability.get("summary"), dict) else {}
+    evidence = (
+        profitability.get("evidence_snapshot")
+        if isinstance(profitability.get("evidence_snapshot"), dict)
+        else _live_profitability_evidence_snapshot(pack.get("live_profitability_evidence_snapshot"))
+    )
+    factors = [row for row in pack.get("factors", []) if isinstance(row, dict)]
+    signal_cards = [row for row in pack.get("signal_cards", []) if isinstance(row, dict)]
+    targets = [row for row in pack.get("combined_targets", []) if isinstance(row, dict)]
+    copyable_tickets = [row for row in handoff.get("copyable_tickets", []) if isinstance(row, dict)]
+    ticket_source = copyable_tickets or [row for row in pack.get("manual_trade_plan", []) if isinstance(row, dict)]
+    manual_preview = _real_money_transition_ticket_preview(ticket_source, summary)
+    blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
+    gate_by_id = {
+        str(row.get("gate_id")): row
+        for row in profitability.get("hard_gates", [])
+        if isinstance(row, dict) and row.get("gate_id")
+    }
+    market = str(pack.get("market") or _first_market(factors) or "CN_ETF").upper()
+    selected_count = _int(summary.get("selected_factor_count"), len(factors))
+    signal_count = _int(summary.get("signal_count"), 0)
+    target_count = _int(summary.get("combined_target_count"), len(targets))
+    ticket_count = _int(summary.get("manual_ticket_count"), len(ticket_source))
+    position_status = str(validation.get("status") or summary.get("current_position_status") or "not_provided")
+    health_decision = str(health_summary.get("decision") or "waiting_for_top3_candidates")
+    profitability_decision = str(profitability_summary.get("decision") or "not_ready_for_real_money")
+    health_blocked = bool(health_summary.get("retirement_required_before_live")) or "retire" in health_decision
+    has_signal_targets = signal_count > 0 and target_count > 0
+    has_manual_material = ticket_count > 0 and bool(manual_preview)
+    risk_blocked = any(
+        bool((row.get("risk_budget") or {}).get("single_etf_limit_breached"))
+        or bool((row.get("risk_budget") or {}).get("rounded_value_limit_breached"))
+        or any(item.get("status") == "blocked" for item in row.get("manual_skip_conditions", []) if isinstance(item, dict))
+        for row in manual_preview
+    )
+    research_evidence_status = _transition_research_evidence_status(gate_by_id)
+    paper_receipt_status = _transition_gate_status(gate_by_id, "matched_paper_receipts")
+    journal_status = _transition_gate_status(gate_by_id, "post_close_journals")
+    production_sample_status = _transition_gate_status(gate_by_id, "production_sample_size")
+    ticket_risk_status = (
+        "blocked"
+        if risk_blocked
+        else "pass"
+        if has_manual_material
+        else "required"
+    )
+
+    if position_status == "error":
+        decision = "blocked_current_position_input"
+        plain_answer = "当前持仓输入含账户、券商、订单或格式风险，先修正输入，不能进入真实资金观察。"
+        next_label = "修正当前持仓"
+        next_target = "daily-current-positions"
+        next_workflow = ""
+    elif blockers:
+        decision = "blocked_pretrade_red_light"
+        plain_answer = "盘前红灯仍存在，今天只能观察或修复数据，不能把信号推进到人工资金动作。"
+        next_label = "查看盘前红灯"
+        next_target = "daily-pretrade-readiness-verdict"
+        next_workflow = ""
+    elif health_blocked:
+        decision = "rotate_or_reduce_top3_first"
+        plain_answer = "Top3 中存在退役或降权候选，先替换、降权或只观察，不能推进到真实资金。"
+        next_label = "处理退役因子"
+        next_target = "daily-factor-health-rows"
+        next_workflow = ""
+    elif risk_blocked:
+        decision = "blocked_ticket_risk_budget"
+        plain_answer = "人工票据触发单 ETF、金额或数量风险预算阻断，先缩仓、改风险档位或跳过票据。"
+        next_label = "查看票据风险"
+        next_target = "daily-manual-broker-handoff-ticket-table"
+        next_workflow = ""
+    elif profitability_decision == "production_manual_review_candidate":
+        decision = "production_manual_review_candidate"
+        plain_answer = "证据已达到人工生产复核候选，但软件仍不连接券商、不读取账户、不自动下单。"
+        next_label = "查看人工交接"
+        next_target = "beginner-live-handoff-board"
+        next_workflow = ""
+    elif profitability_decision == "small_capital_manual_observation_candidate":
+        decision = "small_capital_manual_observation_candidate"
+        plain_answer = "证据已达到小资金人工观察候选，这只是人工观察资格，不是自动实盘许可。"
+        next_label = "查看小资金观察"
+        next_target = "beginner-live-handoff-board"
+        next_workflow = ""
+    elif has_manual_material and has_signal_targets:
+        decision = "paper_rehearsal_required"
+        plain_answer = "今天可以先跑同参数模拟盘并核对人工票据，但还不能宣称稳定盈利或投入真实资金。"
+        next_label = "先跑同参数模拟盘"
+        next_target = "paper-metrics"
+        next_workflow = "paper_simulation"
+    elif has_signal_targets:
+        decision = "build_manual_ticket_pack_first"
+        plain_answer = "已有今日信号，但人工票据还不完整，先补齐数量、金额、取整和风险预算。"
+        next_label = "补齐人工票据"
+        next_target = "daily-trade-target-table"
+        next_workflow = "daily_trade_advisory"
+    else:
+        decision = "generate_same_day_signal_first"
+        plain_answer = "先生成今天的 CN_ETF Top3 信号，不能直接从排行榜进入买卖。"
+        next_label = "生成今日信号"
+        next_target = "run-daily-trade-advisory"
+        next_workflow = "daily_trade_advisory"
+
+    capital_mode = _real_money_transition_capital_mode(decision)
+    preflight_rows = [
+        _real_money_transition_gate_row(
+            "cn_etf_scope",
+            "CN_ETF 主线",
+            "pass" if market == "CN_ETF" and selected_count > 0 else "blocked",
+            f"market={market}; selected_factors={selected_count}",
+            "factor-leaderboard-table",
+            required_before="paper_rehearsal",
+        ),
+        _real_money_transition_gate_row(
+            "factor_health",
+            "Top3 因子健康",
+            "blocked" if health_blocked else "pass" if health_summary.get("paper_observation_allowed") else "required",
+            str(health_summary.get("plain_answer") or health_decision),
+            "daily-factor-health-rows",
+            required_before="paper_rehearsal",
+        ),
+        _real_money_transition_gate_row(
+            "same_day_signal",
+            "同日 ETF 信号",
+            "pass" if has_signal_targets else "required",
+            f"signals={signal_count}; targets={target_count}; run_date={pack.get('run_date')}",
+            "daily-trade-factor-table",
+            "daily_trade_advisory" if not has_signal_targets else "",
+            required_before="paper_rehearsal",
+        ),
+        _real_money_transition_gate_row(
+            "pretrade_red_light",
+            "盘前红灯",
+            "pass" if not blockers and position_status != "error" else "blocked",
+            ", ".join(blockers) if blockers else f"position_status={position_status}",
+            "daily-pretrade-readiness-verdict",
+            required_before="paper_rehearsal",
+        ),
+        _real_money_transition_gate_row(
+            "research_evidence",
+            "OOS / 未来函数 / 多重检验 / 成本容量",
+            research_evidence_status,
+            _transition_research_evidence_detail(gate_by_id),
+            "control-backtest-gate",
+            required_before="small_capital_observation",
+        ),
+        _real_money_transition_gate_row(
+            "paper_receipts",
+            "同参数模拟盘回执",
+            paper_receipt_status,
+            _transition_observation_detail(evidence, "matched_paper_receipts", required=5),
+            "paper-metrics",
+            "paper_simulation" if has_signal_targets else "",
+            required_before="small_capital_observation",
+        ),
+        _real_money_transition_gate_row(
+            "post_close_journals",
+            "盘后复盘样本",
+            journal_status,
+            _transition_observation_detail(evidence, "post_close_journal_receipts", required=5),
+            "beginner-post-close-journal-board",
+            "post_close_journal" if has_signal_targets else "",
+            required_before="small_capital_observation",
+        ),
+        _real_money_transition_gate_row(
+            "production_sample_size",
+            "生产观察样本",
+            production_sample_status,
+            _transition_observation_detail(evidence, "paper_ready_observations", required=20),
+            "beginner-live-handoff-board",
+            required_before="production_manual_review",
+        ),
+        _real_money_transition_gate_row(
+            "manual_ticket_risk_budget",
+            "人工票据风险预算",
+            ticket_risk_status,
+            f"manual_tickets={ticket_count}; risk_blocked={risk_blocked}",
+            "daily-manual-broker-handoff-ticket-table",
+            required_before="manual_review",
+        ),
+        _real_money_transition_gate_row(
+            "research_only_safety_boundary",
+            "系统权限边界",
+            "pass",
+            "软件不连接券商、不读取账户、不提交真实订单；真实资金只能由本人离开系统后手工决定。",
+            "control-safety-boundary",
+            required_before="all_stages",
+        ),
+    ]
+
+    return _sanitize(
+        {
+            "stage": DAILY_REAL_MONEY_TRANSITION_GATE_STAGE,
+            "run_date": pack.get("run_date", date.today().isoformat()),
+            "safety": SAFETY_NOTICE,
+            "summary": {
+                "decision": decision,
+                "plain_answer": plain_answer,
+                "capital_mode": capital_mode,
+                "primary_market": market,
+                "selected_factor_count": selected_count,
+                "signal_count": signal_count,
+                "target_count": target_count,
+                "manual_ticket_count": ticket_count,
+                "factor_health_decision": health_decision,
+                "live_profitability_decision": profitability_decision,
+                "readiness_score_pct": _int(profitability_summary.get("readiness_score_pct"), 0),
+                "matched_paper_receipts": _int(profitability_summary.get("matched_paper_receipts"), 0),
+                "post_close_journal_receipts": _int(profitability_summary.get("post_close_journal_receipts"), 0),
+                "paper_ready_observations": _int(profitability_summary.get("paper_ready_observations"), 0),
+                "small_capital_observation_candidate": bool(
+                    profitability_summary.get("small_capital_observation_candidate")
+                )
+                and not health_blocked
+                and not risk_blocked,
+                "production_manual_review_candidate": bool(
+                    profitability_summary.get("production_manual_review_candidate")
+                )
+                and not health_blocked
+                and not risk_blocked,
+                "next_label": next_label,
+                "next_target_id": next_target,
+                "next_workflow_id": next_workflow,
+                "real_money_allowed": False,
+                "live_order_allowed": False,
+                "live_trading_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+                "human_broker_only": True,
+            },
+            "preflight_rows": preflight_rows,
+            "today_signal_cards": _real_money_transition_signal_cards(factors, signal_cards, health),
+            "manual_execution_preview": manual_preview,
+            "operator_script": _real_money_transition_operator_script(
+                decision=decision,
+                next_target=next_target,
+                next_workflow=next_workflow,
+                paper_status=paper_receipt_status,
+                journal_status=journal_status,
+                ticket_risk_status=ticket_risk_status,
+                has_manual_material=has_manual_material,
+            ),
+            "capital_mode_policy": {
+                "capital_mode": capital_mode,
+                "plain_policy": _real_money_transition_capital_policy_text(capital_mode),
+                "max_system_stage": "manual_review_material",
+                "external_human_decision_required": True,
+                "software_submits_orders": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+            },
+            "forbidden_actions": _real_money_transition_forbidden_actions(),
+            "evidence_snapshot": evidence,
+            "live_profitability_summary": profitability_summary,
+            "factor_health_summary": health_summary,
+        }
+    )
+
+
+def _transition_gate_status(gate_by_id: dict[str, dict[str, Any]], gate_id: str) -> str:
+    row = gate_by_id.get(gate_id) if isinstance(gate_by_id.get(gate_id), dict) else {}
+    return str(row.get("status") or "required")
+
+
+def _transition_research_evidence_status(gate_by_id: dict[str, dict[str, Any]]) -> str:
+    statuses = [
+        _transition_gate_status(gate_by_id, gate_id)
+        for gate_id in (
+            "walk_forward_oos",
+            "lookahead_bias_audit",
+            "multiple_testing_control",
+            "transaction_cost_capacity",
+        )
+    ]
+    if all(status == "pass" for status in statuses):
+        return "pass"
+    if any(status == "blocked" for status in statuses):
+        return "blocked"
+    return "required"
+
+
+def _transition_research_evidence_detail(gate_by_id: dict[str, dict[str, Any]]) -> str:
+    parts = []
+    for gate_id in (
+        "walk_forward_oos",
+        "lookahead_bias_audit",
+        "multiple_testing_control",
+        "transaction_cost_capacity",
+    ):
+        parts.append(f"{gate_id}={_transition_gate_status(gate_by_id, gate_id)}")
+    return "; ".join(parts)
+
+
+def _transition_observation_detail(evidence: dict[str, Any], key: str, *, required: int) -> str:
+    counts = evidence.get("counts", {}) if isinstance(evidence.get("counts"), dict) else {}
+    observed = _int(counts.get(key), 0)
+    return f"{key}={observed}/{required}"
+
+
+def _real_money_transition_gate_row(
+    gate_id: str,
+    label: str,
+    status: str,
+    plain_requirement: str,
+    target_id: str,
+    workflow_id: str = "",
+    *,
+    required_before: str,
+) -> dict[str, Any]:
+    return {
+        "gate_id": gate_id,
+        "label": label,
+        "status": status,
+        "plain_requirement": plain_requirement,
+        "target_id": target_id,
+        "workflow_id": workflow_id,
+        "required_before": required_before,
+        "automation_allowed": False,
+        "live_order_allowed": False,
+        "live_trading_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
+
+
+def _real_money_transition_ticket_preview(
+    tickets: list[dict[str, Any]],
+    summary: dict[str, Any],
+) -> list[dict[str, Any]]:
+    risk_profile = _risk_profile_by_id(str(summary.get("risk_profile_id") or DEFAULT_RISK_PROFILE_ID))
+    portfolio_value = _float(summary.get("portfolio_value"), 100000.0)
+    rows: list[dict[str, Any]] = []
+    for index, ticket in enumerate(tickets[:20], start=1):
+        risk_budget = (
+            ticket.get("risk_budget")
+            if isinstance(ticket.get("risk_budget"), dict)
+            else _manual_ticket_risk_budget(
+                ticket,
+                portfolio_value=portfolio_value,
+                risk_profile=risk_profile,
+            )
+        )
+        skip_conditions = (
+            ticket.get("manual_skip_conditions")
+            if isinstance(ticket.get("manual_skip_conditions"), list)
+            else _manual_ticket_skip_conditions({**ticket, "risk_budget": risk_budget})
+        )
+        rows.append(
+            {
+                "step_number": index,
+                "ticket_id": str(ticket.get("ticket_id") or f"manual_review_{index}"),
+                "asset_id": str(ticket.get("asset_id") or ""),
+                "market": str(ticket.get("market") or "CN_ETF"),
+                "side": str(ticket.get("side") or "review"),
+                "target_weight": _float_or_none(ticket.get("target_weight")),
+                "target_value": _float_or_none(ticket.get("target_value")),
+                "delta_value": _float_or_none(ticket.get("delta_value")),
+                "reference_price": _float_or_none(ticket.get("reference_price") or ticket.get("latest_price")),
+                "rounded_quantity": _int(ticket.get("rounded_quantity"), 0),
+                "rounded_quantity_delta": _int(
+                    ticket.get("rounded_quantity_delta"),
+                    _int(ticket.get("rounded_quantity"), 0),
+                ),
+                "rounded_value": _float_or_none(ticket.get("rounded_value")),
+                "cash_delta_after_rounding": _float_or_none(ticket.get("cash_delta_after_rounding")),
+                "source_factors": ticket.get("source_factors"),
+                "risk_budget": risk_budget,
+                "manual_skip_conditions": skip_conditions,
+                "plain_instruction": ticket.get("plain_instruction")
+                or ticket.get("copy_text")
+                or "仅供人工复核；不是订单，系统不会提交到券商。",
+                "review_only": True,
+                "executable": False,
+                "live_order_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+            }
+        )
+    return rows
+
+
+def _real_money_transition_signal_cards(
+    factors: list[dict[str, Any]],
+    signal_cards: list[dict[str, Any]],
+    health: dict[str, Any],
+) -> list[dict[str, Any]]:
+    health_rows = {
+        str(row.get("factor_name")): row
+        for row in health.get("factor_rows", [])
+        if isinstance(row, dict) and row.get("factor_name")
+    }
+    signal_by_factor = {
+        str(row.get("factor_name")): row
+        for row in signal_cards
+        if isinstance(row, dict) and row.get("factor_name")
+    }
+    rows: list[dict[str, Any]] = []
+    for index, factor in enumerate(factors[:3], start=1):
+        factor_name = str(factor.get("factor_name") or factor.get("factor") or "")
+        health_row = health_rows.get(factor_name, {})
+        signal_row = signal_by_factor.get(factor_name, {})
+        rows.append(
+            {
+                "rank": _int(factor.get("rank"), index),
+                "case_id": str(factor.get("case_id") or factor_name),
+                "factor_name": factor_name,
+                "market": str(factor.get("market") or "CN_ETF"),
+                "signal_status": signal_row.get("status") or "waiting",
+                "health_status": health_row.get("health_status") or "watch",
+                "health_reason_codes": health_row.get("reason_codes") if isinstance(health_row.get("reason_codes"), list) else [],
+                "metrics": health_row.get("metrics") if isinstance(health_row.get("metrics"), dict) else {},
+                "order_placement_allowed": False,
+            }
+        )
+    return rows
+
+
+def _real_money_transition_operator_script(
+    *,
+    decision: str,
+    next_target: str,
+    next_workflow: str,
+    paper_status: str,
+    journal_status: str,
+    ticket_risk_status: str,
+    has_manual_material: bool,
+) -> list[dict[str, Any]]:
+    rows = [
+        _real_money_transition_operator_step(
+            1,
+            "review_top3_factor_health",
+            "复核今日 Top3 因子健康",
+            "blocked" if decision == "rotate_or_reduce_top3_first" else "ready",
+            "先看因子是否退役、降权或只观察，不能只按收益排行榜买。",
+            "daily-factor-health-rows",
+        ),
+        _real_money_transition_operator_step(
+            2,
+            "run_same_parameter_paper",
+            "运行同参数模拟盘",
+            "pass" if paper_status == "pass" else "required",
+            "用今天同一组因子、TopN、成本、风险档位和资金规模跑模拟盘回执。",
+            "paper-metrics",
+            "paper_simulation",
+        ),
+        _real_money_transition_operator_step(
+            3,
+            "review_manual_ticket_risk_budget",
+            "核对人工票据风险预算",
+            ticket_risk_status,
+            "逐张看 ETF、方向、数量、金额、现金差额、单 ETF 上限和跳过条件。",
+            "daily-manual-broker-handoff-ticket-table",
+        ),
+        _real_money_transition_operator_step(
+            4,
+            "open_external_broker_manually",
+            "如仍决定观察，只能本人离开系统手工打开券商端",
+            "manual_locked" if has_manual_material else "waiting",
+            "系统只提供复核材料，不连接券商、不读账户、不提交订单。",
+            "control-safety-boundary",
+        ),
+        _real_money_transition_operator_step(
+            5,
+            "record_post_close_journal",
+            "收盘后记录复盘",
+            "pass" if journal_status == "pass" else "required",
+            "无论执行、跳过还是只模拟，都记录原因、滑点、未成交、回撤和下一轮问题。",
+            "beginner-post-close-journal-board",
+            "post_close_journal",
+        ),
+    ]
+    if next_target and not any(row["target_id"] == next_target for row in rows):
+        rows.insert(
+            0,
+            _real_money_transition_operator_step(
+                0,
+                "follow_primary_next_step",
+                "先处理当前最缺的一步",
+                "next",
+                f"当前结论={decision}，先按主按钮补齐证据。",
+                next_target,
+                next_workflow,
+            ),
+        )
+    return rows
+
+
+def _real_money_transition_operator_step(
+    step_number: int,
+    step_id: str,
+    label: str,
+    status: str,
+    plain_action: str,
+    target_id: str,
+    workflow_id: str = "",
+) -> dict[str, Any]:
+    return {
+        "step_number": step_number,
+        "step_id": step_id,
+        "label": label,
+        "status": status,
+        "plain_action": plain_action,
+        "target_id": target_id,
+        "workflow_id": workflow_id,
+        "automation_allowed": False,
+        "live_order_allowed": False,
+        "live_trading_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
+
+
+def _real_money_transition_capital_mode(decision: str) -> str:
+    if decision == "production_manual_review_candidate":
+        return "production_manual_review_only"
+    if decision == "small_capital_manual_observation_candidate":
+        return "small_capital_manual_observation_review_only"
+    if decision == "paper_rehearsal_required":
+        return "paper_simulation_only"
+    if decision in {"build_manual_ticket_pack_first", "generate_same_day_signal_first"}:
+        return "research_signal_only"
+    return "blocked_or_research_only"
+
+
+def _real_money_transition_capital_policy_text(capital_mode: str) -> str:
+    policies = {
+        "production_manual_review_only": "可以进入人工生产复核候选，但仍不允许软件下单。",
+        "small_capital_manual_observation_review_only": "可以进入小资金人工观察候选，但必须本人外部手工决定。",
+        "paper_simulation_only": "只能运行同参数模拟盘和人工票据复核，不能进入真实资金。",
+        "research_signal_only": "只能生成研究信号和票据材料，还缺执行证据。",
+        "blocked_or_research_only": "存在阻断项，只能研究或修复，不能推进资金动作。",
+    }
+    return policies.get(capital_mode, policies["blocked_or_research_only"])
+
+
+def _real_money_transition_forbidden_actions() -> list[dict[str, Any]]:
+    return [
+        _live_profitability_action(
+            "direct_buy_top3",
+            "直接买 Top3 因子",
+            "Top3 只是候选入口；没有信号、回执、复盘、风险预算和人工确认时不能买。",
+            "factor-leaderboard-table",
+            "forbidden",
+        ),
+        _live_profitability_action(
+            "skip_paper_and_journal",
+            "跳过模拟盘和盘后复盘",
+            "没有同参数模拟回执和盘后记录，就无法判断滑点、回撤、成交和人为偏差。",
+            "paper-metrics",
+            "forbidden",
+        ),
+        _live_profitability_action(
+            "auto_broker_order",
+            "自动连接券商或下单",
+            "当前项目边界禁止券商连接、账户读取、真实委托和自动交易。",
+            "control-safety-boundary",
+            "forbidden",
+        ),
+        _live_profitability_action(
+            "ignore_ticket_risk_budget",
+            "忽略票据风险预算",
+            "单 ETF、总仓位、现金、价格偏离或本人无法解释时必须跳过。",
+            "daily-manual-broker-handoff-ticket-table",
+            "forbidden",
+        ),
+    ]
 
 
 def _daily_factor_health_row(

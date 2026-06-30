@@ -380,6 +380,28 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "daily_real_money_transition_frontend",
+            "Daily real-money transition frontend",
+            index_html.get("ok")
+            and "daily-real-money-transition-gate" in str(index_html.get("body", ""))
+            and "daily-real-money-transition-summary" in str(index_html.get("body", ""))
+            and "daily-real-money-transition-preflight" in str(index_html.get("body", ""))
+            and "daily-real-money-transition-script" in str(index_html.get("body", ""))
+            and "daily-real-money-transition-tickets" in str(index_html.get("body", ""))
+            and app_js.get("ok")
+            and "renderDailyRealMoneyTransitionGate" in str(app_js.get("body", ""))
+            and "daily_real_money_transition_gate" in str(app_js.get("body", ""))
+            and "risk_budget" in str(app_js.get("body", ""))
+            and "manual_skip_conditions" in str(app_js.get("body", ""))
+            and "production_manual_review_candidate" in str(app_js.get("body", "")),
+            "Frontend exposes the daily real-money transition gate with preflight, operator script, ticket-risk, and manual-only boundary hooks.",
+            index_html.get("error")
+            or app_js.get("error")
+            or "Daily real-money transition frontend anchors or renderer hooks are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "backtest_provenance_panel",
             "Backtest provenance contract",
             control.get("ok")
