@@ -2978,6 +2978,7 @@ function renderBeginnerTradeSystem() {
   renderBeginnerTradeActionCard();
   renderBeginnerPretradeReceiptCard();
   renderBeginnerLivePilotBrief();
+  renderBeginnerTradeSystemCapitalLadder();
   const decision = dailyReadinessDecision();
   const trade = state.dailyTradeAdvisory || {};
   const tradeSystem = trade.trade_system || {};
@@ -3008,6 +3009,40 @@ function renderBeginnerTradeSystem() {
       </span>
     </div>
   `).join("");
+}
+
+function renderBeginnerTradeSystemCapitalLadder() {
+  const target = byId("beginner-trade-system-capital-ladder");
+  if (!target) return;
+  const gate = state.dailyTradeAdvisory?.real_world_manual_handoff_gate || {};
+  const ladder = Array.isArray(gate.capital_deployment_ladder) ? gate.capital_deployment_ladder : [];
+  if (!ladder.length) {
+    target.innerHTML = statusRows([["资金阶段", "等待今日交易系统加载，先生成今日前三建议。", "warn"]]);
+    return;
+  }
+  target.innerHTML = ladder.map((item) => {
+    const status = item.status || "waiting";
+    const tone = status.includes("done") ? "ok" : status.includes("locked") || status.includes("blocked") ? "danger" : "warn";
+    const gateText = [
+      item.minimum_matched_paper_receipts != null ? `模拟盘≥${formatNumber(item.minimum_matched_paper_receipts)}` : "",
+      item.minimum_post_close_journals != null ? `复盘≥${formatNumber(item.minimum_post_close_journals)}` : "",
+      item.minimum_paper_ready_observations != null ? `观察≥${formatNumber(item.minimum_paper_ready_observations)}` : "",
+    ].filter(Boolean).join(" / ");
+    const actionButton = item.workflow_id ? `
+      <button class="primary-button" type="button" data-trade-system-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>
+    ` : "";
+    const targetButton = item.target_id ? `
+      <button class="secondary-button" type="button" data-trade-system-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>
+    ` : "";
+    return `
+      <div class="list-row ${escapeHtml(tone)}">
+        <strong>${escapeHtml(`${item.stage_number || "--"}. ${item.label || item.stage_id || ""}`)}</strong>
+        <span>${escapeHtml(`${zhConsoleText(status)} / ${item.capital_mode || ""}`)}</span>
+        <span>${escapeHtml(gateText || item.plain_requirement || "")}</span>
+        <span class="beginner-task-actions">${actionButton}${targetButton}</span>
+      </div>
+    `;
+  }).join("");
 }
 
 function renderBeginnerTradeActionCard() {
