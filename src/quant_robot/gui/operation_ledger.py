@@ -102,6 +102,72 @@ def build_daily_closure_ledger_snapshot(repo_root: str | Path) -> dict[str, Any]
     }
 
 
+def build_server_capital_observation_gate(daily_closure_ledger: dict[str, Any]) -> dict[str, Any]:
+    summary = daily_closure_ledger.get("summary", {}) if isinstance(daily_closure_ledger, dict) else {}
+    rows = daily_closure_ledger.get("rows", []) if isinstance(daily_closure_ledger, dict) else []
+    closed = _int(summary.get("closed_loop_days"))
+    clean = _int(summary.get("clean_execution_days"))
+    blocked = _int(summary.get("blocked_execution_days"))
+    observed = _int(summary.get("server_observed_days"))
+    streak_ready = observed >= 5 and closed >= 5 and clean >= 5 and blocked == 0
+    if streak_ready:
+        status = "manual_small_capital_observation_candidate"
+        next_action = "Prepare a manual small-capital observation packet; keep broker connection and order placement outside this system."
+    elif blocked > 0:
+        status = "blocked_by_manual_execution_audit"
+        next_action = "Review blocked manual execution days before any capital observation discussion."
+    else:
+        status = "blocked_need_clean_server_closure_days"
+        next_action = "Collect five clean server-side closure days before small-capital observation."
+    gate_rows = [
+        _capital_gate_row(
+            "server_closure_streak",
+            "Server closure streak",
+            "pass" if streak_ready else "blocked",
+            f"closed={closed}/5, observed={observed}/5",
+        ),
+        _capital_gate_row(
+            "manual_execution_quality",
+            "Manual execution quality",
+            "pass" if clean >= 5 and blocked == 0 else "blocked",
+            f"clean={clean}/5, blocked={blocked}",
+        ),
+        _capital_gate_row(
+            "capital_scope",
+            "Capital scope",
+            "review",
+            "candidate only; external human review must set budget and skip conditions",
+        ),
+        _capital_gate_row(
+            "live_boundary",
+            "Live boundary",
+            "blocked_expected",
+            "no broker connection, no account read, no order placement, no automated live trading",
+        ),
+    ]
+    return {
+        "stage": "gui_server_capital_observation_gate",
+        "summary": {
+            "status": status,
+            "manual_small_capital_observation_candidate": streak_ready,
+            "server_closed_loop_days": closed,
+            "server_observed_days": observed,
+            "clean_execution_days": clean,
+            "blocked_execution_days": blocked,
+            "next_action": next_action,
+            "paper_only": True,
+            "live_trading_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        },
+        "rows": gate_rows,
+        "recent_closure_rows": rows[:5] if isinstance(rows, list) else [],
+        "safety": _safety(),
+    }
+
+
 def _build_entry(
     *,
     workflow_id: str,
@@ -355,3 +421,21 @@ def _num(value: Any, default: float) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _int(value: Any, default: int = 0) -> int:
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def _capital_gate_row(gate_id: str, label: str, status: str, evidence: str) -> dict[str, Any]:
+    return {
+        "gate_id": gate_id,
+        "label": label,
+        "status": status,
+        "evidence": evidence,
+        "live_trading_allowed": False,
+        "order_placement_allowed": False,
+    }

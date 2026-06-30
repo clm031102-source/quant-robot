@@ -564,6 +564,25 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "server_capital_observation_gate_panel",
+            "Server capital observation gate contract",
+            control.get("ok")
+            and control_body.get("server_capital_observation_gate", {}).get("stage") == "gui_server_capital_observation_gate"
+            and control_body.get("server_capital_observation_gate", {}).get("summary", {}).get("live_trading_allowed") is False
+            and control_body.get("server_capital_observation_gate", {}).get("summary", {}).get("order_placement_allowed") is False
+            and index_html.get("ok")
+            and "control-server-capital-observation-gate" in str(index_html.get("body", ""))
+            and app_js.get("ok")
+            and "renderServerCapitalObservationGate" in str(app_js.get("body", "")),
+            "Control API and frontend expose a server-side small-capital manual observation gate while live trading and order placement stay blocked.",
+            control.get("error")
+            or index_html.get("error")
+            or app_js.get("error")
+            or "Server capital observation gate contract or frontend hooks are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "trade_mode_control_panel",
             "Trade mode control contract",
             control.get("ok")

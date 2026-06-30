@@ -1495,6 +1495,63 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertTrue(ledger["rows"][0]["manual_execution_clean"])
         self.assertTrue(ledger["rows"][0]["completed_loop"])
 
+    def test_control_center_promotes_only_clean_server_closure_streak_to_small_capital_candidate(self):
+        from quant_robot.gui.control_center import build_control_center_snapshot
+        from quant_robot.gui.operation_ledger import append_operation_ledger_entry
+
+        def append_clean_day(root: Path, day: str) -> None:
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="daily_trade_advisory",
+                label="Generate top-three manual trade advisory",
+                status="completed",
+                request={"market": "CN_ETF", "as_of_date": day},
+                result={"metrics": {"signal_count": 3, "selected_factor_count": 3}},
+            )
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="paper_simulation",
+                label="Run local paper simulation",
+                status="completed",
+                request={"market": "CN_ETF", "as_of_date": day, "factor_name": "momentum_2", "top_n": 2},
+                result={"metrics": {"total_return": 0.01, "max_drawdown": -0.02}},
+            )
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="post_close_journal",
+                label="Post-close journal receipt",
+                status="completed",
+                request={"market": "CN_ETF", "as_of_date": day},
+                result={
+                    "metrics": {
+                        "manual_review_recorded": True,
+                        "manual_execution_decision": "manual_execution_evidence_ready",
+                        "manual_execution_missing_review_count": 0,
+                        "manual_execution_guardrail_breach_count": 0,
+                        "manual_execution_slippage_breach_count": 0,
+                    },
+                },
+            )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            for day in ["2026-06-24", "2026-06-25", "2026-06-26", "2026-06-29", "2026-06-30"]:
+                append_clean_day(root, day)
+
+            control = build_control_center_snapshot(repo_root=root)
+
+        gate = control["server_capital_observation_gate"]
+        self.assertEqual(gate["stage"], "gui_server_capital_observation_gate")
+        self.assertEqual(gate["summary"]["status"], "manual_small_capital_observation_candidate")
+        self.assertTrue(gate["summary"]["manual_small_capital_observation_candidate"])
+        self.assertEqual(gate["summary"]["server_closed_loop_days"], 5)
+        self.assertFalse(gate["summary"]["live_trading_allowed"])
+        self.assertFalse(gate["summary"]["order_placement_allowed"])
+        self.assertFalse(gate["summary"]["broker_connection_allowed"])
+        self.assertFalse(gate["summary"]["account_read_allowed"])
+        self.assertIn("server_closure_streak", {row["gate_id"] for row in gate["rows"]})
+        self.assertIn("live_boundary", {row["gate_id"] for row in gate["rows"]})
+
     def test_ledger_evidence_distinguishes_current_from_stale_server_receipts(self):
         from quant_robot.gui.control_center import build_control_center_snapshot
         from quant_robot.gui.operation_ledger import append_operation_ledger_entry
@@ -1735,6 +1792,7 @@ class GuiSnapshotTests(unittest.TestCase):
                 self.assertIn("active_operation_panel", check_ids)
                 self.assertIn("operation_ledger_panel", check_ids)
                 self.assertIn("daily_closure_ledger_panel", check_ids)
+                self.assertIn("server_capital_observation_gate_panel", check_ids)
                 self.assertIn("audit_scheduler_panel", check_ids)
                 self.assertIn("verification_runner_panel", check_ids)
                 self.assertIn("audit_feedback_panel", check_ids)
@@ -2555,6 +2613,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("control-active-operation", html)
             self.assertIn("control-operation-ledger", html)
             self.assertIn("control-daily-closure-ledger", html)
+            self.assertIn("control-server-capital-observation-gate", html)
             self.assertIn("control-trade-mode-control", html)
             self.assertIn("control-request-preview", html)
             self.assertIn("control-result-freshness", html)
@@ -3227,6 +3286,8 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("renderOperationLedger", app_js)
             self.assertIn("control-daily-closure-ledger", app_js)
             self.assertIn("renderDailyClosureLedger", app_js)
+            self.assertIn("control-server-capital-observation-gate", app_js)
+            self.assertIn("renderServerCapitalObservationGate", app_js)
             self.assertIn("syncExecutionReceiptToServer", app_js)
             self.assertIn("/api/control/execution-receipt", app_js)
             self.assertIn("control-trade-mode-control", app_js)

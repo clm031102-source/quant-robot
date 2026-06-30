@@ -2187,6 +2187,7 @@ function renderControlCenter() {
   const activeOperationSpec = control.active_operation || {};
   const operationLedger = control.operation_ledger || {};
   const dailyClosureLedger = control.daily_closure_ledger || {};
+  const serverCapitalObservationGate = control.server_capital_observation_gate || {};
   const tradeModeControl = control.trade_mode_control || {};
   const backtest = control.backtest || {};
   const backtestProvenance = control.backtest_provenance || {};
@@ -2253,6 +2254,7 @@ function renderControlCenter() {
   byId("control-active-operation").innerHTML = renderActiveOperation(activeOperationSpec, state.activeOperation);
   byId("control-operation-ledger").innerHTML = renderOperationLedger(operationLedger);
   byId("control-daily-closure-ledger").innerHTML = renderDailyClosureLedger(dailyClosureLedger);
+  byId("control-server-capital-observation-gate").innerHTML = renderServerCapitalObservationGate(serverCapitalObservationGate);
   byId("control-trade-mode-control").innerHTML = renderTradeModeControl(tradeModeControl);
   byId("control-run-queue").innerHTML = statusRows([
     ["Active", activeRun.label || "--", activeRun.workflow_id ? "ok" : "muted"],
@@ -10102,6 +10104,36 @@ function renderDailyClosureLedger(ledger = {}) {
       <span>${escapeHtml("从 GUI 运行今日前三建议、模拟盘，并提交盘后复盘回执后，这里会沉淀跨端可审计样本。")}</span>
     </div>
   `);
+}
+
+function renderServerCapitalObservationGate(gate = {}) {
+  const summary = gate.summary || {};
+  const rows = Array.isArray(gate.rows) ? gate.rows : [];
+  const status = summary.status || "blocked_need_clean_server_closure_days";
+  const tone = status === "manual_small_capital_observation_candidate" ? "warn" : status.includes("blocked") ? "danger" : "warn";
+  const header = `
+    <div class="list-row ${escapeHtml(tone)}">
+      <strong>${escapeHtml("小资金人工观察候选")}</strong>
+      <span>${escapeHtml(summary.manual_small_capital_observation_candidate ? "可准备材料，不自动下单" : "未放行，继续模拟和闭环")}</span>
+      <span>${escapeHtml(`服务端闭环=${formatNumber(summary.server_closed_loop_days || 0)}/5 / 执行异常=${formatNumber(summary.blocked_execution_days || 0)}`)}</span>
+      <span>${escapeHtml(summary.next_action || "继续收集干净闭环样本。")}</span>
+    </div>
+  `;
+  const body = rows.map((row) => {
+    const rowStatus = row.status || "";
+    const rowTone = rowStatus === "pass" ? "ok" : rowStatus === "blocked_expected" ? "danger" : rowStatus.includes("blocked") ? "danger" : "warn";
+    return `
+      <div class="list-row ${escapeHtml(rowTone)}">
+        <strong>${escapeHtml(row.label || row.gate_id || "")}</strong>
+        <span>${escapeHtml(`${zhConsoleText(rowStatus)} / ${row.evidence || ""}`)}</span>
+      </div>
+    `;
+  }).join("");
+  return header + (body || statusRows([[
+    "小资金观察闸门",
+    "等待服务端每日闭环台账生成后评估；系统仍不连接券商、不读账户、不下单。",
+    "warn",
+  ]]));
 }
 
 function renderTradeModeControl(control = {}) {

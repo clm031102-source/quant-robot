@@ -12,7 +12,11 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
-from quant_robot.gui.operation_ledger import build_daily_closure_ledger_snapshot, build_operation_ledger_snapshot
+from quant_robot.gui.operation_ledger import (
+    build_daily_closure_ledger_snapshot,
+    build_operation_ledger_snapshot,
+    build_server_capital_observation_gate,
+)
 
 
 SAFETY_NOTICE = "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading."
@@ -39,6 +43,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     active_operation = _active_operation_spec()
     operation_ledger = build_operation_ledger_snapshot(root)
     daily_closure_ledger = build_daily_closure_ledger_snapshot(root)
+    server_capital_observation_gate = build_server_capital_observation_gate(daily_closure_ledger)
     artifacts = _artifact_status(root)
     backtest = _default_backtest()
     form_defaults = _form_defaults(backtest)
@@ -125,6 +130,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "active_operation": active_operation,
         "operation_ledger": operation_ledger,
         "daily_closure_ledger": daily_closure_ledger,
+        "server_capital_observation_gate": server_capital_observation_gate,
         "trade_mode_control": trade_mode_control,
         "action_center": action_center,
         "method": {
