@@ -357,6 +357,7 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
             [
                 "asset_code_match",
                 "broker_realtime_price",
+                "price_guardrail",
                 "quantity_and_lot_size",
                 "cash_and_weight_limit",
                 "risk_budget_gate",
@@ -378,7 +379,20 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("manual_skip_conditions", ticket)
         skip_conditions = {row["condition_id"]: row for row in ticket["manual_skip_conditions"]}
         self.assertEqual(skip_conditions["single_etf_limit_breached"]["status"], "blocked")
+        self.assertIn("broker_price_outside_guardrail", skip_conditions)
+        self.assertEqual(skip_conditions["broker_price_outside_guardrail"]["status"], "required")
         self.assertTrue(all(not row["order_placement_allowed"] for row in ticket["manual_skip_conditions"]))
+        guardrails = ticket["execution_guardrails"]
+        self.assertEqual(guardrails["guardrail_id"], "manual_pretrade_price_slippage_guard")
+        self.assertAlmostEqual(guardrails["reference_price"], 3.2)
+        self.assertAlmostEqual(guardrails["max_reference_price_deviation_pct"], 0.005)
+        self.assertAlmostEqual(guardrails["lower_price_bound"], 3.184)
+        self.assertAlmostEqual(guardrails["upper_price_bound"], 3.216)
+        self.assertEqual(guardrails["max_slippage_bps"], 10)
+        self.assertAlmostEqual(guardrails["max_estimated_slippage_cost"], 33.28)
+        self.assertIn("broker_realtime_price", guardrails["manual_input_fields"])
+        self.assertIn("execute_or_skip_reason", guardrails["manual_input_fields"])
+        self.assertFalse(guardrails["order_placement_allowed"])
         self.assertEqual(pack["pretrade_workflow"]["manual_broker_handoff"], handoff)
         self.assertEqual(pack["operator_next_actions"][0]["action_id"], "run_paper_simulation")
         self.assertEqual(pack["operator_next_actions"][0]["status"], "required_before_manual_ticket")
@@ -410,10 +424,19 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(export["rows"][0]["rounded_quantity"], 10400)
         self.assertEqual(export["rows"][0]["review_only"], True)
         self.assertEqual(export["columns"][0], "step_number")
+        self.assertIn("lower_price_bound", export["columns"])
+        self.assertIn("upper_price_bound", export["columns"])
+        self.assertIn("max_slippage_bps", export["columns"])
+        self.assertIn("manual_price_guardrail_note", export["columns"])
+        self.assertAlmostEqual(export["rows"][0]["lower_price_bound"], 3.184)
+        self.assertAlmostEqual(export["rows"][0]["upper_price_bound"], 3.216)
+        self.assertEqual(export["rows"][0]["max_slippage_bps"], 10)
         self.assertIn("csv_text", export)
         self.assertIn("markdown_text", export)
         self.assertIn("510300", export["csv_text"])
         self.assertIn("10400", export["csv_text"])
+        self.assertIn("3.184", export["csv_text"])
+        self.assertIn("3.216", export["csv_text"])
         self.assertIn("manual_review_only", export["csv_text"])
         for forbidden in ["account_id", "broker_id", "client_id", "order_id", "order_placement_allowed"]:
             self.assertNotIn(forbidden, export["csv_text"])

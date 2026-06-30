@@ -38,6 +38,8 @@ DAILY_FACTOR_HEALTH_MONITOR_STAGE = "phase_6_20_daily_factor_health_monitor"
 DAILY_REAL_MONEY_TRANSITION_GATE_STAGE = "phase_6_21_daily_real_money_transition_gate"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
+MANUAL_PRICE_DEVIATION_GUARD_PCT = 0.005
+MANUAL_MAX_SLIPPAGE_BPS = 10
 DEFAULT_RISK_PROFILE_ID = "balanced_20dd"
 RISK_PROFILE_SPECS = [
     {
@@ -2253,6 +2255,10 @@ def _broker_handoff_ticket(index: int, row: dict[str, Any], summary: dict[str, A
         portfolio_value=_float((summary or {}).get("portfolio_value"), 100000.0),
         risk_profile=_risk_profile_by_id(str((summary or {}).get("risk_profile_id") or DEFAULT_RISK_PROFILE_ID)),
     )
+    execution_guardrails = _manual_ticket_execution_guardrails(
+        {**row, "reference_price": latest_price, "rounded_value": rounded_value}
+    )
+    enriched_row = {**row, "risk_budget": risk_budget, "execution_guardrails": execution_guardrails}
     return {
         "step_number": index,
         "ticket_id": row.get("ticket_id"),
@@ -2272,11 +2278,44 @@ def _broker_handoff_ticket(index: int, row: dict[str, Any], summary: dict[str, A
         "copy_text": copy_text,
         "do_not_submit_until_checked": True,
         "risk_budget": risk_budget,
-        "manual_skip_conditions": _manual_ticket_skip_conditions({**row, "risk_budget": risk_budget}),
-        "review_checklist": _broker_ticket_review_checklist({**row, "risk_budget": risk_budget}),
+        "execution_guardrails": execution_guardrails,
+        "manual_skip_conditions": _manual_ticket_skip_conditions(enriched_row),
+        "review_checklist": _broker_ticket_review_checklist(enriched_row),
         "red_flags": _broker_ticket_red_flags(),
         "live_order_allowed": False,
         "order_placement_allowed": False,
+    }
+
+
+def _manual_ticket_execution_guardrails(row: dict[str, Any]) -> dict[str, Any]:
+    reference_price = _float_or_none(row.get("reference_price") or row.get("latest_price"))
+    rounded_value = max(0.0, _float(row.get("rounded_value"), 0.0))
+    lower_bound = None
+    upper_bound = None
+    if reference_price is not None and reference_price > 0:
+        lower_bound = round(reference_price * (1 - MANUAL_PRICE_DEVIATION_GUARD_PCT), 6)
+        upper_bound = round(reference_price * (1 + MANUAL_PRICE_DEVIATION_GUARD_PCT), 6)
+    return {
+        "guardrail_id": "manual_pretrade_price_slippage_guard",
+        "reference_price": reference_price,
+        "max_reference_price_deviation_pct": MANUAL_PRICE_DEVIATION_GUARD_PCT,
+        "lower_price_bound": lower_bound,
+        "upper_price_bound": upper_bound,
+        "max_slippage_bps": MANUAL_MAX_SLIPPAGE_BPS,
+        "max_estimated_slippage_cost": round(rounded_value * MANUAL_MAX_SLIPPAGE_BPS / 10000, 6),
+        "manual_input_fields": [
+            "broker_realtime_price",
+            "actual_fill_price",
+            "fill_quantity",
+            "execute_or_skip_reason",
+        ],
+        "plain_rule": "券商实时价必须落在参考价护栏内；预估滑点或实际价格明显超出时，跳过或重新生成今日建议。",
+        "automation_allowed": False,
+        "live_order_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
     }
 
 
@@ -2334,6 +2373,7 @@ def _manual_ticket_risk_budget(
 
 def _manual_ticket_skip_conditions(row: dict[str, Any]) -> list[dict[str, Any]]:
     budget = row.get("risk_budget") if isinstance(row.get("risk_budget"), dict) else {}
+    guardrails = row.get("execution_guardrails") if isinstance(row.get("execution_guardrails"), dict) else {}
     rounded_quantity = _int(row.get("rounded_quantity"), 0)
     rounded_value = _float(row.get("rounded_value"), 0.0)
     reference_price = _float_or_none(row.get("reference_price") or row.get("latest_price"))
@@ -2368,6 +2408,16 @@ def _manual_ticket_skip_conditions(row: dict[str, Any]) -> list[dict[str, Any]]:
             f"券商端实时价必须人工核对；本地参考价={reference_price if reference_price is not None else '--'}，偏离明显就重新估算或跳过。",
         ),
         condition(
+            "broker_price_outside_guardrail",
+            "required",
+            (
+                "券商实时价必须在人工价格护栏内；"
+                f"下限={guardrails.get('lower_price_bound', '--')}，"
+                f"上限={guardrails.get('upper_price_bound', '--')}，"
+                f"最大滑点={guardrails.get('max_slippage_bps', '--')}bps；超出就跳过或重算。"
+            ),
+        ),
+        condition(
             "paper_receipt_missing",
             "required",
             "没有同参数模拟盘回执和盘后复盘样本时，不要把票据升级为真实资金动作。",
@@ -2387,6 +2437,7 @@ def _broker_ticket_review_checklist(row: dict[str, Any]) -> list[dict[str, Any]]
     rounded_value = _float_or_none(row.get("rounded_value"))
     reference_price = _float_or_none(row.get("reference_price") or row.get("latest_price"))
     risk_budget = row.get("risk_budget") if isinstance(row.get("risk_budget"), dict) else {}
+    guardrails = row.get("execution_guardrails") if isinstance(row.get("execution_guardrails"), dict) else {}
     checks = [
         (
             "asset_code_match",
@@ -2397,6 +2448,16 @@ def _broker_ticket_review_checklist(row: dict[str, Any]) -> list[dict[str, Any]]
             "broker_realtime_price",
             "核对实时价格",
             f"本地参考价={reference_price if reference_price is not None else '--'}；券商端实时价偏离明显时重新估算金额和数量。",
+        ),
+        (
+            "price_guardrail",
+            "价格/滑点护栏",
+            (
+                f"实时价必须在 {guardrails.get('lower_price_bound', '--')} - "
+                f"{guardrails.get('upper_price_bound', '--')} 之间；"
+                f"最大滑点={guardrails.get('max_slippage_bps', '--')}bps，"
+                f"预估滑点成本上限={guardrails.get('max_estimated_slippage_cost', '--')}。"
+            ),
         ),
         (
             "quantity_and_lot_size",
@@ -4460,10 +4521,17 @@ def _real_money_transition_ticket_preview(
                 risk_profile=risk_profile,
             )
         )
+        execution_guardrails = (
+            ticket.get("execution_guardrails")
+            if isinstance(ticket.get("execution_guardrails"), dict)
+            else _manual_ticket_execution_guardrails(ticket)
+        )
         skip_conditions = (
             ticket.get("manual_skip_conditions")
             if isinstance(ticket.get("manual_skip_conditions"), list)
-            else _manual_ticket_skip_conditions({**ticket, "risk_budget": risk_budget})
+            else _manual_ticket_skip_conditions(
+                {**ticket, "risk_budget": risk_budget, "execution_guardrails": execution_guardrails}
+            )
         )
         rows.append(
             {
@@ -4485,6 +4553,7 @@ def _real_money_transition_ticket_preview(
                 "cash_delta_after_rounding": _float_or_none(ticket.get("cash_delta_after_rounding")),
                 "source_factors": ticket.get("source_factors"),
                 "risk_budget": risk_budget,
+                "execution_guardrails": execution_guardrails,
                 "manual_skip_conditions": skip_conditions,
                 "plain_instruction": ticket.get("plain_instruction")
                 or ticket.get("copy_text")
@@ -5461,6 +5530,11 @@ def _real_world_boundary(boundary_id: str, label: str, plain_boundary: str) -> d
 
 def _real_world_ticket_preview(ticket: dict[str, Any], step_number: int) -> dict[str, Any]:
     source_factors = ticket.get("source_factors")
+    guardrails = (
+        ticket.get("execution_guardrails")
+        if isinstance(ticket.get("execution_guardrails"), dict)
+        else _manual_ticket_execution_guardrails(ticket)
+    )
     if isinstance(source_factors, list):
         factor_text = ", ".join(str(item) for item in source_factors)
     else:
@@ -5479,6 +5553,11 @@ def _real_world_ticket_preview(ticket: dict[str, Any], step_number: int) -> dict
         "rounded_quantity_delta": _int(ticket.get("rounded_quantity_delta"), _int(ticket.get("rounded_quantity"), 0)),
         "rounded_value": _float_or_none(ticket.get("rounded_value")),
         "cash_delta_after_rounding": _float_or_none(ticket.get("cash_delta_after_rounding")),
+        "lower_price_bound": _float_or_none(guardrails.get("lower_price_bound")),
+        "upper_price_bound": _float_or_none(guardrails.get("upper_price_bound")),
+        "max_reference_price_deviation_pct": _float_or_none(guardrails.get("max_reference_price_deviation_pct")),
+        "max_slippage_bps": _int(guardrails.get("max_slippage_bps"), 0),
+        "max_estimated_slippage_cost": _float_or_none(guardrails.get("max_estimated_slippage_cost")),
         "source_factors": factor_text,
         "executable": False,
         "review_only": True,
@@ -6199,10 +6278,16 @@ def build_manual_ticket_export(pack: dict[str, Any]) -> dict[str, Any]:
         "rounded_quantity_delta",
         "rounded_value",
         "cash_delta_after_rounding",
+        "lower_price_bound",
+        "upper_price_bound",
+        "max_reference_price_deviation_pct",
+        "max_slippage_bps",
+        "max_estimated_slippage_cost",
         "source_factors",
         "review_status",
         "review_only",
         "paper_simulation_required",
+        "manual_price_guardrail_note",
         "manual_check_note",
     ]
     rows = [_manual_ticket_export_row(ticket) for ticket in tickets]
@@ -6236,6 +6321,11 @@ def build_manual_ticket_export(pack: dict[str, Any]) -> dict[str, Any]:
 
 def _manual_ticket_export_row(ticket: dict[str, Any]) -> dict[str, Any]:
     source_factors = ticket.get("source_factors")
+    guardrails = (
+        ticket.get("execution_guardrails")
+        if isinstance(ticket.get("execution_guardrails"), dict)
+        else _manual_ticket_execution_guardrails(ticket)
+    )
     if isinstance(source_factors, list):
         factor_text = "|".join(str(item) for item in source_factors)
     elif source_factors is None:
@@ -6258,10 +6348,16 @@ def _manual_ticket_export_row(ticket: dict[str, Any]) -> dict[str, Any]:
         "rounded_quantity_delta": _int(ticket.get("rounded_quantity_delta"), 0),
         "rounded_value": _float_or_none(ticket.get("rounded_value")),
         "cash_delta_after_rounding": _float_or_none(ticket.get("cash_delta_after_rounding")),
+        "lower_price_bound": _float_or_none(guardrails.get("lower_price_bound")),
+        "upper_price_bound": _float_or_none(guardrails.get("upper_price_bound")),
+        "max_reference_price_deviation_pct": _float_or_none(guardrails.get("max_reference_price_deviation_pct")),
+        "max_slippage_bps": _int(guardrails.get("max_slippage_bps"), 0),
+        "max_estimated_slippage_cost": _float_or_none(guardrails.get("max_estimated_slippage_cost")),
         "source_factors": factor_text,
         "review_status": "manual_review_only",
         "review_only": True,
         "paper_simulation_required": True,
+        "manual_price_guardrail_note": str(guardrails.get("plain_rule") or ""),
         "manual_check_note": "仅供人工复核；先核对模拟盘、实时价格、现金、仓位上限和风险，再由人决定是否操作。",
     }
 

@@ -7640,11 +7640,20 @@ function renderManualBrokerHandoff(handoff) {
   renderManualBrokerBeginnerChecklist(handoff, tickets);
   renderManualTicketExport(state.dailyTradeAdvisory?.manual_ticket_export || {}, tickets);
   renderManualBrokerCopyCards(tickets);
-  byId("daily-manual-broker-handoff-ticket-table").innerHTML = tableRows(tickets, [
+  const ticketRows = tickets.map((ticket) => ({
+    ...ticket,
+    lower_price_bound: ticket.execution_guardrails?.lower_price_bound,
+    upper_price_bound: ticket.execution_guardrails?.upper_price_bound,
+    max_slippage_bps: ticket.execution_guardrails?.max_slippage_bps,
+  }));
+  byId("daily-manual-broker-handoff-ticket-table").innerHTML = tableRows(ticketRows, [
     "step_number",
     "asset_id",
     "side",
     "reference_price",
+    "lower_price_bound",
+    "upper_price_bound",
+    "max_slippage_bps",
     "rounded_quantity",
     "rounded_value",
     "cash_delta_after_rounding",
@@ -7728,11 +7737,29 @@ function renderManualBrokerCopyCards(tickets = []) {
         <span class="beginner-task-actions">
           <button class="secondary-button" type="button" data-copy-ticket-text="${escapeRawHtml(text)}">复制票据文本</button>
         </span>
+        ${renderTicketExecutionGuardrails(ticket)}
         ${renderTicketRiskBudget(ticket)}
         ${renderTicketReviewChecklist(ticket)}
       </div>
     `;
   }).join("");
+}
+
+function renderTicketExecutionGuardrails(ticket = {}) {
+  const guardrails = ticket.execution_guardrails || {};
+  if (!Object.keys(guardrails).length) return "";
+  return `
+    <div class="ticket-review-checklist ticket-execution-guardrails">
+      <div class="mini-row warn">
+        <strong>${escapeHtml("execution_guardrails")}</strong>
+        <span>${escapeHtml(`实时价区间=${formatNumber(guardrails.lower_price_bound)} - ${formatNumber(guardrails.upper_price_bound)} / 最大滑点=${formatNumber(guardrails.max_slippage_bps)}bps / 滑点成本=${formatNumber(guardrails.max_estimated_slippage_cost)}`)}</span>
+      </div>
+      <div class="mini-row warn">
+        <strong>${escapeHtml("manual_input_fields")}</strong>
+        <span>${escapeHtml(Array.isArray(guardrails.manual_input_fields) ? guardrails.manual_input_fields.join(", ") : "broker_realtime_price, actual_fill_price, fill_quantity, execute_or_skip_reason")}</span>
+      </div>
+    </div>
+  `;
 }
 
 function renderTicketRiskBudget(ticket = {}) {
