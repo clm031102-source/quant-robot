@@ -5,6 +5,7 @@ from pathlib import Path
 
 from quant_robot.ops.daily_trade_advisory import (
     build_daily_candidate_pool_top20,
+    build_daily_manual_trading_session,
     build_manual_execution_audit,
     build_daily_trade_decision_sheet,
     build_manual_ticket_export,
@@ -1528,6 +1529,114 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("risk_budget", gate["manual_execution_preview"][0])
         self.assertIn("manual_skip_conditions", gate["manual_execution_preview"][0])
         self.assertTrue(all(not row["order_placement_allowed"] for row in gate["operator_script"]))
+
+    def test_daily_pack_exposes_manual_trading_session_that_blocks_missing_paper_evidence(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF", "sharpe": 1.2},
+                {"rank": 2, "case_id": "c2", "factor_name": "reversal_2", "market": "CN_ETF", "sharpe": 0.8},
+                {"rank": 3, "case_id": "c3", "factor_name": "volatility_2", "market": "CN_ETF", "sharpe": 0.7},
+            ],
+            [
+                _signal("c1", "momentum_2", {"510300": 0.4}),
+                _signal("c2", "reversal_2", {"588000": 0.3}),
+                _signal("c3", "volatility_2", {"159915": 0.2}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+        )
+
+        session = pack["daily_manual_trading_session"]
+
+        self.assertEqual(session["stage"], "phase_6_24_daily_manual_trading_session")
+        self.assertEqual(session["summary"]["session_status"], "blocked_same_parameter_paper_required")
+        self.assertEqual(session["summary"]["traffic_light"], "red")
+        self.assertFalse(session["summary"]["manual_broker_review_candidate"])
+        self.assertFalse(session["summary"]["small_capital_observation_candidate"])
+        self.assertFalse(session["summary"]["order_placement_allowed"])
+        self.assertEqual(session["summary"]["matched_paper_receipts"], 0)
+        self.assertIn("same_parameter_paper", {row["gate_id"] for row in session["blocking_gates"]})
+        self.assertIn("pre_open_check", {row["phase_id"] for row in session["session_phases"]})
+        self.assertIn("record_post_close_journal", {row["step_id"] for row in session["operator_checklist"]})
+        self.assertTrue(all(not row["order_placement_allowed"] for row in session["operator_checklist"]))
+        self.assertTrue(session["manual_ticket_preview"])
+
+    def test_manual_trading_session_uses_profitability_evidence_without_enabling_orders(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {
+                    "rank": 1,
+                    "case_id": "c1",
+                    "factor_name": "momentum_quality_combo",
+                    "market": "CN_ETF",
+                    "sharpe": 1.35,
+                    "annualized_return": 0.18,
+                    "max_drawdown": -0.14,
+                    "win_rate": 0.59,
+                    "rank_ic": 0.045,
+                    "trade_count": 96,
+                },
+                {
+                    "rank": 2,
+                    "case_id": "c2",
+                    "factor_name": "low_vol_overlay",
+                    "market": "CN_ETF",
+                    "sharpe": 1.05,
+                    "annualized_return": 0.14,
+                    "max_drawdown": -0.11,
+                    "win_rate": 0.57,
+                    "rank_ic": 0.033,
+                    "trade_count": 80,
+                },
+                {
+                    "rank": 3,
+                    "case_id": "c3",
+                    "factor_name": "breadth_trend_state",
+                    "market": "CN_ETF",
+                    "sharpe": 0.98,
+                    "annualized_return": 0.12,
+                    "max_drawdown": -0.10,
+                    "win_rate": 0.56,
+                    "rank_ic": 0.028,
+                    "trade_count": 72,
+                },
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.2}),
+                _signal("c2", "low_vol_overlay", {"588000": 0.2}),
+                _signal("c3", "breadth_trend_state", {"159915": 0.2}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="aggressive_30dd",
+            evidence_snapshot={
+                "walk_forward_oos_passed": True,
+                "lookahead_bias_audit_passed": True,
+                "multiple_testing_control_passed": True,
+                "transaction_cost_capacity_passed": True,
+                "matched_paper_receipts": 5,
+                "post_close_journals": 5,
+                "manual_execution_clean_receipts": 5,
+                "manual_execution_blocked_receipts": 0,
+                "paper_ready_observations": 20,
+            },
+        )
+        direct = build_daily_manual_trading_session(pack)
+
+        self.assertEqual(direct, pack["daily_manual_trading_session"])
+        self.assertEqual(direct["summary"]["session_status"], "production_manual_review_candidate")
+        self.assertEqual(direct["summary"]["traffic_light"], "yellow")
+        self.assertTrue(direct["summary"]["manual_broker_review_candidate"])
+        self.assertTrue(direct["summary"]["small_capital_observation_candidate"])
+        self.assertFalse(direct["summary"]["real_money_allowed"])
+        self.assertFalse(direct["summary"]["broker_connection_allowed"])
+        self.assertFalse(direct["summary"]["account_read_allowed"])
+        self.assertFalse(direct["summary"]["order_placement_allowed"])
+        self.assertEqual(direct["summary"]["matched_paper_receipts"], 5)
+        self.assertEqual(direct["summary"]["manual_execution_clean_receipts"], 5)
+        self.assertIn("open_external_broker_manually", {row["step_id"] for row in direct["operator_checklist"]})
+        self.assertIn("direct_buy_top3", {row["action_id"] for row in direct["forbidden_actions"]})
+        self.assertTrue(all(not row["order_placement_allowed"] for row in direct["manual_ticket_preview"]))
 
     def test_daily_pack_exposes_factor_health_monitor_for_top3_retirement_gate(self):
         pack = build_daily_trade_advisory_pack(

@@ -38,6 +38,7 @@ DAILY_FACTOR_HEALTH_MONITOR_STAGE = "phase_6_20_daily_factor_health_monitor"
 DAILY_REAL_MONEY_TRANSITION_GATE_STAGE = "phase_6_21_daily_real_money_transition_gate"
 DAILY_CANDIDATE_POOL_TOP20_STAGE = "phase_6_22_daily_candidate_pool_top20"
 MANUAL_EXECUTION_AUDIT_STAGE = "phase_6_23_manual_execution_audit"
+DAILY_MANUAL_TRADING_SESSION_STAGE = "phase_6_24_daily_manual_trading_session"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 MANUAL_PRICE_DEVIATION_GUARD_PCT = 0.005
@@ -431,6 +432,7 @@ def build_daily_trade_advisory_pack(
     pack["live_profitability_readiness"] = build_live_profitability_readiness_scorecard(pack)
     pack["daily_factor_health_monitor"] = build_daily_factor_health_monitor(pack)
     pack["daily_real_money_transition_gate"] = build_daily_real_money_transition_gate(pack)
+    pack["daily_manual_trading_session"] = build_daily_manual_trading_session(pack)
     pack["summary"]["live_transition_status"] = pack["live_transition_plan"]["summary"]["status"]
     pack["summary"]["trading_system_status"] = pack["trading_system_blueprint"]["summary"]["status"]
     pack["summary"]["execution_bridge_status"] = pack["daily_signal_execution_bridge"]["summary"]["status"]
@@ -439,6 +441,7 @@ def build_daily_trade_advisory_pack(
     pack["summary"]["live_profitability_readiness_status"] = pack["live_profitability_readiness"]["summary"]["decision"]
     pack["summary"]["factor_health_status"] = pack["daily_factor_health_monitor"]["summary"]["decision"]
     pack["summary"]["real_money_transition_status"] = pack["daily_real_money_transition_gate"]["summary"]["decision"]
+    pack["summary"]["manual_trading_session_status"] = pack["daily_manual_trading_session"]["summary"]["session_status"]
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
 
@@ -4662,6 +4665,519 @@ def build_daily_real_money_transition_gate(pack: dict[str, Any]) -> dict[str, An
             "factor_health_summary": health_summary,
         }
     )
+
+
+def build_daily_manual_trading_session(pack: dict[str, Any]) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    transition = (
+        pack.get("daily_real_money_transition_gate")
+        if isinstance(pack.get("daily_real_money_transition_gate"), dict)
+        else {}
+    )
+    transition_summary = transition.get("summary") if isinstance(transition.get("summary"), dict) else {}
+    profitability = (
+        pack.get("live_profitability_readiness")
+        if isinstance(pack.get("live_profitability_readiness"), dict)
+        else {}
+    )
+    profitability_summary = profitability.get("summary") if isinstance(profitability.get("summary"), dict) else {}
+    readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
+    validation = (
+        pack.get("current_position_validation")
+        if isinstance(pack.get("current_position_validation"), dict)
+        else {}
+    )
+    health = pack.get("daily_factor_health_monitor") if isinstance(pack.get("daily_factor_health_monitor"), dict) else {}
+    health_summary = health.get("summary") if isinstance(health.get("summary"), dict) else {}
+    handoff = pack.get("manual_broker_handoff") if isinstance(pack.get("manual_broker_handoff"), dict) else {}
+    preflight_rows = [row for row in transition.get("preflight_rows", []) if isinstance(row, dict)]
+    gate_by_id = {str(row.get("gate_id")): row for row in preflight_rows if row.get("gate_id")}
+    manual_preview_source = [
+        row for row in transition.get("manual_execution_preview", []) if isinstance(row, dict)
+    ]
+    if not manual_preview_source:
+        copyable_tickets = [row for row in handoff.get("copyable_tickets", []) if isinstance(row, dict)]
+        fallback_tickets = copyable_tickets or [row for row in pack.get("manual_trade_plan", []) if isinstance(row, dict)]
+        manual_preview_source = _real_money_transition_ticket_preview(fallback_tickets, summary)
+    manual_ticket_preview = [_daily_manual_session_ticket(row) for row in manual_preview_source]
+
+    selected_count = _session_count(transition_summary.get("selected_factor_count"), summary.get("selected_factor_count"))
+    signal_count = _session_count(transition_summary.get("signal_count"), summary.get("signal_count"))
+    target_count = _session_count(transition_summary.get("target_count"), summary.get("combined_target_count"))
+    ticket_count = len(manual_ticket_preview) or _session_count(
+        transition_summary.get("manual_ticket_count"),
+        summary.get("manual_ticket_count"),
+    )
+    matched_paper = _session_count(
+        transition_summary.get("matched_paper_receipts"),
+        profitability_summary.get("matched_paper_receipts"),
+    )
+    journal_count = _session_count(
+        transition_summary.get("post_close_journal_receipts"),
+        profitability_summary.get("post_close_journal_receipts"),
+    )
+    manual_clean = _session_count(
+        transition_summary.get("manual_execution_clean_receipts"),
+        profitability_summary.get("manual_execution_clean_receipts"),
+    )
+    manual_blocked = _session_count(
+        transition_summary.get("manual_execution_blocked_receipts"),
+        profitability_summary.get("manual_execution_blocked_receipts"),
+    )
+    manual_missing = _session_count(
+        transition_summary.get("manual_execution_missing_review_receipts"),
+        profitability_summary.get("manual_execution_missing_review_receipts"),
+    )
+    paper_ready_observations = _session_count(
+        transition_summary.get("paper_ready_observations"),
+        profitability_summary.get("paper_ready_observations"),
+    )
+
+    position_status = str(validation.get("status") or summary.get("current_position_status") or "unknown")
+    readiness_blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
+    transition_decision = str(transition_summary.get("decision") or "")
+    health_decision = str(health_summary.get("decision") or "")
+    pretrade_blocked = (
+        position_status == "error"
+        or bool(readiness_blockers)
+        or transition_decision in {"blocked_pretrade_red_light", "blocked_current_position_input"}
+    )
+    health_blocked = bool(health_summary.get("retirement_required_before_live")) or transition_decision == "rotate_or_reduce_top3_first"
+    has_same_day_signal = signal_count > 0 and target_count > 0
+    has_manual_tickets = ticket_count > 0
+    manual_execution_dirty = manual_blocked > 0 or manual_missing > 0
+    production_candidate = bool(transition_summary.get("production_manual_review_candidate"))
+    small_candidate = bool(transition_summary.get("small_capital_observation_candidate"))
+
+    if pretrade_blocked:
+        session_status = "blocked_pretrade_red_light"
+    elif health_blocked:
+        session_status = "blocked_factor_health_rotation_required"
+    elif not has_same_day_signal:
+        session_status = "blocked_same_day_signal_required"
+    elif not has_manual_tickets:
+        session_status = "blocked_manual_ticket_required"
+    elif matched_paper < 5:
+        session_status = "blocked_same_parameter_paper_required"
+    elif journal_count < 5:
+        session_status = "blocked_post_close_journal_required"
+    elif manual_execution_dirty:
+        session_status = "blocked_manual_execution_audit"
+    elif production_candidate:
+        session_status = "production_manual_review_candidate"
+    elif small_candidate:
+        session_status = "small_capital_manual_observation_candidate"
+    else:
+        session_status = "paper_rehearsal_required"
+
+    blocked = session_status.startswith("blocked")
+    traffic_light = "red" if blocked else "yellow"
+    manual_broker_review_candidate = session_status in {
+        "production_manual_review_candidate",
+        "small_capital_manual_observation_candidate",
+    }
+    blocking_gates = _daily_manual_session_blocking_gates(
+        selected_count=selected_count,
+        signal_count=signal_count,
+        target_count=target_count,
+        ticket_count=ticket_count,
+        matched_paper=matched_paper,
+        journal_count=journal_count,
+        manual_clean=manual_clean,
+        manual_blocked=manual_blocked,
+        manual_missing=manual_missing,
+        pretrade_blocked=pretrade_blocked,
+        health_blocked=health_blocked,
+        research_evidence_status=str(gate_by_id.get("research_evidence", {}).get("status") or "required"),
+    )
+    next_gate = blocking_gates[0] if blocking_gates else {}
+    return _sanitize(
+        {
+            "stage": DAILY_MANUAL_TRADING_SESSION_STAGE,
+            "run_date": str(pack.get("run_date") or date.today().isoformat()),
+            "safety": SAFETY_NOTICE,
+            "summary": {
+                "session_status": session_status,
+                "traffic_light": traffic_light,
+                "plain_answer": _daily_manual_session_plain_answer(session_status),
+                "primary_market": str(transition_summary.get("primary_market") or "CN_ETF"),
+                "selected_factor_count": selected_count,
+                "signal_count": signal_count,
+                "target_count": target_count,
+                "manual_ticket_count": ticket_count,
+                "matched_paper_receipts": matched_paper,
+                "post_close_journal_receipts": journal_count,
+                "manual_execution_clean_receipts": manual_clean,
+                "manual_execution_blocked_receipts": manual_blocked,
+                "manual_execution_missing_review_receipts": manual_missing,
+                "paper_ready_observations": paper_ready_observations,
+                "readiness_score_pct": _session_count(transition_summary.get("readiness_score_pct")),
+                "manual_broker_review_candidate": manual_broker_review_candidate,
+                "small_capital_observation_candidate": small_candidate and not blocked,
+                "production_manual_review_candidate": production_candidate and not blocked,
+                "real_money_allowed": False,
+                "live_order_allowed": False,
+                "live_trading_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+                "next_gate_id": next_gate.get("gate_id"),
+                "next_label": next_gate.get("label") or transition_summary.get("next_label") or "Review today's manual session",
+                "next_target_id": next_gate.get("target_id") or transition_summary.get("next_target_id") or "daily-manual-trading-session",
+                "next_workflow_id": next_gate.get("workflow_id") or transition_summary.get("next_workflow_id") or "",
+            },
+            "session_phases": _daily_manual_session_phases(
+                session_status=session_status,
+                selected_count=selected_count,
+                signal_count=signal_count,
+                target_count=target_count,
+                ticket_count=ticket_count,
+                matched_paper=matched_paper,
+                journal_count=journal_count,
+                manual_clean=manual_clean,
+                manual_blocked=manual_blocked,
+                manual_missing=manual_missing,
+            ),
+            "blocking_gates": blocking_gates,
+            "operator_checklist": _daily_manual_session_operator_checklist(
+                session_status=session_status,
+                selected_count=selected_count,
+                signal_count=signal_count,
+                ticket_count=ticket_count,
+                matched_paper=matched_paper,
+                journal_count=journal_count,
+                manual_clean=manual_clean,
+                manual_execution_dirty=manual_execution_dirty,
+                manual_broker_review_candidate=manual_broker_review_candidate,
+            ),
+            "manual_ticket_preview": manual_ticket_preview,
+            "transition_summary": transition_summary,
+            "profitability_summary": profitability_summary,
+            "forbidden_actions": _real_money_transition_forbidden_actions(),
+            "session_rules": [
+                {
+                    "rule_id": "no_direct_top3_buy",
+                    "plain_rule": "Top3 factors are candidate inputs; they are never direct buy orders.",
+                    "order_placement_allowed": False,
+                },
+                {
+                    "rule_id": "same_parameter_paper_first",
+                    "plain_rule": "A manual-money session needs matched same-parameter paper evidence before any human broker review.",
+                    "order_placement_allowed": False,
+                },
+                {
+                    "rule_id": "manual_external_broker_only",
+                    "plain_rule": "If capital is ever used, the human must leave this software and decide manually in the broker app.",
+                    "order_placement_allowed": False,
+                },
+            ],
+        }
+    )
+
+
+def _daily_manual_session_ticket(row: dict[str, Any]) -> dict[str, Any]:
+    item = dict(row)
+    item["order_placement_allowed"] = False
+    item["auto_order_allowed"] = False
+    item["broker_connection_allowed"] = False
+    item["account_read_allowed"] = False
+    item["manual_review_only"] = True
+    return item
+
+
+def _daily_manual_session_blocking_gates(
+    *,
+    selected_count: int,
+    signal_count: int,
+    target_count: int,
+    ticket_count: int,
+    matched_paper: int,
+    journal_count: int,
+    manual_clean: int,
+    manual_blocked: int,
+    manual_missing: int,
+    pretrade_blocked: bool,
+    health_blocked: bool,
+    research_evidence_status: str,
+) -> list[dict[str, Any]]:
+    candidates = [
+        (
+            "pretrade_red_light",
+            "Pretrade red light",
+            not pretrade_blocked,
+            "daily-pretrade-readiness-verdict",
+            "",
+            "Fix current positions and pretrade blockers first.",
+        ),
+        (
+            "factor_health",
+            "Top3 factor health",
+            not health_blocked and selected_count > 0,
+            "daily-factor-health-rows",
+            "",
+            "Retire or reduce bad Top3 factors before manual review.",
+        ),
+        (
+            "same_day_signal",
+            "Same-day CN_ETF signal",
+            signal_count > 0 and target_count > 0,
+            "daily-trade-factor-table",
+            "daily_trade_advisory",
+            f"signals={signal_count}; targets={target_count}.",
+        ),
+        (
+            "manual_ticket_pack",
+            "Manual ticket pack",
+            ticket_count > 0,
+            "daily-manual-broker-handoff-ticket-table",
+            "daily_trade_advisory",
+            f"manual_tickets={ticket_count}.",
+        ),
+        (
+            "research_evidence",
+            "Research evidence gates",
+            research_evidence_status == "pass",
+            "control-backtest-gate",
+            "",
+            f"research_evidence_status={research_evidence_status}.",
+        ),
+        (
+            "same_parameter_paper",
+            "Same-parameter paper receipts",
+            matched_paper >= 5,
+            "paper-metrics",
+            "paper_simulation",
+            f"matched_paper_receipts={matched_paper}/5.",
+        ),
+        (
+            "post_close_journal",
+            "Post-close journals",
+            journal_count >= 5,
+            "beginner-post-close-journal-board",
+            "post_close_journal",
+            f"post_close_journals={journal_count}/5.",
+        ),
+        (
+            "manual_execution_quality",
+            "Manual execution quality",
+            manual_clean >= 5 and manual_blocked == 0 and manual_missing == 0,
+            "beginner-post-close-journal-board",
+            "post_close_journal",
+            f"clean={manual_clean}/5; blocked={manual_blocked}; missing={manual_missing}.",
+        ),
+    ]
+    rows = []
+    for gate_id, label, passed, target_id, workflow_id, evidence in candidates:
+        if passed:
+            continue
+        rows.append(
+            {
+                "gate_id": gate_id,
+                "label": label,
+                "status": "blocked" if gate_id in {"pretrade_red_light", "factor_health"} else "required",
+                "evidence": evidence,
+                "target_id": target_id,
+                "workflow_id": workflow_id,
+                "order_placement_allowed": False,
+            }
+        )
+    return rows
+
+
+def _daily_manual_session_phases(
+    *,
+    session_status: str,
+    selected_count: int,
+    signal_count: int,
+    target_count: int,
+    ticket_count: int,
+    matched_paper: int,
+    journal_count: int,
+    manual_clean: int,
+    manual_blocked: int,
+    manual_missing: int,
+) -> list[dict[str, Any]]:
+    blocked = session_status.startswith("blocked")
+    return [
+        _daily_manual_session_phase(
+            1,
+            "pre_open_check",
+            "Pre-open check",
+            "pass" if selected_count > 0 and signal_count > 0 and target_count > 0 else "required",
+            f"selected={selected_count}; signals={signal_count}; targets={target_count}.",
+            "daily-trade-factor-table",
+            "daily_trade_advisory" if signal_count == 0 else "",
+        ),
+        _daily_manual_session_phase(
+            2,
+            "same_parameter_paper",
+            "Same-parameter paper",
+            "pass" if matched_paper >= 5 else "required",
+            f"matched_paper_receipts={matched_paper}/5.",
+            "paper-metrics",
+            "paper_simulation",
+        ),
+        _daily_manual_session_phase(
+            3,
+            "manual_ticket_review",
+            "Manual ticket review",
+            "manual_review_only" if ticket_count > 0 and not blocked else "locked",
+            f"manual_tickets={ticket_count}; broker automation disabled.",
+            "daily-manual-broker-handoff-ticket-table",
+            "",
+        ),
+        _daily_manual_session_phase(
+            4,
+            "post_close_journal",
+            "Post-close journal",
+            "pass" if journal_count >= 5 else "required",
+            f"post_close_journals={journal_count}/5.",
+            "beginner-post-close-journal-board",
+            "post_close_journal",
+        ),
+        _daily_manual_session_phase(
+            5,
+            "manual_execution_audit",
+            "Manual execution audit",
+            "pass" if manual_clean >= 5 and manual_blocked == 0 and manual_missing == 0 else "blocked" if manual_blocked or manual_missing else "required",
+            f"clean={manual_clean}/5; blocked={manual_blocked}; missing={manual_missing}.",
+            "beginner-post-close-journal-board",
+            "post_close_journal",
+        ),
+    ]
+
+
+def _daily_manual_session_phase(
+    order: int,
+    phase_id: str,
+    label: str,
+    status: str,
+    evidence: str,
+    target_id: str,
+    workflow_id: str,
+) -> dict[str, Any]:
+    return {
+        "order": order,
+        "phase_id": phase_id,
+        "label": label,
+        "status": status,
+        "evidence": evidence,
+        "target_id": target_id,
+        "workflow_id": workflow_id,
+        "order_placement_allowed": False,
+    }
+
+
+def _daily_manual_session_operator_checklist(
+    *,
+    session_status: str,
+    selected_count: int,
+    signal_count: int,
+    ticket_count: int,
+    matched_paper: int,
+    journal_count: int,
+    manual_clean: int,
+    manual_execution_dirty: bool,
+    manual_broker_review_candidate: bool,
+) -> list[dict[str, Any]]:
+    return [
+        _daily_manual_session_step(
+            1,
+            "refresh_top3_signal",
+            "Refresh today's Top3 CN_ETF signal",
+            "pass" if selected_count > 0 and signal_count > 0 else "required",
+            f"selected={selected_count}; signals={signal_count}.",
+            "daily-trade-factor-table",
+            "daily_trade_advisory",
+        ),
+        _daily_manual_session_step(
+            2,
+            "run_same_parameter_paper",
+            "Run same-parameter paper simulation",
+            "pass" if matched_paper >= 5 else "required",
+            f"matched_paper_receipts={matched_paper}/5.",
+            "paper-metrics",
+            "paper_simulation",
+        ),
+        _daily_manual_session_step(
+            3,
+            "review_manual_tickets",
+            "Review manual ETF tickets",
+            "pass" if ticket_count > 0 else "required",
+            f"manual_tickets={ticket_count}.",
+            "daily-manual-broker-handoff-ticket-table",
+            "",
+        ),
+        _daily_manual_session_step(
+            4,
+            "open_external_broker_manually",
+            "Only the human may open an external broker app",
+            "manual_review_only" if manual_broker_review_candidate else "locked",
+            f"session_status={session_status}; software_ordering=false.",
+            "beginner-live-handoff-board",
+            "",
+        ),
+        _daily_manual_session_step(
+            5,
+            "record_post_close_journal",
+            "Record post-close journal and manual execution audit",
+            "blocked" if manual_execution_dirty else "pass" if journal_count >= 5 and manual_clean >= 5 else "required",
+            f"post_close_journals={journal_count}/5; manual_clean={manual_clean}/5.",
+            "beginner-post-close-journal-board",
+            "post_close_journal",
+        ),
+    ]
+
+
+def _daily_manual_session_step(
+    order: int,
+    step_id: str,
+    label: str,
+    status: str,
+    evidence: str,
+    target_id: str,
+    workflow_id: str,
+) -> dict[str, Any]:
+    return {
+        "order": order,
+        "step_id": step_id,
+        "label": label,
+        "status": status,
+        "evidence": evidence,
+        "target_id": target_id,
+        "workflow_id": workflow_id,
+        "manual_required": True,
+        "live_trading_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
+
+
+def _daily_manual_session_plain_answer(session_status: str) -> str:
+    answers = {
+        "blocked_pretrade_red_light": "Pretrade blockers remain; do not move toward broker-side action.",
+        "blocked_factor_health_rotation_required": "A Top3 factor needs retirement or lower weight before manual review.",
+        "blocked_same_day_signal_required": "Generate today's CN_ETF signal before any manual review.",
+        "blocked_manual_ticket_required": "Build manual tickets before any broker-side human review.",
+        "blocked_same_parameter_paper_required": "Run and match same-parameter paper receipts before any manual-money session.",
+        "blocked_post_close_journal_required": "Collect post-close journals before promoting the session.",
+        "blocked_manual_execution_audit": "Manual execution evidence is dirty or missing; review before continuing.",
+        "production_manual_review_candidate": "Evidence is strong enough for manual production review material, but the software still cannot trade.",
+        "small_capital_manual_observation_candidate": "Evidence is strong enough for small-capital manual observation material, not automatic trading.",
+        "paper_rehearsal_required": "Keep this as paper rehearsal and manual ticket review until more evidence is collected.",
+    }
+    return answers.get(session_status, "Review today's signal, paper receipts, manual tickets, and journal before any human decision.")
+
+
+def _session_count(*values: Any) -> int:
+    for value in values:
+        number = _float_or_none(value)
+        if number is not None:
+            return int(number)
+    return 0
 
 
 def _transition_gate_status(gate_by_id: dict[str, dict[str, Any]], gate_id: str) -> str:

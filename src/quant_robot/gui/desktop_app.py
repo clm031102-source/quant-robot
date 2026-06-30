@@ -29,7 +29,7 @@ DESKTOP_APP_COPY = {
 }
 DEFAULT_INITIAL_PAGE = "dashboard"
 DEFAULT_INITIAL_TARGET_ID = "ordinary-daily-action-card"
-DEFAULT_DAILY_TARGET_ID = "daily-real-world-handoff-gate"
+DEFAULT_DAILY_TARGET_ID = "daily-manual-trading-session"
 DEFAULT_TOP3_TARGET_ID = "daily-trade-decision-sheet"
 DEFAULT_PAPER_TARGET_ID = "daily-signal-execution-bridge"
 DEFAULT_JOURNAL_TARGET_ID = "beginner-post-close-journal-board"

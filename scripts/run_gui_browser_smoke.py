@@ -405,6 +405,27 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "daily_manual_trading_session_frontend",
+            "Daily manual trading session frontend",
+            index_html.get("ok")
+            and "daily-manual-trading-session" in str(index_html.get("body", ""))
+            and "daily-manual-trading-session-summary" in str(index_html.get("body", ""))
+            and "daily-manual-trading-session-gates" in str(index_html.get("body", ""))
+            and "daily-manual-trading-session-steps" in str(index_html.get("body", ""))
+            and "daily-manual-trading-session-tickets" in str(index_html.get("body", ""))
+            and app_js.get("ok")
+            and "renderDailyManualTradingSession" in str(app_js.get("body", ""))
+            and "daily_manual_trading_session" in str(app_js.get("body", ""))
+            and "blocked_same_parameter_paper_required" in str(app_js.get("body", ""))
+            and "open_external_broker_manually" in str(app_js.get("body", "")),
+            "Frontend exposes the daily manual trading session status, blockers, operator steps, ticket preview, and manual-only broker boundary.",
+            index_html.get("error")
+            or app_js.get("error")
+            or "Daily manual trading session frontend anchors or renderer hooks are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "daily_closure_streak_frontend",
             "Daily closure streak frontend",
             index_html.get("ok")

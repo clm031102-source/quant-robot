@@ -6022,6 +6022,7 @@ function renderDailyTradeAdvisory() {
   renderLiveProfitabilityReadiness(pack.live_profitability_readiness || {});
   renderDailyClosureStreak(pack.live_profitability_readiness || {});
   renderDailyRealMoneyTransitionGate(pack.daily_real_money_transition_gate || {});
+  renderDailyManualTradingSession(pack.daily_manual_trading_session || {});
   renderDailyFactorHealthMonitor(pack.daily_factor_health_monitor || {});
   renderDailyRealWorldHandoffGate(pack.real_world_manual_handoff_gate || {});
   renderDailyTradingSystemBlueprint(pack.trading_system_blueprint || {});
@@ -7090,6 +7091,82 @@ function renderDailyRealMoneyTransitionGate(gate = {}) {
       </div>
     `;
   }).join("") : statusRows([["人工票据", "暂无可人工核对票据；没有票据就不要进入券商端操作。", "danger"]]);
+}
+
+function renderDailyManualTradingSession(session = {}) {
+  const summaryTarget = byId("daily-manual-trading-session-summary");
+  const gatesTarget = byId("daily-manual-trading-session-gates");
+  const stepsTarget = byId("daily-manual-trading-session-steps");
+  const ticketsTarget = byId("daily-manual-trading-session-tickets");
+  if (!summaryTarget || !gatesTarget || !stepsTarget || !ticketsTarget) return;
+  const summary = session.summary || {};
+  const status = summary.session_status || "blocked_same_parameter_paper_required";
+  const tone = dailyManualTradingSessionTone(status, summary.traffic_light);
+  const workflowButton = summary.next_workflow_id ? `
+    <button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(summary.next_workflow_id)}">${escapeHtml(summary.next_label || "运行下一步")}</button>
+  ` : "";
+  const targetButton = summary.next_target_id ? `
+    <button class="${escapeHtml(workflowButton ? "secondary-button" : "primary-button")}" type="button" data-beginner-target="${escapeRawHtml(summary.next_target_id)}">${escapeHtml(workflowButton ? "查看证据" : summary.next_label || "查看下一步")}</button>
+  ` : "";
+  summaryTarget.innerHTML = statusRows([
+    ["今日会话灯号", `${summary.traffic_light || "red"} / ${zhConsoleText(status)}`, tone],
+    ["结论", summary.plain_answer || "先补齐同参数模拟盘、盘后复盘和人工执行审计，再谈人工资金观察。", tone],
+    ["今日信号", `因子=${formatNumber(summary.selected_factor_count || 0)} / 信号=${formatNumber(summary.signal_count || 0)} / 目标=${formatNumber(summary.target_count || 0)} / 票据=${formatNumber(summary.manual_ticket_count || 0)}`, summary.manual_ticket_count ? "warn" : "danger"],
+    ["证据样本", `同参数模拟=${formatNumber(summary.matched_paper_receipts || 0)}/5 / 复盘=${formatNumber(summary.post_close_journal_receipts || 0)}/5 / 执行审计=${formatNumber(summary.manual_execution_clean_receipts || 0)}/5`, summary.manual_broker_review_candidate ? "ok" : "warn"],
+    ["人工执行异常", `异常=${formatNumber(summary.manual_execution_blocked_receipts || 0)} / 缺回执=${formatNumber(summary.manual_execution_missing_review_receipts || 0)}`, summary.manual_execution_blocked_receipts || summary.manual_execution_missing_review_receipts ? "danger" : "ok"],
+    ["权限边界", summary.order_placement_allowed || summary.broker_connection_allowed ? "异常：权限越界" : "不连接券商、不读账户、不自动下单", summary.order_placement_allowed || summary.broker_connection_allowed ? "danger" : "ok"],
+  ]) + `
+    <div class="list-row ${escapeHtml(tone)}">
+      <strong>${escapeHtml("现在先做")}</strong>
+      <span>${escapeHtml(summary.next_label || "补齐今日会话缺失证据")}</span>
+      <span class="beginner-task-actions">${workflowButton}${targetButton}</span>
+    </div>
+  `;
+
+  const gates = Array.isArray(session.blocking_gates) ? session.blocking_gates : [];
+  gatesTarget.innerHTML = gates.length ? gates.map((item) => `
+    <div class="list-row ${escapeHtml(dailyTradeSystemStageTone(item.status || ""))}">
+      <strong>${escapeHtml(item.label || item.gate_id || "")}</strong>
+      <span>${escapeHtml(`${zhConsoleText(item.status || "required")} / ${item.evidence || ""}`)}</span>
+      <span class="beginner-task-actions">
+        ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+        ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
+      </span>
+    </div>
+  `).join("") : statusRows([["阻断门", "今日人工交易会话没有未完成阻断门，但仍然只是人工复核候选，不会自动下单。", "ok"]]);
+
+  const steps = Array.isArray(session.operator_checklist) ? session.operator_checklist : [];
+  const fallbackStepIds = ["refresh_top3_signal", "run_same_parameter_paper", "review_manual_tickets", "open_external_broker_manually", "record_post_close_journal"];
+  stepsTarget.innerHTML = steps.length ? steps.map((item) => `
+    <div class="list-row ${escapeHtml(dailyTradeSystemStageTone(item.status || ""))}">
+      <strong>${escapeHtml(`${item.order || "--"}. ${item.label || item.step_id || ""}`)}</strong>
+      <span>${escapeHtml(`${zhConsoleText(item.status || "required")} / ${item.evidence || ""}`)}</span>
+      <span>${escapeHtml(item.step_id === "open_external_broker_manually" ? "只能由人离开系统后手动处理，软件不连接券商。" : "本地证据步骤，不产生真实订单。")}</span>
+      <span class="beginner-task-actions">
+        ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+        ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
+      </span>
+    </div>
+  `).join("") : statusRows(fallbackStepIds.map((stepId) => [zhConsoleText(stepId), "等待今日会话加载。", "warn"]));
+
+  const tickets = Array.isArray(session.manual_ticket_preview) ? session.manual_ticket_preview : [];
+  ticketsTarget.innerHTML = tickets.length ? tickets.slice(0, 6).map((item, index) => {
+    const risk = item.risk_budget || {};
+    return `
+      <div class="list-row warn">
+        <strong>${escapeHtml(`${index + 1}. ${item.asset_id || "--"} ${zhConsoleText(item.side || "")}`)}</strong>
+        <span>${escapeHtml(`数量=${formatNumber(item.rounded_quantity || item.estimated_quantity || 0)} / 金额=${formatNumber(item.rounded_value ?? item.target_value)} / 权重=${formatPercent(item.target_weight)} / 票据风险=${formatNumber(risk.ticket_adverse_move_loss)}`)}</span>
+        <span>${escapeHtml(item.order_placement_allowed ? "异常：不应允许下单" : "只供人工核对，不是订单。")}</span>
+      </div>
+    `;
+  }).join("") : statusRows([["人工票据", "没有可核对票据时，不要进入券商端做任何人工操作。", "danger"]]);
+}
+
+function dailyManualTradingSessionTone(status = "", trafficLight = "") {
+  const text = String(status || "").toLowerCase();
+  if (String(trafficLight || "").toLowerCase() === "red" || text.includes("blocked")) return "danger";
+  if (text.includes("candidate") || text.includes("paper_rehearsal")) return "warn";
+  return "warn";
 }
 
 function renderDailyFactorHealthMonitor(monitor = {}) {

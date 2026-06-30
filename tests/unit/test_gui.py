@@ -14,6 +14,7 @@ from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.gui.app import create_gui_handler
 from quant_robot.gui.desktop_app import (
     DESKTOP_APP_COPY,
+    DEFAULT_DAILY_TARGET_ID,
     DEFAULT_JOURNAL_TARGET_ID,
     DEFAULT_PAPER_TARGET_ID,
     DEFAULT_TOP3_TARGET_ID,
@@ -207,7 +208,7 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("今日前三因子", rows_by_id["top3_signal"]["detail"])
         self.assertEqual(rows_by_id["paper_rehearsal"]["target"], DEFAULT_PAPER_TARGET_ID)
         self.assertIn("同一组参数", rows_by_id["paper_rehearsal"]["detail"])
-        self.assertIn("daily-real-world-handoff-gate", rows_by_id["daily_check"]["target"])
+        self.assertEqual(rows_by_id["daily_check"]["target"], DEFAULT_DAILY_TARGET_ID)
         self.assertIn("Sharpe", rows_by_id["factor_leaderboard"]["detail"])
         self.assertEqual(rows_by_id["post_close_journal"]["target"], DEFAULT_JOURNAL_TARGET_ID)
         self.assertIn("明天", rows_by_id["post_close_journal"]["detail"])
@@ -322,7 +323,7 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("量化机器人-因子排行榜.bat", written)
         self.assertIn("量化机器人-盘后复盘.bat", written)
         self.assertIn("量化机器人-日志报告.bat", written)
-        self.assertIn("python scripts\\run_desktop_app.py --page daily --target-id daily-real-world-handoff-gate", written["量化机器人-今日交易检查.bat"])
+        self.assertIn("python scripts\\run_desktop_app.py --page daily --target-id daily-manual-trading-session", written["量化机器人-今日交易检查.bat"])
         self.assertIn("python scripts\\run_desktop_app.py --page daily --target-id daily-trade-decision-sheet", written["量化机器人-今日前三信号.bat"])
         self.assertIn("python scripts\\run_desktop_app.py --page daily --target-id daily-signal-execution-bridge", written["量化机器人-模拟盘复核.bat"])
         self.assertIn("python scripts\\run_desktop_app.py --page dashboard --target-id factor-leaderboard-table", written["量化机器人-因子排行榜.bat"])
@@ -435,6 +436,15 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("daily-real-money-transition-tickets", html)
         self.assertIn("renderDailyRealMoneyTransitionGate", app_js)
         self.assertIn("daily_real_money_transition_gate", app_js)
+        self.assertIn("daily-manual-trading-session", html)
+        self.assertIn("daily-manual-trading-session-summary", html)
+        self.assertIn("daily-manual-trading-session-gates", html)
+        self.assertIn("daily-manual-trading-session-steps", html)
+        self.assertIn("daily-manual-trading-session-tickets", html)
+        self.assertIn("renderDailyManualTradingSession", app_js)
+        self.assertIn("daily_manual_trading_session", app_js)
+        self.assertIn("blocked_same_parameter_paper_required", app_js)
+        self.assertIn("open_external_broker_manually", app_js)
         self.assertIn("function todayIsoDate", app_js)
         self.assertIn("function applyDailyTradeDateDefault", app_js)
         self.assertIn("staleDailyDateDefaults", app_js)
@@ -548,6 +558,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("live_profitability_readiness", snapshot)
         self.assertIn("daily_factor_health_monitor", snapshot)
         self.assertIn("daily_real_money_transition_gate", snapshot)
+        self.assertIn("daily_manual_trading_session", snapshot)
         self.assertIn("candidate_pool_top20", snapshot)
         self.assertEqual(snapshot["candidate_pool_top20"]["stage"], "phase_6_22_daily_candidate_pool_top20")
         self.assertIn("rows", snapshot["candidate_pool_top20"])
@@ -645,6 +656,23 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("manual_ticket_risk_budget", {row["gate_id"] for row in transition["preflight_rows"]})
         self.assertIn("open_external_broker_manually", {row["step_id"] for row in transition["operator_script"]})
         self.assertIn("direct_buy_top3", {row["action_id"] for row in transition["forbidden_actions"]})
+        session = snapshot["daily_manual_trading_session"]
+        self.assertEqual(session["stage"], "phase_6_24_daily_manual_trading_session")
+        self.assertIn(
+            session["summary"]["session_status"],
+            {
+                "blocked_pretrade_red_light",
+                "blocked_same_parameter_paper_required",
+                "blocked_factor_health_rotation_required",
+                "paper_rehearsal_required",
+                "production_manual_review_candidate",
+                "small_capital_manual_observation_candidate",
+            },
+        )
+        self.assertFalse(session["summary"]["order_placement_allowed"])
+        self.assertFalse(session["summary"]["broker_connection_allowed"])
+        self.assertIn("record_post_close_journal", {row["step_id"] for row in session["operator_checklist"]})
+        self.assertTrue(all(row["order_placement_allowed"] is False for row in session["operator_checklist"]))
         self.assertEqual(snapshot["live_transition_plan"]["summary"]["selected_risk_profile_id"], "conservative_10dd")
         self.assertEqual(snapshot["summary"]["risk_profile_id"], "conservative_10dd")
         self.assertIn("small_capital_review_gate", {gate["gate_id"] for gate in snapshot["live_transition_plan"]["evidence_gates"]})
@@ -4037,6 +4065,12 @@ class GuiHttpTests(unittest.TestCase):
             self.assertEqual(trade_advisory["live_profitability_readiness"]["summary"]["matched_paper_receipts"], 5)
             self.assertEqual(trade_advisory["live_profitability_readiness"]["summary"]["post_close_journal_receipts"], 5)
             self.assertFalse(trade_advisory["daily_real_money_transition_gate"]["summary"]["order_placement_allowed"])
+            self.assertEqual(trade_advisory["daily_manual_trading_session"]["stage"], "phase_6_24_daily_manual_trading_session")
+            self.assertFalse(trade_advisory["daily_manual_trading_session"]["summary"]["order_placement_allowed"])
+            self.assertIn(
+                "record_post_close_journal",
+                {row["step_id"] for row in trade_advisory["daily_manual_trading_session"]["operator_checklist"]},
+            )
 
             invalid_positions = _read_json(
                 f"{base_url}/api/trade/daily-advisory?source=demo_fixture&market=CN_ETF&limit=3"
