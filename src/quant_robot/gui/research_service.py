@@ -445,6 +445,7 @@ def build_daily_trade_advisory_snapshot(
     max_market_weight: float = 1.0,
     max_gross_exposure: float = 1.0,
     min_cash_weight: float = 0.1,
+    risk_profile_id: str | None = None,
 ) -> dict[str, Any]:
     leaderboard = build_factor_leaderboard_snapshot(
         reports_root=reports_root,
@@ -482,6 +483,7 @@ def build_daily_trade_advisory_snapshot(
         signals,
         portfolio_value=portfolio_value,
         max_gross_exposure=max_gross_exposure,
+        risk_profile_id=risk_profile_id,
     )
     pack["selected_candidates"] = candidates
     pack["leaderboard_summary"] = leaderboard.get("summary", {})

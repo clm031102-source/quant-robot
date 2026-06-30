@@ -20,6 +20,39 @@ POST_CLOSE_JOURNAL_STAGE = "phase_6_6_post_close_journal_template"
 LIVE_TRANSITION_STAGE = "phase_6_7_live_transition_plan"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
+DEFAULT_RISK_PROFILE_ID = "balanced_20dd"
+RISK_PROFILE_SPECS = [
+    {
+        "profile_id": "conservative_10dd",
+        "label": "保守观察",
+        "max_gross_exposure": 0.30,
+        "max_single_etf_weight": 0.15,
+        "min_cash_weight": 0.70,
+        "max_acceptable_drawdown": 0.10,
+        "daily_loss_stop": 0.01,
+        "plain_use": "适合刚进模拟盘或小资金观察第一阶段，宁可少赚也先验证流程。",
+    },
+    {
+        "profile_id": DEFAULT_RISK_PROFILE_ID,
+        "label": "标准观察",
+        "max_gross_exposure": 0.60,
+        "max_single_etf_weight": 0.30,
+        "min_cash_weight": 0.40,
+        "max_acceptable_drawdown": 0.20,
+        "daily_loss_stop": 0.02,
+        "plain_use": "适合模拟盘稳定后，但仍需要严格看回撤、成交和异常价格。",
+    },
+    {
+        "profile_id": "aggressive_30dd",
+        "label": "进取观察",
+        "max_gross_exposure": 1.00,
+        "max_single_etf_weight": 0.40,
+        "min_cash_weight": 0.00,
+        "max_acceptable_drawdown": 0.30,
+        "daily_loss_stop": 0.03,
+        "plain_use": "只有你明确接受约 30% 回撤，且模拟盘/小资金闸门持续通过时才考虑。",
+    },
+]
 
 
 def select_daily_top_factor_candidates(
@@ -77,9 +110,16 @@ def build_daily_trade_advisory_pack(
     run_date: str | None = None,
     portfolio_value: float = 100000.0,
     max_gross_exposure: float = 1.0,
+    risk_profile_id: str | None = None,
 ) -> dict[str, Any]:
     signal_cards = [_signal_card(candidate, _matching_signal(candidate, signal_snapshots)) for candidate in candidates]
-    combined_targets = _combined_targets(signal_cards, portfolio_value=portfolio_value, max_gross_exposure=max_gross_exposure)
+    selected_profile = _risk_profile_by_id(risk_profile_id)
+    applied_max_gross_exposure = _applied_max_gross_exposure(max_gross_exposure, selected_profile)
+    combined_targets = _combined_targets(
+        signal_cards,
+        portfolio_value=portfolio_value,
+        max_gross_exposure=applied_max_gross_exposure,
+    )
     manual_plan = _manual_trade_plan(combined_targets)
     pack = {
         "stage": STAGE,
@@ -92,6 +132,10 @@ def build_daily_trade_advisory_pack(
             "manual_ticket_count": len(manual_plan),
             "manual_execution_required": True,
             "paper_simulation_recommended": True,
+            "risk_profile_id": selected_profile.get("profile_id") if selected_profile else "custom_current_parameters",
+            "risk_profile_label": selected_profile.get("label") if selected_profile else "自定义参数",
+            "requested_max_gross_exposure": max_gross_exposure,
+            "applied_max_gross_exposure": applied_max_gross_exposure,
             "live_trading_allowed": False,
             "broker_connection_allowed": False,
             "account_read_allowed": False,
@@ -245,6 +289,7 @@ def build_manual_trade_system_protocol(pack: dict[str, Any]) -> dict[str, Any]:
     blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
     traffic_light = str(readiness.get("traffic_light") or "red")
     manual_review_candidate = bool(readiness.get("manual_action_candidate"))
+    risk_profile_id = str(summary.get("risk_profile_id") or "custom_current_parameters")
     return _sanitize(
         {
             "stage": TRADE_SYSTEM_STAGE,
@@ -287,6 +332,9 @@ def build_manual_trade_system_protocol(pack: dict[str, Any]) -> dict[str, Any]:
                 "combined_target_count": summary.get("combined_target_count"),
                 "manual_ticket_count": ticket_count,
                 "board_lot_size": BOARD_LOT_SIZE,
+                "risk_profile_id": risk_profile_id,
+                "risk_profile_label": summary.get("risk_profile_label"),
+                "applied_max_gross_exposure": summary.get("applied_max_gross_exposure"),
                 "cash_and_position_review_required": True,
                 "single_etf_limit_review_required": True,
                 "liquidity_and_capacity_review_required": True,
@@ -526,6 +574,7 @@ def build_live_transition_plan(pack: dict[str, Any]) -> dict[str, Any]:
     signal_count = _int(summary.get("signal_count"), 0)
     target_count = _int(summary.get("combined_target_count"), len(targets))
     ticket_count = _int(summary.get("manual_ticket_count"), len(tickets))
+    risk_profile_id = str(summary.get("risk_profile_id") or "custom_current_parameters")
     signal_ready = signal_count > 0 and target_count > 0 and ticket_count > 0
     manual_candidate = bool(readiness.get("manual_action_candidate"))
     if blockers:
@@ -623,38 +672,7 @@ def build_live_transition_plan(pack: dict[str, Any]) -> dict[str, Any]:
         ),
     ]
 
-    risk_profiles = [
-        {
-            "profile_id": "conservative_10dd",
-            "label": "保守观察",
-            "max_gross_exposure": 0.30,
-            "max_single_etf_weight": 0.15,
-            "min_cash_weight": 0.70,
-            "max_acceptable_drawdown": 0.10,
-            "daily_loss_stop": 0.01,
-            "plain_use": "适合刚进模拟盘或小资金观察第一阶段，宁可少赚也先验证流程。",
-        },
-        {
-            "profile_id": "balanced_20dd",
-            "label": "标准观察",
-            "max_gross_exposure": 0.60,
-            "max_single_etf_weight": 0.30,
-            "min_cash_weight": 0.40,
-            "max_acceptable_drawdown": 0.20,
-            "daily_loss_stop": 0.02,
-            "plain_use": "适合模拟盘稳定后，但仍需要严格看回撤、成交和异常价格。",
-        },
-        {
-            "profile_id": "aggressive_30dd",
-            "label": "进取观察",
-            "max_gross_exposure": 1.00,
-            "max_single_etf_weight": 0.40,
-            "min_cash_weight": 0.00,
-            "max_acceptable_drawdown": 0.30,
-            "daily_loss_stop": 0.03,
-            "plain_use": "只有你明确接受约 30% 回撤，且模拟盘/小资金闸门持续通过时才考虑。",
-        },
-    ]
+    risk_profiles = _risk_profiles(risk_profile_id)
     evidence_gates = [
         {
             "gate_id": "walk_forward_and_oos",
@@ -694,6 +712,10 @@ def build_live_transition_plan(pack: dict[str, Any]) -> dict[str, Any]:
                 "today_signal_count": signal_count,
                 "target_count": target_count,
                 "manual_ticket_count": ticket_count,
+                "selected_risk_profile_id": risk_profile_id,
+                "selected_risk_profile_label": summary.get("risk_profile_label"),
+                "requested_max_gross_exposure": summary.get("requested_max_gross_exposure"),
+                "applied_max_gross_exposure": summary.get("applied_max_gross_exposure"),
                 "paper_simulation_required": True,
                 "small_capital_review_required": True,
                 "manual_review_required": True,
@@ -1433,6 +1455,32 @@ def _operator_checklist() -> list[dict[str, Any]]:
             "text": "系统不连接券商、不读取账户、不自动下单；如实盘，只能由人手工在券商端操作。",
         },
     ]
+
+
+def _risk_profile_by_id(risk_profile_id: str | None) -> dict[str, Any] | None:
+    if not risk_profile_id:
+        return None
+    wanted = str(risk_profile_id).strip()
+    for profile in RISK_PROFILE_SPECS:
+        if profile["profile_id"] == wanted:
+            return dict(profile)
+    for profile in RISK_PROFILE_SPECS:
+        if profile["profile_id"] == DEFAULT_RISK_PROFILE_ID:
+            return dict(profile)
+    return None
+
+
+def _risk_profiles(selected_id: str | None) -> list[dict[str, Any]]:
+    selected = str(selected_id or "").strip()
+    return [{**profile, "selected": profile["profile_id"] == selected} for profile in RISK_PROFILE_SPECS]
+
+
+def _applied_max_gross_exposure(requested: float, profile: dict[str, Any] | None) -> float:
+    requested_value = max(0.0, min(_float(requested, 1.0), 1.0))
+    if not profile:
+        return requested_value
+    profile_cap = max(0.0, min(_float(profile.get("max_gross_exposure"), requested_value), 1.0))
+    return min(requested_value, profile_cap)
 
 
 def _first_market(rows: list[dict[str, Any]]) -> str | None:

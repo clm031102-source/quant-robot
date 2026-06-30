@@ -850,6 +850,13 @@
               <label>建议账户规模
                 <input id="daily-trade-portfolio-value" type="number" min="1000" step="1000" value="100000">
               </label>
+              <label>风险档位
+                <select id="daily-trade-risk-profile">
+                  <option value="balanced_20dd" selected>标准观察（最多约 20% 回撤）</option>
+                  <option value="conservative_10dd">保守观察（最多约 10% 回撤）</option>
+                  <option value="aggressive_30dd">进取观察（可承受约 30% 回撤）</option>
+                </select>
+              </label>
               <button id="run-daily-ops" class="primary-button command-action" type="button">刷新日常运营</button>
               <button id="run-daily-trade-advisory" class="secondary-button command-action" type="button">生成今日前三交易建议</button>
             </div>

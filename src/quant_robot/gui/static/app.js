@@ -133,6 +133,7 @@ const REQUEST_PREVIEW_INPUT_IDS = [
   "paper-guard-cooldown",
   "daily-trade-as-of",
   "daily-trade-portfolio-value",
+  "daily-trade-risk-profile",
 ];
 const GLOSSARY_TERMS = [
   ["Sharpe", "单位波动换来的收益。越高越好，但异常高要先怀疑过拟合。"],
@@ -705,6 +706,7 @@ function buildDailyTradeAdvisoryParams() {
     top_n: valueOf("signal-top-n") || "2",
     as_of_date: valueOf("daily-trade-as-of") || valueOf("signal-as-of"),
     portfolio_value: valueOf("daily-trade-portfolio-value") || valueOf("paper-initial-cash") || "100000",
+    risk_profile_id: valueOf("daily-trade-risk-profile") || "balanced_20dd",
     max_asset_weight: valueOf("max-asset-weight") || "0.4",
     max_market_weight: valueOf("max-market-weight") || "1",
     max_gross_exposure: valueOf("max-gross-exposure") || "1",
@@ -4775,8 +4777,8 @@ function renderDailyLiveTransitionPlan(plan = {}) {
   `).join("") : statusRows([["等待今日建议", "先生成今日前三交易建议。", "warn"]]);
   const profiles = Array.isArray(plan.risk_profiles) ? plan.risk_profiles : [];
   profileTarget.innerHTML = profiles.length ? profiles.map((item) => `
-    <div class="list-row ${escapeHtml(item.profile_id === "aggressive_30dd" ? "warn" : "ok")}">
-      <strong>${escapeHtml(item.label || item.profile_id || "")}</strong>
+    <div class="list-row ${escapeHtml(item.selected ? "warn" : item.profile_id === "aggressive_30dd" ? "warn" : "ok")}">
+      <strong>${escapeHtml(`${item.selected ? "已选择 / " : ""}${item.label || item.profile_id || ""}`)}</strong>
       <span>${escapeHtml(`最大回撤=${formatPercent(item.max_acceptable_drawdown)} / 总仓位=${formatPercent(item.max_gross_exposure)} / 单ETF=${formatPercent(item.max_single_etf_weight)}`)}</span>
       <span>${escapeHtml(item.plain_use || "")}</span>
     </div>
@@ -7629,6 +7631,8 @@ function dailyTradeAdvisoryReceipt(result = {}) {
       source: result.source,
       as_of_date: result.run_date,
       portfolio_value: summary.target_value,
+      risk_profile_id: summary.risk_profile_id,
+      applied_max_gross_exposure: summary.applied_max_gross_exposure,
     },
     metrics: {
       selected_factor_count: summary.selected_factor_count,

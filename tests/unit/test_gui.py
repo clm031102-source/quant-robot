@@ -215,7 +215,12 @@ class GuiSnapshotTests(unittest.TestCase):
         )
 
     def test_daily_trade_advisory_exposes_selected_candidate_alias(self):
-        snapshot = build_daily_trade_advisory_snapshot(source="demo_fixture", market="CN_ETF", limit=3)
+        snapshot = build_daily_trade_advisory_snapshot(
+            source="demo_fixture",
+            market="CN_ETF",
+            limit=3,
+            risk_profile_id="conservative_10dd",
+        )
 
         self.assertEqual(snapshot["stage"], "phase_6_0_daily_trade_advisory")
         self.assertIn("factors", snapshot)
@@ -230,6 +235,8 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertFalse(snapshot["pretrade_workflow"]["summary"]["live_order_allowed"])
         self.assertEqual(snapshot["live_transition_plan"]["stage"], "phase_6_7_live_transition_plan")
         self.assertFalse(snapshot["live_transition_plan"]["summary"]["order_placement_allowed"])
+        self.assertEqual(snapshot["live_transition_plan"]["summary"]["selected_risk_profile_id"], "conservative_10dd")
+        self.assertEqual(snapshot["summary"]["risk_profile_id"], "conservative_10dd")
         self.assertIn("small_capital_review_gate", {gate["gate_id"] for gate in snapshot["live_transition_plan"]["evidence_gates"]})
         self.assertIn("primary_next_action_id", snapshot["pretrade_workflow"]["summary"])
         self.assertEqual(snapshot["pretrade_readiness"]["stage"], "phase_6_2_manual_pretrade_readiness")
@@ -2073,6 +2080,10 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("daily-live-transition-gates", html)
             self.assertIn("实盘落地路径", html)
             self.assertIn("风险档位", html)
+            self.assertIn("daily-trade-risk-profile", html)
+            self.assertIn("conservative_10dd", html)
+            self.assertIn("balanced_20dd", html)
+            self.assertIn("aggressive_30dd", html)
             self.assertIn("beginner-daily-rehearsal-board", html)
             self.assertIn("beginner-daily-rehearsal-summary", html)
             self.assertIn("beginner-daily-rehearsal-timeline", html)
@@ -2141,6 +2152,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("data-live-transition-target", app_js)
             self.assertIn("small_capital_review_required", app_js)
             self.assertIn("aggressive_30dd", app_js)
+            self.assertIn("risk_profile_id: valueOf(\"daily-trade-risk-profile\")", app_js)
             self.assertIn("dailyReadinessDecision", app_js)
             self.assertIn("renderBeginnerLiveHandoff", app_js)
             self.assertIn("beginnerLiveHandoffSteps", app_js)
@@ -2878,9 +2890,14 @@ class GuiHttpTests(unittest.TestCase):
             self.assertEqual(daily_ops["stage"], "gui_daily_ops")
             self.assertIn("decision", daily_ops)
 
-            trade_advisory = _read_json(f"{base_url}/api/trade/daily-advisory?source=demo_fixture&market=CN_ETF&limit=3")
+            trade_advisory = _read_json(
+                f"{base_url}/api/trade/daily-advisory?source=demo_fixture&market=CN_ETF&limit=3"
+                "&risk_profile_id=conservative_10dd"
+            )
             self.assertEqual(trade_advisory["stage"], "phase_6_0_daily_trade_advisory")
             self.assertIn("summary", trade_advisory)
+            self.assertEqual(trade_advisory["summary"]["risk_profile_id"], "conservative_10dd")
+            self.assertLessEqual(trade_advisory["summary"]["applied_max_gross_exposure"], 0.30)
             self.assertFalse(trade_advisory["summary"]["live_trading_allowed"])
             self.assertFalse(trade_advisory["summary"]["order_placement_allowed"])
             self.assertTrue(trade_advisory["summary"]["manual_execution_required"])

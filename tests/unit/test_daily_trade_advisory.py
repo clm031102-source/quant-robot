@@ -445,6 +445,37 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertTrue(all(not row["automation_allowed"] for row in plan["operating_loop"]))
         self.assertIn("不自动下单", plan["safety"])
 
+    def test_selected_risk_profile_caps_daily_target_exposure(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF", "sharpe": 1.2},
+                {"rank": 2, "case_id": "c2", "factor_name": "reversal_2", "market": "CN_ETF", "sharpe": 0.8},
+                {"rank": 3, "case_id": "c3", "factor_name": "volatility_2", "market": "CN_ETF", "sharpe": 0.7},
+            ],
+            [
+                _signal("c1", "momentum_2", {"510300": 0.4, "588000": 0.3}),
+                _signal("c2", "reversal_2", {"510300": 0.2, "159915": 0.5}),
+                _signal("c3", "volatility_2", {"588000": 0.2, "159915": 0.4}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            max_gross_exposure=1.0,
+            risk_profile_id="conservative_10dd",
+        )
+
+        total_weight = sum(row["target_weight"] for row in pack["combined_targets"])
+        plan = pack["live_transition_plan"]
+        selected_profiles = [row for row in plan["risk_profiles"] if row.get("selected")]
+
+        self.assertAlmostEqual(total_weight, 0.30)
+        self.assertEqual(pack["summary"]["risk_profile_id"], "conservative_10dd")
+        self.assertEqual(pack["summary"]["applied_max_gross_exposure"], 0.30)
+        self.assertEqual(plan["summary"]["selected_risk_profile_id"], "conservative_10dd")
+        self.assertEqual(plan["summary"]["applied_max_gross_exposure"], 0.30)
+        self.assertEqual(len(selected_profiles), 1)
+        self.assertEqual(selected_profiles[0]["profile_id"], "conservative_10dd")
+        self.assertTrue(all(not row["executable"] for row in pack["manual_trade_plan"]))
+
 
 def _signal(
     case_id: str,
