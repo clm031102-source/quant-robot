@@ -2434,16 +2434,16 @@ function renderControlCenter() {
   `).join("");
   byId("control-verification-runner").innerHTML = renderVerificationRunner(verificationRunner, state.verificationResult);
   byId("control-safety-boundary").innerHTML = statusRows([
-    ["Paper", safety.paper_trading_allowed ? "allowed by gates" : "blocked until gates pass", safety.paper_trading_allowed ? "ok" : "warn"],
-    ["Live", safety.live_trading_allowed ? "allowed" : "disabled", safety.live_trading_allowed ? "ok" : "danger"],
-    ["Broker", safety.broker_connection_allowed ? "enabled" : "no connection", safety.broker_connection_allowed ? "ok" : "danger"],
-    ["Orders", safety.order_placement_allowed ? "enabled" : "no order placement", safety.order_placement_allowed ? "ok" : "danger"],
+    ["模拟盘", safety.paper_trading_allowed ? "闸门允许" : "闸门未通过", safety.paper_trading_allowed ? "ok" : "warn"],
+    ["实盘", safety.live_trading_allowed ? "异常：允许" : "禁用", safety.live_trading_allowed ? "ok" : "danger"],
+    ["券商连接", safety.broker_connection_allowed ? "异常：已启用" : "无连接", safety.broker_connection_allowed ? "ok" : "danger"],
+    ["下单权限", safety.order_placement_allowed ? "异常：已启用" : "无下单", safety.order_placement_allowed ? "ok" : "danger"],
   ]);
   byId("control-audit-cadence").innerHTML = statusRows([
-    ["Cadence", automation.cadence || "--", "ok"],
-    ["Audit", `${automation.name || "--"} / ${automation.status || "--"}`, automation.status === "active" ? "ok" : "warn"],
-    ["Output", automation.expected_output || "--", "muted"],
-    ["Boundary", safety.notice || "Research only", "danger"],
+    ["审计节奏", automation.cadence || "--", "ok"],
+    ["审计任务", `${automation.name || "--"} / ${automation.status || "--"}`, automation.status === "active" ? "ok" : "warn"],
+    ["输出位置", automation.expected_output || "--", "muted"],
+    ["权限边界", safety.notice || "仅研究模式", "danger"],
   ]);
   renderRunHistory(runHistorySpec);
   renderExecutionReceipts(executionReceiptSpec);
@@ -7474,21 +7474,21 @@ function renderDailyPaperAllocationPlaybook(playbook = {}) {
   const status = summary.allocation_status || "paper_rehearsal_required";
   const tone = dailyPaperAllocationTone(status, summary.traffic_light);
   const nextButton = summary.next_workflow_id ? `
-    <button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(summary.next_workflow_id)}">${escapeHtml("Run next")}</button>
+    <button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(summary.next_workflow_id)}">${escapeHtml("运行下一步")}</button>
   ` : "";
   const targetButton = summary.next_target_id ? `
-    <button class="${escapeHtml(nextButton ? "secondary-button" : "primary-button")}" type="button" data-beginner-target="${escapeRawHtml(summary.next_target_id)}">${escapeHtml("View evidence")}</button>
+    <button class="${escapeHtml(nextButton ? "secondary-button" : "primary-button")}" type="button" data-beginner-target="${escapeRawHtml(summary.next_target_id)}">${escapeHtml("查看证据")}</button>
   ` : "";
   summaryTarget.innerHTML = statusRows([
-    ["Allocation status", `${summary.traffic_light || "yellow"} / ${zhConsoleText(status)}`, tone],
-    ["Plain answer", summary.plain_answer || "Use this as same-parameter paper rehearsal; do not copy to broker.", tone],
-    ["Paper budget", `portfolio=${formatNumber(summary.portfolio_value || 0)} / allocated=${formatNumber(summary.allocated_value || 0)} / cash=${formatNumber(summary.residual_cash_value || 0)}`, "warn"],
-    ["Rows", `allocations=${formatNumber(summary.allocation_row_count || 0)} / signals=${formatNumber(summary.signal_count || 0)} / tickets=${formatNumber(summary.manual_ticket_count || 0)}`, summary.allocation_row_count ? "ok" : "danger"],
-    ["Evidence", `matched_paper=${formatNumber(summary.matched_paper_receipts || 0)}/5 / manual_candidate=${summary.manual_broker_review_candidate ? "yes" : "no"}`, summary.manual_broker_review_candidate ? "ok" : "warn"],
-    ["Boundary", summary.order_placement_allowed || summary.broker_connection_allowed ? "ERROR: permission boundary breached" : "No broker connection, no account read, no automatic order", summary.order_placement_allowed || summary.broker_connection_allowed ? "danger" : "ok"],
+    ["仓位预算状态", `${summary.traffic_light || "yellow"} / ${zhConsoleText(status)}`, tone],
+    ["一句话结论", summary.plain_answer || "只做同参数模拟盘演练，不要复制到券商端。", tone],
+    ["纸面预算", `估算资金=${formatNumber(summary.portfolio_value || 0)} / 已分配=${formatNumber(summary.allocated_value || 0)} / 剩余现金=${formatNumber(summary.residual_cash_value || 0)}`, "warn"],
+    ["预算行", `仓位行=${formatNumber(summary.allocation_row_count || 0)} / 信号=${formatNumber(summary.signal_count || 0)} / 人工票据=${formatNumber(summary.manual_ticket_count || 0)}`, summary.allocation_row_count ? "ok" : "danger"],
+    ["证据", `同参数模拟=${formatNumber(summary.matched_paper_receipts || 0)}/5 / 人工复核候选=${summary.manual_broker_review_candidate ? "是" : "否"}`, summary.manual_broker_review_candidate ? "ok" : "warn"],
+    ["权限边界", summary.order_placement_allowed || summary.broker_connection_allowed ? "异常：权限越界" : "不连接券商、不读取账户、不自动下单", summary.order_placement_allowed || summary.broker_connection_allowed ? "danger" : "ok"],
   ]) + `
     <div class="list-row ${escapeHtml(tone)}">
-      <strong>${escapeHtml("Next")}</strong>
+      <strong>${escapeHtml("现在先做")}</strong>
       <span>${escapeHtml(summary.next_gate_id || status)}</span>
       <span class="beginner-task-actions">${nextButton}${targetButton}</span>
     </div>
@@ -7501,12 +7501,12 @@ function renderDailyPaperAllocationPlaybook(playbook = {}) {
     return `
       <div class="list-row ${escapeHtml(rowTone)}">
         <strong>${escapeHtml(`${index + 1}. ${item.asset_id || "--"} / ${zhConsoleText(item.execution_mode || "paper_rehearsal_only")}`)}</strong>
-        <span>${escapeHtml(`weight=${formatPercent(item.target_weight)} / budget=${formatNumber(item.paper_budget_value || 0)} / qty=${formatNumber(item.paper_quantity || 0)} / price=${formatDecimal(item.reference_price)}`)}</span>
-        <span>${escapeHtml(`single_cap=${formatPercent(risk.max_single_etf_weight)} / adverse_loss=${formatNumber(risk.ticket_adverse_move_loss || 0)} / cash_rounding=${formatNumber(item.residual_rounding_cash || 0)}`)}</span>
-        <span>${escapeHtml(item.risk_blocked ? "Risk budget blocks this row." : "Paper rehearsal row only; not an order.")}</span>
+        <span>${escapeHtml(`目标权重=${formatPercent(item.target_weight)} / 预算=${formatNumber(item.paper_budget_value || 0)} / 数量=${formatNumber(item.paper_quantity || 0)} / 参考价=${formatDecimal(item.reference_price)}`)}</span>
+        <span>${escapeHtml(`单ETF上限=${formatPercent(risk.max_single_etf_weight)} / 票据逆向损失=${formatNumber(risk.ticket_adverse_move_loss || 0)} / 取整剩余现金=${formatNumber(item.residual_rounding_cash || 0)}`)}</span>
+        <span>${escapeHtml(item.risk_blocked ? "风险预算阻断这一行，不能推进。" : "只做纸面演练，不是订单。")}</span>
       </div>
     `;
-  }).join("") : statusRows([["Allocation rows", "No paper allocation rows yet. Generate today's CN_ETF Top3 signal and manual ticket pack first.", "danger"]]);
+  }).join("") : statusRows([["仓位预算行", "还没有纸面仓位预算；先生成今日 CN_ETF 前三信号和人工票据包。", "danger"]]);
 
   const gates = Array.isArray(playbook.promotion_gates) ? playbook.promotion_gates : [];
   gatesTarget.innerHTML = gates.length ? gates.map((item) => `
@@ -7514,11 +7514,11 @@ function renderDailyPaperAllocationPlaybook(playbook = {}) {
       <strong>${escapeHtml(item.label || item.gate_id || "")}</strong>
       <span>${escapeHtml(`${zhConsoleText(item.status || "required")} / ${item.evidence || ""}`)}</span>
       <span class="beginner-task-actions">
-        ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("Run")}</button>` : ""}
-        ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("View")}</button>` : ""}
+        ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+        ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
       </span>
     </div>
-  `).join("") : statusRows([["Promotion gates", "Waiting for paper allocation playbook gates.", "warn"]]);
+  `).join("") : statusRows([["晋级闸门", "等待纸面仓位预算闸门加载。", "warn"]]);
 
   const steps = Array.isArray(playbook.operator_steps) ? playbook.operator_steps : [];
   const forbidden = Array.isArray(playbook.forbidden_actions) ? playbook.forbidden_actions : [];
@@ -7528,12 +7528,12 @@ function renderDailyPaperAllocationPlaybook(playbook = {}) {
       <strong>${escapeHtml(item.label || item.step_id || "")}</strong>
       <span>${escapeHtml(`${zhConsoleText(item.status || "required")} / ${item.step_id || ""}`)}</span>
       <span class="beginner-task-actions">
-        ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("Run")}</button>` : ""}
-        ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("View")}</button>` : ""}
+        ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+        ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
       </span>
     </div>
-  `).join("") : statusRows([["Operator steps", "Run same-parameter paper rehearsal before any human review.", "warn"]])) + statusRows([
-    ["Forbidden", forbiddenIds, forbiddenIds.includes("do_not_copy_to_broker") ? "danger" : "warn"],
+  `).join("") : statusRows([["操作步骤", "人工复核前，先跑同参数模拟盘演练。", "warn"]])) + statusRows([
+    ["禁止动作", forbiddenIds, forbiddenIds.includes("do_not_copy_to_broker") ? "danger" : "warn"],
   ]);
 }
 
