@@ -495,6 +495,21 @@ button {
   background: #fffdf6;
 }
 
+.post-close-manual-form {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #e4dcc8;
+  background: #fffbef;
+}
+
+.post-close-manual-form .wide-field {
+  grid-column: span 2;
+}
+
+.post-close-form-status {
+  grid-column: span 2;
+}
+
 .beginner-trade-system-layout,
 .beginner-daily-rehearsal-layout,
 .beginner-post-close-journal-layout {

@@ -178,6 +178,27 @@
               <div id="beginner-post-close-journal-checklist" class="status-list compact-status"></div>
               <div id="beginner-post-close-journal-actions" class="status-list compact-status"></div>
             </div>
+            <div id="beginner-post-close-journal-form" class="post-close-manual-form form-grid compact-form" data-post-close-manual-form-root="true">
+              <label>今天实际选择
+                <select id="post-close-manual-outcome">
+                  <option value="skipped_no_trade" selected>跳过，没有人工交易</option>
+                  <option value="paper_only">只做模拟盘观察</option>
+                  <option value="manual_review_no_trade">人工复核后未交易</option>
+                  <option value="manual_trade_by_human">本人离开系统后在券商端手动操作</option>
+                  <option value="blocked_by_risk">因风险或数据问题停止</option>
+                </select>
+              </label>
+              <label class="wide-field">原因记录
+                <textarea id="post-close-manual-note" rows="2" maxlength="300" placeholder="写为什么执行、跳过或只观察；不要写账户号、委托号、券商客户号"></textarea>
+              </label>
+              <label class="wide-field">风险观察
+                <textarea id="post-close-risk-note" rows="2" maxlength="300" placeholder="写价格偏差、回撤、流动性、仓位、现金或心理承受问题"></textarea>
+              </label>
+              <label class="wide-field">明天要复核
+                <textarea id="post-close-next-day-note" rows="2" maxlength="300" placeholder="写明天要重新检查的数据、因子、信号、参数或风险"></textarea>
+              </label>
+              <div id="beginner-post-close-journal-form-status" class="status-list compact-status post-close-form-status"></div>
+            </div>
           </section>
           <section class="panel beginner-live-handoff-board" id="beginner-live-handoff-board" data-beginner-live-handoff-root="true">
             <div class="panel-head">

@@ -1986,6 +1986,7 @@ async function runPostCloseJournal(button = null) {
   const trade = state.dailyTradeAdvisory || {};
   const template = trade.post_close_journal_template || {};
   const paper = latestExecutionReceipt("paper_simulation");
+  const manualReview = postCloseManualReviewForm();
   const confirmed = await confirmSafeWorkflow({
     workflow_id: "post_close_journal",
     label: "生成收盘后复盘回执",
@@ -1995,6 +1996,8 @@ async function runPostCloseJournal(button = null) {
       run_date: trade.run_date || template.run_date || "",
       signal_count: trade.summary?.signal_count || 0,
       paper_receipt_present: Boolean(paper),
+      manual_outcome: manualReview.manual_outcome,
+      manual_note_count: manualReview.manual_note_count,
       manual_handoff_only: true,
     },
   });
@@ -2009,12 +2012,13 @@ async function runPostCloseJournal(button = null) {
       workflow_id: "post_close_journal",
       label: "收盘后复盘回执",
       status: "completed",
-      detail: `${trade.run_date || template.run_date || "--"} / paper=${paper ? "yes" : "no"}`,
+      detail: `${trade.run_date || template.run_date || "--"} / paper=${paper ? "yes" : "no"} / outcome=${manualReview.manual_outcome}`,
     });
     appendExecutionReceipt(postCloseJournalReceipt({
       trade,
       template,
       paper_receipt: paper,
+      manual_review: manualReview,
       decision: dailyReadinessDecision(),
     }));
     renderBeginnerPostCloseJournal();
@@ -3858,6 +3862,7 @@ function renderBeginnerPostCloseJournal() {
     ["模拟盘回执", paperReceipt ? `已有 ${paperReceipt.time || "--"}` : "缺失", paperReceipt ? "ok" : "warn"],
     ["安全边界", summary.order_placement_allowed ? "异常：允许下单" : "不自动下单", summary.order_placement_allowed ? "danger" : "danger"],
   ]);
+  renderPostCloseManualFormStatus(journalReceipt);
   checklistTarget.innerHTML = rows.map((item) => `
     <div class="list-row ${escapeHtml(item.tone)}">
       <strong>${escapeHtml(item.title)}</strong>
@@ -3875,6 +3880,57 @@ function renderBeginnerPostCloseJournal() {
       </span>
     </div>
   `).join("");
+}
+
+function renderPostCloseManualFormStatus(journalReceipt = null) {
+  const target = byId("beginner-post-close-journal-form-status");
+  if (!target) return;
+  const form = postCloseManualReviewForm();
+  const recorded = form.manual_note_count > 0 || Boolean(journalReceipt);
+  target.innerHTML = statusRows([
+    ["人工记录状态", recorded ? "manual_review_recorded" : "waiting_manual_review_notes", recorded ? "ok" : "warn"],
+    ["今天实际选择", manualOutcomeLabel(form.manual_outcome), "warn"],
+    ["备注数量", `${formatNumber(form.manual_note_count)} 条 / 不要填写账户号、委托号、券商客户号`, form.manual_note_count ? "ok" : "warn"],
+  ]);
+}
+
+function postCloseManualReviewForm() {
+  const manualNote = sanitizePostCloseJournalText(valueOf("post-close-manual-note"));
+  const riskNote = sanitizePostCloseJournalText(valueOf("post-close-risk-note"));
+  const nextDayNote = sanitizePostCloseJournalText(valueOf("post-close-next-day-note"));
+  const manualOutcome = valueOf("post-close-manual-outcome") || "skipped_no_trade";
+  return {
+    manual_outcome: manualOutcome,
+    manual_outcome_label: manualOutcomeLabel(manualOutcome),
+    manual_note: manualNote,
+    risk_note: riskNote,
+    next_day_note: nextDayNote,
+    manual_note_count: [manualNote, riskNote, nextDayNote].filter(Boolean).length,
+    manual_review_recorded: true,
+    broker_connection_allowed: false,
+    account_read_allowed: false,
+    order_placement_allowed: false,
+    auto_order_allowed: false,
+  };
+}
+
+function manualOutcomeLabel(outcome = "") {
+  const labels = {
+    skipped_no_trade: "跳过，没有人工交易",
+    paper_only: "只做模拟盘观察",
+    manual_review_no_trade: "人工复核后未交易",
+    manual_trade_by_human: "本人离开系统后在券商端手动操作",
+    blocked_by_risk: "因风险或数据问题停止",
+  };
+  return labels[outcome] || "未记录";
+}
+
+function sanitizePostCloseJournalText(value = "") {
+  let text = String(value || "").slice(0, 300).replace(/[\r\n\t]+/g, " ").replace(/\s+/g, " ").trim();
+  ["account_id", "broker_id", "client_id", "order_id", "账户号", "委托号", "客户号"].forEach((token) => {
+    text = text.replace(new RegExp(token, "gi"), "[已移除敏感字段]");
+  });
+  return text;
 }
 
 function beginnerPostCloseJournalRows(template = {}) {
@@ -9441,6 +9497,8 @@ function renderExecutionReceipts(spec = {}) {
       metrics.target_count != null ? `目标数=${formatNumber(metrics.target_count)}` : "",
       metrics.journal_item_count != null ? `复盘项=${formatNumber(metrics.journal_item_count)}` : "",
       metrics.paper_receipt_present != null ? `模拟盘回执=${metrics.paper_receipt_present ? "有" : "无"}` : "",
+      metrics.manual_outcome ? `人工选择=${zhConsoleText(metrics.manual_outcome)}` : "",
+      metrics.manual_note_count != null ? `人工备注=${formatNumber(metrics.manual_note_count)}` : "",
     ].filter(Boolean).join(" / ");
     const requestText = [
       request.market,
@@ -9622,6 +9680,7 @@ function postCloseJournalReceipt(result = {}) {
   const items = Array.isArray(template.items) ? template.items : [];
   const paper = result.paper_receipt || null;
   const decision = result.decision || {};
+  const manualReview = result.manual_review || postCloseManualReviewForm();
   return {
     workflow_id: "post_close_journal",
     label: "Post-close journal receipt",
@@ -9639,8 +9698,12 @@ function postCloseJournalReceipt(result = {}) {
       traffic_light: readiness.traffic_light,
       paper_receipt_present: Boolean(paper),
       blocker_count: Array.isArray(readiness.blockers) ? readiness.blockers.length : 0,
+      manual_outcome: manualReview.manual_outcome,
+      manual_note_count: manualReview.manual_note_count,
+      manual_review_recorded: Boolean(manualReview.manual_review_recorded),
     },
-    decision: decision.title || "post_close_review_recorded",
+    decision: manualReview.manual_outcome || decision.title || "post_close_review_recorded",
+    manual_review: manualReview,
     safety: "local post-close journal only; no broker, account, or order side effects",
   };
 }
