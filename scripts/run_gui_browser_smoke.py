@@ -317,6 +317,28 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "beginner_post_close_journal_frontend",
+            "Beginner post-close journal frontend",
+            index_html.get("ok")
+            and "beginner-post-close-journal-board" in str(index_html.get("body", ""))
+            and "beginner-post-close-journal-summary" in str(index_html.get("body", ""))
+            and "beginner-post-close-journal-checklist" in str(index_html.get("body", ""))
+            and "beginner-post-close-journal-actions" in str(index_html.get("body", ""))
+            and app_js.get("ok")
+            and "renderBeginnerPostCloseJournal" in str(app_js.get("body", ""))
+            and "beginnerPostCloseJournalRows" in str(app_js.get("body", ""))
+            and "postCloseJournalReceipt" in str(app_js.get("body", ""))
+            and "runPostCloseJournal" in str(app_js.get("body", ""))
+            and "data-post-close-journal-action" in str(app_js.get("body", ""))
+            and "data-post-close-journal-target" in str(app_js.get("body", "")),
+            "Frontend exposes a beginner post-close journal card and local receipt action.",
+            index_html.get("error")
+            or app_js.get("error")
+            or "Beginner post-close journal anchors or renderer hooks are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "beginner_live_handoff_frontend",
             "Beginner live handoff frontend",
             index_html.get("ok")

@@ -219,6 +219,8 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
             markdown = (output_dir / "daily_trade_advisory_pack.md").read_text(encoding="utf-8")
             self.assertIn("每日交易演练", markdown)
             self.assertIn("收盘后复盘记录", markdown)
+            self.assertIn("收盘后复盘", markdown)
+            self.assertIn("今天是否人工执行", markdown)
 
     def test_builds_beginner_pretrade_workflow_from_daily_advisory(self):
         pack = build_daily_trade_advisory_pack(
@@ -339,6 +341,45 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("收盘后", daybook["phases"][-1]["plain_action"])
         self.assertTrue(all(not phase["automation_allowed"] for phase in daybook["phases"]))
         self.assertIn("不自动下单", daybook["safety"])
+
+    def test_daily_pack_exposes_post_close_journal_template(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF", "sharpe": 1.2},
+                {"rank": 2, "case_id": "c2", "factor_name": "reversal_2", "market": "CN_ETF", "sharpe": 0.8},
+            ],
+            [
+                _signal("c1", "momentum_2", {"510300": 0.4}),
+                _signal("c2", "reversal_2", {"588000": 0.3}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+        )
+
+        journal = pack["post_close_journal_template"]
+
+        self.assertEqual(journal["stage"], "phase_6_6_post_close_journal_template")
+        self.assertEqual(journal["run_date"], "2026-06-29")
+        self.assertEqual(journal["summary"]["primary_market"], "CN_ETF")
+        self.assertEqual(journal["summary"]["question_count"], 5)
+        self.assertTrue(journal["summary"]["manual_decision_required"])
+        self.assertTrue(journal["summary"]["paper_receipt_required"])
+        self.assertFalse(journal["summary"]["live_order_allowed"])
+        self.assertFalse(journal["summary"]["order_placement_allowed"])
+        self.assertEqual(
+            [item["item_id"] for item in journal["items"]],
+            [
+                "signal_evidence",
+                "paper_simulation",
+                "manual_decision",
+                "risk_observation",
+                "next_day_follow_up",
+            ],
+        )
+        self.assertIn("今天是否人工执行", journal["items"][2]["prompt"])
+        self.assertIn("次日", journal["items"][-1]["prompt"])
+        self.assertTrue(all(not item["automation_allowed"] for item in journal["items"]))
+        self.assertIn("不自动下单", journal["safety"])
 
 
 def _signal(

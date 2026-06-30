@@ -242,6 +242,7 @@ document.addEventListener("DOMContentLoaded", () => {
   renderBeginnerVerdict();
   renderBeginnerTradeSystem();
   renderBeginnerDailyRehearsal();
+  renderBeginnerPostCloseJournal();
   renderBeginnerLiveHandoff();
   renderBeginnerTaskWizard();
   renderBeginnerTroubleshooter();
@@ -478,6 +479,18 @@ function bindActions() {
     if (!button) return;
     event.preventDefault();
     jumpToBeginnerTarget(button.dataset.dailyRehearsalTarget || "beginner-daily-rehearsal-board", state.leaderboardTab);
+  });
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-post-close-journal-action]");
+    if (!button) return;
+    event.preventDefault();
+    await runBeginnerAction(button.dataset.postCloseJournalAction || "", button);
+  });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-post-close-journal-target]");
+    if (!button) return;
+    event.preventDefault();
+    jumpToBeginnerTarget(button.dataset.postCloseJournalTarget || "beginner-post-close-journal-board", state.leaderboardTab);
   });
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-live-handoff-target]");
@@ -1832,6 +1845,51 @@ async function runDailyPretradeCheckup(button = null) {
   }
 }
 
+async function runPostCloseJournal(button = null) {
+  const trade = state.dailyTradeAdvisory || {};
+  const template = trade.post_close_journal_template || {};
+  const paper = latestExecutionReceipt("paper_simulation");
+  const confirmed = await confirmSafeWorkflow({
+    workflow_id: "post_close_journal",
+    label: "生成收盘后复盘回执",
+    endpoint: "browser://post_close_journal",
+    request: {
+      market: trade.market || template.summary?.primary_market || "CN_ETF",
+      run_date: trade.run_date || template.run_date || "",
+      signal_count: trade.summary?.signal_count || 0,
+      paper_receipt_present: Boolean(paper),
+      manual_handoff_only: true,
+    },
+  });
+  if (!confirmed) return;
+  const label = button?.textContent || "";
+  if (button) {
+    button.disabled = true;
+    button.textContent = "记录中";
+  }
+  try {
+    appendRunHistory({
+      workflow_id: "post_close_journal",
+      label: "收盘后复盘回执",
+      status: "completed",
+      detail: `${trade.run_date || template.run_date || "--"} / paper=${paper ? "yes" : "no"}`,
+    });
+    appendExecutionReceipt(postCloseJournalReceipt({
+      trade,
+      template,
+      paper_receipt: paper,
+      decision: dailyReadinessDecision(),
+    }));
+    renderBeginnerPostCloseJournal();
+    showToast("收盘后复盘回执已记录");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = label || "生成本地复盘回执";
+    }
+  }
+}
+
 async function runDailyOps() {
   const params = new URLSearchParams({
     daily_ops_pack: valueOf("daily-ops-pack-path"),
@@ -2206,6 +2264,7 @@ function renderControlCenter() {
   renderBeginnerProgress();
   renderBeginnerTradeSystem();
   renderBeginnerDailyRehearsal();
+  renderBeginnerPostCloseJournal();
   renderBeginnerLiveHandoff();
   syncCurrentBacktestRuntimeGuard();
 }
@@ -2262,6 +2321,7 @@ function renderDashboard() {
   renderBeginnerProgress();
   renderBeginnerTradeSystem();
   renderBeginnerDailyRehearsal();
+  renderBeginnerPostCloseJournal();
   renderBeginnerLiveHandoff();
   renderFactorBeginnerExplainer(activeFactorBoard, activeFactorBoard.rows || []);
   byId("dashboard-equity-source").textContent = state.research?.data_source || valueOf("data-source-select") || state.snapshot?.data_mode || "local";
@@ -2588,6 +2648,7 @@ function setLeaderboardTab(tab) {
   renderBeginnerProgress();
   renderBeginnerTradeSystem();
   renderBeginnerDailyRehearsal();
+  renderBeginnerPostCloseJournal();
   renderBeginnerLiveHandoff();
 }
 
@@ -3045,6 +3106,138 @@ function beginnerDailyStatusTone(status = "") {
   if (status === "blocked") return "danger";
   if (status === "manual_only" || status === "required") return "warn";
   return "muted";
+}
+
+function renderBeginnerPostCloseJournal() {
+  const summaryTarget = byId("beginner-post-close-journal-summary");
+  const checklistTarget = byId("beginner-post-close-journal-checklist");
+  const actionsTarget = byId("beginner-post-close-journal-actions");
+  if (!summaryTarget || !checklistTarget || !actionsTarget) return;
+  const trade = state.dailyTradeAdvisory || {};
+  const template = trade.post_close_journal_template || {};
+  const summary = template.summary || {};
+  const paperReceipt = latestExecutionReceipt("paper_simulation");
+  const journalReceipt = latestExecutionReceipt("post_close_journal");
+  const rows = beginnerPostCloseJournalRows(template);
+  summaryTarget.innerHTML = statusRows([
+    ["复盘状态", journalReceipt ? "已有本地复盘回执" : "等待收盘后复盘", journalReceipt ? "ok" : "warn"],
+    ["运行日期", template.run_date || trade.run_date || "--", "muted"],
+    ["模拟盘回执", paperReceipt ? `已有 ${paperReceipt.time || "--"}` : "缺失", paperReceipt ? "ok" : "warn"],
+    ["安全边界", summary.order_placement_allowed ? "异常：允许下单" : "不自动下单", summary.order_placement_allowed ? "danger" : "danger"],
+  ]);
+  checklistTarget.innerHTML = rows.map((item) => `
+    <div class="list-row ${escapeHtml(item.tone)}">
+      <strong>${escapeHtml(item.title)}</strong>
+      <span>${escapeHtml(item.prompt)}</span>
+      <span>${escapeHtml(item.evidence)}</span>
+    </div>
+  `).join("");
+  actionsTarget.innerHTML = beginnerPostCloseJournalActionRows(template, journalReceipt, paperReceipt).map((item) => `
+    <div class="list-row ${escapeHtml(item.tone)}">
+      <strong>${escapeHtml(item.label)}</strong>
+      <span>${escapeHtml(item.detail)}</span>
+      <span class="beginner-task-actions">
+        ${item.workflow ? `<button class="primary-button" type="button" data-post-close-journal-action="${escapeRawHtml(item.workflow)}">${escapeHtml(item.button)}</button>` : ""}
+        ${item.target ? `<button class="secondary-button" type="button" data-post-close-journal-target="${escapeRawHtml(item.target)}">${escapeHtml(item.targetLabel || "看证据")}</button>` : ""}
+      </span>
+    </div>
+  `).join("");
+}
+
+function beginnerPostCloseJournalRows(template = {}) {
+  const fallbackItems = [
+    {
+      item_id: "signal_evidence",
+      title: "今日信号证据",
+      status: "needs_review",
+      prompt: "确认今日前三因子、信号日期和目标 ETF。",
+      evidence: "等待今日建议加载。",
+      gui_target: "daily-trade-factor-table",
+    },
+    {
+      item_id: "paper_simulation",
+      title: "模拟盘表现",
+      status: "required",
+      prompt: "记录收益、回撤、成交和保护事件。",
+      evidence: "等待模拟盘回执。",
+      gui_target: "paper-metrics",
+    },
+    {
+      item_id: "manual_decision",
+      title: "人工决策",
+      status: "required",
+      prompt: "写下今天执行、跳过或减仓的原因。",
+      evidence: "人工填写，不读账户。",
+      gui_target: "daily-manual-broker-handoff-ticket-table",
+    },
+    {
+      item_id: "risk_observation",
+      title: "风险观察",
+      status: "required",
+      prompt: "记录回撤、集中度、现金或异常价格问题。",
+      evidence: "等待盘前体检证据。",
+      gui_target: "daily-pretrade-readiness-verdict",
+    },
+    {
+      item_id: "next_day_follow_up",
+      title: "次日跟进",
+      status: "required",
+      prompt: "写下明天要复核的数据、因子和风险。",
+      evidence: "作为下一轮审计输入。",
+      gui_target: "control-operation-ledger",
+    },
+  ];
+  const items = Array.isArray(template.items) && template.items.length ? template.items : fallbackItems;
+  const paperReceipt = latestExecutionReceipt("paper_simulation");
+  return items.map((item) => {
+    let status = item.status || "required";
+    let evidence = item.evidence || "";
+    if (item.item_id === "paper_simulation" && paperReceipt) {
+      status = "done";
+      evidence = `模拟盘=${paperReceipt.time || "--"} / 收益=${formatPercent(paperReceipt.metrics?.total_return)} / 回撤=${formatPercent(paperReceipt.metrics?.max_drawdown)}`;
+    }
+    return {
+      itemId: item.item_id || "",
+      title: item.title || item.item_id || "--",
+      prompt: item.prompt || "",
+      evidence,
+      target: item.gui_target || "beginner-post-close-journal-board",
+      tone: status === "done" ? "ok" : status === "needs_review" ? "warn" : "warn",
+      status,
+    };
+  });
+}
+
+function beginnerPostCloseJournalActionRows(template = {}, journalReceipt = null, paperReceipt = null) {
+  return [
+    {
+      label: "生成复盘回执",
+      detail: journalReceipt
+        ? `最近复盘回执=${journalReceipt.time || "--"}`
+        : "收盘后点这里，把今日信号、模拟盘和人工决策问题写入本地回执台账。",
+      workflow: "post_close_journal",
+      target: "control-execution-receipts",
+      button: journalReceipt ? "更新复盘回执" : "生成本地复盘回执",
+      targetLabel: "看回执",
+      tone: journalReceipt ? "ok" : "warn",
+    },
+    {
+      label: "模拟盘证据",
+      detail: paperReceipt ? "已有模拟盘证据，可以写入复盘。" : "还缺模拟盘回执，先跑本地模拟盘。",
+      workflow: paperReceipt ? "" : "paper_simulation",
+      target: "paper-metrics",
+      button: "运行模拟盘",
+      targetLabel: "看模拟盘",
+      tone: paperReceipt ? "ok" : "warn",
+    },
+    {
+      label: "安全提醒",
+      detail: template.safety || "复盘回执不是账户记录；不连接券商、不读取账户、不自动下单。",
+      target: "control-safety-boundary",
+      targetLabel: "看安全边界",
+      tone: "danger",
+    },
+  ];
 }
 
 function beginnerRecommendedTaskId() {
@@ -4467,6 +4660,7 @@ function renderPaper() {
   renderDailyEvidenceChain();
   renderBeginnerTradeSystem();
   renderBeginnerDailyRehearsal();
+  renderBeginnerPostCloseJournal();
   renderBeginnerLiveHandoff();
 }
 
@@ -4504,6 +4698,7 @@ function renderDailyTradeAdvisory() {
   renderDailyEvidenceChain();
   renderBeginnerTradeSystem();
   renderBeginnerDailyRehearsal();
+  renderBeginnerPostCloseJournal();
   renderBeginnerLiveHandoff();
   byId("daily-trade-factor-table").innerHTML = tableRows(pack.factors || [], [
     "rank",
@@ -7161,6 +7356,7 @@ function appendRunHistory(entry) {
   renderBeginnerProgress();
   renderBeginnerTradeSystem();
   renderBeginnerDailyRehearsal();
+  renderBeginnerPostCloseJournal();
   renderBeginnerLiveHandoff();
   return nextEntry;
 }
@@ -7203,6 +7399,7 @@ function appendExecutionReceipt(receipt) {
   renderDailyEvidenceChain();
   renderBeginnerTradeSystem();
   renderBeginnerDailyRehearsal();
+  renderBeginnerPostCloseJournal();
   renderBeginnerLiveHandoff();
   renderControlCenter();
   return nextReceipt;
@@ -7262,6 +7459,8 @@ function renderExecutionReceipts(spec = {}) {
       metrics.max_drawdown != null ? `回撤=${formatPercent(metrics.max_drawdown)}` : "",
       metrics.ending_equity != null ? `权益=${formatNumber(metrics.ending_equity)}` : "",
       metrics.target_count != null ? `目标数=${formatNumber(metrics.target_count)}` : "",
+      metrics.journal_item_count != null ? `复盘项=${formatNumber(metrics.journal_item_count)}` : "",
+      metrics.paper_receipt_present != null ? `模拟盘回执=${metrics.paper_receipt_present ? "有" : "无"}` : "",
     ].filter(Boolean).join(" / ");
     const requestText = [
       request.market,
@@ -7414,6 +7613,37 @@ function dailyPretradeCheckupReceipt(result = {}) {
   };
 }
 
+function postCloseJournalReceipt(result = {}) {
+  const trade = result.trade || {};
+  const template = result.template || {};
+  const summary = trade.summary || {};
+  const readiness = trade.pretrade_readiness || {};
+  const items = Array.isArray(template.items) ? template.items : [];
+  const paper = result.paper_receipt || null;
+  const decision = result.decision || {};
+  return {
+    workflow_id: "post_close_journal",
+    label: "Post-close journal receipt",
+    request: {
+      market: trade.market || template.summary?.primary_market || "CN_ETF",
+      as_of_date: trade.run_date || template.run_date,
+      manual_handoff_only: true,
+      broker_connection_allowed: false,
+    },
+    metrics: {
+      journal_item_count: items.length,
+      selected_factor_count: summary.selected_factor_count,
+      signal_count: summary.signal_count,
+      target_count: summary.combined_target_count ?? trade.combined_target_count,
+      traffic_light: readiness.traffic_light,
+      paper_receipt_present: Boolean(paper),
+      blocker_count: Array.isArray(readiness.blockers) ? readiness.blockers.length : 0,
+    },
+    decision: decision.title || "post_close_review_recorded",
+    safety: "local post-close journal only; no broker, account, or order side effects",
+  };
+}
+
 async function runVerificationGate(gateId, button = null) {
   if (!gateId) return;
   const label = button?.textContent || "";
@@ -7495,6 +7725,10 @@ async function runActionCenterWorkflow(workflowId, button = null) {
     }
     if (workflowId === "paper_simulation") {
       await runPaper();
+      return;
+    }
+    if (workflowId === "post_close_journal") {
+      await runPostCloseJournal(button);
       return;
     }
     if (workflowId === "startup_workflows") {

@@ -16,6 +16,7 @@ PRETRADE_READINESS_STAGE = "phase_6_2_manual_pretrade_readiness"
 MANUAL_BROKER_HANDOFF_STAGE = "phase_6_3_manual_broker_handoff"
 TRADE_SYSTEM_STAGE = "phase_6_4_manual_trade_system_protocol"
 DAILY_REHEARSAL_STAGE = "phase_6_5_daily_rehearsal_daybook"
+POST_CLOSE_JOURNAL_STAGE = "phase_6_6_post_close_journal_template"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 
@@ -114,6 +115,7 @@ def build_daily_trade_advisory_pack(
     pack["pretrade_workflow"] = build_daily_pretrade_workflow(pack)
     pack["trade_system"] = build_manual_trade_system_protocol(pack)
     pack["daily_rehearsal_daybook"] = build_daily_rehearsal_daybook(pack)
+    pack["post_close_journal_template"] = build_post_close_journal_template(pack)
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
 
@@ -424,6 +426,85 @@ def build_daily_rehearsal_daybook(pack: dict[str, Any]) -> dict[str, Any]:
                 ),
             },
             "phases": phases,
+        }
+    )
+
+
+def build_post_close_journal_template(pack: dict[str, Any]) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
+    freshness = readiness.get("freshness") if isinstance(readiness.get("freshness"), dict) else {}
+    factors = [row for row in pack.get("factors", []) if isinstance(row, dict)]
+    signal_count = _int(summary.get("signal_count"), 0)
+    target_count = _int(summary.get("combined_target_count"), 0)
+    market = str(pack.get("market") or _first_market(factors) or "CN_ETF").upper()
+    run_date = str(pack.get("run_date") or date.today().isoformat())
+    signal_fresh = freshness.get("fresh_for_run_date") is True
+    items = [
+        {
+            "item_id": "signal_evidence",
+            "title": "今日信号证据",
+            "status": "done" if signal_fresh and signal_count > 0 else "needs_review",
+            "prompt": "确认今天的前三因子、信号日期、目标 ETF 和阻断项是否一致。",
+            "evidence": f"signals={signal_count}; targets={target_count}; latest_signal_date={freshness.get('latest_signal_date') or '无'}",
+            "gui_target": "daily-trade-factor-table",
+            "automation_allowed": False,
+        },
+        {
+            "item_id": "paper_simulation",
+            "title": "模拟盘表现",
+            "status": "required",
+            "prompt": "记录模拟盘收益、最大回撤、成交笔数和保护事件；没有模拟盘回执就不要写成可实盘结论。",
+            "evidence": "读取浏览器本地 paper_simulation 回执。",
+            "gui_target": "paper-metrics",
+            "automation_allowed": False,
+        },
+        {
+            "item_id": "manual_decision",
+            "title": "人工决策",
+            "status": "required",
+            "prompt": "今天是否人工执行、跳过或减仓？写下原因，尤其是风险、流动性、价格偏差和个人承受度。",
+            "evidence": "人工填写，不读取账户，不连接券商。",
+            "gui_target": "daily-manual-broker-handoff-ticket-table",
+            "automation_allowed": False,
+        },
+        {
+            "item_id": "risk_observation",
+            "title": "风险观察",
+            "status": "required",
+            "prompt": "记录今天暴露出的回撤、集中度、现金、流动性或异常价格问题。",
+            "evidence": f"traffic_light={readiness.get('traffic_light') or 'unknown'}; blockers={', '.join(readiness.get('blockers', [])) or '无'}",
+            "gui_target": "daily-pretrade-readiness-verdict",
+            "automation_allowed": False,
+        },
+        {
+            "item_id": "next_day_follow_up",
+            "title": "次日跟进",
+            "status": "required",
+            "prompt": "写下次日要复核的数据、因子、信号、新风险或参数，不把今天一次表现当成长期有效。",
+            "evidence": "作为下一轮因子审计和模拟盘观察输入。",
+            "gui_target": "control-operation-ledger",
+            "automation_allowed": False,
+        },
+    ]
+    return _sanitize(
+        {
+            "stage": POST_CLOSE_JOURNAL_STAGE,
+            "run_date": run_date,
+            "safety": SAFETY_NOTICE,
+            "summary": {
+                "primary_market": market,
+                "question_count": len(items),
+                "manual_decision_required": True,
+                "paper_receipt_required": True,
+                "post_close_review_required": True,
+                "live_order_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "operator_summary": "收盘后把信号、模拟盘、人工判断和次日风险写成回执；这是研究反馈，不是下单记录。",
+            },
+            "items": items,
         }
     )
 
@@ -917,6 +998,12 @@ def render_daily_trade_advisory_markdown(pack: dict[str, Any]) -> str:
                 f"- {phase.get('phase_number', '')}. {phase.get('title', '')}: "
                 f"{phase.get('status', '')} / {phase.get('plain_action', '')}"
             )
+    journal = pack.get("post_close_journal_template") if isinstance(pack.get("post_close_journal_template"), dict) else {}
+    journal_items = [row for row in journal.get("items", []) if isinstance(row, dict)]
+    if journal_items:
+        lines.extend(["", "## 收盘后复盘", ""])
+        for item in journal_items:
+            lines.append(f"- {item.get('title', '')}: {item.get('prompt', '')}")
     return "\n".join(lines) + "\n"
 
 

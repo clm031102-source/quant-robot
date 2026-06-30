@@ -475,8 +475,14 @@ button {
   background: #f6fbff;
 }
 
+.beginner-post-close-journal-board {
+  border-left: 4px solid #6c5f3f;
+  background: #fffdf6;
+}
+
 .beginner-trade-system-layout,
-.beginner-daily-rehearsal-layout {
+.beginner-daily-rehearsal-layout,
+.beginner-post-close-journal-layout {
   display: grid;
   grid-template-columns: minmax(230px, 0.9fr) minmax(300px, 1.2fr) minmax(260px, 1fr);
   gap: 12px;
@@ -484,14 +490,17 @@ button {
 }
 
 .beginner-trade-system-layout .list-row,
-.beginner-daily-rehearsal-layout .list-row {
+.beginner-daily-rehearsal-layout .list-row,
+.beginner-post-close-journal-layout .list-row {
   align-items: center;
 }
 
 .beginner-trade-system-layout .list-row strong,
 .beginner-trade-system-layout .list-row span,
 .beginner-daily-rehearsal-layout .list-row strong,
-.beginner-daily-rehearsal-layout .list-row span {
+.beginner-daily-rehearsal-layout .list-row span,
+.beginner-post-close-journal-layout .list-row strong,
+.beginner-post-close-journal-layout .list-row span {
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -2310,6 +2319,7 @@ th {
   .beginner-verdict-board,
   .beginner-trade-system-layout,
   .beginner-daily-rehearsal-layout,
+  .beginner-post-close-journal-layout,
   .beginner-live-handoff-layout,
   .beginner-task-layout,
   .beginner-guide-layout,
@@ -2382,6 +2392,7 @@ th {
   .beginner-verdict-board,
   .beginner-trade-system-layout,
   .beginner-daily-rehearsal-layout,
+  .beginner-post-close-journal-layout,
   .beginner-live-handoff-layout,
   .beginner-task-layout,
   .beginner-guide-layout,
