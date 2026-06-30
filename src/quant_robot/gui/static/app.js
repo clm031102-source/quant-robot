@@ -340,6 +340,12 @@ function bindActions() {
     if (!button) return;
     jumpToBeginnerTarget(button.dataset.beginnerTarget || "", button.dataset.leaderboardTab || "");
   });
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-copy-ticket-text]");
+    if (!button) return;
+    event.preventDefault();
+    await copyTicketTextToClipboard(button.dataset.copyTicketText || "");
+  });
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-factor-beginner-jump]");
     if (!button) return;
@@ -6030,6 +6036,7 @@ function renderManualBrokerHandoff(handoff) {
       </div>
     `).join("")
     : statusRows([["暂无手工核对清单", "先生成今日前三交易建议。", "warn"]]);
+  renderManualBrokerCopyCards(tickets);
   byId("daily-manual-broker-handoff-ticket-table").innerHTML = tableRows(tickets, [
     "step_number",
     "asset_id",
@@ -6041,6 +6048,45 @@ function renderManualBrokerHandoff(handoff) {
     "live_order_allowed",
     "copy_text",
   ]);
+}
+
+function renderManualBrokerCopyCards(tickets = []) {
+  const target = byId("daily-manual-broker-copy-cards");
+  if (!target) return;
+  if (!tickets.length) {
+    target.innerHTML = statusRows([["复制人工票据", "暂无可复制票据；先生成今日前三建议并处理红灯。", "warn"]]);
+    return;
+  }
+  target.innerHTML = tickets.slice(0, 5).map((ticket, index) => {
+    const text = ticket.copy_text || ticket.manual_instruction || "";
+    return `
+      <div class="list-row warn">
+        <strong>${escapeHtml(`复制人工票据 ${index + 1}: ${ticket.asset_id || "--"}`)}</strong>
+        <span>${escapeHtml(`方向=${zhConsoleText(ticket.side || "--")} / 数量=${formatNumber(ticket.rounded_quantity)} / 金额=${formatNumber(ticket.rounded_value)}`)}</span>
+        <span>${escapeHtml("复制后仍要人工核对：ETF代码、实时价格、数量、现金、风险；系统不会下单。")}</span>
+        <span class="beginner-task-actions">
+          <button class="secondary-button" type="button" data-copy-ticket-text="${escapeRawHtml(text)}">复制票据文本</button>
+        </span>
+      </div>
+    `;
+  }).join("");
+}
+
+async function copyTicketTextToClipboard(text) {
+  if (!text) {
+    showToast("没有可复制的票据文本", true);
+    return;
+  }
+  if (!navigator.clipboard?.writeText) {
+    showToast("clipboard_unavailable：请在票据表里手工选择 copy_text。", true);
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast("已复制。复制后仍要人工核对，系统不会下单。");
+  } catch (_error) {
+    showToast("复制失败，请在票据表里手工选择 copy_text。", true);
+  }
 }
 
 function renderDailyPretradeWorkflow(workflow) {
