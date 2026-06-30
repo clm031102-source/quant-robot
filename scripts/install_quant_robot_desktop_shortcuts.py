@@ -12,7 +12,13 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 
 ensure_workspace_imports()
 
-from quant_robot.gui.desktop_app import DEFAULT_DAILY_TARGET_ID, desktop_beginner_status_rows
+from quant_robot.gui.desktop_app import (
+    DEFAULT_DAILY_TARGET_ID,
+    DEFAULT_JOURNAL_TARGET_ID,
+    DEFAULT_PAPER_TARGET_ID,
+    DEFAULT_TOP3_TARGET_ID,
+    desktop_beginner_status_rows,
+)
 
 
 @dataclass(frozen=True)
@@ -37,10 +43,28 @@ DEFAULT_DESKTOP_SHORTCUTS = (
         target_id=DEFAULT_DAILY_TARGET_ID,
     ),
     DesktopShortcutSpec(
+        shortcut_id="top3_signal",
+        filename="量化机器人-今日前三信号.bat",
+        page="daily",
+        target_id=DEFAULT_TOP3_TARGET_ID,
+    ),
+    DesktopShortcutSpec(
+        shortcut_id="paper_rehearsal",
+        filename="量化机器人-模拟盘复核.bat",
+        page="daily",
+        target_id=DEFAULT_PAPER_TARGET_ID,
+    ),
+    DesktopShortcutSpec(
         shortcut_id="factor_leaderboard",
         filename="量化机器人-因子排行榜.bat",
         page="dashboard",
         target_id="factor-leaderboard-table",
+    ),
+    DesktopShortcutSpec(
+        shortcut_id="post_close_journal",
+        filename="量化机器人-盘后复盘.bat",
+        page="daily",
+        target_id=DEFAULT_JOURNAL_TARGET_ID,
     ),
     DesktopShortcutSpec(
         shortcut_id="logs_report",
@@ -78,9 +102,12 @@ def build_beginner_readme(shortcuts: tuple[DesktopShortcutSpec, ...] = DEFAULT_D
             "量化机器人新手说明",
             "",
             "第一步：双击「量化机器人-今日行动.bat」，先看软件建议你今天先做什么。",
-            "第二步：如果要做交易前检查，双击「量化机器人-今日交易检查.bat」。",
-            "第三步：如果想看历史表现，双击「量化机器人-因子排行榜.bat」。",
-            "第四步：如果运行失败或看不懂结果，双击「量化机器人-日志报告.bat」。",
+            "第二步：双击「量化机器人-今日前三信号.bat」，看今天前三因子、信号和证据。",
+            "第三步：双击「量化机器人-模拟盘复核.bat」，用同参数做当天模拟盘演练。",
+            "第四步：如果要做交易前检查，双击「量化机器人-今日交易检查.bat」。",
+            "第五步：收盘后双击「量化机器人-盘后复盘.bat」，记录执行、跳过或只观察的原因。",
+            "辅助：如果想看历史表现，双击「量化机器人-因子排行榜.bat」。",
+            "排障：如果运行失败或看不懂结果，双击「量化机器人-日志报告.bat」。",
             "",
             "打开后先看：",
             status_lines,

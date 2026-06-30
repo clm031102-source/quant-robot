@@ -19,28 +19,52 @@ DESKTOP_APP_COPY = {
     "status_panel_title": "新手先看这里",
     "primary_button": "启动并打开中控台",
     "today_action_button": "打开今日行动",
+    "top3_button": "打开今日前三信号",
+    "paper_button": "打开模拟盘复核",
     "daily_button": "打开今日交易检查",
     "leaderboard_button": "打开因子排行榜",
+    "journal_button": "打开盘后复盘",
     "logs_button": "打开日志报告",
     "stop_button": "停止本地服务",
 }
 DEFAULT_INITIAL_PAGE = "dashboard"
 DEFAULT_INITIAL_TARGET_ID = "ordinary-daily-action-card"
 DEFAULT_DAILY_TARGET_ID = "daily-real-world-handoff-gate"
+DEFAULT_TOP3_TARGET_ID = "daily-trade-decision-sheet"
+DEFAULT_PAPER_TARGET_ID = "daily-signal-execution-bridge"
+DEFAULT_JOURNAL_TARGET_ID = "beginner-post-close-journal-board"
 DESKTOP_BEGINNER_STATUS_ROWS = (
     {
         "row_id": "today_action",
-        "label": "第一步",
-        "detail": "先看“今天先做哪一步”，它会告诉你该生成建议、跑模拟盘，还是看证据。",
+        "label": "第一步：看总闸门",
+        "detail": "先看“今天先做哪一步”，确认数据、回测、信号和安全边界有没有红灯。",
         "page": "dashboard",
         "target": "ordinary-daily-action-card",
         "broker_connection_allowed": False,
         "order_placement_allowed": False,
     },
     {
+        "row_id": "top3_signal",
+        "label": "第二步：看今日前三",
+        "detail": "查看今日前三因子、信号、参数、收益/回撤/胜率证据；排行榜不能直接当买入指令。",
+        "page": "daily",
+        "target": DEFAULT_TOP3_TARGET_ID,
+        "broker_connection_allowed": False,
+        "order_placement_allowed": False,
+    },
+    {
+        "row_id": "paper_rehearsal",
+        "label": "第三步：跑模拟盘",
+        "detail": "用同一组参数做当天模拟盘复核，确认信号没有过期、市场没有串线、风险闸门没有阻断。",
+        "page": "daily",
+        "target": DEFAULT_PAPER_TARGET_ID,
+        "broker_connection_allowed": False,
+        "order_placement_allowed": False,
+    },
+    {
         "row_id": "daily_check",
-        "label": "交易前",
-        "detail": "再看今日交易检查，确认盘前红灯、目标仓位、人工票据和交易包完整度。",
+        "label": "第四步：人工交易检查",
+        "detail": "只在红灯全部消失后查看人工票据；真实交易仍必须你自己打开券商软件逐项核对。",
         "page": "daily",
         "target": DEFAULT_DAILY_TARGET_ID,
         "broker_connection_allowed": False,
@@ -48,7 +72,7 @@ DESKTOP_BEGINNER_STATUS_ROWS = (
     },
     {
         "row_id": "factor_leaderboard",
-        "label": "看因子",
+        "label": "辅助：看因子库",
         "detail": "排行榜展示 Sharpe、年化、回撤、胜率和 RankIC，但排行榜不能直接当买入指令。",
         "page": "dashboard",
         "target": "factor-leaderboard-table",
@@ -56,8 +80,17 @@ DESKTOP_BEGINNER_STATUS_ROWS = (
         "order_placement_allowed": False,
     },
     {
+        "row_id": "post_close_journal",
+        "label": "收盘：写复盘",
+        "detail": "记录今天执行、跳过或只观察的原因，作为明天是否继续小资金观察的证据。",
+        "page": "daily",
+        "target": DEFAULT_JOURNAL_TARGET_ID,
+        "broker_connection_allowed": False,
+        "order_placement_allowed": False,
+    },
+    {
         "row_id": "safety_boundary",
-        "label": "安全边界",
+        "label": "红线：安全边界",
         "detail": "软件不会连接券商、不会读取账户、不会自动下单；真实交易必须人工复核。",
         "page": "dashboard",
         "target": "control-safety-boundary",
@@ -216,7 +249,7 @@ def run_desktop_app(
 
     root = tk.Tk()
     root.title(DESKTOP_APP_COPY["title"])
-    root.geometry("620x430")
+    root.geometry("760x560")
     root.resizable(False, False)
 
     status_var = tk.StringVar(value="未启动")
@@ -226,14 +259,14 @@ def run_desktop_app(
     frame = ttk.Frame(root, padding=20)
     frame.pack(fill="both", expand=True)
     ttk.Label(frame, text=DESKTOP_APP_COPY["title"], font=("", 16, "bold")).pack(anchor="w")
-    ttk.Label(frame, text=DESKTOP_APP_COPY["subtitle"], wraplength=460).pack(anchor="w", pady=(8, 12))
-    ttk.Label(frame, textvariable=safety_var, foreground="#ad3f3c", wraplength=460).pack(anchor="w")
+    ttk.Label(frame, text=DESKTOP_APP_COPY["subtitle"], wraplength=680).pack(anchor="w", pady=(8, 12))
+    ttk.Label(frame, textvariable=safety_var, foreground="#ad3f3c", wraplength=680).pack(anchor="w")
     ttk.Label(frame, text=DESKTOP_APP_COPY["status_panel_title"], font=("", 11, "bold")).pack(anchor="w", pady=(12, 4))
     for item in desktop_beginner_status_rows():
         ttk.Label(
             frame,
             text=f"{item['label']}：{item['detail']}",
-            wraplength=560,
+            wraplength=700,
         ).pack(anchor="w", pady=(1, 0))
     ttk.Label(frame, textvariable=status_var).pack(anchor="w", pady=(12, 4))
     ttk.Label(frame, textvariable=url_var).pack(anchor="w")
@@ -261,9 +294,15 @@ def run_desktop_app(
     quick_buttons = ttk.Frame(frame)
     quick_buttons.pack(anchor="w", pady=(12, 0))
     ttk.Button(quick_buttons, text=DESKTOP_APP_COPY["today_action_button"], command=lambda: open_section("dashboard", DEFAULT_INITIAL_TARGET_ID)).pack(side="left")
+    ttk.Button(quick_buttons, text=DESKTOP_APP_COPY["top3_button"], command=lambda: open_section("daily", DEFAULT_TOP3_TARGET_ID)).pack(side="left", padx=(10, 0))
+    ttk.Button(quick_buttons, text=DESKTOP_APP_COPY["paper_button"], command=lambda: open_section("daily", DEFAULT_PAPER_TARGET_ID)).pack(side="left", padx=(10, 0))
     ttk.Button(quick_buttons, text=DESKTOP_APP_COPY["daily_button"], command=lambda: open_section("daily", DEFAULT_DAILY_TARGET_ID)).pack(side="left", padx=(10, 0))
-    ttk.Button(quick_buttons, text=DESKTOP_APP_COPY["leaderboard_button"], command=lambda: open_section("dashboard", "factor-leaderboard-table")).pack(side="left", padx=(10, 0))
-    ttk.Button(quick_buttons, text=DESKTOP_APP_COPY["logs_button"], command=lambda: open_section("logs")).pack(side="left", padx=(10, 0))
+
+    support_buttons = ttk.Frame(frame)
+    support_buttons.pack(anchor="w", pady=(12, 0))
+    ttk.Button(support_buttons, text=DESKTOP_APP_COPY["leaderboard_button"], command=lambda: open_section("dashboard", "factor-leaderboard-table")).pack(side="left")
+    ttk.Button(support_buttons, text=DESKTOP_APP_COPY["journal_button"], command=lambda: open_section("daily", DEFAULT_JOURNAL_TARGET_ID)).pack(side="left", padx=(10, 0))
+    ttk.Button(support_buttons, text=DESKTOP_APP_COPY["logs_button"], command=lambda: open_section("logs")).pack(side="left", padx=(10, 0))
 
     def on_close() -> None:
         controller.stop()

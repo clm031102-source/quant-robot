@@ -14,6 +14,9 @@ from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.gui.app import create_gui_handler
 from quant_robot.gui.desktop_app import (
     DESKTOP_APP_COPY,
+    DEFAULT_JOURNAL_TARGET_ID,
+    DEFAULT_PAPER_TARGET_ID,
+    DEFAULT_TOP3_TARGET_ID,
     DesktopAppState,
     DesktopGuiController,
     desktop_beginner_status_rows,
@@ -183,9 +186,14 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("--page dashboard", batch_file.read_text(encoding="utf-8"))
         self.assertIn("--target-id ordinary-daily-action-card", batch_file.read_text(encoding="utf-8"))
         self.assertIn("today_action_button", DESKTOP_APP_COPY)
+        self.assertIn("top3_button", DESKTOP_APP_COPY)
+        self.assertIn("paper_button", DESKTOP_APP_COPY)
         self.assertIn("daily_button", DESKTOP_APP_COPY)
         self.assertIn("leaderboard_button", DESKTOP_APP_COPY)
+        self.assertIn("journal_button", DESKTOP_APP_COPY)
         self.assertIn("logs_button", DESKTOP_APP_COPY)
+        self.assertIn("今日前三信号", DESKTOP_APP_COPY["top3_button"])
+        self.assertIn("模拟盘复核", DESKTOP_APP_COPY["paper_button"])
         self.assertIn("今日交易检查", DESKTOP_APP_COPY["daily_button"])
 
     def test_desktop_beginner_status_rows_explain_first_actions_and_safety(self):
@@ -195,8 +203,14 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertEqual(rows[0]["row_id"], "today_action")
         self.assertIn("ordinary-daily-action-card", rows_by_id["today_action"]["target"])
         self.assertIn("今天先做哪一步", rows_by_id["today_action"]["detail"])
+        self.assertEqual(rows_by_id["top3_signal"]["target"], DEFAULT_TOP3_TARGET_ID)
+        self.assertIn("今日前三因子", rows_by_id["top3_signal"]["detail"])
+        self.assertEqual(rows_by_id["paper_rehearsal"]["target"], DEFAULT_PAPER_TARGET_ID)
+        self.assertIn("同一组参数", rows_by_id["paper_rehearsal"]["detail"])
         self.assertIn("daily-real-world-handoff-gate", rows_by_id["daily_check"]["target"])
         self.assertIn("Sharpe", rows_by_id["factor_leaderboard"]["detail"])
+        self.assertEqual(rows_by_id["post_close_journal"]["target"], DEFAULT_JOURNAL_TARGET_ID)
+        self.assertIn("明天", rows_by_id["post_close_journal"]["detail"])
         self.assertIn("不会连接券商", rows_by_id["safety_boundary"]["detail"])
         self.assertFalse(rows_by_id["safety_boundary"]["broker_connection_allowed"])
         self.assertFalse(rows_by_id["safety_boundary"]["order_placement_allowed"])
@@ -284,8 +298,17 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertEqual(shortcuts_by_id["today_action"]["page"], "dashboard")
         self.assertEqual(shortcuts_by_id["today_action"]["target_id"], "ordinary-daily-action-card")
         self.assertIn("python scripts\\run_desktop_app.py --page dashboard --target-id ordinary-daily-action-card", shortcut_bodies_by_id["today_action"])
+        self.assertIn("top3_signal", shortcuts_by_id)
+        self.assertEqual(shortcuts_by_id["top3_signal"]["target_id"], "daily-trade-decision-sheet")
+        self.assertIn("paper_rehearsal", shortcuts_by_id)
+        self.assertEqual(shortcuts_by_id["paper_rehearsal"]["target_id"], "daily-signal-execution-bridge")
+        self.assertIn("post_close_journal", shortcuts_by_id)
+        self.assertEqual(shortcuts_by_id["post_close_journal"]["target_id"], "beginner-post-close-journal-board")
         self.assertEqual(readme_path.name, "量化机器人-先读我.txt")
         self.assertIn("第一步", readme_text)
+        self.assertIn("今日前三信号", readme_text)
+        self.assertIn("模拟盘复核", readme_text)
+        self.assertIn("盘后复盘", readme_text)
         self.assertIn("今天先做哪一步", readme_text)
         self.assertIn("Sharpe", readme_text)
         self.assertIn("今日交易检查", readme_text)
@@ -294,10 +317,16 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("不会连接券商", readme_text)
         self.assertIn("不会自动下单", readme_text)
         self.assertIn("量化机器人-今日交易检查.bat", written)
+        self.assertIn("量化机器人-今日前三信号.bat", written)
+        self.assertIn("量化机器人-模拟盘复核.bat", written)
         self.assertIn("量化机器人-因子排行榜.bat", written)
+        self.assertIn("量化机器人-盘后复盘.bat", written)
         self.assertIn("量化机器人-日志报告.bat", written)
         self.assertIn("python scripts\\run_desktop_app.py --page daily --target-id daily-real-world-handoff-gate", written["量化机器人-今日交易检查.bat"])
+        self.assertIn("python scripts\\run_desktop_app.py --page daily --target-id daily-trade-decision-sheet", written["量化机器人-今日前三信号.bat"])
+        self.assertIn("python scripts\\run_desktop_app.py --page daily --target-id daily-signal-execution-bridge", written["量化机器人-模拟盘复核.bat"])
         self.assertIn("python scripts\\run_desktop_app.py --page dashboard --target-id factor-leaderboard-table", written["量化机器人-因子排行榜.bat"])
+        self.assertIn("python scripts\\run_desktop_app.py --page daily --target-id beginner-post-close-journal-board", written["量化机器人-盘后复盘.bat"])
         self.assertIn("research-to-paper only", written["量化机器人-日志报告.bat"])
         self.assertNotIn("broker", written["量化机器人-今日交易检查.bat"].lower().replace("no broker", ""))
         self.assertNotIn("TUSHARE_TOKEN", "\n".join(written.values()))
