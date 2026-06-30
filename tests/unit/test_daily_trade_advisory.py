@@ -563,12 +563,22 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
             [_signal("c1", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
             run_date="2026-06-29",
             portfolio_value=100000,
+            evidence_snapshot={
+                "mode": "same_parameter_browser_execution_receipts",
+                "counts": {
+                    "same_parameter_top3_required_requests": 1,
+                    "same_parameter_top3_matched_requests": 1,
+                },
+            },
         )
 
         handoff = pack["manual_broker_handoff"]
 
         self.assertEqual(handoff["stage"], "phase_6_3_manual_broker_handoff")
         self.assertEqual(handoff["status"], "review_only")
+        self.assertTrue(handoff["same_parameter_paper_required"])
+        self.assertTrue(handoff["same_parameter_paper_ready"])
+        self.assertFalse(handoff["copyable_tickets_masked_until_same_parameter_paper"])
         self.assertFalse(handoff["ready_for_auto_order"])
         self.assertFalse(handoff["live_order_allowed"])
         self.assertFalse(handoff["broker_connection_allowed"])
@@ -636,12 +646,40 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(pack["operator_next_actions"][2]["cta_target"], "daily-manual-broker-handoff-ticket-table")
         self.assertEqual(pack["pretrade_workflow"]["summary"]["primary_next_action_id"], "run_paper_simulation")
 
+    def test_manual_broker_handoff_masks_copyable_tickets_until_same_parameter_paper(self):
+        pack = build_daily_trade_advisory_pack(
+            [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
+            [_signal("c1", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+        )
+
+        handoff = pack["manual_broker_handoff"]
+
+        self.assertEqual(handoff["stage"], "phase_6_3_manual_broker_handoff")
+        self.assertEqual(handoff["status"], "blocked_same_parameter_paper_required")
+        self.assertTrue(handoff["same_parameter_paper_required"])
+        self.assertFalse(handoff["same_parameter_paper_ready"])
+        self.assertTrue(handoff["copyable_tickets_masked_until_same_parameter_paper"])
+        self.assertEqual(handoff["manual_ticket_mask_reason"], "same_parameter_paper_required_before_manual_tickets")
+        self.assertEqual(handoff["summary"]["ticket_count"], 0)
+        self.assertEqual(handoff["summary"]["blocked_copyable_ticket_count"], 1)
+        self.assertEqual(handoff["copyable_tickets"], [])
+        self.assertFalse(handoff["order_placement_allowed"])
+
     def test_manual_ticket_export_is_review_only_and_removes_account_order_fields(self):
         pack = build_daily_trade_advisory_pack(
             [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
             [_signal("c1", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
             run_date="2026-06-29",
             portfolio_value=100000,
+            evidence_snapshot={
+                "mode": "same_parameter_browser_execution_receipts",
+                "counts": {
+                    "same_parameter_top3_required_requests": 1,
+                    "same_parameter_top3_matched_requests": 1,
+                },
+            },
         )
 
         export = build_manual_ticket_export(pack)
@@ -681,6 +719,13 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
             [_signal("c1", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
             run_date="2026-06-29",
             portfolio_value=100000,
+            evidence_snapshot={
+                "mode": "same_parameter_browser_execution_receipts",
+                "counts": {
+                    "same_parameter_top3_required_requests": 1,
+                    "same_parameter_top3_matched_requests": 1,
+                },
+            },
         )
 
         audit = build_manual_execution_audit(
@@ -721,6 +766,13 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
             [_signal("c1", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
             run_date="2026-06-29",
             portfolio_value=100000,
+            evidence_snapshot={
+                "mode": "same_parameter_browser_execution_receipts",
+                "counts": {
+                    "same_parameter_top3_required_requests": 1,
+                    "same_parameter_top3_matched_requests": 1,
+                },
+            },
         )
 
         audit = build_manual_execution_audit(
@@ -1196,10 +1248,7 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
             ],
         )
         self.assertTrue(all(not row["order_placement_allowed"] for row in gate["manual_operation_runbook"]))
-        preview_by_asset = {row["asset_id"]: row for row in gate["manual_ticket_preview"]}
-        self.assertIn("510300", preview_by_asset)
-        self.assertFalse(preview_by_asset["510300"]["executable"])
-        self.assertIn("软件不会下单", preview_by_asset["510300"]["plain_instruction"])
+        self.assertEqual(gate["manual_ticket_preview"], [])
         self.assertIn("aggressive_30dd", gate["risk_budget"]["risk_profile_id"])
         self.assertIn("30%", gate["risk_budget"]["plain_budget"])
         self.assertIn("paper_simulation_receipt", {row["gate_id"] for row in gate["go_live_blockers"]})
@@ -1272,11 +1321,7 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("paper_simulation_receipt", {row["gate_id"] for row in readiness["readiness_gates"]})
         self.assertIn("lookahead_bias_audit", {row["control_id"] for row in readiness["profitability_controls"]})
         self.assertIn("multiple_testing_control", {row["control_id"] for row in readiness["profitability_controls"]})
-        preview_by_asset = {row["asset_id"]: row for row in readiness["manual_buy_sell_preview"]}
-        self.assertIn("510300", preview_by_asset)
-        self.assertEqual(preview_by_asset["510300"]["operation"], "buy")
-        self.assertFalse(preview_by_asset["510300"]["order_placement_allowed"])
-        self.assertIn("not_order", preview_by_asset["510300"]["warning_code"])
+        self.assertEqual(readiness["manual_buy_sell_preview"], [])
 
     def test_daily_pack_exposes_live_profitability_readiness_scorecard(self):
         pack = build_daily_trade_advisory_pack(
@@ -1363,6 +1408,8 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
                 "manual_execution_clean_receipts": 5,
                 "manual_execution_blocked_receipts": 0,
                 "paper_ready_observations": 20,
+                "same_parameter_top3_required_requests": 3,
+                "same_parameter_top3_matched_requests": 3,
             },
         )
 
@@ -1500,6 +1547,8 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
                 "manual_execution_clean_receipts": 5,
                 "manual_execution_blocked_receipts": 0,
                 "paper_ready_observations": 20,
+                "same_parameter_top3_required_requests": 3,
+                "same_parameter_top3_matched_requests": 3,
             },
         )
 
@@ -1562,7 +1611,7 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("pre_open_check", {row["phase_id"] for row in session["session_phases"]})
         self.assertIn("record_post_close_journal", {row["step_id"] for row in session["operator_checklist"]})
         self.assertTrue(all(not row["order_placement_allowed"] for row in session["operator_checklist"]))
-        self.assertTrue(session["manual_ticket_preview"])
+        self.assertEqual(session["manual_ticket_preview"], [])
 
     def test_manual_trading_session_uses_profitability_evidence_without_enabling_orders(self):
         pack = build_daily_trade_advisory_pack(

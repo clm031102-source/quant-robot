@@ -6676,21 +6676,28 @@ function dailyEvidencePaperRequest() {
 function dailyTradeAdvisoryEvidencePayload() {
   const readiness = state.dailyTradeAdvisory?.live_profitability_readiness || {};
   const evidence = liveProfitabilityRuntimeEvidence(readiness);
+  const sameParameterRequests = dailySameParameterPaperRequests();
+  const sameParameterCompletion = sameParameterPaperCompletion(sameParameterRequests);
   const counts = evidence.counts || {};
   const flags = evidence.flags || {};
   const hasCounts = [
     counts.matched_paper_receipts,
     counts.post_close_journal_receipts,
     counts.paper_ready_observations,
+    sameParameterCompletion.matched_request_count,
   ].some((value) => Number(value || 0) > 0);
   const hasFlags = Object.values(flags).some(Boolean);
-  if (!evidence.same_parameter_required && evidence.mode === "browser_execution_receipts") return null;
+  const sameParameterRequired = Boolean(evidence.same_parameter_required || sameParameterRequests.length);
+  if (!sameParameterRequired && evidence.mode === "browser_execution_receipts") return null;
   if (!hasCounts && !hasFlags) return null;
   return {
     mode: evidence.mode || "same_parameter_browser_execution_receipts",
     source: "gui_runtime_receipts",
-    same_parameter_required: Boolean(evidence.same_parameter_required),
+    same_parameter_required: sameParameterRequired,
     matched_paper_request: evidence.matched_paper_request || {},
+    same_parameter_top3_paper_request_ids: sameParameterRequests.map((request, index) => sameParameterPaperRequestId(request, index)),
+    matched_same_parameter_paper_request_ids: sameParameterCompletion.matched_same_parameter_paper_request_ids || [],
+    missing_same_parameter_paper_request_ids: sameParameterCompletion.missing_same_parameter_paper_request_ids || [],
     counts: {
       matched_paper_receipts: Number(counts.matched_paper_receipts || 0),
       post_close_journal_receipts: Number(counts.post_close_journal_receipts || 0),
@@ -6698,6 +6705,8 @@ function dailyTradeAdvisoryEvidencePayload() {
       manual_execution_blocked_receipts: Number(counts.manual_execution_blocked_receipts || 0),
       manual_execution_missing_review_receipts: Number(counts.manual_execution_missing_review_receipts || 0),
       paper_ready_observations: Number(counts.paper_ready_observations || 0),
+      same_parameter_top3_required_requests: Number(sameParameterCompletion.request_count || 0),
+      same_parameter_top3_matched_requests: Number(sameParameterCompletion.matched_request_count || 0),
     },
     flags: {
       walk_forward_oos_passed: Boolean(flags.walk_forward_oos_passed),
@@ -7241,8 +7250,11 @@ function renderDailyManualTradingSession(session = {}) {
     </div>
   `).join("") : statusRows(fallbackStepIds.map((stepId) => [zhConsoleText(stepId), "等待今日会话加载。", "warn"]));
 
-  const tickets = Array.isArray(session.manual_ticket_preview) ? session.manual_ticket_preview : [];
-  ticketsTarget.innerHTML = tickets.length ? tickets.slice(0, 6).map((item, index) => {
+  const manualReviewGate = dailySameParameterManualReviewGate();
+  const tickets = manualReviewGate.allowed && Array.isArray(session.manual_ticket_preview) ? session.manual_ticket_preview : [];
+  ticketsTarget.innerHTML = !manualReviewGate.allowed && manualReviewGate.required
+    ? renderSameParameterManualReviewBlocker(manualReviewGate)
+    : tickets.length ? tickets.slice(0, 6).map((item, index) => {
     const risk = item.risk_budget || {};
     return `
       <div class="list-row warn">
@@ -7491,6 +7503,43 @@ function renderSameParameterPaperCompletionRows(completion = {}) {
   `).join("");
 }
 
+function dailySameParameterPaperRequests() {
+  const rehearsal = state.dailyTradeAdvisory?.daily_same_parameter_paper_rehearsal || {};
+  const requests = Array.isArray(rehearsal.recommended_requests) ? rehearsal.recommended_requests : [];
+  return requests.filter((item) => item && typeof item === "object");
+}
+
+function dailySameParameterManualReviewGate() {
+  const handoff = state.dailyTradeAdvisory?.manual_broker_handoff || {};
+  const requests = dailySameParameterPaperRequests();
+  const completion = sameParameterPaperCompletion(requests);
+  const backendRequired = Boolean(handoff.same_parameter_paper_required);
+  const backendReady = Boolean(handoff.same_parameter_paper_ready);
+  const backendMasked = Boolean(handoff.copyable_tickets_masked_until_same_parameter_paper);
+  const required = backendRequired || requests.length > 0 || backendMasked;
+  const ready = backendReady || (requests.length > 0 && completion.all_top3_same_parameter_paper_ready);
+  const allowed = !required || ready;
+  return {
+    required,
+    allowed,
+    ready,
+    backend_ready: backendReady,
+    backend_masked: backendMasked,
+    reason_code: allowed ? "" : "same_parameter_paper_required_before_manual_tickets",
+    status: allowed ? "manual_ticket_review_allowed" : "manual_ticket_masked_until_same_parameter_paper",
+    completion,
+  };
+}
+
+function renderSameParameterManualReviewBlocker(gate = {}) {
+  const completion = gate.completion || {};
+  return statusRows([
+    ["人工票据闸门", gate.status || "manual_ticket_masked_until_same_parameter_paper", "danger"],
+    ["阻断原因", gate.reason_code || "same_parameter_paper_required_before_manual_tickets", "danger"],
+    ["下一步", "先把 Top3 同参数模拟盘全部跑完并匹配回执，再刷新今日建议查看人工复核票据。", "warn"],
+  ]) + renderSameParameterPaperCompletionRows(completion);
+}
+
 function renderDailySameParameterPaperRehearsal(rehearsal = {}) {
   const summaryTarget = byId("daily-same-parameter-paper-summary");
   const requestTarget = byId("daily-same-parameter-paper-requests");
@@ -7658,7 +7707,8 @@ function renderDailyRealWorldHandoffGate(gate = {}) {
   const risk = gate.risk_budget || {};
   const ladder = Array.isArray(gate.capital_deployment_ladder) ? gate.capital_deployment_ladder : [];
   const runbook = Array.isArray(gate.manual_operation_runbook) ? gate.manual_operation_runbook : [];
-  const tickets = Array.isArray(gate.manual_ticket_preview) ? gate.manual_ticket_preview : [];
+  const manualReviewGate = dailySameParameterManualReviewGate();
+  const tickets = manualReviewGate.allowed && Array.isArray(gate.manual_ticket_preview) ? gate.manual_ticket_preview : [];
   const blockers = Array.isArray(gate.go_live_blockers) ? gate.go_live_blockers : [];
   const boundaries = Array.isArray(gate.safety_boundaries) ? gate.safety_boundaries : [];
   const decision = summary.decision || "waiting_for_cn_etf_candidate_pool";
@@ -7697,7 +7747,9 @@ function renderDailyRealWorldHandoffGate(gate = {}) {
       </span>
     </div>
   `).join("") : statusRows([["人工观察步骤", "等待今日前三建议加载。", "warn"]]);
-  ticketsTarget.innerHTML = tickets.length ? tickets.map((item) => `
+  ticketsTarget.innerHTML = !manualReviewGate.allowed && manualReviewGate.required
+    ? renderSameParameterManualReviewBlocker(manualReviewGate)
+    : tickets.length ? tickets.map((item) => `
     <div class="list-row warn">
       <strong>${escapeHtml(`${item.step_number || "--"}. ${item.asset_id || "--"} ${zhConsoleText(item.side || "")}`)}</strong>
       <span>${escapeHtml(`数量=${formatNumber(item.rounded_quantity || 0)} / 金额=${formatNumber(item.rounded_value)} / 参考价=${formatNumber(item.reference_price)}`)}</span>
@@ -8263,6 +8315,7 @@ function dailyReadinessDecision() {
   const firstAction = actions[0] || {};
   const paperReceipt = latestExecutionReceipt("paper_simulation");
   const dailyReceipt = latestExecutionReceipt("daily_trade_advisory");
+  const manualReviewGate = dailySameParameterManualReviewGate();
   const selectedCount = Number(summary.selected_factor_count || 0);
   const signalCount = Number(summary.signal_count || 0);
   const signalFresh = freshness.fresh_for_run_date === true;
@@ -8278,6 +8331,20 @@ function dailyReadinessDecision() {
       cta_label: firstAction.cta_label || "去看数据刷新",
       target_id: firstAction.cta_target || firstAction.gui_target || "recent-data-refresh-status",
       action_workflow: "daily_ops",
+    };
+  }
+  if (!manualReviewGate.allowed && manualReviewGate.required) {
+    const completion = manualReviewGate.completion || {};
+    return {
+      tone: "warn",
+      title: "黄灯：先跑 Top3 同参数模拟盘",
+      reason: `人工票据已遮住：${manualReviewGate.reason_code || "same_parameter_paper_required_before_manual_tickets"}`,
+      evidence: `${evidence} / Top3同参数=${formatNumber(completion.matched_request_count || 0)}/${formatNumber(completion.request_count || 0)}`,
+      primary_action: "运行 Top3 同参数模拟盘复核",
+      detail: "必须用锁定参数分别跑完 Top3 模拟盘，回执全部匹配后再刷新今日建议查看人工票据。",
+      cta_label: "去跑同参数模拟盘",
+      target_id: "daily-same-parameter-paper-rehearsal",
+      action_workflow: "paper_simulation",
     };
   }
   if (!paperReceipt) {
@@ -8458,6 +8525,15 @@ function beginnerLiveHandoffButton(item = {}) {
 }
 
 function beginnerLiveHandoffTickets() {
+  const manualReviewGate = dailySameParameterManualReviewGate();
+  if (!manualReviewGate.allowed && manualReviewGate.required) {
+    return [{
+      title: "人工券商票据：同参数模拟盘未完成",
+      detail: "Top3 同参数模拟盘还没有全部匹配，软件先遮住人工票据。",
+      note: manualReviewGate.reason_code || "same_parameter_paper_required_before_manual_tickets",
+      tone: "danger",
+    }];
+  }
   const tickets = beginnerLiveTicketRows();
   if (tickets.length === 0) {
     return [{
@@ -8489,6 +8565,8 @@ function beginnerLiveTicketRows() {
   const tickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
   const manualPlan = Array.isArray(trade.manual_trade_plan) ? trade.manual_trade_plan : [];
   const handoffStatus = handoff.status || "";
+  const manualReviewGate = dailySameParameterManualReviewGate();
+  if (!manualReviewGate.allowed && manualReviewGate.required) return [];
   if (tickets.length) return tickets;
   if (blockers.length > 0) return [];
   if (!readiness.manual_action_candidate) return [];
@@ -8661,16 +8739,29 @@ function dailyNextActionButtons(item = {}) {
 function renderManualBrokerHandoff(handoff) {
   const summary = handoff.summary || {};
   const checklist = Array.isArray(handoff.confirmation_checklist) ? handoff.confirmation_checklist : [];
-  const tickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
+  const manualReviewGate = dailySameParameterManualReviewGate();
+  const rawTickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
+  const tickets = manualReviewGate.allowed ? rawTickets : [];
+  const exportPack = manualReviewGate.allowed
+    ? state.dailyTradeAdvisory?.manual_ticket_export || {}
+    : {
+      summary: {
+        ticket_count: 0,
+        export_status: "manual_ticket_masked_until_same_parameter_paper",
+      },
+      rows: [],
+      csv_text: "",
+    };
   byId("daily-manual-broker-handoff-status").innerHTML = statusRows([
-    ["状态", handoff.status || "waiting_for_tickets", tickets.length ? "warn" : "danger"],
+    ["状态", manualReviewGate.allowed ? handoff.status || "waiting_for_tickets" : manualReviewGate.status, tickets.length ? "warn" : "danger"],
     ["结论", handoff.operator_summary || "还没有可核对票据。", tickets.length ? "warn" : "danger"],
     ["票据数量", formatNumber(summary.ticket_count), tickets.length ? "warn" : "muted"],
+    ["Top3 同参数闸门", manualReviewGate.allowed ? "pass" : "same_parameter_paper_required_before_manual_tickets", manualReviewGate.allowed ? "ok" : "danger"],
     ["取整后金额", formatNumber(summary.rounded_value), "muted"],
     ["取整后剩余", formatNumber(summary.cash_delta_after_rounding), "muted"],
     ["自动下单", handoff.ready_for_auto_order ? "允许" : "禁止", "danger"],
     ["模拟盘复核", handoff.paper_simulation_required ? "必需" : "未要求", handoff.paper_simulation_required ? "warn" : "muted"],
-  ]);
+  ]) + (manualReviewGate.allowed ? "" : renderSameParameterManualReviewBlocker(manualReviewGate));
   byId("daily-manual-broker-handoff-checklist").innerHTML = checklist.length
     ? checklist.map((item) => `
       <div class="list-row ${escapeHtml(item.status === "blocked_for_automation" ? "danger" : "warn")}">
@@ -8681,7 +8772,7 @@ function renderManualBrokerHandoff(handoff) {
     `).join("")
     : statusRows([["暂无手工核对清单", "先生成今日前三交易建议。", "warn"]]);
   renderManualBrokerBeginnerChecklist(handoff, tickets);
-  renderManualTicketExport(state.dailyTradeAdvisory?.manual_ticket_export || {}, tickets);
+  renderManualTicketExport(exportPack, tickets);
   renderManualBrokerCopyCards(tickets);
   const ticketRows = tickets.map((ticket) => ({
     ...ticket,

@@ -2158,17 +2158,40 @@ def _pretrade_signal_freshness(pack: dict[str, Any], signal_cards: list[dict[str
 def _build_manual_broker_handoff(pack: dict[str, Any]) -> dict[str, Any]:
     readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else _build_pretrade_readiness(pack)
     manual_plan = [row for row in pack.get("manual_trade_plan", []) if isinstance(row, dict)]
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
     blocking_reasons = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
     can_show_tickets = bool(readiness.get("manual_action_candidate"))
-    copyable_tickets = [
-        _broker_handoff_ticket(index, row, pack.get("summary") if isinstance(pack.get("summary"), dict) else {})
+    raw_copyable_tickets = [
+        _broker_handoff_ticket(index, row, summary)
         for index, row in enumerate(manual_plan, start=1)
         if can_show_tickets
     ]
+    evidence = _live_profitability_evidence_snapshot(pack.get("live_profitability_evidence_snapshot"))
+    evidence_counts = evidence.get("counts") if isinstance(evidence.get("counts"), dict) else {}
+    selected_count = _int(summary.get("selected_factor_count"), 0)
+    same_parameter_required_count = _int(
+        evidence_counts.get("same_parameter_top3_required_requests"),
+        selected_count if selected_count > 0 else len(raw_copyable_tickets),
+    )
+    if same_parameter_required_count <= 0 and raw_copyable_tickets:
+        same_parameter_required_count = len(raw_copyable_tickets)
+    same_parameter_matched_count = _int(evidence_counts.get("same_parameter_top3_matched_requests"), 0)
+    same_parameter_paper_required = bool(raw_copyable_tickets)
+    same_parameter_paper_ready = (
+        not same_parameter_paper_required
+        or (
+            same_parameter_required_count > 0
+            and same_parameter_matched_count >= same_parameter_required_count
+        )
+    )
+    masked_until_same_parameter = same_parameter_paper_required and not same_parameter_paper_ready
+    copyable_tickets = [] if masked_until_same_parameter else raw_copyable_tickets
     rounded_value = sum(_float(row.get("rounded_value"), 0.0) for row in manual_plan)
     cash_delta = sum(_float(row.get("cash_delta_after_rounding"), 0.0) for row in manual_plan)
     target_value = sum(_float(row.get("target_value"), 0.0) for row in manual_plan)
-    if copyable_tickets:
+    if masked_until_same_parameter:
+        status = "blocked_same_parameter_paper_required"
+    elif copyable_tickets:
         status = "review_only"
     elif "stale_signal_date" in blocking_reasons:
         status = "blocked_by_freshness"
@@ -2176,7 +2199,9 @@ def _build_manual_broker_handoff(pack: dict[str, Any]) -> dict[str, Any]:
         status = "blocked_by_readiness"
     else:
         status = "waiting_for_tickets"
-    if copyable_tickets:
+    if masked_until_same_parameter:
+        operator_summary = "先完成 Top3 同参数模拟盘并匹配全部回执，才显示人工券商复核票据；信号不是可直接照抄的实盘指令。"
+    elif copyable_tickets:
         operator_summary = "这些内容只是给你在券商软件里逐项人工核对，不能被系统自动提交；价格以券商端实时行情为准。"
     elif status == "blocked_by_freshness":
         operator_summary = "信号日期不是运行日期当天，不能进入人工券商核对；先刷新数据或选择正确的信号日期。"
@@ -2196,16 +2221,33 @@ def _build_manual_broker_handoff(pack: dict[str, Any]) -> dict[str, Any]:
             "account_read_allowed": False,
             "order_placement_allowed": False,
             "paper_simulation_required": True,
+            "same_parameter_paper_required": same_parameter_paper_required,
+            "same_parameter_paper_ready": same_parameter_paper_ready,
+            "copyable_tickets_masked_until_same_parameter_paper": masked_until_same_parameter,
+            "manual_ticket_mask_reason": (
+                "same_parameter_paper_required_before_manual_tickets"
+                if masked_until_same_parameter
+                else ""
+            ),
             "blocking_reasons": blocking_reasons,
             "summary": {
                 "ticket_count": len(copyable_tickets),
+                "blocked_copyable_ticket_count": len(raw_copyable_tickets) if masked_until_same_parameter else 0,
                 "target_value": target_value,
                 "rounded_value": rounded_value,
                 "cash_delta_after_rounding": cash_delta,
                 "traffic_light": readiness.get("traffic_light"),
                 "manual_action_candidate": bool(readiness.get("manual_action_candidate")),
+                "same_parameter_paper_required_count": same_parameter_required_count,
+                "same_parameter_paper_matched_count": same_parameter_matched_count,
+                "same_parameter_paper_ready": same_parameter_paper_ready,
             },
             "confirmation_checklist": [
+                {
+                    "check_id": "same_parameter_paper_required_before_manual_tickets",
+                    "status": "pass" if same_parameter_paper_ready else "required",
+                    "text": "Top3 同参数模拟盘必须全部匹配后，才允许查看人工复核票据。",
+                },
                 {
                     "check_id": "paper_simulation_required",
                     "status": "required",
@@ -3386,7 +3428,7 @@ def build_real_world_manual_handoff_gate(pack: dict[str, Any]) -> dict[str, Any]
         ticket_count=ticket_count,
         blockers=blockers,
     )
-    ticket_source = copyable_tickets or manual_plan
+    ticket_source = [] if handoff.get("copyable_tickets_masked_until_same_parameter_paper") else copyable_tickets or manual_plan
     manual_ticket_preview = [_real_world_ticket_preview(row, index) for index, row in enumerate(ticket_source[:10], start=1)]
     runbook = [
         _real_world_runbook_step(
@@ -3801,7 +3843,7 @@ def build_daily_deployment_readiness_pack(pack: dict[str, Any]) -> dict[str, Any
         ),
     ]
 
-    ticket_source = copyable_tickets or manual_plan
+    ticket_source = [] if handoff.get("copyable_tickets_masked_until_same_parameter_paper") else copyable_tickets or manual_plan
     manual_preview = [_deployment_ticket_preview(row, index) for index, row in enumerate(ticket_source[:20], start=1)]
 
     return _sanitize(
@@ -4404,7 +4446,11 @@ def build_daily_real_money_transition_gate(pack: dict[str, Any]) -> dict[str, An
     signal_cards = [row for row in pack.get("signal_cards", []) if isinstance(row, dict)]
     targets = [row for row in pack.get("combined_targets", []) if isinstance(row, dict)]
     copyable_tickets = [row for row in handoff.get("copyable_tickets", []) if isinstance(row, dict)]
-    ticket_source = copyable_tickets or [row for row in pack.get("manual_trade_plan", []) if isinstance(row, dict)]
+    ticket_source = (
+        []
+        if handoff.get("copyable_tickets_masked_until_same_parameter_paper")
+        else copyable_tickets or [row for row in pack.get("manual_trade_plan", []) if isinstance(row, dict)]
+    )
     manual_preview = _real_money_transition_ticket_preview(ticket_source, summary)
     blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
     gate_by_id = {
@@ -4712,7 +4758,11 @@ def build_daily_manual_trading_session(pack: dict[str, Any]) -> dict[str, Any]:
     ]
     if not manual_preview_source:
         copyable_tickets = [row for row in handoff.get("copyable_tickets", []) if isinstance(row, dict)]
-        fallback_tickets = copyable_tickets or [row for row in pack.get("manual_trade_plan", []) if isinstance(row, dict)]
+        fallback_tickets = (
+            []
+            if handoff.get("copyable_tickets_masked_until_same_parameter_paper")
+            else copyable_tickets or [row for row in pack.get("manual_trade_plan", []) if isinstance(row, dict)]
+        )
         manual_preview_source = _real_money_transition_ticket_preview(fallback_tickets, summary)
     manual_ticket_preview = [_daily_manual_session_ticket(row) for row in manual_preview_source]
 
@@ -6855,6 +6905,12 @@ def _live_profitability_evidence_snapshot(snapshot: dict[str, Any] | None) -> di
         "paper_ready_observations": _live_profitability_evidence_count(
             raw_counts.get("paper_ready_observations")
         ),
+        "same_parameter_top3_required_requests": _live_profitability_evidence_count(
+            raw_counts.get("same_parameter_top3_required_requests")
+        ),
+        "same_parameter_top3_matched_requests": _live_profitability_evidence_count(
+            raw_counts.get("same_parameter_top3_matched_requests")
+        ),
     }
     flags = {
         "walk_forward_oos_passed": _live_profitability_evidence_flag(raw_flags.get("walk_forward_oos_passed")),
@@ -6871,12 +6927,18 @@ def _live_profitability_evidence_snapshot(snapshot: dict[str, Any] | None) -> di
             "post_close_journal_receipts": max(0, 5 - counts["post_close_journal_receipts"]),
             "manual_execution_clean_receipts": max(0, 5 - counts["manual_execution_clean_receipts"]),
             "paper_ready_observations": max(0, 20 - counts["paper_ready_observations"]),
+            "same_parameter_top3_requests": max(
+                0,
+                counts["same_parameter_top3_required_requests"]
+                - counts["same_parameter_top3_matched_requests"],
+            ),
         },
         "minimum_required_counts": {
             "matched_paper_receipts": 5,
             "post_close_journal_receipts": 5,
             "manual_execution_clean_receipts": 5,
             "paper_ready_observations": 20,
+            "same_parameter_top3_required_requests": counts["same_parameter_top3_required_requests"],
         },
     }
 
