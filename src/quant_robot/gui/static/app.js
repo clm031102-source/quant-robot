@@ -3051,7 +3051,9 @@ function renderBeginnerLivePilotBrief() {
   const target = byId("beginner-live-pilot-brief");
   if (!target) return;
   const brief = state.dailyTradeAdvisory?.daily_live_pilot_brief || {};
-  const rows = beginnerLivePilotBriefRows(brief).concat(beginnerLivePilotEvidenceRows(brief));
+  const rows = beginnerLivePilotBriefRows(brief)
+    .concat(beginnerLivePilotEvidenceRows(brief))
+    .concat(beginnerSmallCapitalGateRows(brief));
   target.innerHTML = rows.map((item) => `
     <div class="list-row ${escapeHtml(item.tone)}">
       <strong>${escapeHtml(item.label)}</strong>
@@ -3193,6 +3195,110 @@ function beginnerLivePilotEvidenceRows(brief = {}) {
       tone: boundary.order_placement_allowed || boundary.broker_connection_allowed ? "danger" : "ok",
     },
   ];
+}
+
+function beginnerSmallCapitalGateRows(brief = {}) {
+  const risk = brief.risk_budget || {};
+  const boundary = brief.execution_boundary || {};
+  const blockers = Array.isArray(brief.blockers) ? brief.blockers : [];
+  const tickets = Array.isArray(brief.manual_ticket_preview) ? brief.manual_ticket_preview : [];
+  const paperReceipts = executionReceiptsForWorkflow("paper_simulation");
+  const journalReceipts = executionReceiptsForWorkflow("post_close_journal");
+  const latestPaper = paperReceipts[0] || latestExecutionReceipt("paper_simulation");
+  const paperMetrics = latestPaper?.metrics || {};
+  const drawdownBudget = Number(risk.max_acceptable_drawdown ?? risk.max_drawdown_limit ?? 0.2);
+  const observedDrawdown = Math.abs(Number(paperMetrics.max_drawdown));
+  const guardEvents = Number(paperMetrics.guard_event_count);
+  const fillCount = Number(paperMetrics.fill_count);
+  const boundaryUnlocked = Boolean(
+    boundary.auto_order_allowed ||
+    boundary.order_placement_allowed ||
+    boundary.broker_connection_allowed
+  );
+  const gates = [
+    {
+      label: "模拟盘观察次数",
+      current: paperReceipts.length,
+      required: 5,
+      pass: paperReceipts.length >= 5,
+      detail: "至少 5 次模拟盘和复盘回执，避免把单日表现当规律。",
+      target: "paper-metrics",
+      workflow: "paper_simulation",
+    },
+    {
+      label: "盘后复盘次数",
+      current: journalReceipts.length,
+      required: 5,
+      pass: journalReceipts.length >= 5,
+      detail: "至少 5 次模拟盘和复盘回执，记录跳过、执行、偏差和情绪原因。",
+      target: "beginner-post-close-journal-board",
+      workflow: "post_close_journal",
+    },
+    {
+      label: "最大回撤预算",
+      current: Number.isFinite(observedDrawdown) ? observedDrawdown : null,
+      required: Number.isFinite(drawdownBudget) ? drawdownBudget : 0.2,
+      pass: Number.isFinite(observedDrawdown) && observedDrawdown <= (Number.isFinite(drawdownBudget) ? drawdownBudget : 0.2),
+      detail: "最新模拟盘最大回撤必须低于当前风险档位，收益高也不能绕过回撤预算。",
+      target: "paper-metrics",
+      valueType: "percent",
+      comparator: "<=",
+    },
+    {
+      label: "保护事件",
+      current: Number.isFinite(guardEvents) ? guardEvents : null,
+      required: 0,
+      pass: Number.isFinite(guardEvents) && guardEvents === 0,
+      detail: "最新模拟盘不应触发风控保护事件；触发过就先复盘原因。",
+      target: "paper-metrics",
+      comparator: "=",
+    },
+    {
+      label: "成交样本",
+      current: Number.isFinite(fillCount) ? fillCount : null,
+      required: 1,
+      pass: Number.isFinite(fillCount) && fillCount >= 1,
+      detail: "模拟盘必须至少产生一次成交，空跑不能当小资金观察证据。",
+      target: "paper-metrics",
+      comparator: ">=",
+    },
+    {
+      label: "人工票据和红灯",
+      current: tickets.length,
+      required: 1,
+      pass: tickets.length > 0 && blockers.length === 0,
+      detail: blockers.length ? `仍有盘前红灯阻断：${blockers.join(" / ")}` : "人工票据存在且盘前无红灯阻断。",
+      target: "daily-manual-broker-handoff-ticket-table",
+      comparator: ">=",
+    },
+    {
+      label: "权限边界",
+      current: boundaryUnlocked ? 1 : 0,
+      required: 0,
+      pass: !boundaryUnlocked,
+      detail: "系统仍必须保持无券商、无账户、无下单权限；真实买卖只能人工决定。",
+      target: "control-safety-boundary",
+      comparator: "=",
+    },
+  ];
+  return gates.map((gate) => {
+    const currentText = gate.valueType === "percent"
+      ? formatPercent(gate.current)
+      : gate.current == null ? "--" : formatNumber(gate.current);
+    const requiredText = gate.valueType === "percent"
+      ? `${gate.comparator || ">="}${formatPercent(gate.required)}`
+      : `${gate.comparator || ">="}${formatNumber(gate.required)}`;
+    return {
+      label: gate.label,
+      value: `${currentText} / 要求${requiredText}`,
+      detail: gate.detail,
+      workflow: gate.pass ? "" : gate.workflow || "",
+      target: gate.target,
+      button: gate.pass ? "" : gate.workflow ? "补证据" : "",
+      targetLabel: gate.pass ? "看证据" : "去处理",
+      tone: gate.pass ? "ok" : "warn",
+    };
+  });
 }
 
 function beginnerTradeSystemEvidenceRows(trade = {}, paperReceipt = null) {
@@ -5716,6 +5822,13 @@ function latestExecutionReceipt(workflowId) {
     ? state.executionReceipts
     : loadExecutionReceipts(state.controlCenter?.execution_receipts || {});
   return rows.find((item) => item.workflow_id === workflowId) || null;
+}
+
+function executionReceiptsForWorkflow(workflowId) {
+  const rows = Array.isArray(state.executionReceipts) && state.executionReceipts.length
+    ? state.executionReceipts
+    : loadExecutionReceipts(state.controlCenter?.execution_receipts || {});
+  return rows.filter((item) => item?.workflow_id === workflowId);
 }
 
 function renderDailyPretradeReadiness(readiness) {
