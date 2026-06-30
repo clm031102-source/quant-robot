@@ -185,6 +185,7 @@ def build_daily_trade_advisory_pack(
     max_gross_exposure: float = 1.0,
     risk_profile_id: str | None = None,
     current_positions: list[dict[str, Any]] | None = None,
+    evidence_snapshot: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     signal_cards = [_signal_card(candidate, _matching_signal(candidate, signal_snapshots)) for candidate in candidates]
     selected_profile = _risk_profile_by_id(risk_profile_id)
@@ -243,6 +244,7 @@ def build_daily_trade_advisory_pack(
         "current_position_validation": position_validation,
         "manual_trade_plan": manual_plan,
         "operator_checklist": _operator_checklist(),
+        "live_profitability_evidence_snapshot": _live_profitability_evidence_snapshot(evidence_snapshot),
         "markdown": "",
     }
     pack["pretrade_readiness"] = _build_pretrade_readiness(pack)
@@ -3414,6 +3416,7 @@ def build_live_profitability_readiness_scorecard(pack: dict[str, Any]) -> dict[s
     factors = [row for row in pack.get("factors", []) if isinstance(row, dict)]
     targets = [row for row in pack.get("combined_targets", []) if isinstance(row, dict)]
     manual_plan = [row for row in pack.get("manual_trade_plan", []) if isinstance(row, dict)]
+    evidence = _live_profitability_evidence_snapshot(pack.get("live_profitability_evidence_snapshot"))
     blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
     market = str(pack.get("market") or _first_market(factors) or "CN_ETF").upper()
     position_status = str(validation.get("status") or "not_provided")
@@ -3429,6 +3432,30 @@ def build_live_profitability_readiness_scorecard(pack: dict[str, Any]) -> dict[s
     has_manual_material = ticket_count > 0 and pretrade_clear
     paper_rehearsal_allowed = has_signal_targets and pretrade_clear
     manual_review_material_ready = has_manual_material
+    evidence_counts = evidence.get("counts", {})
+    evidence_flags = evidence.get("flags", {})
+    matched_paper_count = _int(evidence_counts.get("matched_paper_receipts"), 0)
+    post_close_count = _int(evidence_counts.get("post_close_journal_receipts"), 0)
+    paper_ready_count = _int(evidence_counts.get("paper_ready_observations"), 0)
+    matched_paper_ready = matched_paper_count >= 5
+    post_close_ready = post_close_count >= 5
+    production_sample_ready = paper_ready_count >= 20
+    research_evidence_ready = all(
+        bool(evidence_flags.get(key))
+        for key in (
+            "walk_forward_oos_passed",
+            "lookahead_bias_audit_passed",
+            "multiple_testing_control_passed",
+            "transaction_cost_capacity_passed",
+        )
+    )
+    small_capital_observation_candidate = (
+        has_manual_material
+        and research_evidence_ready
+        and matched_paper_ready
+        and post_close_ready
+    )
+    production_manual_review_candidate = small_capital_observation_candidate and production_sample_ready
 
     if position_blocked:
         decision = "blocked_current_position_input"
@@ -3466,6 +3493,19 @@ def build_live_profitability_readiness_scorecard(pack: dict[str, Any]) -> dict[s
         next_label = "先跑同参数模拟盘"
         next_target = "paper-metrics"
         next_workflow = "paper_simulation"
+
+    if decision == "not_ready_for_real_money" and production_manual_review_candidate:
+        decision = "production_manual_review_candidate"
+        plain_answer = "证据已达到人工生产化复核候选；系统仍不连接券商、不读取账户、不下单。"
+        next_label = "查看人工交接"
+        next_target = "beginner-live-handoff-board"
+        next_workflow = ""
+    elif decision == "not_ready_for_real_money" and small_capital_observation_candidate:
+        decision = "small_capital_manual_observation_candidate"
+        plain_answer = "证据已达到小资金人工观察候选；这不是自动实盘许可。"
+        next_label = "查看小资金观察"
+        next_target = "beginner-live-handoff-board"
+        next_workflow = ""
 
     hard_gates = [
         _live_profitability_gate(
@@ -3509,7 +3549,7 @@ def build_live_profitability_readiness_scorecard(pack: dict[str, Any]) -> dict[s
         _live_profitability_gate(
             "walk_forward_oos",
             "长样本 / 样本外",
-            "required",
+            "pass" if evidence_flags.get("walk_forward_oos_passed") else "required",
             "候选因子必须有 walk-forward、OOS、长周期和不同市场状态证据，不能只看短期总收益。",
             "control-backtest-gate",
             evidence_kind="walk_forward_oos_report",
@@ -3518,7 +3558,7 @@ def build_live_profitability_readiness_scorecard(pack: dict[str, Any]) -> dict[s
         _live_profitability_gate(
             "lookahead_bias_audit",
             "未来函数审计",
-            "required",
+            "pass" if evidence_flags.get("lookahead_bias_audit_passed") else "required",
             "信号使用收盘数据时至少下一交易日执行；负向 shift、全样本归一化、报告期错位必须审计。",
             "daily-trading-system-blueprint",
             evidence_kind="lookahead_bias_audit",
@@ -3527,7 +3567,7 @@ def build_live_profitability_readiness_scorecard(pack: dict[str, Any]) -> dict[s
         _live_profitability_gate(
             "multiple_testing_control",
             "多重检验控制",
-            "required",
+            "pass" if evidence_flags.get("multiple_testing_control_passed") else "required",
             "需要记录总实验数、去重参数组合和显著性修正，避免只挑最好看的回测。",
             "factor-leaderboard-table",
             evidence_kind="multiple_testing_log",
@@ -3536,7 +3576,7 @@ def build_live_profitability_readiness_scorecard(pack: dict[str, Any]) -> dict[s
         _live_profitability_gate(
             "transaction_cost_capacity",
             "成本 / 滑点 / 容量",
-            "required",
+            "pass" if evidence_flags.get("transaction_cost_capacity_passed") else "required",
             "必须扣除手续费、滑点、冲击成本，检查 ETF 成交额、换手率和单票容量。",
             "daily-pretrade-readiness-verdict",
             evidence_kind="cost_capacity_report",
@@ -3545,34 +3585,37 @@ def build_live_profitability_readiness_scorecard(pack: dict[str, Any]) -> dict[s
         _live_profitability_gate(
             "matched_paper_receipts",
             "同参数模拟盘回执",
-            "required",
+            "pass" if matched_paper_ready else "partial" if matched_paper_count > 0 else "required",
             "至少积累 5 次同参数模拟盘回执，再讨论小资金人工观察。",
             "paper-metrics",
             "paper_simulation" if paper_rehearsal_allowed else "",
             evidence_kind="paper_simulation_receipts",
             required_before="small_capital_observation",
             minimum_required_observations=5,
+            observed_count=matched_paper_count,
         ),
         _live_profitability_gate(
             "post_close_journals",
             "盘后复盘样本",
-            "required",
+            "pass" if post_close_ready else "partial" if post_close_count > 0 else "required",
             "至少积累 5 次盘后复盘，记录执行、跳过、滑点、未成交、回撤和异常。",
             "beginner-post-close-journal-board",
             "post_close_journal" if has_signal_targets else "",
             evidence_kind="post_close_journal_receipts",
             required_before="small_capital_observation",
             minimum_required_observations=5,
+            observed_count=post_close_count,
         ),
         _live_profitability_gate(
             "production_sample_size",
             "生产观察样本",
-            "required",
+            "pass" if production_sample_ready else "partial" if paper_ready_count > 0 else "required",
             "至少 20 次 paper-ready 观察样本通过后，才允许讨论人工生产化；不能靠一两天收益升级。",
             "beginner-live-handoff-board",
             evidence_kind="paper_ready_observation_history",
             required_before="production_manual_review",
             minimum_required_observations=20,
+            observed_count=paper_ready_count,
         ),
         _live_profitability_gate(
             "research_only_safety_boundary",
@@ -3605,6 +3648,12 @@ def build_live_profitability_readiness_scorecard(pack: dict[str, Any]) -> dict[s
                 "manual_ticket_count": ticket_count,
                 "paper_rehearsal_allowed": paper_rehearsal_allowed,
                 "manual_review_material_ready": manual_review_material_ready,
+                "evidence_mode": evidence.get("mode"),
+                "matched_paper_receipts": matched_paper_count,
+                "post_close_journal_receipts": post_close_count,
+                "paper_ready_observations": paper_ready_count,
+                "small_capital_observation_candidate": small_capital_observation_candidate,
+                "production_manual_review_candidate": production_manual_review_candidate,
                 "profitability_claim_allowed": False,
                 "real_money_allowed": False,
                 "small_capital_observation_allowed": False,
@@ -3664,6 +3713,7 @@ def build_live_profitability_readiness_scorecard(pack: dict[str, Any]) -> dict[s
                 ),
             ],
             "hard_gates": hard_gates,
+            "evidence_snapshot": evidence,
             "today_allowed_actions": _live_profitability_today_actions(
                 decision=decision,
                 next_label=next_label,
@@ -3740,6 +3790,78 @@ def build_live_profitability_readiness_scorecard(pack: dict[str, Any]) -> dict[s
     )
 
 
+def _live_profitability_evidence_snapshot(snapshot: dict[str, Any] | None) -> dict[str, Any]:
+    source = snapshot if isinstance(snapshot, dict) else {}
+    raw_counts = source.get("counts") if isinstance(source.get("counts"), dict) else source
+    raw_flags = source.get("flags") if isinstance(source.get("flags"), dict) else source
+    counts = {
+        "matched_paper_receipts": _live_profitability_evidence_count(
+            raw_counts.get("matched_paper_receipts", raw_counts.get("paper_simulation_receipts"))
+        ),
+        "post_close_journal_receipts": _live_profitability_evidence_count(
+            raw_counts.get("post_close_journal_receipts", raw_counts.get("post_close_journals"))
+        ),
+        "paper_ready_observations": _live_profitability_evidence_count(
+            raw_counts.get("paper_ready_observations")
+        ),
+    }
+    flags = {
+        "walk_forward_oos_passed": _live_profitability_evidence_flag(raw_flags.get("walk_forward_oos_passed")),
+        "lookahead_bias_audit_passed": _live_profitability_evidence_flag(raw_flags.get("lookahead_bias_audit_passed")),
+        "multiple_testing_control_passed": _live_profitability_evidence_flag(raw_flags.get("multiple_testing_control_passed")),
+        "transaction_cost_capacity_passed": _live_profitability_evidence_flag(raw_flags.get("transaction_cost_capacity_passed")),
+    }
+    return {
+        "mode": str(source.get("mode") or ("snapshot" if source else "empty")),
+        "counts": counts,
+        "flags": flags,
+        "missing_counts": {
+            "matched_paper_receipts": max(0, 5 - counts["matched_paper_receipts"]),
+            "post_close_journal_receipts": max(0, 5 - counts["post_close_journal_receipts"]),
+            "paper_ready_observations": max(0, 20 - counts["paper_ready_observations"]),
+        },
+        "minimum_required_counts": {
+            "matched_paper_receipts": 5,
+            "post_close_journal_receipts": 5,
+            "paper_ready_observations": 20,
+        },
+    }
+
+
+def _live_profitability_evidence_count(value: Any, default: int = 0) -> int:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (list, tuple, set)):
+        return len(value)
+    if isinstance(value, dict):
+        items = value.get("items")
+        if isinstance(items, list):
+            return len(items)
+        for key in ("count", "observed_count", "value", "total", "n"):
+            if key in value:
+                return _live_profitability_evidence_count(value.get(key), default)
+        return default
+    return max(0, _int(value, default))
+
+
+def _live_profitability_evidence_flag(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, dict):
+        for key in ("passed", "pass", "ready", "clear", "ok", "completed"):
+            if key in value:
+                return _live_profitability_evidence_flag(value.get(key))
+        value = value.get("status") or value.get("decision") or value.get("value")
+    if value is None:
+        return False
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return value > 0
+    text = str(value).strip().lower()
+    return text in {"1", "true", "yes", "y", "pass", "passed", "ok", "ready", "clear", "clean", "completed"}
+
+
 def _live_profitability_gate(
     gate_id: str,
     label: str,
@@ -3751,7 +3873,10 @@ def _live_profitability_gate(
     evidence_kind: str,
     required_before: str,
     minimum_required_observations: int = 0,
+    observed_count: int = 0,
 ) -> dict[str, Any]:
+    minimum = max(0, _int(minimum_required_observations, 0))
+    observed = max(0, _int(observed_count, 0))
     return {
         "gate_id": gate_id,
         "label": label,
@@ -3761,7 +3886,9 @@ def _live_profitability_gate(
         "workflow_id": workflow_id,
         "evidence_kind": evidence_kind,
         "required_before": required_before,
-        "minimum_required_observations": minimum_required_observations,
+        "minimum_required_observations": minimum,
+        "observed_count": observed,
+        "missing_count": max(0, minimum - observed) if minimum else 0,
         "automation_allowed": False,
         "live_order_allowed": False,
         "broker_connection_allowed": False,

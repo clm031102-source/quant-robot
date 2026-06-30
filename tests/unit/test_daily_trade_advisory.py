@@ -935,6 +935,58 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("kill_switch_drawdown", {row["control_id"] for row in readiness["stability_controls"]})
         self.assertTrue(all(not row["order_placement_allowed"] for row in readiness["hard_gates"]))
 
+    def test_live_profitability_readiness_uses_evidence_snapshot_without_opening_orders(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF", "sharpe": 1.2},
+                {"rank": 2, "case_id": "c2", "factor_name": "reversal_2", "market": "CN_ETF", "sharpe": 0.8},
+                {"rank": 3, "case_id": "c3", "factor_name": "volatility_2", "market": "CN_ETF", "sharpe": 0.7},
+            ],
+            [
+                _signal("c1", "momentum_2", {"510300": 0.4}),
+                _signal("c2", "reversal_2", {"588000": 0.3}),
+                _signal("c3", "volatility_2", {"159915": 0.2}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="aggressive_30dd",
+            evidence_snapshot={
+                "walk_forward_oos_passed": True,
+                "lookahead_bias_audit_passed": True,
+                "multiple_testing_control_passed": True,
+                "transaction_cost_capacity_passed": True,
+                "matched_paper_receipts": 5,
+                "post_close_journals": 5,
+                "paper_ready_observations": 20,
+            },
+        )
+
+        readiness = pack["live_profitability_readiness"]
+        gate_by_id = {row["gate_id"]: row for row in readiness["hard_gates"]}
+
+        self.assertEqual(readiness["summary"]["evidence_mode"], "snapshot")
+        self.assertEqual(readiness["summary"]["matched_paper_receipts"], 5)
+        self.assertEqual(readiness["summary"]["post_close_journal_receipts"], 5)
+        self.assertEqual(readiness["summary"]["paper_ready_observations"], 20)
+        self.assertGreaterEqual(readiness["summary"]["readiness_score_pct"], 90)
+        self.assertTrue(readiness["summary"]["small_capital_observation_candidate"])
+        self.assertTrue(readiness["summary"]["production_manual_review_candidate"])
+        self.assertFalse(readiness["summary"]["real_money_allowed"])
+        self.assertFalse(readiness["summary"]["order_placement_allowed"])
+        self.assertEqual(gate_by_id["walk_forward_oos"]["status"], "pass")
+        self.assertEqual(gate_by_id["lookahead_bias_audit"]["status"], "pass")
+        self.assertEqual(gate_by_id["multiple_testing_control"]["status"], "pass")
+        self.assertEqual(gate_by_id["transaction_cost_capacity"]["status"], "pass")
+        self.assertEqual(gate_by_id["matched_paper_receipts"]["status"], "pass")
+        self.assertEqual(gate_by_id["matched_paper_receipts"]["observed_count"], 5)
+        self.assertEqual(gate_by_id["post_close_journals"]["status"], "pass")
+        self.assertEqual(gate_by_id["production_sample_size"]["status"], "pass")
+        self.assertEqual(
+            readiness["evidence_snapshot"]["missing_counts"]["matched_paper_receipts"],
+            0,
+        )
+        self.assertEqual(readiness["summary"]["next_target_id"], "beginner-live-handoff-board")
+
     def test_daily_pack_exposes_small_capital_observation_gate(self):
         pack = build_daily_trade_advisory_pack(
             [

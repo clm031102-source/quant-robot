@@ -6194,6 +6194,110 @@ function renderDailyDeploymentReadiness(readiness = {}) {
   `).join("") : statusRows([["盈利控制", "等待长样本、样本外、成本、回撤、容量和未来函数控制项。", "warn"]]);
 }
 
+function liveProfitabilityRuntimeEvidence(readiness = {}) {
+  const backendEvidence = readiness.evidence_snapshot || {};
+  const backendCounts = backendEvidence.counts || {};
+  const backendFlags = backendEvidence.flags || {};
+  const paperReceipts = executionReceiptsForWorkflow("paper_simulation")
+    .filter((item) => item?.status === "completed");
+  const postCloseReceipts = executionReceiptsForWorkflow("post_close_journal")
+    .filter((item) => item?.status === "completed");
+  const paperReadyObservations = Math.min(paperReceipts.length, postCloseReceipts.length);
+  const counts = {
+    matched_paper_receipts: Math.max(Number(backendCounts.matched_paper_receipts || 0), paperReceipts.length),
+    post_close_journal_receipts: Math.max(Number(backendCounts.post_close_journal_receipts || 0), postCloseReceipts.length),
+    paper_ready_observations: Math.max(Number(backendCounts.paper_ready_observations || 0), paperReadyObservations),
+  };
+  return {
+    mode: paperReceipts.length || postCloseReceipts.length
+      ? "browser_execution_receipts"
+      : backendEvidence.mode || "empty",
+    counts,
+    flags: {
+      walk_forward_oos_passed: Boolean(backendFlags.walk_forward_oos_passed),
+      lookahead_bias_audit_passed: Boolean(backendFlags.lookahead_bias_audit_passed),
+      multiple_testing_control_passed: Boolean(backendFlags.multiple_testing_control_passed),
+      transaction_cost_capacity_passed: Boolean(backendFlags.transaction_cost_capacity_passed),
+    },
+    missing_counts: {
+      matched_paper_receipts: Math.max(0, 5 - counts.matched_paper_receipts),
+      post_close_journal_receipts: Math.max(0, 5 - counts.post_close_journal_receipts),
+      paper_ready_observations: Math.max(0, 20 - counts.paper_ready_observations),
+    },
+    paper_simulation_receipts: paperReceipts.length,
+    post_close_journal_receipts: postCloseReceipts.length,
+  };
+}
+
+function mergeLiveProfitabilityRuntimeEvidence(readiness = {}, runtimeEvidence = {}) {
+  const counts = runtimeEvidence.counts || {};
+  const flags = runtimeEvidence.flags || {};
+  const next = {
+    ...readiness,
+    summary: { ...(readiness.summary || {}) },
+    hard_gates: Array.isArray(readiness.hard_gates) ? readiness.hard_gates.map((item) => ({ ...item })) : [],
+    evidence_snapshot: runtimeEvidence,
+  };
+  const countByGate = {
+    matched_paper_receipts: counts.matched_paper_receipts || 0,
+    post_close_journals: counts.post_close_journal_receipts || 0,
+    production_sample_size: counts.paper_ready_observations || 0,
+  };
+  const flagByGate = {
+    walk_forward_oos: flags.walk_forward_oos_passed,
+    lookahead_bias_audit: flags.lookahead_bias_audit_passed,
+    multiple_testing_control: flags.multiple_testing_control_passed,
+    transaction_cost_capacity: flags.transaction_cost_capacity_passed,
+  };
+  next.hard_gates = next.hard_gates.map((gate) => {
+    const gateId = gate.gate_id || "";
+    if (Object.prototype.hasOwnProperty.call(countByGate, gateId)) {
+      const observed = Math.max(Number(gate.observed_count || 0), Number(countByGate[gateId] || 0));
+      const minimum = Number(gate.minimum_required_observations || 0);
+      return {
+        ...gate,
+        observed_count: observed,
+        missing_count: Math.max(0, minimum - observed),
+        status: minimum > 0 && observed >= minimum ? "pass" : observed > 0 ? "partial" : gate.status,
+      };
+    }
+    if (flagByGate[gateId]) {
+      return { ...gate, status: "pass" };
+    }
+    return gate;
+  });
+  const passed = next.hard_gates.filter((gate) => gate.status === "pass").length;
+  const total = next.hard_gates.length;
+  const researchReady = Boolean(
+    flags.walk_forward_oos_passed
+    && flags.lookahead_bias_audit_passed
+    && flags.multiple_testing_control_passed
+    && flags.transaction_cost_capacity_passed
+  );
+  const matchedReady = Number(counts.matched_paper_receipts || 0) >= 5;
+  const postCloseReady = Number(counts.post_close_journal_receipts || 0) >= 5;
+  const productionReady = Number(counts.paper_ready_observations || 0) >= 20;
+  const smallCandidate = Boolean(next.summary.manual_review_material_ready && researchReady && matchedReady && postCloseReady);
+  next.summary = {
+    ...next.summary,
+    evidence_mode: runtimeEvidence.mode || next.summary.evidence_mode || "empty",
+    matched_paper_receipts: counts.matched_paper_receipts || 0,
+    post_close_journal_receipts: counts.post_close_journal_receipts || 0,
+    paper_ready_observations: counts.paper_ready_observations || 0,
+    small_capital_observation_candidate: Boolean(next.summary.small_capital_observation_candidate || smallCandidate),
+    production_manual_review_candidate: Boolean(next.summary.production_manual_review_candidate || (smallCandidate && productionReady)),
+    passed_gate_count: total ? passed : next.summary.passed_gate_count || 0,
+    total_gate_count: total || next.summary.total_gate_count || 0,
+    readiness_score_pct: total ? Math.round((passed / total) * 100) : Number(next.summary.readiness_score_pct || 0),
+    real_money_allowed: false,
+    order_placement_allowed: false,
+    broker_connection_allowed: false,
+    account_read_allowed: false,
+    auto_order_allowed: false,
+  };
+  return next;
+}
+
 function renderLiveProfitabilityReadiness(readiness = {}) {
   const summaryTarget = byId("daily-live-profitability-summary");
   const ladderTarget = byId("daily-live-profitability-ladder");
@@ -6202,6 +6306,7 @@ function renderLiveProfitabilityReadiness(readiness = {}) {
   const forbiddenTarget = byId("daily-live-profitability-forbidden");
   const controlTarget = byId("daily-live-profitability-controls");
   if (!summaryTarget || !ladderTarget || !gateTarget || !actionTarget || !forbiddenTarget || !controlTarget) return;
+  readiness = mergeLiveProfitabilityRuntimeEvidence(readiness, liveProfitabilityRuntimeEvidence(readiness));
   const summary = readiness.summary || {};
   const decision = summary.decision || "waiting_for_qualified_cn_etf_candidates";
   const score = Number(summary.readiness_score_pct || 0);
@@ -6218,6 +6323,7 @@ function renderLiveProfitabilityReadiness(readiness = {}) {
     ["能否宣称稳定盈利", summary.profitability_claim_allowed ? "可以" : "不可以", summary.profitability_claim_allowed ? "ok" : "danger"],
     ["真实资金", summary.real_money_allowed ? "允许" : "不允许", summary.real_money_allowed ? "ok" : "danger"],
     ["今天允许", summary.paper_rehearsal_allowed ? "同参数模拟盘 / 人工复核材料准备" : "只观察或先修阻断", summary.paper_rehearsal_allowed ? "warn" : "danger"],
+    ["本机证据", `模拟盘=${formatNumber(summary.matched_paper_receipts || 0)} / 复盘=${formatNumber(summary.post_close_journal_receipts || 0)} / 观察=${formatNumber(summary.paper_ready_observations || 0)}`, summary.production_manual_review_candidate ? "ok" : summary.matched_paper_receipts || summary.post_close_journal_receipts ? "warn" : "muted"],
     ["系统权限", summary.order_placement_allowed || summary.broker_connection_allowed ? "异常：权限越界" : "不连接券商、不读账户、不自动下单", summary.order_placement_allowed || summary.broker_connection_allowed ? "danger" : "ok"],
   ]) + `
     <div class="list-row ${escapeHtml(tone)}">
@@ -6242,7 +6348,7 @@ function renderLiveProfitabilityReadiness(readiness = {}) {
   const gates = Array.isArray(readiness.hard_gates) ? readiness.hard_gates : [];
   gateTarget.innerHTML = gates.length ? gates.map((item) => {
     const rowTone = item.status === "pass" ? "ok" : item.status === "blocked" ? "danger" : "warn";
-    const observationText = item.minimum_required_observations ? ` / 样本>=${formatNumber(item.minimum_required_observations)}` : "";
+    const observationText = item.minimum_required_observations ? ` / 样本=${formatNumber(item.observed_count || 0)}/${formatNumber(item.minimum_required_observations)}` : "";
     return `
       <div class="list-row ${escapeHtml(rowTone)}">
         <strong>${escapeHtml(item.label || item.gate_id || "")}</strong>
