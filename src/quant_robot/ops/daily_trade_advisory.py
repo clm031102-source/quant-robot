@@ -2295,6 +2295,15 @@ def build_daily_trade_decision_sheet(pack: dict[str, Any]) -> dict[str, Any]:
         blocker_count=len(blockers),
         position_status=position_status,
     )
+    trade_package_checklist = _decision_sheet_trade_package_checklist(
+        daily_top3=daily_top3,
+        signal_count=signal_count,
+        target_count=target_count,
+        ticket_count=ticket_count,
+        blockers=blockers,
+        position_status=position_status,
+        decision=decision,
+    )
 
     return _sanitize(
         {
@@ -2331,6 +2340,7 @@ def build_daily_trade_decision_sheet(pack: dict[str, Any]) -> dict[str, Any]:
             "missing_evidence": missing_evidence,
             "operator_script": operator_script,
             "trade_system_state": trade_system_state,
+            "trade_package_checklist": trade_package_checklist,
             "safety": SAFETY_NOTICE,
         }
     )
@@ -2681,6 +2691,122 @@ def _decision_sheet_operator_script(decision: str, ticket_count: int) -> list[di
         }
         for index, (step_id, title, plain_action, target_id, workflow_id) in enumerate(steps, start=1)
     ]
+
+
+def _decision_sheet_trade_package_checklist(
+    *,
+    daily_top3: list[dict[str, Any]],
+    signal_count: int,
+    target_count: int,
+    ticket_count: int,
+    blockers: list[str],
+    position_status: str,
+    decision: str,
+) -> dict[str, Any]:
+    blocked = bool(blockers) or position_status == "error" or decision.startswith("blocked")
+    has_top3 = len(daily_top3) > 0
+    has_targets = signal_count > 0 and target_count > 0
+    has_tickets = ticket_count > 0
+
+    def row(
+        step_id: str,
+        label: str,
+        status: str,
+        evidence: str,
+        gui_target: str,
+        plain_action: str,
+    ) -> dict[str, Any]:
+        return {
+            "step_id": step_id,
+            "label": label,
+            "status": status,
+            "evidence": evidence,
+            "gui_target": gui_target,
+            "plain_action": plain_action,
+            "order_placement_allowed": False,
+        }
+
+    items = [
+        row(
+            "top_factor_pool",
+            "前三 CN_ETF 因子",
+            "done" if has_top3 else "required",
+            f"top3={len(daily_top3)}",
+            "daily-trade-decision-top3",
+            "先生成今日前三 CN_ETF 候选。",
+        ),
+        row(
+            "today_signal_targets",
+            "今日信号和目标仓位",
+            "done" if has_targets else ("blocked" if blocked else "required"),
+            f"signals={signal_count}; targets={target_count}",
+            "daily-trade-target-table",
+            "确认今日信号、ETF 目标权重和数据日期。",
+        ),
+        row(
+            "pretrade_red_light",
+            "盘前红灯",
+            "blocked" if blocked else "done",
+            "blockers=" + ",".join(blockers) if blockers else f"position_status={position_status}",
+            "daily-pretrade-readiness-verdict",
+            "先清掉数据新鲜度、持仓输入和风险红灯。",
+        ),
+        row(
+            "manual_ticket_review",
+            "人工复核票据",
+            "done" if has_tickets and not blocked else ("blocked" if blocked else "required"),
+            f"manual_tickets={ticket_count}",
+            "daily-manual-broker-handoff-ticket-table",
+            "核对买卖方向、参考价、数量、金额、现金和风险。",
+        ),
+        row(
+            "paper_simulation_receipt",
+            "同参数模拟盘回执",
+            "required" if has_tickets and not blocked else ("blocked" if blocked else "waiting"),
+            "local_browser_receipt_required=True",
+            "paper-metrics",
+            "先跑同参数模拟盘，确认收益、回撤和保护事件。",
+        ),
+        row(
+            "post_close_journal",
+            "收盘后复盘回执",
+            "required" if has_tickets and not blocked else ("blocked" if blocked else "waiting"),
+            "local_browser_receipt_required=True",
+            "beginner-post-close-journal-board",
+            "收盘后记录执行、跳过、偏差和下一轮改进。",
+        ),
+        row(
+            "manual_safety_boundary",
+            "自动下单边界",
+            "manual_locked",
+            "broker_connection_allowed=False; order_placement_allowed=False",
+            "control-safety-boundary",
+            "系统只给人工复核材料，不连接券商、不读取账户、不自动下单。",
+        ),
+    ]
+    next_item = next((item for item in items if item["status"] in {"blocked", "required"}), None)
+    blocked_count = sum(1 for item in items if item["status"] == "blocked")
+    required_count = sum(1 for item in items if item["status"] == "required")
+    done_count = sum(1 for item in items if item["status"] == "done")
+    status = "blocked" if blocked_count else ("needs_manual_evidence" if required_count else "ready_for_manual_review")
+    return {
+        "stage": "daily_trade_package_checklist",
+        "summary": {
+            "status": status,
+            "done_step_count": done_count,
+            "required_step_count": required_count,
+            "blocked_step_count": blocked_count,
+            "locked_step_count": sum(1 for item in items if item["status"] == "manual_locked"),
+            "next_step_id": next_item["step_id"] if next_item else "manual_ticket_review",
+            "next_gui_target": next_item["gui_target"] if next_item else "daily-manual-broker-handoff-ticket-table",
+            "manual_only_boundary": True,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        },
+        "items": items,
+    }
 
 
 def build_manual_ticket_export(pack: dict[str, Any]) -> dict[str, Any]:

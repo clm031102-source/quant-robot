@@ -360,6 +360,18 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(system_state["progress"]["completed_stage_count"], 2)
         self.assertEqual(system_state["progress"]["required_stage_count"], 3)
         self.assertEqual(system_state["next_gate"]["stage_id"], "paper_simulation")
+        package = sheet["trade_package_checklist"]
+        self.assertEqual(package["stage"], "daily_trade_package_checklist")
+        self.assertEqual(package["summary"]["status"], "needs_manual_evidence")
+        self.assertEqual(package["summary"]["next_step_id"], "paper_simulation_receipt")
+        self.assertFalse(package["summary"]["order_placement_allowed"])
+        package_steps = {row["step_id"]: row for row in package["items"]}
+        self.assertEqual(package_steps["top_factor_pool"]["status"], "done")
+        self.assertEqual(package_steps["today_signal_targets"]["status"], "done")
+        self.assertEqual(package_steps["manual_ticket_review"]["status"], "done")
+        self.assertEqual(package_steps["paper_simulation_receipt"]["status"], "required")
+        self.assertEqual(package_steps["post_close_journal"]["status"], "required")
+        self.assertEqual(package_steps["manual_safety_boundary"]["status"], "manual_locked")
         self.assertEqual(pack["daily_trade_decision_sheet"]["stage"], "phase_6_14_daily_trade_decision_sheet")
 
     def test_pretrade_readiness_blocks_when_signals_are_missing(self):

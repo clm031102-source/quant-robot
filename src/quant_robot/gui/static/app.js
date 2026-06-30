@@ -5753,7 +5753,8 @@ function renderDailyTradeDecisionSheet(sheet = {}) {
   const actionTarget = byId("daily-trade-decision-actions");
   const evidenceTarget = byId("daily-trade-decision-evidence");
   const systemTarget = byId("daily-trade-system-state");
-  if (!root || !summaryTarget || !systemTarget || !top3Target || !actionTarget || !evidenceTarget) return;
+  const packageTarget = byId("daily-trade-package-checklist");
+  if (!root || !summaryTarget || !systemTarget || !packageTarget || !top3Target || !actionTarget || !evidenceTarget) return;
   const summary = sheet.summary || {};
   const next = sheet.what_to_do_now || {};
   const decision = summary.decision || "waiting_for_daily_signal";
@@ -5771,6 +5772,7 @@ function renderDailyTradeDecisionSheet(sheet = {}) {
     ["自动下单", summary.order_placement_allowed ? "异常开启" : "禁止", summary.order_placement_allowed ? "danger" : "ok"],
   ]);
   renderDailyTradeSystemState(sheet.trade_system_state || {}, runtime, systemTarget);
+  renderDailyTradePackageChecklist(sheet.trade_package_checklist || {}, runtime, packageTarget);
 
   const top3 = Array.isArray(sheet.daily_top3) ? sheet.daily_top3 : [];
   top3Target.innerHTML = top3.length ? top3.map((item, index) => `
@@ -5836,6 +5838,55 @@ function renderDailyTradeSystemState(system = {}, runtime = {}, target = byId("d
     </div>
   `).join("") : statusRows([["交易系统状态", "等待今日交易建议加载。", "warn"]]);
   target.innerHTML = overview + stageRows;
+}
+
+function renderDailyTradePackageChecklist(packageChecklist = {}, runtime = {}, target = byId("daily-trade-package-checklist")) {
+  if (!target) return;
+  const summary = packageChecklist.summary || {};
+  const items = Array.isArray(packageChecklist.items) ? packageChecklist.items : [];
+  if (!items.length) {
+    target.innerHTML = statusRows([
+      ["交易包完整度", "等待今日交易决策单生成后显示完整证据链。", "warn"],
+    ]);
+    return;
+  }
+  const runtimeItems = items.map((item) => {
+    if (item.step_id === "paper_simulation_receipt" && runtime.paperReceipt) {
+      return {
+        ...item,
+        status: "done",
+        evidence: `${runtime.paperReceipt.time || "--"} / 收益=${formatPercent(runtime.paperReceipt.metrics?.total_return)} / 回撤=${formatPercent(runtime.paperReceipt.metrics?.max_drawdown)}`,
+      };
+    }
+    if (item.step_id === "post_close_journal" && runtime.journalReceipt) {
+      return {
+        ...item,
+        status: "done",
+        evidence: `${runtime.journalReceipt.time || "--"} / 复盘项=${formatNumber(runtime.journalReceipt.metrics?.journal_item_count)}`,
+      };
+    }
+    return item;
+  });
+  const doneCount = runtimeItems.filter((item) => item.status === "done").length;
+  const requiredCount = runtimeItems.filter((item) => item.status === "required").length;
+  const blockedCount = runtimeItems.filter((item) => item.status === "blocked").length;
+  const nextItem = runtimeItems.find((item) => item.status === "blocked" || item.status === "required") || runtimeItems.find((item) => item.status === "manual_locked") || {};
+  const headerTone = blockedCount ? "danger" : requiredCount ? "warn" : "ok";
+  const header = statusRows([
+    ["交易包完整度", `已完成=${formatNumber(doneCount)} / 待补=${formatNumber(requiredCount)} / 阻断=${formatNumber(blockedCount)} / 下一步=${nextItem.label || summary.next_step_id || "--"}`, headerTone],
+    ["下单边界", summary.order_placement_allowed ? "异常：出现下单权限" : "研究到人工复核，不自动下单", summary.order_placement_allowed ? "danger" : "ok"],
+  ]);
+  const rows = runtimeItems.map((item, index) => `
+    <div class="list-row ${escapeHtml(dailyTradeSystemStageTone(item.status || ""))}">
+      <strong>${escapeHtml(`${index + 1}. ${item.label || item.step_id || ""}`)}</strong>
+      <span>${escapeHtml(`${zhConsoleText(item.status || "waiting")} / ${item.evidence || ""}`)}</span>
+      <span>${escapeHtml(item.plain_action || "")}</span>
+      <span class="beginner-task-actions">
+        ${item.gui_target ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.gui_target)}">${escapeHtml("看这一步")}</button>` : ""}
+      </span>
+    </div>
+  `).join("");
+  target.innerHTML = header + rows;
 }
 
 function dailyTradeSystemModeTone(mode = "") {
