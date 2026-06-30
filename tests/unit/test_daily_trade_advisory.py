@@ -2247,6 +2247,17 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(reason_by_id["liquidity_capacity_breached"]["status"], "blocked")
         self.assertTrue(answer_rows_by_asset["510300"]["capacity_blocked"])
         self.assertFalse(answer_rows_by_asset["510300"]["copy_to_broker_allowed"])
+        mission = pack["daily_operator_mission_control"]
+        mission_cards = {row["card_id"]: row for row in mission["cards"]}
+        mission_tickets = {row["asset_id"]: row for row in mission["visible_ticket_summary"]}
+        self.assertEqual(mission["summary"]["pre_execution_guard_status"], "blocked_liquidity_capacity")
+        self.assertEqual(mission["summary"]["capacity_blocked_count"], 1)
+        self.assertEqual(mission["summary"]["liquidity_evidence_missing_count"], 0)
+        self.assertEqual(mission["summary"]["manual_broker_review_allowed"], False)
+        self.assertEqual(mission_cards["cost_capacity_guard"]["status"], "blocked")
+        self.assertGreater(mission_tickets["510300"]["participation_rate"], mission_tickets["510300"]["max_participation_rate"])
+        self.assertTrue(mission_tickets["510300"]["capacity_blocked"])
+        self.assertFalse(mission_tickets["510300"]["copy_to_broker_allowed"])
 
     def test_pre_execution_guard_keeps_manual_review_candidate_when_liquidity_capacity_is_safe(self):
         pack = build_daily_trade_advisory_pack(

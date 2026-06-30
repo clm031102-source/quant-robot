@@ -6474,6 +6474,7 @@ function renderDailyOperatorMissionControl(control = {}) {
     ["现在先做", summary.primary_next_label || zhConsoleText(summary.primary_next_step_id || "generate_today_signal"), tone],
     ["今日材料", `Top3=${formatNumber(summary.top3_count || 0)} / 信号=${formatNumber(summary.signal_count || 0)} / 目标=${formatNumber(summary.target_count || 0)} / 票据=${formatNumber(summary.manual_ticket_count || 0)}`, summary.manual_ticket_count ? "warn" : "danger"],
     ["缺口", `证据=${formatNumber(summary.missing_evidence_count || 0)} / 人工输入缺失=${formatNumber(summary.operator_input_missing_count || 0)} / 人工确认=${formatNumber(summary.operator_input_manual_count || 0)}`, summary.operator_input_missing_count || summary.missing_evidence_count ? "warn" : "ok"],
+    ["容量占用", `状态=${zhConsoleText(summary.pre_execution_guard_status || "waiting")} / 超限=${formatNumber(summary.capacity_blocked_count || 0)} / 缺流动性=${formatNumber(summary.liquidity_evidence_missing_count || 0)} / 上限=${formatPercent(summary.max_participation_rate)}`, summary.capacity_blocked_count ? "danger" : summary.liquidity_evidence_missing_count ? "warn" : "ok"],
     ["安全边界", summary.order_placement_allowed || summary.broker_connection_allowed || summary.account_read_allowed ? "异常：出现券商/账户/下单权限" : "不连接券商、不读取账户、不自动下单", summary.order_placement_allowed || summary.broker_connection_allowed || summary.account_read_allowed ? "danger" : "ok"],
   ]);
 
@@ -6507,9 +6508,10 @@ function renderDailyOperatorMissionControl(control = {}) {
 
   const tickets = Array.isArray(control.visible_ticket_summary) ? control.visible_ticket_summary : [];
   ticketsTarget.innerHTML = tickets.length ? tickets.map((item, index) => `
-    <div class="list-row warn">
+    <div class="list-row ${escapeHtml(item.capacity_blocked ? "danger" : item.liquidity_evidence_missing ? "warn" : "ok")}">
       <strong>${escapeHtml(`${index + 1}. ${item.asset_id || "--"} / ${zhConsoleText(item.side || "review")}`)}</strong>
       <span>${escapeHtml(`数量=${formatNumber(item.rounded_quantity || 0)} / 调整=${formatNumber(item.rounded_quantity_delta || 0)} / 参考价=${formatDecimal(item.reference_price)} / 权重=${formatPercent(item.target_weight)}`)}</span>
+      <span>${escapeHtml(`容量占用=${item.capacity_blocked ? "超限" : item.liquidity_evidence_missing ? "缺流动性证据" : "未超限"} / 参与率=${formatPercent(item.participation_rate)} / 上限=${formatPercent(item.max_participation_rate)} / 流动性参考=${formatNumber(item.liquidity_reference_value || 0)}`)}</span>
       <span>${escapeHtml(item.copy_to_broker_allowed ? "异常：可复制到券商" : "复核票据，不是订单")}</span>
     </div>
   `).join("") : statusRows([["票据摘要", "还没有可复核票据，或今天被红灯阻断。", "danger"]]);

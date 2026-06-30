@@ -2979,6 +2979,22 @@ def build_daily_operator_mission_control(pack: dict[str, Any]) -> dict[str, Any]
     )
     recipe_summary = recipe.get("summary") if isinstance(recipe.get("summary"), dict) else {}
     readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
+    pre_execution_guard = (
+        pack.get("daily_pre_execution_guard")
+        if isinstance(pack.get("daily_pre_execution_guard"), dict)
+        else build_daily_pre_execution_guard(pack)
+    )
+    pre_execution_summary = (
+        pre_execution_guard.get("summary") if isinstance(pre_execution_guard.get("summary"), dict) else {}
+    )
+    pre_execution_rows = [
+        row for row in pre_execution_guard.get("row_guardrails", []) if isinstance(row, dict)
+    ]
+    pre_execution_by_asset = {
+        str(row.get("asset_id") or ""): row
+        for row in pre_execution_rows
+        if str(row.get("asset_id") or "").strip()
+    }
     blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
     missing_evidence = [row for row in decision_sheet.get("missing_evidence", []) if isinstance(row, dict)]
     operator_inputs = [row for row in recipe.get("operator_inputs_required", []) if isinstance(row, dict)]
@@ -2992,6 +3008,8 @@ def build_daily_operator_mission_control(pack: dict[str, Any]) -> dict[str, Any]
     input_manual_count = _int(recipe_summary.get("operator_input_manual_count"), _count_status(operator_inputs, "manual_required"))
     input_missing_count = _int(recipe_summary.get("operator_input_missing_count"), _count_status(operator_inputs, "missing"))
     input_blocked_count = _count_status(operator_inputs, "blocked")
+    capacity_blocked_count = sum(1 for row in pre_execution_rows if bool(row.get("capacity_blocked")))
+    liquidity_evidence_missing_count = sum(1 for row in pre_execution_rows if bool(row.get("liquidity_evidence_missing")))
     primary_next_step_id = str(recipe_summary.get("primary_next_step_id") or _operator_primary_step(sheet_summary))
     mission_status = _operator_mission_status(
         decision=str(sheet_summary.get("decision") or ""),
@@ -3028,6 +3046,12 @@ def build_daily_operator_mission_control(pack: dict[str, Any]) -> dict[str, Any]
                 "operator_input_missing_count": input_missing_count,
                 "operator_input_blocked_count": input_blocked_count,
                 "blocker_count": len(blockers),
+                "pre_execution_guard_status": pre_execution_summary.get("guard_status"),
+                "capacity_blocked_count": capacity_blocked_count,
+                "liquidity_evidence_missing_count": liquidity_evidence_missing_count,
+                "max_participation_rate": pre_execution_summary.get("max_participation_rate"),
+                "paper_rehearsal_allowed": bool(pre_execution_summary.get("paper_rehearsal_allowed")),
+                "manual_broker_review_allowed": bool(pre_execution_summary.get("manual_broker_review_allowed")),
                 "paper_simulation_required": True,
                 "manual_review_required": True,
                 "live_trading_allowed": False,
@@ -3046,10 +3070,17 @@ def build_daily_operator_mission_control(pack: dict[str, Any]) -> dict[str, Any]
                 input_missing_count=input_missing_count,
                 input_blocked_count=input_blocked_count,
                 blockers=blockers,
+                pre_execution_summary=pre_execution_summary,
+                capacity_blocked_count=capacity_blocked_count,
+                liquidity_evidence_missing_count=liquidity_evidence_missing_count,
             ),
             "next_actions": next_actions,
             "visible_ticket_summary": [
-                _operator_mission_ticket_summary(index, ticket)
+                _operator_mission_ticket_summary(
+                    index,
+                    ticket,
+                    pre_execution_by_asset.get(str(ticket.get("asset_id") or "")),
+                )
                 for index, ticket in enumerate(tickets[:5], start=1)
             ],
             "blockers": blockers,
@@ -3101,6 +3132,9 @@ def _operator_mission_cards(
     input_missing_count: int,
     input_blocked_count: int,
     blockers: list[str],
+    pre_execution_summary: dict[str, Any],
+    capacity_blocked_count: int,
+    liquidity_evidence_missing_count: int,
 ) -> list[dict[str, Any]]:
     missing_ids = {str(row.get("check_id") or "") for row in missing_evidence}
     red_blocked = bool(blockers) or input_blocked_count > 0
@@ -3153,6 +3187,17 @@ def _operator_mission_cards(
             "manual_required" if ticket_count > 0 else "waiting",
             f"tickets={ticket_count}; review_only=true",
             "daily-manual-broker-handoff-ticket-table",
+        ),
+        card(
+            "cost_capacity_guard",
+            "成本容量闸门",
+            "blocked" if capacity_blocked_count else ("missing" if liquidity_evidence_missing_count else "ready"),
+            (
+                f"guard={pre_execution_summary.get('guard_status') or '--'}; "
+                f"capacity_blocked={capacity_blocked_count}; liquidity_missing={liquidity_evidence_missing_count}; "
+                f"max_participation={pre_execution_summary.get('max_participation_rate')}"
+            ),
+            "daily-pre-execution-guard",
         ),
         card(
             "post_close_journal",
@@ -3218,7 +3263,12 @@ def _operator_mission_next_actions(
     return rows
 
 
-def _operator_mission_ticket_summary(index: int, ticket: dict[str, Any]) -> dict[str, Any]:
+def _operator_mission_ticket_summary(
+    index: int,
+    ticket: dict[str, Any],
+    guardrail: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    guardrail = guardrail if isinstance(guardrail, dict) else {}
     return {
         "step_number": _int(ticket.get("step_number"), index),
         "ticket_id": str(ticket.get("ticket_id") or f"daily-ticket-{index:03d}"),
@@ -3229,6 +3279,14 @@ def _operator_mission_ticket_summary(index: int, ticket: dict[str, Any]) -> dict
         "reference_price": _float_or_none(ticket.get("reference_price") or ticket.get("latest_price")),
         "rounded_quantity": _int(ticket.get("rounded_quantity"), 0),
         "rounded_quantity_delta": _int(ticket.get("rounded_quantity_delta"), _int(ticket.get("rounded_quantity"), 0)),
+        "liquidity_reference_value": _float_or_none(guardrail.get("liquidity_reference_value")),
+        "liquidity_reference_field": guardrail.get("liquidity_reference_field"),
+        "liquidity_evidence_missing": bool(guardrail.get("liquidity_evidence_missing")),
+        "participation_rate": _float_or_none(guardrail.get("participation_rate")),
+        "max_participation_rate": _float_or_none(guardrail.get("max_participation_rate")),
+        "capacity_blocked": bool(guardrail.get("capacity_blocked")),
+        "max_slippage_bps": _int(guardrail.get("max_slippage_bps"), MANUAL_MAX_SLIPPAGE_BPS),
+        "max_estimated_slippage_cost": _float_or_none(guardrail.get("max_estimated_slippage_cost")),
         "copy_to_broker_allowed": False,
         "review_only": True,
         "order_placement_allowed": False,
