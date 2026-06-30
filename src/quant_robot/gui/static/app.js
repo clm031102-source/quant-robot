@@ -3203,16 +3203,19 @@ function smallCapitalObservationDecisionRow(brief = {}) {
   const card = gate.decision_card || {};
   const gateRows = beginnerSmallCapitalGateRows(brief);
   const missingGateCount = gateRows.filter((row) => row.tone !== "ok").length;
+  const completedGateCount = gateRows.length - missingGateCount;
   const firstMissing = gateRows.find((row) => row.tone !== "ok") || {};
+  const progressText = `小资金观察进度 ${formatNumber(completedGateCount)}/${formatNumber(gateRows.length)}`;
+  const nextLabel = firstMissing.label || card.next_step_label || "补齐证据";
   const ready = missingGateCount === 0 && gateRows.length > 0;
-  const workflow = ready ? "" : card.next_workflow_id || firstMissing.workflow || "";
-  const target = card.next_gui_target || firstMissing.target || "beginner-live-handoff-board";
+  const workflow = ready ? "" : firstMissing.workflow || card.next_workflow_id || "";
+  const target = ready ? "control-safety-boundary" : firstMissing.target || card.next_gui_target || "beginner-live-handoff-board";
   return [{
     label: card.title || "今天能不能小资金观察",
-    value: ready ? "证据已齐，仍需人工确认" : `还差 ${formatNumber(missingGateCount)} 项`,
+    value: ready ? `${progressText} / 证据已齐，仍需人工确认` : `${progressText} / 还差 ${formatNumber(missingGateCount)} 项`,
     detail: ready
       ? "可准备小资金人工观察材料，但软件仍不连接券商、不读取账户、不自动下单。"
-      : card.plain_answer || "还不能小资金观察：先补齐模拟盘、盘后复盘和风险证据。",
+      : `${card.plain_answer || "还不能小资金观察：先补齐模拟盘、盘后复盘和风险证据。"} 下一步：${nextLabel}`,
     workflow,
     target,
     button: workflow ? card.next_step_label || "补下一项" : "",
