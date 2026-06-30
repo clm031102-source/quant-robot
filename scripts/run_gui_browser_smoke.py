@@ -267,6 +267,44 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "beginner_live_handoff_frontend",
+            "Beginner live handoff frontend",
+            index_html.get("ok")
+            and "beginner-live-handoff-board" in str(index_html.get("body", ""))
+            and "beginner-live-handoff-status" in str(index_html.get("body", ""))
+            and "beginner-live-handoff-steps" in str(index_html.get("body", ""))
+            and "beginner-live-handoff-tickets" in str(index_html.get("body", ""))
+            and app_js.get("ok")
+            and "renderBeginnerLiveHandoff" in str(app_js.get("body", ""))
+            and "beginnerLiveHandoffSteps" in str(app_js.get("body", ""))
+            and "beginnerLiveHandoffTickets" in str(app_js.get("body", ""))
+            and "data-live-handoff-action" in str(app_js.get("body", ""))
+            and "data-live-handoff-target" in str(app_js.get("body", ""))
+            and styles_css.get("ok")
+            and ".beginner-live-handoff-layout" in str(styles_css.get("body", "")),
+            "Frontend exposes the beginner live handoff board, status, steps, tickets, local action buttons, evidence jumps, and responsive layout.",
+            index_html.get("error")
+            or app_js.get("error")
+            or styles_css.get("error")
+            or "Beginner live handoff frontend anchors or renderer hooks are missing.",
+        )
+    )
+    checks.append(
+        _check(
+            "beginner_live_handoff_red_light_guard",
+            "Beginner live handoff red-light guard",
+            app_js.get("ok")
+            and "function beginnerLiveTicketRows" in str(app_js.get("body", ""))
+            and "const blockers = Array.isArray(readiness.blockers)" in str(app_js.get("body", ""))
+            and "if (blockers.length > 0) return [];" in str(app_js.get("body", ""))
+            and "if (!readiness.manual_action_candidate) return [];" in str(app_js.get("body", ""))
+            and 'handoff.status || ""' in str(app_js.get("body", "")),
+            "Frontend blocks fallback manual trade-plan tickets while pretrade readiness has blockers or no manual-action candidate.",
+            app_js.get("error") or "Beginner handoff can leak fallback manual tickets during a red-light state.",
+        )
+    )
+    checks.append(
+        _check(
             "backtest_provenance_panel",
             "Backtest provenance contract",
             control.get("ok")

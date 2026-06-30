@@ -1184,6 +1184,8 @@ class GuiSnapshotTests(unittest.TestCase):
                 self.assertIn("verification_runner_panel", check_ids)
                 self.assertIn("audit_feedback_panel", check_ids)
                 self.assertIn("audit_iteration_plan_panel", check_ids)
+                self.assertIn("beginner_live_handoff_frontend", check_ids)
+                self.assertIn("beginner_live_handoff_red_light_guard", check_ids)
                 self.assertIn("responsive_contract", check_ids)
                 self.assertIn("live_boundary", check_ids)
                 self.assertFalse(packet["safety"]["live_trading_allowed"])
