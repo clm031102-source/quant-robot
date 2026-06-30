@@ -2905,6 +2905,19 @@ def build_daily_trade_decision_sheet(pack: dict[str, Any]) -> dict[str, Any]:
         position_status=position_status,
         decision=decision,
     )
+    beginner_operation_recipe = _decision_sheet_beginner_operation_recipe(
+        decision=decision,
+        plain_answer=plain_answer,
+        button_label=button_label,
+        target_id=target_id,
+        workflow_id=workflow_id,
+        daily_top3=daily_top3,
+        today_actions=today_actions,
+        missing_evidence=missing_evidence,
+        trade_package_checklist=trade_package_checklist,
+        blockers=blockers,
+        position_status=position_status,
+    )
 
     return _sanitize(
         {
@@ -2943,6 +2956,7 @@ def build_daily_trade_decision_sheet(pack: dict[str, Any]) -> dict[str, Any]:
             "operator_script": operator_script,
             "trade_system_state": trade_system_state,
             "trade_package_checklist": trade_package_checklist,
+            "beginner_operation_recipe": beginner_operation_recipe,
             "safety": SAFETY_NOTICE,
         }
     )
@@ -9199,6 +9213,249 @@ def _decision_sheet_trade_package_checklist(
             "auto_order_allowed": False,
         },
         "items": items,
+    }
+
+
+def _decision_sheet_beginner_operation_recipe(
+    *,
+    decision: str,
+    plain_answer: str,
+    button_label: str,
+    target_id: str,
+    workflow_id: str,
+    daily_top3: list[dict[str, Any]],
+    today_actions: list[dict[str, Any]],
+    missing_evidence: list[dict[str, Any]],
+    trade_package_checklist: dict[str, Any],
+    blockers: list[str],
+    position_status: str,
+) -> dict[str, Any]:
+    blocked = bool(blockers) or position_status == "error" or decision.startswith("blocked")
+    has_top3 = bool(daily_top3)
+    has_tickets = bool(today_actions)
+    package_summary = (
+        trade_package_checklist.get("summary")
+        if isinstance(trade_package_checklist.get("summary"), dict)
+        else {}
+    )
+    first_missing = missing_evidence[0] if missing_evidence else {}
+    if blocked:
+        primary_next_step_id = "clear_red_light"
+        next_workflow_id = str(first_missing.get("workflow_id") or workflow_id or "")
+        next_target_id = str(first_missing.get("target_id") or target_id or "daily-pretrade-readiness-verdict")
+        next_label = str(first_missing.get("label") or button_label or "先处理阻断项")
+        mode = "blocked_do_not_trade"
+    elif has_tickets:
+        primary_next_step_id = "run_same_parameter_paper"
+        next_workflow_id = "paper_simulation"
+        next_target_id = "paper-metrics"
+        next_label = "先跑同参数模拟盘"
+        mode = "paper_first_then_manual_review"
+    elif has_top3:
+        primary_next_step_id = "build_manual_ticket_pack"
+        next_workflow_id = workflow_id or "daily_trade_advisory"
+        next_target_id = target_id or "daily-trade-target-table"
+        next_label = button_label or "补齐人工复核票据"
+        mode = "complete_today_signal_pack"
+    else:
+        primary_next_step_id = "generate_today_top3_signal"
+        next_workflow_id = workflow_id or "daily_trade_advisory"
+        next_target_id = target_id or "run-daily-trade-advisory"
+        next_label = button_label or "生成今日前三建议"
+        mode = "waiting_for_today_top3"
+
+    def step(
+        step_number: int,
+        step_id: str,
+        label: str,
+        status: str,
+        plain_action: str,
+        target: str,
+        workflow: str = "",
+    ) -> dict[str, Any]:
+        return {
+            "step_number": step_number,
+            "step_id": step_id,
+            "label": label,
+            "status": status,
+            "plain_action": plain_action,
+            "target_id": target,
+            "workflow_id": workflow,
+            "manual_required": True,
+            "automation_allowed": False,
+            "copy_to_broker_allowed": False,
+            "live_trading_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        }
+
+    steps = [
+        step(
+            1,
+            "review_top3_signal",
+            "看今日前三因子",
+            "done" if has_top3 else ("blocked" if blocked else "required"),
+            "先确认前三候选来自 CN_ETF 主线，并查看 Sharpe、年化、回撤、胜率、RankIC 和参数；这一步不是买入指令。",
+            "daily-trade-decision-top3",
+            "daily_trade_advisory" if not has_top3 and not blocked else "",
+        ),
+        step(
+            2,
+            "review_today_etf_targets",
+            "看今日 ETF 目标",
+            "done" if has_tickets else ("blocked" if blocked else "required"),
+            "确认今天对应的 ETF、目标权重、参考价和数量；没有同日目标时不要进入人工复核。",
+            "daily-trade-target-table",
+            "daily_trade_advisory" if has_top3 and not has_tickets and not blocked else "",
+        ),
+        step(
+            3,
+            "run_same_parameter_paper",
+            "先跑同参数模拟盘",
+            "blocked" if blocked else ("required" if has_tickets else "waiting"),
+            "用同一组因子、TopN、成本、风控参数先跑本地模拟盘，看收益、回撤、成交和保护事件。",
+            "paper-metrics",
+            "paper_simulation" if has_tickets and not blocked else "",
+        ),
+        step(
+            4,
+            "check_price_capacity_risk",
+            "检查价格、容量和风险",
+            "blocked" if blocked else ("required" if has_tickets else "waiting"),
+            "逐项核对券商实时价是否在价格护栏内、参与率是否超容量、现金和最大回撤是否能承受。",
+            "daily-pre-execution-guard",
+        ),
+        step(
+            5,
+            "manual_broker_review_if_human_chooses",
+            "人工决定是否打开券商",
+            "manual_locked",
+            "软件不会连接券商、不会读取账户、不会自动下单；如果继续，只能由本人在券商端重新核对后手动决定。",
+            "daily-manual-broker-handoff-ticket-table",
+        ),
+        step(
+            6,
+            "write_post_close_journal",
+            "收盘后写复盘",
+            "blocked" if blocked else ("required" if has_tickets else "waiting"),
+            "记录执行或跳过原因、模拟盘结果、滑点、未成交、风险事件和下一日要复核的问题。",
+            "beginner-post-close-journal-board",
+            "post_close_journal" if has_tickets and not blocked else "",
+        ),
+    ]
+
+    skip_rules = [
+        _beginner_operation_skip_rule(
+            "direct_top3_buy_forbidden",
+            "always_block",
+            "不能看到前三因子就直接买，必须先有同日 ETF 信号、模拟盘、风险和人工复核。",
+            "daily-trade-decision-top3",
+        ),
+        _beginner_operation_skip_rule(
+            "stale_signal_date",
+            "skip_if_seen",
+            "信号日期不是今天或最新交易日时，跳过人工复核，先刷新数据并重新生成信号。",
+            "daily-pre-execution-guard",
+            "daily_trade_advisory",
+        ),
+        _beginner_operation_skip_rule(
+            "broker_price_outside_guardrail",
+            "skip_if_seen",
+            "券商实时价超出价格护栏时，今天跳过该 ETF，不追价。",
+            "daily-pre-execution-guard",
+        ),
+        _beginner_operation_skip_rule(
+            "liquidity_capacity_breached",
+            "skip_if_seen",
+            "流动性证据缺失或参与率超限时，跳过或降低金额，只保留纸面演练。",
+            "daily-pre-execution-guard",
+        ),
+        _beginner_operation_skip_rule(
+            "risk_circuit_breaker",
+            "skip_if_seen",
+            "触发日亏损、连续亏损、冷静期或回撤阈值时，只能纸面观察，不能进入券商复核。",
+            "daily-pre-execution-guard",
+        ),
+        _beginner_operation_skip_rule(
+            "paper_receipt_missing",
+            "skip_if_seen",
+            "同参数模拟盘没有回执时，不进入人工券商复核。",
+            "paper-metrics",
+            "paper_simulation",
+        ),
+    ]
+
+    ticket_preview = [
+        {
+            "ticket_id": row.get("ticket_id"),
+            "asset_id": row.get("asset_id"),
+            "market": row.get("market") or "CN_ETF",
+            "side": row.get("side") or "review",
+            "target_weight": _float_or_none(row.get("target_weight")),
+            "reference_price": _float_or_none(row.get("reference_price")),
+            "rounded_quantity": _int(row.get("rounded_quantity"), 0),
+            "rounded_quantity_delta": _int(row.get("rounded_quantity_delta"), _int(row.get("rounded_quantity"), 0)),
+            "plain_instruction": row.get("plain_instruction") or "只供人工复核，不是订单。",
+            "copy_to_broker_allowed": False,
+            "live_trading_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        }
+        for row in today_actions[:5]
+    ]
+    return {
+        "stage": "daily_beginner_operation_recipe",
+        "summary": {
+            "decision": decision,
+            "mode": mode,
+            "plain_answer": plain_answer,
+            "primary_next_step_id": primary_next_step_id,
+            "next_label": next_label,
+            "next_workflow_id": next_workflow_id,
+            "next_target_id": next_target_id,
+            "top3_count": len(daily_top3),
+            "ticket_preview_count": len(ticket_preview),
+            "missing_evidence_count": len(missing_evidence),
+            "package_status": package_summary.get("status"),
+            "direct_buy_allowed": False,
+            "manual_only_boundary": True,
+            "live_trading_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        },
+        "steps": steps,
+        "skip_rules": skip_rules,
+        "ticket_preview": ticket_preview,
+        "missing_evidence": missing_evidence,
+    }
+
+
+def _beginner_operation_skip_rule(
+    rule_id: str,
+    status: str,
+    plain_rule: str,
+    target_id: str,
+    workflow_id: str = "",
+) -> dict[str, Any]:
+    return {
+        "rule_id": rule_id,
+        "status": status,
+        "plain_rule": plain_rule,
+        "target_id": target_id,
+        "workflow_id": workflow_id,
+        "manual_required": True,
+        "copy_to_broker_allowed": False,
+        "live_trading_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
     }
 
 

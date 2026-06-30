@@ -896,6 +896,26 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(package_steps["paper_simulation_receipt"]["status"], "required")
         self.assertEqual(package_steps["post_close_journal"]["status"], "required")
         self.assertEqual(package_steps["manual_safety_boundary"]["status"], "manual_locked")
+        recipe = sheet["beginner_operation_recipe"]
+        self.assertEqual(recipe["stage"], "daily_beginner_operation_recipe")
+        self.assertEqual(recipe["summary"]["decision"], "paper_first_manual_review")
+        self.assertEqual(recipe["summary"]["primary_next_step_id"], "run_same_parameter_paper")
+        self.assertEqual(recipe["summary"]["next_workflow_id"], "paper_simulation")
+        self.assertEqual(recipe["summary"]["next_target_id"], "paper-metrics")
+        self.assertFalse(recipe["summary"]["direct_buy_allowed"])
+        self.assertFalse(recipe["summary"]["broker_connection_allowed"])
+        self.assertFalse(recipe["summary"]["account_read_allowed"])
+        self.assertFalse(recipe["summary"]["order_placement_allowed"])
+        self.assertFalse(recipe["summary"]["auto_order_allowed"])
+        recipe_steps = {row["step_id"]: row for row in recipe["steps"]}
+        self.assertEqual(recipe_steps["review_top3_signal"]["status"], "done")
+        self.assertEqual(recipe_steps["run_same_parameter_paper"]["status"], "required")
+        self.assertEqual(recipe_steps["manual_broker_review_if_human_chooses"]["status"], "manual_locked")
+        self.assertEqual(recipe_steps["write_post_close_journal"]["status"], "required")
+        self.assertTrue(all(row["order_placement_allowed"] is False for row in recipe["steps"]))
+        self.assertIn("broker_price_outside_guardrail", {row["rule_id"] for row in recipe["skip_rules"]})
+        self.assertEqual(recipe["ticket_preview"][0]["asset_id"], "510300")
+        self.assertFalse(recipe["ticket_preview"][0]["copy_to_broker_allowed"])
         self.assertEqual(pack["daily_trade_decision_sheet"]["stage"], "phase_6_14_daily_trade_decision_sheet")
 
     def test_pretrade_readiness_blocks_when_signals_are_missing(self):

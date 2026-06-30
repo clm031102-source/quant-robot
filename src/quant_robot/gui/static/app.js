@@ -6395,7 +6395,11 @@ function renderDailyTradeDecisionSheet(sheet = {}) {
   const evidenceTarget = byId("daily-trade-decision-evidence");
   const systemTarget = byId("daily-trade-system-state");
   const packageTarget = byId("daily-trade-package-checklist");
-  if (!root || !summaryTarget || !systemTarget || !packageTarget || !top3Target || !candidatePoolTarget || !actionTarget || !evidenceTarget) return;
+  const recipeSummaryTarget = byId("daily-beginner-operation-recipe-summary");
+  const recipeStepsTarget = byId("daily-beginner-operation-recipe-steps");
+  const recipeSkipRulesTarget = byId("daily-beginner-operation-recipe-skip-rules");
+  const recipeTicketsTarget = byId("daily-beginner-operation-recipe-tickets");
+  if (!root || !summaryTarget || !systemTarget || !packageTarget || !recipeSummaryTarget || !recipeStepsTarget || !recipeSkipRulesTarget || !recipeTicketsTarget || !top3Target || !candidatePoolTarget || !actionTarget || !evidenceTarget) return;
   const summary = sheet.summary || {};
   const next = sheet.what_to_do_now || {};
   const decision = summary.decision || "waiting_for_daily_signal";
@@ -6414,6 +6418,7 @@ function renderDailyTradeDecisionSheet(sheet = {}) {
   ]);
   renderDailyTradeSystemState(sheet.trade_system_state || {}, runtime, systemTarget);
   renderDailyTradePackageChecklist(sheet.trade_package_checklist || {}, runtime, packageTarget);
+  renderDailyBeginnerOperationRecipe(sheet.beginner_operation_recipe || {});
 
   const top3 = Array.isArray(sheet.daily_top3) ? sheet.daily_top3 : [];
   top3Target.innerHTML = top3.length ? top3.map((item, index) => `
@@ -6452,6 +6457,79 @@ function renderDailyTradeDecisionSheet(sheet = {}) {
       </div>
     `;
   }).join("") : statusRows([["缺失证据", "暂无结构化缺失项；仍需人工确认模拟盘、风险、现金和券商端实时价格。", "warn"]]);
+}
+
+function renderDailyBeginnerOperationRecipe(recipe = {}) {
+  const summaryTarget = byId("daily-beginner-operation-recipe-summary");
+  const stepsTarget = byId("daily-beginner-operation-recipe-steps");
+  const skipRulesTarget = byId("daily-beginner-operation-recipe-skip-rules");
+  const ticketsTarget = byId("daily-beginner-operation-recipe-tickets");
+  if (!summaryTarget || !stepsTarget || !skipRulesTarget || !ticketsTarget) return;
+  const summary = recipe.summary || {};
+  const decision = summary.decision || "waiting_for_today_top3";
+  const tone = decision.includes("blocked") ? "danger" : "warn";
+  const actionButton = summary.next_workflow_id ? `
+    <button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(summary.next_workflow_id)}">${escapeHtml(summary.next_label || "运行下一步")}</button>
+  ` : "";
+  const targetButton = summary.next_target_id ? `
+    <button class="${escapeHtml(actionButton ? "secondary-button" : "primary-button")}" type="button" data-beginner-target="${escapeRawHtml(summary.next_target_id)}">${escapeHtml(actionButton ? "查看证据" : summary.next_label || "查看证据")}</button>
+  ` : "";
+  summaryTarget.innerHTML = statusRows([
+    ["最终操作单", `${zhConsoleText(decision)} / ${zhConsoleText(summary.mode || "")}`, tone],
+    ["现在先做", summary.next_label || "生成今日前三建议", tone],
+    ["证据数量", `Top3=${formatNumber(summary.top3_count || 0)} / 票据=${formatNumber(summary.ticket_preview_count || 0)} / 缺口=${formatNumber(summary.missing_evidence_count || 0)}`, summary.missing_evidence_count ? "warn" : "ok"],
+    ["实盘边界", summary.order_placement_allowed || summary.broker_connection_allowed || summary.account_read_allowed ? "异常：出现券商/账户/下单权限" : "不连接券商、不读账户、不自动下单", summary.order_placement_allowed || summary.broker_connection_allowed || summary.account_read_allowed ? "danger" : "ok"],
+  ]) + `
+    <div class="list-row ${escapeHtml(tone)}">
+      <strong>${escapeHtml("一句话")}</strong>
+      <span>${escapeHtml(summary.plain_answer || "先按操作单补齐证据，再做纸面演练和人工复核。")}</span>
+      <span class="beginner-task-actions">${actionButton}${targetButton}</span>
+    </div>
+  `;
+
+  const steps = Array.isArray(recipe.steps) ? recipe.steps : [];
+  stepsTarget.innerHTML = steps.length ? steps.map((item) => {
+    const rowTone = dailyBeginnerOperationTone(item.status || "");
+    const workflowButton = item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : "";
+    const targetButton = item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : "";
+    return `
+      <div class="list-row ${escapeHtml(rowTone)}">
+        <strong>${escapeHtml(`${item.step_number || "--"}. ${item.label || item.step_id || ""}`)}</strong>
+        <span>${escapeHtml(`${zhConsoleText(item.status || "waiting")} / ${item.plain_action || ""}`)}</span>
+        <span>${escapeHtml(item.order_placement_allowed ? "异常：允许下单" : "下单=禁止")}</span>
+        <span class="beginner-task-actions">${workflowButton}${targetButton}</span>
+      </div>
+    `;
+  }).join("") : statusRows([["操作步骤", "还没有最终操作单；先生成今日交易决策单。", "warn"]]);
+
+  const skipRules = Array.isArray(recipe.skip_rules) ? recipe.skip_rules : [];
+  skipRulesTarget.innerHTML = skipRules.length ? skipRules.map((item) => `
+    <div class="list-row ${escapeHtml(item.status === "always_block" ? "danger" : "warn")}">
+      <strong>${escapeHtml(item.rule_id || "")}</strong>
+      <span>${escapeHtml(`${zhConsoleText(item.status || "skip_if_seen")} / ${item.plain_rule || ""}`)}</span>
+      <span class="beginner-task-actions">
+        ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+        ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
+      </span>
+    </div>
+  `).join("") : statusRows([["跳过规则", "默认规则：信号旧、价格越界、容量超限、风险熔断、缺模拟盘回执时跳过。", "warn"]]);
+
+  const tickets = Array.isArray(recipe.ticket_preview) ? recipe.ticket_preview : [];
+  ticketsTarget.innerHTML = tickets.length ? tickets.map((item, index) => `
+    <div class="list-row warn">
+      <strong>${escapeHtml(`${index + 1}. ${item.asset_id || "--"} / ${zhConsoleText(item.side || "review")}`)}</strong>
+      <span>${escapeHtml(`参考价=${formatDecimal(item.reference_price)} / 数量=${formatNumber(item.rounded_quantity || 0)} / 调整=${formatNumber(item.rounded_quantity_delta || 0)} / 权重=${formatPercent(item.target_weight)}`)}</span>
+      <span>${escapeHtml(item.copy_to_broker_allowed ? "异常：允许复制到券商" : "只供人工复核，不是订单")}</span>
+    </div>
+  `).join("") : statusRows([["票据预览", "还没有可复核 ETF 票据；红灯或无信号时不要手工买卖。", "danger"]]);
+}
+
+function dailyBeginnerOperationTone(status = "") {
+  const text = String(status || "").toLowerCase();
+  if (text.includes("blocked") || text.includes("forbidden")) return "danger";
+  if (text.includes("done") || text.includes("pass") || text.includes("ok")) return "ok";
+  if (text.includes("locked")) return "danger";
+  return "warn";
 }
 
 function renderDailyCandidatePoolTop20(pool = {}, target) {
