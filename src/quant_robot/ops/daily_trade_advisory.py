@@ -931,22 +931,37 @@ def build_daily_live_readiness_gate(pack: dict[str, Any]) -> dict[str, Any]:
         decision = "blocked_fix_current_positions"
         primary_action = "先修正当前持仓输入；实盘前准备、模拟盘和人工票据都先暂停。"
         primary_reason = validation.get("plain_summary") or "当前持仓输入存在危险字段或格式错误。"
+        cta_label = "修正当前持仓"
+        cta_target = "daily-current-positions"
+        action_workflow = None
     elif blockers:
         decision = "blocked_pretrade_red_light"
         primary_action = "先处理盘前红灯阻断项；不能进入模拟盘交接或人工交易复核。"
         primary_reason = "阻断项：" + ", ".join(blockers)
+        cta_label = "查看盘前红灯"
+        cta_target = "daily-pretrade-readiness-verdict"
+        action_workflow = None
     elif has_manual_tickets:
         decision = "paper_rehearsal_required"
         primary_action = "先跑本地模拟盘并人工复核票据；今天仍然不是自动实盘。"
         primary_reason = f"今日有 {ticket_count} 张人工复核票据，必须先完成模拟盘和风险复核。"
+        cta_label = "运行模拟盘复核"
+        cta_target = "paper-metrics"
+        action_workflow = "paper_simulation"
     elif has_today_signal:
         decision = "waiting_for_trade_ticket"
         primary_action = "已有今日信号但没有可复核票据；先检查价格、仓位和一手取整。"
         primary_reason = f"信号={signal_count}，目标={target_count}，票据={ticket_count}。"
+        cta_label = "检查仓位和票据"
+        cta_target = "daily-trade-target-table"
+        action_workflow = "daily_trade_advisory"
     else:
         decision = "waiting_for_daily_signal"
         primary_action = "先生成今日前三 CN_ETF 因子信号；没有当天信号就不要操作。"
         primary_reason = f"信号={signal_count}，目标={target_count}，票据={ticket_count}。"
+        cta_label = "生成今日建议"
+        cta_target = "run-daily-trade-advisory"
+        action_workflow = "daily_trade_advisory"
 
     def gate_row(gate_id: str, label: str, status: str, plain_check: str, evidence: str, gui_target: str) -> dict[str, Any]:
         return {
@@ -1092,6 +1107,9 @@ def build_daily_live_readiness_gate(pack: dict[str, Any]) -> dict[str, Any]:
                 "decision": decision,
                 "primary_action": primary_action,
                 "primary_reason": primary_reason,
+                "cta_label": cta_label,
+                "cta_target": cta_target,
+                "action_workflow": action_workflow,
                 "primary_market": market,
                 "paper_simulation_required": True,
                 "manual_review_required": True,

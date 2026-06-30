@@ -4926,7 +4926,39 @@ function dailyReadinessButtons(decision = {}) {
   `;
 }
 
+function dailyLiveGateDecision() {
+  const trade = state.dailyTradeAdvisory || {};
+  const liveGate = trade.daily_live_readiness_gate || {};
+  const summary = liveGate.summary || {};
+  const gateDecision = summary.decision || "";
+  if (!gateDecision) return null;
+  const gateRows = Array.isArray(liveGate.gate_rows) ? liveGate.gate_rows : [];
+  const blockedRows = gateRows.filter((row) => row.status === "blocked");
+  const tone = gateDecision.includes("blocked") ? "danger" : "warn";
+  const titleMap = {
+    blocked_fix_current_positions: "红灯：先修正当前持仓",
+    blocked_pretrade_red_light: "红灯：先处理盘前阻断",
+    paper_rehearsal_required: "黄灯：先跑模拟盘复核",
+    waiting_for_trade_ticket: "黄灯：先补齐人工票据",
+    waiting_for_daily_signal: "黄灯：先生成今日信号",
+  };
+  return {
+    tone,
+    title: titleMap[gateDecision] || `总闸门：${zhConsoleText(gateDecision)}`,
+    reason: summary.primary_reason || "等待实盘前总闸门给出原因。",
+    evidence: `总闸门=${zhConsoleText(gateDecision)} / 阻断=${formatNumber(blockedRows.length)} / 自动下单=${summary.order_placement_allowed ? "异常开启" : "禁止"}`,
+    primary_action: summary.primary_action || "先看实盘前总闸门。",
+    detail: summary.primary_action || "先按总闸门提示处理。",
+    cta_label: summary.cta_label || "看实盘前总闸门",
+    target_id: summary.cta_target || "daily-live-readiness-gate",
+    action_workflow: summary.action_workflow || "",
+    liveGateDecision: gateDecision,
+  };
+}
+
 function dailyReadinessDecision() {
+  const liveGateDecision = dailyLiveGateDecision();
+  if (liveGateDecision) return liveGateDecision;
   const trade = state.dailyTradeAdvisory || {};
   const summary = trade.summary || {};
   const readiness = trade.pretrade_readiness || {};
@@ -5008,6 +5040,7 @@ function renderBeginnerLiveHandoff() {
   const readiness = trade.pretrade_readiness || {};
   statusTarget.innerHTML = statusRows([
     ["今天结论", decision.title || "等待今日建议", decision.tone || "warn"],
+    ["总闸门", decision.liveGateDecision || "等待实盘前总闸门", decision.tone || "warn"],
     ["为什么", decision.reason || "先加载今日前三因子、信号和模拟盘回执。", decision.tone || "warn"],
     ["操作边界", "这是人工实盘前交接，不会自动下单，也不会连接券商。", "danger"],
     ["当前证据", `因子=${formatNumber(summary.selected_factor_count || 0)} / 信号=${formatNumber(summary.signal_count || 0)} / 灯号=${readiness.traffic_light || "unknown"}`, "muted"],
@@ -5032,6 +5065,8 @@ function renderBeginnerLiveHandoff() {
 
 function beginnerLiveHandoffSteps() {
   const trade = state.dailyTradeAdvisory || {};
+  const gateSteps = dailyLiveGateStepRows(trade.daily_live_readiness_gate || {});
+  if (gateSteps.length) return gateSteps;
   const summary = trade.summary || {};
   const readiness = trade.pretrade_readiness || {};
   const freshness = readiness.freshness || {};
@@ -5101,6 +5136,26 @@ function beginnerLiveHandoffSteps() {
       button: "看手工执行计划",
     },
   ];
+}
+
+function dailyLiveGateStepRows(liveGate = {}) {
+  const rows = Array.isArray(liveGate.gate_rows) ? liveGate.gate_rows : [];
+  if (!rows.length) return [];
+  return rows.map((row, index) => {
+    const status = row.status || "waiting";
+    const tone = status === "ready"
+      ? "ok"
+      : status === "blocked" || status === "locked"
+        ? "danger"
+        : "warn";
+    return {
+      step: `${index + 1}. ${row.label || row.gate_id || "实盘前闸门"}`,
+      tone,
+      detail: `${zhConsoleText(status)} / ${row.plain_check || row.evidence || ""}`,
+      target: row.gui_target || "daily-live-readiness-gate",
+      button: "看证据",
+    };
+  });
 }
 
 function beginnerLiveHandoffButton(item = {}) {

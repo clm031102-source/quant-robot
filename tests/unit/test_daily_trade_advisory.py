@@ -135,6 +135,9 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(live_gate["stage"], "phase_6_9_daily_live_readiness_gate")
         self.assertEqual(live_gate["summary"]["decision"], "paper_rehearsal_required")
         self.assertIn("模拟盘", live_gate["summary"]["primary_action"])
+        self.assertEqual(live_gate["summary"]["cta_label"], "运行模拟盘复核")
+        self.assertEqual(live_gate["summary"]["cta_target"], "paper-metrics")
+        self.assertEqual(live_gate["summary"]["action_workflow"], "paper_simulation")
         self.assertFalse(live_gate["summary"]["live_trading_allowed"])
         self.assertFalse(live_gate["summary"]["order_placement_allowed"])
         self.assertEqual(live_gate["mode_ladder"][0]["mode_id"], "research_signal")
@@ -165,6 +168,9 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("修正当前持仓", pack["beginner_action_summary"]["summary"]["primary_action"])
         self.assertEqual(pack["beginner_action_summary"]["steps"][0]["step_id"], "fix_current_positions")
         self.assertEqual(pack["daily_live_readiness_gate"]["summary"]["decision"], "blocked_fix_current_positions")
+        self.assertEqual(pack["daily_live_readiness_gate"]["summary"]["cta_label"], "修正当前持仓")
+        self.assertEqual(pack["daily_live_readiness_gate"]["summary"]["cta_target"], "daily-current-positions")
+        self.assertIsNone(pack["daily_live_readiness_gate"]["summary"]["action_workflow"])
         self.assertEqual(pack["daily_live_readiness_gate"]["gate_rows"][0]["gate_id"], "current_positions")
         self.assertEqual(pack["daily_live_readiness_gate"]["gate_rows"][0]["status"], "blocked")
         self.assertFalse(pack["daily_live_readiness_gate"]["summary"]["broker_connection_allowed"])
@@ -223,6 +229,10 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(pack["operator_next_actions"][1]["action_workflow"], "daily_trade_advisory")
         self.assertEqual(pack["operator_next_actions"][2]["action_workflow"], "paper_simulation")
         self.assertEqual(pack["pretrade_workflow"]["summary"]["primary_next_action_id"], "refresh_cn_etf_data")
+        self.assertEqual(pack["daily_live_readiness_gate"]["summary"]["decision"], "blocked_pretrade_red_light")
+        self.assertEqual(pack["daily_live_readiness_gate"]["summary"]["cta_label"], "查看盘前红灯")
+        self.assertEqual(pack["daily_live_readiness_gate"]["summary"]["cta_target"], "daily-pretrade-readiness-verdict")
+        self.assertIsNone(pack["daily_live_readiness_gate"]["summary"]["action_workflow"])
 
     def test_manual_broker_handoff_builds_copyable_review_cards_without_orders(self):
         pack = build_daily_trade_advisory_pack(
