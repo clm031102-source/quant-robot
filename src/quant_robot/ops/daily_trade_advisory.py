@@ -44,6 +44,7 @@ DAILY_MANUAL_TRADING_SESSION_STAGE = "phase_6_24_daily_manual_trading_session"
 DAILY_PAPER_ALLOCATION_PLAYBOOK_STAGE = "phase_6_25_daily_paper_allocation_playbook"
 DAILY_PRE_EXECUTION_GUARD_STAGE = "phase_6_26_daily_pre_execution_guard"
 DAILY_SAME_PARAMETER_PAPER_REHEARSAL_STAGE = "phase_6_27_daily_same_parameter_paper_rehearsal"
+DAILY_BEGINNER_EXECUTION_ANSWER_STAGE = "phase_6_28_daily_beginner_execution_answer"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 MANUAL_PRICE_DEVIATION_GUARD_PCT = 0.005
@@ -441,6 +442,7 @@ def build_daily_trade_advisory_pack(
     pack["daily_paper_allocation_playbook"] = build_daily_paper_allocation_playbook(pack)
     pack["daily_pre_execution_guard"] = build_daily_pre_execution_guard(pack)
     pack["daily_same_parameter_paper_rehearsal"] = build_daily_same_parameter_paper_rehearsal(pack)
+    pack["daily_beginner_execution_answer"] = build_daily_beginner_execution_answer(pack)
     pack["summary"]["live_transition_status"] = pack["live_transition_plan"]["summary"]["status"]
     pack["summary"]["trading_system_status"] = pack["trading_system_blueprint"]["summary"]["status"]
     pack["summary"]["execution_bridge_status"] = pack["daily_signal_execution_bridge"]["summary"]["status"]
@@ -456,6 +458,9 @@ def build_daily_trade_advisory_pack(
     pack["summary"]["pre_execution_guard_status"] = pack["daily_pre_execution_guard"]["summary"]["guard_status"]
     pack["summary"]["same_parameter_paper_rehearsal_status"] = pack["daily_same_parameter_paper_rehearsal"]["summary"][
         "rehearsal_status"
+    ]
+    pack["summary"]["beginner_execution_answer_status"] = pack["daily_beginner_execution_answer"]["summary"][
+        "allowed_mode"
     ]
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
@@ -6398,6 +6403,240 @@ def build_daily_same_parameter_paper_rehearsal(pack: dict[str, Any]) -> dict[str
             },
         }
     )
+
+
+def build_daily_beginner_execution_answer(pack: dict[str, Any]) -> dict[str, Any]:
+    guard = (
+        pack.get("daily_pre_execution_guard")
+        if isinstance(pack.get("daily_pre_execution_guard"), dict)
+        else build_daily_pre_execution_guard(pack)
+    )
+    rehearsal = (
+        pack.get("daily_same_parameter_paper_rehearsal")
+        if isinstance(pack.get("daily_same_parameter_paper_rehearsal"), dict)
+        else build_daily_same_parameter_paper_rehearsal(pack)
+    )
+    guard_summary = guard.get("summary") if isinstance(guard.get("summary"), dict) else {}
+    rehearsal_summary = rehearsal.get("summary") if isinstance(rehearsal.get("summary"), dict) else {}
+    guard_status = str(guard_summary.get("guard_status") or "blocked_no_allocation_rows")
+    paper_allowed = bool(guard_summary.get("paper_rehearsal_allowed"))
+    manual_allowed = bool(guard_summary.get("manual_broker_review_allowed"))
+
+    if manual_allowed:
+        ordinary_verdict = "manual_review_candidate"
+        allowed_mode = "manual_review_material_only"
+        headline = "证据可进入人工复核材料阶段，但软件仍不能买入或下单。"
+        next_label = "核对执行前价格护栏"
+        next_target = "daily-pre-execution-guard"
+        next_workflow = ""
+    elif paper_allowed:
+        ordinary_verdict = "paper_only"
+        allowed_mode = "same_parameter_paper_rehearsal_only"
+        headline = "今天只做同参数模拟盘和盘后回执，不进入券商复核。"
+        next_label = "运行同参数模拟盘"
+        next_target = "paper-metrics"
+        next_workflow = "paper_simulation"
+    else:
+        ordinary_verdict = "do_not_trade"
+        allowed_mode = "blocked_no_action"
+        headline = "今天不要买，也不要进入券商端；先处理红灯。"
+        next_label = "查看执行前红灯"
+        next_target = "daily-pre-execution-guard"
+        next_workflow = ""
+
+    reasons = _beginner_execution_reasons(guard)
+    first_reason = next((row for row in reasons if row.get("status") == "blocked"), None) or next(
+        (row for row in reasons if row.get("status") in {"required", "paper_only"}), None
+    )
+    if first_reason:
+        next_target = str(first_reason.get("target_id") or next_target)
+        next_workflow = str(first_reason.get("workflow_id") or next_workflow)
+        next_label = _beginner_execution_next_label(str(first_reason.get("reason_id") or ""), next_label)
+
+    review_rows = _beginner_execution_review_rows(
+        guard.get("row_guardrails", []),
+        manual_allowed=manual_allowed,
+    )
+    return _sanitize(
+        {
+            "stage": DAILY_BEGINNER_EXECUTION_ANSWER_STAGE,
+            "run_date": str(pack.get("run_date") or guard.get("run_date") or date.today().isoformat()),
+            "safety": SAFETY_NOTICE,
+            "summary": {
+                "ordinary_verdict": ordinary_verdict,
+                "allowed_mode": allowed_mode,
+                "guard_status": guard_status,
+                "rehearsal_status": str(rehearsal_summary.get("rehearsal_status") or ""),
+                "headline": headline,
+                "plain_answer": headline,
+                "paper_rehearsal_allowed": paper_allowed,
+                "manual_review_allowed": manual_allowed,
+                "can_buy_today": False,
+                "review_row_count": len(review_rows),
+                "reason_count": len(reasons),
+                "next_label": next_label,
+                "next_target_id": next_target,
+                "next_workflow_id": next_workflow,
+                "manual_only_boundary": True,
+                "live_trading_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+            },
+            "reasons": reasons,
+            "review_rows": review_rows,
+            "operator_next_steps": _beginner_execution_next_steps(
+                guard.get("operator_steps", []),
+                manual_allowed=manual_allowed,
+                paper_allowed=paper_allowed,
+            ),
+            "forbidden_actions": [
+                _beginner_execution_forbidden_action(
+                    "direct_buy_top3",
+                    "Do not buy directly from the Top3 factor list without same-day signal, paper evidence, risk checks, and human review.",
+                ),
+                _beginner_execution_forbidden_action(
+                    "copy_rows_to_broker",
+                    "Do not copy paper allocation rows into a broker app as orders.",
+                ),
+                _beginner_execution_forbidden_action(
+                    "skip_post_close_journal",
+                    "Do not skip the post-close journal; it is required evidence for the next session.",
+                ),
+            ],
+            "source_pre_execution_summary": guard_summary,
+            "execution_boundary": {
+                "plain_boundary": "This card explains what a beginner should do next; it never connects to a broker or submits orders.",
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+            },
+        }
+    )
+
+
+def _beginner_execution_reasons(guard: dict[str, Any]) -> list[dict[str, Any]]:
+    rows = []
+    for item in guard.get("skip_rules", []):
+        if not isinstance(item, dict):
+            continue
+        status = str(item.get("status") or "")
+        if status == "pass":
+            continue
+        rows.append(
+            {
+                "reason_id": item.get("rule_id"),
+                "status": status,
+                "plain_reason": item.get("plain_rule") or "",
+                "target_id": item.get("target_id") or "daily-pre-execution-guard",
+                "workflow_id": item.get("workflow_id") or "",
+                "must_resolve_before_manual_review": status in {"blocked", "required"},
+                "order_placement_allowed": False,
+            }
+        )
+    return rows
+
+
+def _beginner_execution_review_rows(rows: Any, *, manual_allowed: bool) -> list[dict[str, Any]]:
+    source_rows = [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+    execution_mode = "manual_review_candidate_not_order" if manual_allowed else "paper_rehearsal_only"
+    return [
+        {
+            "row_number": _int(row.get("row_number"), index),
+            "asset_id": row.get("asset_id"),
+            "market": row.get("market") or "CN_ETF",
+            "side": row.get("side") or "buy_or_adjust",
+            "execution_mode": execution_mode,
+            "target_weight": _float_or_none(row.get("target_weight")),
+            "paper_budget_value": _float_or_none(row.get("paper_budget_value")),
+            "paper_quantity": _int(row.get("paper_quantity"), 0),
+            "reference_price": _float_or_none(row.get("reference_price")),
+            "lower_price_bound": _float_or_none(row.get("lower_price_bound")),
+            "upper_price_bound": _float_or_none(row.get("upper_price_bound")),
+            "max_slippage_bps": _int(row.get("max_slippage_bps"), MANUAL_MAX_SLIPPAGE_BPS),
+            "risk_blocked": bool(row.get("risk_blocked")),
+            "human_checklist": [
+                "check_external_realtime_price",
+                "check_cash_and_position",
+                "check_quantity_board_lot",
+                "check_drawdown_budget",
+                "write_post_close_journal",
+            ],
+            "copy_to_broker_allowed": False,
+            "manual_only": True,
+            "live_trading_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        }
+        for index, row in enumerate(source_rows, start=1)
+    ]
+
+
+def _beginner_execution_next_steps(rows: Any, *, manual_allowed: bool, paper_allowed: bool) -> list[dict[str, Any]]:
+    source_rows = [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
+    if not source_rows:
+        return [
+            {
+                "step_id": "review_pre_execution_guard",
+                "label": "查看执行前守门",
+                "status": "required",
+                "target_id": "daily-pre-execution-guard",
+                "workflow_id": "",
+                "order_placement_allowed": False,
+            }
+        ]
+    normalized = []
+    for item in source_rows:
+        step_id = str(item.get("step_id") or "")
+        status = str(item.get("status") or "required")
+        if step_id == "open_external_broker_manually_if_human_chooses" and not manual_allowed:
+            status = "locked"
+        if step_id == "run_same_parameter_paper" and paper_allowed:
+            status = "required"
+        normalized.append(
+            {
+                "step_id": step_id,
+                "label": item.get("label") or step_id,
+                "status": status,
+                "target_id": item.get("target_id") or "",
+                "workflow_id": item.get("workflow_id") or "",
+                "manual_required": True,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+            }
+        )
+    return normalized
+
+
+def _beginner_execution_forbidden_action(action_id: str, plain_rule: str) -> dict[str, Any]:
+    return {
+        "action_id": action_id,
+        "plain_rule": plain_rule,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
+
+
+def _beginner_execution_next_label(reason_id: str, fallback: str) -> str:
+    labels = {
+        "stale_signal_date": "刷新 CN_ETF 数据并重新生成信号",
+        "paper_allocation_missing": "生成纸面分配清单",
+        "manual_ticket_missing": "补齐人工复核票据",
+        "risk_budget_breached": "降低仓位或跳过风险超限行",
+        "price_reference_missing": "补齐参考价格和一手取整数量",
+        "next_session_quarantine": "运行同参数模拟盘并补齐复用证据",
+        "broker_price_outside_guardrail": "人工核对券商端实时价格护栏",
+        "manual_discomfort": "暂停并写清楚风险原因",
+    }
+    return labels.get(reason_id, fallback)
 
 
 def _same_parameter_signal_as_of(

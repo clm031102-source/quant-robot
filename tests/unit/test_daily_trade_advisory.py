@@ -2088,6 +2088,103 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
             {row["step_id"] for row in guard["operator_steps"]},
         )
 
+    def test_beginner_execution_answer_keeps_quarantined_top3_in_paper_only_mode(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_quality_combo", "market": "CN_ETF", "sharpe": 1.35},
+                {"rank": 2, "case_id": "c2", "factor_name": "low_vol_overlay", "market": "CN_ETF", "sharpe": 1.05},
+                {"rank": 3, "case_id": "c3", "factor_name": "breadth_trend_state", "market": "CN_ETF", "sharpe": 0.98},
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.2}),
+                _signal("c2", "low_vol_overlay", {"588000": 0.2}),
+                _signal("c3", "breadth_trend_state", {"159915": 0.2}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="aggressive_30dd",
+            evidence_snapshot={
+                "walk_forward_oos_passed": True,
+                "lookahead_bias_audit_passed": True,
+                "multiple_testing_control_passed": True,
+                "transaction_cost_capacity_passed": True,
+                "matched_paper_receipts": 5,
+                "post_close_journals": 5,
+                "manual_execution_clean_receipts": 5,
+                "manual_execution_blocked_receipts": 0,
+                "paper_ready_observations": 20,
+                "same_parameter_top3_required_requests": 3,
+                "same_parameter_top3_matched_requests": 2,
+            },
+        )
+
+        answer = pack["daily_beginner_execution_answer"]
+        summary = answer["summary"]
+        reason_by_id = {row["reason_id"]: row for row in answer["reasons"]}
+
+        self.assertEqual(answer["stage"], "phase_6_28_daily_beginner_execution_answer")
+        self.assertEqual(summary["ordinary_verdict"], "paper_only")
+        self.assertEqual(summary["allowed_mode"], "same_parameter_paper_rehearsal_only")
+        self.assertTrue(summary["paper_rehearsal_allowed"])
+        self.assertFalse(summary["manual_review_allowed"])
+        self.assertFalse(summary["can_buy_today"])
+        self.assertFalse(summary["order_placement_allowed"])
+        self.assertEqual(summary["next_workflow_id"], "paper_simulation")
+        self.assertEqual(summary["next_target_id"], "daily-factor-health-rows")
+        self.assertEqual(reason_by_id["next_session_quarantine"]["status"], "blocked")
+        self.assertTrue(answer["review_rows"])
+        self.assertTrue(all(row["execution_mode"] == "paper_rehearsal_only" for row in answer["review_rows"]))
+        self.assertTrue(all(row["order_placement_allowed"] is False for row in answer["review_rows"]))
+
+    def test_beginner_execution_answer_marks_manual_review_candidate_as_not_order(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_quality_combo", "market": "CN_ETF", "sharpe": 1.35},
+                {"rank": 2, "case_id": "c2", "factor_name": "low_vol_overlay", "market": "CN_ETF", "sharpe": 1.05},
+                {"rank": 3, "case_id": "c3", "factor_name": "breadth_trend_state", "market": "CN_ETF", "sharpe": 0.98},
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.2}),
+                _signal("c2", "low_vol_overlay", {"588000": 0.2}),
+                _signal("c3", "breadth_trend_state", {"159915": 0.2}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="aggressive_30dd",
+            evidence_snapshot={
+                "walk_forward_oos_passed": True,
+                "lookahead_bias_audit_passed": True,
+                "multiple_testing_control_passed": True,
+                "transaction_cost_capacity_passed": True,
+                "matched_paper_receipts": 5,
+                "post_close_journals": 5,
+                "manual_execution_clean_receipts": 5,
+                "manual_execution_blocked_receipts": 0,
+                "paper_ready_observations": 20,
+                "same_parameter_top3_required_requests": 3,
+                "same_parameter_top3_matched_requests": 3,
+            },
+        )
+
+        answer = pack["daily_beginner_execution_answer"]
+        summary = answer["summary"]
+
+        self.assertEqual(summary["ordinary_verdict"], "manual_review_candidate")
+        self.assertEqual(summary["allowed_mode"], "manual_review_material_only")
+        self.assertTrue(summary["manual_review_allowed"])
+        self.assertTrue(summary["paper_rehearsal_allowed"])
+        self.assertFalse(summary["can_buy_today"])
+        self.assertFalse(summary["broker_connection_allowed"])
+        self.assertFalse(summary["account_read_allowed"])
+        self.assertFalse(summary["order_placement_allowed"])
+        self.assertEqual(summary["next_target_id"], "daily-pre-execution-guard")
+        self.assertTrue(answer["review_rows"])
+        self.assertTrue(
+            all(row["execution_mode"] == "manual_review_candidate_not_order" for row in answer["review_rows"])
+        )
+        self.assertTrue(all(row["copy_to_broker_allowed"] is False for row in answer["review_rows"]))
+        self.assertIn("check_external_realtime_price", answer["review_rows"][0]["human_checklist"])
+
     def test_same_parameter_paper_rehearsal_locks_top3_requests_and_allocation_manifest(self):
         pack = _build_daily_trade_advisory_pack(
             [

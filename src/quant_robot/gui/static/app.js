@@ -5411,6 +5411,8 @@ function ordinaryDailyActionDecision() {
     };
   }
   const summary = sheet.summary || {};
+  const beginnerExecution = state.dailyTradeAdvisory?.daily_beginner_execution_answer || {};
+  const beginnerExecutionSummary = beginnerExecution.summary || {};
   const next = sheet.what_to_do_now || {};
   const system = sheet.trade_system_state || {};
   const permissions = system.permissions || {};
@@ -5419,6 +5421,12 @@ function ordinaryDailyActionDecision() {
   const runtime = dailyTradeDecisionRuntimeState(sheet);
   const decision = summary.decision || system.mode || "waiting_for_daily_signal";
   const runtimeNext = dailyTradeDecisionNextAction(runtime, next, decision);
+  const executionNext = beginnerExecutionSummary.next_target_id ? {
+    plain_action: beginnerExecutionSummary.plain_answer || beginnerExecutionSummary.headline || runtimeNext.plain_action,
+    button_label: beginnerExecutionSummary.next_label || runtimeNext.button_label,
+    target_id: beginnerExecutionSummary.next_target_id || runtimeNext.target_id,
+    workflow_id: beginnerExecutionSummary.next_workflow_id || runtimeNext.workflow_id,
+  } : {};
   const top3 = Array.isArray(sheet.daily_top3) ? sheet.daily_top3 : [];
   const targetRows = Array.isArray(sheet.combined_targets) ? sheet.combined_targets : [];
   const manualRows = Array.isArray(sheet.manual_broker_handoff_tickets) ? sheet.manual_broker_handoff_tickets : [];
@@ -5426,11 +5434,11 @@ function ordinaryDailyActionDecision() {
   const blocked = decision.includes("blocked") || dangerousPermission || progress.blocked_stage_count > 0;
   return {
     tone: blocked ? "danger" : "warn",
-    title: system.mode_label || summary.plain_answer || "等待今日交易决策",
-    plain_action: runtimeNext.plain_action || next.plain_action || "先补齐今日证据，再人工核对票据。",
-    button_label: runtimeNext.button_label || next.button_label || "查看今日决策",
-    workflow_id: runtimeNext.workflow_id || next.workflow_id || "",
-    target_id: runtimeNext.target_id || next.target_id || "daily-trade-decision-sheet",
+    title: beginnerExecutionSummary.headline || system.mode_label || summary.plain_answer || "等待今日交易决策",
+    plain_action: executionNext.plain_action || runtimeNext.plain_action || next.plain_action || "先补齐今日证据，再人工核对票据。",
+    button_label: executionNext.button_label || runtimeNext.button_label || next.button_label || "查看今日决策",
+    workflow_id: executionNext.workflow_id || runtimeNext.workflow_id || next.workflow_id || "",
+    target_id: executionNext.target_id || runtimeNext.target_id || next.target_id || "daily-trade-decision-sheet",
     factor_count: top3.length || summary.selected_factor_count || summary.signal_count || 0,
     target_count: targetRows.length || summary.target_count || 0,
     manual_ticket_count: manualRows.length || summary.manual_ticket_count || 0,
@@ -6115,6 +6123,7 @@ function renderDailyTradeAdvisory() {
   renderDailyPaperAllocationPlaybook(pack.daily_paper_allocation_playbook || {});
   renderDailyPreExecutionGuard(pack.daily_pre_execution_guard || {});
   renderDailySameParameterPaperRehearsal(pack.daily_same_parameter_paper_rehearsal || {});
+  renderDailyBeginnerExecutionAnswer(pack.daily_beginner_execution_answer || {});
   renderDailyFactorHealthMonitor(pack.daily_factor_health_monitor || {});
   renderDailyRealWorldHandoffGate(pack.real_world_manual_handoff_gate || {});
   renderDailyTradingSystemBlueprint(pack.trading_system_blueprint || {});
@@ -7344,6 +7353,74 @@ function renderDailyPaperAllocationPlaybook(playbook = {}) {
   `).join("") : statusRows([["Operator steps", "Run same-parameter paper rehearsal before any human review.", "warn"]])) + statusRows([
     ["Forbidden", forbiddenIds, forbiddenIds.includes("do_not_copy_to_broker") ? "danger" : "warn"],
   ]);
+}
+
+function renderDailyBeginnerExecutionAnswer(answer = {}) {
+  const summaryTarget = byId("daily-beginner-execution-answer-summary");
+  const reasonsTarget = byId("daily-beginner-execution-answer-reasons");
+  const rowsTarget = byId("daily-beginner-execution-answer-rows");
+  const stepsTarget = byId("daily-beginner-execution-answer-steps");
+  if (!summaryTarget || !reasonsTarget || !rowsTarget || !stepsTarget) return;
+  const summary = answer.summary || {};
+  const allowedMode = summary.allowed_mode || "blocked_no_action";
+  const tone = allowedMode === "blocked_no_action" ? "danger" : "warn";
+  const nextButton = summary.next_workflow_id ? `
+    <button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(summary.next_workflow_id)}">${escapeHtml(summary.next_label || "运行下一步")}</button>
+  ` : "";
+  const targetButton = summary.next_target_id ? `
+    <button class="${escapeHtml(nextButton ? "secondary-button" : "primary-button")}" type="button" data-beginner-target="${escapeRawHtml(summary.next_target_id)}">${escapeHtml(nextButton ? "查看证据" : summary.next_label || "查看下一步")}</button>
+  ` : "";
+  summaryTarget.innerHTML = statusRows([
+    ["普通人结论", `${zhConsoleText(summary.ordinary_verdict || "do_not_trade")} / ${zhConsoleText(allowedMode)}`, tone],
+    ["今天能不能买", summary.can_buy_today ? "异常：系统声称可以买" : "不能由软件买入；最多进入纸面或人工复核材料", summary.can_buy_today ? "danger" : "ok"],
+    ["现在允许", `paper=${summary.paper_rehearsal_allowed ? "yes" : "no"} / manual_review=${summary.manual_review_allowed ? "yes" : "no"}`, summary.manual_review_allowed ? "warn" : tone],
+    ["一句话", summary.headline || summary.plain_answer || "先看执行前守门，不要直接买 Top3。", tone],
+    ["权限边界", summary.order_placement_allowed || summary.broker_connection_allowed || summary.account_read_allowed ? "异常：出现下单/账户权限" : "不连接券商、不读账户、不自动下单", summary.order_placement_allowed || summary.broker_connection_allowed || summary.account_read_allowed ? "danger" : "ok"],
+  ]) + `
+    <div class="list-row ${escapeHtml(tone)}">
+      <strong>${escapeHtml("现在先做")}</strong>
+      <span>${escapeHtml(summary.next_label || "查看执行前守门")}</span>
+      <span class="beginner-task-actions">${nextButton}${targetButton}</span>
+    </div>
+  `;
+
+  const reasons = Array.isArray(answer.reasons) ? answer.reasons : [];
+  reasonsTarget.innerHTML = reasons.length ? reasons.map((item) => `
+    <div class="list-row ${escapeHtml(item.status === "blocked" ? "danger" : "warn")}">
+      <strong>${escapeHtml(item.reason_id || "")}</strong>
+      <span>${escapeHtml(`${zhConsoleText(item.status || "required")} / ${item.plain_reason || ""}`)}</span>
+      <span class="beginner-task-actions">
+        ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+        ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
+      </span>
+    </div>
+  `).join("") : statusRows([["缺失原因", "没有阻断原因，但仍然只允许人工复核材料，不允许软件下单。", "warn"]]);
+
+  const rows = Array.isArray(answer.review_rows) ? answer.review_rows : [];
+  rowsTarget.innerHTML = rows.length ? rows.map((item, index) => {
+    const checklist = Array.isArray(item.human_checklist) ? item.human_checklist.join(" / ") : "";
+    const rowTone = item.risk_blocked ? "danger" : "warn";
+    return `
+      <div class="list-row ${escapeHtml(rowTone)}">
+        <strong>${escapeHtml(`${index + 1}. ${item.asset_id || "--"} / ${zhConsoleText(item.execution_mode || "paper_rehearsal_only")}`)}</strong>
+        <span>${escapeHtml(`weight=${formatPercent(item.target_weight)} / budget=${formatNumber(item.paper_budget_value || 0)} / qty=${formatNumber(item.paper_quantity || 0)}`)}</span>
+        <span>${escapeHtml(`price=${formatDecimal(item.reference_price)} / guard=${formatDecimal(item.lower_price_bound)}~${formatDecimal(item.upper_price_bound)} / slippage=${formatNumber(item.max_slippage_bps)}bps`)}</span>
+        <span>${escapeHtml(item.copy_to_broker_allowed ? "异常：不应允许复制到券商" : `人工检查=${checklist || "check_external_realtime_price"}`)}</span>
+      </div>
+    `;
+  }).join("") : statusRows([["ETF 复核行", "还没有可复核 ETF 行；先生成今日 CN_ETF 信号和纸面分配。", "danger"]]);
+
+  const steps = Array.isArray(answer.operator_next_steps) ? answer.operator_next_steps : [];
+  stepsTarget.innerHTML = steps.length ? steps.map((item) => `
+    <div class="list-row ${escapeHtml(dailyTradeSystemStageTone(item.status || ""))}">
+      <strong>${escapeHtml(item.label || item.step_id || "")}</strong>
+      <span>${escapeHtml(`${zhConsoleText(item.status || "required")} / ${item.step_id || ""}`)}</span>
+      <span class="beginner-task-actions">
+        ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+        ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
+      </span>
+    </div>
+  `).join("") : statusRows([["下一步", "查看执行前守门。", "warn"]]);
 }
 
 function renderDailyPreExecutionGuard(guard = {}) {
@@ -9599,6 +9676,12 @@ function statusRows(rows) {
 }
 
 const GUI_ZH_REPLACEMENTS = [
+  ["same_parameter_paper_rehearsal_only", "只允许同参数模拟盘"],
+  ["manual_review_material_only", "仅人工复核材料"],
+  ["blocked_no_action", "红灯：今天不操作"],
+  ["manual_review_candidate", "人工复核候选"],
+  ["paper_only", "只做纸面演练"],
+  ["do_not_trade", "今天不交易"],
   ["Next-session Top3 reuse quarantine", "明日 Top3 复用隔离"],
   ["blocked_next_session_quarantine_required", "明日复用证据未闭环"],
   ["next_session_quarantine", "明日 Top3 复用隔离"],

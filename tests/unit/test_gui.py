@@ -808,6 +808,19 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertFalse(same_paper["summary"]["order_placement_allowed"])
         self.assertIn("paper_simulation", same_paper["summary"]["workflow_id"])
         self.assertIn("run_each_top3_candidate_with_locked_params", {row["step_id"] for row in same_paper["operator_steps"]})
+        beginner_execution = snapshot["daily_beginner_execution_answer"]
+        self.assertEqual(beginner_execution["stage"], "phase_6_28_daily_beginner_execution_answer")
+        self.assertIn(
+            beginner_execution["summary"]["allowed_mode"],
+            {
+                "blocked_no_action",
+                "same_parameter_paper_rehearsal_only",
+                "manual_review_material_only",
+            },
+        )
+        self.assertFalse(beginner_execution["summary"]["can_buy_today"])
+        self.assertFalse(beginner_execution["summary"]["order_placement_allowed"])
+        self.assertIn("review_rows", beginner_execution)
         self.assertEqual(snapshot["live_transition_plan"]["summary"]["selected_risk_profile_id"], "conservative_10dd")
         self.assertEqual(snapshot["summary"]["risk_profile_id"], "conservative_10dd")
         self.assertIn("small_capital_review_gate", {gate["gate_id"] for gate in snapshot["live_transition_plan"]["evidence_gates"]})
@@ -3325,6 +3338,9 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("daily_live_readiness_gate", app_js)
             self.assertIn("renderDailyTradeDecisionSheet", app_js)
             self.assertIn("daily_trade_decision_sheet", app_js)
+            self.assertIn("renderDailyBeginnerExecutionAnswer", app_js)
+            self.assertIn("daily_beginner_execution_answer", app_js)
+            self.assertIn("daily-beginner-execution-answer-summary", html)
             self.assertIn("renderDailyTradeSystemState", app_js)
             self.assertIn("trade_system_state", app_js)
             self.assertIn("renderDailyTradePackageChecklist", app_js)
@@ -4326,6 +4342,12 @@ class GuiHttpTests(unittest.TestCase):
                 "run_each_top3_candidate_with_locked_params",
                 {row["step_id"] for row in trade_advisory["daily_same_parameter_paper_rehearsal"]["operator_steps"]},
             )
+            self.assertEqual(
+                trade_advisory["daily_beginner_execution_answer"]["stage"],
+                "phase_6_28_daily_beginner_execution_answer",
+            )
+            self.assertFalse(trade_advisory["daily_beginner_execution_answer"]["summary"]["can_buy_today"])
+            self.assertFalse(trade_advisory["daily_beginner_execution_answer"]["summary"]["order_placement_allowed"])
 
             invalid_positions = _read_json(
                 f"{base_url}/api/trade/daily-advisory?source=demo_fixture&market=CN_ETF&limit=3"
