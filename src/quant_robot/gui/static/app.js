@@ -5657,9 +5657,12 @@ function renderDailyTradeDecisionSheet(sheet = {}) {
   const next = sheet.what_to_do_now || {};
   const decision = summary.decision || "waiting_for_daily_signal";
   const tone = decision.includes("blocked") ? "danger" : decision === "paper_first_manual_review" ? "warn" : "warn";
+  const runtime = dailyTradeDecisionRuntimeState(sheet);
+  const runtimeNext = dailyTradeDecisionNextAction(runtime, next, decision);
   const paperReceipt = latestExecutionReceipt("paper_simulation");
   const journalReceiptCount = executionReceiptsForWorkflow("post_close_journal").length;
   summaryTarget.innerHTML = statusRows([
+    ["证据进度", `已补=${formatNumber(runtime.completedEvidenceCount)} / 还缺=${formatNumber(runtime.missingEvidenceCount)} / 下一步=${runtimeNext.button_label || "--"}`, runtime.missingEvidenceCount ? "warn" : "ok"],
     ["今日结论", zhConsoleText(decision), tone],
     ["一句话", summary.plain_answer || "先生成今日前三 CN_ETF 建议，再按证据链复核。", tone],
     ["下一步", next.plain_action || next.button_label || "查看今日建议", tone],
@@ -5687,13 +5690,9 @@ function renderDailyTradeDecisionSheet(sheet = {}) {
     </div>
   `).join("") : statusRows([["今日票据", "暂无可复核票据。红灯或无信号时不要手工买卖。", "danger"]]);
 
-  const evidenceRows = Array.isArray(sheet.missing_evidence) ? sheet.missing_evidence : [];
+  const evidenceRows = runtime.evidenceRows;
   evidenceTarget.innerHTML = evidenceRows.length ? evidenceRows.map((item) => {
-    const localStatus = item.check_id === "paper_simulation_receipt" && paperReceipt
-      ? "local_receipt_seen"
-      : item.check_id === "post_close_journal_plan" && journalReceiptCount > 0
-        ? "local_receipt_seen"
-        : item.status || "missing";
+    const localStatus = item.runtime_status || item.status || "missing";
     const rowTone = dailyTradeDecisionEvidenceTone(localStatus);
     return `
       <div class="list-row ${escapeHtml(rowTone)}">
@@ -5706,6 +5705,80 @@ function renderDailyTradeDecisionSheet(sheet = {}) {
       </div>
     `;
   }).join("") : statusRows([["缺失证据", "暂无结构化缺失项；仍需人工确认模拟盘、风险、现金和券商端实时价格。", "warn"]]);
+}
+
+function dailyTradeDecisionRuntimeState(sheet = {}) {
+  const paperReceipt = latestExecutionReceipt("paper_simulation");
+  const journalReceipt = latestExecutionReceipt("post_close_journal");
+  const evidenceRows = (Array.isArray(sheet.missing_evidence) ? sheet.missing_evidence : []).map((item) => {
+    let runtimeStatus = item.status || "missing";
+    let runtimeEvidence = "";
+    if (item.check_id === "paper_simulation_receipt" && paperReceipt) {
+      runtimeStatus = "local_receipt_seen";
+      runtimeEvidence = `${paperReceipt.time || "--"} / 收益=${formatPercent(paperReceipt.metrics?.total_return)} / 回撤=${formatPercent(paperReceipt.metrics?.max_drawdown)}`;
+    }
+    if (item.check_id === "post_close_journal_plan" && journalReceipt) {
+      runtimeStatus = "local_receipt_seen";
+      runtimeEvidence = `${journalReceipt.time || "--"} / 复盘项=${formatNumber(journalReceipt.metrics?.journal_item_count)}`;
+    }
+    return {
+      ...item,
+      runtime_status: runtimeStatus,
+      runtime_evidence: runtimeEvidence,
+      locally_completed: runtimeStatus === "local_receipt_seen" || runtimeStatus === "pass" || runtimeStatus === "ready",
+    };
+  });
+  const completedEvidenceCount = evidenceRows.filter((item) => item.locally_completed).length;
+  const missingEvidenceCount = evidenceRows.length - completedEvidenceCount;
+  return {
+    paperReceipt,
+    journalReceipt,
+    evidenceRows,
+    completedEvidenceCount,
+    missingEvidenceCount,
+  };
+}
+
+function dailyTradeDecisionNextAction(runtime = {}, next = {}, decision = "") {
+  const evidenceRows = Array.isArray(runtime.evidenceRows) ? runtime.evidenceRows : [];
+  if (decision.includes("blocked")) {
+    return { ...next, tone: "danger" };
+  }
+  const missing = evidenceRows.find((item) => !item.locally_completed);
+  if (!missing) {
+    return {
+      button_label: "核对人工票据",
+      target_id: "daily-manual-broker-handoff-ticket-table",
+      workflow_id: "",
+      plain_action: "证据已在本浏览器补齐，继续人工核对票据、现金、价格和风险；系统仍不会下单。",
+      tone: "warn",
+    };
+  }
+  if (missing.check_id === "paper_simulation_receipt") {
+    return {
+      button_label: "运行模拟盘复核",
+      target_id: "paper-metrics",
+      workflow_id: "paper_simulation",
+      plain_action: "先补同参数模拟盘回执，再看收益、回撤、成交和保护事件。",
+      tone: "warn",
+    };
+  }
+  if (missing.check_id === "post_close_journal_plan") {
+    return {
+      button_label: "记录收盘后复盘",
+      target_id: "beginner-post-close-journal-board",
+      workflow_id: "post_close_journal",
+      plain_action: "模拟盘和人工复核后，把今天执行或跳过的原因写成收盘后复盘回执。",
+      tone: "warn",
+    };
+  }
+  return {
+    button_label: missing.label || next.button_label || "查看缺失证据",
+    target_id: missing.target_id || next.target_id || "daily-trade-decision-evidence",
+    workflow_id: missing.workflow_id || next.workflow_id || "",
+    plain_action: missing.why || next.plain_action || "先补齐缺失证据，再进入人工复核。",
+    tone: "warn",
+  };
 }
 
 function dailyTradeDecisionEvidenceTone(status = "") {
@@ -8584,6 +8657,7 @@ function appendExecutionReceipt(receipt) {
   };
   saveExecutionReceipts([nextReceipt].concat(loadExecutionReceipts(spec)), spec);
   renderExecutionReceipts(spec);
+  renderDailyTradeDecisionSheet(state.dailyTradeAdvisory?.daily_trade_decision_sheet || {});
   renderDailyCommandRail();
   renderDailyReadinessCard();
   renderDailyEvidenceChain();
