@@ -5913,17 +5913,19 @@ function renderDailySignalExecutionBridge(bridge = {}) {
   const handoff = bridge.paper_simulation_handoff || {};
   const handoffSummary = handoff.summary || {};
   const paperRequest = handoff.recommended_request || {};
+  const paperReceiptStatus = dailyPaperReceiptStatus(handoff);
   const handoffPayload = encodeURIComponent(JSON.stringify(paperRequest));
   paperTarget.innerHTML = Object.keys(paperRequest).length ? statusRows([
     ["模拟盘交接", `${handoffSummary.default_factor_name || paperRequest.factor || "--"} / 窗口=${paperRequest.factor_windows || "--"} / TopN=${formatNumber(paperRequest.top_n || 0)}`, handoffSummary.status === "ready" ? "warn" : "danger"],
     ["同参数请求", `资金=${formatNumber(paperRequest.initial_cash)} / 成本=${formatNumber(paperRequest.commission_bps)}bps+${formatNumber(paperRequest.slippage_bps)}bps / 调仓=${formatNumber(paperRequest.rebalance_interval)}`, "warn"],
     ["接口边界", handoff.plain_warning || "模拟盘参数只用于本地回放，不是订单。", "danger"],
-  ]) + `
+  ]) + renderDailyPaperReceiptStatusRows(paperReceiptStatus) + `
     <div class="list-row warn">
       <strong>${escapeHtml("填入模拟盘表单")}</strong>
       <span>${escapeHtml("把排名第一候选参数填到纸面模拟页，运行前仍会弹出安全确认。")}</span>
       <span class="beginner-task-actions">
         <button class="primary-button" type="button" data-daily-paper-handoff-apply="${escapeRawHtml(handoffPayload)}">${escapeHtml("填入模拟盘参数")}</button>
+        <button class="primary-button" type="button" data-beginner-action="paper_simulation">${escapeHtml("运行模拟盘复核")}</button>
         <button class="secondary-button" type="button" data-beginner-target="paper-metrics">${escapeHtml("看模拟盘")}</button>
       </span>
     </div>
@@ -5951,6 +5953,107 @@ function renderDailySignalExecutionBridge(bridge = {}) {
       </span>
     </div>
   `).join("") : statusRows([["闸门", "等待 OOS、成本、模拟盘、人工复核等闸门信息。", "warn"]]);
+}
+
+function dailyPaperReceiptStatus(handoff = {}) {
+  const request = handoff.recommended_request || {};
+  const receipt = latestExecutionReceipt("paper_simulation");
+  if (!Object.keys(request).length) {
+    return {
+      status: "waiting_for_handoff",
+      tone: "warn",
+      label: "等待模拟盘交接",
+      detail: "先生成今日前三交易建议，再填入同参数模拟盘请求。",
+      receipt: null,
+      matches: false,
+      mismatch_keys: [],
+    };
+  }
+  if (!receipt) {
+    return {
+      status: "missing",
+      tone: "warn",
+      label: "还没有同参数模拟盘回执",
+      detail: "先点填入模拟盘参数，再运行模拟盘复核。",
+      receipt: null,
+      matches: false,
+      mismatch_keys: [],
+    };
+  }
+  const match = paperReceiptMatchesRequest(receipt, request);
+  const metrics = receipt.metrics || {};
+  return {
+    status: match.matches ? "matched" : "mismatch",
+    tone: match.matches ? "ok" : "warn",
+    label: match.matches ? "已看到同参数模拟盘回执" : "已有模拟盘回执，但参数需要复核",
+    detail: match.matches
+      ? `收益=${formatPercent(metrics.total_return)} / 回撤=${formatPercent(metrics.max_drawdown)}`
+      : `不一致字段=${match.mismatch_keys.join(", ") || "未知"}；建议重新填参后再跑。`,
+    receipt,
+    matches: match.matches,
+    mismatch_keys: match.mismatch_keys,
+  };
+}
+
+function renderDailyPaperReceiptStatusRows(status = {}) {
+  const receipt = status.receipt || null;
+  const metrics = receipt?.metrics || {};
+  const request = receipt?.request || {};
+  const rows = [
+    ["模拟盘回执", status.label || "等待模拟盘回执", status.tone || "warn"],
+    [
+      "回执参数",
+      receipt
+        ? `${request.market || "--"} / ${request.factor_name || request.factor || "--"} / TopN=${formatNumber(request.top_n)}`
+        : "尚未运行同参数模拟盘",
+      status.matches ? "ok" : "warn",
+    ],
+    [
+      "模拟盘指标",
+      receipt
+        ? `权益=${formatNumber(metrics.ending_equity)} / 收益=${formatPercent(metrics.total_return)} / 回撤=${formatPercent(metrics.max_drawdown)} / 成交=${formatNumber(metrics.fill_count)} / 保护=${formatNumber(metrics.guard_event_count)}`
+        : "先生成本地模拟成交、权益和风控事件，再进入人工复核。",
+      status.tone || "warn",
+    ],
+    ["实盘边界", "这里只给人工复核证据；不连接券商、不读账户、不自动下单。", "danger"],
+  ];
+  return statusRows(rows);
+}
+
+function paperReceiptMatchesRequest(receipt = {}, request = {}) {
+  const receiptRequest = receipt.request || {};
+  const comparisons = [
+    ["market", normalizeReceiptText(receiptRequest.market), normalizeReceiptText(request.market)],
+    ["factor", normalizeReceiptText(receiptRequest.factor_name || receiptRequest.factor), normalizeReceiptText(request.factor || request.factor_name)],
+    ["factor_windows", normalizeReceiptText(receiptRequest.factor_windows), normalizeReceiptText(request.factor_windows)],
+    ["top_n", normalizeReceiptNumber(receiptRequest.top_n), normalizeReceiptNumber(request.top_n)],
+    ["rebalance_interval", normalizeReceiptNumber(receiptRequest.rebalance_interval), normalizeReceiptNumber(request.rebalance_interval)],
+    ["initial_cash", normalizeReceiptNumber(receiptRequest.initial_cash), normalizeReceiptNumber(request.initial_cash)],
+    ["commission_bps", normalizeReceiptNumber(receiptRequest.commission_bps), normalizeReceiptNumber(request.commission_bps)],
+    ["slippage_bps", normalizeReceiptNumber(receiptRequest.slippage_bps), normalizeReceiptNumber(request.slippage_bps)],
+    ["max_asset_weight", normalizeReceiptNumber(receiptRequest.max_asset_weight), normalizeReceiptNumber(request.max_asset_weight)],
+    ["max_market_weight", normalizeReceiptNumber(receiptRequest.max_market_weight), normalizeReceiptNumber(request.max_market_weight)],
+    ["max_gross_exposure", normalizeReceiptNumber(receiptRequest.max_gross_exposure), normalizeReceiptNumber(request.max_gross_exposure)],
+    ["min_cash_weight", normalizeReceiptNumber(receiptRequest.min_cash_weight), normalizeReceiptNumber(request.min_cash_weight)],
+  ].filter((item) => item[2] !== "");
+  const mismatchKeys = comparisons
+    .filter((item) => item[1] === "" || item[1] !== item[2])
+    .map((item) => item[0]);
+  return {
+    matches: comparisons.length > 0 && mismatchKeys.length === 0,
+    compared_keys: comparisons.map((item) => item[0]),
+    mismatch_keys: mismatchKeys,
+  };
+}
+
+function normalizeReceiptText(value) {
+  return String(value ?? "").trim().replace(/\s+/g, "").toUpperCase();
+}
+
+function normalizeReceiptNumber(value) {
+  if (value === undefined || value === null || value === "") return "";
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toFixed(6) : normalizeReceiptText(value);
 }
 
 function renderDailyTradingSystemBlueprint(blueprint = {}) {
@@ -9059,6 +9162,7 @@ function appendExecutionReceipt(receipt) {
   saveExecutionReceipts([nextReceipt].concat(loadExecutionReceipts(spec)), spec);
   renderExecutionReceipts(spec);
   renderDailyTradeDecisionSheet(state.dailyTradeAdvisory?.daily_trade_decision_sheet || {});
+  renderDailySignalExecutionBridge(state.dailyTradeAdvisory?.daily_signal_execution_bridge || {});
   renderOrdinaryHome();
   renderDailyCommandRail();
   renderDailyReadinessCard();
@@ -9204,12 +9308,24 @@ function paperReceipt(result = {}) {
     workflow_id: "paper_simulation",
     label: "Paper simulation receipt",
     request: {
+      source: request.source,
       market: request.market,
-      factor_name: request.factor_name,
+      factor_name: request.factor_name || request.factor,
+      factor: request.factor || request.factor_name,
+      factor_windows: request.factor_windows,
       top_n: request.top_n,
+      rebalance_interval: request.rebalance_interval,
       start_date: request.start_date,
       end_date: request.end_date,
       initial_cash: request.initial_cash,
+      commission_bps: request.commission_bps,
+      slippage_bps: request.slippage_bps,
+      max_asset_weight: request.max_asset_weight,
+      max_market_weight: request.max_market_weight,
+      max_gross_exposure: request.max_gross_exposure,
+      min_cash_weight: request.min_cash_weight,
+      max_drawdown_guard: request.max_drawdown_guard,
+      guard_cooldown_periods: request.guard_cooldown_periods,
     },
     metrics: {
       ending_equity: metrics.ending_equity,
