@@ -359,6 +359,7 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
                 "broker_realtime_price",
                 "quantity_and_lot_size",
                 "cash_and_weight_limit",
+                "risk_budget_gate",
                 "final_human_decision",
             ],
         )
@@ -366,6 +367,18 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("price_changed_from_reference", {row["flag_id"] for row in ticket["red_flags"]})
         self.assertIn("cash_or_position_limit_breach", {row["flag_id"] for row in ticket["red_flags"]})
         self.assertTrue(all(not row["order_placement_allowed"] for row in ticket["review_checklist"]))
+        self.assertEqual(ticket["risk_budget"]["risk_profile_id"], "balanced_20dd")
+        self.assertAlmostEqual(ticket["risk_budget"]["portfolio_value"], 100000.0)
+        self.assertAlmostEqual(ticket["risk_budget"]["max_single_etf_weight"], 0.30)
+        self.assertAlmostEqual(ticket["risk_budget"]["daily_loss_stop"], 0.02)
+        self.assertAlmostEqual(ticket["risk_budget"]["portfolio_daily_loss_budget"], 2000.0)
+        self.assertAlmostEqual(ticket["risk_budget"]["ticket_adverse_move_loss"], 665.6)
+        self.assertAlmostEqual(ticket["risk_budget"]["ticket_loss_budget_share"], 0.3328)
+        self.assertTrue(ticket["risk_budget"]["single_etf_limit_breached"])
+        self.assertIn("manual_skip_conditions", ticket)
+        skip_conditions = {row["condition_id"]: row for row in ticket["manual_skip_conditions"]}
+        self.assertEqual(skip_conditions["single_etf_limit_breached"]["status"], "blocked")
+        self.assertTrue(all(not row["order_placement_allowed"] for row in ticket["manual_skip_conditions"]))
         self.assertEqual(pack["pretrade_workflow"]["manual_broker_handoff"], handoff)
         self.assertEqual(pack["operator_next_actions"][0]["action_id"], "run_paper_simulation")
         self.assertEqual(pack["operator_next_actions"][0]["status"], "required_before_manual_ticket")

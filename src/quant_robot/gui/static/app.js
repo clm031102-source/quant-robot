@@ -7611,10 +7611,41 @@ function renderManualBrokerCopyCards(tickets = []) {
         <span class="beginner-task-actions">
           <button class="secondary-button" type="button" data-copy-ticket-text="${escapeRawHtml(text)}">复制票据文本</button>
         </span>
+        ${renderTicketRiskBudget(ticket)}
         ${renderTicketReviewChecklist(ticket)}
       </div>
     `;
   }).join("");
+}
+
+function renderTicketRiskBudget(ticket = {}) {
+  const risk = ticket.risk_budget || {};
+  const skipConditions = Array.isArray(ticket.manual_skip_conditions) ? ticket.manual_skip_conditions : [];
+  if (!Object.keys(risk).length && !skipConditions.length) return "";
+  const breach = risk.single_etf_limit_breached || risk.rounded_value_limit_breached;
+  const summaryRows = Object.keys(risk).length ? `
+    <div class="mini-row ${escapeHtml(breach ? "danger" : "warn")}">
+      <strong>${escapeHtml("票据风险预算")}</strong>
+      <span>${escapeHtml(`档位=${risk.risk_profile_id || "--"} / 单ETF上限=${formatPercent(risk.max_single_etf_weight)} / 当日亏损预算=${formatNumber(risk.portfolio_daily_loss_budget)} / 票据不利波动=${formatNumber(risk.ticket_adverse_move_loss)} / 占预算=${formatPercent(risk.ticket_loss_budget_share)}`)}</span>
+    </div>
+  ` : "";
+  const skipRows = skipConditions.length ? skipConditions.map((item) => `
+    <div class="mini-row ${escapeHtml(item.status === "blocked" ? "danger" : item.status === "pass" ? "ok" : "warn")}">
+      <strong>${escapeHtml(item.condition_id || "")}</strong>
+      <span>${escapeHtml(item.plain_condition || "")}</span>
+    </div>
+  `).join("") : `
+    <div class="mini-row warn">
+      <strong>${escapeHtml("manual_skip_conditions")}</strong>
+      <span>${escapeHtml("现金不足、单ETF超限、没有模拟盘回执、价格偏离或本人无法解释时都要跳过。")}</span>
+    </div>
+  `;
+  return `
+    <div class="ticket-review-checklist ticket-risk-budget">
+      ${summaryRows}
+      ${skipRows}
+    </div>
+  `;
 }
 
 function renderTicketReviewChecklist(ticket = {}) {

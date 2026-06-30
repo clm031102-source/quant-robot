@@ -207,6 +207,7 @@ def build_daily_trade_advisory_pack(
             combined_targets,
             current_positions=position_rows,
             portfolio_value=portfolio_value,
+            risk_profile=selected_profile,
         )
     )
     pack = {
@@ -1977,7 +1978,7 @@ def _build_manual_broker_handoff(pack: dict[str, Any]) -> dict[str, Any]:
     blocking_reasons = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
     can_show_tickets = bool(readiness.get("manual_action_candidate"))
     copyable_tickets = [
-        _broker_handoff_ticket(index, row)
+        _broker_handoff_ticket(index, row, pack.get("summary") if isinstance(pack.get("summary"), dict) else {})
         for index, row in enumerate(manual_plan, start=1)
         if can_show_tickets
     ]
@@ -2227,7 +2228,7 @@ def _operator_next_actions(
     ]
 
 
-def _broker_handoff_ticket(index: int, row: dict[str, Any]) -> dict[str, Any]:
+def _broker_handoff_ticket(index: int, row: dict[str, Any], summary: dict[str, Any] | None = None) -> dict[str, Any]:
     asset_id = str(row.get("asset_id") or "")
     side = str(row.get("side") or "buy_or_adjust")
     latest_price = _float_or_none(row.get("latest_price"))
@@ -2243,6 +2244,11 @@ def _broker_handoff_ticket(index: int, row: dict[str, Any]) -> dict[str, Any]:
         f"按 {BOARD_LOT_SIZE} 份一手取整数量={rounded_quantity}；"
         f"参考金额={rounded_value:.2f}；取整误差约={cash_delta:.2f}。"
         "请在券商端核对实时价格、代码、现金和风险；系统不会下单。"
+    )
+    risk_budget = _manual_ticket_risk_budget(
+        row,
+        portfolio_value=_float((summary or {}).get("portfolio_value"), 100000.0),
+        risk_profile=_risk_profile_by_id(str((summary or {}).get("risk_profile_id") or DEFAULT_RISK_PROFILE_ID)),
     )
     return {
         "step_number": index,
@@ -2262,11 +2268,113 @@ def _broker_handoff_ticket(index: int, row: dict[str, Any]) -> dict[str, Any]:
         "source_factors": row.get("source_factors"),
         "copy_text": copy_text,
         "do_not_submit_until_checked": True,
-        "review_checklist": _broker_ticket_review_checklist(row),
+        "risk_budget": risk_budget,
+        "manual_skip_conditions": _manual_ticket_skip_conditions({**row, "risk_budget": risk_budget}),
+        "review_checklist": _broker_ticket_review_checklist({**row, "risk_budget": risk_budget}),
         "red_flags": _broker_ticket_red_flags(),
         "live_order_allowed": False,
         "order_placement_allowed": False,
     }
+
+
+def _manual_ticket_risk_budget(
+    row: dict[str, Any],
+    *,
+    portfolio_value: float,
+    risk_profile: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    profile = risk_profile or _risk_profile_by_id(DEFAULT_RISK_PROFILE_ID) or {}
+    profile_id = str(profile.get("profile_id") or DEFAULT_RISK_PROFILE_ID)
+    profile_label = profile.get("label") or profile_id
+    portfolio = max(0.0, _float(portfolio_value, 100000.0))
+    rounded_value = max(0.0, _float(row.get("rounded_value"), 0.0))
+    target_weight = max(0.0, _float(row.get("target_weight"), 0.0))
+    max_single = max(0.0, _float(profile.get("max_single_etf_weight"), 0.30))
+    max_gross = max(0.0, _float(profile.get("max_gross_exposure"), 0.60))
+    min_cash = max(0.0, _float(profile.get("min_cash_weight"), 0.40))
+    max_drawdown = max(0.0, _float(profile.get("max_acceptable_drawdown"), 0.20))
+    daily_loss_stop = max(0.0, _float(profile.get("daily_loss_stop"), 0.02))
+    portfolio_daily_loss_budget = portfolio * daily_loss_stop
+    ticket_adverse_move_loss = rounded_value * daily_loss_stop
+    max_single_value = portfolio * max_single
+    max_drawdown_budget_value = portfolio * max_drawdown
+    return {
+        "risk_profile_id": profile_id,
+        "risk_profile_label": profile_label,
+        "portfolio_value": portfolio,
+        "target_weight": target_weight,
+        "rounded_value": rounded_value,
+        "max_single_etf_weight": max_single,
+        "max_single_etf_value": max_single_value,
+        "max_gross_exposure": max_gross,
+        "min_cash_weight": min_cash,
+        "max_acceptable_drawdown": max_drawdown,
+        "max_drawdown_budget_value": max_drawdown_budget_value,
+        "daily_loss_stop": daily_loss_stop,
+        "portfolio_daily_loss_budget": portfolio_daily_loss_budget,
+        "ticket_adverse_move_loss": ticket_adverse_move_loss,
+        "ticket_loss_budget_share": (
+            ticket_adverse_move_loss / portfolio_daily_loss_budget
+            if portfolio_daily_loss_budget > 0
+            else 0.0
+        ),
+        "single_etf_limit_breached": bool(max_single and target_weight > max_single + 1e-12),
+        "rounded_value_limit_breached": bool(max_single_value and rounded_value > max_single_value + 1e-9),
+        "automation_allowed": False,
+        "live_order_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
+
+
+def _manual_ticket_skip_conditions(row: dict[str, Any]) -> list[dict[str, Any]]:
+    budget = row.get("risk_budget") if isinstance(row.get("risk_budget"), dict) else {}
+    rounded_quantity = _int(row.get("rounded_quantity"), 0)
+    rounded_value = _float(row.get("rounded_value"), 0.0)
+    reference_price = _float_or_none(row.get("reference_price") or row.get("latest_price"))
+
+    def condition(condition_id: str, status: str, plain_condition: str) -> dict[str, Any]:
+        return {
+            "condition_id": condition_id,
+            "status": status,
+            "plain_condition": plain_condition,
+            "automation_allowed": False,
+            "live_order_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        }
+
+    return [
+        condition(
+            "single_etf_limit_breached",
+            "blocked" if budget.get("single_etf_limit_breached") or budget.get("rounded_value_limit_breached") else "pass",
+            "单 ETF 权重或金额超过风险档位上限时，跳过这张票据。",
+        ),
+        condition(
+            "zero_or_missing_quantity",
+            "blocked" if rounded_quantity <= 0 or rounded_value <= 0 else "pass",
+            "数量为 0、金额为 0 或无法按 100 份取整时，不进入券商端操作。",
+        ),
+        condition(
+            "broker_price_changed_from_reference",
+            "required",
+            f"券商端实时价必须人工核对；本地参考价={reference_price if reference_price is not None else '--'}，偏离明显就重新估算或跳过。",
+        ),
+        condition(
+            "paper_receipt_missing",
+            "required",
+            "没有同参数模拟盘回执和盘后复盘样本时，不要把票据升级为真实资金动作。",
+        ),
+        condition(
+            "manual_discomfort_or_unclear_reason",
+            "required",
+            "如果本人无法解释为什么买、能承受多少回撤、触发什么熔断，就跳过。",
+        ),
+    ]
 
 
 def _broker_ticket_review_checklist(row: dict[str, Any]) -> list[dict[str, Any]]:
@@ -2275,6 +2383,7 @@ def _broker_ticket_review_checklist(row: dict[str, Any]) -> list[dict[str, Any]]
     rounded_quantity = _int(row.get("rounded_quantity"), 0)
     rounded_value = _float_or_none(row.get("rounded_value"))
     reference_price = _float_or_none(row.get("reference_price") or row.get("latest_price"))
+    risk_budget = row.get("risk_budget") if isinstance(row.get("risk_budget"), dict) else {}
     checks = [
         (
             "asset_code_match",
@@ -2295,6 +2404,11 @@ def _broker_ticket_review_checklist(row: dict[str, Any]) -> list[dict[str, Any]]
             "cash_and_weight_limit",
             "核对现金和仓位上限",
             f"票据金额={rounded_value if rounded_value is not None else '--'}；人工确认现金、单 ETF 权重、总仓位和回撤预算没有超限。",
+        ),
+        (
+            "risk_budget_gate",
+            "核对风险预算",
+            f"风险档位={risk_budget.get('risk_profile_id', '--')}；当日亏损预算={risk_budget.get('portfolio_daily_loss_budget', '--')}；这张票据不利波动估算={risk_budget.get('ticket_adverse_move_loss', '--')}；超限就跳过。",
         ),
         (
             "final_human_decision",
@@ -5818,10 +5932,16 @@ def _manual_trade_plan(
     combined_targets: list[dict[str, Any]],
     current_positions: list[dict[str, Any]] | None = None,
     portfolio_value: float = 100000.0,
+    risk_profile: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     positions = current_positions or []
     if positions:
-        return _manual_rebalance_plan(combined_targets, positions, portfolio_value=portfolio_value)
+        return _manual_rebalance_plan(
+            combined_targets,
+            positions,
+            portfolio_value=portfolio_value,
+            risk_profile=risk_profile,
+        )
     rows = []
     for index, target in enumerate(combined_targets, start=1):
         sizing = _manual_ticket_sizing(target, board_lot_size=BOARD_LOT_SIZE)
@@ -5849,6 +5969,7 @@ def _manual_rebalance_plan(
     combined_targets: list[dict[str, Any]],
     current_positions: list[dict[str, Any]],
     portfolio_value: float,
+    risk_profile: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     target_frame = pd.DataFrame(combined_targets)
     if target_frame.empty:
