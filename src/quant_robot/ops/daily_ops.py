@@ -42,10 +42,14 @@ def build_daily_ops_pack(
     drawdown_limit = _normalized_drawdown_limit(max_drawdown_limit)
     risk_policy = _risk_policy(paper_simulation, drawdown_limit)
     signal_freshness = _signal_freshness(signal_snapshot, run_day, max_signal_age_days)
+    signal_market_validation = _signal_market_validation(signal_snapshot, candidate)
     profile_summary = _paper_profile_summary(paper_profile or {})
     blockers = _merge_unique(
         _blocker_ids(readiness_board),
-        _promotion_status_blockers(candidate) + risk_policy["risk_blockers"] + signal_freshness["blocking_reasons"],
+        _promotion_status_blockers(candidate)
+        + risk_policy["risk_blockers"]
+        + signal_freshness["blocking_reasons"]
+        + signal_market_validation["blocking_reasons"],
     )
     non_manual_blockers = [blocker for blocker in blockers if blocker not in MANUAL_ONLY_BLOCKERS]
     status = "blocked" if non_manual_blockers else "paper_ready"
@@ -62,8 +66,9 @@ def build_daily_ops_pack(
             "blocking_reasons": blockers,
             "non_manual_blocking_reasons": non_manual_blockers,
             "signal_freshness": signal_freshness,
+            "signal_market_validation": signal_market_validation,
         },
-        "signal": _signal_summary(signal_snapshot, signal_freshness),
+        "signal": _signal_summary(signal_snapshot, signal_freshness, signal_market_validation),
         "risk": _risk_summary(paper_simulation),
         "risk_policy": risk_policy,
         "paper_profile": profile_summary,
@@ -106,6 +111,7 @@ def render_daily_ops_markdown(pack: dict[str, Any]) -> str:
         f"- As of: {signal.get('as_of_date', 'unknown')}",
         f"- Signal date: {signal.get('signal_date', 'unknown')}",
         f"- Signal age days: {signal.get('signal_age_days', 'unknown')}",
+        f"- Market validation: {signal.get('market_validation_status', 'unknown')}",
         f"- Targets: {signal.get('target_count', 0)}",
         f"- Advisory tickets: {len(pack.get('advisory_tickets', []))}",
         "",
@@ -210,9 +216,14 @@ def _advisory_tickets(signal_snapshot: dict[str, Any]) -> list[dict[str, Any]]:
     return rows
 
 
-def _signal_summary(signal_snapshot: dict[str, Any], freshness: dict[str, Any] | None = None) -> dict[str, Any]:
+def _signal_summary(
+    signal_snapshot: dict[str, Any],
+    freshness: dict[str, Any] | None = None,
+    market_validation: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     targets = signal_snapshot.get("targets", [])
     signal_freshness = freshness or {}
+    signal_market_validation = market_validation or {}
     return {
         "as_of_date": signal_snapshot.get("as_of_date"),
         "signal_date": signal_snapshot.get("signal_date"),
@@ -220,6 +231,9 @@ def _signal_summary(signal_snapshot: dict[str, Any], freshness: dict[str, Any] |
         "signal_age_days": signal_freshness.get("signal_age_days"),
         "max_signal_age_days": signal_freshness.get("max_signal_age_days"),
         "freshness_status": signal_freshness.get("status"),
+        "market_validation_status": signal_market_validation.get("status"),
+        "expected_market": signal_market_validation.get("expected_market"),
+        "observed_markets": signal_market_validation.get("observed_markets", []),
         "target_count": len(targets) if isinstance(targets, list) else 0,
         "target_gross_exposure": signal_snapshot.get("target_gross_exposure"),
         "cash_weight": signal_snapshot.get("cash_weight"),
@@ -293,6 +307,9 @@ def _summary_row(pack: dict[str, Any]) -> dict[str, Any]:
         "risk_blockers": len(risk_policy.get("risk_blockers", [])) if isinstance(risk_policy.get("risk_blockers"), list) else 0,
         "signal_age_days": pack.get("signal", {}).get("signal_age_days") if isinstance(pack.get("signal"), dict) else None,
         "max_signal_age_days": pack.get("signal", {}).get("max_signal_age_days") if isinstance(pack.get("signal"), dict) else None,
+        "market_validation_status": pack.get("signal", {}).get("market_validation_status") if isinstance(pack.get("signal"), dict) else None,
+        "expected_market": pack.get("signal", {}).get("expected_market") if isinstance(pack.get("signal"), dict) else None,
+        "observed_markets": "|".join(pack.get("signal", {}).get("observed_markets", [])) if isinstance(pack.get("signal"), dict) else None,
         "profile_id": pack.get("paper_profile", {}).get("profile_id") if isinstance(pack.get("paper_profile"), dict) else None,
         "risk_tier": pack.get("paper_profile", {}).get("risk_tier") if isinstance(pack.get("paper_profile"), dict) else None,
     }
@@ -339,6 +356,55 @@ def _signal_freshness(signal_snapshot: dict[str, Any], run_date: str, max_signal
     }
 
 
+def _signal_market_validation(signal_snapshot: dict[str, Any], candidate: dict[str, Any]) -> dict[str, Any]:
+    expected_market = _normalized_text(candidate.get("market"))
+    market_rows = _signal_market_rows(signal_snapshot)
+    observed_markets = sorted({row["market"] for row in market_rows if row.get("market")})
+    mismatched_markets = sorted(market for market in observed_markets if expected_market and market != expected_market)
+    blockers = ["signal_market_mismatch"] if mismatched_markets else []
+    if blockers:
+        status = "blocked_mismatch"
+    elif expected_market and observed_markets:
+        status = "matched"
+    elif expected_market:
+        status = "unchecked_no_signal_market"
+    elif observed_markets:
+        status = "unchecked_no_candidate_market"
+    else:
+        status = "unchecked"
+    return {
+        "expected_market": expected_market or None,
+        "observed_markets": observed_markets,
+        "mismatched_markets": mismatched_markets,
+        "rows_checked": len(market_rows),
+        "status": status,
+        "blocking_reasons": blockers,
+    }
+
+
+def _signal_market_rows(signal_snapshot: dict[str, Any]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for source_name in ("targets", "rebalance_plan"):
+        source_rows = signal_snapshot.get(source_name, [])
+        if not isinstance(source_rows, list):
+            continue
+        for index, row in enumerate(source_rows):
+            if not isinstance(row, dict):
+                continue
+            market = _normalized_text(row.get("market"))
+            if not market:
+                continue
+            rows.append(
+                {
+                    "source": source_name,
+                    "row_index": index,
+                    "asset_id": row.get("asset_id"),
+                    "market": market,
+                }
+            )
+    return rows
+
+
 def _calendar_gap(start_date: str, end_date: str) -> int | None:
     try:
         start = date.fromisoformat(start_date)
@@ -346,6 +412,10 @@ def _calendar_gap(start_date: str, end_date: str) -> int | None:
     except ValueError:
         return None
     return (end - start).days
+
+
+def _normalized_text(value: Any) -> str:
+    return str(value or "").strip().upper()
 
 
 def _sanitize(value: Any) -> Any:
