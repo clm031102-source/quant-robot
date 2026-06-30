@@ -365,6 +365,19 @@ function bindActions() {
     event.stopImmediatePropagation();
     runBeginnerNext(button);
   });
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-ordinary-daily-action]");
+    if (!button) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    const actionId = button.dataset.ordinaryDailyAction || "";
+    const targetId = button.dataset.ordinaryDailyTarget || "daily-trade-decision-sheet";
+    if (actionId) {
+      await runBeginnerAction(actionId, button);
+      return;
+    }
+    jumpToBeginnerTarget(targetId, button.dataset.leaderboardTab || state.leaderboardTab);
+  });
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-beginner-target]");
     if (!button) return;
@@ -4914,8 +4927,9 @@ async function runBeginnerNext(button) {
 function renderOrdinaryHome() {
   const metricsNode = byId("ordinary-status-metrics");
   const actionNode = byId("ordinary-next-action");
+  const dailyActionNode = byId("ordinary-daily-action-card");
   const warningNode = byId("ordinary-mainline-warning");
-  if (!metricsNode || !actionNode || !warningNode) return;
+  if (!metricsNode || !actionNode || !dailyActionNode || !warningNode) return;
   const ledger = state.factorLeaderboard || {};
   const summary = ledger.summary || {};
   const primaryBoard = ledger.leaderboards?.primary_cn_etf || {};
@@ -4935,6 +4949,7 @@ function renderOrdinaryHome() {
     ["最靠前候选", topPrimary ? `${topPrimary.factor_name || "--"} / ${topPrimary.promotion_label || "--"}` : "暂无主线候选", topPrimary ? "ok" : "warn"],
     ["项目状态", project.overall_status || "加载中", project.blocker_count ? "warn" : "ok"],
   ]);
+  renderOrdinaryDailyActionCard(dailyActionNode);
   warningNode.innerHTML = statusRows([
     ["主线提醒", "默认榜单只展示 CN_ETF。CN 个股资金流、择股类结果只能辅助研究，不能直接替代 ETF 轮动信号。", "danger"],
     ["推广口径", "只有通过长周期、OOS、滚动、成本和风险审计的主线候选，才可能进入模拟盘观察。", "warn"],
@@ -4973,6 +4988,90 @@ function ordinaryLiveGateActionRows() {
       <span class="beginner-task-actions">${actionButton}${targetButton}</span>
     </div>
   `;
+}
+
+function ordinaryDailyActionDecision() {
+  const sheet = state.dailyTradeAdvisory?.daily_trade_decision_sheet || {};
+  const hasSheet = Object.keys(sheet).length > 0;
+  if (!hasSheet) {
+    return {
+      tone: "warn",
+      title: "还没有今日交易决策单",
+      plain_action: "先生成今日前三 CN_ETF 建议，再进入模拟盘和人工复核。",
+      button_label: "生成今日前三建议",
+      workflow_id: "daily_trade_advisory",
+      target_id: "daily-trade-decision-sheet",
+      factor_count: 0,
+      target_count: 0,
+      manual_ticket_count: 0,
+      completedEvidenceCount: 0,
+      missingEvidenceCount: 1,
+      next_gate: "今日前三建议",
+      order_boundary: "不会自动下单",
+    };
+  }
+  const summary = sheet.summary || {};
+  const next = sheet.what_to_do_now || {};
+  const system = sheet.trade_system_state || {};
+  const permissions = system.permissions || {};
+  const progress = system.progress || {};
+  const nextGate = system.next_gate || {};
+  const runtime = dailyTradeDecisionRuntimeState(sheet);
+  const decision = summary.decision || system.mode || "waiting_for_daily_signal";
+  const runtimeNext = dailyTradeDecisionNextAction(runtime, next, decision);
+  const top3 = Array.isArray(sheet.daily_top3) ? sheet.daily_top3 : [];
+  const targetRows = Array.isArray(sheet.combined_targets) ? sheet.combined_targets : [];
+  const manualRows = Array.isArray(sheet.manual_broker_handoff_tickets) ? sheet.manual_broker_handoff_tickets : [];
+  const dangerousPermission = Boolean(permissions.order_placement_allowed);
+  const blocked = decision.includes("blocked") || dangerousPermission || progress.blocked_stage_count > 0;
+  return {
+    tone: blocked ? "danger" : "warn",
+    title: system.mode_label || summary.plain_answer || "等待今日交易决策",
+    plain_action: runtimeNext.plain_action || next.plain_action || "先补齐今日证据，再人工核对票据。",
+    button_label: runtimeNext.button_label || next.button_label || "查看今日决策",
+    workflow_id: runtimeNext.workflow_id || next.workflow_id || "",
+    target_id: runtimeNext.target_id || next.target_id || "daily-trade-decision-sheet",
+    factor_count: top3.length || summary.selected_factor_count || summary.signal_count || 0,
+    target_count: targetRows.length || summary.target_count || 0,
+    manual_ticket_count: manualRows.length || summary.manual_ticket_count || 0,
+    completedEvidenceCount: runtime.completedEvidenceCount || 0,
+    missingEvidenceCount: runtime.missingEvidenceCount || 0,
+    next_gate: nextGate.label || nextGate.stage_id || "人工复核",
+    order_boundary: dangerousPermission ? "异常：出现下单权限" : "不会自动下单",
+  };
+}
+
+function renderOrdinaryDailyActionCard(target = byId("ordinary-daily-action-card")) {
+  if (!target) return;
+  const decision = ordinaryDailyActionDecision();
+  const primaryButton = decision.workflow_id ? `
+    <button
+      class="primary-button"
+      type="button"
+      data-ordinary-daily-action="${escapeRawHtml(decision.workflow_id)}"
+      data-ordinary-daily-target="${escapeRawHtml(decision.target_id)}"
+    >${escapeHtml(decision.button_label || "运行下一步")}</button>
+  ` : "";
+  const evidenceButton = `
+    <button
+      class="${escapeHtml(primaryButton ? "secondary-button" : "primary-button")}"
+      type="button"
+      data-ordinary-daily-action=""
+      data-ordinary-daily-target="${escapeRawHtml(decision.target_id || "daily-trade-decision-sheet")}"
+    >${escapeHtml(primaryButton ? "看证据" : decision.button_label || "看今日决策")}</button>
+  `;
+  target.innerHTML = `
+    <div class="list-row ${escapeHtml(decision.tone || "warn")}">
+      <strong>${escapeHtml("今天先做哪一步")}</strong>
+      <span>${escapeHtml(decision.title || "等待今日决策")}</span>
+      <span>${escapeHtml(decision.plain_action || "先生成今日建议，再跑模拟盘和人工复核。")}</span>
+      <span class="beginner-task-actions">${primaryButton}${evidenceButton}</span>
+    </div>
+  ` + statusRows([
+    ["Top 因子/票据", `因子=${formatNumber(decision.factor_count)} / 目标=${formatNumber(decision.target_count)} / 票据=${formatNumber(decision.manual_ticket_count)}`, decision.factor_count ? "ok" : "warn"],
+    ["证据进度", `已补=${formatNumber(decision.completedEvidenceCount)} / 还缺=${formatNumber(decision.missingEvidenceCount)} / 下一道门=${decision.next_gate || "--"}`, decision.missingEvidenceCount ? "warn" : "ok"],
+    ["实盘边界", decision.order_boundary || "不会自动下单", decision.order_boundary === "不会自动下单" ? "ok" : "danger"],
+  ]);
 }
 
 function renderFactorLeaderboard() {
@@ -5439,6 +5538,7 @@ function renderDailyTradeAdvisory() {
   renderDailyPretradeWorkflow(pack.pretrade_workflow || {});
   renderDailyLiveTransitionPlan(pack.live_transition_plan || {});
   renderDailyCommandRail();
+  renderOrdinaryHome();
   renderDailyReadinessCard();
   renderDailyEvidenceChain();
   renderBeginnerTradeSystem();
@@ -8703,6 +8803,7 @@ function appendExecutionReceipt(receipt) {
   saveExecutionReceipts([nextReceipt].concat(loadExecutionReceipts(spec)), spec);
   renderExecutionReceipts(spec);
   renderDailyTradeDecisionSheet(state.dailyTradeAdvisory?.daily_trade_decision_sheet || {});
+  renderOrdinaryHome();
   renderDailyCommandRail();
   renderDailyReadinessCard();
   renderDailyEvidenceChain();
