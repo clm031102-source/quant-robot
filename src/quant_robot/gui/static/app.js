@@ -5071,7 +5071,40 @@ function renderOrdinaryDailyActionCard(target = byId("ordinary-daily-action-card
     ["Top 因子/票据", `因子=${formatNumber(decision.factor_count)} / 目标=${formatNumber(decision.target_count)} / 票据=${formatNumber(decision.manual_ticket_count)}`, decision.factor_count ? "ok" : "warn"],
     ["证据进度", `已补=${formatNumber(decision.completedEvidenceCount)} / 还缺=${formatNumber(decision.missingEvidenceCount)} / 下一道门=${decision.next_gate || "--"}`, decision.missingEvidenceCount ? "warn" : "ok"],
     ["实盘边界", decision.order_boundary || "不会自动下单", decision.order_boundary === "不会自动下单" ? "ok" : "danger"],
-  ]);
+  ]) + renderOrdinaryExecutionBridgeStrip(state.dailyTradeAdvisory?.daily_signal_execution_bridge || {});
+}
+
+function renderOrdinaryExecutionBridgeStrip(bridge = {}) {
+  const summary = bridge.summary || {};
+  if (!Object.keys(summary).length) {
+    return statusRows([["落地桥", "等待每日信号落地状态加载。", "warn"]]);
+  }
+  const status = summary.status || "waiting_for_candidate_pool";
+  const tone = status.includes("blocked") ? "danger" : "warn";
+  const workflowButton = summary.next_workflow_id ? `
+    <button
+      class="primary-button"
+      type="button"
+      data-ordinary-daily-action="${escapeRawHtml(summary.next_workflow_id)}"
+      data-ordinary-daily-target="${escapeRawHtml(summary.next_target_id || "daily-signal-execution-bridge")}"
+    >${escapeHtml(summary.next_label || "运行下一步")}</button>
+  ` : "";
+  const targetButton = `
+    <button
+      class="${escapeHtml(workflowButton ? "secondary-button" : "primary-button")}"
+      type="button"
+      data-ordinary-daily-action=""
+      data-ordinary-daily-target="${escapeRawHtml(summary.next_target_id || "daily-signal-execution-bridge")}"
+    >${escapeHtml(workflowButton ? "看落地桥" : summary.next_label || "看落地桥")}</button>
+  `;
+  return `
+    <div class="list-row ${escapeHtml(tone)}">
+      <strong>${escapeHtml("落地桥")}</strong>
+      <span>${escapeHtml(`${zhConsoleText(status)} / ${summary.next_label || "--"}`)}</span>
+      <span>${escapeHtml(`前三直买=${summary.direct_buy_from_top3_allowed ? "异常允许" : "禁止"} / 自动下单=${summary.order_placement_allowed ? "异常允许" : "禁止"}`)}</span>
+      <span class="beginner-task-actions">${workflowButton}${targetButton}</span>
+    </div>
+  `;
 }
 
 function renderFactorLeaderboard() {
@@ -5532,6 +5565,7 @@ function renderDailyTradeAdvisory() {
   renderDailyPortfolioValueHelp();
   renderDailyLiveReadinessGate(pack.daily_live_readiness_gate || {});
   renderDailyTradeDecisionSheet(pack.daily_trade_decision_sheet || {});
+  renderDailySignalExecutionBridge(pack.daily_signal_execution_bridge || {});
   renderDailyTradingSystemBlueprint(pack.trading_system_blueprint || {});
   renderDailyPretradeReadiness(pack.pretrade_readiness || {});
   renderDailyPretradeNextActions(pack.operator_next_actions || pack.pretrade_workflow?.operator_next_actions || []);
@@ -5810,6 +5844,59 @@ function renderDailyTradeDecisionSheet(sheet = {}) {
       </div>
     `;
   }).join("") : statusRows([["缺失证据", "暂无结构化缺失项；仍需人工确认模拟盘、风险、现金和券商端实时价格。", "warn"]]);
+}
+
+function renderDailySignalExecutionBridge(bridge = {}) {
+  const summaryTarget = byId("daily-signal-execution-summary");
+  const stepsTarget = byId("daily-signal-execution-steps");
+  const gatesTarget = byId("daily-signal-execution-gates");
+  if (!summaryTarget || !stepsTarget || !gatesTarget) return;
+  const summary = bridge.summary || {};
+  const status = summary.status || "waiting_for_candidate_pool";
+  const statusTone = status.includes("blocked") ? "danger" : status.includes("ready") ? "warn" : "warn";
+  const nextTarget = summary.next_target_id || "daily-signal-execution-bridge";
+  const workflowButton = summary.next_workflow_id ? `
+    <button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(summary.next_workflow_id)}">${escapeHtml(summary.next_label || "运行下一步")}</button>
+  ` : "";
+  const nextButton = `
+    <button class="${escapeHtml(workflowButton ? "secondary-button" : "primary-button")}" type="button" data-beginner-target="${escapeRawHtml(nextTarget)}">${escapeHtml(workflowButton ? "看证据" : summary.next_label || "看下一步")}</button>
+  `;
+  summaryTarget.innerHTML = statusRows([
+    ["落地状态", zhConsoleText(status), statusTone],
+    ["下一步", summary.next_label || "--", statusTone],
+    ["今日链路", `候选=${formatNumber(summary.selected_factor_count || 0)} / 信号=${formatNumber(summary.signal_count || 0)} / 目标=${formatNumber(summary.target_count || 0)} / 票据=${formatNumber(summary.manual_ticket_count || 0)}`, summary.blocker_count ? "danger" : "warn"],
+    ["前三因子", summary.direct_buy_from_top3_allowed ? "异常：允许直买" : "只进候选池，不能直接买", summary.direct_buy_from_top3_allowed ? "danger" : "ok"],
+    ["实盘权限", summary.order_placement_allowed ? "异常：允许下单" : "系统不连接券商、不读账户、不自动下单", summary.order_placement_allowed ? "danger" : "ok"],
+  ]) + `
+    <div class="list-row ${escapeHtml(statusTone)}">
+      <strong>${escapeHtml("现在点这里")}</strong>
+      <span>${escapeHtml(summary.next_label || "等待下一步")}</span>
+      <span class="beginner-task-actions">${workflowButton}${nextButton}</span>
+    </div>
+  `;
+  const steps = Array.isArray(bridge.daily_operating_steps) ? bridge.daily_operating_steps : [];
+  stepsTarget.innerHTML = steps.length ? steps.map((item) => `
+    <div class="list-row ${escapeHtml(dailyTradeSystemStageTone(item.status || ""))}">
+      <strong>${escapeHtml(`${item.step_number || "--"}. ${item.label || item.step_id || ""}`)}</strong>
+      <span>${escapeHtml(`${zhConsoleText(item.status || "waiting")} / ${item.plain_action || ""}`)}</span>
+      <span>${escapeHtml(item.evidence || "")}</span>
+      <span class="beginner-task-actions">
+        ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+        ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
+      </span>
+    </div>
+  `).join("") : statusRows([["落地步骤", "等待每日交易建议加载。", "warn"]]);
+  const gates = Array.isArray(bridge.deployment_gates) ? bridge.deployment_gates : [];
+  gatesTarget.innerHTML = gates.length ? gates.map((item) => `
+    <div class="list-row ${escapeHtml(dailyTradeSystemStageTone(item.status || ""))}">
+      <strong>${escapeHtml(item.label || item.gate_id || "")}</strong>
+      <span>${escapeHtml(`${zhConsoleText(item.status || "waiting")} / ${item.plain_requirement || ""}`)}</span>
+      <span class="beginner-task-actions">
+        ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+        ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
+      </span>
+    </div>
+  `).join("") : statusRows([["闸门", "等待 OOS、成本、模拟盘、人工复核等闸门信息。", "warn"]]);
 }
 
 function renderDailyTradingSystemBlueprint(blueprint = {}) {
@@ -7610,6 +7697,12 @@ const GUI_ZH_REPLACEMENTS = [
   ["required", "必需"],
   ["manual_advisory_ready", "今日建议已生成"],
   ["waiting_for_signals", "等待信号生成"],
+  ["blocked_current_position_input", "当前持仓输入红灯"],
+  ["blocked_pretrade_red_light", "盘前红灯阻断"],
+  ["paper_first_manual_review_ready", "先模拟盘再人工复核"],
+  ["build_manual_ticket_pack", "补齐人工票据"],
+  ["generate_today_signal", "生成今日信号"],
+  ["waiting_for_candidate_pool", "等待候选池"],
   ["allowed", "允许"],
   ["cleared", "通过"],
   ["stopped", "停止"],
