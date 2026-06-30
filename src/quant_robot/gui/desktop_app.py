@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import socket
 import threading
 import webbrowser
@@ -16,8 +17,25 @@ DESKTOP_APP_COPY = {
     "subtitle": "一键打开本地研究、信号、模拟盘和手工交易建议。",
     "safety": "research-to-paper only；不连接券商、不读取账户、不真实下单。",
     "primary_button": "启动并打开中控台",
+    "daily_button": "打开今日交易检查",
+    "leaderboard_button": "打开因子排行榜",
+    "logs_button": "打开日志报告",
     "stop_button": "停止本地服务",
 }
+
+DESKTOP_APP_PAGES = {
+    "dashboard",
+    "research",
+    "backtest",
+    "decision",
+    "signals",
+    "paper",
+    "daily",
+    "promotion",
+    "data",
+    "logs",
+}
+TARGET_ID_PATTERN = re.compile(r"^[A-Za-z0-9_-]+$")
 
 
 class ServerLike(Protocol):
@@ -72,6 +90,17 @@ class DesktopGuiController:
     def url(self) -> str:
         return f"http://{self.host}:{self.port}/"
 
+    def url_for_page(self, page: str, target_id: str = "") -> str:
+        page_id = str(page or "").strip().lower()
+        if page_id not in DESKTOP_APP_PAGES:
+            return self.url
+        target = str(target_id or "").strip()
+        if target and TARGET_ID_PATTERN.fullmatch(target):
+            return f"{self.url}#{page_id}:{target}"
+        if page_id != "dashboard":
+            return f"{self.url}#{page_id}"
+        return self.url
+
     def start(self) -> DesktopAppState:
         if self.server is not None:
             return self._state("running", "本地中控台已在运行。")
@@ -95,6 +124,19 @@ class DesktopGuiController:
         state = self.start()
         self.browser_open(state.url)
         return state
+
+    def open_section(self, page: str, target_id: str = "") -> DesktopAppState:
+        state = self.start()
+        section_url = self.url_for_page(page, target_id)
+        self.browser_open(section_url)
+        return DesktopAppState(
+            status=state.status,
+            host=state.host,
+            port=state.port,
+            url=section_url,
+            message=state.message,
+            safety_text=state.safety_text,
+        )
 
     def stop(self) -> DesktopAppState:
         if self.server is None:
@@ -125,7 +167,7 @@ def run_desktop_app(
 
     root = tk.Tk()
     root.title(DESKTOP_APP_COPY["title"])
-    root.geometry("520x260")
+    root.geometry("560x330")
     root.resizable(False, False)
 
     status_var = tk.StringVar(value="未启动")
@@ -148,12 +190,23 @@ def run_desktop_app(
         status_var.set(f"{state.message} {state.url}")
         url_var.set(state.url)
 
+    def open_section(page: str, target_id: str = "") -> None:
+        state = controller.open_section(page, target_id)
+        status_var.set(f"{state.message} {state.url}")
+        url_var.set(state.url)
+
     def stop() -> None:
         state = controller.stop()
         status_var.set(state.message)
 
     ttk.Button(buttons, text=DESKTOP_APP_COPY["primary_button"], command=start_and_open).pack(side="left")
     ttk.Button(buttons, text=DESKTOP_APP_COPY["stop_button"], command=stop).pack(side="left", padx=(10, 0))
+
+    quick_buttons = ttk.Frame(frame)
+    quick_buttons.pack(anchor="w", pady=(12, 0))
+    ttk.Button(quick_buttons, text=DESKTOP_APP_COPY["daily_button"], command=lambda: open_section("daily")).pack(side="left")
+    ttk.Button(quick_buttons, text=DESKTOP_APP_COPY["leaderboard_button"], command=lambda: open_section("dashboard", "factor-leaderboard-table")).pack(side="left", padx=(10, 0))
+    ttk.Button(quick_buttons, text=DESKTOP_APP_COPY["logs_button"], command=lambda: open_section("logs")).pack(side="left", padx=(10, 0))
 
     def on_close() -> None:
         controller.stop()

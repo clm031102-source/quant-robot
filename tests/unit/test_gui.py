@@ -121,6 +121,44 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertEqual(used_ports[:2], [8765, 8766])
         controller.stop()
 
+    def test_desktop_controller_opens_beginner_task_sections_as_hash_links(self):
+        events: list[object] = []
+
+        class FakeServer:
+            def serve_forever(self) -> None:
+                events.append("serve_forever")
+
+            def shutdown(self) -> None:
+                events.append("shutdown")
+
+            def server_close(self) -> None:
+                events.append("server_close")
+
+        def server_factory(host: str, port: int) -> FakeServer:
+            events.append(("server_factory", host, port))
+            return FakeServer()
+
+        opened: list[str] = []
+        controller = DesktopGuiController(
+            host="127.0.0.1",
+            port=9002,
+            server_factory=server_factory,
+            browser_open=opened.append,
+        )
+
+        daily_state = controller.open_section("daily")
+
+        self.assertEqual(daily_state.status, "running")
+        self.assertEqual(daily_state.url, "http://127.0.0.1:9002/#daily")
+        self.assertEqual(opened, ["http://127.0.0.1:9002/#daily"])
+        self.assertEqual(controller.url_for_page("logs"), "http://127.0.0.1:9002/#logs")
+        self.assertEqual(
+            controller.url_for_page("dashboard", "factor-leaderboard-table"),
+            "http://127.0.0.1:9002/#dashboard:factor-leaderboard-table",
+        )
+        self.assertEqual(controller.url_for_page("unknown"), "http://127.0.0.1:9002/")
+        controller.stop()
+
     def test_desktop_launcher_files_are_beginner_facing(self):
         launcher = Path("scripts/run_desktop_app.py")
         batch_file = Path("scripts/start_quant_robot_desktop.bat")
@@ -131,6 +169,10 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("--no-open", launcher.read_text(encoding="utf-8"))
         self.assertIn("scripts\\run_desktop_app.py", batch_file.read_text(encoding="utf-8"))
         self.assertIn("research-to-paper", batch_file.read_text(encoding="utf-8"))
+        self.assertIn("daily_button", DESKTOP_APP_COPY)
+        self.assertIn("leaderboard_button", DESKTOP_APP_COPY)
+        self.assertIn("logs_button", DESKTOP_APP_COPY)
+        self.assertIn("今日交易检查", DESKTOP_APP_COPY["daily_button"])
 
 
 class GuiSnapshotTests(unittest.TestCase):
@@ -2165,6 +2207,11 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("/api/signals?", app_js)
             self.assertIn("/api/paper?", app_js)
             self.assertIn("/api/daily/ops", app_js)
+            self.assertIn("activatePageFromHash", app_js)
+            self.assertIn("targetIdFromHash", app_js)
+            self.assertIn("window.location.hash", app_js)
+            self.assertIn("hashchange", app_js)
+            self.assertIn("jumpToBeginnerTarget(targetIdFromHash", app_js)
             self.assertIn("renderDailyPretradeReadiness", app_js)
             self.assertIn("renderDailyBeginnerActionSummary", app_js)
             self.assertIn("beginner_action_summary", app_js)

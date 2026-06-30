@@ -44,6 +44,7 @@ const titles = {
   data: "数据中心",
   logs: "日志报告",
 };
+const PAGE_IDS = new Set(Object.keys(titles));
 
 const chartTheme = {
   strategy: "#00796b",
@@ -251,6 +252,7 @@ document.addEventListener("DOMContentLoaded", () => {
   renderBeginnerTroubleshooter();
   renderBeginnerGuide();
   renderBeginnerProgress();
+  activatePageFromHash();
   initializeApp();
 });
 
@@ -292,15 +294,43 @@ async function safeLoadPanel(panelId, loader) {
 function bindNavigation() {
   document.querySelectorAll(".nav-item").forEach((button) => {
     button.addEventListener("click", () => {
-      const page = button.dataset.page;
-      document.querySelectorAll(".nav-item").forEach((item) => item.classList.remove("active"));
-      button.classList.add("active");
-      document.querySelectorAll(".page").forEach((section) => section.classList.remove("active-page"));
-      byId(`page-${page}`).classList.add("active-page");
-      byId("page-title").textContent = titles[page] || page;
-      document.querySelector(".workspace")?.scrollTo({ top: 0, behavior: "smooth" });
+      activatePage(button.dataset.page || "dashboard", true);
     });
   });
+  window.addEventListener("hashchange", () => activatePageFromHash());
+}
+
+function activatePageFromHash() {
+  const { pageId, targetIdFromHash } = routeFromHash();
+  activatePage(pageId, false);
+  if (targetIdFromHash) {
+    window.setTimeout(() => jumpToBeginnerTarget(targetIdFromHash), 0);
+  }
+}
+
+function routeFromHash() {
+  const route = (window.location.hash || "").replace(/^#/, "");
+  const [pagePart, targetPart = ""] = route.split(":", 2);
+  const pageId = PAGE_IDS.has(pagePart) ? pagePart : "dashboard";
+  const targetIdFromHash = /^[A-Za-z0-9_-]+$/.test(targetPart) ? targetPart : "";
+  return { pageId, targetIdFromHash };
+}
+
+function activatePage(page, updateHash = false) {
+  const pageId = PAGE_IDS.has(page) ? page : "dashboard";
+  const pageSection = byId(`page-${pageId}`);
+  const navButton = Array.from(document.querySelectorAll(".nav-item")).find((item) => item.dataset.page === pageId);
+  if (!pageSection || !navButton) return;
+
+  document.querySelectorAll(".nav-item").forEach((item) => item.classList.remove("active"));
+  navButton.classList.add("active");
+  document.querySelectorAll(".page").forEach((section) => section.classList.remove("active-page"));
+  pageSection.classList.add("active-page");
+  byId("page-title").textContent = titles[pageId] || pageId;
+  if (updateHash && window.location.hash !== `#${pageId}`) {
+    window.history.replaceState(null, "", `#${pageId}`);
+  }
+  document.querySelector(".workspace")?.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function bindActions() {
