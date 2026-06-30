@@ -543,6 +543,27 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "daily_closure_ledger_panel",
+            "Daily closure ledger contract",
+            control.get("ok")
+            and control_body.get("daily_closure_ledger", {}).get("stage") == "gui_daily_closure_ledger"
+            and "closed_loop_days" in control_body.get("daily_closure_ledger", {}).get("summary", {})
+            and control_body.get("daily_closure_ledger", {}).get("summary", {}).get("live_trading_allowed") is False
+            and control_body.get("daily_closure_ledger", {}).get("summary", {}).get("order_placement_allowed") is False
+            and index_html.get("ok")
+            and "control-daily-closure-ledger" in str(index_html.get("body", ""))
+            and app_js.get("ok")
+            and "renderDailyClosureLedger" in str(app_js.get("body", ""))
+            and "syncExecutionReceiptToServer" in str(app_js.get("body", "")),
+            "Control API and frontend expose a server-side daily closure ledger for top-three signal, paper simulation, post-close review, and manual execution audit receipts.",
+            control.get("error")
+            or index_html.get("error")
+            or app_js.get("error")
+            or "Daily closure ledger contract or frontend hooks are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "trade_mode_control_panel",
             "Trade mode control contract",
             control.get("ok")

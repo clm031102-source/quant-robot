@@ -35,6 +35,15 @@ from quant_robot.gui.research_service import (
     run_gui_signal_snapshot,
 )
 
+BROWSER_RECEIPT_WORKFLOW_IDS = {
+    "daily_trade_advisory",
+    "daily_pretrade_checkup",
+    "paper_simulation",
+    "post_close_journal",
+    "signal_snapshot",
+}
+SENSITIVE_RECEIPT_KEYWORDS = ("account", "broker", "client", "order_id", "manual_note", "risk_note", "next_day_note")
+
 
 def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHandler]:
     root = static_dir or Path(__file__).with_name("static")
@@ -327,12 +336,18 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                     max_drawdown_guard=_optional_float(query, "max_drawdown_guard"),
                     guard_cooldown_periods=int(_first(query, "guard_cooldown_periods", "0")),
                 )
+                operation_request = result.get("request", {}) if isinstance(result.get("request"), dict) else {}
+                operation_request = dict(operation_request)
+                if _optional(query, "as_of_date"):
+                    operation_request["as_of_date"] = _optional(query, "as_of_date")
+                if _optional(query, "run_date"):
+                    operation_request["run_date"] = _optional(query, "run_date")
                 _record_operation(
                     workflow_id="paper_simulation",
                     label="Run local paper simulation",
                     status="completed",
                     command=f"GET {parsed.path}?{parsed.query}",
-                    request=result.get("request", {}),
+                    request=operation_request,
                     result=result,
                 )
                 self._send_json(result)
@@ -371,6 +386,36 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                 return
             self._serve_static(parsed.path, root)
 
+        def do_POST(self) -> None:
+            parsed = urlparse(self.path)
+            if parsed.path == "/api/control/execution-receipt":
+                payload = self._read_json_body()
+                if not isinstance(payload, dict):
+                    self._send_json({"stage": "gui_browser_execution_receipt", "status": "invalid_json"}, status=400)
+                    return
+                receipt = _browser_receipt_operation(payload)
+                if not receipt:
+                    self._send_json({"stage": "gui_browser_execution_receipt", "status": "unsupported_workflow"}, status=400)
+                    return
+                _record_operation(
+                    workflow_id=receipt["workflow_id"],
+                    label=receipt["label"],
+                    status=receipt["status"],
+                    command=f"POST {parsed.path}",
+                    request=receipt["request"],
+                    result=receipt["result"],
+                )
+                self._send_json(
+                    {
+                        "stage": "gui_browser_execution_receipt",
+                        "status": "recorded",
+                        "workflow_id": receipt["workflow_id"],
+                        "safety": _receipt_safety(),
+                    }
+                )
+                return
+            self._send_text("Not found", status=404, content_type="text/plain; charset=utf-8")
+
         def log_message(self, format: str, *args: object) -> None:
             return
 
@@ -404,6 +449,17 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
             self.end_headers()
             self.wfile.write(encoded)
 
+        def _read_json_body(self) -> object:
+            try:
+                length = min(int(self.headers.get("Content-Length", "0")), 200_000)
+            except ValueError:
+                length = 0
+            try:
+                body = self.rfile.read(length).decode("utf-8") if length else "{}"
+                return json.loads(body)
+            except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+                return None
+
     return GuiRequestHandler
 
 
@@ -432,6 +488,53 @@ def _record_operation(
         )
     except OSError:
         return
+
+
+def _browser_receipt_operation(payload: dict[str, object]) -> dict[str, object] | None:
+    workflow_id = str(payload.get("workflow_id") or "")
+    if workflow_id not in BROWSER_RECEIPT_WORKFLOW_IDS:
+        return None
+    status = str(payload.get("status") or "completed")
+    metrics = _safe_receipt_object(payload.get("metrics") if isinstance(payload.get("metrics"), dict) else {})
+    result = {
+        "stage": str(payload.get("stage") or "gui_browser_execution_receipt"),
+        "metrics": metrics,
+        "decision": str(payload.get("decision") or ""),
+        "status": status,
+        "safety": _receipt_safety(),
+    }
+    return {
+        "workflow_id": workflow_id,
+        "label": str(payload.get("label") or workflow_id),
+        "status": status,
+        "request": _safe_receipt_object(payload.get("request") if isinstance(payload.get("request"), dict) else {}),
+        "result": result,
+    }
+
+
+def _safe_receipt_object(raw: object) -> dict[str, object]:
+    if not isinstance(raw, dict):
+        return {}
+    safe: dict[str, object] = {}
+    for key, value in raw.items():
+        text_key = str(key)
+        lowered = text_key.lower()
+        if any(keyword in lowered for keyword in SENSITIVE_RECEIPT_KEYWORDS):
+            continue
+        if isinstance(value, (str, int, float, bool)) or value is None:
+            safe[text_key] = value
+    return safe
+
+
+def _receipt_safety() -> dict[str, object]:
+    return {
+        "notice": "Research-to-paper only. Browser receipts are evidence only.",
+        "live_trading_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
 
 
 def _first(query: dict[str, list[str]], key: str, default: str) -> str:

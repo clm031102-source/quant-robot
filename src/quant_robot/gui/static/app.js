@@ -2186,6 +2186,7 @@ function renderControlCenter() {
   const processMonitor = control.process_monitor || {};
   const activeOperationSpec = control.active_operation || {};
   const operationLedger = control.operation_ledger || {};
+  const dailyClosureLedger = control.daily_closure_ledger || {};
   const tradeModeControl = control.trade_mode_control || {};
   const backtest = control.backtest || {};
   const backtestProvenance = control.backtest_provenance || {};
@@ -2251,6 +2252,7 @@ function renderControlCenter() {
   byId("control-process-monitor").innerHTML = renderProcessMonitor(processMonitor);
   byId("control-active-operation").innerHTML = renderActiveOperation(activeOperationSpec, state.activeOperation);
   byId("control-operation-ledger").innerHTML = renderOperationLedger(operationLedger);
+  byId("control-daily-closure-ledger").innerHTML = renderDailyClosureLedger(dailyClosureLedger);
   byId("control-trade-mode-control").innerHTML = renderTradeModeControl(tradeModeControl);
   byId("control-run-queue").innerHTML = statusRows([
     ["Active", activeRun.label || "--", activeRun.workflow_id ? "ok" : "muted"],
@@ -10064,6 +10066,44 @@ function renderOperationLedger(ledger = {}) {
   `);
 }
 
+function renderDailyClosureLedger(ledger = {}) {
+  const summary = ledger.summary || {};
+  const rows = Array.isArray(ledger.rows) ? ledger.rows : [];
+  const status = summary.status || "needs_more_closure_receipts";
+  const tone = status === "server_closure_ready" ? "ok" : status === "blocked_by_manual_execution" ? "danger" : "warn";
+  const header = `
+    <div class="list-row ${escapeHtml(tone)}">
+      <strong>${escapeHtml("服务端每日闭环")}</strong>
+      <span>${escapeHtml(`闭环=${formatNumber(summary.closed_loop_days || 0)}/${formatNumber(summary.lookback_days || 5)} / 观察日=${formatNumber(summary.server_observed_days || 0)}`)}</span>
+      <span>${escapeHtml(summary.next_action || "先运行今日建议、模拟盘和盘后复盘。")}</span>
+      <span>${escapeHtml("不连接券商 / 不读账户 / 不自动下单")}</span>
+    </div>
+  `;
+  const body = rows.slice(0, 5).map((row) => {
+    const rowTone = row.completed_loop ? "ok" : row.manual_execution_blocked || row.manual_execution_missing_review ? "danger" : "warn";
+    const stepText = [
+      `前三=${row.top3_signal_ready ? "完成" : "缺失"}`,
+      `模拟=${row.same_parameter_paper_ready ? "完成" : "缺失"}`,
+      `复盘=${row.post_close_journal_ready ? "完成" : "缺失"}`,
+      `执行审计=${row.manual_execution_clean ? "干净" : row.manual_execution_blocked ? "异常" : row.manual_execution_missing_review ? "缺回执" : "缺失"}`,
+    ].join(" / ");
+    const missing = Array.isArray(row.missing_steps) ? row.missing_steps.join(" / ") : "";
+    return `
+      <div class="list-row ${escapeHtml(rowTone)}">
+        <strong>${escapeHtml(row.date || "--")}</strong>
+        <span>${escapeHtml(stepText)}</span>
+        <span>${escapeHtml(missing ? `缺=${missing}` : "服务端闭环完整")}</span>
+      </div>
+    `;
+  }).join("");
+  return header + (body || `
+    <div class="list-row warn">
+      <strong>${escapeHtml("暂无服务端闭环样本")}</strong>
+      <span>${escapeHtml("从 GUI 运行今日前三建议、模拟盘，并提交盘后复盘回执后，这里会沉淀跨端可审计样本。")}</span>
+    </div>
+  `);
+}
+
 function renderTradeModeControl(control = {}) {
   const summary = control.summary || {};
   const rows = control.rows || [];
@@ -10629,6 +10669,33 @@ function saveExecutionReceipts(rows, spec = {}) {
   }
 }
 
+function syncExecutionReceiptToServer(receipt) {
+  if (!receipt || !receipt.workflow_id) return;
+  const payload = {
+    workflow_id: receipt.workflow_id,
+    label: receipt.label || receipt.workflow_id,
+    status: receipt.status || "completed",
+    request: receipt.request || {},
+    metrics: receipt.metrics || {},
+    decision: receipt.decision || "",
+    stage: receipt.stage || "",
+    safety: receipt.safety || "",
+  };
+  fetch("/api/control/execution-receipt", {
+    method: "POST",
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify(payload),
+  })
+    .then((response) => (response.ok ? response.json() : null))
+    .then((packet) => {
+      if (!packet || packet.status !== "recorded") return;
+      return loadControlCenter().then(() => renderControlCenter());
+    })
+    .catch((_error) => {
+      // Browser receipts remain usable locally if the server-side ledger is unavailable.
+    });
+}
+
 function appendExecutionReceipt(receipt) {
   if (!receipt) return null;
   const spec = state.controlCenter?.execution_receipts || {};
@@ -10639,6 +10706,7 @@ function appendExecutionReceipt(receipt) {
     ...receipt,
   };
   saveExecutionReceipts([nextReceipt].concat(loadExecutionReceipts(spec)), spec);
+  syncExecutionReceiptToServer(nextReceipt);
   renderExecutionReceipts(spec);
   renderDailyTradeDecisionSheet(state.dailyTradeAdvisory?.daily_trade_decision_sheet || {});
   renderDailySignalExecutionBridge(state.dailyTradeAdvisory?.daily_signal_execution_bridge || {});

@@ -6,7 +6,7 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import urlencode
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 import pandas as pd
 
@@ -1436,6 +1436,65 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertEqual(control["operation_ledger"]["stage"], "gui_operation_ledger")
         self.assertEqual(control["operation_ledger"]["summary"]["latest_workflow_id"], "research_backtest")
 
+    def test_control_center_builds_daily_closure_ledger_from_server_receipts(self):
+        from quant_robot.gui.control_center import build_control_center_snapshot
+        from quant_robot.gui.operation_ledger import append_operation_ledger_entry
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="daily_trade_advisory",
+                label="Generate top-three manual trade advisory",
+                status="completed",
+                request={"market": "CN_ETF", "as_of_date": "2026-06-30"},
+                result={
+                    "stage": "phase_daily_trade_advisory",
+                    "summary": {"signal_count": 3, "selected_factor_count": 3},
+                    "metrics": {"signal_count": 3, "manual_ticket_count": 2},
+                },
+            )
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="paper_simulation",
+                label="Run local paper simulation",
+                status="completed",
+                request={"market": "CN_ETF", "as_of_date": "2026-06-30", "factor_name": "momentum_2", "top_n": 2},
+                result={"stage": "gui_paper_simulation", "metrics": {"total_return": 0.12, "max_drawdown": -0.18}},
+            )
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="post_close_journal",
+                label="Post-close journal receipt",
+                status="completed",
+                request={"market": "CN_ETF", "as_of_date": "2026-06-30"},
+                result={
+                    "stage": "phase_post_close_journal",
+                    "metrics": {
+                        "manual_review_recorded": True,
+                        "manual_execution_decision": "manual_execution_evidence_ready",
+                        "manual_execution_missing_review_count": 0,
+                        "manual_execution_guardrail_breach_count": 0,
+                        "manual_execution_slippage_breach_count": 0,
+                    },
+                },
+            )
+
+            control = build_control_center_snapshot(repo_root=root)
+
+        ledger = control["daily_closure_ledger"]
+        self.assertEqual(ledger["stage"], "gui_daily_closure_ledger")
+        self.assertEqual(ledger["summary"]["closed_loop_days"], 1)
+        self.assertEqual(ledger["summary"]["server_observed_days"], 1)
+        self.assertFalse(ledger["summary"]["live_trading_allowed"])
+        self.assertFalse(ledger["summary"]["order_placement_allowed"])
+        self.assertEqual(ledger["rows"][0]["date"], "2026-06-30")
+        self.assertTrue(ledger["rows"][0]["top3_signal_ready"])
+        self.assertTrue(ledger["rows"][0]["same_parameter_paper_ready"])
+        self.assertTrue(ledger["rows"][0]["post_close_journal_ready"])
+        self.assertTrue(ledger["rows"][0]["manual_execution_clean"])
+        self.assertTrue(ledger["rows"][0]["completed_loop"])
+
     def test_ledger_evidence_distinguishes_current_from_stale_server_receipts(self):
         from quant_robot.gui.control_center import build_control_center_snapshot
         from quant_robot.gui.operation_ledger import append_operation_ledger_entry
@@ -1675,6 +1734,7 @@ class GuiSnapshotTests(unittest.TestCase):
                 self.assertIn("process_monitor_panel", check_ids)
                 self.assertIn("active_operation_panel", check_ids)
                 self.assertIn("operation_ledger_panel", check_ids)
+                self.assertIn("daily_closure_ledger_panel", check_ids)
                 self.assertIn("audit_scheduler_panel", check_ids)
                 self.assertIn("verification_runner_panel", check_ids)
                 self.assertIn("audit_feedback_panel", check_ids)
@@ -2494,6 +2554,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("control-process-monitor", html)
             self.assertIn("control-active-operation", html)
             self.assertIn("control-operation-ledger", html)
+            self.assertIn("control-daily-closure-ledger", html)
             self.assertIn("control-trade-mode-control", html)
             self.assertIn("control-request-preview", html)
             self.assertIn("control-result-freshness", html)
@@ -3164,6 +3225,10 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("finishActiveOperation", app_js)
             self.assertIn("control-operation-ledger", app_js)
             self.assertIn("renderOperationLedger", app_js)
+            self.assertIn("control-daily-closure-ledger", app_js)
+            self.assertIn("renderDailyClosureLedger", app_js)
+            self.assertIn("syncExecutionReceiptToServer", app_js)
+            self.assertIn("/api/control/execution-receipt", app_js)
             self.assertIn("control-trade-mode-control", app_js)
             self.assertIn("renderTradeModeControl", app_js)
             self.assertIn("control-request-preview", app_js)
@@ -3777,6 +3842,40 @@ class GuiHttpTests(unittest.TestCase):
             thread.join(timeout=5)
             server.server_close()
 
+    def test_http_app_records_browser_execution_receipts_to_server_ledger(self):
+        server = ThreadingHTTPServer(("127.0.0.1", 0), create_gui_handler())
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        base_url = f"http://127.0.0.1:{server.server_port}"
+        try:
+            payload = {
+                "workflow_id": "post_close_journal",
+                "label": "Post-close journal receipt",
+                "status": "completed",
+                "request": {"market": "CN_ETF", "as_of_date": "2026-06-30"},
+                "metrics": {
+                    "manual_review_recorded": True,
+                    "manual_execution_decision": "manual_execution_evidence_ready",
+                    "manual_execution_missing_review_count": 0,
+                },
+                "manual_review": {"manual_note": "should not be persisted to operation ledger"},
+            }
+
+            response = _post_json(f"{base_url}/api/control/execution-receipt", payload)
+            ledger = _read_json(f"{base_url}/api/control/operation-ledger")
+
+            self.assertEqual(response["stage"], "gui_browser_execution_receipt")
+            self.assertEqual(response["status"], "recorded")
+            self.assertFalse(response["safety"]["live_trading_allowed"])
+            self.assertEqual(ledger["rows"][0]["workflow_id"], "post_close_journal")
+            self.assertEqual(ledger["rows"][0]["request"]["as_of_date"], "2026-06-30")
+            self.assertIn("manual_execution_decision=manual_execution_evidence_ready", ledger["rows"][0]["metric_summary"])
+            self.assertNotIn("manual_note", json.dumps(ledger["rows"][0], ensure_ascii=False))
+        finally:
+            server.shutdown()
+            thread.join(timeout=5)
+            server.server_close()
+
     def test_http_app_serves_factor_leaderboard_from_requested_roots(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -3870,6 +3969,18 @@ def _read_text(url: str) -> str:
 
 def _read_json(url: str) -> dict[str, object]:
     return json.loads(_read_text(url))
+
+
+def _post_json(url: str, payload: dict[str, object]) -> dict[str, object]:
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    request = Request(
+        url,
+        data=body,
+        method="POST",
+        headers={"Content-Type": "application/json; charset=utf-8"},
+    )
+    with urlopen(request, timeout=5) as response:
+        return json.loads(response.read().decode("utf-8"))
 
 
 def _write_processed_cn_etf_fixture(root: Path) -> Path:
