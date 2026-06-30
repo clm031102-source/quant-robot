@@ -1582,6 +1582,92 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("manual_skip_conditions", gate["manual_execution_preview"][0])
         self.assertTrue(all(not row["order_placement_allowed"] for row in gate["operator_script"]))
 
+    def test_real_money_transition_and_manual_session_block_when_risk_circuit_trips(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {
+                    "rank": 1,
+                    "case_id": "c1",
+                    "factor_name": "momentum_quality_combo",
+                    "market": "CN_ETF",
+                    "sharpe": 1.35,
+                    "annualized_return": 0.18,
+                    "max_drawdown": -0.14,
+                    "win_rate": 0.59,
+                    "rank_ic": 0.045,
+                    "trade_count": 96,
+                },
+                {
+                    "rank": 2,
+                    "case_id": "c2",
+                    "factor_name": "low_vol_overlay",
+                    "market": "CN_ETF",
+                    "sharpe": 1.05,
+                    "annualized_return": 0.14,
+                    "max_drawdown": -0.11,
+                    "win_rate": 0.57,
+                    "rank_ic": 0.033,
+                    "trade_count": 80,
+                },
+                {
+                    "rank": 3,
+                    "case_id": "c3",
+                    "factor_name": "breadth_trend_state",
+                    "market": "CN_ETF",
+                    "sharpe": 0.98,
+                    "annualized_return": 0.12,
+                    "max_drawdown": -0.10,
+                    "win_rate": 0.56,
+                    "rank_ic": 0.028,
+                    "trade_count": 72,
+                },
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.2}),
+                _signal("c2", "low_vol_overlay", {"588000": 0.2}),
+                _signal("c3", "breadth_trend_state", {"159915": 0.2}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="aggressive_30dd",
+            evidence_snapshot={
+                "walk_forward_oos_passed": True,
+                "lookahead_bias_audit_passed": True,
+                "multiple_testing_control_passed": True,
+                "transaction_cost_capacity_passed": True,
+                "matched_paper_receipts": 5,
+                "post_close_journals": 5,
+                "manual_execution_clean_receipts": 5,
+                "manual_execution_blocked_receipts": 0,
+                "paper_ready_observations": 20,
+                "same_parameter_top3_required_requests": 3,
+                "same_parameter_top3_matched_requests": 3,
+                "risk_state": {
+                    "today_pnl_pct": -0.04,
+                    "current_drawdown_pct": 0.12,
+                    "consecutive_loss_days": 1,
+                    "cooldown_days_remaining": 0,
+                },
+            },
+        )
+
+        circuit = pack["daily_execution_risk_circuit_breaker"]
+        gate = pack["daily_real_money_transition_gate"]
+        session = pack["daily_manual_trading_session"]
+        preflight_by_id = {row["gate_id"]: row for row in gate["preflight_rows"]}
+
+        self.assertEqual(circuit["summary"]["decision"], "blocked_risk_circuit_breaker")
+        self.assertEqual(gate["summary"]["decision"], "blocked_risk_circuit_breaker")
+        self.assertEqual(gate["summary"]["capital_mode"], "blocked_or_research_only")
+        self.assertFalse(gate["summary"]["small_capital_observation_candidate"])
+        self.assertFalse(gate["summary"]["production_manual_review_candidate"])
+        self.assertEqual(preflight_by_id["daily_risk_circuit_breaker"]["status"], "blocked")
+        self.assertEqual(session["summary"]["session_status"], "blocked_risk_circuit_breaker")
+        self.assertFalse(session["summary"]["manual_broker_review_candidate"])
+        self.assertIn("daily_risk_circuit_breaker", {row["gate_id"] for row in session["blocking_gates"]})
+        self.assertEqual(pack["summary"]["real_money_transition_status"], "blocked_risk_circuit_breaker")
+        self.assertEqual(pack["summary"]["manual_trading_session_status"], "blocked_risk_circuit_breaker")
+
     def test_real_money_transition_blocks_next_session_quarantine_even_when_aggregate_evidence_passes(self):
         pack = build_daily_trade_advisory_pack(
             [

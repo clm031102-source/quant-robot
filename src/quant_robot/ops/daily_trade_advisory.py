@@ -450,9 +450,9 @@ def build_daily_trade_advisory_pack(
     pack["daily_deployment_readiness"] = build_daily_deployment_readiness_pack(pack)
     pack["live_profitability_readiness"] = build_live_profitability_readiness_scorecard(pack)
     pack["daily_factor_health_monitor"] = build_daily_factor_health_monitor(pack)
+    pack["daily_execution_risk_circuit_breaker"] = build_daily_execution_risk_circuit_breaker(pack)
     pack["daily_real_money_transition_gate"] = build_daily_real_money_transition_gate(pack)
     pack["daily_manual_trading_session"] = build_daily_manual_trading_session(pack)
-    pack["daily_execution_risk_circuit_breaker"] = build_daily_execution_risk_circuit_breaker(pack)
     pack["daily_paper_allocation_playbook"] = build_daily_paper_allocation_playbook(pack)
     pack["daily_pre_execution_guard"] = build_daily_pre_execution_guard(pack)
     pack["daily_same_parameter_paper_rehearsal"] = build_daily_same_parameter_paper_rehearsal(pack)
@@ -4634,8 +4634,14 @@ def build_daily_real_money_transition_gate(pack: dict[str, Any]) -> dict[str, An
     handoff = pack.get("manual_broker_handoff") if isinstance(pack.get("manual_broker_handoff"), dict) else {}
     health = pack.get("daily_factor_health_monitor") if isinstance(pack.get("daily_factor_health_monitor"), dict) else {}
     profitability = pack.get("live_profitability_readiness") if isinstance(pack.get("live_profitability_readiness"), dict) else {}
+    risk_circuit = (
+        pack.get("daily_execution_risk_circuit_breaker")
+        if isinstance(pack.get("daily_execution_risk_circuit_breaker"), dict)
+        else build_daily_execution_risk_circuit_breaker(pack)
+    )
     health_summary = health.get("summary") if isinstance(health.get("summary"), dict) else {}
     profitability_summary = profitability.get("summary") if isinstance(profitability.get("summary"), dict) else {}
+    risk_circuit_summary = risk_circuit.get("summary") if isinstance(risk_circuit.get("summary"), dict) else {}
     evidence = (
         profitability.get("evidence_snapshot")
         if isinstance(profitability.get("evidence_snapshot"), dict)
@@ -4665,6 +4671,8 @@ def build_daily_real_money_transition_gate(pack: dict[str, Any]) -> dict[str, An
     position_status = str(validation.get("status") or summary.get("current_position_status") or "not_provided")
     health_decision = str(health_summary.get("decision") or "waiting_for_top3_candidates")
     profitability_decision = str(profitability_summary.get("decision") or "not_ready_for_real_money")
+    risk_circuit_decision = str(risk_circuit_summary.get("decision") or "risk_state_not_observed")
+    risk_circuit_blocked = bool(risk_circuit_summary.get("risk_circuit_blocked"))
     health_blocked = bool(health_summary.get("retirement_required_before_live")) or "retire" in health_decision
     next_session_quarantine_required = bool(health_summary.get("next_session_quarantine_required"))
     next_session_quarantine_required_count = _int(health_summary.get("same_parameter_top3_required_requests"), 0)
@@ -4706,6 +4714,12 @@ def build_daily_real_money_transition_gate(pack: dict[str, Any]) -> dict[str, An
         next_label = "查看盘前红灯"
         next_target = "daily-pretrade-readiness-verdict"
         next_workflow = ""
+    elif risk_circuit_blocked:
+        decision = "blocked_risk_circuit_breaker"
+        plain_answer = "当日亏损、回撤、连续亏损或冷却期风险熔断为红灯；今天只能纸面复盘，不能推进人工券商复核。"
+        next_label = "记录风险事件"
+        next_target = "beginner-post-close-journal-board"
+        next_workflow = "post_close_journal"
     elif health_blocked:
         decision = "rotate_or_reduce_top3_first"
         plain_answer = "Top3 中存在退役或降权候选，先替换、降权或只观察，不能推进到真实资金。"
@@ -4816,6 +4830,18 @@ def build_daily_real_money_transition_gate(pack: dict[str, Any]) -> dict[str, An
             required_before="paper_rehearsal",
         ),
         _real_money_transition_gate_row(
+            "daily_risk_circuit_breaker",
+            "当日风险熔断",
+            "blocked" if risk_circuit_blocked else "pass",
+            str(risk_circuit_summary.get("plain_answer") or risk_circuit_decision),
+            "beginner-post-close-journal-board" if risk_circuit_blocked else "daily-pre-execution-guard",
+            "post_close_journal" if risk_circuit_blocked else "",
+            required_before="manual_review",
+            observed_count=1 if bool(risk_circuit_summary.get("risk_state_observed")) else 0,
+            required_count=1,
+            missing_count=0 if bool(risk_circuit_summary.get("risk_state_observed")) else 1,
+        ),
+        _real_money_transition_gate_row(
             "research_evidence",
             "OOS / 未来函数 / 多重检验 / 成本容量",
             research_evidence_status,
@@ -4892,6 +4918,8 @@ def build_daily_real_money_transition_gate(pack: dict[str, Any]) -> dict[str, An
                 "manual_ticket_count": ticket_count,
                 "factor_health_decision": health_decision,
                 "live_profitability_decision": profitability_decision,
+                "risk_circuit_decision": risk_circuit_decision,
+                "risk_circuit_blocked": risk_circuit_blocked,
                 "readiness_score_pct": _int(profitability_summary.get("readiness_score_pct"), 0),
                 "matched_paper_receipts": _int(profitability_summary.get("matched_paper_receipts"), 0),
                 "post_close_journal_receipts": _int(profitability_summary.get("post_close_journal_receipts"), 0),
@@ -4916,6 +4944,7 @@ def build_daily_real_money_transition_gate(pack: dict[str, Any]) -> dict[str, An
                 and not health_blocked
                 and not next_session_quarantine_required
                 and not risk_blocked
+                and not risk_circuit_blocked
                 and manual_execution_status == "pass",
                 "production_manual_review_candidate": bool(
                     profitability_summary.get("production_manual_review_candidate")
@@ -4923,6 +4952,7 @@ def build_daily_real_money_transition_gate(pack: dict[str, Any]) -> dict[str, An
                 and not health_blocked
                 and not next_session_quarantine_required
                 and not risk_blocked
+                and not risk_circuit_blocked
                 and manual_execution_status == "pass",
                 "next_label": next_label,
                 "next_target_id": next_target,
@@ -4962,6 +4992,7 @@ def build_daily_real_money_transition_gate(pack: dict[str, Any]) -> dict[str, An
             "evidence_snapshot": evidence,
             "live_profitability_summary": profitability_summary,
             "factor_health_summary": health_summary,
+            "risk_circuit_summary": risk_circuit_summary,
         }
     )
 
@@ -4988,6 +5019,12 @@ def build_daily_manual_trading_session(pack: dict[str, Any]) -> dict[str, Any]:
     )
     health = pack.get("daily_factor_health_monitor") if isinstance(pack.get("daily_factor_health_monitor"), dict) else {}
     health_summary = health.get("summary") if isinstance(health.get("summary"), dict) else {}
+    risk_circuit = (
+        pack.get("daily_execution_risk_circuit_breaker")
+        if isinstance(pack.get("daily_execution_risk_circuit_breaker"), dict)
+        else build_daily_execution_risk_circuit_breaker(pack)
+    )
+    risk_circuit_summary = risk_circuit.get("summary") if isinstance(risk_circuit.get("summary"), dict) else {}
     handoff = pack.get("manual_broker_handoff") if isinstance(pack.get("manual_broker_handoff"), dict) else {}
     preflight_rows = [row for row in transition.get("preflight_rows", []) if isinstance(row, dict)]
     gate_by_id = {str(row.get("gate_id")): row for row in preflight_rows if row.get("gate_id")}
@@ -5040,6 +5077,16 @@ def build_daily_manual_trading_session(pack: dict[str, Any]) -> dict[str, Any]:
     readiness_blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
     transition_decision = str(transition_summary.get("decision") or "")
     health_decision = str(health_summary.get("decision") or "")
+    risk_circuit_decision = str(
+        transition_summary.get("risk_circuit_decision")
+        or risk_circuit_summary.get("decision")
+        or "risk_state_not_observed"
+    )
+    risk_circuit_blocked = bool(
+        transition_summary.get("risk_circuit_blocked")
+        or risk_circuit_summary.get("risk_circuit_blocked")
+        or transition_decision == "blocked_risk_circuit_breaker"
+    )
     pretrade_blocked = (
         position_status == "error"
         or bool(readiness_blockers)
@@ -5065,6 +5112,8 @@ def build_daily_manual_trading_session(pack: dict[str, Any]) -> dict[str, Any]:
 
     if pretrade_blocked:
         session_status = "blocked_pretrade_red_light"
+    elif risk_circuit_blocked:
+        session_status = "blocked_risk_circuit_breaker"
     elif health_blocked:
         session_status = "blocked_factor_health_rotation_required"
     elif not has_same_day_signal:
@@ -5103,6 +5152,8 @@ def build_daily_manual_trading_session(pack: dict[str, Any]) -> dict[str, Any]:
         manual_blocked=manual_blocked,
         manual_missing=manual_missing,
         pretrade_blocked=pretrade_blocked,
+        risk_circuit_blocked=risk_circuit_blocked,
+        risk_circuit_decision=risk_circuit_decision,
         health_blocked=health_blocked,
         next_session_quarantine_required=next_session_quarantine_required,
         next_session_quarantine_missing_count=next_session_quarantine_missing_count,
@@ -5137,6 +5188,8 @@ def build_daily_manual_trading_session(pack: dict[str, Any]) -> dict[str, Any]:
                     or transition_summary.get("next_session_reuse_status")
                     or "waiting_for_top3_candidates"
                 ),
+                "risk_circuit_decision": risk_circuit_decision,
+                "risk_circuit_blocked": risk_circuit_blocked,
                 "manual_broker_review_candidate": manual_broker_review_candidate,
                 "small_capital_observation_candidate": small_candidate and not blocked,
                 "production_manual_review_candidate": production_candidate and not blocked,
@@ -5179,6 +5232,7 @@ def build_daily_manual_trading_session(pack: dict[str, Any]) -> dict[str, Any]:
             "manual_ticket_preview": manual_ticket_preview,
             "transition_summary": transition_summary,
             "profitability_summary": profitability_summary,
+            "risk_circuit_summary": risk_circuit_summary,
             "forbidden_actions": _real_money_transition_forbidden_actions(),
             "session_rules": [
                 {
@@ -5223,6 +5277,8 @@ def _daily_manual_session_blocking_gates(
     manual_blocked: int,
     manual_missing: int,
     pretrade_blocked: bool,
+    risk_circuit_blocked: bool,
+    risk_circuit_decision: str,
     health_blocked: bool,
     next_session_quarantine_required: bool,
     next_session_quarantine_missing_count: int,
@@ -5236,6 +5292,14 @@ def _daily_manual_session_blocking_gates(
             "daily-pretrade-readiness-verdict",
             "",
             "Fix current positions and pretrade blockers first.",
+        ),
+        (
+            "daily_risk_circuit_breaker",
+            "Daily risk circuit breaker",
+            not risk_circuit_blocked,
+            "beginner-post-close-journal-board" if risk_circuit_blocked else "daily-pre-execution-guard",
+            "post_close_journal" if risk_circuit_blocked else "",
+            f"risk_circuit_decision={risk_circuit_decision}.",
         ),
         (
             "factor_health",
@@ -5311,7 +5375,7 @@ def _daily_manual_session_blocking_gates(
                 "gate_id": gate_id,
                 "label": label,
                 "status": "blocked"
-                if gate_id in {"pretrade_red_light", "factor_health", "next_session_quarantine"}
+                if gate_id in {"pretrade_red_light", "daily_risk_circuit_breaker", "factor_health", "next_session_quarantine"}
                 else "required",
                 "evidence": evidence,
                 "target_id": target_id,
@@ -5496,6 +5560,7 @@ def _daily_manual_session_step(
 def _daily_manual_session_plain_answer(session_status: str) -> str:
     answers = {
         "blocked_pretrade_red_light": "Pretrade blockers remain; do not move toward broker-side action.",
+        "blocked_risk_circuit_breaker": "Daily loss, drawdown, or cooldown circuit breaker is red; stay in paper mode and record a risk review.",
         "blocked_factor_health_rotation_required": "A Top3 factor needs retirement or lower weight before manual review.",
         "blocked_next_session_quarantine_required": "Top3 reuse evidence is incomplete; finish same-parameter paper, post-close journal, and execution audit before manual review.",
         "blocked_same_day_signal_required": "Generate today's CN_ETF signal before any manual review.",
