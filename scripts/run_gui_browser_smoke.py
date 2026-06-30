@@ -447,6 +447,27 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "daily_pre_execution_guard_frontend",
+            "Daily pre-execution guard frontend",
+            index_html.get("ok")
+            and "daily-pre-execution-guard" in str(index_html.get("body", ""))
+            and "daily-pre-execution-summary" in str(index_html.get("body", ""))
+            and "daily-pre-execution-rows" in str(index_html.get("body", ""))
+            and "daily-pre-execution-rules" in str(index_html.get("body", ""))
+            and "daily-pre-execution-steps" in str(index_html.get("body", ""))
+            and app_js.get("ok")
+            and "renderDailyPreExecutionGuard" in str(app_js.get("body", ""))
+            and "daily_pre_execution_guard" in str(app_js.get("body", ""))
+            and "blocked_signal_freshness" in str(app_js.get("body", ""))
+            and "broker_price_outside_guardrail" in str(app_js.get("body", "")),
+            "Frontend exposes the daily pre-execution guard with signal freshness, ETF price guardrails, skip rules, and operator steps.",
+            index_html.get("error")
+            or app_js.get("error")
+            or "Daily pre-execution guard frontend anchors or renderer hooks are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "daily_closure_streak_frontend",
             "Daily closure streak frontend",
             index_html.get("ok")

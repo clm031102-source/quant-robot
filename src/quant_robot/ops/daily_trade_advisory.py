@@ -40,6 +40,7 @@ DAILY_CANDIDATE_POOL_TOP20_STAGE = "phase_6_22_daily_candidate_pool_top20"
 MANUAL_EXECUTION_AUDIT_STAGE = "phase_6_23_manual_execution_audit"
 DAILY_MANUAL_TRADING_SESSION_STAGE = "phase_6_24_daily_manual_trading_session"
 DAILY_PAPER_ALLOCATION_PLAYBOOK_STAGE = "phase_6_25_daily_paper_allocation_playbook"
+DAILY_PRE_EXECUTION_GUARD_STAGE = "phase_6_26_daily_pre_execution_guard"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 MANUAL_PRICE_DEVIATION_GUARD_PCT = 0.005
@@ -435,6 +436,7 @@ def build_daily_trade_advisory_pack(
     pack["daily_real_money_transition_gate"] = build_daily_real_money_transition_gate(pack)
     pack["daily_manual_trading_session"] = build_daily_manual_trading_session(pack)
     pack["daily_paper_allocation_playbook"] = build_daily_paper_allocation_playbook(pack)
+    pack["daily_pre_execution_guard"] = build_daily_pre_execution_guard(pack)
     pack["summary"]["live_transition_status"] = pack["live_transition_plan"]["summary"]["status"]
     pack["summary"]["trading_system_status"] = pack["trading_system_blueprint"]["summary"]["status"]
     pack["summary"]["execution_bridge_status"] = pack["daily_signal_execution_bridge"]["summary"]["status"]
@@ -447,6 +449,7 @@ def build_daily_trade_advisory_pack(
     pack["summary"]["paper_allocation_playbook_status"] = pack["daily_paper_allocation_playbook"]["summary"][
         "allocation_status"
     ]
+    pack["summary"]["pre_execution_guard_status"] = pack["daily_pre_execution_guard"]["summary"]["guard_status"]
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
 
@@ -5625,6 +5628,267 @@ def _paper_allocation_plain_answer(allocation_status: str) -> str:
         "paper_rehearsal_required": "Use these rows for same-parameter paper rehearsal and collect receipts before any human broker review.",
     }
     return answers.get(allocation_status, "Review allocation rows in paper mode before any human decision.")
+
+
+def build_daily_pre_execution_guard(pack: dict[str, Any]) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
+    freshness = readiness.get("freshness") if isinstance(readiness.get("freshness"), dict) else {}
+    playbook = (
+        pack.get("daily_paper_allocation_playbook")
+        if isinstance(pack.get("daily_paper_allocation_playbook"), dict)
+        else build_daily_paper_allocation_playbook(pack)
+    )
+    playbook_summary = playbook.get("summary") if isinstance(playbook.get("summary"), dict) else {}
+    allocation_rows = [row for row in playbook.get("allocation_rows", []) if isinstance(row, dict)]
+    guardrails = [_pre_execution_row_guardrail(row) for row in allocation_rows]
+    signal_fresh = freshness.get("fresh_for_run_date") is True
+    manual_ticket_count = _session_count(
+        playbook_summary.get("manual_ticket_count"),
+        summary.get("manual_ticket_count"),
+    )
+    manual_candidate = bool(playbook_summary.get("manual_broker_review_candidate"))
+    has_rows = bool(guardrails)
+    risk_blocked = any(bool(row.get("risk_blocked")) for row in guardrails)
+    price_missing = any(row.get("reference_price") is None or _int(row.get("paper_quantity"), 0) <= 0 for row in guardrails)
+
+    if not signal_fresh:
+        guard_status = "blocked_signal_freshness"
+    elif not has_rows:
+        guard_status = "blocked_no_allocation_rows"
+    elif risk_blocked:
+        guard_status = "blocked_risk_budget"
+    elif price_missing:
+        guard_status = "blocked_price_reference"
+    elif manual_candidate:
+        guard_status = "manual_review_candidate"
+    else:
+        guard_status = "paper_rehearsal_only"
+
+    blocked = guard_status.startswith("blocked")
+    traffic_light = "red" if blocked else "yellow"
+    paper_rehearsal_allowed = guard_status in {"paper_rehearsal_only", "manual_review_candidate"}
+    manual_broker_review_allowed = guard_status == "manual_review_candidate"
+    skip_rules = _pre_execution_skip_rules(
+        guard_status=guard_status,
+        signal_fresh=signal_fresh,
+        manual_ticket_count=manual_ticket_count,
+        has_rows=has_rows,
+        risk_blocked=risk_blocked,
+        price_missing=price_missing,
+    )
+    return _sanitize(
+        {
+            "stage": DAILY_PRE_EXECUTION_GUARD_STAGE,
+            "run_date": str(pack.get("run_date") or date.today().isoformat()),
+            "safety": SAFETY_NOTICE,
+            "summary": {
+                "guard_status": guard_status,
+                "traffic_light": traffic_light,
+                "plain_answer": _pre_execution_plain_answer(guard_status),
+                "primary_market": str(playbook_summary.get("primary_market") or "CN_ETF"),
+                "allocation_row_count": len(guardrails),
+                "manual_ticket_count": manual_ticket_count,
+                "signal_fresh": signal_fresh,
+                "run_date": freshness.get("run_date") or pack.get("run_date"),
+                "latest_signal_date": freshness.get("latest_signal_date"),
+                "paper_rehearsal_allowed": paper_rehearsal_allowed,
+                "manual_broker_review_allowed": manual_broker_review_allowed,
+                "can_buy_today": False,
+                "real_money_allowed": False,
+                "live_trading_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+                "next_rule_id": next((row.get("rule_id") for row in skip_rules if row.get("status") != "pass"), None),
+            },
+            "row_guardrails": guardrails,
+            "skip_rules": skip_rules,
+            "operator_steps": _pre_execution_operator_steps(
+                guard_status=guard_status,
+                paper_rehearsal_allowed=paper_rehearsal_allowed,
+                manual_broker_review_allowed=manual_broker_review_allowed,
+            ),
+            "source_playbook_summary": playbook_summary,
+            "execution_boundary": {
+                "plain_boundary": "This guard only tells the human whether paper rehearsal or manual review is allowed; it never submits orders.",
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+            },
+        }
+    )
+
+
+def _pre_execution_row_guardrail(row: dict[str, Any]) -> dict[str, Any]:
+    reference_price = _float_or_none(row.get("reference_price"))
+    paper_value = max(0.0, _float(row.get("paper_budget_value"), 0.0))
+    lower = round(reference_price * (1 - MANUAL_PRICE_DEVIATION_GUARD_PCT), 6) if reference_price else None
+    upper = round(reference_price * (1 + MANUAL_PRICE_DEVIATION_GUARD_PCT), 6) if reference_price else None
+    return {
+        "row_number": _int(row.get("row_number"), 0),
+        "asset_id": row.get("asset_id"),
+        "market": row.get("market") or "CN_ETF",
+        "side": row.get("side") or "buy_or_adjust",
+        "execution_mode": row.get("execution_mode") or "paper_rehearsal_only",
+        "source_kind": row.get("source_kind") or "manual_ticket",
+        "target_weight": _float_or_none(row.get("target_weight")),
+        "paper_budget_value": round(paper_value, 6),
+        "paper_quantity": _int(row.get("paper_quantity"), 0),
+        "reference_price": reference_price,
+        "lower_price_bound": lower,
+        "upper_price_bound": upper,
+        "max_reference_price_deviation_pct": MANUAL_PRICE_DEVIATION_GUARD_PCT,
+        "max_slippage_bps": MANUAL_MAX_SLIPPAGE_BPS,
+        "max_estimated_slippage_cost": round(paper_value * MANUAL_MAX_SLIPPAGE_BPS / 10000, 6),
+        "risk_blocked": bool(row.get("risk_blocked")),
+        "risk_budget": row.get("risk_budget") if isinstance(row.get("risk_budget"), dict) else {},
+        "skip_if_price_outside_guardrail": True,
+        "skip_if_quantity_zero": _int(row.get("paper_quantity"), 0) <= 0,
+        "order_placement_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "auto_order_allowed": False,
+    }
+
+
+def _pre_execution_skip_rules(
+    *,
+    guard_status: str,
+    signal_fresh: bool,
+    manual_ticket_count: int,
+    has_rows: bool,
+    risk_blocked: bool,
+    price_missing: bool,
+) -> list[dict[str, Any]]:
+    rows = [
+        (
+            "stale_signal_date",
+            "pass" if signal_fresh else "blocked",
+            "Skip today if the latest signal date does not match the run date.",
+            "recent-data-refresh-status",
+            "daily_trade_advisory" if not signal_fresh else "",
+        ),
+        (
+            "paper_allocation_missing",
+            "pass" if has_rows else "blocked",
+            "Skip execution review when no paper allocation rows exist.",
+            "daily-paper-allocation-playbook",
+            "daily_trade_advisory" if not has_rows else "",
+        ),
+        (
+            "manual_ticket_missing",
+            "pass" if manual_ticket_count > 0 else "paper_only",
+            "Without manual tickets, only same-parameter paper rehearsal is allowed.",
+            "daily-manual-broker-handoff-ticket-table",
+            "daily_trade_advisory" if manual_ticket_count <= 0 else "",
+        ),
+        (
+            "risk_budget_breached",
+            "blocked" if risk_blocked else "pass",
+            "Skip rows whose single-ETF cap, lot sizing, or risk budget is breached.",
+            "daily-paper-allocation-playbook",
+            "",
+        ),
+        (
+            "price_reference_missing",
+            "blocked" if price_missing else "pass",
+            "Skip rows without reference price or valid board-lot quantity.",
+            "daily-paper-allocation-playbook",
+            "",
+        ),
+        (
+            "broker_price_outside_guardrail",
+            "required" if guard_status == "manual_review_candidate" else "paper_only",
+            "If the external broker price is outside the guardrail, skip or regenerate the plan.",
+            "daily-pre-execution-guard",
+            "",
+        ),
+        (
+            "manual_discomfort",
+            "required",
+            "If the human cannot explain the reason, drawdown budget, and skip trigger, do not proceed.",
+            "daily-pre-execution-guard",
+            "",
+        ),
+    ]
+    return [
+        {
+            "rule_id": rule_id,
+            "status": status,
+            "plain_rule": plain_rule,
+            "target_id": target_id,
+            "workflow_id": workflow_id,
+            "order_placement_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "auto_order_allowed": False,
+        }
+        for rule_id, status, plain_rule, target_id, workflow_id in rows
+    ]
+
+
+def _pre_execution_operator_steps(
+    *,
+    guard_status: str,
+    paper_rehearsal_allowed: bool,
+    manual_broker_review_allowed: bool,
+) -> list[dict[str, Any]]:
+    def step(step_id: str, label: str, status: str, target_id: str, workflow_id: str = "") -> dict[str, Any]:
+        return {
+            "step_id": step_id,
+            "label": label,
+            "status": status,
+            "target_id": target_id,
+            "workflow_id": workflow_id,
+            "manual_required": True,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        }
+
+    if guard_status == "blocked_signal_freshness":
+        return [
+            step("refresh_cn_etf_data", "Refresh CN_ETF data and regenerate today's signal", "blocked", "recent-data-refresh-status", "daily_trade_advisory"),
+            step("do_not_trade_stale_signal", "Do not rehearse or manually review stale signals", "forbidden", "daily-pre-execution-guard"),
+            step("review_paper_allocation_rows", "Review ETF, weight, budget, quantity, and cash after fresh signals exist", "locked", "daily-paper-allocation-playbook"),
+            step("verify_realtime_price_guardrail", "Compare external real-time price with the guardrail only after fresh signals exist", "locked", "daily-pre-execution-guard"),
+            step("run_same_parameter_paper", "Run same-parameter paper rehearsal only after the freshness gate passes", "locked", "paper-metrics"),
+            step("record_post_close_journal", "Record the skip reason and refresh result after the session", "required", "beginner-post-close-journal-board", "post_close_journal"),
+        ]
+    steps = [
+        step("review_paper_allocation_rows", "Review ETF, weight, budget, quantity, and cash", "pass" if paper_rehearsal_allowed else "blocked", "daily-paper-allocation-playbook"),
+        step("verify_realtime_price_guardrail", "Compare external real-time price with the guardrail before any human action", "required" if paper_rehearsal_allowed else "locked", "daily-pre-execution-guard"),
+        step("run_same_parameter_paper", "Run same-parameter paper rehearsal", "required" if paper_rehearsal_allowed else "locked", "paper-metrics", "paper_simulation" if paper_rehearsal_allowed else ""),
+        step("record_post_close_journal", "Record outcome, skip reason, and price/slippage observation", "required", "beginner-post-close-journal-board", "post_close_journal"),
+    ]
+    if manual_broker_review_allowed:
+        steps.append(
+            step(
+                "open_external_broker_manually_if_human_chooses",
+                "Only the human may open an external broker app after every guard passes",
+                "manual_review_only",
+                "daily-manual-trading-session",
+            )
+        )
+    else:
+        steps.append(step("stay_in_paper_mode", "Stay in paper mode until tickets and evidence are complete", "required", "paper-metrics", "paper_simulation"))
+    return steps
+
+
+def _pre_execution_plain_answer(guard_status: str) -> str:
+    answers = {
+        "blocked_signal_freshness": "Today's signal is stale; refresh CN_ETF data and regenerate the signal before any rehearsal or manual review.",
+        "blocked_no_allocation_rows": "No allocation rows exist; generate today's Top3 CN_ETF signal first.",
+        "blocked_risk_budget": "Risk budget is breached; reduce exposure or skip the row before rehearsal.",
+        "blocked_price_reference": "A row lacks reference price or valid quantity; skip or regenerate before review.",
+        "manual_review_candidate": "Manual review material is available, but buying remains an external human decision and the software cannot place orders.",
+        "paper_rehearsal_only": "Only same-parameter paper rehearsal is allowed; do not copy rows into a broker ticket.",
+    }
+    return answers.get(guard_status, "Review freshness, allocation rows, price guardrails, and skip rules before any human decision.")
 
 
 def _transition_gate_status(gate_by_id: dict[str, dict[str, Any]], gate_id: str) -> str:

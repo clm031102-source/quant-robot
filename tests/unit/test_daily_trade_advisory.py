@@ -7,6 +7,7 @@ from quant_robot.ops.daily_trade_advisory import (
     build_daily_candidate_pool_top20,
     build_daily_manual_trading_session,
     build_daily_paper_allocation_playbook,
+    build_daily_pre_execution_guard,
     build_manual_execution_audit,
     build_daily_trade_decision_sheet,
     build_manual_ticket_export,
@@ -1748,6 +1749,112 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertTrue(all(row["order_placement_allowed"] is False for row in playbook["allocation_rows"]))
         self.assertIn("manual_ticket_pack", {row["gate_id"] for row in playbook["promotion_gates"]})
         self.assertIn("run_same_parameter_paper", {row["step_id"] for row in playbook["operator_steps"]})
+
+    def test_pre_execution_guard_blocks_stale_signals_before_any_rehearsal_or_manual_review(self):
+        pack = _build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_quality_combo", "market": "CN_ETF", "sharpe": 1.3},
+                {"rank": 2, "case_id": "c2", "factor_name": "low_vol_overlay", "market": "CN_ETF", "sharpe": 1.1},
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.20}, latest_price=4.0, signal_date="2026-05-21"),
+                _signal("c2", "low_vol_overlay", {"588000": 0.10}, latest_price=1.5, signal_date="2026-05-21"),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+        )
+
+        guard = pack["daily_pre_execution_guard"]
+        direct = build_daily_pre_execution_guard(pack)
+
+        self.assertEqual(direct, guard)
+        self.assertEqual(guard["stage"], "phase_6_26_daily_pre_execution_guard")
+        self.assertEqual(pack["summary"]["pre_execution_guard_status"], "blocked_signal_freshness")
+        self.assertEqual(guard["summary"]["guard_status"], "blocked_signal_freshness")
+        self.assertEqual(guard["summary"]["traffic_light"], "red")
+        self.assertFalse(guard["summary"]["paper_rehearsal_allowed"])
+        self.assertFalse(guard["summary"]["manual_broker_review_allowed"])
+        self.assertFalse(guard["summary"]["can_buy_today"])
+        self.assertFalse(guard["summary"]["order_placement_allowed"])
+        self.assertIn("stale_signal_date", {row["rule_id"] for row in guard["skip_rules"]})
+        self.assertIn("refresh_cn_etf_data", {row["step_id"] for row in guard["operator_steps"]})
+        self.assertTrue(all(row["order_placement_allowed"] is False for row in guard["operator_steps"]))
+
+    def test_pre_execution_guard_allows_paper_only_when_targets_exist_without_manual_tickets(self):
+        pack = _build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_quality_combo", "market": "CN_ETF", "sharpe": 1.3},
+                {"rank": 2, "case_id": "c2", "factor_name": "low_vol_overlay", "market": "CN_ETF", "sharpe": 1.1},
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.20}, latest_price=4.0),
+                _signal("c2", "low_vol_overlay", {"588000": 0.10}, latest_price=1.5),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="balanced_20dd",
+        )
+
+        guard = pack["daily_pre_execution_guard"]
+
+        self.assertEqual(guard["summary"]["guard_status"], "paper_rehearsal_only")
+        self.assertEqual(guard["summary"]["traffic_light"], "yellow")
+        self.assertTrue(guard["summary"]["paper_rehearsal_allowed"])
+        self.assertFalse(guard["summary"]["manual_broker_review_allowed"])
+        self.assertFalse(guard["summary"]["can_buy_today"])
+        self.assertFalse(guard["summary"]["order_placement_allowed"])
+        self.assertIn("manual_ticket_missing", {row["rule_id"] for row in guard["skip_rules"]})
+        rows_by_asset = {row["asset_id"]: row for row in guard["row_guardrails"]}
+        self.assertEqual(rows_by_asset["510300"]["reference_price"], 4.0)
+        self.assertAlmostEqual(rows_by_asset["510300"]["lower_price_bound"], 3.98)
+        self.assertAlmostEqual(rows_by_asset["510300"]["upper_price_bound"], 4.02)
+        self.assertEqual(rows_by_asset["510300"]["max_slippage_bps"], 10)
+        self.assertTrue(all(row["execution_mode"] == "paper_rehearsal_only" for row in guard["row_guardrails"]))
+        self.assertTrue(all(row["order_placement_allowed"] is False for row in guard["row_guardrails"]))
+
+    def test_pre_execution_guard_keeps_manual_review_candidate_manual_only(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_quality_combo", "market": "CN_ETF", "sharpe": 1.35},
+                {"rank": 2, "case_id": "c2", "factor_name": "low_vol_overlay", "market": "CN_ETF", "sharpe": 1.05},
+                {"rank": 3, "case_id": "c3", "factor_name": "breadth_trend_state", "market": "CN_ETF", "sharpe": 0.98},
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.2}),
+                _signal("c2", "low_vol_overlay", {"588000": 0.2}),
+                _signal("c3", "breadth_trend_state", {"159915": 0.2}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="aggressive_30dd",
+            evidence_snapshot={
+                "walk_forward_oos_passed": True,
+                "lookahead_bias_audit_passed": True,
+                "multiple_testing_control_passed": True,
+                "transaction_cost_capacity_passed": True,
+                "matched_paper_receipts": 5,
+                "post_close_journals": 5,
+                "manual_execution_clean_receipts": 5,
+                "manual_execution_blocked_receipts": 0,
+                "paper_ready_observations": 20,
+            },
+        )
+
+        guard = pack["daily_pre_execution_guard"]
+
+        self.assertEqual(guard["summary"]["guard_status"], "manual_review_candidate")
+        self.assertEqual(guard["summary"]["traffic_light"], "yellow")
+        self.assertTrue(guard["summary"]["paper_rehearsal_allowed"])
+        self.assertTrue(guard["summary"]["manual_broker_review_allowed"])
+        self.assertFalse(guard["summary"]["can_buy_today"])
+        self.assertFalse(guard["summary"]["real_money_allowed"])
+        self.assertFalse(guard["summary"]["broker_connection_allowed"])
+        self.assertFalse(guard["summary"]["account_read_allowed"])
+        self.assertFalse(guard["summary"]["order_placement_allowed"])
+        self.assertIn("verify_realtime_price_guardrail", {row["step_id"] for row in guard["operator_steps"]})
+        self.assertIn("open_external_broker_manually_if_human_chooses", {row["step_id"] for row in guard["operator_steps"]})
+        self.assertIn("broker_price_outside_guardrail", {row["rule_id"] for row in guard["skip_rules"]})
+        self.assertTrue(all(row["order_placement_allowed"] is False for row in guard["row_guardrails"]))
 
     def test_daily_pack_exposes_factor_health_monitor_for_top3_retirement_gate(self):
         pack = build_daily_trade_advisory_pack(
