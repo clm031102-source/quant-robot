@@ -5432,6 +5432,7 @@ function renderDailyTradeAdvisory() {
   renderDailyCurrentPositionHelp(positionValidation);
   renderDailyPortfolioValueHelp();
   renderDailyLiveReadinessGate(pack.daily_live_readiness_gate || {});
+  renderDailyTradeDecisionSheet(pack.daily_trade_decision_sheet || {});
   renderDailyPretradeReadiness(pack.pretrade_readiness || {});
   renderDailyPretradeNextActions(pack.operator_next_actions || pack.pretrade_workflow?.operator_next_actions || []);
   renderManualBrokerHandoff(pack.manual_broker_handoff || {});
@@ -5643,6 +5644,74 @@ function renderDailyLiveReadinessGate(gate = {}) {
       <span>${escapeHtml(item.plain_warning || "不要绕过实盘前闸门。")}</span>
     </div>
   `).join("") : statusRows([["禁止捷径", "不要把今日前三、旧信号或单次高收益直接当成实盘交易指令。", "danger"]]);
+}
+
+function renderDailyTradeDecisionSheet(sheet = {}) {
+  const root = byId("daily-trade-decision-sheet");
+  const summaryTarget = byId("daily-trade-decision-summary");
+  const top3Target = byId("daily-trade-decision-top3");
+  const actionTarget = byId("daily-trade-decision-actions");
+  const evidenceTarget = byId("daily-trade-decision-evidence");
+  if (!root || !summaryTarget || !top3Target || !actionTarget || !evidenceTarget) return;
+  const summary = sheet.summary || {};
+  const next = sheet.what_to_do_now || {};
+  const decision = summary.decision || "waiting_for_daily_signal";
+  const tone = decision.includes("blocked") ? "danger" : decision === "paper_first_manual_review" ? "warn" : "warn";
+  const paperReceipt = latestExecutionReceipt("paper_simulation");
+  const journalReceiptCount = executionReceiptsForWorkflow("post_close_journal").length;
+  summaryTarget.innerHTML = statusRows([
+    ["今日结论", zhConsoleText(decision), tone],
+    ["一句话", summary.plain_answer || "先生成今日前三 CN_ETF 建议，再按证据链复核。", tone],
+    ["下一步", next.plain_action || next.button_label || "查看今日建议", tone],
+    ["信号/票据", `信号=${formatNumber(summary.signal_count || 0)} / 目标=${formatNumber(summary.target_count || 0)} / 票据=${formatNumber(summary.manual_ticket_count || 0)}`, "muted"],
+    ["自动下单", summary.order_placement_allowed ? "异常开启" : "禁止", summary.order_placement_allowed ? "danger" : "ok"],
+  ]);
+
+  const top3 = Array.isArray(sheet.daily_top3) ? sheet.daily_top3 : [];
+  top3Target.innerHTML = top3.length ? top3.map((item, index) => `
+    <div class="list-row ${escapeHtml(item.signal_status === "signal_ready" ? "ok" : "warn")}">
+      <strong>${escapeHtml(`${item.rank || index + 1}. ${item.factor_name || "--"}`)}</strong>
+      <span>${escapeHtml(`信号=${zhConsoleText(item.signal_status || "missing")} / 日期=${item.signal_date || "--"} / 目标=${formatNumber(item.target_count || 0)}`)}</span>
+      <span>${escapeHtml(`Sharpe=${formatDecimal(item.sharpe)} / 年化=${formatPercent(item.annualized_return)} / 回撤=${formatPercent(item.max_drawdown)} / 胜率=${formatPercent(item.win_rate)} / RankIC=${formatDecimal(item.rank_ic)}`)}</span>
+      <span>${escapeHtml(item.plain_conclusion || item.promotion_label || "只作为今日复核输入，不是直接买入指令。")}</span>
+    </div>
+  `).join("") : statusRows([["Top3 因子", "暂无今日候选。先生成今日前三 CN_ETF 建议。", "warn"]]);
+
+  const actions = Array.isArray(sheet.today_actions) ? sheet.today_actions : [];
+  actionTarget.innerHTML = actions.length ? actions.map((item) => `
+    <div class="list-row warn">
+      <strong>${escapeHtml(`${item.step_number || "--"}. ${item.asset_id || "--"} / ${zhConsoleText(item.side || "review")}`)}</strong>
+      <span>${escapeHtml(`参考价=${formatNumber(item.reference_price)} / 数量=${formatNumber(item.rounded_quantity)} / 金额=${formatNumber(item.rounded_value)} / 权重=${formatPercent(item.target_weight)}`)}</span>
+      <span>${escapeHtml(item.plain_instruction || "仅供人工复核，不是订单。")}</span>
+      <span>${escapeHtml(item.order_placement_allowed ? "异常：允许下单" : "系统下单=禁止")}</span>
+    </div>
+  `).join("") : statusRows([["今日票据", "暂无可复核票据。红灯或无信号时不要手工买卖。", "danger"]]);
+
+  const evidenceRows = Array.isArray(sheet.missing_evidence) ? sheet.missing_evidence : [];
+  evidenceTarget.innerHTML = evidenceRows.length ? evidenceRows.map((item) => {
+    const localStatus = item.check_id === "paper_simulation_receipt" && paperReceipt
+      ? "local_receipt_seen"
+      : item.check_id === "post_close_journal_plan" && journalReceiptCount > 0
+        ? "local_receipt_seen"
+        : item.status || "missing";
+    const rowTone = dailyTradeDecisionEvidenceTone(localStatus);
+    return `
+      <div class="list-row ${escapeHtml(rowTone)}">
+        <strong>${escapeHtml(item.label || item.check_id || "")}</strong>
+        <span>${escapeHtml(zhConsoleText(localStatus))}</span>
+        <span>${escapeHtml(item.why || "")}</span>
+        <span class="beginner-task-actions">
+          ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("看证据")}</button>` : ""}
+        </span>
+      </div>
+    `;
+  }).join("") : statusRows([["缺失证据", "暂无结构化缺失项；仍需人工确认模拟盘、风险、现金和券商端实时价格。", "warn"]]);
+}
+
+function dailyTradeDecisionEvidenceTone(status = "") {
+  if (["pass", "ready", "local_receipt_seen"].includes(status)) return "ok";
+  if (["blocked", "failed"].includes(status)) return "danger";
+  return "warn";
 }
 
 function renderDailyLiveTransitionPlan(plan = {}) {

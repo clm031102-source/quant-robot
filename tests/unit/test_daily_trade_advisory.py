@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from quant_robot.ops.daily_trade_advisory import (
+    build_daily_trade_decision_sheet,
     build_manual_ticket_export,
     build_daily_trade_advisory_pack,
     build_daily_pretrade_workflow,
@@ -317,6 +318,34 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         for forbidden in ["account_id", "broker_id", "client_id", "order_id", "order_placement_allowed"]:
             self.assertNotIn(forbidden, export["csv_text"])
             self.assertNotIn(forbidden, export["columns"])
+
+    def test_daily_trade_decision_sheet_summarizes_today_actions_without_orders(self):
+        pack = build_daily_trade_advisory_pack(
+            [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF", "sharpe": 1.2}],
+            [_signal("c1", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+        )
+
+        sheet = build_daily_trade_decision_sheet(pack)
+
+        self.assertEqual(sheet["stage"], "phase_6_14_daily_trade_decision_sheet")
+        self.assertEqual(sheet["summary"]["decision"], "paper_first_manual_review")
+        self.assertEqual(sheet["summary"]["answer_code"], "not_yet")
+        self.assertFalse(sheet["summary"]["live_trading_allowed"])
+        self.assertFalse(sheet["summary"]["broker_connection_allowed"])
+        self.assertFalse(sheet["summary"]["account_read_allowed"])
+        self.assertFalse(sheet["summary"]["order_placement_allowed"])
+        self.assertEqual(sheet["what_to_do_now"]["target_id"], "paper-metrics")
+        self.assertEqual(sheet["daily_top3"][0]["factor_name"], "momentum_2")
+        self.assertEqual(sheet["today_actions"][0]["asset_id"], "510300")
+        self.assertEqual(sheet["today_actions"][0]["rounded_quantity"], 10400)
+        self.assertEqual(sheet["today_actions"][0]["action_type"], "manual_review_ticket")
+        self.assertFalse(sheet["today_actions"][0]["order_placement_allowed"])
+        self.assertIn("paper_simulation_receipt", {row["check_id"] for row in sheet["missing_evidence"]})
+        self.assertIn("post_close_journal_plan", {row["check_id"] for row in sheet["missing_evidence"]})
+        self.assertIn("daily_top3_signal_review", {row["step_id"] for row in sheet["operator_script"]})
+        self.assertEqual(pack["daily_trade_decision_sheet"]["stage"], "phase_6_14_daily_trade_decision_sheet")
 
     def test_pretrade_readiness_blocks_when_signals_are_missing(self):
         pack = build_daily_trade_advisory_pack(

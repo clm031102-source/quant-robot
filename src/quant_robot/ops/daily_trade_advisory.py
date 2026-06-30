@@ -28,6 +28,7 @@ BEGINNER_TRADE_ACTION_CARD_STAGE = "phase_6_10_beginner_trade_action_card"
 DAILY_LIVE_PILOT_BRIEF_STAGE = "phase_6_11_daily_live_pilot_brief"
 SMALL_CAPITAL_OBSERVATION_GATE_STAGE = "phase_6_12_small_capital_observation_gate"
 MANUAL_TICKET_EXPORT_STAGE = "phase_6_13_manual_ticket_export"
+DAILY_TRADE_DECISION_SHEET_STAGE = "phase_6_14_daily_trade_decision_sheet"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 DEFAULT_RISK_PROFILE_ID = "balanced_20dd"
@@ -194,6 +195,7 @@ def build_daily_trade_advisory_pack(
     pack["small_capital_observation_gate"] = build_small_capital_observation_gate(pack)
     pack["daily_live_pilot_brief"] = build_daily_live_pilot_brief(pack)
     pack["manual_ticket_export"] = build_manual_ticket_export(pack)
+    pack["daily_trade_decision_sheet"] = build_daily_trade_decision_sheet(pack)
     pack["summary"]["live_transition_status"] = pack["live_transition_plan"]["summary"]["status"]
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
@@ -2174,6 +2176,332 @@ def _broker_handoff_ticket(index: int, row: dict[str, Any]) -> dict[str, Any]:
         "live_order_allowed": False,
         "order_placement_allowed": False,
     }
+
+
+def build_daily_trade_decision_sheet(pack: dict[str, Any]) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
+    validation = pack.get("current_position_validation") if isinstance(pack.get("current_position_validation"), dict) else {}
+    handoff = pack.get("manual_broker_handoff") if isinstance(pack.get("manual_broker_handoff"), dict) else {}
+    live_gate = pack.get("daily_live_readiness_gate") if isinstance(pack.get("daily_live_readiness_gate"), dict) else {}
+    action_card = pack.get("beginner_trade_action_card") if isinstance(pack.get("beginner_trade_action_card"), dict) else {}
+    factors = [row for row in pack.get("factors", []) if isinstance(row, dict)]
+    signal_cards = [row for row in pack.get("signal_cards", []) if isinstance(row, dict)]
+    combined_targets = [row for row in pack.get("combined_targets", []) if isinstance(row, dict)]
+    manual_plan = [row for row in pack.get("manual_trade_plan", []) if isinstance(row, dict)]
+    copyable_tickets = [row for row in handoff.get("copyable_tickets", []) if isinstance(row, dict)]
+    blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
+    market = str(pack.get("market") or _first_market(factors) or "CN_ETF").upper()
+    signal_count = _int(summary.get("signal_count"), 0)
+    target_count = _int(summary.get("combined_target_count"), len(combined_targets))
+    ticket_count = _int(summary.get("manual_ticket_count"), len(manual_plan))
+    position_status = str(validation.get("status") or "not_provided")
+    live_summary = live_gate.get("summary") if isinstance(live_gate.get("summary"), dict) else {}
+    action_summary = action_card.get("summary") if isinstance(action_card.get("summary"), dict) else {}
+    action_next = action_card.get("next_action") if isinstance(action_card.get("next_action"), dict) else {}
+
+    if position_status == "error":
+        decision = "blocked_fix_current_positions"
+        answer_code = "no"
+        plain_answer = "不能操作。当前持仓输入含有账户、券商、订单或格式风险，先修正输入。"
+        target_id = "daily-current-positions"
+        button_label = "修正当前持仓"
+        workflow_id = ""
+    elif blockers:
+        decision = "blocked_pretrade_red_light"
+        answer_code = "no"
+        plain_answer = "不能操作。盘前红灯没有清理前，不进入模拟盘或人工券商复核。"
+        target_id = "daily-pretrade-readiness-verdict"
+        button_label = "查看盘前红灯"
+        workflow_id = ""
+    elif ticket_count > 0:
+        decision = "paper_first_manual_review"
+        answer_code = "not_yet"
+        plain_answer = "还不能直接买。先跑同参数模拟盘，再人工核对票据、现金、价格和风险。"
+        target_id = "paper-metrics"
+        button_label = "运行模拟盘复核"
+        workflow_id = "paper_simulation"
+    elif signal_count > 0 and target_count > 0:
+        decision = "waiting_for_manual_tickets"
+        answer_code = "not_yet"
+        plain_answer = "已有今日信号，但还没有完整人工复核票据。先检查价格、仓位和一手取整。"
+        target_id = "daily-trade-target-table"
+        button_label = "检查目标仓位"
+        workflow_id = "daily_trade_advisory"
+    else:
+        decision = "waiting_for_daily_signal"
+        answer_code = "not_yet"
+        plain_answer = "还没有今日可用信号。先生成今日前三 CN_ETF 因子建议。"
+        target_id = "run-daily-trade-advisory"
+        button_label = "生成今日建议"
+        workflow_id = "daily_trade_advisory"
+
+    if action_next.get("target_id"):
+        target_id = str(action_next.get("target_id"))
+        button_label = str(action_next.get("button_label") or button_label)
+        workflow_id = str(action_next.get("workflow_id") or workflow_id)
+    if action_summary.get("plain_answer"):
+        plain_answer = str(action_summary.get("plain_answer"))
+    if live_summary.get("decision") in {"blocked_fix_current_positions", "blocked_pretrade_red_light"}:
+        decision = str(live_summary.get("decision"))
+
+    signal_by_factor = {
+        str(row.get("factor_name") or ""): row
+        for row in signal_cards
+        if str(row.get("factor_name") or "").strip()
+    }
+    daily_top3 = []
+    for index, factor in enumerate(factors[:3], start=1):
+        factor_name = str(factor.get("factor_name") or factor.get("factor") or "")
+        signal = signal_by_factor.get(factor_name, {})
+        daily_top3.append(
+            {
+                "rank": _int(factor.get("rank"), index),
+                "factor_name": factor_name,
+                "case_id": factor.get("case_id"),
+                "market": str(factor.get("market") or market).upper(),
+                "signal_status": signal.get("status") or "missing",
+                "signal_date": signal.get("signal_date") or signal.get("as_of_date"),
+                "target_count": _int(signal.get("target_count"), 0),
+                "sharpe": _float_or_none(factor.get("sharpe")),
+                "annualized_return": _float_or_none(factor.get("annualized_return")),
+                "total_return": _float_or_none(factor.get("total_return")),
+                "max_drawdown": _float_or_none(factor.get("max_drawdown")),
+                "win_rate": _float_or_none(factor.get("win_rate")),
+                "rank_ic": _float_or_none(factor.get("rank_ic")),
+                "promotion_label": factor.get("promotion_label"),
+                "plain_conclusion": factor.get("plain_conclusion"),
+                "params": factor.get("params") if isinstance(factor.get("params"), dict) else {},
+                "direct_order_allowed": False,
+            }
+        )
+
+    ticket_source = copyable_tickets if copyable_tickets else ([] if blockers or position_status == "error" else manual_plan)
+    today_actions = [_decision_sheet_action(index, row) for index, row in enumerate(ticket_source, start=1)]
+    missing_evidence = _decision_sheet_missing_evidence(
+        decision=decision,
+        blockers=blockers,
+        ticket_count=ticket_count,
+        position_status=position_status,
+    )
+    operator_script = _decision_sheet_operator_script(decision, ticket_count)
+
+    return _sanitize(
+        {
+            "stage": DAILY_TRADE_DECISION_SHEET_STAGE,
+            "run_date": pack.get("run_date", date.today().isoformat()),
+            "summary": {
+                "decision": decision,
+                "answer_code": answer_code,
+                "plain_answer": plain_answer,
+                "primary_market": market,
+                "selected_factor_count": _int(summary.get("selected_factor_count"), len(factors)),
+                "signal_count": signal_count,
+                "target_count": target_count,
+                "manual_ticket_count": ticket_count,
+                "blocker_count": len(blockers),
+                "manual_review_required": True,
+                "paper_simulation_required": True,
+                "live_trading_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+            },
+            "what_to_do_now": {
+                "button_label": button_label,
+                "target_id": target_id,
+                "workflow_id": workflow_id,
+                "plain_action": live_summary.get("primary_action") or action_next.get("plain_action") or plain_answer,
+                "manual_only_boundary": True,
+                "order_placement_allowed": False,
+            },
+            "daily_top3": daily_top3,
+            "today_actions": today_actions,
+            "missing_evidence": missing_evidence,
+            "operator_script": operator_script,
+            "safety": SAFETY_NOTICE,
+        }
+    )
+
+
+def _decision_sheet_action(index: int, row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "step_number": index,
+        "action_type": "manual_review_ticket",
+        "ticket_id": row.get("ticket_id") or f"daily-ticket-{index:03d}",
+        "asset_id": row.get("asset_id"),
+        "market": row.get("market") or "CN_ETF",
+        "side": row.get("side") or "review",
+        "target_weight": row.get("target_weight"),
+        "reference_price": row.get("reference_price") or row.get("latest_price"),
+        "current_quantity": row.get("current_quantity"),
+        "current_value": row.get("current_value"),
+        "target_value": row.get("target_value"),
+        "delta_value": row.get("delta_value"),
+        "rounded_quantity": row.get("rounded_quantity"),
+        "rounded_quantity_delta": row.get("rounded_quantity_delta", row.get("rounded_quantity")),
+        "rounded_value": row.get("rounded_value"),
+        "cash_delta_after_rounding": row.get("cash_delta_after_rounding"),
+        "source_factors": row.get("source_factors"),
+        "plain_instruction": row.get("manual_instruction")
+        or row.get("copy_text")
+        or "仅供人工复核，不是订单。券商端价格、现金和风险必须本人再次确认。",
+        "manual_only": True,
+        "executable": False,
+        "live_order_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
+
+
+def _decision_sheet_missing_evidence(
+    decision: str,
+    blockers: list[str],
+    ticket_count: int,
+    position_status: str,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+
+    def row(check_id: str, status: str, label: str, why: str, target_id: str, workflow_id: str = "") -> None:
+        rows.append(
+            {
+                "check_id": check_id,
+                "status": status,
+                "label": label,
+                "why": why,
+                "target_id": target_id,
+                "workflow_id": workflow_id,
+                "required_before_manual_money": True,
+                "automation_allowed": False,
+                "order_placement_allowed": False,
+            }
+        )
+
+    if position_status == "error":
+        row(
+            "current_positions_fixed",
+            "missing",
+            "修正当前持仓输入",
+            "当前持仓里出现账户、券商、订单或格式风险，必须先删掉危险字段。",
+            "daily-current-positions",
+        )
+        return rows
+    if blockers:
+        row(
+            "pretrade_blockers_resolved",
+            "missing",
+            "清理盘前红灯",
+            "红灯阻断项仍存在：" + ", ".join(blockers),
+            "daily-pretrade-readiness-verdict",
+        )
+        return rows
+    if ticket_count <= 0 or decision == "waiting_for_daily_signal":
+        row(
+            "daily_top3_signal_ready",
+            "missing",
+            "生成今日前三信号",
+            "还没有完整的今日 CN_ETF 信号和人工复核票据。",
+            "daily-trade-factor-table",
+            "daily_trade_advisory",
+        )
+        return rows
+
+    row(
+        "paper_simulation_receipt",
+        "missing",
+        "同参数模拟盘回执",
+        "必须先用同一组参数跑本地模拟盘，检查收益、回撤、成交和保护事件。",
+        "paper-metrics",
+        "paper_simulation",
+    )
+    row(
+        "risk_cash_review",
+        "missing",
+        "人工风险和现金复核",
+        "核对单 ETF 上限、总仓位、现金余量、价格偏差、流动性和可承受回撤。",
+        "daily-pretrade-readiness-verdict",
+    )
+    row(
+        "manual_broker_price_check",
+        "missing",
+        "券商端实时价格核对",
+        "本地参考价不等于券商端实时价格，最终数量和金额必须由人重新确认。",
+        "daily-manual-broker-handoff-ticket-table",
+    )
+    row(
+        "post_close_journal_plan",
+        "missing",
+        "收盘后复盘计划",
+        "今天无论执行或跳过，都要记录信号、模拟盘、人工判断和次日风险。",
+        "beginner-post-close-journal-board",
+    )
+    return rows
+
+
+def _decision_sheet_operator_script(decision: str, ticket_count: int) -> list[dict[str, Any]]:
+    steps = [
+        (
+            "daily_top3_signal_review",
+            "复核今日前三因子",
+            "查看因子、参数、Sharpe、年化、最大回撤、胜率、RankIC 和信号日期。",
+            "daily-trade-factor-table",
+            "",
+        ),
+        (
+            "paper_simulation_first",
+            "先跑本地模拟盘",
+            "用同参数跑模拟盘，再看收益、回撤、成交、保护事件，不能跳过。",
+            "paper-metrics",
+            "paper_simulation",
+        ),
+        (
+            "manual_ticket_review",
+            "核对人工票据",
+            "逐项看 ETF、方向、参考价、目标金额、取整份额、现金差额和来源因子。",
+            "daily-manual-broker-handoff-ticket-table",
+            "",
+        ),
+        (
+            "human_decision_only",
+            "人决定是否在券商端操作",
+            "软件只给复核材料，不连接券商、不读取账户、不自动下单。",
+            "control-safety-boundary",
+            "",
+        ),
+        (
+            "post_close_journal",
+            "收盘后复盘",
+            "记录今天执行或跳过的原因，把真实演练反馈带回下一轮审计。",
+            "beginner-post-close-journal-board",
+            "post_close_journal",
+        ),
+    ]
+    status_by_step = {
+        "daily_top3_signal_review": "ready" if decision != "waiting_for_daily_signal" else "waiting",
+        "paper_simulation_first": "required" if ticket_count > 0 and not decision.startswith("blocked") else "waiting",
+        "manual_ticket_review": "manual_only" if ticket_count > 0 and not decision.startswith("blocked") else "waiting",
+        "human_decision_only": "manual_only" if ticket_count > 0 and not decision.startswith("blocked") else "locked",
+        "post_close_journal": "required" if decision != "waiting_for_daily_signal" else "waiting",
+    }
+    return [
+        {
+            "step_number": index,
+            "step_id": step_id,
+            "title": title,
+            "status": status_by_step.get(step_id, "waiting"),
+            "plain_action": plain_action,
+            "target_id": target_id,
+            "workflow_id": workflow_id,
+            "automation_allowed": False,
+            "live_order_allowed": False,
+            "broker_connection_allowed": False,
+            "order_placement_allowed": False,
+        }
+        for index, (step_id, title, plain_action, target_id, workflow_id) in enumerate(steps, start=1)
+    ]
 
 
 def build_manual_ticket_export(pack: dict[str, Any]) -> dict[str, Any]:
