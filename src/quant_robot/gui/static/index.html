@@ -871,6 +871,26 @@
           </section>
 
           <div class="metric-grid compact metric-card-grid" id="daily-trade-advisory-metrics"></div>
+          <section class="panel status-panel daily-command-rail" id="daily-command-rail" data-daily-command-root="true">
+            <div class="panel-head">
+              <div>
+                <p class="section-kicker">每日交易主路径</p>
+                <h3>今天先按这条线走</h3>
+              </div>
+              <span class="tag tag-warn">前三因子不是订单</span>
+            </div>
+            <div id="daily-command-rail-status" class="status-list compact-status"></div>
+            <div id="daily-command-rail-actions" class="status-list compact-status">
+              <div class="list-row warn">
+                <strong>先生成今日前三建议</strong>
+                <span>再跑开盘前体检、模拟盘复核、人工票据核对和收盘后复盘。</span>
+                <span class="beginner-task-actions">
+                  <button class="primary-button" type="button" data-daily-command-action="daily_trade_advisory">生成今日前三建议</button>
+                  <button class="secondary-button" type="button" data-daily-command-target="daily-trade-factor-table">看前三因子</button>
+                </span>
+              </div>
+            </div>
+          </section>
           <section class="panel status-panel daily-beginner-action-board">
             <div class="panel-head">
               <div>

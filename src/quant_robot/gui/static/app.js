@@ -538,6 +538,18 @@ function bindActions() {
     jumpToBeginnerTarget(button.dataset.beginnerLivePilotTarget || "beginner-trade-system-board", state.leaderboardTab);
   });
   document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-daily-command-action]");
+    if (!button) return;
+    event.preventDefault();
+    await runDailyCommandRailAction(button.dataset.dailyCommandAction || "", button);
+  });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-daily-command-target]");
+    if (!button) return;
+    event.preventDefault();
+    jumpToBeginnerTarget(button.dataset.dailyCommandTarget || "daily-command-rail", state.leaderboardTab);
+  });
+  document.addEventListener("click", async (event) => {
     const button = event.target.closest("[data-daily-rehearsal-action]");
     if (!button) return;
     event.preventDefault();
@@ -2731,6 +2743,7 @@ function setLeaderboardTab(tab) {
   renderBeginnerDailyRehearsal();
   renderBeginnerPostCloseJournal();
   renderBeginnerLiveHandoff();
+  renderDailyCommandRail();
 }
 
 function renderFactorGlossary() {
@@ -3081,6 +3094,118 @@ function beginnerPretradeReceiptRows(receipt = {}) {
       tone: "ok",
     },
   ];
+}
+
+function renderDailyCommandRail() {
+  const statusTarget = byId("daily-command-rail-status");
+  const actionsTarget = byId("daily-command-rail-actions");
+  if (!statusTarget || !actionsTarget) return;
+  const trade = state.dailyTradeAdvisory || {};
+  const brief = trade.daily_live_pilot_brief || {};
+  const briefSummary = brief.summary || {};
+  const readiness = trade.pretrade_readiness || {};
+  const handoff = trade.manual_broker_handoff || {};
+  const tickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
+  const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
+  const rows = dailyCommandRailRows();
+  const next = rows.find((row) => row.workflow && row.tone !== "ok") || rows.find((row) => row.tone !== "ok") || rows[0] || {};
+  const ticketText = tickets.length
+    ? tickets.slice(0, 3).map((ticket) => `${ticket.asset_id || "--"} ${zhConsoleText(ticket.side || "")} ${formatNumber(ticket.rounded_quantity || 0)}份`).join("；")
+    : "暂无人工票据";
+  statusTarget.innerHTML = statusRows([
+    ["主路径", "每日交易主路径：前三因子 -> 体检 -> 模拟盘 -> 人工票据 -> 盘后复盘", "warn"],
+    ["当前结论", briefSummary.plain_answer || dailyReadinessDecision().title || "等待今日交易建议加载", blockers.length ? "danger" : "warn"],
+    ["今天买什么", ticketText, tickets.length && blockers.length === 0 ? "warn" : "danger"],
+    ["下一步", next.title || "先生成今日前三建议", next.tone || "warn"],
+    ["安全边界", "不连接券商、不读取账户、不自动下单；券商端动作必须由人手工决定。", "danger"],
+  ]);
+  actionsTarget.innerHTML = rows.map((row, index) => `
+    <div class="list-row ${escapeHtml(row.tone)}">
+      <strong>${escapeHtml(`${index + 1}. ${row.title}`)}</strong>
+      <span>${escapeHtml(row.value)}</span>
+      <span>${escapeHtml(row.detail)}</span>
+      <span class="beginner-task-actions">
+        ${row.workflow ? `<button class="primary-button" type="button" data-daily-command-action="${escapeRawHtml(row.workflow)}">${escapeHtml(row.button || "运行")}</button>` : ""}
+        ${row.target ? `<button class="secondary-button" type="button" data-daily-command-target="${escapeRawHtml(row.target)}">${escapeHtml(row.targetLabel || "看证据")}</button>` : ""}
+      </span>
+    </div>
+  `).join("");
+}
+
+function dailyCommandRailRows() {
+  const trade = state.dailyTradeAdvisory || {};
+  const summary = trade.summary || {};
+  const readiness = trade.pretrade_readiness || {};
+  const freshness = readiness.freshness || {};
+  const handoff = trade.manual_broker_handoff || {};
+  const tickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
+  const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
+  const selectedCount = Number(summary.selected_factor_count || 0);
+  const signalCount = Number(summary.signal_count || 0);
+  const targetCount = Number(summary.combined_target_count ?? trade.combined_target_count ?? 0);
+  const pretradeReceipt = latestExecutionReceipt("daily_pretrade_checkup");
+  const paperReceipt = latestExecutionReceipt("paper_simulation");
+  const journalReceipt = latestExecutionReceipt("post_close_journal");
+  const signalFreshText = freshness.latest_signal_date
+    ? `运行日=${freshness.run_date || trade.run_date || "--"} / 最新信号=${freshness.latest_signal_date}`
+    : `运行日=${trade.run_date || "--"}`;
+  return [
+    {
+      title: "生成今日前三因子和信号",
+      value: signalCount > 0 ? `${formatNumber(signalCount)} 条信号 / ${formatNumber(selectedCount)} 个因子` : "还没有今日前三信号",
+      detail: signalCount > 0 ? `${signalFreshText} / 目标ETF=${formatNumber(targetCount)}` : "每天先从 CN_ETF 可运行候选里取前三，并生成当日目标 ETF。",
+      workflow: signalCount > 0 ? "" : "daily_trade_advisory",
+      button: "生成今日前三建议",
+      target: "daily-trade-factor-table",
+      targetLabel: "看前三因子",
+      tone: signalCount > 0 ? "ok" : "warn",
+    },
+    {
+      title: "开盘前一键体检",
+      value: pretradeReceipt ? `已有体检回执 ${pretradeReceipt.time || "--"}` : `灯号=${zhConsoleText(readiness.traffic_light || "未体检")}`,
+      detail: pretradeReceipt ? "体检会把日常运营、今日前三、红黄灯和人工票据合成一张本地回执。" : "先跑体检，再谈今天能不能进入人工复核。",
+      workflow: pretradeReceipt ? "" : "daily_pretrade_checkup",
+      button: "跑开盘前体检",
+      target: blockers.length ? "daily-pretrade-readiness-status" : "daily-pretrade-readiness-verdict",
+      targetLabel: blockers.length ? "看红灯阻断" : "看体检结论",
+      tone: blockers.length ? "danger" : pretradeReceipt ? "ok" : "warn",
+    },
+    {
+      title: "模拟盘复核",
+      value: paperReceipt ? `收益=${formatPercent(paperReceipt.metrics?.total_return)} / 回撤=${formatPercent(paperReceipt.metrics?.max_drawdown)}` : "还没有模拟盘回执",
+      detail: "真实买卖前先看同一套参数的收益、回撤、胜率、成交和保护事件。",
+      workflow: signalCount > 0 && !paperReceipt ? "paper_simulation" : "",
+      button: "跑模拟盘",
+      target: "paper-metrics",
+      targetLabel: "看模拟盘",
+      tone: paperReceipt ? "ok" : signalCount > 0 ? "warn" : "danger",
+    },
+    {
+      title: "人工票据核对",
+      value: tickets.length ? `${formatNumber(tickets.length)} 张票据 / 自动下单=禁止` : "还没有可核对票据",
+      detail: tickets.length ? "只作为人工核对清单：ETF代码、方向、参考价、数量、金额、现金和风险都要再确认。" : "没有票据时不能进入券商端人工操作。",
+      workflow: "",
+      target: tickets.length ? "daily-manual-broker-handoff-ticket-table" : "daily-trade-factor-table",
+      targetLabel: tickets.length ? "看人工票据" : "看信号",
+      tone: tickets.length && blockers.length === 0 ? "warn" : "danger",
+    },
+    {
+      title: "收盘后复盘",
+      value: journalReceipt ? `已有复盘回执 ${journalReceipt.time || "--"}` : "还没有盘后复盘回执",
+      detail: "记录今天执行、跳过、偏差、回撤、保护事件和明天要复核的问题，反哺因子审计。",
+      workflow: signalCount > 0 && !journalReceipt ? "post_close_journal" : "",
+      button: "写盘后复盘",
+      target: "beginner-post-close-journal-board",
+      targetLabel: "看复盘",
+      tone: journalReceipt ? "ok" : signalCount > 0 ? "warn" : "warn",
+    },
+  ];
+}
+
+async function runDailyCommandRailAction(actionId, button = null) {
+  if (!actionId) return;
+  await runBeginnerAction(actionId, button);
+  renderDailyCommandRail();
 }
 
 function renderBeginnerLivePilotBrief() {
@@ -5300,6 +5425,7 @@ function renderDailyTradeAdvisory() {
   renderManualBrokerHandoff(pack.manual_broker_handoff || {});
   renderDailyPretradeWorkflow(pack.pretrade_workflow || {});
   renderDailyLiveTransitionPlan(pack.live_transition_plan || {});
+  renderDailyCommandRail();
   renderDailyReadinessCard();
   renderDailyEvidenceChain();
   renderBeginnerTradeSystem();
@@ -8332,6 +8458,7 @@ function appendExecutionReceipt(receipt) {
   };
   saveExecutionReceipts([nextReceipt].concat(loadExecutionReceipts(spec)), spec);
   renderExecutionReceipts(spec);
+  renderDailyCommandRail();
   renderDailyReadinessCard();
   renderDailyEvidenceChain();
   renderBeginnerTradeSystem();
