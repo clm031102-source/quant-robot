@@ -14,6 +14,7 @@ STAGE = "phase_6_0_daily_trade_advisory"
 PRETRADE_WORKFLOW_STAGE = "phase_6_1_daily_pretrade_workflow"
 PRETRADE_READINESS_STAGE = "phase_6_2_manual_pretrade_readiness"
 MANUAL_BROKER_HANDOFF_STAGE = "phase_6_3_manual_broker_handoff"
+TRADE_SYSTEM_STAGE = "phase_6_4_manual_trade_system_protocol"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 
@@ -110,6 +111,7 @@ def build_daily_trade_advisory_pack(
         pack["manual_broker_handoff"],
     )
     pack["pretrade_workflow"] = build_daily_pretrade_workflow(pack)
+    pack["trade_system"] = build_manual_trade_system_protocol(pack)
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
 
@@ -223,6 +225,87 @@ def build_daily_pretrade_workflow(pack: dict[str, Any]) -> dict[str, Any]:
         ],
     }
     return _sanitize(workflow)
+
+
+def build_manual_trade_system_protocol(pack: dict[str, Any]) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
+    handoff = pack.get("manual_broker_handoff") if isinstance(pack.get("manual_broker_handoff"), dict) else {}
+    workflow = pack.get("pretrade_workflow") if isinstance(pack.get("pretrade_workflow"), dict) else {}
+    factors = [row for row in pack.get("factors", []) if isinstance(row, dict)]
+    market = str(pack.get("market") or _first_market(factors) or "CN_ETF").upper()
+    ticket_count = _int(summary.get("manual_ticket_count"), 0)
+    blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
+    traffic_light = str(readiness.get("traffic_light") or "red")
+    manual_review_candidate = bool(readiness.get("manual_action_candidate"))
+    return _sanitize(
+        {
+            "stage": TRADE_SYSTEM_STAGE,
+            "primary_market": market,
+            "run_date": pack.get("run_date", date.today().isoformat()),
+            "daily_selection_rule": {
+                "rule_id": "cn_etf_top3_runnable_factor_signals",
+                "candidate_limit": 3,
+                "source": "factor_leaderboard_runtime_candidates",
+                "selection_scope": "CN_ETF only",
+                "required_metrics": [
+                    "sharpe",
+                    "annualized_return",
+                    "max_drawdown",
+                    "win_rate",
+                    "rank_ic",
+                    "trade_count",
+                ],
+                "anti_overfit_notes": [
+                    "Do not choose factors by one-day signal or headline total return only.",
+                    "Require current signal date, cost-aware paper review, and manual risk/cash review before any human action.",
+                ],
+            },
+            "operator_workflow": {
+                "workflow_id": "daily_pretrade_checkup",
+                "button_label": "开盘前一键体检",
+                "paper_simulation_required": True,
+                "manual_review_required": True,
+                "evidence_chain": [
+                    "daily_ops",
+                    "daily_trade_advisory",
+                    "pretrade_readiness",
+                    "paper_simulation_receipt",
+                    "manual_broker_handoff",
+                ],
+                "current_step_count": workflow.get("summary", {}).get("step_count"),
+            },
+            "portfolio_policy": {
+                "portfolio_value": summary.get("target_value"),
+                "combined_target_count": summary.get("combined_target_count"),
+                "manual_ticket_count": ticket_count,
+                "board_lot_size": BOARD_LOT_SIZE,
+                "cash_and_position_review_required": True,
+                "single_etf_limit_review_required": True,
+                "liquidity_and_capacity_review_required": True,
+            },
+            "execution_boundary": {
+                "live_order_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "manual_ticket_export_only": True,
+                "safety": SAFETY_NOTICE,
+            },
+            "go_live_decision": {
+                "status": "manual_review_only",
+                "traffic_light": traffic_light,
+                "manual_review_candidate": manual_review_candidate,
+                "blockers": blockers,
+                "operator_summary": handoff.get("operator_summary") or readiness.get("operator_verdict"),
+                "next_action": (
+                    "Run paper simulation and manually review broker tickets."
+                    if manual_review_candidate
+                    else "Fix red-light blockers before considering any manual broker review."
+                ),
+            },
+        }
+    )
 
 
 def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:

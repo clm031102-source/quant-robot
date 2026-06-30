@@ -520,11 +520,25 @@ class GuiSnapshotTests(unittest.TestCase):
         preflight_rows = {item["workflow_id"]: item for item in result["workflow_preflight"]["rows"]}
         self.assertEqual(
             set(preflight_rows),
-            {"research_backtest", "signal_snapshot", "paper_simulation", "verification_runner", "live_trading"},
+            {
+                "research_backtest",
+                "signal_snapshot",
+                "daily_pretrade_checkup",
+                "paper_simulation",
+                "verification_runner",
+                "live_trading",
+            },
         )
         self.assertEqual(preflight_rows["research_backtest"]["status"], "ready_to_run")
         self.assertTrue(preflight_rows["research_backtest"]["runnable"])
         self.assertIn("/api/research?", preflight_rows["research_backtest"]["endpoint"])
+        self.assertEqual(preflight_rows["daily_pretrade_checkup"]["mode"], "manual_pretrade_checkup")
+        self.assertTrue(preflight_rows["daily_pretrade_checkup"]["runnable"])
+        self.assertFalse(preflight_rows["daily_pretrade_checkup"]["permissions"]["order_placement_allowed"])
+        self.assertIn(
+            "daily_trade_advisory",
+            {check["check_id"] for check in preflight_rows["daily_pretrade_checkup"]["checks"]},
+        )
         self.assertEqual(preflight_rows["paper_simulation"]["mode"], "paper_simulation")
         self.assertEqual(preflight_rows["paper_simulation"]["status"], "gate_controlled")
         self.assertTrue(preflight_rows["paper_simulation"]["paper_only"])
@@ -571,6 +585,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertTrue(all("runnable" in item for item in action_rows))
         self.assertTrue(all(item.get("command") for item in action_rows if item.get("runnable")))
         self.assertTrue(all(item.get("safety") for item in action_rows))
+        self.assertTrue(any(item.get("workflow_id") == "daily_pretrade_checkup" for item in action_rows))
         self.assertTrue(any(item.get("workflow_id") in {"research_backtest", "signal_snapshot", "paper_simulation", "verification_runner"} for item in action_rows))
         self.assertEqual(result["backtest_gate"]["stage"], "gui_backtest_gate")
         self.assertFalse(result["backtest_gate"]["summary"]["live_trading_allowed"])
@@ -2099,6 +2114,10 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("renderBeginnerLiveHandoff", app_js)
             self.assertIn("beginnerLiveHandoffSteps", app_js)
             self.assertIn("beginnerLiveHandoffTickets", app_js)
+            self.assertIn("daily_pretrade_checkup", app_js)
+            self.assertIn("runDailyPretradeCheckup", app_js)
+            self.assertIn("dailyPretradeCheckupReceipt", app_js)
+            self.assertIn("loadDailyOps();\n    await loadDailyTradeAdvisory();", app_js)
             self.assertIn("if (blockers.length > 0) return [];", app_js)
             self.assertIn("readiness.manual_action_candidate", app_js)
             self.assertIn("handoff.status || \"\"", app_js)
@@ -2787,6 +2806,9 @@ class GuiHttpTests(unittest.TestCase):
             control_preflight_rows = {item["workflow_id"]: item for item in control["workflow_preflight"]["rows"]}
             self.assertEqual(control_preflight_rows["live_trading"]["status"], "blocked")
             self.assertFalse(control_preflight_rows["live_trading"]["runnable"])
+            self.assertEqual(control_preflight_rows["daily_pretrade_checkup"]["mode"], "manual_pretrade_checkup")
+            self.assertTrue(control_preflight_rows["daily_pretrade_checkup"]["runnable"])
+            self.assertFalse(control_preflight_rows["daily_pretrade_checkup"]["permissions"]["order_placement_allowed"])
             self.assertTrue(control_preflight_rows["research_backtest"]["runnable"])
             self.assertNotIn("GET GET", control_preflight_rows["verification_runner"]["command"])
             self.assertIn("execution_boundary", {check["check_id"] for check in control_preflight_rows["paper_simulation"]["checks"]})
@@ -2815,6 +2837,8 @@ class GuiHttpTests(unittest.TestCase):
             self.assertTrue(trade_advisory["summary"]["manual_execution_required"])
             self.assertEqual(trade_advisory["selected_candidates"], trade_advisory["factors"])
             self.assertEqual(trade_advisory["pretrade_workflow"]["stage"], "phase_6_1_daily_pretrade_workflow")
+            self.assertEqual(trade_advisory["trade_system"]["stage"], "phase_6_4_manual_trade_system_protocol")
+            self.assertEqual(trade_advisory["trade_system"]["operator_workflow"]["workflow_id"], "daily_pretrade_checkup")
             self.assertFalse(trade_advisory["pretrade_workflow"]["summary"]["live_order_allowed"])
             self.assertEqual(len(trade_advisory["pretrade_workflow"]["steps"]), 5)
             self.assertLessEqual(trade_advisory["summary"]["selected_factor_count"], 3)

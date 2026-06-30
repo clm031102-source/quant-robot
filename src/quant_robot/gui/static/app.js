@@ -1751,6 +1751,61 @@ async function runDailyTradeAdvisory() {
   });
 }
 
+async function runDailyPretradeCheckup(button = null) {
+  const params = buildDailyTradeAdvisoryParams();
+  const confirmed = await confirmSafeWorkflow({
+    workflow_id: "daily_pretrade_checkup",
+    label: "开盘前一键体检",
+    endpoint: "/api/daily/ops + /api/trade/daily-advisory",
+    request: {
+      daily_ops: true,
+      daily_trade_advisory: paramsObject(params),
+      paper_simulation_auto_run: false,
+      manual_handoff_only: true,
+    },
+  });
+  if (!confirmed) return;
+  const label = button?.textContent || "";
+  const activeOperation = beginActiveOperation({
+    workflow_id: "daily_pretrade_checkup",
+    label: "开盘前一键体检",
+    detail: "刷新日常运营和今日前三建议，再回到红黄灯人工交接",
+    safety: "本地体检和人工票据交接；不会连接券商、读取账户或自动下单",
+  });
+  if (button) {
+    button.disabled = true;
+    button.textContent = "运行中";
+  }
+  byId("run-state-label").textContent = "运行中";
+  try {
+    await loadDailyOps();
+    await loadDailyTradeAdvisory();
+    const decision = dailyReadinessDecision();
+    appendRunHistory({
+      workflow_id: "daily_pretrade_checkup",
+      label: "开盘前一键体检",
+      status: "completed",
+      detail: decision.title || "pretrade checkup completed",
+    });
+    appendExecutionReceipt(dailyPretradeCheckupReceipt({
+      decision,
+      daily_ops: state.dailyOps,
+      daily_trade_advisory: state.dailyTradeAdvisory,
+    }));
+    finishActiveOperation(activeOperation, "completed", decision.title || "pretrade checkup completed");
+    showToast(`开盘前体检完成：${decision.title || "查看红黄灯"}`, decision.tone === "danger");
+  } catch (error) {
+    finishActiveOperation(activeOperation, "failed", error.message || "Pretrade checkup failed");
+    showToast(error.message || "开盘前体检失败", true);
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = label || "运行";
+    }
+    byId("run-state-label").textContent = "就绪";
+  }
+}
+
 async function runDailyOps() {
   const params = new URLSearchParams({
     daily_ops_pack: valueOf("daily-ops-pack-path"),
@@ -4330,7 +4385,16 @@ function beginnerLiveHandoffSteps() {
   const paperReceipt = latestExecutionReceipt("paper_simulation");
   const dailyReceipt = latestExecutionReceipt("daily_trade_advisory");
   const ticketReady = tickets.length > 0 && blockers.length === 0;
+  const decision = dailyReadinessDecision();
   return [
+    {
+      step: "0. 开盘前一键体检",
+      tone: decision.tone || "warn",
+      detail: "先刷新日常运营和今日前三因子/信号，再回到红黄灯；不会自动跑模拟盘或下单。",
+      workflow: "daily_pretrade_checkup",
+      target: "beginner-live-handoff-board",
+      button: "运行开盘前体检",
+    },
     {
       step: "1. 刷新 CN_ETF 数据",
       tone: signalFresh ? "ok" : "danger",
@@ -7001,6 +7065,34 @@ function dailyTradeAdvisoryReceipt(result = {}) {
   };
 }
 
+function dailyPretradeCheckupReceipt(result = {}) {
+  const decision = result.decision || {};
+  const trade = result.daily_trade_advisory || {};
+  const summary = trade.summary || {};
+  const readiness = trade.pretrade_readiness || {};
+  const handoff = trade.manual_broker_handoff || {};
+  return {
+    workflow_id: "daily_pretrade_checkup",
+    label: "Daily pretrade checkup receipt",
+    request: {
+      market: trade.market || "CN_ETF",
+      as_of_date: trade.run_date,
+      workflow: "daily_ops + daily_trade_advisory",
+      paper_simulation_auto_run: false,
+    },
+    metrics: {
+      selected_factor_count: summary.selected_factor_count,
+      signal_count: summary.signal_count,
+      manual_ticket_count: summary.manual_ticket_count,
+      traffic_light: readiness.traffic_light,
+      blocker_count: Array.isArray(readiness.blockers) ? readiness.blockers.length : 0,
+      copyable_ticket_count: Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets.length : 0,
+    },
+    decision: decision.title || readiness.traffic_light || "pretrade_checkup",
+    safety: "local pretrade checkup only; manual review required; no broker, account, or order side effects",
+  };
+}
+
 async function runVerificationGate(gateId, button = null) {
   if (!gateId) return;
   const label = button?.textContent || "";
@@ -7070,6 +7162,10 @@ async function runActionCenterWorkflow(workflowId, button = null) {
     }
     if (workflowId === "daily_trade_advisory") {
       await runDailyTradeAdvisory();
+      return;
+    }
+    if (workflowId === "daily_pretrade_checkup") {
+      await runDailyPretradeCheckup(button);
       return;
     }
     if (workflowId === "daily_ops") {

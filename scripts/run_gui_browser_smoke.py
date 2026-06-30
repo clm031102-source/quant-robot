@@ -229,8 +229,17 @@ def run_gui_browser_smoke(
                 for row in preflight_rows
                 if isinstance(row, dict)
             }
-            == {"research_backtest", "signal_snapshot", "paper_simulation", "verification_runner", "live_trading"}
+            == {
+                "research_backtest",
+                "signal_snapshot",
+                "daily_pretrade_checkup",
+                "paper_simulation",
+                "verification_runner",
+                "live_trading",
+            }
             and _preflight_by_id(control_body, "research_backtest").get("runnable") is True
+            and _preflight_by_id(control_body, "daily_pretrade_checkup").get("mode") == "manual_pretrade_checkup"
+            and _preflight_by_id(control_body, "daily_pretrade_checkup").get("runnable") is True
             and "GET GET" not in str(_preflight_by_id(control_body, "verification_runner").get("command", ""))
             and _preflight_by_id(control_body, "live_trading").get("status") == "blocked"
             and _preflight_by_id(control_body, "live_trading").get("runnable") is False,
@@ -278,6 +287,9 @@ def run_gui_browser_smoke(
             and "renderBeginnerLiveHandoff" in str(app_js.get("body", ""))
             and "beginnerLiveHandoffSteps" in str(app_js.get("body", ""))
             and "beginnerLiveHandoffTickets" in str(app_js.get("body", ""))
+            and "daily_pretrade_checkup" in str(app_js.get("body", ""))
+            and "runDailyPretradeCheckup" in str(app_js.get("body", ""))
+            and "dailyPretradeCheckupReceipt" in str(app_js.get("body", ""))
             and "data-live-handoff-action" in str(app_js.get("body", ""))
             and "data-live-handoff-target" in str(app_js.get("body", ""))
             and styles_css.get("ok")

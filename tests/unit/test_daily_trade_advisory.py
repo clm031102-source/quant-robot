@@ -255,6 +255,41 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("系统不会下单", workflow["steps"][-1]["plain_action"])
         self.assertTrue(any("先看前三因子" in card["text"] for card in workflow["beginner_cards"]))
 
+    def test_daily_pack_exposes_manual_trade_system_protocol(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {
+                    "rank": 1,
+                    "case_id": "c1",
+                    "factor_name": "momentum_2",
+                    "market": "CN_ETF",
+                    "sharpe": 1.2,
+                    "annualized_return": 0.18,
+                    "max_drawdown": -0.22,
+                    "win_rate": 0.58,
+                    "rank_ic": 0.04,
+                }
+            ],
+            [_signal("c1", "momentum_2", {"510300": 0.4})],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+        )
+
+        system = pack["trade_system"]
+
+        self.assertEqual(system["stage"], "phase_6_4_manual_trade_system_protocol")
+        self.assertEqual(system["primary_market"], "CN_ETF")
+        self.assertEqual(system["daily_selection_rule"]["candidate_limit"], 3)
+        self.assertIn("sharpe", system["daily_selection_rule"]["required_metrics"])
+        self.assertIn("rank_ic", system["daily_selection_rule"]["required_metrics"])
+        self.assertFalse(system["execution_boundary"]["broker_connection_allowed"])
+        self.assertFalse(system["execution_boundary"]["order_placement_allowed"])
+        self.assertFalse(system["execution_boundary"]["live_order_allowed"])
+        self.assertEqual(system["operator_workflow"]["workflow_id"], "daily_pretrade_checkup")
+        self.assertIn("manual_broker_handoff", system["operator_workflow"]["evidence_chain"])
+        self.assertTrue(system["operator_workflow"]["paper_simulation_required"])
+        self.assertEqual(system["go_live_decision"]["status"], "manual_review_only")
+
 
 def _signal(
     case_id: str,

@@ -338,6 +338,21 @@ def _workflow_commands(form_defaults: dict[str, Any]) -> list[dict[str, Any]]:
             "safety": "top-three advisory only, executable=false, no broker orders",
         },
         {
+            "workflow_id": "daily_pretrade_checkup",
+            "label": "Run beginner pretrade checkup",
+            "command": "BROWSER daily_pretrade_checkup",
+            "endpoint": "browser://daily_pretrade_checkup",
+            "request": {
+                "daily_ops": True,
+                "daily_trade_advisory": daily_trade["request"],
+                "paper_simulation_auto_run": False,
+                "manual_handoff_only": True,
+            },
+            "query": daily_trade["query"],
+            "mode": "local",
+            "safety": "refreshes local daily ops and top-three advisory only; no broker orders",
+        },
+        {
             "workflow_id": "paper_simulation",
             "label": "Run local paper simulation",
             "command": f"GET {paper['endpoint']}",
@@ -658,6 +673,7 @@ def _workflow_preflight(
             "advisory_signal",
             "Run",
         ),
+        _preflight_daily_pretrade_checkup_row(workflows),
         _preflight_workflow_row(
             workflows,
             parameter_authority,
@@ -696,6 +712,51 @@ def _workflow_preflight(
         },
         "rows": rows,
         "safety": _verification_runner_safety(),
+    }
+
+
+def _preflight_daily_pretrade_checkup_row(workflows: list[dict[str, Any]]) -> dict[str, Any]:
+    workflow = _workflow_by_id(workflows, "daily_pretrade_checkup") or {}
+    return {
+        "workflow_id": "daily_pretrade_checkup",
+        "label": "Beginner pretrade checkup",
+        "mode": "manual_pretrade_checkup",
+        "status": "ready_to_run",
+        "runnable": True,
+        "endpoint": str(workflow.get("endpoint") or "browser://daily_pretrade_checkup"),
+        "command": str(workflow.get("command") or "BROWSER daily_pretrade_checkup"),
+        "button_label": "Run",
+        "reason": "Refresh daily ops and top-three advisory, then return a red/yellow manual handoff verdict.",
+        "checks": [
+            _preflight_check(
+                "daily_ops",
+                "Daily ops",
+                "required",
+                "Refresh local operations, data freshness, risk candidates, and observation packs before any manual review.",
+            ),
+            _preflight_check(
+                "daily_trade_advisory",
+                "Daily top-three advisory",
+                "required",
+                "Generate current CN_ETF top-three factor signals and manual tickets before reading the verdict.",
+            ),
+            _preflight_check(
+                "paper_simulation",
+                "Paper simulation",
+                "required_before_manual_review",
+                "The checkup does not auto-run paper simulation; it points the operator to paper review before broker-side action.",
+            ),
+            _preflight_check(
+                "live_boundary",
+                "Live boundary",
+                "blocked_for_automation",
+                SAFETY_NOTICE,
+            ),
+        ],
+        "permissions": _preflight_permissions(research_api=True, paper_simulation=False),
+        "paper_only": True,
+        "live_trading_allowed": False,
+        "safety": SAFETY_NOTICE,
     }
 
 
@@ -1869,6 +1930,7 @@ def _action_center(
     verification_runner: dict[str, Any],
 ) -> dict[str, Any]:
     actions: list[dict[str, Any]] = []
+    actions.append(_daily_pretrade_checkup_action())
     for row in ledger_evidence.get("rows", []) if isinstance(ledger_evidence, dict) else []:
         if not isinstance(row, dict) or row.get("freshness") == "current":
             continue
@@ -1920,6 +1982,24 @@ def _action_center(
         },
         "rows": deduped[:8],
         "safety": _verification_runner_safety(),
+    }
+
+
+def _daily_pretrade_checkup_action() -> dict[str, Any]:
+    return {
+        "action_id": "run_daily_pretrade_checkup",
+        "priority": "P0",
+        "label": "Run beginner pretrade checkup",
+        "status": "ready_to_run",
+        "workflow_id": "daily_pretrade_checkup",
+        "verification_gate": "",
+        "runnable": True,
+        "command": "BROWSER daily_pretrade_checkup",
+        "endpoint": "browser://daily_pretrade_checkup",
+        "button_label": "Run",
+        "reason": "Start each trading day by refreshing daily ops and top-three CN_ETF advisory, then read the red/yellow manual handoff verdict.",
+        "source": "daily_trade_system",
+        "safety": SAFETY_NOTICE,
     }
 
 
