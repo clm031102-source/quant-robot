@@ -13,6 +13,7 @@ PROFILE_DAILY_OPS_STAGE = "phase_5_5_profile_daily_ops_activation"
 MANUAL_ONLY_BLOCKERS = {"manual_live_review_not_enabled", "manual_live_review_enabled_blocked"}
 PROMOTABLE_PROMOTION_STATUSES = {"paper_ready", "manual_live_review"}
 DEFAULT_MAX_DRAWDOWN_LIMIT = -0.2
+DEFAULT_MAX_SIGNAL_AGE_DAYS = 7
 TICKET_COLUMNS = [
     "ticket_id",
     "ticket_type",
@@ -34,18 +35,24 @@ def build_daily_ops_pack(
     paper_profile: dict[str, Any] | None = None,
     run_date: str | None = None,
     max_drawdown_limit: float = DEFAULT_MAX_DRAWDOWN_LIMIT,
+    max_signal_age_days: int = DEFAULT_MAX_SIGNAL_AGE_DAYS,
 ) -> dict[str, Any]:
+    run_day = run_date or date.today().isoformat()
     candidate = _candidate(promotion_review, readiness_board)
     drawdown_limit = _normalized_drawdown_limit(max_drawdown_limit)
     risk_policy = _risk_policy(paper_simulation, drawdown_limit)
+    signal_freshness = _signal_freshness(signal_snapshot, run_day, max_signal_age_days)
     profile_summary = _paper_profile_summary(paper_profile or {})
-    blockers = _merge_unique(_blocker_ids(readiness_board), _promotion_status_blockers(candidate) + risk_policy["risk_blockers"])
+    blockers = _merge_unique(
+        _blocker_ids(readiness_board),
+        _promotion_status_blockers(candidate) + risk_policy["risk_blockers"] + signal_freshness["blocking_reasons"],
+    )
     non_manual_blockers = [blocker for blocker in blockers if blocker not in MANUAL_ONLY_BLOCKERS]
     status = "blocked" if non_manual_blockers else "paper_ready"
     tickets = [] if status == "blocked" else _advisory_tickets(signal_snapshot)
     pack = {
         "stage": PROFILE_DAILY_OPS_STAGE if profile_summary else STAGE,
-        "run_date": run_date or date.today().isoformat(),
+        "run_date": run_day,
         "safety": _safety(),
         "candidate": candidate,
         "decision": {
@@ -54,8 +61,9 @@ def build_daily_ops_pack(
             "paper_trading_allowed": status == "paper_ready",
             "blocking_reasons": blockers,
             "non_manual_blocking_reasons": non_manual_blockers,
+            "signal_freshness": signal_freshness,
         },
-        "signal": _signal_summary(signal_snapshot),
+        "signal": _signal_summary(signal_snapshot, signal_freshness),
         "risk": _risk_summary(paper_simulation),
         "risk_policy": risk_policy,
         "paper_profile": profile_summary,
@@ -96,6 +104,8 @@ def render_daily_ops_markdown(pack: dict[str, Any]) -> str:
         "## Signal",
         "",
         f"- As of: {signal.get('as_of_date', 'unknown')}",
+        f"- Signal date: {signal.get('signal_date', 'unknown')}",
+        f"- Signal age days: {signal.get('signal_age_days', 'unknown')}",
         f"- Targets: {signal.get('target_count', 0)}",
         f"- Advisory tickets: {len(pack.get('advisory_tickets', []))}",
         "",
@@ -200,11 +210,16 @@ def _advisory_tickets(signal_snapshot: dict[str, Any]) -> list[dict[str, Any]]:
     return rows
 
 
-def _signal_summary(signal_snapshot: dict[str, Any]) -> dict[str, Any]:
+def _signal_summary(signal_snapshot: dict[str, Any], freshness: dict[str, Any] | None = None) -> dict[str, Any]:
     targets = signal_snapshot.get("targets", [])
+    signal_freshness = freshness or {}
     return {
         "as_of_date": signal_snapshot.get("as_of_date"),
         "signal_date": signal_snapshot.get("signal_date"),
+        "run_date": signal_freshness.get("run_date"),
+        "signal_age_days": signal_freshness.get("signal_age_days"),
+        "max_signal_age_days": signal_freshness.get("max_signal_age_days"),
+        "freshness_status": signal_freshness.get("status"),
         "target_count": len(targets) if isinstance(targets, list) else 0,
         "target_gross_exposure": signal_snapshot.get("target_gross_exposure"),
         "cash_weight": signal_snapshot.get("cash_weight"),
@@ -276,6 +291,8 @@ def _summary_row(pack: dict[str, Any]) -> dict[str, Any]:
         "max_drawdown_limit": risk_policy.get("max_drawdown_limit"),
         "max_drawdown_breached": risk_policy.get("max_drawdown_breached"),
         "risk_blockers": len(risk_policy.get("risk_blockers", [])) if isinstance(risk_policy.get("risk_blockers"), list) else 0,
+        "signal_age_days": pack.get("signal", {}).get("signal_age_days") if isinstance(pack.get("signal"), dict) else None,
+        "max_signal_age_days": pack.get("signal", {}).get("max_signal_age_days") if isinstance(pack.get("signal"), dict) else None,
         "profile_id": pack.get("paper_profile", {}).get("profile_id") if isinstance(pack.get("paper_profile"), dict) else None,
         "risk_tier": pack.get("paper_profile", {}).get("risk_tier") if isinstance(pack.get("paper_profile"), dict) else None,
     }
@@ -290,6 +307,39 @@ def _float(value: Any, default: float = 0.0) -> float:
 
 def _normalized_drawdown_limit(value: float) -> float:
     return -abs(_float(value, DEFAULT_MAX_DRAWDOWN_LIMIT))
+
+
+def _signal_freshness(signal_snapshot: dict[str, Any], run_date: str, max_signal_age_days: int) -> dict[str, Any]:
+    signal_date = str(signal_snapshot.get("signal_date") or signal_snapshot.get("as_of_date") or "").strip()
+    age_days = _calendar_gap(signal_date, run_date) if signal_date else None
+    blockers: list[str] = []
+    status = "unknown"
+    if age_days is not None:
+        if age_days < 0:
+            blockers.append("signal_date_after_run_date")
+            status = "blocked_future_signal"
+        elif age_days > max_signal_age_days:
+            blockers.append("signal_data_stale")
+            status = "blocked_stale_signal"
+        else:
+            status = "fresh"
+    return {
+        "run_date": run_date,
+        "signal_date": signal_date or None,
+        "signal_age_days": age_days,
+        "max_signal_age_days": int(max_signal_age_days),
+        "status": status,
+        "blocking_reasons": blockers,
+    }
+
+
+def _calendar_gap(start_date: str, end_date: str) -> int | None:
+    try:
+        start = date.fromisoformat(start_date)
+        end = date.fromisoformat(end_date)
+    except ValueError:
+        return None
+    return (end - start).days
 
 
 def _sanitize(value: Any) -> Any:

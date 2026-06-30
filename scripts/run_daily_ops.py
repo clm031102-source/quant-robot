@@ -14,7 +14,12 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 
 ensure_workspace_imports()
 
-from quant_robot.ops.daily_ops import DEFAULT_MAX_DRAWDOWN_LIMIT, build_daily_ops_pack, write_daily_ops_pack
+from quant_robot.ops.daily_ops import (
+    DEFAULT_MAX_DRAWDOWN_LIMIT,
+    DEFAULT_MAX_SIGNAL_AGE_DAYS,
+    build_daily_ops_pack,
+    write_daily_ops_pack,
+)
 
 try:
     from scripts.run_paper_simulation import run_simulation
@@ -44,6 +49,7 @@ def run_daily_ops(
     portfolio_value: float = 100000.0,
     positions_csv: str | Path | None = None,
     max_drawdown_limit: float | None = None,
+    max_signal_age_days: int = DEFAULT_MAX_SIGNAL_AGE_DAYS,
 ) -> dict[str, Any]:
     promotion = _read_json(Path(promotion_review))
     readiness = _read_json(Path(readiness_board))
@@ -110,6 +116,7 @@ def run_daily_ops(
         paper_profile=paper_profile,
         run_date=run_date,
         max_drawdown_limit=effective_max_drawdown_limit,
+        max_signal_age_days=max_signal_age_days,
     )
     write_daily_ops_pack(output_path, pack)
     return pack
@@ -134,6 +141,12 @@ def main() -> None:
         type=float,
         help="Maximum tolerated equity drawdown. Positive values are normalized to negative limits.",
     )
+    parser.add_argument(
+        "--max-signal-age-days",
+        default=DEFAULT_MAX_SIGNAL_AGE_DAYS,
+        type=int,
+        help="Maximum calendar days between signal_date and run_date before daily ops blocks tickets.",
+    )
     args = parser.parse_args()
     pack = run_daily_ops(
         promotion_review=Path(args.promotion_review),
@@ -148,6 +161,7 @@ def main() -> None:
         portfolio_value=args.portfolio_value,
         positions_csv=Path(args.positions_csv) if args.positions_csv else None,
         max_drawdown_limit=args.max_drawdown_limit,
+        max_signal_age_days=args.max_signal_age_days,
     )
     print(
         json.dumps(

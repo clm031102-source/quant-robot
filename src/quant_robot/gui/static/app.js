@@ -8457,6 +8457,7 @@ function renderDailyOps() {
   const daily = state.dailyOps || {};
   const decision = daily.decision || {};
   const candidate = daily.candidate || {};
+  const signal = daily.signal || {};
   const risk = daily.risk || {};
   const riskPolicy = daily.risk_policy || {};
   const dailyPaperProfile = daily.paper_profile || {};
@@ -8471,6 +8472,7 @@ function renderDailyOps() {
     metric("主候选", candidate.case_id || "--", candidate.market || "--"),
     metric("Profile", dailyPaperProfile.profile_id || "--", dailyPaperProfile.risk_tier || "no overlay"),
     metric("建议票据", daily.ticket_count ?? 0, "advisory only"),
+    metric("信号年龄", signal.signal_age_days ?? "--", `max ${signal.max_signal_age_days ?? "--"} days`),
     metric("纸面允许", decision.paper_trading_allowed ? "true" : "false", "no broker"),
     metric("最大回撤", formatPercent(risk.max_equity_drawdown), "simulation"),
     metric("回撤阈值", formatPercent(riskPolicy.max_drawdown_limit), riskPolicy.max_drawdown_breached ? "breached" : "clear"),
@@ -8479,6 +8481,7 @@ function renderDailyOps() {
     ["Artifact", daily.artifact_present ? daily.source_path || "present" : "missing", daily.artifact_present ? "ok" : "warn"],
     ["Decision", status, status === "paper_ready" ? "ok" : "warn"],
     ["Paper profile", `${dailyPaperProfile.profile_id || "none"} / ${dailyPaperProfile.risk_tier || "--"}`, dailyPaperProfile.profile_id ? "ok" : "muted"],
+    ["Signal freshness", `${signal.signal_date || "--"} -> ${daily.run_date || signal.run_date || "--"} / ${signal.freshness_status || "--"}`, signal.freshness_status === "fresh" ? "ok" : "warn"],
     ["Paper trading", decision.paper_trading_allowed ? "allowed" : "blocked", decision.paper_trading_allowed ? "ok" : "warn"],
     ["Live boundary", decision.live_boundary_allowed ? "allowed" : "blocked", "danger"],
     ["Safety", daily.safety || "Research-to-paper only", "danger"],

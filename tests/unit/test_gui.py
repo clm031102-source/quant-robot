@@ -2001,6 +2001,14 @@ class GuiSnapshotTests(unittest.TestCase):
                             "blocking_reasons": ["manual_live_review_not_enabled", "risk_max_drawdown_breach"],
                             "non_manual_blocking_reasons": ["risk_max_drawdown_breach"],
                         },
+                        "signal": {
+                            "as_of_date": "2026-05-22",
+                            "signal_date": "2026-05-22",
+                            "run_date": "2026-06-13",
+                            "signal_age_days": 22,
+                            "max_signal_age_days": 7,
+                            "freshness_status": "blocked_stale_signal",
+                        },
                         "risk": {"total_return": 0.2, "max_equity_drawdown": -0.35},
                         "risk_policy": {"max_drawdown_limit": -0.2, "max_drawdown_breached": True},
                         "paper_profile": {"profile_id": "cap60_guard12_cd3", "risk_tier": "aggressive_growth"},
@@ -2019,6 +2027,9 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertEqual(result["risk_policy"]["max_drawdown_limit"], -0.2)
         self.assertEqual(result["paper_profile"]["profile_id"], "cap60_guard12_cd3")
         self.assertEqual(result["paper_profile"]["risk_tier"], "aggressive_growth")
+        self.assertEqual(result["signal"]["signal_age_days"], 22)
+        self.assertEqual(result["signal"]["max_signal_age_days"], 7)
+        self.assertEqual(result["signal"]["freshness_status"], "blocked_stale_signal")
         self.assertEqual(result["ticket_count"], 0)
         self.assertIn("risk_max_drawdown_breach", result["blockers"])
 
@@ -2820,6 +2831,8 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("/api/signals?", app_js)
             self.assertIn("/api/paper?", app_js)
             self.assertIn("/api/daily/ops", app_js)
+            self.assertIn("const signal = daily.signal || {}", app_js)
+            self.assertIn("Signal freshness", app_js)
             self.assertIn("activatePageFromHash", app_js)
             self.assertIn("targetIdFromHash", app_js)
             self.assertIn("window.location.hash", app_js)
