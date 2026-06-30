@@ -6373,6 +6373,9 @@ const GUI_ZH_REPLACEMENTS = [
   ["Research backtest receipt", "研究回测回执"],
   ["Advisory signal receipt", "建议信号回执"],
   ["Paper simulation receipt", "模拟盘回执"],
+  ["Daily trade advisory receipt", "今日交易建议回执"],
+  ["Daily pretrade checkup receipt", "开盘前体检回执"],
+  ["Post-close journal receipt", "收盘后复盘回执"],
   ["full parameter backtest request", "完整参数回测请求"],
   ["advisory target-weight request", "建议目标仓位请求"],
   ["local paper-only simulation request", "本地纸面模拟请求"],
@@ -6416,6 +6419,12 @@ const GUI_ZH_REPLACEMENTS = [
   ["Evidence packet present at", "证据包位于"],
   ["GUI browser smoke evidence packet is missing.", "GUI 浏览器冒烟证据包缺失。"],
   ["Computes metrics only; no broker, account, or order side effects.", "仅计算指标；无券商、账户或下单副作用。"],
+  ["research calculation only; no broker, account, or order side effects", "仅研究计算；无券商、账户或下单副作用"],
+  ["advisory targets only; executable=false and no order routing", "仅建议信号；不可执行且不路由订单"],
+  ["local simulated fills only; no broker, account, or order side effects", "仅本地模拟成交；无券商、账户或下单副作用"],
+  ["daily advisory only; manual review required; no broker, account, or order side effects", "仅今日建议；必须人工复核；无券商、账户或下单副作用"],
+  ["pretrade_receipt_only; local pretrade checkup only; manual review required; no broker, account, or order side effects", "仅开盘前体检回执；必须人工复核；无券商、账户或下单副作用"],
+  ["local post-close journal only; no broker, account, or order side effects", "仅本地盘后复盘；无券商、账户或下单副作用"],
   ["blocked by research-to-paper boundary", "按研究到模拟盘边界阻断"],
   ["Blocked by research-to-paper boundary", "按研究到模拟盘边界阻断"],
   ["after preflight review.", "完成运行前检查后执行。"],
@@ -7900,8 +7909,8 @@ function renderRunHistory(spec = {}) {
   if (rows.length === 0) {
     target.innerHTML = `
       <div class="list-row warn">
-        <strong>No local run history</strong>
-        <span>${escapeHtml(spec.empty_state || "Run a local workflow to record it in this browser.")}</span>
+        <strong>暂无本机运行历史</strong>
+        <span>${escapeHtml(spec.empty_state || "运行一次本地工作流后会在本浏览器记录历史。")}</span>
       </div>
     `;
     return;
@@ -7911,7 +7920,7 @@ function renderRunHistory(spec = {}) {
     const statusClass = status === "completed" ? "ok" : status === "failed" ? "danger" : "warn";
     return `
       <div class="list-row ${escapeHtml(statusClass)}">
-        <strong>${escapeHtml(item.label || item.workflow_id || "")}</strong>
+        <strong>${escapeHtml(zhConsoleText(item.label || item.workflow_id || ""))}</strong>
         <span>${escapeHtml(`${status || "--"} / ${item.time || "--"}`)}</span>
         <span>${escapeHtml(item.detail || "")}</span>
       </div>
@@ -7927,8 +7936,8 @@ function renderExecutionReceipts(spec = {}) {
   if (rows.length === 0) {
     target.innerHTML = `
       <div class="list-row warn">
-        <strong>No execution receipts</strong>
-        <span>${escapeHtml(spec.empty_state || "Run research, signals, or paper simulation to record a structured receipt.")}</span>
+        <strong>暂无执行回执</strong>
+        <span>${escapeHtml(spec.empty_state || "运行研究回测、信号快照、今日建议、开盘前体检或模拟盘后会记录结构化回执。")}</span>
       </div>
     `;
     return;
@@ -7957,10 +7966,10 @@ function renderExecutionReceipts(spec = {}) {
     ].filter(Boolean).join(" / ");
     return `
       <div class="list-row ${escapeHtml(statusClass)}">
-        <strong>${escapeHtml(item.label || item.workflow_id || "")}</strong>
+        <strong>${escapeHtml(zhConsoleText(item.label || item.workflow_id || ""))}</strong>
         <span>${escapeHtml(`${item.time || "--"} / ${requestText || "--"}`)}</span>
         <span>${escapeHtml(metricText || item.decision || item.safety || "")}</span>
-        <span>${escapeHtml(item.safety || "")}</span>
+        <span>${escapeHtml(zhConsoleText(item.safety || ""))}</span>
       </div>
     `;
   }).join("");

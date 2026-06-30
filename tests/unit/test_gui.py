@@ -2366,6 +2366,17 @@ class GuiHttpTests(unittest.TestCase):
             operation_ledger_block = app_js.split("function renderOperationLedger", 1)[1].split("function renderTradeModeControl", 1)[0]
             self.assertIn("operationLedgerText(item.request_summary || item.command || \"\")", operation_ledger_block)
             self.assertNotIn("item.request_summary || item.command || \"\"", operation_ledger_block.replace("operationLedgerText(item.request_summary || item.command || \"\")", ""))
+            run_history_block = app_js.split("function renderRunHistory", 1)[1].split("function loadExecutionReceipts", 1)[0]
+            self.assertIn("暂无本机运行历史", run_history_block)
+            self.assertIn("zhConsoleText(item.label || item.workflow_id || \"\")", run_history_block)
+            self.assertNotIn("<strong>No local run history</strong>", run_history_block)
+            self.assertNotIn("Run a local workflow to record it in this browser.", run_history_block)
+            execution_receipts_block = app_js.split("function renderExecutionReceipts", 1)[1].split("function researchReceipt", 1)[0]
+            self.assertIn("暂无执行回执", execution_receipts_block)
+            self.assertIn("zhConsoleText(item.label || item.workflow_id || \"\")", execution_receipts_block)
+            self.assertIn("zhConsoleText(item.safety || \"\")", execution_receipts_block)
+            self.assertNotIn("<strong>No execution receipts</strong>", execution_receipts_block)
+            self.assertNotIn("Run research, signals, or paper simulation to record a structured receipt.", execution_receipts_block)
             self.assertIn("releaseReadinessText", app_js)
             release_readiness_block = app_js.split("function renderReleaseReadiness", 1)[1].split("function loadRunHistory", 1)[0]
             self.assertIn("releaseReadinessText(summary.next_action || \"\")", release_readiness_block)
