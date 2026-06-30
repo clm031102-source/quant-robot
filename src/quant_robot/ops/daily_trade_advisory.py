@@ -39,6 +39,7 @@ DAILY_REAL_MONEY_TRANSITION_GATE_STAGE = "phase_6_21_daily_real_money_transition
 DAILY_CANDIDATE_POOL_TOP20_STAGE = "phase_6_22_daily_candidate_pool_top20"
 MANUAL_EXECUTION_AUDIT_STAGE = "phase_6_23_manual_execution_audit"
 DAILY_MANUAL_TRADING_SESSION_STAGE = "phase_6_24_daily_manual_trading_session"
+DAILY_PAPER_ALLOCATION_PLAYBOOK_STAGE = "phase_6_25_daily_paper_allocation_playbook"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 MANUAL_PRICE_DEVIATION_GUARD_PCT = 0.005
@@ -433,6 +434,7 @@ def build_daily_trade_advisory_pack(
     pack["daily_factor_health_monitor"] = build_daily_factor_health_monitor(pack)
     pack["daily_real_money_transition_gate"] = build_daily_real_money_transition_gate(pack)
     pack["daily_manual_trading_session"] = build_daily_manual_trading_session(pack)
+    pack["daily_paper_allocation_playbook"] = build_daily_paper_allocation_playbook(pack)
     pack["summary"]["live_transition_status"] = pack["live_transition_plan"]["summary"]["status"]
     pack["summary"]["trading_system_status"] = pack["trading_system_blueprint"]["summary"]["status"]
     pack["summary"]["execution_bridge_status"] = pack["daily_signal_execution_bridge"]["summary"]["status"]
@@ -442,6 +444,9 @@ def build_daily_trade_advisory_pack(
     pack["summary"]["factor_health_status"] = pack["daily_factor_health_monitor"]["summary"]["decision"]
     pack["summary"]["real_money_transition_status"] = pack["daily_real_money_transition_gate"]["summary"]["decision"]
     pack["summary"]["manual_trading_session_status"] = pack["daily_manual_trading_session"]["summary"]["session_status"]
+    pack["summary"]["paper_allocation_playbook_status"] = pack["daily_paper_allocation_playbook"]["summary"][
+        "allocation_status"
+    ]
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
 
@@ -5178,6 +5183,448 @@ def _session_count(*values: Any) -> int:
         if number is not None:
             return int(number)
     return 0
+
+
+def build_daily_paper_allocation_playbook(pack: dict[str, Any]) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    session = (
+        pack.get("daily_manual_trading_session")
+        if isinstance(pack.get("daily_manual_trading_session"), dict)
+        else {}
+    )
+    session_summary = session.get("summary") if isinstance(session.get("summary"), dict) else {}
+    transition = (
+        pack.get("daily_real_money_transition_gate")
+        if isinstance(pack.get("daily_real_money_transition_gate"), dict)
+        else {}
+    )
+    transition_summary = transition.get("summary") if isinstance(transition.get("summary"), dict) else {}
+    profitability = (
+        pack.get("live_profitability_readiness")
+        if isinstance(pack.get("live_profitability_readiness"), dict)
+        else {}
+    )
+    profitability_summary = profitability.get("summary") if isinstance(profitability.get("summary"), dict) else {}
+    health = pack.get("daily_factor_health_monitor") if isinstance(pack.get("daily_factor_health_monitor"), dict) else {}
+    health_summary = health.get("summary") if isinstance(health.get("summary"), dict) else {}
+    readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
+    manual_tickets = _paper_allocation_ticket_source(pack, session, transition)
+    portfolio_value = _float(summary.get("portfolio_value"), 100000.0)
+    risk_profile = _risk_profile_by_id(str(summary.get("risk_profile_id") or DEFAULT_RISK_PROFILE_ID))
+    session_status = str(session_summary.get("session_status") or "paper_rehearsal_required")
+    hard_blocked_statuses = {
+        "blocked_pretrade_red_light",
+        "blocked_factor_health_rotation_required",
+        "blocked_same_day_signal_required",
+    }
+    readiness_blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
+    manual_broker_review_candidate = bool(session_summary.get("manual_broker_review_candidate"))
+    allocation_rows = [
+        _paper_allocation_row(index, row, portfolio_value=portfolio_value, risk_profile=risk_profile)
+        for index, row in enumerate(manual_tickets, start=1)
+    ]
+    paper_only_position_gap = bool(allocation_rows) and bool(readiness_blockers) and all(
+        blocker == "current_position_not_provided" for blocker in readiness_blockers
+    )
+    pretrade_blocked = (bool(readiness_blockers) and not paper_only_position_gap) or (
+        session_status in hard_blocked_statuses and not paper_only_position_gap
+    )
+    risk_blocked = any(bool(row.get("risk_blocked")) for row in allocation_rows)
+    if not allocation_rows:
+        allocation_status = "blocked_no_allocation_rows"
+    elif pretrade_blocked:
+        allocation_status = session_status if session_status in hard_blocked_statuses else "blocked_pretrade_red_light"
+    elif risk_blocked:
+        allocation_status = "blocked_risk_budget"
+    elif manual_broker_review_candidate:
+        allocation_status = "manual_review_candidate"
+    else:
+        allocation_status = "paper_rehearsal_required"
+
+    blocked = allocation_status.startswith("blocked")
+    traffic_light = "red" if blocked else "yellow"
+    execution_mode = "manual_review_candidate_not_order" if manual_broker_review_candidate and not blocked else "paper_rehearsal_only"
+    for row in allocation_rows:
+        row["execution_mode"] = execution_mode
+    allocated_value = round(sum(_float(row.get("paper_budget_value"), 0.0) for row in allocation_rows), 6)
+    residual_cash = round(max(0.0, portfolio_value - allocated_value), 6)
+    promotion_gates = _paper_allocation_promotion_gates(
+        summary=summary,
+        session_summary=session_summary,
+        transition_summary=transition_summary,
+        profitability_summary=profitability_summary,
+        health_summary=health_summary,
+        allocation_rows=allocation_rows,
+        allocation_status=allocation_status,
+    )
+    next_gate = next((row for row in promotion_gates if row.get("status") != "pass"), {})
+    return _sanitize(
+        {
+            "stage": DAILY_PAPER_ALLOCATION_PLAYBOOK_STAGE,
+            "run_date": str(pack.get("run_date") or date.today().isoformat()),
+            "safety": SAFETY_NOTICE,
+            "summary": {
+                "allocation_status": allocation_status,
+                "traffic_light": traffic_light,
+                "plain_answer": _paper_allocation_plain_answer(allocation_status),
+                "primary_market": str(session_summary.get("primary_market") or "CN_ETF"),
+                "portfolio_value": portfolio_value,
+                "allocated_value": allocated_value,
+                "residual_cash_value": residual_cash,
+                "allocation_row_count": len(allocation_rows),
+                "selected_factor_count": _session_count(
+                    session_summary.get("selected_factor_count"),
+                    summary.get("selected_factor_count"),
+                ),
+                "signal_count": _session_count(session_summary.get("signal_count"), summary.get("signal_count")),
+                "manual_ticket_count": _session_count(
+                    session_summary.get("manual_ticket_count"),
+                    summary.get("manual_ticket_count"),
+                ),
+                "matched_paper_receipts": _session_count(
+                    session_summary.get("matched_paper_receipts"),
+                    profitability_summary.get("matched_paper_receipts"),
+                ),
+                "manual_broker_review_candidate": manual_broker_review_candidate and not blocked,
+                "paper_rehearsal_required": allocation_status == "paper_rehearsal_required",
+                "risk_blocked": risk_blocked,
+                "next_gate_id": next_gate.get("gate_id"),
+                "next_target_id": next_gate.get("target_id") or "daily-paper-allocation-playbook",
+                "next_workflow_id": next_gate.get("workflow_id") or "",
+                "real_money_allowed": False,
+                "live_trading_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+            },
+            "allocation_rows": allocation_rows,
+            "promotion_gates": promotion_gates,
+            "operator_steps": _paper_allocation_operator_steps(
+                allocation_status=allocation_status,
+                manual_broker_review_candidate=manual_broker_review_candidate and not blocked,
+                allocation_row_count=len(allocation_rows),
+            ),
+            "forbidden_actions": _paper_allocation_forbidden_actions(),
+            "source_manual_session_summary": session_summary,
+            "execution_boundary": {
+                "plain_boundary": "This playbook is for paper rehearsal and human review only; it is not an order router.",
+                "manual_review_only": True,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+            },
+        }
+    )
+
+
+def _paper_allocation_ticket_source(
+    pack: dict[str, Any],
+    session: dict[str, Any],
+    transition: dict[str, Any],
+) -> list[dict[str, Any]]:
+    for source in (
+        session.get("manual_ticket_preview"),
+        transition.get("manual_execution_preview"),
+        pack.get("manual_trade_plan"),
+    ):
+        rows = [row for row in source if isinstance(row, dict)] if isinstance(source, list) else []
+        if rows:
+            return [{**row, "source_kind": str(row.get("source_kind") or "manual_ticket")} for row in rows]
+    handoff = pack.get("manual_broker_handoff") if isinstance(pack.get("manual_broker_handoff"), dict) else {}
+    handoff_rows = [row for row in handoff.get("copyable_tickets", []) if isinstance(row, dict)]
+    if handoff_rows:
+        return [{**row, "source_kind": str(row.get("source_kind") or "manual_ticket")} for row in handoff_rows]
+    return [
+        {**row, "source_kind": "combined_target"}
+        for row in pack.get("combined_targets", [])
+        if isinstance(row, dict)
+    ]
+
+
+def _paper_allocation_row(
+    index: int,
+    row: dict[str, Any],
+    *,
+    portfolio_value: float,
+    risk_profile: dict[str, Any] | None,
+) -> dict[str, Any]:
+    reference_price = _float_or_none(row.get("reference_price") or row.get("latest_price"))
+    target_weight = _float(row.get("target_weight"), 0.0)
+    target_value = _float(row.get("target_value"), target_weight * portfolio_value)
+    paper_quantity = _int(row.get("rounded_quantity"), 0)
+    paper_budget_value = _float(row.get("rounded_value"), 0.0)
+    if paper_quantity <= 0 and reference_price and reference_price > 0:
+        paper_quantity = int(target_value / reference_price / BOARD_LOT_SIZE) * BOARD_LOT_SIZE
+    if paper_budget_value <= 0:
+        paper_budget_value = paper_quantity * reference_price if reference_price else target_value
+    risk_budget = (
+        row.get("risk_budget")
+        if isinstance(row.get("risk_budget"), dict)
+        else _manual_ticket_risk_budget(
+            {**row, "rounded_value": paper_budget_value, "target_weight": target_weight},
+            portfolio_value=portfolio_value,
+            risk_profile=risk_profile,
+        )
+    )
+    risk_blocked = bool(risk_budget.get("single_etf_limit_breached")) or bool(
+        risk_budget.get("rounded_value_limit_breached")
+    )
+    return {
+        "row_number": index,
+        "ticket_id": row.get("ticket_id") or f"paper-allocation-{index:03d}",
+        "asset_id": row.get("asset_id"),
+        "market": row.get("market") or "CN_ETF",
+        "side": row.get("side") or "buy_or_adjust",
+        "target_weight": round(target_weight, 10),
+        "target_value": round(target_value, 6),
+        "reference_price": reference_price,
+        "paper_quantity": paper_quantity,
+        "paper_budget_value": round(paper_budget_value, 6),
+        "residual_rounding_cash": round(max(0.0, target_value - paper_budget_value), 6),
+        "source_factors": row.get("source_factors"),
+        "source_kind": row.get("source_kind") or "manual_ticket",
+        "risk_budget": risk_budget,
+        "risk_blocked": risk_blocked,
+        "plain_instruction": "Use this row in same-parameter paper rehearsal first; do not copy it as a broker order.",
+        "execution_mode": "paper_rehearsal_only",
+        "automation_allowed": False,
+        "live_trading_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
+
+
+def _paper_allocation_promotion_gates(
+    *,
+    summary: dict[str, Any],
+    session_summary: dict[str, Any],
+    transition_summary: dict[str, Any],
+    profitability_summary: dict[str, Any],
+    health_summary: dict[str, Any],
+    allocation_rows: list[dict[str, Any]],
+    allocation_status: str,
+) -> list[dict[str, Any]]:
+    selected = _session_count(session_summary.get("selected_factor_count"), summary.get("selected_factor_count"))
+    signals = _session_count(session_summary.get("signal_count"), summary.get("signal_count"))
+    tickets = len(allocation_rows)
+    manual_ticket_count = _session_count(session_summary.get("manual_ticket_count"), summary.get("manual_ticket_count"))
+    matched_paper = _session_count(
+        session_summary.get("matched_paper_receipts"),
+        transition_summary.get("matched_paper_receipts"),
+        profitability_summary.get("matched_paper_receipts"),
+    )
+    journals = _session_count(
+        session_summary.get("post_close_journal_receipts"),
+        transition_summary.get("post_close_journal_receipts"),
+        profitability_summary.get("post_close_journal_receipts"),
+    )
+    clean_manual = _session_count(
+        session_summary.get("manual_execution_clean_receipts"),
+        transition_summary.get("manual_execution_clean_receipts"),
+        profitability_summary.get("manual_execution_clean_receipts"),
+    )
+    research_ready = all(
+        bool(profitability_summary.get(key))
+        for key in (
+            "walk_forward_oos_passed",
+            "lookahead_bias_audit_passed",
+            "multiple_testing_control_passed",
+            "transaction_cost_capacity_passed",
+        )
+    ) or str(transition_summary.get("research_evidence_status") or "") == "pass"
+    factor_health_ok = not bool(health_summary.get("retirement_required_before_live"))
+    risk_ok = allocation_status != "blocked_risk_budget"
+
+    def gate(
+        gate_id: str,
+        label: str,
+        passed: bool,
+        evidence: str,
+        target_id: str,
+        workflow_id: str = "",
+    ) -> dict[str, Any]:
+        return {
+            "gate_id": gate_id,
+            "label": label,
+            "status": "pass" if passed else "required",
+            "evidence": evidence,
+            "target_id": target_id,
+            "workflow_id": workflow_id,
+            "order_placement_allowed": False,
+        }
+
+    return [
+        gate(
+            "top3_same_day_signal",
+            "Top3 same-day signal",
+            selected > 0 and signals > 0,
+            f"selected={selected}; signals={signals}.",
+            "daily-trade-factor-table",
+            "daily_trade_advisory" if signals <= 0 else "",
+        ),
+        gate(
+            "paper_allocation_rows",
+            "Paper allocation rows",
+            tickets > 0,
+            f"allocation_rows={tickets}.",
+            "daily-paper-allocation-playbook",
+        ),
+        gate(
+            "manual_ticket_pack",
+            "Manual ticket pack",
+            manual_ticket_count > 0,
+            f"manual_tickets={manual_ticket_count}; combined-target rows may still be rehearsed in paper mode.",
+            "daily-manual-broker-handoff-ticket-table",
+            "daily_trade_advisory" if manual_ticket_count <= 0 else "",
+        ),
+        gate(
+            "risk_budget",
+            "Risk budget and lot sizing",
+            risk_ok,
+            f"risk_blocked={not risk_ok}.",
+            "daily-paper-allocation-playbook",
+        ),
+        gate(
+            "factor_health",
+            "Factor health",
+            factor_health_ok,
+            str(health_summary.get("decision") or "unknown"),
+            "daily-factor-health-rows",
+        ),
+        gate(
+            "research_evidence",
+            "OOS, lookahead, multiple-test, cost-capacity evidence",
+            research_ready,
+            f"research_ready={research_ready}.",
+            "control-backtest-gate",
+        ),
+        gate(
+            "same_parameter_paper",
+            "Same-parameter paper receipts",
+            matched_paper >= 5,
+            f"matched_paper_receipts={matched_paper}/5.",
+            "paper-metrics",
+            "paper_simulation",
+        ),
+        gate(
+            "post_close_journal",
+            "Post-close journal receipts",
+            journals >= 5,
+            f"post_close_journals={journals}/5.",
+            "beginner-post-close-journal-board",
+            "post_close_journal",
+        ),
+        gate(
+            "manual_execution_audit",
+            "Clean manual execution audit",
+            clean_manual >= 5,
+            f"clean_manual_execution_receipts={clean_manual}/5.",
+            "beginner-post-close-journal-board",
+            "post_close_journal",
+        ),
+    ]
+
+
+def _paper_allocation_operator_steps(
+    *,
+    allocation_status: str,
+    manual_broker_review_candidate: bool,
+    allocation_row_count: int,
+) -> list[dict[str, Any]]:
+    def step(step_id: str, label: str, status: str, target_id: str, workflow_id: str = "") -> dict[str, Any]:
+        return {
+            "step_id": step_id,
+            "label": label,
+            "status": status,
+            "target_id": target_id,
+            "workflow_id": workflow_id,
+            "manual_required": True,
+            "order_placement_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "auto_order_allowed": False,
+        }
+
+    steps = [
+        step(
+            "review_allocation_rows",
+            "Review paper allocation rows",
+            "pass" if allocation_row_count > 0 else "required",
+            "daily-paper-allocation-playbook",
+        ),
+        step(
+            "run_same_parameter_paper",
+            "Run same-parameter paper rehearsal",
+            "required" if allocation_status == "paper_rehearsal_required" else "pass",
+            "paper-metrics",
+            "paper_simulation",
+        ),
+        step(
+            "record_post_close_journal",
+            "Record post-close result and skip/execute reason",
+            "required",
+            "beginner-post-close-journal-board",
+            "post_close_journal",
+        ),
+    ]
+    if manual_broker_review_candidate:
+        steps.append(
+            step(
+                "open_external_broker_manually_if_human_chooses",
+                "Human may open an external broker app after reviewing all gates",
+                "manual_review_only",
+                "daily-manual-trading-session",
+            )
+        )
+    else:
+        steps.append(
+            step(
+                "keep_inside_paper_mode",
+                "Keep this playbook inside paper rehearsal",
+                "locked" if allocation_status.startswith("blocked") else "required",
+                "paper-metrics",
+                "paper_simulation",
+            )
+        )
+    return steps
+
+
+def _paper_allocation_forbidden_actions() -> list[dict[str, Any]]:
+    rows = [
+        ("do_not_copy_to_broker", "Do not copy paper rows into a broker ticket as-is."),
+        ("skip_same_parameter_paper", "Do not skip the same-parameter paper rehearsal."),
+        ("treat_allocation_as_order", "Do not treat allocation rows as executable orders."),
+        ("ignore_risk_budget", "Do not ignore single ETF caps, lot sizing, cash, or slippage guardrails."),
+    ]
+    return [
+        {
+            "action_id": action_id,
+            "plain_rule": plain_rule,
+            "order_placement_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "auto_order_allowed": False,
+        }
+        for action_id, plain_rule in rows
+    ]
+
+
+def _paper_allocation_plain_answer(allocation_status: str) -> str:
+    answers = {
+        "blocked_no_allocation_rows": "No allocation rows exist; generate today's Top3 signal and manual ticket pack first.",
+        "blocked_pretrade_red_light": "Pretrade blockers remain; do not rehearse or review broker-side action yet.",
+        "blocked_factor_health_rotation_required": "A Top3 factor needs retirement or lower weight before allocation rehearsal.",
+        "blocked_same_day_signal_required": "Generate today's same-day CN_ETF signal before allocation rehearsal.",
+        "blocked_manual_ticket_required": "Build manual ticket rows before allocation rehearsal.",
+        "blocked_risk_budget": "Risk budget or lot sizing is breached; reduce exposure before rehearsal.",
+        "manual_review_candidate": "Evidence is sufficient for human manual review material; the software still cannot submit orders.",
+        "paper_rehearsal_required": "Use these rows for same-parameter paper rehearsal and collect receipts before any human broker review.",
+    }
+    return answers.get(allocation_status, "Review allocation rows in paper mode before any human decision.")
 
 
 def _transition_gate_status(gate_by_id: dict[str, dict[str, Any]], gate_id: str) -> str:

@@ -6023,6 +6023,7 @@ function renderDailyTradeAdvisory() {
   renderDailyClosureStreak(pack.live_profitability_readiness || {});
   renderDailyRealMoneyTransitionGate(pack.daily_real_money_transition_gate || {});
   renderDailyManualTradingSession(pack.daily_manual_trading_session || {});
+  renderDailyPaperAllocationPlaybook(pack.daily_paper_allocation_playbook || {});
   renderDailyFactorHealthMonitor(pack.daily_factor_health_monitor || {});
   renderDailyRealWorldHandoffGate(pack.real_world_manual_handoff_gate || {});
   renderDailyTradingSystemBlueprint(pack.trading_system_blueprint || {});
@@ -7166,6 +7167,86 @@ function dailyManualTradingSessionTone(status = "", trafficLight = "") {
   const text = String(status || "").toLowerCase();
   if (String(trafficLight || "").toLowerCase() === "red" || text.includes("blocked")) return "danger";
   if (text.includes("candidate") || text.includes("paper_rehearsal")) return "warn";
+  return "warn";
+}
+
+function renderDailyPaperAllocationPlaybook(playbook = {}) {
+  const summaryTarget = byId("daily-paper-allocation-summary");
+  const rowsTarget = byId("daily-paper-allocation-rows");
+  const gatesTarget = byId("daily-paper-allocation-gates");
+  const stepsTarget = byId("daily-paper-allocation-steps");
+  if (!summaryTarget || !rowsTarget || !gatesTarget || !stepsTarget) return;
+  const summary = playbook.summary || {};
+  const status = summary.allocation_status || "paper_rehearsal_required";
+  const tone = dailyPaperAllocationTone(status, summary.traffic_light);
+  const nextButton = summary.next_workflow_id ? `
+    <button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(summary.next_workflow_id)}">${escapeHtml("Run next")}</button>
+  ` : "";
+  const targetButton = summary.next_target_id ? `
+    <button class="${escapeHtml(nextButton ? "secondary-button" : "primary-button")}" type="button" data-beginner-target="${escapeRawHtml(summary.next_target_id)}">${escapeHtml("View evidence")}</button>
+  ` : "";
+  summaryTarget.innerHTML = statusRows([
+    ["Allocation status", `${summary.traffic_light || "yellow"} / ${zhConsoleText(status)}`, tone],
+    ["Plain answer", summary.plain_answer || "Use this as same-parameter paper rehearsal; do not copy to broker.", tone],
+    ["Paper budget", `portfolio=${formatNumber(summary.portfolio_value || 0)} / allocated=${formatNumber(summary.allocated_value || 0)} / cash=${formatNumber(summary.residual_cash_value || 0)}`, "warn"],
+    ["Rows", `allocations=${formatNumber(summary.allocation_row_count || 0)} / signals=${formatNumber(summary.signal_count || 0)} / tickets=${formatNumber(summary.manual_ticket_count || 0)}`, summary.allocation_row_count ? "ok" : "danger"],
+    ["Evidence", `matched_paper=${formatNumber(summary.matched_paper_receipts || 0)}/5 / manual_candidate=${summary.manual_broker_review_candidate ? "yes" : "no"}`, summary.manual_broker_review_candidate ? "ok" : "warn"],
+    ["Boundary", summary.order_placement_allowed || summary.broker_connection_allowed ? "ERROR: permission boundary breached" : "No broker connection, no account read, no automatic order", summary.order_placement_allowed || summary.broker_connection_allowed ? "danger" : "ok"],
+  ]) + `
+    <div class="list-row ${escapeHtml(tone)}">
+      <strong>${escapeHtml("Next")}</strong>
+      <span>${escapeHtml(summary.next_gate_id || status)}</span>
+      <span class="beginner-task-actions">${nextButton}${targetButton}</span>
+    </div>
+  `;
+
+  const rows = Array.isArray(playbook.allocation_rows) ? playbook.allocation_rows : [];
+  rowsTarget.innerHTML = rows.length ? rows.map((item, index) => {
+    const risk = item.risk_budget || {};
+    const rowTone = item.risk_blocked ? "danger" : item.execution_mode === "manual_review_candidate_not_order" ? "warn" : "ok";
+    return `
+      <div class="list-row ${escapeHtml(rowTone)}">
+        <strong>${escapeHtml(`${index + 1}. ${item.asset_id || "--"} / ${zhConsoleText(item.execution_mode || "paper_rehearsal_only")}`)}</strong>
+        <span>${escapeHtml(`weight=${formatPercent(item.target_weight)} / budget=${formatNumber(item.paper_budget_value || 0)} / qty=${formatNumber(item.paper_quantity || 0)} / price=${formatDecimal(item.reference_price)}`)}</span>
+        <span>${escapeHtml(`single_cap=${formatPercent(risk.max_single_etf_weight)} / adverse_loss=${formatNumber(risk.ticket_adverse_move_loss || 0)} / cash_rounding=${formatNumber(item.residual_rounding_cash || 0)}`)}</span>
+        <span>${escapeHtml(item.risk_blocked ? "Risk budget blocks this row." : "Paper rehearsal row only; not an order.")}</span>
+      </div>
+    `;
+  }).join("") : statusRows([["Allocation rows", "No paper allocation rows yet. Generate today's CN_ETF Top3 signal and manual ticket pack first.", "danger"]]);
+
+  const gates = Array.isArray(playbook.promotion_gates) ? playbook.promotion_gates : [];
+  gatesTarget.innerHTML = gates.length ? gates.map((item) => `
+    <div class="list-row ${escapeHtml(dailyTradeSystemStageTone(item.status || ""))}">
+      <strong>${escapeHtml(item.label || item.gate_id || "")}</strong>
+      <span>${escapeHtml(`${zhConsoleText(item.status || "required")} / ${item.evidence || ""}`)}</span>
+      <span class="beginner-task-actions">
+        ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("Run")}</button>` : ""}
+        ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("View")}</button>` : ""}
+      </span>
+    </div>
+  `).join("") : statusRows([["Promotion gates", "Waiting for paper allocation playbook gates.", "warn"]]);
+
+  const steps = Array.isArray(playbook.operator_steps) ? playbook.operator_steps : [];
+  const forbidden = Array.isArray(playbook.forbidden_actions) ? playbook.forbidden_actions : [];
+  const forbiddenIds = forbidden.map((item) => item.action_id || "").filter(Boolean).join(" / ") || "do_not_copy_to_broker";
+  stepsTarget.innerHTML = (steps.length ? steps.map((item) => `
+    <div class="list-row ${escapeHtml(dailyTradeSystemStageTone(item.status || ""))}">
+      <strong>${escapeHtml(item.label || item.step_id || "")}</strong>
+      <span>${escapeHtml(`${zhConsoleText(item.status || "required")} / ${item.step_id || ""}`)}</span>
+      <span class="beginner-task-actions">
+        ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("Run")}</button>` : ""}
+        ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("View")}</button>` : ""}
+      </span>
+    </div>
+  `).join("") : statusRows([["Operator steps", "Run same-parameter paper rehearsal before any human review.", "warn"]])) + statusRows([
+    ["Forbidden", forbiddenIds, forbiddenIds.includes("do_not_copy_to_broker") ? "danger" : "warn"],
+  ]);
+}
+
+function dailyPaperAllocationTone(status = "", trafficLight = "") {
+  const text = String(status || "").toLowerCase();
+  if (String(trafficLight || "").toLowerCase() === "red" || text.includes("blocked")) return "danger";
+  if (text.includes("manual_review_candidate") || text.includes("paper_rehearsal_required")) return "warn";
   return "warn";
 }
 

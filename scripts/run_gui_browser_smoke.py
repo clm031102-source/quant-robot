@@ -426,6 +426,27 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "daily_paper_allocation_playbook_frontend",
+            "Daily paper allocation playbook frontend",
+            index_html.get("ok")
+            and "daily-paper-allocation-playbook" in str(index_html.get("body", ""))
+            and "daily-paper-allocation-summary" in str(index_html.get("body", ""))
+            and "daily-paper-allocation-rows" in str(index_html.get("body", ""))
+            and "daily-paper-allocation-gates" in str(index_html.get("body", ""))
+            and "daily-paper-allocation-steps" in str(index_html.get("body", ""))
+            and app_js.get("ok")
+            and "renderDailyPaperAllocationPlaybook" in str(app_js.get("body", ""))
+            and "daily_paper_allocation_playbook" in str(app_js.get("body", ""))
+            and "paper_rehearsal_required" in str(app_js.get("body", ""))
+            and "do_not_copy_to_broker" in str(app_js.get("body", "")),
+            "Frontend exposes the paper allocation playbook with budget rows, promotion gates, operator steps, and no-broker boundary.",
+            index_html.get("error")
+            or app_js.get("error")
+            or "Daily paper allocation playbook frontend anchors or renderer hooks are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "daily_closure_streak_frontend",
             "Daily closure streak frontend",
             index_html.get("ok")

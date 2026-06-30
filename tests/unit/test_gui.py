@@ -445,6 +445,15 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("daily_manual_trading_session", app_js)
         self.assertIn("blocked_same_parameter_paper_required", app_js)
         self.assertIn("open_external_broker_manually", app_js)
+        self.assertIn("daily-paper-allocation-playbook", html)
+        self.assertIn("daily-paper-allocation-summary", html)
+        self.assertIn("daily-paper-allocation-rows", html)
+        self.assertIn("daily-paper-allocation-gates", html)
+        self.assertIn("daily-paper-allocation-steps", html)
+        self.assertIn("renderDailyPaperAllocationPlaybook", app_js)
+        self.assertIn("daily_paper_allocation_playbook", app_js)
+        self.assertIn("paper_rehearsal_required", app_js)
+        self.assertIn("do_not_copy_to_broker", app_js)
         self.assertIn("function todayIsoDate", app_js)
         self.assertIn("function applyDailyTradeDateDefault", app_js)
         self.assertIn("staleDailyDateDefaults", app_js)
@@ -559,6 +568,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("daily_factor_health_monitor", snapshot)
         self.assertIn("daily_real_money_transition_gate", snapshot)
         self.assertIn("daily_manual_trading_session", snapshot)
+        self.assertIn("daily_paper_allocation_playbook", snapshot)
         self.assertIn("candidate_pool_top20", snapshot)
         self.assertEqual(snapshot["candidate_pool_top20"]["stage"], "phase_6_22_daily_candidate_pool_top20")
         self.assertIn("rows", snapshot["candidate_pool_top20"])
@@ -673,6 +683,24 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertFalse(session["summary"]["broker_connection_allowed"])
         self.assertIn("record_post_close_journal", {row["step_id"] for row in session["operator_checklist"]})
         self.assertTrue(all(row["order_placement_allowed"] is False for row in session["operator_checklist"]))
+        allocation = snapshot["daily_paper_allocation_playbook"]
+        self.assertEqual(allocation["stage"], "phase_6_25_daily_paper_allocation_playbook")
+        self.assertIn(
+            allocation["summary"]["allocation_status"],
+            {
+                "blocked_pretrade_red_light",
+                "blocked_factor_health_rotation_required",
+                "blocked_no_allocation_rows",
+                "blocked_risk_budget",
+                "paper_rehearsal_required",
+                "manual_review_candidate",
+            },
+        )
+        self.assertFalse(allocation["summary"]["order_placement_allowed"])
+        self.assertFalse(allocation["summary"]["broker_connection_allowed"])
+        self.assertIn("same_parameter_paper", {row["gate_id"] for row in allocation["promotion_gates"]})
+        self.assertIn("run_same_parameter_paper", {row["step_id"] for row in allocation["operator_steps"]})
+        self.assertTrue(all(row["order_placement_allowed"] is False for row in allocation["allocation_rows"]))
         self.assertEqual(snapshot["live_transition_plan"]["summary"]["selected_risk_profile_id"], "conservative_10dd")
         self.assertEqual(snapshot["summary"]["risk_profile_id"], "conservative_10dd")
         self.assertIn("small_capital_review_gate", {gate["gate_id"] for gate in snapshot["live_transition_plan"]["evidence_gates"]})
@@ -4070,6 +4098,15 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn(
                 "record_post_close_journal",
                 {row["step_id"] for row in trade_advisory["daily_manual_trading_session"]["operator_checklist"]},
+            )
+            self.assertEqual(
+                trade_advisory["daily_paper_allocation_playbook"]["stage"],
+                "phase_6_25_daily_paper_allocation_playbook",
+            )
+            self.assertFalse(trade_advisory["daily_paper_allocation_playbook"]["summary"]["order_placement_allowed"])
+            self.assertIn(
+                "run_same_parameter_paper",
+                {row["step_id"] for row in trade_advisory["daily_paper_allocation_playbook"]["operator_steps"]},
             )
 
             invalid_positions = _read_json(

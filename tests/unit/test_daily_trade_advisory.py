@@ -6,6 +6,7 @@ from pathlib import Path
 from quant_robot.ops.daily_trade_advisory import (
     build_daily_candidate_pool_top20,
     build_daily_manual_trading_session,
+    build_daily_paper_allocation_playbook,
     build_manual_execution_audit,
     build_daily_trade_decision_sheet,
     build_manual_ticket_export,
@@ -1637,6 +1638,116 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("open_external_broker_manually", {row["step_id"] for row in direct["operator_checklist"]})
         self.assertIn("direct_buy_top3", {row["action_id"] for row in direct["forbidden_actions"]})
         self.assertTrue(all(not row["order_placement_allowed"] for row in direct["manual_ticket_preview"]))
+
+    def test_daily_pack_exposes_paper_allocation_playbook_for_top3_signals(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_quality_combo", "market": "CN_ETF", "sharpe": 1.3},
+                {"rank": 2, "case_id": "c2", "factor_name": "low_vol_overlay", "market": "CN_ETF", "sharpe": 1.1},
+                {"rank": 3, "case_id": "c3", "factor_name": "breadth_trend_state", "market": "CN_ETF", "sharpe": 0.9},
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.20}, latest_price=4.0),
+                _signal("c2", "low_vol_overlay", {"588000": 0.15}, latest_price=1.5),
+                _signal("c3", "breadth_trend_state", {"159915": 0.10}, latest_price=2.0),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="aggressive_30dd",
+        )
+
+        playbook = pack["daily_paper_allocation_playbook"]
+        direct = build_daily_paper_allocation_playbook(pack)
+
+        self.assertEqual(direct, playbook)
+        self.assertEqual(playbook["stage"], "phase_6_25_daily_paper_allocation_playbook")
+        self.assertEqual(pack["summary"]["paper_allocation_playbook_status"], "paper_rehearsal_required")
+        self.assertEqual(playbook["summary"]["allocation_status"], "paper_rehearsal_required")
+        self.assertEqual(playbook["summary"]["traffic_light"], "yellow")
+        self.assertEqual(playbook["summary"]["portfolio_value"], 100000)
+        self.assertEqual(playbook["summary"]["allocated_value"], 14550)
+        self.assertEqual(playbook["summary"]["residual_cash_value"], 85450)
+        self.assertEqual(playbook["summary"]["allocation_row_count"], 3)
+        self.assertFalse(playbook["summary"]["broker_connection_allowed"])
+        self.assertFalse(playbook["summary"]["account_read_allowed"])
+        self.assertFalse(playbook["summary"]["order_placement_allowed"])
+        self.assertIn("same_parameter_paper", {row["gate_id"] for row in playbook["promotion_gates"]})
+        rows_by_asset = {row["asset_id"]: row for row in playbook["allocation_rows"]}
+        self.assertEqual(rows_by_asset["510300"]["paper_budget_value"], 6400)
+        self.assertAlmostEqual(rows_by_asset["510300"]["target_weight"], 0.0666666667)
+        self.assertEqual(rows_by_asset["510300"]["paper_quantity"], 1600)
+        self.assertEqual(rows_by_asset["588000"]["paper_quantity"], 3300)
+        self.assertTrue(all(row["execution_mode"] == "paper_rehearsal_only" for row in playbook["allocation_rows"]))
+        self.assertTrue(all(row["order_placement_allowed"] is False for row in playbook["allocation_rows"]))
+        self.assertIn("run_same_parameter_paper", {row["step_id"] for row in playbook["operator_steps"]})
+        self.assertIn("do_not_copy_to_broker", {row["action_id"] for row in playbook["forbidden_actions"]})
+
+    def test_paper_allocation_playbook_marks_manual_review_candidate_after_evidence(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_quality_combo", "market": "CN_ETF", "sharpe": 1.35},
+                {"rank": 2, "case_id": "c2", "factor_name": "low_vol_overlay", "market": "CN_ETF", "sharpe": 1.05},
+                {"rank": 3, "case_id": "c3", "factor_name": "breadth_trend_state", "market": "CN_ETF", "sharpe": 0.98},
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.2}),
+                _signal("c2", "low_vol_overlay", {"588000": 0.2}),
+                _signal("c3", "breadth_trend_state", {"159915": 0.2}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="aggressive_30dd",
+            evidence_snapshot={
+                "walk_forward_oos_passed": True,
+                "lookahead_bias_audit_passed": True,
+                "multiple_testing_control_passed": True,
+                "transaction_cost_capacity_passed": True,
+                "matched_paper_receipts": 5,
+                "post_close_journals": 5,
+                "manual_execution_clean_receipts": 5,
+                "manual_execution_blocked_receipts": 0,
+                "paper_ready_observations": 20,
+            },
+        )
+
+        playbook = pack["daily_paper_allocation_playbook"]
+
+        self.assertEqual(playbook["summary"]["allocation_status"], "manual_review_candidate")
+        self.assertEqual(playbook["summary"]["traffic_light"], "yellow")
+        self.assertTrue(playbook["summary"]["manual_broker_review_candidate"])
+        self.assertFalse(playbook["summary"]["order_placement_allowed"])
+        self.assertFalse(playbook["summary"]["real_money_allowed"])
+        self.assertTrue(all(row["execution_mode"] == "manual_review_candidate_not_order" for row in playbook["allocation_rows"]))
+        self.assertTrue(all(row["order_placement_allowed"] is False for row in playbook["allocation_rows"]))
+        self.assertIn("open_external_broker_manually_if_human_chooses", {row["step_id"] for row in playbook["operator_steps"]})
+
+    def test_paper_allocation_playbook_can_rehearse_targets_without_current_positions(self):
+        pack = _build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_quality_combo", "market": "CN_ETF", "sharpe": 1.3},
+                {"rank": 2, "case_id": "c2", "factor_name": "low_vol_overlay", "market": "CN_ETF", "sharpe": 1.1},
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.20}, latest_price=4.0),
+                _signal("c2", "low_vol_overlay", {"588000": 0.10}, latest_price=1.5),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="balanced_20dd",
+        )
+
+        playbook = pack["daily_paper_allocation_playbook"]
+
+        self.assertEqual(pack["summary"]["current_position_status"], "not_provided")
+        self.assertEqual(pack["summary"]["manual_ticket_count"], 0)
+        self.assertEqual(playbook["summary"]["allocation_status"], "paper_rehearsal_required")
+        self.assertEqual(playbook["summary"]["allocation_row_count"], 2)
+        self.assertGreater(playbook["summary"]["allocated_value"], 0)
+        self.assertTrue(all(row["source_kind"] == "combined_target" for row in playbook["allocation_rows"]))
+        self.assertTrue(all(row["execution_mode"] == "paper_rehearsal_only" for row in playbook["allocation_rows"]))
+        self.assertTrue(all(row["order_placement_allowed"] is False for row in playbook["allocation_rows"]))
+        self.assertIn("manual_ticket_pack", {row["gate_id"] for row in playbook["promotion_gates"]})
+        self.assertIn("run_same_parameter_paper", {row["step_id"] for row in playbook["operator_steps"]})
 
     def test_daily_pack_exposes_factor_health_monitor_for_top3_retirement_gate(self):
         pack = build_daily_trade_advisory_pack(
