@@ -9407,6 +9407,11 @@ def _decision_sheet_beginner_operation_recipe(
         }
         for row in today_actions[:5]
     ]
+    operator_inputs = _beginner_operation_operator_inputs(
+        position_status=position_status,
+        has_tickets=has_tickets,
+        blocked=blocked,
+    )
     return {
         "stage": "daily_beginner_operation_recipe",
         "summary": {
@@ -9420,6 +9425,10 @@ def _decision_sheet_beginner_operation_recipe(
             "top3_count": len(daily_top3),
             "ticket_preview_count": len(ticket_preview),
             "missing_evidence_count": len(missing_evidence),
+            "operator_input_count": len(operator_inputs),
+            "operator_input_ready_count": _count_status(operator_inputs, "ready"),
+            "operator_input_manual_count": _count_status(operator_inputs, "manual_required"),
+            "operator_input_missing_count": _count_status(operator_inputs, "missing"),
             "package_status": package_summary.get("status"),
             "direct_buy_allowed": False,
             "manual_only_boundary": True,
@@ -9431,16 +9440,31 @@ def _decision_sheet_beginner_operation_recipe(
         },
         "steps": steps,
         "skip_rules": skip_rules,
-        "operator_inputs_required": _beginner_operation_operator_inputs(),
+        "operator_inputs_required": operator_inputs,
         "ticket_preview": ticket_preview,
         "missing_evidence": missing_evidence,
     }
 
 
-def _beginner_operation_operator_inputs() -> list[dict[str, Any]]:
+def _count_status(rows: list[dict[str, Any]], status: str) -> int:
+    return sum(1 for row in rows if row.get("status") == status)
+
+
+def _beginner_operation_operator_inputs(
+    *,
+    position_status: str,
+    has_tickets: bool,
+    blocked: bool,
+) -> list[dict[str, Any]]:
+    manual_status = "blocked" if blocked else ("manual_required" if has_tickets else "waiting")
+    receipt_status = "blocked" if blocked else ("missing" if has_tickets else "waiting")
+    position_input_status = "blocked" if position_status == "error" else (
+        "missing" if position_status == "not_provided" else "ready"
+    )
     rows = [
         (
             "broker_realtime_price",
+            manual_status,
             "human_from_broker_app",
             "券商实时价格",
             "在券商软件里人工查看 ETF 实时价格，并确认没有超出价格护栏；系统不会连接券商读取价格。",
@@ -9449,6 +9473,7 @@ def _beginner_operation_operator_inputs() -> list[dict[str, Any]]:
         ),
         (
             "available_cash",
+            manual_status,
             "human_from_broker_app",
             "可用现金",
             "人工确认券商端可用现金是否覆盖票据金额和滑点；不要把账户号或券商账号粘贴进系统。",
@@ -9457,6 +9482,7 @@ def _beginner_operation_operator_inputs() -> list[dict[str, Any]]:
         ),
         (
             "current_positions_safe_csv",
+            position_input_status,
             "human_sanitized_input",
             "当前持仓安全表",
             "只填写 asset_id, quantity, latest_price 等脱敏字段；禁止粘贴账户、券商、委托号或成交号。",
@@ -9465,6 +9491,7 @@ def _beginner_operation_operator_inputs() -> list[dict[str, Any]]:
         ),
         (
             "same_parameter_paper_receipt",
+            receipt_status,
             "local_paper_simulation",
             "同参数模拟盘回执",
             "先用完全相同的因子、TopN、成本、调仓和风控参数跑本地模拟盘，再看回撤、成交和保护事件。",
@@ -9473,6 +9500,7 @@ def _beginner_operation_operator_inputs() -> list[dict[str, Any]]:
         ),
         (
             "post_close_journal",
+            receipt_status,
             "local_operator_journal",
             "收盘后复盘",
             "无论执行或跳过，都记录原因、模拟盘表现、滑点、未成交和下一日要复核的问题。",
@@ -9483,6 +9511,7 @@ def _beginner_operation_operator_inputs() -> list[dict[str, Any]]:
     return [
         {
             "input_id": input_id,
+            "status": status,
             "source": source,
             "label": label,
             "plain_instruction": plain_instruction,
@@ -9498,7 +9527,7 @@ def _beginner_operation_operator_inputs() -> list[dict[str, Any]]:
             "order_placement_allowed": False,
             "auto_order_allowed": False,
         }
-        for input_id, source, label, plain_instruction, target_id, workflow_id in rows
+        for input_id, status, source, label, plain_instruction, target_id, workflow_id in rows
     ]
 
 

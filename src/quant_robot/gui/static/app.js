@@ -6508,10 +6508,11 @@ function renderDailyBeginnerOperationRecipe(recipe = {}) {
     const workflowButton = item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : "";
     const targetButton = item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : "";
     const unsafe = item.broker_connection_allowed || item.account_read_allowed || item.order_placement_allowed;
+    const status = item.status || "manual_required";
     return `
-      <div class="list-row ${escapeHtml(unsafe ? "danger" : "warn")}">
+      <div class="list-row ${escapeHtml(unsafe ? "danger" : dailyBeginnerOperationTone(status))}">
         <strong>${escapeHtml(item.label || item.input_id || "人工输入清单")}</strong>
-        <span>${escapeHtml(`${item.source || "manual"} / ${item.plain_instruction || ""}`)}</span>
+        <span>${escapeHtml(`输入状态=${zhConsoleText(status)} / ${item.source || "manual"} / ${item.plain_instruction || ""}`)}</span>
         <span>${escapeHtml(unsafe ? "异常：出现券商/账户/下单权限" : "人工输入清单 / 不读账户 / 不自动下单")}</span>
         <span class="beginner-task-actions">${workflowButton}${targetButton}</span>
       </div>
@@ -6544,6 +6545,7 @@ function dailyBeginnerOperationFallbackInputs() {
   return [
     {
       input_id: "broker_realtime_price",
+      status: "manual_required",
       source: "human_from_broker_app",
       label: "券商实时价格",
       plain_instruction: "人工查看券商端实时价格，确认没有超出价格护栏。",
@@ -6555,6 +6557,7 @@ function dailyBeginnerOperationFallbackInputs() {
     },
     {
       input_id: "available_cash",
+      status: "manual_required",
       source: "human_from_broker_app",
       label: "可用现金",
       plain_instruction: "人工确认可用现金覆盖票据金额和滑点，不粘贴账户号。",
@@ -6566,6 +6569,7 @@ function dailyBeginnerOperationFallbackInputs() {
     },
     {
       input_id: "current_positions_safe_csv",
+      status: "missing",
       source: "human_sanitized_input",
       label: "当前持仓安全表",
       plain_instruction: "只填写脱敏持仓字段，禁止账户、券商、委托号和成交号。",
