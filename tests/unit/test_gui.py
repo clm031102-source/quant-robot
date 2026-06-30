@@ -330,6 +330,8 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("renderDailyPaperReceiptStatusRows", app_js)
         self.assertIn('latestExecutionReceipt("paper_simulation")', app_js)
         self.assertIn('data-beginner-action="paper_simulation"', app_js)
+        self.assertIn("data-daily-paper-handoff-run", app_js)
+        self.assertIn("runDailyPaperHandoffSimulation", app_js)
         self.assertIn("daily-trading-system-blueprint", html)
         self.assertIn("daily-trading-system-blueprint-summary", html)
         self.assertIn("daily-trading-system-blueprint-evidence", html)

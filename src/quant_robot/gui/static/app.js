@@ -423,6 +423,13 @@ function bindActions() {
     event.preventDefault();
     applyDailyPaperHandoffToForm(dailyPaperHandoffFromButton(button));
   });
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-daily-paper-handoff-run]");
+    if (!button) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    await runDailyPaperHandoffSimulation(button);
+  });
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-beginner-parameter-jump]");
     if (!button) return;
@@ -5343,7 +5350,8 @@ function applyLeaderboardRowToForms(row = {}) {
 
 function dailyPaperHandoffFromButton(button) {
   try {
-    return JSON.parse(decodeURIComponent(button?.dataset?.dailyPaperHandoffApply || "{}"));
+    const payload = button?.dataset?.dailyPaperHandoffApply || button?.dataset?.dailyPaperHandoffRun || "{}";
+    return JSON.parse(decodeURIComponent(payload));
   } catch (_error) {
     return {};
   }
@@ -5368,6 +5376,12 @@ function applyDailyPaperHandoffToForm(request = {}) {
   showToast(`已填入模拟盘参数：${request.factor || "当前因子"}`);
   activatePage("paper", true);
   jumpToBeginnerTarget("paper-metrics");
+}
+
+async function runDailyPaperHandoffSimulation(button) {
+  const request = dailyPaperHandoffFromButton(button);
+  applyDailyPaperHandoffToForm(request);
+  await runBeginnerAction("paper_simulation", button);
 }
 
 function renderFactorLeaderboardTable(rows) {
@@ -5925,7 +5939,7 @@ function renderDailySignalExecutionBridge(bridge = {}) {
       <span>${escapeHtml("把排名第一候选参数填到纸面模拟页，运行前仍会弹出安全确认。")}</span>
       <span class="beginner-task-actions">
         <button class="primary-button" type="button" data-daily-paper-handoff-apply="${escapeRawHtml(handoffPayload)}">${escapeHtml("填入模拟盘参数")}</button>
-        <button class="primary-button" type="button" data-beginner-action="paper_simulation">${escapeHtml("运行模拟盘复核")}</button>
+        <button class="primary-button" type="button" data-daily-paper-handoff-run="${escapeRawHtml(handoffPayload)}" data-beginner-action="paper_simulation">${escapeHtml("填参并运行模拟盘复核")}</button>
         <button class="secondary-button" type="button" data-beginner-target="paper-metrics">${escapeHtml("看模拟盘")}</button>
       </span>
     </div>
