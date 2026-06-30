@@ -242,6 +242,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindNavigation();
   bindActions();
   bindRequestPreviewInputs();
+  bindPostCloseManualFormStatus();
   renderFactorGlossary();
   renderBeginnerVerdict();
   renderBeginnerTradeSystem();
@@ -3892,6 +3893,14 @@ function renderPostCloseManualFormStatus(journalReceipt = null) {
     ["今天实际选择", manualOutcomeLabel(form.manual_outcome), "warn"],
     ["备注数量", `${formatNumber(form.manual_note_count)} 条 / 不要填写账户号、委托号、券商客户号`, form.manual_note_count ? "ok" : "warn"],
   ]);
+}
+
+function bindPostCloseManualFormStatus() {
+  const form = document.querySelector("[data-post-close-manual-form-root]");
+  if (!form) return;
+  const refresh = () => renderPostCloseManualFormStatus(latestExecutionReceipt("post_close_journal"));
+  form.addEventListener("input", refresh);
+  form.addEventListener("change", refresh);
 }
 
 function postCloseManualReviewForm() {
