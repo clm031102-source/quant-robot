@@ -7632,9 +7632,9 @@ function renderDailyPreExecutionGuard(guard = {}) {
   summaryTarget.innerHTML = statusRows([
     ["今天结论", `${summary.traffic_light || "yellow"} / ${zhConsoleText(status)}`, tone],
     ["普通话解释", summary.plain_answer || "先看信号新鲜度、仓位、价格护栏和跳过规则；软件不会替你下单。", tone],
-    ["信号日期", `run=${summary.run_date || guard.run_date || "--"} / latest=${summary.latest_signal_date || "--"} / fresh=${summary.signal_fresh ? "yes" : "no"}`, summary.signal_fresh ? "ok" : "danger"],
-    ["风险熔断", `${summary.risk_circuit_decision || "risk_state_not_observed"} / loss=${formatPercent(summary.observed_loss_pct)} / stop=${formatPercent(summary.daily_loss_stop)} / dd=${formatPercent(summary.observed_drawdown_pct)} / max=${formatPercent(summary.max_acceptable_drawdown)}`, summary.risk_circuit_blocked ? "danger" : "warn"],
-    ["允许范围", `paper=${summary.paper_rehearsal_allowed ? "yes" : "no"} / manual_review=${summary.manual_broker_review_allowed ? "yes" : "no"} / can_buy_today=${summary.can_buy_today ? "yes" : "no"}`, summary.can_buy_today ? "danger" : "warn"],
+    ["信号新鲜度", `运行日=${summary.run_date || guard.run_date || "--"} / 最新信号=${summary.latest_signal_date || "--"} / 新鲜=${summary.signal_fresh ? "是" : "否"}`, summary.signal_fresh ? "ok" : "danger"],
+    ["风险熔断", `${summary.risk_circuit_decision || "risk_state_not_observed"} / 今日亏损=${formatPercent(summary.observed_loss_pct)} / 停手线=${formatPercent(summary.daily_loss_stop)} / 当前回撤=${formatPercent(summary.observed_drawdown_pct)} / 回撤上限=${formatPercent(summary.max_acceptable_drawdown)}`, summary.risk_circuit_blocked ? "danger" : "warn"],
+    ["允许范围", `纸面演练=${summary.paper_rehearsal_allowed ? "允许" : "禁止"} / 人工复核=${summary.manual_broker_review_allowed ? "允许" : "禁止"} / 今天能买=${summary.can_buy_today ? "异常：软件声称可以买" : "不能由软件买"}`, summary.can_buy_today ? "danger" : "warn"],
     ["权限边界", summary.order_placement_allowed || summary.broker_connection_allowed || summary.account_read_allowed ? "异常：权限边界被打开" : "不连券商、不读账户、不自动下单", summary.order_placement_allowed || summary.broker_connection_allowed || summary.account_read_allowed ? "danger" : "ok"],
     ["下一条规则", nextRule.rule_id || summary.next_rule_id || "broker_price_outside_guardrail", nextRule.status === "blocked" ? "danger" : "warn"],
   ]) + `
@@ -7649,15 +7649,13 @@ function renderDailyPreExecutionGuard(guard = {}) {
     const rowTone = item.risk_blocked || item.capacity_blocked || item.skip_if_quantity_zero || item.reference_price == null ? "danger" : "warn";
     const lower = item.lower_price_bound == null ? "--" : formatDecimal(item.lower_price_bound);
     const upper = item.upper_price_bound == null ? "--" : formatDecimal(item.upper_price_bound);
-    const capacityText = item.liquidity_evidence_missing
-      ? "capacity=missing_liquidity_evidence"
-      : `capacity=${formatPercent(item.participation_rate)} / max=${formatPercent(item.max_participation_rate)} / liquidity=${formatNumber(item.liquidity_reference_value || 0)}`;
+    const capacityText = dailyPreExecutionCapacityText(item);
     return `
       <div class="list-row ${escapeHtml(rowTone)}">
         <strong>${escapeHtml(`${index + 1}. ${item.asset_id || "--"} / ${zhConsoleText(item.execution_mode || "paper_rehearsal_only")}`)}</strong>
-        <span>${escapeHtml(`weight=${formatPercent(item.target_weight)} / budget=${formatNumber(item.paper_budget_value || 0)} / qty=${formatNumber(item.paper_quantity || 0)}`)}</span>
-        <span>${escapeHtml(`price=${formatDecimal(item.reference_price)} / guard=${lower}~${upper} / max_slippage_bps=${formatNumber(item.max_slippage_bps || 0)}`)}</span>
-        <span>${escapeHtml(`${capacityText}${item.capacity_blocked ? " / blocked" : ""}`)}</span>
+        <span>${escapeHtml(`目标权重=${formatPercent(item.target_weight)} / 预算=${formatNumber(item.paper_budget_value || 0)} / 数量=${formatNumber(item.paper_quantity || 0)}`)}</span>
+        <span>${escapeHtml(`参考价=${formatDecimal(item.reference_price)} / 价格护栏=${lower}~${upper} / 最大滑点=${formatNumber(item.max_slippage_bps || 0)}bps`)}</span>
+        <span>${escapeHtml(capacityText)}</span>
         <span>${escapeHtml(item.risk_blocked || item.capacity_blocked ? "风险或容量阻断，跳过。" : "只可用于纸面演练或人工复核材料，不是下单。")}</span>
       </div>
     `;
@@ -7687,6 +7685,12 @@ function renderDailyPreExecutionGuard(guard = {}) {
       </span>
     </div>
   `).join("") : statusRows([["人工步骤", "先刷新今日信号，再核对 ETF、价格护栏、模拟盘和收盘复盘。", "warn"]]);
+}
+
+function dailyPreExecutionCapacityText(item = {}) {
+  if (item.liquidity_evidence_missing) return "流动性/容量=流动性证据缺失，先跳过或补数据";
+  const status = item.capacity_blocked ? "容量超限，跳过" : "未超限";
+  return `流动性/容量=${status} / 参与率=${formatPercent(item.participation_rate)} / 上限=${formatPercent(item.max_participation_rate)} / 流动性参考=${formatNumber(item.liquidity_reference_value || 0)}`;
 }
 
 function dailyPreExecutionTone(status = "", trafficLight = "") {

@@ -493,6 +493,27 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("daily_pre_execution_guard", app_js)
         self.assertIn("blocked_signal_freshness", app_js)
         self.assertIn("broker_price_outside_guardrail", app_js)
+        pre_execution_block = app_js.split("function renderDailyPreExecutionGuard", 1)[1].split(
+            "function dailyPreExecutionTone",
+            1,
+        )[0]
+        self.assertIn("信号新鲜度", pre_execution_block)
+        self.assertIn("新鲜=", pre_execution_block)
+        self.assertIn("纸面演练=", pre_execution_block)
+        self.assertIn("今天能买=", pre_execution_block)
+        self.assertIn("价格护栏", pre_execution_block)
+        self.assertIn("最大滑点", pre_execution_block)
+        self.assertIn("流动性/容量", pre_execution_block)
+        self.assertIn("流动性证据缺失", pre_execution_block)
+        self.assertIn("容量超限", pre_execution_block)
+        self.assertNotIn("fresh=", pre_execution_block)
+        self.assertNotIn("weight=", pre_execution_block)
+        self.assertNotIn("budget=", pre_execution_block)
+        self.assertNotIn("qty=", pre_execution_block)
+        self.assertNotIn("price=", pre_execution_block)
+        self.assertNotIn("guard=", pre_execution_block)
+        self.assertNotIn("capacity=", pre_execution_block)
+        self.assertNotIn("max_slippage_bps=", pre_execution_block)
         self.assertIn("daily-same-parameter-paper-rehearsal", html)
         self.assertIn("daily-same-parameter-paper-summary", html)
         self.assertIn("daily-same-parameter-paper-requests", html)
