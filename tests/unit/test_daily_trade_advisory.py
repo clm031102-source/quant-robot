@@ -8,6 +8,7 @@ from quant_robot.ops.daily_trade_advisory import (
     build_daily_manual_trading_session,
     build_daily_paper_allocation_playbook,
     build_daily_pre_execution_guard,
+    build_daily_same_parameter_paper_rehearsal,
     build_manual_execution_audit,
     build_daily_trade_decision_sheet,
     build_manual_ticket_export,
@@ -1855,6 +1856,75 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("open_external_broker_manually_if_human_chooses", {row["step_id"] for row in guard["operator_steps"]})
         self.assertIn("broker_price_outside_guardrail", {row["rule_id"] for row in guard["skip_rules"]})
         self.assertTrue(all(row["order_placement_allowed"] is False for row in guard["row_guardrails"]))
+
+    def test_same_parameter_paper_rehearsal_locks_top3_requests_and_allocation_manifest(self):
+        pack = _build_daily_trade_advisory_pack(
+            [
+                {
+                    "rank": 1,
+                    "case_id": "c1",
+                    "factor_name": "momentum_quality_combo",
+                    "market": "CN_ETF",
+                    "sharpe": 1.3,
+                    "params": {"factor_windows": [20, 60], "top_n": 3, "cost_bps": 6},
+                },
+                {
+                    "rank": 2,
+                    "case_id": "c2",
+                    "factor_name": "low_vol_overlay",
+                    "market": "CN_ETF",
+                    "sharpe": 1.1,
+                    "params": {"factor_windows": [10, 30], "top_n": 2, "cost_bps": 5},
+                },
+                {
+                    "rank": 3,
+                    "case_id": "c3",
+                    "factor_name": "breadth_trend_state",
+                    "market": "CN_ETF",
+                    "sharpe": 0.9,
+                    "params": {"factor_windows": [5, 20], "top_n": 2, "cost_bps": 7},
+                },
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.20}, latest_price=4.0),
+                _signal("c2", "low_vol_overlay", {"588000": 0.15}, latest_price=1.5),
+                _signal("c3", "breadth_trend_state", {"159915": 0.10}, latest_price=2.0),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="balanced_20dd",
+        )
+
+        rehearsal = pack["daily_same_parameter_paper_rehearsal"]
+        direct = build_daily_same_parameter_paper_rehearsal(pack)
+
+        self.assertEqual(direct, rehearsal)
+        self.assertEqual(rehearsal["stage"], "phase_6_27_daily_same_parameter_paper_rehearsal")
+        self.assertEqual(pack["summary"]["same_parameter_paper_rehearsal_status"], "ready_for_same_parameter_paper")
+        self.assertEqual(rehearsal["summary"]["rehearsal_status"], "ready_for_same_parameter_paper")
+        self.assertEqual(rehearsal["summary"]["workflow_id"], "paper_simulation")
+        self.assertEqual(rehearsal["summary"]["request_count"], 3)
+        self.assertEqual(rehearsal["summary"]["allocation_row_count"], 3)
+        self.assertEqual(rehearsal["summary"]["signal_as_of_date"], "2026-06-29")
+        self.assertEqual(rehearsal["summary"]["risk_profile_id"], "balanced_20dd")
+        self.assertTrue(rehearsal["summary"]["paper_rehearsal_allowed"])
+        self.assertFalse(rehearsal["summary"]["manual_broker_review_allowed"])
+        self.assertFalse(rehearsal["summary"]["order_placement_allowed"])
+        self.assertTrue(rehearsal["summary"]["lock_id"])
+        request_by_factor = {row["factor"]: row for row in rehearsal["recommended_requests"]}
+        self.assertEqual(set(request_by_factor), {"momentum_quality_combo", "low_vol_overlay", "breadth_trend_state"})
+        self.assertEqual(request_by_factor["momentum_quality_combo"]["factor_windows"], "20,60")
+        self.assertEqual(request_by_factor["momentum_quality_combo"]["top_n"], 3)
+        self.assertEqual(request_by_factor["momentum_quality_combo"]["commission_bps"], 6.0)
+        self.assertEqual(request_by_factor["momentum_quality_combo"]["as_of_date"], "2026-06-29")
+        self.assertEqual(request_by_factor["momentum_quality_combo"]["initial_cash"], 100000)
+        self.assertEqual(request_by_factor["momentum_quality_combo"]["max_gross_exposure"], 0.6)
+        self.assertEqual(rehearsal["combined_target_manifest"][0]["asset_id"], "510300")
+        self.assertEqual(rehearsal["allocation_manifest"][0]["asset_id"], "510300")
+        self.assertEqual(rehearsal["allocation_manifest"][0]["paper_quantity"], 1600)
+        self.assertIn("run_each_top3_candidate_with_locked_params", {row["step_id"] for row in rehearsal["operator_steps"]})
+        self.assertIn("do_not_change_parameters_after_signal", {row["rule_id"] for row in rehearsal["lock_rules"]})
+        self.assertTrue(all(row["order_placement_allowed"] is False for row in rehearsal["operator_steps"]))
 
     def test_daily_pack_exposes_factor_health_monitor_for_top3_retirement_gate(self):
         pack = build_daily_trade_advisory_pack(

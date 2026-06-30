@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import json
 import math
@@ -41,6 +42,7 @@ MANUAL_EXECUTION_AUDIT_STAGE = "phase_6_23_manual_execution_audit"
 DAILY_MANUAL_TRADING_SESSION_STAGE = "phase_6_24_daily_manual_trading_session"
 DAILY_PAPER_ALLOCATION_PLAYBOOK_STAGE = "phase_6_25_daily_paper_allocation_playbook"
 DAILY_PRE_EXECUTION_GUARD_STAGE = "phase_6_26_daily_pre_execution_guard"
+DAILY_SAME_PARAMETER_PAPER_REHEARSAL_STAGE = "phase_6_27_daily_same_parameter_paper_rehearsal"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 MANUAL_PRICE_DEVIATION_GUARD_PCT = 0.005
@@ -437,6 +439,7 @@ def build_daily_trade_advisory_pack(
     pack["daily_manual_trading_session"] = build_daily_manual_trading_session(pack)
     pack["daily_paper_allocation_playbook"] = build_daily_paper_allocation_playbook(pack)
     pack["daily_pre_execution_guard"] = build_daily_pre_execution_guard(pack)
+    pack["daily_same_parameter_paper_rehearsal"] = build_daily_same_parameter_paper_rehearsal(pack)
     pack["summary"]["live_transition_status"] = pack["live_transition_plan"]["summary"]["status"]
     pack["summary"]["trading_system_status"] = pack["trading_system_blueprint"]["summary"]["status"]
     pack["summary"]["execution_bridge_status"] = pack["daily_signal_execution_bridge"]["summary"]["status"]
@@ -450,6 +453,9 @@ def build_daily_trade_advisory_pack(
         "allocation_status"
     ]
     pack["summary"]["pre_execution_guard_status"] = pack["daily_pre_execution_guard"]["summary"]["guard_status"]
+    pack["summary"]["same_parameter_paper_rehearsal_status"] = pack["daily_same_parameter_paper_rehearsal"]["summary"][
+        "rehearsal_status"
+    ]
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
 
@@ -5889,6 +5895,317 @@ def _pre_execution_plain_answer(guard_status: str) -> str:
         "paper_rehearsal_only": "Only same-parameter paper rehearsal is allowed; do not copy rows into a broker ticket.",
     }
     return answers.get(guard_status, "Review freshness, allocation rows, price guardrails, and skip rules before any human decision.")
+
+
+def build_daily_same_parameter_paper_rehearsal(pack: dict[str, Any]) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    factors = [row for row in pack.get("factors", []) if isinstance(row, dict)]
+    signal_cards = [row for row in pack.get("signal_cards", []) if isinstance(row, dict)]
+    combined_targets = [row for row in pack.get("combined_targets", []) if isinstance(row, dict)]
+    playbook = (
+        pack.get("daily_paper_allocation_playbook")
+        if isinstance(pack.get("daily_paper_allocation_playbook"), dict)
+        else build_daily_paper_allocation_playbook(pack)
+    )
+    pre_execution = (
+        pack.get("daily_pre_execution_guard")
+        if isinstance(pack.get("daily_pre_execution_guard"), dict)
+        else build_daily_pre_execution_guard(pack)
+    )
+    pre_summary = pre_execution.get("summary") if isinstance(pre_execution.get("summary"), dict) else {}
+    playbook_summary = playbook.get("summary") if isinstance(playbook.get("summary"), dict) else {}
+    allocation_rows = [row for row in playbook.get("allocation_rows", []) if isinstance(row, dict)]
+    market = str(pack.get("market") or _first_market(factors) or "CN_ETF").upper()
+    portfolio_value = _float(summary.get("portfolio_value"), 100000.0)
+    risk_profile_id = str(summary.get("risk_profile_id") or DEFAULT_RISK_PROFILE_ID)
+    risk_profile = _risk_profile_by_id(risk_profile_id)
+    signal_as_of = _same_parameter_signal_as_of(pack, signal_cards, pre_summary)
+    requests = [
+        _same_parameter_paper_request(
+            row,
+            index=index,
+            pack=pack,
+            market=market,
+            portfolio_value=portfolio_value,
+            signal_as_of=signal_as_of,
+            risk_profile_id=risk_profile_id,
+            risk_profile=risk_profile,
+            summary=summary,
+        )
+        for index, row in enumerate(factors[:3], start=1)
+    ]
+    combined_manifest = [_same_parameter_combined_manifest_row(index, row) for index, row in enumerate(combined_targets, 1)]
+    allocation_manifest = [_same_parameter_allocation_manifest_row(row) for row in allocation_rows]
+    guard_status = str(pre_summary.get("guard_status") or "blocked_no_allocation_rows")
+    risk_blocked = bool(playbook_summary.get("risk_blocked")) or any(bool(row.get("risk_blocked")) for row in allocation_rows)
+    price_missing = any(row.get("reference_price") is None or _int(row.get("paper_quantity"), 0) <= 0 for row in allocation_rows)
+    if guard_status == "blocked_signal_freshness":
+        rehearsal_status = "blocked_signal_freshness"
+    elif not allocation_manifest:
+        rehearsal_status = "blocked_no_allocation_rows"
+    elif risk_blocked:
+        rehearsal_status = "blocked_risk_budget"
+    elif price_missing:
+        rehearsal_status = "blocked_price_reference"
+    elif guard_status == "manual_review_candidate":
+        rehearsal_status = "manual_review_candidate"
+    elif requests:
+        rehearsal_status = "ready_for_same_parameter_paper"
+    else:
+        rehearsal_status = "waiting_for_top3_requests"
+    paper_allowed = rehearsal_status in {"ready_for_same_parameter_paper", "manual_review_candidate"}
+    manual_allowed = rehearsal_status == "manual_review_candidate" and bool(pre_summary.get("manual_broker_review_allowed"))
+    lock_payload = {
+        "run_date": pack.get("run_date"),
+        "signal_as_of_date": signal_as_of,
+        "market": market,
+        "risk_profile_id": risk_profile_id,
+        "requests": requests,
+        "combined_target_manifest": combined_manifest,
+        "allocation_manifest": allocation_manifest,
+    }
+    lock_id = _same_parameter_lock_id(lock_payload)
+    return _sanitize(
+        {
+            "stage": DAILY_SAME_PARAMETER_PAPER_REHEARSAL_STAGE,
+            "run_date": str(pack.get("run_date") or date.today().isoformat()),
+            "safety": SAFETY_NOTICE,
+            "summary": {
+                "rehearsal_status": rehearsal_status,
+                "traffic_light": "red" if rehearsal_status.startswith("blocked") else "yellow",
+                "plain_answer": _same_parameter_plain_answer(rehearsal_status),
+                "workflow_id": "paper_simulation",
+                "endpoint": "/api/paper",
+                "primary_market": market,
+                "selected_factor_count": len(factors[:3]),
+                "request_count": len(requests),
+                "combined_target_count": len(combined_manifest),
+                "allocation_row_count": len(allocation_manifest),
+                "signal_as_of_date": signal_as_of,
+                "risk_profile_id": risk_profile_id,
+                "portfolio_value": portfolio_value,
+                "lock_id": lock_id,
+                "paper_rehearsal_allowed": paper_allowed,
+                "manual_broker_review_allowed": manual_allowed,
+                "can_buy_today": False,
+                "real_money_allowed": False,
+                "live_trading_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+            },
+            "lock_id": lock_id,
+            "recommended_requests": requests,
+            "combined_target_manifest": combined_manifest,
+            "allocation_manifest": allocation_manifest,
+            "lock_rules": _same_parameter_lock_rules(lock_id),
+            "operator_steps": _same_parameter_operator_steps(rehearsal_status, paper_allowed, manual_allowed),
+            "source_pre_execution_summary": pre_summary,
+            "execution_boundary": {
+                "plain_boundary": "These are locked paper-simulation requests and allocation evidence only; they are not broker orders.",
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+            },
+        }
+    )
+
+
+def _same_parameter_signal_as_of(
+    pack: dict[str, Any],
+    signal_cards: list[dict[str, Any]],
+    pre_summary: dict[str, Any],
+) -> str:
+    for value in (pre_summary.get("latest_signal_date"), pack.get("run_date")):
+        text = str(value or "").strip()
+        if text:
+            return text
+    dates = [
+        str(row.get("signal_date") or row.get("as_of_date") or "").strip()
+        for row in signal_cards
+        if str(row.get("signal_date") or row.get("as_of_date") or "").strip()
+    ]
+    return sorted(dates)[-1] if dates else date.today().isoformat()
+
+
+def _same_parameter_paper_request(
+    candidate: dict[str, Any],
+    *,
+    index: int,
+    pack: dict[str, Any],
+    market: str,
+    portfolio_value: float,
+    signal_as_of: str,
+    risk_profile_id: str,
+    risk_profile: dict[str, Any] | None,
+    summary: dict[str, Any],
+) -> dict[str, Any]:
+    params = candidate.get("params") if isinstance(candidate.get("params"), dict) else {}
+    factor_name = str(candidate.get("factor_name") or candidate.get("factor") or "")
+    cost_bps = _float(params.get("cost_bps"), _float(params.get("commission_bps"), 5.0))
+    max_gross = _float(
+        summary.get("applied_max_gross_exposure"),
+        _float((risk_profile or {}).get("max_gross_exposure"), _float(summary.get("requested_max_gross_exposure"), 1.0)),
+    )
+    max_single = _float((risk_profile or {}).get("max_single_etf_weight"), _float(summary.get("max_asset_weight"), 0.4))
+    min_cash = _float((risk_profile or {}).get("min_cash_weight"), max(0.0, 1.0 - max_gross))
+    return {
+        "request_id": f"top3-paper-{index:03d}",
+        "rank": _int(candidate.get("rank"), index),
+        "case_id": candidate.get("case_id"),
+        "workflow_id": "paper_simulation",
+        "endpoint": "/api/paper",
+        "source": str(pack.get("source") or "processed-bars"),
+        "market": market,
+        "factor": factor_name,
+        "factor_windows": _paper_factor_windows(params.get("factor_windows") or candidate.get("factor_windows"), factor_name),
+        "top_n": _int(params.get("top_n") or params.get("topN"), 2),
+        "rebalance_interval": _int(params.get("rebalance_interval") or params.get("holding_period"), 1),
+        "as_of_date": signal_as_of,
+        "initial_cash": portfolio_value,
+        "commission_bps": cost_bps,
+        "slippage_bps": cost_bps,
+        "max_asset_weight": max_single,
+        "max_market_weight": _float(summary.get("max_market_weight"), 1.0),
+        "max_gross_exposure": max_gross,
+        "min_cash_weight": min_cash,
+        "risk_profile_id": risk_profile_id,
+        "order_placement_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "auto_order_allowed": False,
+    }
+
+
+def _same_parameter_combined_manifest_row(index: int, row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "row_number": index,
+        "asset_id": row.get("asset_id"),
+        "market": row.get("market") or "CN_ETF",
+        "target_weight": _float_or_none(row.get("target_weight")),
+        "target_value": _float_or_none(row.get("target_value")),
+        "latest_price": _float_or_none(row.get("latest_price")),
+        "source_factors": row.get("source_factors"),
+        "executable": False,
+        "order_placement_allowed": False,
+    }
+
+
+def _same_parameter_allocation_manifest_row(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "row_number": _int(row.get("row_number"), 0),
+        "ticket_id": row.get("ticket_id"),
+        "asset_id": row.get("asset_id"),
+        "market": row.get("market") or "CN_ETF",
+        "side": row.get("side") or "buy_or_adjust",
+        "target_weight": _float_or_none(row.get("target_weight")),
+        "paper_budget_value": _float_or_none(row.get("paper_budget_value")),
+        "paper_quantity": _int(row.get("paper_quantity"), 0),
+        "reference_price": _float_or_none(row.get("reference_price")),
+        "risk_blocked": bool(row.get("risk_blocked")),
+        "source_kind": row.get("source_kind"),
+        "execution_mode": row.get("execution_mode") or "paper_rehearsal_only",
+        "order_placement_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "auto_order_allowed": False,
+    }
+
+
+def _same_parameter_lock_id(payload: dict[str, Any]) -> str:
+    encoded = json.dumps(_sanitize(payload), ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()[:16]
+
+
+def _same_parameter_lock_rules(lock_id: str) -> list[dict[str, Any]]:
+    rows = [
+        ("do_not_change_parameters_after_signal", "Do not change factor, window, top_n, cost, date, or risk profile after the signal is generated."),
+        ("run_all_top3_requests_before_review", "Run every Top3 paper request or explicitly record why a request was skipped."),
+        ("match_receipt_lock_id", f"Paper receipts must reference lock_id={lock_id} before any manual review."),
+        ("do_not_treat_paper_request_as_order", "Paper simulation requests are not broker orders and must not be copied into a broker app."),
+    ]
+    return [
+        {
+            "rule_id": rule_id,
+            "plain_rule": plain_rule,
+            "order_placement_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "auto_order_allowed": False,
+        }
+        for rule_id, plain_rule in rows
+    ]
+
+
+def _same_parameter_operator_steps(
+    rehearsal_status: str,
+    paper_allowed: bool,
+    manual_allowed: bool,
+) -> list[dict[str, Any]]:
+    def step(step_id: str, label: str, status: str, target_id: str, workflow_id: str = "") -> dict[str, Any]:
+        return {
+            "step_id": step_id,
+            "label": label,
+            "status": status,
+            "target_id": target_id,
+            "workflow_id": workflow_id,
+            "manual_required": True,
+            "order_placement_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "auto_order_allowed": False,
+        }
+
+    locked = rehearsal_status.startswith("blocked")
+    return [
+        step(
+            "confirm_same_parameter_lock",
+            "Confirm the locked signal date, Top3 factor parameters, risk profile, and allocation manifest",
+            "blocked" if locked else "required",
+            "daily-same-parameter-paper-rehearsal",
+        ),
+        step(
+            "run_each_top3_candidate_with_locked_params",
+            "Run each Top3 paper request with the locked parameters",
+            "locked" if not paper_allowed else "required",
+            "paper-metrics",
+            "paper_simulation" if paper_allowed else "",
+        ),
+        step(
+            "compare_paper_receipts_to_lock_id",
+            "Compare paper receipts against the lock id and allocation manifest",
+            "locked" if not paper_allowed else "required",
+            "control-result-evidence",
+        ),
+        step(
+            "record_post_close_journal",
+            "Record the paper rehearsal result and any skip reason after close",
+            "required",
+            "beginner-post-close-journal-board",
+            "post_close_journal",
+        ),
+        step(
+            "manual_review_only_after_clean_receipts",
+            "Only the human may consider an external broker review after clean locked receipts exist",
+            "manual_review_only" if manual_allowed else "locked",
+            "daily-manual-trading-session",
+        ),
+    ]
+
+
+def _same_parameter_plain_answer(rehearsal_status: str) -> str:
+    answers = {
+        "blocked_signal_freshness": "The signal is stale; refresh CN_ETF data before running paper rehearsal.",
+        "blocked_no_allocation_rows": "No allocation manifest exists; generate today's Top3 signal first.",
+        "blocked_risk_budget": "Risk budget is breached; reduce exposure before paper rehearsal.",
+        "blocked_price_reference": "A row lacks price or board-lot quantity; regenerate before rehearsal.",
+        "manual_review_candidate": "Locked paper requests and clean evidence are available; the software still cannot place orders.",
+        "ready_for_same_parameter_paper": "Run every Top3 paper request with these locked parameters and compare receipts to the lock id.",
+        "waiting_for_top3_requests": "Waiting for Top3 candidate requests before paper rehearsal.",
+    }
+    return answers.get(rehearsal_status, "Run locked same-parameter paper rehearsal before any human decision.")
 
 
 def _transition_gate_status(gate_by_id: dict[str, dict[str, Any]], gate_id: str) -> str:

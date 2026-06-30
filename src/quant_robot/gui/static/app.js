@@ -6025,6 +6025,7 @@ function renderDailyTradeAdvisory() {
   renderDailyManualTradingSession(pack.daily_manual_trading_session || {});
   renderDailyPaperAllocationPlaybook(pack.daily_paper_allocation_playbook || {});
   renderDailyPreExecutionGuard(pack.daily_pre_execution_guard || {});
+  renderDailySameParameterPaperRehearsal(pack.daily_same_parameter_paper_rehearsal || {});
   renderDailyFactorHealthMonitor(pack.daily_factor_health_monitor || {});
   renderDailyRealWorldHandoffGate(pack.real_world_manual_handoff_gate || {});
   renderDailyTradingSystemBlueprint(pack.trading_system_blueprint || {});
@@ -7324,6 +7325,74 @@ function dailyPreExecutionTone(status = "", trafficLight = "") {
   if (String(trafficLight || "").toLowerCase() === "red" || text.includes("blocked") || text.includes("forbidden") || text.includes("stale")) return "danger";
   if (text.includes("pass") || text.includes("ok")) return "ok";
   if (text.includes("manual_review_candidate") || text.includes("paper_rehearsal") || text.includes("broker_price_outside_guardrail")) return "warn";
+  return "warn";
+}
+
+function renderDailySameParameterPaperRehearsal(rehearsal = {}) {
+  const summaryTarget = byId("daily-same-parameter-paper-summary");
+  const requestTarget = byId("daily-same-parameter-paper-requests");
+  const manifestTarget = byId("daily-same-parameter-paper-manifest");
+  const stepTarget = byId("daily-same-parameter-paper-steps");
+  if (!summaryTarget || !requestTarget || !manifestTarget || !stepTarget) return;
+  const summary = rehearsal.summary || {};
+  const status = summary.rehearsal_status || "blocked_signal_freshness";
+  const tone = dailySameParameterPaperTone(status, summary.traffic_light);
+  const requests = Array.isArray(rehearsal.recommended_requests) ? rehearsal.recommended_requests : [];
+  const allocations = Array.isArray(rehearsal.allocation_manifest) ? rehearsal.allocation_manifest : [];
+  const combined = Array.isArray(rehearsal.combined_target_manifest) ? rehearsal.combined_target_manifest : [];
+  const steps = Array.isArray(rehearsal.operator_steps) ? rehearsal.operator_steps : [];
+  const lockRules = Array.isArray(rehearsal.lock_rules) ? rehearsal.lock_rules : [];
+
+  summaryTarget.innerHTML = statusRows([
+    ["同参数状态", `${summary.traffic_light || "yellow"} / ${zhConsoleText(status)}`, tone],
+    ["普通话解释", summary.plain_answer || "必须用锁定后的 Top3 参数跑模拟盘，不能临时改参数后再拿结果复核。", tone],
+    ["锁定编号", summary.lock_id || rehearsal.lock_id || "--", summary.lock_id ? "ok" : "warn"],
+    ["信号日期", `as_of=${summary.signal_as_of_date || "--"} / market=${summary.primary_market || "CN_ETF"} / risk=${summary.risk_profile_id || "--"}`, summary.signal_as_of_date ? "ok" : "danger"],
+    ["请求数量", `requests=${formatNumber(summary.request_count || 0)} / targets=${formatNumber(summary.combined_target_count || 0)} / allocations=${formatNumber(summary.allocation_row_count || 0)}`, summary.request_count ? "ok" : "danger"],
+    ["权限边界", summary.order_placement_allowed || summary.broker_connection_allowed ? "异常：权限边界被打开" : "不连券商、不读账户、不自动下单", summary.order_placement_allowed || summary.broker_connection_allowed ? "danger" : "ok"],
+  ]);
+
+  requestTarget.innerHTML = requests.length ? requests.map((item) => `
+    <div class="list-row ${escapeHtml(dailySameParameterPaperTone(status))}">
+      <strong>${escapeHtml(`${item.rank || ""}. ${item.factor || "--"} / ${item.request_id || ""}`)}</strong>
+      <span>${escapeHtml(`window=${item.factor_windows || "--"} / topN=${formatNumber(item.top_n || 0)} / cost=${formatNumber(item.commission_bps || 0)}bps / date=${item.as_of_date || "--"}`)}</span>
+      <span>${escapeHtml(`cash=${formatNumber(item.initial_cash || 0)} / gross=${formatPercent(item.max_gross_exposure)} / single=${formatPercent(item.max_asset_weight)} / min_cash=${formatPercent(item.min_cash_weight)}`)}</span>
+      <span class="beginner-task-actions">
+        <button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id || "paper_simulation")}">${escapeHtml("运行模拟盘")}</button>
+      </span>
+    </div>
+  `).join("") : statusRows([["Top3 模拟请求", "没有锁定请求；先生成今日 CN_ETF Top3 信号。", "danger"]]);
+
+  const manifestRows = allocations.length ? allocations.slice(0, 6).map((item) => `
+    <div class="list-row ${escapeHtml(item.risk_blocked ? "danger" : "warn")}">
+      <strong>${escapeHtml(`${item.asset_id || "--"} / ${zhConsoleText(item.execution_mode || "paper_rehearsal_only")}`)}</strong>
+      <span>${escapeHtml(`weight=${formatPercent(item.target_weight)} / budget=${formatNumber(item.paper_budget_value || 0)} / qty=${formatNumber(item.paper_quantity || 0)} / price=${formatDecimal(item.reference_price)}`)}</span>
+    </div>
+  `).join("") : statusRows([["模拟仓位清单", "没有模拟仓位行。", "danger"]]);
+  const combinedText = combined.length
+    ? combined.slice(0, 6).map((item) => `${item.asset_id || "--"}:${formatPercent(item.target_weight)}`).join(" / ")
+    : "无组合目标";
+  manifestTarget.innerHTML = statusRows([
+    ["组合目标", combinedText, combined.length ? "ok" : "warn"],
+    ["锁定规则", lockRules.map((item) => item.rule_id).join(" / ") || "do_not_change_parameters_after_signal", "warn"],
+  ]) + manifestRows;
+
+  stepTarget.innerHTML = steps.length ? steps.map((item) => `
+    <div class="list-row ${escapeHtml(dailySameParameterPaperTone(item.status || ""))}">
+      <strong>${escapeHtml(item.label || item.step_id || "")}</strong>
+      <span>${escapeHtml(`${zhConsoleText(item.status || "required")} / ${item.step_id || ""}`)}</span>
+      <span class="beginner-task-actions">
+        ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+        ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
+      </span>
+    </div>
+  `).join("") : statusRows([["操作步骤", "默认步骤：confirm_same_parameter_lock / run_each_top3_candidate_with_locked_params / record_post_close_journal", "warn"]]);
+}
+
+function dailySameParameterPaperTone(status = "", trafficLight = "") {
+  const text = String(status || "").toLowerCase();
+  if (String(trafficLight || "").toLowerCase() === "red" || text.includes("blocked") || text.includes("locked")) return "danger";
+  if (text.includes("ready_for_same_parameter_paper") || text.includes("pass")) return "ok";
   return "warn";
 }
 

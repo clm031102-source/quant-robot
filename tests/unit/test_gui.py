@@ -463,6 +463,15 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("daily_pre_execution_guard", app_js)
         self.assertIn("blocked_signal_freshness", app_js)
         self.assertIn("broker_price_outside_guardrail", app_js)
+        self.assertIn("daily-same-parameter-paper-rehearsal", html)
+        self.assertIn("daily-same-parameter-paper-summary", html)
+        self.assertIn("daily-same-parameter-paper-requests", html)
+        self.assertIn("daily-same-parameter-paper-manifest", html)
+        self.assertIn("daily-same-parameter-paper-steps", html)
+        self.assertIn("renderDailySameParameterPaperRehearsal", app_js)
+        self.assertIn("daily_same_parameter_paper_rehearsal", app_js)
+        self.assertIn("ready_for_same_parameter_paper", app_js)
+        self.assertIn("run_each_top3_candidate_with_locked_params", app_js)
         self.assertIn("function todayIsoDate", app_js)
         self.assertIn("function applyDailyTradeDateDefault", app_js)
         self.assertIn("staleDailyDateDefaults", app_js)
@@ -579,6 +588,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("daily_manual_trading_session", snapshot)
         self.assertIn("daily_paper_allocation_playbook", snapshot)
         self.assertIn("daily_pre_execution_guard", snapshot)
+        self.assertIn("daily_same_parameter_paper_rehearsal", snapshot)
         self.assertIn("candidate_pool_top20", snapshot)
         self.assertEqual(snapshot["candidate_pool_top20"]["stage"], "phase_6_22_daily_candidate_pool_top20")
         self.assertIn("rows", snapshot["candidate_pool_top20"])
@@ -729,6 +739,22 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("broker_price_outside_guardrail", {row["rule_id"] for row in pre_execution["skip_rules"]})
         self.assertIn("verify_realtime_price_guardrail", {row["step_id"] for row in pre_execution["operator_steps"]})
         self.assertTrue(all(row["order_placement_allowed"] is False for row in pre_execution["row_guardrails"]))
+        same_paper = snapshot["daily_same_parameter_paper_rehearsal"]
+        self.assertEqual(same_paper["stage"], "phase_6_27_daily_same_parameter_paper_rehearsal")
+        self.assertIn(
+            same_paper["summary"]["rehearsal_status"],
+            {
+                "blocked_signal_freshness",
+                "blocked_no_allocation_rows",
+                "blocked_risk_budget",
+                "blocked_price_reference",
+                "ready_for_same_parameter_paper",
+                "manual_review_candidate",
+            },
+        )
+        self.assertFalse(same_paper["summary"]["order_placement_allowed"])
+        self.assertIn("paper_simulation", same_paper["summary"]["workflow_id"])
+        self.assertIn("run_each_top3_candidate_with_locked_params", {row["step_id"] for row in same_paper["operator_steps"]})
         self.assertEqual(snapshot["live_transition_plan"]["summary"]["selected_risk_profile_id"], "conservative_10dd")
         self.assertEqual(snapshot["summary"]["risk_profile_id"], "conservative_10dd")
         self.assertIn("small_capital_review_gate", {gate["gate_id"] for gate in snapshot["live_transition_plan"]["evidence_gates"]})
@@ -4144,6 +4170,15 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn(
                 "broker_price_outside_guardrail",
                 {row["rule_id"] for row in trade_advisory["daily_pre_execution_guard"]["skip_rules"]},
+            )
+            self.assertEqual(
+                trade_advisory["daily_same_parameter_paper_rehearsal"]["stage"],
+                "phase_6_27_daily_same_parameter_paper_rehearsal",
+            )
+            self.assertFalse(trade_advisory["daily_same_parameter_paper_rehearsal"]["summary"]["order_placement_allowed"])
+            self.assertIn(
+                "run_each_top3_candidate_with_locked_params",
+                {row["step_id"] for row in trade_advisory["daily_same_parameter_paper_rehearsal"]["operator_steps"]},
             )
 
             invalid_positions = _read_json(

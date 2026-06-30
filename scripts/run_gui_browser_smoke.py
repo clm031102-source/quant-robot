@@ -468,6 +468,27 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "daily_same_parameter_paper_rehearsal_frontend",
+            "Daily same-parameter paper rehearsal frontend",
+            index_html.get("ok")
+            and "daily-same-parameter-paper-rehearsal" in str(index_html.get("body", ""))
+            and "daily-same-parameter-paper-summary" in str(index_html.get("body", ""))
+            and "daily-same-parameter-paper-requests" in str(index_html.get("body", ""))
+            and "daily-same-parameter-paper-manifest" in str(index_html.get("body", ""))
+            and "daily-same-parameter-paper-steps" in str(index_html.get("body", ""))
+            and app_js.get("ok")
+            and "renderDailySameParameterPaperRehearsal" in str(app_js.get("body", ""))
+            and "daily_same_parameter_paper_rehearsal" in str(app_js.get("body", ""))
+            and "ready_for_same_parameter_paper" in str(app_js.get("body", ""))
+            and "run_each_top3_candidate_with_locked_params" in str(app_js.get("body", "")),
+            "Frontend exposes locked same-parameter Top3 paper requests, allocation manifests, and operator steps before manual review.",
+            index_html.get("error")
+            or app_js.get("error")
+            or "Daily same-parameter paper rehearsal frontend anchors or renderer hooks are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "daily_closure_streak_frontend",
             "Daily closure streak frontend",
             index_html.get("ok")
