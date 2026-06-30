@@ -7555,7 +7555,7 @@ function renderDailyBeginnerExecutionAnswer(answer = {}) {
   summaryTarget.innerHTML = statusRows([
     ["普通人结论", `${zhConsoleText(summary.ordinary_verdict || "do_not_trade")} / ${zhConsoleText(allowedMode)}`, tone],
     ["今天能不能买", summary.can_buy_today ? "异常：系统声称可以买" : "不能由软件买入；最多进入纸面或人工复核材料", summary.can_buy_today ? "danger" : "ok"],
-    ["现在允许", `paper=${summary.paper_rehearsal_allowed ? "yes" : "no"} / manual_review=${summary.manual_review_allowed ? "yes" : "no"}`, summary.manual_review_allowed ? "warn" : tone],
+    ["现在允许", `纸面演练=${summary.paper_rehearsal_allowed ? "允许" : "禁止"} / 人工复核=${summary.manual_review_allowed ? "允许" : "禁止"}`, summary.manual_review_allowed ? "warn" : tone],
     ["一句话", summary.headline || summary.plain_answer || "先看执行前守门，不要直接买 Top3。", tone],
     ["权限边界", summary.order_placement_allowed || summary.broker_connection_allowed || summary.account_read_allowed ? "异常：出现下单/账户权限" : "不连接券商、不读账户、不自动下单", summary.order_placement_allowed || summary.broker_connection_allowed || summary.account_read_allowed ? "danger" : "ok"],
   ]) + `
@@ -7580,18 +7580,16 @@ function renderDailyBeginnerExecutionAnswer(answer = {}) {
 
   const rows = Array.isArray(answer.review_rows) ? answer.review_rows : [];
   rowsTarget.innerHTML = rows.length ? rows.map((item, index) => {
-    const checklist = Array.isArray(item.human_checklist) ? item.human_checklist.join(" / ") : "";
+    const checklist = dailyBeginnerHumanChecklistText(item.human_checklist) || "券商实时价格 / ETF代码 / 数量 / 现金";
     const rowTone = item.risk_blocked || item.capacity_blocked ? "danger" : "warn";
-    const capacityText = item.liquidity_evidence_missing
-      ? "capacity=missing_liquidity_evidence"
-      : `capacity=${formatPercent(item.participation_rate)} / max=${formatPercent(item.max_participation_rate)} / liquidity=${formatNumber(item.liquidity_reference_value || 0)}`;
+    const capacityText = `流动性/容量=${dailyPreExecutionCapacityText(item).replace(/^流动性\/容量=/, "")}`;
     return `
       <div class="list-row ${escapeHtml(rowTone)}">
         <strong>${escapeHtml(`${index + 1}. ${item.asset_id || "--"} / ${zhConsoleText(item.execution_mode || "paper_rehearsal_only")}`)}</strong>
-        <span>${escapeHtml(`weight=${formatPercent(item.target_weight)} / budget=${formatNumber(item.paper_budget_value || 0)} / qty=${formatNumber(item.paper_quantity || 0)}`)}</span>
-        <span>${escapeHtml(`price=${formatDecimal(item.reference_price)} / guard=${formatDecimal(item.lower_price_bound)}~${formatDecimal(item.upper_price_bound)} / slippage=${formatNumber(item.max_slippage_bps)}bps`)}</span>
-        <span>${escapeHtml(`${capacityText}${item.capacity_blocked ? " / blocked" : ""}`)}</span>
-        <span>${escapeHtml(item.copy_to_broker_allowed ? "异常：不应允许复制到券商" : `人工检查=${checklist || "check_external_realtime_price"}`)}</span>
+        <span>${escapeHtml(`目标权重=${formatPercent(item.target_weight)} / 预算=${formatNumber(item.paper_budget_value || 0)} / 数量=${formatNumber(item.paper_quantity || 0)}`)}</span>
+        <span>${escapeHtml(`参考价=${formatDecimal(item.reference_price)} / 价格护栏=${formatDecimal(item.lower_price_bound)}~${formatDecimal(item.upper_price_bound)} / 最大滑点=${formatNumber(item.max_slippage_bps)}bps`)}</span>
+        <span>${escapeHtml(capacityText)}</span>
+        <span>${escapeHtml(item.copy_to_broker_allowed ? "异常：不应允许复制到券商" : `人工检查=${checklist}`)}</span>
       </div>
     `;
   }).join("") : statusRows([["ETF 复核行", "还没有可复核 ETF 行；先生成今日 CN_ETF 信号和纸面分配。", "danger"]]);
@@ -7691,6 +7689,21 @@ function dailyPreExecutionCapacityText(item = {}) {
   if (item.liquidity_evidence_missing) return "流动性/容量=流动性证据缺失，先跳过或补数据";
   const status = item.capacity_blocked ? "容量超限，跳过" : "未超限";
   return `流动性/容量=${status} / 参与率=${formatPercent(item.participation_rate)} / 上限=${formatPercent(item.max_participation_rate)} / 流动性参考=${formatNumber(item.liquidity_reference_value || 0)}`;
+}
+
+function dailyBeginnerHumanChecklistText(checklist = []) {
+  const labels = {
+    check_external_realtime_price: "券商实时价格",
+    check_asset_code: "ETF代码",
+    check_quantity: "数量",
+    check_cash: "现金",
+    check_price_guardrail: "价格护栏",
+    check_risk_budget: "风险预算",
+  };
+  const rows = (Array.isArray(checklist) ? checklist : [])
+    .map((item) => labels[String(item || "")] || zhConsoleText(item))
+    .filter(Boolean);
+  return rows.length ? rows.join(" / ") : "券商实时价格 / ETF代码 / 数量 / 现金";
 }
 
 function dailyPreExecutionTone(status = "", trafficLight = "") {
