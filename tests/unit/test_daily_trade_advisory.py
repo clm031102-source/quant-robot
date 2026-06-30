@@ -2050,6 +2050,223 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertTrue(all(row["order_placement_allowed"] is False for row in monitor["factor_rows"]))
         self.assertIn("retire_bad_factor", {item["action_id"] for item in monitor["recommended_actions"]})
 
+    def test_daily_factor_health_quarantines_next_session_when_same_parameter_top3_missing(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {
+                    "rank": 1,
+                    "case_id": "c1",
+                    "factor_name": "momentum_quality_combo",
+                    "market": "CN_ETF",
+                    "sharpe": 1.42,
+                    "annualized_return": 0.18,
+                    "max_drawdown": -0.12,
+                    "win_rate": 0.61,
+                    "rank_ic": 0.045,
+                    "trade_count": 140,
+                },
+                {
+                    "rank": 2,
+                    "case_id": "c2",
+                    "factor_name": "low_vol_trend_combo",
+                    "market": "CN_ETF",
+                    "sharpe": 1.21,
+                    "annualized_return": 0.15,
+                    "max_drawdown": -0.14,
+                    "win_rate": 0.58,
+                    "rank_ic": 0.038,
+                    "trade_count": 112,
+                },
+                {
+                    "rank": 3,
+                    "case_id": "c3",
+                    "factor_name": "smart_money_rotation_combo",
+                    "market": "CN_ETF",
+                    "sharpe": 1.11,
+                    "annualized_return": 0.13,
+                    "max_drawdown": -0.10,
+                    "win_rate": 0.57,
+                    "rank_ic": 0.031,
+                    "trade_count": 96,
+                },
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.3}),
+                _signal("c2", "low_vol_trend_combo", {"588000": 0.3}),
+                _signal("c3", "smart_money_rotation_combo", {"159915": 0.3}),
+            ],
+            run_date="2026-06-30",
+            evidence_snapshot={
+                "walk_forward_oos_passed": True,
+                "lookahead_bias_audit_passed": True,
+                "multiple_testing_control_passed": True,
+                "transaction_cost_capacity_passed": True,
+            },
+        )
+
+        monitor = pack["daily_factor_health_monitor"]
+
+        self.assertTrue(monitor["summary"]["next_session_quarantine_required"])
+        self.assertEqual(monitor["summary"]["quarantine_scope"], "top3_slate")
+        self.assertEqual(monitor["summary"]["same_parameter_top3_required_requests"], 3)
+        self.assertEqual(monitor["summary"]["same_parameter_top3_matched_requests"], 0)
+        rule_by_id = {row["rule_id"]: row for row in monitor["next_session_quarantine_rules"]}
+        self.assertEqual(rule_by_id["same_parameter_top3_paper_incomplete"]["status"], "blocked")
+        self.assertIn("complete_top3_evidence_before_next_session", {row["action_id"] for row in monitor["recommended_actions"]})
+        self.assertTrue(
+            all(row["next_session_reuse_status"] == "quarantine_pending_evidence" for row in monitor["factor_rows"])
+        )
+
+    def test_daily_factor_health_clears_next_session_quarantine_with_clean_closed_loop_evidence(self):
+        evidence_counts = {
+            "matched_paper_receipts": 5,
+            "post_close_journal_receipts": 5,
+            "manual_execution_clean_receipts": 5,
+            "manual_execution_blocked_receipts": 0,
+            "manual_execution_missing_review_receipts": 0,
+            "paper_ready_observations": 20,
+            "same_parameter_top3_required_requests": 3,
+            "same_parameter_top3_matched_requests": 3,
+        }
+        pack = build_daily_trade_advisory_pack(
+            [
+                {
+                    "rank": 1,
+                    "case_id": "c1",
+                    "factor_name": "momentum_quality_combo",
+                    "market": "CN_ETF",
+                    "sharpe": 1.42,
+                    "annualized_return": 0.18,
+                    "max_drawdown": -0.12,
+                    "win_rate": 0.61,
+                    "rank_ic": 0.045,
+                    "trade_count": 140,
+                },
+                {
+                    "rank": 2,
+                    "case_id": "c2",
+                    "factor_name": "low_vol_trend_combo",
+                    "market": "CN_ETF",
+                    "sharpe": 1.21,
+                    "annualized_return": 0.15,
+                    "max_drawdown": -0.14,
+                    "win_rate": 0.58,
+                    "rank_ic": 0.038,
+                    "trade_count": 112,
+                },
+                {
+                    "rank": 3,
+                    "case_id": "c3",
+                    "factor_name": "smart_money_rotation_combo",
+                    "market": "CN_ETF",
+                    "sharpe": 1.11,
+                    "annualized_return": 0.13,
+                    "max_drawdown": -0.10,
+                    "win_rate": 0.57,
+                    "rank_ic": 0.031,
+                    "trade_count": 96,
+                },
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.3}),
+                _signal("c2", "low_vol_trend_combo", {"588000": 0.3}),
+                _signal("c3", "smart_money_rotation_combo", {"159915": 0.3}),
+            ],
+            run_date="2026-06-30",
+            evidence_snapshot={
+                "counts": evidence_counts,
+                "flags": {
+                    "walk_forward_oos_passed": True,
+                    "lookahead_bias_audit_passed": True,
+                    "multiple_testing_control_passed": True,
+                    "transaction_cost_capacity_passed": True,
+                },
+            },
+        )
+
+        monitor = pack["daily_factor_health_monitor"]
+
+        self.assertFalse(monitor["summary"]["next_session_quarantine_required"])
+        self.assertEqual(monitor["summary"]["next_session_reuse_status"], "top3_slate_clear_for_next_session_review")
+        self.assertTrue(all(row["status"] == "pass" for row in monitor["next_session_quarantine_rules"]))
+        self.assertTrue(
+            all(row["next_session_reuse_status"] == "reviewable_after_clean_closed_loop" for row in monitor["factor_rows"])
+        )
+
+    def test_daily_factor_health_quarantines_next_session_after_manual_execution_exception(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {
+                    "rank": 1,
+                    "case_id": "c1",
+                    "factor_name": "momentum_quality_combo",
+                    "market": "CN_ETF",
+                    "sharpe": 1.42,
+                    "annualized_return": 0.18,
+                    "max_drawdown": -0.12,
+                    "win_rate": 0.61,
+                    "rank_ic": 0.045,
+                    "trade_count": 140,
+                },
+                {
+                    "rank": 2,
+                    "case_id": "c2",
+                    "factor_name": "low_vol_trend_combo",
+                    "market": "CN_ETF",
+                    "sharpe": 1.21,
+                    "annualized_return": 0.15,
+                    "max_drawdown": -0.14,
+                    "win_rate": 0.58,
+                    "rank_ic": 0.038,
+                    "trade_count": 112,
+                },
+                {
+                    "rank": 3,
+                    "case_id": "c3",
+                    "factor_name": "smart_money_rotation_combo",
+                    "market": "CN_ETF",
+                    "sharpe": 1.11,
+                    "annualized_return": 0.13,
+                    "max_drawdown": -0.10,
+                    "win_rate": 0.57,
+                    "rank_ic": 0.031,
+                    "trade_count": 96,
+                },
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.3}),
+                _signal("c2", "low_vol_trend_combo", {"588000": 0.3}),
+                _signal("c3", "smart_money_rotation_combo", {"159915": 0.3}),
+            ],
+            run_date="2026-06-30",
+            evidence_snapshot={
+                "counts": {
+                    "matched_paper_receipts": 5,
+                    "post_close_journal_receipts": 5,
+                    "manual_execution_clean_receipts": 4,
+                    "manual_execution_blocked_receipts": 1,
+                    "manual_execution_missing_review_receipts": 0,
+                    "paper_ready_observations": 20,
+                    "same_parameter_top3_required_requests": 3,
+                    "same_parameter_top3_matched_requests": 3,
+                },
+                "flags": {
+                    "walk_forward_oos_passed": True,
+                    "lookahead_bias_audit_passed": True,
+                    "multiple_testing_control_passed": True,
+                    "transaction_cost_capacity_passed": True,
+                },
+            },
+        )
+
+        monitor = pack["daily_factor_health_monitor"]
+        rule_by_id = {row["rule_id"]: row for row in monitor["next_session_quarantine_rules"]}
+
+        self.assertTrue(monitor["summary"]["next_session_quarantine_required"])
+        self.assertEqual(monitor["summary"]["next_session_reuse_status"], "quarantine_pending_evidence")
+        self.assertEqual(rule_by_id["manual_execution_exception"]["status"], "blocked")
+        self.assertEqual(rule_by_id["manual_execution_exception"]["observed_count"], 1)
+
     def test_daily_pack_exposes_small_capital_observation_gate(self):
         pack = build_daily_trade_advisory_pack(
             [

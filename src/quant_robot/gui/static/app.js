@@ -3033,6 +3033,8 @@ function renderBeginnerTradeSystem() {
   const summary = trade.summary || {};
   const paperReceipt = latestExecutionReceipt("paper_simulation");
   summaryTarget.innerHTML = statusRows([
+    ["明日复用闸门", summary.quarantine_plain_answer || zhConsoleText(nextSessionReuseStatus), nextSessionQuarantineTone],
+    ["明日复用证据", `同参Top3=${formatNumber(summary.same_parameter_top3_matched_requests || 0)}/${formatNumber(summary.same_parameter_top3_required_requests || 0)} / 复盘=${formatNumber(summary.post_close_journal_receipts || 0)} / 异常=${formatNumber(summary.manual_execution_blocked_receipts || 0)} / 缺复核=${formatNumber(summary.manual_execution_missing_review_receipts || 0)}`, nextSessionQuarantineTone],
     ["最终结论", decision.title || "等待今日体检", decision.tone || "warn"],
     ["原因", decision.reason || "先运行开盘前一键体检，再看是否进入人工复核。", decision.tone || "warn"],
     ["交易边界", systemDecision.status || "manual_review_only", "danger"],
@@ -7627,6 +7629,14 @@ function renderDailyFactorHealthMonitor(monitor = {}) {
   const packSummary = state.dailyTradeAdvisory?.summary || {};
   const decision = summary.decision || packSummary.factor_health_status || "waiting_for_top3_candidates";
   const tone = dailyFactorHealthTone(decision);
+  const nextSessionReuseStatus = summary.next_session_reuse_status || "waiting_for_top3_candidates";
+  const nextSessionQuarantineRequired = Boolean(summary.next_session_quarantine_required);
+  const nextSessionQuarantineTone = nextSessionQuarantineRequired
+    || nextSessionReuseStatus === "quarantine_pending_evidence"
+    ? "danger"
+    : nextSessionReuseStatus === "top3_slate_clear_for_next_session_review"
+      ? "ok"
+      : "warn";
   const workflowButton = summary.next_workflow_id ? `
     <button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(summary.next_workflow_id)}">${escapeHtml(summary.next_label || "运行下一步")}</button>
   ` : "";
@@ -7678,11 +7688,23 @@ function renderDailyFactorHealthMonitor(monitor = {}) {
   `).join("") : statusRows([["下一步", "等待因子健康结论加载。", "warn"]]);
 
   if (ruleTarget) {
-    const rules = Array.isArray(monitor.health_rules) ? monitor.health_rules : [];
+    const nextSessionRuleIds = new Set([
+      "same_parameter_top3_paper_incomplete",
+      "post_close_journal_after_matched_paper",
+      "manual_execution_exception",
+    ]);
+    const quarantineRules = Array.isArray(monitor.next_session_quarantine_rules) ? monitor.next_session_quarantine_rules : [];
+    const healthRules = Array.isArray(monitor.health_rules) ? monitor.health_rules : [];
+    const rules = quarantineRules.concat(healthRules);
     ruleTarget.innerHTML = rules.length ? rules.map((item) => `
-      <div class="list-row ${escapeHtml(item.rule_id === "retire_candidate" ? "danger" : "warn")}">
+      <div class="list-row ${escapeHtml(item.status === "blocked" || item.quarantine_next_session || item.rule_id === "retire_candidate" ? "danger" : item.status === "pass" && nextSessionRuleIds.has(item.rule_id) ? "ok" : "warn")}">
         <strong>${escapeHtml(zhConsoleText(item.rule_id || "health_rule"))}</strong>
-        <span>${escapeHtml(item.plain_rule || "")}</span>
+        <span>${escapeHtml(`${zhConsoleText(item.status || "")}${item.status ? " / " : ""}${item.plain_rule || ""}`)}</span>
+        <span>${nextSessionRuleIds.has(item.rule_id) ? escapeHtml(`证据=${formatNumber(item.observed_count || 0)}/${formatNumber(item.required_observations || 0)} / 缺口=${formatNumber(item.missing_count || 0)}`) : ""}</span>
+        <span class="beginner-task-actions">
+          ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+          ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
+        </span>
       </div>
     `).join("") : statusRows([["健康规则", "退役候选先处理；健康也只代表可以模拟盘观察，不代表可以买。", "warn"]]);
   }
@@ -7690,7 +7712,7 @@ function renderDailyFactorHealthMonitor(monitor = {}) {
 
 function dailyFactorHealthTone(status = "") {
   const text = String(status || "").toLowerCase();
-  if (text.includes("retire") || text.includes("exclude") || text.includes("forbidden") || text.includes("danger")) return "danger";
+  if (text.includes("retire") || text.includes("exclude") || text.includes("forbidden") || text.includes("danger") || text.includes("blocked") || text.includes("quarantine")) return "danger";
   if (text.includes("healthy") || text.includes("clear") || text.includes("allowed")) return "ok";
   return "warn";
 }

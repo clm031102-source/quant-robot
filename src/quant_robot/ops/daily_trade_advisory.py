@@ -4319,6 +4319,122 @@ def build_live_profitability_readiness_scorecard(pack: dict[str, Any]) -> dict[s
     )
 
 
+def _daily_next_session_top3_quarantine(
+    evidence: dict[str, Any],
+    factor_rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    counts = evidence.get("counts") if isinstance(evidence.get("counts"), dict) else {}
+    factor_count = len(factor_rows)
+    requested_top3_count = _int(counts.get("same_parameter_top3_required_requests"), 0)
+    required_top3_count = max(requested_top3_count, factor_count if factor_count else 0)
+    matched_top3_count = min(
+        _int(counts.get("same_parameter_top3_matched_requests"), 0),
+        required_top3_count,
+    ) if required_top3_count else 0
+    post_close_count = _int(counts.get("post_close_journal_receipts"), 0)
+    manual_clean_count = _int(counts.get("manual_execution_clean_receipts"), 0)
+    manual_blocked_count = _int(counts.get("manual_execution_blocked_receipts"), 0)
+    manual_missing_review_count = _int(counts.get("manual_execution_missing_review_receipts"), 0)
+    journal_required_count = min(required_top3_count, matched_top3_count)
+    same_parameter_blocked = required_top3_count > 0 and matched_top3_count < required_top3_count
+    journal_blocked = journal_required_count > 0 and post_close_count < journal_required_count
+    manual_exception_count = manual_blocked_count + manual_missing_review_count
+    manual_blocked = manual_exception_count > 0
+    blocked_reason_count = sum(
+        1
+        for value in (
+            same_parameter_blocked,
+            journal_blocked,
+            manual_blocked,
+        )
+        if value
+    )
+    quarantine_required = factor_count > 0 and blocked_reason_count > 0
+    if not factor_count:
+        reuse_status = "waiting_for_top3_candidates"
+        plain_answer = "还没有今日 Top3，先生成候选、信号和同参数模拟请求。"
+        scope = "none"
+    elif quarantine_required:
+        reuse_status = "quarantine_pending_evidence"
+        plain_answer = "这组 Top3 还没有形成同参数模拟、盘后复盘、人工执行审计的干净闭环；明天继续用之前必须先复核或降权。"
+        scope = "top3_slate"
+    else:
+        reuse_status = "top3_slate_clear_for_next_session_review"
+        plain_answer = "这组 Top3 已有同参数模拟和盘后复盘闭环；明天仍需人工复核后才能继续进入候选，不代表可以自动下单。"
+        scope = "top3_slate"
+
+    rules: list[dict[str, Any]] = []
+    if factor_count:
+        rules.append(
+            {
+                "rule_id": "same_parameter_top3_paper_incomplete",
+                "label": "同参数 Top3 模拟闭环",
+                "status": "blocked" if same_parameter_blocked else "pass",
+                "plain_rule": "每天 Top3 的每个因子都要用同一组参数跑纸面/模拟回放；没跑齐，下一交易日不能无提示复用。",
+                "target_id": "daily-same-parameter-paper-rehearsal",
+                "workflow_id": "paper_simulation" if same_parameter_blocked else "",
+                "required_observations": required_top3_count,
+                "observed_count": matched_top3_count,
+                "missing_count": max(0, required_top3_count - matched_top3_count),
+                "quarantine_next_session": bool(same_parameter_blocked),
+                "order_placement_allowed": False,
+            }
+        )
+        rules.append(
+            {
+                "rule_id": "post_close_journal_after_matched_paper",
+                "label": "盘后复盘闭环",
+                "status": "blocked" if journal_blocked else "pass",
+                "plain_rule": "只要今天已有同参数模拟回执，就要留下盘后复盘；否则无法知道信号、成交和跳过原因是否真实可执行。",
+                "target_id": "beginner-post-close-journal-board",
+                "workflow_id": "post_close_journal" if journal_blocked else "",
+                "required_observations": journal_required_count,
+                "observed_count": post_close_count,
+                "missing_count": max(0, journal_required_count - post_close_count),
+                "quarantine_next_session": bool(journal_blocked),
+                "order_placement_allowed": False,
+            }
+        )
+        rules.append(
+            {
+                "rule_id": "manual_execution_exception",
+                "label": "人工执行异常审计",
+                "status": "blocked" if manual_blocked else "pass",
+                "plain_rule": "如果手工成交、跳过、价格滑点或复核记录出现异常，下一交易日必须先隔离这组信号，不能直接继承。",
+                "target_id": "manual-execution-audit-board",
+                "workflow_id": "post_close_journal" if manual_blocked else "",
+                "required_observations": 0,
+                "observed_count": manual_exception_count,
+                "missing_count": 0,
+                "manual_execution_blocked_receipts": manual_blocked_count,
+                "manual_execution_missing_review_receipts": manual_missing_review_count,
+                "quarantine_next_session": bool(manual_blocked),
+                "order_placement_allowed": False,
+            }
+        )
+
+    return _sanitize(
+        {
+            "summary": {
+                "next_session_quarantine_required": quarantine_required,
+                "next_session_reuse_status": reuse_status,
+                "quarantine_scope": scope,
+                "quarantine_reason_count": blocked_reason_count,
+                "quarantine_plain_answer": plain_answer,
+                "same_parameter_top3_required_requests": required_top3_count,
+                "same_parameter_top3_matched_requests": matched_top3_count,
+                "post_close_journal_receipts": post_close_count,
+                "manual_execution_clean_receipts": manual_clean_count,
+                "manual_execution_blocked_receipts": manual_blocked_count,
+                "manual_execution_missing_review_receipts": manual_missing_review_count,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+            },
+            "rules": rules,
+        }
+    )
+
+
 def build_daily_factor_health_monitor(pack: dict[str, Any]) -> dict[str, Any]:
     summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
     factors = [row for row in pack.get("factors", []) if isinstance(row, dict)]
@@ -4338,6 +4454,26 @@ def build_daily_factor_health_monitor(pack: dict[str, Any]) -> dict[str, Any]:
         _daily_factor_health_row(row, research_evidence_ready=research_evidence_ready)
         for row in factors
     ]
+    next_session_quarantine = _daily_next_session_top3_quarantine(evidence, factor_rows)
+    quarantine_summary = (
+        next_session_quarantine.get("summary")
+        if isinstance(next_session_quarantine.get("summary"), dict)
+        else {}
+    )
+    next_session_reuse_status = str(
+        quarantine_summary.get("next_session_reuse_status")
+        or "waiting_for_top3_candidates"
+    )
+    next_session_quarantine_required = bool(quarantine_summary.get("next_session_quarantine_required"))
+    for row in factor_rows:
+        row["next_session_reuse_status"] = (
+            "quarantine_pending_evidence"
+            if next_session_quarantine_required
+            else "reviewable_after_clean_closed_loop"
+        )
+        row["next_session_quarantine_required"] = next_session_quarantine_required
+        row["next_session_quarantine_scope"] = quarantine_summary.get("quarantine_scope", "top3_slate")
+        row["next_session_quarantine_reason"] = quarantine_summary.get("quarantine_plain_answer", "")
     healthy_count = sum(1 for row in factor_rows if row["health_status"] == "healthy_for_paper_observation")
     watch_count = sum(1 for row in factor_rows if row["health_status"] == "watch")
     retire_count = sum(1 for row in factor_rows if row["health_status"] == "retire_candidate")
@@ -4395,6 +4531,32 @@ def build_daily_factor_health_monitor(pack: dict[str, Any]) -> dict[str, Any]:
                 "next_label": next_label,
                 "next_target_id": next_target,
                 "next_workflow_id": next_workflow,
+                "next_session_quarantine_required": next_session_quarantine_required,
+                "next_session_reuse_status": next_session_reuse_status,
+                "quarantine_scope": quarantine_summary.get("quarantine_scope", "none"),
+                "quarantine_reason_count": _int(quarantine_summary.get("quarantine_reason_count"), 0),
+                "quarantine_plain_answer": quarantine_summary.get("quarantine_plain_answer", ""),
+                "same_parameter_top3_required_requests": _int(
+                    quarantine_summary.get("same_parameter_top3_required_requests"),
+                    0,
+                ),
+                "same_parameter_top3_matched_requests": _int(
+                    quarantine_summary.get("same_parameter_top3_matched_requests"),
+                    0,
+                ),
+                "post_close_journal_receipts": _int(quarantine_summary.get("post_close_journal_receipts"), 0),
+                "manual_execution_clean_receipts": _int(
+                    quarantine_summary.get("manual_execution_clean_receipts"),
+                    0,
+                ),
+                "manual_execution_blocked_receipts": _int(
+                    quarantine_summary.get("manual_execution_blocked_receipts"),
+                    0,
+                ),
+                "manual_execution_missing_review_receipts": _int(
+                    quarantine_summary.get("manual_execution_missing_review_receipts"),
+                    0,
+                ),
             },
             "factor_rows": factor_rows,
             "recommended_actions": _daily_factor_health_actions(
@@ -4405,8 +4567,23 @@ def build_daily_factor_health_monitor(pack: dict[str, Any]) -> dict[str, Any]:
                 next_label=next_label,
                 next_target=next_target,
                 next_workflow=next_workflow,
+            )
+            + (
+                [
+                    _daily_factor_health_action(
+                        "complete_top3_evidence_before_next_session",
+                        "补齐明日复用证据",
+                        "同参数 Top3 模拟、盘后复盘或人工执行审计没有形成干净闭环；明天复用这组因子前必须先处理。",
+                        "daily-same-parameter-paper-rehearsal",
+                        "required",
+                        "paper_simulation",
+                    )
+                ]
+                if next_session_quarantine_required
+                else []
             ),
             "evidence_snapshot": evidence,
+            "next_session_quarantine_rules": next_session_quarantine.get("rules", []),
             "health_rules": [
                 {
                     "rule_id": "retire_candidate",
