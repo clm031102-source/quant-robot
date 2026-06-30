@@ -3051,7 +3051,7 @@ function renderBeginnerLivePilotBrief() {
   const target = byId("beginner-live-pilot-brief");
   if (!target) return;
   const brief = state.dailyTradeAdvisory?.daily_live_pilot_brief || {};
-  const rows = beginnerLivePilotBriefRows(brief);
+  const rows = beginnerLivePilotBriefRows(brief).concat(beginnerLivePilotEvidenceRows(brief));
   target.innerHTML = rows.map((item) => `
     <div class="list-row ${escapeHtml(item.tone)}">
       <strong>${escapeHtml(item.label)}</strong>
@@ -3121,6 +3121,76 @@ function beginnerLivePilotBriefRows(brief = {}) {
       target: "control-safety-boundary",
       targetLabel: "看边界",
       tone: boundary.auto_order_allowed ? "danger" : "ok",
+    },
+  ];
+}
+
+function beginnerLivePilotEvidenceRows(brief = {}) {
+  const summary = brief.summary || {};
+  const boundary = brief.execution_boundary || {};
+  const blockers = Array.isArray(brief.blockers) ? brief.blockers : [];
+  const tickets = Array.isArray(brief.manual_ticket_preview) ? brief.manual_ticket_preview : [];
+  const pretradeReceipt = latestExecutionReceipt("daily_pretrade_checkup");
+  const paperReceipt = latestExecutionReceipt("paper_simulation");
+  const journalReceipt = latestExecutionReceipt("post_close_journal");
+  const missing = [];
+  if (blockers.length) missing.push(`盘前红灯阻断=${blockers.join("/")}`);
+  if (!pretradeReceipt) missing.push("缺开盘前体检回执");
+  if (!paperReceipt) missing.push("缺模拟盘回执");
+  if (!journalReceipt) missing.push("缺盘后复盘回执");
+  if (!tickets.length) missing.push("缺人工票据");
+  missing.push("小资金观察闸门仍未打开");
+  let workflow = "";
+  let target = "beginner-live-handoff-board";
+  if (!pretradeReceipt) {
+    workflow = "daily_pretrade_checkup";
+    target = "beginner-trade-system-board";
+  } else if (!paperReceipt) {
+    workflow = "paper_simulation";
+    target = "paper-metrics";
+  } else if (!journalReceipt) {
+    workflow = "post_close_journal";
+    target = "beginner-post-close-journal-board";
+  } else if (blockers.length) {
+    target = "daily-pretrade-readiness-status";
+  } else {
+    target = "control-operation-ledger";
+  }
+  const receiptTone = pretradeReceipt && paperReceipt && journalReceipt ? "ok" : "warn";
+  return [
+    {
+      label: "离实盘还差什么",
+      value: `还差 ${formatNumber(missing.length)} 项`,
+      detail: missing.slice(0, 5).join("；"),
+      workflow,
+      target,
+      button: workflow ? "补这一项" : "",
+      targetLabel: "看证据",
+      tone: missing.length > 1 || blockers.length ? "danger" : "warn",
+    },
+    {
+      label: "本机回执",
+      value: `体检=${pretradeReceipt ? "有" : "无"} / 模拟盘=${paperReceipt ? "有" : "无"} / 复盘=${journalReceipt ? "有" : "无"}`,
+      detail: "这些回执只证明本机流程跑过，不证明真实账户已经可交易。",
+      target: "control-execution-receipts",
+      targetLabel: "看回执",
+      tone: receiptTone,
+    },
+    {
+      label: "小资金观察",
+      value: summary.status === "manual_review_candidate" ? "可准备观察材料" : "还不能进入",
+      detail: "小资金观察闸门仍未打开；必须先积累模拟盘、盘后复盘、风险和人工票据证据。",
+      target: "beginner-live-handoff-board",
+      targetLabel: "看交接",
+      tone: "warn",
+    },
+    {
+      label: "权限复核",
+      value: boundary.order_placement_allowed || boundary.broker_connection_allowed ? "异常：权限越界" : "仍是研究到模拟盘",
+      detail: "系统仍然不连接券商、不读取账户、不生成实盘委托；任何券商动作必须由人手工决定。",
+      target: "control-safety-boundary",
+      targetLabel: "看边界",
+      tone: boundary.order_placement_allowed || boundary.broker_connection_allowed ? "danger" : "ok",
     },
   ];
 }
