@@ -490,6 +490,18 @@ function bindActions() {
     jumpToBeginnerTarget(button.dataset.beginnerPretradeReceiptTarget || "beginner-trade-system-board", state.leaderboardTab);
   });
   document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-beginner-live-pilot-action]");
+    if (!button) return;
+    event.preventDefault();
+    await runBeginnerAction(button.dataset.beginnerLivePilotAction || "", button);
+  });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-beginner-live-pilot-target]");
+    if (!button) return;
+    event.preventDefault();
+    jumpToBeginnerTarget(button.dataset.beginnerLivePilotTarget || "beginner-trade-system-board", state.leaderboardTab);
+  });
+  document.addEventListener("click", async (event) => {
     const button = event.target.closest("[data-daily-rehearsal-action]");
     if (!button) return;
     event.preventDefault();
@@ -2867,6 +2879,7 @@ function renderBeginnerTradeSystem() {
   if (!summaryTarget || !evidenceTarget || !actionsTarget) return;
   renderBeginnerTradeActionCard();
   renderBeginnerPretradeReceiptCard();
+  renderBeginnerLivePilotBrief();
   const decision = dailyReadinessDecision();
   const trade = state.dailyTradeAdvisory || {};
   const tradeSystem = trade.trade_system || {};
@@ -3030,6 +3043,84 @@ function beginnerPretradeReceiptRows(receipt = {}) {
       target: "control-safety-boundary",
       button: "看安全边界",
       tone: "ok",
+    },
+  ];
+}
+
+function renderBeginnerLivePilotBrief() {
+  const target = byId("beginner-live-pilot-brief");
+  if (!target) return;
+  const brief = state.dailyTradeAdvisory?.daily_live_pilot_brief || {};
+  const rows = beginnerLivePilotBriefRows(brief);
+  target.innerHTML = rows.map((item) => `
+    <div class="list-row ${escapeHtml(item.tone)}">
+      <strong>${escapeHtml(item.label)}</strong>
+      <span>${escapeHtml(item.value)}</span>
+      <span>${escapeHtml(item.detail)}</span>
+      <span class="beginner-task-actions">
+        ${item.workflow ? `<button class="primary-button" type="button" data-beginner-live-pilot-action="${escapeRawHtml(item.workflow)}">${escapeHtml(item.button || "运行")}</button>` : ""}
+        ${item.target ? `<button class="secondary-button" type="button" data-beginner-live-pilot-target="${escapeRawHtml(item.target)}">${escapeHtml(item.targetLabel || "看证据")}</button>` : ""}
+      </span>
+    </div>
+  `).join("");
+}
+
+function beginnerLivePilotBriefRows(brief = {}) {
+  const summary = brief.summary || {};
+  const signalRule = brief.today_signal_rule || {};
+  const steps = Array.isArray(brief.manual_operation_steps) ? brief.manual_operation_steps : [];
+  const tickets = Array.isArray(brief.manual_ticket_preview) ? brief.manual_ticket_preview : [];
+  const risk = brief.risk_budget || {};
+  const boundary = brief.execution_boundary || {};
+  const blockers = Array.isArray(brief.blockers) ? brief.blockers : [];
+  const firstRequired = steps.find((item) => item.status === "blocked" || item.status === "required" || item.status === "waiting") || steps[0] || {};
+  const ticketText = tickets.length
+    ? tickets.slice(0, 3).map((item) => `${item.asset_id || "--"} ${zhConsoleText(item.side || "")} ${formatPercent(item.target_weight)} / ${formatNumber(item.rounded_quantity || 0)}份`).join("；")
+    : "暂无可人工核对票据";
+  const status = summary.status || "waiting_for_daily_signal";
+  const tone = blockers.length || status.includes("blocked") ? "danger" : status.includes("candidate") ? "warn" : "warn";
+  return [
+    {
+      label: "实盘前简报",
+      value: summary.plain_answer || "等待今日实盘前操作简报",
+      detail: summary.primary_action || "先生成今日前三建议，再跑盘前体检。",
+      workflow: firstRequired.workflow_id || "",
+      target: firstRequired.gui_target || "beginner-live-handoff-board",
+      button: firstRequired.workflow_id ? firstRequired.title || "运行下一步" : "",
+      targetLabel: "看下一步",
+      tone,
+    },
+    {
+      label: "前三因子规则",
+      value: `${summary.today_signal_count || 0}条信号 / ${summary.manual_ticket_count || 0}张票据`,
+      detail: signalRule.plain_warning || "不能把前三因子直接当买入指令；必须经过复核。",
+      target: "daily-trade-factor-table",
+      targetLabel: "看前三因子",
+      tone: summary.today_signal_count > 0 ? "warn" : "danger",
+    },
+    {
+      label: "今天买什么",
+      value: ticketText,
+      detail: "这是人工核对清单，不是订单；券商端价格、现金和风险仍需本人确认。",
+      target: tickets.length ? "daily-manual-broker-handoff-ticket-table" : "daily-trade-factor-table",
+      targetLabel: tickets.length ? "看人工票据" : "看信号",
+      tone: tickets.length && !blockers.length ? "warn" : "danger",
+    },
+    {
+      label: "风险预算",
+      value: `${risk.risk_profile_label || risk.risk_profile_id || "未选择"} / 总仓位=${formatPercent(risk.applied_max_gross_exposure)} / 单ETF=${formatPercent(risk.max_single_etf_weight)}`,
+      detail: risk.plain_review || "收益高也不能跳过回撤、仓位、流动性和价格偏差核对。",
+      target: "daily-pretrade-readiness-verdict",
+      targetLabel: "看风险",
+      tone: "warn",
+    },
+    {
+      label: "操作边界",
+      value: boundary.auto_order_allowed ? "异常：允许自动下单" : "不自动下单",
+      detail: boundary.plain_boundary || "券商端由人手工决定；软件只生成研究、模拟盘和人工复核材料。",
+      target: "control-safety-boundary",
+      targetLabel: "看边界",
+      tone: boundary.auto_order_allowed ? "danger" : "ok",
     },
   ];
 }

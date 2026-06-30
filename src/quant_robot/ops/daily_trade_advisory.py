@@ -23,6 +23,7 @@ LIVE_TRANSITION_STAGE = "phase_6_7_live_transition_plan"
 BEGINNER_ACTION_SUMMARY_STAGE = "phase_6_8_beginner_action_summary"
 LIVE_READINESS_GATE_STAGE = "phase_6_9_daily_live_readiness_gate"
 BEGINNER_TRADE_ACTION_CARD_STAGE = "phase_6_10_beginner_trade_action_card"
+DAILY_LIVE_PILOT_BRIEF_STAGE = "phase_6_11_daily_live_pilot_brief"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 DEFAULT_RISK_PROFILE_ID = "balanced_20dd"
@@ -186,6 +187,7 @@ def build_daily_trade_advisory_pack(
     pack["beginner_action_summary"] = build_beginner_action_summary(pack)
     pack["daily_live_readiness_gate"] = build_daily_live_readiness_gate(pack)
     pack["beginner_trade_action_card"] = build_beginner_trade_action_card(pack)
+    pack["daily_live_pilot_brief"] = build_daily_live_pilot_brief(pack)
     pack["summary"]["live_transition_status"] = pack["live_transition_plan"]["summary"]["status"]
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
@@ -1304,6 +1306,192 @@ def build_beginner_trade_action_card(pack: dict[str, Any]) -> dict[str, Any]:
                 "handoff_status": handoff.get("status"),
             },
             "plain_checklist": plain_checklist,
+            "safety": SAFETY_NOTICE,
+        }
+    )
+
+
+def build_daily_live_pilot_brief(pack: dict[str, Any]) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
+    handoff = pack.get("manual_broker_handoff") if isinstance(pack.get("manual_broker_handoff"), dict) else {}
+    live_gate = pack.get("daily_live_readiness_gate") if isinstance(pack.get("daily_live_readiness_gate"), dict) else {}
+    gate_summary = live_gate.get("summary") if isinstance(live_gate.get("summary"), dict) else {}
+    factors = [row for row in pack.get("factors", []) if isinstance(row, dict)]
+    manual_plan = [row for row in pack.get("manual_trade_plan", []) if isinstance(row, dict)]
+    blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
+    market = str(pack.get("market") or _first_market(factors) or "CN_ETF").upper()
+    selected_count = _int(summary.get("selected_factor_count"), len(factors))
+    signal_count = _int(summary.get("signal_count"), 0)
+    ticket_count = _int(summary.get("manual_ticket_count"), len(manual_plan))
+    target_count = _int(summary.get("combined_target_count"), 0)
+    if blockers:
+        status = "blocked_before_manual_review"
+        plain_answer = "今天不能照着操作：盘前闸门仍有红灯阻断。"
+        primary_action = gate_summary.get("primary_action") or "先处理红灯阻断项。"
+    elif ticket_count > 0 and signal_count > 0:
+        status = "manual_review_candidate"
+        plain_answer = "今天可以进入人工复核，但不能把它当成自动买入指令。"
+        primary_action = "先跑模拟盘复核，再看人工票据。"
+    elif signal_count > 0:
+        status = "waiting_for_manual_ticket"
+        plain_answer = "已有今日信号，但还没有完整人工票据。"
+        primary_action = "补齐价格、仓位和一手取整后的人工票据。"
+    else:
+        status = "waiting_for_daily_signal"
+        plain_answer = "还没有今日前三因子信号。"
+        primary_action = "先生成今日前三 CN_ETF 因子建议。"
+
+    def step(
+        step_number: int,
+        step_id: str,
+        title: str,
+        status_value: str,
+        plain_action: str,
+        gui_target: str,
+        workflow_id: str = "",
+    ) -> dict[str, Any]:
+        return {
+            "step_number": step_number,
+            "step_id": step_id,
+            "title": title,
+            "status": status_value,
+            "plain_action": plain_action,
+            "gui_target": gui_target,
+            "workflow_id": workflow_id,
+            "automation_allowed": False,
+            "live_order_allowed": False,
+            "broker_connection_allowed": False,
+            "order_placement_allowed": False,
+        }
+
+    manual_operation_steps = [
+        step(
+            1,
+            "run_pretrade_checkup",
+            "开盘前一键体检",
+            "required",
+            "先把 daily_ops、今日前三建议、盘前红黄灯和人工票据合成一张本地回执。",
+            "beginner-trade-system-board",
+            "daily_pretrade_checkup",
+        ),
+        step(
+            2,
+            "review_top3_signal",
+            "查看前三因子和今日信号",
+            "done" if signal_count > 0 else "waiting",
+            "只确认候选、信号日期、目标 ETF 和权重；不能把前三因子直接当买入指令。",
+            "daily-trade-factor-table",
+            "daily_trade_advisory" if signal_count <= 0 else "",
+        ),
+        step(
+            3,
+            "run_paper_simulation",
+            "运行本地模拟盘复核",
+            "required" if signal_count > 0 and not blockers else ("blocked" if blockers else "waiting"),
+            "用同一组信号先看收益、最大回撤、胜率、成交和保护事件。",
+            "paper-metrics",
+            "paper_simulation" if signal_count > 0 and not blockers else "",
+        ),
+        step(
+            4,
+            "review_manual_ticket",
+            "核对人工票据",
+            "manual_only" if ticket_count > 0 and not blockers else ("blocked" if blockers else "waiting"),
+            "核对 ETF 代码、方向、参考价、目标权重、取整份额、金额、现金余量和来源因子。",
+            "daily-manual-broker-handoff-ticket-table",
+        ),
+        step(
+            5,
+            "human_broker_decision",
+            "券商端由人手工决定",
+            "manual_only" if ticket_count > 0 and not blockers else "locked",
+            "软件不会连接券商或提交订单；是否在券商端操作必须由本人另行判断。",
+            "control-safety-boundary",
+        ),
+        step(
+            6,
+            "post_close_journal",
+            "收盘后写复盘回执",
+            "required" if signal_count > 0 else "waiting",
+            "记录今天信号、模拟盘、人工决定、跳过原因和次日要复核的风险。",
+            "beginner-post-close-journal-board",
+            "post_close_journal",
+        ),
+    ]
+
+    def ticket_preview(index: int, row: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "step_number": index,
+            "ticket_id": row.get("ticket_id") or f"daily-top3-{index:03d}",
+            "asset_id": row.get("asset_id"),
+            "market": row.get("market") or "CN_ETF",
+            "side": row.get("side") or "buy_or_adjust",
+            "target_weight": row.get("target_weight"),
+            "latest_price": row.get("latest_price"),
+            "rounded_quantity": row.get("rounded_quantity"),
+            "rounded_value": row.get("rounded_value"),
+            "source_factors": row.get("source_factors"),
+            "plain_instruction": "仅供人工核对，不是订单；券商端价格、现金和风险需本人再确认。",
+            "executable": False,
+            "automation_allowed": False,
+            "live_order_allowed": False,
+            "order_placement_allowed": False,
+        }
+
+    risk_profile_id = str(summary.get("risk_profile_id") or "custom_current_parameters")
+    selected_profile = _risk_profile_by_id(risk_profile_id) or {}
+    return _sanitize(
+        {
+            "stage": DAILY_LIVE_PILOT_BRIEF_STAGE,
+            "run_date": pack.get("run_date", date.today().isoformat()),
+            "summary": {
+                "status": status,
+                "plain_answer": plain_answer,
+                "primary_action": primary_action,
+                "primary_market": market,
+                "daily_top_factor_limit": 3,
+                "selected_factor_count": selected_count,
+                "today_signal_count": signal_count,
+                "target_count": target_count,
+                "manual_ticket_count": ticket_count,
+                "traffic_light": readiness.get("traffic_light") or "unknown",
+                "blocker_count": len(blockers),
+                "paper_simulation_required": True,
+                "manual_review_required": True,
+                "live_order_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+            },
+            "today_signal_rule": {
+                "rule_id": "daily_top3_candidates_not_direct_orders",
+                "selection_scope": "CN_ETF",
+                "candidate_limit": 3,
+                "source": "daily_trade_advisory factors + same-day signal snapshots",
+                "plain_warning": "不能把前三因子直接当买入指令；必须经过日期、模拟盘、成本、风险和人工票据复核。",
+            },
+            "manual_operation_steps": manual_operation_steps,
+            "manual_ticket_preview": [ticket_preview(index, row) for index, row in enumerate(manual_plan, start=1)],
+            "risk_budget": {
+                "risk_profile_id": risk_profile_id,
+                "risk_profile_label": summary.get("risk_profile_label") or selected_profile.get("label"),
+                "applied_max_gross_exposure": summary.get("applied_max_gross_exposure"),
+                "max_single_etf_weight": selected_profile.get("max_single_etf_weight"),
+                "max_acceptable_drawdown": selected_profile.get("max_acceptable_drawdown"),
+                "daily_loss_stop": selected_profile.get("daily_loss_stop"),
+                "board_lot_size": BOARD_LOT_SIZE,
+                "plain_review": "收益和年化高也不能跳过回撤、单 ETF 上限、现金、流动性和价格偏差核对。",
+            },
+            "execution_boundary": {
+                "plain_boundary": "券商端由人手工决定；软件只生成研究、模拟盘和人工复核材料。",
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+                "manual_ticket_export_only": True,
+            },
+            "blockers": blockers,
             "safety": SAFETY_NOTICE,
         }
     )

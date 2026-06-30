@@ -546,6 +546,52 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertTrue(all(not row["automation_allowed"] for row in plan["operating_loop"]))
         self.assertIn("不自动下单", plan["safety"])
 
+    def test_daily_pack_exposes_live_pilot_brief_for_manual_operation(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF", "sharpe": 1.2},
+                {"rank": 2, "case_id": "c2", "factor_name": "reversal_2", "market": "CN_ETF", "sharpe": 0.8},
+                {"rank": 3, "case_id": "c3", "factor_name": "volatility_2", "market": "CN_ETF", "sharpe": 0.7},
+            ],
+            [
+                _signal("c1", "momentum_2", {"510300": 0.4}),
+                _signal("c2", "reversal_2", {"588000": 0.3}),
+                _signal("c3", "volatility_2", {"159915": 0.2}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="aggressive_30dd",
+        )
+
+        brief = pack["daily_live_pilot_brief"]
+
+        self.assertEqual(brief["stage"], "phase_6_11_daily_live_pilot_brief")
+        self.assertEqual(brief["summary"]["primary_market"], "CN_ETF")
+        self.assertEqual(brief["summary"]["status"], "manual_review_candidate")
+        self.assertEqual(brief["summary"]["daily_top_factor_limit"], 3)
+        self.assertEqual(brief["summary"]["today_signal_count"], 3)
+        self.assertEqual(brief["summary"]["manual_ticket_count"], 3)
+        self.assertEqual(brief["today_signal_rule"]["rule_id"], "daily_top3_candidates_not_direct_orders")
+        self.assertIn("不能把前三因子直接当买入指令", brief["today_signal_rule"]["plain_warning"])
+        self.assertEqual(
+            [row["step_id"] for row in brief["manual_operation_steps"]],
+            [
+                "run_pretrade_checkup",
+                "review_top3_signal",
+                "run_paper_simulation",
+                "review_manual_ticket",
+                "human_broker_decision",
+                "post_close_journal",
+            ],
+        )
+        self.assertEqual(len(brief["manual_ticket_preview"]), 3)
+        self.assertTrue(all(not row["executable"] for row in brief["manual_ticket_preview"]))
+        self.assertTrue(all(not row["automation_allowed"] for row in brief["manual_operation_steps"]))
+        self.assertFalse(brief["summary"]["broker_connection_allowed"])
+        self.assertFalse(brief["summary"]["order_placement_allowed"])
+        self.assertIn("aggressive_30dd", brief["risk_budget"]["risk_profile_id"])
+        self.assertIn("券商端由人手工决定", brief["execution_boundary"]["plain_boundary"])
+
     def test_selected_risk_profile_caps_daily_target_exposure(self):
         pack = build_daily_trade_advisory_pack(
             [
