@@ -6467,11 +6467,15 @@ function renderDailyOperatorMissionControl(control = {}) {
   const ticketsTarget = byId("daily-operator-mission-control-tickets");
   if (!summaryTarget || !cardsTarget || !actionsTarget || !ticketsTarget) return;
   const summary = control.summary || {};
+  const cards = Array.isArray(control.cards) ? control.cards : [];
+  const phaseCard = cards.find((item) => item.card_id === "daily_phase_progress") || {};
   const status = summary.mission_status || "waiting_for_today_signal";
   const tone = status.includes("blocked") ? "danger" : status.includes("ready") ? "ok" : "warn";
   summaryTarget.innerHTML = statusRows([
     ["每日操作中控台", zhConsoleText(status), tone],
     ["现在先做", summary.primary_next_label || zhConsoleText(summary.primary_next_step_id || "generate_today_signal"), tone],
+    ["当前阶段", `${summary.current_phase_title || phaseCard.label || zhConsoleText(summary.current_phase_id || "waiting")} / ${zhConsoleText(summary.current_phase_status || phaseCard.status || "waiting")}`, summary.current_phase_status === "blocked" || phaseCard.status === "blocked" ? "danger" : summary.current_phase_status === "done" || phaseCard.status === "done" ? "ok" : "warn"],
+    ["阶段进度", `已完成=${formatNumber(summary.phase_done_count || 0)} / 阻断=${formatNumber(summary.phase_blocked_count || 0)} / 总数=${formatNumber(summary.phase_count || 0)} / 入口=${summary.current_phase_target_id || phaseCard.target_id || "--"}`, summary.phase_blocked_count ? "danger" : "warn"],
     ["今日材料", `Top3=${formatNumber(summary.top3_count || 0)} / 信号=${formatNumber(summary.signal_count || 0)} / 目标=${formatNumber(summary.target_count || 0)} / 票据=${formatNumber(summary.manual_ticket_count || 0)}`, summary.manual_ticket_count ? "warn" : "danger"],
     ["缺口", `证据=${formatNumber(summary.missing_evidence_count || 0)} / 人工输入缺失=${formatNumber(summary.operator_input_missing_count || 0)} / 人工确认=${formatNumber(summary.operator_input_manual_count || 0)}`, summary.operator_input_missing_count || summary.missing_evidence_count ? "warn" : "ok"],
     ["容量占用", `状态=${zhConsoleText(summary.pre_execution_guard_status || "waiting")} / 超限=${formatNumber(summary.capacity_blocked_count || 0)} / 缺流动性=${formatNumber(summary.liquidity_evidence_missing_count || 0)} / 上限=${formatPercent(summary.max_participation_rate)}`, summary.capacity_blocked_count ? "danger" : summary.liquidity_evidence_missing_count ? "warn" : "ok"],
@@ -6480,7 +6484,6 @@ function renderDailyOperatorMissionControl(control = {}) {
     ["安全边界", summary.order_placement_allowed || summary.broker_connection_allowed || summary.account_read_allowed ? "异常：出现券商/账户/下单权限" : "不连接券商、不读取账户、不自动下单", summary.order_placement_allowed || summary.broker_connection_allowed || summary.account_read_allowed ? "danger" : "ok"],
   ]);
 
-  const cards = Array.isArray(control.cards) ? control.cards : [];
   cardsTarget.innerHTML = cards.length ? cards.map((item) => {
     const rowTone = dailyBeginnerOperationTone(item.status || "");
     const actionButton = item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : "";

@@ -3001,6 +3001,18 @@ def build_daily_operator_mission_control(pack: dict[str, Any]) -> dict[str, Any]
         else build_daily_factor_health_monitor(pack)
     )
     health_summary = factor_health.get("summary") if isinstance(factor_health.get("summary"), dict) else {}
+    daybook = (
+        pack.get("daily_rehearsal_daybook")
+        if isinstance(pack.get("daily_rehearsal_daybook"), dict)
+        else build_daily_rehearsal_daybook(pack)
+    )
+    daybook_summary = daybook.get("summary") if isinstance(daybook.get("summary"), dict) else {}
+    daybook_phases = [row for row in daybook.get("phases", []) if isinstance(row, dict)]
+    current_phase_id = str(daybook_summary.get("current_phase_id") or "")
+    current_phase = next(
+        (row for row in daybook_phases if str(row.get("phase_id") or "") == current_phase_id),
+        next((row for row in daybook_phases if str(row.get("status") or "") != "done"), {}),
+    )
     blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
     missing_evidence = [row for row in decision_sheet.get("missing_evidence", []) if isinstance(row, dict)]
     operator_inputs = [row for row in recipe.get("operator_inputs_required", []) if isinstance(row, dict)]
@@ -3054,6 +3066,13 @@ def build_daily_operator_mission_control(pack: dict[str, Any]) -> dict[str, Any]
                 "decision": sheet_summary.get("decision"),
                 "primary_next_step_id": primary_next_step_id,
                 "primary_next_label": recipe_summary.get("next_label") or sheet_summary.get("plain_answer"),
+                "current_phase_id": current_phase.get("phase_id") or current_phase_id,
+                "current_phase_title": current_phase.get("title") or daybook_summary.get("current_phase_title"),
+                "current_phase_status": current_phase.get("status") or "waiting",
+                "current_phase_target_id": current_phase.get("gui_target") or "",
+                "phase_done_count": _int(daybook_summary.get("done_count"), 0),
+                "phase_blocked_count": _int(daybook_summary.get("blocked_count"), 0),
+                "phase_count": _int(daybook_summary.get("phase_count"), len(daybook_phases)),
                 "top3_count": top3_count,
                 "signal_count": signal_count,
                 "target_count": target_count,
@@ -3104,6 +3123,10 @@ def build_daily_operator_mission_control(pack: dict[str, Any]) -> dict[str, Any]
                 manual_clean_count=manual_clean_count,
                 manual_blocked_count=manual_blocked_count,
                 manual_missing_review_count=manual_missing_review_count,
+                current_phase=current_phase,
+                phase_done_count=_int(daybook_summary.get("done_count"), 0),
+                phase_blocked_count=_int(daybook_summary.get("blocked_count"), 0),
+                phase_count=_int(daybook_summary.get("phase_count"), len(daybook_phases)),
             ),
             "next_actions": next_actions,
             "visible_ticket_summary": [
@@ -3188,9 +3211,17 @@ def _operator_mission_cards(
     manual_clean_count: int,
     manual_blocked_count: int,
     manual_missing_review_count: int,
+    current_phase: dict[str, Any],
+    phase_done_count: int,
+    phase_blocked_count: int,
+    phase_count: int,
 ) -> list[dict[str, Any]]:
     missing_ids = {str(row.get("check_id") or "") for row in missing_evidence}
     red_blocked = bool(blockers) or input_blocked_count > 0
+    current_phase = current_phase if isinstance(current_phase, dict) else {}
+    current_phase_status = str(current_phase.get("status") or "waiting")
+    current_phase_title = str(current_phase.get("title") or current_phase.get("phase_id") or "今日流程")
+    current_phase_target = str(current_phase.get("gui_target") or "beginner-daily-rehearsal-board")
 
     def card(
         card_id: str,
@@ -3211,6 +3242,16 @@ def _operator_mission_cards(
         }
 
     return [
+        card(
+            "daily_phase_progress",
+            "今日流程阶段",
+            current_phase_status,
+            (
+                f"current={current_phase_title}; done={phase_done_count}; "
+                f"blocked={phase_blocked_count}; total={phase_count}"
+            ),
+            current_phase_target,
+        ),
         card(
             "today_top3_signal",
             "今日 Top3 信号",
