@@ -573,10 +573,20 @@ def run_gui_browser_smoke(
             and control_body.get("server_capital_observation_gate", {}).get("stage") == "gui_server_capital_observation_gate"
             and control_body.get("server_capital_observation_gate", {}).get("summary", {}).get("live_trading_allowed") is False
             and control_body.get("server_capital_observation_gate", {}).get("summary", {}).get("order_placement_allowed") is False
+            and "matched_paper_days" in control_body.get("server_capital_observation_gate", {}).get("summary", {})
+            and "legacy_unverified_paper_days" in control_body.get("server_capital_observation_gate", {}).get("summary", {})
+            and "same_parameter_paper_evidence"
+            in {
+                row.get("gate_id")
+                for row in control_body.get("server_capital_observation_gate", {}).get("rows", [])
+                if isinstance(row, dict)
+            }
             and index_html.get("ok")
             and "control-server-capital-observation-gate" in str(index_html.get("body", ""))
             and app_js.get("ok")
-            and "renderServerCapitalObservationGate" in str(app_js.get("body", "")),
+            and "renderServerCapitalObservationGate" in str(app_js.get("body", ""))
+            and "matched_paper_days" in str(app_js.get("body", ""))
+            and "legacy_unverified_paper_days" in str(app_js.get("body", "")),
             "Control API and frontend expose a server-side small-capital manual observation gate while live trading and order placement stay blocked.",
             control.get("error")
             or index_html.get("error")

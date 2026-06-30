@@ -10120,7 +10120,8 @@ function renderServerCapitalObservationGate(gate = {}) {
     <div class="list-row ${escapeHtml(tone)}">
       <strong>${escapeHtml("小资金人工观察候选")}</strong>
       <span>${escapeHtml(summary.manual_small_capital_observation_candidate ? "可准备材料，不自动下单" : "未放行，继续模拟和闭环")}</span>
-      <span>${escapeHtml(`服务端闭环=${formatNumber(summary.server_closed_loop_days || 0)}/5 / 执行异常=${formatNumber(summary.blocked_execution_days || 0)}`)}</span>
+      <span>${escapeHtml(`服务端闭环=${formatNumber(summary.server_closed_loop_days || 0)}/5 / 同参数模拟盘=${formatNumber(summary.matched_paper_days || 0)}/5 / 旧未校验=${formatNumber(summary.legacy_unverified_paper_days || 0)}`)}</span>
+      <span>${escapeHtml(`执行异常=${formatNumber(summary.blocked_execution_days || 0)}`)}</span>
       <span>${escapeHtml(summary.next_action || "继续收集干净闭环样本。")}</span>
     </div>
   `;

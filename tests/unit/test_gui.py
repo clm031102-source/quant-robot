@@ -1666,12 +1666,19 @@ class GuiSnapshotTests(unittest.TestCase):
         from quant_robot.gui.operation_ledger import append_operation_ledger_entry
 
         def append_clean_day(root: Path, day: str) -> None:
+            paper_request = {
+                "market": "CN_ETF",
+                "factor_name": "momentum_2",
+                "top_n": 2,
+                "commission_bps": 5,
+                "as_of_date": day,
+            }
             append_operation_ledger_entry(
                 repo_root=root,
                 workflow_id="daily_trade_advisory",
                 label="Generate top-three manual trade advisory",
                 status="completed",
-                request={"market": "CN_ETF", "as_of_date": day},
+                request={"market": "CN_ETF", "as_of_date": day, "paper_request_signature": paper_request},
                 result={"metrics": {"signal_count": 3, "selected_factor_count": 3}},
             )
             append_operation_ledger_entry(
@@ -1679,7 +1686,7 @@ class GuiSnapshotTests(unittest.TestCase):
                 workflow_id="paper_simulation",
                 label="Run local paper simulation",
                 status="completed",
-                request={"market": "CN_ETF", "as_of_date": day, "factor_name": "momentum_2", "top_n": 2},
+                request=paper_request,
                 result={"metrics": {"total_return": 0.01, "max_drawdown": -0.02}},
             )
             append_operation_ledger_entry(
@@ -1717,6 +1724,60 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertFalse(gate["summary"]["account_read_allowed"])
         self.assertIn("server_closure_streak", {row["gate_id"] for row in gate["rows"]})
         self.assertIn("live_boundary", {row["gate_id"] for row in gate["rows"]})
+
+    def test_legacy_unverified_paper_receipts_do_not_unlock_small_capital_gate(self):
+        from quant_robot.gui.control_center import build_control_center_snapshot
+        from quant_robot.gui.operation_ledger import append_operation_ledger_entry
+
+        def append_legacy_day(root: Path, day: str) -> None:
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="daily_trade_advisory",
+                label="Generate top-three manual trade advisory",
+                status="completed",
+                request={"market": "CN_ETF", "as_of_date": day},
+                result={"metrics": {"signal_count": 3, "selected_factor_count": 3}},
+            )
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="paper_simulation",
+                label="Run local paper simulation",
+                status="completed",
+                request={"market": "CN_ETF", "as_of_date": day, "factor_name": "momentum_2", "top_n": 2},
+                result={"metrics": {"total_return": 0.01, "max_drawdown": -0.02}},
+            )
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="post_close_journal",
+                label="Post-close journal receipt",
+                status="completed",
+                request={"market": "CN_ETF", "as_of_date": day},
+                result={
+                    "metrics": {
+                        "manual_review_recorded": True,
+                        "manual_execution_decision": "manual_execution_evidence_ready",
+                        "manual_execution_missing_review_count": 0,
+                        "manual_execution_guardrail_breach_count": 0,
+                        "manual_execution_slippage_breach_count": 0,
+                    },
+                },
+            )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            for day in ["2026-06-24", "2026-06-25", "2026-06-26", "2026-06-29", "2026-06-30"]:
+                append_legacy_day(root, day)
+
+            control = build_control_center_snapshot(repo_root=root)
+
+        ledger = control["daily_closure_ledger"]
+        gate = control["server_capital_observation_gate"]
+        self.assertEqual(ledger["summary"]["matched_paper_days"], 0)
+        self.assertTrue(all(row["paper_request_match_status"] == "legacy_unverified" for row in ledger["rows"]))
+        self.assertEqual(gate["summary"]["status"], "blocked_need_same_parameter_paper_evidence")
+        self.assertFalse(gate["summary"]["manual_small_capital_observation_candidate"])
+        self.assertEqual(gate["summary"]["matched_paper_days"], 0)
+        self.assertIn("same_parameter_paper_evidence", {row["gate_id"] for row in gate["rows"]})
 
     def test_ledger_evidence_distinguishes_current_from_stale_server_receipts(self):
         from quant_robot.gui.control_center import build_control_center_snapshot

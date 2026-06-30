@@ -90,11 +90,15 @@ def build_daily_closure_ledger_snapshot(repo_root: str | Path) -> dict[str, Any]
         if row.get("manual_execution_blocked") or row.get("manual_execution_missing_review")
     )
     clean = sum(1 for row in rows if row.get("manual_execution_clean"))
+    matched_paper = sum(1 for row in rows if row.get("paper_request_match_status") == "matched")
+    legacy_unverified = sum(1 for row in rows if row.get("paper_request_match_status") == "legacy_unverified")
     status = (
         "server_closure_ready"
-        if len(rows) >= 5 and closed >= 5 and blocked == 0
+        if len(rows) >= 5 and closed >= 5 and matched_paper >= 5 and blocked == 0
         else "blocked_by_manual_execution"
         if blocked
+        else "needs_same_parameter_paper_evidence"
+        if len(rows) >= 5 and closed >= 5 and matched_paper < 5
         else "needs_more_closure_receipts"
     )
     return {
@@ -106,6 +110,8 @@ def build_daily_closure_ledger_snapshot(repo_root: str | Path) -> dict[str, Any]
             "closed_loop_days": closed,
             "clean_execution_days": clean,
             "blocked_execution_days": blocked,
+            "matched_paper_days": matched_paper,
+            "legacy_unverified_paper_days": legacy_unverified,
             "lookback_days": 5,
             "source": LEDGER_PATH.as_posix(),
             "next_action": _closure_next_action(rows),
@@ -128,13 +134,18 @@ def build_server_capital_observation_gate(daily_closure_ledger: dict[str, Any]) 
     clean = _int(summary.get("clean_execution_days"))
     blocked = _int(summary.get("blocked_execution_days"))
     observed = _int(summary.get("server_observed_days"))
-    streak_ready = observed >= 5 and closed >= 5 and clean >= 5 and blocked == 0
+    matched_paper = _int(summary.get("matched_paper_days"))
+    legacy_unverified = _int(summary.get("legacy_unverified_paper_days"))
+    streak_ready = observed >= 5 and closed >= 5 and clean >= 5 and matched_paper >= 5 and blocked == 0
     if streak_ready:
         status = "manual_small_capital_observation_candidate"
         next_action = "Prepare a manual small-capital observation packet; keep broker connection and order placement outside this system."
     elif blocked > 0:
         status = "blocked_by_manual_execution_audit"
         next_action = "Review blocked manual execution days before any capital observation discussion."
+    elif observed >= 5 and closed >= 5 and matched_paper < 5:
+        status = "blocked_need_same_parameter_paper_evidence"
+        next_action = "Rerun same-parameter paper simulation from the displayed daily advisory request before any capital observation discussion."
     else:
         status = "blocked_need_clean_server_closure_days"
         next_action = "Collect five clean server-side closure days before small-capital observation."
@@ -150,6 +161,12 @@ def build_server_capital_observation_gate(daily_closure_ledger: dict[str, Any]) 
             "Manual execution quality",
             "pass" if clean >= 5 and blocked == 0 else "blocked",
             f"clean={clean}/5, blocked={blocked}",
+        ),
+        _capital_gate_row(
+            "same_parameter_paper_evidence",
+            "Same-parameter paper evidence",
+            "pass" if matched_paper >= 5 else "blocked",
+            f"matched={matched_paper}/5, legacy_unverified={legacy_unverified}",
         ),
         _capital_gate_row(
             "capital_scope",
@@ -173,6 +190,8 @@ def build_server_capital_observation_gate(daily_closure_ledger: dict[str, Any]) 
             "server_observed_days": observed,
             "clean_execution_days": clean,
             "blocked_execution_days": blocked,
+            "matched_paper_days": matched_paper,
+            "legacy_unverified_paper_days": legacy_unverified,
             "next_action": next_action,
             "paper_only": True,
             "live_trading_allowed": False,
