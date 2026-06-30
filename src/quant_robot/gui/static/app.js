@@ -4079,6 +4079,7 @@ function renderPaper() {
   byId("paper-exposure-chart").innerHTML = lineChart(paper.equity_curve || [], "gross_exposure", chartTheme.benchmark, "Gross exposure");
   byId("paper-fill-table").innerHTML = tableRows(paper.fills || [], ["signal_date", "execution_date", "asset_id", "market", "side", "quantity", "fill_price", "fee"]);
   byId("paper-guard-table").innerHTML = tableRows(paper.guard_events || [], ["date", "event_type", "drawdown", "blocked_buy_intents", "cooldown_remaining"]);
+  renderDailyEvidenceChain();
 }
 
 function renderDailyTradeAdvisory() {
@@ -4111,6 +4112,7 @@ function renderDailyTradeAdvisory() {
   renderDailyPretradeNextActions(pack.operator_next_actions || pack.pretrade_workflow?.operator_next_actions || []);
   renderManualBrokerHandoff(pack.manual_broker_handoff || {});
   renderDailyPretradeWorkflow(pack.pretrade_workflow || {});
+  renderDailyEvidenceChain();
   byId("daily-trade-factor-table").innerHTML = tableRows(pack.factors || [], [
     "rank",
     "factor_name",
@@ -4147,6 +4149,76 @@ function renderDailyTradeAdvisory() {
     "live_order_allowed",
     "manual_instruction",
   ]);
+}
+
+function renderDailyEvidenceChain() {
+  const target = byId("daily-evidence-chain");
+  if (!target) return;
+  const trade = state.dailyTradeAdvisory || {};
+  const summary = trade.summary || {};
+  const readiness = trade.pretrade_readiness || {};
+  const freshness = readiness.freshness || {};
+  const handoff = trade.manual_broker_handoff || {};
+  const tickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
+  const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
+  const recent = state.recentDataRefresh || {};
+  const recentDecision = recent.decision || {};
+  const recentCoverage = recent.coverage || {};
+  const targetWindow = recent.target_window || {};
+  const paperReceipt = latestExecutionReceipt("paper_simulation");
+  const dailyReceipt = latestExecutionReceipt("daily_trade_advisory");
+  const selectedCount = Number(summary.selected_factor_count || 0);
+  const signalCount = Number(summary.signal_count || 0);
+  const signalFresh = freshness.fresh_for_run_date === true;
+  const rows = [
+    {
+      step: "数据刷新",
+      status: recentDecision.signal_data_stale_cleared ? "ok" : "warn",
+      detail: `最新数据=${recentCoverage.latest_data_date || "--"} / 目标信号日=${targetWindow.signal_date || freshness.run_date || "--"}`,
+      action: recentDecision.signal_data_stale_cleared ? "数据闸门已通过；继续看今日信号。" : "先刷新 CN_ETF 数据，避免用旧信号做人工操作。",
+      target_id: "recent-data-refresh-status",
+    },
+    {
+      step: "今日前三因子",
+      status: signalFresh && selectedCount > 0 && signalCount > 0 ? "ok" : blockers.includes("stale_signal_date") ? "danger" : "warn",
+      detail: `因子=${formatNumber(selectedCount)} / 信号=${formatNumber(signalCount)} / 信号日=运行${freshness.run_date || "--"}，最新${freshness.latest_signal_date || "--"}`,
+      action: dailyReceipt ? `已生成今日建议回执：${dailyReceipt.time || "--"}` : "生成今日前三交易建议，先拿到 ETF、权重和手工票据。",
+      target_id: "daily-trade-factor-table",
+    },
+    {
+      step: "模拟盘复核",
+      status: paperReceipt ? "ok" : "warn",
+      detail: paperReceipt
+        ? `最近回执=${paperReceipt.time || "--"} / 收益=${formatPercent(paperReceipt.metrics?.total_return)} / 回撤=${formatPercent(paperReceipt.metrics?.max_drawdown)}`
+        : "暂无本地模拟盘回执；单日信号不能直接当作可实盘盈利。",
+      action: "下单前先跑本地模拟盘，看费用、回撤、保护事件和成交笔数。",
+      target_id: "paper-metrics",
+    },
+    {
+      step: "人工券商复核",
+      status: tickets.length && blockers.length === 0 ? "warn" : "danger",
+      detail: `票据=${formatNumber(tickets.length)} / 灯号=${readiness.traffic_light || "red"} / 自动下单=禁止`,
+      action: tickets.length ? "只把票据作为人工核对清单；价格、数量、现金和风险都要在券商端再确认。" : "还没有可读票据，不能进入人工买卖步骤。",
+      target_id: "daily-manual-broker-handoff-ticket-table",
+    },
+  ];
+  target.innerHTML = rows.map((row, index) => `
+    <div class="list-row ${escapeHtml(row.status)} daily-evidence-step">
+      <strong>${escapeHtml(`${index + 1}. ${row.step}`)}</strong>
+      <span>${escapeHtml(row.detail)}</span>
+      <span>${escapeHtml(row.action)}</span>
+      <span class="beginner-task-actions">
+        <button class="secondary-button" type="button" data-daily-evidence-target="${escapeRawHtml(row.target_id)}" data-beginner-target="${escapeRawHtml(row.target_id)}">看对应位置</button>
+      </span>
+    </div>
+  `).join("");
+}
+
+function latestExecutionReceipt(workflowId) {
+  const rows = Array.isArray(state.executionReceipts) && state.executionReceipts.length
+    ? state.executionReceipts
+    : loadExecutionReceipts(state.controlCenter?.execution_receipts || {});
+  return rows.find((item) => item.workflow_id === workflowId) || null;
 }
 
 function renderDailyPretradeReadiness(readiness) {
@@ -4550,6 +4622,7 @@ function renderRecentDataRefresh() {
     "command",
     "local_only",
   ]);
+  renderDailyEvidenceChain();
 }
 
 function renderPostRefreshReplay() {
@@ -6463,6 +6536,7 @@ function appendExecutionReceipt(receipt) {
   };
   saveExecutionReceipts([nextReceipt].concat(loadExecutionReceipts(spec)), spec);
   renderExecutionReceipts(spec);
+  renderDailyEvidenceChain();
   renderControlCenter();
   return nextReceipt;
 }
