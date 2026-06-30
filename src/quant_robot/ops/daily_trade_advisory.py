@@ -9431,9 +9431,75 @@ def _decision_sheet_beginner_operation_recipe(
         },
         "steps": steps,
         "skip_rules": skip_rules,
+        "operator_inputs_required": _beginner_operation_operator_inputs(),
         "ticket_preview": ticket_preview,
         "missing_evidence": missing_evidence,
     }
+
+
+def _beginner_operation_operator_inputs() -> list[dict[str, Any]]:
+    rows = [
+        (
+            "broker_realtime_price",
+            "human_from_broker_app",
+            "券商实时价格",
+            "在券商软件里人工查看 ETF 实时价格，并确认没有超出价格护栏；系统不会连接券商读取价格。",
+            "daily-pre-execution-guard",
+            "",
+        ),
+        (
+            "available_cash",
+            "human_from_broker_app",
+            "可用现金",
+            "人工确认券商端可用现金是否覆盖票据金额和滑点；不要把账户号或券商账号粘贴进系统。",
+            "daily-manual-broker-handoff-ticket-table",
+            "",
+        ),
+        (
+            "current_positions_safe_csv",
+            "human_sanitized_input",
+            "当前持仓安全表",
+            "只填写 asset_id, quantity, latest_price 等脱敏字段；禁止粘贴账户、券商、委托号或成交号。",
+            "daily-current-positions",
+            "",
+        ),
+        (
+            "same_parameter_paper_receipt",
+            "local_paper_simulation",
+            "同参数模拟盘回执",
+            "先用完全相同的因子、TopN、成本、调仓和风控参数跑本地模拟盘，再看回撤、成交和保护事件。",
+            "paper-metrics",
+            "paper_simulation",
+        ),
+        (
+            "post_close_journal",
+            "local_operator_journal",
+            "收盘后复盘",
+            "无论执行或跳过，都记录原因、模拟盘表现、滑点、未成交和下一日要复核的问题。",
+            "beginner-post-close-journal-board",
+            "post_close_journal",
+        ),
+    ]
+    return [
+        {
+            "input_id": input_id,
+            "source": source,
+            "label": label,
+            "plain_instruction": plain_instruction,
+            "target_id": target_id,
+            "workflow_id": workflow_id,
+            "required_before_manual_review": True,
+            "manual_required": True,
+            "sensitive_account_fields_allowed": False,
+            "copy_to_broker_allowed": False,
+            "live_trading_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        }
+        for input_id, source, label, plain_instruction, target_id, workflow_id in rows
+    ]
 
 
 def _beginner_operation_skip_rule(

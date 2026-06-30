@@ -916,6 +916,16 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("broker_price_outside_guardrail", {row["rule_id"] for row in recipe["skip_rules"]})
         self.assertEqual(recipe["ticket_preview"][0]["asset_id"], "510300")
         self.assertFalse(recipe["ticket_preview"][0]["copy_to_broker_allowed"])
+        input_rows = {row["input_id"]: row for row in recipe["operator_inputs_required"]}
+        self.assertEqual(input_rows["broker_realtime_price"]["source"], "human_from_broker_app")
+        self.assertEqual(input_rows["available_cash"]["source"], "human_from_broker_app")
+        self.assertEqual(input_rows["current_positions_safe_csv"]["source"], "human_sanitized_input")
+        self.assertEqual(input_rows["same_parameter_paper_receipt"]["source"], "local_paper_simulation")
+        self.assertEqual(input_rows["post_close_journal"]["source"], "local_operator_journal")
+        self.assertTrue(all(row["required_before_manual_review"] for row in input_rows.values()))
+        self.assertTrue(all(row["broker_connection_allowed"] is False for row in input_rows.values()))
+        self.assertTrue(all(row["account_read_allowed"] is False for row in input_rows.values()))
+        self.assertTrue(all(row["order_placement_allowed"] is False for row in input_rows.values()))
         self.assertEqual(pack["daily_trade_decision_sheet"]["stage"], "phase_6_14_daily_trade_decision_sheet")
 
     def test_pretrade_readiness_blocks_when_signals_are_missing(self):

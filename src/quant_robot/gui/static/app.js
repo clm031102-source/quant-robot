@@ -6462,9 +6462,10 @@ function renderDailyTradeDecisionSheet(sheet = {}) {
 function renderDailyBeginnerOperationRecipe(recipe = {}) {
   const summaryTarget = byId("daily-beginner-operation-recipe-summary");
   const stepsTarget = byId("daily-beginner-operation-recipe-steps");
+  const inputsTarget = byId("daily-beginner-operation-recipe-inputs");
   const skipRulesTarget = byId("daily-beginner-operation-recipe-skip-rules");
   const ticketsTarget = byId("daily-beginner-operation-recipe-tickets");
-  if (!summaryTarget || !stepsTarget || !skipRulesTarget || !ticketsTarget) return;
+  if (!summaryTarget || !stepsTarget || !inputsTarget || !skipRulesTarget || !ticketsTarget) return;
   const summary = recipe.summary || {};
   const decision = summary.decision || "waiting_for_today_top3";
   const tone = decision.includes("blocked") ? "danger" : "warn";
@@ -6502,6 +6503,21 @@ function renderDailyBeginnerOperationRecipe(recipe = {}) {
     `;
   }).join("") : statusRows([["操作步骤", "还没有最终操作单；先生成今日交易决策单。", "warn"]]);
 
+  const inputs = Array.isArray(recipe.operator_inputs_required) ? recipe.operator_inputs_required : dailyBeginnerOperationFallbackInputs();
+  inputsTarget.innerHTML = inputs.length ? inputs.map((item) => {
+    const workflowButton = item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : "";
+    const targetButton = item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : "";
+    const unsafe = item.broker_connection_allowed || item.account_read_allowed || item.order_placement_allowed;
+    return `
+      <div class="list-row ${escapeHtml(unsafe ? "danger" : "warn")}">
+        <strong>${escapeHtml(item.label || item.input_id || "人工输入清单")}</strong>
+        <span>${escapeHtml(`${item.source || "manual"} / ${item.plain_instruction || ""}`)}</span>
+        <span>${escapeHtml(unsafe ? "异常：出现券商/账户/下单权限" : "人工输入清单 / 不读账户 / 不自动下单")}</span>
+        <span class="beginner-task-actions">${workflowButton}${targetButton}</span>
+      </div>
+    `;
+  }).join("") : statusRows([["人工输入清单", "至少需要券商实时价格、可用现金、脱敏持仓、同参数模拟盘回执和收盘后复盘。", "warn"]]);
+
   const skipRules = Array.isArray(recipe.skip_rules) ? recipe.skip_rules : [];
   skipRulesTarget.innerHTML = skipRules.length ? skipRules.map((item) => `
     <div class="list-row ${escapeHtml(item.status === "always_block" ? "danger" : "warn")}">
@@ -6522,6 +6538,44 @@ function renderDailyBeginnerOperationRecipe(recipe = {}) {
       <span>${escapeHtml(item.copy_to_broker_allowed ? "异常：允许复制到券商" : "只供人工复核，不是订单")}</span>
     </div>
   `).join("") : statusRows([["票据预览", "还没有可复核 ETF 票据；红灯或无信号时不要手工买卖。", "danger"]]);
+}
+
+function dailyBeginnerOperationFallbackInputs() {
+  return [
+    {
+      input_id: "broker_realtime_price",
+      source: "human_from_broker_app",
+      label: "券商实时价格",
+      plain_instruction: "人工查看券商端实时价格，确认没有超出价格护栏。",
+      target_id: "daily-pre-execution-guard",
+      workflow_id: "",
+      broker_connection_allowed: false,
+      account_read_allowed: false,
+      order_placement_allowed: false,
+    },
+    {
+      input_id: "available_cash",
+      source: "human_from_broker_app",
+      label: "可用现金",
+      plain_instruction: "人工确认可用现金覆盖票据金额和滑点，不粘贴账户号。",
+      target_id: "daily-manual-broker-handoff-ticket-table",
+      workflow_id: "",
+      broker_connection_allowed: false,
+      account_read_allowed: false,
+      order_placement_allowed: false,
+    },
+    {
+      input_id: "current_positions_safe_csv",
+      source: "human_sanitized_input",
+      label: "当前持仓安全表",
+      plain_instruction: "只填写脱敏持仓字段，禁止账户、券商、委托号和成交号。",
+      target_id: "daily-current-positions",
+      workflow_id: "",
+      broker_connection_allowed: false,
+      account_read_allowed: false,
+      order_placement_allowed: false,
+    },
+  ];
 }
 
 function dailyBeginnerOperationTone(status = "") {

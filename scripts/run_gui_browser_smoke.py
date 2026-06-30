@@ -489,6 +489,28 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "daily_beginner_operation_recipe_frontend",
+            "Daily beginner operation recipe frontend",
+            index_html.get("ok")
+            and "daily-beginner-operation-recipe-summary" in str(index_html.get("body", ""))
+            and "daily-beginner-operation-recipe-steps" in str(index_html.get("body", ""))
+            and "daily-beginner-operation-recipe-skip-rules" in str(index_html.get("body", ""))
+            and "daily-beginner-operation-recipe-tickets" in str(index_html.get("body", ""))
+            and "daily-beginner-operation-recipe-inputs" in str(index_html.get("body", ""))
+            and app_js.get("ok")
+            and "renderDailyBeginnerOperationRecipe" in str(app_js.get("body", ""))
+            and "beginner_operation_recipe" in str(app_js.get("body", ""))
+            and "operator_inputs_required" in str(app_js.get("body", ""))
+            and "broker_realtime_price" in str(app_js.get("body", ""))
+            and "人工输入清单" in str(app_js.get("body", "")),
+            "Frontend exposes the final beginner operation recipe with manual input requirements before paper/manual review.",
+            index_html.get("error")
+            or app_js.get("error")
+            or "Daily beginner operation recipe frontend anchors or renderer hooks are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "daily_closure_streak_frontend",
             "Daily closure streak frontend",
             index_html.get("ok")
