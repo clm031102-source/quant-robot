@@ -499,6 +499,12 @@ function bindActions() {
     jumpToBeginnerTarget(button.dataset.liveHandoffTarget || "daily-readiness-primary-action", state.leaderboardTab);
   });
   document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-live-transition-target]");
+    if (!button) return;
+    event.preventDefault();
+    jumpToBeginnerTarget(button.dataset.liveTransitionTarget || "daily-live-transition-board", state.leaderboardTab);
+  });
+  document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-beginner-action]");
     if (!button) return;
     runBeginnerAction(button.dataset.beginnerAction || "", button);
@@ -4694,6 +4700,7 @@ function renderDailyTradeAdvisory() {
   renderDailyPretradeNextActions(pack.operator_next_actions || pack.pretrade_workflow?.operator_next_actions || []);
   renderManualBrokerHandoff(pack.manual_broker_handoff || {});
   renderDailyPretradeWorkflow(pack.pretrade_workflow || {});
+  renderDailyLiveTransitionPlan(pack.live_transition_plan || {});
   renderDailyReadinessCard();
   renderDailyEvidenceChain();
   renderBeginnerTradeSystem();
@@ -4736,6 +4743,58 @@ function renderDailyTradeAdvisory() {
     "live_order_allowed",
     "manual_instruction",
   ]);
+}
+
+function renderDailyLiveTransitionPlan(plan = {}) {
+  const summaryTarget = byId("daily-live-transition-summary");
+  const loopTarget = byId("daily-live-transition-loop");
+  const profileTarget = byId("daily-live-transition-risk-profiles");
+  const gateTarget = byId("daily-live-transition-gates");
+  if (!summaryTarget || !loopTarget || !profileTarget || !gateTarget) return;
+  const summary = plan.summary || {};
+  const status = summary.status || "waiting_for_daily_top3_signal";
+  const tone = status.includes("blocked") ? "danger" : status.includes("candidate") ? "warn" : "warn";
+  summaryTarget.innerHTML = statusRows([
+    ["当前状态", zhConsoleText(status), tone],
+    ["主线市场", summary.primary_market || "CN_ETF", "ok"],
+    ["今日信号", `${formatNumber(summary.today_signal_count || 0)} / 前三因子=${formatNumber(summary.selected_factor_count || 0)}`, summary.today_signal_count > 0 ? "ok" : "warn"],
+    ["模拟盘", summary.paper_simulation_required ? "必须先跑" : "未要求", "warn"],
+    ["小资金观察闸门", summary.small_capital_review_required ? "必须通过" : "未要求", "warn"],
+    ["下单权限", summary.order_placement_allowed ? "异常开启" : "禁止自动下单", summary.order_placement_allowed ? "danger" : "ok"],
+  ]);
+  const loopRows = Array.isArray(plan.operating_loop) ? plan.operating_loop : [];
+  loopTarget.innerHTML = loopRows.length ? loopRows.map((item) => `
+    <div class="list-row ${escapeHtml(dailyLiveTransitionTone(item.status || ""))}">
+      <strong>${escapeHtml(`${item.step_number || "--"}. ${item.title || item.step_id || ""}`)}</strong>
+      <span>${escapeHtml(`${zhConsoleText(item.status || "waiting")} / ${item.plain_action || ""}`)}</span>
+      <span>${escapeHtml(item.evidence || "")}</span>
+      <span class="beginner-task-actions">
+        ${item.gui_target ? `<button class="secondary-button" type="button" data-live-transition-target="${escapeRawHtml(item.gui_target)}">${escapeHtml("看这一步")}</button>` : ""}
+      </span>
+    </div>
+  `).join("") : statusRows([["等待今日建议", "先生成今日前三交易建议。", "warn"]]);
+  const profiles = Array.isArray(plan.risk_profiles) ? plan.risk_profiles : [];
+  profileTarget.innerHTML = profiles.length ? profiles.map((item) => `
+    <div class="list-row ${escapeHtml(item.profile_id === "aggressive_30dd" ? "warn" : "ok")}">
+      <strong>${escapeHtml(item.label || item.profile_id || "")}</strong>
+      <span>${escapeHtml(`最大回撤=${formatPercent(item.max_acceptable_drawdown)} / 总仓位=${formatPercent(item.max_gross_exposure)} / 单ETF=${formatPercent(item.max_single_etf_weight)}`)}</span>
+      <span>${escapeHtml(item.plain_use || "")}</span>
+    </div>
+  `).join("") : statusRows([["暂无风险档位", "等待今日建议加载。", "warn"]]);
+  const gates = Array.isArray(plan.evidence_gates) ? plan.evidence_gates : [];
+  gateTarget.innerHTML = gates.length ? gates.map((item) => `
+    <div class="list-row ${escapeHtml(item.required ? "warn" : "ok")}">
+      <strong>${escapeHtml(item.label || item.gate_id || "")}</strong>
+      <span>${escapeHtml(item.plain_requirement || "")}</span>
+    </div>
+  `).join("") : statusRows([["暂无闸门", "等待今日建议加载。", "warn"]]);
+}
+
+function dailyLiveTransitionTone(status = "") {
+  if (status === "done") return "ok";
+  if (status === "blocked") return "danger";
+  if (status === "required") return "warn";
+  return "warn";
 }
 
 function renderDailyReadinessCard() {

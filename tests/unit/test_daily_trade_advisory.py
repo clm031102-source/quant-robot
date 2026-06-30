@@ -221,6 +221,8 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
             self.assertIn("收盘后复盘记录", markdown)
             self.assertIn("收盘后复盘", markdown)
             self.assertIn("今天是否人工执行", markdown)
+            self.assertIn("实盘落地路径", markdown)
+            self.assertIn("自动下单: False", markdown)
 
     def test_builds_beginner_pretrade_workflow_from_daily_advisory(self):
         pack = build_daily_trade_advisory_pack(
@@ -380,6 +382,68 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("次日", journal["items"][-1]["prompt"])
         self.assertTrue(all(not item["automation_allowed"] for item in journal["items"]))
         self.assertIn("不自动下单", journal["safety"])
+
+    def test_daily_pack_exposes_live_transition_plan_without_auto_orders(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {
+                    "rank": 1,
+                    "case_id": "c1",
+                    "factor_name": "momentum_2",
+                    "market": "CN_ETF",
+                    "sharpe": 1.2,
+                    "annualized_return": 0.22,
+                    "max_drawdown": -0.28,
+                    "win_rate": 0.61,
+                    "rank_ic": 0.04,
+                },
+                {"rank": 2, "case_id": "c2", "factor_name": "reversal_2", "market": "CN_ETF", "sharpe": 0.8},
+                {"rank": 3, "case_id": "c3", "factor_name": "volatility_2", "market": "CN_ETF", "sharpe": 0.7},
+            ],
+            [
+                _signal("c1", "momentum_2", {"510300": 0.4}),
+                _signal("c2", "reversal_2", {"588000": 0.3}),
+                _signal("c3", "volatility_2", {"159915": 0.2}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+        )
+
+        plan = pack["live_transition_plan"]
+
+        self.assertEqual(plan["stage"], "phase_6_7_live_transition_plan")
+        self.assertEqual(plan["summary"]["primary_market"], "CN_ETF")
+        self.assertEqual(plan["summary"]["daily_top_factor_limit"], 3)
+        self.assertEqual(plan["summary"]["today_signal_count"], 3)
+        self.assertEqual(plan["summary"]["status"], "paper_first_manual_pilot_candidate")
+        self.assertTrue(plan["summary"]["paper_simulation_required"])
+        self.assertTrue(plan["summary"]["small_capital_review_required"])
+        self.assertFalse(plan["summary"]["live_order_allowed"])
+        self.assertFalse(plan["summary"]["broker_connection_allowed"])
+        self.assertFalse(plan["summary"]["order_placement_allowed"])
+        self.assertEqual(plan["daily_top3_signal_rule"]["selection_scope"], "CN_ETF")
+        self.assertIn("不能只按今日排行榜直接下单", plan["daily_top3_signal_rule"]["plain_warning"])
+        self.assertEqual(
+            [step["step_id"] for step in plan["operating_loop"]],
+            [
+                "fresh_data",
+                "top3_factor_signal",
+                "portfolio_sizing",
+                "paper_simulation",
+                "manual_risk_review",
+                "small_capital_review_gate",
+                "post_close_feedback",
+            ],
+        )
+        self.assertEqual(plan["execution_rules"]["board_lot_size"], 100)
+        self.assertIn("T+1", plan["execution_rules"]["settlement_note"])
+        self.assertIn("T+0", plan["execution_rules"]["settlement_note"])
+        self.assertIn("aggressive_30dd", {row["profile_id"] for row in plan["risk_profiles"]})
+        aggressive = next(row for row in plan["risk_profiles"] if row["profile_id"] == "aggressive_30dd")
+        self.assertAlmostEqual(aggressive["max_acceptable_drawdown"], 0.30)
+        self.assertIn("small_capital_review_gate", plan["evidence_gates"][-1]["gate_id"])
+        self.assertTrue(all(not row["automation_allowed"] for row in plan["operating_loop"]))
+        self.assertIn("不自动下单", plan["safety"])
 
 
 def _signal(

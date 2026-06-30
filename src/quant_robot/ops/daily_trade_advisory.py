@@ -17,6 +17,7 @@ MANUAL_BROKER_HANDOFF_STAGE = "phase_6_3_manual_broker_handoff"
 TRADE_SYSTEM_STAGE = "phase_6_4_manual_trade_system_protocol"
 DAILY_REHEARSAL_STAGE = "phase_6_5_daily_rehearsal_daybook"
 POST_CLOSE_JOURNAL_STAGE = "phase_6_6_post_close_journal_template"
+LIVE_TRANSITION_STAGE = "phase_6_7_live_transition_plan"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 
@@ -116,6 +117,8 @@ def build_daily_trade_advisory_pack(
     pack["trade_system"] = build_manual_trade_system_protocol(pack)
     pack["daily_rehearsal_daybook"] = build_daily_rehearsal_daybook(pack)
     pack["post_close_journal_template"] = build_post_close_journal_template(pack)
+    pack["live_transition_plan"] = build_live_transition_plan(pack)
+    pack["summary"]["live_transition_status"] = pack["live_transition_plan"]["summary"]["status"]
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
 
@@ -505,6 +508,230 @@ def build_post_close_journal_template(pack: dict[str, Any]) -> dict[str, Any]:
                 "operator_summary": "收盘后把信号、模拟盘、人工判断和次日风险写成回执；这是研究反馈，不是下单记录。",
             },
             "items": items,
+        }
+    )
+
+
+def build_live_transition_plan(pack: dict[str, Any]) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
+    freshness = readiness.get("freshness") if isinstance(readiness.get("freshness"), dict) else {}
+    handoff = pack.get("manual_broker_handoff") if isinstance(pack.get("manual_broker_handoff"), dict) else {}
+    factors = [row for row in pack.get("factors", []) if isinstance(row, dict)]
+    targets = [row for row in pack.get("combined_targets", []) if isinstance(row, dict)]
+    tickets = [row for row in pack.get("manual_trade_plan", []) if isinstance(row, dict)]
+    blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
+    market = str(pack.get("market") or _first_market(factors) or "CN_ETF").upper()
+    selected_count = _int(summary.get("selected_factor_count"), len(factors))
+    signal_count = _int(summary.get("signal_count"), 0)
+    target_count = _int(summary.get("combined_target_count"), len(targets))
+    ticket_count = _int(summary.get("manual_ticket_count"), len(tickets))
+    signal_ready = signal_count > 0 and target_count > 0 and ticket_count > 0
+    manual_candidate = bool(readiness.get("manual_action_candidate"))
+    if blockers:
+        status = "blocked_before_manual_review"
+    elif signal_ready:
+        status = "paper_first_manual_pilot_candidate"
+    else:
+        status = "waiting_for_daily_top3_signal"
+
+    def loop_step(
+        index: int,
+        step_id: str,
+        title: str,
+        status_value: str,
+        plain_action: str,
+        evidence: str,
+        gui_target: str,
+    ) -> dict[str, Any]:
+        return {
+            "step_number": index,
+            "step_id": step_id,
+            "title": title,
+            "status": status_value,
+            "plain_action": plain_action,
+            "evidence": evidence,
+            "gui_target": gui_target,
+            "automation_allowed": False,
+            "live_order_allowed": False,
+            "order_placement_allowed": False,
+        }
+
+    operating_loop = [
+        loop_step(
+            1,
+            "fresh_data",
+            "确认今天数据和信号日期",
+            "done" if freshness.get("fresh_for_run_date") else ("blocked" if blockers else "waiting"),
+            "先确认运行日期、最新信号日期和 CN_ETF 主线一致；旧信号不能进人工交易复核。",
+            f"run_date={freshness.get('run_date') or pack.get('run_date')}; latest_signal_date={freshness.get('latest_signal_date') or '无'}",
+            "recent-data-refresh-status",
+        ),
+        loop_step(
+            2,
+            "top3_factor_signal",
+            "生成前三因子和今日信号",
+            "done" if signal_ready else ("blocked" if blockers else "waiting"),
+            "每天只从 CN_ETF 可运行候选中取前三因子，再生成当天目标 ETF；不是直接按历史排行榜买。",
+            f"factors={selected_count}; signals={signal_count}; targets={target_count}",
+            "daily-trade-factor-table",
+        ),
+        loop_step(
+            3,
+            "portfolio_sizing",
+            "折算目标仓位和一手份额",
+            "done" if ticket_count > 0 and not blockers else ("blocked" if blockers else "waiting"),
+            f"按目标仓位、参考价和 {BOARD_LOT_SIZE} 份一手向下取整，得到人工核对数量和金额。",
+            f"manual_tickets={ticket_count}; rounded_value={readiness.get('summary', {}).get('rounded_value', 0)}",
+            "daily-trade-manual-table",
+        ),
+        loop_step(
+            4,
+            "paper_simulation",
+            "先跑模拟盘复核",
+            "required" if signal_ready and not blockers else ("blocked" if blockers else "waiting"),
+            "用同一组因子、TopN、成本和仓位参数跑本地模拟盘，先看收益、最大回撤、成交和保护事件。",
+            "需要当天信号对应的 paper_simulation 回执；没有回执不能写成实盘结论。",
+            "paper-metrics",
+        ),
+        loop_step(
+            5,
+            "manual_risk_review",
+            "人工复核风险预算",
+            "required" if manual_candidate else ("blocked" if blockers else "waiting"),
+            "人工选择风险档位，核对最大可承受回撤、单 ETF 上限、总仓位、现金、流动性和价格偏差。",
+            f"traffic_light={readiness.get('traffic_light') or 'unknown'}; blockers={', '.join(blockers) or '无'}",
+            "daily-pretrade-readiness-verdict",
+        ),
+        loop_step(
+            6,
+            "small_capital_review_gate",
+            "小资金人工观察闸门",
+            "waiting",
+            "只有候选通过推广、模拟盘观察、样本充足、市场状态覆盖和小资金风控闸门，才进入小资金人工观察准备。",
+            "对应 scripts\\run_small_capital_review_gate.py；输出仍然不是自动订单。",
+            "beginner-live-handoff-board",
+        ),
+        loop_step(
+            7,
+            "post_close_feedback",
+            "收盘后复盘反馈",
+            "required" if signal_count > 0 else "waiting",
+            "记录今天信号、模拟盘、人工决策、跳过原因、价格偏差和次日风险，把实盘前演练反馈回因子审计。",
+            "形成 post_close_journal 回执后再优化明天流程。",
+            "control-operation-ledger",
+        ),
+    ]
+
+    risk_profiles = [
+        {
+            "profile_id": "conservative_10dd",
+            "label": "保守观察",
+            "max_gross_exposure": 0.30,
+            "max_single_etf_weight": 0.15,
+            "min_cash_weight": 0.70,
+            "max_acceptable_drawdown": 0.10,
+            "daily_loss_stop": 0.01,
+            "plain_use": "适合刚进模拟盘或小资金观察第一阶段，宁可少赚也先验证流程。",
+        },
+        {
+            "profile_id": "balanced_20dd",
+            "label": "标准观察",
+            "max_gross_exposure": 0.60,
+            "max_single_etf_weight": 0.30,
+            "min_cash_weight": 0.40,
+            "max_acceptable_drawdown": 0.20,
+            "daily_loss_stop": 0.02,
+            "plain_use": "适合模拟盘稳定后，但仍需要严格看回撤、成交和异常价格。",
+        },
+        {
+            "profile_id": "aggressive_30dd",
+            "label": "进取观察",
+            "max_gross_exposure": 1.00,
+            "max_single_etf_weight": 0.40,
+            "min_cash_weight": 0.00,
+            "max_acceptable_drawdown": 0.30,
+            "daily_loss_stop": 0.03,
+            "plain_use": "只有你明确接受约 30% 回撤，且模拟盘/小资金闸门持续通过时才考虑。",
+        },
+    ]
+    evidence_gates = [
+        {
+            "gate_id": "walk_forward_and_oos",
+            "label": "长周期和样本外验证",
+            "required": True,
+            "plain_requirement": "不能只看短样本或单日信号，必须有长周期、滚动和 OOS 证据。",
+        },
+        {
+            "gate_id": "cost_capacity_tradeability",
+            "label": "成本、容量和可交易性",
+            "required": True,
+            "plain_requirement": "要扣交易成本，检查流动性、成交额、一手份额、涨跌停和价格偏差。",
+        },
+        {
+            "gate_id": "paper_observation_and_journal",
+            "label": "模拟盘观察和日终复盘",
+            "required": True,
+            "plain_requirement": "需要足够模拟成交、回撤、保护事件和每日复盘记录。",
+        },
+        {
+            "gate_id": "small_capital_review_gate",
+            "label": "小资金人工观察闸门",
+            "required": True,
+            "plain_requirement": "通过 small_capital_review_gate 后也只生成人工审批包，不自动下单。",
+        },
+    ]
+    return _sanitize(
+        {
+            "stage": LIVE_TRANSITION_STAGE,
+            "run_date": pack.get("run_date", date.today().isoformat()),
+            "safety": SAFETY_NOTICE,
+            "summary": {
+                "status": status,
+                "primary_market": market,
+                "daily_top_factor_limit": 3,
+                "selected_factor_count": selected_count,
+                "today_signal_count": signal_count,
+                "target_count": target_count,
+                "manual_ticket_count": ticket_count,
+                "paper_simulation_required": True,
+                "small_capital_review_required": True,
+                "manual_review_required": True,
+                "live_order_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "operator_summary": (
+                    "今天可以进入模拟盘优先的人工复核候选；仍不是自动实盘。"
+                    if status == "paper_first_manual_pilot_candidate"
+                    else "先处理红灯阻断或生成完整今日信号，不能进入人工实盘观察。"
+                ),
+            },
+            "daily_top3_signal_rule": {
+                "rule_id": "daily_cn_etf_top3_factor_signal_to_manual_review",
+                "candidate_limit": 3,
+                "selection_scope": "CN_ETF",
+                "source": "leaderboard_runtime_candidates_then_signal_snapshot",
+                "ranking_inputs": [
+                    "Sharpe",
+                    "annualized_return",
+                    "max_drawdown",
+                    "win_rate",
+                    "RankIC",
+                    "trade_count",
+                    "OOS/paper evidence",
+                ],
+                "plain_warning": "可以每天看前三因子和今日信号，但不能只按今日排行榜直接下单；必须经过模拟盘、风险和小资金人工观察闸门。",
+            },
+            "execution_rules": {
+                "board_lot_size": BOARD_LOT_SIZE,
+                "price_source": "本地参考价只用于估算，券商端实时价格必须人工核对。",
+                "settlement_note": "股票 ETF 通常按 T+1 处理；部分债券、黄金、跨境和货币 ETF 可能支持 T+0，实操前必须按 ETF 品种和券商规则人工确认。",
+                "order_style": "只输出人工核对清单；不生成可提交订单、不连接券商、不读取账户。",
+            },
+            "risk_profiles": risk_profiles,
+            "evidence_gates": evidence_gates,
+            "operating_loop": operating_loop,
         }
     )
 
@@ -1004,6 +1231,16 @@ def render_daily_trade_advisory_markdown(pack: dict[str, Any]) -> str:
         lines.extend(["", "## 收盘后复盘", ""])
         for item in journal_items:
             lines.append(f"- {item.get('title', '')}: {item.get('prompt', '')}")
+    live_plan = pack.get("live_transition_plan") if isinstance(pack.get("live_transition_plan"), dict) else {}
+    live_summary = live_plan.get("summary") if isinstance(live_plan.get("summary"), dict) else {}
+    live_loop = [row for row in live_plan.get("operating_loop", []) if isinstance(row, dict)]
+    if live_plan:
+        lines.extend(["", "## 实盘落地路径", ""])
+        lines.append(f"- 状态: {live_summary.get('status', '')}")
+        lines.append(f"- 今日信号: {live_summary.get('today_signal_count', 0)}")
+        lines.append(f"- 自动下单: {live_summary.get('order_placement_allowed', False)}")
+        for step in live_loop:
+            lines.append(f"- {step.get('step_number', '')}. {step.get('title', '')}: {step.get('status', '')}")
     return "\n".join(lines) + "\n"
 
 
