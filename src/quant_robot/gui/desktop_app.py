@@ -155,13 +155,15 @@ def run_desktop_app(
     host: str = "127.0.0.1",
     port: int = 8765,
     open_on_start: bool = True,
+    initial_page: str = "dashboard",
+    initial_target_id: str = "",
 ) -> DesktopAppState:
     controller = DesktopGuiController(host=host, port=port)
     try:
         import tkinter as tk
         from tkinter import ttk
     except Exception:
-        state = controller.open_console() if open_on_start else controller.start()
+        state = controller.open_section(initial_page, initial_target_id) if open_on_start else controller.start()
         print(json.dumps(state.__dict__, ensure_ascii=False, indent=2))
         return state
 
@@ -213,20 +215,28 @@ def run_desktop_app(
         root.destroy()
 
     root.protocol("WM_DELETE_WINDOW", on_close)
-    state = controller.open_console() if open_on_start else controller._state("stopped", "等待手动启动。")
+    state = controller.open_section(initial_page, initial_target_id) if open_on_start else controller._state("stopped", "等待手动启动。")
     status_var.set(f"{state.message} {state.url}" if state.status == "running" else state.message)
     url_var.set(state.url)
     root.mainloop()
     return state
 
 
-def main() -> None:
+def main(argv: list[str] | None = None, runner: Callable[..., DesktopAppState] = run_desktop_app) -> DesktopAppState:
     parser = argparse.ArgumentParser(description="Run the beginner desktop shell for the local Quant Robot GUI.")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", default=8765, type=int)
     parser.add_argument("--no-open", action="store_true", help="Start the desktop shell without opening the browser immediately.")
-    args = parser.parse_args()
-    run_desktop_app(host=args.host, port=args.port, open_on_start=not args.no_open)
+    parser.add_argument("--page", choices=sorted(DESKTOP_APP_PAGES), default="dashboard", help="Open a beginner workflow page after starting.")
+    parser.add_argument("--target-id", default="", help="Optional on-page target id to scroll to after opening the page.")
+    args = parser.parse_args(argv)
+    return runner(
+        host=args.host,
+        port=args.port,
+        open_on_start=not args.no_open,
+        initial_page=args.page,
+        initial_target_id=args.target_id,
+    )
 
 
 if __name__ == "__main__":

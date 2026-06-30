@@ -12,7 +12,13 @@ import pandas as pd
 
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.gui.app import create_gui_handler
-from quant_robot.gui.desktop_app import DESKTOP_APP_COPY, DesktopGuiController, find_available_port
+from quant_robot.gui.desktop_app import (
+    DESKTOP_APP_COPY,
+    DesktopAppState,
+    DesktopGuiController,
+    find_available_port,
+    main as desktop_app_main,
+)
 from quant_robot.gui.research_service import (
     build_constrained_search_snapshot,
     build_daily_trade_advisory_snapshot,
@@ -169,10 +175,46 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("--no-open", launcher.read_text(encoding="utf-8"))
         self.assertIn("scripts\\run_desktop_app.py", batch_file.read_text(encoding="utf-8"))
         self.assertIn("research-to-paper", batch_file.read_text(encoding="utf-8"))
+        self.assertIn("--page daily", batch_file.read_text(encoding="utf-8"))
+        self.assertIn("--target-id daily-pretrade-beginner-cards", batch_file.read_text(encoding="utf-8"))
         self.assertIn("daily_button", DESKTOP_APP_COPY)
         self.assertIn("leaderboard_button", DESKTOP_APP_COPY)
         self.assertIn("logs_button", DESKTOP_APP_COPY)
         self.assertIn("今日交易检查", DESKTOP_APP_COPY["daily_button"])
+
+    def test_desktop_cli_accepts_beginner_workflow_deep_link_options(self):
+        calls: list[dict[str, object]] = []
+
+        def fake_runner(**kwargs: object) -> DesktopAppState:
+            calls.append(kwargs)
+            return DesktopAppState(
+                status="running",
+                host=str(kwargs["host"]),
+                port=int(kwargs["port"]),
+                url="http://127.0.0.1:9100/#daily:daily-pretrade-beginner-cards",
+                message="started",
+            )
+
+        state = desktop_app_main(
+            [
+                "--host",
+                "127.0.0.1",
+                "--port",
+                "9100",
+                "--page",
+                "daily",
+                "--target-id",
+                "daily-pretrade-beginner-cards",
+            ],
+            runner=fake_runner,
+        )
+
+        self.assertEqual(state.status, "running")
+        self.assertEqual(calls[0]["host"], "127.0.0.1")
+        self.assertEqual(calls[0]["port"], 9100)
+        self.assertEqual(calls[0]["open_on_start"], True)
+        self.assertEqual(calls[0]["initial_page"], "daily")
+        self.assertEqual(calls[0]["initial_target_id"], "daily-pretrade-beginner-cards")
 
 
 class GuiSnapshotTests(unittest.TestCase):
