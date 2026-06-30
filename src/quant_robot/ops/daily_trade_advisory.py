@@ -33,6 +33,7 @@ DAILY_TRADING_SYSTEM_BLUEPRINT_STAGE = "phase_6_15_daily_trading_system_blueprin
 DAILY_SIGNAL_EXECUTION_BRIDGE_STAGE = "phase_6_16_daily_signal_execution_bridge"
 REAL_WORLD_MANUAL_HANDOFF_GATE_STAGE = "phase_6_17_real_world_manual_handoff_gate"
 DAILY_DEPLOYMENT_READINESS_STAGE = "phase_6_18_daily_deployment_readiness_pack"
+LIVE_PROFITABILITY_READINESS_STAGE = "phase_6_19_live_profitability_readiness_scorecard"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 DEFAULT_RISK_PROFILE_ID = "balanced_20dd"
@@ -267,11 +268,13 @@ def build_daily_trade_advisory_pack(
     pack["daily_signal_execution_bridge"] = build_daily_signal_execution_bridge(pack)
     pack["real_world_manual_handoff_gate"] = build_real_world_manual_handoff_gate(pack)
     pack["daily_deployment_readiness"] = build_daily_deployment_readiness_pack(pack)
+    pack["live_profitability_readiness"] = build_live_profitability_readiness_scorecard(pack)
     pack["summary"]["live_transition_status"] = pack["live_transition_plan"]["summary"]["status"]
     pack["summary"]["trading_system_status"] = pack["trading_system_blueprint"]["summary"]["status"]
     pack["summary"]["execution_bridge_status"] = pack["daily_signal_execution_bridge"]["summary"]["status"]
     pack["summary"]["real_world_handoff_status"] = pack["real_world_manual_handoff_gate"]["summary"]["decision"]
     pack["summary"]["deployment_readiness_status"] = pack["daily_deployment_readiness"]["summary"]["decision"]
+    pack["summary"]["live_profitability_readiness_status"] = pack["live_profitability_readiness"]["summary"]["decision"]
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
 
@@ -3401,6 +3404,497 @@ def build_daily_deployment_readiness_pack(pack: dict[str, Any]) -> dict[str, Any
             "real_world_gate_summary": real_gate.get("summary") if isinstance(real_gate.get("summary"), dict) else {},
         }
     )
+
+
+def build_live_profitability_readiness_scorecard(pack: dict[str, Any]) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
+    validation = pack.get("current_position_validation") if isinstance(pack.get("current_position_validation"), dict) else {}
+    deployment = pack.get("daily_deployment_readiness") if isinstance(pack.get("daily_deployment_readiness"), dict) else {}
+    factors = [row for row in pack.get("factors", []) if isinstance(row, dict)]
+    targets = [row for row in pack.get("combined_targets", []) if isinstance(row, dict)]
+    manual_plan = [row for row in pack.get("manual_trade_plan", []) if isinstance(row, dict)]
+    blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
+    market = str(pack.get("market") or _first_market(factors) or "CN_ETF").upper()
+    position_status = str(validation.get("status") or "not_provided")
+    selected_count = _int(summary.get("selected_factor_count"), len(factors))
+    signal_count = _int(summary.get("signal_count"), 0)
+    target_count = _int(summary.get("combined_target_count"), len(targets))
+    ticket_count = _int(summary.get("manual_ticket_count"), len(manual_plan))
+    fallback_signal_only = bool(summary.get("fallback_signal_only"))
+    has_candidates = market == "CN_ETF" and selected_count > 0 and not fallback_signal_only
+    has_signal_targets = signal_count > 0 and target_count > 0 and not fallback_signal_only
+    position_blocked = position_status == "error"
+    pretrade_clear = not blockers and not position_blocked
+    has_manual_material = ticket_count > 0 and pretrade_clear
+    paper_rehearsal_allowed = has_signal_targets and pretrade_clear
+    manual_review_material_ready = has_manual_material
+
+    if position_blocked:
+        decision = "blocked_current_position_input"
+        plain_answer = "当前持仓输入有安全或格式问题，不能进入模拟盘、人工复核或真实资金观察。"
+        next_label = "先修正当前持仓"
+        next_target = "daily-current-positions"
+        next_workflow = ""
+    elif blockers:
+        decision = "blocked_pretrade_red_light"
+        plain_answer = "盘前红灯没有清理，今天最多观察，不能把信号转成真实资金动作。"
+        next_label = "先看盘前红灯"
+        next_target = "daily-pretrade-readiness-verdict"
+        next_workflow = ""
+    elif not has_candidates:
+        decision = "waiting_for_qualified_cn_etf_candidates"
+        plain_answer = "还没有合格 CN_ETF 候选池；先回到因子排行榜和推广闸门。"
+        next_label = "查看 CN_ETF 候选"
+        next_target = "factor-leaderboard-table"
+        next_workflow = ""
+    elif not has_signal_targets:
+        decision = "generate_same_day_signal_first"
+        plain_answer = "已有候选但没有同日信号；先生成今天的 CN_ETF 目标仓位。"
+        next_label = "生成今日信号"
+        next_target = "run-daily-trade-advisory"
+        next_workflow = "daily_trade_advisory"
+    elif not has_manual_material:
+        decision = "build_manual_ticket_pack_first"
+        plain_answer = "已有同日信号但没有可复核票据；先补齐目标金额、数量和取整。"
+        next_label = "补齐人工票据"
+        next_target = "daily-trade-target-table"
+        next_workflow = "daily_trade_advisory"
+    else:
+        decision = "not_ready_for_real_money"
+        plain_answer = "今天只能进入同参数模拟盘和人工复核；还不能宣称稳定盈利，也不能直接投入真实资金。"
+        next_label = "先跑同参数模拟盘"
+        next_target = "paper-metrics"
+        next_workflow = "paper_simulation"
+
+    hard_gates = [
+        _live_profitability_gate(
+            "cn_etf_scope",
+            "CN_ETF 主线范围",
+            "pass" if has_candidates else "blocked",
+            "只允许从合格 CN_ETF 候选池出发；兜底基线和 CN 个股线不能直接变成 ETF 实盘动作。",
+            "factor-leaderboard-table",
+            "daily_trade_advisory" if not has_candidates and not blockers else "",
+            evidence_kind="candidate_scope",
+            required_before="paper_rehearsal",
+        ),
+        _live_profitability_gate(
+            "same_day_signal",
+            "同日信号",
+            "pass" if has_signal_targets and pretrade_clear else "blocked",
+            "必须有运行日当天的 ETF、权重、参考价格和目标金额；旧信号不能复用。",
+            "daily-trade-factor-table",
+            "daily_trade_advisory" if not has_signal_targets and not blockers else "",
+            evidence_kind="same_day_signal_snapshot",
+            required_before="paper_rehearsal",
+        ),
+        _live_profitability_gate(
+            "pretrade_red_light",
+            "盘前红灯",
+            "pass" if pretrade_clear else "blocked",
+            "任何数据日期、兜底基线、持仓输入、价格或安全边界红灯都必须先清理。",
+            "daily-pretrade-readiness-verdict",
+            evidence_kind="pretrade_blocker_audit",
+            required_before="paper_rehearsal",
+        ),
+        _live_profitability_gate(
+            "manual_ticket",
+            "人工票据",
+            "pass" if has_manual_material else "blocked",
+            "必须有可人工核对的买卖票据；票据只是复核材料，不是委托单。",
+            "daily-manual-broker-handoff-ticket-table",
+            evidence_kind="manual_review_ticket",
+            required_before="paper_rehearsal",
+        ),
+        _live_profitability_gate(
+            "walk_forward_oos",
+            "长样本 / 样本外",
+            "required",
+            "候选因子必须有 walk-forward、OOS、长周期和不同市场状态证据，不能只看短期总收益。",
+            "control-backtest-gate",
+            evidence_kind="walk_forward_oos_report",
+            required_before="small_capital_observation",
+        ),
+        _live_profitability_gate(
+            "lookahead_bias_audit",
+            "未来函数审计",
+            "required",
+            "信号使用收盘数据时至少下一交易日执行；负向 shift、全样本归一化、报告期错位必须审计。",
+            "daily-trading-system-blueprint",
+            evidence_kind="lookahead_bias_audit",
+            required_before="small_capital_observation",
+        ),
+        _live_profitability_gate(
+            "multiple_testing_control",
+            "多重检验控制",
+            "required",
+            "需要记录总实验数、去重参数组合和显著性修正，避免只挑最好看的回测。",
+            "factor-leaderboard-table",
+            evidence_kind="multiple_testing_log",
+            required_before="small_capital_observation",
+        ),
+        _live_profitability_gate(
+            "transaction_cost_capacity",
+            "成本 / 滑点 / 容量",
+            "required",
+            "必须扣除手续费、滑点、冲击成本，检查 ETF 成交额、换手率和单票容量。",
+            "daily-pretrade-readiness-verdict",
+            evidence_kind="cost_capacity_report",
+            required_before="small_capital_observation",
+        ),
+        _live_profitability_gate(
+            "matched_paper_receipts",
+            "同参数模拟盘回执",
+            "required",
+            "至少积累 5 次同参数模拟盘回执，再讨论小资金人工观察。",
+            "paper-metrics",
+            "paper_simulation" if paper_rehearsal_allowed else "",
+            evidence_kind="paper_simulation_receipts",
+            required_before="small_capital_observation",
+            minimum_required_observations=5,
+        ),
+        _live_profitability_gate(
+            "post_close_journals",
+            "盘后复盘样本",
+            "required",
+            "至少积累 5 次盘后复盘，记录执行、跳过、滑点、未成交、回撤和异常。",
+            "beginner-post-close-journal-board",
+            "post_close_journal" if has_signal_targets else "",
+            evidence_kind="post_close_journal_receipts",
+            required_before="small_capital_observation",
+            minimum_required_observations=5,
+        ),
+        _live_profitability_gate(
+            "production_sample_size",
+            "生产观察样本",
+            "required",
+            "至少 20 次 paper-ready 观察样本通过后，才允许讨论人工生产化；不能靠一两天收益升级。",
+            "beginner-live-handoff-board",
+            evidence_kind="paper_ready_observation_history",
+            required_before="production_manual_review",
+            minimum_required_observations=20,
+        ),
+        _live_profitability_gate(
+            "research_only_safety_boundary",
+            "安全权限边界",
+            "pass",
+            "系统保持不连接券商、不读取账户、不真实下单、不自动交易；真实资金只能由本人离开系统后手工决定。",
+            "control-safety-boundary",
+            evidence_kind="permission_boundary",
+            required_before="all_stages",
+        ),
+    ]
+    passed_gates = sum(1 for row in hard_gates if row["status"] == "pass")
+    readiness_score_pct = int(round(passed_gates / max(len(hard_gates), 1) * 100))
+
+    return _sanitize(
+        {
+            "stage": LIVE_PROFITABILITY_READINESS_STAGE,
+            "run_date": pack.get("run_date", date.today().isoformat()),
+            "safety": SAFETY_NOTICE,
+            "summary": {
+                "decision": decision,
+                "plain_answer": plain_answer,
+                "primary_market": market,
+                "readiness_score_pct": readiness_score_pct,
+                "passed_gate_count": passed_gates,
+                "total_gate_count": len(hard_gates),
+                "selected_factor_count": selected_count,
+                "signal_count": signal_count,
+                "target_count": target_count,
+                "manual_ticket_count": ticket_count,
+                "paper_rehearsal_allowed": paper_rehearsal_allowed,
+                "manual_review_material_ready": manual_review_material_ready,
+                "profitability_claim_allowed": False,
+                "real_money_allowed": False,
+                "small_capital_observation_allowed": False,
+                "direct_buy_from_top3_allowed": False,
+                "next_label": next_label,
+                "next_target_id": next_target,
+                "next_workflow_id": next_workflow,
+                "live_order_allowed": False,
+                "live_trading_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+            },
+            "beginner_ladder": [
+                _live_profitability_ladder_step(
+                    1,
+                    "qualified_signal",
+                    "合格候选和同日信号",
+                    "done" if has_signal_targets and pretrade_clear else "blocked",
+                    "先证明今天的 CN_ETF 信号是同日、可解释、未被红灯阻断。",
+                    "daily-trade-factor-table",
+                    "daily_trade_advisory" if not has_signal_targets and not blockers else "",
+                ),
+                _live_profitability_ladder_step(
+                    2,
+                    "same_parameter_paper",
+                    "同参数模拟盘",
+                    "next" if paper_rehearsal_allowed else "blocked",
+                    "用同一组因子、TopN、成本、风险档位和资金规模跑本地模拟盘。",
+                    "paper-metrics",
+                    "paper_simulation" if paper_rehearsal_allowed else "",
+                ),
+                _live_profitability_ladder_step(
+                    3,
+                    "manual_review_ticket",
+                    "人工票据复核",
+                    "waiting" if has_manual_material else "blocked",
+                    "人工核对 ETF、方向、价格、数量、金额、现金和风险，仍然不是订单。",
+                    "daily-manual-broker-handoff-ticket-table",
+                ),
+                _live_profitability_ladder_step(
+                    4,
+                    "small_capital_observation",
+                    "小资金人工观察",
+                    "locked",
+                    "需要 5 次模拟盘回执、5 次盘后复盘和风险稳定后再讨论。",
+                    "beginner-live-handoff-board",
+                ),
+                _live_profitability_ladder_step(
+                    5,
+                    "production_manual_review",
+                    "生产化人工复核",
+                    "locked",
+                    "至少 20 次 paper-ready 观察样本通过后，才允许进入更高频的人工复核流程。",
+                    "beginner-live-handoff-board",
+                ),
+            ],
+            "hard_gates": hard_gates,
+            "today_allowed_actions": _live_profitability_today_actions(
+                decision=decision,
+                next_label=next_label,
+                next_target=next_target,
+                next_workflow=next_workflow,
+                paper_rehearsal_allowed=paper_rehearsal_allowed,
+                manual_review_material_ready=manual_review_material_ready,
+                has_signal_targets=has_signal_targets,
+            ),
+            "forbidden_actions": [
+                _live_profitability_action(
+                    "direct_buy_top3",
+                    "直接买前三因子",
+                    "前三因子只是候选入口；没有同日信号、模拟盘和人工复核，不能买。",
+                    "factor-leaderboard-table",
+                    "forbidden",
+                ),
+                _live_profitability_action(
+                    "auto_broker_order",
+                    "自动连券商下单",
+                    "当前项目边界禁止券商连接、账户读取、真实委托和自动交易。",
+                    "control-safety-boundary",
+                    "forbidden",
+                ),
+                _live_profitability_action(
+                    "skip_paper_receipt",
+                    "跳过模拟盘直接实盘",
+                    "没有同参数模拟盘回执，就无法判断成本、回撤和成交风险。",
+                    "paper-metrics",
+                    "forbidden",
+                ),
+                _live_profitability_action(
+                    "size_up_from_annual_return",
+                    "只因为年化高就加仓",
+                    "年化和总收益不能替代回撤、OOS、多重检验、容量和执行复盘。",
+                    "control-backtest-gate",
+                    "forbidden",
+                ),
+            ],
+            "stability_controls": [
+                _live_profitability_control(
+                    "kill_switch_drawdown",
+                    "回撤熔断",
+                    "模拟盘或人工观察触发风险档位回撤、连续亏损或红灯事件时，停止升级并回到审计。",
+                    "daily-live-readiness-gate",
+                ),
+                _live_profitability_control(
+                    "parameter_sensitivity",
+                    "参数敏感性",
+                    "最优参数附近上下扰动仍要稳定；尖峰参数不能进入真实资金观察。",
+                    "control-backtest-gate",
+                ),
+                _live_profitability_control(
+                    "execution_slippage_journal",
+                    "滑点和未成交复盘",
+                    "每天记录真实可成交价格、滑点、未成交、跳过原因和人工情绪偏差。",
+                    "beginner-post-close-journal-board",
+                ),
+                _live_profitability_control(
+                    "factor_decay_monitor",
+                    "因子衰减监控",
+                    "连续 paper-ready 观察恶化时，自动降级为研究候选，不继续推实盘。",
+                    "promotion-gate-panel",
+                ),
+                _live_profitability_control(
+                    "retirement_loop",
+                    "淘汰闭环",
+                    "低 IC、低胜率、成本后失效、容量不足或 regime 单点依赖的因子要退役。",
+                    "factor-leaderboard-table",
+                ),
+            ],
+            "deployment_readiness_summary": deployment.get("summary") if isinstance(deployment.get("summary"), dict) else {},
+        }
+    )
+
+
+def _live_profitability_gate(
+    gate_id: str,
+    label: str,
+    status: str,
+    plain_requirement: str,
+    target_id: str,
+    workflow_id: str = "",
+    *,
+    evidence_kind: str,
+    required_before: str,
+    minimum_required_observations: int = 0,
+) -> dict[str, Any]:
+    return {
+        "gate_id": gate_id,
+        "label": label,
+        "status": status,
+        "plain_requirement": plain_requirement,
+        "target_id": target_id,
+        "workflow_id": workflow_id,
+        "evidence_kind": evidence_kind,
+        "required_before": required_before,
+        "minimum_required_observations": minimum_required_observations,
+        "automation_allowed": False,
+        "live_order_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
+
+
+def _live_profitability_ladder_step(
+    step_number: int,
+    step_id: str,
+    label: str,
+    status: str,
+    plain_state: str,
+    target_id: str,
+    workflow_id: str = "",
+) -> dict[str, Any]:
+    return {
+        "step_number": step_number,
+        "step_id": step_id,
+        "label": label,
+        "status": status,
+        "plain_state": plain_state,
+        "target_id": target_id,
+        "workflow_id": workflow_id,
+        "automation_allowed": False,
+        "live_order_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
+
+
+def _live_profitability_today_actions(
+    *,
+    decision: str,
+    next_label: str,
+    next_target: str,
+    next_workflow: str,
+    paper_rehearsal_allowed: bool,
+    manual_review_material_ready: bool,
+    has_signal_targets: bool,
+) -> list[dict[str, Any]]:
+    actions = [
+        _live_profitability_action(
+            "follow_primary_next_step",
+            next_label or "查看下一步",
+            f"当前系统判断={decision}；先按主按钮补齐最缺的证据。",
+            next_target or "daily-trade-advisory",
+            "next",
+            next_workflow,
+        )
+    ]
+    if paper_rehearsal_allowed:
+        actions.append(
+            _live_profitability_action(
+                "run_same_parameter_paper",
+                "运行同参数模拟盘",
+                "把今天的候选、TopN、成本、风险档位和资金规模用同一参数跑一遍本地模拟盘。",
+                "paper-metrics",
+                "allowed",
+                "paper_simulation",
+            )
+        )
+    if manual_review_material_ready:
+        actions.append(
+            _live_profitability_action(
+                "review_manual_ticket_pack",
+                "人工核对票据",
+                "只核对 ETF、方向、数量、金额、现金和风险；这不是委托单。",
+                "daily-manual-broker-handoff-ticket-table",
+                "manual_review",
+            )
+        )
+    if has_signal_targets:
+        actions.append(
+            _live_profitability_action(
+                "write_post_close_journal",
+                "收盘后写复盘",
+                "无论执行、跳过还是只模拟，都要记录原因和异常，供下一轮审计使用。",
+                "beginner-post-close-journal-board",
+                "required",
+                "post_close_journal",
+            )
+        )
+    return actions
+
+
+def _live_profitability_action(
+    action_id: str,
+    label: str,
+    plain_action: str,
+    target_id: str,
+    status: str,
+    workflow_id: str = "",
+) -> dict[str, Any]:
+    return {
+        "action_id": action_id,
+        "label": label,
+        "status": status,
+        "plain_action": plain_action,
+        "target_id": target_id,
+        "workflow_id": workflow_id,
+        "automation_allowed": False,
+        "live_order_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
+
+
+def _live_profitability_control(
+    control_id: str,
+    label: str,
+    plain_control: str,
+    target_id: str,
+) -> dict[str, Any]:
+    return {
+        "control_id": control_id,
+        "label": label,
+        "status": "required",
+        "plain_control": plain_control,
+        "target_id": target_id,
+        "automation_allowed": False,
+        "live_order_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
 
 
 def _deployment_sequence_step(

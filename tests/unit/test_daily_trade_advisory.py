@@ -877,6 +877,64 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertFalse(readiness["manual_buy_sell_preview"][0]["order_placement_allowed"])
         self.assertIn("not_order", readiness["manual_buy_sell_preview"][0]["warning_code"])
 
+    def test_daily_pack_exposes_live_profitability_readiness_scorecard(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF", "sharpe": 1.2},
+                {"rank": 2, "case_id": "c2", "factor_name": "reversal_2", "market": "CN_ETF", "sharpe": 0.8},
+                {"rank": 3, "case_id": "c3", "factor_name": "volatility_2", "market": "CN_ETF", "sharpe": 0.7},
+            ],
+            [
+                _signal("c1", "momentum_2", {"510300": 0.4}),
+                _signal("c2", "reversal_2", {"588000": 0.3}),
+                _signal("c3", "volatility_2", {"159915": 0.2}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="aggressive_30dd",
+        )
+
+        readiness = pack["live_profitability_readiness"]
+
+        self.assertEqual(readiness["stage"], "phase_6_19_live_profitability_readiness_scorecard")
+        self.assertEqual(readiness["summary"]["decision"], "not_ready_for_real_money")
+        self.assertFalse(readiness["summary"]["profitability_claim_allowed"])
+        self.assertFalse(readiness["summary"]["real_money_allowed"])
+        self.assertFalse(readiness["summary"]["live_order_allowed"])
+        self.assertFalse(readiness["summary"]["broker_connection_allowed"])
+        self.assertFalse(readiness["summary"]["order_placement_allowed"])
+        self.assertTrue(readiness["summary"]["paper_rehearsal_allowed"])
+        self.assertTrue(readiness["summary"]["manual_review_material_ready"])
+        self.assertEqual(readiness["summary"]["next_workflow_id"], "paper_simulation")
+        self.assertEqual(readiness["summary"]["next_target_id"], "paper-metrics")
+        self.assertLess(readiness["summary"]["readiness_score_pct"], 60)
+        self.assertEqual(pack["summary"]["live_profitability_readiness_status"], "not_ready_for_real_money")
+        self.assertEqual(
+            [row["gate_id"] for row in readiness["hard_gates"]],
+            [
+                "cn_etf_scope",
+                "same_day_signal",
+                "pretrade_red_light",
+                "manual_ticket",
+                "walk_forward_oos",
+                "lookahead_bias_audit",
+                "multiple_testing_control",
+                "transaction_cost_capacity",
+                "matched_paper_receipts",
+                "post_close_journals",
+                "production_sample_size",
+                "research_only_safety_boundary",
+            ],
+        )
+        gate_by_id = {row["gate_id"]: row for row in readiness["hard_gates"]}
+        self.assertEqual(gate_by_id["matched_paper_receipts"]["minimum_required_observations"], 5)
+        self.assertEqual(gate_by_id["post_close_journals"]["minimum_required_observations"], 5)
+        self.assertEqual(gate_by_id["production_sample_size"]["minimum_required_observations"], 20)
+        self.assertIn("run_same_parameter_paper", {row["action_id"] for row in readiness["today_allowed_actions"]})
+        self.assertIn("direct_buy_top3", {row["action_id"] for row in readiness["forbidden_actions"]})
+        self.assertIn("kill_switch_drawdown", {row["control_id"] for row in readiness["stability_controls"]})
+        self.assertTrue(all(not row["order_placement_allowed"] for row in readiness["hard_gates"]))
+
     def test_daily_pack_exposes_small_capital_observation_gate(self):
         pack = build_daily_trade_advisory_pack(
             [
