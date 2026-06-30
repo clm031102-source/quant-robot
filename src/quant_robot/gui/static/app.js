@@ -240,6 +240,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindRequestPreviewInputs();
   renderFactorGlossary();
   renderBeginnerVerdict();
+  renderBeginnerTradeSystem();
   renderBeginnerLiveHandoff();
   renderBeginnerTaskWizard();
   renderBeginnerTroubleshooter();
@@ -452,6 +453,18 @@ function bindActions() {
     if (!button) return;
     event.preventDefault();
     await runBeginnerAction(button.dataset.liveHandoffAction || "", button);
+  });
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-trade-system-action]");
+    if (!button) return;
+    event.preventDefault();
+    await runBeginnerAction(button.dataset.tradeSystemAction || "", button);
+  });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-trade-system-target]");
+    if (!button) return;
+    event.preventDefault();
+    jumpToBeginnerTarget(button.dataset.tradeSystemTarget || "beginner-live-handoff-board", state.leaderboardTab);
   });
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-live-handoff-target]");
@@ -2178,6 +2191,7 @@ function renderControlCenter() {
   renderBeginnerTaskWizard();
   renderBeginnerTroubleshooter();
   renderBeginnerProgress();
+  renderBeginnerTradeSystem();
   renderBeginnerLiveHandoff();
   syncCurrentBacktestRuntimeGuard();
 }
@@ -2232,6 +2246,7 @@ function renderDashboard() {
   renderBeginnerTroubleshooter();
   renderBeginnerGuide();
   renderBeginnerProgress();
+  renderBeginnerTradeSystem();
   renderBeginnerLiveHandoff();
   renderFactorBeginnerExplainer(activeFactorBoard, activeFactorBoard.rows || []);
   byId("dashboard-equity-source").textContent = state.research?.data_source || valueOf("data-source-select") || state.snapshot?.data_mode || "local";
@@ -2556,6 +2571,7 @@ function setLeaderboardTab(tab) {
   renderBeginnerTaskWizard();
   renderBeginnerTroubleshooter();
   renderBeginnerProgress();
+  renderBeginnerTradeSystem();
   renderBeginnerLiveHandoff();
 }
 
@@ -2732,6 +2748,112 @@ function renderBeginnerVerdict() {
     button.disabled = false;
   }
   syncCurrentBacktestRuntimeGuard();
+}
+
+function renderBeginnerTradeSystem() {
+  const summaryTarget = byId("beginner-trade-system-summary");
+  const evidenceTarget = byId("beginner-trade-system-evidence");
+  const actionsTarget = byId("beginner-trade-system-actions");
+  if (!summaryTarget || !evidenceTarget || !actionsTarget) return;
+  const decision = dailyReadinessDecision();
+  const trade = state.dailyTradeAdvisory || {};
+  const tradeSystem = trade.trade_system || {};
+  const systemDecision = tradeSystem.go_live_decision || {};
+  const readiness = trade.pretrade_readiness || {};
+  const summary = trade.summary || {};
+  const paperReceipt = latestExecutionReceipt("paper_simulation");
+  summaryTarget.innerHTML = statusRows([
+    ["最终结论", decision.title || "等待今日体检", decision.tone || "warn"],
+    ["原因", decision.reason || "先运行开盘前一键体检，再看是否进入人工复核。", decision.tone || "warn"],
+    ["交易边界", systemDecision.status || "manual_review_only", "danger"],
+    ["主线市场", tradeSystem.primary_market || "CN_ETF", "ok"],
+  ]);
+  evidenceTarget.innerHTML = beginnerTradeSystemEvidenceRows(trade, paperReceipt).map((item) => `
+    <div class="list-row ${escapeHtml(item.tone)}">
+      <strong>${escapeHtml(item.label)}</strong>
+      <span>${escapeHtml(item.value)}</span>
+      <span>${escapeHtml(item.detail)}</span>
+    </div>
+  `).join("");
+  actionsTarget.innerHTML = beginnerTradeSystemActionRows(decision, readiness, summary, paperReceipt).map((item) => `
+    <div class="list-row ${escapeHtml(item.tone)}">
+      <strong>${escapeHtml(item.label)}</strong>
+      <span>${escapeHtml(item.detail)}</span>
+      <span class="beginner-task-actions">
+        ${item.workflow ? `<button class="primary-button" type="button" data-trade-system-action="${escapeRawHtml(item.workflow)}">${escapeHtml(item.button)}</button>` : ""}
+        ${item.target ? `<button class="secondary-button" type="button" data-trade-system-target="${escapeRawHtml(item.target)}">${escapeHtml(item.target_label || "看证据")}</button>` : ""}
+      </span>
+    </div>
+  `).join("");
+}
+
+function beginnerTradeSystemEvidenceRows(trade = {}, paperReceipt = null) {
+  const summary = trade.summary || {};
+  const readiness = trade.pretrade_readiness || {};
+  const freshness = readiness.freshness || {};
+  const handoff = trade.manual_broker_handoff || {};
+  const tickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
+  const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
+  return [
+    {
+      label: "前三因子",
+      value: `${formatNumber(summary.selected_factor_count || 0)} 个`,
+      detail: "只从 CN_ETF 可运行候选里取，不把 CN 个股信号直接当 ETF 操作。",
+      tone: Number(summary.selected_factor_count || 0) > 0 ? "ok" : "warn",
+    },
+    {
+      label: "今日信号",
+      value: `${formatNumber(summary.signal_count || 0)} 条`,
+      detail: `运行日=${freshness.run_date || trade.run_date || "--"} / 最新信号=${freshness.latest_signal_date || "--"}`,
+      tone: freshness.fresh_for_run_date ? "ok" : "danger",
+    },
+    {
+      label: "模拟盘回执",
+      value: paperReceipt ? "已有" : "缺失",
+      detail: paperReceipt ? `最近回执=${paperReceipt.time || "--"}` : "还不能把单日信号当成可操作结论。",
+      tone: paperReceipt ? "ok" : "warn",
+    },
+    {
+      label: "人工票据",
+      value: `${formatNumber(tickets.length)} 张`,
+      detail: blockers.length ? `阻断=${blockers.join(" / ")}` : "票据只用于人工核对，系统不自动提交。",
+      tone: tickets.length && blockers.length === 0 ? "warn" : "danger",
+    },
+  ];
+}
+
+function beginnerTradeSystemActionRows(decision = {}, readiness = {}, summary = {}, paperReceipt = null) {
+  const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
+  const rows = [
+    {
+      label: "下一步",
+      detail: decision.detail || "先运行开盘前一键体检，再根据红黄灯处理。",
+      workflow: decision.action_workflow || "daily_pretrade_checkup",
+      target: decision.target_id || "beginner-live-handoff-board",
+      button: decision.cta_label || "运行开盘前体检",
+      target_label: "看对应证据",
+      tone: decision.tone || "warn",
+    },
+  ];
+  if (!paperReceipt && Number(summary.signal_count || 0) > 0 && blockers.length === 0) {
+    rows.push({
+      label: "缺口",
+      detail: "有信号但没有模拟盘回执，先跑本地模拟盘复核收益、回撤和成交。",
+      workflow: "paper_simulation",
+      target: "paper-metrics",
+      button: "跑模拟盘",
+      target_label: "看模拟盘",
+      tone: "warn",
+    });
+  }
+  rows.push({
+    label: "安全边界",
+    detail: "软件只生成研究、信号、模拟和人工复核清单，不连接券商、不读账户、不下单。",
+    target: "control-safety-boundary",
+    target_label: "看安全边界",
+    tone: "danger",
+  });
+  return rows;
 }
 
 function beginnerRecommendedTaskId() {
@@ -4152,6 +4274,7 @@ function renderPaper() {
   byId("paper-guard-table").innerHTML = tableRows(paper.guard_events || [], ["date", "event_type", "drawdown", "blocked_buy_intents", "cooldown_remaining"]);
   renderDailyReadinessCard();
   renderDailyEvidenceChain();
+  renderBeginnerTradeSystem();
   renderBeginnerLiveHandoff();
 }
 
@@ -4187,6 +4310,7 @@ function renderDailyTradeAdvisory() {
   renderDailyPretradeWorkflow(pack.pretrade_workflow || {});
   renderDailyReadinessCard();
   renderDailyEvidenceChain();
+  renderBeginnerTradeSystem();
   renderBeginnerLiveHandoff();
   byId("daily-trade-factor-table").innerHTML = tableRows(pack.factors || [], [
     "rank",
@@ -6842,6 +6966,7 @@ function appendRunHistory(entry) {
   renderBeginnerTaskWizard();
   renderBeginnerTroubleshooter();
   renderBeginnerProgress();
+  renderBeginnerTradeSystem();
   renderBeginnerLiveHandoff();
   return nextEntry;
 }
@@ -6882,6 +7007,7 @@ function appendExecutionReceipt(receipt) {
   renderExecutionReceipts(spec);
   renderDailyReadinessCard();
   renderDailyEvidenceChain();
+  renderBeginnerTradeSystem();
   renderBeginnerLiveHandoff();
   renderControlCenter();
   return nextReceipt;

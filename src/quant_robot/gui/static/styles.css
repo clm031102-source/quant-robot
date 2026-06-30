@@ -465,6 +465,28 @@ button {
   background: #fffaf4;
 }
 
+.beginner-trade-system-board {
+  border-left: 4px solid var(--accent);
+  background: #f7fcfa;
+}
+
+.beginner-trade-system-layout {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.9fr) minmax(300px, 1.2fr) minmax(260px, 1fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.beginner-trade-system-layout .list-row {
+  align-items: center;
+}
+
+.beginner-trade-system-layout .list-row strong,
+.beginner-trade-system-layout .list-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 .beginner-live-handoff-layout {
   display: grid;
   grid-template-columns: minmax(220px, 0.8fr) minmax(300px, 1.2fr) minmax(260px, 1fr);
@@ -2277,6 +2299,7 @@ th {
   .operator-strip,
   .ordinary-home-grid,
   .beginner-verdict-board,
+  .beginner-trade-system-layout,
   .beginner-live-handoff-layout,
   .beginner-task-layout,
   .beginner-guide-layout,
@@ -2347,6 +2370,7 @@ th {
   .operator-strip,
   .ordinary-home-grid,
   .beginner-verdict-board,
+  .beginner-trade-system-layout,
   .beginner-live-handoff-layout,
   .beginner-task-layout,
   .beginner-guide-layout,

@@ -276,6 +276,26 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "beginner_trade_system_frontend",
+            "Beginner trade-system overview frontend",
+            index_html.get("ok")
+            and "beginner-trade-system-board" in str(index_html.get("body", ""))
+            and "beginner-trade-system-summary" in str(index_html.get("body", ""))
+            and "beginner-trade-system-evidence" in str(index_html.get("body", ""))
+            and "beginner-trade-system-actions" in str(index_html.get("body", ""))
+            and app_js.get("ok")
+            and "renderBeginnerTradeSystem" in str(app_js.get("body", ""))
+            and "beginnerTradeSystemEvidenceRows" in str(app_js.get("body", ""))
+            and "beginnerTradeSystemActionRows" in str(app_js.get("body", ""))
+            and "data-trade-system-action" in str(app_js.get("body", "")),
+            "Frontend exposes a beginner trade-system overview that summarizes verdict, evidence, and next manual-safe actions.",
+            index_html.get("error")
+            or app_js.get("error")
+            or "Beginner trade-system overview anchors or renderer hooks are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "beginner_live_handoff_frontend",
             "Beginner live handoff frontend",
             index_html.get("ok")
