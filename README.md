@@ -836,7 +836,7 @@ $env:PYTHONPATH='src'
 python scripts\run_desktop_app.py
 ```
 
-On Windows, `scripts\start_quant_robot_desktop.bat` launches the same beginner entry. To write clickable launchers to the desktop, run `scripts\install_quant_robot_desktop_shortcuts.bat`.
+On Windows, `scripts\start_quant_robot_desktop.bat` launches the same beginner entry. To write clickable launchers to the desktop, run `scripts\install_quant_robot_desktop_shortcuts.bat`. The installed launchers include daily action, today's Top3 signal, same-parameter paper rehearsal, profitability evidence, pretrade check, factor leaderboard, post-close journal, and logs.
 
 The command-line server remains available for advanced users:
 

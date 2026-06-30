@@ -21,6 +21,7 @@ DESKTOP_APP_COPY = {
     "today_action_button": "打开今日行动",
     "top3_button": "打开今日前三信号",
     "paper_button": "打开模拟盘复核",
+    "profitability_button": "打开盈利证据",
     "daily_button": "打开今日交易检查",
     "leaderboard_button": "打开因子排行榜",
     "journal_button": "打开盘后复盘",
@@ -32,6 +33,7 @@ DEFAULT_INITIAL_TARGET_ID = "ordinary-daily-action-card"
 DEFAULT_DAILY_TARGET_ID = "daily-manual-trading-session"
 DEFAULT_TOP3_TARGET_ID = "daily-trade-decision-sheet"
 DEFAULT_PAPER_TARGET_ID = "daily-signal-execution-bridge"
+DEFAULT_PROFITABILITY_TARGET_ID = "daily-live-profitability-readiness"
 DEFAULT_JOURNAL_TARGET_ID = "beginner-post-close-journal-board"
 DESKTOP_BEGINNER_STATUS_ROWS = (
     {
@@ -62,8 +64,17 @@ DESKTOP_BEGINNER_STATUS_ROWS = (
         "order_placement_allowed": False,
     },
     {
+        "row_id": "profitability_evidence",
+        "label": "第四步：看盈利证据",
+        "detail": "确认 OOS、未来函数审计、成本容量、同参数回执和盘后复盘是否足够；最多只是小资金人工观察候选。",
+        "page": "daily",
+        "target": DEFAULT_PROFITABILITY_TARGET_ID,
+        "broker_connection_allowed": False,
+        "order_placement_allowed": False,
+    },
+    {
         "row_id": "daily_check",
-        "label": "第四步：人工交易检查",
+        "label": "第五步：人工交易检查",
         "detail": "只在红灯全部消失后查看人工票据；真实交易仍必须你自己打开券商软件逐项核对。",
         "page": "daily",
         "target": DEFAULT_DAILY_TARGET_ID,
@@ -296,11 +307,12 @@ def run_desktop_app(
     ttk.Button(quick_buttons, text=DESKTOP_APP_COPY["today_action_button"], command=lambda: open_section("dashboard", DEFAULT_INITIAL_TARGET_ID)).pack(side="left")
     ttk.Button(quick_buttons, text=DESKTOP_APP_COPY["top3_button"], command=lambda: open_section("daily", DEFAULT_TOP3_TARGET_ID)).pack(side="left", padx=(10, 0))
     ttk.Button(quick_buttons, text=DESKTOP_APP_COPY["paper_button"], command=lambda: open_section("daily", DEFAULT_PAPER_TARGET_ID)).pack(side="left", padx=(10, 0))
-    ttk.Button(quick_buttons, text=DESKTOP_APP_COPY["daily_button"], command=lambda: open_section("daily", DEFAULT_DAILY_TARGET_ID)).pack(side="left", padx=(10, 0))
+    ttk.Button(quick_buttons, text=DESKTOP_APP_COPY["profitability_button"], command=lambda: open_section("daily", DEFAULT_PROFITABILITY_TARGET_ID)).pack(side="left", padx=(10, 0))
 
     support_buttons = ttk.Frame(frame)
     support_buttons.pack(anchor="w", pady=(12, 0))
-    ttk.Button(support_buttons, text=DESKTOP_APP_COPY["leaderboard_button"], command=lambda: open_section("dashboard", "factor-leaderboard-table")).pack(side="left")
+    ttk.Button(support_buttons, text=DESKTOP_APP_COPY["daily_button"], command=lambda: open_section("daily", DEFAULT_DAILY_TARGET_ID)).pack(side="left")
+    ttk.Button(support_buttons, text=DESKTOP_APP_COPY["leaderboard_button"], command=lambda: open_section("dashboard", "factor-leaderboard-table")).pack(side="left", padx=(10, 0))
     ttk.Button(support_buttons, text=DESKTOP_APP_COPY["journal_button"], command=lambda: open_section("daily", DEFAULT_JOURNAL_TARGET_ID)).pack(side="left", padx=(10, 0))
     ttk.Button(support_buttons, text=DESKTOP_APP_COPY["logs_button"], command=lambda: open_section("logs")).pack(side="left", padx=(10, 0))
 
