@@ -447,6 +447,7 @@ def build_daily_trade_advisory_snapshot(
     min_cash_weight: float = 0.1,
     risk_profile_id: str | None = None,
     current_positions: str | list[dict[str, Any]] | None = None,
+    evidence_snapshot: str | dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     leaderboard = build_factor_leaderboard_snapshot(
         reports_root=reports_root,
@@ -486,6 +487,7 @@ def build_daily_trade_advisory_snapshot(
         max_gross_exposure=max_gross_exposure,
         risk_profile_id=risk_profile_id,
         current_positions=_parse_current_positions_input(current_positions),
+        evidence_snapshot=_parse_evidence_snapshot_input(evidence_snapshot),
     )
     pack["selected_candidates"] = candidates
     pack["leaderboard_summary"] = leaderboard.get("summary", {})
@@ -610,6 +612,23 @@ def _parse_current_positions_input(current_positions: str | list[dict[str, Any]]
         item["market"] = (row.get("market") or "CN_ETF").strip()
         rows.append(item)
     return rows
+
+
+def _parse_evidence_snapshot_input(evidence_snapshot: str | dict[str, Any] | None) -> dict[str, Any] | None:
+    if not evidence_snapshot:
+        return None
+    if isinstance(evidence_snapshot, dict):
+        return dict(evidence_snapshot)
+    text = str(evidence_snapshot).strip()
+    if not text:
+        return None
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError as exc:
+        return {"mode": "parse_error", "parse_error": str(exc)}
+    if isinstance(parsed, dict):
+        return parsed
+    return {"mode": "parse_error", "parse_error": "evidence_snapshot must be a JSON object"}
 
 
 def _bars_until_as_of_date(bars: pd.DataFrame, as_of_date: str | None) -> pd.DataFrame:

@@ -108,6 +108,7 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                     min_cash_weight=float(_first(query, "min_cash_weight", "0.1")),
                     risk_profile_id=_optional(query, "risk_profile_id"),
                     current_positions=_optional(query, "current_positions"),
+                    evidence_snapshot=_optional(query, "evidence_snapshot"),
                 )
                 _record_operation(
                     workflow_id="daily_trade_advisory",

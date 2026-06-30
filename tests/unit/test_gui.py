@@ -342,6 +342,11 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("live_profitability_readiness", app_js)
         self.assertIn("liveProfitabilityRuntimeEvidence", app_js)
         self.assertIn("mergeLiveProfitabilityRuntimeEvidence", app_js)
+        self.assertIn("dailyTradeAdvisoryEvidencePayload", app_js)
+        self.assertIn("dailyEvidencePaperRequest", app_js)
+        self.assertIn("same_parameter_browser_execution_receipts", app_js)
+        self.assertIn("paperReceiptMatchesRequest(item, paperRequest).matches", app_js)
+        self.assertIn('params.set("evidence_snapshot"', app_js)
         self.assertIn("matched_paper_receipts", app_js)
         self.assertIn("post_close_journal_receipts", app_js)
         self.assertIn("paper_ready_observations", app_js)
@@ -607,6 +612,38 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertGreaterEqual(len(snapshot["operator_next_actions"]), 1)
         self.assertEqual(snapshot["operator_next_actions"][0]["automation_allowed"], False)
         self.assertLessEqual(snapshot["summary"]["selected_factor_count"], 3)
+
+    def test_daily_trade_advisory_accepts_runtime_evidence_snapshot(self):
+        snapshot = build_daily_trade_advisory_snapshot(
+            source="demo_fixture",
+            market="CN_ETF",
+            limit=3,
+            evidence_snapshot={
+                "mode": "browser_execution_receipts",
+                "counts": {
+                    "matched_paper_receipts": 5,
+                    "post_close_journal_receipts": 5,
+                    "paper_ready_observations": 20,
+                },
+                "flags": {
+                    "walk_forward_oos_passed": True,
+                    "lookahead_bias_audit_passed": True,
+                    "multiple_testing_control_passed": True,
+                    "transaction_cost_capacity_passed": True,
+                },
+            },
+        )
+
+        readiness = snapshot["live_profitability_readiness"]
+        transition = snapshot["daily_real_money_transition_gate"]
+
+        self.assertEqual(readiness["summary"]["evidence_mode"], "browser_execution_receipts")
+        self.assertEqual(readiness["summary"]["matched_paper_receipts"], 5)
+        self.assertEqual(readiness["summary"]["post_close_journal_receipts"], 5)
+        self.assertEqual(readiness["summary"]["paper_ready_observations"], 20)
+        self.assertEqual(readiness["evidence_snapshot"]["missing_counts"]["matched_paper_receipts"], 0)
+        self.assertFalse(readiness["summary"]["order_placement_allowed"])
+        self.assertFalse(transition["summary"]["order_placement_allowed"])
 
     def test_daily_trade_advisory_fallback_baseline_is_observation_only(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -3525,6 +3562,28 @@ class GuiHttpTests(unittest.TestCase):
                 f"{base_url}/api/trade/daily-advisory?source=demo_fixture&market=CN_ETF&limit=3"
                 "&risk_profile_id=conservative_10dd"
                 "&current_positions=asset_id%2Cquantity%2Clatest_price%0ACN_ETF_XSHG_510300%2C1000%2C4.864"
+                "&"
+                + urlencode(
+                    {
+                        "evidence_snapshot": json.dumps(
+                            {
+                                "mode": "browser_execution_receipts",
+                                "counts": {
+                                    "matched_paper_receipts": 5,
+                                    "post_close_journal_receipts": 5,
+                                    "paper_ready_observations": 20,
+                                },
+                                "flags": {
+                                    "walk_forward_oos_passed": True,
+                                    "lookahead_bias_audit_passed": True,
+                                    "multiple_testing_control_passed": True,
+                                    "transaction_cost_capacity_passed": True,
+                                },
+                            },
+                            ensure_ascii=False,
+                        )
+                    }
+                )
             )
             self.assertEqual(trade_advisory["stage"], "phase_6_0_daily_trade_advisory")
             self.assertIn("summary", trade_advisory)
@@ -3560,6 +3619,13 @@ class GuiHttpTests(unittest.TestCase):
             self.assertFalse(trade_advisory["pretrade_workflow"]["summary"]["live_order_allowed"])
             self.assertEqual(len(trade_advisory["pretrade_workflow"]["steps"]), 5)
             self.assertLessEqual(trade_advisory["summary"]["selected_factor_count"], 3)
+            self.assertEqual(
+                trade_advisory["live_profitability_readiness"]["summary"]["evidence_mode"],
+                "browser_execution_receipts",
+            )
+            self.assertEqual(trade_advisory["live_profitability_readiness"]["summary"]["matched_paper_receipts"], 5)
+            self.assertEqual(trade_advisory["live_profitability_readiness"]["summary"]["post_close_journal_receipts"], 5)
+            self.assertFalse(trade_advisory["daily_real_money_transition_gate"]["summary"]["order_placement_allowed"])
 
             invalid_positions = _read_json(
                 f"{base_url}/api/trade/daily-advisory?source=demo_fixture&market=CN_ETF&limit=3"

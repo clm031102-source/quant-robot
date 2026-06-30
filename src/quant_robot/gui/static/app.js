@@ -856,6 +856,8 @@ function buildDailyTradeAdvisoryParams() {
     min_cash_weight: valueOf("min-cash-weight") || "0.1",
   });
   addSourceParams(params);
+  const evidence = dailyTradeAdvisoryEvidencePayload();
+  if (evidence) params.set("evidence_snapshot", JSON.stringify(evidence));
   return params;
 }
 
@@ -6213,10 +6215,14 @@ function liveProfitabilityRuntimeEvidence(readiness = {}) {
   const backendEvidence = readiness.evidence_snapshot || {};
   const backendCounts = backendEvidence.counts || {};
   const backendFlags = backendEvidence.flags || {};
+  const paperRequest = dailyEvidencePaperRequest();
+  const hasPaperRequest = Object.keys(paperRequest).length > 0;
   const paperReceipts = executionReceiptsForWorkflow("paper_simulation")
-    .filter((item) => item?.status === "completed");
+    .filter((item) => item?.status === "completed")
+    .filter((item) => !hasPaperRequest || paperReceiptMatchesRequest(item, paperRequest).matches);
   const postCloseReceipts = executionReceiptsForWorkflow("post_close_journal")
-    .filter((item) => item?.status === "completed");
+    .filter((item) => item?.status === "completed")
+    .filter((item) => item?.metrics?.manual_review_recorded !== false);
   const paperReadyObservations = Math.min(paperReceipts.length, postCloseReceipts.length);
   const counts = {
     matched_paper_receipts: Math.max(Number(backendCounts.matched_paper_receipts || 0), paperReceipts.length),
@@ -6224,9 +6230,13 @@ function liveProfitabilityRuntimeEvidence(readiness = {}) {
     paper_ready_observations: Math.max(Number(backendCounts.paper_ready_observations || 0), paperReadyObservations),
   };
   return {
-    mode: paperReceipts.length || postCloseReceipts.length
-      ? "browser_execution_receipts"
-      : backendEvidence.mode || "empty",
+    mode: hasPaperRequest && (paperReceipts.length || postCloseReceipts.length)
+      ? "same_parameter_browser_execution_receipts"
+      : paperReceipts.length || postCloseReceipts.length
+        ? "browser_execution_receipts"
+        : backendEvidence.mode || "empty",
+    matched_paper_request: paperRequest,
+    same_parameter_required: hasPaperRequest,
     counts,
     flags: {
       walk_forward_oos_passed: Boolean(backendFlags.walk_forward_oos_passed),
@@ -6241,6 +6251,45 @@ function liveProfitabilityRuntimeEvidence(readiness = {}) {
     },
     paper_simulation_receipts: paperReceipts.length,
     post_close_journal_receipts: postCloseReceipts.length,
+  };
+}
+
+function dailyEvidencePaperRequest() {
+  const handoff = state.dailyTradeAdvisory?.daily_signal_execution_bridge?.paper_simulation_handoff || {};
+  const request = handoff.recommended_request || {};
+  return request && typeof request === "object" ? request : {};
+}
+
+function dailyTradeAdvisoryEvidencePayload() {
+  const readiness = state.dailyTradeAdvisory?.live_profitability_readiness || {};
+  const evidence = liveProfitabilityRuntimeEvidence(readiness);
+  const counts = evidence.counts || {};
+  const flags = evidence.flags || {};
+  const hasCounts = [
+    counts.matched_paper_receipts,
+    counts.post_close_journal_receipts,
+    counts.paper_ready_observations,
+  ].some((value) => Number(value || 0) > 0);
+  const hasFlags = Object.values(flags).some(Boolean);
+  if (!evidence.same_parameter_required && evidence.mode === "browser_execution_receipts") return null;
+  if (!hasCounts && !hasFlags) return null;
+  return {
+    mode: evidence.mode || "same_parameter_browser_execution_receipts",
+    source: "gui_runtime_receipts",
+    same_parameter_required: Boolean(evidence.same_parameter_required),
+    matched_paper_request: evidence.matched_paper_request || {},
+    counts: {
+      matched_paper_receipts: Number(counts.matched_paper_receipts || 0),
+      post_close_journal_receipts: Number(counts.post_close_journal_receipts || 0),
+      paper_ready_observations: Number(counts.paper_ready_observations || 0),
+    },
+    flags: {
+      walk_forward_oos_passed: Boolean(flags.walk_forward_oos_passed),
+      lookahead_bias_audit_passed: Boolean(flags.lookahead_bias_audit_passed),
+      multiple_testing_control_passed: Boolean(flags.multiple_testing_control_passed),
+      transaction_cost_capacity_passed: Boolean(flags.transaction_cost_capacity_passed),
+    },
+    safety: "manual advisory evidence only; no broker connection, account read, order placement, or live trading",
   };
 }
 
