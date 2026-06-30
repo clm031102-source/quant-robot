@@ -4079,6 +4079,7 @@ function renderPaper() {
   byId("paper-exposure-chart").innerHTML = lineChart(paper.equity_curve || [], "gross_exposure", chartTheme.benchmark, "Gross exposure");
   byId("paper-fill-table").innerHTML = tableRows(paper.fills || [], ["signal_date", "execution_date", "asset_id", "market", "side", "quantity", "fill_price", "fee"]);
   byId("paper-guard-table").innerHTML = tableRows(paper.guard_events || [], ["date", "event_type", "drawdown", "blocked_buy_intents", "cooldown_remaining"]);
+  renderDailyReadinessCard();
   renderDailyEvidenceChain();
 }
 
@@ -4112,6 +4113,7 @@ function renderDailyTradeAdvisory() {
   renderDailyPretradeNextActions(pack.operator_next_actions || pack.pretrade_workflow?.operator_next_actions || []);
   renderManualBrokerHandoff(pack.manual_broker_handoff || {});
   renderDailyPretradeWorkflow(pack.pretrade_workflow || {});
+  renderDailyReadinessCard();
   renderDailyEvidenceChain();
   byId("daily-trade-factor-table").innerHTML = tableRows(pack.factors || [], [
     "rank",
@@ -4149,6 +4151,101 @@ function renderDailyTradeAdvisory() {
     "live_order_allowed",
     "manual_instruction",
   ]);
+}
+
+function renderDailyReadinessCard() {
+  const lightTarget = byId("daily-readiness-light");
+  const actionTarget = byId("daily-readiness-primary-action");
+  const safetyTarget = byId("daily-readiness-safety");
+  if (!lightTarget || !actionTarget || !safetyTarget) return;
+  const decision = dailyReadinessDecision();
+  lightTarget.innerHTML = statusRows([
+    ["状态灯", decision.title, decision.tone],
+    ["原因", decision.reason, decision.tone],
+    ["证据摘要", decision.evidence, "muted"],
+  ]);
+  actionTarget.innerHTML = `
+    <div class="list-row ${escapeHtml(decision.tone)}">
+      <strong>${escapeHtml(decision.primary_action)}</strong>
+      <span>${escapeHtml(decision.detail)}</span>
+      <span class="beginner-task-actions">
+        <button class="primary-button" type="button" data-daily-readiness-target="${escapeRawHtml(decision.target_id)}" data-beginner-target="${escapeRawHtml(decision.target_id)}">${escapeHtml(decision.cta_label)}</button>
+      </span>
+    </div>
+  `;
+  safetyTarget.innerHTML = statusRows([
+    ["实盘边界", "仍然禁止自动下单", "danger"],
+    ["系统权限", "不连接券商，不读取账户，不真实下单。", "danger"],
+    ["人工复核", "只有信号新鲜、模拟盘回执和手工票据齐全后，才看券商端人工核对。", "warn"],
+  ]);
+}
+
+function dailyReadinessDecision() {
+  const trade = state.dailyTradeAdvisory || {};
+  const summary = trade.summary || {};
+  const readiness = trade.pretrade_readiness || {};
+  const freshness = readiness.freshness || {};
+  const handoff = trade.manual_broker_handoff || {};
+  const tickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
+  const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
+  const actions = Array.isArray(trade.operator_next_actions)
+    ? trade.operator_next_actions
+    : Array.isArray(trade.pretrade_workflow?.operator_next_actions)
+      ? trade.pretrade_workflow.operator_next_actions
+      : [];
+  const firstAction = actions[0] || {};
+  const paperReceipt = latestExecutionReceipt("paper_simulation");
+  const dailyReceipt = latestExecutionReceipt("daily_trade_advisory");
+  const selectedCount = Number(summary.selected_factor_count || 0);
+  const signalCount = Number(summary.signal_count || 0);
+  const signalFresh = freshness.fresh_for_run_date === true;
+  const evidence = `因子=${formatNumber(selectedCount)} / 信号=${formatNumber(signalCount)} / 票据=${formatNumber(tickets.length)} / 模拟盘回执=${paperReceipt ? "有" : "无"}`;
+  if (!signalFresh || blockers.includes("stale_signal_date")) {
+    return {
+      tone: "danger",
+      title: "红灯：今天先别买",
+      reason: `信号日期不新鲜：运行=${freshness.run_date || "--"} / 最新=${freshness.latest_signal_date || "--"}`,
+      evidence,
+      primary_action: firstAction.title || "先刷新 CN_ETF 数据",
+      detail: firstAction.plain_action || "刷新数据后重新生成今日前三因子信号。",
+      cta_label: firstAction.cta_label || "去看数据刷新",
+      target_id: firstAction.cta_target || firstAction.gui_target || "recent-data-refresh-status",
+    };
+  }
+  if (!paperReceipt) {
+    return {
+      tone: "warn",
+      title: "黄灯：先跑模拟盘复核",
+      reason: dailyReceipt ? `已有今日建议回执：${dailyReceipt.time || "--"}` : "已有信号，但还缺少本地模拟盘回执。",
+      evidence,
+      primary_action: "运行模拟盘复核",
+      detail: "先看收益、回撤、保护事件和成交笔数，再决定是否进入人工复核。",
+      cta_label: "去跑模拟盘",
+      target_id: "paper-metrics",
+    };
+  }
+  if (tickets.length > 0 && (readiness.traffic_light || "") === "yellow" && blockers.length === 0) {
+    return {
+      tone: "warn",
+      title: "黄灯：可以进入人工复核",
+      reason: "信号、模拟盘回执和手工票据都有了，但系统仍然禁止自动下单。",
+      evidence,
+      primary_action: "打开人工券商复核卡",
+      detail: "按票据人工核对 ETF、价格、数量、现金和风险，不让系统下单。",
+      cta_label: "查看手工票据",
+      target_id: "daily-manual-broker-handoff-ticket-table",
+    };
+  }
+  return {
+    tone: "warn",
+    title: "黄灯：先补齐人工复核证据",
+    reason: readiness.operator_verdict || "信号存在，但票据或复核证据还不完整。",
+    evidence,
+    primary_action: firstAction.title || "生成今日前三交易建议",
+    detail: firstAction.plain_action || "补齐今日建议、模拟盘回执和手工票据后再看人工复核。",
+    cta_label: firstAction.cta_label || "查看下一步",
+    target_id: firstAction.cta_target || firstAction.gui_target || "daily-pretrade-next-actions",
+  };
 }
 
 function renderDailyEvidenceChain() {
@@ -4622,6 +4719,7 @@ function renderRecentDataRefresh() {
     "command",
     "local_only",
   ]);
+  renderDailyReadinessCard();
   renderDailyEvidenceChain();
 }
 
@@ -6536,6 +6634,7 @@ function appendExecutionReceipt(receipt) {
   };
   saveExecutionReceipts([nextReceipt].concat(loadExecutionReceipts(spec)), spec);
   renderExecutionReceipts(spec);
+  renderDailyReadinessCard();
   renderDailyEvidenceChain();
   renderControlCenter();
   return nextReceipt;
