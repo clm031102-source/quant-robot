@@ -5578,6 +5578,7 @@ function renderPaper() {
   renderBeginnerDailyRehearsal();
   renderBeginnerPostCloseJournal();
   renderBeginnerLiveHandoff();
+  renderDailyRealWorldHandoffGate(state.dailyTradeAdvisory?.real_world_manual_handoff_gate || {});
 }
 
 function renderDailyTradeAdvisory() {
@@ -5615,6 +5616,7 @@ function renderDailyTradeAdvisory() {
   renderDailyLiveReadinessGate(pack.daily_live_readiness_gate || {});
   renderDailyTradeDecisionSheet(pack.daily_trade_decision_sheet || {});
   renderDailySignalExecutionBridge(pack.daily_signal_execution_bridge || {});
+  renderDailyRealWorldHandoffGate(pack.real_world_manual_handoff_gate || {});
   renderDailyTradingSystemBlueprint(pack.trading_system_blueprint || {});
   renderDailyPretradeReadiness(pack.pretrade_readiness || {});
   renderDailyPretradeNextActions(pack.operator_next_actions || pack.pretrade_workflow?.operator_next_actions || []);
@@ -5967,6 +5969,91 @@ function renderDailySignalExecutionBridge(bridge = {}) {
       </span>
     </div>
   `).join("") : statusRows([["闸门", "等待 OOS、成本、模拟盘、人工复核等闸门信息。", "warn"]]);
+}
+
+function renderDailyRealWorldHandoffGate(gate = {}) {
+  const summaryTarget = byId("daily-real-world-handoff-summary");
+  const runbookTarget = byId("daily-real-world-handoff-runbook");
+  const ticketsTarget = byId("daily-real-world-handoff-tickets");
+  const blockersTarget = byId("daily-real-world-handoff-blockers");
+  if (!summaryTarget || !runbookTarget || !ticketsTarget || !blockersTarget) return;
+  const summary = gate.summary || {};
+  const contract = gate.daily_top3_signal_contract || {};
+  const risk = gate.risk_budget || {};
+  const runbook = Array.isArray(gate.manual_operation_runbook) ? gate.manual_operation_runbook : [];
+  const tickets = Array.isArray(gate.manual_ticket_preview) ? gate.manual_ticket_preview : [];
+  const blockers = Array.isArray(gate.go_live_blockers) ? gate.go_live_blockers : [];
+  const boundaries = Array.isArray(gate.safety_boundaries) ? gate.safety_boundaries : [];
+  const decision = summary.decision || "waiting_for_cn_etf_candidate_pool";
+  const tone = dailyRealWorldHandoffTone(decision);
+  const workflowButton = summary.next_workflow_id ? `
+    <button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(summary.next_workflow_id)}">${escapeHtml(summary.next_label || "运行下一步")}</button>
+  ` : "";
+  const targetButton = summary.next_target_id ? `
+    <button class="${escapeHtml(workflowButton ? "secondary-button" : "primary-button")}" type="button" data-beginner-target="${escapeRawHtml(summary.next_target_id)}">${escapeHtml(workflowButton ? "看证据" : summary.next_label || "看下一步")}</button>
+  ` : "";
+  const paperReceipt = latestExecutionReceipt("paper_simulation");
+  summaryTarget.innerHTML = statusRows([
+    ["今日结论", summary.plain_answer || zhConsoleText(decision), tone],
+    ["下一步", summary.next_label || "等待今日交易系统加载", tone],
+    ["前三因子规则", `${contract.selection_scope || "CN_ETF"} / Top${formatNumber(contract.candidate_limit || summary.daily_top_factor_limit || 3)} / 直买=${summary.direct_buy_from_top3_allowed ? "允许" : "禁止"}`, summary.direct_buy_from_top3_allowed ? "danger" : "ok"],
+    ["今日证据", `信号=${formatNumber(summary.today_signal_count || 0)} / 目标=${formatNumber(summary.target_count || 0)} / 票据=${formatNumber(summary.manual_ticket_count || 0)} / 阻断=${formatNumber(summary.blocker_count || 0)}`, summary.blocker_count ? "danger" : "warn"],
+    ["风险预算", `${risk.risk_profile_label || risk.risk_profile_id || "--"} / 总仓位=${formatPercent(risk.max_gross_exposure)} / 单ETF=${formatPercent(risk.max_single_etf_weight)} / 回撤预算=${formatPercent(risk.max_acceptable_drawdown)}`, "warn"],
+    ["本机模拟盘回执", paperReceipt ? `${paperReceipt.time || "--"} / 收益=${formatPercent(paperReceipt.metrics?.total_return)} / 回撤=${formatPercent(paperReceipt.metrics?.max_drawdown)}` : "还没有同参数模拟盘回执", paperReceipt ? "ok" : "warn"],
+    ["实盘权限", summary.order_placement_allowed || summary.broker_connection_allowed ? "异常：权限越界" : "不连接券商、不读账户、不自动下单", summary.order_placement_allowed || summary.broker_connection_allowed ? "danger" : "ok"],
+  ]) + `
+    <div class="list-row ${escapeHtml(tone)}">
+      <strong>${escapeHtml("现在应该点什么")}</strong>
+      <span>${escapeHtml(summary.next_label || "先生成今日前三建议")}</span>
+      <span class="beginner-task-actions">${workflowButton}${targetButton}</span>
+    </div>
+  `;
+  runbookTarget.innerHTML = runbook.length ? runbook.map((item) => `
+    <div class="list-row ${escapeHtml(dailyTradeSystemStageTone(item.status || ""))}">
+      <strong>${escapeHtml(`${item.step_number || "--"}. ${item.label || item.step_id || ""}`)}</strong>
+      <span>${escapeHtml(`${zhConsoleText(item.status || "waiting")} / ${item.plain_action || ""}`)}</span>
+      <span>${escapeHtml(item.evidence || "")}</span>
+      <span class="beginner-task-actions">
+        ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+        ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
+      </span>
+    </div>
+  `).join("") : statusRows([["人工观察步骤", "等待今日前三建议加载。", "warn"]]);
+  ticketsTarget.innerHTML = tickets.length ? tickets.map((item) => `
+    <div class="list-row warn">
+      <strong>${escapeHtml(`${item.step_number || "--"}. ${item.asset_id || "--"} ${zhConsoleText(item.side || "")}`)}</strong>
+      <span>${escapeHtml(`数量=${formatNumber(item.rounded_quantity || 0)} / 金额=${formatNumber(item.rounded_value)} / 参考价=${formatNumber(item.reference_price)}`)}</span>
+      <span>${escapeHtml(item.plain_instruction || "仅供人工核对，不是订单。")}</span>
+      <span class="beginner-task-actions">
+        <button class="secondary-button" type="button" data-beginner-target="daily-manual-broker-handoff-ticket-table">${escapeHtml("看票据")}</button>
+      </span>
+    </div>
+  `).join("") : statusRows([
+    ["人工票据", "暂无可人工核对票据；没有票据就不要进入券商端操作。", "danger"],
+  ]);
+  blockersTarget.innerHTML = blockers.concat(boundaries).map((item) => {
+    const id = item.gate_id || item.boundary_id || "";
+    const label = item.label || id || "安全项";
+    const status = item.status || (item.enforced ? "enforced" : "required");
+    const detail = item.plain_requirement || item.plain_boundary || "";
+    const rowTone = status === "pass" || status === "enforced" ? "ok" : status === "blocked" ? "danger" : "warn";
+    return `
+      <div class="list-row ${escapeHtml(rowTone)}">
+        <strong>${escapeHtml(label)}</strong>
+        <span>${escapeHtml(`${zhConsoleText(status)} / ${detail}`)}</span>
+        <span class="beginner-task-actions">
+          ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+          ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
+        </span>
+      </div>
+    `;
+  }).join("") || statusRows([["安全闸门", "等待实盘前人工观察总闸门加载。", "warn"]]);
+}
+
+function dailyRealWorldHandoffTone(decision = "") {
+  if (decision.includes("blocked")) return "danger";
+  if (decision.includes("candidate")) return "warn";
+  return "warn";
 }
 
 function dailyPaperReceiptStatus(handoff = {}) {
@@ -9244,6 +9331,7 @@ function appendExecutionReceipt(receipt) {
   renderExecutionReceipts(spec);
   renderDailyTradeDecisionSheet(state.dailyTradeAdvisory?.daily_trade_decision_sheet || {});
   renderDailySignalExecutionBridge(state.dailyTradeAdvisory?.daily_signal_execution_bridge || {});
+  renderDailyRealWorldHandoffGate(state.dailyTradeAdvisory?.real_world_manual_handoff_gate || {});
   renderOrdinaryHome();
   renderDailyCommandRail();
   renderDailyReadinessCard();

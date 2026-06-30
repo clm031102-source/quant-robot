@@ -679,6 +679,59 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("aggressive_30dd", brief["risk_budget"]["risk_profile_id"])
         self.assertIn("券商端由人手工决定", brief["execution_boundary"]["plain_boundary"])
 
+    def test_daily_pack_exposes_real_world_manual_handoff_gate(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF", "sharpe": 1.2},
+                {"rank": 2, "case_id": "c2", "factor_name": "reversal_2", "market": "CN_ETF", "sharpe": 0.8},
+                {"rank": 3, "case_id": "c3", "factor_name": "volatility_2", "market": "CN_ETF", "sharpe": 0.7},
+            ],
+            [
+                _signal("c1", "momentum_2", {"510300": 0.4}),
+                _signal("c2", "reversal_2", {"588000": 0.3}),
+                _signal("c3", "volatility_2", {"159915": 0.2}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="aggressive_30dd",
+        )
+
+        gate = pack["real_world_manual_handoff_gate"]
+
+        self.assertEqual(gate["stage"], "phase_6_17_real_world_manual_handoff_gate")
+        self.assertEqual(gate["summary"]["primary_market"], "CN_ETF")
+        self.assertEqual(gate["summary"]["decision"], "paper_first_manual_review_candidate")
+        self.assertEqual(gate["summary"]["daily_top_factor_limit"], 3)
+        self.assertEqual(gate["summary"]["today_signal_count"], 3)
+        self.assertEqual(gate["summary"]["manual_ticket_count"], 3)
+        self.assertFalse(gate["summary"]["direct_buy_from_top3_allowed"])
+        self.assertFalse(gate["summary"]["live_order_allowed"])
+        self.assertFalse(gate["summary"]["broker_connection_allowed"])
+        self.assertFalse(gate["summary"]["account_read_allowed"])
+        self.assertFalse(gate["summary"]["order_placement_allowed"])
+        self.assertFalse(gate["summary"]["auto_order_allowed"])
+        self.assertEqual(gate["daily_top3_signal_contract"]["selection_scope"], "CN_ETF")
+        self.assertIn("前三因子只是候选入口", gate["daily_top3_signal_contract"]["plain_warning"])
+        self.assertEqual(
+            [row["step_id"] for row in gate["manual_operation_runbook"]],
+            [
+                "generate_daily_top3_signal",
+                "run_pretrade_checkup",
+                "run_same_parameter_paper",
+                "review_manual_tickets",
+                "human_broker_manual_decision",
+                "post_close_journal",
+            ],
+        )
+        self.assertTrue(all(not row["order_placement_allowed"] for row in gate["manual_operation_runbook"]))
+        self.assertEqual(gate["manual_ticket_preview"][0]["asset_id"], "510300")
+        self.assertFalse(gate["manual_ticket_preview"][0]["executable"])
+        self.assertIn("软件不会下单", gate["manual_ticket_preview"][0]["plain_instruction"])
+        self.assertIn("aggressive_30dd", gate["risk_budget"]["risk_profile_id"])
+        self.assertIn("30%", gate["risk_budget"]["plain_budget"])
+        self.assertIn("paper_simulation_receipt", {row["gate_id"] for row in gate["go_live_blockers"]})
+        self.assertIn("manual_broker_manual_decision", {row["boundary_id"] for row in gate["safety_boundaries"]})
+
     def test_daily_pack_exposes_small_capital_observation_gate(self):
         pack = build_daily_trade_advisory_pack(
             [

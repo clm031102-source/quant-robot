@@ -341,6 +341,12 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("daily-trading-system-blueprint-actions", html)
         self.assertIn("renderDailyTradingSystemBlueprint", app_js)
         self.assertIn("trading_system_blueprint", app_js)
+        self.assertIn("daily-real-world-handoff-gate", html)
+        self.assertIn("daily-real-world-handoff-summary", html)
+        self.assertIn("daily-real-world-handoff-runbook", html)
+        self.assertIn("daily-real-world-handoff-tickets", html)
+        self.assertIn("renderDailyRealWorldHandoffGate", app_js)
+        self.assertIn("real_world_manual_handoff_gate", app_js)
 
 
 class GuiSnapshotTests(unittest.TestCase):
@@ -444,6 +450,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("live_transition_plan", snapshot)
         self.assertIn("trading_system_blueprint", snapshot)
         self.assertIn("daily_signal_execution_bridge", snapshot)
+        self.assertIn("real_world_manual_handoff_gate", snapshot)
         self.assertEqual(snapshot["selected_candidates"], snapshot["factors"])
         self.assertEqual(snapshot["pretrade_workflow"]["stage"], "phase_6_1_daily_pretrade_workflow")
         self.assertFalse(snapshot["pretrade_workflow"]["summary"]["live_order_allowed"])
@@ -483,6 +490,13 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("top_n", handoff["recommended_request"])
         self.assertFalse(handoff["summary"]["order_placement_allowed"])
         self.assertFalse(handoff["summary"]["auto_order_allowed"])
+        real_world_gate = snapshot["real_world_manual_handoff_gate"]
+        self.assertEqual(real_world_gate["stage"], "phase_6_17_real_world_manual_handoff_gate")
+        self.assertEqual(real_world_gate["summary"]["primary_market"], "CN_ETF")
+        self.assertFalse(real_world_gate["summary"]["direct_buy_from_top3_allowed"])
+        self.assertFalse(real_world_gate["summary"]["broker_connection_allowed"])
+        self.assertIn("human_broker_manual_decision", {item["step_id"] for item in real_world_gate["manual_operation_runbook"]})
+        self.assertIn("paper_simulation_receipt", {item["gate_id"] for item in real_world_gate["go_live_blockers"]})
         self.assertEqual(snapshot["live_transition_plan"]["summary"]["selected_risk_profile_id"], "conservative_10dd")
         self.assertEqual(snapshot["summary"]["risk_profile_id"], "conservative_10dd")
         self.assertIn("small_capital_review_gate", {gate["gate_id"] for gate in snapshot["live_transition_plan"]["evidence_gates"]})
@@ -2611,7 +2625,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("daily-evidence-step", app_js)
             self.assertIn("data-daily-evidence-target", app_js)
             self.assertIn("renderDailyEvidenceChain();\n  renderBeginnerTradeSystem();\n  renderBeginnerDailyRehearsal();\n  renderBeginnerPostCloseJournal();\n  renderBeginnerLiveHandoff();\n  byId(\"daily-trade-factor-table\")", app_js)
-            self.assertIn("renderDailyEvidenceChain();\n  renderBeginnerTradeSystem();\n  renderBeginnerDailyRehearsal();\n  renderBeginnerPostCloseJournal();\n  renderBeginnerLiveHandoff();\n}\n\nfunction renderDailyTradeAdvisory", app_js)
+            self.assertIn("renderDailyEvidenceChain();\n  renderBeginnerTradeSystem();\n  renderBeginnerDailyRehearsal();\n  renderBeginnerPostCloseJournal();\n  renderBeginnerLiveHandoff();\n  renderDailyRealWorldHandoffGate", app_js)
             self.assertIn("renderDailyEvidenceChain();\n  renderBeginnerTradeSystem();\n  renderBeginnerDailyRehearsal();\n  renderBeginnerPostCloseJournal();\n  renderBeginnerLiveHandoff();\n  renderControlCenter();", app_js)
             self.assertIn("operator_next_actions", app_js)
             self.assertIn("refresh_cn_etf_data", app_js)
