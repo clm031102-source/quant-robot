@@ -28,6 +28,10 @@ PAPER_REQUEST_SIGNATURE_KEYS = (
     "guard_cooldown_periods",
     "as_of_date",
     "run_date",
+    "same_parameter_lock_id",
+    "same_parameter_request_id",
+    "case_id",
+    "risk_profile_id",
 )
 
 
@@ -383,7 +387,14 @@ def _empty_closure_row(date_key: str) -> dict[str, Any]:
         "manual_execution_missing_review": False,
         "paper_receipt_completed": False,
         "expected_paper_request_signature": {},
+        "expected_same_parameter_paper_requests": [],
+        "expected_same_parameter_paper_request_ids": [],
+        "matched_same_parameter_paper_request_ids": [],
+        "missing_same_parameter_paper_request_ids": [],
+        "same_parameter_paper_required_count": 0,
+        "same_parameter_paper_matched_count": 0,
         "latest_paper_request_signature": {},
+        "paper_request_signatures": [],
         "paper_request_match_status": "missing",
         "paper_request_mismatch_keys": [],
         "latest_daily_trade_receipt": "",
@@ -408,10 +419,23 @@ def _apply_closure_entry(row: dict[str, Any], entry: dict[str, Any]) -> None:
         if signal_count > 0 or selected_count > 0:
             row["top3_signal_ready"] = True
             row["latest_daily_trade_receipt"] = recorded_at
+            expected_top3 = _daily_expected_same_parameter_requests(entry)
+            if expected_top3:
+                row["expected_same_parameter_paper_requests"] = expected_top3
+                row["expected_same_parameter_paper_request_ids"] = [
+                    _same_parameter_request_id(item, index)
+                    for index, item in enumerate(expected_top3, start=1)
+                ]
             row["expected_paper_request_signature"] = _daily_expected_paper_signature(entry)
     elif workflow_id == "paper_simulation":
         row["paper_receipt_completed"] = True
-        row["latest_paper_request_signature"] = _request_signature(request)
+        signature = _request_signature(request)
+        row["latest_paper_request_signature"] = signature
+        paper_signatures = row.get("paper_request_signatures")
+        if not isinstance(paper_signatures, list):
+            paper_signatures = []
+        paper_signatures.append(signature)
+        row["paper_request_signatures"] = paper_signatures
         row["latest_paper_receipt"] = recorded_at
     elif workflow_id == "post_close_journal":
         row["post_close_journal_ready"] = bool(metrics.get("manual_review_recorded", True))
@@ -454,6 +478,50 @@ def _finalize_closure_row(row: dict[str, Any]) -> dict[str, Any]:
 
 def _finalize_same_parameter_paper(row: dict[str, Any]) -> dict[str, Any]:
     paper_done = bool(row.get("paper_receipt_completed"))
+    expected_top3 = (
+        row.get("expected_same_parameter_paper_requests")
+        if isinstance(row.get("expected_same_parameter_paper_requests"), list)
+        else []
+    )
+    if expected_top3:
+        actual_signatures = [
+            item
+            for item in (row.get("paper_request_signatures") if isinstance(row.get("paper_request_signatures"), list) else [])
+            if isinstance(item, dict)
+        ]
+        matched_ids: list[str] = []
+        missing_ids: list[str] = []
+        mismatch_keys: list[str] = []
+        for index, expected_request in enumerate(expected_top3, start=1):
+            if not isinstance(expected_request, dict):
+                continue
+            request_id = _same_parameter_request_id(expected_request, index)
+            expected_signature = _request_signature(expected_request)
+            matched = False
+            request_mismatch_keys: list[str] = []
+            for actual_signature in actual_signatures:
+                candidate_mismatches = _signature_mismatch_keys(actual_signature, expected_signature)
+                if not candidate_mismatches:
+                    matched = True
+                    break
+                request_mismatch_keys = request_mismatch_keys or candidate_mismatches
+            if matched:
+                matched_ids.append(request_id)
+            else:
+                missing_ids.append(request_id)
+                mismatch_keys.extend(request_mismatch_keys or ["missing_same_parameter_paper_receipt"])
+        row["same_parameter_paper_required_count"] = len(expected_top3)
+        row["same_parameter_paper_matched_count"] = len(matched_ids)
+        row["matched_same_parameter_paper_request_ids"] = matched_ids
+        row["missing_same_parameter_paper_request_ids"] = missing_ids
+        row["same_parameter_paper_ready"] = bool(expected_top3) and not missing_ids
+        if not paper_done or not matched_ids:
+            row["paper_request_match_status"] = "missing"
+        else:
+            row["paper_request_match_status"] = "matched" if not missing_ids else "partial"
+        row["paper_request_mismatch_keys"] = sorted(set(mismatch_keys))
+        return row
+
     expected = row.get("expected_paper_request_signature") if isinstance(row.get("expected_paper_request_signature"), dict) else {}
     latest = row.get("latest_paper_request_signature") if isinstance(row.get("latest_paper_request_signature"), dict) else {}
     if not paper_done:
@@ -480,6 +548,23 @@ def _daily_expected_paper_signature(entry: dict[str, Any]) -> dict[str, Any]:
         if isinstance(value, dict):
             return _request_signature(value)
     return {}
+
+
+def _daily_expected_same_parameter_requests(entry: dict[str, Any]) -> list[dict[str, Any]]:
+    request = entry.get("request", {}) if isinstance(entry.get("request"), dict) else {}
+    for key in ("same_parameter_top3_paper_requests", "same_parameter_paper_requests"):
+        value = request.get(key)
+        if isinstance(value, list):
+            return [item for item in value if isinstance(item, dict)]
+    return []
+
+
+def _same_parameter_request_id(request: dict[str, Any], index: int) -> str:
+    for key in ("same_parameter_request_id", "request_id", "case_id", "factor_name", "factor"):
+        value = str(request.get(key) or "").strip()
+        if value:
+            return value
+    return f"top3-paper-{index:03d}"
 
 
 def _request_signature(request: dict[str, Any]) -> dict[str, Any]:

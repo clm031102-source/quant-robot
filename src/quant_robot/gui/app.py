@@ -119,12 +119,22 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                     current_positions=_optional(query, "current_positions"),
                     evidence_snapshot=_optional(query, "evidence_snapshot"),
                 )
+                operation_request = dict(result.get("summary", {}) if isinstance(result.get("summary"), dict) else {})
+                same_parameter = (
+                    result.get("daily_same_parameter_paper_rehearsal")
+                    if isinstance(result.get("daily_same_parameter_paper_rehearsal"), dict)
+                    else {}
+                )
+                same_parameter_requests = same_parameter.get("recommended_requests") if isinstance(same_parameter.get("recommended_requests"), list) else []
+                if same_parameter_requests:
+                    operation_request["same_parameter_top3_paper_requests"] = same_parameter_requests
+                    operation_request["same_parameter_lock_id"] = same_parameter.get("lock_id") or operation_request.get("lock_id")
                 _record_operation(
                     workflow_id="daily_trade_advisory",
                     label="Generate top-three manual trade advisory",
                     status="completed",
                     command=f"GET {parsed.path}?{parsed.query}",
-                    request=result.get("summary", {}),
+                    request=operation_request,
                     result=result,
                 )
                 self._send_json(result)

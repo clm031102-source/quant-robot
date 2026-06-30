@@ -7425,6 +7425,72 @@ function sameParameterPaperRunPayload(item = {}) {
   }
 }
 
+function sameParameterPaperRequestId(request = {}, index = 0) {
+  return String(
+    request.same_parameter_request_id
+    || request.request_id
+    || request.case_id
+    || request.factor
+    || request.factor_name
+    || `top3-paper-${String(index + 1).padStart(3, "0")}`
+  );
+}
+
+function sameParameterPaperCompletion(requests = []) {
+  const paperReceipts = executionReceiptsForWorkflow("paper_simulation")
+    .filter((item) => item?.status === "completed");
+  const rows = requests.map((request, index) => {
+    const requestId = sameParameterPaperRequestId(request, index);
+    let bestMismatch = [];
+    const receipt = paperReceipts.find((item) => {
+      const match = paperReceiptMatchesRequest(item, request);
+      if (!match.matches && !bestMismatch.length) bestMismatch = match.mismatch_keys || [];
+      return match.matches;
+    });
+    const metrics = receipt?.metrics || {};
+    return {
+      request_id: requestId,
+      factor: request.factor || request.factor_name || "",
+      matched: Boolean(receipt),
+      tone: receipt ? "ok" : "warn",
+      receipt,
+      mismatch_keys: receipt ? [] : bestMismatch,
+      detail: receipt
+        ? `收益=${formatPercent(metrics.total_return)} / 回撤=${formatPercent(metrics.max_drawdown)} / 成交=${formatNumber(metrics.fill_count)}`
+        : `缺少同参数 paper 回执；先运行 ${requestId}`,
+    };
+  });
+  const matchedIds = rows.filter((item) => item.matched).map((item) => item.request_id);
+  const missingIds = rows.filter((item) => !item.matched).map((item) => item.request_id);
+  return {
+    all_top3_same_parameter_paper_ready: requests.length > 0 && missingIds.length === 0,
+    request_count: requests.length,
+    matched_request_count: matchedIds.length,
+    missing_request_count: missingIds.length,
+    matched_same_parameter_paper_request_ids: matchedIds,
+    missing_same_parameter_paper_request_ids: missingIds,
+    rows,
+  };
+}
+
+function renderSameParameterPaperCompletionRows(completion = {}) {
+  const ready = Boolean(completion.all_top3_same_parameter_paper_ready);
+  const tone = ready ? "ok" : "warn";
+  const rows = statusRows([
+    ["Top3 同参数完成度", `${formatNumber(completion.matched_request_count || 0)} / ${formatNumber(completion.request_count || 0)} 已匹配`, tone],
+    ["缺失请求", (completion.missing_same_parameter_paper_request_ids || []).join(" / ") || "无", ready ? "ok" : "warn"],
+    ["人工复核闸门", ready ? "3 条 Top3 同参数模拟盘都完成，才可以继续看人工票据" : "未完成全部 Top3 同参数模拟盘，不要进入人工票据复核", ready ? "ok" : "danger"],
+  ]);
+  const detailRows = Array.isArray(completion.rows) ? completion.rows : [];
+  return rows + detailRows.map((item) => `
+    <div class="list-row ${escapeHtml(item.tone || "warn")}">
+      <strong>${escapeHtml(`${item.request_id || "--"} / ${item.factor || "--"}`)}</strong>
+      <span>${escapeHtml(item.matched ? "同参数回执已匹配" : "缺同参数回执")}</span>
+      <span>${escapeHtml(item.detail || "")}</span>
+    </div>
+  `).join("");
+}
+
 function renderDailySameParameterPaperRehearsal(rehearsal = {}) {
   const summaryTarget = byId("daily-same-parameter-paper-summary");
   const requestTarget = byId("daily-same-parameter-paper-requests");
@@ -7439,6 +7505,7 @@ function renderDailySameParameterPaperRehearsal(rehearsal = {}) {
   const combined = Array.isArray(rehearsal.combined_target_manifest) ? rehearsal.combined_target_manifest : [];
   const steps = Array.isArray(rehearsal.operator_steps) ? rehearsal.operator_steps : [];
   const lockRules = Array.isArray(rehearsal.lock_rules) ? rehearsal.lock_rules : [];
+  const completion = sameParameterPaperCompletion(requests);
 
   summaryTarget.innerHTML = statusRows([
     ["同参数状态", `${summary.traffic_light || "yellow"} / ${zhConsoleText(status)}`, tone],
@@ -7447,7 +7514,7 @@ function renderDailySameParameterPaperRehearsal(rehearsal = {}) {
     ["信号日期", `as_of=${summary.signal_as_of_date || "--"} / market=${summary.primary_market || "CN_ETF"} / risk=${summary.risk_profile_id || "--"}`, summary.signal_as_of_date ? "ok" : "danger"],
     ["请求数量", `requests=${formatNumber(summary.request_count || 0)} / targets=${formatNumber(summary.combined_target_count || 0)} / allocations=${formatNumber(summary.allocation_row_count || 0)}`, summary.request_count ? "ok" : "danger"],
     ["权限边界", summary.order_placement_allowed || summary.broker_connection_allowed ? "异常：权限边界被打开" : "不连券商、不读账户、不自动下单", summary.order_placement_allowed || summary.broker_connection_allowed ? "danger" : "ok"],
-  ]);
+  ]) + renderSameParameterPaperCompletionRows(completion);
 
   requestTarget.innerHTML = requests.length ? requests.map((item) => `
     <div class="list-row ${escapeHtml(dailySameParameterPaperTone(status))}">
@@ -7802,6 +7869,8 @@ function paperReceiptMatchesRequest(receipt = {}, request = {}) {
     ["max_market_weight", normalizeReceiptNumber(receiptRequest.max_market_weight), normalizeReceiptNumber(request.max_market_weight)],
     ["max_gross_exposure", normalizeReceiptNumber(receiptRequest.max_gross_exposure), normalizeReceiptNumber(request.max_gross_exposure)],
     ["min_cash_weight", normalizeReceiptNumber(receiptRequest.min_cash_weight), normalizeReceiptNumber(request.min_cash_weight)],
+    ["same_parameter_lock_id", normalizeReceiptText(receiptRequest.same_parameter_lock_id), normalizeReceiptText(request.same_parameter_lock_id || request.lock_id)],
+    ["same_parameter_request_id", normalizeReceiptText(receiptRequest.same_parameter_request_id || receiptRequest.request_id), normalizeReceiptText(request.same_parameter_request_id || request.request_id)],
   ].filter((item) => item[2] !== "");
   const mismatchKeys = comparisons
     .filter((item) => item[1] === "" || item[1] !== item[2])
@@ -11382,6 +11451,10 @@ function dailyTradeAdvisoryReceipt(result = {}) {
   const readiness = result.pretrade_readiness || {};
   const handoff = result.manual_broker_handoff || {};
   const firstAction = Array.isArray(result.operator_next_actions) ? result.operator_next_actions[0] || {} : {};
+  const sameParameter = result.daily_same_parameter_paper_rehearsal || {};
+  const sameParameterRequests = Array.isArray(sameParameter.recommended_requests)
+    ? sameParameter.recommended_requests
+    : [];
   return {
     workflow_id: "daily_trade_advisory",
     label: "Daily trade advisory receipt",
@@ -11393,6 +11466,8 @@ function dailyTradeAdvisoryReceipt(result = {}) {
       risk_profile_id: summary.risk_profile_id,
       applied_max_gross_exposure: summary.applied_max_gross_exposure,
       paper_request_signature: dailyPaperRequestSignature(result),
+      same_parameter_lock_id: sameParameter.lock_id || summary.lock_id,
+      same_parameter_top3_paper_requests: sameParameterRequests,
     },
     metrics: {
       selected_factor_count: summary.selected_factor_count,

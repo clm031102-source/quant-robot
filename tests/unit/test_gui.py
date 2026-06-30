@@ -476,6 +476,10 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("sameParameterPaperRequestFromButton", app_js)
         self.assertIn("applySameParameterPaperToForm", app_js)
         self.assertIn("runSameParameterPaperSimulation", app_js)
+        self.assertIn("sameParameterPaperCompletion", app_js)
+        self.assertIn("renderSameParameterPaperCompletionRows", app_js)
+        self.assertIn("all_top3_same_parameter_paper_ready", app_js)
+        self.assertIn("missing_same_parameter_paper_request_ids", app_js)
         self.assertIn("same_parameter_lock_id", app_js)
         self.assertIn("same_parameter_request_id", app_js)
         self.assertIn("function todayIsoDate", app_js)
@@ -1661,6 +1665,99 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertTrue(ledger["rows"][0]["post_close_journal_ready"])
         self.assertTrue(ledger["rows"][0]["manual_execution_clean"])
         self.assertTrue(ledger["rows"][0]["completed_loop"])
+
+    def test_daily_closure_ledger_requires_all_top3_same_parameter_paper_receipts(self):
+        from quant_robot.gui.control_center import build_control_center_snapshot
+        from quant_robot.gui.operation_ledger import append_operation_ledger_entry
+
+        def paper_request(index: int, factor: str) -> dict[str, object]:
+            return {
+                "request_id": f"top3-paper-00{index}",
+                "same_parameter_request_id": f"top3-paper-00{index}",
+                "same_parameter_lock_id": "lock_top3_001",
+                "market": "CN_ETF",
+                "factor": factor,
+                "factor_name": factor,
+                "factor_windows": "2",
+                "top_n": 2,
+                "rebalance_interval": 1,
+                "as_of_date": "2026-06-30",
+                "run_date": "2026-06-30",
+                "initial_cash": 100000.0,
+                "commission_bps": 5.0,
+                "slippage_bps": 5.0,
+                "max_asset_weight": 0.3,
+                "max_market_weight": 1.0,
+                "max_gross_exposure": 0.6,
+                "min_cash_weight": 0.4,
+            }
+
+        top3_requests = [
+            paper_request(1, "momentum_2"),
+            paper_request(2, "reversal_5"),
+            paper_request(3, "liquidity_20"),
+        ]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="daily_trade_advisory",
+                label="Generate top-three manual trade advisory",
+                status="completed",
+                request={
+                    "market": "CN_ETF",
+                    "as_of_date": "2026-06-30",
+                    "signal_count": 3,
+                    "selected_factor_count": 3,
+                    "same_parameter_lock_id": "lock_top3_001",
+                    "same_parameter_top3_paper_requests": top3_requests,
+                },
+                result={"stage": "phase_daily_trade_advisory", "metrics": {"signal_count": 3}},
+            )
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="paper_simulation",
+                label="Run local paper simulation",
+                status="completed",
+                request=top3_requests[0],
+                result={"stage": "gui_paper_simulation", "metrics": {"total_return": 0.12, "max_drawdown": -0.18}},
+            )
+
+            partial = build_control_center_snapshot(repo_root=root)["daily_closure_ledger"]["rows"][0]
+
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="paper_simulation",
+                label="Run local paper simulation",
+                status="completed",
+                request=top3_requests[1],
+                result={"stage": "gui_paper_simulation", "metrics": {"total_return": 0.05, "max_drawdown": -0.08}},
+            )
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="paper_simulation",
+                label="Run local paper simulation",
+                status="completed",
+                request=top3_requests[2],
+                result={"stage": "gui_paper_simulation", "metrics": {"total_return": 0.03, "max_drawdown": -0.06}},
+            )
+
+            complete = build_control_center_snapshot(repo_root=root)["daily_closure_ledger"]["rows"][0]
+
+        self.assertFalse(partial["same_parameter_paper_ready"])
+        self.assertEqual(partial["paper_request_match_status"], "partial")
+        self.assertEqual(partial["same_parameter_paper_required_count"], 3)
+        self.assertEqual(partial["same_parameter_paper_matched_count"], 1)
+        self.assertEqual(partial["matched_same_parameter_paper_request_ids"], ["top3-paper-001"])
+        self.assertEqual(
+            partial["missing_same_parameter_paper_request_ids"],
+            ["top3-paper-002", "top3-paper-003"],
+        )
+        self.assertTrue(complete["same_parameter_paper_ready"])
+        self.assertEqual(complete["paper_request_match_status"], "matched")
+        self.assertEqual(complete["same_parameter_paper_matched_count"], 3)
+        self.assertEqual(complete["missing_same_parameter_paper_request_ids"], [])
 
     def test_daily_closure_ledger_blocks_mismatched_same_parameter_paper_receipt(self):
         from quant_robot.gui.control_center import build_control_center_snapshot
