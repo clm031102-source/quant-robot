@@ -216,6 +216,35 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertEqual(calls[0]["initial_page"], "daily")
         self.assertEqual(calls[0]["initial_target_id"], "daily-pretrade-beginner-cards")
 
+    def test_desktop_shortcut_installer_writes_beginner_workflow_launchers(self):
+        from scripts.install_quant_robot_desktop_shortcuts import (
+            DEFAULT_DESKTOP_SHORTCUTS,
+            install_desktop_shortcuts,
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp) / "Desktop"
+            result = install_desktop_shortcuts(
+                output_dir=output_dir,
+                repo_root=Path("F:/lhjqr"),
+            )
+
+            written = {Path(item["path"]).name: Path(item["path"]).read_text(encoding="utf-8") for item in result["shortcuts"]}
+
+        self.assertEqual(result["stage"], "desktop_shortcut_install")
+        self.assertFalse(result["safety"]["broker_connection_allowed"])
+        self.assertFalse(result["safety"]["account_read_allowed"])
+        self.assertFalse(result["safety"]["order_placement_allowed"])
+        self.assertEqual(len(result["shortcuts"]), len(DEFAULT_DESKTOP_SHORTCUTS))
+        self.assertIn("量化机器人-今日交易检查.bat", written)
+        self.assertIn("量化机器人-因子排行榜.bat", written)
+        self.assertIn("量化机器人-日志报告.bat", written)
+        self.assertIn("python scripts\\run_desktop_app.py --page daily --target-id daily-pretrade-beginner-cards", written["量化机器人-今日交易检查.bat"])
+        self.assertIn("python scripts\\run_desktop_app.py --page dashboard --target-id factor-leaderboard-table", written["量化机器人-因子排行榜.bat"])
+        self.assertIn("research-to-paper only", written["量化机器人-日志报告.bat"])
+        self.assertNotIn("broker", written["量化机器人-今日交易检查.bat"].lower().replace("no broker", ""))
+        self.assertNotIn("TUSHARE_TOKEN", "\n".join(written.values()))
+
 
 class GuiSnapshotTests(unittest.TestCase):
     def test_snapshot_marks_demo_data_and_includes_required_sections(self):
