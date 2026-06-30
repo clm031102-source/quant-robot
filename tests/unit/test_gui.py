@@ -163,6 +163,10 @@ class GuiDesktopAppTests(unittest.TestCase):
             controller.url_for_page("dashboard", "factor-leaderboard-table"),
             "http://127.0.0.1:9002/#dashboard:factor-leaderboard-table",
         )
+        self.assertEqual(
+            controller.url_for_page("daily", "daily-real-world-handoff-gate"),
+            "http://127.0.0.1:9002/#daily:daily-real-world-handoff-gate",
+        )
         self.assertEqual(controller.url_for_page("unknown"), "http://127.0.0.1:9002/")
         controller.stop()
 
@@ -191,7 +195,7 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertEqual(rows[0]["row_id"], "today_action")
         self.assertIn("ordinary-daily-action-card", rows_by_id["today_action"]["target"])
         self.assertIn("今天先做哪一步", rows_by_id["today_action"]["detail"])
-        self.assertIn("daily-pretrade-beginner-cards", rows_by_id["daily_check"]["target"])
+        self.assertIn("daily-real-world-handoff-gate", rows_by_id["daily_check"]["target"])
         self.assertIn("Sharpe", rows_by_id["factor_leaderboard"]["detail"])
         self.assertIn("不会连接券商", rows_by_id["safety_boundary"]["detail"])
         self.assertFalse(rows_by_id["safety_boundary"]["broker_connection_allowed"])
@@ -206,7 +210,7 @@ class GuiDesktopAppTests(unittest.TestCase):
                 status="running",
                 host=str(kwargs["host"]),
                 port=int(kwargs["port"]),
-                url="http://127.0.0.1:9100/#daily:daily-pretrade-beginner-cards",
+                url="http://127.0.0.1:9100/#daily:daily-real-world-handoff-gate",
                 message="started",
             )
 
@@ -219,7 +223,7 @@ class GuiDesktopAppTests(unittest.TestCase):
                 "--page",
                 "daily",
                 "--target-id",
-                "daily-pretrade-beginner-cards",
+                "daily-real-world-handoff-gate",
             ],
             runner=fake_runner,
         )
@@ -229,7 +233,7 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertEqual(calls[0]["port"], 9100)
         self.assertEqual(calls[0]["open_on_start"], True)
         self.assertEqual(calls[0]["initial_page"], "daily")
-        self.assertEqual(calls[0]["initial_target_id"], "daily-pretrade-beginner-cards")
+        self.assertEqual(calls[0]["initial_target_id"], "daily-real-world-handoff-gate")
 
     def test_desktop_cli_defaults_to_today_action_card(self):
         calls: list[dict[str, object]] = []
@@ -292,7 +296,7 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("量化机器人-今日交易检查.bat", written)
         self.assertIn("量化机器人-因子排行榜.bat", written)
         self.assertIn("量化机器人-日志报告.bat", written)
-        self.assertIn("python scripts\\run_desktop_app.py --page daily --target-id daily-pretrade-beginner-cards", written["量化机器人-今日交易检查.bat"])
+        self.assertIn("python scripts\\run_desktop_app.py --page daily --target-id daily-real-world-handoff-gate", written["量化机器人-今日交易检查.bat"])
         self.assertIn("python scripts\\run_desktop_app.py --page dashboard --target-id factor-leaderboard-table", written["量化机器人-因子排行榜.bat"])
         self.assertIn("research-to-paper only", written["量化机器人-日志报告.bat"])
         self.assertNotIn("broker", written["量化机器人-今日交易检查.bat"].lower().replace("no broker", ""))
@@ -2451,6 +2455,8 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("activatePageFromHash", app_js)
             self.assertIn("targetIdFromHash", app_js)
             self.assertIn("window.location.hash", app_js)
+            self.assertIn("updateHashForBeginnerTarget", app_js)
+            self.assertIn("#${pageName}:${targetId}", app_js)
             self.assertIn("hashchange", app_js)
             self.assertIn("jumpToBeginnerTarget(targetIdFromHash", app_js)
             self.assertIn("renderDailyPretradeReadiness", app_js)

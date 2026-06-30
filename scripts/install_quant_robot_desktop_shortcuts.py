@@ -12,7 +12,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 
 ensure_workspace_imports()
 
-from quant_robot.gui.desktop_app import desktop_beginner_status_rows
+from quant_robot.gui.desktop_app import DEFAULT_DAILY_TARGET_ID, desktop_beginner_status_rows
 
 
 @dataclass(frozen=True)
@@ -34,7 +34,7 @@ DEFAULT_DESKTOP_SHORTCUTS = (
         shortcut_id="daily_pretrade_check",
         filename="量化机器人-今日交易检查.bat",
         page="daily",
-        target_id="daily-pretrade-beginner-cards",
+        target_id=DEFAULT_DAILY_TARGET_ID,
     ),
     DesktopShortcutSpec(
         shortcut_id="factor_leaderboard",

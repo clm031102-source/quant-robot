@@ -26,6 +26,7 @@ DESKTOP_APP_COPY = {
 }
 DEFAULT_INITIAL_PAGE = "dashboard"
 DEFAULT_INITIAL_TARGET_ID = "ordinary-daily-action-card"
+DEFAULT_DAILY_TARGET_ID = "daily-real-world-handoff-gate"
 DESKTOP_BEGINNER_STATUS_ROWS = (
     {
         "row_id": "today_action",
@@ -41,7 +42,7 @@ DESKTOP_BEGINNER_STATUS_ROWS = (
         "label": "交易前",
         "detail": "再看今日交易检查，确认盘前红灯、目标仓位、人工票据和交易包完整度。",
         "page": "daily",
-        "target": "daily-pretrade-beginner-cards",
+        "target": DEFAULT_DAILY_TARGET_ID,
         "broker_connection_allowed": False,
         "order_placement_allowed": False,
     },
@@ -260,7 +261,7 @@ def run_desktop_app(
     quick_buttons = ttk.Frame(frame)
     quick_buttons.pack(anchor="w", pady=(12, 0))
     ttk.Button(quick_buttons, text=DESKTOP_APP_COPY["today_action_button"], command=lambda: open_section("dashboard", DEFAULT_INITIAL_TARGET_ID)).pack(side="left")
-    ttk.Button(quick_buttons, text=DESKTOP_APP_COPY["daily_button"], command=lambda: open_section("daily")).pack(side="left", padx=(10, 0))
+    ttk.Button(quick_buttons, text=DESKTOP_APP_COPY["daily_button"], command=lambda: open_section("daily", DEFAULT_DAILY_TARGET_ID)).pack(side="left", padx=(10, 0))
     ttk.Button(quick_buttons, text=DESKTOP_APP_COPY["leaderboard_button"], command=lambda: open_section("dashboard", "factor-leaderboard-table")).pack(side="left", padx=(10, 0))
     ttk.Button(quick_buttons, text=DESKTOP_APP_COPY["logs_button"], command=lambda: open_section("logs")).pack(side="left", padx=(10, 0))
 

@@ -333,6 +333,12 @@ function activatePage(page, updateHash = false) {
   document.querySelector(".workspace")?.scrollTo({ top: 0, behavior: "smooth" });
 }
 
+function updateHashForBeginnerTarget(pageName, targetId) {
+  if (!PAGE_IDS.has(pageName) || !/^[A-Za-z0-9_-]+$/.test(targetId || "")) return;
+  const nextHash = `#${pageName}:${targetId}`;
+  if (window.location.hash !== nextHash) window.history.replaceState(null, "", nextHash);
+}
+
 function bindActions() {
   byId("run-startup-workflows").addEventListener("click", runStartupWorkflows);
   byId("run-research").addEventListener("click", runResearch);
@@ -4882,6 +4888,7 @@ function jumpToBeginnerTarget(targetId, leaderboardTab = "") {
     const pageName = page.id.replace("page-", "");
     const nav = document.querySelector(`.nav-item[data-page="${pageName}"]`);
     if (nav && !page.classList.contains("active-page")) nav.click();
+    updateHashForBeginnerTarget(pageName, targetId);
   }
   const workspace = document.querySelector(".workspace");
   const workspaceOverflowY = workspace ? getComputedStyle(workspace).overflowY : "";
