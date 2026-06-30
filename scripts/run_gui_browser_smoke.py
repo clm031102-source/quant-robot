@@ -120,6 +120,9 @@ def run_gui_browser_smoke(
             and "buildSignalParams" in str(app_js.get("body", ""))
             and "buildPaperParams" in str(app_js.get("body", ""))
             and "renderResultFreshness" in str(app_js.get("body", ""))
+            and "todayIsoDate" in str(app_js.get("body", ""))
+            and "applyDailyTradeDateDefault" in str(app_js.get("body", ""))
+            and "staleDailyDateDefaults" in str(app_js.get("body", ""))
             and "renderLedgerEvidence" in str(app_js.get("body", ""))
             and "requestMatchesCurrentParams" in str(app_js.get("body", ""))
             and "beginActiveOperation" in str(app_js.get("body", ""))
@@ -132,7 +135,7 @@ def run_gui_browser_smoke(
             and "renderVerificationRunner" in str(app_js.get("body", ""))
             and "runVerificationGate" in str(app_js.get("body", ""))
             and "/api/control/verification?gate_id=" in str(app_js.get("body", "")),
-            "Frontend script includes control-center, active-operation, startup-health, backtest-provenance, backtest-gate, workflow-trace, result-evidence, audit-feedback, audit-iteration, audit-scheduler, and verification-runner hooks.",
+            "Frontend script includes control-center, active-operation, startup-health, backtest-provenance, backtest-gate, workflow-trace, daily trade date freshness defaults, result-evidence, audit-feedback, audit-iteration, audit-scheduler, and verification-runner hooks.",
             app_js.get("error") or "Frontend script is missing required renderer hooks.",
         )
     )

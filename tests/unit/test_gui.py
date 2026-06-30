@@ -404,6 +404,11 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("daily-real-money-transition-tickets", html)
         self.assertIn("renderDailyRealMoneyTransitionGate", app_js)
         self.assertIn("daily_real_money_transition_gate", app_js)
+        self.assertIn("function todayIsoDate", app_js)
+        self.assertIn("function applyDailyTradeDateDefault", app_js)
+        self.assertIn("staleDailyDateDefaults", app_js)
+        self.assertIn("setValue(\"daily-trade-as-of\", today)", app_js)
+        self.assertIn("setValue(\"signal-as-of\", today)", app_js)
 
 
 class GuiSnapshotTests(unittest.TestCase):
@@ -2873,6 +2878,11 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("aggressive_30dd", app_js)
             self.assertIn("risk_profile_id: valueOf(\"daily-trade-risk-profile\")", app_js)
             self.assertIn("current_positions: valueOf(\"daily-current-positions\")", app_js)
+            self.assertIn("function todayIsoDate", app_js)
+            self.assertIn("function applyDailyTradeDateDefault", app_js)
+            self.assertIn("staleDailyDateDefaults", app_js)
+            self.assertIn("setValue(\"daily-trade-as-of\", today)", app_js)
+            self.assertIn("setValue(\"signal-as-of\", today)", app_js)
             self.assertIn("renderDailyPortfolioValueHelp", app_js)
             self.assertIn("portfolioValueInputState", app_js)
             self.assertIn("daily-portfolio-value-help", app_js)

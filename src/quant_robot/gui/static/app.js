@@ -1381,6 +1381,7 @@ function applyControlDefaults() {
   setValue("paper-drawdown-guard", paper.max_drawdown_guard ?? "");
   setValue("paper-guard-cooldown", paper.guard_cooldown_periods ?? "");
 
+  applyDailyTradeDateDefault();
   renderRequestPreview();
 }
 
@@ -1593,6 +1594,7 @@ function applySourcePreset(force) {
   setValue("paper-market-select", valueOf("market-select") || preset.market);
   setFactorValue("factor-select", preset.factor);
   setFactorValue("paper-factor-select", preset.factor);
+  applyDailyTradeDateDefault(true);
   byId("data-mode-label").textContent = source;
   byId("mode-pill").textContent = `${zhConsoleText(source)} / 本地`;
   renderRequestPreview();
@@ -11260,6 +11262,36 @@ function valueOf(id) {
 function setValue(id, value) {
   const element = byId(id);
   if (element) element.value = value;
+}
+
+function todayIsoDate() {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
+function staleDailyDateDefaults() {
+  return new Set([
+    sourcePresets["processed-bars"]?.signalDate,
+    sourcePresets["processed-bars"]?.endDate,
+    sourcePresets.demo_fixture?.signalDate,
+    sourcePresets.demo_fixture?.endDate,
+    "2026-05-21",
+    "2024-01-13",
+  ].filter(Boolean));
+}
+
+function applyDailyTradeDateDefault(force = false) {
+  const today = todayIsoDate();
+  const staleDefaults = staleDailyDateDefaults();
+  const dailyValue = valueOf("daily-trade-as-of");
+  const signalValue = valueOf("signal-as-of");
+  if (force || !dailyValue || staleDefaults.has(dailyValue)) {
+    setValue("daily-trade-as-of", today);
+  }
+  if (force || !signalValue || staleDefaults.has(signalValue)) {
+    setValue("signal-as-of", today);
+  }
 }
 
 function formatCell(value) {
