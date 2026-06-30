@@ -17,6 +17,7 @@ from quant_robot.paper.simulator import PaperSimulationConfig, run_paper_simulat
 from quant_robot.portfolio.rebalance import build_rebalance_plan
 from quant_robot.ops.evidence_refresh import build_evidence_refresh_plan
 from quant_robot.ops.daily_trade_advisory import (
+    build_daily_candidate_pool_top20,
     build_daily_trade_advisory_pack,
     select_daily_top_factor_candidates,
 )
@@ -461,10 +462,25 @@ def build_daily_trade_advisory_snapshot(
         limit=limit,
         primary_market=market.upper(),
     )
+    candidate_pool_top20 = build_daily_candidate_pool_top20(
+        leaderboard,
+        selected_candidates=candidates,
+        runnable_factor_names=runnable_factors,
+        limit=20,
+        primary_market=market.upper(),
+    )
     fallback_used = False
     if not candidates:
         fallback_used = True
         candidates = _runtime_daily_trade_candidates(runnable_factors, market=market.upper(), limit=limit)
+        candidate_pool_top20 = build_daily_candidate_pool_top20(
+            {"leaderboards": {"primary_cn_etf": {"rows": candidates}}},
+            selected_candidates=candidates,
+            runnable_factor_names=runnable_factors,
+            limit=20,
+            primary_market=market.upper(),
+        )
+        candidate_pool_top20["summary"]["fallback_used"] = True
 
     signals, signal_errors = _daily_trade_signal_snapshots(
         candidates,
@@ -488,6 +504,7 @@ def build_daily_trade_advisory_snapshot(
         risk_profile_id=risk_profile_id,
         current_positions=_parse_current_positions_input(current_positions),
         evidence_snapshot=_parse_evidence_snapshot_input(evidence_snapshot),
+        candidate_pool_top20=candidate_pool_top20,
     )
     pack["selected_candidates"] = candidates
     pack["leaderboard_summary"] = leaderboard.get("summary", {})

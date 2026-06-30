@@ -504,6 +504,10 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("live_profitability_readiness", snapshot)
         self.assertIn("daily_factor_health_monitor", snapshot)
         self.assertIn("daily_real_money_transition_gate", snapshot)
+        self.assertIn("candidate_pool_top20", snapshot)
+        self.assertEqual(snapshot["candidate_pool_top20"]["stage"], "phase_6_22_daily_candidate_pool_top20")
+        self.assertIn("rows", snapshot["candidate_pool_top20"])
+        self.assertFalse(snapshot["candidate_pool_top20"]["summary"]["direct_buy_from_leaderboard_allowed"])
         self.assertEqual(snapshot["selected_candidates"], snapshot["factors"])
         self.assertEqual(snapshot["pretrade_workflow"]["stage"], "phase_6_1_daily_pretrade_workflow")
         self.assertFalse(snapshot["pretrade_workflow"]["summary"]["live_order_allowed"])
@@ -612,6 +616,12 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertEqual(snapshot["daily_trade_decision_sheet"]["stage"], "phase_6_14_daily_trade_decision_sheet")
         self.assertFalse(snapshot["daily_trade_decision_sheet"]["summary"]["order_placement_allowed"])
         self.assertIn("daily_top3", snapshot["daily_trade_decision_sheet"])
+        self.assertIn("candidate_pool_top20", snapshot["daily_trade_decision_sheet"])
+        self.assertFalse(
+            snapshot["daily_trade_decision_sheet"]["candidate_pool_top20"]["summary"][
+                "direct_buy_from_leaderboard_allowed"
+            ]
+        )
         self.assertEqual(len(snapshot["pretrade_workflow"]["steps"]), 5)
         self.assertGreaterEqual(len(snapshot["operator_next_actions"]), 1)
         self.assertEqual(snapshot["operator_next_actions"][0]["automation_allowed"], False)
@@ -2610,6 +2620,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("daily-trade-decision-sheet", html)
             self.assertIn("daily-trade-decision-summary", html)
             self.assertIn("daily-trade-decision-top3", html)
+            self.assertIn("daily-trade-decision-candidate-pool", html)
             self.assertIn("daily-trade-decision-actions", html)
             self.assertIn("daily-trade-decision-evidence", html)
             self.assertIn("daily-trade-package-checklist", html)
@@ -2699,6 +2710,10 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("paper_rehearsal_required", app_js)
             self.assertIn("dailyTradeDecisionRuntimeState", app_js)
             self.assertIn("dailyTradeDecisionNextAction", app_js)
+            self.assertIn("renderDailyCandidatePoolTop20", app_js)
+            self.assertIn("candidate_pool_top20", app_js)
+            self.assertIn("selection_status", app_js)
+            self.assertIn("direct_buy_from_leaderboard_allowed", app_js)
             self.assertIn("completedEvidenceCount", app_js)
             self.assertIn("missingEvidenceCount", app_js)
             self.assertIn("renderDailyTradeDecisionSheet(state.dailyTradeAdvisory?.daily_trade_decision_sheet || {})", app_js)

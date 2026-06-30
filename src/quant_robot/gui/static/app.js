@@ -5996,11 +5996,12 @@ function renderDailyTradeDecisionSheet(sheet = {}) {
   const root = byId("daily-trade-decision-sheet");
   const summaryTarget = byId("daily-trade-decision-summary");
   const top3Target = byId("daily-trade-decision-top3");
+  const candidatePoolTarget = byId("daily-trade-decision-candidate-pool");
   const actionTarget = byId("daily-trade-decision-actions");
   const evidenceTarget = byId("daily-trade-decision-evidence");
   const systemTarget = byId("daily-trade-system-state");
   const packageTarget = byId("daily-trade-package-checklist");
-  if (!root || !summaryTarget || !systemTarget || !packageTarget || !top3Target || !actionTarget || !evidenceTarget) return;
+  if (!root || !summaryTarget || !systemTarget || !packageTarget || !top3Target || !candidatePoolTarget || !actionTarget || !evidenceTarget) return;
   const summary = sheet.summary || {};
   const next = sheet.what_to_do_now || {};
   const decision = summary.decision || "waiting_for_daily_signal";
@@ -6030,6 +6031,8 @@ function renderDailyTradeDecisionSheet(sheet = {}) {
     </div>
   `).join("") : statusRows([["Top3 因子", "暂无今日候选。先生成今日前三 CN_ETF 建议。", "warn"]]);
 
+  renderDailyCandidatePoolTop20(sheet.candidate_pool_top20 || {}, candidatePoolTarget);
+
   const actions = Array.isArray(sheet.today_actions) ? sheet.today_actions : [];
   actionTarget.innerHTML = actions.length ? actions.map((item) => `
     <div class="list-row warn">
@@ -6055,6 +6058,48 @@ function renderDailyTradeDecisionSheet(sheet = {}) {
       </div>
     `;
   }).join("") : statusRows([["缺失证据", "暂无结构化缺失项；仍需人工确认模拟盘、风险、现金和券商端实时价格。", "warn"]]);
+}
+
+function renderDailyCandidatePoolTop20(pool = {}, target) {
+  if (!target) return;
+  const summary = pool.summary || {};
+  const rows = Array.isArray(pool.rows) ? pool.rows.slice(0, 20) : [];
+  const displayRows = rows.map((row) => ({
+    "排名": row.rank ?? "--",
+    "因子 / 参数": `${row.factor_name || "--"} / ${dailyCandidatePoolParamsText(row.params || {})}`,
+    "状态": zhConsoleText(row.selection_status || "--"),
+    "为什么": row.selection_reason || row.advisory_eligibility_reason || "--",
+    "核心数据": `Sharpe=${formatDecimal(row.sharpe)} / 年化=${formatPercent(row.annualized_return)} / 回撤=${formatPercent(row.max_drawdown)} / 胜率=${formatPercent(row.win_rate)} / RankIC=${formatDecimal(row.rank_ic)}`,
+    "可运行": row.runnable_today ? "是" : "否",
+    "可直买": row.direct_buy_allowed || summary.direct_buy_from_leaderboard_allowed ? "异常允许" : "不允许",
+  }));
+  const emptyRow = {
+    "排名": "--",
+    "因子 / 参数": "暂无候选池",
+    "状态": "等待生成今日建议",
+    "为什么": summary.plain_rule || "先生成今日前三建议，再查看 Top20 候选池。",
+    "核心数据": "--",
+    "可运行": "--",
+    "可直买": "不允许",
+  };
+  target.innerHTML = tableRows(displayRows.length ? displayRows : [emptyRow], [
+    "排名",
+    "因子 / 参数",
+    "状态",
+    "为什么",
+    "核心数据",
+    "可运行",
+    "可直买",
+  ]);
+}
+
+function dailyCandidatePoolParamsText(params = {}) {
+  if (!params || typeof params !== "object" || Array.isArray(params)) return "--";
+  const entries = Object.entries(params)
+    .filter(([key, value]) => key && value !== undefined && value !== null && String(value) !== "")
+    .slice(0, 8)
+    .map(([key, value]) => `${key}=${Array.isArray(value) ? value.join("/") : value}`);
+  return entries.length ? entries.join(", ") : "--";
 }
 
 function renderDailySignalExecutionBridge(bridge = {}) {

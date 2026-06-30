@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from quant_robot.ops.daily_trade_advisory import (
+    build_daily_candidate_pool_top20,
     build_daily_trade_decision_sheet,
     build_manual_ticket_export,
     build_daily_trade_advisory_pack,
@@ -14,6 +15,98 @@ from quant_robot.ops.daily_trade_advisory import (
 
 
 class DailyTradeAdvisoryTests(unittest.TestCase):
+    def test_daily_candidate_pool_top20_keeps_rank_context_and_marks_top3(self):
+        leaderboard = {
+            "leaderboards": {
+                "primary_cn_etf": {
+                    "rows": [
+                        {
+                            "rank": 1,
+                            "case_id": "c1",
+                            "factor_name": "momentum_2",
+                            "market": "CN_ETF",
+                            "status": "paper_ready",
+                            "sharpe": 1.4,
+                            "annualized_return": 0.21,
+                            "params": {"top_n": 2, "cost_bps": 5},
+                        },
+                        {
+                            "rank": 2,
+                            "case_id": "blocked",
+                            "factor_name": "reversal_2",
+                            "market": "CN_ETF",
+                            "status": "rejected",
+                            "sharpe": 2.8,
+                        },
+                        {
+                            "rank": 3,
+                            "case_id": "not_runnable",
+                            "factor_name": "private_factor_x",
+                            "market": "CN_ETF",
+                            "status": "accepted",
+                            "sharpe": 1.2,
+                        },
+                        {
+                            "rank": 4,
+                            "case_id": "c4",
+                            "factor_name": "liquidity_2",
+                            "market": "CN_ETF",
+                            "status": "manual_live_review",
+                            "sharpe": 1.1,
+                        },
+                        {
+                            "rank": 5,
+                            "case_id": "duplicate_factor",
+                            "factor_name": "momentum_2",
+                            "market": "CN_ETF",
+                            "status": "accepted",
+                            "sharpe": 1.0,
+                        },
+                        {
+                            "rank": 6,
+                            "case_id": "eligible_not_selected",
+                            "factor_name": "volume_change_2",
+                            "market": "CN_ETF",
+                            "status": "accepted",
+                            "sharpe": 0.9,
+                        },
+                        {
+                            "rank": 7,
+                            "case_id": "cn_stock_aux",
+                            "factor_name": "stock_factor",
+                            "market": "CN",
+                            "status": "accepted",
+                            "sharpe": 3.0,
+                        },
+                    ]
+                }
+            }
+        }
+        runnable = {"momentum_2", "reversal_2", "liquidity_2", "volume_change_2"}
+        selected = select_daily_top_factor_candidates(leaderboard, runnable_factor_names=runnable, limit=2)
+
+        pool = build_daily_candidate_pool_top20(
+            leaderboard,
+            selected_candidates=selected,
+            runnable_factor_names=runnable,
+            limit=20,
+        )
+
+        self.assertEqual(pool["stage"], "phase_6_22_daily_candidate_pool_top20")
+        self.assertEqual(pool["summary"]["primary_market"], "CN_ETF")
+        self.assertEqual(pool["summary"]["row_count"], 6)
+        self.assertEqual(pool["summary"]["selected_top3_count"], 2)
+        self.assertFalse(pool["summary"]["direct_buy_from_leaderboard_allowed"])
+        rows_by_case = {row["case_id"]: row for row in pool["rows"]}
+        self.assertEqual(rows_by_case["c1"]["selection_status"], "selected_top3")
+        self.assertEqual(rows_by_case["c1"]["params"], {"top_n": 2, "cost_bps": 5})
+        self.assertEqual(rows_by_case["blocked"]["selection_status"], "blocked")
+        self.assertEqual(rows_by_case["not_runnable"]["selection_status"], "not_runnable")
+        self.assertEqual(rows_by_case["duplicate_factor"]["selection_status"], "duplicate_factor_name_not_selected")
+        self.assertEqual(rows_by_case["eligible_not_selected"]["selection_status"], "eligible_not_selected")
+        self.assertTrue(all(row["market"] == "CN_ETF" for row in pool["rows"]))
+        self.assertNotIn("cn_stock_aux", rows_by_case)
+
     def test_selects_top_three_signalable_cn_etf_candidates(self):
         leaderboard = {
             "leaderboards": {
@@ -443,11 +536,47 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
             self.assertNotIn(forbidden, export["columns"])
 
     def test_daily_trade_decision_sheet_summarizes_today_actions_without_orders(self):
+        candidate_pool_top20 = {
+            "stage": "phase_6_22_daily_candidate_pool_top20",
+            "summary": {
+                "primary_market": "CN_ETF",
+                "row_count": 2,
+                "selected_top3_count": 1,
+                "direct_buy_from_leaderboard_allowed": False,
+            },
+            "rows": [
+                {
+                    "rank": 1,
+                    "case_id": "c1",
+                    "factor_name": "momentum_2",
+                    "market": "CN_ETF",
+                    "selection_status": "selected_top3",
+                    "sharpe": 1.2,
+                    "annualized_return": 0.18,
+                    "max_drawdown": -0.22,
+                    "win_rate": 0.58,
+                    "rank_ic": 0.04,
+                    "params": {"top_n": 2},
+                    "direct_buy_allowed": False,
+                },
+                {
+                    "rank": 2,
+                    "case_id": "watch",
+                    "factor_name": "liquidity_2",
+                    "market": "CN_ETF",
+                    "selection_status": "eligible_not_selected",
+                    "sharpe": 0.9,
+                    "params": {"top_n": 3},
+                    "direct_buy_allowed": False,
+                },
+            ],
+        }
         pack = build_daily_trade_advisory_pack(
             [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF", "sharpe": 1.2}],
             [_signal("c1", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
             run_date="2026-06-29",
             portfolio_value=100000,
+            candidate_pool_top20=candidate_pool_top20,
         )
 
         sheet = build_daily_trade_decision_sheet(pack)
@@ -461,6 +590,10 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertFalse(sheet["summary"]["order_placement_allowed"])
         self.assertEqual(sheet["what_to_do_now"]["target_id"], "paper-metrics")
         self.assertEqual(sheet["daily_top3"][0]["factor_name"], "momentum_2")
+        self.assertEqual(sheet["candidate_pool_top20"]["summary"]["row_count"], 2)
+        self.assertEqual(sheet["candidate_pool_top20"]["rows"][0]["selection_status"], "selected_top3")
+        self.assertEqual(sheet["candidate_pool_top20"]["rows"][1]["selection_status"], "eligible_not_selected")
+        self.assertFalse(sheet["candidate_pool_top20"]["summary"]["direct_buy_from_leaderboard_allowed"])
         self.assertEqual(sheet["today_actions"][0]["asset_id"], "510300")
         self.assertEqual(sheet["today_actions"][0]["rounded_quantity"], 10400)
         self.assertEqual(sheet["today_actions"][0]["action_type"], "manual_review_ticket")

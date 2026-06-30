@@ -36,6 +36,7 @@ DAILY_DEPLOYMENT_READINESS_STAGE = "phase_6_18_daily_deployment_readiness_pack"
 LIVE_PROFITABILITY_READINESS_STAGE = "phase_6_19_live_profitability_readiness_scorecard"
 DAILY_FACTOR_HEALTH_MONITOR_STAGE = "phase_6_20_daily_factor_health_monitor"
 DAILY_REAL_MONEY_TRANSITION_GATE_STAGE = "phase_6_21_daily_real_money_transition_gate"
+DAILY_CANDIDATE_POOL_TOP20_STAGE = "phase_6_22_daily_candidate_pool_top20"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 MANUAL_PRICE_DEVIATION_GUARD_PCT = 0.005
@@ -129,6 +130,160 @@ def select_daily_top_factor_candidates(
     return selected
 
 
+def build_daily_candidate_pool_top20(
+    leaderboard: dict[str, Any],
+    selected_candidates: list[dict[str, Any]] | None = None,
+    runnable_factor_names: Iterable[str] | None = None,
+    limit: int = 20,
+    primary_market: str = "CN_ETF",
+) -> dict[str, Any]:
+    runnable = {str(name) for name in (runnable_factor_names or []) if str(name).strip()}
+    selected = [row for row in (selected_candidates or []) if isinstance(row, dict)]
+    selected_case_ids = {str(row.get("case_id") or "") for row in selected if str(row.get("case_id") or "").strip()}
+    selected_factor_to_case: dict[str, str] = {}
+    for row in selected:
+        factor_name = str(row.get("factor_name") or row.get("factor") or "").strip()
+        case_id = str(row.get("case_id") or factor_name).strip()
+        if factor_name and factor_name not in selected_factor_to_case:
+            selected_factor_to_case[factor_name] = case_id
+
+    rows: list[dict[str, Any]] = []
+    for source_index, source in enumerate(_leaderboard_rows(leaderboard), start=1):
+        market = str(source.get("market") or "").upper()
+        factor_name = str(source.get("factor_name") or source.get("factor") or "").strip()
+        if market != primary_market or not factor_name:
+            continue
+        case_id = str(source.get("case_id") or factor_name).strip()
+        eligible, eligibility_reason = _daily_advisory_candidate_eligibility(source)
+        runnable_today = not runnable or factor_name in runnable
+        if case_id in selected_case_ids:
+            selection_status = "selected_top3"
+            selection_reason = "selected_for_today_top3_signal"
+        elif factor_name in selected_factor_to_case:
+            selection_status = "duplicate_factor_name_not_selected"
+            selection_reason = f"same_factor_already_selected:{selected_factor_to_case[factor_name]}"
+        elif not runnable_today:
+            selection_status = "not_runnable"
+            selection_reason = "factor_not_registered_in_runtime"
+        elif not eligible:
+            selection_status = "blocked"
+            selection_reason = eligibility_reason
+        else:
+            selection_status = "eligible_not_selected"
+            selection_reason = "outside_today_top3_limit"
+
+        rows.append(
+            {
+                "rank": _int(source.get("rank"), source_index),
+                "case_id": case_id,
+                "factor_name": factor_name,
+                "market": market,
+                "family": source.get("family"),
+                "selection_status": selection_status,
+                "selection_reason": selection_reason,
+                "advisory_eligible": bool(eligible),
+                "advisory_eligibility_reason": eligibility_reason,
+                "runnable_today": bool(runnable_today),
+                "direct_buy_allowed": False,
+                "sharpe": _float_or_none(source.get("sharpe")),
+                "annualized_return": _float_or_none(source.get("annualized_return")),
+                "total_return": _float_or_none(source.get("total_return")),
+                "max_drawdown": _float_or_none(source.get("max_drawdown")),
+                "win_rate": _float_or_none(source.get("win_rate")),
+                "rank_ic": _float_or_none(source.get("rank_ic")),
+                "trade_count": _float_or_none(source.get("trade_count")),
+                "score_metric": source.get("score_metric"),
+                "promotion_label": source.get("promotion_label"),
+                "ranking_quality": source.get("ranking_quality"),
+                "ranking_reasons": source.get("ranking_reasons") if isinstance(source.get("ranking_reasons"), list) else [],
+                "plain_conclusion": source.get("plain_conclusion"),
+                "params": source.get("params") if isinstance(source.get("params"), dict) else {},
+                "source_file": source.get("source_file") or source.get("source_path"),
+            }
+        )
+        if len(rows) >= max(1, int(limit or 20)):
+            break
+
+    selected_count = sum(1 for row in rows if row["selection_status"] == "selected_top3")
+    blocked_count = sum(1 for row in rows if row["selection_status"] in {"blocked", "not_runnable"})
+    return _sanitize(
+        {
+            "stage": DAILY_CANDIDATE_POOL_TOP20_STAGE,
+            "primary_market": primary_market,
+            "summary": {
+                "primary_market": primary_market,
+                "pool_limit": max(1, int(limit or 20)),
+                "row_count": len(rows),
+                "selected_top3_count": selected_count,
+                "runnable_row_count": sum(1 for row in rows if row["runnable_today"]),
+                "blocked_row_count": blocked_count,
+                "direct_buy_from_leaderboard_allowed": False,
+                "plain_rule": (
+                    "Top20 is an audit pool; selected_top3 rows can feed today's signal snapshot, "
+                    "but no row is a direct order."
+                ),
+            },
+            "rows": rows,
+        }
+    )
+
+
+def _daily_candidate_pool_from_candidates(
+    candidates: list[dict[str, Any]],
+    primary_market: str = "CN_ETF",
+) -> dict[str, Any]:
+    rows = []
+    for index, row in enumerate([item for item in candidates if isinstance(item, dict)], start=1):
+        factor_name = str(row.get("factor_name") or row.get("factor") or "").strip()
+        market = str(row.get("market") or primary_market).upper()
+        rows.append(
+            {
+                "rank": _int(row.get("rank"), index),
+                "case_id": str(row.get("case_id") or factor_name),
+                "factor_name": factor_name,
+                "market": market,
+                "family": row.get("family"),
+                "selection_status": "selected_top3" if market == primary_market else "outside_primary_market",
+                "selection_reason": "pack_selected_candidate",
+                "advisory_eligible": bool(row.get("advisory_eligible", True)),
+                "advisory_eligibility_reason": row.get("advisory_eligibility_reason") or "pack_selected_candidate",
+                "runnable_today": True,
+                "direct_buy_allowed": False,
+                "sharpe": _float_or_none(row.get("sharpe")),
+                "annualized_return": _float_or_none(row.get("annualized_return")),
+                "total_return": _float_or_none(row.get("total_return")),
+                "max_drawdown": _float_or_none(row.get("max_drawdown")),
+                "win_rate": _float_or_none(row.get("win_rate")),
+                "rank_ic": _float_or_none(row.get("rank_ic")),
+                "trade_count": _float_or_none(row.get("trade_count")),
+                "score_metric": row.get("score_metric"),
+                "promotion_label": row.get("promotion_label"),
+                "ranking_quality": row.get("ranking_quality"),
+                "ranking_reasons": row.get("ranking_reasons") if isinstance(row.get("ranking_reasons"), list) else [],
+                "plain_conclusion": row.get("plain_conclusion"),
+                "params": row.get("params") if isinstance(row.get("params"), dict) else {},
+            }
+        )
+    selected_count = sum(1 for row in rows if row["selection_status"] == "selected_top3")
+    return _sanitize(
+        {
+            "stage": DAILY_CANDIDATE_POOL_TOP20_STAGE,
+            "primary_market": primary_market,
+            "summary": {
+                "primary_market": primary_market,
+                "pool_limit": 20,
+                "row_count": len(rows),
+                "selected_top3_count": selected_count,
+                "runnable_row_count": len(rows),
+                "blocked_row_count": 0,
+                "direct_buy_from_leaderboard_allowed": False,
+                "plain_rule": "Fallback pool built from selected candidates; it is still review-only and never an order list.",
+            },
+            "rows": rows[:20],
+        }
+    )
+
+
 def _daily_advisory_candidate_eligibility(row: dict[str, Any]) -> tuple[bool, str]:
     if "daily_signal_eligible" in row:
         reason = str(row.get("daily_signal_eligibility_reason") or "daily_signal_eligible")
@@ -190,6 +345,7 @@ def build_daily_trade_advisory_pack(
     risk_profile_id: str | None = None,
     current_positions: list[dict[str, Any]] | None = None,
     evidence_snapshot: dict[str, Any] | None = None,
+    candidate_pool_top20: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     signal_cards = [_signal_card(candidate, _matching_signal(candidate, signal_snapshots)) for candidate in candidates]
     selected_profile = _risk_profile_by_id(risk_profile_id)
@@ -250,6 +406,11 @@ def build_daily_trade_advisory_pack(
         "manual_trade_plan": manual_plan,
         "operator_checklist": _operator_checklist(),
         "live_profitability_evidence_snapshot": _live_profitability_evidence_snapshot(evidence_snapshot),
+        "candidate_pool_top20": (
+            candidate_pool_top20
+            if isinstance(candidate_pool_top20, dict)
+            else _daily_candidate_pool_from_candidates(candidates)
+        ),
         "markdown": "",
     }
     pack["pretrade_readiness"] = _build_pretrade_readiness(pack)
@@ -2546,6 +2707,11 @@ def build_daily_trade_decision_sheet(pack: dict[str, Any]) -> dict[str, Any]:
     copyable_tickets = [row for row in handoff.get("copyable_tickets", []) if isinstance(row, dict)]
     blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
     market = str(pack.get("market") or _first_market(factors) or "CN_ETF").upper()
+    candidate_pool_top20 = (
+        pack.get("candidate_pool_top20")
+        if isinstance(pack.get("candidate_pool_top20"), dict)
+        else _daily_candidate_pool_from_candidates(factors, primary_market=market)
+    )
     signal_count = _int(summary.get("signal_count"), 0)
     target_count = _int(summary.get("combined_target_count"), len(combined_targets))
     ticket_count = _int(summary.get("manual_ticket_count"), len(manual_plan))
@@ -2690,6 +2856,7 @@ def build_daily_trade_decision_sheet(pack: dict[str, Any]) -> dict[str, Any]:
                 "order_placement_allowed": False,
             },
             "daily_top3": daily_top3,
+            "candidate_pool_top20": candidate_pool_top20,
             "today_actions": today_actions,
             "missing_evidence": missing_evidence,
             "operator_script": operator_script,
