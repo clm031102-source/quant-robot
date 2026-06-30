@@ -5085,6 +5085,7 @@ function renderOrdinaryDailyActionCard(target = byId("ordinary-daily-action-card
     ["证据进度", `已补=${formatNumber(decision.completedEvidenceCount)} / 还缺=${formatNumber(decision.missingEvidenceCount)} / 下一道门=${decision.next_gate || "--"}`, decision.missingEvidenceCount ? "warn" : "ok"],
     ["实盘边界", decision.order_boundary || "不会自动下单", decision.order_boundary === "不会自动下单" ? "ok" : "danger"],
   ]) + renderOrdinaryExecutionBridgeStrip(state.dailyTradeAdvisory?.daily_signal_execution_bridge || {});
+  target.innerHTML += renderOrdinaryRealWorldHandoffStrip(state.dailyTradeAdvisory?.real_world_manual_handoff_gate || {});
 }
 
 function renderOrdinaryExecutionBridgeStrip(bridge = {}) {
@@ -5115,6 +5116,39 @@ function renderOrdinaryExecutionBridgeStrip(bridge = {}) {
       <strong>${escapeHtml("落地桥")}</strong>
       <span>${escapeHtml(`${zhConsoleText(status)} / ${summary.next_label || "--"}`)}</span>
       <span>${escapeHtml(`前三直买=${summary.direct_buy_from_top3_allowed ? "异常允许" : "禁止"} / 自动下单=${summary.order_placement_allowed ? "异常允许" : "禁止"}`)}</span>
+      <span class="beginner-task-actions">${workflowButton}${targetButton}</span>
+    </div>
+  `;
+}
+
+function renderOrdinaryRealWorldHandoffStrip(gate = {}) {
+  const summary = gate.summary || {};
+  if (!Object.keys(summary).length) {
+    return statusRows([["实盘前总闸门", "等待人工观察总闸门加载。", "warn"]]);
+  }
+  const decision = summary.decision || "waiting_for_cn_etf_candidate_pool";
+  const tone = dailyRealWorldHandoffTone(decision);
+  const workflowButton = summary.next_workflow_id ? `
+    <button
+      class="primary-button"
+      type="button"
+      data-ordinary-daily-action="${escapeRawHtml(summary.next_workflow_id)}"
+      data-ordinary-daily-target="${escapeRawHtml(summary.next_target_id || "daily-real-world-handoff-gate")}"
+    >${escapeHtml(summary.next_label || "运行下一步")}</button>
+  ` : "";
+  const targetButton = `
+    <button
+      class="${escapeHtml(workflowButton ? "secondary-button" : "primary-button")}"
+      type="button"
+      data-ordinary-daily-action=""
+      data-ordinary-daily-target="${escapeRawHtml(summary.next_target_id || "daily-real-world-handoff-gate")}"
+    >${escapeHtml(workflowButton ? "看总闸门" : summary.next_label || "看总闸门")}</button>
+  `;
+  return `
+    <div class="list-row ${escapeHtml(tone)}">
+      <strong>${escapeHtml("实盘前总闸门")}</strong>
+      <span>${escapeHtml(summary.plain_answer || zhConsoleText(decision))}</span>
+      <span>${escapeHtml(`人工观察=${summary.manual_observation_candidate ? "可准备材料" : "未放行"} / 自动下单=${summary.order_placement_allowed ? "异常允许" : "禁止"}`)}</span>
       <span class="beginner-task-actions">${workflowButton}${targetButton}</span>
     </div>
   `;
