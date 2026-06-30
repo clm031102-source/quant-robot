@@ -3873,9 +3873,14 @@ def build_live_profitability_readiness_scorecard(pack: dict[str, Any]) -> dict[s
     evidence_flags = evidence.get("flags", {})
     matched_paper_count = _int(evidence_counts.get("matched_paper_receipts"), 0)
     post_close_count = _int(evidence_counts.get("post_close_journal_receipts"), 0)
+    manual_execution_clean_count = _int(evidence_counts.get("manual_execution_clean_receipts"), 0)
+    manual_execution_blocked_count = _int(evidence_counts.get("manual_execution_blocked_receipts"), 0)
+    manual_execution_missing_count = _int(evidence_counts.get("manual_execution_missing_review_receipts"), 0)
     paper_ready_count = _int(evidence_counts.get("paper_ready_observations"), 0)
     matched_paper_ready = matched_paper_count >= 5
     post_close_ready = post_close_count >= 5
+    manual_execution_dirty = manual_execution_blocked_count > 0 or manual_execution_missing_count > 0
+    manual_execution_ready = manual_execution_clean_count >= 5 and not manual_execution_dirty
     production_sample_ready = paper_ready_count >= 20
     research_evidence_ready = all(
         bool(evidence_flags.get(key))
@@ -3891,6 +3896,7 @@ def build_live_profitability_readiness_scorecard(pack: dict[str, Any]) -> dict[s
         and research_evidence_ready
         and matched_paper_ready
         and post_close_ready
+        and manual_execution_ready
     )
     production_manual_review_candidate = small_capital_observation_candidate and production_sample_ready
 
@@ -3924,6 +3930,12 @@ def build_live_profitability_readiness_scorecard(pack: dict[str, Any]) -> dict[s
         next_label = "补齐人工票据"
         next_target = "daily-trade-target-table"
         next_workflow = "daily_trade_advisory"
+    elif manual_execution_dirty:
+        decision = "blocked_manual_execution_audit"
+        plain_answer = "盘后人工成交审计出现追价、滑点超限、数量不一致或缺失回执，先复盘并修正执行纪律，不能升级到小资金观察。"
+        next_label = "复盘人工成交审计"
+        next_target = "beginner-post-close-journal-board"
+        next_workflow = "post_close_journal"
     else:
         decision = "not_ready_for_real_money"
         plain_answer = "今天只能进入同参数模拟盘和人工复核；还不能宣称稳定盈利，也不能直接投入真实资金。"
@@ -4044,6 +4056,26 @@ def build_live_profitability_readiness_scorecard(pack: dict[str, Any]) -> dict[s
             observed_count=post_close_count,
         ),
         _live_profitability_gate(
+            "manual_execution_quality",
+            "人工成交审计质量",
+            (
+                "blocked"
+                if manual_execution_dirty
+                else "pass"
+                if manual_execution_ready
+                else "partial"
+                if manual_execution_clean_count > 0
+                else "required"
+            ),
+            "至少 5 次盘后人工成交/跳过审计必须干净，且追价、滑点超限、数量不一致、缺回执均为 0；否则不能升级小资金观察。",
+            "beginner-post-close-journal-board",
+            "post_close_journal" if has_signal_targets else "",
+            evidence_kind="manual_execution_audit_receipts",
+            required_before="small_capital_observation",
+            minimum_required_observations=5,
+            observed_count=manual_execution_clean_count,
+        ),
+        _live_profitability_gate(
             "production_sample_size",
             "生产观察样本",
             "pass" if production_sample_ready else "partial" if paper_ready_count > 0 else "required",
@@ -4088,6 +4120,9 @@ def build_live_profitability_readiness_scorecard(pack: dict[str, Any]) -> dict[s
                 "evidence_mode": evidence.get("mode"),
                 "matched_paper_receipts": matched_paper_count,
                 "post_close_journal_receipts": post_close_count,
+                "manual_execution_clean_receipts": manual_execution_clean_count,
+                "manual_execution_blocked_receipts": manual_execution_blocked_count,
+                "manual_execution_missing_review_receipts": manual_execution_missing_count,
                 "paper_ready_observations": paper_ready_count,
                 "small_capital_observation_candidate": small_capital_observation_candidate,
                 "production_manual_review_candidate": production_manual_review_candidate,
@@ -4382,6 +4417,7 @@ def build_daily_real_money_transition_gate(pack: dict[str, Any]) -> dict[str, An
     research_evidence_status = _transition_research_evidence_status(gate_by_id)
     paper_receipt_status = _transition_gate_status(gate_by_id, "matched_paper_receipts")
     journal_status = _transition_gate_status(gate_by_id, "post_close_journals")
+    manual_execution_status = _transition_gate_status(gate_by_id, "manual_execution_quality")
     production_sample_status = _transition_gate_status(gate_by_id, "production_sample_size")
     ticket_risk_status = (
         "blocked"
@@ -4415,6 +4451,12 @@ def build_daily_real_money_transition_gate(pack: dict[str, Any]) -> dict[str, An
         next_label = "查看票据风险"
         next_target = "daily-manual-broker-handoff-ticket-table"
         next_workflow = ""
+    elif manual_execution_status == "blocked":
+        decision = "blocked_manual_execution_audit"
+        plain_answer = "盘后人工成交审计存在追价、滑点、数量或缺回执问题，先复盘执行纪律，不能进入真实资金观察。"
+        next_label = "复盘人工成交审计"
+        next_target = "beginner-post-close-journal-board"
+        next_workflow = "post_close_journal"
     elif profitability_decision == "production_manual_review_candidate":
         decision = "production_manual_review_candidate"
         plain_answer = "证据已达到人工生产复核候选，但软件仍不连接券商、不读取账户、不自动下单。"
@@ -4508,6 +4550,15 @@ def build_daily_real_money_transition_gate(pack: dict[str, Any]) -> dict[str, An
             required_before="small_capital_observation",
         ),
         _real_money_transition_gate_row(
+            "manual_execution_quality",
+            "人工成交审计质量",
+            manual_execution_status,
+            _transition_observation_detail(evidence, "manual_execution_clean_receipts", required=5),
+            "beginner-post-close-journal-board",
+            "post_close_journal" if has_signal_targets else "",
+            required_before="small_capital_observation",
+        ),
+        _real_money_transition_gate_row(
             "production_sample_size",
             "生产观察样本",
             production_sample_status,
@@ -4552,17 +4603,28 @@ def build_daily_real_money_transition_gate(pack: dict[str, Any]) -> dict[str, An
                 "readiness_score_pct": _int(profitability_summary.get("readiness_score_pct"), 0),
                 "matched_paper_receipts": _int(profitability_summary.get("matched_paper_receipts"), 0),
                 "post_close_journal_receipts": _int(profitability_summary.get("post_close_journal_receipts"), 0),
+                "manual_execution_clean_receipts": _int(
+                    profitability_summary.get("manual_execution_clean_receipts"), 0
+                ),
+                "manual_execution_blocked_receipts": _int(
+                    profitability_summary.get("manual_execution_blocked_receipts"), 0
+                ),
+                "manual_execution_missing_review_receipts": _int(
+                    profitability_summary.get("manual_execution_missing_review_receipts"), 0
+                ),
                 "paper_ready_observations": _int(profitability_summary.get("paper_ready_observations"), 0),
                 "small_capital_observation_candidate": bool(
                     profitability_summary.get("small_capital_observation_candidate")
                 )
                 and not health_blocked
-                and not risk_blocked,
+                and not risk_blocked
+                and manual_execution_status == "pass",
                 "production_manual_review_candidate": bool(
                     profitability_summary.get("production_manual_review_candidate")
                 )
                 and not health_blocked
-                and not risk_blocked,
+                and not risk_blocked
+                and manual_execution_status == "pass",
                 "next_label": next_label,
                 "next_target_id": next_target,
                 "next_workflow_id": next_workflow,
@@ -5195,6 +5257,18 @@ def _live_profitability_evidence_snapshot(snapshot: dict[str, Any] | None) -> di
         "post_close_journal_receipts": _live_profitability_evidence_count(
             raw_counts.get("post_close_journal_receipts", raw_counts.get("post_close_journals"))
         ),
+        "manual_execution_clean_receipts": _live_profitability_evidence_count(
+            raw_counts.get("manual_execution_clean_receipts", raw_counts.get("clean_manual_execution_receipts"))
+        ),
+        "manual_execution_blocked_receipts": _live_profitability_evidence_count(
+            raw_counts.get("manual_execution_blocked_receipts", raw_counts.get("blocked_manual_execution_receipts"))
+        ),
+        "manual_execution_missing_review_receipts": _live_profitability_evidence_count(
+            raw_counts.get(
+                "manual_execution_missing_review_receipts",
+                raw_counts.get("missing_manual_execution_review_receipts"),
+            )
+        ),
         "paper_ready_observations": _live_profitability_evidence_count(
             raw_counts.get("paper_ready_observations")
         ),
@@ -5212,11 +5286,13 @@ def _live_profitability_evidence_snapshot(snapshot: dict[str, Any] | None) -> di
         "missing_counts": {
             "matched_paper_receipts": max(0, 5 - counts["matched_paper_receipts"]),
             "post_close_journal_receipts": max(0, 5 - counts["post_close_journal_receipts"]),
+            "manual_execution_clean_receipts": max(0, 5 - counts["manual_execution_clean_receipts"]),
             "paper_ready_observations": max(0, 20 - counts["paper_ready_observations"]),
         },
         "minimum_required_counts": {
             "matched_paper_receipts": 5,
             "post_close_journal_receipts": 5,
+            "manual_execution_clean_receipts": 5,
             "paper_ready_observations": 20,
         },
     }

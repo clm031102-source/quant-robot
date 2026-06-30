@@ -637,6 +637,8 @@ class GuiSnapshotTests(unittest.TestCase):
                 "counts": {
                     "matched_paper_receipts": 5,
                     "post_close_journal_receipts": 5,
+                    "manual_execution_clean_receipts": 5,
+                    "manual_execution_blocked_receipts": 0,
                     "paper_ready_observations": 20,
                 },
                 "flags": {
@@ -654,8 +656,11 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertEqual(readiness["summary"]["evidence_mode"], "browser_execution_receipts")
         self.assertEqual(readiness["summary"]["matched_paper_receipts"], 5)
         self.assertEqual(readiness["summary"]["post_close_journal_receipts"], 5)
+        self.assertEqual(readiness["summary"]["manual_execution_clean_receipts"], 5)
+        self.assertEqual(readiness["summary"]["manual_execution_blocked_receipts"], 0)
         self.assertEqual(readiness["summary"]["paper_ready_observations"], 20)
         self.assertEqual(readiness["evidence_snapshot"]["missing_counts"]["matched_paper_receipts"], 0)
+        self.assertEqual(readiness["evidence_snapshot"]["missing_counts"]["manual_execution_clean_receipts"], 0)
         self.assertFalse(readiness["summary"]["order_placement_allowed"])
         self.assertFalse(transition["summary"]["order_placement_allowed"])
 

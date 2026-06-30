@@ -6435,6 +6435,7 @@ function renderDailyDeploymentReadiness(readiness = {}) {
     ["Top3 规则", summary.direct_buy_from_top3_allowed ? "异常：允许直买" : "前三只是候选，禁止直买", summary.direct_buy_from_top3_allowed ? "danger" : "ok"],
     ["模拟盘", summary.paper_rehearsal_allowed ? "可进入同参数模拟盘复核" : "暂时不能进入模拟盘复核", summary.paper_rehearsal_allowed ? "warn" : "danger"],
     ["人工材料", summary.manual_review_material_ready ? "已有可复核票据" : "还没有可复核票据", summary.manual_review_material_ready ? "warn" : "danger"],
+    ["人工成交审计", `干净=${formatNumber(summary.manual_execution_clean_receipts || 0)} / 异常=${formatNumber(summary.manual_execution_blocked_receipts || 0)} / 缺回执=${formatNumber(summary.manual_execution_missing_review_receipts || 0)}`, summary.manual_execution_blocked_receipts || summary.manual_execution_missing_review_receipts ? "danger" : summary.manual_execution_clean_receipts >= 5 ? "ok" : "warn"],
     ["系统权限", summary.order_placement_allowed || summary.broker_connection_allowed ? "异常：权限越界" : "不连接券商、不读账户、不自动下单", summary.order_placement_allowed || summary.broker_connection_allowed ? "danger" : "ok"],
   ]) + `
     <div class="list-row ${escapeHtml(tone)}">
@@ -6505,10 +6506,16 @@ function liveProfitabilityRuntimeEvidence(readiness = {}) {
   const postCloseReceipts = executionReceiptsForWorkflow("post_close_journal")
     .filter((item) => item?.status === "completed")
     .filter((item) => item?.metrics?.manual_review_recorded !== false);
+  const manualExecutionCleanReceipts = postCloseReceipts.filter((item) => manualExecutionAuditReceiptStatus(item) === "clean");
+  const manualExecutionBlockedReceipts = postCloseReceipts.filter((item) => manualExecutionAuditReceiptStatus(item) === "blocked");
+  const manualExecutionMissingReviewReceipts = postCloseReceipts.filter((item) => manualExecutionAuditReceiptStatus(item) === "missing_review");
   const paperReadyObservations = Math.min(paperReceipts.length, postCloseReceipts.length);
   const counts = {
     matched_paper_receipts: Math.max(Number(backendCounts.matched_paper_receipts || 0), paperReceipts.length),
     post_close_journal_receipts: Math.max(Number(backendCounts.post_close_journal_receipts || 0), postCloseReceipts.length),
+    manual_execution_clean_receipts: Math.max(Number(backendCounts.manual_execution_clean_receipts || 0), manualExecutionCleanReceipts.length),
+    manual_execution_blocked_receipts: Math.max(Number(backendCounts.manual_execution_blocked_receipts || 0), manualExecutionBlockedReceipts.length),
+    manual_execution_missing_review_receipts: Math.max(Number(backendCounts.manual_execution_missing_review_receipts || 0), manualExecutionMissingReviewReceipts.length),
     paper_ready_observations: Math.max(Number(backendCounts.paper_ready_observations || 0), paperReadyObservations),
   };
   return {
@@ -6529,11 +6536,32 @@ function liveProfitabilityRuntimeEvidence(readiness = {}) {
     missing_counts: {
       matched_paper_receipts: Math.max(0, 5 - counts.matched_paper_receipts),
       post_close_journal_receipts: Math.max(0, 5 - counts.post_close_journal_receipts),
+      manual_execution_clean_receipts: Math.max(0, 5 - counts.manual_execution_clean_receipts),
       paper_ready_observations: Math.max(0, 20 - counts.paper_ready_observations),
     },
     paper_simulation_receipts: paperReceipts.length,
     post_close_journal_receipts: postCloseReceipts.length,
+    manual_execution_clean_receipts: manualExecutionCleanReceipts.length,
+    manual_execution_blocked_receipts: manualExecutionBlockedReceipts.length,
+    manual_execution_missing_review_receipts: manualExecutionMissingReviewReceipts.length,
   };
+}
+
+function manualExecutionAuditReceiptStatus(receipt = {}) {
+  const audit = receipt.manual_execution_audit || receipt.manual_review?.manual_execution_audit || {};
+  const summary = audit.summary || {};
+  if (!Object.keys(summary).length) return "not_recorded";
+  const decision = String(summary.decision || "");
+  const blockedCount = Number(summary.blocked_count || 0)
+    + Number(summary.guardrail_breach_count || 0)
+    + Number(summary.slippage_breach_count || 0)
+    + Number(summary.quantity_mismatch_count || 0)
+    + Number(summary.sensitive_field_count || 0);
+  const missingCount = Number(summary.missing_review_count || 0);
+  if (decision === "guardrail_breach_review_required" || blockedCount > 0) return "blocked";
+  if (decision === "manual_execution_review_incomplete" || missingCount > 0) return "missing_review";
+  if (decision === "manual_execution_evidence_ready") return "clean";
+  return "not_recorded";
 }
 
 function dailyEvidencePaperRequest() {
@@ -6563,6 +6591,9 @@ function dailyTradeAdvisoryEvidencePayload() {
     counts: {
       matched_paper_receipts: Number(counts.matched_paper_receipts || 0),
       post_close_journal_receipts: Number(counts.post_close_journal_receipts || 0),
+      manual_execution_clean_receipts: Number(counts.manual_execution_clean_receipts || 0),
+      manual_execution_blocked_receipts: Number(counts.manual_execution_blocked_receipts || 0),
+      manual_execution_missing_review_receipts: Number(counts.manual_execution_missing_review_receipts || 0),
       paper_ready_observations: Number(counts.paper_ready_observations || 0),
     },
     flags: {
@@ -6587,6 +6618,7 @@ function mergeLiveProfitabilityRuntimeEvidence(readiness = {}, runtimeEvidence =
   const countByGate = {
     matched_paper_receipts: counts.matched_paper_receipts || 0,
     post_close_journals: counts.post_close_journal_receipts || 0,
+    manual_execution_quality: counts.manual_execution_clean_receipts || 0,
     production_sample_size: counts.paper_ready_observations || 0,
   };
   const flagByGate = {
@@ -6600,6 +6632,20 @@ function mergeLiveProfitabilityRuntimeEvidence(readiness = {}, runtimeEvidence =
     if (Object.prototype.hasOwnProperty.call(countByGate, gateId)) {
       const observed = Math.max(Number(gate.observed_count || 0), Number(countByGate[gateId] || 0));
       const minimum = Number(gate.minimum_required_observations || 0);
+      if (
+        gateId === "manual_execution_quality"
+        && (
+          Number(counts.manual_execution_blocked_receipts || 0) > 0
+          || Number(counts.manual_execution_missing_review_receipts || 0) > 0
+        )
+      ) {
+        return {
+          ...gate,
+          observed_count: observed,
+          missing_count: Math.max(0, minimum - observed),
+          status: "blocked",
+        };
+      }
       return {
         ...gate,
         observed_count: observed,
@@ -6622,13 +6668,26 @@ function mergeLiveProfitabilityRuntimeEvidence(readiness = {}, runtimeEvidence =
   );
   const matchedReady = Number(counts.matched_paper_receipts || 0) >= 5;
   const postCloseReady = Number(counts.post_close_journal_receipts || 0) >= 5;
+  const manualExecutionReady = Number(counts.manual_execution_clean_receipts || 0) >= 5;
+  const manualExecutionDirty = Number(counts.manual_execution_blocked_receipts || 0) > 0
+    || Number(counts.manual_execution_missing_review_receipts || 0) > 0;
   const productionReady = Number(counts.paper_ready_observations || 0) >= 20;
-  const smallCandidate = Boolean(next.summary.manual_review_material_ready && researchReady && matchedReady && postCloseReady);
+  const smallCandidate = Boolean(
+    next.summary.manual_review_material_ready
+    && researchReady
+    && matchedReady
+    && postCloseReady
+    && manualExecutionReady
+    && !manualExecutionDirty
+  );
   next.summary = {
     ...next.summary,
     evidence_mode: runtimeEvidence.mode || next.summary.evidence_mode || "empty",
     matched_paper_receipts: counts.matched_paper_receipts || 0,
     post_close_journal_receipts: counts.post_close_journal_receipts || 0,
+    manual_execution_clean_receipts: counts.manual_execution_clean_receipts || 0,
+    manual_execution_blocked_receipts: counts.manual_execution_blocked_receipts || 0,
+    manual_execution_missing_review_receipts: counts.manual_execution_missing_review_receipts || 0,
     paper_ready_observations: counts.paper_ready_observations || 0,
     small_capital_observation_candidate: Boolean(next.summary.small_capital_observation_candidate || smallCandidate),
     production_manual_review_candidate: Boolean(next.summary.production_manual_review_candidate || (smallCandidate && productionReady)),
@@ -6670,6 +6729,7 @@ function renderLiveProfitabilityReadiness(readiness = {}) {
     ["真实资金", summary.real_money_allowed ? "允许" : "不允许", summary.real_money_allowed ? "ok" : "danger"],
     ["今天允许", summary.paper_rehearsal_allowed ? "同参数模拟盘 / 人工复核材料准备" : "只观察或先修阻断", summary.paper_rehearsal_allowed ? "warn" : "danger"],
     ["本机证据", `模拟盘=${formatNumber(summary.matched_paper_receipts || 0)} / 复盘=${formatNumber(summary.post_close_journal_receipts || 0)} / 观察=${formatNumber(summary.paper_ready_observations || 0)}`, summary.production_manual_review_candidate ? "ok" : summary.matched_paper_receipts || summary.post_close_journal_receipts ? "warn" : "muted"],
+    ["人工成交审计", `干净=${formatNumber(summary.manual_execution_clean_receipts || 0)} / 异常=${formatNumber(summary.manual_execution_blocked_receipts || 0)} / 缺回执=${formatNumber(summary.manual_execution_missing_review_receipts || 0)}`, summary.manual_execution_blocked_receipts || summary.manual_execution_missing_review_receipts ? "danger" : summary.manual_execution_clean_receipts >= 5 ? "ok" : "warn"],
     ["系统权限", summary.order_placement_allowed || summary.broker_connection_allowed ? "异常：权限越界" : "不连接券商、不读账户、不自动下单", summary.order_placement_allowed || summary.broker_connection_allowed ? "danger" : "ok"],
   ]) + `
     <div class="list-row ${escapeHtml(tone)}">
@@ -6762,6 +6822,7 @@ function renderDailyRealMoneyTransitionGate(gate = {}) {
     ["资金阶段", `${summary.capital_mode || "--"} / 评分=${formatNumber(summary.readiness_score_pct || 0)}/100`, summary.production_manual_review_candidate ? "ok" : "warn"],
     ["今日证据", `信号=${formatNumber(summary.signal_count || 0)} / 目标=${formatNumber(summary.target_count || 0)} / 票据=${formatNumber(summary.manual_ticket_count || 0)}`, summary.manual_ticket_count ? "warn" : "danger"],
     ["观察样本", `模拟=${formatNumber(summary.matched_paper_receipts || 0)} / 复盘=${formatNumber(summary.post_close_journal_receipts || 0)} / paper-ready=${formatNumber(summary.paper_ready_observations || 0)}`, summary.production_manual_review_candidate ? "ok" : "warn"],
+    ["人工成交审计", `干净=${formatNumber(summary.manual_execution_clean_receipts || 0)} / 异常=${formatNumber(summary.manual_execution_blocked_receipts || 0)} / 缺回执=${formatNumber(summary.manual_execution_missing_review_receipts || 0)}`, summary.manual_execution_blocked_receipts || summary.manual_execution_missing_review_receipts ? "danger" : summary.manual_execution_clean_receipts >= 5 ? "ok" : "warn"],
     ["真实资金权限", summary.real_money_allowed || summary.order_placement_allowed ? "异常：权限越界" : "不连接券商、不读账户、不自动下单", summary.real_money_allowed || summary.order_placement_allowed ? "danger" : "ok"],
   ]) + `
     <div class="list-row ${escapeHtml(tone)}">

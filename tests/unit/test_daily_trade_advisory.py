@@ -1182,6 +1182,7 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
                 "transaction_cost_capacity",
                 "matched_paper_receipts",
                 "post_close_journals",
+                "manual_execution_quality",
                 "production_sample_size",
                 "research_only_safety_boundary",
             ],
@@ -1189,6 +1190,7 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         gate_by_id = {row["gate_id"]: row for row in readiness["hard_gates"]}
         self.assertEqual(gate_by_id["matched_paper_receipts"]["minimum_required_observations"], 5)
         self.assertEqual(gate_by_id["post_close_journals"]["minimum_required_observations"], 5)
+        self.assertEqual(gate_by_id["manual_execution_quality"]["minimum_required_observations"], 5)
         self.assertEqual(gate_by_id["production_sample_size"]["minimum_required_observations"], 20)
         self.assertIn("run_same_parameter_paper", {row["action_id"] for row in readiness["today_allowed_actions"]})
         self.assertIn("direct_buy_top3", {row["action_id"] for row in readiness["forbidden_actions"]})
@@ -1217,6 +1219,8 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
                 "transaction_cost_capacity_passed": True,
                 "matched_paper_receipts": 5,
                 "post_close_journals": 5,
+                "manual_execution_clean_receipts": 5,
+                "manual_execution_blocked_receipts": 0,
                 "paper_ready_observations": 20,
             },
         )
@@ -1227,6 +1231,8 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(readiness["summary"]["evidence_mode"], "snapshot")
         self.assertEqual(readiness["summary"]["matched_paper_receipts"], 5)
         self.assertEqual(readiness["summary"]["post_close_journal_receipts"], 5)
+        self.assertEqual(readiness["summary"]["manual_execution_clean_receipts"], 5)
+        self.assertEqual(readiness["summary"]["manual_execution_blocked_receipts"], 0)
         self.assertEqual(readiness["summary"]["paper_ready_observations"], 20)
         self.assertGreaterEqual(readiness["summary"]["readiness_score_pct"], 90)
         self.assertTrue(readiness["summary"]["small_capital_observation_candidate"])
@@ -1240,12 +1246,60 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(gate_by_id["matched_paper_receipts"]["status"], "pass")
         self.assertEqual(gate_by_id["matched_paper_receipts"]["observed_count"], 5)
         self.assertEqual(gate_by_id["post_close_journals"]["status"], "pass")
+        self.assertEqual(gate_by_id["manual_execution_quality"]["status"], "pass")
+        self.assertEqual(gate_by_id["manual_execution_quality"]["observed_count"], 5)
         self.assertEqual(gate_by_id["production_sample_size"]["status"], "pass")
         self.assertEqual(
             readiness["evidence_snapshot"]["missing_counts"]["matched_paper_receipts"],
             0,
         )
+        self.assertEqual(
+            readiness["evidence_snapshot"]["missing_counts"]["manual_execution_clean_receipts"],
+            0,
+        )
         self.assertEqual(readiness["summary"]["next_target_id"], "beginner-live-handoff-board")
+
+    def test_live_profitability_readiness_blocks_dirty_manual_execution_audit(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF", "sharpe": 1.2},
+                {"rank": 2, "case_id": "c2", "factor_name": "reversal_2", "market": "CN_ETF", "sharpe": 0.8},
+                {"rank": 3, "case_id": "c3", "factor_name": "volatility_2", "market": "CN_ETF", "sharpe": 0.7},
+            ],
+            [
+                _signal("c1", "momentum_2", {"510300": 0.4}),
+                _signal("c2", "reversal_2", {"588000": 0.3}),
+                _signal("c3", "volatility_2", {"159915": 0.2}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="aggressive_30dd",
+            evidence_snapshot={
+                "walk_forward_oos_passed": True,
+                "lookahead_bias_audit_passed": True,
+                "multiple_testing_control_passed": True,
+                "transaction_cost_capacity_passed": True,
+                "matched_paper_receipts": 5,
+                "post_close_journals": 5,
+                "manual_execution_clean_receipts": 4,
+                "manual_execution_blocked_receipts": 1,
+                "manual_execution_missing_review_receipts": 0,
+                "paper_ready_observations": 20,
+            },
+        )
+
+        readiness = pack["live_profitability_readiness"]
+        gate_by_id = {row["gate_id"]: row for row in readiness["hard_gates"]}
+
+        self.assertEqual(readiness["summary"]["decision"], "blocked_manual_execution_audit")
+        self.assertFalse(readiness["summary"]["small_capital_observation_candidate"])
+        self.assertFalse(readiness["summary"]["production_manual_review_candidate"])
+        self.assertEqual(readiness["summary"]["manual_execution_clean_receipts"], 4)
+        self.assertEqual(readiness["summary"]["manual_execution_blocked_receipts"], 1)
+        self.assertEqual(gate_by_id["manual_execution_quality"]["status"], "blocked")
+        self.assertEqual(gate_by_id["manual_execution_quality"]["observed_count"], 4)
+        self.assertEqual(gate_by_id["manual_execution_quality"]["missing_count"], 1)
+        self.assertEqual(readiness["summary"]["next_target_id"], "beginner-post-close-journal-board")
 
     def test_daily_pack_exposes_real_money_transition_gate_without_auto_orders(self):
         pack = build_daily_trade_advisory_pack(
@@ -1302,6 +1356,8 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
                 "transaction_cost_capacity_passed": True,
                 "matched_paper_receipts": 5,
                 "post_close_journals": 5,
+                "manual_execution_clean_receipts": 5,
+                "manual_execution_blocked_receipts": 0,
                 "paper_ready_observations": 20,
             },
         )
@@ -1324,6 +1380,7 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(row_by_id["factor_health"]["status"], "pass")
         self.assertEqual(row_by_id["paper_receipts"]["status"], "pass")
         self.assertEqual(row_by_id["post_close_journals"]["status"], "pass")
+        self.assertEqual(row_by_id["manual_execution_quality"]["status"], "pass")
         self.assertEqual(row_by_id["manual_ticket_risk_budget"]["status"], "pass")
         self.assertEqual(row_by_id["research_only_safety_boundary"]["status"], "pass")
         self.assertIn("open_external_broker_manually", {row["step_id"] for row in gate["operator_script"]})
