@@ -19,10 +19,10 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
             "leaderboards": {
                 "primary_cn_etf": {
                     "rows": [
-                        {"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF", "sharpe": 1.1},
-                        {"rank": 2, "case_id": "c2", "factor_name": "reversal_2", "market": "CN_ETF", "sharpe": 0.9},
+                        {"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF", "sharpe": 1.1, "status": "paper_ready"},
+                        {"rank": 2, "case_id": "c2", "factor_name": "reversal_2", "market": "CN_ETF", "sharpe": 0.9, "status": "accepted"},
                         {"rank": 3, "case_id": "c3", "factor_name": "cn_stock_aux", "market": "CN", "sharpe": 3.0},
-                        {"rank": 4, "case_id": "c4", "factor_name": "volatility_2", "market": "CN_ETF", "sharpe": 0.8},
+                        {"rank": 4, "case_id": "c4", "factor_name": "volatility_2", "market": "CN_ETF", "sharpe": 0.8, "status": "manual_live_review"},
                         {"rank": 5, "case_id": "c5", "factor_name": "not_registered", "market": "CN_ETF", "sharpe": 2.2},
                     ]
                 }
@@ -38,6 +38,79 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual([row["factor_name"] for row in selected], ["momentum_2", "reversal_2", "volatility_2"])
         self.assertTrue(all(row["market"] == "CN_ETF" for row in selected))
         self.assertTrue(all(row["signalable"] for row in selected))
+        self.assertTrue(all(row["advisory_eligible"] for row in selected))
+
+    def test_daily_top_three_skips_research_only_blocked_or_thin_candidates(self):
+        leaderboard = {
+            "leaderboards": {
+                "primary_cn_etf": {
+                    "rows": [
+                        {
+                            "rank": 1,
+                            "case_id": "blocked_high_return",
+                            "factor_name": "momentum_2",
+                            "market": "CN_ETF",
+                            "status": "blocked",
+                            "sharpe": 4.8,
+                            "ranking_quality": "qualified",
+                            "has_oos_evidence": True,
+                        },
+                        {
+                            "rank": 2,
+                            "case_id": "research_only",
+                            "factor_name": "reversal_2",
+                            "market": "CN_ETF",
+                            "status": "research_only",
+                            "sharpe": 2.1,
+                            "ranking_quality": "qualified",
+                            "has_oos_evidence": True,
+                        },
+                        {
+                            "rank": 3,
+                            "case_id": "thin_sample",
+                            "factor_name": "volatility_2",
+                            "market": "CN_ETF",
+                            "status": "accepted",
+                            "sharpe": 1.4,
+                            "ranking_quality": "thin_sample",
+                            "has_oos_evidence": True,
+                        },
+                        {
+                            "rank": 4,
+                            "case_id": "paper_ready",
+                            "factor_name": "liquidity_2",
+                            "market": "CN_ETF",
+                            "status": "paper_ready",
+                            "sharpe": 0.9,
+                            "ranking_quality": "qualified",
+                            "has_oos_evidence": True,
+                        },
+                        {
+                            "rank": 5,
+                            "case_id": "manual_review",
+                            "factor_name": "volume_change_2",
+                            "market": "CN_ETF",
+                            "status": "manual_live_review",
+                            "sharpe": 0.8,
+                            "ranking_quality": "qualified",
+                            "has_oos_evidence": True,
+                        },
+                    ]
+                }
+            }
+        }
+
+        selected = select_daily_top_factor_candidates(
+            leaderboard,
+            runnable_factor_names={"momentum_2", "reversal_2", "volatility_2", "liquidity_2", "volume_change_2"},
+            limit=3,
+        )
+
+        self.assertEqual([row["case_id"] for row in selected], ["paper_ready", "manual_review"])
+        self.assertTrue(all(row["advisory_eligible"] for row in selected))
+        self.assertNotIn("blocked_high_return", {row["case_id"] for row in selected})
+        self.assertNotIn("research_only", {row["case_id"] for row in selected})
+        self.assertNotIn("thin_sample", {row["case_id"] for row in selected})
 
     def test_builds_manual_only_trade_pack_from_three_signals(self):
         candidates = [

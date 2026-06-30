@@ -563,7 +563,7 @@
                   <p class="section-kicker">准入判断</p>
                   <h3>准入状态</h3>
                 </div>
-                <span class="tag tag-warn">Phase 2.6</span>
+                <span class="tag tag-warn">阶段 2.6</span>
               </div>
               <div id="dashboard-status" class="status-list"></div>
             </section>
@@ -579,7 +579,7 @@
             <div class="form-grid">
               <label>数据源
                 <select id="data-source-select">
-                  <option value="processed-bars" selected>本地 processed-bars / A股ETF CSV</option>
+                  <option value="processed-bars" selected>本地清洗行情 / A股ETF CSV</option>
                   <option value="demo_fixture">演示数据</option>
                 </select>
               </label>
@@ -633,7 +633,7 @@
                 <input id="regime-filter" type="checkbox" checked>
                 <span>市场状态过滤</span>
               </label>
-              <label>Regime 窗口
+              <label>市场状态窗口
                 <input id="regime-lookback" type="number" min="1" max="252" value="3">
               </label>
               <label>相对收益门槛
@@ -695,7 +695,7 @@
               <div id="benchmark-chart" class="chart-box tall"></div>
             </section>
             <section class="panel table-panel">
-              <div class="panel-head"><h3>Regime 状态</h3></div>
+              <div class="panel-head"><h3>市场状态</h3></div>
               <div class="table-wrap scroll-table"><table><tbody id="regime-table"></tbody></table></div>
             </section>
           </div>
@@ -788,10 +788,10 @@
               <label>单资产上限
                 <input id="paper-max-asset-weight" type="number" min="0.05" max="1" step="0.05" value="0.4">
               </label>
-              <label>Market cap
+              <label>市场仓位上限
                 <input id="paper-max-market-weight" type="number" min="0.05" max="1" step="0.05" value="1">
               </label>
-              <label>Gross cap
+              <label>总仓位上限
                 <input id="paper-max-gross-exposure" type="number" min="0.05" max="1" step="0.05" value="1">
               </label>
               <label>现金下限
@@ -834,40 +834,40 @@
           <section class="command-card daily-controls" aria-label="daily operations">
             <div class="command-head">
               <h3>日常运营</h3>
-              <span class="tag tag-warn">Phase 5.0</span>
+              <span class="tag tag-warn">阶段 5.0</span>
             </div>
             <div class="form-grid compact-form">
-              <label>Daily ops pack
+              <label>日常运营包
                 <input id="daily-ops-pack-path" value="data/reports/daily_ops/daily_ops_pack.json">
               </label>
-              <label>Risk candidate pack
+              <label>风险候选包
                 <input id="risk-candidate-pack-path" value="data/reports/risk_candidate_selector/risk_candidate_pack.json">
               </label>
-              <label>Constrained search pack
+              <label>约束搜索包
                 <input id="constrained-search-pack-path" value="data/reports/constrained_candidate_search/constrained_candidate_search_pack.json">
               </label>
-              <label>Paper profile pack
+              <label>模拟盘参数包
                 <input id="paper-profile-pack-path" value="data/reports/paper_profile_optimizer/paper_profile_optimizer_pack.json">
               </label>
-              <label>Profile observation pack
+              <label>参数观察包
                 <input id="profile-observation-pack-path" value="data/reports/profile_observation/profile_observation_pack.json">
               </label>
-              <label>Recent refresh pack
+              <label>近期数据刷新包
                 <input id="recent-data-refresh-pack-path" value="data/reports/recent_data_refresh/recent_data_refresh_pack.json">
               </label>
-              <label>Post refresh replay pack
+              <label>刷新后回放包
                 <input id="post-refresh-replay-pack-path" value="data/reports/post_refresh_replay/post_refresh_replay_pack.json">
               </label>
-              <label>Observation sufficiency pack
+              <label>观察样本充足包
                 <input id="observation-sufficiency-pack-path" value="data/reports/observation_sufficiency/observation_sufficiency_pack.json">
               </label>
-              <label>Expanded observation replay pack
+              <label>扩展观察回放包
                 <input id="expanded-observation-replay-pack-path" value="data/reports/expanded_observation_replay/expanded_observation_replay_pack.json">
               </label>
-              <label>Iterative observation expansion pack
+              <label>迭代观察扩展包
                 <input id="iterative-observation-expansion-pack-path" value="data/reports/iterative_observation_expansion/iterative_observation_expansion_pack.json">
               </label>
-              <label>Tushare activation gate pack
+              <label>Tushare 启用闸门包
                 <input id="tushare-activation-gate-pack-path" value="data/reports/tushare_activation_gate/tushare_activation_gate_pack.json">
               </label>
               <label>今日建议信号日期
@@ -1304,16 +1304,16 @@
           <section class="command-card promotion-controls" aria-label="promotion operations">
             <div class="command-head">
               <h3>候选推广运营</h3>
-              <span class="tag tag-warn">Phase 2.8</span>
+              <span class="tag tag-warn">阶段 2.8</span>
             </div>
             <div class="form-grid compact-form">
-              <label>Promotion report
+              <label>推广报告
                 <input id="promotion-report-path" value="data/reports/promotion_gate_cn_etf_candidate_search/promotion_report.json">
               </label>
-              <label>Provider status
+              <label>数据源状态
                 <input id="promotion-provider-path" value="data/reports/provider_status/provider_status.json">
               </label>
-              <label>Quality report
+              <label>数据质量报告
                 <input id="promotion-quality-path" value="data/processed/etf_csv/quality_report_cn_etf.json">
               </label>
               <button id="run-promotion" class="primary-button command-action" type="button">刷新运营</button>

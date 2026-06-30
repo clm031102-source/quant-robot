@@ -88,6 +88,9 @@ def select_daily_top_factor_candidates(
             continue
         if runnable and factor_name not in runnable:
             continue
+        eligible, eligibility_reason = _daily_advisory_candidate_eligibility(row)
+        if not eligible:
+            continue
         key = factor_name
         if key in seen:
             continue
@@ -111,11 +114,61 @@ def select_daily_top_factor_candidates(
                 "plain_conclusion": row.get("plain_conclusion"),
                 "params": row.get("params") if isinstance(row.get("params"), dict) else {},
                 "signalable": True,
+                "advisory_eligible": True,
+                "advisory_eligibility_reason": eligibility_reason,
             }
         )
         if len(selected) >= max(1, int(limit)):
             break
     return selected
+
+
+def _daily_advisory_candidate_eligibility(row: dict[str, Any]) -> tuple[bool, str]:
+    if "daily_signal_eligible" in row:
+        reason = str(row.get("daily_signal_eligibility_reason") or "daily_signal_eligible")
+        return (bool(row.get("daily_signal_eligible")), reason)
+
+    status_text = " ".join(
+        str(row.get(key) or "")
+        for key in (
+            "status",
+            "decision",
+            "promotion_status",
+            "gate_status",
+            "selection_status",
+            "review_status",
+            "promotion_label",
+        )
+    ).lower()
+    if any(token in status_text for token in ("blocked", "rejected", "research_only", "not_paper_ready", "duplicate")):
+        return (False, "blocked_or_research_only_candidate")
+
+    quality = str(row.get("ranking_quality") or "").strip().lower()
+    if quality and quality != "qualified":
+        return (False, f"ranking_quality_{quality}")
+
+    if any(token in status_text for token in ("paper_ready", "manual_live_review", "manual_review", "accepted", "watchlist")):
+        return (True, "explicit_advisory_candidate_status")
+
+    score_metric = str(row.get("score_metric") or "").lower()
+    if row.get("has_oos_evidence") is True and score_metric.startswith(("paper", "walk_forward", "oos", "test")):
+        return (True, "oos_or_paper_evidence")
+
+    metadata_keys = {
+        "status",
+        "decision",
+        "promotion_status",
+        "gate_status",
+        "selection_status",
+        "review_status",
+        "promotion_label",
+        "ranking_quality",
+        "has_oos_evidence",
+        "score_metric",
+    }
+    if not (metadata_keys & set(row)):
+        return (True, "legacy_runnable_candidate")
+    return (False, "missing_paper_ready_or_oos_gate")
 
 
 def build_daily_trade_advisory_pack(
