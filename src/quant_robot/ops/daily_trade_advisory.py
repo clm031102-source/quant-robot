@@ -7224,6 +7224,16 @@ def _current_position_validation(
         if quantity is None:
             issues.append(_current_position_issue(index, "current_position_missing_quantity", f"{asset_id} 缺少可用数量 quantity。"))
             continue
+        market = str(item.get("market") or "CN_ETF").strip().upper()
+        if market != "CN_ETF":
+            issues.append(
+                _current_position_issue(
+                    index,
+                    "current_position_market_mismatch",
+                    f"{asset_id} market={market} is outside the CN_ETF rotation line; fix the holdings input before manual ticket generation.",
+                )
+            )
+            continue
         latest_price = _float_or_none(item.get("latest_price"))
         if latest_price is None and target_prices.get(asset_id) is None:
             issues.append(
@@ -7237,7 +7247,7 @@ def _current_position_validation(
         row = {
             "asset_id": asset_id,
             "quantity": quantity,
-            "market": item.get("market") or "CN_ETF",
+            "market": market,
         }
         if latest_price is not None:
             row["latest_price"] = latest_price
