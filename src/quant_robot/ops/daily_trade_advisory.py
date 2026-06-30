@@ -2259,8 +2259,95 @@ def _broker_handoff_ticket(index: int, row: dict[str, Any]) -> dict[str, Any]:
         "source_factors": row.get("source_factors"),
         "copy_text": copy_text,
         "do_not_submit_until_checked": True,
+        "review_checklist": _broker_ticket_review_checklist(row),
+        "red_flags": _broker_ticket_red_flags(),
         "live_order_allowed": False,
         "order_placement_allowed": False,
+    }
+
+
+def _broker_ticket_review_checklist(row: dict[str, Any]) -> list[dict[str, Any]]:
+    asset_id = str(row.get("asset_id") or "")
+    side = str(row.get("side") or "review")
+    rounded_quantity = _int(row.get("rounded_quantity"), 0)
+    rounded_value = _float_or_none(row.get("rounded_value"))
+    reference_price = _float_or_none(row.get("reference_price") or row.get("latest_price"))
+    checks = [
+        (
+            "asset_code_match",
+            "核对 ETF 代码",
+            f"券商端搜索并确认 ETF={asset_id or '--'}；不认识、停牌、退市或不是 CN_ETF 就跳过。",
+        ),
+        (
+            "broker_realtime_price",
+            "核对实时价格",
+            f"本地参考价={reference_price if reference_price is not None else '--'}；券商端实时价偏离明显时重新估算金额和数量。",
+        ),
+        (
+            "quantity_and_lot_size",
+            "核对方向和数量",
+            f"方向={side}，数量={rounded_quantity}；数量为 0、不是整手或方向看不懂就不要操作。",
+        ),
+        (
+            "cash_and_weight_limit",
+            "核对现金和仓位上限",
+            f"票据金额={rounded_value if rounded_value is not None else '--'}；人工确认现金、单 ETF 权重、总仓位和回撤预算没有超限。",
+        ),
+        (
+            "final_human_decision",
+            "最终本人确认",
+            "离开本系统后只在券商端人工决定；这张票据不是订单，也不能自动提交。",
+        ),
+    ]
+    return [
+        {
+            "check_id": check_id,
+            "label": label,
+            "status": "required",
+            "plain_check": plain_check,
+            "automation_allowed": False,
+            "live_order_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        }
+        for check_id, label, plain_check in checks
+    ]
+
+
+def _broker_ticket_red_flags() -> list[dict[str, Any]]:
+    return [
+        _broker_ticket_red_flag(
+            "price_changed_from_reference",
+            "券商端实时价明显偏离本地参考价，必须重新估算金额、数量和滑点。",
+        ),
+        _broker_ticket_red_flag(
+            "cash_or_position_limit_breach",
+            "现金不足、单 ETF 权重超限、总仓位超限或回撤预算超限时，跳过这张票据。",
+        ),
+        _broker_ticket_red_flag(
+            "asset_not_tradeable",
+            "停牌、涨跌停、无法成交、代码不匹配或不是目标 ETF 时，跳过这张票据。",
+        ),
+        _broker_ticket_red_flag(
+            "manual_discomfort",
+            "本人无法解释这笔交易、情绪不稳定或不愿承担回撤时，跳过而不是硬做。",
+        ),
+    ]
+
+
+def _broker_ticket_red_flag(flag_id: str, plain_flag: str) -> dict[str, Any]:
+    return {
+        "flag_id": flag_id,
+        "status": "block_if_seen",
+        "plain_flag": plain_flag,
+        "automation_allowed": False,
+        "live_order_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
     }
 
 

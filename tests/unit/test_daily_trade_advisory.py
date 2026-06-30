@@ -352,6 +352,20 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("510300", ticket["copy_text"])
         self.assertIn("10400", ticket["copy_text"])
         self.assertIn("系统不会下单", ticket["copy_text"])
+        self.assertEqual(
+            [row["check_id"] for row in ticket["review_checklist"]],
+            [
+                "asset_code_match",
+                "broker_realtime_price",
+                "quantity_and_lot_size",
+                "cash_and_weight_limit",
+                "final_human_decision",
+            ],
+        )
+        self.assertTrue(all(row["status"] == "required" for row in ticket["review_checklist"]))
+        self.assertIn("price_changed_from_reference", {row["flag_id"] for row in ticket["red_flags"]})
+        self.assertIn("cash_or_position_limit_breach", {row["flag_id"] for row in ticket["red_flags"]})
+        self.assertTrue(all(not row["order_placement_allowed"] for row in ticket["review_checklist"]))
         self.assertEqual(pack["pretrade_workflow"]["manual_broker_handoff"], handoff)
         self.assertEqual(pack["operator_next_actions"][0]["action_id"], "run_paper_simulation")
         self.assertEqual(pack["operator_next_actions"][0]["status"], "required_before_manual_ticket")

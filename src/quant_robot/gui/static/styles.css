@@ -2212,6 +2212,41 @@ th {
   color: var(--green);
 }
 
+.ticket-review-checklist {
+  display: grid;
+  gap: 6px;
+  grid-column: 1 / -1;
+  margin-top: 8px;
+}
+
+.mini-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.mini-row strong,
+.mini-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mini-row.warn strong {
+  color: var(--accent-2);
+}
+
+.mini-row.danger strong {
+  color: var(--red);
+}
+
+.mini-row.muted strong {
+  color: var(--muted);
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;

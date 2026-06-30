@@ -94,6 +94,19 @@ const EXECUTION_RECEIPT_STORAGE_KEY = "quant_robot.gui.execution_receipts.v1";
 const EXECUTION_RECEIPT_LIMIT = 20;
 const RUNTIME_GUARDED_ACTIONS = new Set(["research_backtest", "startup_workflows"]);
 const FORBIDDEN_CURRENT_POSITION_COLUMNS = new Set(["account", "account_id", "broker", "broker_id", "client_id", "order_id"]);
+const DEFAULT_TICKET_REVIEW_CHECKLIST = [
+  { check_id: "asset_code_match", label: "核对 ETF 代码", plain_check: "券商端确认 ETF 代码和目标市场一致；不认识就跳过。" },
+  { check_id: "broker_realtime_price", label: "核对实时价格", plain_check: "券商端实时价格明显偏离本地参考价时，重新估算数量和金额。" },
+  { check_id: "quantity_and_lot_size", label: "核对方向和数量", plain_check: "方向、数量、整手和金额都看懂后再人工决定。" },
+  { check_id: "cash_and_weight_limit", label: "核对现金和仓位上限", plain_check: "现金不足、单 ETF 或总仓位超限时跳过。" },
+  { check_id: "final_human_decision", label: "最终本人确认", plain_check: "票据不是订单；只能离开系统后在券商端人工决定。" },
+];
+const DEFAULT_TICKET_RED_FLAGS = [
+  { flag_id: "price_changed_from_reference", plain_flag: "券商端实时价明显偏离本地参考价。" },
+  { flag_id: "cash_or_position_limit_breach", plain_flag: "现金不足、仓位上限或回撤预算超限。" },
+  { flag_id: "asset_not_tradeable", plain_flag: "停牌、涨跌停、无法成交或代码不匹配。" },
+  { flag_id: "manual_discomfort", plain_flag: "本人无法解释交易或不愿承担回撤。" },
+];
 const REQUEST_PREVIEW_INPUT_IDS = [
   "data-source-select",
   "data-root-input",
@@ -7519,9 +7532,42 @@ function renderManualBrokerCopyCards(tickets = []) {
         <span class="beginner-task-actions">
           <button class="secondary-button" type="button" data-copy-ticket-text="${escapeRawHtml(text)}">复制票据文本</button>
         </span>
+        ${renderTicketReviewChecklist(ticket)}
       </div>
     `;
   }).join("");
+}
+
+function renderTicketReviewChecklist(ticket = {}) {
+  const checklist = Array.isArray(ticket.review_checklist) && ticket.review_checklist.length
+    ? ticket.review_checklist
+    : DEFAULT_TICKET_REVIEW_CHECKLIST;
+  const redFlags = Array.isArray(ticket.red_flags) && ticket.red_flags.length
+    ? ticket.red_flags
+    : DEFAULT_TICKET_RED_FLAGS;
+  if (!checklist.length && !redFlags.length) return "";
+  const checklistRows = checklist.map((item) => `
+    <div class="mini-row warn">
+      <strong>${escapeHtml(item.label || item.check_id || "")}</strong>
+      <span>${escapeHtml(item.plain_check || "")}</span>
+    </div>
+  `).join("");
+  const flagRows = redFlags.map((item) => `
+    <div class="mini-row danger" data-ticket-red-flag="${escapeRawHtml(item.flag_id || "")}">
+      <strong>${escapeHtml(item.flag_id || "")}</strong>
+      <span>${escapeHtml(item.plain_flag || "")}</span>
+    </div>
+  `).join("");
+  return `
+    <div class="ticket-review-checklist">
+      <div class="mini-row muted">
+        <strong>${escapeHtml("逐票核对")}</strong>
+        <span>${escapeHtml("每一张票据都必须逐项人工确认；任何红灯出现就跳过。")}</span>
+      </div>
+      ${checklistRows}
+      ${flagRows}
+    </div>
+  `;
 }
 
 async function copyTicketTextToClipboard(text) {
