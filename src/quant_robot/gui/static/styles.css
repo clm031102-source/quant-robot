@@ -475,7 +475,12 @@ button {
   margin-bottom: 12px;
 }
 
-.beginner-trade-action-card .list-row {
+.beginner-pretrade-receipt-card {
+  margin-bottom: 12px;
+}
+
+.beginner-trade-action-card .list-row,
+.beginner-pretrade-receipt-card .list-row {
   grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1.3fr) minmax(170px, auto);
   align-items: center;
 }

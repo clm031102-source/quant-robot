@@ -483,6 +483,12 @@ function bindActions() {
     event.preventDefault();
     jumpToBeginnerTarget(button.dataset.beginnerTradeActionTarget || "beginner-trade-system-board", state.leaderboardTab);
   });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-beginner-pretrade-receipt-target]");
+    if (!button) return;
+    event.preventDefault();
+    jumpToBeginnerTarget(button.dataset.beginnerPretradeReceiptTarget || "beginner-trade-system-board", state.leaderboardTab);
+  });
   document.addEventListener("click", async (event) => {
     const button = event.target.closest("[data-daily-rehearsal-action]");
     if (!button) return;
@@ -2860,6 +2866,7 @@ function renderBeginnerTradeSystem() {
   const actionsTarget = byId("beginner-trade-system-actions");
   if (!summaryTarget || !evidenceTarget || !actionsTarget) return;
   renderBeginnerTradeActionCard();
+  renderBeginnerPretradeReceiptCard();
   const decision = dailyReadinessDecision();
   const trade = state.dailyTradeAdvisory || {};
   const tradeSystem = trade.trade_system || {};
@@ -2954,6 +2961,75 @@ function beginnerTradeActionCardRows(card = {}) {
       value: summary.auto_order_allowed ? "异常：允许自动下单" : "不自动下单",
       detail: "软件只输出研究、模拟盘和人工复核材料；券商端动作必须由人另行决定。",
       tone: summary.auto_order_allowed ? "danger" : "ok",
+    },
+  ];
+}
+
+function renderBeginnerPretradeReceiptCard() {
+  const target = byId("beginner-pretrade-receipt-card");
+  if (!target) return;
+  const receipt = latestExecutionReceipt("daily_pretrade_checkup");
+  if (!receipt) {
+    target.innerHTML = `
+      <div class="list-row warn">
+        <strong>${escapeHtml("还没有开盘前体检回执")}</strong>
+        <span>${escapeHtml("先运行开盘前一键体检，软件会把 daily_ops 和今日前三建议合成一张本地回执。")}</span>
+        <span class="beginner-task-actions">
+          <button class="secondary-button" type="button" data-beginner-pretrade-receipt-target="control-command-deck">${escapeHtml("去运行体检")}</button>
+        </span>
+      </div>
+    `;
+    return;
+  }
+  const rows = beginnerPretradeReceiptRows(receipt);
+  target.innerHTML = rows.map((item) => `
+    <div class="list-row ${escapeHtml(item.tone)}">
+      <strong>${escapeHtml(item.label)}</strong>
+      <span>${escapeHtml(item.value)}</span>
+      <span>${escapeHtml(item.detail)}</span>
+      ${item.target ? `<span class="beginner-task-actions"><button class="secondary-button" type="button" data-beginner-pretrade-receipt-target="${escapeRawHtml(item.target)}">${escapeHtml(item.button || "看证据")}</button></span>` : ""}
+    </div>
+  `).join("");
+}
+
+function beginnerPretradeReceiptRows(receipt = {}) {
+  const metrics = receipt.metrics || {};
+  const request = receipt.request || {};
+  const blockerCount = Number(metrics.blocker_count || 0);
+  const trafficLight = metrics.traffic_light || "unknown";
+  const tone = blockerCount > 0 || trafficLight === "red" ? "danger" : "warn";
+  return [
+    {
+      label: "最近体检回执",
+      value: `${receipt.time || "--"} / ${receipt.workflow_id || "daily_pretrade_checkup"}`,
+      detail: receipt.decision || "等待开盘前体检结论",
+      target: "daily-pretrade-readiness-verdict",
+      button: "看体检结论",
+      tone,
+    },
+    {
+      label: "体检做了什么",
+      value: request.workflow || "daily_ops + daily_trade_advisory",
+      detail: `市场=${request.market || "CN_ETF"} / 日期=${request.as_of_date || "--"} / 自动跑模拟盘=${request.paper_simulation_auto_run ? "是" : "否"}`,
+      target: "daily-evidence-chain",
+      button: "看闭环证据",
+      tone: "warn",
+    },
+    {
+      label: "关键结果",
+      value: `灯号=${zhConsoleText(trafficLight)} / 阻断=${formatNumber(blockerCount)} / 票据=${formatNumber(metrics.manual_ticket_count || 0)}`,
+      detail: `信号=${formatNumber(metrics.signal_count || 0)} / 可复制票据=${formatNumber(metrics.copyable_ticket_count || 0)}`,
+      target: blockerCount > 0 ? "daily-pretrade-readiness-status" : "daily-manual-broker-handoff-ticket-table",
+      button: blockerCount > 0 ? "看阻断项" : "看人工票据",
+      tone,
+    },
+    {
+      label: "安全边界",
+      value: "pretrade_receipt_only",
+      detail: receipt.safety || "本地体检回执，只做人工复核；不连接券商、不读账户、不自动下单。",
+      target: "control-safety-boundary",
+      button: "看安全边界",
+      tone: "ok",
     },
   ];
 }
@@ -8022,7 +8098,14 @@ function dailyPretradeCheckupReceipt(result = {}) {
       copyable_ticket_count: Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets.length : 0,
     },
     decision: decision.title || readiness.traffic_light || "pretrade_checkup",
-    safety: "local pretrade checkup only; manual review required; no broker, account, or order side effects",
+    receipt_scope: "pretrade_receipt_only",
+    permissions: {
+      broker_connection_allowed: false,
+      account_read_allowed: false,
+      order_placement_allowed: false,
+      auto_order_allowed: false,
+    },
+    safety: "pretrade_receipt_only; local pretrade checkup only; manual review required; no broker, account, or order side effects",
   };
 }
 
