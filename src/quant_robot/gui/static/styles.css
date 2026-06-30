@@ -471,6 +471,15 @@ button {
   background: #f7fcfa;
 }
 
+.beginner-trade-action-card {
+  margin-bottom: 12px;
+}
+
+.beginner-trade-action-card .list-row {
+  grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1.3fr) minmax(170px, auto);
+  align-items: center;
+}
+
 .beginner-daily-rehearsal-board {
   border-left: 4px solid #3f6f94;
   background: #f6fbff;

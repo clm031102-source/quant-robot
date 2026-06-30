@@ -465,11 +465,23 @@ function bindActions() {
     event.preventDefault();
     await runBeginnerAction(button.dataset.tradeSystemAction || "", button);
   });
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-beginner-trade-action-workflow]");
+    if (!button) return;
+    event.preventDefault();
+    await runBeginnerAction(button.dataset.beginnerTradeActionWorkflow || "", button);
+  });
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-trade-system-target]");
     if (!button) return;
     event.preventDefault();
     jumpToBeginnerTarget(button.dataset.tradeSystemTarget || "beginner-live-handoff-board", state.leaderboardTab);
+  });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-beginner-trade-action-target]");
+    if (!button) return;
+    event.preventDefault();
+    jumpToBeginnerTarget(button.dataset.beginnerTradeActionTarget || "beginner-trade-system-board", state.leaderboardTab);
   });
   document.addEventListener("click", async (event) => {
     const button = event.target.closest("[data-daily-rehearsal-action]");
@@ -2847,6 +2859,7 @@ function renderBeginnerTradeSystem() {
   const evidenceTarget = byId("beginner-trade-system-evidence");
   const actionsTarget = byId("beginner-trade-system-actions");
   if (!summaryTarget || !evidenceTarget || !actionsTarget) return;
+  renderBeginnerTradeActionCard();
   const decision = dailyReadinessDecision();
   const trade = state.dailyTradeAdvisory || {};
   const tradeSystem = trade.trade_system || {};
@@ -2877,6 +2890,72 @@ function renderBeginnerTradeSystem() {
       </span>
     </div>
   `).join("");
+}
+
+function renderBeginnerTradeActionCard() {
+  const target = byId("beginner-trade-action-card");
+  if (!target) return;
+  const card = state.dailyTradeAdvisory?.beginner_trade_action_card || {};
+  const summary = card.summary || {};
+  const next = card.next_action || {};
+  const tone = summary.answer_code === "no" ? "danger" : summary.answer_code === "ready" ? "ok" : "warn";
+  const rows = beginnerTradeActionCardRows(card);
+  target.innerHTML = [
+    `
+      <div class="list-row ${escapeHtml(tone)}">
+        <strong>${escapeHtml(summary.plain_answer || "先生成今日建议，再判断能不能进入人工复核。")}</strong>
+        <span>${escapeHtml(summary.why || "等待今日交易系统给出普通人可读结论。")}</span>
+        <span class="beginner-task-actions">
+          ${next.workflow_id ? `<button class="primary-button" type="button" data-beginner-trade-action-workflow="${escapeRawHtml(next.workflow_id)}">${escapeHtml(next.button_label || "运行下一步")}</button>` : ""}
+          ${next.target_id ? `<button class="secondary-button" type="button" data-beginner-trade-action-target="${escapeRawHtml(next.target_id)}">${escapeHtml(next.workflow_id ? "看证据" : next.button_label || "看证据")}</button>` : ""}
+        </span>
+      </div>
+    `,
+    ...rows.map((item) => `
+      <div class="list-row ${escapeHtml(item.tone)}">
+        <strong>${escapeHtml(item.label)}</strong>
+        <span>${escapeHtml(item.value)}</span>
+        <span>${escapeHtml(item.detail)}</span>
+      </div>
+    `),
+  ].join("");
+}
+
+function beginnerTradeActionCardRows(card = {}) {
+  const summary = card.summary || {};
+  const evidence = card.evidence || {};
+  const checklist = Array.isArray(card.plain_checklist) ? card.plain_checklist : [];
+  const blockers = Array.isArray(evidence.blockers) ? evidence.blockers : [];
+  const checklistText = checklist
+    .slice(0, 6)
+    .map((item) => `${item.label || item.check_id || "--"}=${zhConsoleText(item.status || "waiting")}`)
+    .join(" / ");
+  return [
+    {
+      label: "今天结论",
+      value: zhConsoleText(summary.recommended_mode || summary.answer_code || "waiting"),
+      detail: summary.can_manual_review_today ? "可进入人工复核，但仍必须先看模拟盘和风险。" : "还不能进入人工复核或买入。",
+      tone: summary.answer_code === "no" ? "danger" : "warn",
+    },
+    {
+      label: "证据数量",
+      value: `因子=${formatNumber(evidence.selected_factor_count || 0)} / 信号=${formatNumber(evidence.signal_count || 0)} / 票据=${formatNumber(evidence.manual_ticket_count || 0)}`,
+      detail: `灯号=${zhConsoleText(evidence.traffic_light || "unknown")} / 阻断=${blockers.length ? blockers.join(", ") : "无"}`,
+      tone: blockers.length ? "danger" : "warn",
+    },
+    {
+      label: "检查清单",
+      value: checklistText || "等待生成今日检查清单",
+      detail: "先按清单补齐证据；不要把前三因子直接当成买入指令。",
+      tone: blockers.length ? "danger" : "warn",
+    },
+    {
+      label: "安全边界",
+      value: summary.auto_order_allowed ? "异常：允许自动下单" : "不自动下单",
+      detail: "软件只输出研究、模拟盘和人工复核材料；券商端动作必须由人另行决定。",
+      tone: summary.auto_order_allowed ? "danger" : "ok",
+    },
+  ];
 }
 
 function beginnerTradeSystemEvidenceRows(trade = {}, paperReceipt = null) {

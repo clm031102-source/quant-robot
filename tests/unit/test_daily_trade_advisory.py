@@ -145,6 +145,18 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(live_gate["mode_ladder"][-1]["status"], "locked")
         self.assertIn("daily_top3_direct_buy", {row["shortcut_id"] for row in live_gate["forbidden_shortcuts"]})
 
+        action_card = pack["beginner_trade_action_card"]
+        self.assertEqual(action_card["stage"], "phase_6_10_beginner_trade_action_card")
+        self.assertEqual(action_card["summary"]["decision"], "paper_rehearsal_required")
+        self.assertEqual(action_card["summary"]["answer_code"], "not_yet")
+        self.assertEqual(action_card["summary"]["recommended_mode"], "paper_first_manual_review")
+        self.assertFalse(action_card["summary"]["auto_order_allowed"])
+        self.assertFalse(action_card["summary"]["broker_connection_allowed"])
+        self.assertEqual(action_card["next_action"]["workflow_id"], "paper_simulation")
+        self.assertEqual(action_card["next_action"]["target_id"], "paper-metrics")
+        self.assertEqual(action_card["evidence"]["manual_ticket_count"], 1)
+        self.assertIn("paper_simulation", {row["check_id"] for row in action_card["plain_checklist"]})
+
     def test_current_position_account_fields_are_blocked_without_crashing(self):
         pack = build_daily_trade_advisory_pack(
             [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
@@ -174,6 +186,9 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(pack["daily_live_readiness_gate"]["gate_rows"][0]["gate_id"], "current_positions")
         self.assertEqual(pack["daily_live_readiness_gate"]["gate_rows"][0]["status"], "blocked")
         self.assertFalse(pack["daily_live_readiness_gate"]["summary"]["broker_connection_allowed"])
+        self.assertEqual(pack["beginner_trade_action_card"]["summary"]["decision"], "blocked_fix_current_positions")
+        self.assertEqual(pack["beginner_trade_action_card"]["next_action"]["target_id"], "daily-current-positions")
+        self.assertFalse(pack["beginner_trade_action_card"]["summary"]["can_manual_review_today"])
 
     def test_pretrade_readiness_summarizes_manual_action_without_live_permissions(self):
         pack = build_daily_trade_advisory_pack(
