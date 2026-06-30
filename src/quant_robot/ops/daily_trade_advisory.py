@@ -2285,6 +2285,16 @@ def build_daily_trade_decision_sheet(pack: dict[str, Any]) -> dict[str, Any]:
         position_status=position_status,
     )
     operator_script = _decision_sheet_operator_script(decision, ticket_count)
+    trade_system_state = _build_daily_trade_system_state(
+        decision=decision,
+        market=market,
+        selected_factor_count=_int(summary.get("selected_factor_count"), len(factors)),
+        signal_count=signal_count,
+        target_count=target_count,
+        ticket_count=ticket_count,
+        blocker_count=len(blockers),
+        position_status=position_status,
+    )
 
     return _sanitize(
         {
@@ -2320,9 +2330,178 @@ def build_daily_trade_decision_sheet(pack: dict[str, Any]) -> dict[str, Any]:
             "today_actions": today_actions,
             "missing_evidence": missing_evidence,
             "operator_script": operator_script,
+            "trade_system_state": trade_system_state,
             "safety": SAFETY_NOTICE,
         }
     )
+
+
+def _build_daily_trade_system_state(
+    *,
+    decision: str,
+    market: str,
+    selected_factor_count: int,
+    signal_count: int,
+    target_count: int,
+    ticket_count: int,
+    blocker_count: int,
+    position_status: str,
+) -> dict[str, Any]:
+    blocked = decision.startswith("blocked") or blocker_count > 0 or position_status == "error"
+    has_candidate_pool = market == "CN_ETF" and selected_factor_count > 0
+    has_today_signal = signal_count > 0 and target_count > 0
+    has_manual_ticket = ticket_count > 0
+    if position_status == "error":
+        mode = "blocked_fix_current_positions"
+    elif blocked:
+        mode = "blocked_pretrade_red_light"
+    elif has_manual_ticket:
+        mode = "paper_rehearsal_required"
+    elif has_today_signal:
+        mode = "manual_ticket_required"
+    else:
+        mode = "waiting_for_daily_signal"
+
+    candidate_status = "done" if has_candidate_pool else ("blocked" if market != "CN_ETF" else "waiting")
+    signal_status = "blocked" if blocked else ("done" if has_today_signal else "waiting")
+    paper_status = "blocked" if blocked else ("required" if has_manual_ticket else "waiting")
+    ticket_status = "blocked" if blocked else ("required" if has_manual_ticket else ("waiting" if has_today_signal else "waiting"))
+    journal_status = "blocked" if blocked else ("required" if has_manual_ticket else "waiting")
+    stages = [
+        _daily_trade_system_stage(
+            "candidate_pool",
+            "候选池",
+            candidate_status,
+            "只从 CN_ETF 主线可运行候选里选，不从全市场历史榜硬挑前三。",
+            f"market={market}; selected_factors={selected_factor_count}",
+            "factor-leaderboard-table",
+        ),
+        _daily_trade_system_stage(
+            "today_signal",
+            "今日信号",
+            signal_status,
+            "前三因子必须生成当天 ETF 目标，旧信号或无目标都不能进入交易复核。",
+            f"signals={signal_count}; targets={target_count}",
+            "daily-trade-factor-table",
+        ),
+        _daily_trade_system_stage(
+            "paper_simulation",
+            "模拟盘复核",
+            paper_status,
+            "用同参数先跑本地模拟盘，看收益、回撤、成交和保护事件。",
+            "paper_receipt_required=true",
+            "paper-metrics",
+            "paper_simulation",
+        ),
+        _daily_trade_system_stage(
+            "manual_ticket_review",
+            "人工票据复核",
+            ticket_status,
+            "只生成可复核票据，人工核对价格、现金、仓位和 100 份取整。",
+            f"manual_tickets={ticket_count}",
+            "daily-trade-decision-actions",
+        ),
+        _daily_trade_system_stage(
+            "post_close_journal",
+            "盘后复盘",
+            journal_status,
+            "记录是否执行、为什么跳过、滑点、回撤和次日要验证的问题。",
+            "post_close_journal_required=true",
+            "beginner-post-close-journal-board",
+            "post_close_journal",
+        ),
+        _daily_trade_system_stage(
+            "human_broker_execution",
+            "人工券商端操作",
+            "manual_locked",
+            "软件不连接券商、不读取账户、不自动下单；真要操作只能由本人另行打开券商端人工决定。",
+            "system_order_permission=false",
+            "daily-manual-broker-handoff-ticket-table",
+        ),
+    ]
+    progress = {
+        "completed_stage_count": sum(1 for row in stages if row["status"] == "done"),
+        "required_stage_count": sum(1 for row in stages if row["status"] == "required"),
+        "blocked_stage_count": sum(1 for row in stages if row["status"] == "blocked"),
+        "locked_stage_count": sum(1 for row in stages if row["status"].endswith("locked")),
+        "stage_count": len(stages),
+    }
+    next_gate = _daily_trade_system_next_gate(stages)
+    return {
+        "stage": "daily_trade_system_state",
+        "mode": mode,
+        "mode_label": _daily_trade_system_mode_label(mode),
+        "progress": progress,
+        "next_gate": next_gate,
+        "candidate_pool_policy": {
+            "selection_scope": "CN_ETF",
+            "top_factor_limit": 3,
+            "eligible_pool_required": True,
+            "direct_buy_from_leaderboard_allowed": False,
+            "cn_stock_moneyflow_primary_allowed": False,
+        },
+        "permissions": {
+            "paper_simulation_allowed": not blocked and has_manual_ticket,
+            "manual_ticket_review_allowed": not blocked and has_manual_ticket,
+            "small_capital_observation_allowed": False,
+            "live_trading_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        },
+        "stages": stages,
+    }
+
+
+def _daily_trade_system_stage(
+    stage_id: str,
+    label: str,
+    status: str,
+    plain_check: str,
+    evidence: str,
+    target_id: str,
+    workflow_id: str = "",
+) -> dict[str, Any]:
+    return {
+        "stage_id": stage_id,
+        "label": label,
+        "status": status,
+        "plain_check": plain_check,
+        "evidence": evidence,
+        "target_id": target_id,
+        "workflow_id": workflow_id,
+        "automation_allowed": False,
+        "live_order_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+    }
+
+
+def _daily_trade_system_next_gate(stages: list[dict[str, Any]]) -> dict[str, Any]:
+    for status in ("blocked", "required", "waiting", "manual_locked"):
+        for row in stages:
+            if row.get("status") == status:
+                return {
+                    "stage_id": row.get("stage_id"),
+                    "label": row.get("label"),
+                    "status": row.get("status"),
+                    "target_id": row.get("target_id"),
+                    "workflow_id": row.get("workflow_id"),
+                }
+    return {}
+
+
+def _daily_trade_system_mode_label(mode: str) -> str:
+    labels = {
+        "blocked_fix_current_positions": "先修正持仓输入",
+        "blocked_pretrade_red_light": "盘前红灯阻断",
+        "paper_rehearsal_required": "先模拟盘复核",
+        "manual_ticket_required": "先生成可复核票据",
+        "waiting_for_daily_signal": "等待今日信号",
+    }
+    return labels.get(mode, mode)
 
 
 def _decision_sheet_action(index: int, row: dict[str, Any]) -> dict[str, Any]:

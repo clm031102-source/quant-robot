@@ -5652,7 +5652,8 @@ function renderDailyTradeDecisionSheet(sheet = {}) {
   const top3Target = byId("daily-trade-decision-top3");
   const actionTarget = byId("daily-trade-decision-actions");
   const evidenceTarget = byId("daily-trade-decision-evidence");
-  if (!root || !summaryTarget || !top3Target || !actionTarget || !evidenceTarget) return;
+  const systemTarget = byId("daily-trade-system-state");
+  if (!root || !summaryTarget || !systemTarget || !top3Target || !actionTarget || !evidenceTarget) return;
   const summary = sheet.summary || {};
   const next = sheet.what_to_do_now || {};
   const decision = summary.decision || "waiting_for_daily_signal";
@@ -5669,6 +5670,7 @@ function renderDailyTradeDecisionSheet(sheet = {}) {
     ["信号/票据", `信号=${formatNumber(summary.signal_count || 0)} / 目标=${formatNumber(summary.target_count || 0)} / 票据=${formatNumber(summary.manual_ticket_count || 0)}`, "muted"],
     ["自动下单", summary.order_placement_allowed ? "异常开启" : "禁止", summary.order_placement_allowed ? "danger" : "ok"],
   ]);
+  renderDailyTradeSystemState(sheet.trade_system_state || {}, runtime, systemTarget);
 
   const top3 = Array.isArray(sheet.daily_top3) ? sheet.daily_top3 : [];
   top3Target.innerHTML = top3.length ? top3.map((item, index) => `
@@ -5705,6 +5707,49 @@ function renderDailyTradeDecisionSheet(sheet = {}) {
       </div>
     `;
   }).join("") : statusRows([["缺失证据", "暂无结构化缺失项；仍需人工确认模拟盘、风险、现金和券商端实时价格。", "warn"]]);
+}
+
+function renderDailyTradeSystemState(system = {}, runtime = {}, target = byId("daily-trade-system-state")) {
+  if (!target) return;
+  const candidate_pool_policy = system.candidate_pool_policy || {};
+  const permissions = system.permissions || {};
+  const progress = system.progress || {};
+  const nextGate = system.next_gate || {};
+  const mode = system.mode || "waiting_for_daily_signal";
+  const stages = Array.isArray(system.stages) ? system.stages : [];
+  const overview = statusRows([
+    ["交易系统阶段", system.mode_label || zhConsoleText(mode), dailyTradeSystemModeTone(mode)],
+    ["候选池规则", `${candidate_pool_policy.selection_scope || "CN_ETF"} / Top${formatNumber(candidate_pool_policy.top_factor_limit || 3)} / 榜单直买=${candidate_pool_policy.direct_buy_from_leaderboard_allowed ? "允许" : "禁止"}`, candidate_pool_policy.direct_buy_from_leaderboard_allowed ? "danger" : "ok"],
+    ["流程进度", `已完成=${formatNumber(progress.completed_stage_count || 0)} / 待补=${formatNumber(progress.required_stage_count || 0)} / 阻断=${formatNumber(progress.blocked_stage_count || 0)} / 锁定=${formatNumber(progress.locked_stage_count || 0)}`, progress.blocked_stage_count ? "danger" : progress.required_stage_count ? "warn" : "ok"],
+    ["下一道门", `${nextGate.label || "--"} / ${zhConsoleText(nextGate.status || "--")}`, dailyTradeSystemStageTone(nextGate.status || "")],
+    ["系统权限", permissions.order_placement_allowed ? "异常：允许下单" : "只允许研究、模拟盘、人工复核", permissions.order_placement_allowed ? "danger" : "ok"],
+  ]);
+  const stageRows = stages.length ? stages.map((item, index) => `
+    <div class="list-row ${escapeHtml(dailyTradeSystemStageTone(item.status || ""))}">
+      <strong>${escapeHtml(`${index + 1}. ${item.label || item.stage_id || ""}`)}</strong>
+      <span>${escapeHtml(`${zhConsoleText(item.status || "waiting")} / ${item.plain_check || ""}`)}</span>
+      <span>${escapeHtml(item.evidence || "")}</span>
+      <span class="beginner-task-actions">
+        ${item.workflow_id ? `<button class="secondary-button" type="button" data-beginner-next="${escapeRawHtml(item.workflow_id)}" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行这一步")}</button>` : ""}
+        ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("看这一步")}</button>` : ""}
+      </span>
+    </div>
+  `).join("") : statusRows([["交易系统状态", "等待今日交易建议加载。", "warn"]]);
+  target.innerHTML = overview + stageRows;
+}
+
+function dailyTradeSystemModeTone(mode = "") {
+  if (mode.includes("blocked")) return "danger";
+  if (mode === "paper_rehearsal_required" || mode === "manual_ticket_required") return "warn";
+  return "warn";
+}
+
+function dailyTradeSystemStageTone(status = "") {
+  if (status === "done") return "ok";
+  if (status === "blocked") return "danger";
+  if (status === "manual_locked") return "danger";
+  if (status === "required") return "warn";
+  return "warn";
 }
 
 function dailyTradeDecisionRuntimeState(sheet = {}) {

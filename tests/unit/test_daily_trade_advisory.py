@@ -345,6 +345,21 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("paper_simulation_receipt", {row["check_id"] for row in sheet["missing_evidence"]})
         self.assertIn("post_close_journal_plan", {row["check_id"] for row in sheet["missing_evidence"]})
         self.assertIn("daily_top3_signal_review", {row["step_id"] for row in sheet["operator_script"]})
+        system_state = sheet["trade_system_state"]
+        self.assertEqual(system_state["stage"], "daily_trade_system_state")
+        self.assertEqual(system_state["mode"], "paper_rehearsal_required")
+        self.assertFalse(system_state["permissions"]["order_placement_allowed"])
+        self.assertFalse(system_state["candidate_pool_policy"]["direct_buy_from_leaderboard_allowed"])
+        self.assertEqual(system_state["candidate_pool_policy"]["selection_scope"], "CN_ETF")
+        stage_by_id = {row["stage_id"]: row for row in system_state["stages"]}
+        self.assertEqual(stage_by_id["candidate_pool"]["status"], "done")
+        self.assertEqual(stage_by_id["today_signal"]["status"], "done")
+        self.assertEqual(stage_by_id["paper_simulation"]["status"], "required")
+        self.assertEqual(stage_by_id["manual_ticket_review"]["status"], "required")
+        self.assertEqual(stage_by_id["human_broker_execution"]["status"], "manual_locked")
+        self.assertEqual(system_state["progress"]["completed_stage_count"], 2)
+        self.assertEqual(system_state["progress"]["required_stage_count"], 3)
+        self.assertEqual(system_state["next_gate"]["stage_id"], "paper_simulation")
         self.assertEqual(pack["daily_trade_decision_sheet"]["stage"], "phase_6_14_daily_trade_decision_sheet")
 
     def test_pretrade_readiness_blocks_when_signals_are_missing(self):
