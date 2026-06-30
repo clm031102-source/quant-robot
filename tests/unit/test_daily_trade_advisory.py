@@ -8,11 +8,57 @@ from quant_robot.ops.daily_trade_advisory import (
     build_manual_execution_audit,
     build_daily_trade_decision_sheet,
     build_manual_ticket_export,
-    build_daily_trade_advisory_pack,
+    build_daily_trade_advisory_pack as _build_daily_trade_advisory_pack,
     build_daily_pretrade_workflow,
     select_daily_top_factor_candidates,
     write_daily_trade_advisory_pack,
 )
+
+
+_CURRENT_POSITIONS_NOT_SUPPLIED = object()
+
+
+def build_daily_trade_advisory_pack(
+    candidates,
+    signal_snapshots,
+    *args,
+    current_positions=_CURRENT_POSITIONS_NOT_SUPPLIED,
+    **kwargs,
+):
+    if current_positions is _CURRENT_POSITIONS_NOT_SUPPLIED:
+        current_positions = _zero_current_positions_from_signals(signal_snapshots)
+    return _build_daily_trade_advisory_pack(
+        candidates,
+        signal_snapshots,
+        *args,
+        current_positions=current_positions,
+        **kwargs,
+    )
+
+
+def _zero_current_positions_from_signals(signal_snapshots):
+    rows_by_asset = {}
+    for signal in signal_snapshots:
+        if not isinstance(signal, dict):
+            continue
+        source_rows = []
+        if isinstance(signal.get("targets"), list):
+            source_rows.extend(signal["targets"])
+        if isinstance(signal.get("rebalance_plan"), list):
+            source_rows.extend(signal["rebalance_plan"])
+        for row in source_rows:
+            if not isinstance(row, dict):
+                continue
+            asset_id = str(row.get("asset_id") or "").strip()
+            if not asset_id or asset_id in rows_by_asset:
+                continue
+            rows_by_asset[asset_id] = {
+                "asset_id": asset_id,
+                "quantity": 0,
+                "latest_price": row.get("latest_price") or 1.0,
+                "market": row.get("market") or "CN_ETF",
+            }
+    return list(rows_by_asset.values())
 
 
 class DailyTradeAdvisoryTests(unittest.TestCase):
@@ -358,6 +404,30 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(pack["beginner_trade_action_card"]["summary"]["decision"], "blocked_fix_current_positions")
         self.assertEqual(pack["beginner_trade_action_card"]["next_action"]["target_id"], "daily-current-positions")
         self.assertFalse(pack["beginner_trade_action_card"]["summary"]["can_manual_review_today"])
+
+    def test_missing_current_positions_block_manual_tickets_before_live_handoff(self):
+        pack = build_daily_trade_advisory_pack(
+            [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
+            [_signal("c1", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            current_positions=None,
+        )
+
+        readiness = pack["pretrade_readiness"]
+        handoff = pack["manual_broker_handoff"]
+
+        self.assertEqual(pack["current_position_validation"]["status"], "not_provided")
+        self.assertIn("current_position_not_provided", readiness["blockers"])
+        self.assertFalse(readiness["manual_action_candidate"])
+        self.assertEqual(pack["manual_trade_plan"], [])
+        self.assertEqual(pack["summary"]["manual_ticket_count"], 0)
+        self.assertTrue(pack["summary"]["manual_trade_plan_blocked"])
+        self.assertEqual(pack["summary"]["manual_trade_plan_blocked_reason"], "current_positions_not_provided")
+        self.assertEqual(handoff["status"], "blocked_by_readiness")
+        self.assertEqual(handoff["copyable_tickets"], [])
+        self.assertEqual(pack["daily_live_readiness_gate"]["summary"]["decision"], "blocked_fix_current_positions")
+        self.assertEqual(pack["beginner_trade_action_card"]["next_action"]["target_id"], "daily-current-positions")
 
     def test_pretrade_readiness_summarizes_manual_action_without_live_permissions(self):
         pack = build_daily_trade_advisory_pack(
@@ -1057,9 +1127,10 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
             ],
         )
         self.assertTrue(all(not row["order_placement_allowed"] for row in gate["manual_operation_runbook"]))
-        self.assertEqual(gate["manual_ticket_preview"][0]["asset_id"], "510300")
-        self.assertFalse(gate["manual_ticket_preview"][0]["executable"])
-        self.assertIn("软件不会下单", gate["manual_ticket_preview"][0]["plain_instruction"])
+        preview_by_asset = {row["asset_id"]: row for row in gate["manual_ticket_preview"]}
+        self.assertIn("510300", preview_by_asset)
+        self.assertFalse(preview_by_asset["510300"]["executable"])
+        self.assertIn("软件不会下单", preview_by_asset["510300"]["plain_instruction"])
         self.assertIn("aggressive_30dd", gate["risk_budget"]["risk_profile_id"])
         self.assertIn("30%", gate["risk_budget"]["plain_budget"])
         self.assertIn("paper_simulation_receipt", {row["gate_id"] for row in gate["go_live_blockers"]})
@@ -1132,10 +1203,11 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("paper_simulation_receipt", {row["gate_id"] for row in readiness["readiness_gates"]})
         self.assertIn("lookahead_bias_audit", {row["control_id"] for row in readiness["profitability_controls"]})
         self.assertIn("multiple_testing_control", {row["control_id"] for row in readiness["profitability_controls"]})
-        self.assertEqual(readiness["manual_buy_sell_preview"][0]["asset_id"], "510300")
-        self.assertEqual(readiness["manual_buy_sell_preview"][0]["operation"], "buy")
-        self.assertFalse(readiness["manual_buy_sell_preview"][0]["order_placement_allowed"])
-        self.assertIn("not_order", readiness["manual_buy_sell_preview"][0]["warning_code"])
+        preview_by_asset = {row["asset_id"]: row for row in readiness["manual_buy_sell_preview"]}
+        self.assertIn("510300", preview_by_asset)
+        self.assertEqual(preview_by_asset["510300"]["operation"], "buy")
+        self.assertFalse(preview_by_asset["510300"]["order_placement_allowed"])
+        self.assertIn("not_order", preview_by_asset["510300"]["warning_code"])
 
     def test_daily_pack_exposes_live_profitability_readiness_scorecard(self):
         pack = build_daily_trade_advisory_pack(

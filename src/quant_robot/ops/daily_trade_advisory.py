@@ -357,8 +357,12 @@ def build_daily_trade_advisory_pack(
         max_gross_exposure=applied_max_gross_exposure,
     )
     fallback_signal_only = _fallback_signal_only(candidates)
-    manual_plan_blocked_reason = "fallback_baseline_not_tradeable" if fallback_signal_only else ""
     position_validation = _current_position_validation(current_positions, combined_targets)
+    manual_plan_blocked_reason = ""
+    if fallback_signal_only:
+        manual_plan_blocked_reason = "fallback_baseline_not_tradeable"
+    elif position_validation["status"] == "not_provided" and combined_targets:
+        manual_plan_blocked_reason = "current_positions_not_provided"
     position_rows = position_validation["rows"] if position_validation["status"] != "error" else []
     manual_plan = (
         []
@@ -1063,10 +1067,10 @@ def build_beginner_action_summary(pack: dict[str, Any]) -> dict[str, Any]:
         "copyable_ticket_count": len(handoff.get("copyable_tickets", [])) if isinstance(handoff.get("copyable_tickets"), list) else 0,
     }
 
-    if validation.get("status") == "error":
+    if validation.get("status") in {"error", "not_provided"}:
         decision = "fix_current_positions_first"
         primary_action = "先修正当前持仓输入；不要看买卖票据，也不要在券商端操作。"
-        primary_reason = validation.get("plain_summary") or "当前持仓输入存在错误。"
+        primary_reason = validation.get("plain_summary") or "当前持仓输入未通过盘前检查。"
         steps = [
             _beginner_action_step(
                 1,
@@ -1186,7 +1190,7 @@ def build_daily_live_readiness_gate(pack: dict[str, Any]) -> dict[str, Any]:
     target_count = _int(summary.get("combined_target_count"), 0)
     ticket_count = _int(summary.get("manual_ticket_count"), len(manual_plan))
     market = str(pack.get("market") or _first_market(factors) or "CN_ETF").upper()
-    positions_ok = validation.get("status") != "error"
+    positions_ok = validation.get("status") == "ok"
     fresh_for_run_date = bool(freshness.get("fresh_for_run_date"))
     has_today_signal = signal_count > 0 and target_count > 0
     has_manual_tickets = ticket_count > 0 and bool(manual_plan)
@@ -1498,7 +1502,7 @@ def build_beginner_trade_action_card(pack: dict[str, Any]) -> dict[str, Any]:
         checklist_row(
             "current_positions",
             "当前持仓输入",
-            "blocked" if position_status == "error" else ("pass" if position_status == "ok" else "waiting"),
+            "pass" if position_status == "ok" else "blocked",
             f"状态={position_status}；不能输入账户、券商、订单等真实交易字段。",
             "daily-current-positions",
         ),
@@ -1994,8 +1998,13 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
         blockers.append("non_cn_etf_scope")
     if bool(summary.get("fallback_signal_only")):
         blockers.append("fallback_baseline_not_tradeable")
-    if signal_count <= 0 or target_count <= 0 or (manual_count <= 0 and not summary.get("fallback_signal_only")):
+    manual_blocked_reason = str(summary.get("manual_trade_plan_blocked_reason") or "")
+    if signal_count <= 0 or target_count <= 0:
         blockers.append("signal_not_ready")
+    elif manual_count <= 0 and not summary.get("fallback_signal_only") and not manual_blocked_reason:
+        blockers.append("signal_not_ready")
+    if manual_blocked_reason == "current_positions_not_provided":
+        blockers.append("current_position_not_provided")
     if signal_errors:
         blockers.append("signal_errors")
     if invalid_sizing_tickets:
@@ -2036,7 +2045,7 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
         },
         {
             "check_id": "current_position_input",
-            "status": "blocked" if position_validation.get("status") == "error" else ("pass" if position_validation.get("status") == "ok" else "waiting"),
+            "status": "pass" if position_validation.get("status") == "ok" else "blocked",
             "text": (
                 f"当前持仓输入状态={position_validation.get('status') or 'not_provided'}；"
                 f"已接收={position_validation.get('accepted_count', 0)}；问题={position_validation.get('issue_count', 0)}。"
@@ -2083,6 +2092,8 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
         warnings.append("有入选因子没有生成同日信号，不能当作可操作建议。")
     if summary.get("fallback_signal_only"):
         warnings.append("当前只有内置基线演示信号，没有合格推广候选；只能观察和跑模拟盘，不能生成手工交易票据。")
+    if position_validation.get("status") == "not_provided" and target_count > 0:
+        warnings.append("未填写当前持仓；只能查看目标仓位，不能生成可复制人工票据。")
     if position_issues:
         warnings.append("当前持仓输入有问题：" + "；".join(str(item.get("message") or item.get("issue_id")) for item in position_issues[:3]))
 
@@ -7137,6 +7148,7 @@ def _manual_rebalance_ticket(index: int, row: dict[str, Any], market_lookup: dic
         "target_value": row.get("target_value"),
         "delta_value": delta_value,
         "latest_price": latest_price,
+        "board_lot_size": BOARD_LOT_SIZE,
         "estimated_target_quantity": target_quantity,
         "estimated_quantity": abs(estimated_quantity_delta),
         "estimated_quantity_delta": estimated_quantity_delta,
@@ -7264,7 +7276,7 @@ def _current_position_validation_summary(status: str, accepted_count: int, issue
         return f"已接收 {accepted_count} 条当前持仓，将按净买卖差额生成手工复核票据。"
     if status == "error":
         return "当前持仓输入有问题，今天不能生成可人工核对的买卖票据；请先修正持仓表。"
-    return "未填写当前持仓，将按目标仓位估算买入金额；进入实盘前建议先手填当前持仓。"
+    return "未填写当前持仓；只能查看目标仓位，不能生成可人工核对的买卖票据。"
 
 
 def _rebalance_latest_prices(
