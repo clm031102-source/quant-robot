@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import csv
+import io
 import json
 import math
 from collections import defaultdict
@@ -25,6 +27,7 @@ LIVE_READINESS_GATE_STAGE = "phase_6_9_daily_live_readiness_gate"
 BEGINNER_TRADE_ACTION_CARD_STAGE = "phase_6_10_beginner_trade_action_card"
 DAILY_LIVE_PILOT_BRIEF_STAGE = "phase_6_11_daily_live_pilot_brief"
 SMALL_CAPITAL_OBSERVATION_GATE_STAGE = "phase_6_12_small_capital_observation_gate"
+MANUAL_TICKET_EXPORT_STAGE = "phase_6_13_manual_ticket_export"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 DEFAULT_RISK_PROFILE_ID = "balanced_20dd"
@@ -190,6 +193,7 @@ def build_daily_trade_advisory_pack(
     pack["beginner_trade_action_card"] = build_beginner_trade_action_card(pack)
     pack["small_capital_observation_gate"] = build_small_capital_observation_gate(pack)
     pack["daily_live_pilot_brief"] = build_daily_live_pilot_brief(pack)
+    pack["manual_ticket_export"] = build_manual_ticket_export(pack)
     pack["summary"]["live_transition_status"] = pack["live_transition_plan"]["summary"]["status"]
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
@@ -2172,6 +2176,125 @@ def _broker_handoff_ticket(index: int, row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def build_manual_ticket_export(pack: dict[str, Any]) -> dict[str, Any]:
+    handoff = pack.get("manual_broker_handoff") if isinstance(pack.get("manual_broker_handoff"), dict) else _build_manual_broker_handoff(pack)
+    tickets = [row for row in handoff.get("copyable_tickets", []) if isinstance(row, dict)]
+    run_date = str(pack.get("run_date") or handoff.get("run_date") or date.today().isoformat())
+    export_status = str(handoff.get("status") or ("review_only" if tickets else "waiting_for_tickets"))
+    columns = [
+        "step_number",
+        "ticket_id",
+        "asset_id",
+        "market",
+        "side",
+        "target_weight",
+        "reference_price",
+        "current_quantity",
+        "current_value",
+        "target_value",
+        "delta_value",
+        "rounded_quantity",
+        "rounded_quantity_delta",
+        "rounded_value",
+        "cash_delta_after_rounding",
+        "source_factors",
+        "review_status",
+        "review_only",
+        "paper_simulation_required",
+        "manual_check_note",
+    ]
+    rows = [_manual_ticket_export_row(ticket) for ticket in tickets]
+    csv_text = _manual_ticket_export_csv(columns, rows)
+    markdown_text = _manual_ticket_export_markdown(run_date, export_status, rows)
+    return _sanitize(
+        {
+            "stage": MANUAL_TICKET_EXPORT_STAGE,
+            "run_date": run_date,
+            "summary": {
+                "export_status": export_status,
+                "ticket_count": len(rows),
+                "download_filename": f"daily_manual_ticket_export_{run_date}.csv",
+                "manual_review_required": True,
+                "review_only": True,
+                "paper_simulation_required": True,
+                "live_trading_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+            },
+            "columns": columns,
+            "rows": rows,
+            "csv_text": csv_text,
+            "markdown_text": markdown_text,
+            "safety": SAFETY_NOTICE,
+        }
+    )
+
+
+def _manual_ticket_export_row(ticket: dict[str, Any]) -> dict[str, Any]:
+    source_factors = ticket.get("source_factors")
+    if isinstance(source_factors, list):
+        factor_text = "|".join(str(item) for item in source_factors)
+    elif source_factors is None:
+        factor_text = ""
+    else:
+        factor_text = str(source_factors)
+    return {
+        "step_number": _int(ticket.get("step_number"), 0),
+        "ticket_id": str(ticket.get("ticket_id") or ""),
+        "asset_id": str(ticket.get("asset_id") or ""),
+        "market": str(ticket.get("market") or "CN_ETF"),
+        "side": str(ticket.get("side") or "review"),
+        "target_weight": _float_or_none(ticket.get("target_weight")),
+        "reference_price": _float_or_none(ticket.get("reference_price")),
+        "current_quantity": _float_or_none(ticket.get("current_quantity")),
+        "current_value": _float_or_none(ticket.get("current_value")),
+        "target_value": _float_or_none(ticket.get("target_value")),
+        "delta_value": _float_or_none(ticket.get("delta_value")),
+        "rounded_quantity": _int(ticket.get("rounded_quantity"), 0),
+        "rounded_quantity_delta": _int(ticket.get("rounded_quantity_delta"), 0),
+        "rounded_value": _float_or_none(ticket.get("rounded_value")),
+        "cash_delta_after_rounding": _float_or_none(ticket.get("cash_delta_after_rounding")),
+        "source_factors": factor_text,
+        "review_status": "manual_review_only",
+        "review_only": True,
+        "paper_simulation_required": True,
+        "manual_check_note": "仅供人工复核；先核对模拟盘、实时价格、现金、仓位上限和风险，再由人决定是否操作。",
+    }
+
+
+def _manual_ticket_export_csv(columns: list[str], rows: list[dict[str, Any]]) -> str:
+    buffer = io.StringIO()
+    writer = csv.DictWriter(buffer, fieldnames=columns, extrasaction="ignore", lineterminator="\n")
+    writer.writeheader()
+    for row in rows:
+        writer.writerow({column: row.get(column, "") for column in columns})
+    return buffer.getvalue()
+
+
+def _manual_ticket_export_markdown(run_date: str, export_status: str, rows: list[dict[str, Any]]) -> str:
+    lines = [
+        "# 今日人工复核票据",
+        "",
+        f"- 日期: {run_date}",
+        f"- 状态: {export_status}",
+        "- 边界: 仅供人工复核；系统不连接券商、不读取账户、不自动下单。",
+        "",
+    ]
+    if not rows:
+        lines.append("暂无可导出的人工复核票据。")
+        return "\n".join(lines)
+    for row in rows:
+        lines.append(
+            f"- {row.get('asset_id', '')}: {row.get('side', '')}, "
+            f"数量 {row.get('rounded_quantity', 0)}, "
+            f"参考金额 {row.get('rounded_value', '')}, "
+            f"权重 {row.get('target_weight', '')}; manual_review_only"
+        )
+    return "\n".join(lines)
+
+
 def write_daily_trade_advisory_pack(output_dir: str | Path, pack: dict[str, Any]) -> None:
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
@@ -2182,6 +2305,10 @@ def write_daily_trade_advisory_pack(output_dir: str | Path, pack: dict[str, Any]
     (output_path / "daily_trade_advisory_pack.md").write_text(str(pack.get("markdown", "")), encoding="utf-8")
     pd.DataFrame(pack.get("combined_targets", [])).to_csv(output_path / "daily_trade_advisory_targets.csv", index=False)
     pd.DataFrame(pack.get("manual_trade_plan", [])).to_csv(output_path / "daily_trade_advisory_manual_plan.csv", index=False)
+    export = pack.get("manual_ticket_export") if isinstance(pack.get("manual_ticket_export"), dict) else build_manual_ticket_export(pack)
+    (output_path / "daily_manual_ticket_export.csv").write_text(str(export.get("csv_text", "")), encoding="utf-8")
+    (output_path / "daily_manual_ticket_export.md").write_text(str(export.get("markdown_text", "")), encoding="utf-8")
+
 
 
 def render_daily_trade_advisory_markdown(pack: dict[str, Any]) -> str:

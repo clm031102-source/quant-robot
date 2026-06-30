@@ -550,6 +550,18 @@ function bindActions() {
     jumpToBeginnerTarget(button.dataset.dailyCommandTarget || "daily-command-rail", state.leaderboardTab);
   });
   document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-manual-ticket-export-copy]");
+    if (!button) return;
+    event.preventDefault();
+    await copyTicketTextToClipboard(state.dailyTradeAdvisory?.manual_ticket_export?.csv_text || "");
+  });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-manual-ticket-export-download]");
+    if (!button) return;
+    event.preventDefault();
+    downloadManualTicketExport();
+  });
+  document.addEventListener("click", async (event) => {
     const button = event.target.closest("[data-daily-rehearsal-action]");
     if (!button) return;
     event.preventDefault();
@@ -6192,6 +6204,7 @@ function renderManualBrokerHandoff(handoff) {
       </div>
     `).join("")
     : statusRows([["暂无手工核对清单", "先生成今日前三交易建议。", "warn"]]);
+  renderManualTicketExport(state.dailyTradeAdvisory?.manual_ticket_export || {}, tickets);
   renderManualBrokerCopyCards(tickets);
   byId("daily-manual-broker-handoff-ticket-table").innerHTML = tableRows(tickets, [
     "step_number",
@@ -6204,6 +6217,30 @@ function renderManualBrokerHandoff(handoff) {
     "live_order_allowed",
     "copy_text",
   ]);
+}
+
+function renderManualTicketExport(exportPack = {}, tickets = []) {
+  const target = byId("daily-manual-ticket-export");
+  if (!target) return;
+  const summary = exportPack.summary || {};
+  const rows = Array.isArray(exportPack.rows) ? exportPack.rows : [];
+  const csvText = exportPack.csv_text || "";
+  const ticketCount = Number(summary.ticket_count ?? rows.length ?? tickets.length ?? 0);
+  const status = summary.export_status || (ticketCount ? "review_only" : "waiting_for_tickets");
+  const preview = csvText.split(/\r?\n/).slice(0, 4).join("\n");
+  const tone = ticketCount > 0 ? "warn" : "danger";
+  target.innerHTML = `
+    <div class="list-row ${escapeHtml(tone)}">
+      <strong>${escapeHtml("导出人工复核票据")}</strong>
+      <span>${escapeHtml(`${zhConsoleText(status)} / 票据=${formatNumber(ticketCount)} / 自动下单=禁止`)}</span>
+      <span>${escapeHtml("CSV 只用于人工核对 ETF、方向、参考价、数量、金额和风险，不包含账户、券商或订单字段。")}</span>
+      <span class="beginner-task-actions">
+        <button class="secondary-button" type="button" data-manual-ticket-export-copy="csv" ${ticketCount ? "" : "disabled"}>${escapeHtml("复制 CSV")}</button>
+        <button class="secondary-button" type="button" data-manual-ticket-export-download="csv" ${ticketCount ? "" : "disabled"}>${escapeHtml("下载 CSV")}</button>
+      </span>
+    </div>
+    <pre class="json-cell manual-ticket-export-preview">${escapeHtml(preview || "暂无可导出的人工复核票据。")}</pre>
+  `;
 }
 
 function renderManualBrokerCopyCards(tickets = []) {
@@ -6243,6 +6280,26 @@ async function copyTicketTextToClipboard(text) {
   } catch (_error) {
     showToast("复制失败，请在票据表里手工选择 copy_text。", true);
   }
+}
+
+function downloadManualTicketExport() {
+  const exportPack = state.dailyTradeAdvisory?.manual_ticket_export || {};
+  const csvText = exportPack.csv_text || "";
+  if (!csvText) {
+    showToast("暂无可下载的人工复核票据", true);
+    return;
+  }
+  const filename = exportPack.summary?.download_filename || "daily_manual_ticket_export.csv";
+  const blob = new Blob([csvText], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+  showToast("已生成 CSV。导出内容仅供人工复核，系统不会下单。");
 }
 
 function renderDailyPretradeWorkflow(workflow) {

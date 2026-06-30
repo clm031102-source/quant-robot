@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from quant_robot.ops.daily_trade_advisory import (
+    build_manual_ticket_export,
     build_daily_trade_advisory_pack,
     build_daily_pretrade_workflow,
     select_daily_top_factor_candidates,
@@ -286,6 +287,36 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(pack["operator_next_actions"][1]["cta_target"], "daily-pretrade-readiness-verdict")
         self.assertEqual(pack["operator_next_actions"][2]["cta_target"], "daily-manual-broker-handoff-ticket-table")
         self.assertEqual(pack["pretrade_workflow"]["summary"]["primary_next_action_id"], "run_paper_simulation")
+
+    def test_manual_ticket_export_is_review_only_and_removes_account_order_fields(self):
+        pack = build_daily_trade_advisory_pack(
+            [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
+            [_signal("c1", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+        )
+
+        export = build_manual_ticket_export(pack)
+
+        self.assertEqual(export["stage"], "phase_6_13_manual_ticket_export")
+        self.assertEqual(export["summary"]["ticket_count"], 1)
+        self.assertEqual(export["summary"]["export_status"], "review_only")
+        self.assertFalse(export["summary"]["order_placement_allowed"])
+        self.assertFalse(export["summary"]["broker_connection_allowed"])
+        self.assertFalse(export["summary"]["account_read_allowed"])
+        self.assertFalse(export["summary"]["auto_order_allowed"])
+        self.assertEqual(export["rows"][0]["asset_id"], "510300")
+        self.assertEqual(export["rows"][0]["rounded_quantity"], 10400)
+        self.assertEqual(export["rows"][0]["review_only"], True)
+        self.assertEqual(export["columns"][0], "step_number")
+        self.assertIn("csv_text", export)
+        self.assertIn("markdown_text", export)
+        self.assertIn("510300", export["csv_text"])
+        self.assertIn("10400", export["csv_text"])
+        self.assertIn("manual_review_only", export["csv_text"])
+        for forbidden in ["account_id", "broker_id", "client_id", "order_id", "order_placement_allowed"]:
+            self.assertNotIn(forbidden, export["csv_text"])
+            self.assertNotIn(forbidden, export["columns"])
 
     def test_pretrade_readiness_blocks_when_signals_are_missing(self):
         pack = build_daily_trade_advisory_pack(
