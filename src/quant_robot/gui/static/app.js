@@ -6622,6 +6622,7 @@ function liveProfitabilityRuntimeEvidence(readiness = {}) {
   const manualExecutionBlockedReceipts = postCloseReceipts.filter((item) => manualExecutionAuditReceiptStatus(item) === "blocked");
   const manualExecutionMissingReviewReceipts = postCloseReceipts.filter((item) => manualExecutionAuditReceiptStatus(item) === "missing_review");
   const paperReadyObservations = Math.min(paperReceipts.length, postCloseReceipts.length);
+  const riskState = dailyExecutionRiskStateFromReceipts(readiness, { paperReceipts, postCloseReceipts });
   const counts = {
     matched_paper_receipts: Math.max(Number(backendCounts.matched_paper_receipts || 0), paperReceipts.length),
     post_close_journal_receipts: Math.max(Number(backendCounts.post_close_journal_receipts || 0), postCloseReceipts.length),
@@ -6651,12 +6652,134 @@ function liveProfitabilityRuntimeEvidence(readiness = {}) {
       manual_execution_clean_receipts: Math.max(0, 5 - counts.manual_execution_clean_receipts),
       paper_ready_observations: Math.max(0, 20 - counts.paper_ready_observations),
     },
+    risk_state: riskState,
+    risk_state_observed: Boolean(riskState.risk_state_observed),
     paper_simulation_receipts: paperReceipts.length,
     post_close_journal_receipts: postCloseReceipts.length,
     manual_execution_clean_receipts: manualExecutionCleanReceipts.length,
     manual_execution_blocked_receipts: manualExecutionBlockedReceipts.length,
     manual_execution_missing_review_receipts: manualExecutionMissingReviewReceipts.length,
   };
+}
+
+function dailyExecutionRiskStateFromReceipts(readiness = {}, receiptSets = {}) {
+  const backendEvidence = readiness.evidence_snapshot || {};
+  const backendRisk = backendEvidence.risk_state || backendEvidence.risk || {};
+  const paperReceipts = Array.isArray(receiptSets.paperReceipts)
+    ? receiptSets.paperReceipts
+    : executionReceiptsForWorkflow("paper_simulation").filter((item) => item?.status === "completed");
+  const postCloseReceipts = Array.isArray(receiptSets.postCloseReceipts)
+    ? receiptSets.postCloseReceipts
+    : executionReceiptsForWorkflow("post_close_journal").filter((item) => item?.status === "completed");
+  const latestPaper = paperReceipts[0] || latestExecutionReceipt("paper_simulation") || {};
+  const latestJournal = postCloseReceipts[0] || latestExecutionReceipt("post_close_journal") || {};
+  const paperMetrics = latestPaper.metrics || {};
+  const journalMetrics = latestJournal.metrics || {};
+  const receiptCount = paperReceipts.length + postCloseReceipts.length;
+  const todayPnl = receiptRiskStateNumber(
+    [backendRisk, paperMetrics, journalMetrics],
+    "today_pnl_pct",
+    "today_return_pct",
+    "current_day_pnl_pct",
+    "current_session_pnl_pct",
+    "session_return_pct",
+    "daily_return_pct",
+  );
+  const explicitLoss = receiptRiskStateNumber(
+    [backendRisk, paperMetrics, journalMetrics],
+    "today_loss_pct",
+    "current_day_loss_pct",
+    "session_loss_pct",
+  );
+  const todayLoss = explicitLoss ?? (Number.isFinite(todayPnl) && todayPnl < 0 ? Math.abs(todayPnl) : null);
+  const currentDrawdown = receiptRiskStateNumber(
+    [backendRisk, paperMetrics, journalMetrics],
+    "current_drawdown_pct",
+    "portfolio_drawdown_pct",
+    "latest_drawdown_pct",
+    "max_drawdown",
+  );
+  const explicitLossStreak = receiptRiskStateNumber(
+    [backendRisk, paperMetrics, journalMetrics],
+    "consecutive_loss_days",
+    "loss_streak_days",
+    "red_day_streak",
+  );
+  const consecutiveLossDays = explicitLossStreak ?? (receiptCount ? consecutiveLossDaysFromReceipts(paperReceipts, postCloseReceipts) : null);
+  const explicitCooldown = receiptRiskStateNumber(
+    [backendRisk, paperMetrics, journalMetrics],
+    "cooldown_days_remaining",
+    "risk_cooldown_days_remaining",
+    "cooldown_remaining",
+  );
+  const cooldownDaysRemaining = explicitCooldown ?? (receiptCount ? 0 : null);
+  const observed = [todayPnl, todayLoss, currentDrawdown, consecutiveLossDays, cooldownDaysRemaining].some((value) => Number.isFinite(value));
+  return {
+    source: observed ? "gui_runtime_execution_receipts" : "not_observed",
+    today_pnl_pct: Number.isFinite(todayPnl) ? todayPnl : null,
+    today_loss_pct: Number.isFinite(todayLoss) ? todayLoss : null,
+    current_drawdown_pct: Number.isFinite(currentDrawdown) ? currentDrawdown : null,
+    consecutive_loss_days: Number.isFinite(consecutiveLossDays) ? consecutiveLossDays : null,
+    cooldown_days_remaining: Number.isFinite(cooldownDaysRemaining) ? cooldownDaysRemaining : null,
+    risk_state_observed: observed,
+    latest_paper_receipt_time: latestPaper.time || "",
+    latest_post_close_receipt_time: latestJournal.time || "",
+    paper_receipt_count: paperReceipts.length,
+    post_close_journal_receipt_count: postCloseReceipts.length,
+  };
+}
+
+function receiptRiskStateNumber(sources = {}, ...keys) {
+  const objects = Array.isArray(sources) ? sources : [sources];
+  for (const source of objects) {
+    if (!source || typeof source !== "object") continue;
+    for (const key of keys) {
+      const value = numberOrNull(source[key]);
+      if (Number.isFinite(value)) return value;
+    }
+  }
+  return null;
+}
+
+function consecutiveLossDaysFromReceipts(paperReceipts = [], postCloseReceipts = []) {
+  const rows = paperReceipts.concat(postCloseReceipts)
+    .filter(Boolean)
+    .sort((left, right) => String(right.time || "").localeCompare(String(left.time || "")));
+  const seenDates = new Set();
+  let streak = 0;
+  for (const receipt of rows) {
+    const dateKey = receiptClosureDateKey(receipt, receipt.time);
+    if (dateKey && seenDates.has(dateKey)) continue;
+    if (dateKey) seenDates.add(dateKey);
+    const lossFlag = receiptRiskLossFlag(receipt);
+    if (lossFlag === null) continue;
+    if (lossFlag) {
+      streak += 1;
+      continue;
+    }
+    break;
+  }
+  return streak;
+}
+
+function receiptRiskLossFlag(receipt = {}) {
+  const metrics = receipt.metrics || {};
+  const explicitPnl = receiptRiskStateNumber(
+    metrics,
+    "today_pnl_pct",
+    "today_return_pct",
+    "current_day_pnl_pct",
+    "current_session_pnl_pct",
+    "session_return_pct",
+    "daily_return_pct",
+  );
+  if (Number.isFinite(explicitPnl)) return explicitPnl < 0;
+  const totalReturn = receiptRiskStateNumber(metrics, "total_return", "return_pct");
+  if (Number.isFinite(totalReturn)) return totalReturn < 0;
+  const outcome = String(metrics.manual_outcome || receipt.decision || "");
+  if (outcome === "blocked_by_risk") return true;
+  if (["skipped_no_trade", "paper_only", "manual_review_no_trade", "post_close_review_recorded"].includes(outcome)) return false;
+  return null;
 }
 
 function manualExecutionAuditReceiptStatus(receipt = {}) {
@@ -6689,6 +6812,7 @@ function dailyTradeAdvisoryEvidencePayload() {
   const sameParameterCompletion = sameParameterPaperCompletion(sameParameterRequests);
   const counts = evidence.counts || {};
   const flags = evidence.flags || {};
+  const riskState = evidence.risk_state || {};
   const hasCounts = [
     counts.matched_paper_receipts,
     counts.post_close_journal_receipts,
@@ -6696,9 +6820,12 @@ function dailyTradeAdvisoryEvidencePayload() {
     sameParameterCompletion.matched_request_count,
   ].some((value) => Number(value || 0) > 0);
   const hasFlags = Object.values(flags).some(Boolean);
+  const hasRiskState = Boolean(riskState.risk_state_observed)
+    || ["today_pnl_pct", "today_loss_pct", "current_drawdown_pct", "consecutive_loss_days", "cooldown_days_remaining"]
+      .some((key) => Number.isFinite(numberOrNull(riskState[key])));
   const sameParameterRequired = Boolean(evidence.same_parameter_required || sameParameterRequests.length);
-  if (!sameParameterRequired && evidence.mode === "browser_execution_receipts") return null;
-  if (!hasCounts && !hasFlags) return null;
+  if (!sameParameterRequired && evidence.mode === "browser_execution_receipts" && !hasRiskState) return null;
+  if (!hasCounts && !hasFlags && !hasRiskState) return null;
   return {
     mode: evidence.mode || "same_parameter_browser_execution_receipts",
     source: "gui_runtime_receipts",
@@ -6722,6 +6849,16 @@ function dailyTradeAdvisoryEvidencePayload() {
       lookahead_bias_audit_passed: Boolean(flags.lookahead_bias_audit_passed),
       multiple_testing_control_passed: Boolean(flags.multiple_testing_control_passed),
       transaction_cost_capacity_passed: Boolean(flags.transaction_cost_capacity_passed),
+    },
+    risk_state: {
+      today_pnl_pct: numberOrNull(riskState.today_pnl_pct),
+      today_loss_pct: numberOrNull(riskState.today_loss_pct),
+      current_drawdown_pct: numberOrNull(riskState.current_drawdown_pct),
+      consecutive_loss_days: numberOrNull(riskState.consecutive_loss_days),
+      cooldown_days_remaining: numberOrNull(riskState.cooldown_days_remaining),
+      source: riskState.source || "gui_runtime_execution_receipts",
+      latest_paper_receipt_time: riskState.latest_paper_receipt_time || "",
+      latest_post_close_receipt_time: riskState.latest_post_close_receipt_time || "",
     },
     safety: "manual advisory evidence only; no broker connection, account read, order placement, or live trading",
   };
@@ -11626,6 +11763,11 @@ function paperReceipt(result = {}) {
       ending_equity: metrics.ending_equity,
       total_return: metrics.total_return,
       max_drawdown: metrics.max_drawdown,
+      today_pnl_pct: metrics.today_pnl_pct,
+      today_loss_pct: metrics.today_loss_pct,
+      current_drawdown_pct: metrics.current_drawdown_pct,
+      consecutive_loss_days: metrics.consecutive_loss_days,
+      cooldown_days_remaining: metrics.cooldown_days_remaining,
       guard_event_count: metrics.guard_event_count,
       fill_count: (result.fills || []).length,
     },
@@ -11743,6 +11885,7 @@ function postCloseJournalReceipt(result = {}) {
   const manualReview = result.manual_review || postCloseManualReviewForm();
   const manualExecutionAudit = result.manual_execution_audit || manualReview.manual_execution_audit || localManualExecutionAudit(trade);
   const manualExecutionSummary = manualExecutionAudit.summary || {};
+  const riskState = result.risk_state || {};
   return {
     workflow_id: "post_close_journal",
     label: "Post-close journal receipt",
@@ -11769,6 +11912,11 @@ function postCloseJournalReceipt(result = {}) {
       manual_execution_guardrail_breach_count: manualExecutionSummary.guardrail_breach_count,
       manual_execution_slippage_breach_count: manualExecutionSummary.slippage_breach_count,
       manual_execution_missing_review_count: manualExecutionSummary.missing_review_count,
+      today_pnl_pct: riskState.today_pnl_pct,
+      today_loss_pct: riskState.today_loss_pct,
+      current_drawdown_pct: riskState.current_drawdown_pct,
+      consecutive_loss_days: riskState.consecutive_loss_days,
+      cooldown_days_remaining: riskState.cooldown_days_remaining,
     },
     decision: manualReview.manual_outcome || decision.title || "post_close_review_recorded",
     manual_review: manualReview,
