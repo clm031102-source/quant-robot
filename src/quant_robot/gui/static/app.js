@@ -532,11 +532,13 @@ function bindRequestPreviewInputs() {
       if (event?.isTrusted) markManualFormOverride(id);
       renderRequestPreview();
       if (id === "daily-current-positions") renderDailyCurrentPositionHelp();
+      if (id === "daily-trade-portfolio-value" || id === "daily-trade-risk-profile") renderDailyPortfolioValueHelp();
     };
     element.addEventListener("input", renderWithManualOverride);
     element.addEventListener("change", renderWithManualOverride);
   });
   renderDailyCurrentPositionHelp();
+  renderDailyPortfolioValueHelp();
 }
 
 async function loadSnapshot() {
@@ -4742,6 +4744,7 @@ function renderDailyTradeAdvisory() {
   ]);
   renderDailyBeginnerActionSummary(pack.beginner_action_summary || {});
   renderDailyCurrentPositionHelp(positionValidation);
+  renderDailyPortfolioValueHelp();
   renderDailyLiveReadinessGate(pack.daily_live_readiness_gate || {});
   renderDailyPretradeReadiness(pack.pretrade_readiness || {});
   renderDailyPretradeNextActions(pack.operator_next_actions || pack.pretrade_workflow?.operator_next_actions || []);
@@ -4847,6 +4850,37 @@ function renderDailyCurrentPositionHelp(validation = {}) {
     [stateInfo.title, stateInfo.summary, stateInfo.tone],
     ["允许格式", stateInfo.columns, stateInfo.tone === "danger" ? "danger" : "muted"],
     ["安全边界", stateInfo.issue, stateInfo.tone === "danger" ? "danger" : "warn"],
+  ]);
+}
+
+function portfolioValueInputState() {
+  const raw = valueOf("daily-trade-portfolio-value");
+  const value = Number(raw);
+  if (!raw || !Number.isFinite(value) || value <= 0) {
+    return {
+      tone: "danger",
+      title: "纸面资金规模",
+      summary: "红灯：先填一个大于 0 的纸面资金数值。",
+      detail: "paper_capital_only：它只用于估算目标仓位和人工复核票据，不读取真实账户。",
+    };
+  }
+  const riskProfile = valueOf("daily-trade-risk-profile") || "balanced_20dd";
+  return {
+    tone: value < 10000 ? "warn" : "ok",
+    title: "纸面资金规模",
+    summary: `当前按 ${formatNumber(value)} 作为纸面估算资金。`,
+    detail: `paper_capital_only：风险档位=${riskProfile}；这个数不会读取账户、不会连接券商、不会自动下单。`,
+  };
+}
+
+function renderDailyPortfolioValueHelp() {
+  const target = byId("daily-portfolio-value-help");
+  if (!target) return;
+  const info = portfolioValueInputState();
+  target.innerHTML = statusRows([
+    [info.title, info.summary, info.tone],
+    ["用途", "只用于估算目标仓位、一手取整和人工复核票据。", "warn"],
+    ["安全边界", info.detail, info.tone === "danger" ? "danger" : "ok"],
   ]);
 }
 
