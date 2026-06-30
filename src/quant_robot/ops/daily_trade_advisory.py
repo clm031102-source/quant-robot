@@ -46,6 +46,7 @@ DAILY_PRE_EXECUTION_GUARD_STAGE = "phase_6_26_daily_pre_execution_guard"
 DAILY_SAME_PARAMETER_PAPER_REHEARSAL_STAGE = "phase_6_27_daily_same_parameter_paper_rehearsal"
 DAILY_BEGINNER_EXECUTION_ANSWER_STAGE = "phase_6_28_daily_beginner_execution_answer"
 DAILY_EXECUTION_RISK_CIRCUIT_BREAKER_STAGE = "phase_6_29_daily_execution_risk_circuit_breaker"
+DAILY_OPERATOR_MISSION_CONTROL_STAGE = "phase_6_30_daily_operator_mission_control"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 MANUAL_PRICE_DEVIATION_GUARD_PCT = 0.005
@@ -457,6 +458,7 @@ def build_daily_trade_advisory_pack(
     pack["daily_pre_execution_guard"] = build_daily_pre_execution_guard(pack)
     pack["daily_same_parameter_paper_rehearsal"] = build_daily_same_parameter_paper_rehearsal(pack)
     pack["daily_beginner_execution_answer"] = build_daily_beginner_execution_answer(pack)
+    pack["daily_operator_mission_control"] = build_daily_operator_mission_control(pack)
     pack["summary"]["live_transition_status"] = pack["live_transition_plan"]["summary"]["status"]
     pack["summary"]["trading_system_status"] = pack["trading_system_blueprint"]["summary"]["status"]
     pack["summary"]["execution_bridge_status"] = pack["daily_signal_execution_bridge"]["summary"]["status"]
@@ -479,6 +481,7 @@ def build_daily_trade_advisory_pack(
     pack["summary"]["beginner_execution_answer_status"] = pack["daily_beginner_execution_answer"]["summary"][
         "allowed_mode"
     ]
+    pack["summary"]["operator_mission_status"] = pack["daily_operator_mission_control"]["summary"]["mission_status"]
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
 
@@ -2960,6 +2963,276 @@ def build_daily_trade_decision_sheet(pack: dict[str, Any]) -> dict[str, Any]:
             "safety": SAFETY_NOTICE,
         }
     )
+
+
+def build_daily_operator_mission_control(pack: dict[str, Any]) -> dict[str, Any]:
+    decision_sheet = (
+        pack.get("daily_trade_decision_sheet")
+        if isinstance(pack.get("daily_trade_decision_sheet"), dict)
+        else build_daily_trade_decision_sheet(pack)
+    )
+    sheet_summary = decision_sheet.get("summary") if isinstance(decision_sheet.get("summary"), dict) else {}
+    recipe = (
+        decision_sheet.get("beginner_operation_recipe")
+        if isinstance(decision_sheet.get("beginner_operation_recipe"), dict)
+        else {}
+    )
+    recipe_summary = recipe.get("summary") if isinstance(recipe.get("summary"), dict) else {}
+    readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
+    blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
+    missing_evidence = [row for row in decision_sheet.get("missing_evidence", []) if isinstance(row, dict)]
+    operator_inputs = [row for row in recipe.get("operator_inputs_required", []) if isinstance(row, dict)]
+    tickets = [row for row in recipe.get("ticket_preview", []) if isinstance(row, dict)]
+    top3_count = _int(recipe_summary.get("top3_count"), _int(sheet_summary.get("selected_factor_count"), 0))
+    signal_count = _int(sheet_summary.get("signal_count"), 0)
+    target_count = _int(sheet_summary.get("target_count"), 0)
+    ticket_count = _int(recipe_summary.get("ticket_preview_count"), _int(sheet_summary.get("manual_ticket_count"), len(tickets)))
+    missing_count = _int(recipe_summary.get("missing_evidence_count"), len(missing_evidence))
+    input_ready_count = _int(recipe_summary.get("operator_input_ready_count"), _count_status(operator_inputs, "ready"))
+    input_manual_count = _int(recipe_summary.get("operator_input_manual_count"), _count_status(operator_inputs, "manual_required"))
+    input_missing_count = _int(recipe_summary.get("operator_input_missing_count"), _count_status(operator_inputs, "missing"))
+    input_blocked_count = _count_status(operator_inputs, "blocked")
+    primary_next_step_id = str(recipe_summary.get("primary_next_step_id") or _operator_primary_step(sheet_summary))
+    mission_status = _operator_mission_status(
+        decision=str(sheet_summary.get("decision") or ""),
+        primary_next_step_id=primary_next_step_id,
+        blockers=blockers,
+        ticket_count=ticket_count,
+        input_missing_count=input_missing_count,
+        input_blocked_count=input_blocked_count,
+    )
+    next_actions = _operator_mission_next_actions(
+        recipe_summary=recipe_summary,
+        primary_next_step_id=primary_next_step_id,
+        input_manual_count=input_manual_count,
+        input_missing_count=input_missing_count,
+        ticket_count=ticket_count,
+    )
+    return _sanitize(
+        {
+            "stage": DAILY_OPERATOR_MISSION_CONTROL_STAGE,
+            "run_date": pack.get("run_date", date.today().isoformat()),
+            "summary": {
+                "mission_status": mission_status,
+                "decision": sheet_summary.get("decision"),
+                "primary_next_step_id": primary_next_step_id,
+                "primary_next_label": recipe_summary.get("next_label") or sheet_summary.get("plain_answer"),
+                "top3_count": top3_count,
+                "signal_count": signal_count,
+                "target_count": target_count,
+                "manual_ticket_count": ticket_count,
+                "missing_evidence_count": missing_count,
+                "operator_input_count": len(operator_inputs),
+                "operator_input_ready_count": input_ready_count,
+                "operator_input_manual_count": input_manual_count,
+                "operator_input_missing_count": input_missing_count,
+                "operator_input_blocked_count": input_blocked_count,
+                "blocker_count": len(blockers),
+                "paper_simulation_required": True,
+                "manual_review_required": True,
+                "live_trading_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+            },
+            "cards": _operator_mission_cards(
+                top3_count=top3_count,
+                signal_count=signal_count,
+                target_count=target_count,
+                ticket_count=ticket_count,
+                missing_evidence=missing_evidence,
+                input_manual_count=input_manual_count,
+                input_missing_count=input_missing_count,
+                input_blocked_count=input_blocked_count,
+                blockers=blockers,
+            ),
+            "next_actions": next_actions,
+            "visible_ticket_summary": [
+                _operator_mission_ticket_summary(index, ticket)
+                for index, ticket in enumerate(tickets[:5], start=1)
+            ],
+            "blockers": blockers,
+            "missing_evidence": missing_evidence,
+            "safety": SAFETY_NOTICE,
+        }
+    )
+
+
+def _operator_primary_step(sheet_summary: dict[str, Any]) -> str:
+    decision = str(sheet_summary.get("decision") or "")
+    if decision.startswith("blocked"):
+        return "fix_blockers"
+    if decision == "paper_first_manual_review":
+        return "run_same_parameter_paper"
+    if decision == "waiting_for_manual_tickets":
+        return "build_manual_tickets"
+    return "generate_today_signal"
+
+
+def _operator_mission_status(
+    *,
+    decision: str,
+    primary_next_step_id: str,
+    blockers: list[str],
+    ticket_count: int,
+    input_missing_count: int,
+    input_blocked_count: int,
+) -> str:
+    if decision.startswith("blocked") or blockers or input_blocked_count:
+        return "blocked_pretrade_review_required"
+    if primary_next_step_id == "run_same_parameter_paper":
+        return "paper_rehearsal_required"
+    if input_missing_count:
+        return "operator_inputs_missing"
+    if ticket_count > 0:
+        return "manual_review_material_ready"
+    return "waiting_for_today_signal"
+
+
+def _operator_mission_cards(
+    *,
+    top3_count: int,
+    signal_count: int,
+    target_count: int,
+    ticket_count: int,
+    missing_evidence: list[dict[str, Any]],
+    input_manual_count: int,
+    input_missing_count: int,
+    input_blocked_count: int,
+    blockers: list[str],
+) -> list[dict[str, Any]]:
+    missing_ids = {str(row.get("check_id") or "") for row in missing_evidence}
+    red_blocked = bool(blockers) or input_blocked_count > 0
+
+    def card(
+        card_id: str,
+        label: str,
+        status: str,
+        detail: str,
+        target_id: str,
+        workflow_id: str = "",
+    ) -> dict[str, Any]:
+        return {
+            "card_id": card_id,
+            "label": label,
+            "status": "blocked" if red_blocked and status not in {"ready", "locked"} else status,
+            "detail": detail,
+            "target_id": target_id,
+            "workflow_id": workflow_id,
+            "order_placement_allowed": False,
+        }
+
+    return [
+        card(
+            "today_top3_signal",
+            "今日 Top3 信号",
+            "ready" if top3_count > 0 and signal_count > 0 and target_count > 0 else "waiting",
+            f"top3={top3_count}; signals={signal_count}; targets={target_count}",
+            "daily-trade-factor-table",
+            "daily_trade_advisory" if not signal_count else "",
+        ),
+        card(
+            "same_parameter_paper",
+            "同参数模拟盘",
+            "missing" if "paper_simulation_receipt" in missing_ids and ticket_count > 0 else "ready",
+            "必须先用完全相同参数跑本地模拟盘，再看是否进入人工复核。",
+            "paper-metrics",
+            "paper_simulation" if ticket_count > 0 else "",
+        ),
+        card(
+            "manual_broker_inputs",
+            "人工输入",
+            "blocked" if input_blocked_count else ("manual_required" if input_manual_count else "missing" if input_missing_count else "ready"),
+            f"ready={input_manual_count == 0 and input_missing_count == 0}; manual={input_manual_count}; missing={input_missing_count}",
+            "daily-beginner-operation-recipe-inputs",
+        ),
+        card(
+            "manual_ticket_review",
+            "人工票据",
+            "manual_required" if ticket_count > 0 else "waiting",
+            f"tickets={ticket_count}; review_only=true",
+            "daily-manual-broker-handoff-ticket-table",
+        ),
+        card(
+            "post_close_journal",
+            "盘后复盘",
+            "missing" if "post_close_journal_plan" in missing_ids else "waiting",
+            "无论执行或跳过，都要记录结果和明日复核点。",
+            "beginner-post-close-journal-board",
+            "post_close_journal" if ticket_count > 0 else "",
+        ),
+        card(
+            "live_safety_boundary",
+            "实盘边界",
+            "locked",
+            "软件不连接券商、不读取账户、不自动下单；只能给人工复核材料。",
+            "control-safety-boundary",
+        ),
+    ]
+
+
+def _operator_mission_next_actions(
+    *,
+    recipe_summary: dict[str, Any],
+    primary_next_step_id: str,
+    input_manual_count: int,
+    input_missing_count: int,
+    ticket_count: int,
+) -> list[dict[str, Any]]:
+    rows = [
+        {
+            "action_id": primary_next_step_id,
+            "label": recipe_summary.get("next_label") or primary_next_step_id,
+            "status": "next",
+            "plain_action": recipe_summary.get("plain_answer") or "先完成这一步，再进入下一道人工复核闸门。",
+            "target_id": recipe_summary.get("next_target_id") or "daily-trade-decision-sheet",
+            "workflow_id": recipe_summary.get("next_workflow_id") or "",
+            "order_placement_allowed": False,
+        }
+    ]
+    if input_manual_count or input_missing_count:
+        rows.append(
+            {
+                "action_id": "complete_operator_inputs",
+                "label": "补齐人工输入",
+                "status": "manual_required",
+                "plain_action": "人工核对券商实时价格、现金、脱敏持仓和模拟盘/复盘回执。",
+                "target_id": "daily-beginner-operation-recipe-inputs",
+                "workflow_id": "",
+                "order_placement_allowed": False,
+            }
+        )
+    if ticket_count:
+        rows.append(
+            {
+                "action_id": "review_manual_tickets",
+                "label": "复核人工票据",
+                "status": "manual_required",
+                "plain_action": "只把票据当作复核材料，不把软件输出直接复制成订单。",
+                "target_id": "daily-manual-broker-handoff-ticket-table",
+                "workflow_id": "",
+                "order_placement_allowed": False,
+            }
+        )
+    return rows
+
+
+def _operator_mission_ticket_summary(index: int, ticket: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "step_number": _int(ticket.get("step_number"), index),
+        "ticket_id": str(ticket.get("ticket_id") or f"daily-ticket-{index:03d}"),
+        "asset_id": str(ticket.get("asset_id") or ""),
+        "market": str(ticket.get("market") or "CN_ETF"),
+        "side": str(ticket.get("side") or "review"),
+        "target_weight": _float_or_none(ticket.get("target_weight")),
+        "reference_price": _float_or_none(ticket.get("reference_price") or ticket.get("latest_price")),
+        "rounded_quantity": _int(ticket.get("rounded_quantity"), 0),
+        "rounded_quantity_delta": _int(ticket.get("rounded_quantity_delta"), _int(ticket.get("rounded_quantity"), 0)),
+        "copy_to_broker_allowed": False,
+        "review_only": True,
+        "order_placement_allowed": False,
+    }
 
 
 def build_daily_trading_system_blueprint(pack: dict[str, Any]) -> dict[str, Any]:

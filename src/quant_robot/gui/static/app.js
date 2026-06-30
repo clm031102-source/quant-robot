@@ -6169,6 +6169,7 @@ function renderDailyTradeAdvisory() {
   renderDailyPreExecutionGuard(pack.daily_pre_execution_guard || {});
   renderDailySameParameterPaperRehearsal(pack.daily_same_parameter_paper_rehearsal || {});
   renderDailyBeginnerExecutionAnswer(pack.daily_beginner_execution_answer || {});
+  renderDailyOperatorMissionControl(pack.daily_operator_mission_control || {});
   renderDailyFactorHealthMonitor(pack.daily_factor_health_monitor || {});
   renderDailyRealWorldHandoffGate(pack.real_world_manual_handoff_gate || {});
   renderDailyTradingSystemBlueprint(pack.trading_system_blueprint || {});
@@ -6459,6 +6460,61 @@ function renderDailyTradeDecisionSheet(sheet = {}) {
   }).join("") : statusRows([["缺失证据", "暂无结构化缺失项；仍需人工确认模拟盘、风险、现金和券商端实时价格。", "warn"]]);
 }
 
+function renderDailyOperatorMissionControl(control = {}) {
+  const summaryTarget = byId("daily-operator-mission-control-summary");
+  const cardsTarget = byId("daily-operator-mission-control-cards");
+  const actionsTarget = byId("daily-operator-mission-control-next-actions");
+  const ticketsTarget = byId("daily-operator-mission-control-tickets");
+  if (!summaryTarget || !cardsTarget || !actionsTarget || !ticketsTarget) return;
+  const summary = control.summary || {};
+  const status = summary.mission_status || "waiting_for_today_signal";
+  const tone = status.includes("blocked") ? "danger" : status.includes("ready") ? "ok" : "warn";
+  summaryTarget.innerHTML = statusRows([
+    ["每日操作中控台", zhConsoleText(status), tone],
+    ["现在先做", summary.primary_next_label || zhConsoleText(summary.primary_next_step_id || "generate_today_signal"), tone],
+    ["今日材料", `Top3=${formatNumber(summary.top3_count || 0)} / 信号=${formatNumber(summary.signal_count || 0)} / 目标=${formatNumber(summary.target_count || 0)} / 票据=${formatNumber(summary.manual_ticket_count || 0)}`, summary.manual_ticket_count ? "warn" : "danger"],
+    ["缺口", `证据=${formatNumber(summary.missing_evidence_count || 0)} / 人工输入缺失=${formatNumber(summary.operator_input_missing_count || 0)} / 人工确认=${formatNumber(summary.operator_input_manual_count || 0)}`, summary.operator_input_missing_count || summary.missing_evidence_count ? "warn" : "ok"],
+    ["安全边界", summary.order_placement_allowed || summary.broker_connection_allowed || summary.account_read_allowed ? "异常：出现券商/账户/下单权限" : "不连接券商、不读取账户、不自动下单", summary.order_placement_allowed || summary.broker_connection_allowed || summary.account_read_allowed ? "danger" : "ok"],
+  ]);
+
+  const cards = Array.isArray(control.cards) ? control.cards : [];
+  cardsTarget.innerHTML = cards.length ? cards.map((item) => {
+    const rowTone = dailyBeginnerOperationTone(item.status || "");
+    const actionButton = item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : "";
+    const targetButton = item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : "";
+    return `
+      <div class="list-row ${escapeHtml(rowTone)}">
+        <strong>${escapeHtml(item.label || item.card_id || "")}</strong>
+        <span>${escapeHtml(`${zhConsoleText(item.status || "waiting")} / ${item.detail || ""}`)}</span>
+        <span>${escapeHtml(item.order_placement_allowed ? "异常：允许下单" : "只作人工复核材料")}</span>
+        <span class="beginner-task-actions">${actionButton}${targetButton}</span>
+      </div>
+    `;
+  }).join("") : statusRows([["任务卡", "等待生成每日操作中控台。", "warn"]]);
+
+  const actions = Array.isArray(control.next_actions) ? control.next_actions : [];
+  actionsTarget.innerHTML = actions.length ? actions.map((item) => {
+    const actionButton = item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : "";
+    const targetButton = item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : "";
+    return `
+      <div class="list-row ${escapeHtml(dailyBeginnerOperationTone(item.status || "manual_required"))}">
+        <strong>${escapeHtml(item.label || item.action_id || "")}</strong>
+        <span>${escapeHtml(`${zhConsoleText(item.status || "next")} / ${item.plain_action || ""}`)}</span>
+        <span class="beginner-task-actions">${actionButton}${targetButton}</span>
+      </div>
+    `;
+  }).join("") : statusRows([["下一步", "先生成今日 Top3 信号，再看同参数模拟盘。", "warn"]]);
+
+  const tickets = Array.isArray(control.visible_ticket_summary) ? control.visible_ticket_summary : [];
+  ticketsTarget.innerHTML = tickets.length ? tickets.map((item, index) => `
+    <div class="list-row warn">
+      <strong>${escapeHtml(`${index + 1}. ${item.asset_id || "--"} / ${zhConsoleText(item.side || "review")}`)}</strong>
+      <span>${escapeHtml(`数量=${formatNumber(item.rounded_quantity || 0)} / 调整=${formatNumber(item.rounded_quantity_delta || 0)} / 参考价=${formatDecimal(item.reference_price)} / 权重=${formatPercent(item.target_weight)}`)}</span>
+      <span>${escapeHtml(item.copy_to_broker_allowed ? "异常：可复制到券商" : "复核票据，不是订单")}</span>
+    </div>
+  `).join("") : statusRows([["票据摘要", "还没有可复核票据，或今天被红灯阻断。", "danger"]]);
+}
+
 function renderDailyBeginnerOperationRecipe(recipe = {}) {
   const summaryTarget = byId("daily-beginner-operation-recipe-summary");
   const stepsTarget = byId("daily-beginner-operation-recipe-steps");
@@ -6585,7 +6641,7 @@ function dailyBeginnerOperationFallbackInputs() {
 function dailyBeginnerOperationTone(status = "") {
   const text = String(status || "").toLowerCase();
   if (text.includes("blocked") || text.includes("forbidden")) return "danger";
-  if (text.includes("done") || text.includes("pass") || text.includes("ok")) return "ok";
+  if (text.includes("done") || text.includes("pass") || text.includes("ok") || text.includes("ready")) return "ok";
   if (text.includes("locked")) return "danger";
   return "warn";
 }

@@ -935,6 +935,20 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertTrue(all(row["broker_connection_allowed"] is False for row in input_rows.values()))
         self.assertTrue(all(row["account_read_allowed"] is False for row in input_rows.values()))
         self.assertTrue(all(row["order_placement_allowed"] is False for row in input_rows.values()))
+        mission = pack["daily_operator_mission_control"]
+        self.assertEqual(mission["stage"], "phase_6_30_daily_operator_mission_control")
+        self.assertEqual(mission["summary"]["mission_status"], "paper_rehearsal_required")
+        self.assertEqual(mission["summary"]["primary_next_step_id"], "run_same_parameter_paper")
+        self.assertEqual(mission["summary"]["manual_ticket_count"], 1)
+        self.assertEqual(mission["summary"]["operator_input_missing_count"], 2)
+        self.assertFalse(mission["summary"]["order_placement_allowed"])
+        mission_cards = {row["card_id"]: row for row in mission["cards"]}
+        self.assertEqual(mission_cards["today_top3_signal"]["status"], "ready")
+        self.assertEqual(mission_cards["same_parameter_paper"]["status"], "missing")
+        self.assertEqual(mission_cards["manual_broker_inputs"]["status"], "manual_required")
+        self.assertEqual(mission["next_actions"][0]["action_id"], "run_same_parameter_paper")
+        self.assertEqual(mission["visible_ticket_summary"][0]["asset_id"], "510300")
+        self.assertFalse(mission["visible_ticket_summary"][0]["copy_to_broker_allowed"])
         self.assertEqual(pack["daily_trade_decision_sheet"]["stage"], "phase_6_14_daily_trade_decision_sheet")
 
     def test_pretrade_readiness_blocks_when_signals_are_missing(self):
