@@ -3033,8 +3033,6 @@ function renderBeginnerTradeSystem() {
   const summary = trade.summary || {};
   const paperReceipt = latestExecutionReceipt("paper_simulation");
   summaryTarget.innerHTML = statusRows([
-    ["明日复用闸门", summary.quarantine_plain_answer || zhConsoleText(nextSessionReuseStatus), nextSessionQuarantineTone],
-    ["明日复用证据", `同参Top3=${formatNumber(summary.same_parameter_top3_matched_requests || 0)}/${formatNumber(summary.same_parameter_top3_required_requests || 0)} / 复盘=${formatNumber(summary.post_close_journal_receipts || 0)} / 异常=${formatNumber(summary.manual_execution_blocked_receipts || 0)} / 缺复核=${formatNumber(summary.manual_execution_missing_review_receipts || 0)}`, nextSessionQuarantineTone],
     ["最终结论", decision.title || "等待今日体检", decision.tone || "warn"],
     ["原因", decision.reason || "先运行开盘前一键体检，再看是否进入人工复核。", decision.tone || "warn"],
     ["交易边界", systemDecision.status || "manual_review_only", "danger"],
@@ -7644,6 +7642,8 @@ function renderDailyFactorHealthMonitor(monitor = {}) {
     <button class="${escapeHtml(workflowButton ? "secondary-button" : "primary-button")}" type="button" data-beginner-target="${escapeRawHtml(summary.next_target_id)}">${escapeHtml(workflowButton ? "查看证据" : summary.next_label || "查看下一步")}</button>
   ` : "";
   summaryTarget.innerHTML = statusRows([
+    ["明日复用闸门", summary.quarantine_plain_answer || zhConsoleText(nextSessionReuseStatus), nextSessionQuarantineTone],
+    ["明日复用证据", `同参Top3=${formatNumber(summary.same_parameter_top3_matched_requests || 0)}/${formatNumber(summary.same_parameter_top3_required_requests || 0)} / 复盘=${formatNumber(summary.post_close_journal_receipts || 0)} / 异常=${formatNumber(summary.manual_execution_blocked_receipts || 0)} / 缺复核=${formatNumber(summary.manual_execution_missing_review_receipts || 0)}`, nextSessionQuarantineTone],
     ["因子健康结论", summary.plain_answer || zhConsoleText(decision), tone],
     ["Top3 健康分布", `健康=${formatNumber(summary.healthy_count || 0)} / 观察=${formatNumber(summary.watch_count || 0)} / 退役候选=${formatNumber(summary.retire_candidate_count || 0)}`, summary.retire_candidate_count ? "danger" : summary.watch_count ? "warn" : summary.healthy_count ? "ok" : "warn"],
     ["研究证据", summary.research_evidence_ready ? "OOS、未来函数、多重检验、成本容量证据已标记通过" : "还缺 OOS、未来函数、多重检验或成本容量证据", summary.research_evidence_ready ? "ok" : "warn"],
@@ -9599,6 +9599,9 @@ function statusRows(rows) {
 }
 
 const GUI_ZH_REPLACEMENTS = [
+  ["Next-session Top3 reuse quarantine", "明日 Top3 复用隔离"],
+  ["blocked_next_session_quarantine_required", "明日复用证据未闭环"],
+  ["next_session_quarantine", "明日 Top3 复用隔离"],
   ["Next actions", "下一步动作"],
   ["Control API", "中控 API"],
   ["Browser smoke", "浏览器冒烟"],

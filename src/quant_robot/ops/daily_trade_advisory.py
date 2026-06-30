@@ -4644,6 +4644,13 @@ def build_daily_real_money_transition_gate(pack: dict[str, Any]) -> dict[str, An
     health_decision = str(health_summary.get("decision") or "waiting_for_top3_candidates")
     profitability_decision = str(profitability_summary.get("decision") or "not_ready_for_real_money")
     health_blocked = bool(health_summary.get("retirement_required_before_live")) or "retire" in health_decision
+    next_session_quarantine_required = bool(health_summary.get("next_session_quarantine_required"))
+    next_session_quarantine_required_count = _int(health_summary.get("same_parameter_top3_required_requests"), 0)
+    next_session_quarantine_matched_count = _int(health_summary.get("same_parameter_top3_matched_requests"), 0)
+    next_session_quarantine_missing_count = max(
+        0,
+        next_session_quarantine_required_count - next_session_quarantine_matched_count,
+    )
     has_signal_targets = signal_count > 0 and target_count > 0
     has_manual_material = ticket_count > 0 and bool(manual_preview)
     risk_blocked = any(
@@ -4683,6 +4690,15 @@ def build_daily_real_money_transition_gate(pack: dict[str, Any]) -> dict[str, An
         next_label = "处理退役因子"
         next_target = "daily-factor-health-rows"
         next_workflow = ""
+    elif next_session_quarantine_required:
+        decision = "blocked_next_session_quarantine_required"
+        plain_answer = (
+            "Top3 same-parameter paper, post-close journal, or manual execution audit is incomplete; "
+            "complete the next-session reuse evidence before any live/manual-money review."
+        )
+        next_label = "Complete next-session Top3 evidence"
+        next_target = "daily-factor-health-rules"
+        next_workflow = "paper_simulation" if has_signal_targets else "daily_trade_advisory"
     elif risk_blocked:
         decision = "blocked_ticket_risk_budget"
         plain_answer = "人工票据触发单 ETF、金额或数量风险预算阻断，先缩仓、改风险档位或跳过票据。"
@@ -4743,6 +4759,22 @@ def build_daily_real_money_transition_gate(pack: dict[str, Any]) -> dict[str, An
             str(health_summary.get("plain_answer") or health_decision),
             "daily-factor-health-rows",
             required_before="paper_rehearsal",
+        ),
+        _real_money_transition_gate_row(
+            "next_session_quarantine",
+            "Next-session Top3 reuse quarantine",
+            "blocked" if next_session_quarantine_required else "pass" if selected_count > 0 else "required",
+            str(
+                health_summary.get("quarantine_plain_answer")
+                or "Top3 must complete same-parameter paper, post-close journal, and manual execution audit before reuse."
+            ),
+            "daily-factor-health-rules",
+            "paper_simulation" if next_session_quarantine_required and has_signal_targets else "",
+            required_before="manual_review",
+            observed_count=next_session_quarantine_matched_count,
+            required_count=next_session_quarantine_required_count,
+            missing_count=next_session_quarantine_missing_count,
+            reason_count=_int(health_summary.get("quarantine_reason_count"), 0),
         ),
         _real_money_transition_gate_row(
             "same_day_signal",
@@ -4851,16 +4883,23 @@ def build_daily_real_money_transition_gate(pack: dict[str, Any]) -> dict[str, An
                     profitability_summary.get("manual_execution_missing_review_receipts"), 0
                 ),
                 "paper_ready_observations": _int(profitability_summary.get("paper_ready_observations"), 0),
+                "next_session_quarantine_required": next_session_quarantine_required,
+                "next_session_reuse_status": str(
+                    health_summary.get("next_session_reuse_status") or "waiting_for_top3_candidates"
+                ),
+                "next_session_quarantine_missing_count": next_session_quarantine_missing_count,
                 "small_capital_observation_candidate": bool(
                     profitability_summary.get("small_capital_observation_candidate")
                 )
                 and not health_blocked
+                and not next_session_quarantine_required
                 and not risk_blocked
                 and manual_execution_status == "pass",
                 "production_manual_review_candidate": bool(
                     profitability_summary.get("production_manual_review_candidate")
                 )
                 and not health_blocked
+                and not next_session_quarantine_required
                 and not risk_blocked
                 and manual_execution_status == "pass",
                 "next_label": next_label,
@@ -4985,6 +5024,17 @@ def build_daily_manual_trading_session(pack: dict[str, Any]) -> dict[str, Any]:
         or transition_decision in {"blocked_pretrade_red_light", "blocked_current_position_input"}
     )
     health_blocked = bool(health_summary.get("retirement_required_before_live")) or transition_decision == "rotate_or_reduce_top3_first"
+    next_session_quarantine_required = bool(health_summary.get("next_session_quarantine_required")) or (
+        transition_decision == "blocked_next_session_quarantine_required"
+    )
+    next_session_quarantine_missing_count = _session_count(
+        transition_summary.get("next_session_quarantine_missing_count"),
+        max(
+            0,
+            _int(health_summary.get("same_parameter_top3_required_requests"), 0)
+            - _int(health_summary.get("same_parameter_top3_matched_requests"), 0),
+        ),
+    )
     has_same_day_signal = signal_count > 0 and target_count > 0
     has_manual_tickets = ticket_count > 0
     manual_execution_dirty = manual_blocked > 0 or manual_missing > 0
@@ -5005,6 +5055,8 @@ def build_daily_manual_trading_session(pack: dict[str, Any]) -> dict[str, Any]:
         session_status = "blocked_post_close_journal_required"
     elif manual_execution_dirty:
         session_status = "blocked_manual_execution_audit"
+    elif next_session_quarantine_required:
+        session_status = "blocked_next_session_quarantine_required"
     elif production_candidate:
         session_status = "production_manual_review_candidate"
     elif small_candidate:
@@ -5030,6 +5082,8 @@ def build_daily_manual_trading_session(pack: dict[str, Any]) -> dict[str, Any]:
         manual_missing=manual_missing,
         pretrade_blocked=pretrade_blocked,
         health_blocked=health_blocked,
+        next_session_quarantine_required=next_session_quarantine_required,
+        next_session_quarantine_missing_count=next_session_quarantine_missing_count,
         research_evidence_status=str(gate_by_id.get("research_evidence", {}).get("status") or "required"),
     )
     next_gate = blocking_gates[0] if blocking_gates else {}
@@ -5054,6 +5108,13 @@ def build_daily_manual_trading_session(pack: dict[str, Any]) -> dict[str, Any]:
                 "manual_execution_missing_review_receipts": manual_missing,
                 "paper_ready_observations": paper_ready_observations,
                 "readiness_score_pct": _session_count(transition_summary.get("readiness_score_pct")),
+                "next_session_quarantine_required": next_session_quarantine_required,
+                "next_session_quarantine_missing_count": next_session_quarantine_missing_count,
+                "next_session_reuse_status": str(
+                    health_summary.get("next_session_reuse_status")
+                    or transition_summary.get("next_session_reuse_status")
+                    or "waiting_for_top3_candidates"
+                ),
                 "manual_broker_review_candidate": manual_broker_review_candidate,
                 "small_capital_observation_candidate": small_candidate and not blocked,
                 "production_manual_review_candidate": production_candidate and not blocked,
@@ -5141,6 +5202,8 @@ def _daily_manual_session_blocking_gates(
     manual_missing: int,
     pretrade_blocked: bool,
     health_blocked: bool,
+    next_session_quarantine_required: bool,
+    next_session_quarantine_missing_count: int,
     research_evidence_status: str,
 ) -> list[dict[str, Any]]:
     candidates = [
@@ -5159,6 +5222,14 @@ def _daily_manual_session_blocking_gates(
             "daily-factor-health-rows",
             "",
             "Retire or reduce bad Top3 factors before manual review.",
+        ),
+        (
+            "next_session_quarantine",
+            "Next-session Top3 reuse quarantine",
+            not next_session_quarantine_required,
+            "daily-factor-health-rules",
+            "paper_simulation",
+            f"quarantine_required={next_session_quarantine_required}; missing={next_session_quarantine_missing_count}.",
         ),
         (
             "same_day_signal",
@@ -5217,7 +5288,9 @@ def _daily_manual_session_blocking_gates(
             {
                 "gate_id": gate_id,
                 "label": label,
-                "status": "blocked" if gate_id in {"pretrade_red_light", "factor_health"} else "required",
+                "status": "blocked"
+                if gate_id in {"pretrade_red_light", "factor_health", "next_session_quarantine"}
+                else "required",
                 "evidence": evidence,
                 "target_id": target_id,
                 "workflow_id": workflow_id,
@@ -5402,6 +5475,7 @@ def _daily_manual_session_plain_answer(session_status: str) -> str:
     answers = {
         "blocked_pretrade_red_light": "Pretrade blockers remain; do not move toward broker-side action.",
         "blocked_factor_health_rotation_required": "A Top3 factor needs retirement or lower weight before manual review.",
+        "blocked_next_session_quarantine_required": "Top3 reuse evidence is incomplete; finish same-parameter paper, post-close journal, and execution audit before manual review.",
         "blocked_same_day_signal_required": "Generate today's CN_ETF signal before any manual review.",
         "blocked_manual_ticket_required": "Build manual tickets before any broker-side human review.",
         "blocked_same_parameter_paper_required": "Run and match same-parameter paper receipts before any manual-money session.",
@@ -6526,6 +6600,10 @@ def _real_money_transition_gate_row(
     workflow_id: str = "",
     *,
     required_before: str,
+    observed_count: int | None = None,
+    required_count: int | None = None,
+    missing_count: int | None = None,
+    reason_count: int | None = None,
 ) -> dict[str, Any]:
     return {
         "gate_id": gate_id,
@@ -6535,6 +6613,10 @@ def _real_money_transition_gate_row(
         "target_id": target_id,
         "workflow_id": workflow_id,
         "required_before": required_before,
+        "observed_count": observed_count,
+        "required_count": required_count,
+        "missing_count": missing_count,
+        "reason_count": reason_count,
         "automation_allowed": False,
         "live_order_allowed": False,
         "live_trading_allowed": False,

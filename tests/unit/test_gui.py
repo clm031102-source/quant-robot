@@ -419,6 +419,8 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("next_session_quarantine_rules", app_js)
         self.assertIn("same_parameter_top3_paper_incomplete", app_js)
         self.assertIn("quarantine_pending_evidence", app_js)
+        self.assertIn("blocked_next_session_quarantine_required", app_js)
+        self.assertIn("next_session_quarantine", app_js)
         self.assertIn("daily-trading-system-blueprint", html)
         self.assertIn("daily-trading-system-blueprint-summary", html)
         self.assertIn("daily-trading-system-blueprint-evidence", html)
@@ -495,6 +497,24 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("staleDailyDateDefaults", app_js)
         self.assertIn("setValue(\"daily-trade-as-of\", today)", app_js)
         self.assertIn("setValue(\"signal-as-of\", today)", app_js)
+
+    def test_next_session_quarantine_summary_only_renders_in_factor_health_monitor(self):
+        app_js = Path("src/quant_robot/gui/static/app.js").read_text(encoding="utf-8")
+        beginner_trade_block = app_js.split("function renderBeginnerTradeSystem()", 1)[1].split(
+            "function renderBeginnerTradeSystemCapitalLadder",
+            1,
+        )[0]
+        factor_health_block = app_js.split("function renderDailyFactorHealthMonitor", 1)[1].split(
+            "function dailyFactorHealthTone",
+            1,
+        )[0]
+
+        self.assertNotIn("nextSessionReuseStatus", beginner_trade_block)
+        self.assertNotIn("nextSessionQuarantineTone", beginner_trade_block)
+        self.assertIn("nextSessionReuseStatus", factor_health_block)
+        self.assertIn("nextSessionQuarantineTone", factor_health_block)
+        self.assertIn("next_session_quarantine_required", factor_health_block)
+        self.assertIn("same_parameter_top3_matched_requests", factor_health_block)
 
 
 class GuiSnapshotTests(unittest.TestCase):

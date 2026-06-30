@@ -1582,6 +1582,88 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("manual_skip_conditions", gate["manual_execution_preview"][0])
         self.assertTrue(all(not row["order_placement_allowed"] for row in gate["operator_script"]))
 
+    def test_real_money_transition_blocks_next_session_quarantine_even_when_aggregate_evidence_passes(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {
+                    "rank": 1,
+                    "case_id": "c1",
+                    "factor_name": "momentum_quality_combo",
+                    "market": "CN_ETF",
+                    "sharpe": 1.35,
+                    "annualized_return": 0.18,
+                    "max_drawdown": -0.14,
+                    "win_rate": 0.59,
+                    "rank_ic": 0.045,
+                    "trade_count": 96,
+                },
+                {
+                    "rank": 2,
+                    "case_id": "c2",
+                    "factor_name": "low_vol_overlay",
+                    "market": "CN_ETF",
+                    "sharpe": 1.05,
+                    "annualized_return": 0.14,
+                    "max_drawdown": -0.11,
+                    "win_rate": 0.57,
+                    "rank_ic": 0.033,
+                    "trade_count": 80,
+                },
+                {
+                    "rank": 3,
+                    "case_id": "c3",
+                    "factor_name": "breadth_trend_state",
+                    "market": "CN_ETF",
+                    "sharpe": 0.98,
+                    "annualized_return": 0.12,
+                    "max_drawdown": -0.10,
+                    "win_rate": 0.56,
+                    "rank_ic": 0.028,
+                    "trade_count": 72,
+                },
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.2}),
+                _signal("c2", "low_vol_overlay", {"588000": 0.2}),
+                _signal("c3", "breadth_trend_state", {"159915": 0.2}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="aggressive_30dd",
+            evidence_snapshot={
+                "counts": {
+                    "matched_paper_receipts": 5,
+                    "post_close_journal_receipts": 5,
+                    "manual_execution_clean_receipts": 5,
+                    "manual_execution_blocked_receipts": 0,
+                    "manual_execution_missing_review_receipts": 0,
+                    "paper_ready_observations": 20,
+                    "same_parameter_top3_required_requests": 3,
+                    "same_parameter_top3_matched_requests": 2,
+                },
+                "flags": {
+                    "walk_forward_oos_passed": True,
+                    "lookahead_bias_audit_passed": True,
+                    "multiple_testing_control_passed": True,
+                    "transaction_cost_capacity_passed": True,
+                },
+            },
+        )
+
+        gate = pack["daily_real_money_transition_gate"]
+        session = pack["daily_manual_trading_session"]
+        row_by_id = {row["gate_id"]: row for row in gate["preflight_rows"]}
+
+        self.assertTrue(pack["daily_factor_health_monitor"]["summary"]["next_session_quarantine_required"])
+        self.assertEqual(gate["summary"]["decision"], "blocked_next_session_quarantine_required")
+        self.assertFalse(gate["summary"]["small_capital_observation_candidate"])
+        self.assertFalse(gate["summary"]["production_manual_review_candidate"])
+        self.assertEqual(row_by_id["next_session_quarantine"]["status"], "blocked")
+        self.assertEqual(row_by_id["next_session_quarantine"]["missing_count"], 1)
+        self.assertEqual(session["summary"]["session_status"], "blocked_next_session_quarantine_required")
+        self.assertFalse(session["summary"]["manual_broker_review_candidate"])
+        self.assertIn("next_session_quarantine", {row["gate_id"] for row in session["blocking_gates"]})
+
     def test_daily_pack_exposes_manual_trading_session_that_blocks_missing_paper_evidence(self):
         pack = build_daily_trade_advisory_pack(
             [
@@ -1671,6 +1753,8 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
                 "manual_execution_clean_receipts": 5,
                 "manual_execution_blocked_receipts": 0,
                 "paper_ready_observations": 20,
+                "same_parameter_top3_required_requests": 3,
+                "same_parameter_top3_matched_requests": 3,
             },
         )
         direct = build_daily_manual_trading_session(pack)
@@ -1758,6 +1842,8 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
                 "manual_execution_clean_receipts": 5,
                 "manual_execution_blocked_receipts": 0,
                 "paper_ready_observations": 20,
+                "same_parameter_top3_required_requests": 3,
+                "same_parameter_top3_matched_requests": 3,
             },
         )
 
@@ -1887,6 +1973,8 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
                 "manual_execution_clean_receipts": 5,
                 "manual_execution_blocked_receipts": 0,
                 "paper_ready_observations": 20,
+                "same_parameter_top3_required_requests": 3,
+                "same_parameter_top3_matched_requests": 3,
             },
         )
 
