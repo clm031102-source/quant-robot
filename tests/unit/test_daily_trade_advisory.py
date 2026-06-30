@@ -731,6 +731,26 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("30%", gate["risk_budget"]["plain_budget"])
         self.assertIn("paper_simulation_receipt", {row["gate_id"] for row in gate["go_live_blockers"]})
         self.assertIn("manual_broker_manual_decision", {row["boundary_id"] for row in gate["safety_boundaries"]})
+        self.assertEqual(
+            [row["stage_id"] for row in gate["capital_deployment_ladder"]],
+            [
+                "research_signal",
+                "same_parameter_paper",
+                "small_capital_manual_observation",
+                "production_manual_review",
+            ],
+        )
+        paper_stage = gate["capital_deployment_ladder"][1]
+        small_capital_stage = gate["capital_deployment_ladder"][2]
+        production_stage = gate["capital_deployment_ladder"][3]
+        self.assertEqual(paper_stage["status"], "required")
+        self.assertEqual(paper_stage["workflow_id"], "paper_simulation")
+        self.assertIn("同参数模拟盘", paper_stage["plain_requirement"])
+        self.assertEqual(small_capital_stage["minimum_matched_paper_receipts"], 5)
+        self.assertEqual(small_capital_stage["minimum_post_close_journals"], 5)
+        self.assertEqual(production_stage["minimum_paper_ready_observations"], 20)
+        self.assertTrue(all(not row["broker_connection_allowed"] for row in gate["capital_deployment_ladder"]))
+        self.assertTrue(all(not row["order_placement_allowed"] for row in gate["capital_deployment_ladder"]))
 
     def test_daily_pack_exposes_small_capital_observation_gate(self):
         pack = build_daily_trade_advisory_pack(

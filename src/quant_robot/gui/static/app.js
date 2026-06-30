@@ -6079,13 +6079,15 @@ function renderDailySignalExecutionBridge(bridge = {}) {
 
 function renderDailyRealWorldHandoffGate(gate = {}) {
   const summaryTarget = byId("daily-real-world-handoff-summary");
+  const ladderTarget = byId("daily-real-world-handoff-ladder");
   const runbookTarget = byId("daily-real-world-handoff-runbook");
   const ticketsTarget = byId("daily-real-world-handoff-tickets");
   const blockersTarget = byId("daily-real-world-handoff-blockers");
-  if (!summaryTarget || !runbookTarget || !ticketsTarget || !blockersTarget) return;
+  if (!summaryTarget || !ladderTarget || !runbookTarget || !ticketsTarget || !blockersTarget) return;
   const summary = gate.summary || {};
   const contract = gate.daily_top3_signal_contract || {};
   const risk = gate.risk_budget || {};
+  const ladder = Array.isArray(gate.capital_deployment_ladder) ? gate.capital_deployment_ladder : [];
   const runbook = Array.isArray(gate.manual_operation_runbook) ? gate.manual_operation_runbook : [];
   const tickets = Array.isArray(gate.manual_ticket_preview) ? gate.manual_ticket_preview : [];
   const blockers = Array.isArray(gate.go_live_blockers) ? gate.go_live_blockers : [];
@@ -6114,6 +6116,7 @@ function renderDailyRealWorldHandoffGate(gate = {}) {
       <span class="beginner-task-actions">${workflowButton}${targetButton}</span>
     </div>
   `;
+  renderDailyRealWorldCapitalLadder(ladderTarget, ladder);
   runbookTarget.innerHTML = runbook.length ? runbook.map((item) => `
     <div class="list-row ${escapeHtml(dailyTradeSystemStageTone(item.status || ""))}">
       <strong>${escapeHtml(`${item.step_number || "--"}. ${item.label || item.step_id || ""}`)}</strong>
@@ -6154,6 +6157,29 @@ function renderDailyRealWorldHandoffGate(gate = {}) {
       </div>
     `;
   }).join("") || statusRows([["安全闸门", "等待实盘前人工观察总闸门加载。", "warn"]]);
+}
+
+function renderDailyRealWorldCapitalLadder(target, ladder = []) {
+  target.innerHTML = ladder.length ? ladder.map((item) => {
+    const status = item.status || "waiting";
+    const tone = status.includes("done") ? "ok" : status.includes("locked") || status.includes("blocked") ? "danger" : "warn";
+    const thresholds = [
+      item.minimum_matched_paper_receipts != null ? `模拟盘回执≥${formatNumber(item.minimum_matched_paper_receipts)}` : "",
+      item.minimum_post_close_journals != null ? `复盘回执≥${formatNumber(item.minimum_post_close_journals)}` : "",
+      item.minimum_paper_ready_observations != null ? `纸面观察≥${formatNumber(item.minimum_paper_ready_observations)}` : "",
+    ].filter(Boolean).join(" / ");
+    return `
+      <div class="list-row ${escapeHtml(tone)}">
+        <strong>${escapeHtml(`${item.stage_number || "--"}. ${item.label || item.stage_id || ""}`)}</strong>
+        <span>${escapeHtml(`${zhConsoleText(status)} / ${item.capital_mode || ""}`)}</span>
+        <span>${escapeHtml([item.plain_requirement || "", thresholds].filter(Boolean).join(" / "))}</span>
+        <span class="beginner-task-actions">
+          ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+          ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
+        </span>
+      </div>
+    `;
+  }).join("") : statusRows([["资金阶段", "等待今日实盘前人工观察总闸门加载。", "warn"]]);
 }
 
 function dailyRealWorldHandoffTone(decision = "") {

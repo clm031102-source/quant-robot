@@ -349,7 +349,9 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("daily-real-world-handoff-summary", html)
         self.assertIn("daily-real-world-handoff-runbook", html)
         self.assertIn("daily-real-world-handoff-tickets", html)
+        self.assertIn("daily-real-world-handoff-ladder", html)
         self.assertIn("renderDailyRealWorldHandoffGate", app_js)
+        self.assertIn("renderDailyRealWorldCapitalLadder", app_js)
         self.assertIn("real_world_manual_handoff_gate", app_js)
 
 
@@ -501,6 +503,8 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertFalse(real_world_gate["summary"]["broker_connection_allowed"])
         self.assertIn("human_broker_manual_decision", {item["step_id"] for item in real_world_gate["manual_operation_runbook"]})
         self.assertIn("paper_simulation_receipt", {item["gate_id"] for item in real_world_gate["go_live_blockers"]})
+        self.assertIn("capital_deployment_ladder", real_world_gate)
+        self.assertIn("production_manual_review", {item["stage_id"] for item in real_world_gate["capital_deployment_ladder"]})
         self.assertEqual(snapshot["live_transition_plan"]["summary"]["selected_risk_profile_id"], "conservative_10dd")
         self.assertEqual(snapshot["summary"]["risk_profile_id"], "conservative_10dd")
         self.assertIn("small_capital_review_gate", {gate["gate_id"] for gate in snapshot["live_transition_plan"]["evidence_gates"]})

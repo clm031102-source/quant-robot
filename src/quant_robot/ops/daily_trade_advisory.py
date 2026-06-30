@@ -2851,6 +2851,13 @@ def build_real_world_manual_handoff_gate(pack: dict[str, Any]) -> dict[str, Any]
         next_target = "factor-leaderboard-table"
         next_workflow = ""
 
+    capital_ladder = _real_world_capital_deployment_ladder(
+        selected_count=selected_count,
+        signal_count=signal_count,
+        target_count=target_count,
+        ticket_count=ticket_count,
+        blockers=blockers,
+    )
     ticket_source = copyable_tickets or manual_plan
     manual_ticket_preview = [_real_world_ticket_preview(row, index) for index, row in enumerate(ticket_source[:10], start=1)]
     runbook = [
@@ -3014,6 +3021,7 @@ def build_real_world_manual_handoff_gate(pack: dict[str, Any]) -> dict[str, Any]
                 ),
             },
             "manual_ticket_preview": manual_ticket_preview,
+            "capital_deployment_ladder": capital_ladder,
             "paper_simulation_handoff": paper_handoff,
             "manual_operation_runbook": runbook,
             "go_live_blockers": go_live_blockers,
@@ -3042,6 +3050,98 @@ def build_real_world_manual_handoff_gate(pack: dict[str, Any]) -> dict[str, Any]
             "decision_sheet_summary": decision_sheet.get("summary") if isinstance(decision_sheet.get("summary"), dict) else {},
         }
     )
+
+
+def _real_world_capital_deployment_ladder(
+    *,
+    selected_count: int,
+    signal_count: int,
+    target_count: int,
+    ticket_count: int,
+    blockers: list[str],
+) -> list[dict[str, Any]]:
+    blocked = bool(blockers)
+    has_candidates = selected_count > 0
+    has_same_day_signal = signal_count > 0 and target_count > 0
+    has_manual_tickets = ticket_count > 0
+
+    return [
+        _real_world_capital_stage(
+            1,
+            "research_signal",
+            "研究信号层",
+            "done" if has_candidates else "required",
+            "0 元真实资金；只看 CN_ETF 候选、信号和证据。",
+            "先把前三候选从长期、样本外、成本后证据里挑出来；不能按历史收益榜直接买。",
+            "factor-leaderboard-table",
+            "",
+        ),
+        _real_world_capital_stage(
+            2,
+            "same_parameter_paper",
+            "同参数模拟盘层",
+            "required" if has_manual_tickets and not blocked else ("blocked" if blocked else "waiting"),
+            "0 元真实资金；只跑本地模拟盘。",
+            "用同参数模拟盘复核今日前三信号、TopN、成本、调仓和风险档位；没有回执不能进入人工观察。",
+            "paper-metrics",
+            "paper_simulation" if has_manual_tickets and not blocked else "",
+        ),
+        {
+            **_real_world_capital_stage(
+                3,
+                "small_capital_manual_observation",
+                "小资金人工观察层",
+                "locked_until_evidence",
+                "系统不读取账户、不建议具体实盘金额；只能由用户离开系统后人工决定。",
+                "至少 5 次同参数模拟盘回执和 5 次收盘复盘都干净，且无盘前红灯，才允许讨论小资金人工观察。",
+                "beginner-live-handoff-board",
+                "",
+            ),
+            "minimum_matched_paper_receipts": 5,
+            "minimum_post_close_journals": 5,
+        },
+        {
+            **_real_world_capital_stage(
+                4,
+                "production_manual_review",
+                "正式人工复核层",
+                "locked_future_phase",
+                "当前项目不开放；需要未来单独批准券商和账户边界。",
+                "至少 20 次纸面观察合格、风控和成交偏差稳定、人工审计通过后，才进入未来正式人工复核方案。",
+                "control-safety-boundary",
+                "",
+            ),
+            "minimum_paper_ready_observations": 20,
+        },
+    ]
+
+
+def _real_world_capital_stage(
+    stage_number: int,
+    stage_id: str,
+    label: str,
+    status: str,
+    capital_mode: str,
+    plain_requirement: str,
+    target_id: str,
+    workflow_id: str,
+) -> dict[str, Any]:
+    return {
+        "stage_number": stage_number,
+        "stage_id": stage_id,
+        "label": label,
+        "status": status,
+        "capital_mode": capital_mode,
+        "plain_requirement": plain_requirement,
+        "target_id": target_id,
+        "workflow_id": workflow_id,
+        "automation_allowed": False,
+        "live_order_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
 
 
 def _real_world_runbook_step(
