@@ -17,11 +17,14 @@ DESKTOP_APP_COPY = {
     "subtitle": "一键打开本地研究、信号、模拟盘和手工交易建议。",
     "safety": "research-to-paper only；不连接券商、不读取账户、不真实下单。",
     "primary_button": "启动并打开中控台",
+    "today_action_button": "打开今日行动",
     "daily_button": "打开今日交易检查",
     "leaderboard_button": "打开因子排行榜",
     "logs_button": "打开日志报告",
     "stop_button": "停止本地服务",
 }
+DEFAULT_INITIAL_PAGE = "dashboard"
+DEFAULT_INITIAL_TARGET_ID = "ordinary-daily-action-card"
 
 DESKTOP_APP_PAGES = {
     "dashboard",
@@ -155,8 +158,8 @@ def run_desktop_app(
     host: str = "127.0.0.1",
     port: int = 8765,
     open_on_start: bool = True,
-    initial_page: str = "dashboard",
-    initial_target_id: str = "",
+    initial_page: str = DEFAULT_INITIAL_PAGE,
+    initial_target_id: str = DEFAULT_INITIAL_TARGET_ID,
 ) -> DesktopAppState:
     controller = DesktopGuiController(host=host, port=port)
     try:
@@ -206,7 +209,8 @@ def run_desktop_app(
 
     quick_buttons = ttk.Frame(frame)
     quick_buttons.pack(anchor="w", pady=(12, 0))
-    ttk.Button(quick_buttons, text=DESKTOP_APP_COPY["daily_button"], command=lambda: open_section("daily")).pack(side="left")
+    ttk.Button(quick_buttons, text=DESKTOP_APP_COPY["today_action_button"], command=lambda: open_section("dashboard", DEFAULT_INITIAL_TARGET_ID)).pack(side="left")
+    ttk.Button(quick_buttons, text=DESKTOP_APP_COPY["daily_button"], command=lambda: open_section("daily")).pack(side="left", padx=(10, 0))
     ttk.Button(quick_buttons, text=DESKTOP_APP_COPY["leaderboard_button"], command=lambda: open_section("dashboard", "factor-leaderboard-table")).pack(side="left", padx=(10, 0))
     ttk.Button(quick_buttons, text=DESKTOP_APP_COPY["logs_button"], command=lambda: open_section("logs")).pack(side="left", padx=(10, 0))
 
@@ -227,15 +231,18 @@ def main(argv: list[str] | None = None, runner: Callable[..., DesktopAppState] =
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", default=8765, type=int)
     parser.add_argument("--no-open", action="store_true", help="Start the desktop shell without opening the browser immediately.")
-    parser.add_argument("--page", choices=sorted(DESKTOP_APP_PAGES), default="dashboard", help="Open a beginner workflow page after starting.")
-    parser.add_argument("--target-id", default="", help="Optional on-page target id to scroll to after opening the page.")
+    parser.add_argument("--page", choices=sorted(DESKTOP_APP_PAGES), default=DEFAULT_INITIAL_PAGE, help="Open a beginner workflow page after starting.")
+    parser.add_argument("--target-id", default=None, help="Optional on-page target id to scroll to after opening the page.")
     args = parser.parse_args(argv)
+    target_id = args.target_id
+    if target_id is None:
+        target_id = DEFAULT_INITIAL_TARGET_ID if args.page == DEFAULT_INITIAL_PAGE else ""
     return runner(
         host=args.host,
         port=args.port,
         open_on_start=not args.no_open,
         initial_page=args.page,
-        initial_target_id=args.target_id,
+        initial_target_id=target_id,
     )
 
 

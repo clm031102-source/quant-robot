@@ -16,6 +16,12 @@ class DesktopShortcutSpec:
 
 DEFAULT_DESKTOP_SHORTCUTS = (
     DesktopShortcutSpec(
+        shortcut_id="today_action",
+        filename="量化机器人-今日行动.bat",
+        page="dashboard",
+        target_id="ordinary-daily-action-card",
+    ),
+    DesktopShortcutSpec(
         shortcut_id="daily_pretrade_check",
         filename="量化机器人-今日交易检查.bat",
         page="daily",
@@ -61,9 +67,10 @@ def build_beginner_readme(shortcuts: tuple[DesktopShortcutSpec, ...] = DEFAULT_D
         [
             "量化机器人新手说明",
             "",
-            "第一步：双击「量化机器人-今日交易检查.bat」，先看今天能不能做。",
-            "第二步：如果想看历史表现，双击「量化机器人-因子排行榜.bat」。",
-            "第三步：如果运行失败或看不懂结果，双击「量化机器人-日志报告.bat」。",
+            "第一步：双击「量化机器人-今日行动.bat」，先看软件建议你今天先做什么。",
+            "第二步：如果要做交易前检查，双击「量化机器人-今日交易检查.bat」。",
+            "第三步：如果想看历史表现，双击「量化机器人-因子排行榜.bat」。",
+            "第四步：如果运行失败或看不懂结果，双击「量化机器人-日志报告.bat」。",
             "",
             "桌面入口：",
             shortcut_lines,

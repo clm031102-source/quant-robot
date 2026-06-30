@@ -175,8 +175,9 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("--no-open", launcher.read_text(encoding="utf-8"))
         self.assertIn("scripts\\run_desktop_app.py", batch_file.read_text(encoding="utf-8"))
         self.assertIn("research-to-paper", batch_file.read_text(encoding="utf-8"))
-        self.assertIn("--page daily", batch_file.read_text(encoding="utf-8"))
-        self.assertIn("--target-id daily-pretrade-beginner-cards", batch_file.read_text(encoding="utf-8"))
+        self.assertIn("--page dashboard", batch_file.read_text(encoding="utf-8"))
+        self.assertIn("--target-id ordinary-daily-action-card", batch_file.read_text(encoding="utf-8"))
+        self.assertIn("today_action_button", DESKTOP_APP_COPY)
         self.assertIn("daily_button", DESKTOP_APP_COPY)
         self.assertIn("leaderboard_button", DESKTOP_APP_COPY)
         self.assertIn("logs_button", DESKTOP_APP_COPY)
@@ -216,6 +217,25 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertEqual(calls[0]["initial_page"], "daily")
         self.assertEqual(calls[0]["initial_target_id"], "daily-pretrade-beginner-cards")
 
+    def test_desktop_cli_defaults_to_today_action_card(self):
+        calls: list[dict[str, object]] = []
+
+        def fake_runner(**kwargs: object) -> DesktopAppState:
+            calls.append(kwargs)
+            return DesktopAppState(
+                status="running",
+                host=str(kwargs["host"]),
+                port=int(kwargs["port"]),
+                url="http://127.0.0.1:8765/#dashboard:ordinary-daily-action-card",
+                message="started",
+            )
+
+        state = desktop_app_main([], runner=fake_runner)
+
+        self.assertEqual(state.status, "running")
+        self.assertEqual(calls[0]["initial_page"], "dashboard")
+        self.assertEqual(calls[0]["initial_target_id"], "ordinary-daily-action-card")
+
     def test_desktop_shortcut_installer_writes_beginner_workflow_launchers(self):
         from scripts.install_quant_robot_desktop_shortcuts import (
             DEFAULT_DESKTOP_SHORTCUTS,
@@ -230,6 +250,9 @@ class GuiDesktopAppTests(unittest.TestCase):
             )
 
             written = {Path(item["path"]).name: Path(item["path"]).read_text(encoding="utf-8") for item in result["shortcuts"]}
+            shortcut_bodies_by_id = {
+                item["shortcut_id"]: Path(item["path"]).read_text(encoding="utf-8") for item in result["shortcuts"]
+            }
             readme_path = Path(result["readme_path"])
             readme_text = readme_path.read_text(encoding="utf-8")
 
@@ -238,6 +261,11 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertFalse(result["safety"]["account_read_allowed"])
         self.assertFalse(result["safety"]["order_placement_allowed"])
         self.assertEqual(len(result["shortcuts"]), len(DEFAULT_DESKTOP_SHORTCUTS))
+        shortcuts_by_id = {item["shortcut_id"]: item for item in result["shortcuts"]}
+        self.assertIn("today_action", shortcuts_by_id)
+        self.assertEqual(shortcuts_by_id["today_action"]["page"], "dashboard")
+        self.assertEqual(shortcuts_by_id["today_action"]["target_id"], "ordinary-daily-action-card")
+        self.assertIn("python scripts\\run_desktop_app.py --page dashboard --target-id ordinary-daily-action-card", shortcut_bodies_by_id["today_action"])
         self.assertEqual(readme_path.name, "量化机器人-先读我.txt")
         self.assertIn("第一步", readme_text)
         self.assertIn("今日交易检查", readme_text)

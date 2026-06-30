@@ -829,6 +829,17 @@ Run the research-family scheduler before material factor-mining batches. It enfo
 
 The local GUI is research-only. It defaults to local `processed-bars` CN ETF CSV research when `data\processed\etf_csv` exists, and still includes a clearly labeled `demo_fixture` mode for smoke checks.
 
+For a beginner-friendly desktop entry, start the local shell. It opens the dashboard directly on the "today action" card, then you can jump to daily checks, factor leaderboard, or logs from the desktop window.
+
+```powershell
+$env:PYTHONPATH='src'
+python scripts\run_desktop_app.py
+```
+
+On Windows, `scripts\start_quant_robot_desktop.bat` launches the same beginner entry. To write clickable launchers to the desktop, run `scripts\install_quant_robot_desktop_shortcuts.bat`.
+
+The command-line server remains available for advanced users:
+
 ```powershell
 $env:PYTHONPATH='src'
 python scripts\run_gui.py
