@@ -1858,6 +1858,54 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertTrue(all(row["order_placement_allowed"] is False for row in playbook["allocation_rows"]))
         self.assertIn("open_external_broker_manually_if_human_chooses", {row["step_id"] for row in playbook["operator_steps"]})
 
+    def test_paper_allocation_playbook_blocks_manual_review_when_next_session_quarantine_missing(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_quality_combo", "market": "CN_ETF", "sharpe": 1.35},
+                {"rank": 2, "case_id": "c2", "factor_name": "low_vol_overlay", "market": "CN_ETF", "sharpe": 1.05},
+                {"rank": 3, "case_id": "c3", "factor_name": "breadth_trend_state", "market": "CN_ETF", "sharpe": 0.98},
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.2}),
+                _signal("c2", "low_vol_overlay", {"588000": 0.2}),
+                _signal("c3", "breadth_trend_state", {"159915": 0.2}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="aggressive_30dd",
+            evidence_snapshot={
+                "walk_forward_oos_passed": True,
+                "lookahead_bias_audit_passed": True,
+                "multiple_testing_control_passed": True,
+                "transaction_cost_capacity_passed": True,
+                "matched_paper_receipts": 5,
+                "post_close_journals": 5,
+                "manual_execution_clean_receipts": 5,
+                "manual_execution_blocked_receipts": 0,
+                "paper_ready_observations": 20,
+                "same_parameter_top3_required_requests": 3,
+                "same_parameter_top3_matched_requests": 2,
+            },
+        )
+
+        playbook = pack["daily_paper_allocation_playbook"]
+        gate_by_id = {row["gate_id"]: row for row in playbook["promotion_gates"]}
+
+        self.assertTrue(pack["daily_factor_health_monitor"]["summary"]["next_session_quarantine_required"])
+        self.assertEqual(playbook["summary"]["allocation_status"], "blocked_next_session_quarantine_required")
+        self.assertEqual(playbook["summary"]["traffic_light"], "red")
+        self.assertTrue(playbook["summary"]["next_session_quarantine_required"])
+        self.assertEqual(playbook["summary"]["next_session_quarantine_missing_count"], 1)
+        self.assertFalse(playbook["summary"]["manual_broker_review_candidate"])
+        self.assertFalse(playbook["summary"]["order_placement_allowed"])
+        self.assertEqual(gate_by_id["next_session_quarantine"]["status"], "required")
+        self.assertIn("run_same_parameter_paper", {row["step_id"] for row in playbook["operator_steps"]})
+        self.assertNotIn(
+            "open_external_broker_manually_if_human_chooses",
+            {row["step_id"] for row in playbook["operator_steps"]},
+        )
+        self.assertTrue(all(row["execution_mode"] == "paper_rehearsal_only" for row in playbook["allocation_rows"]))
+
     def test_paper_allocation_playbook_can_rehearse_targets_without_current_positions(self):
         pack = _build_daily_trade_advisory_pack(
             [
@@ -1993,6 +2041,52 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("open_external_broker_manually_if_human_chooses", {row["step_id"] for row in guard["operator_steps"]})
         self.assertIn("broker_price_outside_guardrail", {row["rule_id"] for row in guard["skip_rules"]})
         self.assertTrue(all(row["order_placement_allowed"] is False for row in guard["row_guardrails"]))
+
+    def test_pre_execution_guard_blocks_manual_review_when_next_session_quarantine_missing(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_quality_combo", "market": "CN_ETF", "sharpe": 1.35},
+                {"rank": 2, "case_id": "c2", "factor_name": "low_vol_overlay", "market": "CN_ETF", "sharpe": 1.05},
+                {"rank": 3, "case_id": "c3", "factor_name": "breadth_trend_state", "market": "CN_ETF", "sharpe": 0.98},
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.2}),
+                _signal("c2", "low_vol_overlay", {"588000": 0.2}),
+                _signal("c3", "breadth_trend_state", {"159915": 0.2}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="aggressive_30dd",
+            evidence_snapshot={
+                "walk_forward_oos_passed": True,
+                "lookahead_bias_audit_passed": True,
+                "multiple_testing_control_passed": True,
+                "transaction_cost_capacity_passed": True,
+                "matched_paper_receipts": 5,
+                "post_close_journals": 5,
+                "manual_execution_clean_receipts": 5,
+                "manual_execution_blocked_receipts": 0,
+                "paper_ready_observations": 20,
+                "same_parameter_top3_required_requests": 3,
+                "same_parameter_top3_matched_requests": 2,
+            },
+        )
+
+        guard = pack["daily_pre_execution_guard"]
+        rule_by_id = {row["rule_id"]: row for row in guard["skip_rules"]}
+
+        self.assertEqual(guard["summary"]["guard_status"], "blocked_next_session_quarantine_required")
+        self.assertEqual(guard["summary"]["traffic_light"], "red")
+        self.assertTrue(guard["summary"]["paper_rehearsal_allowed"])
+        self.assertFalse(guard["summary"]["manual_broker_review_allowed"])
+        self.assertFalse(guard["summary"]["can_buy_today"])
+        self.assertFalse(guard["summary"]["order_placement_allowed"])
+        self.assertEqual(rule_by_id["next_session_quarantine"]["status"], "blocked")
+        self.assertIn("run_same_parameter_paper", {row["step_id"] for row in guard["operator_steps"]})
+        self.assertNotIn(
+            "open_external_broker_manually_if_human_chooses",
+            {row["step_id"] for row in guard["operator_steps"]},
+        )
 
     def test_same_parameter_paper_rehearsal_locks_top3_requests_and_allocation_manifest(self):
         pack = _build_daily_trade_advisory_pack(

@@ -5523,10 +5523,26 @@ def build_daily_paper_allocation_playbook(pack: dict[str, Any]) -> dict[str, Any
     portfolio_value = _float(summary.get("portfolio_value"), 100000.0)
     risk_profile = _risk_profile_by_id(str(summary.get("risk_profile_id") or DEFAULT_RISK_PROFILE_ID))
     session_status = str(session_summary.get("session_status") or "paper_rehearsal_required")
+    next_session_required_count = _int(health_summary.get("same_parameter_top3_required_requests"), 0)
+    next_session_matched_count = _int(health_summary.get("same_parameter_top3_matched_requests"), 0)
+    next_session_missing_from_counts = max(0, next_session_required_count - next_session_matched_count)
+    next_session_quarantine_required = (
+        bool(health_summary.get("next_session_quarantine_required"))
+        or bool(session_summary.get("next_session_quarantine_required"))
+        or session_status == "blocked_next_session_quarantine_required"
+    )
+    next_session_quarantine_blocks_manual = session_status == "blocked_next_session_quarantine_required"
+    next_session_quarantine_missing_count = _session_count(
+        session_summary.get("next_session_quarantine_missing_count"),
+        transition_summary.get("next_session_quarantine_missing_count"),
+        health_summary.get("next_session_quarantine_missing_count"),
+        next_session_missing_from_counts,
+    )
     hard_blocked_statuses = {
         "blocked_pretrade_red_light",
         "blocked_factor_health_rotation_required",
         "blocked_same_day_signal_required",
+        "blocked_next_session_quarantine_required",
     }
     readiness_blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
     manual_broker_review_candidate = bool(session_summary.get("manual_broker_review_candidate"))
@@ -5545,6 +5561,8 @@ def build_daily_paper_allocation_playbook(pack: dict[str, Any]) -> dict[str, Any
         allocation_status = "blocked_no_allocation_rows"
     elif pretrade_blocked:
         allocation_status = session_status if session_status in hard_blocked_statuses else "blocked_pretrade_red_light"
+    elif next_session_quarantine_blocks_manual:
+        allocation_status = "blocked_next_session_quarantine_required"
     elif risk_blocked:
         allocation_status = "blocked_risk_budget"
     elif manual_broker_review_candidate:
@@ -5598,6 +5616,13 @@ def build_daily_paper_allocation_playbook(pack: dict[str, Any]) -> dict[str, Any
                 ),
                 "manual_broker_review_candidate": manual_broker_review_candidate and not blocked,
                 "paper_rehearsal_required": allocation_status == "paper_rehearsal_required",
+                "next_session_quarantine_required": next_session_quarantine_required,
+                "next_session_quarantine_missing_count": next_session_quarantine_missing_count,
+                "next_session_reuse_status": str(
+                    health_summary.get("next_session_reuse_status")
+                    or session_summary.get("next_session_reuse_status")
+                    or "waiting_for_top3_candidates"
+                ),
                 "risk_blocked": risk_blocked,
                 "next_gate_id": next_gate.get("gate_id"),
                 "next_target_id": next_gate.get("target_id") or "daily-paper-allocation-playbook",
@@ -5748,6 +5773,21 @@ def _paper_allocation_promotion_gates(
         )
     ) or str(transition_summary.get("research_evidence_status") or "") == "pass"
     factor_health_ok = not bool(health_summary.get("retirement_required_before_live"))
+    next_session_required_count = _int(health_summary.get("same_parameter_top3_required_requests"), 0)
+    next_session_matched_count = _int(health_summary.get("same_parameter_top3_matched_requests"), 0)
+    next_session_missing_from_counts = max(0, next_session_required_count - next_session_matched_count)
+    next_session_quarantine_required = bool(
+        health_summary.get("next_session_quarantine_required")
+        or session_summary.get("next_session_quarantine_required")
+        or transition_summary.get("next_session_quarantine_required")
+        or allocation_status == "blocked_next_session_quarantine_required"
+    )
+    next_session_quarantine_missing_count = _session_count(
+        session_summary.get("next_session_quarantine_missing_count"),
+        transition_summary.get("next_session_quarantine_missing_count"),
+        health_summary.get("next_session_quarantine_missing_count"),
+        next_session_missing_from_counts,
+    )
     risk_ok = allocation_status != "blocked_risk_budget"
 
     def gate(
@@ -5805,6 +5845,14 @@ def _paper_allocation_promotion_gates(
             factor_health_ok,
             str(health_summary.get("decision") or "unknown"),
             "daily-factor-health-rows",
+        ),
+        gate(
+            "next_session_quarantine",
+            "Next-session Top3 reuse quarantine",
+            not next_session_quarantine_required,
+            f"quarantine_required={next_session_quarantine_required}; missing={next_session_quarantine_missing_count}.",
+            "daily-factor-health-rows",
+            "paper_simulation" if next_session_quarantine_required else "",
         ),
         gate(
             "research_evidence",
@@ -5870,7 +5918,9 @@ def _paper_allocation_operator_steps(
         step(
             "run_same_parameter_paper",
             "Run same-parameter paper rehearsal",
-            "required" if allocation_status == "paper_rehearsal_required" else "pass",
+            "required"
+            if allocation_status in {"paper_rehearsal_required", "blocked_next_session_quarantine_required"}
+            else "pass",
             "paper-metrics",
             "paper_simulation",
         ),
@@ -5896,7 +5946,11 @@ def _paper_allocation_operator_steps(
             step(
                 "keep_inside_paper_mode",
                 "Keep this playbook inside paper rehearsal",
-                "locked" if allocation_status.startswith("blocked") else "required",
+                "required"
+                if allocation_status == "blocked_next_session_quarantine_required"
+                else "locked"
+                if allocation_status.startswith("blocked")
+                else "required",
                 "paper-metrics",
                 "paper_simulation",
             )
@@ -5930,6 +5984,7 @@ def _paper_allocation_plain_answer(allocation_status: str) -> str:
         "blocked_pretrade_red_light": "Pretrade blockers remain; do not rehearse or review broker-side action yet.",
         "blocked_factor_health_rotation_required": "A Top3 factor needs retirement or lower weight before allocation rehearsal.",
         "blocked_same_day_signal_required": "Generate today's same-day CN_ETF signal before allocation rehearsal.",
+        "blocked_next_session_quarantine_required": "Top3 reuse evidence is incomplete; keep the rows in same-parameter paper rehearsal and do not move them to broker review.",
         "blocked_manual_ticket_required": "Build manual ticket rows before allocation rehearsal.",
         "blocked_risk_budget": "Risk budget or lot sizing is breached; reduce exposure before rehearsal.",
         "manual_review_candidate": "Evidence is sufficient for human manual review material; the software still cannot submit orders.",
@@ -5956,6 +6011,13 @@ def build_daily_pre_execution_guard(pack: dict[str, Any]) -> dict[str, Any]:
         summary.get("manual_ticket_count"),
     )
     manual_candidate = bool(playbook_summary.get("manual_broker_review_candidate"))
+    next_session_quarantine_required = (
+        bool(playbook_summary.get("next_session_quarantine_required"))
+        or str(playbook_summary.get("allocation_status") or "") == "blocked_next_session_quarantine_required"
+    )
+    next_session_quarantine_blocks_manual = (
+        str(playbook_summary.get("allocation_status") or "") == "blocked_next_session_quarantine_required"
+    )
     has_rows = bool(guardrails)
     risk_blocked = any(bool(row.get("risk_blocked")) for row in guardrails)
     price_missing = any(row.get("reference_price") is None or _int(row.get("paper_quantity"), 0) <= 0 for row in guardrails)
@@ -5968,6 +6030,8 @@ def build_daily_pre_execution_guard(pack: dict[str, Any]) -> dict[str, Any]:
         guard_status = "blocked_risk_budget"
     elif price_missing:
         guard_status = "blocked_price_reference"
+    elif next_session_quarantine_blocks_manual:
+        guard_status = "blocked_next_session_quarantine_required"
     elif manual_candidate:
         guard_status = "manual_review_candidate"
     else:
@@ -5975,7 +6039,11 @@ def build_daily_pre_execution_guard(pack: dict[str, Any]) -> dict[str, Any]:
 
     blocked = guard_status.startswith("blocked")
     traffic_light = "red" if blocked else "yellow"
-    paper_rehearsal_allowed = guard_status in {"paper_rehearsal_only", "manual_review_candidate"}
+    paper_rehearsal_allowed = guard_status in {
+        "paper_rehearsal_only",
+        "manual_review_candidate",
+        "blocked_next_session_quarantine_required",
+    }
     manual_broker_review_allowed = guard_status == "manual_review_candidate"
     skip_rules = _pre_execution_skip_rules(
         guard_status=guard_status,
@@ -5984,6 +6052,8 @@ def build_daily_pre_execution_guard(pack: dict[str, Any]) -> dict[str, Any]:
         has_rows=has_rows,
         risk_blocked=risk_blocked,
         price_missing=price_missing,
+        next_session_quarantine_required=next_session_quarantine_required,
+        next_session_quarantine_blocks_manual=next_session_quarantine_blocks_manual,
     )
     return _sanitize(
         {
@@ -6070,6 +6140,8 @@ def _pre_execution_skip_rules(
     has_rows: bool,
     risk_blocked: bool,
     price_missing: bool,
+    next_session_quarantine_required: bool,
+    next_session_quarantine_blocks_manual: bool,
 ) -> list[dict[str, Any]]:
     rows = [
         (
@@ -6106,6 +6178,17 @@ def _pre_execution_skip_rules(
             "Skip rows without reference price or valid board-lot quantity.",
             "daily-paper-allocation-playbook",
             "",
+        ),
+        (
+            "next_session_quarantine",
+            "blocked"
+            if next_session_quarantine_blocks_manual
+            else "paper_only"
+            if next_session_quarantine_required
+            else "pass",
+            "Finish same-parameter Top3 paper, post-close journal, and execution audit before manual broker review.",
+            "daily-factor-health-rows",
+            "paper_simulation" if next_session_quarantine_required else "",
         ),
         (
             "broker_price_outside_guardrail",
@@ -6193,6 +6276,7 @@ def _pre_execution_plain_answer(guard_status: str) -> str:
         "blocked_no_allocation_rows": "No allocation rows exist; generate today's Top3 CN_ETF signal first.",
         "blocked_risk_budget": "Risk budget is breached; reduce exposure or skip the row before rehearsal.",
         "blocked_price_reference": "A row lacks reference price or valid quantity; skip or regenerate before review.",
+        "blocked_next_session_quarantine_required": "Top3 reuse evidence is incomplete; only same-parameter paper rehearsal is allowed today.",
         "manual_review_candidate": "Manual review material is available, but buying remains an external human decision and the software cannot place orders.",
         "paper_rehearsal_only": "Only same-parameter paper rehearsal is allowed; do not copy rows into a broker ticket.",
     }
