@@ -2042,6 +2042,111 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("broker_price_outside_guardrail", {row["rule_id"] for row in guard["skip_rules"]})
         self.assertTrue(all(row["order_placement_allowed"] is False for row in guard["row_guardrails"]))
 
+    def test_pre_execution_guard_blocks_manual_review_when_liquidity_capacity_breached(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_quality_combo", "market": "CN_ETF", "sharpe": 1.35},
+                {"rank": 2, "case_id": "c2", "factor_name": "low_vol_overlay", "market": "CN_ETF", "sharpe": 1.05},
+                {"rank": 3, "case_id": "c3", "factor_name": "breadth_trend_state", "market": "CN_ETF", "sharpe": 0.98},
+            ],
+            [
+                _signal(
+                    "c1",
+                    "momentum_quality_combo",
+                    {"510300": 0.2},
+                    liquidity_value_by_asset={"510300": 100000},
+                ),
+                _signal(
+                    "c2",
+                    "low_vol_overlay",
+                    {"588000": 0.2},
+                    liquidity_value_by_asset={"588000": 100000000},
+                ),
+                _signal(
+                    "c3",
+                    "breadth_trend_state",
+                    {"159915": 0.2},
+                    liquidity_value_by_asset={"159915": 100000000},
+                ),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="aggressive_30dd",
+            evidence_snapshot={
+                "walk_forward_oos_passed": True,
+                "lookahead_bias_audit_passed": True,
+                "multiple_testing_control_passed": True,
+                "transaction_cost_capacity_passed": True,
+                "matched_paper_receipts": 5,
+                "post_close_journals": 5,
+                "manual_execution_clean_receipts": 5,
+                "manual_execution_blocked_receipts": 0,
+                "paper_ready_observations": 20,
+                "same_parameter_top3_required_requests": 3,
+                "same_parameter_top3_matched_requests": 3,
+            },
+        )
+
+        guard = pack["daily_pre_execution_guard"]
+        rule_by_id = {row["rule_id"]: row for row in guard["skip_rules"]}
+        rows_by_asset = {row["asset_id"]: row for row in guard["row_guardrails"]}
+        answer = pack["daily_beginner_execution_answer"]
+        reason_by_id = {row["reason_id"]: row for row in answer["reasons"]}
+        answer_rows_by_asset = {row["asset_id"]: row for row in answer["review_rows"]}
+
+        self.assertEqual(guard["summary"]["guard_status"], "blocked_liquidity_capacity")
+        self.assertEqual(guard["summary"]["traffic_light"], "red")
+        self.assertTrue(guard["summary"]["paper_rehearsal_allowed"])
+        self.assertFalse(guard["summary"]["manual_broker_review_allowed"])
+        self.assertFalse(guard["summary"]["can_buy_today"])
+        self.assertFalse(guard["summary"]["order_placement_allowed"])
+        self.assertEqual(rule_by_id["liquidity_capacity_breached"]["status"], "blocked")
+        self.assertTrue(rows_by_asset["510300"]["capacity_blocked"])
+        self.assertGreater(rows_by_asset["510300"]["participation_rate"], rows_by_asset["510300"]["max_participation_rate"])
+        self.assertEqual(rows_by_asset["510300"]["liquidity_reference_value"], 100000)
+        self.assertEqual(answer["summary"]["allowed_mode"], "same_parameter_paper_rehearsal_only")
+        self.assertEqual(reason_by_id["liquidity_capacity_breached"]["status"], "blocked")
+        self.assertTrue(answer_rows_by_asset["510300"]["capacity_blocked"])
+        self.assertFalse(answer_rows_by_asset["510300"]["copy_to_broker_allowed"])
+
+    def test_pre_execution_guard_keeps_manual_review_candidate_when_liquidity_capacity_is_safe(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_quality_combo", "market": "CN_ETF", "sharpe": 1.35},
+                {"rank": 2, "case_id": "c2", "factor_name": "low_vol_overlay", "market": "CN_ETF", "sharpe": 1.05},
+                {"rank": 3, "case_id": "c3", "factor_name": "breadth_trend_state", "market": "CN_ETF", "sharpe": 0.98},
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.2}, liquidity_value_by_asset={"510300": 100000000}),
+                _signal("c2", "low_vol_overlay", {"588000": 0.2}, liquidity_value_by_asset={"588000": 100000000}),
+                _signal("c3", "breadth_trend_state", {"159915": 0.2}, liquidity_value_by_asset={"159915": 100000000}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="aggressive_30dd",
+            evidence_snapshot={
+                "walk_forward_oos_passed": True,
+                "lookahead_bias_audit_passed": True,
+                "multiple_testing_control_passed": True,
+                "transaction_cost_capacity_passed": True,
+                "matched_paper_receipts": 5,
+                "post_close_journals": 5,
+                "manual_execution_clean_receipts": 5,
+                "manual_execution_blocked_receipts": 0,
+                "paper_ready_observations": 20,
+                "same_parameter_top3_required_requests": 3,
+                "same_parameter_top3_matched_requests": 3,
+            },
+        )
+
+        guard = pack["daily_pre_execution_guard"]
+        rule_by_id = {row["rule_id"]: row for row in guard["skip_rules"]}
+
+        self.assertEqual(guard["summary"]["guard_status"], "manual_review_candidate")
+        self.assertTrue(guard["summary"]["manual_broker_review_allowed"])
+        self.assertEqual(rule_by_id["liquidity_capacity_breached"]["status"], "pass")
+        self.assertTrue(all(row["capacity_blocked"] is False for row in guard["row_guardrails"]))
+
     def test_pre_execution_guard_blocks_manual_review_when_next_session_quarantine_missing(self):
         pack = build_daily_trade_advisory_pack(
             [
@@ -2635,31 +2740,35 @@ def _signal(
     weights: dict[str, float],
     latest_price: float = 1.0,
     signal_date: str = "2026-06-29",
+    liquidity_value_by_asset: dict[str, float] | None = None,
 ) -> dict[str, object]:
     targets = []
     rebalance = []
     for asset_id, weight in weights.items():
         target_value = weight * 100000
-        targets.append(
-            {
-                "asset_id": asset_id,
-                "market": "CN_ETF",
-                "target_weight": weight,
-                "latest_price": latest_price,
-                "signal_date": signal_date,
-            }
-        )
+        target = {
+            "asset_id": asset_id,
+            "market": "CN_ETF",
+            "target_weight": weight,
+            "latest_price": latest_price,
+            "signal_date": signal_date,
+        }
+        rebalance_row = {
+            "asset_id": asset_id,
+            "market": "CN_ETF",
+            "target_weight": weight,
+            "target_value": target_value,
+            "delta_value": target_value,
+            "estimated_quantity_delta": target_value / latest_price,
+            "action": "increase",
+            "executable": False,
+        }
+        if liquidity_value_by_asset and asset_id in liquidity_value_by_asset:
+            target["avg_daily_turnover_value"] = liquidity_value_by_asset[asset_id]
+            rebalance_row["avg_daily_turnover_value"] = liquidity_value_by_asset[asset_id]
+        targets.append(target)
         rebalance.append(
-            {
-                "asset_id": asset_id,
-                "market": "CN_ETF",
-                "target_weight": weight,
-                "target_value": target_value,
-                "delta_value": target_value,
-                "estimated_quantity_delta": target_value / latest_price,
-                "action": "increase",
-                "executable": False,
-            }
+            rebalance_row
         )
     return {
         "case_id": case_id,

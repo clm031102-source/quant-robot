@@ -7399,12 +7399,16 @@ function renderDailyBeginnerExecutionAnswer(answer = {}) {
   const rows = Array.isArray(answer.review_rows) ? answer.review_rows : [];
   rowsTarget.innerHTML = rows.length ? rows.map((item, index) => {
     const checklist = Array.isArray(item.human_checklist) ? item.human_checklist.join(" / ") : "";
-    const rowTone = item.risk_blocked ? "danger" : "warn";
+    const rowTone = item.risk_blocked || item.capacity_blocked ? "danger" : "warn";
+    const capacityText = item.liquidity_evidence_missing
+      ? "capacity=missing_liquidity_evidence"
+      : `capacity=${formatPercent(item.participation_rate)} / max=${formatPercent(item.max_participation_rate)} / liquidity=${formatNumber(item.liquidity_reference_value || 0)}`;
     return `
       <div class="list-row ${escapeHtml(rowTone)}">
         <strong>${escapeHtml(`${index + 1}. ${item.asset_id || "--"} / ${zhConsoleText(item.execution_mode || "paper_rehearsal_only")}`)}</strong>
         <span>${escapeHtml(`weight=${formatPercent(item.target_weight)} / budget=${formatNumber(item.paper_budget_value || 0)} / qty=${formatNumber(item.paper_quantity || 0)}`)}</span>
         <span>${escapeHtml(`price=${formatDecimal(item.reference_price)} / guard=${formatDecimal(item.lower_price_bound)}~${formatDecimal(item.upper_price_bound)} / slippage=${formatNumber(item.max_slippage_bps)}bps`)}</span>
+        <span>${escapeHtml(`${capacityText}${item.capacity_blocked ? " / blocked" : ""}`)}</span>
         <span>${escapeHtml(item.copy_to_broker_allowed ? "异常：不应允许复制到券商" : `人工检查=${checklist || "check_external_realtime_price"}`)}</span>
       </div>
     `;
@@ -7459,15 +7463,19 @@ function renderDailyPreExecutionGuard(guard = {}) {
   `;
 
   rowsTarget.innerHTML = rowGuardrails.length ? rowGuardrails.map((item, index) => {
-    const rowTone = item.risk_blocked || item.skip_if_quantity_zero || item.reference_price == null ? "danger" : "warn";
+    const rowTone = item.risk_blocked || item.capacity_blocked || item.skip_if_quantity_zero || item.reference_price == null ? "danger" : "warn";
     const lower = item.lower_price_bound == null ? "--" : formatDecimal(item.lower_price_bound);
     const upper = item.upper_price_bound == null ? "--" : formatDecimal(item.upper_price_bound);
+    const capacityText = item.liquidity_evidence_missing
+      ? "capacity=missing_liquidity_evidence"
+      : `capacity=${formatPercent(item.participation_rate)} / max=${formatPercent(item.max_participation_rate)} / liquidity=${formatNumber(item.liquidity_reference_value || 0)}`;
     return `
       <div class="list-row ${escapeHtml(rowTone)}">
         <strong>${escapeHtml(`${index + 1}. ${item.asset_id || "--"} / ${zhConsoleText(item.execution_mode || "paper_rehearsal_only")}`)}</strong>
         <span>${escapeHtml(`weight=${formatPercent(item.target_weight)} / budget=${formatNumber(item.paper_budget_value || 0)} / qty=${formatNumber(item.paper_quantity || 0)}`)}</span>
         <span>${escapeHtml(`price=${formatDecimal(item.reference_price)} / guard=${lower}~${upper} / max_slippage_bps=${formatNumber(item.max_slippage_bps || 0)}`)}</span>
-        <span>${escapeHtml(item.risk_blocked ? "风险预算阻断，跳过。" : "只可用于纸面演练或人工复核材料，不是下单。")}</span>
+        <span>${escapeHtml(`${capacityText}${item.capacity_blocked ? " / blocked" : ""}`)}</span>
+        <span>${escapeHtml(item.risk_blocked || item.capacity_blocked ? "风险或容量阻断，跳过。" : "只可用于纸面演练或人工复核材料，不是下单。")}</span>
       </div>
     `;
   }).join("") : statusRows([["ETF 执行护栏", "没有可演练仓位行；先生成今日前三 CN_ETF 信号和模拟仓位。", "danger"]]);
@@ -9676,6 +9684,8 @@ function statusRows(rows) {
 }
 
 const GUI_ZH_REPLACEMENTS = [
+  ["blocked_liquidity_capacity", "\u6d41\u52a8\u6027/\u5bb9\u91cf\u8d85\u9650"],
+  ["liquidity_capacity_breached", "\u6d41\u52a8\u6027\u5bb9\u91cf\u95f8\u95e8"],
   ["same_parameter_paper_rehearsal_only", "只允许同参数模拟盘"],
   ["manual_review_material_only", "仅人工复核材料"],
   ["blocked_no_action", "红灯：今天不操作"],

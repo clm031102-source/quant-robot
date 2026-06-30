@@ -49,6 +49,17 @@ SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不
 BOARD_LOT_SIZE = 100
 MANUAL_PRICE_DEVIATION_GUARD_PCT = 0.005
 MANUAL_MAX_SLIPPAGE_BPS = 10
+MANUAL_MAX_PARTICIPATION_RATE = 0.01
+LIQUIDITY_REFERENCE_FIELDS = (
+    "liquidity_reference_value",
+    "avg_daily_turnover_value",
+    "avg_daily_amount",
+    "avg_daily_value",
+    "avg_daily_turnover",
+    "turnover_amount",
+    "daily_amount",
+    "amount",
+)
 DEFAULT_RISK_PROFILE_ID = "balanced_20dd"
 RISK_PROFILE_SPECS = [
     {
@@ -5501,6 +5512,27 @@ def _session_count(*values: Any) -> int:
     return 0
 
 
+def _liquidity_reference_from_row(row: dict[str, Any]) -> tuple[float | None, str | None]:
+    for field in LIQUIDITY_REFERENCE_FIELDS:
+        value = _float_or_none(row.get(field))
+        if value is not None and value > 0:
+            return value, field
+    volume = _float_or_none(row.get("avg_daily_volume") or row.get("volume_ma20") or row.get("vol_ma20"))
+    reference_price = _float_or_none(row.get("reference_price") or row.get("latest_price"))
+    if volume is not None and volume > 0 and reference_price is not None and reference_price > 0:
+        return volume * reference_price, "avg_daily_volume_x_price"
+    return None, None
+
+
+def _tradeability_metadata(row: dict[str, Any]) -> dict[str, Any]:
+    liquidity_value, liquidity_field = _liquidity_reference_from_row(row)
+    result: dict[str, Any] = {}
+    if liquidity_value is not None:
+        result["liquidity_reference_value"] = liquidity_value
+        result["liquidity_reference_field"] = liquidity_field
+    return result
+
+
 def build_daily_paper_allocation_playbook(pack: dict[str, Any]) -> dict[str, Any]:
     summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
     session = (
@@ -5665,6 +5697,7 @@ def _paper_allocation_ticket_source(
     session: dict[str, Any],
     transition: dict[str, Any],
 ) -> list[dict[str, Any]]:
+    metadata_lookup = _tradeability_metadata_lookup(pack)
     for source in (
         session.get("manual_ticket_preview"),
         transition.get("manual_execution_preview"),
@@ -5672,16 +5705,57 @@ def _paper_allocation_ticket_source(
     ):
         rows = [row for row in source if isinstance(row, dict)] if isinstance(source, list) else []
         if rows:
-            return [{**row, "source_kind": str(row.get("source_kind") or "manual_ticket")} for row in rows]
+            return [
+                {
+                    **_fill_missing_tradeability_metadata(row, metadata_lookup),
+                    "source_kind": str(row.get("source_kind") or "manual_ticket"),
+                }
+                for row in rows
+            ]
     handoff = pack.get("manual_broker_handoff") if isinstance(pack.get("manual_broker_handoff"), dict) else {}
     handoff_rows = [row for row in handoff.get("copyable_tickets", []) if isinstance(row, dict)]
     if handoff_rows:
-        return [{**row, "source_kind": str(row.get("source_kind") or "manual_ticket")} for row in handoff_rows]
+        return [
+            {
+                **_fill_missing_tradeability_metadata(row, metadata_lookup),
+                "source_kind": str(row.get("source_kind") or "manual_ticket"),
+            }
+            for row in handoff_rows
+        ]
     return [
-        {**row, "source_kind": "combined_target"}
+        {**_fill_missing_tradeability_metadata(row, metadata_lookup), "source_kind": "combined_target"}
         for row in pack.get("combined_targets", [])
         if isinstance(row, dict)
     ]
+
+
+def _tradeability_metadata_lookup(pack: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    lookup: dict[str, dict[str, Any]] = {}
+    for source_name in ("combined_targets", "manual_trade_plan"):
+        source = pack.get(source_name)
+        rows = [row for row in source if isinstance(row, dict)] if isinstance(source, list) else []
+        for row in rows:
+            asset_id = str(row.get("asset_id") or "").strip()
+            if not asset_id:
+                continue
+            metadata = _tradeability_metadata(row)
+            if row.get("source_factors"):
+                metadata["source_factors"] = row.get("source_factors")
+            if metadata:
+                lookup.setdefault(asset_id, {}).update(metadata)
+    return lookup
+
+
+def _fill_missing_tradeability_metadata(
+    row: dict[str, Any],
+    metadata_lookup: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    asset_id = str(row.get("asset_id") or "").strip()
+    result = dict(row)
+    for key, value in metadata_lookup.get(asset_id, {}).items():
+        if result.get(key) in (None, "") and value not in (None, ""):
+            result[key] = value
+    return result
 
 
 def _paper_allocation_row(
@@ -5700,6 +5774,9 @@ def _paper_allocation_row(
         paper_quantity = int(target_value / reference_price / BOARD_LOT_SIZE) * BOARD_LOT_SIZE
     if paper_budget_value <= 0:
         paper_budget_value = paper_quantity * reference_price if reference_price else target_value
+    liquidity_reference_value, liquidity_reference_field = _liquidity_reference_from_row(
+        {**row, "reference_price": reference_price}
+    )
     risk_budget = (
         row.get("risk_budget")
         if isinstance(row.get("risk_budget"), dict)
@@ -5724,6 +5801,12 @@ def _paper_allocation_row(
         "paper_quantity": paper_quantity,
         "paper_budget_value": round(paper_budget_value, 6),
         "residual_rounding_cash": round(max(0.0, target_value - paper_budget_value), 6),
+        "liquidity_reference_value": (
+            round(liquidity_reference_value, 6) if liquidity_reference_value is not None else None
+        ),
+        "liquidity_reference_field": liquidity_reference_field,
+        "liquidity_evidence_missing": liquidity_reference_value is None,
+        "max_participation_rate": MANUAL_MAX_PARTICIPATION_RATE,
         "source_factors": row.get("source_factors"),
         "source_kind": row.get("source_kind") or "manual_ticket",
         "risk_budget": risk_budget,
@@ -6025,6 +6108,8 @@ def build_daily_pre_execution_guard(pack: dict[str, Any]) -> dict[str, Any]:
     )
     has_rows = bool(guardrails)
     risk_blocked = any(bool(row.get("risk_blocked")) for row in guardrails)
+    capacity_blocked = any(bool(row.get("capacity_blocked")) for row in guardrails)
+    liquidity_evidence_missing = any(bool(row.get("liquidity_evidence_missing")) for row in guardrails)
     price_missing = any(row.get("reference_price") is None or _int(row.get("paper_quantity"), 0) <= 0 for row in guardrails)
 
     if not signal_fresh:
@@ -6033,6 +6118,8 @@ def build_daily_pre_execution_guard(pack: dict[str, Any]) -> dict[str, Any]:
         guard_status = "blocked_no_allocation_rows"
     elif risk_blocked:
         guard_status = "blocked_risk_budget"
+    elif capacity_blocked:
+        guard_status = "blocked_liquidity_capacity"
     elif price_missing:
         guard_status = "blocked_price_reference"
     elif next_session_quarantine_blocks_manual:
@@ -6048,6 +6135,7 @@ def build_daily_pre_execution_guard(pack: dict[str, Any]) -> dict[str, Any]:
         "paper_rehearsal_only",
         "manual_review_candidate",
         "blocked_next_session_quarantine_required",
+        "blocked_liquidity_capacity",
     }
     manual_broker_review_allowed = guard_status == "manual_review_candidate"
     skip_rules = _pre_execution_skip_rules(
@@ -6056,6 +6144,7 @@ def build_daily_pre_execution_guard(pack: dict[str, Any]) -> dict[str, Any]:
         manual_ticket_count=manual_ticket_count,
         has_rows=has_rows,
         risk_blocked=risk_blocked,
+        capacity_blocked=capacity_blocked,
         price_missing=price_missing,
         next_session_quarantine_required=next_session_quarantine_required,
         next_session_quarantine_blocks_manual=next_session_quarantine_blocks_manual,
@@ -6073,6 +6162,9 @@ def build_daily_pre_execution_guard(pack: dict[str, Any]) -> dict[str, Any]:
                 "allocation_row_count": len(guardrails),
                 "manual_ticket_count": manual_ticket_count,
                 "signal_fresh": signal_fresh,
+                "liquidity_evidence_missing": liquidity_evidence_missing,
+                "capacity_blocked": capacity_blocked,
+                "max_participation_rate": MANUAL_MAX_PARTICIPATION_RATE,
                 "run_date": freshness.get("run_date") or pack.get("run_date"),
                 "latest_signal_date": freshness.get("latest_signal_date"),
                 "paper_rehearsal_allowed": paper_rehearsal_allowed,
@@ -6108,6 +6200,15 @@ def build_daily_pre_execution_guard(pack: dict[str, Any]) -> dict[str, Any]:
 def _pre_execution_row_guardrail(row: dict[str, Any]) -> dict[str, Any]:
     reference_price = _float_or_none(row.get("reference_price"))
     paper_value = max(0.0, _float(row.get("paper_budget_value"), 0.0))
+    liquidity_reference_value, liquidity_reference_field = _liquidity_reference_from_row(row)
+    participation_rate = (
+        paper_value / liquidity_reference_value
+        if liquidity_reference_value is not None and liquidity_reference_value > 0
+        else None
+    )
+    capacity_blocked = bool(
+        participation_rate is not None and participation_rate > MANUAL_MAX_PARTICIPATION_RATE + 1e-12
+    )
     lower = round(reference_price * (1 - MANUAL_PRICE_DEVIATION_GUARD_PCT), 6) if reference_price else None
     upper = round(reference_price * (1 + MANUAL_PRICE_DEVIATION_GUARD_PCT), 6) if reference_price else None
     return {
@@ -6126,6 +6227,14 @@ def _pre_execution_row_guardrail(row: dict[str, Any]) -> dict[str, Any]:
         "max_reference_price_deviation_pct": MANUAL_PRICE_DEVIATION_GUARD_PCT,
         "max_slippage_bps": MANUAL_MAX_SLIPPAGE_BPS,
         "max_estimated_slippage_cost": round(paper_value * MANUAL_MAX_SLIPPAGE_BPS / 10000, 6),
+        "liquidity_reference_value": (
+            round(liquidity_reference_value, 6) if liquidity_reference_value is not None else None
+        ),
+        "liquidity_reference_field": liquidity_reference_field,
+        "liquidity_evidence_missing": liquidity_reference_value is None,
+        "participation_rate": round(participation_rate, 10) if participation_rate is not None else None,
+        "max_participation_rate": MANUAL_MAX_PARTICIPATION_RATE,
+        "capacity_blocked": capacity_blocked,
         "risk_blocked": bool(row.get("risk_blocked")),
         "risk_budget": row.get("risk_budget") if isinstance(row.get("risk_budget"), dict) else {},
         "skip_if_price_outside_guardrail": True,
@@ -6144,6 +6253,7 @@ def _pre_execution_skip_rules(
     manual_ticket_count: int,
     has_rows: bool,
     risk_blocked: bool,
+    capacity_blocked: bool,
     price_missing: bool,
     next_session_quarantine_required: bool,
     next_session_quarantine_blocks_manual: bool,
@@ -6176,6 +6286,13 @@ def _pre_execution_skip_rules(
             "Skip rows whose single-ETF cap, lot sizing, or risk budget is breached.",
             "daily-paper-allocation-playbook",
             "",
+        ),
+        (
+            "liquidity_capacity_breached",
+            "blocked" if capacity_blocked else "pass",
+            "Skip broker review when a paper row exceeds the maximum participation rate versus ETF turnover.",
+            "daily-pre-execution-guard",
+            "paper_simulation" if capacity_blocked else "",
         ),
         (
             "price_reference_missing",
@@ -6280,6 +6397,7 @@ def _pre_execution_plain_answer(guard_status: str) -> str:
         "blocked_signal_freshness": "Today's signal is stale; refresh CN_ETF data and regenerate the signal before any rehearsal or manual review.",
         "blocked_no_allocation_rows": "No allocation rows exist; generate today's Top3 CN_ETF signal first.",
         "blocked_risk_budget": "Risk budget is breached; reduce exposure or skip the row before rehearsal.",
+        "blocked_liquidity_capacity": "A row is too large versus ETF turnover; keep it in same-parameter paper rehearsal and reduce size before broker review.",
         "blocked_price_reference": "A row lacks reference price or valid quantity; skip or regenerate before review.",
         "blocked_next_session_quarantine_required": "Top3 reuse evidence is incomplete; only same-parameter paper rehearsal is allowed today.",
         "manual_review_candidate": "Manual review material is available, but buying remains an external human decision and the software cannot place orders.",
@@ -6556,9 +6674,16 @@ def _beginner_execution_review_rows(rows: Any, *, manual_allowed: bool) -> list[
             "lower_price_bound": _float_or_none(row.get("lower_price_bound")),
             "upper_price_bound": _float_or_none(row.get("upper_price_bound")),
             "max_slippage_bps": _int(row.get("max_slippage_bps"), MANUAL_MAX_SLIPPAGE_BPS),
+            "liquidity_reference_value": _float_or_none(row.get("liquidity_reference_value")),
+            "liquidity_reference_field": row.get("liquidity_reference_field"),
+            "liquidity_evidence_missing": bool(row.get("liquidity_evidence_missing")),
+            "participation_rate": _float_or_none(row.get("participation_rate")),
+            "max_participation_rate": _float_or_none(row.get("max_participation_rate")),
+            "capacity_blocked": bool(row.get("capacity_blocked")),
             "risk_blocked": bool(row.get("risk_blocked")),
             "human_checklist": [
                 "check_external_realtime_price",
+                "check_liquidity_capacity",
                 "check_cash_and_position",
                 "check_quantity_board_lot",
                 "check_drawdown_budget",
@@ -6631,6 +6756,7 @@ def _beginner_execution_next_label(reason_id: str, fallback: str) -> str:
         "paper_allocation_missing": "生成纸面分配清单",
         "manual_ticket_missing": "补齐人工复核票据",
         "risk_budget_breached": "降低仓位或跳过风险超限行",
+        "liquidity_capacity_breached": "降低金额或继续纸面演练",
         "price_reference_missing": "补齐参考价格和一手取整数量",
         "next_session_quarantine": "运行同参数模拟盘并补齐复用证据",
         "broker_price_outside_guardrail": "人工核对券商端实时价格护栏",
@@ -9251,6 +9377,12 @@ def _combined_targets(
             bucket.setdefault("market", target.get("market") or "CN_ETF")
             bucket.setdefault("latest_price", _float_or_none(target.get("latest_price")))
             bucket.setdefault("source_factors", [])
+            liquidity_value, liquidity_field = _liquidity_reference_from_row(target)
+            if liquidity_value is not None:
+                existing_liquidity = _float_or_none(bucket.get("liquidity_reference_value"))
+                if existing_liquidity is None or liquidity_value < existing_liquidity:
+                    bucket["liquidity_reference_value"] = liquidity_value
+                    bucket["liquidity_reference_field"] = liquidity_field
             bucket["target_weight"] = float(bucket.get("target_weight") or 0.0) + _float(target.get("target_weight"), 0.0) / divisor
             bucket["source_factors"].append(card.get("factor_name"))
     total_weight = sum(float(row.get("target_weight") or 0.0) for row in accum.values())
@@ -9266,6 +9398,7 @@ def _combined_targets(
                 "target_weight": weight,
                 "target_value": weight * float(portfolio_value),
                 "latest_price": row.get("latest_price"),
+                **_tradeability_metadata(row),
                 "source_factors": sorted({str(item) for item in row.get("source_factors", []) if item}),
                 "executable": False,
             }
@@ -9301,6 +9434,7 @@ def _manual_trade_plan(
                 "latest_price": target.get("latest_price"),
                 "board_lot_size": BOARD_LOT_SIZE,
                 **sizing,
+                **_tradeability_metadata(target),
                 "source_factors": ", ".join(target.get("source_factors", [])),
                 "executable": False,
                 "live_order_allowed": False,
@@ -9332,9 +9466,21 @@ def _manual_rebalance_plan(
         for row in current_positions
         if str(row.get("asset_id") or "").strip()
     }
+    target_metadata_lookup = {
+        str(row.get("asset_id") or ""): {
+            **_tradeability_metadata(row),
+            "source_factors": ", ".join(row.get("source_factors", []))
+            if isinstance(row.get("source_factors"), list)
+            else row.get("source_factors"),
+        }
+        for row in combined_targets
+        if isinstance(row, dict) and str(row.get("asset_id") or "").strip()
+    }
     rows = []
     for index, item in enumerate(rebalance.to_dict(orient="records"), start=1):
-        rows.append(_manual_rebalance_ticket(index, item, market_lookup))
+        ticket = _manual_rebalance_ticket(index, item, market_lookup)
+        ticket.update(target_metadata_lookup.get(str(ticket.get("asset_id") or ""), {}))
+        rows.append(ticket)
     return rows
 
 
