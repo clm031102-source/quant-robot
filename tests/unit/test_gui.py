@@ -245,6 +245,18 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertNotIn("broker", written["量化机器人-今日交易检查.bat"].lower().replace("no broker", ""))
         self.assertNotIn("TUSHARE_TOKEN", "\n".join(written.values()))
 
+    def test_desktop_shortcut_install_batch_is_beginner_safe(self):
+        batch_file = Path("scripts/install_quant_robot_desktop_shortcuts.bat")
+
+        self.assertTrue(batch_file.exists())
+        body = batch_file.read_text(encoding="utf-8")
+        self.assertIn("install_quant_robot_desktop_shortcuts.py", body)
+        self.assertIn("--repo-root", body)
+        self.assertIn("research-to-paper only", body)
+        self.assertIn("no broker/account/order/live trading", body)
+        self.assertNotIn("TUSHARE_TOKEN", body)
+        self.assertNotIn("order placement", body.lower())
+
 
 class GuiSnapshotTests(unittest.TestCase):
     def test_snapshot_marks_demo_data_and_includes_required_sections(self):
