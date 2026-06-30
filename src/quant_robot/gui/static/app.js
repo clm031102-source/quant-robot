@@ -4703,6 +4703,7 @@ function renderDailyTradeAdvisory() {
     ["下一步", summary.next_action || "先复核信号，再看模拟盘，不自动下单。", "warn"],
     ["错误", (pack.signal_errors || []).map((item) => item.factor_name || item.case_id).join(" / ") || "无", pack.signal_errors?.length ? "warn" : "ok"],
   ]);
+  renderDailyBeginnerActionSummary(pack.beginner_action_summary || {});
   renderDailyPretradeReadiness(pack.pretrade_readiness || {});
   renderDailyPretradeNextActions(pack.operator_next_actions || pack.pretrade_workflow?.operator_next_actions || []);
   renderManualBrokerHandoff(pack.manual_broker_handoff || {});
@@ -4754,6 +4755,33 @@ function renderDailyTradeAdvisory() {
     "live_order_allowed",
     "manual_instruction",
   ]);
+}
+
+function renderDailyBeginnerActionSummary(actionSummary = {}) {
+  const target = byId("daily-beginner-action-summary");
+  if (!target) return;
+  const summary = actionSummary.summary || {};
+  const tickets = actionSummary.ticket_summary || {};
+  const steps = Array.isArray(actionSummary.steps) ? actionSummary.steps : [];
+  const decision = summary.decision || "waiting_for_daily_signal";
+  const tone = decision === "fix_current_positions_first" || decision === "resolve_blockers_first" ? "danger" : decision === "manual_review_only" ? "warn" : "warn";
+  const overview = statusRows([
+    ["结论", zhConsoleText(decision), tone],
+    ["先做什么", summary.primary_action || "先生成今日前三建议。", tone],
+    ["原因", summary.primary_reason || "等待今日建议加载。", "muted"],
+    ["票据统计", `买入=${formatNumber(tickets.buy_ticket_count || 0)} / 卖出=${formatNumber(tickets.sell_ticket_count || 0)} / 保持=${formatNumber(tickets.hold_ticket_count || 0)}`, "muted"],
+    ["自动下单", summary.order_placement_allowed ? "异常开启" : "禁止", summary.order_placement_allowed ? "danger" : "ok"],
+  ]);
+  const stepRows = steps.length ? steps.map((item) => `
+    <div class="list-row ${escapeHtml(item.status?.includes("blocked") ? "danger" : "warn")}">
+      <strong>${escapeHtml(`${item.step_number || "--"}. ${item.title || item.step_id || ""}`)}</strong>
+      <span>${escapeHtml(`${zhConsoleText(item.status || "waiting")} / ${item.plain_action || ""}`)}</span>
+      <span class="beginner-task-actions">
+        ${item.gui_target ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.gui_target)}">${escapeHtml("看这一步")}</button>` : ""}
+      </span>
+    </div>
+  `).join("") : statusRows([["等待建议", "先生成今日前三交易建议。", "warn"]]);
+  target.innerHTML = overview + stepRows;
 }
 
 function renderDailyLiveTransitionPlan(plan = {}) {

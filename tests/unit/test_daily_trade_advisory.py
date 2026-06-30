@@ -119,6 +119,17 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertFalse(ticket["live_order_allowed"])
         self.assertFalse(ticket["executable"])
 
+        action_summary = pack["beginner_action_summary"]
+
+        self.assertEqual(action_summary["stage"], "phase_6_8_beginner_action_summary")
+        self.assertEqual(action_summary["summary"]["decision"], "manual_review_only")
+        self.assertIn("模拟盘", action_summary["summary"]["primary_action"])
+        self.assertEqual(action_summary["ticket_summary"]["buy_ticket_count"], 1)
+        self.assertEqual(action_summary["ticket_summary"]["sell_ticket_count"], 0)
+        self.assertEqual(action_summary["steps"][0]["step_id"], "run_paper_simulation_first")
+        self.assertEqual(action_summary["steps"][1]["step_id"], "review_net_rebalance_tickets")
+        self.assertTrue(all(not row["live_order_allowed"] for row in action_summary["steps"]))
+
     def test_current_position_account_fields_are_blocked_without_crashing(self):
         pack = build_daily_trade_advisory_pack(
             [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
@@ -138,6 +149,9 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertFalse(readiness["manual_action_candidate"])
         self.assertEqual(pack["manual_trade_plan"], [])
         self.assertFalse(pack["summary"]["order_placement_allowed"])
+        self.assertEqual(pack["beginner_action_summary"]["summary"]["decision"], "fix_current_positions_first")
+        self.assertIn("修正当前持仓", pack["beginner_action_summary"]["summary"]["primary_action"])
+        self.assertEqual(pack["beginner_action_summary"]["steps"][0]["step_id"], "fix_current_positions")
 
     def test_pretrade_readiness_summarizes_manual_action_without_live_permissions(self):
         pack = build_daily_trade_advisory_pack(

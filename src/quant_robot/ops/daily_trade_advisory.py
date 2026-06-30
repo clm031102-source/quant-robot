@@ -20,6 +20,7 @@ TRADE_SYSTEM_STAGE = "phase_6_4_manual_trade_system_protocol"
 DAILY_REHEARSAL_STAGE = "phase_6_5_daily_rehearsal_daybook"
 POST_CLOSE_JOURNAL_STAGE = "phase_6_6_post_close_journal_template"
 LIVE_TRANSITION_STAGE = "phase_6_7_live_transition_plan"
+BEGINNER_ACTION_SUMMARY_STAGE = "phase_6_8_beginner_action_summary"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 DEFAULT_RISK_PROFILE_ID = "balanced_20dd"
@@ -180,6 +181,7 @@ def build_daily_trade_advisory_pack(
     pack["daily_rehearsal_daybook"] = build_daily_rehearsal_daybook(pack)
     pack["post_close_journal_template"] = build_post_close_journal_template(pack)
     pack["live_transition_plan"] = build_live_transition_plan(pack)
+    pack["beginner_action_summary"] = build_beginner_action_summary(pack)
     pack["summary"]["live_transition_status"] = pack["live_transition_plan"]["summary"]["status"]
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
@@ -774,6 +776,158 @@ def build_live_transition_plan(pack: dict[str, Any]) -> dict[str, Any]:
             "operating_loop": operating_loop,
         }
     )
+
+
+def build_beginner_action_summary(pack: dict[str, Any]) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
+    handoff = pack.get("manual_broker_handoff") if isinstance(pack.get("manual_broker_handoff"), dict) else {}
+    validation = pack.get("current_position_validation") if isinstance(pack.get("current_position_validation"), dict) else {}
+    manual_plan = [row for row in pack.get("manual_trade_plan", []) if isinstance(row, dict)]
+    blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
+    buy_tickets = [row for row in manual_plan if str(row.get("side") or "").lower() in {"buy", "buy_or_adjust", "increase"}]
+    sell_tickets = [row for row in manual_plan if str(row.get("side") or "").lower() in {"sell", "decrease"}]
+    hold_tickets = [row for row in manual_plan if str(row.get("side") or "").lower() == "hold"]
+    ticket_summary = {
+        "ticket_count": len(manual_plan),
+        "buy_ticket_count": len(buy_tickets),
+        "sell_ticket_count": len(sell_tickets),
+        "hold_ticket_count": len(hold_tickets),
+        "gross_review_value": sum(_float(row.get("rounded_value"), 0.0) for row in manual_plan),
+        "copyable_ticket_count": len(handoff.get("copyable_tickets", [])) if isinstance(handoff.get("copyable_tickets"), list) else 0,
+    }
+
+    if validation.get("status") == "error":
+        decision = "fix_current_positions_first"
+        primary_action = "先修正当前持仓输入；不要看买卖票据，也不要在券商端操作。"
+        primary_reason = validation.get("plain_summary") or "当前持仓输入存在错误。"
+        steps = [
+            _beginner_action_step(
+                1,
+                "fix_current_positions",
+                "修正当前持仓",
+                "blocked_until_done",
+                primary_reason,
+                "daily-current-positions",
+            ),
+            _beginner_action_step(
+                2,
+                "rerun_daily_trade_advisory",
+                "重新生成今日建议",
+                "waiting",
+                "修正后重新生成，确认红灯阻断消失。",
+                "run-daily-trade-advisory",
+            ),
+        ]
+    elif blockers:
+        decision = "resolve_blockers_first"
+        primary_action = "先处理红灯阻断项；现在不能进入人工交易复核。"
+        primary_reason = "阻断项：" + ", ".join(blockers)
+        steps = [
+            _beginner_action_step(
+                1,
+                "inspect_pretrade_blockers",
+                "查看盘前红灯",
+                "blocked_until_done",
+                primary_reason,
+                "daily-pretrade-readiness-verdict",
+            ),
+            _beginner_action_step(
+                2,
+                "regenerate_or_refresh_data",
+                "刷新数据或重新生成信号",
+                "waiting",
+                "旧信号、缺信号或价格缺失时，先回到数据和信号步骤。",
+                "daily-pretrade-next-actions",
+            ),
+        ]
+    elif manual_plan:
+        decision = "manual_review_only"
+        primary_action = "先跑模拟盘，再人工核对净买卖票据；系统不会下单。"
+        primary_reason = f"今日有 {len(manual_plan)} 张人工复核票据；买入 {len(buy_tickets)}，卖出 {len(sell_tickets)}，保持 {len(hold_tickets)}。"
+        steps = [
+            _beginner_action_step(
+                1,
+                "run_paper_simulation_first",
+                "先跑模拟盘",
+                "required_before_manual_review",
+                "先看本地模拟盘收益、回撤、成交和保护事件。",
+                "paper-metrics",
+            ),
+            _beginner_action_step(
+                2,
+                "review_net_rebalance_tickets",
+                "核对净买卖票据",
+                "manual_review_only",
+                primary_reason,
+                "daily-trade-manual-table",
+            ),
+            _beginner_action_step(
+                3,
+                "post_close_journal",
+                "收盘后写回执",
+                "required_after_decision",
+                "记录今天执行、跳过或减仓的原因，供下一轮审计。",
+                "beginner-post-close-journal-board",
+            ),
+        ]
+    else:
+        decision = "waiting_for_daily_signal"
+        primary_action = "先生成今日前三因子信号；没有票据就不要操作。"
+        primary_reason = f"信号={summary.get('signal_count', 0)}，目标={summary.get('combined_target_count', 0)}，票据={summary.get('manual_ticket_count', 0)}。"
+        steps = [
+            _beginner_action_step(
+                1,
+                "generate_daily_trade_advisory",
+                "生成今日前三建议",
+                "waiting",
+                primary_reason,
+                "run-daily-trade-advisory",
+            )
+        ]
+
+    return _sanitize(
+        {
+            "stage": BEGINNER_ACTION_SUMMARY_STAGE,
+            "run_date": pack.get("run_date", date.today().isoformat()),
+            "summary": {
+                "decision": decision,
+                "primary_action": primary_action,
+                "primary_reason": primary_reason,
+                "manual_review_required": True,
+                "live_order_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+            },
+            "ticket_summary": ticket_summary,
+            "position_validation": validation,
+            "steps": steps,
+            "safety": SAFETY_NOTICE,
+        }
+    )
+
+
+def _beginner_action_step(
+    step_number: int,
+    step_id: str,
+    title: str,
+    status: str,
+    plain_action: str,
+    gui_target: str,
+) -> dict[str, Any]:
+    return {
+        "step_number": step_number,
+        "step_id": step_id,
+        "title": title,
+        "status": status,
+        "plain_action": plain_action,
+        "gui_target": gui_target,
+        "automation_allowed": False,
+        "live_order_allowed": False,
+        "broker_connection_allowed": False,
+        "order_placement_allowed": False,
+    }
 
 
 def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
