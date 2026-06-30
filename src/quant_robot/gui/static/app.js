@@ -92,6 +92,7 @@ const RUN_HISTORY_LIMIT = 20;
 const EXECUTION_RECEIPT_STORAGE_KEY = "quant_robot.gui.execution_receipts.v1";
 const EXECUTION_RECEIPT_LIMIT = 20;
 const RUNTIME_GUARDED_ACTIONS = new Set(["research_backtest", "startup_workflows"]);
+const FORBIDDEN_CURRENT_POSITION_COLUMNS = new Set(["account", "account_id", "broker", "broker_id", "client_id", "order_id"]);
 const REQUEST_PREVIEW_INPUT_IDS = [
   "data-source-select",
   "data-root-input",
@@ -530,10 +531,12 @@ function bindRequestPreviewInputs() {
     const renderWithManualOverride = (event) => {
       if (event?.isTrusted) markManualFormOverride(id);
       renderRequestPreview();
+      if (id === "daily-current-positions") renderDailyCurrentPositionHelp();
     };
     element.addEventListener("input", renderWithManualOverride);
     element.addEventListener("change", renderWithManualOverride);
   });
+  renderDailyCurrentPositionHelp();
 }
 
 async function loadSnapshot() {
@@ -4738,6 +4741,7 @@ function renderDailyTradeAdvisory() {
     ["错误", (pack.signal_errors || []).map((item) => item.factor_name || item.case_id).join(" / ") || "无", pack.signal_errors?.length ? "warn" : "ok"],
   ]);
   renderDailyBeginnerActionSummary(pack.beginner_action_summary || {});
+  renderDailyCurrentPositionHelp(positionValidation);
   renderDailyLiveReadinessGate(pack.daily_live_readiness_gate || {});
   renderDailyPretradeReadiness(pack.pretrade_readiness || {});
   renderDailyPretradeNextActions(pack.operator_next_actions || pack.pretrade_workflow?.operator_next_actions || []);
@@ -4789,6 +4793,60 @@ function renderDailyTradeAdvisory() {
     "source_factors",
     "live_order_allowed",
     "manual_instruction",
+  ]);
+}
+
+function currentPositionInputState(validation = {}) {
+  const raw = valueOf("daily-current-positions").trim();
+  if (!raw) {
+    return {
+      tone: "warn",
+      title: "当前持仓安全检查",
+      summary: "可留空；留空时系统按目标仓位估算，不按净差额调仓。",
+      columns: "模板：asset_id,quantity,latest_price",
+      issue: "不要粘贴账户号、券商号、真实委托号。",
+    };
+  }
+  const header = raw.split(/\r?\n/)[0] || "";
+  const columns = header.split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
+  const forbidden = columns.filter((item) => FORBIDDEN_CURRENT_POSITION_COLUMNS.has(item));
+  if (forbidden.length) {
+    return {
+      tone: "danger",
+      title: "当前持仓安全检查",
+      summary: "红灯：发现真实账户或券商字段，先删掉这些列再生成今日建议。",
+      columns: `危险字段=${forbidden.join(", ")}`,
+      issue: "current_position_forbidden_field：只允许纸面持仓字段，不允许账户、券商或订单字段。",
+    };
+  }
+  const missing = ["asset_id", "quantity"].filter((item) => !columns.includes(item));
+  if (missing.length) {
+    return {
+      tone: "warn",
+      title: "当前持仓安全检查",
+      summary: "黄灯：当前持仓格式还不完整，生成建议前请补齐必要列。",
+      columns: `缺少=${missing.join(", ")} / 当前列=${columns.join(", ") || "--"}`,
+      issue: "最少需要 asset_id 和 quantity；latest_price 可用于更准确估算。",
+    };
+  }
+  const backendIssue = validation.status === "error" ? validation.plain_summary : "";
+  return {
+    tone: backendIssue ? "danger" : "ok",
+    title: "当前持仓安全检查",
+    summary: backendIssue || "格式可用于纸面净差额估算；系统仍不会读取账户或自动下单。",
+    columns: `当前列=${columns.join(", ")}`,
+    issue: "只用于本地人工复核，不连接券商、不读取账户。",
+  };
+}
+
+function renderDailyCurrentPositionHelp(validation = {}) {
+  const target = byId("daily-current-position-help");
+  if (!target) return;
+  const stateInfo = currentPositionInputState(validation);
+  target.innerHTML = statusRows([
+    [stateInfo.title, stateInfo.summary, stateInfo.tone],
+    ["允许格式", stateInfo.columns, stateInfo.tone === "danger" ? "danger" : "muted"],
+    ["安全边界", stateInfo.issue, stateInfo.tone === "danger" ? "danger" : "warn"],
   ]);
 }
 
