@@ -6890,6 +6890,7 @@ function renderManualBrokerHandoff(handoff) {
       </div>
     `).join("")
     : statusRows([["暂无手工核对清单", "先生成今日前三交易建议。", "warn"]]);
+  renderManualBrokerBeginnerChecklist(handoff, tickets);
   renderManualTicketExport(state.dailyTradeAdvisory?.manual_ticket_export || {}, tickets);
   renderManualBrokerCopyCards(tickets);
   byId("daily-manual-broker-handoff-ticket-table").innerHTML = tableRows(tickets, [
@@ -6902,6 +6903,40 @@ function renderManualBrokerHandoff(handoff) {
     "cash_delta_after_rounding",
     "live_order_allowed",
     "copy_text",
+  ]);
+}
+
+function renderManualBrokerBeginnerChecklist(handoff = {}, tickets = []) {
+  const target = byId("daily-manual-broker-handoff-beginner-checklist");
+  if (!target) return;
+  const hasTickets = tickets.length > 0;
+  const statusTone = hasTickets ? "warn" : "danger";
+  target.innerHTML = statusRows([
+    [
+      "1. 核对 ETF代码",
+      hasTickets ? "逐行确认 asset_id 是否是你准备在券商端手动查看的 ETF，不认识就跳过。" : "暂无票据，不能进入券商端人工操作。",
+      statusTone,
+    ],
+    [
+      "2. 核对方向和数量",
+      "逐行核对 side、rounded_quantity、rounded_value；数量为 0 或方向不确定时不要操作。",
+      "warn",
+    ],
+    [
+      "3. 核对实时价格",
+      "reference_price 只是参考价，不是订单价格；券商端实时价格和涨跌停状态优先。",
+      "warn",
+    ],
+    [
+      "4. 核对现金和风险",
+      "人工确认现金、仓位、单 ETF 权重和最大可承受回撤；现金不足或风险超限就跳过。",
+      "warn",
+    ],
+    [
+      "5. 记住这不是订单",
+      handoff.ready_for_auto_order ? "异常：出现自动下单标记，请停止并审计。" : "票据只是人工复核材料；软件不连接券商、不读账户、不自动下单。",
+      handoff.ready_for_auto_order ? "danger" : "ok",
+    ],
   ]);
 }
 
