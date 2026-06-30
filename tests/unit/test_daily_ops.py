@@ -67,7 +67,7 @@ class DailyOpsTests(unittest.TestCase):
                 "readiness_items": [{"track_id": "provider_readiness", "status": "block", "evidence": "provider missing"}],
                 "blocker_register": [{"blocker_id": "provider_readiness_not_ready", "track_id": "provider_readiness"}],
             },
-            {"targets": [], "rebalance_plan": []},
+            {"as_of_date": "2026-06-13", "signal_date": "2026-06-13", "targets": [], "rebalance_plan": []},
             {"metrics": {}, "fills": [], "guard_events": [], "execution_events": []},
             run_date="2026-06-13",
         )
@@ -105,6 +105,51 @@ class DailyOpsTests(unittest.TestCase):
         self.assertEqual(pack["signal"]["signal_age_days"], 23)
         self.assertEqual(pack["advisory_tickets"], [])
 
+    def test_missing_signal_date_blocks_daily_ops_tickets(self):
+        pack = build_daily_ops_pack(
+            {"selected_candidate": {"case_id": "case_a", "market": "CN_ETF", "factor_name": "liquidity_10", "promotion_status": "paper_ready"}},
+            {"blocker_register": [{"blocker_id": "manual_live_review_not_enabled", "track_id": "manual_review_gate"}]},
+            {
+                "targets": [{"asset_id": "CN_ETF_XSHG_510300", "target_weight": 1.0}],
+                "rebalance_plan": [
+                    {
+                        "asset_id": "CN_ETF_XSHG_510300",
+                        "market": "CN_ETF",
+                        "target_weight": 1.0,
+                        "estimated_quantity_delta": 100.0,
+                        "delta_value": 1000.0,
+                    }
+                ],
+            },
+            {"metrics": {"max_equity_drawdown": -0.04}, "fills": [], "guard_events": [], "execution_events": []},
+            run_date="2026-06-14",
+        )
+
+        self.assertEqual(pack["decision"]["status"], "blocked")
+        self.assertIn("signal_date_missing", pack["decision"]["blocking_reasons"])
+        self.assertIn("signal_date_missing", pack["decision"]["non_manual_blocking_reasons"])
+        self.assertEqual(pack["signal"]["freshness_status"], "blocked_missing_signal_date")
+        self.assertEqual(pack["advisory_tickets"], [])
+
+    def test_invalid_signal_date_blocks_daily_ops_tickets(self):
+        pack = build_daily_ops_pack(
+            {"selected_candidate": {"case_id": "case_a", "market": "CN_ETF", "factor_name": "liquidity_10", "promotion_status": "paper_ready"}},
+            {"blocker_register": [{"blocker_id": "manual_live_review_not_enabled", "track_id": "manual_review_gate"}]},
+            {
+                "signal_date": "2026/06/14",
+                "targets": [{"asset_id": "CN_ETF_XSHG_510300", "target_weight": 1.0}],
+                "rebalance_plan": [{"asset_id": "CN_ETF_XSHG_510300", "market": "CN_ETF", "estimated_quantity_delta": 100.0}],
+            },
+            {"metrics": {"max_equity_drawdown": -0.04}, "fills": [], "guard_events": [], "execution_events": []},
+            run_date="2026-06-14",
+        )
+
+        self.assertEqual(pack["decision"]["status"], "blocked")
+        self.assertIn("signal_date_invalid", pack["decision"]["blocking_reasons"])
+        self.assertIn("signal_date_invalid", pack["decision"]["non_manual_blocking_reasons"])
+        self.assertEqual(pack["signal"]["freshness_status"], "blocked_invalid_signal_date")
+        self.assertEqual(pack["advisory_tickets"], [])
+
     def test_promotion_blocked_candidate_keeps_daily_ops_blocked(self):
         pack = build_daily_ops_pack(
             {
@@ -134,6 +179,8 @@ class DailyOpsTests(unittest.TestCase):
             {"selected_candidate": {"case_id": "case_a", "market": "CN_ETF", "factor_name": "liquidity_10", "promotion_status": "paper_ready"}},
             {"blocker_register": [{"blocker_id": "manual_live_review_not_enabled", "track_id": "manual_review_gate"}]},
             {
+                "as_of_date": "2026-06-13",
+                "signal_date": "2026-06-13",
                 "targets": [{"asset_id": "asset_a", "target_weight": 1.0}],
                 "rebalance_plan": [{"asset_id": "asset_a", "market": "CN_ETF", "estimated_quantity_delta": 100.0}],
             },

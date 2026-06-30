@@ -100,6 +100,8 @@ class DailyOpsCliTests(unittest.TestCase):
             signal.write_text(
                 json.dumps(
                     {
+                        "as_of_date": "2026-06-13",
+                        "signal_date": "2026-06-13",
                         "targets": [{"asset_id": "asset_a", "target_weight": 1.0}],
                         "rebalance_plan": [{"asset_id": "asset_a", "market": "CN_ETF", "estimated_quantity_delta": 100.0}],
                     }

@@ -314,7 +314,13 @@ def _signal_freshness(signal_snapshot: dict[str, Any], run_date: str, max_signal
     age_days = _calendar_gap(signal_date, run_date) if signal_date else None
     blockers: list[str] = []
     status = "unknown"
-    if age_days is not None:
+    if not signal_date:
+        blockers.append("signal_date_missing")
+        status = "blocked_missing_signal_date"
+    elif age_days is None:
+        blockers.append("signal_date_invalid")
+        status = "blocked_invalid_signal_date"
+    else:
         if age_days < 0:
             blockers.append("signal_date_after_run_date")
             status = "blocked_future_signal"
