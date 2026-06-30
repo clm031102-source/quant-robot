@@ -171,6 +171,10 @@ def _daily_advisory_candidate_eligibility(row: dict[str, Any]) -> tuple[bool, st
     return (False, "missing_paper_ready_or_oos_gate")
 
 
+def _fallback_signal_only(candidates: list[dict[str, Any]]) -> bool:
+    return bool(candidates) and all(bool(row.get("fallback_baseline")) for row in candidates)
+
+
 def build_daily_trade_advisory_pack(
     candidates: list[dict[str, Any]],
     signal_snapshots: list[dict[str, Any]],
@@ -188,11 +192,13 @@ def build_daily_trade_advisory_pack(
         portfolio_value=portfolio_value,
         max_gross_exposure=applied_max_gross_exposure,
     )
+    fallback_signal_only = _fallback_signal_only(candidates)
+    manual_plan_blocked_reason = "fallback_baseline_not_tradeable" if fallback_signal_only else ""
     position_validation = _current_position_validation(current_positions, combined_targets)
     position_rows = position_validation["rows"] if position_validation["status"] != "error" else []
     manual_plan = (
         []
-        if position_validation["status"] == "error"
+        if position_validation["status"] == "error" or manual_plan_blocked_reason
         else _manual_trade_plan(
             combined_targets,
             current_positions=position_rows,
@@ -211,6 +217,9 @@ def build_daily_trade_advisory_pack(
             "current_position_count": len(position_rows),
             "current_position_issue_count": position_validation["issue_count"],
             "current_position_status": position_validation["status"],
+            "fallback_signal_only": fallback_signal_only,
+            "manual_trade_plan_blocked": bool(manual_plan_blocked_reason),
+            "manual_trade_plan_blocked_reason": manual_plan_blocked_reason,
             "manual_execution_required": True,
             "paper_simulation_recommended": True,
             "risk_profile_id": selected_profile.get("profile_id") if selected_profile else "custom_current_parameters",
@@ -1803,7 +1812,9 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
     blockers: list[str] = []
     if market != "CN_ETF":
         blockers.append("non_cn_etf_scope")
-    if signal_count <= 0 or target_count <= 0 or manual_count <= 0:
+    if bool(summary.get("fallback_signal_only")):
+        blockers.append("fallback_baseline_not_tradeable")
+    if signal_count <= 0 or target_count <= 0 or (manual_count <= 0 and not summary.get("fallback_signal_only")):
         blockers.append("signal_not_ready")
     if signal_errors:
         blockers.append("signal_errors")
@@ -1890,6 +1901,8 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
         warnings.append(f"以下票据按一手取整后为 0，不能直接买入：{', '.join(zero_lot_tickets)}。")
     if signal_errors:
         warnings.append("有入选因子没有生成同日信号，不能当作可操作建议。")
+    if summary.get("fallback_signal_only"):
+        warnings.append("当前只有内置基线演示信号，没有合格推广候选；只能观察和跑模拟盘，不能生成手工交易票据。")
     if position_issues:
         warnings.append("当前持仓输入有问题：" + "；".join(str(item.get("message") or item.get("issue_id")) for item in position_issues[:3]))
 
@@ -1911,6 +1924,8 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
                 "signal_count": signal_count,
                 "target_count": target_count,
                 "manual_ticket_count": manual_count,
+                "manual_trade_plan_blocked": bool(summary.get("manual_trade_plan_blocked")),
+                "manual_trade_plan_blocked_reason": summary.get("manual_trade_plan_blocked_reason"),
                 "current_position_count": position_validation.get("accepted_count", 0),
                 "current_position_issue_count": position_validation.get("issue_count", 0),
                 "target_value": sum(_float(row.get("target_value"), 0.0) for row in manual_plan),

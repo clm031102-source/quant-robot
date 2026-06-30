@@ -525,6 +525,42 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertEqual(snapshot["operator_next_actions"][0]["automation_allowed"], False)
         self.assertLessEqual(snapshot["summary"]["selected_factor_count"], 3)
 
+    def test_daily_trade_advisory_fallback_baseline_is_observation_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            reports_root = root / "reports"
+            configs_root = root / "configs"
+            reports_root.mkdir()
+            configs_root.mkdir()
+
+            snapshot = build_daily_trade_advisory_snapshot(
+                reports_root=reports_root,
+                configs_root=configs_root,
+                source="demo_fixture",
+                market="CN_ETF",
+                limit=3,
+                as_of_date="2026-05-21",
+            )
+
+        self.assertTrue(snapshot["fallback_used"])
+        self.assertTrue(snapshot["summary"]["fallback_signal_only"])
+        self.assertTrue(snapshot["summary"]["manual_trade_plan_blocked"])
+        self.assertEqual(snapshot["summary"]["manual_trade_plan_blocked_reason"], "fallback_baseline_not_tradeable")
+        self.assertEqual(snapshot["summary"]["manual_ticket_count"], 0)
+        self.assertEqual(snapshot["manual_trade_plan"], [])
+        self.assertTrue(all(row["fallback_baseline"] for row in snapshot["selected_candidates"]))
+        self.assertFalse(any(row["manual_trade_allowed"] for row in snapshot["selected_candidates"]))
+        self.assertFalse(snapshot["pretrade_readiness"]["manual_action_candidate"])
+        self.assertIn("fallback_baseline_not_tradeable", snapshot["pretrade_readiness"]["blockers"])
+        self.assertEqual(
+            snapshot["real_world_manual_handoff_gate"]["summary"]["decision"],
+            "blocked_pretrade_red_light",
+        )
+
+        app_js = Path("src/quant_robot/gui/static/app.js").read_text(encoding="utf-8")
+        self.assertIn("fallback_baseline_not_tradeable", app_js)
+        self.assertIn("兜底基线仅供观察", app_js)
+
     def test_factor_leaderboard_segments_primary_etf_and_auxiliary_stock_rows(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

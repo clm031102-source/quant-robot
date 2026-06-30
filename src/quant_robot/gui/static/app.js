@@ -8189,6 +8189,7 @@ const GUI_ZH_REPLACEMENTS = [
   ["required", "必需"],
   ["manual_advisory_ready", "今日建议已生成"],
   ["waiting_for_signals", "等待信号生成"],
+  ["fallback_baseline_not_tradeable", "兜底基线仅供观察"],
   ["blocked_current_position_input", "当前持仓输入红灯"],
   ["blocked_pretrade_red_light", "盘前红灯阻断"],
   ["paper_first_manual_review_ready", "先模拟盘再人工复核"],

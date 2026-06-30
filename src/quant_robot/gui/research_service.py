@@ -644,6 +644,10 @@ def _runtime_daily_trade_candidates(factor_names: list[str], market: str, limit:
                 "plain_conclusion": "排行榜里暂时没有可运行前三候选时，用内置可运行因子生成手工建议；这不是可推广盈利承诺。",
                 "params": {"top_n": 2},
                 "signalable": True,
+                "advisory_eligible": False,
+                "fallback_baseline": True,
+                "manual_trade_allowed": False,
+                "manual_trade_block_reason": "fallback_baseline_not_tradeable",
             }
         )
     return rows
