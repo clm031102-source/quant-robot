@@ -4704,6 +4704,7 @@ function renderDailyTradeAdvisory() {
     ["错误", (pack.signal_errors || []).map((item) => item.factor_name || item.case_id).join(" / ") || "无", pack.signal_errors?.length ? "warn" : "ok"],
   ]);
   renderDailyBeginnerActionSummary(pack.beginner_action_summary || {});
+  renderDailyLiveReadinessGate(pack.daily_live_readiness_gate || {});
   renderDailyPretradeReadiness(pack.pretrade_readiness || {});
   renderDailyPretradeNextActions(pack.operator_next_actions || pack.pretrade_workflow?.operator_next_actions || []);
   renderManualBrokerHandoff(pack.manual_broker_handoff || {});
@@ -4782,6 +4783,53 @@ function renderDailyBeginnerActionSummary(actionSummary = {}) {
     </div>
   `).join("") : statusRows([["等待建议", "先生成今日前三交易建议。", "warn"]]);
   target.innerHTML = overview + stepRows;
+}
+
+function renderDailyLiveReadinessGate(gate = {}) {
+  const summaryTarget = byId("daily-live-readiness-summary");
+  const rowTarget = byId("daily-live-readiness-rows");
+  const ladderTarget = byId("daily-live-readiness-ladder");
+  const shortcutTarget = byId("daily-live-readiness-shortcuts");
+  if (!summaryTarget || !rowTarget || !ladderTarget || !shortcutTarget) return;
+  const summary = gate.summary || {};
+  const decision = summary.decision || "waiting_for_daily_signal";
+  const tone = decision.includes("blocked") ? "danger" : decision === "paper_rehearsal_required" ? "warn" : "warn";
+  const rows = Array.isArray(gate.gate_rows) ? gate.gate_rows : [];
+  const ladder = Array.isArray(gate.mode_ladder) ? gate.mode_ladder : [];
+  const shortcuts = Array.isArray(gate.forbidden_shortcuts) ? gate.forbidden_shortcuts : [];
+  summaryTarget.innerHTML = statusRows([
+    ["总判定", zhConsoleText(decision), tone],
+    ["先做什么", summary.primary_action || "先生成今日前三 CN_ETF 因子信号。", tone],
+    ["原因", summary.primary_reason || "等待今日建议加载。", "muted"],
+    ["自动下单", summary.order_placement_allowed ? "异常开启" : "锁定禁止", summary.order_placement_allowed ? "danger" : "ok"],
+  ]);
+  rowTarget.innerHTML = rows.length ? rows.map((item) => {
+    const rowTone = item.status === "blocked" ? "danger" : item.status === "ready" ? "ok" : item.status === "locked" ? "danger" : "warn";
+    return `
+      <div class="list-row ${escapeHtml(rowTone)}">
+        <strong>${escapeHtml(item.label || item.gate_id || "")}</strong>
+        <span>${escapeHtml(`${zhConsoleText(item.status || "waiting")} / ${item.plain_check || ""}`)}</span>
+        <span class="beginner-task-actions">
+          ${item.gui_target ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.gui_target)}">${escapeHtml("看证据")}</button>` : ""}
+        </span>
+      </div>
+    `;
+  }).join("") : statusRows([["等待闸门", "生成今日建议后显示每个实盘前门槛。", "warn"]]);
+  ladderTarget.innerHTML = ladder.length ? ladder.map((item, index) => {
+    const rowTone = item.status === "ready" ? "ok" : item.status === "locked" || item.status === "blocked" ? "danger" : "warn";
+    return `
+      <div class="list-row ${escapeHtml(rowTone)}">
+        <strong>${escapeHtml(`${index + 1}. ${item.label || item.mode_id || ""}`)}</strong>
+        <span>${escapeHtml(`${zhConsoleText(item.status || "waiting")} / ${item.plain_state || ""}`)}</span>
+      </div>
+    `;
+  }).join("") : statusRows([["阶段", "研究信号 → 模拟盘 → 人工复核 → 小资金观察 → 实盘交易锁定。", "warn"]]);
+  shortcutTarget.innerHTML = shortcuts.length ? shortcuts.map((item) => `
+    <div class="list-row danger">
+      <strong>${escapeHtml(zhConsoleText(item.shortcut_id || "禁止捷径"))}</strong>
+      <span>${escapeHtml(item.plain_warning || "不要绕过实盘前闸门。")}</span>
+    </div>
+  `).join("") : statusRows([["禁止捷径", "不要把今日前三、旧信号或单次高收益直接当成实盘交易指令。", "danger"]]);
 }
 
 function renderDailyLiveTransitionPlan(plan = {}) {

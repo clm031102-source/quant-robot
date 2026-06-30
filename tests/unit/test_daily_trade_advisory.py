@@ -130,6 +130,18 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(action_summary["steps"][1]["step_id"], "review_net_rebalance_tickets")
         self.assertTrue(all(not row["live_order_allowed"] for row in action_summary["steps"]))
 
+        live_gate = pack["daily_live_readiness_gate"]
+
+        self.assertEqual(live_gate["stage"], "phase_6_9_daily_live_readiness_gate")
+        self.assertEqual(live_gate["summary"]["decision"], "paper_rehearsal_required")
+        self.assertIn("模拟盘", live_gate["summary"]["primary_action"])
+        self.assertFalse(live_gate["summary"]["live_trading_allowed"])
+        self.assertFalse(live_gate["summary"]["order_placement_allowed"])
+        self.assertEqual(live_gate["mode_ladder"][0]["mode_id"], "research_signal")
+        self.assertEqual(live_gate["mode_ladder"][1]["mode_id"], "paper_simulation")
+        self.assertEqual(live_gate["mode_ladder"][-1]["status"], "locked")
+        self.assertIn("daily_top3_direct_buy", {row["shortcut_id"] for row in live_gate["forbidden_shortcuts"]})
+
     def test_current_position_account_fields_are_blocked_without_crashing(self):
         pack = build_daily_trade_advisory_pack(
             [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
@@ -152,6 +164,10 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(pack["beginner_action_summary"]["summary"]["decision"], "fix_current_positions_first")
         self.assertIn("修正当前持仓", pack["beginner_action_summary"]["summary"]["primary_action"])
         self.assertEqual(pack["beginner_action_summary"]["steps"][0]["step_id"], "fix_current_positions")
+        self.assertEqual(pack["daily_live_readiness_gate"]["summary"]["decision"], "blocked_fix_current_positions")
+        self.assertEqual(pack["daily_live_readiness_gate"]["gate_rows"][0]["gate_id"], "current_positions")
+        self.assertEqual(pack["daily_live_readiness_gate"]["gate_rows"][0]["status"], "blocked")
+        self.assertFalse(pack["daily_live_readiness_gate"]["summary"]["broker_connection_allowed"])
 
     def test_pretrade_readiness_summarizes_manual_action_without_live_permissions(self):
         pack = build_daily_trade_advisory_pack(

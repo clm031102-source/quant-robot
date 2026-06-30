@@ -21,6 +21,7 @@ DAILY_REHEARSAL_STAGE = "phase_6_5_daily_rehearsal_daybook"
 POST_CLOSE_JOURNAL_STAGE = "phase_6_6_post_close_journal_template"
 LIVE_TRANSITION_STAGE = "phase_6_7_live_transition_plan"
 BEGINNER_ACTION_SUMMARY_STAGE = "phase_6_8_beginner_action_summary"
+LIVE_READINESS_GATE_STAGE = "phase_6_9_daily_live_readiness_gate"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 DEFAULT_RISK_PROFILE_ID = "balanced_20dd"
@@ -182,6 +183,7 @@ def build_daily_trade_advisory_pack(
     pack["post_close_journal_template"] = build_post_close_journal_template(pack)
     pack["live_transition_plan"] = build_live_transition_plan(pack)
     pack["beginner_action_summary"] = build_beginner_action_summary(pack)
+    pack["daily_live_readiness_gate"] = build_daily_live_readiness_gate(pack)
     pack["summary"]["live_transition_status"] = pack["live_transition_plan"]["summary"]["status"]
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
@@ -903,6 +905,205 @@ def build_beginner_action_summary(pack: dict[str, Any]) -> dict[str, Any]:
             "ticket_summary": ticket_summary,
             "position_validation": validation,
             "steps": steps,
+            "safety": SAFETY_NOTICE,
+        }
+    )
+
+
+def build_daily_live_readiness_gate(pack: dict[str, Any]) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
+    freshness = readiness.get("freshness") if isinstance(readiness.get("freshness"), dict) else {}
+    validation = pack.get("current_position_validation") if isinstance(pack.get("current_position_validation"), dict) else {}
+    factors = [row for row in pack.get("factors", []) if isinstance(row, dict)]
+    manual_plan = [row for row in pack.get("manual_trade_plan", []) if isinstance(row, dict)]
+    blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
+    signal_count = _int(summary.get("signal_count"), 0)
+    target_count = _int(summary.get("combined_target_count"), 0)
+    ticket_count = _int(summary.get("manual_ticket_count"), len(manual_plan))
+    market = str(pack.get("market") or _first_market(factors) or "CN_ETF").upper()
+    positions_ok = validation.get("status") != "error"
+    fresh_for_run_date = bool(freshness.get("fresh_for_run_date"))
+    has_today_signal = signal_count > 0 and target_count > 0
+    has_manual_tickets = ticket_count > 0 and bool(manual_plan)
+
+    if not positions_ok:
+        decision = "blocked_fix_current_positions"
+        primary_action = "先修正当前持仓输入；实盘前准备、模拟盘和人工票据都先暂停。"
+        primary_reason = validation.get("plain_summary") or "当前持仓输入存在危险字段或格式错误。"
+    elif blockers:
+        decision = "blocked_pretrade_red_light"
+        primary_action = "先处理盘前红灯阻断项；不能进入模拟盘交接或人工交易复核。"
+        primary_reason = "阻断项：" + ", ".join(blockers)
+    elif has_manual_tickets:
+        decision = "paper_rehearsal_required"
+        primary_action = "先跑本地模拟盘并人工复核票据；今天仍然不是自动实盘。"
+        primary_reason = f"今日有 {ticket_count} 张人工复核票据，必须先完成模拟盘和风险复核。"
+    elif has_today_signal:
+        decision = "waiting_for_trade_ticket"
+        primary_action = "已有今日信号但没有可复核票据；先检查价格、仓位和一手取整。"
+        primary_reason = f"信号={signal_count}，目标={target_count}，票据={ticket_count}。"
+    else:
+        decision = "waiting_for_daily_signal"
+        primary_action = "先生成今日前三 CN_ETF 因子信号；没有当天信号就不要操作。"
+        primary_reason = f"信号={signal_count}，目标={target_count}，票据={ticket_count}。"
+
+    def gate_row(gate_id: str, label: str, status: str, plain_check: str, evidence: str, gui_target: str) -> dict[str, Any]:
+        return {
+            "gate_id": gate_id,
+            "label": label,
+            "status": status,
+            "plain_check": plain_check,
+            "evidence": evidence,
+            "gui_target": gui_target,
+            "automation_allowed": False,
+            "live_order_allowed": False,
+            "broker_connection_allowed": False,
+            "order_placement_allowed": False,
+        }
+
+    blocked_by_position = not positions_ok
+    blocked_by_pretrade = bool(blockers)
+    gate_rows = [
+        gate_row(
+            "current_positions",
+            "当前持仓输入",
+            "blocked" if blocked_by_position else "ready",
+            "只允许资产、数量、参考价等纸面字段；不能输入账户、券商、真实委托字段。",
+            validation.get("plain_summary") or f"accepted={validation.get('accepted_count', 0)}; issues={validation.get('issue_count', 0)}",
+            "daily-current-positions",
+        ),
+        gate_row(
+            "signal_freshness",
+            "信号日期",
+            "ready" if fresh_for_run_date else ("blocked" if "stale_signal_date" in blockers else "waiting"),
+            "当天信号必须和运行日期一致；旧信号不能当作今日操作依据。",
+            f"run_date={freshness.get('run_date') or pack.get('run_date')}; latest_signal_date={freshness.get('latest_signal_date') or '无'}",
+            "daily-pretrade-readiness-verdict",
+        ),
+        gate_row(
+            "today_signal",
+            "前三因子今日信号",
+            "ready" if has_today_signal and not blocked_by_pretrade else ("blocked" if blocked_by_pretrade else "waiting"),
+            "只从 CN_ETF 可运行候选中取前三信号，不把 CN 个股或历史榜单直接当 ETF 交易信号。",
+            f"market={market}; signals={signal_count}; targets={target_count}",
+            "daily-trade-factor-table",
+        ),
+        gate_row(
+            "paper_rehearsal",
+            "模拟盘复核",
+            "required" if has_manual_tickets and not blocked_by_pretrade else ("blocked" if blocked_by_pretrade else "waiting"),
+            "有票据也必须先跑本地模拟盘，看收益、回撤、胜率、成交和保护事件。",
+            f"manual_tickets={ticket_count}; paper_simulation_required=True",
+            "paper-metrics",
+        ),
+        gate_row(
+            "manual_review",
+            "人工复核票据",
+            "waiting_for_paper" if has_manual_tickets and not blocked_by_pretrade else ("blocked" if blocked_by_pretrade else "waiting"),
+            "票据只能作为人工核对清单；券商端是否操作必须由人单独决定。",
+            f"manual_review_required=True; rounded_value={readiness.get('summary', {}).get('rounded_value', 0)}",
+            "daily-trade-manual-table",
+        ),
+        gate_row(
+            "live_boundary",
+            "实盘交易边界",
+            "locked",
+            "当前软件不连接券商、不读取账户、不生成真实委托、不自动下单。",
+            SAFETY_NOTICE,
+            "control-safety-boundary",
+        ),
+    ]
+
+    def ladder(mode_id: str, label: str, status: str, plain_state: str, gui_target: str) -> dict[str, Any]:
+        return {
+            "mode_id": mode_id,
+            "label": label,
+            "status": status,
+            "plain_state": plain_state,
+            "gui_target": gui_target,
+            "live_order_allowed": False,
+            "order_placement_allowed": False,
+        }
+
+    blocked = blocked_by_position or blocked_by_pretrade
+    mode_ladder = [
+        ladder(
+            "research_signal",
+            "研究信号",
+            "ready" if has_today_signal and not blocked else ("blocked" if blocked else "waiting"),
+            "生成并复核今日前三 CN_ETF 信号。",
+            "daily-trade-factor-table",
+        ),
+        ladder(
+            "paper_simulation",
+            "模拟盘",
+            "required" if has_manual_tickets and not blocked else ("blocked" if blocked else "waiting"),
+            "先用相同参数做本地模拟盘回放。",
+            "paper-metrics",
+        ),
+        ladder(
+            "manual_review",
+            "人工复核",
+            "locked_until_paper_rehearsal" if has_manual_tickets and not blocked else ("blocked" if blocked else "waiting"),
+            "模拟盘和风险检查后，人工核对票据。",
+            "daily-trade-manual-table",
+        ),
+        ladder(
+            "small_capital_observation",
+            "小资金人工观察",
+            "locked_until_gate",
+            "需要推广闸门、模拟盘观察、盘后复盘和小资金风控全部通过。",
+            "beginner-live-handoff-board",
+        ),
+        ladder(
+            "live_trading",
+            "实盘交易",
+            "locked",
+            "本项目当前不提供自动实盘交易；只能输出研究和人工复核材料。",
+            "control-safety-boundary",
+        ),
+    ]
+
+    forbidden_shortcuts = [
+        {
+            "shortcut_id": "daily_top3_direct_buy",
+            "plain_warning": "不要把今日前三因子直接等同于买入指令。",
+        },
+        {
+            "shortcut_id": "stale_signal_reuse",
+            "plain_warning": "不要用旧日期信号补今天的交易判断。",
+        },
+        {
+            "shortcut_id": "cn_stock_to_etf_direct_transfer",
+            "plain_warning": "不要把 CN 个股资金流择股结果直接当 CN_ETF 轮动信号。",
+        },
+        {
+            "shortcut_id": "skip_paper_and_journal",
+            "plain_warning": "不要跳过模拟盘和盘后复盘直接进入小资金观察。",
+        },
+    ]
+
+    return _sanitize(
+        {
+            "stage": LIVE_READINESS_GATE_STAGE,
+            "run_date": pack.get("run_date", date.today().isoformat()),
+            "summary": {
+                "decision": decision,
+                "primary_action": primary_action,
+                "primary_reason": primary_reason,
+                "primary_market": market,
+                "paper_simulation_required": True,
+                "manual_review_required": True,
+                "small_capital_review_required": True,
+                "live_trading_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+            },
+            "gate_rows": gate_rows,
+            "mode_ladder": mode_ladder,
+            "forbidden_shortcuts": forbidden_shortcuts,
             "safety": SAFETY_NOTICE,
         }
     )
