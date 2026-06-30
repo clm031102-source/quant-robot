@@ -2147,6 +2147,106 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(rule_by_id["liquidity_capacity_breached"]["status"], "pass")
         self.assertTrue(all(row["capacity_blocked"] is False for row in guard["row_guardrails"]))
 
+    def test_pre_execution_guard_blocks_manual_review_when_daily_loss_circuit_breaker_tripped(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_quality_combo", "market": "CN_ETF", "sharpe": 1.35},
+                {"rank": 2, "case_id": "c2", "factor_name": "low_vol_overlay", "market": "CN_ETF", "sharpe": 1.05},
+                {"rank": 3, "case_id": "c3", "factor_name": "breadth_trend_state", "market": "CN_ETF", "sharpe": 0.98},
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.2}),
+                _signal("c2", "low_vol_overlay", {"588000": 0.2}),
+                _signal("c3", "breadth_trend_state", {"159915": 0.2}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="aggressive_30dd",
+            evidence_snapshot={
+                "walk_forward_oos_passed": True,
+                "lookahead_bias_audit_passed": True,
+                "multiple_testing_control_passed": True,
+                "transaction_cost_capacity_passed": True,
+                "matched_paper_receipts": 5,
+                "post_close_journals": 5,
+                "manual_execution_clean_receipts": 5,
+                "manual_execution_blocked_receipts": 0,
+                "paper_ready_observations": 20,
+                "same_parameter_top3_required_requests": 3,
+                "same_parameter_top3_matched_requests": 3,
+                "risk_state": {
+                    "today_pnl_pct": -0.035,
+                    "current_drawdown_pct": -0.08,
+                    "consecutive_loss_days": 1,
+                    "cooldown_days_remaining": 0,
+                },
+            },
+        )
+
+        circuit = pack["daily_execution_risk_circuit_breaker"]
+        guard = pack["daily_pre_execution_guard"]
+        answer = pack["daily_beginner_execution_answer"]
+        circuit_rule_by_id = {row["rule_id"]: row for row in circuit["rules"]}
+        guard_rule_by_id = {row["rule_id"]: row for row in guard["skip_rules"]}
+        reason_by_id = {row["reason_id"]: row for row in answer["reasons"]}
+
+        self.assertEqual(circuit["stage"], "phase_6_29_daily_execution_risk_circuit_breaker")
+        self.assertEqual(circuit["summary"]["decision"], "blocked_risk_circuit_breaker")
+        self.assertEqual(circuit_rule_by_id["daily_loss_stop"]["status"], "blocked")
+        self.assertEqual(guard["summary"]["guard_status"], "blocked_risk_circuit_breaker")
+        self.assertTrue(guard["summary"]["paper_rehearsal_allowed"])
+        self.assertFalse(guard["summary"]["manual_broker_review_allowed"])
+        self.assertFalse(guard["summary"]["can_buy_today"])
+        self.assertEqual(guard_rule_by_id["daily_risk_circuit_breaker"]["status"], "blocked")
+        self.assertEqual(answer["summary"]["allowed_mode"], "same_parameter_paper_rehearsal_only")
+        self.assertEqual(reason_by_id["daily_risk_circuit_breaker"]["status"], "blocked")
+        self.assertFalse(answer["summary"]["order_placement_allowed"])
+
+    def test_pre_execution_guard_keeps_manual_review_candidate_when_risk_circuit_is_clear(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_quality_combo", "market": "CN_ETF", "sharpe": 1.35},
+                {"rank": 2, "case_id": "c2", "factor_name": "low_vol_overlay", "market": "CN_ETF", "sharpe": 1.05},
+                {"rank": 3, "case_id": "c3", "factor_name": "breadth_trend_state", "market": "CN_ETF", "sharpe": 0.98},
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.2}),
+                _signal("c2", "low_vol_overlay", {"588000": 0.2}),
+                _signal("c3", "breadth_trend_state", {"159915": 0.2}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="aggressive_30dd",
+            evidence_snapshot={
+                "walk_forward_oos_passed": True,
+                "lookahead_bias_audit_passed": True,
+                "multiple_testing_control_passed": True,
+                "transaction_cost_capacity_passed": True,
+                "matched_paper_receipts": 5,
+                "post_close_journals": 5,
+                "manual_execution_clean_receipts": 5,
+                "manual_execution_blocked_receipts": 0,
+                "paper_ready_observations": 20,
+                "same_parameter_top3_required_requests": 3,
+                "same_parameter_top3_matched_requests": 3,
+                "risk_state": {
+                    "today_pnl_pct": -0.01,
+                    "current_drawdown_pct": -0.08,
+                    "consecutive_loss_days": 1,
+                    "cooldown_days_remaining": 0,
+                },
+            },
+        )
+
+        circuit = pack["daily_execution_risk_circuit_breaker"]
+        guard = pack["daily_pre_execution_guard"]
+        guard_rule_by_id = {row["rule_id"]: row for row in guard["skip_rules"]}
+
+        self.assertEqual(circuit["summary"]["decision"], "risk_clear_for_manual_review")
+        self.assertEqual(guard["summary"]["guard_status"], "manual_review_candidate")
+        self.assertTrue(guard["summary"]["manual_broker_review_allowed"])
+        self.assertEqual(guard_rule_by_id["daily_risk_circuit_breaker"]["status"], "pass")
+
     def test_pre_execution_guard_blocks_manual_review_when_next_session_quarantine_missing(self):
         pack = build_daily_trade_advisory_pack(
             [

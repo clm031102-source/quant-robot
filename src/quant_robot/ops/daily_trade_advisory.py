@@ -45,11 +45,13 @@ DAILY_PAPER_ALLOCATION_PLAYBOOK_STAGE = "phase_6_25_daily_paper_allocation_playb
 DAILY_PRE_EXECUTION_GUARD_STAGE = "phase_6_26_daily_pre_execution_guard"
 DAILY_SAME_PARAMETER_PAPER_REHEARSAL_STAGE = "phase_6_27_daily_same_parameter_paper_rehearsal"
 DAILY_BEGINNER_EXECUTION_ANSWER_STAGE = "phase_6_28_daily_beginner_execution_answer"
+DAILY_EXECUTION_RISK_CIRCUIT_BREAKER_STAGE = "phase_6_29_daily_execution_risk_circuit_breaker"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 MANUAL_PRICE_DEVIATION_GUARD_PCT = 0.005
 MANUAL_MAX_SLIPPAGE_BPS = 10
 MANUAL_MAX_PARTICIPATION_RATE = 0.01
+MANUAL_MAX_CONSECUTIVE_LOSS_DAYS = 3
 LIQUIDITY_REFERENCE_FIELDS = (
     "liquidity_reference_value",
     "avg_daily_turnover_value",
@@ -450,6 +452,7 @@ def build_daily_trade_advisory_pack(
     pack["daily_factor_health_monitor"] = build_daily_factor_health_monitor(pack)
     pack["daily_real_money_transition_gate"] = build_daily_real_money_transition_gate(pack)
     pack["daily_manual_trading_session"] = build_daily_manual_trading_session(pack)
+    pack["daily_execution_risk_circuit_breaker"] = build_daily_execution_risk_circuit_breaker(pack)
     pack["daily_paper_allocation_playbook"] = build_daily_paper_allocation_playbook(pack)
     pack["daily_pre_execution_guard"] = build_daily_pre_execution_guard(pack)
     pack["daily_same_parameter_paper_rehearsal"] = build_daily_same_parameter_paper_rehearsal(pack)
@@ -463,6 +466,9 @@ def build_daily_trade_advisory_pack(
     pack["summary"]["factor_health_status"] = pack["daily_factor_health_monitor"]["summary"]["decision"]
     pack["summary"]["real_money_transition_status"] = pack["daily_real_money_transition_gate"]["summary"]["decision"]
     pack["summary"]["manual_trading_session_status"] = pack["daily_manual_trading_session"]["summary"]["session_status"]
+    pack["summary"]["execution_risk_circuit_status"] = pack["daily_execution_risk_circuit_breaker"]["summary"][
+        "decision"
+    ]
     pack["summary"]["paper_allocation_playbook_status"] = pack["daily_paper_allocation_playbook"]["summary"][
         "allocation_status"
     ]
@@ -6081,6 +6087,199 @@ def _paper_allocation_plain_answer(allocation_status: str) -> str:
     return answers.get(allocation_status, "Review allocation rows in paper mode before any human decision.")
 
 
+def build_daily_execution_risk_circuit_breaker(pack: dict[str, Any]) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    evidence = (
+        pack.get("live_profitability_evidence_snapshot")
+        if isinstance(pack.get("live_profitability_evidence_snapshot"), dict)
+        else _live_profitability_evidence_snapshot(pack.get("live_profitability_evidence_snapshot"))
+    )
+    risk_state = evidence.get("risk_state") if isinstance(evidence.get("risk_state"), dict) else {}
+    risk_profile = _risk_profile_by_id(str(summary.get("risk_profile_id") or DEFAULT_RISK_PROFILE_ID)) or {}
+    daily_loss_limit = max(0.0, _float(risk_profile.get("daily_loss_stop"), 0.02))
+    max_drawdown_limit = max(0.0, _float(risk_profile.get("max_acceptable_drawdown"), 0.20))
+    today_pnl_pct = _float_or_none(risk_state.get("today_pnl_pct"))
+    today_loss_pct = _float_or_none(risk_state.get("today_loss_pct"))
+    observed_loss_pct = 0.0
+    if today_pnl_pct is not None and today_pnl_pct < 0:
+        observed_loss_pct = abs(today_pnl_pct)
+    if today_loss_pct is not None:
+        observed_loss_pct = max(observed_loss_pct, abs(today_loss_pct))
+    current_drawdown_pct = _float_or_none(risk_state.get("current_drawdown_pct"))
+    observed_drawdown_pct = abs(current_drawdown_pct) if current_drawdown_pct is not None else 0.0
+    consecutive_loss_days = _int(risk_state.get("consecutive_loss_days"), 0)
+    cooldown_days_remaining = _int(risk_state.get("cooldown_days_remaining"), 0)
+    risk_state_observed = any(
+        value is not None
+        for value in (
+            today_pnl_pct,
+            today_loss_pct,
+            current_drawdown_pct,
+            _float_or_none(risk_state.get("consecutive_loss_days")),
+            _float_or_none(risk_state.get("cooldown_days_remaining")),
+        )
+    )
+    daily_loss_blocked = risk_state_observed and observed_loss_pct >= daily_loss_limit - 1e-12 and daily_loss_limit > 0
+    drawdown_blocked = risk_state_observed and observed_drawdown_pct >= max_drawdown_limit - 1e-12 and max_drawdown_limit > 0
+    consecutive_loss_blocked = consecutive_loss_days >= MANUAL_MAX_CONSECUTIVE_LOSS_DAYS
+    cooldown_blocked = cooldown_days_remaining > 0
+    blocked = any(
+        (
+            daily_loss_blocked,
+            drawdown_blocked,
+            consecutive_loss_blocked,
+            cooldown_blocked,
+        )
+    )
+    decision = (
+        "blocked_risk_circuit_breaker"
+        if blocked
+        else "risk_clear_for_manual_review"
+        if risk_state_observed
+        else "risk_state_not_observed"
+    )
+    rules = [
+        _risk_circuit_rule(
+            "daily_loss_stop",
+            "blocked" if daily_loss_blocked else "pass",
+            observed_loss_pct,
+            daily_loss_limit,
+            "Today's loss has reached the selected risk profile's daily stop.",
+            "beginner-post-close-journal-board",
+        ),
+        _risk_circuit_rule(
+            "max_drawdown_stop",
+            "blocked" if drawdown_blocked else "pass",
+            observed_drawdown_pct,
+            max_drawdown_limit,
+            "Current drawdown has reached the selected risk profile's drawdown budget.",
+            "paper-metrics",
+        ),
+        _risk_circuit_rule(
+            "consecutive_loss_days",
+            "blocked" if consecutive_loss_blocked else "pass",
+            consecutive_loss_days,
+            MANUAL_MAX_CONSECUTIVE_LOSS_DAYS,
+            "Too many consecutive loss days; pause manual review and audit the strategy.",
+            "beginner-post-close-journal-board",
+        ),
+        _risk_circuit_rule(
+            "cooldown_active",
+            "blocked" if cooldown_blocked else "pass",
+            cooldown_days_remaining,
+            0,
+            "A cooldown is active; do not promote today's signal to manual broker review.",
+            "daily-pre-execution-guard",
+        ),
+    ]
+    return _sanitize(
+        {
+            "stage": DAILY_EXECUTION_RISK_CIRCUIT_BREAKER_STAGE,
+            "run_date": str(pack.get("run_date") or date.today().isoformat()),
+            "safety": SAFETY_NOTICE,
+            "summary": {
+                "decision": decision,
+                "traffic_light": "red" if blocked else "yellow",
+                "plain_answer": _risk_circuit_plain_answer(decision),
+                "risk_state_observed": risk_state_observed,
+                "risk_profile_id": risk_profile.get("profile_id") or summary.get("risk_profile_id"),
+                "today_pnl_pct": today_pnl_pct,
+                "observed_loss_pct": observed_loss_pct,
+                "daily_loss_stop": daily_loss_limit,
+                "current_drawdown_pct": current_drawdown_pct,
+                "observed_drawdown_pct": observed_drawdown_pct,
+                "max_acceptable_drawdown": max_drawdown_limit,
+                "consecutive_loss_days": consecutive_loss_days,
+                "max_consecutive_loss_days": MANUAL_MAX_CONSECUTIVE_LOSS_DAYS,
+                "cooldown_days_remaining": cooldown_days_remaining,
+                "risk_circuit_blocked": blocked,
+                "paper_rehearsal_allowed": True,
+                "manual_broker_review_allowed": not blocked,
+                "can_buy_today": False,
+                "real_money_allowed": False,
+                "live_trading_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+                "next_rule_id": next((row.get("rule_id") for row in rules if row.get("status") == "blocked"), None),
+            },
+            "rules": rules,
+            "operator_steps": _risk_circuit_operator_steps(blocked),
+            "source_risk_state": risk_state,
+            "execution_boundary": {
+                "plain_boundary": "This circuit breaker can only block or downgrade manual review; it never submits orders.",
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+            },
+        }
+    )
+
+
+def _risk_circuit_rule(
+    rule_id: str,
+    status: str,
+    observed_value: float | int,
+    limit_value: float | int,
+    plain_rule: str,
+    target_id: str,
+) -> dict[str, Any]:
+    return {
+        "rule_id": rule_id,
+        "status": status,
+        "observed_value": observed_value,
+        "limit_value": limit_value,
+        "plain_rule": plain_rule,
+        "target_id": target_id,
+        "workflow_id": "post_close_journal" if status == "blocked" else "",
+        "manual_review_allowed": status != "blocked",
+        "order_placement_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "auto_order_allowed": False,
+    }
+
+
+def _risk_circuit_plain_answer(decision: str) -> str:
+    answers = {
+        "blocked_risk_circuit_breaker": "Risk circuit breaker is red; keep today's rows in paper mode and do not enter broker review.",
+        "risk_clear_for_manual_review": "Risk circuit breaker is clear for manual review material; the software still cannot place orders.",
+        "risk_state_not_observed": "No daily risk state was provided; keep reviewing risk manually before any external broker action.",
+    }
+    return answers.get(decision, "Review daily loss, drawdown, consecutive losses, and cooldown state before any human decision.")
+
+
+def _risk_circuit_operator_steps(blocked: bool) -> list[dict[str, Any]]:
+    if blocked:
+        rows = [
+            ("stay_in_paper_mode", "Stay in paper mode and do not enter broker review", "required", "paper-metrics", "paper_simulation"),
+            ("record_risk_event", "Record the loss, drawdown, or cooldown reason", "required", "beginner-post-close-journal-board", "post_close_journal"),
+            ("audit_strategy_before_next_signal", "Audit factor, regime, and execution evidence before the next signal", "required", "daily-factor-health-rows", ""),
+        ]
+    else:
+        rows = [
+            ("review_daily_risk_state", "Review daily loss, drawdown, and cooldown state", "required", "daily-pre-execution-guard", ""),
+            ("continue_manual_review_material_only", "Continue only as manual review material after all other guards pass", "manual_review_only", "daily-manual-trading-session", ""),
+        ]
+    return [
+        {
+            "step_id": step_id,
+            "label": label,
+            "status": status,
+            "target_id": target_id,
+            "workflow_id": workflow_id,
+            "manual_required": True,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        }
+        for step_id, label, status, target_id, workflow_id in rows
+    ]
+
+
 def build_daily_pre_execution_guard(pack: dict[str, Any]) -> dict[str, Any]:
     summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
     readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
@@ -6091,6 +6290,12 @@ def build_daily_pre_execution_guard(pack: dict[str, Any]) -> dict[str, Any]:
         else build_daily_paper_allocation_playbook(pack)
     )
     playbook_summary = playbook.get("summary") if isinstance(playbook.get("summary"), dict) else {}
+    risk_circuit = (
+        pack.get("daily_execution_risk_circuit_breaker")
+        if isinstance(pack.get("daily_execution_risk_circuit_breaker"), dict)
+        else build_daily_execution_risk_circuit_breaker(pack)
+    )
+    risk_circuit_summary = risk_circuit.get("summary") if isinstance(risk_circuit.get("summary"), dict) else {}
     allocation_rows = [row for row in playbook.get("allocation_rows", []) if isinstance(row, dict)]
     guardrails = [_pre_execution_row_guardrail(row) for row in allocation_rows]
     signal_fresh = freshness.get("fresh_for_run_date") is True
@@ -6109,6 +6314,7 @@ def build_daily_pre_execution_guard(pack: dict[str, Any]) -> dict[str, Any]:
     has_rows = bool(guardrails)
     risk_blocked = any(bool(row.get("risk_blocked")) for row in guardrails)
     capacity_blocked = any(bool(row.get("capacity_blocked")) for row in guardrails)
+    risk_circuit_blocked = bool(risk_circuit_summary.get("risk_circuit_blocked"))
     liquidity_evidence_missing = any(bool(row.get("liquidity_evidence_missing")) for row in guardrails)
     price_missing = any(row.get("reference_price") is None or _int(row.get("paper_quantity"), 0) <= 0 for row in guardrails)
 
@@ -6118,6 +6324,8 @@ def build_daily_pre_execution_guard(pack: dict[str, Any]) -> dict[str, Any]:
         guard_status = "blocked_no_allocation_rows"
     elif risk_blocked:
         guard_status = "blocked_risk_budget"
+    elif risk_circuit_blocked:
+        guard_status = "blocked_risk_circuit_breaker"
     elif capacity_blocked:
         guard_status = "blocked_liquidity_capacity"
     elif price_missing:
@@ -6136,6 +6344,7 @@ def build_daily_pre_execution_guard(pack: dict[str, Any]) -> dict[str, Any]:
         "manual_review_candidate",
         "blocked_next_session_quarantine_required",
         "blocked_liquidity_capacity",
+        "blocked_risk_circuit_breaker",
     }
     manual_broker_review_allowed = guard_status == "manual_review_candidate"
     skip_rules = _pre_execution_skip_rules(
@@ -6144,6 +6353,8 @@ def build_daily_pre_execution_guard(pack: dict[str, Any]) -> dict[str, Any]:
         manual_ticket_count=manual_ticket_count,
         has_rows=has_rows,
         risk_blocked=risk_blocked,
+        risk_circuit_blocked=risk_circuit_blocked,
+        risk_circuit_decision=str(risk_circuit_summary.get("decision") or ""),
         capacity_blocked=capacity_blocked,
         price_missing=price_missing,
         next_session_quarantine_required=next_session_quarantine_required,
@@ -6162,6 +6373,12 @@ def build_daily_pre_execution_guard(pack: dict[str, Any]) -> dict[str, Any]:
                 "allocation_row_count": len(guardrails),
                 "manual_ticket_count": manual_ticket_count,
                 "signal_fresh": signal_fresh,
+                "risk_circuit_decision": risk_circuit_summary.get("decision"),
+                "risk_circuit_blocked": risk_circuit_blocked,
+                "daily_loss_stop": risk_circuit_summary.get("daily_loss_stop"),
+                "observed_loss_pct": risk_circuit_summary.get("observed_loss_pct"),
+                "max_acceptable_drawdown": risk_circuit_summary.get("max_acceptable_drawdown"),
+                "observed_drawdown_pct": risk_circuit_summary.get("observed_drawdown_pct"),
                 "liquidity_evidence_missing": liquidity_evidence_missing,
                 "capacity_blocked": capacity_blocked,
                 "max_participation_rate": MANUAL_MAX_PARTICIPATION_RATE,
@@ -6186,6 +6403,7 @@ def build_daily_pre_execution_guard(pack: dict[str, Any]) -> dict[str, Any]:
                 manual_broker_review_allowed=manual_broker_review_allowed,
             ),
             "source_playbook_summary": playbook_summary,
+            "source_risk_circuit_summary": risk_circuit_summary,
             "execution_boundary": {
                 "plain_boundary": "This guard only tells the human whether paper rehearsal or manual review is allowed; it never submits orders.",
                 "broker_connection_allowed": False,
@@ -6253,6 +6471,8 @@ def _pre_execution_skip_rules(
     manual_ticket_count: int,
     has_rows: bool,
     risk_blocked: bool,
+    risk_circuit_blocked: bool,
+    risk_circuit_decision: str,
     capacity_blocked: bool,
     price_missing: bool,
     next_session_quarantine_required: bool,
@@ -6286,6 +6506,13 @@ def _pre_execution_skip_rules(
             "Skip rows whose single-ETF cap, lot sizing, or risk budget is breached.",
             "daily-paper-allocation-playbook",
             "",
+        ),
+        (
+            "daily_risk_circuit_breaker",
+            "blocked" if risk_circuit_blocked else "pass",
+            "Skip manual broker review when daily loss, drawdown, consecutive loss, or cooldown circuit breaker is red.",
+            "beginner-post-close-journal-board" if risk_circuit_blocked else "daily-pre-execution-guard",
+            "post_close_journal" if risk_circuit_blocked else "",
         ),
         (
             "liquidity_capacity_breached",
@@ -6397,6 +6624,7 @@ def _pre_execution_plain_answer(guard_status: str) -> str:
         "blocked_signal_freshness": "Today's signal is stale; refresh CN_ETF data and regenerate the signal before any rehearsal or manual review.",
         "blocked_no_allocation_rows": "No allocation rows exist; generate today's Top3 CN_ETF signal first.",
         "blocked_risk_budget": "Risk budget is breached; reduce exposure or skip the row before rehearsal.",
+        "blocked_risk_circuit_breaker": "Daily loss, drawdown, or cooldown circuit breaker is red; stay in paper mode and record a risk review.",
         "blocked_liquidity_capacity": "A row is too large versus ETF turnover; keep it in same-parameter paper rehearsal and reduce size before broker review.",
         "blocked_price_reference": "A row lacks reference price or valid quantity; skip or regenerate before review.",
         "blocked_next_session_quarantine_required": "Top3 reuse evidence is incomplete; only same-parameter paper rehearsal is allowed today.",
@@ -6756,6 +6984,7 @@ def _beginner_execution_next_label(reason_id: str, fallback: str) -> str:
         "paper_allocation_missing": "生成纸面分配清单",
         "manual_ticket_missing": "补齐人工复核票据",
         "risk_budget_breached": "降低仓位或跳过风险超限行",
+        "daily_risk_circuit_breaker": "记录风险事件并保持纸面模式",
         "liquidity_capacity_breached": "降低金额或继续纸面演练",
         "price_reference_missing": "补齐参考价格和一手取整数量",
         "next_session_quarantine": "运行同参数模拟盘并补齐复用证据",
@@ -7591,6 +7820,13 @@ def _live_profitability_evidence_snapshot(snapshot: dict[str, Any] | None) -> di
     source = snapshot if isinstance(snapshot, dict) else {}
     raw_counts = source.get("counts") if isinstance(source.get("counts"), dict) else source
     raw_flags = source.get("flags") if isinstance(source.get("flags"), dict) else source
+    raw_risk = (
+        source.get("risk_state")
+        if isinstance(source.get("risk_state"), dict)
+        else source.get("risk")
+        if isinstance(source.get("risk"), dict)
+        else source
+    )
     counts = {
         "matched_paper_receipts": _live_profitability_evidence_count(
             raw_counts.get("matched_paper_receipts", raw_counts.get("paper_simulation_receipts"))
@@ -7626,10 +7862,45 @@ def _live_profitability_evidence_snapshot(snapshot: dict[str, Any] | None) -> di
         "multiple_testing_control_passed": _live_profitability_evidence_flag(raw_flags.get("multiple_testing_control_passed")),
         "transaction_cost_capacity_passed": _live_profitability_evidence_flag(raw_flags.get("transaction_cost_capacity_passed")),
     }
+    risk_state = {
+        "today_pnl_pct": _evidence_first_float(
+            raw_risk,
+            "today_pnl_pct",
+            "today_return_pct",
+            "current_day_pnl_pct",
+            "current_session_pnl_pct",
+        ),
+        "today_loss_pct": _evidence_first_float(
+            raw_risk,
+            "today_loss_pct",
+            "current_day_loss_pct",
+            "session_loss_pct",
+        ),
+        "current_drawdown_pct": _evidence_first_float(
+            raw_risk,
+            "current_drawdown_pct",
+            "portfolio_drawdown_pct",
+            "latest_drawdown_pct",
+            "max_drawdown",
+        ),
+        "consecutive_loss_days": _evidence_first_float(
+            raw_risk,
+            "consecutive_loss_days",
+            "loss_streak_days",
+            "red_day_streak",
+        ),
+        "cooldown_days_remaining": _evidence_first_float(
+            raw_risk,
+            "cooldown_days_remaining",
+            "risk_cooldown_days_remaining",
+            "cooldown_remaining",
+        ),
+    }
     return {
         "mode": str(source.get("mode") or ("snapshot" if source else "empty")),
         "counts": counts,
         "flags": flags,
+        "risk_state": risk_state,
         "missing_counts": {
             "matched_paper_receipts": max(0, 5 - counts["matched_paper_receipts"]),
             "post_close_journal_receipts": max(0, 5 - counts["post_close_journal_receipts"]),
@@ -7667,6 +7938,17 @@ def _live_profitability_evidence_count(value: Any, default: int = 0) -> int:
                 return _live_profitability_evidence_count(value.get(key), default)
         return default
     return max(0, _int(value, default))
+
+
+def _evidence_first_float(source: dict[str, Any], *keys: str) -> float | None:
+    if not isinstance(source, dict):
+        return None
+    for key in keys:
+        if key in source:
+            value = _float_or_none(source.get(key))
+            if value is not None:
+                return value
+    return None
 
 
 def _live_profitability_evidence_flag(value: Any) -> bool:

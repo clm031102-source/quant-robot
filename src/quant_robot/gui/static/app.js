@@ -7451,6 +7451,7 @@ function renderDailyPreExecutionGuard(guard = {}) {
     ["今天结论", `${summary.traffic_light || "yellow"} / ${zhConsoleText(status)}`, tone],
     ["普通话解释", summary.plain_answer || "先看信号新鲜度、仓位、价格护栏和跳过规则；软件不会替你下单。", tone],
     ["信号日期", `run=${summary.run_date || guard.run_date || "--"} / latest=${summary.latest_signal_date || "--"} / fresh=${summary.signal_fresh ? "yes" : "no"}`, summary.signal_fresh ? "ok" : "danger"],
+    ["风险熔断", `${summary.risk_circuit_decision || "risk_state_not_observed"} / loss=${formatPercent(summary.observed_loss_pct)} / stop=${formatPercent(summary.daily_loss_stop)} / dd=${formatPercent(summary.observed_drawdown_pct)} / max=${formatPercent(summary.max_acceptable_drawdown)}`, summary.risk_circuit_blocked ? "danger" : "warn"],
     ["允许范围", `paper=${summary.paper_rehearsal_allowed ? "yes" : "no"} / manual_review=${summary.manual_broker_review_allowed ? "yes" : "no"} / can_buy_today=${summary.can_buy_today ? "yes" : "no"}`, summary.can_buy_today ? "danger" : "warn"],
     ["权限边界", summary.order_placement_allowed || summary.broker_connection_allowed || summary.account_read_allowed ? "异常：权限边界被打开" : "不连券商、不读账户、不自动下单", summary.order_placement_allowed || summary.broker_connection_allowed || summary.account_read_allowed ? "danger" : "ok"],
     ["下一条规则", nextRule.rule_id || summary.next_rule_id || "broker_price_outside_guardrail", nextRule.status === "blocked" ? "danger" : "warn"],
@@ -9684,6 +9685,10 @@ function statusRows(rows) {
 }
 
 const GUI_ZH_REPLACEMENTS = [
+  ["blocked_risk_circuit_breaker", "\u98ce\u9669\u7194\u65ad\u7ea2\u706f"],
+  ["daily_risk_circuit_breaker", "\u6bcf\u65e5\u98ce\u9669\u7194\u65ad"],
+  ["risk_clear_for_manual_review", "\u98ce\u9669\u72b6\u6001\u5141\u8bb8\u4eba\u5de5\u590d\u6838\u6750\u6599"],
+  ["risk_state_not_observed", "\u672a\u63d0\u4f9b\u5f53\u65e5\u98ce\u9669\u72b6\u6001"],
   ["blocked_liquidity_capacity", "\u6d41\u52a8\u6027/\u5bb9\u91cf\u8d85\u9650"],
   ["liquidity_capacity_breached", "\u6d41\u52a8\u6027\u5bb9\u91cf\u95f8\u95e8"],
   ["same_parameter_paper_rehearsal_only", "只允许同参数模拟盘"],
