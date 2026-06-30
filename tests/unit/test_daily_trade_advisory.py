@@ -1506,6 +1506,27 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
             0,
         )
         self.assertEqual(readiness["summary"]["next_target_id"], "beginner-live-handoff-board")
+        mission = pack["daily_operator_mission_control"]
+        mission_cards = {row["card_id"]: row for row in mission["cards"]}
+        self.assertEqual(
+            mission["summary"]["profitability_readiness_decision"],
+            readiness["summary"]["decision"],
+        )
+        self.assertIn(
+            mission["summary"]["profitability_readiness_decision"],
+            {
+                "small_capital_manual_observation_candidate",
+                "production_manual_review_candidate",
+            },
+        )
+        self.assertGreaterEqual(mission["summary"]["profitability_readiness_score_pct"], 90)
+        self.assertTrue(mission["summary"]["small_capital_observation_candidate"])
+        self.assertTrue(mission["summary"]["production_manual_review_candidate"])
+        self.assertEqual(mission["summary"]["profitability_next_target_id"], "beginner-live-handoff-board")
+        self.assertFalse(mission["summary"]["real_money_allowed"])
+        self.assertFalse(mission["summary"]["order_placement_allowed"])
+        self.assertEqual(mission_cards["profitability_evidence"]["status"], "ready")
+        self.assertEqual(mission_cards["profitability_evidence"]["target_id"], "beginner-live-handoff-board")
 
     def test_live_profitability_readiness_blocks_dirty_manual_execution_audit(self):
         pack = build_daily_trade_advisory_pack(

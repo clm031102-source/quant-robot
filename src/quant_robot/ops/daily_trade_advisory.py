@@ -3001,6 +3001,26 @@ def build_daily_operator_mission_control(pack: dict[str, Any]) -> dict[str, Any]
         else build_daily_factor_health_monitor(pack)
     )
     health_summary = factor_health.get("summary") if isinstance(factor_health.get("summary"), dict) else {}
+    profitability = (
+        pack.get("live_profitability_readiness")
+        if isinstance(pack.get("live_profitability_readiness"), dict)
+        else build_live_profitability_readiness_scorecard(pack)
+    )
+    profitability_summary = (
+        profitability.get("summary") if isinstance(profitability.get("summary"), dict) else {}
+    )
+    profitability_hard_gates = [
+        row for row in profitability.get("hard_gates", []) if isinstance(row, dict)
+    ]
+    profitability_blocked_gate_count = sum(
+        1 for row in profitability_hard_gates if str(row.get("status") or "") == "blocked"
+    )
+    profitability_required_gate_count = sum(
+        1 for row in profitability_hard_gates if str(row.get("status") or "") == "required"
+    )
+    profitability_partial_gate_count = sum(
+        1 for row in profitability_hard_gates if str(row.get("status") or "") == "partial"
+    )
     daybook = (
         pack.get("daily_rehearsal_daybook")
         if isinstance(pack.get("daily_rehearsal_daybook"), dict)
@@ -3096,8 +3116,30 @@ def build_daily_operator_mission_control(pack: dict[str, Any]) -> dict[str, Any]
                 "manual_execution_clean_receipts": manual_clean_count,
                 "manual_execution_blocked_receipts": manual_blocked_count,
                 "manual_execution_missing_review_receipts": manual_missing_review_count,
+                "profitability_readiness_decision": profitability_summary.get("decision"),
+                "profitability_readiness_score_pct": _int(
+                    profitability_summary.get("readiness_score_pct"), 0
+                ),
+                "profitability_next_target_id": profitability_summary.get("next_target_id"),
+                "profitability_next_workflow_id": profitability_summary.get("next_workflow_id"),
+                "profitability_passed_gate_count": _int(
+                    profitability_summary.get("passed_gate_count"), 0
+                ),
+                "profitability_total_gate_count": _int(
+                    profitability_summary.get("total_gate_count"), len(profitability_hard_gates)
+                ),
+                "profitability_blocked_gate_count": profitability_blocked_gate_count,
+                "profitability_required_gate_count": profitability_required_gate_count,
+                "profitability_partial_gate_count": profitability_partial_gate_count,
+                "small_capital_observation_candidate": bool(
+                    profitability_summary.get("small_capital_observation_candidate")
+                ),
+                "production_manual_review_candidate": bool(
+                    profitability_summary.get("production_manual_review_candidate")
+                ),
                 "paper_simulation_required": True,
                 "manual_review_required": True,
+                "real_money_allowed": False,
                 "live_trading_allowed": False,
                 "broker_connection_allowed": False,
                 "account_read_allowed": False,
@@ -3127,6 +3169,23 @@ def build_daily_operator_mission_control(pack: dict[str, Any]) -> dict[str, Any]
                 phase_done_count=_int(daybook_summary.get("done_count"), 0),
                 phase_blocked_count=_int(daybook_summary.get("blocked_count"), 0),
                 phase_count=_int(daybook_summary.get("phase_count"), len(daybook_phases)),
+                profitability_decision=str(profitability_summary.get("decision") or ""),
+                profitability_score_pct=_int(profitability_summary.get("readiness_score_pct"), 0),
+                profitability_next_target_id=str(
+                    profitability_summary.get("next_target_id") or "beginner-live-handoff-board"
+                ),
+                profitability_next_workflow_id=str(
+                    profitability_summary.get("next_workflow_id") or ""
+                ),
+                profitability_blocked_gate_count=profitability_blocked_gate_count,
+                profitability_required_gate_count=profitability_required_gate_count,
+                profitability_partial_gate_count=profitability_partial_gate_count,
+                small_capital_observation_candidate=bool(
+                    profitability_summary.get("small_capital_observation_candidate")
+                ),
+                production_manual_review_candidate=bool(
+                    profitability_summary.get("production_manual_review_candidate")
+                ),
             ),
             "next_actions": next_actions,
             "visible_ticket_summary": [
@@ -3215,6 +3274,15 @@ def _operator_mission_cards(
     phase_done_count: int,
     phase_blocked_count: int,
     phase_count: int,
+    profitability_decision: str,
+    profitability_score_pct: int,
+    profitability_next_target_id: str,
+    profitability_next_workflow_id: str,
+    profitability_blocked_gate_count: int,
+    profitability_required_gate_count: int,
+    profitability_partial_gate_count: int,
+    small_capital_observation_candidate: bool,
+    production_manual_review_candidate: bool,
 ) -> list[dict[str, Any]]:
     missing_ids = {str(row.get("check_id") or "") for row in missing_evidence}
     red_blocked = bool(blockers) or input_blocked_count > 0
@@ -3222,6 +3290,15 @@ def _operator_mission_cards(
     current_phase_status = str(current_phase.get("status") or "waiting")
     current_phase_title = str(current_phase.get("title") or current_phase.get("phase_id") or "今日流程")
     current_phase_target = str(current_phase.get("gui_target") or "beginner-daily-rehearsal-board")
+    profitability_status = (
+        "blocked"
+        if profitability_blocked_gate_count
+        else "ready"
+        if small_capital_observation_candidate or production_manual_review_candidate
+        else "missing"
+        if profitability_required_gate_count or profitability_partial_gate_count
+        else "waiting"
+    )
 
     def card(
         card_id: str,
@@ -3251,6 +3328,21 @@ def _operator_mission_cards(
                 f"blocked={phase_blocked_count}; total={phase_count}"
             ),
             current_phase_target,
+        ),
+        card(
+            "profitability_evidence",
+            "盈利证据",
+            profitability_status,
+            (
+                f"decision={profitability_decision or '--'}; score={profitability_score_pct}; "
+                f"blocked={profitability_blocked_gate_count}; "
+                f"required={profitability_required_gate_count}; "
+                f"partial={profitability_partial_gate_count}; "
+                f"small_capital_candidate={small_capital_observation_candidate}; "
+                f"production_candidate={production_manual_review_candidate}"
+            ),
+            profitability_next_target_id or "beginner-live-handoff-board",
+            profitability_next_workflow_id,
         ),
         card(
             "today_top3_signal",

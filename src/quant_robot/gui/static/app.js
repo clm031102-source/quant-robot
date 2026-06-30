@@ -6469,6 +6469,7 @@ function renderDailyOperatorMissionControl(control = {}) {
   const summary = control.summary || {};
   const cards = Array.isArray(control.cards) ? control.cards : [];
   const phaseCard = cards.find((item) => item.card_id === "daily_phase_progress") || {};
+  const profitabilityCard = cards.find((item) => item.card_id === "profitability_evidence") || {};
   const status = summary.mission_status || "waiting_for_today_signal";
   const tone = status.includes("blocked") ? "danger" : status.includes("ready") ? "ok" : "warn";
   summaryTarget.innerHTML = statusRows([
@@ -6481,6 +6482,7 @@ function renderDailyOperatorMissionControl(control = {}) {
     ["容量占用", `状态=${zhConsoleText(summary.pre_execution_guard_status || "waiting")} / 超限=${formatNumber(summary.capacity_blocked_count || 0)} / 缺流动性=${formatNumber(summary.liquidity_evidence_missing_count || 0)} / 上限=${formatPercent(summary.max_participation_rate)}`, summary.capacity_blocked_count ? "danger" : summary.liquidity_evidence_missing_count ? "warn" : "ok"],
     ["成交反馈", `状态=${zhConsoleText(summary.execution_feedback_status || "waiting")} / 干净=${formatNumber(summary.manual_execution_clean_receipts || 0)} / 异常=${formatNumber(summary.manual_execution_blocked_receipts || 0)} / 缺回执=${formatNumber(summary.manual_execution_missing_review_receipts || 0)}`, summary.manual_execution_blocked_receipts || summary.manual_execution_missing_review_receipts ? "danger" : summary.manual_execution_clean_receipts >= 5 ? "ok" : "warn"],
     ["次日隔离", `${summary.next_session_quarantine_required ? "需要隔离" : "未触发"} / ${zhConsoleText(summary.next_session_reuse_status || "waiting")}`, summary.next_session_quarantine_required ? "danger" : "ok"],
+    ["盈利证据", `decision=${zhConsoleText(summary.profitability_readiness_decision || profitabilityCard.status || "waiting")} / score=${formatNumber(summary.profitability_readiness_score_pct || 0)} / small_capital=${summary.small_capital_observation_candidate ? "候选" : "未通过"} / blocked=${formatNumber(summary.profitability_blocked_gate_count || 0)} / required=${formatNumber(summary.profitability_required_gate_count || 0)} / target=${summary.profitability_next_target_id || profitabilityCard.target_id || "--"}`, summary.small_capital_observation_candidate || summary.production_manual_review_candidate ? "ok" : summary.profitability_blocked_gate_count ? "danger" : "warn"],
     ["安全边界", summary.order_placement_allowed || summary.broker_connection_allowed || summary.account_read_allowed ? "异常：出现券商/账户/下单权限" : "不连接券商、不读取账户、不自动下单", summary.order_placement_allowed || summary.broker_connection_allowed || summary.account_read_allowed ? "danger" : "ok"],
   ]);
 
