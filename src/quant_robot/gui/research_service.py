@@ -446,6 +446,7 @@ def build_daily_trade_advisory_snapshot(
     max_gross_exposure: float = 1.0,
     min_cash_weight: float = 0.1,
     risk_profile_id: str | None = None,
+    current_positions: str | list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     leaderboard = build_factor_leaderboard_snapshot(
         reports_root=reports_root,
@@ -484,6 +485,7 @@ def build_daily_trade_advisory_snapshot(
         portfolio_value=portfolio_value,
         max_gross_exposure=max_gross_exposure,
         risk_profile_id=risk_profile_id,
+        current_positions=_parse_current_positions_input(current_positions),
     )
     pack["selected_candidates"] = candidates
     pack["leaderboard_summary"] = leaderboard.get("summary", {})
@@ -578,6 +580,33 @@ def _daily_trade_signal_snapshots(
             signal_errors.append(error_row)
             signals.append(error_row)
     return signals, signal_errors
+
+
+def _parse_current_positions_input(current_positions: str | list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    if not current_positions:
+        return []
+    if isinstance(current_positions, list):
+        return [dict(row) for row in current_positions if isinstance(row, dict)]
+    text = str(current_positions).strip()
+    if not text:
+        return []
+    if text.startswith("["):
+        parsed = json.loads(text)
+        return [dict(row) for row in parsed if isinstance(row, dict)] if isinstance(parsed, list) else []
+    rows = []
+    reader = csv.DictReader(text.splitlines())
+    for row in reader:
+        if not row:
+            continue
+        rows.append(
+            {
+                "asset_id": (row.get("asset_id") or row.get("symbol") or "").strip(),
+                "quantity": row.get("quantity") or row.get("shares") or row.get("holding"),
+                "latest_price": row.get("latest_price") or row.get("price") or "",
+                "market": (row.get("market") or "CN_ETF").strip(),
+            }
+        )
+    return rows
 
 
 def _bars_until_as_of_date(bars: pd.DataFrame, as_of_date: str | None) -> pd.DataFrame:

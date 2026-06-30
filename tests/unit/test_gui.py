@@ -2081,6 +2081,8 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("实盘落地路径", html)
             self.assertIn("风险档位", html)
             self.assertIn("daily-trade-risk-profile", html)
+            self.assertIn("daily-current-positions", html)
+            self.assertIn("当前持仓", html)
             self.assertIn("conservative_10dd", html)
             self.assertIn("balanced_20dd", html)
             self.assertIn("aggressive_30dd", html)
@@ -2153,6 +2155,7 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("small_capital_review_required", app_js)
             self.assertIn("aggressive_30dd", app_js)
             self.assertIn("risk_profile_id: valueOf(\"daily-trade-risk-profile\")", app_js)
+            self.assertIn("current_positions: valueOf(\"daily-current-positions\")", app_js)
             self.assertIn("dailyReadinessDecision", app_js)
             self.assertIn("renderBeginnerLiveHandoff", app_js)
             self.assertIn("beginnerLiveHandoffSteps", app_js)
@@ -2230,6 +2233,9 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("escapeRawHtml(workflow)", app_js)
             self.assertIn("escapeRawHtml(target)", app_js)
             daily_manual_table_block = app_js.split('byId("daily-trade-manual-table")', 1)[1].split("]);", 1)[0]
+            self.assertIn('"current_quantity"', daily_manual_table_block)
+            self.assertIn('"delta_value"', daily_manual_table_block)
+            self.assertIn('"rounded_quantity_delta"', daily_manual_table_block)
             self.assertIn('"latest_price"', daily_manual_table_block)
             self.assertIn('"estimated_quantity"', daily_manual_table_block)
             self.assertIn('"rounded_quantity"', daily_manual_table_block)
@@ -2893,11 +2899,13 @@ class GuiHttpTests(unittest.TestCase):
             trade_advisory = _read_json(
                 f"{base_url}/api/trade/daily-advisory?source=demo_fixture&market=CN_ETF&limit=3"
                 "&risk_profile_id=conservative_10dd"
+                "&current_positions=asset_id%2Cquantity%2Clatest_price%0ACN_ETF_XSHG_510300%2C1000%2C4.864"
             )
             self.assertEqual(trade_advisory["stage"], "phase_6_0_daily_trade_advisory")
             self.assertIn("summary", trade_advisory)
             self.assertEqual(trade_advisory["summary"]["risk_profile_id"], "conservative_10dd")
             self.assertLessEqual(trade_advisory["summary"]["applied_max_gross_exposure"], 0.30)
+            self.assertEqual(trade_advisory["summary"]["current_position_count"], 1)
             self.assertFalse(trade_advisory["summary"]["live_trading_allowed"])
             self.assertFalse(trade_advisory["summary"]["order_placement_allowed"])
             self.assertTrue(trade_advisory["summary"]["manual_execution_required"])

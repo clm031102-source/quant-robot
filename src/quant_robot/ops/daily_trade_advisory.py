@@ -9,6 +9,8 @@ from typing import Any, Iterable
 
 import pandas as pd
 
+from quant_robot.portfolio.rebalance import FORBIDDEN_REAL_ACCOUNT_COLUMNS, build_rebalance_plan
+
 
 STAGE = "phase_6_0_daily_trade_advisory"
 PRETRADE_WORKFLOW_STAGE = "phase_6_1_daily_pretrade_workflow"
@@ -111,6 +113,7 @@ def build_daily_trade_advisory_pack(
     portfolio_value: float = 100000.0,
     max_gross_exposure: float = 1.0,
     risk_profile_id: str | None = None,
+    current_positions: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     signal_cards = [_signal_card(candidate, _matching_signal(candidate, signal_snapshots)) for candidate in candidates]
     selected_profile = _risk_profile_by_id(risk_profile_id)
@@ -120,7 +123,12 @@ def build_daily_trade_advisory_pack(
         portfolio_value=portfolio_value,
         max_gross_exposure=applied_max_gross_exposure,
     )
-    manual_plan = _manual_trade_plan(combined_targets)
+    position_rows = _current_position_rows(current_positions)
+    manual_plan = _manual_trade_plan(
+        combined_targets,
+        current_positions=position_rows,
+        portfolio_value=portfolio_value,
+    )
     pack = {
         "stage": STAGE,
         "run_date": run_date or date.today().isoformat(),
@@ -130,6 +138,7 @@ def build_daily_trade_advisory_pack(
             "signal_count": sum(1 for card in signal_cards if card["status"] == "signal_ready"),
             "combined_target_count": len(combined_targets),
             "manual_ticket_count": len(manual_plan),
+            "current_position_count": len(position_rows),
             "manual_execution_required": True,
             "paper_simulation_recommended": True,
             "risk_profile_id": selected_profile.get("profile_id") if selected_profile else "custom_current_parameters",
@@ -146,6 +155,7 @@ def build_daily_trade_advisory_pack(
         "signal_cards": signal_cards,
         "combined_target_count": len(combined_targets),
         "combined_targets": combined_targets,
+        "current_positions": position_rows,
         "manual_trade_plan": manual_plan,
         "operator_checklist": _operator_checklist(),
         "markdown": "",
@@ -841,8 +851,13 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
             "ticket_id": row.get("ticket_id"),
             "asset_id": row.get("asset_id"),
             "side": row.get("side"),
+            "current_quantity": row.get("current_quantity"),
+            "current_value": row.get("current_value"),
+            "target_value": row.get("target_value"),
+            "delta_value": row.get("delta_value"),
             "latest_price": row.get("latest_price"),
             "rounded_quantity": row.get("rounded_quantity"),
+            "rounded_quantity_delta": row.get("rounded_quantity_delta"),
             "rounded_value": row.get("rounded_value"),
             "cash_delta_after_rounding": row.get("cash_delta_after_rounding"),
             "source_factors": row.get("source_factors"),
@@ -1171,11 +1186,14 @@ def _broker_handoff_ticket(index: int, row: dict[str, Any]) -> dict[str, Any]:
     rounded_quantity = _int(row.get("rounded_quantity"), 0)
     rounded_value = _float(row.get("rounded_value"), 0.0)
     cash_delta = _float(row.get("cash_delta_after_rounding"), 0.0)
+    current_quantity = _float(row.get("current_quantity"), 0.0)
+    delta_value = _float(row.get("delta_value"), _float(row.get("target_value"), 0.0))
     reference_price = "--" if latest_price is None else f"{latest_price:.4f}"
     copy_text = (
         f"{index}. ETF {asset_id}；方向={side}；参考价={reference_price}；"
+        f"当前持仓={current_quantity:.2f}；净差额金额={delta_value:.2f}；"
         f"按 {BOARD_LOT_SIZE} 份一手取整数量={rounded_quantity}；"
-        f"参考金额={rounded_value:.2f}；取整后剩余现金约={cash_delta:.2f}。"
+        f"参考金额={rounded_value:.2f}；取整误差约={cash_delta:.2f}。"
         "请在券商端核对实时价格、代码、现金和风险；系统不会下单。"
     )
     return {
@@ -1184,7 +1202,13 @@ def _broker_handoff_ticket(index: int, row: dict[str, Any]) -> dict[str, Any]:
         "asset_id": asset_id,
         "side": side,
         "reference_price": latest_price,
+        "current_quantity": row.get("current_quantity"),
+        "current_value": row.get("current_value"),
+        "target_weight": row.get("target_weight"),
+        "target_value": row.get("target_value"),
+        "delta_value": row.get("delta_value"),
         "rounded_quantity": rounded_quantity,
+        "rounded_quantity_delta": row.get("rounded_quantity_delta"),
         "rounded_value": rounded_value,
         "cash_delta_after_rounding": cash_delta,
         "source_factors": row.get("source_factors"),
@@ -1390,7 +1414,14 @@ def _combined_targets(
     return sorted(rows, key=lambda item: (-float(item["target_weight"]), str(item["asset_id"])))
 
 
-def _manual_trade_plan(combined_targets: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _manual_trade_plan(
+    combined_targets: list[dict[str, Any]],
+    current_positions: list[dict[str, Any]] | None = None,
+    portfolio_value: float = 100000.0,
+) -> list[dict[str, Any]]:
+    positions = current_positions or []
+    if positions:
+        return _manual_rebalance_plan(combined_targets, positions, portfolio_value=portfolio_value)
     rows = []
     for index, target in enumerate(combined_targets, start=1):
         sizing = _manual_ticket_sizing(target, board_lot_size=BOARD_LOT_SIZE)
@@ -1414,6 +1445,74 @@ def _manual_trade_plan(combined_targets: list[dict[str, Any]]) -> list[dict[str,
     return rows
 
 
+def _manual_rebalance_plan(
+    combined_targets: list[dict[str, Any]],
+    current_positions: list[dict[str, Any]],
+    portfolio_value: float,
+) -> list[dict[str, Any]]:
+    target_frame = pd.DataFrame(combined_targets)
+    if target_frame.empty:
+        target_frame = pd.DataFrame(columns=["asset_id", "market", "target_weight", "latest_price"])
+    position_frame = pd.DataFrame(current_positions)
+    latest_prices = _rebalance_latest_prices(combined_targets, current_positions)
+    rebalance = build_rebalance_plan(
+        target_frame[["asset_id", "market", "target_weight", "latest_price"]],
+        position_frame,
+        latest_prices,
+        portfolio_value=portfolio_value,
+    )
+    market_lookup = {
+        str(row.get("asset_id")): str(row.get("market") or "CN_ETF")
+        for row in current_positions
+        if str(row.get("asset_id") or "").strip()
+    }
+    rows = []
+    for index, item in enumerate(rebalance.to_dict(orient="records"), start=1):
+        rows.append(_manual_rebalance_ticket(index, item, market_lookup))
+    return rows
+
+
+def _manual_rebalance_ticket(index: int, row: dict[str, Any], market_lookup: dict[str, str]) -> dict[str, Any]:
+    asset_id = str(row.get("asset_id") or "")
+    latest_price = _float_or_none(row.get("latest_price"))
+    estimated_quantity_delta = _float(row.get("estimated_quantity_delta"), 0.0)
+    side = _manual_side(row.get("action"), estimated_quantity_delta)
+    rounded_quantity = _rounded_trade_quantity(estimated_quantity_delta, BOARD_LOT_SIZE)
+    rounded_value = None if latest_price is None else rounded_quantity * latest_price
+    delta_value = _float(row.get("delta_value"), 0.0)
+    cash_delta = None if rounded_value is None else abs(delta_value) - rounded_value
+    target_quantity = None if latest_price is None or latest_price <= 0 else _float(row.get("target_value"), 0.0) / latest_price
+    manual_instruction = (
+        "已按当前持仓计算净买卖差额；如需手工实盘，请先核对 ETF 代码、实时价格、"
+        "当前持仓、目标仓位、现金和风险闸门。系统不会下单。"
+    )
+    return {
+        "ticket_id": f"daily-top3-{index:03d}",
+        "asset_id": asset_id,
+        "market": row.get("market") or market_lookup.get(asset_id) or "CN_ETF",
+        "side": side,
+        "current_quantity": row.get("current_quantity"),
+        "current_weight": row.get("current_weight"),
+        "current_value": row.get("current_value"),
+        "target_weight": row.get("target_weight"),
+        "target_value": row.get("target_value"),
+        "delta_value": delta_value,
+        "latest_price": latest_price,
+        "estimated_target_quantity": target_quantity,
+        "estimated_quantity": abs(estimated_quantity_delta),
+        "estimated_quantity_delta": estimated_quantity_delta,
+        "rounded_quantity": rounded_quantity,
+        "rounded_quantity_delta": rounded_quantity if side == "buy" else -rounded_quantity if side == "sell" else 0,
+        "rounded_value": rounded_value,
+        "cash_delta_after_rounding": cash_delta,
+        "quantity_note": f"按 {BOARD_LOT_SIZE} 份一手对净买卖差额向下取整；仅供人工复核，系统不会下单。",
+        "source_factors": "",
+        "executable": False,
+        "live_order_allowed": False,
+        "manual_instruction": manual_instruction,
+    }
+
+
 def _manual_ticket_sizing(target: dict[str, Any], board_lot_size: int = BOARD_LOT_SIZE) -> dict[str, Any]:
     target_value = _float_or_none(target.get("target_value"))
     latest_price = _float_or_none(target.get("latest_price"))
@@ -1435,6 +1534,60 @@ def _manual_ticket_sizing(target: dict[str, Any], board_lot_size: int = BOARD_LO
         "cash_delta_after_rounding": target_value - rounded_value,
         "quantity_note": f"按 {board_lot_size} 份一手向下取整；仅供人工复核，系统不会下单。",
     }
+
+
+def _current_position_rows(current_positions: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    rows = []
+    for item in current_positions or []:
+        if not isinstance(item, dict):
+            continue
+        forbidden = sorted(FORBIDDEN_REAL_ACCOUNT_COLUMNS & set(item))
+        if forbidden:
+            raise ValueError("current_positions contains real account or broker columns: " + ", ".join(forbidden))
+        asset_id = str(item.get("asset_id") or "").strip()
+        quantity = _float_or_none(item.get("quantity"))
+        if not asset_id or quantity is None:
+            continue
+        row = {
+            "asset_id": asset_id,
+            "quantity": quantity,
+            "market": item.get("market") or "CN_ETF",
+        }
+        latest_price = _float_or_none(item.get("latest_price"))
+        if latest_price is not None:
+            row["latest_price"] = latest_price
+        rows.append(row)
+    return rows
+
+
+def _rebalance_latest_prices(
+    combined_targets: list[dict[str, Any]],
+    current_positions: list[dict[str, Any]],
+) -> pd.DataFrame:
+    price_rows = [
+        {"asset_id": row.get("asset_id"), "latest_price": row.get("latest_price")}
+        for row in combined_targets
+        if isinstance(row, dict) and row.get("asset_id")
+    ]
+    price_rows.extend(
+        {"asset_id": row.get("asset_id"), "latest_price": row.get("latest_price")}
+        for row in current_positions
+        if isinstance(row, dict) and row.get("asset_id") and row.get("latest_price") is not None
+    )
+    return pd.DataFrame(price_rows, columns=["asset_id", "latest_price"])
+
+
+def _manual_side(action: Any, estimated_quantity_delta: float) -> str:
+    if str(action) == "increase" or estimated_quantity_delta > 0:
+        return "buy"
+    if str(action) == "decrease" or estimated_quantity_delta < 0:
+        return "sell"
+    return "hold"
+
+
+def _rounded_trade_quantity(estimated_quantity_delta: float, board_lot_size: int) -> int:
+    quantity = abs(float(estimated_quantity_delta))
+    return int(math.floor(quantity / board_lot_size) * board_lot_size)
 
 
 def _operator_checklist() -> list[dict[str, Any]]:

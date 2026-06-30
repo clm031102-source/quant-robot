@@ -93,6 +93,32 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertFalse(ticket["executable"])
         self.assertIn("系统不会下单", ticket["manual_instruction"])
 
+    def test_manual_plan_uses_current_positions_for_net_rebalance(self):
+        pack = build_daily_trade_advisory_pack(
+            [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
+            [_signal("c1", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            current_positions=[{"asset_id": "510300", "quantity": 1000, "latest_price": 3.2}],
+        )
+
+        ticket = pack["manual_trade_plan"][0]
+
+        self.assertEqual(pack["summary"]["current_position_count"], 1)
+        self.assertEqual(ticket["side"], "buy")
+        self.assertAlmostEqual(ticket["current_quantity"], 1000)
+        self.assertAlmostEqual(ticket["current_value"], 3200.0)
+        self.assertAlmostEqual(ticket["target_value"], 33300.0)
+        self.assertAlmostEqual(ticket["delta_value"], 30100.0)
+        self.assertAlmostEqual(ticket["estimated_quantity_delta"], 9406.25)
+        self.assertEqual(ticket["rounded_quantity"], 9400)
+        self.assertEqual(ticket["rounded_quantity_delta"], 9400)
+        self.assertAlmostEqual(ticket["rounded_value"], 30080.0)
+        self.assertAlmostEqual(ticket["cash_delta_after_rounding"], 20.0)
+        self.assertIn("当前持仓", ticket["manual_instruction"])
+        self.assertFalse(ticket["live_order_allowed"])
+        self.assertFalse(ticket["executable"])
+
     def test_pretrade_readiness_summarizes_manual_action_without_live_permissions(self):
         pack = build_daily_trade_advisory_pack(
             [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
