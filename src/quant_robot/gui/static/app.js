@@ -4168,9 +4168,7 @@ function renderDailyReadinessCard() {
     <div class="list-row ${escapeHtml(decision.tone)}">
       <strong>${escapeHtml(decision.primary_action)}</strong>
       <span>${escapeHtml(decision.detail)}</span>
-      <span class="beginner-task-actions">
-        <button class="primary-button" type="button" data-daily-readiness-target="${escapeRawHtml(decision.target_id)}" data-beginner-target="${escapeRawHtml(decision.target_id)}">${escapeHtml(decision.cta_label)}</button>
-      </span>
+      ${dailyReadinessButtons(decision)}
     </div>
   `;
   safetyTarget.innerHTML = statusRows([
@@ -4178,6 +4176,23 @@ function renderDailyReadinessCard() {
     ["系统权限", "不连接券商，不读取账户，不真实下单。", "danger"],
     ["人工复核", "只有信号新鲜、模拟盘回执和手工票据齐全后，才看券商端人工核对。", "warn"],
   ]);
+}
+
+function dailyReadinessButtons(decision = {}) {
+  const targetId = decision.target_id || "daily-readiness-primary-action";
+  if (decision.action_workflow) {
+    return `
+      <span class="beginner-task-actions">
+        <button class="primary-button" type="button" data-daily-readiness-workflow="${escapeRawHtml(decision.action_workflow)}" data-beginner-action="${escapeRawHtml(decision.action_workflow)}">${escapeHtml(decision.cta_label || "运行这一步")}</button>
+        <button class="secondary-button" type="button" data-daily-readiness-target="${escapeRawHtml(targetId)}" data-beginner-target="${escapeRawHtml(targetId)}">看证据位置</button>
+      </span>
+    `;
+  }
+  return `
+    <span class="beginner-task-actions">
+      <button class="primary-button" type="button" data-daily-readiness-target="${escapeRawHtml(targetId)}" data-beginner-target="${escapeRawHtml(targetId)}">${escapeHtml(decision.cta_label || "看证据位置")}</button>
+    </span>
+  `;
 }
 
 function dailyReadinessDecision() {
@@ -4210,6 +4225,7 @@ function dailyReadinessDecision() {
       detail: firstAction.plain_action || "刷新数据后重新生成今日前三因子信号。",
       cta_label: firstAction.cta_label || "去看数据刷新",
       target_id: firstAction.cta_target || firstAction.gui_target || "recent-data-refresh-status",
+      action_workflow: "daily_ops",
     };
   }
   if (!paperReceipt) {
@@ -4222,6 +4238,7 @@ function dailyReadinessDecision() {
       detail: "先看收益、回撤、保护事件和成交笔数，再决定是否进入人工复核。",
       cta_label: "去跑模拟盘",
       target_id: "paper-metrics",
+      action_workflow: "paper_simulation",
     };
   }
   if (tickets.length > 0 && (readiness.traffic_light || "") === "yellow" && blockers.length === 0) {
@@ -4245,6 +4262,7 @@ function dailyReadinessDecision() {
     detail: firstAction.plain_action || "补齐今日建议、模拟盘回执和手工票据后再看人工复核。",
     cta_label: firstAction.cta_label || "查看下一步",
     target_id: firstAction.cta_target || firstAction.gui_target || "daily-pretrade-next-actions",
+    action_workflow: "daily_trade_advisory",
   };
 }
 
@@ -6887,6 +6905,10 @@ async function runActionCenterWorkflow(workflowId, button = null) {
     }
     if (workflowId === "daily_trade_advisory") {
       await runDailyTradeAdvisory();
+      return;
+    }
+    if (workflowId === "daily_ops") {
+      await runDailyOps();
       return;
     }
     if (workflowId === "paper_simulation") {
