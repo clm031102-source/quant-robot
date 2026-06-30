@@ -636,6 +636,12 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertTrue(all(not row["live_order_allowed"] for row in gate["gate_rows"]))
         self.assertIn("至少 5 次模拟盘", gate["gate_rows"][0]["plain_requirement"])
         self.assertIn("小资金观察", gate["summary"]["plain_answer"])
+        self.assertEqual(gate["decision_card"]["title"], "今天能不能小资金观察")
+        self.assertEqual(gate["decision_card"]["answer_code"], "not_ready")
+        self.assertEqual(gate["decision_card"]["next_workflow_id"], "paper_simulation")
+        self.assertEqual(gate["decision_card"]["next_gui_target"], "paper-metrics")
+        self.assertFalse(gate["decision_card"]["live_order_allowed"])
+        self.assertIn("还不能小资金观察", gate["decision_card"]["plain_answer"])
 
     def test_selected_risk_profile_caps_daily_target_exposure(self):
         pack = build_daily_trade_advisory_pack(

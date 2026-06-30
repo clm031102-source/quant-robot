@@ -3052,6 +3052,7 @@ function renderBeginnerLivePilotBrief() {
   if (!target) return;
   const brief = state.dailyTradeAdvisory?.daily_live_pilot_brief || {};
   const rows = beginnerLivePilotBriefRows(brief)
+    .concat(smallCapitalObservationDecisionRow(brief))
     .concat(beginnerLivePilotEvidenceRows(brief))
     .concat(beginnerSmallCapitalGateRows(brief));
   target.innerHTML = rows.map((item) => `
@@ -3195,6 +3196,29 @@ function beginnerLivePilotEvidenceRows(brief = {}) {
       tone: boundary.order_placement_allowed || boundary.broker_connection_allowed ? "danger" : "ok",
     },
   ];
+}
+
+function smallCapitalObservationDecisionRow(brief = {}) {
+  const gate = brief.small_capital_observation_gate || {};
+  const card = gate.decision_card || {};
+  const gateRows = beginnerSmallCapitalGateRows(brief);
+  const missingGateCount = gateRows.filter((row) => row.tone !== "ok").length;
+  const firstMissing = gateRows.find((row) => row.tone !== "ok") || {};
+  const ready = missingGateCount === 0 && gateRows.length > 0;
+  const workflow = ready ? "" : card.next_workflow_id || firstMissing.workflow || "";
+  const target = card.next_gui_target || firstMissing.target || "beginner-live-handoff-board";
+  return [{
+    label: card.title || "今天能不能小资金观察",
+    value: ready ? "证据已齐，仍需人工确认" : `还差 ${formatNumber(missingGateCount)} 项`,
+    detail: ready
+      ? "可准备小资金人工观察材料，但软件仍不连接券商、不读取账户、不自动下单。"
+      : card.plain_answer || "还不能小资金观察：先补齐模拟盘、盘后复盘和风险证据。",
+    workflow,
+    target,
+    button: workflow ? card.next_step_label || "补下一项" : "",
+    targetLabel: ready ? "看安全边界" : "看下一步",
+    tone: ready ? "ok" : "warn",
+  }];
 }
 
 function beginnerSmallCapitalGateRows(brief = {}) {

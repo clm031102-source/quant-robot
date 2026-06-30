@@ -1338,10 +1338,20 @@ def build_small_capital_observation_gate(pack: dict[str, Any]) -> dict[str, Any]
         decision = "waiting_for_daily_material"
         plain_answer = "小资金观察不能打开：还缺今日前三信号或人工票据。"
         primary_action = "先生成今日前三 CN_ETF 因子信号和人工复核票据。"
+        next_workflow_id = "daily_trade_advisory"
+        next_gui_target = "daily-trade-factor-table"
+        next_button_label = "生成今日建议"
     else:
         decision = "evidence_required"
         plain_answer = "小资金观察还不能打开：必须先积累模拟盘、盘后复盘和风险证据。"
         primary_action = "先连续完成模拟盘、盘后复盘、回撤和保护事件检查。"
+        next_workflow_id = "paper_simulation"
+        next_gui_target = "paper-metrics"
+        next_button_label = "先跑模拟盘"
+    if blockers:
+        next_workflow_id = ""
+        next_gui_target = "daily-pretrade-readiness-verdict"
+        next_button_label = "查看红灯"
 
     def row(
         gate_id: str,
@@ -1457,6 +1467,19 @@ def build_small_capital_observation_gate(pack: dict[str, Any]) -> dict[str, Any]
                 "handoff_status": handoff.get("status"),
                 "traffic_light": readiness.get("traffic_light") or "unknown",
                 "blockers": blockers,
+                "live_order_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+            },
+            "decision_card": {
+                "title": "今天能不能小资金观察",
+                "answer_code": "not_ready",
+                "plain_answer": f"还不能小资金观察：{primary_action}",
+                "next_step_label": next_button_label,
+                "next_workflow_id": next_workflow_id,
+                "next_gui_target": next_gui_target,
+                "manual_only_boundary": True,
                 "live_order_allowed": False,
                 "broker_connection_allowed": False,
                 "account_read_allowed": False,
