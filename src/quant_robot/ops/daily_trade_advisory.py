@@ -37,6 +37,7 @@ LIVE_PROFITABILITY_READINESS_STAGE = "phase_6_19_live_profitability_readiness_sc
 DAILY_FACTOR_HEALTH_MONITOR_STAGE = "phase_6_20_daily_factor_health_monitor"
 DAILY_REAL_MONEY_TRANSITION_GATE_STAGE = "phase_6_21_daily_real_money_transition_gate"
 DAILY_CANDIDATE_POOL_TOP20_STAGE = "phase_6_22_daily_candidate_pool_top20"
+MANUAL_EXECUTION_AUDIT_STAGE = "phase_6_23_manual_execution_audit"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 MANUAL_PRICE_DEVIATION_GUARD_PCT = 0.005
@@ -431,6 +432,7 @@ def build_daily_trade_advisory_pack(
     pack["small_capital_observation_gate"] = build_small_capital_observation_gate(pack)
     pack["daily_live_pilot_brief"] = build_daily_live_pilot_brief(pack)
     pack["manual_ticket_export"] = build_manual_ticket_export(pack)
+    pack["manual_execution_audit"] = build_manual_execution_audit(pack, [])
     pack["daily_trade_decision_sheet"] = build_daily_trade_decision_sheet(pack)
     pack["trading_system_blueprint"] = build_daily_trading_system_blueprint(pack)
     pack["daily_signal_execution_bridge"] = build_daily_signal_execution_bridge(pack)
@@ -6558,6 +6560,196 @@ def _manual_ticket_export_markdown(run_date: str, export_status: str, rows: list
             f"权重 {row.get('target_weight', '')}; manual_review_only"
         )
     return "\n".join(lines)
+
+
+def build_manual_execution_audit(
+    pack: dict[str, Any],
+    execution_reviews: Iterable[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    handoff = (
+        pack.get("manual_broker_handoff")
+        if isinstance(pack.get("manual_broker_handoff"), dict)
+        else _build_manual_broker_handoff(pack)
+    )
+    tickets = [row for row in handoff.get("copyable_tickets", []) if isinstance(row, dict)]
+    reviews = [row for row in (execution_reviews or []) if isinstance(row, dict)]
+    reviews_by_key: dict[str, dict[str, Any]] = {}
+    for review in reviews:
+        ticket_id = str(review.get("ticket_id") or "").strip()
+        asset_id = str(review.get("asset_id") or "").strip()
+        if ticket_id:
+            reviews_by_key[f"ticket:{ticket_id}"] = review
+        if asset_id:
+            reviews_by_key.setdefault(f"asset:{asset_id}", review)
+    rows = [_manual_execution_audit_row(index, ticket, reviews_by_key) for index, ticket in enumerate(tickets, 1)]
+    guardrail_breach_count = sum(1 for row in rows if "broker_price_outside_guardrail" in row.get("breach_reasons", []))
+    slippage_breach_count = sum(1 for row in rows if "slippage_limit_breached" in row.get("breach_reasons", []))
+    quantity_mismatch_count = sum(1 for row in rows if "quantity_mismatch" in row.get("breach_reasons", []))
+    sensitive_field_count = sum(1 for row in rows if "sensitive_field_removed" in row.get("breach_reasons", []))
+    missing_review_count = sum(1 for row in rows if row.get("review_status") == "missing_review")
+    blocked_count = sum(1 for row in rows if row.get("review_status") == "blocked")
+    executed_count = sum(1 for row in rows if row.get("manual_outcome") == "manual_trade_by_human")
+    skipped_count = sum(
+        1
+        for row in rows
+        if row.get("manual_outcome")
+        in {"skipped_no_trade", "paper_only", "manual_review_no_trade", "blocked_by_risk"}
+    )
+    if not rows:
+        decision = "waiting_for_manual_tickets"
+    elif blocked_count or guardrail_breach_count or slippage_breach_count or sensitive_field_count:
+        decision = "guardrail_breach_review_required"
+    elif missing_review_count:
+        decision = "manual_execution_review_incomplete"
+    else:
+        decision = "manual_execution_evidence_ready"
+    return _sanitize(
+        {
+            "stage": MANUAL_EXECUTION_AUDIT_STAGE,
+            "run_date": str(pack.get("run_date") or handoff.get("run_date") or date.today().isoformat()),
+            "summary": {
+                "decision": decision,
+                "ticket_count": len(rows),
+                "review_count": len(reviews),
+                "executed_count": executed_count,
+                "skipped_count": skipped_count,
+                "guardrail_breach_count": guardrail_breach_count,
+                "slippage_breach_count": slippage_breach_count,
+                "quantity_mismatch_count": quantity_mismatch_count,
+                "sensitive_field_count": sensitive_field_count,
+                "missing_review_count": missing_review_count,
+                "blocked_count": blocked_count,
+                "manual_review_required": True,
+                "manual_execution_only": True,
+                "live_trading_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+            },
+            "columns": [
+                "ticket_id",
+                "asset_id",
+                "side",
+                "manual_outcome",
+                "reference_price",
+                "actual_fill_price",
+                "fill_quantity",
+                "planned_quantity",
+                "adverse_slippage_bps",
+                "price_within_guardrail",
+                "slippage_within_limit",
+                "quantity_matches_ticket",
+                "review_status",
+                "breach_reasons",
+                "execute_or_skip_reason",
+            ],
+            "rows": rows,
+            "safety": SAFETY_NOTICE,
+        }
+    )
+
+
+def _manual_execution_audit_row(
+    index: int,
+    ticket: dict[str, Any],
+    reviews_by_key: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    ticket_id = str(ticket.get("ticket_id") or f"daily-top3-{index:03d}")
+    asset_id = str(ticket.get("asset_id") or "")
+    review = reviews_by_key.get(f"ticket:{ticket_id}") or reviews_by_key.get(f"asset:{asset_id}") or {}
+    has_review = bool(review)
+    sensitive_fields = sorted(FORBIDDEN_REAL_ACCOUNT_COLUMNS & set(review))
+    guardrails = (
+        ticket.get("execution_guardrails")
+        if isinstance(ticket.get("execution_guardrails"), dict)
+        else _manual_ticket_execution_guardrails(ticket)
+    )
+    side = str(ticket.get("side") or "buy_or_adjust")
+    manual_outcome = str(review.get("manual_outcome") or ("missing_review" if not has_review else "skipped_no_trade"))
+    reference_price = _float_or_none(
+        guardrails.get("reference_price") or ticket.get("reference_price") or ticket.get("latest_price")
+    )
+    actual_fill_price = _float_or_none(review.get("actual_fill_price") or review.get("fill_price"))
+    fill_quantity_value = _float_or_none(review.get("fill_quantity") or review.get("quantity"))
+    fill_quantity = int(fill_quantity_value) if fill_quantity_value is not None else None
+    rounded_delta = _int(ticket.get("rounded_quantity_delta"), 0)
+    rounded_quantity = _int(ticket.get("rounded_quantity"), 0)
+    planned_quantity = abs(rounded_delta) if rounded_delta else abs(rounded_quantity)
+    lower_bound = _float_or_none(guardrails.get("lower_price_bound"))
+    upper_bound = _float_or_none(guardrails.get("upper_price_bound"))
+    max_slippage_bps = _float(guardrails.get("max_slippage_bps"), float(MANUAL_MAX_SLIPPAGE_BPS))
+    breach_reasons: list[str] = []
+    if sensitive_fields:
+        breach_reasons.append("sensitive_field_removed")
+    price_within_guardrail = None
+    adverse_slippage_bps = None
+    slippage_within_limit = None
+    quantity_matches_ticket = None
+    if manual_outcome == "manual_trade_by_human":
+        if actual_fill_price is None or fill_quantity is None or fill_quantity <= 0:
+            breach_reasons.append("missing_fill_detail")
+        if actual_fill_price is not None and lower_bound is not None and upper_bound is not None:
+            price_within_guardrail = lower_bound <= actual_fill_price <= upper_bound
+            if not price_within_guardrail:
+                breach_reasons.append("broker_price_outside_guardrail")
+        if actual_fill_price is not None and reference_price is not None and reference_price > 0:
+            if side.lower().startswith("sell"):
+                adverse_slippage_bps = round((reference_price - actual_fill_price) / reference_price * 10000, 6)
+            else:
+                adverse_slippage_bps = round((actual_fill_price - reference_price) / reference_price * 10000, 6)
+            slippage_within_limit = adverse_slippage_bps <= max_slippage_bps
+            if not slippage_within_limit:
+                breach_reasons.append("slippage_limit_breached")
+        if fill_quantity is not None:
+            quantity_matches_ticket = planned_quantity <= 0 or abs(fill_quantity) == planned_quantity
+            if not quantity_matches_ticket:
+                breach_reasons.append("quantity_mismatch")
+    if not has_review:
+        review_status = "missing_review"
+    elif breach_reasons:
+        review_status = "blocked"
+    elif manual_outcome == "manual_trade_by_human":
+        review_status = "passed"
+    else:
+        review_status = "skipped"
+    return {
+        "step_number": index,
+        "ticket_id": ticket_id,
+        "asset_id": asset_id,
+        "side": side,
+        "manual_outcome": manual_outcome,
+        "reference_price": reference_price,
+        "actual_fill_price": actual_fill_price,
+        "fill_quantity": fill_quantity,
+        "planned_quantity": planned_quantity,
+        "adverse_slippage_bps": adverse_slippage_bps,
+        "price_within_guardrail": price_within_guardrail,
+        "slippage_within_limit": slippage_within_limit,
+        "quantity_matches_ticket": quantity_matches_ticket,
+        "lower_price_bound": lower_bound,
+        "upper_price_bound": upper_bound,
+        "max_slippage_bps": max_slippage_bps,
+        "review_status": review_status,
+        "breach_reasons": breach_reasons,
+        "execute_or_skip_reason": _manual_execution_safe_text(review.get("execute_or_skip_reason") or ""),
+        "sensitive_fields_removed": sensitive_fields,
+        "review_only": True,
+        "manual_execution_only": True,
+        "live_trading_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
+
+
+def _manual_execution_safe_text(value: Any) -> str:
+    text = str(value or "").replace("\r", " ").replace("\n", " ").replace("\t", " ")
+    text = " ".join(text.split())[:300]
+    for token in sorted(FORBIDDEN_REAL_ACCOUNT_COLUMNS):
+        text = text.replace(str(token), "[removed_sensitive_field]")
+    return text
 
 
 def write_daily_trade_advisory_pack(output_dir: str | Path, pack: dict[str, Any]) -> None:

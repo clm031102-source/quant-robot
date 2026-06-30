@@ -2014,6 +2014,8 @@ async function runPostCloseJournal(button = null) {
       paper_receipt_present: Boolean(paper),
       manual_outcome: manualReview.manual_outcome,
       manual_note_count: manualReview.manual_note_count,
+      manual_execution_review_count: manualReview.manual_execution_review_count,
+      manual_execution_decision: manualReview.manual_execution_audit?.summary?.decision,
       manual_handoff_only: true,
     },
   });
@@ -2035,6 +2037,7 @@ async function runPostCloseJournal(button = null) {
       template,
       paper_receipt: paper,
       manual_review: manualReview,
+      manual_execution_audit: manualReview.manual_execution_audit,
       decision: dailyReadinessDecision(),
     }));
     renderBeginnerPostCloseJournal();
@@ -3914,6 +3917,7 @@ function renderBeginnerPostCloseJournal() {
     ["安全边界", summary.order_placement_allowed ? "异常：允许下单" : "不自动下单", summary.order_placement_allowed ? "danger" : "danger"],
   ]);
   renderPostCloseManualFormStatus(journalReceipt);
+  renderPostCloseExecutionAudit(localManualExecutionAudit(trade));
   checklistTarget.innerHTML = rows.map((item) => `
     <div class="list-row ${escapeHtml(item.tone)}">
       <strong>${escapeHtml(item.title)}</strong>
@@ -3937,18 +3941,23 @@ function renderPostCloseManualFormStatus(journalReceipt = null) {
   const target = byId("beginner-post-close-journal-form-status");
   if (!target) return;
   const form = postCloseManualReviewForm();
+  const executionSummary = form.manual_execution_audit?.summary || {};
   const recorded = form.manual_note_count > 0 || Boolean(journalReceipt);
   target.innerHTML = statusRows([
     ["人工记录状态", recorded ? "manual_review_recorded" : "waiting_manual_review_notes", recorded ? "ok" : "warn"],
     ["今天实际选择", manualOutcomeLabel(form.manual_outcome), "warn"],
     ["备注数量", `${formatNumber(form.manual_note_count)} 条 / 不要填写账户号、委托号、券商客户号`, form.manual_note_count ? "ok" : "warn"],
+    ["人工成交审计", `${executionSummary.decision || "waiting_for_manual_tickets"} / 回执=${formatNumber(executionSummary.review_count)} / 异常=${formatNumber(executionSummary.blocked_count)}`, executionSummary.blocked_count ? "danger" : executionSummary.missing_review_count ? "warn" : "ok"],
   ]);
 }
 
 function bindPostCloseManualFormStatus() {
   const form = document.querySelector("[data-post-close-manual-form-root]");
   if (!form) return;
-  const refresh = () => renderPostCloseManualFormStatus(latestExecutionReceipt("post_close_journal"));
+  const refresh = () => {
+    renderPostCloseManualFormStatus(latestExecutionReceipt("post_close_journal"));
+    renderPostCloseExecutionAudit(localManualExecutionAudit(state.dailyTradeAdvisory || {}));
+  };
   form.addEventListener("input", refresh);
   form.addEventListener("change", refresh);
 }
@@ -3958,6 +3967,8 @@ function postCloseManualReviewForm() {
   const riskNote = sanitizePostCloseJournalText(valueOf("post-close-risk-note"));
   const nextDayNote = sanitizePostCloseJournalText(valueOf("post-close-next-day-note"));
   const manualOutcome = valueOf("post-close-manual-outcome") || "skipped_no_trade";
+  const manualExecutionReviews = manualExecutionReviewRowsFromInput();
+  const manualExecutionAudit = localManualExecutionAudit(state.dailyTradeAdvisory || {}, manualExecutionReviews);
   return {
     manual_outcome: manualOutcome,
     manual_outcome_label: manualOutcomeLabel(manualOutcome),
@@ -3965,12 +3976,238 @@ function postCloseManualReviewForm() {
     risk_note: riskNote,
     next_day_note: nextDayNote,
     manual_note_count: [manualNote, riskNote, nextDayNote].filter(Boolean).length,
+    manual_execution_reviews: manualExecutionReviews,
+    manual_execution_review_count: manualExecutionReviews.length,
+    manual_execution_audit: manualExecutionAudit,
     manual_review_recorded: true,
     broker_connection_allowed: false,
     account_read_allowed: false,
     order_placement_allowed: false,
     auto_order_allowed: false,
   };
+}
+
+function manualExecutionReviewRowsFromInput() {
+  const raw = valueOf("post-close-execution-reviews");
+  if (!raw.trim()) return [];
+  return raw.split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !/^ticket_id\s*,/i.test(line))
+    .map((line) => splitManualExecutionCsvLine(line))
+    .filter((parts) => parts.some((part) => String(part || "").trim()))
+    .map((parts) => ({
+      ticket_id: String(parts[0] || "").trim(),
+      manual_outcome: String(parts[1] || valueOf("post-close-manual-outcome") || "skipped_no_trade").trim(),
+      actual_fill_price: numberOrNull(parts[2]),
+      fill_quantity: numberOrNull(parts[3]),
+      execute_or_skip_reason: sanitizePostCloseJournalText(parts.slice(4).join(",")),
+    }))
+    .filter((row) => row.ticket_id || row.execute_or_skip_reason);
+}
+
+function splitManualExecutionCsvLine(line = "") {
+  const cells = [];
+  let current = "";
+  let quoted = false;
+  String(line).split("").forEach((char) => {
+    if (char === '"') {
+      quoted = !quoted;
+      return;
+    }
+    if (char === "," && !quoted) {
+      cells.push(current.trim());
+      current = "";
+      return;
+    }
+    current += char;
+  });
+  cells.push(current.trim());
+  return cells;
+}
+
+function localManualExecutionAudit(trade = {}, reviews = null) {
+  const handoff = trade.manual_broker_handoff || {};
+  const tickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
+  const reviewRows = Array.isArray(reviews) ? reviews : manualExecutionReviewRowsFromInput();
+  const reviewsByKey = new Map();
+  reviewRows.forEach((review) => {
+    const ticketId = String(review.ticket_id || "").trim();
+    const assetId = String(review.asset_id || "").trim();
+    if (ticketId) reviewsByKey.set(`ticket:${ticketId}`, review);
+    if (assetId && !reviewsByKey.has(`asset:${assetId}`)) reviewsByKey.set(`asset:${assetId}`, review);
+  });
+  const rows = tickets.map((ticket, index) => localManualExecutionAuditRow(index + 1, ticket, reviewsByKey));
+  const countReason = (reason) => rows.filter((row) => Array.isArray(row.breach_reasons) && row.breach_reasons.includes(reason)).length;
+  const blockedCount = rows.filter((row) => row.review_status === "blocked").length;
+  const missingReviewCount = rows.filter((row) => row.review_status === "missing_review").length;
+  const guardrailBreachCount = countReason("broker_price_outside_guardrail");
+  const slippageBreachCount = countReason("slippage_limit_breached");
+  const sensitiveFieldCount = countReason("sensitive_field_removed");
+  const executedCount = rows.filter((row) => row.manual_outcome === "manual_trade_by_human").length;
+  const skippedCount = rows.filter((row) => ["skipped_no_trade", "paper_only", "manual_review_no_trade", "blocked_by_risk"].includes(row.manual_outcome)).length;
+  let decision = "waiting_for_manual_tickets";
+  if (rows.length && (blockedCount || guardrailBreachCount || slippageBreachCount || sensitiveFieldCount)) {
+    decision = "guardrail_breach_review_required";
+  } else if (rows.length && missingReviewCount) {
+    decision = "manual_execution_review_incomplete";
+  } else if (rows.length) {
+    decision = "manual_execution_evidence_ready";
+  }
+  return {
+    stage: "phase_6_23_manual_execution_audit",
+    run_date: trade.run_date || handoff.run_date || "",
+    summary: {
+      decision,
+      ticket_count: rows.length,
+      review_count: reviewRows.length,
+      executed_count: executedCount,
+      skipped_count: skippedCount,
+      guardrail_breach_count: guardrailBreachCount,
+      slippage_breach_count: slippageBreachCount,
+      quantity_mismatch_count: countReason("quantity_mismatch"),
+      sensitive_field_count: sensitiveFieldCount,
+      missing_review_count: missingReviewCount,
+      blocked_count: blockedCount,
+      manual_review_required: true,
+      manual_execution_only: true,
+      live_trading_allowed: false,
+      broker_connection_allowed: false,
+      account_read_allowed: false,
+      order_placement_allowed: false,
+      auto_order_allowed: false,
+    },
+    rows,
+    safety: "local manual execution audit only; no broker, account, or order side effects",
+  };
+}
+
+function localManualExecutionAuditRow(index, ticket = {}, reviewsByKey = new Map()) {
+  const ticketId = String(ticket.ticket_id || `daily-top3-${String(index).padStart(3, "0")}`);
+  const assetId = String(ticket.asset_id || "");
+  const review = reviewsByKey.get(`ticket:${ticketId}`) || reviewsByKey.get(`asset:${assetId}`) || {};
+  const hasReview = Object.keys(review).length > 0;
+  const guardrails = ticket.execution_guardrails || {};
+  const side = String(ticket.side || "buy_or_adjust");
+  const manualOutcome = String(review.manual_outcome || (hasReview ? "skipped_no_trade" : "missing_review"));
+  const referencePrice = numberOrNull(guardrails.reference_price ?? ticket.reference_price ?? ticket.latest_price);
+  const actualFillPrice = numberOrNull(review.actual_fill_price ?? review.fill_price);
+  const fillQuantity = numberOrNull(review.fill_quantity ?? review.quantity);
+  const roundedDelta = numberOrNull(ticket.rounded_quantity_delta) || 0;
+  const roundedQuantity = numberOrNull(ticket.rounded_quantity) || 0;
+  const plannedQuantity = Math.abs(roundedDelta || roundedQuantity);
+  const lowerBound = numberOrNull(guardrails.lower_price_bound);
+  const upperBound = numberOrNull(guardrails.upper_price_bound);
+  const maxSlippageBps = numberOrNull(guardrails.max_slippage_bps) ?? 10;
+  const sensitiveFields = ["account_id", "broker_id", "client_id", "order_id"].filter((field) => Object.prototype.hasOwnProperty.call(review, field));
+  const breachReasons = [];
+  if (sensitiveFields.length) breachReasons.push("sensitive_field_removed");
+  let priceWithinGuardrail = null;
+  let adverseSlippageBps = null;
+  let slippageWithinLimit = null;
+  let quantityMatchesTicket = null;
+  if (manualOutcome === "manual_trade_by_human") {
+    if (!Number.isFinite(actualFillPrice) || !Number.isFinite(fillQuantity) || fillQuantity <= 0) {
+      breachReasons.push("missing_fill_detail");
+    }
+    if (Number.isFinite(actualFillPrice) && Number.isFinite(lowerBound) && Number.isFinite(upperBound)) {
+      priceWithinGuardrail = lowerBound <= actualFillPrice && actualFillPrice <= upperBound;
+      if (!priceWithinGuardrail) breachReasons.push("broker_price_outside_guardrail");
+    }
+    if (Number.isFinite(actualFillPrice) && Number.isFinite(referencePrice) && referencePrice > 0) {
+      adverseSlippageBps = side.toLowerCase().startsWith("sell")
+        ? ((referencePrice - actualFillPrice) / referencePrice) * 10000
+        : ((actualFillPrice - referencePrice) / referencePrice) * 10000;
+      slippageWithinLimit = adverseSlippageBps <= maxSlippageBps;
+      if (!slippageWithinLimit) breachReasons.push("slippage_limit_breached");
+    }
+    if (Number.isFinite(fillQuantity)) {
+      quantityMatchesTicket = plannedQuantity <= 0 || Math.abs(fillQuantity) === plannedQuantity;
+      if (!quantityMatchesTicket) breachReasons.push("quantity_mismatch");
+    }
+  }
+  const reviewStatus = !hasReview
+    ? "missing_review"
+    : breachReasons.length
+      ? "blocked"
+      : manualOutcome === "manual_trade_by_human"
+        ? "passed"
+        : "skipped";
+  return {
+    step_number: index,
+    ticket_id: ticketId,
+    asset_id: assetId,
+    side,
+    manual_outcome: manualOutcome,
+    reference_price: referencePrice,
+    actual_fill_price: actualFillPrice,
+    fill_quantity: fillQuantity,
+    planned_quantity: plannedQuantity,
+    adverse_slippage_bps: Number.isFinite(adverseSlippageBps) ? Number(adverseSlippageBps.toFixed(6)) : null,
+    price_within_guardrail: priceWithinGuardrail,
+    slippage_within_limit: slippageWithinLimit,
+    quantity_matches_ticket: quantityMatchesTicket,
+    lower_price_bound: lowerBound,
+    upper_price_bound: upperBound,
+    max_slippage_bps: maxSlippageBps,
+    review_status: reviewStatus,
+    breach_reasons: breachReasons,
+    execute_or_skip_reason: sanitizePostCloseJournalText(review.execute_or_skip_reason || ""),
+    sensitive_fields_removed: sensitiveFields,
+    review_only: true,
+    manual_execution_only: true,
+    live_trading_allowed: false,
+    broker_connection_allowed: false,
+    account_read_allowed: false,
+    order_placement_allowed: false,
+    auto_order_allowed: false,
+  };
+}
+
+function renderPostCloseExecutionAudit(audit = null) {
+  const target = byId("beginner-post-close-execution-audit");
+  if (!target) return;
+  const pack = audit || localManualExecutionAudit(state.dailyTradeAdvisory || {});
+  const summary = pack.summary || {};
+  const rows = Array.isArray(pack.rows) ? pack.rows : [];
+  const tone = summary.blocked_count || summary.guardrail_breach_count || summary.slippage_breach_count
+    ? "danger"
+    : summary.missing_review_count
+      ? "warn"
+      : rows.length
+        ? "ok"
+        : "warn";
+  const table = rows.length
+    ? `<table>${tableRows(rows, [
+      "ticket_id",
+      "asset_id",
+      "manual_outcome",
+      "reference_price",
+      "actual_fill_price",
+      "fill_quantity",
+      "planned_quantity",
+      "adverse_slippage_bps",
+      "price_within_guardrail",
+      "slippage_within_limit",
+      "quantity_matches_ticket",
+      "review_status",
+      "breach_reasons",
+    ])}</table>`
+    : statusRows([["人工成交审计", "暂无人工票据或尚未填写成交/跳过回执", "warn"]]);
+  target.innerHTML = `
+    <div class="list-row ${escapeHtml(tone)}">
+      <strong>${escapeHtml("人工成交审计")}</strong>
+      <span>${escapeHtml(`${summary.decision || "waiting_for_manual_tickets"} / 票据=${formatNumber(summary.ticket_count)} / 回执=${formatNumber(summary.review_count)} / 执行=${formatNumber(summary.executed_count)} / 追价=${formatNumber(summary.guardrail_breach_count)} / 滑点超限=${formatNumber(summary.slippage_breach_count)}`)}</span>
+      <span>${escapeHtml("只审计人工执行事实，不连接券商、不读取账户、不自动下单。")}</span>
+    </div>
+    ${table}
+  `;
+}
+
+function numberOrNull(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(String(value).replace(/,/g, "").trim());
+  return Number.isFinite(number) ? number : null;
 }
 
 function manualOutcomeLabel(outcome = "") {
@@ -10202,6 +10439,11 @@ function renderExecutionReceipts(spec = {}) {
       metrics.paper_receipt_present != null ? `模拟盘回执=${metrics.paper_receipt_present ? "有" : "无"}` : "",
       metrics.manual_outcome ? `人工选择=${zhConsoleText(metrics.manual_outcome)}` : "",
       metrics.manual_note_count != null ? `人工备注=${formatNumber(metrics.manual_note_count)}` : "",
+      metrics.manual_execution_decision ? `成交审计=${zhConsoleText(metrics.manual_execution_decision)}` : "",
+      metrics.manual_execution_review_count != null ? `成交回执=${formatNumber(metrics.manual_execution_review_count)}` : "",
+      metrics.executed_ticket_count != null ? `实际执行=${formatNumber(metrics.executed_ticket_count)}` : "",
+      metrics.manual_execution_guardrail_breach_count != null ? `价格护栏=${formatNumber(metrics.manual_execution_guardrail_breach_count)}` : "",
+      metrics.manual_execution_slippage_breach_count != null ? `滑点超限=${formatNumber(metrics.manual_execution_slippage_breach_count)}` : "",
     ].filter(Boolean).join(" / ");
     const requestText = [
       request.market,
@@ -10384,6 +10626,8 @@ function postCloseJournalReceipt(result = {}) {
   const paper = result.paper_receipt || null;
   const decision = result.decision || {};
   const manualReview = result.manual_review || postCloseManualReviewForm();
+  const manualExecutionAudit = result.manual_execution_audit || manualReview.manual_execution_audit || localManualExecutionAudit(trade);
+  const manualExecutionSummary = manualExecutionAudit.summary || {};
   return {
     workflow_id: "post_close_journal",
     label: "Post-close journal receipt",
@@ -10404,9 +10648,16 @@ function postCloseJournalReceipt(result = {}) {
       manual_outcome: manualReview.manual_outcome,
       manual_note_count: manualReview.manual_note_count,
       manual_review_recorded: Boolean(manualReview.manual_review_recorded),
+      manual_execution_decision: manualExecutionSummary.decision,
+      manual_execution_review_count: manualExecutionSummary.review_count,
+      executed_ticket_count: manualExecutionSummary.executed_count,
+      manual_execution_guardrail_breach_count: manualExecutionSummary.guardrail_breach_count,
+      manual_execution_slippage_breach_count: manualExecutionSummary.slippage_breach_count,
+      manual_execution_missing_review_count: manualExecutionSummary.missing_review_count,
     },
     decision: manualReview.manual_outcome || decision.title || "post_close_review_recorded",
     manual_review: manualReview,
+    manual_execution_audit: manualExecutionAudit,
     safety: "local post-close journal only; no broker, account, or order side effects",
   };
 }

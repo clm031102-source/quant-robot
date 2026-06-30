@@ -5,6 +5,7 @@ from pathlib import Path
 
 from quant_robot.ops.daily_trade_advisory import (
     build_daily_candidate_pool_top20,
+    build_manual_execution_audit,
     build_daily_trade_decision_sheet,
     build_manual_ticket_export,
     build_daily_trade_advisory_pack,
@@ -534,6 +535,82 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         for forbidden in ["account_id", "broker_id", "client_id", "order_id", "order_placement_allowed"]:
             self.assertNotIn(forbidden, export["csv_text"])
             self.assertNotIn(forbidden, export["columns"])
+
+    def test_manual_execution_audit_records_fill_slippage_without_orders(self):
+        pack = build_daily_trade_advisory_pack(
+            [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
+            [_signal("c1", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+        )
+
+        audit = build_manual_execution_audit(
+            pack,
+            [
+                {
+                    "ticket_id": "daily-top3-001",
+                    "manual_outcome": "manual_trade_by_human",
+                    "actual_fill_price": 3.201,
+                    "fill_quantity": 10400,
+                    "execute_or_skip_reason": "broker price inside guardrail",
+                }
+            ],
+        )
+
+        self.assertEqual(audit["stage"], "phase_6_23_manual_execution_audit")
+        self.assertEqual(audit["summary"]["decision"], "manual_execution_evidence_ready")
+        self.assertEqual(audit["summary"]["executed_count"], 1)
+        self.assertEqual(audit["summary"]["guardrail_breach_count"], 0)
+        self.assertEqual(audit["summary"]["missing_review_count"], 0)
+        self.assertFalse(audit["summary"]["order_placement_allowed"])
+        row = audit["rows"][0]
+        self.assertEqual(row["ticket_id"], "daily-top3-001")
+        self.assertEqual(row["asset_id"], "510300")
+        self.assertEqual(row["manual_outcome"], "manual_trade_by_human")
+        self.assertAlmostEqual(row["reference_price"], 3.2)
+        self.assertAlmostEqual(row["actual_fill_price"], 3.201)
+        self.assertAlmostEqual(row["adverse_slippage_bps"], 3.125)
+        self.assertTrue(row["price_within_guardrail"])
+        self.assertTrue(row["slippage_within_limit"])
+        self.assertTrue(row["quantity_matches_ticket"])
+        self.assertEqual(row["review_status"], "passed")
+        self.assertFalse(row["order_placement_allowed"])
+
+    def test_manual_execution_audit_blocks_price_guardrail_breach_and_sensitive_fields(self):
+        pack = build_daily_trade_advisory_pack(
+            [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
+            [_signal("c1", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+        )
+
+        audit = build_manual_execution_audit(
+            pack,
+            [
+                {
+                    "ticket_id": "daily-top3-001",
+                    "manual_outcome": "manual_trade_by_human",
+                    "actual_fill_price": 3.25,
+                    "fill_quantity": 10000,
+                    "execute_or_skip_reason": "chased price",
+                    "account_id": "real-account",
+                }
+            ],
+        )
+
+        self.assertEqual(audit["summary"]["decision"], "guardrail_breach_review_required")
+        self.assertEqual(audit["summary"]["guardrail_breach_count"], 1)
+        self.assertEqual(audit["summary"]["sensitive_field_count"], 1)
+        row = audit["rows"][0]
+        self.assertFalse(row["price_within_guardrail"])
+        self.assertFalse(row["slippage_within_limit"])
+        self.assertFalse(row["quantity_matches_ticket"])
+        self.assertIn("broker_price_outside_guardrail", row["breach_reasons"])
+        self.assertIn("slippage_limit_breached", row["breach_reasons"])
+        self.assertIn("quantity_mismatch", row["breach_reasons"])
+        self.assertIn("sensitive_field_removed", row["breach_reasons"])
+        self.assertEqual(row["review_status"], "blocked")
+        self.assertFalse(row["order_placement_allowed"])
 
     def test_daily_trade_decision_sheet_summarizes_today_actions_without_orders(self):
         candidate_pool_top20 = {
