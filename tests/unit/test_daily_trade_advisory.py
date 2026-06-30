@@ -592,6 +592,51 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("aggressive_30dd", brief["risk_budget"]["risk_profile_id"])
         self.assertIn("券商端由人手工决定", brief["execution_boundary"]["plain_boundary"])
 
+    def test_daily_pack_exposes_small_capital_observation_gate(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF", "sharpe": 1.2},
+                {"rank": 2, "case_id": "c2", "factor_name": "reversal_2", "market": "CN_ETF", "sharpe": 0.8},
+                {"rank": 3, "case_id": "c3", "factor_name": "volatility_2", "market": "CN_ETF", "sharpe": 0.7},
+            ],
+            [
+                _signal("c1", "momentum_2", {"510300": 0.4}),
+                _signal("c2", "reversal_2", {"588000": 0.3}),
+                _signal("c3", "volatility_2", {"159915": 0.2}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="aggressive_30dd",
+        )
+
+        gate = pack["small_capital_observation_gate"]
+        brief_gate = pack["daily_live_pilot_brief"]["small_capital_observation_gate"]
+
+        self.assertEqual(gate["stage"], "phase_6_12_small_capital_observation_gate")
+        self.assertEqual(gate["summary"]["decision"], "evidence_required")
+        self.assertEqual(gate["summary"]["minimum_paper_simulation_receipts"], 5)
+        self.assertEqual(gate["summary"]["minimum_post_close_journal_receipts"], 5)
+        self.assertAlmostEqual(gate["summary"]["max_acceptable_drawdown"], 0.30)
+        self.assertFalse(gate["summary"]["live_order_allowed"])
+        self.assertFalse(gate["summary"]["broker_connection_allowed"])
+        self.assertFalse(gate["summary"]["order_placement_allowed"])
+        self.assertEqual(brief_gate["stage"], gate["stage"])
+        self.assertEqual(
+            [row["gate_id"] for row in gate["gate_rows"]],
+            [
+                "paper_simulation_receipts",
+                "post_close_journal_receipts",
+                "latest_paper_drawdown",
+                "latest_paper_guard_events",
+                "latest_paper_fills",
+                "manual_ticket_and_red_light",
+                "research_only_safety_boundary",
+            ],
+        )
+        self.assertTrue(all(not row["live_order_allowed"] for row in gate["gate_rows"]))
+        self.assertIn("至少 5 次模拟盘", gate["gate_rows"][0]["plain_requirement"])
+        self.assertIn("小资金观察", gate["summary"]["plain_answer"])
+
     def test_selected_risk_profile_caps_daily_target_exposure(self):
         pack = build_daily_trade_advisory_pack(
             [

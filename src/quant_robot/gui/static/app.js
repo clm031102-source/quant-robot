@@ -3202,6 +3202,7 @@ function beginnerSmallCapitalGateRows(brief = {}) {
   const boundary = brief.execution_boundary || {};
   const blockers = Array.isArray(brief.blockers) ? brief.blockers : [];
   const tickets = Array.isArray(brief.manual_ticket_preview) ? brief.manual_ticket_preview : [];
+  const specRows = smallCapitalGateSpecRows(brief);
   const paperReceipts = executionReceiptsForWorkflow("paper_simulation");
   const journalReceipts = executionReceiptsForWorkflow("post_close_journal");
   const latestPaper = paperReceipts[0] || latestExecutionReceipt("paper_simulation");
@@ -3215,7 +3216,17 @@ function beginnerSmallCapitalGateRows(brief = {}) {
     boundary.order_placement_allowed ||
     boundary.broker_connection_allowed
   );
-  const gates = [
+  const gateContext = {
+    paperReceipts,
+    journalReceipts,
+    observedDrawdown,
+    guardEvents,
+    fillCount,
+    tickets,
+    blockers,
+    boundaryUnlocked,
+  };
+  const gates = specRows.length ? specRows.map((row) => smallCapitalGateFromSpec(row, gateContext)) : [
     {
       label: "模拟盘观察次数",
       current: paperReceipts.length,
@@ -3284,10 +3295,10 @@ function beginnerSmallCapitalGateRows(brief = {}) {
   return gates.map((gate) => {
     const currentText = gate.valueType === "percent"
       ? formatPercent(gate.current)
-      : gate.current == null ? "--" : formatNumber(gate.current);
+      : gate.valueType === "boolean" ? (gate.current ? "是" : "否") : gate.current == null ? "--" : formatNumber(gate.current);
     const requiredText = gate.valueType === "percent"
       ? `${gate.comparator || ">="}${formatPercent(gate.required)}`
-      : `${gate.comparator || ">="}${formatNumber(gate.required)}`;
+      : gate.valueType === "boolean" ? `${gate.comparator || "="}${gate.required ? "是" : "否"}` : `${gate.comparator || ">="}${formatNumber(gate.required)}`;
     return {
       label: gate.label,
       value: `${currentText} / 要求${requiredText}`,
@@ -3299,6 +3310,59 @@ function beginnerSmallCapitalGateRows(brief = {}) {
       tone: gate.pass ? "ok" : "warn",
     };
   });
+}
+
+function smallCapitalGateSpecRows(brief = {}) {
+  const gate = brief.small_capital_observation_gate || {};
+  return Array.isArray(gate.gate_rows) ? gate.gate_rows : [];
+}
+
+function smallCapitalGateFromSpec(row = {}, context = {}) {
+  const gateId = row.gate_id || "";
+  const required = row.required_value;
+  const comparator = row.comparator || ">=";
+  const base = {
+    label: row.label || gateId || "小资金观察门槛",
+    required,
+    comparator,
+    detail: row.plain_requirement || "按小资金观察闸门补齐证据。",
+    target: row.gui_target || "beginner-live-handoff-board",
+    workflow: row.workflow_id || "",
+    valueType: gateId === "latest_paper_drawdown" ? "percent" : typeof required === "boolean" ? "boolean" : "",
+  };
+  if (gateId === "paper_simulation_receipts") {
+    const current = context.paperReceipts?.length ?? 0;
+    return { ...base, current, pass: current >= Number(required || 0) };
+  }
+  if (gateId === "post_close_journal_receipts") {
+    const current = context.journalReceipts?.length ?? 0;
+    return { ...base, current, pass: current >= Number(required || 0) };
+  }
+  if (gateId === "latest_paper_drawdown") {
+    const current = context.observedDrawdown;
+    return { ...base, current: Number.isFinite(current) ? current : null, pass: Number.isFinite(current) && current <= Number(required) };
+  }
+  if (gateId === "latest_paper_guard_events") {
+    const current = context.guardEvents;
+    return { ...base, current: Number.isFinite(current) ? current : null, pass: Number.isFinite(current) && current === Number(required || 0) };
+  }
+  if (gateId === "latest_paper_fills") {
+    const current = context.fillCount;
+    return { ...base, current: Number.isFinite(current) ? current : null, pass: Number.isFinite(current) && current >= Number(required || 0) };
+  }
+  if (gateId === "manual_ticket_and_red_light") {
+    const current = context.tickets?.length ?? 0;
+    return { ...base, current, pass: current > 0 && (context.blockers?.length ?? 0) === 0 };
+  }
+  if (gateId === "research_only_safety_boundary") {
+    const current = Boolean(context.boundaryUnlocked);
+    return { ...base, current, pass: !current, valueType: "boolean" };
+  }
+  return {
+    ...base,
+    current: null,
+    pass: row.status === "ready" || row.status === "locked",
+  };
 }
 
 function beginnerTradeSystemEvidenceRows(trade = {}, paperReceipt = null) {

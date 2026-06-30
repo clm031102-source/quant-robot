@@ -24,6 +24,7 @@ BEGINNER_ACTION_SUMMARY_STAGE = "phase_6_8_beginner_action_summary"
 LIVE_READINESS_GATE_STAGE = "phase_6_9_daily_live_readiness_gate"
 BEGINNER_TRADE_ACTION_CARD_STAGE = "phase_6_10_beginner_trade_action_card"
 DAILY_LIVE_PILOT_BRIEF_STAGE = "phase_6_11_daily_live_pilot_brief"
+SMALL_CAPITAL_OBSERVATION_GATE_STAGE = "phase_6_12_small_capital_observation_gate"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 DEFAULT_RISK_PROFILE_ID = "balanced_20dd"
@@ -187,6 +188,7 @@ def build_daily_trade_advisory_pack(
     pack["beginner_action_summary"] = build_beginner_action_summary(pack)
     pack["daily_live_readiness_gate"] = build_daily_live_readiness_gate(pack)
     pack["beginner_trade_action_card"] = build_beginner_trade_action_card(pack)
+    pack["small_capital_observation_gate"] = build_small_capital_observation_gate(pack)
     pack["daily_live_pilot_brief"] = build_daily_live_pilot_brief(pack)
     pack["summary"]["live_transition_status"] = pack["live_transition_plan"]["summary"]["status"]
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
@@ -1311,11 +1313,171 @@ def build_beginner_trade_action_card(pack: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def build_small_capital_observation_gate(pack: dict[str, Any]) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
+    handoff = pack.get("manual_broker_handoff") if isinstance(pack.get("manual_broker_handoff"), dict) else {}
+    factors = [row for row in pack.get("factors", []) if isinstance(row, dict)]
+    manual_plan = [row for row in pack.get("manual_trade_plan", []) if isinstance(row, dict)]
+    blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
+    selected_count = _int(summary.get("selected_factor_count"), len(factors))
+    signal_count = _int(summary.get("signal_count"), 0)
+    ticket_count = _int(summary.get("manual_ticket_count"), len(manual_plan))
+    risk_profile_id = str(summary.get("risk_profile_id") or "custom_current_parameters")
+    selected_profile = _risk_profile_by_id(risk_profile_id) or {}
+    max_drawdown = _float(
+        selected_profile.get("max_acceptable_drawdown"),
+        0.30 if risk_profile_id == "aggressive_30dd" else 0.20,
+    )
+    has_daily_material = selected_count > 0 and signal_count > 0 and ticket_count > 0
+    if blockers:
+        decision = "blocked_by_pretrade_red_light"
+        plain_answer = "小资金观察不能打开：盘前红灯阻断还没有处理。"
+        primary_action = "先处理红灯阻断，再重新生成今日建议。"
+    elif not has_daily_material:
+        decision = "waiting_for_daily_material"
+        plain_answer = "小资金观察不能打开：还缺今日前三信号或人工票据。"
+        primary_action = "先生成今日前三 CN_ETF 因子信号和人工复核票据。"
+    else:
+        decision = "evidence_required"
+        plain_answer = "小资金观察还不能打开：必须先积累模拟盘、盘后复盘和风险证据。"
+        primary_action = "先连续完成模拟盘、盘后复盘、回撤和保护事件检查。"
+
+    def row(
+        gate_id: str,
+        label: str,
+        requirement_type: str,
+        required_value: float | int | bool,
+        comparator: str,
+        plain_requirement: str,
+        gui_target: str,
+        workflow_id: str = "",
+        status: str = "evidence_required",
+    ) -> dict[str, Any]:
+        return {
+            "gate_id": gate_id,
+            "label": label,
+            "status": status,
+            "requirement_type": requirement_type,
+            "required_value": required_value,
+            "comparator": comparator,
+            "plain_requirement": plain_requirement,
+            "gui_target": gui_target,
+            "workflow_id": workflow_id,
+            "automation_allowed": False,
+            "live_order_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+        }
+
+    gate_rows = [
+        row(
+            "paper_simulation_receipts",
+            "模拟盘观察次数",
+            "local_execution_receipt_count",
+            5,
+            ">=",
+            "至少 5 次模拟盘回执，避免把单日表现当成规律。",
+            "paper-metrics",
+            "paper_simulation",
+        ),
+        row(
+            "post_close_journal_receipts",
+            "盘后复盘次数",
+            "local_execution_receipt_count",
+            5,
+            ">=",
+            "至少 5 次盘后复盘回执，记录执行、跳过、偏差和次日要验证的风险。",
+            "beginner-post-close-journal-board",
+            "post_close_journal",
+        ),
+        row(
+            "latest_paper_drawdown",
+            "最大回撤预算",
+            "latest_paper_metric",
+            max_drawdown,
+            "<=",
+            "最新模拟盘最大回撤必须低于当前风险档位；收益高也不能绕过回撤预算。",
+            "paper-metrics",
+        ),
+        row(
+            "latest_paper_guard_events",
+            "保护事件",
+            "latest_paper_metric",
+            0,
+            "=",
+            "最新模拟盘不能触发风控保护事件；触发过就先复盘原因。",
+            "paper-metrics",
+        ),
+        row(
+            "latest_paper_fills",
+            "成交样本",
+            "latest_paper_metric",
+            1,
+            ">=",
+            "最新模拟盘至少产生一次成交；空跑不能作为小资金观察证据。",
+            "paper-metrics",
+        ),
+        row(
+            "manual_ticket_and_red_light",
+            "人工票据和红灯",
+            "daily_pretrade_gate",
+            1,
+            ">=",
+            "今日必须有人工票据，且盘前红灯阻断为 0。",
+            "daily-manual-broker-handoff-ticket-table",
+            status="ready" if ticket_count > 0 and not blockers else "blocked" if blockers else "waiting",
+        ),
+        row(
+            "research_only_safety_boundary",
+            "权限边界",
+            "safety_boundary",
+            False,
+            "=",
+            "系统必须保持无券商、无账户、无下单权限；真实买卖只能人工决定。",
+            "control-safety-boundary",
+            status="locked",
+        ),
+    ]
+    return _sanitize(
+        {
+            "stage": SMALL_CAPITAL_OBSERVATION_GATE_STAGE,
+            "run_date": pack.get("run_date", date.today().isoformat()),
+            "summary": {
+                "decision": decision,
+                "plain_answer": plain_answer,
+                "primary_action": primary_action,
+                "minimum_paper_simulation_receipts": 5,
+                "minimum_post_close_journal_receipts": 5,
+                "max_acceptable_drawdown": max_drawdown,
+                "requires_zero_guard_events": True,
+                "requires_filled_paper_trade": True,
+                "manual_ticket_count": ticket_count,
+                "handoff_status": handoff.get("status"),
+                "traffic_light": readiness.get("traffic_light") or "unknown",
+                "blockers": blockers,
+                "live_order_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+            },
+            "gate_rows": gate_rows,
+            "safety": SAFETY_NOTICE,
+        }
+    )
+
+
 def build_daily_live_pilot_brief(pack: dict[str, Any]) -> dict[str, Any]:
     summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
     readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
     handoff = pack.get("manual_broker_handoff") if isinstance(pack.get("manual_broker_handoff"), dict) else {}
     live_gate = pack.get("daily_live_readiness_gate") if isinstance(pack.get("daily_live_readiness_gate"), dict) else {}
+    small_capital_gate = (
+        pack.get("small_capital_observation_gate")
+        if isinstance(pack.get("small_capital_observation_gate"), dict)
+        else build_small_capital_observation_gate(pack)
+    )
     gate_summary = live_gate.get("summary") if isinstance(live_gate.get("summary"), dict) else {}
     factors = [row for row in pack.get("factors", []) if isinstance(row, dict)]
     manual_plan = [row for row in pack.get("manual_trade_plan", []) if isinstance(row, dict)]
@@ -1491,6 +1653,7 @@ def build_daily_live_pilot_brief(pack: dict[str, Any]) -> dict[str, Any]:
                 "auto_order_allowed": False,
                 "manual_ticket_export_only": True,
             },
+            "small_capital_observation_gate": small_capital_gate,
             "blockers": blockers,
             "safety": SAFETY_NOTICE,
         }
