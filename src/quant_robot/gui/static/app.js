@@ -6031,7 +6031,39 @@ function renderDailyPaperReceiptStatusRows(status = {}) {
     ],
     ["实盘边界", "这里只给人工复核证据；不连接券商、不读账户、不自动下单。", "danger"],
   ];
-  return statusRows(rows);
+  return statusRows(rows) + renderDailyPaperManualReviewRows(status);
+}
+
+function renderDailyPaperManualReviewRows(status = {}) {
+  const row = dailyPaperManualReviewRow(status);
+  return `
+    <div class="list-row ${escapeHtml(row.tone)}">
+      <strong>${escapeHtml(row.label)}</strong>
+      <span>${escapeHtml(row.detail)}</span>
+      <span class="beginner-task-actions">
+        ${row.target_id ? `<button class="primary-button" type="button" data-beginner-target="${escapeRawHtml(row.target_id)}">${escapeHtml(row.button_label)}</button>` : ""}
+      </span>
+    </div>
+  `;
+}
+
+function dailyPaperManualReviewRow(status = {}) {
+  if (status.matches) {
+    return {
+      tone: "ok",
+      label: "下一步：查看人工复核票据",
+      detail: "同参数模拟盘回执已匹配；继续核对 ETF、数量、参考价、现金和风险，系统仍不会下单。",
+      button_label: "查看人工复核票据",
+      target_id: "daily-manual-broker-handoff-ticket-table",
+    };
+  }
+  return {
+    tone: "warn",
+    label: "下一步：先补同参数模拟盘",
+    detail: "模拟盘回执缺失或参数不一致时，不要进入人工票据复核。",
+    button_label: "",
+    target_id: "",
+  };
 }
 
 function paperReceiptMatchesRequest(receipt = {}, request = {}) {
