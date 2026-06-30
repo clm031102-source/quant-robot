@@ -163,6 +163,7 @@ def build_daily_trade_advisory_pack(
             "risk_profile_label": selected_profile.get("label") if selected_profile else "自定义参数",
             "requested_max_gross_exposure": max_gross_exposure,
             "applied_max_gross_exposure": applied_max_gross_exposure,
+            "portfolio_value": portfolio_value,
             "live_trading_allowed": False,
             "broker_connection_allowed": False,
             "account_read_allowed": False,
@@ -2732,6 +2733,12 @@ def build_daily_signal_execution_bridge(pack: dict[str, Any]) -> dict[str, Any]:
             "daily-manual-broker-handoff-ticket-table",
         ),
     ]
+    paper_simulation_handoff = _build_signal_execution_paper_handoff(
+        factors=factors,
+        market=market,
+        portfolio_value=_float(summary.get("requested_portfolio_value"), _float(summary.get("portfolio_value"), 100000.0)),
+        summary=summary,
+    )
 
     return _sanitize(
         {
@@ -2774,10 +2781,93 @@ def build_daily_signal_execution_bridge(pack: dict[str, Any]) -> dict[str, Any]:
                 _signal_execution_rule("copy_text_not_order", "可复制文本只是复核材料，不是委托单。"),
                 _signal_execution_rule("post_close_feedback_required", "无论执行或跳过，都要写盘后回执反馈到下一轮审计。"),
             ],
+            "paper_simulation_handoff": paper_simulation_handoff,
             "deployment_gates": deployment_gates,
             "daily_operating_steps": daily_steps,
         }
     )
+
+
+def _build_signal_execution_paper_handoff(
+    *,
+    factors: list[dict[str, Any]],
+    market: str,
+    portfolio_value: float,
+    summary: dict[str, Any],
+) -> dict[str, Any]:
+    primary = factors[0] if factors else {}
+    params = primary.get("params") if isinstance(primary.get("params"), dict) else {}
+    factor_name = str(primary.get("factor_name") or primary.get("factor") or "momentum_2")
+    factor_windows = _paper_factor_windows(params.get("factor_windows") or primary.get("factor_windows"), factor_name)
+    cost_bps = _float(params.get("cost_bps"), _float(params.get("commission_bps"), 5.0))
+    top_n = _int(params.get("top_n") or params.get("topN"), 2)
+    rebalance_interval = _int(params.get("rebalance_interval") or params.get("holding_period"), 1)
+    max_asset_weight = _float(summary.get("max_asset_weight"), 0.4)
+    max_market_weight = _float(summary.get("max_market_weight"), 1.0)
+    max_gross_exposure = _float(summary.get("applied_max_gross_exposure"), _float(summary.get("requested_max_gross_exposure"), 1.0))
+    min_cash_weight = _float(summary.get("min_cash_weight"), max(0.0, 1.0 - max_gross_exposure))
+    request = {
+        "source": "processed-bars",
+        "market": market,
+        "factor": factor_name,
+        "factor_windows": factor_windows,
+        "top_n": top_n,
+        "rebalance_interval": rebalance_interval,
+        "initial_cash": portfolio_value,
+        "commission_bps": cost_bps,
+        "slippage_bps": cost_bps,
+        "max_asset_weight": max_asset_weight,
+        "max_market_weight": max_market_weight,
+        "max_gross_exposure": max_gross_exposure,
+        "min_cash_weight": min_cash_weight,
+    }
+    return {
+        "stage": "daily_signal_paper_simulation_handoff",
+        "summary": {
+            "status": "ready" if factors else "waiting_for_candidate",
+            "default_factor_name": factor_name,
+            "candidate_count": len(factors),
+            "multi_factor_combo_supported": False,
+            "uses_rank_1_candidate_by_default": True,
+            "manual_review_required": True,
+            "paper_simulation_required": True,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        },
+        "recommended_request": request,
+        "candidate_params": [
+            {
+                "rank": _int(row.get("rank"), index),
+                "factor": str(row.get("factor_name") or row.get("factor") or ""),
+                "case_id": row.get("case_id"),
+                "factor_windows": _paper_factor_windows(
+                    (row.get("params") if isinstance(row.get("params"), dict) else {}).get("factor_windows")
+                    or row.get("factor_windows"),
+                    str(row.get("factor_name") or row.get("factor") or ""),
+                ),
+                "top_n": _int((row.get("params") if isinstance(row.get("params"), dict) else {}).get("top_n"), top_n),
+                "cost_bps": _float((row.get("params") if isinstance(row.get("params"), dict) else {}).get("cost_bps"), cost_bps),
+            }
+            for index, row in enumerate(factors[:3], start=1)
+        ],
+        "plain_warning": "当前模拟盘接口按单因子运行；默认把排名第一候选填入模拟盘表单，前三候选仍需分别复核，不代表三因子组合已经可实盘。",
+    }
+
+
+def _paper_factor_windows(value: Any, factor_name: str) -> str:
+    if isinstance(value, (list, tuple, set)):
+        windows = [_int(item, 0) for item in value]
+    else:
+        text = str(value or "").strip().replace("[", "").replace("]", "")
+        windows = [_int(item.strip(), 0) for item in text.split(",") if item.strip()]
+    cleaned = [item for item in windows if item > 0]
+    if cleaned:
+        return ",".join(str(item) for item in sorted(set(cleaned)))
+    suffix = str(factor_name or "").rsplit("_", 1)[-1]
+    fallback = _int(suffix, 20)
+    return str(fallback if fallback > 0 else 20)
 
 
 def _signal_execution_step(

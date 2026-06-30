@@ -418,6 +418,12 @@ function bindActions() {
     applyLeaderboardRowToForms(leaderboardRowFromButton(button));
   });
   document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-daily-paper-handoff-apply]");
+    if (!button) return;
+    event.preventDefault();
+    applyDailyPaperHandoffToForm(dailyPaperHandoffFromButton(button));
+  });
+  document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-beginner-parameter-jump]");
     if (!button) return;
     event.preventDefault();
@@ -5335,6 +5341,35 @@ function applyLeaderboardRowToForms(row = {}) {
   jumpToBeginnerTarget("beginner-parameter-explainer", state.leaderboardTab);
 }
 
+function dailyPaperHandoffFromButton(button) {
+  try {
+    return JSON.parse(decodeURIComponent(button?.dataset?.dailyPaperHandoffApply || "{}"));
+  } catch (_error) {
+    return {};
+  }
+}
+
+function applyDailyPaperHandoffToForm(request = {}) {
+  markManualFormOverride("daily_paper_handoff");
+  if (request.market) setValue("paper-market-select", String(request.market));
+  if (request.factor) setFactorValue("paper-factor-select", String(request.factor));
+  if (request.factor_windows) setValue("factor-windows", leaderboardInputValue(request.factor_windows));
+  if (request.top_n != null) setValue("paper-top-n", leaderboardInputValue(request.top_n));
+  if (request.rebalance_interval != null) setValue("rebalance-interval", leaderboardInputValue(request.rebalance_interval));
+  if (request.initial_cash != null) setValue("paper-initial-cash", leaderboardInputValue(request.initial_cash));
+  if (request.commission_bps != null) setValue("paper-commission-bps", leaderboardInputValue(request.commission_bps));
+  if (request.slippage_bps != null) setValue("paper-slippage-bps", leaderboardInputValue(request.slippage_bps));
+  if (request.max_asset_weight != null) setValue("paper-max-asset-weight", leaderboardInputValue(request.max_asset_weight));
+  if (request.max_market_weight != null) setValue("paper-max-market-weight", leaderboardInputValue(request.max_market_weight));
+  if (request.max_gross_exposure != null) setValue("paper-max-gross-exposure", leaderboardInputValue(request.max_gross_exposure));
+  if (request.min_cash_weight != null) setValue("paper-min-cash-weight", leaderboardInputValue(request.min_cash_weight));
+  renderRequestPreview();
+  renderControlCenter();
+  showToast(`已填入模拟盘参数：${request.factor || "当前因子"}`);
+  activatePage("paper", true);
+  jumpToBeginnerTarget("paper-metrics");
+}
+
 function renderFactorLeaderboardTable(rows) {
   if (!rows.length) {
     const board = getActiveLeaderboard();
@@ -5848,9 +5883,10 @@ function renderDailyTradeDecisionSheet(sheet = {}) {
 
 function renderDailySignalExecutionBridge(bridge = {}) {
   const summaryTarget = byId("daily-signal-execution-summary");
+  const paperTarget = byId("daily-signal-execution-paper");
   const stepsTarget = byId("daily-signal-execution-steps");
   const gatesTarget = byId("daily-signal-execution-gates");
-  if (!summaryTarget || !stepsTarget || !gatesTarget) return;
+  if (!summaryTarget || !paperTarget || !stepsTarget || !gatesTarget) return;
   const summary = bridge.summary || {};
   const status = summary.status || "waiting_for_candidate_pool";
   const statusTone = status.includes("blocked") ? "danger" : status.includes("ready") ? "warn" : "warn";
@@ -5874,6 +5910,24 @@ function renderDailySignalExecutionBridge(bridge = {}) {
       <span class="beginner-task-actions">${workflowButton}${nextButton}</span>
     </div>
   `;
+  const handoff = bridge.paper_simulation_handoff || {};
+  const handoffSummary = handoff.summary || {};
+  const paperRequest = handoff.recommended_request || {};
+  const handoffPayload = encodeURIComponent(JSON.stringify(paperRequest));
+  paperTarget.innerHTML = Object.keys(paperRequest).length ? statusRows([
+    ["模拟盘交接", `${handoffSummary.default_factor_name || paperRequest.factor || "--"} / 窗口=${paperRequest.factor_windows || "--"} / TopN=${formatNumber(paperRequest.top_n || 0)}`, handoffSummary.status === "ready" ? "warn" : "danger"],
+    ["同参数请求", `资金=${formatNumber(paperRequest.initial_cash)} / 成本=${formatNumber(paperRequest.commission_bps)}bps+${formatNumber(paperRequest.slippage_bps)}bps / 调仓=${formatNumber(paperRequest.rebalance_interval)}`, "warn"],
+    ["接口边界", handoff.plain_warning || "模拟盘参数只用于本地回放，不是订单。", "danger"],
+  ]) + `
+    <div class="list-row warn">
+      <strong>${escapeHtml("填入模拟盘表单")}</strong>
+      <span>${escapeHtml("把排名第一候选参数填到纸面模拟页，运行前仍会弹出安全确认。")}</span>
+      <span class="beginner-task-actions">
+        <button class="primary-button" type="button" data-daily-paper-handoff-apply="${escapeRawHtml(handoffPayload)}">${escapeHtml("填入模拟盘参数")}</button>
+        <button class="secondary-button" type="button" data-beginner-target="paper-metrics">${escapeHtml("看模拟盘")}</button>
+      </span>
+    </div>
+  ` : statusRows([["模拟盘交接", "等待每日前三候选生成后，显示同参数模拟盘请求。", "warn"]]);
   const steps = Array.isArray(bridge.daily_operating_steps) ? bridge.daily_operating_steps : [];
   stepsTarget.innerHTML = steps.length ? steps.map((item) => `
     <div class="list-row ${escapeHtml(dailyTradeSystemStageTone(item.status || ""))}">
