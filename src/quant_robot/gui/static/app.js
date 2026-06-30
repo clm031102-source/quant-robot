@@ -4232,13 +4232,14 @@ function renderOrdinaryHome() {
   const topPrimary = primaryRows[0] || null;
   const project = state.projectStatus || {};
   const paperMetrics = state.paper?.metrics || {};
+  const liveGateRows = ordinaryLiveGateActionRows();
   metricsNode.innerHTML = [
     metric("当前主线", summary.primary_market || "CN_ETF", "默认只看 ETF 轮动"),
     metric("主线候选", summary.primary_market_deduped_candidate_rows ?? "--", "CN_ETF 去重参数组合"),
     metric("全部候选", summary.deduped_candidate_rows ?? "--", "所有市场历史去重"),
     metric("模拟权益", formatNumber(paperMetrics.ending_equity), "本地 paper 结果"),
   ].join("");
-  actionNode.innerHTML = statusRows([
+  actionNode.innerHTML = liveGateRows + statusRows([
     ["现在该看", primaryRows.length ? "CN_ETF 主线榜 Top20" : "先补 CN_ETF 主线候选", primaryRows.length ? "ok" : "warn"],
     ["最靠前候选", topPrimary ? `${topPrimary.factor_name || "--"} / ${topPrimary.promotion_label || "--"}` : "暂无主线候选", topPrimary ? "ok" : "warn"],
     ["项目状态", project.overall_status || "加载中", project.blocker_count ? "warn" : "ok"],
@@ -4248,6 +4249,39 @@ function renderOrdinaryHome() {
     ["推广口径", "只有通过长周期、OOS、滚动、成本和风险审计的主线候选，才可能进入模拟盘观察。", "warn"],
     ["安全边界", "本软件当前只做研究和本地模拟盘，不连接券商、不读取账户、不真实下单。", "danger"],
   ]);
+}
+
+function ordinaryLiveGateActionRows() {
+  const decision = dailyLiveGateDecision();
+  if (!decision) {
+    return statusRows([
+      ["今日总闸门", "等待今日建议加载；先看 CN_ETF 主线和安全边界。", "warn"],
+    ]);
+  }
+  const targetId = decision.target_id || "daily-live-readiness-gate";
+  const actionButton = decision.action_workflow ? `
+    <button
+      class="primary-button"
+      type="button"
+      data-ordinary-live-gate-action="${escapeRawHtml(decision.action_workflow)}"
+      data-beginner-action="${escapeRawHtml(decision.action_workflow)}"
+    >${escapeHtml(decision.cta_label || "运行这一步")}</button>
+  ` : "";
+  const targetButton = `
+    <button
+      class="${escapeHtml(actionButton ? "secondary-button" : "primary-button")}"
+      type="button"
+      data-ordinary-live-gate-target="${escapeRawHtml(targetId)}"
+      data-beginner-target="${escapeRawHtml(targetId)}"
+    >${escapeHtml(actionButton ? "看证据" : decision.cta_label || "看证据")}</button>
+  `;
+  return `
+    <div class="list-row ${escapeHtml(decision.tone || "warn")}">
+      <strong>${escapeHtml("今日总闸门")}</strong>
+      <span>${escapeHtml(`${decision.title || "等待判断"} / ${decision.reason || ""}`)}</span>
+      <span class="beginner-task-actions">${actionButton}${targetButton}</span>
+    </div>
+  `;
 }
 
 function renderFactorLeaderboard() {
