@@ -470,19 +470,28 @@ button {
   background: #f7fcfa;
 }
 
-.beginner-trade-system-layout {
+.beginner-daily-rehearsal-board {
+  border-left: 4px solid #3f6f94;
+  background: #f6fbff;
+}
+
+.beginner-trade-system-layout,
+.beginner-daily-rehearsal-layout {
   display: grid;
   grid-template-columns: minmax(230px, 0.9fr) minmax(300px, 1.2fr) minmax(260px, 1fr);
   gap: 12px;
   align-items: stretch;
 }
 
-.beginner-trade-system-layout .list-row {
+.beginner-trade-system-layout .list-row,
+.beginner-daily-rehearsal-layout .list-row {
   align-items: center;
 }
 
 .beginner-trade-system-layout .list-row strong,
-.beginner-trade-system-layout .list-row span {
+.beginner-trade-system-layout .list-row span,
+.beginner-daily-rehearsal-layout .list-row strong,
+.beginner-daily-rehearsal-layout .list-row span {
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -2300,6 +2309,7 @@ th {
   .ordinary-home-grid,
   .beginner-verdict-board,
   .beginner-trade-system-layout,
+  .beginner-daily-rehearsal-layout,
   .beginner-live-handoff-layout,
   .beginner-task-layout,
   .beginner-guide-layout,
@@ -2371,6 +2381,7 @@ th {
   .ordinary-home-grid,
   .beginner-verdict-board,
   .beginner-trade-system-layout,
+  .beginner-daily-rehearsal-layout,
   .beginner-live-handoff-layout,
   .beginner-task-layout,
   .beginner-guide-layout,

@@ -216,6 +216,9 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
             self.assertTrue((output_dir / "daily_trade_advisory_targets.csv").exists())
             payload = json.loads((output_dir / "daily_trade_advisory_pack.json").read_text(encoding="utf-8"))
             self.assertEqual(payload["stage"], "phase_6_0_daily_trade_advisory")
+            markdown = (output_dir / "daily_trade_advisory_pack.md").read_text(encoding="utf-8")
+            self.assertIn("每日交易演练", markdown)
+            self.assertIn("收盘后复盘记录", markdown)
 
     def test_builds_beginner_pretrade_workflow_from_daily_advisory(self):
         pack = build_daily_trade_advisory_pack(
@@ -289,6 +292,53 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("manual_broker_handoff", system["operator_workflow"]["evidence_chain"])
         self.assertTrue(system["operator_workflow"]["paper_simulation_required"])
         self.assertEqual(system["go_live_decision"]["status"], "manual_review_only")
+
+    def test_daily_pack_exposes_beginner_daily_rehearsal_daybook(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF", "sharpe": 1.2},
+                {"rank": 2, "case_id": "c2", "factor_name": "reversal_2", "market": "CN_ETF", "sharpe": 0.8},
+                {"rank": 3, "case_id": "c3", "factor_name": "volatility_2", "market": "CN_ETF", "sharpe": 0.7},
+            ],
+            [
+                _signal("c1", "momentum_2", {"510300": 0.4}),
+                _signal("c2", "reversal_2", {"588000": 0.3}),
+                _signal("c3", "volatility_2", {"159915": 0.2}),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+        )
+
+        daybook = pack["daily_rehearsal_daybook"]
+
+        self.assertEqual(daybook["stage"], "phase_6_5_daily_rehearsal_daybook")
+        self.assertEqual(daybook["run_date"], "2026-06-29")
+        self.assertEqual(daybook["summary"]["primary_market"], "CN_ETF")
+        self.assertEqual(daybook["summary"]["phase_count"], 6)
+        self.assertEqual(daybook["summary"]["current_phase_id"], "paper_simulation_review")
+        self.assertTrue(daybook["summary"]["paper_simulation_required"])
+        self.assertTrue(daybook["summary"]["post_close_review_required"])
+        self.assertFalse(daybook["summary"]["live_order_allowed"])
+        self.assertFalse(daybook["summary"]["broker_connection_allowed"])
+        self.assertFalse(daybook["summary"]["order_placement_allowed"])
+        self.assertEqual(
+            [phase["phase_id"] for phase in daybook["phases"]],
+            [
+                "scope_and_data",
+                "top3_signal_generation",
+                "paper_simulation_review",
+                "risk_cash_review",
+                "manual_broker_review",
+                "post_close_journal",
+            ],
+        )
+        self.assertEqual(daybook["phases"][0]["status"], "done")
+        self.assertEqual(daybook["phases"][1]["status"], "done")
+        self.assertEqual(daybook["phases"][2]["status"], "required")
+        self.assertEqual(daybook["phases"][-1]["status"], "required")
+        self.assertIn("收盘后", daybook["phases"][-1]["plain_action"])
+        self.assertTrue(all(not phase["automation_allowed"] for phase in daybook["phases"]))
+        self.assertIn("不自动下单", daybook["safety"])
 
 
 def _signal(

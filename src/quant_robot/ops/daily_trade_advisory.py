@@ -15,6 +15,7 @@ PRETRADE_WORKFLOW_STAGE = "phase_6_1_daily_pretrade_workflow"
 PRETRADE_READINESS_STAGE = "phase_6_2_manual_pretrade_readiness"
 MANUAL_BROKER_HANDOFF_STAGE = "phase_6_3_manual_broker_handoff"
 TRADE_SYSTEM_STAGE = "phase_6_4_manual_trade_system_protocol"
+DAILY_REHEARSAL_STAGE = "phase_6_5_daily_rehearsal_daybook"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 
@@ -112,6 +113,7 @@ def build_daily_trade_advisory_pack(
     )
     pack["pretrade_workflow"] = build_daily_pretrade_workflow(pack)
     pack["trade_system"] = build_manual_trade_system_protocol(pack)
+    pack["daily_rehearsal_daybook"] = build_daily_rehearsal_daybook(pack)
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
 
@@ -304,6 +306,124 @@ def build_manual_trade_system_protocol(pack: dict[str, Any]) -> dict[str, Any]:
                     else "Fix red-light blockers before considering any manual broker review."
                 ),
             },
+        }
+    )
+
+
+def build_daily_rehearsal_daybook(pack: dict[str, Any]) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
+    freshness = readiness.get("freshness") if isinstance(readiness.get("freshness"), dict) else {}
+    handoff = pack.get("manual_broker_handoff") if isinstance(pack.get("manual_broker_handoff"), dict) else {}
+    factors = [row for row in pack.get("factors", []) if isinstance(row, dict)]
+    signal_cards = [row for row in pack.get("signal_cards", []) if isinstance(row, dict)]
+    targets = [row for row in pack.get("combined_targets", []) if isinstance(row, dict)]
+    tickets = [row for row in handoff.get("copyable_tickets", []) if isinstance(row, dict)]
+    blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
+    market = str(pack.get("market") or _first_market(factors) or "CN_ETF").upper()
+    run_date = str(pack.get("run_date") or date.today().isoformat())
+    signal_fresh = freshness.get("fresh_for_run_date") is True
+    selected_count = _int(summary.get("selected_factor_count"), len(factors))
+    signal_count = _int(summary.get("signal_count"), 0)
+    target_count = _int(summary.get("combined_target_count"), len(targets))
+    manual_candidate = bool(readiness.get("manual_action_candidate"))
+    scope_done = market == "CN_ETF"
+    signal_done = scope_done and signal_fresh and selected_count > 0 and signal_count > 0 and target_count > 0
+    paper_status = "required" if signal_done else "waiting"
+    risk_status = "required" if manual_candidate else ("blocked" if blockers else "waiting")
+    manual_status = "manual_only" if tickets else ("blocked" if blockers else "waiting")
+    post_close_status = "required" if signal_count > 0 else "waiting"
+    phases = [
+        {
+            "phase_number": 1,
+            "phase_id": "scope_and_data",
+            "title": "确认主线和数据日期",
+            "status": "done" if scope_done and signal_fresh else ("blocked" if not scope_done or blockers else "waiting"),
+            "plain_action": f"只看 {market} 主线；确认运行日期和信号日期一致，不能拿 CN 个股择股结果直接当 ETF 轮动依据。",
+            "evidence": f"market={market}; run_date={run_date}; latest_signal_date={freshness.get('latest_signal_date') or '无'}",
+            "gui_target": "recent-data-refresh-status",
+            "automation_allowed": False,
+        },
+        {
+            "phase_number": 2,
+            "phase_id": "top3_signal_generation",
+            "title": "生成前三因子和今日信号",
+            "status": "done" if signal_done else ("blocked" if blockers else "waiting"),
+            "plain_action": "从 CN_ETF 可运行候选里取前三因子，生成当天 ETF 权重和目标仓位。",
+            "evidence": f"factors={selected_count}; signals={signal_count}; targets={target_count}",
+            "gui_target": "daily-trade-factor-table",
+            "automation_allowed": False,
+        },
+        {
+            "phase_number": 3,
+            "phase_id": "paper_simulation_review",
+            "title": "本地模拟盘复核",
+            "status": paper_status,
+            "plain_action": "先跑本地模拟盘，看收益、最大回撤、成交和保护事件；单日信号不能直接当盈利结论。",
+            "evidence": "需要浏览器本地 paper_simulation 回执作为当天人工复核前证据。",
+            "gui_target": "paper-metrics",
+            "automation_allowed": False,
+        },
+        {
+            "phase_number": 4,
+            "phase_id": "risk_cash_review",
+            "title": "人工核对风险和现金",
+            "status": risk_status,
+            "plain_action": "人工核对单 ETF 上限、总仓位、现金余量、流动性和自己能承受的最大回撤。",
+            "evidence": f"traffic_light={readiness.get('traffic_light') or 'unknown'}; blockers={', '.join(blockers) or '无'}",
+            "gui_target": "daily-pretrade-readiness-verdict",
+            "automation_allowed": False,
+        },
+        {
+            "phase_number": 5,
+            "phase_id": "manual_broker_review",
+            "title": "人工券商端核对",
+            "status": manual_status,
+            "plain_action": "如果你本人决定继续，只能打开券商软件逐项人工核对 ETF、价格、数量、现金和风险；系统不自动下单。",
+            "evidence": f"copyable_tickets={len(tickets)}; handoff_status={handoff.get('status') or 'unknown'}",
+            "gui_target": "daily-manual-broker-handoff-ticket-table",
+            "automation_allowed": False,
+        },
+        {
+            "phase_number": 6,
+            "phase_id": "post_close_journal",
+            "title": "收盘后复盘记录",
+            "status": post_close_status,
+            "plain_action": "收盘后记录当天信号、模拟盘、人工决策、错过/执行原因和次日要复核的风险，不把一次结果当成长期有效。",
+            "evidence": "形成日终复盘记录后，下一轮因子审计才有真实演练反馈。",
+            "gui_target": "control-operation-ledger",
+            "automation_allowed": False,
+        },
+    ]
+    current_phase = next((phase for phase in phases if phase["status"] in {"blocked", "required", "waiting"}), phases[-1])
+    done_count = sum(1 for phase in phases if phase["status"] == "done")
+    blocked_count = sum(1 for phase in phases if phase["status"] == "blocked")
+    return _sanitize(
+        {
+            "stage": DAILY_REHEARSAL_STAGE,
+            "run_date": run_date,
+            "safety": SAFETY_NOTICE,
+            "summary": {
+                "primary_market": market,
+                "phase_count": len(phases),
+                "done_count": done_count,
+                "blocked_count": blocked_count,
+                "current_phase_id": current_phase["phase_id"],
+                "current_phase_title": current_phase["title"],
+                "paper_simulation_required": True,
+                "post_close_review_required": True,
+                "manual_review_required": True,
+                "live_order_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "operator_summary": (
+                    "红灯阻断仍在，先补齐数据或信号。"
+                    if blocked_count
+                    else f"当前来到：{current_phase['title']}。继续按演练清单做，不自动下单。"
+                ),
+            },
+            "phases": phases,
         }
     )
 
@@ -788,6 +908,15 @@ def render_daily_trade_advisory_markdown(pack: dict[str, Any]) -> str:
                 lines.append(f"- {row.get('side', 'hold')} {row.get('asset_id', '')}: target_weight={row.get('target_weight', 0)}")
     else:
         lines.append("- 无手工工单")
+    daybook = pack.get("daily_rehearsal_daybook") if isinstance(pack.get("daily_rehearsal_daybook"), dict) else {}
+    phases = [row for row in daybook.get("phases", []) if isinstance(row, dict)]
+    if phases:
+        lines.extend(["", "## 每日交易演练", ""])
+        for phase in phases:
+            lines.append(
+                f"- {phase.get('phase_number', '')}. {phase.get('title', '')}: "
+                f"{phase.get('status', '')} / {phase.get('plain_action', '')}"
+            )
     return "\n".join(lines) + "\n"
 
 

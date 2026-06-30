@@ -241,6 +241,7 @@ document.addEventListener("DOMContentLoaded", () => {
   renderFactorGlossary();
   renderBeginnerVerdict();
   renderBeginnerTradeSystem();
+  renderBeginnerDailyRehearsal();
   renderBeginnerLiveHandoff();
   renderBeginnerTaskWizard();
   renderBeginnerTroubleshooter();
@@ -465,6 +466,18 @@ function bindActions() {
     if (!button) return;
     event.preventDefault();
     jumpToBeginnerTarget(button.dataset.tradeSystemTarget || "beginner-live-handoff-board", state.leaderboardTab);
+  });
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-daily-rehearsal-action]");
+    if (!button) return;
+    event.preventDefault();
+    await runBeginnerAction(button.dataset.dailyRehearsalAction || "", button);
+  });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-daily-rehearsal-target]");
+    if (!button) return;
+    event.preventDefault();
+    jumpToBeginnerTarget(button.dataset.dailyRehearsalTarget || "beginner-daily-rehearsal-board", state.leaderboardTab);
   });
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-live-handoff-target]");
@@ -2192,6 +2205,7 @@ function renderControlCenter() {
   renderBeginnerTroubleshooter();
   renderBeginnerProgress();
   renderBeginnerTradeSystem();
+  renderBeginnerDailyRehearsal();
   renderBeginnerLiveHandoff();
   syncCurrentBacktestRuntimeGuard();
 }
@@ -2247,6 +2261,7 @@ function renderDashboard() {
   renderBeginnerGuide();
   renderBeginnerProgress();
   renderBeginnerTradeSystem();
+  renderBeginnerDailyRehearsal();
   renderBeginnerLiveHandoff();
   renderFactorBeginnerExplainer(activeFactorBoard, activeFactorBoard.rows || []);
   byId("dashboard-equity-source").textContent = state.research?.data_source || valueOf("data-source-select") || state.snapshot?.data_mode || "local";
@@ -2572,6 +2587,7 @@ function setLeaderboardTab(tab) {
   renderBeginnerTroubleshooter();
   renderBeginnerProgress();
   renderBeginnerTradeSystem();
+  renderBeginnerDailyRehearsal();
   renderBeginnerLiveHandoff();
 }
 
@@ -2854,6 +2870,181 @@ function beginnerTradeSystemActionRows(decision = {}, readiness = {}, summary = 
     tone: "danger",
   });
   return rows;
+}
+
+function renderBeginnerDailyRehearsal() {
+  const summaryTarget = byId("beginner-daily-rehearsal-summary");
+  const timelineTarget = byId("beginner-daily-rehearsal-timeline");
+  const actionsTarget = byId("beginner-daily-rehearsal-actions");
+  if (!summaryTarget || !timelineTarget || !actionsTarget) return;
+  const trade = state.dailyTradeAdvisory || {};
+  const daybook = trade.daily_rehearsal_daybook || {};
+  const summary = daybook.summary || {};
+  const phases = beginnerDailyRehearsalRows(daybook);
+  const current = phases.find((phase) => phase.current) || phases.find((phase) => phase.tone !== "ok") || phases[0] || {};
+  summaryTarget.innerHTML = statusRows([
+    ["今日阶段", current.title || summary.current_phase_title || "等待今日体检", current.tone || "warn"],
+    ["进度", `${formatNumber(phases.filter((phase) => phase.tone === "ok").length)} / ${formatNumber(phases.length || summary.phase_count || 0)}`, current.tone || "warn"],
+    ["主线市场", summary.primary_market || "CN_ETF", "ok"],
+    ["安全边界", "本地研究、模拟盘、人工复核；不自动下单。", "danger"],
+  ]);
+  timelineTarget.innerHTML = phases.map((item) => `
+    <div class="list-row ${escapeHtml(item.tone)}">
+      <strong>${escapeHtml(item.label)}</strong>
+      <span>${escapeHtml(item.title)}</span>
+      <span>${escapeHtml(item.detail)}</span>
+    </div>
+  `).join("");
+  actionsTarget.innerHTML = beginnerDailyRehearsalActionRows(phases, daybook).map((item) => `
+    <div class="list-row ${escapeHtml(item.tone)}">
+      <strong>${escapeHtml(item.label)}</strong>
+      <span>${escapeHtml(item.detail)}</span>
+      <span class="beginner-task-actions">
+        ${item.workflow ? `<button class="primary-button" type="button" data-daily-rehearsal-action="${escapeRawHtml(item.workflow)}">${escapeHtml(item.button)}</button>` : ""}
+        ${item.target ? `<button class="secondary-button" type="button" data-daily-rehearsal-target="${escapeRawHtml(item.target)}">${escapeHtml(item.targetLabel || "看证据")}</button>` : ""}
+      </span>
+    </div>
+  `).join("");
+}
+
+function beginnerDailyRehearsalRows(daybook = {}) {
+  const trade = state.dailyTradeAdvisory || {};
+  const fallbackPhases = [
+    {
+      phase_id: "scope_and_data",
+      phase_number: 1,
+      title: "确认主线和数据日期",
+      status: "waiting",
+      evidence: "等待今日交易建议加载。",
+    },
+    {
+      phase_id: "top3_signal_generation",
+      phase_number: 2,
+      title: "生成前三因子和今日信号",
+      status: "waiting",
+      evidence: "等待今日交易建议加载。",
+    },
+    {
+      phase_id: "paper_simulation_review",
+      phase_number: 3,
+      title: "本地模拟盘复核",
+      status: "required",
+      evidence: "需要本地模拟盘回执。",
+    },
+    {
+      phase_id: "risk_cash_review",
+      phase_number: 4,
+      title: "人工核对风险和现金",
+      status: "waiting",
+      evidence: "等待盘前体检结果。",
+    },
+    {
+      phase_id: "manual_broker_review",
+      phase_number: 5,
+      title: "人工券商端核对",
+      status: "waiting",
+      evidence: "系统不会自动下单。",
+    },
+    {
+      phase_id: "post_close_journal",
+      phase_number: 6,
+      title: "收盘后复盘记录",
+      status: "waiting",
+      evidence: "记录今天信号和决策质量。",
+    },
+  ];
+  const phases = Array.isArray(daybook.phases) && daybook.phases.length ? daybook.phases : fallbackPhases;
+  const summary = daybook.summary || {};
+  const paperReceipt = latestExecutionReceipt("paper_simulation");
+  const dailyReceipt = latestExecutionReceipt("daily_trade_advisory");
+  const readiness = trade.pretrade_readiness || {};
+  const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
+  const currentPhaseId = summary.current_phase_id || phases.find((phase) => phase.status !== "done")?.phase_id || "";
+  return phases.map((phase) => {
+    const phaseId = phase.phase_id || "";
+    let status = phase.status || "waiting";
+    let detail = phase.evidence || phase.plain_action || "";
+    if (phaseId === "top3_signal_generation" && dailyReceipt) {
+      detail = `${detail} / 今日建议回执=${dailyReceipt.time || "--"}`;
+    }
+    if (phaseId === "paper_simulation_review" && paperReceipt) {
+      status = "done";
+      detail = `模拟盘回执=${paperReceipt.time || "--"} / 收益=${formatPercent(paperReceipt.metrics?.total_return)} / 回撤=${formatPercent(paperReceipt.metrics?.max_drawdown)}`;
+    }
+    if (phaseId === "manual_broker_review" && blockers.length > 0) {
+      status = "blocked";
+      detail = `阻断=${blockers.join(" / ")}。红灯时不要人工补单。`;
+    }
+    return {
+      phaseId,
+      label: `${formatNumber(phase.phase_number || 0)}. ${beginnerDailyStatusText(status)}`,
+      title: phase.title || phaseId || "--",
+      detail,
+      tone: beginnerDailyStatusTone(status),
+      status,
+      current: phaseId === currentPhaseId && status !== "done",
+      target: phase.gui_target || "beginner-daily-rehearsal-board",
+    };
+  });
+}
+
+function beginnerDailyRehearsalActionRows(phases = [], daybook = {}) {
+  const firstBlocked = phases.find((phase) => phase.status === "blocked");
+  const firstRequired = phases.find((phase) => phase.status === "required");
+  const firstWaiting = phases.find((phase) => phase.status === "waiting");
+  const next = firstBlocked || firstRequired || firstWaiting || phases[phases.length - 1] || {};
+  const workflowByPhase = {
+    scope_and_data: "daily_ops",
+    top3_signal_generation: "daily_trade_advisory",
+    paper_simulation_review: "paper_simulation",
+  };
+  const buttonByWorkflow = {
+    daily_ops: "刷新日常数据",
+    daily_trade_advisory: "生成今日建议",
+    paper_simulation: "运行模拟盘",
+  };
+  const workflow = workflowByPhase[next.phaseId] || "";
+  const rows = [
+    {
+      label: "下一步",
+      detail: next.title ? `先处理：${next.title}` : "先运行开盘前一键体检生成今日流程。",
+      workflow: workflow || (next.phaseId ? "" : "daily_pretrade_checkup"),
+      target: next.target || "beginner-daily-rehearsal-board",
+      button: buttonByWorkflow[workflow] || "运行开盘前体检",
+      targetLabel: "看这一步证据",
+      tone: next.tone || "warn",
+    },
+    {
+      label: "日终复盘",
+      detail: "收盘后记录信号、模拟盘、人工决策和偏差，给下一轮因子审计提供反馈。",
+      target: "control-operation-ledger",
+      targetLabel: "看回执台账",
+      tone: "warn",
+    },
+    {
+      label: "禁止越界",
+      detail: daybook.safety || "不连接券商、不读取账户、不生成实盘委托、不自动下单。",
+      target: "control-safety-boundary",
+      targetLabel: "看安全边界",
+      tone: "danger",
+    },
+  ];
+  return rows;
+}
+
+function beginnerDailyStatusText(status = "") {
+  if (status === "done") return "已完成";
+  if (status === "blocked") return "阻断";
+  if (status === "required") return "必做";
+  if (status === "manual_only") return "人工";
+  return "等待";
+}
+
+function beginnerDailyStatusTone(status = "") {
+  if (status === "done") return "ok";
+  if (status === "blocked") return "danger";
+  if (status === "manual_only" || status === "required") return "warn";
+  return "muted";
 }
 
 function beginnerRecommendedTaskId() {
@@ -4275,6 +4466,7 @@ function renderPaper() {
   renderDailyReadinessCard();
   renderDailyEvidenceChain();
   renderBeginnerTradeSystem();
+  renderBeginnerDailyRehearsal();
   renderBeginnerLiveHandoff();
 }
 
@@ -4311,6 +4503,7 @@ function renderDailyTradeAdvisory() {
   renderDailyReadinessCard();
   renderDailyEvidenceChain();
   renderBeginnerTradeSystem();
+  renderBeginnerDailyRehearsal();
   renderBeginnerLiveHandoff();
   byId("daily-trade-factor-table").innerHTML = tableRows(pack.factors || [], [
     "rank",
@@ -6967,6 +7160,7 @@ function appendRunHistory(entry) {
   renderBeginnerTroubleshooter();
   renderBeginnerProgress();
   renderBeginnerTradeSystem();
+  renderBeginnerDailyRehearsal();
   renderBeginnerLiveHandoff();
   return nextEntry;
 }
@@ -7008,6 +7202,7 @@ function appendExecutionReceipt(receipt) {
   renderDailyReadinessCard();
   renderDailyEvidenceChain();
   renderBeginnerTradeSystem();
+  renderBeginnerDailyRehearsal();
   renderBeginnerLiveHandoff();
   renderControlCenter();
   return nextReceipt;

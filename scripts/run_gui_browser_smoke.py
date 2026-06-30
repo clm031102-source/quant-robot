@@ -296,6 +296,27 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "beginner_daily_rehearsal_frontend",
+            "Beginner daily rehearsal frontend",
+            index_html.get("ok")
+            and "beginner-daily-rehearsal-board" in str(index_html.get("body", ""))
+            and "beginner-daily-rehearsal-summary" in str(index_html.get("body", ""))
+            and "beginner-daily-rehearsal-timeline" in str(index_html.get("body", ""))
+            and "beginner-daily-rehearsal-actions" in str(index_html.get("body", ""))
+            and app_js.get("ok")
+            and "renderBeginnerDailyRehearsal" in str(app_js.get("body", ""))
+            and "beginnerDailyRehearsalRows" in str(app_js.get("body", ""))
+            and "beginnerDailyRehearsalActionRows" in str(app_js.get("body", ""))
+            and "data-daily-rehearsal-action" in str(app_js.get("body", ""))
+            and "data-daily-rehearsal-target" in str(app_js.get("body", "")),
+            "Frontend exposes a beginner daily rehearsal daybook from data refresh through post-close review.",
+            index_html.get("error")
+            or app_js.get("error")
+            or "Beginner daily rehearsal anchors or renderer hooks are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "beginner_live_handoff_frontend",
             "Beginner live handoff frontend",
             index_html.get("ok")
