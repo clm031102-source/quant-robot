@@ -863,6 +863,7 @@ function buildDailyTradeAdvisoryParams() {
 
 function buildPaperParams() {
   const factor = valueOf("paper-factor-select") || "momentum_2";
+  const operationDate = valueOf("daily-trade-as-of") || valueOf("signal-as-of") || valueOf("paper-end-date");
   const params = new URLSearchParams({
     market: valueOf("paper-market-select"),
     factor,
@@ -871,6 +872,8 @@ function buildPaperParams() {
     rebalance_interval: valueOf("rebalance-interval") || "1",
     start_date: valueOf("paper-start-date"),
     end_date: valueOf("paper-end-date"),
+    as_of_date: operationDate,
+    run_date: operationDate,
     initial_cash: valueOf("paper-initial-cash") || "100000",
     commission_bps: valueOf("paper-commission-bps") || "5",
     slippage_bps: valueOf("paper-slippage-bps") || "5",
@@ -6011,6 +6014,7 @@ function renderDailyTradeAdvisory() {
   renderDailySignalExecutionBridge(pack.daily_signal_execution_bridge || {});
   renderDailyDeploymentReadiness(pack.daily_deployment_readiness || {});
   renderLiveProfitabilityReadiness(pack.live_profitability_readiness || {});
+  renderDailyClosureStreak(pack.live_profitability_readiness || {});
   renderDailyRealMoneyTransitionGate(pack.daily_real_money_transition_gate || {});
   renderDailyFactorHealthMonitor(pack.daily_factor_health_monitor || {});
   renderDailyRealWorldHandoffGate(pack.real_world_manual_handoff_gate || {});
@@ -6701,6 +6705,218 @@ function mergeLiveProfitabilityRuntimeEvidence(readiness = {}, runtimeEvidence =
     auto_order_allowed: false,
   };
   return next;
+}
+
+function normalizeClosureDateKey(value) {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  const match = text.match(/\d{4}-\d{2}-\d{2}/);
+  if (match) return match[0];
+  const parsed = new Date(text);
+  if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  return "";
+}
+
+function receiptClosureDateKey(receipt = {}, fallback = "") {
+  const request = receipt.request || {};
+  return normalizeClosureDateKey(
+    request.as_of_date
+      || request.run_date
+      || receipt.as_of_date
+      || receipt.run_date
+      || fallback
+      || receipt.time
+  );
+}
+
+function dailyClosureStreakEvidence(readiness = {}) {
+  const trade = state.dailyTradeAdvisory || {};
+  const summary = trade.summary || {};
+  const runtimeEvidence = liveProfitabilityRuntimeEvidence(readiness);
+  const paperRequest = dailyEvidencePaperRequest();
+  const hasPaperRequest = Object.keys(paperRequest).length > 0;
+  const runDate = normalizeClosureDateKey(
+    trade.run_date
+      || summary.run_date
+      || valueOf("daily-trade-as-of")
+      || valueOf("signal-as-of")
+      || new Date().toISOString()
+  );
+  const rowsByDate = new Map();
+  const ensureRow = (dateValue) => {
+    const date = normalizeClosureDateKey(dateValue) || runDate || normalizeClosureDateKey(new Date().toISOString());
+    if (!rowsByDate.has(date)) {
+      rowsByDate.set(date, {
+        date,
+        top3_signal_ready: false,
+        same_parameter_paper_ready: false,
+        post_close_journal_ready: false,
+        manual_execution_clean: false,
+        manual_execution_blocked: false,
+        manual_execution_missing_review: false,
+        signal_detail: "waiting",
+        paper_detail: "waiting",
+        journal_detail: "waiting",
+        manual_execution_detail: "waiting",
+        missing_steps: [],
+        completed_loop: false,
+      });
+    }
+    return rowsByDate.get(date);
+  };
+
+  const currentRow = ensureRow(runDate);
+  if (Number(summary.selected_factor_count || 0) > 0 && Number(summary.signal_count || 0) > 0) {
+    currentRow.top3_signal_ready = true;
+    currentRow.signal_detail = `current pack: factor=${formatNumber(summary.selected_factor_count)} / signal=${formatNumber(summary.signal_count)}`;
+  }
+
+  executionReceiptsForWorkflow("daily_trade_advisory")
+    .filter((receipt) => receipt?.status === "completed")
+    .forEach((receipt) => {
+      const row = ensureRow(receiptClosureDateKey(receipt, runDate));
+      const metrics = receipt.metrics || {};
+      if (Number(metrics.selected_factor_count || 0) > 0 && Number(metrics.signal_count || 0) > 0) {
+        row.top3_signal_ready = true;
+        row.signal_detail = `receipt: factor=${formatNumber(metrics.selected_factor_count)} / signal=${formatNumber(metrics.signal_count)}`;
+      }
+    });
+
+  executionReceiptsForWorkflow("paper_simulation")
+    .filter((receipt) => receipt?.status === "completed")
+    .forEach((receipt) => {
+      const row = ensureRow(receiptClosureDateKey(receipt, receipt.time || runDate));
+      const match = hasPaperRequest && row.date === runDate ? paperReceiptMatchesRequest(receipt, paperRequest) : { matches: true, mismatch_keys: [] };
+      if (match.matches) {
+        row.same_parameter_paper_ready = true;
+        row.paper_detail = `matched: return=${formatPercent(receipt.metrics?.total_return)} / dd=${formatPercent(receipt.metrics?.max_drawdown)}`;
+      } else {
+        row.paper_detail = `parameter mismatch: ${match.mismatch_keys.join(", ") || "unknown"}`;
+      }
+    });
+
+  executionReceiptsForWorkflow("post_close_journal")
+    .filter((receipt) => receipt?.status === "completed")
+    .filter((receipt) => receipt?.metrics?.manual_review_recorded !== false)
+    .forEach((receipt) => {
+      const row = ensureRow(receiptClosureDateKey(receipt, receipt.time || runDate));
+      const status = manualExecutionAuditReceiptStatus(receipt);
+      row.post_close_journal_ready = true;
+      row.journal_detail = `review=${receipt.metrics?.manual_outcome || "recorded"} / tickets=${formatNumber(receipt.metrics?.target_count || 0)}`;
+      if (status === "clean") {
+        row.manual_execution_clean = true;
+        row.manual_execution_detail = `clean: executed=${formatNumber(receipt.metrics?.executed_ticket_count || 0)} / missing=0`;
+      } else if (status === "blocked") {
+        row.manual_execution_blocked = true;
+        row.manual_execution_detail = "blocked: guardrail or slippage breach";
+      } else if (status === "missing_review") {
+        row.manual_execution_missing_review = true;
+        row.manual_execution_detail = "missing review: ticket-level evidence incomplete";
+      } else {
+        row.manual_execution_detail = "not recorded";
+      }
+    });
+
+  const rows = Array.from(rowsByDate.values())
+    .map((row) => {
+      const missingSteps = [];
+      if (!row.top3_signal_ready) missingSteps.push("top3_signal");
+      if (!row.same_parameter_paper_ready) missingSteps.push("same_parameter_paper");
+      if (!row.post_close_journal_ready) missingSteps.push("post_close_journal");
+      if (!row.manual_execution_clean) missingSteps.push("manual_execution_clean");
+      return {
+        ...row,
+        missing_steps: missingSteps,
+        completed_loop: missingSteps.length === 0 && !row.manual_execution_blocked && !row.manual_execution_missing_review,
+      };
+    })
+    .sort((left, right) => String(right.date).localeCompare(String(left.date)))
+    .slice(0, 5);
+
+  const closedLoopDays = rows.filter((row) => row.completed_loop).length;
+  const blockedExecutionDays = rows.filter((row) => row.manual_execution_blocked || row.manual_execution_missing_review).length;
+  const cleanExecutionDays = rows.filter((row) => row.manual_execution_clean).length;
+  const missingTodaySteps = rows[0]?.missing_steps || [];
+  const ready = rows.length >= 5 && closedLoopDays >= 5 && blockedExecutionDays === 0;
+  const decision = ready
+    ? "closure_streak_ready"
+    : blockedExecutionDays > 0
+      ? "closure_streak_blocked_by_execution"
+      : "closure_streak_incomplete";
+
+  return {
+    stage: "phase_6_24_daily_closure_streak",
+    summary: {
+      decision,
+      lookback_days: 5,
+      observed_days: rows.length,
+      closed_loop_days: closedLoopDays,
+      clean_execution_days: cleanExecutionDays,
+      blocked_execution_days: blockedExecutionDays,
+      missing_today_steps: missingTodaySteps,
+      streak_ready_for_small_capital_observation: ready,
+      same_parameter_required: hasPaperRequest,
+      evidence_mode: runtimeEvidence.mode || "empty",
+      real_money_allowed: false,
+      order_placement_allowed: false,
+      broker_connection_allowed: false,
+      auto_order_allowed: false,
+    },
+    rows,
+    safety: "manual trading-system evidence only; no broker connection, account read, order placement, or live trading",
+  };
+}
+
+function renderDailyClosureStreak(readiness = {}) {
+  const summaryTarget = byId("daily-closure-streak-summary");
+  const rowTarget = byId("daily-closure-streak-rows");
+  if (!summaryTarget || !rowTarget) return;
+  const evidence = dailyClosureStreakEvidence(readiness);
+  const summary = evidence.summary || {};
+  const decision = summary.decision || "closure_streak_incomplete";
+  const tone = decision === "closure_streak_ready" ? "ok" : decision === "closure_streak_blocked_by_execution" ? "danger" : "warn";
+  summaryTarget.innerHTML = statusRows([
+    [
+      "连续闭环结论",
+      decision === "closure_streak_ready"
+        ? "最近 5 个操作日都完成闭环，可进入人工小资金观察候选，但仍不能自动下单。"
+        : decision === "closure_streak_blocked_by_execution"
+          ? "发现人工执行审计异常，不能进入真实资金观察。"
+          : "闭环样本不足，先继续生成信号、跑同参数模拟、写盘后复盘。",
+      tone,
+    ],
+    ["闭环天数", `${formatNumber(summary.closed_loop_days || 0)} / ${formatNumber(summary.lookback_days || 5)}`, summary.closed_loop_days >= 5 ? "ok" : "warn"],
+    ["人工执行审计", `干净=${formatNumber(summary.clean_execution_days || 0)} / 异常=${formatNumber(summary.blocked_execution_days || 0)}`, summary.blocked_execution_days ? "danger" : summary.clean_execution_days >= 5 ? "ok" : "warn"],
+    ["今天缺什么", (summary.missing_today_steps || []).join(" / ") || "今天闭环已完整", summary.missing_today_steps?.length ? "warn" : "ok"],
+    ["实盘权限", "这里只能形成手工观察证据：不连接券商、不读账户、不自动下单。", "danger"],
+  ]);
+
+  rowTarget.innerHTML = evidence.rows.length ? evidence.rows.map((row) => {
+    const rowTone = row.completed_loop ? "ok" : row.manual_execution_blocked || row.manual_execution_missing_review ? "danger" : "warn";
+    const stepText = [
+      `前三=${row.top3_signal_ready ? "完成" : "缺失"}`,
+      `模拟=${row.same_parameter_paper_ready ? "完成" : "缺失"}`,
+      `复盘=${row.post_close_journal_ready ? "完成" : "缺失"}`,
+      `执行审计=${row.manual_execution_clean ? "干净" : row.manual_execution_blocked ? "异常" : row.manual_execution_missing_review ? "缺回执" : "缺失"}`,
+    ].join(" / ");
+    const detailText = [
+      row.signal_detail,
+      row.paper_detail,
+      row.journal_detail,
+      row.manual_execution_detail,
+    ].filter(Boolean).join(" | ");
+    return `
+      <div class="list-row ${escapeHtml(rowTone)}">
+        <strong>${escapeHtml(row.date || "--")}</strong>
+        <span>${escapeHtml(stepText)}</span>
+        <span>${escapeHtml(detailText)}</span>
+      </div>
+    `;
+  }).join("") : statusRows([[
+    "暂无闭环样本",
+    "先运行今日前三建议，再跑同参数模拟盘，收盘后写复盘和人工执行审计。",
+    "warn",
+  ]]);
 }
 
 function renderLiveProfitabilityReadiness(readiness = {}) {
@@ -10428,6 +10644,7 @@ function appendExecutionReceipt(receipt) {
   renderDailySignalExecutionBridge(state.dailyTradeAdvisory?.daily_signal_execution_bridge || {});
   renderDailyDeploymentReadiness(state.dailyTradeAdvisory?.daily_deployment_readiness || {});
   renderLiveProfitabilityReadiness(state.dailyTradeAdvisory?.live_profitability_readiness || {});
+  renderDailyClosureStreak(state.dailyTradeAdvisory?.live_profitability_readiness || {});
   renderDailyFactorHealthMonitor(state.dailyTradeAdvisory?.daily_factor_health_monitor || {});
   renderDailyRealWorldHandoffGate(state.dailyTradeAdvisory?.real_world_manual_handoff_gate || {});
   renderOrdinaryHome();
@@ -10591,6 +10808,8 @@ function paperReceipt(result = {}) {
       rebalance_interval: request.rebalance_interval,
       start_date: request.start_date,
       end_date: request.end_date,
+      as_of_date: request.as_of_date || request.run_date || request.end_date,
+      run_date: request.run_date || request.as_of_date || request.end_date,
       initial_cash: request.initial_cash,
       commission_bps: request.commission_bps,
       slippage_bps: request.slippage_bps,

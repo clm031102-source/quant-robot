@@ -402,6 +402,26 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "daily_closure_streak_frontend",
+            "Daily closure streak frontend",
+            index_html.get("ok")
+            and "daily-closure-streak" in str(index_html.get("body", ""))
+            and "daily-closure-streak-summary" in str(index_html.get("body", ""))
+            and "daily-closure-streak-rows" in str(index_html.get("body", ""))
+            and app_js.get("ok")
+            and "dailyClosureStreakEvidence" in str(app_js.get("body", ""))
+            and "renderDailyClosureStreak" in str(app_js.get("body", ""))
+            and "closure_streak_ready" in str(app_js.get("body", ""))
+            and "closed_loop_days" in str(app_js.get("body", ""))
+            and "manual_execution_clean" in str(app_js.get("body", "")),
+            "Frontend exposes a daily closure-streak panel that tracks Top3 signal, same-parameter paper simulation, post-close journal, and clean manual execution audit evidence.",
+            index_html.get("error")
+            or app_js.get("error")
+            or "Daily closure-streak frontend anchors or renderer hooks are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "backtest_provenance_panel",
             "Backtest provenance contract",
             control.get("ok")
