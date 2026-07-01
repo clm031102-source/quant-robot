@@ -533,7 +533,13 @@ def run_gui_browser_smoke(
             and "human_decides_skip_or_manual_trade" in str(app_js.get("body", ""))
             and "broker_price_recheck_playbook" in str(app_js.get("body", ""))
             and "external_broker_realtime_price" in str(app_js.get("body", ""))
-            and "floor_to_board_lot_at_external_price" in str(app_js.get("body", "")),
+            and "floor_to_board_lot_at_external_price" in str(app_js.get("body", ""))
+            and "renderBrokerPriceRecheckDecision" in str(app_js.get("body", ""))
+            and "data-broker-price-recheck-price" in str(app_js.get("body", ""))
+            and "broker_price_recheck_local_calculator" in str(app_js.get("body", ""))
+            and "manual_review_price_ok_quantity_recalculated" in str(app_js.get("body", ""))
+            and "skip_broker_price_outside_guardrail" in str(app_js.get("body", ""))
+            and "recalculated_quantity_at_external_price" in str(app_js.get("body", "")),
             "Frontend exposes a beginner-facing today-operation verdict before any manual review.",
             index_html.get("error")
             or app_js.get("error")

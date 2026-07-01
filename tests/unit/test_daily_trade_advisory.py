@@ -2678,8 +2678,29 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         recheck_rows_by_asset = {row["asset_id"]: row for row in recheck_playbook["rows"]}
         self.assertEqual(set(recheck_rows_by_asset), {"510300", "588000", "159915"})
         self.assertEqual(recheck_rows_by_asset["510300"]["manual_input_field"], "external_broker_realtime_price")
+        self.assertEqual(recheck_rows_by_asset["510300"]["local_decision_engine"], "broker_price_recheck_local_calculator")
+        self.assertEqual(
+            recheck_rows_by_asset["510300"]["default_decision_if_missing_price"],
+            "skip_waiting_for_external_broker_price",
+        )
         self.assertEqual(recheck_rows_by_asset["510300"]["recalculation_rule"], "floor_to_board_lot_at_external_price")
         self.assertEqual(recheck_rows_by_asset["510300"]["skip_rule"], "skip_if_broker_price_outside_guardrail")
+        self.assertIn(
+            "external_broker_realtime_price",
+            recheck_rows_by_asset["510300"]["local_recheck_input_fields"],
+        )
+        self.assertIn(
+            "recalculated_quantity_at_external_price",
+            recheck_rows_by_asset["510300"]["local_recalculation_output_fields"],
+        )
+        self.assertIn(
+            "skip_broker_price_outside_guardrail",
+            recheck_rows_by_asset["510300"]["local_decision_statuses"],
+        )
+        self.assertIn(
+            "manual_review_price_ok_quantity_recalculated",
+            recheck_rows_by_asset["510300"]["local_decision_statuses"],
+        )
         self.assertGreater(recheck_rows_by_asset["510300"]["upper_price_bound"], recheck_rows_by_asset["510300"]["reference_price"])
         self.assertLess(recheck_rows_by_asset["510300"]["lower_price_bound"], recheck_rows_by_asset["510300"]["reference_price"])
         self.assertFalse(recheck_rows_by_asset["510300"]["copy_to_broker_allowed"])

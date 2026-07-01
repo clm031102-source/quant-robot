@@ -1973,6 +1973,15 @@ label {
   line-height: 1.2;
 }
 
+.compact-inline-field {
+  max-width: 220px;
+}
+
+.compact-inline-field input {
+  min-height: 34px;
+  padding: 6px 8px;
+}
+
 .toggle-field {
   min-height: 40px;
   display: flex;

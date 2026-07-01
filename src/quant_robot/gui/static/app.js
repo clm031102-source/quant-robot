@@ -411,6 +411,11 @@ function bindActions() {
     event.preventDefault();
     await copyTicketTextToClipboard(button.dataset.copyTicketText || "");
   });
+  document.addEventListener("input", (event) => {
+    const input = event.target.closest("[data-broker-price-recheck-price]");
+    if (!input) return;
+    updateBrokerPriceRecheckDecision(input);
+  });
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-factor-beginner-jump]");
     if (!button) return;
@@ -8114,6 +8119,109 @@ function renderTradeSystemGoNoGoGate(gate = {}, target = null) {
   `;
 }
 
+function brokerPriceRecheckDecision(item = {}, externalPriceValue = "") {
+  const rawText = String(externalPriceValue ?? "").trim();
+  if (!rawText) {
+    return {
+      status: "skip_waiting_for_external_broker_price",
+      recalculated_quantity_at_external_price: 0,
+      recalculated_value_at_external_price: 0,
+      external_price_slippage_bps: null,
+    };
+  }
+  const externalPrice = Number(rawText);
+  if (!Number.isFinite(externalPrice) || externalPrice <= 0) {
+    return {
+      status: "skip_invalid_external_broker_price",
+      recalculated_quantity_at_external_price: 0,
+      recalculated_value_at_external_price: 0,
+      external_price_slippage_bps: null,
+    };
+  }
+  const lower = Number(item.lower_price_bound);
+  const upper = Number(item.upper_price_bound);
+  const referencePrice = Number(item.reference_price);
+  const maxSlippageBps = Number(item.max_slippage_bps);
+  const targetValue = Math.abs(Number(item.target_value_for_recalculation || 0));
+  const boardLotSize = Math.max(1, Number(item.board_lot_size || 100));
+  const slippageBps = Number.isFinite(referencePrice) && referencePrice > 0
+    ? ((externalPrice - referencePrice) / referencePrice) * 10000
+    : null;
+
+  if (Number.isFinite(lower) && externalPrice < lower) {
+    return {
+      status: "skip_broker_price_outside_guardrail",
+      recalculated_quantity_at_external_price: 0,
+      recalculated_value_at_external_price: 0,
+      external_price_slippage_bps: slippageBps,
+    };
+  }
+  if (Number.isFinite(upper) && externalPrice > upper) {
+    return {
+      status: "skip_broker_price_outside_guardrail",
+      recalculated_quantity_at_external_price: 0,
+      recalculated_value_at_external_price: 0,
+      external_price_slippage_bps: slippageBps,
+    };
+  }
+  if (Number.isFinite(maxSlippageBps) && slippageBps != null && Math.abs(slippageBps) > maxSlippageBps) {
+    return {
+      status: "skip_slippage_budget_breached",
+      recalculated_quantity_at_external_price: 0,
+      recalculated_value_at_external_price: 0,
+      external_price_slippage_bps: slippageBps,
+    };
+  }
+  const quantity = Math.floor(targetValue / externalPrice / boardLotSize) * boardLotSize;
+  if (!Number.isFinite(quantity) || quantity <= 0) {
+    return {
+      status: "skip_quantity_zero_after_recalculation",
+      recalculated_quantity_at_external_price: 0,
+      recalculated_value_at_external_price: 0,
+      external_price_slippage_bps: slippageBps,
+    };
+  }
+  return {
+    status: "manual_review_price_ok_quantity_recalculated",
+    recalculated_quantity_at_external_price: quantity,
+    recalculated_value_at_external_price: quantity * externalPrice,
+    external_price_slippage_bps: slippageBps,
+  };
+}
+
+function renderBrokerPriceRecheckDecision(item = {}, externalPriceValue = "") {
+  const decision = brokerPriceRecheckDecision(item, externalPriceValue);
+  const slippageText = decision.external_price_slippage_bps == null
+    ? "--"
+    : formatDecimal(decision.external_price_slippage_bps);
+  return [
+    `local_recheck_decision=${decision.status}`,
+    `recalculated_quantity_at_external_price=${formatNumber(decision.recalculated_quantity_at_external_price)}`,
+    `recalculated_value_at_external_price=${formatDecimal(decision.recalculated_value_at_external_price)}`,
+    `external_price_slippage_bps=${slippageText}`,
+  ].join(" / ");
+}
+
+function brokerPriceRecheckItemFromDataset(dataset = {}) {
+  return {
+    reference_price: dataset.referencePrice,
+    lower_price_bound: dataset.lowerPriceBound,
+    upper_price_bound: dataset.upperPriceBound,
+    max_slippage_bps: dataset.maxSlippageBps,
+    target_value_for_recalculation: dataset.targetValueForRecalculation,
+    board_lot_size: dataset.boardLotSize,
+  };
+}
+
+function updateBrokerPriceRecheckDecision(input) {
+  const key = input.dataset.brokerPriceRecheckKey || "";
+  const item = brokerPriceRecheckItemFromDataset(input.dataset || {});
+  const output = Array.from(document.querySelectorAll("[data-broker-price-recheck-output]"))
+    .find((node) => node.dataset.brokerPriceRecheckOutput === key);
+  if (!output) return;
+  output.textContent = renderBrokerPriceRecheckDecision(item, input.value);
+}
+
 function renderPreMarketManualExecutionPacket(packet = {}, target = null) {
   if (!target) return;
   const evidenceRows = Array.isArray(packet.evidence_checklist) ? packet.evidence_checklist : [];
@@ -8145,15 +8253,37 @@ function renderPreMarketManualExecutionPacket(packet = {}, target = null) {
         <span>${escapeHtml(item.evidence || "")}</span>
       </div>
     `).join("")}
-    ${recheckRows.map((item) => `
+    ${recheckRows.map((item, index) => {
+      const recheckKey = item.ticket_id || `${item.asset_id || "ticket"}-${index}`;
+      return `
       <div class="list-row warn">
         <strong>${escapeHtml(`${item.asset_id || "--"} / ${zhConsoleText(item.side || "review")}`)}</strong>
-        <span>${escapeHtml(`external_broker_realtime_price=${item.external_broker_realtime_price ?? "待人工填写"} / 参考价=${formatDecimal(item.reference_price)} / 护栏=${formatDecimal(item.lower_price_bound)}~${formatDecimal(item.upper_price_bound)}`)}</span>
+        <span>${escapeHtml(`engine=${item.local_decision_engine || "broker_price_recheck_local_calculator"} / 参考价=${formatDecimal(item.reference_price)} / 护栏=${formatDecimal(item.lower_price_bound)}~${formatDecimal(item.upper_price_bound)}`)}</span>
         <span>${escapeHtml(`重算=${zhConsoleText(item.recalculation_rule || "floor_to_board_lot_at_external_price")} / 一手=${formatNumber(item.board_lot_size || 100)} / 目标金额=${formatNumber(item.target_value_for_recalculation || 0)}`)}</span>
         <span>${escapeHtml(`跳过=${zhConsoleText(item.skip_rule || "skip_if_broker_price_outside_guardrail")} / 最大滑点=${formatNumber(item.max_slippage_bps || 0)}bps`)}</span>
+        <label class="compact-inline-field">
+          <span>${escapeHtml("券商实时价")}</span>
+          <input
+            type="number"
+            step="0.001"
+            min="0"
+            inputmode="decimal"
+            data-broker-price-recheck-price="true"
+            data-broker-price-recheck-key="${escapeRawHtml(recheckKey)}"
+            data-reference-price="${escapeRawHtml(item.reference_price ?? "")}"
+            data-lower-price-bound="${escapeRawHtml(item.lower_price_bound ?? "")}"
+            data-upper-price-bound="${escapeRawHtml(item.upper_price_bound ?? "")}"
+            data-max-slippage-bps="${escapeRawHtml(item.max_slippage_bps ?? "")}"
+            data-target-value-for-recalculation="${escapeRawHtml(item.target_value_for_recalculation ?? "")}"
+            data-board-lot-size="${escapeRawHtml(item.board_lot_size || 100)}"
+            placeholder="${escapeRawHtml("人工填写")}"
+          >
+        </label>
+        <span data-broker-price-recheck-output="${escapeRawHtml(recheckKey)}">${escapeHtml(renderBrokerPriceRecheckDecision(item, item.external_broker_realtime_price))}</span>
         <span>${escapeHtml(item.order_placement_allowed ? "异常：不应出现下单权限" : "只做人工复核，不复制到券商")}</span>
       </div>
-    `).join("")}
+    `;
+    }).join("")}
     ${operatorRows.map((item) => `
       <div class="list-row ${escapeHtml(item.status === "locked" ? "danger" : "warn")}">
         <strong>${escapeHtml(item.label || item.step_id || "")}</strong>
