@@ -1000,6 +1000,50 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "pre_live_master_gate_panel",
+            "Pre-live master gate contract",
+            control.get("ok")
+            and control_body.get("pre_live_master_gate", {}).get("stage") == "gui_pre_live_master_gate"
+            and control_body.get("pre_live_master_gate", {}).get("summary", {}).get("software_order_submission_allowed") is False
+            and control_body.get("pre_live_master_gate", {}).get("summary", {}).get("broker_connection_allowed") is False
+            and control_body.get("pre_live_master_gate", {}).get("summary", {}).get("account_read_allowed") is False
+            and control_body.get("pre_live_master_gate", {}).get("summary", {}).get("order_placement_allowed") is False
+            and "manual_small_capital_observation_allowed"
+            in control_body.get("pre_live_master_gate", {}).get("summary", {})
+            and "same_parameter_paper_evidence"
+            in {
+                row.get("gate_id")
+                for row in control_body.get("pre_live_master_gate", {}).get("rows", [])
+                if isinstance(row, dict)
+            }
+            and "paper_performance_quality"
+            in {
+                row.get("gate_id")
+                for row in control_body.get("pre_live_master_gate", {}).get("rows", [])
+                if isinstance(row, dict)
+            }
+            and "live_boundary"
+            in {
+                row.get("gate_id")
+                for row in control_body.get("pre_live_master_gate", {}).get("rows", [])
+                if isinstance(row, dict)
+            }
+            and index_html.get("ok")
+            and "control-pre-live-master-gate" in str(index_html.get("body", ""))
+            and app_js.get("ok")
+            and "pre_live_master_gate" in str(app_js.get("body", ""))
+            and "renderPreLiveMasterGate" in str(app_js.get("body", ""))
+            and "manual_small_capital_observation_allowed" in str(app_js.get("body", ""))
+            and "external_manual_small_capital_observation_only" in str(app_js.get("body", "")),
+            "Control API and frontend expose one beginner-facing pre-live master gate that can allow only external manual small-capital observation while software order submission, broker connection, account reading, and order placement stay blocked.",
+            control.get("error")
+            or index_html.get("error")
+            or app_js.get("error")
+            or "Pre-live master gate contract or frontend hooks are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "trade_mode_control_panel",
             "Trade mode control contract",
             control.get("ok")

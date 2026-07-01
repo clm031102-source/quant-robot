@@ -381,6 +381,101 @@ def build_server_capital_observation_gate(daily_closure_ledger: dict[str, Any]) 
     }
 
 
+def build_pre_live_master_gate(server_capital_observation_gate: dict[str, Any]) -> dict[str, Any]:
+    summary = (
+        server_capital_observation_gate.get("summary", {})
+        if isinstance(server_capital_observation_gate, dict)
+        else {}
+    )
+    source_rows = (
+        server_capital_observation_gate.get("rows", [])
+        if isinstance(server_capital_observation_gate, dict)
+        else []
+    )
+    candidate_ready = bool(summary.get("manual_small_capital_observation_candidate"))
+    broker_locked = not bool(summary.get("broker_connection_allowed"))
+    account_locked = not bool(summary.get("account_read_allowed"))
+    order_locked = not bool(summary.get("order_placement_allowed") or summary.get("auto_order_allowed"))
+    software_order_locked = True
+    live_boundary_passed = broker_locked and account_locked and order_locked and software_order_locked
+    rows = [_pre_live_master_gate_row(row, live_boundary_passed) for row in source_rows if isinstance(row, dict)]
+    required_rows = [
+        row
+        for row in rows
+        if row.get("gate_id")
+        in {
+            "server_closure_streak",
+            "manual_execution_quality",
+            "same_parameter_paper_evidence",
+            "paper_performance_quality",
+            "live_boundary",
+        }
+    ]
+    passed = sum(1 for row in required_rows if row.get("status") == "pass")
+    required = len(required_rows)
+    ready = candidate_ready and required > 0 and passed == required and live_boundary_passed
+    next_missing = next((str(row.get("gate_id") or "") for row in required_rows if row.get("status") != "pass"), "")
+    status = (
+        "manual_small_capital_observation_ready"
+        if ready
+        else "blocked_pre_live_evidence_incomplete"
+    )
+    decision = (
+        "external_manual_small_capital_observation_only"
+        if ready
+        else "continue_same_parameter_paper_and_closure"
+    )
+    return {
+        "stage": "gui_pre_live_master_gate",
+        "summary": {
+            "status": status,
+            "decision": decision,
+            "manual_small_capital_observation_allowed": ready,
+            "external_manual_only": True,
+            "passed_gate_count": passed,
+            "required_gate_count": required,
+            "next_missing_gate_id": next_missing,
+            "source_gate_status": summary.get("status") or "",
+            "server_closed_loop_days": summary.get("server_closed_loop_days", 0),
+            "clean_execution_days": summary.get("clean_execution_days", 0),
+            "blocked_execution_days": summary.get("blocked_execution_days", 0),
+            "matched_paper_days": summary.get("matched_paper_days", 0),
+            "paper_performance_quality_passed": bool(summary.get("paper_performance_quality_passed")),
+            "software_order_submission_allowed": False,
+            "real_money_allowed": False,
+            "live_trading_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+            "paper_only": True,
+        },
+        "rows": required_rows,
+        "safety": _safety(),
+    }
+
+
+def _pre_live_master_gate_row(row: dict[str, Any], live_boundary_passed: bool) -> dict[str, Any]:
+    gate_id = str(row.get("gate_id") or "")
+    status = str(row.get("status") or "blocked")
+    if gate_id == "live_boundary":
+        status = "pass" if live_boundary_passed else "blocked"
+    return {
+        "gate_id": gate_id,
+        "label": row.get("label") or gate_id,
+        "status": status,
+        "evidence": row.get("evidence") or row.get("plain_requirement") or "",
+        "target_id": row.get("target_id") or "",
+        "workflow_id": row.get("workflow_id") or "",
+        "paper_only": True,
+        "live_trading_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
+
+
 def _manual_small_capital_observation_packet(
     *,
     ready: bool,

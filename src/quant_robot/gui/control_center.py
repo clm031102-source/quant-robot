@@ -15,6 +15,7 @@ from urllib.parse import urlencode
 from quant_robot.gui.operation_ledger import (
     build_daily_closure_ledger_snapshot,
     build_operation_ledger_snapshot,
+    build_pre_live_master_gate,
     build_server_capital_observation_gate,
 )
 
@@ -44,6 +45,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
     operation_ledger = build_operation_ledger_snapshot(root)
     daily_closure_ledger = build_daily_closure_ledger_snapshot(root)
     server_capital_observation_gate = build_server_capital_observation_gate(daily_closure_ledger)
+    pre_live_master_gate = build_pre_live_master_gate(server_capital_observation_gate)
     artifacts = _artifact_status(root)
     backtest = _default_backtest()
     form_defaults = _form_defaults(backtest)
@@ -131,6 +133,7 @@ def build_control_center_snapshot(repo_root: str | Path | None = None, active_go
         "operation_ledger": operation_ledger,
         "daily_closure_ledger": daily_closure_ledger,
         "server_capital_observation_gate": server_capital_observation_gate,
+        "pre_live_master_gate": pre_live_master_gate,
         "trade_mode_control": trade_mode_control,
         "action_center": action_center,
         "method": {

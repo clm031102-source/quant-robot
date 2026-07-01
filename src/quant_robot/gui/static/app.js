@@ -2264,6 +2264,7 @@ function renderControlCenter() {
   const operationLedger = control.operation_ledger || {};
   const dailyClosureLedger = control.daily_closure_ledger || {};
   const serverCapitalObservationGate = control.server_capital_observation_gate || {};
+  const preLiveMasterGate = control.pre_live_master_gate || {};
   const tradeModeControl = control.trade_mode_control || {};
   const backtest = control.backtest || {};
   const backtestProvenance = control.backtest_provenance || {};
@@ -2331,6 +2332,7 @@ function renderControlCenter() {
   byId("control-operation-ledger").innerHTML = renderOperationLedger(operationLedger);
   byId("control-daily-closure-ledger").innerHTML = renderDailyClosureLedger(dailyClosureLedger);
   byId("control-server-capital-observation-gate").innerHTML = renderServerCapitalObservationGate(serverCapitalObservationGate);
+  byId("control-pre-live-master-gate").innerHTML = renderPreLiveMasterGate(preLiveMasterGate);
   byId("control-trade-mode-control").innerHTML = renderTradeModeControl(tradeModeControl);
   byId("control-run-queue").innerHTML = statusRows([
     ["Active", activeRun.label || "--", activeRun.workflow_id ? "ok" : "muted"],
@@ -12551,6 +12553,93 @@ function renderServerCapitalObservationGate(gate = {}) {
     "等待服务端每日闭环台账生成后评估；系统仍不连接券商、不读账户、不下单。",
     "warn",
   ]]));
+}
+
+function renderPreLiveMasterGate(gate = {}) {
+  const summary = gate.summary || {};
+  const rows = Array.isArray(gate.rows) ? gate.rows : [];
+  const readyDecision = "external_manual_small_capital_observation_only";
+  const allowed = Boolean(summary.manual_small_capital_observation_allowed);
+  const decision = summary.decision || "continue_same_parameter_paper_and_closure";
+  const required = Number(summary.required_gate_count || 0);
+  const passed = Number(summary.passed_gate_count || 0);
+  const nextMissing = summary.next_missing_gate_id || "none";
+  const unsafePermission = Boolean(
+    summary.software_order_submission_allowed
+    || summary.real_money_allowed
+    || summary.live_trading_allowed
+    || summary.broker_connection_allowed
+    || summary.account_read_allowed
+    || summary.order_placement_allowed
+    || summary.auto_order_allowed,
+  );
+  const headerTone = allowed ? "warn" : "danger";
+  const header = `
+    <div class="list-row ${escapeHtml(headerTone)}">
+      <strong>${escapeHtml("实盘前总闸门")}</strong>
+      <span>${escapeHtml(allowed ? "只允许外部人工小资金观察" : "未放行，继续纸面模拟和闭环")}</span>
+      <span>${escapeHtml(`decision=${decision}`)}</span>
+      <span>${escapeHtml(`证据=${formatNumber(passed)}/${formatNumber(required)} / next=${nextMissing}`)}</span>
+      <span>${escapeHtml(`同参数模拟=${formatNumber(summary.matched_paper_days || 0)} / 服务端闭环=${formatNumber(summary.server_closed_loop_days || 0)} / 干净执行=${formatNumber(summary.clean_execution_days || 0)}`)}</span>
+    </div>
+  `;
+  const safety = `
+    <div class="list-row ${escapeHtml(unsafePermission ? "danger" : "ok")}">
+      <strong>${escapeHtml("软件权限")}</strong>
+      <span>${escapeHtml(`manual_small_capital_observation_allowed=${allowed ? "true" : "false"}`)}</span>
+      <span>${escapeHtml(`ready_decision=${readyDecision}`)}</span>
+      <span>${escapeHtml(`软件下单=${summary.software_order_submission_allowed ? "异常允许" : "禁止"} / 券商连接=${summary.broker_connection_allowed ? "异常允许" : "禁止"} / 账户读取=${summary.account_read_allowed ? "异常允许" : "禁止"} / 自动下单=${summary.auto_order_allowed ? "异常允许" : "禁止"}`)}</span>
+    </div>
+  `;
+  const fallbackRows = [
+    {
+      gate_id: "same_parameter_paper_evidence",
+      label: "同参数模拟盘证据",
+      status: "waiting",
+      evidence: "等待服务端同参数纸面模拟回执。",
+      target_id: "control-server-capital-observation-gate",
+    },
+    {
+      gate_id: "paper_performance_quality",
+      label: "纸面质量",
+      status: "waiting",
+      evidence: "等待收益、胜率、回撤、交易样本同时达标。",
+      target_id: "control-server-capital-observation-gate",
+    },
+    {
+      gate_id: "live_boundary",
+      label: "实盘边界",
+      status: "pass",
+      evidence: "系统只生成建议和回执，不连接券商、不读账户、不自动下单。",
+      target_id: "control-trade-mode-control",
+    },
+  ];
+  const body = (rows.length ? rows : fallbackRows).map((row) => {
+    const rowStatus = String(row.status || "waiting");
+    const rowTone = rowStatus === "pass" ? "ok" : rowStatus.includes("blocked") ? "danger" : "warn";
+    const workflowButton = row.workflow_id ? `
+      <button class="primary-button" type="button" data-ordinary-daily-action="${escapeRawHtml(row.workflow_id)}" data-ordinary-daily-target="${escapeRawHtml(row.target_id || "control-pre-live-master-gate")}">${escapeHtml("补这一步")}</button>
+    ` : "";
+    const targetButton = row.target_id ? `
+      <button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(row.target_id)}">${escapeHtml("看证据")}</button>
+    ` : "";
+    return `
+      <div class="list-row ${escapeHtml(rowTone)}">
+        <strong>${escapeHtml(row.label || row.gate_id || "")}</strong>
+        <span>${escapeHtml(`${zhConsoleText(rowStatus)} / ${row.gate_id || ""}`)}</span>
+        <span>${escapeHtml(row.evidence || "")}</span>
+        <span>${workflowButton}${targetButton}</span>
+      </div>
+    `;
+  }).join("");
+  const footer = `
+    <div class="list-row warn">
+      <strong>${escapeHtml("操作边界")}</strong>
+      <span>${escapeHtml("这里的通过只代表可准备人工观察材料，不代表软件可实盘下单。")}</span>
+      <span>${escapeHtml("真正交易必须离开系统，在券商端人工复核价格、现金、风险后由人执行。")}</span>
+    </div>
+  `;
+  return header + safety + body + footer;
 }
 
 function renderTradeModeControl(control = {}) {
