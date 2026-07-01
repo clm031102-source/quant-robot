@@ -7597,16 +7597,31 @@ function renderDailyRealMoneyTransitionGate(gate = {}) {
 
 function renderDailyManualObservationPacket(packet = {}) {
   const summaryTarget = byId("daily-manual-observation-summary");
+  const verdictTarget = byId("daily-manual-observation-verdict");
   const top3Target = byId("daily-manual-observation-top3");
   const paperTarget = byId("daily-manual-observation-paper-requests");
   const evidenceTarget = byId("daily-manual-observation-evidence");
   const stepsTarget = byId("daily-manual-observation-steps");
   const ticketsTarget = byId("daily-manual-observation-tickets");
-  if (!summaryTarget || !top3Target || !paperTarget || !evidenceTarget || !stepsTarget || !ticketsTarget) return;
+  if (!summaryTarget || !verdictTarget || !top3Target || !paperTarget || !evidenceTarget || !stepsTarget || !ticketsTarget) return;
   const summary = packet.summary || {};
   const status = summary.packet_status || "waiting_for_today_signal";
   const readyStatus = "manual_observation_material_ready";
   const tone = status === readyStatus ? "ok" : status.includes("blocked") ? "danger" : "warn";
+  const top3Rows = Array.isArray(packet.top3_factor_snapshot) ? packet.top3_factor_snapshot : [];
+  const paperRequests = Array.isArray(packet.same_parameter_paper_requests) ? packet.same_parameter_paper_requests : [];
+  const tickets = Array.isArray(packet.manual_ticket_preview) ? packet.manual_ticket_preview : [];
+  const paperCompletion = sameParameterPaperCompletion(paperRequests);
+  const missingPaperIds = paperCompletion.missing_same_parameter_paper_request_ids || [];
+  const firstMissingPaper = paperRequests.find((request, index) => missingPaperIds.includes(sameParameterPaperRequestId(request, index)));
+  const permissionBroken = summary.order_placement_allowed || summary.broker_connection_allowed || summary.account_read_allowed || summary.auto_order_allowed;
+  let manualObservationGoNoGo = "manual_observation_review_required";
+  if (permissionBroken) manualObservationGoNoGo = "blocked_permission_boundary";
+  else if (!top3Rows.length || !summary.signal_count || !summary.target_count) manualObservationGoNoGo = "blocked_waiting_for_today_signal";
+  else if (!paperRequests.length || missingPaperIds.length) manualObservationGoNoGo = "blocked_missing_same_parameter_paper";
+  else if (!tickets.length) manualObservationGoNoGo = "blocked_missing_manual_tickets";
+  else if (status === readyStatus && paperCompletion.all_top3_same_parameter_paper_ready) manualObservationGoNoGo = "manual_observation_ready_no_auto_order";
+  const verdictTone = manualObservationGoNoGo.includes("ready") ? "ok" : manualObservationGoNoGo.includes("blocked") ? "danger" : "warn";
   const workflowButton = summary.next_workflow_id ? `
     <button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(summary.next_workflow_id)}">${escapeHtml("补下一步")}</button>
   ` : "";
@@ -7627,7 +7642,25 @@ function renderDailyManualObservationPacket(packet = {}) {
     </div>
   `;
 
-  const top3Rows = Array.isArray(packet.top3_factor_snapshot) ? packet.top3_factor_snapshot : [];
+  const missingPaperButton = firstMissingPaper ? `
+    <button class="primary-button" type="button" data-manual-observation-missing-paper="${escapeRawHtml(sameParameterPaperRequestId(firstMissingPaper, paperRequests.indexOf(firstMissingPaper)))}" data-same-parameter-paper-run="${escapeRawHtml(sameParameterPaperRunPayload(firstMissingPaper))}">${escapeHtml("运行缺失纸面请求")}</button>
+  ` : "";
+  const verdictTargetButton = missingPaperButton || (tickets.length ? `
+    <button class="secondary-button" type="button" data-beginner-target="daily-manual-broker-handoff-ticket-table">${escapeHtml("看人工票据")}</button>
+  ` : targetButton);
+  verdictTarget.innerHTML = statusRows([
+    ["manual_observation_go_no_go", zhConsoleText(manualObservationGoNoGo), verdictTone],
+    ["同参数纸面回执", `${formatNumber(paperCompletion.matched_request_count || 0)} / ${formatNumber(paperCompletion.request_count || 0)}; missing=${missingPaperIds.join(" / ") || "none"}`, missingPaperIds.length ? "danger" : paperRequests.length ? "ok" : "warn"],
+    ["人工票据", `tickets=${formatNumber(tickets.length)}; 软件不生成真实订单`, tickets.length ? "warn" : "danger"],
+    ["安全边界", permissionBroken ? "异常：权限边界被打开" : "不接券商 / 不读账户 / 不自动下单", permissionBroken ? "danger" : "ok"],
+  ]) + `
+    <div class="list-row ${escapeHtml(verdictTone)}">
+      <strong>${escapeHtml("今天结论")}</strong>
+      <span>${escapeHtml(manualObservationGoNoGo === "manual_observation_ready_no_auto_order" ? "材料齐，可以进入小资金人工观察复核；仍然不能自动买。" : "材料未齐，先补缺失证据，不要进入买卖步骤。")}</span>
+      <span class="beginner-task-actions">${verdictTargetButton}</span>
+    </div>
+  `;
+
   top3Target.innerHTML = top3Rows.length ? top3Rows.map((row) => {
     const unsafe = row.direct_buy_allowed || row.order_placement_allowed;
     const toneForRow = unsafe ? "danger" : row.advisory_eligible ? "ok" : "warn";
@@ -7643,7 +7676,6 @@ function renderDailyManualObservationPacket(packet = {}) {
     `;
   }).join("") : statusRows([["今日 Top3 因子", "还没有可观察的 Top3 候选；先生成今日 CN_ETF 信号。", "warn"]]);
 
-  const paperRequests = Array.isArray(packet.same_parameter_paper_requests) ? packet.same_parameter_paper_requests : [];
   paperTarget.innerHTML = paperRequests.length ? paperRequests.map((row) => `
     <div class="list-row ${escapeHtml(row.order_placement_allowed || row.auto_order_allowed ? "danger" : "warn")}">
       <strong>${escapeHtml(`${row.rank || "--"}. ${row.factor || "--"} / ${row.request_id || row.same_parameter_request_id || "--"}`)}</strong>
@@ -7680,7 +7712,6 @@ function renderDailyManualObservationPacket(packet = {}) {
     </div>
   `).join("") : statusRows([["材料包步骤", "先生成每日建议，系统会给出下一步。", "warn"]]);
 
-  const tickets = Array.isArray(packet.manual_ticket_preview) ? packet.manual_ticket_preview : [];
   ticketsTarget.innerHTML = tickets.length ? tickets.map((row) => `
     <div class="list-row warn">
       <strong>${escapeHtml(`${row.step_number || "--"}. ${row.asset_id || "--"} / ${zhConsoleText(row.side || "review")}`)}</strong>

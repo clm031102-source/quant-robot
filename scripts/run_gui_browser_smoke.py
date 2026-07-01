@@ -465,6 +465,23 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "daily_manual_observation_go_no_go_frontend",
+            "Daily manual observation Go/No-Go frontend",
+            index_html.get("ok")
+            and "daily-manual-observation-verdict" in str(index_html.get("body", ""))
+            and app_js.get("ok")
+            and "manual_observation_go_no_go" in str(app_js.get("body", ""))
+            and "blocked_missing_same_parameter_paper" in str(app_js.get("body", ""))
+            and "missing_same_parameter_paper_request_ids" in str(app_js.get("body", ""))
+            and "data-manual-observation-missing-paper" in str(app_js.get("body", "")),
+            "Frontend exposes a manual-observation Go/No-Go verdict, missing paper request ids, and a safe missing-paper action.",
+            index_html.get("error")
+            or app_js.get("error")
+            or "Daily manual observation Go/No-Go frontend hooks are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "daily_paper_allocation_playbook_frontend",
             "Daily paper allocation playbook frontend",
             index_html.get("ok")
