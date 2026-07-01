@@ -4028,6 +4028,13 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("renderBeginnerLiveHandoff", app_js)
             self.assertIn("beginnerLiveHandoffSteps", app_js)
             self.assertIn("beginnerLiveHandoffTickets", app_js)
+            command_rail_block = app_js.split("function renderDailyCommandRail", 1)[1].split("async function runDailyCommandRailAction", 1)[0]
+            self.assertIn("const manualReviewGate = dailySameParameterManualReviewGate();", command_rail_block)
+            self.assertIn("manualReviewGate.allowed", command_rail_block)
+            self.assertIn("same_parameter_paper_required_before_manual_tickets", command_rail_block)
+            trade_system_evidence_block = app_js.split("function beginnerTradeSystemEvidenceRows", 1)[1].split("function renderBeginnerTradeSystemEvidence", 1)[0]
+            self.assertIn("const manualReviewGate = dailySameParameterManualReviewGate();", trade_system_evidence_block)
+            self.assertIn("manualReviewGate.allowed", trade_system_evidence_block)
             self.assertIn("daily_pretrade_checkup", app_js)
             self.assertIn("runDailyPretradeCheckup", app_js)
             self.assertIn("dailyPretradeCheckupReceipt", app_js)
@@ -4049,6 +4056,9 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("data-trade-system-action", app_js)
             self.assertIn("renderBeginnerLivePilotBrief", app_js)
             self.assertIn("beginnerLivePilotBriefRows", app_js)
+            live_pilot_block = app_js.split("function beginnerLivePilotBriefRows", 1)[1].split("function smallCapitalObservationDecisionRow", 1)[0]
+            self.assertIn("const manualReviewGate = dailySameParameterManualReviewGate();", live_pilot_block)
+            self.assertIn("manualReviewGate.allowed", live_pilot_block)
             self.assertIn("beginnerLivePilotEvidenceRows", app_js)
             self.assertIn("daily_live_pilot_brief", app_js)
             self.assertIn("data-beginner-live-pilot-action", app_js)
@@ -4145,6 +4155,9 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("今天先别买", app_js)
             self.assertIn("可以进入人工复核", app_js)
             self.assertIn("仍然禁止自动下单", app_js)
+            readiness_decision_block = app_js.split("function dailyReadinessDecision", 1)[1].split("function dailyReadinessButtons", 1)[0]
+            self.assertIn("const manualReviewGate = dailySameParameterManualReviewGate();", readiness_decision_block)
+            self.assertIn("manualReviewGate.allowed", readiness_decision_block)
             self.assertIn("data-daily-readiness-target", app_js)
             self.assertIn("data-daily-readiness-workflow", app_js)
             self.assertIn("dailyReadinessButtons", app_js)
@@ -4153,6 +4166,10 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("action_workflow: \"daily_trade_advisory\"", app_js)
             self.assertIn("escapeRawHtml(decision.action_workflow)", app_js)
             self.assertIn("data-beginner-action=\"${escapeRawHtml(decision.action_workflow)}\"", app_js)
+            evidence_chain_block = app_js.split("function renderDailyEvidenceChain", 1)[1].split("function latestExecutionReceipt", 1)[0]
+            self.assertIn("const manualReviewGate = dailySameParameterManualReviewGate();", evidence_chain_block)
+            self.assertIn("manualReviewGate.allowed", evidence_chain_block)
+            self.assertIn("same_parameter_paper_required_before_manual_tickets", evidence_chain_block)
             self.assertIn("renderDailyReadinessCard();\n  renderDailyEvidenceChain();", app_js)
             self.assertIn("renderDailyReadinessCard();\n  renderDailyEvidenceChain();\n  renderBeginnerTradeSystem();\n  renderBeginnerDailyRehearsal();\n  renderBeginnerPostCloseJournal();\n  renderBeginnerLiveHandoff();", app_js)
             self.assertIn("renderBeginnerLiveHandoff();\n  renderControlCenter();", app_js)

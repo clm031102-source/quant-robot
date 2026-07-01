@@ -3289,17 +3289,21 @@ function renderDailyCommandRail() {
   const briefSummary = brief.summary || {};
   const readiness = trade.pretrade_readiness || {};
   const handoff = trade.manual_broker_handoff || {};
-  const tickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
+  const manualReviewGate = dailySameParameterManualReviewGate();
+  const rawTickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
+  const tickets = manualReviewGate.allowed ? rawTickets : [];
   const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
   const rows = dailyCommandRailRows();
   const next = rows.find((row) => row.workflow && row.tone !== "ok") || rows.find((row) => row.tone !== "ok") || rows[0] || {};
   const ticketText = tickets.length
     ? tickets.slice(0, 3).map((ticket) => `${ticket.asset_id || "--"} ${zhConsoleText(ticket.side || "")} ${formatNumber(ticket.rounded_quantity || 0)}份`).join("；")
+    : !manualReviewGate.allowed && manualReviewGate.required
+      ? `Top3 同参数模拟盘未完成，人工票据已遮住：${manualReviewGate.reason_code || "same_parameter_paper_required_before_manual_tickets"}`
     : "暂无人工票据";
   statusTarget.innerHTML = statusRows([
     ["主路径", "每日交易主路径：前三因子 -> 体检 -> 模拟盘 -> 人工票据 -> 盘后复盘", "warn"],
     ["当前结论", briefSummary.plain_answer || dailyReadinessDecision().title || "等待今日交易建议加载", blockers.length ? "danger" : "warn"],
-    ["今天买什么", ticketText, tickets.length && blockers.length === 0 ? "warn" : "danger"],
+    ["今天买什么", ticketText, tickets.length && blockers.length === 0 && manualReviewGate.allowed ? "warn" : "danger"],
     ["下一步", next.title || "先生成今日前三建议", next.tone || "warn"],
     ["安全边界", "不连接券商、不读取账户、不自动下单；券商端动作必须由人手工决定。", "danger"],
   ]);
@@ -3322,7 +3326,9 @@ function dailyCommandRailRows() {
   const readiness = trade.pretrade_readiness || {};
   const freshness = readiness.freshness || {};
   const handoff = trade.manual_broker_handoff || {};
-  const tickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
+  const manualReviewGate = dailySameParameterManualReviewGate();
+  const rawTickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
+  const tickets = manualReviewGate.allowed ? rawTickets : [];
   const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
   const selectedCount = Number(summary.selected_factor_count || 0);
   const signalCount = Number(summary.signal_count || 0);
@@ -3366,12 +3372,20 @@ function dailyCommandRailRows() {
     },
     {
       title: "人工票据核对",
-      value: tickets.length ? `${formatNumber(tickets.length)} 张票据 / 自动下单=禁止` : "还没有可核对票据",
-      detail: tickets.length ? "只作为人工核对清单：ETF代码、方向、参考价、数量、金额、现金和风险都要再确认。" : "没有票据时不能进入券商端人工操作。",
+      value: !manualReviewGate.allowed && manualReviewGate.required
+        ? "Top3 同参数模拟盘未完成，人工票据已遮住"
+        : tickets.length ? `${formatNumber(tickets.length)} 张票据 / 自动下单=禁止` : "还没有可核对票据",
+      detail: !manualReviewGate.allowed && manualReviewGate.required
+        ? `先完成并匹配 Top3 同参数模拟盘：${manualReviewGate.reason_code || "same_parameter_paper_required_before_manual_tickets"}。`
+        : tickets.length ? "只作为人工核对清单：ETF代码、方向、参考价、数量、金额、现金和风险都要再确认。" : "没有票据时不能进入券商端人工操作。",
       workflow: "",
-      target: tickets.length ? "daily-manual-broker-handoff-ticket-table" : "daily-trade-factor-table",
-      targetLabel: tickets.length ? "看人工票据" : "看信号",
-      tone: tickets.length && blockers.length === 0 ? "warn" : "danger",
+      target: !manualReviewGate.allowed && manualReviewGate.required
+        ? "daily-same-parameter-paper-requests"
+        : tickets.length ? "daily-manual-broker-handoff-ticket-table" : "daily-trade-factor-table",
+      targetLabel: !manualReviewGate.allowed && manualReviewGate.required
+        ? "看同参数模拟盘"
+        : tickets.length ? "看人工票据" : "看信号",
+      tone: tickets.length && blockers.length === 0 && manualReviewGate.allowed ? "warn" : "danger",
     },
     {
       title: "收盘后复盘",
@@ -3417,7 +3431,9 @@ function beginnerLivePilotBriefRows(brief = {}) {
   const summary = brief.summary || {};
   const signalRule = brief.today_signal_rule || {};
   const steps = Array.isArray(brief.manual_operation_steps) ? brief.manual_operation_steps : [];
-  const tickets = Array.isArray(brief.manual_ticket_preview) ? brief.manual_ticket_preview : [];
+  const manualReviewGate = dailySameParameterManualReviewGate();
+  const rawTickets = Array.isArray(brief.manual_ticket_preview) ? brief.manual_ticket_preview : [];
+  const tickets = manualReviewGate.allowed ? rawTickets : [];
   const risk = brief.risk_budget || {};
   const boundary = brief.execution_boundary || {};
   const blockers = Array.isArray(brief.blockers) ? brief.blockers : [];
@@ -3448,11 +3464,19 @@ function beginnerLivePilotBriefRows(brief = {}) {
     },
     {
       label: "今天买什么",
-      value: ticketText,
-      detail: "这是人工核对清单，不是订单；券商端价格、现金和风险仍需本人确认。",
-      target: tickets.length ? "daily-manual-broker-handoff-ticket-table" : "daily-trade-factor-table",
-      targetLabel: tickets.length ? "看人工票据" : "看信号",
-      tone: tickets.length && !blockers.length ? "warn" : "danger",
+      value: !manualReviewGate.allowed && manualReviewGate.required
+        ? "Top3 同参数模拟盘未完成，人工票据已遮住"
+        : ticketText,
+      detail: !manualReviewGate.allowed && manualReviewGate.required
+        ? `不能提前看票据或进券商端；先补同参数模拟盘：${manualReviewGate.reason_code || "same_parameter_paper_required_before_manual_tickets"}。`
+        : "这是人工核对清单，不是订单；券商端价格、现金和风险仍需本人确认。",
+      target: !manualReviewGate.allowed && manualReviewGate.required
+        ? "daily-same-parameter-paper-requests"
+        : tickets.length ? "daily-manual-broker-handoff-ticket-table" : "daily-trade-factor-table",
+      targetLabel: !manualReviewGate.allowed && manualReviewGate.required
+        ? "看同参数模拟盘"
+        : tickets.length ? "看人工票据" : "看信号",
+      tone: tickets.length && !blockers.length && manualReviewGate.allowed ? "warn" : "danger",
     },
     {
       label: "风险预算",
@@ -3742,7 +3766,9 @@ function beginnerTradeSystemEvidenceRows(trade = {}, paperReceipt = null) {
   const readiness = trade.pretrade_readiness || {};
   const freshness = readiness.freshness || {};
   const handoff = trade.manual_broker_handoff || {};
-  const tickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
+  const manualReviewGate = dailySameParameterManualReviewGate();
+  const rawTickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
+  const tickets = manualReviewGate.allowed ? rawTickets : [];
   const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
   return [
     {
@@ -9850,7 +9876,9 @@ function dailyReadinessDecision() {
   const readiness = trade.pretrade_readiness || {};
   const freshness = readiness.freshness || {};
   const handoff = trade.manual_broker_handoff || {};
-  const tickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
+  const manualReviewGate = dailySameParameterManualReviewGate();
+  const rawTickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
+  const tickets = manualReviewGate.allowed ? rawTickets : [];
   const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
   const actions = Array.isArray(trade.operator_next_actions)
     ? trade.operator_next_actions
@@ -10126,7 +10154,9 @@ function renderDailyEvidenceChain() {
   const readiness = trade.pretrade_readiness || {};
   const freshness = readiness.freshness || {};
   const handoff = trade.manual_broker_handoff || {};
-  const tickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
+  const manualReviewGate = dailySameParameterManualReviewGate();
+  const rawTickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
+  const tickets = manualReviewGate.allowed ? rawTickets : [];
   const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
   const recent = state.recentDataRefresh || {};
   const recentDecision = recent.decision || {};
@@ -10163,10 +10193,14 @@ function renderDailyEvidenceChain() {
     },
     {
       step: "人工券商复核",
-      status: tickets.length && blockers.length === 0 ? "warn" : "danger",
-      detail: `票据=${formatNumber(tickets.length)} / 灯号=${readiness.traffic_light || "red"} / 自动下单=禁止`,
-      action: tickets.length ? "只把票据作为人工核对清单；价格、数量、现金和风险都要在券商端再确认。" : "还没有可读票据，不能进入人工买卖步骤。",
-      target_id: "daily-manual-broker-handoff-ticket-table",
+      status: tickets.length && blockers.length === 0 && manualReviewGate.allowed ? "warn" : "danger",
+      detail: !manualReviewGate.allowed && manualReviewGate.required
+        ? `票据=遮住 / ${manualReviewGate.reason_code || "same_parameter_paper_required_before_manual_tickets"} / 自动下单=禁止`
+        : `票据=${formatNumber(tickets.length)} / 灯号=${readiness.traffic_light || "red"} / 自动下单=禁止`,
+      action: !manualReviewGate.allowed && manualReviewGate.required
+        ? "Top3 同参数模拟盘还没全部匹配，不能进入人工买卖步骤。"
+        : tickets.length ? "只把票据作为人工核对清单；价格、数量、现金和风险都要在券商端再确认。" : "还没有可读票据，不能进入人工买卖步骤。",
+      target_id: !manualReviewGate.allowed && manualReviewGate.required ? "daily-same-parameter-paper-requests" : "daily-manual-broker-handoff-ticket-table",
     },
   ];
   target.innerHTML = rows.map((row, index) => `
