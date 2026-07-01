@@ -489,6 +489,11 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("renderDailyRealWorldHandoffGate", app_js)
         self.assertIn("renderDailyRealWorldCapitalLadder", app_js)
         self.assertIn("real_world_manual_handoff_gate", app_js)
+        self.assertIn("daily-ops-handoff-status", html)
+        self.assertIn("daily-ops-handoff-ticket-table", html)
+        self.assertIn("renderDailyOpsHandoff", app_js)
+        self.assertIn("daily_ops_handoff", app_js)
+        self.assertIn("纸面工单可观察", app_js)
         self.assertIn("daily-real-money-transition-gate", html)
         self.assertIn("daily-real-money-transition-summary", html)
         self.assertIn("daily-real-money-transition-preflight", html)
@@ -1080,6 +1085,80 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertGreaterEqual(len(snapshot["operator_next_actions"]), 1)
         self.assertEqual(snapshot["operator_next_actions"][0]["automation_allowed"], False)
         self.assertLessEqual(snapshot["summary"]["selected_factor_count"], 3)
+
+    def test_daily_trade_advisory_exposes_daily_ops_handoff_for_paper_ready_ticket(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            pack_path = Path(tmp) / "daily_ops_pack.json"
+            pack_path.write_text(
+                json.dumps(
+                    {
+                        "stage": "phase_5_5_profile_daily_ops_activation",
+                        "run_date": "2026-07-01",
+                        "candidate": {
+                            "case_id": "CN_ETF_liquidity_10_top1_cost5_reb5",
+                            "factor_name": "liquidity_10",
+                            "market": "CN_ETF",
+                            "promotion_status": "paper_ready",
+                            "rank": 1,
+                        },
+                        "decision": {
+                            "status": "paper_ready",
+                            "paper_trading_allowed": True,
+                            "live_boundary_allowed": False,
+                            "blocking_reasons": ["manual_live_review_not_enabled"],
+                            "non_manual_blocking_reasons": [],
+                            "signal_freshness": {
+                                "status": "fresh",
+                                "signal_date": "2026-07-01",
+                                "signal_age_days": 0,
+                            },
+                        },
+                        "signal": {
+                            "as_of_date": "2026-07-01",
+                            "signal_date": "2026-07-01",
+                            "signal_age_days": 0,
+                            "target_count": 1,
+                        },
+                        "advisory_tickets": [
+                            {
+                                "ticket_id": "daily-001",
+                                "asset_id": "CN_ETF_XSHG_501222",
+                                "market": "CN_ETF",
+                                "side": "buy",
+                                "target_weight": 0.6,
+                                "delta_value": 60000.0,
+                                "estimated_quantity_delta": 56497.17,
+                                "live_order_allowed": False,
+                            }
+                        ],
+                        "safety": (
+                            "Research-to-paper only. No broker connection, no account reads, "
+                            "no order placement, no live trading."
+                        ),
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            snapshot = build_daily_trade_advisory_snapshot(
+                source="demo_fixture",
+                market="CN_ETF",
+                limit=3,
+                daily_ops_pack=pack_path,
+            )
+
+        handoff = snapshot["daily_ops_handoff"]
+        self.assertEqual(handoff["stage"], "phase_6_33_daily_ops_handoff")
+        self.assertTrue(handoff["artifact_present"])
+        self.assertEqual(handoff["summary"]["daily_ops_status"], "paper_ready")
+        self.assertTrue(handoff["summary"]["daily_ops_paper_trading_allowed"])
+        self.assertEqual(handoff["summary"]["daily_ops_ticket_count"], 1)
+        self.assertFalse(handoff["summary"]["live_boundary_allowed"])
+        self.assertFalse(handoff["summary"]["order_placement_allowed"])
+        self.assertFalse(handoff["summary"]["auto_order_allowed"])
+        self.assertEqual(handoff["activated_candidate"]["case_id"], "CN_ETF_liquidity_10_top1_cost5_reb5")
+        self.assertEqual(handoff["advisory_tickets"][0]["asset_id"], "CN_ETF_XSHG_501222")
+        self.assertFalse(handoff["advisory_tickets"][0]["live_order_allowed"])
 
     def test_daily_trade_advisory_prefers_recent_refresh_root_when_default_processed_root_is_requested(self):
         with tempfile.TemporaryDirectory() as tmp:

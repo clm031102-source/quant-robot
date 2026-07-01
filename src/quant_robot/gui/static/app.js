@@ -6363,6 +6363,7 @@ function renderDailyTradeAdvisory() {
     ["下一步", summary.next_action || "先复核信号，再看模拟盘，不自动下单。", "warn"],
     ["错误", (pack.signal_errors || []).map((item) => item.factor_name || item.case_id).join(" / ") || "无", pack.signal_errors?.length ? "warn" : "ok"],
   ]);
+  renderDailyOpsHandoff(pack.daily_ops_handoff || {});
   renderDailyBeginnerActionSummary(pack.beginner_action_summary || {});
   renderDailyCurrentPositionHelp(positionValidation);
   renderDailyPortfolioValueHelp();
@@ -6438,6 +6439,35 @@ function renderDailyTradeAdvisory() {
     "estimated_cash_impact_after_costs",
     "source_factors",
     "live_order_allowed",
+    "manual_instruction",
+  ]);
+}
+
+function renderDailyOpsHandoff(handoff = {}) {
+  const target = byId("daily-ops-handoff-status");
+  const ticketTarget = byId("daily-ops-handoff-ticket-table");
+  if (!target || !ticketTarget) return;
+  const summary = handoff.summary || {};
+  const tickets = Array.isArray(handoff.advisory_tickets) ? handoff.advisory_tickets : [];
+  const tone = summary.order_placement_allowed ? "danger" : summary.daily_ops_ticket_count ? "warn" : "muted";
+  target.innerHTML = statusRows([
+    ["Daily Ops 交接", zhConsoleText(summary.handoff_status || "daily_ops_missing"), tone],
+    ["运营状态", `${zhConsoleText(summary.daily_ops_status || "missing")} / 纸面=${summary.daily_ops_paper_trading_allowed ? "允许" : "禁止"}`, summary.daily_ops_paper_trading_allowed ? "warn" : "danger"],
+    ["票据对齐", `Daily Ops=${formatNumber(summary.daily_ops_ticket_count || 0)} / Top3=${formatNumber(summary.top3_manual_ticket_count || 0)}`, summary.daily_ops_ticket_count ? "warn" : "danger"],
+    ["信号日期", `${summary.signal_date || "--"} / age=${summary.signal_age_days ?? "--"}`, summary.signal_date ? "ok" : "warn"],
+    ["自动/实盘下单", summary.order_placement_allowed || summary.auto_order_allowed ? "异常：停止" : "禁止，只能纸面观察或人工复核", "danger"],
+    ["解释", summary.plain_answer || "先刷新 Daily Ops，再生成今日前三交易建议。", "warn"],
+  ]);
+  ticketTarget.innerHTML = tableRows(tickets, [
+    "ticket_id",
+    "asset_id",
+    "market",
+    "side",
+    "target_weight",
+    "delta_value",
+    "estimated_quantity_delta",
+    "live_order_allowed",
+    "order_placement_allowed",
     "manual_instruction",
   ]);
 }
@@ -11633,6 +11663,10 @@ const GUI_ZH_REPLACEMENTS = [
   ["paper_candidate", "模拟盘候选"],
   ["receipt", "回执"],
   ["paper_ready", "模拟盘就绪"],
+  ["paper_ready_ticket_available", "纸面工单可观察"],
+  ["paper_ready_without_ticket", "纸面就绪但无工单"],
+  ["daily_ops_blocked", "日常运营已阻断"],
+  ["daily_ops_missing", "缺少日常运营产物"],
   ["paper_profile_selected", "已选择模拟盘参数"],
   ["risk_tier_profile_selected", "已选择风险层级参数"],
   ["risk_candidate_selected", "已选择风险候选"],

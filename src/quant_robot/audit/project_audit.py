@@ -293,9 +293,14 @@ def _is_disabled_live_boundary_line(lower_line: str) -> bool:
         single_item_collection = rf"\w+\s*=\s*[\(\[\{{]\s*{quoted_field}\s*,?\s*[\)\]\}}]\s*"
         disabled_mapping = rf"{quoted_field}\s*:\s*false\b"
         disabled_assignment = rf"\b{re.escape(field)}\s*=\s*false\b"
+        disabled_index_assignment = rf"\w+\s*\[\s*{quoted_field}\s*\]\s*=\s*false\b"
         if re.fullmatch(field_reference, stripped) or re.fullmatch(single_item_collection, stripped):
             return True
-        if re.search(disabled_mapping, stripped) or re.search(disabled_assignment, stripped):
+        if (
+            re.search(disabled_mapping, stripped)
+            or re.search(disabled_assignment, stripped)
+            or re.search(disabled_index_assignment, stripped)
+        ):
             return True
     return False
 

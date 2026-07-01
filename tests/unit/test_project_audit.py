@@ -28,6 +28,9 @@ class ProjectAuditTests(unittest.TestCase):
             (root / "src" / "safe.py").write_text(
                 "FIELDS = ('live_order_allowed',)\n"
                 "def decision():\n"
+                "    row = {}\n"
+                "    row['live_order_allowed'] = False\n"
+                "    row[\"live_order_allowed\"] = False\n"
                 "    return {'live_order_allowed': False}\n",
                 encoding="utf-8",
             )

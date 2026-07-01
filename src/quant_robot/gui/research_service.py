@@ -60,6 +60,10 @@ DEFAULT_FACTOR_LEADERBOARD_CONFIGS_ROOT = Path("configs")
 DEFAULT_FACTOR_LEADERBOARD_CACHE = Path("data/reports/gui_factor_leaderboard_cache/gui_factor_leaderboard_cache.json")
 FACTOR_LEADERBOARD_CACHE_VERSION = 2
 PRIMARY_FACTOR_MARKET = "CN_ETF"
+DAILY_OPS_HANDOFF_STAGE = "phase_6_33_daily_ops_handoff"
+RESEARCH_TO_PAPER_SAFETY = (
+    "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading."
+)
 FACTOR_LEADERBOARD_GROUPS = {
     "primary_cn_etf": {
         "label": "CN_ETF 主线榜",
@@ -459,6 +463,7 @@ def build_daily_trade_advisory_snapshot(
     manual_available_cash: float | None = None,
     evidence_snapshot: str | dict[str, Any] | None = None,
     recent_data_refresh_pack: str | Path | None = DEFAULT_RECENT_DATA_REFRESH_PACK,
+    daily_ops_pack: str | Path | None = DEFAULT_DAILY_OPS_PACK,
     repo_root: str | Path | None = None,
 ) -> dict[str, Any]:
     leaderboard = build_factor_leaderboard_snapshot(
@@ -536,7 +541,153 @@ def build_daily_trade_advisory_snapshot(
     pack["requested_data_root"] = str(data_root) if data_root is not None else ""
     pack["data_root_policy"] = data_root_policy
     pack["market"] = market.upper()
+    pack["daily_ops_handoff"] = _build_daily_ops_handoff(pack, daily_ops_pack)
+    handoff_summary = pack["daily_ops_handoff"]["summary"]
+    pack["summary"]["daily_ops_handoff_status"] = handoff_summary["handoff_status"]
+    pack["summary"]["daily_ops_ticket_count"] = handoff_summary["daily_ops_ticket_count"]
+    pack["summary"]["daily_ops_paper_trading_allowed"] = handoff_summary["daily_ops_paper_trading_allowed"]
     return _sanitize(pack)
+
+
+def _build_daily_ops_handoff(pack: dict[str, Any], daily_ops_pack: str | Path | None) -> dict[str, Any]:
+    pack_path = Path(daily_ops_pack) if daily_ops_pack else DEFAULT_DAILY_OPS_PACK
+    top3_summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    daily_pack = _read_optional_json(pack_path)
+    if not daily_pack:
+        return _sanitize(
+            {
+                "stage": DAILY_OPS_HANDOFF_STAGE,
+                "artifact_present": False,
+                "source_path": str(pack_path),
+                "summary": {
+                    "handoff_status": "daily_ops_missing",
+                    "daily_ops_status": "missing",
+                    "daily_ops_paper_trading_allowed": False,
+                    "daily_ops_ticket_count": 0,
+                    "top3_manual_ticket_count": _safe_int(top3_summary.get("manual_ticket_count")),
+                    "top3_candidate_count": _safe_int(top3_summary.get("selected_factor_count")),
+                    "signal_date": None,
+                    "signal_age_days": None,
+                    "live_boundary_allowed": False,
+                    "order_placement_allowed": False,
+                    "auto_order_allowed": False,
+                    "plain_answer": "Daily Ops artifact is missing; refresh daily operations before any paper handoff.",
+                },
+                "activated_candidate": {},
+                "advisory_tickets": [],
+                "operator_steps": [
+                    _daily_ops_handoff_step(
+                        "refresh_daily_ops",
+                        "Refresh Daily Ops before using today's operational ticket",
+                        "required",
+                        "daily_ops",
+                    )
+                ],
+                "safety": RESEARCH_TO_PAPER_SAFETY,
+            }
+        )
+
+    decision = daily_pack.get("decision") if isinstance(daily_pack.get("decision"), dict) else {}
+    signal = daily_pack.get("signal") if isinstance(daily_pack.get("signal"), dict) else {}
+    freshness = decision.get("signal_freshness") if isinstance(decision.get("signal_freshness"), dict) else {}
+    raw_tickets = daily_pack.get("advisory_tickets") if isinstance(daily_pack.get("advisory_tickets"), list) else []
+    tickets = [_daily_ops_handoff_ticket(row) for row in raw_tickets if isinstance(row, dict)]
+    daily_ops_status = str(decision.get("status") or "unknown")
+    paper_allowed = bool(decision.get("paper_trading_allowed", False))
+    live_boundary_allowed = bool(decision.get("live_boundary_allowed", False))
+    if paper_allowed and tickets:
+        handoff_status = "paper_ready_ticket_available"
+        plain_answer = (
+            "Daily Ops has a paper-ready advisory ticket. Treat it as paper-observation material only; "
+            "the Top3 candidate page may still keep broker tickets locked until same-parameter paper receipts match."
+        )
+    elif paper_allowed:
+        handoff_status = "paper_ready_without_ticket"
+        plain_answer = "Daily Ops is paper-ready but has no advisory ticket; do not trade from the Top3 list directly."
+    else:
+        handoff_status = "daily_ops_blocked"
+        plain_answer = "Daily Ops is blocked; clear the blocking reasons before paper observation."
+
+    return _sanitize(
+        {
+            "stage": DAILY_OPS_HANDOFF_STAGE,
+            "artifact_present": True,
+            "source_path": str(pack_path),
+            "run_date": daily_pack.get("run_date"),
+            "summary": {
+                "handoff_status": handoff_status,
+                "daily_ops_status": daily_ops_status,
+                "daily_ops_paper_trading_allowed": paper_allowed,
+                "daily_ops_ticket_count": len(tickets),
+                "top3_manual_ticket_count": _safe_int(top3_summary.get("manual_ticket_count")),
+                "top3_candidate_count": _safe_int(top3_summary.get("selected_factor_count")),
+                "top3_signal_count": _safe_int(top3_summary.get("signal_count")),
+                "top3_manual_trade_plan_blocked": bool(top3_summary.get("manual_trade_plan_blocked", False)),
+                "top3_manual_trade_plan_blocked_reason": top3_summary.get("manual_trade_plan_blocked_reason") or "",
+                "signal_date": freshness.get("signal_date") or signal.get("signal_date"),
+                "signal_age_days": freshness.get("signal_age_days", signal.get("signal_age_days")),
+                "live_boundary_allowed": live_boundary_allowed,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+                "plain_answer": plain_answer,
+            },
+            "activated_candidate": (
+                daily_pack.get("candidate") if isinstance(daily_pack.get("candidate"), dict) else {}
+            ),
+            "decision": decision,
+            "signal": signal,
+            "advisory_tickets": tickets[:20],
+            "operator_steps": [
+                _daily_ops_handoff_step(
+                    "compare_top3_and_daily_ops",
+                    "Compare today's Top3 candidate layer with the activated Daily Ops paper ticket",
+                    "required",
+                    "daily-trade-decision-sheet",
+                ),
+                _daily_ops_handoff_step(
+                    "run_same_parameter_paper",
+                    "Run same-parameter paper rehearsal before any manual broker review",
+                    "required",
+                    "paper-metrics",
+                ),
+                _daily_ops_handoff_step(
+                    "paper_observe_daily_ops_ticket",
+                    "Use the Daily Ops ticket only as a paper-observation instruction",
+                    "paper_only" if tickets and paper_allowed else "locked",
+                    "daily-ops-handoff-ticket-table",
+                ),
+                _daily_ops_handoff_step(
+                    "record_post_close_journal",
+                    "Record skipped, paper-only, or manual-off-system decisions after close",
+                    "required",
+                    "beginner-post-close-journal-board",
+                ),
+            ],
+            "safety": daily_pack.get("safety") or RESEARCH_TO_PAPER_SAFETY,
+        }
+    )
+
+
+def _daily_ops_handoff_ticket(ticket: dict[str, Any]) -> dict[str, Any]:
+    row = dict(ticket)
+    row["live_order_allowed"] = False
+    row["order_placement_allowed"] = False
+    row["auto_order_allowed"] = False
+    row["manual_instruction"] = "Paper observation only; do not send this ticket as a broker order."
+    return row
+
+
+def _daily_ops_handoff_step(step_id: str, label: str, status: str, gui_target: str) -> dict[str, Any]:
+    return {
+        "step_id": step_id,
+        "label": label,
+        "status": status,
+        "gui_target": gui_target,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
 
 
 def _resolve_daily_trade_data_root(
