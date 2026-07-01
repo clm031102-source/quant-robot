@@ -412,7 +412,7 @@ function bindActions() {
     await copyTicketTextToClipboard(button.dataset.copyTicketText || "");
   });
   document.addEventListener("input", (event) => {
-    const input = event.target.closest("[data-broker-price-recheck-price]");
+    const input = event.target.closest("[data-broker-price-recheck-price], [data-broker-price-recheck-cash]");
     if (!input) return;
     updateBrokerPriceRecheckDecision(input);
   });
@@ -8119,14 +8119,21 @@ function renderTradeSystemGoNoGoGate(gate = {}, target = null) {
   `;
 }
 
-function brokerPriceRecheckDecision(item = {}, externalPriceValue = "") {
+function brokerPriceRecheckDecision(item = {}, externalPriceValue = "", externalCashValue = "") {
   const rawText = String(externalPriceValue ?? "").trim();
+  const rawCashText = String(externalCashValue ?? "").trim();
+  const externalCash = rawCashText ? Number(rawCashText) : null;
+  const cashPayload = {
+    external_available_cash_after_manual_check: Number.isFinite(externalCash) && externalCash >= 0 ? externalCash : null,
+    external_cash_shortfall: null,
+  };
   if (!rawText) {
     return {
       status: "skip_waiting_for_external_broker_price",
       recalculated_quantity_at_external_price: 0,
       recalculated_value_at_external_price: 0,
       external_price_slippage_bps: null,
+      ...cashPayload,
     };
   }
   const externalPrice = Number(rawText);
@@ -8136,6 +8143,17 @@ function brokerPriceRecheckDecision(item = {}, externalPriceValue = "") {
       recalculated_quantity_at_external_price: 0,
       recalculated_value_at_external_price: 0,
       external_price_slippage_bps: null,
+      ...cashPayload,
+    };
+  }
+  if (rawCashText && (!Number.isFinite(externalCash) || externalCash < 0)) {
+    return {
+      status: "skip_invalid_external_available_cash",
+      recalculated_quantity_at_external_price: 0,
+      recalculated_value_at_external_price: 0,
+      external_price_slippage_bps: null,
+      external_available_cash_after_manual_check: null,
+      external_cash_shortfall: null,
     };
   }
   const lower = Number(item.lower_price_bound);
@@ -8154,6 +8172,7 @@ function brokerPriceRecheckDecision(item = {}, externalPriceValue = "") {
       recalculated_quantity_at_external_price: 0,
       recalculated_value_at_external_price: 0,
       external_price_slippage_bps: slippageBps,
+      ...cashPayload,
     };
   }
   if (Number.isFinite(upper) && externalPrice > upper) {
@@ -8162,6 +8181,7 @@ function brokerPriceRecheckDecision(item = {}, externalPriceValue = "") {
       recalculated_quantity_at_external_price: 0,
       recalculated_value_at_external_price: 0,
       external_price_slippage_bps: slippageBps,
+      ...cashPayload,
     };
   }
   if (Number.isFinite(maxSlippageBps) && slippageBps != null && Math.abs(slippageBps) > maxSlippageBps) {
@@ -8170,6 +8190,7 @@ function brokerPriceRecheckDecision(item = {}, externalPriceValue = "") {
       recalculated_quantity_at_external_price: 0,
       recalculated_value_at_external_price: 0,
       external_price_slippage_bps: slippageBps,
+      ...cashPayload,
     };
   }
   const quantity = Math.floor(targetValue / externalPrice / boardLotSize) * boardLotSize;
@@ -8179,26 +8200,58 @@ function brokerPriceRecheckDecision(item = {}, externalPriceValue = "") {
       recalculated_quantity_at_external_price: 0,
       recalculated_value_at_external_price: 0,
       external_price_slippage_bps: slippageBps,
+      ...cashPayload,
+    };
+  }
+  const recalculatedValue = quantity * externalPrice;
+  if (!rawCashText) {
+    return {
+      status: "manual_review_price_ok_cash_pending",
+      recalculated_quantity_at_external_price: quantity,
+      recalculated_value_at_external_price: recalculatedValue,
+      external_price_slippage_bps: slippageBps,
+      external_available_cash_after_manual_check: null,
+      external_cash_shortfall: null,
+    };
+  }
+  if (externalCash < recalculatedValue) {
+    return {
+      status: "skip_external_cash_below_recalculated_value",
+      recalculated_quantity_at_external_price: quantity,
+      recalculated_value_at_external_price: recalculatedValue,
+      external_price_slippage_bps: slippageBps,
+      external_available_cash_after_manual_check: externalCash,
+      external_cash_shortfall: recalculatedValue - externalCash,
     };
   }
   return {
     status: "manual_review_price_ok_quantity_recalculated",
     recalculated_quantity_at_external_price: quantity,
-    recalculated_value_at_external_price: quantity * externalPrice,
+    recalculated_value_at_external_price: recalculatedValue,
     external_price_slippage_bps: slippageBps,
+    external_available_cash_after_manual_check: externalCash,
+    external_cash_shortfall: 0,
   };
 }
 
-function renderBrokerPriceRecheckDecision(item = {}, externalPriceValue = "") {
-  const decision = brokerPriceRecheckDecision(item, externalPriceValue);
+function renderBrokerPriceRecheckDecision(item = {}, externalPriceValue = "", externalCashValue = "") {
+  const decision = brokerPriceRecheckDecision(item, externalPriceValue, externalCashValue);
   const slippageText = decision.external_price_slippage_bps == null
     ? "--"
     : formatDecimal(decision.external_price_slippage_bps);
+  const cashText = decision.external_available_cash_after_manual_check == null
+    ? "待人工填写"
+    : formatDecimal(decision.external_available_cash_after_manual_check);
+  const cashShortfallText = decision.external_cash_shortfall == null
+    ? "--"
+    : formatDecimal(decision.external_cash_shortfall);
   return [
     `local_recheck_decision=${decision.status}`,
     `recalculated_quantity_at_external_price=${formatNumber(decision.recalculated_quantity_at_external_price)}`,
     `recalculated_value_at_external_price=${formatDecimal(decision.recalculated_value_at_external_price)}`,
     `external_price_slippage_bps=${slippageText}`,
+    `external_available_cash_after_manual_check=${cashText}`,
+    `external_cash_shortfall=${cashShortfallText}`,
   ].join(" / ");
 }
 
@@ -8215,11 +8268,15 @@ function brokerPriceRecheckItemFromDataset(dataset = {}) {
 
 function updateBrokerPriceRecheckDecision(input) {
   const key = input.dataset.brokerPriceRecheckKey || "";
-  const item = brokerPriceRecheckItemFromDataset(input.dataset || {});
+  const priceInput = Array.from(document.querySelectorAll("[data-broker-price-recheck-price]"))
+    .find((node) => node.dataset.brokerPriceRecheckKey === key);
+  const cashInput = Array.from(document.querySelectorAll("[data-broker-price-recheck-cash]"))
+    .find((node) => node.dataset.brokerPriceRecheckKey === key);
+  const item = brokerPriceRecheckItemFromDataset((priceInput || input).dataset || {});
   const output = Array.from(document.querySelectorAll("[data-broker-price-recheck-output]"))
     .find((node) => node.dataset.brokerPriceRecheckOutput === key);
   if (!output) return;
-  output.textContent = renderBrokerPriceRecheckDecision(item, input.value);
+  output.textContent = renderBrokerPriceRecheckDecision(item, priceInput?.value || "", cashInput?.value || "");
 }
 
 function renderPreMarketManualExecutionPacket(packet = {}, target = null) {
@@ -8279,7 +8336,19 @@ function renderPreMarketManualExecutionPacket(packet = {}, target = null) {
             placeholder="${escapeRawHtml("人工填写")}"
           >
         </label>
-        <span data-broker-price-recheck-output="${escapeRawHtml(recheckKey)}">${escapeHtml(renderBrokerPriceRecheckDecision(item, item.external_broker_realtime_price))}</span>
+        <label class="compact-inline-field">
+          <span>${escapeHtml("券商可用现金")}</span>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            inputmode="decimal"
+            data-broker-price-recheck-cash="true"
+            data-broker-price-recheck-key="${escapeRawHtml(recheckKey)}"
+            placeholder="${escapeRawHtml("人工填写")}"
+          >
+        </label>
+        <span data-broker-price-recheck-output="${escapeRawHtml(recheckKey)}">${escapeHtml(renderBrokerPriceRecheckDecision(item, item.external_broker_realtime_price, item.external_available_cash_after_manual_check))}</span>
         <span>${escapeHtml(item.order_placement_allowed ? "异常：不应出现下单权限" : "只做人工复核，不复制到券商")}</span>
       </div>
     `;

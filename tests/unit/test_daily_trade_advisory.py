@@ -2690,11 +2690,23 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
             recheck_rows_by_asset["510300"]["local_recheck_input_fields"],
         )
         self.assertIn(
+            "external_available_cash_after_manual_check",
+            recheck_rows_by_asset["510300"]["local_recheck_input_fields"],
+        )
+        self.assertIn(
             "recalculated_quantity_at_external_price",
             recheck_rows_by_asset["510300"]["local_recalculation_output_fields"],
         )
         self.assertIn(
+            "external_cash_shortfall",
+            recheck_rows_by_asset["510300"]["local_recalculation_output_fields"],
+        )
+        self.assertIn(
             "skip_broker_price_outside_guardrail",
+            recheck_rows_by_asset["510300"]["local_decision_statuses"],
+        )
+        self.assertIn(
+            "skip_external_cash_below_recalculated_value",
             recheck_rows_by_asset["510300"]["local_decision_statuses"],
         )
         self.assertIn(
