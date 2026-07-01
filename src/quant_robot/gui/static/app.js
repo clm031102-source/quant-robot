@@ -5663,11 +5663,115 @@ function renderOrdinaryHome() {
     ["项目状态", project.overall_status || "加载中", project.blocker_count ? "warn" : "ok"],
   ]);
   renderOrdinaryDailyActionCard(dailyActionNode);
+  renderOrdinaryTradingCockpit();
   warningNode.innerHTML = statusRows([
     ["主线提醒", "默认榜单只展示 CN_ETF。CN 个股资金流、择股类结果只能辅助研究，不能直接替代 ETF 轮动信号。", "danger"],
     ["推广口径", "只有通过长周期、OOS、滚动、成本和风险审计的主线候选，才可能进入模拟盘观察。", "warn"],
     ["安全边界", "本软件当前只做研究和本地模拟盘，不连接券商、不读取账户、不真实下单。", "danger"],
   ]);
+}
+
+function renderOrdinaryTradingCockpit() {
+  const summaryTarget = byId("ordinary-trading-cockpit-summary");
+  const top3Target = byId("ordinary-trading-cockpit-top3");
+  const gatesTarget = byId("ordinary-trading-cockpit-gates");
+  if (!summaryTarget || !top3Target || !gatesTarget) return;
+  const sheet = state.dailyTradeAdvisory?.daily_trade_decision_sheet || {};
+  summaryTarget.innerHTML = ordinaryTradingCockpitRows(sheet);
+  top3Target.innerHTML = ordinaryTradingCockpitTop3Rows(sheet);
+  gatesTarget.innerHTML = ordinaryTradingCockpitGateRows(sheet);
+}
+
+function ordinaryTradingCockpitRows(sheet = {}) {
+  const summary = sheet.summary || {};
+  const next = sheet.what_to_do_now || {};
+  const beginner = state.dailyTradeAdvisory?.daily_beginner_execution_answer || {};
+  const beginnerSummary = beginner.summary || {};
+  const runtime = dailyTradeDecisionRuntimeState(sheet);
+  const runtimeNext = dailyTradeDecisionNextAction(runtime, next, summary.decision || "");
+  const top3 = Array.isArray(sheet.daily_top3) ? sheet.daily_top3 : [];
+  const targets = Array.isArray(sheet.combined_targets) ? sheet.combined_targets : [];
+  const tickets = Array.isArray(sheet.manual_broker_handoff_tickets) ? sheet.manual_broker_handoff_tickets : [];
+  const hasSignals = Number(summary.signal_count || 0) > 0 || top3.length > 0;
+  const canBuyBySoftware = Boolean(summary.order_placement_allowed || beginnerSummary.can_buy_today);
+  const nextLabel = beginnerSummary.next_label || runtimeNext.button_label || next.button_label || "生成今日 Top3 建议";
+  const nextTarget = beginnerSummary.next_target_id || runtimeNext.target_id || next.target_id || "daily-trade-decision-sheet";
+  const nextWorkflow = beginnerSummary.next_workflow_id || runtimeNext.workflow_id || next.workflow_id || "";
+  const actionButton = nextWorkflow ? `
+    <button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(nextWorkflow)}">${escapeHtml(nextLabel)}</button>
+  ` : "";
+  const targetButton = `
+    <button class="${escapeHtml(actionButton ? "secondary-button" : "primary-button")}" type="button" data-beginner-target="${escapeRawHtml(nextTarget)}">${escapeHtml(actionButton ? "查看作战台证据" : nextLabel)}</button>
+  `;
+  return statusRows([
+    ["今日作战台", hasSignals ? "已生成今日 Top3 材料" : "等待生成今日 Top3 材料", hasSignals ? "ok" : "warn"],
+    ["现在先做", beginnerSummary.plain_answer || runtimeNext.plain_action || next.plain_action || "先生成今日前三 CN_ETF 建议，再跑同参数模拟盘。", "warn"],
+    ["今日材料", `Top3=${formatNumber(top3.length || summary.selected_factor_count || 0)} / 目标=${formatNumber(targets.length || summary.target_count || 0)} / 票据=${formatNumber(tickets.length || summary.manual_ticket_count || 0)}`, hasSignals ? "ok" : "warn"],
+    ["证据缺口", `已补=${formatNumber(runtime.completedEvidenceCount || 0)} / 还缺=${formatNumber(runtime.missingEvidenceCount || 0)} / 下一步=${nextLabel}`, runtime.missingEvidenceCount ? "warn" : "ok"],
+    ["软件能否买入", canBuyBySoftware ? "异常：软件声称可以买入" : "不能。最多给模拟盘/人工复核材料，买卖必须由人离开系统手动处理。", canBuyBySoftware ? "danger" : "ok"],
+  ]) + `
+    <div class="list-row ${escapeHtml(hasSignals ? "warn" : "danger")}">
+      <strong>${escapeHtml("下一步按钮")}</strong>
+      <span>${escapeHtml(nextLabel)}</span>
+      <span class="beginner-task-actions">${actionButton}${targetButton}</span>
+    </div>
+  `;
+}
+
+function ordinaryTradingCockpitTop3Rows(sheet = {}) {
+  const top3 = Array.isArray(sheet.daily_top3) ? sheet.daily_top3.slice(0, 3) : [];
+  if (!top3.length) {
+    return statusRows([[
+      "今日 Top3",
+      "还没有今日前三因子。先生成今日 CN_ETF 建议；不要用旧排行榜直接下单。",
+      "warn",
+    ]]);
+  }
+  return top3.map((item, index) => `
+    <div class="list-row ${escapeHtml(item.signal_status === "signal_ready" ? "ok" : "warn")}">
+      <strong>${escapeHtml(`${item.rank || index + 1}. ${item.factor_name || "--"}`)}</strong>
+      <span>${escapeHtml(`信号=${zhConsoleText(item.signal_status || "missing")} / 日期=${item.signal_date || "--"} / 目标=${formatNumber(item.target_count || 0)}`)}</span>
+      <span>${escapeHtml(`Sharpe=${formatDecimal(item.sharpe)} / 年化=${formatPercent(item.annualized_return)} / 回撤=${formatPercent(item.max_drawdown)} / 胜率=${formatPercent(item.win_rate)} / RankIC=${formatDecimal(item.rank_ic)}`)}</span>
+      <span>${escapeHtml(item.plain_conclusion || item.promotion_label || "候选输入，不是买入指令。")}</span>
+    </div>
+  `).join("");
+}
+
+function ordinaryTradingCockpitGateRows(sheet = {}) {
+  const paperStatus = dailySameParameterPaperStatus();
+  const manualReview = dailySameParameterManualReviewGate();
+  const journalReceipt = latestExecutionReceipt("post_close_journal");
+  const beginner = state.dailyTradeAdvisory?.daily_beginner_execution_answer || {};
+  const finalPacket = beginner.beginner_final_operation_packet || {};
+  const handoffGate = state.dailyTradeAdvisory?.real_world_manual_handoff_gate?.summary || {};
+  const manualReviewCandidate = Boolean(
+    manualReview.allowed
+    || finalPacket.manual_broker_review_allowed
+    || handoffGate.manual_observation_candidate
+  );
+  const sameParameterTop3Status = paperStatus.ready
+    ? "same_parameter_top3_status=ready"
+    : `same_parameter_top3_status=${paperStatus.status || "waiting"}`;
+  const postCloseJournalStatus = journalReceipt
+    ? `post_close_journal_status=recorded / ${journalReceipt.time || "--"}`
+    : "post_close_journal_status=missing";
+  return statusRows([
+    ["same_parameter_top3_status", `${sameParameterTop3Status} / ${paperStatus.value || paperStatus.label || "--"}`, paperStatus.ready ? "ok" : "warn"],
+    ["manual_review_candidate", manualReviewCandidate ? "可以准备人工复核材料，但仍不能自动下单" : "未达到人工复核候选；先补 Top3 同参数模拟盘和证据", manualReviewCandidate ? "warn" : "danger"],
+    ["post_close_journal_status", postCloseJournalStatus, journalReceipt ? "ok" : "warn"],
+    ["盘后闭环", journalReceipt ? "今天已有盘后回执；明天可用它判断是否隔离旧信号。" : "收盘后必须记录复盘、执行审计和风险状态，否则明天不能复用今天 Top3。", journalReceipt ? "ok" : "warn"],
+    ["实盘边界", "无券商连接、无账户读取、无自动下单。这里只能生成模拟/人工复核材料。", "ok"],
+  ]) + `
+    <div class="list-row warn">
+      <strong>${escapeHtml("快捷入口")}</strong>
+      <span>${escapeHtml("看今日决策单、同参数模拟、盘后复盘。")}</span>
+      <span class="beginner-task-actions">
+        <button class="secondary-button" type="button" data-beginner-target="daily-trade-decision-sheet">${escapeHtml("看今日决策单")}</button>
+        <button class="secondary-button" type="button" data-beginner-target="daily-same-parameter-paper-requests">${escapeHtml("看同参数模拟")}</button>
+        <button class="secondary-button" type="button" data-beginner-target="beginner-post-close-journal-board">${escapeHtml("写盘后复盘")}</button>
+      </span>
+    </div>
+  `;
 }
 
 function ordinaryLiveGateActionRows() {
