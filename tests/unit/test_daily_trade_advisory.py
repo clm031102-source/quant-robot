@@ -423,6 +423,40 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(action_rows["rerun_daily_trade_advisory"]["workflow_id"], "daily_trade_advisory")
         self.assertEqual(sheet_plan["summary"]["status"], "blocked_missing_tradable_candidate_evidence")
 
+    def test_live_handoff_prioritizes_candidate_evidence_repair_over_generic_pretrade_blocker(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {
+                    "rank": 1,
+                    "case_id": "paper_ready_but_metric_thin",
+                    "factor_name": "momentum_2",
+                    "market": "CN_ETF",
+                    "status": "paper_ready",
+                    "sharpe": 1.2,
+                }
+            ],
+            [_signal("paper_ready_but_metric_thin", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+        )
+
+        live_system = pack["daily_live_trading_system_status"]
+        live_steps = {row["step_id"]: row for row in live_system["operating_ladder"]}
+        observation_packet = pack["daily_manual_observation_packet"]
+        evidence_rows = {row["gate_id"]: row for row in observation_packet["evidence_rows"]}
+        operator_steps = {row["step_id"]: row for row in observation_packet["operator_steps"]}
+
+        self.assertEqual(live_system["summary"]["go_live_state"], "blocked_candidate_trade_evidence")
+        self.assertEqual(live_system["summary"]["next_step_id"], "repair_candidate_trade_evidence")
+        self.assertEqual(live_system["summary"]["next_target_id"], "daily-candidate-evidence-repair-plan")
+        self.assertEqual(live_system["summary"]["next_workflow_id"], "research_backtest")
+        self.assertEqual(live_steps["repair_candidate_trade_evidence"]["status"], "blocked")
+        self.assertEqual(live_steps["repair_candidate_trade_evidence"]["target_id"], "daily-candidate-evidence-repair-plan")
+        self.assertEqual(evidence_rows["candidate_trade_evidence"]["status"], "blocked")
+        self.assertEqual(evidence_rows["candidate_trade_evidence"]["target_id"], "daily-candidate-evidence-repair-plan")
+        self.assertEqual(evidence_rows["candidate_trade_evidence"]["workflow_id"], "research_backtest")
+        self.assertEqual(operator_steps["repair_candidate_trade_evidence"]["status"], "blocked")
+
     def test_manual_rebalance_sell_cash_impact_is_net_of_estimated_commission(self):
         pack = build_daily_trade_advisory_pack(
             [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],

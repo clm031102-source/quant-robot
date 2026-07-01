@@ -3442,6 +3442,20 @@ def build_daily_live_trading_system_status(pack: dict[str, Any]) -> dict[str, An
     manual_review_allowed = bool(pre_summary.get("manual_broker_review_allowed")) or bool(
         paper_summary.get("manual_broker_review_allowed")
     )
+    candidate_repair = (
+        pack.get("candidate_evidence_repair_plan")
+        if isinstance(pack.get("candidate_evidence_repair_plan"), dict)
+        else build_candidate_evidence_repair_plan(pack)
+    )
+    candidate_repair_summary = (
+        candidate_repair.get("summary") if isinstance(candidate_repair.get("summary"), dict) else {}
+    )
+    candidate_evidence_blocked = str(candidate_repair_summary.get("status") or "").startswith(
+        "blocked"
+    ) or any(
+        blocker in {"candidate_trade_evidence_incomplete", "fallback_baseline_not_tradeable"}
+        for blocker in blockers
+    )
     small_capital_candidate = bool(profitability_summary.get("small_capital_observation_candidate"))
     production_candidate = bool(profitability_summary.get("production_manual_review_candidate"))
     manual_clean_count = _int(profitability_summary.get("manual_execution_clean_receipts"), 0)
@@ -3461,6 +3475,9 @@ def build_daily_live_trading_system_status(pack: dict[str, Any]) -> dict[str, An
     elif manual_execution_feedback_status == "blocked_manual_execution_audit":
         go_live_state = "blocked_manual_execution_feedback"
         next_step_id = "review_manual_execution_feedback"
+    elif candidate_evidence_blocked:
+        go_live_state = "blocked_candidate_trade_evidence"
+        next_step_id = "repair_candidate_trade_evidence"
     elif blockers:
         go_live_state = "blocked_pretrade_gates"
         next_step_id = "clear_pretrade_blockers"
@@ -3524,33 +3541,50 @@ def build_daily_live_trading_system_status(pack: dict[str, Any]) -> dict[str, An
         ),
         step(
             2,
+            "repair_candidate_trade_evidence",
+            "Repair Top3 candidate evidence before any paper/live handoff",
+            "blocked" if candidate_evidence_blocked else "done" if selected_count else "required",
+            "daily-candidate-evidence-repair-plan",
+            "research_backtest" if candidate_evidence_blocked else "",
+            "blockers=" + (",".join(blockers) if blockers else "0"),
+        ),
+        step(
+            3,
             "generate_today_signals",
             "生成当日信号和目标 ETF",
-            "done" if signal_ready else ("blocked" if blockers else "required"),
+            "done"
+            if signal_ready and not candidate_evidence_blocked
+            else ("blocked" if blockers or candidate_evidence_blocked else "required"),
             "daily-trade-target-table",
             "daily_trade_advisory" if not signal_ready else "",
             f"signals={signal_count}; targets={target_count}",
         ),
         step(
-            3,
+            4,
             "build_manual_tickets",
             "折算为人工复核票据",
-            "done" if ticket_count else ("blocked" if blockers else "required"),
+            "done"
+            if ticket_count and not candidate_evidence_blocked
+            else ("blocked" if blockers or candidate_evidence_blocked else "required"),
             "daily-manual-broker-handoff-ticket-table",
             "",
             f"tickets={ticket_count}; board_lot={BOARD_LOT_SIZE}",
         ),
         step(
-            4,
+            5,
             "run_same_parameter_paper",
             "同参数模拟盘复核",
-            "done" if manual_review_allowed else ("required" if paper_allowed else "locked"),
+            "locked"
+            if candidate_evidence_blocked
+            else "done"
+            if manual_review_allowed
+            else ("required" if paper_allowed else "locked"),
             "paper-metrics",
             "paper_simulation" if paper_allowed and not manual_review_allowed else "",
             f"rehearsal_status={paper_status}",
         ),
         step(
-            5,
+            6,
             "pre_execution_guard",
             "盘前价格、容量、风控护栏",
             "done" if manual_review_allowed else ("blocked" if guard_status.startswith("blocked") else "required"),
@@ -3559,7 +3593,7 @@ def build_daily_live_trading_system_status(pack: dict[str, Any]) -> dict[str, An
             f"guard_status={guard_status}",
         ),
         step(
-            6,
+            7,
             "manual_broker_review",
             "本人离开系统后在券商端人工复核",
             "manual_required" if manual_review_allowed else "locked",
@@ -3568,7 +3602,7 @@ def build_daily_live_trading_system_status(pack: dict[str, Any]) -> dict[str, An
             "software_order=false; broker_connection=false",
         ),
         step(
-            7,
+            8,
             "post_close_journal",
             "收盘后复盘并记录反馈",
             "required" if selected_count else "waiting",
@@ -3577,7 +3611,7 @@ def build_daily_live_trading_system_status(pack: dict[str, Any]) -> dict[str, An
             "required for next-session reuse and factor health",
         ),
         step(
-            8,
+            9,
             "review_manual_execution_feedback",
             "复核上一轮人工执行反馈",
             "blocked"
@@ -3901,12 +3935,28 @@ def build_daily_manual_observation_packet(pack: dict[str, Any]) -> dict[str, Any
     manual_review_allowed = bool(paper_summary.get("manual_broker_review_allowed")) or bool(
         pre_summary.get("manual_broker_review_allowed")
     )
+    candidate_repair = (
+        pack.get("candidate_evidence_repair_plan")
+        if isinstance(pack.get("candidate_evidence_repair_plan"), dict)
+        else build_candidate_evidence_repair_plan(pack)
+    )
+    candidate_repair_summary = (
+        candidate_repair.get("summary") if isinstance(candidate_repair.get("summary"), dict) else {}
+    )
+    candidate_evidence_blocked = str(candidate_repair_summary.get("status") or "").startswith(
+        "blocked"
+    ) or any(
+        blocker in {"candidate_trade_evidence_incomplete", "fallback_baseline_not_tradeable"}
+        for blocker in blockers
+    )
     small_capital_ready = bool(profitability_summary.get("small_capital_observation_candidate")) or bool(
         profitability_summary.get("production_manual_review_candidate")
     )
 
     if market != "CN_ETF":
         packet_status = "blocked_wrong_market"
+    elif candidate_evidence_blocked:
+        packet_status = "blocked_candidate_trade_evidence"
     elif blockers:
         packet_status = "blocked_pretrade_red_light"
     elif selected_count <= 0 or signal_count <= 0 or target_count <= 0:
@@ -3959,6 +4009,15 @@ def build_daily_manual_observation_packet(pack: dict[str, Any]) -> dict[str, Any
             f"selected={selected_count}; signals={signal_count}; targets={target_count}",
             "daily-trade-decision-top3",
             "daily_trade_advisory" if signal_count <= 0 else "",
+        ),
+        evidence_row(
+            "candidate_trade_evidence",
+            "Top3 candidate evidence",
+            "blocked" if candidate_evidence_blocked else "pass" if selected_count > 0 else "required",
+            f"status={candidate_repair_summary.get('status') or 'waiting'}; blockers="
+            + (",".join(blockers) if blockers else "0"),
+            "daily-candidate-evidence-repair-plan",
+            "research_backtest" if candidate_evidence_blocked else "",
         ),
         evidence_row(
             "pretrade_red_light",
@@ -4055,28 +4114,42 @@ def build_daily_manual_observation_packet(pack: dict[str, Any]) -> dict[str, Any
                 ),
                 _manual_observation_step(
                     2,
+                    "repair_candidate_trade_evidence",
+                    "Repair candidate evidence before paper or manual observation",
+                    "blocked" if candidate_evidence_blocked else "done" if selected_count > 0 else "required",
+                    "daily-candidate-evidence-repair-plan",
+                    "research_backtest" if candidate_evidence_blocked else "",
+                ),
+                _manual_observation_step(
+                    3,
                     "run_same_parameter_paper",
                     "Run the locked same-parameter paper rehearsal",
-                    "required" if paper_allowed and not manual_review_allowed else "done" if manual_review_allowed else "locked",
+                    "locked"
+                    if candidate_evidence_blocked
+                    else "required"
+                    if paper_allowed and not manual_review_allowed
+                    else "done"
+                    if manual_review_allowed
+                    else "locked",
                     "paper-metrics",
                     "paper_simulation" if paper_allowed and not manual_review_allowed else "",
                 ),
                 _manual_observation_step(
-                    3,
+                    4,
                     "review_manual_tickets",
                     "Review manual tickets and risk budget",
-                    "manual_review_only" if ticket_count > 0 and not blockers else "blocked",
+                    "manual_review_only" if ticket_count > 0 and not blockers and not candidate_evidence_blocked else "blocked",
                     "daily-manual-broker-handoff-ticket-table",
                 ),
                 _manual_observation_step(
-                    4,
+                    5,
                     "human_external_broker_decision",
                     "Human may decide outside this system; software cannot place orders",
                     "manual_locked",
                     "control-safety-boundary",
                 ),
                 _manual_observation_step(
-                    5,
+                    6,
                     "post_close_journal",
                     "Record post-close journal and execution feedback",
                     "required",

@@ -814,6 +814,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn(
             observation_packet["summary"]["packet_status"],
             {
+                "blocked_candidate_trade_evidence",
                 "blocked_pretrade_red_light",
                 "paper_rehearsal_required",
                 "manual_observation_material_ready",
@@ -4279,6 +4280,8 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("daily-candidate-evidence-repair-plan", html)
             self.assertIn("run_long_sample_walk_forward", app_js)
             self.assertIn("run_same_parameter_paper_rehearsal", app_js)
+            self.assertIn("blocked_candidate_trade_evidence", app_js)
+            self.assertIn("repair_candidate_trade_evidence", app_js)
             self.assertIn("selection_status", app_js)
             self.assertIn("direct_buy_from_leaderboard_allowed", app_js)
             self.assertIn("completedEvidenceCount", app_js)
