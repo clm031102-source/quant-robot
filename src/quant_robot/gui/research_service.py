@@ -22,6 +22,9 @@ from quant_robot.paper.simulator import PaperSimulationConfig, run_paper_simulat
 from quant_robot.portfolio.rebalance import build_rebalance_plan
 from quant_robot.ops.evidence_refresh import build_evidence_refresh_plan
 from quant_robot.ops.daily_trade_advisory import (
+    BOARD_LOT_SIZE,
+    MANUAL_MAX_SLIPPAGE_BPS,
+    MANUAL_PRICE_DEVIATION_GUARD_PCT,
     build_daily_candidate_pool_top20,
     build_daily_trade_advisory_pack,
     select_daily_top_factor_candidates,
@@ -61,6 +64,7 @@ DEFAULT_FACTOR_LEADERBOARD_CACHE = Path("data/reports/gui_factor_leaderboard_cac
 FACTOR_LEADERBOARD_CACHE_VERSION = 2
 PRIMARY_FACTOR_MARKET = "CN_ETF"
 DAILY_OPS_HANDOFF_STAGE = "phase_6_33_daily_ops_handoff"
+DAILY_OPS_PAPER_EXECUTION_RECHECK_STAGE = "phase_6_34_daily_ops_paper_execution_recheck"
 RESEARCH_TO_PAPER_SAFETY = (
     "Research-to-paper only. No broker connection, no account reads, no order placement, no live trading."
 )
@@ -577,6 +581,7 @@ def _build_daily_ops_handoff(pack: dict[str, Any], daily_ops_pack: str | Path | 
                 },
                 "activated_candidate": {},
                 "advisory_tickets": [],
+                "paper_execution_recheck": _build_daily_ops_paper_execution_recheck([], False, {}, {}),
                 "operator_steps": [
                     _daily_ops_handoff_step(
                         "refresh_daily_ops",
@@ -616,6 +621,7 @@ def _build_daily_ops_handoff(pack: dict[str, Any], daily_ops_pack: str | Path | 
         beginner_ticket_source = "none"
         plain_answer = "Daily Ops is blocked; clear the blocking reasons before paper observation."
 
+    paper_execution_recheck = _build_daily_ops_paper_execution_recheck(tickets, paper_allowed, decision, signal)
     return _sanitize(
         {
             "stage": DAILY_OPS_HANDOFF_STAGE,
@@ -647,6 +653,7 @@ def _build_daily_ops_handoff(pack: dict[str, Any], daily_ops_pack: str | Path | 
             "decision": decision,
             "signal": signal,
             "advisory_tickets": tickets[:20],
+            "paper_execution_recheck": paper_execution_recheck,
             "operator_steps": [
                 _daily_ops_handoff_step(
                     "compare_top3_and_daily_ops",
@@ -685,6 +692,144 @@ def _daily_ops_handoff_ticket(ticket: dict[str, Any]) -> dict[str, Any]:
     row["auto_order_allowed"] = False
     row["manual_instruction"] = "Paper observation only; do not send this ticket as a broker order."
     return row
+
+
+def _build_daily_ops_paper_execution_recheck(
+    tickets: list[dict[str, Any]],
+    paper_allowed: bool,
+    decision: dict[str, Any],
+    signal: dict[str, Any],
+) -> dict[str, Any]:
+    rows = [
+        _daily_ops_paper_execution_recheck_row(ticket, index)
+        for index, ticket in enumerate(tickets[:20], start=1)
+        if isinstance(ticket, dict)
+    ] if paper_allowed else []
+    has_rows = bool(rows)
+    manual_cash_required = any(bool(row.get("manual_available_cash_required")) for row in rows)
+    if has_rows:
+        recheck_mode = "manual_price_cash_required"
+        plain_answer = (
+            "Daily Ops paper tickets require manual broker realtime price and available-cash checks "
+            "before any off-system human decision. The software still cannot place orders."
+        )
+    elif paper_allowed:
+        recheck_mode = "waiting_for_daily_ops_ticket"
+        plain_answer = "Daily Ops is paper-ready but has no ticket to recheck."
+    else:
+        recheck_mode = "blocked_daily_ops_not_paper_ready"
+        plain_answer = "Daily Ops is blocked, so price/cash recheck remains locked."
+    return {
+        "stage": DAILY_OPS_PAPER_EXECUTION_RECHECK_STAGE,
+        "summary": {
+            "recheck_mode": recheck_mode,
+            "daily_ops_status": decision.get("status") or "missing",
+            "signal_date": signal.get("signal_date") or signal.get("as_of_date"),
+            "ticket_count": len(rows),
+            "broker_realtime_price_required": has_rows,
+            "manual_available_cash_required": manual_cash_required,
+            "skip_if_price_outside_guardrail": has_rows,
+            "max_reference_price_deviation_pct": MANUAL_PRICE_DEVIATION_GUARD_PCT,
+            "max_slippage_bps": MANUAL_MAX_SLIPPAGE_BPS,
+            "board_lot_size": BOARD_LOT_SIZE,
+            "local_decision_engine": "broker_price_recheck_local_calculator / broker_price_recheck_session_verdict",
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "plain_answer": plain_answer,
+        },
+        "rows": rows,
+        "operator_steps": [
+            _daily_ops_handoff_step(
+                "enter_broker_realtime_price",
+                "Manually type broker realtime price into the local paper recheck calculator",
+                "required" if has_rows else "locked",
+                "daily-ops-paper-recheck-table",
+            ),
+            _daily_ops_handoff_step(
+                "enter_available_cash",
+                "Manually type available cash from the broker app without account identifiers",
+                "required" if manual_cash_required else "locked",
+                "daily-ops-paper-recheck-table",
+            ),
+            _daily_ops_handoff_step(
+                "skip_or_paper_observe",
+                "Skip rows outside guardrails; otherwise observe on paper and record post-close",
+                "paper_only" if has_rows else "locked",
+                "beginner-post-close-journal-board",
+            ),
+        ],
+        "safety": RESEARCH_TO_PAPER_SAFETY,
+    }
+
+
+def _daily_ops_paper_execution_recheck_row(ticket: dict[str, Any], index: int) -> dict[str, Any]:
+    side = str(ticket.get("side") or "review").lower()
+    target_value = abs(
+        _safe_float_or_none(
+            ticket.get("delta_value")
+            or ticket.get("rounded_value")
+            or ticket.get("target_value")
+            or ticket.get("paper_budget_value")
+        )
+        or 0.0
+    )
+    quantity = abs(
+        _safe_float_or_none(
+            ticket.get("estimated_quantity_delta")
+            or ticket.get("rounded_quantity_delta")
+            or ticket.get("rounded_quantity")
+            or ticket.get("estimated_quantity")
+        )
+        or 0.0
+    )
+    reference_price = _safe_float_or_none(
+        ticket.get("reference_price") or ticket.get("latest_price") or ticket.get("price")
+    )
+    if reference_price is None and target_value > 0 and quantity > 0:
+        reference_price = round(target_value / quantity, 6)
+    lower_price_bound = None
+    upper_price_bound = None
+    if reference_price is not None and reference_price > 0:
+        lower_price_bound = round(reference_price * (1 - MANUAL_PRICE_DEVIATION_GUARD_PCT), 6)
+        upper_price_bound = round(reference_price * (1 + MANUAL_PRICE_DEVIATION_GUARD_PCT), 6)
+    manual_cash_required = not (side.startswith("sell") or side in {"hold", "skip"})
+    return {
+        "row_number": index,
+        "ticket_id": ticket.get("ticket_id") or f"daily-ops-paper-{index:03d}",
+        "asset_id": ticket.get("asset_id") or ticket.get("symbol"),
+        "market": ticket.get("market") or PRIMARY_FACTOR_MARKET,
+        "side": side,
+        "target_weight": ticket.get("target_weight"),
+        "delta_value": ticket.get("delta_value"),
+        "estimated_quantity_delta": ticket.get("estimated_quantity_delta"),
+        "reference_price": reference_price,
+        "lower_price_bound": lower_price_bound,
+        "upper_price_bound": upper_price_bound,
+        "max_reference_price_deviation_pct": MANUAL_PRICE_DEVIATION_GUARD_PCT,
+        "max_slippage_bps": MANUAL_MAX_SLIPPAGE_BPS,
+        "board_lot_size": BOARD_LOT_SIZE,
+        "target_value_for_recalculation": target_value,
+        "effective_target_value_for_recalculation": target_value,
+        "small_capital_recheck_budget_applied": False,
+        "broker_realtime_price_required": True,
+        "manual_available_cash_required": manual_cash_required,
+        "skip_if_price_outside_guardrail": True,
+        "skip_rule": "skip_if_broker_price_outside_guardrail",
+        "recalculation_rule": "floor_to_board_lot_at_external_price",
+        "local_decision_engine": "broker_price_recheck_local_calculator",
+        "operator_decision": "paper_observe_or_skip_only",
+        "plain_row_instruction": (
+            "Manually recheck broker realtime price and available cash. "
+            "Skip if price/slippage/cash guardrails fail. Paper observation only."
+        ),
+        "live_order_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+    }
 
 
 def _daily_ops_handoff_step(step_id: str, label: str, status: str, gui_target: str) -> dict[str, Any]:
@@ -1027,6 +1172,19 @@ def _safe_int(value: Any) -> int:
         return int(float(str(value)))
     except (TypeError, ValueError):
         return 0
+
+
+def _safe_float_or_none(value: Any) -> float | None:
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        numeric = float(value)
+    else:
+        try:
+            numeric = float(str(value).replace(",", "").strip())
+        except (TypeError, ValueError):
+            return None
+    return numeric if math.isfinite(numeric) else None
 
 
 def _bars_until_as_of_date(bars: pd.DataFrame, as_of_date: str | None) -> pd.DataFrame:

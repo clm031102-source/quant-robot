@@ -6364,6 +6364,7 @@ function renderDailyTradeAdvisory() {
     ["错误", (pack.signal_errors || []).map((item) => item.factor_name || item.case_id).join(" / ") || "无", pack.signal_errors?.length ? "warn" : "ok"],
   ]);
   renderDailyOpsHandoff(pack.daily_ops_handoff || {});
+  renderDailyOpsPaperExecutionRecheck(pack.daily_ops_handoff?.paper_execution_recheck || {});
   renderDailyBeginnerActionSummary(pack.beginner_action_summary || {});
   renderDailyCurrentPositionHelp(positionValidation);
   renderDailyPortfolioValueHelp();
@@ -6470,6 +6471,97 @@ function renderDailyOpsHandoff(handoff = {}) {
     "order_placement_allowed",
     "manual_instruction",
   ]);
+}
+
+function renderDailyOpsPaperExecutionRecheck(recheck = {}) {
+  const statusTarget = byId("daily-ops-paper-recheck-status");
+  const tableTarget = byId("daily-ops-paper-recheck-table");
+  if (!statusTarget || !tableTarget) return;
+  const summary = recheck.summary || {};
+  const rows = Array.isArray(recheck.rows) ? recheck.rows : dailyOpsPaperRecheckRows();
+  const visibleRows = rows.filter((row) => row && row.order_placement_allowed !== true && row.auto_order_allowed !== true);
+  const initialDecisions = visibleRows.map((item) => (
+    brokerPriceRecheckDecision(item, item.external_broker_realtime_price, item.external_available_cash_after_manual_check)
+  ));
+  const tone = summary.order_placement_allowed || summary.auto_order_allowed
+    ? "danger"
+    : visibleRows.length ? "warn" : "muted";
+  statusTarget.innerHTML = statusRows([
+    ["Daily Ops纸面复核", `${zhConsoleText(summary.recheck_mode || "waiting_for_daily_ops_ticket")} / 票据=${formatNumber(visibleRows.length)}`, tone],
+    ["实时价/现金", `${summary.broker_realtime_price_required ? "必须手填券商实时价" : "等待票据"} / ${summary.manual_available_cash_required ? "必须手填可用现金" : "无买入现金需求"}`, visibleRows.length ? "warn" : "muted"],
+    ["价格护栏", `偏离<=${formatPercent(summary.max_reference_price_deviation_pct)} / 滑点<=${formatNumber(summary.max_slippage_bps || 0)}bps / 一手=${formatNumber(summary.board_lot_size || 100)}`, visibleRows.length ? "warn" : "muted"],
+    ["权限边界", summary.order_placement_allowed || summary.auto_order_allowed || summary.broker_connection_allowed ? "异常：出现券商或下单权限" : "不连接券商、不读账户、不自动下单；只做纸面复核", summary.order_placement_allowed || summary.auto_order_allowed || summary.broker_connection_allowed ? "danger" : "ok"],
+    ["解释", summary.plain_answer || "等待 Daily Ops 纸面票据后再做本地价格和现金复核。", visibleRows.length ? "warn" : "muted"],
+  ]) + `
+    <div class="list-row ${escapeHtml(visibleRows.length ? "warn" : "danger")}">
+      <strong>${escapeHtml("整组本地判定")}</strong>
+      <span data-broker-price-recheck-session-output="true">${escapeHtml(renderBrokerPriceRecheckSessionVerdict(initialDecisions))}</span>
+    </div>
+  `;
+  if (!visibleRows.length) {
+    tableTarget.innerHTML = tableRows([{ status: "waiting_for_daily_ops_ticket" }], ["status"]);
+    return;
+  }
+  tableTarget.innerHTML = `
+    <tr>
+      <th>票据</th>
+      <th>护栏</th>
+      <th>券商实时价</th>
+      <th>可用现金</th>
+      <th>本地判定</th>
+      <th>边界</th>
+    </tr>
+    ${visibleRows.map((item, index) => {
+      const recheckKey = `daily-ops-${item.ticket_id || item.asset_id || "ticket"}-${index}`;
+      return `
+        <tr>
+          <td>
+            <strong>${escapeHtml(`${item.asset_id || "--"} / ${zhConsoleText(item.side || "review")}`)}</strong>
+            <div>${escapeHtml(`权重=${formatPercent(item.target_weight)} / 金额=${formatNumber(item.target_value_for_recalculation || item.delta_value || 0)} / 数量=${formatNumber(item.estimated_quantity_delta || 0)}`)}</div>
+          </td>
+          <td>
+            <div>${escapeHtml(`engine=${item.local_decision_engine || "broker_price_recheck_local_calculator"}`)}</div>
+            <div>${escapeHtml(`参考价=${formatDecimal(item.reference_price)} / 护栏=${formatDecimal(item.lower_price_bound)}~${formatDecimal(item.upper_price_bound)}`)}</div>
+            <div>${escapeHtml(`重算=${zhConsoleText(item.recalculation_rule || "floor_to_board_lot_at_external_price")} / 跳过=${zhConsoleText(item.skip_rule || "skip_if_broker_price_outside_guardrail")} / 滑点=${formatNumber(item.max_slippage_bps || 0)}bps`)}</div>
+          </td>
+          <td>
+            <input
+              type="number"
+              step="0.001"
+              min="0"
+              inputmode="decimal"
+              data-broker-price-recheck-price="true"
+              data-broker-price-recheck-key="${escapeRawHtml(recheckKey)}"
+              data-reference-price="${escapeRawHtml(item.reference_price ?? "")}"
+              data-lower-price-bound="${escapeRawHtml(item.lower_price_bound ?? "")}"
+              data-upper-price-bound="${escapeRawHtml(item.upper_price_bound ?? "")}"
+              data-max-slippage-bps="${escapeRawHtml(item.max_slippage_bps ?? "")}"
+              data-target-value-for-recalculation="${escapeRawHtml(item.target_value_for_recalculation ?? item.delta_value ?? "")}"
+              data-effective-target-value-for-recalculation="${escapeRawHtml(item.effective_target_value_for_recalculation ?? item.target_value_for_recalculation ?? item.delta_value ?? "")}"
+              data-small-capital-capped-notional="${escapeRawHtml(item.small_capital_capped_notional ?? "")}"
+              data-small-capital-recheck-budget-applied="${escapeRawHtml(item.small_capital_recheck_budget_applied ?? false)}"
+              data-board-lot-size="${escapeRawHtml(item.board_lot_size || 100)}"
+              data-side="${escapeRawHtml(item.side || "")}"
+              placeholder="${escapeRawHtml("手填")}"
+            >
+          </td>
+          <td>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              inputmode="decimal"
+              data-broker-price-recheck-cash="true"
+              data-broker-price-recheck-key="${escapeRawHtml(recheckKey)}"
+              placeholder="${escapeRawHtml(item.manual_available_cash_required ? "手填" : "可留空")}"
+            >
+          </td>
+          <td><span data-broker-price-recheck-output="${escapeRawHtml(recheckKey)}">${escapeHtml(renderBrokerPriceRecheckDecision(item, item.external_broker_realtime_price, item.external_available_cash_after_manual_check))}</span></td>
+          <td>${escapeHtml(item.order_placement_allowed || item.auto_order_allowed ? "异常：不应出现下单权限" : "paper only; no broker/account/order access")}</td>
+        </tr>
+      `;
+    }).join("")}
+  `;
 }
 
 function currentPositionInputState(validation = {}) {
@@ -8637,9 +8729,12 @@ function renderBrokerPriceRecheckSessionVerdict(decisions = []) {
 }
 
 function updateBrokerPriceRecheckSessionVerdict() {
-  const output = document.querySelector("[data-broker-price-recheck-session-output]");
-  if (!output) return;
-  output.textContent = renderBrokerPriceRecheckSessionVerdict(collectBrokerPriceRecheckDecisions());
+  const outputs = Array.from(document.querySelectorAll("[data-broker-price-recheck-session-output]"));
+  if (!outputs.length) return;
+  const text = renderBrokerPriceRecheckSessionVerdict(collectBrokerPriceRecheckDecisions());
+  outputs.forEach((output) => {
+    output.textContent = text;
+  });
 }
 
 function renderPreMarketManualExecutionPacket(packet = {}, target = null) {
@@ -10161,9 +10256,9 @@ function dailyOpsPaperHandoffStep() {
   return {
     step: "0. Daily Ops 纸面工单",
     tone: "warn",
-    detail: `Daily Ops 已有 ${formatNumber(tickets.length)} 张纸面观察工单；只能用于模拟盘/人工复核材料，不是券商订单。`,
-    target: "daily-ops-handoff-ticket-table",
-    button: "看纸面工单",
+    detail: `Daily Ops 已有 ${formatNumber(tickets.length)} 张纸面观察工单；先手填券商实时价和可用现金做本地复核，不是券商订单。`,
+    target: "daily-ops-paper-recheck-table",
+    button: "看纸面复核",
   };
 }
 
@@ -10240,13 +10335,19 @@ function dailyOpsPaperTicketRows() {
   return tickets.filter((ticket) => ticket && ticket.order_placement_allowed !== true && ticket.auto_order_allowed !== true);
 }
 
+function dailyOpsPaperRecheckRows() {
+  const recheck = state.dailyTradeAdvisory?.daily_ops_handoff?.paper_execution_recheck || {};
+  const rows = Array.isArray(recheck.rows) ? recheck.rows : [];
+  return rows.filter((row) => row && row.order_placement_allowed !== true && row.auto_order_allowed !== true);
+}
+
 function dailyOpsPaperTicketCard(ticket = {}, index = 0) {
   const asset = ticket.asset_id || ticket.symbol || "--";
   const side = ticket.side || "paper";
   return {
     title: `Daily Ops 纸面工单 ${index + 1}: ${asset}`,
     detail: `${side} / 权重=${formatPercent(ticket.target_weight)} / 估算数量=${formatNumber(ticket.estimated_quantity_delta)} / 金额=${formatNumber(ticket.delta_value)}`,
-    note: ticket.manual_instruction || "只能纸面观察；不能把它当券商订单，也不能自动下单。",
+    note: ticket.manual_instruction || "先做券商实时价和可用现金本地复核；只能纸面观察，不能把它当券商订单。",
     tone: "warn",
   };
 }
