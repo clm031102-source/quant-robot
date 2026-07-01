@@ -8501,9 +8501,19 @@ function renderBeginnerFinalOperationPacket(packet = {}, target = null) {
   const ticketRows = Array.isArray(packet.ticket_rows) ? packet.ticket_rows : [];
   const operatorSteps = Array.isArray(packet.operator_steps) ? packet.operator_steps : [];
   const mustNotDo = Array.isArray(packet.must_not_do) ? packet.must_not_do : [];
+  const smallBudget = packet.small_capital_budget || {};
+  const budgetHtml = smallBudget.budget_id ? `
+    <div class="list-row warn">
+      <strong>${escapeHtml("小资金观察预算")}</strong>
+      <span>${escapeHtml(`本金上限=${formatNumber(smallBudget.max_initial_capital)} / 单票上限=${formatNumber(smallBudget.max_single_ticket_notional)} / 日亏损停手=${formatNumber(smallBudget.max_daily_loss)}`)}</span>
+      <span>${escapeHtml(`请求金额=${formatNumber(smallBudget.total_requested_notional)} / 压缩后=${formatNumber(smallBudget.total_capped_notional)} / 超限票=${formatNumber(smallBudget.ticket_limit_breach_count || 0)}`)}</span>
+      <span>${escapeHtml(smallBudget.capping_required ? "先按小资金上限缩小或跳过，再进行外部人工复核。" : "当前票据未超过小资金单票上限，仍需人工价格和现金复核。")}</span>
+    </div>
+  ` : "";
   const ticketHtml = ticketRows.length ? ticketRows.map((item, index) => `
     <div class="list-row warn">
       <strong>${escapeHtml(`${index + 1}. ${item.asset_id || "--"} / ${zhConsoleText(item.suggested_side || "review")}`)}</strong>
+      <span>${escapeHtml(`小资金上限=${formatNumber(item.small_capital_max_single_ticket_notional)} / 压缩金额=${formatNumber(item.small_capital_capped_notional)} / 重算数量=${formatNumber(item.small_capital_quantity_at_reference)} / ${item.small_capital_limit_breached ? "超过上限：缩小或跳过" : "未超上限"}`)}</span>
       <span>${escapeHtml(`参考价=${formatDecimal(item.reference_price)} / 目标重算金额=${formatNumber(item.target_value_for_recalculation)} / 参考数量=${formatNumber(item.estimated_quantity_at_reference)}`)}</span>
       <span>${escapeHtml(`实时价输入=${item.external_realtime_price_required ? "必填" : "锁定"} / 现金复核=${item.external_cash_check_required ? "必填" : "锁定"} / final_quantity_rule=${item.final_quantity_rule || "recalculate_from_external_price_floor_to_board_lot"}`)}</span>
       <span>${escapeHtml(item.plain_instruction || "手工核对券商实时价、现金和风险；看不懂或超护栏就跳过。")}</span>
@@ -8533,7 +8543,7 @@ function renderBeginnerFinalOperationPacket(packet = {}, target = null) {
     ["收盘闭环", packet.post_close_closure_required ? "必须记录盘后复盘、人工执行审计和持仓更新" : "暂未进入人工复核", packet.post_close_closure_required ? "warn" : "muted"],
     ["次日规则", packet.next_session_quarantine_required_if_missing ? "缺闭环则隔离今日 Top3" : packet.next_session_rule || "等待下一步证据", packet.next_session_quarantine_required_if_missing ? "danger" : "warn"],
     ["权限边界", packet.order_placement_allowed || packet.broker_connection_allowed || packet.account_read_allowed ? "异常：出现券商/账户/下单权限" : "不连接券商、不读账户、不自动下单", packet.order_placement_allowed || packet.broker_connection_allowed || packet.account_read_allowed ? "danger" : "ok"],
-  ]) + stepHtml + ticketHtml + forbiddenHtml;
+  ]) + budgetHtml + stepHtml + ticketHtml + forbiddenHtml;
 }
 
 function renderDailyBeginnerExecutionAnswer(answer = {}) {
@@ -13080,6 +13090,7 @@ function dailyTradeAdvisoryReceipt(result = {}) {
     ? sameParameter.recommended_requests
     : [];
   const finalOperationPacket = result.daily_beginner_execution_answer?.beginner_final_operation_packet || {};
+  const smallBudget = finalOperationPacket.small_capital_budget || {};
   return {
     workflow_id: "daily_trade_advisory",
     label: "Daily trade advisory receipt",
@@ -13106,6 +13117,8 @@ function dailyTradeAdvisoryReceipt(result = {}) {
       final_manual_ticket_count: finalOperationPacket.manual_ticket_count,
       final_external_manual_input_count: finalOperationPacket.external_manual_input_count,
       final_next_session_quarantine_required: finalOperationPacket.next_session_quarantine_required_if_missing,
+      small_capital_ticket_limit_breach_count: smallBudget.ticket_limit_breach_count,
+      small_capital_total_capped_notional: smallBudget.total_capped_notional,
     },
     final_operation_packet: {
       packet_id: finalOperationPacket.packet_id || "beginner_final_operation_packet",
@@ -13115,6 +13128,7 @@ function dailyTradeAdvisoryReceipt(result = {}) {
       external_manual_input_count: finalOperationPacket.external_manual_input_count,
       post_close_closure_required: finalOperationPacket.post_close_closure_required,
       next_session_quarantine_required_if_missing: finalOperationPacket.next_session_quarantine_required_if_missing,
+      small_capital_budget: smallBudget,
       can_buy_by_software: false,
       order_placement_allowed: false,
       auto_order_allowed: false,

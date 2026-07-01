@@ -51,6 +51,9 @@ DAILY_LIVE_TRADING_SYSTEM_STATUS_STAGE = "phase_6_31_daily_live_trading_system_s
 DAILY_MANUAL_OBSERVATION_PACKET_STAGE = "phase_6_32_daily_manual_observation_packet"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
+SMALL_CAPITAL_OBSERVATION_MAX_INITIAL_CAPITAL = 10000.0
+SMALL_CAPITAL_OBSERVATION_MAX_SINGLE_TICKET_NOTIONAL = 1000.0
+SMALL_CAPITAL_OBSERVATION_MAX_DAILY_LOSS = 200.0
 MANUAL_PRICE_DEVIATION_GUARD_PCT = 0.005
 MANUAL_MAX_SLIPPAGE_BPS = 10
 MANUAL_MAX_PARTICIPATION_RATE = 0.01
@@ -8479,6 +8482,7 @@ def build_daily_beginner_execution_answer(pack: dict[str, Any]) -> dict[str, Any
         pre_market_packet=pre_market_packet,
     )
     final_operation_packet = _beginner_final_operation_packet(
+        pack=pack,
         today_operation_card=today_operation_card,
         pre_market_packet=pre_market_packet,
         trade_system_gate=trade_system_gate,
@@ -8550,6 +8554,7 @@ def build_daily_beginner_execution_answer(pack: dict[str, Any]) -> dict[str, Any
 
 def _beginner_final_operation_packet(
     *,
+    pack: dict[str, Any],
     today_operation_card: dict[str, Any],
     pre_market_packet: dict[str, Any],
     trade_system_gate: dict[str, Any],
@@ -8581,6 +8586,7 @@ def _beginner_final_operation_packet(
 
     ticket_rows = []
     for index, row in enumerate(recheck_rows, start=1):
+        small_capital_ticket = _small_capital_ticket_budget_overlay(row)
         ticket_rows.append(
             {
                 "row_number": _int(row.get("row_number"), index),
@@ -8604,6 +8610,7 @@ def _beginner_final_operation_packet(
                 "default_decision_if_missing_price": str(
                     row.get("default_decision_if_missing_price") or "skip_waiting_for_external_broker_price"
                 ),
+                **small_capital_ticket,
                 "plain_instruction": str(
                     row.get("plain_instruction")
                     or "先在券商端手工核对实时价、现金和风险；看不懂或超护栏就跳过。"
@@ -8614,6 +8621,8 @@ def _beginner_final_operation_packet(
                 "auto_order_allowed": False,
             }
         )
+
+    small_capital_budget = _small_capital_budget_overlay(pack, ticket_rows)
 
     operator_steps = [
         {
@@ -8679,6 +8688,7 @@ def _beginner_final_operation_packet(
             "next_session_rule": "quarantine_today_top3_if_missing_closure",
             "operator_steps": operator_steps,
             "ticket_rows": ticket_rows,
+            "small_capital_budget": small_capital_budget,
             "must_not_do": must_not_do,
             "manual_only_boundary": True,
             "can_buy_by_software": False,
@@ -8690,6 +8700,64 @@ def _beginner_final_operation_packet(
             "auto_order_allowed": False,
         }
     )
+
+
+def _small_capital_ticket_budget_overlay(row: dict[str, Any]) -> dict[str, Any]:
+    max_single = SMALL_CAPITAL_OBSERVATION_MAX_SINGLE_TICKET_NOTIONAL
+    reference_price = _float(row.get("reference_price"), 0.0)
+    target_notional = abs(_float(row.get("target_value_for_recalculation"), 0.0))
+    capped_notional = min(target_notional, max_single) if target_notional > 0 else 0.0
+    board_lot = max(1, _int(row.get("board_lot_size"), BOARD_LOT_SIZE))
+    capped_quantity = (
+        int(math.floor(capped_notional / reference_price / board_lot) * board_lot)
+        if reference_price > 0 and capped_notional > 0
+        else 0
+    )
+    limit_breached = bool(target_notional > max_single + 1e-9)
+    return {
+        "small_capital_max_single_ticket_notional": max_single,
+        "small_capital_requested_notional": target_notional,
+        "small_capital_capped_notional": capped_notional,
+        "small_capital_limit_breached": limit_breached,
+        "small_capital_quantity_at_reference": capped_quantity,
+        "small_capital_action": (
+            "cap_or_skip_external_manual_review"
+            if limit_breached
+            else "within_small_capital_external_manual_review_budget"
+        ),
+        "small_capital_budget_note": (
+            "Use the capped notional for small-capital observation review; skip if the external price/cash check fails."
+        ),
+    }
+
+
+def _small_capital_budget_overlay(pack: dict[str, Any], ticket_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    portfolio_value = _float(summary.get("portfolio_value"), SMALL_CAPITAL_OBSERVATION_MAX_INITIAL_CAPITAL)
+    max_initial = min(
+        SMALL_CAPITAL_OBSERVATION_MAX_INITIAL_CAPITAL,
+        portfolio_value if portfolio_value > 0 else SMALL_CAPITAL_OBSERVATION_MAX_INITIAL_CAPITAL,
+    )
+    max_single = min(SMALL_CAPITAL_OBSERVATION_MAX_SINGLE_TICKET_NOTIONAL, max_initial)
+    requested_total = sum(_float(row.get("small_capital_requested_notional"), 0.0) for row in ticket_rows)
+    capped_total = sum(min(_float(row.get("small_capital_capped_notional"), 0.0), max_single) for row in ticket_rows)
+    breach_count = sum(1 for row in ticket_rows if row.get("small_capital_limit_breached"))
+    return {
+        "budget_id": "small_capital_final_operation_budget",
+        "max_initial_capital": max_initial,
+        "max_single_ticket_notional": max_single,
+        "max_daily_loss": min(SMALL_CAPITAL_OBSERVATION_MAX_DAILY_LOSS, max_initial),
+        "ticket_count": len(ticket_rows),
+        "ticket_limit_breach_count": breach_count,
+        "total_requested_notional": requested_total,
+        "total_capped_notional": capped_total,
+        "capping_required": breach_count > 0,
+        "external_manual_only": True,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
 
 
 def _beginner_trade_system_go_no_go_gate(

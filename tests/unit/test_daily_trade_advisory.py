@@ -2718,6 +2718,13 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertFalse(final_packet["account_read_allowed"])
         self.assertFalse(final_packet["order_placement_allowed"])
         self.assertFalse(final_packet["auto_order_allowed"])
+        small_budget = final_packet["small_capital_budget"]
+        self.assertEqual(small_budget["max_initial_capital"], 10000.0)
+        self.assertEqual(small_budget["max_single_ticket_notional"], 1000.0)
+        self.assertEqual(small_budget["max_daily_loss"], 200.0)
+        self.assertGreater(small_budget["ticket_limit_breach_count"], 0)
+        self.assertGreater(small_budget["total_requested_notional"], 1000.0)
+        self.assertLessEqual(small_budget["total_capped_notional"], 3000.0)
         self.assertIn("不是订单", final_packet["plain_answer"])
         self.assertEqual(
             [row["step_id"] for row in final_packet["operator_steps"]],
@@ -2748,6 +2755,11 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
             "recalculate_from_external_price_floor_to_board_lot",
         )
         self.assertTrue(first_final_row["human_final_decision_required"])
+        self.assertEqual(first_final_row["small_capital_max_single_ticket_notional"], 1000.0)
+        self.assertTrue(first_final_row["small_capital_limit_breached"])
+        self.assertLessEqual(first_final_row["small_capital_capped_notional"], 1000.0)
+        self.assertEqual(first_final_row["small_capital_quantity_at_reference"], 1000)
+        self.assertEqual(first_final_row["small_capital_action"], "cap_or_skip_external_manual_review")
         self.assertFalse(first_final_row["copy_to_broker_allowed"])
         self.assertFalse(first_final_row["order_placement_allowed"])
         evidence_by_id = {row["check_id"]: row for row in packet["evidence_checklist"]}
