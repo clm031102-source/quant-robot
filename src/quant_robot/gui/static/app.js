@@ -8146,7 +8146,9 @@ function renderTodayOperationCard(card = {}, target = null) {
   ` : "";
   const preview = actionRows.slice(0, 3).map((row) => {
     const guardrail = row.price_guardrail || {};
-    return `${row.asset_id || "--"} ${zhConsoleText(row.side || "review")} 权重=${formatPercent(row.target_weight)} 数量=${formatNumber(row.paper_quantity || 0)} 价格=${formatDecimal(row.reference_price)} 护栏=${formatDecimal(guardrail.lower_price_bound)}~${formatDecimal(guardrail.upper_price_bound)}`;
+    const rowAction = row.row_action_label || zhConsoleText(row.row_action_code || row.side || "review");
+    const rowInstruction = row.plain_row_instruction ? ` / ${row.plain_row_instruction}` : "";
+    return `${row.asset_id || "--"} 逐行结论=${rowAction} 权重=${formatPercent(row.target_weight)} 数量=${formatNumber(row.paper_quantity || 0)} 价格=${formatDecimal(row.reference_price)} 护栏=${formatDecimal(guardrail.lower_price_bound)}~${formatDecimal(guardrail.upper_price_bound)}${rowInstruction}`;
   }).join(" / ");
   const afterActionText = afterActions.map((item) => `${item.label || item.item_id || "--"}=${zhConsoleText(item.status || "required")}`).join(" / ");
   const closureGateText = `${zhConsoleText(closureGate.closure_gate_status || "missing_closure_gate")} / 明日复用=${zhConsoleText(closureGate.next_session_reuse_status || "quarantine_if_after_action_missing")} / 缺失=${formatNumber(closureGate.missing_item_count || 0)}/${formatNumber(closureGate.required_item_count || afterActions.length)}`;
@@ -8733,13 +8735,16 @@ function renderDailyBeginnerExecutionAnswer(answer = {}) {
     const checklist = dailyBeginnerHumanChecklistText(item.human_checklist) || "券商实时价格 / ETF代码 / 数量 / 现金";
     const rowTone = item.risk_blocked || item.capacity_blocked ? "danger" : "warn";
     const capacityText = `流动性/容量=${dailyPreExecutionCapacityText(item).replace(/^流动性\/容量=/, "")}`;
+    const rowAction = item.row_action_label || zhConsoleText(item.row_action_code || item.execution_mode || "paper_rehearsal_only");
+    const rowInstruction = item.plain_row_instruction || (item.copy_to_broker_allowed ? "异常：不应允许复制到券商" : `人工检查=${checklist}`);
     return `
       <div class="list-row ${escapeHtml(rowTone)}">
         <strong>${escapeHtml(`${index + 1}. ${item.asset_id || "--"} / ${zhConsoleText(item.execution_mode || "paper_rehearsal_only")}`)}</strong>
+        <span>${escapeHtml(`逐行结论=${rowAction}`)}</span>
         <span>${escapeHtml(`目标权重=${formatPercent(item.target_weight)} / 预算=${formatNumber(item.paper_budget_value || 0)} / 数量=${formatNumber(item.paper_quantity || 0)}`)}</span>
         <span>${escapeHtml(`参考价=${formatDecimal(item.reference_price)} / 价格护栏=${formatDecimal(item.lower_price_bound)}~${formatDecimal(item.upper_price_bound)} / 最大滑点=${formatNumber(item.max_slippage_bps)}bps`)}</span>
         <span>${escapeHtml(capacityText)}</span>
-        <span>${escapeHtml(item.copy_to_broker_allowed ? "异常：不应允许复制到券商" : `人工检查=${checklist}`)}</span>
+        <span>${escapeHtml(rowInstruction)}</span>
       </div>
     `;
   }).join("") : statusRows([["ETF 复核行", "还没有可复核 ETF 行；先生成今日 CN_ETF 信号和纸面分配。", "danger"]]);

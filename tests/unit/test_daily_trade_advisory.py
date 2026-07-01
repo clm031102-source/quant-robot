@@ -611,6 +611,15 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(pack["daily_live_readiness_gate"]["summary"]["cta_label"], "查看盘前红灯")
         self.assertEqual(pack["daily_live_readiness_gate"]["summary"]["cta_target"], "daily-pretrade-readiness-verdict")
         self.assertIsNone(pack["daily_live_readiness_gate"]["summary"]["action_workflow"])
+        answer = pack["daily_beginner_execution_answer"]
+        self.assertEqual(answer["summary"]["ordinary_verdict"], "do_not_trade")
+        self.assertTrue(answer["review_rows"])
+        self.assertTrue(all(row["row_action_code"] == "do_not_trade" for row in answer["review_rows"]))
+        self.assertTrue(all(row["row_can_be_copied_to_broker"] is False for row in answer["review_rows"]))
+        self.assertIn("不要买", answer["review_rows"][0]["plain_row_instruction"])
+        self.assertTrue(
+            all(row["row_action_code"] == "do_not_trade" for row in answer["today_operation_card"]["action_rows"])
+        )
 
     def test_manual_broker_handoff_builds_copyable_review_cards_without_orders(self):
         pack = build_daily_trade_advisory_pack(
@@ -2748,6 +2757,8 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(reason_by_id["next_session_quarantine"]["status"], "blocked")
         self.assertTrue(answer["review_rows"])
         self.assertTrue(all(row["execution_mode"] == "paper_rehearsal_only" for row in answer["review_rows"]))
+        self.assertTrue(all(row["row_action_code"] == "paper_rehearsal_only" for row in answer["review_rows"]))
+        self.assertTrue(all(row["row_can_be_copied_to_broker"] is False for row in answer["review_rows"]))
         self.assertTrue(all(row["order_placement_allowed"] is False for row in answer["review_rows"]))
 
     def test_beginner_execution_answer_marks_manual_review_candidate_as_not_order(self):
@@ -2819,6 +2830,10 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertTrue(answer["review_rows"])
         self.assertTrue(
             all(row["execution_mode"] == "manual_review_candidate_not_order" for row in answer["review_rows"])
+        )
+        self.assertTrue(all(row["row_action_code"] == "manual_review_only_not_order" for row in answer["review_rows"]))
+        self.assertTrue(
+            all(row["row_action_code"] == "manual_review_only_not_order" for row in today_card["action_rows"])
         )
         self.assertTrue(all(row["copy_to_broker_allowed"] is False for row in answer["review_rows"]))
         self.assertIn("check_external_realtime_price", answer["review_rows"][0]["human_checklist"])

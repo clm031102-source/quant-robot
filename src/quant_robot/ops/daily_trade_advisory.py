@@ -8586,6 +8586,8 @@ def build_daily_beginner_execution_answer(pack: dict[str, Any]) -> dict[str, Any
     review_rows = _beginner_execution_review_rows(
         guard.get("row_guardrails", []),
         manual_allowed=manual_allowed,
+        paper_allowed=paper_allowed,
+        guard_status=guard_status,
     )
     today_operation_card = _beginner_today_operation_card(
         ordinary_verdict=ordinary_verdict,
@@ -9097,6 +9099,11 @@ def _beginner_today_operation_card(
                 "asset_id": row.get("asset_id"),
                 "market": row.get("market") or "CN_ETF",
                 "side": row.get("side") or "review",
+                "row_action_code": row.get("row_action_code") or today_action_code,
+                "row_action_label": row.get("row_action_label") or primary_action,
+                "plain_row_instruction": row.get("plain_row_instruction") or plain_answer,
+                "row_blocker": row.get("row_blocker") or guard_status,
+                "row_can_be_copied_to_broker": False,
                 "target_weight": _float_or_none(row.get("target_weight")),
                 "paper_budget_value": _float_or_none(row.get("paper_budget_value")),
                 "paper_quantity": _int(row.get("paper_quantity"), 0),
@@ -9548,9 +9555,20 @@ def _beginner_execution_reasons(guard: dict[str, Any]) -> list[dict[str, Any]]:
     return rows
 
 
-def _beginner_execution_review_rows(rows: Any, *, manual_allowed: bool) -> list[dict[str, Any]]:
+def _beginner_execution_review_rows(
+    rows: Any,
+    *,
+    manual_allowed: bool,
+    paper_allowed: bool = False,
+    guard_status: str = "",
+) -> list[dict[str, Any]]:
     source_rows = [row for row in rows if isinstance(row, dict)] if isinstance(rows, list) else []
-    execution_mode = "manual_review_candidate_not_order" if manual_allowed else "paper_rehearsal_only"
+    action = _beginner_execution_row_action(
+        manual_allowed=manual_allowed,
+        paper_allowed=paper_allowed,
+        guard_status=guard_status,
+    )
+    execution_mode = str(action["execution_mode"])
     return [
         {
             "row_number": _int(row.get("row_number"), index),
@@ -9558,6 +9576,11 @@ def _beginner_execution_review_rows(rows: Any, *, manual_allowed: bool) -> list[
             "market": row.get("market") or "CN_ETF",
             "side": row.get("side") or "buy_or_adjust",
             "execution_mode": execution_mode,
+            "row_action_code": action["row_action_code"],
+            "row_action_label": action["row_action_label"],
+            "plain_row_instruction": action["plain_row_instruction"],
+            "row_blocker": action["row_blocker"],
+            "row_can_be_copied_to_broker": False,
             "target_weight": _float_or_none(row.get("target_weight")),
             "paper_budget_value": _float_or_none(row.get("paper_budget_value")),
             "paper_quantity": _int(row.get("paper_quantity"), 0),
@@ -9590,6 +9613,33 @@ def _beginner_execution_review_rows(rows: Any, *, manual_allowed: bool) -> list[
         }
         for index, row in enumerate(source_rows, start=1)
     ]
+
+
+def _beginner_execution_row_action(*, manual_allowed: bool, paper_allowed: bool, guard_status: str) -> dict[str, str]:
+    blocker = str(guard_status or "").strip() or "pre_execution_guard_not_clear"
+    if manual_allowed:
+        return {
+            "execution_mode": "manual_review_candidate_not_order",
+            "row_action_code": "manual_review_only_not_order",
+            "row_action_label": "人工复核材料，不是订单",
+            "plain_row_instruction": "这一行只能作为人工复核材料；先核对券商实时价、现金、仓位和风险，软件不会买入或下单。",
+            "row_blocker": "",
+        }
+    if paper_allowed:
+        return {
+            "execution_mode": "paper_rehearsal_only",
+            "row_action_code": "paper_rehearsal_only",
+            "row_action_label": "只做纸面演练",
+            "plain_row_instruction": "这一行只能用于同参数纸面演练；不要打开券商端照着买，也不要复制成订单。",
+            "row_blocker": blocker,
+        }
+    return {
+        "execution_mode": "blocked_no_action",
+        "row_action_code": "do_not_trade",
+        "row_action_label": "今天不要买",
+        "plain_row_instruction": f"今天不要买，也不要复制到券商；先处理红灯原因：{blocker}。",
+        "row_blocker": blocker,
+    }
 
 
 def _beginner_execution_next_steps(rows: Any, *, manual_allowed: bool, paper_allowed: bool) -> list[dict[str, Any]]:
