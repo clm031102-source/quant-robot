@@ -189,6 +189,15 @@
                   <option value="blocked_by_risk">因风险或数据问题停止</option>
                 </select>
               </label>
+              <label>盘前券商整组复核
+                <select id="post-close-broker-recheck-session-decision">
+                  <option value="" selected>未记录盘前整组复核</option>
+                  <option value="manual_review_all_rows_price_cash_ok">全部票据价格/现金复核通过</option>
+                  <option value="waiting_for_all_external_inputs">仍缺券商实时价或可用现金</option>
+                  <option value="manual_review_some_rows_skipped_or_blocked">部分票据跳过或阻断</option>
+                  <option value="manual_review_all_rows_skipped">全部票据跳过</option>
+                </select>
+              </label>
               <label class="wide-field">原因记录
                 <textarea id="post-close-manual-note" rows="2" maxlength="300" placeholder="写为什么执行、跳过或只观察；不要写账户号、委托号、券商客户号"></textarea>
               </label>
@@ -211,7 +220,7 @@
                 <textarea id="post-close-next-day-note" rows="2" maxlength="300" placeholder="写明天要重新检查的数据、因子、信号、参数或风险"></textarea>
               </label>
               <label class="wide-field">人工成交/跳过回执
-                <textarea id="post-close-execution-reviews" rows="4" maxlength="1200" placeholder="每张票据一行：daily-top3-001,manual_trade_by_human,3.201,10400,价格在护栏内；跳过可写 daily-top3-001,skipped_no_trade,,,流动性不足"></textarea>
+                <textarea id="post-close-execution-reviews" rows="4" maxlength="1200" placeholder="每张票据一行：daily-top3-001,manual_trade_by_human,3.201,10400,价格在护栏内,manual_review_all_rows_price_cash_ok；跳过可写 daily-top3-001,skipped_no_trade,,,流动性不足"></textarea>
               </label>
               <div id="beginner-post-close-execution-audit" class="status-list compact-status post-close-execution-audit"></div>
               <div id="beginner-post-close-journal-form-status" class="status-list compact-status post-close-form-status"></div>

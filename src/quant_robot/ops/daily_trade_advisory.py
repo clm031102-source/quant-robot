@@ -11765,6 +11765,12 @@ def build_manual_execution_audit(
     guardrail_breach_count = sum(1 for row in rows if "broker_price_outside_guardrail" in row.get("breach_reasons", []))
     slippage_breach_count = sum(1 for row in rows if "slippage_limit_breached" in row.get("breach_reasons", []))
     quantity_mismatch_count = sum(1 for row in rows if "quantity_mismatch" in row.get("breach_reasons", []))
+    broker_recheck_session_missing_count = sum(
+        1 for row in rows if "broker_recheck_session_missing" in row.get("breach_reasons", [])
+    )
+    broker_recheck_session_blocked_count = sum(
+        1 for row in rows if "broker_recheck_session_not_ok" in row.get("breach_reasons", [])
+    )
     sensitive_field_count = sum(1 for row in rows if "sensitive_field_removed" in row.get("breach_reasons", []))
     missing_review_count = sum(1 for row in rows if row.get("review_status") == "missing_review")
     blocked_count = sum(1 for row in rows if row.get("review_status") == "blocked")
@@ -11804,6 +11810,8 @@ def build_manual_execution_audit(
                 "guardrail_breach_count": guardrail_breach_count,
                 "slippage_breach_count": slippage_breach_count,
                 "quantity_mismatch_count": quantity_mismatch_count,
+                "broker_recheck_session_missing_count": broker_recheck_session_missing_count,
+                "broker_recheck_session_blocked_count": broker_recheck_session_blocked_count,
                 "sensitive_field_count": sensitive_field_count,
                 "missing_review_count": missing_review_count,
                 "blocked_count": blocked_count,
@@ -11841,6 +11849,8 @@ def build_manual_execution_audit(
                 "slippage_within_limit",
                 "slippage_cost_within_budget",
                 "quantity_matches_ticket",
+                "broker_price_recheck_session_decision",
+                "broker_recheck_session_ok",
                 "review_status",
                 "breach_reasons",
                 "execute_or_skip_reason",
@@ -11868,6 +11878,11 @@ def _manual_execution_audit_row(
     )
     side = str(ticket.get("side") or "buy_or_adjust")
     manual_outcome = str(review.get("manual_outcome") or ("missing_review" if not has_review else "skipped_no_trade"))
+    broker_recheck_session_decision = str(
+        review.get("broker_price_recheck_session_decision")
+        or review.get("broker_recheck_session_decision")
+        or ""
+    ).strip()
     reference_price = _float_or_none(
         guardrails.get("reference_price") or ticket.get("reference_price") or ticket.get("latest_price")
     )
@@ -11893,6 +11908,10 @@ def _manual_execution_audit_row(
     slippage_cost_within_budget = None
     quantity_matches_ticket = None
     if manual_outcome == "manual_trade_by_human":
+        if not broker_recheck_session_decision:
+            breach_reasons.append("broker_recheck_session_missing")
+        elif broker_recheck_session_decision != "manual_review_all_rows_price_cash_ok":
+            breach_reasons.append("broker_recheck_session_not_ok")
         if actual_fill_price is None or fill_quantity is None or fill_quantity <= 0:
             breach_reasons.append("missing_fill_detail")
         if actual_fill_price is not None and lower_bound is not None and upper_bound is not None:
@@ -11954,6 +11973,8 @@ def _manual_execution_audit_row(
         "slippage_within_limit": slippage_within_limit,
         "slippage_cost_within_budget": slippage_cost_within_budget,
         "quantity_matches_ticket": quantity_matches_ticket,
+        "broker_price_recheck_session_decision": broker_recheck_session_decision or None,
+        "broker_recheck_session_ok": broker_recheck_session_decision == "manual_review_all_rows_price_cash_ok",
         "lower_price_bound": lower_bound,
         "upper_price_bound": upper_bound,
         "max_slippage_bps": max_slippage_bps,
