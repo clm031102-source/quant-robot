@@ -443,6 +443,25 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "position_reconciliation_frontend",
+            "Position reconciliation frontend",
+            index_html.get("ok")
+            and "daily-position-reconciliation-check" in str(index_html.get("body", ""))
+            and app_js.get("ok")
+            and "renderPositionReconciliationCheck" in str(app_js.get("body", ""))
+            and "position_reconciliation_required" in str(app_js.get("body", ""))
+            and "manual_trade_requires_position_update" in str(app_js.get("body", ""))
+            and "daily-current-positions" in str(app_js.get("body", ""))
+            and "FORBIDDEN_CURRENT_POSITION_COLUMNS" in str(app_js.get("body", ""))
+            and "account_id" in str(app_js.get("body", "")),
+            "Frontend exposes the post-manual-trade position reconciliation gate before the next daily advisory can be trusted.",
+            index_html.get("error")
+            or app_js.get("error")
+            or "Position reconciliation frontend anchors or renderer hooks are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "daily_manual_observation_packet_frontend",
             "Daily manual observation packet frontend",
             index_html.get("ok")

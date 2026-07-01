@@ -9416,6 +9416,7 @@ function renderManualBrokerHandoff(handoff) {
     : statusRows([["暂无手工核对清单", "先生成今日前三交易建议。", "warn"]]);
   renderManualBrokerBeginnerChecklist(handoff, tickets);
   renderManualBrokerPriceCheck(handoff, tickets);
+  renderPositionReconciliationCheck(handoff, tickets);
   renderManualTicketExport(exportPack, tickets);
   renderManualBrokerCopyCards(tickets);
   const ticketRows = tickets.map((ticket) => ({
@@ -9469,6 +9470,35 @@ function renderManualBrokerPriceCheck(handoff = {}, tickets = []) {
       <strong>${escapeHtml("local_audit")}</strong>
       <span>${escapeHtml("The software audits manually entered fills only; it does not read broker accounts or send orders.")}</span>
       <span class="beginner-task-actions">
+        <button class="secondary-button" type="button" data-beginner-target="beginner-post-close-journal-form">${escapeHtml("Open post-close review")}</button>
+      </span>
+    </div>
+  `;
+}
+
+function renderPositionReconciliationCheck(handoff = {}, tickets = []) {
+  const target = byId("daily-position-reconciliation-check");
+  if (!target) return;
+  const hasTickets = tickets.length > 0;
+  const rawPositions = valueOf("daily-current-positions").trim();
+  const inputState = currentPositionInputState();
+  const postCloseReceipt = latestExecutionReceipt("post_close_journal");
+  const summary = handoff.summary || {};
+  const inputTone = inputState.tone === "danger" ? "danger" : rawPositions ? "ok" : hasTickets ? "warn" : "muted";
+  target.innerHTML = statusRows([
+    ["position_reconciliation_required", hasTickets ? "manual_trade_requires_position_update" : "waiting_for_manual_tickets", hasTickets ? "warn" : "muted"],
+    ["current_positions_input", rawPositions ? "daily-current-positions filled" : "daily-current-positions empty; update after any manual trade before next advisory", inputTone],
+    ["allowed_columns", "asset_id,quantity,latest_price only; never paste account_id/broker_id/order_id", "warn"],
+    ["sensitive_column_guard", inputState.issue || "FORBIDDEN_CURRENT_POSITION_COLUMNS checked", inputState.tone === "danger" ? "danger" : "ok"],
+    ["post_close_receipt", postCloseReceipt ? "post_close_journal_recorded" : "record_post_close_journal_after_manual_decision", postCloseReceipt ? "ok" : "warn"],
+    ["next_day_rule", "Run daily advisory again after the position update; do not trust stale holdings.", hasTickets ? "warn" : "muted"],
+    ["boundary", `broker_connection_allowed=${summary.broker_connection_allowed ? "true" : "false"}; account_read_allowed=false; order_placement_allowed=false`, summary.broker_connection_allowed ? "danger" : "ok"],
+  ]) + `
+    <div class="list-row warn">
+      <strong>${escapeHtml("manual_position_reconciliation")}</strong>
+      <span>${escapeHtml("After a human trade, copy only desensitized positions into daily-current-positions before tomorrow's Top3 signal.")}</span>
+      <span class="beginner-task-actions">
+        <button class="secondary-button" type="button" data-beginner-target="daily-current-positions">${escapeHtml("Open positions input")}</button>
         <button class="secondary-button" type="button" data-beginner-target="beginner-post-close-journal-form">${escapeHtml("Open post-close review")}</button>
       </span>
     </div>
