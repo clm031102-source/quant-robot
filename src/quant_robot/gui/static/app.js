@@ -97,6 +97,7 @@ const EXECUTION_RECEIPT_LIMIT = 20;
 const RUNTIME_GUARDED_ACTIONS = new Set(["research_backtest", "startup_workflows"]);
 const TRADE_SYSTEM_MANUAL_REVIEW_DECISION = "manual_review_only_not_order";
 const TRADE_SYSTEM_BROKER_PRICE_RECHECK_GATE = "broker_realtime_price_recheck";
+const PAPER_FLAT_POSITION_TEMPLATE = "asset_id,quantity,latest_price\nPAPER_FLAT_CASH,0,0";
 const FORBIDDEN_CURRENT_POSITION_COLUMNS = new Set(["account", "account_id", "broker", "broker_id", "client_id", "order_id"]);
 const DEFAULT_TICKET_REVIEW_CHECKLIST = [
   { check_id: "asset_code_match", label: "核对 ETF 代码", plain_check: "券商端确认 ETF 代码和目标市场一致；不认识就跳过。" },
@@ -419,6 +420,12 @@ function bindActions() {
     if (!input) return;
     updateBrokerPriceRecheckDecision(input);
   });
+  document.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-current-position-action]");
+    if (!button) return;
+    event.preventDefault();
+    await runCurrentPositionAction(button.dataset.currentPositionAction || "", button);
+  });
   document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-factor-beginner-jump]");
     if (!button) return;
@@ -690,13 +697,17 @@ function bindRequestPreviewInputs() {
     const renderWithManualOverride = (event) => {
       if (event?.isTrusted) markManualFormOverride(id);
       renderRequestPreview();
-      if (id === "daily-current-positions") renderDailyCurrentPositionHelp();
+      if (id === "daily-current-positions") {
+        renderDailyCurrentPositionHelp();
+        renderDailyCurrentPositionActions();
+      }
       if (id === "daily-trade-portfolio-value" || id === "daily-manual-available-cash" || id === "daily-trade-risk-profile") renderDailyPortfolioValueHelp();
     };
     element.addEventListener("input", renderWithManualOverride);
     element.addEventListener("change", renderWithManualOverride);
   });
   renderDailyCurrentPositionHelp();
+  renderDailyCurrentPositionActions();
   renderDailyPortfolioValueHelp();
 }
 
@@ -5739,6 +5750,29 @@ function ordinaryTradingCockpitTop3Rows(sheet = {}) {
   `).join("");
 }
 
+function ordinaryTradingCockpitBlockerSkipRules(sheet = {}) {
+  const advisory = state.dailyTradeAdvisory || {};
+  const summary = advisory.summary || {};
+  const readiness = advisory.pretrade_readiness || {};
+  const validation = advisory.current_position_validation || {};
+  const blockers = new Set([
+    summary.manual_trade_plan_blocked_reason || "",
+    sheet.summary?.manual_trade_plan_blocked_reason || "",
+    ...(Array.isArray(readiness.blockers) ? readiness.blockers : []),
+  ].filter(Boolean));
+  if (validation.status === "not_provided") blockers.add("current_positions_missing");
+  if (summary.fallback_signal_only || blockers.has("fallback_baseline_not_tradeable")) {
+    blockers.add("fallback_baseline_not_tradeable");
+  }
+  if (blockers.has("candidate_trade_evidence_incomplete") || readiness.candidate_trade_evidence?.summary?.blocked_count) {
+    blockers.add("candidate_trade_evidence_incomplete");
+  }
+  blockers.add("same_parameter_top3_missing");
+  blockers.add("cash_or_position_limit_breach");
+  blockers.add("risk_or_liquidity_blocked");
+  return Array.from(blockers).join(" / ");
+}
+
 function ordinaryTradingCockpitActionRows(sheet = {}) {
   const actions = Array.isArray(sheet.today_actions) ? sheet.today_actions : [];
   const tickets = Array.isArray(sheet.manual_broker_handoff_tickets) ? sheet.manual_broker_handoff_tickets : [];
@@ -5760,7 +5794,7 @@ function ordinaryTradingCockpitActionRows(sheet = {}) {
           <span>${escapeHtml("today_operation_quantity=0 / amount=0 / ref=-- / weight=--")}</span>
           <span>${escapeHtml("price_guardrail=--~-- / broker_price_outside_guardrail=skip")}</span>
           <span>${escapeHtml(`why=Top3 factor signal ready, but no executable ETF ticket. ${item.plain_conclusion || item.promotion_label || ""}`)}</span>
-          <span>${escapeHtml("today_operation_skip_rules=current_positions_missing / same_parameter_top3_missing / cash_or_position_limit_breach / risk_or_liquidity_blocked")}</span>
+          <span>${escapeHtml(`today_operation_skip_rules=${ordinaryTradingCockpitBlockerSkipRules(sheet)}`)}</span>
           <span>${escapeHtml(journalReceipt ? `today_operation_post_close_record=recorded / ${journalReceipt.time || "--"}` : "today_operation_post_close_record=required / record_post_close_journal")}</span>
           <span>${escapeHtml(next.plain_action || "先补当前持仓和现金输入，再重新生成买卖数量；今天没有票据时不要交易。")}</span>
           <span class="beginner-task-actions">
@@ -6844,11 +6878,11 @@ function currentPositionInputState(validation = {}) {
   const raw = valueOf("daily-current-positions").trim();
   if (!raw) {
     return {
-      tone: "warn",
+      tone: "danger",
       title: "当前持仓安全检查",
-      summary: "可留空；留空时系统按目标仓位估算，不按净差额调仓。",
+      summary: "explicit_current_positions_required：当前持仓空白会阻断买卖票据生成。",
       columns: "模板：asset_id,quantity,latest_price",
-      issue: "不要粘贴账户号、券商号、真实委托号。",
+      issue: "current_position_empty_blocks_ticket_generation：没有真实脱敏持仓时，先点纸面空仓试算。",
     };
   }
   const header = raw.split(/\r?\n/)[0] || "";
@@ -6892,6 +6926,88 @@ function renderDailyCurrentPositionHelp(validation = {}) {
     ["允许格式", stateInfo.columns, stateInfo.tone === "danger" ? "danger" : "muted"],
     ["安全边界", stateInfo.issue, stateInfo.tone === "danger" ? "danger" : "warn"],
   ]);
+}
+
+function renderDailyCurrentPositionActions() {
+  const target = byId("daily-current-position-actions");
+  if (!target) return;
+  const stateInfo = currentPositionInputState();
+  const raw = valueOf("daily-current-positions").trim();
+  const isPaperFlat = raw.includes("PAPER_FLAT_CASH") || raw.includes("CN_ETF_PAPER_FLAT");
+  target.innerHTML = `
+    <div class="list-row ${escapeHtml(stateInfo.tone)}">
+      <strong>${escapeHtml(isPaperFlat ? "纸面空仓试算已填" : "纸面空仓试算")}</strong>
+      <span>${escapeHtml(isPaperFlat ? "已使用 paper_flat_position_template；它只是本地纸面现金起点，不是账户持仓。" : "没有脱敏持仓时，先显式写入空仓模板；不要把空白当成 0 仓。")}</span>
+      <span class="beginner-task-actions">
+        <button class="secondary-button" type="button" data-current-position-action="paper_flat_position_template">${escapeHtml("填入空仓模板")}</button>
+        <button class="secondary-button" type="button" data-current-position-action="sanitize_current_positions">${escapeHtml("清理敏感列")}</button>
+        <button class="primary-button" type="button" data-current-position-action="rerun_daily_trade_advisory">${escapeHtml("重跑今日建议")}</button>
+      </span>
+    </div>
+  `;
+}
+
+async function runCurrentPositionAction(actionId, button = null) {
+  if (actionId === "paper_flat_position_template") {
+    applyPaperFlatPositionTemplate();
+    return;
+  }
+  if (actionId === "sanitize_current_positions") {
+    sanitizeCurrentPositionInput();
+    return;
+  }
+  if (actionId === "rerun_daily_trade_advisory") {
+    await runDailyTradeAdvisory();
+    return;
+  }
+  showToast(`未知持仓动作：${actionId}`, true);
+}
+
+function applyPaperFlatPositionTemplate() {
+  setValue("daily-current-positions", PAPER_FLAT_POSITION_TEMPLATE);
+  if (!valueOf("daily-manual-available-cash")) {
+    setValue("daily-manual-available-cash", valueOf("daily-trade-portfolio-value") || "100000");
+  }
+  markManualFormOverride("paper_flat_position_template");
+  dispatchDailyInputChanged("daily-current-positions");
+  dispatchDailyInputChanged("daily-manual-available-cash");
+  renderDailyCurrentPositionHelp();
+  renderDailyCurrentPositionActions();
+  renderDailyPortfolioValueHelp();
+  showToast("已填入纸面空仓模板；它不会读取账户，也不是券商订单。");
+}
+
+function sanitizeCurrentPositionInput() {
+  const raw = valueOf("daily-current-positions").trim();
+  if (!raw) {
+    applyPaperFlatPositionTemplate();
+    return;
+  }
+  const lines = raw.split(/\r?\n/).filter((line) => line.trim());
+  const headers = (lines[0] || "").split(",").map((item) => item.trim());
+  const keepIndexes = headers
+    .map((header, index) => ({ header, index }))
+    .filter((item) => item.header && !FORBIDDEN_CURRENT_POSITION_COLUMNS.has(item.header.toLowerCase()));
+  const sanitizedLines = [
+    keepIndexes.map((item) => item.header).join(","),
+    ...lines.slice(1).map((line) => {
+      const cells = line.split(",");
+      return keepIndexes.map((item) => (cells[item.index] || "").trim()).join(",");
+    }),
+  ].filter((line) => line.trim());
+  setValue("daily-current-positions", sanitizedLines.join("\n") || PAPER_FLAT_POSITION_TEMPLATE);
+  markManualFormOverride("sanitize_current_positions");
+  dispatchDailyInputChanged("daily-current-positions");
+  renderDailyCurrentPositionHelp();
+  renderDailyCurrentPositionActions();
+  showToast("已清理账户、券商和订单字段；请再核对 ETF、数量和价格。");
+}
+
+function dispatchDailyInputChanged(id) {
+  const element = byId(id);
+  if (!element) return;
+  element.dispatchEvent(new Event("input", { bubbles: true }));
+  element.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
 function portfolioValueInputState() {

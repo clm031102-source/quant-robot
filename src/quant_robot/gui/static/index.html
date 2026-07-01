@@ -934,6 +934,17 @@
                 <textarea id="daily-current-positions" rows="3" spellcheck="false" placeholder="asset_id,quantity,latest_price&#10;CN_ETF_XSHG_510300,1000,4.864"></textarea>
               </label>
               <div id="daily-current-position-help" class="status-list compact-status" data-current-position-help-root="true" aria-label="当前持仓安全检查"></div>
+              <div id="daily-current-position-actions" class="status-list compact-status" aria-label="当前持仓辅助操作">
+                <div class="list-row warn">
+                  <strong>纸面空仓试算</strong>
+                  <span>没有脱敏持仓时，先显式写入空仓模板再重跑今日建议。</span>
+                  <span class="beginner-task-actions">
+                    <button class="secondary-button" type="button" data-current-position-action="paper_flat_position_template">填入空仓模板</button>
+                    <button class="secondary-button" type="button" data-current-position-action="sanitize_current_positions">清理敏感列</button>
+                    <button class="primary-button" type="button" data-current-position-action="rerun_daily_trade_advisory">重跑今日建议</button>
+                  </span>
+                </div>
+              </div>
               <button id="run-daily-ops" class="primary-button command-action" type="button">刷新日常运营</button>
               <button id="run-daily-trade-advisory" class="secondary-button command-action" type="button">生成今日前三交易建议</button>
             </div>

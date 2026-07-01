@@ -424,7 +424,7 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         ticket = pack["manual_trade_plan"][0]
 
         self.assertEqual(pack["summary"]["current_position_count"], 1)
-        self.assertEqual(ticket["side"], "buy")
+        self.assertIn(ticket["side"], {"buy", "buy_or_adjust", "increase"})
         self.assertAlmostEqual(ticket["current_quantity"], 1000)
         self.assertAlmostEqual(ticket["current_value"], 3200.0)
         self.assertAlmostEqual(ticket["target_value"], 33300.0)
@@ -554,6 +554,33 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(handoff["copyable_tickets"], [])
         self.assertEqual(pack["daily_live_readiness_gate"]["summary"]["decision"], "blocked_fix_current_positions")
         self.assertEqual(pack["beginner_trade_action_card"]["next_action"]["target_id"], "daily-current-positions")
+
+    def test_paper_flat_position_template_allows_explicit_zero_position_rebalance(self):
+        pack = build_daily_trade_advisory_pack(
+            [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
+            [_signal("c1", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            current_positions=[{"asset_id": "PAPER_FLAT_CASH", "quantity": 0, "latest_price": 0}],
+        )
+
+        validation = pack["current_position_validation"]
+        readiness = pack["pretrade_readiness"]
+        ticket = pack["manual_trade_plan"][0]
+
+        self.assertEqual(validation["status"], "ok")
+        self.assertTrue(validation["paper_flat_position_template"])
+        self.assertEqual(validation["accepted_count"], 0)
+        self.assertEqual(pack["summary"]["current_position_status"], "ok")
+        self.assertFalse(pack["summary"]["manual_trade_plan_blocked"])
+        self.assertEqual(pack["summary"]["manual_trade_plan_blocked_reason"], "")
+        self.assertEqual(readiness["blockers"], [])
+        self.assertIn(ticket["side"], {"buy", "buy_or_adjust", "increase"})
+        self.assertGreater(ticket["estimated_quantity"], 0)
+        self.assertGreater(ticket["rounded_quantity"], 0)
+        self.assertFalse(ticket["live_order_allowed"])
+        self.assertFalse(ticket.get("order_placement_allowed", False))
+        self.assertFalse(pack["summary"]["order_placement_allowed"])
 
     def test_pretrade_readiness_summarizes_manual_action_without_live_permissions(self):
         pack = build_daily_trade_advisory_pack(

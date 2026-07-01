@@ -62,6 +62,7 @@ MANUAL_MAX_CONSECUTIVE_LOSS_DAYS = 3
 RECENT_OBSERVATION_MIN_COUNT = 3
 RECENT_OBSERVATION_MAX_LOSS_PCT = 0.02
 RECENT_OBSERVATION_MIN_WIN_RATE = 0.40
+PAPER_FLAT_POSITION_ASSET_IDS = {"PAPER_FLAT_CASH", "CN_ETF_PAPER_FLAT"}
 DAILY_CANDIDATE_MIN_TRADE_COUNT = 30
 DAILY_CANDIDATE_REQUIRED_TRADE_EVIDENCE_METRICS = (
     "sharpe",
@@ -13136,6 +13137,8 @@ def _manual_rebalance_plan(
     if target_frame.empty:
         target_frame = pd.DataFrame(columns=["asset_id", "market", "target_weight", "latest_price"])
     position_frame = pd.DataFrame(current_positions)
+    if position_frame.empty:
+        position_frame = pd.DataFrame(columns=["asset_id", "quantity", "latest_price", "market"])
     latest_prices = _rebalance_latest_prices(combined_targets, current_positions)
     rebalance = build_rebalance_plan(
         target_frame[["asset_id", "market", "target_weight", "latest_price"]],
@@ -13266,6 +13269,7 @@ def _current_position_validation(
     }
     rows = []
     issues = []
+    paper_flat_template_seen = False
     raw_rows = current_positions or []
     for index, item in enumerate(raw_rows, start=1):
         if not isinstance(item, dict):
@@ -13291,6 +13295,18 @@ def _current_position_validation(
             continue
         if quantity is None:
             issues.append(_current_position_issue(index, "current_position_missing_quantity", f"{asset_id} 缺少可用数量 quantity。"))
+            continue
+        if asset_id.upper() in PAPER_FLAT_POSITION_ASSET_IDS:
+            if abs(float(quantity)) > 1e-12:
+                issues.append(
+                    _current_position_issue(
+                        index,
+                        "paper_flat_position_template_nonzero_quantity",
+                        "纸面空仓模板只能使用 quantity=0；如果是真实持仓，请填写真实 ETF 代码。",
+                    )
+                )
+                continue
+            paper_flat_template_seen = True
             continue
         market = str(item.get("market") or "CN_ETF").strip().upper()
         if market != "CN_ETF":
@@ -13322,7 +13338,7 @@ def _current_position_validation(
         rows.append(row)
     if issues:
         status = "error"
-    elif rows:
+    elif rows or paper_flat_template_seen:
         status = "ok"
     else:
         status = "not_provided"
@@ -13330,6 +13346,7 @@ def _current_position_validation(
         {
             "status": status,
             "accepted_count": len(rows) if status != "error" else 0,
+            "paper_flat_position_template": bool(paper_flat_template_seen and status != "error"),
             "issue_count": len(issues),
             "issues": issues,
             "rows": rows if status != "error" else [],
