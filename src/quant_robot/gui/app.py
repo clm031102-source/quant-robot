@@ -117,6 +117,7 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                     min_cash_weight=float(_first(query, "min_cash_weight", "0.1")),
                     risk_profile_id=_optional(query, "risk_profile_id"),
                     current_positions=_optional(query, "current_positions"),
+                    manual_available_cash=_optional_float(query, "manual_available_cash"),
                     evidence_snapshot=_optional(query, "evidence_snapshot"),
                 )
                 operation_request = dict(result.get("summary", {}) if isinstance(result.get("summary"), dict) else {})

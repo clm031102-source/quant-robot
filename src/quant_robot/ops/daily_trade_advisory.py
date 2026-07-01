@@ -371,10 +371,12 @@ def build_daily_trade_advisory_pack(
     current_positions: list[dict[str, Any]] | None = None,
     evidence_snapshot: dict[str, Any] | None = None,
     candidate_pool_top20: dict[str, Any] | None = None,
+    manual_available_cash: float | None = None,
 ) -> dict[str, Any]:
     signal_cards = [_signal_card(candidate, _matching_signal(candidate, signal_snapshots)) for candidate in candidates]
     selected_profile = _risk_profile_by_id(risk_profile_id)
     applied_max_gross_exposure = _applied_max_gross_exposure(max_gross_exposure, selected_profile)
+    manual_cash_value = _float_or_none(manual_available_cash)
     combined_targets = _combined_targets(
         signal_cards,
         portfolio_value=portfolio_value,
@@ -420,6 +422,8 @@ def build_daily_trade_advisory_pack(
             "requested_max_gross_exposure": max_gross_exposure,
             "applied_max_gross_exposure": applied_max_gross_exposure,
             "portfolio_value": portfolio_value,
+            "manual_available_cash": manual_cash_value,
+            "manual_available_cash_source": "manual_input_only" if manual_cash_value is not None else "not_provided",
             "live_trading_allowed": False,
             "broker_connection_allowed": False,
             "account_read_allowed": False,
@@ -2021,6 +2025,49 @@ def _beginner_action_step(
     }
 
 
+def _manual_cash_feasibility(manual_plan: list[dict[str, Any]], manual_available_cash: Any) -> dict[str, Any]:
+    estimated_buy_cash_required = round(
+        sum(_float(row.get("estimated_buy_cash_required"), 0.0) for row in manual_plan),
+        6,
+    )
+    estimated_sell_cash_released = round(
+        sum(_float(row.get("estimated_sell_cash_released"), 0.0) for row in manual_plan),
+        6,
+    )
+    estimated_cash_impact_after_costs = round(
+        sum(_float(row.get("estimated_cash_impact_after_costs"), 0.0) for row in manual_plan),
+        6,
+    )
+    manual_cash_value = _float_or_none(manual_available_cash)
+    if not manual_plan or estimated_buy_cash_required <= 0:
+        status = "not_required"
+        shortfall = 0.0
+    elif manual_cash_value is None:
+        status = "not_provided"
+        shortfall = None
+    else:
+        shortfall = round(max(0.0, estimated_buy_cash_required - manual_cash_value), 6)
+        status = "blocked" if shortfall > 1e-9 else "pass"
+    return _sanitize(
+        {
+            "status": status,
+            "cash_source": "manual_input_only" if manual_cash_value is not None else "not_provided",
+            "manual_available_cash": manual_cash_value,
+            "estimated_buy_cash_required": estimated_buy_cash_required,
+            "estimated_sell_cash_released": estimated_sell_cash_released,
+            "estimated_cash_impact_after_costs": estimated_cash_impact_after_costs,
+            "estimated_cash_shortfall": shortfall,
+            "conservative_rule": "available_cash_must_cover_buy_cash_before_same_day_sell_credit",
+            "same_day_sell_credit_treated_as_manual_review_only": estimated_sell_cash_released > 0,
+            "manual_input_required_before_broker_review": status in {"not_provided", "blocked"},
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        }
+    )
+
+
 def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
     summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
     factors = [row for row in pack.get("factors", []) if isinstance(row, dict)]
@@ -2038,6 +2085,7 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
     freshness = _pretrade_signal_freshness(pack, signal_cards)
     candidate_trade_evidence = _candidate_trade_evidence_audit(factors)
     candidate_evidence_status = str(candidate_trade_evidence.get("status") or "waiting")
+    cash_feasibility = _manual_cash_feasibility(manual_plan, summary.get("manual_available_cash"))
     invalid_sizing_tickets = [
         str(row.get("ticket_id") or row.get("asset_id") or "")
         for row in manual_plan
@@ -2071,6 +2119,8 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
         blockers.append("current_position_input_invalid")
     if signal_count > 0 and not freshness["fresh_for_run_date"]:
         blockers.append("stale_signal_date")
+    if cash_feasibility.get("status") == "blocked":
+        blockers.append("manual_cash_shortfall")
 
     manual_action_candidate = not blockers and manual_count > 0
     traffic_light = "yellow" if manual_action_candidate else "red"
@@ -2126,6 +2176,21 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
             ),
         },
         {
+            "check_id": "manual_available_cash",
+            "status": (
+                "pass"
+                if cash_feasibility.get("status") in {"pass", "not_required"}
+                else "blocked"
+                if cash_feasibility.get("status") == "blocked"
+                else "waiting"
+            ),
+            "text": (
+                f"手填券商可用现金={cash_feasibility.get('manual_available_cash') if cash_feasibility.get('manual_available_cash') is not None else '未填写'}；"
+                f"预计买入所需现金={cash_feasibility.get('estimated_buy_cash_required')}；"
+                f"缺口={cash_feasibility.get('estimated_cash_shortfall') if cash_feasibility.get('estimated_cash_shortfall') is not None else '待人工确认'}。"
+            ),
+        },
+        {
             "check_id": "paper_and_risk_review",
             "status": "required" if manual_action_candidate else "waiting",
             "text": "必须先看模拟盘、最大回撤、流动性、仓位上限和现金余量。",
@@ -2166,6 +2231,10 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
         warnings.append("有入选因子没有生成同日信号，不能当作可操作建议。")
     if candidate_evidence_status == "blocked":
         warnings.append("Top3 candidate trade evidence is incomplete: required metrics must be present and trade_count must be at least 30 before manual action review.")
+    if cash_feasibility.get("status") == "blocked":
+        warnings.append("手填券商可用现金不足以覆盖今日买入票据，不能进入人工买入复核。")
+    elif cash_feasibility.get("status") == "not_provided" and manual_count > 0:
+        warnings.append("尚未手填券商可用现金；票据只能作为观察材料，真正人工复核前必须补现金检查。")
     if summary.get("fallback_signal_only"):
         warnings.append("当前只有内置基线演示信号，没有合格推广候选；只能观察和跑模拟盘，不能生成手工交易票据。")
     if position_validation.get("status") == "not_provided" and target_count > 0:
@@ -2187,6 +2256,7 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
             "warnings": warnings,
             "freshness": freshness,
             "candidate_trade_evidence": candidate_trade_evidence,
+            "cash_feasibility": cash_feasibility,
             "summary": {
                 "selected_factor_count": selected_count,
                 "signal_count": signal_count,
@@ -2199,6 +2269,13 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
                 "manual_trade_plan_blocked_reason": summary.get("manual_trade_plan_blocked_reason"),
                 "current_position_count": position_validation.get("accepted_count", 0),
                 "current_position_issue_count": position_validation.get("issue_count", 0),
+                "manual_available_cash": cash_feasibility.get("manual_available_cash"),
+                "manual_available_cash_source": cash_feasibility.get("cash_source"),
+                "manual_cash_feasibility_status": cash_feasibility.get("status"),
+                "manual_cash_shortfall": cash_feasibility.get("estimated_cash_shortfall"),
+                "estimated_buy_cash_required": cash_feasibility.get("estimated_buy_cash_required"),
+                "estimated_sell_cash_released": cash_feasibility.get("estimated_sell_cash_released"),
+                "estimated_cash_impact_after_costs": cash_feasibility.get("estimated_cash_impact_after_costs"),
                 "target_value": sum(_float(row.get("target_value"), 0.0) for row in manual_plan),
                 "rounded_value": sum(_float(row.get("rounded_value"), 0.0) for row in manual_plan),
                 "cash_delta_after_rounding": sum(_float(row.get("cash_delta_after_rounding"), 0.0) for row in manual_plan),
@@ -2309,6 +2386,11 @@ def _build_manual_broker_handoff(pack: dict[str, Any]) -> dict[str, Any]:
     summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
     blocking_reasons = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
     can_show_tickets = bool(readiness.get("manual_action_candidate"))
+    cash_feasibility = (
+        readiness.get("cash_feasibility")
+        if isinstance(readiness.get("cash_feasibility"), dict)
+        else _manual_cash_feasibility(manual_plan, summary.get("manual_available_cash"))
+    )
     raw_copyable_tickets = [
         _broker_handoff_ticket(index, row, summary)
         for index, row in enumerate(manual_plan, start=1)
@@ -2392,12 +2474,17 @@ def _build_manual_broker_handoff(pack: dict[str, Any]) -> dict[str, Any]:
                 "estimated_buy_cash_required": round(estimated_buy_cash_required, 6),
                 "estimated_sell_cash_released": round(estimated_sell_cash_released, 6),
                 "estimated_cash_impact_after_costs": round(estimated_cash_impact_after_costs, 6),
+                "manual_available_cash": cash_feasibility.get("manual_available_cash"),
+                "manual_cash_feasibility_status": cash_feasibility.get("status"),
+                "manual_cash_shortfall": cash_feasibility.get("estimated_cash_shortfall"),
+                "manual_available_cash_source": cash_feasibility.get("cash_source"),
                 "traffic_light": readiness.get("traffic_light"),
                 "manual_action_candidate": bool(readiness.get("manual_action_candidate")),
                 "same_parameter_paper_required_count": same_parameter_required_count,
                 "same_parameter_paper_matched_count": same_parameter_matched_count,
                 "same_parameter_paper_ready": same_parameter_paper_ready,
             },
+            "cash_feasibility": cash_feasibility,
             "confirmation_checklist": [
                 {
                     "check_id": "same_parameter_paper_required_before_manual_tickets",

@@ -152,6 +152,7 @@ const REQUEST_PREVIEW_INPUT_IDS = [
   "paper-guard-cooldown",
   "daily-trade-as-of",
   "daily-trade-portfolio-value",
+  "daily-manual-available-cash",
   "daily-trade-risk-profile",
   "daily-current-positions",
 ];
@@ -684,7 +685,7 @@ function bindRequestPreviewInputs() {
       if (event?.isTrusted) markManualFormOverride(id);
       renderRequestPreview();
       if (id === "daily-current-positions") renderDailyCurrentPositionHelp();
-      if (id === "daily-trade-portfolio-value" || id === "daily-trade-risk-profile") renderDailyPortfolioValueHelp();
+      if (id === "daily-trade-portfolio-value" || id === "daily-manual-available-cash" || id === "daily-trade-risk-profile") renderDailyPortfolioValueHelp();
     };
     element.addEventListener("input", renderWithManualOverride);
     element.addEventListener("change", renderWithManualOverride);
@@ -864,6 +865,7 @@ function buildDailyTradeAdvisoryParams() {
     top_n: valueOf("signal-top-n") || "2",
     as_of_date: valueOf("daily-trade-as-of") || valueOf("signal-as-of"),
     portfolio_value: valueOf("daily-trade-portfolio-value") || valueOf("paper-initial-cash") || "100000",
+    manual_available_cash: valueOf("daily-manual-available-cash"),
     risk_profile_id: valueOf("daily-trade-risk-profile") || "balanced_20dd",
     current_positions: valueOf("daily-current-positions"),
     max_asset_weight: valueOf("max-asset-weight") || "0.4",
@@ -6445,8 +6447,17 @@ function renderDailyPortfolioValueHelp() {
   const target = byId("daily-portfolio-value-help");
   if (!target) return;
   const info = portfolioValueInputState();
+  const cashRaw = valueOf("daily-manual-available-cash");
+  const cashValue = Number(cashRaw);
+  const cashTone = !cashRaw ? "warn" : Number.isFinite(cashValue) && cashValue >= 0 ? "ok" : "danger";
+  const cashText = !cashRaw
+    ? "未填写；生成建议后只能作为观察材料，人工复核前必须补券商可用现金。"
+    : cashTone === "ok"
+      ? `手填券商可用现金=${formatNumber(cashValue)}，只用于本地现金闸门。`
+      : "红灯：券商可用现金只能填大于等于 0 的数字。";
   target.innerHTML = statusRows([
     [info.title, info.summary, info.tone],
+    ["券商可用现金", cashText, cashTone],
     ["用途", "只用于估算目标仓位、一手取整和人工复核票据。", "warn"],
     ["安全边界", info.detail, info.tone === "danger" ? "danger" : "ok"],
   ]);
@@ -10144,16 +10155,20 @@ function executionReceiptsForWorkflow(workflowId) {
 function renderDailyPretradeReadiness(readiness) {
   const summary = readiness.summary || {};
   const freshness = readiness.freshness || {};
+  const cash = readiness.cash_feasibility || {};
   const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
   const warnings = Array.isArray(readiness.warnings) ? readiness.warnings : [];
   const confirmations = Array.isArray(readiness.required_confirmations) ? readiness.required_confirmations : [];
   const light = readiness.traffic_light || "red";
   const verdictTone = light === "red" ? "danger" : "warn";
+  const cashStatus = cash.status || summary.manual_cash_feasibility_status || "not_provided";
+  const cashTone = cashStatus === "blocked" ? "danger" : cashStatus === "pass" || cashStatus === "not_required" ? "ok" : "warn";
   byId("daily-pretrade-readiness-verdict").innerHTML = statusRows([
     ["总灯号", light === "yellow" ? "黄灯：只能进入人工复核" : "红灯：不能进入人工操作", verdictTone],
     ["结论", readiness.operator_verdict || "等待今日信号和手工票据生成。", verdictTone],
     ["目标金额", formatNumber(summary.target_value), "muted"],
     ["取整后金额", formatNumber(summary.rounded_value), "muted"],
+    ["现金闸门", `状态=${zhConsoleText(cashStatus)} / 手填现金=${cash.manual_available_cash == null ? "未填写" : formatNumber(cash.manual_available_cash)} / 买入需=${formatNumber(cash.estimated_buy_cash_required)} / 缺口=${cash.estimated_cash_shortfall == null ? "待确认" : formatNumber(cash.estimated_cash_shortfall)}`, cashTone],
     ["取整后剩余", formatNumber(summary.cash_delta_after_rounding), "muted"],
     ["信号日期", `运行=${freshness.run_date || "--"} / 最新=${freshness.latest_signal_date || "--"}`, freshness.fresh_for_run_date ? "ok" : "danger"],
     ["自动下单", readiness.live_order_allowed ? "允许" : "禁止", "danger"],
@@ -10236,6 +10251,9 @@ function renderManualBrokerHandoff(handoff) {
   const checklist = Array.isArray(handoff.confirmation_checklist) ? handoff.confirmation_checklist : [];
   const manualReviewGate = dailySameParameterManualReviewGate();
   const rawTickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
+  const cash = handoff.cash_feasibility || {};
+  const cashStatus = cash.status || summary.manual_cash_feasibility_status || "not_provided";
+  const cashTone = cashStatus === "blocked" ? "danger" : cashStatus === "pass" || cashStatus === "not_required" ? "ok" : "warn";
   const tickets = manualReviewGate.allowed ? rawTickets : [];
   const exportPack = manualReviewGate.allowed
     ? state.dailyTradeAdvisory?.manual_ticket_export || {}
@@ -10253,6 +10271,7 @@ function renderManualBrokerHandoff(handoff) {
     ["票据数量", formatNumber(summary.ticket_count), tickets.length ? "warn" : "muted"],
     ["Top3 同参数闸门", manualReviewGate.allowed ? "pass" : "same_parameter_paper_required_before_manual_tickets", manualReviewGate.allowed ? "ok" : "danger"],
     ["取整后金额", formatNumber(summary.rounded_value), "muted"],
+    ["现金闸门", `状态=${zhConsoleText(cashStatus)} / 手填现金=${cash.manual_available_cash == null ? "未填写" : formatNumber(cash.manual_available_cash)} / 买入需=${formatNumber(cash.estimated_buy_cash_required ?? summary.estimated_buy_cash_required)} / 缺口=${cash.estimated_cash_shortfall == null ? "待确认" : formatNumber(cash.estimated_cash_shortfall)}`, cashTone],
     ["取整后剩余", formatNumber(summary.cash_delta_after_rounding), "muted"],
     ["自动下单", handoff.ready_for_auto_order ? "允许" : "禁止", "danger"],
     ["模拟盘复核", handoff.paper_simulation_required ? "必需" : "未要求", handoff.paper_simulation_required ? "warn" : "muted"],
@@ -11452,6 +11471,10 @@ const GUI_ZH_REPLACEMENTS = [
   ["passed", "通过"],
   ["failed", "失败"],
   ["blocked", "阻断"],
+  ["not_provided", "未填写"],
+  ["not_required", "不需要"],
+  ["pass", "通过"],
+  ["manual_cash_shortfall", "手填现金不足"],
   ["queued", "排队"],
   ["runnable", "可运行"],
   ["idle", "待命"],
