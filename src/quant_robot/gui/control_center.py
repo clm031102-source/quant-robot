@@ -276,6 +276,20 @@ def _form_defaults(backtest: dict[str, Any]) -> dict[str, Any]:
             "max_gross_exposure": 1,
             "min_cash_weight": 0.1,
         },
+        "daily_trade": {
+            "source": backtest["source"],
+            "data_root": backtest["data_root"],
+            "market": backtest["market"],
+            "limit": 3,
+            "top_n": backtest["top_n"],
+            "as_of_date": backtest["end_date"],
+            "portfolio_value": 100000,
+            "risk_profile_id": "balanced_20dd",
+            "max_asset_weight": 0.4,
+            "max_market_weight": 1,
+            "max_gross_exposure": 1,
+            "min_cash_weight": 0.1,
+        },
         "paper": {
             "source": backtest["source"],
             "data_root": backtest["data_root"],
@@ -384,6 +398,7 @@ def _workflow_commands(form_defaults: dict[str, Any]) -> list[dict[str, Any]]:
 def _workflow_request_specs(form_defaults: dict[str, Any]) -> dict[str, dict[str, Any]]:
     research = form_defaults["research"]
     signal = form_defaults["signal"]
+    daily_trade = form_defaults["daily_trade"]
     paper = form_defaults["paper"]
     research_query = {
         "market": research["market"],
@@ -419,17 +434,18 @@ def _workflow_request_specs(form_defaults: dict[str, Any]) -> dict[str, dict[str
         "data_root": signal["data_root"],
     }
     daily_trade_query = {
-        "market": signal["market"],
-        "limit": 3,
-        "top_n": signal["top_n"],
-        "as_of_date": signal["as_of_date"],
-        "portfolio_value": paper["initial_cash"],
-        "max_asset_weight": signal["max_asset_weight"],
-        "max_market_weight": signal["max_market_weight"],
-        "max_gross_exposure": signal["max_gross_exposure"],
-        "min_cash_weight": signal["min_cash_weight"],
-        "source": signal["source"],
-        "data_root": signal["data_root"],
+        "market": daily_trade["market"],
+        "limit": daily_trade["limit"],
+        "top_n": daily_trade["top_n"],
+        "as_of_date": daily_trade["as_of_date"],
+        "portfolio_value": daily_trade["portfolio_value"],
+        "risk_profile_id": daily_trade["risk_profile_id"],
+        "max_asset_weight": daily_trade["max_asset_weight"],
+        "max_market_weight": daily_trade["max_market_weight"],
+        "max_gross_exposure": daily_trade["max_gross_exposure"],
+        "min_cash_weight": daily_trade["min_cash_weight"],
+        "source": daily_trade["source"],
+        "data_root": daily_trade["data_root"],
     }
     paper_query = {
         "market": paper["market"],
@@ -493,15 +509,16 @@ def _workflow_request_specs(form_defaults: dict[str, Any]) -> dict[str, dict[str
             "endpoint": _workflow_endpoint_from_query("/api/trade/daily-advisory", daily_trade_query),
             "query": daily_trade_query,
             "request": {
-                "market": signal["market"],
-                "limit": 3,
-                "top_n": signal["top_n"],
-                "as_of_date": signal["as_of_date"],
-                "portfolio_value": paper["initial_cash"],
-                "max_asset_weight": signal["max_asset_weight"],
-                "max_market_weight": signal["max_market_weight"],
-                "max_gross_exposure": signal["max_gross_exposure"],
-                "min_cash_weight": signal["min_cash_weight"],
+                "market": daily_trade["market"],
+                "limit": daily_trade["limit"],
+                "top_n": daily_trade["top_n"],
+                "as_of_date": daily_trade["as_of_date"],
+                "portfolio_value": daily_trade["portfolio_value"],
+                "risk_profile_id": daily_trade["risk_profile_id"],
+                "max_asset_weight": daily_trade["max_asset_weight"],
+                "max_market_weight": daily_trade["max_market_weight"],
+                "max_gross_exposure": daily_trade["max_gross_exposure"],
+                "min_cash_weight": daily_trade["min_cash_weight"],
             },
         },
         "paper_simulation": {
@@ -561,6 +578,22 @@ def _parameter_authority(form_defaults: dict[str, Any], workflows: list[dict[str
                 "factor_windows",
                 "top_n",
                 "as_of_date",
+                "max_asset_weight",
+                "max_market_weight",
+                "max_gross_exposure",
+                "min_cash_weight",
+            ],
+        },
+        "daily_trade_advisory": {
+            "label": "Daily trade advisory",
+            "defaults_key": "daily_trade",
+            "comparison_keys": [
+                "market",
+                "limit",
+                "top_n",
+                "as_of_date",
+                "portfolio_value",
+                "risk_profile_id",
                 "max_asset_weight",
                 "max_market_weight",
                 "max_gross_exposure",

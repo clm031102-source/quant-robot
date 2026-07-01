@@ -734,7 +734,10 @@ async function loadDailyOps() {
 
 async function loadDailyTradeAdvisory() {
   const params = buildDailyTradeAdvisoryParams();
-  state.dailyTradeAdvisory = await fetchJson(`/api/trade/daily-advisory?${params.toString()}`);
+  state.dailyTradeAdvisory = attachRequestToResult(
+    await fetchJson(`/api/trade/daily-advisory?${params.toString()}`),
+    params,
+  );
   renderDailyTradeAdvisory();
   renderDashboard();
 }
@@ -916,6 +919,16 @@ function appendSameParameterPaperMetadata(params, lockedRequest = null) {
   if (requestId) params.set("same_parameter_request_id", String(requestId));
   if (request.case_id) params.set("case_id", String(request.case_id));
   if (request.risk_profile_id) params.set("risk_profile_id", String(request.risk_profile_id));
+}
+
+function attachRequestToResult(result = {}, params = new URLSearchParams()) {
+  return {
+    ...result,
+    request: {
+      ...requestObjectFromParams(params),
+      ...(result.request || {}),
+    },
+  };
 }
 
 function parameterPlainValue(params, key, fallback = "--") {
@@ -1452,6 +1465,24 @@ function renderResultFreshness() {
       ["market", "factor_name", "top_n", "start_date", "end_date", "initial_cash"],
       "修改市场、因子、TopN、日期窗口或初始资金后，需要重新跑本地模拟盘。",
     ),
+    resultFreshnessRow(
+      "每日前三建议",
+      state.dailyTradeAdvisory,
+      buildDailyTradeAdvisoryParams(),
+      [
+        "market",
+        "top_n",
+        "as_of_date",
+        "portfolio_value",
+        "manual_available_cash",
+        "risk_profile_id",
+        "max_asset_weight",
+        "max_market_weight",
+        "max_gross_exposure",
+        "min_cash_weight",
+      ],
+      "修改日期、组合资金、人工现金、风险档位或仓位约束后，需要重新生成今日前三建议。",
+    ),
   ];
   target.innerHTML = rows.map((row) => `
     <div class="list-row ${escapeHtml(row.statusClass)}">
@@ -1517,6 +1548,7 @@ function parameterConsistencyRows(authority = {}) {
 function paramsForWorkflow(workflowId) {
   if (workflowId === "research_backtest") return buildResearchParams();
   if (workflowId === "signal_snapshot") return buildSignalParams();
+  if (workflowId === "daily_trade_advisory") return buildDailyTradeAdvisoryParams();
   if (workflowId === "paper_simulation") return buildPaperParams();
   return new URLSearchParams();
 }
@@ -1557,11 +1589,16 @@ function requestObjectFromParams(params) {
     market: params.get("market") || "",
     factor_name: params.get("factor") || params.get("factor_name") || "",
     factor_windows: params.get("factor_windows") || "",
+    limit: params.get("limit") || "",
     top_n: params.get("top_n") || "",
     cost_bps: params.get("cost_bps") || "",
     start_date: params.get("start_date") || "",
     end_date: params.get("end_date") || "",
     as_of_date: params.get("as_of_date") || "",
+    portfolio_value: params.get("portfolio_value") || "",
+    manual_available_cash: params.get("manual_available_cash") || "",
+    risk_profile_id: params.get("risk_profile_id") || "",
+    current_positions: params.get("current_positions") || "",
     execution_lag: params.get("execution_lag") || "",
     forward_horizon: params.get("forward_horizon") || "",
     rebalance_interval: params.get("rebalance_interval") || "",
@@ -1598,6 +1635,9 @@ function requestFreshnessSummary(request = {}) {
     request.factor_name || request.factor || "",
     request.top_n != null && request.top_n !== "" ? `TopN=${request.top_n}` : "",
     request.cost_bps != null && request.cost_bps !== "" ? `成本=${request.cost_bps}bps` : "",
+    request.portfolio_value != null && request.portfolio_value !== "" ? `组合资金=${request.portfolio_value}` : "",
+    request.manual_available_cash != null && request.manual_available_cash !== "" ? `手填现金=${request.manual_available_cash}` : "",
+    request.risk_profile_id || "",
     request.initial_cash != null && request.initial_cash !== "" ? `初始资金=${request.initial_cash}` : "",
     request.start_date || request.as_of_date || "",
     request.end_date || "",
@@ -1964,7 +2004,10 @@ async function runDailyTradeAdvisory() {
   });
   if (!confirmed) return;
   await withBusy("run-daily-trade-advisory", async () => {
-    state.dailyTradeAdvisory = await fetchJson(`/api/trade/daily-advisory?${params.toString()}`);
+    state.dailyTradeAdvisory = attachRequestToResult(
+      await fetchJson(`/api/trade/daily-advisory?${params.toString()}`),
+      params,
+    );
     renderDailyTradeAdvisory();
     renderDashboard();
     appendRunHistory({
@@ -13286,8 +13329,11 @@ function dailyTradeAdvisoryReceipt(result = {}) {
       source: result.source,
       as_of_date: result.run_date,
       portfolio_value: summary.target_value,
-      risk_profile_id: summary.risk_profile_id,
+      manual_available_cash: summary.manual_available_cash ?? result.request?.manual_available_cash,
+      risk_profile_id: summary.risk_profile_id ?? result.request?.risk_profile_id,
       applied_max_gross_exposure: summary.applied_max_gross_exposure,
+      manual_cash_feasibility_status: summary.manual_cash_feasibility_status,
+      manual_cash_shortfall: summary.manual_cash_shortfall,
       paper_request_signature: dailyPaperRequestSignature(result),
       same_parameter_lock_id: sameParameter.lock_id || summary.lock_id,
       same_parameter_top3_paper_requests: sameParameterRequests,
@@ -13297,6 +13343,9 @@ function dailyTradeAdvisoryReceipt(result = {}) {
       signal_count: summary.signal_count,
       target_count: summary.combined_target_count ?? result.combined_target_count,
       manual_ticket_count: summary.manual_ticket_count,
+      manual_available_cash: summary.manual_available_cash ?? result.request?.manual_available_cash,
+      manual_cash_feasibility_status: summary.manual_cash_feasibility_status,
+      manual_cash_shortfall: summary.manual_cash_shortfall,
       traffic_light: readiness.traffic_light,
       blocker_count: Array.isArray(readiness.blockers) ? readiness.blockers.length : 0,
       copyable_ticket_count: Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets.length : 0,

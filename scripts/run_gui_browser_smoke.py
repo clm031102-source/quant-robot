@@ -202,13 +202,19 @@ def run_gui_browser_smoke(
                 for row in authority_rows
                 if isinstance(row, dict)
             }
-            == {"research_backtest", "signal_snapshot", "paper_simulation"}
+            == {"research_backtest", "signal_snapshot", "daily_trade_advisory", "paper_simulation"}
             and _authority_by_id(control_body, "research_backtest").get("canonical_request", {}).get("factor_name")
             == control_body.get("backtest", {}).get("factor")
             and "execution_lag"
             in _authority_by_id(control_body, "research_backtest").get("comparison_keys", [])
             and "forward_horizon"
             in _authority_by_id(control_body, "research_backtest").get("comparison_keys", [])
+            and "portfolio_value"
+            in _authority_by_id(control_body, "daily_trade_advisory").get("comparison_keys", [])
+            and "risk_profile_id"
+            in _authority_by_id(control_body, "daily_trade_advisory").get("comparison_keys", [])
+            and _authority_by_id(control_body, "daily_trade_advisory").get("canonical_request", {}).get("risk_profile_id")
+            == "balanced_20dd"
             and "max_market_weight"
             in _authority_by_id(control_body, "paper_simulation").get("comparison_keys", [])
             and _authority_by_id(control_body, "paper_simulation").get("canonical_request", {}).get("max_market_weight")
