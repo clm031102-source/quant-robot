@@ -8859,6 +8859,15 @@ def _broker_price_recheck_playbook(tickets: list[dict[str, Any]]) -> dict[str, A
             "status": "waiting_for_external_broker_prices" if rows else "locked_no_visible_manual_tickets",
             "plain_answer": "券商端实时价必须人工填写并重算数量；价格超出护栏或滑点预算时跳过。",
             "ticket_count": len(rows),
+            "session_decision_engine": "broker_price_recheck_session_verdict",
+            "session_operator_rule": "all_visible_tickets_need_external_price_and_cash_before_manual_decision",
+            "session_decision_statuses": [
+                "locked_no_visible_manual_tickets",
+                "waiting_for_all_external_inputs",
+                "manual_review_all_rows_price_cash_ok",
+                "manual_review_some_rows_skipped_or_blocked",
+                "manual_review_all_rows_skipped",
+            ],
             "required_manual_inputs": [
                 "external_broker_realtime_price",
                 "external_available_cash_after_manual_check",

@@ -8277,6 +8277,78 @@ function updateBrokerPriceRecheckDecision(input) {
     .find((node) => node.dataset.brokerPriceRecheckOutput === key);
   if (!output) return;
   output.textContent = renderBrokerPriceRecheckDecision(item, priceInput?.value || "", cashInput?.value || "");
+  updateBrokerPriceRecheckSessionVerdict();
+}
+
+function collectBrokerPriceRecheckDecisions() {
+  return Array.from(document.querySelectorAll("[data-broker-price-recheck-price]")).map((priceInput) => {
+    const key = priceInput.dataset.brokerPriceRecheckKey || "";
+    const cashInput = Array.from(document.querySelectorAll("[data-broker-price-recheck-cash]"))
+      .find((node) => node.dataset.brokerPriceRecheckKey === key);
+    const item = brokerPriceRecheckItemFromDataset(priceInput.dataset || {});
+    return brokerPriceRecheckDecision(item, priceInput.value || "", cashInput?.value || "");
+  });
+}
+
+function brokerPriceRecheckSessionVerdict(decisions = []) {
+  const total = decisions.length;
+  if (!total) {
+    return {
+      status: "locked_no_visible_manual_tickets",
+      total_rows: 0,
+      ok_rows: 0,
+      waiting_rows: 0,
+      blocked_rows: 0,
+      can_continue_external_manual_review: false,
+      order_placement_allowed: false,
+      auto_order_allowed: false,
+    };
+  }
+  const waitingStatuses = new Set([
+    "skip_waiting_for_external_broker_price",
+    "manual_review_price_ok_cash_pending",
+  ]);
+  const okRows = decisions.filter((item) => item.status === "manual_review_price_ok_quantity_recalculated").length;
+  const waitingRows = decisions.filter((item) => waitingStatuses.has(item.status)).length;
+  const blockedRows = Math.max(0, total - okRows - waitingRows);
+  let status = "waiting_for_all_external_inputs";
+  if (blockedRows === total) {
+    status = "manual_review_all_rows_skipped";
+  } else if (blockedRows > 0) {
+    status = "manual_review_some_rows_skipped_or_blocked";
+  } else if (okRows === total) {
+    status = "manual_review_all_rows_price_cash_ok";
+  }
+  return {
+    status,
+    total_rows: total,
+    ok_rows: okRows,
+    waiting_rows: waitingRows,
+    blocked_rows: blockedRows,
+    can_continue_external_manual_review: status === "manual_review_all_rows_price_cash_ok",
+    order_placement_allowed: false,
+    auto_order_allowed: false,
+  };
+}
+
+function renderBrokerPriceRecheckSessionVerdict(decisions = []) {
+  const verdict = brokerPriceRecheckSessionVerdict(decisions);
+  return [
+    "session_decision_engine=broker_price_recheck_session_verdict",
+    `session_decision=${verdict.status}`,
+    `ok_rows=${formatNumber(verdict.ok_rows)}`,
+    `waiting_rows=${formatNumber(verdict.waiting_rows)}`,
+    `blocked_rows=${formatNumber(verdict.blocked_rows)}`,
+    `total_rows=${formatNumber(verdict.total_rows)}`,
+    `can_continue_external_manual_review=${String(verdict.can_continue_external_manual_review)}`,
+    "order_placement_allowed=false",
+  ].join(" / ");
+}
+
+function updateBrokerPriceRecheckSessionVerdict() {
+  const output = document.querySelector("[data-broker-price-recheck-session-output]");
+  if (!output) return;
+  output.textContent = renderBrokerPriceRecheckSessionVerdict(collectBrokerPriceRecheckDecisions());
 }
 
 function renderPreMarketManualExecutionPacket(packet = {}, target = null) {
@@ -8292,6 +8364,9 @@ function renderPreMarketManualExecutionPacket(packet = {}, target = null) {
   const operatorRows = Array.isArray(packet.operator_sequence) && packet.operator_sequence.length
     ? packet.operator_sequence
     : fallbackOperatorRows;
+  const initialRecheckDecisions = recheckRows.map((item) => (
+    brokerPriceRecheckDecision(item, item.external_broker_realtime_price, item.external_available_cash_after_manual_check)
+  ));
   const status = packet.packet_status || "blocked_no_manual_execution_packet";
   const tone = status === "manual_review_ready_not_order" ? "warn" : "danger";
   target.innerHTML = statusRows([
@@ -8310,6 +8385,13 @@ function renderPreMarketManualExecutionPacket(packet = {}, target = null) {
         <span>${escapeHtml(item.evidence || "")}</span>
       </div>
     `).join("")}
+    ${recheckRows.length ? `
+      <div class="list-row warn">
+        <strong>${escapeHtml("券商复核整组判定")}</strong>
+        <span>${escapeHtml("所有可见票据都需要通过券商实时价、滑点和可用现金复核，才允许继续由本人做外部人工决定。")}</span>
+        <span data-broker-price-recheck-session-output="true">${escapeHtml(renderBrokerPriceRecheckSessionVerdict(initialRecheckDecisions))}</span>
+      </div>
+    ` : ""}
     ${recheckRows.map((item, index) => {
       const recheckKey = item.ticket_id || `${item.asset_id || "ticket"}-${index}`;
       return `

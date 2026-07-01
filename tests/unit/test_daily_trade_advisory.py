@@ -2674,6 +2674,14 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(recheck_playbook["ticket_count"], 3)
         self.assertFalse(recheck_playbook["order_placement_allowed"])
         self.assertFalse(recheck_playbook["auto_order_allowed"])
+        self.assertEqual(recheck_playbook["session_decision_engine"], "broker_price_recheck_session_verdict")
+        self.assertEqual(
+            recheck_playbook["session_operator_rule"],
+            "all_visible_tickets_need_external_price_and_cash_before_manual_decision",
+        )
+        self.assertIn("waiting_for_all_external_inputs", recheck_playbook["session_decision_statuses"])
+        self.assertIn("manual_review_all_rows_price_cash_ok", recheck_playbook["session_decision_statuses"])
+        self.assertIn("manual_review_some_rows_skipped_or_blocked", recheck_playbook["session_decision_statuses"])
         self.assertIn("external_broker_realtime_price", recheck_playbook["required_manual_inputs"])
         recheck_rows_by_asset = {row["asset_id"]: row for row in recheck_playbook["rows"]}
         self.assertEqual(set(recheck_rows_by_asset), {"510300", "588000", "159915"})
