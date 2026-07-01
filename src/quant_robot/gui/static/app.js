@@ -9415,6 +9415,7 @@ function renderManualBrokerHandoff(handoff) {
     `).join("")
     : statusRows([["暂无手工核对清单", "先生成今日前三交易建议。", "warn"]]);
   renderManualBrokerBeginnerChecklist(handoff, tickets);
+  renderManualBrokerPriceCheck(handoff, tickets);
   renderManualTicketExport(exportPack, tickets);
   renderManualBrokerCopyCards(tickets);
   const ticketRows = tickets.map((ticket) => ({
@@ -9437,6 +9438,41 @@ function renderManualBrokerHandoff(handoff) {
     "live_order_allowed",
     "copy_text",
   ]);
+}
+
+function renderManualBrokerPriceCheck(handoff = {}, tickets = []) {
+  const target = byId("daily-manual-broker-price-check");
+  if (!target) return;
+  const hasTickets = tickets.length > 0;
+  const summary = handoff.summary || {};
+  const ticketRows = hasTickets ? tickets.slice(0, 5).map((ticket, index) => {
+    const guardrails = ticket.execution_guardrails || {};
+    const referencePrice = guardrails.reference_price ?? ticket.reference_price ?? ticket.latest_price;
+    const lowerBound = guardrails.lower_price_bound;
+    const upperBound = guardrails.upper_price_bound;
+    const maxSlippageBps = guardrails.max_slippage_bps;
+    return `
+      <div class="list-row warn">
+        <strong>${escapeHtml(`${index + 1}. ${ticket.asset_id || "--"} / ${zhConsoleText(ticket.side || "review")}`)}</strong>
+        <span>${escapeHtml(`reference_price=${formatDecimal(referencePrice)} / guardrail=${formatDecimal(lowerBound)}~${formatDecimal(upperBound)} / max_slippage_bps=${formatNumber(maxSlippageBps)}`)}</span>
+        <span>${escapeHtml("broker_realtime_price_required; skip_if_broker_price_outside_guardrail; actual_fill_price/fill_quantity only after human trade")}</span>
+      </div>
+    `;
+  }).join("") : "";
+  target.innerHTML = statusRows([
+    ["manual_price_guardrail_review", hasTickets ? "broker_realtime_price_required" : "waiting_for_manual_tickets", hasTickets ? "warn" : "danger"],
+    ["skip_rule", "skip_if_broker_price_outside_guardrail / broker_price_outside_guardrail / slippage_limit_breached", "danger"],
+    ["post_close_input", "If a human trades outside this system, record actual_fill_price and fill_quantity in the post-close review.", "warn"],
+    ["boundary", `broker_connection_allowed=${summary.broker_connection_allowed ? "true" : "false"}; order_placement_allowed=false`, summary.broker_connection_allowed ? "danger" : "ok"],
+  ]) + ticketRows + `
+    <div class="list-row warn">
+      <strong>${escapeHtml("local_audit")}</strong>
+      <span>${escapeHtml("The software audits manually entered fills only; it does not read broker accounts or send orders.")}</span>
+      <span class="beginner-task-actions">
+        <button class="secondary-button" type="button" data-beginner-target="beginner-post-close-journal-form">${escapeHtml("Open post-close review")}</button>
+      </span>
+    </div>
+  `;
 }
 
 function renderManualBrokerBeginnerChecklist(handoff = {}, tickets = []) {

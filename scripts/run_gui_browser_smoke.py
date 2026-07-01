@@ -426,6 +426,23 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "manual_broker_price_check_frontend",
+            "Manual broker price check frontend",
+            index_html.get("ok")
+            and "daily-manual-broker-price-check" in str(index_html.get("body", ""))
+            and app_js.get("ok")
+            and "renderManualBrokerPriceCheck" in str(app_js.get("body", ""))
+            and "broker_realtime_price_required" in str(app_js.get("body", ""))
+            and "skip_if_broker_price_outside_guardrail" in str(app_js.get("body", ""))
+            and "actual_fill_price" in str(app_js.get("body", "")),
+            "Frontend exposes manual broker-side realtime price checks, guardrail skip rules, and local execution-audit inputs.",
+            index_html.get("error")
+            or app_js.get("error")
+            or "Manual broker price-check frontend anchors or renderer hooks are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "daily_manual_observation_packet_frontend",
             "Daily manual observation packet frontend",
             index_html.get("ok")
