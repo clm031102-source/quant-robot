@@ -55,6 +55,9 @@ MANUAL_PRICE_DEVIATION_GUARD_PCT = 0.005
 MANUAL_MAX_SLIPPAGE_BPS = 10
 MANUAL_MAX_PARTICIPATION_RATE = 0.01
 MANUAL_MAX_CONSECUTIVE_LOSS_DAYS = 3
+RECENT_OBSERVATION_MIN_COUNT = 3
+RECENT_OBSERVATION_MAX_LOSS_PCT = 0.02
+RECENT_OBSERVATION_MIN_WIN_RATE = 0.40
 LIQUIDITY_REFERENCE_FIELDS = (
     "liquidity_reference_value",
     "avg_daily_turnover_value",
@@ -5732,6 +5735,64 @@ def _daily_next_session_top3_quarantine(
     )
 
 
+def _daily_recent_observation_degradation(evidence: dict[str, Any]) -> dict[str, Any]:
+    risk_state = evidence.get("risk_state") if isinstance(evidence.get("risk_state"), dict) else {}
+    recent_count = _int(risk_state.get("recent_observation_count"), 0)
+    recent_return = _float_or_none(risk_state.get("recent_observation_return_pct"))
+    recent_win_rate = _float_or_none(risk_state.get("recent_observation_win_rate"))
+    observed = recent_count > 0 or recent_return is not None or recent_win_rate is not None
+    enough_sample = recent_count >= RECENT_OBSERVATION_MIN_COUNT
+    return_blocked = bool(enough_sample and recent_return is not None and recent_return <= -RECENT_OBSERVATION_MAX_LOSS_PCT)
+    win_rate_blocked = bool(enough_sample and recent_win_rate is not None and recent_win_rate < RECENT_OBSERVATION_MIN_WIN_RATE)
+    degraded = return_blocked or win_rate_blocked
+    status = "degraded" if degraded else "observed_clear" if observed else "not_observed"
+    if degraded:
+        plain_answer = "近期纸面/人工观察收益或胜率已经退化；先复盘、降级或隔离，不能继续推进到人工资金观察。"
+    elif observed:
+        plain_answer = "近期观察暂未触发退化闸门；仍然只允许同参数模拟盘和人工复核。"
+    else:
+        plain_answer = "还没有近期观察收益和胜率证据；不能把长期回测分数当作实盘稳定性。"
+
+    return _sanitize(
+        {
+            "summary": {
+                "recent_observation_status": status,
+                "recent_observation_degradation_required": degraded,
+                "recent_observation_count": recent_count,
+                "recent_observation_return_pct": recent_return,
+                "recent_observation_win_rate": recent_win_rate,
+                "recent_observation_min_count": RECENT_OBSERVATION_MIN_COUNT,
+                "recent_observation_max_loss_pct": RECENT_OBSERVATION_MAX_LOSS_PCT,
+                "recent_observation_min_win_rate": RECENT_OBSERVATION_MIN_WIN_RATE,
+                "recent_observation_plain_answer": plain_answer,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+            },
+            "rules": [
+                {
+                    "rule_id": "recent_observation_degradation",
+                    "label": "近期观察退化",
+                    "status": "blocked" if degraded else "pass",
+                    "plain_rule": (
+                        f"至少 {RECENT_OBSERVATION_MIN_COUNT} 次近期纸面/人工观察后，"
+                        f"若累计收益 <= -{RECENT_OBSERVATION_MAX_LOSS_PCT:.0%} "
+                        f"或胜率 < {RECENT_OBSERVATION_MIN_WIN_RATE:.0%}，下一交易日必须隔离并复盘。"
+                    ),
+                    "target_id": "beginner-post-close-journal-board",
+                    "workflow_id": "post_close_journal" if degraded else "",
+                    "required_observations": RECENT_OBSERVATION_MIN_COUNT,
+                    "observed_count": recent_count,
+                    "missing_count": max(0, RECENT_OBSERVATION_MIN_COUNT - recent_count),
+                    "recent_observation_return_pct": recent_return,
+                    "recent_observation_win_rate": recent_win_rate,
+                    "quarantine_next_session": degraded,
+                    "order_placement_allowed": False,
+                }
+            ],
+        }
+    )
+
+
 def build_daily_factor_health_monitor(pack: dict[str, Any]) -> dict[str, Any]:
     summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
     factors = [row for row in pack.get("factors", []) if isinstance(row, dict)]
@@ -5752,6 +5813,13 @@ def build_daily_factor_health_monitor(pack: dict[str, Any]) -> dict[str, Any]:
         for row in factors
     ]
     next_session_quarantine = _daily_next_session_top3_quarantine(evidence, factor_rows)
+    recent_observation = _daily_recent_observation_degradation(evidence)
+    recent_observation_summary = (
+        recent_observation.get("summary")
+        if isinstance(recent_observation.get("summary"), dict)
+        else {}
+    )
+    recent_observation_degraded = bool(recent_observation_summary.get("recent_observation_degradation_required"))
     quarantine_summary = (
         next_session_quarantine.get("summary")
         if isinstance(next_session_quarantine.get("summary"), dict)
@@ -5761,16 +5829,26 @@ def build_daily_factor_health_monitor(pack: dict[str, Any]) -> dict[str, Any]:
         quarantine_summary.get("next_session_reuse_status")
         or "waiting_for_top3_candidates"
     )
-    next_session_quarantine_required = bool(quarantine_summary.get("next_session_quarantine_required"))
+    next_session_quarantine_required = bool(quarantine_summary.get("next_session_quarantine_required")) or recent_observation_degraded
+    if recent_observation_degraded:
+        next_session_reuse_status = "quarantine_recent_observation_degradation"
     for row in factor_rows:
         row["next_session_reuse_status"] = (
-            "quarantine_pending_evidence"
+            "quarantine_recent_observation_degradation"
+            if recent_observation_degraded
+            else "quarantine_pending_evidence"
             if next_session_quarantine_required
             else "reviewable_after_clean_closed_loop"
         )
         row["next_session_quarantine_required"] = next_session_quarantine_required
         row["next_session_quarantine_scope"] = quarantine_summary.get("quarantine_scope", "top3_slate")
-        row["next_session_quarantine_reason"] = quarantine_summary.get("quarantine_plain_answer", "")
+        row["next_session_quarantine_reason"] = (
+            recent_observation_summary.get("recent_observation_plain_answer")
+            if recent_observation_degraded
+            else quarantine_summary.get("quarantine_plain_answer", "")
+        )
+        row["recent_observation_status"] = recent_observation_summary.get("recent_observation_status", "not_observed")
+        row["recent_observation_degradation_required"] = recent_observation_degraded
     healthy_count = sum(1 for row in factor_rows if row["health_status"] == "healthy_for_paper_observation")
     watch_count = sum(1 for row in factor_rows if row["health_status"] == "watch")
     retire_count = sum(1 for row in factor_rows if row["health_status"] == "retire_candidate")
@@ -5780,6 +5858,15 @@ def build_daily_factor_health_monitor(pack: dict[str, Any]) -> dict[str, Any]:
         next_label = "生成今日前三建议"
         next_target = "run-daily-trade-advisory"
         next_workflow = "daily_trade_advisory"
+    elif recent_observation_degraded:
+        decision = "quarantine_recent_observation_degradation"
+        plain_answer = str(
+            recent_observation_summary.get("recent_observation_plain_answer")
+            or "近期观察退化，先复盘、降级或隔离，不能继续推进人工资金观察。"
+        )
+        next_label = "复盘近期观察退化"
+        next_target = "beginner-post-close-journal-board"
+        next_workflow = "post_close_journal"
     elif retire_count:
         decision = "retire_or_reduce_weight_required"
         plain_answer = "Top3 里有退役或降权候选，不能把排行榜前三直接推到实盘；先替换、降权或只做观察。"
@@ -5813,8 +5900,9 @@ def build_daily_factor_health_monitor(pack: dict[str, Any]) -> dict[str, Any]:
                 "watch_count": watch_count,
                 "retire_candidate_count": retire_count,
                 "research_evidence_ready": research_evidence_ready,
-                "retirement_required_before_live": retire_count > 0,
-                "paper_observation_allowed": bool(factor_rows) and retire_count == 0,
+                "retirement_required_before_live": retire_count > 0 or recent_observation_degraded,
+                "paper_observation_allowed": bool(factor_rows) and retire_count == 0 and not recent_observation_degraded,
+                **recent_observation_summary,
                 "top3_auto_buy_allowed": False,
                 "direct_buy_from_top3_allowed": False,
                 "profitability_claim_allowed": False,
@@ -5831,8 +5919,13 @@ def build_daily_factor_health_monitor(pack: dict[str, Any]) -> dict[str, Any]:
                 "next_session_quarantine_required": next_session_quarantine_required,
                 "next_session_reuse_status": next_session_reuse_status,
                 "quarantine_scope": quarantine_summary.get("quarantine_scope", "none"),
-                "quarantine_reason_count": _int(quarantine_summary.get("quarantine_reason_count"), 0),
-                "quarantine_plain_answer": quarantine_summary.get("quarantine_plain_answer", ""),
+                "quarantine_reason_count": _int(quarantine_summary.get("quarantine_reason_count"), 0)
+                + (1 if recent_observation_degraded else 0),
+                "quarantine_plain_answer": (
+                    recent_observation_summary.get("recent_observation_plain_answer")
+                    if recent_observation_degraded
+                    else quarantine_summary.get("quarantine_plain_answer", "")
+                ),
                 "same_parameter_top3_required_requests": _int(
                     quarantine_summary.get("same_parameter_top3_required_requests"),
                     0,
@@ -5864,6 +5957,8 @@ def build_daily_factor_health_monitor(pack: dict[str, Any]) -> dict[str, Any]:
                 next_label=next_label,
                 next_target=next_target,
                 next_workflow=next_workflow,
+                paper_observation_allowed=bool(factor_rows) and retire_count == 0 and not recent_observation_degraded,
+                recent_observation_degradation_required=recent_observation_degraded,
             )
             + (
                 [
@@ -5880,7 +5975,8 @@ def build_daily_factor_health_monitor(pack: dict[str, Any]) -> dict[str, Any]:
                 else []
             ),
             "evidence_snapshot": evidence,
-            "next_session_quarantine_rules": next_session_quarantine.get("rules", []),
+            "next_session_quarantine_rules": next_session_quarantine.get("rules", [])
+            + recent_observation.get("rules", []),
             "health_rules": [
                 {
                     "rule_id": "retire_candidate",
@@ -5948,7 +6044,12 @@ def build_daily_real_money_transition_gate(pack: dict[str, Any]) -> dict[str, An
     profitability_decision = str(profitability_summary.get("decision") or "not_ready_for_real_money")
     risk_circuit_decision = str(risk_circuit_summary.get("decision") or "risk_state_not_observed")
     risk_circuit_blocked = bool(risk_circuit_summary.get("risk_circuit_blocked"))
-    health_blocked = bool(health_summary.get("retirement_required_before_live")) or "retire" in health_decision
+    recent_observation_degraded = bool(health_summary.get("recent_observation_degradation_required"))
+    health_blocked = (
+        bool(health_summary.get("retirement_required_before_live"))
+        or "retire" in health_decision
+        or recent_observation_degraded
+    )
     next_session_quarantine_required = bool(health_summary.get("next_session_quarantine_required"))
     next_session_quarantine_required_count = _int(health_summary.get("same_parameter_top3_required_requests"), 0)
     next_session_quarantine_matched_count = _int(health_summary.get("same_parameter_top3_matched_requests"), 0)
@@ -5993,6 +6094,15 @@ def build_daily_real_money_transition_gate(pack: dict[str, Any]) -> dict[str, An
         decision = "blocked_risk_circuit_breaker"
         plain_answer = "当日亏损、回撤、连续亏损或冷却期风险熔断为红灯；今天只能纸面复盘，不能推进人工券商复核。"
         next_label = "记录风险事件"
+        next_target = "beginner-post-close-journal-board"
+        next_workflow = "post_close_journal"
+    elif recent_observation_degraded:
+        decision = "blocked_recent_observation_degradation"
+        plain_answer = str(
+            health_summary.get("recent_observation_plain_answer")
+            or "近期纸面/人工观察收益或胜率退化；先复盘、降级或隔离，不能推进人工资金观察。"
+        )
+        next_label = "复盘近期观察退化"
         next_target = "beginner-post-close-journal-board"
         next_workflow = "post_close_journal"
     elif health_blocked:
@@ -9088,6 +9198,8 @@ def _daily_factor_health_actions(
     next_label: str,
     next_target: str,
     next_workflow: str,
+    paper_observation_allowed: bool,
+    recent_observation_degradation_required: bool = False,
 ) -> list[dict[str, Any]]:
     actions = [
         _daily_factor_health_action(
@@ -9109,7 +9221,18 @@ def _daily_factor_health_actions(
                 "required",
             )
         )
-    if watch_count or (has_factors and not retire_count):
+    if recent_observation_degradation_required:
+        actions.append(
+            _daily_factor_health_action(
+                "review_recent_observation_degradation",
+                "复盘近期观察退化",
+                "近期纸面/人工观察收益或胜率退化；先写盘后复盘、查成本/滑点/市场状态，再决定降级、隔离或替换。",
+                "beginner-post-close-journal-board",
+                "required",
+                "post_close_journal",
+            )
+        )
+    if paper_observation_allowed and (watch_count or has_factors):
         actions.append(
             _daily_factor_health_action(
                 "run_same_parameter_paper",
@@ -9234,6 +9357,27 @@ def _live_profitability_evidence_snapshot(snapshot: dict[str, Any] | None) -> di
             "cooldown_days_remaining",
             "risk_cooldown_days_remaining",
             "cooldown_remaining",
+        ),
+        "recent_observation_count": _evidence_first_float(
+            raw_risk,
+            "recent_observation_count",
+            "recent_paper_observation_count",
+            "recent_observation_days",
+            "recent_sample_count",
+        ),
+        "recent_observation_return_pct": _evidence_first_float(
+            raw_risk,
+            "recent_observation_return_pct",
+            "recent_paper_return_pct",
+            "recent_manual_observation_return_pct",
+            "recent_cumulative_return_pct",
+        ),
+        "recent_observation_win_rate": _evidence_first_float(
+            raw_risk,
+            "recent_observation_win_rate",
+            "recent_paper_win_rate",
+            "recent_manual_observation_win_rate",
+            "recent_win_rate",
         ),
     }
     return {

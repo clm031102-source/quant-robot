@@ -2982,6 +2982,107 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(live_steps["review_manual_execution_feedback"]["status"], "blocked")
         self.assertFalse(live_steps["review_manual_execution_feedback"]["order_placement_allowed"])
 
+    def test_daily_factor_health_quarantines_recent_observation_degradation(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {
+                    "rank": 1,
+                    "case_id": "c1",
+                    "factor_name": "momentum_quality_combo",
+                    "market": "CN_ETF",
+                    "sharpe": 1.42,
+                    "annualized_return": 0.18,
+                    "max_drawdown": -0.12,
+                    "win_rate": 0.61,
+                    "rank_ic": 0.045,
+                    "trade_count": 140,
+                },
+                {
+                    "rank": 2,
+                    "case_id": "c2",
+                    "factor_name": "low_vol_trend_combo",
+                    "market": "CN_ETF",
+                    "sharpe": 1.21,
+                    "annualized_return": 0.15,
+                    "max_drawdown": -0.14,
+                    "win_rate": 0.58,
+                    "rank_ic": 0.038,
+                    "trade_count": 112,
+                },
+                {
+                    "rank": 3,
+                    "case_id": "c3",
+                    "factor_name": "smart_money_rotation_combo",
+                    "market": "CN_ETF",
+                    "sharpe": 1.11,
+                    "annualized_return": 0.13,
+                    "max_drawdown": -0.10,
+                    "win_rate": 0.57,
+                    "rank_ic": 0.031,
+                    "trade_count": 96,
+                },
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.3}, signal_date="2026-06-30"),
+                _signal("c2", "low_vol_trend_combo", {"588000": 0.3}, signal_date="2026-06-30"),
+                _signal("c3", "smart_money_rotation_combo", {"159915": 0.3}, signal_date="2026-06-30"),
+            ],
+            run_date="2026-06-30",
+            evidence_snapshot={
+                "counts": {
+                    "matched_paper_receipts": 5,
+                    "post_close_journal_receipts": 5,
+                    "manual_execution_clean_receipts": 5,
+                    "manual_execution_blocked_receipts": 0,
+                    "manual_execution_missing_review_receipts": 0,
+                    "paper_ready_observations": 20,
+                    "same_parameter_top3_required_requests": 3,
+                    "same_parameter_top3_matched_requests": 3,
+                },
+                "flags": {
+                    "walk_forward_oos_passed": True,
+                    "lookahead_bias_audit_passed": True,
+                    "multiple_testing_control_passed": True,
+                    "transaction_cost_capacity_passed": True,
+                },
+                "risk_state": {
+                    "recent_observation_count": 5,
+                    "recent_observation_return_pct": -0.035,
+                    "recent_observation_win_rate": 0.2,
+                    "today_pnl_pct": -0.004,
+                    "current_drawdown_pct": -0.04,
+                    "consecutive_loss_days": 1,
+                    "cooldown_days_remaining": 0,
+                },
+            },
+        )
+
+        monitor = pack["daily_factor_health_monitor"]
+        summary = monitor["summary"]
+        rule_by_id = {row["rule_id"]: row for row in monitor["next_session_quarantine_rules"]}
+
+        self.assertEqual(summary["decision"], "quarantine_recent_observation_degradation")
+        self.assertEqual(summary["recent_observation_status"], "degraded")
+        self.assertTrue(summary["recent_observation_degradation_required"])
+        self.assertFalse(summary["paper_observation_allowed"])
+        self.assertTrue(summary["retirement_required_before_live"])
+        self.assertTrue(summary["next_session_quarantine_required"])
+        self.assertEqual(summary["next_session_reuse_status"], "quarantine_recent_observation_degradation")
+        self.assertEqual(summary["recent_observation_count"], 5)
+        self.assertEqual(summary["recent_observation_return_pct"], -0.035)
+        self.assertEqual(summary["recent_observation_win_rate"], 0.2)
+        self.assertEqual(rule_by_id["recent_observation_degradation"]["status"], "blocked")
+        self.assertEqual(rule_by_id["recent_observation_degradation"]["target_id"], "beginner-post-close-journal-board")
+        self.assertIn("review_recent_observation_degradation", {row["action_id"] for row in monitor["recommended_actions"]})
+        self.assertTrue(
+            all(row["next_session_reuse_status"] == "quarantine_recent_observation_degradation" for row in monitor["factor_rows"])
+        )
+        self.assertTrue(all(row["recent_observation_status"] == "degraded" for row in monitor["factor_rows"]))
+        self.assertEqual(
+            pack["daily_real_money_transition_gate"]["summary"]["decision"],
+            "blocked_recent_observation_degradation",
+        )
+
     def test_daily_pack_exposes_small_capital_observation_gate(self):
         pack = build_daily_trade_advisory_pack(
             [

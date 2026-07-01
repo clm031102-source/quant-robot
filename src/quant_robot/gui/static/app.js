@@ -6959,6 +6959,47 @@ function liveProfitabilityRuntimeEvidence(readiness = {}) {
   };
 }
 
+function recentObservationStatsFromReceipts(paperReceipts = [], postCloseReceipts = [], backendRisk = {}) {
+  const explicitCount = numberOrNull(backendRisk.recent_observation_count);
+  const explicitReturn = numberOrNull(backendRisk.recent_observation_return_pct);
+  const explicitWinRate = numberOrNull(backendRisk.recent_observation_win_rate);
+  if ([explicitCount, explicitReturn, explicitWinRate].some((value) => Number.isFinite(value))) {
+    return {
+      recent_observation_count: Number.isFinite(explicitCount) ? explicitCount : null,
+      recent_observation_return_pct: Number.isFinite(explicitReturn) ? explicitReturn : null,
+      recent_observation_win_rate: Number.isFinite(explicitWinRate) ? explicitWinRate : null,
+    };
+  }
+  const rows = paperReceipts.concat(postCloseReceipts)
+    .filter(Boolean)
+    .sort((left, right) => String(right.time || "").localeCompare(String(left.time || "")))
+    .slice(0, 5);
+  const returns = rows
+    .map((receipt) => receiptRiskStateNumber(
+      receipt.metrics || {},
+      "today_pnl_pct",
+      "today_return_pct",
+      "current_day_pnl_pct",
+      "current_session_pnl_pct",
+      "session_return_pct",
+      "daily_return_pct",
+      "total_return",
+    ))
+    .filter((value) => Number.isFinite(value));
+  if (!returns.length) {
+    return {
+      recent_observation_count: null,
+      recent_observation_return_pct: null,
+      recent_observation_win_rate: null,
+    };
+  }
+  return {
+    recent_observation_count: returns.length,
+    recent_observation_return_pct: returns.reduce((total, value) => total + value, 0),
+    recent_observation_win_rate: returns.filter((value) => value > 0).length / returns.length,
+  };
+}
+
 function dailyExecutionRiskStateFromReceipts(readiness = {}, receiptSets = {}) {
   const backendEvidence = readiness.evidence_snapshot || {};
   const backendRisk = backendEvidence.risk_state || backendEvidence.risk || {};
@@ -7010,7 +7051,17 @@ function dailyExecutionRiskStateFromReceipts(readiness = {}, receiptSets = {}) {
     "cooldown_remaining",
   );
   const cooldownDaysRemaining = explicitCooldown ?? (receiptCount ? 0 : null);
-  const observed = [todayPnl, todayLoss, currentDrawdown, consecutiveLossDays, cooldownDaysRemaining].some((value) => Number.isFinite(value));
+  const recentObservation = recentObservationStatsFromReceipts(paperReceipts, postCloseReceipts, backendRisk);
+  const observed = [
+    todayPnl,
+    todayLoss,
+    currentDrawdown,
+    consecutiveLossDays,
+    cooldownDaysRemaining,
+    recentObservation.recent_observation_count,
+    recentObservation.recent_observation_return_pct,
+    recentObservation.recent_observation_win_rate,
+  ].some((value) => Number.isFinite(value));
   return {
     source: observed ? "gui_runtime_execution_receipts" : "not_observed",
     today_pnl_pct: Number.isFinite(todayPnl) ? todayPnl : null,
@@ -7018,6 +7069,9 @@ function dailyExecutionRiskStateFromReceipts(readiness = {}, receiptSets = {}) {
     current_drawdown_pct: Number.isFinite(currentDrawdown) ? currentDrawdown : null,
     consecutive_loss_days: Number.isFinite(consecutiveLossDays) ? consecutiveLossDays : null,
     cooldown_days_remaining: Number.isFinite(cooldownDaysRemaining) ? cooldownDaysRemaining : null,
+    recent_observation_count: Number.isFinite(recentObservation.recent_observation_count) ? recentObservation.recent_observation_count : null,
+    recent_observation_return_pct: Number.isFinite(recentObservation.recent_observation_return_pct) ? recentObservation.recent_observation_return_pct : null,
+    recent_observation_win_rate: Number.isFinite(recentObservation.recent_observation_win_rate) ? recentObservation.recent_observation_win_rate : null,
     risk_state_observed: observed,
     latest_paper_receipt_time: latestPaper.time || "",
     latest_post_close_receipt_time: latestJournal.time || "",
@@ -7118,7 +7172,16 @@ function dailyTradeAdvisoryEvidencePayload() {
   ].some((value) => Number(value || 0) > 0);
   const hasFlags = Object.values(flags).some(Boolean);
   const hasRiskState = Boolean(riskState.risk_state_observed)
-    || ["today_pnl_pct", "today_loss_pct", "current_drawdown_pct", "consecutive_loss_days", "cooldown_days_remaining"]
+    || [
+      "today_pnl_pct",
+      "today_loss_pct",
+      "current_drawdown_pct",
+      "consecutive_loss_days",
+      "cooldown_days_remaining",
+      "recent_observation_count",
+      "recent_observation_return_pct",
+      "recent_observation_win_rate",
+    ]
       .some((key) => Number.isFinite(numberOrNull(riskState[key])));
   const sameParameterRequired = Boolean(evidence.same_parameter_required || sameParameterRequests.length);
   if (!sameParameterRequired && evidence.mode === "browser_execution_receipts" && !hasRiskState) return null;
@@ -7153,6 +7216,9 @@ function dailyTradeAdvisoryEvidencePayload() {
       current_drawdown_pct: numberOrNull(riskState.current_drawdown_pct),
       consecutive_loss_days: numberOrNull(riskState.consecutive_loss_days),
       cooldown_days_remaining: numberOrNull(riskState.cooldown_days_remaining),
+      recent_observation_count: numberOrNull(riskState.recent_observation_count),
+      recent_observation_return_pct: numberOrNull(riskState.recent_observation_return_pct),
+      recent_observation_win_rate: numberOrNull(riskState.recent_observation_win_rate),
       source: riskState.source || "gui_runtime_execution_receipts",
       latest_paper_receipt_time: riskState.latest_paper_receipt_time || "",
       latest_post_close_receipt_time: riskState.latest_post_close_receipt_time || "",
@@ -8306,6 +8372,35 @@ function dailyPaperAllocationTone(status = "", trafficLight = "") {
   return "warn";
 }
 
+function renderRecentObservationDegradation(summary = {}) {
+  const status = summary.recent_observation_status || "not_observed";
+  const degraded = Boolean(summary.recent_observation_degradation_required);
+  const count = summary.recent_observation_count;
+  const returnPct = summary.recent_observation_return_pct;
+  const winRate = summary.recent_observation_win_rate;
+  const minCount = summary.recent_observation_min_count || 3;
+  const maxLoss = summary.recent_observation_max_loss_pct || 0.02;
+  const minWinRate = summary.recent_observation_min_win_rate || 0.4;
+  const tone = degraded ? "danger" : status === "observed_clear" ? "ok" : "warn";
+  return statusRows([
+    [
+      "近期观察退化",
+      summary.recent_observation_plain_answer || zhConsoleText(status),
+      tone,
+    ],
+    [
+      "近期样本表现",
+      `样本=${formatNumber(count || 0)} / 收益=${formatPercent(returnPct)} / 胜率=${formatPercent(winRate)}`,
+      tone,
+    ],
+    [
+      "退化阈值",
+      `至少 ${formatNumber(minCount)} 次观察；累计亏损超过 ${formatPercent(maxLoss)} 或胜率低于 ${formatPercent(minWinRate)} 就隔离复盘。`,
+      "warn",
+    ],
+  ]);
+}
+
 function renderDailyFactorHealthMonitor(monitor = {}) {
   const summaryTarget = byId("daily-factor-health-summary");
   const rowTarget = byId("daily-factor-health-rows");
@@ -8338,7 +8433,7 @@ function renderDailyFactorHealthMonitor(monitor = {}) {
     ["研究证据", summary.research_evidence_ready ? "OOS、未来函数、多重检验、成本容量证据已标记通过" : "还缺 OOS、未来函数、多重检验或成本容量证据", summary.research_evidence_ready ? "ok" : "warn"],
     ["排行榜直买", summary.top3_auto_buy_allowed || summary.direct_buy_from_top3_allowed ? "异常：允许直买" : "禁止：Top3 只是候选入口", summary.top3_auto_buy_allowed || summary.direct_buy_from_top3_allowed ? "danger" : "ok"],
     ["系统权限", summary.order_placement_allowed || summary.broker_connection_allowed ? "异常：权限越界" : "不连接券商、不读账户、不自动下单", summary.order_placement_allowed || summary.broker_connection_allowed ? "danger" : "ok"],
-  ]) + `
+  ]) + renderRecentObservationDegradation(summary) + `
     <div class="list-row ${escapeHtml(tone)}">
       <strong>${escapeHtml("现在先做")}</strong>
       <span>${escapeHtml(summary.next_label || "先生成今日前三建议")}</span>

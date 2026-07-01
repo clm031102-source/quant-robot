@@ -494,6 +494,21 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "recent_observation_degradation_frontend",
+            "Recent observation degradation frontend",
+            app_js.get("ok")
+            and "renderRecentObservationDegradation" in str(app_js.get("body", ""))
+            and "recent_observation_status" in str(app_js.get("body", ""))
+            and "recent_observation_degradation_required" in str(app_js.get("body", ""))
+            and "recent_observation_return_pct" in str(app_js.get("body", ""))
+            and "recent_observation_win_rate" in str(app_js.get("body", "")),
+            "Frontend exposes recent paper/manual-observation degradation before factor reuse is allowed.",
+            app_js.get("error")
+            or "Recent observation degradation frontend fields are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "daily_manual_observation_packet_frontend",
             "Daily manual observation packet frontend",
             index_html.get("ok")
