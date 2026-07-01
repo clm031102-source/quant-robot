@@ -4119,6 +4119,10 @@ function localManualExecutionAudit(trade = {}, reviews = null) {
   const sensitiveFieldCount = countReason("sensitive_field_removed");
   const executedCount = rows.filter((row) => row.manual_outcome === "manual_trade_by_human").length;
   const skippedCount = rows.filter((row) => ["skipped_no_trade", "paper_only", "manual_review_no_trade", "blocked_by_risk"].includes(row.manual_outcome)).length;
+  const totalExecutedNotional = rows.reduce((sum, row) => sum + (numberOrNull(row.executed_notional) || 0), 0);
+  const totalReferenceNotional = rows.reduce((sum, row) => sum + (numberOrNull(row.reference_notional) || 0), 0);
+  const totalAdverseSlippageCost = rows.reduce((sum, row) => sum + (numberOrNull(row.adverse_slippage_cost) || 0), 0);
+  const executionCostBps = totalReferenceNotional > 0 ? (totalAdverseSlippageCost / totalReferenceNotional) * 10000 : null;
   let decision = "waiting_for_manual_tickets";
   if (rows.length && (blockedCount || guardrailBreachCount || slippageBreachCount || sensitiveFieldCount)) {
     decision = "guardrail_breach_review_required";
@@ -4142,6 +4146,11 @@ function localManualExecutionAudit(trade = {}, reviews = null) {
       sensitive_field_count: sensitiveFieldCount,
       missing_review_count: missingReviewCount,
       blocked_count: blockedCount,
+      executed_notional: Number(totalExecutedNotional.toFixed(6)),
+      reference_notional: Number(totalReferenceNotional.toFixed(6)),
+      total_adverse_slippage_cost: Number(totalAdverseSlippageCost.toFixed(6)),
+      execution_cost_bps: Number.isFinite(executionCostBps) ? Number(executionCostBps.toFixed(6)) : null,
+      manual_execution_cost_impact: totalReferenceNotional > 0 ? "measured_from_manual_fills" : "waiting_for_manual_fill_details",
       manual_review_required: true,
       manual_execution_only: true,
       live_trading_allowed: false,
@@ -4172,11 +4181,16 @@ function localManualExecutionAuditRow(index, ticket = {}, reviewsByKey = new Map
   const lowerBound = numberOrNull(guardrails.lower_price_bound);
   const upperBound = numberOrNull(guardrails.upper_price_bound);
   const maxSlippageBps = numberOrNull(guardrails.max_slippage_bps) ?? 10;
+  const maxEstimatedSlippageCost = numberOrNull(guardrails.max_estimated_slippage_cost);
   const sensitiveFields = ["account_id", "broker_id", "client_id", "order_id"].filter((field) => Object.prototype.hasOwnProperty.call(review, field));
   const breachReasons = [];
   if (sensitiveFields.length) breachReasons.push("sensitive_field_removed");
   let priceWithinGuardrail = null;
   let adverseSlippageBps = null;
+  let adverseSlippageCost = null;
+  let executedNotional = null;
+  let referenceNotional = null;
+  let slippageCostWithinBudget = null;
   let slippageWithinLimit = null;
   let quantityMatchesTicket = null;
   if (manualOutcome === "manual_trade_by_human") {
@@ -4198,6 +4212,20 @@ function localManualExecutionAuditRow(index, ticket = {}, reviewsByKey = new Map
       quantityMatchesTicket = plannedQuantity <= 0 || Math.abs(fillQuantity) === plannedQuantity;
       if (!quantityMatchesTicket) breachReasons.push("quantity_mismatch");
     }
+    if (Number.isFinite(actualFillPrice) && Number.isFinite(referencePrice) && Number.isFinite(fillQuantity) && fillQuantity > 0) {
+      const quantity = Math.abs(fillQuantity);
+      executedNotional = Math.abs(actualFillPrice * quantity);
+      referenceNotional = Math.abs(referencePrice * quantity);
+      adverseSlippageCost = side.toLowerCase().startsWith("sell")
+        ? (referencePrice - actualFillPrice) * quantity
+        : (actualFillPrice - referencePrice) * quantity;
+      if (Number.isFinite(maxEstimatedSlippageCost)) {
+        slippageCostWithinBudget = adverseSlippageCost <= maxEstimatedSlippageCost;
+        if (!slippageCostWithinBudget && !breachReasons.includes("slippage_limit_breached")) {
+          breachReasons.push("slippage_cost_budget_breached");
+        }
+      }
+    }
   }
   const reviewStatus = !hasReview
     ? "missing_review"
@@ -4217,12 +4245,17 @@ function localManualExecutionAuditRow(index, ticket = {}, reviewsByKey = new Map
     fill_quantity: fillQuantity,
     planned_quantity: plannedQuantity,
     adverse_slippage_bps: Number.isFinite(adverseSlippageBps) ? Number(adverseSlippageBps.toFixed(6)) : null,
+    adverse_slippage_cost: Number.isFinite(adverseSlippageCost) ? Number(adverseSlippageCost.toFixed(6)) : null,
+    executed_notional: Number.isFinite(executedNotional) ? Number(executedNotional.toFixed(6)) : null,
+    reference_notional: Number.isFinite(referenceNotional) ? Number(referenceNotional.toFixed(6)) : null,
     price_within_guardrail: priceWithinGuardrail,
     slippage_within_limit: slippageWithinLimit,
+    slippage_cost_within_budget: slippageCostWithinBudget,
     quantity_matches_ticket: quantityMatchesTicket,
     lower_price_bound: lowerBound,
     upper_price_bound: upperBound,
     max_slippage_bps: maxSlippageBps,
+    max_estimated_slippage_cost: maxEstimatedSlippageCost,
     review_status: reviewStatus,
     breach_reasons: breachReasons,
     execute_or_skip_reason: sanitizePostCloseJournalText(review.execute_or_skip_reason || ""),
@@ -4260,8 +4293,12 @@ function renderPostCloseExecutionAudit(audit = null) {
       "fill_quantity",
       "planned_quantity",
       "adverse_slippage_bps",
+      "adverse_slippage_cost",
+      "executed_notional",
+      "reference_notional",
       "price_within_guardrail",
       "slippage_within_limit",
+      "slippage_cost_within_budget",
       "quantity_matches_ticket",
       "review_status",
       "breach_reasons",
@@ -4272,6 +4309,11 @@ function renderPostCloseExecutionAudit(audit = null) {
       <strong>${escapeHtml("人工成交审计")}</strong>
       <span>${escapeHtml(`${summary.decision || "waiting_for_manual_tickets"} / 票据=${formatNumber(summary.ticket_count)} / 回执=${formatNumber(summary.review_count)} / 执行=${formatNumber(summary.executed_count)} / 追价=${formatNumber(summary.guardrail_breach_count)} / 滑点超限=${formatNumber(summary.slippage_breach_count)}`)}</span>
       <span>${escapeHtml("只审计人工执行事实，不连接券商、不读取账户、不自动下单。")}</span>
+    </div>
+    <div class="list-row ${escapeHtml(summary.execution_cost_bps > 0 ? (summary.slippage_breach_count ? "danger" : "warn") : rows.length ? "ok" : "warn")}">
+      <strong>${escapeHtml("manual_execution_cost_impact")}</strong>
+      <span>${escapeHtml(`total_adverse_slippage_cost=${formatNumber(summary.total_adverse_slippage_cost)} / executed_notional=${formatNumber(summary.executed_notional)} / execution_cost_bps=${formatDecimal(summary.execution_cost_bps)}`)}</span>
+      <span>${escapeHtml(summary.manual_execution_cost_impact || "waiting_for_manual_fill_details")}</span>
     </div>
     ${table}
   `;
@@ -12426,6 +12468,10 @@ function postCloseJournalReceipt(result = {}) {
       manual_execution_guardrail_breach_count: manualExecutionSummary.guardrail_breach_count,
       manual_execution_slippage_breach_count: manualExecutionSummary.slippage_breach_count,
       manual_execution_missing_review_count: manualExecutionSummary.missing_review_count,
+      manual_execution_cost_impact: manualExecutionSummary.manual_execution_cost_impact,
+      manual_execution_total_adverse_slippage_cost: manualExecutionSummary.total_adverse_slippage_cost,
+      manual_execution_executed_notional: manualExecutionSummary.executed_notional,
+      manual_execution_cost_bps: manualExecutionSummary.execution_cost_bps,
       today_pnl_pct: riskState.today_pnl_pct,
       today_loss_pct: riskState.today_loss_pct,
       current_drawdown_pct: riskState.current_drawdown_pct,

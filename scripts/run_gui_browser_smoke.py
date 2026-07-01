@@ -462,6 +462,21 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "manual_execution_cost_impact_frontend",
+            "Manual execution cost impact frontend",
+            app_js.get("ok")
+            and "manual_execution_cost_impact" in str(app_js.get("body", ""))
+            and "total_adverse_slippage_cost" in str(app_js.get("body", ""))
+            and "execution_cost_bps" in str(app_js.get("body", ""))
+            and "adverse_slippage_cost" in str(app_js.get("body", ""))
+            and "executed_notional" in str(app_js.get("body", "")),
+            "Frontend converts manually entered fill prices and quantities into execution cost impact metrics.",
+            app_js.get("error")
+            or "Manual execution cost-impact frontend metrics are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "daily_manual_observation_packet_frontend",
             "Daily manual observation packet frontend",
             index_html.get("ok")

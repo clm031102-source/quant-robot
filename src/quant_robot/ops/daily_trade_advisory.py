@@ -10921,6 +10921,14 @@ def build_manual_execution_audit(
         if row.get("manual_outcome")
         in {"skipped_no_trade", "paper_only", "manual_review_no_trade", "blocked_by_risk"}
     )
+    executed_notional = sum(_float(row.get("executed_notional"), 0.0) for row in rows)
+    reference_notional = sum(_float(row.get("reference_notional"), 0.0) for row in rows)
+    total_adverse_slippage_cost = sum(_float(row.get("adverse_slippage_cost"), 0.0) for row in rows)
+    execution_cost_bps = (
+        round(total_adverse_slippage_cost / reference_notional * 10000.0, 6)
+        if reference_notional > 0
+        else None
+    )
     if not rows:
         decision = "waiting_for_manual_tickets"
     elif blocked_count or guardrail_breach_count or slippage_breach_count or sensitive_field_count:
@@ -10945,6 +10953,15 @@ def build_manual_execution_audit(
                 "sensitive_field_count": sensitive_field_count,
                 "missing_review_count": missing_review_count,
                 "blocked_count": blocked_count,
+                "executed_notional": round(executed_notional, 6),
+                "reference_notional": round(reference_notional, 6),
+                "total_adverse_slippage_cost": round(total_adverse_slippage_cost, 6),
+                "execution_cost_bps": execution_cost_bps,
+                "manual_execution_cost_impact": (
+                    "measured_from_manual_fills"
+                    if reference_notional > 0
+                    else "waiting_for_manual_fill_details"
+                ),
                 "manual_review_required": True,
                 "manual_execution_only": True,
                 "live_trading_allowed": False,
@@ -10963,8 +10980,12 @@ def build_manual_execution_audit(
                 "fill_quantity",
                 "planned_quantity",
                 "adverse_slippage_bps",
+                "adverse_slippage_cost",
+                "executed_notional",
+                "reference_notional",
                 "price_within_guardrail",
                 "slippage_within_limit",
+                "slippage_cost_within_budget",
                 "quantity_matches_ticket",
                 "review_status",
                 "breach_reasons",
@@ -11005,12 +11026,17 @@ def _manual_execution_audit_row(
     lower_bound = _float_or_none(guardrails.get("lower_price_bound"))
     upper_bound = _float_or_none(guardrails.get("upper_price_bound"))
     max_slippage_bps = _float(guardrails.get("max_slippage_bps"), float(MANUAL_MAX_SLIPPAGE_BPS))
+    max_estimated_slippage_cost = _float_or_none(guardrails.get("max_estimated_slippage_cost"))
     breach_reasons: list[str] = []
     if sensitive_fields:
         breach_reasons.append("sensitive_field_removed")
     price_within_guardrail = None
     adverse_slippage_bps = None
+    adverse_slippage_cost = None
+    executed_notional = None
+    reference_notional = None
     slippage_within_limit = None
+    slippage_cost_within_budget = None
     quantity_matches_ticket = None
     if manual_outcome == "manual_trade_by_human":
         if actual_fill_price is None or fill_quantity is None or fill_quantity <= 0:
@@ -11031,6 +11057,23 @@ def _manual_execution_audit_row(
             quantity_matches_ticket = planned_quantity <= 0 or abs(fill_quantity) == planned_quantity
             if not quantity_matches_ticket:
                 breach_reasons.append("quantity_mismatch")
+        if (
+            actual_fill_price is not None
+            and reference_price is not None
+            and fill_quantity is not None
+            and fill_quantity > 0
+        ):
+            quantity = abs(fill_quantity)
+            executed_notional = round(abs(actual_fill_price * quantity), 6)
+            reference_notional = round(abs(reference_price * quantity), 6)
+            if side.lower().startswith("sell"):
+                adverse_slippage_cost = round((reference_price - actual_fill_price) * quantity, 6)
+            else:
+                adverse_slippage_cost = round((actual_fill_price - reference_price) * quantity, 6)
+            if max_estimated_slippage_cost is not None:
+                slippage_cost_within_budget = adverse_slippage_cost <= max_estimated_slippage_cost
+                if not slippage_cost_within_budget and "slippage_limit_breached" not in breach_reasons:
+                    breach_reasons.append("slippage_cost_budget_breached")
     if not has_review:
         review_status = "missing_review"
     elif breach_reasons:
@@ -11050,12 +11093,17 @@ def _manual_execution_audit_row(
         "fill_quantity": fill_quantity,
         "planned_quantity": planned_quantity,
         "adverse_slippage_bps": adverse_slippage_bps,
+        "adverse_slippage_cost": adverse_slippage_cost,
+        "executed_notional": executed_notional,
+        "reference_notional": reference_notional,
         "price_within_guardrail": price_within_guardrail,
         "slippage_within_limit": slippage_within_limit,
+        "slippage_cost_within_budget": slippage_cost_within_budget,
         "quantity_matches_ticket": quantity_matches_ticket,
         "lower_price_bound": lower_bound,
         "upper_price_bound": upper_bound,
         "max_slippage_bps": max_slippage_bps,
+        "max_estimated_slippage_cost": max_estimated_slippage_cost,
         "review_status": review_status,
         "breach_reasons": breach_reasons,
         "execute_or_skip_reason": _manual_execution_safe_text(review.get("execute_or_skip_reason") or ""),
