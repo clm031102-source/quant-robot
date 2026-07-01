@@ -7597,10 +7597,12 @@ function renderDailyRealMoneyTransitionGate(gate = {}) {
 
 function renderDailyManualObservationPacket(packet = {}) {
   const summaryTarget = byId("daily-manual-observation-summary");
+  const top3Target = byId("daily-manual-observation-top3");
+  const paperTarget = byId("daily-manual-observation-paper-requests");
   const evidenceTarget = byId("daily-manual-observation-evidence");
   const stepsTarget = byId("daily-manual-observation-steps");
   const ticketsTarget = byId("daily-manual-observation-tickets");
-  if (!summaryTarget || !evidenceTarget || !stepsTarget || !ticketsTarget) return;
+  if (!summaryTarget || !top3Target || !paperTarget || !evidenceTarget || !stepsTarget || !ticketsTarget) return;
   const summary = packet.summary || {};
   const status = summary.packet_status || "waiting_for_today_signal";
   const readyStatus = "manual_observation_material_ready";
@@ -7624,6 +7626,35 @@ function renderDailyManualObservationPacket(packet = {}) {
       <span class="beginner-task-actions">${workflowButton}${targetButton}</span>
     </div>
   `;
+
+  const top3Rows = Array.isArray(packet.top3_factor_snapshot) ? packet.top3_factor_snapshot : [];
+  top3Target.innerHTML = top3Rows.length ? top3Rows.map((row) => {
+    const unsafe = row.direct_buy_allowed || row.order_placement_allowed;
+    const toneForRow = unsafe ? "danger" : row.advisory_eligible ? "ok" : "warn";
+    return `
+      <div class="list-row ${escapeHtml(toneForRow)}">
+        <strong>${escapeHtml(`${row.rank || "--"}. ${row.factor_name || "--"}`)}</strong>
+        <span>${escapeHtml(`case=${row.case_id || "--"} / market=${row.market || "CN_ETF"} / label=${row.promotion_label || "--"}`)}</span>
+        <span>${escapeHtml(`eligible=${row.advisory_eligible ? "true" : "false"} / baseline=${row.fallback_baseline ? "true" : "false"} / direct_buy=${row.direct_buy_allowed ? "true" : "false"}`)}</span>
+        <span class="beginner-task-actions">
+          <button class="secondary-button" type="button" data-beginner-target="daily-trade-decision-top3">${escapeHtml("看今日 Top3 信号")}</button>
+        </span>
+      </div>
+    `;
+  }).join("") : statusRows([["今日 Top3 因子", "还没有可观察的 Top3 候选；先生成今日 CN_ETF 信号。", "warn"]]);
+
+  const paperRequests = Array.isArray(packet.same_parameter_paper_requests) ? packet.same_parameter_paper_requests : [];
+  paperTarget.innerHTML = paperRequests.length ? paperRequests.map((row) => `
+    <div class="list-row ${escapeHtml(row.order_placement_allowed || row.auto_order_allowed ? "danger" : "warn")}">
+      <strong>${escapeHtml(`${row.rank || "--"}. ${row.factor || "--"} / ${row.request_id || row.same_parameter_request_id || "--"}`)}</strong>
+      <span>${escapeHtml(`topN=${formatNumber(row.top_n || 0)} / lock=${row.same_parameter_lock_id || "--"} / status=${zhConsoleText(row.status || "paper_rehearsal_request")}`)}</span>
+      <span>${escapeHtml(`order=${row.order_placement_allowed ? "true" : "false"} / auto=${row.auto_order_allowed ? "true" : "false"}`)}</span>
+      <span class="beginner-task-actions">
+        <button class="primary-button" type="button" data-manual-observation-paper-action="paper_simulation" data-manual-observation-paper-target="paper-metrics" data-same-parameter-paper-run="${escapeRawHtml(sameParameterPaperRunPayload(row))}">${escapeHtml("填参并运行纸面模拟")}</button>
+        <button class="secondary-button" type="button" data-manual-observation-paper-target="paper-metrics" data-beginner-target="paper-metrics">${escapeHtml("看模拟盘指标")}</button>
+      </span>
+    </div>
+  `).join("") : statusRows([["同参数纸面请求", "还没有锁定的纸面请求；先生成今日 Top3 交易建议。", "danger"]]);
 
   const evidenceRows = Array.isArray(packet.evidence_rows) ? packet.evidence_rows : [];
   evidenceTarget.innerHTML = evidenceRows.length ? evidenceRows.map((row) => `

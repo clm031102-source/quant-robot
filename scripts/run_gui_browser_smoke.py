@@ -447,6 +447,24 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "daily_manual_observation_packet_detail_frontend",
+            "Daily manual observation packet detail frontend",
+            index_html.get("ok")
+            and "daily-manual-observation-top3" in str(index_html.get("body", ""))
+            and "daily-manual-observation-paper-requests" in str(index_html.get("body", ""))
+            and app_js.get("ok")
+            and "top3_factor_snapshot" in str(app_js.get("body", ""))
+            and "same_parameter_paper_requests" in str(app_js.get("body", ""))
+            and "data-manual-observation-paper-action" in str(app_js.get("body", ""))
+            and "data-manual-observation-paper-target" in str(app_js.get("body", "")),
+            "Frontend exposes the Top3 factor snapshot and same-parameter paper requests inside the manual observation packet.",
+            index_html.get("error")
+            or app_js.get("error")
+            or "Daily manual observation packet detail anchors or renderer hooks are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "daily_paper_allocation_playbook_frontend",
             "Daily paper allocation playbook frontend",
             index_html.get("ok")
