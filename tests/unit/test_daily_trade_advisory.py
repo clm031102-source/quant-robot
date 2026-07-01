@@ -3153,6 +3153,105 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(live_steps["review_manual_execution_feedback"]["status"], "blocked")
         self.assertFalse(live_steps["review_manual_execution_feedback"]["order_placement_allowed"])
 
+    def test_daily_live_trading_system_status_exposes_runtime_contract(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {
+                    "rank": 1,
+                    "case_id": "c1",
+                    "factor_name": "momentum_quality_combo",
+                    "market": "CN_ETF",
+                    "sharpe": 1.42,
+                    "annualized_return": 0.18,
+                    "max_drawdown": -0.12,
+                    "win_rate": 0.61,
+                    "rank_ic": 0.045,
+                    "trade_count": 140,
+                },
+                {
+                    "rank": 2,
+                    "case_id": "c2",
+                    "factor_name": "low_vol_trend_combo",
+                    "market": "CN_ETF",
+                    "sharpe": 1.21,
+                    "annualized_return": 0.15,
+                    "max_drawdown": -0.14,
+                    "win_rate": 0.58,
+                    "rank_ic": 0.038,
+                    "trade_count": 112,
+                },
+                {
+                    "rank": 3,
+                    "case_id": "c3",
+                    "factor_name": "smart_money_rotation_combo",
+                    "market": "CN_ETF",
+                    "sharpe": 1.11,
+                    "annualized_return": 0.13,
+                    "max_drawdown": -0.10,
+                    "win_rate": 0.57,
+                    "rank_ic": 0.031,
+                    "trade_count": 96,
+                },
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.3}, signal_date="2026-06-30"),
+                _signal("c2", "low_vol_trend_combo", {"588000": 0.3}, signal_date="2026-06-30"),
+                _signal("c3", "smart_money_rotation_combo", {"159915": 0.3}, signal_date="2026-06-30"),
+            ],
+            run_date="2026-06-30",
+            evidence_snapshot={
+                "counts": {
+                    "matched_paper_receipts": 5,
+                    "post_close_journal_receipts": 5,
+                    "manual_execution_clean_receipts": 5,
+                    "manual_execution_blocked_receipts": 0,
+                    "manual_execution_missing_review_receipts": 0,
+                    "paper_ready_observations": 20,
+                    "same_parameter_top3_required_requests": 3,
+                    "same_parameter_top3_matched_requests": 3,
+                },
+                "flags": {
+                    "walk_forward_oos_passed": True,
+                    "lookahead_bias_audit_passed": True,
+                    "multiple_testing_control_passed": True,
+                    "transaction_cost_capacity_passed": True,
+                },
+            },
+        )
+
+        live_system = pack["daily_live_trading_system_status"]
+        contract = live_system["trading_runtime_contract"]
+        layer_by_id = {row["layer_id"]: row for row in contract["layers"]}
+
+        self.assertEqual(contract["summary"]["contract_status"], "manual_observation_candidate")
+        self.assertEqual(contract["summary"]["layer_count"], 5)
+        self.assertEqual(contract["summary"]["passed_layer_count"], 5)
+        self.assertFalse(contract["summary"]["daily_top3_direct_order_allowed"])
+        self.assertFalse(contract["summary"]["broker_connection_allowed"])
+        self.assertFalse(contract["summary"]["order_placement_allowed"])
+        self.assertEqual(
+            list(layer_by_id),
+            [
+                "approved_factor_pool",
+                "same_day_signal",
+                "portfolio_rebalance_plan",
+                "risk_cost_capacity_guard",
+                "post_close_feedback_loop",
+            ],
+        )
+        self.assertEqual(layer_by_id["approved_factor_pool"]["status"], "pass")
+        self.assertEqual(layer_by_id["same_day_signal"]["status"], "pass")
+        self.assertEqual(layer_by_id["portfolio_rebalance_plan"]["status"], "pass")
+        self.assertEqual(layer_by_id["risk_cost_capacity_guard"]["status"], "pass")
+        self.assertEqual(layer_by_id["post_close_feedback_loop"]["status"], "pass")
+        self.assertIn("pre-approved CN_ETF", contract["top3_signal_policy"]["plain_rule"])
+        self.assertIn("not the buy command", contract["top3_signal_policy"]["plain_rule"])
+        self.assertIn("walk_forward_oos", {row["control_id"] for row in contract["profitability_controls"]})
+        self.assertIn("transaction_cost_capacity", {row["control_id"] for row in contract["profitability_controls"]})
+        self.assertIn("execution_feedback", {row["control_id"] for row in contract["profitability_controls"]})
+        self.assertTrue(all(row["order_placement_allowed"] is False for row in contract["layers"]))
+        self.assertEqual(live_system["summary"]["runtime_contract_status"], "manual_observation_candidate")
+
     def test_daily_factor_health_quarantines_recent_observation_degradation(self):
         pack = build_daily_trade_advisory_pack(
             [

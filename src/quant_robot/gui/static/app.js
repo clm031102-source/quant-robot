@@ -6542,6 +6542,9 @@ function renderDailyOperatorMissionControl(control = {}) {
   const profitabilityCard = cards.find((item) => item.card_id === "profitability_evidence") || {};
   const liveSystem = control.live_trading_system_status || {};
   const liveSummary = liveSystem.summary || {};
+  const runtimeContract = liveSystem.trading_runtime_contract || {};
+  const runtimeSummary = runtimeContract.summary || {};
+  const runtimeLayers = Array.isArray(runtimeContract.layers) ? runtimeContract.layers : [];
   const status = summary.mission_status || "waiting_for_today_signal";
   const tone = status.includes("blocked") ? "danger" : status.includes("ready") ? "ok" : "warn";
   const liveState = liveSummary.go_live_state || summary.go_live_state || "waiting_for_top3_candidates";
@@ -6549,10 +6552,15 @@ function renderDailyOperatorMissionControl(control = {}) {
   const liveTone = liveState.includes("blocked") || liveFeedbackStatus === "blocked_manual_execution_audit"
     ? "danger"
     : liveState.includes("candidate") || liveFeedbackStatus === "clean_feedback_ready" ? "ok" : "warn";
+  const runtimeStatus = runtimeSummary.contract_status || liveSummary.runtime_contract_status || "evidence_incomplete";
+  const runtimeTone = runtimeStatus.includes("blocked")
+    ? "danger"
+    : runtimeStatus.includes("candidate") || runtimeStatus.includes("ready") ? "ok" : "warn";
   summaryTarget.innerHTML = statusRows([
     ["每日操作中控台", zhConsoleText(status), tone],
     ["现在先做", summary.primary_next_label || zhConsoleText(summary.primary_next_step_id || "generate_today_signal"), tone],
     ["实盘落地总闸", `${zhConsoleText(liveState)} / 下一步=${zhConsoleText(liveSummary.next_step_id || summary.primary_next_step_id || "waiting")} / 执行反馈=${zhConsoleText(liveFeedbackStatus)}`, liveTone],
+    ["交易系统闭环", `${zhConsoleText(runtimeStatus)} / 通过=${formatNumber(runtimeSummary.passed_layer_count || 0)}/${formatNumber(runtimeSummary.layer_count || 0)} / 缺口=${formatNumber((runtimeSummary.blocked_layer_count || 0) + (runtimeSummary.required_layer_count || 0))} / ${runtimeContractLayerSummary(runtimeLayers)}`, runtimeTone],
     ["当前阶段", `${summary.current_phase_title || phaseCard.label || zhConsoleText(summary.current_phase_id || "waiting")} / ${zhConsoleText(summary.current_phase_status || phaseCard.status || "waiting")}`, summary.current_phase_status === "blocked" || phaseCard.status === "blocked" ? "danger" : summary.current_phase_status === "done" || phaseCard.status === "done" ? "ok" : "warn"],
     ["阶段进度", `已完成=${formatNumber(summary.phase_done_count || 0)} / 阻断=${formatNumber(summary.phase_blocked_count || 0)} / 总数=${formatNumber(summary.phase_count || 0)} / 入口=${summary.current_phase_target_id || phaseCard.target_id || "--"}`, summary.phase_blocked_count ? "danger" : "warn"],
     ["今日材料", `Top3=${formatNumber(summary.top3_count || 0)} / 信号=${formatNumber(summary.signal_count || 0)} / 目标=${formatNumber(summary.target_count || 0)} / 票据=${formatNumber(summary.manual_ticket_count || 0)}`, summary.manual_ticket_count ? "warn" : "danger"],
@@ -6600,6 +6608,23 @@ function renderDailyOperatorMissionControl(control = {}) {
       <span>${escapeHtml(item.copy_to_broker_allowed ? "异常：可复制到券商" : "复核票据，不是订单")}</span>
     </div>
   `).join("") : statusRows([["票据摘要", "还没有可复核票据，或今天被红灯阻断。", "danger"]]);
+}
+
+function runtimeContractLayerSummary(layers = []) {
+  const orderedLayerIds = [
+    "approved_factor_pool",
+    "same_day_signal",
+    "portfolio_rebalance_plan",
+    "risk_cost_capacity_guard",
+    "post_close_feedback_loop",
+  ];
+  const byId = new Map(layers.map((item) => [item.layer_id, item]));
+  return orderedLayerIds
+    .map((layerId) => {
+      const row = byId.get(layerId) || {};
+      return `${zhConsoleText(layerId)}=${zhConsoleText(row.status || "missing")}`;
+    })
+    .join(" / ");
 }
 
 function renderDailyBeginnerOperationRecipe(recipe = {}) {

@@ -3172,6 +3172,22 @@ def build_daily_live_trading_system_status(pack: dict[str, Any]) -> dict[str, An
         ),
     ]
     next_step = next((row for row in operating_ladder if row["step_id"] == next_step_id), operating_ladder[0])
+    runtime_contract = _daily_trading_runtime_contract(
+        market=market,
+        selected_count=selected_count,
+        signal_count=signal_count,
+        target_count=target_count,
+        ticket_count=ticket_count,
+        blockers=blockers,
+        guard_status=guard_status,
+        paper_status=paper_status,
+        paper_allowed=paper_allowed,
+        manual_review_allowed=manual_review_allowed,
+        small_capital_candidate=small_capital_candidate,
+        production_candidate=production_candidate,
+        manual_execution_feedback_status=manual_execution_feedback_status,
+        profitability=profitability,
+    )
     return _sanitize(
         {
             "stage": DAILY_LIVE_TRADING_SYSTEM_STATUS_STAGE,
@@ -3193,6 +3209,10 @@ def build_daily_live_trading_system_status(pack: dict[str, Any]) -> dict[str, An
                 "manual_execution_clean_receipts": manual_clean_count,
                 "manual_execution_blocked_receipts": manual_blocked_count,
                 "manual_execution_missing_review_receipts": manual_missing_review_count,
+                "runtime_contract_status": runtime_contract["summary"]["contract_status"],
+                "runtime_contract_passed_layer_count": runtime_contract["summary"]["passed_layer_count"],
+                "runtime_contract_blocked_layer_count": runtime_contract["summary"]["blocked_layer_count"],
+                "runtime_contract_required_layer_count": runtime_contract["summary"]["required_layer_count"],
                 "next_step_id": next_step.get("step_id"),
                 "next_label": next_step.get("label"),
                 "next_target_id": next_step.get("target_id"),
@@ -3232,9 +3252,188 @@ def build_daily_live_trading_system_status(pack: dict[str, Any]) -> dict[str, An
                     "profitability_evidence_review",
                 ],
             },
+            "trading_runtime_contract": runtime_contract,
             "safety": SAFETY_NOTICE,
         }
     )
+
+
+def _daily_trading_runtime_contract(
+    *,
+    market: str,
+    selected_count: int,
+    signal_count: int,
+    target_count: int,
+    ticket_count: int,
+    blockers: list[str],
+    guard_status: str,
+    paper_status: str,
+    paper_allowed: bool,
+    manual_review_allowed: bool,
+    small_capital_candidate: bool,
+    production_candidate: bool,
+    manual_execution_feedback_status: str,
+    profitability: dict[str, Any],
+) -> dict[str, Any]:
+    profitability_summary = profitability.get("summary") if isinstance(profitability.get("summary"), dict) else {}
+    hard_gates = [row for row in profitability.get("hard_gates", []) if isinstance(row, dict)]
+    gate_by_id = {str(row.get("gate_id") or ""): row for row in hard_gates}
+    signal_ready = signal_count > 0 and target_count > 0
+    ticket_ready = ticket_count > 0 and not blockers
+    risk_guard_ready = manual_review_allowed or (
+        ticket_ready and not str(guard_status or "").startswith("blocked") and bool(paper_allowed)
+    )
+    feedback_clean = manual_execution_feedback_status == "clean_feedback_ready"
+    feedback_blocked = manual_execution_feedback_status == "blocked_manual_execution_audit"
+
+    layers = [
+        _runtime_contract_layer(
+            "approved_factor_pool",
+            "准入因子池",
+            "pass" if market == "CN_ETF" and selected_count > 0 else "blocked" if market != "CN_ETF" else "required",
+            f"market={market}; selected_top3={selected_count}; direct_buy=false",
+            "daily-trade-decision-top3",
+            "daily_trade_advisory" if selected_count <= 0 else "",
+        ),
+        _runtime_contract_layer(
+            "same_day_signal",
+            "当日信号",
+            "pass" if signal_ready and not blockers else "blocked" if blockers else "required",
+            f"signals={signal_count}; targets={target_count}; blockers={len(blockers)}",
+            "daily-trade-target-table",
+            "daily_trade_advisory" if not signal_ready else "",
+        ),
+        _runtime_contract_layer(
+            "portfolio_rebalance_plan",
+            "组合调仓",
+            "pass" if ticket_ready else "blocked" if blockers else "required",
+            f"manual_tickets={ticket_count}; current_positions_required=true; board_lot={BOARD_LOT_SIZE}",
+            "daily-manual-broker-handoff-ticket-table",
+            "daily_trade_advisory" if ticket_count <= 0 and not blockers else "",
+        ),
+        _runtime_contract_layer(
+            "risk_cost_capacity_guard",
+            "风控成本",
+            "pass" if risk_guard_ready else "blocked" if str(guard_status or "").startswith("blocked") else "required",
+            f"guard_status={guard_status}; paper_status={paper_status}; paper_allowed={paper_allowed}",
+            "daily-pre-execution-guard",
+            "paper_simulation" if paper_allowed and not manual_review_allowed else "",
+        ),
+        _runtime_contract_layer(
+            "post_close_feedback_loop",
+            "盘后反馈",
+            "pass" if feedback_clean else "blocked" if feedback_blocked else "required",
+            f"execution_feedback={manual_execution_feedback_status}; next_session_quarantine={profitability_summary.get('decision')}",
+            "beginner-post-close-journal-board",
+            "post_close_journal" if not feedback_clean else "",
+        ),
+    ]
+    passed = sum(1 for row in layers if row["status"] == "pass")
+    blocked = sum(1 for row in layers if row["status"] == "blocked")
+    required = sum(1 for row in layers if row["status"] == "required")
+    if blocked:
+        contract_status = "blocked_trading_system_contract"
+    elif passed == len(layers) and (small_capital_candidate or production_candidate):
+        contract_status = "manual_observation_candidate"
+    elif passed == len(layers):
+        contract_status = "manual_review_material_ready"
+    else:
+        contract_status = "evidence_incomplete"
+
+    return _sanitize(
+        {
+            "summary": {
+                "contract_status": contract_status,
+                "layer_count": len(layers),
+                "passed_layer_count": passed,
+                "blocked_layer_count": blocked,
+                "required_layer_count": required,
+                "primary_market": market,
+                "daily_top3_direct_order_allowed": False,
+                "manual_review_required": True,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+            },
+            "top3_signal_policy": {
+                "policy_id": "daily_top3_candidates_not_orders",
+                "plain_rule": (
+                    "Select Top3 only from the pre-approved CN_ETF candidate pool; "
+                    "the Top3 list is the signal router, not the buy command."
+                ),
+                "requires_same_day_signal": True,
+                "requires_current_positions": True,
+                "requires_same_parameter_paper": True,
+                "requires_post_close_feedback": True,
+                "direct_buy_allowed": False,
+            },
+            "layers": layers,
+            "profitability_controls": [
+                _runtime_profitability_control("walk_forward_oos", gate_by_id.get("walk_forward_oos")),
+                _runtime_profitability_control("lookahead_bias_audit", gate_by_id.get("lookahead_bias_audit")),
+                _runtime_profitability_control("multiple_testing_control", gate_by_id.get("multiple_testing_control")),
+                _runtime_profitability_control(
+                    "transaction_cost_capacity",
+                    gate_by_id.get("transaction_cost_capacity"),
+                ),
+                {
+                    "control_id": "execution_feedback",
+                    "status": "pass" if feedback_clean else "blocked" if feedback_blocked else "required",
+                    "evidence": manual_execution_feedback_status,
+                    "order_placement_allowed": False,
+                },
+            ],
+            "operator_rule": {
+                "plain_answer": (
+                    "盈利系统不是每天追排行榜前三，而是每天只复用已准入的 CN_ETF 因子，"
+                    "生成当日目标、扣除成本容量、完成同参数模拟盘和盘后反馈后，"
+                    "才允许进入人工观察材料阶段。"
+                ),
+                "can_buy_today": False,
+                "external_human_manual_only": True,
+                "broker_connection_allowed": False,
+                "order_placement_allowed": False,
+            },
+        }
+    )
+
+
+def _runtime_contract_layer(
+    layer_id: str,
+    label: str,
+    status: str,
+    evidence: str,
+    target_id: str,
+    workflow_id: str = "",
+) -> dict[str, Any]:
+    return {
+        "layer_id": layer_id,
+        "label": label,
+        "status": status,
+        "evidence": evidence,
+        "target_id": target_id,
+        "workflow_id": workflow_id,
+        "required_before_manual_observation": True,
+        "manual_required": True,
+        "automation_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
+
+
+def _runtime_profitability_control(control_id: str, gate: dict[str, Any] | None) -> dict[str, Any]:
+    gate = gate if isinstance(gate, dict) else {}
+    return {
+        "control_id": control_id,
+        "status": str(gate.get("status") or "required"),
+        "evidence": gate.get("evidence") or gate.get("plain_check") or gate.get("reason") or "",
+        "observed_count": gate.get("observed_count"),
+        "minimum_required_observations": gate.get("minimum_required_observations"),
+        "order_placement_allowed": False,
+    }
 
 
 def build_daily_manual_observation_packet(pack: dict[str, Any]) -> dict[str, Any]:
