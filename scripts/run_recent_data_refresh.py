@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 from typing import Any, Callable
 
+import pandas as pd
+
 try:
     from scripts.bootstrap import ensure_workspace_imports
 except ModuleNotFoundError:  # pragma: no cover - direct script execution
@@ -19,6 +21,8 @@ from quant_robot.ops.recent_data_refresh import (
     resolve_refresh_window,
     write_recent_data_refresh_pack,
 )
+from quant_robot.storage.dataset_store import DatasetStore
+from quant_robot.storage.processed_bars import load_processed_bars
 
 try:
     from scripts.ingest_data import run_ingest
@@ -67,6 +71,10 @@ def run_recent_data_refresh(
             start_date=str(window["start_date"]),
             end_date=str(window["end_date"]),
         )
+        ingest_result = {
+            **ingest_result,
+            "rotation_membership": _write_recent_cn_etf_rotation_membership(Path(output_dir), market.upper()),
+        }
     pack = build_recent_data_refresh_pack(
         profile_pack,
         readiness=readiness_pack,
@@ -140,6 +148,54 @@ def _read_json(path: Path) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"Expected JSON object in {path}")
     return data
+
+
+def _write_recent_cn_etf_rotation_membership(output_dir: Path, market: str) -> dict[str, Any]:
+    market_name = market.upper()
+    dataset = "metadata/cn_etf_rotation_membership"
+    if market_name != "CN_ETF":
+        return {"dataset": dataset, "market": market_name, "written": False, "reason": "market_not_cn_etf"}
+    try:
+        bars = load_processed_bars(output_dir, market_name)
+    except FileNotFoundError as exc:
+        return {"dataset": dataset, "market": market_name, "written": False, "reason": str(exc)}
+    if bars.empty:
+        return {"dataset": dataset, "market": market_name, "written": False, "reason": "no_processed_bars"}
+
+    membership = _recent_membership_from_bars(bars, market_name)
+    written_path = DatasetStore(output_dir).write_frame(membership, dataset, {"market": market_name})
+    dates = pd.to_datetime(membership["date"])
+    members = membership[membership["is_rotation_member"].astype(bool)]
+    return {
+        "dataset": dataset,
+        "market": market_name,
+        "source": "recent_refresh_provider_daily_bars",
+        "written": True,
+        "path": str(written_path),
+        "rows": int(len(membership)),
+        "member_rows": int(len(members)),
+        "assets": int(membership["asset_id"].nunique()),
+        "member_assets": int(members["asset_id"].nunique()) if not members.empty else 0,
+        "start_date": dates.min().date().isoformat(),
+        "end_date": dates.max().date().isoformat(),
+    }
+
+
+def _recent_membership_from_bars(bars: pd.DataFrame, market: str) -> pd.DataFrame:
+    frame = bars.copy()
+    frame["date"] = pd.to_datetime(frame["date"]).dt.date
+    frame["asset_id"] = frame["asset_id"].astype(str)
+    if "symbol" in frame.columns:
+        frame["symbol"] = frame["symbol"].astype(str)
+    else:
+        frame["symbol"] = frame["asset_id"]
+    frame["market"] = market.upper()
+    membership = frame[["date", "asset_id", "symbol", "market"]].drop_duplicates().sort_values(["asset_id", "date"])
+    membership["is_rotation_member"] = True
+    membership["exclusion_reasons"] = ""
+    membership["membership_source"] = "recent_refresh_provider_daily_bars"
+    membership["history_rows_to_date"] = membership.groupby("asset_id").cumcount() + 1
+    return membership.reset_index(drop=True)
 
 
 if __name__ == "__main__":

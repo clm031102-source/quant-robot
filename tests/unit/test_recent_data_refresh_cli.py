@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from scripts.run_recent_data_refresh import run_recent_data_refresh
+from quant_robot.storage.cn_etf_rotation_membership import load_cn_etf_rotation_membership
 
 
 class RecentDataRefreshCliTests(unittest.TestCase):
@@ -63,6 +64,46 @@ class RecentDataRefreshCliTests(unittest.TestCase):
             self.assertTrue((processed_dir / "quality_report.json").exists())
             self.assertGreater(pack["ingest"]["processed_rows"], 0)
             self.assertEqual(pack["coverage"]["latest_data_date"], "2024-01-04")
+
+    def test_completed_fixture_refresh_writes_recent_rotation_membership_metadata(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile_pack = root / "profile_observation_pack.json"
+            profile_pack.write_text(
+                json.dumps(
+                    {
+                        "stage": "phase_5_6_profile_observation_ledger",
+                        "run_date": "2024-01-04",
+                        "ledger": [
+                            {
+                                "signal_date": "2024-01-02",
+                                "observed_assets": "CN_ETF_XSHG_510300",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            processed_dir = root / "processed"
+
+            pack = run_recent_data_refresh(
+                profile_observation_pack=profile_pack,
+                source="tushare-fixture",
+                market="CN_ETF",
+                output_dir=processed_dir,
+                report_dir=root / "report",
+                execute=True,
+                readiness={"ready": True, "missing": []},
+            )
+
+            membership = load_cn_etf_rotation_membership(processed_dir, "CN_ETF")
+
+            self.assertEqual(pack["status"], "completed")
+            self.assertGreater(len(membership), 0)
+            self.assertTrue(membership["is_rotation_member"].all())
+            self.assertIn("history_rows_to_date", membership.columns)
+            self.assertIn("recent_refresh_provider_daily_bars", set(membership["membership_source"]))
+            self.assertEqual(pack["ingest"]["rotation_membership"]["rows"], len(membership))
 
     def test_function_writes_machine_aware_handoff_artifacts(self):
         with tempfile.TemporaryDirectory() as tmp:

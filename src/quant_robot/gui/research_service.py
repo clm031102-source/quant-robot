@@ -34,6 +34,7 @@ from quant_robot.storage.processed_bars import load_processed_bars
 
 
 DEFAULT_GUI_PROCESSED_ROOT = Path("data/processed/etf_csv")
+DEFAULT_RECENT_GUI_PROCESSED_ROOT = Path("data/processed/tushare_etf_recent")
 DEFAULT_GUI_PROCESSED_MARKETS = ("CN_ETF",)
 DEFAULT_READINESS_BOARD = Path("data/reports/pre_api_readiness_board/pre_api_readiness_board.json")
 DEFAULT_DATA_GAP_EVIDENCE = Path("data/reports/data_gap_evidence/data_gap_evidence_pack.json")
@@ -457,6 +458,7 @@ def build_daily_trade_advisory_snapshot(
     current_positions: str | list[dict[str, Any]] | None = None,
     manual_available_cash: float | None = None,
     evidence_snapshot: str | dict[str, Any] | None = None,
+    recent_data_refresh_pack: str | Path | None = DEFAULT_RECENT_DATA_REFRESH_PACK,
     repo_root: str | Path | None = None,
 ) -> dict[str, Any]:
     leaderboard = build_factor_leaderboard_snapshot(
@@ -491,10 +493,16 @@ def build_daily_trade_advisory_snapshot(
         )
         candidate_pool_top20["summary"]["fallback_used"] = True
 
+    resolved_data_root, data_root_policy = _resolve_daily_trade_data_root(
+        source,
+        data_root,
+        market,
+        recent_data_refresh_pack=recent_data_refresh_pack,
+    )
     signals, signal_errors = _daily_trade_signal_snapshots(
         candidates,
         source=source,
-        data_root=data_root,
+        data_root=resolved_data_root,
         market=market,
         default_top_n=default_top_n,
         as_of_date=as_of_date,
@@ -524,9 +532,96 @@ def build_daily_trade_advisory_snapshot(
     pack["fallback_used"] = fallback_used
     pack["signal_errors"] = signal_errors
     pack["source"] = source
-    pack["data_root"] = str(data_root) if data_root is not None else ""
+    pack["data_root"] = str(resolved_data_root) if resolved_data_root is not None else ""
+    pack["requested_data_root"] = str(data_root) if data_root is not None else ""
+    pack["data_root_policy"] = data_root_policy
     pack["market"] = market.upper()
     return _sanitize(pack)
+
+
+def _resolve_daily_trade_data_root(
+    source: str,
+    data_root: str | Path | None,
+    market: str,
+    *,
+    recent_data_refresh_pack: str | Path | None,
+) -> tuple[str | Path | None, dict[str, Any]]:
+    source_name = _normalize_gui_source(source)
+    if source_name != "processed-bars":
+        return data_root, {
+            "policy": "source_does_not_use_processed_root",
+            "source": source_name,
+            "requested_data_root": str(data_root) if data_root is not None else "",
+            "resolved_data_root": str(data_root) if data_root is not None else "",
+        }
+
+    requested_root = _requested_processed_root(data_root)
+    if market.upper() != PRIMARY_FACTOR_MARKET:
+        return requested_root, {
+            "policy": "requested_processed_root",
+            "source": source_name,
+            "market": market.upper(),
+            "requested_data_root": str(requested_root),
+            "resolved_data_root": str(requested_root),
+            "reason": "market_not_cn_etf",
+        }
+    if not _is_default_processed_root_request(data_root):
+        return requested_root, {
+            "policy": "explicit_processed_root",
+            "source": source_name,
+            "market": market.upper(),
+            "requested_data_root": str(requested_root),
+            "resolved_data_root": str(requested_root),
+            "reason": "user_or_caller_supplied_explicit_data_root",
+        }
+
+    pack_path = Path(recent_data_refresh_pack) if recent_data_refresh_pack is not None else DEFAULT_RECENT_DATA_REFRESH_PACK
+    refresh_pack = _read_optional_json(pack_path)
+    decision = refresh_pack.get("decision", {}) if isinstance(refresh_pack.get("decision"), dict) else {}
+    coverage = refresh_pack.get("coverage", {}) if isinstance(refresh_pack.get("coverage"), dict) else {}
+    recent_ready = refresh_pack.get("status") == "completed" and bool(decision.get("recent_data_ready", False))
+    recent_root = DEFAULT_RECENT_GUI_PROCESSED_ROOT
+    if recent_ready and recent_root.exists():
+        return recent_root, {
+            "policy": "recent_refresh_preferred_for_daily_signal",
+            "source": source_name,
+            "market": market.upper(),
+            "requested_data_root": str(requested_root),
+            "resolved_data_root": str(recent_root),
+            "recent_data_refresh_pack": str(pack_path),
+            "recent_data_refresh_status": refresh_pack.get("status"),
+            "latest_data_date": coverage.get("latest_data_date"),
+            "reason": "daily_trade_advisory_uses_recent_refreshed_bars",
+        }
+
+    return requested_root, {
+        "policy": "default_processed_root",
+        "source": source_name,
+        "market": market.upper(),
+        "requested_data_root": str(requested_root),
+        "resolved_data_root": str(requested_root),
+        "recent_data_refresh_pack": str(pack_path),
+        "recent_data_refresh_status": refresh_pack.get("status"),
+        "latest_data_date": coverage.get("latest_data_date"),
+        "reason": "recent_refresh_not_ready_or_recent_root_missing",
+        "recent_root_exists": recent_root.exists(),
+    }
+
+
+def _requested_processed_root(data_root: str | Path | None) -> Path:
+    if data_root is None or not str(data_root).strip():
+        return DEFAULT_GUI_PROCESSED_ROOT
+    return Path(data_root)
+
+
+def _is_default_processed_root_request(data_root: str | Path | None) -> bool:
+    if data_root is None or not str(data_root).strip():
+        return True
+    return _path_key(data_root) == _path_key(DEFAULT_GUI_PROCESSED_ROOT)
+
+
+def _path_key(value: str | Path) -> str:
+    return str(Path(value)).replace("\\", "/").rstrip("/").lower()
 
 
 def _daily_trade_signal_snapshots(
