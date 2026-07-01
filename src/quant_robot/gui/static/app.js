@@ -13025,6 +13025,7 @@ function dailyTradeAdvisoryReceipt(result = {}) {
   const sameParameterRequests = Array.isArray(sameParameter.recommended_requests)
     ? sameParameter.recommended_requests
     : [];
+  const finalOperationPacket = result.daily_beginner_execution_answer?.beginner_final_operation_packet || {};
   return {
     workflow_id: "daily_trade_advisory",
     label: "Daily trade advisory receipt",
@@ -13047,6 +13048,22 @@ function dailyTradeAdvisoryReceipt(result = {}) {
       traffic_light: readiness.traffic_light,
       blocker_count: Array.isArray(readiness.blockers) ? readiness.blockers.length : 0,
       copyable_ticket_count: Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets.length : 0,
+      final_action_status: finalOperationPacket.final_action_status,
+      final_manual_ticket_count: finalOperationPacket.manual_ticket_count,
+      final_external_manual_input_count: finalOperationPacket.external_manual_input_count,
+      final_next_session_quarantine_required: finalOperationPacket.next_session_quarantine_required_if_missing,
+    },
+    final_operation_packet: {
+      packet_id: finalOperationPacket.packet_id || "beginner_final_operation_packet",
+      final_action_status: finalOperationPacket.final_action_status,
+      traffic_light: finalOperationPacket.traffic_light,
+      manual_ticket_count: finalOperationPacket.manual_ticket_count,
+      external_manual_input_count: finalOperationPacket.external_manual_input_count,
+      post_close_closure_required: finalOperationPacket.post_close_closure_required,
+      next_session_quarantine_required_if_missing: finalOperationPacket.next_session_quarantine_required_if_missing,
+      can_buy_by_software: false,
+      order_placement_allowed: false,
+      auto_order_allowed: false,
     },
     decision: firstAction.action_id || readiness.traffic_light || "daily_advisory",
     safety: "daily advisory only; manual review required; no broker, account, or order side effects",

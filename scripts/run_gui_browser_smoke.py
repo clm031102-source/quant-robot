@@ -591,8 +591,11 @@ def run_gui_browser_smoke(
             and app_js.get("ok")
             and "renderBeginnerFinalOperationPacket" in str(app_js.get("body", ""))
             and "beginner_final_operation_packet" in str(app_js.get("body", ""))
+            and "final_operation_packet" in str(app_js.get("body", ""))
             and "今天到底买什么、卖什么、跳过什么？" in str(app_js.get("body", ""))
             and "final_quantity_rule" in str(app_js.get("body", ""))
+            and "final_manual_ticket_count" in str(app_js.get("body", ""))
+            and "final_next_session_quarantine_required" in str(app_js.get("body", ""))
             and "external_realtime_price_required" in str(app_js.get("body", ""))
             and "next_session_quarantine_required_if_missing" in str(app_js.get("body", "")),
             "Frontend exposes the final beginner operation packet with manual price/cash inputs, quantity rule, and next-session quarantine reminder.",

@@ -2533,6 +2533,12 @@ class GuiSnapshotTests(unittest.TestCase):
                 markdown = (output_dir / "gui_browser_smoke.md").read_text(encoding="utf-8")
                 self.assertIn("GUI Browser Smoke Evidence", markdown)
                 self.assertIn("Research-to-paper only", markdown)
+                smoke_source = (Path(__file__).resolve().parents[2] / "scripts" / "run_gui_browser_smoke.py").read_text(
+                    encoding="utf-8"
+                )
+                self.assertIn("final_operation_packet", smoke_source)
+                self.assertIn("final_manual_ticket_count", smoke_source)
+                self.assertIn("final_next_session_quarantine_required", smoke_source)
         finally:
             server.shutdown()
             thread.join(timeout=5)
@@ -4254,6 +4260,13 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("paperReceipt", app_js)
             self.assertIn("dailyTradeAdvisoryReceipt", app_js)
             self.assertIn("appendExecutionReceipt(dailyTradeAdvisoryReceipt(state.dailyTradeAdvisory))", app_js)
+            daily_receipt_block = app_js.split("function dailyTradeAdvisoryReceipt", 1)[1].split("function dailyPretradeCheckupReceipt", 1)[0]
+            self.assertIn("final_operation_packet", daily_receipt_block)
+            self.assertIn("beginner_final_operation_packet", daily_receipt_block)
+            self.assertIn("final_action_status", daily_receipt_block)
+            self.assertIn("final_manual_ticket_count", daily_receipt_block)
+            self.assertIn("final_external_manual_input_count", daily_receipt_block)
+            self.assertIn("final_next_session_quarantine_required", daily_receipt_block)
             self.assertIn("灯号=", app_js)
             self.assertIn("信号=", app_js)
             self.assertIn("票据=", app_js)
