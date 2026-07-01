@@ -44,11 +44,17 @@ def build_recent_data_refresh_pack(
         status = "ready_to_execute" if bool(readiness_pack.get("ready", False)) or source_name == "tushare-fixture" else "blocked"
     elif coverage["coverage_status"] == "pass":
         status = "completed"
+    elif coverage["coverage_status"] == "pass_with_warnings":
+        status = "completed_with_warnings"
     else:
         status = "data_quality_blocked"
 
     blockers = _decision_blockers(status, readiness_missing, coverage)
-    stale_cleared = status == "completed" and coverage["coverage_status"] == "pass"
+    warnings = _decision_warnings(status, coverage)
+    stale_cleared = status in {"completed", "completed_with_warnings"} and coverage["coverage_status"] in {
+        "pass",
+        "pass_with_warnings",
+    }
     pack = {
         "stage": STAGE,
         "generated_at": date.today().isoformat(),
@@ -68,6 +74,7 @@ def build_recent_data_refresh_pack(
             "signal_data_stale_cleared": stale_cleared,
             "recent_data_ready": stale_cleared,
             "blockers": blockers,
+            "warnings": warnings,
             "next_daily_ops_allowed": stale_cleared,
         },
         "live_boundary_allowed": False,
@@ -230,7 +237,7 @@ def _coverage_from_ingest(
         )
     target_start_covered = bool(earliest_date and effective_start and earliest_date <= effective_start)
     target_end_covered = bool(latest_date and effective_end and latest_date >= effective_end)
-    pass_status = (
+    clean_pass = (
         processed_rows > 0
         and target_start_covered
         and target_end_covered
@@ -238,8 +245,16 @@ def _coverage_from_ingest(
         and duplicate_bars == 0
         and zero_volume_rows == 0
     )
+    warning_pass = (
+        processed_rows > 0
+        and target_start_covered
+        and target_end_covered
+        and missing_date_rows > 0
+        and duplicate_bars == 0
+        and zero_volume_rows == 0
+    )
     return {
-        "coverage_status": "pass" if pass_status else "fail",
+        "coverage_status": "pass" if clean_pass else "pass_with_warnings" if warning_pass else "fail",
         "coverage_scope": "provider_universe",
         "processed_rows": processed_rows,
         "earliest_data_date": earliest_date,
@@ -485,6 +500,13 @@ def _decision_blockers(status: str, readiness_missing: list[str], coverage: dict
     return blockers
 
 
+def _decision_warnings(status: str, coverage: dict[str, Any]) -> list[str]:
+    warnings: list[str] = []
+    if status == "completed_with_warnings" and _int(coverage.get("provider_missing_date_rows"), 0) > 0:
+        warnings.append("provider_missing_date_rows")
+    return warnings
+
+
 def _next_actions(pack: dict[str, Any]) -> list[dict[str, Any]]:
     blockers = pack.get("decision", {}).get("blockers", []) if isinstance(pack.get("decision"), dict) else []
     actions: list[dict[str, Any]] = []
@@ -528,7 +550,7 @@ def _next_actions(pack: dict[str, Any]) -> list[dict[str, Any]]:
                 "reason": "Recent provider data did not fully cover the target window or failed quality checks.",
             }
         )
-    if pack.get("status") == "completed":
+    if pack.get("status") in {"completed", "completed_with_warnings"}:
         actions.extend(
             [
                 {

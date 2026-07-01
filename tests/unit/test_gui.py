@@ -1117,6 +1117,48 @@ class GuiSnapshotTests(unittest.TestCase):
         )
         self.assertEqual(snapshot["data_root_policy"]["requested_data_root"], str(default_root))
 
+    def test_daily_trade_advisory_prefers_recent_refresh_root_when_refresh_has_provider_warnings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            default_root = _write_processed_cn_etf_fixture(root / "default")
+            recent_root = _write_processed_cn_etf_fixture(root / "recent")
+            refresh_pack = root / "recent_data_refresh_pack.json"
+            refresh_pack.write_text(
+                json.dumps(
+                    {
+                        "status": "completed_with_warnings",
+                        "decision": {"recent_data_ready": True},
+                        "coverage": {
+                            "latest_data_date": "2026-01-13",
+                            "coverage_status": "pass_with_warnings",
+                            "provider_missing_date_rows": 7,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with patch("quant_robot.gui.research_service.DEFAULT_GUI_PROCESSED_ROOT", default_root), patch(
+                "quant_robot.gui.research_service.DEFAULT_RECENT_GUI_PROCESSED_ROOT",
+                recent_root,
+            ):
+                snapshot = build_daily_trade_advisory_snapshot(
+                    source="processed-bars",
+                    data_root=None,
+                    market="CN_ETF",
+                    limit=3,
+                    recent_data_refresh_pack=refresh_pack,
+                )
+
+        self.assertEqual(snapshot["data_root"], str(recent_root))
+        self.assertEqual(
+            snapshot["data_root_policy"]["policy"],
+            "recent_refresh_preferred_for_daily_signal",
+        )
+        self.assertEqual(snapshot["data_root_policy"]["recent_data_refresh_status"], "completed_with_warnings")
+        self.assertEqual(snapshot["data_root_policy"]["coverage_status"], "pass_with_warnings")
+        self.assertEqual(snapshot["data_root_policy"]["provider_missing_date_rows"], 7)
+
     def test_daily_trade_advisory_accepts_runtime_evidence_snapshot(self):
         snapshot = build_daily_trade_advisory_snapshot(
             source="demo_fixture",

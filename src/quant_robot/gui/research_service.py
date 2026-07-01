@@ -579,7 +579,9 @@ def _resolve_daily_trade_data_root(
     refresh_pack = _read_optional_json(pack_path)
     decision = refresh_pack.get("decision", {}) if isinstance(refresh_pack.get("decision"), dict) else {}
     coverage = refresh_pack.get("coverage", {}) if isinstance(refresh_pack.get("coverage"), dict) else {}
-    recent_ready = refresh_pack.get("status") == "completed" and bool(decision.get("recent_data_ready", False))
+    recent_ready = refresh_pack.get("status") in {"completed", "completed_with_warnings"} and bool(
+        decision.get("recent_data_ready", False)
+    )
     recent_root = DEFAULT_RECENT_GUI_PROCESSED_ROOT
     if recent_ready and recent_root.exists():
         return recent_root, {
@@ -590,7 +592,9 @@ def _resolve_daily_trade_data_root(
             "resolved_data_root": str(recent_root),
             "recent_data_refresh_pack": str(pack_path),
             "recent_data_refresh_status": refresh_pack.get("status"),
+            "coverage_status": coverage.get("coverage_status"),
             "latest_data_date": coverage.get("latest_data_date"),
+            "provider_missing_date_rows": coverage.get("provider_missing_date_rows"),
             "reason": "daily_trade_advisory_uses_recent_refreshed_bars",
         }
 
@@ -602,7 +606,9 @@ def _resolve_daily_trade_data_root(
         "resolved_data_root": str(requested_root),
         "recent_data_refresh_pack": str(pack_path),
         "recent_data_refresh_status": refresh_pack.get("status"),
+        "coverage_status": coverage.get("coverage_status"),
         "latest_data_date": coverage.get("latest_data_date"),
+        "provider_missing_date_rows": coverage.get("provider_missing_date_rows"),
         "reason": "recent_refresh_not_ready_or_recent_root_missing",
         "recent_root_exists": recent_root.exists(),
     }
