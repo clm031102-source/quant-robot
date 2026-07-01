@@ -2522,6 +2522,7 @@ class GuiSnapshotTests(unittest.TestCase):
                 self.assertIn("daily_manual_observation_packet_frontend", check_ids)
                 self.assertIn("daily_manual_observation_packet_detail_frontend", check_ids)
                 self.assertIn("daily_manual_observation_go_no_go_frontend", check_ids)
+                self.assertIn("daily_trading_runtime_contract_frontend", check_ids)
                 self.assertIn("responsive_contract", check_ids)
                 self.assertIn("live_boundary", check_ids)
                 self.assertFalse(packet["safety"]["live_trading_allowed"])

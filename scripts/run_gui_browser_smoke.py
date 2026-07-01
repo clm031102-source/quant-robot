@@ -299,6 +299,25 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "daily_trading_runtime_contract_frontend",
+            "Daily trading runtime contract frontend",
+            app_js.get("ok")
+            and "交易系统闭环" in str(app_js.get("body", ""))
+            and "trading_runtime_contract" in str(app_js.get("body", ""))
+            and "runtime_contract_status" in str(app_js.get("body", ""))
+            and "runtimeContractLayerSummary" in str(app_js.get("body", ""))
+            and "approved_factor_pool" in str(app_js.get("body", ""))
+            and "same_day_signal" in str(app_js.get("body", ""))
+            and "portfolio_rebalance_plan" in str(app_js.get("body", ""))
+            and "risk_cost_capacity_guard" in str(app_js.get("body", ""))
+            and "post_close_feedback_loop" in str(app_js.get("body", "")),
+            "Frontend exposes the daily Top3 factor-to-signal-to-manual-trade runtime contract before live review.",
+            app_js.get("error")
+            or "Daily trading runtime contract frontend fields are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "beginner_daily_rehearsal_frontend",
             "Beginner daily rehearsal frontend",
             index_html.get("ok")
