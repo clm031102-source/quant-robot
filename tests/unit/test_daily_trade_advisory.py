@@ -2938,6 +2938,19 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(mission["summary"]["execution_feedback_status"], "blocked_manual_execution_audit")
         self.assertEqual(mission_cards["execution_feedback"]["status"], "blocked")
         self.assertIn("review_execution_feedback", {row["action_id"] for row in mission["next_actions"]})
+        live_system = pack["daily_live_trading_system_status"]
+        live_steps = {row["step_id"]: row for row in live_system["operating_ladder"]}
+
+        self.assertEqual(live_system["summary"]["go_live_state"], "blocked_manual_execution_feedback")
+        self.assertEqual(live_system["summary"]["manual_execution_feedback_status"], "blocked_manual_execution_audit")
+        self.assertEqual(live_system["summary"]["manual_execution_clean_receipts"], 4)
+        self.assertEqual(live_system["summary"]["manual_execution_blocked_receipts"], 1)
+        self.assertEqual(live_system["summary"]["manual_execution_missing_review_receipts"], 0)
+        self.assertEqual(live_system["summary"]["next_step_id"], "review_manual_execution_feedback")
+        self.assertEqual(live_system["summary"]["next_target_id"], "beginner-post-close-journal-board")
+        self.assertIn("review_manual_execution_feedback", live_steps)
+        self.assertEqual(live_steps["review_manual_execution_feedback"]["status"], "blocked")
+        self.assertFalse(live_steps["review_manual_execution_feedback"]["order_placement_allowed"])
 
     def test_daily_pack_exposes_small_capital_observation_gate(self):
         pack = build_daily_trade_advisory_pack(

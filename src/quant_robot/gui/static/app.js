@@ -6470,11 +6470,19 @@ function renderDailyOperatorMissionControl(control = {}) {
   const cards = Array.isArray(control.cards) ? control.cards : [];
   const phaseCard = cards.find((item) => item.card_id === "daily_phase_progress") || {};
   const profitabilityCard = cards.find((item) => item.card_id === "profitability_evidence") || {};
+  const liveSystem = control.live_trading_system_status || {};
+  const liveSummary = liveSystem.summary || {};
   const status = summary.mission_status || "waiting_for_today_signal";
   const tone = status.includes("blocked") ? "danger" : status.includes("ready") ? "ok" : "warn";
+  const liveState = liveSummary.go_live_state || summary.go_live_state || "waiting_for_top3_candidates";
+  const liveFeedbackStatus = liveSummary.manual_execution_feedback_status || summary.execution_feedback_status || "waiting_for_execution_feedback";
+  const liveTone = liveState.includes("blocked") || liveFeedbackStatus === "blocked_manual_execution_audit"
+    ? "danger"
+    : liveState.includes("candidate") || liveFeedbackStatus === "clean_feedback_ready" ? "ok" : "warn";
   summaryTarget.innerHTML = statusRows([
     ["每日操作中控台", zhConsoleText(status), tone],
     ["现在先做", summary.primary_next_label || zhConsoleText(summary.primary_next_step_id || "generate_today_signal"), tone],
+    ["实盘落地总闸", `${zhConsoleText(liveState)} / 下一步=${zhConsoleText(liveSummary.next_step_id || summary.primary_next_step_id || "waiting")} / 执行反馈=${zhConsoleText(liveFeedbackStatus)}`, liveTone],
     ["当前阶段", `${summary.current_phase_title || phaseCard.label || zhConsoleText(summary.current_phase_id || "waiting")} / ${zhConsoleText(summary.current_phase_status || phaseCard.status || "waiting")}`, summary.current_phase_status === "blocked" || phaseCard.status === "blocked" ? "danger" : summary.current_phase_status === "done" || phaseCard.status === "done" ? "ok" : "warn"],
     ["阶段进度", `已完成=${formatNumber(summary.phase_done_count || 0)} / 阻断=${formatNumber(summary.phase_blocked_count || 0)} / 总数=${formatNumber(summary.phase_count || 0)} / 入口=${summary.current_phase_target_id || phaseCard.target_id || "--"}`, summary.phase_blocked_count ? "danger" : "warn"],
     ["今日材料", `Top3=${formatNumber(summary.top3_count || 0)} / 信号=${formatNumber(summary.signal_count || 0)} / 目标=${formatNumber(summary.target_count || 0)} / 票据=${formatNumber(summary.manual_ticket_count || 0)}`, summary.manual_ticket_count ? "warn" : "danger"],
@@ -10436,6 +10444,13 @@ const GUI_ZH_REPLACEMENTS = [
   ["fallback_baseline_not_tradeable", "兜底基线仅供观察"],
   ["blocked_current_position_input", "当前持仓输入红灯"],
   ["blocked_pretrade_red_light", "盘前红灯阻断"],
+  ["blocked_execution_feedback", "成交反馈异常阻断"],
+  ["blocked_manual_execution_audit", "人工成交审计异常"],
+  ["blocked_manual_execution_feedback", "人工执行反馈异常，先复核"],
+  ["review_manual_execution_feedback", "复核上一轮人工执行反馈"],
+  ["manual_execution_feedback_status", "人工执行反馈状态"],
+  ["clean_feedback_ready", "成交反馈干净"],
+  ["waiting_for_execution_feedback", "等待成交反馈"],
   ["paper_first_manual_review_ready", "先模拟盘再人工复核"],
   ["build_manual_ticket_pack", "补齐人工票据"],
   ["generate_today_signal", "生成今日信号"],

@@ -3012,10 +3012,23 @@ def build_daily_live_trading_system_status(pack: dict[str, Any]) -> dict[str, An
     )
     small_capital_candidate = bool(profitability_summary.get("small_capital_observation_candidate"))
     production_candidate = bool(profitability_summary.get("production_manual_review_candidate"))
+    manual_clean_count = _int(profitability_summary.get("manual_execution_clean_receipts"), 0)
+    manual_blocked_count = _int(profitability_summary.get("manual_execution_blocked_receipts"), 0)
+    manual_missing_review_count = _int(
+        profitability_summary.get("manual_execution_missing_review_receipts"), 0
+    )
+    manual_execution_feedback_status = _operator_execution_feedback_status(
+        manual_blocked_count=manual_blocked_count,
+        manual_missing_review_count=manual_missing_review_count,
+        manual_clean_count=manual_clean_count,
+    )
 
     if market != "CN_ETF":
         go_live_state = "blocked_wrong_market"
         next_step_id = "confirm_cn_etf_scope"
+    elif manual_execution_feedback_status == "blocked_manual_execution_audit":
+        go_live_state = "blocked_manual_execution_feedback"
+        next_step_id = "review_manual_execution_feedback"
     elif blockers:
         go_live_state = "blocked_pretrade_gates"
         next_step_id = "clear_pretrade_blockers"
@@ -3131,6 +3144,24 @@ def build_daily_live_trading_system_status(pack: dict[str, Any]) -> dict[str, An
             "post_close_journal" if selected_count else "",
             "required for next-session reuse and factor health",
         ),
+        step(
+            8,
+            "review_manual_execution_feedback",
+            "复核上一轮人工执行反馈",
+            "blocked"
+            if manual_execution_feedback_status == "blocked_manual_execution_audit"
+            else "done"
+            if manual_execution_feedback_status == "clean_feedback_ready"
+            else "required",
+            "beginner-post-close-journal-board",
+            "post_close_journal"
+            if manual_execution_feedback_status == "blocked_manual_execution_audit"
+            else "",
+            (
+                f"feedback={manual_execution_feedback_status}; clean={manual_clean_count}; "
+                f"blocked={manual_blocked_count}; missing_review={manual_missing_review_count}"
+            ),
+        ),
     ]
     next_step = next((row for row in operating_ladder if row["step_id"] == next_step_id), operating_ladder[0])
     return _sanitize(
@@ -3150,6 +3181,10 @@ def build_daily_live_trading_system_status(pack: dict[str, Any]) -> dict[str, An
                 "profitability_decision": profitability_summary.get("decision"),
                 "small_capital_observation_candidate": small_capital_candidate,
                 "production_manual_review_candidate": production_candidate,
+                "manual_execution_feedback_status": manual_execution_feedback_status,
+                "manual_execution_clean_receipts": manual_clean_count,
+                "manual_execution_blocked_receipts": manual_blocked_count,
+                "manual_execution_missing_review_receipts": manual_missing_review_count,
                 "next_step_id": next_step.get("step_id"),
                 "next_label": next_step.get("label"),
                 "next_target_id": next_step.get("target_id"),
