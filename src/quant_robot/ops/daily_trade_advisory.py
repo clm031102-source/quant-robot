@@ -8578,6 +8578,7 @@ def _beginner_pre_market_manual_execution_packet(
             "ticket_count": ticket_count,
             "blocked_ticket_count": blocked_ticket_count,
             "post_close_closure_required": bool(ticket_count or paper_allowed or manual_allowed),
+            "broker_price_recheck_playbook": _broker_price_recheck_playbook(tickets),
             "evidence_checklist": [
                 {
                     "check_id": "signal_freshness",
@@ -8675,6 +8676,78 @@ def _beginner_pre_market_manual_execution_packet(
             "auto_order_allowed": False,
         }
     )
+
+
+def _broker_price_recheck_playbook(tickets: list[dict[str, Any]]) -> dict[str, Any]:
+    rows = [_broker_price_recheck_row(index, ticket) for index, ticket in enumerate(tickets, start=1)]
+    return _sanitize(
+        {
+            "playbook_id": "broker_price_recheck_playbook",
+            "status": "waiting_for_external_broker_prices" if rows else "locked_no_visible_manual_tickets",
+            "plain_answer": "券商端实时价必须人工填写并重算数量；价格超出护栏或滑点预算时跳过。",
+            "ticket_count": len(rows),
+            "required_manual_inputs": [
+                "external_broker_realtime_price",
+                "external_available_cash_after_manual_check",
+                "human_final_skip_or_trade_decision",
+            ],
+            "recalculation_rule": "floor_to_board_lot_at_external_price",
+            "skip_rule": "skip_if_broker_price_outside_guardrail",
+            "rows": rows,
+            "copy_to_broker_allowed": False,
+            "can_buy_today": False,
+            "live_trading_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        }
+    )
+
+
+def _broker_price_recheck_row(index: int, ticket: dict[str, Any]) -> dict[str, Any]:
+    guardrails = (
+        ticket.get("execution_guardrails")
+        if isinstance(ticket.get("execution_guardrails"), dict)
+        else _manual_ticket_execution_guardrails(ticket)
+    )
+    reference_price = _float_or_none(ticket.get("reference_price") or ticket.get("latest_price"))
+    target_value = abs(_float(ticket.get("delta_value"), _float(ticket.get("target_value"), 0.0)))
+    lower_bound = _float_or_none(guardrails.get("lower_price_bound"))
+    upper_bound = _float_or_none(guardrails.get("upper_price_bound"))
+    max_slippage_bps = _int(guardrails.get("max_slippage_bps"), MANUAL_MAX_SLIPPAGE_BPS)
+    estimated_quantity_at_reference = _int(ticket.get("rounded_quantity_delta"), 0)
+    if not estimated_quantity_at_reference:
+        estimated_quantity_at_reference = _int(ticket.get("rounded_quantity"), 0)
+
+    return {
+        "row_number": index,
+        "ticket_id": str(ticket.get("ticket_id") or f"manual_review_{index}"),
+        "asset_id": str(ticket.get("asset_id") or ""),
+        "market": str(ticket.get("market") or "CN_ETF"),
+        "side": str(ticket.get("side") or "review"),
+        "manual_input_field": "external_broker_realtime_price",
+        "external_broker_realtime_price": None,
+        "reference_price": reference_price,
+        "lower_price_bound": lower_bound,
+        "upper_price_bound": upper_bound,
+        "max_slippage_bps": max_slippage_bps,
+        "target_value_for_recalculation": target_value,
+        "board_lot_size": BOARD_LOT_SIZE,
+        "estimated_quantity_at_reference": estimated_quantity_at_reference,
+        "recalculation_rule": "floor_to_board_lot_at_external_price",
+        "recalculated_quantity_at_external_price": None,
+        "recalculated_value_at_external_price": None,
+        "skip_rule": "skip_if_broker_price_outside_guardrail",
+        "skip_if_broker_price_below": lower_bound,
+        "skip_if_broker_price_above": upper_bound,
+        "cash_recheck_required": True,
+        "human_final_decision_required": True,
+        "plain_instruction": "在券商端看到实时价后，先确认价格在护栏内，再用实时价按一手取整重算数量；超护栏、现金不足或看不懂就跳过。",
+        "copy_to_broker_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
 
 
 def _beginner_execution_reasons(guard: dict[str, Any]) -> list[dict[str, Any]]:

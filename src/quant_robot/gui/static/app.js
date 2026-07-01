@@ -8072,6 +8072,8 @@ function renderTodayOperationCard(card = {}, target = null) {
 function renderPreMarketManualExecutionPacket(packet = {}, target = null) {
   if (!target) return;
   const evidenceRows = Array.isArray(packet.evidence_checklist) ? packet.evidence_checklist : [];
+  const recheckPlaybook = packet.broker_price_recheck_playbook || {};
+  const recheckRows = Array.isArray(recheckPlaybook.rows) ? recheckPlaybook.rows : [];
   const fallbackOperatorRows = [
     { step_id: "review_today_operation_card", label: "先看今日操作卡", status: "required", target_id: "daily-beginner-execution-answer-today-card" },
     { step_id: "human_decides_skip_or_manual_trade", label: "本人决定跳过或离开系统手动操作", status: "manual_only", target_id: "beginner-live-handoff-board" },
@@ -8088,6 +8090,7 @@ function renderPreMarketManualExecutionPacket(packet = {}, target = null) {
     ["票据状态", `可复核=${formatNumber(packet.ticket_count || 0)} / 被阻断=${formatNumber(packet.blocked_ticket_count || 0)} / 今日动作=${zhConsoleText(packet.today_action_code || "do_not_trade")}`, packet.ticket_count ? "warn" : "danger"],
     ["下一步人工动作", zhConsoleText(packet.next_human_action || "resolve_pretrade_blockers"), tone],
     ["收盘后闭环", packet.post_close_closure_required ? "必须记录复盘、执行审计和持仓更新" : "当前无人工/模拟动作，不复用今天 Top3", packet.post_close_closure_required ? "warn" : "ok"],
+    ["券商实时价复核", `${zhConsoleText(recheckPlaybook.status || "locked_no_visible_manual_tickets")} / ${zhConsoleText(recheckPlaybook.recalculation_rule || "floor_to_board_lot_at_external_price")} / ${zhConsoleText(recheckPlaybook.skip_rule || "skip_if_broker_price_outside_guardrail")}`, recheckRows.length ? "warn" : "danger"],
     ["权限边界", packet.order_placement_allowed || packet.broker_connection_allowed || packet.auto_order_allowed ? "异常：出现自动化交易权限" : "不连接券商、不读账户、不复制订单、不自动下单", packet.order_placement_allowed || packet.broker_connection_allowed || packet.auto_order_allowed ? "danger" : "ok"],
   ]) + `
     ${evidenceRows.map((item) => `
@@ -8095,6 +8098,15 @@ function renderPreMarketManualExecutionPacket(packet = {}, target = null) {
         <strong>${escapeHtml(item.check_id || "")}</strong>
         <span>${escapeHtml(`${zhConsoleText(item.status || "required")} / ${item.plain_check || ""}`)}</span>
         <span>${escapeHtml(item.evidence || "")}</span>
+      </div>
+    `).join("")}
+    ${recheckRows.map((item) => `
+      <div class="list-row warn">
+        <strong>${escapeHtml(`${item.asset_id || "--"} / ${zhConsoleText(item.side || "review")}`)}</strong>
+        <span>${escapeHtml(`external_broker_realtime_price=${item.external_broker_realtime_price ?? "待人工填写"} / 参考价=${formatDecimal(item.reference_price)} / 护栏=${formatDecimal(item.lower_price_bound)}~${formatDecimal(item.upper_price_bound)}`)}</span>
+        <span>${escapeHtml(`重算=${zhConsoleText(item.recalculation_rule || "floor_to_board_lot_at_external_price")} / 一手=${formatNumber(item.board_lot_size || 100)} / 目标金额=${formatNumber(item.target_value_for_recalculation || 0)}`)}</span>
+        <span>${escapeHtml(`跳过=${zhConsoleText(item.skip_rule || "skip_if_broker_price_outside_guardrail")} / 最大滑点=${formatNumber(item.max_slippage_bps || 0)}bps`)}</span>
+        <span>${escapeHtml(item.order_placement_allowed ? "异常：不应出现下单权限" : "只做人工复核，不复制到券商")}</span>
       </div>
     `).join("")}
     ${operatorRows.map((item) => `

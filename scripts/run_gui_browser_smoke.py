@@ -525,7 +525,10 @@ def run_gui_browser_smoke(
             and "quarantine_next_session_if_missing" in str(app_js.get("body", ""))
             and "daily-beginner-execution-answer-pre-market-packet" in str(index_html.get("body", ""))
             and "pre_market_manual_execution_packet" in str(app_js.get("body", ""))
-            and "human_decides_skip_or_manual_trade" in str(app_js.get("body", "")),
+            and "human_decides_skip_or_manual_trade" in str(app_js.get("body", ""))
+            and "broker_price_recheck_playbook" in str(app_js.get("body", ""))
+            and "external_broker_realtime_price" in str(app_js.get("body", ""))
+            and "floor_to_board_lot_at_external_price" in str(app_js.get("body", "")),
             "Frontend exposes a beginner-facing today-operation verdict before any manual review.",
             index_html.get("error")
             or app_js.get("error")

@@ -2583,6 +2583,7 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         summary = answer["summary"]
         today_card = answer["today_operation_card"]
         packet = answer["pre_market_manual_execution_packet"]
+        recheck_playbook = packet["broker_price_recheck_playbook"]
         closure_gate = today_card["after_action_closure_gate"]
 
         self.assertEqual(summary["ordinary_verdict"], "manual_review_candidate")
@@ -2649,6 +2650,21 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
             "human_decides_skip_or_manual_trade",
             {row["step_id"] for row in packet["operator_sequence"]},
         )
+        self.assertEqual(recheck_playbook["playbook_id"], "broker_price_recheck_playbook")
+        self.assertEqual(recheck_playbook["status"], "waiting_for_external_broker_prices")
+        self.assertEqual(recheck_playbook["ticket_count"], 3)
+        self.assertFalse(recheck_playbook["order_placement_allowed"])
+        self.assertFalse(recheck_playbook["auto_order_allowed"])
+        self.assertIn("external_broker_realtime_price", recheck_playbook["required_manual_inputs"])
+        recheck_rows_by_asset = {row["asset_id"]: row for row in recheck_playbook["rows"]}
+        self.assertEqual(set(recheck_rows_by_asset), {"510300", "588000", "159915"})
+        self.assertEqual(recheck_rows_by_asset["510300"]["manual_input_field"], "external_broker_realtime_price")
+        self.assertEqual(recheck_rows_by_asset["510300"]["recalculation_rule"], "floor_to_board_lot_at_external_price")
+        self.assertEqual(recheck_rows_by_asset["510300"]["skip_rule"], "skip_if_broker_price_outside_guardrail")
+        self.assertGreater(recheck_rows_by_asset["510300"]["upper_price_bound"], recheck_rows_by_asset["510300"]["reference_price"])
+        self.assertLess(recheck_rows_by_asset["510300"]["lower_price_bound"], recheck_rows_by_asset["510300"]["reference_price"])
+        self.assertFalse(recheck_rows_by_asset["510300"]["copy_to_broker_allowed"])
+        self.assertFalse(recheck_rows_by_asset["510300"]["order_placement_allowed"])
 
     def test_same_parameter_paper_rehearsal_locks_top3_requests_and_allocation_manifest(self):
         pack = _build_daily_trade_advisory_pack(
