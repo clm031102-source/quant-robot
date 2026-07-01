@@ -477,6 +477,23 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "capital_tier_summary_frontend",
+            "Capital tier summary frontend",
+            app_js.get("ok")
+            and "renderCapitalTierSummary" in str(app_js.get("body", ""))
+            and "capital_tier_summary" in str(app_js.get("body", ""))
+            and "capital_tier" in str(app_js.get("body", ""))
+            and "next_capital_tier" in str(app_js.get("body", ""))
+            and "capital_tier_missing_gate_count" in str(app_js.get("body", ""))
+            and "capital_tier_real_money_limit" in str(app_js.get("body", ""))
+            and "capital_tier_external_manual_only" in str(app_js.get("body", "")),
+            "Frontend exposes the current capital tier, next tier, missing gates, and external-manual-only boundary.",
+            app_js.get("error")
+            or "Capital tier summary frontend fields are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "daily_manual_observation_packet_frontend",
             "Daily manual observation packet frontend",
             index_html.get("ok")

@@ -5136,6 +5136,61 @@ def build_daily_deployment_readiness_pack(pack: dict[str, Any]) -> dict[str, Any
     )
 
 
+def _live_profitability_capital_tier_summary(
+    *,
+    decision: str,
+    hard_gates: list[dict[str, Any]],
+    small_capital_observation_candidate: bool,
+    production_manual_review_candidate: bool,
+) -> dict[str, Any]:
+    def missing(required_before: str) -> list[dict[str, Any]]:
+        return [
+            row
+            for row in hard_gates
+            if row.get("required_before") == required_before and str(row.get("status") or "") != "pass"
+        ]
+
+    small_missing = missing("small_capital_observation")
+    production_missing = missing("production_manual_review")
+    all_missing = [row for row in hard_gates if str(row.get("status") or "") != "pass"]
+
+    if production_manual_review_candidate:
+        capital_tier = "production_manual_review_candidate"
+        next_capital_tier = "external_human_manual_review"
+        missing_count = 0
+        plain_answer = "已达到人工生产化复核候选；系统仍不分配真实资金、不连接券商、不读账户、不下单。"
+    elif small_capital_observation_candidate:
+        capital_tier = "small_capital_manual_observation_candidate"
+        next_capital_tier = "production_manual_review"
+        missing_count = len(production_missing)
+        plain_answer = "已达到小资金人工观察候选；这里只生成复核材料，真实资金必须由本人离开系统后手工决定。"
+    elif decision.startswith("blocked"):
+        capital_tier = "blocked_or_research_only"
+        next_capital_tier = "same_parameter_paper"
+        missing_count = len(all_missing)
+        plain_answer = "存在阻断项；只能先修复或继续研究，不能推进真实资金、券商连接或下单动作。"
+    else:
+        capital_tier = "paper_simulation_only"
+        next_capital_tier = "small_capital_manual_observation"
+        missing_count = len(small_missing)
+        plain_answer = "当前只能做同参数模拟盘和人工复核；补齐缺失闸门后才进入小资金人工观察候选。"
+
+    return {
+        "capital_tier": capital_tier,
+        "next_capital_tier": next_capital_tier,
+        "capital_tier_missing_gate_count": missing_count,
+        "capital_tier_real_money_limit": 0,
+        "capital_tier_external_manual_only": True,
+        "capital_tier_plain_answer": plain_answer,
+        "next_capital_allowed": False,
+        "real_money_capital_limit": 0,
+        "capital_tier_order_placement_allowed": False,
+        "capital_tier_broker_connection_allowed": False,
+        "capital_tier_account_read_allowed": False,
+        "capital_tier_auto_order_allowed": False,
+    }
+
+
 def build_live_profitability_readiness_scorecard(pack: dict[str, Any]) -> dict[str, Any]:
     summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
     readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
@@ -5389,6 +5444,12 @@ def build_live_profitability_readiness_scorecard(pack: dict[str, Any]) -> dict[s
     ]
     passed_gates = sum(1 for row in hard_gates if row["status"] == "pass")
     readiness_score_pct = int(round(passed_gates / max(len(hard_gates), 1) * 100))
+    capital_tier_summary = _live_profitability_capital_tier_summary(
+        decision=decision,
+        hard_gates=hard_gates,
+        small_capital_observation_candidate=small_capital_observation_candidate,
+        production_manual_review_candidate=production_manual_review_candidate,
+    )
 
     return _sanitize(
         {
@@ -5417,6 +5478,7 @@ def build_live_profitability_readiness_scorecard(pack: dict[str, Any]) -> dict[s
                 "paper_ready_observations": paper_ready_count,
                 "small_capital_observation_candidate": small_capital_observation_candidate,
                 "production_manual_review_candidate": production_manual_review_candidate,
+                **capital_tier_summary,
                 "profitability_claim_allowed": False,
                 "real_money_allowed": False,
                 "small_capital_observation_allowed": False,
@@ -5475,6 +5537,7 @@ def build_live_profitability_readiness_scorecard(pack: dict[str, Any]) -> dict[s
                     "beginner-live-handoff-board",
                 ),
             ],
+            "capital_tier_summary": capital_tier_summary,
             "hard_gates": hard_gates,
             "evidence_snapshot": evidence,
             "today_allowed_actions": _live_profitability_today_actions(

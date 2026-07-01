@@ -7470,6 +7470,32 @@ function renderDailyClosureStreak(readiness = {}) {
   ]]);
 }
 
+function renderCapitalTierSummary(summary = {}, capitalTier = {}) {
+  const tier = capitalTier.capital_tier || summary.capital_tier || "paper_simulation_only";
+  const nextTier = capitalTier.next_capital_tier || summary.next_capital_tier || "small_capital_manual_observation";
+  const missingCount = capitalTier.capital_tier_missing_gate_count ?? summary.capital_tier_missing_gate_count ?? 0;
+  const realMoneyLimit = capitalTier.capital_tier_real_money_limit ?? summary.capital_tier_real_money_limit ?? 0;
+  const externalManualOnly = capitalTier.capital_tier_external_manual_only ?? summary.capital_tier_external_manual_only ?? true;
+  const nextAllowed = capitalTier.next_capital_allowed ?? summary.next_capital_allowed ?? false;
+  const permissionBroken = Boolean(
+    summary.real_money_allowed
+    || summary.order_placement_allowed
+    || summary.broker_connection_allowed
+    || capitalTier.capital_tier_order_placement_allowed
+    || capitalTier.capital_tier_broker_connection_allowed
+  );
+  const plainAnswer = capitalTier.capital_tier_plain_answer
+    || summary.capital_tier_plain_answer
+    || "当前只能做同参数模拟盘和人工复核；不能由系统直接进入真实资金。";
+  return statusRows([
+    ["资金档位摘要", plainAnswer, permissionBroken ? "danger" : nextAllowed ? "ok" : "warn"],
+    ["当前资金档", zhConsoleText(tier), permissionBroken ? "danger" : tier.includes("candidate") ? "ok" : "warn"],
+    ["下一资金档", `${zhConsoleText(nextTier)} / 缺 ${formatNumber(missingCount)} 个闸门`, missingCount === 0 ? "ok" : "warn"],
+    ["真实资金上限", `系统内上限=${formatNumber(realMoneyLimit)}；只输出复核材料，不分配资金。`, realMoneyLimit > 0 ? "danger" : "ok"],
+    ["人工边界", externalManualOnly ? "真实资金只能由本人离开系统后外部手工决定。" : "异常：资金边界缺失。", externalManualOnly ? "ok" : "danger"],
+  ]);
+}
+
 function renderLiveProfitabilityReadiness(readiness = {}) {
   const summaryTarget = byId("daily-live-profitability-summary");
   const ladderTarget = byId("daily-live-profitability-ladder");
@@ -7498,7 +7524,7 @@ function renderLiveProfitabilityReadiness(readiness = {}) {
     ["本机证据", `模拟盘=${formatNumber(summary.matched_paper_receipts || 0)} / 复盘=${formatNumber(summary.post_close_journal_receipts || 0)} / 观察=${formatNumber(summary.paper_ready_observations || 0)}`, summary.production_manual_review_candidate ? "ok" : summary.matched_paper_receipts || summary.post_close_journal_receipts ? "warn" : "muted"],
     ["人工成交审计", `干净=${formatNumber(summary.manual_execution_clean_receipts || 0)} / 异常=${formatNumber(summary.manual_execution_blocked_receipts || 0)} / 缺回执=${formatNumber(summary.manual_execution_missing_review_receipts || 0)}`, summary.manual_execution_blocked_receipts || summary.manual_execution_missing_review_receipts ? "danger" : summary.manual_execution_clean_receipts >= 5 ? "ok" : "warn"],
     ["系统权限", summary.order_placement_allowed || summary.broker_connection_allowed ? "异常：权限越界" : "不连接券商、不读账户、不自动下单", summary.order_placement_allowed || summary.broker_connection_allowed ? "danger" : "ok"],
-  ]) + `
+  ]) + renderCapitalTierSummary(summary, readiness.capital_tier_summary || {}) + `
     <div class="list-row ${escapeHtml(tone)}">
       <strong>${escapeHtml("现在最该做")}</strong>
       <span>${escapeHtml(summary.next_label || "先补齐缺失证据")}</span>
