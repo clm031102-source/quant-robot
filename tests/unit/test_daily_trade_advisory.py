@@ -2583,6 +2583,7 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         summary = answer["summary"]
         today_card = answer["today_operation_card"]
         packet = answer["pre_market_manual_execution_packet"]
+        trade_gate = answer["trade_system_go_no_go_gate"]
         recheck_playbook = packet["broker_price_recheck_playbook"]
         closure_gate = today_card["after_action_closure_gate"]
 
@@ -2595,6 +2596,24 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertFalse(summary["account_read_allowed"])
         self.assertFalse(summary["order_placement_allowed"])
         self.assertEqual(summary["next_target_id"], "daily-pre-execution-guard")
+        self.assertEqual(trade_gate["gate_id"], "trade_system_go_no_go_gate")
+        self.assertEqual(trade_gate["decision"], "manual_review_only_not_order")
+        self.assertEqual(trade_gate["trade_mode"], "external_manual_review_only")
+        self.assertTrue(trade_gate["manual_review_allowed"])
+        self.assertTrue(trade_gate["human_may_open_external_broker_app"])
+        self.assertFalse(trade_gate["can_buy_by_software"])
+        self.assertFalse(trade_gate["order_placement_allowed"])
+        self.assertFalse(trade_gate["auto_order_allowed"])
+        self.assertEqual(trade_gate["next_target_id"], "daily-beginner-execution-answer-pre-market-packet")
+        self.assertEqual(trade_gate["external_manual_input_count"], 3)
+        gate_rows_by_id = {row["gate_id"]: row for row in trade_gate["gate_rows"]}
+        self.assertEqual(gate_rows_by_id["signal_freshness"]["status"], "pass")
+        self.assertEqual(gate_rows_by_id["same_parameter_top3_paper"]["status"], "pass")
+        self.assertEqual(gate_rows_by_id["pre_execution_guard"]["status"], "pass")
+        self.assertEqual(gate_rows_by_id["manual_ticket_visibility"]["status"], "pass")
+        self.assertEqual(gate_rows_by_id["broker_realtime_price_recheck"]["status"], "required_external_input")
+        self.assertEqual(gate_rows_by_id["post_close_closure_plan"]["status"], "required_after_action")
+        self.assertEqual(gate_rows_by_id["automation_boundary"]["status"], "protected")
         self.assertTrue(answer["review_rows"])
         self.assertTrue(
             all(row["execution_mode"] == "manual_review_candidate_not_order" for row in answer["review_rows"])

@@ -93,6 +93,8 @@ const RUN_HISTORY_LIMIT = 20;
 const EXECUTION_RECEIPT_STORAGE_KEY = "quant_robot.gui.execution_receipts.v1";
 const EXECUTION_RECEIPT_LIMIT = 20;
 const RUNTIME_GUARDED_ACTIONS = new Set(["research_backtest", "startup_workflows"]);
+const TRADE_SYSTEM_MANUAL_REVIEW_DECISION = "manual_review_only_not_order";
+const TRADE_SYSTEM_BROKER_PRICE_RECHECK_GATE = "broker_realtime_price_recheck";
 const FORBIDDEN_CURRENT_POSITION_COLUMNS = new Set(["account", "account_id", "broker", "broker_id", "client_id", "order_id"]);
 const DEFAULT_TICKET_REVIEW_CHECKLIST = [
   { check_id: "asset_code_match", label: "核对 ETF 代码", plain_check: "券商端确认 ETF 代码和目标市场一致；不认识就跳过。" },
@@ -8069,6 +8071,49 @@ function renderTodayOperationCard(card = {}, target = null) {
   `;
 }
 
+function renderTradeSystemGoNoGoGate(gate = {}, target = null) {
+  if (!target) return;
+  const rows = Array.isArray(gate.gate_rows) ? gate.gate_rows : [];
+  const decision = gate.decision || "do_not_trade";
+  const tone = decision === "do_not_trade" || gate.traffic_light === "red" ? "danger" : "warn";
+  const nextButton = gate.next_workflow_id ? `
+    <button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(gate.next_workflow_id)}">${escapeHtml(gate.next_label || "运行下一步")}</button>
+  ` : "";
+  const targetButton = gate.next_target_id ? `
+    <button class="${escapeHtml(nextButton ? "secondary-button" : "primary-button")}" type="button" data-beginner-target="${escapeRawHtml(gate.next_target_id)}">${escapeHtml(nextButton ? "查看证据" : gate.next_label || "查看下一步")}</button>
+  ` : "";
+  target.innerHTML = statusRows([
+    ["交易系统总闸门", `${gate.traffic_light || "red"} / ${zhConsoleText(decision)} / ${zhConsoleText(gate.trade_mode || "blocked_no_action")}`, tone],
+    ["普通人结论", gate.plain_answer || "今天不要把 Top3 当成直接买入指令。", tone],
+    ["允许范围", `模拟盘=${gate.paper_rehearsal_allowed ? "允许" : "禁止"} / 人工复核=${gate.manual_review_allowed ? "允许" : "禁止"} / 可打开外部券商人工看价=${gate.human_may_open_external_broker_app ? "允许" : "禁止"}`, gate.manual_review_allowed ? "warn" : tone],
+    ["证据闸门", `通过=${formatNumber(gate.ready_gate_count || 0)} / 待人工=${formatNumber(gate.required_gate_count || 0)} / 阻断=${formatNumber(gate.blocked_gate_count || 0)} / 外部输入=${formatNumber(gate.external_manual_input_count || 0)}`, gate.blocked_gate_count ? "danger" : "warn"],
+    ["系统权限", gate.can_buy_by_software || gate.order_placement_allowed || gate.auto_order_allowed ? "异常：系统出现买入或下单权限" : "软件不能买入、不能复制到券商、不能自动下单", gate.can_buy_by_software || gate.order_placement_allowed || gate.auto_order_allowed ? "danger" : "ok"],
+  ]) + `
+    <div class="list-row ${escapeHtml(tone)}">
+      <strong>${escapeHtml("现在先做")}</strong>
+      <span>${escapeHtml(gate.next_label || "查看今天的证据闸门")}</span>
+      <span class="beginner-task-actions">${nextButton}${targetButton}</span>
+    </div>
+    ${rows.map((item) => {
+      const rowTone = item.status === "pass" || item.status === "protected"
+        ? "ok"
+        : item.status === "blocked"
+          ? "danger"
+          : "warn";
+      return `
+        <div class="list-row ${escapeHtml(rowTone)}">
+          <strong>${escapeHtml(item.gate_id || "")}</strong>
+          <span>${escapeHtml(`${zhConsoleText(item.status || "required")} / ${item.plain_rule || ""}`)}</span>
+          <span>${escapeHtml(item.evidence || "")}</span>
+          <span class="beginner-task-actions">
+            ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
+          </span>
+        </div>
+      `;
+    }).join("")}
+  `;
+}
+
 function renderPreMarketManualExecutionPacket(packet = {}, target = null) {
   if (!target) return;
   const evidenceRows = Array.isArray(packet.evidence_checklist) ? packet.evidence_checklist : [];
@@ -8123,14 +8168,16 @@ function renderPreMarketManualExecutionPacket(packet = {}, target = null) {
 }
 
 function renderDailyBeginnerExecutionAnswer(answer = {}) {
+  const goNoGoTarget = byId("daily-beginner-execution-answer-go-no-go");
   const todayCardTarget = byId("daily-beginner-execution-answer-today-card");
   const preMarketPacketTarget = byId("daily-beginner-execution-answer-pre-market-packet");
   const summaryTarget = byId("daily-beginner-execution-answer-summary");
   const reasonsTarget = byId("daily-beginner-execution-answer-reasons");
   const rowsTarget = byId("daily-beginner-execution-answer-rows");
   const stepsTarget = byId("daily-beginner-execution-answer-steps");
-  if (!summaryTarget || !reasonsTarget || !rowsTarget || !stepsTarget || !preMarketPacketTarget) return;
+  if (!summaryTarget || !reasonsTarget || !rowsTarget || !stepsTarget || !preMarketPacketTarget || !goNoGoTarget) return;
   const summary = answer.summary || {};
+  renderTradeSystemGoNoGoGate(answer.trade_system_go_no_go_gate || {}, goNoGoTarget);
   renderTodayOperationCard(answer.today_operation_card || {}, todayCardTarget);
   renderPreMarketManualExecutionPacket(answer.pre_market_manual_execution_packet || {}, preMarketPacketTarget);
   const allowedMode = summary.allowed_mode || "blocked_no_action";

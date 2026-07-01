@@ -8272,6 +8272,13 @@ def build_daily_beginner_execution_answer(pack: dict[str, Any]) -> dict[str, Any
         paper_allowed=paper_allowed,
         today_operation_card=today_operation_card,
     )
+    trade_system_gate = _beginner_trade_system_go_no_go_gate(
+        guard_status=guard_status,
+        manual_allowed=manual_allowed,
+        paper_allowed=paper_allowed,
+        today_operation_card=today_operation_card,
+        pre_market_packet=pre_market_packet,
+    )
     return _sanitize(
         {
             "stage": DAILY_BEGINNER_EXECUTION_ANSWER_STAGE,
@@ -8301,6 +8308,7 @@ def build_daily_beginner_execution_answer(pack: dict[str, Any]) -> dict[str, Any
                 "auto_order_allowed": False,
             },
             "today_operation_card": today_operation_card,
+            "trade_system_go_no_go_gate": trade_system_gate,
             "pre_market_manual_execution_packet": pre_market_packet,
             "reasons": reasons,
             "review_rows": review_rows,
@@ -8333,6 +8341,171 @@ def build_daily_beginner_execution_answer(pack: dict[str, Any]) -> dict[str, Any
             },
         }
     )
+
+
+def _beginner_trade_system_go_no_go_gate(
+    *,
+    guard_status: str,
+    manual_allowed: bool,
+    paper_allowed: bool,
+    today_operation_card: dict[str, Any],
+    pre_market_packet: dict[str, Any],
+) -> dict[str, Any]:
+    packet_status = str(pre_market_packet.get("packet_status") or "blocked_no_manual_execution_packet")
+    ticket_count = _int(pre_market_packet.get("ticket_count"), 0)
+    recheck = (
+        pre_market_packet.get("broker_price_recheck_playbook")
+        if isinstance(pre_market_packet.get("broker_price_recheck_playbook"), dict)
+        else {}
+    )
+    recheck_rows = recheck.get("rows") if isinstance(recheck.get("rows"), list) else []
+    required_manual_inputs = (
+        recheck.get("required_manual_inputs") if isinstance(recheck.get("required_manual_inputs"), list) else []
+    )
+    evidence_rows = (
+        pre_market_packet.get("evidence_checklist")
+        if isinstance(pre_market_packet.get("evidence_checklist"), list)
+        else []
+    )
+    evidence_by_id = {
+        str(row.get("check_id") or ""): row
+        for row in evidence_rows
+        if isinstance(row, dict)
+    }
+
+    if manual_allowed and packet_status == "manual_review_ready_not_order" and ticket_count > 0:
+        decision = "manual_review_only_not_order"
+        trade_mode = "external_manual_review_only"
+        traffic_light = "yellow"
+        plain_answer = "今天最多进入外部券商人工复核；软件只给证据、护栏和重算规则，不会买入或下单。"
+        next_target_id = "daily-beginner-execution-answer-pre-market-packet"
+        next_workflow_id = ""
+        human_may_open_external_broker_app = True
+    elif paper_allowed:
+        decision = "paper_rehearsal_only"
+        trade_mode = "same_parameter_paper_only"
+        traffic_light = "yellow"
+        plain_answer = "今天只能做同参数模拟盘和盘后记录；不要打开券商端照着买。"
+        next_target_id = "daily-paper-allocation-playbook"
+        next_workflow_id = "paper_simulation"
+        human_may_open_external_broker_app = False
+    else:
+        decision = "do_not_trade"
+        trade_mode = "blocked_no_action"
+        traffic_light = "red"
+        plain_answer = "今天不交易；先处理信号、数据、风险或闭环缺口。"
+        next_target_id = str(today_operation_card.get("next_target_id") or "daily-pre-execution-guard")
+        next_workflow_id = str(today_operation_card.get("next_workflow_id") or "")
+        human_may_open_external_broker_app = False
+
+    signal_status = str(evidence_by_id.get("signal_freshness", {}).get("status") or "required")
+    same_parameter_status = str(evidence_by_id.get("same_parameter_top3_paper", {}).get("status") or "required")
+    manual_ticket_status = str(evidence_by_id.get("manual_ticket_visibility", {}).get("status") or "required")
+    pre_execution_status = "pass" if manual_allowed else "required" if paper_allowed else "blocked"
+    recheck_status = "required_external_input" if recheck_rows else "locked"
+    closure_status = "required_after_action" if bool(pre_market_packet.get("post_close_closure_required")) else "locked"
+    gate_rows = [
+        _trade_system_gate_row(
+            "signal_freshness",
+            signal_status,
+            "今日信号必须是本次运行日期，不能拿旧信号交易。",
+            evidence_by_id.get("signal_freshness", {}).get("evidence") or "",
+            "daily-trade-advisory-status",
+        ),
+        _trade_system_gate_row(
+            "same_parameter_top3_paper",
+            same_parameter_status,
+            "前三因子必须先完成同参数模拟盘证据。",
+            evidence_by_id.get("same_parameter_top3_paper", {}).get("evidence") or "",
+            "daily-same-parameter-paper-rehearsal",
+        ),
+        _trade_system_gate_row(
+            "pre_execution_guard",
+            pre_execution_status,
+            "盘前风控、价格护栏、容量和跳过规则必须允许进入下一步。",
+            guard_status,
+            "daily-pre-execution-guard",
+        ),
+        _trade_system_gate_row(
+            "manual_ticket_visibility",
+            manual_ticket_status,
+            "只有可见的人工复核票据才能进入券商端人工核对。",
+            evidence_by_id.get("manual_ticket_visibility", {}).get("evidence") or f"tickets={ticket_count}",
+            "daily-beginner-execution-answer-pre-market-packet",
+        ),
+        _trade_system_gate_row(
+            "broker_realtime_price_recheck",
+            recheck_status,
+            "券商实时价、现金和最终跳过/执行决定必须由人手工填写。",
+            f"rows={len(recheck_rows)}; required_inputs={len(required_manual_inputs)}",
+            "daily-beginner-execution-answer-pre-market-packet",
+        ),
+        _trade_system_gate_row(
+            "post_close_closure_plan",
+            closure_status,
+            "收盘后必须补盘后复盘、人工执行审计和持仓更新，否则明日隔离今日 Top3。",
+            "after_action_closure_gate",
+            "beginner-post-close-journal-board",
+        ),
+        _trade_system_gate_row(
+            "automation_boundary",
+            "protected",
+            "系统不连接券商、不读取账户、不复制订单、不自动下单。",
+            "broker_connection_allowed=false; order_placement_allowed=false",
+            "beginner-live-handoff-board",
+        ),
+    ]
+
+    blocked_statuses = {"blocked", "failed", "danger"}
+    required_statuses = {"required", "required_external_input", "required_after_action"}
+    return _sanitize(
+        {
+            "gate_id": "trade_system_go_no_go_gate",
+            "decision": decision,
+            "trade_mode": trade_mode,
+            "traffic_light": traffic_light,
+            "plain_answer": plain_answer,
+            "guard_status": guard_status,
+            "packet_status": packet_status,
+            "ticket_count": ticket_count,
+            "manual_review_allowed": bool(manual_allowed),
+            "paper_rehearsal_allowed": bool(paper_allowed),
+            "human_may_open_external_broker_app": bool(human_may_open_external_broker_app),
+            "external_manual_input_count": len(required_manual_inputs),
+            "ready_gate_count": sum(1 for row in gate_rows if row.get("status") in {"pass", "protected"}),
+            "required_gate_count": sum(1 for row in gate_rows if row.get("status") in required_statuses),
+            "blocked_gate_count": sum(1 for row in gate_rows if row.get("status") in blocked_statuses),
+            "next_label": "查看盘前人工复核包" if decision == "manual_review_only_not_order" else str(today_operation_card.get("next_label") or ""),
+            "next_target_id": next_target_id,
+            "next_workflow_id": next_workflow_id,
+            "gate_rows": gate_rows,
+            "can_buy_by_software": False,
+            "can_buy_today": False,
+            "copy_to_broker_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        }
+    )
+
+
+def _trade_system_gate_row(
+    gate_id: str,
+    status: str,
+    plain_rule: str,
+    evidence: Any,
+    target_id: str,
+) -> dict[str, Any]:
+    return {
+        "gate_id": gate_id,
+        "status": status,
+        "plain_rule": plain_rule,
+        "evidence": str(evidence or ""),
+        "target_id": target_id,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
 
 
 def _beginner_today_operation_card(
