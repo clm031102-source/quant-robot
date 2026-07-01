@@ -3943,6 +3943,8 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("daily-trade-system-state", html)
             self.assertIn("candidate_pool_policy", app_js)
             self.assertIn("paper_rehearsal_required", app_js)
+            self.assertIn("external_manual_candidate", app_js)
+            self.assertIn("small_capital_observation_allowed", app_js)
             self.assertIn("dailyTradeDecisionRuntimeState", app_js)
             self.assertIn("const paperStatus = dailySameParameterPaperStatus();", app_js)
             self.assertIn("const paperReceipt = paperStatus.receipt || null;", app_js)

@@ -9627,12 +9627,14 @@ function renderDailyTradeSystemState(system = {}, runtime = {}, target = byId("d
   if (!target) return;
   const candidate_pool_policy = system.candidate_pool_policy || {};
   const permissions = system.permissions || {};
+  const preLiveMasterGate = system.pre_live_master_gate || {};
   const progress = system.progress || {};
   const nextGate = system.next_gate || {};
   const mode = system.mode || "waiting_for_daily_signal";
   const stages = Array.isArray(system.stages) ? system.stages : [];
   const overview = statusRows([
     ["交易系统阶段", system.mode_label || zhConsoleText(mode), dailyTradeSystemModeTone(mode)],
+    ["实盘前总闸门", `${zhConsoleText(preLiveMasterGate.status || "not_checked")} / ${zhConsoleText(preLiveMasterGate.decision || "--")} / small_capital_observation_allowed=${permissions.small_capital_observation_allowed ? "true" : "false"}`, permissions.small_capital_observation_allowed ? "warn" : "muted"],
     ["候选池规则", `${candidate_pool_policy.selection_scope || "CN_ETF"} / Top${formatNumber(candidate_pool_policy.top_factor_limit || 3)} / 榜单直买=${candidate_pool_policy.direct_buy_from_leaderboard_allowed ? "允许" : "禁止"}`, candidate_pool_policy.direct_buy_from_leaderboard_allowed ? "danger" : "ok"],
     ["流程进度", `已完成=${formatNumber(progress.completed_stage_count || 0)} / 待补=${formatNumber(progress.required_stage_count || 0)} / 阻断=${formatNumber(progress.blocked_stage_count || 0)} / 锁定=${formatNumber(progress.locked_stage_count || 0)}`, progress.blocked_stage_count ? "danger" : progress.required_stage_count ? "warn" : "ok"],
     ["下一道门", `${nextGate.label || "--"} / ${zhConsoleText(nextGate.status || "--")}`, dailyTradeSystemStageTone(nextGate.status || "")],
@@ -9703,6 +9705,7 @@ function renderDailyTradePackageChecklist(packageChecklist = {}, runtime = {}, t
 
 function dailyTradeSystemModeTone(mode = "") {
   if (mode.includes("blocked")) return "danger";
+  if (mode === "manual_small_capital_observation_candidate") return "warn";
   if (mode === "paper_rehearsal_required" || mode === "manual_ticket_required") return "warn";
   return "warn";
 }
@@ -9711,6 +9714,7 @@ function dailyTradeSystemStageTone(status = "") {
   if (status === "done") return "ok";
   if (status === "blocked") return "danger";
   if (status === "manual_locked") return "danger";
+  if (status === "external_manual_candidate") return "warn";
   if (status === "required") return "warn";
   return "warn";
 }

@@ -3136,6 +3136,7 @@ def build_daily_trade_decision_sheet(pack: dict[str, Any]) -> dict[str, Any]:
         ticket_count=ticket_count,
         blocker_count=len(blockers),
         position_status=position_status,
+        pre_live_master_gate=pack.get("live_profitability_evidence_snapshot", {}).get("pre_live_master_gate", {}),
     )
     trade_package_checklist = _decision_sheet_trade_package_checklist(
         daily_top3=daily_top3,
@@ -10672,6 +10673,29 @@ def _live_profitability_evidence_snapshot(snapshot: dict[str, Any] | None) -> di
             raw_counts.get("same_parameter_top3_matched_requests")
         ),
     }
+    raw_pre_live = (
+        source.get("pre_live_master_gate")
+        if isinstance(source.get("pre_live_master_gate"), dict)
+        else source.get("pre_live_gate")
+        if isinstance(source.get("pre_live_gate"), dict)
+        else source
+    )
+    pre_live_status = str(
+        raw_pre_live.get("status")
+        or raw_pre_live.get("pre_live_master_gate_status")
+        or raw_pre_live.get("master_gate_status")
+        or "not_checked"
+    )
+    pre_live_decision = str(
+        raw_pre_live.get("decision")
+        or raw_pre_live.get("pre_live_master_gate_decision")
+        or raw_pre_live.get("master_gate_decision")
+        or "continue_same_parameter_paper_and_closure"
+    )
+    pre_live_manual_allowed = (
+        pre_live_status == "manual_small_capital_observation_ready"
+        and pre_live_decision == "external_manual_small_capital_observation_only"
+    )
     flags = {
         "walk_forward_oos_passed": _live_profitability_evidence_flag(raw_flags.get("walk_forward_oos_passed")),
         "lookahead_bias_audit_passed": _live_profitability_evidence_flag(raw_flags.get("lookahead_bias_audit_passed")),
@@ -10755,6 +10779,16 @@ def _live_profitability_evidence_snapshot(snapshot: dict[str, Any] | None) -> di
             "manual_execution_clean_receipts": 5,
             "paper_ready_observations": 20,
             "same_parameter_top3_required_requests": counts["same_parameter_top3_required_requests"],
+        },
+        "pre_live_master_gate": {
+            "status": pre_live_status,
+            "decision": pre_live_decision,
+            "manual_small_capital_observation_allowed": pre_live_manual_allowed,
+            "external_manual_only": True,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
         },
     }
 
@@ -11521,15 +11555,27 @@ def _build_daily_trade_system_state(
     ticket_count: int,
     blocker_count: int,
     position_status: str,
+    pre_live_master_gate: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     blocked = decision.startswith("blocked") or blocker_count > 0 or position_status == "error"
     has_candidate_pool = market == "CN_ETF" and selected_factor_count > 0
     has_today_signal = signal_count > 0 and target_count > 0
     has_manual_ticket = ticket_count > 0
+    pre_live_summary = pre_live_master_gate if isinstance(pre_live_master_gate, dict) else {}
+    pre_live_status = str(pre_live_summary.get("status") or "not_checked")
+    pre_live_decision = str(pre_live_summary.get("decision") or "continue_same_parameter_paper_and_closure")
+    pre_live_manual_allowed = (
+        pre_live_status == "manual_small_capital_observation_ready"
+        and pre_live_decision == "external_manual_small_capital_observation_only"
+        and not blocked
+        and has_manual_ticket
+    )
     if position_status == "error":
         mode = "blocked_fix_current_positions"
     elif blocked:
         mode = "blocked_pretrade_red_light"
+    elif pre_live_manual_allowed:
+        mode = "manual_small_capital_observation_candidate"
     elif has_manual_ticket:
         mode = "paper_rehearsal_required"
     elif has_today_signal:
@@ -11542,6 +11588,13 @@ def _build_daily_trade_system_state(
     paper_status = "blocked" if blocked else ("required" if has_manual_ticket else "waiting")
     ticket_status = "blocked" if blocked else ("required" if has_manual_ticket else ("waiting" if has_today_signal else "waiting"))
     journal_status = "blocked" if blocked else ("required" if has_manual_ticket else "waiting")
+    small_capital_status = (
+        "blocked"
+        if blocked
+        else "external_manual_candidate"
+        if pre_live_manual_allowed
+        else "waiting"
+    )
     stages = [
         _daily_trade_system_stage(
             "candidate_pool",
@@ -11586,6 +11639,14 @@ def _build_daily_trade_system_state(
             "post_close_journal",
         ),
         _daily_trade_system_stage(
+            "small_capital_observation",
+            "小资金人工观察",
+            small_capital_status,
+            "预实盘总闸门通过后，也只允许外部人工小资金观察；软件仍不能连接券商或下单。",
+            f"pre_live_status={pre_live_status}; decision={pre_live_decision}",
+            "control-pre-live-master-gate",
+        ),
+        _daily_trade_system_stage(
             "human_broker_execution",
             "人工券商端操作",
             "manual_locked",
@@ -11618,8 +11679,19 @@ def _build_daily_trade_system_state(
         "permissions": {
             "paper_simulation_allowed": not blocked and has_manual_ticket,
             "manual_ticket_review_allowed": not blocked and has_manual_ticket,
-            "small_capital_observation_allowed": False,
+            "small_capital_observation_allowed": pre_live_manual_allowed,
             "live_trading_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        },
+        "pre_live_master_gate": {
+            "status": pre_live_status,
+            "decision": pre_live_decision,
+            "manual_small_capital_observation_allowed": pre_live_manual_allowed,
+            "external_manual_only": True,
+            "target_id": "control-pre-live-master-gate",
             "broker_connection_allowed": False,
             "account_read_allowed": False,
             "order_placement_allowed": False,
@@ -11672,6 +11744,7 @@ def _daily_trade_system_mode_label(mode: str) -> str:
     labels = {
         "blocked_fix_current_positions": "先修正持仓输入",
         "blocked_pretrade_red_light": "盘前红灯阻断",
+        "manual_small_capital_observation_candidate": "外部人工小资金观察候选",
         "paper_rehearsal_required": "先模拟盘复核",
         "manual_ticket_required": "先生成可复核票据",
         "waiting_for_daily_signal": "等待今日信号",

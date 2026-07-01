@@ -1678,6 +1678,7 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(readiness["summary"]["next_workflow_id"], "paper_simulation")
         self.assertEqual(readiness["summary"]["next_target_id"], "paper-metrics")
         self.assertEqual(readiness["summary"]["capital_tier"], "paper_simulation_only")
+
         self.assertEqual(readiness["summary"]["next_capital_tier"], "small_capital_manual_observation")
         self.assertFalse(readiness["summary"]["next_capital_allowed"])
         self.assertEqual(readiness["summary"]["capital_tier_real_money_limit"], 0)
@@ -1713,6 +1714,51 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("direct_buy_top3", {row["action_id"] for row in readiness["forbidden_actions"]})
         self.assertIn("kill_switch_drawdown", {row["control_id"] for row in readiness["stability_controls"]})
         self.assertTrue(all(not row["order_placement_allowed"] for row in readiness["hard_gates"]))
+
+    def test_trade_system_state_promotes_pre_live_gate_to_manual_small_capital_observation(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {"rank": 1, "case_id": "c1", "factor_name": "momentum_quality_combo", "market": "CN_ETF", "sharpe": 1.35},
+                {"rank": 2, "case_id": "c2", "factor_name": "low_vol_overlay", "market": "CN_ETF", "sharpe": 1.05},
+                {"rank": 3, "case_id": "c3", "factor_name": "breadth_trend_state", "market": "CN_ETF", "sharpe": 0.98},
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.2}, signal_date="2026-06-29"),
+                _signal("c2", "low_vol_overlay", {"588000": 0.2}, signal_date="2026-06-29"),
+                _signal("c3", "breadth_trend_state", {"159915": 0.2}, signal_date="2026-06-29"),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="aggressive_30dd",
+            evidence_snapshot={
+                "walk_forward_oos_passed": True,
+                "lookahead_bias_audit_passed": True,
+                "multiple_testing_control_passed": True,
+                "transaction_cost_capacity_passed": True,
+                "matched_paper_receipts": 5,
+                "post_close_journals": 5,
+                "manual_execution_clean_receipts": 5,
+                "manual_execution_blocked_receipts": 0,
+                "paper_ready_observations": 20,
+                "same_parameter_top3_required_requests": 3,
+                "same_parameter_top3_matched_requests": 3,
+                "pre_live_master_gate_status": "manual_small_capital_observation_ready",
+                "pre_live_master_gate_decision": "external_manual_small_capital_observation_only",
+            },
+        )
+
+        system_state = pack["daily_trade_decision_sheet"]["trade_system_state"]
+        stages = {row["stage_id"]: row for row in system_state["stages"]}
+
+        self.assertEqual(system_state["mode"], "manual_small_capital_observation_candidate")
+        self.assertTrue(system_state["permissions"]["small_capital_observation_allowed"])
+        self.assertFalse(system_state["permissions"]["order_placement_allowed"])
+        self.assertFalse(system_state["permissions"]["broker_connection_allowed"])
+        self.assertEqual(system_state["pre_live_master_gate"]["status"], "manual_small_capital_observation_ready")
+        self.assertEqual(system_state["pre_live_master_gate"]["decision"], "external_manual_small_capital_observation_only")
+        self.assertEqual(stages["small_capital_observation"]["status"], "external_manual_candidate")
+        self.assertEqual(stages["human_broker_execution"]["status"], "manual_locked")
+        self.assertIn("外部人工小资金观察", stages["small_capital_observation"]["plain_check"])
 
     def test_live_profitability_readiness_uses_evidence_snapshot_without_opening_orders(self):
         pack = build_daily_trade_advisory_pack(
