@@ -499,7 +499,10 @@ def run_gui_browser_smoke(
             and "small_capital_budget_breached" in str(app_js.get("body", ""))
             and "small_capital_budget_breach_count" in str(app_js.get("body", ""))
             and "small_capital_limit_breached" in str(app_js.get("body", ""))
-            and "small_capital_excess_notional" in str(app_js.get("body", "")),
+            and "small_capital_excess_notional" in str(app_js.get("body", ""))
+            and "small_capital_max_quantity_at_reference" in str(app_js.get("body", ""))
+            and "small_capital_quantity_match_allowed" in str(app_js.get("body", ""))
+            and "quantity_plan_basis" in str(app_js.get("body", "")),
             "Frontend converts manually entered fill prices and quantities into execution cost impact metrics.",
             app_js.get("error")
             or "Manual execution cost-impact frontend metrics are missing.",

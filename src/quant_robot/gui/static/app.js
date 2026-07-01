@@ -4196,6 +4196,7 @@ function localManualExecutionAuditRow(index, ticket = {}, reviewsByKey = new Map
   const referencePrice = numberOrNull(guardrails.reference_price ?? ticket.reference_price ?? ticket.latest_price);
   const actualFillPrice = numberOrNull(review.actual_fill_price ?? review.fill_price);
   const fillQuantity = numberOrNull(review.fill_quantity ?? review.quantity);
+  const boardLotSize = Math.max(1, numberOrNull(ticket.board_lot_size) || 100);
   const roundedDelta = numberOrNull(ticket.rounded_quantity_delta) || 0;
   const roundedQuantity = numberOrNull(ticket.rounded_quantity) || 0;
   const plannedQuantity = Math.abs(roundedDelta || roundedQuantity);
@@ -4212,8 +4213,14 @@ function localManualExecutionAuditRow(index, ticket = {}, reviewsByKey = new Map
   let executedNotional = null;
   let referenceNotional = null;
   const smallCapitalLimit = 1000;
+  const smallCapitalMaxQuantityAtReference = Number.isFinite(referencePrice) && referencePrice > 0
+    ? Math.floor(smallCapitalLimit / referencePrice / boardLotSize) * boardLotSize
+    : 0;
   let smallCapitalExcessNotional = 0;
   let smallCapitalLimitBreached = false;
+  let smallCapitalQuantityMatchAllowed = false;
+  let quantityPlanBasis = "ticket_planned_quantity";
+  let standardQuantityMatches = null;
   let slippageCostWithinBudget = null;
   let slippageWithinLimit = null;
   let quantityMatchesTicket = null;
@@ -4238,8 +4245,8 @@ function localManualExecutionAuditRow(index, ticket = {}, reviewsByKey = new Map
       if (!slippageWithinLimit) breachReasons.push("slippage_limit_breached");
     }
     if (Number.isFinite(fillQuantity)) {
-      quantityMatchesTicket = plannedQuantity <= 0 || Math.abs(fillQuantity) === plannedQuantity;
-      if (!quantityMatchesTicket) breachReasons.push("quantity_mismatch");
+      standardQuantityMatches = plannedQuantity <= 0 || Math.abs(fillQuantity) === plannedQuantity;
+      quantityMatchesTicket = standardQuantityMatches;
     }
     if (Number.isFinite(actualFillPrice) && Number.isFinite(referencePrice) && Number.isFinite(fillQuantity) && fillQuantity > 0) {
       const quantity = Math.abs(fillQuantity);
@@ -4250,6 +4257,17 @@ function localManualExecutionAuditRow(index, ticket = {}, reviewsByKey = new Map
         smallCapitalExcessNotional = executedNotional - smallCapitalLimit;
         breachReasons.push("small_capital_budget_breached");
       }
+      if (
+        standardQuantityMatches === false
+        && !side.toLowerCase().startsWith("sell")
+        && smallCapitalMaxQuantityAtReference > 0
+        && Math.abs(fillQuantity) <= smallCapitalMaxQuantityAtReference
+        && !smallCapitalLimitBreached
+      ) {
+        smallCapitalQuantityMatchAllowed = true;
+        quantityMatchesTicket = true;
+        quantityPlanBasis = "small_capital_manual_observation_budget";
+      }
       adverseSlippageCost = side.toLowerCase().startsWith("sell")
         ? (referencePrice - actualFillPrice) * quantity
         : (actualFillPrice - referencePrice) * quantity;
@@ -4259,6 +4277,9 @@ function localManualExecutionAuditRow(index, ticket = {}, reviewsByKey = new Map
           breachReasons.push("slippage_cost_budget_breached");
         }
       }
+    }
+    if (standardQuantityMatches === false && !smallCapitalQuantityMatchAllowed) {
+      breachReasons.push("quantity_mismatch");
     }
   }
   const reviewStatus = !hasReview
@@ -4286,6 +4307,9 @@ function localManualExecutionAuditRow(index, ticket = {}, reviewsByKey = new Map
     slippage_within_limit: slippageWithinLimit,
     slippage_cost_within_budget: slippageCostWithinBudget,
     quantity_matches_ticket: quantityMatchesTicket,
+    quantity_plan_basis: quantityPlanBasis,
+    small_capital_max_quantity_at_reference: smallCapitalMaxQuantityAtReference,
+    small_capital_quantity_match_allowed: smallCapitalQuantityMatchAllowed,
     broker_price_recheck_session_decision: brokerRecheckSessionDecision || null,
     broker_recheck_session_ok: brokerRecheckSessionDecision === "manual_review_all_rows_price_cash_ok",
     small_capital_max_single_ticket_notional: smallCapitalLimit,
@@ -4339,6 +4363,9 @@ function renderPostCloseExecutionAudit(audit = null) {
       "slippage_within_limit",
       "slippage_cost_within_budget",
       "quantity_matches_ticket",
+      "quantity_plan_basis",
+      "small_capital_max_quantity_at_reference",
+      "small_capital_quantity_match_allowed",
       "broker_price_recheck_session_decision",
       "broker_recheck_session_ok",
       "small_capital_max_single_ticket_notional",

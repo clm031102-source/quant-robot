@@ -856,6 +856,47 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(row["review_status"], "blocked")
         self.assertFalse(row["order_placement_allowed"])
 
+    def test_manual_execution_audit_accepts_small_capital_capped_quantity(self):
+        pack = build_daily_trade_advisory_pack(
+            [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
+            [_signal("c1", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            evidence_snapshot={
+                "mode": "same_parameter_browser_execution_receipts",
+                "counts": {
+                    "same_parameter_top3_required_requests": 1,
+                    "same_parameter_top3_matched_requests": 1,
+                },
+            },
+        )
+
+        audit = build_manual_execution_audit(
+            pack,
+            [
+                {
+                    "ticket_id": "daily-top3-001",
+                    "manual_outcome": "manual_trade_by_human",
+                    "actual_fill_price": 3.201,
+                    "fill_quantity": 300,
+                    "broker_price_recheck_session_decision": "manual_review_all_rows_price_cash_ok",
+                    "execute_or_skip_reason": "small-capital capped quantity after broker price recheck",
+                }
+            ],
+        )
+
+        self.assertEqual(audit["summary"]["decision"], "manual_execution_evidence_ready")
+        self.assertEqual(audit["summary"]["quantity_mismatch_count"], 0)
+        self.assertEqual(audit["summary"]["small_capital_budget_breach_count"], 0)
+        row = audit["rows"][0]
+        self.assertEqual(row["planned_quantity"], 10400)
+        self.assertEqual(row["small_capital_max_quantity_at_reference"], 300)
+        self.assertTrue(row["small_capital_quantity_match_allowed"])
+        self.assertEqual(row["quantity_plan_basis"], "small_capital_manual_observation_budget")
+        self.assertTrue(row["quantity_matches_ticket"])
+        self.assertNotIn("quantity_mismatch", row["breach_reasons"])
+        self.assertEqual(row["review_status"], "passed")
+
     def test_manual_execution_audit_blocks_price_guardrail_breach_and_sensitive_fields(self):
         pack = build_daily_trade_advisory_pack(
             [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],

@@ -12294,6 +12294,9 @@ def build_manual_execution_audit(
                 "slippage_within_limit",
                 "slippage_cost_within_budget",
                 "quantity_matches_ticket",
+                "quantity_plan_basis",
+                "small_capital_max_quantity_at_reference",
+                "small_capital_quantity_match_allowed",
                 "broker_price_recheck_session_decision",
                 "broker_recheck_session_ok",
                 "small_capital_max_single_ticket_notional",
@@ -12353,8 +12356,17 @@ def _manual_execution_audit_row(
     executed_notional = None
     reference_notional = None
     small_capital_limit = SMALL_CAPITAL_OBSERVATION_MAX_SINGLE_TICKET_NOTIONAL
+    board_lot = max(1, _int(ticket.get("board_lot_size"), BOARD_LOT_SIZE))
+    small_capital_max_quantity_at_reference = (
+        int(math.floor(small_capital_limit / reference_price / board_lot) * board_lot)
+        if reference_price is not None and reference_price > 0
+        else 0
+    )
     small_capital_limit_breached = False
     small_capital_excess_notional = 0.0
+    small_capital_quantity_match_allowed = False
+    quantity_plan_basis = "ticket_planned_quantity"
+    standard_quantity_matches = None
     slippage_within_limit = None
     slippage_cost_within_budget = None
     quantity_matches_ticket = None
@@ -12378,9 +12390,8 @@ def _manual_execution_audit_row(
             if not slippage_within_limit:
                 breach_reasons.append("slippage_limit_breached")
         if fill_quantity is not None:
-            quantity_matches_ticket = planned_quantity <= 0 or abs(fill_quantity) == planned_quantity
-            if not quantity_matches_ticket:
-                breach_reasons.append("quantity_mismatch")
+            standard_quantity_matches = planned_quantity <= 0 or abs(fill_quantity) == planned_quantity
+            quantity_matches_ticket = standard_quantity_matches
         if (
             actual_fill_price is not None
             and reference_price is not None
@@ -12394,6 +12405,16 @@ def _manual_execution_audit_row(
             if small_capital_limit_breached:
                 small_capital_excess_notional = round(executed_notional - small_capital_limit, 6)
                 breach_reasons.append("small_capital_budget_breached")
+            if (
+                standard_quantity_matches is False
+                and not side.lower().startswith("sell")
+                and small_capital_max_quantity_at_reference > 0
+                and abs(fill_quantity) <= small_capital_max_quantity_at_reference
+                and not small_capital_limit_breached
+            ):
+                small_capital_quantity_match_allowed = True
+                quantity_matches_ticket = True
+                quantity_plan_basis = "small_capital_manual_observation_budget"
             if side.lower().startswith("sell"):
                 adverse_slippage_cost = round((reference_price - actual_fill_price) * quantity, 6)
             else:
@@ -12402,6 +12423,8 @@ def _manual_execution_audit_row(
                 slippage_cost_within_budget = adverse_slippage_cost <= max_estimated_slippage_cost
                 if not slippage_cost_within_budget and "slippage_limit_breached" not in breach_reasons:
                     breach_reasons.append("slippage_cost_budget_breached")
+        if standard_quantity_matches is False and not small_capital_quantity_match_allowed:
+            breach_reasons.append("quantity_mismatch")
     if not has_review:
         review_status = "missing_review"
     elif breach_reasons:
@@ -12428,6 +12451,9 @@ def _manual_execution_audit_row(
         "slippage_within_limit": slippage_within_limit,
         "slippage_cost_within_budget": slippage_cost_within_budget,
         "quantity_matches_ticket": quantity_matches_ticket,
+        "quantity_plan_basis": quantity_plan_basis,
+        "small_capital_max_quantity_at_reference": small_capital_max_quantity_at_reference,
+        "small_capital_quantity_match_allowed": small_capital_quantity_match_allowed,
         "broker_price_recheck_session_decision": broker_recheck_session_decision or None,
         "broker_recheck_session_ok": broker_recheck_session_decision == "manual_review_all_rows_price_cash_ok",
         "small_capital_max_single_ticket_notional": small_capital_limit,
