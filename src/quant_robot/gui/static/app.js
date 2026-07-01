@@ -10053,10 +10053,13 @@ function renderBeginnerLiveHandoff() {
   const trade = state.dailyTradeAdvisory || {};
   const summary = trade.summary || {};
   const readiness = trade.pretrade_readiness || {};
+  const dailyOpsSummary = trade.daily_ops_handoff?.summary || {};
+  const dailyOpsTickets = dailyOpsPaperTicketRows();
   statusTarget.innerHTML = statusRows([
     ["今天结论", decision.title || "等待今日建议", decision.tone || "warn"],
     ["总闸门", decision.liveGateDecision || "等待实盘前总闸门", decision.tone || "warn"],
     ["为什么", decision.reason || "先加载今日前三因子、信号和模拟盘回执。", decision.tone || "warn"],
+    ["Daily Ops纸面工单", `${zhConsoleText(dailyOpsSummary.beginner_live_handoff_mode || "missing")} / 票据=${formatNumber(dailyOpsTickets.length)}`, dailyOpsTickets.length ? "warn" : "muted"],
     ["操作边界", "这是人工实盘前交接，不会自动下单，也不会连接券商。", "danger"],
     ["当前证据", `因子=${formatNumber(summary.selected_factor_count || 0)} / 信号=${formatNumber(summary.signal_count || 0)} / 灯号=${readiness.traffic_light || "unknown"}`, "muted"],
   ]);
@@ -10081,7 +10084,8 @@ function renderBeginnerLiveHandoff() {
 function beginnerLiveHandoffSteps() {
   const trade = state.dailyTradeAdvisory || {};
   const gateSteps = dailyLiveGateStepRows(trade.daily_live_readiness_gate || {});
-  if (gateSteps.length) return gateSteps;
+  const dailyOpsStep = dailyOpsPaperHandoffStep();
+  if (gateSteps.length) return dailyOpsStep ? [dailyOpsStep, ...gateSteps] : gateSteps;
   const summary = trade.summary || {};
   const readiness = trade.pretrade_readiness || {};
   const freshness = readiness.freshness || {};
@@ -10151,6 +10155,18 @@ function beginnerLiveHandoffSteps() {
   ];
 }
 
+function dailyOpsPaperHandoffStep() {
+  const tickets = dailyOpsPaperTicketRows();
+  if (!tickets.length) return null;
+  return {
+    step: "0. Daily Ops 纸面工单",
+    tone: "warn",
+    detail: `Daily Ops 已有 ${formatNumber(tickets.length)} 张纸面观察工单；只能用于模拟盘/人工复核材料，不是券商订单。`,
+    target: "daily-ops-handoff-ticket-table",
+    button: "看纸面工单",
+  };
+}
+
 function dailyLiveGateStepRows(liveGate = {}) {
   const rows = Array.isArray(liveGate.gate_rows) ? liveGate.gate_rows : [];
   if (!rows.length) return [];
@@ -10183,16 +10199,18 @@ function beginnerLiveHandoffButton(item = {}) {
 
 function beginnerLiveHandoffTickets() {
   const manualReviewGate = dailySameParameterManualReviewGate();
+  const dailyOpsTickets = dailyOpsPaperTicketRows().map((ticket, index) => dailyOpsPaperTicketCard(ticket, index));
   if (!manualReviewGate.allowed && manualReviewGate.required) {
-    return [{
+    return dailyOpsTickets.concat([{
       title: "人工券商票据：同参数模拟盘未完成",
       detail: "Top3 同参数模拟盘还没有全部匹配，软件先遮住人工票据。",
       note: manualReviewGate.reason_code || "same_parameter_paper_required_before_manual_tickets",
       tone: "danger",
-    }];
+    }]);
   }
   const tickets = beginnerLiveTicketRows();
   if (tickets.length === 0) {
+    if (dailyOpsTickets.length) return dailyOpsTickets;
     return [{
       title: "人工券商票据：暂无",
       detail: "没有可复制给人工核对的买卖清单。",
@@ -10212,6 +10230,25 @@ function beginnerLiveHandoffTickets() {
       tone: "warn",
     };
   });
+}
+
+function dailyOpsPaperTicketRows() {
+  const handoff = state.dailyTradeAdvisory?.daily_ops_handoff || {};
+  const summary = handoff.summary || {};
+  const tickets = Array.isArray(handoff.advisory_tickets) ? handoff.advisory_tickets : [];
+  if (summary.beginner_live_handoff_mode !== "paper_observation_only") return [];
+  return tickets.filter((ticket) => ticket && ticket.order_placement_allowed !== true && ticket.auto_order_allowed !== true);
+}
+
+function dailyOpsPaperTicketCard(ticket = {}, index = 0) {
+  const asset = ticket.asset_id || ticket.symbol || "--";
+  const side = ticket.side || "paper";
+  return {
+    title: `Daily Ops 纸面工单 ${index + 1}: ${asset}`,
+    detail: `${side} / 权重=${formatPercent(ticket.target_weight)} / 估算数量=${formatNumber(ticket.estimated_quantity_delta)} / 金额=${formatNumber(ticket.delta_value)}`,
+    note: ticket.manual_instruction || "只能纸面观察；不能把它当券商订单，也不能自动下单。",
+    tone: "warn",
+  };
 }
 
 function beginnerLiveTicketRows() {
@@ -11665,6 +11702,8 @@ const GUI_ZH_REPLACEMENTS = [
   ["paper_ready", "模拟盘就绪"],
   ["paper_ready_ticket_available", "纸面工单可观察"],
   ["paper_ready_without_ticket", "纸面就绪但无工单"],
+  ["paper_observation_only", "仅纸面观察"],
+  ["paper_observation_waiting_for_ticket", "等待纸面工单"],
   ["daily_ops_blocked", "日常运营已阻断"],
   ["daily_ops_missing", "缺少日常运营产物"],
   ["paper_profile_selected", "已选择模拟盘参数"],

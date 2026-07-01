@@ -564,6 +564,8 @@ def _build_daily_ops_handoff(pack: dict[str, Any], daily_ops_pack: str | Path | 
                     "daily_ops_status": "missing",
                     "daily_ops_paper_trading_allowed": False,
                     "daily_ops_ticket_count": 0,
+                    "beginner_live_handoff_mode": "missing",
+                    "beginner_ticket_source": "none",
                     "top3_manual_ticket_count": _safe_int(top3_summary.get("manual_ticket_count")),
                     "top3_candidate_count": _safe_int(top3_summary.get("selected_factor_count")),
                     "signal_date": None,
@@ -597,15 +599,21 @@ def _build_daily_ops_handoff(pack: dict[str, Any], daily_ops_pack: str | Path | 
     live_boundary_allowed = bool(decision.get("live_boundary_allowed", False))
     if paper_allowed and tickets:
         handoff_status = "paper_ready_ticket_available"
+        beginner_live_handoff_mode = "paper_observation_only"
+        beginner_ticket_source = "daily_ops"
         plain_answer = (
             "Daily Ops has a paper-ready advisory ticket. Treat it as paper-observation material only; "
             "the Top3 candidate page may still keep broker tickets locked until same-parameter paper receipts match."
         )
     elif paper_allowed:
         handoff_status = "paper_ready_without_ticket"
+        beginner_live_handoff_mode = "paper_observation_waiting_for_ticket"
+        beginner_ticket_source = "none"
         plain_answer = "Daily Ops is paper-ready but has no advisory ticket; do not trade from the Top3 list directly."
     else:
         handoff_status = "daily_ops_blocked"
+        beginner_live_handoff_mode = "blocked"
+        beginner_ticket_source = "none"
         plain_answer = "Daily Ops is blocked; clear the blocking reasons before paper observation."
 
     return _sanitize(
@@ -619,6 +627,8 @@ def _build_daily_ops_handoff(pack: dict[str, Any], daily_ops_pack: str | Path | 
                 "daily_ops_status": daily_ops_status,
                 "daily_ops_paper_trading_allowed": paper_allowed,
                 "daily_ops_ticket_count": len(tickets),
+                "beginner_live_handoff_mode": beginner_live_handoff_mode,
+                "beginner_ticket_source": beginner_ticket_source,
                 "top3_manual_ticket_count": _safe_int(top3_summary.get("manual_ticket_count")),
                 "top3_candidate_count": _safe_int(top3_summary.get("selected_factor_count")),
                 "top3_signal_count": _safe_int(top3_summary.get("signal_count")),
