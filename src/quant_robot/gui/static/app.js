@@ -3600,9 +3600,9 @@ function beginnerSmallCapitalGateRows(brief = {}) {
   const blockers = Array.isArray(brief.blockers) ? brief.blockers : [];
   const tickets = Array.isArray(brief.manual_ticket_preview) ? brief.manual_ticket_preview : [];
   const specRows = smallCapitalGateSpecRows(brief);
-  const paperReceipts = executionReceiptsForWorkflow("paper_simulation");
+  const paperReceipts = sameParameterPaperEvidenceReceipts();
   const journalReceipts = executionReceiptsForWorkflow("post_close_journal");
-  const latestPaper = paperReceipts[0] || latestExecutionReceipt("paper_simulation");
+  const latestPaper = paperReceipts[0] || null;
   const paperMetrics = latestPaper?.metrics || {};
   const drawdownBudget = Number(risk.max_acceptable_drawdown ?? risk.max_drawdown_limit ?? 0.2);
   const observedDrawdown = Math.abs(Number(paperMetrics.max_drawdown));
@@ -3629,8 +3629,8 @@ function beginnerSmallCapitalGateRows(brief = {}) {
       current: paperReceipts.length,
       required: 5,
       pass: paperReceipts.length >= 5,
-      detail: "至少 5 次模拟盘和复盘回执，避免把单日表现当规律。",
-      target: "paper-metrics",
+      detail: "至少 5 次 Top3 同参数模拟盘和复盘回执，避免把旧参数或单日表现当规律。",
+      target: "daily-same-parameter-paper-requests",
       workflow: "paper_simulation",
     },
     {
@@ -7110,9 +7110,12 @@ function liveProfitabilityRuntimeEvidence(readiness = {}) {
   const backendFlags = backendEvidence.flags || {};
   const paperRequest = dailyEvidencePaperRequest();
   const hasPaperRequest = Object.keys(paperRequest).length > 0;
-  const paperReceipts = executionReceiptsForWorkflow("paper_simulation")
+  const sameParameterReceipts = sameParameterPaperEvidenceReceipts();
+  const hasTop3SameParameterRequests = dailySameParameterPaperRequests().length > 0;
+  const fallbackPaperReceipts = executionReceiptsForWorkflow("paper_simulation")
     .filter((item) => item?.status === "completed")
     .filter((item) => !hasPaperRequest || paperReceiptMatchesRequest(item, paperRequest).matches);
+  const paperReceipts = hasTop3SameParameterRequests ? sameParameterReceipts : fallbackPaperReceipts;
   const postCloseReceipts = executionReceiptsForWorkflow("post_close_journal")
     .filter((item) => item?.status === "completed")
     .filter((item) => item?.metrics?.manual_review_recorded !== false);
@@ -7130,13 +7133,13 @@ function liveProfitabilityRuntimeEvidence(readiness = {}) {
     paper_ready_observations: Math.max(Number(backendCounts.paper_ready_observations || 0), paperReadyObservations),
   };
   return {
-    mode: hasPaperRequest && (paperReceipts.length || postCloseReceipts.length)
+    mode: (hasTop3SameParameterRequests || hasPaperRequest) && (paperReceipts.length || postCloseReceipts.length)
       ? "same_parameter_browser_execution_receipts"
       : paperReceipts.length || postCloseReceipts.length
         ? "browser_execution_receipts"
         : backendEvidence.mode || "empty",
     matched_paper_request: paperRequest,
-    same_parameter_required: hasPaperRequest,
+    same_parameter_required: hasTop3SameParameterRequests || hasPaperRequest,
     counts,
     flags: {
       walk_forward_oos_passed: Boolean(backendFlags.walk_forward_oos_passed),
@@ -9027,6 +9030,14 @@ function dailySameParameterPaperRequests() {
   const rehearsal = state.dailyTradeAdvisory?.daily_same_parameter_paper_rehearsal || {};
   const requests = Array.isArray(rehearsal.recommended_requests) ? rehearsal.recommended_requests : [];
   return requests.filter((item) => item && typeof item === "object");
+}
+
+function sameParameterPaperEvidenceReceipts() {
+  const requests = dailySameParameterPaperRequests();
+  const completion = sameParameterPaperCompletion(requests);
+  return (completion.rows || [])
+    .filter((row) => row.matched && row.receipt)
+    .map((row) => row.receipt);
 }
 
 function dailySameParameterManualReviewGate() {

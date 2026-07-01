@@ -416,6 +416,13 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("dailyEvidencePaperRequest", app_js)
         self.assertIn("same_parameter_browser_execution_receipts", app_js)
         self.assertIn("paperReceiptMatchesRequest(item, paperRequest).matches", app_js)
+        live_profitability_block = app_js.split("function liveProfitabilityRuntimeEvidence", 1)[1].split(
+            "function recentObservationStatsFromReceipts",
+            1,
+        )[0]
+        self.assertIn("const sameParameterReceipts = sameParameterPaperEvidenceReceipts();", live_profitability_block)
+        self.assertIn("const hasTop3SameParameterRequests = dailySameParameterPaperRequests().length > 0;", live_profitability_block)
+        self.assertIn("hasTop3SameParameterRequests ? sameParameterReceipts", live_profitability_block)
         self.assertIn('params.set("evidence_snapshot"', app_js)
         self.assertIn("recent_observation_status", app_js)
         self.assertIn("recent_observation_degradation_required", app_js)
@@ -4090,6 +4097,11 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("smallCapitalGateSpecRows", app_js)
             self.assertIn("paper_simulation_receipts", app_js)
             self.assertIn("latest_paper_drawdown", app_js)
+            self.assertIn("sameParameterPaperEvidenceReceipts", app_js)
+            small_capital_gate_block = app_js.split("function beginnerSmallCapitalGateRows", 1)[1].split("function smallCapitalGateSpecRows", 1)[0]
+            self.assertIn("const paperReceipts = sameParameterPaperEvidenceReceipts();", small_capital_gate_block)
+            self.assertNotIn('executionReceiptsForWorkflow("paper_simulation")', small_capital_gate_block)
+            self.assertNotIn('latestExecutionReceipt("paper_simulation")', small_capital_gate_block)
             self.assertIn("smallCapitalObservationDecisionRow", app_js)
             self.assertIn("今天能不能小资金观察", app_js)
             self.assertIn("还不能小资金观察", app_js)
