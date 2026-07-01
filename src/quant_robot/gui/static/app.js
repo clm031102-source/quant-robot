@@ -2079,7 +2079,8 @@ async function runDailyPretradeCheckup(button = null) {
 async function runPostCloseJournal(button = null) {
   const trade = state.dailyTradeAdvisory || {};
   const template = trade.post_close_journal_template || {};
-  const paper = latestExecutionReceipt("paper_simulation");
+  const paperStatus = dailySameParameterPaperStatus();
+  const paper = paperStatus.receipt || null;
   const manualReview = postCloseManualReviewForm();
   const confirmed = await confirmSafeWorkflow({
     workflow_id: "post_close_journal",
@@ -2089,7 +2090,7 @@ async function runPostCloseJournal(button = null) {
       market: trade.market || template.summary?.primary_market || "CN_ETF",
       run_date: trade.run_date || template.run_date || "",
       signal_count: trade.summary?.signal_count || 0,
-      paper_receipt_present: Boolean(paper),
+      paper_receipt_present: paperStatus.ready,
       manual_outcome: manualReview.manual_outcome,
       manual_note_count: manualReview.manual_note_count,
       manual_execution_review_count: manualReview.manual_execution_review_count,
@@ -2108,7 +2109,7 @@ async function runPostCloseJournal(button = null) {
       workflow_id: "post_close_journal",
       label: "收盘后复盘回执",
       status: "completed",
-      detail: `${trade.run_date || template.run_date || "--"} / paper=${paper ? "yes" : "no"} / outcome=${manualReview.manual_outcome}`,
+      detail: `${trade.run_date || template.run_date || "--"} / top3_same_parameter_paper=${paperStatus.ready ? "yes" : "no"} / outcome=${manualReview.manual_outcome}`,
     });
     appendExecutionReceipt(postCloseJournalReceipt({
       trade,
@@ -3085,21 +3086,21 @@ function renderBeginnerTradeSystem() {
   const systemDecision = tradeSystem.go_live_decision || {};
   const readiness = trade.pretrade_readiness || {};
   const summary = trade.summary || {};
-  const paperReceipt = latestExecutionReceipt("paper_simulation");
+  const paperStatus = dailySameParameterPaperStatus();
   summaryTarget.innerHTML = statusRows([
     ["最终结论", decision.title || "等待今日体检", decision.tone || "warn"],
     ["原因", decision.reason || "先运行开盘前一键体检，再看是否进入人工复核。", decision.tone || "warn"],
     ["交易边界", systemDecision.status || "manual_review_only", "danger"],
     ["主线市场", tradeSystem.primary_market || "CN_ETF", "ok"],
   ]);
-  evidenceTarget.innerHTML = beginnerTradeSystemEvidenceRows(trade, paperReceipt).map((item) => `
+  evidenceTarget.innerHTML = beginnerTradeSystemEvidenceRows(trade, paperStatus).map((item) => `
     <div class="list-row ${escapeHtml(item.tone)}">
       <strong>${escapeHtml(item.label)}</strong>
       <span>${escapeHtml(item.value)}</span>
       <span>${escapeHtml(item.detail)}</span>
     </div>
   `).join("");
-  actionsTarget.innerHTML = beginnerTradeSystemActionRows(decision, readiness, summary, paperReceipt).map((item) => `
+  actionsTarget.innerHTML = beginnerTradeSystemActionRows(decision, readiness, summary, paperStatus).map((item) => `
     <div class="list-row ${escapeHtml(item.tone)}">
       <strong>${escapeHtml(item.label)}</strong>
       <span>${escapeHtml(item.detail)}</span>
@@ -3334,7 +3335,7 @@ function dailyCommandRailRows() {
   const signalCount = Number(summary.signal_count || 0);
   const targetCount = Number(summary.combined_target_count ?? trade.combined_target_count ?? 0);
   const pretradeReceipt = latestExecutionReceipt("daily_pretrade_checkup");
-  const paperReceipt = latestExecutionReceipt("paper_simulation");
+  const paperStatus = dailySameParameterPaperStatus();
   const journalReceipt = latestExecutionReceipt("post_close_journal");
   const signalFreshText = freshness.latest_signal_date
     ? `运行日=${freshness.run_date || trade.run_date || "--"} / 最新信号=${freshness.latest_signal_date}`
@@ -3362,13 +3363,13 @@ function dailyCommandRailRows() {
     },
     {
       title: "模拟盘复核",
-      value: paperReceipt ? `收益=${formatPercent(paperReceipt.metrics?.total_return)} / 回撤=${formatPercent(paperReceipt.metrics?.max_drawdown)}` : "还没有模拟盘回执",
-      detail: "真实买卖前先看同一套参数的收益、回撤、胜率、成交和保护事件。",
-      workflow: signalCount > 0 && !paperReceipt ? "paper_simulation" : "",
+      value: paperStatus.value,
+      detail: paperStatus.detail,
+      workflow: signalCount > 0 && !paperStatus.ready ? paperStatus.workflow || "paper_simulation" : "",
       button: "跑模拟盘",
-      target: "paper-metrics",
+      target: paperStatus.target || "daily-same-parameter-paper-requests",
       targetLabel: "看模拟盘",
-      tone: paperReceipt ? "ok" : signalCount > 0 ? "warn" : "danger",
+      tone: paperStatus.ready ? "ok" : signalCount > 0 ? paperStatus.tone || "warn" : "danger",
     },
     {
       title: "人工票据核对",
@@ -3503,12 +3504,12 @@ function beginnerLivePilotEvidenceRows(brief = {}) {
   const blockers = Array.isArray(brief.blockers) ? brief.blockers : [];
   const tickets = Array.isArray(brief.manual_ticket_preview) ? brief.manual_ticket_preview : [];
   const pretradeReceipt = latestExecutionReceipt("daily_pretrade_checkup");
-  const paperReceipt = latestExecutionReceipt("paper_simulation");
+  const paperStatus = dailySameParameterPaperStatus();
   const journalReceipt = latestExecutionReceipt("post_close_journal");
   const missing = [];
   if (blockers.length) missing.push(`盘前红灯阻断=${blockers.join("/")}`);
   if (!pretradeReceipt) missing.push("缺开盘前体检回执");
-  if (!paperReceipt) missing.push("缺模拟盘回执");
+  if (!paperStatus.ready) missing.push("缺 Top3 同参数模拟盘回执");
   if (!journalReceipt) missing.push("缺盘后复盘回执");
   if (!tickets.length) missing.push("缺人工票据");
   missing.push("小资金观察闸门仍未打开");
@@ -3517,9 +3518,9 @@ function beginnerLivePilotEvidenceRows(brief = {}) {
   if (!pretradeReceipt) {
     workflow = "daily_pretrade_checkup";
     target = "beginner-trade-system-board";
-  } else if (!paperReceipt) {
+  } else if (!paperStatus.ready) {
     workflow = "paper_simulation";
-    target = "paper-metrics";
+    target = paperStatus.target || "daily-same-parameter-paper-requests";
   } else if (!journalReceipt) {
     workflow = "post_close_journal";
     target = "beginner-post-close-journal-board";
@@ -3528,7 +3529,7 @@ function beginnerLivePilotEvidenceRows(brief = {}) {
   } else {
     target = "control-operation-ledger";
   }
-  const receiptTone = pretradeReceipt && paperReceipt && journalReceipt ? "ok" : "warn";
+  const receiptTone = pretradeReceipt && paperStatus.ready && journalReceipt ? "ok" : "warn";
   return [
     {
       label: "离实盘还差什么",
@@ -3542,8 +3543,8 @@ function beginnerLivePilotEvidenceRows(brief = {}) {
     },
     {
       label: "本机回执",
-      value: `体检=${pretradeReceipt ? "有" : "无"} / 模拟盘=${paperReceipt ? "有" : "无"} / 复盘=${journalReceipt ? "有" : "无"}`,
-      detail: "这些回执只证明本机流程跑过，不证明真实账户已经可交易。",
+      value: `体检=${pretradeReceipt ? "有" : "无"} / Top3同参模拟=${paperStatus.ready ? "有" : "无"} / 复盘=${journalReceipt ? "有" : "无"}`,
+      detail: paperStatus.ready ? "这些回执只证明本机流程跑过，不证明真实账户已经可交易。" : paperStatus.detail,
       target: "control-execution-receipts",
       targetLabel: "看回执",
       tone: receiptTone,
@@ -3761,7 +3762,7 @@ function smallCapitalGateFromSpec(row = {}, context = {}) {
   };
 }
 
-function beginnerTradeSystemEvidenceRows(trade = {}, paperReceipt = null) {
+function beginnerTradeSystemEvidenceRows(trade = {}, paperStatus = dailySameParameterPaperStatus()) {
   const summary = trade.summary || {};
   const readiness = trade.pretrade_readiness || {};
   const freshness = readiness.freshness || {};
@@ -3785,9 +3786,9 @@ function beginnerTradeSystemEvidenceRows(trade = {}, paperReceipt = null) {
     },
     {
       label: "模拟盘回执",
-      value: paperReceipt ? "已有" : "缺失",
-      detail: paperReceipt ? `最近回执=${paperReceipt.time || "--"}` : "还不能把单日信号当成可操作结论。",
-      tone: paperReceipt ? "ok" : "warn",
+      value: paperStatus.value || (paperStatus.ready ? "已有" : "缺失"),
+      detail: paperStatus.detail || "还不能把单日信号当成可操作结论。",
+      tone: paperStatus.ready ? "ok" : "warn",
     },
     {
       label: "人工票据",
@@ -3798,7 +3799,7 @@ function beginnerTradeSystemEvidenceRows(trade = {}, paperReceipt = null) {
   ];
 }
 
-function beginnerTradeSystemActionRows(decision = {}, readiness = {}, summary = {}, paperReceipt = null) {
+function beginnerTradeSystemActionRows(decision = {}, readiness = {}, summary = {}, paperStatus = dailySameParameterPaperStatus()) {
   const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
   const rows = [
     {
@@ -3811,12 +3812,12 @@ function beginnerTradeSystemActionRows(decision = {}, readiness = {}, summary = 
       tone: decision.tone || "warn",
     },
   ];
-  if (!paperReceipt && Number(summary.signal_count || 0) > 0 && blockers.length === 0) {
+  if (!paperStatus.ready && Number(summary.signal_count || 0) > 0 && blockers.length === 0) {
     rows.push({
       label: "缺口",
-      detail: "有信号但没有模拟盘回执，先跑本地模拟盘复核收益、回撤和成交。",
-      workflow: "paper_simulation",
-      target: "paper-metrics",
+      detail: paperStatus.detail || "有信号但没有 Top3 同参数模拟盘回执，先跑本地模拟盘复核收益、回撤和成交。",
+      workflow: paperStatus.workflow || "paper_simulation",
+      target: paperStatus.target || "daily-same-parameter-paper-requests",
       button: "跑模拟盘",
       target_label: "看模拟盘",
       tone: "warn",
@@ -3915,7 +3916,7 @@ function beginnerDailyRehearsalRows(daybook = {}) {
   ];
   const phases = Array.isArray(daybook.phases) && daybook.phases.length ? daybook.phases : fallbackPhases;
   const summary = daybook.summary || {};
-  const paperReceipt = latestExecutionReceipt("paper_simulation");
+  const paperStatus = dailySameParameterPaperStatus();
   const dailyReceipt = latestExecutionReceipt("daily_trade_advisory");
   const readiness = trade.pretrade_readiness || {};
   const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
@@ -3927,9 +3928,9 @@ function beginnerDailyRehearsalRows(daybook = {}) {
     if (phaseId === "top3_signal_generation" && dailyReceipt) {
       detail = `${detail} / 今日建议回执=${dailyReceipt.time || "--"}`;
     }
-    if (phaseId === "paper_simulation_review" && paperReceipt) {
+    if (phaseId === "paper_simulation_review" && paperStatus.ready) {
       status = "done";
-      detail = `模拟盘回执=${paperReceipt.time || "--"} / 收益=${formatPercent(paperReceipt.metrics?.total_return)} / 回撤=${formatPercent(paperReceipt.metrics?.max_drawdown)}`;
+      detail = paperStatus.detail;
     }
     if (phaseId === "manual_broker_review" && blockers.length > 0) {
       status = "blocked";
@@ -4015,13 +4016,14 @@ function renderBeginnerPostCloseJournal() {
   const trade = state.dailyTradeAdvisory || {};
   const template = trade.post_close_journal_template || {};
   const summary = template.summary || {};
-  const paperReceipt = latestExecutionReceipt("paper_simulation");
+  const paperStatus = dailySameParameterPaperStatus();
+  const paperReceipt = paperStatus.receipt || null;
   const journalReceipt = latestExecutionReceipt("post_close_journal");
   const rows = beginnerPostCloseJournalRows(template);
   summaryTarget.innerHTML = statusRows([
     ["复盘状态", journalReceipt ? "已有本地复盘回执" : "等待收盘后复盘", journalReceipt ? "ok" : "warn"],
     ["运行日期", template.run_date || trade.run_date || "--", "muted"],
-    ["模拟盘回执", paperReceipt ? `已有 ${paperReceipt.time || "--"}` : "缺失", paperReceipt ? "ok" : "warn"],
+    ["模拟盘回执", paperStatus.ready ? `Top3 同参数已匹配 ${paperReceipt?.time || "--"}` : paperStatus.value, paperStatus.ready ? "ok" : "warn"],
     ["安全边界", summary.order_placement_allowed ? "异常：允许下单" : "不自动下单", summary.order_placement_allowed ? "danger" : "danger"],
   ]);
   renderPostCloseManualFormStatus(journalReceipt);
@@ -4033,7 +4035,7 @@ function renderBeginnerPostCloseJournal() {
       <span>${escapeHtml(item.evidence)}</span>
     </div>
   `).join("");
-  actionsTarget.innerHTML = beginnerPostCloseJournalActionRows(template, journalReceipt, paperReceipt).map((item) => `
+  actionsTarget.innerHTML = beginnerPostCloseJournalActionRows(template, journalReceipt, paperStatus).map((item) => `
     <div class="list-row ${escapeHtml(item.tone)}">
       <strong>${escapeHtml(item.label)}</strong>
       <span>${escapeHtml(item.detail)}</span>
@@ -4551,13 +4553,13 @@ function beginnerPostCloseJournalRows(template = {}) {
     },
   ];
   const items = Array.isArray(template.items) && template.items.length ? template.items : fallbackItems;
-  const paperReceipt = latestExecutionReceipt("paper_simulation");
+  const paperStatus = dailySameParameterPaperStatus();
   return items.map((item) => {
     let status = item.status || "required";
     let evidence = item.evidence || "";
-    if (item.item_id === "paper_simulation" && paperReceipt) {
+    if (item.item_id === "paper_simulation" && paperStatus.ready) {
       status = "done";
-      evidence = `模拟盘=${paperReceipt.time || "--"} / 收益=${formatPercent(paperReceipt.metrics?.total_return)} / 回撤=${formatPercent(paperReceipt.metrics?.max_drawdown)}`;
+      evidence = paperStatus.detail;
     }
     return {
       itemId: item.item_id || "",
@@ -4571,7 +4573,7 @@ function beginnerPostCloseJournalRows(template = {}) {
   });
 }
 
-function beginnerPostCloseJournalActionRows(template = {}, journalReceipt = null, paperReceipt = null) {
+function beginnerPostCloseJournalActionRows(template = {}, journalReceipt = null, paperStatus = dailySameParameterPaperStatus()) {
   return [
     {
       label: "生成复盘回执",
@@ -4586,12 +4588,12 @@ function beginnerPostCloseJournalActionRows(template = {}, journalReceipt = null
     },
     {
       label: "模拟盘证据",
-      detail: paperReceipt ? "已有模拟盘证据，可以写入复盘。" : "还缺模拟盘回执，先跑本地模拟盘。",
-      workflow: paperReceipt ? "" : "paper_simulation",
-      target: "paper-metrics",
+      detail: paperStatus.ready ? "已有 Top3 同参数模拟盘证据，可以写入复盘。" : paperStatus.detail,
+      workflow: paperStatus.ready ? "" : paperStatus.workflow || "paper_simulation",
+      target: paperStatus.target || "daily-same-parameter-paper-requests",
       button: "运行模拟盘",
       targetLabel: "看模拟盘",
-      tone: paperReceipt ? "ok" : "warn",
+      tone: paperStatus.ready ? "ok" : "warn",
     },
     {
       label: "安全提醒",
@@ -6626,8 +6628,6 @@ function renderDailyTradeDecisionSheet(sheet = {}) {
   const tone = decision.includes("blocked") ? "danger" : decision === "paper_first_manual_review" ? "warn" : "warn";
   const runtime = dailyTradeDecisionRuntimeState(sheet);
   const runtimeNext = dailyTradeDecisionNextAction(runtime, next, decision);
-  const paperReceipt = latestExecutionReceipt("paper_simulation");
-  const journalReceiptCount = executionReceiptsForWorkflow("post_close_journal").length;
   summaryTarget.innerHTML = statusRows([
     ["证据进度", `已补=${formatNumber(runtime.completedEvidenceCount)} / 还缺=${formatNumber(runtime.missingEvidenceCount)} / 下一步=${runtimeNext.button_label || "--"}`, runtime.missingEvidenceCount ? "warn" : "ok"],
     ["今日结论", zhConsoleText(decision), tone],
@@ -9051,6 +9051,44 @@ function dailySameParameterManualReviewGate() {
   };
 }
 
+function dailySameParameterPaperStatus() {
+  const requests = dailySameParameterPaperRequests();
+  const completion = sameParameterPaperCompletion(requests);
+  const required = requests.length > 0;
+  const ready = required && Boolean(completion.all_top3_same_parameter_paper_ready);
+  const matched = Number(completion.matched_request_count || 0);
+  const total = Number(completion.request_count || 0);
+  const missingIds = completion.missing_same_parameter_paper_request_ids || [];
+  const matchedRow = (completion.rows || []).find((row) => row.matched && row.receipt);
+  const receipt = matchedRow?.receipt || null;
+  const metrics = receipt?.metrics || {};
+  const missingText = missingIds.length ? missingIds.join(" / ") : "--";
+  return {
+    required,
+    ready,
+    status: ready
+      ? "matched"
+      : required ? "missing_same_parameter_top3_paper" : "waiting_for_daily_top3_paper_requests",
+    tone: ready ? "ok" : "warn",
+    label: ready
+      ? "Top3 同参数模拟盘已完成"
+      : required ? "Top3 同参数模拟盘未完成" : "等待今日 Top3 同参数模拟盘请求",
+    value: required
+      ? `Top3同参数=${formatNumber(matched)} / ${formatNumber(total)}`
+      : "尚未生成同参数请求",
+    detail: ready
+      ? `已匹配=${formatNumber(matched)}/${formatNumber(total)} / 最近收益=${formatPercent(metrics.total_return)} / 回撤=${formatPercent(metrics.max_drawdown)}`
+      : required
+        ? `缺失=${missingText}；旧 paper 回执不能替代今日 Top3 同参数模拟盘。`
+        : "先生成今日前三建议，再运行同参数模拟盘。",
+    workflow: ready ? "" : required ? "paper_simulation" : "daily_trade_advisory",
+    target: required ? "daily-same-parameter-paper-requests" : "daily-trade-factor-table",
+    receipt,
+    metrics,
+    completion,
+  };
+}
+
 function renderSameParameterManualReviewBlocker(gate = {}) {
   const completion = gate.completion || {};
   return statusRows([
@@ -9290,14 +9328,14 @@ function renderDailyRealWorldHandoffGate(gate = {}) {
   const targetButton = summary.next_target_id ? `
     <button class="${escapeHtml(workflowButton ? "secondary-button" : "primary-button")}" type="button" data-beginner-target="${escapeRawHtml(summary.next_target_id)}">${escapeHtml(workflowButton ? "看证据" : summary.next_label || "看下一步")}</button>
   ` : "";
-  const paperReceipt = latestExecutionReceipt("paper_simulation");
+  const paperStatus = dailySameParameterPaperStatus();
   summaryTarget.innerHTML = statusRows([
     ["今日结论", summary.plain_answer || zhConsoleText(decision), tone],
     ["下一步", summary.next_label || "等待今日交易系统加载", tone],
     ["前三因子规则", `${contract.selection_scope || "CN_ETF"} / Top${formatNumber(contract.candidate_limit || summary.daily_top_factor_limit || 3)} / 直买=${summary.direct_buy_from_top3_allowed ? "允许" : "禁止"}`, summary.direct_buy_from_top3_allowed ? "danger" : "ok"],
     ["今日证据", `信号=${formatNumber(summary.today_signal_count || 0)} / 目标=${formatNumber(summary.target_count || 0)} / 票据=${formatNumber(summary.manual_ticket_count || 0)} / 阻断=${formatNumber(summary.blocker_count || 0)}`, summary.blocker_count ? "danger" : "warn"],
     ["风险预算", `${risk.risk_profile_label || risk.risk_profile_id || "--"} / 总仓位=${formatPercent(risk.max_gross_exposure)} / 单ETF=${formatPercent(risk.max_single_etf_weight)} / 回撤预算=${formatPercent(risk.max_acceptable_drawdown)}`, "warn"],
-    ["本机模拟盘回执", paperReceipt ? `${paperReceipt.time || "--"} / 收益=${formatPercent(paperReceipt.metrics?.total_return)} / 回撤=${formatPercent(paperReceipt.metrics?.max_drawdown)}` : "还没有同参数模拟盘回执", paperReceipt ? "ok" : "warn"],
+    ["本机模拟盘回执", paperStatus.ready ? paperStatus.detail : paperStatus.value, paperStatus.ready ? "ok" : "warn"],
     ["实盘权限", summary.order_placement_allowed || summary.broker_connection_allowed ? "异常：权限越界" : "不连接券商、不读账户、不自动下单", summary.order_placement_allowed || summary.broker_connection_allowed ? "danger" : "ok"],
   ]) + `
     <div class="list-row ${escapeHtml(tone)}">
@@ -9665,14 +9703,15 @@ function dailyTradeSystemStageTone(status = "") {
 }
 
 function dailyTradeDecisionRuntimeState(sheet = {}) {
-  const paperReceipt = latestExecutionReceipt("paper_simulation");
+  const paperStatus = dailySameParameterPaperStatus();
+  const paperReceipt = paperStatus.receipt || null;
   const journalReceipt = latestExecutionReceipt("post_close_journal");
   const evidenceRows = (Array.isArray(sheet.missing_evidence) ? sheet.missing_evidence : []).map((item) => {
     let runtimeStatus = item.status || "missing";
     let runtimeEvidence = "";
-    if (item.check_id === "paper_simulation_receipt" && paperReceipt) {
+    if (item.check_id === "paper_simulation_receipt" && paperStatus.ready) {
       runtimeStatus = "local_receipt_seen";
-      runtimeEvidence = `${paperReceipt.time || "--"} / 收益=${formatPercent(paperReceipt.metrics?.total_return)} / 回撤=${formatPercent(paperReceipt.metrics?.max_drawdown)}`;
+      runtimeEvidence = paperStatus.detail;
     }
     if (item.check_id === "post_close_journal_plan" && journalReceipt) {
       runtimeStatus = "local_receipt_seen";
@@ -9689,6 +9728,7 @@ function dailyTradeDecisionRuntimeState(sheet = {}) {
   const missingEvidenceCount = evidenceRows.length - completedEvidenceCount;
   return {
     paperReceipt,
+    paperStatus,
     journalReceipt,
     evidenceRows,
     completedEvidenceCount,
@@ -9886,13 +9926,12 @@ function dailyReadinessDecision() {
       ? trade.pretrade_workflow.operator_next_actions
       : [];
   const firstAction = actions[0] || {};
-  const paperReceipt = latestExecutionReceipt("paper_simulation");
+  const paperStatus = dailySameParameterPaperStatus();
   const dailyReceipt = latestExecutionReceipt("daily_trade_advisory");
-  const manualReviewGate = dailySameParameterManualReviewGate();
   const selectedCount = Number(summary.selected_factor_count || 0);
   const signalCount = Number(summary.signal_count || 0);
   const signalFresh = freshness.fresh_for_run_date === true;
-  const evidence = `因子=${formatNumber(selectedCount)} / 信号=${formatNumber(signalCount)} / 票据=${formatNumber(tickets.length)} / 模拟盘回执=${paperReceipt ? "有" : "无"}`;
+  const evidence = `因子=${formatNumber(selectedCount)} / 信号=${formatNumber(signalCount)} / 票据=${formatNumber(tickets.length)} / Top3同参模拟=${paperStatus.ready ? "有" : "无"}`;
   if (!signalFresh || blockers.includes("stale_signal_date")) {
     return {
       tone: "danger",
@@ -9920,17 +9959,17 @@ function dailyReadinessDecision() {
       action_workflow: "paper_simulation",
     };
   }
-  if (!paperReceipt) {
+  if (!paperStatus.ready) {
     return {
       tone: "warn",
       title: "黄灯：先跑模拟盘复核",
-      reason: dailyReceipt ? `已有今日建议回执：${dailyReceipt.time || "--"}` : "已有信号，但还缺少本地模拟盘回执。",
+      reason: dailyReceipt ? `已有今日建议回执：${dailyReceipt.time || "--"}；${paperStatus.detail}` : paperStatus.detail,
       evidence,
       primary_action: "运行模拟盘复核",
-      detail: "先看收益、回撤、保护事件和成交笔数，再决定是否进入人工复核。",
+      detail: "先看今日 Top3 同参数的收益、回撤、保护事件和成交笔数，再决定是否进入人工复核。",
       cta_label: "去跑模拟盘",
-      target_id: "paper-metrics",
-      action_workflow: "paper_simulation",
+      target_id: paperStatus.target || "daily-same-parameter-paper-requests",
+      action_workflow: paperStatus.workflow || "paper_simulation",
     };
   }
   if (tickets.length > 0 && (readiness.traffic_light || "") === "yellow" && blockers.length === 0) {
@@ -10004,7 +10043,7 @@ function beginnerLiveHandoffSteps() {
   const selectedCount = Number(summary.selected_factor_count || 0);
   const signalCount = Number(summary.signal_count || 0);
   const signalFresh = freshness.fresh_for_run_date === true;
-  const paperReceipt = latestExecutionReceipt("paper_simulation");
+  const paperStatus = dailySameParameterPaperStatus();
   const dailyReceipt = latestExecutionReceipt("daily_trade_advisory");
   const ticketReady = tickets.length > 0 && blockers.length === 0;
   const decision = dailyReadinessDecision();
@@ -10037,13 +10076,11 @@ function beginnerLiveHandoffSteps() {
     },
     {
       step: "3. 跑本地模拟盘复核",
-      tone: paperReceipt ? "ok" : "warn",
-      detail: paperReceipt
-        ? `最近模拟盘回执=${paperReceipt.time || "--"}。`
-        : "还没有模拟盘回执，不能把单日信号当成可操作结论。",
-      workflow: paperReceipt ? "" : "paper_simulation",
-      target: "paper-metrics",
-      button: paperReceipt ? "看模拟盘指标" : "运行模拟盘",
+      tone: paperStatus.ready ? "ok" : "warn",
+      detail: paperStatus.detail,
+      workflow: paperStatus.ready ? "" : paperStatus.workflow || "paper_simulation",
+      target: paperStatus.target || "daily-same-parameter-paper-requests",
+      button: paperStatus.ready ? "看模拟盘指标" : "运行模拟盘",
     },
     {
       step: "4. 生成人工券商票据",
@@ -10162,7 +10199,7 @@ function renderDailyEvidenceChain() {
   const recentDecision = recent.decision || {};
   const recentCoverage = recent.coverage || {};
   const targetWindow = recent.target_window || {};
-  const paperReceipt = latestExecutionReceipt("paper_simulation");
+  const paperStatus = dailySameParameterPaperStatus();
   const dailyReceipt = latestExecutionReceipt("daily_trade_advisory");
   const selectedCount = Number(summary.selected_factor_count || 0);
   const signalCount = Number(summary.signal_count || 0);
@@ -10184,12 +10221,12 @@ function renderDailyEvidenceChain() {
     },
     {
       step: "模拟盘复核",
-      status: paperReceipt ? "ok" : "warn",
-      detail: paperReceipt
-        ? `最近回执=${paperReceipt.time || "--"} / 收益=${formatPercent(paperReceipt.metrics?.total_return)} / 回撤=${formatPercent(paperReceipt.metrics?.max_drawdown)}`
-        : "暂无本地模拟盘回执；单日信号不能直接当作可实盘盈利。",
-      action: "下单前先跑本地模拟盘，看费用、回撤、保护事件和成交笔数。",
-      target_id: "paper-metrics",
+      status: paperStatus.ready ? "ok" : "warn",
+      detail: paperStatus.detail,
+      action: paperStatus.ready
+        ? "Top3 同参数模拟盘已匹配；仍需人工核对费用、回撤、保护事件和成交笔数。"
+        : "下单前先跑今日 Top3 同参数模拟盘；旧 paper 回执不能替代。",
+      target_id: paperStatus.target || "daily-same-parameter-paper-requests",
     },
     {
       step: "人工券商复核",
