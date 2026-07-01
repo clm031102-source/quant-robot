@@ -205,8 +205,134 @@ def build_server_capital_observation_gate(daily_closure_ledger: dict[str, Any]) 
             "auto_order_allowed": False,
         },
         "rows": gate_rows,
+        "evidence_scorecard": _capital_observation_evidence_scorecard(
+            closed=closed,
+            clean=clean,
+            blocked=blocked,
+            matched_paper=matched_paper,
+        ),
         "recent_closure_rows": rows[:5] if isinstance(rows, list) else [],
         "safety": _safety(),
+    }
+
+
+def _capital_observation_evidence_scorecard(
+    *,
+    closed: int,
+    clean: int,
+    blocked: int,
+    matched_paper: int,
+) -> dict[str, Any]:
+    score_rows = [
+        _capital_evidence_row(
+            gate_id="server_closed_loop_days",
+            label="Server closed-loop days",
+            status="pass" if closed >= 5 else "blocked",
+            current_value=closed,
+            required_value=5,
+            comparator=">=",
+            plain_requirement="Collect at least five server-side closure days with Top3 advisory, same-parameter paper evidence, and post-close journal.",
+            target_id="control-daily-closure-ledger",
+            workflow_id="daily_trade_advisory" if closed < 5 else "",
+        ),
+        _capital_evidence_row(
+            gate_id="same_parameter_paper_days",
+            label="Same-parameter paper days",
+            status="pass" if matched_paper >= 5 else "blocked",
+            current_value=matched_paper,
+            required_value=5,
+            comparator=">=",
+            plain_requirement="Collect at least five paper receipts whose parameters match the daily Top3 advisory request.",
+            target_id="paper-metrics",
+            workflow_id="paper_simulation" if matched_paper < 5 else "",
+        ),
+        _capital_evidence_row(
+            gate_id="clean_manual_execution_days",
+            label="Clean manual execution days",
+            status="pass" if clean >= 5 else "blocked",
+            current_value=clean,
+            required_value=5,
+            comparator=">=",
+            plain_requirement="Collect at least five post-close manual execution audits with no missing review or breach.",
+            target_id="control-daily-closure-ledger",
+            workflow_id="post_close_journal" if clean < 5 else "",
+        ),
+        _capital_evidence_row(
+            gate_id="blocked_manual_execution_days",
+            label="Blocked manual execution days",
+            status="pass" if blocked == 0 else "blocked",
+            current_value=blocked,
+            required_value=0,
+            comparator="=",
+            plain_requirement="Chasing, overslippage, quantity mismatch, and missing execution review must stay at zero.",
+            target_id="beginner-post-close-journal-board",
+            workflow_id="post_close_journal" if blocked else "",
+        ),
+        _capital_evidence_row(
+            gate_id="research_only_live_boundary",
+            label="Research-only live boundary",
+            status="pass",
+            current_value=0,
+            required_value=0,
+            comparator="=",
+            plain_requirement="The software does not connect to brokers, read accounts, place orders, or run automated live trading.",
+            target_id="control-safety-boundary",
+            workflow_id="",
+        ),
+    ]
+    passed = sum(1 for row in score_rows if row.get("status") == "pass")
+    next_missing = next((str(row.get("gate_id") or "") for row in score_rows if row.get("status") != "pass"), "")
+    ready = passed == len(score_rows)
+    return {
+        "stage": "gui_small_capital_observation_evidence_scorecard",
+        "summary": {
+            "status": "ready_for_manual_small_capital_packet" if ready else "blocked_need_more_evidence",
+            "passed_gate_count": passed,
+            "required_gate_count": len(score_rows),
+            "readiness_score_pct": int(round(passed / max(len(score_rows), 1) * 100)),
+            "next_missing_gate_id": next_missing,
+            "manual_observation_material_ready": ready,
+            "paper_only": True,
+            "real_money_allowed": False,
+            "live_trading_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        },
+        "rows": score_rows,
+        "safety": _safety(),
+    }
+
+
+def _capital_evidence_row(
+    *,
+    gate_id: str,
+    label: str,
+    status: str,
+    current_value: int,
+    required_value: int,
+    comparator: str,
+    plain_requirement: str,
+    target_id: str,
+    workflow_id: str,
+) -> dict[str, Any]:
+    return {
+        "gate_id": gate_id,
+        "label": label,
+        "status": status,
+        "current_value": current_value,
+        "required_value": required_value,
+        "comparator": comparator,
+        "plain_requirement": plain_requirement,
+        "target_id": target_id,
+        "workflow_id": workflow_id,
+        "paper_only": True,
+        "live_trading_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
     }
 
 

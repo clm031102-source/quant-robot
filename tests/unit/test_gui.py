@@ -2115,6 +2115,17 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertFalse(gate["summary"]["account_read_allowed"])
         self.assertIn("server_closure_streak", {row["gate_id"] for row in gate["rows"]})
         self.assertIn("live_boundary", {row["gate_id"] for row in gate["rows"]})
+        scorecard = gate["evidence_scorecard"]
+        score_rows = {row["gate_id"]: row for row in scorecard["rows"]}
+        self.assertEqual(scorecard["stage"], "gui_small_capital_observation_evidence_scorecard")
+        self.assertEqual(scorecard["summary"]["status"], "ready_for_manual_small_capital_packet")
+        self.assertEqual(scorecard["summary"]["readiness_score_pct"], 100)
+        self.assertEqual(scorecard["summary"]["next_missing_gate_id"], "")
+        self.assertTrue(scorecard["summary"]["manual_observation_material_ready"])
+        self.assertFalse(scorecard["summary"]["order_placement_allowed"])
+        self.assertEqual(score_rows["server_closed_loop_days"]["current_value"], 5)
+        self.assertEqual(score_rows["same_parameter_paper_days"]["status"], "pass")
+        self.assertEqual(score_rows["blocked_manual_execution_days"]["required_value"], 0)
 
     def test_legacy_unverified_paper_receipts_do_not_unlock_small_capital_gate(self):
         from quant_robot.gui.control_center import build_control_center_snapshot
@@ -2169,6 +2180,11 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertFalse(gate["summary"]["manual_small_capital_observation_candidate"])
         self.assertEqual(gate["summary"]["matched_paper_days"], 0)
         self.assertIn("same_parameter_paper_evidence", {row["gate_id"] for row in gate["rows"]})
+        scorecard = gate["evidence_scorecard"]
+        self.assertEqual(scorecard["summary"]["status"], "blocked_need_more_evidence")
+        self.assertEqual(scorecard["summary"]["next_missing_gate_id"], "same_parameter_paper_days")
+        self.assertEqual(scorecard["summary"]["readiness_score_pct"], 80)
+        self.assertFalse(scorecard["summary"]["manual_observation_material_ready"])
 
     def test_ledger_evidence_distinguishes_current_from_stale_server_receipts(self):
         from quant_robot.gui.control_center import build_control_center_snapshot
@@ -3542,6 +3558,12 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("盈利证据", app_js)
             self.assertIn("profitability_readiness_score_pct", app_js)
             self.assertIn("small_capital_observation_candidate", app_js)
+            self.assertIn("evidence_scorecard", app_js)
+            self.assertIn("readiness_score_pct", app_js)
+            self.assertIn("next_missing_gate_id", app_js)
+            self.assertIn("server_closed_loop_days", app_js)
+            self.assertIn("same_parameter_paper_days", app_js)
+            self.assertIn("blocked_manual_execution_days", app_js)
             self.assertIn("profitability_evidence", app_js)
             self.assertIn("dailyLiveGateDecision", app_js)
             self.assertIn("dailyLiveGateStepRows", app_js)

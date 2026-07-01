@@ -11221,6 +11221,16 @@ function renderDailyClosureLedger(ledger = {}) {
 function renderServerCapitalObservationGate(gate = {}) {
   const summary = gate.summary || {};
   const rows = Array.isArray(gate.rows) ? gate.rows : [];
+  const scorecard = gate.evidence_scorecard || {};
+  const scoreSummary = scorecard.summary || {};
+  const fallbackScoreGateIds = [
+    "server_closed_loop_days",
+    "same_parameter_paper_days",
+    "clean_manual_execution_days",
+    "blocked_manual_execution_days",
+    "research_only_live_boundary",
+  ];
+  const scoreRows = Array.isArray(scorecard.rows) ? scorecard.rows : [];
   const status = summary.status || "blocked_need_clean_server_closure_days";
   const tone = status === "manual_small_capital_observation_candidate" ? "warn" : status.includes("blocked") ? "danger" : "warn";
   const header = `
@@ -11242,7 +11252,39 @@ function renderServerCapitalObservationGate(gate = {}) {
       </div>
     `;
   }).join("");
-  return header + (body || statusRows([[
+  const scoreHeader = Object.keys(scoreSummary).length ? `
+    <div class="list-row ${escapeHtml(scoreSummary.manual_observation_material_ready ? "ok" : "warn")}">
+      <strong>${escapeHtml("小资金观察证据分数")}</strong>
+      <span>${escapeHtml(`score=${formatNumber(scoreSummary.readiness_score_pct || 0)} / next=${zhConsoleText(scoreSummary.next_missing_gate_id || "none")}`)}</span>
+      <span>${escapeHtml(scoreSummary.manual_observation_material_ready ? "证据齐，可以准备人工观察材料；系统仍不自动下单" : "证据未齐，继续补同参数模拟盘和盘后回执")}</span>
+    </div>
+  ` : "";
+  const scoreBody = (scoreRows.length ? scoreRows : fallbackScoreGateIds.map((gateId) => ({
+    gate_id: gateId,
+    status: "waiting",
+    current_value: 0,
+    required_value: gateId === "blocked_manual_execution_days" ? 0 : 5,
+    comparator: gateId === "blocked_manual_execution_days" ? "=" : ">=",
+    plain_requirement: "Waiting for server-side evidence.",
+  }))).map((row) => {
+    const rowStatus = row.status || "waiting";
+    const rowTone = rowStatus === "pass" ? "ok" : rowStatus.includes("blocked") ? "danger" : "warn";
+    const workflowButton = row.workflow_id ? `
+      <button class="primary-button" type="button" data-ordinary-daily-action="${escapeRawHtml(row.workflow_id)}" data-ordinary-daily-target="${escapeRawHtml(row.target_id || "control-server-capital-observation-gate")}">${escapeHtml("补这一步")}</button>
+    ` : "";
+    const targetButton = row.target_id ? `
+      <button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(row.target_id)}">${escapeHtml("看证据")}</button>
+    ` : "";
+    return `
+      <div class="list-row ${escapeHtml(rowTone)}">
+        <strong>${escapeHtml(row.label || row.gate_id || "")}</strong>
+        <span>${escapeHtml(`${zhConsoleText(rowStatus)} / ${formatNumber(row.current_value)} ${row.comparator || ">="} ${formatNumber(row.required_value)}`)}</span>
+        <span>${escapeHtml(row.plain_requirement || "")}</span>
+        <span>${workflowButton}${targetButton}</span>
+      </div>
+    `;
+  }).join("");
+  return header + scoreHeader + scoreBody + (body || statusRows([[
     "小资金观察闸门",
     "等待服务端每日闭环台账生成后评估；系统仍不连接券商、不读账户、不下单。",
     "warn",
