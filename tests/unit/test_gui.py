@@ -519,6 +519,8 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("today_operation_card", app_js)
         self.assertIn("today_action_code", app_js)
         self.assertIn("manual_external_broker_check_required", app_js)
+        self.assertIn("after_action_checklist", app_js)
+        self.assertIn("quarantine_next_session_if_missing", app_js)
         self.assertIn("daily-beginner-execution-answer-today-card", html)
         self.assertNotIn('"Allocation status"', app_js)
         self.assertNotIn('"Plain answer"', app_js)

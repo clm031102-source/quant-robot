@@ -8405,6 +8405,10 @@ def _beginner_today_operation_card(
         "next_target_id": next_target,
         "next_workflow_id": next_workflow,
         "action_rows": action_rows,
+        "after_action_checklist": _beginner_after_action_checklist(
+            manual_allowed=manual_allowed,
+            paper_allowed=paper_allowed,
+        ),
         "copy_to_broker_allowed": False,
         "can_buy_today": False,
         "manual_only_boundary": True,
@@ -8414,6 +8418,56 @@ def _beginner_today_operation_card(
         "order_placement_allowed": False,
         "auto_order_allowed": False,
     }
+
+
+def _beginner_after_action_checklist(*, manual_allowed: bool, paper_allowed: bool) -> list[dict[str, Any]]:
+    status = "required" if manual_allowed or paper_allowed else "locked"
+    return [
+        {
+            "item_id": "record_post_close_journal",
+            "label": "记录盘后复盘",
+            "status": status,
+            "plain_action": "无论人工复核后是否执行，都要记录今天为什么做、为什么跳过、纸面结果和风险状态。",
+            "target_id": "beginner-post-close-journal-board",
+            "workflow_id": "post_close_journal" if manual_allowed or paper_allowed else "",
+            "failure_effect": "quarantine_next_session_top3",
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        },
+        {
+            "item_id": "record_manual_execution_audit",
+            "label": "记录人工成交审计",
+            "status": status,
+            "plain_action": "如果人在券商端执行或跳过票据，要记录成交价、数量、滑点、跳过原因和异常。",
+            "target_id": "beginner-post-close-journal-board",
+            "workflow_id": "post_close_journal" if manual_allowed or paper_allowed else "",
+            "failure_effect": "quarantine_next_session_top3",
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        },
+        {
+            "item_id": "update_current_positions_after_manual_trade",
+            "label": "更新当前持仓",
+            "status": status,
+            "plain_action": "若今天有人工成交，明天生成信号前必须把脱敏后的 ETF、数量和价格更新到当前持仓。",
+            "target_id": "daily-current-positions",
+            "workflow_id": "",
+            "failure_effect": "block_next_pretrade_readiness",
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        },
+        {
+            "item_id": "quarantine_next_session_if_missing",
+            "label": "缺闭环则隔离明日 Top3",
+            "status": status,
+            "plain_action": "盘后复盘、人工成交审计或当前持仓缺失时，下一交易日不能复用今天的 Top3 组合。",
+            "target_id": "daily-factor-health-monitor",
+            "workflow_id": "",
+            "failure_effect": "quarantine_next_session_top3",
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        },
+    ]
 
 
 def _beginner_execution_reasons(guard: dict[str, Any]) -> list[dict[str, Any]]:

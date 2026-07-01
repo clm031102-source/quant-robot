@@ -8010,6 +8010,7 @@ function renderDailyPaperAllocationPlaybook(playbook = {}) {
 function renderTodayOperationCard(card = {}, target = null) {
   if (!target) return;
   const actionRows = Array.isArray(card.action_rows) ? card.action_rows : [];
+  const afterActions = Array.isArray(card.after_action_checklist) ? card.after_action_checklist : [];
   const code = card.today_action_code || "do_not_trade";
   const tone = card.traffic_light === "red" || code === "do_not_trade" ? "danger" : "warn";
   const nextButton = card.next_workflow_id ? `
@@ -8022,6 +8023,7 @@ function renderTodayOperationCard(card = {}, target = null) {
     const guardrail = row.price_guardrail || {};
     return `${row.asset_id || "--"} ${zhConsoleText(row.side || "review")} 权重=${formatPercent(row.target_weight)} 数量=${formatNumber(row.paper_quantity || 0)} 价格=${formatDecimal(row.reference_price)} 护栏=${formatDecimal(guardrail.lower_price_bound)}~${formatDecimal(guardrail.upper_price_bound)}`;
   }).join(" / ");
+  const afterActionText = afterActions.map((item) => `${item.label || item.item_id || "--"}=${zhConsoleText(item.status || "required")}`).join(" / ");
   target.innerHTML = statusRows([
     ["今天到底怎么操作", `${card.traffic_light || "red"} / ${zhConsoleText(code)}`, tone],
     ["一句话答案", card.plain_answer || "今天不要把 Top3 当成买入指令。", tone],
@@ -8029,12 +8031,24 @@ function renderTodayOperationCard(card = {}, target = null) {
     ["允许范围", `模拟盘=${card.paper_rehearsal_allowed ? "允许" : "禁止"} / 人工复核=${card.manual_review_allowed ? "允许" : "禁止"} / 外部券商核对=${card.manual_external_broker_check_required ? "必须人工核对" : "不进入券商"}`, card.manual_review_allowed ? "warn" : tone],
     ["绝对边界", card.copy_to_broker_allowed || card.order_placement_allowed || card.broker_connection_allowed ? "异常：出现复制或下单权限" : "不能复制到券商；不连接券商、不读账户、不自动下单", card.copy_to_broker_allowed || card.order_placement_allowed || card.broker_connection_allowed ? "danger" : "ok"],
     ["票据预览", preview || "没有可复核票据，先生成今日 CN_ETF Top3 信号和模拟材料。", actionRows.length ? "warn" : "danger"],
+    ["收盘后闭环", afterActionText || "没有闭环清单时，默认不要复用今天信号。", afterActions.length ? "warn" : "danger"],
   ]) + `
     <div class="list-row ${escapeHtml(tone)}">
       <strong>${escapeHtml(card.primary_action || "先处理今日裁决")}</strong>
       <span>${escapeHtml(card.headline || card.plain_answer || "")}</span>
       <span class="beginner-task-actions">${nextButton}${targetButton}</span>
     </div>
+    ${afterActions.map((item) => `
+      <div class="list-row ${escapeHtml(item.status === "locked" ? "danger" : "warn")}">
+        <strong>${escapeHtml(item.label || item.item_id || "")}</strong>
+        <span>${escapeHtml(`${zhConsoleText(item.status || "required")} / ${item.plain_action || ""}`)}</span>
+        <span>${escapeHtml(`缺失后果=${zhConsoleText(item.failure_effect || "quarantine_next_session_if_missing")}`)}</span>
+        <span class="beginner-task-actions">
+          ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+          ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
+        </span>
+      </div>
+    `).join("")}
   `;
 }
 

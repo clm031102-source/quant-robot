@@ -2607,6 +2607,22 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("人工复核", today_card["plain_answer"])
         self.assertTrue(all(row["manual_external_broker_check_required"] for row in today_card["action_rows"]))
         self.assertTrue(all(row["copy_to_broker_allowed"] is False for row in today_card["action_rows"]))
+        after_action_by_id = {row["item_id"]: row for row in today_card["after_action_checklist"]}
+        self.assertEqual(
+            set(after_action_by_id),
+            {
+                "record_post_close_journal",
+                "record_manual_execution_audit",
+                "update_current_positions_after_manual_trade",
+                "quarantine_next_session_if_missing",
+            },
+        )
+        self.assertTrue(all(row["status"] == "required" for row in after_action_by_id.values()))
+        self.assertTrue(all(row["order_placement_allowed"] is False for row in after_action_by_id.values()))
+        self.assertEqual(
+            after_action_by_id["quarantine_next_session_if_missing"]["failure_effect"],
+            "quarantine_next_session_top3",
+        )
 
     def test_same_parameter_paper_rehearsal_locks_top3_requests_and_allocation_manifest(self):
         pack = _build_daily_trade_advisory_pack(
