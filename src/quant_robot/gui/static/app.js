@@ -5675,11 +5675,13 @@ function renderOrdinaryTradingCockpit() {
   const summaryTarget = byId("ordinary-trading-cockpit-summary");
   const top3Target = byId("ordinary-trading-cockpit-top3");
   const gatesTarget = byId("ordinary-trading-cockpit-gates");
-  if (!summaryTarget || !top3Target || !gatesTarget) return;
+  const actionsTarget = byId("ordinary-trading-cockpit-actions");
+  if (!summaryTarget || !top3Target || !gatesTarget || !actionsTarget) return;
   const sheet = state.dailyTradeAdvisory?.daily_trade_decision_sheet || {};
   summaryTarget.innerHTML = ordinaryTradingCockpitRows(sheet);
   top3Target.innerHTML = ordinaryTradingCockpitTop3Rows(sheet);
   gatesTarget.innerHTML = ordinaryTradingCockpitGateRows(sheet);
+  actionsTarget.innerHTML = ordinaryTradingCockpitActionRows(sheet);
 }
 
 function ordinaryTradingCockpitRows(sheet = {}) {
@@ -5735,6 +5737,110 @@ function ordinaryTradingCockpitTop3Rows(sheet = {}) {
       <span>${escapeHtml(item.plain_conclusion || item.promotion_label || "候选输入，不是买入指令。")}</span>
     </div>
   `).join("");
+}
+
+function ordinaryTradingCockpitActionRows(sheet = {}) {
+  const actions = Array.isArray(sheet.today_actions) ? sheet.today_actions : [];
+  const tickets = Array.isArray(sheet.manual_broker_handoff_tickets) ? sheet.manual_broker_handoff_tickets : [];
+  const targets = Array.isArray(sheet.combined_targets) ? sheet.combined_targets : [];
+  const top3 = Array.isArray(sheet.daily_top3) ? sheet.daily_top3 : [];
+  const summary = sheet.summary || {};
+  const next = sheet.what_to_do_now || {};
+  const paperStatus = dailySameParameterPaperStatus();
+  const manualReview = dailySameParameterManualReviewGate();
+  const journalReceipt = latestExecutionReceipt("post_close_journal");
+  const sourceRows = actions.length ? actions : tickets.length ? tickets : targets;
+  if (!sourceRows.length) {
+    if (top3.length) {
+      const decision = summary.decision || "blocked_fix_current_positions";
+      return top3.slice(0, 3).map((item, index) => `
+        <div class="list-row danger">
+          <strong>${escapeHtml(`今日操作卡 ${index + 1}: ${item.factor_name || "--"}`)}</strong>
+          <span>${escapeHtml(`today_operation_action_code=${decision} / side=skip`)}</span>
+          <span>${escapeHtml("today_operation_quantity=0 / amount=0 / ref=-- / weight=--")}</span>
+          <span>${escapeHtml("price_guardrail=--~-- / broker_price_outside_guardrail=skip")}</span>
+          <span>${escapeHtml(`why=Top3 factor signal ready, but no executable ETF ticket. ${item.plain_conclusion || item.promotion_label || ""}`)}</span>
+          <span>${escapeHtml("today_operation_skip_rules=current_positions_missing / same_parameter_top3_missing / cash_or_position_limit_breach / risk_or_liquidity_blocked")}</span>
+          <span>${escapeHtml(journalReceipt ? `today_operation_post_close_record=recorded / ${journalReceipt.time || "--"}` : "today_operation_post_close_record=required / record_post_close_journal")}</span>
+          <span>${escapeHtml(next.plain_action || "先补当前持仓和现金输入，再重新生成买卖数量；今天没有票据时不要交易。")}</span>
+          <span class="beginner-task-actions">
+            <button class="secondary-button" type="button" data-beginner-target="daily-current-positions">${escapeHtml("补当前持仓")}</button>
+            <button class="secondary-button" type="button" data-beginner-target="daily-trade-decision-sheet">${escapeHtml("看决策阻断")}</button>
+          </span>
+        </div>
+      `).join("");
+    }
+    return statusRows([[
+      "今日操作卡",
+      "暂无今日 Top3 操作材料。先生成今日 CN_ETF 建议，并完成同参数模拟盘复核；红灯时不要买卖。",
+      "danger",
+    ]]);
+  }
+  return sourceRows.slice(0, 5).map((item, index) => {
+    const assetId = item.asset_id || item.symbol || item.ts_code || "--";
+    const matchedTicket = tickets.find((row) => (row.asset_id || row.symbol || row.ts_code) === assetId) || {};
+    const side = item.side || item.action || item.signal_side || matchedTicket.side || "review";
+    const quantity = item.rounded_quantity_delta
+      ?? item.rounded_quantity
+      ?? item.estimated_quantity_delta
+      ?? item.estimated_quantity
+      ?? matchedTicket.rounded_quantity_delta
+      ?? matchedTicket.rounded_quantity
+      ?? 0;
+    const notional = item.rounded_value
+      ?? item.target_value
+      ?? item.delta_value
+      ?? matchedTicket.rounded_value
+      ?? matchedTicket.delta_value
+      ?? 0;
+    const referencePrice = item.reference_price
+      ?? item.latest_price
+      ?? matchedTicket.reference_price
+      ?? matchedTicket.latest_price;
+    const targetWeight = item.target_weight ?? matchedTicket.target_weight;
+    const lowerBound = item.lower_price_bound ?? matchedTicket.lower_price_bound;
+    const upperBound = item.upper_price_bound ?? matchedTicket.upper_price_bound;
+    const sourceFactors = Array.isArray(item.source_factors)
+      ? item.source_factors.join(" / ")
+      : item.source_factors || item.factor_name || matchedTicket.factor_name || "Top3 target rebalance candidate";
+    const plainInstruction = item.plain_instruction
+      || item.manual_instruction
+      || matchedTicket.manual_instruction
+      || matchedTicket.copy_text
+      || "先核对 ETF、实时价格、现金、持仓和风险闸门；系统不会替你下单。";
+    const actionCode = manualReview.allowed && !item.order_placement_allowed
+      ? `today_operation_action_code=${side}`
+      : "today_operation_action_code=review_or_skip";
+    const skipRules = [
+      paperStatus.ready ? "" : "same_parameter_top3_missing",
+      item.skip_rule || matchedTicket.skip_rule || "broker_price_outside_guardrail",
+      "cash_or_position_limit_breach",
+      "risk_or_liquidity_blocked",
+      "quantity_zero_or_direction_unclear",
+    ].filter(Boolean).join(" / ");
+    const postCloseRecord = journalReceipt
+      ? `today_operation_post_close_record=recorded / ${journalReceipt.time || "--"}`
+      : "today_operation_post_close_record=required / record_post_close_journal";
+    const tone = item.order_placement_allowed
+      ? "danger"
+      : manualReview.allowed && paperStatus.ready ? "warn" : "danger";
+    return `
+      <div class="list-row ${escapeHtml(tone)}">
+        <strong>${escapeHtml(`今日操作卡 ${index + 1}: ${assetId}`)}</strong>
+        <span>${escapeHtml(`${actionCode} / side=${zhConsoleText(side)}`)}</span>
+        <span>${escapeHtml(`today_operation_quantity=${formatNumber(quantity)} / amount=${formatNumber(notional)} / ref=${formatDecimal(referencePrice)} / weight=${formatPercent(targetWeight)}`)}</span>
+        <span>${escapeHtml(`price_guardrail=${formatDecimal(lowerBound)}~${formatDecimal(upperBound)} / broker_price_outside_guardrail=skip`)}</span>
+        <span>${escapeHtml(`why=${sourceFactors} / ${plainInstruction}`)}</span>
+        <span>${escapeHtml(`today_operation_skip_rules=${skipRules}`)}</span>
+        <span>${escapeHtml(postCloseRecord)}</span>
+        <span>${escapeHtml(item.order_placement_allowed ? "异常：order_placement_allowed=true，必须停止复核" : "只作人工复核和模拟盘材料，不是券商订单")}</span>
+        <span class="beginner-task-actions">
+          <button class="secondary-button" type="button" data-beginner-target="daily-ops-paper-recheck-table">${escapeHtml("盘前复核价格")}</button>
+          <button class="secondary-button" type="button" data-beginner-target="beginner-post-close-journal-board">${escapeHtml("盘后记录")}</button>
+        </span>
+      </div>
+    `;
+  }).join("");
 }
 
 function ordinaryTradingCockpitGateRows(sheet = {}) {
