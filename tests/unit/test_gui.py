@@ -1042,6 +1042,12 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertFalse(snapshot["pretrade_readiness"]["live_order_allowed"])
         self.assertIn("freshness", snapshot["pretrade_readiness"])
         self.assertIn("signal_freshness", {item["check_id"] for item in snapshot["pretrade_readiness"]["required_confirmations"]})
+        self.assertIn("candidate_trade_evidence", {item["check_id"] for item in snapshot["pretrade_readiness"]["required_confirmations"]})
+        self.assertIn("candidate_trade_evidence", snapshot["pretrade_readiness"])
+        self.assertIn(
+            snapshot["pretrade_readiness"]["summary"]["candidate_trade_evidence_status"],
+            {"pass", "blocked", "waiting"},
+        )
         self.assertEqual(snapshot["manual_broker_handoff"]["stage"], "phase_6_3_manual_broker_handoff")
         self.assertFalse(snapshot["manual_broker_handoff"]["order_placement_allowed"])
         self.assertEqual(snapshot["manual_ticket_export"]["stage"], "phase_6_13_manual_ticket_export")

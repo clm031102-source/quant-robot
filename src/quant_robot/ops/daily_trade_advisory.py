@@ -62,6 +62,14 @@ MANUAL_MAX_CONSECUTIVE_LOSS_DAYS = 3
 RECENT_OBSERVATION_MIN_COUNT = 3
 RECENT_OBSERVATION_MAX_LOSS_PCT = 0.02
 RECENT_OBSERVATION_MIN_WIN_RATE = 0.40
+DAILY_CANDIDATE_MIN_TRADE_COUNT = 30
+DAILY_CANDIDATE_REQUIRED_TRADE_EVIDENCE_METRICS = (
+    "sharpe",
+    "annualized_return",
+    "max_drawdown",
+    "win_rate",
+    "trade_count",
+)
 LIQUIDITY_REFERENCE_FIELDS = (
     "liquidity_reference_value",
     "avg_daily_turnover_value",
@@ -2028,6 +2036,8 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
     manual_count = _int(summary.get("manual_ticket_count"), len(manual_plan))
     signal_errors = [row for row in signal_cards if row.get("status") == "signal_error"]
     freshness = _pretrade_signal_freshness(pack, signal_cards)
+    candidate_trade_evidence = _candidate_trade_evidence_audit(factors)
+    candidate_evidence_status = str(candidate_trade_evidence.get("status") or "waiting")
     invalid_sizing_tickets = [
         str(row.get("ticket_id") or row.get("asset_id") or "")
         for row in manual_plan
@@ -2053,6 +2063,8 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
         blockers.append("current_position_not_provided")
     if signal_errors:
         blockers.append("signal_errors")
+    if selected_count > 0 and candidate_evidence_status == "blocked":
+        blockers.append("candidate_trade_evidence_incomplete")
     if invalid_sizing_tickets:
         blockers.append("price_or_sizing_missing")
     if position_validation.get("status") == "error":
@@ -2078,6 +2090,22 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
             "check_id": "signal_ready",
             "status": "pass" if signal_count > 0 and target_count > 0 and not signal_errors else "blocked",
             "text": f"今日信号={signal_count}/{selected_count}，目标ETF={target_count}。",
+        },
+        {
+            "check_id": "candidate_trade_evidence",
+            "status": (
+                "pass"
+                if candidate_evidence_status == "pass"
+                else "waiting"
+                if candidate_evidence_status == "waiting"
+                else "blocked"
+            ),
+            "text": (
+                f"top3 evidence status={candidate_evidence_status}; "
+                f"blocked={candidate_trade_evidence.get('blocked_count', 0)}; "
+                f"required={','.join(DAILY_CANDIDATE_REQUIRED_TRADE_EVIDENCE_METRICS)}; "
+                f"min_trade_count={DAILY_CANDIDATE_MIN_TRADE_COUNT}."
+            ),
         },
         {
             "check_id": "signal_freshness",
@@ -2136,6 +2164,8 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
         warnings.append(f"以下票据按一手取整后为 0，不能直接买入：{', '.join(zero_lot_tickets)}。")
     if signal_errors:
         warnings.append("有入选因子没有生成同日信号，不能当作可操作建议。")
+    if candidate_evidence_status == "blocked":
+        warnings.append("Top3 candidate trade evidence is incomplete: required metrics must be present and trade_count must be at least 30 before manual action review.")
     if summary.get("fallback_signal_only"):
         warnings.append("当前只有内置基线演示信号，没有合格推广候选；只能观察和跑模拟盘，不能生成手工交易票据。")
     if position_validation.get("status") == "not_provided" and target_count > 0:
@@ -2156,11 +2186,15 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
             "blockers": blockers,
             "warnings": warnings,
             "freshness": freshness,
+            "candidate_trade_evidence": candidate_trade_evidence,
             "summary": {
                 "selected_factor_count": selected_count,
                 "signal_count": signal_count,
                 "target_count": target_count,
                 "manual_ticket_count": manual_count,
+                "candidate_trade_evidence_status": candidate_evidence_status,
+                "candidate_trade_evidence_blocked_count": candidate_trade_evidence.get("blocked_count", 0),
+                "candidate_trade_evidence_min_trade_count": DAILY_CANDIDATE_MIN_TRADE_COUNT,
                 "manual_trade_plan_blocked": bool(summary.get("manual_trade_plan_blocked")),
                 "manual_trade_plan_blocked_reason": summary.get("manual_trade_plan_blocked_reason"),
                 "current_position_count": position_validation.get("accepted_count", 0),
@@ -2175,6 +2209,78 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
             "safety": SAFETY_NOTICE,
         }
     )
+
+
+def _candidate_trade_evidence_audit(factors: list[dict[str, Any]]) -> dict[str, Any]:
+    rows: list[dict[str, Any]] = []
+    for index, row in enumerate(factors, start=1):
+        factor_name = str(row.get("factor_name") or row.get("factor") or "").strip()
+        case_id = str(row.get("case_id") or factor_name or f"candidate_{index}").strip()
+        evidence_required = _candidate_trade_evidence_required(row)
+        missing_metrics = [
+            metric
+            for metric in DAILY_CANDIDATE_REQUIRED_TRADE_EVIDENCE_METRICS
+            if evidence_required and _float_or_none(row.get(metric)) is None
+        ]
+        trade_count = _float_or_none(row.get("trade_count"))
+        annualized_return = _float_or_none(row.get("annualized_return"))
+        violations: list[str] = []
+        if evidence_required and trade_count is not None and trade_count < DAILY_CANDIDATE_MIN_TRADE_COUNT:
+            violations.append("trade_count_below_minimum")
+        if evidence_required and annualized_return is not None and annualized_return <= 0:
+            violations.append("annualized_return_not_positive")
+        status = "pass" if not missing_metrics and not violations else "blocked"
+        rows.append(
+            {
+                "candidate_index": index,
+                "case_id": case_id,
+                "factor_name": factor_name,
+                "status": status,
+                "evidence_required": evidence_required,
+                "missing_metrics": missing_metrics,
+                "violations": violations,
+                "trade_count": trade_count,
+                "min_trade_count": DAILY_CANDIDATE_MIN_TRADE_COUNT,
+                "annualized_return": annualized_return,
+                "required_metrics": list(DAILY_CANDIDATE_REQUIRED_TRADE_EVIDENCE_METRICS),
+                "manual_action_allowed": status == "pass",
+                "order_placement_allowed": False,
+            }
+        )
+    blocked_count = sum(1 for row in rows if row["status"] != "pass")
+    status = "waiting" if not rows else "blocked" if blocked_count else "pass"
+    return {
+        "status": status,
+        "candidate_count": len(rows),
+        "blocked_count": blocked_count,
+        "passed_count": len(rows) - blocked_count,
+        "required_metrics": list(DAILY_CANDIDATE_REQUIRED_TRADE_EVIDENCE_METRICS),
+        "min_trade_count": DAILY_CANDIDATE_MIN_TRADE_COUNT,
+        "rows": rows,
+        "manual_action_allowed": status == "pass",
+        "order_placement_allowed": False,
+    }
+
+
+def _candidate_trade_evidence_required(row: dict[str, Any]) -> bool:
+    if row.get("daily_signal_eligible") is not None or row.get("advisory_eligible") is not None:
+        return True
+    if row.get("has_oos_evidence") is not None:
+        return True
+    for key in (
+        "status",
+        "decision",
+        "promotion_status",
+        "gate_status",
+        "selection_status",
+        "review_status",
+        "promotion_label",
+        "ranking_quality",
+        "score_metric",
+    ):
+        if str(row.get(key) or "").strip():
+            return True
+    return False
 
 
 def _pretrade_signal_freshness(pack: dict[str, Any], signal_cards: list[dict[str, Any]]) -> dict[str, Any]:

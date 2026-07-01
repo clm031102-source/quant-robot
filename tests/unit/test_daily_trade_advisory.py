@@ -360,6 +360,33 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertFalse(ticket["executable"])
         self.assertIn("系统不会下单", ticket["manual_instruction"])
 
+    def test_pretrade_blocks_manual_action_when_top3_candidate_trade_evidence_is_incomplete(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {
+                    "rank": 1,
+                    "case_id": "paper_ready_but_metric_thin",
+                    "factor_name": "momentum_2",
+                    "market": "CN_ETF",
+                    "status": "paper_ready",
+                    "sharpe": 1.2,
+                }
+            ],
+            [_signal("paper_ready_but_metric_thin", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+        )
+
+        readiness = pack["pretrade_readiness"]
+        confirmation_rows = {row["check_id"]: row for row in readiness["required_confirmations"]}
+
+        self.assertIn("candidate_trade_evidence_incomplete", readiness["blockers"])
+        self.assertFalse(readiness["manual_action_candidate"])
+        self.assertEqual(confirmation_rows["candidate_trade_evidence"]["status"], "blocked")
+        self.assertEqual(readiness["summary"]["candidate_trade_evidence_status"], "blocked")
+        self.assertEqual(readiness["summary"]["candidate_trade_evidence_blocked_count"], 1)
+        self.assertIn("annualized_return", readiness["candidate_trade_evidence"]["rows"][0]["missing_metrics"])
+
     def test_manual_rebalance_sell_cash_impact_is_net_of_estimated_commission(self):
         pack = build_daily_trade_advisory_pack(
             [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
