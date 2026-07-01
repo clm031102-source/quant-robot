@@ -12116,6 +12116,17 @@ function renderServerCapitalObservationGate(gate = {}) {
   const rows = Array.isArray(gate.rows) ? gate.rows : [];
   const scorecard = gate.evidence_scorecard || {};
   const scoreSummary = scorecard.summary || {};
+  const packet = gate.manual_observation_packet || {};
+  const packetSummary = packet.summary || {};
+  const packetLimits = Array.isArray(packet.risk_limits) ? packet.risk_limits : [
+    { limit_id: "max_initial_capital", label: "最大观察本金", value: packetSummary.max_initial_capital, plain_rule: "等待服务端准备包。" },
+    { limit_id: "max_single_order_notional", label: "单笔上限", value: packetSummary.max_single_order_notional, plain_rule: "等待服务端准备包。" },
+    { limit_id: "max_daily_loss", label: "日亏损停止线", value: packetSummary.max_daily_loss, plain_rule: "等待服务端准备包。" },
+  ];
+  const packetSteps = Array.isArray(packet.operator_steps) ? packet.operator_steps : [
+    { step_id: "read_small_capital_limits", label: "先读限额", status: "waiting", target_id: "control-server-capital-observation-gate", plain_action: "等待服务端准备包。" },
+  ];
+  const packetForbidden = Array.isArray(packet.forbidden_actions) ? packet.forbidden_actions : [];
   const fallbackScoreGateIds = [
     "server_closed_loop_days",
     "same_parameter_paper_days",
@@ -12135,6 +12146,42 @@ function renderServerCapitalObservationGate(gate = {}) {
       <span>${escapeHtml(summary.next_action || "继续收集干净闭环样本。")}</span>
     </div>
   `;
+  const packetHeader = Object.keys(packetSummary).length ? `
+    <div class="list-row ${escapeHtml(packetSummary.manual_observation_material_ready ? "ok" : "danger")}">
+      <strong>${escapeHtml("小资金观察准备包")}</strong>
+      <span>${escapeHtml(packetSummary.plain_answer || "等待服务端小资金观察准备包。")}</span>
+      <span>${escapeHtml(`状态=${zhConsoleText(packetSummary.status || "waiting")} / next=${zhConsoleText(packetSummary.next_missing_gate_id || "none")}`)}</span>
+      <span>${escapeHtml(`软件下单=${packetSummary.software_order_submission_allowed ? "异常允许" : "禁止"} / 自动下单=${packetSummary.auto_order_allowed ? "异常允许" : "禁止"}`)}</span>
+    </div>
+  ` : "";
+  const packetLimitBody = packetLimits.map((row) => `
+    <div class="list-row warn">
+      <strong>${escapeHtml(row.label || row.limit_id || "")}</strong>
+      <span>${escapeHtml(`${row.limit_id || ""}=${formatNumber(row.value)}`)}</span>
+      <span>${escapeHtml(row.plain_rule || "")}</span>
+    </div>
+  `).join("");
+  const packetStepBody = packetSteps.map((row) => {
+    const rowStatus = row.status || "waiting";
+    const rowTone = rowStatus === "required" ? "warn" : rowStatus === "manual_only" ? "warn" : rowStatus === "locked" ? "muted" : "warn";
+    const targetButton = row.target_id ? `
+      <button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(row.target_id)}">${escapeHtml("看位置")}</button>
+    ` : "";
+    return `
+      <div class="list-row ${escapeHtml(rowTone)}">
+        <strong>${escapeHtml(row.label || row.step_id || "")}</strong>
+        <span>${escapeHtml(`${zhConsoleText(rowStatus)} / ${row.step_id || ""}`)}</span>
+        <span>${escapeHtml(row.plain_action || "")}</span>
+        <span>${targetButton}</span>
+      </div>
+    `;
+  }).join("");
+  const packetForbiddenBody = packetForbidden.length ? packetForbidden.map((row) => `
+    <div class="list-row danger">
+      <strong>${escapeHtml(row.action_id || "")}</strong>
+      <span>${escapeHtml(row.plain_rule || "")}</span>
+    </div>
+  `).join("") : "";
   const body = rows.map((row) => {
     const rowStatus = row.status || "";
     const rowTone = rowStatus === "pass" ? "ok" : rowStatus === "blocked_expected" ? "danger" : rowStatus.includes("blocked") ? "danger" : "warn";
@@ -12177,7 +12224,7 @@ function renderServerCapitalObservationGate(gate = {}) {
       </div>
     `;
   }).join("");
-  return header + scoreHeader + scoreBody + (body || statusRows([[
+  return header + packetHeader + packetLimitBody + packetStepBody + packetForbiddenBody + scoreHeader + scoreBody + (body || statusRows([[
     "小资金观察闸门",
     "等待服务端每日闭环台账生成后评估；系统仍不连接券商、不读账户、不下单。",
     "warn",

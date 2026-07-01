@@ -2209,6 +2209,17 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertEqual(score_rows["server_closed_loop_days"]["current_value"], 5)
         self.assertEqual(score_rows["same_parameter_paper_days"]["status"], "pass")
         self.assertEqual(score_rows["blocked_manual_execution_days"]["required_value"], 0)
+        packet = gate["manual_observation_packet"]
+        self.assertEqual(packet["stage"], "gui_manual_small_capital_observation_packet")
+        self.assertEqual(packet["summary"]["status"], "ready_for_external_manual_observation_review")
+        self.assertTrue(packet["summary"]["manual_observation_material_ready"])
+        self.assertEqual(packet["summary"]["max_initial_capital"], 10000.0)
+        self.assertEqual(packet["summary"]["max_single_order_notional"], 1000.0)
+        self.assertEqual(packet["summary"]["max_daily_loss"], 200.0)
+        self.assertFalse(packet["summary"]["software_order_submission_allowed"])
+        self.assertFalse(packet["summary"]["order_placement_allowed"])
+        self.assertEqual(packet["operator_steps"][0]["step_id"], "read_small_capital_limits")
+        self.assertIn("do_not_scale_above_packet_limits", {row["action_id"] for row in packet["forbidden_actions"]})
 
     def test_legacy_unverified_paper_receipts_do_not_unlock_small_capital_gate(self):
         from quant_robot.gui.control_center import build_control_center_snapshot
@@ -2267,6 +2278,13 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertEqual(scorecard["summary"]["status"], "blocked_need_more_evidence")
         self.assertEqual(scorecard["summary"]["next_missing_gate_id"], "same_parameter_paper_days")
         self.assertEqual(scorecard["summary"]["readiness_score_pct"], 80)
+        packet = gate["manual_observation_packet"]
+        self.assertEqual(packet["stage"], "gui_manual_small_capital_observation_packet")
+        self.assertEqual(packet["summary"]["status"], "blocked_need_more_evidence")
+        self.assertFalse(packet["summary"]["manual_observation_material_ready"])
+        self.assertEqual(packet["summary"]["next_missing_gate_id"], "same_parameter_paper_days")
+        self.assertFalse(packet["summary"]["software_order_submission_allowed"])
+        self.assertFalse(packet["summary"]["order_placement_allowed"])
         self.assertFalse(scorecard["summary"]["manual_observation_material_ready"])
 
     def test_ledger_evidence_distinguishes_current_from_stale_server_receipts(self):
@@ -2542,6 +2560,9 @@ class GuiSnapshotTests(unittest.TestCase):
                 self.assertIn("最终动作=", smoke_source)
                 self.assertIn("最终票据=", smoke_source)
                 self.assertIn("次日隔离=", smoke_source)
+                self.assertIn("manual_observation_packet", smoke_source)
+                self.assertIn("小资金观察准备包", smoke_source)
+                self.assertIn("software_order_submission_allowed", smoke_source)
         finally:
             server.shutdown()
             thread.join(timeout=5)
@@ -3685,6 +3706,13 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("profitability_readiness_score_pct", app_js)
             self.assertIn("small_capital_observation_candidate", app_js)
             self.assertIn("evidence_scorecard", app_js)
+            self.assertIn("manual_observation_packet", app_js)
+            self.assertIn("小资金观察准备包", app_js)
+            self.assertIn("max_initial_capital", app_js)
+            self.assertIn("max_single_order_notional", app_js)
+            self.assertIn("max_daily_loss", app_js)
+            self.assertIn("software_order_submission_allowed", app_js)
+            self.assertIn("read_small_capital_limits", app_js)
             self.assertIn("readiness_score_pct", app_js)
             self.assertIn("next_missing_gate_id", app_js)
             self.assertIn("server_closed_loop_days", app_js)

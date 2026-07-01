@@ -33,6 +33,11 @@ PAPER_REQUEST_SIGNATURE_KEYS = (
     "case_id",
     "risk_profile_id",
 )
+SMALL_CAPITAL_OBSERVATION_LIMITS = {
+    "max_initial_capital": 10000.0,
+    "max_single_order_notional": 1000.0,
+    "max_daily_loss": 200.0,
+}
 
 
 def append_operation_ledger_entry(
@@ -185,6 +190,25 @@ def build_server_capital_observation_gate(daily_closure_ledger: dict[str, Any]) 
             "no broker connection, no account read, no order placement, no automated live trading",
         ),
     ]
+    scorecard = _capital_observation_evidence_scorecard(
+        closed=closed,
+        clean=clean,
+        blocked=blocked,
+        matched_paper=matched_paper,
+    )
+    manual_observation_packet = _manual_small_capital_observation_packet(
+        ready=streak_ready,
+        status=status,
+        next_action=next_action,
+        closed=closed,
+        observed=observed,
+        clean=clean,
+        blocked=blocked,
+        matched_paper=matched_paper,
+        legacy_unverified=legacy_unverified,
+        scorecard=scorecard,
+        recent_rows=rows[:5] if isinstance(rows, list) else [],
+    )
     return {
         "stage": "gui_server_capital_observation_gate",
         "summary": {
@@ -205,15 +229,216 @@ def build_server_capital_observation_gate(daily_closure_ledger: dict[str, Any]) 
             "auto_order_allowed": False,
         },
         "rows": gate_rows,
-        "evidence_scorecard": _capital_observation_evidence_scorecard(
-            closed=closed,
-            clean=clean,
-            blocked=blocked,
-            matched_paper=matched_paper,
-        ),
+        "evidence_scorecard": scorecard,
+        "manual_observation_packet": manual_observation_packet,
         "recent_closure_rows": rows[:5] if isinstance(rows, list) else [],
         "safety": _safety(),
     }
+
+
+def _manual_small_capital_observation_packet(
+    *,
+    ready: bool,
+    status: str,
+    next_action: str,
+    closed: int,
+    observed: int,
+    clean: int,
+    blocked: int,
+    matched_paper: int,
+    legacy_unverified: int,
+    scorecard: dict[str, Any],
+    recent_rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    score_summary = scorecard.get("summary", {}) if isinstance(scorecard, dict) else {}
+    next_missing = str(score_summary.get("next_missing_gate_id") or "")
+    material_ready = bool(ready and score_summary.get("manual_observation_material_ready"))
+    packet_status = (
+        "ready_for_external_manual_observation_review"
+        if material_ready
+        else "blocked_need_more_evidence"
+    )
+    plain_answer = (
+        "服务端闭环证据已够，可以准备小资金人工观察材料；软件仍不能连接券商、读取账户或下单。"
+        if material_ready
+        else "小资金人工观察材料未齐；先补完缺失的同参数模拟盘、盘后复盘或人工执行审计。"
+    )
+    return {
+        "stage": "gui_manual_small_capital_observation_packet",
+        "summary": {
+            "status": packet_status,
+            "source_gate_status": status,
+            "ordinary_question": "现在能不能开始小资金实盘观察？",
+            "plain_answer": plain_answer,
+            "manual_observation_material_ready": material_ready,
+            "next_missing_gate_id": next_missing,
+            "next_action": next_action,
+            "server_closed_loop_days": closed,
+            "server_observed_days": observed,
+            "clean_execution_days": clean,
+            "blocked_execution_days": blocked,
+            "matched_paper_days": matched_paper,
+            "legacy_unverified_paper_days": legacy_unverified,
+            "max_initial_capital": SMALL_CAPITAL_OBSERVATION_LIMITS["max_initial_capital"],
+            "max_single_order_notional": SMALL_CAPITAL_OBSERVATION_LIMITS["max_single_order_notional"],
+            "max_daily_loss": SMALL_CAPITAL_OBSERVATION_LIMITS["max_daily_loss"],
+            "external_manual_only": True,
+            "software_order_submission_allowed": False,
+            "paper_only": True,
+            "real_money_allowed": False,
+            "live_trading_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        },
+        "risk_limits": [
+            _small_capital_limit_row(
+                "max_initial_capital",
+                "Maximum initial observation capital",
+                SMALL_CAPITAL_OBSERVATION_LIMITS["max_initial_capital"],
+                "Total external cash allocated to the first manual observation period must not exceed this value.",
+            ),
+            _small_capital_limit_row(
+                "max_single_order_notional",
+                "Maximum single order notional",
+                SMALL_CAPITAL_OBSERVATION_LIMITS["max_single_order_notional"],
+                "Each external manual ticket must stay below this notional value after broker-side price recheck.",
+            ),
+            _small_capital_limit_row(
+                "max_daily_loss",
+                "Maximum daily loss",
+                SMALL_CAPITAL_OBSERVATION_LIMITS["max_daily_loss"],
+                "If external manual observation loses this much in one day, stop and record a post-close risk review.",
+            ),
+        ],
+        "operator_steps": _small_capital_operator_steps(material_ready),
+        "required_inputs": _small_capital_required_inputs(material_ready),
+        "forbidden_actions": _small_capital_forbidden_actions(),
+        "recent_closure_dates": [
+            str(row.get("date") or "")
+            for row in recent_rows
+            if isinstance(row, dict) and row.get("date")
+        ],
+        "evidence_scorecard_summary": score_summary,
+        "safety": {
+            **_safety(),
+            "real_money_allowed": False,
+            "auto_order_allowed": False,
+        },
+    }
+
+
+def _small_capital_limit_row(limit_id: str, label: str, value: float, plain_rule: str) -> dict[str, Any]:
+    return {
+        "limit_id": limit_id,
+        "label": label,
+        "value": value,
+        "plain_rule": plain_rule,
+        "external_manual_only": True,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
+
+
+def _small_capital_operator_steps(material_ready: bool) -> list[dict[str, Any]]:
+    return [
+        _small_capital_step(
+            "read_small_capital_limits",
+            "Read the small-capital limits",
+            "required" if material_ready else "locked",
+            "control-server-capital-observation-gate",
+            "Confirm max initial capital, max single order notional, and max daily loss before opening any external broker app.",
+        ),
+        _small_capital_step(
+            "review_today_final_operation_packet",
+            "Review today's final operation packet",
+            "required" if material_ready else "locked",
+            "daily-beginner-execution-answer-final-packet",
+            "Use only the latest final packet, manual price/cash recheck, and skip rules; Top3 names alone are not orders.",
+        ),
+        _small_capital_step(
+            "external_manual_decision_only",
+            "External manual decision only",
+            "manual_only" if material_ready else "locked",
+            "beginner-live-handoff-board",
+            "If the human proceeds, the action happens outside this software; the software still cannot place orders.",
+        ),
+        _small_capital_step(
+            "record_post_close_observation",
+            "Record the post-close observation",
+            "required" if material_ready else "locked",
+            "beginner-post-close-journal-board",
+            "Record execution, skip reason, slippage, risk state, and whether the observation stayed inside limits.",
+        ),
+    ]
+
+
+def _small_capital_step(
+    step_id: str,
+    label: str,
+    status: str,
+    target_id: str,
+    plain_action: str,
+) -> dict[str, Any]:
+    return {
+        "step_id": step_id,
+        "label": label,
+        "status": status,
+        "target_id": target_id,
+        "plain_action": plain_action,
+        "manual_required": True,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
+
+
+def _small_capital_required_inputs(material_ready: bool) -> list[dict[str, Any]]:
+    status = "required" if material_ready else "locked"
+    return [
+        _small_capital_input("external_cash_budget", status, "Write the exact external cash budget before observation starts."),
+        _small_capital_input("per_order_notional_check", status, "Confirm every external manual ticket stays below the packet limit."),
+        _small_capital_input("daily_loss_stop_acknowledgement", status, "Confirm the daily loss stop and what to do after it triggers."),
+        _small_capital_input("post_close_review_plan", status, "Confirm how today's manual observation will be recorded after close."),
+    ]
+
+
+def _small_capital_input(input_id: str, status: str, plain_requirement: str) -> dict[str, Any]:
+    return {
+        "input_id": input_id,
+        "status": status,
+        "plain_requirement": plain_requirement,
+        "external_manual_only": True,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
+
+
+def _small_capital_forbidden_actions() -> list[dict[str, Any]]:
+    return [
+        {
+            "action_id": "do_not_scale_above_packet_limits",
+            "plain_rule": "Do not exceed the packet's capital, single-order, or daily-loss limits.",
+            "order_placement_allowed": False,
+        },
+        {
+            "action_id": "do_not_treat_top3_as_orders",
+            "plain_rule": "Do not treat Top3 factor names or target rows as broker orders.",
+            "order_placement_allowed": False,
+        },
+        {
+            "action_id": "do_not_skip_same_day_price_cash_recheck",
+            "plain_rule": "Do not skip external realtime price, available cash, and board-lot recalculation.",
+            "order_placement_allowed": False,
+        },
+        {
+            "action_id": "do_not_skip_post_close_closure",
+            "plain_rule": "Do not skip post-close review; missing closure quarantines future reuse evidence.",
+            "order_placement_allowed": False,
+        },
+    ]
 
 
 def _capital_observation_evidence_scorecard(

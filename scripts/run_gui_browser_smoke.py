@@ -931,8 +931,12 @@ def run_gui_browser_smoke(
             and app_js.get("ok")
             and "renderServerCapitalObservationGate" in str(app_js.get("body", ""))
             and "matched_paper_days" in str(app_js.get("body", ""))
-            and "legacy_unverified_paper_days" in str(app_js.get("body", "")),
-            "Control API and frontend expose a server-side small-capital manual observation gate while live trading and order placement stay blocked.",
+            and "legacy_unverified_paper_days" in str(app_js.get("body", ""))
+            and "manual_observation_packet" in str(app_js.get("body", ""))
+            and "小资金观察准备包" in str(app_js.get("body", ""))
+            and "software_order_submission_allowed" in str(app_js.get("body", ""))
+            and "read_small_capital_limits" in str(app_js.get("body", "")),
+            "Control API and frontend expose a server-side small-capital manual observation gate and beginner-facing preparation packet while live trading and order placement stay blocked.",
             control.get("error")
             or index_html.get("error")
             or app_js.get("error")
