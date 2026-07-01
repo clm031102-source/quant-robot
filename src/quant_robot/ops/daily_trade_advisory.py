@@ -8478,6 +8478,11 @@ def build_daily_beginner_execution_answer(pack: dict[str, Any]) -> dict[str, Any
         today_operation_card=today_operation_card,
         pre_market_packet=pre_market_packet,
     )
+    final_operation_packet = _beginner_final_operation_packet(
+        today_operation_card=today_operation_card,
+        pre_market_packet=pre_market_packet,
+        trade_system_gate=trade_system_gate,
+    )
     return _sanitize(
         {
             "stage": DAILY_BEGINNER_EXECUTION_ANSWER_STAGE,
@@ -8509,6 +8514,7 @@ def build_daily_beginner_execution_answer(pack: dict[str, Any]) -> dict[str, Any
             "today_operation_card": today_operation_card,
             "trade_system_go_no_go_gate": trade_system_gate,
             "pre_market_manual_execution_packet": pre_market_packet,
+            "beginner_final_operation_packet": final_operation_packet,
             "reasons": reasons,
             "review_rows": review_rows,
             "operator_next_steps": _beginner_execution_next_steps(
@@ -8538,6 +8544,150 @@ def build_daily_beginner_execution_answer(pack: dict[str, Any]) -> dict[str, Any
                 "order_placement_allowed": False,
                 "auto_order_allowed": False,
             },
+        }
+    )
+
+
+def _beginner_final_operation_packet(
+    *,
+    today_operation_card: dict[str, Any],
+    pre_market_packet: dict[str, Any],
+    trade_system_gate: dict[str, Any],
+) -> dict[str, Any]:
+    recheck = (
+        pre_market_packet.get("broker_price_recheck_playbook")
+        if isinstance(pre_market_packet.get("broker_price_recheck_playbook"), dict)
+        else {}
+    )
+    recheck_rows = [row for row in recheck.get("rows", []) if isinstance(row, dict)]
+    closure_gate = (
+        today_operation_card.get("after_action_closure_gate")
+        if isinstance(today_operation_card.get("after_action_closure_gate"), dict)
+        else {}
+    )
+    final_action_status = str(trade_system_gate.get("decision") or "do_not_trade")
+    traffic_light = str(trade_system_gate.get("traffic_light") or today_operation_card.get("traffic_light") or "red")
+    manual_ticket_count = len(recheck_rows)
+    post_close_required = bool(pre_market_packet.get("post_close_closure_required"))
+    if final_action_status == "manual_review_only_not_order" and manual_ticket_count:
+        plain_answer = (
+            "今天最多查看人工复核票据；它们不是订单。先手工填券商实时价和可用现金，"
+            "本地重算数量后，本人再决定跳过或离开系统手动处理。"
+        )
+    elif final_action_status == "paper_rehearsal_only":
+        plain_answer = "今天只做同参数模拟盘，不进入券商端，不复制票据，不下单。"
+    else:
+        plain_answer = "今天不交易；先处理红灯、缺失证据或数据问题。"
+
+    ticket_rows = []
+    for index, row in enumerate(recheck_rows, start=1):
+        ticket_rows.append(
+            {
+                "row_number": _int(row.get("row_number"), index),
+                "ticket_id": str(row.get("ticket_id") or f"manual_review_{index}"),
+                "asset_id": str(row.get("asset_id") or ""),
+                "market": str(row.get("market") or "CN_ETF"),
+                "suggested_side": str(row.get("side") or "review"),
+                "reference_price": _float_or_none(row.get("reference_price")),
+                "lower_price_bound": _float_or_none(row.get("lower_price_bound")),
+                "upper_price_bound": _float_or_none(row.get("upper_price_bound")),
+                "max_slippage_bps": _int(row.get("max_slippage_bps"), MANUAL_MAX_SLIPPAGE_BPS),
+                "target_value_for_recalculation": _float_or_none(row.get("target_value_for_recalculation")),
+                "estimated_quantity_at_reference": _int(row.get("estimated_quantity_at_reference"), 0),
+                "board_lot_size": _int(row.get("board_lot_size"), BOARD_LOT_SIZE),
+                "external_realtime_price_required": True,
+                "external_cash_check_required": True,
+                "human_final_decision_required": True,
+                "final_quantity_rule": "recalculate_from_external_price_floor_to_board_lot",
+                "skip_rule": str(row.get("skip_rule") or "skip_if_broker_price_outside_guardrail"),
+                "cash_recheck_rule": str(row.get("cash_recheck_rule") or "skip_if_external_cash_below_recalculated_value"),
+                "default_decision_if_missing_price": str(
+                    row.get("default_decision_if_missing_price") or "skip_waiting_for_external_broker_price"
+                ),
+                "plain_instruction": str(
+                    row.get("plain_instruction")
+                    or "先在券商端手工核对实时价、现金和风险；看不懂或超护栏就跳过。"
+                ),
+                "copy_to_broker_allowed": False,
+                "can_buy_by_software": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+            }
+        )
+
+    operator_steps = [
+        {
+            "step_id": "read_final_packet",
+            "label": "先读最终操作包",
+            "status": "required",
+            "target_id": "daily-beginner-execution-answer-final-packet",
+            "plain_action": "先确认今天是红灯、黄灯还是只允许模拟；不要直接照 Top3 下单。",
+            "order_placement_allowed": False,
+        },
+        {
+            "step_id": "fill_external_broker_price_and_cash",
+            "label": "手工填写券商实时价和可用现金",
+            "status": "required_external_input" if manual_ticket_count else "locked",
+            "target_id": "daily-beginner-execution-answer-pre-market-packet",
+            "plain_action": "逐票手工填实时价和现金，本地按一手取整重算数量。",
+            "order_placement_allowed": False,
+        },
+        {
+            "step_id": "human_choose_skip_or_manual_trade",
+            "label": "本人决定跳过或离开系统手动处理",
+            "status": "manual_only" if final_action_status == "manual_review_only_not_order" else "locked",
+            "target_id": "beginner-live-handoff-board",
+            "plain_action": "系统只给复核材料；最终是否在外部券商手动操作由人决定。",
+            "order_placement_allowed": False,
+        },
+        {
+            "step_id": "record_post_close_closure",
+            "label": "收盘后补复盘和执行审计",
+            "status": "required_after_action" if post_close_required else "locked",
+            "target_id": "beginner-post-close-journal-board",
+            "plain_action": "记录是否执行、成交价、数量、滑点、跳过原因和持仓更新。",
+            "order_placement_allowed": False,
+        },
+    ]
+    must_not_do = [
+        {
+            "action_id": "direct_buy_from_top3",
+            "plain_rule": "不能因为某因子进入 Top3 就直接买入；Top3 只是候选入口。",
+        },
+        {
+            "action_id": "copy_without_recheck",
+            "plain_rule": "不能把参考数量复制成券商订单；必须用券商实时价、现金和护栏重新核对。",
+        },
+        {
+            "action_id": "skip_post_close_closure",
+            "plain_rule": "不能跳过盘后复盘和人工执行审计；缺闭环会隔离下一交易日 Top3。",
+        },
+    ]
+    return _sanitize(
+        {
+            "packet_id": "beginner_final_operation_packet",
+            "ordinary_question": "今天到底买什么、卖什么、跳过什么？",
+            "final_action_status": final_action_status,
+            "traffic_light": traffic_light,
+            "plain_answer": plain_answer,
+            "manual_ticket_count": manual_ticket_count,
+            "external_manual_input_count": _int(trade_system_gate.get("external_manual_input_count"), 0),
+            "post_close_closure_required": post_close_required,
+            "next_session_quarantine_required_if_missing": bool(
+                closure_gate.get("next_session_quarantine_required_if_missing")
+            ),
+            "next_session_rule": "quarantine_today_top3_if_missing_closure",
+            "operator_steps": operator_steps,
+            "ticket_rows": ticket_rows,
+            "must_not_do": must_not_do,
+            "manual_only_boundary": True,
+            "can_buy_by_software": False,
+            "can_buy_today": False,
+            "copy_to_broker_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
         }
     )
 

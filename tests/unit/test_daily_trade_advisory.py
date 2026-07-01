@@ -2627,6 +2627,7 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         today_card = answer["today_operation_card"]
         packet = answer["pre_market_manual_execution_packet"]
         trade_gate = answer["trade_system_go_no_go_gate"]
+        final_packet = answer["beginner_final_operation_packet"]
         recheck_playbook = packet["broker_price_recheck_playbook"]
         closure_gate = today_card["after_action_closure_gate"]
 
@@ -2703,6 +2704,52 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertFalse(packet["order_placement_allowed"])
         self.assertFalse(packet["auto_order_allowed"])
         self.assertTrue(packet["post_close_closure_required"])
+        self.assertEqual(final_packet["packet_id"], "beginner_final_operation_packet")
+        self.assertEqual(final_packet["final_action_status"], "manual_review_only_not_order")
+        self.assertEqual(final_packet["ordinary_question"], "今天到底买什么、卖什么、跳过什么？")
+        self.assertEqual(final_packet["traffic_light"], "yellow")
+        self.assertEqual(final_packet["manual_ticket_count"], 3)
+        self.assertEqual(final_packet["external_manual_input_count"], 3)
+        self.assertTrue(final_packet["post_close_closure_required"])
+        self.assertTrue(final_packet["next_session_quarantine_required_if_missing"])
+        self.assertFalse(final_packet["can_buy_by_software"])
+        self.assertFalse(final_packet["copy_to_broker_allowed"])
+        self.assertFalse(final_packet["broker_connection_allowed"])
+        self.assertFalse(final_packet["account_read_allowed"])
+        self.assertFalse(final_packet["order_placement_allowed"])
+        self.assertFalse(final_packet["auto_order_allowed"])
+        self.assertIn("不是订单", final_packet["plain_answer"])
+        self.assertEqual(
+            [row["step_id"] for row in final_packet["operator_steps"]],
+            [
+                "read_final_packet",
+                "fill_external_broker_price_and_cash",
+                "human_choose_skip_or_manual_trade",
+                "record_post_close_closure",
+            ],
+        )
+        self.assertEqual(
+            {row["action_id"] for row in final_packet["must_not_do"]},
+            {
+                "direct_buy_from_top3",
+                "copy_without_recheck",
+                "skip_post_close_closure",
+            },
+        )
+        self.assertEqual(len(final_packet["ticket_rows"]), 3)
+        final_rows_by_asset = {row["asset_id"]: row for row in final_packet["ticket_rows"]}
+        first_final_row = final_rows_by_asset["510300"]
+        self.assertEqual(first_final_row["asset_id"], "510300")
+        self.assertEqual(first_final_row["suggested_side"], "buy")
+        self.assertTrue(first_final_row["external_realtime_price_required"])
+        self.assertTrue(first_final_row["external_cash_check_required"])
+        self.assertEqual(
+            first_final_row["final_quantity_rule"],
+            "recalculate_from_external_price_floor_to_board_lot",
+        )
+        self.assertTrue(first_final_row["human_final_decision_required"])
+        self.assertFalse(first_final_row["copy_to_broker_allowed"])
+        self.assertFalse(first_final_row["order_placement_allowed"])
         evidence_by_id = {row["check_id"]: row for row in packet["evidence_checklist"]}
         self.assertEqual(evidence_by_id["signal_freshness"]["status"], "pass")
         self.assertEqual(evidence_by_id["same_parameter_top3_paper"]["status"], "pass")

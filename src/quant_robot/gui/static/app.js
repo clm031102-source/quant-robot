@@ -8493,17 +8493,62 @@ function renderPreMarketManualExecutionPacket(packet = {}, target = null) {
   `;
 }
 
+function renderBeginnerFinalOperationPacket(packet = {}, target = null) {
+  const node = target || byId("daily-beginner-execution-answer-final-packet");
+  if (!node) return;
+  const status = packet.final_action_status || "do_not_trade";
+  const tone = status === "manual_review_only_not_order" || status === "paper_rehearsal_only" ? "warn" : "danger";
+  const ticketRows = Array.isArray(packet.ticket_rows) ? packet.ticket_rows : [];
+  const operatorSteps = Array.isArray(packet.operator_steps) ? packet.operator_steps : [];
+  const mustNotDo = Array.isArray(packet.must_not_do) ? packet.must_not_do : [];
+  const ticketHtml = ticketRows.length ? ticketRows.map((item, index) => `
+    <div class="list-row warn">
+      <strong>${escapeHtml(`${index + 1}. ${item.asset_id || "--"} / ${zhConsoleText(item.suggested_side || "review")}`)}</strong>
+      <span>${escapeHtml(`参考价=${formatDecimal(item.reference_price)} / 目标重算金额=${formatNumber(item.target_value_for_recalculation)} / 参考数量=${formatNumber(item.estimated_quantity_at_reference)}`)}</span>
+      <span>${escapeHtml(`实时价输入=${item.external_realtime_price_required ? "必填" : "锁定"} / 现金复核=${item.external_cash_check_required ? "必填" : "锁定"} / final_quantity_rule=${item.final_quantity_rule || "recalculate_from_external_price_floor_to_board_lot"}`)}</span>
+      <span>${escapeHtml(item.plain_instruction || "手工核对券商实时价、现金和风险；看不懂或超护栏就跳过。")}</span>
+      <span>${escapeHtml(item.order_placement_allowed ? "异常：不应允许下单" : "不是订单；不复制到券商；由人决定跳过或手动处理。")}</span>
+    </div>
+  `).join("") : statusRows([["今日票据", "暂无最终票据；先生成今日前三信号、同参数模拟盘和人工复核材料。", "danger"]]);
+  const stepHtml = operatorSteps.length ? operatorSteps.map((item, index) => `
+    <div class="list-row ${escapeHtml(dailyTradeSystemStageTone(item.status || ""))}">
+      <strong>${escapeHtml(`${index + 1}. ${item.label || item.step_id || ""}`)}</strong>
+      <span>${escapeHtml(`${zhConsoleText(item.status || "--")} / ${item.plain_action || ""}`)}</span>
+      <span class="beginner-task-actions">
+        ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
+      </span>
+    </div>
+  `).join("") : "";
+  const forbiddenHtml = mustNotDo.length ? mustNotDo.map((item) => `
+    <div class="list-row danger">
+      <strong>${escapeHtml(item.action_id || "")}</strong>
+      <span>${escapeHtml(item.plain_rule || "")}</span>
+    </div>
+  `).join("") : "";
+  node.innerHTML = statusRows([
+    ["最终问题", packet.ordinary_question || "今天到底买什么、卖什么、跳过什么？", tone],
+    ["最终动作", `${zhConsoleText(status)} / 灯号=${packet.traffic_light || "red"}`, tone],
+    ["普通话答案", packet.plain_answer || "今天不要直接买 Top3；先看证据、价格、现金和盘后闭环。", tone],
+    ["票据", `${formatNumber(packet.manual_ticket_count || ticketRows.length)} 张 / 外部手工输入=${formatNumber(packet.external_manual_input_count || 0)}`, ticketRows.length ? "warn" : "danger"],
+    ["收盘闭环", packet.post_close_closure_required ? "必须记录盘后复盘、人工执行审计和持仓更新" : "暂未进入人工复核", packet.post_close_closure_required ? "warn" : "muted"],
+    ["次日规则", packet.next_session_quarantine_required_if_missing ? "缺闭环则隔离今日 Top3" : packet.next_session_rule || "等待下一步证据", packet.next_session_quarantine_required_if_missing ? "danger" : "warn"],
+    ["权限边界", packet.order_placement_allowed || packet.broker_connection_allowed || packet.account_read_allowed ? "异常：出现券商/账户/下单权限" : "不连接券商、不读账户、不自动下单", packet.order_placement_allowed || packet.broker_connection_allowed || packet.account_read_allowed ? "danger" : "ok"],
+  ]) + stepHtml + ticketHtml + forbiddenHtml;
+}
+
 function renderDailyBeginnerExecutionAnswer(answer = {}) {
   const goNoGoTarget = byId("daily-beginner-execution-answer-go-no-go");
+  const finalPacketTarget = byId("daily-beginner-execution-answer-final-packet");
   const todayCardTarget = byId("daily-beginner-execution-answer-today-card");
   const preMarketPacketTarget = byId("daily-beginner-execution-answer-pre-market-packet");
   const summaryTarget = byId("daily-beginner-execution-answer-summary");
   const reasonsTarget = byId("daily-beginner-execution-answer-reasons");
   const rowsTarget = byId("daily-beginner-execution-answer-rows");
   const stepsTarget = byId("daily-beginner-execution-answer-steps");
-  if (!summaryTarget || !reasonsTarget || !rowsTarget || !stepsTarget || !preMarketPacketTarget || !goNoGoTarget) return;
+  if (!summaryTarget || !reasonsTarget || !rowsTarget || !stepsTarget || !preMarketPacketTarget || !goNoGoTarget || !finalPacketTarget) return;
   const summary = answer.summary || {};
   renderTradeSystemGoNoGoGate(answer.trade_system_go_no_go_gate || {}, goNoGoTarget);
+  renderBeginnerFinalOperationPacket(answer.beginner_final_operation_packet || {}, finalPacketTarget);
   renderTodayOperationCard(answer.today_operation_card || {}, todayCardTarget);
   renderPreMarketManualExecutionPacket(answer.pre_market_manual_execution_packet || {}, preMarketPacketTarget);
   const allowedMode = summary.allowed_mode || "blocked_no_action";

@@ -584,6 +584,25 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "daily_beginner_final_operation_packet_frontend",
+            "Daily beginner final operation packet frontend",
+            index_html.get("ok")
+            and "daily-beginner-execution-answer-final-packet" in str(index_html.get("body", ""))
+            and app_js.get("ok")
+            and "renderBeginnerFinalOperationPacket" in str(app_js.get("body", ""))
+            and "beginner_final_operation_packet" in str(app_js.get("body", ""))
+            and "今天到底买什么、卖什么、跳过什么？" in str(app_js.get("body", ""))
+            and "final_quantity_rule" in str(app_js.get("body", ""))
+            and "external_realtime_price_required" in str(app_js.get("body", ""))
+            and "next_session_quarantine_required_if_missing" in str(app_js.get("body", "")),
+            "Frontend exposes the final beginner operation packet with manual price/cash inputs, quantity rule, and next-session quarantine reminder.",
+            index_html.get("error")
+            or app_js.get("error")
+            or "Daily beginner final operation packet frontend fields are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "daily_manual_observation_packet_frontend",
             "Daily manual observation packet frontend",
             index_html.get("ok")
