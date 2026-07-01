@@ -2119,6 +2119,8 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
         blockers.append("current_position_input_invalid")
     if signal_count > 0 and not freshness["fresh_for_run_date"]:
         blockers.append("stale_signal_date")
+    if manual_count > 0 and cash_feasibility.get("status") == "not_provided":
+        blockers.append("manual_cash_not_provided")
     if cash_feasibility.get("status") == "blocked":
         blockers.append("manual_cash_shortfall")
 
@@ -2182,6 +2184,7 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
                 if cash_feasibility.get("status") in {"pass", "not_required"}
                 else "blocked"
                 if cash_feasibility.get("status") == "blocked"
+                or (manual_count > 0 and cash_feasibility.get("status") == "not_provided")
                 else "waiting"
             ),
             "text": (
@@ -2234,7 +2237,7 @@ def _build_pretrade_readiness(pack: dict[str, Any]) -> dict[str, Any]:
     if cash_feasibility.get("status") == "blocked":
         warnings.append("手填券商可用现金不足以覆盖今日买入票据，不能进入人工买入复核。")
     elif cash_feasibility.get("status") == "not_provided" and manual_count > 0:
-        warnings.append("尚未手填券商可用现金；票据只能作为观察材料，真正人工复核前必须补现金检查。")
+        warnings.append("尚未手填券商可用现金；不能进入人工券商复核，先补现金检查。")
     if summary.get("fallback_signal_only"):
         warnings.append("当前只有内置基线演示信号，没有合格推广候选；只能观察和跑模拟盘，不能生成手工交易票据。")
     if position_validation.get("status") == "not_provided" and target_count > 0:

@@ -31,6 +31,7 @@ def build_daily_trade_advisory_pack(
 ):
     if current_positions is _CURRENT_POSITIONS_NOT_SUPPLIED:
         current_positions = _zero_current_positions_from_signals(signal_snapshots)
+    kwargs.setdefault("manual_available_cash", 100000)
     return _build_daily_trade_advisory_pack(
         candidates,
         signal_snapshots,
@@ -341,6 +342,7 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
             [_signal("c1", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
             run_date="2026-06-29",
             portfolio_value=100000,
+            manual_available_cash=100000,
         )
 
         ticket = pack["manual_trade_plan"][0]
@@ -576,6 +578,26 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(readiness["action_sequence"][0]["rounded_quantity"], 10400)
         self.assertIn("manual_only_boundary", {item["check_id"] for item in readiness["required_confirmations"]})
         self.assertEqual(pack["pretrade_workflow"]["pretrade_readiness"], readiness)
+
+    def test_pretrade_blocks_manual_action_until_manual_available_cash_is_provided(self):
+        pack = build_daily_trade_advisory_pack(
+            [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
+            [_signal("c1", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            manual_available_cash=None,
+        )
+
+        readiness = pack["pretrade_readiness"]
+        confirmation_rows = {row["check_id"]: row for row in readiness["required_confirmations"]}
+
+        self.assertEqual(readiness["traffic_light"], "red")
+        self.assertFalse(readiness["manual_action_candidate"])
+        self.assertIn("manual_cash_not_provided", readiness["blockers"])
+        self.assertEqual(confirmation_rows["manual_available_cash"]["status"], "blocked")
+        self.assertEqual(readiness["cash_feasibility"]["status"], "not_provided")
+        self.assertTrue(readiness["cash_feasibility"]["manual_input_required_before_broker_review"])
+        self.assertEqual(pack["manual_broker_handoff"]["copyable_tickets"], [])
 
     def test_pretrade_blocks_manual_action_when_manual_available_cash_is_too_low(self):
         pack = build_daily_trade_advisory_pack(

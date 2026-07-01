@@ -6449,9 +6449,9 @@ function renderDailyPortfolioValueHelp() {
   const info = portfolioValueInputState();
   const cashRaw = valueOf("daily-manual-available-cash");
   const cashValue = Number(cashRaw);
-  const cashTone = !cashRaw ? "warn" : Number.isFinite(cashValue) && cashValue >= 0 ? "ok" : "danger";
+  const cashTone = !cashRaw ? "danger" : Number.isFinite(cashValue) && cashValue >= 0 ? "ok" : "danger";
   const cashText = !cashRaw
-    ? "未填写；生成建议后只能作为观察材料，人工复核前必须补券商可用现金。"
+    ? "未填写；不能进入人工券商复核，先从券商 App 手动确认可用现金。"
     : cashTone === "ok"
       ? `手填券商可用现金=${formatNumber(cashValue)}，只用于本地现金闸门。`
       : "红灯：券商可用现金只能填大于等于 0 的数字。";
@@ -10162,7 +10162,7 @@ function renderDailyPretradeReadiness(readiness) {
   const light = readiness.traffic_light || "red";
   const verdictTone = light === "red" ? "danger" : "warn";
   const cashStatus = cash.status || summary.manual_cash_feasibility_status || "not_provided";
-  const cashTone = cashStatus === "blocked" ? "danger" : cashStatus === "pass" || cashStatus === "not_required" ? "ok" : "warn";
+  const cashTone = cashStatus === "blocked" ? "danger" : cashStatus === "not_provided" ? "danger" : cashStatus === "pass" || cashStatus === "not_required" ? "ok" : "warn";
   byId("daily-pretrade-readiness-verdict").innerHTML = statusRows([
     ["总灯号", light === "yellow" ? "黄灯：只能进入人工复核" : "红灯：不能进入人工操作", verdictTone],
     ["结论", readiness.operator_verdict || "等待今日信号和手工票据生成。", verdictTone],
@@ -10253,7 +10253,7 @@ function renderManualBrokerHandoff(handoff) {
   const rawTickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
   const cash = handoff.cash_feasibility || {};
   const cashStatus = cash.status || summary.manual_cash_feasibility_status || "not_provided";
-  const cashTone = cashStatus === "blocked" ? "danger" : cashStatus === "pass" || cashStatus === "not_required" ? "ok" : "warn";
+  const cashTone = cashStatus === "blocked" ? "danger" : cashStatus === "not_provided" ? "danger" : cashStatus === "pass" || cashStatus === "not_required" ? "ok" : "warn";
   const tickets = manualReviewGate.allowed ? rawTickets : [];
   const exportPack = manualReviewGate.allowed
     ? state.dailyTradeAdvisory?.manual_ticket_export || {}
@@ -11474,6 +11474,7 @@ const GUI_ZH_REPLACEMENTS = [
   ["not_provided", "未填写"],
   ["not_required", "不需要"],
   ["pass", "通过"],
+  ["manual_cash_not_provided", "未手填券商可用现金"],
   ["manual_cash_shortfall", "手填现金不足"],
   ["queued", "排队"],
   ["runnable", "可运行"],
