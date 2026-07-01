@@ -9319,7 +9319,7 @@ def _broker_price_recheck_row(index: int, ticket: dict[str, Any]) -> dict[str, A
     if not estimated_quantity_at_reference:
         estimated_quantity_at_reference = _int(ticket.get("rounded_quantity"), 0)
 
-    return {
+    row = {
         "row_number": index,
         "ticket_id": str(ticket.get("ticket_id") or f"manual_review_{index}"),
         "asset_id": str(ticket.get("asset_id") or ""),
@@ -9375,6 +9375,23 @@ def _broker_price_recheck_row(index: int, ticket: dict[str, Any]) -> dict[str, A
         "order_placement_allowed": False,
         "auto_order_allowed": False,
     }
+    small_capital_ticket = _small_capital_ticket_budget_overlay(row)
+    capped_notional = _float(small_capital_ticket.get("small_capital_capped_notional"), target_value)
+    effective_target = min(target_value, capped_notional) if capped_notional > 0 else target_value
+    row.update(small_capital_ticket)
+    row.update(
+        {
+            "effective_target_value_for_recalculation": effective_target,
+            "small_capital_recheck_budget_applied": bool(effective_target < target_value - 1e-9),
+        }
+    )
+    row["local_recalculation_output_fields"] = [
+        *row["local_recalculation_output_fields"],
+        "effective_target_value_for_recalculation",
+        "small_capital_capped_notional",
+        "small_capital_recheck_budget_applied",
+    ]
+    return row
 
 
 def _beginner_execution_reasons(guard: dict[str, Any]) -> list[dict[str, Any]]:

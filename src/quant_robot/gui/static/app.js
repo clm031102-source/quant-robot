@@ -8186,9 +8186,28 @@ function brokerPriceRecheckDecision(item = {}, externalPriceValue = "", external
   const rawText = String(externalPriceValue ?? "").trim();
   const rawCashText = String(externalCashValue ?? "").trim();
   const externalCash = rawCashText ? Number(rawCashText) : null;
+  const originalTargetValue = Math.abs(Number(item.target_value_for_recalculation || 0));
+  const explicitEffectiveTarget = Math.abs(Number(item.effective_target_value_for_recalculation));
+  const smallCapitalCappedNotional = Math.abs(Number(item.small_capital_capped_notional));
+  const rawSmallCapitalApplied = item.small_capital_recheck_budget_applied;
+  const smallCapitalApplied = rawSmallCapitalApplied === true || rawSmallCapitalApplied === "true";
+  let effectiveTargetValue = originalTargetValue;
+  if (Number.isFinite(explicitEffectiveTarget) && explicitEffectiveTarget > 0) {
+    effectiveTargetValue = explicitEffectiveTarget;
+  } else if (Number.isFinite(smallCapitalCappedNotional) && smallCapitalCappedNotional > 0 && smallCapitalCappedNotional < originalTargetValue) {
+    effectiveTargetValue = smallCapitalCappedNotional;
+  }
+  const budgetApplied = smallCapitalApplied || (originalTargetValue > 0 && effectiveTargetValue < originalTargetValue);
+  const budgetPayload = {
+    target_value_for_recalculation: originalTargetValue,
+    effective_target_value_for_recalculation: effectiveTargetValue,
+    small_capital_capped_notional: Number.isFinite(smallCapitalCappedNotional) && smallCapitalCappedNotional > 0 ? smallCapitalCappedNotional : null,
+    small_capital_recheck_budget_applied: budgetApplied,
+  };
   const cashPayload = {
     external_available_cash_after_manual_check: Number.isFinite(externalCash) && externalCash >= 0 ? externalCash : null,
     external_cash_shortfall: null,
+    ...budgetPayload,
   };
   if (!rawText) {
     return {
@@ -8217,13 +8236,14 @@ function brokerPriceRecheckDecision(item = {}, externalPriceValue = "", external
       external_price_slippage_bps: null,
       external_available_cash_after_manual_check: null,
       external_cash_shortfall: null,
+      ...budgetPayload,
     };
   }
   const lower = Number(item.lower_price_bound);
   const upper = Number(item.upper_price_bound);
   const referencePrice = Number(item.reference_price);
   const maxSlippageBps = Number(item.max_slippage_bps);
-  const targetValue = Math.abs(Number(item.target_value_for_recalculation || 0));
+  const targetValue = effectiveTargetValue;
   const boardLotSize = Math.max(1, Number(item.board_lot_size || 100));
   const slippageBps = Number.isFinite(referencePrice) && referencePrice > 0
     ? ((externalPrice - referencePrice) / referencePrice) * 10000
@@ -8275,6 +8295,7 @@ function brokerPriceRecheckDecision(item = {}, externalPriceValue = "", external
       external_price_slippage_bps: slippageBps,
       external_available_cash_after_manual_check: null,
       external_cash_shortfall: null,
+      ...budgetPayload,
     };
   }
   if (externalCash < recalculatedValue) {
@@ -8285,6 +8306,7 @@ function brokerPriceRecheckDecision(item = {}, externalPriceValue = "", external
       external_price_slippage_bps: slippageBps,
       external_available_cash_after_manual_check: externalCash,
       external_cash_shortfall: recalculatedValue - externalCash,
+      ...budgetPayload,
     };
   }
   return {
@@ -8294,6 +8316,7 @@ function brokerPriceRecheckDecision(item = {}, externalPriceValue = "", external
     external_price_slippage_bps: slippageBps,
     external_available_cash_after_manual_check: externalCash,
     external_cash_shortfall: 0,
+    ...budgetPayload,
   };
 }
 
@@ -8310,6 +8333,8 @@ function renderBrokerPriceRecheckDecision(item = {}, externalPriceValue = "", ex
     : formatDecimal(decision.external_cash_shortfall);
   return [
     `local_recheck_decision=${decision.status}`,
+    `effective_target_value_for_recalculation=${formatDecimal(decision.effective_target_value_for_recalculation)}`,
+    `small_capital_recheck_budget_applied=${String(decision.small_capital_recheck_budget_applied)}`,
     `recalculated_quantity_at_external_price=${formatNumber(decision.recalculated_quantity_at_external_price)}`,
     `recalculated_value_at_external_price=${formatDecimal(decision.recalculated_value_at_external_price)}`,
     `external_price_slippage_bps=${slippageText}`,
@@ -8325,6 +8350,9 @@ function brokerPriceRecheckItemFromDataset(dataset = {}) {
     upper_price_bound: dataset.upperPriceBound,
     max_slippage_bps: dataset.maxSlippageBps,
     target_value_for_recalculation: dataset.targetValueForRecalculation,
+    effective_target_value_for_recalculation: dataset.effectiveTargetValueForRecalculation,
+    small_capital_capped_notional: dataset.smallCapitalCappedNotional,
+    small_capital_recheck_budget_applied: dataset.smallCapitalRecheckBudgetApplied,
     board_lot_size: dataset.boardLotSize,
   };
 }
@@ -8461,7 +8489,7 @@ function renderPreMarketManualExecutionPacket(packet = {}, target = null) {
       <div class="list-row warn">
         <strong>${escapeHtml(`${item.asset_id || "--"} / ${zhConsoleText(item.side || "review")}`)}</strong>
         <span>${escapeHtml(`engine=${item.local_decision_engine || "broker_price_recheck_local_calculator"} / 参考价=${formatDecimal(item.reference_price)} / 护栏=${formatDecimal(item.lower_price_bound)}~${formatDecimal(item.upper_price_bound)}`)}</span>
-        <span>${escapeHtml(`重算=${zhConsoleText(item.recalculation_rule || "floor_to_board_lot_at_external_price")} / 一手=${formatNumber(item.board_lot_size || 100)} / 目标金额=${formatNumber(item.target_value_for_recalculation || 0)}`)}</span>
+        <span>${escapeHtml(`重算=${zhConsoleText(item.recalculation_rule || "floor_to_board_lot_at_external_price")} / 一手=${formatNumber(item.board_lot_size || 100)} / 原始目标金额=${formatNumber(item.target_value_for_recalculation || 0)} / 小资金有效金额=${formatNumber(item.effective_target_value_for_recalculation || item.target_value_for_recalculation || 0)}`)}</span>
         <span>${escapeHtml(`跳过=${zhConsoleText(item.skip_rule || "skip_if_broker_price_outside_guardrail")} / 最大滑点=${formatNumber(item.max_slippage_bps || 0)}bps`)}</span>
         <label class="compact-inline-field">
           <span>${escapeHtml("券商实时价")}</span>
@@ -8477,6 +8505,9 @@ function renderPreMarketManualExecutionPacket(packet = {}, target = null) {
             data-upper-price-bound="${escapeRawHtml(item.upper_price_bound ?? "")}"
             data-max-slippage-bps="${escapeRawHtml(item.max_slippage_bps ?? "")}"
             data-target-value-for-recalculation="${escapeRawHtml(item.target_value_for_recalculation ?? "")}"
+            data-effective-target-value-for-recalculation="${escapeRawHtml(item.effective_target_value_for_recalculation ?? item.target_value_for_recalculation ?? "")}"
+            data-small-capital-capped-notional="${escapeRawHtml(item.small_capital_capped_notional ?? "")}"
+            data-small-capital-recheck-budget-applied="${escapeRawHtml(item.small_capital_recheck_budget_applied ?? false)}"
             data-board-lot-size="${escapeRawHtml(item.board_lot_size || 100)}"
             placeholder="${escapeRawHtml("人工填写")}"
           >

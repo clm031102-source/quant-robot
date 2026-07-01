@@ -2838,6 +2838,12 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
             "skip_waiting_for_external_broker_price",
         )
         self.assertEqual(recheck_rows_by_asset["510300"]["recalculation_rule"], "floor_to_board_lot_at_external_price")
+        self.assertEqual(
+            recheck_rows_by_asset["510300"]["effective_target_value_for_recalculation"],
+            1000.0,
+        )
+        self.assertEqual(recheck_rows_by_asset["510300"]["small_capital_capped_notional"], 1000.0)
+        self.assertTrue(recheck_rows_by_asset["510300"]["small_capital_recheck_budget_applied"])
         self.assertEqual(recheck_rows_by_asset["510300"]["skip_rule"], "skip_if_broker_price_outside_guardrail")
         self.assertIn(
             "external_broker_realtime_price",
