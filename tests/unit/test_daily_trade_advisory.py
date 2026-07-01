@@ -389,6 +389,40 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(readiness["summary"]["candidate_trade_evidence_blocked_count"], 1)
         self.assertIn("annualized_return", readiness["candidate_trade_evidence"]["rows"][0]["missing_metrics"])
 
+    def test_candidate_evidence_repair_plan_explains_how_to_unlock_trade_tickets(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {
+                    "rank": 1,
+                    "case_id": "paper_ready_but_metric_thin",
+                    "factor_name": "momentum_2",
+                    "market": "CN_ETF",
+                    "status": "paper_ready",
+                    "sharpe": 1.2,
+                }
+            ],
+            [_signal("paper_ready_but_metric_thin", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+        )
+
+        plan = pack["candidate_evidence_repair_plan"]
+        sheet_plan = pack["daily_trade_decision_sheet"]["candidate_evidence_repair_plan"]
+        action_rows = {row["action_id"]: row for row in plan["next_actions"]}
+
+        self.assertEqual(plan["stage"], "phase_6_33_candidate_evidence_repair_plan")
+        self.assertEqual(plan["summary"]["status"], "blocked_missing_tradable_candidate_evidence")
+        self.assertIn("candidate_trade_evidence_incomplete", plan["summary"]["blockers"])
+        self.assertFalse(plan["summary"]["manual_ticket_release_allowed"])
+        self.assertFalse(plan["summary"]["order_placement_allowed"])
+        self.assertIn("annualized_return", plan["required_metrics"])
+        self.assertIn("trade_count", plan["required_metrics"])
+        self.assertEqual(action_rows["review_primary_cn_etf_leaderboard"]["target_id"], "daily-trade-decision-candidate-pool")
+        self.assertEqual(action_rows["run_long_sample_walk_forward"]["workflow_id"], "research_backtest")
+        self.assertEqual(action_rows["run_same_parameter_paper_rehearsal"]["workflow_id"], "paper_simulation")
+        self.assertEqual(action_rows["rerun_daily_trade_advisory"]["workflow_id"], "daily_trade_advisory")
+        self.assertEqual(sheet_plan["summary"]["status"], "blocked_missing_tradable_candidate_evidence")
+
     def test_manual_rebalance_sell_cash_impact_is_net_of_estimated_commission(self):
         pack = build_daily_trade_advisory_pack(
             [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],

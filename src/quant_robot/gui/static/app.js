@@ -7129,6 +7129,7 @@ function renderDailyTradeDecisionSheet(sheet = {}) {
   const summaryTarget = byId("daily-trade-decision-summary");
   const top3Target = byId("daily-trade-decision-top3");
   const candidatePoolTarget = byId("daily-trade-decision-candidate-pool");
+  const candidateRepairTarget = byId("daily-candidate-evidence-repair-plan");
   const actionTarget = byId("daily-trade-decision-actions");
   const evidenceTarget = byId("daily-trade-decision-evidence");
   const systemTarget = byId("daily-trade-system-state");
@@ -7137,7 +7138,7 @@ function renderDailyTradeDecisionSheet(sheet = {}) {
   const recipeStepsTarget = byId("daily-beginner-operation-recipe-steps");
   const recipeSkipRulesTarget = byId("daily-beginner-operation-recipe-skip-rules");
   const recipeTicketsTarget = byId("daily-beginner-operation-recipe-tickets");
-  if (!root || !summaryTarget || !systemTarget || !packageTarget || !recipeSummaryTarget || !recipeStepsTarget || !recipeSkipRulesTarget || !recipeTicketsTarget || !top3Target || !candidatePoolTarget || !actionTarget || !evidenceTarget) return;
+  if (!root || !summaryTarget || !systemTarget || !packageTarget || !recipeSummaryTarget || !recipeStepsTarget || !recipeSkipRulesTarget || !recipeTicketsTarget || !top3Target || !candidatePoolTarget || !candidateRepairTarget || !actionTarget || !evidenceTarget) return;
   const summary = sheet.summary || {};
   const next = sheet.what_to_do_now || {};
   const decision = summary.decision || "waiting_for_daily_signal";
@@ -7167,6 +7168,7 @@ function renderDailyTradeDecisionSheet(sheet = {}) {
   `).join("") : statusRows([["Top3 因子", "暂无今日候选。先生成今日前三 CN_ETF 建议。", "warn"]]);
 
   renderDailyCandidatePoolTop20(sheet.candidate_pool_top20 || {}, candidatePoolTarget);
+  renderDailyCandidateEvidenceRepairPlan(sheet.candidate_evidence_repair_plan || {}, candidateRepairTarget);
 
   const actions = Array.isArray(sheet.today_actions) ? sheet.today_actions : [];
   actionTarget.innerHTML = actions.length ? actions.map((item) => `
@@ -7463,6 +7465,89 @@ function dailyCandidatePoolParamsText(params = {}) {
     .slice(0, 8)
     .map(([key, value]) => `${key}=${Array.isArray(value) ? value.join("/") : value}`);
   return entries.length ? entries.join(", ") : "--";
+}
+
+function renderDailyCandidateEvidenceRepairPlan(plan = {}, target) {
+  if (!target) return;
+  const summary = plan.summary || {};
+  const status = summary.status || "waiting_for_candidate_evidence_repair_plan";
+  const tone = status.includes("blocked") ? "danger" : status.includes("ready") || status.includes("pass") ? "ok" : "warn";
+  const blockers = Array.isArray(summary.blockers) ? summary.blockers : [];
+  const requiredMetrics = Array.isArray(plan.required_metrics) ? plan.required_metrics : [];
+  const candidateRows = Array.isArray(plan.candidate_rows) ? plan.candidate_rows : [];
+  const releaseRules = Array.isArray(plan.release_rules) ? plan.release_rules : [];
+  const fallbackActions = [
+    {
+      action_id: "review_primary_cn_etf_leaderboard",
+      label: "Review primary CN_ETF leaderboard",
+      target_id: "daily-trade-decision-candidate-pool",
+      workflow_id: "",
+      status: "required",
+      why: "Top3 cannot be fallback-only rows.",
+    },
+    {
+      action_id: "run_long_sample_walk_forward",
+      label: "Run long-sample walk-forward refresh",
+      target_id: "factor-leaderboard-table",
+      workflow_id: "research_backtest",
+      status: "required",
+      why: "Repair missing Sharpe, return, drawdown, win-rate, and trade-count evidence.",
+    },
+    {
+      action_id: "run_same_parameter_paper_rehearsal",
+      label: "Run same-parameter paper rehearsal",
+      target_id: "daily-same-parameter-paper-requests",
+      workflow_id: "paper_simulation",
+      status: "locked",
+      why: "Paper rehearsal is only unlocked after candidate evidence passes.",
+    },
+  ];
+  const actions = Array.isArray(plan.next_actions) && plan.next_actions.length ? plan.next_actions : fallbackActions;
+
+  const summaryRows = statusRows([
+    ["candidate_evidence_repair_plan", zhConsoleText(status), tone],
+    ["next_step", zhConsoleText(summary.next_step_id || "repair_candidate_trade_evidence"), tone],
+    ["required_metrics", requiredMetrics.join(" / ") || "sharpe / annualized_return / max_drawdown / win_rate / trade_count", "warn"],
+    ["blockers", blockers.join(" / ") || "none", blockers.length ? "danger" : "ok"],
+    ["manual_ticket_release", summary.manual_ticket_release_allowed ? "allowed_for_manual_review" : "blocked_until_evidence_passes", summary.manual_ticket_release_allowed ? "warn" : "danger"],
+  ]);
+  const candidateHtml = candidateRows.slice(0, 3).map((row) => {
+    const rowTone = row.evidence_status === "pass" ? "ok" : "danger";
+    const missing = Array.isArray(row.missing_metrics) ? row.missing_metrics.join(" / ") : "";
+    const violations = Array.isArray(row.violations) ? row.violations.join(" / ") : "";
+    return `
+      <div class="list-row ${escapeHtml(rowTone)}">
+        <strong>${escapeHtml(`${row.rank || "--"}. ${row.factor_name || row.case_id || "--"}`)}</strong>
+        <span>${escapeHtml(`evidence=${zhConsoleText(row.evidence_status || "waiting")} / market=${row.market || "--"}`)}</span>
+        <span>${escapeHtml(`missing=${missing || "none"} / violations=${violations || "none"}`)}</span>
+      </div>
+    `;
+  }).join("");
+  const ruleHtml = releaseRules.slice(0, 5).map((row) => `
+    <div class="list-row ${escapeHtml(dailyTradeDecisionEvidenceTone(row.status || "waiting"))}">
+      <strong>${escapeHtml(row.rule_id || "")}</strong>
+      <span>${escapeHtml(zhConsoleText(row.status || "waiting"))}</span>
+      <span>${escapeHtml(row.text || "")}</span>
+    </div>
+  `).join("");
+  const actionHtml = actions.map((item) => {
+    const workflowButton = item.workflow_id
+      ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}" ${runtimeGuardAttr(item.workflow_id)}>${escapeHtml("运行")}</button>`
+      : "";
+    const targetButton = item.target_id
+      ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>`
+      : "";
+    return `
+      <div class="list-row ${escapeHtml(dailyBeginnerOperationTone(item.status || ""))}">
+        <strong>${escapeHtml(item.action_id || item.label || "")}</strong>
+        <span>${escapeHtml(`${zhConsoleText(item.status || "waiting")} / ${item.label || ""}`)}</span>
+        <span>${escapeHtml(item.why || "")}</span>
+        <span class="beginner-task-actions">${workflowButton}${targetButton}</span>
+      </div>
+    `;
+  }).join("");
+
+  target.innerHTML = summaryRows + (candidateHtml || "") + (ruleHtml || "") + actionHtml;
 }
 
 function renderDailySignalExecutionBridge(bridge = {}) {

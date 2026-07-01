@@ -49,6 +49,7 @@ DAILY_EXECUTION_RISK_CIRCUIT_BREAKER_STAGE = "phase_6_29_daily_execution_risk_ci
 DAILY_OPERATOR_MISSION_CONTROL_STAGE = "phase_6_30_daily_operator_mission_control"
 DAILY_LIVE_TRADING_SYSTEM_STATUS_STAGE = "phase_6_31_daily_live_trading_system_status"
 DAILY_MANUAL_OBSERVATION_PACKET_STAGE = "phase_6_32_daily_manual_observation_packet"
+CANDIDATE_EVIDENCE_REPAIR_PLAN_STAGE = "phase_6_33_candidate_evidence_repair_plan"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 SMALL_CAPITAL_OBSERVATION_MAX_INITIAL_CAPITAL = 10000.0
@@ -448,6 +449,7 @@ def build_daily_trade_advisory_pack(
         "markdown": "",
     }
     pack["pretrade_readiness"] = _build_pretrade_readiness(pack)
+    pack["candidate_evidence_repair_plan"] = build_candidate_evidence_repair_plan(pack)
     pack["manual_broker_handoff"] = _build_manual_broker_handoff(pack)
     pack["operator_next_actions"] = _operator_next_actions(
         pack,
@@ -2343,6 +2345,195 @@ def _candidate_trade_evidence_audit(factors: list[dict[str, Any]]) -> dict[str, 
     }
 
 
+def build_candidate_evidence_repair_plan(pack: dict[str, Any]) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
+    factors = [row for row in pack.get("factors", []) if isinstance(row, dict)]
+    market = str(pack.get("market") or _first_market(factors) or "CN_ETF").upper()
+    blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
+    candidate_evidence = (
+        readiness.get("candidate_trade_evidence")
+        if isinstance(readiness.get("candidate_trade_evidence"), dict)
+        else _candidate_trade_evidence_audit(factors)
+    )
+    evidence_rows = [row for row in candidate_evidence.get("rows", []) if isinstance(row, dict)]
+    blocked_rows = [row for row in evidence_rows if row.get("status") != "pass"]
+    fallback_only = bool(summary.get("fallback_signal_only")) or "fallback_baseline_not_tradeable" in blockers
+    evidence_blocked = bool(blocked_rows) or "candidate_trade_evidence_incomplete" in blockers
+    has_candidates = bool(factors)
+
+    if not has_candidates:
+        status = "waiting_for_cn_etf_candidate_pool"
+        next_step_id = "refresh_primary_cn_etf_candidates"
+    elif fallback_only or evidence_blocked or market != "CN_ETF":
+        status = "blocked_missing_tradable_candidate_evidence"
+        next_step_id = "repair_candidate_trade_evidence"
+    else:
+        status = "candidate_trade_evidence_ready_for_paper"
+        next_step_id = "run_same_parameter_paper_rehearsal"
+
+    manual_ticket_release_allowed = (
+        status == "candidate_trade_evidence_ready_for_paper"
+        and not blockers
+        and bool(readiness.get("manual_action_candidate"))
+    )
+    blocking_reasons = sorted(
+        {
+            *blockers,
+            *(["fallback_baseline_not_tradeable"] if fallback_only else []),
+            *(["candidate_trade_evidence_incomplete"] if evidence_blocked else []),
+            *(["non_cn_etf_scope"] if market != "CN_ETF" else []),
+        }
+    )
+
+    repair_rows = []
+    audit_by_case = {
+        str(row.get("case_id") or row.get("factor_name") or ""): row
+        for row in evidence_rows
+        if str(row.get("case_id") or row.get("factor_name") or "").strip()
+    }
+    for index, row in enumerate(factors[:20], start=1):
+        factor_name = str(row.get("factor_name") or row.get("factor") or "").strip()
+        case_id = str(row.get("case_id") or factor_name or f"candidate_{index}").strip()
+        audit = audit_by_case.get(case_id) or audit_by_case.get(factor_name) or {}
+        missing_metrics = [str(item) for item in audit.get("missing_metrics", []) if str(item).strip()]
+        violations = [str(item) for item in audit.get("violations", []) if str(item).strip()]
+        if bool(row.get("fallback_baseline")):
+            violations.append("fallback_baseline_observation_only")
+        repair_rows.append(
+            {
+                "rank": _int(row.get("rank"), index),
+                "case_id": case_id,
+                "factor_name": factor_name,
+                "market": str(row.get("market") or market).upper(),
+                "candidate_status": row.get("status") or row.get("promotion_status") or row.get("promotion_label"),
+                "evidence_status": audit.get("status") or ("blocked" if row.get("fallback_baseline") else "waiting"),
+                "missing_metrics": missing_metrics,
+                "violations": sorted(set(violations)),
+                "required_metrics": list(DAILY_CANDIDATE_REQUIRED_TRADE_EVIDENCE_METRICS),
+                "min_trade_count": DAILY_CANDIDATE_MIN_TRADE_COUNT,
+                "manual_ticket_release_allowed": False,
+                "order_placement_allowed": False,
+            }
+        )
+
+    def action(action_id: str, label: str, target_id: str, workflow_id: str, status_value: str, why: str) -> dict[str, Any]:
+        return {
+            "action_id": action_id,
+            "label": label,
+            "target_id": target_id,
+            "workflow_id": workflow_id,
+            "status": status_value,
+            "why": why,
+            "manual_ticket_release_allowed": False,
+            "order_placement_allowed": False,
+        }
+
+    next_actions = [
+        action(
+            "review_primary_cn_etf_leaderboard",
+            "Review primary CN_ETF leaderboard and remove fallback-only rows",
+            "daily-trade-decision-candidate-pool",
+            "",
+            "required" if fallback_only or not has_candidates else "review",
+            "Top3 must come from qualified CN_ETF candidates, not runtime fallback baselines.",
+        ),
+        action(
+            "run_long_sample_walk_forward",
+            "Run long-sample walk-forward evidence refresh",
+            "factor-leaderboard-table",
+            "research_backtest",
+            "required" if evidence_blocked or fallback_only else "done",
+            "Required metrics must include Sharpe, annualized return, drawdown, win rate, and trade count.",
+        ),
+        action(
+            "run_promotion_gate_review",
+            "Run promotion gate review",
+            "promotion-review-status",
+            "promotion_ops",
+            "required" if evidence_blocked or fallback_only else "review",
+            "Promotion gates prevent a high backtest row from becoming an operator signal without OOS evidence.",
+        ),
+        action(
+            "run_same_parameter_paper_rehearsal",
+            "Run same-parameter paper rehearsal after candidate evidence passes",
+            "daily-same-parameter-paper-requests",
+            "paper_simulation",
+            "locked" if status != "candidate_trade_evidence_ready_for_paper" else "required",
+            "Paper rehearsal must use the same Top3 parameters and lock id before any manual ticket review.",
+        ),
+        action(
+            "rerun_daily_trade_advisory",
+            "Regenerate today's advisory after evidence repair",
+            "daily-trade-decision-sheet",
+            "daily_trade_advisory",
+            "required",
+            "The daily signal, target table, cash check, and manual tickets must be rebuilt from repaired evidence.",
+        ),
+    ]
+
+    return _sanitize(
+        {
+            "stage": CANDIDATE_EVIDENCE_REPAIR_PLAN_STAGE,
+            "run_date": pack.get("run_date", date.today().isoformat()),
+            "summary": {
+                "status": status,
+                "next_step_id": next_step_id,
+                "primary_market": market,
+                "candidate_count": len(factors),
+                "blocked_candidate_count": len(blocked_rows)
+                + sum(1 for row in factors if bool(row.get("fallback_baseline"))),
+                "fallback_signal_only": fallback_only,
+                "candidate_trade_evidence_status": candidate_evidence.get("status") or "waiting",
+                "blockers": blocking_reasons,
+                "manual_ticket_release_allowed": manual_ticket_release_allowed,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+            },
+            "required_metrics": list(DAILY_CANDIDATE_REQUIRED_TRADE_EVIDENCE_METRICS),
+            "min_trade_count": DAILY_CANDIDATE_MIN_TRADE_COUNT,
+            "candidate_rows": repair_rows,
+            "release_rules": [
+                {
+                    "rule_id": "primary_market_cn_etf",
+                    "status": "pass" if market == "CN_ETF" else "blocked",
+                    "text": "Candidate scope must be CN_ETF.",
+                },
+                {
+                    "rule_id": "no_fallback_baseline",
+                    "status": "blocked" if fallback_only else "pass",
+                    "text": "Runtime fallback baselines are observation-only and cannot release manual tickets.",
+                },
+                {
+                    "rule_id": "required_trade_metrics_present",
+                    "status": "pass" if not evidence_blocked else "blocked",
+                    "text": "Sharpe, annualized return, max drawdown, win rate, and trade count must be present.",
+                },
+                {
+                    "rule_id": "minimum_trade_count",
+                    "status": "pass"
+                    if all(
+                        _float_or_none(row.get("trade_count")) is not None
+                        and _float(row.get("trade_count")) >= DAILY_CANDIDATE_MIN_TRADE_COUNT
+                        for row in evidence_rows
+                    )
+                    else "blocked"
+                    if evidence_rows
+                    else "waiting",
+                    "text": f"Trade count must be at least {DAILY_CANDIDATE_MIN_TRADE_COUNT}.",
+                },
+                {
+                    "rule_id": "same_parameter_paper_before_manual_ticket",
+                    "status": "required",
+                    "text": "Even after candidate evidence passes, same-parameter paper rehearsal remains required.",
+                },
+            ],
+            "next_actions": next_actions,
+            "safety": SAFETY_NOTICE,
+        }
+    )
+
+
 def _candidate_trade_evidence_required(row: dict[str, Any]) -> bool:
     if row.get("daily_signal_eligible") is not None or row.get("advisory_eligible") is not None:
         return True
@@ -3035,6 +3226,11 @@ def build_daily_trade_decision_sheet(pack: dict[str, Any]) -> dict[str, Any]:
         if isinstance(pack.get("candidate_pool_top20"), dict)
         else _daily_candidate_pool_from_candidates(factors, primary_market=market)
     )
+    candidate_repair_plan = (
+        pack.get("candidate_evidence_repair_plan")
+        if isinstance(pack.get("candidate_evidence_repair_plan"), dict)
+        else build_candidate_evidence_repair_plan(pack)
+    )
     signal_count = _int(summary.get("signal_count"), 0)
     target_count = _int(summary.get("combined_target_count"), len(combined_targets))
     ticket_count = _int(summary.get("manual_ticket_count"), len(manual_plan))
@@ -3194,6 +3390,7 @@ def build_daily_trade_decision_sheet(pack: dict[str, Any]) -> dict[str, Any]:
             },
             "daily_top3": daily_top3,
             "candidate_pool_top20": candidate_pool_top20,
+            "candidate_evidence_repair_plan": candidate_repair_plan,
             "today_actions": today_actions,
             "missing_evidence": missing_evidence,
             "operator_script": operator_script,
