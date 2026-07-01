@@ -2206,6 +2206,9 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertFalse(gate["summary"]["account_read_allowed"])
         self.assertIn("server_closure_streak", {row["gate_id"] for row in gate["rows"]})
         self.assertIn("live_boundary", {row["gate_id"] for row in gate["rows"]})
+        self.assertTrue(gate["summary"]["paper_performance_quality_passed"])
+        self.assertEqual(gate["summary"]["paper_positive_days"], 5)
+        self.assertIn("paper_performance_quality", {row["gate_id"] for row in gate["rows"]})
         scorecard = gate["evidence_scorecard"]
         score_rows = {row["gate_id"]: row for row in scorecard["rows"]}
         self.assertEqual(scorecard["stage"], "gui_small_capital_observation_evidence_scorecard")
@@ -2216,6 +2219,7 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertFalse(scorecard["summary"]["order_placement_allowed"])
         self.assertEqual(score_rows["server_closed_loop_days"]["current_value"], 5)
         self.assertEqual(score_rows["same_parameter_paper_days"]["status"], "pass")
+        self.assertEqual(score_rows["paper_performance_quality"]["status"], "pass")
         self.assertEqual(score_rows["blocked_manual_execution_days"]["required_value"], 0)
         packet = gate["manual_observation_packet"]
         self.assertEqual(packet["stage"], "gui_manual_small_capital_observation_packet")
@@ -2228,6 +2232,79 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertFalse(packet["summary"]["order_placement_allowed"])
         self.assertEqual(packet["operator_steps"][0]["step_id"], "read_small_capital_limits")
         self.assertIn("do_not_scale_above_packet_limits", {row["action_id"] for row in packet["forbidden_actions"]})
+
+    def test_losing_same_parameter_paper_streak_blocks_small_capital_candidate(self):
+        from quant_robot.gui.control_center import build_control_center_snapshot
+        from quant_robot.gui.operation_ledger import append_operation_ledger_entry
+
+        def append_losing_day(root: Path, day: str) -> None:
+            paper_request = {
+                "market": "CN_ETF",
+                "factor_name": "momentum_2",
+                "top_n": 2,
+                "commission_bps": 5,
+                "as_of_date": day,
+            }
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="daily_trade_advisory",
+                label="Generate top-three manual trade advisory",
+                status="completed",
+                request={"market": "CN_ETF", "as_of_date": day, "paper_request_signature": paper_request},
+                result={"metrics": {"signal_count": 3, "selected_factor_count": 3}},
+            )
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="paper_simulation",
+                label="Run local paper simulation",
+                status="completed",
+                request=paper_request,
+                result={"metrics": {"total_return": -0.01, "max_drawdown": -0.05, "win_rate": 0.30}},
+            )
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="post_close_journal",
+                label="Post-close journal receipt",
+                status="completed",
+                request={"market": "CN_ETF", "as_of_date": day},
+                result={
+                    "metrics": {
+                        "manual_review_recorded": True,
+                        "manual_execution_decision": "manual_execution_evidence_ready",
+                        "manual_execution_missing_review_count": 0,
+                        "manual_execution_guardrail_breach_count": 0,
+                        "manual_execution_slippage_breach_count": 0,
+                    },
+                },
+            )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            for day in ["2026-06-24", "2026-06-25", "2026-06-26", "2026-06-29", "2026-06-30"]:
+                append_losing_day(root, day)
+
+            control = build_control_center_snapshot(repo_root=root)
+
+        ledger = control["daily_closure_ledger"]
+        gate = control["server_capital_observation_gate"]
+        self.assertEqual(ledger["summary"]["closed_loop_days"], 5)
+        self.assertEqual(ledger["summary"]["matched_paper_days"], 5)
+        self.assertEqual(ledger["summary"]["paper_positive_days"], 0)
+        self.assertEqual(ledger["summary"]["paper_quality_days"], 0)
+        self.assertEqual(ledger["summary"]["paper_performance_quality_status"], "blocked")
+        self.assertFalse(ledger["summary"]["paper_performance_quality_passed"])
+        self.assertIn("paper performance", ledger["summary"]["next_action"].lower())
+        self.assertEqual(gate["summary"]["status"], "blocked_need_paper_performance_quality")
+        self.assertFalse(gate["summary"]["manual_small_capital_observation_candidate"])
+        gate_rows = {row["gate_id"]: row for row in gate["rows"]}
+        self.assertEqual(gate_rows["paper_performance_quality"]["status"], "blocked")
+        scorecard = gate["evidence_scorecard"]
+        self.assertEqual(scorecard["summary"]["next_missing_gate_id"], "paper_performance_quality")
+        self.assertFalse(scorecard["summary"]["manual_observation_material_ready"])
+        packet = gate["manual_observation_packet"]
+        self.assertEqual(packet["summary"]["status"], "blocked_need_more_evidence")
+        self.assertEqual(packet["summary"]["next_missing_gate_id"], "paper_performance_quality")
+        self.assertFalse(packet["summary"]["manual_observation_material_ready"])
 
     def test_legacy_unverified_paper_receipts_do_not_unlock_small_capital_gate(self):
         from quant_robot.gui.control_center import build_control_center_snapshot
@@ -2285,7 +2362,8 @@ class GuiSnapshotTests(unittest.TestCase):
         scorecard = gate["evidence_scorecard"]
         self.assertEqual(scorecard["summary"]["status"], "blocked_need_more_evidence")
         self.assertEqual(scorecard["summary"]["next_missing_gate_id"], "same_parameter_paper_days")
-        self.assertEqual(scorecard["summary"]["readiness_score_pct"], 80)
+        self.assertEqual(scorecard["summary"]["readiness_score_pct"], 67)
+        self.assertIn("paper_performance_quality", {row["gate_id"] for row in scorecard["rows"]})
         packet = gate["manual_observation_packet"]
         self.assertEqual(packet["stage"], "gui_manual_small_capital_observation_packet")
         self.assertEqual(packet["summary"]["status"], "blocked_need_more_evidence")

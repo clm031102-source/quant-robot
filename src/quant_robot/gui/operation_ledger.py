@@ -38,6 +38,12 @@ SMALL_CAPITAL_OBSERVATION_LIMITS = {
     "max_single_order_notional": 1000.0,
     "max_daily_loss": 200.0,
 }
+PAPER_PERFORMANCE_REQUIRED_POSITIVE_DAYS = 3
+PAPER_PERFORMANCE_AVG_RETURN_FLOOR = 0.0
+PAPER_PERFORMANCE_MAX_DRAWDOWN = -(
+    SMALL_CAPITAL_OBSERVATION_LIMITS["max_daily_loss"]
+    / SMALL_CAPITAL_OBSERVATION_LIMITS["max_initial_capital"]
+)
 
 
 def append_operation_ledger_entry(
@@ -101,13 +107,45 @@ def build_daily_closure_ledger_snapshot(repo_root: str | Path) -> dict[str, Any]
     clean = sum(1 for row in rows if row.get("manual_execution_clean"))
     matched_paper = sum(1 for row in rows if row.get("paper_request_match_status") == "matched")
     legacy_unverified = sum(1 for row in rows if row.get("paper_request_match_status") == "legacy_unverified")
+    paper_returns = [
+        float(row["paper_total_return"])
+        for row in rows
+        if isinstance(row.get("paper_total_return"), (int, float))
+    ]
+    paper_drawdowns = [
+        float(row["paper_max_drawdown"])
+        for row in rows
+        if isinstance(row.get("paper_max_drawdown"), (int, float))
+    ]
+    paper_positive_days = sum(1 for value in paper_returns if value > 0)
+    paper_quality_days = sum(1 for row in rows if row.get("paper_performance_quality_status") == "pass")
+    paper_average_total_return = _average(paper_returns)
+    paper_worst_drawdown = min(paper_drawdowns) if paper_drawdowns else None
+    paper_performance_quality_passed = (
+        len(rows) >= 5
+        and matched_paper >= 5
+        and paper_positive_days >= PAPER_PERFORMANCE_REQUIRED_POSITIVE_DAYS
+        and paper_average_total_return is not None
+        and paper_average_total_return > PAPER_PERFORMANCE_AVG_RETURN_FLOOR
+        and paper_worst_drawdown is not None
+        and paper_worst_drawdown >= PAPER_PERFORMANCE_MAX_DRAWDOWN
+    )
+    paper_performance_quality_status = (
+        "pass"
+        if paper_performance_quality_passed
+        else "missing"
+        if not paper_returns
+        else "blocked"
+    )
     status = (
         "server_closure_ready"
-        if len(rows) >= 5 and closed >= 5 and matched_paper >= 5 and blocked == 0
+        if len(rows) >= 5 and closed >= 5 and matched_paper >= 5 and blocked == 0 and paper_performance_quality_passed
         else "blocked_by_manual_execution"
         if blocked
         else "needs_same_parameter_paper_evidence"
         if len(rows) >= 5 and closed >= 5 and matched_paper < 5
+        else "needs_paper_performance_quality"
+        if len(rows) >= 5 and closed >= 5 and matched_paper >= 5 and not paper_performance_quality_passed
         else "needs_more_closure_receipts"
     )
     return {
@@ -121,6 +159,14 @@ def build_daily_closure_ledger_snapshot(repo_root: str | Path) -> dict[str, Any]
             "blocked_execution_days": blocked,
             "matched_paper_days": matched_paper,
             "legacy_unverified_paper_days": legacy_unverified,
+            "paper_positive_days": paper_positive_days,
+            "paper_quality_days": paper_quality_days,
+            "paper_quality_required_days": PAPER_PERFORMANCE_REQUIRED_POSITIVE_DAYS,
+            "paper_average_total_return": paper_average_total_return,
+            "paper_worst_drawdown": paper_worst_drawdown,
+            "paper_performance_max_drawdown": PAPER_PERFORMANCE_MAX_DRAWDOWN,
+            "paper_performance_quality_status": paper_performance_quality_status,
+            "paper_performance_quality_passed": paper_performance_quality_passed,
             "lookback_days": 5,
             "source": LEDGER_PATH.as_posix(),
             "next_action": _closure_next_action(rows),
@@ -145,7 +191,19 @@ def build_server_capital_observation_gate(daily_closure_ledger: dict[str, Any]) 
     observed = _int(summary.get("server_observed_days"))
     matched_paper = _int(summary.get("matched_paper_days"))
     legacy_unverified = _int(summary.get("legacy_unverified_paper_days"))
-    streak_ready = observed >= 5 and closed >= 5 and clean >= 5 and matched_paper >= 5 and blocked == 0
+    paper_positive_days = _int(summary.get("paper_positive_days"))
+    paper_quality_days = _int(summary.get("paper_quality_days"))
+    paper_average_total_return = _optional_num(summary.get("paper_average_total_return"))
+    paper_worst_drawdown = _optional_num(summary.get("paper_worst_drawdown"))
+    paper_performance_quality_passed = bool(summary.get("paper_performance_quality_passed"))
+    streak_ready = (
+        observed >= 5
+        and closed >= 5
+        and clean >= 5
+        and matched_paper >= 5
+        and blocked == 0
+        and paper_performance_quality_passed
+    )
     if streak_ready:
         status = "manual_small_capital_observation_candidate"
         next_action = "Prepare a manual small-capital observation packet; keep broker connection and order placement outside this system."
@@ -155,6 +213,9 @@ def build_server_capital_observation_gate(daily_closure_ledger: dict[str, Any]) 
     elif observed >= 5 and closed >= 5 and matched_paper < 5:
         status = "blocked_need_same_parameter_paper_evidence"
         next_action = "Rerun same-parameter paper simulation from the displayed daily advisory request before any capital observation discussion."
+    elif observed >= 5 and closed >= 5 and clean >= 5 and matched_paper >= 5 and not paper_performance_quality_passed:
+        status = "blocked_need_paper_performance_quality"
+        next_action = "Keep running same-parameter paper observation until recent paper returns and drawdown clear the quality gate."
     else:
         status = "blocked_need_clean_server_closure_days"
         next_action = "Collect five clean server-side closure days before small-capital observation."
@@ -178,6 +239,18 @@ def build_server_capital_observation_gate(daily_closure_ledger: dict[str, Any]) 
             f"matched={matched_paper}/5, legacy_unverified={legacy_unverified}",
         ),
         _capital_gate_row(
+            "paper_performance_quality",
+            "Paper performance quality",
+            "pass" if paper_performance_quality_passed else "blocked",
+            (
+                f"positive={paper_positive_days}/{PAPER_PERFORMANCE_REQUIRED_POSITIVE_DAYS}, "
+                f"quality={paper_quality_days}/5, "
+                f"avg_return={_format_optional_float(paper_average_total_return)}, "
+                f"worst_drawdown={_format_optional_float(paper_worst_drawdown)}, "
+                f"drawdown_floor={PAPER_PERFORMANCE_MAX_DRAWDOWN:.4f}"
+            ),
+        ),
+        _capital_gate_row(
             "capital_scope",
             "Capital scope",
             "review",
@@ -195,6 +268,11 @@ def build_server_capital_observation_gate(daily_closure_ledger: dict[str, Any]) 
         clean=clean,
         blocked=blocked,
         matched_paper=matched_paper,
+        paper_performance_quality_passed=paper_performance_quality_passed,
+        paper_positive_days=paper_positive_days,
+        paper_quality_days=paper_quality_days,
+        paper_average_total_return=paper_average_total_return,
+        paper_worst_drawdown=paper_worst_drawdown,
     )
     manual_observation_packet = _manual_small_capital_observation_packet(
         ready=streak_ready,
@@ -206,6 +284,11 @@ def build_server_capital_observation_gate(daily_closure_ledger: dict[str, Any]) 
         blocked=blocked,
         matched_paper=matched_paper,
         legacy_unverified=legacy_unverified,
+        paper_performance_quality_passed=paper_performance_quality_passed,
+        paper_positive_days=paper_positive_days,
+        paper_quality_days=paper_quality_days,
+        paper_average_total_return=paper_average_total_return,
+        paper_worst_drawdown=paper_worst_drawdown,
         scorecard=scorecard,
         recent_rows=rows[:5] if isinstance(rows, list) else [],
     )
@@ -220,6 +303,13 @@ def build_server_capital_observation_gate(daily_closure_ledger: dict[str, Any]) 
             "blocked_execution_days": blocked,
             "matched_paper_days": matched_paper,
             "legacy_unverified_paper_days": legacy_unverified,
+            "paper_positive_days": paper_positive_days,
+            "paper_quality_days": paper_quality_days,
+            "paper_quality_required_days": PAPER_PERFORMANCE_REQUIRED_POSITIVE_DAYS,
+            "paper_average_total_return": paper_average_total_return,
+            "paper_worst_drawdown": paper_worst_drawdown,
+            "paper_performance_max_drawdown": PAPER_PERFORMANCE_MAX_DRAWDOWN,
+            "paper_performance_quality_passed": paper_performance_quality_passed,
             "next_action": next_action,
             "paper_only": True,
             "live_trading_allowed": False,
@@ -247,6 +337,11 @@ def _manual_small_capital_observation_packet(
     blocked: int,
     matched_paper: int,
     legacy_unverified: int,
+    paper_performance_quality_passed: bool,
+    paper_positive_days: int,
+    paper_quality_days: int,
+    paper_average_total_return: float | None,
+    paper_worst_drawdown: float | None,
     scorecard: dict[str, Any],
     recent_rows: list[dict[str, Any]],
 ) -> dict[str, Any]:
@@ -279,6 +374,13 @@ def _manual_small_capital_observation_packet(
             "blocked_execution_days": blocked,
             "matched_paper_days": matched_paper,
             "legacy_unverified_paper_days": legacy_unverified,
+            "paper_positive_days": paper_positive_days,
+            "paper_quality_days": paper_quality_days,
+            "paper_quality_required_days": PAPER_PERFORMANCE_REQUIRED_POSITIVE_DAYS,
+            "paper_average_total_return": paper_average_total_return,
+            "paper_worst_drawdown": paper_worst_drawdown,
+            "paper_performance_max_drawdown": PAPER_PERFORMANCE_MAX_DRAWDOWN,
+            "paper_performance_quality_passed": paper_performance_quality_passed,
             "max_initial_capital": SMALL_CAPITAL_OBSERVATION_LIMITS["max_initial_capital"],
             "max_single_order_notional": SMALL_CAPITAL_OBSERVATION_LIMITS["max_single_order_notional"],
             "max_daily_loss": SMALL_CAPITAL_OBSERVATION_LIMITS["max_daily_loss"],
@@ -447,6 +549,11 @@ def _capital_observation_evidence_scorecard(
     clean: int,
     blocked: int,
     matched_paper: int,
+    paper_performance_quality_passed: bool,
+    paper_positive_days: int,
+    paper_quality_days: int,
+    paper_average_total_return: float | None,
+    paper_worst_drawdown: float | None,
 ) -> dict[str, Any]:
     score_rows = [
         _capital_evidence_row(
@@ -470,6 +577,20 @@ def _capital_observation_evidence_scorecard(
             plain_requirement="Collect at least five paper receipts whose parameters match the daily Top3 advisory request.",
             target_id="paper-metrics",
             workflow_id="paper_simulation" if matched_paper < 5 else "",
+        ),
+        _capital_evidence_row(
+            gate_id="paper_performance_quality",
+            label="Paper performance quality",
+            status="pass" if paper_performance_quality_passed else "blocked",
+            current_value=paper_quality_days,
+            required_value=PAPER_PERFORMANCE_REQUIRED_POSITIVE_DAYS,
+            comparator=">=",
+            plain_requirement=(
+                "Recent same-parameter paper evidence must show at least three positive/quality days, "
+                "positive average return, and no drawdown beyond the small-capital daily loss floor."
+            ),
+            target_id="paper-metrics",
+            workflow_id="paper_simulation" if not paper_performance_quality_passed else "",
         ),
         _capital_evidence_row(
             gate_id="clean_manual_execution_days",
@@ -516,6 +637,13 @@ def _capital_observation_evidence_scorecard(
             "required_gate_count": len(score_rows),
             "readiness_score_pct": int(round(passed / max(len(score_rows), 1) * 100)),
             "next_missing_gate_id": next_missing,
+            "paper_positive_days": paper_positive_days,
+            "paper_quality_days": paper_quality_days,
+            "paper_quality_required_days": PAPER_PERFORMANCE_REQUIRED_POSITIVE_DAYS,
+            "paper_average_total_return": paper_average_total_return,
+            "paper_worst_drawdown": paper_worst_drawdown,
+            "paper_performance_max_drawdown": PAPER_PERFORMANCE_MAX_DRAWDOWN,
+            "paper_performance_quality_passed": paper_performance_quality_passed,
             "manual_observation_material_ready": ready,
             "paper_only": True,
             "real_money_allowed": False,
@@ -748,6 +876,11 @@ def _empty_closure_row(date_key: str) -> dict[str, Any]:
         "paper_request_signatures": [],
         "paper_request_match_status": "missing",
         "paper_request_mismatch_keys": [],
+        "paper_total_return": None,
+        "paper_sharpe": None,
+        "paper_max_drawdown": None,
+        "paper_win_rate": None,
+        "paper_performance_quality_status": "missing",
         "latest_daily_trade_receipt": "",
         "latest_paper_receipt": "",
         "latest_post_close_receipt": "",
@@ -788,6 +921,12 @@ def _apply_closure_entry(row: dict[str, Any], entry: dict[str, Any]) -> None:
         paper_signatures.append(signature)
         row["paper_request_signatures"] = paper_signatures
         row["latest_paper_receipt"] = recorded_at
+        row["paper_total_return"] = _paper_total_return(metrics, request)
+        row["paper_sharpe"] = _optional_num(metrics.get("sharpe"))
+        row["paper_max_drawdown"] = _optional_num(
+            metrics.get("max_drawdown", metrics.get("max_equity_drawdown"))
+        )
+        row["paper_win_rate"] = _optional_num(metrics.get("win_rate"))
     elif workflow_id == "post_close_journal":
         row["post_close_journal_ready"] = bool(metrics.get("manual_review_recorded", True))
         row["latest_post_close_receipt"] = recorded_at
@@ -808,6 +947,7 @@ def _apply_closure_entry(row: dict[str, Any], entry: dict[str, Any]) -> None:
 
 def _finalize_closure_row(row: dict[str, Any]) -> dict[str, Any]:
     row = _finalize_same_parameter_paper(row)
+    row = _finalize_paper_performance(row)
     missing = []
     if not row.get("top3_signal_ready"):
         missing.append("daily_trade_advisory")
@@ -890,6 +1030,39 @@ def _finalize_same_parameter_paper(row: dict[str, Any]) -> dict[str, Any]:
     row["paper_request_match_status"] = "legacy_unverified"
     row["paper_request_mismatch_keys"] = []
     return row
+
+
+def _finalize_paper_performance(row: dict[str, Any]) -> dict[str, Any]:
+    total_return = _optional_num(row.get("paper_total_return"))
+    max_drawdown = _optional_num(row.get("paper_max_drawdown"))
+    if not row.get("same_parameter_paper_ready"):
+        row["paper_performance_quality_status"] = "missing"
+        return row
+    if total_return is None or max_drawdown is None:
+        row["paper_performance_quality_status"] = "missing"
+        return row
+    row["paper_total_return"] = total_return
+    row["paper_max_drawdown"] = max_drawdown
+    row["paper_performance_quality_status"] = (
+        "pass"
+        if total_return > PAPER_PERFORMANCE_AVG_RETURN_FLOOR
+        and max_drawdown >= PAPER_PERFORMANCE_MAX_DRAWDOWN
+        else "blocked"
+    )
+    return row
+
+
+def _paper_total_return(metrics: dict[str, Any], request: dict[str, Any]) -> float | None:
+    explicit = _optional_num(metrics.get("total_return", metrics.get("return")))
+    if explicit is not None:
+        return explicit
+    ending_equity = _optional_num(metrics.get("ending_equity"))
+    initial_cash = _optional_num(
+        metrics.get("initial_cash", request.get("initial_cash"))
+    )
+    if ending_equity is None or initial_cash is None or initial_cash <= 0:
+        return None
+    return (ending_equity / initial_cash) - 1.0
 
 
 def _daily_expected_paper_signature(entry: dict[str, Any]) -> dict[str, Any]:
@@ -980,6 +1153,8 @@ def _closure_next_action(rows: list[dict[str, Any]]) -> str:
         return "Run daily trade advisory, paper simulation, and post-close review to start the server-side closure ledger."
     latest = rows[0]
     if latest.get("completed_loop"):
+        if latest.get("paper_performance_quality_status") != "pass":
+            return "Keep running same-parameter paper performance observation before any small-capital review."
         return "Continue collecting five clean server-side closure days before any small-capital observation."
     missing = latest.get("missing_steps") if isinstance(latest.get("missing_steps"), list) else []
     return "Refresh missing closure step: " + (" / ".join(str(item) for item in missing) or "manual review")
@@ -990,6 +1165,25 @@ def _num(value: Any, default: float) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def _optional_num(value: Any) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _average(values: list[float]) -> float | None:
+    if not values:
+        return None
+    return sum(values) / len(values)
+
+
+def _format_optional_float(value: float | None) -> str:
+    if value is None:
+        return "missing"
+    return f"{value:.4f}"
 
 
 def _int(value: Any, default: int = 0) -> int:

@@ -7634,6 +7634,7 @@ function renderDailyClosureStreak(readiness = {}) {
     const stepText = [
       `前三=${row.top3_signal_ready ? "完成" : "缺失"}`,
       `模拟=${row.same_parameter_paper_ready ? "完成" : "缺失"}`,
+      `纸面质量=${zhConsoleText(row.paper_performance_quality_status || "missing")}`,
       `复盘=${row.post_close_journal_ready ? "完成" : "缺失"}`,
       `执行审计=${row.manual_execution_clean ? "干净" : row.manual_execution_blocked ? "异常" : row.manual_execution_missing_review ? "缺回执" : "缺失"}`,
     ].join(" / ");
@@ -12280,6 +12281,7 @@ function renderServerCapitalObservationGate(gate = {}) {
   const fallbackScoreGateIds = [
     "server_closed_loop_days",
     "same_parameter_paper_days",
+    "paper_performance_quality",
     "clean_manual_execution_days",
     "blocked_manual_execution_days",
     "research_only_live_boundary",
@@ -12292,6 +12294,7 @@ function renderServerCapitalObservationGate(gate = {}) {
       <strong>${escapeHtml("小资金人工观察候选")}</strong>
       <span>${escapeHtml(summary.manual_small_capital_observation_candidate ? "可准备材料，不自动下单" : "未放行，继续模拟和闭环")}</span>
       <span>${escapeHtml(`服务端闭环=${formatNumber(summary.server_closed_loop_days || 0)}/5 / 同参数模拟盘=${formatNumber(summary.matched_paper_days || 0)}/5 / 旧未校验=${formatNumber(summary.legacy_unverified_paper_days || 0)}`)}</span>
+      <span>${escapeHtml(`纸面质量=${summary.paper_performance_quality_passed ? "通过" : "未过"} / 正收益=${formatNumber(summary.paper_positive_days || 0)}/${formatNumber(summary.paper_quality_required_days || 3)} / 平均=${formatDecimal(summary.paper_average_total_return)} / 最差回撤=${formatDecimal(summary.paper_worst_drawdown)}`)}</span>
       <span>${escapeHtml(`执行异常=${formatNumber(summary.blocked_execution_days || 0)}`)}</span>
       <span>${escapeHtml(summary.next_action || "继续收集干净闭环样本。")}</span>
     </div>
@@ -12346,6 +12349,7 @@ function renderServerCapitalObservationGate(gate = {}) {
     <div class="list-row ${escapeHtml(scoreSummary.manual_observation_material_ready ? "ok" : "warn")}">
       <strong>${escapeHtml("小资金观察证据分数")}</strong>
       <span>${escapeHtml(`score=${formatNumber(scoreSummary.readiness_score_pct || 0)} / next=${zhConsoleText(scoreSummary.next_missing_gate_id || "none")}`)}</span>
+      <span>${escapeHtml(`paper_performance_quality_passed=${scoreSummary.paper_performance_quality_passed ? "true" : "false"} / positive=${formatNumber(scoreSummary.paper_positive_days || 0)} / worst_dd=${formatDecimal(scoreSummary.paper_worst_drawdown)}`)}</span>
       <span>${escapeHtml(scoreSummary.manual_observation_material_ready ? "证据齐，可以准备人工观察材料；系统仍不自动下单" : "证据未齐，继续补同参数模拟盘和盘后回执")}</span>
     </div>
   ` : "";
