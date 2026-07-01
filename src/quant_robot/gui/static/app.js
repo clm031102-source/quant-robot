@@ -6164,6 +6164,7 @@ function renderDailyTradeAdvisory() {
   renderLiveProfitabilityReadiness(pack.live_profitability_readiness || {});
   renderDailyClosureStreak(pack.live_profitability_readiness || {});
   renderDailyRealMoneyTransitionGate(pack.daily_real_money_transition_gate || {});
+  renderDailyManualObservationPacket(pack.daily_manual_observation_packet || {});
   renderDailyManualTradingSession(pack.daily_manual_trading_session || {});
   renderDailyPaperAllocationPlaybook(pack.daily_paper_allocation_playbook || {});
   renderDailyPreExecutionGuard(pack.daily_pre_execution_guard || {});
@@ -7592,6 +7593,70 @@ function renderDailyRealMoneyTransitionGate(gate = {}) {
       </div>
     `;
   }).join("") : statusRows([["人工票据", "暂无可人工核对票据；没有票据就不要进入券商端操作。", "danger"]]);
+}
+
+function renderDailyManualObservationPacket(packet = {}) {
+  const summaryTarget = byId("daily-manual-observation-summary");
+  const evidenceTarget = byId("daily-manual-observation-evidence");
+  const stepsTarget = byId("daily-manual-observation-steps");
+  const ticketsTarget = byId("daily-manual-observation-tickets");
+  if (!summaryTarget || !evidenceTarget || !stepsTarget || !ticketsTarget) return;
+  const summary = packet.summary || {};
+  const status = summary.packet_status || "waiting_for_today_signal";
+  const readyStatus = "manual_observation_material_ready";
+  const tone = status === readyStatus ? "ok" : status.includes("blocked") ? "danger" : "warn";
+  const workflowButton = summary.next_workflow_id ? `
+    <button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(summary.next_workflow_id)}">${escapeHtml("补下一步")}</button>
+  ` : "";
+  const targetButton = summary.next_target_id ? `
+    <button class="${escapeHtml(workflowButton ? "secondary-button" : "primary-button")}" type="button" data-beginner-target="${escapeRawHtml(summary.next_target_id)}">${escapeHtml(workflowButton ? "看证据" : "看下一步")}</button>
+  ` : "";
+  summaryTarget.innerHTML = statusRows([
+    ["材料包状态", `${zhConsoleText(status)} / score=${formatNumber(summary.evidence_score_pct || 0)}`, tone],
+    ["今日 Top3", `factor=${formatNumber(summary.selected_factor_count || 0)} / signal=${formatNumber(summary.signal_count || 0)} / target=${formatNumber(summary.target_count || 0)}`, summary.signal_count ? "ok" : "warn"],
+    ["人工票据", `tickets=${formatNumber(summary.manual_ticket_count || 0)} / ready=${summary.manual_observation_material_ready ? "true" : "false"}`, summary.manual_ticket_count ? "warn" : "danger"],
+    ["同参数模拟", zhConsoleText(summary.same_parameter_paper_status || "waiting"), summary.same_parameter_paper_status === "manual_review_candidate" ? "ok" : "warn"],
+    ["边界", summary.order_placement_allowed || summary.broker_connection_allowed ? "异常：权限越界" : "不接券商 / 不读账户 / 不自动下单", summary.order_placement_allowed || summary.broker_connection_allowed ? "danger" : "ok"],
+  ]) + `
+    <div class="list-row ${escapeHtml(tone)}">
+      <strong>${escapeHtml("现在先做")}</strong>
+      <span>${escapeHtml(zhConsoleText(summary.next_step_id || "review_manual_observation_packet"))}</span>
+      <span class="beginner-task-actions">${workflowButton}${targetButton}</span>
+    </div>
+  `;
+
+  const evidenceRows = Array.isArray(packet.evidence_rows) ? packet.evidence_rows : [];
+  evidenceTarget.innerHTML = evidenceRows.length ? evidenceRows.map((row) => `
+    <div class="list-row ${escapeHtml(dailyTradeSystemStageTone(row.status || ""))}">
+      <strong>${escapeHtml(row.label || row.gate_id || "")}</strong>
+      <span>${escapeHtml(`${zhConsoleText(row.status || "waiting")} / ${row.evidence || ""}`)}</span>
+      <span class="beginner-task-actions">
+        ${row.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(row.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+        ${row.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(row.target_id)}">${escapeHtml("查看")}</button>` : ""}
+      </span>
+    </div>
+  `).join("") : statusRows([["材料包证据", "等待生成今日 Top3、同参数模拟和人工票据。", "warn"]]);
+
+  const steps = Array.isArray(packet.operator_steps) ? packet.operator_steps : [];
+  stepsTarget.innerHTML = steps.length ? steps.map((row) => `
+    <div class="list-row ${escapeHtml(dailyTradeSystemStageTone(row.status || ""))}">
+      <strong>${escapeHtml(`${row.step_number || "--"}. ${row.label || row.step_id || ""}`)}</strong>
+      <span>${escapeHtml(zhConsoleText(row.status || "waiting"))}</span>
+      <span class="beginner-task-actions">
+        ${row.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(row.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+        ${row.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(row.target_id)}">${escapeHtml("查看")}</button>` : ""}
+      </span>
+    </div>
+  `).join("") : statusRows([["材料包步骤", "先生成每日建议，系统会给出下一步。", "warn"]]);
+
+  const tickets = Array.isArray(packet.manual_ticket_preview) ? packet.manual_ticket_preview : [];
+  ticketsTarget.innerHTML = tickets.length ? tickets.map((row) => `
+    <div class="list-row warn">
+      <strong>${escapeHtml(`${row.step_number || "--"}. ${row.asset_id || "--"} / ${zhConsoleText(row.side || "review")}`)}</strong>
+      <span>${escapeHtml(`qty=${formatNumber(row.rounded_quantity || 0)} / value=${formatNumber(row.rounded_value)} / weight=${formatPercent(row.target_weight)}`)}</span>
+      <span>${escapeHtml("只供人工复核；不是订单。")}</span>
+    </div>
+  `).join("") : statusRows([["人工票据预览", "暂无可人工核对票据；没有票据就不要进券商端操作。", "danger"]]);
 }
 
 function renderDailyManualTradingSession(session = {}) {
@@ -11900,6 +11965,7 @@ function appendExecutionReceipt(receipt) {
   renderDailyDeploymentReadiness(state.dailyTradeAdvisory?.daily_deployment_readiness || {});
   renderLiveProfitabilityReadiness(state.dailyTradeAdvisory?.live_profitability_readiness || {});
   renderDailyClosureStreak(state.dailyTradeAdvisory?.live_profitability_readiness || {});
+  renderDailyManualObservationPacket(state.dailyTradeAdvisory?.daily_manual_observation_packet || {});
   renderDailyFactorHealthMonitor(state.dailyTradeAdvisory?.daily_factor_health_monitor || {});
   renderDailyRealWorldHandoffGate(state.dailyTradeAdvisory?.real_world_manual_handoff_gate || {});
   renderOrdinaryHome();

@@ -723,6 +723,29 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("daily_same_parameter_paper_rehearsal", snapshot)
         self.assertIn("daily_operator_mission_control", snapshot)
         self.assertIn("daily_live_trading_system_status", snapshot)
+        self.assertIn("daily_manual_observation_packet", snapshot)
+        observation_packet = snapshot["daily_manual_observation_packet"]
+        self.assertEqual(observation_packet["stage"], "phase_6_32_daily_manual_observation_packet")
+        self.assertEqual(observation_packet["summary"]["primary_market"], "CN_ETF")
+        self.assertIn(
+            observation_packet["summary"]["packet_status"],
+            {
+                "blocked_pretrade_red_light",
+                "paper_rehearsal_required",
+                "manual_observation_material_ready",
+                "waiting_for_today_signal",
+                "waiting_for_manual_tickets",
+            },
+        )
+        self.assertFalse(observation_packet["summary"]["broker_connection_allowed"])
+        self.assertFalse(observation_packet["summary"]["account_read_allowed"])
+        self.assertFalse(observation_packet["summary"]["order_placement_allowed"])
+        self.assertFalse(observation_packet["summary"]["auto_order_allowed"])
+        self.assertIn("top3_factor_snapshot", observation_packet)
+        self.assertIn("same_parameter_paper_requests", observation_packet)
+        self.assertIn("manual_ticket_preview", observation_packet)
+        self.assertIn("evidence_rows", observation_packet)
+        self.assertIn("run_same_parameter_paper", {row["step_id"] for row in observation_packet["operator_steps"]})
         self.assertEqual(
             snapshot["daily_operator_mission_control"]["stage"],
             "phase_6_30_daily_operator_mission_control",
@@ -2434,6 +2457,7 @@ class GuiSnapshotTests(unittest.TestCase):
                 self.assertIn("beginner_live_handoff_frontend", check_ids)
                 self.assertIn("beginner_live_handoff_red_light_guard", check_ids)
                 self.assertIn("daily_closure_streak_frontend", check_ids)
+                self.assertIn("daily_manual_observation_packet_frontend", check_ids)
                 self.assertIn("responsive_contract", check_ids)
                 self.assertIn("live_boundary", check_ids)
                 self.assertFalse(packet["safety"]["live_trading_allowed"])
@@ -3492,6 +3516,14 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("risk_circuit_decision", app_js)
             self.assertIn("daily_operator_mission_control", app_js)
             self.assertIn("renderDailyOperatorMissionControl", app_js)
+            self.assertIn("daily_manual_observation_packet", app_js)
+            self.assertIn("renderDailyManualObservationPacket", app_js)
+            self.assertIn("manual_observation_material_ready", app_js)
+            self.assertIn("daily-manual-observation-packet", html)
+            self.assertIn("daily-manual-observation-summary", html)
+            self.assertIn("daily-manual-observation-evidence", html)
+            self.assertIn("daily-manual-observation-steps", html)
+            self.assertIn("daily-manual-observation-tickets", html)
             self.assertIn("daily-operator-mission-control-summary", html)
             self.assertIn("daily-operator-mission-control-cards", html)
             self.assertIn("daily-operator-mission-control-next-actions", html)

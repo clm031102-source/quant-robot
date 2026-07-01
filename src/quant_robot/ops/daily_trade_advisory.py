@@ -48,6 +48,7 @@ DAILY_BEGINNER_EXECUTION_ANSWER_STAGE = "phase_6_28_daily_beginner_execution_ans
 DAILY_EXECUTION_RISK_CIRCUIT_BREAKER_STAGE = "phase_6_29_daily_execution_risk_circuit_breaker"
 DAILY_OPERATOR_MISSION_CONTROL_STAGE = "phase_6_30_daily_operator_mission_control"
 DAILY_LIVE_TRADING_SYSTEM_STATUS_STAGE = "phase_6_31_daily_live_trading_system_status"
+DAILY_MANUAL_OBSERVATION_PACKET_STAGE = "phase_6_32_daily_manual_observation_packet"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 MANUAL_PRICE_DEVIATION_GUARD_PCT = 0.005
@@ -460,6 +461,7 @@ def build_daily_trade_advisory_pack(
     pack["daily_same_parameter_paper_rehearsal"] = build_daily_same_parameter_paper_rehearsal(pack)
     pack["daily_beginner_execution_answer"] = build_daily_beginner_execution_answer(pack)
     pack["daily_live_trading_system_status"] = build_daily_live_trading_system_status(pack)
+    pack["daily_manual_observation_packet"] = build_daily_manual_observation_packet(pack)
     pack["daily_operator_mission_control"] = build_daily_operator_mission_control(pack)
     pack["summary"]["live_transition_status"] = pack["live_transition_plan"]["summary"]["status"]
     pack["summary"]["trading_system_status"] = pack["trading_system_blueprint"]["summary"]["status"]
@@ -486,6 +488,9 @@ def build_daily_trade_advisory_pack(
     pack["summary"]["operator_mission_status"] = pack["daily_operator_mission_control"]["summary"]["mission_status"]
     pack["summary"]["live_trading_system_status"] = pack["daily_live_trading_system_status"]["summary"][
         "go_live_state"
+    ]
+    pack["summary"]["manual_observation_packet_status"] = pack["daily_manual_observation_packet"]["summary"][
+        "packet_status"
     ]
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
@@ -3227,6 +3232,349 @@ def build_daily_live_trading_system_status(pack: dict[str, Any]) -> dict[str, An
             "safety": SAFETY_NOTICE,
         }
     )
+
+
+def build_daily_manual_observation_packet(pack: dict[str, Any]) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
+    handoff = pack.get("manual_broker_handoff") if isinstance(pack.get("manual_broker_handoff"), dict) else {}
+    pre_execution = (
+        pack.get("daily_pre_execution_guard")
+        if isinstance(pack.get("daily_pre_execution_guard"), dict)
+        else build_daily_pre_execution_guard(pack)
+    )
+    same_paper = (
+        pack.get("daily_same_parameter_paper_rehearsal")
+        if isinstance(pack.get("daily_same_parameter_paper_rehearsal"), dict)
+        else build_daily_same_parameter_paper_rehearsal(pack)
+    )
+    profitability = (
+        pack.get("live_profitability_readiness")
+        if isinstance(pack.get("live_profitability_readiness"), dict)
+        else build_live_profitability_readiness_scorecard(pack)
+    )
+    live_system = (
+        pack.get("daily_live_trading_system_status")
+        if isinstance(pack.get("daily_live_trading_system_status"), dict)
+        else build_daily_live_trading_system_status(pack)
+    )
+    factors = [row for row in pack.get("factors", []) if isinstance(row, dict)]
+    manual_plan = [row for row in pack.get("manual_trade_plan", []) if isinstance(row, dict)]
+    combined_targets = [row for row in pack.get("combined_targets", []) if isinstance(row, dict)]
+    blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
+    pre_summary = pre_execution.get("summary") if isinstance(pre_execution.get("summary"), dict) else {}
+    paper_summary = same_paper.get("summary") if isinstance(same_paper.get("summary"), dict) else {}
+    profitability_summary = profitability.get("summary") if isinstance(profitability.get("summary"), dict) else {}
+    live_summary = live_system.get("summary") if isinstance(live_system.get("summary"), dict) else {}
+    market = str(pack.get("market") or _first_market(factors) or "CN_ETF").upper()
+    selected_count = _int(summary.get("selected_factor_count"), len(factors))
+    signal_count = _int(summary.get("signal_count"), 0)
+    target_count = _int(summary.get("combined_target_count"), len(combined_targets))
+    ticket_count = _int(summary.get("manual_ticket_count"), len(manual_plan))
+    paper_allowed = bool(paper_summary.get("paper_rehearsal_allowed")) or bool(pre_summary.get("paper_rehearsal_allowed"))
+    manual_review_allowed = bool(paper_summary.get("manual_broker_review_allowed")) or bool(
+        pre_summary.get("manual_broker_review_allowed")
+    )
+    small_capital_ready = bool(profitability_summary.get("small_capital_observation_candidate")) or bool(
+        profitability_summary.get("production_manual_review_candidate")
+    )
+
+    if market != "CN_ETF":
+        packet_status = "blocked_wrong_market"
+    elif blockers:
+        packet_status = "blocked_pretrade_red_light"
+    elif selected_count <= 0 or signal_count <= 0 or target_count <= 0:
+        packet_status = "waiting_for_today_signal"
+    elif ticket_count <= 0:
+        packet_status = "waiting_for_manual_tickets"
+    elif not paper_allowed or not manual_review_allowed:
+        packet_status = "paper_rehearsal_required"
+    else:
+        packet_status = "manual_observation_material_ready"
+
+    next_step_id = str(live_summary.get("next_step_id") or _manual_observation_next_step(packet_status))
+    next_target_id = str(live_summary.get("next_target_id") or _manual_observation_next_target(packet_status))
+    next_workflow_id = str(live_summary.get("next_workflow_id") or _manual_observation_next_workflow(packet_status))
+
+    def evidence_row(
+        gate_id: str,
+        label: str,
+        status: str,
+        evidence: str,
+        target_id: str,
+        workflow_id: str = "",
+    ) -> dict[str, Any]:
+        return {
+            "gate_id": gate_id,
+            "label": label,
+            "status": status,
+            "evidence": evidence,
+            "target_id": target_id,
+            "workflow_id": workflow_id,
+            "required_before_manual_observation": status != "locked",
+            "order_placement_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "auto_order_allowed": False,
+        }
+
+    evidence_rows = [
+        evidence_row(
+            "cn_etf_scope",
+            "CN_ETF primary scope",
+            "pass" if market == "CN_ETF" else "blocked",
+            f"market={market}",
+            "factor-leaderboard-table",
+        ),
+        evidence_row(
+            "today_top3_signal",
+            "Today Top3 signal",
+            "pass" if signal_count > 0 and target_count > 0 else "blocked",
+            f"selected={selected_count}; signals={signal_count}; targets={target_count}",
+            "daily-trade-decision-top3",
+            "daily_trade_advisory" if signal_count <= 0 else "",
+        ),
+        evidence_row(
+            "pretrade_red_light",
+            "Pretrade red-light gate",
+            "pass" if not blockers else "blocked",
+            "blockers=" + (",".join(blockers) if blockers else "0"),
+            "daily-pretrade-readiness-verdict",
+        ),
+        evidence_row(
+            "manual_ticket_pack",
+            "Manual ticket packet",
+            "pass" if ticket_count > 0 else "blocked",
+            f"manual_tickets={ticket_count}",
+            "daily-manual-broker-handoff-ticket-table",
+        ),
+        evidence_row(
+            "same_parameter_paper",
+            "Same-parameter paper rehearsal",
+            "pass" if manual_review_allowed else "required" if paper_allowed else "blocked",
+            f"rehearsal_status={paper_summary.get('rehearsal_status') or 'waiting'}",
+            "paper-metrics",
+            "paper_simulation" if paper_allowed and not manual_review_allowed else "",
+        ),
+        evidence_row(
+            "profitability_evidence",
+            "Profitability evidence",
+            "pass" if small_capital_ready else "required",
+            f"decision={profitability_summary.get('decision') or 'waiting'}",
+            "daily-live-profitability-readiness",
+        ),
+        evidence_row(
+            "research_only_boundary",
+            "Research-only boundary",
+            "locked",
+            "broker_connection=false; account_read=false; order_placement=false; auto_order=false",
+            "control-safety-boundary",
+        ),
+    ]
+    passed_rows = sum(1 for row in evidence_rows if row.get("status") in {"pass", "locked"})
+    required_rows = len(evidence_rows)
+    ticket_source = handoff.get("copyable_tickets") if isinstance(handoff.get("copyable_tickets"), list) else manual_plan
+    return _sanitize(
+        {
+            "stage": DAILY_MANUAL_OBSERVATION_PACKET_STAGE,
+            "run_date": str(pack.get("run_date") or date.today().isoformat()),
+            "summary": {
+                "packet_status": packet_status,
+                "primary_market": market,
+                "selected_factor_count": selected_count,
+                "signal_count": signal_count,
+                "target_count": target_count,
+                "manual_ticket_count": ticket_count,
+                "same_parameter_paper_status": paper_summary.get("rehearsal_status"),
+                "pre_execution_guard_status": pre_summary.get("guard_status"),
+                "profitability_decision": profitability_summary.get("decision"),
+                "evidence_score_pct": int(round(passed_rows / max(required_rows, 1) * 100)),
+                "passed_evidence_count": passed_rows,
+                "required_evidence_count": required_rows,
+                "manual_observation_material_ready": packet_status == "manual_observation_material_ready",
+                "small_capital_observation_candidate": small_capital_ready,
+                "next_step_id": next_step_id,
+                "next_target_id": next_target_id,
+                "next_workflow_id": next_workflow_id,
+                "can_buy_today": False,
+                "direct_buy_top3_allowed": False,
+                "manual_review_required": True,
+                "paper_simulation_required": True,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+                "live_trading_allowed": False,
+            },
+            "top3_factor_snapshot": [_manual_observation_factor_snapshot(row, index) for index, row in enumerate(factors[:3], 1)],
+            "same_parameter_paper_requests": [
+                _manual_observation_paper_request(row, index)
+                for index, row in enumerate(same_paper.get("recommended_requests", [])[:3], 1)
+                if isinstance(row, dict)
+            ],
+            "manual_ticket_preview": [
+                _manual_observation_ticket_preview(row, index)
+                for index, row in enumerate(ticket_source[:10], 1)
+                if isinstance(row, dict)
+            ],
+            "evidence_rows": evidence_rows,
+            "operator_steps": [
+                _manual_observation_step(
+                    1,
+                    "review_top3_signal",
+                    "Review today's Top3 CN_ETF signal",
+                    "done" if signal_count > 0 else "required",
+                    "daily-trade-decision-top3",
+                    "daily_trade_advisory" if signal_count <= 0 else "",
+                ),
+                _manual_observation_step(
+                    2,
+                    "run_same_parameter_paper",
+                    "Run the locked same-parameter paper rehearsal",
+                    "required" if paper_allowed and not manual_review_allowed else "done" if manual_review_allowed else "locked",
+                    "paper-metrics",
+                    "paper_simulation" if paper_allowed and not manual_review_allowed else "",
+                ),
+                _manual_observation_step(
+                    3,
+                    "review_manual_tickets",
+                    "Review manual tickets and risk budget",
+                    "manual_review_only" if ticket_count > 0 and not blockers else "blocked",
+                    "daily-manual-broker-handoff-ticket-table",
+                ),
+                _manual_observation_step(
+                    4,
+                    "human_external_broker_decision",
+                    "Human may decide outside this system; software cannot place orders",
+                    "manual_locked",
+                    "control-safety-boundary",
+                ),
+                _manual_observation_step(
+                    5,
+                    "post_close_journal",
+                    "Record post-close journal and execution feedback",
+                    "required",
+                    "beginner-post-close-journal-board",
+                    "post_close_journal",
+                ),
+            ],
+            "forbidden_actions": [
+                "direct_buy_top3",
+                "auto_broker_connection",
+                "account_read",
+                "order_routing",
+                "reuse_stale_signal",
+                "skip_same_parameter_paper",
+            ],
+            "source_status": {
+                "live_trading_system_state": live_summary.get("go_live_state"),
+                "pretrade_blockers": blockers,
+                "manual_handoff_status": handoff.get("status"),
+            },
+            "safety": SAFETY_NOTICE,
+        }
+    )
+
+
+def _manual_observation_next_step(packet_status: str) -> str:
+    return {
+        "blocked_wrong_market": "confirm_cn_etf_scope",
+        "blocked_pretrade_red_light": "clear_pretrade_blockers",
+        "waiting_for_today_signal": "generate_today_signals",
+        "waiting_for_manual_tickets": "build_manual_tickets",
+        "paper_rehearsal_required": "run_same_parameter_paper",
+        "manual_observation_material_ready": "manual_broker_review",
+    }.get(packet_status, "review_manual_observation_packet")
+
+
+def _manual_observation_next_target(packet_status: str) -> str:
+    return {
+        "blocked_wrong_market": "factor-leaderboard-table",
+        "blocked_pretrade_red_light": "daily-pretrade-readiness-verdict",
+        "waiting_for_today_signal": "daily-trade-decision-top3",
+        "waiting_for_manual_tickets": "daily-manual-broker-handoff-ticket-table",
+        "paper_rehearsal_required": "paper-metrics",
+        "manual_observation_material_ready": "daily-manual-broker-handoff-ticket-table",
+    }.get(packet_status, "daily-manual-observation-packet")
+
+
+def _manual_observation_next_workflow(packet_status: str) -> str:
+    return {
+        "waiting_for_today_signal": "daily_trade_advisory",
+        "paper_rehearsal_required": "paper_simulation",
+    }.get(packet_status, "")
+
+
+def _manual_observation_factor_snapshot(row: dict[str, Any], index: int) -> dict[str, Any]:
+    return {
+        "rank": _int(row.get("rank"), index),
+        "case_id": str(row.get("case_id") or ""),
+        "factor_name": str(row.get("factor_name") or ""),
+        "market": str(row.get("market") or "CN_ETF"),
+        "promotion_label": str(row.get("promotion_label") or ""),
+        "advisory_eligible": bool(row.get("advisory_eligible")),
+        "fallback_baseline": bool(row.get("fallback_baseline")),
+        "direct_buy_allowed": False,
+        "order_placement_allowed": False,
+    }
+
+
+def _manual_observation_paper_request(row: dict[str, Any], index: int) -> dict[str, Any]:
+    return {
+        "rank": index,
+        "request_id": str(row.get("request_id") or row.get("same_parameter_request_id") or ""),
+        "same_parameter_request_id": str(row.get("same_parameter_request_id") or row.get("request_id") or ""),
+        "same_parameter_lock_id": str(row.get("same_parameter_lock_id") or ""),
+        "factor": str(row.get("factor") or row.get("factor_name") or ""),
+        "top_n": _int(row.get("top_n"), 0),
+        "request_url": str(row.get("request_url") or ""),
+        "status": "paper_rehearsal_request",
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
+
+
+def _manual_observation_ticket_preview(row: dict[str, Any], index: int) -> dict[str, Any]:
+    return {
+        "step_number": _int(row.get("step_number"), index),
+        "ticket_id": str(row.get("ticket_id") or ""),
+        "asset_id": str(row.get("asset_id") or ""),
+        "market": str(row.get("market") or "CN_ETF"),
+        "side": str(row.get("side") or "review"),
+        "target_weight": _float_or_none(row.get("target_weight")),
+        "reference_price": _float_or_none(row.get("reference_price")),
+        "rounded_quantity": _int(row.get("rounded_quantity"), 0),
+        "rounded_value": _float_or_none(row.get("rounded_value")),
+        "source_factors": row.get("source_factors") if isinstance(row.get("source_factors"), list) else [],
+        "review_only": True,
+        "order_placement_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+    }
+
+
+def _manual_observation_step(
+    step_number: int,
+    step_id: str,
+    label: str,
+    status: str,
+    target_id: str,
+    workflow_id: str = "",
+) -> dict[str, Any]:
+    return {
+        "step_number": step_number,
+        "step_id": step_id,
+        "label": label,
+        "status": status,
+        "target_id": target_id,
+        "workflow_id": workflow_id,
+        "manual_required": True,
+        "automation_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
 
 
 def build_daily_operator_mission_control(pack: dict[str, Any]) -> dict[str, Any]:
