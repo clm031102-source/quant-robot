@@ -443,6 +443,9 @@ def run_gui_browser_smoke(
             and "renderDailyManualTradingSession" in str(app_js.get("body", ""))
             and "daily_manual_trading_session" in str(app_js.get("body", ""))
             and "blocked_same_parameter_paper_required" in str(app_js.get("body", ""))
+            and "estimated_buy_cash_required" in str(app_js.get("body", ""))
+            and "estimated_sell_cash_released" in str(app_js.get("body", ""))
+            and "estimated_cash_impact_after_costs" in str(app_js.get("body", ""))
             and "open_external_broker_manually" in str(app_js.get("body", "")),
             "Frontend exposes the daily manual trading session status, blockers, operator steps, ticket preview, and manual-only broker boundary.",
             index_html.get("error")

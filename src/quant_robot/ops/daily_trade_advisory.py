@@ -2231,6 +2231,11 @@ def _build_manual_broker_handoff(pack: dict[str, Any]) -> dict[str, Any]:
     rounded_value = sum(_float(row.get("rounded_value"), 0.0) for row in manual_plan)
     cash_delta = sum(_float(row.get("cash_delta_after_rounding"), 0.0) for row in manual_plan)
     target_value = sum(_float(row.get("target_value"), 0.0) for row in manual_plan)
+    estimated_buy_cash_required = sum(_float(row.get("estimated_buy_cash_required"), 0.0) for row in manual_plan)
+    estimated_sell_cash_released = sum(_float(row.get("estimated_sell_cash_released"), 0.0) for row in manual_plan)
+    estimated_cash_impact_after_costs = sum(
+        _float(row.get("estimated_cash_impact_after_costs"), 0.0) for row in manual_plan
+    )
     if masked_until_same_parameter:
         status = "blocked_same_parameter_paper_required"
     elif copyable_tickets:
@@ -2278,6 +2283,9 @@ def _build_manual_broker_handoff(pack: dict[str, Any]) -> dict[str, Any]:
                 "target_value": target_value,
                 "rounded_value": rounded_value,
                 "cash_delta_after_rounding": cash_delta,
+                "estimated_buy_cash_required": round(estimated_buy_cash_required, 6),
+                "estimated_sell_cash_released": round(estimated_sell_cash_released, 6),
+                "estimated_cash_impact_after_costs": round(estimated_cash_impact_after_costs, 6),
                 "traffic_light": readiness.get("traffic_light"),
                 "manual_action_candidate": bool(readiness.get("manual_action_candidate")),
                 "same_parameter_paper_required_count": same_parameter_required_count,
@@ -2502,6 +2510,11 @@ def _broker_handoff_ticket(index: int, row: dict[str, Any], summary: dict[str, A
     rounded_quantity = _int(row.get("rounded_quantity"), 0)
     rounded_value = _float(row.get("rounded_value"), 0.0)
     cash_delta = _float(row.get("cash_delta_after_rounding"), 0.0)
+    estimated_commission_bps = _float(row.get("estimated_commission_bps"), MANUAL_ESTIMATED_COMMISSION_BPS)
+    estimated_commission_cost = _float(row.get("estimated_commission_cost"), 0.0)
+    estimated_buy_cash_required = _float(row.get("estimated_buy_cash_required"), 0.0)
+    estimated_sell_cash_released = _float(row.get("estimated_sell_cash_released"), 0.0)
+    estimated_cash_impact_after_costs = _float(row.get("estimated_cash_impact_after_costs"), 0.0)
     current_quantity = _float(row.get("current_quantity"), 0.0)
     delta_value = _float(row.get("delta_value"), _float(row.get("target_value"), 0.0))
     reference_price = "--" if latest_price is None else f"{latest_price:.4f}"
@@ -2511,6 +2524,13 @@ def _broker_handoff_ticket(index: int, row: dict[str, Any], summary: dict[str, A
         f"按 {BOARD_LOT_SIZE} 份一手取整数量={rounded_quantity}；"
         f"参考金额={rounded_value:.2f}；取整误差约={cash_delta:.2f}。"
         "请在券商端核对实时价格、代码、现金和风险；系统不会下单。"
+    )
+    copy_text += (
+        f" estimated_buy_cash_required={estimated_buy_cash_required:.2f};"
+        f" estimated_sell_cash_released={estimated_sell_cash_released:.2f};"
+        f" estimated_cash_impact_after_costs={estimated_cash_impact_after_costs:.2f};"
+        f" estimated_commission_bps={estimated_commission_bps:.2f};"
+        f" estimated_commission_cost={estimated_commission_cost:.2f}."
     )
     risk_budget = _manual_ticket_risk_budget(
         row,
@@ -2536,6 +2556,11 @@ def _broker_handoff_ticket(index: int, row: dict[str, Any], summary: dict[str, A
         "rounded_quantity_delta": row.get("rounded_quantity_delta"),
         "rounded_value": rounded_value,
         "cash_delta_after_rounding": cash_delta,
+        "estimated_commission_bps": estimated_commission_bps,
+        "estimated_commission_cost": estimated_commission_cost,
+        "estimated_buy_cash_required": estimated_buy_cash_required,
+        "estimated_sell_cash_released": estimated_sell_cash_released,
+        "estimated_cash_impact_after_costs": estimated_cash_impact_after_costs,
         "source_factors": row.get("source_factors"),
         "copy_text": copy_text,
         "do_not_submit_until_checked": True,
@@ -12062,6 +12087,11 @@ def build_manual_ticket_export(pack: dict[str, Any]) -> dict[str, Any]:
         "rounded_quantity_delta",
         "rounded_value",
         "cash_delta_after_rounding",
+        "estimated_commission_bps",
+        "estimated_commission_cost",
+        "estimated_buy_cash_required",
+        "estimated_sell_cash_released",
+        "estimated_cash_impact_after_costs",
         "lower_price_bound",
         "upper_price_bound",
         "max_reference_price_deviation_pct",
@@ -12132,6 +12162,11 @@ def _manual_ticket_export_row(ticket: dict[str, Any]) -> dict[str, Any]:
         "rounded_quantity_delta": _int(ticket.get("rounded_quantity_delta"), 0),
         "rounded_value": _float_or_none(ticket.get("rounded_value")),
         "cash_delta_after_rounding": _float_or_none(ticket.get("cash_delta_after_rounding")),
+        "estimated_commission_bps": _float_or_none(ticket.get("estimated_commission_bps")),
+        "estimated_commission_cost": _float_or_none(ticket.get("estimated_commission_cost")),
+        "estimated_buy_cash_required": _float_or_none(ticket.get("estimated_buy_cash_required")),
+        "estimated_sell_cash_released": _float_or_none(ticket.get("estimated_sell_cash_released")),
+        "estimated_cash_impact_after_costs": _float_or_none(ticket.get("estimated_cash_impact_after_costs")),
         "lower_price_bound": _float_or_none(guardrails.get("lower_price_bound")),
         "upper_price_bound": _float_or_none(guardrails.get("upper_price_bound")),
         "max_reference_price_deviation_pct": _float_or_none(guardrails.get("max_reference_price_deviation_pct")),
@@ -12749,6 +12784,7 @@ def _manual_trade_plan(
     rows = []
     for index, target in enumerate(combined_targets, start=1):
         sizing = _manual_ticket_sizing(target, board_lot_size=BOARD_LOT_SIZE)
+        cash_impact = _manual_ticket_cash_impact("buy_or_adjust", sizing.get("rounded_value"))
         rows.append(
             {
                 "ticket_id": f"daily-top3-{index:03d}",
@@ -12760,6 +12796,7 @@ def _manual_trade_plan(
                 "latest_price": target.get("latest_price"),
                 "board_lot_size": BOARD_LOT_SIZE,
                 **sizing,
+                **cash_impact,
                 **_tradeability_metadata(target),
                 "source_factors": ", ".join(target.get("source_factors", [])),
                 "executable": False,
@@ -12817,6 +12854,7 @@ def _manual_rebalance_ticket(index: int, row: dict[str, Any], market_lookup: dic
     side = _manual_side(row.get("action"), estimated_quantity_delta)
     rounded_quantity = _rounded_trade_quantity(estimated_quantity_delta, BOARD_LOT_SIZE)
     rounded_value = None if latest_price is None else rounded_quantity * latest_price
+    cash_impact = _manual_ticket_cash_impact(side, rounded_value)
     delta_value = _float(row.get("delta_value"), 0.0)
     cash_delta = None if rounded_value is None else abs(delta_value) - rounded_value
     target_quantity = None if latest_price is None or latest_price <= 0 else _float(row.get("target_value"), 0.0) / latest_price
@@ -12845,10 +12883,33 @@ def _manual_rebalance_ticket(index: int, row: dict[str, Any], market_lookup: dic
         "rounded_value": rounded_value,
         "cash_delta_after_rounding": cash_delta,
         "quantity_note": f"按 {BOARD_LOT_SIZE} 份一手对净买卖差额向下取整；仅供人工复核，系统不会下单。",
+        **cash_impact,
         "source_factors": "",
         "executable": False,
         "live_order_allowed": False,
         "manual_instruction": manual_instruction,
+    }
+
+
+def _manual_ticket_cash_impact(side: Any, rounded_value: Any) -> dict[str, Any]:
+    value = max(0.0, _float(rounded_value, 0.0))
+    commission_cost = round(value * MANUAL_ESTIMATED_COMMISSION_BPS / 10000.0, 6)
+    normalized_side = str(side or "").lower()
+    if normalized_side.startswith("sell") or normalized_side == "decrease":
+        sell_cash_released = round(max(0.0, value - commission_cost), 6)
+        buy_cash_required = 0.0
+    elif normalized_side.startswith("buy") or normalized_side == "increase":
+        buy_cash_required = round(value + commission_cost, 6)
+        sell_cash_released = 0.0
+    else:
+        buy_cash_required = 0.0
+        sell_cash_released = 0.0
+    return {
+        "estimated_commission_bps": MANUAL_ESTIMATED_COMMISSION_BPS,
+        "estimated_commission_cost": commission_cost,
+        "estimated_buy_cash_required": buy_cash_required,
+        "estimated_sell_cash_released": sell_cash_released,
+        "estimated_cash_impact_after_costs": round(sell_cash_released - buy_cash_required, 6),
     }
 
 

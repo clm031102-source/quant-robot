@@ -6357,6 +6357,10 @@ function renderDailyTradeAdvisory() {
     "rounded_quantity_delta",
     "rounded_value",
     "cash_delta_after_rounding",
+    "estimated_commission_cost",
+    "estimated_buy_cash_required",
+    "estimated_sell_cash_released",
+    "estimated_cash_impact_after_costs",
     "source_factors",
     "live_order_allowed",
     "manual_instruction",
@@ -10141,6 +10145,10 @@ function renderDailyPretradeReadiness(readiness) {
     "rounded_quantity_delta",
     "rounded_value",
     "cash_delta_after_rounding",
+    "estimated_commission_cost",
+    "estimated_buy_cash_required",
+    "estimated_sell_cash_released",
+    "estimated_cash_impact_after_costs",
     "live_order_allowed",
   ]);
 }
@@ -10242,6 +10250,10 @@ function renderManualBrokerHandoff(handoff) {
     "rounded_quantity",
     "rounded_value",
     "cash_delta_after_rounding",
+    "estimated_commission_cost",
+    "estimated_buy_cash_required",
+    "estimated_sell_cash_released",
+    "estimated_cash_impact_after_costs",
     "live_order_allowed",
     "copy_text",
   ]);

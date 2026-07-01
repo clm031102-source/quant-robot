@@ -351,9 +351,37 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(ticket["rounded_quantity"], 10400)
         self.assertAlmostEqual(ticket["rounded_value"], 33280.0)
         self.assertAlmostEqual(ticket["cash_delta_after_rounding"], 20.0)
+        self.assertAlmostEqual(ticket["estimated_commission_bps"], 5.0)
+        self.assertAlmostEqual(ticket["estimated_commission_cost"], 16.64)
+        self.assertAlmostEqual(ticket["estimated_buy_cash_required"], 33296.64)
+        self.assertEqual(ticket["estimated_sell_cash_released"], 0.0)
+        self.assertAlmostEqual(ticket["estimated_cash_impact_after_costs"], -33296.64)
         self.assertFalse(ticket["live_order_allowed"])
         self.assertFalse(ticket["executable"])
         self.assertIn("系统不会下单", ticket["manual_instruction"])
+
+    def test_manual_rebalance_sell_cash_impact_is_net_of_estimated_commission(self):
+        pack = build_daily_trade_advisory_pack(
+            [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
+            [_signal("c1", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            current_positions=[{"asset_id": "510300", "quantity": 20000, "latest_price": 3.2}],
+        )
+
+        ticket = pack["manual_trade_plan"][0]
+
+        self.assertEqual(ticket["side"], "sell")
+        self.assertEqual(ticket["rounded_quantity"], 9500)
+        self.assertEqual(ticket["rounded_quantity_delta"], -9500)
+        self.assertAlmostEqual(ticket["rounded_value"], 30400.0)
+        self.assertAlmostEqual(ticket["estimated_commission_bps"], 5.0)
+        self.assertAlmostEqual(ticket["estimated_commission_cost"], 15.2)
+        self.assertEqual(ticket["estimated_buy_cash_required"], 0.0)
+        self.assertAlmostEqual(ticket["estimated_sell_cash_released"], 30384.8)
+        self.assertAlmostEqual(ticket["estimated_cash_impact_after_costs"], 30384.8)
+        self.assertFalse(ticket["live_order_allowed"])
+        self.assertFalse(ticket["executable"])
 
     def test_manual_plan_uses_current_positions_for_net_rebalance(self):
         pack = build_daily_trade_advisory_pack(
@@ -585,15 +613,22 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertFalse(handoff["order_placement_allowed"])
         self.assertEqual(handoff["summary"]["ticket_count"], 1)
         self.assertAlmostEqual(handoff["summary"]["rounded_value"], 33280.0)
+        self.assertAlmostEqual(handoff["summary"]["estimated_buy_cash_required"], 33296.64)
+        self.assertEqual(handoff["summary"]["estimated_sell_cash_released"], 0.0)
+        self.assertAlmostEqual(handoff["summary"]["estimated_cash_impact_after_costs"], -33296.64)
         self.assertIn("paper_simulation_required", {item["check_id"] for item in handoff["confirmation_checklist"]})
         self.assertIn("manual_only_boundary", {item["check_id"] for item in handoff["confirmation_checklist"]})
         ticket = handoff["copyable_tickets"][0]
         self.assertEqual(ticket["asset_id"], "510300")
         self.assertEqual(ticket["rounded_quantity"], 10400)
+        self.assertAlmostEqual(ticket["estimated_buy_cash_required"], 33296.64)
+        self.assertEqual(ticket["estimated_sell_cash_released"], 0.0)
+        self.assertAlmostEqual(ticket["estimated_cash_impact_after_costs"], -33296.64)
         self.assertFalse(ticket["live_order_allowed"])
         self.assertTrue(ticket["do_not_submit_until_checked"])
         self.assertIn("510300", ticket["copy_text"])
         self.assertIn("10400", ticket["copy_text"])
+        self.assertIn("33296.64", ticket["copy_text"])
         self.assertIn("系统不会下单", ticket["copy_text"])
         self.assertEqual(
             [row["check_id"] for row in ticket["review_checklist"]],
@@ -698,6 +733,10 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIn("lower_price_bound", export["columns"])
         self.assertIn("upper_price_bound", export["columns"])
         self.assertIn("max_slippage_bps", export["columns"])
+        self.assertIn("estimated_buy_cash_required", export["columns"])
+        self.assertIn("estimated_sell_cash_released", export["columns"])
+        self.assertIn("estimated_cash_impact_after_costs", export["columns"])
+        self.assertAlmostEqual(export["rows"][0]["estimated_buy_cash_required"], 33296.64)
         self.assertIn("manual_price_guardrail_note", export["columns"])
         self.assertAlmostEqual(export["rows"][0]["lower_price_bound"], 3.184)
         self.assertAlmostEqual(export["rows"][0]["upper_price_bound"], 3.216)
