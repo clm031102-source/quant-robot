@@ -12299,6 +12299,13 @@ function renderServerCapitalObservationGate(gate = {}) {
       <span>${escapeHtml(summary.next_action || "继续收集干净闭环样本。")}</span>
     </div>
   `;
+  const paperSampleBody = `
+    <div class="list-row ${escapeHtml(summary.paper_trade_count_quality_status === "pass" ? "ok" : "warn")}">
+      <strong>${escapeHtml("Paper sample size")}</strong>
+      <span>${escapeHtml(`paper_trade_count=${formatNumber(summary.paper_total_trade_count || 0)} / min_trade_count=${formatNumber(summary.paper_min_trade_count || 30)}`)}</span>
+      <span>${escapeHtml(`trade_count_status=${zhConsoleText(summary.paper_trade_count_quality_status || "missing")}`)}</span>
+    </div>
+  `;
   const packetHeader = Object.keys(packetSummary).length ? `
     <div class="list-row ${escapeHtml(packetSummary.manual_observation_material_ready ? "ok" : "danger")}">
       <strong>${escapeHtml("小资金观察准备包")}</strong>
@@ -12345,6 +12352,13 @@ function renderServerCapitalObservationGate(gate = {}) {
       </div>
     `;
   }).join("");
+  const scoreSampleBody = Object.keys(scoreSummary).length ? `
+    <div class="list-row ${escapeHtml(scoreSummary.paper_trade_count_quality_status === "pass" ? "ok" : "warn")}">
+      <strong>${escapeHtml("Scorecard paper sample")}</strong>
+      <span>${escapeHtml(`paper_trade_count=${formatNumber(scoreSummary.paper_total_trade_count || 0)} / min_trade_count=${formatNumber(scoreSummary.paper_min_trade_count || 30)}`)}</span>
+      <span>${escapeHtml(`trade_count_status=${zhConsoleText(scoreSummary.paper_trade_count_quality_status || "missing")}`)}</span>
+    </div>
+  ` : "";
   const scoreHeader = Object.keys(scoreSummary).length ? `
     <div class="list-row ${escapeHtml(scoreSummary.manual_observation_material_ready ? "ok" : "warn")}">
       <strong>${escapeHtml("小资金观察证据分数")}</strong>
@@ -12378,7 +12392,7 @@ function renderServerCapitalObservationGate(gate = {}) {
       </div>
     `;
   }).join("");
-  return header + packetHeader + packetLimitBody + packetStepBody + packetForbiddenBody + scoreHeader + scoreBody + (body || statusRows([[
+  return header + paperSampleBody + packetHeader + packetLimitBody + packetStepBody + packetForbiddenBody + scoreHeader + scoreSampleBody + scoreBody + (body || statusRows([[
     "小资金观察闸门",
     "等待服务端每日闭环台账生成后评估；系统仍不连接券商、不读账户、不下单。",
     "warn",

@@ -949,6 +949,9 @@ def run_gui_browser_smoke(
             and "paper_performance_quality_passed" in control_body.get("server_capital_observation_gate", {}).get("summary", {})
             and "paper_average_win_rate" in control_body.get("server_capital_observation_gate", {}).get("summary", {})
             and "paper_min_win_rate" in control_body.get("server_capital_observation_gate", {}).get("summary", {})
+            and "paper_total_trade_count" in control_body.get("server_capital_observation_gate", {}).get("summary", {})
+            and "paper_min_trade_count" in control_body.get("server_capital_observation_gate", {}).get("summary", {})
+            and "paper_trade_count_quality_status" in control_body.get("server_capital_observation_gate", {}).get("summary", {})
             and "same_parameter_paper_evidence"
             in {
                 row.get("gate_id")
@@ -970,6 +973,10 @@ def run_gui_browser_smoke(
             and "paper_performance_quality_passed" in str(app_js.get("body", ""))
             and "paper_average_win_rate" in str(app_js.get("body", ""))
             and "paper_min_win_rate" in str(app_js.get("body", ""))
+            and "paper_total_trade_count" in str(app_js.get("body", ""))
+            and "paper_min_trade_count" in str(app_js.get("body", ""))
+            and "paper_trade_count_quality_status" in str(app_js.get("body", ""))
+            and "Paper sample size" in str(app_js.get("body", ""))
             and "manual_observation_packet" in str(app_js.get("body", ""))
             and "小资金观察准备包" in str(app_js.get("body", ""))
             and "software_order_submission_allowed" in str(app_js.get("body", ""))
