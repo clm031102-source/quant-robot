@@ -4471,6 +4471,20 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("broker_recheck_session_not_ok", app_js)
             self.assertIn("broker_recheck_session_missing_count", app_js)
             self.assertIn("broker_recheck_session_blocked_count", app_js)
+            self.assertIn("data-daily-ops-recheck-draft", app_js)
+            self.assertIn("dailyOpsPaperRecheckDraftRows", app_js)
+            self.assertIn("applyDailyOpsPaperRecheckDraftToPostClose", app_js)
+            self.assertIn("daily_ops_paper_recheck_draft", app_js)
+            self.assertIn("skip_broker_price_outside_guardrail", app_js)
+            self.assertIn("manual_review_all_rows_price_cash_ok", app_js)
+            self.assertIn("post-close-execution-reviews", app_js)
+            daily_ops_draft_block = app_js.split("function dailyOpsPaperRecheckDraftRows", 1)[1].split(
+                "function applyDailyOpsPaperRecheckDraftToPostClose",
+                1,
+            )[0]
+            self.assertIn('brokerPriceRecheckDecision(item, priceInput?.value || "", cashInput?.value || "")', daily_ops_draft_block)
+            self.assertIn('decision.status === "manual_review_price_ok_quantity_recalculated"', daily_ops_draft_block)
+            self.assertIn('outcome = ok ? "paper_only" : "skipped_no_trade"', daily_ops_draft_block)
             self.assertIn("small_capital_budget_breached", app_js)
             self.assertIn("small_capital_budget_breach_count", app_js)
             self.assertIn("small_capital_limit_breached", app_js)

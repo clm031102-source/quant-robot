@@ -649,6 +649,12 @@ function bindActions() {
     jumpToBeginnerTarget(button.dataset.postCloseJournalTarget || "beginner-post-close-journal-board", state.leaderboardTab);
   });
   document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-daily-ops-recheck-draft]");
+    if (!button) return;
+    event.preventDefault();
+    applyDailyOpsPaperRecheckDraftToPostClose();
+  });
+  document.addEventListener("click", (event) => {
     const button = event.target.closest("[data-live-handoff-target]");
     if (!button) return;
     event.preventDefault();
@@ -6550,6 +6556,13 @@ function renderDailyOpsPaperExecutionRecheck(recheck = {}) {
       <strong>${escapeHtml("整组本地判定")}</strong>
       <span data-broker-price-recheck-session-output="true">${escapeHtml(renderBrokerPriceRecheckSessionVerdict(initialDecisions))}</span>
     </div>
+    <div class="list-row ${escapeHtml(visibleRows.length ? "warn" : "muted")}">
+      <strong>${escapeHtml("盘后回执草稿")}</strong>
+      <span>${escapeHtml("把 Daily Ops 纸面复核结果写入盘后执行审计；只生成本地记录，不连接券商、不下单。")}</span>
+      <span class="beginner-task-actions">
+        <button class="secondary-button" type="button" data-daily-ops-recheck-draft="true" ${visibleRows.length ? "" : "disabled"}>${escapeHtml("生成盘后回执草稿")}</button>
+      </span>
+    </div>
   `;
   if (!visibleRows.length) {
     tableTarget.innerHTML = tableRows([{ status: "waiting_for_daily_ops_ticket" }], ["status"]);
@@ -10392,6 +10405,66 @@ function dailyOpsPaperRecheckRows() {
   const recheck = state.dailyTradeAdvisory?.daily_ops_handoff?.paper_execution_recheck || {};
   const rows = Array.isArray(recheck.rows) ? recheck.rows : [];
   return rows.filter((row) => row && row.order_placement_allowed !== true && row.auto_order_allowed !== true);
+}
+
+function dailyOpsPaperRecheckDraftRows() {
+  const rows = dailyOpsPaperRecheckRows();
+  return rows.map((item, index) => {
+    const recheckKey = `daily-ops-${item.ticket_id || item.asset_id || "ticket"}-${index}`;
+    const priceInput = Array.from(document.querySelectorAll("[data-broker-price-recheck-price]"))
+      .find((node) => node.dataset.brokerPriceRecheckKey === recheckKey);
+    const cashInput = Array.from(document.querySelectorAll("[data-broker-price-recheck-cash]"))
+      .find((node) => node.dataset.brokerPriceRecheckKey === recheckKey);
+    const decision = brokerPriceRecheckDecision(item, priceInput?.value || "", cashInput?.value || "");
+    const ok = decision.status === "manual_review_price_ok_quantity_recalculated";
+    const outcome = ok ? "paper_only" : "skipped_no_trade";
+    const brokerSessionDecision = ok
+      ? "manual_review_all_rows_price_cash_ok"
+      : "manual_review_some_rows_skipped_or_blocked";
+    const reason = sanitizePostCloseJournalText([
+      "daily_ops_paper_recheck_draft",
+      `decision=${decision.status}`,
+      "source_ticket_family=daily_ops_paper_recheck",
+      `asset=${item.asset_id || item.symbol || "--"}`,
+      `skip_broker_price_outside_guardrail=${String(decision.status === "skip_broker_price_outside_guardrail")}`,
+      `quantity=${formatNumber(decision.recalculated_quantity_at_external_price || 0)}`,
+      `value=${formatDecimal(decision.recalculated_value_at_external_price || 0)}`,
+    ].join("; "));
+    return [
+      item.ticket_id || `daily-ops-paper-${String(index + 1).padStart(3, "0")}`,
+      outcome,
+      "",
+      "",
+      reason,
+      brokerSessionDecision,
+    ].join(",");
+  });
+}
+
+function applyDailyOpsPaperRecheckDraftToPostClose() {
+  const target = byId("post-close-execution-reviews");
+  if (!target) return;
+  const rows = dailyOpsPaperRecheckDraftRows();
+  if (!rows.length) {
+    showToast("没有可生成的 Daily Ops 纸面回执草稿", true);
+    return;
+  }
+  const existing = target.value.trim();
+  target.value = existing ? `${existing}\n${rows.join("\n")}` : rows.join("\n");
+  const allOk = rows.every((row) => row.includes(",paper_only,") && row.endsWith(",manual_review_all_rows_price_cash_ok"));
+  const anyPaperOnly = rows.some((row) => row.includes(",paper_only,"));
+  setValue("post-close-manual-outcome", anyPaperOnly ? "paper_only" : "skipped_no_trade");
+  setValue(
+    "post-close-broker-recheck-session-decision",
+    allOk ? "manual_review_all_rows_price_cash_ok" : "manual_review_some_rows_skipped_or_blocked",
+  );
+  target.dispatchEvent(new Event("input", { bubbles: true }));
+  byId("post-close-manual-outcome")?.dispatchEvent(new Event("change", { bubbles: true }));
+  byId("post-close-broker-recheck-session-decision")?.dispatchEvent(new Event("change", { bubbles: true }));
+  renderPostCloseManualFormStatus(latestExecutionReceipt("post_close_journal"));
+  renderPostCloseExecutionAudit(localManualExecutionAudit(state.dailyTradeAdvisory || {}));
+  jumpToBeginnerTarget("beginner-post-close-journal-form");
+  showToast("已生成 Daily Ops 盘后回执草稿，请补充风险和备注");
 }
 
 function dailyOpsPaperTicketCard(ticket = {}, index = 0) {
