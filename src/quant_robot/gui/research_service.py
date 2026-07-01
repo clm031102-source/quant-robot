@@ -13,6 +13,11 @@ import pandas as pd
 from quant_robot.data.readiness import check_parquet_readiness, check_tushare_readiness
 from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.gui.fixtures import mock_data
+from quant_robot.gui.operation_ledger import (
+    build_daily_closure_ledger_snapshot,
+    build_pre_live_master_gate,
+    build_server_capital_observation_gate,
+)
 from quant_robot.paper.simulator import PaperSimulationConfig, run_paper_simulation
 from quant_robot.portfolio.rebalance import build_rebalance_plan
 from quant_robot.ops.evidence_refresh import build_evidence_refresh_plan
@@ -452,6 +457,7 @@ def build_daily_trade_advisory_snapshot(
     current_positions: str | list[dict[str, Any]] | None = None,
     manual_available_cash: float | None = None,
     evidence_snapshot: str | dict[str, Any] | None = None,
+    repo_root: str | Path | None = None,
 ) -> dict[str, Any]:
     leaderboard = build_factor_leaderboard_snapshot(
         reports_root=reports_root,
@@ -507,7 +513,10 @@ def build_daily_trade_advisory_snapshot(
         risk_profile_id=risk_profile_id,
         current_positions=_parse_current_positions_input(current_positions),
         manual_available_cash=manual_available_cash,
-        evidence_snapshot=_parse_evidence_snapshot_input(evidence_snapshot),
+        evidence_snapshot=_daily_trade_evidence_snapshot(
+            evidence_snapshot=evidence_snapshot,
+            repo_root=repo_root,
+        ),
         candidate_pool_top20=candidate_pool_top20,
     )
     pack["selected_candidates"] = candidates
@@ -650,6 +659,112 @@ def _parse_evidence_snapshot_input(evidence_snapshot: str | dict[str, Any] | Non
     if isinstance(parsed, dict):
         return parsed
     return {"mode": "parse_error", "parse_error": "evidence_snapshot must be a JSON object"}
+
+
+def _daily_trade_evidence_snapshot(
+    *,
+    evidence_snapshot: str | dict[str, Any] | None,
+    repo_root: str | Path | None,
+) -> dict[str, Any] | None:
+    parsed = _parse_evidence_snapshot_input(evidence_snapshot)
+    server_evidence = _server_pre_live_evidence_snapshot(repo_root)
+    if not server_evidence:
+        return parsed
+    if parsed is None:
+        return server_evidence
+    merged = dict(parsed)
+    if not _evidence_has_pre_live_master_gate(merged):
+        merged["pre_live_master_gate"] = server_evidence.get("pre_live_master_gate", {})
+    if "counts" not in merged and isinstance(server_evidence.get("counts"), dict):
+        merged["counts"] = server_evidence["counts"]
+    if "server_operation_ledger" not in merged:
+        merged["server_operation_ledger"] = server_evidence.get("server_operation_ledger", {})
+    if not merged.get("mode") or merged.get("mode") == "empty":
+        merged["mode"] = server_evidence.get("mode") or "server_operation_ledger"
+    return merged
+
+
+def _server_pre_live_evidence_snapshot(repo_root: str | Path | None) -> dict[str, Any]:
+    root = Path(repo_root) if repo_root is not None else Path.cwd()
+    try:
+        closure = build_daily_closure_ledger_snapshot(root)
+        capital_gate = build_server_capital_observation_gate(closure)
+        master_gate = build_pre_live_master_gate(capital_gate)
+    except Exception as exc:
+        return {
+            "mode": "server_operation_ledger_error",
+            "pre_live_master_gate": {
+                "status": "not_checked",
+                "decision": "continue_same_parameter_paper_and_closure",
+                "manual_small_capital_observation_allowed": False,
+                "external_manual_only": True,
+                "server_evidence_error": str(exc),
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+            },
+        }
+    closure_summary = closure.get("summary", {}) if isinstance(closure.get("summary"), dict) else {}
+    gate_summary = master_gate.get("summary", {}) if isinstance(master_gate.get("summary"), dict) else {}
+    capital_summary = capital_gate.get("summary", {}) if isinstance(capital_gate.get("summary"), dict) else {}
+    return {
+        "mode": "server_operation_ledger",
+        "counts": {
+            "matched_paper_receipts": _safe_int(closure_summary.get("matched_paper_days")),
+            "post_close_journal_receipts": _safe_int(closure_summary.get("closed_loop_days")),
+            "manual_execution_clean_receipts": _safe_int(closure_summary.get("clean_execution_days")),
+            "manual_execution_blocked_receipts": _safe_int(closure_summary.get("blocked_execution_days")),
+            "same_parameter_top3_required_requests": _safe_int(closure_summary.get("matched_paper_days")),
+            "same_parameter_top3_matched_requests": _safe_int(closure_summary.get("matched_paper_days")),
+        },
+        "pre_live_master_gate": {
+            "status": gate_summary.get("status") or "not_checked",
+            "decision": gate_summary.get("decision") or "continue_same_parameter_paper_and_closure",
+            "manual_small_capital_observation_allowed": bool(
+                gate_summary.get("manual_small_capital_observation_allowed")
+            ),
+            "external_manual_only": True,
+            "passed_gate_count": _safe_int(gate_summary.get("passed_gate_count")),
+            "required_gate_count": _safe_int(gate_summary.get("required_gate_count")),
+            "source_gate_status": gate_summary.get("source_gate_status") or capital_summary.get("status") or "",
+            "server_closed_loop_days": _safe_int(gate_summary.get("server_closed_loop_days")),
+            "clean_execution_days": _safe_int(gate_summary.get("clean_execution_days")),
+            "blocked_execution_days": _safe_int(gate_summary.get("blocked_execution_days")),
+            "matched_paper_days": _safe_int(gate_summary.get("matched_paper_days")),
+            "paper_performance_quality_passed": bool(gate_summary.get("paper_performance_quality_passed")),
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        },
+        "server_operation_ledger": {
+            "daily_closure_status": closure_summary.get("status") or "",
+            "capital_gate_status": capital_summary.get("status") or "",
+            "pre_live_gate_status": gate_summary.get("status") or "",
+            "ledger_source": closure_summary.get("source") or "",
+        },
+    }
+
+
+def _evidence_has_pre_live_master_gate(evidence: dict[str, Any]) -> bool:
+    if not isinstance(evidence, dict):
+        return False
+    pre_live = evidence.get("pre_live_master_gate")
+    if isinstance(pre_live, dict) and (pre_live.get("status") or pre_live.get("decision")):
+        return True
+    return bool(evidence.get("pre_live_master_gate_status") or evidence.get("master_gate_status"))
+
+
+def _safe_int(value: Any) -> int:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (int, float)):
+        return int(value)
+    try:
+        return int(float(str(value)))
+    except (TypeError, ValueError):
+        return 0
 
 
 def _bars_until_as_of_date(bars: pd.DataFrame, as_of_date: str | None) -> pd.DataFrame:

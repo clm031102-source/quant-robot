@@ -1118,6 +1118,115 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertFalse(readiness["summary"]["order_placement_allowed"])
         self.assertFalse(transition["summary"]["order_placement_allowed"])
 
+    def test_daily_trade_advisory_injects_server_pre_live_gate_without_browser_evidence(self):
+        from quant_robot.gui.operation_ledger import append_operation_ledger_entry
+
+        def paper_request(day: str) -> dict[str, object]:
+            return {
+                "market": "CN_ETF",
+                "factor_name": "momentum_2",
+                "top_n": 2,
+                "commission_bps": 5,
+                "as_of_date": day,
+            }
+
+        def append_clean_day(root: Path, day: str) -> None:
+            request = paper_request(day)
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="daily_trade_advisory",
+                label="Generate top-three manual trade advisory",
+                status="completed",
+                request={"market": "CN_ETF", "as_of_date": day, "paper_request_signature": request},
+                result={"metrics": {"signal_count": 3, "selected_factor_count": 3}},
+            )
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="paper_simulation",
+                label="Run local paper simulation",
+                status="completed",
+                request=request,
+                result={"metrics": {"total_return": 0.01, "max_drawdown": -0.02, "win_rate": 0.55, "trade_count": 8}},
+            )
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="post_close_journal",
+                label="Post-close journal receipt",
+                status="completed",
+                request={"market": "CN_ETF", "as_of_date": day},
+                result={
+                    "metrics": {
+                        "manual_review_recorded": True,
+                        "manual_execution_decision": "manual_execution_evidence_ready",
+                        "manual_execution_missing_review_count": 0,
+                        "manual_execution_guardrail_breach_count": 0,
+                        "manual_execution_slippage_breach_count": 0,
+                    }
+                },
+            )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            reports_root = root / "reports"
+            configs_root = root / "configs"
+            (reports_root / "round").mkdir(parents=True)
+            configs_root.mkdir()
+            leaderboard = [
+                {
+                    "rank": index,
+                    "case_id": f"case_{factor_name}",
+                    "factor_name": factor_name,
+                    "market": "CN_ETF",
+                    "paper_sharpe": 1.4 - index / 10,
+                    "walk_forward_sharpe": 1.3 - index / 10,
+                    "sharpe": 1.3 - index / 10,
+                    "annualized_return": 0.2,
+                    "total_return": 1.0,
+                    "max_drawdown": -0.05,
+                    "win_rate": 0.6,
+                    "rank_ic": 0.05,
+                    "trade_count": 50,
+                    "has_oos_evidence": True,
+                    "params": {"top_n": 2, "factor_windows": [2]},
+                }
+                for index, factor_name in enumerate(["momentum_2", "reversal_2", "volatility_2"], start=1)
+            ]
+            (reports_root / "round" / "candidate_leaderboard.json").write_text(
+                json.dumps({"candidate_leaderboard": leaderboard}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            for day in ["2026-06-24", "2026-06-25", "2026-06-26", "2026-06-29", "2026-06-30"]:
+                append_clean_day(root, day)
+
+            snapshot = build_daily_trade_advisory_snapshot(
+                repo_root=root,
+                reports_root=reports_root,
+                configs_root=configs_root,
+                source="demo_fixture",
+                market="CN_ETF",
+                limit=3,
+                as_of_date="2024-01-15",
+                current_positions=(
+                    "asset_id,quantity,latest_price\n"
+                    "CN_ETF_XSHE_159915,0,2.5\n"
+                    "CN_ETF_XSHG_510300,0,3.5\n"
+                    "CN_ETF_XSHG_510500,0,5\n"
+                    "CN_ETF_XSHG_588000,0,1.1\n"
+                ),
+                manual_available_cash=100000,
+            )
+
+        evidence_gate = snapshot["live_profitability_evidence_snapshot"]["pre_live_master_gate"]
+        system_gate = snapshot["daily_trade_decision_sheet"]["trade_system_state"]["pre_live_master_gate"]
+        readiness = snapshot["live_profitability_readiness"]
+
+        self.assertEqual(evidence_gate["status"], "manual_small_capital_observation_ready")
+        self.assertEqual(evidence_gate["decision"], "external_manual_small_capital_observation_only")
+        self.assertTrue(evidence_gate["manual_small_capital_observation_allowed"])
+        self.assertEqual(system_gate["status"], "manual_small_capital_observation_ready")
+        self.assertFalse(system_gate["order_placement_allowed"])
+        self.assertFalse(readiness["summary"]["order_placement_allowed"])
+
     def test_daily_trade_advisory_fallback_baseline_is_observation_only(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
