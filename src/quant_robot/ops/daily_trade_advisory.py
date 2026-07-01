@@ -47,6 +47,7 @@ DAILY_SAME_PARAMETER_PAPER_REHEARSAL_STAGE = "phase_6_27_daily_same_parameter_pa
 DAILY_BEGINNER_EXECUTION_ANSWER_STAGE = "phase_6_28_daily_beginner_execution_answer"
 DAILY_EXECUTION_RISK_CIRCUIT_BREAKER_STAGE = "phase_6_29_daily_execution_risk_circuit_breaker"
 DAILY_OPERATOR_MISSION_CONTROL_STAGE = "phase_6_30_daily_operator_mission_control"
+DAILY_LIVE_TRADING_SYSTEM_STATUS_STAGE = "phase_6_31_daily_live_trading_system_status"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 MANUAL_PRICE_DEVIATION_GUARD_PCT = 0.005
@@ -458,6 +459,7 @@ def build_daily_trade_advisory_pack(
     pack["daily_pre_execution_guard"] = build_daily_pre_execution_guard(pack)
     pack["daily_same_parameter_paper_rehearsal"] = build_daily_same_parameter_paper_rehearsal(pack)
     pack["daily_beginner_execution_answer"] = build_daily_beginner_execution_answer(pack)
+    pack["daily_live_trading_system_status"] = build_daily_live_trading_system_status(pack)
     pack["daily_operator_mission_control"] = build_daily_operator_mission_control(pack)
     pack["summary"]["live_transition_status"] = pack["live_transition_plan"]["summary"]["status"]
     pack["summary"]["trading_system_status"] = pack["trading_system_blueprint"]["summary"]["status"]
@@ -482,6 +484,9 @@ def build_daily_trade_advisory_pack(
         "allowed_mode"
     ]
     pack["summary"]["operator_mission_status"] = pack["daily_operator_mission_control"]["summary"]["mission_status"]
+    pack["summary"]["live_trading_system_status"] = pack["daily_live_trading_system_status"]["summary"][
+        "go_live_state"
+    ]
     pack["markdown"] = render_daily_trade_advisory_markdown(pack)
     return _sanitize(pack)
 
@@ -2965,6 +2970,230 @@ def build_daily_trade_decision_sheet(pack: dict[str, Any]) -> dict[str, Any]:
     )
 
 
+def build_daily_live_trading_system_status(pack: dict[str, Any]) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
+    decision_sheet = (
+        pack.get("daily_trade_decision_sheet")
+        if isinstance(pack.get("daily_trade_decision_sheet"), dict)
+        else build_daily_trade_decision_sheet(pack)
+    )
+    pre_execution = (
+        pack.get("daily_pre_execution_guard")
+        if isinstance(pack.get("daily_pre_execution_guard"), dict)
+        else build_daily_pre_execution_guard(pack)
+    )
+    same_paper = (
+        pack.get("daily_same_parameter_paper_rehearsal")
+        if isinstance(pack.get("daily_same_parameter_paper_rehearsal"), dict)
+        else build_daily_same_parameter_paper_rehearsal(pack)
+    )
+    profitability = (
+        pack.get("live_profitability_readiness")
+        if isinstance(pack.get("live_profitability_readiness"), dict)
+        else build_live_profitability_readiness_scorecard(pack)
+    )
+    pre_summary = pre_execution.get("summary") if isinstance(pre_execution.get("summary"), dict) else {}
+    paper_summary = same_paper.get("summary") if isinstance(same_paper.get("summary"), dict) else {}
+    profitability_summary = profitability.get("summary") if isinstance(profitability.get("summary"), dict) else {}
+    blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
+    market = str(pack.get("market") or _first_market(pack.get("factors", [])) or "CN_ETF").upper()
+    selected_count = _int(summary.get("selected_factor_count"), 0)
+    signal_count = _int(summary.get("signal_count"), 0)
+    target_count = _int(summary.get("combined_target_count"), 0)
+    ticket_count = _int(summary.get("manual_ticket_count"), 0)
+    guard_status = str(pre_summary.get("guard_status") or "waiting")
+    paper_status = str(paper_summary.get("rehearsal_status") or "waiting")
+    paper_allowed = bool(paper_summary.get("paper_rehearsal_allowed")) or bool(
+        pre_summary.get("paper_rehearsal_allowed")
+    )
+    manual_review_allowed = bool(pre_summary.get("manual_broker_review_allowed")) or bool(
+        paper_summary.get("manual_broker_review_allowed")
+    )
+    small_capital_candidate = bool(profitability_summary.get("small_capital_observation_candidate"))
+    production_candidate = bool(profitability_summary.get("production_manual_review_candidate"))
+
+    if market != "CN_ETF":
+        go_live_state = "blocked_wrong_market"
+        next_step_id = "confirm_cn_etf_scope"
+    elif blockers:
+        go_live_state = "blocked_pretrade_gates"
+        next_step_id = "clear_pretrade_blockers"
+    elif selected_count <= 0:
+        go_live_state = "waiting_for_top3_candidates"
+        next_step_id = "select_top3_candidates"
+    elif signal_count <= 0 or target_count <= 0:
+        go_live_state = "waiting_for_today_signals"
+        next_step_id = "generate_today_signals"
+    elif ticket_count <= 0:
+        go_live_state = "manual_ticket_required"
+        next_step_id = "build_manual_tickets"
+    elif not paper_allowed:
+        go_live_state = "same_parameter_paper_locked"
+        next_step_id = "clear_pre_execution_guard"
+    elif not manual_review_allowed:
+        go_live_state = "same_parameter_paper_required"
+        next_step_id = "run_same_parameter_paper"
+    elif small_capital_candidate or production_candidate:
+        go_live_state = "manual_small_capital_review_candidate"
+        next_step_id = "manual_broker_review"
+    else:
+        go_live_state = "manual_review_material_ready"
+        next_step_id = "manual_broker_review"
+
+    def step(
+        step_number: int,
+        step_id: str,
+        label: str,
+        status: str,
+        target_id: str,
+        workflow_id: str = "",
+        evidence: str = "",
+    ) -> dict[str, Any]:
+        return {
+            "step_number": step_number,
+            "step_id": step_id,
+            "label": label,
+            "status": status,
+            "target_id": target_id,
+            "workflow_id": workflow_id,
+            "evidence": evidence,
+            "manual_required": True,
+            "automation_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        }
+
+    signal_ready = signal_count > 0 and target_count > 0
+    operating_ladder = [
+        step(
+            1,
+            "select_top3_candidates",
+            "每日先选 CN_ETF Top3 候选因子",
+            "done" if selected_count else "required",
+            "daily-trade-decision-top3",
+            "daily_trade_advisory" if not selected_count else "",
+            f"selected={selected_count}; direct_buy=false",
+        ),
+        step(
+            2,
+            "generate_today_signals",
+            "生成当日信号和目标 ETF",
+            "done" if signal_ready else ("blocked" if blockers else "required"),
+            "daily-trade-target-table",
+            "daily_trade_advisory" if not signal_ready else "",
+            f"signals={signal_count}; targets={target_count}",
+        ),
+        step(
+            3,
+            "build_manual_tickets",
+            "折算为人工复核票据",
+            "done" if ticket_count else ("blocked" if blockers else "required"),
+            "daily-manual-broker-handoff-ticket-table",
+            "",
+            f"tickets={ticket_count}; board_lot={BOARD_LOT_SIZE}",
+        ),
+        step(
+            4,
+            "run_same_parameter_paper",
+            "同参数模拟盘复核",
+            "done" if manual_review_allowed else ("required" if paper_allowed else "locked"),
+            "paper-metrics",
+            "paper_simulation" if paper_allowed and not manual_review_allowed else "",
+            f"rehearsal_status={paper_status}",
+        ),
+        step(
+            5,
+            "pre_execution_guard",
+            "盘前价格、容量、风控护栏",
+            "done" if manual_review_allowed else ("blocked" if guard_status.startswith("blocked") else "required"),
+            "daily-pre-execution-guard",
+            "",
+            f"guard_status={guard_status}",
+        ),
+        step(
+            6,
+            "manual_broker_review",
+            "本人离开系统后在券商端人工复核",
+            "manual_required" if manual_review_allowed else "locked",
+            "daily-manual-broker-handoff-ticket-table",
+            "",
+            "software_order=false; broker_connection=false",
+        ),
+        step(
+            7,
+            "post_close_journal",
+            "收盘后复盘并记录反馈",
+            "required" if selected_count else "waiting",
+            "beginner-post-close-journal-board",
+            "post_close_journal" if selected_count else "",
+            "required for next-session reuse and factor health",
+        ),
+    ]
+    next_step = next((row for row in operating_ladder if row["step_id"] == next_step_id), operating_ladder[0])
+    return _sanitize(
+        {
+            "stage": DAILY_LIVE_TRADING_SYSTEM_STATUS_STAGE,
+            "run_date": pack.get("run_date", date.today().isoformat()),
+            "summary": {
+                "go_live_state": go_live_state,
+                "primary_market": market,
+                "daily_top3_policy": "top3_candidates_not_orders",
+                "selected_factor_count": selected_count,
+                "signal_count": signal_count,
+                "target_count": target_count,
+                "manual_ticket_count": ticket_count,
+                "pre_execution_guard_status": guard_status,
+                "same_parameter_paper_status": paper_status,
+                "profitability_decision": profitability_summary.get("decision"),
+                "small_capital_observation_candidate": small_capital_candidate,
+                "production_manual_review_candidate": production_candidate,
+                "next_step_id": next_step.get("step_id"),
+                "next_label": next_step.get("label"),
+                "next_target_id": next_step.get("target_id"),
+                "next_workflow_id": next_step.get("workflow_id"),
+                "direct_buy_top3_allowed": False,
+                "manual_review_required": True,
+                "paper_simulation_required": True,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+                "live_trading_allowed": False,
+            },
+            "operating_ladder": operating_ladder,
+            "top3_selection_policy": {
+                "primary_market": "CN_ETF",
+                "top_factor_limit": 3,
+                "rank_source": "factor leaderboard plus promotion/paper/oos evidence",
+                "direct_buy_from_leaderboard_allowed": False,
+                "same_day_signal_required": True,
+            },
+            "deployment_boundary": {
+                "allowed_stage": "research_to_paper_to_manual_review",
+                "forbidden": [
+                    "auto_broker_connection",
+                    "account_read",
+                    "order_routing",
+                    "copy_top3_as_order",
+                    "reuse_stale_signal",
+                ],
+                "manual_small_capital_review_can_only_start_after": [
+                    "fresh_cn_etf_signal",
+                    "manual_ticket_pack",
+                    "same_parameter_paper_receipt",
+                    "pre_execution_guard",
+                    "post_close_journal",
+                    "profitability_evidence_review",
+                ],
+            },
+            "safety": SAFETY_NOTICE,
+        }
+    )
+
+
 def build_daily_operator_mission_control(pack: dict[str, Any]) -> dict[str, Any]:
     decision_sheet = (
         pack.get("daily_trade_decision_sheet")
@@ -3009,6 +3238,12 @@ def build_daily_operator_mission_control(pack: dict[str, Any]) -> dict[str, Any]
     profitability_summary = (
         profitability.get("summary") if isinstance(profitability.get("summary"), dict) else {}
     )
+    live_system = (
+        pack.get("daily_live_trading_system_status")
+        if isinstance(pack.get("daily_live_trading_system_status"), dict)
+        else build_daily_live_trading_system_status(pack)
+    )
+    live_system_summary = live_system.get("summary") if isinstance(live_system.get("summary"), dict) else {}
     profitability_hard_gates = [
         row for row in profitability.get("hard_gates", []) if isinstance(row, dict)
     ]
@@ -3077,6 +3312,48 @@ def build_daily_operator_mission_control(pack: dict[str, Any]) -> dict[str, Any]
         execution_feedback_status=execution_feedback_status,
         next_session_quarantine_required=next_session_quarantine_required,
     )
+    cards = _operator_mission_cards(
+        top3_count=top3_count,
+        signal_count=signal_count,
+        target_count=target_count,
+        ticket_count=ticket_count,
+        missing_evidence=missing_evidence,
+        input_manual_count=input_manual_count,
+        input_missing_count=input_missing_count,
+        input_blocked_count=input_blocked_count,
+        blockers=blockers,
+        pre_execution_summary=pre_execution_summary,
+        capacity_blocked_count=capacity_blocked_count,
+        liquidity_evidence_missing_count=liquidity_evidence_missing_count,
+        execution_feedback_status=execution_feedback_status,
+        next_session_quarantine_required=next_session_quarantine_required,
+        next_session_reuse_status=next_session_reuse_status,
+        manual_clean_count=manual_clean_count,
+        manual_blocked_count=manual_blocked_count,
+        manual_missing_review_count=manual_missing_review_count,
+        current_phase=current_phase,
+        phase_done_count=_int(daybook_summary.get("done_count"), 0),
+        phase_blocked_count=_int(daybook_summary.get("blocked_count"), 0),
+        phase_count=_int(daybook_summary.get("phase_count"), len(daybook_phases)),
+        profitability_decision=str(profitability_summary.get("decision") or ""),
+        profitability_score_pct=_int(profitability_summary.get("readiness_score_pct"), 0),
+        profitability_next_target_id=str(
+            profitability_summary.get("next_target_id") or "beginner-live-handoff-board"
+        ),
+        profitability_next_workflow_id=str(
+            profitability_summary.get("next_workflow_id") or ""
+        ),
+        profitability_blocked_gate_count=profitability_blocked_gate_count,
+        profitability_required_gate_count=profitability_required_gate_count,
+        profitability_partial_gate_count=profitability_partial_gate_count,
+        small_capital_observation_candidate=bool(
+            profitability_summary.get("small_capital_observation_candidate")
+        ),
+        production_manual_review_candidate=bool(
+            profitability_summary.get("production_manual_review_candidate")
+        ),
+    )
+    cards.insert(2, _operator_live_system_card(live_system))
     return _sanitize(
         {
             "stage": DAILY_OPERATOR_MISSION_CONTROL_STAGE,
@@ -3137,6 +3414,8 @@ def build_daily_operator_mission_control(pack: dict[str, Any]) -> dict[str, Any]
                 "production_manual_review_candidate": bool(
                     profitability_summary.get("production_manual_review_candidate")
                 ),
+                "go_live_state": live_system_summary.get("go_live_state"),
+                "daily_top3_policy": live_system_summary.get("daily_top3_policy"),
                 "paper_simulation_required": True,
                 "manual_review_required": True,
                 "real_money_allowed": False,
@@ -3146,47 +3425,8 @@ def build_daily_operator_mission_control(pack: dict[str, Any]) -> dict[str, Any]
                 "order_placement_allowed": False,
                 "auto_order_allowed": False,
             },
-            "cards": _operator_mission_cards(
-                top3_count=top3_count,
-                signal_count=signal_count,
-                target_count=target_count,
-                ticket_count=ticket_count,
-                missing_evidence=missing_evidence,
-                input_manual_count=input_manual_count,
-                input_missing_count=input_missing_count,
-                input_blocked_count=input_blocked_count,
-                blockers=blockers,
-                pre_execution_summary=pre_execution_summary,
-                capacity_blocked_count=capacity_blocked_count,
-                liquidity_evidence_missing_count=liquidity_evidence_missing_count,
-                execution_feedback_status=execution_feedback_status,
-                next_session_quarantine_required=next_session_quarantine_required,
-                next_session_reuse_status=next_session_reuse_status,
-                manual_clean_count=manual_clean_count,
-                manual_blocked_count=manual_blocked_count,
-                manual_missing_review_count=manual_missing_review_count,
-                current_phase=current_phase,
-                phase_done_count=_int(daybook_summary.get("done_count"), 0),
-                phase_blocked_count=_int(daybook_summary.get("blocked_count"), 0),
-                phase_count=_int(daybook_summary.get("phase_count"), len(daybook_phases)),
-                profitability_decision=str(profitability_summary.get("decision") or ""),
-                profitability_score_pct=_int(profitability_summary.get("readiness_score_pct"), 0),
-                profitability_next_target_id=str(
-                    profitability_summary.get("next_target_id") or "beginner-live-handoff-board"
-                ),
-                profitability_next_workflow_id=str(
-                    profitability_summary.get("next_workflow_id") or ""
-                ),
-                profitability_blocked_gate_count=profitability_blocked_gate_count,
-                profitability_required_gate_count=profitability_required_gate_count,
-                profitability_partial_gate_count=profitability_partial_gate_count,
-                small_capital_observation_candidate=bool(
-                    profitability_summary.get("small_capital_observation_candidate")
-                ),
-                production_manual_review_candidate=bool(
-                    profitability_summary.get("production_manual_review_candidate")
-                ),
-            ),
+            "cards": cards,
+            "live_trading_system_status": live_system,
             "next_actions": next_actions,
             "visible_ticket_summary": [
                 _operator_mission_ticket_summary(
@@ -3248,6 +3488,31 @@ def _operator_execution_feedback_status(
     if manual_clean_count >= 5:
         return "clean_feedback_ready"
     return "waiting_for_execution_feedback"
+
+
+def _operator_live_system_card(live_system: dict[str, Any]) -> dict[str, Any]:
+    summary = live_system.get("summary") if isinstance(live_system.get("summary"), dict) else {}
+    go_live_state = str(summary.get("go_live_state") or "waiting_for_top3_candidates")
+    if go_live_state.startswith("blocked"):
+        status = "blocked"
+    elif "candidate" in go_live_state or "manual_review_material_ready" in go_live_state:
+        status = "manual_required"
+    elif "required" in go_live_state or "waiting" in go_live_state:
+        status = "required"
+    else:
+        status = "waiting"
+    return {
+        "card_id": "live_trading_system_status",
+        "label": "实盘落地总控",
+        "status": status,
+        "detail": (
+            f"state={go_live_state}; top3_policy={summary.get('daily_top3_policy')}; "
+            f"next={summary.get('next_step_id')}; order=false"
+        ),
+        "target_id": summary.get("next_target_id") or "daily-trade-decision-sheet",
+        "workflow_id": summary.get("next_workflow_id") or "",
+        "order_placement_allowed": False,
+    }
 
 
 def _operator_mission_cards(

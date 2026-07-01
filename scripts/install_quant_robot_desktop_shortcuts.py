@@ -18,7 +18,7 @@ from quant_robot.gui.desktop_app import (
     DEFAULT_PAPER_TARGET_ID,
     DEFAULT_PROFITABILITY_TARGET_ID,
     DEFAULT_TOP3_TARGET_ID,
-    desktop_beginner_status_rows,
+    desktop_beginner_status_texts,
 )
 
 
@@ -103,7 +103,7 @@ def build_shortcut_script(repo_root: Path, spec: DesktopShortcutSpec) -> str:
 
 def build_beginner_readme(shortcuts: tuple[DesktopShortcutSpec, ...] = DEFAULT_DESKTOP_SHORTCUTS) -> str:
     shortcut_lines = "\n".join(f"- {spec.filename}" for spec in shortcuts)
-    status_lines = "\n".join(f"- {row['label']}：{row['detail']}" for row in desktop_beginner_status_rows())
+    status_lines = "\n".join(f"- {text}" for text in desktop_beginner_status_texts())
     return "\n".join(
         [
             "量化机器人新手说明",

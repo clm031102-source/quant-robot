@@ -242,6 +242,11 @@ def desktop_beginner_status_rows() -> tuple[dict[str, object], ...]:
     return DESKTOP_BEGINNER_STATUS_ROWS
 
 
+def desktop_beginner_status_texts(rows: tuple[dict[str, object], ...] | None = None) -> tuple[str, ...]:
+    source_rows = rows if rows is not None else desktop_beginner_status_rows()
+    return tuple(f"{row.get('label', '')}：{row.get('detail', '')}" for row in source_rows)
+
+
 def run_desktop_app(
     host: str = "127.0.0.1",
     port: int = 8765,
@@ -273,10 +278,10 @@ def run_desktop_app(
     ttk.Label(frame, text=DESKTOP_APP_COPY["subtitle"], wraplength=680).pack(anchor="w", pady=(8, 12))
     ttk.Label(frame, textvariable=safety_var, foreground="#ad3f3c", wraplength=680).pack(anchor="w")
     ttk.Label(frame, text=DESKTOP_APP_COPY["status_panel_title"], font=("", 11, "bold")).pack(anchor="w", pady=(12, 4))
-    for item in desktop_beginner_status_rows():
+    for item_text in desktop_beginner_status_texts():
         ttk.Label(
             frame,
-            text=f"{item['label']}：{item['detail']}",
+            text=item_text,
             wraplength=700,
         ).pack(anchor="w", pady=(1, 0))
     ttk.Label(frame, textvariable=status_var).pack(anchor="w", pady=(12, 4))

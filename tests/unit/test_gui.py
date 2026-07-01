@@ -20,6 +20,7 @@ from quant_robot.gui.desktop_app import (
     DEFAULT_TOP3_TARGET_ID,
     DesktopAppState,
     DesktopGuiController,
+    desktop_beginner_status_texts,
     desktop_beginner_status_rows,
     find_available_port,
     main as desktop_app_main,
@@ -220,6 +221,20 @@ class GuiDesktopAppTests(unittest.TestCase):
         self.assertIn("不会连接券商", rows_by_id["safety_boundary"]["detail"])
         self.assertFalse(rows_by_id["safety_boundary"]["broker_connection_allowed"])
         self.assertFalse(rows_by_id["safety_boundary"]["order_placement_allowed"])
+
+    def test_desktop_beginner_status_texts_are_plain_chinese_and_safe(self):
+        texts = desktop_beginner_status_texts()
+
+        self.assertGreaterEqual(len(texts), 7)
+        joined = "\n".join(texts)
+        self.assertIn("第一步：看总闸门", texts[0])
+        self.assertIn("盈利证据", joined)
+        self.assertIn("小资金", joined)
+        self.assertIn("不会连接券商", joined)
+        self.assertIn("不会自动下单", joined)
+        self.assertNotIn("锛", joined)
+        self.assertNotIn("歿", joined)
+        self.assertNotIn("閲", joined)
 
     def test_desktop_cli_accepts_beginner_workflow_deep_link_options(self):
         calls: list[dict[str, object]] = []
@@ -707,11 +722,33 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertIn("daily_pre_execution_guard", snapshot)
         self.assertIn("daily_same_parameter_paper_rehearsal", snapshot)
         self.assertIn("daily_operator_mission_control", snapshot)
+        self.assertIn("daily_live_trading_system_status", snapshot)
         self.assertEqual(
             snapshot["daily_operator_mission_control"]["stage"],
             "phase_6_30_daily_operator_mission_control",
         )
         self.assertFalse(snapshot["daily_operator_mission_control"]["summary"]["order_placement_allowed"])
+        live_system = snapshot["daily_live_trading_system_status"]
+        self.assertEqual(live_system["stage"], "phase_6_31_daily_live_trading_system_status")
+        self.assertEqual(live_system["summary"]["daily_top3_policy"], "top3_candidates_not_orders")
+        self.assertFalse(live_system["summary"]["direct_buy_top3_allowed"])
+        self.assertFalse(live_system["summary"]["broker_connection_allowed"])
+        self.assertFalse(live_system["summary"]["account_read_allowed"])
+        self.assertFalse(live_system["summary"]["order_placement_allowed"])
+        self.assertFalse(live_system["summary"]["auto_order_allowed"])
+        live_step_ids = {row["step_id"] for row in live_system["operating_ladder"]}
+        self.assertIn("select_top3_candidates", live_step_ids)
+        self.assertIn("run_same_parameter_paper", live_step_ids)
+        self.assertIn("manual_broker_review", live_step_ids)
+        self.assertTrue(all(row["order_placement_allowed"] is False for row in live_system["operating_ladder"]))
+        self.assertEqual(
+            snapshot["daily_operator_mission_control"]["live_trading_system_status"]["stage"],
+            "phase_6_31_daily_live_trading_system_status",
+        )
+        self.assertIn(
+            "live_trading_system_status",
+            {row["card_id"] for row in snapshot["daily_operator_mission_control"]["cards"]},
+        )
         self.assertIn("candidate_pool_top20", snapshot)
         self.assertEqual(snapshot["candidate_pool_top20"]["stage"], "phase_6_22_daily_candidate_pool_top20")
         self.assertIn("rows", snapshot["candidate_pool_top20"])
