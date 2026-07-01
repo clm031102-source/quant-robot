@@ -40,6 +40,7 @@ SMALL_CAPITAL_OBSERVATION_LIMITS = {
 }
 PAPER_PERFORMANCE_REQUIRED_POSITIVE_DAYS = 3
 PAPER_PERFORMANCE_AVG_RETURN_FLOOR = 0.0
+PAPER_PERFORMANCE_MIN_WIN_RATE = 0.5
 PAPER_PERFORMANCE_MAX_DRAWDOWN = -(
     SMALL_CAPITAL_OBSERVATION_LIMITS["max_daily_loss"]
     / SMALL_CAPITAL_OBSERVATION_LIMITS["max_initial_capital"]
@@ -117,16 +118,31 @@ def build_daily_closure_ledger_snapshot(repo_root: str | Path) -> dict[str, Any]
         for row in rows
         if isinstance(row.get("paper_max_drawdown"), (int, float))
     ]
+    paper_win_rates = [
+        float(row["paper_win_rate"])
+        for row in rows
+        if isinstance(row.get("paper_win_rate"), (int, float))
+    ]
     paper_positive_days = sum(1 for value in paper_returns if value > 0)
     paper_quality_days = sum(1 for row in rows if row.get("paper_performance_quality_status") == "pass")
     paper_average_total_return = _average(paper_returns)
+    paper_average_win_rate = _average(paper_win_rates)
     paper_worst_drawdown = min(paper_drawdowns) if paper_drawdowns else None
+    paper_win_rate_quality_status = (
+        "pass"
+        if paper_average_win_rate is not None and paper_average_win_rate >= PAPER_PERFORMANCE_MIN_WIN_RATE
+        else "missing"
+        if not paper_win_rates
+        else "blocked"
+    )
     paper_performance_quality_passed = (
         len(rows) >= 5
         and matched_paper >= 5
         and paper_positive_days >= PAPER_PERFORMANCE_REQUIRED_POSITIVE_DAYS
         and paper_average_total_return is not None
         and paper_average_total_return > PAPER_PERFORMANCE_AVG_RETURN_FLOOR
+        and paper_average_win_rate is not None
+        and paper_average_win_rate >= PAPER_PERFORMANCE_MIN_WIN_RATE
         and paper_worst_drawdown is not None
         and paper_worst_drawdown >= PAPER_PERFORMANCE_MAX_DRAWDOWN
     )
@@ -163,6 +179,9 @@ def build_daily_closure_ledger_snapshot(repo_root: str | Path) -> dict[str, Any]
             "paper_quality_days": paper_quality_days,
             "paper_quality_required_days": PAPER_PERFORMANCE_REQUIRED_POSITIVE_DAYS,
             "paper_average_total_return": paper_average_total_return,
+            "paper_average_win_rate": paper_average_win_rate,
+            "paper_min_win_rate": PAPER_PERFORMANCE_MIN_WIN_RATE,
+            "paper_win_rate_quality_status": paper_win_rate_quality_status,
             "paper_worst_drawdown": paper_worst_drawdown,
             "paper_performance_max_drawdown": PAPER_PERFORMANCE_MAX_DRAWDOWN,
             "paper_performance_quality_status": paper_performance_quality_status,
@@ -194,6 +213,7 @@ def build_server_capital_observation_gate(daily_closure_ledger: dict[str, Any]) 
     paper_positive_days = _int(summary.get("paper_positive_days"))
     paper_quality_days = _int(summary.get("paper_quality_days"))
     paper_average_total_return = _optional_num(summary.get("paper_average_total_return"))
+    paper_average_win_rate = _optional_num(summary.get("paper_average_win_rate"))
     paper_worst_drawdown = _optional_num(summary.get("paper_worst_drawdown"))
     paper_performance_quality_passed = bool(summary.get("paper_performance_quality_passed"))
     streak_ready = (
@@ -246,6 +266,8 @@ def build_server_capital_observation_gate(daily_closure_ledger: dict[str, Any]) 
                 f"positive={paper_positive_days}/{PAPER_PERFORMANCE_REQUIRED_POSITIVE_DAYS}, "
                 f"quality={paper_quality_days}/5, "
                 f"avg_return={_format_optional_float(paper_average_total_return)}, "
+                f"avg_win_rate={_format_optional_float(paper_average_win_rate)}, "
+                f"win_rate_floor={PAPER_PERFORMANCE_MIN_WIN_RATE:.4f}, "
                 f"worst_drawdown={_format_optional_float(paper_worst_drawdown)}, "
                 f"drawdown_floor={PAPER_PERFORMANCE_MAX_DRAWDOWN:.4f}"
             ),
@@ -272,6 +294,7 @@ def build_server_capital_observation_gate(daily_closure_ledger: dict[str, Any]) 
         paper_positive_days=paper_positive_days,
         paper_quality_days=paper_quality_days,
         paper_average_total_return=paper_average_total_return,
+        paper_average_win_rate=paper_average_win_rate,
         paper_worst_drawdown=paper_worst_drawdown,
     )
     manual_observation_packet = _manual_small_capital_observation_packet(
@@ -288,6 +311,7 @@ def build_server_capital_observation_gate(daily_closure_ledger: dict[str, Any]) 
         paper_positive_days=paper_positive_days,
         paper_quality_days=paper_quality_days,
         paper_average_total_return=paper_average_total_return,
+        paper_average_win_rate=paper_average_win_rate,
         paper_worst_drawdown=paper_worst_drawdown,
         scorecard=scorecard,
         recent_rows=rows[:5] if isinstance(rows, list) else [],
@@ -307,6 +331,8 @@ def build_server_capital_observation_gate(daily_closure_ledger: dict[str, Any]) 
             "paper_quality_days": paper_quality_days,
             "paper_quality_required_days": PAPER_PERFORMANCE_REQUIRED_POSITIVE_DAYS,
             "paper_average_total_return": paper_average_total_return,
+            "paper_average_win_rate": paper_average_win_rate,
+            "paper_min_win_rate": PAPER_PERFORMANCE_MIN_WIN_RATE,
             "paper_worst_drawdown": paper_worst_drawdown,
             "paper_performance_max_drawdown": PAPER_PERFORMANCE_MAX_DRAWDOWN,
             "paper_performance_quality_passed": paper_performance_quality_passed,
@@ -341,6 +367,7 @@ def _manual_small_capital_observation_packet(
     paper_positive_days: int,
     paper_quality_days: int,
     paper_average_total_return: float | None,
+    paper_average_win_rate: float | None,
     paper_worst_drawdown: float | None,
     scorecard: dict[str, Any],
     recent_rows: list[dict[str, Any]],
@@ -378,6 +405,8 @@ def _manual_small_capital_observation_packet(
             "paper_quality_days": paper_quality_days,
             "paper_quality_required_days": PAPER_PERFORMANCE_REQUIRED_POSITIVE_DAYS,
             "paper_average_total_return": paper_average_total_return,
+            "paper_average_win_rate": paper_average_win_rate,
+            "paper_min_win_rate": PAPER_PERFORMANCE_MIN_WIN_RATE,
             "paper_worst_drawdown": paper_worst_drawdown,
             "paper_performance_max_drawdown": PAPER_PERFORMANCE_MAX_DRAWDOWN,
             "paper_performance_quality_passed": paper_performance_quality_passed,
@@ -553,6 +582,7 @@ def _capital_observation_evidence_scorecard(
     paper_positive_days: int,
     paper_quality_days: int,
     paper_average_total_return: float | None,
+    paper_average_win_rate: float | None,
     paper_worst_drawdown: float | None,
 ) -> dict[str, Any]:
     score_rows = [
@@ -587,7 +617,7 @@ def _capital_observation_evidence_scorecard(
             comparator=">=",
             plain_requirement=(
                 "Recent same-parameter paper evidence must show at least three positive/quality days, "
-                "positive average return, and no drawdown beyond the small-capital daily loss floor."
+                "positive average return, win rate above 50%, and no drawdown beyond the small-capital daily loss floor."
             ),
             target_id="paper-metrics",
             workflow_id="paper_simulation" if not paper_performance_quality_passed else "",
@@ -641,6 +671,8 @@ def _capital_observation_evidence_scorecard(
             "paper_quality_days": paper_quality_days,
             "paper_quality_required_days": PAPER_PERFORMANCE_REQUIRED_POSITIVE_DAYS,
             "paper_average_total_return": paper_average_total_return,
+            "paper_average_win_rate": paper_average_win_rate,
+            "paper_min_win_rate": PAPER_PERFORMANCE_MIN_WIN_RATE,
             "paper_worst_drawdown": paper_worst_drawdown,
             "paper_performance_max_drawdown": PAPER_PERFORMANCE_MAX_DRAWDOWN,
             "paper_performance_quality_passed": paper_performance_quality_passed,
@@ -1035,18 +1067,21 @@ def _finalize_same_parameter_paper(row: dict[str, Any]) -> dict[str, Any]:
 def _finalize_paper_performance(row: dict[str, Any]) -> dict[str, Any]:
     total_return = _optional_num(row.get("paper_total_return"))
     max_drawdown = _optional_num(row.get("paper_max_drawdown"))
+    win_rate = _optional_num(row.get("paper_win_rate"))
     if not row.get("same_parameter_paper_ready"):
         row["paper_performance_quality_status"] = "missing"
         return row
-    if total_return is None or max_drawdown is None:
+    if total_return is None or max_drawdown is None or win_rate is None:
         row["paper_performance_quality_status"] = "missing"
         return row
     row["paper_total_return"] = total_return
     row["paper_max_drawdown"] = max_drawdown
+    row["paper_win_rate"] = win_rate
     row["paper_performance_quality_status"] = (
         "pass"
         if total_return > PAPER_PERFORMANCE_AVG_RETURN_FLOOR
         and max_drawdown >= PAPER_PERFORMANCE_MAX_DRAWDOWN
+        and win_rate >= PAPER_PERFORMANCE_MIN_WIN_RATE
         else "blocked"
     )
     return row

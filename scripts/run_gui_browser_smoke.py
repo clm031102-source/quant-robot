@@ -947,6 +947,8 @@ def run_gui_browser_smoke(
             and "legacy_unverified_paper_days" in control_body.get("server_capital_observation_gate", {}).get("summary", {})
             and "paper_positive_days" in control_body.get("server_capital_observation_gate", {}).get("summary", {})
             and "paper_performance_quality_passed" in control_body.get("server_capital_observation_gate", {}).get("summary", {})
+            and "paper_average_win_rate" in control_body.get("server_capital_observation_gate", {}).get("summary", {})
+            and "paper_min_win_rate" in control_body.get("server_capital_observation_gate", {}).get("summary", {})
             and "same_parameter_paper_evidence"
             in {
                 row.get("gate_id")
@@ -966,6 +968,8 @@ def run_gui_browser_smoke(
             and "matched_paper_days" in str(app_js.get("body", ""))
             and "legacy_unverified_paper_days" in str(app_js.get("body", ""))
             and "paper_performance_quality_passed" in str(app_js.get("body", ""))
+            and "paper_average_win_rate" in str(app_js.get("body", ""))
+            and "paper_min_win_rate" in str(app_js.get("body", ""))
             and "manual_observation_packet" in str(app_js.get("body", ""))
             and "小资金观察准备包" in str(app_js.get("body", ""))
             and "software_order_submission_allowed" in str(app_js.get("body", ""))

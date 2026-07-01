@@ -2169,7 +2169,7 @@ class GuiSnapshotTests(unittest.TestCase):
                 label="Run local paper simulation",
                 status="completed",
                 request=paper_request,
-                result={"metrics": {"total_return": 0.01, "max_drawdown": -0.02}},
+                result={"metrics": {"total_return": 0.01, "max_drawdown": -0.02, "win_rate": 0.55}},
             )
             append_operation_ledger_entry(
                 repo_root=root,
@@ -2305,6 +2305,71 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertEqual(packet["summary"]["status"], "blocked_need_more_evidence")
         self.assertEqual(packet["summary"]["next_missing_gate_id"], "paper_performance_quality")
         self.assertFalse(packet["summary"]["manual_observation_material_ready"])
+
+    def test_low_win_rate_paper_streak_blocks_small_capital_candidate(self):
+        from quant_robot.gui.control_center import build_control_center_snapshot
+        from quant_robot.gui.operation_ledger import append_operation_ledger_entry
+
+        def append_low_win_rate_day(root: Path, day: str) -> None:
+            paper_request = {
+                "market": "CN_ETF",
+                "factor_name": "momentum_2",
+                "top_n": 2,
+                "commission_bps": 5,
+                "as_of_date": day,
+            }
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="daily_trade_advisory",
+                label="Generate top-three manual trade advisory",
+                status="completed",
+                request={"market": "CN_ETF", "as_of_date": day, "paper_request_signature": paper_request},
+                result={"metrics": {"signal_count": 3, "selected_factor_count": 3}},
+            )
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="paper_simulation",
+                label="Run local paper simulation",
+                status="completed",
+                request=paper_request,
+                result={"metrics": {"total_return": 0.03, "max_drawdown": -0.01, "win_rate": 0.30}},
+            )
+            append_operation_ledger_entry(
+                repo_root=root,
+                workflow_id="post_close_journal",
+                label="Post-close journal receipt",
+                status="completed",
+                request={"market": "CN_ETF", "as_of_date": day},
+                result={
+                    "metrics": {
+                        "manual_review_recorded": True,
+                        "manual_execution_decision": "manual_execution_evidence_ready",
+                        "manual_execution_missing_review_count": 0,
+                        "manual_execution_guardrail_breach_count": 0,
+                        "manual_execution_slippage_breach_count": 0,
+                    },
+                },
+            )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            for day in ["2026-06-24", "2026-06-25", "2026-06-26", "2026-06-29", "2026-06-30"]:
+                append_low_win_rate_day(root, day)
+
+            control = build_control_center_snapshot(repo_root=root)
+
+        ledger = control["daily_closure_ledger"]
+        gate = control["server_capital_observation_gate"]
+        self.assertEqual(ledger["summary"]["paper_positive_days"], 5)
+        self.assertEqual(ledger["summary"]["paper_average_win_rate"], 0.30)
+        self.assertEqual(ledger["summary"]["paper_win_rate_quality_status"], "blocked")
+        self.assertFalse(ledger["summary"]["paper_performance_quality_passed"])
+        self.assertEqual(gate["summary"]["status"], "blocked_need_paper_performance_quality")
+        gate_rows = {row["gate_id"]: row for row in gate["rows"]}
+        self.assertEqual(gate_rows["paper_performance_quality"]["status"], "blocked")
+        scorecard = gate["evidence_scorecard"]
+        self.assertEqual(scorecard["summary"]["paper_average_win_rate"], 0.30)
+        self.assertFalse(scorecard["summary"]["manual_observation_material_ready"])
 
     def test_legacy_unverified_paper_receipts_do_not_unlock_small_capital_gate(self):
         from quant_robot.gui.control_center import build_control_center_snapshot

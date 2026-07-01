@@ -12294,7 +12294,7 @@ function renderServerCapitalObservationGate(gate = {}) {
       <strong>${escapeHtml("小资金人工观察候选")}</strong>
       <span>${escapeHtml(summary.manual_small_capital_observation_candidate ? "可准备材料，不自动下单" : "未放行，继续模拟和闭环")}</span>
       <span>${escapeHtml(`服务端闭环=${formatNumber(summary.server_closed_loop_days || 0)}/5 / 同参数模拟盘=${formatNumber(summary.matched_paper_days || 0)}/5 / 旧未校验=${formatNumber(summary.legacy_unverified_paper_days || 0)}`)}</span>
-      <span>${escapeHtml(`纸面质量=${summary.paper_performance_quality_passed ? "通过" : "未过"} / 正收益=${formatNumber(summary.paper_positive_days || 0)}/${formatNumber(summary.paper_quality_required_days || 3)} / 平均=${formatDecimal(summary.paper_average_total_return)} / 最差回撤=${formatDecimal(summary.paper_worst_drawdown)}`)}</span>
+      <span>${escapeHtml(`纸面质量=${summary.paper_performance_quality_passed ? "通过" : "未过"} / 正收益=${formatNumber(summary.paper_positive_days || 0)}/${formatNumber(summary.paper_quality_required_days || 3)} / 平均=${formatDecimal(summary.paper_average_total_return)} / 胜率=${formatDecimal(summary.paper_average_win_rate)}>=${formatDecimal(summary.paper_min_win_rate)} / 最差回撤=${formatDecimal(summary.paper_worst_drawdown)}`)}</span>
       <span>${escapeHtml(`执行异常=${formatNumber(summary.blocked_execution_days || 0)}`)}</span>
       <span>${escapeHtml(summary.next_action || "继续收集干净闭环样本。")}</span>
     </div>
@@ -12349,7 +12349,7 @@ function renderServerCapitalObservationGate(gate = {}) {
     <div class="list-row ${escapeHtml(scoreSummary.manual_observation_material_ready ? "ok" : "warn")}">
       <strong>${escapeHtml("小资金观察证据分数")}</strong>
       <span>${escapeHtml(`score=${formatNumber(scoreSummary.readiness_score_pct || 0)} / next=${zhConsoleText(scoreSummary.next_missing_gate_id || "none")}`)}</span>
-      <span>${escapeHtml(`paper_performance_quality_passed=${scoreSummary.paper_performance_quality_passed ? "true" : "false"} / positive=${formatNumber(scoreSummary.paper_positive_days || 0)} / worst_dd=${formatDecimal(scoreSummary.paper_worst_drawdown)}`)}</span>
+      <span>${escapeHtml(`paper_performance_quality_passed=${scoreSummary.paper_performance_quality_passed ? "true" : "false"} / positive=${formatNumber(scoreSummary.paper_positive_days || 0)} / avg_win_rate=${formatDecimal(scoreSummary.paper_average_win_rate)} / min_win_rate=${formatDecimal(scoreSummary.paper_min_win_rate)} / worst_dd=${formatDecimal(scoreSummary.paper_worst_drawdown)}`)}</span>
       <span>${escapeHtml(scoreSummary.manual_observation_material_ready ? "证据齐，可以准备人工观察材料；系统仍不自动下单" : "证据未齐，继续补同参数模拟盘和盘后回执")}</span>
     </div>
   ` : "";
