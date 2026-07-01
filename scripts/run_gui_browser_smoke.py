@@ -495,7 +495,11 @@ def run_gui_browser_smoke(
             and "total_adverse_slippage_cost" in str(app_js.get("body", ""))
             and "execution_cost_bps" in str(app_js.get("body", ""))
             and "adverse_slippage_cost" in str(app_js.get("body", ""))
-            and "executed_notional" in str(app_js.get("body", "")),
+            and "executed_notional" in str(app_js.get("body", ""))
+            and "small_capital_budget_breached" in str(app_js.get("body", ""))
+            and "small_capital_budget_breach_count" in str(app_js.get("body", ""))
+            and "small_capital_limit_breached" in str(app_js.get("body", ""))
+            and "small_capital_excess_notional" in str(app_js.get("body", "")),
             "Frontend converts manually entered fill prices and quantities into execution cost impact metrics.",
             app_js.get("error")
             or "Manual execution cost-impact frontend metrics are missing.",

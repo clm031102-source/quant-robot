@@ -4129,6 +4129,7 @@ function localManualExecutionAudit(trade = {}, reviews = null) {
   const slippageBreachCount = countReason("slippage_limit_breached");
   const brokerRecheckSessionMissingCount = countReason("broker_recheck_session_missing");
   const brokerRecheckSessionBlockedCount = countReason("broker_recheck_session_not_ok");
+  const smallCapitalBudgetBreachCount = countReason("small_capital_budget_breached");
   const sensitiveFieldCount = countReason("sensitive_field_removed");
   const executedCount = rows.filter((row) => row.manual_outcome === "manual_trade_by_human").length;
   const skippedCount = rows.filter((row) => ["skipped_no_trade", "paper_only", "manual_review_no_trade", "blocked_by_risk"].includes(row.manual_outcome)).length;
@@ -4137,7 +4138,7 @@ function localManualExecutionAudit(trade = {}, reviews = null) {
   const totalAdverseSlippageCost = rows.reduce((sum, row) => sum + (numberOrNull(row.adverse_slippage_cost) || 0), 0);
   const executionCostBps = totalReferenceNotional > 0 ? (totalAdverseSlippageCost / totalReferenceNotional) * 10000 : null;
   let decision = "waiting_for_manual_tickets";
-  if (rows.length && (blockedCount || guardrailBreachCount || slippageBreachCount || brokerRecheckSessionMissingCount || brokerRecheckSessionBlockedCount || sensitiveFieldCount)) {
+  if (rows.length && (blockedCount || guardrailBreachCount || slippageBreachCount || brokerRecheckSessionMissingCount || brokerRecheckSessionBlockedCount || smallCapitalBudgetBreachCount || sensitiveFieldCount)) {
     decision = "guardrail_breach_review_required";
   } else if (rows.length && missingReviewCount) {
     decision = "manual_execution_review_incomplete";
@@ -4158,6 +4159,8 @@ function localManualExecutionAudit(trade = {}, reviews = null) {
       quantity_mismatch_count: countReason("quantity_mismatch"),
       broker_recheck_session_missing_count: brokerRecheckSessionMissingCount,
       broker_recheck_session_blocked_count: brokerRecheckSessionBlockedCount,
+      small_capital_budget_breach_count: smallCapitalBudgetBreachCount,
+      small_capital_ticket_limit: 1000,
       sensitive_field_count: sensitiveFieldCount,
       missing_review_count: missingReviewCount,
       blocked_count: blockedCount,
@@ -4208,6 +4211,9 @@ function localManualExecutionAuditRow(index, ticket = {}, reviewsByKey = new Map
   let adverseSlippageCost = null;
   let executedNotional = null;
   let referenceNotional = null;
+  const smallCapitalLimit = 1000;
+  let smallCapitalExcessNotional = 0;
+  let smallCapitalLimitBreached = false;
   let slippageCostWithinBudget = null;
   let slippageWithinLimit = null;
   let quantityMatchesTicket = null;
@@ -4239,6 +4245,11 @@ function localManualExecutionAuditRow(index, ticket = {}, reviewsByKey = new Map
       const quantity = Math.abs(fillQuantity);
       executedNotional = Math.abs(actualFillPrice * quantity);
       referenceNotional = Math.abs(referencePrice * quantity);
+      smallCapitalLimitBreached = executedNotional > smallCapitalLimit;
+      if (smallCapitalLimitBreached) {
+        smallCapitalExcessNotional = executedNotional - smallCapitalLimit;
+        breachReasons.push("small_capital_budget_breached");
+      }
       adverseSlippageCost = side.toLowerCase().startsWith("sell")
         ? (referencePrice - actualFillPrice) * quantity
         : (actualFillPrice - referencePrice) * quantity;
@@ -4277,6 +4288,9 @@ function localManualExecutionAuditRow(index, ticket = {}, reviewsByKey = new Map
     quantity_matches_ticket: quantityMatchesTicket,
     broker_price_recheck_session_decision: brokerRecheckSessionDecision || null,
     broker_recheck_session_ok: brokerRecheckSessionDecision === "manual_review_all_rows_price_cash_ok",
+    small_capital_max_single_ticket_notional: smallCapitalLimit,
+    small_capital_excess_notional: Number(smallCapitalExcessNotional.toFixed(6)),
+    small_capital_limit_breached: smallCapitalLimitBreached,
     lower_price_bound: lowerBound,
     upper_price_bound: upperBound,
     max_slippage_bps: maxSlippageBps,
@@ -4301,7 +4315,7 @@ function renderPostCloseExecutionAudit(audit = null) {
   const pack = audit || localManualExecutionAudit(state.dailyTradeAdvisory || {});
   const summary = pack.summary || {};
   const rows = Array.isArray(pack.rows) ? pack.rows : [];
-  const tone = summary.blocked_count || summary.guardrail_breach_count || summary.slippage_breach_count || summary.broker_recheck_session_missing_count || summary.broker_recheck_session_blocked_count
+  const tone = summary.blocked_count || summary.guardrail_breach_count || summary.slippage_breach_count || summary.broker_recheck_session_missing_count || summary.broker_recheck_session_blocked_count || summary.small_capital_budget_breach_count
     ? "danger"
     : summary.missing_review_count
       ? "warn"
@@ -4327,6 +4341,9 @@ function renderPostCloseExecutionAudit(audit = null) {
       "quantity_matches_ticket",
       "broker_price_recheck_session_decision",
       "broker_recheck_session_ok",
+      "small_capital_max_single_ticket_notional",
+      "small_capital_excess_notional",
+      "small_capital_limit_breached",
       "review_status",
       "breach_reasons",
     ])}</table>`
@@ -4335,6 +4352,7 @@ function renderPostCloseExecutionAudit(audit = null) {
     <div class="list-row ${escapeHtml(tone)}">
       <strong>${escapeHtml("人工成交审计")}</strong>
       <span>${escapeHtml(`${summary.decision || "waiting_for_manual_tickets"} / 票据=${formatNumber(summary.ticket_count)} / 回执=${formatNumber(summary.review_count)} / 执行=${formatNumber(summary.executed_count)} / 追价=${formatNumber(summary.guardrail_breach_count)} / 滑点超限=${formatNumber(summary.slippage_breach_count)} / 盘前复核缺失=${formatNumber(summary.broker_recheck_session_missing_count)} / 盘前复核阻断=${formatNumber(summary.broker_recheck_session_blocked_count)}`)}</span>
+      <span>${escapeHtml(`小资金超限=${formatNumber(summary.small_capital_budget_breach_count)} / 单票上限=${formatNumber(summary.small_capital_ticket_limit)}`)}</span>
       <span>${escapeHtml("只审计人工执行事实，不连接券商、不读取账户、不自动下单。")}</span>
     </div>
     <div class="list-row ${escapeHtml(summary.execution_cost_bps > 0 ? (summary.slippage_breach_count ? "danger" : "warn") : rows.length ? "ok" : "warn")}">

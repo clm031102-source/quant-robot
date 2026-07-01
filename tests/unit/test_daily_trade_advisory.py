@@ -716,7 +716,7 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
     def test_manual_execution_audit_records_fill_slippage_without_orders(self):
         pack = build_daily_trade_advisory_pack(
             [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
-            [_signal("c1", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
+            [_signal("c1", "momentum_2", {"510300": 0.01}, latest_price=3.2)],
             run_date="2026-06-29",
             portfolio_value=100000,
             evidence_snapshot={
@@ -735,7 +735,7 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
                     "ticket_id": "daily-top3-001",
                     "manual_outcome": "manual_trade_by_human",
                     "actual_fill_price": 3.201,
-                    "fill_quantity": 10400,
+                    "fill_quantity": 300,
                     "broker_price_recheck_session_decision": "manual_review_all_rows_price_cash_ok",
                     "execute_or_skip_reason": "broker price inside guardrail",
                 }
@@ -750,9 +750,10 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(audit["summary"]["broker_recheck_session_missing_count"], 0)
         self.assertEqual(audit["summary"]["broker_recheck_session_blocked_count"], 0)
         self.assertEqual(audit["summary"]["manual_execution_cost_impact"], "measured_from_manual_fills")
-        self.assertAlmostEqual(audit["summary"]["total_adverse_slippage_cost"], 10.4)
-        self.assertAlmostEqual(audit["summary"]["executed_notional"], 33290.4)
-        self.assertAlmostEqual(audit["summary"]["reference_notional"], 33280.0)
+        self.assertEqual(audit["summary"]["small_capital_budget_breach_count"], 0)
+        self.assertAlmostEqual(audit["summary"]["total_adverse_slippage_cost"], 0.3)
+        self.assertAlmostEqual(audit["summary"]["executed_notional"], 960.3)
+        self.assertAlmostEqual(audit["summary"]["reference_notional"], 960.0)
         self.assertAlmostEqual(audit["summary"]["execution_cost_bps"], 3.125)
         self.assertFalse(audit["summary"]["order_placement_allowed"])
         row = audit["rows"][0]
@@ -762,9 +763,12 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertAlmostEqual(row["reference_price"], 3.2)
         self.assertAlmostEqual(row["actual_fill_price"], 3.201)
         self.assertAlmostEqual(row["adverse_slippage_bps"], 3.125)
-        self.assertAlmostEqual(row["adverse_slippage_cost"], 10.4)
-        self.assertAlmostEqual(row["executed_notional"], 33290.4)
-        self.assertAlmostEqual(row["reference_notional"], 33280.0)
+        self.assertAlmostEqual(row["adverse_slippage_cost"], 0.3)
+        self.assertAlmostEqual(row["executed_notional"], 960.3)
+        self.assertAlmostEqual(row["reference_notional"], 960.0)
+        self.assertFalse(row["small_capital_limit_breached"])
+        self.assertEqual(row["small_capital_max_single_ticket_notional"], 1000.0)
+        self.assertEqual(row["small_capital_excess_notional"], 0.0)
         self.assertTrue(row["price_within_guardrail"])
         self.assertEqual(row["broker_price_recheck_session_decision"], "manual_review_all_rows_price_cash_ok")
         self.assertTrue(row["broker_recheck_session_ok"])
@@ -809,6 +813,46 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertIsNone(row["broker_price_recheck_session_decision"])
         self.assertFalse(row["broker_recheck_session_ok"])
         self.assertIn("broker_recheck_session_missing", row["breach_reasons"])
+        self.assertEqual(row["review_status"], "blocked")
+        self.assertFalse(row["order_placement_allowed"])
+
+    def test_manual_execution_audit_blocks_small_capital_budget_breach(self):
+        pack = build_daily_trade_advisory_pack(
+            [{"rank": 1, "case_id": "c1", "factor_name": "momentum_2", "market": "CN_ETF"}],
+            [_signal("c1", "momentum_2", {"510300": 0.333}, latest_price=3.2)],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            evidence_snapshot={
+                "mode": "same_parameter_browser_execution_receipts",
+                "counts": {
+                    "same_parameter_top3_required_requests": 1,
+                    "same_parameter_top3_matched_requests": 1,
+                },
+            },
+        )
+
+        audit = build_manual_execution_audit(
+            pack,
+            [
+                {
+                    "ticket_id": "daily-top3-001",
+                    "manual_outcome": "manual_trade_by_human",
+                    "actual_fill_price": 3.201,
+                    "fill_quantity": 10400,
+                    "broker_price_recheck_session_decision": "manual_review_all_rows_price_cash_ok",
+                    "execute_or_skip_reason": "broker price inside guardrail but size exceeded small-capital budget",
+                }
+            ],
+        )
+
+        self.assertEqual(audit["summary"]["decision"], "guardrail_breach_review_required")
+        self.assertEqual(audit["summary"]["small_capital_budget_breach_count"], 1)
+        self.assertEqual(audit["summary"]["small_capital_ticket_limit"], 1000.0)
+        row = audit["rows"][0]
+        self.assertTrue(row["small_capital_limit_breached"])
+        self.assertEqual(row["small_capital_max_single_ticket_notional"], 1000.0)
+        self.assertAlmostEqual(row["small_capital_excess_notional"], 32290.4)
+        self.assertIn("small_capital_budget_breached", row["breach_reasons"])
         self.assertEqual(row["review_status"], "blocked")
         self.assertFalse(row["order_placement_allowed"])
 

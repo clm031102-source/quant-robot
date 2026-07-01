@@ -12188,6 +12188,9 @@ def build_manual_execution_audit(
     broker_recheck_session_blocked_count = sum(
         1 for row in rows if "broker_recheck_session_not_ok" in row.get("breach_reasons", [])
     )
+    small_capital_budget_breach_count = sum(
+        1 for row in rows if "small_capital_budget_breached" in row.get("breach_reasons", [])
+    )
     sensitive_field_count = sum(1 for row in rows if "sensitive_field_removed" in row.get("breach_reasons", []))
     missing_review_count = sum(1 for row in rows if row.get("review_status") == "missing_review")
     blocked_count = sum(1 for row in rows if row.get("review_status") == "blocked")
@@ -12208,7 +12211,13 @@ def build_manual_execution_audit(
     )
     if not rows:
         decision = "waiting_for_manual_tickets"
-    elif blocked_count or guardrail_breach_count or slippage_breach_count or sensitive_field_count:
+    elif (
+        blocked_count
+        or guardrail_breach_count
+        or slippage_breach_count
+        or small_capital_budget_breach_count
+        or sensitive_field_count
+    ):
         decision = "guardrail_breach_review_required"
     elif missing_review_count:
         decision = "manual_execution_review_incomplete"
@@ -12229,6 +12238,8 @@ def build_manual_execution_audit(
                 "quantity_mismatch_count": quantity_mismatch_count,
                 "broker_recheck_session_missing_count": broker_recheck_session_missing_count,
                 "broker_recheck_session_blocked_count": broker_recheck_session_blocked_count,
+                "small_capital_budget_breach_count": small_capital_budget_breach_count,
+                "small_capital_ticket_limit": SMALL_CAPITAL_OBSERVATION_MAX_SINGLE_TICKET_NOTIONAL,
                 "sensitive_field_count": sensitive_field_count,
                 "missing_review_count": missing_review_count,
                 "blocked_count": blocked_count,
@@ -12268,6 +12279,9 @@ def build_manual_execution_audit(
                 "quantity_matches_ticket",
                 "broker_price_recheck_session_decision",
                 "broker_recheck_session_ok",
+                "small_capital_max_single_ticket_notional",
+                "small_capital_excess_notional",
+                "small_capital_limit_breached",
                 "review_status",
                 "breach_reasons",
                 "execute_or_skip_reason",
@@ -12321,6 +12335,9 @@ def _manual_execution_audit_row(
     adverse_slippage_cost = None
     executed_notional = None
     reference_notional = None
+    small_capital_limit = SMALL_CAPITAL_OBSERVATION_MAX_SINGLE_TICKET_NOTIONAL
+    small_capital_limit_breached = False
+    small_capital_excess_notional = 0.0
     slippage_within_limit = None
     slippage_cost_within_budget = None
     quantity_matches_ticket = None
@@ -12356,6 +12373,10 @@ def _manual_execution_audit_row(
             quantity = abs(fill_quantity)
             executed_notional = round(abs(actual_fill_price * quantity), 6)
             reference_notional = round(abs(reference_price * quantity), 6)
+            small_capital_limit_breached = executed_notional > small_capital_limit + 1e-9
+            if small_capital_limit_breached:
+                small_capital_excess_notional = round(executed_notional - small_capital_limit, 6)
+                breach_reasons.append("small_capital_budget_breached")
             if side.lower().startswith("sell"):
                 adverse_slippage_cost = round((reference_price - actual_fill_price) * quantity, 6)
             else:
@@ -12392,6 +12413,9 @@ def _manual_execution_audit_row(
         "quantity_matches_ticket": quantity_matches_ticket,
         "broker_price_recheck_session_decision": broker_recheck_session_decision or None,
         "broker_recheck_session_ok": broker_recheck_session_decision == "manual_review_all_rows_price_cash_ok",
+        "small_capital_max_single_ticket_notional": small_capital_limit,
+        "small_capital_excess_notional": small_capital_excess_notional,
+        "small_capital_limit_breached": small_capital_limit_breached,
         "lower_price_bound": lower_bound,
         "upper_price_bound": upper_bound,
         "max_slippage_bps": max_slippage_bps,
