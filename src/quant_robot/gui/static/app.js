@@ -8258,6 +8258,10 @@ function brokerPriceRecheckDecision(item = {}, externalPriceValue = "", external
   const cashPayload = {
     external_available_cash_after_manual_check: Number.isFinite(externalCash) && externalCash >= 0 ? externalCash : null,
     external_cash_shortfall: null,
+    recalculated_commission_bps: MANUAL_ESTIMATED_COMMISSION_BPS,
+    recalculated_commission_cost_at_external_price: null,
+    recalculated_cash_required_at_external_price: null,
+    recalculated_cash_released_at_external_price: null,
     ...budgetPayload,
   };
   if (!rawText) {
@@ -8296,6 +8300,8 @@ function brokerPriceRecheckDecision(item = {}, externalPriceValue = "", external
   const maxSlippageBps = Number(item.max_slippage_bps);
   const targetValue = effectiveTargetValue;
   const boardLotSize = Math.max(1, Number(item.board_lot_size || 100));
+  const sideText = String(item.side || "buy_or_adjust").toLowerCase();
+  const isSellSide = sideText.startsWith("sell") || sideText === "decrease";
   const slippageBps = Number.isFinite(referencePrice) && referencePrice > 0
     ? ((externalPrice - referencePrice) / referencePrice) * 10000
     : null;
@@ -8338,6 +8344,15 @@ function brokerPriceRecheckDecision(item = {}, externalPriceValue = "", external
     };
   }
   const recalculatedValue = quantity * externalPrice;
+  const recalculatedCommissionCost = recalculatedValue * MANUAL_ESTIMATED_COMMISSION_BPS / 10000;
+  const recalculatedCashRequired = isSellSide ? 0 : recalculatedValue + recalculatedCommissionCost;
+  const recalculatedCashReleased = isSellSide ? Math.max(0, recalculatedValue - recalculatedCommissionCost) : 0;
+  const recalculatedCostPayload = {
+    recalculated_commission_bps: MANUAL_ESTIMATED_COMMISSION_BPS,
+    recalculated_commission_cost_at_external_price: recalculatedCommissionCost,
+    recalculated_cash_required_at_external_price: recalculatedCashRequired,
+    recalculated_cash_released_at_external_price: recalculatedCashReleased,
+  };
   if (!rawCashText) {
     return {
       status: "manual_review_price_ok_cash_pending",
@@ -8346,17 +8361,19 @@ function brokerPriceRecheckDecision(item = {}, externalPriceValue = "", external
       external_price_slippage_bps: slippageBps,
       external_available_cash_after_manual_check: null,
       external_cash_shortfall: null,
+      ...recalculatedCostPayload,
       ...budgetPayload,
     };
   }
-  if (externalCash < recalculatedValue) {
+  if (externalCash < recalculatedCashRequired) {
     return {
       status: "skip_external_cash_below_recalculated_value",
       recalculated_quantity_at_external_price: quantity,
       recalculated_value_at_external_price: recalculatedValue,
       external_price_slippage_bps: slippageBps,
       external_available_cash_after_manual_check: externalCash,
-      external_cash_shortfall: recalculatedValue - externalCash,
+      external_cash_shortfall: recalculatedCashRequired - externalCash,
+      ...recalculatedCostPayload,
       ...budgetPayload,
     };
   }
@@ -8367,6 +8384,7 @@ function brokerPriceRecheckDecision(item = {}, externalPriceValue = "", external
     external_price_slippage_bps: slippageBps,
     external_available_cash_after_manual_check: externalCash,
     external_cash_shortfall: 0,
+    ...recalculatedCostPayload,
     ...budgetPayload,
   };
 }
@@ -8382,12 +8400,24 @@ function renderBrokerPriceRecheckDecision(item = {}, externalPriceValue = "", ex
   const cashShortfallText = decision.external_cash_shortfall == null
     ? "--"
     : formatDecimal(decision.external_cash_shortfall);
+  const recalculatedCommissionText = decision.recalculated_commission_cost_at_external_price == null
+    ? "--"
+    : formatDecimal(decision.recalculated_commission_cost_at_external_price);
+  const recalculatedCashRequiredText = decision.recalculated_cash_required_at_external_price == null
+    ? "--"
+    : formatDecimal(decision.recalculated_cash_required_at_external_price);
+  const recalculatedCashReleasedText = decision.recalculated_cash_released_at_external_price == null
+    ? "--"
+    : formatDecimal(decision.recalculated_cash_released_at_external_price);
   return [
     `local_recheck_decision=${decision.status}`,
     `effective_target_value_for_recalculation=${formatDecimal(decision.effective_target_value_for_recalculation)}`,
     `small_capital_recheck_budget_applied=${String(decision.small_capital_recheck_budget_applied)}`,
     `recalculated_quantity_at_external_price=${formatNumber(decision.recalculated_quantity_at_external_price)}`,
     `recalculated_value_at_external_price=${formatDecimal(decision.recalculated_value_at_external_price)}`,
+    `recalculated_commission_cost_at_external_price=${recalculatedCommissionText}`,
+    `recalculated_cash_required_at_external_price=${recalculatedCashRequiredText}`,
+    `recalculated_cash_released_at_external_price=${recalculatedCashReleasedText}`,
     `external_price_slippage_bps=${slippageText}`,
     `external_available_cash_after_manual_check=${cashText}`,
     `external_cash_shortfall=${cashShortfallText}`,
@@ -8405,6 +8435,7 @@ function brokerPriceRecheckItemFromDataset(dataset = {}) {
     small_capital_capped_notional: dataset.smallCapitalCappedNotional,
     small_capital_recheck_budget_applied: dataset.smallCapitalRecheckBudgetApplied,
     board_lot_size: dataset.boardLotSize,
+    side: dataset.side,
   };
 }
 
@@ -8560,6 +8591,7 @@ function renderPreMarketManualExecutionPacket(packet = {}, target = null) {
             data-small-capital-capped-notional="${escapeRawHtml(item.small_capital_capped_notional ?? "")}"
             data-small-capital-recheck-budget-applied="${escapeRawHtml(item.small_capital_recheck_budget_applied ?? false)}"
             data-board-lot-size="${escapeRawHtml(item.board_lot_size || 100)}"
+            data-side="${escapeRawHtml(item.side || "")}"
             placeholder="${escapeRawHtml("人工填写")}"
           >
         </label>
