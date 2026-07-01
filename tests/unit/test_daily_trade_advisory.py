@@ -2581,6 +2581,7 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
 
         answer = pack["daily_beginner_execution_answer"]
         summary = answer["summary"]
+        today_card = answer["today_operation_card"]
 
         self.assertEqual(summary["ordinary_verdict"], "manual_review_candidate")
         self.assertEqual(summary["allowed_mode"], "manual_review_material_only")
@@ -2597,6 +2598,15 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         )
         self.assertTrue(all(row["copy_to_broker_allowed"] is False for row in answer["review_rows"]))
         self.assertIn("check_external_realtime_price", answer["review_rows"][0]["human_checklist"])
+        self.assertEqual(today_card["card_id"], "today_operation_verdict")
+        self.assertEqual(today_card["today_action_code"], "manual_review_only")
+        self.assertEqual(today_card["traffic_light"], "yellow")
+        self.assertEqual(today_card["ticket_count"], 3)
+        self.assertEqual(today_card["copy_to_broker_allowed"], False)
+        self.assertEqual(today_card["order_placement_allowed"], False)
+        self.assertIn("人工复核", today_card["plain_answer"])
+        self.assertTrue(all(row["manual_external_broker_check_required"] for row in today_card["action_rows"]))
+        self.assertTrue(all(row["copy_to_broker_allowed"] is False for row in today_card["action_rows"]))
 
     def test_same_parameter_paper_rehearsal_locks_top3_requests_and_allocation_manifest(self):
         pack = _build_daily_trade_advisory_pack(

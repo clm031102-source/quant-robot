@@ -8253,6 +8253,19 @@ def build_daily_beginner_execution_answer(pack: dict[str, Any]) -> dict[str, Any
         guard.get("row_guardrails", []),
         manual_allowed=manual_allowed,
     )
+    today_operation_card = _beginner_today_operation_card(
+        ordinary_verdict=ordinary_verdict,
+        allowed_mode=allowed_mode,
+        headline=headline,
+        guard_status=guard_status,
+        paper_allowed=paper_allowed,
+        manual_allowed=manual_allowed,
+        next_label=next_label,
+        next_target=next_target,
+        next_workflow=next_workflow,
+        review_rows=review_rows,
+        reasons=reasons,
+    )
     return _sanitize(
         {
             "stage": DAILY_BEGINNER_EXECUTION_ANSWER_STAGE,
@@ -8261,6 +8274,7 @@ def build_daily_beginner_execution_answer(pack: dict[str, Any]) -> dict[str, Any
             "summary": {
                 "ordinary_verdict": ordinary_verdict,
                 "allowed_mode": allowed_mode,
+                "today_action_code": today_operation_card["today_action_code"],
                 "guard_status": guard_status,
                 "rehearsal_status": str(rehearsal_summary.get("rehearsal_status") or ""),
                 "headline": headline,
@@ -8280,6 +8294,7 @@ def build_daily_beginner_execution_answer(pack: dict[str, Any]) -> dict[str, Any
                 "order_placement_allowed": False,
                 "auto_order_allowed": False,
             },
+            "today_operation_card": today_operation_card,
             "reasons": reasons,
             "review_rows": review_rows,
             "operator_next_steps": _beginner_execution_next_steps(
@@ -8311,6 +8326,94 @@ def build_daily_beginner_execution_answer(pack: dict[str, Any]) -> dict[str, Any
             },
         }
     )
+
+
+def _beginner_today_operation_card(
+    *,
+    ordinary_verdict: str,
+    allowed_mode: str,
+    headline: str,
+    guard_status: str,
+    paper_allowed: bool,
+    manual_allowed: bool,
+    next_label: str,
+    next_target: str,
+    next_workflow: str,
+    review_rows: list[dict[str, Any]],
+    reasons: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if manual_allowed:
+        today_action_code = "manual_review_only"
+        traffic_light = "yellow"
+        plain_answer = "今天只能把 Top3 信号生成的票据当作人工复核材料；先核对外部券商实时价格、现金、仓位和风险，不能由软件买入或复制下单。"
+        primary_action = "人工复核票据，不自动买入"
+    elif paper_allowed:
+        today_action_code = "paper_rehearsal_only"
+        traffic_light = "yellow"
+        plain_answer = "今天只能运行同参数模拟盘和记录盘后复盘；不要打开券商端照着买。"
+        primary_action = "先跑同参数模拟盘"
+    else:
+        today_action_code = "do_not_trade"
+        traffic_light = "red"
+        plain_answer = "今天不要买，也不要进入券商端；先处理红灯原因，再重新生成和复核信号。"
+        primary_action = "先处理红灯，不交易"
+
+    blocked_reasons = [row for row in reasons if str(row.get("status") or "") == "blocked"]
+    required_reasons = [row for row in reasons if str(row.get("status") or "") in {"required", "paper_only"}]
+    action_rows = []
+    for index, row in enumerate(review_rows, start=1):
+        action_rows.append(
+            {
+                "row_number": _int(row.get("row_number"), index),
+                "asset_id": row.get("asset_id"),
+                "market": row.get("market") or "CN_ETF",
+                "side": row.get("side") or "review",
+                "target_weight": _float_or_none(row.get("target_weight")),
+                "paper_budget_value": _float_or_none(row.get("paper_budget_value")),
+                "paper_quantity": _int(row.get("paper_quantity"), 0),
+                "reference_price": _float_or_none(row.get("reference_price")),
+                "price_guardrail": {
+                    "lower_price_bound": _float_or_none(row.get("lower_price_bound")),
+                    "upper_price_bound": _float_or_none(row.get("upper_price_bound")),
+                    "max_slippage_bps": _int(row.get("max_slippage_bps"), MANUAL_MAX_SLIPPAGE_BPS),
+                },
+                "manual_external_broker_check_required": bool(manual_allowed),
+                "copy_to_broker_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+            }
+        )
+
+    return {
+        "card_id": "today_operation_verdict",
+        "question": "今天到底怎么操作？",
+        "today_action_code": today_action_code,
+        "traffic_light": traffic_light,
+        "ordinary_verdict": ordinary_verdict,
+        "allowed_mode": allowed_mode,
+        "guard_status": guard_status,
+        "primary_action": primary_action,
+        "plain_answer": plain_answer,
+        "headline": headline,
+        "ticket_count": len(review_rows),
+        "blocked_reason_count": len(blocked_reasons),
+        "required_reason_count": len(required_reasons),
+        "paper_rehearsal_allowed": paper_allowed,
+        "manual_review_allowed": manual_allowed,
+        "manual_external_broker_check_required": bool(manual_allowed and review_rows),
+        "next_label": next_label,
+        "next_target_id": next_target,
+        "next_workflow_id": next_workflow,
+        "action_rows": action_rows,
+        "copy_to_broker_allowed": False,
+        "can_buy_today": False,
+        "manual_only_boundary": True,
+        "live_trading_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
 
 
 def _beginner_execution_reasons(guard: dict[str, Any]) -> list[dict[str, Any]]:

@@ -509,6 +509,23 @@ def run_gui_browser_smoke(
     )
     checks.append(
         _check(
+            "today_operation_card_frontend",
+            "Today operation card frontend",
+            index_html.get("ok")
+            and "daily-beginner-execution-answer-today-card" in str(index_html.get("body", ""))
+            and app_js.get("ok")
+            and "renderTodayOperationCard" in str(app_js.get("body", ""))
+            and "today_operation_card" in str(app_js.get("body", ""))
+            and "today_action_code" in str(app_js.get("body", ""))
+            and "manual_external_broker_check_required" in str(app_js.get("body", "")),
+            "Frontend exposes a beginner-facing today-operation verdict before any manual review.",
+            index_html.get("error")
+            or app_js.get("error")
+            or "Today operation card frontend fields are missing.",
+        )
+    )
+    checks.append(
+        _check(
             "daily_manual_observation_packet_frontend",
             "Daily manual observation packet frontend",
             index_html.get("ok")
