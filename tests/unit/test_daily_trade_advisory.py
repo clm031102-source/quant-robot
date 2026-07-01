@@ -2582,6 +2582,7 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         answer = pack["daily_beginner_execution_answer"]
         summary = answer["summary"]
         today_card = answer["today_operation_card"]
+        closure_gate = today_card["after_action_closure_gate"]
 
         self.assertEqual(summary["ordinary_verdict"], "manual_review_candidate")
         self.assertEqual(summary["allowed_mode"], "manual_review_material_only")
@@ -2623,6 +2624,13 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
             after_action_by_id["quarantine_next_session_if_missing"]["failure_effect"],
             "quarantine_next_session_top3",
         )
+        self.assertEqual(closure_gate["gate_id"], "after_action_closure_gate")
+        self.assertEqual(closure_gate["closure_gate_status"], "pending_after_action_closure")
+        self.assertEqual(closure_gate["next_session_reuse_status"], "quarantine_if_after_action_missing")
+        self.assertTrue(closure_gate["next_session_quarantine_required_if_missing"])
+        self.assertEqual(closure_gate["required_item_count"], 4)
+        self.assertEqual(closure_gate["missing_item_count"], 4)
+        self.assertFalse(closure_gate["order_placement_allowed"])
 
     def test_same_parameter_paper_rehearsal_locks_top3_requests_and_allocation_manifest(self):
         pack = _build_daily_trade_advisory_pack(

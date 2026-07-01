@@ -8011,6 +8011,9 @@ function renderTodayOperationCard(card = {}, target = null) {
   if (!target) return;
   const actionRows = Array.isArray(card.action_rows) ? card.action_rows : [];
   const afterActions = Array.isArray(card.after_action_checklist) ? card.after_action_checklist : [];
+  const closureGate = card.after_action_closure_gate || {};
+  const closureQuarantineRequired = Boolean(closureGate.next_session_quarantine_required_if_missing);
+  const closureGateTone = closureQuarantineRequired ? "danger" : "ok";
   const code = card.today_action_code || "do_not_trade";
   const tone = card.traffic_light === "red" || code === "do_not_trade" ? "danger" : "warn";
   const nextButton = card.next_workflow_id ? `
@@ -8024,6 +8027,7 @@ function renderTodayOperationCard(card = {}, target = null) {
     return `${row.asset_id || "--"} ${zhConsoleText(row.side || "review")} 权重=${formatPercent(row.target_weight)} 数量=${formatNumber(row.paper_quantity || 0)} 价格=${formatDecimal(row.reference_price)} 护栏=${formatDecimal(guardrail.lower_price_bound)}~${formatDecimal(guardrail.upper_price_bound)}`;
   }).join(" / ");
   const afterActionText = afterActions.map((item) => `${item.label || item.item_id || "--"}=${zhConsoleText(item.status || "required")}`).join(" / ");
+  const closureGateText = `${zhConsoleText(closureGate.closure_gate_status || "missing_closure_gate")} / 明日复用=${zhConsoleText(closureGate.next_session_reuse_status || "quarantine_if_after_action_missing")} / 缺失=${formatNumber(closureGate.missing_item_count || 0)}/${formatNumber(closureGate.required_item_count || afterActions.length)}`;
   target.innerHTML = statusRows([
     ["今天到底怎么操作", `${card.traffic_light || "red"} / ${zhConsoleText(code)}`, tone],
     ["一句话答案", card.plain_answer || "今天不要把 Top3 当成买入指令。", tone],
@@ -8032,12 +8036,25 @@ function renderTodayOperationCard(card = {}, target = null) {
     ["绝对边界", card.copy_to_broker_allowed || card.order_placement_allowed || card.broker_connection_allowed ? "异常：出现复制或下单权限" : "不能复制到券商；不连接券商、不读账户、不自动下单", card.copy_to_broker_allowed || card.order_placement_allowed || card.broker_connection_allowed ? "danger" : "ok"],
     ["票据预览", preview || "没有可复核票据，先生成今日 CN_ETF Top3 信号和模拟材料。", actionRows.length ? "warn" : "danger"],
     ["收盘后闭环", afterActionText || "没有闭环清单时，默认不要复用今天信号。", afterActions.length ? "warn" : "danger"],
+    ["闭环总闸门", closureGateText, closureGateTone],
   ]) + `
     <div class="list-row ${escapeHtml(tone)}">
       <strong>${escapeHtml(card.primary_action || "先处理今日裁决")}</strong>
       <span>${escapeHtml(card.headline || card.plain_answer || "")}</span>
       <span class="beginner-task-actions">${nextButton}${targetButton}</span>
     </div>
+    ${closureGate.gate_id ? `
+      <div class="list-row ${escapeHtml(closureGateTone)}">
+        <strong>${escapeHtml("明日复用闸门")}</strong>
+        <span>${escapeHtml(closureGate.plain_answer || "收盘闭环未完成前，明天不能复用今天 Top3。")}</span>
+        <span>${escapeHtml(`状态=${zhConsoleText(closureGate.closure_gate_status || "pending_after_action_closure")} / 明日=${zhConsoleText(closureGate.next_session_reuse_status || "quarantine_if_after_action_missing")}`)}</span>
+        <span>${escapeHtml(`缺失=${formatNumber(closureGate.missing_item_count || 0)}/${formatNumber(closureGate.required_item_count || afterActions.length)}`)}</span>
+        <span class="beginner-task-actions">
+          ${closureGate.next_workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(closureGate.next_workflow_id)}">${escapeHtml("运行闭环")}</button>` : ""}
+          ${closureGate.next_target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(closureGate.next_target_id)}">${escapeHtml("查看闭环")}</button>` : ""}
+        </span>
+      </div>
+    ` : ""}
     ${afterActions.map((item) => `
       <div class="list-row ${escapeHtml(item.status === "locked" ? "danger" : "warn")}">
         <strong>${escapeHtml(item.label || item.item_id || "")}</strong>

@@ -518,6 +518,9 @@ def run_gui_browser_smoke(
             and "today_operation_card" in str(app_js.get("body", ""))
             and "today_action_code" in str(app_js.get("body", ""))
             and "manual_external_broker_check_required" in str(app_js.get("body", ""))
+            and "after_action_closure_gate" in str(app_js.get("body", ""))
+            and "closure_gate_status" in str(app_js.get("body", ""))
+            and "next_session_quarantine_required_if_missing" in str(app_js.get("body", ""))
             and "after_action_checklist" in str(app_js.get("body", ""))
             and "quarantine_next_session_if_missing" in str(app_js.get("body", "")),
             "Frontend exposes a beginner-facing today-operation verdict before any manual review.",

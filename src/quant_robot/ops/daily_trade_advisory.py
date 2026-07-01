@@ -8384,6 +8384,10 @@ def _beginner_today_operation_card(
             }
         )
 
+    after_action_checklist = _beginner_after_action_checklist(
+        manual_allowed=manual_allowed,
+        paper_allowed=paper_allowed,
+    )
     return {
         "card_id": "today_operation_verdict",
         "question": "今天到底怎么操作？",
@@ -8405,10 +8409,8 @@ def _beginner_today_operation_card(
         "next_target_id": next_target,
         "next_workflow_id": next_workflow,
         "action_rows": action_rows,
-        "after_action_checklist": _beginner_after_action_checklist(
-            manual_allowed=manual_allowed,
-            paper_allowed=paper_allowed,
-        ),
+        "after_action_checklist": after_action_checklist,
+        "after_action_closure_gate": _beginner_after_action_closure_gate(after_action_checklist),
         "copy_to_broker_allowed": False,
         "can_buy_today": False,
         "manual_only_boundary": True,
@@ -8468,6 +8470,50 @@ def _beginner_after_action_checklist(*, manual_allowed: bool, paper_allowed: boo
             "auto_order_allowed": False,
         },
     ]
+
+
+def _beginner_after_action_closure_gate(after_action_checklist: list[dict[str, Any]]) -> dict[str, Any]:
+    required_statuses = {"required", "missing", "blocked", "paper_only"}
+    required_items = [
+        row
+        for row in after_action_checklist
+        if str(row.get("status") or "") in required_statuses
+    ]
+    missing_item_count = len(required_items)
+    quarantine_required = missing_item_count > 0
+    if quarantine_required:
+        closure_status = "pending_after_action_closure"
+        next_session_status = "quarantine_if_after_action_missing"
+        plain_answer = (
+            "收盘后复盘、人工成交审计和当前持仓没有闭环前，下一交易日不能复用今天的 Top3。"
+        )
+        next_target_id = "beginner-post-close-journal-board"
+        next_workflow_id = "post_close_journal"
+    else:
+        closure_status = "locked_until_manual_or_paper_action"
+        next_session_status = "no_today_top3_reuse_required"
+        plain_answer = (
+            "当前不允许人工复核或模拟盘演练，今天的 Top3 不应带入下一交易日。"
+        )
+        next_target_id = "daily-pre-execution-guard"
+        next_workflow_id = ""
+
+    return {
+        "gate_id": "after_action_closure_gate",
+        "closure_gate_status": closure_status,
+        "plain_answer": plain_answer,
+        "required_item_count": len(required_items),
+        "missing_item_count": missing_item_count,
+        "next_session_reuse_status": next_session_status,
+        "next_session_quarantine_required_if_missing": quarantine_required,
+        "next_target_id": next_target_id,
+        "next_workflow_id": next_workflow_id,
+        "copy_to_broker_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+    }
 
 
 def _beginner_execution_reasons(guard: dict[str, Any]) -> list[dict[str, Any]]:
