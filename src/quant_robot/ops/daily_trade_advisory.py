@@ -56,6 +56,7 @@ SMALL_CAPITAL_OBSERVATION_MAX_SINGLE_TICKET_NOTIONAL = 1000.0
 SMALL_CAPITAL_OBSERVATION_MAX_DAILY_LOSS = 200.0
 MANUAL_PRICE_DEVIATION_GUARD_PCT = 0.005
 MANUAL_MAX_SLIPPAGE_BPS = 10
+MANUAL_ESTIMATED_COMMISSION_BPS = 5.0
 MANUAL_MAX_PARTICIPATION_RATE = 0.01
 MANUAL_MAX_CONSECUTIVE_LOSS_DAYS = 3
 RECENT_OBSERVATION_MIN_COUNT = 3
@@ -12221,8 +12222,15 @@ def build_manual_execution_audit(
     executed_notional = sum(_float(row.get("executed_notional"), 0.0) for row in rows)
     reference_notional = sum(_float(row.get("reference_notional"), 0.0) for row in rows)
     total_adverse_slippage_cost = sum(_float(row.get("adverse_slippage_cost"), 0.0) for row in rows)
+    estimated_commission_cost = sum(_float(row.get("estimated_commission_cost"), 0.0) for row in rows)
+    estimated_total_execution_cost = total_adverse_slippage_cost + estimated_commission_cost
     execution_cost_bps = (
         round(total_adverse_slippage_cost / reference_notional * 10000.0, 6)
+        if reference_notional > 0
+        else None
+    )
+    estimated_total_execution_cost_bps = (
+        round(estimated_total_execution_cost / reference_notional * 10000.0, 6)
         if reference_notional > 0
         else None
     )
@@ -12264,6 +12272,10 @@ def build_manual_execution_audit(
                 "reference_notional": round(reference_notional, 6),
                 "total_adverse_slippage_cost": round(total_adverse_slippage_cost, 6),
                 "execution_cost_bps": execution_cost_bps,
+                "estimated_commission_bps": MANUAL_ESTIMATED_COMMISSION_BPS,
+                "estimated_commission_cost": round(estimated_commission_cost, 6),
+                "estimated_total_execution_cost": round(estimated_total_execution_cost, 6),
+                "estimated_total_execution_cost_bps": estimated_total_execution_cost_bps,
                 "manual_execution_cost_impact": (
                     "measured_from_manual_fills"
                     if reference_notional > 0
@@ -12288,6 +12300,9 @@ def build_manual_execution_audit(
                 "planned_quantity",
                 "adverse_slippage_bps",
                 "adverse_slippage_cost",
+                "estimated_commission_bps",
+                "estimated_commission_cost",
+                "estimated_total_execution_cost",
                 "executed_notional",
                 "reference_notional",
                 "price_within_guardrail",
@@ -12353,6 +12368,8 @@ def _manual_execution_audit_row(
     price_within_guardrail = None
     adverse_slippage_bps = None
     adverse_slippage_cost = None
+    estimated_commission_cost = None
+    estimated_total_execution_cost = None
     executed_notional = None
     reference_notional = None
     small_capital_limit = SMALL_CAPITAL_OBSERVATION_MAX_SINGLE_TICKET_NOTIONAL
@@ -12419,6 +12436,8 @@ def _manual_execution_audit_row(
                 adverse_slippage_cost = round((reference_price - actual_fill_price) * quantity, 6)
             else:
                 adverse_slippage_cost = round((actual_fill_price - reference_price) * quantity, 6)
+            estimated_commission_cost = round(executed_notional * MANUAL_ESTIMATED_COMMISSION_BPS / 10000.0, 6)
+            estimated_total_execution_cost = round(adverse_slippage_cost + estimated_commission_cost, 6)
             if max_estimated_slippage_cost is not None:
                 slippage_cost_within_budget = adverse_slippage_cost <= max_estimated_slippage_cost
                 if not slippage_cost_within_budget and "slippage_limit_breached" not in breach_reasons:
@@ -12445,6 +12464,9 @@ def _manual_execution_audit_row(
         "planned_quantity": planned_quantity,
         "adverse_slippage_bps": adverse_slippage_bps,
         "adverse_slippage_cost": adverse_slippage_cost,
+        "estimated_commission_bps": MANUAL_ESTIMATED_COMMISSION_BPS,
+        "estimated_commission_cost": estimated_commission_cost,
+        "estimated_total_execution_cost": estimated_total_execution_cost,
         "executed_notional": executed_notional,
         "reference_notional": reference_notional,
         "price_within_guardrail": price_within_guardrail,

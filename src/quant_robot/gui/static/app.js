@@ -32,6 +32,8 @@ const state = {
   manualFormOverrideReason: "",
 };
 
+const MANUAL_ESTIMATED_COMMISSION_BPS = 5;
+
 const titles = {
   dashboard: "总览",
   research: "因子研究",
@@ -4136,7 +4138,10 @@ function localManualExecutionAudit(trade = {}, reviews = null) {
   const totalExecutedNotional = rows.reduce((sum, row) => sum + (numberOrNull(row.executed_notional) || 0), 0);
   const totalReferenceNotional = rows.reduce((sum, row) => sum + (numberOrNull(row.reference_notional) || 0), 0);
   const totalAdverseSlippageCost = rows.reduce((sum, row) => sum + (numberOrNull(row.adverse_slippage_cost) || 0), 0);
+  const totalEstimatedCommissionCost = rows.reduce((sum, row) => sum + (numberOrNull(row.estimated_commission_cost) || 0), 0);
+  const totalEstimatedExecutionCost = totalAdverseSlippageCost + totalEstimatedCommissionCost;
   const executionCostBps = totalReferenceNotional > 0 ? (totalAdverseSlippageCost / totalReferenceNotional) * 10000 : null;
+  const estimatedTotalExecutionCostBps = totalReferenceNotional > 0 ? (totalEstimatedExecutionCost / totalReferenceNotional) * 10000 : null;
   let decision = "waiting_for_manual_tickets";
   if (rows.length && (blockedCount || guardrailBreachCount || slippageBreachCount || brokerRecheckSessionMissingCount || brokerRecheckSessionBlockedCount || smallCapitalBudgetBreachCount || sensitiveFieldCount)) {
     decision = "guardrail_breach_review_required";
@@ -4168,6 +4173,10 @@ function localManualExecutionAudit(trade = {}, reviews = null) {
       reference_notional: Number(totalReferenceNotional.toFixed(6)),
       total_adverse_slippage_cost: Number(totalAdverseSlippageCost.toFixed(6)),
       execution_cost_bps: Number.isFinite(executionCostBps) ? Number(executionCostBps.toFixed(6)) : null,
+      estimated_commission_bps: MANUAL_ESTIMATED_COMMISSION_BPS,
+      estimated_commission_cost: Number(totalEstimatedCommissionCost.toFixed(6)),
+      estimated_total_execution_cost: Number(totalEstimatedExecutionCost.toFixed(6)),
+      estimated_total_execution_cost_bps: Number.isFinite(estimatedTotalExecutionCostBps) ? Number(estimatedTotalExecutionCostBps.toFixed(6)) : null,
       manual_execution_cost_impact: totalReferenceNotional > 0 ? "measured_from_manual_fills" : "waiting_for_manual_fill_details",
       manual_review_required: true,
       manual_execution_only: true,
@@ -4210,6 +4219,8 @@ function localManualExecutionAuditRow(index, ticket = {}, reviewsByKey = new Map
   let priceWithinGuardrail = null;
   let adverseSlippageBps = null;
   let adverseSlippageCost = null;
+  let estimatedCommissionCost = null;
+  let estimatedTotalExecutionCost = null;
   let executedNotional = null;
   let referenceNotional = null;
   const smallCapitalLimit = 1000;
@@ -4271,6 +4282,8 @@ function localManualExecutionAuditRow(index, ticket = {}, reviewsByKey = new Map
       adverseSlippageCost = side.toLowerCase().startsWith("sell")
         ? (referencePrice - actualFillPrice) * quantity
         : (actualFillPrice - referencePrice) * quantity;
+      estimatedCommissionCost = executedNotional * MANUAL_ESTIMATED_COMMISSION_BPS / 10000;
+      estimatedTotalExecutionCost = adverseSlippageCost + estimatedCommissionCost;
       if (Number.isFinite(maxEstimatedSlippageCost)) {
         slippageCostWithinBudget = adverseSlippageCost <= maxEstimatedSlippageCost;
         if (!slippageCostWithinBudget && !breachReasons.includes("slippage_limit_breached")) {
@@ -4301,6 +4314,9 @@ function localManualExecutionAuditRow(index, ticket = {}, reviewsByKey = new Map
     planned_quantity: plannedQuantity,
     adverse_slippage_bps: Number.isFinite(adverseSlippageBps) ? Number(adverseSlippageBps.toFixed(6)) : null,
     adverse_slippage_cost: Number.isFinite(adverseSlippageCost) ? Number(adverseSlippageCost.toFixed(6)) : null,
+    estimated_commission_bps: MANUAL_ESTIMATED_COMMISSION_BPS,
+    estimated_commission_cost: Number.isFinite(estimatedCommissionCost) ? Number(estimatedCommissionCost.toFixed(6)) : null,
+    estimated_total_execution_cost: Number.isFinite(estimatedTotalExecutionCost) ? Number(estimatedTotalExecutionCost.toFixed(6)) : null,
     executed_notional: Number.isFinite(executedNotional) ? Number(executedNotional.toFixed(6)) : null,
     reference_notional: Number.isFinite(referenceNotional) ? Number(referenceNotional.toFixed(6)) : null,
     price_within_guardrail: priceWithinGuardrail,
@@ -4357,6 +4373,9 @@ function renderPostCloseExecutionAudit(audit = null) {
       "planned_quantity",
       "adverse_slippage_bps",
       "adverse_slippage_cost",
+      "estimated_commission_bps",
+      "estimated_commission_cost",
+      "estimated_total_execution_cost",
       "executed_notional",
       "reference_notional",
       "price_within_guardrail",
@@ -4385,6 +4404,7 @@ function renderPostCloseExecutionAudit(audit = null) {
     <div class="list-row ${escapeHtml(summary.execution_cost_bps > 0 ? (summary.slippage_breach_count ? "danger" : "warn") : rows.length ? "ok" : "warn")}">
       <strong>${escapeHtml("manual_execution_cost_impact")}</strong>
       <span>${escapeHtml(`total_adverse_slippage_cost=${formatNumber(summary.total_adverse_slippage_cost)} / executed_notional=${formatNumber(summary.executed_notional)} / execution_cost_bps=${formatDecimal(summary.execution_cost_bps)}`)}</span>
+      <span>${escapeHtml(`estimated_commission=${formatNumber(summary.estimated_commission_cost)} @ ${formatDecimal(summary.estimated_commission_bps)}bps / estimated_total_execution_cost=${formatNumber(summary.estimated_total_execution_cost)} / estimated_total_execution_cost_bps=${formatDecimal(summary.estimated_total_execution_cost_bps)}`)}</span>
       <span>${escapeHtml(summary.manual_execution_cost_impact || "waiting_for_manual_fill_details")}</span>
     </div>
     ${table}
