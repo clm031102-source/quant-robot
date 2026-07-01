@@ -8266,6 +8266,12 @@ def build_daily_beginner_execution_answer(pack: dict[str, Any]) -> dict[str, Any
         review_rows=review_rows,
         reasons=reasons,
     )
+    pre_market_packet = _beginner_pre_market_manual_execution_packet(
+        pack=pack,
+        manual_allowed=manual_allowed,
+        paper_allowed=paper_allowed,
+        today_operation_card=today_operation_card,
+    )
     return _sanitize(
         {
             "stage": DAILY_BEGINNER_EXECUTION_ANSWER_STAGE,
@@ -8295,6 +8301,7 @@ def build_daily_beginner_execution_answer(pack: dict[str, Any]) -> dict[str, Any
                 "auto_order_allowed": False,
             },
             "today_operation_card": today_operation_card,
+            "pre_market_manual_execution_packet": pre_market_packet,
             "reasons": reasons,
             "review_rows": review_rows,
             "operator_next_steps": _beginner_execution_next_steps(
@@ -8514,6 +8521,160 @@ def _beginner_after_action_closure_gate(after_action_checklist: list[dict[str, A
         "order_placement_allowed": False,
         "auto_order_allowed": False,
     }
+
+
+def _beginner_pre_market_manual_execution_packet(
+    *,
+    pack: dict[str, Any],
+    manual_allowed: bool,
+    paper_allowed: bool,
+    today_operation_card: dict[str, Any],
+) -> dict[str, Any]:
+    readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
+    handoff = pack.get("manual_broker_handoff") if isinstance(pack.get("manual_broker_handoff"), dict) else {}
+    freshness = readiness.get("freshness") if isinstance(readiness.get("freshness"), dict) else {}
+    readiness_confirmations = [
+        row for row in readiness.get("required_confirmations", []) if isinstance(row, dict)
+    ]
+    confirmation_by_id = {str(row.get("check_id") or ""): row for row in readiness_confirmations}
+    handoff_summary = handoff.get("summary") if isinstance(handoff.get("summary"), dict) else {}
+    tickets = [row for row in handoff.get("copyable_tickets", []) if isinstance(row, dict)]
+    ticket_count = len(tickets)
+    blocked_ticket_count = _int(handoff_summary.get("blocked_copyable_ticket_count"), 0)
+    same_parameter_ready = bool(handoff_summary.get("same_parameter_paper_ready"))
+    same_parameter_required = _int(handoff_summary.get("same_parameter_paper_required_count"), 0)
+    same_parameter_matched = _int(handoff_summary.get("same_parameter_paper_matched_count"), 0)
+    masked_until_paper = bool(handoff.get("copyable_tickets_masked_until_same_parameter_paper"))
+
+    if manual_allowed and ticket_count > 0 and not masked_until_paper:
+        packet_status = "manual_review_ready_not_order"
+        next_human_action = "verify_external_broker_price_and_cash"
+        plain_answer = "可以进入人工复核材料阶段：先核对券商实时价格、现金、持仓和风险，再由本人决定跳过或手动操作。"
+    elif paper_allowed:
+        packet_status = "paper_rehearsal_required_before_manual_review"
+        next_human_action = "run_same_parameter_paper_before_broker_review"
+        plain_answer = "今天还不能进入券商人工复核；先跑同参数模拟盘并补齐证据。"
+    else:
+        packet_status = "blocked_no_manual_execution_packet"
+        next_human_action = "resolve_pretrade_blockers"
+        plain_answer = "今天没有可用的人工执行包；先处理盘前红灯和缺失证据。"
+
+    current_position_confirmation = confirmation_by_id.get("current_position_input", {})
+    signal_freshness_status = "pass" if bool(freshness.get("fresh_for_run_date")) else "blocked"
+    same_parameter_status = "pass" if same_parameter_ready else "required"
+    manual_ticket_status = "pass" if ticket_count > 0 and not masked_until_paper else "required"
+    current_position_status = str(current_position_confirmation.get("status") or "waiting")
+
+    return _sanitize(
+        {
+            "packet_id": "pre_market_manual_execution_packet",
+            "packet_status": packet_status,
+            "run_date": str(pack.get("run_date") or readiness.get("run_date") or date.today().isoformat()),
+            "manual_decision_mode": "external_broker_manual_review_only",
+            "plain_answer": plain_answer,
+            "next_human_action": next_human_action,
+            "today_action_code": today_operation_card.get("today_action_code"),
+            "traffic_light": today_operation_card.get("traffic_light"),
+            "ticket_count": ticket_count,
+            "blocked_ticket_count": blocked_ticket_count,
+            "post_close_closure_required": bool(ticket_count or paper_allowed or manual_allowed),
+            "evidence_checklist": [
+                {
+                    "check_id": "signal_freshness",
+                    "status": signal_freshness_status,
+                    "plain_check": "今日信号日期必须等于运行日期。",
+                    "evidence": (
+                        f"run_date={freshness.get('run_date') or readiness.get('run_date') or '--'}; "
+                        f"latest_signal_date={freshness.get('latest_signal_date') or '--'}"
+                    ),
+                },
+                {
+                    "check_id": "same_parameter_top3_paper",
+                    "status": same_parameter_status,
+                    "plain_check": "Top3 同参数模拟盘必须全部匹配后，才允许查看人工复核票据。",
+                    "evidence": f"matched={same_parameter_matched}/{same_parameter_required}",
+                },
+                {
+                    "check_id": "manual_ticket_visibility",
+                    "status": manual_ticket_status,
+                    "plain_check": "只有盘前闸门通过且同参数模拟盘完成后，才显示人工复核票据。",
+                    "evidence": f"visible={ticket_count}; blocked={blocked_ticket_count}; masked={masked_until_paper}",
+                },
+                {
+                    "check_id": "current_position_input",
+                    "status": current_position_status,
+                    "plain_check": "必须用脱敏持仓输入计算目标差额，不能从券商账户自动读取。",
+                    "evidence": current_position_confirmation.get("text") or "",
+                },
+                {
+                    "check_id": "broker_manual_boundary",
+                    "status": "blocked_for_automation",
+                    "plain_check": "系统不连接券商、不读取账户、不复制订单、不自动下单。",
+                    "evidence": "broker_connection_allowed=false; order_placement_allowed=false",
+                },
+                {
+                    "check_id": "post_close_closure_required",
+                    "status": "required" if ticket_count or paper_allowed or manual_allowed else "locked",
+                    "plain_check": "收盘后必须记录复盘、人工执行审计和持仓更新，否则明天隔离今天 Top3。",
+                    "evidence": "after_action_closure_gate",
+                },
+            ],
+            "operator_sequence": [
+                {
+                    "step_id": "review_today_operation_card",
+                    "label": "先看今日操作卡",
+                    "status": "required",
+                    "target_id": "daily-beginner-execution-answer-today-card",
+                    "workflow_id": "",
+                    "order_placement_allowed": False,
+                    "auto_order_allowed": False,
+                },
+                {
+                    "step_id": "verify_external_broker_price",
+                    "label": "人工核对券商实时价格",
+                    "status": "required" if packet_status == "manual_review_ready_not_order" else "locked",
+                    "target_id": "manual-broker-price-check-summary",
+                    "workflow_id": "",
+                    "order_placement_allowed": False,
+                    "auto_order_allowed": False,
+                },
+                {
+                    "step_id": "check_cash_position_and_risk",
+                    "label": "人工核对现金、持仓和回撤预算",
+                    "status": "required" if packet_status == "manual_review_ready_not_order" else "locked",
+                    "target_id": "daily-current-positions",
+                    "workflow_id": "",
+                    "order_placement_allowed": False,
+                    "auto_order_allowed": False,
+                },
+                {
+                    "step_id": "human_decides_skip_or_manual_trade",
+                    "label": "本人决定跳过或离开系统手动操作",
+                    "status": "manual_only" if packet_status == "manual_review_ready_not_order" else "locked",
+                    "target_id": "beginner-live-handoff-board",
+                    "workflow_id": "",
+                    "order_placement_allowed": False,
+                    "auto_order_allowed": False,
+                },
+                {
+                    "step_id": "record_post_close_closure",
+                    "label": "收盘后记录复盘和执行审计",
+                    "status": "required" if ticket_count or paper_allowed or manual_allowed else "locked",
+                    "target_id": "beginner-post-close-journal-board",
+                    "workflow_id": "post_close_journal" if ticket_count or paper_allowed or manual_allowed else "",
+                    "order_placement_allowed": False,
+                    "auto_order_allowed": False,
+                },
+            ],
+            "copy_to_broker_allowed": False,
+            "can_buy_today": False,
+            "live_trading_allowed": False,
+            "broker_connection_allowed": False,
+            "account_read_allowed": False,
+            "order_placement_allowed": False,
+            "auto_order_allowed": False,
+        }
+    )
 
 
 def _beginner_execution_reasons(guard: dict[str, Any]) -> list[dict[str, Any]]:

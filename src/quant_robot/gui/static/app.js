@@ -8069,15 +8069,58 @@ function renderTodayOperationCard(card = {}, target = null) {
   `;
 }
 
+function renderPreMarketManualExecutionPacket(packet = {}, target = null) {
+  if (!target) return;
+  const evidenceRows = Array.isArray(packet.evidence_checklist) ? packet.evidence_checklist : [];
+  const fallbackOperatorRows = [
+    { step_id: "review_today_operation_card", label: "先看今日操作卡", status: "required", target_id: "daily-beginner-execution-answer-today-card" },
+    { step_id: "human_decides_skip_or_manual_trade", label: "本人决定跳过或离开系统手动操作", status: "manual_only", target_id: "beginner-live-handoff-board" },
+    { step_id: "record_post_close_closure", label: "收盘后记录复盘和执行审计", status: "required", target_id: "beginner-post-close-journal-board", workflow_id: "post_close_journal" },
+  ];
+  const operatorRows = Array.isArray(packet.operator_sequence) && packet.operator_sequence.length
+    ? packet.operator_sequence
+    : fallbackOperatorRows;
+  const status = packet.packet_status || "blocked_no_manual_execution_packet";
+  const tone = status === "manual_review_ready_not_order" ? "warn" : "danger";
+  target.innerHTML = statusRows([
+    ["开盘前人工执行包", `${zhConsoleText(status)} / ${zhConsoleText(packet.manual_decision_mode || "external_broker_manual_review_only")}`, tone],
+    ["一句话", packet.plain_answer || "先补齐盘前证据，不能直接照 Top3 买入。", tone],
+    ["票据状态", `可复核=${formatNumber(packet.ticket_count || 0)} / 被阻断=${formatNumber(packet.blocked_ticket_count || 0)} / 今日动作=${zhConsoleText(packet.today_action_code || "do_not_trade")}`, packet.ticket_count ? "warn" : "danger"],
+    ["下一步人工动作", zhConsoleText(packet.next_human_action || "resolve_pretrade_blockers"), tone],
+    ["收盘后闭环", packet.post_close_closure_required ? "必须记录复盘、执行审计和持仓更新" : "当前无人工/模拟动作，不复用今天 Top3", packet.post_close_closure_required ? "warn" : "ok"],
+    ["权限边界", packet.order_placement_allowed || packet.broker_connection_allowed || packet.auto_order_allowed ? "异常：出现自动化交易权限" : "不连接券商、不读账户、不复制订单、不自动下单", packet.order_placement_allowed || packet.broker_connection_allowed || packet.auto_order_allowed ? "danger" : "ok"],
+  ]) + `
+    ${evidenceRows.map((item) => `
+      <div class="list-row ${escapeHtml(item.status === "pass" ? "ok" : item.status === "blocked_for_automation" ? "danger" : "warn")}">
+        <strong>${escapeHtml(item.check_id || "")}</strong>
+        <span>${escapeHtml(`${zhConsoleText(item.status || "required")} / ${item.plain_check || ""}`)}</span>
+        <span>${escapeHtml(item.evidence || "")}</span>
+      </div>
+    `).join("")}
+    ${operatorRows.map((item) => `
+      <div class="list-row ${escapeHtml(item.status === "locked" ? "danger" : "warn")}">
+        <strong>${escapeHtml(item.label || item.step_id || "")}</strong>
+        <span>${escapeHtml(`${zhConsoleText(item.status || "required")} / ${item.step_id || ""}`)}</span>
+        <span class="beginner-task-actions">
+          ${item.workflow_id ? `<button class="primary-button" type="button" data-beginner-action="${escapeRawHtml(item.workflow_id)}">${escapeHtml("运行")}</button>` : ""}
+          ${item.target_id ? `<button class="secondary-button" type="button" data-beginner-target="${escapeRawHtml(item.target_id)}">${escapeHtml("查看")}</button>` : ""}
+        </span>
+      </div>
+    `).join("")}
+  `;
+}
+
 function renderDailyBeginnerExecutionAnswer(answer = {}) {
   const todayCardTarget = byId("daily-beginner-execution-answer-today-card");
+  const preMarketPacketTarget = byId("daily-beginner-execution-answer-pre-market-packet");
   const summaryTarget = byId("daily-beginner-execution-answer-summary");
   const reasonsTarget = byId("daily-beginner-execution-answer-reasons");
   const rowsTarget = byId("daily-beginner-execution-answer-rows");
   const stepsTarget = byId("daily-beginner-execution-answer-steps");
-  if (!summaryTarget || !reasonsTarget || !rowsTarget || !stepsTarget) return;
+  if (!summaryTarget || !reasonsTarget || !rowsTarget || !stepsTarget || !preMarketPacketTarget) return;
   const summary = answer.summary || {};
   renderTodayOperationCard(answer.today_operation_card || {}, todayCardTarget);
+  renderPreMarketManualExecutionPacket(answer.pre_market_manual_execution_packet || {}, preMarketPacketTarget);
   const allowedMode = summary.allowed_mode || "blocked_no_action";
   const tone = allowedMode === "blocked_no_action" ? "danger" : "warn";
   const nextButton = summary.next_workflow_id ? `

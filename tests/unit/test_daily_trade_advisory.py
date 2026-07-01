@@ -2582,6 +2582,7 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         answer = pack["daily_beginner_execution_answer"]
         summary = answer["summary"]
         today_card = answer["today_operation_card"]
+        packet = answer["pre_market_manual_execution_packet"]
         closure_gate = today_card["after_action_closure_gate"]
 
         self.assertEqual(summary["ordinary_verdict"], "manual_review_candidate")
@@ -2631,6 +2632,23 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(closure_gate["required_item_count"], 4)
         self.assertEqual(closure_gate["missing_item_count"], 4)
         self.assertFalse(closure_gate["order_placement_allowed"])
+        self.assertEqual(packet["packet_id"], "pre_market_manual_execution_packet")
+        self.assertEqual(packet["packet_status"], "manual_review_ready_not_order")
+        self.assertEqual(packet["manual_decision_mode"], "external_broker_manual_review_only")
+        self.assertEqual(packet["ticket_count"], 3)
+        self.assertEqual(packet["next_human_action"], "verify_external_broker_price_and_cash")
+        self.assertFalse(packet["order_placement_allowed"])
+        self.assertFalse(packet["auto_order_allowed"])
+        self.assertTrue(packet["post_close_closure_required"])
+        evidence_by_id = {row["check_id"]: row for row in packet["evidence_checklist"]}
+        self.assertEqual(evidence_by_id["signal_freshness"]["status"], "pass")
+        self.assertEqual(evidence_by_id["same_parameter_top3_paper"]["status"], "pass")
+        self.assertEqual(evidence_by_id["manual_ticket_visibility"]["status"], "pass")
+        self.assertEqual(evidence_by_id["broker_manual_boundary"]["status"], "blocked_for_automation")
+        self.assertIn(
+            "human_decides_skip_or_manual_trade",
+            {row["step_id"] for row in packet["operator_sequence"]},
+        )
 
     def test_same_parameter_paper_rehearsal_locks_top3_requests_and_allocation_manifest(self):
         pack = _build_daily_trade_advisory_pack(
