@@ -12852,11 +12852,18 @@ function renderExecutionReceipts(spec = {}) {
   target.innerHTML = rows.map((item) => {
     const metrics = item.metrics || {};
     const request = item.request || {};
+    const finalPacket = item.final_operation_packet || {};
+    const finalActionStatus = metrics.final_action_status || finalPacket.final_action_status;
+    const finalTicketCount = metrics.final_manual_ticket_count ?? finalPacket.manual_ticket_count;
+    const finalQuarantineRequired = metrics.final_next_session_quarantine_required ?? finalPacket.next_session_quarantine_required_if_missing;
     const statusClass = item.status === "completed" ? "ok" : item.status === "failed" ? "danger" : "warn";
     const metricText = [
       metrics.traffic_light ? `灯号=${metrics.traffic_light}` : "",
       metrics.signal_count != null ? `信号=${formatNumber(metrics.signal_count)}` : "",
       metrics.manual_ticket_count != null ? `票据=${formatNumber(metrics.manual_ticket_count)}` : "",
+      finalActionStatus ? `最终动作=${zhConsoleText(finalActionStatus)}` : "",
+      finalTicketCount != null ? `最终票据=${formatNumber(finalTicketCount)}` : "",
+      finalQuarantineRequired != null ? `次日隔离=${finalQuarantineRequired ? "需要" : "不需要"}` : "",
       metrics.total_return != null ? `收益=${formatPercent(metrics.total_return)}` : "",
       metrics.sharpe != null ? `夏普=${formatDecimal(metrics.sharpe)}` : "",
       metrics.max_drawdown != null ? `回撤=${formatPercent(metrics.max_drawdown)}` : "",

@@ -596,9 +596,12 @@ def run_gui_browser_smoke(
             and "final_quantity_rule" in str(app_js.get("body", ""))
             and "final_manual_ticket_count" in str(app_js.get("body", ""))
             and "final_next_session_quarantine_required" in str(app_js.get("body", ""))
+            and "最终动作=" in str(app_js.get("body", ""))
+            and "最终票据=" in str(app_js.get("body", ""))
+            and "次日隔离=" in str(app_js.get("body", ""))
             and "external_realtime_price_required" in str(app_js.get("body", ""))
             and "next_session_quarantine_required_if_missing" in str(app_js.get("body", "")),
-            "Frontend exposes the final beginner operation packet with manual price/cash inputs, quantity rule, and next-session quarantine reminder.",
+            "Frontend exposes the final beginner operation packet and execution receipt summary with manual price/cash inputs, quantity rule, and next-session quarantine reminder.",
             index_html.get("error")
             or app_js.get("error")
             or "Daily beginner final operation packet frontend fields are missing.",
