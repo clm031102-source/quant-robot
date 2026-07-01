@@ -4445,6 +4445,23 @@ class GuiHttpTests(unittest.TestCase):
             self.assertIn("manual_review_recorded", app_js)
             self.assertIn("manualExecutionReviewRowsFromInput", app_js)
             self.assertIn("localManualExecutionAudit", app_js)
+            self.assertIn("dailyOpsPaperAuditTicketRows", app_js)
+            self.assertIn("daily_ops_paper_recheck", app_js)
+            self.assertIn("daily_ops_paper_recheck_ticket_count", app_js)
+            self.assertIn("daily_ops_paper_recheck_review_count", app_js)
+            self.assertIn("source_ticket_family", app_js)
+            manual_audit_block = app_js.split("function localManualExecutionAudit", 1)[1].split(
+                "function dailyOpsPaperAuditTicketRows",
+                1,
+            )[0]
+            self.assertIn("const dailyOpsTickets = dailyOpsPaperAuditTicketRows(trade);", manual_audit_block)
+            self.assertIn('dailyOpsTickets.length ? "daily_ops_paper_recheck" : "none"', manual_audit_block)
+            post_close_receipt_block = app_js.split("function postCloseJournalReceipt", 1)[1].split(
+                "async function runVerificationGate",
+                1,
+            )[0]
+            self.assertIn("daily_ops_paper_recheck_ticket_count", post_close_receipt_block)
+            self.assertIn("daily_ops_paper_recheck_review_count", post_close_receipt_block)
             self.assertIn("renderPostCloseExecutionAudit", app_js)
             self.assertIn("manual_execution_audit", app_js)
             self.assertIn("post-close-broker-recheck-session-decision", html)

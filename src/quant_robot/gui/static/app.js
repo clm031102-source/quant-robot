@@ -4064,6 +4064,7 @@ function renderPostCloseManualFormStatus(journalReceipt = null) {
     ["人工记录状态", recorded ? "manual_review_recorded" : "waiting_manual_review_notes", recorded ? "ok" : "warn"],
     ["今天实际选择", manualOutcomeLabel(form.manual_outcome), "warn"],
     ["备注数量", `${formatNumber(form.manual_note_count)} 条 / 不要填写账户号、委托号、券商客户号`, form.manual_note_count ? "ok" : "warn"],
+    ["票据来源", `${executionSummary.source_ticket_family || "none"} / Daily Ops纸面复核=${formatNumber(executionSummary.daily_ops_paper_recheck_review_count || 0)}/${formatNumber(executionSummary.daily_ops_paper_recheck_ticket_count || 0)}`, executionSummary.daily_ops_paper_recheck_ticket_count ? "warn" : "muted"],
     ["人工成交审计", `${executionSummary.decision || "waiting_for_manual_tickets"} / 回执=${formatNumber(executionSummary.review_count)} / 异常=${formatNumber(executionSummary.blocked_count)} / 盘前复核缺失=${formatNumber(executionSummary.broker_recheck_session_missing_count)} / 盘前复核阻断=${formatNumber(executionSummary.broker_recheck_session_blocked_count)}`, executionSummary.blocked_count ? "danger" : executionSummary.missing_review_count ? "warn" : "ok"],
   ]);
 }
@@ -4189,7 +4190,10 @@ function splitManualExecutionCsvLine(line = "") {
 
 function localManualExecutionAudit(trade = {}, reviews = null) {
   const handoff = trade.manual_broker_handoff || {};
-  const tickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
+  const manualTickets = Array.isArray(handoff.copyable_tickets) ? handoff.copyable_tickets : [];
+  const dailyOpsTickets = dailyOpsPaperAuditTicketRows(trade);
+  const tickets = manualTickets.length ? manualTickets : dailyOpsTickets;
+  const sourceTicketFamily = manualTickets.length ? "manual_broker_handoff" : dailyOpsTickets.length ? "daily_ops_paper_recheck" : "none";
   const reviewRows = Array.isArray(reviews) ? reviews : manualExecutionReviewRowsFromInput();
   const reviewsByKey = new Map();
   reviewRows.forEach((review) => {
@@ -4210,6 +4214,10 @@ function localManualExecutionAudit(trade = {}, reviews = null) {
   const sensitiveFieldCount = countReason("sensitive_field_removed");
   const executedCount = rows.filter((row) => row.manual_outcome === "manual_trade_by_human").length;
   const skippedCount = rows.filter((row) => ["skipped_no_trade", "paper_only", "manual_review_no_trade", "blocked_by_risk"].includes(row.manual_outcome)).length;
+  const dailyOpsPaperRecheckTicketCount = rows.filter((row) => row.source_ticket_family === "daily_ops_paper_recheck").length;
+  const dailyOpsPaperRecheckReviewCount = rows.filter((row) => (
+    row.source_ticket_family === "daily_ops_paper_recheck" && row.review_status !== "missing_review"
+  )).length;
   const totalExecutedNotional = rows.reduce((sum, row) => sum + (numberOrNull(row.executed_notional) || 0), 0);
   const totalReferenceNotional = rows.reduce((sum, row) => sum + (numberOrNull(row.reference_notional) || 0), 0);
   const totalAdverseSlippageCost = rows.reduce((sum, row) => sum + (numberOrNull(row.adverse_slippage_cost) || 0), 0);
@@ -4230,8 +4238,11 @@ function localManualExecutionAudit(trade = {}, reviews = null) {
     run_date: trade.run_date || handoff.run_date || "",
     summary: {
       decision,
+      source_ticket_family: sourceTicketFamily,
       ticket_count: rows.length,
       review_count: reviewRows.length,
+      daily_ops_paper_recheck_ticket_count: dailyOpsPaperRecheckTicketCount,
+      daily_ops_paper_recheck_review_count: dailyOpsPaperRecheckReviewCount,
       executed_count: executedCount,
       skipped_count: skippedCount,
       guardrail_breach_count: guardrailBreachCount,
@@ -4264,6 +4275,46 @@ function localManualExecutionAudit(trade = {}, reviews = null) {
     rows,
     safety: "local manual execution audit only; no broker, account, or order side effects",
   };
+}
+
+function dailyOpsPaperAuditTicketRows(trade = {}) {
+  const recheck = trade.daily_ops_handoff?.paper_execution_recheck || {};
+  const rows = Array.isArray(recheck.rows) ? recheck.rows : [];
+  return rows
+    .filter((row) => row && row.order_placement_allowed !== true && row.auto_order_allowed !== true)
+    .map((row, index) => ({
+      ticket_id: row.ticket_id || `daily-ops-paper-${String(index + 1).padStart(3, "0")}`,
+      asset_id: row.asset_id || row.symbol || "",
+      market: row.market || trade.market || "CN_ETF",
+      side: row.side || "paper",
+      target_weight: row.target_weight,
+      delta_value: row.delta_value ?? row.target_value_for_recalculation,
+      rounded_quantity_delta: row.estimated_quantity_delta,
+      rounded_quantity: row.estimated_quantity_delta,
+      board_lot_size: row.board_lot_size || 100,
+      reference_price: row.reference_price,
+      source_ticket_family: "daily_ops_paper_recheck",
+      source_ticket_id: row.ticket_id || "",
+      execution_guardrails: {
+        guardrail_id: "daily_ops_paper_recheck_price_cash_guard",
+        reference_price: row.reference_price,
+        lower_price_bound: row.lower_price_bound,
+        upper_price_bound: row.upper_price_bound,
+        max_reference_price_deviation_pct: row.max_reference_price_deviation_pct,
+        max_slippage_bps: row.max_slippage_bps,
+        max_estimated_slippage_cost: row.max_estimated_slippage_cost,
+        skip_if_price_outside_guardrail: row.skip_if_price_outside_guardrail,
+        recalculation_rule: row.recalculation_rule || "floor_to_board_lot_at_external_price",
+      },
+      manual_instruction: row.plain_row_instruction || row.manual_instruction || "Daily Ops paper recheck only; record paper-only or skipped outcome after close.",
+      review_only: true,
+      manual_execution_only: true,
+      live_trading_allowed: false,
+      broker_connection_allowed: false,
+      account_read_allowed: false,
+      order_placement_allowed: false,
+      auto_order_allowed: false,
+    }));
 }
 
 function localManualExecutionAuditRow(index, ticket = {}, reviewsByKey = new Map()) {
@@ -4381,6 +4432,7 @@ function localManualExecutionAuditRow(index, ticket = {}, reviewsByKey = new Map
     step_number: index,
     ticket_id: ticketId,
     asset_id: assetId,
+    source_ticket_family: ticket.source_ticket_family || "manual_broker_handoff",
     side,
     manual_outcome: manualOutcome,
     reference_price: referencePrice,
@@ -4441,6 +4493,7 @@ function renderPostCloseExecutionAudit(audit = null) {
     ? `<table>${tableRows(rows, [
       "ticket_id",
       "asset_id",
+      "source_ticket_family",
       "manual_outcome",
       "reference_price",
       "actual_fill_price",
@@ -4473,7 +4526,7 @@ function renderPostCloseExecutionAudit(audit = null) {
     <div class="list-row ${escapeHtml(tone)}">
       <strong>${escapeHtml("人工成交审计")}</strong>
       <span>${escapeHtml(`${summary.decision || "waiting_for_manual_tickets"} / 票据=${formatNumber(summary.ticket_count)} / 回执=${formatNumber(summary.review_count)} / 执行=${formatNumber(summary.executed_count)} / 追价=${formatNumber(summary.guardrail_breach_count)} / 滑点超限=${formatNumber(summary.slippage_breach_count)} / 盘前复核缺失=${formatNumber(summary.broker_recheck_session_missing_count)} / 盘前复核阻断=${formatNumber(summary.broker_recheck_session_blocked_count)}`)}</span>
-      <span>${escapeHtml(`小资金超限=${formatNumber(summary.small_capital_budget_breach_count)} / 单票上限=${formatNumber(summary.small_capital_ticket_limit)}`)}</span>
+      <span>${escapeHtml(`来源=${summary.source_ticket_family || "none"} / Daily Ops纸面复核=${formatNumber(summary.daily_ops_paper_recheck_review_count || 0)}/${formatNumber(summary.daily_ops_paper_recheck_ticket_count || 0)} / 小资金超限=${formatNumber(summary.small_capital_budget_breach_count)} / 单票上限=${formatNumber(summary.small_capital_ticket_limit)}`)}</span>
       <span>${escapeHtml("只审计人工执行事实，不连接券商、不读取账户、不自动下单。")}</span>
     </div>
     <div class="list-row ${escapeHtml(summary.execution_cost_bps > 0 ? (summary.slippage_breach_count ? "danger" : "warn") : rows.length ? "ok" : "warn")}">
@@ -13792,6 +13845,9 @@ function postCloseJournalReceipt(result = {}) {
       manual_review_recorded: Boolean(manualReview.manual_review_recorded),
       manual_execution_decision: manualExecutionSummary.decision,
       manual_execution_review_count: manualExecutionSummary.review_count,
+      source_ticket_family: manualExecutionSummary.source_ticket_family,
+      daily_ops_paper_recheck_ticket_count: manualExecutionSummary.daily_ops_paper_recheck_ticket_count,
+      daily_ops_paper_recheck_review_count: manualExecutionSummary.daily_ops_paper_recheck_review_count,
       executed_ticket_count: manualExecutionSummary.executed_count,
       manual_execution_guardrail_breach_count: manualExecutionSummary.guardrail_breach_count,
       manual_execution_slippage_breach_count: manualExecutionSummary.slippage_breach_count,
