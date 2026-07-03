@@ -1,0 +1,55 @@
+{
+  "stage": "round467_analyst_report_revision_source_retry_plan",
+  "generated_at": "2026-07-04",
+  "machine": "office_desktop",
+  "task": "factor_batch",
+  "branch": "codex/factor-batch-cn-stock-execution-aware-round465-20260704",
+  "scope": "CN stock analyst-report-revision PIT source extension",
+  "safety": "research-to-review only; no broker connection, account reads, order placement, or live trading",
+  "source": {
+    "provider": "Tushare",
+    "endpoint": "report_rc",
+    "known_limit": "2_per_day",
+    "last_attempt_window": {
+      "start_date": "2024-02-01",
+      "end_date": "2024-02-29",
+      "status": "rate_limited",
+      "retry_after_seconds": 86400,
+      "output_dir": "data/reports/round467_analyst_report_revision_cache_202402_20260704",
+      "processed_output_dir": "data/processed/round467_analyst_report_revision_cache_202402_20260704"
+    },
+    "existing_usable_cache": [
+      {
+        "window_start": "2024-01-01",
+        "window_end": "2024-01-31",
+        "rows": 1754,
+        "assets": 780,
+        "report_root": "data/processed/round463_analyst_report_revision_source_smoke_20260704"
+      }
+    ]
+  },
+  "candidate_plan": {
+    "source_plan_stage": "round453_analyst_report_revision_preregistration",
+    "gate_output_dir": "data/reports/round453_analyst_report_revision_candidate_plan_gate_20260627",
+    "candidate_count": 4,
+    "portfolio_backtest_allowed": false,
+    "promotion_allowed": false,
+    "formula_tuning_allowed": false
+  },
+  "next_retry": {
+    "earliest_policy": "after provider limit resets; do not burn repeated same-day attempts",
+    "resume_command": ".\\.venv\\Scripts\\python.exe scripts\\run_tushare_analyst_report_cache.py --start-date 2024-02-01 --end-date 2024-02-29 --output-dir data\\reports\\round467_analyst_report_revision_cache_202402_20260704 --processed-output-dir data\\processed\\round467_analyst_report_revision_cache_202402_20260704 --window-frequency MS --request-sleep-seconds 0 --max-rows-per-window 5000",
+    "post_success_prescreen_command": ".\\.venv\\Scripts\\python.exe scripts\\run_analyst_report_revision_prescreen.py --report-root data\\processed\\round463_analyst_report_revision_source_smoke_20260704 --report-root data\\processed\\round467_analyst_report_revision_cache_202402_20260704 --stock-basic data\\processed\\cn_stock_metadata --output-dir data\\reports\\round467_analyst_report_revision_prescreen_202401_202402_20260704 --analysis-start-date 2024-01-01 --analysis-end-date 2024-04-30 --horizons 5,20 --execution-lag 1 --pit-lag-trade-days 1 --min-cross-section 20 --min-ic-observations 1 --min-industries 2 --min-assets-per-industry 2 --min-signal-date-amount 10000000"
+  },
+  "blocked_actions": [
+    "do_not_tune_the_four_analyst_report_formulas_on_one_month_history",
+    "do_not_run_portfolio_grid_or_promotion_gate_until_long_cycle_pit_history_exists",
+    "do_not_continue_same_day_report_rc_retry_loop_after_2_per_day_limit",
+    "do_not_touch_2026_final_holdout_for_this_source_smoke"
+  ],
+  "decision": {
+    "status": "source_retry_blocked_by_provider_limit",
+    "candidate_generation_status": "blocked_until_more_pit_history",
+    "next_direction": "resume_2024_02_report_rc_cache_after_provider_limit_resets_or_rotate_to_paper_readiness_hardening"
+  }
+}

@@ -29,7 +29,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 | Branch | Role | Status |
 | --- | --- | --- |
 | `codex/factor-batch-cn-stock-benchmark-relative-20260704` | Round464 benchmark-relative residual moneyflow pre-registration, walk-forward framework fixes, and rejection evidence | active review branch |
-| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check plus Round466 strict paper-ops review for the Round462 `ps_gt10` paper lane | active review branch |
+| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, and Round467 analyst-report retry-status evidence | active review branch |
 
 These branches are not promotion branches. They record a completed rejection set, framework fixes, and paper-lane risk-repair evidence that should be reviewed before integration.
 
@@ -93,6 +93,7 @@ Latest same-day progress reports:
 - `docs/research/cn_stock_round464_benchmark_relative_moneyflow_preregistration_2026-07-04.md`
 - `docs/research/cn_stock_round465_ps_gt10_self_risk_overlay_2026-07-04.md`
 - `docs/research/cn_stock_round466_ps_gt10_self_risk_paper_ops_review_2026-07-04.md`
+- `docs/research/cn_stock_round467_analyst_report_revision_retry_status_2026-07-04.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -135,6 +136,16 @@ Round466 rebuilt strict paper-handoff and paper-ops review evidence for that ove
 - Paper ops package status remains `paper_ops_package_ready` with the existing Round462 `ps_gt10` high-return lane.
 
 Decision: do not replace the Round462 `ps_gt10` high-return paper lane with the Round465 self-risk overlay under the current 0.75 OOS strict-pass gate. Keep the overlay only as blocked review evidence and rotate away from same-family q20/ps_gt10 repair unless a future pre-registered monitoring task requires it without retuning.
+
+Round467 retried the orthogonal analyst-report-revision PIT source after Round463:
+
+- Retry config: `configs/cn_stock_round467_analyst_report_revision_retry_plan_20260704.json`
+- Attempted window: 2024-02-01 to 2024-02-29.
+- Result: 0 fetched windows, 1 failed window, 0 rows, 0 assets.
+- Provider limit: `report_rc` returned `2_per_day` with `retry_after_seconds` 86,400.
+- Existing usable analyst-report cache remains Round463 January 2024 only: 1,754 rows and 780 assets.
+
+Decision: do not burn more same-day `report_rc` retries. Resume February 2024 after the provider limit resets, then rerun the same frozen PIT prescreen with both January and February report roots. No formula tuning, portfolio grid, promotion gate, or final-holdout read is allowed for this source-smoke state.
 
 ## Current CN ETF Framework
 
