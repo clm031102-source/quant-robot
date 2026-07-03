@@ -29,6 +29,7 @@ def main() -> None:
     parser.add_argument("--max-rows-per-window", type=int, default=5000)
     parser.add_argument("--no-resume", action="store_true")
     parser.add_argument("--no-write-processed", action="store_true")
+    parser.add_argument("--continue-after-rate-limit", action="store_true")
     args = parser.parse_args()
 
     result = run_tushare_analyst_report_cache(
@@ -42,6 +43,7 @@ def main() -> None:
         window_frequency=args.window_frequency,
         request_sleep_seconds=args.request_sleep_seconds,
         max_rows_per_window=args.max_rows_per_window,
+        stop_on_rate_limit=not args.continue_after_rate_limit,
         progress_callback=lambda item: print(json.dumps(item, ensure_ascii=False, sort_keys=True), flush=True),
     )
     print(

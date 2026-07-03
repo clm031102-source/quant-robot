@@ -1,6 +1,6 @@
 # Current Research And Cloud Sync Index
 
-Last updated: 2026-06-27
+Last updated: 2026-07-04
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
@@ -10,7 +10,7 @@ Purpose: this is the first file to read after syncing the repository on any work
 - Remote HEAD: `origin/main`
 - Current remote topic branches: none
 - Remote branch cleanup status: complete
-- Latest integrated cloud commit: `c02d0736`
+- Latest integrated cloud commit: `9451558b`
 - Live-trading boundary: disabled; research-to-paper only
 - Latest cloud audit report: `docs/research/cloud_project_audit_2026-06-27.md`
 
@@ -75,6 +75,22 @@ Promotion status:
 - New paper-ready observation lane from Rounds 460-462: `1`
 - Final promotable/live alpha: `0`
 - Final holdout: sealed
+
+## Current CN Stock Factor-Mining Status
+
+Latest same-day progress report:
+
+- `docs/research/cn_stock_round463_analyst_report_revision_source_smoke_2026-07-04.md`
+
+Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
+
+- `report_rc` returned 1,754 rows and 780 assets for January 2024.
+- The February extension hit a provider frequency limit reported as 1 request/hour.
+- PIT prescreen ran on the one-month cache with 4 candidates and 8 tests.
+- Research leads: 0.
+- Promotion allowed candidates: 0.
+
+Decision: analyst report revision is usable enough to cache slowly, but not usable enough for a profitability claim. Do not tune formulas or run portfolio grids from the one-month source smoke.
 
 ## Current CN ETF Framework
 
