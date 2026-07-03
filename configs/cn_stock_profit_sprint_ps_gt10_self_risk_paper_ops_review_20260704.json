@@ -1,0 +1,154 @@
+{
+  "stage": "cn_stock_profit_sprint_ps_gt10_self_risk_paper_ops_review",
+  "generated_at": "2026-07-04",
+  "machine_role": "office_desktop",
+  "task_type": "factor_batch",
+  "branch": "codex/factor-batch-cn-stock-execution-aware-round465-20260704",
+  "safety": "research-to-paper only; no broker connection, no account reads, no order placement, no live trading",
+  "final_holdout_2026": {
+    "status": "sealed",
+    "policy": "Do not run 2026 final holdout until the project intentionally enters final validation.",
+    "read_once_required": true
+  },
+  "paper_simulation_handoff_candidates": [
+    {
+      "id": "paper_ready_delayed_exit_m150_cost10_vt08_max100_self_roll21_x08",
+      "status": "paper_simulation_cohort_entry_timed_candidate",
+      "role": "default_10bps",
+      "cost_rate": 0.001,
+      "formula": "trade-level cohort source grouped by entry_date + delayed_exit_date; delayed-exit return repair + entry-timed vol_target_8_lb84 max_exposure_1.00 + entry-timed self-risk roll21_sum_neg_0.80x",
+      "event_return_source": {
+        "path": "data/reports/round432_24h_profit_sprint_delayed_exit_m150_20260627/simulation_shortlist_entry_timed_events.csv",
+        "date_column": "date",
+        "return_column": "period_return"
+      },
+      "evidence": {
+        "paper_ready": true,
+        "full_sample_annualized_return": 0.0666337878,
+        "full_sample_max_drawdown": -0.2621408725,
+        "mean_oos_annualized_return": 0.1004347448,
+        "oos_strict_pass_rate": 0.9,
+        "csi500_beta_hedged_annualized_return": 0.0709492151,
+        "csi500_beta_hedged_overlap_sharpe": 0.7555573221,
+        "csi500_beta_hedged_max_drawdown": -0.1358736485
+      },
+      "risk_caveat": "Conservative default comparison lane. Keep as baseline even when a higher-return diagnostic lane exists."
+    },
+    {
+      "id": "paper_ready_cohort_entry_timed_range_q20_m175_ps_gt10_cash_cost10_vt08_max100_self_roll21_x08",
+      "status": "paper_simulation_cohort_entry_timed_candidate",
+      "role": "diagnostic",
+      "cost_rate": 0.001,
+      "formula": "Round445 q20/m175 high-return lane plus entry-known PS TTM > 10 cash-out risk repair; entry-timed vol_target_8_lb84 max_exposure_1.00 plus self-risk roll21_sum_neg_0.80x",
+      "event_return_source": {
+        "path": "data/reports/round462_24h_profit_sprint_q20_tail_attribute_cash_filter_20260627/cash_ps_gt_10_official_template_period_returns.csv",
+        "date_column": "date",
+        "return_column": "period_return"
+      },
+      "evidence": {
+        "paper_ready": true,
+        "full_sample_annualized_return": 0.07794143577038515,
+        "full_sample_max_drawdown": -0.2542482236517434,
+        "mean_oos_annualized_return": 0.11644248994284206,
+        "oos_strict_pass_rate": 0.7666666667,
+        "csi500_beta_hedged_annualized_return": 0.08589118651497096,
+        "csi500_beta_hedged_overlap_sharpe": 0.929924299437399,
+        "csi500_beta_hedged_max_drawdown": -0.11299404265077184
+      },
+      "cost_stress": {
+        "cost10_max_drawdown": -0.2542482236517434,
+        "cost20_max_drawdown": -0.26779395690198504,
+        "cost30_max_drawdown": -0.2813099618054973
+      },
+      "risk_caveat": "Current Round462 high-return paper lane. It passes the existing 0.75 OOS strict-pass handoff threshold but remains diagnostic, not a final promoted alpha."
+    },
+    {
+      "id": "review_cohort_entry_timed_range_q20_m175_ps_gt10_self_roll21_m2_cash_cost10",
+      "status": "paper_simulation_cohort_entry_timed_candidate",
+      "role": "diagnostic",
+      "cost_rate": 0.001,
+      "formula": "Round462 ps_gt10 lane plus fixed prior-information self-risk overlay: cash exposure when the prior 21-event return sum is below -2%.",
+      "event_return_source": {
+        "path": "data/reports/round465_ps_gt10_self_risk_overlay_20260704/ps_gt10_self_roll21_sum_m2_cash_events.csv",
+        "date_column": "date",
+        "return_column": "period_return"
+      },
+      "evidence": {
+        "paper_ready": false,
+        "full_sample_annualized_return": 0.08507982577628304,
+        "full_sample_max_drawdown": -0.12458721638476855,
+        "mean_oos_annualized_return": 0.10404204000249413,
+        "oos_strict_pass_rate": 0.6333333333333333
+      },
+      "cost_stress": {
+        "cost10_annualized_return": 0.08507982577628281,
+        "cost10_max_drawdown": -0.12458721638476866,
+        "cost20_annualized_return": 0.08025398889319701,
+        "cost20_max_drawdown": -0.13068871492391254,
+        "cost30_annualized_return": 0.0722381695224863,
+        "cost30_max_drawdown": -0.1367493818005282
+      },
+      "risk_caveat": "Round465 overlay improves full-sample and cost-stress drawdown, but strict OOS pass rate is 0.6333 under the existing 0.75 paper-handoff gate. Keep as blocked review evidence unless a future preregistered validation clears the gate without retuning."
+    }
+  ],
+  "round457_range_q20_paper_readiness_hardening": {
+    "primary_high_return_paper_candidate_id": "paper_ready_cohort_entry_timed_range_q20_m175_ps_gt10_cash_cost10_vt08_max100_self_roll21_x08",
+    "capacity_stress": {
+      "rows": [
+        {
+          "aum_multiplier": 1,
+          "capacity_safe": true,
+          "capacity_breach_trades": 0
+        },
+        {
+          "aum_multiplier": 5,
+          "capacity_safe": true,
+          "capacity_breach_trades": 0
+        },
+        {
+          "aum_multiplier": 10,
+          "capacity_safe": true,
+          "capacity_breach_trades": 0
+        },
+        {
+          "aum_multiplier": 20,
+          "capacity_safe": true,
+          "capacity_breach_trades": 0
+        },
+        {
+          "aum_multiplier": 50,
+          "capacity_safe": false,
+          "capacity_breach_trades": 5
+        },
+        {
+          "aum_multiplier": 100,
+          "capacity_safe": false,
+          "capacity_breach_trades": 465
+        }
+      ]
+    },
+    "extreme_trade_profile": {
+      "extreme_trade_count": 116,
+      "extreme_contribution_share": 0.345179327038286
+    }
+  },
+  "round455_simulation_blend_audit": {
+    "summary": {
+      "blocked_case_count": 30,
+      "component_return_correlation_min": 0.9928282198,
+      "component_return_correlation_max": 0.998836095
+    }
+  },
+  "round465_ps_gt10_self_risk_review": {
+    "self_risk_output_dir": "data/reports/round465_ps_gt10_self_risk_overlay_20260704",
+    "oos_output_dir": "data/reports/round465_ps_gt10_self_risk_oos_20260704",
+    "cost_stress_output_dir": "data/reports/round465_ps_gt10_self_risk_cost_stress_20260704",
+    "paper_handoff_output_dir": "data/reports/round465_ps_gt10_self_risk_paper_handoff_review_20260704",
+    "paper_ops_package_output_dir": "data/reports/round465_ps_gt10_self_risk_paper_ops_review_20260704",
+    "decision": "Do not replace the Round462 ps_gt10 high-return paper lane with the Round465 self-risk overlay under the current 0.75 OOS strict-pass gate."
+  },
+  "promotion_policy": {
+    "promotion_allowed": false,
+    "reason": "Paper-ops review only; the Round465 overlay failed the existing OOS strict-pass handoff threshold and final holdout remains sealed."
+  }
+}

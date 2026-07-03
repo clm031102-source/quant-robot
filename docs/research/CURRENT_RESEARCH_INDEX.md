@@ -29,7 +29,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 | Branch | Role | Status |
 | --- | --- | --- |
 | `codex/factor-batch-cn-stock-benchmark-relative-20260704` | Round464 benchmark-relative residual moneyflow pre-registration, walk-forward framework fixes, and rejection evidence | active review branch |
-| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check for the Round462 `ps_gt10` paper lane | active review branch |
+| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check plus Round466 strict paper-ops review for the Round462 `ps_gt10` paper lane | active review branch |
 
 These branches are not promotion branches. They record a completed rejection set, framework fixes, and paper-lane risk-repair evidence that should be reviewed before integration.
 
@@ -92,6 +92,7 @@ Latest same-day progress reports:
 - `docs/research/cn_stock_round463_analyst_report_revision_source_smoke_2026-07-04.md`
 - `docs/research/cn_stock_round464_benchmark_relative_moneyflow_preregistration_2026-07-04.md`
 - `docs/research/cn_stock_round465_ps_gt10_self_risk_overlay_2026-07-04.md`
+- `docs/research/cn_stock_round466_ps_gt10_self_risk_paper_ops_review_2026-07-04.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -121,7 +122,19 @@ Round465 tested fixed self-risk overlays on the already packaged Round462 `ps_gt
 - Best overlay annualized / overlap Sharpe / max drawdown: 8.51% / 0.697 / -12.46%.
 - Calendar walk-forward best fixed drawdown overlay: average test annualized 8.51%, average test overlap Sharpe 0.793, worst test drawdown -15.10%, strict pass rate 71.43%.
 
-Decision: keep `ps_gt10_self_roll21_sum_m2_cash` as a stronger paper-simulation risk-repair lane, not an independent alpha. Next work should rebuild paper handoff or paper-ops evidence with this fixed overlay and rerun cost, capacity, tail-contribution, and simulation replay checks.
+Initial decision: keep `ps_gt10_self_roll21_sum_m2_cash` as a stronger risk-repair candidate for follow-up review, not an independent alpha.
+
+Round466 rebuilt strict paper-handoff and paper-ops review evidence for that overlay:
+
+- Review config: `configs/cn_stock_profit_sprint_ps_gt10_self_risk_paper_ops_review_20260704.json`
+- OOS split audit: 30 splits, mean OOS annualized 10.40%, mean OOS overlap Sharpe 0.906, worst OOS drawdown -12.46%, strict pass rate 63.33%.
+- Cost-stress overlay: cost30 annualized 7.22%, overlap Sharpe 0.603, max drawdown -13.67%.
+- Strict handoff review: 3 candidates, 2 ready, 1 blocked.
+- Blocked overlay: `review_cohort_entry_timed_range_q20_m175_ps_gt10_self_roll21_m2_cash_cost10`
+- Blockers: `not_paper_ready`, `oos_strict_pass_rate_below_min`.
+- Paper ops package status remains `paper_ops_package_ready` with the existing Round462 `ps_gt10` high-return lane.
+
+Decision: do not replace the Round462 `ps_gt10` high-return paper lane with the Round465 self-risk overlay under the current 0.75 OOS strict-pass gate. Keep the overlay only as blocked review evidence and rotate away from same-family q20/ps_gt10 repair unless a future pre-registered monitoring task requires it without retuning.
 
 ## Current CN ETF Framework
 

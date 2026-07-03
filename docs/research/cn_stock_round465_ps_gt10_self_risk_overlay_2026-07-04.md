@@ -143,7 +143,9 @@ Do not promote it as an independent alpha.
 
 Do not treat this as permission to tune `q20`, `m175`, range-contraction, or `ps_ttm` thresholds.
 
-The next useful work is to rebuild the paper handoff or paper-ops package with this fixed overlay as a candidate lane, then rerun cost, capacity, tail-contribution, and simulation replay checks.
+Follow-up paper-ops review was completed in `docs/research/cn_stock_round466_ps_gt10_self_risk_paper_ops_review_2026-07-04.md`.
+
+That review blocked `ps_gt10_self_roll21_sum_m2_cash` under the existing `0.75` OOS strict-pass paper-handoff gate. The overlay remains useful risk-repair evidence, but it should not replace the current Round462 `ps_gt10` high-return paper lane.
 
 ## Safety Boundary
 
