@@ -29,7 +29,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 | Branch | Role | Status |
 | --- | --- | --- |
 | `codex/factor-batch-cn-stock-benchmark-relative-20260704` | Round464 benchmark-relative residual moneyflow pre-registration, walk-forward framework fixes, and rejection evidence | active review branch |
-| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, and Round467 analyst-report retry-status evidence | active review branch |
+| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, and Round470 final-holdout boundary evidence | active review branch |
 
 These branches are not promotion branches. They record a completed rejection set, framework fixes, and paper-lane risk-repair evidence that should be reviewed before integration.
 
@@ -83,7 +83,7 @@ Promotion status:
 - New independent alpha from Rounds 460-462: `0`
 - New paper-ready observation lane from Rounds 460-462: `1`
 - Final promotable/live alpha: `0`
-- Final holdout: sealed
+- Final holdout: sealed for current lanes; historical Round145 read the holdout and then failed the result audit
 
 ## Current CN Stock Factor-Mining Status
 
@@ -97,6 +97,7 @@ Latest same-day progress reports:
 - `docs/research/cn_stock_round467_analyst_report_revision_retry_status_2026-07-04.md`
 - `docs/research/project_round468_paper_ops_guardrail_runbook_status_2026-07-04.md`
 - `docs/research/project_round469_readiness_blocker_audit_2026-07-04.md`
+- `docs/research/project_round470_final_holdout_boundary_audit_2026-07-04.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -153,7 +154,7 @@ Decision: do not burn more same-day `report_rc` retries. Resume February 2024 af
 Cloud branch integration handoff:
 
 - `origin/codex/factor-batch-cn-stock-benchmark-relative-20260704` is 1 commit ahead of `origin/main`.
-- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 4 commits ahead of `origin/main`.
+- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 8 commits ahead of `origin/main` after Round470 is pushed.
 - The Round464 branch is an ancestor of the Round465/467 branch, so laptop integration may merge Round464 first and then Round465/467 for review clarity, or merge Round465/467 once to absorb both.
 - Do not delete either topic branch until laptop safe-sync marks it as merged or manifest-absorbed.
 
@@ -186,6 +187,16 @@ Round469 reran the completion/readiness blocker audits:
 - Observation sufficiency: blocked by `profile_observation_artifact_missing`; stale post-refresh replay should be rerun on the assigned paper/ETF workstation before recomputing sufficiency.
 
 Decision: keep the live/manual review gate blocked by design under the research-to-paper boundary. Continue with laptop branch integration, assigned paper replay refresh, and non-hibernated PIT source work only.
+
+Round470 revalidated the final-holdout boundary from the existing Round145 `daily_basic_free_float_supply_quality` report:
+
+- Readiness audit: final holdout was truly read; bars reached 2026-06-15, signals reached 2026-05-28, and 6 holdout fold rows touched the final-holdout window.
+- Result audit: 6 aggregate-accepted cases, 0 holdout-passed cases.
+- Best holdout total return: -0.5949%.
+- Best holdout overlap-adjusted Sharpe: -5.6965.
+- Blocker: `no_case_passed_final_holdout_fold`.
+
+Decision: historical Round145 is process evidence only and remains hibernated. Current Round464/Round465/Round467 lanes must not claim final-holdout passage, paper-gate clearance, or promotion readiness.
 
 ## Current CN ETF Framework
 
