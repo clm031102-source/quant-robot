@@ -96,6 +96,7 @@ Latest same-day progress reports:
 - `docs/research/cn_stock_round466_ps_gt10_self_risk_paper_ops_review_2026-07-04.md`
 - `docs/research/cn_stock_round467_analyst_report_revision_retry_status_2026-07-04.md`
 - `docs/research/project_round468_paper_ops_guardrail_runbook_status_2026-07-04.md`
+- `docs/research/project_round469_readiness_blocker_audit_2026-07-04.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -171,6 +172,20 @@ Round468 reran the paper-only operations guardrail and runbook from the existing
 - Live boundary violations: 0
 
 Decision: continue paper-only observation and provider-readiness refreshes. Do not make a live-readiness claim, do not connect to brokers or accounts, and do not treat the current paper history as factor promotion evidence.
+
+Round469 reran the completion/readiness blocker audits:
+
+- Quant PM startup gate: `ready`, blockers `[]`.
+- CN stock factor-mining gate: `cleared`, next direction still `paper_simulation_packaging_or_new_pit_source_not_q20_threshold_tuning`.
+- CN stock data manifest: no blockers; warnings remain `extreme_return_rows_present` and `moneyflow_symbol_coverage_below_bars`.
+- Local readiness check: Tushare ready and parquet ready; no token or credential value was written to the repo.
+- Readiness projection: 1 current blocker and 2 projected warnings.
+- Blocker worklist: 1 open item, `manual_live_review_not_enabled`.
+- Manual review rehearsal: blocked by `manual_live_review_not_enabled` and `manual_live_review_enabled_blocked`, with 5 of 7 requirements passing.
+- Evidence refresh: data quality, provider readiness, paper observation, and duplicate resolution clear; manual review gate remains blocked.
+- Observation sufficiency: blocked by `profile_observation_artifact_missing`; stale post-refresh replay should be rerun on the assigned paper/ETF workstation before recomputing sufficiency.
+
+Decision: keep the live/manual review gate blocked by design under the research-to-paper boundary. Continue with laptop branch integration, assigned paper replay refresh, and non-hibernated PIT source work only.
 
 ## Current CN ETF Framework
 
