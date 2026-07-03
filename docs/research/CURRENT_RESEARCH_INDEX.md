@@ -29,7 +29,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 | Branch | Role | Status |
 | --- | --- | --- |
 | `codex/factor-batch-cn-stock-benchmark-relative-20260704` | Round464 benchmark-relative residual moneyflow pre-registration, walk-forward framework fixes, and rejection evidence | active review branch |
-| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, Round471 financial/PIT source-gate refresh, Round472 paper replay refresh, Round473 expanded-observation data-quality block evidence, and Round474 office-desktop completion handoff | active review branch |
+| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, Round471 financial/PIT source-gate refresh, Round472 paper replay refresh, Round473 expanded-observation data-quality block evidence, Round474 office-desktop completion handoff, and Round475 fund-basic rotation-membership repair | active review branch |
 
 These branches are not promotion branches. They record a completed rejection set, framework fixes, and paper-lane risk-repair evidence that should be reviewed before integration.
 
@@ -102,6 +102,7 @@ Latest same-day progress reports:
 - `docs/research/project_round472_post_refresh_replay_observation_refresh_2026-07-04.md`
 - `docs/research/project_round473_expanded_observation_data_quality_block_2026-07-04.md`
 - `docs/research/project_round474_office_desktop_completion_handoff_2026-07-04.md`
+- `docs/research/project_round475_fund_basic_rotation_membership_repair_2026-07-04.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -158,7 +159,7 @@ Decision: do not burn more same-day `report_rc` retries. Resume February 2024 af
 Cloud branch integration handoff:
 
 - `origin/codex/factor-batch-cn-stock-benchmark-relative-20260704` is 1 commit ahead of `origin/main`.
-- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 12 commits ahead of `origin/main` after Round474 is pushed.
+- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 13 commits ahead of `origin/main` after Round475 is pushed.
 - The Round464 branch is an ancestor of the Round465/467 branch, so laptop integration may merge Round464 first and then Round465/467 for review clarity, or merge Round465/467 once to absorb both.
 - Do not delete either topic branch until laptop safe-sync marks it as merged or manifest-absorbed.
 
@@ -251,6 +252,19 @@ Round474 completed the office-desktop handoff:
 - Laptop should perform `project_sync` / mainline integration and only then run safe topic-branch cleanup.
 
 Decision: office_desktop should not merge `main` or delete remote branches. The next highest-value action is laptop integration. Profit-factor mining should wait until main is stable and the Round473 observation/data-quality lane is closed or explicitly re-scoped.
+
+Round475 repaired the recent-refresh CN ETF rotation boundary:
+
+- Root cause: `501222.SH` is listed in Tushare `fund_basic` as `易方达如意招享混合(FOF-LOF)-A`, with `is_etf=false`; it is not a valid CN ETF target.
+- The prior recent-refresh membership writer marked every Tushare `fund_daily` asset as a rotation member, allowing this LOF/FOF fund into the paper replay.
+- `scripts/run_recent_data_refresh.py` now loads Tushare `fund_basic` for live `tushare` recent refreshes and delegates membership construction to the formal `build_cn_etf_rotation_membership` logic.
+- Regression test added: `test_fund_basic_rotation_membership_excludes_lof_from_recent_refresh`.
+- Local ready recent-data membership after repair: 54,553 rows, 12,376 member rows, 1,559 member assets, source `tushare_fund_basic_fund_daily`.
+- `CN_ETF_XSHG_501222` member rows after repair: 0.
+- Post-repair replay selected `CN_ETF_XSHE_160615`, a fund-basic validated ETF member, not `501222`.
+- Replay remains paper-only and blocked only by `minimum_fills_observed`.
+
+Decision: do not backfill or forward-fill `501222.SH`; exclude it through fund-basic validated CN ETF membership. The project is cleaner, but not complete until laptop integrates the branch to `main`, safe-cleans the remote topic branches, and the paper-observation sufficiency route is rerun or re-scoped from the repaired replay evidence.
 
 ## Current CN ETF Framework
 

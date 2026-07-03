@@ -15,12 +15,14 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 ensure_workspace_imports()
 
 from quant_robot.data.readiness import check_tushare_readiness
+from quant_robot.data.adapters.tushare_adapter import TushareAdapter
 from quant_robot.ops.recent_data_refresh import (
     build_recent_data_refresh_pack,
     build_workstation_refresh_context,
     resolve_refresh_window,
     write_recent_data_refresh_pack,
 )
+from quant_robot.ops.tushare_cn_etf_sync import build_cn_etf_rotation_membership
 from quant_robot.storage.dataset_store import DatasetStore
 from quant_robot.storage.processed_bars import load_processed_bars
 
@@ -47,6 +49,7 @@ def run_recent_data_refresh(
     execute: bool = False,
     readiness: dict[str, Any] | None = None,
     ingest_runner: Callable[..., dict[str, Any]] | None = None,
+    fund_basic_loader: Callable[[], pd.DataFrame] | None = None,
     machine: str | None = None,
     workstation_config: dict[str, Any] | None = None,
     workstations_config_path: str | Path = DEFAULT_WORKSTATIONS_CONFIG,
@@ -73,7 +76,12 @@ def run_recent_data_refresh(
         )
         ingest_result = {
             **ingest_result,
-            "rotation_membership": _write_recent_cn_etf_rotation_membership(Path(output_dir), market.upper()),
+            "rotation_membership": _write_recent_cn_etf_rotation_membership(
+                Path(output_dir),
+                market.upper(),
+                source_name=source_name,
+                fund_basic=_load_recent_fund_basic(source_name, fund_basic_loader),
+            ),
         }
     pack = build_recent_data_refresh_pack(
         profile_pack,
@@ -150,7 +158,13 @@ def _read_json(path: Path) -> dict[str, Any]:
     return data
 
 
-def _write_recent_cn_etf_rotation_membership(output_dir: Path, market: str) -> dict[str, Any]:
+def _write_recent_cn_etf_rotation_membership(
+    output_dir: Path,
+    market: str,
+    *,
+    source_name: str = "tushare",
+    fund_basic: pd.DataFrame | None = None,
+) -> dict[str, Any]:
     market_name = market.upper()
     dataset = "metadata/cn_etf_rotation_membership"
     if market_name != "CN_ETF":
@@ -162,14 +176,19 @@ def _write_recent_cn_etf_rotation_membership(output_dir: Path, market: str) -> d
     if bars.empty:
         return {"dataset": dataset, "market": market_name, "written": False, "reason": "no_processed_bars"}
 
-    membership = _recent_membership_from_bars(bars, market_name)
+    has_fund_basic = isinstance(fund_basic, pd.DataFrame) and not fund_basic.empty
+    membership = (
+        build_cn_etf_rotation_membership(fund_basic, bars)
+        if has_fund_basic
+        else _recent_membership_from_bars(bars, market_name)
+    )
     written_path = DatasetStore(output_dir).write_frame(membership, dataset, {"market": market_name})
     dates = pd.to_datetime(membership["date"])
     members = membership[membership["is_rotation_member"].astype(bool)]
-    return {
+    summary = {
         "dataset": dataset,
         "market": market_name,
-        "source": "recent_refresh_provider_daily_bars",
+        "source": "tushare_fund_basic_fund_daily" if has_fund_basic else "recent_refresh_provider_daily_bars",
         "written": True,
         "path": str(written_path),
         "rows": int(len(membership)),
@@ -179,6 +198,23 @@ def _write_recent_cn_etf_rotation_membership(output_dir: Path, market: str) -> d
         "start_date": dates.min().date().isoformat(),
         "end_date": dates.max().date().isoformat(),
     }
+    if has_fund_basic:
+        summary["fund_basic_rows"] = int(len(fund_basic))
+        summary["excluded_rows"] = int(len(membership) - len(members))
+    else:
+        summary["validation_warning"] = f"{source_name}_fund_basic_not_applied"
+    return summary
+
+
+def _load_recent_fund_basic(source_name: str, loader: Callable[[], pd.DataFrame] | None) -> pd.DataFrame | None:
+    if loader is not None:
+        return loader()
+    if source_name != "tushare":
+        return None
+    try:
+        return TushareAdapter().fetch_fund_basic(market="E", status="")
+    except Exception:
+        return None
 
 
 def _recent_membership_from_bars(bars: pd.DataFrame, market: str) -> pd.DataFrame:
