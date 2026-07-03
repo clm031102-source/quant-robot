@@ -29,7 +29,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 | Branch | Role | Status |
 | --- | --- | --- |
 | `codex/factor-batch-cn-stock-benchmark-relative-20260704` | Round464 benchmark-relative residual moneyflow pre-registration, walk-forward framework fixes, and rejection evidence | active review branch |
-| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, Round471 financial/PIT source-gate refresh, and Round472 paper replay refresh | active review branch |
+| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, Round471 financial/PIT source-gate refresh, Round472 paper replay refresh, and Round473 expanded-observation data-quality block evidence | active review branch |
 
 These branches are not promotion branches. They record a completed rejection set, framework fixes, and paper-lane risk-repair evidence that should be reviewed before integration.
 
@@ -100,6 +100,7 @@ Latest same-day progress reports:
 - `docs/research/project_round470_final_holdout_boundary_audit_2026-07-04.md`
 - `docs/research/project_round471_financial_pit_source_gate_refresh_2026-07-04.md`
 - `docs/research/project_round472_post_refresh_replay_observation_refresh_2026-07-04.md`
+- `docs/research/project_round473_expanded_observation_data_quality_block_2026-07-04.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -156,7 +157,7 @@ Decision: do not burn more same-day `report_rc` retries. Resume February 2024 af
 Cloud branch integration handoff:
 
 - `origin/codex/factor-batch-cn-stock-benchmark-relative-20260704` is 1 commit ahead of `origin/main`.
-- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 10 commits ahead of `origin/main` after Round472 is pushed.
+- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 11 commits ahead of `origin/main` after Round473 is pushed.
 - The Round464 branch is an ancestor of the Round465/467 branch, so laptop integration may merge Round464 first and then Round465/467 for review clarity, or merge Round465/467 once to absorb both.
 - Do not delete either topic branch until laptop safe-sync marks it as merged or manifest-absorbed.
 
@@ -224,6 +225,20 @@ Round472 reran the paper-only post-refresh replay from the ready recent-data ref
 - Expanded observation dry run: `can_extend_observation_window=true`, but not cleared because the dry run did not execute the expanded data refresh.
 
 Decision: paper-only observation may continue, but the candidate is not live-ready. The next real execution is an expanded recent-data refresh on the assigned ETF/paper workstation, followed by post-refresh replay and observation sufficiency recomputation.
+
+Round473 executed the expanded recent-data refresh recommended by Round472:
+
+- Quant PM startup gates for `data_pipeline` and `factor_review`: `ready`, blockers `[]`.
+- Expanded refresh command used the Round472 profile-observation pack and target window 2026-04-13 to 2026-07-01.
+- Tushare refresh executed and produced 107,598 processed rows across 2,065 CN ETF assets and 54 provider trade dates.
+- Refresh status: `data_quality_blocked`.
+- Required observed asset: `CN_ETF_XSHG_501222`.
+- Required asset coverage: 37 / 54 expected rows, with 17 missing provider-calendar dates.
+- Full-market raw rows were present on all 17 missing dates, but `501222.SH` was absent from every inspected raw partition.
+- Longest complete suffix ending at 2026-07-01: 2026-06-30 to 2026-07-01, only 2 provider dates.
+- Post-refresh replay status from the blocked refresh pack: `blocked`; Daily Ops and profile observation were not rerun.
+
+Decision: do not bypass the required-asset data-quality gate, do not forward-fill the 17 missing rows, and do not claim observation sufficiency or live readiness from this expanded window. Next action is to verify suspension/no-trade or provider omission for `501222.SH`, continue real paper observation, or pre-register a replacement paper-observation workflow before changing the observed asset.
 
 ## Current CN ETF Framework
 
