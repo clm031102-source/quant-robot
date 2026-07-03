@@ -95,6 +95,45 @@ class ExperimentRunnerTests(unittest.TestCase):
             saved = pd.read_csv(Path(tmp) / "leaderboard.csv")
             self.assertEqual(len(saved), 8)
 
+    def test_experiment_grid_reuses_completed_output_when_resume_enabled(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp)
+            cached_row = {
+                "case_id": "CN_momentum_2_top1_cost0_reb1",
+                "market": "CN",
+                "factor_source": "technical",
+                "factor_name": "momentum_2",
+                "status": "completed",
+                "trades": 5,
+                "rank": 1,
+            }
+            (output_dir / "leaderboard.json").write_text(json.dumps([cached_row]), encoding="utf-8")
+            (output_dir / "manifest.json").write_text(
+                json.dumps(
+                    {
+                        "config": {"factor_names": ["momentum_2"]},
+                        "summary": {"cases": 1, "completed": 1, "no_trades": 0, "failed": 0},
+                    }
+                ),
+                encoding="utf-8",
+            )
+            config = ExperimentGridConfig(
+                markets=("CN",),
+                factor_names=("momentum_2",),
+                factor_windows=(2,),
+                top_n_values=(1,),
+                cost_bps_values=(0.0,),
+                output_dir=output_dir,
+                resume_completed_cases=True,
+            )
+
+            with patch("quant_robot.experiments.runner.run_research_pipeline") as pipeline:
+                result = run_experiment_grid(load_demo_market_bars(), config)
+
+            pipeline.assert_not_called()
+            self.assertEqual(result["summary"]["cases"], 1)
+            self.assertEqual(result["leaderboard"], [cached_row])
+
     def test_experiment_grid_surfaces_decision_metrics(self):
         config = ExperimentGridConfig(
             markets=("CN_ETF",),

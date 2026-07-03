@@ -59,7 +59,7 @@ def run_walk_forward_validation(bars: pd.DataFrame, config: WalkForwardConfig) -
         return _run_rolling_walk_forward_validation(bars, config)
     train_bars, post_split_bars = _split_bars(bars, config.split_date)
     test_signal_start = str(pd.to_datetime(post_split_bars["date"]).dt.date.min())
-    test_bars = _with_warmup_bars(train_bars, post_split_bars, max(config.experiment_grid.factor_windows))
+    test_bars = _with_warmup_bars(train_bars, post_split_bars, _warmup_rows(config))
     train_dir = config.output_dir / "train" if config.output_dir is not None else None
     test_dir = config.output_dir / "test" if config.output_dir is not None else None
     train_config = replace(config.experiment_grid, output_dir=train_dir, signal_end_date=config.split_date)
@@ -83,7 +83,7 @@ def _run_rolling_walk_forward_validation(bars: pd.DataFrame, config: WalkForward
     if not folds:
         raise ValueError("Rolling walk-forward requires enough dates for at least one fold")
     fold_rows: list[dict[str, Any]] = []
-    max_window = max(config.experiment_grid.factor_windows)
+    max_window = _warmup_rows(config)
     for fold in folds:
         fold_dir = config.output_dir / f"fold_{fold['fold']:02d}" if config.output_dir is not None else None
         train_dir = fold_dir / "train" if fold_dir is not None else None
@@ -206,6 +206,22 @@ def _with_warmup_bars(train_bars: pd.DataFrame, post_split_bars: pd.DataFrame, w
         .tail(max(warmup_rows, 0))
     )
     return pd.concat([warmup, post_split_bars], ignore_index=True).sort_values(["asset_id", "date"]).reset_index(drop=True)
+
+
+def _warmup_rows(config: WalkForwardConfig) -> int:
+    windows = [int(value) for value in config.experiment_grid.factor_windows]
+    if config.experiment_grid.regime_filter:
+        windows.extend(int(value) for value in _regime_lookbacks(config))
+    if config.experiment_grid.min_signal_average_amount is not None:
+        windows.append(int(config.experiment_grid.signal_amount_window))
+    return max(windows) if windows else 0
+
+
+def _regime_lookbacks(config: WalkForwardConfig) -> tuple[int, ...]:
+    values = config.experiment_grid.regime_lookback_values
+    if values is not None:
+        return tuple(int(value) for value in values)
+    return (int(config.experiment_grid.regime_lookback),)
 
 
 def _merge_leaderboards(
@@ -543,6 +559,7 @@ def _grid_from_mapping(data: dict[str, Any]) -> ExperimentGridConfig:
         factor_input_root=Path(data["factor_input_root"]) if data.get("factor_input_root") else None,
         factor_input_required=bool(data.get("factor_input_required", ExperimentGridConfig.factor_input_required)),
         moneyflow_input_root=Path(data["moneyflow_input_root"]) if data.get("moneyflow_input_root") else None,
+        asset_universe_path=Path(data["asset_universe_path"]) if data.get("asset_universe_path") else None,
         rotation_membership_root=(
             Path(data["rotation_membership_root"]) if data.get("rotation_membership_root") else None
         ),
@@ -579,6 +596,10 @@ def _grid_from_mapping(data: dict[str, Any]) -> ExperimentGridConfig:
         slippage_bps=float(data["slippage_bps"]) if data.get("slippage_bps") is not None else None,
         market_impact_bps=float(data.get("market_impact_bps", ExperimentGridConfig.market_impact_bps)),
         max_participation_rate=float(data["max_participation_rate"]) if data.get("max_participation_rate") is not None else None,
+        min_signal_amount=float(data["min_signal_amount"]) if data.get("min_signal_amount") is not None else None,
+        max_calendar_holding_days=(
+            int(data["max_calendar_holding_days"]) if data.get("max_calendar_holding_days") is not None else None
+        ),
         portfolio_value=float(data.get("portfolio_value", ExperimentGridConfig.portfolio_value)),
         min_relative_return=float(data["min_relative_return"]) if data.get("min_relative_return") is not None else None,
         max_drawdown_limit=float(data["max_drawdown_limit"]) if data.get("max_drawdown_limit") is not None else None,
@@ -589,9 +610,12 @@ def _grid_from_mapping(data: dict[str, Any]) -> ExperimentGridConfig:
         ),
         signal_amount_window=int(data.get("signal_amount_window", ExperimentGridConfig.signal_amount_window)),
         output_dir=None,
+        write_case_artifacts=bool(data.get("write_case_artifacts", ExperimentGridConfig.write_case_artifacts)),
         rank_by=str(data.get("rank_by", ExperimentGridConfig.rank_by)),
         min_trades=int(data.get("min_trades", ExperimentGridConfig.min_trades)),
         precompute_factor_matrix=bool(data.get("precompute_factor_matrix", ExperimentGridConfig.precompute_factor_matrix)),
+        resume_completed_cases=bool(data.get("resume_completed_cases", ExperimentGridConfig.resume_completed_cases)),
+        reuse_research_inputs=bool(data.get("reuse_research_inputs", ExperimentGridConfig.reuse_research_inputs)),
     )
 
 
@@ -604,6 +628,9 @@ def _config_dict(config: WalkForwardConfig) -> dict[str, Any]:
     )
     data["experiment_grid"]["moneyflow_input_root"] = (
         str(config.experiment_grid.moneyflow_input_root) if config.experiment_grid.moneyflow_input_root is not None else None
+    )
+    data["experiment_grid"]["asset_universe_path"] = (
+        str(config.experiment_grid.asset_universe_path) if config.experiment_grid.asset_universe_path is not None else None
     )
     data["experiment_grid"]["rotation_membership_root"] = (
         str(config.experiment_grid.rotation_membership_root)
