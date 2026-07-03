@@ -29,7 +29,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 | Branch | Role | Status |
 | --- | --- | --- |
 | `codex/factor-batch-cn-stock-benchmark-relative-20260704` | Round464 benchmark-relative residual moneyflow pre-registration, walk-forward framework fixes, and rejection evidence | active review branch |
-| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, Round471 financial/PIT source-gate refresh, Round472 paper replay refresh, and Round473 expanded-observation data-quality block evidence | active review branch |
+| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, Round471 financial/PIT source-gate refresh, Round472 paper replay refresh, Round473 expanded-observation data-quality block evidence, and Round474 office-desktop completion handoff | active review branch |
 
 These branches are not promotion branches. They record a completed rejection set, framework fixes, and paper-lane risk-repair evidence that should be reviewed before integration.
 
@@ -101,6 +101,7 @@ Latest same-day progress reports:
 - `docs/research/project_round471_financial_pit_source_gate_refresh_2026-07-04.md`
 - `docs/research/project_round472_post_refresh_replay_observation_refresh_2026-07-04.md`
 - `docs/research/project_round473_expanded_observation_data_quality_block_2026-07-04.md`
+- `docs/research/project_round474_office_desktop_completion_handoff_2026-07-04.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -157,7 +158,7 @@ Decision: do not burn more same-day `report_rc` retries. Resume February 2024 af
 Cloud branch integration handoff:
 
 - `origin/codex/factor-batch-cn-stock-benchmark-relative-20260704` is 1 commit ahead of `origin/main`.
-- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 11 commits ahead of `origin/main` after Round473 is pushed.
+- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 12 commits ahead of `origin/main` after Round474 is pushed.
 - The Round464 branch is an ancestor of the Round465/467 branch, so laptop integration may merge Round464 first and then Round465/467 for review clarity, or merge Round465/467 once to absorb both.
 - Do not delete either topic branch until laptop safe-sync marks it as merged or manifest-absorbed.
 
@@ -239,6 +240,17 @@ Round473 executed the expanded recent-data refresh recommended by Round472:
 - Post-refresh replay status from the blocked refresh pack: `blocked`; Daily Ops and profile observation were not rerun.
 
 Decision: do not bypass the required-asset data-quality gate, do not forward-fill the 17 missing rows, and do not claim observation sufficiency or live readiness from this expanded window. Next action is to verify suspension/no-trade or provider omission for `501222.SH`, continue real paper observation, or pre-register a replacement paper-observation workflow before changing the observed asset.
+
+Round474 completed the office-desktop handoff:
+
+- Current branch was synchronized with origin before the handoff.
+- Relevant recent-data/replay/observation tests passed: 22 / 22.
+- Sync audit for `office_desktop` / `factor_batch`: no blockers, no branch discovery errors, no blocked paths, and no syncable paths before the handoff document.
+- Remote topic branches remain 2: Round464 is 1 commit ahead of `origin/main`; current Round465/467/473/474 branch is 12 commits ahead after this handoff is pushed.
+- Round464 is an ancestor of the current branch.
+- Laptop should perform `project_sync` / mainline integration and only then run safe topic-branch cleanup.
+
+Decision: office_desktop should not merge `main` or delete remote branches. The next highest-value action is laptop integration. Profit-factor mining should wait until main is stable and the Round473 observation/data-quality lane is closed or explicitly re-scoped.
 
 ## Current CN ETF Framework
 
