@@ -95,6 +95,7 @@ Latest same-day progress reports:
 - `docs/research/cn_stock_round465_ps_gt10_self_risk_overlay_2026-07-04.md`
 - `docs/research/cn_stock_round466_ps_gt10_self_risk_paper_ops_review_2026-07-04.md`
 - `docs/research/cn_stock_round467_analyst_report_revision_retry_status_2026-07-04.md`
+- `docs/research/project_round468_paper_ops_guardrail_runbook_status_2026-07-04.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -154,6 +155,22 @@ Cloud branch integration handoff:
 - `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 4 commits ahead of `origin/main`.
 - The Round464 branch is an ancestor of the Round465/467 branch, so laptop integration may merge Round464 first and then Round465/467 for review clarity, or merge Round465/467 once to absorb both.
 - Do not delete either topic branch until laptop safe-sync marks it as merged or manifest-absorbed.
+
+Round468 reran the paper-only operations guardrail and runbook from the existing paper observation history:
+
+- Guardrail output: `data/reports/round468_paper_ops_guardrail_20260704`
+- Runbook output: `data/reports/round468_paper_ops_runbook_20260704`
+- Guardrail status: `paper_ops_watch`
+- Runbook status: `paper_cycle_ready`
+- Paper cycle allowed: true
+- Live cycle allowed: false
+- Live-readiness candidate: false
+- Paper-ready history: 1 / 20 required runs
+- Ready-run deficit: 19
+- Provider missing date rows: 226
+- Live boundary violations: 0
+
+Decision: continue paper-only observation and provider-readiness refreshes. Do not make a live-readiness claim, do not connect to brokers or accounts, and do not treat the current paper history as factor promotion evidence.
 
 ## Current CN ETF Framework
 
