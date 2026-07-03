@@ -1,0 +1,162 @@
+{
+  "stage": "round465_ps_gt10_self_risk_overlay_preregistration",
+  "round": 465,
+  "market": "CN",
+  "asset_type": "stock",
+  "source_audit": "docs/research/cn_stock_round462_q20_ps_gt10_risk_repair_2026-06-27.md",
+  "source_plan_doc": "docs/research/cn_stock_round465_ps_gt10_self_risk_overlay_2026-07-04.md",
+  "scope": {
+    "machine": "office_desktop",
+    "task": "factor_batch",
+    "branch": "codex/factor-batch-cn-stock-execution-aware-round465-20260704"
+  },
+  "research_control_plan": {
+    "declared_controls": {
+      "cn_stock_tradeability": [
+        "limit_up_down_filter",
+        "suspension_filter",
+        "st_flag_filter",
+        "new_listing_age_filter",
+        "delisting_risk_filter",
+        "board_permission_filter"
+      ],
+      "financial_pit_timing": [
+        "ann_date_or_effective_date_lag",
+        "financial_revision_announcement_handling",
+        "report_release_lag_not_period_end",
+        "no_period_end_only_financial_signal"
+      ],
+      "source_sample_integrity": [
+        "endpoint_permission_or_cache_manifest",
+        "point_in_time_available_date_semantics",
+        "full_sample_2015_2025_same_parameter_replay",
+        "train_test_or_walk_forward_split_declared",
+        "future_function_static_audit",
+        "rejected_hypothesis_counting"
+      ],
+      "industry_style_neutralization": [
+        "industry_exposure_report",
+        "size_exposure_report",
+        "value_lowvol_momentum_liquidity_decomposition",
+        "neutralized_or_residual_factor_matrix"
+      ],
+      "etf_rotation_scope_boundary": [
+        "stock_scope_confirmed",
+        "etf_rotation_evidence_rejected_for_stock_factor",
+        "cn_etf_dedicated_signal_pack_separate"
+      ],
+      "portfolio_construction": [
+        "risk_budget_position_sizing",
+        "volatility_targeting_or_volatility_budget",
+        "industry_weight_constraints",
+        "turnover_constraints",
+        "stop_loss_or_de_risk_rules"
+      ],
+      "strict_statistics": [
+        "deflated_sharpe",
+        "purged_cpcv",
+        "white_reality_check_or_fdr",
+        "parameter_sensitivity_heatmap",
+        "multiple_testing_accounting"
+      ],
+      "china_market_regime": [
+        "policy_liquidity_regime",
+        "credit_cycle_proxy",
+        "northbound_margin_turnover_temperature",
+        "index_location_state",
+        "signal_window_regime_coverage"
+      ],
+      "event_factors": [
+        "earnings_forecast_or_statement_event_audit",
+        "dividend_ex_right_event_audit",
+        "buyback_holder_unlock_event_audit",
+        "index_rebalance_event_audit",
+        "event_contamination_extreme_return_audit"
+      ]
+    },
+    "policy": "Round465 may only test fixed self-risk overlays on the already packaged Round462 ps_gt10 paper lane. It must not tune q20 thresholds, widen range-contraction parameters, or claim a new independent alpha."
+  },
+  "data_source_plan": {
+    "source_root": "data/reports/round462_24h_profit_sprint_q20_tail_attribute_cash_filter_20260627",
+    "period_return_source": "data/reports/round462_24h_profit_sprint_q20_tail_attribute_cash_filter_20260627/cash_ps_gt_10_official_template_period_returns.csv",
+    "source_candidate": "paper_ready_cohort_entry_timed_range_q20_m175_ps_gt10_cash_cost10_vt08_max100_self_roll21_x08",
+    "analysis_start_date": "2015-02-09",
+    "analysis_end_date": "2025-12-25",
+    "final_holdout_2026_available_for_tuning": false,
+    "provider_policy": "Use existing local Round462 paper-lane return stream only; no provider download and no q20/range parameter tuning."
+  },
+  "evaluation_gate": {
+    "required_metrics": [
+      "fixed_self_risk_overlay_suite",
+      "calendar_walk_forward_overlay_selection",
+      "overlap_adjusted_sharpe",
+      "max_drawdown",
+      "annualized_return",
+      "guard_event_share",
+      "average_exposure",
+      "strict_oos_pass_rate",
+      "cost10_paper_lane_context",
+      "no_2026_final_holdout_tuning"
+    ],
+    "multiple_testing_accounting_required": true,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "promotion_allowed": false
+  },
+  "promotion_policy": {
+    "promotion_allowed": false,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "requires_data_source_availability_proof": true,
+    "requires_long_cycle_replay": true,
+    "requires_same_parameter_full_sample": true,
+    "requires_full_sample_regime_coverage": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true,
+    "requires_no_lookahead_audit": true,
+    "requires_future_function_static_audit": true,
+    "requires_overfit_multiple_testing_control": true,
+    "requires_overlap_adjusted_statistics": true,
+    "requires_parameter_sensitivity": true,
+    "requires_parameter_sensitivity_heatmap": true,
+    "requires_deflated_sharpe_or_fdr": true,
+    "requires_cpcv_or_purged_walk_forward": true,
+    "requires_white_reality_check_or_multiple_test_adjustment": true,
+    "requires_profit_drawdown_winrate_report": true,
+    "requires_final_holdout_read_once": true,
+    "requires_tradeability_survivorship_audit": true,
+    "requires_industry_style_neutralization": true,
+    "requires_source_performance_evidence": true
+  },
+  "family_rotation_policy": {
+    "current_family_id": "paper_lane_execution_aware_self_risk_overlay",
+    "current_family_round_count": 1,
+    "max_rounds_before_review": 3,
+    "three_round_review_completed": true,
+    "hibernated_families": [
+      {
+        "family": "q20_ps_gt10_threshold_variants",
+        "reason": "Round462 selected ps_gt10 only as paper-lane risk repair; further threshold tuning is blocked without a new orthogonal source."
+      },
+      {
+        "family": "residual_moneyflow_parameter_tuning",
+        "reason": "Round464 rejected benchmark-relative residual moneyflow OOS."
+      }
+    ],
+    "blocked_families": []
+  },
+  "candidates": [
+    {
+      "factor_name": "ps_gt10_self_roll21_sum_m2_cash",
+      "family": "paper_lane_execution_aware_self_risk_overlay",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "Round462 ps_gt10 high-return paper lane plus the existing fixed self-risk overlay suite used in prior simulation-shortlist audits.",
+      "economic_rationale": "A prior-21-event loss guard can reduce exposure during recent self-drawdown clusters using only prior return information, potentially improving paper-lane drawdown and overlap-adjusted Sharpe without changing the underlying q20 signal or using future data.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    }
+  ],
+  "next_gate_if_cleared": "document fixed-overlay full-sample and calendar walk-forward evidence; keep result as paper-simulation risk repair unless later cost, capacity, tail, and final-holdout gates clear without retuning",
+  "safety": "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+}

@@ -8,7 +8,7 @@ Purpose: this is the first file to read after syncing the repository on any work
 
 - Stable branch: `main`
 - Remote HEAD: `origin/main`
-- Current remote topic branches: `codex/factor-batch-cn-stock-benchmark-relative-20260704` after this task branch is pushed
+- Current remote topic branches: `codex/factor-batch-cn-stock-benchmark-relative-20260704`; `codex/factor-batch-cn-stock-execution-aware-round465-20260704` after this task branch is pushed
 - Remote branch cleanup status: complete
 - Latest integrated cloud commit: `759c3cc3`
 - Live-trading boundary: disabled; research-to-paper only
@@ -29,8 +29,9 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 | Branch | Role | Status |
 | --- | --- | --- |
 | `codex/factor-batch-cn-stock-benchmark-relative-20260704` | Round464 benchmark-relative residual moneyflow pre-registration, walk-forward framework fixes, and rejection evidence | active review branch |
+| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check for the Round462 `ps_gt10` paper lane | active review branch |
 
-This branch is not a promotion branch. It records a completed rejection set and framework fixes that should be reviewed before integration.
+These branches are not promotion branches. They record a completed rejection set, framework fixes, and paper-lane risk-repair evidence that should be reviewed before integration.
 
 ## Deleted historical branches
 
@@ -90,6 +91,7 @@ Latest same-day progress reports:
 
 - `docs/research/cn_stock_round463_analyst_report_revision_source_smoke_2026-07-04.md`
 - `docs/research/cn_stock_round464_benchmark_relative_moneyflow_preregistration_2026-07-04.md`
+- `docs/research/cn_stock_round465_ps_gt10_self_risk_overlay_2026-07-04.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -110,6 +112,16 @@ Round464 ran a frozen benchmark-relative residual moneyflow validation preflight
 - Best ranked case still had negative mean test relative return and failed adjusted IC significance.
 
 Decision: do not promote this residual moneyflow candidate and do not continue it by tuning top-N, cost, or regime thresholds. Use Round464 as rejection evidence and rotate toward an orthogonal source or a pre-registered position-sizing/risk-construction idea.
+
+Round465 tested fixed self-risk overlays on the already packaged Round462 `ps_gt10` paper lane:
+
+- Candidate plan: `configs/factor_mining_candidate_plan_round465_ps_gt10_self_risk_overlay_20260704.json`
+- Best overlay: `ps_gt10_self_roll21_sum_m2_cash`
+- Baseline annualized / overlap Sharpe / max drawdown: 7.79% / 0.565 / -25.42%.
+- Best overlay annualized / overlap Sharpe / max drawdown: 8.51% / 0.697 / -12.46%.
+- Calendar walk-forward best fixed drawdown overlay: average test annualized 8.51%, average test overlap Sharpe 0.793, worst test drawdown -15.10%, strict pass rate 71.43%.
+
+Decision: keep `ps_gt10_self_roll21_sum_m2_cash` as a stronger paper-simulation risk-repair lane, not an independent alpha. Next work should rebuild paper handoff or paper-ops evidence with this fixed overlay and rerun cost, capacity, tail-contribution, and simulation replay checks.
 
 ## Current CN ETF Framework
 
