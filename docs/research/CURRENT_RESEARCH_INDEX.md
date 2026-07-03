@@ -89,6 +89,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_cloud_branch_integration_handoff_2026-07-04.md`
 - `docs/research/cn_stock_round463_analyst_report_revision_source_smoke_2026-07-04.md`
 - `docs/research/cn_stock_round464_benchmark_relative_moneyflow_preregistration_2026-07-04.md`
 - `docs/research/cn_stock_round465_ps_gt10_self_risk_overlay_2026-07-04.md`
@@ -146,6 +147,13 @@ Round467 retried the orthogonal analyst-report-revision PIT source after Round46
 - Existing usable analyst-report cache remains Round463 January 2024 only: 1,754 rows and 780 assets.
 
 Decision: do not burn more same-day `report_rc` retries. Resume February 2024 after the provider limit resets, then rerun the same frozen PIT prescreen with both January and February report roots. No formula tuning, portfolio grid, promotion gate, or final-holdout read is allowed for this source-smoke state.
+
+Cloud branch integration handoff:
+
+- `origin/codex/factor-batch-cn-stock-benchmark-relative-20260704` is 1 commit ahead of `origin/main`.
+- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 4 commits ahead of `origin/main`.
+- The Round464 branch is an ancestor of the Round465/467 branch, so laptop integration may merge Round464 first and then Round465/467 for review clarity, or merge Round465/467 once to absorb both.
+- Do not delete either topic branch until laptop safe-sync marks it as merged or manifest-absorbed.
 
 ## Current CN ETF Framework
 
