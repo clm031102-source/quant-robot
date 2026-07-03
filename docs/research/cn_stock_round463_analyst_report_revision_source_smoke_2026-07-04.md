@@ -128,7 +128,7 @@ Do:
 - Cache more `report_rc` monthly windows at the provider-safe pace.
 - Rerun the same PIT prescreen after enough months exist for year coverage and multiple-testing evidence.
 - Keep this family research-screen only until long-cycle evidence exists.
-- Use the updated `run_tushare_analyst_report_cache.py` metadata when the provider blocks a request; rate-limited windows now record `provider_rate_limit`, `retry_after_seconds`, and `summary.next_retry_after_seconds` so a scheduler or operator can resume without guessing.
+- Use the updated `run_tushare_analyst_report_cache.py` metadata when the provider blocks a request; rate-limited windows now record `provider_rate_limit`, `retry_after_seconds`, `summary.next_retry_after_seconds`, and `summary.stopped_on_rate_limit` so a scheduler or operator can resume the same failed window without guessing or skipping months.
 
 Do not:
 

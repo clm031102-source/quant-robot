@@ -54,6 +54,22 @@ class TushareAnalystReportsTests(unittest.TestCase):
             self.assertEqual(result["failures"][0]["provider_rate_limit"], "1_per_hour")
             self.assertEqual(result["failures"][0]["retry_after_seconds"], 3600)
 
+    def test_cache_stops_after_rate_limit_without_skipping_later_windows(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_tushare_analyst_report_cache(
+                _RateLimitedAnalystReportAdapter(),
+                "2024-02-01",
+                "2024-03-31",
+                Path(tmp) / "reports",
+                processed_output_dir=Path(tmp) / "processed",
+                request_sleep_seconds=0.0,
+            )
+
+            self.assertTrue(result["summary"]["stopped_on_rate_limit"])
+            self.assertEqual(result["summary"]["windows"], 2)
+            self.assertEqual(len(result["rows_by_window"]), 1)
+            self.assertEqual(result["rows_by_window"][0]["window_start"], "20240201")
+
 
 class _FakeAnalystReportAdapter:
     def fetch_report_rc(self, start_date: str = "", end_date: str = "", ts_code: str = "") -> pd.DataFrame:

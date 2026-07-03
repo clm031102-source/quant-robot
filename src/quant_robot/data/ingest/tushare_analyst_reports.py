@@ -61,6 +61,7 @@ def run_tushare_analyst_report_cache(
     window_frequency: str = "MS",
     request_sleep_seconds: float = 3660.0,
     max_rows_per_window: int = 5000,
+    stop_on_rate_limit: bool = True,
     progress_callback: ProgressCallback | None = None,
 ) -> dict[str, object]:
     output_path = Path(output_dir)
@@ -76,6 +77,7 @@ def run_tushare_analyst_report_cache(
     row_cap_warnings: list[dict[str, object]] = []
     normalized_frames: list[pd.DataFrame] = []
     fetched_count = 0
+    stopped_on_rate_limit = False
 
     for index, (window_start, window_end) in enumerate(windows):
         start_label = _date_to_tushare(window_start)
@@ -111,6 +113,9 @@ def run_tushare_analyst_report_cache(
             failures.append(failure)
             rows_by_window.append(failure)
             _emit(progress_callback, **failure)
+            if rate_limit and stop_on_rate_limit:
+                stopped_on_rate_limit = True
+                break
             if request_sleep_seconds > 0 and index < len(windows) - 1:
                 sleep(float(request_sleep_seconds))
             continue
@@ -157,6 +162,7 @@ def run_tushare_analyst_report_cache(
             "failed_windows": int(len(failures)),
             "rate_limited_windows": int(sum(1 for failure in failures if "provider_rate_limit" in failure)),
             "next_retry_after_seconds": _next_retry_after_seconds(failures),
+            "stopped_on_rate_limit": bool(stopped_on_rate_limit),
             "row_cap_warning_windows": int(len(row_cap_warnings)),
             "rows": int(len(combined)),
             "assets": int(combined["asset_id"].nunique()) if not combined.empty else 0,
