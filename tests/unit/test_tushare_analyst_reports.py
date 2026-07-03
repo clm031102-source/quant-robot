@@ -37,6 +37,23 @@ class TushareAnalystReportsTests(unittest.TestCase):
             )
             self.assertTrue((Path(tmp) / "reports" / "tushare_analyst_report_cache.json").exists())
 
+    def test_cache_records_provider_rate_limit_retry_after_seconds(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_tushare_analyst_report_cache(
+                _RateLimitedAnalystReportAdapter(),
+                "2024-02-01",
+                "2024-02-29",
+                Path(tmp) / "reports",
+                processed_output_dir=Path(tmp) / "processed",
+                request_sleep_seconds=0.0,
+            )
+
+            self.assertEqual(result["summary"]["failed_windows"], 1)
+            self.assertEqual(result["summary"]["rate_limited_windows"], 1)
+            self.assertEqual(result["summary"]["next_retry_after_seconds"], 3600)
+            self.assertEqual(result["failures"][0]["provider_rate_limit"], "1_per_hour")
+            self.assertEqual(result["failures"][0]["retry_after_seconds"], 3600)
+
 
 class _FakeAnalystReportAdapter:
     def fetch_report_rc(self, start_date: str = "", end_date: str = "", ts_code: str = "") -> pd.DataFrame:
@@ -57,6 +74,11 @@ class _FakeAnalystReportAdapter:
                 "tp": [12.0, 24.0],
             }
         )
+
+
+class _RateLimitedAnalystReportAdapter:
+    def fetch_report_rc(self, start_date: str = "", end_date: str = "", ts_code: str = "") -> pd.DataFrame:
+        raise RuntimeError("抱歉，您访问接口(report_rc)频率超限(1次/小时)，具体频次详情：https://tushare.pro/document/1?doc_id=108。")
 
 
 if __name__ == "__main__":

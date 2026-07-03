@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import date
 import json
+import re
 from pathlib import Path
 from time import sleep
 from typing import Any, Protocol, Sequence
@@ -97,6 +98,7 @@ def run_tushare_analyst_report_cache(
         try:
             raw = adapter.fetch_report_rc(start_date=start_label, end_date=end_label)
         except Exception as exc:  # pragma: no cover - live provider behavior
+            rate_limit = _provider_rate_limit(str(exc))
             failure = {
                 "window_start": start_label,
                 "window_end": end_label,
@@ -104,6 +106,8 @@ def run_tushare_analyst_report_cache(
                 "error": type(exc).__name__,
                 "message": str(exc),
             }
+            if rate_limit:
+                failure.update(rate_limit)
             failures.append(failure)
             rows_by_window.append(failure)
             _emit(progress_callback, **failure)
@@ -151,6 +155,8 @@ def run_tushare_analyst_report_cache(
             "windows": int(len(windows)),
             "fetched_windows": int(fetched_count),
             "failed_windows": int(len(failures)),
+            "rate_limited_windows": int(sum(1 for failure in failures if "provider_rate_limit" in failure)),
+            "next_retry_after_seconds": _next_retry_after_seconds(failures),
             "row_cap_warning_windows": int(len(row_cap_warnings)),
             "rows": int(len(combined)),
             "assets": int(combined["asset_id"].nunique()) if not combined.empty else 0,
@@ -294,6 +300,31 @@ def _max_date(frame: pd.DataFrame, column: str) -> str | None:
 def _emit(callback: ProgressCallback | None, **payload: object) -> None:
     if callback is not None:
         callback(payload)
+
+
+def _provider_rate_limit(message: str) -> dict[str, object]:
+    if "频率超限" not in message and "frequency" not in message.lower():
+        return {}
+    match = re.search(r"(\d+)\s*次\s*/\s*(分钟|小时|天|日)", message)
+    if not match:
+        return {"provider_rate_limit": "unknown", "retry_after_seconds": None}
+    count = int(match.group(1))
+    unit = match.group(2)
+    seconds_by_unit = {"分钟": 60, "小时": 3600, "天": 86400, "日": 86400}
+    retry_after = seconds_by_unit[unit]
+    return {
+        "provider_rate_limit": f"{count}_per_{'minute' if unit == '分钟' else 'hour' if unit == '小时' else 'day'}",
+        "retry_after_seconds": retry_after,
+    }
+
+
+def _next_retry_after_seconds(failures: list[dict[str, object]]) -> int | None:
+    retry_after_values = [
+        int(failure["retry_after_seconds"])
+        for failure in failures
+        if failure.get("retry_after_seconds") is not None
+    ]
+    return max(retry_after_values) if retry_after_values else None
 
 
 def _sanitize(value: Any) -> Any:
