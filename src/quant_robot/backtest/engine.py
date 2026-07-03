@@ -6,8 +6,11 @@ import pandas as pd
 
 from quant_robot.backtest.costs import capacity_limited, estimate_trade_cost_rate
 from quant_robot.backtest.metrics import summarize_returns
-from quant_robot.backtest.portfolio import select_top_n
+from quant_robot.backtest.portfolio import select_industry_neutral_top_n, select_top_n
 from quant_robot.research.overlap import overlap_aware_return_stats
+
+
+EXTREME_TRADE_ABS_GROSS_RETURN_THRESHOLD = 5.0
 
 
 @dataclass(frozen=True)
@@ -33,7 +36,10 @@ def run_factor_backtest(
     slippage_bps: float | None = None,
     market_impact_bps: float = 0.0,
     max_participation_rate: float | None = None,
+    min_signal_amount: float | None = None,
+    max_calendar_holding_days: int | None = None,
     portfolio_value: float = 1_000_000.0,
+    selection_method: str = "top_n",
 ) -> BacktestResult:
     required_factor_columns = ["date", "asset_id", "market", "factor_name", "factor_value"]
     required_bar_columns = ["date", "asset_id", "market", "adj_close"]
@@ -49,19 +55,29 @@ def run_factor_backtest(
         raise ValueError("target_gross_exposure must be greater than 0 and at most 1")
     if max_participation_rate is not None and max_participation_rate <= 0.0:
         raise ValueError("max_participation_rate must be positive when provided")
+    if min_signal_amount is not None and min_signal_amount < 0.0:
+        raise ValueError("min_signal_amount must be non-negative when provided")
+    if max_calendar_holding_days is not None and max_calendar_holding_days < 1:
+        raise ValueError("max_calendar_holding_days must be positive when provided")
     if portfolio_value <= 0.0:
         raise ValueError("portfolio_value must be positive")
 
     factors = _normalize_date_column(factors)
     bars = _normalize_date_column(bars)
+    factors, signal_filter_metrics = _filter_min_signal_amount(factors, bars, min_signal_amount)
     selected = _scale_signal_sleeves(
-        select_top_n(factors, top_n=top_n, portfolio_scope=portfolio_scope),
+        _select_positions(
+            factors,
+            top_n=top_n,
+            portfolio_scope=portfolio_scope,
+            selection_method=selection_method,
+        ),
         holding_period,
         rebalance_interval,
         target_gross_exposure,
     )
     bar_lookup = _price_lookup(bars)
-    trades = _build_trades(
+    trades, trade_gate_metrics = _build_trades(
         selected,
         bar_lookup,
         cost_bps,
@@ -71,6 +87,7 @@ def run_factor_backtest(
         slippage_bps=slippage_bps,
         market_impact_bps=market_impact_bps,
         max_participation_rate=max_participation_rate,
+        max_calendar_holding_days=max_calendar_holding_days,
         portfolio_value=portfolio_value,
     )
     equity_curve = _equity_curve(trades)
@@ -85,6 +102,9 @@ def run_factor_backtest(
             holding_period=holding_period,
         )
     )
+    metrics.update(_trade_return_metrics(trades))
+    metrics.update(signal_filter_metrics)
+    metrics.update(trade_gate_metrics)
     if not trades.empty:
         metrics["turnover"] = float(trades.groupby("signal_date")["target_weight"].sum().mean())
         metrics["average_holdings"] = float(trades.groupby("signal_date")["asset_id"].nunique().mean())
@@ -93,6 +113,8 @@ def run_factor_backtest(
         metrics["avg_participation_rate"] = float(trades["participation_rate"].mean())
         metrics["max_participation_rate"] = float(trades["participation_rate"].max())
         metrics["capacity_limited_trades"] = int(trades["capacity_limited"].sum())
+        metrics["max_calendar_holding_days"] = int(trades["calendar_holding_days"].max())
+        metrics["p99_calendar_holding_days"] = float(trades["calendar_holding_days"].quantile(0.99))
     else:
         metrics["turnover"] = 0.0
         metrics["average_holdings"] = 0.0
@@ -101,7 +123,49 @@ def run_factor_backtest(
         metrics["avg_participation_rate"] = 0.0
         metrics["max_participation_rate"] = 0.0
         metrics["capacity_limited_trades"] = 0
+        metrics["max_calendar_holding_days"] = 0
+        metrics["p99_calendar_holding_days"] = 0.0
     return BacktestResult(equity_curve=equity_curve, positions=selected, trades=trades, metrics=metrics)
+
+
+def _select_positions(
+    factors: pd.DataFrame,
+    *,
+    top_n: int,
+    portfolio_scope: str,
+    selection_method: str,
+) -> pd.DataFrame:
+    if selection_method == "top_n":
+        return select_top_n(factors, top_n=top_n, portfolio_scope=portfolio_scope)
+    if selection_method == "industry_neutral_top_n":
+        return select_industry_neutral_top_n(factors, top_n=top_n, portfolio_scope=portfolio_scope)
+    raise ValueError("selection_method must be 'top_n' or 'industry_neutral_top_n'")
+
+
+def _trade_return_metrics(trades: pd.DataFrame) -> dict[str, float | bool]:
+    if trades.empty or "gross_return" not in trades.columns:
+        return {
+            "max_trade_gross_return": 0.0,
+            "max_abs_trade_gross_return": 0.0,
+            "p99_abs_trade_gross_return": 0.0,
+            "extreme_trade_return_flag": False,
+        }
+    gross = pd.to_numeric(trades["gross_return"], errors="coerce").dropna()
+    if gross.empty:
+        return {
+            "max_trade_gross_return": 0.0,
+            "max_abs_trade_gross_return": 0.0,
+            "p99_abs_trade_gross_return": 0.0,
+            "extreme_trade_return_flag": False,
+        }
+    abs_gross = gross.abs()
+    max_abs = float(abs_gross.max())
+    return {
+        "max_trade_gross_return": float(gross.max()),
+        "max_abs_trade_gross_return": max_abs,
+        "p99_abs_trade_gross_return": float(abs_gross.quantile(0.99)),
+        "extreme_trade_return_flag": bool(max_abs > EXTREME_TRADE_ABS_GROSS_RETURN_THRESHOLD),
+    }
 
 
 def _overlap_metrics(returns: pd.Series, *, periods_per_year: float, holding_period: int) -> dict[str, object]:
@@ -126,6 +190,38 @@ def _normalize_date_column(frame: pd.DataFrame) -> pd.DataFrame:
     result = frame.copy()
     result["date"] = pd.to_datetime(result["date"]).dt.date
     return result
+
+
+def _filter_min_signal_amount(
+    factors: pd.DataFrame,
+    bars: pd.DataFrame,
+    min_signal_amount: float | None,
+) -> tuple[pd.DataFrame, dict[str, float | int]]:
+    threshold = float(min_signal_amount) if min_signal_amount is not None else None
+    if threshold is None:
+        return factors, {
+            "signals_before_tradeability_filter": int(len(factors)),
+            "signals_filtered_min_signal_amount": 0,
+            "signal_amount_filter_threshold": 0.0,
+        }
+    _require_columns(bars, ["date", "asset_id", "market", "amount"], "bars")
+    amounts = bars[["date", "asset_id", "market", "amount"]].copy()
+    amounts["date"] = pd.to_datetime(amounts["date"]).dt.date
+    amounts["asset_id"] = amounts["asset_id"].astype(str)
+    amounts["market"] = amounts["market"].astype(str).str.upper()
+    amounts["signal_amount"] = pd.to_numeric(amounts["amount"], errors="coerce").fillna(0.0)
+    amounts = amounts[["date", "asset_id", "market", "signal_amount"]]
+    frame = factors.copy()
+    frame["asset_id"] = frame["asset_id"].astype(str)
+    frame["market"] = frame["market"].astype(str).str.upper()
+    frame = frame.merge(amounts, on=["date", "asset_id", "market"], how="left")
+    frame["signal_amount"] = pd.to_numeric(frame["signal_amount"], errors="coerce").fillna(0.0)
+    filtered = frame[frame["signal_amount"] >= threshold].reset_index(drop=True)
+    return filtered, {
+        "signals_before_tradeability_filter": int(len(frame)),
+        "signals_filtered_min_signal_amount": int(len(frame) - len(filtered)),
+        "signal_amount_filter_threshold": threshold,
+    }
 
 
 def _scale_signal_sleeves(
@@ -160,19 +256,50 @@ def _build_trades(
     slippage_bps: float | None,
     market_impact_bps: float,
     max_participation_rate: float | None,
+    max_calendar_holding_days: int | None,
     portfolio_value: float,
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, dict[str, float | int]]:
     rows = []
+    calendar_limited_trades = 0
+    max_skipped_calendar_holding_days = 0
+    trades_filtered_entry_tradeability = 0
+    trades_filtered_exit_tradeability = 0
+    trades_delayed_exit_tradeability = 0
+    max_tradeability_exit_delay_days = 0
     for row in selected.itertuples(index=False):
         asset_bars = bar_lookup.get(row.asset_id)
         if asset_bars is None:
             continue
         needed_future_bars = execution_lag + holding_period
-        future = asset_bars[asset_bars["date"] > row.date].head(needed_future_bars)
+        future = asset_bars[asset_bars["date"] > row.date]
         if len(future) < needed_future_bars:
             continue
         entry = future.iloc[execution_lag - 1]
-        exit_ = future.iloc[execution_lag + holding_period - 1]
+        if not _tradeability_allowed(entry, "entry_tradeable"):
+            trades_filtered_entry_tradeability += 1
+            continue
+        planned_exit_offset = execution_lag + holding_period - 1
+        planned_exit = future.iloc[planned_exit_offset]
+        exit_, delayed = _resolve_tradeable_exit(
+            future,
+            planned_exit_offset,
+            entry_date=entry["date"],
+            max_calendar_holding_days=max_calendar_holding_days,
+        )
+        if exit_ is None:
+            trades_filtered_exit_tradeability += 1
+            continue
+        if delayed:
+            trades_delayed_exit_tradeability += 1
+            max_tradeability_exit_delay_days = max(
+                max_tradeability_exit_delay_days,
+                _calendar_holding_days(planned_exit["date"], exit_["date"]),
+            )
+        calendar_holding_days = _calendar_holding_days(entry["date"], exit_["date"])
+        if max_calendar_holding_days is not None and calendar_holding_days > int(max_calendar_holding_days):
+            calendar_limited_trades += 1
+            max_skipped_calendar_holding_days = max(max_skipped_calendar_holding_days, calendar_holding_days)
+            continue
         participation_rate = _participation_rate(row.target_weight, entry, portfolio_value)
         cost_rate = estimate_trade_cost_rate(
             cost_bps,
@@ -194,36 +321,55 @@ def _build_trades(
                 "factor_name": row.factor_name,
                 "target_weight": row.target_weight,
                 "target_notional": abs(row.target_weight) * portfolio_value,
+                "signal_amount": _row_value(row, "signal_amount"),
                 "entry_amount": _entry_amount(entry),
                 "participation_rate": participation_rate,
                 "capacity_limited": capacity_limited(participation_rate, max_participation_rate),
+                "calendar_holding_days": calendar_holding_days,
                 "cost_rate": cost_rate,
                 "gross_return": gross_return,
                 "net_return": net_return,
                 "weighted_return": row.target_weight * net_return,
             }
         )
+    gate_metrics = {
+        "calendar_limited_trades": int(calendar_limited_trades),
+        "calendar_holding_gate_days": int(max_calendar_holding_days or 0),
+        "max_skipped_calendar_holding_days": int(max_skipped_calendar_holding_days),
+        "trades_filtered_entry_tradeability": int(trades_filtered_entry_tradeability),
+        "trades_filtered_exit_tradeability": int(trades_filtered_exit_tradeability),
+        "trades_delayed_exit_tradeability": int(trades_delayed_exit_tradeability),
+        "max_tradeability_exit_delay_days": int(max_tradeability_exit_delay_days),
+        "tradeability_filtered_trades": int(
+            trades_filtered_entry_tradeability + trades_filtered_exit_tradeability
+        ),
+    }
     if not rows:
-        return pd.DataFrame(
-            columns=[
-                "signal_date",
-                "entry_date",
-                "exit_date",
-                "asset_id",
-                "market",
-                "factor_name",
-                "target_weight",
-                "target_notional",
-                "entry_amount",
-                "participation_rate",
-                "capacity_limited",
-                "cost_rate",
-                "gross_return",
-                "net_return",
-                "weighted_return",
-            ]
+        return (
+            pd.DataFrame(
+                columns=[
+                    "signal_date",
+                    "entry_date",
+                    "exit_date",
+                    "asset_id",
+                    "market",
+                    "factor_name",
+                    "target_weight",
+                    "target_notional",
+                    "signal_amount",
+                    "entry_amount",
+                    "participation_rate",
+                    "capacity_limited",
+                    "calendar_holding_days",
+                    "cost_rate",
+                    "gross_return",
+                    "net_return",
+                    "weighted_return",
+                ]
+            ),
+            gate_metrics,
         )
-    return pd.DataFrame(rows).sort_values(["signal_date", "factor_name", "asset_id"]).reset_index(drop=True)
+    return pd.DataFrame(rows).sort_values(["signal_date", "factor_name", "asset_id"]).reset_index(drop=True), gate_metrics
 
 
 def _participation_rate(target_weight: float, entry: pd.Series, portfolio_value: float) -> float:
@@ -239,6 +385,58 @@ def _entry_amount(entry: pd.Series) -> float:
     except (TypeError, ValueError):
         return 0.0
     return value if value > 0.0 else 0.0
+
+
+def _tradeability_allowed(row: pd.Series, column: str) -> bool:
+    if column not in row.index:
+        return True
+    value = row.get(column)
+    if value is None or pd.isna(value):
+        return False
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+    return bool(value)
+
+
+def _resolve_tradeable_exit(
+    future: pd.DataFrame,
+    planned_exit_offset: int,
+    *,
+    entry_date: object | None = None,
+    max_calendar_holding_days: int | None = None,
+) -> tuple[pd.Series | None, bool]:
+    planned_exit = future.iloc[planned_exit_offset]
+    if _tradeability_allowed(planned_exit, "exit_tradeable"):
+        return planned_exit, False
+    for offset in range(planned_exit_offset + 1, len(future)):
+        candidate = future.iloc[offset]
+        if max_calendar_holding_days is not None and entry_date is not None:
+            if _calendar_holding_days(entry_date, candidate["date"]) > int(max_calendar_holding_days):
+                break
+        if _tradeability_allowed(candidate, "exit_tradeable"):
+            return candidate, True
+    return None, False
+
+
+def _calendar_holding_days(entry_date: object, exit_date: object) -> int:
+    try:
+        entry = pd.to_datetime(entry_date).date()
+        exit_ = pd.to_datetime(exit_date).date()
+    except (TypeError, ValueError):
+        return 0
+    return max((exit_ - entry).days, 0)
+
+
+def _row_value(row: object, field: str, default: float = 0.0) -> float:
+    try:
+        value = getattr(row, field)
+    except AttributeError:
+        return default
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return default
+    return number if pd.notna(number) else default
 
 
 def _equity_curve(trades: pd.DataFrame) -> pd.DataFrame:

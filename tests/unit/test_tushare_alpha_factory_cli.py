@@ -11,6 +11,7 @@ from unittest.mock import patch
 import pandas as pd
 
 from quant_robot.data.fixtures import load_demo_market_bars
+from quant_robot.ops.factor_mining_startup import build_factor_mining_startup_gate
 from quant_robot.storage.dataset_store import DatasetStore
 from scripts.run_tushare_alpha_factory import run_alpha_factory_cli
 
@@ -309,6 +310,39 @@ def _write_moneyflow_inputs(root: Path, bars: pd.DataFrame) -> None:
 
 
 def _valid_startup_gate_packet_json() -> str:
+    config = {
+        "scope_id": "cn_stock_factor_mining",
+        "market": "CN",
+        "asset_type": "stock",
+        "allowed_machines": ["office_desktop"],
+        "allowed_tasks": ["factor_batch"],
+        "recommended_branch_prefixes": ["codex/factor-batch-cn-stock-"],
+        "required_confirmations": [
+            "machine_confirmed",
+            "task_confirmed",
+            "branch_confirmed",
+            "push_policy_confirmed",
+            "cn_stock_scope_confirmed",
+            "etf_scope_rejected",
+        ],
+    }
+    branch = "codex/factor-batch-cn-stock-20260617"
+    packet = build_factor_mining_startup_gate(
+        config,
+        request={
+            "machine": "office_desktop",
+            "task": "factor_batch",
+            "branch": branch,
+            "market": "CN",
+            "asset_type": "stock",
+            "confirmations": {name: True for name in config["required_confirmations"]},
+        },
+        current_branch=branch,
+    )
+    return json.dumps(packet)
+
+
+def _legacy_startup_gate_packet_json() -> str:
     return json.dumps(
         {
             "generated_at": date.today().isoformat(),

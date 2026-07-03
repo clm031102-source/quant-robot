@@ -12,7 +12,10 @@ from quant_robot.ops.capacity_safe_price_volume_preregistration import (
     PUBLIC_REFERENCE_PROJECTS,
     SAFETY,
 )
-from quant_robot.ops.factor_mining_candidate_plan_gate import default_cn_stock_pre_mining_control_plan
+from quant_robot.ops.factor_mining_candidate_plan_gate import (
+    default_cn_stock_pre_mining_control_plan,
+    default_cn_stock_promotion_policy,
+)
 
 
 STAGE = "lottery_extreme_upside_reversal_preregistration"
@@ -178,12 +181,7 @@ def build_lottery_extreme_upside_reversal_preregistration(
         },
         "research_control_plan": default_cn_stock_pre_mining_control_plan(),
         "promotion_policy": {
-            "promotion_allowed": False,
-            "portfolio_backtest_allowed_before_prescreen": False,
-            "requires_long_cycle_replay": True,
-            "requires_walk_forward": True,
-            "requires_cost_capacity_gate": True,
-            "requires_regime_coverage": True,
+            **default_cn_stock_promotion_policy(),
             "requires_tradeability_limit_path_audit": True,
         },
         "candidates": candidates,
@@ -269,6 +267,7 @@ def _candidate_payload(spec: LotteryExtremeUpsideCandidateSpec) -> dict[str, Any
         "registration_status": "pre_registered",
         "market": "CN",
         "asset_type": "stock",
+        "hypothesis_source": SOURCE_AUDIT,
         "next_required_gate": NEXT_REQUIRED_GATE,
         "lookahead_policy": "Close-derived signals require next-tradable-bar execution lag; no same-day close-to-close target alignment.",
     }

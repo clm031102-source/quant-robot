@@ -75,6 +75,8 @@ class ResearchPipelineConfig:
     slippage_bps: float | None = None
     market_impact_bps: float = 0.0
     max_participation_rate: float | None = None
+    min_signal_amount: float | None = None
+    max_calendar_holding_days: int | None = None
     portfolio_value: float = 1_000_000.0
     min_relative_return: float | None = None
     max_drawdown_limit: float | None = None
@@ -136,6 +138,8 @@ def run_research_pipeline(
         slippage_bps=config.slippage_bps,
         market_impact_bps=config.market_impact_bps,
         max_participation_rate=config.max_participation_rate,
+        min_signal_amount=config.min_signal_amount,
+        max_calendar_holding_days=config.max_calendar_holding_days,
         portfolio_value=config.portfolio_value,
     )
     tail_ic = compute_ic(backtest.positions, labels)

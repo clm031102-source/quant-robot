@@ -59,6 +59,7 @@ class LotteryExtremeUpsideReversalPrescreenTests(unittest.TestCase):
             min_industries=2,
             min_assets_per_industry=5,
             min_neutral_ic_t_stat=2.0,
+            min_ic_years=1,
         )
 
         self.assertEqual(result["stage"], "lottery_extreme_upside_reversal_prescreen")
@@ -88,6 +89,7 @@ class LotteryExtremeUpsideReversalPrescreenTests(unittest.TestCase):
             min_industries=2,
             min_assets_per_industry=5,
             min_neutral_ic_t_stat=2.0,
+            min_ic_years=1,
         )
 
         row = result["results"][0]

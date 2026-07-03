@@ -445,6 +445,7 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         observation_packet = pack["daily_manual_observation_packet"]
         evidence_rows = {row["gate_id"]: row for row in observation_packet["evidence_rows"]}
         operator_steps = {row["step_id"]: row for row in observation_packet["operator_steps"]}
+        small_plan = observation_packet["small_capital_manual_observation_plan"]
 
         self.assertEqual(live_system["summary"]["go_live_state"], "blocked_candidate_trade_evidence")
         self.assertEqual(live_system["summary"]["next_step_id"], "repair_candidate_trade_evidence")
@@ -456,6 +457,109 @@ class DailyTradeAdvisoryTests(unittest.TestCase):
         self.assertEqual(evidence_rows["candidate_trade_evidence"]["target_id"], "daily-candidate-evidence-repair-plan")
         self.assertEqual(evidence_rows["candidate_trade_evidence"]["workflow_id"], "research_backtest")
         self.assertEqual(operator_steps["repair_candidate_trade_evidence"]["status"], "blocked")
+        self.assertEqual(small_plan["stage"], "phase_6_34_small_capital_manual_observation_plan")
+        self.assertEqual(small_plan["summary"]["plan_status"], "blocked_candidate_trade_evidence")
+        self.assertIn("candidate_trade_evidence_incomplete", small_plan["summary"]["blockers"])
+        self.assertFalse(small_plan["summary"]["manual_external_observation_allowed"])
+        self.assertFalse(small_plan["summary"]["order_placement_allowed"])
+
+    def test_manual_observation_packet_exposes_small_capital_top3_plan_when_evidence_is_ready(self):
+        pack = build_daily_trade_advisory_pack(
+            [
+                {
+                    "rank": 1,
+                    "case_id": "c1",
+                    "factor_name": "momentum_quality_combo",
+                    "market": "CN_ETF",
+                    "status": "paper_ready",
+                    "sharpe": 1.35,
+                    "annualized_return": 0.18,
+                    "max_drawdown": -0.14,
+                    "win_rate": 0.59,
+                    "rank_ic": 0.045,
+                    "trade_count": 96,
+                },
+                {
+                    "rank": 2,
+                    "case_id": "c2",
+                    "factor_name": "low_vol_overlay",
+                    "market": "CN_ETF",
+                    "status": "paper_ready",
+                    "sharpe": 1.05,
+                    "annualized_return": 0.14,
+                    "max_drawdown": -0.11,
+                    "win_rate": 0.57,
+                    "rank_ic": 0.033,
+                    "trade_count": 80,
+                },
+                {
+                    "rank": 3,
+                    "case_id": "c3",
+                    "factor_name": "breadth_trend_state",
+                    "market": "CN_ETF",
+                    "status": "paper_ready",
+                    "sharpe": 0.98,
+                    "annualized_return": 0.12,
+                    "max_drawdown": -0.10,
+                    "win_rate": 0.56,
+                    "rank_ic": 0.028,
+                    "trade_count": 72,
+                },
+            ],
+            [
+                _signal("c1", "momentum_quality_combo", {"510300": 0.20}, latest_price=4.0),
+                _signal("c2", "low_vol_overlay", {"588000": 0.15}, latest_price=1.5),
+                _signal("c3", "breadth_trend_state", {"159915": 0.10}, latest_price=2.0),
+            ],
+            run_date="2026-06-29",
+            portfolio_value=100000,
+            risk_profile_id="aggressive_30dd",
+            evidence_snapshot={
+                "walk_forward_oos_passed": True,
+                "lookahead_bias_audit_passed": True,
+                "multiple_testing_control_passed": True,
+                "transaction_cost_capacity_passed": True,
+                "matched_paper_receipts": 5,
+                "post_close_journals": 5,
+                "manual_execution_clean_receipts": 5,
+                "manual_execution_blocked_receipts": 0,
+                "manual_execution_missing_review_receipts": 0,
+                "paper_ready_observations": 20,
+                "same_parameter_top3_required_requests": 3,
+                "same_parameter_top3_matched_requests": 3,
+            },
+        )
+
+        packet = pack["daily_manual_observation_packet"]
+        small_plan = packet["small_capital_manual_observation_plan"]
+        summary = small_plan["summary"]
+
+        self.assertEqual(packet["summary"]["packet_status"], "manual_observation_material_ready")
+        self.assertEqual(small_plan["stage"], "phase_6_34_small_capital_manual_observation_plan")
+        self.assertEqual(summary["plan_status"], "external_manual_small_capital_observation_candidate")
+        self.assertTrue(summary["manual_external_observation_allowed"])
+        self.assertTrue(summary["manual_external_decision_only"])
+        self.assertEqual(summary["max_initial_capital"], 10000.0)
+        self.assertEqual(summary["max_single_ticket_notional"], 1000.0)
+        self.assertEqual(summary["max_daily_loss"], 200.0)
+        self.assertEqual(summary["ticket_count"], 3)
+        self.assertLessEqual(summary["total_capped_notional"], 3000.0)
+        self.assertFalse(summary["broker_connection_allowed"])
+        self.assertFalse(summary["account_read_allowed"])
+        self.assertFalse(summary["order_placement_allowed"])
+        self.assertFalse(summary["auto_order_allowed"])
+
+        rows_by_asset = {row["asset_id"]: row for row in small_plan["ticket_rows"]}
+        first = rows_by_asset["510300"]
+        self.assertEqual(first["side"], "buy")
+        self.assertEqual(first["reference_price"], 4.0)
+        self.assertEqual(first["small_capital_capped_notional"], 1000.0)
+        self.assertEqual(first["small_capital_quantity_at_reference"], 200)
+        self.assertEqual(first["execute_or_skip_code"], "external_manual_observation_review_only")
+        self.assertTrue(first["manual_external_decision_only"])
+        self.assertFalse(first["copy_to_broker_allowed"])
+        self.assertFalse(first["order_placement_allowed"])
+        self.assertTrue(all(row["small_capital_capped_notional"] <= 1000.0 for row in small_plan["ticket_rows"]))
 
     def test_manual_rebalance_sell_cash_impact_is_net_of_estimated_commission(self):
         pack = build_daily_trade_advisory_pack(

@@ -8535,15 +8535,57 @@ function renderDailyRealMoneyTransitionGate(gate = {}) {
   }).join("") : statusRows([["人工票据", "暂无可人工核对票据；没有票据就不要进入券商端操作。", "danger"]]);
 }
 
+function renderDailySmallCapitalManualObservationPlan(plan = {}, target = null) {
+  const root = target || byId("daily-manual-observation-small-capital-plan");
+  if (!root) return;
+  const summary = plan.summary || {};
+  const status = summary.plan_status || "waiting_for_small_capital_manual_observation_plan";
+  const released = status === "external_manual_small_capital_observation_candidate";
+  const permissionBroken = summary.order_placement_allowed || summary.broker_connection_allowed || summary.account_read_allowed || summary.auto_order_allowed;
+  const tone = permissionBroken ? "danger" : released ? "ok" : status.includes("blocked") ? "danger" : "warn";
+  const rows = Array.isArray(plan.ticket_rows) ? plan.ticket_rows : [];
+  const budget = plan.budget || {};
+  const blockers = Array.isArray(summary.blockers) ? summary.blockers : [];
+  const actionTarget = released ? "daily-beginner-execution-answer-pre-market-packet" : "daily-candidate-evidence-repair-plan";
+  const actionButton = `
+    <button class="secondary-button" type="button" data-small-capital-observation-target="${escapeRawHtml(actionTarget)}" data-beginner-target="${escapeRawHtml(actionTarget)}">${escapeHtml(released ? "看外部人工复核输入" : "看缺口")}</button>
+  `;
+  const summaryHtml = statusRows([
+    ["小资金观察", zhConsoleText(status), tone],
+    ["资金上限", `总额<=${formatNumber(summary.max_initial_capital ?? budget.max_initial_capital)} / 单票<=${formatNumber(summary.max_single_ticket_notional ?? budget.max_single_ticket_notional)} / 日亏损线<=${formatNumber(summary.max_daily_loss ?? budget.max_daily_loss)}`, tone],
+    ["证据样本", `同参数=${formatNumber(summary.same_parameter_top3_matched_requests || 0)}/${formatNumber(summary.same_parameter_top3_required_requests || 0)} / paper=${formatNumber(summary.matched_paper_receipts || 0)} / 复盘=${formatNumber(summary.post_close_journal_receipts || 0)} / 干净执行=${formatNumber(summary.manual_execution_clean_receipts || 0)}`, released ? "ok" : "warn"],
+    ["安全边界", permissionBroken ? "异常：权限越界" : "只给人工观察材料，不接券商、不读账户、不下单", permissionBroken ? "danger" : "ok"],
+  ]) + `
+    <div class="list-row ${escapeHtml(tone)}">
+      <strong>${escapeHtml("下一步")}</strong>
+      <span>${escapeHtml(blockers.length ? blockers.map(zhConsoleText).join(" / ") : "人工决定是否离开系统，在外部券商手工观察；软件不下单。")}</span>
+      <span class="beginner-task-actions">${actionButton}</span>
+    </div>
+  `;
+  const rowsHtml = rows.length ? rows.map((row) => {
+    const rowTone = row.order_placement_allowed || row.broker_connection_allowed ? "danger" : row.row_status === "external_manual_review_only" ? "ok" : row.row_status === "locked" ? "danger" : "warn";
+    const skip = Array.isArray(row.skip_reasons) && row.skip_reasons.length ? ` / skip=${row.skip_reasons.map(zhConsoleText).join(",")}` : "";
+    return `
+      <div class="list-row ${escapeHtml(rowTone)}">
+        <strong>${escapeHtml(`${row.row_number || "--"}. ${row.asset_id || "--"} / ${zhConsoleText(row.side || "review")}`)}</strong>
+        <span>${escapeHtml(`参考价=${formatNumber(row.reference_price)} / 封顶金额=${formatNumber(row.small_capital_capped_notional)} / 参考数量=${formatNumber(row.small_capital_quantity_at_reference)} / 一手=${formatNumber(row.board_lot_size)}`)}</span>
+        <span>${escapeHtml(`${zhConsoleText(row.execute_or_skip_code || "external_manual_observation_review_only")}${skip}`)}</span>
+      </div>
+    `;
+  }).join("") : statusRows([["小资金票据", "没有可观察票据；先补 Top3 信号、同参数模拟和人工票据。", "warn"]]);
+  root.innerHTML = summaryHtml + rowsHtml;
+}
+
 function renderDailyManualObservationPacket(packet = {}) {
   const summaryTarget = byId("daily-manual-observation-summary");
   const verdictTarget = byId("daily-manual-observation-verdict");
+  const smallCapitalPlanTarget = byId("daily-manual-observation-small-capital-plan");
   const top3Target = byId("daily-manual-observation-top3");
   const paperTarget = byId("daily-manual-observation-paper-requests");
   const evidenceTarget = byId("daily-manual-observation-evidence");
   const stepsTarget = byId("daily-manual-observation-steps");
   const ticketsTarget = byId("daily-manual-observation-tickets");
-  if (!summaryTarget || !verdictTarget || !top3Target || !paperTarget || !evidenceTarget || !stepsTarget || !ticketsTarget) return;
+  if (!summaryTarget || !verdictTarget || !smallCapitalPlanTarget || !top3Target || !paperTarget || !evidenceTarget || !stepsTarget || !ticketsTarget) return;
   const summary = packet.summary || {};
   const status = summary.packet_status || "waiting_for_today_signal";
   const readyStatus = "manual_observation_material_ready";
@@ -8600,6 +8642,8 @@ function renderDailyManualObservationPacket(packet = {}) {
       <span class="beginner-task-actions">${verdictTargetButton}</span>
     </div>
   `;
+
+  renderDailySmallCapitalManualObservationPlan(packet.small_capital_manual_observation_plan || {}, smallCapitalPlanTarget);
 
   top3Target.innerHTML = top3Rows.length ? top3Rows.map((row) => {
     const unsafe = row.direct_buy_allowed || row.order_placement_allowed;
@@ -12361,6 +12405,15 @@ const GUI_ZH_REPLACEMENTS = [
   ["candidate_trade_evidence_incomplete", "\u5019\u9009\u4ea4\u6613\u8bc1\u636e\u4e0d\u5b8c\u6574"],
   ["blocked_candidate_trade_evidence", "\u5019\u9009\u8bc1\u636e\u7ea2\u706f\uff0c\u5148\u8865\u8bc1\u636e"],
   ["repair_candidate_trade_evidence", "\u4fee\u590d Top3 \u5019\u9009\u8bc1\u636e"],
+  ["external_manual_small_capital_observation_candidate", "\u5c0f\u8d44\u91d1\u4eba\u5de5\u89c2\u5bdf\u5019\u9009"],
+  ["waiting_for_small_capital_manual_observation_plan", "\u7b49\u5f85\u5c0f\u8d44\u91d1\u4eba\u5de5\u89c2\u5bdf\u65b9\u6848"],
+  ["profitability_evidence_required", "\u76c8\u5229\u8bc1\u636e\u4e0d\u8db3"],
+  ["waiting_for_today_top3_signal", "\u7b49\u5f85\u4eca\u65e5 Top3 \u4fe1\u53f7"],
+  ["waiting_for_manual_tickets", "\u7b49\u5f85\u4eba\u5de5\u590d\u6838\u7968\u636e"],
+  ["external_manual_observation_review_only", "\u4ec5\u5916\u90e8\u4eba\u5de5\u89c2\u5bdf\u590d\u6838"],
+  ["skip_until_small_capital_observation_plan_released", "\u65b9\u6848\u672a\u653e\u884c\uff0c\u8df3\u8fc7"],
+  ["skip_quantity_zero_after_small_capital_cap", "\u5c01\u9876\u540e\u4e0d\u8db3\u4e00\u624b\uff0c\u8df3\u8fc7"],
+  ["small_capital_quantity_zero", "\u5c0f\u8d44\u91d1\u6570\u91cf\u4e3a 0"],
   ["blocked_current_position_input", "当前持仓输入红灯"],
   ["blocked_pretrade_red_light", "盘前红灯阻断"],
   ["blocked_execution_feedback", "成交反馈异常阻断"],

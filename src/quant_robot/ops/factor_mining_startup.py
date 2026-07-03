@@ -535,6 +535,7 @@ def _validate_repeatable_mining_protocol(packet: dict[str, Any], *, context: str
     if not _list(protocol.get("confirm_before_each_run")):
         raise ValueError(f"{context} startup gate repeatable mining protocol lacks per-run confirmations: {path}")
     design_items = set(_list(protocol.get("required_experiment_design")))
+    confirmations = set(_list(protocol.get("confirm_before_each_run")))
     missing_design_items = [item for item in REQUIRED_LONG_CYCLE_DESIGN_ITEMS if item not in design_items]
     if missing_design_items:
         if any("source" in item for item in missing_design_items):
@@ -544,7 +545,6 @@ def _validate_repeatable_mining_protocol(packet: dict[str, Any], *, context: str
         if any("signal_window" in item for item in missing_design_items):
             raise ValueError(f"{context} startup gate lacks signal-window regime experiment design: {path}")
         raise ValueError(f"{context} startup gate lacks long-cycle experiment design: {path}")
-    confirmations = set(_list(protocol.get("confirm_before_each_run")))
     missing_confirmations = [item for item in REQUIRED_LONG_CYCLE_CONFIRMATIONS if item not in confirmations]
     if missing_confirmations:
         if any("source" in item for item in missing_confirmations):

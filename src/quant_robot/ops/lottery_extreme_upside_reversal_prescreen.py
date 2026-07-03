@@ -75,6 +75,8 @@ def build_lottery_extreme_upside_reversal_prescreen(
     min_neutral_rank_ic: float = 0.01,
     min_neutral_ic_t_stat: float = 2.0,
     min_neutral_retention: float = 0.50,
+    min_ic_years: int = 5,
+    min_yearly_positive_ic_year_rate: float = 0.60,
     max_reference_corr_abs: float = 0.85,
     min_signal_date_amount: float = DEFAULT_CAPACITY_FILTERS["min_signal_date_amount"],
 ) -> dict[str, Any]:
@@ -125,6 +127,8 @@ def build_lottery_extreme_upside_reversal_prescreen(
         min_neutral_rank_ic=min_neutral_rank_ic,
         min_neutral_ic_t_stat=min_neutral_ic_t_stat,
         min_neutral_retention=min_neutral_retention,
+        min_ic_years=min_ic_years,
+        min_yearly_positive_ic_year_rate=min_yearly_positive_ic_year_rate,
         max_reference_corr_abs=max_reference_corr_abs,
     )
     result["data_window"] = _data_window(clean_bars, factor_frame, labels)
@@ -226,6 +230,8 @@ def summarize_lottery_extreme_upside_reversal_prescreen(
     min_neutral_rank_ic: float = 0.01,
     min_neutral_ic_t_stat: float = 2.0,
     min_neutral_retention: float = 0.50,
+    min_ic_years: int = 5,
+    min_yearly_positive_ic_year_rate: float = 0.60,
     max_reference_corr_abs: float = 0.85,
     alpha: float = 0.05,
     min_abs_ic: float = 0.02,
@@ -247,6 +253,8 @@ def summarize_lottery_extreme_upside_reversal_prescreen(
         min_neutral_rank_ic=min_neutral_rank_ic,
         min_neutral_ic_t_stat=min_neutral_ic_t_stat,
         min_neutral_retention=min_neutral_retention,
+        min_ic_years=min_ic_years,
+        min_yearly_positive_ic_year_rate=min_yearly_positive_ic_year_rate,
         alpha=alpha,
         min_abs_ic=min_abs_ic,
         min_abs_icir=min_abs_icir,

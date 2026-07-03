@@ -50,6 +50,7 @@ DAILY_OPERATOR_MISSION_CONTROL_STAGE = "phase_6_30_daily_operator_mission_contro
 DAILY_LIVE_TRADING_SYSTEM_STATUS_STAGE = "phase_6_31_daily_live_trading_system_status"
 DAILY_MANUAL_OBSERVATION_PACKET_STAGE = "phase_6_32_daily_manual_observation_packet"
 CANDIDATE_EVIDENCE_REPAIR_PLAN_STAGE = "phase_6_33_candidate_evidence_repair_plan"
+SMALL_CAPITAL_MANUAL_OBSERVATION_PLAN_STAGE = "phase_6_34_small_capital_manual_observation_plan"
 SAFETY_NOTICE = "仅研究到模拟盘：不连接券商、不读取账户、不生成实盘委托、不自动下单。"
 BOARD_LOT_SIZE = 100
 SMALL_CAPITAL_OBSERVATION_MAX_INITIAL_CAPITAL = 10000.0
@@ -4059,6 +4060,7 @@ def build_daily_manual_observation_packet(pack: dict[str, Any]) -> dict[str, Any
     passed_rows = sum(1 for row in evidence_rows if row.get("status") in {"pass", "locked"})
     required_rows = len(evidence_rows)
     ticket_source = handoff.get("copyable_tickets") if isinstance(handoff.get("copyable_tickets"), list) else manual_plan
+    small_capital_plan = _small_capital_manual_observation_plan(pack, packet_status, ticket_source)
     return _sanitize(
         {
             "stage": DAILY_MANUAL_OBSERVATION_PACKET_STAGE,
@@ -4102,6 +4104,7 @@ def build_daily_manual_observation_packet(pack: dict[str, Any]) -> dict[str, Any
                 for index, row in enumerate(ticket_source[:10], 1)
                 if isinstance(row, dict)
             ],
+            "small_capital_manual_observation_plan": small_capital_plan,
             "evidence_rows": evidence_rows,
             "operator_steps": [
                 _manual_observation_step(
@@ -4249,6 +4252,221 @@ def _manual_observation_ticket_preview(row: dict[str, Any], index: int) -> dict[
         "order_placement_allowed": False,
         "broker_connection_allowed": False,
         "account_read_allowed": False,
+    }
+
+
+def _small_capital_manual_observation_plan(
+    pack: dict[str, Any],
+    packet_status: str,
+    ticket_source: list[dict[str, Any]],
+) -> dict[str, Any]:
+    summary = pack.get("summary") if isinstance(pack.get("summary"), dict) else {}
+    readiness = pack.get("pretrade_readiness") if isinstance(pack.get("pretrade_readiness"), dict) else {}
+    profitability = (
+        pack.get("live_profitability_readiness")
+        if isinstance(pack.get("live_profitability_readiness"), dict)
+        else build_live_profitability_readiness_scorecard(pack)
+    )
+    profitability_summary = profitability.get("summary") if isinstance(profitability.get("summary"), dict) else {}
+    candidate_repair = (
+        pack.get("candidate_evidence_repair_plan")
+        if isinstance(pack.get("candidate_evidence_repair_plan"), dict)
+        else build_candidate_evidence_repair_plan(pack)
+    )
+    candidate_repair_summary = (
+        candidate_repair.get("summary") if isinstance(candidate_repair.get("summary"), dict) else {}
+    )
+    evidence_snapshot = _live_profitability_evidence_snapshot(pack.get("live_profitability_evidence_snapshot"))
+    evidence_counts = evidence_snapshot.get("counts") if isinstance(evidence_snapshot.get("counts"), dict) else {}
+    factors = [row for row in pack.get("factors", []) if isinstance(row, dict)]
+    market = str(pack.get("market") or _first_market(factors) or "CN_ETF").upper()
+    selected_count = _int(summary.get("selected_factor_count"), len(factors))
+    signal_count = _int(summary.get("signal_count"), 0)
+    target_count = _int(summary.get("combined_target_count"), 0)
+    readiness_blockers = [str(item) for item in readiness.get("blockers", []) if str(item).strip()]
+    candidate_evidence_blocked = packet_status == "blocked_candidate_trade_evidence" or str(
+        candidate_repair_summary.get("status") or ""
+    ).startswith("blocked")
+    small_capital_ready = bool(profitability_summary.get("small_capital_observation_candidate")) or bool(
+        profitability_summary.get("production_manual_review_candidate")
+    )
+
+    ticket_rows = [
+        _small_capital_manual_observation_ticket_row(index, row)
+        for index, row in enumerate([item for item in ticket_source if isinstance(item, dict)][:10], start=1)
+    ]
+    budget = _small_capital_budget_overlay(pack, ticket_rows)
+    release_blockers: list[str] = []
+    if market != "CN_ETF":
+        release_blockers.append("wrong_market")
+    if candidate_evidence_blocked:
+        release_blockers.append("candidate_trade_evidence_incomplete")
+    release_blockers.extend(item for item in readiness_blockers if item not in release_blockers)
+    if selected_count <= 0 or signal_count <= 0 or target_count <= 0:
+        release_blockers.append("today_top3_signal_missing")
+    if not ticket_rows:
+        release_blockers.append("manual_ticket_pack_missing")
+    if not small_capital_ready:
+        release_blockers.append("profitability_evidence_required")
+
+    if market != "CN_ETF":
+        plan_status = "blocked_wrong_market"
+    elif candidate_evidence_blocked:
+        plan_status = "blocked_candidate_trade_evidence"
+    elif "today_top3_signal_missing" in release_blockers:
+        plan_status = "waiting_for_today_top3_signal"
+    elif "manual_ticket_pack_missing" in release_blockers:
+        plan_status = "waiting_for_manual_tickets"
+    elif "profitability_evidence_required" in release_blockers:
+        plan_status = "profitability_evidence_required"
+    elif readiness_blockers:
+        plan_status = "blocked_pretrade_red_light"
+    else:
+        plan_status = "external_manual_small_capital_observation_candidate"
+
+    released = plan_status == "external_manual_small_capital_observation_candidate"
+    for row in ticket_rows:
+        if released:
+            if _int(row.get("small_capital_quantity_at_reference"), 0) > 0:
+                row["row_status"] = "external_manual_review_only"
+                row["execute_or_skip_code"] = "external_manual_observation_review_only"
+            else:
+                row["row_status"] = "skip"
+                row["execute_or_skip_code"] = "skip_quantity_zero_after_small_capital_cap"
+                row["skip_reasons"] = sorted(set([*row.get("skip_reasons", []), "small_capital_quantity_zero"]))
+        else:
+            row["row_status"] = "locked"
+            row["execute_or_skip_code"] = "skip_until_small_capital_observation_plan_released"
+            row["skip_reasons"] = sorted(set([*row.get("skip_reasons", []), plan_status]))
+
+    return _sanitize(
+        {
+            "stage": SMALL_CAPITAL_MANUAL_OBSERVATION_PLAN_STAGE,
+            "run_date": str(pack.get("run_date") or date.today().isoformat()),
+            "summary": {
+                "plan_status": plan_status,
+                "primary_market": market,
+                "selected_factor_count": selected_count,
+                "signal_count": signal_count,
+                "target_count": target_count,
+                "ticket_count": len(ticket_rows),
+                "released_ticket_count": sum(
+                    1 for row in ticket_rows if row.get("row_status") == "external_manual_review_only"
+                ),
+                "locked_ticket_count": sum(1 for row in ticket_rows if row.get("row_status") == "locked"),
+                "max_initial_capital": budget.get("max_initial_capital"),
+                "max_single_ticket_notional": budget.get("max_single_ticket_notional"),
+                "max_daily_loss": budget.get("max_daily_loss"),
+                "total_requested_notional": budget.get("total_requested_notional"),
+                "total_capped_notional": budget.get("total_capped_notional"),
+                "ticket_limit_breach_count": budget.get("ticket_limit_breach_count"),
+                "blockers": release_blockers,
+                "same_parameter_top3_required_requests": _int(
+                    evidence_counts.get("same_parameter_top3_required_requests"), 0
+                ),
+                "same_parameter_top3_matched_requests": _int(
+                    evidence_counts.get("same_parameter_top3_matched_requests"), 0
+                ),
+                "matched_paper_receipts": _int(evidence_counts.get("matched_paper_receipts"), 0),
+                "post_close_journal_receipts": _int(evidence_counts.get("post_close_journal_receipts"), 0),
+                "manual_execution_clean_receipts": _int(evidence_counts.get("manual_execution_clean_receipts"), 0),
+                "manual_external_observation_allowed": released,
+                "manual_external_decision_only": True,
+                "can_buy_by_software": False,
+                "copy_to_broker_allowed": False,
+                "broker_connection_allowed": False,
+                "account_read_allowed": False,
+                "order_placement_allowed": False,
+                "auto_order_allowed": False,
+                "live_trading_allowed": False,
+            },
+            "budget": budget,
+            "ticket_rows": ticket_rows,
+            "operator_steps": [
+                _manual_observation_step(
+                    1,
+                    "confirm_small_capital_release",
+                    "Confirm the small-capital observation release gates",
+                    "done" if released else "blocked",
+                    "daily-manual-observation-small-capital-plan",
+                ),
+                _manual_observation_step(
+                    2,
+                    "fill_external_price_and_cash",
+                    "Fill external broker price and available cash by hand",
+                    "required_external_input" if released and ticket_rows else "locked",
+                    "daily-beginner-execution-answer-pre-market-packet",
+                ),
+                _manual_observation_step(
+                    3,
+                    "human_external_decision_only",
+                    "Human decides outside the software; the software cannot place orders",
+                    "manual_only" if released else "locked",
+                    "control-safety-boundary",
+                ),
+                _manual_observation_step(
+                    4,
+                    "record_post_close_journal",
+                    "Record post-close journal and manual execution audit",
+                    "required_after_action" if released else "locked",
+                    "beginner-post-close-journal-board",
+                    "post_close_journal" if released else "",
+                ),
+            ],
+            "safety": SAFETY_NOTICE,
+        }
+    )
+
+
+def _small_capital_manual_observation_ticket_row(index: int, ticket: dict[str, Any]) -> dict[str, Any]:
+    recheck_row = _broker_price_recheck_row(index, ticket)
+    reference_price = _float_or_none(recheck_row.get("reference_price"))
+    capped_notional = _float(recheck_row.get("small_capital_capped_notional"), 0.0)
+    capped_quantity = _int(recheck_row.get("small_capital_quantity_at_reference"), 0)
+    skip_reasons: list[str] = []
+    if reference_price is None or reference_price <= 0:
+        skip_reasons.append("missing_reference_price")
+    if capped_notional <= 0:
+        skip_reasons.append("missing_target_notional")
+    if capped_quantity <= 0 and not str(recheck_row.get("side") or "").lower().startswith("sell"):
+        skip_reasons.append("small_capital_quantity_zero")
+    return {
+        "row_number": index,
+        "ticket_id": str(recheck_row.get("ticket_id") or f"manual_review_{index}"),
+        "asset_id": str(recheck_row.get("asset_id") or ""),
+        "market": str(recheck_row.get("market") or "CN_ETF"),
+        "side": str(recheck_row.get("side") or "review"),
+        "reference_price": reference_price,
+        "lower_price_bound": _float_or_none(recheck_row.get("lower_price_bound")),
+        "upper_price_bound": _float_or_none(recheck_row.get("upper_price_bound")),
+        "max_slippage_bps": _int(recheck_row.get("max_slippage_bps"), MANUAL_MAX_SLIPPAGE_BPS),
+        "target_value_for_recalculation": _float_or_none(recheck_row.get("target_value_for_recalculation")),
+        "effective_target_value_for_recalculation": _float_or_none(
+            recheck_row.get("effective_target_value_for_recalculation")
+        ),
+        "board_lot_size": _int(recheck_row.get("board_lot_size"), BOARD_LOT_SIZE),
+        "estimated_quantity_at_reference": _int(recheck_row.get("estimated_quantity_at_reference"), 0),
+        "small_capital_max_single_ticket_notional": _float(
+            recheck_row.get("small_capital_max_single_ticket_notional"),
+            SMALL_CAPITAL_OBSERVATION_MAX_SINGLE_TICKET_NOTIONAL,
+        ),
+        "small_capital_requested_notional": _float(recheck_row.get("small_capital_requested_notional"), 0.0),
+        "small_capital_capped_notional": capped_notional,
+        "small_capital_limit_breached": bool(recheck_row.get("small_capital_limit_breached")),
+        "small_capital_quantity_at_reference": capped_quantity,
+        "small_capital_recheck_budget_applied": bool(recheck_row.get("small_capital_recheck_budget_applied")),
+        "external_realtime_price_required": True,
+        "external_cash_check_required": True,
+        "human_final_decision_required": True,
+        "manual_external_decision_only": True,
+        "skip_reasons": skip_reasons,
+        "copy_to_broker_allowed": False,
+        "can_buy_by_software": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "auto_order_allowed": False,
+        "live_trading_allowed": False,
     }
 
 

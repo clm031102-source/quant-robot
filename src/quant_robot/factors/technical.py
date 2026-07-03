@@ -32,7 +32,11 @@ _STATE_ADAPTIVE_COMPONENTS = (
 )
 
 
-def compute_basic_factors(bars: pd.DataFrame, windows: tuple[int, ...] = (5, 20)) -> pd.DataFrame:
+def compute_basic_factors(
+    bars: pd.DataFrame,
+    windows: tuple[int, ...] = (5, 20),
+    factor_names: tuple[str, ...] | None = None,
+) -> pd.DataFrame:
     required = ["date", "asset_id", "market", "adj_close", "volume", "amount"]
     missing = [column for column in required if column not in bars.columns]
     if missing:
@@ -82,6 +86,12 @@ def compute_basic_factors(bars: pd.DataFrame, windows: tuple[int, ...] = (5, 20)
                         window,
                     ),
                     _factor_frame(enriched, f"liquidity_{window}", _amihud(enriched["_return"], enriched["amount"]).rolling(window).mean(), window),
+                    _factor_frame(
+                        enriched,
+                        f"high_liquidity_{window}",
+                        -_amihud(enriched["_return"], enriched["amount"]).rolling(window).mean(),
+                        window,
+                    ),
                     _factor_frame(
                         enriched,
                         f"liquidity_resilience_{window}",
@@ -139,6 +149,13 @@ def compute_basic_factors(bars: pd.DataFrame, windows: tuple[int, ...] = (5, 20)
         expanded = pd.concat([expanded, state_adaptive], ignore_index=True)
     composites = _composite_factors(expanded)
     factors = pd.concat([expanded, composites], ignore_index=True) if not composites.empty else expanded
+    if factor_names is not None:
+        requested = {str(name) for name in factor_names}
+        available = set(factors["factor_name"].astype(str).unique())
+        missing = sorted(requested - available)
+        if missing:
+            raise ValueError("Unsupported technical factor_names: " + ", ".join(missing))
+        factors = factors[factors["factor_name"].astype(str).isin(requested)]
     return factors[FACTOR_COLUMNS].sort_values(
         ["asset_id", "date", "factor_name"]
     ).reset_index(drop=True)
