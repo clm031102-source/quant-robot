@@ -29,7 +29,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 | Branch | Role | Status |
 | --- | --- | --- |
 | `codex/factor-batch-cn-stock-benchmark-relative-20260704` | Round464 benchmark-relative residual moneyflow pre-registration, walk-forward framework fixes, and rejection evidence | active review branch |
-| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, and Round471 financial/PIT source-gate refresh | active review branch |
+| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, Round471 financial/PIT source-gate refresh, and Round472 paper replay refresh | active review branch |
 
 These branches are not promotion branches. They record a completed rejection set, framework fixes, and paper-lane risk-repair evidence that should be reviewed before integration.
 
@@ -99,6 +99,7 @@ Latest same-day progress reports:
 - `docs/research/project_round469_readiness_blocker_audit_2026-07-04.md`
 - `docs/research/project_round470_final_holdout_boundary_audit_2026-07-04.md`
 - `docs/research/project_round471_financial_pit_source_gate_refresh_2026-07-04.md`
+- `docs/research/project_round472_post_refresh_replay_observation_refresh_2026-07-04.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -155,7 +156,7 @@ Decision: do not burn more same-day `report_rc` retries. Resume February 2024 af
 Cloud branch integration handoff:
 
 - `origin/codex/factor-batch-cn-stock-benchmark-relative-20260704` is 1 commit ahead of `origin/main`.
-- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 9 commits ahead of `origin/main` after Round471 is pushed.
+- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 10 commits ahead of `origin/main` after Round472 is pushed.
 - The Round464 branch is an ancestor of the Round465/467 branch, so laptop integration may merge Round464 first and then Round465/467 for review clarity, or merge Round465/467 once to absorb both.
 - Do not delete either topic branch until laptop safe-sync marks it as merged or manifest-absorbed.
 
@@ -210,6 +211,19 @@ Round471 refreshed the current financial/PIT source gate from all local `data/pr
 - CN stock data manifest remained `review_required` with no blockers, but warnings still include `extreme_return_rows_present` and `moneyflow_symbol_coverage_below_bars`.
 
 Decision: do not generate financial/PIT candidates from the current 394-symbol cache. Continue this route only as source construction or retire it for the current sprint; do not use the cache for formula mining, portfolio grids, or promotion evidence.
+
+Round472 reran the paper-only post-refresh replay from the ready recent-data refresh pack:
+
+- Post-refresh replay reached Daily Ops and profile observation.
+- Daily Ops status: `paper_ready`; paper trading allowed true; signal age 0 days; observed market `CN_ETF`; live boundary false.
+- Daily Ops risk: total return 2.74%, max equity drawdown -0.17%, guard events 0, execution blocks 0.
+- Profile observation blocker changed from `profile_observation_artifact_missing` to `minimum_fills_observed`.
+- Observed fills: 6 / 20 required.
+- Observation sufficiency status: `needs_more_observation_data`.
+- Recommended expansion window: 2026-04-13 to 2026-07-01.
+- Expanded observation dry run: `can_extend_observation_window=true`, but not cleared because the dry run did not execute the expanded data refresh.
+
+Decision: paper-only observation may continue, but the candidate is not live-ready. The next real execution is an expanded recent-data refresh on the assigned ETF/paper workstation, followed by post-refresh replay and observation sufficiency recomputation.
 
 ## Current CN ETF Framework
 
