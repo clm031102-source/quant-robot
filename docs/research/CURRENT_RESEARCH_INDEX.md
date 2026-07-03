@@ -29,7 +29,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 | Branch | Role | Status |
 | --- | --- | --- |
 | `codex/factor-batch-cn-stock-benchmark-relative-20260704` | Round464 benchmark-relative residual moneyflow pre-registration, walk-forward framework fixes, and rejection evidence | active review branch |
-| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, and Round470 final-holdout boundary evidence | active review branch |
+| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, and Round471 financial/PIT source-gate refresh | active review branch |
 
 These branches are not promotion branches. They record a completed rejection set, framework fixes, and paper-lane risk-repair evidence that should be reviewed before integration.
 
@@ -98,6 +98,7 @@ Latest same-day progress reports:
 - `docs/research/project_round468_paper_ops_guardrail_runbook_status_2026-07-04.md`
 - `docs/research/project_round469_readiness_blocker_audit_2026-07-04.md`
 - `docs/research/project_round470_final_holdout_boundary_audit_2026-07-04.md`
+- `docs/research/project_round471_financial_pit_source_gate_refresh_2026-07-04.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -154,7 +155,7 @@ Decision: do not burn more same-day `report_rc` retries. Resume February 2024 af
 Cloud branch integration handoff:
 
 - `origin/codex/factor-batch-cn-stock-benchmark-relative-20260704` is 1 commit ahead of `origin/main`.
-- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 8 commits ahead of `origin/main` after Round470 is pushed.
+- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 9 commits ahead of `origin/main` after Round471 is pushed.
 - The Round464 branch is an ancestor of the Round465/467 branch, so laptop integration may merge Round464 first and then Round465/467 for review clarity, or merge Round465/467 once to absorb both.
 - Do not delete either topic branch until laptop safe-sync marks it as merged or manifest-absorbed.
 
@@ -197,6 +198,18 @@ Round470 revalidated the final-holdout boundary from the existing Round145 `dail
 - Blocker: `no_case_passed_final_holdout_fold`.
 
 Decision: historical Round145 is process evidence only and remains hibernated. Current Round464/Round465/Round467 lanes must not claim final-holdout passage, paper-gate clearance, or promotion readiness.
+
+Round471 refreshed the current financial/PIT source gate from all local `data/processed` financial statement and PIT signal roots:
+
+- Financial/PIT source gate status: `blocked`.
+- Source count: 112.
+- Rows: 84,499.
+- Unique symbols: 394 / 1,000 required.
+- Candidate plan allowed: false.
+- Blocker: `unique_symbol_count_below_minimum`.
+- CN stock data manifest remained `review_required` with no blockers, but warnings still include `extreme_return_rows_present` and `moneyflow_symbol_coverage_below_bars`.
+
+Decision: do not generate financial/PIT candidates from the current 394-symbol cache. Continue this route only as source construction or retire it for the current sprint; do not use the cache for formula mining, portfolio grids, or promotion evidence.
 
 ## Current CN ETF Framework
 
