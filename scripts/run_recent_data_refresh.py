@@ -177,6 +177,15 @@ def _write_recent_cn_etf_rotation_membership(
         return {"dataset": dataset, "market": market_name, "written": False, "reason": "no_processed_bars"}
 
     has_fund_basic = isinstance(fund_basic, pd.DataFrame) and not fund_basic.empty
+    if source_name == "tushare" and not has_fund_basic:
+        return {
+            "dataset": dataset,
+            "market": market_name,
+            "source": "tushare_fund_basic_fund_daily",
+            "written": False,
+            "reason": "fund_basic_required_for_live_tushare_rotation_membership",
+            "validation_error": "fund_basic_missing_or_empty",
+        }
     membership = (
         build_cn_etf_rotation_membership(fund_basic, bars)
         if has_fund_basic

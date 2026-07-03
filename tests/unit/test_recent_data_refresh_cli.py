@@ -221,6 +221,100 @@ class RecentDataRefreshCliTests(unittest.TestCase):
             self.assertEqual(pack["ingest"]["rotation_membership"]["source"], "tushare_fund_basic_fund_daily")
             self.assertEqual(fake_adapter.request, {"market": "E", "status": ""})
 
+    def test_live_tushare_refresh_blocks_when_fund_basic_membership_cannot_be_validated(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile_pack = root / "profile_observation_pack.json"
+            profile_pack.write_text(
+                json.dumps(
+                    {
+                        "stage": "phase_5_6_profile_observation_ledger",
+                        "run_date": "2024-01-04",
+                        "ledger": [
+                            {
+                                "signal_date": "2024-01-01",
+                                "observed_assets": "CN_ETF_XSHG_510300",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            processed_dir = root / "processed"
+            dates = list(pd.date_range("2024-01-02", periods=3).date)
+
+            def ingest_runner(**kwargs):
+                output_dir = Path(kwargs["output_dir"])
+                bars = pd.DataFrame(
+                    {
+                        "asset_id": ["CN_ETF_XSHG_510300"] * 3,
+                        "symbol": ["510300.SH"] * 3,
+                        "date": dates,
+                        "market": ["CN_ETF"] * 3,
+                        "frequency": ["1d"] * 3,
+                        "open": [1.0] * 3,
+                        "high": [1.01] * 3,
+                        "low": [0.99] * 3,
+                        "close": [1.0, 1.01, 1.02],
+                        "volume": [100.0] * 3,
+                        "amount": [1_000_000.0] * 3,
+                    }
+                )
+                DatasetStore(output_dir).write_frame(
+                    bars,
+                    "processed/bars",
+                    {"frequency": "1d", "market": "CN_ETF", "year": "2024"},
+                )
+                return {
+                    "source": "tushare",
+                    "market": "CN_ETF",
+                    "downloaded_trade_dates": ["20240102", "20240103", "20240104"],
+                    "skipped_trade_dates": [],
+                    "processed_rows": len(bars),
+                    "quality_report": {
+                        "rows": len(bars),
+                        "assets": 1,
+                        "start_date": "2024-01-02",
+                        "end_date": "2024-01-04",
+                        "missing_date_rows": 0,
+                        "duplicate_bars": 0,
+                        "zero_volume_rows": 0,
+                        "coverage_by_asset": [
+                            {
+                                "asset_id": "CN_ETF_XSHG_510300",
+                                "rows": 3,
+                                "start_date": "2024-01-02",
+                                "end_date": "2024-01-04",
+                            }
+                        ],
+                    },
+                }
+
+            class FailingFundBasicAdapter:
+                def fetch_fund_basic(self, market="E", status="L"):
+                    raise RuntimeError("fund_basic unavailable")
+
+            with patch("scripts.run_recent_data_refresh.TushareAdapter", return_value=FailingFundBasicAdapter()):
+                pack = run_recent_data_refresh(
+                    profile_observation_pack=profile_pack,
+                    source="tushare",
+                    market="CN_ETF",
+                    output_dir=processed_dir,
+                    report_dir=root / "report",
+                    execute=True,
+                    readiness={"ready": True, "missing": []},
+                    ingest_runner=ingest_runner,
+                )
+
+            self.assertEqual(pack["status"], "data_quality_blocked")
+            self.assertFalse(pack["decision"]["recent_data_ready"])
+            self.assertIn("rotation_membership_fund_basic_missing", pack["decision"]["blockers"])
+            self.assertFalse(pack["ingest"]["rotation_membership"]["written"])
+            self.assertEqual(
+                pack["ingest"]["rotation_membership"]["reason"],
+                "fund_basic_required_for_live_tushare_rotation_membership",
+            )
+
     def test_function_writes_machine_aware_handoff_artifacts(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
