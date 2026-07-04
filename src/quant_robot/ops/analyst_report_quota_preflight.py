@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import date
 from pathlib import Path
@@ -30,7 +31,8 @@ def build_analyst_report_quota_preflight(
         warnings.append(QUOTA_TARGET_DATE_MISMATCH_WARNING)
     report_root_paths = [Path(root) for root in report_roots]
     report_root_labels = [str(root) for root in report_root_paths]
-    rows = _scan_cache_reports(report_roots=report_root_paths, target_date=target)
+    scan = _scan_cache_reports(report_roots=report_root_paths, target_date=target)
+    rows = scan["rows"]
     counted = [row for row in rows if row["counts_against_quota"]]
     rate_limited = [row for row in rows if row.get("provider_rate_limit")]
     next_retry_values = [
@@ -57,6 +59,7 @@ def build_analyst_report_quota_preflight(
             "target_date_matches_generated_at": target_date_matches_generated_at,
             "cache_report_count": len({row["report_path"] for row in rows}),
             "same_day_window_rows": len(rows),
+            "duplicate_evidence_rows": scan["duplicate_evidence_rows"],
             "counted_provider_request_windows": len(counted),
             "rate_limited_windows": len(rate_limited),
             "remaining_request_windows": max(0, int(max_daily_requests) - len(counted)),
@@ -103,6 +106,7 @@ def render_analyst_report_quota_preflight_markdown(packet: dict[str, Any]) -> st
         f"- Max daily requests: {packet.get('max_daily_requests', DEFAULT_MAX_DAILY_REQUESTS)}",
         f"- Quota scope: {packet.get('quota_scope', QUOTA_SCOPE)}",
         f"- Counted provider request windows: {summary.get('counted_provider_request_windows', 0)}",
+        f"- Duplicate evidence rows skipped: {summary.get('duplicate_evidence_rows', 0)}",
         f"- Rate-limited windows: {summary.get('rate_limited_windows', 0)}",
         f"- Remaining request windows: {summary.get('remaining_request_windows', 0)}",
         f"- Request allowed: {decision.get('request_allowed', False)}",
@@ -154,7 +158,7 @@ def render_analyst_report_quota_preflight_markdown(packet: dict[str, Any]) -> st
     return "\n".join(lines) + "\n"
 
 
-def _scan_cache_reports(*, report_roots: Iterable[str | Path], target_date: str) -> list[dict[str, Any]]:
+def _scan_cache_reports(*, report_roots: Iterable[str | Path], target_date: str) -> dict[str, Any]:
     rows: list[dict[str, Any]] = []
     for path in _cache_report_paths(report_roots):
         packet = _load_json(path)
@@ -170,6 +174,7 @@ def _scan_cache_reports(*, report_roots: Iterable[str | Path], target_date: str)
             rows.append(
                 {
                     "report_path": str(path),
+                    "quota_evidence_fingerprint": _row_evidence_fingerprint(path, packet, item),
                     "generated_at": str(packet.get("generated_at", "")),
                     "window_start": str(item.get("window_start", "")),
                     "window_end": str(item.get("window_end", "")),
@@ -179,7 +184,45 @@ def _scan_cache_reports(*, report_roots: Iterable[str | Path], target_date: str)
                     "retry_after_seconds": item.get("retry_after_seconds"),
                 }
             )
-    return rows
+    unique_rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for row in rows:
+        fingerprint = str(row.get("quota_evidence_fingerprint", ""))
+        if fingerprint in seen:
+            continue
+        seen.add(fingerprint)
+        unique_rows.append(row)
+    return {
+        "rows": unique_rows,
+        "duplicate_evidence_rows": len(rows) - len(unique_rows),
+    }
+
+
+def _row_evidence_fingerprint(path: Path, packet: dict[str, Any], row: dict[str, Any]) -> str:
+    report_identity = f"analyst_report_source:{_report_source_fingerprint(path, packet)}"
+    evidence = {
+        "report_identity": report_identity,
+        "generated_at": str(packet.get("generated_at", "")),
+        "window_start": str(row.get("window_start", "")),
+        "window_end": str(row.get("window_end", "")),
+        "status": str(row.get("status", "")),
+        "provider_rate_limit": str(row.get("provider_rate_limit", "") or ""),
+        "retry_after_seconds": row.get("retry_after_seconds"),
+    }
+    encoded = json.dumps(evidence, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    return hashlib.sha1(encoded).hexdigest()
+
+
+def _report_source_fingerprint(path: Path, packet: dict[str, Any]) -> str:
+    existing = str(packet.get("quota_pack_source_fingerprint", "")).strip()
+    if existing:
+        return existing
+    evidence = {
+        "source_path": str(path.resolve()),
+        "payload": packet,
+    }
+    encoded = json.dumps(evidence, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    return hashlib.sha1(encoded).hexdigest()
 
 
 def _cache_report_paths(report_roots: Iterable[str | Path]) -> list[Path]:

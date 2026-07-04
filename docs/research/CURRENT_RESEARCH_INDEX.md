@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round518 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, and cross-machine quota-pack evidence | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round519 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, and quota-pack dedup hardening | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -130,6 +130,8 @@ Latest same-day progress reports:
 - `docs/research/project_round502_final_laptop_integration_rehearsal_2026-07-04.md`
 - `docs/research/cn_stock_round518_cross_machine_quota_pack_2026-07-05.md`
 - `docs/research/ROUND518_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round519_quota_pack_dedup_2026-07-05.md`
+- `docs/research/ROUND519_NEXT_STEPS_CHECKLIST.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -954,3 +956,26 @@ Docs:
 - `docs/research/ROUND518_NEXT_STEPS_CHECKLIST.md`
 
 Decision: use quota packs as cross-machine local evidence roots, not as a global provider-quota oracle. Future provider-backed analyst-report cache attempts should include every available workstation pack with repeated `--quota-report-root`, stop on exit `3`, and manually confirm same-day provider usage if any relevant pack is unavailable.
+
+## Round519 Quota Pack Deduplication
+
+Round519 hardened the Round518 quota-pack workflow after real export testing exposed copied-evidence duplication:
+
+- `scripts/export_analyst_report_quota_pack.py` now writes a stable `quota_pack_source_fingerprint` into each exported cache-summary JSON.
+- Export manifests record each report's source fingerprint.
+- Exporter broad scans now skip old quota-pack internals, preventing new packs from recursively absorbing old pack copies.
+- `src/quant_robot/ops/analyst_report_quota_preflight.py` now computes row-level quota evidence fingerprints and deduplicates repeated pack evidence.
+- Preflight summary and Markdown now record `duplicate_evidence_rows`.
+- Test-first evidence caught three cases: two packs exported from the same source counted as `2` instead of `1`; a local report plus its own pack counted as `2` instead of `1`; a broad export with an existing pack under the report root exported `2` instead of `1`.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Corrected real pack export from `data\reports` wrote `data\reports\round519_analyst_quota_pack_dedup_20260705` with `exported_report_count=8`.
+- Actual-date cache-CLI preflight-only for April 2024 still blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, and returned exit code `3`.
+- Explicit preflight with `data\reports` plus the same Round519 pack twice still counted only 2 same-day provider request windows, skipped 2 duplicate evidence rows, blocked with `daily_provider_request_budget_exhausted`, and exited `3`.
+- Full laptop integration verification passed with 94 tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round519_quota_pack_dedup_2026-07-05.md`
+- `docs/research/ROUND519_NEXT_STEPS_CHECKLIST.md`
+
+Decision: quota packs are now safer to repeat in commands or copy across workstations because duplicate exported evidence no longer inflates same-day provider request counts. Normal provider-backed analyst-report cache remains blocked on 2026-07-05 and must wait for an actual-date preflight exit `0`.

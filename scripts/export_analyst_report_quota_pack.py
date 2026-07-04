@@ -18,6 +18,7 @@ ensure_workspace_imports()
 
 DEFAULT_OUTPUT_DIR = Path("data/reports/analyst_report_quota_pack")
 SAFETY = "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+QUOTA_PACK_MANIFEST = "analyst_report_quota_pack_manifest.json"
 
 
 def export_analyst_report_quota_pack(
@@ -38,13 +39,18 @@ def export_analyst_report_quota_pack(
         if payload.get("stage") != "tushare_analyst_report_cache" or payload.get("source") != "tushare_report_rc":
             skipped.append({"source_path": str(source_path), "reason": "not_tushare_report_rc_cache"})
             continue
+        source_fingerprint = _source_fingerprint(source_path, payload)
         export_path = reports_path / _report_dir_name(source_path) / "tushare_analyst_report_cache.json"
         export_path.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source_path, export_path)
+        export_payload = dict(payload)
+        export_payload.setdefault("quota_pack_source_path", str(source_path))
+        export_payload["quota_pack_source_fingerprint"] = source_fingerprint
+        export_path.write_text(json.dumps(export_payload, indent=2, sort_keys=True), encoding="utf-8")
         exported.append(
             {
                 "source_path": str(source_path),
                 "export_path": str(export_path),
+                "source_fingerprint": source_fingerprint,
                 "generated_at": str(payload.get("generated_at", "")),
                 "window_rows": len(payload.get("rows_by_window", [])) if isinstance(payload.get("rows_by_window"), list) else 0,
             }
@@ -81,13 +87,13 @@ def _cache_report_paths(report_roots: list[str | Path], *, exclude_roots: list[P
     for root in report_roots:
         root_path = Path(root)
         if root_path.is_file() and root_path.name == "tushare_analyst_report_cache.json":
-            if not _is_under_any(root_path, excluded):
+            if not _is_under_any(root_path, excluded) and not _is_inside_quota_pack(root_path):
                 paths.append(root_path)
         elif root_path.exists():
             paths.extend(
                 path
                 for path in root_path.rglob("tushare_analyst_report_cache.json")
-                if not _is_under_any(path, excluded)
+                if not _is_under_any(path, excluded) and not _is_inside_quota_pack(path)
             )
     return sorted(set(paths))
 
@@ -95,6 +101,10 @@ def _cache_report_paths(report_roots: list[str | Path], *, exclude_roots: list[P
 def _is_under_any(path: Path, roots: list[Path]) -> bool:
     resolved = path.resolve()
     return any(resolved == root or root in resolved.parents for root in roots)
+
+
+def _is_inside_quota_pack(path: Path) -> bool:
+    return any((parent / QUOTA_PACK_MANIFEST).exists() for parent in path.parents)
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -108,6 +118,18 @@ def _load_json(path: Path) -> dict[str, Any]:
 def _report_dir_name(path: Path) -> str:
     digest = hashlib.sha1(str(path.resolve()).encode("utf-8")).hexdigest()[:12]
     return f"report_{digest}"
+
+
+def _source_fingerprint(path: Path, payload: dict[str, Any]) -> str:
+    existing = str(payload.get("quota_pack_source_fingerprint", "")).strip()
+    if existing:
+        return existing
+    evidence = {
+        "source_path": str(path.resolve()),
+        "payload": payload,
+    }
+    encoded = json.dumps(evidence, ensure_ascii=False, sort_keys=True).encode("utf-8")
+    return hashlib.sha1(encoded).hexdigest()
 
 
 def _render_markdown(manifest: dict[str, Any]) -> str:
