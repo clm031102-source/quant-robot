@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round532 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, external-feed family-review boundary, external-feed join-smoke optimization, LPR cache repair guard, and offline macro LPR repair tool | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round533 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, external-feed family-review boundary, external-feed join-smoke optimization, LPR cache repair guard, offline macro LPR repair tool, and Round533 two-agent review hardening | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -158,6 +158,8 @@ Latest same-day progress reports:
 - `docs/research/ROUND531_NEXT_STEPS_CHECKLIST.md`
 - `docs/research/cn_stock_round532_external_macro_lpr_offline_repair_tool_2026-07-05.md`
 - `docs/research/ROUND532_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round533_two_agent_source_tooling_review_2026-07-05.md`
+- `docs/research/ROUND533_NEXT_STEPS_CHECKLIST.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -1267,3 +1269,24 @@ Docs:
 - `docs/research/ROUND532_NEXT_STEPS_CHECKLIST.md`
 
 Decision: LPR factors remain blocked. Round533 is the next required two-agent review checkpoint after the Round504 baseline and should review the analyst quota path plus the LPR/source-tooling path before any new provider or factor action.
+
+## Round533 Two-Agent Source Tooling Review
+
+Round533 completed the required round-30 review checkpoint after the Round504 baseline:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, or final-holdout read occurred.
+- Quant PM reviewer `Hubble` gave no-go on all provider-consuming steps because required analyst quota packs from `highspec_desktop` and `laptop` are still missing, and LPR cache evidence is not yet non-missing.
+- Ordinary-user reviewer `Dirac` found the two-step LPR workflow understandable but flagged likely misuse around report-only provider calls, sparse CLI help, hardcoded startup mode, placeholders, cache paths, and output roots.
+- Guardrail hardening after review:
+  - `run_external_macro_lpr_repair.py` now exits `3` when a repair report is blocked.
+  - LPR cache validation now requires numeric plausible `lpr_1y` and `lpr_5y` values.
+  - Offline repair refuses output roots nested inside the source processed root.
+  - Tushare external-feed ingest help warns that report-only mode may still call Tushare.
+  - Offline repair help states it does not call providers, requires a fresh empty output root, and keeps generated data out of Git.
+
+Docs:
+
+- `docs/research/cn_stock_round533_two_agent_source_tooling_review_2026-07-05.md`
+- `docs/research/ROUND533_NEXT_STEPS_CHECKLIST.md`
+
+Decision: Round534 should stay non-provider by default. Continue by importing missing quota packs, hardening operator docs, or waiting for a valid provider-use window. Do not run analyst April cache, LPR provider refresh, external-feed factors, portfolio grids, promotion gates, or final holdout.

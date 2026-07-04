@@ -16,7 +16,13 @@ from quant_robot.data.ingest.tushare_external_feeds import run_tushare_external_
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run Tushare external CN-stock feed ingestion with report-only default.")
+    parser = argparse.ArgumentParser(
+        description="Run Tushare external CN-stock feed ingestion with report-only default.",
+        epilog=(
+            "Safety: Report-only still may call Tushare when fetching source data or refreshing a missing, empty, "
+            "or invalid LPR cache. Use --execute-write-processed only when intentionally writing ignored data outputs."
+        ),
+    )
     parser.add_argument("--start-date", required=True)
     parser.add_argument("--end-date", required=True)
     parser.add_argument("--output-dir", default="data/reports/tushare_external_feed_ingest")

@@ -43,6 +43,8 @@ HK_HOLD_VALUE_COLUMNS = ["hold_vol", "hold_ratio"]
 HSGT_FLOW_VALUE_COLUMNS = ["hgt", "sgt", "north_money", "south_money"]
 INDEX_STATE_VALUE_COLUMNS = ["close", "pct_chg", "amount", "turnover_rate", "turnover_rate_f", "pe", "pe_ttm", "pb"]
 MACRO_RATE_VALUE_COLUMNS = ["shibor_on", "shibor_1w", "shibor_1m", "shibor_3m", "shibor_1y", "lpr_1y", "lpr_5y"]
+LPR_MIN_PLAUSIBLE_RATE = 0.0
+LPR_MAX_PLAUSIBLE_RATE = 20.0
 ProgressCallback = Callable[[dict[str, object]], None]
 
 
@@ -507,7 +509,15 @@ def _has_non_missing_lpr_values(frame: pd.DataFrame) -> bool:
     required = {"date", "lpr_1y", "lpr_5y"}
     if frame.empty or not required.issubset(frame.columns):
         return False
-    return bool(frame[["lpr_1y", "lpr_5y"]].notna().all(axis=1).any())
+    lpr_1y = pd.to_numeric(frame["lpr_1y"], errors="coerce")
+    lpr_5y = pd.to_numeric(frame["lpr_5y"], errors="coerce")
+    dates = pd.to_datetime(frame["date"], errors="coerce")
+    plausible = (
+        dates.notna()
+        & lpr_1y.between(LPR_MIN_PLAUSIBLE_RATE, LPR_MAX_PLAUSIBLE_RATE, inclusive="neither")
+        & lpr_5y.between(LPR_MIN_PLAUSIBLE_RATE, LPR_MAX_PLAUSIBLE_RATE, inclusive="neither")
+    )
+    return bool(plausible.any())
 
 
 def _normalize_lpr(raw: pd.DataFrame) -> pd.DataFrame:

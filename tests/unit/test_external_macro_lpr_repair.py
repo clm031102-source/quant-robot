@@ -76,6 +76,73 @@ class ExternalMacroLprRepairTests(unittest.TestCase):
                     report_dir=Path(tmp) / "report",
                 )
 
+    def test_refuses_output_root_nested_under_source_root(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source_root = Path(tmp) / "source"
+            nested_output_root = source_root / "nested_repair"
+            lpr_cache = Path(tmp) / "lpr_cache.json"
+            DatasetStore(source_root).write_frame(
+                pd.DataFrame(
+                    {
+                        "date": [pd.Timestamp("2024-01-02").date()],
+                        "available_date": [pd.Timestamp("2024-01-03").date()],
+                        "shibor_1m": [1.2],
+                        "shibor_3m": [1.3],
+                        "shibor_1y": [1.8],
+                        "lpr_1y": [pd.NA],
+                        "lpr_5y": [pd.NA],
+                    }
+                ),
+                "processed/external_macro_rates",
+                {"frequency": "1d", "market": "CN", "year": "2024"},
+            )
+            lpr_cache.write_text(
+                json.dumps({"rows": [{"date": "2024-01-01", "lpr_1y": 3.45, "lpr_5y": 3.95}]}),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "outside the source processed root"):
+                repair_external_macro_lpr(
+                    processed_root=source_root,
+                    lpr_cache_path=lpr_cache,
+                    output_root=nested_output_root,
+                    report_dir=Path(tmp) / "report",
+                )
+
+    def test_rejects_lpr_cache_without_numeric_plausible_rates(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source_root = Path(tmp) / "source"
+            output_root = Path(tmp) / "repaired"
+            report_dir = Path(tmp) / "report"
+            lpr_cache = Path(tmp) / "lpr_cache.json"
+            DatasetStore(source_root).write_frame(
+                pd.DataFrame(
+                    {
+                        "date": [pd.Timestamp("2024-01-02").date()],
+                        "available_date": [pd.Timestamp("2024-01-03").date()],
+                        "shibor_1m": [1.2],
+                        "shibor_3m": [1.3],
+                        "shibor_1y": [1.8],
+                        "lpr_1y": [pd.NA],
+                        "lpr_5y": [pd.NA],
+                    }
+                ),
+                "processed/external_macro_rates",
+                {"frequency": "1d", "market": "CN", "year": "2024"},
+            )
+            lpr_cache.write_text(
+                json.dumps({"rows": [{"date": "2024-01-01", "lpr_1y": -1.0, "lpr_5y": 30.0}]}),
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(ValueError):
+                repair_external_macro_lpr(
+                    processed_root=source_root,
+                    lpr_cache_path=lpr_cache,
+                    output_root=output_root,
+                    report_dir=report_dir,
+                )
+
 
 if __name__ == "__main__":
     unittest.main()

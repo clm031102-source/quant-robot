@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import argparse
 import json
 from pathlib import Path
@@ -15,7 +13,13 @@ from quant_robot.ops.external_macro_lpr_repair import repair_external_macro_lpr
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Repair processed external_macro_rates LPR columns from a validated LPR cache.")
+    parser = argparse.ArgumentParser(
+        description="Repair processed external_macro_rates LPR columns from a validated LPR cache.",
+        epilog=(
+            "Safety: Does not call Tushare or other providers. Use a fresh empty output root outside "
+            "the source processed root. Generated data/reports stay out of Git. A blocked repair report exits 3."
+        ),
+    )
     parser.add_argument("--processed-root", required=True)
     parser.add_argument("--lpr-cache-path", required=True)
     parser.add_argument("--output-root", required=True)
@@ -32,7 +36,7 @@ def main(argv: list[str] | None = None) -> int:
         copy_other_feeds=args.copy_other_feeds,
     )
     print(json.dumps(report, indent=2, sort_keys=True))
-    return 0
+    return 0 if report.get("status") == "pass" else 3
 
 
 if __name__ == "__main__":

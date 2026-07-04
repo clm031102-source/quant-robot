@@ -18,6 +18,8 @@ OTHER_EXTERNAL_FEED_DATASETS = [
     "external_hsgt_flow",
     "external_index_state",
 ]
+LPR_MIN_PLAUSIBLE_RATE = 0.0
+LPR_MAX_PLAUSIBLE_RATE = 20.0
 
 
 def repair_external_macro_lpr(
@@ -32,8 +34,10 @@ def repair_external_macro_lpr(
     market = market.upper()
     source_root = _normalize_processed_root(Path(processed_root), MACRO_DATASET)
     output_path = Path(output_root)
-    if source_root.resolve() == output_path.resolve():
-        raise ValueError("output_root must be a fresh root, not the source processed root")
+    source_resolved = source_root.resolve()
+    output_resolved = output_path.resolve()
+    if output_resolved == source_resolved or output_resolved.is_relative_to(source_resolved):
+        raise ValueError("output_root must be outside the source processed root")
     if output_path.exists() and any(output_path.iterdir()):
         raise FileExistsError(f"output_root must be empty or absent: {output_path}")
 
@@ -169,10 +173,18 @@ def _read_lpr_cache(path: Path) -> pd.DataFrame:
     required = {"date", "lpr_1y", "lpr_5y"}
     if frame.empty or not required.issubset(frame.columns):
         raise ValueError("LPR cache must contain non-empty rows with date, lpr_1y, and lpr_5y")
-    usable = frame.dropna(subset=["date", "lpr_1y", "lpr_5y"])
+    usable = frame.copy()
+    usable["date"] = pd.to_datetime(usable["date"], errors="coerce")
+    usable["lpr_1y"] = pd.to_numeric(usable["lpr_1y"], errors="coerce")
+    usable["lpr_5y"] = pd.to_numeric(usable["lpr_5y"], errors="coerce")
+    usable = usable[
+        usable["date"].notna()
+        & usable["lpr_1y"].between(LPR_MIN_PLAUSIBLE_RATE, LPR_MAX_PLAUSIBLE_RATE, inclusive="neither")
+        & usable["lpr_5y"].between(LPR_MIN_PLAUSIBLE_RATE, LPR_MAX_PLAUSIBLE_RATE, inclusive="neither")
+    ].reset_index(drop=True)
     if usable.empty:
-        raise ValueError("LPR cache has no rows with non-missing lpr_1y and lpr_5y")
-    return frame
+        raise ValueError("LPR cache has no rows with numeric plausible lpr_1y and lpr_5y")
+    return usable
 
 
 def _read_dataset_by_year(root: Path, dataset: str, market: str) -> dict[str, pd.DataFrame]:
