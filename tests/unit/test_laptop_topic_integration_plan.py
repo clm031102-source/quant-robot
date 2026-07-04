@@ -33,6 +33,7 @@ class LaptopTopicIntegrationPlanTests(unittest.TestCase):
         self.assertEqual(plan["handoff"]["blockers"], [])
         self.assertEqual(plan["handoff"]["blocker_count"], 0)
         self.assertEqual(plan["handoff"]["status"], "ready")
+        self.assertTrue(plan["handoff"]["ready_for_handoff"])
         self.assertTrue(plan["handoff"]["executable_here"])
         self.assertTrue(plan["handoff"]["next_command_allowed_here"])
         self.assertEqual(plan["handoff"]["recommended_command"], plan["handoff"]["next_command"])
@@ -109,6 +110,7 @@ class LaptopTopicIntegrationPlanTests(unittest.TestCase):
         )
         self.assertEqual(plan["handoff"]["blockers"], plan["blockers"])
         self.assertEqual(plan["handoff"]["blocker_count"], 5)
+        self.assertFalse(plan["handoff"]["ready_for_handoff"])
         self.assertIsNone(plan["handoff"]["recommended_command"])
         self.assertEqual(plan["handoff"]["recommended_command_action"], "resolve_blockers")
 
@@ -131,6 +133,7 @@ class LaptopTopicIntegrationPlanTests(unittest.TestCase):
         self.assertEqual(plan["handoff"]["blockers"], ["current_branch_must_be_main"])
         self.assertEqual(plan["handoff"]["blocker_count"], 1)
         self.assertEqual(plan["handoff"]["status"], "ready_on_main")
+        self.assertTrue(plan["handoff"]["ready_for_handoff"])
         self.assertEqual(plan["handoff"]["required_machine"], "laptop")
         self.assertEqual(plan["handoff"]["required_task"], "project_sync")
         self.assertEqual(plan["handoff"]["required_branch"], "main")
@@ -198,6 +201,23 @@ class LaptopTopicIntegrationPlanTests(unittest.TestCase):
                 },
             ],
         )
+
+    def test_plan_marks_no_topic_branches_not_ready_for_handoff(self) -> None:
+        plan = build_laptop_topic_integration_plan(
+            machine="laptop",
+            task="project_sync",
+            current_branch="main",
+            worktree_clean=True,
+            main_upstream_sync="0\t0",
+            remote_topic_branches=[],
+            stable_commits=set(),
+            manifest={"absorbed_branches": [], "ignored_branches": []},
+            is_ancestor=lambda ancestor, descendant: False,
+            python_executable="python",
+        )
+
+        self.assertEqual(plan["status"], "no_topic_branches")
+        self.assertFalse(plan["handoff"]["ready_for_handoff"])
 
     def test_execute_runs_ready_plan_commands_and_accepts_pre_alpha_block_exit(self) -> None:
         plan = {

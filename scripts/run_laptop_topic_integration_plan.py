@@ -113,6 +113,7 @@ def _handoff_status(
     return {
         "status": handoff_status,
         "status_description": status_description,
+        "ready_for_handoff": handoff_status in {"ready", "ready_on_main"},
         "blockers": list(blockers),
         "blocker_count": len(blockers),
         "executable_here": status == "ready",
