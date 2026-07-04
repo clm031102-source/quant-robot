@@ -304,6 +304,9 @@ class AnalystReportQuotaPreflightTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0)
             self.assertIn('"status": "skipped"', result.stdout)
             self.assertIn("offline cached replay", result.stdout)
+            skip_audit = json.loads((output_dir / "skip_quota_preflight_audit.json").read_text(encoding="utf-8"))
+            self.assertEqual(skip_audit["status"], "skipped")
+            self.assertTrue((output_dir / "skip_quota_preflight_audit.md").exists())
             self.assertTrue((output_dir / "tushare_analyst_report_cache.json").exists())
 
     def test_cache_cli_skip_quota_preflight_blocks_when_cached_window_is_missing(self) -> None:
@@ -338,10 +341,14 @@ class AnalystReportQuotaPreflightTests(unittest.TestCase):
                 with self.assertRaises(SystemExit) as raised:
                     cache_cli.main()
 
-        self.assertEqual(raised.exception.code, 3)
-        self.assertIn("skip_quota_preflight_requires_cached_processed_windows", stdout.getvalue())
-        run_cache.assert_not_called()
-        self.assertFalse((output_dir / "tushare_analyst_report_cache.json").exists())
+            self.assertEqual(raised.exception.code, 3)
+            self.assertIn("skip_quota_preflight_requires_cached_processed_windows", stdout.getvalue())
+            run_cache.assert_not_called()
+            skip_audit = json.loads((output_dir / "skip_quota_preflight_audit.json").read_text(encoding="utf-8"))
+            self.assertEqual(skip_audit["status"], "blocked")
+            self.assertEqual(skip_audit["summary"]["missing_cached_window_count"], 1)
+            self.assertTrue((output_dir / "skip_quota_preflight_audit.md").exists())
+            self.assertFalse((output_dir / "tushare_analyst_report_cache.json").exists())
 
     def test_cache_cli_preflight_only_stops_after_allowed_quota_check(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

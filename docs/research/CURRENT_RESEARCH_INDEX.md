@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round516 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, and skip-quota offline replay guard | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round517 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, and durable skip-quota audit evidence | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -910,3 +910,23 @@ Docs:
 - `docs/research/ROUND516_NEXT_STEPS_CHECKLIST.md`
 
 Decision: `--skip-quota-preflight` is now a local cached-replay path, not a provider-fetch bypass. Continue to April 2024 cache only after startup gates pass and the actual-date `--quota-preflight-only` exits `0`.
+
+## Round517 Skip-Quota Durable Audit
+
+Round517 made skip-quota attempts durable-audited beyond terminal output:
+
+- `scripts/run_tushare_analyst_report_cache.py` now writes `skip_quota_preflight_audit.json` and `skip_quota_preflight_audit.md` before any skip path proceeds or exits.
+- The skip audit records status, request decision, blocker list, cached/missing processed-window counts, missing-window details, skip reason, and safety text.
+- Blocked skip attempts still exit `3` before cache execution.
+- Test-first evidence: allowed and blocked skip tests failed first because audit files were missing, then the quota-preflight test file passed with 16 tests.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Actual-date cache-CLI preflight-only for April 2024 still blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, and returned exit code `3`.
+- A real missing-cache skip attempt blocked with `skip_quota_preflight_requires_cached_processed_windows`, returned exit code `3`, and wrote durable skip-audit JSON/Markdown evidence.
+- Full laptop integration verification passed with 89 tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round517_skip_quota_durable_audit_2026-07-05.md`
+- `docs/research/ROUND517_NEXT_STEPS_CHECKLIST.md`
+
+Decision: skip-quota attempts are now both constrained and durable-audited. Normal provider-backed analyst-report cache still requires the default quota preflight and must stop on exit `3`.

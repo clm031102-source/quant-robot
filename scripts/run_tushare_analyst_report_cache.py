@@ -103,6 +103,7 @@ def main() -> None:
         if not skip_reason:
             parser.error("--skip-quota-preflight requires --skip-quota-preflight-reason")
         skip_packet = _build_skip_quota_preflight_packet(args, skip_reason)
+        _write_skip_quota_preflight_audit(args.output_dir, skip_packet)
         print(
             json.dumps(
                 skip_packet,
@@ -260,6 +261,52 @@ def _build_skip_quota_preflight_packet(args: argparse.Namespace, skip_reason: st
         },
         "safety": QUOTA_PREFLIGHT_SAFETY,
     }
+
+
+def _write_skip_quota_preflight_audit(output_dir: str | Path, packet: dict[str, object]) -> None:
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    (output_path / "skip_quota_preflight_audit.json").write_text(
+        json.dumps(packet, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    (output_path / "skip_quota_preflight_audit.md").write_text(
+        _render_skip_quota_preflight_audit_markdown(packet),
+        encoding="utf-8",
+    )
+
+
+def _render_skip_quota_preflight_audit_markdown(packet: dict[str, object]) -> str:
+    summary = packet.get("summary", {})
+    decision = packet.get("decision", {})
+    summary_dict = summary if isinstance(summary, dict) else {}
+    decision_dict = decision if isinstance(decision, dict) else {}
+    blockers = decision_dict.get("blockers", [])
+    blockers_list = blockers if isinstance(blockers, list) else [blockers]
+    missing_windows = summary_dict.get("missing_cached_windows", [])
+    missing_list = missing_windows if isinstance(missing_windows, list) else []
+    lines = [
+        "# Skip Quota Preflight Audit",
+        "",
+        f"- Status: {packet.get('status', '')}",
+        f"- Request allowed: {decision_dict.get('request_allowed', False)}",
+        f"- Window count: {summary_dict.get('window_count', 0)}",
+        f"- Cached processed windows: {summary_dict.get('cached_processed_window_count', 0)}",
+        f"- Missing cached windows: {summary_dict.get('missing_cached_window_count', 0)}",
+        f"- Safety: {packet.get('safety', QUOTA_PREFLIGHT_SAFETY)}",
+        "",
+        "## Blockers",
+        "",
+    ]
+    lines.extend(f"- {blocker}" for blocker in blockers_list) if blockers_list else lines.append("- none")
+    lines.extend(["", "## Missing Cached Windows", ""])
+    for window in missing_list:
+        if not isinstance(window, dict):
+            continue
+        lines.append(f"- {window.get('window_start', '')}..{window.get('window_end', '')}")
+    if not missing_list:
+        lines.append("- none")
+    return "\n".join(lines) + "\n"
 
 
 if __name__ == "__main__":
