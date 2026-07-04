@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round509 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, and laptop-integration quota coverage | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round510 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, and cache-CLI default quota preflight | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -764,3 +764,23 @@ Docs:
 - `docs/research/ROUND509_NEXT_STEPS_CHECKLIST.md`
 
 Decision: keep quota-preflight tests in `laptop-integration` so sync and mainline checks catch regressions in the analyst-report request guard. Do not attempt the April 2024 analyst-report cache on 2026-07-05; continue only after an actual-date preflight exits `0`.
+
+## Round510 Cache CLI Default Quota Preflight
+
+Round510 moved analyst-report quota protection into the actual cache CLI entrypoint:
+
+- `scripts/run_tushare_analyst_report_cache.py` now runs local quota preflight by default before any `report_rc` cache request.
+- The cache CLI scans `data/reports` by default, accepts `--quota-report-root`, `--quota-output-dir`, `--quota-target-date`, and `--quota-max-daily-requests`, and exits `3` when preflight blocks.
+- An explicit `--skip-quota-preflight` override exists for exceptional offline or controlled cases, but it is not allowed for normal provider-backed analyst-report fetches.
+- Test-first evidence: the new cache-CLI test failed before implementation with return code `2` instead of expected `3`.
+- Focused verification passed: `tests/unit/test_analyst_report_quota_preflight.py` now has 6 passing tests.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Real cache-CLI fail-closed run for April 2024 on 2026-07-05 stopped at quota preflight, blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, and returned exit code `3`.
+- Full laptop integration verification passed with 79 tests, compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round510_cache_cli_default_quota_preflight_2026-07-05.md`
+- `docs/research/ROUND510_NEXT_STEPS_CHECKLIST.md`
+
+Decision: future analyst-report cache attempts should run the cache CLI directly and let its default quota preflight guard the provider request. Continue to April 2024 cache only after the cache CLI exits `0`; stop if it exits `3`.

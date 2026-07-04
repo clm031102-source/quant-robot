@@ -118,6 +118,49 @@ class AnalystReportQuotaPreflightTests(unittest.TestCase):
         self.assertIn("daily_provider_request_budget_exhausted", result.stdout)
         self.assertIn('"status": "blocked"', result.stdout)
 
+    def test_cache_cli_runs_default_preflight_and_blocks_before_fetching(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report_root = root / "reports"
+            output_dir = root / "cache"
+            processed_output_dir = root / "processed"
+            quota_output_dir = root / "preflight"
+            _write_cache(report_root / "round_a", generated_at="2026-07-05", status="ok")
+            _write_cache(report_root / "round_b", generated_at="2026-07-05", status="ok")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/run_tushare_analyst_report_cache.py",
+                    "--start-date",
+                    "2024-04-01",
+                    "--end-date",
+                    "2024-04-30",
+                    "--output-dir",
+                    str(output_dir),
+                    "--processed-output-dir",
+                    str(processed_output_dir),
+                    "--request-sleep-seconds",
+                    "0",
+                    "--quota-report-root",
+                    str(report_root),
+                    "--quota-target-date",
+                    "2026-07-05",
+                    "--quota-output-dir",
+                    str(quota_output_dir),
+                ],
+                cwd=Path(__file__).resolve().parents[2],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 3)
+            self.assertIn("daily_provider_request_budget_exhausted", result.stdout)
+            self.assertIn('"status": "blocked"', result.stdout)
+            self.assertFalse((output_dir / "tushare_analyst_report_cache.json").exists())
+            self.assertTrue((quota_output_dir / "analyst_report_quota_preflight.json").exists())
+
 
 def _write_cache(
     root: Path,

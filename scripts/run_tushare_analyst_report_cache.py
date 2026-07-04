@@ -13,9 +13,15 @@ ensure_workspace_imports()
 
 from quant_robot.data.adapters.tushare_adapter import TushareAdapter  # noqa: E402
 from quant_robot.data.ingest.tushare_analyst_reports import run_tushare_analyst_report_cache  # noqa: E402
+from quant_robot.ops.analyst_report_quota_preflight import (  # noqa: E402
+    DEFAULT_MAX_DAILY_REQUESTS,
+    build_analyst_report_quota_preflight,
+    write_analyst_report_quota_preflight,
+)
 
 
 DEFAULT_OUTPUT_DIR = Path("data/reports/tushare_analyst_report_cache")
+DEFAULT_QUOTA_PREFLIGHT_OUTPUT_DIR = Path("data/reports/analyst_report_quota_preflight")
 
 
 def main() -> None:
@@ -30,7 +36,37 @@ def main() -> None:
     parser.add_argument("--no-resume", action="store_true")
     parser.add_argument("--no-write-processed", action="store_true")
     parser.add_argument("--continue-after-rate-limit", action="store_true")
+    parser.add_argument("--skip-quota-preflight", action="store_true")
+    parser.add_argument("--quota-report-root", action="append", default=None)
+    parser.add_argument("--quota-output-dir", default=str(DEFAULT_QUOTA_PREFLIGHT_OUTPUT_DIR))
+    parser.add_argument("--quota-target-date")
+    parser.add_argument("--quota-max-daily-requests", type=int, default=DEFAULT_MAX_DAILY_REQUESTS)
     args = parser.parse_args()
+
+    if not args.skip_quota_preflight:
+        quota_packet = build_analyst_report_quota_preflight(
+            report_roots=args.quota_report_root or ["data/reports"],
+            target_date=args.quota_target_date,
+            max_daily_requests=args.quota_max_daily_requests,
+        )
+        write_analyst_report_quota_preflight(args.quota_output_dir, quota_packet)
+        print(
+            json.dumps(
+                {
+                    "status": "allowed" if quota_packet["decision"]["request_allowed"] else "blocked",
+                    "summary": quota_packet["summary"],
+                    "decision": quota_packet["decision"],
+                    "output_dir": str(Path(args.quota_output_dir)),
+                    "safety": quota_packet["safety"],
+                },
+                ensure_ascii=False,
+                indent=2,
+                sort_keys=True,
+            ),
+            flush=True,
+        )
+        if not quota_packet["decision"]["request_allowed"]:
+            raise SystemExit(3)
 
     result = run_tushare_analyst_report_cache(
         TushareAdapter(max_retries=1, retry_sleep_seconds=3.0),
