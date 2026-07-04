@@ -163,6 +163,83 @@ class ObservationContinuationPlanTests(unittest.TestCase):
 
             self.assertEqual(default_profile_observation_pack_for_observation(observation_pack), matching_profile)
 
+    def test_gap_recovery_windows_follow_missing_trade_date_and_trade_calendar(self) -> None:
+        observation_pack = {
+            "status": "needs_more_observation_data",
+            "fills": {"observed_fills": 5, "required_fills": 20, "fill_deficit": 15},
+            "recommendation": {
+                "priority": "extend_recent_data_window",
+                "suggested_start_date": "2026-03-23",
+                "suggested_end_date": "2026-06-26",
+            },
+            "decision": {"observation_sufficiency_cleared": False},
+        }
+        recent_refresh_pack = {
+            "status": "data_quality_blocked",
+            "target_window": {"start_date": "2026-03-23", "end_date": "2026-06-26"},
+            "ingest": {
+                "downloaded_trade_dates": [
+                    "20260427",
+                    "20260428",
+                    "20260429",
+                    "20260430",
+                    "20260506",
+                    "20260507",
+                ],
+                "skipped_trade_dates": ["20260323", "20260626"],
+            },
+            "coverage": {
+                "required_asset_missing_trade_dates": [
+                    {
+                        "asset_id": "CN_ETF_XSHE_160615",
+                        "missing_trade_dates": ["2026-04-30"],
+                    }
+                ]
+            },
+        }
+
+        plan = build_observation_continuation_plan(
+            observation_pack=observation_pack,
+            observation_pack_path="data/reports/round478/observation_sufficiency_pack.json",
+            recent_data_refresh_pack=recent_refresh_pack,
+            recent_data_refresh_pack_path="data/reports/round488/recent_data_refresh_pack.json",
+            profile_observation_pack_path="data/reports/round478/profile_observation/profile_observation_pack.json",
+            machine="office_desktop",
+            task="data_pipeline",
+            current_branch="codex/factor-batch-current",
+            python_executable="python",
+            output_root="data/reports/round488_observation_recovery",
+            processed_output_dir="data/processed/round488_observation_recovery",
+        )
+
+        self.assertEqual(
+            plan["gap_recovery"]["windows"],
+            [
+                {
+                    "label": "before_missing_trade_date",
+                    "start_date": "2026-03-23",
+                    "end_date": "2026-04-29",
+                },
+                {
+                    "label": "after_missing_trade_date",
+                    "start_date": "2026-05-06",
+                    "end_date": "2026-06-26",
+                },
+            ],
+        )
+        self.assertEqual(plan["gap_recovery"]["missing_trade_dates"], ["2026-04-30"])
+        self.assertEqual(
+            [row["label"] for row in plan["gap_recovery"]["command_sets"]],
+            ["before_missing_trade_date", "after_missing_trade_date"],
+        )
+        after_commands = plan["gap_recovery"]["command_sets"][1]["commands"]
+        self.assertEqual(after_commands[1][after_commands[1].index("--start-date") + 1], "2026-05-06")
+        self.assertEqual(after_commands[1][after_commands[1].index("--end-date") + 1], "2026-06-26")
+        self.assertEqual(
+            after_commands[1][after_commands[1].index("--report-dir") + 1],
+            "data/reports/round488_observation_recovery/after_missing_trade_date/recent_data_refresh",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

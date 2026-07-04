@@ -29,7 +29,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 | Branch | Role | Status |
 | --- | --- | --- |
 | `codex/factor-batch-cn-stock-benchmark-relative-20260704` | Round464 benchmark-relative residual moneyflow pre-registration, walk-forward framework fixes, and rejection evidence | active review branch |
-| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, Round471 financial/PIT source-gate refresh, Round472 paper replay refresh, Round473 expanded-observation data-quality block evidence, Round474 office-desktop completion handoff, Round475 fund-basic rotation-membership repair, Round476 live fund-basic membership guard, Round477 validated-ETF observation sufficiency evidence, Round478 latest validated-ETF observation update, Round479 laptop integration preflight, Round480 laptop integration profile plus latest target check, Round481 isolated laptop merge rehearsal, Round482 completion gate before profit mining, Round483 require-complete gate mode, Round484 latest observation-pack discovery, Round485 pre-alpha completion check profile, Round486 laptop topic integration plan, and Round487 observation continuation/gate hardening | active review branch |
+| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, Round471 financial/PIT source-gate refresh, Round472 paper replay refresh, Round473 expanded-observation data-quality block evidence, Round474 office-desktop completion handoff, Round475 fund-basic rotation-membership repair, Round476 live fund-basic membership guard, Round477 validated-ETF observation sufficiency evidence, Round478 latest validated-ETF observation update, Round479 laptop integration preflight, Round480 laptop integration profile plus latest target check, Round481 isolated laptop merge rehearsal, Round482 completion gate before profit mining, Round483 require-complete gate mode, Round484 latest observation-pack discovery, Round485 pre-alpha completion check profile, Round486 laptop topic integration plan, Round487 observation continuation/gate hardening, and Round488 observation gap-recovery planning | active review branch |
 
 These branches are not promotion branches. They record a completed rejection set, framework fixes, and paper-lane risk-repair evidence that should be reviewed before integration.
 
@@ -115,6 +115,7 @@ Latest same-day progress reports:
 - `docs/research/project_round485_pre_alpha_completion_check_profile_2026-07-04.md`
 - `docs/research/project_round486_laptop_topic_integration_plan_2026-07-04.md`
 - `docs/research/project_round487_observation_continuation_and_gate_hardening_2026-07-04.md`
+- `docs/research/project_round488_observation_gap_recovery_plan_2026-07-04.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -171,7 +172,7 @@ Decision: do not burn more same-day `report_rc` retries. Resume February 2024 af
 Cloud branch integration handoff:
 
 - `origin/codex/factor-batch-cn-stock-benchmark-relative-20260704` is 1 commit ahead of `origin/main`.
-- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 25 commits ahead of `origin/main` after Round487 is pushed.
+- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 26 commits ahead of `origin/main` after Round488 is pushed.
 - The Round464 branch is an ancestor of the Round465/467 branch, so laptop integration may merge Round464 first and then Round465/467 for review clarity, or merge Round465/467 once to absorb both.
 - Do not delete either topic branch until laptop safe-sync marks it as merged or manifest-absorbed.
 
@@ -438,6 +439,16 @@ Round487 continued the paper-observation blocker path and hardened completion ev
 - Pre-gap continuous refresh 2026-03-23 to 2026-04-29 passed with required asset coverage 27 / 27 and fund-basic validated membership, but replay still blocked with only 1 / 20 fills.
 
 Decision: Round478 remains the current validated completion-gate observation source at 5 / 20 fills. Do not claim observation sufficiency from the pre-gap diagnostic segment.
+
+Round488 converted the full-window observation data-quality gap into explicit recovery evidence:
+
+- `src/quant_robot/data/quality_report.py` now records per-asset `missing_trade_dates`.
+- `src/quant_robot/ops/recent_data_refresh.py` propagates required-asset missing trade dates into the recent-refresh pack.
+- `scripts/run_observation_continuation_plan.py` accepts `--recent-data-refresh-pack` and emits `gap_recovery` windows plus complete per-window command sets.
+- Full recommended retry 2026-03-23 to 2026-06-26 still blocks because `CN_ETF_XSHE_160615` is missing 2026-04-30.
+- Post-gap continuous retry 2026-05-06 to 2026-06-26 passed required-asset coverage 37 / 37 and Daily Ops, but observation sufficiency remains 5 / 20 fills.
+
+Decision: keep Round478 as the validated completion-gate source at 5 / 20. Use the gap-aware plan for targeted recovery; do not start alpha mining until `pre-alpha` clears.
 
 ## Current CN ETF Framework
 

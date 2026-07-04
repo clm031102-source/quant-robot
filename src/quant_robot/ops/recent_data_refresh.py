@@ -333,15 +333,24 @@ def _required_assets_coverage(
     asset_coverage = []
     expected_rows = _expected_trade_dates_count(expected_trade_dates, effective_start, effective_end)
     required_asset_missing_date_rows = 0
+    required_asset_missing_trade_dates = []
     for asset_id in required_asset_ids:
         row = asset_rows.get(asset_id, {})
         asset_start = _date_str(row.get("start_date"))
         asset_end = _date_str(row.get("end_date"))
         asset_rows_count = _int(row.get("rows"), 0)
+        missing_trade_dates = _string_list(row.get("missing_trade_dates"))
         start_covered = bool(asset_start and effective_start and asset_start <= effective_start)
         end_covered = bool(asset_end and effective_end and asset_end >= effective_end)
         missing_date_rows = _required_asset_missing_rows(asset_rows_count, expected_rows, start_covered, end_covered)
         required_asset_missing_date_rows += missing_date_rows
+        if missing_trade_dates:
+            required_asset_missing_trade_dates.append(
+                {
+                    "asset_id": asset_id,
+                    "missing_trade_dates": missing_trade_dates,
+                }
+            )
         covered = asset_rows_count > 0 and start_covered and end_covered and missing_date_rows == 0
         asset_coverage.append(
             {
@@ -349,6 +358,7 @@ def _required_assets_coverage(
                 "rows": asset_rows_count,
                 "expected_rows": expected_rows,
                 "missing_date_rows": missing_date_rows,
+                "missing_trade_dates": missing_trade_dates,
                 "start_date": asset_start,
                 "end_date": asset_end,
                 "target_start_covered": start_covered,
@@ -384,6 +394,7 @@ def _required_assets_coverage(
         "target_end_covered": target_end_covered,
         "missing_date_rows": scoped_missing_date_rows,
         "required_asset_missing_date_rows": required_asset_missing_date_rows,
+        "required_asset_missing_trade_dates": required_asset_missing_trade_dates,
         "provider_missing_date_rows": provider_missing_date_rows,
         "duplicate_bars": duplicate_bars,
         "zero_volume_rows": zero_volume_rows,

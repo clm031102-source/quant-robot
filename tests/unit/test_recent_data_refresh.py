@@ -287,6 +287,7 @@ class RecentDataRefreshTests(unittest.TestCase):
                         "rows": 2,
                         "start_date": "2026-05-25",
                         "end_date": "2026-05-27",
+                        "missing_trade_dates": ["2026-05-26"],
                     }
                 ],
             },
@@ -306,6 +307,14 @@ class RecentDataRefreshTests(unittest.TestCase):
         self.assertEqual(pack["coverage"]["coverage_status"], "fail")
         self.assertFalse(pack["coverage"]["required_assets_covered"])
         self.assertEqual(pack["coverage"]["missing_date_rows"], 1)
+        self.assertEqual(
+            pack["coverage"]["required_asset_coverage"][0]["missing_trade_dates"],
+            ["2026-05-26"],
+        )
+        self.assertEqual(
+            pack["coverage"]["required_asset_missing_trade_dates"],
+            [{"asset_id": "CN_ETF_XSHG_516160", "missing_trade_dates": ["2026-05-26"]}],
+        )
         self.assertIn("missing_date_rows", pack["decision"]["blockers"])
         self.assertIn("required_assets_not_covered", pack["decision"]["blockers"])
 

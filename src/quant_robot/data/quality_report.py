@@ -42,7 +42,7 @@ def build_quality_report(
         "extreme_return_rows": _extreme_return_rows(frame, price_column, extreme_return_threshold),
         "stale_price_rows": _stale_price_rows(frame, price_column, stale_price_days),
         "adj_close_jump_rows": _adj_close_jump_rows(frame, adj_close_jump_threshold),
-        "coverage_by_asset": _coverage_by_asset(frame),
+        "coverage_by_asset": _coverage_by_asset(frame, expected),
     }
 
 
@@ -60,18 +60,31 @@ def _missing_date_rows(frame: pd.DataFrame, expected_dates: list[object] | None)
     return int(missing)
 
 
-def _coverage_by_asset(frame: pd.DataFrame) -> list[dict[str, Any]]:
+def _coverage_by_asset(frame: pd.DataFrame, expected_dates: list[object] | None = None) -> list[dict[str, Any]]:
     rows = []
     for asset_id, group in frame.groupby("asset_id", sort=True):
+        unique_dates = sorted(set(group["date"]))
         rows.append(
             {
                 "asset_id": str(asset_id),
                 "rows": int(len(group)),
                 "start_date": str(group["date"].min()),
                 "end_date": str(group["date"].max()),
+                "missing_trade_dates": _missing_trade_dates(unique_dates, expected_dates),
             }
         )
     return rows
+
+
+def _missing_trade_dates(unique_dates: list[object], expected_dates: list[object] | None) -> list[str]:
+    if len(unique_dates) < 2:
+        return []
+    if expected_dates is None:
+        expected = pd.date_range(unique_dates[0], unique_dates[-1], freq="D").date
+    else:
+        expected = [date for date in expected_dates if unique_dates[0] <= date <= unique_dates[-1]]
+    missing = sorted(set(expected) - set(unique_dates))
+    return [str(value) for value in missing]
 
 
 def _price_column(frame: pd.DataFrame) -> str | None:

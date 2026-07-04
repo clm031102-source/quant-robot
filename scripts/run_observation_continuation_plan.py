@@ -4,7 +4,7 @@ import argparse
 import json
 import subprocess
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +24,8 @@ def build_observation_continuation_plan(
     *,
     observation_pack: dict[str, Any] | None,
     observation_pack_path: str | Path | None,
+    recent_data_refresh_pack: dict[str, Any] | None = None,
+    recent_data_refresh_pack_path: str | Path | None = None,
     profile_observation_pack_path: str | Path | None,
     machine: str | None,
     task: str | None,
@@ -39,6 +41,16 @@ def build_observation_continuation_plan(
     start_date = _date_text(recommendation.get("suggested_start_date"))
     end_date = _date_text(recommendation.get("suggested_end_date"))
     sufficiency_cleared = bool(decision.get("observation_sufficiency_cleared")) or pack.get("status") == "sufficient"
+    gap_recovery = build_gap_recovery_plan(
+        recent_data_refresh_pack,
+        recent_data_refresh_pack_path=recent_data_refresh_pack_path,
+        machine=str(machine) if machine else None,
+        current_branch=current_branch,
+        profile_observation_pack_path=str(profile_observation_pack_path) if profile_observation_pack_path else None,
+        python_executable=python_executable,
+        output_root=Path(output_root),
+        processed_output_dir=Path(processed_output_dir),
+    )
 
     blockers: list[str] = []
     if machine not in DATA_PIPELINE_MACHINES:
@@ -95,6 +107,7 @@ def build_observation_continuation_plan(
             "start_date": start_date,
             "end_date": end_date,
         },
+        "gap_recovery": gap_recovery,
         "profile_observation_pack": _path_text(profile_observation_pack_path) if profile_observation_pack_path else None,
         "processed_output_dir": _path_text(processed_output_dir),
         "output_root": _path_text(output_root),
@@ -114,6 +127,7 @@ def main() -> None:
     parser.add_argument("--machine", required=True)
     parser.add_argument("--task", default=DATA_PIPELINE_TASK)
     parser.add_argument("--observation-sufficiency-pack")
+    parser.add_argument("--recent-data-refresh-pack")
     parser.add_argument("--post-refresh-replay-pack")
     parser.add_argument("--profile-observation-pack")
     parser.add_argument("--reports-root", default=str(DEFAULT_REPORTS_ROOT))
@@ -128,6 +142,7 @@ def main() -> None:
         else discover_latest_observation_sufficiency_pack(Path(args.reports_root))
     )
     post_refresh_path = Path(args.post_refresh_replay_pack) if args.post_refresh_replay_pack else None
+    recent_refresh_path = Path(args.recent_data_refresh_pack) if args.recent_data_refresh_pack else None
     profile_path = (
         Path(args.profile_observation_pack)
         if args.profile_observation_pack
@@ -143,6 +158,8 @@ def main() -> None:
     plan = build_observation_continuation_plan(
         observation_pack=_read_optional_json(observation_path),
         observation_pack_path=observation_path,
+        recent_data_refresh_pack=_read_optional_json(recent_refresh_path),
+        recent_data_refresh_pack_path=recent_refresh_path,
         profile_observation_pack_path=profile_path if profile_path and profile_path.exists() else profile_path,
         machine=args.machine,
         task=args.task,
@@ -191,6 +208,181 @@ def default_profile_observation_pack_for_observation(observation_pack_path: str 
         return None
     candidate = observation_path.parent.parent / round_dir.replace("observation_sufficiency", "post_refresh_replay") / "profile_observation" / "profile_observation_pack.json"
     return candidate if candidate.exists() else None
+
+
+def build_gap_recovery_plan(
+    recent_data_refresh_pack: dict[str, Any] | None,
+    *,
+    recent_data_refresh_pack_path: str | Path | None = None,
+    machine: str | None = None,
+    current_branch: str | None = None,
+    profile_observation_pack_path: str | None = None,
+    python_executable: str | None = None,
+    output_root: str | Path | None = None,
+    processed_output_dir: str | Path | None = None,
+) -> dict[str, Any]:
+    pack = recent_data_refresh_pack or {}
+    missing_dates = _missing_required_trade_dates(pack)
+    if not missing_dates:
+        return {
+            "status": "not_applicable",
+            "source_path": _path_text(recent_data_refresh_pack_path) if recent_data_refresh_pack_path else None,
+            "missing_trade_dates": [],
+            "windows": [],
+            "command_sets": [],
+        }
+
+    target = _dict(pack.get("target_window"))
+    start_date = _date_text(target.get("start_date"))
+    end_date = _date_text(target.get("end_date"))
+    trade_dates = _expected_trade_dates(pack)
+    windows: list[dict[str, str]] = []
+    for missing_date in missing_dates:
+        before_end = _previous_trade_date(trade_dates, missing_date)
+        after_start = _next_trade_date(trade_dates, missing_date)
+        if start_date and before_end and start_date <= before_end:
+            windows.append(
+                {
+                    "label": "before_missing_trade_date",
+                    "start_date": start_date,
+                    "end_date": before_end,
+                }
+            )
+        if end_date and after_start and after_start <= end_date:
+            windows.append(
+                {
+                    "label": "after_missing_trade_date",
+                    "start_date": after_start,
+                    "end_date": end_date,
+                }
+            )
+
+    unique_windows = _unique_windows(windows)
+    return {
+        "status": "gap_recovery_available" if windows else "blocked_no_recovery_window",
+        "source_path": _path_text(recent_data_refresh_pack_path) if recent_data_refresh_pack_path else None,
+        "missing_trade_dates": missing_dates,
+        "windows": unique_windows,
+        "command_sets": _gap_recovery_command_sets(
+            unique_windows,
+            machine=machine,
+            current_branch=current_branch,
+            profile_observation_pack_path=profile_observation_pack_path,
+            python_executable=python_executable,
+            output_root=Path(output_root) if output_root is not None else None,
+            processed_output_dir=Path(processed_output_dir) if processed_output_dir is not None else None,
+        ),
+    }
+
+
+def _missing_required_trade_dates(pack: dict[str, Any]) -> list[str]:
+    coverage = _dict(pack.get("coverage"))
+    rows = coverage.get("required_asset_missing_trade_dates", [])
+    if not isinstance(rows, list):
+        return []
+    dates: list[str] = []
+    seen: set[str] = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        values = row.get("missing_trade_dates", [])
+        if not isinstance(values, list):
+            continue
+        for value in values:
+            parsed = _date_text(value)
+            if parsed and parsed not in seen:
+                dates.append(parsed)
+                seen.add(parsed)
+    return sorted(dates)
+
+
+def _expected_trade_dates(pack: dict[str, Any]) -> list[str]:
+    ingest = _dict(pack.get("ingest"))
+    dates: list[str] = []
+    seen: set[str] = set()
+    for key in ("downloaded_trade_dates", "skipped_trade_dates"):
+        values = ingest.get(key, [])
+        if not isinstance(values, list):
+            continue
+        for value in values:
+            parsed = _trade_date_text(value)
+            if parsed and parsed not in seen:
+                dates.append(parsed)
+                seen.add(parsed)
+    return sorted(dates)
+
+
+def _previous_trade_date(trade_dates: list[str], missing_date: str) -> str | None:
+    for value in reversed(trade_dates):
+        if value < missing_date:
+            return value
+    try:
+        return (date.fromisoformat(missing_date) - timedelta(days=1)).isoformat()
+    except ValueError:
+        return None
+
+
+def _next_trade_date(trade_dates: list[str], missing_date: str) -> str | None:
+    for value in trade_dates:
+        if value > missing_date:
+            return value
+    try:
+        return (date.fromisoformat(missing_date) + timedelta(days=1)).isoformat()
+    except ValueError:
+        return None
+
+
+def _unique_windows(windows: list[dict[str, str]]) -> list[dict[str, str]]:
+    unique: list[dict[str, str]] = []
+    seen: set[tuple[str, str, str]] = set()
+    for window in windows:
+        key = (window["label"], window["start_date"], window["end_date"])
+        if key not in seen:
+            unique.append(window)
+            seen.add(key)
+    return unique
+
+
+def _gap_recovery_command_sets(
+    windows: list[dict[str, str]],
+    *,
+    machine: str | None,
+    current_branch: str | None,
+    profile_observation_pack_path: str | None,
+    python_executable: str | None,
+    output_root: Path | None,
+    processed_output_dir: Path | None,
+) -> list[dict[str, Any]]:
+    if not (
+        machine
+        and current_branch
+        and profile_observation_pack_path
+        and python_executable
+        and output_root
+        and processed_output_dir
+    ):
+        return []
+    command_sets: list[dict[str, Any]] = []
+    for window in windows:
+        label = window["label"]
+        command_sets.append(
+            {
+                "label": label,
+                "start_date": window["start_date"],
+                "end_date": window["end_date"],
+                "commands": _continuation_commands(
+                    machine=machine,
+                    current_branch=current_branch,
+                    start_date=window["start_date"],
+                    end_date=window["end_date"],
+                    profile_observation_pack_path=profile_observation_pack_path,
+                    python_executable=python_executable,
+                    output_root=output_root / label,
+                    processed_output_dir=processed_output_dir / label,
+                ),
+            }
+        )
+    return command_sets
 
 
 def _continuation_commands(
@@ -281,6 +473,15 @@ def _date_text(value: Any) -> str | None:
         return date.fromisoformat(text).isoformat()
     except ValueError:
         return None
+
+
+def _trade_date_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if len(text) == 8 and text.isdigit():
+        text = f"{text[:4]}-{text[4:6]}-{text[6:]}"
+    return _date_text(text)
 
 
 def _dict(value: Any) -> dict[str, Any]:
