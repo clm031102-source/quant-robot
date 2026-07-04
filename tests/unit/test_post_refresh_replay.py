@@ -142,6 +142,8 @@ class PostRefreshReplayTests(unittest.TestCase):
         self.assertEqual(calls["daily"]["data_root"], processed)
         self.assertEqual(calls["daily"]["source"], "processed-bars")
         self.assertEqual(calls["daily"]["run_date"], "2026-06-14")
+        self.assertEqual(calls["daily"]["start_date"], "2026-06-01")
+        self.assertEqual(calls["daily"]["end_date"], "2026-06-14")
         self.assertEqual(calls["observation"]["daily_ops_pack"], report_dir / "daily_ops" / "daily_ops_pack.json")
         self.assertEqual(calls["observation"]["simulation_dir"], report_dir / "daily_ops" / "paper_simulation")
         self.assertEqual(calls["observation"]["run_date"], "2026-06-14")

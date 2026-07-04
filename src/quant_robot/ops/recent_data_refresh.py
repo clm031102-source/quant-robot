@@ -11,6 +11,7 @@ import pandas as pd
 
 STAGE = "phase_5_7_tushare_recent_data_refresh"
 DEFAULT_OUTPUT_DIR = Path("data/processed/tushare_etf_recent")
+STRUCTURAL_ROTATION_EXCLUSION_REASONS = {"not_etf", "not_exchange_traded", "not_listed_on_date"}
 
 
 def build_recent_data_refresh_pack(
@@ -205,6 +206,22 @@ def _coverage_from_ingest(
             "duplicate_bars": None,
             "zero_volume_rows": None,
         }
+    ingest_error = ingest_result.get("ingest_error") if isinstance(ingest_result.get("ingest_error"), dict) else {}
+    if ingest_error:
+        return {
+            "coverage_status": "fail",
+            "coverage_scope": "provider_universe",
+            "processed_rows": 0,
+            "latest_data_date": None,
+            "target_start_date": _date_str(target_window.get("start_date")),
+            "target_end_date": _date_str(target_window.get("end_date")),
+            "target_start_covered": False,
+            "target_end_covered": False,
+            "missing_date_rows": None,
+            "duplicate_bars": None,
+            "zero_volume_rows": None,
+            "ingest_error": ingest_error,
+        }
     report = ingest_result.get("quality_report", {}) if isinstance(ingest_result.get("quality_report"), dict) else {}
     latest_date = _date_str(report.get("end_date"))
     earliest_date = _date_str(report.get("start_date"))
@@ -218,22 +235,30 @@ def _coverage_from_ingest(
     effective_start = _effective_start(target_start, expected_trade_dates)
     effective_end = _effective_end(target_end, expected_trade_dates)
     required_asset_ids = _required_asset_ids(profile_observation_pack)
+    required_asset_filter = _filter_required_assets_by_rotation_membership(required_asset_ids, ingest_result)
+    active_required_asset_ids = required_asset_filter["active_required_asset_ids"]
     asset_rows = _asset_coverage_rows(report)
-    if required_asset_ids and asset_rows:
-        return _required_assets_coverage(
-            required_asset_ids,
-            asset_rows,
-            processed_rows=processed_rows,
-            earliest_date=earliest_date,
-            latest_date=latest_date,
-            target_start=target_start,
-            target_end=target_end,
-            effective_start=effective_start,
-            effective_end=effective_end,
-            expected_trade_dates=expected_trade_dates,
-            provider_missing_date_rows=missing_date_rows,
-            duplicate_bars=duplicate_bars,
-            zero_volume_rows=zero_volume_rows,
+    if active_required_asset_ids and asset_rows:
+        return _with_rotation_membership_coverage(
+            _with_ignored_required_assets(
+                _required_assets_coverage(
+                    active_required_asset_ids,
+                    asset_rows,
+                    processed_rows=processed_rows,
+                    earliest_date=earliest_date,
+                    latest_date=latest_date,
+                    target_start=target_start,
+                    target_end=target_end,
+                    effective_start=effective_start,
+                    effective_end=effective_end,
+                    expected_trade_dates=expected_trade_dates,
+                    provider_missing_date_rows=missing_date_rows,
+                    duplicate_bars=duplicate_bars,
+                    zero_volume_rows=zero_volume_rows,
+                ),
+                required_asset_filter,
+            ),
+            ingest_result,
         )
     target_start_covered = bool(earliest_date and effective_start and earliest_date <= effective_start)
     target_end_covered = bool(latest_date and effective_end and latest_date >= effective_end)
@@ -253,24 +278,112 @@ def _coverage_from_ingest(
         and duplicate_bars == 0
         and zero_volume_rows == 0
     )
-    return {
-        "coverage_status": "pass" if clean_pass else "pass_with_warnings" if warning_pass else "fail",
-        "coverage_scope": "provider_universe",
-        "processed_rows": processed_rows,
-        "earliest_data_date": earliest_date,
-        "latest_data_date": latest_date,
-        "target_start_date": target_start,
-        "target_end_date": target_end,
-        "effective_start_date": effective_start,
-        "effective_end_date": effective_end,
-        "expected_trade_dates_count": _expected_trade_dates_count(expected_trade_dates, effective_start, effective_end),
-        "target_start_covered": target_start_covered,
-        "target_end_covered": target_end_covered,
-        "missing_date_rows": missing_date_rows,
-        "provider_missing_date_rows": missing_date_rows,
-        "duplicate_bars": duplicate_bars,
-        "zero_volume_rows": zero_volume_rows,
+    return _with_rotation_membership_coverage(
+        _with_ignored_required_assets(
+            {
+            "coverage_status": "pass" if clean_pass else "pass_with_warnings" if warning_pass else "fail",
+            "coverage_scope": "provider_universe",
+            "processed_rows": processed_rows,
+            "earliest_data_date": earliest_date,
+            "latest_data_date": latest_date,
+            "target_start_date": target_start,
+            "target_end_date": target_end,
+            "effective_start_date": effective_start,
+            "effective_end_date": effective_end,
+            "expected_trade_dates_count": _expected_trade_dates_count(expected_trade_dates, effective_start, effective_end),
+            "target_start_covered": target_start_covered,
+            "target_end_covered": target_end_covered,
+            "missing_date_rows": missing_date_rows,
+            "provider_missing_date_rows": missing_date_rows,
+            "duplicate_bars": duplicate_bars,
+            "zero_volume_rows": zero_volume_rows,
+            },
+            required_asset_filter,
+        ),
+        ingest_result,
+    )
+
+
+def _with_rotation_membership_coverage(coverage: dict[str, Any], ingest_result: dict[str, Any]) -> dict[str, Any]:
+    rotation = ingest_result.get("rotation_membership", {}) if isinstance(ingest_result.get("rotation_membership"), dict) else {}
+    if not rotation:
+        return coverage
+    reason = str(rotation.get("reason") or rotation.get("validation_error") or "")
+    missing_fund_basic = reason in {
+        "fund_basic_required_for_live_tushare_rotation_membership",
+        "fund_basic_missing_or_empty",
     }
+    if not missing_fund_basic:
+        return coverage
+    updated = dict(coverage)
+    updated["coverage_status"] = "fail"
+    updated["rotation_membership_status"] = "fail"
+    updated["rotation_membership_blocker"] = "rotation_membership_fund_basic_missing"
+    updated["rotation_membership_reason"] = reason
+    return updated
+
+
+def _filter_required_assets_by_rotation_membership(
+    required_asset_ids: list[str],
+    ingest_result: dict[str, Any],
+) -> dict[str, Any]:
+    excluded_assets = _rotation_excluded_assets_by_id(ingest_result)
+    active: list[str] = []
+    ignored: list[dict[str, Any]] = []
+    for asset_id in required_asset_ids:
+        excluded = excluded_assets.get(asset_id)
+        reasons = _split_reasons(excluded.get("exclusion_reasons") if excluded else None)
+        if excluded and reasons.intersection(STRUCTURAL_ROTATION_EXCLUSION_REASONS):
+            ignored.append(
+                {
+                    "asset_id": asset_id,
+                    "symbol": excluded.get("symbol"),
+                    "exclusion_reasons": sorted(reasons),
+                }
+            )
+        else:
+            active.append(asset_id)
+    return {
+        "original_required_asset_ids": required_asset_ids,
+        "active_required_asset_ids": active,
+        "ignored_required_assets": ignored,
+    }
+
+
+def _with_ignored_required_assets(coverage: dict[str, Any], required_asset_filter: dict[str, Any]) -> dict[str, Any]:
+    ignored = required_asset_filter.get("ignored_required_assets", [])
+    if not ignored:
+        return coverage
+    updated = dict(coverage)
+    updated["original_required_asset_ids"] = required_asset_filter.get("original_required_asset_ids", [])
+    updated["ignored_required_assets"] = ignored
+    updated["ignored_required_asset_ids"] = [str(row.get("asset_id")) for row in ignored if isinstance(row, dict)]
+    if updated.get("coverage_status") == "pass":
+        updated["coverage_status"] = "pass_with_warnings"
+    return updated
+
+
+def _rotation_excluded_assets_by_id(ingest_result: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    rotation = ingest_result.get("rotation_membership", {})
+    if not isinstance(rotation, dict):
+        return {}
+    rows = rotation.get("excluded_assets", [])
+    if not isinstance(rows, list):
+        return {}
+    by_id: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        asset_id = str(row.get("asset_id") or "").strip()
+        if asset_id:
+            by_id[asset_id] = row
+    return by_id
+
+
+def _split_reasons(value: Any) -> set[str]:
+    if isinstance(value, list):
+        return {str(item).strip() for item in value if str(item).strip()}
+    return {item.strip() for item in str(value or "").replace(",", ";").split(";") if item.strip()}
 
 
 def _required_assets_coverage(
@@ -292,15 +405,24 @@ def _required_assets_coverage(
     asset_coverage = []
     expected_rows = _expected_trade_dates_count(expected_trade_dates, effective_start, effective_end)
     required_asset_missing_date_rows = 0
+    required_asset_missing_trade_dates = []
     for asset_id in required_asset_ids:
         row = asset_rows.get(asset_id, {})
         asset_start = _date_str(row.get("start_date"))
         asset_end = _date_str(row.get("end_date"))
         asset_rows_count = _int(row.get("rows"), 0)
+        missing_trade_dates = _string_list(row.get("missing_trade_dates"))
         start_covered = bool(asset_start and effective_start and asset_start <= effective_start)
         end_covered = bool(asset_end and effective_end and asset_end >= effective_end)
         missing_date_rows = _required_asset_missing_rows(asset_rows_count, expected_rows, start_covered, end_covered)
         required_asset_missing_date_rows += missing_date_rows
+        if missing_trade_dates:
+            required_asset_missing_trade_dates.append(
+                {
+                    "asset_id": asset_id,
+                    "missing_trade_dates": missing_trade_dates,
+                }
+            )
         covered = asset_rows_count > 0 and start_covered and end_covered and missing_date_rows == 0
         asset_coverage.append(
             {
@@ -308,6 +430,7 @@ def _required_assets_coverage(
                 "rows": asset_rows_count,
                 "expected_rows": expected_rows,
                 "missing_date_rows": missing_date_rows,
+                "missing_trade_dates": missing_trade_dates,
                 "start_date": asset_start,
                 "end_date": asset_end,
                 "target_start_covered": start_covered,
@@ -343,6 +466,7 @@ def _required_assets_coverage(
         "target_end_covered": target_end_covered,
         "missing_date_rows": scoped_missing_date_rows,
         "required_asset_missing_date_rows": required_asset_missing_date_rows,
+        "required_asset_missing_trade_dates": required_asset_missing_trade_dates,
         "provider_missing_date_rows": provider_missing_date_rows,
         "duplicate_bars": duplicate_bars,
         "zero_volume_rows": zero_volume_rows,
@@ -481,6 +605,8 @@ def _weekend_adjusted_end(value: str | None) -> str | None:
 def _decision_blockers(status: str, readiness_missing: list[str], coverage: dict[str, Any]) -> list[str]:
     blockers = list(readiness_missing)
     if status == "data_quality_blocked":
+        if coverage.get("ingest_error"):
+            blockers.append("ingest_failed")
         if coverage.get("coverage_scope") == "required_assets" and not coverage.get("required_assets_covered"):
             blockers.append("required_assets_not_covered")
         if not coverage.get("target_start_covered"):
@@ -495,6 +621,8 @@ def _decision_blockers(status: str, readiness_missing: list[str], coverage: dict
             blockers.append("duplicate_bars")
         if _int(coverage.get("zero_volume_rows"), 0) > 0:
             blockers.append("zero_volume_rows")
+        if coverage.get("rotation_membership_blocker"):
+            blockers.append(str(coverage["rotation_membership_blocker"]))
     if status == "blocked" and not blockers:
         blockers.append("recent_data_refresh_not_ready")
     return blockers
@@ -504,6 +632,8 @@ def _decision_warnings(status: str, coverage: dict[str, Any]) -> list[str]:
     warnings: list[str] = []
     if status == "completed_with_warnings" and _int(coverage.get("provider_missing_date_rows"), 0) > 0:
         warnings.append("provider_missing_date_rows")
+    if status == "completed_with_warnings" and coverage.get("ignored_required_assets"):
+        warnings.append("required_assets_filtered_by_rotation_membership")
     return warnings
 
 
@@ -543,6 +673,9 @@ def _next_actions(pack: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
     if pack.get("status") == "data_quality_blocked":
+        clean_retry = _latest_required_asset_end_retry_action(pack)
+        if clean_retry:
+            actions.append(clean_retry)
         actions.append(
             {
                 "action": "inspect_recent_data_quality",
@@ -576,6 +709,48 @@ def _next_actions(pack: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
     return actions
+
+
+def _latest_required_asset_end_retry_action(pack: dict[str, Any]) -> dict[str, Any] | None:
+    coverage = pack.get("coverage", {}) if isinstance(pack.get("coverage"), dict) else {}
+    if coverage.get("coverage_scope") != "required_assets":
+        return None
+    if coverage.get("target_start_covered") is not True or coverage.get("target_end_covered") is not False:
+        return None
+    target_start = _date_str(coverage.get("target_start_date"))
+    target_end = _date_str(coverage.get("target_end_date"))
+    asset_rows = coverage.get("required_asset_coverage", [])
+    if not target_start or not target_end or not isinstance(asset_rows, list):
+        return None
+    latest_end = None
+    limiting_assets: list[str] = []
+    for row in asset_rows:
+        if not isinstance(row, dict) or row.get("covered"):
+            continue
+        asset_end = _date_str(row.get("end_date"))
+        if not asset_end or asset_end >= target_end:
+            continue
+        if latest_end is None or asset_end < latest_end:
+            latest_end = asset_end
+            limiting_assets = [str(row.get("asset_id") or "unknown")]
+        elif asset_end == latest_end:
+            limiting_assets.append(str(row.get("asset_id") or "unknown"))
+    if not latest_end or latest_end < target_start:
+        return None
+    workstation = pack.get("workstation", {}) if isinstance(pack.get("workstation"), dict) else {}
+    machine = workstation.get("machine") or "highspec_desktop"
+    return {
+        "action": "rerun_recent_refresh_to_latest_required_asset_end",
+        "local_only": True,
+        "command": (
+            f"python scripts\\run_recent_data_refresh.py --machine {machine} "
+            f"--start-date {target_start} --end-date {latest_end} --execute"
+        ),
+        "reason": (
+            "Required asset coverage stops before the requested target end; "
+            f"latest clean target end is {latest_end} for {', '.join(limiting_assets)}."
+        ),
+    }
 
 
 def _handoff_refresh_action(pack: dict[str, Any], workstation: dict[str, Any]) -> dict[str, Any]:

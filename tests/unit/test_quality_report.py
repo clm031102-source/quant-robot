@@ -75,6 +75,32 @@ class QualityReportTests(unittest.TestCase):
         self.assertGreaterEqual(report["stale_price_rows"], 1)
         self.assertEqual(report["adj_close_jump_rows"], 1)
 
+    def test_coverage_by_asset_records_missing_trade_dates(self) -> None:
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["ETF_A", "ETF_A", "ETF_B", "ETF_B", "ETF_B"],
+                "market": ["CN_ETF"] * 5,
+                "date": [
+                    "2024-01-02",
+                    "2024-01-04",
+                    "2024-01-02",
+                    "2024-01-03",
+                    "2024-01-04",
+                ],
+                "volume": [100, 120, 200, 220, 240],
+                "close": [1.0, 1.1, 2.0, 2.1, 2.2],
+            }
+        )
+
+        report = build_quality_report(
+            bars,
+            expected_dates=["2024-01-02", "2024-01-03", "2024-01-04"],
+        )
+
+        coverage = {row["asset_id"]: row for row in report["coverage_by_asset"]}
+        self.assertEqual(coverage["ETF_A"]["missing_trade_dates"], ["2024-01-03"])
+        self.assertEqual(coverage["ETF_B"]["missing_trade_dates"], [])
+
 
 if __name__ == "__main__":
     unittest.main()

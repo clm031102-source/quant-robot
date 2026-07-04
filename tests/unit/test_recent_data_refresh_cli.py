@@ -4,9 +4,13 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
+
+import pandas as pd
 
 from scripts.run_recent_data_refresh import run_recent_data_refresh
 from quant_robot.storage.cn_etf_rotation_membership import load_cn_etf_rotation_membership
+from quant_robot.storage.dataset_store import DatasetStore
 
 
 class RecentDataRefreshCliTests(unittest.TestCase):
@@ -104,6 +108,259 @@ class RecentDataRefreshCliTests(unittest.TestCase):
             self.assertIn("history_rows_to_date", membership.columns)
             self.assertIn("recent_refresh_provider_daily_bars", set(membership["membership_source"]))
             self.assertEqual(pack["ingest"]["rotation_membership"]["rows"], len(membership))
+
+    def test_fund_basic_rotation_membership_excludes_lof_from_recent_refresh(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile_pack = root / "profile_observation_pack.json"
+            profile_pack.write_text(
+                json.dumps(
+                    {
+                        "stage": "phase_5_6_profile_observation_ledger",
+                        "run_date": "2024-01-04",
+                        "ledger": [
+                            {
+                                "signal_date": "2024-01-01",
+                                "observed_assets": "CN_ETF_XSHG_510300",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            processed_dir = root / "processed"
+            dates = list(pd.date_range("2024-01-02", periods=3).date)
+
+            def ingest_runner(**kwargs):
+                output_dir = Path(kwargs["output_dir"])
+                bars = pd.DataFrame(
+                    {
+                        "asset_id": ["CN_ETF_XSHG_510300"] * 3 + ["CN_ETF_XSHG_501001"] * 3,
+                        "symbol": ["510300.SH"] * 3 + ["501001.SH"] * 3,
+                        "date": dates * 2,
+                        "market": ["CN_ETF"] * 6,
+                        "frequency": ["1d"] * 6,
+                        "open": [1.0] * 6,
+                        "high": [1.01] * 6,
+                        "low": [0.99] * 6,
+                        "close": [1.0, 1.01, 1.02, 2.0, 2.01, 2.02],
+                        "volume": [100.0] * 6,
+                        "amount": [1_000_000.0] * 6,
+                    }
+                )
+                DatasetStore(output_dir).write_frame(
+                    bars,
+                    "processed/bars",
+                    {"frequency": "1d", "market": "CN_ETF", "year": "2024"},
+                )
+                return {
+                    "source": "tushare",
+                    "market": "CN_ETF",
+                    "downloaded_trade_dates": ["20240102", "20240103", "20240104"],
+                    "skipped_trade_dates": [],
+                    "processed_rows": len(bars),
+                    "quality_report": {
+                        "rows": len(bars),
+                        "assets": 2,
+                        "start_date": "2024-01-02",
+                        "end_date": "2024-01-04",
+                        "missing_date_rows": 0,
+                        "duplicate_bars": 0,
+                        "zero_volume_rows": 0,
+                        "coverage_by_asset": [
+                            {
+                                "asset_id": "CN_ETF_XSHG_510300",
+                                "rows": 3,
+                                "start_date": "2024-01-02",
+                                "end_date": "2024-01-04",
+                            }
+                        ],
+                    },
+                }
+
+            fund_basic = pd.DataFrame(
+                {
+                    "symbol": ["510300.SH", "501001.SH"],
+                    "name": ["CSI 300 ETF", "Listed LOF"],
+                    "market": ["E", "E"],
+                    "status": ["L", "L"],
+                    "fund_type": ["ETF", "LOF"],
+                    "type": ["ETF", "LOF"],
+                    "invest_type": ["Passive", "LOF"],
+                    "is_exchange_traded": [True, True],
+                    "is_etf": [True, False],
+                    "list_date": [pd.Timestamp("2020-01-01").date(), pd.Timestamp("2020-01-01").date()],
+                    "delist_date": [pd.NaT, pd.NaT],
+                }
+            )
+
+            class FakeFundBasicAdapter:
+                def fetch_fund_basic(self, market="E", status="L"):
+                    self.request = {"market": market, "status": status}
+                    return fund_basic
+
+            fake_adapter = FakeFundBasicAdapter()
+            with patch("scripts.run_recent_data_refresh.TushareAdapter", return_value=fake_adapter):
+                pack = run_recent_data_refresh(
+                    profile_observation_pack=profile_pack,
+                    source="tushare",
+                    market="CN_ETF",
+                    output_dir=processed_dir,
+                    report_dir=root / "report",
+                    execute=True,
+                    readiness={"ready": True, "missing": []},
+                    ingest_runner=ingest_runner,
+                )
+
+            membership = load_cn_etf_rotation_membership(processed_dir, "CN_ETF")
+            lof = membership[membership["asset_id"].eq("CN_ETF_XSHG_501001")].iloc[-1]
+
+            self.assertEqual(pack["status"], "completed")
+            self.assertFalse(bool(lof["is_rotation_member"]))
+            self.assertIn("not_etf", str(lof["exclusion_reasons"]))
+            self.assertEqual(pack["ingest"]["rotation_membership"]["source"], "tushare_fund_basic_fund_daily")
+            self.assertEqual(fake_adapter.request, {"market": "E", "status": ""})
+
+    def test_live_tushare_refresh_blocks_when_fund_basic_membership_cannot_be_validated(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile_pack = root / "profile_observation_pack.json"
+            profile_pack.write_text(
+                json.dumps(
+                    {
+                        "stage": "phase_5_6_profile_observation_ledger",
+                        "run_date": "2024-01-04",
+                        "ledger": [
+                            {
+                                "signal_date": "2024-01-01",
+                                "observed_assets": "CN_ETF_XSHG_510300",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            processed_dir = root / "processed"
+            dates = list(pd.date_range("2024-01-02", periods=3).date)
+
+            def ingest_runner(**kwargs):
+                output_dir = Path(kwargs["output_dir"])
+                bars = pd.DataFrame(
+                    {
+                        "asset_id": ["CN_ETF_XSHG_510300"] * 3,
+                        "symbol": ["510300.SH"] * 3,
+                        "date": dates,
+                        "market": ["CN_ETF"] * 3,
+                        "frequency": ["1d"] * 3,
+                        "open": [1.0] * 3,
+                        "high": [1.01] * 3,
+                        "low": [0.99] * 3,
+                        "close": [1.0, 1.01, 1.02],
+                        "volume": [100.0] * 3,
+                        "amount": [1_000_000.0] * 3,
+                    }
+                )
+                DatasetStore(output_dir).write_frame(
+                    bars,
+                    "processed/bars",
+                    {"frequency": "1d", "market": "CN_ETF", "year": "2024"},
+                )
+                return {
+                    "source": "tushare",
+                    "market": "CN_ETF",
+                    "downloaded_trade_dates": ["20240102", "20240103", "20240104"],
+                    "skipped_trade_dates": [],
+                    "processed_rows": len(bars),
+                    "quality_report": {
+                        "rows": len(bars),
+                        "assets": 1,
+                        "start_date": "2024-01-02",
+                        "end_date": "2024-01-04",
+                        "missing_date_rows": 0,
+                        "duplicate_bars": 0,
+                        "zero_volume_rows": 0,
+                        "coverage_by_asset": [
+                            {
+                                "asset_id": "CN_ETF_XSHG_510300",
+                                "rows": 3,
+                                "start_date": "2024-01-02",
+                                "end_date": "2024-01-04",
+                            }
+                        ],
+                    },
+                }
+
+            class FailingFundBasicAdapter:
+                def fetch_fund_basic(self, market="E", status="L"):
+                    raise RuntimeError("fund_basic unavailable")
+
+            with patch("scripts.run_recent_data_refresh.TushareAdapter", return_value=FailingFundBasicAdapter()):
+                pack = run_recent_data_refresh(
+                    profile_observation_pack=profile_pack,
+                    source="tushare",
+                    market="CN_ETF",
+                    output_dir=processed_dir,
+                    report_dir=root / "report",
+                    execute=True,
+                    readiness={"ready": True, "missing": []},
+                    ingest_runner=ingest_runner,
+                )
+
+            self.assertEqual(pack["status"], "data_quality_blocked")
+            self.assertFalse(pack["decision"]["recent_data_ready"])
+            self.assertIn("rotation_membership_fund_basic_missing", pack["decision"]["blockers"])
+            self.assertFalse(pack["ingest"]["rotation_membership"]["written"])
+            self.assertEqual(
+                pack["ingest"]["rotation_membership"]["reason"],
+                "fund_basic_required_for_live_tushare_rotation_membership",
+            )
+
+    def test_execute_writes_blocked_pack_when_ingest_runner_raises(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile_pack = root / "profile_observation_pack.json"
+            profile_pack.write_text(
+                json.dumps(
+                    {
+                        "run_date": "2026-04-29",
+                        "ledger": [
+                            {
+                                "signal_date": "2026-03-23",
+                                "observed_assets": "CN_ETF_XSHE_160615",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            def raise_empty_response(**_kwargs):
+                raise RuntimeError("empty raw response for open trade date 20260428")
+
+            pack = run_recent_data_refresh(
+                profile_observation_pack=profile_pack,
+                source="tushare",
+                market="CN_ETF",
+                output_dir=root / "processed",
+                report_dir=root / "report",
+                start_date="2026-03-23",
+                end_date="2026-04-29",
+                execute=True,
+                readiness={"ready": True, "missing": []},
+                ingest_runner=raise_empty_response,
+            )
+
+            self.assertEqual(pack["status"], "data_quality_blocked")
+            self.assertIn("ingest_failed", pack["decision"]["blockers"])
+            self.assertFalse(pack["decision"]["recent_data_ready"])
+            self.assertEqual(
+                pack["ingest"]["ingest_error"],
+                {
+                    "error": "empty raw response for open trade date 20260428",
+                    "type": "RuntimeError",
+                },
+            )
+            self.assertTrue((root / "report" / "recent_data_refresh_pack.json").exists())
 
     def test_function_writes_machine_aware_handoff_artifacts(self):
         with tempfile.TemporaryDirectory() as tmp:

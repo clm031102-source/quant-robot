@@ -480,7 +480,7 @@ def _statement_key_frame(frame: pd.DataFrame) -> pd.DataFrame:
 def _fund_basic_etf_mask(frame: pd.DataFrame) -> pd.Series:
     text_columns = [column for column in ["name", "fund_type", "invest_type", "type"] if column in frame.columns]
     haystack = frame[text_columns].fillna("").astype(str).agg(" ".join, axis=1).str.upper()
-    return haystack.str.contains("ETF", regex=False)
+    return haystack.str.contains("ETF", regex=False) & ~haystack.str.contains("LOF", regex=False)
 
 
 def _require_columns(frame: pd.DataFrame, required: list[str], label: str) -> None:

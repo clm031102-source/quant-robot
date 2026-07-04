@@ -297,6 +297,23 @@ class TushareMappingTests(unittest.TestCase):
         self.assertTrue(bool(etf_row["is_etf"]))
         self.assertFalse(bool(linked_row["is_exchange_traded"]))
 
+    def test_map_fund_basic_does_not_mark_etf_linked_lof_as_etf(self):
+        source = pd.DataFrame(
+            {
+                "ts_code": ["160615.SZ"],
+                "name": ["CSI 300 ETF Link (LOF) A"],
+                "status": ["L"],
+                "market": ["E"],
+                "fund_type": ["Equity"],
+                "invest_type": ["Passive Index"],
+                "type": ["Equity"],
+            }
+        )
+
+        result = map_tushare_fund_basic(source)
+
+        self.assertFalse(bool(result.loc[0, "is_etf"]))
+
     def test_map_fund_basic_returns_standard_empty_frame(self):
         result = map_tushare_fund_basic(pd.DataFrame())
 

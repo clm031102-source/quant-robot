@@ -44,6 +44,8 @@ def run_daily_ops(
     paper_profile_pack: str | Path | None = None,
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
     run_date: str | None = None,
+    start_date: str | None = None,
+    end_date: str | None = None,
     data_root: str | Path = DEFAULT_DATA_ROOT,
     source: str = "processed-bars",
     portfolio_value: float = 100000.0,
@@ -76,6 +78,7 @@ def run_daily_ops(
             factor_name=factor_name,
             factor_windows=factor_windows,
             top_n=top_n,
+            as_of_date=run_date,
             portfolio_scope="market",
             max_asset_weight=profile_params["max_asset_weight"],
             max_market_weight=profile_params["max_market_weight"],
@@ -97,6 +100,8 @@ def run_daily_ops(
             factor_windows=factor_windows,
             top_n=top_n,
             rebalance_interval=rebalance_interval,
+            start_date=start_date,
+            end_date=end_date,
             initial_cash=portfolio_value,
             max_asset_weight=profile_params["max_asset_weight"],
             max_market_weight=profile_params["max_market_weight"],
@@ -131,6 +136,8 @@ def main() -> None:
     parser.add_argument("--paper-profile-pack")
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--run-date")
+    parser.add_argument("--start-date")
+    parser.add_argument("--end-date")
     parser.add_argument("--data-root", default=str(DEFAULT_DATA_ROOT))
     parser.add_argument("--source", choices=["fixture", "processed-bars"], default="processed-bars")
     parser.add_argument("--portfolio-value", default=100000.0, type=float)
@@ -156,6 +163,8 @@ def main() -> None:
         paper_profile_pack=Path(args.paper_profile_pack) if args.paper_profile_pack else None,
         output_dir=Path(args.output_dir),
         run_date=args.run_date,
+        start_date=args.start_date,
+        end_date=args.end_date,
         data_root=Path(args.data_root),
         source=args.source,
         portfolio_value=args.portfolio_value,

@@ -302,6 +302,70 @@ class DailyOpsCliTests(unittest.TestCase):
             self.assertEqual(pack["paper_profile"]["profile_id"], "cap60_guard12_cd3")
             self.assertEqual(signal_mock.call_args.kwargs["max_asset_weight"], 0.6)
 
+    def test_run_daily_ops_forwards_observation_window_to_signal_and_simulation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            promotion = root / "promotion_review_packet.json"
+            readiness = root / "pre_api_readiness_board.json"
+            output_dir = root / "daily_ops"
+            promotion.write_text(
+                json.dumps(
+                    {
+                        "selected_candidate": {
+                            "case_id": "CN_ETF_liquidity_10_top1_cost5_reb5",
+                            "market": "CN_ETF",
+                            "factor_name": "liquidity_10",
+                            "promotion_status": "paper_ready",
+                        }
+                    }
+                ),
+                encoding="utf-8",
+            )
+            readiness.write_text(
+                json.dumps(
+                    {
+                        "blocker_register": [
+                            {"blocker_id": "manual_live_review_not_enabled", "track_id": "manual_review_gate"}
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            def fake_signal(**_kwargs):
+                return {
+                    "as_of_date": "2026-07-02",
+                    "signal_date": "2026-07-02",
+                    "targets": [{"asset_id": "asset_a", "target_weight": 0.6}],
+                    "rebalance_plan": [{"asset_id": "asset_a", "market": "CN_ETF", "estimated_quantity_delta": 100.0}],
+                }
+
+            def fake_simulation(**_kwargs):
+                return {
+                    "metrics": {"total_return": 0.1, "max_equity_drawdown": -0.02},
+                    "fills": [{"fill_id": value} for value in range(8)],
+                    "guard_events": [],
+                    "execution_events": [],
+                }
+
+            with patch("scripts.run_daily_ops.DEFAULT_PAPER_PROFILE_PACK", root / "missing_profile.json"), patch(
+                "scripts.run_daily_ops.run_signal_snapshot",
+                side_effect=fake_signal,
+            ) as signal_mock, patch("scripts.run_daily_ops.run_simulation", side_effect=fake_simulation) as simulation_mock:
+                pack = run_daily_ops(
+                    promotion_review=promotion,
+                    readiness_board=readiness,
+                    output_dir=output_dir,
+                    run_date="2026-07-02",
+                    start_date="2026-05-06",
+                    end_date="2026-07-02",
+                )
+
+            self.assertEqual(pack["run_date"], "2026-07-02")
+            self.assertEqual(signal_mock.call_args.kwargs["as_of_date"], "2026-07-02")
+            self.assertEqual(simulation_mock.call_args.kwargs["start_date"], "2026-05-06")
+            self.assertEqual(simulation_mock.call_args.kwargs["end_date"], "2026-07-02")
+
 
 if __name__ == "__main__":
     unittest.main()
