@@ -25,8 +25,14 @@ def build_completion_gate(
     branch_discovery_errors: list[str],
     observation_pack: dict[str, Any] | None,
     observation_pack_path: str | Path | None = None,
+    recent_data_refresh_pack: dict[str, Any] | None = None,
+    recent_data_refresh_pack_path: str | Path | None = None,
 ) -> dict[str, Any]:
     observation = _summarize_observation(observation_pack, observation_pack_path=observation_pack_path)
+    recent_data_refresh = _summarize_recent_data_refresh(
+        recent_data_refresh_pack,
+        recent_data_refresh_pack_path=recent_data_refresh_pack_path,
+    )
     blockers: list[str] = []
     if branch_discovery_errors:
         blockers.append("branch_discovery_failed")
@@ -56,7 +62,8 @@ def build_completion_gate(
             "branch_discovery_errors": branch_discovery_errors,
         },
         "observation": observation,
-        "next_actions": _next_actions(blockers),
+        "recent_data_refresh": recent_data_refresh,
+        "next_actions": _next_actions(blockers, recent_data_refresh=recent_data_refresh),
         "safety": {
             "research_to_paper_only": True,
             "live_trading_allowed": False,
@@ -81,6 +88,10 @@ def main() -> None:
         help="Observation sufficiency pack to use. Defaults to the latest non-fixture pack under data/reports.",
     )
     parser.add_argument("--observation-reports-root", default=str(DEFAULT_OBSERVATION_REPORTS_ROOT))
+    parser.add_argument(
+        "--recent-data-refresh-pack",
+        help="Recent data refresh pack to refine observation-blocker next actions. Defaults to the latest non-fixture pack.",
+    )
     parser.add_argument("--skip-fetch", action="store_true", help="Do not fetch/prune before reading remote branches.")
     parser.add_argument(
         "--require-complete",
@@ -98,6 +109,11 @@ def main() -> None:
         if args.observation_sufficiency_pack
         else discover_latest_observation_sufficiency_pack(Path(args.observation_reports_root))
     )
+    recent_data_refresh_path = (
+        Path(args.recent_data_refresh_pack)
+        if args.recent_data_refresh_pack
+        else discover_latest_recent_data_refresh_pack(Path(args.observation_reports_root))
+    )
     gate = build_completion_gate(
         current_branch=_git_stdout(["branch", "--show-current"]),
         stable_branch=stable_branch,
@@ -106,6 +122,8 @@ def main() -> None:
         branch_discovery_errors=[],
         observation_pack=_read_optional_json(observation_path),
         observation_pack_path=observation_path,
+        recent_data_refresh_pack=_read_optional_json(recent_data_refresh_path),
+        recent_data_refresh_pack_path=recent_data_refresh_path,
     )
     print(json.dumps(gate, indent=2, sort_keys=True))
     raise SystemExit(completion_gate_exit_code(gate, require_complete=args.require_complete))
@@ -132,6 +150,28 @@ def discover_latest_observation_sufficiency_pack(root: str | Path = DEFAULT_OBSE
     if not candidates:
         return None
     return max(candidates, key=_observation_pack_rank)
+
+
+def discover_latest_recent_data_refresh_pack(root: str | Path = DEFAULT_OBSERVATION_REPORTS_ROOT) -> Path | None:
+    root_path = Path(root)
+    if not root_path.exists():
+        return None
+    patterns = (
+        "recent_data_refresh/recent_data_refresh_pack.json",
+        "round*_recent_data_refresh*/recent_data_refresh_pack.json",
+        "round*/recent_data_refresh/recent_data_refresh_pack.json",
+        "*/recent_data_refresh_pack.json",
+        "*/recent_data_refresh/recent_data_refresh_pack.json",
+    )
+    candidates_by_path: dict[Path, Path] = {}
+    for pattern in patterns:
+        for path in root_path.glob(pattern):
+            if path.is_file() and "fixture" not in path.as_posix().lower():
+                candidates_by_path[path.resolve()] = path
+    candidates = list(candidates_by_path.values())
+    if not candidates:
+        return None
+    return max(candidates, key=lambda path: path.stat().st_mtime)
 
 
 def _observation_pack_rank(path: Path) -> tuple[int, int, int, float]:
@@ -180,7 +220,66 @@ def _summarize_observation(
     }
 
 
-def _next_actions(blockers: list[str]) -> list[dict[str, str]]:
+def _summarize_recent_data_refresh(
+    pack: dict[str, Any] | None,
+    *,
+    recent_data_refresh_pack_path: str | Path | None = None,
+) -> dict[str, Any]:
+    source_path = str(recent_data_refresh_pack_path) if recent_data_refresh_pack_path else None
+    if not pack:
+        return {
+            "pack_present": False,
+            "source_path": source_path,
+            "status": "missing",
+            "target_end_gap": None,
+        }
+    return {
+        "pack_present": True,
+        "source_path": source_path,
+        "status": str(pack.get("status", "unknown")),
+        "target_end_gap": _recent_target_end_gap(pack, source_path=source_path),
+    }
+
+
+def _recent_target_end_gap(pack: dict[str, Any], *, source_path: str | None) -> dict[str, Any] | None:
+    coverage = pack.get("coverage") if isinstance(pack.get("coverage"), dict) else {}
+    if coverage.get("target_end_covered") is not False:
+        return None
+    target = pack.get("target_window") if isinstance(pack.get("target_window"), dict) else {}
+    target_start = _date_text(target.get("start_date"))
+    target_end = _date_text(target.get("end_date"))
+    if not target_start or not target_end:
+        return None
+
+    rows = coverage.get("required_asset_coverage", [])
+    if not isinstance(rows, list):
+        return None
+    asset_ids: list[str] = []
+    clean_end_dates: list[str] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if row.get("target_start_covered") is False or row.get("target_end_covered") is not False:
+            continue
+        clean_end = _date_text(row.get("end_date"))
+        if not clean_end or clean_end >= target_end or clean_end < target_start:
+            continue
+        asset_id = str(row.get("asset_id") or "").strip()
+        if asset_id:
+            asset_ids.append(asset_id)
+        clean_end_dates.append(clean_end)
+    if not asset_ids or not clean_end_dates:
+        return None
+    return {
+        "source_path": source_path,
+        "target_start_date": target_start,
+        "target_end_date": target_end,
+        "latest_clean_end_date": min(clean_end_dates),
+        "required_asset_ids": sorted(dict.fromkeys(asset_ids)),
+    }
+
+
+def _next_actions(blockers: list[str], *, recent_data_refresh: dict[str, Any] | None = None) -> list[dict[str, str]]:
     if not blockers:
         return [
             {
@@ -199,13 +298,32 @@ def _next_actions(blockers: list[str]) -> list[dict[str, str]]:
             }
         )
     if "observation_sufficiency_not_cleared" in blockers or "observation_sufficiency_pack_missing" in blockers:
-        actions.append(
-            {
-                "action": "continue_paper_observation",
-                "command": "python scripts/run_observation_sufficiency.py",
-                "reason": "paper observation must clear the fill-count gate before profit-factor mining starts",
-            }
-        )
+        target_end_gap = _dict((recent_data_refresh or {}).get("target_end_gap"))
+        if target_end_gap:
+            source_path = str(target_end_gap.get("source_path") or "<recent-data-refresh-pack>")
+            asset_text = ", ".join(str(item) for item in target_end_gap.get("required_asset_ids", []))
+            actions.append(
+                {
+                    "action": "wait_for_required_asset_target_end",
+                    "command": (
+                        "python scripts/run_observation_continuation_plan.py "
+                        f"--machine <data_pipeline_machine> --task data_pipeline --recent-data-refresh-pack {source_path}"
+                    ),
+                    "reason": (
+                        f"paper observation waits for {asset_text} to cover target end "
+                        f"{target_end_gap.get('target_end_date')}; latest clean end is "
+                        f"{target_end_gap.get('latest_clean_end_date')}"
+                    ),
+                }
+            )
+        else:
+            actions.append(
+                {
+                    "action": "continue_paper_observation",
+                    "command": "python scripts/run_observation_sufficiency.py",
+                    "reason": "paper observation must clear the fill-count gate before profit-factor mining starts",
+                }
+            )
     if "working_tree_dirty" in blockers:
         actions.append(
             {
@@ -252,7 +370,9 @@ def _changed_paths() -> list[str]:
     return paths
 
 
-def _read_optional_json(path: Path) -> dict[str, Any] | None:
+def _read_optional_json(path: Path | None) -> dict[str, Any] | None:
+    if path is None:
+        return None
     if not path.exists():
         return None
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -266,6 +386,22 @@ def _int(value: Any, default: int = 0) -> int:
         return int(float(value))
     except (TypeError, ValueError):
         return default
+
+
+def _date_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value)[:10]
+    try:
+        from datetime import date
+
+        return date.fromisoformat(text).isoformat()
+    except ValueError:
+        return None
+
+
+def _dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
 
 
 def _git_stdout(args: list[str]) -> str:

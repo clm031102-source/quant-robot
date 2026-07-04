@@ -7,6 +7,7 @@ from pathlib import Path
 from scripts.run_project_completion_gate import (
     build_completion_gate,
     completion_gate_exit_code,
+    discover_latest_recent_data_refresh_pack,
     discover_latest_observation_sufficiency_pack,
 )
 
@@ -157,6 +158,74 @@ class ProjectCompletionGateTests(unittest.TestCase):
                 os.utime(pack, (timestamp, timestamp))
 
             self.assertEqual(discover_latest_observation_sufficiency_pack(root), validated_pack)
+
+    def test_completion_gate_surfaces_required_asset_target_end_gap_next_action(self) -> None:
+        gate = build_completion_gate(
+            current_branch="main",
+            stable_branch="main",
+            changed_paths=[],
+            remote_topic_branches=[],
+            branch_discovery_errors=[],
+            observation_pack={
+                "status": "needs_more_observation_data",
+                "decision": {"observation_sufficiency_cleared": False},
+                "fills": {"observed_fills": 5, "required_fills": 20, "fill_deficit": 15},
+            },
+            recent_data_refresh_pack={
+                "status": "data_quality_blocked",
+                "target_window": {"start_date": "2026-05-06", "end_date": "2026-07-03"},
+                "coverage": {
+                    "target_start_covered": True,
+                    "target_end_covered": False,
+                    "required_asset_coverage": [
+                        {
+                            "asset_id": "CN_ETF_XSHE_160615",
+                            "target_start_covered": True,
+                            "target_end_covered": False,
+                            "end_date": "2026-07-02",
+                        }
+                    ],
+                },
+            },
+            recent_data_refresh_pack_path="data/reports/round491/recent_data_refresh_pack.json",
+        )
+
+        self.assertEqual(gate["blockers"], ["observation_sufficiency_not_cleared"])
+        self.assertEqual(
+            gate["recent_data_refresh"]["target_end_gap"],
+            {
+                "source_path": "data/reports/round491/recent_data_refresh_pack.json",
+                "target_start_date": "2026-05-06",
+                "target_end_date": "2026-07-03",
+                "latest_clean_end_date": "2026-07-02",
+                "required_asset_ids": ["CN_ETF_XSHE_160615"],
+            },
+        )
+        self.assertEqual(gate["next_actions"][0]["action"], "wait_for_required_asset_target_end")
+        self.assertIn("CN_ETF_XSHE_160615", gate["next_actions"][0]["reason"])
+        self.assertIn("2026-07-03", gate["next_actions"][0]["reason"])
+        self.assertNotIn("continue_paper_observation", [row["action"] for row in gate["next_actions"]])
+
+    def test_discovers_latest_non_fixture_recent_data_refresh_pack(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            old_pack = root / "round490_recent_data_refresh" / "recent_data_refresh_pack.json"
+            latest_pack = root / "round491_recent_data_refresh" / "recent_data_refresh_pack.json"
+            fixture_pack = root / "recent_data_refresh_fixture" / "recent_data_refresh_pack.json"
+            for pack, timestamp in [(old_pack, 100.0), (latest_pack, 200.0), (fixture_pack, 300.0)]:
+                pack.parent.mkdir(parents=True, exist_ok=True)
+                pack.write_text(
+                    json.dumps(
+                        {
+                            "status": "data_quality_blocked",
+                            "target_window": {"start_date": "2026-05-06", "end_date": "2026-07-03"},
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                os.utime(pack, (timestamp, timestamp))
+
+            self.assertEqual(discover_latest_recent_data_refresh_pack(root), latest_pack)
 
 
 if __name__ == "__main__":
