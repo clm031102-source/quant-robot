@@ -1,0 +1,60 @@
+{
+  "split_date": "2025-01-02",
+  "bar_start_date": "2023-07-03",
+  "bar_end_date": "2025-12-31",
+  "output_dir": "data/reports/walk_forward_tushare_moneyflow_benchmark_relative_round464_20260704",
+  "rank_by": "mean_test_relative_return",
+  "min_test_trades": 30,
+  "min_test_sharpe": 0.0,
+  "min_test_relative_return": 0.0,
+  "max_test_drawdown": 0.3,
+  "rolling_train_days": 315,
+  "rolling_test_days": 63,
+  "rolling_step_days": 63,
+  "min_accepted_folds": 2,
+  "multiple_testing_alpha": 0.05,
+  "experiment_grid": {
+    "markets": [
+      "CN"
+    ],
+    "factor_source": "moneyflow_technical_combo",
+    "moneyflow_input_root": "configs/cn_stock_authority_moneyflow_inputs_2015_2025.json",
+    "factor_names": [
+      "large_resid_liq_vol_amt_gate_20"
+    ],
+    "factor_windows": [
+      20
+    ],
+    "top_n_values": [
+      6
+    ],
+    "cost_bps_values": [
+      20,
+      30
+    ],
+    "forward_horizon": 1,
+    "execution_lag": 1,
+    "rebalance_intervals": [
+      1
+    ],
+    "quantiles": 5,
+    "portfolio_scope": "market",
+    "portfolio_value": 500000,
+    "market_impact_bps": 10,
+    "max_participation_rate": 0.05,
+    "min_relative_return": 0.0,
+    "max_drawdown_limit": 0.3,
+    "regime_filter": true,
+    "regime_lookback_values": [
+      150,
+      180,
+      252
+    ],
+    "rank_by": "relative_return",
+    "min_trades": 30,
+    "write_case_artifacts": false,
+    "precompute_factor_matrix": true,
+    "resume_completed_cases": true,
+    "reuse_research_inputs": true
+  }
+}

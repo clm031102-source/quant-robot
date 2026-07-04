@@ -204,6 +204,9 @@ def run_experiment_grid(
     progress: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     _validate_config(config)
+    cached = _load_completed_grid(config)
+    if cached is not None:
+        return cached
     bars = _filter_bars_for_asset_universe(bars, config)
     precomputed_factors = _precompute_factor_matrix(bars, config) if config.precompute_factor_matrix else None
     rows = [_run_case(bars, config, case, precomputed_factors) for case in build_experiment_cases(config)]
@@ -216,6 +219,38 @@ def run_experiment_grid(
     if config.output_dir is not None:
         _write_grid_artifacts(config.output_dir, result, leaderboard)
     return result
+
+
+def _load_completed_grid(config: ExperimentGridConfig) -> dict[str, Any] | None:
+    if not config.resume_completed_cases or config.output_dir is None:
+        return None
+    manifest_path = config.output_dir / "manifest.json"
+    leaderboard_path = config.output_dir / "leaderboard.json"
+    if not manifest_path.exists() or not leaderboard_path.exists():
+        return None
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        leaderboard = json.loads(leaderboard_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    if not isinstance(manifest, dict) or not isinstance(leaderboard, list):
+        return None
+    expected_case_ids = {case.case_id for case in build_experiment_cases(config)}
+    cached_case_ids = {str(row.get("case_id", "")) for row in leaderboard if isinstance(row, dict)}
+    if cached_case_ids != expected_case_ids:
+        return None
+    if any(isinstance(row, dict) and row.get("status") == "failed" for row in leaderboard):
+        return None
+    summary = manifest.get("summary")
+    if not isinstance(summary, dict):
+        return None
+    if int(summary.get("cases", len(leaderboard))) != len(expected_case_ids):
+        return None
+    return {
+        "config": manifest.get("config", _config_dict(config)),
+        "summary": summary,
+        "leaderboard": leaderboard,
+    }
 
 
 def _run_case(

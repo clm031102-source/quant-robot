@@ -8,9 +8,9 @@ Purpose: this is the first file to read after syncing the repository on any work
 
 - Stable branch: `main`
 - Remote HEAD: `origin/main`
-- Current remote topic branches: none
+- Current remote topic branches: `codex/factor-batch-cn-stock-benchmark-relative-20260704` after this task branch is pushed
 - Remote branch cleanup status: complete
-- Latest integrated cloud commit: `9451558b`
+- Latest integrated cloud commit: `759c3cc3`
 - Live-trading boundary: disabled; research-to-paper only
 - Latest cloud audit report: `docs/research/cloud_project_audit_2026-06-27.md`
 
@@ -23,6 +23,14 @@ All durable code, configs, tests, and lightweight reports that were previously o
 | `main` | stable branch | always |
 
 Do not create long-lived remote topic branches for routine desktop factor batches. Push task branches only when they contain code/config/docs that need cross-machine review, and delete them after they are merged or explicitly archived.
+
+## Current Active Task Branch
+
+| Branch | Role | Status |
+| --- | --- | --- |
+| `codex/factor-batch-cn-stock-benchmark-relative-20260704` | Round464 benchmark-relative residual moneyflow pre-registration, walk-forward framework fixes, and rejection evidence | active review branch |
+
+This branch is not a promotion branch. It records a completed rejection set and framework fixes that should be reviewed before integration.
 
 ## Deleted historical branches
 
@@ -78,9 +86,10 @@ Promotion status:
 
 ## Current CN Stock Factor-Mining Status
 
-Latest same-day progress report:
+Latest same-day progress reports:
 
 - `docs/research/cn_stock_round463_analyst_report_revision_source_smoke_2026-07-04.md`
+- `docs/research/cn_stock_round464_benchmark_relative_moneyflow_preregistration_2026-07-04.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -91,6 +100,16 @@ Round463 reopened the analyst report revision direction only as a source-smoke b
 - Promotion allowed candidates: 0.
 
 Decision: analyst report revision is usable enough to cache slowly, but not usable enough for a profitability claim. Do not tune formulas or run portfolio grids from the one-month source smoke.
+
+Round464 ran a frozen benchmark-relative residual moneyflow validation preflight:
+
+- Candidate: `large_resid_liq_vol_amt_gate_20`
+- Walk-forward config: `configs/walk_forward_tushare_moneyflow_benchmark_relative_round464_20260704.json`
+- Candidate plan: `configs/factor_mining_candidate_plan_round464_benchmark_relative_moneyflow_20260704.json`
+- Result: 6 cases, 4 folds, 0 accepted, 6 rejected.
+- Best ranked case still had negative mean test relative return and failed adjusted IC significance.
+
+Decision: do not promote this residual moneyflow candidate and do not continue it by tuning top-N, cost, or regime thresholds. Use Round464 as rejection evidence and rotate toward an orthogonal source or a pre-registered position-sizing/risk-construction idea.
 
 ## Current CN ETF Framework
 

@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import pandas as pd
 
@@ -186,6 +187,53 @@ class WalkForwardTests(unittest.TestCase):
             self.assertEqual(row["test_trades"], row["total_test_trades"])
             self.assertTrue((Path(tmp) / "walk_forward_folds.csv").exists())
 
+    def test_rolling_walk_forward_warms_test_fold_with_regime_lookback_history(self):
+        dates = pd.date_range("2024-01-01", periods=10, freq="D")
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["CN_A"] * len(dates),
+                "market": ["CN"] * len(dates),
+                "date": [str(date.date()) for date in dates],
+            }
+        )
+        config = WalkForwardConfig(
+            split_date="2024-01-08",
+            experiment_grid=ExperimentGridConfig(
+                markets=("CN",),
+                factor_names=("momentum_2",),
+                factor_windows=(2,),
+                top_n_values=(1,),
+                cost_bps_values=(0.0,),
+                regime_filter=True,
+                regime_lookback_values=(5,),
+            ),
+            min_test_sharpe=-999.0,
+            rolling_train_days=6,
+            rolling_test_days=2,
+            rolling_step_days=2,
+        )
+        grid_result = {
+            "leaderboard": [
+                {
+                    "case_id": "CN_momentum_2_top1_cost0_reb1_regime5",
+                    "status": "completed",
+                    "trades": 1,
+                    "sharpe": 1.0,
+                    "relative_return": 1.0,
+                    "max_drawdown": 0.0,
+                    "ic_p_value": 0.0,
+                }
+            ]
+        }
+
+        with patch("quant_robot.validation.walk_forward.run_experiment_grid", return_value=grid_result) as grid:
+            run_walk_forward_validation(bars, config)
+
+        test_bars = grid.call_args_list[1].args[0]
+        self.assertEqual(len(test_bars), 7)
+        self.assertEqual(str(pd.to_datetime(test_bars["date"]).dt.date.min()), "2024-01-02")
+        self.assertEqual(str(pd.to_datetime(test_bars["date"]).dt.date.max()), "2024-01-08")
+
     def test_walk_forward_bar_start_date_limits_rolling_fold_dates(self):
         config = WalkForwardConfig(
             split_date="2024-01-08",
@@ -224,6 +272,7 @@ class WalkForwardTests(unittest.TestCase):
                             "factor_names": ["momentum_2"],
                             "factor_windows": [2],
                             "moneyflow_input_root": str(Path(tmp) / "moneyflow_inputs"),
+                            "asset_universe_path": str(Path(tmp) / "universe.json"),
                             "top_n_values": [1],
                             "cost_bps_values": [5],
                             "rebalance_intervals": [5],
@@ -231,9 +280,14 @@ class WalkForwardTests(unittest.TestCase):
                             "regime_lookback_values": [60, 120],
                             "min_rotation_history_rows": 252,
                             "min_rotation_live_members": 50,
+                            "min_signal_amount": 1000000,
+                            "max_calendar_holding_days": 10,
                             "min_signal_average_amount": 10000000,
                             "signal_amount_window": 20,
+                            "write_case_artifacts": False,
                             "precompute_factor_matrix": True,
+                            "resume_completed_cases": True,
+                            "reuse_research_inputs": True,
                         },
                         "bar_start_date": "2024-01-01",
                         "bar_end_date": "2024-12-31",
@@ -261,15 +315,21 @@ class WalkForwardTests(unittest.TestCase):
             self.assertEqual(config.experiment_grid.markets, ("CN",))
             self.assertEqual(config.experiment_grid.factor_source, "tushare_daily_basic")
             self.assertEqual(config.experiment_grid.moneyflow_input_root, Path(tmp) / "moneyflow_inputs")
+            self.assertEqual(config.experiment_grid.asset_universe_path, Path(tmp) / "universe.json")
             self.assertEqual(config.experiment_grid.cost_bps_values, (5.0,))
             self.assertEqual(config.experiment_grid.rebalance_intervals, (5,))
             self.assertEqual(config.experiment_grid.benchmark_asset_id, "CN_ETF_XSHG_510300")
             self.assertEqual(config.experiment_grid.regime_lookback_values, (60, 120))
             self.assertEqual(config.experiment_grid.min_rotation_history_rows, 252)
             self.assertEqual(config.experiment_grid.min_rotation_live_members, 50)
+            self.assertEqual(config.experiment_grid.min_signal_amount, 1000000.0)
+            self.assertEqual(config.experiment_grid.max_calendar_holding_days, 10)
             self.assertEqual(config.experiment_grid.min_signal_average_amount, 10000000.0)
             self.assertEqual(config.experiment_grid.signal_amount_window, 20)
+            self.assertFalse(config.experiment_grid.write_case_artifacts)
             self.assertTrue(config.experiment_grid.precompute_factor_matrix)
+            self.assertTrue(config.experiment_grid.resume_completed_cases)
+            self.assertTrue(config.experiment_grid.reuse_research_inputs)
             self.assertEqual(config.rolling_train_days, 252)
             self.assertEqual(config.rolling_test_days, 63)
             self.assertEqual(config.rolling_step_days, 21)
@@ -314,6 +374,31 @@ class WalkForwardTests(unittest.TestCase):
         self.assertIn("liquidity_20", config.experiment_grid.factor_names)
         self.assertIn("volatility_20", config.experiment_grid.factor_names)
         self.assertIn("risk_adjusted_momentum_60", config.experiment_grid.factor_names)
+
+    def test_round464_benchmark_relative_moneyflow_config_freezes_corrected_oos_window(self):
+        config = load_walk_forward_config(
+            "configs/walk_forward_tushare_moneyflow_benchmark_relative_round464_20260704.json"
+        )
+
+        self.assertEqual(config.bar_end_date, "2025-12-31")
+        self.assertEqual(config.rolling_train_days, 315)
+        self.assertEqual(config.rolling_test_days, 63)
+        self.assertEqual(config.rolling_step_days, 63)
+        self.assertEqual(config.min_accepted_folds, 2)
+        self.assertEqual(config.experiment_grid.markets, ("CN",))
+        self.assertEqual(config.experiment_grid.factor_source, "moneyflow_technical_combo")
+        self.assertEqual(config.experiment_grid.portfolio_value, 500000.0)
+        self.assertEqual(config.experiment_grid.max_participation_rate, 0.05)
+        self.assertEqual(config.experiment_grid.regime_lookback_values, (150, 180, 252))
+        self.assertEqual(config.experiment_grid.top_n_values, (6,))
+        self.assertEqual(config.experiment_grid.cost_bps_values, (20.0, 30.0))
+        self.assertTrue(config.experiment_grid.regime_filter)
+        self.assertFalse(config.experiment_grid.write_case_artifacts)
+        self.assertTrue(config.experiment_grid.precompute_factor_matrix)
+        self.assertTrue(config.experiment_grid.resume_completed_cases)
+        self.assertTrue(config.experiment_grid.reuse_research_inputs)
+        self.assertIn("large_resid_liq_vol_amt_gate_20", config.experiment_grid.factor_names)
+        self.assertNotIn("large_minus_liquidity_20", config.experiment_grid.factor_names)
 
     def test_tushare_cn_etf_rotation_seed_config_covers_three_active_primary_families(self):
         config = load_walk_forward_config("configs/walk_forward_tushare_cn_etf_rotation_seed_20260617.json")
