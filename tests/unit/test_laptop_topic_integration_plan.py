@@ -127,6 +127,11 @@ class LaptopTopicIntegrationPlanTests(unittest.TestCase):
             plan["handoff"]["next_command"],
             "python scripts/run_laptop_topic_integration_plan.py --machine laptop --task project_sync --execute",
         )
+        self.assertFalse(plan["handoff"]["executable_here"])
+        self.assertEqual(
+            plan["handoff"]["status_description"],
+            "handoff-ready only; rerun from laptop on main before executing",
+        )
 
     def test_plan_skips_stable_and_manifest_absorbed_topic_branches(self) -> None:
         plan = build_laptop_topic_integration_plan(

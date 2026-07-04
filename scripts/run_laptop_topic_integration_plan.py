@@ -89,10 +89,14 @@ def _handoff_status(
 ) -> dict[str, Any]:
     if status == "blocked" and blockers == ["current_branch_must_be_main"] and merge_order:
         handoff_status = "ready_on_main"
+        status_description = "handoff-ready only; rerun from laptop on main before executing"
     else:
         handoff_status = status
+        status_description = status
     return {
         "status": handoff_status,
+        "status_description": status_description,
+        "executable_here": status == "ready",
         "required_machine": "laptop",
         "required_task": "project_sync",
         "required_branch": STABLE_BRANCH,
