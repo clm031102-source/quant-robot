@@ -29,7 +29,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 | Branch | Role | Status |
 | --- | --- | --- |
 | `codex/factor-batch-cn-stock-benchmark-relative-20260704` | Round464 benchmark-relative residual moneyflow pre-registration, walk-forward framework fixes, and rejection evidence | active review branch |
-| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, Round471 financial/PIT source-gate refresh, Round472 paper replay refresh, Round473 expanded-observation data-quality block evidence, Round474 office-desktop completion handoff, Round475 fund-basic rotation-membership repair, Round476 live fund-basic membership guard, Round477 validated-ETF observation sufficiency evidence, and Round478 latest validated-ETF observation update | active review branch |
+| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, Round471 financial/PIT source-gate refresh, Round472 paper replay refresh, Round473 expanded-observation data-quality block evidence, Round474 office-desktop completion handoff, Round475 fund-basic rotation-membership repair, Round476 live fund-basic membership guard, Round477 validated-ETF observation sufficiency evidence, Round478 latest validated-ETF observation update, and Round479 laptop integration preflight | active review branch |
 
 These branches are not promotion branches. They record a completed rejection set, framework fixes, and paper-lane risk-repair evidence that should be reviewed before integration.
 
@@ -106,6 +106,7 @@ Latest same-day progress reports:
 - `docs/research/project_round476_live_fund_basic_membership_guard_2026-07-04.md`
 - `docs/research/project_round477_validated_etf_observation_sufficiency_2026-07-04.md`
 - `docs/research/project_round478_latest_validated_etf_observation_update_2026-07-04.md`
+- `docs/research/project_round479_laptop_integration_preflight_2026-07-04.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -162,7 +163,7 @@ Decision: do not burn more same-day `report_rc` retries. Resume February 2024 af
 Cloud branch integration handoff:
 
 - `origin/codex/factor-batch-cn-stock-benchmark-relative-20260704` is 1 commit ahead of `origin/main`.
-- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 16 commits ahead of `origin/main` after Round478 is pushed.
+- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 17 commits ahead of `origin/main` after Round479 is pushed.
 - The Round464 branch is an ancestor of the Round465/467 branch, so laptop integration may merge Round464 first and then Round465/467 for review clarity, or merge Round465/467 once to absorb both.
 - Do not delete either topic branch until laptop safe-sync marks it as merged or manifest-absorbed.
 
@@ -302,6 +303,17 @@ Round478 extended the repaired fund-basic validated ETF replay to the latest cle
 - Sufficiency remained blocked: 5 / 20 fills, deficit 15, additional observation estimate 72 days.
 
 Decision: do not use 2026-07-03 for this observed ETF until the provider has a valid `160615.SZ` row or the paper lane is explicitly re-scoped. The latest clean extension did not change the blocker, so the next high-value work is still laptop-owned mainline integration, safe remote branch cleanup, and continued paper-only observation.
+
+Round479 performed a non-destructive laptop integration preflight from the office desktop:
+
+- `git fetch --all --prune` refreshed remote refs.
+- `origin/codex/factor-batch-cn-stock-benchmark-relative-20260704` is 1 commit ahead of `origin/main`.
+- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 16 commits ahead before this Round479 preflight commit, and includes Round464 as an ancestor.
+- `git merge-tree --write-tree` against `origin/main` returned clean tree hashes for both remaining topic branches.
+- Current branch scope before Round479: 29 files changed, 3,557 insertions, 42 deletions.
+- Laptop `project_sync` context confirmed the recommended branch is `main`.
+
+Decision: the cloud integration is mechanically ready for laptop-owned execution. Merge Round464 first for review clarity, then merge the Round465/Round478/Round479 branch, rerun verification on merged `main`, push `main`, and only then run safe topic-branch cleanup. Office desktop should not mutate `main` or delete remote branches.
 
 ## Current CN ETF Framework
 
