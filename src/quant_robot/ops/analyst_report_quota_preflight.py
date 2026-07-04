@@ -66,6 +66,7 @@ def build_analyst_report_quota_preflight(
             "next_retry_after_seconds": max(next_retry_values) if next_retry_values else None,
         },
         "window_rows": rows,
+        "duplicate_window_rows": scan["duplicate_window_rows"],
         "decision": {
             "request_allowed": not blockers,
             "blockers": blockers,
@@ -128,6 +129,33 @@ def render_analyst_report_quota_preflight_markdown(packet: dict[str, Any]) -> st
     lines.extend(
         [
             "",
+            "## Duplicate Evidence Rows",
+            "",
+        ]
+    )
+    duplicates = _list_of_dicts(packet.get("duplicate_window_rows"))
+    if duplicates:
+        lines.extend(
+            [
+                "| Kept Report | Duplicate Report | Window | Status |",
+                "|---|---|---|---|",
+            ]
+        )
+        for row in duplicates:
+            lines.append(
+                "| {kept} | {duplicate} | {start}..{end} | {status} |".format(
+                    kept=row.get("kept_report_path", ""),
+                    duplicate=row.get("duplicate_report_path", ""),
+                    start=row.get("window_start", ""),
+                    end=row.get("window_end", ""),
+                    status=row.get("status", ""),
+                )
+            )
+    else:
+        lines.append("- none")
+    lines.extend(
+        [
+            "",
             "## Blockers",
             "",
         ]
@@ -185,16 +213,34 @@ def _scan_cache_reports(*, report_roots: Iterable[str | Path], target_date: str)
                 }
             )
     unique_rows: list[dict[str, Any]] = []
-    seen: set[str] = set()
+    seen: dict[str, dict[str, Any]] = {}
+    duplicate_rows: list[dict[str, Any]] = []
     for row in rows:
         fingerprint = str(row.get("quota_evidence_fingerprint", ""))
         if fingerprint in seen:
+            duplicate_rows.append(_duplicate_row(row, seen[fingerprint]))
             continue
-        seen.add(fingerprint)
+        seen[fingerprint] = row
         unique_rows.append(row)
     return {
         "rows": unique_rows,
         "duplicate_evidence_rows": len(rows) - len(unique_rows),
+        "duplicate_window_rows": duplicate_rows,
+    }
+
+
+def _duplicate_row(duplicate: dict[str, Any], kept: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "quota_evidence_fingerprint": str(duplicate.get("quota_evidence_fingerprint", "")),
+        "kept_report_path": str(kept.get("report_path", "")),
+        "duplicate_report_path": str(duplicate.get("report_path", "")),
+        "generated_at": str(duplicate.get("generated_at", "")),
+        "window_start": str(duplicate.get("window_start", "")),
+        "window_end": str(duplicate.get("window_end", "")),
+        "status": str(duplicate.get("status", "")),
+        "counts_against_quota": bool(duplicate.get("counts_against_quota", False)),
+        "provider_rate_limit": str(duplicate.get("provider_rate_limit", "")),
+        "retry_after_seconds": duplicate.get("retry_after_seconds"),
     }
 
 

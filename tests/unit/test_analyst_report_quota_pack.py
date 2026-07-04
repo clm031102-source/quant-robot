@@ -125,6 +125,13 @@ class AnalystReportQuotaPackTests(unittest.TestCase):
 
         self.assertEqual(preflight["summary"]["counted_provider_request_windows"], 1)
         self.assertEqual(preflight["summary"]["duplicate_evidence_rows"], 1)
+        self.assertEqual(len(preflight["duplicate_window_rows"]), 1)
+        duplicate = preflight["duplicate_window_rows"][0]
+        self.assertIn("quota_pack_a", duplicate["kept_report_path"])
+        self.assertIn("quota_pack_b", duplicate["duplicate_report_path"])
+        self.assertEqual(duplicate["window_start"], "20240401")
+        self.assertEqual(duplicate["window_end"], "20240430")
+        self.assertTrue(duplicate["quota_evidence_fingerprint"])
 
     def test_local_report_and_its_exported_pack_count_once(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
