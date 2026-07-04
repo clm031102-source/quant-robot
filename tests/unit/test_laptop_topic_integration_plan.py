@@ -1,6 +1,7 @@
 import unittest
+from types import SimpleNamespace
 
-from scripts.run_laptop_topic_integration_plan import build_laptop_topic_integration_plan
+from scripts.run_laptop_topic_integration_plan import build_laptop_topic_integration_plan, execute_laptop_topic_integration_plan
 
 
 class LaptopTopicIntegrationPlanTests(unittest.TestCase):
@@ -140,6 +141,37 @@ class LaptopTopicIntegrationPlanTests(unittest.TestCase):
                 },
             ],
         )
+
+    def test_execute_runs_ready_plan_commands_and_accepts_pre_alpha_block_exit(self) -> None:
+        plan = {
+            "status": "ready",
+            "commands": [
+                ["git", "fetch", "origin", "--prune"],
+                ["python", "scripts/run_checks.py", "--profile", "pre-alpha", "--execute"],
+            ],
+        }
+        calls: list[list[str]] = []
+
+        def runner(command: list[str]):
+            calls.append(command)
+            return SimpleNamespace(returncode=2 if "--profile" in command and "pre-alpha" in command else 0)
+
+        result = execute_laptop_topic_integration_plan(plan, command_runner=runner)
+
+        self.assertEqual(result["status"], "executed")
+        self.assertEqual(result["failed_command"], None)
+        self.assertEqual(calls, plan["commands"])
+        self.assertEqual([row["returncode"] for row in result["commands"]], [0, 2])
+
+    def test_execute_refuses_blocked_plan_without_running_commands(self) -> None:
+        calls: list[list[str]] = []
+        plan = {"status": "blocked", "blockers": ["current_branch_must_be_main"], "commands": [["git", "fetch"]]}
+
+        result = execute_laptop_topic_integration_plan(plan, command_runner=lambda command: calls.append(command))
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["blockers"], ["current_branch_must_be_main"])
+        self.assertEqual(calls, [])
 
 
 if __name__ == "__main__":

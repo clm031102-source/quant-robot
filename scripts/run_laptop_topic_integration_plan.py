@@ -76,6 +76,46 @@ def build_laptop_topic_integration_plan(
     }
 
 
+def execute_laptop_topic_integration_plan(
+    plan: dict[str, Any],
+    *,
+    command_runner: Callable[[list[str]], subprocess.CompletedProcess[str]],
+) -> dict[str, Any]:
+    commands = plan.get("commands", [])
+    if plan.get("status") != "ready":
+        return {
+            "status": "blocked",
+            "blockers": plan.get("blockers", []),
+            "commands": [],
+            "failed_command": None,
+        }
+    if not isinstance(commands, list):
+        return {
+            "status": "blocked",
+            "blockers": ["commands_missing"],
+            "commands": [],
+            "failed_command": None,
+        }
+
+    records: list[dict[str, Any]] = []
+    for command in commands:
+        if not isinstance(command, list):
+            failed = {"command": command, "returncode": None, "expected_returncodes": []}
+            return {"status": "failed", "blockers": [], "commands": records, "failed_command": failed}
+        expected = _expected_returncodes(command)
+        result = command_runner([str(part) for part in command])
+        record = {
+            "command": command,
+            "returncode": int(result.returncode),
+            "expected_returncodes": sorted(expected),
+        }
+        records.append(record)
+        if int(result.returncode) not in expected:
+            return {"status": "failed", "blockers": [], "commands": records, "failed_command": record}
+
+    return {"status": "executed", "blockers": [], "commands": records, "failed_command": None}
+
+
 def order_topic_branches_for_merge(
     branches: list[dict[str, str]],
     *,
@@ -166,6 +206,12 @@ def _finish_commands(merge_order: list[dict[str, str]], *, python_executable: st
     return commands
 
 
+def _expected_returncodes(command: list[str]) -> set[int]:
+    if "scripts/run_checks.py" in command and "--profile" in command and "pre-alpha" in command:
+        return {0, 2}
+    return {0}
+
+
 def _dedupe_branches(branches: list[dict[str, str]]) -> list[dict[str, str]]:
     by_key: dict[tuple[str, str], dict[str, str]] = {}
     for branch in branches:
@@ -210,6 +256,7 @@ def main() -> None:
     parser.add_argument("--task", required=True)
     parser.add_argument("--skip-fetch", action="store_true", help="Do not refresh remote refs before planning.")
     parser.add_argument("--require-ready", action="store_true", help="Exit 2 unless the plan is ready.")
+    parser.add_argument("--execute", action="store_true", help="Execute the ready laptop integration command sequence.")
     args = parser.parse_args()
 
     if not args.skip_fetch:
@@ -238,7 +285,19 @@ def main() -> None:
         python_executable=sys.executable,
         branch_discovery_errors=branch_discovery_errors,
     )
-    print(json.dumps(plan, indent=2, sort_keys=True))
+    output: dict[str, Any] = plan
+    if args.execute:
+        execution = execute_laptop_topic_integration_plan(
+            plan,
+            command_runner=lambda command: subprocess.run(command, capture_output=True, text=True),
+        )
+        output = {**plan, "execution": execution}
+    print(json.dumps(output, indent=2, sort_keys=True))
+    if args.execute and output.get("execution", {}).get("status") == "failed":
+        failed_returncode = output["execution"].get("failed_command", {}).get("returncode")
+        raise SystemExit(failed_returncode or 1)
+    if args.execute and output.get("execution", {}).get("status") == "blocked":
+        raise SystemExit(2)
     if args.require_ready and plan["status"] != "ready":
         raise SystemExit(2)
 
