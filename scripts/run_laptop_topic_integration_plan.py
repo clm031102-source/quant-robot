@@ -141,6 +141,13 @@ def execute_laptop_topic_integration_plan(
     return {"status": "executed", "blockers": [], "commands": records, "failed_command": None}
 
 
+def plan_handoff_ready(plan: dict[str, Any]) -> bool:
+    handoff = plan.get("handoff", {})
+    if isinstance(handoff, dict) and handoff.get("status") == "ready_on_main":
+        return True
+    return plan.get("status") == "ready"
+
+
 def order_topic_branches_for_merge(
     branches: list[dict[str, str]],
     *,
@@ -281,6 +288,11 @@ def main() -> None:
     parser.add_argument("--task", required=True)
     parser.add_argument("--skip-fetch", action="store_true", help="Do not refresh remote refs before planning.")
     parser.add_argument("--require-ready", action="store_true", help="Exit 2 unless the plan is ready.")
+    parser.add_argument(
+        "--require-handoff-ready",
+        action="store_true",
+        help="Exit 2 unless the plan is ready to execute on main or ready to hand off from a clean topic branch.",
+    )
     parser.add_argument("--execute", action="store_true", help="Execute the ready laptop integration command sequence.")
     args = parser.parse_args()
 
@@ -324,6 +336,8 @@ def main() -> None:
     if args.execute and output.get("execution", {}).get("status") == "blocked":
         raise SystemExit(2)
     if args.require_ready and plan["status"] != "ready":
+        raise SystemExit(2)
+    if args.require_handoff_ready and not plan_handoff_ready(plan):
         raise SystemExit(2)
 
 

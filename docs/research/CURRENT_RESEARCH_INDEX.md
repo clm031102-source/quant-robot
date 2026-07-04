@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round538 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, external-feed family-review boundary, external-feed join-smoke optimization, LPR cache repair guard, offline macro LPR repair tool, Round533 two-agent review hardening, Round534 operator runbook hardening, Round535 cloud/main branch audit, Round536 laptop integration rehearsal, Round537 latest-topic integration rehearsal, and Round538 integration-plan handoff status | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round539 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, external-feed family-review boundary, external-feed join-smoke optimization, LPR cache repair guard, offline macro LPR repair tool, Round533 two-agent review hardening, Round534 operator runbook hardening, Round535 cloud/main branch audit, Round536 laptop integration rehearsal, Round537 latest-topic integration rehearsal, Round538 integration-plan handoff status, and Round539 handoff-ready gate | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -170,6 +170,8 @@ Latest same-day progress reports:
 - `docs/research/ROUND537_NEXT_STEPS_CHECKLIST.md`
 - `docs/research/project_round538_integration_plan_handoff_status_2026-07-05.md`
 - `docs/research/ROUND538_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round539_integration_handoff_ready_gate_2026-07-05.md`
+- `docs/research/ROUND539_NEXT_STEPS_CHECKLIST.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -1404,3 +1406,21 @@ Docs:
 - `docs/research/ROUND538_NEXT_STEPS_CHECKLIST.md`
 
 Decision: use `handoff.status=ready_on_main` as the clean-topic handoff signal, not as execution permission. Real integration still requires rerunning the plan from laptop on `main` with `--execute`.
+
+## Round539 Integration Handoff Ready Gate
+
+Round539 added a machine-checkable handoff-ready gate:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, `main` push, or remote branch deletion occurred.
+- `scripts\run_laptop_topic_integration_plan.py` now exposes `--require-handoff-ready`.
+- New helper `plan_handoff_ready(plan)` returns true for true executable `status=ready` plans and clean topic handoffs with `handoff.status=ready_on_main`.
+- `--require-handoff-ready` exits `2` for dirty topic branches or other blockers.
+- `--require-ready` remains stricter and still requires true executable `status=ready`.
+- Test-first evidence: the new test failed first with `ImportError: cannot import name 'plan_handoff_ready'`, then the focused test and full laptop integration plan unit suite passed with 7 tests.
+
+Docs:
+
+- `docs/research/project_round539_integration_handoff_ready_gate_2026-07-05.md`
+- `docs/research/ROUND539_NEXT_STEPS_CHECKLIST.md`
+
+Decision: use `--require-handoff-ready` for office-topic handoff checks after code/docs are committed. Use `--execute` only from laptop on `main`.

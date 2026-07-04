@@ -1,7 +1,11 @@
 import unittest
 from types import SimpleNamespace
 
-from scripts.run_laptop_topic_integration_plan import build_laptop_topic_integration_plan, execute_laptop_topic_integration_plan
+from scripts.run_laptop_topic_integration_plan import (
+    build_laptop_topic_integration_plan,
+    execute_laptop_topic_integration_plan,
+    plan_handoff_ready,
+)
 
 
 class LaptopTopicIntegrationPlanTests(unittest.TestCase):
@@ -195,6 +199,12 @@ class LaptopTopicIntegrationPlanTests(unittest.TestCase):
         self.assertEqual(result["status"], "blocked")
         self.assertEqual(result["blockers"], ["current_branch_must_be_main"])
         self.assertEqual(calls, [])
+
+    def test_plan_handoff_ready_accepts_ready_on_main_or_ready_plan_only(self) -> None:
+        self.assertTrue(plan_handoff_ready({"status": "ready", "handoff": {"status": "ready"}}))
+        self.assertTrue(plan_handoff_ready({"status": "blocked", "handoff": {"status": "ready_on_main"}}))
+        self.assertFalse(plan_handoff_ready({"status": "blocked", "handoff": {"status": "blocked"}}))
+        self.assertFalse(plan_handoff_ready({"status": "no_topic_branches", "handoff": {"status": "no_topic_branches"}}))
 
 
 if __name__ == "__main__":
