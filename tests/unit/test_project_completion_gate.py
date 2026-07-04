@@ -1,0 +1,67 @@
+import unittest
+
+from scripts.run_project_completion_gate import build_completion_gate
+
+
+class ProjectCompletionGateTests(unittest.TestCase):
+    def test_blocks_factor_mining_when_main_integration_or_observation_is_incomplete(self) -> None:
+        gate = build_completion_gate(
+            current_branch="codex/factor-batch-cn-stock-execution-aware-round465-20260704",
+            stable_branch="main",
+            changed_paths=[],
+            remote_topic_branches=[
+                {
+                    "name": "origin/codex/factor-batch-cn-stock-benchmark-relative-20260704",
+                    "commit": "abc123",
+                },
+                {
+                    "name": "origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704",
+                    "commit": "def456",
+                },
+            ],
+            branch_discovery_errors=[],
+            observation_pack={
+                "status": "needs_more_observation_data",
+                "decision": {"observation_sufficiency_cleared": False},
+                "fills": {"observed_fills": 5, "required_fills": 20, "fill_deficit": 15},
+            },
+        )
+
+        self.assertEqual(gate["status"], "blocked")
+        self.assertFalse(gate["factor_mining_allowed"])
+        self.assertEqual(gate["progress_estimate_percent"], 98)
+        self.assertEqual(
+            gate["blockers"],
+            [
+                "not_on_stable_branch",
+                "remote_topic_branches_remaining",
+                "observation_sufficiency_not_cleared",
+            ],
+        )
+        self.assertEqual(gate["observation"]["observed_fills"], 5)
+        self.assertEqual(gate["observation"]["required_fills"], 20)
+        self.assertEqual(gate["next_actions"][0]["action"], "run_laptop_project_sync")
+
+    def test_allows_factor_mining_only_after_project_completion_conditions_clear(self) -> None:
+        gate = build_completion_gate(
+            current_branch="main",
+            stable_branch="main",
+            changed_paths=[],
+            remote_topic_branches=[],
+            branch_discovery_errors=[],
+            observation_pack={
+                "status": "sufficient",
+                "decision": {"observation_sufficiency_cleared": True},
+                "fills": {"observed_fills": 24, "required_fills": 20, "fill_deficit": 0},
+            },
+        )
+
+        self.assertEqual(gate["status"], "complete")
+        self.assertTrue(gate["factor_mining_allowed"])
+        self.assertEqual(gate["progress_estimate_percent"], 100)
+        self.assertEqual(gate["blockers"], [])
+        self.assertEqual(gate["next_actions"][0]["action"], "start_profit_factor_mining")
+
+
+if __name__ == "__main__":
+    unittest.main()
