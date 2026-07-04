@@ -632,3 +632,20 @@ GitHub must not contain:
 3. Run `python scripts\sync_project.py --machine laptop --task project_sync` after every branch cleanup.
 4. If docs keep growing, create dated sub-index pages rather than moving historical files and breaking existing config references.
 5. Treat recreated historical branch names as suspicious until their new purpose is documented.
+
+## Round503 Main Cleanup And Profit-Mining Start
+
+Round503 completed the user-authorized final cloud branch cleanup and started the next gated profit-mining branch:
+
+- `main` now contains the Round464 benchmark-relative branch and the Round465-Round502 execution-aware branch.
+- `scripts/run_checks.py --profile laptop-integration --execute` passed on merged `main`: 73 / 73 tests, compile, project audit, and laptop project-sync audit.
+- `main` was pushed to GitHub at merge commit `af474d5a`.
+- Project-sync cleanup removed the two absorbed topic branches locally and remotely.
+- Final `pre-alpha` returned `status=complete`, `progress_estimate_percent=100`, `factor_mining_allowed=true`, and no blockers.
+- New branch: `codex/factor-batch-cn-stock-profit-mining-20260704`.
+- CN stock factor-mining startup gate cleared on the new branch, and the CN stock data manifest had no blockers.
+- Direct daily-basic alpha factory was blocked by the round-state validator, so the branch did not proceed with anonymous direct factor generation.
+- Candidate plan gate cleared for the pre-registered Round465 paper-lane self-risk overlay candidate, with research screen allowed but portfolio grid and promotion disabled.
+- A fixed self-risk overlay screen was run under `data/reports/round503_profit_mining_ps_gt10_self_risk_overlay_20260704`; the top candidate remained `ps_gt10_self_roll21_sum_m2_cash` with annualized return 0.08507982577628304, overlap-adjusted Sharpe 0.6969712816692145, and max drawdown -0.12458721638476855 versus baseline max drawdown -0.2542482236517434.
+
+Decision: profit-mining has started only under the gated paper-risk-repair lane. This is not an independent alpha claim, promotion remains disabled, and the 2026 final holdout remains sealed. Next allowed paths are to resume the Round467 analyst-report-revision PIT source after the provider limit resets, register a genuinely new PIT source candidate plan, or continue paper-readiness hardening without q20/range/ps threshold tuning.
