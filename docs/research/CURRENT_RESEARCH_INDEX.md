@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round511 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, and skip-quota audit hardening | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round512 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, and cache-CLI preflight-only mode | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -804,3 +804,26 @@ Docs:
 - `docs/research/ROUND511_NEXT_STEPS_CHECKLIST.md`
 
 Decision: keep `--skip-quota-preflight` only for exceptional offline or controlled local replay cases, and require a human-readable reason every time it is used. Normal provider-backed analyst-report cache attempts must use the default preflight and stop on exit code `3`.
+
+## Round512 Cache CLI Preflight Only
+
+Round512 added a safe cache-CLI quota dry-run mode:
+
+- New flag: `--quota-preflight-only`.
+- The cache CLI runs the same local quota preflight and writes the same preflight JSON/Markdown evidence.
+- If preflight blocks, the CLI still exits `3`.
+- If preflight allows, the CLI prints `status="preflight_only"` and exits `0` before cache execution.
+- `--quota-preflight-only` cannot be combined with `--skip-quota-preflight`.
+- Test-first evidence: the two new preflight-only tests failed before implementation with `2 != 0` and missing `cannot be combined` stderr.
+- Focused verification passed: 11 tests.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Actual-date cache-CLI preflight-only run for April 2024 on 2026-07-05 still blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, and returned exit code `3`.
+- Controlled empty-report-root allowed-path run printed `status="preflight_only"`, exited `0`, and did not write a cache report.
+- Full laptop integration verification passed with 83 tests, compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round512_cache_cli_preflight_only_2026-07-05.md`
+- `docs/research/ROUND512_NEXT_STEPS_CHECKLIST.md`
+
+Decision: use `--quota-preflight-only` when the team wants the cache CLI itself to prove quota readiness without consuming a provider request. Remove that flag only when intentionally starting the April 2024 cache after startup gates pass and actual-date preflight is allowed. Round513 should start with the required two-agent review checkpoint.

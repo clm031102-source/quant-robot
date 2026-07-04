@@ -43,7 +43,11 @@ def main() -> None:
     parser.add_argument("--quota-output-dir", default=str(DEFAULT_QUOTA_PREFLIGHT_OUTPUT_DIR))
     parser.add_argument("--quota-target-date")
     parser.add_argument("--quota-max-daily-requests", type=int, default=DEFAULT_MAX_DAILY_REQUESTS)
+    parser.add_argument("--quota-preflight-only", action="store_true")
     args = parser.parse_args()
+
+    if args.quota_preflight_only and args.skip_quota_preflight:
+        parser.error("--quota-preflight-only cannot be combined with --skip-quota-preflight")
 
     if args.skip_quota_preflight:
         skip_reason = str(args.skip_quota_preflight_reason).strip()
@@ -96,6 +100,30 @@ def main() -> None:
         )
         if not quota_packet["decision"]["request_allowed"]:
             raise SystemExit(3)
+        if args.quota_preflight_only:
+            print(
+                json.dumps(
+                    {
+                        "status": "preflight_only",
+                        "summary": {
+                            "cache_execution_skipped": True,
+                            "output_dir": str(Path(args.output_dir)),
+                            "processed_output_dir": str(Path(args.processed_output_dir)) if args.processed_output_dir else "",
+                        },
+                        "decision": {
+                            "request_allowed": True,
+                            "blockers": [],
+                            "next_action": "rerun_without_quota_preflight_only_to_cache",
+                        },
+                        "safety": quota_packet["safety"],
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                    sort_keys=True,
+                ),
+                flush=True,
+            )
+            return
 
     result = run_tushare_analyst_report_cache(
         TushareAdapter(max_retries=1, retry_sleep_seconds=3.0),

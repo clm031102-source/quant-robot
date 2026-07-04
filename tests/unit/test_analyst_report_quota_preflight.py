@@ -232,6 +232,72 @@ class AnalystReportQuotaPreflightTests(unittest.TestCase):
             self.assertIn("offline cached replay", result.stdout)
             self.assertTrue((output_dir / "tushare_analyst_report_cache.json").exists())
 
+    def test_cache_cli_preflight_only_stops_after_allowed_quota_check(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report_root = root / "reports"
+            output_dir = root / "cache"
+            processed_output_dir = root / "processed"
+            quota_output_dir = root / "preflight"
+            report_root.mkdir()
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/run_tushare_analyst_report_cache.py",
+                    "--start-date",
+                    "2024-04-01",
+                    "--end-date",
+                    "2024-04-30",
+                    "--output-dir",
+                    str(output_dir),
+                    "--processed-output-dir",
+                    str(processed_output_dir),
+                    "--request-sleep-seconds",
+                    "0",
+                    "--quota-report-root",
+                    str(report_root),
+                    "--quota-target-date",
+                    "2026-07-06",
+                    "--quota-output-dir",
+                    str(quota_output_dir),
+                    "--quota-preflight-only",
+                ],
+                cwd=Path(__file__).resolve().parents[2],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0)
+            self.assertIn('"status": "allowed"', result.stdout)
+            self.assertIn('"status": "preflight_only"', result.stdout)
+            self.assertFalse((output_dir / "tushare_analyst_report_cache.json").exists())
+            self.assertTrue((quota_output_dir / "analyst_report_quota_preflight.json").exists())
+
+    def test_cache_cli_preflight_only_cannot_skip_preflight(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/run_tushare_analyst_report_cache.py",
+                    "--output-dir",
+                    str(root / "cache"),
+                    "--skip-quota-preflight",
+                    "--skip-quota-preflight-reason",
+                    "offline cached replay",
+                    "--quota-preflight-only",
+                ],
+                cwd=Path(__file__).resolve().parents[2],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("cannot be combined", result.stderr)
+
 
 def _write_cache(
     root: Path,
