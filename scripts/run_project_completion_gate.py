@@ -12,9 +12,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
     from start_task_context import DEFAULT_CONFIG, load_config
 
 
-DEFAULT_OBSERVATION_SUFFICIENCY_PACK = Path(
-    "data/reports/round478_observation_sufficiency_validated_latest_20260704/observation_sufficiency_pack.json"
-)
+DEFAULT_OBSERVATION_REPORTS_ROOT = Path("data/reports")
 TOPIC_BRANCH_PREFIX = "origin/codex/"
 
 
@@ -26,8 +24,9 @@ def build_completion_gate(
     remote_topic_branches: list[dict[str, str]],
     branch_discovery_errors: list[str],
     observation_pack: dict[str, Any] | None,
+    observation_pack_path: str | Path | None = None,
 ) -> dict[str, Any]:
-    observation = _summarize_observation(observation_pack)
+    observation = _summarize_observation(observation_pack, observation_pack_path=observation_pack_path)
     blockers: list[str] = []
     if branch_discovery_errors:
         blockers.append("branch_discovery_failed")
@@ -77,7 +76,11 @@ def completion_gate_exit_code(gate: dict[str, Any], *, require_complete: bool) -
 def main() -> None:
     parser = argparse.ArgumentParser(description="Gate project completion before profit-factor mining starts.")
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
-    parser.add_argument("--observation-sufficiency-pack", default=str(DEFAULT_OBSERVATION_SUFFICIENCY_PACK))
+    parser.add_argument(
+        "--observation-sufficiency-pack",
+        help="Observation sufficiency pack to use. Defaults to the latest non-fixture pack under data/reports.",
+    )
+    parser.add_argument("--observation-reports-root", default=str(DEFAULT_OBSERVATION_REPORTS_ROOT))
     parser.add_argument("--skip-fetch", action="store_true", help="Do not fetch/prune before reading remote branches.")
     parser.add_argument(
         "--require-complete",
@@ -90,22 +93,57 @@ def main() -> None:
     if not args.skip_fetch:
         _git(["fetch", "origin", "--prune"], check=False)
     stable_branch = str(config.get("branch_policy", {}).get("stable_branch", "main"))
+    observation_path = (
+        Path(args.observation_sufficiency_pack)
+        if args.observation_sufficiency_pack
+        else discover_latest_observation_sufficiency_pack(Path(args.observation_reports_root))
+    )
     gate = build_completion_gate(
         current_branch=_git_stdout(["branch", "--show-current"]),
         stable_branch=stable_branch,
         changed_paths=_changed_paths(),
         remote_topic_branches=_remote_topic_branches(),
         branch_discovery_errors=[],
-        observation_pack=_read_optional_json(Path(args.observation_sufficiency_pack)),
+        observation_pack=_read_optional_json(observation_path),
+        observation_pack_path=observation_path,
     )
     print(json.dumps(gate, indent=2, sort_keys=True))
     raise SystemExit(completion_gate_exit_code(gate, require_complete=args.require_complete))
 
 
-def _summarize_observation(pack: dict[str, Any] | None) -> dict[str, Any]:
+def discover_latest_observation_sufficiency_pack(root: str | Path = DEFAULT_OBSERVATION_REPORTS_ROOT) -> Path | None:
+    root_path = Path(root)
+    if not root_path.exists():
+        return None
+    patterns = (
+        "observation_sufficiency/observation_sufficiency_pack.json",
+        "round*_observation_sufficiency*/observation_sufficiency_pack.json",
+        "round*/observation_sufficiency_pack.json",
+        "round*/observation_sufficiency/observation_sufficiency_pack.json",
+        "*/observation_sufficiency_pack.json",
+        "*/observation_sufficiency/observation_sufficiency_pack.json",
+    )
+    candidates_by_path: dict[Path, Path] = {}
+    for pattern in patterns:
+        for path in root_path.glob(pattern):
+            if path.is_file() and "fixture" not in path.as_posix().lower():
+                candidates_by_path[path.resolve()] = path
+    candidates = list(candidates_by_path.values())
+    if not candidates:
+        return None
+    return max(candidates, key=lambda path: path.stat().st_mtime)
+
+
+def _summarize_observation(
+    pack: dict[str, Any] | None,
+    *,
+    observation_pack_path: str | Path | None = None,
+) -> dict[str, Any]:
+    source_path = str(observation_pack_path) if observation_pack_path else None
     if not pack:
         return {
             "pack_present": False,
+            "source_path": source_path,
             "status": "missing",
             "sufficiency_cleared": False,
             "observed_fills": None,
@@ -118,6 +156,7 @@ def _summarize_observation(pack: dict[str, Any] | None) -> dict[str, Any]:
     sufficiency_cleared = bool(decision.get("observation_sufficiency_cleared")) or status == "sufficient"
     return {
         "pack_present": True,
+        "source_path": source_path,
         "status": status,
         "sufficiency_cleared": sufficiency_cleared,
         "observed_fills": fills.get("observed_fills"),

@@ -1,6 +1,14 @@
+import json
+import os
+import tempfile
 import unittest
+from pathlib import Path
 
-from scripts.run_project_completion_gate import build_completion_gate, completion_gate_exit_code
+from scripts.run_project_completion_gate import (
+    build_completion_gate,
+    completion_gate_exit_code,
+    discover_latest_observation_sufficiency_pack,
+)
 
 
 class ProjectCompletionGateTests(unittest.TestCase):
@@ -69,6 +77,30 @@ class ProjectCompletionGateTests(unittest.TestCase):
         self.assertEqual(completion_gate_exit_code(blocked_gate, require_complete=True), 2)
         self.assertEqual(completion_gate_exit_code(complete_gate, require_complete=True), 0)
         self.assertEqual(completion_gate_exit_code(blocked_gate, require_complete=False), 0)
+
+    def test_discovers_latest_non_fixture_observation_sufficiency_pack(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            old_pack = root / "round477_observation_sufficiency" / "observation_sufficiency_pack.json"
+            latest_pack = root / "round478_observation_sufficiency" / "observation_sufficiency_pack.json"
+            fixture_pack = root / "observation_sufficiency_fixture" / "observation_sufficiency_pack.json"
+            for pack, observed_fills in [(old_pack, 2), (latest_pack, 5), (fixture_pack, 999)]:
+                pack.parent.mkdir(parents=True, exist_ok=True)
+                pack.write_text(
+                    json.dumps(
+                        {
+                            "status": "needs_more_observation_data",
+                            "decision": {"observation_sufficiency_cleared": False},
+                            "fills": {"observed_fills": observed_fills, "required_fills": 20},
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+            os.utime(old_pack, (100.0, 100.0))
+            os.utime(latest_pack, (200.0, 200.0))
+            os.utime(fixture_pack, (300.0, 300.0))
+
+            self.assertEqual(discover_latest_observation_sufficiency_pack(root), latest_pack)
 
 
 if __name__ == "__main__":
