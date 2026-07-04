@@ -1,6 +1,6 @@
 import unittest
 
-from scripts.run_project_completion_gate import build_completion_gate
+from scripts.run_project_completion_gate import build_completion_gate, completion_gate_exit_code
 
 
 class ProjectCompletionGateTests(unittest.TestCase):
@@ -61,6 +61,14 @@ class ProjectCompletionGateTests(unittest.TestCase):
         self.assertEqual(gate["progress_estimate_percent"], 100)
         self.assertEqual(gate["blockers"], [])
         self.assertEqual(gate["next_actions"][0]["action"], "start_profit_factor_mining")
+
+    def test_require_complete_exit_code_blocks_automation_until_gate_clears(self) -> None:
+        blocked_gate = {"factor_mining_allowed": False}
+        complete_gate = {"factor_mining_allowed": True}
+
+        self.assertEqual(completion_gate_exit_code(blocked_gate, require_complete=True), 2)
+        self.assertEqual(completion_gate_exit_code(complete_gate, require_complete=True), 0)
+        self.assertEqual(completion_gate_exit_code(blocked_gate, require_complete=False), 0)
 
 
 if __name__ == "__main__":

@@ -29,7 +29,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 | Branch | Role | Status |
 | --- | --- | --- |
 | `codex/factor-batch-cn-stock-benchmark-relative-20260704` | Round464 benchmark-relative residual moneyflow pre-registration, walk-forward framework fixes, and rejection evidence | active review branch |
-| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, Round471 financial/PIT source-gate refresh, Round472 paper replay refresh, Round473 expanded-observation data-quality block evidence, Round474 office-desktop completion handoff, Round475 fund-basic rotation-membership repair, Round476 live fund-basic membership guard, Round477 validated-ETF observation sufficiency evidence, Round478 latest validated-ETF observation update, Round479 laptop integration preflight, Round480 laptop integration profile plus latest target check, Round481 isolated laptop merge rehearsal, and Round482 completion gate before profit mining | active review branch |
+| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, Round471 financial/PIT source-gate refresh, Round472 paper replay refresh, Round473 expanded-observation data-quality block evidence, Round474 office-desktop completion handoff, Round475 fund-basic rotation-membership repair, Round476 live fund-basic membership guard, Round477 validated-ETF observation sufficiency evidence, Round478 latest validated-ETF observation update, Round479 laptop integration preflight, Round480 laptop integration profile plus latest target check, Round481 isolated laptop merge rehearsal, Round482 completion gate before profit mining, and Round483 require-complete gate mode | active review branch |
 
 These branches are not promotion branches. They record a completed rejection set, framework fixes, and paper-lane risk-repair evidence that should be reviewed before integration.
 
@@ -110,6 +110,7 @@ Latest same-day progress reports:
 - `docs/research/project_round480_laptop_integration_profile_and_latest_target_check_2026-07-04.md`
 - `docs/research/project_round481_isolated_laptop_merge_rehearsal_2026-07-04.md`
 - `docs/research/project_round482_completion_gate_before_profit_mining_2026-07-04.md`
+- `docs/research/project_round483_completion_gate_require_complete_2026-07-04.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -166,7 +167,7 @@ Decision: do not burn more same-day `report_rc` retries. Resume February 2024 af
 Cloud branch integration handoff:
 
 - `origin/codex/factor-batch-cn-stock-benchmark-relative-20260704` is 1 commit ahead of `origin/main`.
-- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 20 commits ahead of `origin/main` after Round482 is pushed.
+- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 21 commits ahead of `origin/main` after Round483 is pushed.
 - The Round464 branch is an ancestor of the Round465/467 branch, so laptop integration may merge Round464 first and then Round465/467 for review clarity, or merge Round465/467 once to absorb both.
 - Do not delete either topic branch until laptop safe-sync marks it as merged or manifest-absorbed.
 
@@ -363,6 +364,15 @@ Decision: before starting `alpha-mine`, run:
 ```
 
 Proceed only when `factor_mining_allowed=true`, `status=complete`, and `blockers=[]`.
+
+Round483 hardened the completion gate for automation:
+
+- `scripts/run_project_completion_gate.py --require-complete` now exits 2 when `factor_mining_allowed=false`.
+- Without `--require-complete`, the gate remains a report command and exits 0 when it can emit JSON.
+- Current clean office-desktop state still exits 2 with `--require-complete`.
+- Current blockers remain `not_on_stable_branch`, `remote_topic_branches_remaining`, and `observation_sufficiency_not_cleared`.
+
+Decision: any automated profit-factor mining entrypoint must run the require-complete gate first and stop on a nonzero exit code.
 
 ## Current CN ETF Framework
 

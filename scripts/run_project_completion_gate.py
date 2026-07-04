@@ -68,11 +68,22 @@ def build_completion_gate(
     }
 
 
+def completion_gate_exit_code(gate: dict[str, Any], *, require_complete: bool) -> int:
+    if require_complete and not bool(gate.get("factor_mining_allowed")):
+        return 2
+    return 0
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Gate project completion before profit-factor mining starts.")
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
     parser.add_argument("--observation-sufficiency-pack", default=str(DEFAULT_OBSERVATION_SUFFICIENCY_PACK))
     parser.add_argument("--skip-fetch", action="store_true", help="Do not fetch/prune before reading remote branches.")
+    parser.add_argument(
+        "--require-complete",
+        action="store_true",
+        help="Exit with code 2 when project completion conditions do not allow profit-factor mining.",
+    )
     args = parser.parse_args()
 
     config = load_config(args.config)
@@ -88,6 +99,7 @@ def main() -> None:
         observation_pack=_read_optional_json(Path(args.observation_sufficiency_pack)),
     )
     print(json.dumps(gate, indent=2, sort_keys=True))
+    raise SystemExit(completion_gate_exit_code(gate, require_complete=args.require_complete))
 
 
 def _summarize_observation(pack: dict[str, Any] | None) -> dict[str, Any]:
