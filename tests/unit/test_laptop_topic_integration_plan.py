@@ -39,6 +39,7 @@ class LaptopTopicIntegrationPlanTests(unittest.TestCase):
         self.assertEqual(plan["handoff"]["current_task"], "project_sync")
         self.assertEqual(plan["handoff"]["current_branch"], "main")
         self.assertTrue(plan["handoff"]["current_context_matches_required"])
+        self.assertEqual(plan["handoff"]["current_context_mismatch_reasons"], [])
         self.assertTrue(plan["handoff"]["next_command_allowed_here"])
         self.assertEqual(plan["handoff"]["recommended_command"], plan["handoff"]["next_command"])
         self.assertEqual(plan["handoff"]["recommended_command_action"], "execute_integration")
@@ -119,6 +120,14 @@ class LaptopTopicIntegrationPlanTests(unittest.TestCase):
         self.assertEqual(plan["handoff"]["current_task"], "factor_batch")
         self.assertEqual(plan["handoff"]["current_branch"], "codex/factor-batch-current")
         self.assertFalse(plan["handoff"]["current_context_matches_required"])
+        self.assertEqual(
+            plan["handoff"]["current_context_mismatch_reasons"],
+            [
+                "machine_must_be_laptop",
+                "task_must_be_project_sync",
+                "current_branch_must_be_main",
+            ],
+        )
         self.assertIsNone(plan["handoff"]["recommended_command"])
         self.assertEqual(plan["handoff"]["recommended_command_action"], "resolve_blockers")
 
@@ -146,6 +155,10 @@ class LaptopTopicIntegrationPlanTests(unittest.TestCase):
         self.assertEqual(plan["handoff"]["current_task"], "project_sync")
         self.assertEqual(plan["handoff"]["current_branch"], "codex/factor-batch-current")
         self.assertFalse(plan["handoff"]["current_context_matches_required"])
+        self.assertEqual(
+            plan["handoff"]["current_context_mismatch_reasons"],
+            ["current_branch_must_be_main"],
+        )
         self.assertEqual(plan["handoff"]["required_machine"], "laptop")
         self.assertEqual(plan["handoff"]["required_task"], "project_sync")
         self.assertEqual(plan["handoff"]["required_branch"], "main")

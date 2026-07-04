@@ -116,6 +116,13 @@ def _handoff_status(
     else:
         recommended_command = None
         recommended_command_action = "resolve_blockers"
+    context_mismatch_reasons: list[str] = []
+    if machine != "laptop":
+        context_mismatch_reasons.append("machine_must_be_laptop")
+    if task != "project_sync":
+        context_mismatch_reasons.append("task_must_be_project_sync")
+    if current_branch != STABLE_BRANCH:
+        context_mismatch_reasons.append("current_branch_must_be_main")
     return {
         "status": handoff_status,
         "status_description": status_description,
@@ -129,6 +136,7 @@ def _handoff_status(
         "current_context_matches_required": (
             machine == "laptop" and task == "project_sync" and current_branch == STABLE_BRANCH
         ),
+        "current_context_mismatch_reasons": context_mismatch_reasons,
         "required_machine": "laptop",
         "required_task": "project_sync",
         "required_branch": STABLE_BRANCH,
