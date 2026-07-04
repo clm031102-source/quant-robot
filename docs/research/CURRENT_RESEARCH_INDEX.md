@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round507 analyst-report-revision PIT source continuation, quota-aware review, and local quota preflight | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round508 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, and fail-closed CLI hardening | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -727,3 +727,21 @@ Docs:
 - `docs/research/ROUND507_NEXT_STEPS_CHECKLIST.md`
 
 Decision: run `scripts/run_analyst_report_quota_preflight.py` before every future analyst-report cache attempt. Only cache April 2024 after the preflight for the actual current date returns `request_allowed=true`.
+
+## Round508 Quota Preflight Fail-Closed CLI
+
+Round508 hardened the analyst-report quota preflight for command-chain use:
+
+- `scripts/run_analyst_report_quota_preflight.py` now supports `--fail-on-blocked`.
+- Default CLI behavior remains unchanged.
+- With `--fail-on-blocked`, a blocked decision prints the JSON packet and exits `3`.
+- Focused test: `tests/unit/test_analyst_report_quota_preflight.py` now covers this behavior, with 5 tests passing.
+- Fresh gates passed on 2026-07-05: Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Real local fail-closed preflight for 2026-07-05 blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, and returned exit code `3`.
+
+Docs:
+
+- `docs/research/cn_stock_round508_quota_preflight_fail_closed_2026-07-05.md`
+- `docs/research/ROUND508_NEXT_STEPS_CHECKLIST.md`
+
+Decision: future analyst-report cache command chains must run quota preflight with `--fail-on-blocked` before any `report_rc` fetch. Continue to April 2024 cache only if preflight exits `0`; stop if it exits `3`.

@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -84,6 +86,37 @@ class AnalystReportQuotaPreflightTests(unittest.TestCase):
         self.assertTrue(packet["decision"]["request_allowed"])
         self.assertTrue(markdown_exists)
         self.assertEqual(payload["summary"]["counted_provider_request_windows"], 1)
+
+    def test_cli_fail_on_blocked_returns_nonzero_after_printing_packet(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_dir = root / "out"
+            _write_cache(root / "round_a", generated_at="2026-07-05", status="ok")
+            _write_cache(root / "round_b", generated_at="2026-07-05", status="ok")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/run_analyst_report_quota_preflight.py",
+                    "--report-root",
+                    str(root),
+                    "--target-date",
+                    "2026-07-05",
+                    "--max-daily-requests",
+                    "2",
+                    "--output-dir",
+                    str(output_dir),
+                    "--fail-on-blocked",
+                ],
+                cwd=Path(__file__).resolve().parents[2],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 3)
+        self.assertIn("daily_provider_request_budget_exhausted", result.stdout)
+        self.assertIn('"status": "blocked"', result.stdout)
 
 
 def _write_cache(

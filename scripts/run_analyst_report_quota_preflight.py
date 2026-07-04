@@ -44,6 +44,7 @@ def main() -> None:
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--target-date")
     parser.add_argument("--max-daily-requests", type=int, default=DEFAULT_MAX_DAILY_REQUESTS)
+    parser.add_argument("--fail-on-blocked", action="store_true")
     args = parser.parse_args()
     packet = run_analyst_report_quota_preflight(
         report_root=args.report_root or ["data/reports"],
@@ -65,6 +66,8 @@ def main() -> None:
             sort_keys=True,
         )
     )
+    if args.fail_on_blocked and not packet["decision"]["request_allowed"]:
+        raise SystemExit(3)
 
 
 if __name__ == "__main__":
