@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round533 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, external-feed family-review boundary, external-feed join-smoke optimization, LPR cache repair guard, offline macro LPR repair tool, and Round533 two-agent review hardening | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round534 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, external-feed family-review boundary, external-feed join-smoke optimization, LPR cache repair guard, offline macro LPR repair tool, Round533 two-agent review hardening, and Round534 operator runbook hardening | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -160,6 +160,8 @@ Latest same-day progress reports:
 - `docs/research/ROUND532_NEXT_STEPS_CHECKLIST.md`
 - `docs/research/cn_stock_round533_two_agent_source_tooling_review_2026-07-05.md`
 - `docs/research/ROUND533_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round534_operator_runbook_hardening_2026-07-05.md`
+- `docs/research/ROUND534_NEXT_STEPS_CHECKLIST.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -1290,3 +1292,22 @@ Docs:
 - `docs/research/ROUND533_NEXT_STEPS_CHECKLIST.md`
 
 Decision: Round534 should stay non-provider by default. Continue by importing missing quota packs, hardening operator docs, or waiting for a valid provider-use window. Do not run analyst April cache, LPR provider refresh, external-feed factors, portfolio grids, promotion gates, or final holdout.
+
+## Round534 Operator Runbook Hardening
+
+Round534 converted the Round533 operator-safety feedback into a copy-safe runbook:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, or repaired processed-data write occurred.
+- Fresh gates passed on 2026-07-05: startup context branch matched and upstream was `0 ahead / 0 behind`, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- The runbook starts with `git status --short --branch` and `git ls-files data/raw data/processed data/reports` so operators verify branch state and generated-data boundaries before action.
+- Provider commands are explicitly fenced with false-by-default variables such as `$ALLOW_PROVIDER_REFRESH = $false`.
+- Analyst cache handling records required-machine quota packs, exit-code `3` stop behavior, and the rule that preflight success alone is not cache-execution approval.
+- LPR handling separates provider refresh, cache plausibility check, offline repair, and coverage audit into distinct gates.
+- Source-family boundaries remain unchanged: old northbound accumulation, old northbound crowding/reversal, margin-credit, and LPR/macro factors remain blocked or hibernated as previously recorded.
+
+Docs:
+
+- `docs/research/cn_stock_round534_operator_runbook_hardening_2026-07-05.md`
+- `docs/research/ROUND534_NEXT_STEPS_CHECKLIST.md`
+
+Decision: Round535 should still be non-provider unless real missing-machine quota packs are imported, the local quota date changes enough to justify one actual-date analyst preflight, or explicit provider approval is given for an isolated LPR cache refresh. Round543 remains the next required two-agent review checkpoint.
