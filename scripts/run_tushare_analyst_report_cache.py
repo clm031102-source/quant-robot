@@ -103,6 +103,12 @@ def main() -> None:
         help="Local same-day report_rc request budget before preflight blocks.",
     )
     parser.add_argument(
+        "--quota-required-pack-machine",
+        action="append",
+        default=None,
+        help="Required quota-pack source machine; repeat to block cache until each machine is present.",
+    )
+    parser.add_argument(
         "--quota-preflight-only",
         action="store_true",
         help="Run quota preflight and stop before cache execution; does not call Tushare.",
@@ -134,6 +140,7 @@ def main() -> None:
             report_roots=args.quota_report_root or ["data/reports"],
             target_date=args.quota_target_date,
             max_daily_requests=args.quota_max_daily_requests,
+            required_quota_pack_machines=args.quota_required_pack_machine,
         )
         if (
             not args.quota_preflight_only

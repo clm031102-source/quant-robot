@@ -14,6 +14,7 @@ COUNTED_WINDOW_STATUSES = {"ok", "cap_warning", "failed"}
 QUOTA_SCOPE = "local_report_roots_only"
 QUOTA_SCOPE_WARNING = "local_report_roots_only"
 QUOTA_TARGET_DATE_MISMATCH_WARNING = "quota_target_date_differs_from_generated_at"
+MISSING_REQUIRED_QUOTA_PACK_MACHINES_BLOCKER = "missing_required_quota_pack_machines"
 QUOTA_PACK_MANIFEST = "analyst_report_quota_pack_manifest.json"
 
 
@@ -22,6 +23,7 @@ def build_analyst_report_quota_preflight(
     report_roots: Iterable[str | Path],
     target_date: str | None = None,
     max_daily_requests: int = DEFAULT_MAX_DAILY_REQUESTS,
+    required_quota_pack_machines: Iterable[str] | None = None,
 ) -> dict[str, Any]:
     generated_at = date.today().isoformat()
     target = target_date or generated_at
@@ -32,6 +34,9 @@ def build_analyst_report_quota_preflight(
     report_root_paths = [Path(root) for root in report_roots]
     report_root_labels = [str(root) for root in report_root_paths]
     quota_pack_provenance = _quota_pack_provenance(report_root_paths)
+    required_machines = _unique_nonempty(required_quota_pack_machines or [])
+    present_machines = _present_quota_pack_machines(quota_pack_provenance)
+    missing_required_machines = [machine for machine in required_machines if machine not in set(present_machines)]
     scan = _scan_cache_reports(report_roots=report_root_paths, target_date=target)
     rows = scan["rows"]
     counted = [row for row in rows if row["counts_against_quota"]]
@@ -46,6 +51,8 @@ def build_analyst_report_quota_preflight(
         blockers.append("provider_rate_limit_observed")
     if len(counted) >= int(max_daily_requests):
         blockers.append("daily_provider_request_budget_exhausted")
+    if missing_required_machines:
+        blockers.append(MISSING_REQUIRED_QUOTA_PACK_MACHINES_BLOCKER)
 
     packet = {
         "stage": STAGE,
@@ -60,6 +67,9 @@ def build_analyst_report_quota_preflight(
             "target_date_matches_generated_at": target_date_matches_generated_at,
             "cache_report_count": len({row["report_path"] for row in rows}),
             "quota_pack_root_count": len(quota_pack_provenance),
+            "required_quota_pack_machines": required_machines,
+            "present_quota_pack_machines": present_machines,
+            "missing_required_quota_pack_machines": missing_required_machines,
             "same_day_window_rows": len(rows),
             "duplicate_evidence_rows": scan["duplicate_evidence_rows"],
             "counted_provider_request_windows": len(counted),
@@ -73,7 +83,7 @@ def build_analyst_report_quota_preflight(
         "decision": {
             "request_allowed": not blockers,
             "blockers": blockers,
-            "next_action": "run_cache_once" if not blockers else "wait_or_review_provider_quota",
+            "next_action": _next_action(blockers),
         },
         "safety": SAFETY,
         "live_boundary_allowed": False,
@@ -155,6 +165,16 @@ def render_analyst_report_quota_preflight_markdown(packet: dict[str, Any]) -> st
             )
     else:
         lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Required Quota Pack Machines",
+            "",
+            f"- Required: {', '.join(_list(summary.get('required_quota_pack_machines'))) or 'none'}",
+            f"- Present: {', '.join(_list(summary.get('present_quota_pack_machines'))) or 'none'}",
+            f"- Missing: {', '.join(_list(summary.get('missing_required_quota_pack_machines'))) or 'none'}",
+        ]
+    )
     lines.extend(
         [
             "",
@@ -283,6 +303,30 @@ def _quota_pack_provenance(report_roots: Iterable[Path]) -> list[dict[str, Any]]
             }
         )
     return provenance
+
+
+def _present_quota_pack_machines(quota_pack_provenance: Iterable[dict[str, Any]]) -> list[str]:
+    return _unique_nonempty(str(item.get("machine", "")) for item in quota_pack_provenance)
+
+
+def _unique_nonempty(values: Iterable[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        cleaned = str(value).strip()
+        if not cleaned or cleaned in seen:
+            continue
+        seen.add(cleaned)
+        result.append(cleaned)
+    return result
+
+
+def _next_action(blockers: list[str]) -> str:
+    if not blockers:
+        return "run_cache_once"
+    if MISSING_REQUIRED_QUOTA_PACK_MACHINES_BLOCKER in blockers:
+        return "collect_required_quota_pack_evidence"
+    return "wait_or_review_provider_quota"
 
 
 def _duplicate_row(duplicate: dict[str, Any], kept: dict[str, Any]) -> dict[str, Any]:

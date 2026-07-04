@@ -1087,3 +1087,26 @@ Docs:
 - `docs/research/ROUND524_NEXT_STEPS_CHECKLIST.md`
 
 Decision: do not run provider-backed April cache on 2026-07-05. If still on the same local quota day with no new cross-machine packs or manual same-day confirmations, avoid repeating the same dry-run; next useful work should collect missing workstation quota evidence, prepare the frozen January-April prescreen path without running it, or wait for the local quota date to change before one more actual-date dry-run.
+
+## Round525 Required Quota Pack Machines
+
+Round525 converted the cross-machine quota checklist into a machine-checkable preflight constraint:
+
+- `src/quant_robot/ops/analyst_report_quota_preflight.py` now accepts required quota-pack source machines and records required, present, and missing machine lists.
+- Missing required machines add the blocker `missing_required_quota_pack_machines`.
+- `decision.next_action` becomes `collect_required_quota_pack_evidence` when required machines are missing.
+- The standalone preflight CLI exposes repeated `--required-quota-pack-machine`.
+- The cache CLI exposes repeated `--quota-required-pack-machine`.
+- Test-first evidence: the new missing-machine and help tests failed first because the options and packet fields were missing; after implementation, the focused quota-preflight and quota-pack suites passed with 27 tests.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Real cache-CLI preflight-only with required machines `office_desktop`, `highspec_desktop`, and `laptop` blocked with `daily_provider_request_budget_exhausted` and `missing_required_quota_pack_machines`.
+- Required machines: `office_desktop`, `highspec_desktop`, `laptop`; present machine: `office_desktop`; missing machines: `highspec_desktop`, `laptop`.
+- No provider-backed cache execution occurred.
+- Full laptop-integration verification passed with 100 unit tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round525_required_quota_pack_machines_2026-07-05.md`
+- `docs/research/ROUND525_NEXT_STEPS_CHECKLIST.md`
+
+Decision: future provider-backed April cache attempts should include required-machine constraints and must not proceed until `missing_required_quota_pack_machines=[]`, actual-date preflight exits `0`, and all provider-cache criteria in the Round525 checklist are satisfied.

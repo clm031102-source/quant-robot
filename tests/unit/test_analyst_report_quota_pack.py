@@ -323,6 +323,69 @@ class AnalystReportQuotaPackTests(unittest.TestCase):
         self.assertIn("## Quota Pack Provenance", markdown)
         self.assertIn("office_desktop", markdown)
 
+    def test_preflight_blocks_when_required_quota_pack_machine_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source_root = root / "source_reports"
+            pack = root / "quota_pack"
+            output_dir = root / "preflight"
+            _write_cache(source_root / "round_a", generated_at="2026-07-05", status="ok")
+
+            export_result = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/export_analyst_report_quota_pack.py",
+                    "--report-root",
+                    str(source_root),
+                    "--output-dir",
+                    str(pack),
+                    "--machine",
+                    "office_desktop",
+                    "--task",
+                    "factor_batch",
+                    "--branch",
+                    "codex/factor-batch-cn-stock-profit-mining-20260704",
+                ],
+                cwd=Path(__file__).resolve().parents[2],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(export_result.returncode, 0, export_result.stderr)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/run_analyst_report_quota_preflight.py",
+                    "--report-root",
+                    str(pack),
+                    "--target-date",
+                    "2026-07-05",
+                    "--required-quota-pack-machine",
+                    "office_desktop",
+                    "--required-quota-pack-machine",
+                    "highspec_desktop",
+                    "--output-dir",
+                    str(output_dir),
+                    "--fail-on-blocked",
+                ],
+                cwd=Path(__file__).resolve().parents[2],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            packet = json.loads((output_dir / "analyst_report_quota_preflight.json").read_text(encoding="utf-8"))
+            markdown = (output_dir / "analyst_report_quota_preflight.md").read_text(encoding="utf-8")
+
+        self.assertEqual(result.returncode, 3)
+        self.assertEqual(packet["summary"]["required_quota_pack_machines"], ["office_desktop", "highspec_desktop"])
+        self.assertEqual(packet["summary"]["present_quota_pack_machines"], ["office_desktop"])
+        self.assertEqual(packet["summary"]["missing_required_quota_pack_machines"], ["highspec_desktop"])
+        self.assertIn("missing_required_quota_pack_machines", packet["decision"]["blockers"])
+        self.assertIn("missing_required_quota_pack_machines", result.stdout)
+        self.assertIn("highspec_desktop", markdown)
+
 
 def _write_cache(root: Path, *, generated_at: str, status: str) -> None:
     root.mkdir(parents=True, exist_ok=True)

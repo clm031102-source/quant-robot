@@ -28,11 +28,13 @@ def run_analyst_report_quota_preflight(
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
     target_date: str | None = None,
     max_daily_requests: int = DEFAULT_MAX_DAILY_REQUESTS,
+    required_quota_pack_machines: list[str] | None = None,
 ) -> dict[str, Any]:
     packet = build_analyst_report_quota_preflight(
         report_roots=report_root,
         target_date=target_date,
         max_daily_requests=max_daily_requests,
+        required_quota_pack_machines=required_quota_pack_machines,
     )
     write_analyst_report_quota_preflight(output_dir, packet)
     return packet
@@ -58,6 +60,12 @@ def main() -> None:
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR), help="Directory for JSON/Markdown evidence.")
     parser.add_argument("--target-date", help="Local date used to count same-day report_rc requests.")
     parser.add_argument(
+        "--required-quota-pack-machine",
+        action="append",
+        default=None,
+        help="Required quota-pack source machine; repeat to block until each machine is present.",
+    )
+    parser.add_argument(
         "--max-daily-requests",
         type=int,
         default=DEFAULT_MAX_DAILY_REQUESTS,
@@ -70,6 +78,7 @@ def main() -> None:
         output_dir=args.output_dir,
         target_date=args.target_date,
         max_daily_requests=args.max_daily_requests,
+        required_quota_pack_machines=args.required_quota_pack_machine,
     )
     print(
         json.dumps(
