@@ -1067,3 +1067,23 @@ Docs:
 - `docs/research/ROUND523_NEXT_STEPS_CHECKLIST.md`
 
 Decision: do not run provider-backed April cache on 2026-07-05. The next cache-related action is dry-run only after quota plausibly resets and after all workstation quota packs or manual same-day confirmations are accounted for. If April later caches and frozen January-April still has `research_lead_count=0`, run family review; if multiple-testing leads also remain `0`, rotate to a new PIT source plan.
+
+## Round524 Quota Wait Checkpoint
+
+Round524 followed the Round523 checklist with fresh gates and one safe cache-CLI dry-run:
+
+- Startup context was clear and current branch matched `codex/factor-batch-cn-stock-profit-mining-20260704`.
+- Quant PM startup gate returned `status="ready"` with blockers `[]`.
+- CN stock factor-mining startup gate returned `status="cleared"` with blockers `[]`.
+- CN stock data manifest returned blockers `[]` and warnings `extreme_return_rows_present` and `moneyflow_symbol_coverage_below_bars`.
+- Actual-date cache-CLI preflight-only for April 2024 with `data\reports` plus `data\reports\round521_analyst_quota_pack_provenance_20260705` still blocked with `daily_provider_request_budget_exhausted`.
+- The dry-run counted 2 same-day provider request windows, skipped 2 duplicate evidence rows, showed `quota_pack_root_count=1`, kept `target_date_matches_generated_at=true`, showed the office-desktop pack provenance, and returned `LASTEXITCODE=3`.
+- No provider-backed cache execution occurred.
+- Full laptop-integration verification passed with 98 unit tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round524_quota_wait_checkpoint_2026-07-05.md`
+- `docs/research/ROUND524_NEXT_STEPS_CHECKLIST.md`
+
+Decision: do not run provider-backed April cache on 2026-07-05. If still on the same local quota day with no new cross-machine packs or manual same-day confirmations, avoid repeating the same dry-run; next useful work should collect missing workstation quota evidence, prepare the frozen January-April prescreen path without running it, or wait for the local quota date to change before one more actual-date dry-run.
