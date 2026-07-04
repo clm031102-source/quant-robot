@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round522 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, and preflight-level pack provenance summaries | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round527 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, and frozen January-April prescreen handoff | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -138,6 +138,16 @@ Latest same-day progress reports:
 - `docs/research/ROUND521_NEXT_STEPS_CHECKLIST.md`
 - `docs/research/cn_stock_round522_quota_preflight_pack_provenance_2026-07-05.md`
 - `docs/research/ROUND522_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round523_two_agent_quota_review_2026-07-05.md`
+- `docs/research/ROUND523_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round524_quota_wait_checkpoint_2026-07-05.md`
+- `docs/research/ROUND524_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round525_required_quota_pack_machines_2026-07-05.md`
+- `docs/research/ROUND525_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round526_quota_machine_notes_2026-07-05.md`
+- `docs/research/ROUND526_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round527_frozen_prescreen_handoff_2026-07-05.md`
+- `docs/research/ROUND527_NEXT_STEPS_CHECKLIST.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -1132,3 +1142,22 @@ Docs:
 - `docs/research/ROUND526_NEXT_STEPS_CHECKLIST.md`
 
 Decision: `--quota-pack-machine-note` is audit context only. It does not satisfy required pack evidence, and provider-backed April cache remains blocked until `missing_required_quota_pack_machines=[]`, actual-date preflight exits `0`, and all provider-cache criteria in the Round526 checklist are satisfied.
+
+## Round527 Frozen Prescreen Handoff
+
+Round527 prepared the frozen January-April analyst-report-revision prescreen path without consuming provider quota:
+
+- No Tushare call, no same-day quota dry-run, no prescreen execution, and no generated data output occurred.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- The analyst-report-revision prescreen CLI was verified through `scripts\run_analyst_report_revision_prescreen.py --help`.
+- The frozen prescreen command now explicitly requires the actual successful April processed-output root before running.
+- The result-review checklist records `holdout_policy.final_holdout_included`, `data_window` report coverage, `summary.multiple_testing_lead_count`, `summary.neutral_gate_pass_count`, `summary.research_lead_count`, and `summary.promotion_allowed_candidates`.
+- Required quota-pack machines remain `office_desktop`, `highspec_desktop`, and `laptop`; missing machines remain `highspec_desktop` and `laptop`.
+- Next review-agent checkpoint remains Round533.
+
+Docs:
+
+- `docs/research/cn_stock_round527_frozen_prescreen_handoff_2026-07-05.md`
+- `docs/research/ROUND527_NEXT_STEPS_CHECKLIST.md`
+
+Decision: provider-backed April cache remains blocked until required-machine quota evidence is complete and an actual-date cache preflight exits `0`. Run the frozen January-April prescreen only after April cache succeeds, and rotate if January-April still has zero research leads or zero multiple-testing leads.
