@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504/Round505 analyst-report-revision PIT source continuation | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round506 analyst-report-revision PIT source continuation and quota-aware review | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -690,3 +690,22 @@ Docs:
 - `docs/research/ROUND505_NEXT_STEPS_CHECKLIST.md`
 
 Decision: the third month weakened the short-window evidence instead of stabilizing it. Do not promote, portfolio-grid, or tune analyst revision formulas. The next efficient action is one more quota-aware monthly cache only if provider limits allow it; otherwise prepare a new PIT source candidate plan or a three-round direction review if the family keeps producing zero research leads.
+
+## Round506 Analyst Report Quota-Aware Review
+
+Round506 did not make a new Tushare request. It reviewed the local Round504/Round505 evidence because 2026-07-05 already had two successful monthly `report_rc` requests and Round467 documented a `2_per_day` provider limit.
+
+- Quant PM startup gate passed for `office_desktop` / `factor_batch`; primary market remains `CN_ETF`.
+- CN stock factor-mining startup gate cleared on `codex/factor-batch-cn-stock-profit-mining-20260704`.
+- CN stock data manifest had no blockers; warnings remain `extreme_return_rows_present` and `moneyflow_symbol_coverage_below_bars`.
+- Branch sync with upstream was `0 ahead / 0 behind`.
+- Local evidence comparison: Round504 January-February had 5 multiple-testing leads, 4 neutral-gate passes, 0 research leads, and 0 promotion-allowed candidates.
+- After adding March in Round505, multiple-testing leads fell to 0, neutral-gate passes fell to 2, research leads stayed 0, and promotion-allowed candidates stayed 0.
+- Best mean IC fell from about 0.100 in Round504 to about 0.077 in Round505.
+
+Docs:
+
+- `docs/research/cn_stock_round506_analyst_report_revision_quota_aware_review_2026-07-05.md`
+- `docs/research/ROUND506_NEXT_STEPS_CHECKLIST.md`
+
+Decision: do not run a same-day third `report_rc` request, and do not tune analyst formulas. After quota reset, one April 2024 cache and the same frozen January-April prescreen are allowed. If January-April still has zero research leads or zero multiple-testing leads, run a family review and rotate to a new PIT source candidate plan.
