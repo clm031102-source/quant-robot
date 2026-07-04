@@ -58,6 +58,11 @@ def build_laptop_topic_integration_plan(
     return {
         "status": status,
         "blockers": blockers,
+        "handoff": _handoff_status(
+            status=status,
+            blockers=blockers,
+            merge_order=merge_order,
+        ),
         "selected": {
             "machine": machine,
             "task": task,
@@ -73,6 +78,26 @@ def build_laptop_topic_integration_plan(
         "merge_order": merge_order,
         "skipped": skipped,
         "commands": _finish_commands(merge_order, python_executable=python_executable),
+    }
+
+
+def _handoff_status(
+    *,
+    status: str,
+    blockers: list[str],
+    merge_order: list[dict[str, str]],
+) -> dict[str, Any]:
+    if status == "blocked" and blockers == ["current_branch_must_be_main"] and merge_order:
+        handoff_status = "ready_on_main"
+    else:
+        handoff_status = status
+    return {
+        "status": handoff_status,
+        "required_machine": "laptop",
+        "required_task": "project_sync",
+        "required_branch": STABLE_BRANCH,
+        "rerun_plan_before_execute": True,
+        "merge_order_count": len(merge_order),
     }
 
 

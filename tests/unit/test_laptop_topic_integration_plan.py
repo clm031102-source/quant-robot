@@ -97,6 +97,29 @@ class LaptopTopicIntegrationPlanTests(unittest.TestCase):
             ],
         )
 
+    def test_plan_marks_topic_branch_handoff_ready_on_main_when_only_branch_blocks(self) -> None:
+        plan = build_laptop_topic_integration_plan(
+            machine="laptop",
+            task="project_sync",
+            current_branch="codex/factor-batch-current",
+            worktree_clean=True,
+            main_upstream_sync="0\t0",
+            remote_topic_branches=[{"name": "origin/codex/factor-batch-current", "commit": "new"}],
+            stable_commits=set(),
+            manifest={"absorbed_branches": [], "ignored_branches": []},
+            is_ancestor=lambda ancestor, descendant: False,
+            python_executable="python",
+        )
+
+        self.assertEqual(plan["status"], "blocked")
+        self.assertEqual(plan["blockers"], ["current_branch_must_be_main"])
+        self.assertEqual(plan["handoff"]["status"], "ready_on_main")
+        self.assertEqual(plan["handoff"]["required_machine"], "laptop")
+        self.assertEqual(plan["handoff"]["required_task"], "project_sync")
+        self.assertEqual(plan["handoff"]["required_branch"], "main")
+        self.assertTrue(plan["handoff"]["rerun_plan_before_execute"])
+        self.assertEqual(plan["handoff"]["merge_order_count"], 1)
+
     def test_plan_skips_stable_and_manifest_absorbed_topic_branches(self) -> None:
         plan = build_laptop_topic_integration_plan(
             machine="laptop",
