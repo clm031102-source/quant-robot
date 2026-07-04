@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round529 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, and external-feed family-review boundary | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round530 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, external-feed family-review boundary, and external-feed join-smoke optimization | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -152,6 +152,8 @@ Latest same-day progress reports:
 - `docs/research/ROUND528_NEXT_STEPS_CHECKLIST.md`
 - `docs/research/cn_stock_round529_external_feed_family_review_2026-07-05.md`
 - `docs/research/ROUND529_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round530_external_feed_join_smoke_optimization_2026-07-05.md`
+- `docs/research/ROUND530_NEXT_STEPS_CHECKLIST.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -1204,3 +1206,22 @@ Docs:
 - `docs/research/ROUND529_NEXT_STEPS_CHECKLIST.md`
 
 Decision: do not reopen external-feed factors immediately. If analyst cache remains blocked, the next external-feed action should be source repair or optimization, such as LPR backfill feasibility or long-window join-smoke performance work. A future HK-hold idea must be a genuinely new preregistered mechanism, not a rerun of old northbound accumulation or crowding/reversal families.
+
+## Round530 External Feed Join-Smoke Optimization
+
+Round530 removed the local long-window join-smoke timeout blocker without changing factor-family decisions:
+
+- No Tushare call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, or final-holdout read occurred.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- `src/quant_robot/ops/external_feed_factor_matrix_join_smoke.py` now aligns all signal dates for each symbol or index symbol with one grouped `merge_asof` path instead of repeatedly filtering and sorting the full feed for each signal date.
+- The join smoke now caches repeated processed-feed reads across seeds.
+- Unit tests cover the multi-date PIT alignment helper and shared-feed cache behavior.
+- July 2024 regression preserved the Round528 result: 6 pass seeds, 428,856 joined rows, 0 available-date violations, and 0 same-day/future raw-date violations.
+- The full 2024-07-01 to 2025-12-31 local join smoke completed in about 61 seconds with 6 pass seeds, 8,559,540 joined rows, 0 available-date violations, and 0 same-day/future raw-date violations.
+
+Docs:
+
+- `docs/research/cn_stock_round530_external_feed_join_smoke_optimization_2026-07-05.md`
+- `docs/research/ROUND530_NEXT_STEPS_CHECKLIST.md`
+
+Decision: the optimized join smoke is source-tooling evidence only. It does not reopen old external-feed factors and does not allow portfolio, promotion, or final-holdout work. Next non-provider work should either repair LPR coverage or write a new-mechanism HK-hold candidate-plan gate without testing.

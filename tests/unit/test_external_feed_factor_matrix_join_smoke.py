@@ -2,14 +2,50 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import pandas as pd
 
+from quant_robot.ops import external_feed_factor_matrix_join_smoke as join_smoke
 from quant_robot.ops.external_feed_factor_matrix_join_smoke import run_external_feed_factor_matrix_join_smoke
 from quant_robot.storage.dataset_store import DatasetStore
 
 
 class ExternalFeedFactorMatrixJoinSmokeTests(unittest.TestCase):
+    def test_latest_observations_for_signal_dates_aligns_all_dates_in_one_pass(self):
+        frame = pd.DataFrame(
+            {
+                "date": [
+                    pd.Timestamp("2024-01-01").date(),
+                    pd.Timestamp("2024-01-04").date(),
+                    pd.Timestamp("2024-01-02").date(),
+                ],
+                "available_date": [
+                    pd.Timestamp("2024-01-02").date(),
+                    pd.Timestamp("2024-01-05").date(),
+                    pd.Timestamp("2024-01-03").date(),
+                ],
+                "symbol": ["000001.SZ", "000001.SZ", "000002.SZ"],
+                "value": [1.0, 2.0, 3.0],
+            }
+        )
+
+        joined = join_smoke._latest_observations_for_signal_dates(
+            frame,
+            [pd.Timestamp(value) for value in pd.date_range("2024-01-01", "2024-01-05", freq="D")],
+        )
+
+        self.assertEqual(len(joined), 7)
+        self.assertEqual(sorted(joined["_signal_date"].dt.date.astype(str).unique()), [
+            "2024-01-02",
+            "2024-01-03",
+            "2024-01-04",
+            "2024-01-05",
+        ])
+        jan5 = joined[joined["_signal_date"] == pd.Timestamp("2024-01-05")]
+        self.assertEqual(dict(zip(jan5["symbol"], jan5["value"])), {"000001.SZ": 2.0, "000002.SZ": 3.0})
+        self.assertTrue((pd.to_datetime(joined["available_date"]) <= joined["_signal_date"]).all())
+
     def test_join_smoke_uses_available_date_not_raw_date(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "processed_root"
@@ -63,6 +99,55 @@ class ExternalFeedFactorMatrixJoinSmokeTests(unittest.TestCase):
             self.assertEqual(seed["raw_date_not_before_signal_violations"], 0)
             self.assertEqual(result["summary"]["same_day_or_future_raw_date_violations"], 0)
             self.assertTrue((output_dir / "external_feed_factor_matrix_join_smoke.json").exists())
+
+    def test_join_smoke_reads_shared_processed_feed_once_across_seeds(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "processed_root"
+            output_dir = Path(tmp) / "report"
+            seed_config = Path(tmp) / "seeds.json"
+            seed_config.write_text(
+                json.dumps(
+                    {
+                        "factor_seeds": [
+                            {
+                                "factor_name": "seed_a",
+                                "primary_feed": "external_margin_detail",
+                                "required_columns": ["symbol", "available_date", "rzmre"],
+                            },
+                            {
+                                "factor_name": "seed_b",
+                                "primary_feed": "external_margin_detail",
+                                "required_columns": ["symbol", "available_date", "rzye"],
+                            },
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            feed = pd.DataFrame(
+                {
+                    "date": [pd.Timestamp("2024-01-02").date()],
+                    "available_date": [pd.Timestamp("2024-01-03").date()],
+                    "symbol": ["000001.SZ"],
+                    "rzmre": [100.0],
+                    "rzye": [1000.0],
+                }
+            )
+            calls = []
+
+            def fake_read_processed_dataset(_root, dataset, market):
+                calls.append((str(dataset), market))
+                return feed.copy()
+
+            with patch.object(join_smoke, "_read_processed_dataset", side_effect=fake_read_processed_dataset):
+                result = run_external_feed_factor_matrix_join_smoke(
+                    processed_root=root,
+                    seed_config_path=seed_config,
+                    output_dir=output_dir,
+                )
+
+        self.assertEqual(result["summary"]["seed_count"], 2)
+        self.assertEqual(calls, [("external_margin_detail", "CN")])
 
     def test_join_smoke_blocks_missing_required_columns(self):
         with tempfile.TemporaryDirectory() as tmp:
