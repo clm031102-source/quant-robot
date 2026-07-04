@@ -26,24 +26,55 @@ DEFAULT_QUOTA_PREFLIGHT_OUTPUT_DIR = Path("data/reports/analyst_report_quota_pre
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Cache Tushare report_rc analyst reports with resume and PIT-safe normalization.")
-    parser.add_argument("--start-date", default="2015-01-01")
-    parser.add_argument("--end-date", default="2025-12-31")
-    parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
-    parser.add_argument("--processed-output-dir", default="")
-    parser.add_argument("--window-frequency", default="MS")
-    parser.add_argument("--request-sleep-seconds", type=float, default=3660.0)
-    parser.add_argument("--max-rows-per-window", type=int, default=5000)
-    parser.add_argument("--no-resume", action="store_true")
-    parser.add_argument("--no-write-processed", action="store_true")
-    parser.add_argument("--continue-after-rate-limit", action="store_true")
-    parser.add_argument("--skip-quota-preflight", action="store_true")
-    parser.add_argument("--skip-quota-preflight-reason", default="")
-    parser.add_argument("--quota-report-root", action="append", default=None)
-    parser.add_argument("--quota-output-dir", default=str(DEFAULT_QUOTA_PREFLIGHT_OUTPUT_DIR))
-    parser.add_argument("--quota-target-date")
-    parser.add_argument("--quota-max-daily-requests", type=int, default=DEFAULT_MAX_DAILY_REQUESTS)
-    parser.add_argument("--quota-preflight-only", action="store_true")
+    parser = argparse.ArgumentParser(
+        description=(
+            "Cache Tushare report_rc analyst reports with resume and PIT-safe normalization. "
+            "By default this command runs local quota preflight first and exits 3 when blocked."
+        )
+    )
+    parser.add_argument("--start-date", default="2015-01-01", help="Inclusive report window start date.")
+    parser.add_argument("--end-date", default="2025-12-31", help="Inclusive report window end date.")
+    parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR), help="Directory for cache summary reports.")
+    parser.add_argument("--processed-output-dir", default="", help="Directory for normalized processed outputs.")
+    parser.add_argument("--window-frequency", default="MS", help="Pandas window frequency for provider requests.")
+    parser.add_argument("--request-sleep-seconds", type=float, default=3660.0, help="Sleep between provider request windows.")
+    parser.add_argument("--max-rows-per-window", type=int, default=5000, help="Warn when a provider window reaches this row count.")
+    parser.add_argument("--no-resume", action="store_true", help="Do not reuse existing processed window files.")
+    parser.add_argument("--no-write-processed", action="store_true", help="Run without writing normalized processed outputs.")
+    parser.add_argument("--continue-after-rate-limit", action="store_true", help="Continue later windows after a provider rate-limit error.")
+    parser.add_argument(
+        "--skip-quota-preflight",
+        action="store_true",
+        help="Exceptional offline or controlled local replay only; never use for normal provider-backed fetches.",
+    )
+    parser.add_argument(
+        "--skip-quota-preflight-reason",
+        default="",
+        help="Required human-readable reason when --skip-quota-preflight is used.",
+    )
+    parser.add_argument(
+        "--quota-report-root",
+        action="append",
+        default=None,
+        help="Local report root scanned by quota preflight; repeat to include multiple roots.",
+    )
+    parser.add_argument(
+        "--quota-output-dir",
+        default=str(DEFAULT_QUOTA_PREFLIGHT_OUTPUT_DIR),
+        help="Directory for quota preflight JSON/Markdown evidence.",
+    )
+    parser.add_argument("--quota-target-date", help="Local date to count same-day report_rc requests against.")
+    parser.add_argument(
+        "--quota-max-daily-requests",
+        type=int,
+        default=DEFAULT_MAX_DAILY_REQUESTS,
+        help="Local same-day report_rc request budget before preflight blocks.",
+    )
+    parser.add_argument(
+        "--quota-preflight-only",
+        action="store_true",
+        help="Run quota preflight and stop before cache execution; does not call Tushare.",
+    )
     args = parser.parse_args()
 
     if args.quota_preflight_only and args.skip_quota_preflight:

@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round512 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, and cache-CLI preflight-only mode | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round513 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, and two-agent review/help hardening | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -827,3 +827,24 @@ Docs:
 - `docs/research/ROUND512_NEXT_STEPS_CHECKLIST.md`
 
 Decision: use `--quota-preflight-only` when the team wants the cache CLI itself to prove quota readiness without consuming a provider request. Remove that flag only when intentionally starting the April 2024 cache after startup gates pass and actual-date preflight is allowed. Round513 should start with the required two-agent review checkpoint.
+
+## Round513 Two-Agent Review And Cache CLI Help
+
+Round513 completed the required round-10 review checkpoint after the Round504 baseline:
+
+- Quant PM agent `Turing` recommended continuing only narrowly and conditionally: one April 2024 cache after actual-date `--quota-preflight-only` exits `0`, then rotate if January-April still has zero research leads or zero multiple-testing leads.
+- Quant PM risks: evidence weakened after March, quota preflight is local-report based and can miss cross-machine same-day usage, and `--skip-quota-preflight` remains powerful.
+- Ordinary-user agent `Maxwell` understood the safe path but found the dry-run and real cache commands too similar, CLI help under-explained, and `<date>` placeholders ambiguous.
+- Round513 action: improved `scripts/run_tushare_analyst_report_cache.py --help` so quota-safe modes are self-explanatory.
+- Test-first evidence: help-text test failed before implementation because `does not call Tushare` was missing.
+- Focused verification passed: `tests/unit/test_analyst_report_quota_preflight.py` now has 11 passing tests.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Actual-date cache-CLI preflight-only run for April 2024 on 2026-07-05 still blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, and returned exit code `3`.
+- Full laptop integration verification passed with 84 tests, compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round513_two_agent_review_and_cache_cli_help_2026-07-05.md`
+- `docs/research/ROUND513_NEXT_STEPS_CHECKLIST.md`
+
+Decision: do not run the April 2024 provider-backed analyst-report cache on 2026-07-05. Next continuation should run the safe dry-run command first after quota plausibly resets, stop on exit `3`, and cache only if it exits `0`. Consider a cross-machine quota evidence plan before relying on local-only quota reports across multiple desktops.

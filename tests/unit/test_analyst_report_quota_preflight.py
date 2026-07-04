@@ -298,6 +298,21 @@ class AnalystReportQuotaPreflightTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("cannot be combined", result.stderr)
 
+    def test_cache_cli_help_explains_quota_safe_modes(self) -> None:
+        result = subprocess.run(
+            [sys.executable, "scripts/run_tushare_analyst_report_cache.py", "--help"],
+            cwd=Path(__file__).resolve().parents[2],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("does not call Tushare", result.stdout)
+        self.assertIn("exits 3", result.stdout)
+        self.assertIn("offline or controlled local replay", result.stdout)
+        self.assertIn("--skip-quota-preflight-reason", result.stdout)
+
 
 def _write_cache(
     root: Path,
