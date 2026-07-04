@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round508 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, and fail-closed CLI hardening | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round509 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, and laptop-integration quota coverage | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -745,3 +745,22 @@ Docs:
 - `docs/research/ROUND508_NEXT_STEPS_CHECKLIST.md`
 
 Decision: future analyst-report cache command chains must run quota preflight with `--fail-on-blocked` before any `report_rc` fetch. Continue to April 2024 cache only if preflight exits `0`; stop if it exits `3`.
+
+## Round509 Laptop Integration Quota Preflight Coverage
+
+Round509 added the analyst-report quota preflight tests to the fixed laptop integration profile:
+
+- `scripts/run_checks.py --profile laptop-integration --execute` now includes `tests/unit/test_analyst_report_quota_preflight.py`.
+- The check-plan unit test was updated so future profile composition changes must keep this test file in the profile.
+- Test-first evidence: the profile-composition test failed before implementation because the quota-preflight test file was missing from `LAPTOP_INTEGRATION_TESTS`.
+- Focused verification passed: 6 tests.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Real local fail-closed preflight for 2026-07-05 still blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, and returned exit code `3`.
+- Full laptop integration verification passed with 78 tests, compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round509_laptop_integration_quota_preflight_coverage_2026-07-05.md`
+- `docs/research/ROUND509_NEXT_STEPS_CHECKLIST.md`
+
+Decision: keep quota-preflight tests in `laptop-integration` so sync and mainline checks catch regressions in the analyst-report request guard. Do not attempt the April 2024 analyst-report cache on 2026-07-05; continue only after an actual-date preflight exits `0`.
