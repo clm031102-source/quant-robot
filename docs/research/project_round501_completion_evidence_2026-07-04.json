@@ -1,0 +1,23 @@
+{
+  "decision": {
+    "blockers": [],
+    "minimum_fills_blocked": false,
+    "missing_observation": false,
+    "observation_sufficiency_cleared": true
+  },
+  "fills": {
+    "fill_deficit": 0,
+    "fill_rate_per_day": 0.219298,
+    "observation_days": 114,
+    "observed_fills": 25,
+    "required_fills": 20
+  },
+  "generated_at": "2026-07-04",
+  "source_evidence": {
+    "post_refresh_replay_pack": "data/reports/round501_post_refresh_replay_longer_observation_20260704/post_refresh_replay_pack.json",
+    "recent_data_refresh_pack": "data/reports/round501_recent_data_refresh_longer_observation_20260704/recent_data_refresh_pack.json",
+    "local_observation_sufficiency_pack": "data/reports/round501_observation_sufficiency_longer_observation_20260704/observation_sufficiency_pack.json"
+  },
+  "stage": "phase_5_9_observation_sufficiency",
+  "status": "sufficient"
+}

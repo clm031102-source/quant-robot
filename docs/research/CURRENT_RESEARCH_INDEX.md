@@ -125,6 +125,7 @@ Latest same-day progress reports:
 - `docs/research/project_round495_latest_laptop_merge_rehearsal_2026-07-04.md`
 - `docs/research/project_round496_laptop_integration_execute_mode_2026-07-04.md`
 - `docs/research/project_round501_observation_sufficiency_cleared_2026-07-04.md`
+- `docs/research/project_round501_completion_evidence_2026-07-04.json`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -181,7 +182,7 @@ Decision: do not burn more same-day `report_rc` retries. Resume February 2024 af
 Cloud branch integration handoff:
 
 - `origin/codex/factor-batch-cn-stock-benchmark-relative-20260704` is 1 commit ahead of `origin/main`.
-- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 35 commits ahead of `origin/main` after Round501 is pushed.
+- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 36 commits ahead of `origin/main` after the tracked Round501 completion evidence is pushed.
 - The Round464 branch is an ancestor of the Round465/467 branch, so laptop integration may merge Round464 first and then Round465/467 for review clarity, or merge Round465/467 once to absorb both.
 - Do not delete either topic branch until laptop safe-sync marks it as merged or manifest-absorbed.
 
@@ -550,6 +551,7 @@ Round501 cleared the observation sufficiency gate:
 - Round497 replay moved from stale/target-end blocked to fresh-data replay, then Round498 and Round500 widened the observation window.
 - Round501 refreshed 2026-02-01 through 2026-07-03, replayed successfully, and produced `status=sufficient` with 25 observed fills versus 20 required.
 - Default `pre-alpha` now discovers the Round501 sufficient pack and no longer emits `observation_sufficiency_not_cleared`.
+- A tracked lightweight fallback evidence file, `docs/research/project_round501_completion_evidence_2026-07-04.json`, carries the same sufficiency summary so laptop/main integration does not depend on ignored office-local `data/reports` files.
 
 Decision: the project is now 99% complete. Remaining blockers are only laptop-owned `main` integration, remote topic branch cleanup, and committing/pushing this Round501 evidence branch. Do not start alpha mining until the completion gate is clean on `main`.
 

@@ -205,6 +205,28 @@ class ProjectCompletionGateTests(unittest.TestCase):
 
             self.assertEqual(discover_latest_observation_sufficiency_pack(root), sufficient_pack)
 
+    def test_discovery_falls_back_to_tracked_docs_evidence_when_data_reports_are_absent(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workspace = Path(tmp)
+            reports_root = workspace / "data" / "reports"
+            docs_root = workspace / "docs" / "research"
+            reports_root.mkdir(parents=True)
+            docs_root.mkdir(parents=True)
+            evidence_pack = docs_root / "project_round501_completion_evidence_2026-07-04.json"
+            evidence_pack.write_text(
+                json.dumps(
+                    {
+                        "stage": "phase_5_9_observation_sufficiency",
+                        "status": "sufficient",
+                        "decision": {"observation_sufficiency_cleared": True},
+                        "fills": {"observed_fills": 25, "required_fills": 20, "fill_deficit": 0},
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            self.assertEqual(discover_latest_observation_sufficiency_pack(reports_root), evidence_pack)
+
     def test_completion_gate_surfaces_required_asset_target_end_gap_next_action(self) -> None:
         gate = build_completion_gate(
             current_branch="main",

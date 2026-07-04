@@ -149,8 +149,6 @@ def main() -> None:
 
 def discover_latest_observation_sufficiency_pack(root: str | Path = DEFAULT_OBSERVATION_REPORTS_ROOT) -> Path | None:
     root_path = Path(root)
-    if not root_path.exists():
-        return None
     patterns = (
         "observation_sufficiency/observation_sufficiency_pack.json",
         "round*_observation_sufficiency*/observation_sufficiency_pack.json",
@@ -160,14 +158,34 @@ def discover_latest_observation_sufficiency_pack(root: str | Path = DEFAULT_OBSE
         "*/observation_sufficiency/observation_sufficiency_pack.json",
     )
     candidates_by_path: dict[Path, Path] = {}
-    for pattern in patterns:
-        for path in root_path.glob(pattern):
-            if path.is_file() and "fixture" not in path.as_posix().lower():
-                candidates_by_path[path.resolve()] = path
+    for search_root, search_patterns in _observation_discovery_roots(root_path, patterns):
+        if not search_root.exists():
+            continue
+        for pattern in search_patterns:
+            for path in search_root.glob(pattern):
+                if path.is_file() and "fixture" not in path.as_posix().lower():
+                    candidates_by_path[path.resolve()] = path
     candidates = list(candidates_by_path.values())
     if not candidates:
         return None
     return max(candidates, key=_observation_pack_rank)
+
+
+def _observation_discovery_roots(root_path: Path, report_patterns: tuple[str, ...]) -> list[tuple[Path, tuple[str, ...]]]:
+    roots = [(root_path, report_patterns)]
+    if root_path.name == "reports" and root_path.parent.name == "data":
+        workspace_root = root_path.parent.parent
+        docs_root = workspace_root / "docs" / "research"
+        roots.append(
+            (
+                docs_root,
+                (
+                    "*completion_evidence*.json",
+                    "*observation_sufficiency*.json",
+                ),
+            )
+        )
+    return roots
 
 
 def discover_latest_recent_data_refresh_pack(root: str | Path = DEFAULT_OBSERVATION_REPORTS_ROOT) -> Path | None:
