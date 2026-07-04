@@ -113,6 +113,8 @@ def _handoff_status(
     return {
         "status": handoff_status,
         "status_description": status_description,
+        "blockers": list(blockers),
+        "blocker_count": len(blockers),
         "executable_here": status == "ready",
         "required_machine": "laptop",
         "required_task": "project_sync",

@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round547 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, external-feed family-review boundary, external-feed join-smoke optimization, LPR cache repair guard, offline macro LPR repair tool, Round533 two-agent review hardening, Round534 operator runbook hardening, Round535 cloud/main branch audit, Round536 laptop integration rehearsal, Round537 latest-topic integration rehearsal, Round538 integration-plan handoff status, Round539 handoff-ready gate, Round540 clean handoff verification, Round541 handoff next command, Round542 pre-agent checkpoint briefing, Round543 two-agent checkpoint, Round544 handoff executable context, Round545 handoff here command, Round546 next-command context, and Round547 handoff recommended command | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round548 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, external-feed family-review boundary, external-feed join-smoke optimization, LPR cache repair guard, offline macro LPR repair tool, Round533 two-agent review hardening, Round534 operator runbook hardening, Round535 cloud/main branch audit, Round536 laptop integration rehearsal, Round537 latest-topic integration rehearsal, Round538 integration-plan handoff status, Round539 handoff-ready gate, Round540 clean handoff verification, Round541 handoff next command, Round542 pre-agent checkpoint briefing, Round543 two-agent checkpoint, Round544 handoff executable context, Round545 handoff here command, Round546 next-command context, Round547 handoff recommended command, and Round548 handoff blocker metadata | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -188,6 +188,8 @@ Latest same-day progress reports:
 - `docs/research/ROUND546_NEXT_STEPS_CHECKLIST.md`
 - `docs/research/project_round547_handoff_recommended_command_2026-07-05.md`
 - `docs/research/ROUND547_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round548_handoff_blocker_metadata_2026-07-05.md`
+- `docs/research/ROUND548_NEXT_STEPS_CHECKLIST.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -1587,3 +1589,21 @@ Docs:
 - `docs/research/ROUND547_NEXT_STEPS_CHECKLIST.md`
 
 Decision: callers should display `handoff.recommended_command` first only when non-null; otherwise display blockers and `handoff.recommended_command_action=resolve_blockers`.
+
+## Round548 Handoff Blocker Metadata
+
+Round548 made the handoff object self-contained for blocker display:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, `main` push, or remote branch deletion occurred.
+- `scripts\run_laptop_topic_integration_plan.py` now includes `handoff.blockers` and `handoff.blocker_count`.
+- True executable laptop/main plans report `handoff.blockers=[]` and `handoff.blocker_count=0`.
+- Clean topic handoffs report `handoff.blockers=["current_branch_must_be_main"]` and `handoff.blocker_count=1`.
+- Dirty or otherwise blocked plans report all blockers inside the handoff object and still recommend no command.
+- Test-first evidence: the three focused tests first failed with `KeyError: 'blockers'`, then the three focused tests and full laptop integration plan unit suite passed with 7 tests.
+
+Docs:
+
+- `docs/research/project_round548_handoff_blocker_metadata_2026-07-05.md`
+- `docs/research/ROUND548_NEXT_STEPS_CHECKLIST.md`
+
+Decision: handoff-only consumers should display `handoff.blockers` whenever `handoff.recommended_command` is null or `handoff.recommended_command_action=resolve_blockers`.

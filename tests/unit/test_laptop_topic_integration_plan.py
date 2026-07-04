@@ -30,6 +30,8 @@ class LaptopTopicIntegrationPlanTests(unittest.TestCase):
 
         self.assertEqual(plan["status"], "ready")
         self.assertEqual(plan["blockers"], [])
+        self.assertEqual(plan["handoff"]["blockers"], [])
+        self.assertEqual(plan["handoff"]["blocker_count"], 0)
         self.assertEqual(plan["handoff"]["status"], "ready")
         self.assertTrue(plan["handoff"]["executable_here"])
         self.assertTrue(plan["handoff"]["next_command_allowed_here"])
@@ -105,6 +107,8 @@ class LaptopTopicIntegrationPlanTests(unittest.TestCase):
                 "main_behind_origin_pull_first",
             ],
         )
+        self.assertEqual(plan["handoff"]["blockers"], plan["blockers"])
+        self.assertEqual(plan["handoff"]["blocker_count"], 5)
         self.assertIsNone(plan["handoff"]["recommended_command"])
         self.assertEqual(plan["handoff"]["recommended_command_action"], "resolve_blockers")
 
@@ -124,6 +128,8 @@ class LaptopTopicIntegrationPlanTests(unittest.TestCase):
 
         self.assertEqual(plan["status"], "blocked")
         self.assertEqual(plan["blockers"], ["current_branch_must_be_main"])
+        self.assertEqual(plan["handoff"]["blockers"], ["current_branch_must_be_main"])
+        self.assertEqual(plan["handoff"]["blocker_count"], 1)
         self.assertEqual(plan["handoff"]["status"], "ready_on_main")
         self.assertEqual(plan["handoff"]["required_machine"], "laptop")
         self.assertEqual(plan["handoff"]["required_task"], "project_sync")
