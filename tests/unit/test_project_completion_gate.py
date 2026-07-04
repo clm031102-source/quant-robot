@@ -202,6 +202,7 @@ class ProjectCompletionGateTests(unittest.TestCase):
             },
         )
         self.assertEqual(gate["next_actions"][0]["action"], "wait_for_required_asset_target_end")
+        self.assertIn("scripts/run_required_asset_target_end_check.py", gate["next_actions"][0]["command"])
         self.assertIn("CN_ETF_XSHE_160615", gate["next_actions"][0]["reason"])
         self.assertIn("2026-07-03", gate["next_actions"][0]["reason"])
         self.assertNotIn("continue_paper_observation", [row["action"] for row in gate["next_actions"]])

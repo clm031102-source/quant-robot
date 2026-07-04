@@ -306,8 +306,8 @@ def _next_actions(blockers: list[str], *, recent_data_refresh: dict[str, Any] | 
                 {
                     "action": "wait_for_required_asset_target_end",
                     "command": (
-                        "python scripts/run_observation_continuation_plan.py "
-                        f"--machine <data_pipeline_machine> --task data_pipeline --recent-data-refresh-pack {source_path}"
+                        "python scripts/run_required_asset_target_end_check.py "
+                        f"--machine <data_pipeline_machine> --task data_pipeline --recent-data-refresh-pack {source_path} --execute"
                     ),
                     "reason": (
                         f"paper observation waits for {asset_text} to cover target end "
