@@ -22,6 +22,7 @@ from quant_robot.ops.analyst_report_quota_preflight import (  # noqa: E402
     QUOTA_TARGET_DATE_MISMATCH_WARNING,
     SAFETY as QUOTA_PREFLIGHT_SAFETY,
     build_analyst_report_quota_preflight,
+    parse_quota_pack_machine_notes,
     write_analyst_report_quota_preflight,
 )
 from quant_robot.storage.dataset_store import DatasetStore  # noqa: E402
@@ -109,11 +110,21 @@ def main() -> None:
         help="Required quota-pack source machine; repeat to block cache until each machine is present.",
     )
     parser.add_argument(
+        "--quota-pack-machine-note",
+        action="append",
+        default=None,
+        help="Audit-only MACHINE=NOTE for unavailable quota packs; does not satisfy required pack evidence.",
+    )
+    parser.add_argument(
         "--quota-preflight-only",
         action="store_true",
         help="Run quota preflight and stop before cache execution; does not call Tushare.",
     )
     args = parser.parse_args()
+    try:
+        quota_pack_machine_notes = parse_quota_pack_machine_notes(args.quota_pack_machine_note)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     if args.quota_preflight_only and args.skip_quota_preflight:
         parser.error("--quota-preflight-only cannot be combined with --skip-quota-preflight")
@@ -141,6 +152,7 @@ def main() -> None:
             target_date=args.quota_target_date,
             max_daily_requests=args.quota_max_daily_requests,
             required_quota_pack_machines=args.quota_required_pack_machine,
+            quota_pack_machine_notes=quota_pack_machine_notes,
         )
         if (
             not args.quota_preflight_only

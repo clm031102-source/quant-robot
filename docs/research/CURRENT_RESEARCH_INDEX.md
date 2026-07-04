@@ -1110,3 +1110,25 @@ Docs:
 - `docs/research/ROUND525_NEXT_STEPS_CHECKLIST.md`
 
 Decision: future provider-backed April cache attempts should include required-machine constraints and must not proceed until `missing_required_quota_pack_machines=[]`, actual-date preflight exits `0`, and all provider-cache criteria in the Round525 checklist are satisfied.
+
+## Round526 Quota Machine Notes
+
+Round526 added audit-only missing-machine notes to quota preflight:
+
+- `src/quant_robot/ops/analyst_report_quota_preflight.py` now accepts `quota_pack_machine_notes`.
+- The preflight summary records `quota_pack_machine_notes` as machine/note rows.
+- The Markdown report includes a `Quota Pack Machine Notes` section and states that note context is audit-only and does not satisfy required pack evidence.
+- The standalone preflight CLI and cache CLI both expose repeated `--quota-pack-machine-note MACHINE=NOTE`.
+- Test-first evidence: the note and help tests failed first because the parameter and CLI option were missing; after implementation, focused quota-preflight and quota-pack tests passed with 28 tests.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Real cache-CLI preflight-only with required machines and notes still blocked with `daily_provider_request_budget_exhausted` and `missing_required_quota_pack_machines`.
+- Notes were recorded for `highspec_desktop` and `laptop`; missing machines remained `highspec_desktop` and `laptop`.
+- No provider-backed cache execution occurred.
+- Full laptop-integration verification passed with 101 unit tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round526_quota_machine_notes_2026-07-05.md`
+- `docs/research/ROUND526_NEXT_STEPS_CHECKLIST.md`
+
+Decision: `--quota-pack-machine-note` is audit context only. It does not satisfy required pack evidence, and provider-backed April cache remains blocked until `missing_required_quota_pack_machines=[]`, actual-date preflight exits `0`, and all provider-cache criteria in the Round526 checklist are satisfied.

@@ -15,6 +15,7 @@ ensure_workspace_imports()
 from quant_robot.ops.analyst_report_quota_preflight import (  # noqa: E402
     DEFAULT_MAX_DAILY_REQUESTS,
     build_analyst_report_quota_preflight,
+    parse_quota_pack_machine_notes,
     write_analyst_report_quota_preflight,
 )
 
@@ -29,12 +30,14 @@ def run_analyst_report_quota_preflight(
     target_date: str | None = None,
     max_daily_requests: int = DEFAULT_MAX_DAILY_REQUESTS,
     required_quota_pack_machines: list[str] | None = None,
+    quota_pack_machine_notes: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     packet = build_analyst_report_quota_preflight(
         report_roots=report_root,
         target_date=target_date,
         max_daily_requests=max_daily_requests,
         required_quota_pack_machines=required_quota_pack_machines,
+        quota_pack_machine_notes=quota_pack_machine_notes,
     )
     write_analyst_report_quota_preflight(output_dir, packet)
     return packet
@@ -66,6 +69,12 @@ def main() -> None:
         help="Required quota-pack source machine; repeat to block until each machine is present.",
     )
     parser.add_argument(
+        "--quota-pack-machine-note",
+        action="append",
+        default=None,
+        help="Audit-only MACHINE=NOTE for unavailable quota packs; does not satisfy required pack evidence.",
+    )
+    parser.add_argument(
         "--max-daily-requests",
         type=int,
         default=DEFAULT_MAX_DAILY_REQUESTS,
@@ -73,12 +82,17 @@ def main() -> None:
     )
     parser.add_argument("--fail-on-blocked", action="store_true", help="Exit 3 when the preflight decision is blocked.")
     args = parser.parse_args()
+    try:
+        quota_pack_machine_notes = parse_quota_pack_machine_notes(args.quota_pack_machine_note)
+    except ValueError as exc:
+        parser.error(str(exc))
     packet = run_analyst_report_quota_preflight(
         report_root=args.report_root or ["data/reports"],
         output_dir=args.output_dir,
         target_date=args.target_date,
         max_daily_requests=args.max_daily_requests,
         required_quota_pack_machines=args.required_quota_pack_machine,
+        quota_pack_machine_notes=quota_pack_machine_notes,
     )
     print(
         json.dumps(

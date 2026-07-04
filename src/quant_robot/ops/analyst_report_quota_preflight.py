@@ -24,6 +24,7 @@ def build_analyst_report_quota_preflight(
     target_date: str | None = None,
     max_daily_requests: int = DEFAULT_MAX_DAILY_REQUESTS,
     required_quota_pack_machines: Iterable[str] | None = None,
+    quota_pack_machine_notes: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     generated_at = date.today().isoformat()
     target = target_date or generated_at
@@ -37,6 +38,7 @@ def build_analyst_report_quota_preflight(
     required_machines = _unique_nonempty(required_quota_pack_machines or [])
     present_machines = _present_quota_pack_machines(quota_pack_provenance)
     missing_required_machines = [machine for machine in required_machines if machine not in set(present_machines)]
+    machine_notes = _quota_pack_machine_note_rows(quota_pack_machine_notes or {})
     scan = _scan_cache_reports(report_roots=report_root_paths, target_date=target)
     rows = scan["rows"]
     counted = [row for row in rows if row["counts_against_quota"]]
@@ -70,6 +72,7 @@ def build_analyst_report_quota_preflight(
             "required_quota_pack_machines": required_machines,
             "present_quota_pack_machines": present_machines,
             "missing_required_quota_pack_machines": missing_required_machines,
+            "quota_pack_machine_notes": machine_notes,
             "same_day_window_rows": len(rows),
             "duplicate_evidence_rows": scan["duplicate_evidence_rows"],
             "counted_provider_request_windows": len(counted),
@@ -173,8 +176,19 @@ def render_analyst_report_quota_preflight_markdown(packet: dict[str, Any]) -> st
             f"- Required: {', '.join(_list(summary.get('required_quota_pack_machines'))) or 'none'}",
             f"- Present: {', '.join(_list(summary.get('present_quota_pack_machines'))) or 'none'}",
             f"- Missing: {', '.join(_list(summary.get('missing_required_quota_pack_machines'))) or 'none'}",
+            "",
+            "## Quota Pack Machine Notes",
+            "",
+            "This note context is audit-only and does not satisfy required pack evidence.",
         ]
     )
+    machine_notes = _list_of_dicts(summary.get("quota_pack_machine_notes"))
+    if machine_notes:
+        lines.extend(["", "| Machine | Note |", "|---|---|"])
+        for item in machine_notes:
+            lines.append(f"| {item.get('machine', '')} | {item.get('note', '')} |")
+    else:
+        lines.append("- none")
     lines.extend(
         [
             "",
@@ -307,6 +321,29 @@ def _quota_pack_provenance(report_roots: Iterable[Path]) -> list[dict[str, Any]]
 
 def _present_quota_pack_machines(quota_pack_provenance: Iterable[dict[str, Any]]) -> list[str]:
     return _unique_nonempty(str(item.get("machine", "")) for item in quota_pack_provenance)
+
+
+def parse_quota_pack_machine_notes(values: Iterable[str] | None) -> dict[str, str]:
+    notes: dict[str, str] = {}
+    for value in values or []:
+        machine, separator, note = str(value).partition("=")
+        cleaned_machine = machine.strip()
+        cleaned_note = note.strip()
+        if not separator or not cleaned_machine or not cleaned_note:
+            raise ValueError("--quota-pack-machine-note expects MACHINE=NOTE")
+        notes[cleaned_machine] = cleaned_note
+    return notes
+
+
+def _quota_pack_machine_note_rows(notes: dict[str, str]) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for machine, note in notes.items():
+        cleaned_machine = str(machine).strip()
+        cleaned_note = str(note).strip()
+        if not cleaned_machine or not cleaned_note:
+            continue
+        rows.append({"machine": cleaned_machine, "note": cleaned_note})
+    return rows
 
 
 def _unique_nonempty(values: Iterable[str]) -> list[str]:
