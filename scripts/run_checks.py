@@ -136,6 +136,13 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
                 [python_executable, "scripts/sync_project.py", "--machine", "laptop", "--task", "project_sync"],
             ),
         ]
+    if profile == "pre-alpha":
+        return [
+            CheckStep(
+                "project_completion_gate",
+                [python_executable, "scripts/run_project_completion_gate.py", "--require-complete"],
+            )
+        ]
     if profile == "desktop-validation":
         selected = set(DESKTOP_VALIDATION_CHECK_NAMES)
         return [
@@ -213,14 +220,16 @@ def execute_check_plan(plan: list[CheckStep], env: dict[str, str] | None = None)
     child_env = build_child_env(env)
     for step in plan:
         print(f"==> {step.name}", flush=True)
-        subprocess.run(step.command, check=True, cwd=PROJECT_ROOT, env=child_env)
+        result = subprocess.run(step.command, check=False, cwd=PROJECT_ROOT, env=child_env)
+        if result.returncode != 0:
+            raise SystemExit(result.returncode)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run local Quant Robot checks.")
     parser.add_argument(
         "--profile",
-        choices=["full", "laptop", "laptop-integration", "desktop-validation"],
+        choices=["full", "laptop", "laptop-integration", "desktop-validation", "pre-alpha"],
         default="full",
         help="Select the check plan size.",
     )

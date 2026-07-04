@@ -1,4 +1,5 @@
 import os
+import subprocess
 import unittest
 from unittest.mock import patch
 
@@ -192,6 +193,16 @@ class CheckPlanTests(unittest.TestCase):
             ["python", "scripts/sync_project.py", "--machine", "laptop", "--task", "project_sync"],
         )
 
+    def test_pre_alpha_profile_runs_completion_gate_before_factor_mining(self):
+        plan = build_check_plan("python", profile="pre-alpha")
+
+        self.assertEqual([step.name for step in plan], ["project_completion_gate"])
+        self.assertTrue(all(not step.uses_network for step in plan))
+        self.assertEqual(
+            plan[0].command,
+            ["python", "scripts/run_project_completion_gate.py", "--require-complete"],
+        )
+
     def test_desktop_validation_profile_runs_safety_checks_then_residual_regime_validation(self):
         plan = build_check_plan("python", profile="desktop-validation")
 
@@ -274,14 +285,26 @@ class CheckPlanTests(unittest.TestCase):
         step = run_checks.CheckStep("demo", ["python", "-c", "pass"])
 
         with patch("scripts.run_checks.subprocess.run") as mocked_run:
+            mocked_run.return_value = subprocess.CompletedProcess(step.command, 0)
             run_checks.execute_check_plan([step], env={"PYTHONPATH": "legacy_path"})
 
         mocked_run.assert_called_once()
         _, kwargs = mocked_run.call_args
         self.assertEqual(kwargs["cwd"], run_checks.PROJECT_ROOT)
-        self.assertTrue(kwargs["check"])
+        self.assertFalse(kwargs["check"])
         paths = kwargs["env"]["PYTHONPATH"].split(os.pathsep)
         self.assertEqual(paths[:2], [str(run_checks.SRC_ROOT), str(run_checks.PROJECT_ROOT)])
+
+    def test_execute_check_plan_propagates_failed_child_exit_code(self):
+        step = run_checks.CheckStep("demo", ["python", "-c", "raise SystemExit(7)"])
+
+        with patch("scripts.run_checks.subprocess.run") as mocked_run:
+            mocked_run.return_value = subprocess.CompletedProcess(step.command, 7)
+
+            with self.assertRaises(SystemExit) as raised:
+                run_checks.execute_check_plan([step])
+
+        self.assertEqual(raised.exception.code, 7)
 
 
 if __name__ == "__main__":

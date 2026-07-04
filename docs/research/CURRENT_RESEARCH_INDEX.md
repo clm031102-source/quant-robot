@@ -9,7 +9,7 @@ Purpose: this is the first file to read after syncing the repository on any work
 - Stable branch: `main`
 - Remote HEAD: `origin/main`
 - Current remote topic branches: `codex/factor-batch-cn-stock-benchmark-relative-20260704`; `codex/factor-batch-cn-stock-execution-aware-round465-20260704` after this task branch is pushed
-- Remote branch cleanup status: complete
+- Remote branch cleanup status: pending for the two active topic branches
 - Latest integrated cloud commit: `759c3cc3`
 - Live-trading boundary: disabled; research-to-paper only
 - Latest cloud audit report: `docs/research/cloud_project_audit_2026-06-27.md`
@@ -29,7 +29,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 | Branch | Role | Status |
 | --- | --- | --- |
 | `codex/factor-batch-cn-stock-benchmark-relative-20260704` | Round464 benchmark-relative residual moneyflow pre-registration, walk-forward framework fixes, and rejection evidence | active review branch |
-| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, Round471 financial/PIT source-gate refresh, Round472 paper replay refresh, Round473 expanded-observation data-quality block evidence, Round474 office-desktop completion handoff, Round475 fund-basic rotation-membership repair, Round476 live fund-basic membership guard, Round477 validated-ETF observation sufficiency evidence, Round478 latest validated-ETF observation update, Round479 laptop integration preflight, Round480 laptop integration profile plus latest target check, Round481 isolated laptop merge rehearsal, Round482 completion gate before profit mining, Round483 require-complete gate mode, and Round484 latest observation-pack discovery | active review branch |
+| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, Round471 financial/PIT source-gate refresh, Round472 paper replay refresh, Round473 expanded-observation data-quality block evidence, Round474 office-desktop completion handoff, Round475 fund-basic rotation-membership repair, Round476 live fund-basic membership guard, Round477 validated-ETF observation sufficiency evidence, Round478 latest validated-ETF observation update, Round479 laptop integration preflight, Round480 laptop integration profile plus latest target check, Round481 isolated laptop merge rehearsal, Round482 completion gate before profit mining, Round483 require-complete gate mode, Round484 latest observation-pack discovery, and Round485 pre-alpha completion check profile | active review branch |
 
 These branches are not promotion branches. They record a completed rejection set, framework fixes, and paper-lane risk-repair evidence that should be reviewed before integration.
 
@@ -112,6 +112,7 @@ Latest same-day progress reports:
 - `docs/research/project_round482_completion_gate_before_profit_mining_2026-07-04.md`
 - `docs/research/project_round483_completion_gate_require_complete_2026-07-04.md`
 - `docs/research/project_round484_completion_gate_latest_pack_discovery_2026-07-04.md`
+- `docs/research/project_round485_pre_alpha_completion_check_profile_2026-07-04.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -168,7 +169,7 @@ Decision: do not burn more same-day `report_rc` retries. Resume February 2024 af
 Cloud branch integration handoff:
 
 - `origin/codex/factor-batch-cn-stock-benchmark-relative-20260704` is 1 commit ahead of `origin/main`.
-- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 22 commits ahead of `origin/main` after Round484 is pushed.
+- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 23 commits ahead of `origin/main` after Round485 is pushed.
 - The Round464 branch is an ancestor of the Round465/467 branch, so laptop integration may merge Round464 first and then Round465/467 for review clarity, or merge Round465/467 once to absorb both.
 - Do not delete either topic branch until laptop safe-sync marks it as merged or manifest-absorbed.
 
@@ -391,6 +392,22 @@ Decision: future completion checks can use:
 ```
 
 and the gate will use the latest non-fixture sufficiency evidence it can find.
+
+Round485 added a `pre-alpha` completion check profile for automated mining safety:
+
+- `scripts/run_checks.py --profile pre-alpha` now emits a single local `project_completion_gate` step.
+- The step runs `scripts/run_project_completion_gate.py --require-complete`.
+- `execute_check_plan` now preserves failed child exit codes, so the pre-alpha profile exits 2 when the completion gate blocks mining.
+- Current blocked execution still reports `factor_mining_allowed=false`, selected Round478 sufficiency evidence, 5 / 20 fills, and a 15-fill deficit.
+- During the uncommitted Round485 edit, `working_tree_dirty` appears as a transient blocker; after commit, the durable blockers remain `not_on_stable_branch`, `remote_topic_branches_remaining`, and `observation_sufficiency_not_cleared`.
+
+Decision: run the pre-alpha profile before any future `alpha-mine` or profit-factor mining automation:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_checks.py --profile pre-alpha --execute
+```
+
+Mining remains blocked until that profile exits 0 and the completion gate reports `factor_mining_allowed=true`, `status=complete`, and `blockers=[]`.
 
 ## Current CN ETF Framework
 
