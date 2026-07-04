@@ -218,9 +218,32 @@ def _write_recent_cn_etf_rotation_membership(
     if has_fund_basic:
         summary["fund_basic_rows"] = int(len(fund_basic))
         summary["excluded_rows"] = int(len(membership) - len(members))
+        summary["excluded_assets"] = _excluded_rotation_assets(membership)
     else:
         summary["validation_warning"] = f"{source_name}_fund_basic_not_applied"
     return summary
+
+
+def _excluded_rotation_assets(membership: pd.DataFrame) -> list[dict[str, Any]]:
+    if membership.empty or "exclusion_reasons" not in membership.columns:
+        return []
+    excluded = membership[~membership["is_rotation_member"].astype(bool)].copy()
+    excluded["exclusion_reasons"] = excluded["exclusion_reasons"].fillna("").astype(str)
+    excluded = excluded[excluded["exclusion_reasons"].str.strip().ne("")]
+    if excluded.empty:
+        return []
+    latest = excluded.sort_values(["asset_id", "date"]).groupby("asset_id", as_index=False).tail(1)
+    rows = []
+    for row in latest.sort_values("asset_id").to_dict("records"):
+        rows.append(
+            {
+                "asset_id": row.get("asset_id"),
+                "symbol": row.get("symbol"),
+                "last_date": str(row.get("date"))[:10],
+                "exclusion_reasons": row.get("exclusion_reasons"),
+            }
+        )
+    return rows
 
 
 def _load_recent_fund_basic(source_name: str, loader: Callable[[], pd.DataFrame] | None) -> pd.DataFrame | None:

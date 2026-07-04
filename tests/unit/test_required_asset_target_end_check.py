@@ -18,6 +18,16 @@ class FakeTargetEndAdapter:
         return self.frame.copy()
 
 
+class FakeTargetEndFundBasicAdapter(FakeTargetEndAdapter):
+    def __init__(self, frame: pd.DataFrame, fund_basic: pd.DataFrame) -> None:
+        super().__init__(frame)
+        self.fund_basic = fund_basic
+
+    def fetch_fund_basic(self, market: str = "E", status: str = "L") -> pd.DataFrame:
+        self.fund_basic_request = {"market": market, "status": status}
+        return self.fund_basic.copy()
+
+
 class RequiredAssetTargetEndCheckTests(unittest.TestCase):
     def test_asset_id_to_tushare_symbol_maps_cn_etf_exchange_suffix(self) -> None:
         self.assertEqual(asset_id_to_tushare_symbol("CN_ETF_XSHE_160615"), "160615.SZ")
@@ -43,6 +53,37 @@ class RequiredAssetTargetEndCheckTests(unittest.TestCase):
         self.assertEqual(pack["provider_checks"][0]["symbol"], "160615.SZ")
         self.assertEqual(pack["provider_checks"][0]["target_rows"], 0)
         self.assertEqual(pack["next_actions"][0]["action"], "recheck_required_asset_target_end")
+
+    def test_execute_reports_non_etf_required_asset_when_fund_basic_excludes_it(self) -> None:
+        adapter = FakeTargetEndFundBasicAdapter(
+            pd.DataFrame({"symbol": ["510300.SH", "159915.SZ"]}),
+            pd.DataFrame(
+                {
+                    "symbol": ["160615.SZ"],
+                    "name": ["CSI 300 ETF Link (LOF) A"],
+                    "status": ["L"],
+                    "market": ["E"],
+                    "is_exchange_traded": [True],
+                    "is_etf": [False],
+                }
+            ),
+        )
+
+        pack = build_required_asset_target_end_check(
+            recent_data_refresh_pack=_target_gap_pack(),
+            recent_data_refresh_pack_path="data/reports/round491/recent_data_refresh_pack.json",
+            machine="office_desktop",
+            task="data_pipeline",
+            current_branch="codex/factor-batch-current",
+            python_executable="python",
+            execute=True,
+            adapter=adapter,
+        )
+
+        self.assertEqual(pack["status"], "target_end_asset_not_current_etf")
+        self.assertEqual(adapter.fund_basic_request, {"market": "E", "status": ""})
+        self.assertFalse(pack["provider_checks"][0]["fund_basic_is_etf"])
+        self.assertEqual(pack["next_actions"][0]["action"], "rerun_observation_after_universe_filter")
 
     def test_execute_reports_available_and_emits_refresh_command_when_provider_has_required_asset(self) -> None:
         adapter = FakeTargetEndAdapter(pd.DataFrame({"symbol": ["160615.SZ", "510300.SH"]}))

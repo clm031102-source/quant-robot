@@ -48,10 +48,15 @@ def build_completion_gate(
         blockers.append("observation_sufficiency_not_cleared")
 
     factor_mining_allowed = not blockers
+    progress_estimate_percent = _progress_estimate_percent(
+        factor_mining_allowed=factor_mining_allowed,
+        observation=observation,
+        recent_data_refresh=recent_data_refresh,
+    )
     return {
         "stage": "project_completion_gate",
         "status": "complete" if factor_mining_allowed else "blocked",
-        "progress_estimate_percent": 100 if factor_mining_allowed else 98,
+        "progress_estimate_percent": progress_estimate_percent,
         "factor_mining_allowed": factor_mining_allowed,
         "blockers": blockers,
         "git": {
@@ -72,6 +77,19 @@ def build_completion_gate(
             "order_placement_allowed": False,
         },
     }
+
+
+def _progress_estimate_percent(
+    *,
+    factor_mining_allowed: bool,
+    observation: dict[str, Any],
+    recent_data_refresh: dict[str, Any],
+) -> int:
+    if factor_mining_allowed:
+        return 100
+    if observation.get("sufficiency_cleared") and not recent_data_refresh.get("target_end_gap"):
+        return 99
+    return 98
 
 
 def completion_gate_exit_code(gate: dict[str, Any], *, require_complete: bool) -> int:
@@ -181,7 +199,7 @@ def _observation_pack_rank(path: Path) -> tuple[int, int, int, float]:
     sufficient = bool(decision.get("observation_sufficiency_cleared")) or (isinstance(pack, dict) and pack.get("status") == "sufficient")
     provenance = _observation_pack_provenance_score(path)
     observed = _int(fills.get("observed_fills"), 0)
-    return (provenance, 1 if sufficient else 0, observed, path.stat().st_mtime)
+    return (1 if sufficient else 0, provenance, observed, path.stat().st_mtime)
 
 
 def _observation_pack_provenance_score(path: Path) -> int:

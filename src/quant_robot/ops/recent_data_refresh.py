@@ -11,6 +11,7 @@ import pandas as pd
 
 STAGE = "phase_5_7_tushare_recent_data_refresh"
 DEFAULT_OUTPUT_DIR = Path("data/processed/tushare_etf_recent")
+STRUCTURAL_ROTATION_EXCLUSION_REASONS = {"not_etf", "not_exchange_traded", "not_listed_on_date"}
 
 
 def build_recent_data_refresh_pack(
@@ -234,23 +235,28 @@ def _coverage_from_ingest(
     effective_start = _effective_start(target_start, expected_trade_dates)
     effective_end = _effective_end(target_end, expected_trade_dates)
     required_asset_ids = _required_asset_ids(profile_observation_pack)
+    required_asset_filter = _filter_required_assets_by_rotation_membership(required_asset_ids, ingest_result)
+    active_required_asset_ids = required_asset_filter["active_required_asset_ids"]
     asset_rows = _asset_coverage_rows(report)
-    if required_asset_ids and asset_rows:
+    if active_required_asset_ids and asset_rows:
         return _with_rotation_membership_coverage(
-            _required_assets_coverage(
-                required_asset_ids,
-                asset_rows,
-                processed_rows=processed_rows,
-                earliest_date=earliest_date,
-                latest_date=latest_date,
-                target_start=target_start,
-                target_end=target_end,
-                effective_start=effective_start,
-                effective_end=effective_end,
-                expected_trade_dates=expected_trade_dates,
-                provider_missing_date_rows=missing_date_rows,
-                duplicate_bars=duplicate_bars,
-                zero_volume_rows=zero_volume_rows,
+            _with_ignored_required_assets(
+                _required_assets_coverage(
+                    active_required_asset_ids,
+                    asset_rows,
+                    processed_rows=processed_rows,
+                    earliest_date=earliest_date,
+                    latest_date=latest_date,
+                    target_start=target_start,
+                    target_end=target_end,
+                    effective_start=effective_start,
+                    effective_end=effective_end,
+                    expected_trade_dates=expected_trade_dates,
+                    provider_missing_date_rows=missing_date_rows,
+                    duplicate_bars=duplicate_bars,
+                    zero_volume_rows=zero_volume_rows,
+                ),
+                required_asset_filter,
             ),
             ingest_result,
         )
@@ -273,7 +279,8 @@ def _coverage_from_ingest(
         and zero_volume_rows == 0
     )
     return _with_rotation_membership_coverage(
-        {
+        _with_ignored_required_assets(
+            {
             "coverage_status": "pass" if clean_pass else "pass_with_warnings" if warning_pass else "fail",
             "coverage_scope": "provider_universe",
             "processed_rows": processed_rows,
@@ -290,7 +297,9 @@ def _coverage_from_ingest(
             "provider_missing_date_rows": missing_date_rows,
             "duplicate_bars": duplicate_bars,
             "zero_volume_rows": zero_volume_rows,
-        },
+            },
+            required_asset_filter,
+        ),
         ingest_result,
     )
 
@@ -312,6 +321,69 @@ def _with_rotation_membership_coverage(coverage: dict[str, Any], ingest_result: 
     updated["rotation_membership_blocker"] = "rotation_membership_fund_basic_missing"
     updated["rotation_membership_reason"] = reason
     return updated
+
+
+def _filter_required_assets_by_rotation_membership(
+    required_asset_ids: list[str],
+    ingest_result: dict[str, Any],
+) -> dict[str, Any]:
+    excluded_assets = _rotation_excluded_assets_by_id(ingest_result)
+    active: list[str] = []
+    ignored: list[dict[str, Any]] = []
+    for asset_id in required_asset_ids:
+        excluded = excluded_assets.get(asset_id)
+        reasons = _split_reasons(excluded.get("exclusion_reasons") if excluded else None)
+        if excluded and reasons.intersection(STRUCTURAL_ROTATION_EXCLUSION_REASONS):
+            ignored.append(
+                {
+                    "asset_id": asset_id,
+                    "symbol": excluded.get("symbol"),
+                    "exclusion_reasons": sorted(reasons),
+                }
+            )
+        else:
+            active.append(asset_id)
+    return {
+        "original_required_asset_ids": required_asset_ids,
+        "active_required_asset_ids": active,
+        "ignored_required_assets": ignored,
+    }
+
+
+def _with_ignored_required_assets(coverage: dict[str, Any], required_asset_filter: dict[str, Any]) -> dict[str, Any]:
+    ignored = required_asset_filter.get("ignored_required_assets", [])
+    if not ignored:
+        return coverage
+    updated = dict(coverage)
+    updated["original_required_asset_ids"] = required_asset_filter.get("original_required_asset_ids", [])
+    updated["ignored_required_assets"] = ignored
+    updated["ignored_required_asset_ids"] = [str(row.get("asset_id")) for row in ignored if isinstance(row, dict)]
+    if updated.get("coverage_status") == "pass":
+        updated["coverage_status"] = "pass_with_warnings"
+    return updated
+
+
+def _rotation_excluded_assets_by_id(ingest_result: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    rotation = ingest_result.get("rotation_membership", {})
+    if not isinstance(rotation, dict):
+        return {}
+    rows = rotation.get("excluded_assets", [])
+    if not isinstance(rows, list):
+        return {}
+    by_id: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        asset_id = str(row.get("asset_id") or "").strip()
+        if asset_id:
+            by_id[asset_id] = row
+    return by_id
+
+
+def _split_reasons(value: Any) -> set[str]:
+    if isinstance(value, list):
+        return {str(item).strip() for item in value if str(item).strip()}
+    return {item.strip() for item in str(value or "").replace(",", ";").split(";") if item.strip()}
 
 
 def _required_assets_coverage(
@@ -560,6 +632,8 @@ def _decision_warnings(status: str, coverage: dict[str, Any]) -> list[str]:
     warnings: list[str] = []
     if status == "completed_with_warnings" and _int(coverage.get("provider_missing_date_rows"), 0) > 0:
         warnings.append("provider_missing_date_rows")
+    if status == "completed_with_warnings" and coverage.get("ignored_required_assets"):
+        warnings.append("required_assets_filtered_by_rotation_membership")
     return warnings
 
 

@@ -71,6 +71,24 @@ class ProjectCompletionGateTests(unittest.TestCase):
         self.assertEqual(gate["blockers"], [])
         self.assertEqual(gate["next_actions"][0]["action"], "start_profit_factor_mining")
 
+    def test_progress_reaches_99_when_only_mainline_git_integration_remains(self) -> None:
+        gate = build_completion_gate(
+            current_branch="codex/factor-batch-current",
+            stable_branch="main",
+            changed_paths=[],
+            remote_topic_branches=[{"name": "origin/codex/factor-batch-current", "commit": "abc123"}],
+            branch_discovery_errors=[],
+            observation_pack={
+                "status": "sufficient",
+                "decision": {"observation_sufficiency_cleared": True},
+                "fills": {"observed_fills": 25, "required_fills": 20, "fill_deficit": 0},
+            },
+            recent_data_refresh_pack={"status": "completed", "coverage": {"target_end_covered": True}},
+        )
+
+        self.assertEqual(gate["progress_estimate_percent"], 99)
+        self.assertEqual(gate["blockers"], ["not_on_stable_branch", "remote_topic_branches_remaining"])
+
     def test_require_complete_exit_code_blocks_automation_until_gate_clears(self) -> None:
         blocked_gate = {"factor_mining_allowed": False}
         complete_gate = {"factor_mining_allowed": True}
@@ -158,6 +176,34 @@ class ProjectCompletionGateTests(unittest.TestCase):
                 os.utime(pack, (timestamp, timestamp))
 
             self.assertEqual(discover_latest_observation_sufficiency_pack(root), validated_pack)
+
+    def test_discovery_prefers_sufficient_pack_over_validated_incomplete_pack(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            validated_incomplete = (
+                root
+                / "round478_observation_sufficiency_validated_latest"
+                / "observation_sufficiency_pack.json"
+            )
+            sufficient_pack = root / "round501_observation_sufficiency" / "observation_sufficiency_pack.json"
+            for pack, status, cleared, observed_fills, timestamp in [
+                (validated_incomplete, "needs_more_observation_data", False, 5, 200.0),
+                (sufficient_pack, "sufficient", True, 25, 100.0),
+            ]:
+                pack.parent.mkdir(parents=True, exist_ok=True)
+                pack.write_text(
+                    json.dumps(
+                        {
+                            "status": status,
+                            "decision": {"observation_sufficiency_cleared": cleared},
+                            "fills": {"observed_fills": observed_fills, "required_fills": 20},
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                os.utime(pack, (timestamp, timestamp))
+
+            self.assertEqual(discover_latest_observation_sufficiency_pack(root), sufficient_pack)
 
     def test_completion_gate_surfaces_required_asset_target_end_gap_next_action(self) -> None:
         gate = build_completion_gate(

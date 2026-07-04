@@ -66,6 +66,8 @@ def build_required_asset_target_end_check(
         status = "ready_to_check"
     elif all(row["target_rows"] > 0 for row in provider_checks):
         status = "target_end_available"
+    elif _has_non_current_etf_gap(provider_checks):
+        status = "target_end_asset_not_current_etf"
     else:
         status = "target_end_missing"
 
@@ -191,16 +193,81 @@ def _provider_checks(adapter: Any, *, target_end_gap: dict[str, Any]) -> list[di
     if not isinstance(frame, pd.DataFrame):
         frame = pd.DataFrame()
     symbols = frame["symbol"].astype(str) if "symbol" in frame.columns else pd.Series([], dtype=str)
+    fund_basic_by_symbol = _fund_basic_by_symbol(adapter)
     return [
-        {
-            "asset_id": asset_id,
-            "symbol": asset_id_to_tushare_symbol(asset_id),
-            "target_end_date": target_end,
-            "fund_daily_rows": int(len(frame)),
-            "target_rows": int(symbols.eq(asset_id_to_tushare_symbol(asset_id)).sum()),
-        }
+        _with_fund_basic_metadata(
+            {
+                "asset_id": asset_id,
+                "symbol": asset_id_to_tushare_symbol(asset_id),
+                "target_end_date": target_end,
+                "fund_daily_rows": int(len(frame)),
+                "target_rows": int(symbols.eq(asset_id_to_tushare_symbol(asset_id)).sum()),
+            },
+            fund_basic_by_symbol.get(asset_id_to_tushare_symbol(asset_id).upper(), {}),
+        )
         for asset_id in required_assets
     ]
+
+
+def _with_fund_basic_metadata(check: dict[str, Any], fund: dict[str, Any]) -> dict[str, Any]:
+    if not fund:
+        return {**check, "fund_basic_present": False}
+    return {
+        **check,
+        "fund_basic_present": True,
+        "fund_basic_name": fund.get("name"),
+        "fund_basic_status": fund.get("status"),
+        "fund_basic_market": fund.get("market"),
+        "fund_basic_fund_type": fund.get("fund_type"),
+        "fund_basic_type": fund.get("type"),
+        "fund_basic_invest_type": fund.get("invest_type"),
+        "fund_basic_is_exchange_traded": _optional_bool(fund.get("is_exchange_traded")),
+        "fund_basic_is_etf": _optional_bool(fund.get("is_etf")),
+    }
+
+
+def _fund_basic_by_symbol(adapter: Any) -> dict[str, dict[str, Any]]:
+    fetch = getattr(adapter, "fetch_fund_basic", None)
+    if fetch is None:
+        return {}
+    try:
+        frame = fetch(market="E", status="")
+    except Exception:
+        return {}
+    if not isinstance(frame, pd.DataFrame) or "symbol" not in frame.columns:
+        return {}
+    rows: dict[str, dict[str, Any]] = {}
+    for row in frame.to_dict("records"):
+        symbol = str(row.get("symbol") or "").upper()
+        if symbol:
+            rows[symbol] = row
+    return rows
+
+
+def _has_non_current_etf_gap(provider_checks: list[dict[str, Any]]) -> bool:
+    for row in provider_checks:
+        if int(row.get("target_rows", 0)) > 0:
+            continue
+        if row.get("fund_basic_present") is not True:
+            continue
+        if row.get("fund_basic_is_etf") is False or row.get("fund_basic_is_exchange_traded") is False:
+            return True
+        if str(row.get("fund_basic_status") or "").upper() not in {"", "L"}:
+            return True
+    return False
+
+
+def _optional_bool(value: Any) -> bool | None:
+    if value is None or pd.isna(value):
+        return None
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in {"true", "1", "yes"}:
+        return True
+    if text in {"false", "0", "no"}:
+        return False
+    return None
 
 
 def _next_actions(
@@ -248,6 +315,14 @@ def _next_actions(
                 "action": "provide_profile_observation_pack",
                 "command": "python scripts/run_required_asset_target_end_check.py --profile-observation-pack <path>",
                 "reason": "target end is available, but a profile observation pack is required to emit the refresh command",
+            }
+        ]
+    if status == "target_end_asset_not_current_etf":
+        return [
+            {
+                "action": "rerun_observation_after_universe_filter",
+                "command": "python scripts/run_post_refresh_replay.py",
+                "reason": "required asset is no longer classified as a current ETF; rerun the signal/profile observation chain with the corrected ETF universe filter",
             }
         ]
     return [
