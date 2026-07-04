@@ -210,6 +210,45 @@ class AnalystReportQuotaPackTests(unittest.TestCase):
         self.assertEqual(second_export.returncode, 0)
         self.assertEqual(manifest["summary"]["exported_report_count"], 1)
 
+    def test_exports_pack_provenance_for_cross_machine_review(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source_root = root / "source_reports"
+            output_dir = root / "quota_pack"
+            _write_cache(source_root / "round_a", generated_at="2026-07-05", status="ok")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/export_analyst_report_quota_pack.py",
+                    "--report-root",
+                    str(source_root),
+                    "--output-dir",
+                    str(output_dir),
+                    "--machine",
+                    "office_desktop",
+                    "--task",
+                    "factor_batch",
+                    "--branch",
+                    "codex/factor-batch-cn-stock-profit-mining-20260704",
+                ],
+                cwd=Path(__file__).resolve().parents[2],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            manifest = json.loads((output_dir / "analyst_report_quota_pack_manifest.json").read_text(encoding="utf-8"))
+            markdown = (output_dir / "analyst_report_quota_pack_manifest.md").read_text(encoding="utf-8")
+            stdout = json.loads(result.stdout)
+
+        self.assertEqual(manifest["provenance"]["machine"], "office_desktop")
+        self.assertEqual(manifest["provenance"]["task"], "factor_batch")
+        self.assertEqual(manifest["provenance"]["branch"], "codex/factor-batch-cn-stock-profit-mining-20260704")
+        self.assertEqual(stdout["provenance"]["machine"], "office_desktop")
+        self.assertIn("office_desktop", markdown)
+
 
 def _write_cache(root: Path, *, generated_at: str, status: str) -> None:
     root.mkdir(parents=True, exist_ok=True)

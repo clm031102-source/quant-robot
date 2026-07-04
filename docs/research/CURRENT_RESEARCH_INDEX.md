@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round520 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, and duplicate-evidence audit details | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round521 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, and quota-pack provenance metadata | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -134,6 +134,8 @@ Latest same-day progress reports:
 - `docs/research/ROUND519_NEXT_STEPS_CHECKLIST.md`
 - `docs/research/cn_stock_round520_quota_duplicate_details_2026-07-05.md`
 - `docs/research/ROUND520_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round521_quota_pack_provenance_2026-07-05.md`
+- `docs/research/ROUND521_NEXT_STEPS_CHECKLIST.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -1001,3 +1003,25 @@ Docs:
 - `docs/research/ROUND520_NEXT_STEPS_CHECKLIST.md`
 
 Decision: quota-pack deduplication is now visible enough for cross-machine review. Normal provider-backed analyst-report cache remains blocked on 2026-07-05 and must wait for an actual-date preflight exit `0`.
+
+## Round521 Quota Pack Provenance
+
+Round521 made quota packs self-describing for cross-machine review:
+
+- `scripts/export_analyst_report_quota_pack.py` now accepts `--machine`, `--task`, and `--branch`.
+- The pack manifest records `provenance.machine`, `provenance.task`, and `provenance.branch`.
+- The Markdown manifest prints machine, task, and branch.
+- The terminal JSON includes the same provenance object.
+- Existing calls without these options still work and write empty provenance fields.
+- Test-first evidence: the provenance test failed first because the exporter rejected `--machine`, `--task`, and `--branch`; after implementation, quota-pack and quota-preflight focused tests passed.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Real provenance-aware pack export wrote `data\reports\round521_analyst_quota_pack_provenance_20260705` with `exported_report_count=8`, machine `office_desktop`, task `factor_batch`, and branch `codex/factor-batch-cn-stock-profit-mining-20260704`.
+- Actual-date cache-CLI preflight-only for April 2024 still blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, had 0 duplicate evidence rows, and returned exit code `3`.
+- Full laptop integration verification passed with 95 tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round521_quota_pack_provenance_2026-07-05.md`
+- `docs/research/ROUND521_NEXT_STEPS_CHECKLIST.md`
+
+Decision: future cross-machine pack exports should include machine, task, and branch provenance. Normal provider-backed analyst-report cache remains blocked on 2026-07-05 and must wait for an actual-date preflight exit `0`.

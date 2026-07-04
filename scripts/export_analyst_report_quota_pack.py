@@ -25,6 +25,9 @@ def export_analyst_report_quota_pack(
     *,
     report_roots: list[str | Path],
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
+    machine: str = "",
+    task: str = "",
+    branch: str = "",
 ) -> dict[str, Any]:
     output_path = Path(output_dir)
     reports_path = output_path / "quota_report_roots"
@@ -60,6 +63,11 @@ def export_analyst_report_quota_pack(
         "stage": "analyst_report_quota_pack",
         "generated_at": date.today().isoformat(),
         "quota_pack_root": str(output_path),
+        "provenance": {
+            "machine": str(machine).strip(),
+            "task": str(task).strip(),
+            "branch": str(branch).strip(),
+        },
         "summary": {
             "report_root_count": len(report_roots),
             "exported_report_count": len(exported),
@@ -141,6 +149,9 @@ def _render_markdown(manifest: dict[str, Any]) -> str:
         f"- Stage: {manifest.get('stage', '')}",
         f"- Generated at: {manifest.get('generated_at', '')}",
         f"- Quota pack root: {manifest.get('quota_pack_root', '')}",
+        f"- Machine: {_dict(manifest.get('provenance')).get('machine', '')}",
+        f"- Task: {_dict(manifest.get('provenance')).get('task', '')}",
+        f"- Branch: {_dict(manifest.get('provenance')).get('branch', '')}",
         f"- Exported reports: {summary_dict.get('exported_report_count', 0)}",
         f"- Skipped reports: {summary_dict.get('skipped_report_count', 0)}",
         f"- Safety: {manifest.get('safety', SAFETY)}",
@@ -165,11 +176,17 @@ def main() -> None:
     )
     parser.add_argument("--report-root", action="append", default=None, help="Local report root to scan; repeatable.")
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR), help="Portable quota pack output directory.")
+    parser.add_argument("--machine", default="", help="Source workstation name for cross-machine review.")
+    parser.add_argument("--task", default="", help="Source task type for cross-machine review.")
+    parser.add_argument("--branch", default="", help="Source git branch for cross-machine review.")
     args = parser.parse_args()
 
     manifest = export_analyst_report_quota_pack(
         report_roots=args.report_root or ["data/reports"],
         output_dir=args.output_dir,
+        machine=args.machine,
+        task=args.task,
+        branch=args.branch,
     )
     print(
         json.dumps(
@@ -177,6 +194,7 @@ def main() -> None:
                 "status": "exported",
                 "summary": manifest["summary"],
                 "quota_pack_root": manifest["quota_pack_root"],
+                "provenance": manifest["provenance"],
                 "safety": manifest["safety"],
             },
             ensure_ascii=False,
@@ -184,6 +202,10 @@ def main() -> None:
             sort_keys=True,
         )
     )
+
+
+def _dict(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
 
 
 if __name__ == "__main__":
