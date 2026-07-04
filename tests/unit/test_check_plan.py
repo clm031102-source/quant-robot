@@ -145,6 +145,53 @@ class CheckPlanTests(unittest.TestCase):
         self.assertIn("laptop", activation_gate.command)
         self.assertNotIn("--execute", activation_gate.command)
 
+    def test_laptop_integration_profile_runs_merged_main_verification_gate(self):
+        plan = build_check_plan("python", profile="laptop-integration")
+
+        names = [step.name for step in plan]
+        self.assertEqual(
+            names,
+            [
+                "laptop_integration_unit_tests",
+                "compile_python",
+                "project_audit",
+                "laptop_project_sync_audit",
+            ],
+        )
+        self.assertTrue(all(not step.uses_network for step in plan))
+        self.assertEqual(
+            plan[0].command,
+            [
+                "python",
+                "-m",
+                "pytest",
+                "tests/unit/test_experiment_runner.py",
+                "tests/unit/test_walk_forward.py",
+                "tests/unit/test_recent_data_refresh.py",
+                "tests/unit/test_recent_data_refresh_cli.py",
+                "tests/unit/test_post_refresh_replay.py",
+                "tests/unit/test_post_refresh_replay_cli.py",
+                "tests/unit/test_observation_sufficiency.py",
+                "tests/unit/test_expanded_observation_replay.py",
+                "-q",
+            ],
+        )
+        self.assertEqual(plan[1].command, ["python", "-B", "-m", "compileall", "-q", "scripts", "src", "tests"])
+        self.assertEqual(
+            plan[2].command,
+            [
+                "python",
+                "scripts/run_project_audit.py",
+                "--output-dir",
+                "data/reports/laptop_integration_project_audit",
+                "--json",
+            ],
+        )
+        self.assertEqual(
+            plan[3].command,
+            ["python", "scripts/sync_project.py", "--machine", "laptop", "--task", "project_sync"],
+        )
+
     def test_desktop_validation_profile_runs_safety_checks_then_residual_regime_validation(self):
         plan = build_check_plan("python", profile="desktop-validation")
 

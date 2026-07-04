@@ -123,11 +123,10 @@ git merge --no-ff origin/codex/factor-batch-cn-stock-execution-aware-round465-20
 Then verify the merged `main`:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests\unit\test_experiment_runner.py tests\unit\test_walk_forward.py tests\unit\test_recent_data_refresh.py tests\unit\test_recent_data_refresh_cli.py tests\unit\test_post_refresh_replay.py tests\unit\test_post_refresh_replay_cli.py tests\unit\test_observation_sufficiency.py tests\unit\test_expanded_observation_replay.py -q
-.\.venv\Scripts\python.exe -B -m compileall -q scripts src tests
-.\.venv\Scripts\python.exe scripts\run_project_audit.py --output-dir data\reports\round479_laptop_integration_project_audit_20260704 --json
-.\.venv\Scripts\python.exe scripts\sync_project.py --machine laptop --task project_sync
+.\.venv\Scripts\python.exe scripts\run_checks.py --profile laptop-integration --execute
 ```
+
+This profile runs the targeted unit-test gate for the pending branch changes, Python compilation, project audit, and laptop `project_sync` safe-sync audit.
 
 If the merged verification is green and the safe-sync audit has no blockers, push `main`:
 

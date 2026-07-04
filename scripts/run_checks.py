@@ -49,6 +49,17 @@ DESKTOP_VALIDATION_CHECK_NAMES = (
     "data_quality_audit",
 )
 
+LAPTOP_INTEGRATION_TESTS = (
+    "tests/unit/test_experiment_runner.py",
+    "tests/unit/test_walk_forward.py",
+    "tests/unit/test_recent_data_refresh.py",
+    "tests/unit/test_recent_data_refresh_cli.py",
+    "tests/unit/test_post_refresh_replay.py",
+    "tests/unit/test_post_refresh_replay_cli.py",
+    "tests/unit/test_observation_sufficiency.py",
+    "tests/unit/test_expanded_observation_replay.py",
+)
+
 
 def build_check_plan(python_executable: str = sys.executable, profile: str = "full") -> list[CheckStep]:
     full_plan = [
@@ -103,6 +114,28 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
     if profile == "laptop":
         selected = set(LAPTOP_CHECK_NAMES)
         return [_with_laptop_context(step) for step in full_plan if step.name in selected]
+    if profile == "laptop-integration":
+        return [
+            CheckStep(
+                "laptop_integration_unit_tests",
+                [python_executable, "-m", "pytest", *LAPTOP_INTEGRATION_TESTS, "-q"],
+            ),
+            CheckStep("compile_python", [python_executable, "-B", "-m", "compileall", "-q", "scripts", "src", "tests"]),
+            CheckStep(
+                "project_audit",
+                [
+                    python_executable,
+                    "scripts/run_project_audit.py",
+                    "--output-dir",
+                    "data/reports/laptop_integration_project_audit",
+                    "--json",
+                ],
+            ),
+            CheckStep(
+                "laptop_project_sync_audit",
+                [python_executable, "scripts/sync_project.py", "--machine", "laptop", "--task", "project_sync"],
+            ),
+        ]
     if profile == "desktop-validation":
         selected = set(DESKTOP_VALIDATION_CHECK_NAMES)
         return [
@@ -187,7 +220,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run local Quant Robot checks.")
     parser.add_argument(
         "--profile",
-        choices=["full", "laptop", "desktop-validation"],
+        choices=["full", "laptop", "laptop-integration", "desktop-validation"],
         default="full",
         help="Select the check plan size.",
     )
