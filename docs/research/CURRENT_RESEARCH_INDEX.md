@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round521 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, and quota-pack provenance metadata | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round522 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, and preflight-level pack provenance summaries | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -136,6 +136,8 @@ Latest same-day progress reports:
 - `docs/research/ROUND520_NEXT_STEPS_CHECKLIST.md`
 - `docs/research/cn_stock_round521_quota_pack_provenance_2026-07-05.md`
 - `docs/research/ROUND521_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round522_quota_preflight_pack_provenance_2026-07-05.md`
+- `docs/research/ROUND522_NEXT_STEPS_CHECKLIST.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -1025,3 +1027,24 @@ Docs:
 - `docs/research/ROUND521_NEXT_STEPS_CHECKLIST.md`
 
 Decision: future cross-machine pack exports should include machine, task, and branch provenance. Normal provider-backed analyst-report cache remains blocked on 2026-07-05 and must wait for an actual-date preflight exit `0`.
+
+## Round522 Quota Preflight Pack Provenance
+
+Round522 lifted explicit quota-pack provenance into quota preflight evidence:
+
+- `src/quant_robot/ops/analyst_report_quota_preflight.py` now detects explicit quota-pack report roots and records top-level `quota_pack_provenance`.
+- The preflight summary records `quota_pack_root_count`.
+- The Markdown preflight report now includes a `Quota Pack Provenance` table.
+- The standalone preflight CLI and cache CLI both print `quota_pack_provenance` in terminal JSON.
+- Test-first evidence: the new preflight-provenance test failed first with `KeyError: 'quota_pack_root_count'`, then the focused pack and preflight tests passed.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Standalone preflight with `data\reports` plus `data\reports\round521_analyst_quota_pack_provenance_20260705` counted 2 same-day provider request windows, skipped 2 duplicate evidence rows, recorded `quota_pack_root_count=1`, surfaced the `office_desktop/factor_batch/codex/factor-batch-cn-stock-profit-mining-20260704` provenance, blocked with `daily_provider_request_budget_exhausted`, and exited `3`.
+- Cache CLI preflight-only with the same roots printed the same pack provenance, blocked with `daily_provider_request_budget_exhausted`, and exited `3` before cache execution.
+- Full laptop integration verification passed with 96 tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round522_quota_preflight_pack_provenance_2026-07-05.md`
+- `docs/research/ROUND522_NEXT_STEPS_CHECKLIST.md`
+
+Decision: future cross-machine quota reviews can inspect provenance directly from the preflight packet. Round523 is the next required two-agent checkpoint after the Round504 baseline. Normal provider-backed analyst-report cache remains blocked on 2026-07-05 and must wait for an actual-date preflight exit `0`.

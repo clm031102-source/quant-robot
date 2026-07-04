@@ -59,6 +59,7 @@ def main() -> None:
                 "quota_scope": packet["quota_scope"],
                 "warnings": packet["warnings"],
                 "summary": packet["summary"],
+                "quota_pack_provenance": packet["quota_pack_provenance"],
                 "decision": packet["decision"],
                 "output_dir": str(Path(args.output_dir)),
                 "safety": packet["safety"],

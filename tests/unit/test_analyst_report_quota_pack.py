@@ -249,6 +249,66 @@ class AnalystReportQuotaPackTests(unittest.TestCase):
         self.assertEqual(stdout["provenance"]["machine"], "office_desktop")
         self.assertIn("office_desktop", markdown)
 
+    def test_preflight_summarizes_explicit_quota_pack_provenance(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source_root = root / "source_reports"
+            pack = root / "quota_pack"
+            output_dir = root / "preflight"
+            _write_cache(source_root / "round_a", generated_at="2026-07-05", status="ok")
+
+            export_result = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/export_analyst_report_quota_pack.py",
+                    "--report-root",
+                    str(source_root),
+                    "--output-dir",
+                    str(pack),
+                    "--machine",
+                    "office_desktop",
+                    "--task",
+                    "factor_batch",
+                    "--branch",
+                    "codex/factor-batch-cn-stock-profit-mining-20260704",
+                ],
+                cwd=Path(__file__).resolve().parents[2],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(export_result.returncode, 0, export_result.stderr)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/run_analyst_report_quota_preflight.py",
+                    "--report-root",
+                    str(pack),
+                    "--target-date",
+                    "2026-07-05",
+                    "--output-dir",
+                    str(output_dir),
+                ],
+                cwd=Path(__file__).resolve().parents[2],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            packet = json.loads((output_dir / "analyst_report_quota_preflight.json").read_text(encoding="utf-8"))
+            markdown = (output_dir / "analyst_report_quota_preflight.md").read_text(encoding="utf-8")
+            stdout = json.loads(result.stdout)
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(packet["summary"]["quota_pack_root_count"], 1)
+        self.assertEqual(packet["quota_pack_provenance"][0]["machine"], "office_desktop")
+        self.assertEqual(packet["quota_pack_provenance"][0]["task"], "factor_batch")
+        self.assertEqual(packet["quota_pack_provenance"][0]["branch"], "codex/factor-batch-cn-stock-profit-mining-20260704")
+        self.assertEqual(stdout["quota_pack_provenance"][0]["machine"], "office_desktop")
+        self.assertIn("## Quota Pack Provenance", markdown)
+        self.assertIn("office_desktop", markdown)
+
 
 def _write_cache(root: Path, *, generated_at: str, status: str) -> None:
     root.mkdir(parents=True, exist_ok=True)

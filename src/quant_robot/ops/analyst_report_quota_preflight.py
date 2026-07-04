@@ -31,6 +31,7 @@ def build_analyst_report_quota_preflight(
         warnings.append(QUOTA_TARGET_DATE_MISMATCH_WARNING)
     report_root_paths = [Path(root) for root in report_roots]
     report_root_labels = [str(root) for root in report_root_paths]
+    quota_pack_provenance = _quota_pack_provenance(report_root_paths)
     scan = _scan_cache_reports(report_roots=report_root_paths, target_date=target)
     rows = scan["rows"]
     counted = [row for row in rows if row["counts_against_quota"]]
@@ -58,6 +59,7 @@ def build_analyst_report_quota_preflight(
             "report_roots": report_root_labels,
             "target_date_matches_generated_at": target_date_matches_generated_at,
             "cache_report_count": len({row["report_path"] for row in rows}),
+            "quota_pack_root_count": len(quota_pack_provenance),
             "same_day_window_rows": len(rows),
             "duplicate_evidence_rows": scan["duplicate_evidence_rows"],
             "counted_provider_request_windows": len(counted),
@@ -67,6 +69,7 @@ def build_analyst_report_quota_preflight(
         },
         "window_rows": rows,
         "duplicate_window_rows": scan["duplicate_window_rows"],
+        "quota_pack_provenance": quota_pack_provenance,
         "decision": {
             "request_allowed": not blockers,
             "blockers": blockers,
@@ -126,6 +129,32 @@ def render_analyst_report_quota_preflight_markdown(packet: dict[str, Any]) -> st
         ]
     )
     lines.extend(f"- {root}" for root in report_roots) if report_roots else lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Quota Pack Provenance",
+            "",
+        ]
+    )
+    pack_provenance = _list_of_dicts(packet.get("quota_pack_provenance"))
+    if pack_provenance:
+        lines.extend(
+            [
+                "| Pack Root | Machine | Task | Branch |",
+                "|---|---|---|---|",
+            ]
+        )
+        for item in pack_provenance:
+            lines.append(
+                "| {root} | {machine} | {task} | {branch} |".format(
+                    root=item.get("quota_pack_root", ""),
+                    machine=item.get("machine", ""),
+                    task=item.get("task", ""),
+                    branch=item.get("branch", ""),
+                )
+            )
+    else:
+        lines.append("- none")
     lines.extend(
         [
             "",
@@ -227,6 +256,33 @@ def _scan_cache_reports(*, report_roots: Iterable[str | Path], target_date: str)
         "duplicate_evidence_rows": len(rows) - len(unique_rows),
         "duplicate_window_rows": duplicate_rows,
     }
+
+
+def _quota_pack_provenance(report_roots: Iterable[Path]) -> list[dict[str, Any]]:
+    provenance: list[dict[str, Any]] = []
+    seen: set[Path] = set()
+    for root in report_roots:
+        root_path = Path(root)
+        if not _is_quota_pack_root(root_path):
+            continue
+        resolved = root_path.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        manifest = _load_json(root_path / QUOTA_PACK_MANIFEST)
+        source = _dict(manifest.get("provenance"))
+        summary = _dict(manifest.get("summary"))
+        provenance.append(
+            {
+                "quota_pack_root": str(root_path),
+                "machine": str(source.get("machine", "")),
+                "task": str(source.get("task", "")),
+                "branch": str(source.get("branch", "")),
+                "generated_at": str(manifest.get("generated_at", "")),
+                "exported_report_count": int(summary.get("exported_report_count", 0) or 0),
+            }
+        )
+    return provenance
 
 
 def _duplicate_row(duplicate: dict[str, Any], kept: dict[str, Any]) -> dict[str, Any]:

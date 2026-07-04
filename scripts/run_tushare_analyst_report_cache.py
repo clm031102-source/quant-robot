@@ -138,6 +138,7 @@ def main() -> None:
                     "quota_scope": quota_packet["quota_scope"],
                     "warnings": quota_packet["warnings"],
                     "summary": quota_packet["summary"],
+                    "quota_pack_provenance": quota_packet["quota_pack_provenance"],
                     "decision": quota_packet["decision"],
                     "output_dir": str(Path(args.quota_output_dir)),
                     "safety": quota_packet["safety"],
