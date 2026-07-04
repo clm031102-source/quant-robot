@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round536 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, external-feed family-review boundary, external-feed join-smoke optimization, LPR cache repair guard, offline macro LPR repair tool, Round533 two-agent review hardening, Round534 operator runbook hardening, Round535 cloud/main branch audit, and Round536 laptop integration rehearsal | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round537 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, external-feed family-review boundary, external-feed join-smoke optimization, LPR cache repair guard, offline macro LPR repair tool, Round533 two-agent review hardening, Round534 operator runbook hardening, Round535 cloud/main branch audit, Round536 laptop integration rehearsal, and Round537 latest-topic integration rehearsal | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -166,6 +166,8 @@ Latest same-day progress reports:
 - `docs/research/ROUND535_NEXT_STEPS_CHECKLIST.md`
 - `docs/research/project_round536_laptop_integration_rehearsal_refresh_2026-07-05.md`
 - `docs/research/ROUND536_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round537_latest_topic_integration_rehearsal_2026-07-05.md`
+- `docs/research/ROUND537_NEXT_STEPS_CHECKLIST.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -1357,3 +1359,28 @@ Docs:
 - `docs/research/ROUND536_NEXT_STEPS_CHECKLIST.md`
 
 Decision: the active topic branch is mechanically mergeable as of Round536, but real integration must still run from laptop on `main` through the guarded `project_sync` plan. Office desktop should not push `main` or delete the active remote topic branch.
+
+## Round537 Latest Topic Integration Rehearsal
+
+Round537 refreshed the integration evidence after the Round536 documentation commit advanced the active topic branch:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, `main` push, or remote branch deletion occurred.
+- Fresh gates passed on 2026-07-05: startup context branch matched and upstream was `0 ahead / 0 behind`, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- `origin/main` remained at `af474d5a`.
+- Active topic branch head was `709bfe23`.
+- Topic/main relationship was `0 34`: the topic was 34 commits ahead of `origin/main` and 0 commits behind.
+- The laptop integration plan still produced the expected single-branch merge order and stayed blocked with `current_branch_must_be_main` from the office topic branch.
+- Temporary worktree: `C:\Users\Administrator\.config\superpowers\worktrees\lhjqr\integration-sim-round537-20260705-054706`.
+- Temporary branch: `codex/integration-sim-round537-20260705-054706`.
+- The temporary worktree started from `origin/main` at `af474d5a`.
+- The rehearsal merge completed with the `ort` strategy and no conflicts, producing temporary merge commit `a6ac2b8a`.
+- Temporary merged result was 35 commits ahead of `origin/main`: 34 topic commits plus the rehearsal merge commit.
+- `scripts\run_checks.py --profile laptop-integration --execute` passed on the temporary merged result with 101 tests, Python compile, project audit, and safety audit.
+- The temporary worktree was removed, the temporary branch was deleted, and the main working tree returned clean on the active topic branch.
+
+Docs:
+
+- `docs/research/project_round537_latest_topic_integration_rehearsal_2026-07-05.md`
+- `docs/research/ROUND537_NEXT_STEPS_CHECKLIST.md`
+
+Decision: the latest active topic head `709bfe23` is mechanically mergeable into `origin/main`, but real integration remains laptop-owned. Execute only from laptop on `main` through `scripts\run_laptop_topic_integration_plan.py --machine laptop --task project_sync --execute`.
