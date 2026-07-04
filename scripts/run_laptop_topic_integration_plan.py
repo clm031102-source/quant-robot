@@ -93,6 +93,23 @@ def _handoff_status(
     else:
         handoff_status = status
         status_description = status
+    next_command = (
+        "python scripts/run_laptop_topic_integration_plan.py "
+        "--machine laptop --task project_sync --execute"
+    )
+    here_command = (
+        "python scripts/run_laptop_topic_integration_plan.py "
+        "--machine laptop --task project_sync --require-handoff-ready"
+    )
+    if status == "ready":
+        recommended_command = next_command
+        recommended_command_action = "execute_integration"
+    elif handoff_status == "ready_on_main":
+        recommended_command = here_command
+        recommended_command_action = "check_handoff_ready"
+    else:
+        recommended_command = None
+        recommended_command_action = "resolve_blockers"
     return {
         "status": handoff_status,
         "status_description": status_description,
@@ -102,16 +119,12 @@ def _handoff_status(
         "required_branch": STABLE_BRANCH,
         "rerun_plan_before_execute": True,
         "merge_order_count": len(merge_order),
-        "next_command": (
-            "python scripts/run_laptop_topic_integration_plan.py "
-            "--machine laptop --task project_sync --execute"
-        ),
+        "next_command": next_command,
         "next_command_context": "laptop main only",
         "next_command_allowed_here": status == "ready",
-        "here_command": (
-            "python scripts/run_laptop_topic_integration_plan.py "
-            "--machine laptop --task project_sync --require-handoff-ready"
-        ),
+        "here_command": here_command,
+        "recommended_command": recommended_command,
+        "recommended_command_action": recommended_command_action,
     }
 
 

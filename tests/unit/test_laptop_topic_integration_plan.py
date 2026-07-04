@@ -30,6 +30,11 @@ class LaptopTopicIntegrationPlanTests(unittest.TestCase):
 
         self.assertEqual(plan["status"], "ready")
         self.assertEqual(plan["blockers"], [])
+        self.assertEqual(plan["handoff"]["status"], "ready")
+        self.assertTrue(plan["handoff"]["executable_here"])
+        self.assertTrue(plan["handoff"]["next_command_allowed_here"])
+        self.assertEqual(plan["handoff"]["recommended_command"], plan["handoff"]["next_command"])
+        self.assertEqual(plan["handoff"]["recommended_command_action"], "execute_integration")
         self.assertEqual(
             [item["branch"] for item in plan["merge_order"]],
             [
@@ -100,6 +105,8 @@ class LaptopTopicIntegrationPlanTests(unittest.TestCase):
                 "main_behind_origin_pull_first",
             ],
         )
+        self.assertIsNone(plan["handoff"]["recommended_command"])
+        self.assertEqual(plan["handoff"]["recommended_command_action"], "resolve_blockers")
 
     def test_plan_marks_topic_branch_handoff_ready_on_main_when_only_branch_blocks(self) -> None:
         plan = build_laptop_topic_integration_plan(
@@ -133,6 +140,8 @@ class LaptopTopicIntegrationPlanTests(unittest.TestCase):
             plan["handoff"]["here_command"],
             "python scripts/run_laptop_topic_integration_plan.py --machine laptop --task project_sync --require-handoff-ready",
         )
+        self.assertEqual(plan["handoff"]["recommended_command"], plan["handoff"]["here_command"])
+        self.assertEqual(plan["handoff"]["recommended_command_action"], "check_handoff_ready")
         self.assertFalse(plan["handoff"]["executable_here"])
         self.assertEqual(
             plan["handoff"]["status_description"],
