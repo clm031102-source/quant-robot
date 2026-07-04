@@ -172,7 +172,8 @@ def _render_markdown(manifest: dict[str, Any]) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Export local analyst-report cache summaries as a portable quota preflight report root."
+        description="Export local analyst-report cache summaries as a portable quota preflight report root.",
+        epilog="Writes generated data/reports evidence; share out of band; do not commit.",
     )
     parser.add_argument("--report-root", action="append", default=None, help="Local report root to scan; repeatable.")
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR), help="Portable quota pack output directory.")

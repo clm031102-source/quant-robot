@@ -39,12 +39,31 @@ def run_analyst_report_quota_preflight(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Preflight local Tushare report_rc cache quota before fetching analyst reports.")
-    parser.add_argument("--report-root", action="append", default=None)
-    parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
-    parser.add_argument("--target-date")
-    parser.add_argument("--max-daily-requests", type=int, default=DEFAULT_MAX_DAILY_REQUESTS)
-    parser.add_argument("--fail-on-blocked", action="store_true")
+    parser = argparse.ArgumentParser(
+        description=(
+            "Preflight local Tushare report_rc cache quota before fetching analyst reports. "
+            "This does not call Tushare; evidence covers local report roots only."
+        ),
+        epilog=(
+            "Without --fail-on-blocked, a blocked preflight still exits 0 after writing evidence. "
+            "Use --fail-on-blocked when scripts should stop on a blocked decision."
+        ),
+    )
+    parser.add_argument(
+        "--report-root",
+        action="append",
+        default=None,
+        help="Local report root to scan; repeat to include quota packs or other workstation evidence roots.",
+    )
+    parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR), help="Directory for JSON/Markdown evidence.")
+    parser.add_argument("--target-date", help="Local date used to count same-day report_rc requests.")
+    parser.add_argument(
+        "--max-daily-requests",
+        type=int,
+        default=DEFAULT_MAX_DAILY_REQUESTS,
+        help="Local same-day request budget before preflight blocks.",
+    )
+    parser.add_argument("--fail-on-blocked", action="store_true", help="Exit 3 when the preflight decision is blocked.")
     args = parser.parse_args()
     packet = run_analyst_report_quota_preflight(
         report_root=args.report_root or ["data/reports"],

@@ -39,18 +39,32 @@ def main() -> None:
         description=(
             "Cache Tushare report_rc analyst reports with resume and PIT-safe normalization. "
             "By default this command runs local quota preflight first and exits 3 when blocked."
-        )
+        ),
+        epilog=(
+            "For the quota-constrained analyst-report path, --request-sleep-seconds 0 is only for a "
+            "single monthly window after quota preflight allows it. Do not use --continue-after-rate-limit "
+            "in that path."
+        ),
     )
     parser.add_argument("--start-date", default="2015-01-01", help="Inclusive report window start date.")
     parser.add_argument("--end-date", default="2025-12-31", help="Inclusive report window end date.")
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR), help="Directory for cache summary reports.")
     parser.add_argument("--processed-output-dir", default="", help="Directory for normalized processed outputs.")
     parser.add_argument("--window-frequency", default="MS", help="Pandas window frequency for provider requests.")
-    parser.add_argument("--request-sleep-seconds", type=float, default=3660.0, help="Sleep between provider request windows.")
+    parser.add_argument(
+        "--request-sleep-seconds",
+        type=float,
+        default=3660.0,
+        help="Sleep between provider request windows.",
+    )
     parser.add_argument("--max-rows-per-window", type=int, default=5000, help="Warn when a provider window reaches this row count.")
     parser.add_argument("--no-resume", action="store_true", help="Do not reuse existing processed window files.")
     parser.add_argument("--no-write-processed", action="store_true", help="Run without writing normalized processed outputs.")
-    parser.add_argument("--continue-after-rate-limit", action="store_true", help="Continue later windows after a provider rate-limit error.")
+    parser.add_argument(
+        "--continue-after-rate-limit",
+        action="store_true",
+        help="Continue later windows after a provider rate-limit error; avoid in quota-constrained analyst-report runs.",
+    )
     parser.add_argument(
         "--skip-quota-preflight",
         action="store_true",

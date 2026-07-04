@@ -9,6 +9,20 @@ from scripts.run_analyst_report_quota_preflight import run_analyst_report_quota_
 
 
 class AnalystReportQuotaPackTests(unittest.TestCase):
+    def test_exporter_help_explains_generated_pack_safety(self) -> None:
+        result = subprocess.run(
+            [sys.executable, "scripts/export_analyst_report_quota_pack.py", "--help"],
+            cwd=Path(__file__).resolve().parents[2],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("generated data/reports evidence", result.stdout)
+        self.assertIn("share out of band", result.stdout)
+        self.assertIn("do not commit", result.stdout)
+
     def test_exports_cache_reports_into_portable_preflight_root(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

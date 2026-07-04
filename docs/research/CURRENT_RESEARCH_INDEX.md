@@ -1048,3 +1048,22 @@ Docs:
 - `docs/research/ROUND522_NEXT_STEPS_CHECKLIST.md`
 
 Decision: future cross-machine quota reviews can inspect provenance directly from the preflight packet. Round523 is the next required two-agent checkpoint after the Round504 baseline. Normal provider-backed analyst-report cache remains blocked on 2026-07-05 and must wait for an actual-date preflight exit `0`.
+
+## Round523 Two-Agent Quota Review
+
+Round523 completed the required round-20 review checkpoint after the Round504 baseline:
+
+- Quant PM reviewer `Gibbs` recommended waiting for quota reset and allowing only `--quota-preflight-only` dry-runs until actual-date preflight exits `0`.
+- Ordinary-user reviewer `Heisenberg` found the safety path understandable but still too easy to misuse, especially startup gates, preflight exit codes, placeholders, cross-machine confirmation, and visually similar dry-run versus real-cache commands.
+- Help hardening added clearer safety text to standalone preflight, cache CLI, and quota-pack exporter help.
+- Test-first evidence: the new help tests failed first because the safety text was missing, then quota preflight and quota pack focused tests passed with 25 tests.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Actual-date cache-CLI preflight-only for April 2024 with `data\reports` plus `data\reports\round521_analyst_quota_pack_provenance_20260705` still blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, skipped 2 duplicate evidence rows, showed pack provenance, and returned `LASTEXITCODE=3`.
+- Full laptop-integration verification passed with 98 unit tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round523_two_agent_quota_review_2026-07-05.md`
+- `docs/research/ROUND523_NEXT_STEPS_CHECKLIST.md`
+
+Decision: do not run provider-backed April cache on 2026-07-05. The next cache-related action is dry-run only after quota plausibly resets and after all workstation quota packs or manual same-day confirmations are accounted for. If April later caches and frozen January-April still has `research_lead_count=0`, run family review; if multiple-testing leads also remain `0`, rotate to a new PIT source plan.

@@ -431,7 +431,26 @@ class AnalystReportQuotaPreflightTests(unittest.TestCase):
         self.assertIn("offline or controlled local replay", result.stdout)
         self.assertIn("provider-backed cache requires the local generated date", " ".join(result.stdout.split()))
         self.assertIn("requires existing processed windows", " ".join(result.stdout.split()))
+        self.assertIn("quota-constrained analyst-report path", result.stdout)
+        self.assertIn("single monthly window after quota preflight allows", result.stdout)
         self.assertIn("--skip-quota-preflight-reason", result.stdout)
+
+    def test_standalone_preflight_help_explains_exit_codes_and_scope(self) -> None:
+        result = subprocess.run(
+            [sys.executable, "scripts/run_analyst_report_quota_preflight.py", "--help"],
+            cwd=Path(__file__).resolve().parents[2],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0)
+        normalized = " ".join(result.stdout.split())
+        self.assertIn("does not call Tushare", result.stdout)
+        self.assertIn("local report roots only", result.stdout)
+        self.assertIn("Without --fail-on-blocked", normalized)
+        self.assertIn("blocked preflight still exits 0", normalized)
+        self.assertIn("repeat to include quota packs", normalized)
 
     def test_cache_cli_blocks_provider_cache_when_quota_target_date_is_not_local_date(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
