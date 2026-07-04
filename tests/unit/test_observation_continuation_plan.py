@@ -240,6 +240,85 @@ class ObservationContinuationPlanTests(unittest.TestCase):
             "data/reports/round488_observation_recovery/after_missing_trade_date/recent_data_refresh",
         )
 
+    def test_gap_recovery_surfaces_required_asset_target_end_gap(self) -> None:
+        observation_pack = {
+            "status": "needs_more_observation_data",
+            "fills": {"observed_fills": 5, "required_fills": 20, "fill_deficit": 15},
+            "recommendation": {
+                "priority": "extend_recent_data_window",
+                "suggested_start_date": "2026-03-23",
+                "suggested_end_date": "2026-06-26",
+            },
+            "decision": {"observation_sufficiency_cleared": False},
+        }
+        recent_refresh_pack = {
+            "status": "data_quality_blocked",
+            "target_window": {"start_date": "2026-05-06", "end_date": "2026-07-03"},
+            "coverage": {
+                "required_asset_coverage": [
+                    {
+                        "asset_id": "CN_ETF_XSHE_160615",
+                        "covered": False,
+                        "rows": 41,
+                        "expected_rows": 42,
+                        "start_date": "2026-05-06",
+                        "end_date": "2026-07-02",
+                        "target_start_covered": True,
+                        "target_end_covered": False,
+                    }
+                ],
+                "required_assets_covered": False,
+                "target_start_covered": True,
+                "target_end_covered": False,
+            },
+        }
+
+        plan = build_observation_continuation_plan(
+            observation_pack=observation_pack,
+            observation_pack_path="data/reports/round478/observation_sufficiency_pack.json",
+            recent_data_refresh_pack=recent_refresh_pack,
+            recent_data_refresh_pack_path="data/reports/round491/recent_data_refresh_pack.json",
+            profile_observation_pack_path="data/reports/round478/profile_observation/profile_observation_pack.json",
+            machine="office_desktop",
+            task="data_pipeline",
+            current_branch="codex/factor-batch-current",
+            python_executable="python",
+            output_root="data/reports/round492_observation_recovery",
+            processed_output_dir="data/processed/round492_observation_recovery",
+        )
+
+        self.assertEqual(plan["gap_recovery"]["status"], "target_end_gap_available")
+        self.assertEqual(
+            plan["gap_recovery"]["windows"],
+            [
+                {
+                    "label": "latest_required_asset_clean_window",
+                    "start_date": "2026-05-06",
+                    "end_date": "2026-07-02",
+                    "target_end_date": "2026-07-03",
+                    "required_asset_ids": ["CN_ETF_XSHE_160615"],
+                }
+            ],
+        )
+        self.assertEqual(
+            plan["gap_recovery"]["next_actions"],
+            [
+                {
+                    "action": "wait_for_required_asset_target_end",
+                    "reason": (
+                        "Required assets stop before the requested target end; "
+                        "wait for CN_ETF_XSHE_160615 to cover 2026-07-03 or rerun only "
+                        "through the latest clean end 2026-07-02."
+                    ),
+                }
+            ],
+        )
+        command_set = plan["gap_recovery"]["command_sets"][0]
+        self.assertEqual(command_set["label"], "latest_required_asset_clean_window")
+        refresh_command = command_set["commands"][1]
+        self.assertEqual(refresh_command[refresh_command.index("--start-date") + 1], "2026-05-06")
+        self.assertEqual(refresh_command[refresh_command.index("--end-date") + 1], "2026-07-02")
+
 
 if __name__ == "__main__":
     unittest.main()

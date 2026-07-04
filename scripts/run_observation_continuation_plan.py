@@ -224,12 +224,32 @@ def build_gap_recovery_plan(
     pack = recent_data_refresh_pack or {}
     missing_dates = _missing_required_trade_dates(pack)
     if not missing_dates:
+        target_end_gap = _target_end_gap_recovery(pack)
+        if target_end_gap:
+            windows = [target_end_gap["window"]]
+            return {
+                "status": "target_end_gap_available",
+                "source_path": _path_text(recent_data_refresh_pack_path) if recent_data_refresh_pack_path else None,
+                "missing_trade_dates": [],
+                "windows": windows,
+                "command_sets": _gap_recovery_command_sets(
+                    windows,
+                    machine=machine,
+                    current_branch=current_branch,
+                    profile_observation_pack_path=profile_observation_pack_path,
+                    python_executable=python_executable,
+                    output_root=Path(output_root) if output_root is not None else None,
+                    processed_output_dir=Path(processed_output_dir) if processed_output_dir is not None else None,
+                ),
+                "next_actions": [target_end_gap["next_action"]],
+            }
         return {
             "status": "not_applicable",
             "source_path": _path_text(recent_data_refresh_pack_path) if recent_data_refresh_pack_path else None,
             "missing_trade_dates": [],
             "windows": [],
             "command_sets": [],
+            "next_actions": [],
         }
 
     target = _dict(pack.get("target_window"))
@@ -272,6 +292,7 @@ def build_gap_recovery_plan(
             output_root=Path(output_root) if output_root is not None else None,
             processed_output_dir=Path(processed_output_dir) if processed_output_dir is not None else None,
         ),
+        "next_actions": [],
     }
 
 
@@ -310,6 +331,61 @@ def _expected_trade_dates(pack: dict[str, Any]) -> list[str]:
                 dates.append(parsed)
                 seen.add(parsed)
     return sorted(dates)
+
+
+def _target_end_gap_recovery(pack: dict[str, Any]) -> dict[str, Any] | None:
+    coverage = _dict(pack.get("coverage"))
+    if coverage.get("target_end_covered") is not False:
+        return None
+
+    target = _dict(pack.get("target_window"))
+    start_date = _date_text(target.get("start_date"))
+    target_end = _date_text(target.get("end_date"))
+    if not start_date or not target_end:
+        return None
+
+    rows = coverage.get("required_asset_coverage", [])
+    if not isinstance(rows, list):
+        return None
+
+    asset_ids: list[str] = []
+    clean_end_dates: list[str] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if row.get("target_start_covered") is False or row.get("target_end_covered") is not False:
+            continue
+        clean_end = _date_text(row.get("end_date"))
+        if not clean_end or clean_end >= target_end or clean_end < start_date:
+            continue
+        asset_id = str(row.get("asset_id") or "").strip()
+        if asset_id:
+            asset_ids.append(asset_id)
+        clean_end_dates.append(clean_end)
+
+    if not asset_ids or not clean_end_dates:
+        return None
+
+    required_asset_ids = sorted(dict.fromkeys(asset_ids))
+    latest_clean_end = min(clean_end_dates)
+    asset_text = ", ".join(required_asset_ids)
+    return {
+        "window": {
+            "label": "latest_required_asset_clean_window",
+            "start_date": start_date,
+            "end_date": latest_clean_end,
+            "target_end_date": target_end,
+            "required_asset_ids": required_asset_ids,
+        },
+        "next_action": {
+            "action": "wait_for_required_asset_target_end",
+            "reason": (
+                "Required assets stop before the requested target end; "
+                f"wait for {asset_text} to cover {target_end} or rerun only "
+                f"through the latest clean end {latest_clean_end}."
+            ),
+        },
+    }
 
 
 def _previous_trade_date(trade_dates: list[str], missing_date: str) -> str | None:
