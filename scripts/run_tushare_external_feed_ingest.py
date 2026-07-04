@@ -22,6 +22,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output-dir", default="data/reports/tushare_external_feed_ingest")
     parser.add_argument("--market", default="CN")
     parser.add_argument("--index-symbol", default="000001.SH")
+    parser.add_argument("--lpr-cache-path", help="Optional JSON cache path for the Tushare shibor_lpr endpoint.")
     parser.add_argument("--report-copy-dir", help="Optional directory to copy this shard's ingestion report JSON.")
     parser.add_argument("--progress-jsonl", help="Optional JSONL file for per-endpoint ingestion progress events.")
     parser.add_argument(
@@ -48,6 +49,7 @@ def main(argv: list[str] | None = None) -> int:
         execute_write_processed=args.execute_write_processed,
         market=args.market,
         index_symbol=args.index_symbol,
+        lpr_cache_path=Path(args.lpr_cache_path) if args.lpr_cache_path else None,
         progress_callback=progress_callback,
     )
     if args.report_copy_dir:

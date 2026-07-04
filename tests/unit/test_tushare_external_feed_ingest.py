@@ -198,6 +198,19 @@ class TushareExternalFeedIngestTests(unittest.TestCase):
             cached = json.loads((Path(tmp) / "external_lpr_cache.json").read_text(encoding="utf-8"))
             self.assertEqual(cached["rows"][0]["lpr_1y"], 3.45)
 
+    def test_empty_lpr_cache_is_refreshed_instead_of_reused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cache_path = Path(tmp) / "external_lpr_cache.json"
+            cache_path.write_text(json.dumps({"rows": []}), encoding="utf-8")
+            adapter = FakeTushareExternalFeedAdapter()
+
+            result = run_tushare_external_feed_ingest(adapter, "2024-01-02", "2024-01-03", Path(tmp))
+
+            self.assertEqual(adapter.lpr_calls, 1)
+            self.assertEqual(result["feed_quality"]["external_macro_rates"]["status"], "pass")
+            cached = json.loads(cache_path.read_text(encoding="utf-8"))
+            self.assertEqual(cached["rows"][0]["lpr_1y"], 3.45)
+
     def test_missing_next_trade_date_is_a_quality_failure_not_silent_signal_date(self):
         with tempfile.TemporaryDirectory() as tmp:
             result = run_tushare_external_feed_ingest(

@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round530 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, external-feed family-review boundary, and external-feed join-smoke optimization | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round531 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, external-feed family-review boundary, external-feed join-smoke optimization, and LPR cache repair guard | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -154,6 +154,8 @@ Latest same-day progress reports:
 - `docs/research/ROUND529_NEXT_STEPS_CHECKLIST.md`
 - `docs/research/cn_stock_round530_external_feed_join_smoke_optimization_2026-07-05.md`
 - `docs/research/ROUND530_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round531_lpr_cache_repair_guard_2026-07-05.md`
+- `docs/research/ROUND531_NEXT_STEPS_CHECKLIST.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -1225,3 +1227,21 @@ Docs:
 - `docs/research/ROUND530_NEXT_STEPS_CHECKLIST.md`
 
 Decision: the optimized join smoke is source-tooling evidence only. It does not reopen old external-feed factors and does not allow portfolio, promotion, or final-holdout work. Next non-provider work should either repair LPR coverage or write a new-mechanism HK-hold candidate-plan gate without testing.
+
+## Round531 LPR Cache Repair Guard
+
+Round531 added an ingestion guard for the LPR coverage blocker:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, or final-holdout read occurred.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- `src/quant_robot/data/ingest/tushare_external_feeds.py` now treats an existing `external_lpr_cache.json` as valid only when it has at least one row with non-missing `date`, `lpr_1y`, and `lpr_5y`.
+- Empty or all-missing LPR cache files now emit `shibor_lpr` progress status `cache_refresh` and retry the endpoint instead of silently reusing the bad cache.
+- `scripts/run_tushare_external_feed_ingest.py` now exposes `--lpr-cache-path` so future repair attempts can isolate LPR cache evidence from normal shard outputs.
+- Test-first coverage added the empty-cache refresh behavior and CLI cache-path forwarding.
+
+Docs:
+
+- `docs/research/cn_stock_round531_lpr_cache_repair_guard_2026-07-05.md`
+- `docs/research/ROUND531_NEXT_STEPS_CHECKLIST.md`
+
+Decision: LPR factors remain blocked. The next LPR action is a report-only refresh with an explicit fresh cache path when provider use is allowed, followed by a coverage audit. Do not write processed macro repairs or run factors until non-missing LPR cache evidence exists.

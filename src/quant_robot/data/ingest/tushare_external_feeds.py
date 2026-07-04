@@ -474,9 +474,17 @@ def _load_or_fetch_lpr(
 ) -> pd.DataFrame:
     cache_path = output_or_cache_path if output_or_cache_path.suffix == ".json" else output_or_cache_path / "external_lpr_cache.json"
     if cache_path.exists():
-        _emit_progress(progress_callback, endpoint="shibor_lpr", status="cache_hit")
         cached = json.loads(cache_path.read_text(encoding="utf-8"))
-        return pd.DataFrame(cached.get("rows", []))
+        cached_frame = pd.DataFrame(cached.get("rows", []))
+        if _has_non_missing_lpr_values(cached_frame):
+            _emit_progress(progress_callback, endpoint="shibor_lpr", status="cache_hit")
+            return cached_frame
+        _emit_progress(
+            progress_callback,
+            endpoint="shibor_lpr",
+            status="cache_refresh",
+            warning="lpr_cache_empty_or_missing_values",
+        )
     _emit_progress(progress_callback, endpoint="shibor_lpr", status="start")
     try:
         normalized = _normalize_lpr(adapter.fetch_shibor_lpr())
@@ -493,6 +501,13 @@ def _load_or_fetch_lpr(
     )
     _emit_progress(progress_callback, endpoint="shibor_lpr", status="done", rows=int(len(normalized)))
     return normalized
+
+
+def _has_non_missing_lpr_values(frame: pd.DataFrame) -> bool:
+    required = {"date", "lpr_1y", "lpr_5y"}
+    if frame.empty or not required.issubset(frame.columns):
+        return False
+    return bool(frame[["lpr_1y", "lpr_5y"]].notna().all(axis=1).any())
 
 
 def _normalize_lpr(raw: pd.DataFrame) -> pd.DataFrame:

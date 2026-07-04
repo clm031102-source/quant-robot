@@ -122,6 +122,31 @@ class TushareExternalFeedIngestCliTests(unittest.TestCase):
             self.assertTrue(progress_jsonl.exists())
             self.assertIn('"endpoint": "margin_detail"', progress_jsonl.read_text(encoding="utf-8"))
 
+    def test_cli_passes_explicit_lpr_cache_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            lpr_cache_path = Path(tmp) / "lpr" / "cache.json"
+            with patch("scripts.run_tushare_external_feed_ingest.TushareAdapter"):
+                with patch(
+                    "scripts.run_tushare_external_feed_ingest.run_tushare_external_feed_ingest",
+                    return_value={"summary": {"feed_count": 5}, "processed_writes_enabled": False},
+                ) as run_ingest:
+                    with redirect_stdout(StringIO()):
+                        exit_code = main(
+                            [
+                                "--start-date",
+                                "2024-01-02",
+                                "--end-date",
+                                "2024-01-03",
+                                "--output-dir",
+                                str(Path(tmp) / "report"),
+                                "--lpr-cache-path",
+                                str(lpr_cache_path),
+                            ]
+                        )
+
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(run_ingest.call_args.kwargs["lpr_cache_path"], lpr_cache_path)
+
 
 if __name__ == "__main__":
     unittest.main()
