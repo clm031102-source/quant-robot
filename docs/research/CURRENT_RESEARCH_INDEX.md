@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round528 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, and external-feed source-audit rotation boundary | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round529 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, and external-feed family-review boundary | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -150,6 +150,8 @@ Latest same-day progress reports:
 - `docs/research/ROUND527_NEXT_STEPS_CHECKLIST.md`
 - `docs/research/cn_stock_round528_external_feed_rotation_source_audit_2026-07-05.md`
 - `docs/research/ROUND528_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round529_external_feed_family_review_2026-07-05.md`
+- `docs/research/ROUND529_NEXT_STEPS_CHECKLIST.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -1182,3 +1184,23 @@ Docs:
 - `docs/research/ROUND528_NEXT_STEPS_CHECKLIST.md`
 
 Decision: the primary path remains analyst-report April cache after quota evidence clears. If analyst cache remains blocked, the next useful non-provider action is an external-feed family review, not immediate factor preregistration, portfolio grids, or promotion.
+
+## Round529 External Feed Family Review
+
+Round529 completed the external-feed family review requested by Round528 while analyst-report April cache remained blocked:
+
+- No Tushare call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, or final-holdout read occurred.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Required reading covered the old external margin-credit, northbound accumulation, northbound crowding/reversal, and Round450-452 revival-blocker evidence, plus the Round528 source audit.
+- HK-hold coverage improvement from Round528 is accepted only as source-quality evidence. It is not treated as IC evidence, portfolio evidence, or a new factor mechanism.
+- Old positive northbound accumulation remains hibernated after Round191 negative/weak directional evidence and zero leads.
+- Old northbound crowding/reversal remains hibernated after Round213 weak IC, wrong quantile direction, and zero leads.
+- Margin-credit remains hibernated after Round193 style-residual and dedup review collapsed the raw Round192 signal.
+- LPR/macro-rate factors remain blocked until LPR non-missing coverage is repaired; SHIBOR may be reviewed only as a regime-control input after long-cycle validation.
+
+Docs:
+
+- `docs/research/cn_stock_round529_external_feed_family_review_2026-07-05.md`
+- `docs/research/ROUND529_NEXT_STEPS_CHECKLIST.md`
+
+Decision: do not reopen external-feed factors immediately. If analyst cache remains blocked, the next external-feed action should be source repair or optimization, such as LPR backfill feasibility or long-window join-smoke performance work. A future HK-hold idea must be a genuinely new preregistered mechanism, not a rerun of old northbound accumulation or crowding/reversal families.
