@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence and Round504 analyst-report-revision PIT source continuation | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504/Round505 analyst-report-revision PIT source continuation | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -670,3 +670,23 @@ Docs:
 - `docs/research/ROUND504_NEXT_STEPS_CHECKLIST.md`
 
 Decision: do not promote or portfolio-grid analyst revision factors from the two-month smoke. The efficient next action is to cache the next monthly `report_rc` window after provider quota allows it, then rerun the same frozen prescreen. If the source still fails year-coverage or neutral gates after enough history, rotate to a genuinely new PIT source candidate plan.
+
+## Round505 Analyst Report March Extension
+
+Round505 continued the same frozen analyst-report-revision PIT source protocol:
+
+- Quant PM startup gate passed for `office_desktop` / `factor_batch`; primary market remains `CN_ETF`.
+- CN stock factor-mining startup gate cleared on `codex/factor-batch-cn-stock-profit-mining-20260704`.
+- CN stock data manifest had no blockers; warnings remain `extreme_return_rows_present` and `moneyflow_symbol_coverage_below_bars`.
+- `report_rc` March 2024 cache succeeded: 1,634 rows, 531 assets, 0 failed windows, 0 rate-limited windows.
+- Frozen PIT prescreen used January, February, and March 2024 report roots, did not include final holdout, and covered 5,132 report rows / 1,511 report assets.
+- Prescreen summary: 4 candidates, 8 tests, 9,966 factor rows, 19,932 aligned rows, 0 multiple-testing leads, 2 neutral-gate passes, 0 research leads, 0 promotion-allowed candidates.
+- Best remaining diagnostics were `analyst_np_revision_90` and `analyst_eps_revision_90` at horizon 20, with mean IC about 0.077 and ICIR about 0.56, but both failed FDR/multiple-testing and still failed year coverage.
+- Next direction remains `rotate_or_cache_more_analyst_report_history_after_zero_prescreen_leads`.
+
+Docs:
+
+- `docs/research/cn_stock_round505_analyst_report_revision_march_extension_2026-07-05.md`
+- `docs/research/ROUND505_NEXT_STEPS_CHECKLIST.md`
+
+Decision: the third month weakened the short-window evidence instead of stabilizing it. Do not promote, portfolio-grid, or tune analyst revision formulas. The next efficient action is one more quota-aware monthly cache only if provider limits allow it; otherwise prepare a new PIT source candidate plan or a three-round direction review if the family keeps producing zero research leads.
