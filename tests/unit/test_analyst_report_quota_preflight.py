@@ -5,10 +5,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import pandas as pd
+
 from quant_robot.ops.analyst_report_quota_preflight import (
     build_analyst_report_quota_preflight,
     write_analyst_report_quota_preflight,
 )
+from quant_robot.storage.dataset_store import DatasetStore
 from scripts.run_analyst_report_quota_preflight import run_analyst_report_quota_preflight
 
 
@@ -161,6 +164,74 @@ class AnalystReportQuotaPreflightTests(unittest.TestCase):
             self.assertFalse((output_dir / "tushare_analyst_report_cache.json").exists())
             self.assertTrue((quota_output_dir / "analyst_report_quota_preflight.json").exists())
 
+    def test_cache_cli_requires_reason_when_skipping_quota_preflight(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_dir = root / "cache"
+            processed_output_dir = root / "processed"
+            _write_processed_window(processed_output_dir, window_start="20240401", window_end="20240430")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/run_tushare_analyst_report_cache.py",
+                    "--start-date",
+                    "2024-04-01",
+                    "--end-date",
+                    "2024-04-30",
+                    "--output-dir",
+                    str(output_dir),
+                    "--processed-output-dir",
+                    str(processed_output_dir),
+                    "--request-sleep-seconds",
+                    "0",
+                    "--skip-quota-preflight",
+                ],
+                cwd=Path(__file__).resolve().parents[2],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("--skip-quota-preflight-reason", result.stderr)
+
+    def test_cache_cli_records_skip_reason_before_cached_replay(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_dir = root / "cache"
+            processed_output_dir = root / "processed"
+            _write_processed_window(processed_output_dir, window_start="20240401", window_end="20240430")
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/run_tushare_analyst_report_cache.py",
+                    "--start-date",
+                    "2024-04-01",
+                    "--end-date",
+                    "2024-04-30",
+                    "--output-dir",
+                    str(output_dir),
+                    "--processed-output-dir",
+                    str(processed_output_dir),
+                    "--request-sleep-seconds",
+                    "0",
+                    "--skip-quota-preflight",
+                    "--skip-quota-preflight-reason",
+                    "offline cached replay",
+                ],
+                cwd=Path(__file__).resolve().parents[2],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0)
+            self.assertIn('"status": "skipped"', result.stdout)
+            self.assertIn("offline cached replay", result.stdout)
+            self.assertTrue((output_dir / "tushare_analyst_report_cache.json").exists())
+
 
 def _write_cache(
     root: Path,
@@ -196,6 +267,39 @@ def _write_cache(
         "live_boundary_allowed": False,
     }
     (root / "tushare_analyst_report_cache.json").write_text(json.dumps(payload), encoding="utf-8")
+
+
+def _write_processed_window(root: Path, *, window_start: str, window_end: str) -> None:
+    frame = pd.DataFrame(
+        [
+            {
+                "report_date": "2024-04-15",
+                "symbol": "000001.SZ",
+                "name": "Ping An Bank",
+                "org_name": "Local Fixture",
+                "author_name": "Analyst",
+                "report_title": "Cached analyst report",
+                "report_type": "company",
+                "rating": "buy",
+                "quarter": "2024Q1",
+                "eps": 1.0,
+                "np": 100.0,
+                "roe": 0.1,
+                "tp": 10.0,
+                "min_price": 9.0,
+                "max_price": 11.0,
+                "pe": 8.0,
+                "op_rt": 0.1,
+                "op_pr": 0.1,
+                "ev_ebitda": 7.0,
+            }
+        ]
+    )
+    DatasetStore(root).write_frame(
+        frame,
+        "processed/analyst_report_rc_window",
+        {"window_start": window_start, "window_end": window_end},
+    )
 
 
 if __name__ == "__main__":

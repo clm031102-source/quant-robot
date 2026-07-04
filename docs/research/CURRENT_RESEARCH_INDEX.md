@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round510 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, and cache-CLI default quota preflight | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round511 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, and skip-quota audit hardening | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -784,3 +784,23 @@ Docs:
 - `docs/research/ROUND510_NEXT_STEPS_CHECKLIST.md`
 
 Decision: future analyst-report cache attempts should run the cache CLI directly and let its default quota preflight guard the provider request. Continue to April 2024 cache only after the cache CLI exits `0`; stop if it exits `3`.
+
+## Round511 Cache CLI Skip Quota Audit
+
+Round511 tightened the exceptional cache-CLI quota bypass path:
+
+- `--skip-quota-preflight` now requires `--skip-quota-preflight-reason`.
+- Missing skip reason fails during argument validation before cache execution.
+- A supplied skip reason prints a JSON audit packet with `status="skipped"` before cache execution continues.
+- Test-first evidence: the two new skip-path tests failed before implementation with `0 != 2` and `2 != 0`.
+- Focused verification passed: `tests/unit/test_analyst_report_quota_preflight.py` now has 8 passing tests.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Real cache-CLI fail-closed run for April 2024 on 2026-07-05 still stopped at quota preflight, blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, and returned exit code `3`.
+- Full laptop integration verification passed with 81 tests, compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round511_cache_cli_skip_quota_audit_2026-07-05.md`
+- `docs/research/ROUND511_NEXT_STEPS_CHECKLIST.md`
+
+Decision: keep `--skip-quota-preflight` only for exceptional offline or controlled local replay cases, and require a human-readable reason every time it is used. Normal provider-backed analyst-report cache attempts must use the default preflight and stop on exit code `3`.
