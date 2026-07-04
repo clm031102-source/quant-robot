@@ -67,22 +67,30 @@ def run_recent_data_refresh(
     can_execute = execute and can_run_data_pipeline and (source_name != "tushare" or bool(readiness_pack.get("ready", False)))
     if can_execute:
         runner = ingest_runner or run_ingest
-        ingest_result = runner(
-            source=source_name,
-            market=market.upper(),
-            output_dir=Path(output_dir),
-            start_date=str(window["start_date"]),
-            end_date=str(window["end_date"]),
-        )
-        ingest_result = {
-            **ingest_result,
-            "rotation_membership": _write_recent_cn_etf_rotation_membership(
-                Path(output_dir),
-                market.upper(),
-                source_name=source_name,
-                fund_basic=_load_recent_fund_basic(source_name, fund_basic_loader),
-            ),
-        }
+        try:
+            ingest_result = runner(
+                source=source_name,
+                market=market.upper(),
+                output_dir=Path(output_dir),
+                start_date=str(window["start_date"]),
+                end_date=str(window["end_date"]),
+            )
+            ingest_result = {
+                **ingest_result,
+                "rotation_membership": _write_recent_cn_etf_rotation_membership(
+                    Path(output_dir),
+                    market.upper(),
+                    source_name=source_name,
+                    fund_basic=_load_recent_fund_basic(source_name, fund_basic_loader),
+                ),
+            }
+        except Exception as exc:
+            ingest_result = {
+                "source": source_name,
+                "market": market.upper(),
+                "processed_rows": 0,
+                "ingest_error": {"type": type(exc).__name__, "error": str(exc)},
+            }
     pack = build_recent_data_refresh_pack(
         profile_pack,
         readiness=readiness_pack,

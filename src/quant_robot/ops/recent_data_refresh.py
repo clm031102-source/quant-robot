@@ -205,6 +205,22 @@ def _coverage_from_ingest(
             "duplicate_bars": None,
             "zero_volume_rows": None,
         }
+    ingest_error = ingest_result.get("ingest_error") if isinstance(ingest_result.get("ingest_error"), dict) else {}
+    if ingest_error:
+        return {
+            "coverage_status": "fail",
+            "coverage_scope": "provider_universe",
+            "processed_rows": 0,
+            "latest_data_date": None,
+            "target_start_date": _date_str(target_window.get("start_date")),
+            "target_end_date": _date_str(target_window.get("end_date")),
+            "target_start_covered": False,
+            "target_end_covered": False,
+            "missing_date_rows": None,
+            "duplicate_bars": None,
+            "zero_volume_rows": None,
+            "ingest_error": ingest_error,
+        }
     report = ingest_result.get("quality_report", {}) if isinstance(ingest_result.get("quality_report"), dict) else {}
     latest_date = _date_str(report.get("end_date"))
     earliest_date = _date_str(report.get("start_date"))
@@ -506,6 +522,8 @@ def _weekend_adjusted_end(value: str | None) -> str | None:
 def _decision_blockers(status: str, readiness_missing: list[str], coverage: dict[str, Any]) -> list[str]:
     blockers = list(readiness_missing)
     if status == "data_quality_blocked":
+        if coverage.get("ingest_error"):
+            blockers.append("ingest_failed")
         if coverage.get("coverage_scope") == "required_assets" and not coverage.get("required_assets_covered"):
             blockers.append("required_assets_not_covered")
         if not coverage.get("target_start_covered"):

@@ -315,6 +315,53 @@ class RecentDataRefreshCliTests(unittest.TestCase):
                 "fund_basic_required_for_live_tushare_rotation_membership",
             )
 
+    def test_execute_writes_blocked_pack_when_ingest_runner_raises(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            profile_pack = root / "profile_observation_pack.json"
+            profile_pack.write_text(
+                json.dumps(
+                    {
+                        "run_date": "2026-04-29",
+                        "ledger": [
+                            {
+                                "signal_date": "2026-03-23",
+                                "observed_assets": "CN_ETF_XSHE_160615",
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            def raise_empty_response(**_kwargs):
+                raise RuntimeError("empty raw response for open trade date 20260428")
+
+            pack = run_recent_data_refresh(
+                profile_observation_pack=profile_pack,
+                source="tushare",
+                market="CN_ETF",
+                output_dir=root / "processed",
+                report_dir=root / "report",
+                start_date="2026-03-23",
+                end_date="2026-04-29",
+                execute=True,
+                readiness={"ready": True, "missing": []},
+                ingest_runner=raise_empty_response,
+            )
+
+            self.assertEqual(pack["status"], "data_quality_blocked")
+            self.assertIn("ingest_failed", pack["decision"]["blockers"])
+            self.assertFalse(pack["decision"]["recent_data_ready"])
+            self.assertEqual(
+                pack["ingest"]["ingest_error"],
+                {
+                    "error": "empty raw response for open trade date 20260428",
+                    "type": "RuntimeError",
+                },
+            )
+            self.assertTrue((root / "report" / "recent_data_refresh_pack.json").exists())
+
     def test_function_writes_machine_aware_handoff_artifacts(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

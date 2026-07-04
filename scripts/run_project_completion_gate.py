@@ -131,7 +131,22 @@ def discover_latest_observation_sufficiency_pack(root: str | Path = DEFAULT_OBSE
     candidates = list(candidates_by_path.values())
     if not candidates:
         return None
-    return max(candidates, key=lambda path: path.stat().st_mtime)
+    return max(candidates, key=_observation_pack_rank)
+
+
+def _observation_pack_rank(path: Path) -> tuple[int, int, int, float]:
+    pack = _read_optional_json(path)
+    decision = pack.get("decision") if isinstance(pack, dict) and isinstance(pack.get("decision"), dict) else {}
+    fills = pack.get("fills") if isinstance(pack, dict) and isinstance(pack.get("fills"), dict) else {}
+    sufficient = bool(decision.get("observation_sufficiency_cleared")) or (isinstance(pack, dict) and pack.get("status") == "sufficient")
+    provenance = _observation_pack_provenance_score(path)
+    observed = _int(fills.get("observed_fills"), 0)
+    return (provenance, 1 if sufficient else 0, observed, path.stat().st_mtime)
+
+
+def _observation_pack_provenance_score(path: Path) -> int:
+    text = path.as_posix().lower()
+    return 1 if "validated" in text or "fund_basic" in text else 0
 
 
 def _summarize_observation(
@@ -244,6 +259,13 @@ def _read_optional_json(path: Path) -> dict[str, Any] | None:
     if not isinstance(data, dict):
         raise ValueError(f"Expected JSON object in {path}")
     return data
+
+
+def _int(value: Any, default: int = 0) -> int:
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return default
 
 
 def _git_stdout(args: list[str]) -> str:

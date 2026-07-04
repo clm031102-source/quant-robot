@@ -102,6 +102,62 @@ class ProjectCompletionGateTests(unittest.TestCase):
 
             self.assertEqual(discover_latest_observation_sufficiency_pack(root), latest_pack)
 
+    def test_discovery_prefers_stronger_observation_evidence_over_newer_diagnostic_pack(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            stronger_pack = root / "round478_observation_sufficiency_validated_latest" / "observation_sufficiency_pack.json"
+            diagnostic_pack = root / "round487_observation_sufficiency" / "observation_sufficiency_pack.json"
+            sufficient_pack = root / "round488_observation_sufficiency_validated" / "observation_sufficiency_pack.json"
+            for pack, status, cleared, observed_fills, timestamp in [
+                (stronger_pack, "needs_more_observation_data", False, 5, 100.0),
+                (diagnostic_pack, "needs_more_observation_data", False, 1, 300.0),
+                (sufficient_pack, "sufficient", True, 20, 200.0),
+            ]:
+                pack.parent.mkdir(parents=True, exist_ok=True)
+                pack.write_text(
+                    json.dumps(
+                        {
+                            "status": status,
+                            "decision": {"observation_sufficiency_cleared": cleared},
+                            "fills": {"observed_fills": observed_fills, "required_fills": 20},
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                os.utime(pack, (timestamp, timestamp))
+
+            self.assertEqual(discover_latest_observation_sufficiency_pack(root), sufficient_pack)
+            sufficient_pack.unlink()
+            self.assertEqual(discover_latest_observation_sufficiency_pack(root), stronger_pack)
+
+    def test_discovery_prefers_validated_repaired_evidence_over_legacy_higher_fill_pack(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            legacy_pack = root / "round472_observation_sufficiency" / "observation_sufficiency_pack.json"
+            validated_pack = (
+                root
+                / "round478_observation_sufficiency_validated_latest"
+                / "observation_sufficiency_pack.json"
+            )
+            for pack, observed_fills, timestamp in [
+                (legacy_pack, 6, 300.0),
+                (validated_pack, 5, 200.0),
+            ]:
+                pack.parent.mkdir(parents=True, exist_ok=True)
+                pack.write_text(
+                    json.dumps(
+                        {
+                            "status": "needs_more_observation_data",
+                            "decision": {"observation_sufficiency_cleared": False},
+                            "fills": {"observed_fills": observed_fills, "required_fills": 20},
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+                os.utime(pack, (timestamp, timestamp))
+
+            self.assertEqual(discover_latest_observation_sufficiency_pack(root), validated_pack)
+
 
 if __name__ == "__main__":
     unittest.main()
