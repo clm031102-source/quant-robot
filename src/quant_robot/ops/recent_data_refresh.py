@@ -599,6 +599,9 @@ def _next_actions(pack: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
     if pack.get("status") == "data_quality_blocked":
+        clean_retry = _latest_required_asset_end_retry_action(pack)
+        if clean_retry:
+            actions.append(clean_retry)
         actions.append(
             {
                 "action": "inspect_recent_data_quality",
@@ -632,6 +635,48 @@ def _next_actions(pack: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
     return actions
+
+
+def _latest_required_asset_end_retry_action(pack: dict[str, Any]) -> dict[str, Any] | None:
+    coverage = pack.get("coverage", {}) if isinstance(pack.get("coverage"), dict) else {}
+    if coverage.get("coverage_scope") != "required_assets":
+        return None
+    if coverage.get("target_start_covered") is not True or coverage.get("target_end_covered") is not False:
+        return None
+    target_start = _date_str(coverage.get("target_start_date"))
+    target_end = _date_str(coverage.get("target_end_date"))
+    asset_rows = coverage.get("required_asset_coverage", [])
+    if not target_start or not target_end or not isinstance(asset_rows, list):
+        return None
+    latest_end = None
+    limiting_assets: list[str] = []
+    for row in asset_rows:
+        if not isinstance(row, dict) or row.get("covered"):
+            continue
+        asset_end = _date_str(row.get("end_date"))
+        if not asset_end or asset_end >= target_end:
+            continue
+        if latest_end is None or asset_end < latest_end:
+            latest_end = asset_end
+            limiting_assets = [str(row.get("asset_id") or "unknown")]
+        elif asset_end == latest_end:
+            limiting_assets.append(str(row.get("asset_id") or "unknown"))
+    if not latest_end or latest_end < target_start:
+        return None
+    workstation = pack.get("workstation", {}) if isinstance(pack.get("workstation"), dict) else {}
+    machine = workstation.get("machine") or "highspec_desktop"
+    return {
+        "action": "rerun_recent_refresh_to_latest_required_asset_end",
+        "local_only": True,
+        "command": (
+            f"python scripts\\run_recent_data_refresh.py --machine {machine} "
+            f"--start-date {target_start} --end-date {latest_end} --execute"
+        ),
+        "reason": (
+            "Required asset coverage stops before the requested target end; "
+            f"latest clean target end is {latest_end} for {', '.join(limiting_assets)}."
+        ),
+    }
 
 
 def _handoff_refresh_action(pack: dict[str, Any], workstation: dict[str, Any]) -> dict[str, Any]:

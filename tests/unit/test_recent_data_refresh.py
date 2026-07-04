@@ -318,6 +318,57 @@ class RecentDataRefreshTests(unittest.TestCase):
         self.assertIn("missing_date_rows", pack["decision"]["blockers"])
         self.assertIn("required_assets_not_covered", pack["decision"]["blockers"])
 
+    def test_required_asset_target_end_gap_recommends_latest_clean_retry_window(self):
+        profile_observation = {
+            "run_date": "2026-07-03",
+            "observed_assets": ["CN_ETF_XSHE_160615"],
+            "ledger": [{"signal_date": "2026-05-06", "profile_id": "cap60_guard12_cd3"}],
+        }
+        ingest_result = {
+            "source": "tushare",
+            "market": "CN_ETF",
+            "downloaded_trade_dates": ["20260701", "20260702", "20260703"],
+            "skipped_trade_dates": [],
+            "processed_rows": 2,
+            "quality_report": {
+                "rows": 2,
+                "assets": 1,
+                "start_date": "2026-07-01",
+                "end_date": "2026-07-03",
+                "missing_date_rows": 0,
+                "duplicate_bars": 0,
+                "zero_volume_rows": 0,
+                "coverage_by_asset": [
+                    {
+                        "asset_id": "CN_ETF_XSHE_160615",
+                        "rows": 2,
+                        "start_date": "2026-07-01",
+                        "end_date": "2026-07-02",
+                        "missing_trade_dates": [],
+                    }
+                ],
+            },
+        }
+
+        pack = build_recent_data_refresh_pack(
+            profile_observation,
+            readiness={"ready": True, "missing": []},
+            ingest_result=ingest_result,
+            execute=True,
+            source="tushare",
+            market="CN_ETF",
+            output_dir="data/processed/tushare_etf_recent",
+            start_date="2026-07-01",
+            end_date="2026-07-03",
+        )
+
+        self.assertEqual(pack["status"], "data_quality_blocked")
+        self.assertIn("target_end_not_covered", pack["decision"]["blockers"])
+        self.assertEqual(pack["next_actions"][0]["action"], "rerun_recent_refresh_to_latest_required_asset_end")
+        self.assertIn("--start-date 2026-07-01", pack["next_actions"][0]["command"])
+        self.assertIn("--end-date 2026-07-02", pack["next_actions"][0]["command"])
+        self.assertIn("CN_ETF_XSHE_160615", pack["next_actions"][0]["reason"])
+
 
 if __name__ == "__main__":
     unittest.main()
