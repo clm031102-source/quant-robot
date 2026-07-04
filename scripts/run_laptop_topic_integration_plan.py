@@ -193,6 +193,8 @@ def execute_laptop_topic_integration_plan(
 
 def plan_handoff_ready(plan: dict[str, Any]) -> bool:
     handoff = plan.get("handoff", {})
+    if isinstance(handoff, dict) and isinstance(handoff.get("ready_for_handoff"), bool):
+        return bool(handoff["ready_for_handoff"])
     if isinstance(handoff, dict) and handoff.get("status") == "ready_on_main":
         return True
     return plan.get("status") == "ready"

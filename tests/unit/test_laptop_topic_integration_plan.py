@@ -281,6 +281,30 @@ class LaptopTopicIntegrationPlanTests(unittest.TestCase):
         self.assertFalse(plan_handoff_ready({"status": "blocked", "handoff": {"status": "blocked"}}))
         self.assertFalse(plan_handoff_ready({"status": "no_topic_branches", "handoff": {"status": "no_topic_branches"}}))
 
+    def test_plan_handoff_ready_prefers_explicit_ready_boolean_when_present(self) -> None:
+        self.assertTrue(
+            plan_handoff_ready(
+                {
+                    "status": "blocked",
+                    "handoff": {
+                        "status": "blocked",
+                        "ready_for_handoff": True,
+                    },
+                }
+            )
+        )
+        self.assertFalse(
+            plan_handoff_ready(
+                {
+                    "status": "blocked",
+                    "handoff": {
+                        "status": "ready_on_main",
+                        "ready_for_handoff": False,
+                    },
+                }
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

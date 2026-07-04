@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round551 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, external-feed family-review boundary, external-feed join-smoke optimization, LPR cache repair guard, offline macro LPR repair tool, Round533 two-agent review hardening, Round534 operator runbook hardening, Round535 cloud/main branch audit, Round536 laptop integration rehearsal, Round537 latest-topic integration rehearsal, Round538 integration-plan handoff status, Round539 handoff-ready gate, Round540 clean handoff verification, Round541 handoff next command, Round542 pre-agent checkpoint briefing, Round543 two-agent checkpoint, Round544 handoff executable context, Round545 handoff here command, Round546 next-command context, Round547 handoff recommended command, Round548 handoff blocker metadata, Round549 handoff ready boolean, Round550 handoff current context, and Round551 handoff context mismatch reasons | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round552 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, external-feed family-review boundary, external-feed join-smoke optimization, LPR cache repair guard, offline macro LPR repair tool, Round533 two-agent review hardening, Round534 operator runbook hardening, Round535 cloud/main branch audit, Round536 laptop integration rehearsal, Round537 latest-topic integration rehearsal, Round538 integration-plan handoff status, Round539 handoff-ready gate, Round540 clean handoff verification, Round541 handoff next command, Round542 pre-agent checkpoint briefing, Round543 two-agent checkpoint, Round544 handoff executable context, Round545 handoff here command, Round546 next-command context, Round547 handoff recommended command, Round548 handoff blocker metadata, Round549 handoff ready boolean, Round550 handoff current context, Round551 handoff context mismatch reasons, and Round552 handoff-ready gate alignment | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -196,6 +196,8 @@ Latest same-day progress reports:
 - `docs/research/ROUND550_NEXT_STEPS_CHECKLIST.md`
 - `docs/research/project_round551_handoff_context_mismatch_reasons_2026-07-05.md`
 - `docs/research/ROUND551_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round552_handoff_ready_gate_alignment_2026-07-05.md`
+- `docs/research/ROUND552_NEXT_STEPS_CHECKLIST.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -1667,3 +1669,19 @@ Docs:
 - `docs/research/ROUND551_NEXT_STEPS_CHECKLIST.md`
 
 Decision: callers should display `handoff.current_context_mismatch_reasons` whenever `handoff.current_context_matches_required=false`.
+
+## Round552 Handoff Ready Gate Alignment
+
+Round552 aligned the handoff-ready gate with the explicit readiness boolean:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, `main` push, or remote branch deletion occurred.
+- `plan_handoff_ready(plan)` now prefers `handoff.ready_for_handoff` when it is present as a boolean.
+- The older `handoff.status=ready_on_main` and top-level `status=ready` fallback remains for minimal or historical plan JSON.
+- Test-first evidence: the new focused behavior first failed because explicit `ready_for_handoff=true` on a blocked handoff returned `False`; then the full laptop integration plan unit suite passed with 9 tests.
+
+Docs:
+
+- `docs/research/project_round552_handoff_ready_gate_alignment_2026-07-05.md`
+- `docs/research/ROUND552_NEXT_STEPS_CHECKLIST.md`
+
+Decision: handoff consumers should treat `handoff.ready_for_handoff` as the authoritative readiness flag when present, while still using `handoff.executable_here`, `handoff.next_command_allowed_here`, and `handoff.current_context_matches_required` for execution permission. Round553 is the next required two-agent checkpoint.
