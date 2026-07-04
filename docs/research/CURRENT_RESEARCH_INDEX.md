@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round542 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, external-feed family-review boundary, external-feed join-smoke optimization, LPR cache repair guard, offline macro LPR repair tool, Round533 two-agent review hardening, Round534 operator runbook hardening, Round535 cloud/main branch audit, Round536 laptop integration rehearsal, Round537 latest-topic integration rehearsal, Round538 integration-plan handoff status, Round539 handoff-ready gate, Round540 clean handoff verification, Round541 handoff next command, and Round542 pre-agent checkpoint briefing | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round543 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, external-feed family-review boundary, external-feed join-smoke optimization, LPR cache repair guard, offline macro LPR repair tool, Round533 two-agent review hardening, Round534 operator runbook hardening, Round535 cloud/main branch audit, Round536 laptop integration rehearsal, Round537 latest-topic integration rehearsal, Round538 integration-plan handoff status, Round539 handoff-ready gate, Round540 clean handoff verification, Round541 handoff next command, Round542 pre-agent checkpoint briefing, and Round543 two-agent checkpoint | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -178,6 +178,8 @@ Latest same-day progress reports:
 - `docs/research/ROUND541_NEXT_STEPS_CHECKLIST.md`
 - `docs/research/project_round542_pre_agent_checkpoint_briefing_2026-07-05.md`
 - `docs/research/ROUND542_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round543_two_agent_checkpoint_2026-07-05.md`
+- `docs/research/ROUND543_NEXT_STEPS_CHECKLIST.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -1487,3 +1489,23 @@ Docs:
 - `docs/research/ROUND542_NEXT_STEPS_CHECKLIST.md`
 
 Decision: Round543 should create the next required two fresh reviewers before any new source-family, provider, LPR, factor, or branch-integration decision.
+
+## Round543 Two-Agent Checkpoint
+
+Round543 completed the required round-40 checkpoint after the Round504 baseline:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, `main` push, or remote branch deletion occurred.
+- Fresh gates passed on 2026-07-05: startup context branch matched and upstream was `0 ahead / 0 behind`, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Active topic branch at review time: `b4226d79`.
+- Topic/main relationship was `0 40`.
+- `--require-handoff-ready` exited `0`; `handoff.status=ready_on_main`.
+- Quant PM reviewer `Aristotle` gave no-go on provider, factor, LPR, promotion, and final-holdout actions, and go only for paper/source/process work plus laptop-owned integration.
+- Ordinary-user reviewer `Hilbert` identified the main usability risk: `ready_on_main` and the laptop execute command can be misread as executable from office desktop.
+- Round543 documents now include a Run Here / Do Not Run Here box and a plain-English blocker table.
+
+Docs:
+
+- `docs/research/project_round543_two_agent_checkpoint_2026-07-05.md`
+- `docs/research/ROUND543_NEXT_STEPS_CHECKLIST.md`
+
+Decision: keep provider/factor/LPR/mainline actions blocked from office desktop. Round544 should harden checklist wording or continue non-provider source-tooling work unless laptop integration or real quota-pack import becomes available.
