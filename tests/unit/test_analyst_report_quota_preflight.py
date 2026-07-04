@@ -306,6 +306,43 @@ class AnalystReportQuotaPreflightTests(unittest.TestCase):
             self.assertIn("offline cached replay", result.stdout)
             self.assertTrue((output_dir / "tushare_analyst_report_cache.json").exists())
 
+    def test_cache_cli_skip_quota_preflight_blocks_when_cached_window_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output_dir = root / "cache"
+            processed_output_dir = root / "processed"
+            argv = [
+                "run_tushare_analyst_report_cache.py",
+                "--start-date",
+                "2024-04-01",
+                "--end-date",
+                "2024-04-30",
+                "--output-dir",
+                str(output_dir),
+                "--processed-output-dir",
+                str(processed_output_dir),
+                "--request-sleep-seconds",
+                "0",
+                "--skip-quota-preflight",
+                "--skip-quota-preflight-reason",
+                "offline cached replay",
+            ]
+
+            stdout = io.StringIO()
+            with (
+                patch.object(sys, "argv", argv),
+                patch("sys.stdout", stdout),
+                patch.object(cache_cli, "run_tushare_analyst_report_cache") as run_cache,
+            ):
+                run_cache.return_value = {"summary": {}, "processed_output_dir": str(processed_output_dir), "safety": "test"}
+                with self.assertRaises(SystemExit) as raised:
+                    cache_cli.main()
+
+        self.assertEqual(raised.exception.code, 3)
+        self.assertIn("skip_quota_preflight_requires_cached_processed_windows", stdout.getvalue())
+        run_cache.assert_not_called()
+        self.assertFalse((output_dir / "tushare_analyst_report_cache.json").exists())
+
     def test_cache_cli_preflight_only_stops_after_allowed_quota_check(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -386,6 +423,7 @@ class AnalystReportQuotaPreflightTests(unittest.TestCase):
         self.assertIn("exits 3", result.stdout)
         self.assertIn("offline or controlled local replay", result.stdout)
         self.assertIn("provider-backed cache requires the local generated date", " ".join(result.stdout.split()))
+        self.assertIn("requires existing processed windows", " ".join(result.stdout.split()))
         self.assertIn("--skip-quota-preflight-reason", result.stdout)
 
     def test_cache_cli_blocks_provider_cache_when_quota_target_date_is_not_local_date(self) -> None:

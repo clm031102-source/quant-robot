@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round515 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, and quota target-date guard | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round516 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, and skip-quota offline replay guard | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -888,3 +888,25 @@ Docs:
 - `docs/research/ROUND515_NEXT_STEPS_CHECKLIST.md`
 
 Decision: do not run the April 2024 provider-backed analyst-report cache on 2026-07-05. Future provider-backed cache attempts should omit `--quota-target-date` or set it to the actual local generated date; nonlocal target dates are audit/dry-run only.
+
+## Round516 Skip-Quota Offline Replay Guard
+
+Round516 tightened the remaining strong quota bypass path:
+
+- `scripts/run_tushare_analyst_report_cache.py` now checks requested processed analyst-report windows before honoring `--skip-quota-preflight`.
+- Skip now requires cached processed windows for every requested `report_rc` window, with resume and processed writes enabled.
+- If any requested window is missing, the CLI prints `status="blocked"`, includes `skip_quota_preflight_requires_cached_processed_windows`, and exits `3`.
+- Successful skip packets include cached/missing processed-window counts and missing-window details.
+- Help text now states that skip replay requires existing processed windows.
+- Test-first evidence: the missing-cache skip test and help assertion failed before implementation, then the quota-preflight test file passed with 16 tests.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Actual-date cache-CLI preflight-only for April 2024 still blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, and returned exit code `3`.
+- A real skip attempt with an empty processed-output directory blocked with `skip_quota_preflight_requires_cached_processed_windows` and returned exit code `3`.
+- Full laptop integration verification passed with 89 tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round516_skip_quota_offline_replay_guard_2026-07-05.md`
+- `docs/research/ROUND516_NEXT_STEPS_CHECKLIST.md`
+
+Decision: `--skip-quota-preflight` is now a local cached-replay path, not a provider-fetch bypass. Continue to April 2024 cache only after startup gates pass and the actual-date `--quota-preflight-only` exits `0`.

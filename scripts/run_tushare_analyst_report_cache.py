@@ -12,7 +12,11 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 ensure_workspace_imports()
 
 from quant_robot.data.adapters.tushare_adapter import TushareAdapter  # noqa: E402
-from quant_robot.data.ingest.tushare_analyst_reports import run_tushare_analyst_report_cache  # noqa: E402
+from quant_robot.data.ingest.tushare_analyst_reports import (  # noqa: E402
+    _date_to_tushare,
+    _date_windows,
+    run_tushare_analyst_report_cache,
+)
 from quant_robot.ops.analyst_report_quota_preflight import (  # noqa: E402
     DEFAULT_MAX_DAILY_REQUESTS,
     QUOTA_TARGET_DATE_MISMATCH_WARNING,
@@ -20,10 +24,14 @@ from quant_robot.ops.analyst_report_quota_preflight import (  # noqa: E402
     build_analyst_report_quota_preflight,
     write_analyst_report_quota_preflight,
 )
+from quant_robot.storage.dataset_store import DatasetStore  # noqa: E402
 
 
 DEFAULT_OUTPUT_DIR = Path("data/reports/tushare_analyst_report_cache")
 DEFAULT_QUOTA_PREFLIGHT_OUTPUT_DIR = Path("data/reports/analyst_report_quota_preflight")
+SKIP_QUOTA_MISSING_CACHED_WINDOWS_BLOCKER = "skip_quota_preflight_requires_cached_processed_windows"
+SKIP_QUOTA_REQUIRES_RESUME_BLOCKER = "skip_quota_preflight_requires_resume"
+SKIP_QUOTA_REQUIRES_PROCESSED_WRITES_BLOCKER = "skip_quota_preflight_requires_processed_writes"
 
 
 def main() -> None:
@@ -46,7 +54,10 @@ def main() -> None:
     parser.add_argument(
         "--skip-quota-preflight",
         action="store_true",
-        help="Exceptional offline or controlled local replay only; never use for normal provider-backed fetches.",
+        help=(
+            "Exceptional offline or controlled local replay only; requires existing processed windows and never use "
+            "for normal provider-backed fetches."
+        ),
     )
     parser.add_argument(
         "--skip-quota-preflight-reason",
@@ -91,29 +102,18 @@ def main() -> None:
         skip_reason = str(args.skip_quota_preflight_reason).strip()
         if not skip_reason:
             parser.error("--skip-quota-preflight requires --skip-quota-preflight-reason")
+        skip_packet = _build_skip_quota_preflight_packet(args, skip_reason)
         print(
             json.dumps(
-                {
-                    "status": "skipped",
-                    "summary": {
-                        "quota_preflight_skipped": True,
-                        "output_dir": str(Path(args.output_dir)),
-                        "processed_output_dir": str(Path(args.processed_output_dir)) if args.processed_output_dir else "",
-                    },
-                    "decision": {
-                        "request_allowed": True,
-                        "blockers": [],
-                        "skip_reason": skip_reason,
-                        "next_action": "run_cache_without_local_quota_preflight",
-                    },
-                    "safety": QUOTA_PREFLIGHT_SAFETY,
-                },
+                skip_packet,
                 ensure_ascii=False,
                 indent=2,
                 sort_keys=True,
             ),
             flush=True,
         )
+        if not skip_packet["decision"]["request_allowed"]:
+            raise SystemExit(3)
     else:
         quota_packet = build_analyst_report_quota_preflight(
             report_roots=args.quota_report_root or ["data/reports"],
@@ -201,6 +201,65 @@ def main() -> None:
             sort_keys=True,
         )
     )
+
+
+def _build_skip_quota_preflight_packet(args: argparse.Namespace, skip_reason: str) -> dict[str, object]:
+    processed_path = Path(args.processed_output_dir) if args.processed_output_dir else Path(args.output_dir)
+    store = DatasetStore(processed_path)
+    blockers: list[str] = []
+    if args.no_resume:
+        blockers.append(SKIP_QUOTA_REQUIRES_RESUME_BLOCKER)
+    if args.no_write_processed:
+        blockers.append(SKIP_QUOTA_REQUIRES_PROCESSED_WRITES_BLOCKER)
+
+    windows: list[dict[str, object]] = []
+    for window_start, window_end in _date_windows(args.start_date, args.end_date, frequency=args.window_frequency):
+        start_label = _date_to_tushare(window_start)
+        end_label = _date_to_tushare(window_end)
+        cached = (
+            not args.no_resume
+            and not args.no_write_processed
+            and store.exists(
+                "processed/analyst_report_rc_window",
+                {"window_start": start_label, "window_end": end_label},
+            )
+        )
+        windows.append(
+            {
+                "window_start": start_label,
+                "window_end": end_label,
+                "cached_processed_window": cached,
+            }
+        )
+
+    missing = [window for window in windows if not window["cached_processed_window"]]
+    if missing and SKIP_QUOTA_MISSING_CACHED_WINDOWS_BLOCKER not in blockers:
+        blockers.append(SKIP_QUOTA_MISSING_CACHED_WINDOWS_BLOCKER)
+
+    request_allowed = not blockers
+    return {
+        "status": "skipped" if request_allowed else "blocked",
+        "summary": {
+            "quota_preflight_skipped": request_allowed,
+            "output_dir": str(Path(args.output_dir)),
+            "processed_output_dir": str(processed_path),
+            "window_count": len(windows),
+            "cached_processed_window_count": len(windows) - len(missing),
+            "missing_cached_window_count": len(missing),
+            "missing_cached_windows": missing,
+        },
+        "decision": {
+            "request_allowed": request_allowed,
+            "blockers": blockers,
+            "skip_reason": skip_reason,
+            "next_action": (
+                "run_offline_cached_replay_without_local_quota_preflight"
+                if request_allowed
+                else "prepare_processed_cache_or_run_normal_quota_preflight"
+            ),
+        },
+        "safety": QUOTA_PREFLIGHT_SAFETY,
+    }
 
 
 if __name__ == "__main__":
