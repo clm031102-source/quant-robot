@@ -1,6 +1,6 @@
 # Current Research And Cloud Sync Index
 
-Last updated: 2026-07-04
+Last updated: 2026-07-05
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
@@ -8,11 +8,13 @@ Purpose: this is the first file to read after syncing the repository on any work
 
 - Stable branch: `main`
 - Remote HEAD: `origin/main`
-- Current remote topic branches: `codex/factor-batch-cn-stock-benchmark-relative-20260704`; `codex/factor-batch-cn-stock-execution-aware-round465-20260704` after this task branch is pushed
-- Remote branch cleanup status: pending for the two active topic branches
-- Latest integrated cloud commit: `759c3cc3`
+- Current remote topic branch: `codex/factor-batch-cn-stock-profit-mining-20260704`
+- Remote branch cleanup status: Round464 and Round465-Round502 branches were merged into `main` and removed; keep only the active Round503/Round504 mining branch until it is reviewed or merged
+- Latest integrated cloud commit: `af474d5a`
 - Live-trading boundary: disabled; research-to-paper only
 - Latest cloud audit report: `docs/research/cloud_project_audit_2026-06-27.md`
+
+Read this file from top to bottom for current state, but treat dated Round sections before Round503 as historical evidence. Some older sections intentionally preserve the pre-cleanup blockers that were true when they were written.
 
 All durable code, configs, tests, and lightweight reports that were previously on cloud topic branches are now integrated into `main`. New non-trivial work should start from latest `main`, then create a task branch using the branch policy in `configs/workstations.json`.
 
@@ -28,10 +30,9 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-benchmark-relative-20260704` | Round464 benchmark-relative residual moneyflow pre-registration, walk-forward framework fixes, and rejection evidence | active review branch |
-| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, Round471 financial/PIT source-gate refresh, Round472 paper replay refresh, Round473 expanded-observation data-quality block evidence, Round474 office-desktop completion handoff, Round475 fund-basic rotation-membership repair, Round476 live fund-basic membership guard, Round477 validated-ETF observation sufficiency evidence, Round478 latest validated-ETF observation update, Round479 laptop integration preflight, Round480 laptop integration profile plus latest target check, Round481 isolated laptop merge rehearsal, Round482 completion gate before profit mining, Round483 require-complete gate mode, Round484 latest observation-pack discovery, Round485 pre-alpha completion check profile, Round486 laptop topic integration plan, Round487 observation continuation/gate hardening, Round488 observation gap-recovery planning, Round489 post-refresh window propagation, Round490 required-asset end retry action, Round491 regenerated next-action evidence, Round492 target-end gap continuation planning, Round493 completion-gate target-end action, Round494 executable target-end provider check, Round495 latest laptop merge rehearsal, Round496 guarded laptop execute mode, Round501 LOF filter plus observation sufficiency clearance, and Round502 final laptop integration rehearsal | active review branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence and Round504 analyst-report-revision PIT source continuation | active research branch |
 
-These branches are not promotion branches. They record a completed rejection set, framework fixes, and paper-lane risk-repair evidence that should be reviewed before integration.
+This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
 ## Deleted historical branches
 
@@ -649,3 +650,23 @@ Round503 completed the user-authorized final cloud branch cleanup and started th
 - A fixed self-risk overlay screen was run under `data/reports/round503_profit_mining_ps_gt10_self_risk_overlay_20260704`; the top candidate remained `ps_gt10_self_roll21_sum_m2_cash` with annualized return 0.08507982577628304, overlap-adjusted Sharpe 0.6969712816692145, and max drawdown -0.12458721638476855 versus baseline max drawdown -0.2542482236517434.
 
 Decision: profit-mining has started only under the gated paper-risk-repair lane. This is not an independent alpha claim, promotion remains disabled, and the 2026 final holdout remains sealed. Next allowed paths are to resume the Round467 analyst-report-revision PIT source after the provider limit resets, register a genuinely new PIT source candidate plan, or continue paper-readiness hardening without q20/range/ps threshold tuning.
+
+## Round504 Analyst Report PIT Continuation
+
+Round504 continued the new PIT source path recommended by Round503 and by the two review agents:
+
+- Quant PM startup gate passed on 2026-07-05 for `office_desktop` / `factor_batch`; primary market remains `CN_ETF`.
+- CN stock factor-mining startup gate cleared on `codex/factor-batch-cn-stock-profit-mining-20260704`.
+- CN stock data manifest had no blockers; warnings remain `extreme_return_rows_present` and `moneyflow_symbol_coverage_below_bars`.
+- `report_rc` February 2024 cache succeeded after the provider limit reset: 1,744 rows, 902 assets, 0 failed windows, 0 rate-limited windows.
+- Frozen PIT prescreen used January plus February 2024 report roots, did not include final holdout, and covered 3,498 report rows / 1,317 report assets.
+- Prescreen summary: 4 candidates, 8 tests, 6,882 factor rows, 13,764 aligned rows, 5 multiple-testing leads, 4 neutral-gate passes, 0 research leads, 0 promotion-allowed candidates.
+- Main blocker for otherwise promising short-window statistics: `ic_year_coverage_below_gate`; this is expected because the source currently covers only one report year window.
+- Next direction: `rotate_or_cache_more_analyst_report_history_after_zero_prescreen_leads`.
+
+Docs:
+
+- `docs/research/cn_stock_round504_analyst_report_revision_pit_continuation_2026-07-05.md`
+- `docs/research/ROUND504_NEXT_STEPS_CHECKLIST.md`
+
+Decision: do not promote or portfolio-grid analyst revision factors from the two-month smoke. The efficient next action is to cache the next monthly `report_rc` window after provider quota allows it, then rerun the same frozen prescreen. If the source still fails year-coverage or neutral gates after enough history, rotate to a genuinely new PIT source candidate plan.
