@@ -12,6 +12,7 @@ DEFAULT_MAX_DAILY_REQUESTS = 2
 COUNTED_WINDOW_STATUSES = {"ok", "cap_warning", "failed"}
 QUOTA_SCOPE = "local_report_roots_only"
 QUOTA_SCOPE_WARNING = "local_report_roots_only"
+QUOTA_TARGET_DATE_MISMATCH_WARNING = "quota_target_date_differs_from_generated_at"
 
 
 def build_analyst_report_quota_preflight(
@@ -20,7 +21,12 @@ def build_analyst_report_quota_preflight(
     target_date: str | None = None,
     max_daily_requests: int = DEFAULT_MAX_DAILY_REQUESTS,
 ) -> dict[str, Any]:
-    target = target_date or date.today().isoformat()
+    generated_at = date.today().isoformat()
+    target = target_date or generated_at
+    target_date_matches_generated_at = target == generated_at
+    warnings = [QUOTA_SCOPE_WARNING]
+    if not target_date_matches_generated_at:
+        warnings.append(QUOTA_TARGET_DATE_MISMATCH_WARNING)
     report_root_paths = [Path(root) for root in report_roots]
     report_root_labels = [str(root) for root in report_root_paths]
     rows = _scan_cache_reports(report_roots=report_root_paths, target_date=target)
@@ -39,14 +45,15 @@ def build_analyst_report_quota_preflight(
 
     packet = {
         "stage": STAGE,
-        "generated_at": date.today().isoformat(),
+        "generated_at": generated_at,
         "target_date": target,
         "max_daily_requests": int(max_daily_requests),
         "quota_scope": QUOTA_SCOPE,
-        "warnings": [QUOTA_SCOPE_WARNING],
+        "warnings": warnings,
         "summary": {
             "report_root_count": len(report_root_labels),
             "report_roots": report_root_labels,
+            "target_date_matches_generated_at": target_date_matches_generated_at,
             "cache_report_count": len({row["report_path"] for row in rows}),
             "same_day_window_rows": len(rows),
             "counted_provider_request_windows": len(counted),

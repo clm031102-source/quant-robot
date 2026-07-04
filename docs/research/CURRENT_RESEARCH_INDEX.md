@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round514 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, and quota-scope visibility | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round515 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, and quota target-date guard | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -868,3 +868,23 @@ Docs:
 - `docs/research/ROUND514_NEXT_STEPS_CHECKLIST.md`
 
 Decision: do not run the April 2024 provider-backed analyst-report cache on 2026-07-05. Future allowed preflight results must be read as "allowed within the scanned report roots"; include other workstation report roots with repeated `--quota-report-root` or manually confirm cross-machine provider usage before caching on shared quota days.
+
+## Round515 Quota Target-Date Guard
+
+Round515 closed a second cache-CLI safety gap: a nonlocal `--quota-target-date` could make quota preflight count the wrong local date before a provider-backed cache execution.
+
+- `src/quant_robot/ops/analyst_report_quota_preflight.py` now records `summary.target_date_matches_generated_at`.
+- The preflight warns with `quota_target_date_differs_from_generated_at` when target date differs from the local generated date.
+- `scripts/run_tushare_analyst_report_cache.py` upgrades that warning to a blocker for provider-backed cache execution unless `--quota-preflight-only` is set.
+- Cache CLI help now states that provider-backed cache requires the local generated date; nonlocal dates are for dry-run or audit evidence.
+- Test-first evidence: the packet warning, cache CLI guard, and help assertion failed before implementation, then the quota-preflight test file passed with 15 tests.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Actual-date cache-CLI preflight-only for April 2024 still blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, reported `target_date_matches_generated_at=true`, and returned exit code `3`.
+- Full laptop integration verification passed with 88 tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round515_quota_target_date_guard_2026-07-05.md`
+- `docs/research/ROUND515_NEXT_STEPS_CHECKLIST.md`
+
+Decision: do not run the April 2024 provider-backed analyst-report cache on 2026-07-05. Future provider-backed cache attempts should omit `--quota-target-date` or set it to the actual local generated date; nonlocal target dates are audit/dry-run only.

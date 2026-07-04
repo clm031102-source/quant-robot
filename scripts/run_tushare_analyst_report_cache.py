@@ -15,6 +15,7 @@ from quant_robot.data.adapters.tushare_adapter import TushareAdapter  # noqa: E4
 from quant_robot.data.ingest.tushare_analyst_reports import run_tushare_analyst_report_cache  # noqa: E402
 from quant_robot.ops.analyst_report_quota_preflight import (  # noqa: E402
     DEFAULT_MAX_DAILY_REQUESTS,
+    QUOTA_TARGET_DATE_MISMATCH_WARNING,
     SAFETY as QUOTA_PREFLIGHT_SAFETY,
     build_analyst_report_quota_preflight,
     write_analyst_report_quota_preflight,
@@ -63,7 +64,13 @@ def main() -> None:
         default=str(DEFAULT_QUOTA_PREFLIGHT_OUTPUT_DIR),
         help="Directory for quota preflight JSON/Markdown evidence.",
     )
-    parser.add_argument("--quota-target-date", help="Local date to count same-day report_rc requests against.")
+    parser.add_argument(
+        "--quota-target-date",
+        help=(
+            "Local date to count same-day report_rc requests against; provider-backed cache requires the local "
+            "generated date, while nonlocal dates are for --quota-preflight-only or audit evidence."
+        ),
+    )
     parser.add_argument(
         "--quota-max-daily-requests",
         type=int,
@@ -113,6 +120,15 @@ def main() -> None:
             target_date=args.quota_target_date,
             max_daily_requests=args.quota_max_daily_requests,
         )
+        if (
+            not args.quota_preflight_only
+            and not quota_packet["summary"].get("target_date_matches_generated_at", True)
+        ):
+            blockers = quota_packet["decision"]["blockers"]
+            if QUOTA_TARGET_DATE_MISMATCH_WARNING not in blockers:
+                blockers.append(QUOTA_TARGET_DATE_MISMATCH_WARNING)
+            quota_packet["decision"]["request_allowed"] = False
+            quota_packet["decision"]["next_action"] = "rerun_with_local_quota_target_date_or_preflight_only"
         write_analyst_report_quota_preflight(args.quota_output_dir, quota_packet)
         print(
             json.dumps(

@@ -1,12 +1,16 @@
+import io
 import json
 import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import date, timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 import pandas as pd
 
+import scripts.run_tushare_analyst_report_cache as cache_cli
 from quant_robot.ops.analyst_report_quota_preflight import (
     build_analyst_report_quota_preflight,
     write_analyst_report_quota_preflight,
@@ -142,6 +146,21 @@ class AnalystReportQuotaPreflightTests(unittest.TestCase):
         self.assertIn("local_report_roots_only", result.stdout)
         self.assertEqual(payload["summary"]["report_root_count"], 2)
         self.assertEqual(payload["quota_scope"], "local_report_roots_only")
+
+    def test_packet_warns_when_target_date_differs_from_generated_date(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            nonlocal_date = (date.today() + timedelta(days=1)).isoformat()
+
+            packet = build_analyst_report_quota_preflight(
+                report_roots=[root],
+                target_date=nonlocal_date,
+                max_daily_requests=2,
+            )
+
+        self.assertFalse(packet["summary"]["target_date_matches_generated_at"])
+        self.assertIn("quota_target_date_differs_from_generated_at", packet["warnings"])
+        self.assertIn("quota_target_date_differs_from_generated_at", packet["markdown"])
 
     def test_cli_fail_on_blocked_returns_nonzero_after_printing_packet(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -366,7 +385,51 @@ class AnalystReportQuotaPreflightTests(unittest.TestCase):
         self.assertIn("does not call Tushare", result.stdout)
         self.assertIn("exits 3", result.stdout)
         self.assertIn("offline or controlled local replay", result.stdout)
+        self.assertIn("provider-backed cache requires the local generated date", " ".join(result.stdout.split()))
         self.assertIn("--skip-quota-preflight-reason", result.stdout)
+
+    def test_cache_cli_blocks_provider_cache_when_quota_target_date_is_not_local_date(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report_root = root / "reports"
+            output_dir = root / "cache"
+            processed_output_dir = root / "processed"
+            quota_output_dir = root / "preflight"
+            report_root.mkdir()
+            nonlocal_date = (date.today() + timedelta(days=1)).isoformat()
+
+            argv = [
+                "run_tushare_analyst_report_cache.py",
+                "--start-date",
+                "2024-04-01",
+                "--end-date",
+                "2024-04-30",
+                "--output-dir",
+                str(output_dir),
+                "--processed-output-dir",
+                str(processed_output_dir),
+                "--request-sleep-seconds",
+                "0",
+                "--quota-report-root",
+                str(report_root),
+                "--quota-target-date",
+                nonlocal_date,
+                "--quota-output-dir",
+                str(quota_output_dir),
+            ]
+
+            stdout = io.StringIO()
+            with (
+                patch.object(sys, "argv", argv),
+                patch("sys.stdout", stdout),
+                patch.object(cache_cli, "run_tushare_analyst_report_cache") as run_cache,
+            ):
+                with self.assertRaises(SystemExit) as raised:
+                    cache_cli.main()
+
+        self.assertEqual(raised.exception.code, 3)
+        self.assertIn("quota_target_date_differs_from_generated_at", stdout.getvalue())
+        run_cache.assert_not_called()
 
 
 def _write_cache(
