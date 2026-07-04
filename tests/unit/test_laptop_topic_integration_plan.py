@@ -127,6 +127,8 @@ class LaptopTopicIntegrationPlanTests(unittest.TestCase):
             plan["handoff"]["next_command"],
             "python scripts/run_laptop_topic_integration_plan.py --machine laptop --task project_sync --execute",
         )
+        self.assertEqual(plan["handoff"]["next_command_context"], "laptop main only")
+        self.assertFalse(plan["handoff"]["next_command_allowed_here"])
         self.assertEqual(
             plan["handoff"]["here_command"],
             "python scripts/run_laptop_topic_integration_plan.py --machine laptop --task project_sync --require-handoff-ready",

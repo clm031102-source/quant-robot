@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round545 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, external-feed family-review boundary, external-feed join-smoke optimization, LPR cache repair guard, offline macro LPR repair tool, Round533 two-agent review hardening, Round534 operator runbook hardening, Round535 cloud/main branch audit, Round536 laptop integration rehearsal, Round537 latest-topic integration rehearsal, Round538 integration-plan handoff status, Round539 handoff-ready gate, Round540 clean handoff verification, Round541 handoff next command, Round542 pre-agent checkpoint briefing, Round543 two-agent checkpoint, Round544 handoff executable context, and Round545 handoff here command | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round546 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, external-feed family-review boundary, external-feed join-smoke optimization, LPR cache repair guard, offline macro LPR repair tool, Round533 two-agent review hardening, Round534 operator runbook hardening, Round535 cloud/main branch audit, Round536 laptop integration rehearsal, Round537 latest-topic integration rehearsal, Round538 integration-plan handoff status, Round539 handoff-ready gate, Round540 clean handoff verification, Round541 handoff next command, Round542 pre-agent checkpoint briefing, Round543 two-agent checkpoint, Round544 handoff executable context, Round545 handoff here command, and Round546 next-command context | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -184,6 +184,8 @@ Latest same-day progress reports:
 - `docs/research/ROUND544_NEXT_STEPS_CHECKLIST.md`
 - `docs/research/project_round545_handoff_here_command_2026-07-05.md`
 - `docs/research/ROUND545_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round546_handoff_next_command_context_2026-07-05.md`
+- `docs/research/ROUND546_NEXT_STEPS_CHECKLIST.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -1547,3 +1549,21 @@ Docs:
 - `docs/research/ROUND545_NEXT_STEPS_CHECKLIST.md`
 
 Decision: office-desktop docs and tools should present `handoff.here_command` before `handoff.next_command` to reduce accidental laptop-only execution from the topic branch.
+
+## Round546 Handoff Next Command Context
+
+Round546 added explicit laptop/main-only context to the integration handoff execution command:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, `main` push, or remote branch deletion occurred.
+- `scripts\run_laptop_topic_integration_plan.py` now includes `handoff.next_command_context` and `handoff.next_command_allowed_here`.
+- `handoff.next_command_context` is `laptop main only`.
+- Office-topic handoffs report `handoff.next_command_allowed_here=false`.
+- Only true executable plans with `status=ready` report `handoff.next_command_allowed_here=true`.
+- Test-first evidence: the focused test failed first with `KeyError: 'next_command_context'`, then the focused test and full laptop integration plan unit suite passed with 7 tests.
+
+Docs:
+
+- `docs/research/project_round546_handoff_next_command_context_2026-07-05.md`
+- `docs/research/ROUND546_NEXT_STEPS_CHECKLIST.md`
+
+Decision: copy or display `handoff.next_command` only with its `laptop main only` context, and gate execution on `handoff.next_command_allowed_here`.

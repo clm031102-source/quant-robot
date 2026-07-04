@@ -106,6 +106,8 @@ def _handoff_status(
             "python scripts/run_laptop_topic_integration_plan.py "
             "--machine laptop --task project_sync --execute"
         ),
+        "next_command_context": "laptop main only",
+        "next_command_allowed_here": status == "ready",
         "here_command": (
             "python scripts/run_laptop_topic_integration_plan.py "
             "--machine laptop --task project_sync --require-handoff-ready"
