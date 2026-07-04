@@ -29,7 +29,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 | Branch | Role | Status |
 | --- | --- | --- |
 | `codex/factor-batch-cn-stock-benchmark-relative-20260704` | Round464 benchmark-relative residual moneyflow pre-registration, walk-forward framework fixes, and rejection evidence | active review branch |
-| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, Round471 financial/PIT source-gate refresh, Round472 paper replay refresh, Round473 expanded-observation data-quality block evidence, Round474 office-desktop completion handoff, Round475 fund-basic rotation-membership repair, and Round476 live fund-basic membership guard | active review branch |
+| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, Round471 financial/PIT source-gate refresh, Round472 paper replay refresh, Round473 expanded-observation data-quality block evidence, Round474 office-desktop completion handoff, Round475 fund-basic rotation-membership repair, Round476 live fund-basic membership guard, and Round477 validated-ETF observation sufficiency evidence | active review branch |
 
 These branches are not promotion branches. They record a completed rejection set, framework fixes, and paper-lane risk-repair evidence that should be reviewed before integration.
 
@@ -104,6 +104,7 @@ Latest same-day progress reports:
 - `docs/research/project_round474_office_desktop_completion_handoff_2026-07-04.md`
 - `docs/research/project_round475_fund_basic_rotation_membership_repair_2026-07-04.md`
 - `docs/research/project_round476_live_fund_basic_membership_guard_2026-07-04.md`
+- `docs/research/project_round477_validated_etf_observation_sufficiency_2026-07-04.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -160,7 +161,7 @@ Decision: do not burn more same-day `report_rc` retries. Resume February 2024 af
 Cloud branch integration handoff:
 
 - `origin/codex/factor-batch-cn-stock-benchmark-relative-20260704` is 1 commit ahead of `origin/main`.
-- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 14 commits ahead of `origin/main` after Round476 is pushed.
+- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 15 commits ahead of `origin/main` after Round477 is pushed.
 - The Round464 branch is an ancestor of the Round465/467 branch, so laptop integration may merge Round464 first and then Round465/467 for review clarity, or merge Round465/467 once to absorb both.
 - Do not delete either topic branch until laptop safe-sync marks it as merged or manifest-absorbed.
 
@@ -277,6 +278,18 @@ Round476 hardened the live recent-refresh failure path:
 - Related recent/replay/observation tests passed: 25 / 25.
 
 Decision: do not allow post-refresh replay to proceed from a live CN ETF recent refresh unless the rotation membership source is fund-basic validated. This prevents recurrence of the `501222.SH` non-ETF target leak under provider or token failures.
+
+Round477 reran the paper-observation sufficiency path from the repaired fund-basic validated ETF target:
+
+- Round475 baseline sufficiency after repair: 2 / 20 fills, deficit 18, suggested window 2026-04-03 to 2026-07-01.
+- Recommended-window refresh for `CN_ETF_XSHE_160615`: blocked by one missing provider date, 2026-04-30.
+- Continuous-window refresh 2026-05-06 to 2026-07-01: completed; required asset coverage 40 / 40, missing rows 0, duplicate rows 0, zero-volume rows 0.
+- Rotation membership source remained `tushare_fund_basic_fund_daily`.
+- Post-refresh replay selected `CN_ETF_XSHE_160615`, stayed paper-only, and had no execution blocks or guard events.
+- Daily Ops risk on the continuous replay: total return 4.16%, max equity drawdown -0.80%.
+- Final sufficiency: 5 / 20 fills, deficit 15, observation sufficiency not cleared.
+
+Decision: the paper lane is valid and cleaner, but still sample-size blocked. Do not claim live readiness or factor promotion. Continue paper-only observation or explicitly re-scope the paper lane after laptop mainline integration.
 
 ## Current CN ETF Framework
 
