@@ -175,6 +175,7 @@ class CheckPlanTests(unittest.TestCase):
                 "tests/unit/test_observation_sufficiency.py",
                 "tests/unit/test_expanded_observation_replay.py",
                 "tests/unit/test_analyst_report_quota_preflight.py",
+                "tests/unit/test_analyst_report_quota_pack.py",
                 "-q",
             ],
         )

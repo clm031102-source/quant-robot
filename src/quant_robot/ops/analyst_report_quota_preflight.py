@@ -13,6 +13,7 @@ COUNTED_WINDOW_STATUSES = {"ok", "cap_warning", "failed"}
 QUOTA_SCOPE = "local_report_roots_only"
 QUOTA_SCOPE_WARNING = "local_report_roots_only"
 QUOTA_TARGET_DATE_MISMATCH_WARNING = "quota_target_date_differs_from_generated_at"
+QUOTA_PACK_MANIFEST = "analyst_report_quota_pack_manifest.json"
 
 
 def build_analyst_report_quota_preflight(
@@ -188,8 +189,21 @@ def _cache_report_paths(report_roots: Iterable[str | Path]) -> list[Path]:
         if root_path.is_file() and root_path.name == "tushare_analyst_report_cache.json":
             paths.append(root_path)
         elif root_path.exists():
-            paths.extend(root_path.rglob("tushare_analyst_report_cache.json"))
+            include_quota_pack_contents = _is_quota_pack_root(root_path)
+            paths.extend(
+                path
+                for path in root_path.rglob("tushare_analyst_report_cache.json")
+                if include_quota_pack_contents or not _is_inside_quota_pack(path)
+            )
     return sorted(set(paths))
+
+
+def _is_quota_pack_root(path: Path) -> bool:
+    return path.is_dir() and (path / QUOTA_PACK_MANIFEST).exists()
+
+
+def _is_inside_quota_pack(path: Path) -> bool:
+    return any((parent / QUOTA_PACK_MANIFEST).exists() for parent in path.parents)
 
 
 def _load_json(path: Path) -> dict[str, Any]:

@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round517 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, and durable skip-quota audit evidence | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round518 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, and cross-machine quota-pack evidence | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -128,6 +128,8 @@ Latest same-day progress reports:
 - `docs/research/project_round501_observation_sufficiency_cleared_2026-07-04.md`
 - `docs/research/project_round501_completion_evidence_2026-07-04.json`
 - `docs/research/project_round502_final_laptop_integration_rehearsal_2026-07-04.md`
+- `docs/research/cn_stock_round518_cross_machine_quota_pack_2026-07-05.md`
+- `docs/research/ROUND518_NEXT_STEPS_CHECKLIST.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -930,3 +932,25 @@ Docs:
 - `docs/research/ROUND517_NEXT_STEPS_CHECKLIST.md`
 
 Decision: skip-quota attempts are now both constrained and durable-audited. Normal provider-backed analyst-report cache still requires the default quota preflight and must stop on exit `3`.
+
+## Round518 Cross-Machine Quota Pack
+
+Round518 addressed the cross-machine quota evidence gap from Round517:
+
+- Added `scripts/export_analyst_report_quota_pack.py` to export lightweight analyst-report cache summaries into a portable quota preflight root.
+- Added `tests/unit/test_analyst_report_quota_pack.py` and wired it into the laptop integration profile.
+- The exporter copies only valid `tushare_report_rc` cache-summary JSONs, writes JSON/Markdown manifests, excludes its own output directory, and refreshes its own `quota_report_roots/` on reruns.
+- Analyst quota preflight now skips quota-pack internals during broad parent scans such as `data\reports`, while explicit scans of a pack root still count that pack evidence.
+- Test-first evidence caught both issues: output-inside-root reruns counted `2` instead of `1`, and broad scans counted a pack copy plus the original until pack-aware scanning was added.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Real pack export from `data\reports` wrote `data\reports\round518_analyst_quota_pack_20260705` with `exported_report_count=8`.
+- Explicit pack preflight blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, and exited `3`.
+- Actual-date cache-CLI preflight-only for April 2024 still blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, and returned exit code `3`.
+- Full laptop integration verification passed with 91 tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round518_cross_machine_quota_pack_2026-07-05.md`
+- `docs/research/ROUND518_NEXT_STEPS_CHECKLIST.md`
+
+Decision: use quota packs as cross-machine local evidence roots, not as a global provider-quota oracle. Future provider-backed analyst-report cache attempts should include every available workstation pack with repeated `--quota-report-root`, stop on exit `3`, and manually confirm same-day provider usage if any relevant pack is unavailable.
