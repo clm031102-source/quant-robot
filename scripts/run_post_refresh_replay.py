@@ -58,6 +58,7 @@ def run_post_refresh_replay(
     daily_runner = daily_ops_runner or run_daily_ops
     observation_runner = profile_observation_runner or run_profile_observation
     effective_run_date = run_date or _target_end(recent_pack)
+    target_window = recent_pack.get("target_window", {}) if isinstance(recent_pack.get("target_window"), dict) else {}
     daily_ops_pack: dict[str, Any] = {}
     observation_pack: dict[str, Any] = {}
     replay_error: dict[str, Any] | None = None
@@ -73,6 +74,8 @@ def run_post_refresh_replay(
             portfolio_value=portfolio_value,
             positions_csv=Path(positions_csv) if positions_csv else None,
             max_drawdown_limit=max_drawdown_limit,
+            start_date=_date_text(target_window.get("start_date")),
+            end_date=_date_text(target_window.get("end_date")),
         )
         observation_pack = observation_runner(
             daily_ops_pack=daily_ops_output_dir / "daily_ops_pack.json",
@@ -143,6 +146,15 @@ def _target_end(pack: dict[str, Any]) -> str | None:
     target = pack.get("target_window", {}) if isinstance(pack.get("target_window"), dict) else {}
     value = target.get("end_date")
     return str(value)[:10] if value else None
+
+
+def _date_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value)[:10]
+    if len(text) == 10:
+        return text
+    return None
 
 
 def _read_json(path: Path) -> dict[str, Any]:
