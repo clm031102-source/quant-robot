@@ -10,6 +10,8 @@ STAGE = "analyst_report_quota_preflight"
 SAFETY = "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
 DEFAULT_MAX_DAILY_REQUESTS = 2
 COUNTED_WINDOW_STATUSES = {"ok", "cap_warning", "failed"}
+QUOTA_SCOPE = "local_report_roots_only"
+QUOTA_SCOPE_WARNING = "local_report_roots_only"
 
 
 def build_analyst_report_quota_preflight(
@@ -19,7 +21,9 @@ def build_analyst_report_quota_preflight(
     max_daily_requests: int = DEFAULT_MAX_DAILY_REQUESTS,
 ) -> dict[str, Any]:
     target = target_date or date.today().isoformat()
-    rows = _scan_cache_reports(report_roots=report_roots, target_date=target)
+    report_root_paths = [Path(root) for root in report_roots]
+    report_root_labels = [str(root) for root in report_root_paths]
+    rows = _scan_cache_reports(report_roots=report_root_paths, target_date=target)
     counted = [row for row in rows if row["counts_against_quota"]]
     rate_limited = [row for row in rows if row.get("provider_rate_limit")]
     next_retry_values = [
@@ -38,7 +42,11 @@ def build_analyst_report_quota_preflight(
         "generated_at": date.today().isoformat(),
         "target_date": target,
         "max_daily_requests": int(max_daily_requests),
+        "quota_scope": QUOTA_SCOPE,
+        "warnings": [QUOTA_SCOPE_WARNING],
         "summary": {
+            "report_root_count": len(report_root_labels),
+            "report_roots": report_root_labels,
             "cache_report_count": len({row["report_path"] for row in rows}),
             "same_day_window_rows": len(rows),
             "counted_provider_request_windows": len(counted),
@@ -77,12 +85,15 @@ def render_analyst_report_quota_preflight_markdown(packet: dict[str, Any]) -> st
     summary = _dict(packet.get("summary"))
     decision = _dict(packet.get("decision"))
     blockers = _list(decision.get("blockers"))
+    warnings = _list(packet.get("warnings"))
+    report_roots = _list(summary.get("report_roots"))
     lines = [
         "# Analyst Report Quota Preflight",
         "",
         f"- Stage: {packet.get('stage', STAGE)}",
         f"- Target date: {packet.get('target_date', '')}",
         f"- Max daily requests: {packet.get('max_daily_requests', DEFAULT_MAX_DAILY_REQUESTS)}",
+        f"- Quota scope: {packet.get('quota_scope', QUOTA_SCOPE)}",
         f"- Counted provider request windows: {summary.get('counted_provider_request_windows', 0)}",
         f"- Rate-limited windows: {summary.get('rate_limited_windows', 0)}",
         f"- Remaining request windows: {summary.get('remaining_request_windows', 0)}",
@@ -90,9 +101,25 @@ def render_analyst_report_quota_preflight_markdown(packet: dict[str, Any]) -> st
         f"- Live boundary allowed: {packet.get('live_boundary_allowed', False)}",
         f"- Safety: {packet.get('safety', SAFETY)}",
         "",
-        "## Blockers",
+        "## Warnings",
         "",
     ]
+    lines.extend(f"- {warning}" for warning in warnings) if warnings else lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Report Roots",
+            "",
+        ]
+    )
+    lines.extend(f"- {root}" for root in report_roots) if report_roots else lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Blockers",
+            "",
+        ]
+    )
     lines.extend(f"- {blocker}" for blocker in blockers) if blockers else lines.append("- none")
     lines.extend(
         [

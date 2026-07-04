@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round513 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, and two-agent review/help hardening | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round514 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, and quota-scope visibility | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -848,3 +848,23 @@ Docs:
 - `docs/research/ROUND513_NEXT_STEPS_CHECKLIST.md`
 
 Decision: do not run the April 2024 provider-backed analyst-report cache on 2026-07-05. Next continuation should run the safe dry-run command first after quota plausibly resets, stop on exit `3`, and cache only if it exits `0`. Consider a cross-machine quota evidence plan before relying on local-only quota reports across multiple desktops.
+
+## Round514 Quota Scope Visibility
+
+Round514 addressed the Round513 Quant PM risk that quota preflight evidence was local-report based and could be mistaken for a global provider-quota guarantee:
+
+- `src/quant_robot/ops/analyst_report_quota_preflight.py` now records `quota_scope="local_report_roots_only"` and `warnings=["local_report_roots_only"]`.
+- The quota preflight summary records `report_root_count` and `report_roots`.
+- The Markdown report now includes quota scope, warnings, and scanned report roots.
+- The standalone preflight CLI and cache CLI both print quota scope and warnings in terminal JSON.
+- Test-first evidence: the new scope tests failed first because the fields were missing, then the quota-preflight test file passed with 13 tests.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Actual-date cache-CLI preflight-only for April 2024 still blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, printed `quota_scope="local_report_roots_only"`, and returned exit code `3`.
+- Full laptop integration verification passed with 86 tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round514_quota_scope_visibility_2026-07-05.md`
+- `docs/research/ROUND514_NEXT_STEPS_CHECKLIST.md`
+
+Decision: do not run the April 2024 provider-backed analyst-report cache on 2026-07-05. Future allowed preflight results must be read as "allowed within the scanned report roots"; include other workstation report roots with repeated `--quota-report-root` or manually confirm cross-machine provider usage before caching on shared quota days.

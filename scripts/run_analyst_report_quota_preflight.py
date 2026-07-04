@@ -56,6 +56,8 @@ def main() -> None:
         json.dumps(
             {
                 "status": "allowed" if packet["decision"]["request_allowed"] else "blocked",
+                "quota_scope": packet["quota_scope"],
+                "warnings": packet["warnings"],
                 "summary": packet["summary"],
                 "decision": packet["decision"],
                 "output_dir": str(Path(args.output_dir)),

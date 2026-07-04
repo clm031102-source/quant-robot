@@ -118,6 +118,8 @@ def main() -> None:
             json.dumps(
                 {
                     "status": "allowed" if quota_packet["decision"]["request_allowed"] else "blocked",
+                    "quota_scope": quota_packet["quota_scope"],
+                    "warnings": quota_packet["warnings"],
                     "summary": quota_packet["summary"],
                     "decision": quota_packet["decision"],
                     "output_dir": str(Path(args.quota_output_dir)),

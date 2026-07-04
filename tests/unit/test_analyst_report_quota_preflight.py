@@ -90,6 +90,59 @@ class AnalystReportQuotaPreflightTests(unittest.TestCase):
         self.assertTrue(markdown_exists)
         self.assertEqual(payload["summary"]["counted_provider_request_windows"], 1)
 
+    def test_packet_records_scanned_report_roots_and_local_scope_warning(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report_root_a = root / "reports_a"
+            report_root_b = root / "reports_b"
+
+            packet = build_analyst_report_quota_preflight(
+                report_roots=[report_root_a, report_root_b],
+                target_date="2026-07-05",
+                max_daily_requests=2,
+            )
+
+        self.assertEqual(packet["quota_scope"], "local_report_roots_only")
+        self.assertIn("local_report_roots_only", packet["warnings"])
+        self.assertEqual(packet["summary"]["report_root_count"], 2)
+        self.assertEqual(packet["summary"]["report_roots"], [str(report_root_a), str(report_root_b)])
+        self.assertIn("## Report Roots", packet["markdown"])
+        self.assertIn("local_report_roots_only", packet["markdown"])
+
+    def test_standalone_cli_prints_quota_scope_warning(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report_root_a = root / "reports_a"
+            report_root_b = root / "reports_b"
+            output_dir = root / "out"
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/run_analyst_report_quota_preflight.py",
+                    "--report-root",
+                    str(report_root_a),
+                    "--report-root",
+                    str(report_root_b),
+                    "--target-date",
+                    "2026-07-05",
+                    "--output-dir",
+                    str(output_dir),
+                ],
+                cwd=Path(__file__).resolve().parents[2],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            payload = json.loads((output_dir / "analyst_report_quota_preflight.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(result.returncode, 0)
+        self.assertIn('"quota_scope": "local_report_roots_only"', result.stdout)
+        self.assertIn("local_report_roots_only", result.stdout)
+        self.assertEqual(payload["summary"]["report_root_count"], 2)
+        self.assertEqual(payload["quota_scope"], "local_report_roots_only")
+
     def test_cli_fail_on_blocked_returns_nonzero_after_printing_packet(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -161,6 +214,8 @@ class AnalystReportQuotaPreflightTests(unittest.TestCase):
             self.assertEqual(result.returncode, 3)
             self.assertIn("daily_provider_request_budget_exhausted", result.stdout)
             self.assertIn('"status": "blocked"', result.stdout)
+            self.assertIn('"quota_scope": "local_report_roots_only"', result.stdout)
+            self.assertIn("local_report_roots_only", result.stdout)
             self.assertFalse((output_dir / "tushare_analyst_report_cache.json").exists())
             self.assertTrue((quota_output_dir / "analyst_report_quota_preflight.json").exists())
 
