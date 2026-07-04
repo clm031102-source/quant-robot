@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round534 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, external-feed family-review boundary, external-feed join-smoke optimization, LPR cache repair guard, offline macro LPR repair tool, Round533 two-agent review hardening, and Round534 operator runbook hardening | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round535 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, external-feed family-review boundary, external-feed join-smoke optimization, LPR cache repair guard, offline macro LPR repair tool, Round533 two-agent review hardening, Round534 operator runbook hardening, and Round535 cloud/main branch audit | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -162,6 +162,8 @@ Latest same-day progress reports:
 - `docs/research/ROUND533_NEXT_STEPS_CHECKLIST.md`
 - `docs/research/cn_stock_round534_operator_runbook_hardening_2026-07-05.md`
 - `docs/research/ROUND534_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round535_cloud_main_branch_audit_2026-07-05.md`
+- `docs/research/ROUND535_NEXT_STEPS_CHECKLIST.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -1311,3 +1313,23 @@ Docs:
 - `docs/research/ROUND534_NEXT_STEPS_CHECKLIST.md`
 
 Decision: Round535 should still be non-provider unless real missing-machine quota packs are imported, the local quota date changes enough to justify one actual-date analyst preflight, or explicit provider approval is given for an isolated LPR cache refresh. Round543 remains the next required two-agent review checkpoint.
+
+## Round535 Cloud Main Branch Audit
+
+Round535 audited cloud branch structure and `main` after Round534:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, branch deletion, or `main` merge occurred.
+- `git fetch --prune` completed before the audit.
+- Fresh gates passed on 2026-07-05: startup context branch matched and upstream was `0 ahead / 0 behind`, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Remote default remained `origin/HEAD -> origin/main`.
+- Remote branches after prune were only `origin/main` at `af474d5a` and `origin/codex/factor-batch-cn-stock-profit-mining-20260704` at `8b101170`.
+- `origin/main` is an ancestor of the active topic branch.
+- The active topic branch is 32 commits ahead of `origin/main` and 0 commits behind.
+- Safe-sync audit reported no blockers, no branch discovery errors, no syncable paths, no pending branch integration, and no cleanup action.
+
+Docs:
+
+- `docs/research/project_round535_cloud_main_branch_audit_2026-07-05.md`
+- `docs/research/ROUND535_NEXT_STEPS_CHECKLIST.md`
+
+Decision: the cloud structure is already minimal. Keep `main` stable and keep the active topic branch until an explicit project-sync or integration task decides to merge, archive, or delete it. Do not merge the active factor-batch branch into `main` as a side effect of routine source hardening.
