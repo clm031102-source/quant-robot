@@ -29,7 +29,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 | Branch | Role | Status |
 | --- | --- | --- |
 | `codex/factor-batch-cn-stock-benchmark-relative-20260704` | Round464 benchmark-relative residual moneyflow pre-registration, walk-forward framework fixes, and rejection evidence | active review branch |
-| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, Round471 financial/PIT source-gate refresh, Round472 paper replay refresh, Round473 expanded-observation data-quality block evidence, Round474 office-desktop completion handoff, Round475 fund-basic rotation-membership repair, Round476 live fund-basic membership guard, Round477 validated-ETF observation sufficiency evidence, Round478 latest validated-ETF observation update, Round479 laptop integration preflight, Round480 laptop integration profile plus latest target check, Round481 isolated laptop merge rehearsal, Round482 completion gate before profit mining, Round483 require-complete gate mode, Round484 latest observation-pack discovery, and Round485 pre-alpha completion check profile | active review branch |
+| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, Round471 financial/PIT source-gate refresh, Round472 paper replay refresh, Round473 expanded-observation data-quality block evidence, Round474 office-desktop completion handoff, Round475 fund-basic rotation-membership repair, Round476 live fund-basic membership guard, Round477 validated-ETF observation sufficiency evidence, Round478 latest validated-ETF observation update, Round479 laptop integration preflight, Round480 laptop integration profile plus latest target check, Round481 isolated laptop merge rehearsal, Round482 completion gate before profit mining, Round483 require-complete gate mode, Round484 latest observation-pack discovery, Round485 pre-alpha completion check profile, and Round486 laptop topic integration plan | active review branch |
 
 These branches are not promotion branches. They record a completed rejection set, framework fixes, and paper-lane risk-repair evidence that should be reviewed before integration.
 
@@ -113,6 +113,7 @@ Latest same-day progress reports:
 - `docs/research/project_round483_completion_gate_require_complete_2026-07-04.md`
 - `docs/research/project_round484_completion_gate_latest_pack_discovery_2026-07-04.md`
 - `docs/research/project_round485_pre_alpha_completion_check_profile_2026-07-04.md`
+- `docs/research/project_round486_laptop_topic_integration_plan_2026-07-04.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -169,7 +170,7 @@ Decision: do not burn more same-day `report_rc` retries. Resume February 2024 af
 Cloud branch integration handoff:
 
 - `origin/codex/factor-batch-cn-stock-benchmark-relative-20260704` is 1 commit ahead of `origin/main`.
-- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 23 commits ahead of `origin/main` after Round485 is pushed.
+- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 24 commits ahead of `origin/main` after Round486 is pushed.
 - The Round464 branch is an ancestor of the Round465/467 branch, so laptop integration may merge Round464 first and then Round465/467 for review clarity, or merge Round465/467 once to absorb both.
 - Do not delete either topic branch until laptop safe-sync marks it as merged or manifest-absorbed.
 
@@ -408,6 +409,22 @@ Decision: run the pre-alpha profile before any future `alpha-mine` or profit-fac
 ```
 
 Mining remains blocked until that profile exits 0 and the completion gate reports `factor_mining_allowed=true`, `status=complete`, and `blockers=[]`.
+
+Round486 added a laptop-owned topic integration plan generator:
+
+- New script: `scripts/run_laptop_topic_integration_plan.py`.
+- New tests: `tests/unit/test_laptop_topic_integration_plan.py`.
+- The script discovers `origin/codex/*` topic branches, skips branches already present in stable `main` or absorbed/ignored by `configs/factor_branch_integration_manifest.json`, orders remaining branches by ancestry, and emits the exact laptop command sequence.
+- Current merge order remains Round464 first, then the current Round465-Round486 branch.
+- On office desktop, the script correctly blocks because the machine/task/branch context is not laptop `project_sync` on `main`.
+
+Decision: laptop should use:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_laptop_topic_integration_plan.py --machine laptop --task project_sync
+```
+
+Then execute the emitted commands only when the plan is `status=ready`.
 
 ## Current CN ETF Framework
 
