@@ -29,7 +29,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 | Branch | Role | Status |
 | --- | --- | --- |
 | `codex/factor-batch-cn-stock-benchmark-relative-20260704` | Round464 benchmark-relative residual moneyflow pre-registration, walk-forward framework fixes, and rejection evidence | active review branch |
-| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, Round471 financial/PIT source-gate refresh, Round472 paper replay refresh, Round473 expanded-observation data-quality block evidence, Round474 office-desktop completion handoff, Round475 fund-basic rotation-membership repair, Round476 live fund-basic membership guard, Round477 validated-ETF observation sufficiency evidence, Round478 latest validated-ETF observation update, Round479 laptop integration preflight, and Round480 laptop integration profile plus latest target check | active review branch |
+| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, Round471 financial/PIT source-gate refresh, Round472 paper replay refresh, Round473 expanded-observation data-quality block evidence, Round474 office-desktop completion handoff, Round475 fund-basic rotation-membership repair, Round476 live fund-basic membership guard, Round477 validated-ETF observation sufficiency evidence, Round478 latest validated-ETF observation update, Round479 laptop integration preflight, Round480 laptop integration profile plus latest target check, and Round481 isolated laptop merge rehearsal | active review branch |
 
 These branches are not promotion branches. They record a completed rejection set, framework fixes, and paper-lane risk-repair evidence that should be reviewed before integration.
 
@@ -108,6 +108,7 @@ Latest same-day progress reports:
 - `docs/research/project_round478_latest_validated_etf_observation_update_2026-07-04.md`
 - `docs/research/project_round479_laptop_integration_preflight_2026-07-04.md`
 - `docs/research/project_round480_laptop_integration_profile_and_latest_target_check_2026-07-04.md`
+- `docs/research/project_round481_isolated_laptop_merge_rehearsal_2026-07-04.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -164,7 +165,7 @@ Decision: do not burn more same-day `report_rc` retries. Resume February 2024 af
 Cloud branch integration handoff:
 
 - `origin/codex/factor-batch-cn-stock-benchmark-relative-20260704` is 1 commit ahead of `origin/main`.
-- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 18 commits ahead of `origin/main` after Round480 is pushed.
+- `origin/codex/factor-batch-cn-stock-execution-aware-round465-20260704` is 19 commits ahead of `origin/main` after Round481 is pushed.
 - The Round464 branch is an ancestor of the Round465/467 branch, so laptop integration may merge Round464 first and then Round465/467 for review clarity, or merge Round465/467 once to absorb both.
 - Do not delete either topic branch until laptop safe-sync marks it as merged or manifest-absorbed.
 
@@ -331,6 +332,19 @@ Decision: no additional observation bars can be safely added today. On laptop, a
 ```
 
 Then push `main` only if that profile and safe-sync audit pass.
+
+Round481 rehearsed the laptop-owned merge in an isolated local worktree:
+
+- Temporary worktree: `C:\Users\Administrator\.config\superpowers\worktrees\lhjqr\integration-sim-round481-20260704`.
+- Temporary branch: `codex/integration-sim-round481-20260704`.
+- Base: `origin/main`.
+- Merge order: Round464 branch first, then the Round465/Round480 branch.
+- Both merges succeeded with `ort`; no text conflicts.
+- Simulated merged result vs `origin/main`: `0 20`, including two local merge commits plus 18 topic commits.
+- Merged-result diff: 33 files changed, 3,913 insertions, 43 deletions.
+- `scripts/run_checks.py --profile laptop-integration --execute` passed on the simulated merged result: 70 targeted tests passed, compile passed, project audit passed, laptop `project_sync` audit had no blockers and no branch-discovery errors.
+
+Decision: the remaining mainline merge has now been rehearsed end to end without mutating `main` or remote branches. Laptop should perform the real merge and cleanup; office desktop should not delete the temporary remote topic branches or push `main`.
 
 ## Current CN ETF Framework
 
