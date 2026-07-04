@@ -98,6 +98,10 @@ def _handoff_status(
         "required_branch": STABLE_BRANCH,
         "rerun_plan_before_execute": True,
         "merge_order_count": len(merge_order),
+        "next_command": (
+            "python scripts/run_laptop_topic_integration_plan.py "
+            "--machine laptop --task project_sync --execute"
+        ),
     }
 
 

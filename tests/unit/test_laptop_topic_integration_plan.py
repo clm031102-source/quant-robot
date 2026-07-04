@@ -123,6 +123,10 @@ class LaptopTopicIntegrationPlanTests(unittest.TestCase):
         self.assertEqual(plan["handoff"]["required_branch"], "main")
         self.assertTrue(plan["handoff"]["rerun_plan_before_execute"])
         self.assertEqual(plan["handoff"]["merge_order_count"], 1)
+        self.assertEqual(
+            plan["handoff"]["next_command"],
+            "python scripts/run_laptop_topic_integration_plan.py --machine laptop --task project_sync --execute",
+        )
 
     def test_plan_skips_stable_and_manifest_absorbed_topic_branches(self) -> None:
         plan = build_laptop_topic_integration_plan(
