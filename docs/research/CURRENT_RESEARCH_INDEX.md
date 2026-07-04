@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round506 analyst-report-revision PIT source continuation and quota-aware review | active research branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round507 analyst-report-revision PIT source continuation, quota-aware review, and local quota preflight | active research branch |
 
 This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
@@ -709,3 +709,21 @@ Docs:
 - `docs/research/ROUND506_NEXT_STEPS_CHECKLIST.md`
 
 Decision: do not run a same-day third `report_rc` request, and do not tune analyst formulas. After quota reset, one April 2024 cache and the same frozen January-April prescreen are allowed. If January-April still has zero research leads or zero multiple-testing leads, run a family review and rotate to a new PIT source candidate plan.
+
+## Round507 Analyst Report Quota Preflight
+
+Round507 turned the Round506 manual quota decision into a local preflight tool before future `report_rc` requests:
+
+- New module: `src/quant_robot/ops/analyst_report_quota_preflight.py`.
+- New CLI: `scripts/run_analyst_report_quota_preflight.py`.
+- New tests: `tests/unit/test_analyst_report_quota_preflight.py`.
+- Focused unit test: 4 passed.
+- Real local preflight for 2026-07-05 scanned `data/reports`, counted the Round504 February cache and Round505 March cache as 2 same-day provider request windows, and blocked a third same-day request with `daily_provider_request_budget_exhausted`.
+- The preflight ignores resumed `cached` windows and reports from other dates, and blocks immediately when a same-day provider rate-limit row is observed.
+
+Docs:
+
+- `docs/research/cn_stock_round507_analyst_report_quota_preflight_2026-07-05.md`
+- `docs/research/ROUND507_NEXT_STEPS_CHECKLIST.md`
+
+Decision: run `scripts/run_analyst_report_quota_preflight.py` before every future analyst-report cache attempt. Only cache April 2024 after the preflight for the actual current date returns `request_allowed=true`.
