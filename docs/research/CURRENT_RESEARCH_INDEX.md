@@ -1786,3 +1786,22 @@ Docs:
 - `docs/research/ROUND557_NEXT_STEPS_CHECKLIST.md`
 
 Decision: future CN processed-bars alpha-factory summaries should cite both the candidate-plan gate packet and the `manifest.json` `gate_packets` trace.
+
+## Round558 Gated Daily-Basic January Smoke
+
+Round558 reran the January 2024 daily-basic alpha-factory smoke with all three gate packets:
+
+- Startup gate packet: `data\reports\factor_mining_startup_gate\factor_mining_startup_gate.json`.
+- Data manifest packet: `data\reports\round555_cn_stock_data_manifest_combined_20260705\cn_stock_data_manifest.json`.
+- Candidate-plan gate packet: `data\reports\round555_daily_basic_source_smoke_candidate_plan_gate_20260705\factor_mining_candidate_plan_gate.json`.
+- The alpha-factory manifest now records the same `gate_packets` trace.
+- The run covered 2024-01-02 to 2024-01-31, completed 12 / 12 cases, had 6 adjusted-significant IC screens, and 3 alpha-factory internal paper-eligible rows.
+- No candidate is promoted. The three internal eligible rows all had negative January total return and negative Sharpe.
+- Capacity-limited trades still blocked several value/low-activity variants.
+
+Docs:
+
+- `docs/research/cn_stock_round558_gated_daily_basic_january_smoke_2026-07-05.md`
+- `docs/research/ROUND558_NEXT_STEPS_CHECKLIST.md`
+
+Decision: treat Round558 as gated source-readiness evidence only. A longer discovery-window diagnostic must add style-exposure and capacity blocker summaries before any long-cycle replay.
