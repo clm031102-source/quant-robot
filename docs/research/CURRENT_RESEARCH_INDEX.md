@@ -1822,3 +1822,24 @@ Docs:
 - `docs/research/ROUND559_NEXT_STEPS_CHECKLIST.md`
 
 Decision: require these return/capacity summary fields in the next longer daily-basic discovery note before any walk-forward replay or paper-simulation packaging.
+
+## Round560 Gated Daily-Basic H1 2024 Diagnostic
+
+Round560 ran the longer daily-basic diagnostic requested by the Round558/Round559 checklists:
+
+- Window: 2024-01-02 to 2024-06-28.
+- Gate trace: startup gate, combined-root data manifest, and candidate-plan gate all recorded in the alpha-factory manifest.
+- Completed 12 / 12 preregistered daily-basic cases.
+- Adjusted-significant IC screens: 0.
+- Alpha-factory internal paper-eligible rows: 0.
+- Positive total-return rows: 0.
+- Positive Sharpe rows: 0.
+- Capacity-limited rows: 7.
+- No candidate is promoted.
+
+Docs:
+
+- `docs/research/cn_stock_round560_gated_daily_basic_h1_2024_diagnostic_2026-07-05.md`
+- `docs/research/ROUND560_NEXT_STEPS_CHECKLIST.md`
+
+Decision: do not widen daily-basic parameters or flip directions. Either add a style-exposure/residual failure-mode diagnostic, or rotate to a new PIT-safe source family.
