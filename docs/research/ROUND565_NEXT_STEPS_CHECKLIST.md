@@ -15,13 +15,19 @@ Use this after pulling `codex/factor-batch-cn-stock-round565-pit-source-plan-202
   - unique symbols per seed: 3,865;
   - available-date violations: 0;
   - same-day/future raw-date violations: 0.
+- Low-frequency construction smoke also passed without PIT violations:
+  - joined rows: 1,241,443;
+  - joined signal dates: 364;
+  - joined symbols: 3,568;
+  - max raw HK-hold date used: 2025-09-30;
+  - 2025-12-31 raw rows used before 2026 availability: 0.
 
 ## Recommended Next Work
 
-1. Build the low-frequency state construction smoke for the 63-day state change, 126-day persistence, and local-liquidity interaction.
+1. Add reference dedup inputs against price-volume, moneyflow, and style exposures before residual IC.
 2. Keep the interaction liquidity leg local to price-volume data; do not substitute aggregate HSGT flow or old northbound-flow regimes.
-3. Add reference dedup inputs against price-volume, moneyflow, and style exposures before residual IC.
-4. Only after construction and dedup preparation pass, run a research-only residual IC prescreen with multiple-testing accounting.
+3. Run a research-only residual IC prescreen only after dedup preparation is explicit and multiple-testing accounting is wired in.
+4. Keep portfolio grids, promotion gates, and 2026 final-holdout reads blocked.
 
 ## Still Forbidden
 

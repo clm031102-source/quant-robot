@@ -1946,7 +1946,9 @@ Round565 started the next factor-batch branch from clean `main`:
 - Added seed config: `configs\external_feed_factor_seed_preregistration_round565_hk_hold_low_frequency_state_20260705.json`.
 - Available-date join-smoke passed for all 3 HK-hold sponsorship seeds over 2024-07-01 to 2025-12-31.
 - Join-smoke evidence: 5,983,389 total joined rows, 547 signal dates, 3,865 unique symbols per seed, 0 available-date violations, and 0 same-day/future raw-date violations.
-- The liquidity-interaction candidate keeps its local price-volume liquidity leg pending; aggregate HSGT flow is not used as a substitute.
+- Low-frequency construction smoke passed for the 63-day state change, 126-day persistence, and local ADV20-liquidity interaction: 1,241,443 joined rows, 364 joined signal dates, 3,568 joined symbols, 0 PIT violations.
+- The construction smoke used local price-volume liquidity for the interaction leg; aggregate HSGT flow was not used as a substitute.
+- Final-holdout guard held: max raw HK-hold date used was 2025-09-30, and 2025-12-31 raw rows used before 2026 availability were 0.
 - Portfolio grid allowed: false.
 - Promotion allowed: false.
 
@@ -1954,6 +1956,7 @@ Docs:
 
 - `docs/research/cn_stock_round565_hk_hold_low_frequency_state_preregistration_2026-07-05.md`
 - `docs/research/cn_stock_round565_hk_hold_low_frequency_state_join_smoke_2026-07-05.md`
+- `docs/research/cn_stock_round565_hk_hold_low_frequency_state_construction_smoke_2026-07-05.md`
 - `docs/research/ROUND565_NEXT_STEPS_CHECKLIST.md`
 
-Decision: Round565 has cleared preregistration and available-date join-smoke for the HK-hold sponsorship source leg. The next step is low-frequency state construction and reference dedup preparation before any residual IC prescreen.
+Decision: Round565 has cleared preregistration, available-date join-smoke, and first low-frequency construction smoke for the HK-hold sponsorship source leg. The next step is reference dedup preparation before any residual IC prescreen.
