@@ -1843,3 +1843,25 @@ Docs:
 - `docs/research/ROUND560_NEXT_STEPS_CHECKLIST.md`
 
 Decision: do not widen daily-basic parameters or flip directions. Either add a style-exposure/residual failure-mode diagnostic, or rotate to a new PIT-safe source family.
+
+## Round561 Daily-Basic Valuation Style Exposure H1 2024
+
+Round561 explained the Round560 daily-basic failure mode with the existing valuation shape/exposure audit:
+
+- Window: 2024-01-02 to 2024-06-28.
+- Tested `daily_basic_valuation_reversion_dvratio_quality_60`.
+- Raw H1 quantile shape passed: Q5-Q1 = 0.0443, monotonicity = 1.000, best bucket = q5.
+- Exposure audit failed: residual candidate factors = 0.
+- Classification: `style_or_industry_exposure_dominated`.
+- Raw rank IC = 0.1360, but residual rank IC = -0.0489 after industry/style controls.
+- Residual IC t-stat = -6.28.
+- Max absolute style correlation = 0.953.
+- Style coverage ratio = 0.737.
+- No candidate is promoted.
+
+Docs:
+
+- `docs/research/cn_stock_round561_daily_basic_valuation_style_exposure_h1_2024_2026-07-05.md`
+- `docs/research/ROUND561_NEXT_STEPS_CHECKLIST.md`
+
+Decision: do not promote, grid-search, or tune daily-basic valuation repair. Add gate-packet traceability to this diagnostic CLI before using it as a standard post-alpha-factory audit, then rotate to an orthogonal PIT-safe source family.
