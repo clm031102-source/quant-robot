@@ -2,6 +2,20 @@
 
 Use this from latest `main`.
 
+## Start Here
+
+- Machine: `office_desktop`.
+- Task: `factor_batch`.
+- Suggested branch example: `codex/factor-batch-cn-stock-round565-pit-source-plan-20260705`.
+- First safe check:
+
+```powershell
+python scripts\start_task_context.py --machine office_desktop --task factor_batch --branch codex/factor-batch-cn-stock-round565-pit-source-plan-20260705
+```
+
+- Stop before factor generation unless startup context, Quant PM startup gate, CN stock startup gate, CN stock data manifest, and candidate-plan gate all clear or are explicitly reviewed when status is `review_required` with no blockers.
+- Treat older commands in `CURRENT_RESEARCH_INDEX.md` as historical evidence unless the latest checklist repeats them.
+
 ## Current State
 
 - `main` contains Round555-Round563 work.

@@ -1,0 +1,200 @@
+{
+  "stage": "round565_hk_hold_low_frequency_state_preregistration",
+  "round": 565,
+  "market": "CN",
+  "asset_type": "stock",
+  "source_audit": "docs/research/cn_stock_round528_external_feed_rotation_source_audit_2026-07-05.md",
+  "source_plan_doc": "docs/research/cn_stock_round529_external_feed_family_review_2026-07-05.md",
+  "scope": {
+    "machine": "office_desktop",
+    "task": "factor_batch",
+    "branch": "codex/factor-batch-cn-stock-round565-pit-source-plan-20260705"
+  },
+  "research_control_plan": {
+    "declared_controls": {
+      "cn_stock_tradeability": [
+        "limit_up_down_filter",
+        "suspension_filter",
+        "st_flag_filter",
+        "new_listing_age_filter",
+        "delisting_risk_filter",
+        "board_permission_filter"
+      ],
+      "financial_pit_timing": [
+        "ann_date_or_effective_date_lag",
+        "financial_revision_announcement_handling",
+        "report_release_lag_not_period_end",
+        "no_period_end_only_financial_signal"
+      ],
+      "source_sample_integrity": [
+        "endpoint_permission_or_cache_manifest",
+        "point_in_time_available_date_semantics",
+        "full_sample_2015_2025_same_parameter_replay",
+        "train_test_or_walk_forward_split_declared",
+        "future_function_static_audit",
+        "rejected_hypothesis_counting"
+      ],
+      "industry_style_neutralization": [
+        "industry_exposure_report",
+        "size_exposure_report",
+        "value_lowvol_momentum_liquidity_decomposition",
+        "neutralized_or_residual_factor_matrix"
+      ],
+      "etf_rotation_scope_boundary": [
+        "stock_scope_confirmed",
+        "etf_rotation_evidence_rejected_for_stock_factor",
+        "cn_etf_dedicated_signal_pack_separate"
+      ],
+      "portfolio_construction": [
+        "risk_budget_position_sizing",
+        "volatility_targeting_or_volatility_budget",
+        "industry_weight_constraints",
+        "turnover_constraints",
+        "stop_loss_or_de_risk_rules"
+      ],
+      "strict_statistics": [
+        "deflated_sharpe",
+        "purged_cpcv",
+        "white_reality_check_or_fdr",
+        "parameter_sensitivity_heatmap",
+        "multiple_testing_accounting"
+      ],
+      "china_market_regime": [
+        "policy_liquidity_regime",
+        "credit_cycle_proxy",
+        "northbound_margin_turnover_temperature",
+        "index_location_state",
+        "signal_window_regime_coverage"
+      ],
+      "event_factors": [
+        "earnings_forecast_or_statement_event_audit",
+        "dividend_ex_right_event_audit",
+        "buyback_holder_unlock_event_audit",
+        "index_rebalance_event_audit",
+        "event_contamination_extreme_return_audit"
+      ]
+    },
+    "policy": "Round565 may only preregister a new HK-hold low-frequency state source family and run source-readiness gates. It must not rerun old northbound accumulation, old northbound crowding/reversal, margin-credit, daily-basic valuation repair, portfolio grids, promotion gates, provider downloads, or final-holdout tuning."
+  },
+  "data_source_plan": {
+    "processed_external_feed_root": "data/processed/tushare_external_feeds_round172_long_cycle_monthly_20260623",
+    "bar_source_root": "data/processed/office_desktop_20260616_combined_research",
+    "manifest_packet": "data/reports/round565_cn_stock_data_manifest_combined_20260705/cn_stock_data_manifest.json",
+    "source_quality_evidence": [
+      "docs/research/cn_stock_round528_external_feed_rotation_source_audit_2026-07-05.md",
+      "docs/research/cn_stock_round529_external_feed_family_review_2026-07-05.md",
+      "docs/research/cn_stock_round530_external_feed_join_smoke_optimization_2026-07-05.md"
+    ],
+    "analysis_start_date": "2024-07-01",
+    "analysis_end_date": "2025-12-31",
+    "final_holdout_2026_available_for_tuning": false,
+    "provider_policy": "Use existing local processed external-feed files only; no Tushare provider call and no live account or broker access."
+  },
+  "evaluation_gate": {
+    "required_metrics": [
+      "external_feed_coverage_audit",
+      "available_date_join_smoke",
+      "low_frequency_state_construction_smoke",
+      "point_in_time_available_date_semantics",
+      "reference_redundancy_dedup_plan",
+      "industry_style_residual_ic",
+      "multiple_testing_accounting",
+      "candidate_rejection_reasons"
+    ],
+    "multiple_testing_accounting_required": true,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "promotion_allowed": false,
+    "final_holdout_available_for_tuning": false
+  },
+  "promotion_policy": {
+    "promotion_allowed": false,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "requires_data_source_availability_proof": true,
+    "requires_long_cycle_replay": true,
+    "requires_same_parameter_full_sample": true,
+    "requires_full_sample_regime_coverage": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true,
+    "requires_no_lookahead_audit": true,
+    "requires_future_function_static_audit": true,
+    "requires_overfit_multiple_testing_control": true,
+    "requires_overlap_adjusted_statistics": true,
+    "requires_parameter_sensitivity": true,
+    "requires_parameter_sensitivity_heatmap": true,
+    "requires_deflated_sharpe_or_fdr": true,
+    "requires_cpcv_or_purged_walk_forward": true,
+    "requires_white_reality_check_or_multiple_test_adjustment": true,
+    "requires_profit_drawdown_winrate_report": true,
+    "requires_final_holdout_read_once": true,
+    "requires_tradeability_survivorship_audit": true,
+    "requires_industry_style_neutralization": true,
+    "requires_source_performance_evidence": true
+  },
+  "family_rotation_policy": {
+    "current_family_id": "hk_hold_low_frequency_state",
+    "current_family_round_count": 1,
+    "max_rounds_before_review": 3,
+    "three_round_review_completed": true,
+    "hibernated_families": [
+      {
+        "family": "external_northbound_positive_accumulation",
+        "reason": "Round191 found zero leads and weak or wrong direction; Round565 must not rerun direct northbound accumulation."
+      },
+      {
+        "family": "external_northbound_crowding_reversal",
+        "reason": "Round213 found weak IC, wrong quantile direction, zero leads, and zero promotions."
+      },
+      {
+        "family": "external_margin_credit",
+        "reason": "Round193 residual and dedup review collapsed the raw margin-credit signal."
+      },
+      {
+        "family": "daily_basic_valuation_reversion_repair_after_round258_style_exposure_failure",
+        "reason": "Round561 and Round562 reconfirmed style-dominated residual failure."
+      }
+    ],
+    "blocked_families": [
+      {
+        "family": "external_macro_lpr",
+        "reason": "LPR 1Y and 5Y non-missing coverage remains blocked."
+      }
+    ]
+  },
+  "candidates": [
+    {
+      "factor_name": "hk_hold_sponsorship_state_change_63",
+      "family": "hk_hold_low_frequency_state",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "external_feed_hk_hold:low_frequency_sponsorship_state_change",
+      "economic_rationale": "Tests whether slow changes in foreign holding sponsorship identify durable ownership state shifts, using only available-date aligned HK-hold observations rather than daily direct northbound accumulation.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "hk_hold_sponsorship_persistence_126",
+      "family": "hk_hold_low_frequency_state",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "external_feed_hk_hold:low_frequency_persistence_state",
+      "economic_rationale": "Tests whether persistent foreign sponsorship states interact with later cross-sectional returns after industry/style residual controls, without reviving old accumulation or crowding/reversal formulas.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "hk_hold_sponsorship_state_liquidity_interaction_63",
+      "family": "hk_hold_low_frequency_state",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "external_feed_hk_hold:state_x_liquidity_interaction",
+      "economic_rationale": "Tests a new low-frequency sponsorship state crossed with local liquidity quality, so any lead must survive dedup against price-volume, moneyflow, and style exposures.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    }
+  ],
+  "safety": "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+}

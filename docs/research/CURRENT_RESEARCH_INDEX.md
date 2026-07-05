@@ -30,9 +30,9 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| none | none | no active topic branch after Round564 main integration |
+| `codex/factor-batch-cn-stock-round565-pit-source-plan-20260705` | CN stock Round565 factor-batch branch | active; HK-hold low-frequency state source preregistration |
 
-Round555-Round563 has been integrated into `main` and the topic branch has been deleted. Existing Round503-Round563 material records gated source construction, rejection evidence, tooling hardening, and paper-lane risk-repair evidence. Do not treat any result from it as live, promoted, or independently tradable.
+Round555-Round563 has been integrated into `main` and the prior topic branch has been deleted. Round565 starts the next branch from clean `main`. Existing Round503-Round564 material records gated source construction, rejection evidence, tooling hardening, and paper-lane risk-repair evidence. Do not treat any result from it as live, promoted, or independently tradable.
 
 ## Deleted historical branches
 
@@ -1926,3 +1926,29 @@ Docs:
 - `docs/research/ROUND564_NEXT_STEPS_CHECKLIST.md`
 
 Decision: the project is back to clean `main`-only cloud state. Start the next factor batch from latest `main` on a new topic branch, with a new preregistered PIT-safe source family.
+
+## Round565 HK-Hold Low-Frequency State Preregistration
+
+Round565 started the next factor-batch branch from clean `main`:
+
+- Active branch: `codex/factor-batch-cn-stock-round565-pit-source-plan-20260705`.
+- Two actual review agents were created before starting the new cycle.
+- Quant PM reviewer recommended a new PIT-safe orthogonal source family and rejected daily-basic repair continuation.
+- Ordinary-user reviewer recommended a clearer `Start Here` section and more explicit stop conditions.
+- Added `Start Here` guidance to `docs\research\ROUND564_NEXT_STEPS_CHECKLIST.md`.
+- Startup context, Quant PM startup gate, CN stock startup gate, and combined-root CN stock data manifest were run.
+- CN stock startup gate status: `cleared`, blockers `[]`.
+- Combined-root data manifest: `review_required`, blockers `[]`, warnings `extreme_return_rows_present` and `moneyflow_symbol_coverage_below_bars`.
+- New candidate plan: `configs\factor_mining_candidate_plan_round565_hk_hold_low_frequency_state_20260705.json`.
+- Candidate family: `hk_hold_low_frequency_state`.
+- Active candidates: 3.
+- Candidate-plan gate status: `research_ready`, blockers `[]`, 9 / 9 controls complete.
+- Portfolio grid allowed: false.
+- Promotion allowed: false.
+
+Docs:
+
+- `docs/research/cn_stock_round565_hk_hold_low_frequency_state_preregistration_2026-07-05.md`
+- `docs/research/ROUND565_NEXT_STEPS_CHECKLIST.md`
+
+Decision: Round565 opens only the source-readiness/preregistration lane for HK-hold low-frequency state candidates. The next step is source-construction smoke and reference dedup preparation before any residual IC prescreen.
