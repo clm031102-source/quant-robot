@@ -1,0 +1,30 @@
+# Round574 Next Steps Checklist
+
+Use this after pulling `codex/data-pipeline-financial-timeliness-round574-20260705` or after this branch is merged to `main`.
+
+## Current State
+
+- Round573 financial reporting timeliness coverage ended at 432 unique symbols and remained blocked.
+- Round574 started from clean `main` on a dedicated data-pipeline branch.
+- Quant PM startup gate passed for `office_desktop` / `data_pipeline`.
+- Shard 29 offset 10 limit 5 was confirmed as 5 / 5 net-new within financial statement roots.
+- Backfilled symbols: `002390.SZ`, `002213.SZ`, `002485.SZ`, `600600.SH`, `600848.SH`.
+- Backfill passed with blockers `[]`, 660 endpoint requests, 224 processed rows, and 4 duplicate rows in the quality report.
+- Aggregate source audit improved coverage to 437 unique symbols and 93,479 rows.
+- Candidate plan allowed remains false because `unique_symbol_count_below_minimum` still blocks the gate.
+- No factor generation, IC screen, portfolio grid, promotion gate, or 2026 final-holdout read was run.
+
+## Recommended Next Work
+
+1. Merge this documentation branch back to `main` after validation.
+2. Before Round575 work, create the scheduled two-agent review checkpoint.
+3. If continuing financial reporting timeliness, continue shard 29 from offset 15 with a financial-root overlap preview first.
+4. Keep factor preregistration blocked until the aggregate audit clears at least 1,000 unique symbols and enough end-year coverage.
+
+## Explicitly Do Not Do
+
+- Do not generate financial reporting timeliness factors from the 437-symbol cache.
+- Do not run residual IC, portfolio grids, promotion gates, or sign/window tuning for this source yet.
+- Do not read the 2026 final holdout.
+- Do not commit `data/raw`, `data/processed`, `data/reports`, logs, tokens, broker credentials, account data, or order data.
+- Do not connect to a broker, read live accounts, place orders, or enable automatic live trading.
