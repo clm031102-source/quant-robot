@@ -26,13 +26,18 @@ Use this after pulling `codex/factor-batch-cn-stock-round565-pit-source-plan-202
   - state-change max abs overlap: 0.2305 vs `volatility_20`;
   - liquidity-interaction max abs overlap: 0.2760 vs `liquidity_rank`;
   - no reference reached 0.70 on any date.
+- Research-only residual IC prescreen completed for all 3 candidates:
+  - research leads: 0 / 3;
+  - all candidates rejected after effect-size and multiple-testing gates;
+  - max exit date: 2025-12-31;
+  - 2026 final holdout was not read.
 
 ## Recommended Next Work
 
-1. Run a research-only residual IC prescreen with explicit liquidity/amount, price-volume, moneyflow, and style residualization.
-2. Apply multiple-testing accounting and record rejection reasons for all three candidates.
-3. Treat `hk_hold_sponsorship_persistence_126` as liquidity-overlap-sensitive; it must survive liquidity/amount residualization before any claim.
-4. Keep portfolio grids, promotion gates, and 2026 final-holdout reads blocked.
+1. Write a Round565 closeout/rejection package and stop HK-hold sponsorship tuning.
+2. Do not change windows, flip directions, widen parameters, or run a portfolio grid for these candidates.
+3. Rotate to a genuinely new PIT-safe source mechanism only after preregistration and candidate-plan gate.
+4. Keep promotion gates and 2026 final-holdout reads blocked.
 
 ## Still Forbidden
 

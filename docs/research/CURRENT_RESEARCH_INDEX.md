@@ -1951,6 +1951,9 @@ Round565 started the next factor-batch branch from clean `main`:
 - Final-holdout guard held: max raw HK-hold date used was 2025-09-30, and 2025-12-31 raw rows used before 2026 availability were 0.
 - Reference-dedup prep completed without return labels or IC: persistence max abs same-day Spearman overlap was 0.5662 vs `liquidity_rank` / `log_adv20_amount`; state-change max was 0.2305 vs `volatility_20`; liquidity-interaction max was 0.2760 vs `liquidity_rank`; no reference reached 0.70 on any date.
 - Any residual IC prescreen must explicitly residualize liquidity/amount, price-volume, moneyflow, and style proxies, and must apply multiple-testing accounting.
+- Research-only residual IC prescreen completed over signal dates 2024-07-03 to 2025-12-02 with max exit date 2025-12-31 and 0 PIT/final-holdout violations.
+- Residual IC result: 0 / 3 research leads. All three candidates were rejected because residual mean IC, residual ICIR, positive IC rate, and Bonferroni-adjusted significance gates did not pass.
+- Best residual mean IC was only 0.0099 for `hk_hold_sponsorship_persistence_126`; best Bonferroni-adjusted p-value was 0.0665 for `hk_hold_sponsorship_state_liquidity_interaction_63`, still above 0.05.
 - Portfolio grid allowed: false.
 - Promotion allowed: false.
 
@@ -1960,6 +1963,7 @@ Docs:
 - `docs/research/cn_stock_round565_hk_hold_low_frequency_state_join_smoke_2026-07-05.md`
 - `docs/research/cn_stock_round565_hk_hold_low_frequency_state_construction_smoke_2026-07-05.md`
 - `docs/research/cn_stock_round565_hk_hold_reference_dedup_prep_2026-07-05.md`
+- `docs/research/cn_stock_round565_hk_hold_residual_ic_prescreen_2026-07-05.md`
 - `docs/research/ROUND565_NEXT_STEPS_CHECKLIST.md`
 
-Decision: Round565 has cleared preregistration, available-date join-smoke, construction smoke, and reference-dedup preparation for the HK-hold sponsorship source leg. The next step is a research-only residual IC prescreen with explicit residualization and multiple-testing accounting.
+Decision: Round565 HK-hold sponsorship candidates are rejected as research leads. Do not tune or portfolio-test this family; write a closeout/rejection package and rotate to a genuinely new PIT-safe source mechanism only after preregistration.
