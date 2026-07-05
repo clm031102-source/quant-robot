@@ -1970,3 +1970,24 @@ Docs:
 - `docs/research/ROUND566_NEXT_STEPS_CHECKLIST.md`
 
 Decision: Round565 HK-hold sponsorship candidates are rejected as research leads. Do not tune or portfolio-test this family; write a closeout/rejection package and rotate to a genuinely new PIT-safe source mechanism only after preregistration.
+
+## Round566 Financial Reporting Timeliness Source Audit
+
+Round566 started from the clean, merged `main` state after Round565:
+
+- Active branch: `codex/factor-batch-cn-stock-round566-new-pit-source-20260705`.
+- Startup context, Quant PM startup gate, CN stock startup gate, and combined-root CN stock data manifest were run.
+- CN stock startup gate status: `cleared`, blockers `[]`.
+- Combined-root data manifest: `review_required`, blockers `[]`, warnings `extreme_return_rows_present` and `moneyflow_symbol_coverage_below_bars`.
+- Local aggregate financial reporting timeliness source audit scanned `data\processed`.
+- Result: status `blocked`, source count 112, row count 84,499, unique symbols 394, minimum required symbols 1,000, source-ready count 0.
+- Candidate plan allowed: false.
+- Gate blocker: `unique_symbol_count_below_minimum`.
+- No provider download, factor generation, IC screen, portfolio grid, promotion gate, or 2026 final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round566_financial_reporting_timeliness_source_audit_2026-07-05.md`
+- `docs/research/ROUND566_NEXT_STEPS_CHECKLIST.md`
+
+Decision: financial reporting timeliness remains blocked at source gate. Do not preregister or test factors from the 394-symbol cache; either continue source backfill on a dedicated data-pipeline branch or rotate to another accessible PIT-safe source.
