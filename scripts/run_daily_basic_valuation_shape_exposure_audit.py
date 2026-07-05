@@ -47,6 +47,11 @@ def run_daily_basic_valuation_shape_exposure_audit_cli(
     execution_lag: int = 1,
     min_dates: int = 80,
     min_cross_section: int = 100,
+    startup_gate_packet: str | Path | None = Path("data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"),
+    data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
+    candidate_plan_gate_packet: str | Path | None = Path(
+        "data/reports/factor_mining_candidate_plan_gate/factor_mining_candidate_plan_gate.json"
+    ),
 ) -> dict[str, Any]:
     result = build_valuation_shape_exposure_audit_from_roots(
         bars_roots=tuple(Path(path) for path in bars_roots),
@@ -58,6 +63,12 @@ def run_daily_basic_valuation_shape_exposure_audit_cli(
         execution_lag=execution_lag,
         min_dates=min_dates,
         min_cross_section=min_cross_section,
+    )
+    result = _attach_gate_packet_trace(
+        result,
+        startup_gate_packet=startup_gate_packet,
+        data_manifest_packet=data_manifest_packet,
+        candidate_plan_gate_packet=candidate_plan_gate_packet,
     )
     write_valuation_shape_exposure_audit(output_dir, result)
     return result
@@ -75,6 +86,21 @@ def main() -> None:
     parser.add_argument("--execution-lag", type=int, default=1)
     parser.add_argument("--min-dates", type=int, default=80)
     parser.add_argument("--min-cross-section", type=int, default=100)
+    parser.add_argument(
+        "--startup-gate-packet",
+        default="data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json",
+        help="CN stock factor-mining startup gate packet to record in the diagnostic output.",
+    )
+    parser.add_argument(
+        "--data-manifest-packet",
+        default="data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json",
+        help="CN stock data manifest packet to record in the diagnostic output.",
+    )
+    parser.add_argument(
+        "--candidate-plan-gate-packet",
+        default="data/reports/factor_mining_candidate_plan_gate/factor_mining_candidate_plan_gate.json",
+        help="Candidate-plan gate packet to record in the diagnostic output.",
+    )
     args = parser.parse_args()
     result = run_daily_basic_valuation_shape_exposure_audit_cli(
         bars_roots=tuple(Path(path) for path in (args.bars_root or DEFAULT_BARS_ROOTS)),
@@ -87,6 +113,9 @@ def main() -> None:
         execution_lag=args.execution_lag,
         min_dates=args.min_dates,
         min_cross_section=args.min_cross_section,
+        startup_gate_packet=Path(args.startup_gate_packet) if args.startup_gate_packet else None,
+        data_manifest_packet=Path(args.data_manifest_packet) if args.data_manifest_packet else None,
+        candidate_plan_gate_packet=Path(args.candidate_plan_gate_packet) if args.candidate_plan_gate_packet else None,
     )
     print(
         json.dumps(
@@ -94,12 +123,32 @@ def main() -> None:
                 "summary": result["summary"],
                 "data_window": result.get("data_window", {}),
                 "promotion_policy": result["promotion_policy"],
+                "gate_packets": result.get("gate_packets", {}),
                 "output_dir": str(Path(args.output_dir)),
             },
             indent=2,
             sort_keys=True,
         )
     )
+
+
+def _attach_gate_packet_trace(
+    result: dict[str, Any],
+    *,
+    startup_gate_packet: str | Path | None,
+    data_manifest_packet: str | Path | None,
+    candidate_plan_gate_packet: str | Path | None,
+) -> dict[str, Any]:
+    gate_packets = {
+        "startup_gate_packet": _path_text(startup_gate_packet),
+        "data_manifest_packet": _path_text(data_manifest_packet),
+        "candidate_plan_gate_packet": _path_text(candidate_plan_gate_packet),
+    }
+    return {**result, "gate_packets": gate_packets}
+
+
+def _path_text(path: str | Path | None) -> str | None:
+    return str(path) if path is not None else None
 
 
 def _read_frame(path: str | Path) -> pd.DataFrame:

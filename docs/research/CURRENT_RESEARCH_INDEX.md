@@ -1865,3 +1865,21 @@ Docs:
 - `docs/research/ROUND561_NEXT_STEPS_CHECKLIST.md`
 
 Decision: do not promote, grid-search, or tune daily-basic valuation repair. Add gate-packet traceability to this diagnostic CLI before using it as a standard post-alpha-factory audit, then rotate to an orthogonal PIT-safe source family.
+
+## Round562 Daily-Basic Shape/Exposure Gate Trace
+
+Round562 added gate traceability to the daily-basic valuation shape/exposure diagnostic CLI:
+
+- `scripts\run_daily_basic_valuation_shape_exposure_audit.py` now accepts startup, data-manifest, and candidate-plan gate packet paths.
+- The returned result, printed summary, and JSON output now include `gate_packets`.
+- Added a CLI unit test that first failed on the missing argument and then passed after implementation.
+- Related daily-basic valuation audit tests passed with 4 tests.
+- A real H1 2024 rerun wrote all three gate packet paths into `daily_basic_valuation_shape_exposure_audit.json`.
+- The rerun outcome stayed rejected: shape pass count = 1, exposure passes = false, residual candidate factors = 0.
+
+Docs:
+
+- `docs/research/cn_stock_round562_daily_basic_shape_exposure_gate_trace_2026-07-05.md`
+- `docs/research/ROUND562_NEXT_STEPS_CHECKLIST.md`
+
+Decision: traceability is now in place. Run a three-round review package for Rounds 560-562, then rotate away from direct daily-basic valuation repair unless a new preregistered residual construction is supplied.
