@@ -1949,6 +1949,8 @@ Round565 started the next factor-batch branch from clean `main`:
 - Low-frequency construction smoke passed for the 63-day state change, 126-day persistence, and local ADV20-liquidity interaction: 1,241,443 joined rows, 364 joined signal dates, 3,568 joined symbols, 0 PIT violations.
 - The construction smoke used local price-volume liquidity for the interaction leg; aggregate HSGT flow was not used as a substitute.
 - Final-holdout guard held: max raw HK-hold date used was 2025-09-30, and 2025-12-31 raw rows used before 2026 availability were 0.
+- Reference-dedup prep completed without return labels or IC: persistence max abs same-day Spearman overlap was 0.5662 vs `liquidity_rank` / `log_adv20_amount`; state-change max was 0.2305 vs `volatility_20`; liquidity-interaction max was 0.2760 vs `liquidity_rank`; no reference reached 0.70 on any date.
+- Any residual IC prescreen must explicitly residualize liquidity/amount, price-volume, moneyflow, and style proxies, and must apply multiple-testing accounting.
 - Portfolio grid allowed: false.
 - Promotion allowed: false.
 
@@ -1957,6 +1959,7 @@ Docs:
 - `docs/research/cn_stock_round565_hk_hold_low_frequency_state_preregistration_2026-07-05.md`
 - `docs/research/cn_stock_round565_hk_hold_low_frequency_state_join_smoke_2026-07-05.md`
 - `docs/research/cn_stock_round565_hk_hold_low_frequency_state_construction_smoke_2026-07-05.md`
+- `docs/research/cn_stock_round565_hk_hold_reference_dedup_prep_2026-07-05.md`
 - `docs/research/ROUND565_NEXT_STEPS_CHECKLIST.md`
 
-Decision: Round565 has cleared preregistration, available-date join-smoke, and first low-frequency construction smoke for the HK-hold sponsorship source leg. The next step is reference dedup preparation before any residual IC prescreen.
+Decision: Round565 has cleared preregistration, available-date join-smoke, construction smoke, and reference-dedup preparation for the HK-hold sponsorship source leg. The next step is a research-only residual IC prescreen with explicit residualization and multiple-testing accounting.
