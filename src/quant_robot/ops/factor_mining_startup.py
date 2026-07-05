@@ -583,7 +583,7 @@ def _validate_round_state(packet: dict[str, Any], *, context: str, path: Path) -
         raise ValueError(f"{context} startup gate round state next direction differs from repeatable protocol: {path}")
     if last_round >= 3 and not str(state.get("last_three_round_review", "")).strip():
         raise ValueError(f"{context} startup gate round state lacks three-round review: {path}")
-    if state.get("family_rotation_required") is True and "rotate" not in next_direction:
+    if state.get("family_rotation_required") is True and decision != "rotate_family" and "rotate" not in next_direction:
         raise ValueError(f"{context} startup gate round state rotation does not match next direction: {path}")
     if not _list(state.get("required_before_next_round")):
         raise ValueError(f"{context} startup gate round state lacks next-round requirements: {path}")

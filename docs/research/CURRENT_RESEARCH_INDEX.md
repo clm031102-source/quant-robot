@@ -8,9 +8,9 @@ Purpose: this is the first file to read after syncing the repository on any work
 
 - Stable branch: `main`
 - Remote HEAD: `origin/main`
-- Current remote topic branch: none
+- Current remote topic branch: `codex/factor-batch-cn-stock-round555-20260705`
 - Remote branch cleanup status: Round464 and Round465-Round502 branches were merged into `main` and removed; Round503-Round553 branch `codex/factor-batch-cn-stock-profit-mining-20260704` was merged into `main` and removed in Round554
-- Latest integrated cloud commit: `3a8fb18c`
+- Latest integrated cloud commit: `f8e9241b`
 - Live-trading boundary: disabled; research-to-paper only
 - Latest cloud audit report: `docs/research/cloud_project_audit_2026-06-27.md`
 
@@ -30,9 +30,9 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| none | Round503-Round553 topic branch `codex/factor-batch-cn-stock-profit-mining-20260704` was merged into `main` at `3a8fb18c` and removed from the remote in Round554 | no active research branch |
+| `codex/factor-batch-cn-stock-round555-20260705` | CN stock Round555 factor-batch branch | active; startup-gate alignment and daily-basic source-readiness smoke |
 
-There is no active research branch after Round554. Start the next non-trivial factor task from latest `main` on a new task branch. Existing Round503-Round553 material records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result from it as live, promoted, or independently tradable.
+Round555 is active after Round554 main integration. Existing Round503-Round553 material records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result from it as live, promoted, or independently tradable.
 
 ## Deleted historical branches
 
@@ -1728,3 +1728,25 @@ Docs:
 - `docs/research/ROUND554_NEXT_STEPS_CHECKLIST.md`
 
 Decision: start the next factor-mining effort from latest `main` on a new task branch only after the required startup gates clear.
+
+## Round555 Startup Gate Alignment And Daily-Basic Smoke
+
+Round555 started the next CN stock factor-batch branch from latest `main`:
+
+- Active branch: `codex/factor-batch-cn-stock-round555-20260705`.
+- Fixed the default CN stock startup gate packet so strict downstream validation accepts it.
+- `round_state.last_three_round_decision` now uses the supported enum `rotate_family`.
+- `round_state.next_direction` now matches the repeatable protocol direction `paper_simulation_packaging_or_new_pit_source_not_q20_threshold_tuning`.
+- Added a regression assertion that the default config packet passes `validate_cleared_startup_gate_packet`.
+- Candidate plan `configs/factor_mining_candidate_plan_round555_daily_basic_source_smoke_20260705.json` preregisters 12 daily-basic source-readiness candidates.
+- Candidate plan gate status: `research_ready`, 12 active candidates, 9 / 9 control areas complete, portfolio and promotion disabled.
+- Combined-root data manifest status: `review_required` with known `extreme_return_rows_present` and `moneyflow_symbol_coverage_below_bars` warnings.
+- Local alpha-factory smoke over 2024-01-02 to 2024-01-31 completed 12 / 12 cases, with 6 adjusted-significant IC screens and 3 alpha-factory internal paper-eligible rows.
+- No candidate is promoted; the smoke showed short-window IC plumbing works but portfolio returns/capacity evidence are not promotion-grade.
+
+Docs:
+
+- `docs/research/cn_stock_round555_startup_gate_alignment_and_daily_basic_smoke_2026-07-05.md`
+- `docs/research/ROUND555_NEXT_STEPS_CHECKLIST.md`
+
+Decision: keep Round555 as a gated source-readiness and tooling branch. The next best improvement is to make `run_tushare_alpha_factory.py` require a cleared candidate-plan packet and verify executed factor names match preregistration before any longer discovery run.

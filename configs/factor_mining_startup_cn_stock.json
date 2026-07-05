@@ -3490,9 +3490,9 @@
     "last_completed_round": 462,
     "next_round": 463,
     "last_three_round_review": "docs/research/cn_stock_round460_462_three_round_audit_2026-06-27.md",
-    "last_three_round_decision": "round462_closed_with_one_paper_ready_risk_repair_lane_zero_independent_alpha_zero_final_promotion",
+    "last_three_round_decision": "rotate_family",
     "family_rotation_required": true,
-    "next_direction": "work_closed_after_round462; if resumed use paper_simulation_packaging_or_new_pit_source_not_q20_threshold_tuning",
+    "next_direction": "paper_simulation_packaging_or_new_pit_source_not_q20_threshold_tuning",
     "blocked_reentry_families": [
       "q20_ps_gt10_threshold_variants_after_round462_without_new_orthogonal_source",
       "high_return_q20_family_extension_after_round462_three_round_audit",

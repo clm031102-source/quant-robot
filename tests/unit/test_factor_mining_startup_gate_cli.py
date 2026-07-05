@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet
 from scripts.run_factor_mining_startup_gate import run_factor_mining_startup_gate
 
 
@@ -102,8 +103,9 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
 
     def test_default_cn_stock_config_is_runnable(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp)
             packet = run_factor_mining_startup_gate(
-                output_dir=Path(tmp),
+                output_dir=output_dir,
                 machine="office_desktop",
                 task="factor_batch",
                 branch="codex/factor-batch-cn-stock-20260617",
@@ -115,6 +117,7 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
 
             self.assertEqual(packet["summary"]["scope_id"], "cn_stock_factor_mining")
             self.assertEqual(packet["status"], "cleared")
+            validate_cleared_startup_gate_packet(output_dir / "factor_mining_startup_gate.json")
             self.assertEqual(packet["research_direction"]["objective"], "cn_stock_cross_sectional_alpha")
             self.assertIn("single_family_lockin", packet["research_direction"]["forbidden_directions"])
             quality_gate = packet["quality_gate"]
@@ -166,7 +169,7 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
             )
             self.assertEqual(
                 packet["round_state"]["last_three_round_decision"],
-                "round462_closed_with_one_paper_ready_risk_repair_lane_zero_independent_alpha_zero_final_promotion",
+                "rotate_family",
             )
             self.assertTrue(packet["round_state"]["family_rotation_required"])
             self.assertIn(
