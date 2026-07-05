@@ -31,13 +31,14 @@ Use this after pulling `codex/factor-batch-cn-stock-round565-pit-source-plan-202
   - all candidates rejected after effect-size and multiple-testing gates;
   - max exit date: 2025-12-31;
   - 2026 final holdout was not read.
+- Closeout package records the rejection and blocks tuning, sign flips, parameter widening, portfolio grids, promotion gates, and final-holdout reads for this family.
 
 ## Recommended Next Work
 
-1. Write a Round565 closeout/rejection package and stop HK-hold sponsorship tuning.
-2. Do not change windows, flip directions, widen parameters, or run a portfolio grid for these candidates.
-3. Rotate to a genuinely new PIT-safe source mechanism only after preregistration and candidate-plan gate.
-4. Keep promotion gates and 2026 final-holdout reads blocked.
+1. Merge this branch back to `main` after final validation.
+2. Delete the topic branch after `main` is pushed and verified.
+3. Start Round566 from latest `main` on a new topic branch.
+4. Rotate to a genuinely new PIT-safe source mechanism only after preregistration and candidate-plan gate.
 
 ## Still Forbidden
 

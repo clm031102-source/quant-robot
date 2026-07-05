@@ -1954,6 +1954,7 @@ Round565 started the next factor-batch branch from clean `main`:
 - Research-only residual IC prescreen completed over signal dates 2024-07-03 to 2025-12-02 with max exit date 2025-12-31 and 0 PIT/final-holdout violations.
 - Residual IC result: 0 / 3 research leads. All three candidates were rejected because residual mean IC, residual ICIR, positive IC rate, and Bonferroni-adjusted significance gates did not pass.
 - Best residual mean IC was only 0.0099 for `hk_hold_sponsorship_persistence_126`; best Bonferroni-adjusted p-value was 0.0665 for `hk_hold_sponsorship_state_liquidity_interaction_63`, still above 0.05.
+- Closeout package added: Round565 HK-hold low-frequency sponsorship is rejected for this cycle; no tuning, sign flipping, parameter widening, portfolio grid, promotion gate, or 2026 final-holdout read is allowed for these candidates.
 - Portfolio grid allowed: false.
 - Promotion allowed: false.
 
@@ -1964,6 +1965,8 @@ Docs:
 - `docs/research/cn_stock_round565_hk_hold_low_frequency_state_construction_smoke_2026-07-05.md`
 - `docs/research/cn_stock_round565_hk_hold_reference_dedup_prep_2026-07-05.md`
 - `docs/research/cn_stock_round565_hk_hold_residual_ic_prescreen_2026-07-05.md`
+- `docs/research/cn_stock_round565_hk_hold_closeout_rejection_package_2026-07-05.md`
 - `docs/research/ROUND565_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/ROUND566_NEXT_STEPS_CHECKLIST.md`
 
 Decision: Round565 HK-hold sponsorship candidates are rejected as research leads. Do not tune or portfolio-test this family; write a closeout/rejection package and rotate to a genuinely new PIT-safe source mechanism only after preregistration.
