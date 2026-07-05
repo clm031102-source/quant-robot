@@ -1883,3 +1883,24 @@ Docs:
 - `docs/research/ROUND562_NEXT_STEPS_CHECKLIST.md`
 
 Decision: traceability is now in place. Run a three-round review package for Rounds 560-562, then rotate away from direct daily-basic valuation repair unless a new preregistered residual construction is supplied.
+
+## Round563 Ten-Round Review And Sync Package
+
+Round563 packaged the Round554-Round562 work for safe sync:
+
+- Fresh topic/main relation before package: `0 behind / 8 ahead` vs `origin/main`.
+- Topic upstream was synchronized.
+- Quant PM startup gate: ready with no blockers.
+- CN stock startup gate packet: cleared with no blockers.
+- Combined-root CN stock data manifest: `review_required`, blockers `[]`, warnings retained.
+- Tracked generated data paths under `data/raw`, `data/processed`, and `data/reports`: none.
+- Sync audit before package: blockers `[]`, branch discovery errors `[]`, syncable paths `[]`.
+- Local Quant PM review: daily-basic valuation repair is NO-GO for promotion, parameter widening, direction flip, or portfolio grid.
+- Local ordinary-user review: branch is understandable enough to merge, but future work should start from a single new candidate-plan config and not reuse old daily-basic repair commands.
+
+Docs:
+
+- `docs/research/cn_stock_round563_ten_round_review_and_sync_package_2026-07-05.md`
+- `docs/research/ROUND563_NEXT_STEPS_CHECKLIST.md`
+
+Decision: merge this topic branch into `main` after validation, delete the remote topic branch after `main` is pushed and verified, then start the next factor batch from latest `main` on a new topic branch.
