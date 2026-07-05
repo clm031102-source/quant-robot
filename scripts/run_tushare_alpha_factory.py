@@ -12,7 +12,11 @@ for path in (SRC_ROOT, PROJECT_ROOT):
         sys.path.insert(0, str(path))
 
 from quant_robot.research.alpha_factory import AlphaFactoryConfig, run_tushare_alpha_factory
+from quant_robot.factors.moneyflow_technical import MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES
+from quant_robot.factors.tushare_inputs import DAILY_BASIC_FACTOR_NAMES
+from quant_robot.factors.tushare_moneyflow import MONEYFLOW_FACTOR_NAMES
 from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manifest_packet
+from quant_robot.ops.factor_mining_candidate_plan_gate import validate_candidate_plan_gate_packet
 from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet
 from scripts.run_research_pipeline import load_research_bars
 
@@ -40,15 +44,22 @@ def run_alpha_factory_cli(
     require_capacity_controls: bool = True,
     startup_gate_packet: str | Path | None = Path("data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"),
     data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
+    candidate_plan_gate_packet: str | Path | None = Path(
+        "data/reports/factor_mining_candidate_plan_gate/factor_mining_candidate_plan_gate.json"
+    ),
     allow_missing_startup_gate: bool = False,
+    allow_missing_candidate_plan_gate: bool = False,
     allow_review_required_data_manifest: bool = False,
 ) -> dict[str, object]:
     _enforce_cn_stock_startup_gate(
         source=source,
         market=market,
+        factor_source=factor_source,
         startup_gate_packet=startup_gate_packet,
         data_manifest_packet=data_manifest_packet,
+        candidate_plan_gate_packet=candidate_plan_gate_packet,
         allow_missing_startup_gate=allow_missing_startup_gate,
+        allow_missing_candidate_plan_gate=allow_missing_candidate_plan_gate,
         allow_review_required_data_manifest=allow_review_required_data_manifest,
         data_root=Path(data_root),
     )
@@ -122,6 +133,16 @@ def main() -> None:
         action="store_true",
         help="Allow a reviewed CN stock data manifest that has warnings but no blockers.",
     )
+    parser.add_argument(
+        "--candidate-plan-gate-packet",
+        default="data/reports/factor_mining_candidate_plan_gate/factor_mining_candidate_plan_gate.json",
+        help="Cleared candidate-plan gate packet required for processed CN runs.",
+    )
+    parser.add_argument(
+        "--allow-missing-candidate-plan-gate",
+        action="store_true",
+        help="Deprecated. CN processed-bars runs cannot bypass the candidate-plan gate.",
+    )
     args = parser.parse_args()
     result = run_alpha_factory_cli(
         source=args.source,
@@ -146,7 +167,9 @@ def main() -> None:
         require_capacity_controls=not args.allow_missing_capacity_controls,
         startup_gate_packet=Path(args.startup_gate_packet) if args.startup_gate_packet else None,
         data_manifest_packet=Path(args.data_manifest_packet) if args.data_manifest_packet else None,
+        candidate_plan_gate_packet=Path(args.candidate_plan_gate_packet) if args.candidate_plan_gate_packet else None,
         allow_missing_startup_gate=args.allow_missing_startup_gate,
+        allow_missing_candidate_plan_gate=args.allow_missing_candidate_plan_gate,
         allow_review_required_data_manifest=args.allow_review_required_data_manifest,
     )
     print(
@@ -165,9 +188,12 @@ def _enforce_cn_stock_startup_gate(
     *,
     source: str,
     market: str,
+    factor_source: str,
     startup_gate_packet: str | Path | None,
     data_manifest_packet: str | Path | None,
+    candidate_plan_gate_packet: str | Path | None,
     allow_missing_startup_gate: bool,
+    allow_missing_candidate_plan_gate: bool,
     allow_review_required_data_manifest: bool,
     data_root: Path,
 ) -> None:
@@ -185,6 +211,23 @@ def _enforce_cn_stock_startup_gate(
         allow_review_required=allow_review_required_data_manifest,
         context="CN processed-bars alpha factory",
     )
+    if allow_missing_candidate_plan_gate:
+        raise ValueError("CN processed-bars alpha factory candidate plan gate cannot be bypassed")
+    validate_candidate_plan_gate_packet(
+        candidate_plan_gate_packet,
+        expected_factor_names=_factor_names_for_source(factor_source),
+        context="CN processed-bars alpha factory",
+    )
+
+
+def _factor_names_for_source(factor_source: str) -> tuple[str, ...]:
+    if factor_source == "tushare_daily_basic":
+        return DAILY_BASIC_FACTOR_NAMES
+    if factor_source == "tushare_moneyflow":
+        return MONEYFLOW_FACTOR_NAMES
+    if factor_source == "moneyflow_technical_combo":
+        return MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES
+    raise ValueError(f"Unsupported Tushare alpha factory factor_source: {factor_source}")
 
 
 if __name__ == "__main__":

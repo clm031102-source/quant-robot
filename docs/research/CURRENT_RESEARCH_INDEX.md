@@ -1750,3 +1750,22 @@ Docs:
 - `docs/research/ROUND555_NEXT_STEPS_CHECKLIST.md`
 
 Decision: keep Round555 as a gated source-readiness and tooling branch. The next best improvement is to make `run_tushare_alpha_factory.py` require a cleared candidate-plan packet and verify executed factor names match preregistration before any longer discovery run.
+
+## Round556 Alpha Factory Candidate-Plan Gate
+
+Round556 implemented the next fail-closed alpha-factory control:
+
+- `scripts\run_tushare_alpha_factory.py` now requires a cleared candidate-plan gate packet for CN processed-bars runs.
+- The active preregistered factor names in the gate packet must exactly match the factor names implied by `--factor-source`.
+- Missing or mismatched candidate-plan packets fail before `load_research_bars`.
+- `validate_candidate_plan_gate_packet` now supports `expected_factor_names`.
+- Focused red tests first failed on missing enforcement and missing CLI argument, then passed after implementation.
+- Full alpha-factory CLI/unit coverage passed with 20 tests; candidate-plan gate tests passed with 13 tests.
+- A short real local processed-bars smoke over 2024-01-02 to 2024-01-05 completed 12 / 12 daily-basic cases with 0 adjusted-significant rows and 0 internal paper-eligible rows.
+
+Docs:
+
+- `docs/research/cn_stock_round556_alpha_factory_candidate_plan_gate_2026-07-05.md`
+- `docs/research/ROUND556_NEXT_STEPS_CHECKLIST.md`
+
+Decision: all future CN processed-bars alpha-factory runs should pass an explicit `--candidate-plan-gate-packet`, and longer discovery-window runs remain research-only until long-cycle replay, capacity, regime, and style-neutral gates pass.

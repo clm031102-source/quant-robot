@@ -11,6 +11,13 @@ from unittest.mock import patch
 import pandas as pd
 
 from quant_robot.data.fixtures import load_demo_market_bars
+from quant_robot.factors.tushare_inputs import DAILY_BASIC_FACTOR_NAMES
+from quant_robot.ops.factor_mining_candidate_plan_gate import (
+    build_factor_mining_candidate_plan_gate,
+    default_cn_stock_pre_mining_control_plan,
+    default_cn_stock_promotion_policy,
+    write_factor_mining_candidate_plan_gate,
+)
 from quant_robot.ops.factor_mining_startup import build_factor_mining_startup_gate
 from quant_robot.storage.dataset_store import DatasetStore
 from scripts.run_tushare_alpha_factory import run_alpha_factory_cli
@@ -178,6 +185,8 @@ class TushareAlphaFactoryCliTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
+            candidate_gate_dir = root / "candidate_gate"
+            _write_candidate_plan_gate(candidate_gate_dir, DAILY_BASIC_FACTOR_NAMES)
             bars = load_demo_market_bars()
             expected = {"summary": {"hypothesis_count": 1}, "candidate_leaderboard": []}
 
@@ -192,11 +201,83 @@ class TushareAlphaFactoryCliTests(unittest.TestCase):
                         top_n=1,
                         startup_gate_packet=gate_packet,
                         data_manifest_packet=data_manifest,
+                        candidate_plan_gate_packet=candidate_gate_dir / "factor_mining_candidate_plan_gate.json",
                     )
 
             self.assertEqual(result, expected)
             load_bars.assert_called_once()
             run_factory.assert_called_once()
+
+    def test_processed_cn_alpha_factory_requires_candidate_plan_gate_packet_after_data_manifest(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            gate_packet = root / "factor_mining_startup_gate.json"
+            gate_packet.write_text(_valid_startup_gate_packet_json(), encoding="utf-8")
+            data_manifest = root / "cn_stock_data_manifest.json"
+            data_manifest.write_text(
+                json.dumps(
+                    {
+                        "generated_at": date.today().isoformat(),
+                        "status": "cleared",
+                        "summary": {"source_root": root.as_posix(), "bar_rows": 10, "bar_symbols": 2},
+                        "decision": {"data_manifest_cleared": True, "blockers": [], "warnings": []},
+                        "live_boundary_allowed": False,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with patch("scripts.run_tushare_alpha_factory.load_research_bars") as load_bars:
+                with self.assertRaisesRegex(ValueError, "candidate plan"):
+                    run_alpha_factory_cli(
+                        source="processed-bars",
+                        data_root=root,
+                        market="CN",
+                        factor_input_root=root / "factor_inputs",
+                        output_dir=root / "factory",
+                        top_n=1,
+                        startup_gate_packet=gate_packet,
+                        data_manifest_packet=data_manifest,
+                    )
+
+            load_bars.assert_not_called()
+
+    def test_processed_cn_alpha_factory_rejects_candidate_plan_factor_name_drift(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            gate_packet = root / "factor_mining_startup_gate.json"
+            gate_packet.write_text(_valid_startup_gate_packet_json(), encoding="utf-8")
+            data_manifest = root / "cn_stock_data_manifest.json"
+            data_manifest.write_text(
+                json.dumps(
+                    {
+                        "generated_at": date.today().isoformat(),
+                        "status": "cleared",
+                        "summary": {"source_root": root.as_posix(), "bar_rows": 10, "bar_symbols": 2},
+                        "decision": {"data_manifest_cleared": True, "blockers": [], "warnings": []},
+                        "live_boundary_allowed": False,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            candidate_gate_dir = root / "candidate_gate"
+            _write_candidate_plan_gate(candidate_gate_dir, ("turnover_rate",))
+
+            with patch("scripts.run_tushare_alpha_factory.load_research_bars") as load_bars:
+                with self.assertRaisesRegex(ValueError, "candidate plan factor names"):
+                    run_alpha_factory_cli(
+                        source="processed-bars",
+                        data_root=root,
+                        market="CN",
+                        factor_input_root=root / "factor_inputs",
+                        output_dir=root / "factory",
+                        top_n=1,
+                        startup_gate_packet=gate_packet,
+                        data_manifest_packet=data_manifest,
+                        candidate_plan_gate_packet=candidate_gate_dir / "factor_mining_candidate_plan_gate.json",
+                    )
+
+            load_bars.assert_not_called()
 
     def test_processed_cn_alpha_factory_requires_data_manifest_packet_after_startup_gate(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -307,6 +388,38 @@ def _write_moneyflow_inputs(root: Path, bars: pd.DataFrame) -> None:
         "processed/moneyflow_inputs",
         {"frequency": "1d", "market": "CN", "year": "2024"},
     )
+
+
+def _write_candidate_plan_gate(output_dir: Path, factor_names: tuple[str, ...]) -> None:
+    plan = {
+        "stage": "test_daily_basic_preregistration",
+        "research_control_plan": default_cn_stock_pre_mining_control_plan(),
+        "promotion_policy": default_cn_stock_promotion_policy(),
+        "family_rotation_policy": {
+            "current_family_id": "daily_basic_source_readiness_smoke",
+            "current_family_round_count": 1,
+            "max_rounds_before_review": 3,
+            "three_round_review_completed": True,
+            "hibernated_families": [],
+            "blocked_families": [],
+        },
+        "candidates": [
+            {
+                "factor_name": name,
+                "family": "daily_basic_source_readiness_smoke",
+                "market": "CN",
+                "asset_type": "stock",
+                "registration_status": "pre_registered",
+                "hypothesis_source": f"test:{name}",
+                "economic_rationale": f"Test preregistration for {name}.",
+                "portfolio_backtest_allowed": False,
+                "promotion_allowed": False,
+            }
+            for name in factor_names
+        ],
+    }
+    packet = build_factor_mining_candidate_plan_gate(plan, gate_stage="discovery")
+    write_factor_mining_candidate_plan_gate(output_dir, packet)
 
 
 def _valid_startup_gate_packet_json() -> str:

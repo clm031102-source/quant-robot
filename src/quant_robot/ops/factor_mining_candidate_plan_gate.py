@@ -232,6 +232,7 @@ def write_factor_mining_candidate_plan_gate(output_dir: str | Path, packet: dict
 def validate_candidate_plan_gate_packet(
     packet_path: str | Path | None,
     *,
+    expected_factor_names: list[str] | tuple[str, ...] | set[str] | None = None,
     require_generated_today: bool = True,
     context: str = "CN stock factor mining",
 ) -> dict[str, Any]:
@@ -248,6 +249,20 @@ def validate_candidate_plan_gate_packet(
         raise ValueError(f"{context} candidate plan gate is not cleared: {path}")
     if packet.get("live_boundary_allowed") is not False:
         raise ValueError(f"{context} candidate plan gate violates live boundary: {path}")
+    if expected_factor_names is not None:
+        expected = {str(name) for name in expected_factor_names}
+        active = {
+            str(row.get("factor_name", ""))
+            for row in _list_of_dicts(packet.get("candidate_rows"))
+            if row.get("active_for_gate") is True
+        }
+        if active != expected:
+            missing = sorted(expected.difference(active))
+            extra = sorted(active.difference(expected))
+            raise ValueError(
+                f"{context} candidate plan factor names mismatch: {path}; "
+                f"missing={missing}; extra={extra}"
+            )
     return packet
 
 
