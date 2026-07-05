@@ -150,6 +150,19 @@ def _summary(leaderboard: list[dict[str, Any]]) -> dict[str, int]:
         "completed": sum(1 for row in leaderboard if row.get("status") == "completed"),
         "adjusted_significant": sum(1 for row in leaderboard if row.get("passes_adjusted_ic_p_value")),
         "paper_eligible": sum(1 for row in leaderboard if row.get("paper_candidate_allowed")),
+        "capacity_limited": sum(1 for row in leaderboard if _float(row.get("capacity_limited_trades")) > 0.0),
+        "positive_total_return": sum(1 for row in leaderboard if _float(row.get("total_return")) > 0.0),
+        "positive_sharpe": sum(1 for row in leaderboard if _float(row.get("sharpe")) > 0.0),
+        "paper_eligible_positive_return": sum(
+            1
+            for row in leaderboard
+            if row.get("paper_candidate_allowed") and _float(row.get("total_return")) > 0.0
+        ),
+        "paper_eligible_negative_return": sum(
+            1
+            for row in leaderboard
+            if row.get("paper_candidate_allowed") and _float(row.get("total_return")) < 0.0
+        ),
         "rejected_after_multiple_testing": sum(1 for row in leaderboard if not row.get("passes_adjusted_ic_p_value")),
     }
 

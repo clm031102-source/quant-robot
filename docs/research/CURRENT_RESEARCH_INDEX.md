@@ -1805,3 +1805,20 @@ Docs:
 - `docs/research/ROUND558_NEXT_STEPS_CHECKLIST.md`
 
 Decision: treat Round558 as gated source-readiness evidence only. A longer discovery-window diagnostic must add style-exposure and capacity blocker summaries before any long-cycle replay.
+
+## Round559 Alpha-Factory Return/Capacity Summary
+
+Round559 made the alpha-factory summary more useful before longer diagnostics:
+
+- `_summary` now reports `capacity_limited`, `positive_total_return`, `positive_sharpe`, `paper_eligible_positive_return`, and `paper_eligible_negative_return`.
+- The existing hypothesis, completion, adjusted-significance, paper-eligible, and multiple-testing rejection counts remain unchanged.
+- A focused test covers capacity-limited rows, positive return rows, positive Sharpe rows, and paper-eligible rows split by positive/negative return.
+- Alpha-factory and CLI unit coverage passed with 21 tests.
+- This is reporting infrastructure only; no new candidate is promoted.
+
+Docs:
+
+- `docs/research/cn_stock_round559_alpha_factory_return_capacity_summary_2026-07-05.md`
+- `docs/research/ROUND559_NEXT_STEPS_CHECKLIST.md`
+
+Decision: require these return/capacity summary fields in the next longer daily-basic discovery note before any walk-forward replay or paper-simulation packaging.

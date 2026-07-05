@@ -9,7 +9,13 @@ from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.factors.moneyflow_technical import MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES
 from quant_robot.factors.tushare_inputs import DAILY_BASIC_FACTOR_NAMES
 from quant_robot.factors.tushare_moneyflow import MONEYFLOW_FACTOR_NAMES
-from quant_robot.research.alpha_factory import AlphaFactoryConfig, _candidate_row, apply_bonferroni_correction, run_tushare_alpha_factory
+from quant_robot.research.alpha_factory import (
+    AlphaFactoryConfig,
+    _candidate_row,
+    _summary,
+    apply_bonferroni_correction,
+    run_tushare_alpha_factory,
+)
 from quant_robot.storage.dataset_store import DatasetStore
 
 
@@ -121,6 +127,42 @@ class AlphaFactoryTests(unittest.TestCase):
         self.assertFalse(result["paper_candidate_allowed"])
         self.assertIn("market_impact_not_configured", result["paper_candidate_rejection_reasons"])
         self.assertIn("max_participation_rate_not_configured", result["paper_candidate_rejection_reasons"])
+
+    def test_summary_counts_capacity_and_return_quality(self):
+        leaderboard = [
+            {
+                "status": "completed",
+                "passes_adjusted_ic_p_value": True,
+                "paper_candidate_allowed": True,
+                "capacity_limited_trades": 0,
+                "sharpe": 1.2,
+                "total_return": 0.03,
+            },
+            {
+                "status": "completed",
+                "passes_adjusted_ic_p_value": True,
+                "paper_candidate_allowed": True,
+                "capacity_limited_trades": 0,
+                "sharpe": -0.5,
+                "total_return": -0.02,
+            },
+            {
+                "status": "completed",
+                "passes_adjusted_ic_p_value": False,
+                "paper_candidate_allowed": False,
+                "capacity_limited_trades": 3,
+                "sharpe": -1.0,
+                "total_return": 0.01,
+            },
+        ]
+
+        summary = _summary(leaderboard)
+
+        self.assertEqual(summary["capacity_limited"], 1)
+        self.assertEqual(summary["positive_total_return"], 2)
+        self.assertEqual(summary["positive_sharpe"], 1)
+        self.assertEqual(summary["paper_eligible_positive_return"], 1)
+        self.assertEqual(summary["paper_eligible_negative_return"], 1)
 
 
     def test_alpha_factory_runs_pre_registered_daily_basic_family_and_writes_artifacts(self):
