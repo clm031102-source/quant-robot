@@ -1,0 +1,127 @@
+{
+  "created_at": "2026-07-05",
+  "market": "CN",
+  "asset_type": "stock",
+  "stage": "round565_hk_hold_low_frequency_state_seed_preregistration",
+  "source_processed_root": "data/processed/tushare_external_feeds_round172_long_cycle_monthly_20260623",
+  "candidate_plan": "configs/factor_mining_candidate_plan_round565_hk_hold_low_frequency_state_20260705.json",
+  "source_audit": "docs/research/cn_stock_round528_external_feed_rotation_source_audit_2026-07-05.md",
+  "family_review": "docs/research/cn_stock_round529_external_feed_family_review_2026-07-05.md",
+  "pit_policy": {
+    "join_date_column": "available_date",
+    "forbidden_join_date_column": "date",
+    "signal_rule": "HK-hold observations may join stock signal dates only when available_date <= signal_date and raw date < signal_date.",
+    "final_holdout_policy": "No 2026 tuning. The 2025-12-31 raw HK-hold observation is not available until 2026-01-05 and must not be used for 2025 signals."
+  },
+  "promotion_policy": {
+    "promotion_allowed": false,
+    "portfolio_backtest_allowed": false,
+    "reason": "Round565 source smoke is source-readiness evidence only, not IC, portfolio, promotion, or final-holdout evidence.",
+    "required_before_promotion": [
+      "low_frequency_state_construction_smoke",
+      "reference_correlation_dedup_against_price_volume_moneyflow_style",
+      "industry_style_residual_ic",
+      "multiple_testing_accounting",
+      "long_cycle_replay",
+      "walk_forward_regime_coverage",
+      "cost_capacity_gate",
+      "final_holdout_read_once"
+    ]
+  },
+  "blocked_uses": [
+    "old_northbound_positive_accumulation_rerun",
+    "old_northbound_crowding_reversal_rerun",
+    "external_hsgt_flow_as_standalone_rank",
+    "margin_credit_reentry",
+    "daily_basic_valuation_repair_parameter_widening",
+    "lpr_macro_factor_before_non_missing_lpr_coverage",
+    "portfolio_grid_before_residual_ic_prescreen",
+    "same_day_or_future_raw_date_join",
+    "provider_download",
+    "broker_or_live_account_access"
+  ],
+  "factor_seeds": [
+    {
+      "factor_name": "hk_hold_sponsorship_state_change_63",
+      "family": "hk_hold_low_frequency_state",
+      "seed_type": "cross_sectional_low_frequency_state",
+      "hypothesis_source": "external_feed_hk_hold:low_frequency_sponsorship_state_change",
+      "hypothesis": "Slow changes in foreign holding sponsorship may identify durable ownership state shifts after available-date alignment.",
+      "primary_feed": "external_hk_hold",
+      "required_columns": [
+        "symbol",
+        "available_date",
+        "hold_ratio",
+        "hold_vol"
+      ],
+      "expression_plan": "Use latest available HK-hold state only; construct a 63-trading-day state-change proxy after source smoke, with no same-day raw-date joins.",
+      "horizons": [
+        20
+      ],
+      "minimum_history_days": 40,
+      "neutralization_required": [
+        "industry",
+        "size",
+        "liquidity",
+        "value",
+        "momentum",
+        "low_volatility"
+      ]
+    },
+    {
+      "factor_name": "hk_hold_sponsorship_persistence_126",
+      "family": "hk_hold_low_frequency_state",
+      "seed_type": "cross_sectional_low_frequency_state",
+      "hypothesis_source": "external_feed_hk_hold:low_frequency_persistence_state",
+      "hypothesis": "Persistent foreign sponsorship states may interact with later cross-sectional returns after residual controls.",
+      "primary_feed": "external_hk_hold",
+      "required_columns": [
+        "symbol",
+        "available_date",
+        "hold_ratio",
+        "hold_vol"
+      ],
+      "expression_plan": "Use latest available HK-hold state only; construct a 126-trading-day persistence proxy after source smoke, not a direct daily accumulation rank.",
+      "horizons": [
+        20
+      ],
+      "minimum_history_days": 40,
+      "neutralization_required": [
+        "industry",
+        "size",
+        "liquidity",
+        "value",
+        "momentum",
+        "low_volatility"
+      ]
+    },
+    {
+      "factor_name": "hk_hold_sponsorship_state_liquidity_interaction_63",
+      "family": "hk_hold_low_frequency_state",
+      "seed_type": "cross_sectional_low_frequency_state_interaction",
+      "hypothesis_source": "external_feed_hk_hold:state_x_liquidity_interaction",
+      "hypothesis": "A low-frequency sponsorship state crossed with local liquidity quality must survive dedup against price-volume, moneyflow, and style exposures.",
+      "primary_feed": "external_hk_hold",
+      "required_columns": [
+        "symbol",
+        "available_date",
+        "hold_ratio",
+        "hold_vol"
+      ],
+      "expression_plan": "Source-smoke only the HK-hold sponsorship leg here; add local bar-based liquidity inputs in the later construction smoke without external HSGT-flow substitution.",
+      "horizons": [
+        20
+      ],
+      "minimum_history_days": 40,
+      "neutralization_required": [
+        "industry",
+        "size",
+        "liquidity",
+        "value",
+        "momentum",
+        "low_volatility"
+      ],
+      "liquidity_leg_policy": "Use local price-volume liquidity in later source construction; do not replace it with aggregate north_money or old northbound flow regimes."
+    }
+  ]
+}

@@ -104,6 +104,27 @@ Result:
 
 Round565 opens only the source-readiness/preregistration lane for HK-hold low-frequency state candidates. It does not permit IC claims, portfolio conversion, promotion, or final-holdout reads. The next useful step is a source-construction smoke that verifies low-frequency state construction, available-date alignment, and reference dedup inputs before any residual IC screen.
 
+## Follow-On Source Join Smoke
+
+After preregistration, Round565 added a dedicated external-feed seed config:
+
+```text
+configs\external_feed_factor_seed_preregistration_round565_hk_hold_low_frequency_state_20260705.json
+```
+
+The available-date join-smoke over 2024-07-01 to 2025-12-31 passed for all 3 HK-hold sponsorship seeds:
+
+| Metric | Value |
+| --- | ---: |
+| Pass count | 3 / 3 |
+| Joined rows | 5,983,389 |
+| Joined signal dates | 547 |
+| Unique symbols per seed | 3,865 |
+| Available-date violations | 0 |
+| Same-day/future raw-date violations | 0 |
+
+This remains source-readiness evidence only. The local price-volume liquidity leg for `hk_hold_sponsorship_state_liquidity_interaction_63` is intentionally not replaced by aggregate HSGT flow.
+
 ## Safety Boundary
 
 - No broker connection.
