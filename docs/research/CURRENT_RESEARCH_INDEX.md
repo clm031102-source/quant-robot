@@ -8,9 +8,9 @@ Purpose: this is the first file to read after syncing the repository on any work
 
 - Stable branch: `main`
 - Remote HEAD: `origin/main`
-- Current remote topic branch: `codex/factor-batch-cn-stock-profit-mining-20260704`
-- Remote branch cleanup status: Round464 and Round465-Round502 branches were merged into `main` and removed; keep only the active Round503/Round504 mining branch until it is reviewed or merged
-- Latest integrated cloud commit: `af474d5a`
+- Current remote topic branch: none
+- Remote branch cleanup status: Round464 and Round465-Round502 branches were merged into `main` and removed; Round503-Round553 branch `codex/factor-batch-cn-stock-profit-mining-20260704` was merged into `main` and removed in Round554
+- Latest integrated cloud commit: `3a8fb18c`
 - Live-trading boundary: disabled; research-to-paper only
 - Latest cloud audit report: `docs/research/cloud_project_audit_2026-06-27.md`
 
@@ -30,9 +30,9 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round553 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, external-feed family-review boundary, external-feed join-smoke optimization, LPR cache repair guard, offline macro LPR repair tool, Round533 two-agent review hardening, Round534 operator runbook hardening, Round535 cloud/main branch audit, Round536 laptop integration rehearsal, Round537 latest-topic integration rehearsal, Round538 integration-plan handoff status, Round539 handoff-ready gate, Round540 clean handoff verification, Round541 handoff next command, Round542 pre-agent checkpoint briefing, Round543 two-agent checkpoint, Round544 handoff executable context, Round545 handoff here command, Round546 next-command context, Round547 handoff recommended command, Round548 handoff blocker metadata, Round549 handoff ready boolean, Round550 handoff current context, Round551 handoff context mismatch reasons, Round552 handoff-ready gate alignment, and Round553 two-agent handoff checkpoint | active research branch |
+| none | Round503-Round553 topic branch `codex/factor-batch-cn-stock-profit-mining-20260704` was merged into `main` at `3a8fb18c` and removed from the remote in Round554 | no active research branch |
 
-This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
+There is no active research branch after Round554. Start the next non-trivial factor task from latest `main` on a new task branch. Existing Round503-Round553 material records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result from it as live, promoted, or independently tradable.
 
 ## Deleted historical branches
 
@@ -200,6 +200,8 @@ Latest same-day progress reports:
 - `docs/research/ROUND552_NEXT_STEPS_CHECKLIST.md`
 - `docs/research/project_round553_two_agent_handoff_checkpoint_2026-07-05.md`
 - `docs/research/ROUND553_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round554_main_integration_completion_2026-07-05.md`
+- `docs/research/ROUND554_NEXT_STEPS_CHECKLIST.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -1707,3 +1709,22 @@ Docs:
 - `docs/research/ROUND553_NEXT_STEPS_CHECKLIST.md`
 
 Decision: stop growing this office topic branch by default. The next substantive project action is laptop-owned integration from `main`; office desktop should only rerun the safe handoff check unless the gate regresses or the user explicitly redirects the work.
+
+## Round554 Main Integration Completion
+
+Round554 completed the laptop-owned integration handoff:
+
+- `codex/factor-batch-cn-stock-profit-mining-20260704` was merged into `main` with merge commit `3a8fb18c`.
+- `main` was pushed to `origin/main`.
+- The merged topic branch was cleaned up; remote branches now contain `origin/main` only.
+- Local branches now contain `main` only.
+- Post-merge `laptop-integration` profile passed with 101 tests, Python compile, project audit, and safety audit.
+- Post-merge `pre-alpha` profile completed with `factor_mining_allowed=true`.
+- Project sync audit reports no blockers, no branch discovery errors, no pending topic branches, no remote topic branches, and no syncable paths.
+
+Docs:
+
+- `docs/research/project_round554_main_integration_completion_2026-07-05.md`
+- `docs/research/ROUND554_NEXT_STEPS_CHECKLIST.md`
+
+Decision: start the next factor-mining effort from latest `main` on a new task branch only after the required startup gates clear.
