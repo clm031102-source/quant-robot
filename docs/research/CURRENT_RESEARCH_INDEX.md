@@ -1,6 +1,6 @@
 # Current Research And Cloud Sync Index
 
-Last updated: 2026-07-04
+Last updated: 2026-07-05
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
@@ -8,11 +8,13 @@ Purpose: this is the first file to read after syncing the repository on any work
 
 - Stable branch: `main`
 - Remote HEAD: `origin/main`
-- Current remote topic branches: `codex/factor-batch-cn-stock-benchmark-relative-20260704`; `codex/factor-batch-cn-stock-execution-aware-round465-20260704` after this task branch is pushed
-- Remote branch cleanup status: pending for the two active topic branches
-- Latest integrated cloud commit: `759c3cc3`
+- Current remote topic branch: `codex/factor-batch-cn-stock-profit-mining-20260704`
+- Remote branch cleanup status: Round464 and Round465-Round502 branches were merged into `main` and removed; keep only the active Round503/Round504 mining branch until it is reviewed or merged
+- Latest integrated cloud commit: `af474d5a`
 - Live-trading boundary: disabled; research-to-paper only
 - Latest cloud audit report: `docs/research/cloud_project_audit_2026-06-27.md`
+
+Read this file from top to bottom for current state, but treat dated Round sections before Round503 as historical evidence. Some older sections intentionally preserve the pre-cleanup blockers that were true when they were written.
 
 All durable code, configs, tests, and lightweight reports that were previously on cloud topic branches are now integrated into `main`. New non-trivial work should start from latest `main`, then create a task branch using the branch policy in `configs/workstations.json`.
 
@@ -28,10 +30,9 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-benchmark-relative-20260704` | Round464 benchmark-relative residual moneyflow pre-registration, walk-forward framework fixes, and rejection evidence | active review branch |
-| `codex/factor-batch-cn-stock-execution-aware-round465-20260704` | Round465 fixed self-risk overlay check, Round466 strict paper-ops review, Round467 analyst-report retry-status evidence, Round470 final-holdout boundary evidence, Round471 financial/PIT source-gate refresh, Round472 paper replay refresh, Round473 expanded-observation data-quality block evidence, Round474 office-desktop completion handoff, Round475 fund-basic rotation-membership repair, Round476 live fund-basic membership guard, Round477 validated-ETF observation sufficiency evidence, Round478 latest validated-ETF observation update, Round479 laptop integration preflight, Round480 laptop integration profile plus latest target check, Round481 isolated laptop merge rehearsal, Round482 completion gate before profit mining, Round483 require-complete gate mode, Round484 latest observation-pack discovery, Round485 pre-alpha completion check profile, Round486 laptop topic integration plan, Round487 observation continuation/gate hardening, Round488 observation gap-recovery planning, Round489 post-refresh window propagation, Round490 required-asset end retry action, Round491 regenerated next-action evidence, Round492 target-end gap continuation planning, Round493 completion-gate target-end action, Round494 executable target-end provider check, Round495 latest laptop merge rehearsal, Round496 guarded laptop execute mode, Round501 LOF filter plus observation sufficiency clearance, and Round502 final laptop integration rehearsal | active review branch |
+| `codex/factor-batch-cn-stock-profit-mining-20260704` | Round503 profit-mining startup evidence plus Round504-Round553 analyst-report-revision PIT source continuation, quota-aware review, local quota preflight, fail-closed CLI hardening, laptop-integration quota coverage, cache-CLI default quota preflight, skip-quota audit hardening, cache-CLI preflight-only mode, two-agent review/help hardening, quota-scope visibility, quota target-date guard, skip-quota offline replay guard, durable skip-quota audit evidence, cross-machine quota-pack evidence, quota-pack dedup hardening, duplicate-evidence audit details, quota-pack provenance metadata, preflight-level pack provenance summaries, required-machine quota constraints, audit-only machine notes, frozen January-April prescreen handoff, external-feed source-audit rotation boundary, external-feed family-review boundary, external-feed join-smoke optimization, LPR cache repair guard, offline macro LPR repair tool, Round533 two-agent review hardening, Round534 operator runbook hardening, Round535 cloud/main branch audit, Round536 laptop integration rehearsal, Round537 latest-topic integration rehearsal, Round538 integration-plan handoff status, Round539 handoff-ready gate, Round540 clean handoff verification, Round541 handoff next command, Round542 pre-agent checkpoint briefing, Round543 two-agent checkpoint, Round544 handoff executable context, Round545 handoff here command, Round546 next-command context, Round547 handoff recommended command, Round548 handoff blocker metadata, Round549 handoff ready boolean, Round550 handoff current context, Round551 handoff context mismatch reasons, Round552 handoff-ready gate alignment, and Round553 two-agent handoff checkpoint | active research branch |
 
-These branches are not promotion branches. They record a completed rejection set, framework fixes, and paper-lane risk-repair evidence that should be reviewed before integration.
+This branch is not a promotion branch. It records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result on it as live, promoted, or independently tradable.
 
 ## Deleted historical branches
 
@@ -127,6 +128,78 @@ Latest same-day progress reports:
 - `docs/research/project_round501_observation_sufficiency_cleared_2026-07-04.md`
 - `docs/research/project_round501_completion_evidence_2026-07-04.json`
 - `docs/research/project_round502_final_laptop_integration_rehearsal_2026-07-04.md`
+- `docs/research/cn_stock_round518_cross_machine_quota_pack_2026-07-05.md`
+- `docs/research/ROUND518_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round519_quota_pack_dedup_2026-07-05.md`
+- `docs/research/ROUND519_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round520_quota_duplicate_details_2026-07-05.md`
+- `docs/research/ROUND520_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round521_quota_pack_provenance_2026-07-05.md`
+- `docs/research/ROUND521_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round522_quota_preflight_pack_provenance_2026-07-05.md`
+- `docs/research/ROUND522_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round523_two_agent_quota_review_2026-07-05.md`
+- `docs/research/ROUND523_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round524_quota_wait_checkpoint_2026-07-05.md`
+- `docs/research/ROUND524_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round525_required_quota_pack_machines_2026-07-05.md`
+- `docs/research/ROUND525_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round526_quota_machine_notes_2026-07-05.md`
+- `docs/research/ROUND526_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round527_frozen_prescreen_handoff_2026-07-05.md`
+- `docs/research/ROUND527_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round528_external_feed_rotation_source_audit_2026-07-05.md`
+- `docs/research/ROUND528_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round529_external_feed_family_review_2026-07-05.md`
+- `docs/research/ROUND529_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round530_external_feed_join_smoke_optimization_2026-07-05.md`
+- `docs/research/ROUND530_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round531_lpr_cache_repair_guard_2026-07-05.md`
+- `docs/research/ROUND531_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round532_external_macro_lpr_offline_repair_tool_2026-07-05.md`
+- `docs/research/ROUND532_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round533_two_agent_source_tooling_review_2026-07-05.md`
+- `docs/research/ROUND533_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/cn_stock_round534_operator_runbook_hardening_2026-07-05.md`
+- `docs/research/ROUND534_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round535_cloud_main_branch_audit_2026-07-05.md`
+- `docs/research/ROUND535_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round536_laptop_integration_rehearsal_refresh_2026-07-05.md`
+- `docs/research/ROUND536_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round537_latest_topic_integration_rehearsal_2026-07-05.md`
+- `docs/research/ROUND537_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round538_integration_plan_handoff_status_2026-07-05.md`
+- `docs/research/ROUND538_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round539_integration_handoff_ready_gate_2026-07-05.md`
+- `docs/research/ROUND539_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round540_clean_handoff_ready_verification_2026-07-05.md`
+- `docs/research/ROUND540_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round541_integration_handoff_next_command_2026-07-05.md`
+- `docs/research/ROUND541_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round542_pre_agent_checkpoint_briefing_2026-07-05.md`
+- `docs/research/ROUND542_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round543_two_agent_checkpoint_2026-07-05.md`
+- `docs/research/ROUND543_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round544_handoff_executable_context_2026-07-05.md`
+- `docs/research/ROUND544_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round545_handoff_here_command_2026-07-05.md`
+- `docs/research/ROUND545_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round546_handoff_next_command_context_2026-07-05.md`
+- `docs/research/ROUND546_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round547_handoff_recommended_command_2026-07-05.md`
+- `docs/research/ROUND547_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round548_handoff_blocker_metadata_2026-07-05.md`
+- `docs/research/ROUND548_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round549_handoff_ready_boolean_2026-07-05.md`
+- `docs/research/ROUND549_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round550_handoff_current_context_2026-07-05.md`
+- `docs/research/ROUND550_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round551_handoff_context_mismatch_reasons_2026-07-05.md`
+- `docs/research/ROUND551_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round552_handoff_ready_gate_alignment_2026-07-05.md`
+- `docs/research/ROUND552_NEXT_STEPS_CHECKLIST.md`
+- `docs/research/project_round553_two_agent_handoff_checkpoint_2026-07-05.md`
+- `docs/research/ROUND553_NEXT_STEPS_CHECKLIST.md`
 
 Round463 reopened the analyst report revision direction only as a source-smoke because it is an orthogonal PIT source. The result improved over Round453:
 
@@ -632,3 +705,1005 @@ GitHub must not contain:
 3. Run `python scripts\sync_project.py --machine laptop --task project_sync` after every branch cleanup.
 4. If docs keep growing, create dated sub-index pages rather than moving historical files and breaking existing config references.
 5. Treat recreated historical branch names as suspicious until their new purpose is documented.
+
+## Round503 Main Cleanup And Profit-Mining Start
+
+Round503 completed the user-authorized final cloud branch cleanup and started the next gated profit-mining branch:
+
+- `main` now contains the Round464 benchmark-relative branch and the Round465-Round502 execution-aware branch.
+- `scripts/run_checks.py --profile laptop-integration --execute` passed on merged `main`: 73 / 73 tests, compile, project audit, and laptop project-sync audit.
+- `main` was pushed to GitHub at merge commit `af474d5a`.
+- Project-sync cleanup removed the two absorbed topic branches locally and remotely.
+- Final `pre-alpha` returned `status=complete`, `progress_estimate_percent=100`, `factor_mining_allowed=true`, and no blockers.
+- New branch: `codex/factor-batch-cn-stock-profit-mining-20260704`.
+- CN stock factor-mining startup gate cleared on the new branch, and the CN stock data manifest had no blockers.
+- Direct daily-basic alpha factory was blocked by the round-state validator, so the branch did not proceed with anonymous direct factor generation.
+- Candidate plan gate cleared for the pre-registered Round465 paper-lane self-risk overlay candidate, with research screen allowed but portfolio grid and promotion disabled.
+- A fixed self-risk overlay screen was run under `data/reports/round503_profit_mining_ps_gt10_self_risk_overlay_20260704`; the top candidate remained `ps_gt10_self_roll21_sum_m2_cash` with annualized return 0.08507982577628304, overlap-adjusted Sharpe 0.6969712816692145, and max drawdown -0.12458721638476855 versus baseline max drawdown -0.2542482236517434.
+
+Decision: profit-mining has started only under the gated paper-risk-repair lane. This is not an independent alpha claim, promotion remains disabled, and the 2026 final holdout remains sealed. Next allowed paths are to resume the Round467 analyst-report-revision PIT source after the provider limit resets, register a genuinely new PIT source candidate plan, or continue paper-readiness hardening without q20/range/ps threshold tuning.
+
+## Round504 Analyst Report PIT Continuation
+
+Round504 continued the new PIT source path recommended by Round503 and by the two review agents:
+
+- Quant PM startup gate passed on 2026-07-05 for `office_desktop` / `factor_batch`; primary market remains `CN_ETF`.
+- CN stock factor-mining startup gate cleared on `codex/factor-batch-cn-stock-profit-mining-20260704`.
+- CN stock data manifest had no blockers; warnings remain `extreme_return_rows_present` and `moneyflow_symbol_coverage_below_bars`.
+- `report_rc` February 2024 cache succeeded after the provider limit reset: 1,744 rows, 902 assets, 0 failed windows, 0 rate-limited windows.
+- Frozen PIT prescreen used January plus February 2024 report roots, did not include final holdout, and covered 3,498 report rows / 1,317 report assets.
+- Prescreen summary: 4 candidates, 8 tests, 6,882 factor rows, 13,764 aligned rows, 5 multiple-testing leads, 4 neutral-gate passes, 0 research leads, 0 promotion-allowed candidates.
+- Main blocker for otherwise promising short-window statistics: `ic_year_coverage_below_gate`; this is expected because the source currently covers only one report year window.
+- Next direction: `rotate_or_cache_more_analyst_report_history_after_zero_prescreen_leads`.
+
+Docs:
+
+- `docs/research/cn_stock_round504_analyst_report_revision_pit_continuation_2026-07-05.md`
+- `docs/research/ROUND504_NEXT_STEPS_CHECKLIST.md`
+
+Decision: do not promote or portfolio-grid analyst revision factors from the two-month smoke. The efficient next action is to cache the next monthly `report_rc` window after provider quota allows it, then rerun the same frozen prescreen. If the source still fails year-coverage or neutral gates after enough history, rotate to a genuinely new PIT source candidate plan.
+
+## Round505 Analyst Report March Extension
+
+Round505 continued the same frozen analyst-report-revision PIT source protocol:
+
+- Quant PM startup gate passed for `office_desktop` / `factor_batch`; primary market remains `CN_ETF`.
+- CN stock factor-mining startup gate cleared on `codex/factor-batch-cn-stock-profit-mining-20260704`.
+- CN stock data manifest had no blockers; warnings remain `extreme_return_rows_present` and `moneyflow_symbol_coverage_below_bars`.
+- `report_rc` March 2024 cache succeeded: 1,634 rows, 531 assets, 0 failed windows, 0 rate-limited windows.
+- Frozen PIT prescreen used January, February, and March 2024 report roots, did not include final holdout, and covered 5,132 report rows / 1,511 report assets.
+- Prescreen summary: 4 candidates, 8 tests, 9,966 factor rows, 19,932 aligned rows, 0 multiple-testing leads, 2 neutral-gate passes, 0 research leads, 0 promotion-allowed candidates.
+- Best remaining diagnostics were `analyst_np_revision_90` and `analyst_eps_revision_90` at horizon 20, with mean IC about 0.077 and ICIR about 0.56, but both failed FDR/multiple-testing and still failed year coverage.
+- Next direction remains `rotate_or_cache_more_analyst_report_history_after_zero_prescreen_leads`.
+
+Docs:
+
+- `docs/research/cn_stock_round505_analyst_report_revision_march_extension_2026-07-05.md`
+- `docs/research/ROUND505_NEXT_STEPS_CHECKLIST.md`
+
+Decision: the third month weakened the short-window evidence instead of stabilizing it. Do not promote, portfolio-grid, or tune analyst revision formulas. The next efficient action is one more quota-aware monthly cache only if provider limits allow it; otherwise prepare a new PIT source candidate plan or a three-round direction review if the family keeps producing zero research leads.
+
+## Round506 Analyst Report Quota-Aware Review
+
+Round506 did not make a new Tushare request. It reviewed the local Round504/Round505 evidence because 2026-07-05 already had two successful monthly `report_rc` requests and Round467 documented a `2_per_day` provider limit.
+
+- Quant PM startup gate passed for `office_desktop` / `factor_batch`; primary market remains `CN_ETF`.
+- CN stock factor-mining startup gate cleared on `codex/factor-batch-cn-stock-profit-mining-20260704`.
+- CN stock data manifest had no blockers; warnings remain `extreme_return_rows_present` and `moneyflow_symbol_coverage_below_bars`.
+- Branch sync with upstream was `0 ahead / 0 behind`.
+- Local evidence comparison: Round504 January-February had 5 multiple-testing leads, 4 neutral-gate passes, 0 research leads, and 0 promotion-allowed candidates.
+- After adding March in Round505, multiple-testing leads fell to 0, neutral-gate passes fell to 2, research leads stayed 0, and promotion-allowed candidates stayed 0.
+- Best mean IC fell from about 0.100 in Round504 to about 0.077 in Round505.
+
+Docs:
+
+- `docs/research/cn_stock_round506_analyst_report_revision_quota_aware_review_2026-07-05.md`
+- `docs/research/ROUND506_NEXT_STEPS_CHECKLIST.md`
+
+Decision: do not run a same-day third `report_rc` request, and do not tune analyst formulas. After quota reset, one April 2024 cache and the same frozen January-April prescreen are allowed. If January-April still has zero research leads or zero multiple-testing leads, run a family review and rotate to a new PIT source candidate plan.
+
+## Round507 Analyst Report Quota Preflight
+
+Round507 turned the Round506 manual quota decision into a local preflight tool before future `report_rc` requests:
+
+- New module: `src/quant_robot/ops/analyst_report_quota_preflight.py`.
+- New CLI: `scripts/run_analyst_report_quota_preflight.py`.
+- New tests: `tests/unit/test_analyst_report_quota_preflight.py`.
+- Focused unit test: 4 passed.
+- Real local preflight for 2026-07-05 scanned `data/reports`, counted the Round504 February cache and Round505 March cache as 2 same-day provider request windows, and blocked a third same-day request with `daily_provider_request_budget_exhausted`.
+- The preflight ignores resumed `cached` windows and reports from other dates, and blocks immediately when a same-day provider rate-limit row is observed.
+
+Docs:
+
+- `docs/research/cn_stock_round507_analyst_report_quota_preflight_2026-07-05.md`
+- `docs/research/ROUND507_NEXT_STEPS_CHECKLIST.md`
+
+Decision: run `scripts/run_analyst_report_quota_preflight.py` before every future analyst-report cache attempt. Only cache April 2024 after the preflight for the actual current date returns `request_allowed=true`.
+
+## Round508 Quota Preflight Fail-Closed CLI
+
+Round508 hardened the analyst-report quota preflight for command-chain use:
+
+- `scripts/run_analyst_report_quota_preflight.py` now supports `--fail-on-blocked`.
+- Default CLI behavior remains unchanged.
+- With `--fail-on-blocked`, a blocked decision prints the JSON packet and exits `3`.
+- Focused test: `tests/unit/test_analyst_report_quota_preflight.py` now covers this behavior, with 5 tests passing.
+- Fresh gates passed on 2026-07-05: Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Real local fail-closed preflight for 2026-07-05 blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, and returned exit code `3`.
+
+Docs:
+
+- `docs/research/cn_stock_round508_quota_preflight_fail_closed_2026-07-05.md`
+- `docs/research/ROUND508_NEXT_STEPS_CHECKLIST.md`
+
+Decision: future analyst-report cache command chains must run quota preflight with `--fail-on-blocked` before any `report_rc` fetch. Continue to April 2024 cache only if preflight exits `0`; stop if it exits `3`.
+
+## Round509 Laptop Integration Quota Preflight Coverage
+
+Round509 added the analyst-report quota preflight tests to the fixed laptop integration profile:
+
+- `scripts/run_checks.py --profile laptop-integration --execute` now includes `tests/unit/test_analyst_report_quota_preflight.py`.
+- The check-plan unit test was updated so future profile composition changes must keep this test file in the profile.
+- Test-first evidence: the profile-composition test failed before implementation because the quota-preflight test file was missing from `LAPTOP_INTEGRATION_TESTS`.
+- Focused verification passed: 6 tests.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Real local fail-closed preflight for 2026-07-05 still blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, and returned exit code `3`.
+- Full laptop integration verification passed with 78 tests, compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round509_laptop_integration_quota_preflight_coverage_2026-07-05.md`
+- `docs/research/ROUND509_NEXT_STEPS_CHECKLIST.md`
+
+Decision: keep quota-preflight tests in `laptop-integration` so sync and mainline checks catch regressions in the analyst-report request guard. Do not attempt the April 2024 analyst-report cache on 2026-07-05; continue only after an actual-date preflight exits `0`.
+
+## Round510 Cache CLI Default Quota Preflight
+
+Round510 moved analyst-report quota protection into the actual cache CLI entrypoint:
+
+- `scripts/run_tushare_analyst_report_cache.py` now runs local quota preflight by default before any `report_rc` cache request.
+- The cache CLI scans `data/reports` by default, accepts `--quota-report-root`, `--quota-output-dir`, `--quota-target-date`, and `--quota-max-daily-requests`, and exits `3` when preflight blocks.
+- An explicit `--skip-quota-preflight` override exists for exceptional offline or controlled cases, but it is not allowed for normal provider-backed analyst-report fetches.
+- Test-first evidence: the new cache-CLI test failed before implementation with return code `2` instead of expected `3`.
+- Focused verification passed: `tests/unit/test_analyst_report_quota_preflight.py` now has 6 passing tests.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Real cache-CLI fail-closed run for April 2024 on 2026-07-05 stopped at quota preflight, blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, and returned exit code `3`.
+- Full laptop integration verification passed with 79 tests, compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round510_cache_cli_default_quota_preflight_2026-07-05.md`
+- `docs/research/ROUND510_NEXT_STEPS_CHECKLIST.md`
+
+Decision: future analyst-report cache attempts should run the cache CLI directly and let its default quota preflight guard the provider request. Continue to April 2024 cache only after the cache CLI exits `0`; stop if it exits `3`.
+
+## Round511 Cache CLI Skip Quota Audit
+
+Round511 tightened the exceptional cache-CLI quota bypass path:
+
+- `--skip-quota-preflight` now requires `--skip-quota-preflight-reason`.
+- Missing skip reason fails during argument validation before cache execution.
+- A supplied skip reason prints a JSON audit packet with `status="skipped"` before cache execution continues.
+- Test-first evidence: the two new skip-path tests failed before implementation with `0 != 2` and `2 != 0`.
+- Focused verification passed: `tests/unit/test_analyst_report_quota_preflight.py` now has 8 passing tests.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Real cache-CLI fail-closed run for April 2024 on 2026-07-05 still stopped at quota preflight, blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, and returned exit code `3`.
+- Full laptop integration verification passed with 81 tests, compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round511_cache_cli_skip_quota_audit_2026-07-05.md`
+- `docs/research/ROUND511_NEXT_STEPS_CHECKLIST.md`
+
+Decision: keep `--skip-quota-preflight` only for exceptional offline or controlled local replay cases, and require a human-readable reason every time it is used. Normal provider-backed analyst-report cache attempts must use the default preflight and stop on exit code `3`.
+
+## Round512 Cache CLI Preflight Only
+
+Round512 added a safe cache-CLI quota dry-run mode:
+
+- New flag: `--quota-preflight-only`.
+- The cache CLI runs the same local quota preflight and writes the same preflight JSON/Markdown evidence.
+- If preflight blocks, the CLI still exits `3`.
+- If preflight allows, the CLI prints `status="preflight_only"` and exits `0` before cache execution.
+- `--quota-preflight-only` cannot be combined with `--skip-quota-preflight`.
+- Test-first evidence: the two new preflight-only tests failed before implementation with `2 != 0` and missing `cannot be combined` stderr.
+- Focused verification passed: 11 tests.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Actual-date cache-CLI preflight-only run for April 2024 on 2026-07-05 still blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, and returned exit code `3`.
+- Controlled empty-report-root allowed-path run printed `status="preflight_only"`, exited `0`, and did not write a cache report.
+- Full laptop integration verification passed with 83 tests, compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round512_cache_cli_preflight_only_2026-07-05.md`
+- `docs/research/ROUND512_NEXT_STEPS_CHECKLIST.md`
+
+Decision: use `--quota-preflight-only` when the team wants the cache CLI itself to prove quota readiness without consuming a provider request. Remove that flag only when intentionally starting the April 2024 cache after startup gates pass and actual-date preflight is allowed. Round513 should start with the required two-agent review checkpoint.
+
+## Round513 Two-Agent Review And Cache CLI Help
+
+Round513 completed the required round-10 review checkpoint after the Round504 baseline:
+
+- Quant PM agent `Turing` recommended continuing only narrowly and conditionally: one April 2024 cache after actual-date `--quota-preflight-only` exits `0`, then rotate if January-April still has zero research leads or zero multiple-testing leads.
+- Quant PM risks: evidence weakened after March, quota preflight is local-report based and can miss cross-machine same-day usage, and `--skip-quota-preflight` remains powerful.
+- Ordinary-user agent `Maxwell` understood the safe path but found the dry-run and real cache commands too similar, CLI help under-explained, and `<date>` placeholders ambiguous.
+- Round513 action: improved `scripts/run_tushare_analyst_report_cache.py --help` so quota-safe modes are self-explanatory.
+- Test-first evidence: help-text test failed before implementation because `does not call Tushare` was missing.
+- Focused verification passed: `tests/unit/test_analyst_report_quota_preflight.py` now has 11 passing tests.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Actual-date cache-CLI preflight-only run for April 2024 on 2026-07-05 still blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, and returned exit code `3`.
+- Full laptop integration verification passed with 84 tests, compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round513_two_agent_review_and_cache_cli_help_2026-07-05.md`
+- `docs/research/ROUND513_NEXT_STEPS_CHECKLIST.md`
+
+Decision: do not run the April 2024 provider-backed analyst-report cache on 2026-07-05. Next continuation should run the safe dry-run command first after quota plausibly resets, stop on exit `3`, and cache only if it exits `0`. Consider a cross-machine quota evidence plan before relying on local-only quota reports across multiple desktops.
+
+## Round514 Quota Scope Visibility
+
+Round514 addressed the Round513 Quant PM risk that quota preflight evidence was local-report based and could be mistaken for a global provider-quota guarantee:
+
+- `src/quant_robot/ops/analyst_report_quota_preflight.py` now records `quota_scope="local_report_roots_only"` and `warnings=["local_report_roots_only"]`.
+- The quota preflight summary records `report_root_count` and `report_roots`.
+- The Markdown report now includes quota scope, warnings, and scanned report roots.
+- The standalone preflight CLI and cache CLI both print quota scope and warnings in terminal JSON.
+- Test-first evidence: the new scope tests failed first because the fields were missing, then the quota-preflight test file passed with 13 tests.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Actual-date cache-CLI preflight-only for April 2024 still blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, printed `quota_scope="local_report_roots_only"`, and returned exit code `3`.
+- Full laptop integration verification passed with 86 tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round514_quota_scope_visibility_2026-07-05.md`
+- `docs/research/ROUND514_NEXT_STEPS_CHECKLIST.md`
+
+Decision: do not run the April 2024 provider-backed analyst-report cache on 2026-07-05. Future allowed preflight results must be read as "allowed within the scanned report roots"; include other workstation report roots with repeated `--quota-report-root` or manually confirm cross-machine provider usage before caching on shared quota days.
+
+## Round515 Quota Target-Date Guard
+
+Round515 closed a second cache-CLI safety gap: a nonlocal `--quota-target-date` could make quota preflight count the wrong local date before a provider-backed cache execution.
+
+- `src/quant_robot/ops/analyst_report_quota_preflight.py` now records `summary.target_date_matches_generated_at`.
+- The preflight warns with `quota_target_date_differs_from_generated_at` when target date differs from the local generated date.
+- `scripts/run_tushare_analyst_report_cache.py` upgrades that warning to a blocker for provider-backed cache execution unless `--quota-preflight-only` is set.
+- Cache CLI help now states that provider-backed cache requires the local generated date; nonlocal dates are for dry-run or audit evidence.
+- Test-first evidence: the packet warning, cache CLI guard, and help assertion failed before implementation, then the quota-preflight test file passed with 15 tests.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Actual-date cache-CLI preflight-only for April 2024 still blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, reported `target_date_matches_generated_at=true`, and returned exit code `3`.
+- Full laptop integration verification passed with 88 tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round515_quota_target_date_guard_2026-07-05.md`
+- `docs/research/ROUND515_NEXT_STEPS_CHECKLIST.md`
+
+Decision: do not run the April 2024 provider-backed analyst-report cache on 2026-07-05. Future provider-backed cache attempts should omit `--quota-target-date` or set it to the actual local generated date; nonlocal target dates are audit/dry-run only.
+
+## Round516 Skip-Quota Offline Replay Guard
+
+Round516 tightened the remaining strong quota bypass path:
+
+- `scripts/run_tushare_analyst_report_cache.py` now checks requested processed analyst-report windows before honoring `--skip-quota-preflight`.
+- Skip now requires cached processed windows for every requested `report_rc` window, with resume and processed writes enabled.
+- If any requested window is missing, the CLI prints `status="blocked"`, includes `skip_quota_preflight_requires_cached_processed_windows`, and exits `3`.
+- Successful skip packets include cached/missing processed-window counts and missing-window details.
+- Help text now states that skip replay requires existing processed windows.
+- Test-first evidence: the missing-cache skip test and help assertion failed before implementation, then the quota-preflight test file passed with 16 tests.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Actual-date cache-CLI preflight-only for April 2024 still blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, and returned exit code `3`.
+- A real skip attempt with an empty processed-output directory blocked with `skip_quota_preflight_requires_cached_processed_windows` and returned exit code `3`.
+- Full laptop integration verification passed with 89 tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round516_skip_quota_offline_replay_guard_2026-07-05.md`
+- `docs/research/ROUND516_NEXT_STEPS_CHECKLIST.md`
+
+Decision: `--skip-quota-preflight` is now a local cached-replay path, not a provider-fetch bypass. Continue to April 2024 cache only after startup gates pass and the actual-date `--quota-preflight-only` exits `0`.
+
+## Round517 Skip-Quota Durable Audit
+
+Round517 made skip-quota attempts durable-audited beyond terminal output:
+
+- `scripts/run_tushare_analyst_report_cache.py` now writes `skip_quota_preflight_audit.json` and `skip_quota_preflight_audit.md` before any skip path proceeds or exits.
+- The skip audit records status, request decision, blocker list, cached/missing processed-window counts, missing-window details, skip reason, and safety text.
+- Blocked skip attempts still exit `3` before cache execution.
+- Test-first evidence: allowed and blocked skip tests failed first because audit files were missing, then the quota-preflight test file passed with 16 tests.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Actual-date cache-CLI preflight-only for April 2024 still blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, and returned exit code `3`.
+- A real missing-cache skip attempt blocked with `skip_quota_preflight_requires_cached_processed_windows`, returned exit code `3`, and wrote durable skip-audit JSON/Markdown evidence.
+- Full laptop integration verification passed with 89 tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round517_skip_quota_durable_audit_2026-07-05.md`
+- `docs/research/ROUND517_NEXT_STEPS_CHECKLIST.md`
+
+Decision: skip-quota attempts are now both constrained and durable-audited. Normal provider-backed analyst-report cache still requires the default quota preflight and must stop on exit `3`.
+
+## Round518 Cross-Machine Quota Pack
+
+Round518 addressed the cross-machine quota evidence gap from Round517:
+
+- Added `scripts/export_analyst_report_quota_pack.py` to export lightweight analyst-report cache summaries into a portable quota preflight root.
+- Added `tests/unit/test_analyst_report_quota_pack.py` and wired it into the laptop integration profile.
+- The exporter copies only valid `tushare_report_rc` cache-summary JSONs, writes JSON/Markdown manifests, excludes its own output directory, and refreshes its own `quota_report_roots/` on reruns.
+- Analyst quota preflight now skips quota-pack internals during broad parent scans such as `data\reports`, while explicit scans of a pack root still count that pack evidence.
+- Test-first evidence caught both issues: output-inside-root reruns counted `2` instead of `1`, and broad scans counted a pack copy plus the original until pack-aware scanning was added.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Real pack export from `data\reports` wrote `data\reports\round518_analyst_quota_pack_20260705` with `exported_report_count=8`.
+- Explicit pack preflight blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, and exited `3`.
+- Actual-date cache-CLI preflight-only for April 2024 still blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, and returned exit code `3`.
+- Full laptop integration verification passed with 91 tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round518_cross_machine_quota_pack_2026-07-05.md`
+- `docs/research/ROUND518_NEXT_STEPS_CHECKLIST.md`
+
+Decision: use quota packs as cross-machine local evidence roots, not as a global provider-quota oracle. Future provider-backed analyst-report cache attempts should include every available workstation pack with repeated `--quota-report-root`, stop on exit `3`, and manually confirm same-day provider usage if any relevant pack is unavailable.
+
+## Round519 Quota Pack Deduplication
+
+Round519 hardened the Round518 quota-pack workflow after real export testing exposed copied-evidence duplication:
+
+- `scripts/export_analyst_report_quota_pack.py` now writes a stable `quota_pack_source_fingerprint` into each exported cache-summary JSON.
+- Export manifests record each report's source fingerprint.
+- Exporter broad scans now skip old quota-pack internals, preventing new packs from recursively absorbing old pack copies.
+- `src/quant_robot/ops/analyst_report_quota_preflight.py` now computes row-level quota evidence fingerprints and deduplicates repeated pack evidence.
+- Preflight summary and Markdown now record `duplicate_evidence_rows`.
+- Test-first evidence caught three cases: two packs exported from the same source counted as `2` instead of `1`; a local report plus its own pack counted as `2` instead of `1`; a broad export with an existing pack under the report root exported `2` instead of `1`.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Corrected real pack export from `data\reports` wrote `data\reports\round519_analyst_quota_pack_dedup_20260705` with `exported_report_count=8`.
+- Actual-date cache-CLI preflight-only for April 2024 still blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, and returned exit code `3`.
+- Explicit preflight with `data\reports` plus the same Round519 pack twice still counted only 2 same-day provider request windows, skipped 2 duplicate evidence rows, blocked with `daily_provider_request_budget_exhausted`, and exited `3`.
+- Full laptop integration verification passed with 94 tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round519_quota_pack_dedup_2026-07-05.md`
+- `docs/research/ROUND519_NEXT_STEPS_CHECKLIST.md`
+
+Decision: quota packs are now safer to repeat in commands or copy across workstations because duplicate exported evidence no longer inflates same-day provider request counts. Normal provider-backed analyst-report cache remains blocked on 2026-07-05 and must wait for an actual-date preflight exit `0`.
+
+## Round520 Quota Duplicate Evidence Details
+
+Round520 made Round519 quota-pack deduplication auditable:
+
+- `src/quant_robot/ops/analyst_report_quota_preflight.py` now records top-level `duplicate_window_rows`.
+- Each duplicate row records the evidence fingerprint, kept report path, duplicate report path, generated date, window, status, quota-count flag, provider-rate-limit fields, and retry-after seconds.
+- The Markdown preflight report now includes a `Duplicate Evidence Rows` table.
+- Test-first evidence: the new assertion failed first with `KeyError: 'duplicate_window_rows'`, then quota-pack and quota-preflight focused tests passed.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Explicit preflight with `data\reports` plus the same Round519 pack twice still counted only 2 same-day provider request windows, skipped 2 duplicate evidence rows, wrote 2 duplicate detail rows, blocked with `daily_provider_request_budget_exhausted`, and exited `3`.
+- Actual-date cache-CLI preflight-only for April 2024 still blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, had 0 duplicate evidence rows, and returned exit code `3`.
+- Full laptop integration verification passed with 94 tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round520_quota_duplicate_details_2026-07-05.md`
+- `docs/research/ROUND520_NEXT_STEPS_CHECKLIST.md`
+
+Decision: quota-pack deduplication is now visible enough for cross-machine review. Normal provider-backed analyst-report cache remains blocked on 2026-07-05 and must wait for an actual-date preflight exit `0`.
+
+## Round521 Quota Pack Provenance
+
+Round521 made quota packs self-describing for cross-machine review:
+
+- `scripts/export_analyst_report_quota_pack.py` now accepts `--machine`, `--task`, and `--branch`.
+- The pack manifest records `provenance.machine`, `provenance.task`, and `provenance.branch`.
+- The Markdown manifest prints machine, task, and branch.
+- The terminal JSON includes the same provenance object.
+- Existing calls without these options still work and write empty provenance fields.
+- Test-first evidence: the provenance test failed first because the exporter rejected `--machine`, `--task`, and `--branch`; after implementation, quota-pack and quota-preflight focused tests passed.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Real provenance-aware pack export wrote `data\reports\round521_analyst_quota_pack_provenance_20260705` with `exported_report_count=8`, machine `office_desktop`, task `factor_batch`, and branch `codex/factor-batch-cn-stock-profit-mining-20260704`.
+- Actual-date cache-CLI preflight-only for April 2024 still blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, had 0 duplicate evidence rows, and returned exit code `3`.
+- Full laptop integration verification passed with 95 tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round521_quota_pack_provenance_2026-07-05.md`
+- `docs/research/ROUND521_NEXT_STEPS_CHECKLIST.md`
+
+Decision: future cross-machine pack exports should include machine, task, and branch provenance. Normal provider-backed analyst-report cache remains blocked on 2026-07-05 and must wait for an actual-date preflight exit `0`.
+
+## Round522 Quota Preflight Pack Provenance
+
+Round522 lifted explicit quota-pack provenance into quota preflight evidence:
+
+- `src/quant_robot/ops/analyst_report_quota_preflight.py` now detects explicit quota-pack report roots and records top-level `quota_pack_provenance`.
+- The preflight summary records `quota_pack_root_count`.
+- The Markdown preflight report now includes a `Quota Pack Provenance` table.
+- The standalone preflight CLI and cache CLI both print `quota_pack_provenance` in terminal JSON.
+- Test-first evidence: the new preflight-provenance test failed first with `KeyError: 'quota_pack_root_count'`, then the focused pack and preflight tests passed.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Standalone preflight with `data\reports` plus `data\reports\round521_analyst_quota_pack_provenance_20260705` counted 2 same-day provider request windows, skipped 2 duplicate evidence rows, recorded `quota_pack_root_count=1`, surfaced the `office_desktop/factor_batch/codex/factor-batch-cn-stock-profit-mining-20260704` provenance, blocked with `daily_provider_request_budget_exhausted`, and exited `3`.
+- Cache CLI preflight-only with the same roots printed the same pack provenance, blocked with `daily_provider_request_budget_exhausted`, and exited `3` before cache execution.
+- Full laptop integration verification passed with 96 tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round522_quota_preflight_pack_provenance_2026-07-05.md`
+- `docs/research/ROUND522_NEXT_STEPS_CHECKLIST.md`
+
+Decision: future cross-machine quota reviews can inspect provenance directly from the preflight packet. Round523 is the next required two-agent checkpoint after the Round504 baseline. Normal provider-backed analyst-report cache remains blocked on 2026-07-05 and must wait for an actual-date preflight exit `0`.
+
+## Round523 Two-Agent Quota Review
+
+Round523 completed the required round-20 review checkpoint after the Round504 baseline:
+
+- Quant PM reviewer `Gibbs` recommended waiting for quota reset and allowing only `--quota-preflight-only` dry-runs until actual-date preflight exits `0`.
+- Ordinary-user reviewer `Heisenberg` found the safety path understandable but still too easy to misuse, especially startup gates, preflight exit codes, placeholders, cross-machine confirmation, and visually similar dry-run versus real-cache commands.
+- Help hardening added clearer safety text to standalone preflight, cache CLI, and quota-pack exporter help.
+- Test-first evidence: the new help tests failed first because the safety text was missing, then quota preflight and quota pack focused tests passed with 25 tests.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Actual-date cache-CLI preflight-only for April 2024 with `data\reports` plus `data\reports\round521_analyst_quota_pack_provenance_20260705` still blocked with `daily_provider_request_budget_exhausted`, counted 2 same-day provider request windows, skipped 2 duplicate evidence rows, showed pack provenance, and returned `LASTEXITCODE=3`.
+- Full laptop-integration verification passed with 98 unit tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round523_two_agent_quota_review_2026-07-05.md`
+- `docs/research/ROUND523_NEXT_STEPS_CHECKLIST.md`
+
+Decision: do not run provider-backed April cache on 2026-07-05. The next cache-related action is dry-run only after quota plausibly resets and after all workstation quota packs or manual same-day confirmations are accounted for. If April later caches and frozen January-April still has `research_lead_count=0`, run family review; if multiple-testing leads also remain `0`, rotate to a new PIT source plan.
+
+## Round524 Quota Wait Checkpoint
+
+Round524 followed the Round523 checklist with fresh gates and one safe cache-CLI dry-run:
+
+- Startup context was clear and current branch matched `codex/factor-batch-cn-stock-profit-mining-20260704`.
+- Quant PM startup gate returned `status="ready"` with blockers `[]`.
+- CN stock factor-mining startup gate returned `status="cleared"` with blockers `[]`.
+- CN stock data manifest returned blockers `[]` and warnings `extreme_return_rows_present` and `moneyflow_symbol_coverage_below_bars`.
+- Actual-date cache-CLI preflight-only for April 2024 with `data\reports` plus `data\reports\round521_analyst_quota_pack_provenance_20260705` still blocked with `daily_provider_request_budget_exhausted`.
+- The dry-run counted 2 same-day provider request windows, skipped 2 duplicate evidence rows, showed `quota_pack_root_count=1`, kept `target_date_matches_generated_at=true`, showed the office-desktop pack provenance, and returned `LASTEXITCODE=3`.
+- No provider-backed cache execution occurred.
+- Full laptop-integration verification passed with 98 unit tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round524_quota_wait_checkpoint_2026-07-05.md`
+- `docs/research/ROUND524_NEXT_STEPS_CHECKLIST.md`
+
+Decision: do not run provider-backed April cache on 2026-07-05. If still on the same local quota day with no new cross-machine packs or manual same-day confirmations, avoid repeating the same dry-run; next useful work should collect missing workstation quota evidence, prepare the frozen January-April prescreen path without running it, or wait for the local quota date to change before one more actual-date dry-run.
+
+## Round525 Required Quota Pack Machines
+
+Round525 converted the cross-machine quota checklist into a machine-checkable preflight constraint:
+
+- `src/quant_robot/ops/analyst_report_quota_preflight.py` now accepts required quota-pack source machines and records required, present, and missing machine lists.
+- Missing required machines add the blocker `missing_required_quota_pack_machines`.
+- `decision.next_action` becomes `collect_required_quota_pack_evidence` when required machines are missing.
+- The standalone preflight CLI exposes repeated `--required-quota-pack-machine`.
+- The cache CLI exposes repeated `--quota-required-pack-machine`.
+- Test-first evidence: the new missing-machine and help tests failed first because the options and packet fields were missing; after implementation, the focused quota-preflight and quota-pack suites passed with 27 tests.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Real cache-CLI preflight-only with required machines `office_desktop`, `highspec_desktop`, and `laptop` blocked with `daily_provider_request_budget_exhausted` and `missing_required_quota_pack_machines`.
+- Required machines: `office_desktop`, `highspec_desktop`, `laptop`; present machine: `office_desktop`; missing machines: `highspec_desktop`, `laptop`.
+- No provider-backed cache execution occurred.
+- Full laptop-integration verification passed with 100 unit tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round525_required_quota_pack_machines_2026-07-05.md`
+- `docs/research/ROUND525_NEXT_STEPS_CHECKLIST.md`
+
+Decision: future provider-backed April cache attempts should include required-machine constraints and must not proceed until `missing_required_quota_pack_machines=[]`, actual-date preflight exits `0`, and all provider-cache criteria in the Round525 checklist are satisfied.
+
+## Round526 Quota Machine Notes
+
+Round526 added audit-only missing-machine notes to quota preflight:
+
+- `src/quant_robot/ops/analyst_report_quota_preflight.py` now accepts `quota_pack_machine_notes`.
+- The preflight summary records `quota_pack_machine_notes` as machine/note rows.
+- The Markdown report includes a `Quota Pack Machine Notes` section and states that note context is audit-only and does not satisfy required pack evidence.
+- The standalone preflight CLI and cache CLI both expose repeated `--quota-pack-machine-note MACHINE=NOTE`.
+- Test-first evidence: the note and help tests failed first because the parameter and CLI option were missing; after implementation, focused quota-preflight and quota-pack tests passed with 28 tests.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Real cache-CLI preflight-only with required machines and notes still blocked with `daily_provider_request_budget_exhausted` and `missing_required_quota_pack_machines`.
+- Notes were recorded for `highspec_desktop` and `laptop`; missing machines remained `highspec_desktop` and `laptop`.
+- No provider-backed cache execution occurred.
+- Full laptop-integration verification passed with 101 unit tests, Python compile, project audit, and laptop project-sync audit.
+
+Docs:
+
+- `docs/research/cn_stock_round526_quota_machine_notes_2026-07-05.md`
+- `docs/research/ROUND526_NEXT_STEPS_CHECKLIST.md`
+
+Decision: `--quota-pack-machine-note` is audit context only. It does not satisfy required pack evidence, and provider-backed April cache remains blocked until `missing_required_quota_pack_machines=[]`, actual-date preflight exits `0`, and all provider-cache criteria in the Round526 checklist are satisfied.
+
+## Round527 Frozen Prescreen Handoff
+
+Round527 prepared the frozen January-April analyst-report-revision prescreen path without consuming provider quota:
+
+- No Tushare call, no same-day quota dry-run, no prescreen execution, and no generated data output occurred.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- The analyst-report-revision prescreen CLI was verified through `scripts\run_analyst_report_revision_prescreen.py --help`.
+- The frozen prescreen command now explicitly requires the actual successful April processed-output root before running.
+- The result-review checklist records `holdout_policy.final_holdout_included`, `data_window` report coverage, `summary.multiple_testing_lead_count`, `summary.neutral_gate_pass_count`, `summary.research_lead_count`, and `summary.promotion_allowed_candidates`.
+- Required quota-pack machines remain `office_desktop`, `highspec_desktop`, and `laptop`; missing machines remain `highspec_desktop` and `laptop`.
+- Next review-agent checkpoint remains Round533.
+
+Docs:
+
+- `docs/research/cn_stock_round527_frozen_prescreen_handoff_2026-07-05.md`
+- `docs/research/ROUND527_NEXT_STEPS_CHECKLIST.md`
+
+Decision: provider-backed April cache remains blocked until required-machine quota evidence is complete and an actual-date cache preflight exits `0`. Run the frozen January-April prescreen only after April cache succeeds, and rotate if January-April still has zero research leads or zero multiple-testing leads.
+
+## Round528 External Feed Rotation Source Audit
+
+Round528 prepared a non-provider rotation boundary while analyst-report April cache remained blocked:
+
+- No Tushare call, analyst cache dry-run, analyst prescreen, portfolio grid, promotion gate, or final-holdout read occurred.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Local external-feed coverage audit on `data\processed\tushare_external_feeds_round172_long_cycle_monthly_20260623` found `external_hk_hold` passing with 134,461 rows, 40 observation dates, 3,980 symbols, and 1.0 median gap days.
+- The same audit kept `external_macro_rates` blocked because LPR 1Y and 5Y had 0 non-null rows, with blocker `lpr_non_missing_coverage_below_threshold`.
+- A full-window external-feed join smoke timed out due to the known signal-date loop cost; no source conclusion is drawn from that attempt.
+- A July 2024 minimal join smoke passed all 6 seeds with 428,856 joined rows, 0 available-date violations, and 0 same-day/future raw-date violations.
+- Round528 does not reopen old northbound or margin-credit factors. It allows only a future family review that treats HK-hold improvement as source-quality evidence, while keeping LPR/macro factors and old northbound/margin reentries blocked.
+
+Docs:
+
+- `docs/research/cn_stock_round528_external_feed_rotation_source_audit_2026-07-05.md`
+- `docs/research/ROUND528_NEXT_STEPS_CHECKLIST.md`
+
+Decision: the primary path remains analyst-report April cache after quota evidence clears. If analyst cache remains blocked, the next useful non-provider action is an external-feed family review, not immediate factor preregistration, portfolio grids, or promotion.
+
+## Round529 External Feed Family Review
+
+Round529 completed the external-feed family review requested by Round528 while analyst-report April cache remained blocked:
+
+- No Tushare call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, or final-holdout read occurred.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Required reading covered the old external margin-credit, northbound accumulation, northbound crowding/reversal, and Round450-452 revival-blocker evidence, plus the Round528 source audit.
+- HK-hold coverage improvement from Round528 is accepted only as source-quality evidence. It is not treated as IC evidence, portfolio evidence, or a new factor mechanism.
+- Old positive northbound accumulation remains hibernated after Round191 negative/weak directional evidence and zero leads.
+- Old northbound crowding/reversal remains hibernated after Round213 weak IC, wrong quantile direction, and zero leads.
+- Margin-credit remains hibernated after Round193 style-residual and dedup review collapsed the raw Round192 signal.
+- LPR/macro-rate factors remain blocked until LPR non-missing coverage is repaired; SHIBOR may be reviewed only as a regime-control input after long-cycle validation.
+
+Docs:
+
+- `docs/research/cn_stock_round529_external_feed_family_review_2026-07-05.md`
+- `docs/research/ROUND529_NEXT_STEPS_CHECKLIST.md`
+
+Decision: do not reopen external-feed factors immediately. If analyst cache remains blocked, the next external-feed action should be source repair or optimization, such as LPR backfill feasibility or long-window join-smoke performance work. A future HK-hold idea must be a genuinely new preregistered mechanism, not a rerun of old northbound accumulation or crowding/reversal families.
+
+## Round530 External Feed Join-Smoke Optimization
+
+Round530 removed the local long-window join-smoke timeout blocker without changing factor-family decisions:
+
+- No Tushare call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, or final-holdout read occurred.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- `src/quant_robot/ops/external_feed_factor_matrix_join_smoke.py` now aligns all signal dates for each symbol or index symbol with one grouped `merge_asof` path instead of repeatedly filtering and sorting the full feed for each signal date.
+- The join smoke now caches repeated processed-feed reads across seeds.
+- Unit tests cover the multi-date PIT alignment helper and shared-feed cache behavior.
+- July 2024 regression preserved the Round528 result: 6 pass seeds, 428,856 joined rows, 0 available-date violations, and 0 same-day/future raw-date violations.
+- The full 2024-07-01 to 2025-12-31 local join smoke completed in about 61 seconds with 6 pass seeds, 8,559,540 joined rows, 0 available-date violations, and 0 same-day/future raw-date violations.
+
+Docs:
+
+- `docs/research/cn_stock_round530_external_feed_join_smoke_optimization_2026-07-05.md`
+- `docs/research/ROUND530_NEXT_STEPS_CHECKLIST.md`
+
+Decision: the optimized join smoke is source-tooling evidence only. It does not reopen old external-feed factors and does not allow portfolio, promotion, or final-holdout work. Next non-provider work should either repair LPR coverage or write a new-mechanism HK-hold candidate-plan gate without testing.
+
+## Round531 LPR Cache Repair Guard
+
+Round531 added an ingestion guard for the LPR coverage blocker:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, or final-holdout read occurred.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- `src/quant_robot/data/ingest/tushare_external_feeds.py` now treats an existing `external_lpr_cache.json` as valid only when it has at least one row with non-missing `date`, `lpr_1y`, and `lpr_5y`.
+- Empty or all-missing LPR cache files now emit `shibor_lpr` progress status `cache_refresh` and retry the endpoint instead of silently reusing the bad cache.
+- `scripts/run_tushare_external_feed_ingest.py` now exposes `--lpr-cache-path` so future repair attempts can isolate LPR cache evidence from normal shard outputs.
+- Test-first coverage added the empty-cache refresh behavior and CLI cache-path forwarding.
+
+Docs:
+
+- `docs/research/cn_stock_round531_lpr_cache_repair_guard_2026-07-05.md`
+- `docs/research/ROUND531_NEXT_STEPS_CHECKLIST.md`
+
+Decision: LPR factors remain blocked. The next LPR action is a report-only refresh with an explicit fresh cache path when provider use is allowed, followed by a coverage audit. Do not write processed macro repairs or run factors until non-missing LPR cache evidence exists.
+
+## Round532 External Macro LPR Offline Repair Tool
+
+Round532 added a no-provider offline repair path for future validated LPR cache evidence:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, or final-holdout read occurred.
+- Fresh gates passed on 2026-07-05: startup context clear, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Added `src/quant_robot/ops/external_macro_lpr_repair.py`.
+- Added `scripts/run_external_macro_lpr_repair.py`.
+- The repair tool reads existing processed `external_macro_rates`, applies a validated LPR cache by backward as-of date, and writes a fresh output root.
+- It refuses in-place source-root repair and marks the report as source maintenance, not alpha evidence.
+- `--copy-other-feeds` optionally copies the other processed external feeds so the repaired root can be used by the existing coverage audit.
+- Test-first coverage added core repair, in-place refusal, and CLI argument forwarding.
+
+Docs:
+
+- `docs/research/cn_stock_round532_external_macro_lpr_offline_repair_tool_2026-07-05.md`
+- `docs/research/ROUND532_NEXT_STEPS_CHECKLIST.md`
+
+Decision: LPR factors remain blocked. Round533 is the next required two-agent review checkpoint after the Round504 baseline and should review the analyst quota path plus the LPR/source-tooling path before any new provider or factor action.
+
+## Round533 Two-Agent Source Tooling Review
+
+Round533 completed the required round-30 review checkpoint after the Round504 baseline:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, or final-holdout read occurred.
+- Quant PM reviewer `Hubble` gave no-go on all provider-consuming steps because required analyst quota packs from `highspec_desktop` and `laptop` are still missing, and LPR cache evidence is not yet non-missing.
+- Ordinary-user reviewer `Dirac` found the two-step LPR workflow understandable but flagged likely misuse around report-only provider calls, sparse CLI help, hardcoded startup mode, placeholders, cache paths, and output roots.
+- Guardrail hardening after review:
+  - `run_external_macro_lpr_repair.py` now exits `3` when a repair report is blocked.
+  - LPR cache validation now requires numeric plausible `lpr_1y` and `lpr_5y` values.
+  - Offline repair refuses output roots nested inside the source processed root.
+  - Tushare external-feed ingest help warns that report-only mode may still call Tushare.
+  - Offline repair help states it does not call providers, requires a fresh empty output root, and keeps generated data out of Git.
+
+Docs:
+
+- `docs/research/cn_stock_round533_two_agent_source_tooling_review_2026-07-05.md`
+- `docs/research/ROUND533_NEXT_STEPS_CHECKLIST.md`
+
+Decision: Round534 should stay non-provider by default. Continue by importing missing quota packs, hardening operator docs, or waiting for a valid provider-use window. Do not run analyst April cache, LPR provider refresh, external-feed factors, portfolio grids, promotion gates, or final holdout.
+
+## Round534 Operator Runbook Hardening
+
+Round534 converted the Round533 operator-safety feedback into a copy-safe runbook:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, or repaired processed-data write occurred.
+- Fresh gates passed on 2026-07-05: startup context branch matched and upstream was `0 ahead / 0 behind`, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- The runbook starts with `git status --short --branch` and `git ls-files data/raw data/processed data/reports` so operators verify branch state and generated-data boundaries before action.
+- Provider commands are explicitly fenced with false-by-default variables such as `$ALLOW_PROVIDER_REFRESH = $false`.
+- Analyst cache handling records required-machine quota packs, exit-code `3` stop behavior, and the rule that preflight success alone is not cache-execution approval.
+- LPR handling separates provider refresh, cache plausibility check, offline repair, and coverage audit into distinct gates.
+- Source-family boundaries remain unchanged: old northbound accumulation, old northbound crowding/reversal, margin-credit, and LPR/macro factors remain blocked or hibernated as previously recorded.
+
+Docs:
+
+- `docs/research/cn_stock_round534_operator_runbook_hardening_2026-07-05.md`
+- `docs/research/ROUND534_NEXT_STEPS_CHECKLIST.md`
+
+Decision: Round535 should still be non-provider unless real missing-machine quota packs are imported, the local quota date changes enough to justify one actual-date analyst preflight, or explicit provider approval is given for an isolated LPR cache refresh. Round543 remains the next required two-agent review checkpoint.
+
+## Round535 Cloud Main Branch Audit
+
+Round535 audited cloud branch structure and `main` after Round534:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, branch deletion, or `main` merge occurred.
+- `git fetch --prune` completed before the audit.
+- Fresh gates passed on 2026-07-05: startup context branch matched and upstream was `0 ahead / 0 behind`, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Remote default remained `origin/HEAD -> origin/main`.
+- Remote branches after prune were only `origin/main` at `af474d5a` and `origin/codex/factor-batch-cn-stock-profit-mining-20260704` at `8b101170`.
+- `origin/main` is an ancestor of the active topic branch.
+- The active topic branch is 32 commits ahead of `origin/main` and 0 commits behind.
+- Safe-sync audit reported no blockers, no branch discovery errors, no syncable paths, no pending branch integration, and no cleanup action.
+
+Docs:
+
+- `docs/research/project_round535_cloud_main_branch_audit_2026-07-05.md`
+- `docs/research/ROUND535_NEXT_STEPS_CHECKLIST.md`
+
+Decision: the cloud structure is already minimal. Keep `main` stable and keep the active topic branch until an explicit project-sync or integration task decides to merge, archive, or delete it. Do not merge the active factor-batch branch into `main` as a side effect of routine source hardening.
+
+## Round536 Laptop Integration Rehearsal Refresh
+
+Round536 refreshed the laptop-owned mainline integration plan and rehearsed the merge without mutating `main`:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, `main` push, or remote branch deletion occurred.
+- `scripts\run_laptop_topic_integration_plan.py --machine laptop --task project_sync` produced the expected single-branch merge order but stayed blocked with `current_branch_must_be_main`, because this office continuation is on the active topic branch.
+- Merge order: `origin/codex/factor-batch-cn-stock-profit-mining-20260704` at `e7f12d7d`.
+- Temporary worktree: `C:\Users\Administrator\.config\superpowers\worktrees\lhjqr\integration-sim-round536-20260705`.
+- Temporary branch: `codex/integration-sim-round536-20260705`.
+- The temporary worktree started from `origin/main` at `af474d5a`.
+- The rehearsal merge completed with the `ort` strategy and no conflicts, producing temporary merge commit `303bc5e5`.
+- Temporary merged result was 34 commits ahead of `origin/main`: 33 topic commits plus the rehearsal merge commit.
+- `scripts\run_checks.py --profile laptop-integration --execute` passed on the temporary merged result with 101 tests, Python compile, project audit, and safety audit.
+- The temporary worktree was removed, the temporary branch was deleted, and the main working tree returned clean on the active topic branch.
+
+Docs:
+
+- `docs/research/project_round536_laptop_integration_rehearsal_refresh_2026-07-05.md`
+- `docs/research/ROUND536_NEXT_STEPS_CHECKLIST.md`
+
+Decision: the active topic branch is mechanically mergeable as of Round536, but real integration must still run from laptop on `main` through the guarded `project_sync` plan. Office desktop should not push `main` or delete the active remote topic branch.
+
+## Round537 Latest Topic Integration Rehearsal
+
+Round537 refreshed the integration evidence after the Round536 documentation commit advanced the active topic branch:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, `main` push, or remote branch deletion occurred.
+- Fresh gates passed on 2026-07-05: startup context branch matched and upstream was `0 ahead / 0 behind`, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- `origin/main` remained at `af474d5a`.
+- Active topic branch head was `709bfe23`.
+- Topic/main relationship was `0 34`: the topic was 34 commits ahead of `origin/main` and 0 commits behind.
+- The laptop integration plan still produced the expected single-branch merge order and stayed blocked with `current_branch_must_be_main` from the office topic branch.
+- Temporary worktree: `C:\Users\Administrator\.config\superpowers\worktrees\lhjqr\integration-sim-round537-20260705-054706`.
+- Temporary branch: `codex/integration-sim-round537-20260705-054706`.
+- The temporary worktree started from `origin/main` at `af474d5a`.
+- The rehearsal merge completed with the `ort` strategy and no conflicts, producing temporary merge commit `a6ac2b8a`.
+- Temporary merged result was 35 commits ahead of `origin/main`: 34 topic commits plus the rehearsal merge commit.
+- `scripts\run_checks.py --profile laptop-integration --execute` passed on the temporary merged result with 101 tests, Python compile, project audit, and safety audit.
+- The temporary worktree was removed, the temporary branch was deleted, and the main working tree returned clean on the active topic branch.
+
+Docs:
+
+- `docs/research/project_round537_latest_topic_integration_rehearsal_2026-07-05.md`
+- `docs/research/ROUND537_NEXT_STEPS_CHECKLIST.md`
+
+Decision: the latest active topic head `709bfe23` is mechanically mergeable into `origin/main`, but real integration remains laptop-owned. Execute only from laptop on `main` through `scripts\run_laptop_topic_integration_plan.py --machine laptop --task project_sync --execute`.
+
+## Round538 Integration Plan Handoff Status
+
+Round538 hardened the laptop integration plan output so the project does not need to repeatedly chase self-staling manual rehearsal documents:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, `main` push, or remote branch deletion occurred.
+- `scripts\run_laptop_topic_integration_plan.py` now includes a `handoff` object in every plan.
+- If a plan is blocked only by `current_branch_must_be_main` and has a pending merge order, `handoff.status` is `ready_on_main`.
+- The handoff records `required_machine=laptop`, `required_task=project_sync`, `required_branch=main`, `rerun_plan_before_execute=true`, and `merge_order_count`.
+- If any extra blocker is present, such as `working_tree_dirty`, `handoff.status` remains `blocked`.
+- Test-first evidence: the new focused test failed first with `KeyError: 'handoff'`, then the focused test and full laptop integration plan unit suite passed.
+
+Docs:
+
+- `docs/research/project_round538_integration_plan_handoff_status_2026-07-05.md`
+- `docs/research/ROUND538_NEXT_STEPS_CHECKLIST.md`
+
+Decision: use `handoff.status=ready_on_main` as the clean-topic handoff signal, not as execution permission. Real integration still requires rerunning the plan from laptop on `main` with `--execute`.
+
+## Round539 Integration Handoff Ready Gate
+
+Round539 added a machine-checkable handoff-ready gate:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, `main` push, or remote branch deletion occurred.
+- `scripts\run_laptop_topic_integration_plan.py` now exposes `--require-handoff-ready`.
+- New helper `plan_handoff_ready(plan)` returns true for true executable `status=ready` plans and clean topic handoffs with `handoff.status=ready_on_main`.
+- `--require-handoff-ready` exits `2` for dirty topic branches or other blockers.
+- `--require-ready` remains stricter and still requires true executable `status=ready`.
+- Test-first evidence: the new test failed first with `ImportError: cannot import name 'plan_handoff_ready'`, then the focused test and full laptop integration plan unit suite passed with 7 tests.
+
+Docs:
+
+- `docs/research/project_round539_integration_handoff_ready_gate_2026-07-05.md`
+- `docs/research/ROUND539_NEXT_STEPS_CHECKLIST.md`
+
+Decision: use `--require-handoff-ready` for office-topic handoff checks after code/docs are committed. Use `--execute` only from laptop on `main`.
+
+## Round540 Clean Handoff Ready Verification
+
+Round540 verified the Round539 handoff-ready gate on a clean topic branch:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, `main` push, or remote branch deletion occurred.
+- Fresh gates passed on 2026-07-05: startup context branch matched and upstream was `0 ahead / 0 behind`, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Active topic head at verification time: `d427b61d`.
+- Topic/main relationship was `0 37`: the topic was 37 commits ahead of `origin/main` and 0 commits behind.
+- `scripts\run_laptop_topic_integration_plan.py --machine laptop --task project_sync --require-handoff-ready` exited `0`.
+- Plan summary without the require flag remained `status=blocked` with blocker `current_branch_must_be_main`.
+- `handoff.status=ready_on_main`.
+- Merge order pointed at `d427b61ddf9db6f37699e1832e325eb41be2903f`.
+
+Docs:
+
+- `docs/research/project_round540_clean_handoff_ready_verification_2026-07-05.md`
+- `docs/research/ROUND540_NEXT_STEPS_CHECKLIST.md`
+
+Decision: use `--require-handoff-ready` as the durable office-topic handoff check. Do not keep writing manual merge rehearsal documents solely because documentation commits advance the topic branch; rerun manual rehearsal only when code/config/integration-plan state changes, the handoff gate fails, or laptop is about to execute integration.
+
+## Round541 Integration Handoff Next Command
+
+Round541 made the laptop integration handoff easier to use:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, `main` push, or remote branch deletion occurred.
+- `scripts\run_laptop_topic_integration_plan.py` now includes `handoff.next_command`.
+- The next command is `python scripts/run_laptop_topic_integration_plan.py --machine laptop --task project_sync --execute`.
+- The command is guidance for laptop on `main`; it is not permission to execute from office desktop.
+- Test-first evidence: the updated focused test failed first with `KeyError: 'next_command'`, then the focused test and full laptop integration plan unit suite passed with 7 tests.
+
+Docs:
+
+- `docs/research/project_round541_integration_handoff_next_command_2026-07-05.md`
+- `docs/research/ROUND541_NEXT_STEPS_CHECKLIST.md`
+
+Decision: future office handoff checks should inspect `handoff.status` and `handoff.next_command`, but only laptop on `main` should run the next command.
+
+## Round542 Pre-Agent Checkpoint Briefing
+
+Round542 prepared the Round543 two-agent checkpoint:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, `main` push, or remote branch deletion occurred.
+- Fresh gates passed on 2026-07-05: startup context branch matched and upstream was `0 ahead / 0 behind`, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Active topic branch at briefing time: `253e48d7`.
+- Topic/main relationship was `0 39`.
+- Remote branches remained only `origin/main` and the active topic branch.
+- Tracked generated data paths under `data/raw`, `data/processed`, and `data/reports`: none.
+- Laptop integration handoff status remained `ready_on_main`.
+- The briefing records current analyst quota blockers, external-feed/LPR hibernation boundaries, cloud/main state, and the exact Round543 review questions for the Quant PM and ordinary-user reviewers.
+
+Docs:
+
+- `docs/research/project_round542_pre_agent_checkpoint_briefing_2026-07-05.md`
+- `docs/research/ROUND542_NEXT_STEPS_CHECKLIST.md`
+
+Decision: Round543 should create the next required two fresh reviewers before any new source-family, provider, LPR, factor, or branch-integration decision.
+
+## Round543 Two-Agent Checkpoint
+
+Round543 completed the required round-40 checkpoint after the Round504 baseline:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, `main` push, or remote branch deletion occurred.
+- Fresh gates passed on 2026-07-05: startup context branch matched and upstream was `0 ahead / 0 behind`, Quant PM startup `ready`, CN stock factor-mining startup `cleared`, and CN stock data manifest had no blockers.
+- Active topic branch at review time: `b4226d79`.
+- Topic/main relationship was `0 40`.
+- `--require-handoff-ready` exited `0`; `handoff.status=ready_on_main`.
+- Quant PM reviewer `Aristotle` gave no-go on provider, factor, LPR, promotion, and final-holdout actions, and go only for paper/source/process work plus laptop-owned integration.
+- Ordinary-user reviewer `Hilbert` identified the main usability risk: `ready_on_main` and the laptop execute command can be misread as executable from office desktop.
+- Round543 documents now include a Run Here / Do Not Run Here box and a plain-English blocker table.
+
+Docs:
+
+- `docs/research/project_round543_two_agent_checkpoint_2026-07-05.md`
+- `docs/research/ROUND543_NEXT_STEPS_CHECKLIST.md`
+
+Decision: keep provider/factor/LPR/mainline actions blocked from office desktop. Round544 should harden checklist wording or continue non-provider source-tooling work unless laptop integration or real quota-pack import becomes available.
+
+## Round544 Handoff Executable Context
+
+Round544 hardened the integration handoff JSON after the Round543 ordinary-user review:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, `main` push, or remote branch deletion occurred.
+- `scripts\run_laptop_topic_integration_plan.py` now includes `handoff.executable_here` and `handoff.status_description`.
+- Clean topic handoff now reports `handoff.status=ready_on_main`, `handoff.executable_here=false`, and `handoff.status_description=handoff-ready only; rerun from laptop on main before executing`.
+- Executable laptop/main plans are the only plans where `handoff.executable_here=true`.
+- Test-first evidence: the focused test failed first with `KeyError: 'executable_here'`, then the focused test and full laptop integration plan unit suite passed with 7 tests.
+
+Docs:
+
+- `docs/research/project_round544_handoff_executable_context_2026-07-05.md`
+- `docs/research/ROUND544_NEXT_STEPS_CHECKLIST.md`
+
+Decision: future tooling and docs should prefer `handoff.executable_here` over interpreting `ready_on_main` by name alone.
+
+## Round545 Handoff Here Command
+
+Round545 separated the safe office-topic handoff command from the laptop-only execution command:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, `main` push, or remote branch deletion occurred.
+- `scripts\run_laptop_topic_integration_plan.py` now includes `handoff.here_command`.
+- `handoff.here_command` is `python scripts/run_laptop_topic_integration_plan.py --machine laptop --task project_sync --require-handoff-ready`.
+- `handoff.next_command` remains `python scripts/run_laptop_topic_integration_plan.py --machine laptop --task project_sync --execute` and remains laptop-only.
+- Test-first evidence: the focused test failed first with `KeyError: 'here_command'`, then the focused test and full laptop integration plan unit suite passed with 7 tests.
+
+Docs:
+
+- `docs/research/project_round545_handoff_here_command_2026-07-05.md`
+- `docs/research/ROUND545_NEXT_STEPS_CHECKLIST.md`
+
+Decision: office-desktop docs and tools should present `handoff.here_command` before `handoff.next_command` to reduce accidental laptop-only execution from the topic branch.
+
+## Round546 Handoff Next Command Context
+
+Round546 added explicit laptop/main-only context to the integration handoff execution command:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, `main` push, or remote branch deletion occurred.
+- `scripts\run_laptop_topic_integration_plan.py` now includes `handoff.next_command_context` and `handoff.next_command_allowed_here`.
+- `handoff.next_command_context` is `laptop main only`.
+- Office-topic handoffs report `handoff.next_command_allowed_here=false`.
+- Only true executable plans with `status=ready` report `handoff.next_command_allowed_here=true`.
+- Test-first evidence: the focused test failed first with `KeyError: 'next_command_context'`, then the focused test and full laptop integration plan unit suite passed with 7 tests.
+
+Docs:
+
+- `docs/research/project_round546_handoff_next_command_context_2026-07-05.md`
+- `docs/research/ROUND546_NEXT_STEPS_CHECKLIST.md`
+
+Decision: copy or display `handoff.next_command` only with its `laptop main only` context, and gate execution on `handoff.next_command_allowed_here`.
+
+## Round547 Handoff Recommended Command
+
+Round547 added fail-closed recommended-command metadata to the integration handoff:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, `main` push, or remote branch deletion occurred.
+- `scripts\run_laptop_topic_integration_plan.py` now includes `handoff.recommended_command` and `handoff.recommended_command_action`.
+- True executable laptop/main plans recommend `handoff.next_command` with action `execute_integration`.
+- Clean topic handoffs recommend `handoff.here_command` with action `check_handoff_ready`.
+- Ordinary blocked plans recommend no command and action `resolve_blockers`.
+- Test-first evidence: ready and clean-topic tests first failed with `KeyError: 'recommended_command'`; the ordinary blocked test first failed because it returned a copyable handoff-check command instead of `None`; then the three focused tests and full laptop integration plan unit suite passed with 7 tests.
+
+Docs:
+
+- `docs/research/project_round547_handoff_recommended_command_2026-07-05.md`
+- `docs/research/ROUND547_NEXT_STEPS_CHECKLIST.md`
+
+Decision: callers should display `handoff.recommended_command` first only when non-null; otherwise display blockers and `handoff.recommended_command_action=resolve_blockers`.
+
+## Round548 Handoff Blocker Metadata
+
+Round548 made the handoff object self-contained for blocker display:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, `main` push, or remote branch deletion occurred.
+- `scripts\run_laptop_topic_integration_plan.py` now includes `handoff.blockers` and `handoff.blocker_count`.
+- True executable laptop/main plans report `handoff.blockers=[]` and `handoff.blocker_count=0`.
+- Clean topic handoffs report `handoff.blockers=["current_branch_must_be_main"]` and `handoff.blocker_count=1`.
+- Dirty or otherwise blocked plans report all blockers inside the handoff object and still recommend no command.
+- Test-first evidence: the three focused tests first failed with `KeyError: 'blockers'`, then the three focused tests and full laptop integration plan unit suite passed with 7 tests.
+
+Docs:
+
+- `docs/research/project_round548_handoff_blocker_metadata_2026-07-05.md`
+- `docs/research/ROUND548_NEXT_STEPS_CHECKLIST.md`
+
+Decision: handoff-only consumers should display `handoff.blockers` whenever `handoff.recommended_command` is null or `handoff.recommended_command_action=resolve_blockers`.
+
+## Round549 Handoff Ready Boolean
+
+Round549 exposed the handoff-readiness rule as a boolean:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, `main` push, or remote branch deletion occurred.
+- `scripts\run_laptop_topic_integration_plan.py` now includes `handoff.ready_for_handoff`.
+- True executable laptop/main plans report `handoff.ready_for_handoff=true`.
+- Clean topic handoffs report `handoff.ready_for_handoff=true` even though `handoff.executable_here=false`.
+- Dirty, ordinary blocked, and no-topic plans report `handoff.ready_for_handoff=false`.
+- Test-first evidence: four focused tests first failed with `KeyError: 'ready_for_handoff'`, then the four focused tests and full laptop integration plan unit suite passed with 8 tests.
+
+Docs:
+
+- `docs/research/project_round549_handoff_ready_boolean_2026-07-05.md`
+- `docs/research/ROUND549_NEXT_STEPS_CHECKLIST.md`
+
+Decision: callers should use `handoff.ready_for_handoff` for readiness display, and still use `handoff.executable_here` plus `handoff.next_command_allowed_here` for execution permission.
+
+## Round550 Handoff Current Context
+
+Round550 made the handoff object include the current planning context:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, `main` push, or remote branch deletion occurred.
+- `scripts\run_laptop_topic_integration_plan.py` now includes `handoff.current_machine`, `handoff.current_task`, `handoff.current_branch`, and `handoff.current_context_matches_required`.
+- True executable laptop/main plans report `current_context_matches_required=true`.
+- Clean topic handoffs report `ready_for_handoff=true` but `current_context_matches_required=false`.
+- Ordinary blocked plans also expose the current context so handoff-only consumers can explain what differs from the required context.
+- Test-first evidence: the three focused tests first failed with `KeyError: 'current_machine'`, then the three focused tests and full laptop integration plan unit suite passed with 8 tests.
+
+Docs:
+
+- `docs/research/project_round550_handoff_current_context_2026-07-05.md`
+- `docs/research/ROUND550_NEXT_STEPS_CHECKLIST.md`
+
+Decision: callers should compare `handoff.current_*` with `handoff.required_*` before displaying any execute action.
+
+## Round551 Handoff Context Mismatch Reasons
+
+Round551 added explicit current-context mismatch reasons to the handoff object:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, `main` push, or remote branch deletion occurred.
+- `scripts\run_laptop_topic_integration_plan.py` now includes `handoff.current_context_mismatch_reasons`.
+- True executable laptop/main plans report an empty mismatch list.
+- Clean topic handoffs report `["current_branch_must_be_main"]` and remain handoff-ready but non-executable.
+- Wrong machine or task contexts report `machine_must_be_laptop` and `task_must_be_project_sync` as applicable.
+- Test-first evidence: the three focused tests first failed with `KeyError: 'current_context_mismatch_reasons'`, then the three focused tests and full laptop integration plan unit suite passed with 8 tests.
+
+Docs:
+
+- `docs/research/project_round551_handoff_context_mismatch_reasons_2026-07-05.md`
+- `docs/research/ROUND551_NEXT_STEPS_CHECKLIST.md`
+
+Decision: callers should display `handoff.current_context_mismatch_reasons` whenever `handoff.current_context_matches_required=false`.
+
+## Round552 Handoff Ready Gate Alignment
+
+Round552 aligned the handoff-ready gate with the explicit readiness boolean:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, `main` push, or remote branch deletion occurred.
+- `plan_handoff_ready(plan)` now prefers `handoff.ready_for_handoff` when it is present as a boolean.
+- The older `handoff.status=ready_on_main` and top-level `status=ready` fallback remains for minimal or historical plan JSON.
+- Test-first evidence: the new focused behavior first failed because explicit `ready_for_handoff=true` on a blocked handoff returned `False`; then the full laptop integration plan unit suite passed with 9 tests.
+
+Docs:
+
+- `docs/research/project_round552_handoff_ready_gate_alignment_2026-07-05.md`
+- `docs/research/ROUND552_NEXT_STEPS_CHECKLIST.md`
+
+Decision: handoff consumers should treat `handoff.ready_for_handoff` as the authoritative readiness flag when present, while still using `handoff.executable_here`, `handoff.next_command_allowed_here`, and `handoff.current_context_matches_required` for execution permission. Round553 is the next required two-agent checkpoint.
+
+## Round553 Two-Agent Handoff Checkpoint
+
+Round553 completed the required ten-round reviewer checkpoint after Round543:
+
+- No Tushare data call, analyst cache dry-run, analyst prescreen, external-feed IC run, portfolio grid, promotion gate, final-holdout read, `main` push, or remote branch deletion occurred.
+- Fresh gates on 2026-07-05: startup context branch matched, Quant PM startup was `ready`, CN stock factor-mining startup remained `blocked`, and CN stock data manifest remained `review_required` with the known data-quality warnings.
+- Active topic head at checkpoint start: `ee488d27`.
+- Topic/main relationship was `0 50`.
+- Tracked generated data paths under `data/raw`, `data/processed`, and `data/reports`: none.
+- Handoff check exited `0` and remained `ready_on_main`, `ready_for_handoff=true`, `executable_here=false`, `next_command_allowed_here=false`, and `current_context_mismatch_reasons=["current_branch_must_be_main"]`.
+- Quant PM reviewer `Godel` gave no-go on provider, factor, LPR, promotion, final-holdout, and further office hardening unless the handoff gate regresses; laptop/main integration is go only from laptop on `main`.
+- Ordinary-user reviewer `Tesla` flagged that copyable `next_command` plus `ready_for_handoff=true` can still invite misuse, and recommended hiding or de-emphasizing the execute command when `next_command_allowed_here=false`.
+
+Docs:
+
+- `docs/research/project_round553_two_agent_handoff_checkpoint_2026-07-05.md`
+- `docs/research/ROUND553_NEXT_STEPS_CHECKLIST.md`
+
+Decision: stop growing this office topic branch by default. The next substantive project action is laptop-owned integration from `main`; office desktop should only rerun the safe handoff check unless the gate regresses or the user explicitly redirects the work.

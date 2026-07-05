@@ -16,12 +16,19 @@ from quant_robot.data.ingest.tushare_external_feeds import run_tushare_external_
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run Tushare external CN-stock feed ingestion with report-only default.")
+    parser = argparse.ArgumentParser(
+        description="Run Tushare external CN-stock feed ingestion with report-only default.",
+        epilog=(
+            "Safety: Report-only still may call Tushare when fetching source data or refreshing a missing, empty, "
+            "or invalid LPR cache. Use --execute-write-processed only when intentionally writing ignored data outputs."
+        ),
+    )
     parser.add_argument("--start-date", required=True)
     parser.add_argument("--end-date", required=True)
     parser.add_argument("--output-dir", default="data/reports/tushare_external_feed_ingest")
     parser.add_argument("--market", default="CN")
     parser.add_argument("--index-symbol", default="000001.SH")
+    parser.add_argument("--lpr-cache-path", help="Optional JSON cache path for the Tushare shibor_lpr endpoint.")
     parser.add_argument("--report-copy-dir", help="Optional directory to copy this shard's ingestion report JSON.")
     parser.add_argument("--progress-jsonl", help="Optional JSONL file for per-endpoint ingestion progress events.")
     parser.add_argument(
@@ -48,6 +55,7 @@ def main(argv: list[str] | None = None) -> int:
         execute_write_processed=args.execute_write_processed,
         market=args.market,
         index_symbol=args.index_symbol,
+        lpr_cache_path=Path(args.lpr_cache_path) if args.lpr_cache_path else None,
         progress_callback=progress_callback,
     )
     if args.report_copy_dir:

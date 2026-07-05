@@ -1,7 +1,11 @@
 import unittest
 from types import SimpleNamespace
 
-from scripts.run_laptop_topic_integration_plan import build_laptop_topic_integration_plan, execute_laptop_topic_integration_plan
+from scripts.run_laptop_topic_integration_plan import (
+    build_laptop_topic_integration_plan,
+    execute_laptop_topic_integration_plan,
+    plan_handoff_ready,
+)
 
 
 class LaptopTopicIntegrationPlanTests(unittest.TestCase):
@@ -26,6 +30,19 @@ class LaptopTopicIntegrationPlanTests(unittest.TestCase):
 
         self.assertEqual(plan["status"], "ready")
         self.assertEqual(plan["blockers"], [])
+        self.assertEqual(plan["handoff"]["blockers"], [])
+        self.assertEqual(plan["handoff"]["blocker_count"], 0)
+        self.assertEqual(plan["handoff"]["status"], "ready")
+        self.assertTrue(plan["handoff"]["ready_for_handoff"])
+        self.assertTrue(plan["handoff"]["executable_here"])
+        self.assertEqual(plan["handoff"]["current_machine"], "laptop")
+        self.assertEqual(plan["handoff"]["current_task"], "project_sync")
+        self.assertEqual(plan["handoff"]["current_branch"], "main")
+        self.assertTrue(plan["handoff"]["current_context_matches_required"])
+        self.assertEqual(plan["handoff"]["current_context_mismatch_reasons"], [])
+        self.assertTrue(plan["handoff"]["next_command_allowed_here"])
+        self.assertEqual(plan["handoff"]["recommended_command"], plan["handoff"]["next_command"])
+        self.assertEqual(plan["handoff"]["recommended_command_action"], "execute_integration")
         self.assertEqual(
             [item["branch"] for item in plan["merge_order"]],
             [
@@ -96,6 +113,74 @@ class LaptopTopicIntegrationPlanTests(unittest.TestCase):
                 "main_behind_origin_pull_first",
             ],
         )
+        self.assertEqual(plan["handoff"]["blockers"], plan["blockers"])
+        self.assertEqual(plan["handoff"]["blocker_count"], 5)
+        self.assertFalse(plan["handoff"]["ready_for_handoff"])
+        self.assertEqual(plan["handoff"]["current_machine"], "office_desktop")
+        self.assertEqual(plan["handoff"]["current_task"], "factor_batch")
+        self.assertEqual(plan["handoff"]["current_branch"], "codex/factor-batch-current")
+        self.assertFalse(plan["handoff"]["current_context_matches_required"])
+        self.assertEqual(
+            plan["handoff"]["current_context_mismatch_reasons"],
+            [
+                "machine_must_be_laptop",
+                "task_must_be_project_sync",
+                "current_branch_must_be_main",
+            ],
+        )
+        self.assertIsNone(plan["handoff"]["recommended_command"])
+        self.assertEqual(plan["handoff"]["recommended_command_action"], "resolve_blockers")
+
+    def test_plan_marks_topic_branch_handoff_ready_on_main_when_only_branch_blocks(self) -> None:
+        plan = build_laptop_topic_integration_plan(
+            machine="laptop",
+            task="project_sync",
+            current_branch="codex/factor-batch-current",
+            worktree_clean=True,
+            main_upstream_sync="0\t0",
+            remote_topic_branches=[{"name": "origin/codex/factor-batch-current", "commit": "new"}],
+            stable_commits=set(),
+            manifest={"absorbed_branches": [], "ignored_branches": []},
+            is_ancestor=lambda ancestor, descendant: False,
+            python_executable="python",
+        )
+
+        self.assertEqual(plan["status"], "blocked")
+        self.assertEqual(plan["blockers"], ["current_branch_must_be_main"])
+        self.assertEqual(plan["handoff"]["blockers"], ["current_branch_must_be_main"])
+        self.assertEqual(plan["handoff"]["blocker_count"], 1)
+        self.assertEqual(plan["handoff"]["status"], "ready_on_main")
+        self.assertTrue(plan["handoff"]["ready_for_handoff"])
+        self.assertEqual(plan["handoff"]["current_machine"], "laptop")
+        self.assertEqual(plan["handoff"]["current_task"], "project_sync")
+        self.assertEqual(plan["handoff"]["current_branch"], "codex/factor-batch-current")
+        self.assertFalse(plan["handoff"]["current_context_matches_required"])
+        self.assertEqual(
+            plan["handoff"]["current_context_mismatch_reasons"],
+            ["current_branch_must_be_main"],
+        )
+        self.assertEqual(plan["handoff"]["required_machine"], "laptop")
+        self.assertEqual(plan["handoff"]["required_task"], "project_sync")
+        self.assertEqual(plan["handoff"]["required_branch"], "main")
+        self.assertTrue(plan["handoff"]["rerun_plan_before_execute"])
+        self.assertEqual(plan["handoff"]["merge_order_count"], 1)
+        self.assertEqual(
+            plan["handoff"]["next_command"],
+            "python scripts/run_laptop_topic_integration_plan.py --machine laptop --task project_sync --execute",
+        )
+        self.assertEqual(plan["handoff"]["next_command_context"], "laptop main only")
+        self.assertFalse(plan["handoff"]["next_command_allowed_here"])
+        self.assertEqual(
+            plan["handoff"]["here_command"],
+            "python scripts/run_laptop_topic_integration_plan.py --machine laptop --task project_sync --require-handoff-ready",
+        )
+        self.assertEqual(plan["handoff"]["recommended_command"], plan["handoff"]["here_command"])
+        self.assertEqual(plan["handoff"]["recommended_command_action"], "check_handoff_ready")
+        self.assertFalse(plan["handoff"]["executable_here"])
+        self.assertEqual(
+            plan["handoff"]["status_description"],
+            "handoff-ready only; rerun from laptop on main before executing",
+        )
 
     def test_plan_skips_stable_and_manifest_absorbed_topic_branches(self) -> None:
         plan = build_laptop_topic_integration_plan(
@@ -142,6 +227,23 @@ class LaptopTopicIntegrationPlanTests(unittest.TestCase):
             ],
         )
 
+    def test_plan_marks_no_topic_branches_not_ready_for_handoff(self) -> None:
+        plan = build_laptop_topic_integration_plan(
+            machine="laptop",
+            task="project_sync",
+            current_branch="main",
+            worktree_clean=True,
+            main_upstream_sync="0\t0",
+            remote_topic_branches=[],
+            stable_commits=set(),
+            manifest={"absorbed_branches": [], "ignored_branches": []},
+            is_ancestor=lambda ancestor, descendant: False,
+            python_executable="python",
+        )
+
+        self.assertEqual(plan["status"], "no_topic_branches")
+        self.assertFalse(plan["handoff"]["ready_for_handoff"])
+
     def test_execute_runs_ready_plan_commands_and_accepts_pre_alpha_block_exit(self) -> None:
         plan = {
             "status": "ready",
@@ -172,6 +274,36 @@ class LaptopTopicIntegrationPlanTests(unittest.TestCase):
         self.assertEqual(result["status"], "blocked")
         self.assertEqual(result["blockers"], ["current_branch_must_be_main"])
         self.assertEqual(calls, [])
+
+    def test_plan_handoff_ready_accepts_ready_on_main_or_ready_plan_only(self) -> None:
+        self.assertTrue(plan_handoff_ready({"status": "ready", "handoff": {"status": "ready"}}))
+        self.assertTrue(plan_handoff_ready({"status": "blocked", "handoff": {"status": "ready_on_main"}}))
+        self.assertFalse(plan_handoff_ready({"status": "blocked", "handoff": {"status": "blocked"}}))
+        self.assertFalse(plan_handoff_ready({"status": "no_topic_branches", "handoff": {"status": "no_topic_branches"}}))
+
+    def test_plan_handoff_ready_prefers_explicit_ready_boolean_when_present(self) -> None:
+        self.assertTrue(
+            plan_handoff_ready(
+                {
+                    "status": "blocked",
+                    "handoff": {
+                        "status": "blocked",
+                        "ready_for_handoff": True,
+                    },
+                }
+            )
+        )
+        self.assertFalse(
+            plan_handoff_ready(
+                {
+                    "status": "blocked",
+                    "handoff": {
+                        "status": "ready_on_main",
+                        "ready_for_handoff": False,
+                    },
+                }
+            )
+        )
 
 
 if __name__ == "__main__":

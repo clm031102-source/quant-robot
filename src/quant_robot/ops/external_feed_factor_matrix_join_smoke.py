@@ -25,12 +25,20 @@ def run_external_feed_factor_matrix_join_smoke(
     seeds = list(seed_config.get("factor_seeds", []))
 
     seed_join_coverage: dict[str, dict[str, object]] = {}
+    feed_cache: dict[tuple[str, str], pd.DataFrame] = {}
+
+    def read_feed(feed_name: str) -> pd.DataFrame:
+        key = (feed_name, market)
+        if key not in feed_cache:
+            feed_cache[key] = _read_processed_dataset(processed_path, feed_name, market)
+        return feed_cache[key]
+
     for seed in seeds:
         seed_name = str(seed["factor_name"])
         primary_feed = str(seed["primary_feed"])
         secondary_feed = str(seed.get("secondary_feed", "")).strip()
-        frame = _read_processed_dataset(processed_path, primary_feed, market)
-        secondary_frame = _read_processed_dataset(processed_path, secondary_feed, market) if secondary_feed else None
+        frame = read_feed(primary_feed)
+        secondary_frame = read_feed(secondary_feed) if secondary_feed else None
         coverage = _seed_join_coverage(
             seed=seed,
             frame=frame,
@@ -133,34 +141,40 @@ def _seed_join_coverage(
     secondary_normalized = _normalize_join_dates(secondary_frame) if secondary_feed and secondary_frame is not None else None
     signal_dates = _signal_dates(normalized, signal_start_date, signal_end_date, secondary_normalized)
 
-    joined_rows = 0
-    joined_signal_dates: list[str] = []
-    joined_symbols: set[str] = set()
+    joined = _latest_observations_for_signal_dates(normalized, signal_dates)
+    frames_to_check = [joined]
+    if secondary_normalized is not None:
+        secondary_joined = _latest_observations_for_signal_dates(secondary_normalized, signal_dates)
+        if joined.empty or secondary_joined.empty:
+            joined = pd.DataFrame()
+            frames_to_check = [joined, secondary_joined]
+        else:
+            secondary_signal_dates = set(pd.to_datetime(secondary_joined["_signal_date"]).dt.normalize())
+            joined = joined[pd.to_datetime(joined["_signal_date"]).dt.normalize().isin(secondary_signal_dates)]
+            joined_signal_date_set = set(pd.to_datetime(joined["_signal_date"]).dt.normalize())
+            secondary_joined = secondary_joined[
+                pd.to_datetime(secondary_joined["_signal_date"]).dt.normalize().isin(joined_signal_date_set)
+            ]
+            frames_to_check = [joined, secondary_joined]
+
     available_date_violations = 0
     raw_date_not_before_signal_violations = 0
-    for signal_date in signal_dates:
-        signal_ts = pd.Timestamp(signal_date)
-        eligible = normalized[pd.to_datetime(normalized["available_date"]) <= signal_ts]
-        if eligible.empty:
+    for joined_frame in frames_to_check:
+        if joined_frame.empty:
             continue
-        latest = _latest_observations_for_signal_date(eligible)
-        frames_to_check = [latest]
-        if secondary_normalized is not None:
-            secondary_eligible = secondary_normalized[
-                pd.to_datetime(secondary_normalized["available_date"]) <= signal_ts
-            ]
-            if secondary_eligible.empty:
-                continue
-            frames_to_check.append(_latest_observations_for_signal_date(secondary_eligible))
-        for joined_frame in frames_to_check:
-            available_ts = pd.to_datetime(joined_frame["available_date"])
-            raw_ts = pd.to_datetime(joined_frame["date"])
-            available_date_violations += int((available_ts > signal_ts).sum())
-            raw_date_not_before_signal_violations += int((raw_ts >= signal_ts).sum())
-        joined_rows += int(len(latest))
-        joined_signal_dates.append(signal_ts.date().isoformat())
-        if "symbol" in latest.columns:
-            joined_symbols.update(str(value) for value in latest["symbol"].dropna().unique())
+        signal_ts = pd.to_datetime(joined_frame["_signal_date"])
+        available_ts = pd.to_datetime(joined_frame["available_date"])
+        raw_ts = pd.to_datetime(joined_frame["date"])
+        available_date_violations += int((available_ts > signal_ts).sum())
+        raw_date_not_before_signal_violations += int((raw_ts >= signal_ts).sum())
+    joined_rows = int(len(joined))
+    joined_signal_dates = [
+        value.date().isoformat()
+        for value in sorted(pd.to_datetime(joined["_signal_date"]).dropna().dt.normalize().unique())
+    ]
+    joined_symbols: set[str] = set()
+    if "symbol" in joined.columns:
+        joined_symbols.update(str(value) for value in joined["symbol"].dropna().unique())
 
     primary_observation_dates = int(pd.to_datetime(normalized["date"]).nunique())
     secondary_observation_dates = (
@@ -262,6 +276,54 @@ def _latest_observations_for_signal_date(frame: pd.DataFrame) -> pd.DataFrame:
     if "index_symbol" in sorted_frame.columns:
         return sorted_frame.drop_duplicates("index_symbol", keep="last")
     return sorted_frame.tail(1)
+
+
+def _latest_observations_for_signal_dates(frame: pd.DataFrame, signal_dates: list[pd.Timestamp]) -> pd.DataFrame:
+    if frame.empty or not signal_dates:
+        return pd.DataFrame()
+    normalized = frame.copy()
+    normalized["date"] = pd.to_datetime(normalized["date"]).dt.normalize().astype("datetime64[ns]")
+    normalized["available_date"] = pd.to_datetime(normalized["available_date"]).dt.normalize().astype("datetime64[ns]")
+    normalized = normalized.dropna(subset=["available_date"])
+    if normalized.empty:
+        return pd.DataFrame()
+    signals = pd.DataFrame(
+        {"_signal_date": sorted({pd.Timestamp(value).normalize() for value in signal_dates})}
+    ).sort_values("_signal_date")
+    signals["_signal_date"] = pd.to_datetime(signals["_signal_date"]).astype("datetime64[ns]")
+    key_column = _latest_observation_key_column(normalized)
+    if key_column is None:
+        return _merge_latest_observations_for_group(normalized, signals)
+    pieces = []
+    for _, group in normalized.groupby(key_column, sort=False, dropna=False):
+        latest = _merge_latest_observations_for_group(group, signals)
+        if not latest.empty:
+            pieces.append(latest)
+    if not pieces:
+        return pd.DataFrame()
+    return pd.concat(pieces, ignore_index=True)
+
+
+def _latest_observation_key_column(frame: pd.DataFrame) -> str | None:
+    if "symbol" in frame.columns:
+        return "symbol"
+    if "index_symbol" in frame.columns:
+        return "index_symbol"
+    return None
+
+
+def _merge_latest_observations_for_group(group: pd.DataFrame, signals: pd.DataFrame) -> pd.DataFrame:
+    sort_columns = [column for column in ["available_date", "date"] if column in group.columns]
+    sorted_group = group.sort_values(sort_columns)
+    joined = pd.merge_asof(
+        signals,
+        sorted_group,
+        left_on="_signal_date",
+        right_on="available_date",
+        direction="backward",
+        allow_exact_matches=True,
+    )
+    return joined.dropna(subset=["available_date"]).reset_index(drop=True)
 
 
 def _summary(seed_join_coverage: dict[str, dict[str, object]]) -> dict[str, int]:

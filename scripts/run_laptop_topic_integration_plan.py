@@ -58,6 +58,14 @@ def build_laptop_topic_integration_plan(
     return {
         "status": status,
         "blockers": blockers,
+        "handoff": _handoff_status(
+            status=status,
+            blockers=blockers,
+            merge_order=merge_order,
+            machine=machine,
+            task=task,
+            current_branch=current_branch,
+        ),
         "selected": {
             "machine": machine,
             "task": task,
@@ -73,6 +81,73 @@ def build_laptop_topic_integration_plan(
         "merge_order": merge_order,
         "skipped": skipped,
         "commands": _finish_commands(merge_order, python_executable=python_executable),
+    }
+
+
+def _handoff_status(
+    *,
+    status: str,
+    blockers: list[str],
+    merge_order: list[dict[str, str]],
+    machine: str | None,
+    task: str | None,
+    current_branch: str,
+) -> dict[str, Any]:
+    if status == "blocked" and blockers == ["current_branch_must_be_main"] and merge_order:
+        handoff_status = "ready_on_main"
+        status_description = "handoff-ready only; rerun from laptop on main before executing"
+    else:
+        handoff_status = status
+        status_description = status
+    next_command = (
+        "python scripts/run_laptop_topic_integration_plan.py "
+        "--machine laptop --task project_sync --execute"
+    )
+    here_command = (
+        "python scripts/run_laptop_topic_integration_plan.py "
+        "--machine laptop --task project_sync --require-handoff-ready"
+    )
+    if status == "ready":
+        recommended_command = next_command
+        recommended_command_action = "execute_integration"
+    elif handoff_status == "ready_on_main":
+        recommended_command = here_command
+        recommended_command_action = "check_handoff_ready"
+    else:
+        recommended_command = None
+        recommended_command_action = "resolve_blockers"
+    context_mismatch_reasons: list[str] = []
+    if machine != "laptop":
+        context_mismatch_reasons.append("machine_must_be_laptop")
+    if task != "project_sync":
+        context_mismatch_reasons.append("task_must_be_project_sync")
+    if current_branch != STABLE_BRANCH:
+        context_mismatch_reasons.append("current_branch_must_be_main")
+    return {
+        "status": handoff_status,
+        "status_description": status_description,
+        "ready_for_handoff": handoff_status in {"ready", "ready_on_main"},
+        "blockers": list(blockers),
+        "blocker_count": len(blockers),
+        "executable_here": status == "ready",
+        "current_machine": machine,
+        "current_task": task,
+        "current_branch": current_branch,
+        "current_context_matches_required": (
+            machine == "laptop" and task == "project_sync" and current_branch == STABLE_BRANCH
+        ),
+        "current_context_mismatch_reasons": context_mismatch_reasons,
+        "required_machine": "laptop",
+        "required_task": "project_sync",
+        "required_branch": STABLE_BRANCH,
+        "rerun_plan_before_execute": True,
+        "merge_order_count": len(merge_order),
+        "next_command": next_command,
+        "next_command_context": "laptop main only",
+        "next_command_allowed_here": status == "ready",
+        "here_command": here_command,
+        "recommended_command": recommended_command,
+        "recommended_command_action": recommended_command_action,
     }
 
 
@@ -114,6 +189,15 @@ def execute_laptop_topic_integration_plan(
             return {"status": "failed", "blockers": [], "commands": records, "failed_command": record}
 
     return {"status": "executed", "blockers": [], "commands": records, "failed_command": None}
+
+
+def plan_handoff_ready(plan: dict[str, Any]) -> bool:
+    handoff = plan.get("handoff", {})
+    if isinstance(handoff, dict) and isinstance(handoff.get("ready_for_handoff"), bool):
+        return bool(handoff["ready_for_handoff"])
+    if isinstance(handoff, dict) and handoff.get("status") == "ready_on_main":
+        return True
+    return plan.get("status") == "ready"
 
 
 def order_topic_branches_for_merge(
@@ -256,6 +340,11 @@ def main() -> None:
     parser.add_argument("--task", required=True)
     parser.add_argument("--skip-fetch", action="store_true", help="Do not refresh remote refs before planning.")
     parser.add_argument("--require-ready", action="store_true", help="Exit 2 unless the plan is ready.")
+    parser.add_argument(
+        "--require-handoff-ready",
+        action="store_true",
+        help="Exit 2 unless the plan is ready to execute on main or ready to hand off from a clean topic branch.",
+    )
     parser.add_argument("--execute", action="store_true", help="Execute the ready laptop integration command sequence.")
     args = parser.parse_args()
 
@@ -299,6 +388,8 @@ def main() -> None:
     if args.execute and output.get("execution", {}).get("status") == "blocked":
         raise SystemExit(2)
     if args.require_ready and plan["status"] != "ready":
+        raise SystemExit(2)
+    if args.require_handoff_ready and not plan_handoff_ready(plan):
         raise SystemExit(2)
 
 
