@@ -1769,3 +1769,20 @@ Docs:
 - `docs/research/ROUND556_NEXT_STEPS_CHECKLIST.md`
 
 Decision: all future CN processed-bars alpha-factory runs should pass an explicit `--candidate-plan-gate-packet`, and longer discovery-window runs remain research-only until long-cycle replay, capacity, regime, and style-neutral gates pass.
+
+## Round557 Alpha Factory Manifest Gate Trace
+
+Round557 made alpha-factory output manifests carry gate traceability:
+
+- CN processed-bars alpha-factory results now include `gate_packets`.
+- If `manifest.json` exists in the output directory, the same startup, data-manifest, and candidate-plan gate packet paths are written into it.
+- Fixture and non-CN paths are unchanged.
+- Test-first evidence: the focused test first failed with `KeyError: 'gate_packets'`, then passed after implementation.
+- Alpha-factory CLI/unit coverage passed with 20 tests.
+
+Docs:
+
+- `docs/research/cn_stock_round557_alpha_factory_manifest_gate_trace_2026-07-05.md`
+- `docs/research/ROUND557_NEXT_STEPS_CHECKLIST.md`
+
+Decision: future CN processed-bars alpha-factory summaries should cite both the candidate-plan gate packet and the `manifest.json` `gate_packets` trace.

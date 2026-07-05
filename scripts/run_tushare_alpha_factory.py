@@ -84,7 +84,16 @@ def run_alpha_factory_cli(
         max_participation_rate=max_participation_rate,
         require_capacity_controls=require_capacity_controls,
     )
-    return run_tushare_alpha_factory(bars, config)
+    result = run_tushare_alpha_factory(bars, config)
+    return _attach_gate_packet_trace(
+        result,
+        output_dir=Path(output_dir),
+        source=source,
+        market=market,
+        startup_gate_packet=startup_gate_packet,
+        data_manifest_packet=data_manifest_packet,
+        candidate_plan_gate_packet=candidate_plan_gate_packet,
+    )
 
 
 def main() -> None:
@@ -228,6 +237,36 @@ def _factor_names_for_source(factor_source: str) -> tuple[str, ...]:
     if factor_source == "moneyflow_technical_combo":
         return MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES
     raise ValueError(f"Unsupported Tushare alpha factory factor_source: {factor_source}")
+
+
+def _attach_gate_packet_trace(
+    result: dict[str, object],
+    *,
+    output_dir: Path,
+    source: str,
+    market: str,
+    startup_gate_packet: str | Path | None,
+    data_manifest_packet: str | Path | None,
+    candidate_plan_gate_packet: str | Path | None,
+) -> dict[str, object]:
+    if source != "processed-bars" or market.upper() != "CN":
+        return result
+    gate_packets = {
+        "startup_gate_packet": _path_text(startup_gate_packet),
+        "data_manifest_packet": _path_text(data_manifest_packet),
+        "candidate_plan_gate_packet": _path_text(candidate_plan_gate_packet),
+    }
+    traced = {**result, "gate_packets": gate_packets}
+    manifest_path = output_dir / "manifest.json"
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["gate_packets"] = gate_packets
+        manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+    return traced
+
+
+def _path_text(path: str | Path | None) -> str | None:
+    return str(path) if path is not None else None
 
 
 if __name__ == "__main__":

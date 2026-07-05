@@ -189,22 +189,39 @@ class TushareAlphaFactoryCliTests(unittest.TestCase):
             _write_candidate_plan_gate(candidate_gate_dir, DAILY_BASIC_FACTOR_NAMES)
             bars = load_demo_market_bars()
             expected = {"summary": {"hypothesis_count": 1}, "candidate_leaderboard": []}
+            output_dir = root / "factory"
+
+            def _fake_run_factory(_bars, config):
+                config.output_dir.mkdir(parents=True, exist_ok=True)
+                (config.output_dir / "manifest.json").write_text(
+                    json.dumps({"config": {}, "summary": {}, "experiment_summary": {}}),
+                    encoding="utf-8",
+                )
+                return expected
 
             with patch("scripts.run_tushare_alpha_factory.load_research_bars", return_value=bars) as load_bars:
-                with patch("scripts.run_tushare_alpha_factory.run_tushare_alpha_factory", return_value=expected) as run_factory:
+                with patch("scripts.run_tushare_alpha_factory.run_tushare_alpha_factory", side_effect=_fake_run_factory) as run_factory:
                     result = run_alpha_factory_cli(
                         source="processed-bars",
                         data_root=root,
                         market="CN",
                         factor_input_root=root / "factor_inputs",
-                        output_dir=root / "factory",
+                        output_dir=output_dir,
                         top_n=1,
                         startup_gate_packet=gate_packet,
                         data_manifest_packet=data_manifest,
                         candidate_plan_gate_packet=candidate_gate_dir / "factor_mining_candidate_plan_gate.json",
                     )
 
-            self.assertEqual(result, expected)
+            gate_packets = result["gate_packets"]
+            self.assertEqual(gate_packets["startup_gate_packet"], str(gate_packet))
+            self.assertEqual(gate_packets["data_manifest_packet"], str(data_manifest))
+            self.assertEqual(
+                gate_packets["candidate_plan_gate_packet"],
+                str(candidate_gate_dir / "factor_mining_candidate_plan_gate.json"),
+            )
+            manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+            self.assertEqual(manifest["gate_packets"], gate_packets)
             load_bars.assert_called_once()
             run_factory.assert_called_once()
 
