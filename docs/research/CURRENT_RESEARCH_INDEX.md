@@ -8,9 +8,9 @@ Purpose: this is the first file to read after syncing the repository on any work
 
 - Stable branch: `main`
 - Remote HEAD: `origin/main`
-- Current remote topic branch: `codex/factor-batch-cn-stock-round555-20260705`
-- Remote branch cleanup status: Round464 and Round465-Round502 branches were merged into `main` and removed; Round503-Round553 branch `codex/factor-batch-cn-stock-profit-mining-20260704` was merged into `main` and removed in Round554
-- Latest integrated cloud commit: `f8e9241b`
+- Current remote topic branch: none
+- Remote branch cleanup status: Round464 and Round465-Round502 branches were merged into `main` and removed; Round503-Round553 branch `codex/factor-batch-cn-stock-profit-mining-20260704` was merged into `main` and removed in Round554; Round555-Round563 branch `codex/factor-batch-cn-stock-round555-20260705` was merged into `main` and removed in Round564
+- Latest integrated cloud commit: `origin/main` after Round564 closeout
 - Live-trading boundary: disabled; research-to-paper only
 - Latest cloud audit report: `docs/research/cloud_project_audit_2026-06-27.md`
 
@@ -30,9 +30,9 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-round555-20260705` | CN stock Round555 factor-batch branch | active; startup-gate alignment and daily-basic source-readiness smoke |
+| none | none | no active topic branch after Round564 main integration |
 
-Round555 is active after Round554 main integration. Existing Round503-Round553 material records gated source construction, rejection evidence, and paper-lane risk-repair evidence. Do not treat any result from it as live, promoted, or independently tradable.
+Round555-Round563 has been integrated into `main` and the topic branch has been deleted. Existing Round503-Round563 material records gated source construction, rejection evidence, tooling hardening, and paper-lane risk-repair evidence. Do not treat any result from it as live, promoted, or independently tradable.
 
 ## Deleted historical branches
 
@@ -1904,3 +1904,25 @@ Docs:
 - `docs/research/ROUND563_NEXT_STEPS_CHECKLIST.md`
 
 Decision: merge this topic branch into `main` after validation, delete the remote topic branch after `main` is pushed and verified, then start the next factor batch from latest `main` on a new topic branch.
+
+## Round564 Main Integration Completion
+
+Round564 completed the Round555-Round563 topic-branch closeout:
+
+- Switched to `main`.
+- Pulled latest `origin/main`.
+- Fast-forward merged `codex/factor-batch-cn-stock-round555-20260705`.
+- Ran `scripts\run_checks.py --profile laptop-integration --execute` on merged `main`.
+- Verification passed: 101 tests, Python compile, project audit, and safety audit.
+- Pushed `main` to origin.
+- Verified the topic branch was fully merged into `origin/main`.
+- Deleted remote branch `codex/factor-batch-cn-stock-round555-20260705`.
+- Deleted the local topic branch and pruned remotes.
+- Remote heads now contain `origin/main` only.
+
+Docs:
+
+- `docs/research/project_round564_main_integration_completion_2026-07-05.md`
+- `docs/research/ROUND564_NEXT_STEPS_CHECKLIST.md`
+
+Decision: the project is back to clean `main`-only cloud state. Start the next factor batch from latest `main` on a new topic branch, with a new preregistered PIT-safe source family.
