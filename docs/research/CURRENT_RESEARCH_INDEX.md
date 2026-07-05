@@ -9,8 +9,8 @@ Purpose: this is the first file to read after syncing the repository on any work
 - Stable branch: `main`
 - Remote HEAD: `origin/main`
 - Current remote topic branch: none
-- Remote branch cleanup status: Round464 and Round465-Round502 branches were merged into `main` and removed; Round503-Round553 branch `codex/factor-batch-cn-stock-profit-mining-20260704` was merged into `main` and removed in Round554; Round555-Round563 branch `codex/factor-batch-cn-stock-round555-20260705` was merged into `main` and removed in Round564; Round565 and Round566 were merged into `main` and removed on 2026-07-05
-- Latest integrated cloud commit: `origin/main` after Round566 financial source-gate closeout
+- Remote branch cleanup status: Round464 and Round465-Round502 branches were merged into `main` and removed; Round503-Round553 branch `codex/factor-batch-cn-stock-profit-mining-20260704` was merged into `main` and removed in Round554; Round555-Round563 branch `codex/factor-batch-cn-stock-round555-20260705` was merged into `main` and removed in Round564; Round565, Round566, and Round567 were merged into `main` and removed on 2026-07-05
+- Latest integrated cloud commit: `origin/main` after Round567 financial timeliness backfill progress
 - Live-trading boundary: disabled; research-to-paper only
 - Latest cloud audit report: `docs/research/cloud_project_audit_2026-06-27.md`
 
@@ -30,9 +30,9 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/data-pipeline-financial-timeliness-round567-20260705` | CN stock financial reporting timeliness data-pipeline branch | active; shard 19 net-new backfill progress recorded |
+| none | no active topic branch | main-only after Round567 integration |
 
-Round555-Round563 has been integrated into `main` and the prior topic branch has been deleted. Round565 and Round566 have also been integrated into `main` and their topic branches deleted. Round567 is a data-pipeline branch only; it may expand local source coverage, but it must not generate factors until the source gate clears. Existing Round503-Round566 material records gated source construction, rejection evidence, tooling hardening, and paper-lane risk-repair evidence. Do not treat any result from it as live, promoted, or independently tradable.
+Round555-Round563 has been integrated into `main` and the prior topic branch has been deleted. Round565, Round566, and Round567 have also been integrated into `main` and their topic branches deleted. Round567 was a data-pipeline branch only; it expanded local source coverage, but factor generation remains blocked until the source gate clears. Existing Round503-Round567 material records gated source construction, rejection evidence, tooling hardening, and paper-lane risk-repair evidence. Do not treat any result from it as live, promoted, or independently tradable.
 
 ## Deleted historical branches
 
