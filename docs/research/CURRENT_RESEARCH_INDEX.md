@@ -9,8 +9,8 @@ Purpose: this is the first file to read after syncing the repository on any work
 - Stable branch: `main`
 - Remote HEAD: `origin/main`
 - Current remote topic branch: none
-- Remote branch cleanup status: Round464 and Round465-Round502 branches were merged into `main` and removed; Round503-Round553 branch `codex/factor-batch-cn-stock-profit-mining-20260704` was merged into `main` and removed in Round554; Round555-Round563 branch `codex/factor-batch-cn-stock-round555-20260705` was merged into `main` and removed in Round564; Round565, Round566, Round567, Round568, Round569, Round570, Round571, Round572, Round573, Round574, Round575, Round576, Round577, Round578, Round579, Round580, Round581, Round582, Round583, Round584, Round585, Round586, Round587, Round588, Round589, Round590, Round591, and Round592 were merged into `main` and removed on 2026-07-05
-- Latest integrated cloud commit: `origin/main` after Round592 financial timeliness backfill progress
+- Remote branch cleanup status: Round464 and Round465-Round502 branches were merged into `main` and removed; Round503-Round553 branch `codex/factor-batch-cn-stock-profit-mining-20260704` was merged into `main` and removed in Round554; Round555-Round563 branch `codex/factor-batch-cn-stock-round555-20260705` was merged into `main` and removed in Round564; Round565, Round566, Round567, Round568, Round569, Round570, Round571, Round572, Round573, Round574, Round575, Round576, Round577, Round578, Round579, Round580, Round581, Round582, Round583, Round584, Round585, Round586, Round587, Round588, Round589, Round590, Round591, Round592, and Round593 were merged into `main` and removed on 2026-07-05
+- Latest integrated cloud commit: `origin/main` after Round593 financial timeliness backfill progress
 - Live-trading boundary: disabled; research-to-paper only
 - Latest cloud audit report: `docs/research/cloud_project_audit_2026-06-27.md`
 
@@ -30,9 +30,9 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| none | no active topic branch | main-only after Round592 integration |
+| none | no active topic branch | main-only after Round593 integration |
 
-Round555-Round563 has been integrated into `main` and the prior topic branch has been deleted. Round565, Round566, Round567, Round568, Round569, Round570, Round571, Round572, Round573, Round574, Round575, Round576, Round577, Round578, Round579, Round580, Round581, Round582, Round583, Round584, Round585, Round586, Round587, Round588, Round589, Round590, Round591, and Round592 have also been integrated into `main` and their topic branches deleted. Rounds 567-592 were data-pipeline branches only; they expanded local source coverage, but factor generation remains blocked until the source gate clears. Existing Round503-Round592 material records gated source construction, rejection evidence, tooling hardening, and paper-lane risk-repair evidence. Do not treat any result from it as live, promoted, or independently tradable.
+Round555-Round563 has been integrated into `main` and the prior topic branch has been deleted. Round565, Round566, Round567, Round568, Round569, Round570, Round571, Round572, Round573, Round574, Round575, Round576, Round577, Round578, Round579, Round580, Round581, Round582, Round583, Round584, Round585, Round586, Round587, Round588, Round589, Round590, Round591, Round592, and Round593 have also been integrated into `main` and their topic branches deleted. Rounds 567-593 were data-pipeline branches only; they expanded local source coverage, but factor generation remains blocked until the source gate clears. Existing Round503-Round593 material records gated source construction, rejection evidence, tooling hardening, and paper-lane risk-repair evidence. Do not treat any result from it as live, promoted, or independently tradable.
 
 ## Deleted historical branches
 
@@ -2643,3 +2643,29 @@ Docs:
 - `docs/research/ROUND592_NEXT_STEPS_CHECKLIST.md`
 
 Decision: Round592 improved source coverage from 520 to 521 unique symbols and completed shard 34, but financial reporting timeliness remains blocked. Continue audited net-new backfill only in small windows, starting with shard 35 offset 0, with a single-instance process check before provider work; do not preregister or test factors from the current cache.
+
+## Round593 Financial Reporting Timeliness Backfill Progress
+
+Round593 started from the clean, merged `main` state after Round592:
+
+- Active branch: `codex/data-pipeline-financial-timeliness-round593-20260705`.
+- Startup context and Quant PM startup gate were run for `office_desktop` / `data_pipeline`.
+- Quant PM startup gate status: `ready`, blockers `[]`.
+- Single-instance process check found no active backfill.
+- Shard 35 offset 0 limit 5 preview contained one already-covered symbol, `000090.SZ`, so it was not used for provider work.
+- Financial-root overlap preview confirmed shard 35 offset 0 limit 3 had 3 / 3 net-new symbols.
+- Selected symbols: `000962.SZ`, `002097.SZ`, `002191.SZ`.
+- Backfill passed with blockers `[]`.
+- Backfill totals: 3 symbols, 396 endpoint requests, 0 pre-listing skipped endpoint requests, 132 processed rows, and 1 empty request.
+- Post-backfill aggregate audit scanned `data\processed`.
+- Result: status `blocked`, source count 142, row count 112,119, unique symbols 524, minimum required symbols 1,000, source-ready count 0.
+- Candidate plan allowed: false.
+- Gate blocker remains `unique_symbol_count_below_minimum`.
+- No factor generation, IC screen, portfolio grid, promotion gate, or 2026 final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round593_financial_reporting_timeliness_backfill_progress_2026-07-05.md`
+- `docs/research/ROUND593_NEXT_STEPS_CHECKLIST.md`
+
+Decision: Round593 improved source coverage from 521 to 524 unique symbols while avoiding a mixed existing-symbol window, but financial reporting timeliness remains blocked. Continue audited net-new backfill only in small windows, starting with shard 35 offset 4, with a single-instance process check before provider work; do not preregister or test factors from the current cache.
