@@ -9,8 +9,8 @@ Purpose: this is the first file to read after syncing the repository on any work
 - Stable branch: `main`
 - Remote HEAD: `origin/main`
 - Current remote topic branch: none
-- Remote branch cleanup status: Round464 and Round465-Round502 branches were merged into `main` and removed; Round503-Round553 branch `codex/factor-batch-cn-stock-profit-mining-20260704` was merged into `main` and removed in Round554; Round555-Round563 branch `codex/factor-batch-cn-stock-round555-20260705` was merged into `main` and removed in Round564; Round565, Round566, Round567, Round568, Round569, Round570, Round571, Round572, Round573, Round574, Round575, Round576, Round577, Round578, Round579, Round580, Round581, Round582, Round583, Round584, Round585, Round586, Round587, Round588, Round589, Round590, Round591, Round592, Round593, Round594, Round595, Round596, Round597, Round598, Round599, Round600, Round601, Round602, Round603, Round604, Round605, Round606, Round607, and Round608 were merged into `main` and removed on 2026-07-05; Round609, Round610, Round611, Round612, Round613, and Round614 were merged into `main` and removed on 2026-07-06; Round615, Round616, Round617, Round618, Round619, Round620, Round621, Round622, Round623, and Round624 were merged into `main` and removed on 2026-07-07
-- Latest integrated cloud commit: `origin/main` after Round624 financial timeliness backfill progress
+- Remote branch cleanup status: Round464 and Round465-Round502 branches were merged into `main` and removed; Round503-Round553 branch `codex/factor-batch-cn-stock-profit-mining-20260704` was merged into `main` and removed in Round554; Round555-Round563 branch `codex/factor-batch-cn-stock-round555-20260705` was merged into `main` and removed in Round564; Round565, Round566, Round567, Round568, Round569, Round570, Round571, Round572, Round573, Round574, Round575, Round576, Round577, Round578, Round579, Round580, Round581, Round582, Round583, Round584, Round585, Round586, Round587, Round588, Round589, Round590, Round591, Round592, Round593, Round594, Round595, Round596, Round597, Round598, Round599, Round600, Round601, Round602, Round603, Round604, Round605, Round606, Round607, and Round608 were merged into `main` and removed on 2026-07-05; Round609, Round610, Round611, Round612, Round613, and Round614 were merged into `main` and removed on 2026-07-06; Round615, Round616, Round617, Round618, Round619, Round620, Round621, Round622, Round623, Round624, and Round625 were merged into `main` and removed on 2026-07-07
+- Latest integrated cloud commit: `origin/main` after Round625 financial timeliness backfill progress
 - Live-trading boundary: disabled; research-to-paper only
 - Latest cloud audit report: `docs/research/cloud_project_audit_2026-06-27.md`
 
@@ -30,9 +30,9 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| none | no active topic branch | main-only after Round624 integration |
+| none | no active topic branch | main-only after Round625 integration |
 
-Round555-Round563 has been integrated into `main` and the prior topic branch has been deleted. Round565, Round566, Round567, Round568, Round569, Round570, Round571, Round572, Round573, Round574, Round575, Round576, Round577, Round578, Round579, Round580, Round581, Round582, Round583, Round584, Round585, Round586, Round587, Round588, Round589, Round590, Round591, Round592, Round593, Round594, Round595, Round596, Round597, Round598, Round599, Round600, Round601, Round602, Round603, Round604, Round605, Round606, Round607, Round608, Round609, Round610, Round611, Round612, Round613, Round614, Round615, Round616, Round617, Round618, Round619, Round620, Round621, Round622, Round623, and Round624 have also been integrated into `main` and their topic branches deleted. Rounds 567-624 were data-pipeline branches only; they expanded local source coverage, but factor generation remains blocked until the source gate clears. Existing Round503-Round624 material records gated source construction, rejection evidence, tooling hardening, and paper-lane risk-repair evidence. Do not treat any result from it as live, promoted, or independently tradable.
+Round555-Round563 has been integrated into `main` and the prior topic branch has been deleted. Round565, Round566, Round567, Round568, Round569, Round570, Round571, Round572, Round573, Round574, Round575, Round576, Round577, Round578, Round579, Round580, Round581, Round582, Round583, Round584, Round585, Round586, Round587, Round588, Round589, Round590, Round591, Round592, Round593, Round594, Round595, Round596, Round597, Round598, Round599, Round600, Round601, Round602, Round603, Round604, Round605, Round606, Round607, Round608, Round609, Round610, Round611, Round612, Round613, Round614, Round615, Round616, Round617, Round618, Round619, Round620, Round621, Round622, Round623, Round624, and Round625 have also been integrated into `main` and their topic branches deleted. Rounds 567-625 were data-pipeline branches only; they expanded local source coverage, but factor generation remains blocked until the source gate clears. Existing Round503-Round625 material records gated source construction, rejection evidence, tooling hardening, and paper-lane risk-repair evidence. Do not treat any result from it as live, promoted, or independently tradable.
 
 ## Deleted historical branches
 
@@ -3489,3 +3489,32 @@ Docs:
 - `docs/research/ROUND624_NEXT_STEPS_CHECKLIST.md`
 
 Decision: Round624 improved source coverage from 667 to 672 unique symbols, but financial reporting timeliness remains blocked. Continue audited net-new backfill only in small windows, moving to shard 42 offset 15; do not preregister or test factors from the current cache.
+
+## Round625 Financial Reporting Timeliness Backfill Progress
+
+Round625 started from the clean, merged `main` state after Round624:
+
+- Active branch: `codex/data-pipeline-financial-timeliness-round625-20260707`.
+- Startup context and Quant PM startup gate were run for `office_desktop` / `data_pipeline`.
+- Quant PM startup gate status: `ready`, blockers `[]`.
+- Preflight source audit remained blocked at 672 / 1,000 unique symbols.
+- Sync audit before provider work had no syncable files and no blockers.
+- Single-instance process check found no active backfill.
+- Financial-root overlap preview confirmed shard 42 offset 15 limit 5 had 5 / 5 net-new symbols.
+- Selected symbols: `002521.SZ`, `601007.SH`, `002593.SZ`, `600338.SH`, `600362.SH`.
+- Backfill passed with blockers `[]`.
+- Backfill totals: 5 symbols, 660 endpoint requests, 0 pre-listing skipped endpoint requests, 220 processed rows, and 5 empty requests.
+- Post-backfill aggregate audit scanned `data\processed`.
+- Result: status `blocked`, source count 176, row count 143,559, unique symbols 677, minimum required symbols 1,000, source-ready count 0.
+- Candidate plan allowed: false.
+- Gate blocker remains `unique_symbol_count_below_minimum`.
+- Shard 42 offset 20 limit 5 previewed as empty.
+- Shard 43 offset 0 limit 5 previewed as 5 / 5 net-new.
+- No factor generation, IC screen, portfolio grid, promotion gate, or 2026 final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round625_financial_reporting_timeliness_backfill_progress_2026-07-07.md`
+- `docs/research/ROUND625_NEXT_STEPS_CHECKLIST.md`
+
+Decision: Round625 improved source coverage from 672 to 677 unique symbols, but financial reporting timeliness remains blocked. Shard 42 is exhausted; continue audited net-new backfill only in small windows, moving to shard 43 offset 0; do not preregister or test factors from the current cache.
