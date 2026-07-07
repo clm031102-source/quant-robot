@@ -3897,3 +3897,29 @@ Docs:
 - `docs/research/ROUND638_NEXT_STEPS_CHECKLIST.md`
 
 Decision: Round638 improved source coverage from 737 to 742 unique symbols, but financial reporting timeliness remains blocked. Continue audited net-new backfill only in small windows, moving to shard 46 offset 10 from merged `main`. Do not preregister or test factors from the current cache.
+
+## Round507 Analyst Report Revision April Extension
+
+Round507 continued the quota-aware analyst-report-revision PIT source from the clean gated factor-batch branch:
+
+- Active branch: `codex/factor-batch-cn-stock-20260707`.
+- Pre-alpha completion gate cleared after Round638 was fast-forwarded into `main` and the absorbed remote topic branch was removed.
+- Quant PM startup gate status: `ready`, blockers `[]`.
+- CN stock startup gate status: `cleared`, blockers `[]`.
+- CN stock data manifest blockers: `[]`; warnings remained `extreme_return_rows_present` and `moneyflow_symbol_coverage_below_bars`.
+- Quota preflight allowed the April `report_rc` request on 2026-07-07.
+- April cache fetched 1 monthly window, 1,696 rows, 876 assets, 0 failed windows, 0 rate-limited windows, and 0 row-cap warnings.
+- Frozen Jan-Apr PIT prescreen passed structurally with all 4 candidate names present.
+- Prescreen totals: 6,828 report rows, 1,789 report assets, 13,594 factor rows, 27,188 aligned rows, and 8 tests.
+- Multiple-testing lead count: 0.
+- Neutral-gate pass count: 0.
+- Research lead count: 0.
+- Promotion-allowed candidates: 0.
+- No portfolio grid, promotion gate, formula tuning, or 2026 final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round507_analyst_report_revision_april_extension_2026-07-07.md`
+- `docs/research/ROUND507_NEXT_STEPS_CHECKLIST.md`
+
+Decision: adding April did not recover analyst-report-revision evidence. Prefer family rotation to a genuinely new PIT-safe source candidate plan. Only continue analyst history if explicitly spending one more quota-limited monthly cache with frozen formulas and no portfolio or promotion work.
