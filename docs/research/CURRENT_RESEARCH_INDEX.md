@@ -3897,3 +3897,32 @@ Docs:
 - `docs/research/ROUND638_NEXT_STEPS_CHECKLIST.md`
 
 Decision: Round638 improved source coverage from 737 to 742 unique symbols, but financial reporting timeliness remains blocked. Continue audited net-new backfill only in small windows, moving to shard 46 offset 10 from merged `main`. Do not preregister or test factors from the current cache.
+
+## Round639 Financial Reporting Timeliness Backfill Progress
+
+Round639 started from the clean, merged `main` state after Round638:
+
+- Active branch: `codex/data-pipeline-financial-timeliness-round639-20260707`.
+- Startup context and Quant PM startup gate were run for `office_desktop` / `data_pipeline`.
+- Quant PM startup gate status: `ready`, blockers `[]`.
+- Preflight source audit remained blocked at 742 / 1,000 unique symbols.
+- Sync audit before provider work had no syncable files, blockers `[]`, and branch discovery errors `[]`; it also noted pending integration for `origin/codex/factor-batch-cn-stock-20260707`.
+- Single-instance process check found no active backfill.
+- Financial-root overlap preview confirmed shard 46 offset 10 limit 5 had 5 / 5 net-new symbols.
+- Selected symbols: `600688.SH`, `600871.SH`, `300700.SZ`, `600883.SH`, `603779.SH`.
+- Backfill passed with blockers `[]`.
+- Backfill totals: 5 symbols, 660 endpoint requests, 0 pre-listing skipped endpoint requests, 216 processed rows, and 17 empty requests.
+- Quality report passed with 0 duplicate rows.
+- Post-backfill aggregate audit scanned `data\processed`.
+- Result: status `blocked`, source count 190, row count 158,269, unique symbols 747, minimum required symbols 1,000, source-ready count 0.
+- Candidate plan allowed: false.
+- Gate blocker remains `unique_symbol_count_below_minimum`.
+- Shard 46 offset 15 limit 5 previewed as 5 / 5 net-new.
+- No factor generation, IC screen, portfolio grid, promotion gate, mixed-window harvesting, or 2026 final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round639_financial_reporting_timeliness_backfill_progress_2026-07-07.md`
+- `docs/research/ROUND639_NEXT_STEPS_CHECKLIST.md`
+
+Decision: Round639 improved source coverage from 742 to 747 unique symbols, but financial reporting timeliness remains blocked. Continue audited net-new backfill only in small windows, moving to shard 46 offset 15 from merged `main`. Do not preregister or test factors from the current cache.
