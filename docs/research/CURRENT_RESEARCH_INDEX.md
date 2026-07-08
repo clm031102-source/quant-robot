@@ -5411,3 +5411,31 @@ Docs:
 - `docs/research/ROUND689_NEXT_STEPS_CHECKLIST.md`
 
 Decision: Round689 improved source coverage from 992 to 997 unique symbols, but financial reporting timeliness remains blocked. Continue audited net-new backfill only in small windows, moving to shard 59 offset 5 from merged `main`. Do not preregister or test factors from the current cache.
+
+## Round690 Financial Reporting Timeliness Source Gate Clearance
+
+Round690 started from the clean, merged `main` state after Round689:
+
+- Active branch: `codex/data-pipeline-financial-timeliness-round690-20260708`.
+- Startup context and Quant PM startup gate were run for `office_desktop` / `data_pipeline`.
+- Quant PM startup gate status: `ready`, blockers `[]`.
+- Preflight source audit remained blocked at 997 / 1,000 unique symbols using `--financial-root data\processed`.
+- Sync audit before provider work had no syncable files, blockers `[]`, branch discovery errors `[]`, and remote topic branches `0`.
+- Single-instance process check found no active backfill.
+- Financial-root overlap preview confirmed shard 59 offset 5 limit 5 had 5 / 5 net-new symbols.
+- Selected symbols: `002550.SZ`, `300124.SZ`, `002056.SZ`, `600199.SH`, `600655.SH`.
+- Backfill passed with blockers `[]`.
+- Backfill totals: 5 symbols, 660 endpoint requests, 0 pre-listing skipped endpoint requests, 220 processed rows, and 0 empty requests.
+- Quality report passed with 0 duplicate rows and 0 missing asset-id rows.
+- Post-backfill aggregate audit scanned `data\processed`.
+- Result: status `source_ready`, source count 241, row count 212,387, unique symbols 1,002, minimum required symbols 1,000, source-ready count 1.
+- Candidate plan allowed: true.
+- Gate blockers are now `[]`; source gate cleared.
+- No factor generation, IC screen, portfolio grid, promotion gate, mixed-window harvesting, or 2026 final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round690_financial_reporting_timeliness_backfill_progress_2026-07-08.md`
+- `docs/research/ROUND690_NEXT_STEPS_CHECKLIST.md`
+
+Decision: Round690 cleared the financial reporting timeliness source gate. Stop source-only backfill for this family and move to a dedicated factor-batch candidate-plan branch from merged `main`. Run preregistration plus `scripts/run_factor_mining_candidate_plan_gate.py` before any IC screen. Portfolio grids, promotion, sign/window tuning, mixed-window harvesting, and 2026 final-holdout reads remain blocked.
