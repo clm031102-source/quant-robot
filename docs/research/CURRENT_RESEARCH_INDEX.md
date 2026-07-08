@@ -5352,3 +5352,33 @@ Docs:
 - `docs/research/ROUND687_NEXT_STEPS_CHECKLIST.md`
 
 Decision: Round687 improved source coverage from 982 to 987 unique symbols, but financial reporting timeliness remains blocked. Continue audited net-new backfill only in small windows, moving to shard 58 offset 15 from merged `main`. Do not preregister or test factors from the current cache.
+
+## Round688 Financial Reporting Timeliness Backfill Progress
+
+Round688 started from the clean, merged `main` state after Round687:
+
+- Active branch: `codex/data-pipeline-financial-timeliness-round688-20260708`.
+- Startup context and Quant PM startup gate were run for `office_desktop` / `data_pipeline`.
+- Quant PM startup gate status: `ready`, blockers `[]`.
+- Preflight source audit remained blocked at 987 / 1,000 unique symbols using `--financial-root data\processed`.
+- Sync audit before provider work had no syncable files, blockers `[]`, branch discovery errors `[]`, and remote topic branches `0`.
+- Single-instance process check found no active backfill.
+- Financial-root overlap preview confirmed shard 58 offset 15 limit 5 had 5 / 5 net-new symbols.
+- Selected symbols: `601199.SH`, `003037.SZ`, `603167.SH`, `600066.SH`, `000981.SZ`.
+- Backfill passed with blockers `[]`.
+- Backfill totals: 5 symbols, 660 endpoint requests, 0 pre-listing skipped endpoint requests, 206 processed rows, and 44 empty requests.
+- Quality report passed with 0 duplicate rows and 0 missing asset-id rows.
+- Post-backfill aggregate audit scanned `data\processed`.
+- Result: status `blocked`, source count 239, row count 210,178, unique symbols 992, minimum required symbols 1,000, source-ready count 0.
+- Candidate plan allowed: false.
+- Gate blocker remains `unique_symbol_count_below_minimum`.
+- Shard 58 offset 20 limit 5 returned 0 symbols, confirming the shard 58 boundary.
+- Shard 59 offset 0 limit 5 previewed as 5 / 5 net-new.
+- No factor generation, IC screen, portfolio grid, promotion gate, mixed-window harvesting, or 2026 final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round688_financial_reporting_timeliness_backfill_progress_2026-07-08.md`
+- `docs/research/ROUND688_NEXT_STEPS_CHECKLIST.md`
+
+Decision: Round688 improved source coverage from 987 to 992 unique symbols, but financial reporting timeliness remains blocked. Continue audited net-new backfill only in small windows, moving to shard 59 offset 0 from merged `main`. Do not preregister or test factors from the current cache.
