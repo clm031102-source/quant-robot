@@ -1,9 +1,15 @@
 import json
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
+from quant_robot.ops.factor_batch_readiness_gate import (
+    build_factor_batch_readiness_gate,
+    write_factor_batch_readiness_gate,
+)
+from quant_robot.ops.factor_mining_startup import build_factor_mining_startup_gate
 from scripts.run_paper_profile_optimizer import run_paper_profile_optimizer
 
 
@@ -280,6 +286,142 @@ class PaperProfileOptimizerCliTests(unittest.TestCase):
         self.assertEqual(pack["selection_status"], "no_frontier_candidate")
         self.assertEqual(pack["summary"]["frontier_candidates"], 0)
         self.assertEqual(pack["attempts"], [])
+
+    def test_processed_cn_profile_optimizer_blocks_before_output_when_readiness_gate_is_blocked(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            constrained_pack = root / "constrained_candidate_search_pack.json"
+            output_dir = root / "paper_profile_optimizer"
+            data_root = root / "data"
+            constrained_pack.write_text(
+                json.dumps(
+                    {
+                        "frontier_candidates": [
+                            {
+                                "case_id": "CN_total_mv_log_top1_cost5_reb1",
+                                "market": "CN",
+                                "factor_name": "total_mv_log",
+                            }
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            config_path = root / "paper_profile_optimizer.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "constrained_search_pack": str(constrained_pack),
+                        "source": "processed-bars",
+                        "data_root": str(data_root),
+                        "startup_gate_packet": str(_write_startup_gate(root)),
+                        "data_manifest_packet": str(_write_data_manifest(root, data_root)),
+                        "factor_batch_readiness_gate_packet": str(_write_factor_batch_readiness_gate(root, ready=False)),
+                        "allow_review_required_data_manifest": True,
+                        "output_dir": str(output_dir),
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with patch("scripts.run_paper_profile_optimizer.run_simulation") as run_mock:
+                with self.assertRaisesRegex(ValueError, "factor batch readiness gate is not ready"):
+                    run_paper_profile_optimizer(config_path)
+
+            run_mock.assert_not_called()
+            self.assertFalse(output_dir.exists())
+
+
+def _write_startup_gate(root: Path) -> Path:
+    packet_path = root / "factor_mining_startup_gate.json"
+    config = {
+        "scope_id": "cn_stock_factor_mining",
+        "market": "CN",
+        "asset_type": "stock",
+        "allowed_machines": ["office_desktop"],
+        "allowed_tasks": ["factor_batch"],
+        "recommended_branch_prefixes": ["codex/factor-batch-cn-stock-"],
+        "required_confirmations": [
+            "machine_confirmed",
+            "task_confirmed",
+            "branch_confirmed",
+            "push_policy_confirmed",
+            "cn_stock_scope_confirmed",
+            "etf_scope_rejected",
+        ],
+    }
+    branch = "codex/factor-batch-cn-stock-20260617"
+    packet = build_factor_mining_startup_gate(
+        config,
+        request={
+            "machine": "office_desktop",
+            "task": "factor_batch",
+            "branch": branch,
+            "market": "CN",
+            "asset_type": "stock",
+            "confirmations": {name: True for name in config["required_confirmations"]},
+        },
+        current_branch=branch,
+    )
+    packet_path.write_text(json.dumps(packet), encoding="utf-8")
+    return packet_path
+
+
+def _write_data_manifest(root: Path, source_root: Path) -> Path:
+    packet_path = root / "cn_stock_data_manifest.json"
+    packet_path.write_text(
+        json.dumps(
+            {
+                "generated_at": date.today().isoformat(),
+                "status": "cleared",
+                "summary": {"source_root": source_root.as_posix(), "bar_rows": 10, "bar_symbols": 2},
+                "decision": {"data_manifest_cleared": True, "blockers": [], "warnings": []},
+                "live_boundary_allowed": False,
+            }
+        ),
+        encoding="utf-8",
+    )
+    return packet_path
+
+
+def _write_factor_batch_readiness_gate(root: Path, *, ready: bool) -> Path:
+    output_dir = root / ("ready_readiness_gate" if ready else "blocked_readiness_gate")
+    if ready:
+        source_queue_packet = {
+            "decision": {"status": "cleared", "blockers": []},
+            "summary": {"active_source_count": 1},
+        }
+        candidate_plan_gate_packet = {
+            "status": "research_ready",
+            "decision": {
+                "candidate_plan_gate_cleared": True,
+                "research_screen_allowed": True,
+                "blockers": [],
+            },
+            "summary": {"candidate_count": 1},
+        }
+    else:
+        source_queue_packet = {
+            "decision": {"status": "blocked", "blockers": ["report_rc_quota_blocked"]},
+            "summary": {"active_source_count": 1},
+        }
+        candidate_plan_gate_packet = {
+            "status": "blocked",
+            "decision": {
+                "candidate_plan_gate_cleared": False,
+                "blockers": ["candidate_source_provider_not_allowed"],
+            },
+            "summary": {"candidate_count": 1},
+        }
+    packet = build_factor_batch_readiness_gate(
+        source_queue_packet=source_queue_packet,
+        candidate_plan_gate_packet=candidate_plan_gate_packet,
+        candidate_plan_path="candidate_plan.json",
+        source_queue_output_dir="source_queue",
+        candidate_plan_gate_output_dir="candidate_gate",
+    )
+    write_factor_batch_readiness_gate(output_dir, packet)
+    return output_dir / "factor_batch_readiness_gate.json"
 
 
 if __name__ == "__main__":

@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round721_paper_profile_optimizer_readiness_guard_2026-07-09.md`
 - `docs/research/cn_stock_round720_paper_batch_readiness_guard_2026-07-09.md`
 - `docs/research/cn_stock_round719_paper_simulation_readiness_guard_2026-07-09.md`
 - `docs/research/cn_stock_round718_research_pipeline_readiness_guard_2026-07-09.md`
@@ -6009,3 +6010,23 @@ Docs:
 - `docs/research/cn_stock_round720_paper_batch_readiness_guard_2026-07-09.md`
 
 Decision: future CN processed-bars paper batches must provide ready startup, data-manifest, and combined factor-batch readiness packets. The current Round708 readiness packet is blocked, so no CN paper-batch evidence should be generated until quota/source/candidate readiness clears.
+
+## Round721 Paper Profile Optimizer Readiness Guard
+
+Round721 connected the CN paper-profile optimizer to startup, data-manifest, and combined factor-batch readiness gates.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Added config fields `startup_gate_packet`, `data_manifest_packet`, `factor_batch_readiness_gate_packet`, and `allow_review_required_data_manifest` to `scripts/run_paper_profile_optimizer.py`.
+- CN `processed-bars` paper-profile optimizer runs now validate startup, data manifest, and combined factor-batch readiness before profile simulation or output write when any frontier candidate targets `CN` or `ALL`.
+- The same gate paths are passed through to `run_simulation` for each profile attempt.
+- Real smoke used today's CN stock data manifest and stopped on the blocked Round708 readiness packet.
+- Error: `CN paper profile optimizer factor batch readiness gate is not ready`.
+- The paper-profile optimizer smoke output directory was not created.
+- Focused tests: `5 passed`.
+- No provider download, new factor formula, IC screen, portfolio grid, walk-forward validation, promotion gate, ready signal generation, paper simulation from a ready packet, paper-profile optimization from a ready packet, or final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round721_paper_profile_optimizer_readiness_guard_2026-07-09.md`
+
+Decision: future CN processed-bars paper-profile optimizer runs must provide ready startup, data-manifest, and combined factor-batch readiness packets. The current Round708 readiness packet is blocked, so no CN paper-profile optimizer evidence should be generated until quota/source/candidate readiness clears.

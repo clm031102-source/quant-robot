@@ -17,6 +17,9 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 
 ensure_workspace_imports()
 
+from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manifest_packet
+from quant_robot.ops.factor_batch_readiness_gate import validate_factor_batch_readiness_gate_packet
+from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet
 from quant_robot.ops.risk_policy_tiers import (
     PHASE_5_4_STAGE,
     assign_risk_tier,
@@ -41,6 +44,10 @@ class PaperProfileOptimizerConfig:
     constrained_search_pack: Path = Path("data/reports/constrained_candidate_search/constrained_candidate_search_pack.json")
     source: str = "processed-bars"
     data_root: Path = Path("data/processed/etf_csv")
+    startup_gate_packet: Path | None = None
+    data_manifest_packet: Path | None = None
+    factor_batch_readiness_gate_packet: Path | None = None
+    allow_review_required_data_manifest: bool = False
     output_dir: Path = Path("data/reports/paper_profile_optimizer")
     max_frontier_candidates: int = 1
     factor_windows: tuple[int, ...] = (5, 10, 20, 60, 120)
@@ -65,6 +72,17 @@ def load_paper_profile_optimizer_config(path: str | Path = DEFAULT_CONFIG) -> Pa
         constrained_search_pack=Path(data.get("constrained_search_pack", PaperProfileOptimizerConfig.constrained_search_pack)),
         source=str(data.get("source", PaperProfileOptimizerConfig.source)),
         data_root=Path(data.get("data_root", PaperProfileOptimizerConfig.data_root)),
+        startup_gate_packet=Path(data["startup_gate_packet"]) if data.get("startup_gate_packet") else None,
+        data_manifest_packet=Path(data["data_manifest_packet"]) if data.get("data_manifest_packet") else None,
+        factor_batch_readiness_gate_packet=(
+            Path(data["factor_batch_readiness_gate_packet"]) if data.get("factor_batch_readiness_gate_packet") else None
+        ),
+        allow_review_required_data_manifest=bool(
+            data.get(
+                "allow_review_required_data_manifest",
+                PaperProfileOptimizerConfig.allow_review_required_data_manifest,
+            )
+        ),
         output_dir=Path(data.get("output_dir", PaperProfileOptimizerConfig.output_dir)),
         max_frontier_candidates=int(data.get("max_frontier_candidates", PaperProfileOptimizerConfig.max_frontier_candidates)),
         factor_windows=tuple(int(value) for value in data.get("factor_windows", PaperProfileOptimizerConfig.factor_windows)),
@@ -90,6 +108,7 @@ def run_paper_profile_optimizer(config_path: str | Path = DEFAULT_CONFIG) -> dic
     config = load_paper_profile_optimizer_config(config_path)
     constrained = _read_json(config.constrained_search_pack)
     frontier = _frontier_candidates(constrained, config.max_frontier_candidates)
+    _enforce_cn_stock_profile_optimizer_inputs(config, frontier)
     attempts = []
     for candidate in frontier:
         for profile in _risk_profiles(config):
@@ -257,6 +276,10 @@ def _run_profile_attempt(candidate: dict[str, Any], profile: dict[str, Any], con
             min_cash_weight=_float(profile.get("min_cash_weight"), 0.0),
             max_drawdown_guard=profile.get("max_drawdown_guard"),
             guard_cooldown_periods=_int(profile.get("guard_cooldown_periods")),
+            startup_gate_packet=config.startup_gate_packet,
+            data_manifest_packet=config.data_manifest_packet,
+            factor_batch_readiness_gate_packet=config.factor_batch_readiness_gate_packet,
+            allow_review_required_data_manifest=config.allow_review_required_data_manifest,
             output_dir=None,
         )
         metrics = result.get("metrics", {}) if isinstance(result.get("metrics"), dict) else {}
@@ -392,6 +415,28 @@ def _risk_profiles(config: PaperProfileOptimizerConfig) -> tuple[dict[str, Any],
     )
 
 
+def _enforce_cn_stock_profile_optimizer_inputs(
+    config: PaperProfileOptimizerConfig,
+    frontier: list[dict[str, Any]],
+) -> None:
+    if config.source != "processed-bars" or not any(str(row.get("market", "")).upper() in {"CN", "ALL"} for row in frontier):
+        return
+    validate_cleared_startup_gate_packet(
+        config.startup_gate_packet,
+        context="CN paper profile optimizer",
+    )
+    validate_cn_stock_data_manifest_packet(
+        config.data_manifest_packet,
+        expected_source_root=config.data_root,
+        allow_review_required=config.allow_review_required_data_manifest,
+        context="CN paper profile optimizer",
+    )
+    validate_factor_batch_readiness_gate_packet(
+        config.factor_batch_readiness_gate_packet,
+        context="CN paper profile optimizer",
+    )
+
+
 def _risk_profile(value: Any, index: int) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError("risk_profiles entries must be JSON objects")
@@ -493,6 +538,14 @@ def _config_dict(config: PaperProfileOptimizerConfig) -> dict[str, Any]:
         "constrained_search_pack": str(config.constrained_search_pack),
         "source": config.source,
         "data_root": str(config.data_root),
+        "startup_gate_packet": str(config.startup_gate_packet) if config.startup_gate_packet is not None else None,
+        "data_manifest_packet": str(config.data_manifest_packet) if config.data_manifest_packet is not None else None,
+        "factor_batch_readiness_gate_packet": (
+            str(config.factor_batch_readiness_gate_packet)
+            if config.factor_batch_readiness_gate_packet is not None
+            else None
+        ),
+        "allow_review_required_data_manifest": config.allow_review_required_data_manifest,
         "output_dir": str(config.output_dir),
         "max_frontier_candidates": config.max_frontier_candidates,
         "factor_windows": list(config.factor_windows),
