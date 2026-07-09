@@ -6,8 +6,8 @@
     {
       "control_id": "policy_liquidity_regime",
       "dataset_refs": ["processed/external_macro_rates"],
-      "usable_fields": ["shibor_on", "shibor_1w", "shibor_1m", "shibor_3m", "shibor_1y"],
-      "blocked_fields": ["lpr_1y", "lpr_5y"],
+      "usable_fields": ["shibor_on", "shibor_1w", "shibor_1m", "shibor_3m", "shibor_1y", "lpr_1y", "lpr_5y"],
+      "blocked_fields": [],
       "available_date_required": true,
       "pit_join_required": true,
       "standalone_alpha_claim_allowed": false

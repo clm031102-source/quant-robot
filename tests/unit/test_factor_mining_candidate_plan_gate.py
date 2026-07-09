@@ -342,6 +342,49 @@ class FactorMiningCandidatePlanGateTests(unittest.TestCase):
         self.assertTrue(row["source_queue_allowed"])
         self.assertTrue(row["local_prescreen_allowed"])
 
+    def test_allows_lpr_macro_regime_candidate_when_no_provider_source_is_ready(self) -> None:
+        plan = _candidate_plan()
+        plan["candidates"][0].update(
+            {
+                "factor_name": "lpr_term_premium_easing_regime_60",
+                "family": "external_macro_lpr_regime",
+                "source_id": "external_macro_lpr_regime",
+                "hypothesis_source": "macro_liquidity:lpr_term_structure_regime",
+                "economic_rationale": (
+                    "LPR term-premium changes are a policy-liquidity regime control for later residual screens, "
+                    "not a standalone stock ranking alpha."
+                ),
+            }
+        )
+        local_queue = _local_source_queue_packet(
+            source_id="external_macro_lpr_regime",
+            status="active_source_accumulation",
+            provider_required=False,
+            evidence_present=True,
+            decision={
+                "status": "cleared",
+                "provider_factor_batch_allowed": False,
+                "no_provider_factor_batch_allowed": True,
+                "local_prescreen_allowed": True,
+                "blockers": ["report_rc_quota_blocked"],
+            },
+        )
+
+        packet = build_factor_mining_candidate_plan_gate(
+            plan,
+            gate_stage="discovery",
+            local_source_queue_audit=local_queue,
+        )
+
+        self.assertEqual(packet["status"], "research_ready")
+        self.assertTrue(packet["decision"]["candidate_plan_gate_cleared"])
+        self.assertTrue(packet["decision"]["research_screen_allowed"])
+        self.assertFalse(packet["decision"]["portfolio_grid_allowed"])
+        self.assertFalse(packet["decision"]["promotion_allowed"])
+        row = packet["candidate_rows"][0]
+        self.assertTrue(row["source_queue_allowed"])
+        self.assertTrue(row["local_prescreen_allowed"])
+
     def test_validate_local_prescreen_packet_accepts_blocked_full_batch_when_cached_source_is_ready(self) -> None:
         plan = _candidate_plan()
         plan["candidates"][0]["source_id"] = "analyst_report_revision"

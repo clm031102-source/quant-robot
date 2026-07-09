@@ -1,0 +1,186 @@
+{
+  "stage": "round730_lpr_macro_regime_control_preregistration",
+  "round": 730,
+  "market": "CN",
+  "asset_type": "stock",
+  "source_audit": "data/reports/round695_external_feed_lpr_repaired_coverage_audit_20260709/external_feed_coverage_audit.json",
+  "source_join_smoke": "data/reports/round730_lpr_regime_join_smoke_20260709/external_feed_factor_matrix_join_smoke.json",
+  "source_plan_config": "configs/external_feed_lpr_regime_source_preregistration_round695_20260709.json",
+  "scope": {
+    "machine": "office_desktop",
+    "task": "factor_batch",
+    "branch": "codex/factor-batch-cn-stock-source-readiness-round695-20260709"
+  },
+  "research_control_plan": {
+    "declared_controls": {
+      "cn_stock_tradeability": [
+        "limit_up_down_filter",
+        "suspension_filter",
+        "st_flag_filter",
+        "new_listing_age_filter",
+        "delisting_risk_filter",
+        "board_permission_filter"
+      ],
+      "financial_pit_timing": [
+        "ann_date_or_effective_date_lag",
+        "financial_revision_announcement_handling",
+        "report_release_lag_not_period_end",
+        "no_period_end_only_financial_signal"
+      ],
+      "source_sample_integrity": [
+        "endpoint_permission_or_cache_manifest",
+        "point_in_time_available_date_semantics",
+        "full_sample_2015_2025_same_parameter_replay",
+        "train_test_or_walk_forward_split_declared",
+        "future_function_static_audit",
+        "rejected_hypothesis_counting"
+      ],
+      "industry_style_neutralization": [
+        "industry_exposure_report",
+        "size_exposure_report",
+        "value_lowvol_momentum_liquidity_decomposition",
+        "neutralized_or_residual_factor_matrix"
+      ],
+      "etf_rotation_scope_boundary": [
+        "stock_scope_confirmed",
+        "etf_rotation_evidence_rejected_for_stock_factor",
+        "cn_etf_dedicated_signal_pack_separate"
+      ],
+      "portfolio_construction": [
+        "risk_budget_position_sizing",
+        "volatility_targeting_or_volatility_budget",
+        "industry_weight_constraints",
+        "turnover_constraints",
+        "stop_loss_or_de_risk_rules"
+      ],
+      "strict_statistics": [
+        "deflated_sharpe",
+        "purged_cpcv",
+        "white_reality_check_or_fdr",
+        "parameter_sensitivity_heatmap",
+        "multiple_testing_accounting"
+      ],
+      "china_market_regime": [
+        "policy_liquidity_regime",
+        "credit_cycle_proxy",
+        "northbound_margin_turnover_temperature",
+        "index_location_state",
+        "signal_window_regime_coverage"
+      ],
+      "event_factors": [
+        "earnings_forecast_or_statement_event_audit",
+        "dividend_ex_right_event_audit",
+        "buyback_holder_unlock_event_audit",
+        "index_rebalance_event_audit",
+        "event_contamination_extreme_return_audit"
+      ]
+    },
+    "policy": "Round730 may only screen repaired LPR macro-rate state as a PIT policy-liquidity regime control. It is not a standalone stock rank, portfolio grid, promotion claim, or 2026 tuning path."
+  },
+  "data_source_plan": {
+    "processed_root": "data/processed/round695_external_feeds_lpr_repaired_20260709",
+    "coverage_audit_status": "pass",
+    "join_smoke_status": "macro_lpr_seeds_passed_hk_hold_interaction_insufficient_history",
+    "analysis_start_date": "2024-07-01",
+    "analysis_end_date": "2025-12-31",
+    "provider_policy": "Use existing local repaired external-feed files only; no provider call.",
+    "final_holdout_2026_available_for_tuning": false
+  },
+  "evaluation_gate": {
+    "required_metrics": [
+      "source_coverage_audit_pass",
+      "available_date_join_smoke_zero_violations",
+      "macro_regime_state_distribution",
+      "residual_ic_by_regime_against_pre_registered_stock_factor",
+      "industry_size_liquidity_neutral_retention",
+      "reference_dedup_against_price_volume_moneyflow_and_style",
+      "rolling_walk_forward_if_residual_screen_leads",
+      "cost_capacity_gate_if_portfolio_bridge_is_later_requested",
+      "signal_window_regime_coverage"
+    ],
+    "multiple_testing_accounting_required": true,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "promotion_allowed": false,
+    "final_holdout_available_for_tuning": false
+  },
+  "promotion_policy": {
+    "promotion_allowed": false,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "requires_data_source_availability_proof": true,
+    "requires_long_cycle_replay": true,
+    "requires_same_parameter_full_sample": true,
+    "requires_full_sample_regime_coverage": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true,
+    "requires_no_lookahead_audit": true,
+    "requires_future_function_static_audit": true,
+    "requires_overfit_multiple_testing_control": true,
+    "requires_overlap_adjusted_statistics": true,
+    "requires_parameter_sensitivity": true,
+    "requires_parameter_sensitivity_heatmap": true,
+    "requires_deflated_sharpe_or_fdr": true,
+    "requires_cpcv_or_purged_walk_forward": true,
+    "requires_white_reality_check_or_multiple_test_adjustment": true,
+    "requires_profit_drawdown_winrate_report": true,
+    "requires_final_holdout_read_once": true,
+    "requires_tradeability_survivorship_audit": true,
+    "requires_industry_style_neutralization": true,
+    "requires_source_performance_evidence": true
+  },
+  "family_rotation_policy": {
+    "current_family_id": "external_macro_lpr_regime",
+    "current_family_round_count": 1,
+    "max_rounds_before_review": 3,
+    "three_round_review_completed": true,
+    "hibernated_families": [
+      {
+        "family": "old_northbound_accumulation_rerun_without_new_mechanism",
+        "reason": "Round695 LPR path is macro-rate source readiness, not a revival of old standalone northbound accumulation."
+      },
+      {
+        "family": "old_margin_credit_reentry_without_residual_repair",
+        "reason": "Credit-cycle controls may be context only; old direct margin-credit alpha reentry remains blocked."
+      }
+    ],
+    "blocked_families": []
+  },
+  "candidates": [
+    {
+      "factor_name": "lpr_term_premium_easing_regime_60",
+      "family": "external_macro_lpr_regime",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "source_id": "external_macro_lpr_regime",
+      "hypothesis_source": "macro_liquidity:lpr_term_structure_regime",
+      "economic_rationale": "The LPR 5Y minus 1Y term premium and its medium-term change can identify credit-easing or tightening states that may condition later cross-sectional residual signals.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "lpr_shibor_credit_gap_regime_60",
+      "family": "external_macro_lpr_regime",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "source_id": "external_macro_lpr_regime",
+      "hypothesis_source": "macro_liquidity:lpr_shibor_credit_gap",
+      "economic_rationale": "The gap between policy loan rates and money-market rates can mark credit-liquidity stress regimes for later residual factor stratification.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "hk_hold_stability_x_lpr_easing_regime_60",
+      "family": "external_hk_hold_lpr_regime_interaction",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "blocked_by_coverage",
+      "source_id": "external_hk_hold_lpr_regime_interaction",
+      "hypothesis_source": "market_microstructure:northbound_stability_x_macro_credit_regime",
+      "economic_rationale": "Northbound holding stability may interact with LPR regimes, but Round730 join smoke found only 40 hk_hold observation dates versus the 60-day minimum.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    }
+  ]
+}

@@ -26,6 +26,7 @@ SOURCE_ROW_COLUMNS = (
 )
 
 ACTIVE_STATUS = "active_source_accumulation"
+CONDITIONAL_ACTIVE_STATUS = "conditional_active_source"
 HIBERNATED_OR_CLOSED_STATUSES = {"hibernated", "closed", "source_maintenance_only"}
 
 
@@ -62,6 +63,26 @@ def default_source_queue_definitions() -> list[SourceQueueDefinition]:
             ),
             processed_globs=("round70*_analyst_report_revision_cache_*",),
             report_globs=("round70*_analyst_report_revision_cache_*",),
+            evidence_required=True,
+        ),
+        SourceQueueDefinition(
+            source_id="external_macro_lpr_regime",
+            status=CONDITIONAL_ACTIVE_STATUS,
+            provider_required=False,
+            allowed_next_action="lpr_macro_regime_candidate_plan_gate_then_residual_prescreen",
+            blocked_actions=(
+                "standalone_market_level_lpr_stock_rank",
+                "portfolio_grid_before_residual_prescreen",
+                "promotion_from_source_or_join_smoke",
+                "hk_hold_lpr_interaction_before_hk_hold_history_ready",
+            ),
+            latest_evidence="round695_external_feed_lpr_repaired_source_audit_and_round730_join_smoke",
+            rationale=(
+                "Repaired LPR macro-rate source has PIT available_date coverage and may be used as a "
+                "policy-liquidity regime control after candidate gating, not as standalone alpha."
+            ),
+            processed_globs=("round695_external_feeds_lpr_repaired_*",),
+            report_globs=("round695_external_feed_lpr_repaired_coverage_audit_*",),
             evidence_required=True,
         ),
         SourceQueueDefinition(
@@ -200,6 +221,13 @@ def build_cn_stock_local_source_queue_audit(
         provider_ready_rows=provider_ready_rows,
         provider_request_allowed=provider_request_allowed,
     )
+    warnings = _decision_warnings(
+        no_provider_ready_rows=no_provider_ready_rows,
+        provider_ready_rows=provider_ready_rows,
+        provider_request_allowed=provider_request_allowed,
+    )
+    if no_provider_ready_rows:
+        blockers = [blocker for blocker in blockers if blocker != "report_rc_quota_blocked"]
     no_provider_allowed = bool(no_provider_ready_rows)
     provider_allowed = bool(provider_ready_rows and provider_request_allowed) and not any(
         blocker.startswith("active_source_evidence_missing:") for blocker in blockers
@@ -222,6 +250,7 @@ def build_cn_stock_local_source_queue_audit(
             provider_request_allowed=provider_request_allowed,
         ),
         "blockers": blockers,
+        "warnings": warnings,
     }
     result = {
         "stage": STAGE,
@@ -298,6 +327,15 @@ def render_cn_stock_local_source_queue_audit_markdown(packet: dict[str, Any]) ->
     ]
     blockers = _list(decision.get("blockers"))
     lines.extend(f"- {blocker}" for blocker in blockers) if blockers else lines.append("- none")
+    warnings = _list(decision.get("warnings"))
+    lines.extend(
+        [
+            "",
+            "## Warnings",
+            "",
+        ]
+    )
+    lines.extend(f"- {warning}" for warning in warnings) if warnings else lines.append("- none")
     lines.extend(
         [
             "",
@@ -333,9 +371,15 @@ def _build_source_row(
     evidence_present = True
     if definition.evidence_required:
         evidence_present = bool(processed_matches) and bool(report_matches)
+    status = definition.status
+    if status == CONDITIONAL_ACTIVE_STATUS:
+        status = ACTIVE_STATUS if evidence_present else "source_pending_evidence"
     local_prescreen_allowed = definition.status == ACTIVE_STATUS and evidence_present
+    if definition.status == CONDITIONAL_ACTIVE_STATUS:
+        local_prescreen_allowed = evidence_present
     return {
         **asdict(definition),
+        "status": status,
         "matched_processed_paths": [str(path) for path in processed_matches],
         "matched_report_paths": [str(path) for path in report_matches],
         "evidence_present": evidence_present,
@@ -371,6 +415,18 @@ def _decision_blockers(
     if not active_rows:
         blockers.append("no_active_source_in_local_queue")
     return _unique_preserving_order(blockers)
+
+
+def _decision_warnings(
+    *,
+    no_provider_ready_rows: list[dict[str, Any]],
+    provider_ready_rows: list[dict[str, Any]],
+    provider_request_allowed: bool,
+) -> list[str]:
+    warnings: list[str] = []
+    if no_provider_ready_rows and provider_ready_rows and not provider_request_allowed:
+        warnings.append("report_rc_quota_blocked")
+    return warnings
 
 
 def _next_action(

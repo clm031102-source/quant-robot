@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+import json
 from pathlib import Path
 
 from quant_robot.ops.china_market_regime_control_gate import (
@@ -43,6 +44,18 @@ class ChinaMarketRegimeControlGateTests(unittest.TestCase):
             markdown = render_china_market_regime_control_gate_markdown(result)
             self.assertIn("China Market Regime Control Gate", markdown)
             self.assertIn("Implemented controls: 4", markdown)
+
+    def test_repo_policy_allows_repaired_lpr_as_regime_control_not_alpha(self) -> None:
+        config = json.loads(Path("configs/china_market_regime_control_policy_cn_stock.json").read_text(encoding="utf-8"))
+        result = build_china_market_regime_control_gate(config)
+        rows = {row["control_id"]: row for row in result["control_rows"]}
+        policy_liquidity = rows["policy_liquidity_regime"]
+
+        self.assertIn("lpr_1y", policy_liquidity["usable_fields"])
+        self.assertIn("lpr_5y", policy_liquidity["usable_fields"])
+        self.assertNotIn("lpr_1y", policy_liquidity["blocked_fields"])
+        self.assertNotIn("lpr_5y", policy_liquidity["blocked_fields"])
+        self.assertFalse(policy_liquidity["standalone_alpha_claim_allowed"])
 
 
 def _policy() -> dict[str, object]:

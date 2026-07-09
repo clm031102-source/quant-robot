@@ -69,6 +69,39 @@ class CnStockLocalSourceQueueAuditTests(unittest.TestCase):
             "analyst_monthly_cache_preflight_then_frozen_prescreen",
         )
 
+    def test_lpr_macro_regime_source_becomes_no_provider_ready_when_repaired_evidence_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            processed = root / "processed"
+            reports = root / "reports"
+            (processed / "round701_analyst_report_revision_cache_202406_20260709").mkdir(parents=True)
+            (reports / "round701_analyst_report_revision_cache_202406_20260709").mkdir(parents=True)
+            (processed / "round695_external_feeds_lpr_repaired_20260709").mkdir(parents=True)
+            (reports / "round695_external_feed_lpr_repaired_coverage_audit_20260709").mkdir(parents=True)
+
+            packet = build_cn_stock_local_source_queue_audit(
+                processed_root=processed,
+                reports_root=reports,
+                provider_request_allowed=False,
+            )
+
+        rows = {row["source_id"]: row for row in packet["source_rows"]}
+        lpr_row = rows["external_macro_lpr_regime"]
+        self.assertEqual(lpr_row["status"], "active_source_accumulation")
+        self.assertTrue(lpr_row["evidence_present"])
+        self.assertFalse(lpr_row["provider_required"])
+        self.assertTrue(lpr_row["local_prescreen_allowed"])
+        self.assertTrue(packet["decision"]["no_provider_factor_batch_allowed"])
+        self.assertFalse(packet["decision"]["provider_factor_batch_allowed"])
+        self.assertEqual(packet["decision"]["status"], "cleared")
+        self.assertNotIn("report_rc_quota_blocked", packet["decision"]["blockers"])
+        self.assertIn("report_rc_quota_blocked", packet["decision"]["warnings"])
+        self.assertEqual(packet["summary"]["no_provider_ready_source_count"], 1)
+        self.assertEqual(
+            packet["decision"]["next_action"],
+            "run_no_provider_factor_batch_from_ready_local_source",
+        )
+
     def test_missing_active_source_evidence_is_reported_as_blocker(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

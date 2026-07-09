@@ -6206,3 +6206,29 @@ Docs:
 - `docs/research/cn_stock_round729_local_cached_analyst_prescreen_gate_2026-07-09.md`
 
 Decision: cached local analyst prescreen may run while provider quota is blocked, but full factor-batch readiness, portfolio grids, promotion, and live boundaries remain blocked. Analyst-report-revision Jan-Jun 2024 cache still has no promotable research lead; next action is quota-reset source extension or rotation to another PIT-safe source.
+
+## Round730 LPR Macro Regime Source Gate
+
+Round730 advanced the repaired LPR macro-rate path into a no-provider gated research-screen candidate plan.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Existing Round695 repaired LPR source audit had `external_macro_rates` status `pass`, LPR non-null ratio `1.0`, 340 LPR 1Y rows, 340 LPR 5Y rows, and 340 unique observation dates.
+- Real PIT join smoke wrote `data/reports/round730_lpr_regime_join_smoke_20260709`.
+- Join smoke result: 3 seeds, 2 pass, 1 insufficient history, 0 fail, 0 available-date violations, 0 same-day/future raw-date violations, 1,995,559 joined rows.
+- Passing seeds: `lpr_term_premium_easing_regime_60`, `lpr_shibor_credit_gap_regime_60`.
+- Blocked seed: `hk_hold_stability_x_lpr_easing_regime_60`, because external_hk_hold had 40 observation dates versus the 60-day minimum.
+- Added conditional source queue entry `external_macro_lpr_regime`; it becomes active only when repaired processed evidence and coverage-audit evidence exist.
+- Source queue real output `data/reports/round730_local_source_queue_lpr_active_20260709` cleared with 2 active sources, 1 no-provider-ready source, no blockers, and `report_rc_quota_blocked` only as a warning.
+- Updated `configs/china_market_regime_control_policy_cn_stock.json` so `lpr_1y` and `lpr_5y` are usable policy-liquidity regime fields, not blocked fields, while standalone alpha claims remain false.
+- Real regime policy gate after fix wrote `data/reports/round730_china_market_regime_control_gate_lpr_policy_after_fix_20260709` and had `blocked_fields_count=0`.
+- Added candidate plan `configs/factor_mining_candidate_plan_round730_lpr_macro_regime_control_20260709.json`.
+- Candidate gate output `data/reports/round730_lpr_macro_regime_candidate_plan_gate_20260709` is `research_ready`: 2 active LPR macro candidates, 1 inactive hk_hold interaction, portfolio grid false, promotion false.
+- No-provider factor-batch readiness output `data/reports/round730_lpr_macro_regime_factor_batch_readiness_20260709` is `ready` with `research_screen_allowed=true`, `portfolio_grid_allowed=false`, and `promotion_allowed=false`.
+- Focused tests: source queue `5 passed`; candidate-plan gate `18 passed`; China regime control gate/CLI `5 passed`.
+- No provider download, new factor formula evaluation, portfolio grid, promotion gate, ready signal snapshot, paper simulation, broker access, order placement, or final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round730_lpr_macro_regime_source_gate_2026-07-09.md`
+
+Decision: LPR macro-rate source is ready for a dedicated residual/regime-control prescreen. Do not reuse the old market-regime-temperature prescreen blindly because it depends on daily-basic factor inputs. Build a narrow LPR macro residual prescreen next; keep LPR standalone alpha, hk_hold×LPR interaction, portfolio grids, and promotion blocked until their specific gates pass.
