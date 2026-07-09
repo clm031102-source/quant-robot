@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round710_office_quota_pack_export_2026-07-09.md`
 - `docs/research/cn_stock_round709_quota_next_action_priority_2026-07-09.md`
 - `docs/research/cn_stock_round708_quota_preflight_readiness_gate_2026-07-09.md`
 - `docs/research/cn_stock_round707_provider_allowed_readiness_semantics_2026-07-09.md`
@@ -5781,3 +5782,25 @@ Docs:
 - `docs/research/cn_stock_round709_quota_next_action_priority_2026-07-09.md`
 
 Decision: for quota-blocked analyst-report work, follow the quota preflight next action first. Missing quota-pack machines must be resolved with valid quota-pack evidence before any provider-backed analyst cache or frozen prescreen.
+
+## Round710 Office Quota Pack Export
+
+Round710 collected the office desktop analyst-report quota evidence requested by the combined readiness gate.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Exported office quota pack under `data\reports\round710_office_analyst_quota_pack_20260709`.
+- Exported report count: `11`; skipped report count: `0`.
+- The generated quota pack is data/report evidence and remains outside Git.
+- Required-machine readiness with the office pack included: `blocked`.
+- Present quota pack machines: `office_desktop`.
+- Missing required quota pack machines: `highspec_desktop`, `laptop`.
+- Counted provider request windows: `2`; duplicate evidence rows: `2`.
+- Quota preflight blockers: `daily_provider_request_budget_exhausted`, `missing_required_quota_pack_machines`.
+- Combined next action: `collect_required_quota_pack_evidence`.
+- No provider download, new factor formula, IC screen, portfolio grid, walk-forward conversion, promotion gate, signal generation, or final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round710_office_quota_pack_export_2026-07-09.md`
+
+Decision: the office side of quota-pack evidence is now available locally, but provider readiness still requires valid `highspec_desktop` and `laptop` quota packs and a non-exhausted `report_rc` daily budget.
