@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round707_provider_allowed_readiness_semantics_2026-07-09.md`
 - `docs/research/cn_stock_round706_factor_batch_readiness_gate_2026-07-09.md`
 - `docs/research/cn_stock_round705_candidate_plan_source_queue_gate_2026-07-09.md`
 - `docs/research/cn_stock_round704_local_source_queue_audit_tooling_2026-07-09.md`
@@ -5720,3 +5721,22 @@ Docs:
 - `docs/research/cn_stock_round706_factor_batch_readiness_gate_2026-07-09.md`
 
 Decision: use the combined readiness gate before any next analyst cache, frozen prescreen, or future factor batch. A blocked readiness gate means no factor batch should start, even if individual startup gates are clear.
+
+## Round707 Provider Allowed Readiness Semantics
+
+Round707 tightened the local source queue decision semantics for the provider-allowed path.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Quant PM startup gate: `ready`; primary market `CN_ETF`; blockers `[]`.
+- CN stock factor-mining startup gate: `cleared`.
+- Updated `src/quant_robot/ops/cn_stock_local_source_queue_audit.py` so `no_local_no_provider_source_ready` is only a blocker when neither a no-provider source nor an explicitly allowed provider-ready source can support a batch.
+- Added tests covering the source queue provider-allowed edge and the sequential readiness CLI provider-allowed smoke.
+- Default real readiness gate remains `blocked`; `factor_batch_ready=false`; next action `wait_for_report_rc_quota_reset_then_analyst_monthly_cache_preflight`.
+- Provider-allowed real smoke is `ready`; source queue `cleared`; candidate-plan gate `research_ready`; `factor_batch_ready=true`; `research_screen_allowed=true`; blockers `[]`.
+- No provider download, new factor formula, IC screen, portfolio grid, walk-forward conversion, promotion gate, signal generation, or final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round707_provider_allowed_readiness_semantics_2026-07-09.md`
+
+Decision: the provider-allowed flag is only a readiness switch for an explicitly approved quota state. Until provider access is genuinely available, continue using the default readiness gate and keep the factor batch blocked.

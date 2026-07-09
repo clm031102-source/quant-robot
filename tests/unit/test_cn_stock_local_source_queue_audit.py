@@ -42,6 +42,29 @@ class CnStockLocalSourceQueueAuditTests(unittest.TestCase):
         self.assertEqual(rows["analyst_report_revision"]["status"], "active_source_accumulation")
         self.assertEqual(rows["daily_basic_direct"]["status"], "hibernated")
 
+    def test_provider_ready_source_clears_when_provider_request_is_allowed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            processed = root / "processed"
+            reports = root / "reports"
+            (processed / "round701_analyst_report_revision_cache_202406_20260709").mkdir(parents=True)
+            (reports / "round701_analyst_report_revision_cache_202406_20260709").mkdir(parents=True)
+
+            packet = build_cn_stock_local_source_queue_audit(
+                processed_root=processed,
+                reports_root=reports,
+                provider_request_allowed=True,
+            )
+
+        self.assertEqual(packet["decision"]["status"], "cleared")
+        self.assertFalse(packet["decision"]["no_provider_factor_batch_allowed"])
+        self.assertTrue(packet["decision"]["provider_factor_batch_allowed"])
+        self.assertEqual(packet["decision"]["blockers"], [])
+        self.assertEqual(
+            packet["decision"]["next_action"],
+            "analyst_monthly_cache_preflight_then_frozen_prescreen",
+        )
+
     def test_missing_active_source_evidence_is_reported_as_blocker(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

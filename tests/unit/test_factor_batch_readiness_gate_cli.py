@@ -48,6 +48,44 @@ class FactorBatchReadinessGateCliTests(unittest.TestCase):
             self.assertTrue((output / "candidate_plan_gate" / "factor_mining_candidate_plan_gate.json").exists())
             self.assertTrue((output / "factor_batch_readiness_gate.json").exists())
 
+    def test_cli_clears_provider_candidate_when_provider_request_is_allowed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            processed = root / "processed"
+            reports = root / "reports"
+            output = root / "readiness"
+            plan = root / "candidate_plan.json"
+            (processed / "round701_analyst_report_revision_cache_202406_20260709").mkdir(parents=True)
+            (reports / "round701_analyst_report_revision_cache_202406_20260709").mkdir(parents=True)
+            plan.write_text(json.dumps(_candidate_plan()), encoding="utf-8")
+            stdout = StringIO()
+
+            with redirect_stdout(stdout):
+                exit_code = main(
+                    [
+                        "--candidate-plan",
+                        str(plan),
+                        "--processed-root",
+                        str(processed),
+                        "--reports-root",
+                        str(reports),
+                        "--output-dir",
+                        str(output),
+                        "--provider-request-allowed",
+                    ]
+                )
+
+            payload = json.loads(stdout.getvalue())
+            source_queue = json.loads(
+                (output / "source_queue" / "cn_stock_local_source_queue_audit.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(exit_code, 0)
+            self.assertEqual(payload["status"], "ready")
+            self.assertTrue(payload["decision"]["factor_batch_ready"])
+            self.assertEqual(source_queue["decision"]["status"], "cleared")
+            self.assertTrue(source_queue["decision"]["provider_factor_batch_allowed"])
+            self.assertEqual(source_queue["decision"]["blockers"], [])
+
 
 def _candidate_plan() -> dict:
     return {

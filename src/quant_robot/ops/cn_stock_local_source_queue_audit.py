@@ -345,7 +345,8 @@ def _decision_blockers(
     provider_request_allowed: bool,
 ) -> list[str]:
     blockers: list[str] = []
-    if not no_provider_ready_rows:
+    provider_path_ready = bool(provider_ready_rows and provider_request_allowed)
+    if not no_provider_ready_rows and not provider_path_ready:
         blockers.append("no_local_no_provider_source_ready")
     if provider_ready_rows and not provider_request_allowed:
         blockers.append("report_rc_quota_blocked")
