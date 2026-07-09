@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round706_factor_batch_readiness_gate_2026-07-09.md`
 - `docs/research/cn_stock_round705_candidate_plan_source_queue_gate_2026-07-09.md`
 - `docs/research/cn_stock_round704_local_source_queue_audit_tooling_2026-07-09.md`
 - `docs/research/cn_stock_round703_local_source_queue_audit_2026-07-09.md`
@@ -5698,3 +5699,24 @@ Docs:
 - `docs/research/cn_stock_round705_candidate_plan_source_queue_gate_2026-07-09.md`
 
 Decision: a complete candidate plan is not sufficient while the source queue is blocked. Before any next analyst monthly cache or frozen prescreen, rerun the source queue audit and pass it into the candidate-plan gate.
+
+## Round706 Factor Batch Readiness Gate
+
+Round706 added a sequential factor-batch readiness gate that runs local source queue audit before candidate-plan validation.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Quant PM startup gate: `ready`; primary market `CN_ETF`; blockers `[]`.
+- CN stock factor-mining startup gate: `cleared`.
+- Added `src/quant_robot/ops/factor_batch_readiness_gate.py`.
+- Added `scripts/run_factor_batch_readiness_gate.py`.
+- Real readiness gate output under `data/reports/round706_factor_batch_readiness_gate_20260709`: status `blocked`, source queue status `blocked`, candidate-plan gate status `blocked`, source queue active source count `1`, candidate count `4`.
+- `factor_batch_ready`: `false`.
+- `research_screen_allowed`: `false`.
+- Next action: `wait_for_report_rc_quota_reset_then_analyst_monthly_cache_preflight`.
+- Blockers include `source_queue_blocked:no_local_no_provider_source_ready`, `source_queue_blocked:report_rc_quota_blocked`, and `candidate_plan_gate_blocked:candidate_source_provider_not_allowed:analyst_report_revision`.
+
+Docs:
+
+- `docs/research/cn_stock_round706_factor_batch_readiness_gate_2026-07-09.md`
+
+Decision: use the combined readiness gate before any next analyst cache, frozen prescreen, or future factor batch. A blocked readiness gate means no factor batch should start, even if individual startup gates are clear.
