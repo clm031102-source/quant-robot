@@ -163,6 +163,7 @@ def build_factor_mining_candidate_plan_gate(
     *,
     gate_stage: str = "discovery",
     quality_gate: dict[str, Any] | None = None,
+    local_source_queue_audit: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     plan = _dict(candidate_plan)
     stage = str(gate_stage or "discovery").lower()
@@ -170,6 +171,7 @@ def build_factor_mining_candidate_plan_gate(
     declared_controls = _declared_controls(plan)
     family_rotation_policy = _family_rotation_policy(plan)
     area_rows = _control_area_rows(declared_controls)
+    local_source_queue = _local_source_queue_context(local_source_queue_audit)
     blockers = _blockers(
         plan,
         candidates=candidates,
@@ -177,9 +179,10 @@ def build_factor_mining_candidate_plan_gate(
         family_rotation_policy=family_rotation_policy,
         gate_stage=stage,
         quality_gate=quality_gate,
+        local_source_queue=local_source_queue,
     )
     status = _status(blockers, gate_stage=stage)
-    candidate_rows = _candidate_rows(candidates, gate_stage=stage)
+    candidate_rows = _candidate_rows(candidates, gate_stage=stage, local_source_queue=local_source_queue)
     packet = {
         "stage": STAGE,
         "generated_at": date.today().isoformat(),
@@ -195,11 +198,17 @@ def build_factor_mining_candidate_plan_gate(
             "complete_control_area_count": sum(1 for row in area_rows if row["complete"]),
             "blocked_control_area_count": sum(1 for row in area_rows if not row["complete"]),
             "quality_gate_status": _dict(quality_gate).get("status", "not_provided"),
+            "local_source_queue_status": local_source_queue["status"],
         },
         "required_promotion_policy_keys": list(REQUIRED_PROMOTION_POLICY_KEYS),
         "control_area_rows": area_rows,
         "candidate_rows": candidate_rows,
         "family_rotation_policy": family_rotation_policy,
+        "local_source_queue": {
+            "provided": local_source_queue["provided"],
+            "status": local_source_queue["status"],
+            "blockers": local_source_queue["blockers"],
+        },
         "decision": {
             "candidate_plan_gate_cleared": not blockers,
             "research_screen_allowed": not blockers,
@@ -280,6 +289,7 @@ def render_factor_mining_candidate_plan_gate_markdown(packet: dict[str, Any]) ->
         f"- Research screen allowed: {decision.get('research_screen_allowed', False)}",
         f"- Portfolio grid allowed: {decision.get('portfolio_grid_allowed', False)}",
         f"- Promotion allowed: {decision.get('promotion_allowed', False)}",
+        f"- Local source queue status: {summary.get('local_source_queue_status', 'not_provided')}",
         f"- Live boundary allowed: {packet.get('live_boundary_allowed', False)}",
         f"- Safety: {packet.get('safety', SAFETY)}",
         "",
@@ -430,8 +440,11 @@ def _blockers(
     family_rotation_policy: dict[str, Any],
     gate_stage: str,
     quality_gate: dict[str, Any] | None,
+    local_source_queue: dict[str, Any],
 ) -> list[str]:
     blockers: list[str] = []
+    if local_source_queue["provided"] and local_source_queue["status"] == "blocked":
+        blockers.append(f"local_source_queue_blocked:{','.join(local_source_queue['blockers']) or 'status_blocked'}")
     if not candidates:
         blockers.append("missing_candidates")
     active_candidates = [candidate for candidate in candidates if _active_for_gate(candidate, gate_stage=gate_stage)]
@@ -452,6 +465,8 @@ def _blockers(
             if bool(candidate.get("promotion_allowed")):
                 blockers.append("inactive_candidate_promotion_allowed")
             continue
+        if local_source_queue["provided"]:
+            blockers.extend(_candidate_local_source_queue_blockers(candidate, local_source_queue))
         if status not in {"pre_registered", "registered"}:
             blockers.append("candidate_not_pre_registered")
         if not str(candidate.get("hypothesis_source", "")).strip():
@@ -495,21 +510,82 @@ def _blockers(
     return _unique_preserving_order(blockers)
 
 
-def _candidate_rows(candidates: list[dict[str, Any]], *, gate_stage: str) -> list[dict[str, Any]]:
-    return [
-        {
-            "factor_name": str(candidate.get("factor_name", "")),
-            "family": str(candidate.get("family", "")),
-            "hypothesis_source": str(candidate.get("hypothesis_source", "")),
-            "market": str(candidate.get("market", "")),
-            "asset_type": str(candidate.get("asset_type", "")),
-            "registration_status": str(candidate.get("registration_status", "")),
-            "active_for_gate": _active_for_gate(candidate, gate_stage=gate_stage),
-            "portfolio_backtest_allowed": bool(candidate.get("portfolio_backtest_allowed")),
-            "promotion_allowed": bool(candidate.get("promotion_allowed")),
-        }
-        for candidate in candidates
-    ]
+def _candidate_rows(
+    candidates: list[dict[str, Any]],
+    *,
+    gate_stage: str,
+    local_source_queue: dict[str, Any],
+) -> list[dict[str, Any]]:
+    rows = []
+    for candidate in candidates:
+        source_id = str(candidate.get("source_id", "")).strip()
+        queue_row = _local_source_queue_row(source_id, local_source_queue)
+        rows.append(
+            {
+                "factor_name": str(candidate.get("factor_name", "")),
+                "family": str(candidate.get("family", "")),
+                "source_id": source_id,
+                "hypothesis_source": str(candidate.get("hypothesis_source", "")),
+                "market": str(candidate.get("market", "")),
+                "asset_type": str(candidate.get("asset_type", "")),
+                "registration_status": str(candidate.get("registration_status", "")),
+                "active_for_gate": _active_for_gate(candidate, gate_stage=gate_stage),
+                "portfolio_backtest_allowed": bool(candidate.get("portfolio_backtest_allowed")),
+                "promotion_allowed": bool(candidate.get("promotion_allowed")),
+                "source_queue_status": str(queue_row.get("status", "")) if queue_row else "",
+                "source_queue_allowed": _candidate_source_queue_allowed(candidate, local_source_queue),
+            }
+        )
+    return rows
+
+
+def _candidate_local_source_queue_blockers(
+    candidate: dict[str, Any],
+    local_source_queue: dict[str, Any],
+) -> list[str]:
+    source_id = str(candidate.get("source_id", "")).strip()
+    if not source_id:
+        return ["candidate_missing_source_id_for_local_queue"]
+    row = _local_source_queue_row(source_id, local_source_queue)
+    if not row:
+        return [f"candidate_source_not_in_local_queue:{source_id}"]
+    blockers: list[str] = []
+    status = str(row.get("status", ""))
+    if status != "active_source_accumulation":
+        blockers.append(f"candidate_source_not_active:{source_id}:{status}")
+    if row.get("evidence_present") is not True:
+        blockers.append(f"candidate_source_evidence_missing:{source_id}")
+    if row.get("provider_required") is True:
+        if _dict(local_source_queue.get("decision")).get("provider_factor_batch_allowed") is not True:
+            blockers.append(f"candidate_source_provider_not_allowed:{source_id}")
+    elif _dict(local_source_queue.get("decision")).get("no_provider_factor_batch_allowed") is not True:
+        blockers.append(f"candidate_source_no_provider_not_allowed:{source_id}")
+    return blockers
+
+
+def _candidate_source_queue_allowed(candidate: dict[str, Any], local_source_queue: dict[str, Any]) -> bool:
+    if not local_source_queue["provided"]:
+        return False
+    return not _candidate_local_source_queue_blockers(candidate, local_source_queue)
+
+
+def _local_source_queue_row(source_id: str, local_source_queue: dict[str, Any]) -> dict[str, Any]:
+    if not source_id:
+        return {}
+    return _dict(_dict(local_source_queue.get("rows_by_source_id")).get(source_id))
+
+
+def _local_source_queue_context(packet: dict[str, Any] | None) -> dict[str, Any]:
+    raw = _dict(packet)
+    decision = _dict(raw.get("decision"))
+    rows = _list_of_dicts(raw.get("source_rows"))
+    return {
+        "provided": bool(raw),
+        "status": str(decision.get("status", raw.get("status", "not_provided"))),
+        "blockers": _list(decision.get("blockers")),
+        "decision": decision,
+        "rows_by_source_id": {str(row.get("source_id", "")): row for row in rows if str(row.get("source_id", ""))},
+    }
 
 
 def _active_for_gate(candidate: dict[str, Any], *, gate_stage: str) -> bool:

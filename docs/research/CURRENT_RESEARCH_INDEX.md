@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round705_candidate_plan_source_queue_gate_2026-07-09.md`
 - `docs/research/cn_stock_round704_local_source_queue_audit_tooling_2026-07-09.md`
 - `docs/research/cn_stock_round703_local_source_queue_audit_2026-07-09.md`
 - `docs/research/cn_stock_round702_analyst_target_upside_robustness_diagnostic_2026-07-09.md`
@@ -5677,3 +5678,23 @@ Docs:
 - `docs/research/cn_stock_round704_local_source_queue_audit_tooling_2026-07-09.md`
 
 Decision: no no-provider factor batch should run from the local source queue. The only active source is analyst-report revision accumulation, and it remains blocked until `report_rc` quota resets. Continue source-governance work only, or wait for quota reset before a narrow July 2024 analyst monthly cache preflight.
+
+## Round705 Candidate Plan Source Queue Gate
+
+Round705 connected the local source queue audit to the pre-mining candidate-plan gate.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Quant PM startup gate: `ready`; primary market `CN_ETF`; blockers `[]`.
+- CN stock factor-mining startup gate: `cleared`.
+- July 2024 analyst-report quota preflight: `blocked` by `daily_provider_request_budget_exhausted`; counted request windows `2`, remaining windows `0`.
+- Local source queue audit: `blocked`; blockers `no_local_no_provider_source_ready`, `report_rc_quota_blocked`.
+- Added optional `local_source_queue_audit` support to `src/quant_robot/ops/factor_mining_candidate_plan_gate.py`.
+- Added `--local-source-queue-audit` to `scripts/run_factor_mining_candidate_plan_gate.py`.
+- Updated `configs/factor_mining_candidate_plan_round453_analyst_report_revision_20260627.json` so the analyst candidates declare `source_id: analyst_report_revision`.
+- Real candidate-plan gate with Round705 queue packet: `blocked`; blockers `local_source_queue_blocked:no_local_no_provider_source_ready,report_rc_quota_blocked` and `candidate_source_provider_not_allowed:analyst_report_revision`.
+
+Docs:
+
+- `docs/research/cn_stock_round705_candidate_plan_source_queue_gate_2026-07-09.md`
+
+Decision: a complete candidate plan is not sufficient while the source queue is blocked. Before any next analyst monthly cache or frozen prescreen, rerun the source queue audit and pass it into the candidate-plan gate.

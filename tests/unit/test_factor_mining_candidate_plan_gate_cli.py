@@ -39,6 +39,49 @@ class FactorMiningCandidatePlanGateCliTests(unittest.TestCase):
             self.assertIn("Factor Mining Candidate Plan Gate", markdown)
             self.assertIn("cn_stock_tradeability", markdown)
 
+    def test_cli_accepts_local_source_queue_audit_packet(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            plan = _candidate_plan()
+            plan["candidates"][0]["source_id"] = "analyst_report_revision"
+            plan_path = root / "candidate_plan.json"
+            queue_path = root / "source_queue.json"
+            output_dir = root / "candidate_gate"
+            plan_path.write_text(json.dumps(plan), encoding="utf-8")
+            queue_path.write_text(
+                json.dumps(
+                    {
+                        "stage": "cn_stock_local_source_queue_audit",
+                        "decision": {
+                            "status": "cleared",
+                            "provider_factor_batch_allowed": True,
+                            "no_provider_factor_batch_allowed": False,
+                            "blockers": [],
+                        },
+                        "source_rows": [
+                            {
+                                "source_id": "analyst_report_revision",
+                                "status": "active_source_accumulation",
+                                "provider_required": True,
+                                "evidence_present": True,
+                            }
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            packet = run_factor_mining_candidate_plan_gate(
+                candidate_plan=plan_path,
+                local_source_queue_audit=queue_path,
+                gate_stage="discovery",
+                output_dir=output_dir,
+            )
+
+            self.assertEqual(packet["status"], "research_ready")
+            self.assertEqual(packet["summary"]["local_source_queue_status"], "cleared")
+            self.assertTrue(packet["candidate_rows"][0]["source_queue_allowed"])
+
 
 def _candidate_plan() -> dict:
     return {
@@ -52,6 +95,7 @@ def _candidate_plan() -> dict:
                 "market": "CN",
                 "asset_type": "stock",
                 "registration_status": "pre_registered",
+                "source_id": "public_reference",
                 "hypothesis_source": "public_reference:example",
                 "economic_rationale": "Example economic rationale.",
                 "portfolio_backtest_allowed": False,

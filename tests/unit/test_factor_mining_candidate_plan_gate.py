@@ -34,6 +34,7 @@ def _candidate_plan() -> dict:
                 "market": "CN",
                 "asset_type": "stock",
                 "registration_status": "pre_registered",
+                "source_id": "public_reference",
                 "hypothesis_source": "public_reference:max_effect_reversal",
                 "economic_rationale": "Public MAX-effect hypothesis with A-share tradeability controls.",
                 "portfolio_backtest_allowed": False,
@@ -245,6 +246,112 @@ class FactorMiningCandidatePlanGateTests(unittest.TestCase):
         self.assertIn("requires_no_lookahead_audit", markdown)
         self.assertIn("requires_parameter_sensitivity", markdown)
         self.assertIn("requires_source_performance_evidence", markdown)
+
+    def test_blocks_active_provider_source_when_local_queue_says_provider_is_not_allowed(self) -> None:
+        plan = _candidate_plan()
+        plan["candidates"][0]["source_id"] = "analyst_report_revision"
+        local_queue = _local_source_queue_packet(
+            source_id="analyst_report_revision",
+            status="active_source_accumulation",
+            provider_required=True,
+            evidence_present=True,
+            decision={
+                "status": "blocked",
+                "provider_factor_batch_allowed": False,
+                "no_provider_factor_batch_allowed": False,
+                "blockers": ["report_rc_quota_blocked"],
+            },
+        )
+
+        packet = build_factor_mining_candidate_plan_gate(
+            plan,
+            gate_stage="discovery",
+            local_source_queue_audit=local_queue,
+        )
+
+        self.assertEqual(packet["status"], "blocked")
+        blockers = packet["decision"]["blockers"]
+        self.assertIn("local_source_queue_blocked:report_rc_quota_blocked", blockers)
+        self.assertIn("candidate_source_provider_not_allowed:analyst_report_revision", blockers)
+        self.assertEqual(packet["summary"]["local_source_queue_status"], "blocked")
+
+    def test_blocks_hibernated_source_from_local_queue_even_with_complete_controls(self) -> None:
+        plan = _candidate_plan()
+        plan["candidates"][0]["source_id"] = "daily_basic_direct"
+        local_queue = _local_source_queue_packet(
+            source_id="daily_basic_direct",
+            status="hibernated",
+            provider_required=False,
+            evidence_present=True,
+            decision={
+                "status": "blocked",
+                "provider_factor_batch_allowed": False,
+                "no_provider_factor_batch_allowed": False,
+                "blockers": ["no_local_no_provider_source_ready"],
+            },
+        )
+
+        packet = build_factor_mining_candidate_plan_gate(
+            plan,
+            gate_stage="discovery",
+            local_source_queue_audit=local_queue,
+        )
+
+        self.assertEqual(packet["status"], "blocked")
+        blockers = packet["decision"]["blockers"]
+        self.assertIn("candidate_source_not_active:daily_basic_direct:hibernated", blockers)
+        self.assertIn("candidate_source_no_provider_not_allowed:daily_basic_direct", blockers)
+
+    def test_allows_candidate_when_local_queue_marks_source_ready_for_provider_batch(self) -> None:
+        plan = _candidate_plan()
+        plan["candidates"][0]["source_id"] = "analyst_report_revision"
+        local_queue = _local_source_queue_packet(
+            source_id="analyst_report_revision",
+            status="active_source_accumulation",
+            provider_required=True,
+            evidence_present=True,
+            decision={
+                "status": "cleared",
+                "provider_factor_batch_allowed": True,
+                "no_provider_factor_batch_allowed": False,
+                "blockers": [],
+            },
+        )
+
+        packet = build_factor_mining_candidate_plan_gate(
+            plan,
+            gate_stage="discovery",
+            local_source_queue_audit=local_queue,
+        )
+
+        self.assertEqual(packet["status"], "research_ready")
+        self.assertTrue(packet["decision"]["candidate_plan_gate_cleared"])
+        row = packet["candidate_rows"][0]
+        self.assertEqual(row["source_id"], "analyst_report_revision")
+        self.assertTrue(row["source_queue_allowed"])
+
+
+def _local_source_queue_packet(
+    *,
+    source_id: str,
+    status: str,
+    provider_required: bool,
+    evidence_present: bool,
+    decision: dict,
+) -> dict:
+    return {
+        "stage": "cn_stock_local_source_queue_audit",
+        "decision": decision,
+        "summary": {"source_count": 1},
+        "source_rows": [
+            {
+                "source_id": source_id,
+                "status": status,
+                "provider_required": provider_required,
+                "evidence_present": evidence_present,
+            }
+        ],
+    }
 
 
 if __name__ == "__main__":

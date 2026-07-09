@@ -26,15 +26,18 @@ def run_factor_mining_candidate_plan_gate(
     candidate_plan: str | Path,
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
     quality_gate: str | Path | None = None,
+    local_source_queue_audit: str | Path | None = None,
     gate_stage: str = "discovery",
     allow_blocked: bool = False,
 ) -> dict[str, Any]:
     plan = _load_json(candidate_plan)
     quality_packet = _load_json(quality_gate) if quality_gate else None
+    local_source_queue_packet = _load_json(local_source_queue_audit) if local_source_queue_audit else None
     packet = build_factor_mining_candidate_plan_gate(
         plan,
         gate_stage=gate_stage,
         quality_gate=quality_packet,
+        local_source_queue_audit=local_source_queue_packet,
     )
     write_factor_mining_candidate_plan_gate(output_dir, packet)
     if not allow_blocked and not packet["decision"]["candidate_plan_gate_cleared"]:
@@ -49,6 +52,7 @@ def main() -> None:
     )
     parser.add_argument("--candidate-plan", required=True)
     parser.add_argument("--quality-gate")
+    parser.add_argument("--local-source-queue-audit")
     parser.add_argument("--gate-stage", choices=["discovery", "portfolio", "promotion"], default="discovery")
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--allow-blocked", action="store_true")
@@ -56,6 +60,7 @@ def main() -> None:
     packet = run_factor_mining_candidate_plan_gate(
         candidate_plan=args.candidate_plan,
         quality_gate=args.quality_gate,
+        local_source_queue_audit=args.local_source_queue_audit,
         gate_stage=args.gate_stage,
         output_dir=args.output_dir,
         allow_blocked=args.allow_blocked,
