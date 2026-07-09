@@ -164,6 +164,29 @@ class FactorMiningCandidatePlanGateTests(unittest.TestCase):
         inactive = next(row for row in packet["candidate_rows"] if row["factor_name"] == "pit_forecast_profit_revision_event_1q")
         self.assertFalse(inactive["active_for_gate"])
 
+    def test_discovery_gate_allows_state_degenerate_candidates_as_inactive(self) -> None:
+        plan = _candidate_plan()
+        plan["candidates"].append(
+            {
+                "factor_name": "lpr_term_premium_easing_regime_60",
+                "family": "external_macro_lpr_regime",
+                "market": "CN",
+                "asset_type": "stock",
+                "registration_status": "blocked_by_state_degenerate",
+                "source_id": "external_macro_lpr_regime",
+                "hypothesis_source": "macro_liquidity:lpr_term_structure_regime",
+                "economic_rationale": "Documented but inactive because repaired source showed constant term premium.",
+                "portfolio_backtest_allowed": False,
+                "promotion_allowed": False,
+            }
+        )
+
+        packet = build_factor_mining_candidate_plan_gate(plan, gate_stage="discovery")
+
+        self.assertTrue(packet["decision"]["candidate_plan_gate_cleared"])
+        inactive = next(row for row in packet["candidate_rows"] if row["factor_name"] == "lpr_term_premium_easing_regime_60")
+        self.assertFalse(inactive["active_for_gate"])
+
     def test_write_and_validate_candidate_plan_gate_packet(self) -> None:
         packet = build_factor_mining_candidate_plan_gate(_candidate_plan(), gate_stage="discovery")
 

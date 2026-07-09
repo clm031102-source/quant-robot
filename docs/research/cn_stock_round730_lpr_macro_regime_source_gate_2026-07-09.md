@@ -40,7 +40,17 @@ Passing seeds:
 - `lpr_term_premium_easing_regime_60`
 - `lpr_shibor_credit_gap_regime_60`
 
-Blocked seed:
+State-distribution check after the PIT join smoke found that `lpr_term_premium_easing_regime_60` is degenerate in the repaired sample:
+
+- `lpr_1y` unique values: 4.
+- `lpr_5y` unique values: 4.
+- `lpr_5y - lpr_1y` unique values: 1.
+- Term premium min/max: `0.5` / `0.5`.
+- Non-zero 60-day term-premium changes: 0.
+
+The term-premium seed is therefore documented as `blocked_by_state_degenerate`, not active for discovery.
+
+Other blocked seed:
 
 - `hk_hold_stability_x_lpr_easing_regime_60`
 - Reason: only 40 `external_hk_hold` observation dates versus the 60-day minimum.
@@ -73,8 +83,8 @@ Regime-control policy change:
 Candidate plan:
 
 - New config: `configs/factor_mining_candidate_plan_round730_lpr_macro_regime_control_20260709.json`
-- Active candidates: 2
-- Inactive candidate: 1, blocked by coverage.
+- Active candidates: 1
+- Inactive candidates: 2, blocked by state degeneracy and coverage.
 - Portfolio grid allowed: `false`
 - Promotion allowed: `false`
 
@@ -103,7 +113,7 @@ Candidate-plan gate:
 .\.venv\Scripts\python.exe scripts\run_factor_mining_candidate_plan_gate.py --candidate-plan configs\factor_mining_candidate_plan_round730_lpr_macro_regime_control_20260709.json --local-source-queue-audit data\reports\round730_local_source_queue_lpr_active_20260709\cn_stock_local_source_queue_audit.json --output-dir data\reports\round730_lpr_macro_regime_candidate_plan_gate_20260709 --allow-blocked
 ```
 
-Result:
+Initial result:
 
 - Status: `research_ready`
 - Candidate-plan gate cleared: `true`
@@ -114,13 +124,20 @@ Result:
 - Active candidates: 2
 - Inactive candidates: 1
 
+After the state-distribution check, the candidate gate was rerun to:
+
+- Output: `data/reports/round730_lpr_macro_regime_candidate_plan_gate_after_state_check_20260709`
+- Active candidates: 1
+- Inactive candidates: 2
+- Local-prescreen candidate count: 1
+
 No-provider factor-batch readiness:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\run_factor_batch_readiness_gate.py --candidate-plan configs\factor_mining_candidate_plan_round730_lpr_macro_regime_control_20260709.json --output-dir data\reports\round730_lpr_macro_regime_factor_batch_readiness_20260709 --allow-blocked
 ```
 
-Result:
+Initial result:
 
 - Status: `ready`
 - Factor batch ready: `true`
@@ -130,14 +147,23 @@ Result:
 - Provider quota preflight status: `not_provided`
 - Next action: `run_frozen_candidate_prescreen`
 
+After the state-distribution check, the readiness gate was rerun to:
+
+- Output: `data/reports/round730_lpr_macro_regime_factor_batch_readiness_after_state_check_20260709`
+- Status: `ready`
+- Research screen allowed: `true`
+- Portfolio grid allowed: `false`
+- Promotion allowed: `false`
+
 ## Decision
 
-The LPR macro-rate source is ready for a dedicated residual/regime-control prescreen. The current repo does not have a direct LPR macro residual prescreen; the closest old regime-temperature prescreen depends on daily-basic factor inputs and should not be reused blindly.
+The LPR macro-rate source is ready for a dedicated residual/regime-control prescreen, but only for `lpr_shibor_credit_gap_regime_60`. The term-premium seed is inactive because it has no state variation in the repaired sample. The current repo does not have a direct LPR macro residual prescreen; the closest old regime-temperature prescreen depends on daily-basic factor inputs and should not be reused blindly.
 
 Next implementation should build a narrow LPR macro regime residual prescreen that:
 
 - uses only `available_date <= signal_date`;
-- screens `lpr_term_premium_easing_regime_60` and `lpr_shibor_credit_gap_regime_60`;
+- screens `lpr_shibor_credit_gap_regime_60`;
+- keeps `lpr_term_premium_easing_regime_60` blocked unless future source evidence shows non-degenerate term-structure variation;
 - treats the factors as regime controls or stratification states, not standalone stock ranks;
 - measures state coverage and residual IC interaction against pre-registered stock factors;
 - keeps hk_hold×LPR blocked until hk_hold history coverage reaches the minimum;

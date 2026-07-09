@@ -151,10 +151,10 @@
       "family": "external_macro_lpr_regime",
       "market": "CN",
       "asset_type": "stock",
-      "registration_status": "pre_registered",
+      "registration_status": "blocked_by_state_degenerate",
       "source_id": "external_macro_lpr_regime",
       "hypothesis_source": "macro_liquidity:lpr_term_structure_regime",
-      "economic_rationale": "The LPR 5Y minus 1Y term premium and its medium-term change can identify credit-easing or tightening states that may condition later cross-sectional residual signals.",
+      "economic_rationale": "The repaired source showed the LPR 5Y minus 1Y term premium was constant at 0.5 with zero 60-day change, so this seed is documented but inactive until the term structure has usable state variation.",
       "portfolio_backtest_allowed": false,
       "promotion_allowed": false
     },

@@ -11,6 +11,7 @@ SAFETY = "Research-to-review only. No broker connection, no account reads, no or
 INACTIVE_DISCOVERY_STATUSES = {
     "blocked_by_coverage",
     "blocked_by_endpoint_availability",
+    "blocked_by_state_degenerate",
 }
 REQUIRED_PROMOTION_POLICY_KEYS = (
     "requires_data_source_availability_proof",
