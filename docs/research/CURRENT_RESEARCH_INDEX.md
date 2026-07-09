@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-financial-reporting-timeliness-round691-20260709` | Round691 financial reporting timeliness candidate gate and prescreen | active local factor-batch branch |
+| `codex/factor-batch-cn-stock-pead-gap-reversal-source-repair-round692-20260709` | Round692 PEAD gap-reversal source-repair candidate gate | active local factor-batch branch |
 
 Round555-Round563 has been integrated into `main` and the prior topic branch has been deleted. Round565, Round566, Round567, Round568, Round569, Round570, Round571, Round572, Round573, Round574, Round575, Round576, Round577, Round578, Round579, Round580, Round581, Round582, Round583, Round584, Round585, Round586, Round587, Round588, Round589, Round590, Round591, Round592, Round593, Round594, Round595, Round596, Round597, Round598, Round599, Round600, Round601, Round602, Round603, Round604, Round605, Round606, Round607, Round608, Round609, Round610, Round611, Round612, Round613, Round614, Round615, Round616, Round617, Round618, Round619, Round620, Round621, Round622, Round623, Round624, Round625, Round626, Round627, Round628, Round629, Round630, Round631, Round632, Round633, Round634, Round635, Round636, Round637, and Round638 have also been integrated into `main` and their topic branches deleted. Rounds 567-638 were data-pipeline branches only; they expanded local source coverage, but factor generation remains blocked until the source gate clears. Existing Round503-Round638 material records gated source construction, rejection evidence, tooling hardening, and paper-lane risk-repair evidence. Do not treat any result from it as live, promoted, or independently tradable.
 
@@ -5491,3 +5491,29 @@ Docs:
 - `docs/superpowers/plans/2026-07-09-round691-financial-reporting-timeliness-prescreen.md`
 
 Decision: do not promote any Round691 `financial_reporting_timeliness` candidate. The next direction is `round692_rotate_or_repair_financial_reporting_timeliness_after_residual_ic_shape_failure`. Any repair or follow-up must be pre-registered as new hypotheses before screening.
+
+## Round692 PEAD Gap Reversal Source Repair Candidate Plan Gate
+
+Round692 rotated away from the failed Round691 financial reporting timeliness family and selected a source-repair audit for the older PEAD gap-overreaction reversal family:
+
+- Active branch: `codex/factor-batch-cn-stock-pead-gap-reversal-source-repair-round692-20260709`.
+- Startup context selected `office_desktop` / `factor_batch`.
+- Quant PM startup gate status: `ready`, blockers `[]`.
+- Factor mining startup gate status: `cleared`, blockers `[]`.
+- Startup constraint carried forward: `no_gap_reversal_grid_expansion_after_round225_zero_accepted_walk_forward`.
+- CN stock data manifest status: `review_required`, blockers `[]`, warnings `extreme_return_rows_present` and `moneyflow_symbol_coverage_below_bars`.
+- Candidate plan config: `configs/factor_mining_candidate_plan_round692_pead_gap_reversal_source_repair_20260709.json`.
+- Candidate plan gate result: `research_ready`, candidate plan cleared true, research screen allowed true, portfolio grid allowed false, promotion allowed false, blockers `[]`.
+- Candidate plan summary: 5 active candidates, 5 unique names, 9 / 9 complete control areas, 0 blocked control areas.
+- Preregistered candidates: `stmt_pead_gap_overreaction_reversal_1_5`, `stmt_pead_gap_overreaction_reversal_low_liquidity_penalized_1_5`, `stmt_pead_gap_overreaction_reversal_volume_confirmed_1_5`, `stmt_pead_gap_overreaction_reversal_size_neutral_candidate_1_5`, `stmt_pead_gap_overreaction_reversal_quality_conditioned_1_5`.
+- Prior evidence: Round223 had five residual IC research leads, Round224 dedup froze representatives, and Round225 accepted zero walk-forward portfolio cases due to capacity, drawdown, and early-cycle stability failures.
+- Generated `data\reports` evidence remains local and uncommitted.
+- No IC screen, residual prescreen, portfolio grid, walk-forward, promotion gate, formula-grid expansion, sign/window tuning, mixed-window harvesting, live-trading work, broker read, account read, order placement, or 2026 final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round692_pead_gap_reversal_source_repair_candidate_plan_gate_2026-07-09.md`
+- `docs/superpowers/specs/2026-07-09-round692-pead-gap-reversal-source-repair-design.md`
+- `docs/superpowers/plans/2026-07-09-round692-pead-gap-reversal-source-repair.md`
+
+Decision: Round692 clears only the preregistered candidate-plan gate for `pead_gap_reversal_statement_source_repair`. The next allowed action is a statement-source adapter or residual prescreen path with strict `signal_date > ann_date`, final-holdout exclusion, manifest-warning carry-forward, and only the five preregistered 5D candidates. Portfolio grids, promotion, formula-grid expansion, live trading work, and 2026 final-holdout reads remain blocked.

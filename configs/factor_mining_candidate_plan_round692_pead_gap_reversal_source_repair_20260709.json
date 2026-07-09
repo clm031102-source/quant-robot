@@ -1,0 +1,293 @@
+{
+  "stage": "round692_pead_gap_reversal_source_repair_preregistration",
+  "round": 692,
+  "market": "CN",
+  "asset_type": "stock",
+  "source_audit": "docs/research/cn_stock_round690_financial_reporting_timeliness_backfill_progress_2026-07-08.md",
+  "source_plan_doc": "docs/superpowers/specs/2026-07-09-round692-pead-gap-reversal-source-repair-design.md",
+  "implementation_plan": "docs/superpowers/plans/2026-07-09-round692-pead-gap-reversal-source-repair.md",
+  "scope": {
+    "machine": "office_desktop",
+    "task": "factor_batch",
+    "branch": "codex/factor-batch-cn-stock-pead-gap-reversal-source-repair-round692-20260709"
+  },
+  "research_control_plan": {
+    "declared_controls": {
+      "cn_stock_tradeability": [
+        "limit_up_down_filter",
+        "suspension_filter",
+        "st_flag_filter",
+        "new_listing_age_filter",
+        "delisting_risk_filter",
+        "board_permission_filter"
+      ],
+      "financial_pit_timing": [
+        "ann_date_or_effective_date_lag",
+        "financial_revision_announcement_handling",
+        "report_release_lag_not_period_end",
+        "no_period_end_only_financial_signal"
+      ],
+      "source_sample_integrity": [
+        "endpoint_permission_or_cache_manifest",
+        "point_in_time_available_date_semantics",
+        "full_sample_2015_2025_same_parameter_replay",
+        "train_test_or_walk_forward_split_declared",
+        "future_function_static_audit",
+        "rejected_hypothesis_counting"
+      ],
+      "industry_style_neutralization": [
+        "industry_exposure_report",
+        "size_exposure_report",
+        "value_lowvol_momentum_liquidity_decomposition",
+        "neutralized_or_residual_factor_matrix"
+      ],
+      "etf_rotation_scope_boundary": [
+        "stock_scope_confirmed",
+        "etf_rotation_evidence_rejected_for_stock_factor",
+        "cn_etf_dedicated_signal_pack_separate"
+      ],
+      "portfolio_construction": [
+        "risk_budget_position_sizing",
+        "volatility_targeting_or_volatility_budget",
+        "industry_weight_constraints",
+        "turnover_constraints",
+        "stop_loss_or_de_risk_rules"
+      ],
+      "strict_statistics": [
+        "deflated_sharpe",
+        "purged_cpcv",
+        "white_reality_check_or_fdr",
+        "parameter_sensitivity_heatmap",
+        "multiple_testing_accounting"
+      ],
+      "china_market_regime": [
+        "policy_liquidity_regime",
+        "credit_cycle_proxy",
+        "northbound_margin_turnover_temperature",
+        "index_location_state",
+        "signal_window_regime_coverage"
+      ],
+      "event_factors": [
+        "earnings_forecast_or_statement_event_audit",
+        "dividend_ex_right_event_audit",
+        "buyback_holder_unlock_event_audit",
+        "index_rebalance_event_audit",
+        "event_contamination_extreme_return_audit"
+      ]
+    },
+    "policy": "Round692 may only preregister a PEAD gap-overreaction reversal source-repair audit on the expanded statement source. Formula grid expansion, portfolio grids, promotion, sign/window tuning, mixed-window harvesting, live trading, and final-holdout reads remain blocked."
+  },
+  "data_source_plan": {
+    "source_family": "financial_statement_roots",
+    "local_cache_root": "data/processed",
+    "source_gate_report": "docs/research/cn_stock_round690_financial_reporting_timeliness_backfill_progress_2026-07-08.md",
+    "long_cycle_start_date": "2015-01-01",
+    "long_cycle_end_date": "2025-12-31",
+    "final_holdout_available_for_tuning": false,
+    "available_date_rule": "Use the first valid trading date strictly after ann_date. Same-day announcement trading and period-end-only signals are blocked.",
+    "event_reaction_rule": "Measure the event gap only after the announcement is observable, then date factors on the next tradable day after the event-reaction observation.",
+    "provider_limit_policy": "Use local processed PIT statement cache only. Do not download or extend source data during Round692 candidate-plan gate."
+  },
+  "prior_family_evidence": {
+    "round222": "Financial PIT post-announcement drift preregistration allowed Round223 gap-reversal screening only.",
+    "round223": "PEAD gap-overreaction reversal produced five research leads in residual IC screening; best 5D IC was about 0.138 with positive neutral IC shape.",
+    "round224": "Reference dedup found high within-family correlation and froze three candidate representatives.",
+    "round225": "Walk-forward portfolio preflight accepted zero of the frozen candidates because capacity, drawdown, and early-cycle stability failed.",
+    "round690": "Expanded statement source cleared the 1000-symbol source gate with 1002 symbols and 212387 rows.",
+    "round691": "Financial reporting timeliness on the same expanded source produced zero research leads and is not a promotion candidate.",
+    "constraint": "Round692 is a source-expansion repair only; no formula-grid or portfolio-grid expansion is allowed after Round225 zero accepted walk-forward cases."
+  },
+  "source_gate_result": {
+    "status": "source_ready",
+    "source_gate_cleared": true,
+    "candidate_plan_allowed": true,
+    "unique_symbols": 1002,
+    "minimum_required_symbols": 1000,
+    "row_count": 212387,
+    "blockers": []
+  },
+  "cn_stock_data_manifest_result": {
+    "status": "review_required",
+    "output_dir": "data/reports/round692_pead_gap_reversal_source_repair_data_manifest_20260709",
+    "bar_asset_ids": 5774,
+    "moneyflow_asset_ids": 5648,
+    "date_start": "2015-01-05",
+    "date_end": "2026-06-15",
+    "blockers": [],
+    "warnings": [
+      "extreme_return_rows_present",
+      "moneyflow_symbol_coverage_below_bars"
+    ],
+    "warning_policy": "Warnings must be carried into prescreen documentation and cannot be interpreted as alpha evidence."
+  },
+  "candidate_generation_policy": {
+    "pre_register_every_candidate": true,
+    "record_rejected_candidates": true,
+    "parameter_grid_allowed": false,
+    "portfolio_grid_allowed": false,
+    "promotion_allowed": false,
+    "active_candidate_count": 5,
+    "planned_test_count": 5,
+    "multiple_testing_accounting_rule": "Every formula, sign, lag, horizon, source adapter, or window variant must be preregistered and counted before screening."
+  },
+  "evaluation_gate": {
+    "required_metrics": [
+      "point_in_time_ann_date_to_signal_date_alignment",
+      "statement_source_adapter_smoke",
+      "candidate_coverage_by_year_and_symbol",
+      "source_size_comparison_vs_round223",
+      "industry_neutral_ic_5d",
+      "size_liquidity_neutral_ic_5d",
+      "style_residual_ic_5d",
+      "quantile_monotonicity",
+      "yearly_ic_stability",
+      "regime_coverage_breakout",
+      "manifest_warning_carry_forward",
+      "cost_capacity_preflight_if_prescreen_lead_exists",
+      "deflated_sharpe_or_fdr",
+      "purged_cpcv_or_walk_forward_preflight",
+      "future_function_static_audit",
+      "no_final_holdout_read"
+    ],
+    "fixed_horizons": [
+      5
+    ],
+    "multiple_testing_accounting_required": true,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "portfolio_grid_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_available_for_tuning": false
+  },
+  "promotion_policy": {
+    "promotion_allowed": false,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "requires_data_source_availability_proof": true,
+    "requires_long_cycle_replay": true,
+    "requires_same_parameter_full_sample": true,
+    "requires_full_sample_regime_coverage": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true,
+    "requires_no_lookahead_audit": true,
+    "requires_future_function_static_audit": true,
+    "requires_overfit_multiple_testing_control": true,
+    "requires_overlap_adjusted_statistics": true,
+    "requires_parameter_sensitivity": true,
+    "requires_parameter_sensitivity_heatmap": true,
+    "requires_deflated_sharpe_or_fdr": true,
+    "requires_cpcv_or_purged_walk_forward": true,
+    "requires_white_reality_check_or_multiple_test_adjustment": true,
+    "requires_profit_drawdown_winrate_report": true,
+    "requires_final_holdout_read_once": true,
+    "requires_tradeability_survivorship_audit": true,
+    "requires_industry_style_neutralization": true,
+    "requires_source_performance_evidence": true
+  },
+  "family_rotation_policy": {
+    "current_family_id": "pead_gap_reversal_statement_source_repair",
+    "current_family_round_count": 1,
+    "max_rounds_before_review": 3,
+    "three_round_review_completed": true,
+    "hibernated_families": [
+      {
+        "family": "financial_reporting_timeliness_after_round691_zero_research_leads",
+        "reason": "Round691 specialized prescreen produced zero FDR or neutral-gate leads."
+      },
+      {
+        "family": "accounting_quality_cash_conversion_after_round246_zero_research_leads",
+        "reason": "Round246 statement-event cash-conversion drift failed residual IC lead formation."
+      },
+      {
+        "family": "profitability_revision_after_round247_zero_research_leads",
+        "reason": "Round247 profitability revision variants were weak after controls."
+      },
+      {
+        "family": "daily_basic_valuation_reversion_after_round258_repair_failure",
+        "reason": "Daily-basic valuation repair evidence remained insufficient."
+      },
+      {
+        "family": "forecast_express_disagreement_after_round268_zero_research_leads",
+        "reason": "Forecast express disagreement did not produce usable residual leads."
+      },
+      {
+        "family": "listing_age_board_structural_after_round259_no_leads",
+        "reason": "Listing-age and board-structure path produced no actionable leads."
+      },
+      {
+        "family": "official_tradeability_event_state_after_round260_no_leads",
+        "reason": "Official tradeability event state path produced no actionable leads."
+      },
+      {
+        "family": "industry_breadth_regime_after_round261_no_leads",
+        "reason": "Industry breadth regime path produced no actionable leads."
+      }
+    ],
+    "blocked_families": [
+      "pead_gap_reversal_grid_expansion_after_round225_zero_accepted_walk_forward"
+    ]
+  },
+  "candidates": [
+    {
+      "factor_name": "stmt_pead_gap_overreaction_reversal_1_5",
+      "family": "pead_gap_reversal_statement_source_repair",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "formula": "negative event_gap measured from the first post-announcement reaction window on the expanded statement source; 5D forward label only",
+      "hypothesis_source": "Round223 PEAD gap-overreaction reversal lead, repaired by Round690 expanded PIT statement source rather than by changing the economic formula.",
+      "economic_rationale": "Large post-announcement gaps can overreact to newly observable accounting information; a same-direction reversal score tests whether the expanded source preserves the residual signal.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "stmt_pead_gap_overreaction_reversal_low_liquidity_penalized_1_5",
+      "family": "pead_gap_reversal_statement_source_repair",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "formula": "negative event_gap divided by one plus absolute event volume surprise; 5D forward label only",
+      "hypothesis_source": "Round223 best residual IC PEAD gap-overreaction reversal variant, tested as a source-expansion repair on Round690 statement rows.",
+      "economic_rationale": "Penalizing extreme volume surprise reduces the chance that the event gap only captures liquidity shocks rather than overreaction to accounting news.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "stmt_pead_gap_overreaction_reversal_volume_confirmed_1_5",
+      "family": "pead_gap_reversal_statement_source_repair",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "formula": "negative event_gap multiplied by one plus absolute event volume surprise; 5D forward label only",
+      "hypothesis_source": "Round223 preregistered PEAD gap-overreaction reversal family, replayed only because the statement source expanded materially in Round690.",
+      "economic_rationale": "If volume confirms attention rather than permanent information, high-attention announcement gaps may have stronger short-horizon reversal after controls.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "stmt_pead_gap_overreaction_reversal_size_neutral_candidate_1_5",
+      "family": "pead_gap_reversal_statement_source_repair",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "formula": "negative event_gap multiplied by one minus 0.25 times centered event amount rank; 5D forward label only",
+      "hypothesis_source": "Round223 preregistered PEAD gap-overreaction reversal family with size-style containment, replayed on expanded statement coverage.",
+      "economic_rationale": "Explicitly dampening larger event-amount names tests whether the reversal is not merely a size or high-information-flow proxy.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "stmt_pead_gap_overreaction_reversal_quality_conditioned_1_5",
+      "family": "pead_gap_reversal_statement_source_repair",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "formula": "negative event_gap plus 0.2 times cross-sectional zscore of PIT-safe fundamental_delta; 5D forward label only",
+      "hypothesis_source": "Round223 preregistered quality-conditioned PEAD gap reversal, source-repaired with Round690 statement rows and PIT-safe announcement timing.",
+      "economic_rationale": "A small quality condition can separate transient price overreaction from accounting information that is more likely to persist.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    }
+  ],
+  "next_gate_if_cleared": "round692_pead_gap_reversal_statement_source_adapter_or_residual_prescreen",
+  "safety": "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+}
