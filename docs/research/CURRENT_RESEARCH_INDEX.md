@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round737_lpr_macro_regime_state_conditioned_walk_forward_validation_2026-07-09.md`
 - `docs/research/cn_stock_round736_lpr_macro_regime_state_conditioned_walk_forward_preflight_2026-07-09.md`
 - `docs/research/cn_stock_round735_lpr_macro_regime_state_conditioned_reference_dedup_2026-07-09.md`
 - `docs/research/cn_stock_round734_lpr_macro_regime_factor_value_reconstruction_smoke_2026-07-09.md`
@@ -6380,3 +6381,25 @@ Docs:
 - `docs/research/cn_stock_round736_lpr_macro_regime_state_conditioned_walk_forward_preflight_2026-07-09.md`
 
 Decision: both `gap_widening` representatives may proceed only to formal walk-forward cost/capacity/regime validation. Parameter expansion, portfolio grids, promotion gates, paper signals, and live boundaries remain blocked.
+
+## Round737 LPR Macro Regime State-Conditioned Walk-Forward Validation
+
+Round737 ran formal walk-forward validation for the two Round736 frozen `gap_widening` LPR-SHIBOR representatives and rejected both.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- New op and CLI: `src/quant_robot/ops/lpr_macro_regime_state_conditioned_walk_forward_validation.py` and `scripts/run_lpr_macro_regime_state_conditioned_walk_forward_validation.py`.
+- The validation consumes Round736, rebuilds Round734 residual factor values, rebuilds forward-return labels from local bars, aligns values to LPR states, evaluates the frozen train/test folds, and reports IC, cost-adjusted long-short return, capacity participation, exposure challenge, and LPR allowed/blocked state coverage.
+- Real startup gates passed: Quant PM startup gate `ready`; factor-mining startup gate `cleared`.
+- Real output wrote `data/reports/round737_lpr_macro_regime_state_conditioned_walk_forward_validation_20260709`.
+- Validation summary: status `rejected`, 2 frozen candidates, 0 accepted candidates, 2 rejected candidates, 4 fold rows, 2 accepted folds, 160 allowed `gap_widening` dates, 57 blocked non-`gap_widening` dates, and decision blocker `no_accepted_lpr_walk_forward_candidates`.
+- `williams_range_failure_reversal_14_20_industry_size_liquidity_vol_residual`: rejected, 1/2 folds accepted, mean test IC 0.0164, mean test net long-short 0.0003, total test net long-short 0.0058; Fold 1 failed IC and cost-adjusted long-short.
+- `public_anomaly_residual_equal_weight_20_industry_size_liquidity_vol_residual`: rejected, 1/2 folds accepted, mean test IC 0.0321, mean test net long-short -0.0007, total test net long-short -0.0143; Fold 1 failed cost-adjusted long-short despite passing the `realized_vol_20` exposure challenge.
+- Capacity was not the blocker: capacity-limited test dates were 0 for both candidates and max participation was around 0.0061%, below the 1% cap.
+- Focused tests: LPR state-conditioned walk-forward validation and CLI `5 passed`.
+- No provider download, portfolio grid, promotion gate, ready signal snapshot, paper simulation, broker access, order placement, or final-holdout tuning occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round737_lpr_macro_regime_state_conditioned_walk_forward_validation_2026-07-09.md`
+
+Decision: do not proceed to statistical reality check, final holdout, portfolio grid, promotion, paper signal, or live boundary. The LPR `gap_widening` path should be repaired or rotated using this rejection as negative evidence.
