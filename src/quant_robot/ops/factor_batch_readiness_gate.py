@@ -33,6 +33,12 @@ def build_factor_batch_readiness_gate(
     )
     source_next_action = str(source_decision.get("next_action", ""))
     ready = not blockers
+    next_action = _next_action(
+        ready=ready,
+        provider_quota_decision=quota_decision,
+        provider_quota_provided=bool(quota_packet),
+        source_next_action=source_next_action,
+    )
     packet = {
         "stage": STAGE,
         "generated_at": date.today().isoformat(),
@@ -57,7 +63,7 @@ def build_factor_batch_readiness_gate(
             "research_screen_allowed": ready and candidate_decision.get("research_screen_allowed") is True,
             "portfolio_grid_allowed": False,
             "promotion_allowed": False,
-            "next_action": source_next_action if blockers else "run_frozen_candidate_prescreen",
+            "next_action": next_action,
             "blockers": blockers,
         },
         "source_queue_decision": source_decision,
@@ -144,6 +150,22 @@ def _provider_quota_preflight_status(decision: dict[str, Any], *, provided: bool
     if not provided:
         return "not_provided"
     return "allowed" if decision.get("request_allowed") is True else "blocked"
+
+
+def _next_action(
+    *,
+    ready: bool,
+    provider_quota_decision: dict[str, Any],
+    provider_quota_provided: bool,
+    source_next_action: str,
+) -> str:
+    if ready:
+        return "run_frozen_candidate_prescreen"
+    if provider_quota_provided and provider_quota_decision.get("request_allowed") is not True:
+        quota_next_action = str(provider_quota_decision.get("next_action", "")).strip()
+        if quota_next_action:
+            return quota_next_action
+    return source_next_action or "review_factor_batch_readiness_blockers"
 
 
 def _dict(value: Any) -> dict[str, Any]:

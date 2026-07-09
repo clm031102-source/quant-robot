@@ -102,6 +102,7 @@ class FactorBatchReadinessGateTests(unittest.TestCase):
                 "decision": {
                     "request_allowed": False,
                     "blockers": ["daily_provider_request_budget_exhausted"],
+                    "next_action": "collect_required_quota_pack_evidence",
                 }
             },
         )
@@ -113,6 +114,7 @@ class FactorBatchReadinessGateTests(unittest.TestCase):
             "provider_quota_preflight_blocked:daily_provider_request_budget_exhausted",
             packet["decision"]["blockers"],
         )
+        self.assertEqual(packet["decision"]["next_action"], "collect_required_quota_pack_evidence")
 
     def test_writer_outputs_json_and_markdown(self) -> None:
         packet = build_factor_batch_readiness_gate(

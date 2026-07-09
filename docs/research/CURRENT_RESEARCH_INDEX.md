@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round709_quota_next_action_priority_2026-07-09.md`
 - `docs/research/cn_stock_round708_quota_preflight_readiness_gate_2026-07-09.md`
 - `docs/research/cn_stock_round707_provider_allowed_readiness_semantics_2026-07-09.md`
 - `docs/research/cn_stock_round706_factor_batch_readiness_gate_2026-07-09.md`
@@ -5761,3 +5762,22 @@ Docs:
 - `docs/research/cn_stock_round708_quota_preflight_readiness_gate_2026-07-09.md`
 
 Decision: before any next analyst-report frozen prescreen, run the combined readiness gate with quota preflight evidence. If quota preflight blocks, wait for real quota reset or import valid quota-pack evidence instead of using the manual provider switch as an override.
+
+## Round709 Quota Next Action Priority
+
+Round709 tightened the blocked `next_action` priority in the combined factor-batch readiness gate.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- If readiness is clear, next action remains `run_frozen_candidate_prescreen`.
+- If analyst quota preflight is provided and blocked, its `decision.next_action` takes precedence over source queue next action.
+- Real readiness gate with required quota-pack machines `office_desktop`, `highspec_desktop`, and `laptop`: `blocked`.
+- Provider quota preflight blockers included `daily_provider_request_budget_exhausted` and `missing_required_quota_pack_machines`.
+- Combined readiness next action: `collect_required_quota_pack_evidence`.
+- Focused related tests: `36 passed`; compile check passed.
+- No provider download, new factor formula, IC screen, portfolio grid, walk-forward conversion, promotion gate, signal generation, or final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round709_quota_next_action_priority_2026-07-09.md`
+
+Decision: for quota-blocked analyst-report work, follow the quota preflight next action first. Missing quota-pack machines must be resolved with valid quota-pack evidence before any provider-backed analyst cache or frozen prescreen.
