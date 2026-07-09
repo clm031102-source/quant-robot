@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round747_listing_age_hibernation_source_queue_2026-07-09.md`
 - `docs/research/cn_stock_round746_calendar_hibernation_source_queue_2026-07-09.md`
 - `docs/research/cn_stock_round745_analyst_cache_priority_gate_guard_2026-07-09.md`
 - `docs/research/cn_stock_round744_analyst_source_extension_priority_gate_2026-07-09.md`

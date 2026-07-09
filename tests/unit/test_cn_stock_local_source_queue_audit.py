@@ -136,6 +136,36 @@ class CnStockLocalSourceQueueAuditTests(unittest.TestCase):
         self.assertEqual(packet["summary"]["no_provider_ready_source_count"], 0)
         self.assertFalse(packet["decision"]["no_provider_factor_batch_allowed"])
 
+    def test_listing_age_board_structural_stays_hibernated_after_zero_residual_leads(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            processed = root / "processed"
+            reports = root / "reports"
+            (processed / "round701_analyst_report_revision_cache_202406_20260709").mkdir(parents=True)
+            (reports / "round701_analyst_report_revision_cache_202406_20260709").mkdir(parents=True)
+            (reports / "round259_listing_age_board_full_core_20260626").mkdir(parents=True)
+
+            packet = build_cn_stock_local_source_queue_audit(
+                processed_root=processed,
+                reports_root=reports,
+                provider_request_allowed=False,
+            )
+
+        rows = {row["source_id"]: row for row in packet["source_rows"]}
+        listing_row = rows["listing_age_board_structural"]
+        self.assertEqual(listing_row["status"], "hibernated")
+        self.assertTrue(listing_row["evidence_present"])
+        self.assertFalse(listing_row["provider_required"])
+        self.assertFalse(listing_row["local_prescreen_allowed"])
+        self.assertEqual(
+            listing_row["allowed_next_action"],
+            "use_listing_age_and_board_as_risk_control_not_alpha_source",
+        )
+        self.assertIn("listing_age_threshold_tuning", listing_row["blocked_actions"])
+        self.assertIn("sign_flip_after_residual_collapse", listing_row["blocked_actions"])
+        self.assertEqual(packet["summary"]["no_provider_ready_source_count"], 0)
+        self.assertFalse(packet["decision"]["no_provider_factor_batch_allowed"])
+
     def test_missing_active_source_evidence_is_reported_as_blocker(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

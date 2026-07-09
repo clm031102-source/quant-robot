@@ -189,6 +189,26 @@ def default_source_queue_definitions() -> list[SourceQueueDefinition]:
             report_globs=("cn_calendar_pre_holiday_cost_capacity_preflight_round165_*",),
         ),
         SourceQueueDefinition(
+            "listing_age_board_structural",
+            "hibernated",
+            False,
+            "use_listing_age_and_board_as_risk_control_not_alpha_source",
+            (
+                "listing_age_threshold_tuning",
+                "board_permission_direct_rank",
+                "fresh_listing_sign_flip",
+                "sign_flip_after_residual_collapse",
+                "portfolio_grid",
+            ),
+            "round259_listing_age_board_zero_residual_leads",
+            (
+                "Listing-age and board-permission variables are useful control/risk context, but the "
+                "Round259 full-cycle residual screen produced zero research leads after industry, size, "
+                "liquidity, volatility, and yearly-stability controls."
+            ),
+            report_globs=("round259_listing_age_board_full_core_*",),
+        ),
+        SourceQueueDefinition(
             "low_turnover_public_technical_alpha101",
             "hibernated",
             False,
