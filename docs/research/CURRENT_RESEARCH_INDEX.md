@@ -6464,3 +6464,24 @@ Docs:
 - `docs/research/cn_stock_round740_analyst_report_quota_recheck_2026-07-09.md`
 
 Decision: do not cache the next analyst-report month on 2026-07-09 from this machine. The selected analyst source remains blocked until quota resets or valid quota evidence changes provider readiness.
+
+## Round741 Local Source Queue LPR Rejection Absorption
+
+Round741 updated the default local source queue so repaired LPR evidence cannot keep unlocking no-provider factor batches after Round737/Round738 rejected and closed the old LPR `gap_widening` path.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Updated `src/quant_robot/ops/cn_stock_local_source_queue_audit.py` and `tests/unit/test_cn_stock_local_source_queue_audit.py`.
+- `external_macro_lpr_regime` now defaults to `source_maintenance_only`, not `active_source_accumulation`.
+- Its allowed next action is `new_lpr_macro_interaction_source_gate_only_after_round738_rejection`.
+- It still records repaired LPR processed/report evidence, but `local_prescreen_allowed=false` and blocked actions include same LPR gap-widening retry, cost/fold-threshold relaxation, standalone LPR stock rank, premature portfolio grid, promotion from source/join smoke, and HK-hold LPR interaction before HK-hold history readiness.
+- Real source queue audit wrote `data/reports/round741_local_source_queue_after_lpr_rejection_20260709`.
+- Real audit status: `blocked`; active source count 1; local-prescreen-ready source count 1; no-provider-ready source count 0; provider-ready source count 1.
+- Decision blockers: `no_local_no_provider_source_ready` and `report_rc_quota_blocked`.
+- Focused tests: local source queue audit `5 passed`.
+- No provider download, factor batch, portfolio grid, promotion gate, ready signal snapshot, paper simulation, broker access, order placement, or final-holdout tuning occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round741_local_source_queue_lpr_rejection_absorption_2026-07-09.md`
+
+Decision: the repaired LPR source is maintenance evidence only after the rejection. Future LPR work requires a genuinely new macro-interaction source gate; the current active route remains analyst-report source extension after quota reset or a separate new PIT-safe source gate.

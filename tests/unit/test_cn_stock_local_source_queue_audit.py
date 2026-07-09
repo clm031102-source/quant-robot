@@ -69,7 +69,7 @@ class CnStockLocalSourceQueueAuditTests(unittest.TestCase):
             "analyst_monthly_cache_preflight_then_frozen_prescreen",
         )
 
-    def test_lpr_macro_regime_source_becomes_no_provider_ready_when_repaired_evidence_exists(self) -> None:
+    def test_lpr_macro_regime_source_stays_maintenance_only_after_walk_forward_rejection(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             processed = root / "processed"
@@ -87,19 +87,23 @@ class CnStockLocalSourceQueueAuditTests(unittest.TestCase):
 
         rows = {row["source_id"]: row for row in packet["source_rows"]}
         lpr_row = rows["external_macro_lpr_regime"]
-        self.assertEqual(lpr_row["status"], "active_source_accumulation")
+        self.assertEqual(lpr_row["status"], "source_maintenance_only")
         self.assertTrue(lpr_row["evidence_present"])
         self.assertFalse(lpr_row["provider_required"])
-        self.assertTrue(lpr_row["local_prescreen_allowed"])
-        self.assertTrue(packet["decision"]["no_provider_factor_batch_allowed"])
+        self.assertFalse(lpr_row["local_prescreen_allowed"])
+        self.assertEqual(
+            lpr_row["allowed_next_action"],
+            "new_lpr_macro_interaction_source_gate_only_after_round738_rejection",
+        )
+        self.assertFalse(packet["decision"]["no_provider_factor_batch_allowed"])
         self.assertFalse(packet["decision"]["provider_factor_batch_allowed"])
-        self.assertEqual(packet["decision"]["status"], "cleared")
-        self.assertNotIn("report_rc_quota_blocked", packet["decision"]["blockers"])
-        self.assertIn("report_rc_quota_blocked", packet["decision"]["warnings"])
-        self.assertEqual(packet["summary"]["no_provider_ready_source_count"], 1)
+        self.assertEqual(packet["decision"]["status"], "blocked")
+        self.assertIn("report_rc_quota_blocked", packet["decision"]["blockers"])
+        self.assertIn("no_local_no_provider_source_ready", packet["decision"]["blockers"])
+        self.assertEqual(packet["summary"]["no_provider_ready_source_count"], 0)
         self.assertEqual(
             packet["decision"]["next_action"],
-            "run_no_provider_factor_batch_from_ready_local_source",
+            "wait_for_report_rc_quota_reset_then_analyst_monthly_cache_preflight",
         )
 
     def test_missing_active_source_evidence_is_reported_as_blocker(self) -> None:

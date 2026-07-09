@@ -67,19 +67,22 @@ def default_source_queue_definitions() -> list[SourceQueueDefinition]:
         ),
         SourceQueueDefinition(
             source_id="external_macro_lpr_regime",
-            status=CONDITIONAL_ACTIVE_STATUS,
+            status="source_maintenance_only",
             provider_required=False,
-            allowed_next_action="lpr_macro_regime_candidate_plan_gate_then_residual_prescreen",
+            allowed_next_action="new_lpr_macro_interaction_source_gate_only_after_round738_rejection",
             blocked_actions=(
+                "same_lpr_gap_widening_candidate_retry",
+                "cost_or_fold_threshold_relaxation_after_walk_forward_rejection",
                 "standalone_market_level_lpr_stock_rank",
                 "portfolio_grid_before_residual_prescreen",
                 "promotion_from_source_or_join_smoke",
                 "hk_hold_lpr_interaction_before_hk_hold_history_ready",
             ),
-            latest_evidence="round695_external_feed_lpr_repaired_source_audit_and_round730_join_smoke",
+            latest_evidence="round738_lpr_walk_forward_rejection_rotation_gate",
             rationale=(
-                "Repaired LPR macro-rate source has PIT available_date coverage and may be used as a "
-                "policy-liquidity regime control after candidate gating, not as standalone alpha."
+                "Repaired LPR macro-rate data remains useful source-maintenance evidence, but the Round737 "
+                "walk-forward rejection and Round738 rotation gate closed the old gap-widening residual path "
+                "to simple rerun or threshold rescue."
             ),
             processed_globs=("round695_external_feeds_lpr_repaired_*",),
             report_globs=("round695_external_feed_lpr_repaired_coverage_audit_*",),
