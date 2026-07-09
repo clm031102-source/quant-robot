@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round735_lpr_macro_regime_state_conditioned_reference_dedup_2026-07-09.md`
 - `docs/research/cn_stock_round734_lpr_macro_regime_factor_value_reconstruction_smoke_2026-07-09.md`
 - `docs/research/cn_stock_round733_lpr_macro_regime_reference_dedup_preflight_2026-07-09.md`
 - `docs/research/cn_stock_round732_lpr_macro_regime_pairwise_residual_ic_prescreen_2026-07-09.md`
@@ -6334,3 +6335,24 @@ Docs:
 - `docs/research/cn_stock_round734_lpr_macro_regime_factor_value_reconstruction_smoke_2026-07-09.md`
 
 Decision: the two `gap_widening` representatives have enough state-conditioned factor-value coverage to proceed only to true factor-value reference deduplication and exposure reaudit. Walk-forward, portfolio grids, promotion gates, paper signals, and live boundaries remain blocked.
+
+## Round735 LPR Macro Regime State-Conditioned Reference Dedup
+
+Round735 ran true factor-value reference deduplication and exposure reaudit for the two Round734 `gap_widening` LPR-SHIBOR representative candidates.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- New op and CLI: `src/quant_robot/ops/lpr_macro_regime_state_conditioned_reference_dedup.py` and `scripts/run_lpr_macro_regime_state_conditioned_reference_dedup.py`.
+- The gate consumes the Round734 smoke, rebuilds residual factor values, public technical references, and exposure controls, aligns all evidence to the latest LPR state with `available_date <= factor_date`, and computes reference/exposure correlations only inside the candidate state.
+- Real startup gates passed: Quant PM startup gate `ready`; factor-mining startup gate `cleared`.
+- Real output wrote `data/reports/round735_lpr_macro_regime_state_conditioned_reference_dedup_20260709`.
+- Gate summary: 2 representative candidates, 2,773,424 residual factor-value rows rebuilt, 18 reference-correlation rows, 10 exposure-correlation rows, 2 state-conditioned reference-dedup passes, 0 blocked candidates, 0 high-reference candidates, and 0 high-exposure candidates.
+- `public_anomaly_residual_equal_weight_20_industry_size_liquidity_vol_residual`: `gap_widening`, 100 dates, median cross-section 4,039, reference class `unique`, max reference correlation 0.441 to `donchian_position_20`, exposure class `moderate_exposure`, max exposure correlation 0.710 to `realized_vol_20`.
+- `williams_range_failure_reversal_14_20_industry_size_liquidity_vol_residual`: `gap_widening`, 100 dates, median cross-section 4,039, reference class `unique`, max reference correlation 0.689 to `donchian_position_20`, exposure class `low_exposure`, max exposure correlation 0.460 to `return_20`.
+- Focused tests: LPR state-conditioned reference dedup and CLI `3 passed`.
+- No provider download, walk-forward validation, portfolio grid, promotion gate, ready signal snapshot, paper simulation, broker access, order placement, or final-holdout tuning occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round735_lpr_macro_regime_state_conditioned_reference_dedup_2026-07-09.md`
+
+Decision: both `gap_widening` representatives may proceed only to walk-forward preflight. The anomaly equal-weight representative requires an explicit moderate-`realized_vol_20` exposure challenge in that next step. Portfolio grids, promotion gates, paper signals, and live boundaries remain blocked.
