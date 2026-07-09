@@ -125,6 +125,45 @@ class FactorBatchReadinessGateTests(unittest.TestCase):
         )
         self.assertEqual(packet["decision"]["next_action"], "collect_required_quota_pack_evidence")
 
+    def test_daily_quota_block_keeps_current_local_prescreen_next_action(self) -> None:
+        packet = build_factor_batch_readiness_gate(
+            source_queue_packet={
+                "decision": {
+                    "status": "blocked",
+                    "blockers": ["no_local_no_provider_source_ready", "report_rc_quota_blocked"],
+                    "next_action": "wait_for_report_rc_quota_reset_then_analyst_monthly_cache_preflight",
+                    "local_prescreen_next_action": (
+                        "local_prescreen_current_wait_for_report_rc_quota_reset_then_analyst_monthly_cache_preflight"
+                    ),
+                },
+                "summary": {"active_source_count": 1},
+            },
+            candidate_plan_gate_packet={
+                "status": "blocked",
+                "decision": {
+                    "candidate_plan_gate_cleared": False,
+                    "research_screen_allowed": False,
+                    "blockers": ["candidate_source_provider_not_allowed:analyst_report_revision"],
+                },
+                "summary": {"candidate_count": 4},
+            },
+            candidate_plan_path="candidate_plan.json",
+            source_queue_output_dir="source_queue",
+            candidate_plan_gate_output_dir="candidate_gate",
+            provider_quota_preflight_packet={
+                "decision": {
+                    "request_allowed": False,
+                    "blockers": ["daily_provider_request_budget_exhausted"],
+                    "next_action": "wait_or_review_provider_quota",
+                }
+            },
+        )
+
+        self.assertEqual(
+            packet["decision"]["next_action"],
+            "local_prescreen_current_wait_for_report_rc_quota_reset_then_analyst_monthly_cache_preflight",
+        )
+
     def test_writer_outputs_json_and_markdown(self) -> None:
         packet = build_factor_batch_readiness_gate(
             source_queue_packet={"decision": {"status": "cleared", "blockers": []}, "summary": {}},

@@ -54,6 +54,24 @@ Result:
   - `no_local_no_provider_source_ready`
   - `report_rc_quota_blocked`
 
+## Readiness Next Action Check
+
+The factor-batch readiness gate now preserves the source queue's precise current-prescreen action when the only provider-quota blocker is the daily `report_rc` request budget.
+
+Command:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_factor_batch_readiness_gate.py --candidate-plan configs\factor_mining_candidate_plan_round453_analyst_report_revision_20260627.json --output-dir data\reports\round753_factor_batch_readiness_prescreen_currency_after_fix_20260709 --quota-report-root data\reports --quota-target-date 2026-07-09 --allow-blocked
+```
+
+Result:
+
+- Status: `blocked`
+- Research screen allowed: false
+- Portfolio grid allowed: false
+- Promotion allowed: false
+- Next action: `local_prescreen_current_wait_for_report_rc_quota_reset_then_analyst_monthly_cache_preflight`
+
 ## Tests
 
 Focused verification:
@@ -62,7 +80,7 @@ Focused verification:
 .\.venv\Scripts\python.exe -m pytest tests\unit\test_cn_stock_local_source_queue_audit.py tests\unit\test_cn_stock_local_source_queue_audit_cli.py tests\unit\test_factor_batch_readiness_gate.py tests\unit\test_factor_batch_readiness_gate_cli.py -q
 ```
 
-Result: `22 passed`.
+Result: `23 passed`.
 
 ## Decision
 

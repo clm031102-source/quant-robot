@@ -32,12 +32,14 @@ def build_factor_batch_readiness_gate(
         provider_quota_provided=bool(quota_packet),
     )
     source_next_action = str(source_decision.get("next_action", ""))
+    source_local_prescreen_next_action = str(source_decision.get("local_prescreen_next_action", ""))
     ready = not blockers
     next_action = _next_action(
         ready=ready,
         provider_quota_decision=quota_decision,
         provider_quota_provided=bool(quota_packet),
         source_next_action=source_next_action,
+        source_local_prescreen_next_action=source_local_prescreen_next_action,
     )
     packet = {
         "stage": STAGE,
@@ -187,10 +189,17 @@ def _next_action(
     provider_quota_decision: dict[str, Any],
     provider_quota_provided: bool,
     source_next_action: str,
+    source_local_prescreen_next_action: str = "",
 ) -> str:
     if ready:
         return "run_frozen_candidate_prescreen"
     if provider_quota_provided and provider_quota_decision.get("request_allowed") is not True:
+        quota_blockers = _list(provider_quota_decision.get("blockers"))
+        if (
+            "daily_provider_request_budget_exhausted" in quota_blockers
+            and source_local_prescreen_next_action.startswith("local_prescreen_current_")
+        ):
+            return source_local_prescreen_next_action
         quota_next_action = str(provider_quota_decision.get("next_action", "")).strip()
         if quota_next_action:
             return quota_next_action

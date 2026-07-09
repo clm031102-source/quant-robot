@@ -6574,7 +6574,8 @@ Round752 tightened the source queue's local cached prescreen action for the acti
 - Result: status `blocked`, active source count 1, evidence-ready active source count 1, local-prescreen-ready source count 1, no-provider-ready source count 0, provider-ready source count 1, and missing required evidence count 0.
 - Analyst source currency: latest cache period `202406`, latest prescreen period `202406`, local prescreen current true.
 - Local prescreen next action is now `local_prescreen_current_wait_for_report_rc_quota_reset_then_analyst_monthly_cache_preflight`, preventing repeated Jan-Jun 2024 cached prescreen runs before a July cache exists.
-- Focused tests: source queue audit/CLI and factor-batch readiness gate/CLI `22 passed`.
+- Factor-batch readiness now preserves that precise action when the only provider quota blocker is `daily_provider_request_budget_exhausted`; real output wrote `data/reports/round753_factor_batch_readiness_prescreen_currency_after_fix_20260709` with the same next action.
+- Focused tests: source queue audit/CLI and factor-batch readiness gate/CLI `23 passed`.
 - No provider download, new factor IC screen, factor batch, portfolio grid, promotion gate, ready signal snapshot, paper simulation, broker access, order placement, or final-holdout tuning occurred.
 
 Docs:
