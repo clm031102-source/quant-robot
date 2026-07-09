@@ -31,6 +31,8 @@ class CnStockLocalSourceQueueAuditTests(unittest.TestCase):
         self.assertGreaterEqual(packet["summary"]["hibernated_or_closed_source_count"], 8)
         self.assertFalse(packet["decision"]["no_provider_factor_batch_allowed"])
         self.assertFalse(packet["decision"]["provider_factor_batch_allowed"])
+        self.assertTrue(packet["decision"]["local_prescreen_allowed"])
+        self.assertEqual(packet["summary"]["local_prescreen_ready_source_count"], 1)
         self.assertIn("report_rc_quota_blocked", packet["decision"]["blockers"])
         self.assertIn("no_local_no_provider_source_ready", packet["decision"]["blockers"])
         self.assertEqual(
@@ -38,6 +40,7 @@ class CnStockLocalSourceQueueAuditTests(unittest.TestCase):
             "wait_for_report_rc_quota_reset_then_analyst_monthly_cache_preflight",
         )
         self.assertTrue(rows["analyst_report_revision"]["evidence_present"])
+        self.assertTrue(rows["analyst_report_revision"]["local_prescreen_allowed"])
         self.assertTrue(rows["analyst_report_revision"]["provider_required"])
         self.assertEqual(rows["analyst_report_revision"]["status"], "active_source_accumulation")
         self.assertEqual(rows["daily_basic_direct"]["status"], "hibernated")
@@ -59,6 +62,7 @@ class CnStockLocalSourceQueueAuditTests(unittest.TestCase):
         self.assertEqual(packet["decision"]["status"], "cleared")
         self.assertFalse(packet["decision"]["no_provider_factor_batch_allowed"])
         self.assertTrue(packet["decision"]["provider_factor_batch_allowed"])
+        self.assertTrue(packet["decision"]["local_prescreen_allowed"])
         self.assertEqual(packet["decision"]["blockers"], [])
         self.assertEqual(
             packet["decision"]["next_action"],
@@ -76,8 +80,11 @@ class CnStockLocalSourceQueueAuditTests(unittest.TestCase):
 
         rows = {row["source_id"]: row for row in packet["source_rows"]}
         self.assertFalse(rows["analyst_report_revision"]["evidence_present"])
+        self.assertFalse(rows["analyst_report_revision"]["local_prescreen_allowed"])
         self.assertEqual(packet["summary"]["evidence_ready_active_source_count"], 0)
+        self.assertEqual(packet["summary"]["local_prescreen_ready_source_count"], 0)
         self.assertFalse(packet["decision"]["provider_factor_batch_allowed"])
+        self.assertFalse(packet["decision"]["local_prescreen_allowed"])
         self.assertIn("active_source_evidence_missing:analyst_report_revision", packet["decision"]["blockers"])
 
     def test_writer_outputs_json_markdown_and_source_csv(self) -> None:

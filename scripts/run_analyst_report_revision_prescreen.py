@@ -15,10 +15,14 @@ ensure_workspace_imports()
 
 from quant_robot.ops.analyst_report_revision_prescreen import (  # noqa: E402
     build_analyst_report_revision_prescreen,
+    default_analyst_report_candidate_specs,
     write_analyst_report_revision_prescreen,
 )
 from quant_robot.ops.factor_batch_readiness_gate import (  # noqa: E402
     validate_factor_batch_readiness_gate_packet,
+)
+from quant_robot.ops.factor_mining_candidate_plan_gate import (  # noqa: E402
+    validate_candidate_plan_local_prescreen_packet,
 )
 from quant_robot.ops.capacity_safe_price_volume_prescreen import (  # noqa: E402
     DEFAULT_ANALYSIS_END_DATE,
@@ -55,6 +59,13 @@ def main() -> None:
         "--factor-batch-readiness-gate",
         help="Optional combined readiness gate packet; if provided, it must be ready before prescreen starts.",
     )
+    parser.add_argument(
+        "--local-prescreen-candidate-plan-gate",
+        help=(
+            "Optional candidate-plan gate packet that may authorize cached-source IC prescreen "
+            "while the full factor batch gate remains blocked."
+        ),
+    )
     args = parser.parse_args()
 
     if args.factor_batch_readiness_gate:
@@ -62,6 +73,17 @@ def main() -> None:
             validate_factor_batch_readiness_gate_packet(
                 args.factor_batch_readiness_gate,
                 context="Analyst report revision prescreen",
+            )
+        except ValueError as exc:
+            parser.error(str(exc))
+    if args.local_prescreen_candidate_plan_gate:
+        try:
+            validate_candidate_plan_local_prescreen_packet(
+                args.local_prescreen_candidate_plan_gate,
+                expected_factor_names=tuple(
+                    spec.factor_name for spec in default_analyst_report_candidate_specs()
+                ),
+                context="Analyst report revision cached local prescreen",
             )
         except ValueError as exc:
             parser.error(str(exc))

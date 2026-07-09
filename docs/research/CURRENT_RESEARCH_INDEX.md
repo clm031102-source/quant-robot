@@ -6182,3 +6182,27 @@ Docs:
 - `docs/research/cn_stock_round728_batch12_oos_readiness_guard_2026-07-09.md`
 
 Decision: future Batch12 CN stock OOS validation runs must provide ready startup, data-manifest, and combined factor-batch readiness packets before authority bars or daily-basic inputs are loaded. The current Round708 readiness packet is blocked, so Batch12 OOS validation must not generate new evidence until quota/source/candidate readiness clears.
+
+## Round729 Local Cached Analyst Prescreen Gate
+
+Round729 split analyst-report-revision readiness into full batch readiness versus cached local IC-prescreen readiness.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Source queue now reports `local_prescreen_allowed` and `local_prescreen_next_action` separately from `no_provider_factor_batch_allowed` / `provider_factor_batch_allowed`.
+- Candidate-plan gate now reports `local_prescreen_allowed`, `local_prescreen_blockers`, per-candidate `local_prescreen_allowed`, and a local-prescreen candidate count.
+- Added `validate_candidate_plan_local_prescreen_packet(...)`.
+- `scripts/run_analyst_report_revision_prescreen.py` now accepts `--local-prescreen-candidate-plan-gate` for cached-source IC prescreen while full factor-batch readiness remains blocked.
+- Real gate rebuild wrote `data/reports/round729_factor_batch_readiness_local_prescreen_gate_20260709`.
+- Full readiness stayed `blocked` because report_rc quota and full source/candidate gates are still blocked.
+- Source queue and candidate plan both reported cached local prescreen allowed for the four analyst revision candidates.
+- Real cached prescreen wrote `data/reports/round729_analyst_report_revision_jan_jun_local_prescreen_20260709`.
+- Prescreen summary: 10,785,537 bar rows, 10,509 report rows, 24,781 factor rows, 49,562 aligned rows, 8 factor/horizon tests, 2 neutral-gate passes, 4 multiple-testing leads, 0 year-coverage passes, 0 research leads, 0 promotion-allowed candidates.
+- Strongest displayed row: `analyst_target_upside_60` horizon 5 had mean Spearman IC 0.1511 and FDR significance, but only 1 IC year and remained blocked by `ic_year_coverage_below_gate` plus later walk-forward/cost/capacity/regime gates.
+- Focused tests: source queue `4 passed`; candidate-plan gate `17 passed`; analyst prescreen `4 passed`.
+- No provider download, new factor formula, portfolio grid, promotion gate, ready signal snapshot, paper simulation, broker access, order placement, or final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round729_local_cached_analyst_prescreen_gate_2026-07-09.md`
+
+Decision: cached local analyst prescreen may run while provider quota is blocked, but full factor-batch readiness, portfolio grids, promotion, and live boundaries remain blocked. Analyst-report-revision Jan-Jun 2024 cache still has no promotable research lead; next action is quota-reset source extension or rotation to another PIT-safe source.

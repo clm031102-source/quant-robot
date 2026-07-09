@@ -16,6 +16,7 @@ SOURCE_ROW_COLUMNS = (
     "status",
     "provider_required",
     "evidence_present",
+    "local_prescreen_allowed",
     "matched_processed_paths",
     "matched_report_paths",
     "allowed_next_action",
@@ -190,6 +191,7 @@ def build_cn_stock_local_source_queue_audit(
     ]
     active_rows = [row for row in rows if row["status"] == ACTIVE_STATUS]
     evidence_ready_active_rows = [row for row in active_rows if row["evidence_present"]]
+    local_prescreen_ready_rows = [row for row in evidence_ready_active_rows if row["local_prescreen_allowed"]]
     no_provider_ready_rows = [row for row in evidence_ready_active_rows if not row["provider_required"]]
     provider_ready_rows = [row for row in evidence_ready_active_rows if row["provider_required"]]
     blockers = _decision_blockers(
@@ -206,12 +208,18 @@ def build_cn_stock_local_source_queue_audit(
         "status": "cleared" if no_provider_allowed or provider_allowed else "blocked",
         "no_provider_factor_batch_allowed": no_provider_allowed,
         "provider_factor_batch_allowed": provider_allowed,
+        "local_prescreen_allowed": bool(local_prescreen_ready_rows),
         "provider_request_allowed": bool(provider_request_allowed),
         "next_action": _next_action(
             blockers=blockers,
             provider_ready_rows=provider_ready_rows,
             provider_request_allowed=provider_request_allowed,
             no_provider_ready_rows=no_provider_ready_rows,
+        ),
+        "local_prescreen_next_action": _local_prescreen_next_action(
+            local_prescreen_ready_rows=local_prescreen_ready_rows,
+            provider_ready_rows=provider_ready_rows,
+            provider_request_allowed=provider_request_allowed,
         ),
         "blockers": blockers,
     }
@@ -224,6 +232,7 @@ def build_cn_stock_local_source_queue_audit(
             "source_count": len(rows),
             "active_source_count": len(active_rows),
             "evidence_ready_active_source_count": len(evidence_ready_active_rows),
+            "local_prescreen_ready_source_count": len(local_prescreen_ready_rows),
             "no_provider_ready_source_count": len(no_provider_ready_rows),
             "provider_ready_source_count": len(provider_ready_rows),
             "hibernated_or_closed_source_count": sum(
@@ -274,10 +283,13 @@ def render_cn_stock_local_source_queue_audit_markdown(packet: dict[str, Any]) ->
         f"- Decision status: {decision.get('status', 'blocked')}",
         f"- No-provider factor batch allowed: {decision.get('no_provider_factor_batch_allowed', False)}",
         f"- Provider factor batch allowed: {decision.get('provider_factor_batch_allowed', False)}",
+        f"- Local cached prescreen allowed: {decision.get('local_prescreen_allowed', False)}",
         f"- Provider request allowed: {decision.get('provider_request_allowed', False)}",
         f"- Next action: `{decision.get('next_action', '')}`",
+        f"- Local prescreen next action: `{decision.get('local_prescreen_next_action', '')}`",
         f"- Active sources: {summary.get('active_source_count', 0)}",
         f"- Evidence-ready active sources: {summary.get('evidence_ready_active_source_count', 0)}",
+        f"- Local-prescreen-ready active sources: {summary.get('local_prescreen_ready_source_count', 0)}",
         f"- Hibernated or closed sources: {summary.get('hibernated_or_closed_source_count', 0)}",
         f"- Safety: {packet.get('safety', SAFETY)}",
         "",
@@ -291,17 +303,18 @@ def render_cn_stock_local_source_queue_audit_markdown(packet: dict[str, Any]) ->
             "",
             "## Source Rows",
             "",
-            "| Source | Status | Provider Required | Evidence Present | Allowed Next Action | Blocked Actions |",
-            "|---|---|---:|---:|---|---|",
+            "| Source | Status | Provider Required | Evidence Present | Local Prescreen Allowed | Allowed Next Action | Blocked Actions |",
+            "|---|---|---:|---:|---:|---|---|",
         ]
     )
     for row in _list_of_dicts(packet.get("source_rows")):
         lines.append(
-            "| {source_id} | {status} | {provider_required} | {evidence_present} | {allowed_next_action} | {blocked_actions} |".format(
+            "| {source_id} | {status} | {provider_required} | {evidence_present} | {local_prescreen_allowed} | {allowed_next_action} | {blocked_actions} |".format(
                 source_id=row.get("source_id", ""),
                 status=row.get("status", ""),
                 provider_required=row.get("provider_required", False),
                 evidence_present=row.get("evidence_present", False),
+                local_prescreen_allowed=row.get("local_prescreen_allowed", False),
                 allowed_next_action=str(row.get("allowed_next_action", "")).replace("|", "/"),
                 blocked_actions=", ".join(_list(row.get("blocked_actions"))),
             )
@@ -320,11 +333,13 @@ def _build_source_row(
     evidence_present = True
     if definition.evidence_required:
         evidence_present = bool(processed_matches) and bool(report_matches)
+    local_prescreen_allowed = definition.status == ACTIVE_STATUS and evidence_present
     return {
         **asdict(definition),
         "matched_processed_paths": [str(path) for path in processed_matches],
         "matched_report_paths": [str(path) for path in report_matches],
         "evidence_present": evidence_present,
+        "local_prescreen_allowed": local_prescreen_allowed,
     }
 
 
@@ -374,6 +389,19 @@ def _next_action(
     if provider_ready_rows:
         return "wait_for_report_rc_quota_reset_then_analyst_monthly_cache_preflight"
     return "review_local_source_catalog_before_factor_batch"
+
+
+def _local_prescreen_next_action(
+    *,
+    local_prescreen_ready_rows: list[dict[str, Any]],
+    provider_ready_rows: list[dict[str, Any]],
+    provider_request_allowed: bool,
+) -> str:
+    if not local_prescreen_ready_rows:
+        return "restore_active_source_evidence_before_cached_prescreen"
+    if provider_ready_rows and not provider_request_allowed:
+        return "run_cached_local_prescreen_then_wait_for_report_rc_quota_reset"
+    return "run_cached_local_prescreen"
 
 
 def _dict(value: Any) -> dict[str, Any]:

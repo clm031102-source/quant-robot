@@ -7,6 +7,7 @@ from quant_robot.ops.factor_mining_candidate_plan_gate import (
     build_factor_mining_candidate_plan_gate,
     default_cn_stock_pre_mining_control_plan,
     default_cn_stock_promotion_policy,
+    validate_candidate_plan_local_prescreen_packet,
     validate_candidate_plan_gate_packet,
     write_factor_mining_candidate_plan_gate,
 )
@@ -259,6 +260,7 @@ class FactorMiningCandidatePlanGateTests(unittest.TestCase):
                 "status": "blocked",
                 "provider_factor_batch_allowed": False,
                 "no_provider_factor_batch_allowed": False,
+                "local_prescreen_allowed": True,
                 "blockers": ["report_rc_quota_blocked"],
             },
         )
@@ -274,6 +276,11 @@ class FactorMiningCandidatePlanGateTests(unittest.TestCase):
         self.assertIn("local_source_queue_blocked:report_rc_quota_blocked", blockers)
         self.assertIn("candidate_source_provider_not_allowed:analyst_report_revision", blockers)
         self.assertEqual(packet["summary"]["local_source_queue_status"], "blocked")
+        self.assertTrue(packet["decision"]["local_prescreen_allowed"])
+        self.assertEqual(packet["decision"]["local_prescreen_blockers"], [])
+        row = packet["candidate_rows"][0]
+        self.assertFalse(row["source_queue_allowed"])
+        self.assertTrue(row["local_prescreen_allowed"])
 
     def test_blocks_hibernated_source_from_local_queue_even_with_complete_controls(self) -> None:
         plan = _candidate_plan()
@@ -287,6 +294,7 @@ class FactorMiningCandidatePlanGateTests(unittest.TestCase):
                 "status": "blocked",
                 "provider_factor_batch_allowed": False,
                 "no_provider_factor_batch_allowed": False,
+                "local_prescreen_allowed": False,
                 "blockers": ["no_local_no_provider_source_ready"],
             },
         )
@@ -301,6 +309,8 @@ class FactorMiningCandidatePlanGateTests(unittest.TestCase):
         blockers = packet["decision"]["blockers"]
         self.assertIn("candidate_source_not_active:daily_basic_direct:hibernated", blockers)
         self.assertIn("candidate_source_no_provider_not_allowed:daily_basic_direct", blockers)
+        self.assertFalse(packet["decision"]["local_prescreen_allowed"])
+        self.assertIn("candidate_source_not_active:daily_basic_direct:hibernated", packet["decision"]["local_prescreen_blockers"])
 
     def test_allows_candidate_when_local_queue_marks_source_ready_for_provider_batch(self) -> None:
         plan = _candidate_plan()
@@ -314,6 +324,7 @@ class FactorMiningCandidatePlanGateTests(unittest.TestCase):
                 "status": "cleared",
                 "provider_factor_batch_allowed": True,
                 "no_provider_factor_batch_allowed": False,
+                "local_prescreen_allowed": True,
                 "blockers": [],
             },
         )
@@ -329,6 +340,39 @@ class FactorMiningCandidatePlanGateTests(unittest.TestCase):
         row = packet["candidate_rows"][0]
         self.assertEqual(row["source_id"], "analyst_report_revision")
         self.assertTrue(row["source_queue_allowed"])
+        self.assertTrue(row["local_prescreen_allowed"])
+
+    def test_validate_local_prescreen_packet_accepts_blocked_full_batch_when_cached_source_is_ready(self) -> None:
+        plan = _candidate_plan()
+        plan["candidates"][0]["source_id"] = "analyst_report_revision"
+        local_queue = _local_source_queue_packet(
+            source_id="analyst_report_revision",
+            status="active_source_accumulation",
+            provider_required=True,
+            evidence_present=True,
+            decision={
+                "status": "blocked",
+                "provider_factor_batch_allowed": False,
+                "no_provider_factor_batch_allowed": False,
+                "local_prescreen_allowed": True,
+                "blockers": ["report_rc_quota_blocked"],
+            },
+        )
+        packet = build_factor_mining_candidate_plan_gate(
+            plan,
+            gate_stage="discovery",
+            local_source_queue_audit=local_queue,
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            write_factor_mining_candidate_plan_gate(tmp, packet)
+            loaded = validate_candidate_plan_local_prescreen_packet(
+                Path(tmp) / "factor_mining_candidate_plan_gate.json",
+                expected_factor_names=["lottery_max_return_reversal_20"],
+            )
+
+        self.assertEqual(loaded["status"], "blocked")
+        self.assertTrue(loaded["decision"]["local_prescreen_allowed"])
 
 
 def _local_source_queue_packet(

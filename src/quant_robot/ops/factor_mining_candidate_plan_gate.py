@@ -35,6 +35,11 @@ REQUIRED_PROMOTION_POLICY_KEYS = (
     "requires_industry_style_neutralization",
     "requires_source_performance_evidence",
 )
+BATCH_ONLY_LOCAL_SOURCE_BLOCKER_PREFIXES = (
+    "local_source_queue_blocked:",
+    "candidate_source_provider_not_allowed:",
+    "candidate_source_no_provider_not_allowed:",
+)
 
 DEFAULT_CONTROL_AREAS: list[dict[str, Any]] = [
     {
@@ -183,6 +188,11 @@ def build_factor_mining_candidate_plan_gate(
     )
     status = _status(blockers, gate_stage=stage)
     candidate_rows = _candidate_rows(candidates, gate_stage=stage, local_source_queue=local_source_queue)
+    local_prescreen_blockers = _local_prescreen_blockers(
+        blockers=blockers,
+        candidate_rows=candidate_rows,
+        local_source_queue=local_source_queue,
+    )
     packet = {
         "stage": STAGE,
         "generated_at": date.today().isoformat(),
@@ -199,6 +209,9 @@ def build_factor_mining_candidate_plan_gate(
             "blocked_control_area_count": sum(1 for row in area_rows if not row["complete"]),
             "quality_gate_status": _dict(quality_gate).get("status", "not_provided"),
             "local_source_queue_status": local_source_queue["status"],
+            "local_prescreen_candidate_count": sum(
+                1 for row in candidate_rows if row["active_for_gate"] and row["local_prescreen_allowed"]
+            ),
         },
         "required_promotion_policy_keys": list(REQUIRED_PROMOTION_POLICY_KEYS),
         "control_area_rows": area_rows,
@@ -212,8 +225,10 @@ def build_factor_mining_candidate_plan_gate(
         "decision": {
             "candidate_plan_gate_cleared": not blockers,
             "research_screen_allowed": not blockers,
+            "local_prescreen_allowed": not local_prescreen_blockers,
             "portfolio_grid_allowed": (not blockers) and stage in {"portfolio", "promotion"},
             "promotion_allowed": (not blockers) and stage == "promotion",
+            "local_prescreen_blockers": local_prescreen_blockers,
             "blockers": blockers,
         },
         "promotion_policy": _dict(plan.get("promotion_policy")),
@@ -275,6 +290,46 @@ def validate_candidate_plan_gate_packet(
     return packet
 
 
+def validate_candidate_plan_local_prescreen_packet(
+    packet_path: str | Path | None,
+    *,
+    expected_factor_names: list[str] | tuple[str, ...] | set[str] | None = None,
+    require_generated_today: bool = True,
+    context: str = "CN stock cached local prescreen",
+) -> dict[str, Any]:
+    if packet_path is None:
+        raise ValueError(f"{context} requires a candidate plan local prescreen gate packet")
+    path = Path(packet_path)
+    if not path.exists():
+        raise ValueError(f"{context} requires a candidate plan local prescreen gate packet: {path}")
+    packet = json.loads(path.read_text(encoding="utf-8"))
+    if require_generated_today and packet.get("generated_at") != date.today().isoformat():
+        raise ValueError(f"{context} candidate plan local prescreen gate must be generated today: {path}")
+    decision = _dict(packet.get("decision"))
+    if decision.get("local_prescreen_allowed") is not True:
+        blockers = _list(decision.get("local_prescreen_blockers")) or _list(decision.get("blockers"))
+        raise ValueError(f"{context} candidate plan local prescreen gate is not allowed: {path}; blockers={blockers}")
+    if decision.get("portfolio_grid_allowed") is not False or decision.get("promotion_allowed") is not False:
+        raise ValueError(f"{context} candidate plan local prescreen gate violates portfolio/promotion boundary: {path}")
+    if packet.get("live_boundary_allowed") is not False:
+        raise ValueError(f"{context} candidate plan local prescreen gate violates live boundary: {path}")
+    if expected_factor_names is not None:
+        expected = {str(name) for name in expected_factor_names}
+        active = {
+            str(row.get("factor_name", ""))
+            for row in _list_of_dicts(packet.get("candidate_rows"))
+            if row.get("active_for_gate") is True and row.get("local_prescreen_allowed") is True
+        }
+        if active != expected:
+            missing = sorted(expected.difference(active))
+            extra = sorted(active.difference(expected))
+            raise ValueError(
+                f"{context} local prescreen factor names mismatch: {path}; "
+                f"missing={missing}; extra={extra}"
+            )
+    return packet
+
+
 def render_factor_mining_candidate_plan_gate_markdown(packet: dict[str, Any]) -> str:
     summary = _dict(packet.get("summary"))
     decision = _dict(packet.get("decision"))
@@ -287,6 +342,7 @@ def render_factor_mining_candidate_plan_gate_markdown(packet: dict[str, Any]) ->
         f"- Candidates: {summary.get('candidate_count', 0)}",
         f"- Complete control areas: {summary.get('complete_control_area_count', 0)} / {summary.get('control_area_count', 0)}",
         f"- Research screen allowed: {decision.get('research_screen_allowed', False)}",
+        f"- Local cached prescreen allowed: {decision.get('local_prescreen_allowed', False)}",
         f"- Portfolio grid allowed: {decision.get('portfolio_grid_allowed', False)}",
         f"- Promotion allowed: {decision.get('promotion_allowed', False)}",
         f"- Local source queue status: {summary.get('local_source_queue_status', 'not_provided')}",
@@ -298,6 +354,15 @@ def render_factor_mining_candidate_plan_gate_markdown(packet: dict[str, Any]) ->
     ]
     blockers = _list(decision.get("blockers"))
     lines.extend(f"- {blocker}" for blocker in blockers) if blockers else lines.append("- none")
+    local_prescreen_blockers = _list(decision.get("local_prescreen_blockers"))
+    lines.extend(
+        [
+            "",
+            "## Local Prescreen Blockers",
+            "",
+        ]
+    )
+    lines.extend(f"- {blocker}" for blocker in local_prescreen_blockers) if local_prescreen_blockers else lines.append("- none")
     lines.extend(
         [
             "",
@@ -346,17 +411,18 @@ def render_factor_mining_candidate_plan_gate_markdown(packet: dict[str, Any]) ->
             "",
             "## Candidate Rows",
             "",
-            "| Factor | Source | Market | Asset | Portfolio allowed | Promotion allowed |",
-            "|---|---|---|---|---:|---:|",
+            "| Factor | Source | Market | Asset | Local prescreen allowed | Portfolio allowed | Promotion allowed |",
+            "|---|---|---|---|---:|---:|---:|",
         ]
     )
     for row in _list_of_dicts(packet.get("candidate_rows")):
         lines.append(
-            "| {factor} | {source} | {market} | {asset} | {portfolio} | {promotion} |".format(
+            "| {factor} | {source} | {market} | {asset} | {local_prescreen} | {portfolio} | {promotion} |".format(
                 factor=row.get("factor_name", ""),
                 source=row.get("hypothesis_source", ""),
                 market=row.get("market", ""),
                 asset=row.get("asset_type", ""),
+                local_prescreen=row.get("local_prescreen_allowed", False),
                 portfolio=row.get("portfolio_backtest_allowed", False),
                 promotion=row.get("promotion_allowed", False),
             )
@@ -534,6 +600,7 @@ def _candidate_rows(
                 "promotion_allowed": bool(candidate.get("promotion_allowed")),
                 "source_queue_status": str(queue_row.get("status", "")) if queue_row else "",
                 "source_queue_allowed": _candidate_source_queue_allowed(candidate, local_source_queue),
+                "local_prescreen_allowed": _candidate_source_queue_local_prescreen_allowed(candidate, local_source_queue),
             }
         )
     return rows
@@ -567,6 +634,43 @@ def _candidate_source_queue_allowed(candidate: dict[str, Any], local_source_queu
     if not local_source_queue["provided"]:
         return False
     return not _candidate_local_source_queue_blockers(candidate, local_source_queue)
+
+
+def _candidate_source_queue_local_prescreen_allowed(
+    candidate: dict[str, Any],
+    local_source_queue: dict[str, Any],
+) -> bool:
+    if not local_source_queue["provided"]:
+        return False
+    source_id = str(candidate.get("source_id", "")).strip()
+    row = _local_source_queue_row(source_id, local_source_queue)
+    if not row:
+        return False
+    if str(row.get("status", "")) != "active_source_accumulation":
+        return False
+    if row.get("evidence_present") is not True:
+        return False
+    if "local_prescreen_allowed" in row and row.get("local_prescreen_allowed") is not True:
+        return False
+    return _dict(local_source_queue.get("decision")).get("local_prescreen_allowed") is True
+
+
+def _local_prescreen_blockers(
+    *,
+    blockers: list[str],
+    candidate_rows: list[dict[str, Any]],
+    local_source_queue: dict[str, Any],
+) -> list[str]:
+    local_blockers = [
+        blocker
+        for blocker in blockers
+        if not any(blocker.startswith(prefix) for prefix in BATCH_ONLY_LOCAL_SOURCE_BLOCKER_PREFIXES)
+    ]
+    if not local_source_queue["provided"]:
+        local_blockers.append("local_source_queue_not_provided")
+    if not any(row["active_for_gate"] and row["local_prescreen_allowed"] for row in candidate_rows):
+        local_blockers.append("no_candidate_with_local_prescreen_source_ready")
+    return _unique_preserving_order(local_blockers)
 
 
 def _local_source_queue_row(source_id: str, local_source_queue: dict[str, Any]) -> dict[str, Any]:
