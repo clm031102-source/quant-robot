@@ -45,7 +45,7 @@ Expected: `status` is `research_ready`, `candidate_plan_gate_cleared` is `true`,
 
 Write a concise report with startup gate status, manifest warnings, candidate count, complete control areas, and the explicit blocked actions.
 
-- [ ] **Step 4: Commit candidate-plan artifacts**
+- [x] **Step 4: Commit candidate-plan artifacts**
 
 Run:
 
@@ -61,7 +61,7 @@ git commit -m "Register Round692 PEAD gap reversal source repair"
 - Modify after failing test: `src/quant_robot/ops/financial_pit_post_announcement_drift_preregistration.py`
 - Modify after failing test: `src/quant_robot/ops/financial_pit_post_announcement_drift_matrix_label_smoke.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create a test that writes `processed/financial_statement_inputs` rows with `ann_date`, `end_date`, and `netprofit`, then calls the adapter expected by the implementation:
 
@@ -73,7 +73,7 @@ def test_statement_source_adapter_creates_reaction_available_rows() -> None:
     assert (pd.to_datetime(frame["signal_date"]) > pd.to_datetime(frame["ann_date"])).all()
 ```
 
-- [ ] **Step 2: Run the focused test and confirm failure**
+- [x] **Step 2: Run the focused test and confirm failure**
 
 Run:
 
@@ -83,7 +83,7 @@ Run:
 
 Expected: failure because `build_pead_statement_financial_frame` does not exist.
 
-- [ ] **Step 3: Implement the minimal adapter**
+- [x] **Step 3: Implement the minimal adapter**
 
 Add `build_pead_statement_financial_frame(statement: pd.DataFrame, bars: pd.DataFrame) -> pd.DataFrame`. It should:
 
@@ -93,7 +93,7 @@ Add `build_pead_statement_financial_frame(statement: pd.DataFrame, bars: pd.Data
 - derive `netprofit_yoy` from same-quarter year-over-year `netprofit` when enough history exists;
 - drop rows without `ann_date`, `end_date`, `asset_id`, or valid `signal_date`.
 
-- [ ] **Step 4: Run the focused test and confirm pass**
+- [x] **Step 4: Run the focused test and confirm pass**
 
 Run:
 
@@ -109,11 +109,11 @@ Expected: pass.
 - Modify: `scripts/run_financial_pit_post_announcement_gap_reversal_residual_prescreen.py`
 - Test: `tests/unit/test_financial_pit_post_announcement_gap_reversal_statement_source.py`
 
-- [ ] **Step 1: Add a failing CLI-level test**
+- [x] **Step 1: Add a failing CLI-level test**
 
 Extend the test file so the CLI helper is called with `financial_input_kind="statement"` and a statement-root fixture.
 
-- [ ] **Step 2: Run the focused CLI test**
+- [x] **Step 2: Run the focused CLI test**
 
 Run:
 
@@ -123,11 +123,11 @@ Run:
 
 Expected: failure because the CLI helper does not accept `financial_input_kind`.
 
-- [ ] **Step 3: Add CLI support**
+- [x] **Step 3: Add CLI support**
 
 Add `--financial-input-kind` with choices `fina_indicator` and `statement`. Default remains `fina_indicator` so Round222/223 behavior stays unchanged.
 
-- [ ] **Step 4: Run the focused CLI test and existing PEAD tests**
+- [x] **Step 4: Run the focused CLI test and existing PEAD tests**
 
 Run:
 
@@ -143,23 +143,23 @@ Expected: all pass.
 - Create: `docs/research/cn_stock_round692_pead_gap_reversal_source_repair_prescreen_2026-07-09.md`
 - Modify: `docs/research/CURRENT_RESEARCH_INDEX.md`
 
-- [ ] **Step 1: Run matrix/label smoke on the expanded statement source**
+- [x] **Step 1: Run matrix/label smoke on the expanded statement source**
 
 Run the statement-source path with final holdout excluded and output under `data\reports\round692_pead_gap_reversal_source_repair_matrix_label_smoke_20260709`.
 
 Expected: no alignment violations; no final-holdout dates; label coverage above the configured threshold.
 
-- [ ] **Step 2: Run residual IC prescreen only if smoke passes**
+- [x] **Step 2: Run residual IC prescreen only if smoke passes**
 
 Run the residual prescreen with frozen 5-day horizon and output under `data\reports\round692_pead_gap_reversal_source_repair_residual_prescreen_20260709`.
 
 Expected: report writes successfully. Promotion remains disabled even if research leads appear.
 
-- [ ] **Step 3: Write the research report**
+- [x] **Step 3: Write the research report**
 
 Record factor rows, aligned rows, test count, FDR lead count, neutral-gate pass count, research lead count, promotion allowed count, PIT alignment proof, and a decision. Carry forward manifest warnings.
 
-- [ ] **Step 4: Commit implementation and report**
+- [x] **Step 4: Commit implementation and report**
 
 Run:
 
@@ -173,7 +173,7 @@ git commit -m "Add Round692 PEAD gap reversal statement-source prescreen"
 **Files:**
 - No new files.
 
-- [ ] **Step 1: Run targeted tests**
+- [x] **Step 1: Run targeted tests**
 
 Run:
 
@@ -181,7 +181,7 @@ Run:
 .\.venv\Scripts\python.exe -m pytest tests\unit\test_financial_pit_post_announcement_gap_reversal_residual_prescreen.py tests\unit\test_financial_pit_post_announcement_gap_reversal_matrix_label_smoke.py tests\unit\test_financial_pit_post_announcement_gap_reversal_statement_source.py -q
 ```
 
-- [ ] **Step 2: Validate JSON and ignored outputs**
+- [x] **Step 2: Validate JSON and ignored outputs**
 
 Run:
 
@@ -191,7 +191,7 @@ git check-ignore -v data\reports\round692_pead_gap_reversal_source_repair_candid
 git check-ignore -v data\reports\round692_pead_gap_reversal_source_repair_residual_prescreen_20260709\financial_pit_post_announcement_gap_reversal_residual_prescreen.json
 ```
 
-- [ ] **Step 3: Run git whitespace checks**
+- [x] **Step 3: Run git whitespace checks**
 
 Run:
 

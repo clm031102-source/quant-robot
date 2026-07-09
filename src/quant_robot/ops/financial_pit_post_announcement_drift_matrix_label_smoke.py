@@ -15,8 +15,10 @@ from quant_robot.ops.financial_pit_post_announcement_drift_preregistration impor
     _load_bars,
     _load_json,
     _next_trade_dates,
+    load_pead_raw_financial_inputs,
+    prepare_pead_financial_inputs,
 )
-from quant_robot.ops.profitability_quality_preregistration import _load_fina_indicator_inputs, _sanitize
+from quant_robot.ops.profitability_quality_preregistration import _sanitize
 from quant_robot.research.labels import make_forward_returns
 
 
@@ -35,12 +37,18 @@ FORMULA_COLUMNS: dict[str, tuple[str, ...]] = {
     "pead_gap_overreaction_reversal_low_liquidity_penalized_1_5": ("ann_date", "end_date", "signal_date"),
     "pead_gap_overreaction_reversal_size_neutral_candidate_1_5": ("ann_date", "end_date", "signal_date"),
     "pead_gap_overreaction_reversal_quality_conditioned_1_5": ("ann_date", "end_date", "signal_date", "netprofit_yoy"),
+    "stmt_pead_gap_overreaction_reversal_1_5": ("ann_date", "end_date", "signal_date"),
+    "stmt_pead_gap_overreaction_reversal_volume_confirmed_1_5": ("ann_date", "end_date", "signal_date"),
+    "stmt_pead_gap_overreaction_reversal_low_liquidity_penalized_1_5": ("ann_date", "end_date", "signal_date"),
+    "stmt_pead_gap_overreaction_reversal_size_neutral_candidate_1_5": ("ann_date", "end_date", "signal_date"),
+    "stmt_pead_gap_overreaction_reversal_quality_conditioned_1_5": ("ann_date", "end_date", "signal_date", "netprofit_yoy"),
 }
 
 
 def build_financial_pit_post_announcement_drift_matrix_label_smoke(
     *,
     financial_root: str | Path,
+    financial_input_kind: str = "fina_indicator",
     bars_roots: Iterable[str | Path],
     preregistration_json: str | Path,
     candidate_plan_gate_json: str | Path | None = None,
@@ -52,22 +60,23 @@ def build_financial_pit_post_announcement_drift_matrix_label_smoke(
     min_label_coverage: float = 0.60,
 ) -> dict[str, Any]:
     financial_path = Path(financial_root)
-    financial = _prepare_financial(
-        _filter_date_window(
-            _load_fina_indicator_inputs(financial_path),
-            start_date=analysis_start_date,
-            end_date=analysis_end_date,
-            include_final_holdout=include_final_holdout,
-            preferred_date_column="signal_date",
-        )
-    )
-    assets = sorted(financial["asset_id"].dropna().astype(str).unique()) if "asset_id" in financial else []
+    raw_financial = load_pead_raw_financial_inputs(financial_path, financial_input_kind=financial_input_kind)
+    assets = sorted(raw_financial["asset_id"].dropna().astype(str).unique()) if "asset_id" in raw_financial else []
     bars = _filter_date_window(
         _load_bars([Path(root) for root in bars_roots], assets),
         start_date=analysis_start_date,
         end_date=analysis_end_date,
         include_final_holdout=include_final_holdout,
         preferred_date_column="date",
+    )
+    financial = _prepare_financial(
+        _filter_date_window(
+            prepare_pead_financial_inputs(raw_financial, bars, financial_input_kind=financial_input_kind),
+            start_date=analysis_start_date,
+            end_date=analysis_end_date,
+            include_final_holdout=include_final_holdout,
+            preferred_date_column="signal_date",
+        )
     )
     preregistration = _load_json(preregistration_json)
     gate_packet = _load_json(candidate_plan_gate_json)
@@ -107,6 +116,7 @@ def build_financial_pit_post_announcement_drift_matrix_label_smoke(
         "stage": STAGE,
         "generated_at": date.today().isoformat(),
         "financial_root": str(financial_path),
+        "financial_input_kind": str(financial_input_kind),
         "bars_roots": [str(Path(root)) for root in bars_roots],
         "preregistration_json": str(Path(preregistration_json)),
         "candidate_plan_gate_json": str(Path(candidate_plan_gate_json)) if candidate_plan_gate_json else None,
@@ -400,6 +410,15 @@ def _formula_functions() -> dict[str, Callable[[pd.DataFrame], pd.Series]]:
         "pead_gap_overreaction_reversal_size_neutral_candidate_1_5": lambda frame: -frame["event_gap"]
         * (1.0 - 0.25 * (frame["event_amount_rank"] - 0.5)),
         "pead_gap_overreaction_reversal_quality_conditioned_1_5": lambda frame: -frame["event_gap"]
+        + 0.2 * _zscore_series_by_period(frame, frame["fundamental_delta"]),
+        "stmt_pead_gap_overreaction_reversal_1_5": lambda frame: -frame["event_gap"],
+        "stmt_pead_gap_overreaction_reversal_volume_confirmed_1_5": lambda frame: -frame["event_gap"]
+        * (1.0 + frame["volume_surprise"].abs()),
+        "stmt_pead_gap_overreaction_reversal_low_liquidity_penalized_1_5": lambda frame: -frame["event_gap"]
+        / (1.0 + frame["volume_surprise"].abs()),
+        "stmt_pead_gap_overreaction_reversal_size_neutral_candidate_1_5": lambda frame: -frame["event_gap"]
+        * (1.0 - 0.25 * (frame["event_amount_rank"] - 0.5)),
+        "stmt_pead_gap_overreaction_reversal_quality_conditioned_1_5": lambda frame: -frame["event_gap"]
         + 0.2 * _zscore_series_by_period(frame, frame["fundamental_delta"]),
     }
 

@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| `codex/factor-batch-cn-stock-pead-gap-reversal-source-repair-round692-20260709` | Round692 PEAD gap-reversal source-repair candidate gate | active local factor-batch branch |
+| `codex/factor-batch-cn-stock-pead-gap-reversal-source-repair-round692-20260709` | Round692 PEAD gap-reversal source-repair candidate gate and prescreen | active local factor-batch branch |
 
 Round555-Round563 has been integrated into `main` and the prior topic branch has been deleted. Round565, Round566, Round567, Round568, Round569, Round570, Round571, Round572, Round573, Round574, Round575, Round576, Round577, Round578, Round579, Round580, Round581, Round582, Round583, Round584, Round585, Round586, Round587, Round588, Round589, Round590, Round591, Round592, Round593, Round594, Round595, Round596, Round597, Round598, Round599, Round600, Round601, Round602, Round603, Round604, Round605, Round606, Round607, Round608, Round609, Round610, Round611, Round612, Round613, Round614, Round615, Round616, Round617, Round618, Round619, Round620, Round621, Round622, Round623, Round624, Round625, Round626, Round627, Round628, Round629, Round630, Round631, Round632, Round633, Round634, Round635, Round636, Round637, and Round638 have also been integrated into `main` and their topic branches deleted. Rounds 567-638 were data-pipeline branches only; they expanded local source coverage, but factor generation remains blocked until the source gate clears. Existing Round503-Round638 material records gated source construction, rejection evidence, tooling hardening, and paper-lane risk-repair evidence. Do not treat any result from it as live, promoted, or independently tradable.
 
@@ -5517,3 +5517,24 @@ Docs:
 - `docs/superpowers/plans/2026-07-09-round692-pead-gap-reversal-source-repair.md`
 
 Decision: Round692 clears only the preregistered candidate-plan gate for `pead_gap_reversal_statement_source_repair`. The next allowed action is a statement-source adapter or residual prescreen path with strict `signal_date > ann_date`, final-holdout exclusion, manifest-warning carry-forward, and only the five preregistered 5D candidates. Portfolio grids, promotion, formula-grid expansion, live trading work, and 2026 final-holdout reads remain blocked.
+
+## Round692 PEAD Gap Reversal Source Repair Prescreen
+
+Round692 then implemented the statement-source adapter and ran the source-repair matrix smoke plus residual IC prescreen:
+
+- Implemented `financial_input_kind=statement` for the gap-reversal matrix smoke and residual prescreen paths.
+- Focused tests: `9 passed` across gap-reversal residual, matrix, and statement-source tests.
+- Matrix smoke status: passes true, blockers `[]`.
+- Matrix smoke summary: 5 active candidates, 0 unknown active candidates, 39,704 financial rows, 959 financial assets, 191,451 factor rows, 191,451 label-aligned rows, 100.00% label coverage, 0 alignment violations.
+- Matrix date range: signal dates 2015-04-08 to 2025-11-11, factor dates through 2025-11-12, label dates through 2025-12-23.
+- Residual prescreen status: passes true, blockers `[]`.
+- Residual prescreen summary: 5 candidates, 5 tests, 191,451 factor rows, 191,451 aligned rows, 4 FDR/multiple-testing leads, 0 neutral-gate passes, 0 research leads, 0 promotion-allowed candidates.
+- Candidate result shape: four candidates had significant negative raw IC; all five had negative quantile spread and negative size/liquidity-neutral IC. Industry-neutral IC was positive but did not rescue the neutral gate.
+- Generated `data\reports` evidence remains local and uncommitted.
+- No portfolio grid, walk-forward, promotion gate, formula-grid expansion, sign/window tuning, mixed-window harvesting, live-trading work, broker read, account read, order placement, or 2026 final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round692_pead_gap_reversal_source_repair_prescreen_2026-07-09.md`
+
+Decision: do not promote any Round692 `pead_gap_reversal_statement_source_repair` candidate. The expanded statement source repaired coverage but inverted or weakened the older Round223 edge after style and neutral gates. Do not move this family to portfolio walk-forward or promotion from Round692. A future opposite-sign audit would require fresh preregistration and must not be treated as a free sign flip from this failed source-repair result.

@@ -39,6 +39,7 @@ DEFAULT_OUTPUT_DIR = Path("data/reports/financial_pit_post_announcement_gap_reve
 def run_financial_pit_post_announcement_gap_reversal_residual_prescreen_cli(
     *,
     financial_root: str | Path = DEFAULT_FINANCIAL_ROOT,
+    financial_input_kind: str = "fina_indicator",
     bars_roots: list[str | Path] | tuple[str | Path, ...] = DEFAULT_BARS_ROOTS,
     preregistration_json: str | Path = DEFAULT_PREREGISTRATION_JSON,
     candidate_plan_gate_json: str | Path | None = None,
@@ -62,6 +63,7 @@ def run_financial_pit_post_announcement_gap_reversal_residual_prescreen_cli(
 ) -> dict[str, Any]:
     result = build_financial_pit_post_announcement_gap_reversal_residual_prescreen(
         financial_root=Path(financial_root),
+        financial_input_kind=financial_input_kind,
         bars_roots=[Path(root) for root in bars_roots],
         preregistration_json=Path(preregistration_json),
         candidate_plan_gate_json=Path(candidate_plan_gate_json) if candidate_plan_gate_json else None,
@@ -93,6 +95,7 @@ def main() -> None:
         description="Run Round223 financial PIT post-announcement gap reversal residual IC and neutralization prescreen."
     )
     parser.add_argument("--financial-root", default=str(DEFAULT_FINANCIAL_ROOT))
+    parser.add_argument("--financial-input-kind", choices=["fina_indicator", "statement"], default="fina_indicator")
     parser.add_argument("--bars-root", action="append", default=None)
     parser.add_argument("--preregistration-json", default=str(DEFAULT_PREREGISTRATION_JSON))
     parser.add_argument("--candidate-plan-gate-json")
@@ -116,6 +119,7 @@ def main() -> None:
     args = parser.parse_args()
     result = run_financial_pit_post_announcement_gap_reversal_residual_prescreen_cli(
         financial_root=Path(args.financial_root),
+        financial_input_kind=args.financial_input_kind,
         bars_roots=[Path(root) for root in (args.bars_root or DEFAULT_BARS_ROOTS)],
         preregistration_json=Path(args.preregistration_json),
         candidate_plan_gate_json=Path(args.candidate_plan_gate_json) if args.candidate_plan_gate_json else None,

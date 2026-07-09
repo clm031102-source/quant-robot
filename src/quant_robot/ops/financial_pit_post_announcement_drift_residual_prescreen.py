@@ -23,6 +23,8 @@ from quant_robot.ops.financial_pit_post_announcement_drift_preregistration impor
     _load_bars,
     _load_json,
     _next_trade_dates,
+    load_pead_raw_financial_inputs,
+    prepare_pead_financial_inputs,
 )
 from quant_robot.ops.profitability_event_revision_controlled_ic_neutral_prescreen import (
     NEUTRAL_OBSERVATION_COLUMNS,
@@ -39,7 +41,7 @@ from quant_robot.ops.profitability_event_revision_controlled_ic_neutral_prescree
 )
 from quant_robot.ops.profitability_event_revision_preregistration import STATIC_ROUND96_NAMES
 from quant_robot.ops.profitability_quality_factor_matrix_smoke import _calculate_candidate_values
-from quant_robot.ops.profitability_quality_preregistration import _load_fina_indicator_inputs, _sanitize
+from quant_robot.ops.profitability_quality_preregistration import _sanitize
 from quant_robot.research.labels import make_forward_returns
 
 
@@ -51,6 +53,7 @@ NEXT_DIRECTION_WITHOUT_LEADS = "round223_rotate_or_repair_financial_pit_post_ann
 def build_financial_pit_post_announcement_drift_residual_prescreen(
     *,
     financial_root: str | Path,
+    financial_input_kind: str = "fina_indicator",
     bars_roots: Iterable[str | Path],
     preregistration_json: str | Path,
     candidate_plan_gate_json: str | Path | None = None,
@@ -70,24 +73,25 @@ def build_financial_pit_post_announcement_drift_residual_prescreen(
     reference_mean_abs_corr_threshold: float = 0.70,
     alpha: float = 0.05,
 ) -> dict[str, Any]:
-    financial = _filter_financial_date_window(
-        _load_fina_indicator_inputs(Path(financial_root)),
-        start_date=analysis_start_date,
-        end_date=analysis_end_date,
-        include_final_holdout=include_final_holdout,
-        preferred_date_column="signal_date",
-    )
+    raw_financial = load_pead_raw_financial_inputs(Path(financial_root), financial_input_kind=financial_input_kind)
     preregistration = _load_json(preregistration_json)
     gate_packet = _load_json(candidate_plan_gate_json)
     active_candidates, frozen_candidates = _split_candidates(preregistration, gate_packet)
     active_candidates = [candidate for candidate in active_candidates if candidate.get("factor_name") in FORMULA_COLUMNS]
-    assets = sorted(financial["asset_id"].dropna().astype(str).unique()) if "asset_id" in financial.columns else []
+    assets = sorted(raw_financial["asset_id"].dropna().astype(str).unique()) if "asset_id" in raw_financial.columns else []
     bars = _filter_financial_date_window(
         _load_bars([Path(root) for root in bars_roots], assets),
         start_date=analysis_start_date,
         end_date=analysis_end_date,
         include_final_holdout=include_final_holdout,
         preferred_date_column="date",
+    )
+    financial = _filter_financial_date_window(
+        prepare_pead_financial_inputs(raw_financial, bars, financial_input_kind=financial_input_kind),
+        start_date=analysis_start_date,
+        end_date=analysis_end_date,
+        include_final_holdout=include_final_holdout,
+        preferred_date_column="signal_date",
     )
     raw_factor_frame = compute_financial_pit_post_announcement_drift_factor_frame(financial, active_candidates, bars)
     factor_frame = _filter_date_window(
@@ -133,6 +137,7 @@ def build_financial_pit_post_announcement_drift_residual_prescreen(
             "stage": STAGE,
             "generated_at": date.today().isoformat(),
             "financial_root": str(Path(financial_root)),
+            "financial_input_kind": str(financial_input_kind),
             "bars_roots": [str(Path(root)) for root in bars_roots],
             "preregistration_json": str(Path(preregistration_json)),
             "candidate_plan_gate_json": str(Path(candidate_plan_gate_json)) if candidate_plan_gate_json else None,

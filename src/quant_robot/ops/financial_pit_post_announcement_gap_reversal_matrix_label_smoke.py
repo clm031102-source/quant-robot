@@ -19,6 +19,7 @@ NEXT_ALLOWED_GATE = "round223_financial_pit_post_announcement_gap_reversal_resid
 def build_financial_pit_post_announcement_gap_reversal_matrix_label_smoke(
     *,
     financial_root: str | Path,
+    financial_input_kind: str = "fina_indicator",
     bars_roots: Iterable[str | Path],
     preregistration_json: str | Path,
     candidate_plan_gate_json: str | Path | None = None,
@@ -31,6 +32,7 @@ def build_financial_pit_post_announcement_gap_reversal_matrix_label_smoke(
 ) -> dict[str, Any]:
     result = build_financial_pit_post_announcement_drift_matrix_label_smoke(
         financial_root=financial_root,
+        financial_input_kind=financial_input_kind,
         bars_roots=bars_roots,
         preregistration_json=preregistration_json,
         candidate_plan_gate_json=candidate_plan_gate_json,

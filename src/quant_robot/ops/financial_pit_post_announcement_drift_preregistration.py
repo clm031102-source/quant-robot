@@ -25,6 +25,94 @@ DEFAULT_CANDIDATES = [
 ]
 REQUIRED_FINANCIAL_COLUMNS = ("asset_id", "market", "ann_date", "end_date")
 BAR_COLUMNS = ("date", "asset_id", "market", "open", "close", "adj_close", "volume", "amount")
+FINANCIAL_INPUT_KINDS = ("fina_indicator", "statement")
+STATEMENT_FINANCIAL_COLUMNS = (
+    "date",
+    "asset_id",
+    "symbol",
+    "market",
+    "source",
+    "ann_date",
+    "end_date",
+    "available_date",
+    "signal_date",
+    "signal_lag_calendar_days",
+    "netprofit_yoy",
+    "or_yoy",
+    "roe",
+    "ocfps",
+    "netprofit_margin",
+)
+
+
+def build_pead_statement_financial_frame(statement: pd.DataFrame, bars: pd.DataFrame) -> pd.DataFrame:
+    if statement.empty or bars.empty:
+        return pd.DataFrame(columns=list(STATEMENT_FINANCIAL_COLUMNS))
+    frame = statement.copy()
+    for column in ["date", "ann_date", "end_date", "available_date", "signal_date"]:
+        if column in frame:
+            frame[column] = pd.to_datetime(frame[column], errors="coerce")
+    for column in ["asset_id", "market"]:
+        if column not in frame:
+            frame[column] = "CN" if column == "market" else ""
+    if "symbol" not in frame:
+        frame["symbol"] = ""
+    if "source" not in frame:
+        frame["source"] = "financial_statement_inputs"
+    frame["asset_id"] = frame["asset_id"].astype(str)
+    frame["market"] = frame["market"].fillna("CN").astype(str).str.upper()
+    trade_bars = _normalise_bars(bars)
+    if "signal_date" not in frame:
+        frame["signal_date"] = _next_trade_dates(frame, trade_bars, "ann_date")
+    else:
+        missing_signal = frame["signal_date"].isna()
+        if missing_signal.any():
+            frame.loc[missing_signal, "signal_date"] = _next_trade_dates(frame.loc[missing_signal], trade_bars, "ann_date")
+    frame["available_date"] = frame["signal_date"]
+    frame["date"] = frame["signal_date"]
+    frame["signal_lag_calendar_days"] = (frame["signal_date"] - frame["ann_date"]).dt.days
+    frame = frame.dropna(subset=["asset_id", "ann_date", "end_date", "signal_date"]).copy()
+    frame = frame[frame["signal_date"] > frame["ann_date"]].copy()
+    if frame.empty:
+        return pd.DataFrame(columns=list(STATEMENT_FINANCIAL_COLUMNS))
+    netprofit = _first_numeric_column(frame, ["netprofit", "n_income_attr_p", "n_income", "net_profit"])
+    revenue = _first_numeric_column(frame, ["total_revenue", "revenue", "operating_revenue"])
+    cashflow = _first_numeric_column(frame, ["n_cashflow_act", "free_cashflow"])
+    assets = _first_numeric_column(frame, ["total_assets"])
+    frame["netprofit_yoy"] = (
+        pd.to_numeric(frame["netprofit_yoy"], errors="coerce")
+        if "netprofit_yoy" in frame
+        else _year_over_year_ratio(frame, netprofit)
+    )
+    frame["or_yoy"] = pd.to_numeric(frame["or_yoy"], errors="coerce") if "or_yoy" in frame else _year_over_year_ratio(frame, revenue)
+    frame["roe"] = pd.to_numeric(frame["roe"], errors="coerce") if "roe" in frame else netprofit / assets.where(assets.abs() > 0)
+    frame["ocfps"] = pd.to_numeric(frame["ocfps"], errors="coerce") if "ocfps" in frame else cashflow / assets.where(assets.abs() > 0)
+    frame["netprofit_margin"] = (
+        pd.to_numeric(frame["netprofit_margin"], errors="coerce")
+        if "netprofit_margin" in frame
+        else netprofit / revenue.where(revenue.abs() > 0)
+    )
+    output = frame[list(STATEMENT_FINANCIAL_COLUMNS)].copy()
+    return output.sort_values(["asset_id", "ann_date", "end_date"]).reset_index(drop=True)
+
+
+def load_pead_raw_financial_inputs(input_root: str | Path, financial_input_kind: str = "fina_indicator") -> pd.DataFrame:
+    input_path = Path(input_root)
+    kind = _normalise_financial_input_kind(financial_input_kind)
+    if kind == "fina_indicator":
+        return _load_fina_indicator_inputs(input_path)
+    return _load_financial_statement_inputs(input_path)
+
+
+def prepare_pead_financial_inputs(
+    financial: pd.DataFrame,
+    bars: pd.DataFrame,
+    financial_input_kind: str = "fina_indicator",
+) -> pd.DataFrame:
+    kind = _normalise_financial_input_kind(financial_input_kind)
+    if kind == "statement":
+        return build_pead_statement_financial_frame(financial, bars)
+    return financial.copy()
 
 
 def build_financial_pit_post_announcement_drift_preregistration(
@@ -378,6 +466,39 @@ def _load_json(path: str | Path | None) -> dict[str, Any]:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
+def _load_financial_statement_inputs(input_root: Path) -> pd.DataFrame:
+    frames = []
+    for dataset_root in _financial_statement_dataset_roots(input_root):
+        for path in _dataset_files(dataset_root):
+            frame = pd.read_parquet(path) if path.suffix.lower() == ".parquet" else pd.read_csv(path)
+            if {"asset_id", "ann_date", "end_date"}.issubset(frame.columns):
+                frames.append(frame)
+    if not frames:
+        return pd.DataFrame()
+    return pd.concat(frames, ignore_index=True).drop_duplicates().reset_index(drop=True)
+
+
+def _financial_statement_dataset_roots(input_root: Path) -> list[Path]:
+    if input_root.is_file():
+        return [input_root]
+    direct = input_root / "processed" / "financial_statement_inputs"
+    if direct.exists():
+        return [direct]
+    if input_root.name == "financial_statement_inputs":
+        return [input_root]
+    if not input_root.exists():
+        return []
+    return sorted(path for path in input_root.rglob("financial_statement_inputs") if path.is_dir())
+
+
+def _normalise_financial_input_kind(financial_input_kind: str) -> str:
+    kind = str(financial_input_kind or "fina_indicator").strip().lower()
+    if kind not in FINANCIAL_INPUT_KINDS:
+        allowed = ", ".join(FINANCIAL_INPUT_KINDS)
+        raise ValueError(f"financial_input_kind must be one of: {allowed}")
+    return kind
+
+
 def _dataset_files(root: Path) -> list[Path]:
     if root.is_file() and root.suffix.lower() in {".parquet", ".csv"}:
         return [root]
@@ -415,6 +536,20 @@ def _date_max(frame: pd.DataFrame, column: str) -> str | None:
         return None
     values = pd.to_datetime(frame[column], errors="coerce").dropna()
     return values.max().date().isoformat() if not values.empty else None
+
+
+def _first_numeric_column(frame: pd.DataFrame, columns: list[str]) -> pd.Series:
+    for column in columns:
+        if column in frame:
+            return pd.to_numeric(frame[column], errors="coerce")
+    return pd.Series(pd.NA, index=frame.index, dtype="float64")
+
+
+def _year_over_year_ratio(frame: pd.DataFrame, values: pd.Series) -> pd.Series:
+    ordered = frame.assign(_pead_value=pd.to_numeric(values, errors="coerce")).sort_values(["asset_id", "end_date", "ann_date"])
+    lagged = ordered.groupby("asset_id")["_pead_value"].shift(4)
+    yoy = ordered["_pead_value"] / lagged.where(lagged.abs() > 0) - 1.0
+    return yoy.reindex(frame.index)
 
 
 def _dedupe(values: list[str]) -> list[str]:
