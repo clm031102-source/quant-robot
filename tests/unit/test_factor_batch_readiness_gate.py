@@ -76,6 +76,44 @@ class FactorBatchReadinessGateTests(unittest.TestCase):
         self.assertTrue(packet["decision"]["research_screen_allowed"])
         self.assertEqual(packet["decision"]["blockers"], [])
 
+    def test_blocks_when_provider_quota_preflight_is_blocked(self) -> None:
+        packet = build_factor_batch_readiness_gate(
+            source_queue_packet={
+                "decision": {
+                    "status": "cleared",
+                    "blockers": [],
+                    "next_action": "analyst_monthly_cache_preflight_then_frozen_prescreen",
+                },
+                "summary": {"active_source_count": 1},
+            },
+            candidate_plan_gate_packet={
+                "status": "research_ready",
+                "decision": {
+                    "candidate_plan_gate_cleared": True,
+                    "research_screen_allowed": True,
+                    "blockers": [],
+                },
+                "summary": {"candidate_count": 4},
+            },
+            candidate_plan_path="candidate_plan.json",
+            source_queue_output_dir="source_queue",
+            candidate_plan_gate_output_dir="candidate_gate",
+            provider_quota_preflight_packet={
+                "decision": {
+                    "request_allowed": False,
+                    "blockers": ["daily_provider_request_budget_exhausted"],
+                }
+            },
+        )
+
+        self.assertEqual(packet["status"], "blocked")
+        self.assertFalse(packet["decision"]["factor_batch_ready"])
+        self.assertEqual(packet["summary"]["provider_quota_preflight_status"], "blocked")
+        self.assertIn(
+            "provider_quota_preflight_blocked:daily_provider_request_budget_exhausted",
+            packet["decision"]["blockers"],
+        )
+
     def test_writer_outputs_json_and_markdown(self) -> None:
         packet = build_factor_batch_readiness_gate(
             source_queue_packet={"decision": {"status": "cleared", "blockers": []}, "summary": {}},

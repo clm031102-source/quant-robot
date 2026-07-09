@@ -17,12 +17,20 @@ def build_factor_batch_readiness_gate(
     candidate_plan_path: str | Path,
     source_queue_output_dir: str | Path,
     candidate_plan_gate_output_dir: str | Path,
+    provider_quota_preflight_packet: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     source_decision = _dict(source_queue_packet.get("decision"))
     candidate_decision = _dict(candidate_plan_gate_packet.get("decision"))
+    quota_packet = _dict(provider_quota_preflight_packet)
+    quota_decision = _dict(quota_packet.get("decision"))
     source_status = str(source_decision.get("status", source_queue_packet.get("status", "unknown")))
     candidate_status = str(candidate_plan_gate_packet.get("status", "unknown"))
-    blockers = _blockers(source_decision=source_decision, candidate_decision=candidate_decision)
+    blockers = _blockers(
+        source_decision=source_decision,
+        candidate_decision=candidate_decision,
+        provider_quota_decision=quota_decision,
+        provider_quota_provided=bool(quota_packet),
+    )
     source_next_action = str(source_decision.get("next_action", ""))
     ready = not blockers
     packet = {
@@ -35,7 +43,13 @@ def build_factor_batch_readiness_gate(
         "summary": {
             "source_queue_status": source_status,
             "candidate_plan_gate_status": candidate_status,
-            "source_queue_active_source_count": _int(_dict(source_queue_packet.get("summary")).get("active_source_count")),
+            "provider_quota_preflight_status": _provider_quota_preflight_status(
+                quota_decision,
+                provided=bool(quota_packet),
+            ),
+            "source_queue_active_source_count": _int(
+                _dict(source_queue_packet.get("summary")).get("active_source_count")
+            ),
             "candidate_count": _int(_dict(candidate_plan_gate_packet.get("summary")).get("candidate_count")),
         },
         "decision": {
@@ -48,6 +62,7 @@ def build_factor_batch_readiness_gate(
         },
         "source_queue_decision": source_decision,
         "candidate_plan_gate_decision": candidate_decision,
+        "provider_quota_preflight_decision": quota_decision,
         "live_boundary_allowed": False,
         "safety": SAFETY,
     }
@@ -80,6 +95,7 @@ def render_factor_batch_readiness_gate_markdown(packet: dict[str, Any]) -> str:
         f"- Candidate plan: `{packet.get('candidate_plan_path', '')}`",
         f"- Source queue status: {summary.get('source_queue_status', 'unknown')}",
         f"- Candidate plan gate status: {summary.get('candidate_plan_gate_status', 'unknown')}",
+        f"- Provider quota preflight status: {summary.get('provider_quota_preflight_status', 'not_provided')}",
         f"- Factor batch ready: {decision.get('factor_batch_ready', False)}",
         f"- Research screen allowed: {decision.get('research_screen_allowed', False)}",
         f"- Portfolio grid allowed: {decision.get('portfolio_grid_allowed', False)}",
@@ -95,8 +111,20 @@ def render_factor_batch_readiness_gate_markdown(packet: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _blockers(*, source_decision: dict[str, Any], candidate_decision: dict[str, Any]) -> list[str]:
+def _blockers(
+    *,
+    source_decision: dict[str, Any],
+    candidate_decision: dict[str, Any],
+    provider_quota_decision: dict[str, Any],
+    provider_quota_provided: bool,
+) -> list[str]:
     blockers: list[str] = []
+    if provider_quota_provided and provider_quota_decision.get("request_allowed") is not True:
+        quota_blockers = _list(provider_quota_decision.get("blockers"))
+        if quota_blockers:
+            blockers.extend(f"provider_quota_preflight_blocked:{blocker}" for blocker in quota_blockers)
+        else:
+            blockers.append("provider_quota_preflight_blocked")
     if source_decision.get("status") != "cleared":
         source_blockers = _list(source_decision.get("blockers"))
         if source_blockers:
@@ -110,6 +138,12 @@ def _blockers(*, source_decision: dict[str, Any], candidate_decision: dict[str, 
         else:
             blockers.append("candidate_plan_gate_not_cleared")
     return _unique_preserving_order(blockers)
+
+
+def _provider_quota_preflight_status(decision: dict[str, Any], *, provided: bool) -> str:
+    if not provided:
+        return "not_provided"
+    return "allowed" if decision.get("request_allowed") is True else "blocked"
 
 
 def _dict(value: Any) -> dict[str, Any]:

@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round708_quota_preflight_readiness_gate_2026-07-09.md`
 - `docs/research/cn_stock_round707_provider_allowed_readiness_semantics_2026-07-09.md`
 - `docs/research/cn_stock_round706_factor_batch_readiness_gate_2026-07-09.md`
 - `docs/research/cn_stock_round705_candidate_plan_source_queue_gate_2026-07-09.md`
@@ -5740,3 +5741,23 @@ Docs:
 - `docs/research/cn_stock_round707_provider_allowed_readiness_semantics_2026-07-09.md`
 
 Decision: the provider-allowed flag is only a readiness switch for an explicitly approved quota state. Until provider access is genuinely available, continue using the default readiness gate and keep the factor batch blocked.
+
+## Round708 Quota Preflight Readiness Gate
+
+Round708 connected the sequential factor-batch readiness gate to the existing analyst-report quota preflight.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Quant PM startup gate: `ready`; primary market `CN_ETF`; blockers `[]`.
+- CN stock factor-mining startup gate: `cleared`.
+- `scripts/run_factor_batch_readiness_gate.py` now supports `--quota-report-root` and related quota preflight arguments.
+- The combined readiness packet records `provider_quota_preflight_status`.
+- When quota preflight is provided, `decision.request_allowed` is authoritative for provider readiness; a blocked quota packet overrides manual `--provider-request-allowed`.
+- Real readiness gate with `--quota-report-root data\reports`: `blocked`; provider quota preflight status `blocked`; blocker `provider_quota_preflight_blocked:daily_provider_request_budget_exhausted`.
+- Full related gate-chain tests: `59 passed`; compile check passed.
+- No provider download, new factor formula, IC screen, portfolio grid, walk-forward conversion, promotion gate, signal generation, or final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round708_quota_preflight_readiness_gate_2026-07-09.md`
+
+Decision: before any next analyst-report frozen prescreen, run the combined readiness gate with quota preflight evidence. If quota preflight blocks, wait for real quota reset or import valid quota-pack evidence instead of using the manual provider switch as an override.
