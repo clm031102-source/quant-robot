@@ -1,6 +1,6 @@
 # Current Research And Cloud Sync Index
 
-Last updated: 2026-07-08
+Last updated: 2026-07-09
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
@@ -30,9 +30,11 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| none | no active topic branch | main-only after Round638 integration |
+| `codex/factor-batch-cn-stock-source-rotation-round694-20260709` | Round694 statement capital-structure efficiency candidate gate and prescreen | active local factor-batch branch |
 
 Round555-Round563 has been integrated into `main` and the prior topic branch has been deleted. Round565, Round566, Round567, Round568, Round569, Round570, Round571, Round572, Round573, Round574, Round575, Round576, Round577, Round578, Round579, Round580, Round581, Round582, Round583, Round584, Round585, Round586, Round587, Round588, Round589, Round590, Round591, Round592, Round593, Round594, Round595, Round596, Round597, Round598, Round599, Round600, Round601, Round602, Round603, Round604, Round605, Round606, Round607, Round608, Round609, Round610, Round611, Round612, Round613, Round614, Round615, Round616, Round617, Round618, Round619, Round620, Round621, Round622, Round623, Round624, Round625, Round626, Round627, Round628, Round629, Round630, Round631, Round632, Round633, Round634, Round635, Round636, Round637, and Round638 have also been integrated into `main` and their topic branches deleted. Rounds 567-638 were data-pipeline branches only; they expanded local source coverage, but factor generation remains blocked until the source gate clears. Existing Round503-Round638 material records gated source construction, rejection evidence, tooling hardening, and paper-lane risk-repair evidence. Do not treat any result from it as live, promoted, or independently tradable.
+
+Round694 starts from latest `main` after local Round691/Round692/Round693 factor-batch work produced no promotable candidates. It preregistered `statement_capital_structure_efficiency`, a PIT statement family based on book-equity buffer, liability-to-equity deleveraging, operating cashflow relative to equity, revenue per liability burden, and a frozen same-date percentile-rank composite. It explicitly avoided direct profitability-quality, working-capital pressure, financial reporting timeliness, PEAD gap reversal, public technical, daily-basic valuation, old northbound, and margin-credit reentry. Candidate-plan gate status was `research_ready` with 5 active candidates, 9 / 9 complete control areas, no blockers, portfolio grid disabled, promotion disabled, and generated `data/reports` evidence kept local. Formula smoke and matrix-label smoke passed. The residual IC shape prescreen found 4 multiple-testing leads, but all were negative raw-direction findings and 0 passed the neutral gate; final result was 0 research leads and 0 promotion-allowed candidates. Decision: reject this exact standalone family and rotate to `round695_rotate_after_statement_capital_structure_efficiency_residual_ic_shape_failure`. Do not run sign flips, formula/window/horizon tuning, portfolio grids, promotion gates, mixed-window harvesting, or final-holdout reads for the Round694 family.
 
 ## Deleted historical branches
 

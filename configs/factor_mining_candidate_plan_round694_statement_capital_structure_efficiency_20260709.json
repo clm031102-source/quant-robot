@@ -1,0 +1,271 @@
+{
+  "stage": "round694_statement_capital_structure_efficiency_preregistration",
+  "round": 694,
+  "market": "CN",
+  "asset_type": "stock",
+  "source_audit": "data/reports/round694_source_rotation_data_manifest_20260709/cn_stock_data_manifest.json",
+  "source_plan_doc": "docs/research/cn_stock_round694_statement_capital_structure_efficiency_design_2026-07-09.md",
+  "scope": {
+    "machine": "office_desktop",
+    "task": "factor_batch",
+    "branch": "codex/factor-batch-cn-stock-source-rotation-round694-20260709"
+  },
+  "research_control_plan": {
+    "declared_controls": {
+      "cn_stock_tradeability": [
+        "limit_up_down_filter",
+        "suspension_filter",
+        "st_flag_filter",
+        "new_listing_age_filter",
+        "delisting_risk_filter",
+        "board_permission_filter"
+      ],
+      "financial_pit_timing": [
+        "ann_date_or_effective_date_lag",
+        "financial_revision_announcement_handling",
+        "report_release_lag_not_period_end",
+        "no_period_end_only_financial_signal"
+      ],
+      "source_sample_integrity": [
+        "endpoint_permission_or_cache_manifest",
+        "point_in_time_available_date_semantics",
+        "full_sample_2015_2025_same_parameter_replay",
+        "train_test_or_walk_forward_split_declared",
+        "future_function_static_audit",
+        "rejected_hypothesis_counting"
+      ],
+      "industry_style_neutralization": [
+        "industry_exposure_report",
+        "size_exposure_report",
+        "value_lowvol_momentum_liquidity_decomposition",
+        "neutralized_or_residual_factor_matrix"
+      ],
+      "etf_rotation_scope_boundary": [
+        "stock_scope_confirmed",
+        "etf_rotation_evidence_rejected_for_stock_factor",
+        "cn_etf_dedicated_signal_pack_separate"
+      ],
+      "portfolio_construction": [
+        "risk_budget_position_sizing",
+        "volatility_targeting_or_volatility_budget",
+        "industry_weight_constraints",
+        "turnover_constraints",
+        "stop_loss_or_de_risk_rules"
+      ],
+      "strict_statistics": [
+        "deflated_sharpe",
+        "purged_cpcv",
+        "white_reality_check_or_fdr",
+        "parameter_sensitivity_heatmap",
+        "multiple_testing_accounting"
+      ],
+      "china_market_regime": [
+        "policy_liquidity_regime",
+        "credit_cycle_proxy",
+        "northbound_margin_turnover_temperature",
+        "index_location_state",
+        "signal_window_regime_coverage"
+      ],
+      "event_factors": [
+        "earnings_forecast_or_statement_event_audit",
+        "dividend_ex_right_event_audit",
+        "buyback_holder_unlock_event_audit",
+        "index_rebalance_event_audit",
+        "event_contamination_extreme_return_audit"
+      ]
+    },
+    "policy": "Round694 may only preregister and research-screen a new PIT statement capital-structure-efficiency family. It must not reopen direct profitability-quality, Round693 working-capital pressure, financial reporting timeliness, PEAD gap reversal, public technical, daily-basic valuation, external northbound, or margin-credit families."
+  },
+  "data_source_plan": {
+    "statement_root": "data/processed",
+    "bar_roots": [
+      "data/processed/cn_stock_long_history_2015_202306",
+      "data/processed/office_desktop_20260616_combined_research"
+    ],
+    "stock_basic": "data/processed/cn_stock_metadata",
+    "daily_basic_roots": [
+      "data/processed/cn_stock_long_history_2015_202306",
+      "data/processed/office_desktop_20260617_daily_basic_factor_inputs"
+    ],
+    "manifest_packet": "data/reports/round694_source_rotation_data_manifest_20260709/cn_stock_data_manifest.json",
+    "analysis_start_date": "2015-01-01",
+    "analysis_end_date": "2025-12-31",
+    "final_holdout_2026_available_for_tuning": false,
+    "source_quality_snapshot": {
+      "statement_rows": 40665,
+      "statement_assets": 959,
+      "total_assets_coverage_pct": 99.04,
+      "total_liab_coverage_pct": 99.04,
+      "total_hldr_eqy_exc_min_int_coverage_pct": 99.04,
+      "n_cashflow_act_coverage_pct": 99.2,
+      "free_cashflow_coverage_pct": 97.03,
+      "total_revenue_coverage_pct": 99.23
+    },
+    "provider_policy": "Use existing local processed statement, bars, stock-basic, and daily-basic context only; no Tushare provider call and no live account or broker access."
+  },
+  "evaluation_gate": {
+    "required_metrics": [
+      "statement_column_coverage_snapshot",
+      "formula_coverage_smoke",
+      "factor_matrix_label_alignment_smoke",
+      "point_in_time_ann_date_to_signal_date_alignment",
+      "industry_neutral_ic",
+      "size_liquidity_neutral_ic",
+      "style_residual_ic",
+      "quantile_monotonicity",
+      "multiple_testing_accounting",
+      "candidate_rejection_reasons",
+      "cost_capacity_preflight_if_prescreen_lead_exists"
+    ],
+    "multiple_testing_accounting_required": true,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "promotion_allowed": false,
+    "final_holdout_available_for_tuning": false
+  },
+  "promotion_policy": {
+    "promotion_allowed": false,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "requires_data_source_availability_proof": true,
+    "requires_long_cycle_replay": true,
+    "requires_same_parameter_full_sample": true,
+    "requires_full_sample_regime_coverage": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true,
+    "requires_no_lookahead_audit": true,
+    "requires_future_function_static_audit": true,
+    "requires_overfit_multiple_testing_control": true,
+    "requires_overlap_adjusted_statistics": true,
+    "requires_parameter_sensitivity": true,
+    "requires_parameter_sensitivity_heatmap": true,
+    "requires_deflated_sharpe_or_fdr": true,
+    "requires_cpcv_or_purged_walk_forward": true,
+    "requires_white_reality_check_or_multiple_test_adjustment": true,
+    "requires_profit_drawdown_winrate_report": true,
+    "requires_final_holdout_read_once": true,
+    "requires_tradeability_survivorship_audit": true,
+    "requires_industry_style_neutralization": true,
+    "requires_source_performance_evidence": true
+  },
+  "family_rotation_policy": {
+    "current_family_id": "statement_capital_structure_efficiency",
+    "current_family_round_count": 1,
+    "max_rounds_before_review": 3,
+    "three_round_review_completed": true,
+    "hibernated_families": [
+      {
+        "family": "direct_profitability_quality_formula_tuning",
+        "reason": "Round217 produced zero FDR leads and zero research leads."
+      },
+      {
+        "family": "financial_profitability_quality",
+        "reason": "Round99 and Round217 hibernated direct profitability-quality continuation."
+      },
+      {
+        "family": "accounting_quality_realized_statement_formula_mutations",
+        "reason": "Prior accounting-quality statement formula mutations failed without a fresh orthogonal source."
+      },
+      {
+        "family": "accounting_quality_statement_event_drift",
+        "reason": "Statement event-drift was already tested and failed as a standalone family."
+      },
+      {
+        "family": "accounting_quality_statement_profitability_revision",
+        "reason": "Realized statement profitability revision failed and must not be rerun as a direct profit-growth family."
+      },
+      {
+        "family": "statement_working_capital_pressure",
+        "reason": "Round693 local prescreen produced zero neutral-gate passes and zero research leads."
+      },
+      {
+        "family": "financial_reporting_timeliness",
+        "reason": "Round691 local factor-batch work produced no promotable candidates; do not re-enter by parameter or lag tuning."
+      },
+      {
+        "family": "pead_gap_reversal_source_repair",
+        "reason": "Round692 local source-repair prescreen produced zero research leads."
+      },
+      {
+        "family": "daily_basic_valuation_reversion_repair_after_round258_style_exposure_failure",
+        "reason": "Daily-basic valuation repair remained style-dominated after residual checks."
+      },
+      {
+        "family": "external_northbound_crowding_reversal",
+        "reason": "Old northbound crowding/reversal failed residual and direction gates."
+      },
+      {
+        "family": "external_margin_credit",
+        "reason": "Round193 residual and dedup review collapsed the raw margin-credit signal."
+      }
+    ],
+    "blocked_families": [
+      {
+        "family": "public_tradeable_indicator_composite",
+        "reason": "Round265 found zero residual research leads for public technical composites."
+      },
+      {
+        "family": "calendar_seasonality",
+        "reason": "Calendar seasonality was hibernated after prior failure and requires a separate review to reopen."
+      }
+    ]
+  },
+  "candidates": [
+    {
+      "factor_name": "scs_equity_buffer_improvement",
+      "family": "statement_capital_structure_efficiency",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "PIT statement equity buffer improvement: delta_4q(total_hldr_eqy_exc_min_int / total_assets).",
+      "economic_rationale": "Tests whether improving shareholder-equity buffer identifies firms whose capital structure is strengthening after announcement, without using ROE/ROA/margins or working-capital pressure transforms.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "scs_liability_to_equity_deleveraging",
+      "family": "statement_capital_structure_efficiency",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "PIT statement liability-to-equity deleveraging: -delta_4q(total_liab / total_hldr_eqy_exc_min_int).",
+      "economic_rationale": "Tests whether declining balance-sheet leverage relative to equity is rewarded after statement availability, distinct from the old balance-sheet stress relief formula and from profit-growth tuning.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "scs_operating_cashflow_equity_buffer",
+      "family": "statement_capital_structure_efficiency",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "PIT statement operating cashflow to equity buffer: n_cashflow_act / total_hldr_eqy_exc_min_int.",
+      "economic_rationale": "Tests whether operating cashflow capacity relative to book equity identifies self-financing strength without reusing net-profit-margin or ROE level candidates.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "scs_revenue_to_liability_efficiency",
+      "family": "statement_capital_structure_efficiency",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "PIT statement revenue generated per unit of total liabilities: total_revenue / total_liab.",
+      "economic_rationale": "Tests whether operating scale relative to liability burden is informative after announcement, framed as capital-structure efficiency rather than direct margin or profit-quality continuation.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "scs_balanced_capital_structure_efficiency",
+      "family": "statement_capital_structure_efficiency",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "hypothesis_source": "Equal-weight same-date percentile-rank composite of equity-buffer improvement, liability-to-equity deleveraging, operating-cashflow equity buffer, and revenue-to-liability efficiency.",
+      "economic_rationale": "Tests whether a simple frozen composite of capital-structure strengthening and self-financing efficiency is more stable than any single balance-sheet ratio, without opening a parameter grid.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    }
+  ],
+  "next_gate_if_cleared": "round694_formula_smoke_matrix_label_smoke_and_residual_ic_shape_prescreen",
+  "safety": "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+}

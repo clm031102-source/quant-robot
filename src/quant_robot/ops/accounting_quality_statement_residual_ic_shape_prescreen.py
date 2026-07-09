@@ -47,6 +47,8 @@ NEXT_DIRECTION_STATEMENT_PROFITABILITY_REVISION_WITH_LEADS = "round248_accountin
 NEXT_DIRECTION_STATEMENT_PROFITABILITY_REVISION_WITHOUT_LEADS = "round248_rotate_to_external_revision_or_nonfinancial_event_context"
 NEXT_DIRECTION_INDUSTRY_RELATIVE_SURPRISE_WITH_LEADS = "round254_industry_relative_surprise_walk_forward_cost_capacity_regime_preflight"
 NEXT_DIRECTION_INDUSTRY_RELATIVE_SURPRISE_WITHOUT_LEADS = "round254_rotate_after_industry_relative_surprise_residual_ic_shape_failure"
+NEXT_DIRECTION_CAPITAL_STRUCTURE_EFFICIENCY_WITH_LEADS = "round695_statement_capital_structure_efficiency_walk_forward_cost_capacity_regime_preflight"
+NEXT_DIRECTION_CAPITAL_STRUCTURE_EFFICIENCY_WITHOUT_LEADS = "round695_rotate_after_statement_capital_structure_efficiency_residual_ic_shape_failure"
 REPAIRED_FACTOR_NAMES = (
     "aq_repaired_industry_relative_cash_accrual_quality",
     "aq_repaired_size_liquidity_residual_asset_growth_quality",
@@ -75,6 +77,16 @@ INDUSTRY_RELATIVE_SURPRISE_FACTOR_NAMES = (
     "aq_industry_relative_profitability_surprise",
     "aq_industry_relative_asset_disciplined_surprise",
     "aq_industry_relative_cash_conversion_surprise",
+)
+STATEMENT_CAPITAL_STRUCTURE_EFFICIENCY_SOURCE_FACTOR_NAMES = (
+    "scs_equity_buffer_improvement",
+    "scs_liability_to_equity_deleveraging",
+    "scs_operating_cashflow_equity_buffer",
+    "scs_revenue_to_liability_efficiency",
+)
+STATEMENT_CAPITAL_STRUCTURE_EFFICIENCY_FACTOR_NAMES = (
+    *STATEMENT_CAPITAL_STRUCTURE_EFFICIENCY_SOURCE_FACTOR_NAMES,
+    "scs_balanced_capital_structure_efficiency",
 )
 
 
@@ -105,12 +117,14 @@ def build_accounting_quality_statement_residual_ic_shape_prescreen(
         "statement_event_drift",
         "statement_profitability_revision",
         "industry_relative_surprise",
+        "statement_capital_structure_efficiency",
     }
     if factor_mode not in valid_factor_modes:
         raise ValueError(
             "factor_mode must be 'raw', 'repaired', 'new_substructure', "
             "'new_substructure_directional_audit', 'statement_event_drift', "
-            "'statement_profitability_revision', or 'industry_relative_surprise'"
+            "'statement_profitability_revision', 'industry_relative_surprise', "
+            "or 'statement_capital_structure_efficiency'"
         )
     statement_root_paths = [Path(root) for root in statement_roots]
     bars_root_paths = [Path(root) for root in bars_roots]
@@ -166,6 +180,13 @@ def build_accounting_quality_statement_residual_ic_shape_prescreen(
             min_cross_section=min_cross_section,
         )
         candidate_specs = _industry_relative_surprise_candidate_specs()
+        expected_candidate_count = len(candidate_specs)
+    elif factor_mode == "statement_capital_structure_efficiency":
+        context_factor_frame = build_accounting_quality_statement_capital_structure_efficiency_factor_frame(
+            context_factor_frame,
+            min_cross_section=min_cross_section,
+        )
+        candidate_specs = _statement_capital_structure_efficiency_candidate_specs()
         expected_candidate_count = len(candidate_specs)
     else:
         context_factor_frame = _filter_factor_names(context_factor_frame, RAW_CASH_ACCRUAL_FACTOR_NAMES)
@@ -269,6 +290,18 @@ def build_accounting_quality_statement_residual_ic_shape_prescreen(
             NEXT_DIRECTION_INDUSTRY_RELATIVE_SURPRISE_WITH_LEADS
             if int(result["summary"].get("research_lead_count", 0))
             else NEXT_DIRECTION_INDUSTRY_RELATIVE_SURPRISE_WITHOUT_LEADS
+        )
+    if factor_mode == "statement_capital_structure_efficiency":
+        result["source_context"]["candidate_family"] = "statement_capital_structure_efficiency"
+        result["source_context"]["hypothesis_source"] = (
+            "PIT statement capital-structure efficiency: book-equity buffer, liability-to-equity deleveraging, "
+            "operating cashflow relative to equity, revenue generated per liability burden, and a frozen rank composite"
+        )
+        result["summary"]["source_raw_factor_rows_before_statement_capital_structure_efficiency"] = int(len(raw_factor_frame))
+        result["summary"]["next_direction"] = (
+            NEXT_DIRECTION_CAPITAL_STRUCTURE_EFFICIENCY_WITH_LEADS
+            if int(result["summary"].get("research_lead_count", 0))
+            else NEXT_DIRECTION_CAPITAL_STRUCTURE_EFFICIENCY_WITHOUT_LEADS
         )
     result["markdown"] = render_accounting_quality_statement_residual_ic_shape_prescreen_markdown(result)
     return result
@@ -692,6 +725,42 @@ def _industry_relative_surprise_candidate_specs() -> list[dict[str, Any]]:
     ]
 
 
+def _statement_capital_structure_efficiency_candidate_specs() -> list[dict[str, Any]]:
+    source_formulas = {
+        str(spec["factor_name"]): str(spec.get("formula", ""))
+        for spec in FORMULA_SPECS
+        if str(spec["factor_name"]) in STATEMENT_CAPITAL_STRUCTURE_EFFICIENCY_SOURCE_FACTOR_NAMES
+    }
+    specs = [
+        {
+            "factor_name": name,
+            "family": "statement_capital_structure_efficiency",
+            "formula": source_formulas.get(name, ""),
+            "hypothesis_source": (
+                "Round694 PIT statement capital-structure efficiency source: equity buffer, leverage relief, "
+                "self-financing strength, or revenue generated per liability burden after announcement"
+            ),
+        }
+        for name in STATEMENT_CAPITAL_STRUCTURE_EFFICIENCY_SOURCE_FACTOR_NAMES
+    ]
+    specs.append(
+        {
+            "factor_name": "scs_balanced_capital_structure_efficiency",
+            "family": "statement_capital_structure_efficiency",
+            "formula": (
+                "equal-weight same-date percentile-rank composite of scs_equity_buffer_improvement, "
+                "scs_liability_to_equity_deleveraging, scs_operating_cashflow_equity_buffer, "
+                "and scs_revenue_to_liability_efficiency"
+            ),
+            "hypothesis_source": (
+                "Round694 frozen composite tests whether broad capital-structure strengthening is more stable than "
+                "single statement ratios without opening a parameter grid"
+            ),
+        }
+    )
+    return specs
+
+
 def _repaired_candidate_specs() -> list[dict[str, Any]]:
     return [
         {
@@ -813,6 +882,46 @@ def build_accounting_quality_statement_industry_relative_surprise_factor_frame(
         return _empty_factor_frame()
     return (
         pd.concat(pieces, ignore_index=True)
+        .sort_values(["factor_name", "date", "asset_id"])
+        .reset_index(drop=True)
+    )
+
+
+def build_accounting_quality_statement_capital_structure_efficiency_factor_frame(
+    raw_factor_frame: pd.DataFrame,
+    *,
+    min_cross_section: int = 30,
+) -> pd.DataFrame:
+    if raw_factor_frame.empty:
+        return _empty_factor_frame()
+    source = _filter_factor_names(raw_factor_frame, STATEMENT_CAPITAL_STRUCTURE_EFFICIENCY_SOURCE_FACTOR_NAMES)
+    if not source.empty:
+        source = source.copy()
+        source["factor_value"] = pd.to_numeric(source["factor_value"], errors="coerce")
+        source = source.dropna(subset=["date", "ann_date", "signal_date", "asset_id", "factor_value"]).reset_index(drop=True)
+    wide = _wide_raw_accounting_quality_frame(raw_factor_frame)
+    pieces: list[pd.DataFrame] = []
+    if not wide.empty:
+        for _, date_frame in wide.groupby("date", sort=True):
+            if len(date_frame) < int(min_cross_section):
+                continue
+            rank_columns = []
+            for source_name in STATEMENT_CAPITAL_STRUCTURE_EFFICIENCY_SOURCE_FACTOR_NAMES:
+                if source_name not in date_frame:
+                    continue
+                rank_columns.append(_percentile_rank(date_frame[source_name]))
+            if not rank_columns:
+                continue
+            composite = pd.concat(rank_columns, axis=1).mean(axis=1)
+            pieces.append(_repaired_piece(date_frame, "scs_balanced_capital_structure_efficiency", composite))
+    outputs = []
+    if not source.empty:
+        outputs.append(source)
+    outputs.extend(piece for piece in pieces if not piece.empty)
+    if not outputs:
+        return _empty_factor_frame()
+    return (
+        pd.concat(outputs, ignore_index=True)
         .sort_values(["factor_name", "date", "asset_id"])
         .reset_index(drop=True)
     )

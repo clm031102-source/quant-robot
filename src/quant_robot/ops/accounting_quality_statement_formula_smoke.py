@@ -77,6 +77,30 @@ FORMULA_SPECS: list[dict[str, Any]] = [
         "economic_direction": "profitability_acceleration_without_balance_sheet_expansion_better",
         "required_columns": ["asset_id", "netprofit", "total_assets"],
     },
+    {
+        "factor_name": "scs_equity_buffer_improvement",
+        "formula": "delta_4q(total_hldr_eqy_exc_min_int / total_assets)",
+        "economic_direction": "improving_book_equity_buffer_better",
+        "required_columns": ["asset_id", "total_hldr_eqy_exc_min_int", "total_assets"],
+    },
+    {
+        "factor_name": "scs_liability_to_equity_deleveraging",
+        "formula": "-delta_4q(total_liab / total_hldr_eqy_exc_min_int)",
+        "economic_direction": "falling_liability_to_equity_better",
+        "required_columns": ["asset_id", "total_liab", "total_hldr_eqy_exc_min_int"],
+    },
+    {
+        "factor_name": "scs_operating_cashflow_equity_buffer",
+        "formula": "n_cashflow_act / total_hldr_eqy_exc_min_int",
+        "economic_direction": "higher_operating_cashflow_relative_to_equity_better",
+        "required_columns": ["n_cashflow_act", "total_hldr_eqy_exc_min_int"],
+    },
+    {
+        "factor_name": "scs_revenue_to_liability_efficiency",
+        "formula": "total_revenue / total_liab",
+        "economic_direction": "higher_revenue_per_liability_better",
+        "required_columns": ["total_revenue", "total_liab"],
+    },
 ]
 
 
@@ -261,6 +285,9 @@ def _prepare_statement_frame(frame: pd.DataFrame) -> pd.DataFrame:
         "total_liab",
         "total_cur_assets",
         "total_cur_liab",
+        "total_hldr_eqy_exc_min_int",
+        "total_revenue",
+        "revenue",
     ]:
         if column in output:
             output[column] = pd.to_numeric(output[column], errors="coerce")
@@ -308,6 +335,20 @@ def _add_formula_values(frame: pd.DataFrame) -> pd.DataFrame:
         roa_revision = roa - roa.groupby(output["asset_id"]).shift(4)
         asset_growth_abs = output.groupby("asset_id")["total_assets"].pct_change(4, fill_method=None).abs()
         output["aq_profitability_revision_asset_disciplined"] = roa_revision - asset_growth_abs
+    if {"asset_id", "total_hldr_eqy_exc_min_int", "total_assets"}.issubset(output.columns):
+        equity_buffer = output["total_hldr_eqy_exc_min_int"] / output["total_assets"].replace(0, np.nan)
+        output["scs_equity_buffer_improvement"] = equity_buffer - equity_buffer.groupby(output["asset_id"]).shift(4)
+    if {"asset_id", "total_liab", "total_hldr_eqy_exc_min_int"}.issubset(output.columns):
+        liability_to_equity = output["total_liab"] / output["total_hldr_eqy_exc_min_int"].replace(0, np.nan)
+        output["scs_liability_to_equity_deleveraging"] = -(
+            liability_to_equity - liability_to_equity.groupby(output["asset_id"]).shift(4)
+        )
+    if {"n_cashflow_act", "total_hldr_eqy_exc_min_int"}.issubset(output.columns):
+        output["scs_operating_cashflow_equity_buffer"] = output["n_cashflow_act"] / output[
+            "total_hldr_eqy_exc_min_int"
+        ].replace(0, np.nan)
+    if {"total_revenue", "total_liab"}.issubset(output.columns):
+        output["scs_revenue_to_liability_efficiency"] = output["total_revenue"] / output["total_liab"].replace(0, np.nan)
     if {"asset_id", "netprofit", "n_cashflow_act", "total_assets", "total_liab", "total_cur_liab"}.issubset(output.columns):
         denominator = output["total_assets"].replace(0, np.nan)
         liability_stress = 0.5 * (output["total_liab"] / denominator) + 0.5 * (output["total_cur_liab"] / denominator)

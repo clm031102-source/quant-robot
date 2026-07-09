@@ -110,6 +110,7 @@ def main() -> None:
             "statement_event_drift",
             "statement_profitability_revision",
             "industry_relative_surprise",
+            "statement_capital_structure_efficiency",
         ],
         default="raw",
     )

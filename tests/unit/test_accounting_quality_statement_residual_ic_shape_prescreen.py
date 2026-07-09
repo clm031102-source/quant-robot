@@ -8,6 +8,7 @@ from quant_robot.ops.accounting_quality_statement_residual_ic_shape_prescreen im
     build_accounting_quality_statement_directional_audit_factor_frame,
     build_accounting_quality_statement_event_drift_factor_frame,
     build_accounting_quality_statement_industry_relative_surprise_factor_frame,
+    build_accounting_quality_statement_capital_structure_efficiency_factor_frame,
     build_accounting_quality_statement_residual_ic_shape_prescreen,
     build_accounting_quality_statement_repaired_factor_frame,
     summarize_accounting_quality_statement_residual_ic_shape_prescreen,
@@ -406,6 +407,72 @@ class AccountingQualityStatementResidualIcShapePrescreenTests(unittest.TestCase)
         )
         self.assertFalse(result["promotion_policy"]["promotion_allowed"])
 
+    def test_capital_structure_efficiency_factor_frame_uses_only_preregistered_candidates(self) -> None:
+        raw_factor_frame, _ = _capital_structure_input_frames()
+
+        scs = build_accounting_quality_statement_capital_structure_efficiency_factor_frame(
+            raw_factor_frame,
+            min_cross_section=6,
+        )
+
+        expected_names = {
+            "scs_equity_buffer_improvement",
+            "scs_liability_to_equity_deleveraging",
+            "scs_operating_cashflow_equity_buffer",
+            "scs_revenue_to_liability_efficiency",
+            "scs_balanced_capital_structure_efficiency",
+        }
+        self.assertEqual(set(scs["factor_name"].unique()), expected_names)
+        self.assertTrue((scs["date"] == scs["signal_date"]).all())
+        self.assertTrue((scs["signal_date"] > scs["ann_date"]).all())
+        self.assertFalse(any(name.startswith("aq_") for name in scs["factor_name"].unique()))
+        self.assertGreater(scs["factor_value"].notna().sum(), 0)
+
+    def test_builds_statement_capital_structure_efficiency_mode_without_old_candidates(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            statement_root = root / "statement"
+            bars_root = root / "bars"
+            daily_basic_root = root / "daily_basic"
+            stock_basic_root = root / "stock_basic"
+            assets = [f"CN_XSHE_{index:06d}" for index in range(8)]
+            _write_statement_inputs(statement_root, _statement_rows(assets))
+            _write_bars(bars_root, _bar_rows(assets))
+            _write_daily_basic(daily_basic_root, assets)
+            _write_stock_basic(stock_basic_root, assets)
+
+            result = build_accounting_quality_statement_residual_ic_shape_prescreen(
+                statement_roots=[statement_root],
+                bars_roots=[bars_root],
+                stock_basic_path=stock_basic_root,
+                daily_basic_roots=[daily_basic_root],
+                horizons=(5,),
+                factor_mode="statement_capital_structure_efficiency",
+                min_cross_section=4,
+                min_ic_observations=2,
+                min_neutral_ic_t_stat=0.0,
+            )
+
+        self.assertEqual(result["factor_mode"], "statement_capital_structure_efficiency")
+        self.assertEqual(result["summary"]["candidate_count"], 5)
+        self.assertEqual(
+            result["source_context"]["candidate_family"],
+            "statement_capital_structure_efficiency",
+        )
+        tested_names = {row["factor_name"] for row in result["results"]}
+        self.assertEqual(
+            tested_names,
+            {
+                "scs_equity_buffer_improvement",
+                "scs_liability_to_equity_deleveraging",
+                "scs_operating_cashflow_equity_buffer",
+                "scs_revenue_to_liability_efficiency",
+                "scs_balanced_capital_structure_efficiency",
+            },
+        )
+        self.assertFalse(any(name.startswith("aq_") for name in tested_names))
+        self.assertFalse(result["promotion_policy"]["promotion_allowed"])
+
 
 def _neutral_frames() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     dates = pd.bdate_range("2024-01-03", periods=8)
@@ -498,6 +565,45 @@ def _repair_input_frames() -> tuple[pd.DataFrame, pd.DataFrame]:
     return pd.DataFrame(rows), pd.DataFrame(stock_rows)
 
 
+def _capital_structure_input_frames() -> tuple[pd.DataFrame, pd.DataFrame]:
+    signal_date = pd.Timestamp("2024-05-06")
+    raw_names = [
+        "scs_equity_buffer_improvement",
+        "scs_liability_to_equity_deleveraging",
+        "scs_operating_cashflow_equity_buffer",
+        "scs_revenue_to_liability_efficiency",
+    ]
+    rows = []
+    stock_rows = []
+    for asset_index in range(12):
+        asset_id = f"CN_XSHE_{asset_index:06d}"
+        stock_rows.append({"asset_id": asset_id, "industry": "Tech" if asset_index < 6 else "Bank"})
+        base = float(asset_index % 6)
+        values = {
+            "scs_equity_buffer_improvement": base,
+            "scs_liability_to_equity_deleveraging": base * 0.8,
+            "scs_operating_cashflow_equity_buffer": base * 0.6,
+            "scs_revenue_to_liability_efficiency": base * 0.4,
+        }
+        for name in raw_names:
+            rows.append(
+                {
+                    "date": signal_date,
+                    "ann_date": signal_date - pd.Timedelta(days=3),
+                    "end_date": signal_date - pd.Timedelta(days=35),
+                    "signal_date": signal_date,
+                    "asset_id": asset_id,
+                    "market": "CN",
+                    "factor_name": name,
+                    "factor_value": values[name],
+                    "log_circ_mv": 20.0 + asset_index * 0.05,
+                    "log_adv20": 16.0 + asset_index * 0.03,
+                    "turnover_rate_f": 1.0 + (asset_index % 4) * 0.1,
+                }
+            )
+    return pd.DataFrame(rows), pd.DataFrame(stock_rows)
+
+
 def _event_drift_input_frames() -> tuple[pd.DataFrame, pd.DataFrame]:
     ann_date = pd.Timestamp("2024-05-03")
     signal_date = pd.Timestamp("2024-05-06")
@@ -568,6 +674,8 @@ def _statement_rows(asset_ids: list[str]) -> pd.DataFrame:
                     "n_cashflow_act": 120.0 + asset_index * 12 + period_index * 2,
                     "total_assets": 1000.0 + asset_index * 100 + period_index * 10,
                     "total_liab": 400.0 + asset_index * 10,
+                    "total_hldr_eqy_exc_min_int": 600.0 + asset_index * 90 + period_index * 8,
+                    "total_revenue": 500.0 + asset_index * 40 + period_index * 20,
                     "total_cur_assets": 300.0 + period_index * 5 + asset_index,
                     "total_cur_liab": 180.0 + period_index * 2,
                 }

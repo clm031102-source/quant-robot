@@ -208,6 +208,38 @@ class AccountingQualityStatementResidualIcShapePrescreenCliTests(unittest.TestCa
             self.assertFalse(result["promotion_policy"]["promotion_allowed"])
             self.assertTrue((output_dir / "accounting_quality_statement_residual_ic_results.csv").exists())
 
+    def test_cli_supports_statement_capital_structure_efficiency_factor_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            statement_root = root / "statement"
+            bars_root = root / "bars"
+            daily_basic_root = root / "daily_basic"
+            stock_basic_root = root / "stock_basic"
+            output_dir = root / "output"
+            assets = [f"CN_XSHE_{index:06d}" for index in range(8)]
+            _write_statement_inputs(statement_root, _statement_rows(assets))
+            _write_bars(bars_root, _bar_rows(assets))
+            _write_daily_basic(daily_basic_root, assets)
+            _write_stock_basic(stock_basic_root, assets)
+
+            result = run_accounting_quality_statement_residual_ic_shape_prescreen_cli(
+                statement_roots=[statement_root],
+                bars_roots=[bars_root],
+                stock_basic_path=stock_basic_root,
+                daily_basic_roots=[daily_basic_root],
+                output_dir=output_dir,
+                horizons=(5,),
+                factor_mode="statement_capital_structure_efficiency",
+                min_cross_section=4,
+                min_ic_observations=2,
+                min_neutral_ic_t_stat=0.0,
+            )
+
+            self.assertEqual(result["factor_mode"], "statement_capital_structure_efficiency")
+            self.assertEqual(result["summary"]["candidate_count"], 5)
+            self.assertFalse(result["promotion_policy"]["promotion_allowed"])
+            self.assertTrue((output_dir / "accounting_quality_statement_residual_ic_results.csv").exists())
+
 
 if __name__ == "__main__":
     unittest.main()

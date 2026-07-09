@@ -33,6 +33,10 @@ class AccountingQualityStatementFormulaSmokeTests(unittest.TestCase):
             self.assertEqual(coverage["aq_balance_sheet_stress_relief"]["valid_rows"], 2)
             self.assertEqual(coverage["aq_profitability_revision_cash_confirmed"]["valid_rows"], 2)
             self.assertEqual(coverage["aq_profitability_revision_asset_disciplined"]["valid_rows"], 2)
+            self.assertEqual(coverage["scs_equity_buffer_improvement"]["valid_rows"], 2)
+            self.assertEqual(coverage["scs_liability_to_equity_deleveraging"]["valid_rows"], 2)
+            self.assertEqual(coverage["scs_operating_cashflow_equity_buffer"]["valid_rows"], 10)
+            self.assertEqual(coverage["scs_revenue_to_liability_efficiency"]["valid_rows"], 10)
             self.assertFalse(result["execution_policy"]["return_labels_used"])
             self.assertFalse(result["execution_policy"]["promotion_allowed"])
 
@@ -66,6 +70,8 @@ def _write_statement_inputs(root: Path, *, duplicate_first_row: bool) -> None:
                     "n_cashflow_act": 120.0 + asset_index * 10 + index * 2,
                     "total_assets": 1000.0 + asset_index * 100 + index * 10,
                     "total_liab": 400.0 + asset_index * 10,
+                    "total_hldr_eqy_exc_min_int": 600.0 + asset_index * 90 + index * 8,
+                    "total_revenue": 500.0 + asset_index * 40 + index * 20,
                     "total_cur_assets": 300.0 + index * 5,
                     "total_cur_liab": 180.0 + index * 2,
                 }
