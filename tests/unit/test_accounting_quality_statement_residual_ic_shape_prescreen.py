@@ -4,7 +4,11 @@ from pathlib import Path
 
 import pandas as pd
 
+from quant_robot.ops.accounting_quality_statement_matrix_label_smoke import (
+    compute_accounting_quality_statement_factor_frame,
+)
 from quant_robot.ops.accounting_quality_statement_residual_ic_shape_prescreen import (
+    build_financial_reporting_timeliness_factor_frame,
     build_accounting_quality_statement_directional_audit_factor_frame,
     build_accounting_quality_statement_event_drift_factor_frame,
     build_accounting_quality_statement_industry_relative_surprise_factor_frame,
@@ -406,6 +410,80 @@ class AccountingQualityStatementResidualIcShapePrescreenTests(unittest.TestCase)
         )
         self.assertFalse(result["promotion_policy"]["promotion_allowed"])
 
+    def test_financial_reporting_timeliness_factor_frame_builds_preregistered_candidates(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            statement_root = root / "statement"
+            bars_root = root / "bars"
+            assets = [f"CN_XSHE_{index:06d}" for index in range(8)]
+            _write_statement_inputs(statement_root, _timeliness_statement_rows(assets))
+            _write_bars(bars_root, _bar_rows(assets))
+
+            raw = compute_accounting_quality_statement_factor_frame(
+                statement_roots=[statement_root],
+                bars_roots=[bars_root],
+            )
+            frame = build_financial_reporting_timeliness_factor_frame(raw, min_cross_section=4)
+
+        expected_names = {
+            "frt_reporting_lag_short",
+            "frt_reporting_lag_improvement_4q",
+            "frt_reporting_lag_stability_8q",
+            "frt_early_report_quality_combo",
+            "frt_late_reporter_risk_avoidance",
+        }
+        self.assertEqual(set(frame["factor_name"].unique()), expected_names)
+        self.assertTrue((frame["date"] == frame["signal_date"]).all())
+        self.assertTrue((frame["signal_date"] > frame["ann_date"]).all())
+        self.assertTrue(frame["factor_value"].notna().all())
+        self.assertIn("reporting_lag_days", frame.columns)
+        lag_short = frame[frame["factor_name"] == "frt_reporting_lag_short"].iloc[0]
+        self.assertAlmostEqual(float(lag_short["factor_value"]), -float(lag_short["reporting_lag_days"]))
+        self.assertFalse(any(str(name).endswith("_raw") for name in frame["factor_name"].unique()))
+
+    def test_builds_financial_reporting_timeliness_mode_without_old_candidates(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            statement_root = root / "statement"
+            bars_root = root / "bars"
+            daily_basic_root = root / "daily_basic"
+            stock_basic_root = root / "stock_basic"
+            assets = [f"CN_XSHE_{index:06d}" for index in range(8)]
+            _write_statement_inputs(statement_root, _timeliness_statement_rows(assets))
+            _write_bars(bars_root, _bar_rows(assets))
+            _write_daily_basic(daily_basic_root, assets)
+            _write_stock_basic(stock_basic_root, assets)
+
+            result = build_accounting_quality_statement_residual_ic_shape_prescreen(
+                statement_roots=[statement_root],
+                bars_roots=[bars_root],
+                stock_basic_path=stock_basic_root,
+                daily_basic_roots=[daily_basic_root],
+                horizons=(5,),
+                factor_mode="financial_reporting_timeliness",
+                min_cross_section=4,
+                min_ic_observations=2,
+                min_neutral_ic_t_stat=0.0,
+            )
+
+        expected_names = {
+            "frt_reporting_lag_short",
+            "frt_reporting_lag_improvement_4q",
+            "frt_reporting_lag_stability_8q",
+            "frt_early_report_quality_combo",
+            "frt_late_reporter_risk_avoidance",
+        }
+        self.assertEqual(result["factor_mode"], "financial_reporting_timeliness")
+        self.assertEqual(result["summary"]["candidate_count"], 5)
+        self.assertEqual(result["source_context"]["candidate_family"], "financial_reporting_timeliness")
+        self.assertEqual({row["factor_name"] for row in result["candidate_specs"]}, expected_names)
+        self.assertGreater(result["summary"]["factor_rows"], 0)
+        self.assertGreater(result["summary"]["test_count"], 0)
+        self.assertEqual(result["source_context"]["pit_alignment"]["signal_not_after_ann_date_rows"], 0)
+        self.assertEqual(result["source_context"]["pit_alignment"]["date_not_equal_signal_date_rows"], 0)
+        self.assertFalse(result["promotion_policy"]["promotion_allowed"])
+        self.assertFalse(result["live_boundary_allowed"])
+
 
 def _neutral_frames() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     dates = pd.bdate_range("2024-01-03", periods=8)
@@ -570,6 +648,34 @@ def _statement_rows(asset_ids: list[str]) -> pd.DataFrame:
                     "total_liab": 400.0 + asset_index * 10,
                     "total_cur_assets": 300.0 + period_index * 5 + asset_index,
                     "total_cur_liab": 180.0 + period_index * 2,
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def _timeliness_statement_rows(asset_ids: list[str]) -> pd.DataFrame:
+    rows = []
+    periods = pd.to_datetime(
+        ["2023-03-31", "2023-06-30", "2023-09-30", "2023-12-31", "2024-03-31", "2024-06-30"]
+    )
+    for asset_index, asset_id in enumerate(asset_ids):
+        for period_index, end_date in enumerate(periods):
+            lag_days = 24 + (asset_index % 2) * 4 + (period_index % 2) * 2 - min(period_index, 4)
+            rows.append(
+                {
+                    "date": end_date,
+                    "asset_id": asset_id,
+                    "symbol": asset_id[-6:] + ".SZ",
+                    "market": "CN",
+                    "ann_date": end_date + pd.Timedelta(days=int(lag_days)),
+                    "end_date": end_date,
+                    "report_type": "1",
+                    "netprofit": 100.0 + asset_index * 6 + period_index * 2,
+                    "n_cashflow_act": 116.0 + asset_index * 7 + period_index * 3,
+                    "total_assets": 1000.0 + asset_index * 50 + period_index * 20,
+                    "total_liab": 400.0 + asset_index * 10 + period_index,
+                    "total_cur_assets": 300.0 + period_index * 5 + asset_index,
+                    "total_cur_liab": 180.0 + period_index * 2 + asset_index * 0.5,
                 }
             )
     return pd.DataFrame(rows)

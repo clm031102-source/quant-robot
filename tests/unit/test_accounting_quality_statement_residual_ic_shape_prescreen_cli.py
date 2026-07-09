@@ -1,4 +1,6 @@
 import tempfile
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 
@@ -8,6 +10,7 @@ from scripts.run_accounting_quality_statement_residual_ic_shape_prescreen import
 from tests.unit.test_accounting_quality_statement_residual_ic_shape_prescreen import (
     _bar_rows,
     _statement_rows,
+    _timeliness_statement_rows,
     _write_bars,
     _write_daily_basic,
     _write_statement_inputs,
@@ -206,6 +209,54 @@ class AccountingQualityStatementResidualIcShapePrescreenCliTests(unittest.TestCa
             self.assertEqual(result["factor_mode"], "industry_relative_surprise")
             self.assertEqual(result["summary"]["candidate_count"], 3)
             self.assertFalse(result["promotion_policy"]["promotion_allowed"])
+            self.assertTrue((output_dir / "accounting_quality_statement_residual_ic_results.csv").exists())
+
+    def test_script_accepts_financial_reporting_timeliness_factor_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            statement_root = root / "statement"
+            bars_root = root / "bars"
+            daily_basic_root = root / "daily_basic"
+            stock_basic_root = root / "stock_basic"
+            output_dir = root / "output"
+            assets = [f"CN_XSHE_{index:06d}" for index in range(8)]
+            _write_statement_inputs(statement_root, _timeliness_statement_rows(assets))
+            _write_bars(bars_root, _bar_rows(assets))
+            _write_daily_basic(daily_basic_root, assets)
+            _write_stock_basic(stock_basic_root, assets)
+
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/run_accounting_quality_statement_residual_ic_shape_prescreen.py",
+                    "--statement-root",
+                    str(statement_root),
+                    "--bars-root",
+                    str(bars_root),
+                    "--stock-basic",
+                    str(stock_basic_root),
+                    "--daily-basic-root",
+                    str(daily_basic_root),
+                    "--output-dir",
+                    str(output_dir),
+                    "--horizon",
+                    "5",
+                    "--factor-mode",
+                    "financial_reporting_timeliness",
+                    "--min-cross-section",
+                    "4",
+                    "--min-ic-observations",
+                    "2",
+                    "--min-neutral-ic-t-stat",
+                    "0.0",
+                ],
+                cwd=Path.cwd(),
+                text=True,
+                capture_output=True,
+            )
+
+            self.assertEqual(completed.returncode, 0, completed.stderr + completed.stdout)
+            self.assertTrue((output_dir / "accounting_quality_statement_residual_ic_shape_prescreen.json").exists())
             self.assertTrue((output_dir / "accounting_quality_statement_residual_ic_results.csv").exists())
 
 

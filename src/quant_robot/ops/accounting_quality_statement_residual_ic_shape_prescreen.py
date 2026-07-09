@@ -47,6 +47,12 @@ NEXT_DIRECTION_STATEMENT_PROFITABILITY_REVISION_WITH_LEADS = "round248_accountin
 NEXT_DIRECTION_STATEMENT_PROFITABILITY_REVISION_WITHOUT_LEADS = "round248_rotate_to_external_revision_or_nonfinancial_event_context"
 NEXT_DIRECTION_INDUSTRY_RELATIVE_SURPRISE_WITH_LEADS = "round254_industry_relative_surprise_walk_forward_cost_capacity_regime_preflight"
 NEXT_DIRECTION_INDUSTRY_RELATIVE_SURPRISE_WITHOUT_LEADS = "round254_rotate_after_industry_relative_surprise_residual_ic_shape_failure"
+NEXT_DIRECTION_FINANCIAL_REPORTING_TIMELINESS_WITH_LEADS = (
+    "round692_financial_reporting_timeliness_walk_forward_cost_capacity_regime_preflight"
+)
+NEXT_DIRECTION_FINANCIAL_REPORTING_TIMELINESS_WITHOUT_LEADS = (
+    "round692_rotate_or_repair_financial_reporting_timeliness_after_residual_ic_shape_failure"
+)
 REPAIRED_FACTOR_NAMES = (
     "aq_repaired_industry_relative_cash_accrual_quality",
     "aq_repaired_size_liquidity_residual_asset_growth_quality",
@@ -75,6 +81,13 @@ INDUSTRY_RELATIVE_SURPRISE_FACTOR_NAMES = (
     "aq_industry_relative_profitability_surprise",
     "aq_industry_relative_asset_disciplined_surprise",
     "aq_industry_relative_cash_conversion_surprise",
+)
+FINANCIAL_REPORTING_TIMELINESS_FACTOR_NAMES = (
+    "frt_reporting_lag_short",
+    "frt_reporting_lag_improvement_4q",
+    "frt_reporting_lag_stability_8q",
+    "frt_early_report_quality_combo",
+    "frt_late_reporter_risk_avoidance",
 )
 
 
@@ -105,12 +118,14 @@ def build_accounting_quality_statement_residual_ic_shape_prescreen(
         "statement_event_drift",
         "statement_profitability_revision",
         "industry_relative_surprise",
+        "financial_reporting_timeliness",
     }
     if factor_mode not in valid_factor_modes:
         raise ValueError(
             "factor_mode must be 'raw', 'repaired', 'new_substructure', "
             "'new_substructure_directional_audit', 'statement_event_drift', "
-            "'statement_profitability_revision', or 'industry_relative_surprise'"
+            "'statement_profitability_revision', 'industry_relative_surprise', "
+            "or 'financial_reporting_timeliness'"
         )
     statement_root_paths = [Path(root) for root in statement_roots]
     bars_root_paths = [Path(root) for root in bars_roots]
@@ -166,6 +181,13 @@ def build_accounting_quality_statement_residual_ic_shape_prescreen(
             min_cross_section=min_cross_section,
         )
         candidate_specs = _industry_relative_surprise_candidate_specs()
+        expected_candidate_count = len(candidate_specs)
+    elif factor_mode == "financial_reporting_timeliness":
+        context_factor_frame = build_financial_reporting_timeliness_factor_frame(
+            context_factor_frame,
+            min_cross_section=min_cross_section,
+        )
+        candidate_specs = _financial_reporting_timeliness_candidate_specs()
         expected_candidate_count = len(candidate_specs)
     else:
         context_factor_frame = _filter_factor_names(context_factor_frame, RAW_CASH_ACCRUAL_FACTOR_NAMES)
@@ -269,6 +291,21 @@ def build_accounting_quality_statement_residual_ic_shape_prescreen(
             NEXT_DIRECTION_INDUSTRY_RELATIVE_SURPRISE_WITH_LEADS
             if int(result["summary"].get("research_lead_count", 0))
             else NEXT_DIRECTION_INDUSTRY_RELATIVE_SURPRISE_WITHOUT_LEADS
+        )
+    if factor_mode == "financial_reporting_timeliness":
+        result["source_context"]["candidate_family"] = "financial_reporting_timeliness"
+        result["source_context"]["hypothesis_source"] = (
+            "Round691 preregistered PIT financial reporting timeliness candidates; "
+            "values become tradable only on first trading date strictly after ann_date"
+        )
+        result["source_context"]["pit_alignment"] = _pit_alignment_summary(factor_frame)
+        result["source_context"]["timeliness_candidate_coverage"] = _factor_symbol_coverage(factor_frame)
+        result["source_context"]["timeliness_year_coverage"] = _factor_coverage_by_end_year(factor_frame)
+        result["summary"]["source_raw_factor_rows_before_financial_reporting_timeliness"] = int(len(raw_factor_frame))
+        result["summary"]["next_direction"] = (
+            NEXT_DIRECTION_FINANCIAL_REPORTING_TIMELINESS_WITH_LEADS
+            if int(result["summary"].get("research_lead_count", 0))
+            else NEXT_DIRECTION_FINANCIAL_REPORTING_TIMELINESS_WITHOUT_LEADS
         )
     result["markdown"] = render_accounting_quality_statement_residual_ic_shape_prescreen_markdown(result)
     return result
@@ -692,6 +729,56 @@ def _industry_relative_surprise_candidate_specs() -> list[dict[str, Any]]:
     ]
 
 
+def _financial_reporting_timeliness_candidate_specs() -> list[dict[str, Any]]:
+    return [
+        {
+            "factor_name": FINANCIAL_REPORTING_TIMELINESS_FACTOR_NAMES[0],
+            "family": "financial_reporting_timeliness",
+            "formula": "-1 * days_between(ann_date, end_date)",
+            "hypothesis_source": (
+                "Round691 preregistered PIT timeliness hypothesis: shorter reporting lag may proxy stronger "
+                "controls, lower opacity, and faster information release."
+            ),
+        },
+        {
+            "factor_name": FINANCIAL_REPORTING_TIMELINESS_FACTOR_NAMES[1],
+            "family": "financial_reporting_timeliness",
+            "formula": "lag_days_same_quarter_one_year_ago - current_lag_days",
+            "hypothesis_source": (
+                "Round691 preregistered PIT timeliness hypothesis: improving same-quarter disclosure speed may "
+                "signal better reporting discipline."
+            ),
+        },
+        {
+            "factor_name": FINANCIAL_REPORTING_TIMELINESS_FACTOR_NAMES[2],
+            "family": "financial_reporting_timeliness",
+            "formula": "-1 * trailing_8q_std(reporting_lag_days)",
+            "hypothesis_source": (
+                "Round691 preregistered PIT timeliness hypothesis: stable reporting cadence may reduce uncertainty "
+                "and event-timing noise."
+            ),
+        },
+        {
+            "factor_name": FINANCIAL_REPORTING_TIMELINESS_FACTOR_NAMES[3],
+            "family": "financial_reporting_timeliness",
+            "formula": "0.5 * within-date rank(-reporting_lag_days) + 0.5 * within-date rank(cash conversion quality)",
+            "hypothesis_source": (
+                "Round691 preregistered PIT timeliness hypothesis: early reporting is more plausible when paired "
+                "with realized cash-conversion quality."
+            ),
+        },
+        {
+            "factor_name": FINANCIAL_REPORTING_TIMELINESS_FACTOR_NAMES[4],
+            "family": "financial_reporting_timeliness",
+            "formula": "-1 * max(reporting_lag_days - same-date median_reporting_lag_days, 0)",
+            "hypothesis_source": (
+                "Round691 preregistered PIT timeliness hypothesis: very late reporters may proxy opacity, weak "
+                "controls, or operating friction."
+            ),
+        },
+    ]
+
+
 def _repaired_candidate_specs() -> list[dict[str, Any]]:
     return [
         {
@@ -713,6 +800,90 @@ def _repaired_candidate_specs() -> list[dict[str, Any]]:
             "hypothesis_source": "simple two-sleeve accounting-quality composite with exposure repair",
         },
     ]
+
+
+def build_financial_reporting_timeliness_factor_frame(
+    raw_factor_frame: pd.DataFrame,
+    *,
+    min_cross_section: int = 30,
+) -> pd.DataFrame:
+    if raw_factor_frame.empty:
+        return _empty_factor_frame()
+    wide = _wide_raw_accounting_quality_frame(raw_factor_frame)
+    if wide.empty:
+        return _empty_factor_frame()
+    required = ["date", "ann_date", "end_date", "signal_date", "asset_id", "market"]
+    if any(column not in wide for column in required):
+        return _empty_factor_frame()
+    for column in ["date", "ann_date", "end_date", "signal_date"]:
+        wide[column] = pd.to_datetime(wide[column], errors="coerce")
+    wide["asset_id"] = wide["asset_id"].astype(str)
+    wide["market"] = wide["market"].fillna("CN").astype(str).str.upper()
+    wide = wide.dropna(subset=required).copy()
+    wide = wide[wide["signal_date"] > wide["ann_date"]].copy()
+    wide["reporting_lag_days"] = (wide["ann_date"] - wide["end_date"]).dt.days
+    wide["reporting_lag_days"] = pd.to_numeric(wide["reporting_lag_days"], errors="coerce")
+    wide = wide[wide["reporting_lag_days"] >= 0].copy()
+    if wide.empty:
+        return _empty_factor_frame()
+
+    wide = wide.sort_values(["asset_id", "end_date", "ann_date", "signal_date"]).reset_index(drop=True)
+    lag_by_asset = wide.groupby("asset_id", sort=False)["reporting_lag_days"]
+    wide["reporting_lag_improvement_4q"] = lag_by_asset.shift(4) - wide["reporting_lag_days"]
+    wide["reporting_lag_stability_8q"] = -lag_by_asset.transform(
+        lambda series: series.rolling(8, min_periods=4).std()
+    )
+
+    pieces: list[pd.DataFrame] = []
+    for _, date_frame in wide.groupby("date", sort=True):
+        if len(date_frame) < int(min_cross_section):
+            continue
+        working = date_frame.copy()
+        lag = pd.to_numeric(working["reporting_lag_days"], errors="coerce")
+        timeliness_rank = _percentile_rank(-lag)
+        quality_source = _first_present_series(
+            working,
+            [
+                "cashflow_minus_netprofit_to_assets_raw",
+                "aq_profitability_revision_cash_confirmed",
+                "earnings_cash_conversion_improvement_yoy_raw",
+            ],
+        )
+        quality_rank = _percentile_rank(quality_source)
+        same_date_lag_median = lag.median()
+        late_penalty = -(lag - same_date_lag_median).clip(lower=0)
+        working["timeliness_rank"] = timeliness_rank
+        working["cash_conversion_quality_rank"] = quality_rank
+        working["late_lag_above_median_days"] = (lag - same_date_lag_median).clip(lower=0)
+        pieces.extend(
+            [
+                _timeliness_piece(working, FINANCIAL_REPORTING_TIMELINESS_FACTOR_NAMES[0], -lag),
+                _timeliness_piece(
+                    working,
+                    FINANCIAL_REPORTING_TIMELINESS_FACTOR_NAMES[1],
+                    working["reporting_lag_improvement_4q"],
+                ),
+                _timeliness_piece(
+                    working,
+                    FINANCIAL_REPORTING_TIMELINESS_FACTOR_NAMES[2],
+                    working["reporting_lag_stability_8q"],
+                ),
+                _timeliness_piece(
+                    working,
+                    FINANCIAL_REPORTING_TIMELINESS_FACTOR_NAMES[3],
+                    0.5 * timeliness_rank + 0.5 * quality_rank,
+                ),
+                _timeliness_piece(working, FINANCIAL_REPORTING_TIMELINESS_FACTOR_NAMES[4], late_penalty),
+            ]
+        )
+    pieces = [piece for piece in pieces if not piece.empty]
+    if not pieces:
+        return _empty_factor_frame()
+    return (
+        pd.concat(pieces, ignore_index=True)
+        .sort_values(["factor_name", "date", "asset_id"])
+        .reset_index(drop=True)
+    )
 
 
 def build_accounting_quality_statement_event_drift_factor_frame(frame: pd.DataFrame, bars: pd.DataFrame) -> pd.DataFrame:
@@ -982,6 +1153,121 @@ def _repaired_piece(base: pd.DataFrame, factor_name: str, values: pd.Series) -> 
         if column in base:
             piece[column] = base[column]
     return piece.dropna(subset=["date", "ann_date", "signal_date", "asset_id", "factor_value"]).reset_index(drop=True)
+
+
+def _timeliness_piece(base: pd.DataFrame, factor_name: str, values: pd.Series) -> pd.DataFrame:
+    piece = base[["date", "ann_date", "end_date", "signal_date", "asset_id", "market"]].copy()
+    piece["factor_name"] = factor_name
+    piece["factor_value"] = pd.to_numeric(values, errors="coerce")
+    for column in [
+        "amount",
+        "adv20_amount",
+        "log_adv20",
+        "log_amount",
+        "turnover_rate",
+        "turnover_rate_f",
+        "volume_ratio",
+        "total_mv",
+        "circ_mv",
+        "log_total_mv",
+        "log_circ_mv",
+        "reporting_lag_days",
+        "reporting_lag_improvement_4q",
+        "reporting_lag_stability_8q",
+        "timeliness_rank",
+        "cash_conversion_quality_rank",
+        "late_lag_above_median_days",
+    ]:
+        if column in base:
+            piece[column] = base[column]
+    return piece.dropna(subset=["date", "ann_date", "signal_date", "asset_id", "factor_value"]).reset_index(drop=True)
+
+
+def _first_present_series(frame: pd.DataFrame, columns: Sequence[str]) -> pd.Series:
+    for column in columns:
+        if column in frame:
+            series = pd.to_numeric(frame[column], errors="coerce")
+            if series.notna().any():
+                return series
+    return pd.Series(pd.NA, index=frame.index, dtype="Float64")
+
+
+def _factor_symbol_coverage(frame: pd.DataFrame) -> list[dict[str, Any]]:
+    if frame.empty or "factor_name" not in frame:
+        return []
+    rows: list[dict[str, Any]] = []
+    for factor_name, group in frame.groupby("factor_name", sort=True):
+        rows.append(
+            {
+                "factor_name": str(factor_name),
+                "factor_rows": int(len(group)),
+                "asset_count": int(group["asset_id"].nunique()) if "asset_id" in group else 0,
+                "min_ann_date": _min_date(group, "ann_date"),
+                "max_ann_date": _max_date(group, "ann_date"),
+                "min_end_date": _min_date(group, "end_date"),
+                "max_end_date": _max_date(group, "end_date"),
+                "min_signal_date": _min_date(group, "signal_date"),
+                "max_signal_date": _max_date(group, "signal_date"),
+            }
+        )
+    return rows
+
+
+def _pit_alignment_summary(frame: pd.DataFrame) -> dict[str, Any]:
+    if frame.empty:
+        return {
+            "factor_rows": 0,
+            "signal_not_after_ann_date_rows": 0,
+            "date_not_equal_signal_date_rows": 0,
+            "missing_alignment_date_rows": 0,
+            "passes": False,
+        }
+    dates = pd.to_datetime(frame["date"], errors="coerce") if "date" in frame else pd.Series(pd.NaT, index=frame.index)
+    ann_dates = (
+        pd.to_datetime(frame["ann_date"], errors="coerce")
+        if "ann_date" in frame
+        else pd.Series(pd.NaT, index=frame.index)
+    )
+    signal_dates = (
+        pd.to_datetime(frame["signal_date"], errors="coerce")
+        if "signal_date" in frame
+        else pd.Series(pd.NaT, index=frame.index)
+    )
+    missing = dates.isna() | ann_dates.isna() | signal_dates.isna()
+    signal_not_after_ann = signal_dates <= ann_dates
+    date_not_equal_signal = dates != signal_dates
+    signal_not_after_count = int((signal_not_after_ann & ~missing).sum())
+    date_mismatch_count = int((date_not_equal_signal & ~missing).sum())
+    missing_count = int(missing.sum())
+    return {
+        "factor_rows": int(len(frame)),
+        "signal_not_after_ann_date_rows": signal_not_after_count,
+        "date_not_equal_signal_date_rows": date_mismatch_count,
+        "missing_alignment_date_rows": missing_count,
+        "passes": signal_not_after_count == 0 and date_mismatch_count == 0 and missing_count == 0,
+    }
+
+
+def _factor_coverage_by_end_year(frame: pd.DataFrame) -> list[dict[str, Any]]:
+    if frame.empty or not {"factor_name", "end_date"}.issubset(frame.columns):
+        return []
+    working = frame.copy()
+    working["end_date"] = pd.to_datetime(working["end_date"], errors="coerce")
+    working = working.dropna(subset=["end_date"])
+    if working.empty:
+        return []
+    working["end_year"] = working["end_date"].dt.year
+    rows: list[dict[str, Any]] = []
+    for (factor_name, end_year), group in working.groupby(["factor_name", "end_year"], sort=True):
+        rows.append(
+            {
+                "factor_name": str(factor_name),
+                "end_year": int(end_year),
+                "factor_rows": int(len(group)),
+                "asset_count": int(group["asset_id"].nunique()) if "asset_id" in group else 0,
+            }
+        )
+    return rows
 
 
 def _summary_blockers(factor_frame: pd.DataFrame, labels: pd.DataFrame, stock_basic: pd.DataFrame) -> list[str]:

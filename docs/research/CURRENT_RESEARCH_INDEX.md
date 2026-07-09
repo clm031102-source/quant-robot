@@ -1,6 +1,6 @@
 # Current Research And Cloud Sync Index
 
-Last updated: 2026-07-08
+Last updated: 2026-07-09
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
@@ -30,7 +30,7 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| none | no active topic branch | main-only after Round638 integration |
+| `codex/factor-batch-cn-stock-financial-reporting-timeliness-round691-20260709` | Round691 financial reporting timeliness candidate gate and prescreen | active local factor-batch branch |
 
 Round555-Round563 has been integrated into `main` and the prior topic branch has been deleted. Round565, Round566, Round567, Round568, Round569, Round570, Round571, Round572, Round573, Round574, Round575, Round576, Round577, Round578, Round579, Round580, Round581, Round582, Round583, Round584, Round585, Round586, Round587, Round588, Round589, Round590, Round591, Round592, Round593, Round594, Round595, Round596, Round597, Round598, Round599, Round600, Round601, Round602, Round603, Round604, Round605, Round606, Round607, Round608, Round609, Round610, Round611, Round612, Round613, Round614, Round615, Round616, Round617, Round618, Round619, Round620, Round621, Round622, Round623, Round624, Round625, Round626, Round627, Round628, Round629, Round630, Round631, Round632, Round633, Round634, Round635, Round636, Round637, and Round638 have also been integrated into `main` and their topic branches deleted. Rounds 567-638 were data-pipeline branches only; they expanded local source coverage, but factor generation remains blocked until the source gate clears. Existing Round503-Round638 material records gated source construction, rejection evidence, tooling hardening, and paper-lane risk-repair evidence. Do not treat any result from it as live, promoted, or independently tradable.
 
@@ -5463,3 +5463,31 @@ Docs:
 - `docs/superpowers/plans/2026-07-09-round691-financial-reporting-timeliness-candidate-plan.md`
 
 Decision: Round691 clears the preregistered candidate plan gate for `financial_reporting_timeliness`. The next allowed action is a specialized PIT financial reporting timeliness prescreen with fixed 5D and 20D horizons, strict `signal_date > ann_date` proof, industry/style residual controls, multiple-testing accounting, and manifest-warning carry-forward. Portfolio grids, promotion, sign/window tuning, mixed-window harvesting, live trading work, and 2026 final-holdout reads remain blocked.
+
+## Round691 Financial Reporting Timeliness Prescreen
+
+Round691 then implemented and ran the specialized PIT residual IC shape prescreen for the five pre-registered financial reporting timeliness candidates:
+
+- Source branch: `codex/factor-batch-cn-stock-financial-reporting-timeliness-round691-20260709`.
+- Prescreen mode: `factor_mode=financial_reporting_timeliness`.
+- Fixed horizons: 5D and 20D only.
+- Statement root: `data\processed`, using the financial statement inputs that cleared the Round690 source gate.
+- Prescreen result: passes true, blockers `[]`.
+- Candidate count: 5; factor names with rows: 5.
+- Factor rows: 159,701; aligned rows: 319,402; tests: 10.
+- PIT alignment proof: 159,701 rows checked, `signal_date <= ann_date` rows 0, `date != signal_date` rows 0, missing alignment-date rows 0.
+- Research leads: 0.
+- Neutral-gate pass tests: 0.
+- FDR-significant tests: 0.
+- Promotion allowed candidates: 0.
+- Final holdout included: false.
+- Manifest warnings carried forward: `extreme_return_rows_present`, `moneyflow_symbol_coverage_below_bars`.
+- Generated `data\reports` evidence remains local and uncommitted.
+- No portfolio grid, walk-forward, promotion gate, sign/window tuning, mixed-window harvesting, live-trading work, broker read, account read, order placement, or 2026 final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round691_financial_reporting_timeliness_prescreen_2026-07-09.md`
+- `docs/superpowers/plans/2026-07-09-round691-financial-reporting-timeliness-prescreen.md`
+
+Decision: do not promote any Round691 `financial_reporting_timeliness` candidate. The next direction is `round692_rotate_or_repair_financial_reporting_timeliness_after_residual_ic_shape_failure`. Any repair or follow-up must be pre-registered as new hypotheses before screening.
