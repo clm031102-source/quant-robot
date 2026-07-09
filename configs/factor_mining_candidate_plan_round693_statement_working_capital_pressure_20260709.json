@@ -1,0 +1,310 @@
+{
+  "stage": "round693_statement_working_capital_pressure_preregistration",
+  "round": 693,
+  "market": "CN",
+  "asset_type": "stock",
+  "source_audit": "docs/research/cn_stock_round690_financial_reporting_timeliness_backfill_progress_2026-07-08.md",
+  "source_plan_doc": "docs/superpowers/specs/2026-07-09-round693-statement-working-capital-pressure-design.md",
+  "implementation_plan": "docs/superpowers/plans/2026-07-09-round693-statement-working-capital-pressure.md",
+  "scope": {
+    "machine": "office_desktop",
+    "task": "factor_batch",
+    "branch": "codex/factor-batch-cn-stock-statement-working-capital-pressure-round693-20260709"
+  },
+  "research_control_plan": {
+    "declared_controls": {
+      "cn_stock_tradeability": [
+        "limit_up_down_filter",
+        "suspension_filter",
+        "st_flag_filter",
+        "new_listing_age_filter",
+        "delisting_risk_filter",
+        "board_permission_filter"
+      ],
+      "financial_pit_timing": [
+        "ann_date_or_effective_date_lag",
+        "financial_revision_announcement_handling",
+        "report_release_lag_not_period_end",
+        "no_period_end_only_financial_signal"
+      ],
+      "source_sample_integrity": [
+        "endpoint_permission_or_cache_manifest",
+        "point_in_time_available_date_semantics",
+        "full_sample_2015_2025_same_parameter_replay",
+        "train_test_or_walk_forward_split_declared",
+        "future_function_static_audit",
+        "rejected_hypothesis_counting"
+      ],
+      "industry_style_neutralization": [
+        "industry_exposure_report",
+        "size_exposure_report",
+        "value_lowvol_momentum_liquidity_decomposition",
+        "neutralized_or_residual_factor_matrix"
+      ],
+      "etf_rotation_scope_boundary": [
+        "stock_scope_confirmed",
+        "etf_rotation_evidence_rejected_for_stock_factor",
+        "cn_etf_dedicated_signal_pack_separate"
+      ],
+      "portfolio_construction": [
+        "risk_budget_position_sizing",
+        "volatility_targeting_or_volatility_budget",
+        "industry_weight_constraints",
+        "turnover_constraints",
+        "stop_loss_or_de_risk_rules"
+      ],
+      "strict_statistics": [
+        "deflated_sharpe",
+        "purged_cpcv",
+        "white_reality_check_or_fdr",
+        "parameter_sensitivity_heatmap",
+        "multiple_testing_accounting"
+      ],
+      "china_market_regime": [
+        "policy_liquidity_regime",
+        "credit_cycle_proxy",
+        "northbound_margin_turnover_temperature",
+        "index_location_state",
+        "signal_window_regime_coverage"
+      ],
+      "event_factors": [
+        "earnings_forecast_or_statement_event_audit",
+        "dividend_ex_right_event_audit",
+        "buyback_holder_unlock_event_audit",
+        "index_rebalance_event_audit",
+        "event_contamination_extreme_return_audit"
+      ]
+    },
+    "policy": "Round693 may only preregister PIT statement working-capital pressure candidates. It must not rerun old accounting-quality formula mutations, profitability revision, statement cash-conversion event drift, financial reporting timeliness, PEAD gap reversal, portfolio grids, promotion, sign/window tuning, mixed-window harvesting, live trading, or final-holdout reads."
+  },
+  "data_source_plan": {
+    "source_family": "financial_statement_roots",
+    "local_cache_root": "data/processed",
+    "source_gate_report": "docs/research/cn_stock_round690_financial_reporting_timeliness_backfill_progress_2026-07-08.md",
+    "long_cycle_start_date": "2015-01-01",
+    "long_cycle_end_date": "2025-12-31",
+    "final_holdout_available_for_tuning": false,
+    "available_date_rule": "Use the first valid trading date strictly after ann_date. Same-day announcement trading and period-end-only signals are blocked.",
+    "provider_limit_policy": "Use local processed PIT statement cache only. Do not download or extend source data during Round693 candidate-plan gate."
+  },
+  "source_column_coverage_snapshot": {
+    "statement_rows": 40665,
+    "statement_assets": 959,
+    "fields_checked": {
+      "c_cash_equ_end_period": {
+        "valid_rows": 40325,
+        "assets": 959,
+        "coverage_pct": 99.16
+      },
+      "total_cur_liab": {
+        "valid_rows": 39280,
+        "assets": 938,
+        "coverage_pct": 96.59
+      },
+      "inventories": {
+        "valid_rows": 38736,
+        "assets": 937,
+        "coverage_pct": 95.26
+      },
+      "accounts_receiv": {
+        "valid_rows": 38976,
+        "assets": 940,
+        "coverage_pct": 95.85
+      },
+      "accounts_pay": {
+        "valid_rows": 39149,
+        "assets": 940,
+        "coverage_pct": 96.27
+      },
+      "total_revenue": {
+        "valid_rows": 40340,
+        "assets": 959,
+        "coverage_pct": 99.2
+      },
+      "free_cashflow": {
+        "valid_rows": 39456,
+        "assets": 959,
+        "coverage_pct": 97.03
+      },
+      "total_liab": {
+        "valid_rows": 40274,
+        "assets": 959,
+        "coverage_pct": 99.04
+      }
+    }
+  },
+  "cn_stock_data_manifest_result": {
+    "status": "review_required",
+    "output_dir": "data/reports/round693_statement_working_capital_pressure_data_manifest_20260709",
+    "bar_asset_ids": 5774,
+    "moneyflow_asset_ids": 5648,
+    "date_start": "2015-01-05",
+    "date_end": "2026-06-15",
+    "blockers": [],
+    "warnings": [
+      "extreme_return_rows_present",
+      "moneyflow_symbol_coverage_below_bars"
+    ],
+    "warning_policy": "Warnings must be carried into prescreen documentation and cannot be interpreted as alpha evidence."
+  },
+  "candidate_generation_policy": {
+    "pre_register_every_candidate": true,
+    "record_rejected_candidates": true,
+    "parameter_grid_allowed": false,
+    "portfolio_grid_allowed": false,
+    "promotion_allowed": false,
+    "active_candidate_count": 5,
+    "planned_test_count": 10,
+    "multiple_testing_accounting_rule": "Every formula, sign, lag, horizon, source adapter, or window variant must be preregistered and counted before screening."
+  },
+  "evaluation_gate": {
+    "required_metrics": [
+      "point_in_time_ann_date_to_signal_date_alignment",
+      "statement_formula_coverage_smoke",
+      "candidate_coverage_by_year_and_symbol",
+      "industry_neutral_ic_5d_20d",
+      "size_liquidity_neutral_ic_5d_20d",
+      "style_residual_ic_5d_20d",
+      "quantile_monotonicity",
+      "yearly_ic_stability",
+      "regime_coverage_breakout",
+      "manifest_warning_carry_forward",
+      "cost_capacity_preflight_if_prescreen_lead_exists",
+      "deflated_sharpe_or_fdr",
+      "purged_cpcv_or_walk_forward_preflight",
+      "future_function_static_audit",
+      "no_final_holdout_read"
+    ],
+    "fixed_horizons": [
+      5,
+      20
+    ],
+    "multiple_testing_accounting_required": true,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "portfolio_grid_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_available_for_tuning": false
+  },
+  "promotion_policy": {
+    "promotion_allowed": false,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "requires_data_source_availability_proof": true,
+    "requires_long_cycle_replay": true,
+    "requires_same_parameter_full_sample": true,
+    "requires_full_sample_regime_coverage": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true,
+    "requires_no_lookahead_audit": true,
+    "requires_future_function_static_audit": true,
+    "requires_overfit_multiple_testing_control": true,
+    "requires_overlap_adjusted_statistics": true,
+    "requires_parameter_sensitivity": true,
+    "requires_parameter_sensitivity_heatmap": true,
+    "requires_deflated_sharpe_or_fdr": true,
+    "requires_cpcv_or_purged_walk_forward": true,
+    "requires_white_reality_check_or_multiple_test_adjustment": true,
+    "requires_profit_drawdown_winrate_report": true,
+    "requires_final_holdout_read_once": true,
+    "requires_tradeability_survivorship_audit": true,
+    "requires_industry_style_neutralization": true,
+    "requires_source_performance_evidence": true
+  },
+  "family_rotation_policy": {
+    "current_family_id": "statement_working_capital_pressure",
+    "current_family_round_count": 1,
+    "max_rounds_before_review": 3,
+    "three_round_review_completed": true,
+    "hibernated_families": [
+      {
+        "family": "financial_reporting_timeliness_after_round691_zero_research_leads",
+        "reason": "Round691 specialized prescreen produced zero FDR or neutral-gate leads."
+      },
+      {
+        "family": "pead_gap_reversal_statement_source_repair_after_round692_zero_research_leads",
+        "reason": "Round692 expanded statement source repaired coverage but failed neutral gates."
+      },
+      {
+        "family": "accounting_quality_realized_statement_formula_mutations",
+        "reason": "Old realized accounting-quality formulas are hibernated; Round693 is only allowed as a new operating working-capital pressure substructure."
+      },
+      {
+        "family": "statement_cash_conversion_muted_reaction",
+        "reason": "Round246 statement cash-conversion event drift produced zero usable leads."
+      },
+      {
+        "family": "statement_profitability_revision_without_external_expectation_data",
+        "reason": "Round247 profitability revision variants were weak after controls."
+      },
+      {
+        "family": "forecast_express_disagreement_after_round268_zero_research_leads",
+        "reason": "Forecast express disagreement did not produce usable residual leads."
+      }
+    ],
+    "blocked_families": []
+  },
+  "candidates": [
+    {
+      "factor_name": "swcp_cash_current_liability_improvement",
+      "family": "statement_working_capital_pressure",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "formula": "delta_4q(c_cash_equ_end_period / total_cur_liab), dated on the first valid trading date after ann_date",
+      "hypothesis_source": "Round690/Round692 local PIT statement cache; cash-buffer and short-liability coverage fields not used by the failed timeliness or PEAD source-repair hypotheses.",
+      "economic_rationale": "Improving cash coverage of current liabilities may reduce financing pressure and balance-sheet fragility after the report is observable.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "swcp_operating_working_capital_release",
+      "family": "statement_working_capital_pressure",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "formula": "-delta_4q((inventories + accounts_receiv - accounts_pay) / total_assets), dated on the first valid trading date after ann_date",
+      "hypothesis_source": "PIT statement operating working-capital fields: inventories, receivables, payables, and total assets.",
+      "economic_rationale": "Falling operating working-capital lockup can indicate cash release and lower financing demand, distinct from total accrual and profitability-revision signals.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "swcp_inventory_receivable_efficiency_improvement",
+      "family": "statement_working_capital_pressure",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "formula": "-delta_4q((inventories + accounts_receiv) / total_revenue), using revenue fallback only if total_revenue is absent",
+      "hypothesis_source": "PIT statement inventory, receivable, and revenue fields with broad local coverage.",
+      "economic_rationale": "Lower inventory and receivable intensity relative to revenue can proxy cleaner working-capital conversion and less cash trapped in operations.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "swcp_free_cashflow_liability_buffer",
+      "family": "statement_working_capital_pressure",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "formula": "free_cashflow / total_liab + c_cash_equ_end_period / total_cur_liab, dated on the first valid trading date after ann_date",
+      "hypothesis_source": "PIT statement free-cashflow, cash, and liability fields.",
+      "economic_rationale": "A stronger free-cashflow and cash buffer relative to liabilities may reduce near-term refinancing pressure after the statement is public.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "swcp_balanced_cash_working_capital_pressure",
+      "family": "statement_working_capital_pressure",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "formula": "frozen equal-weight same-date percentile-rank composite of cash-current-liability improvement, operating working-capital release, and free-cashflow liability buffer",
+      "hypothesis_source": "Pre-registered composite of the Round693 operating working-capital pressure substructure; no optimized weights.",
+      "economic_rationale": "Combining independent cash-buffer and working-capital-release measures can reduce single-field accounting noise while keeping the mechanism distinct from old profitability and accrual formulas.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    }
+  ],
+  "next_gate_if_cleared": "round693_statement_working_capital_pressure_formula_matrix_residual_prescreen",
+  "safety": "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+}

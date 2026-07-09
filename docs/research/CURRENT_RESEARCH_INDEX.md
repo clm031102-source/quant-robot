@@ -1,6 +1,6 @@
 # Current Research And Cloud Sync Index
 
-Last updated: 2026-07-08
+Last updated: 2026-07-09
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
@@ -30,9 +30,11 @@ Do not create long-lived remote topic branches for routine desktop factor batche
 
 | Branch | Role | Status |
 | --- | --- | --- |
-| none | no active topic branch | main-only after Round638 integration |
+| `codex/factor-batch-cn-stock-statement-working-capital-pressure-round693-20260709` | Round693 statement working-capital pressure candidate gate and prescreen | active local factor-batch branch |
 
 Round555-Round563 has been integrated into `main` and the prior topic branch has been deleted. Round565, Round566, Round567, Round568, Round569, Round570, Round571, Round572, Round573, Round574, Round575, Round576, Round577, Round578, Round579, Round580, Round581, Round582, Round583, Round584, Round585, Round586, Round587, Round588, Round589, Round590, Round591, Round592, Round593, Round594, Round595, Round596, Round597, Round598, Round599, Round600, Round601, Round602, Round603, Round604, Round605, Round606, Round607, Round608, Round609, Round610, Round611, Round612, Round613, Round614, Round615, Round616, Round617, Round618, Round619, Round620, Round621, Round622, Round623, Round624, Round625, Round626, Round627, Round628, Round629, Round630, Round631, Round632, Round633, Round634, Round635, Round636, Round637, and Round638 have also been integrated into `main` and their topic branches deleted. Rounds 567-638 were data-pipeline branches only; they expanded local source coverage, but factor generation remains blocked until the source gate clears. Existing Round503-Round638 material records gated source construction, rejection evidence, tooling hardening, and paper-lane risk-repair evidence. Do not treat any result from it as live, promoted, or independently tradable.
+
+Round693 starts from latest `main` after the Round691/Round692 local branch work produced no promotable candidates. It preregisters `statement_working_capital_pressure`, a new PIT statement substructure based on cash-current-liability coverage, operating working-capital release, inventory/receivable intensity, and free-cashflow liability buffer fields. Candidate-plan gate status is `research_ready` with 5 active candidates, 9 / 9 complete control areas, no blockers, portfolio grid disabled, promotion disabled, and generated `data/reports` evidence kept local. The next allowed action is formula smoke, matrix-label smoke, and residual IC shape prescreen for exactly the five pre-registered candidates with fixed 5D and 20D horizons.
 
 ## Deleted historical branches
 
