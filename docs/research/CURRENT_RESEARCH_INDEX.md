@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round702_analyst_target_upside_robustness_diagnostic_2026-07-09.md`
 - `docs/research/cn_stock_round701_analyst_report_revision_june_extension_2026-07-09.md`
 - `docs/research/cn_stock_round700_analyst_report_revision_may_extension_2026-07-09.md`
 - `docs/research/cn_stock_round699_statement_industry_relative_surprise_full_replay_2026-07-09.md`
@@ -5610,3 +5611,27 @@ Docs:
 - `docs/research/cn_stock_round701_analyst_report_revision_june_extension_2026-07-09.md`
 
 Decision: keep analyst-report revision as a promising source-accumulation line, not a research lead yet. The June extension improved FDR and neutral evidence, but all IC evidence still sits in one year, so year coverage blocks any portfolio conversion. After quota reset, the only allowed continuation is another monthly cache plus the same frozen prescreen, with no formula, sign, threshold, or final-holdout tuning.
+
+## Round702 Analyst Target Upside Robustness Diagnostic
+
+Round702 ran a no-provider local robustness diagnostic on the Round701 analyst-report revision outputs.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Worktree before work: clean.
+- Quant PM startup gate status: `ready`, blockers `[]`, primary market `CN_ETF`.
+- CN stock factor-mining startup gate status: `cleared`, startup gate cleared `true`.
+- CN stock data manifest: `review_required`, blockers `[]`, warnings `extreme_return_rows_present` and `moneyflow_symbol_coverage_below_bars`.
+- Input evidence was limited to frozen Round700/Round701 result, IC-observation, and neutral-observation CSV/JSON files.
+- No provider request, formula tuning, sign/window tuning, portfolio grid, walk-forward conversion, promotion gate, signal generation, mixed-window harvesting, or 2026 final-holdout read occurred.
+- Top diagnostic row remained `analyst_target_upside_60` horizon 5: Round701 IC `0.1511`, ICIR `0.577`, t-stat `3.74`, FDR true, size-neutral IC `0.1146`, size-neutral t-stat `2.91`, research lead false.
+- Jan-May to Jan-Jun increment for that row: 28 observations IC `0.0940` to 42 observations IC `0.1511`; the 14 added observations averaged IC `0.2653`, positive rate `85.7%`, and average cross-section `64.4`.
+- Signal-month check for that row: February 2024 was negative, mean IC `-0.0777`; June 2024 was strongly positive, mean IC `0.2578`; excluding June left mean IC `0.0977`.
+- Research leads: 0.
+- Promotion allowed candidates: 0.
+- Year-coverage pass count remains 0.
+
+Docs:
+
+- `docs/research/cn_stock_round702_analyst_target_upside_robustness_diagnostic_2026-07-09.md`
+
+Decision: keep analyst-report revision active only as controlled source accumulation, with `analyst_target_upside_60` horizon 5 as the priority diagnostic row after quota reset. Do not convert it to a portfolio signal: the evidence is still single-year, February is adverse, and the June improvement comes from a small added cohort. Continue only by adding the next monthly cache and rerunning the same frozen prescreen without formula, sign, threshold, or final-holdout tuning.
