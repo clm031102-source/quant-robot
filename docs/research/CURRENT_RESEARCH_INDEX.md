@@ -6403,3 +6403,24 @@ Docs:
 - `docs/research/cn_stock_round737_lpr_macro_regime_state_conditioned_walk_forward_validation_2026-07-09.md`
 
 Decision: do not proceed to statistical reality check, final holdout, portfolio grid, promotion, paper signal, or live boundary. The LPR `gap_widening` path should be repaired or rotated using this rejection as negative evidence.
+
+## Round738 LPR Macro Regime Walk-Forward Rejection Rotation Gate
+
+Round738 converted the real Round737 LPR `gap_widening` walk-forward rejection into an explicit rotation gate.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- New op and CLI: `src/quant_robot/ops/lpr_macro_regime_walk_forward_rejection_rotation_gate.py` and `scripts/run_lpr_macro_regime_walk_forward_rejection_rotation_gate.py`.
+- The gate consumes the Round737 validation JSON, requires upstream status `rejected`, blocks rotation if any LPR candidate was accepted or any downstream gate was opened, aggregates rejection reasons, records common failed OOS folds, and writes a policy that retires the same LPR candidates pending a genuinely new hypothesis.
+- Real startup gates passed: Quant PM startup gate `ready`; factor-mining startup gate `cleared`.
+- Real output wrote `data/reports/round738_lpr_macro_regime_walk_forward_rejection_rotation_gate_20260709`.
+- Rotation summary: status `cleared`, 0 accepted candidates, 2 rejected candidates, common failed test folds `[1]`, capacity not blocker true, exposure challenge not blocker true, and `rotation_source_gate_allowed_next=true`.
+- Policy: same LPR `gap_widening` candidate retry false, parameter tuning false, cost-threshold relaxation false, fold-threshold relaxation false, final-holdout access false, portfolio grid false, promotion false, live boundary false.
+- Next direction: `rotate_to_non_lpr_orthogonal_family_source_gate`.
+- Focused tests: LPR walk-forward rejection rotation gate and CLI `5 passed`.
+- No provider download, factor batch, portfolio grid, promotion gate, ready signal snapshot, paper simulation, broker access, order placement, or final-holdout tuning occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round738_lpr_macro_regime_walk_forward_rejection_rotation_gate_2026-07-09.md`
+
+Decision: the failed Round737 LPR `gap_widening` path is closed to simple rerun or threshold rescue. Future work may rotate to a new orthogonal source gate, or revisit LPR only through a genuinely new macro-interaction source gate.
