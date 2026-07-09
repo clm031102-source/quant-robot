@@ -35,6 +35,14 @@ def run_waited_desktop_factor_validation(
     source: str = "processed-bars",
     data_root: str | Path = DEFAULT_DATA_ROOT,
     output_dir: str | Path | None = None,
+    startup_gate_packet: str | Path | None = Path(
+        "data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"
+    ),
+    data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
+    factor_batch_readiness_gate_packet: str | Path | None = Path(
+        "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
+    ),
+    allow_review_required_data_manifest: bool = False,
     require_accepted: bool = False,
     log_path: str | Path = DEFAULT_LOG_PATH,
     summary_path: str | Path = DEFAULT_SUMMARY_PATH,
@@ -52,6 +60,9 @@ def run_waited_desktop_factor_validation(
     resolved_config = Path(config_path)
     resolved_data_root = Path(data_root)
     resolved_output = Path(output_dir) if output_dir is not None else None
+    resolved_startup_gate = Path(startup_gate_packet) if startup_gate_packet is not None else None
+    resolved_data_manifest = Path(data_manifest_packet) if data_manifest_packet is not None else None
+    resolved_readiness_gate = Path(factor_batch_readiness_gate_packet) if factor_batch_readiness_gate_packet is not None else None
     resolved_log = Path(log_path)
     resolved_summary = Path(summary_path)
     _log(resolved_log, timestamp, f"queue_started wait_pids={resolved_pids} config={resolved_config}")
@@ -68,6 +79,10 @@ def run_waited_desktop_factor_validation(
         source=source,
         data_root=resolved_data_root,
         output_dir=resolved_output,
+        startup_gate_packet=resolved_startup_gate,
+        data_manifest_packet=resolved_data_manifest,
+        factor_batch_readiness_gate_packet=resolved_readiness_gate,
+        allow_review_required_data_manifest=allow_review_required_data_manifest,
         require_accepted=require_accepted,
     )
     summary = {
@@ -92,22 +107,44 @@ def main() -> None:
     parser.add_argument("--source", choices=["fixture", "processed-bars"], default="processed-bars")
     parser.add_argument("--data-root", default=str(DEFAULT_DATA_ROOT))
     parser.add_argument("--output-dir")
+    parser.add_argument(
+        "--startup-gate-packet",
+        default="data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json",
+    )
+    parser.add_argument(
+        "--data-manifest-packet",
+        default="data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json",
+    )
+    parser.add_argument(
+        "--factor-batch-readiness-gate-packet",
+        default="data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json",
+    )
+    parser.add_argument("--allow-review-required-data-manifest", action="store_true")
     parser.add_argument("--require-accepted", action="store_true")
     parser.add_argument("--log-path", default=str(DEFAULT_LOG_PATH))
     parser.add_argument("--summary-path", default=str(DEFAULT_SUMMARY_PATH))
     parser.add_argument("--poll-seconds", type=float, default=300.0)
     args = parser.parse_args()
-    result = run_waited_desktop_factor_validation(
-        wait_pids=args.wait_pids,
-        config_path=Path(args.config),
-        source=args.source,
-        data_root=Path(args.data_root),
-        output_dir=Path(args.output_dir) if args.output_dir else None,
-        require_accepted=args.require_accepted,
-        log_path=Path(args.log_path),
-        summary_path=Path(args.summary_path),
-        poll_seconds=args.poll_seconds,
-    )
+    try:
+        result = run_waited_desktop_factor_validation(
+            wait_pids=args.wait_pids,
+            config_path=Path(args.config),
+            source=args.source,
+            data_root=Path(args.data_root),
+            output_dir=Path(args.output_dir) if args.output_dir else None,
+            startup_gate_packet=Path(args.startup_gate_packet) if args.startup_gate_packet else None,
+            data_manifest_packet=Path(args.data_manifest_packet) if args.data_manifest_packet else None,
+            factor_batch_readiness_gate_packet=(
+                Path(args.factor_batch_readiness_gate_packet) if args.factor_batch_readiness_gate_packet else None
+            ),
+            allow_review_required_data_manifest=args.allow_review_required_data_manifest,
+            require_accepted=args.require_accepted,
+            log_path=Path(args.log_path),
+            summary_path=Path(args.summary_path),
+            poll_seconds=args.poll_seconds,
+        )
+    except (FileNotFoundError, RuntimeError, ValueError) as exc:
+        raise SystemExit(str(exc)) from exc
     print(json.dumps({"summary": result.get("summary", {})}, indent=2, sort_keys=True))
 
 

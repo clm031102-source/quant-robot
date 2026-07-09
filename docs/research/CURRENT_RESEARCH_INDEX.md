@@ -6030,3 +6030,23 @@ Docs:
 - `docs/research/cn_stock_round721_paper_profile_optimizer_readiness_guard_2026-07-09.md`
 
 Decision: future CN processed-bars paper-profile optimizer runs must provide ready startup, data-manifest, and combined factor-batch readiness packets. The current Round708 readiness packet is blocked, so no CN paper-profile optimizer evidence should be generated until quota/source/candidate readiness clears.
+
+## Round722 Desktop Validation Readiness Guard
+
+Round722 connected the desktop validation and waited desktop validation wrappers to explicit startup, data-manifest, and combined factor-batch readiness packets.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Added `--startup-gate-packet`, `--data-manifest-packet`, `--factor-batch-readiness-gate-packet`, and `--allow-review-required-data-manifest` to `scripts/run_desktop_factor_validation.py`.
+- Added the same readiness packet pass-through to `scripts/run_waited_desktop_factor_validation.py`.
+- Waited validation CLI now reports validation failures without a Python traceback.
+- Real direct and waited smokes used today's CN stock startup/data-manifest evidence and stopped on the blocked Round708 readiness packet.
+- Error: `CN walk-forward validation factor batch readiness gate is not ready`.
+- Direct validation output directory, waited validation summary JSON, and waited validation output directory were not created.
+- Focused tests: `34 passed`.
+- No provider download, new factor formula, IC screen, portfolio grid from a ready packet, walk-forward validation from a ready packet, promotion gate, ready signal generation, paper simulation, or final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round722_desktop_validation_readiness_guard_2026-07-09.md`
+
+Decision: future CN processed-bars desktop validation wrappers must provide ready startup, data-manifest, and combined factor-batch readiness packets. The current Round708 readiness packet is blocked, so no CN desktop validation evidence should be generated until quota/source/candidate readiness clears.

@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts import run_waited_desktop_factor_validation as waited_module
 from scripts.run_waited_desktop_factor_validation import _process_is_running, run_waited_desktop_factor_validation
 
 
@@ -77,6 +78,35 @@ class WaitedDesktopFactorValidationTests(unittest.TestCase):
             self.assertEqual(saved["waited_pids"], [101, 202])
             self.assertEqual(saved["validation_summary"], {"accepted": 0, "rejected": 4})
 
+    def test_explicit_cn_readiness_packets_are_forwarded_to_runner(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            events = []
+            startup_gate = Path("data/reports/startup/factor_mining_startup_gate.json")
+            data_manifest = Path("data/reports/manifest/cn_stock_data_manifest.json")
+            readiness_gate = Path("data/reports/readiness/factor_batch_readiness_gate.json")
+
+            def runner(**kwargs):
+                events.append(("runner", kwargs))
+                return {"summary": {"accepted": 0}, "leaderboard": []}
+
+            run_waited_desktop_factor_validation(
+                log_path=root / "queue.log",
+                summary_path=root / "queue_summary.json",
+                runner=runner,
+                timestamp=lambda: "2026-07-09T15:50:00+08:00",
+                startup_gate_packet=startup_gate,
+                data_manifest_packet=data_manifest,
+                factor_batch_readiness_gate_packet=readiness_gate,
+                allow_review_required_data_manifest=True,
+            )
+
+            self.assertEqual(events[0][0], "runner")
+            self.assertEqual(events[0][1]["startup_gate_packet"], startup_gate)
+            self.assertEqual(events[0][1]["data_manifest_packet"], data_manifest)
+            self.assertEqual(events[0][1]["factor_batch_readiness_gate_packet"], readiness_gate)
+            self.assertTrue(events[0][1]["allow_review_required_data_manifest"])
+
     def test_process_probe_uses_windows_fallback_when_psutil_is_unavailable(self):
         real_import = __import__
 
@@ -93,6 +123,20 @@ class WaitedDesktopFactorValidationTests(unittest.TestCase):
             self.assertTrue(_process_is_running(12345))
 
         fallback.assert_called_once_with(12345)
+
+    def test_cli_reports_validation_failures_without_traceback(self):
+        with (
+            patch("sys.argv", ["run_waited_desktop_factor_validation.py"]),
+            patch.object(
+                waited_module,
+                "run_waited_desktop_factor_validation",
+                side_effect=ValueError("blocked readiness gate"),
+            ),
+            self.assertRaises(SystemExit) as raised,
+        ):
+            waited_module.main()
+
+        self.assertEqual(str(raised.exception), "blocked readiness gate")
 
 
 if __name__ == "__main__":

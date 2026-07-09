@@ -31,6 +31,12 @@ class DesktopFactorValidationTests(unittest.TestCase):
             source="processed-bars",
             data_root=DEFAULT_DATA_ROOT,
             output_dir=None,
+            startup_gate_packet=Path("data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"),
+            data_manifest_packet=Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
+            factor_batch_readiness_gate_packet=Path(
+                "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
+            ),
+            allow_review_required_data_manifest=False,
         )
         assert_succeeded.assert_called_once_with(result, allow_no_accepted=True)
 
@@ -72,6 +78,36 @@ class DesktopFactorValidationTests(unittest.TestCase):
 
         self.assertIs(returned, result)
         self.assertEqual(order, ["validate", "walk_forward"])
+
+    def test_explicit_cn_readiness_packets_are_forwarded_to_walk_forward(self):
+        result = {"summary": {"cases": 1, "accepted": 0, "rejected": 1}, "leaderboard": []}
+        startup_gate = Path("data/reports/startup/factor_mining_startup_gate.json")
+        data_manifest = Path("data/reports/manifest/cn_stock_data_manifest.json")
+        readiness_gate = Path("data/reports/readiness/factor_batch_readiness_gate.json")
+
+        with (
+            patch("scripts.run_desktop_factor_validation._preflight_desktop_inputs"),
+            patch("scripts.run_desktop_factor_validation.run_walk_forward", return_value=result) as walk_forward,
+            patch("scripts.run_desktop_factor_validation.assert_walk_forward_succeeded"),
+        ):
+            returned = run_desktop_factor_validation(
+                startup_gate_packet=startup_gate,
+                data_manifest_packet=data_manifest,
+                factor_batch_readiness_gate_packet=readiness_gate,
+                allow_review_required_data_manifest=True,
+            )
+
+        self.assertIs(returned, result)
+        walk_forward.assert_called_once_with(
+            config_path=DEFAULT_CONFIG_PATH,
+            source="processed-bars",
+            data_root=DEFAULT_DATA_ROOT,
+            output_dir=None,
+            startup_gate_packet=startup_gate,
+            data_manifest_packet=data_manifest,
+            factor_batch_readiness_gate_packet=readiness_gate,
+            allow_review_required_data_manifest=True,
+        )
 
     def test_blocked_batch12_preflight_packet_blocks_before_walk_forward(self):
         with tempfile.TemporaryDirectory() as tmp:

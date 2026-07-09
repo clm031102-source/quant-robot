@@ -30,6 +30,14 @@ def run_desktop_factor_validation(
     source: str = "processed-bars",
     data_root: str | Path = DEFAULT_DATA_ROOT,
     output_dir: str | Path | None = None,
+    startup_gate_packet: str | Path | None = Path(
+        "data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"
+    ),
+    data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
+    factor_batch_readiness_gate_packet: str | Path | None = Path(
+        "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
+    ),
+    allow_review_required_data_manifest: bool = False,
     require_accepted: bool = False,
     batch12_validation_preflight_packet: str | Path | None = None,
 ) -> dict[str, object]:
@@ -42,6 +50,12 @@ def run_desktop_factor_validation(
         source=source,
         data_root=data_root,
         output_dir=Path(output_dir) if output_dir is not None else None,
+        startup_gate_packet=Path(startup_gate_packet) if startup_gate_packet is not None else None,
+        data_manifest_packet=Path(data_manifest_packet) if data_manifest_packet is not None else None,
+        factor_batch_readiness_gate_packet=(
+            Path(factor_batch_readiness_gate_packet) if factor_batch_readiness_gate_packet is not None else None
+        ),
+        allow_review_required_data_manifest=allow_review_required_data_manifest,
     )
     assert_walk_forward_succeeded(result, allow_no_accepted=not require_accepted)
     return result
@@ -78,6 +92,19 @@ def main() -> None:
     parser.add_argument("--data-root", default=str(DEFAULT_DATA_ROOT))
     parser.add_argument("--output-dir")
     parser.add_argument(
+        "--startup-gate-packet",
+        default="data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json",
+    )
+    parser.add_argument(
+        "--data-manifest-packet",
+        default="data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json",
+    )
+    parser.add_argument(
+        "--factor-batch-readiness-gate-packet",
+        default="data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json",
+    )
+    parser.add_argument("--allow-review-required-data-manifest", action="store_true")
+    parser.add_argument(
         "--require-accepted",
         action="store_true",
         help="Fail when validation completes but every candidate is rejected.",
@@ -93,6 +120,12 @@ def main() -> None:
             source=args.source,
             data_root=Path(args.data_root),
             output_dir=Path(args.output_dir) if args.output_dir else None,
+            startup_gate_packet=Path(args.startup_gate_packet) if args.startup_gate_packet else None,
+            data_manifest_packet=Path(args.data_manifest_packet) if args.data_manifest_packet else None,
+            factor_batch_readiness_gate_packet=(
+                Path(args.factor_batch_readiness_gate_packet) if args.factor_batch_readiness_gate_packet else None
+            ),
+            allow_review_required_data_manifest=args.allow_review_required_data_manifest,
             require_accepted=args.require_accepted,
             batch12_validation_preflight_packet=(
                 Path(args.batch12_validation_preflight_packet)
