@@ -6446,3 +6446,21 @@ Docs:
 - `docs/research/cn_stock_round739_non_lpr_orthogonal_source_gate_2026-07-09.md`
 
 Decision: `analyst_report_revision` is the selected non-LPR PIT source path, but only as a quota-blocked source-extension path. Local cached prescreen permission is not full factor-batch readiness and must not unlock portfolio grids, promotion, paper signals, or live workflows.
+
+## Round740 Analyst Report Quota Recheck
+
+Round740 rechecked local `report_rc` provider quota after Round739 selected `analyst_report_revision` as the next non-LPR source path.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Existing CLI: `scripts/run_analyst_report_quota_preflight.py`.
+- Command used `--report-root data\reports`, `--target-date 2026-07-09`, and wrote `data/reports/round740_analyst_report_quota_recheck_20260709`.
+- Result: status `blocked`, request allowed false, blocker `daily_provider_request_budget_exhausted`, next action `wait_or_review_provider_quota`.
+- Quota evidence: report root count 1, same-day window rows 2, counted provider request windows 2, remaining request windows 0, cache report count 2, duplicate evidence rows 0, target date matches generated_at true.
+- Warning: `local_report_roots_only`.
+- No provider download, new analyst cache, factor batch, portfolio grid, promotion gate, ready signal snapshot, paper simulation, broker access, order placement, or final-holdout tuning occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round740_analyst_report_quota_recheck_2026-07-09.md`
+
+Decision: do not cache the next analyst-report month on 2026-07-09 from this machine. The selected analyst source remains blocked until quota resets or valid quota evidence changes provider readiness.
