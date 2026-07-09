@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round697_hk_hold_source_symbol_composition_audit_2026-07-09.md`
 - `docs/research/cn_stock_round696_external_hk_hold_lpr_candidate_plan_feasibility_2026-07-09.md`
 - `docs/research/cn_stock_round695_external_lpr_source_readiness_2026-07-09.md`
 - `docs/research/cn_stock_cloud_branch_integration_handoff_2026-07-04.md`
@@ -5441,3 +5442,29 @@ Docs:
 - `docs/research/ROUND690_NEXT_STEPS_CHECKLIST.md`
 
 Decision: Round690 cleared the financial reporting timeliness source gate. Stop source-only backfill for this family and move to a dedicated factor-batch candidate-plan branch from merged `main`. Run preregistration plus `scripts/run_factor_mining_candidate_plan_gate.py` before any IC screen. Portfolio grids, promotion, sign/window tuning, mixed-window harvesting, and 2026 final-holdout reads remain blocked.
+
+## Round697 HK-Hold Source Symbol Composition Audit
+
+Round697 added a read-only Tushare `hk_hold` source-composition audit after Round696 showed that adjacent HK-hold extension probes were empty after CN filtering.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Startup context and Quant PM startup gate were run for `office_desktop` / `factor_batch`.
+- Quant PM startup gate status: `ready`, blockers `[]`.
+- CN stock factor-mining startup gate status: `cleared`, blockers `[]`.
+- New tool: `scripts/run_tushare_hk_hold_source_audit.py`.
+- Unit tests: `3 passed`.
+- Real source audit dates: 2024-08-16, 2024-08-19, 2024-10-08, 2024-10-31.
+- Raw rows: 6,550.
+- CN rows: 3,337.
+- Non-CN rows: 3,213.
+- Usable CN dates: 1 / 4.
+- Empty-after-CN-filter dates: 3 / 4.
+- Post-2024-08-16 probe dates returned raw rows, but only HK-suffixed symbols.
+- Promotion allowed: false.
+- No factor generation, IC screen, portfolio grid, promotion gate, mixed-window harvesting, signal generation, or 2026 final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round697_hk_hold_source_symbol_composition_audit_2026-07-09.md`
+
+Decision: do not run HK-hold x LPR as a factor candidate yet. The current provider path does not clear the preregistered 60-observation CN HK-hold history requirement, and lowering that threshold after seeing the source audit remains blocked. Search for an alternative valid CN-suffixed HK-hold source mode before any new IC or portfolio work.
