@@ -25,6 +25,11 @@ from quant_robot.ops.analyst_report_quota_preflight import (  # noqa: E402
     parse_quota_pack_machine_notes,
     write_analyst_report_quota_preflight,
 )
+from quant_robot.ops.analyst_report_source_extension_priority_gate import (  # noqa: E402
+    STAGE as ANALYST_SOURCE_EXTENSION_PRIORITY_GATE_STAGE,
+    build_analyst_report_cache_priority_gate_guard,
+    write_analyst_report_cache_priority_gate_guard,
+)
 from quant_robot.storage.dataset_store import DatasetStore  # noqa: E402
 
 
@@ -120,6 +125,14 @@ def main() -> None:
         action="store_true",
         help="Run quota preflight and stop before cache execution; does not call Tushare.",
     )
+    parser.add_argument(
+        "--analyst-source-extension-priority-gate",
+        default="",
+        help=(
+            "Path to analyst_report_source_extension_priority_gate.json; required after quota preflight allows "
+            "provider-backed report_rc cache."
+        ),
+    )
     args = parser.parse_args()
     try:
         quota_pack_machine_notes = parse_quota_pack_machine_notes(args.quota_pack_machine_note)
@@ -208,6 +221,9 @@ def main() -> None:
                 flush=True,
             )
             return
+        priority_guard = _run_analyst_source_extension_priority_guard(args)
+        if not priority_guard["decision"]["request_allowed"]:
+            raise SystemExit(3)
 
     result = run_tushare_analyst_report_cache(
         TushareAdapter(max_retries=1, retry_sleep_seconds=3.0),
@@ -236,6 +252,49 @@ def main() -> None:
             sort_keys=True,
         )
     )
+
+
+def _run_analyst_source_extension_priority_guard(args: argparse.Namespace) -> dict[str, object]:
+    priority_gate_path = str(args.analyst_source_extension_priority_gate or "").strip()
+    priority_gate = _read_analyst_source_extension_priority_gate(priority_gate_path)
+    guard = build_analyst_report_cache_priority_gate_guard(
+        priority_gate=priority_gate,
+        priority_gate_path=priority_gate_path or None,
+    )
+    write_analyst_report_cache_priority_gate_guard(args.output_dir, guard)
+    print(
+        json.dumps(
+            {
+                "status": guard["status"],
+                "summary": guard["summary"],
+                "decision": guard["decision"],
+                "output_dir": str(Path(args.output_dir)),
+                "safety": guard["safety"],
+            },
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+        ),
+        flush=True,
+    )
+    return guard
+
+
+def _read_analyst_source_extension_priority_gate(priority_gate_path: str) -> dict[str, object] | None:
+    if not priority_gate_path:
+        return None
+    path = Path(priority_gate_path)
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {
+            "stage": ANALYST_SOURCE_EXTENSION_PRIORITY_GATE_STAGE,
+            "status": "load_failed",
+            "decision": {
+                "blockers": [f"analyst_source_extension_priority_gate_load_failed:{type(exc).__name__}"],
+            },
+            "live_boundary_allowed": False,
+        }
 
 
 def _build_skip_quota_preflight_packet(args: argparse.Namespace, skip_reason: str) -> dict[str, object]:

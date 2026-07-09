@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 from quant_robot.ops.analyst_report_source_extension_priority_gate import (
+    build_analyst_report_cache_priority_gate_guard,
     build_analyst_report_source_extension_priority_gate,
     write_analyst_report_source_extension_priority_gate,
 )
@@ -59,6 +60,58 @@ class AnalystReportSourceExtensionPriorityGateTests(unittest.TestCase):
             self.assertTrue((output / "analyst_report_source_extension_priority_gate.json").exists())
             self.assertTrue((output / "analyst_report_source_extension_priority_gate.md").exists())
             self.assertTrue((output / "analyst_report_source_extension_priority_rows.csv").exists())
+
+    def test_cache_priority_guard_blocks_when_priority_gate_is_not_ready(self) -> None:
+        priority_gate = build_analyst_report_source_extension_priority_gate(
+            source_gate=_source_gate(),
+            analyst_prescreen=_analyst_prescreen(),
+        )
+
+        result = build_analyst_report_cache_priority_gate_guard(
+            priority_gate=priority_gate,
+            priority_gate_path="data/reports/round744/analyst_report_source_extension_priority_gate.json",
+        )
+
+        self.assertEqual(result["stage"], "analyst_report_cache_priority_gate_guard")
+        self.assertEqual(result["status"], "blocked")
+        self.assertFalse(result["decision"]["request_allowed"])
+        self.assertIn("analyst_source_extension_priority_gate_not_ready", result["decision"]["blockers"])
+        self.assertIn("provider_cache_not_allowed_now", result["decision"]["blockers"])
+        self.assertFalse(result["decision"]["provider_cache_allowed_now"])
+        self.assertFalse(result["decision"]["portfolio_grid_allowed"])
+        self.assertFalse(result["decision"]["promotion_allowed"])
+        self.assertFalse(result["live_boundary_allowed"])
+
+    def test_cache_priority_guard_allows_ready_frozen_priority_gate(self) -> None:
+        source_gate = _source_gate()
+        source_gate["decision"]["provider_request_allowed"] = True
+        prescreen = _analyst_prescreen()
+        for row in prescreen["results"]:
+            row["ic_year_count"] = 2
+            row["blockers"] = []
+
+        priority_gate = build_analyst_report_source_extension_priority_gate(
+            source_gate=source_gate,
+            analyst_prescreen=prescreen,
+        )
+        result = build_analyst_report_cache_priority_gate_guard(
+            priority_gate=priority_gate,
+            priority_gate_path="data/reports/round745/analyst_report_source_extension_priority_gate.json",
+        )
+
+        self.assertEqual(priority_gate["status"], "ready_to_cache_next_month")
+        self.assertEqual(result["status"], "allowed")
+        self.assertTrue(result["decision"]["request_allowed"])
+        self.assertEqual(result["decision"]["blockers"], [])
+        self.assertEqual(result["decision"]["priority_source"], "analyst_report_revision")
+        self.assertEqual(result["decision"]["priority_factor_name"], "analyst_target_upside_60")
+        self.assertTrue(result["decision"]["provider_cache_allowed_now"])
+        self.assertTrue(result["decision"]["frozen_prescreen_required"])
+        self.assertFalse(result["decision"]["formula_tuning_allowed"])
+        self.assertFalse(result["decision"]["window_tuning_allowed"])
+        self.assertFalse(result["decision"]["portfolio_grid_allowed"])
+        self.assertFalse(result["decision"]["promotion_allowed"])
+        self.assertFalse(result["live_boundary_allowed"])
 
 
 def _source_gate() -> dict:

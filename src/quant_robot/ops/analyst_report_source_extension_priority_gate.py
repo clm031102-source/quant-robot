@@ -10,11 +10,13 @@ from quant_robot.ops.cn_stock_local_source_queue_audit import SAFETY
 
 
 STAGE = "analyst_report_source_extension_priority_gate"
+CACHE_PRIORITY_GUARD_STAGE = "analyst_report_cache_priority_gate_guard"
 SOURCE_GATE_STAGE = "cn_stock_non_lpr_orthogonal_source_gate"
 SELECTED_SOURCE = "analyst_report_revision"
 PRESCREEN_STAGE_ALIASES = {"", "analyst_report_revision_prescreen", "analyst_report_revision_pit_prescreen"}
 NEXT_ACTION_WAIT_QUOTA = "wait_for_report_rc_quota_reset_then_cache_next_analyst_month"
 NEXT_ACTION_CACHE = "cache_next_analyst_month_then_rerun_frozen_prescreen"
+NEXT_ACTION_PRIORITY_GUARD = "rerun_source_extension_priority_gate_and_quota_preflight_before_cache"
 
 PRIORITY_COLUMNS = [
     "rank",
@@ -138,6 +140,94 @@ def write_analyst_report_source_extension_priority_gate(output_dir: str | Path, 
     _write_csv(output_path / "analyst_report_source_extension_priority_rows.csv", clean["priority_table"], PRIORITY_COLUMNS)
 
 
+def build_analyst_report_cache_priority_gate_guard(
+    *,
+    priority_gate: dict[str, Any] | None,
+    priority_gate_path: str | Path | None = None,
+) -> dict[str, Any]:
+    gate = _dict(priority_gate)
+    decision = _dict(gate.get("decision"))
+    blockers: list[str] = []
+    if not gate:
+        blockers.append("analyst_source_extension_priority_gate_required")
+    else:
+        if gate.get("stage") != STAGE:
+            blockers.append("unexpected_analyst_source_extension_priority_gate_stage")
+        if gate.get("status") != "ready_to_cache_next_month":
+            blockers.append("analyst_source_extension_priority_gate_not_ready")
+        nested_blockers = _as_list(decision.get("blockers"))
+        blockers.extend(f"priority_gate_blocker:{blocker}" for blocker in nested_blockers)
+        if decision.get("priority_source") != SELECTED_SOURCE:
+            blockers.append("analyst_priority_source_not_selected")
+        if not str(decision.get("priority_factor_name", "") or "").strip():
+            blockers.append("priority_factor_missing")
+        if int(_number(decision.get("priority_horizon"))) <= 0:
+            blockers.append("priority_horizon_missing")
+        if decision.get("provider_cache_allowed_now") is not True:
+            blockers.append("provider_cache_not_allowed_now")
+        if decision.get("cache_next_month_after_quota_reset") is not True:
+            blockers.append("cache_next_month_after_quota_reset_not_allowed")
+        if decision.get("frozen_prescreen_required") is not True:
+            blockers.append("frozen_prescreen_not_required")
+        if decision.get("formula_tuning_allowed") is not False:
+            blockers.append("formula_tuning_unexpectedly_allowed")
+        if decision.get("window_tuning_allowed") is not False:
+            blockers.append("window_tuning_unexpectedly_allowed")
+        if decision.get("portfolio_grid_allowed") is not False:
+            blockers.append("portfolio_grid_unexpectedly_allowed")
+        if decision.get("promotion_allowed") is not False:
+            blockers.append("promotion_unexpectedly_allowed")
+        if gate.get("live_boundary_allowed") is not False:
+            blockers.append("live_boundary_unexpectedly_allowed")
+    blockers = _unique(blockers)
+    request_allowed = not blockers
+    result: dict[str, Any] = {
+        "stage": CACHE_PRIORITY_GUARD_STAGE,
+        "generated_at": date.today().isoformat(),
+        "status": "allowed" if request_allowed else "blocked",
+        "priority_gate_path": str(Path(priority_gate_path)) if priority_gate_path else "",
+        "summary": {
+            "priority_gate_status": gate.get("status", "missing") if gate else "missing",
+            "priority_factor_name": decision.get("priority_factor_name", ""),
+            "priority_horizon": int(_number(decision.get("priority_horizon"))),
+            "latest_report_date": _dict(gate.get("summary")).get("latest_report_date", "") if gate else "",
+        },
+        "decision": {
+            "request_allowed": request_allowed,
+            "blockers": blockers,
+            "priority_source": decision.get("priority_source", ""),
+            "priority_factor_name": decision.get("priority_factor_name", ""),
+            "priority_horizon": int(_number(decision.get("priority_horizon"))),
+            "provider_cache_allowed_now": decision.get("provider_cache_allowed_now") is True,
+            "cache_next_month_after_quota_reset": decision.get("cache_next_month_after_quota_reset") is True,
+            "next_action": NEXT_ACTION_CACHE if request_allowed else NEXT_ACTION_PRIORITY_GUARD,
+            "frozen_prescreen_required": decision.get("frozen_prescreen_required") is True,
+            "formula_tuning_allowed": decision.get("formula_tuning_allowed") is True,
+            "window_tuning_allowed": decision.get("window_tuning_allowed") is True,
+            "portfolio_grid_allowed": decision.get("portfolio_grid_allowed") is True,
+            "promotion_allowed": decision.get("promotion_allowed") is True,
+        },
+        "live_boundary_allowed": False,
+        "safety": SAFETY,
+    }
+    result["markdown"] = render_analyst_report_cache_priority_gate_guard_markdown(result)
+    return result
+
+
+def write_analyst_report_cache_priority_gate_guard(output_dir: str | Path, result: dict[str, Any]) -> None:
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    clean = _sanitize(result)
+    (output_path / "analyst_report_cache_priority_gate_guard.json").write_text(
+        json.dumps(clean, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    (output_path / "analyst_report_cache_priority_gate_guard.md").write_text(
+        render_analyst_report_cache_priority_gate_guard_markdown(clean),
+        encoding="utf-8",
+    )
+
+
 def render_analyst_report_source_extension_priority_gate_markdown(result: dict[str, Any]) -> str:
     summary = _dict(result.get("summary"))
     decision = _dict(result.get("decision"))
@@ -193,6 +283,45 @@ def render_analyst_report_source_extension_priority_gate_markdown(result: dict[s
             "- This is a source-extension priority gate, not a research-lead or promotion gate.",
             "- The selected row must be rerun with the same frozen prescreen after the next monthly cache.",
             "- Formula tuning, window tuning, portfolio grids, promotion, paper signals, and live use remain closed.",
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def render_analyst_report_cache_priority_gate_guard_markdown(result: dict[str, Any]) -> str:
+    summary = _dict(result.get("summary"))
+    decision = _dict(result.get("decision"))
+    lines = [
+        "# Analyst Report Cache Priority Gate Guard",
+        "",
+        f"- Stage: {result.get('stage', CACHE_PRIORITY_GUARD_STAGE)}",
+        f"- Status: {result.get('status', 'unknown')}",
+        f"- Priority gate status: {summary.get('priority_gate_status', '')}",
+        f"- Priority source: `{decision.get('priority_source', '')}`",
+        f"- Priority factor: `{decision.get('priority_factor_name', '')}`",
+        f"- Priority horizon: {decision.get('priority_horizon', 0)}",
+        f"- Request allowed: {decision.get('request_allowed', False)}",
+        f"- Provider cache allowed now: {decision.get('provider_cache_allowed_now', False)}",
+        f"- Frozen prescreen required: {decision.get('frozen_prescreen_required', False)}",
+        f"- Formula tuning allowed: {decision.get('formula_tuning_allowed', False)}",
+        f"- Window tuning allowed: {decision.get('window_tuning_allowed', False)}",
+        f"- Portfolio grid allowed: {decision.get('portfolio_grid_allowed', False)}",
+        f"- Promotion allowed: {decision.get('promotion_allowed', False)}",
+        f"- Live boundary allowed: {result.get('live_boundary_allowed', False)}",
+        f"- Safety: {result.get('safety', SAFETY)}",
+        "",
+        "## Blockers",
+        "",
+    ]
+    blockers = _as_list(decision.get("blockers"))
+    lines.extend(f"- {blocker}" for blocker in blockers) if blockers else lines.append("- none")
+    lines.extend(
+        [
+            "",
+            "## Interpretation",
+            "",
+            "- Provider-backed report_rc cache may continue only when both quota preflight and this priority guard allow it.",
+            "- The guard preserves the frozen analyst prescreen route; formula tuning, window tuning, portfolio grids, promotion, paper signals, and live use remain closed.",
         ]
     )
     return "\n".join(lines) + "\n"

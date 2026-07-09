@@ -378,6 +378,173 @@ class AnalystReportQuotaPreflightTests(unittest.TestCase):
             self.assertTrue((output_dir / "skip_quota_preflight_audit.md").exists())
             self.assertFalse((output_dir / "tushare_analyst_report_cache.json").exists())
 
+    def test_cache_cli_requires_priority_gate_after_allowed_quota(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report_root = root / "reports"
+            output_dir = root / "cache"
+            processed_output_dir = root / "processed"
+            quota_output_dir = root / "preflight"
+            report_root.mkdir()
+            argv = [
+                "run_tushare_analyst_report_cache.py",
+                "--start-date",
+                "2024-04-01",
+                "--end-date",
+                "2024-04-30",
+                "--output-dir",
+                str(output_dir),
+                "--processed-output-dir",
+                str(processed_output_dir),
+                "--request-sleep-seconds",
+                "0",
+                "--quota-report-root",
+                str(report_root),
+                "--quota-target-date",
+                date.today().isoformat(),
+                "--quota-output-dir",
+                str(quota_output_dir),
+            ]
+
+            stdout = io.StringIO()
+            with (
+                patch.object(sys, "argv", argv),
+                patch("sys.stdout", stdout),
+                patch.object(cache_cli, "TushareAdapter") as adapter_factory,
+                patch.object(cache_cli, "run_tushare_analyst_report_cache") as run_cache,
+            ):
+                with self.assertRaises(SystemExit) as raised:
+                    cache_cli.main()
+
+            guard = json.loads((output_dir / "analyst_report_cache_priority_gate_guard.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(raised.exception.code, 3)
+        self.assertIn("analyst_source_extension_priority_gate_required", stdout.getvalue())
+        self.assertEqual(guard["status"], "blocked")
+        adapter_factory.assert_not_called()
+        run_cache.assert_not_called()
+        self.assertFalse((output_dir / "tushare_analyst_report_cache.json").exists())
+
+    def test_cache_cli_blocks_when_priority_gate_is_blocked_after_allowed_quota(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report_root = root / "reports"
+            output_dir = root / "cache"
+            processed_output_dir = root / "processed"
+            quota_output_dir = root / "preflight"
+            priority_gate_path = root / "priority_gate.json"
+            report_root.mkdir()
+            _write_source_extension_priority_gate(
+                priority_gate_path,
+                status="blocked_waiting_for_quota",
+                provider_cache_allowed_now=False,
+                blockers=["provider_quota_preflight_blocked"],
+            )
+            argv = [
+                "run_tushare_analyst_report_cache.py",
+                "--start-date",
+                "2024-04-01",
+                "--end-date",
+                "2024-04-30",
+                "--output-dir",
+                str(output_dir),
+                "--processed-output-dir",
+                str(processed_output_dir),
+                "--request-sleep-seconds",
+                "0",
+                "--quota-report-root",
+                str(report_root),
+                "--quota-target-date",
+                date.today().isoformat(),
+                "--quota-output-dir",
+                str(quota_output_dir),
+                "--analyst-source-extension-priority-gate",
+                str(priority_gate_path),
+            ]
+
+            stdout = io.StringIO()
+            with (
+                patch.object(sys, "argv", argv),
+                patch("sys.stdout", stdout),
+                patch.object(cache_cli, "TushareAdapter") as adapter_factory,
+                patch.object(cache_cli, "run_tushare_analyst_report_cache") as run_cache,
+            ):
+                with self.assertRaises(SystemExit) as raised:
+                    cache_cli.main()
+
+            guard = json.loads((output_dir / "analyst_report_cache_priority_gate_guard.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(raised.exception.code, 3)
+        self.assertIn("analyst_source_extension_priority_gate_not_ready", stdout.getvalue())
+        self.assertIn("provider_cache_not_allowed_now", stdout.getvalue())
+        self.assertEqual(guard["status"], "blocked")
+        self.assertFalse(guard["decision"]["request_allowed"])
+        adapter_factory.assert_not_called()
+        run_cache.assert_not_called()
+        self.assertFalse((output_dir / "tushare_analyst_report_cache.json").exists())
+
+    def test_cache_cli_runs_after_allowed_quota_and_ready_priority_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            report_root = root / "reports"
+            output_dir = root / "cache"
+            processed_output_dir = root / "processed"
+            quota_output_dir = root / "preflight"
+            priority_gate_path = root / "priority_gate.json"
+            report_root.mkdir()
+            _write_source_extension_priority_gate(
+                priority_gate_path,
+                status="ready_to_cache_next_month",
+                provider_cache_allowed_now=True,
+                blockers=[],
+            )
+            argv = [
+                "run_tushare_analyst_report_cache.py",
+                "--start-date",
+                "2024-04-01",
+                "--end-date",
+                "2024-04-30",
+                "--output-dir",
+                str(output_dir),
+                "--processed-output-dir",
+                str(processed_output_dir),
+                "--request-sleep-seconds",
+                "0",
+                "--quota-report-root",
+                str(report_root),
+                "--quota-target-date",
+                date.today().isoformat(),
+                "--quota-output-dir",
+                str(quota_output_dir),
+                "--analyst-source-extension-priority-gate",
+                str(priority_gate_path),
+            ]
+
+            stdout = io.StringIO()
+            with (
+                patch.object(sys, "argv", argv),
+                patch("sys.stdout", stdout),
+                patch.object(cache_cli, "TushareAdapter") as adapter_factory,
+                patch.object(cache_cli, "run_tushare_analyst_report_cache") as run_cache,
+            ):
+                adapter = object()
+                adapter_factory.return_value = adapter
+                run_cache.return_value = {
+                    "summary": {"windows": 1, "fetched_windows": 1},
+                    "processed_output_dir": str(processed_output_dir),
+                    "safety": "research-to-review only; no broker, account, order, or live-trading access",
+                }
+                cache_cli.main()
+
+            guard = json.loads((output_dir / "analyst_report_cache_priority_gate_guard.json").read_text(encoding="utf-8"))
+
+        self.assertIn('"status": "allowed"', stdout.getvalue())
+        self.assertEqual(guard["status"], "allowed")
+        self.assertTrue(guard["decision"]["request_allowed"])
+        adapter_factory.assert_called_once()
+        run_cache.assert_called_once()
+        self.assertIs(run_cache.call_args.args[0], adapter)
+
     def test_cache_cli_preflight_only_stops_after_allowed_quota_check(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -464,6 +631,7 @@ class AnalystReportQuotaPreflightTests(unittest.TestCase):
         self.assertIn("--quota-required-pack-machine", result.stdout)
         self.assertIn("--quota-pack-machine-note", result.stdout)
         self.assertIn("--skip-quota-preflight-reason", result.stdout)
+        self.assertIn("--analyst-source-extension-priority-gate", result.stdout)
 
     def test_standalone_preflight_help_explains_exit_codes_and_scope(self) -> None:
         result = subprocess.run(
@@ -664,6 +832,51 @@ def _write_processed_window(root: Path, *, window_start: str, window_end: str) -
         "processed/analyst_report_rc_window",
         {"window_start": window_start, "window_end": window_end},
     )
+
+
+def _write_source_extension_priority_gate(
+    path: Path,
+    *,
+    status: str,
+    provider_cache_allowed_now: bool,
+    blockers: list[str],
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    packet = {
+        "stage": "analyst_report_source_extension_priority_gate",
+        "generated_at": date.today().isoformat(),
+        "status": status,
+        "summary": {
+            "priority_factor_name": "analyst_target_upside_60",
+            "priority_horizon": 5,
+            "latest_report_date": "2024-06-30",
+        },
+        "decision": {
+            "blockers": blockers,
+            "priority_source": "analyst_report_revision",
+            "priority_factor_name": "analyst_target_upside_60",
+            "priority_horizon": 5,
+            "provider_cache_allowed_now": provider_cache_allowed_now,
+            "cache_next_month_after_quota_reset": True,
+            "next_action": "cache_next_analyst_month_then_rerun_frozen_prescreen",
+            "frozen_prescreen_required": True,
+            "formula_tuning_allowed": False,
+            "window_tuning_allowed": False,
+            "portfolio_grid_allowed": False,
+            "promotion_allowed": False,
+        },
+        "priority_table": [
+            {
+                "rank": 1,
+                "factor_name": "analyst_target_upside_60",
+                "horizon": 5,
+                "extension_status": "priority_source_extension_ready_for_quota_check",
+            }
+        ],
+        "live_boundary_allowed": False,
+        "safety": "research-to-review only; no broker, account, order, or live-trading access",
+    }
+    path.write_text(json.dumps(packet), encoding="utf-8")
 
 
 if __name__ == "__main__":

@@ -90,6 +90,14 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round745_analyst_cache_priority_gate_guard_2026-07-09.md`
+- `docs/research/cn_stock_round744_analyst_source_extension_priority_gate_2026-07-09.md`
+- `docs/research/cn_stock_round743_non_lpr_source_gate_default_readiness_refresh_2026-07-09.md`
+- `docs/research/cn_stock_round742_factor_batch_readiness_after_lpr_rejection_2026-07-09.md`
+- `docs/research/cn_stock_round741_local_source_queue_lpr_rejection_absorption_2026-07-09.md`
+- `docs/research/cn_stock_round740_analyst_report_quota_recheck_2026-07-09.md`
+- `docs/research/cn_stock_round739_non_lpr_orthogonal_source_gate_2026-07-09.md`
+- `docs/research/cn_stock_round738_lpr_macro_regime_walk_forward_rejection_rotation_gate_2026-07-09.md`
 - `docs/research/cn_stock_round737_lpr_macro_regime_state_conditioned_walk_forward_validation_2026-07-09.md`
 - `docs/research/cn_stock_round736_lpr_macro_regime_state_conditioned_walk_forward_preflight_2026-07-09.md`
 - `docs/research/cn_stock_round735_lpr_macro_regime_state_conditioned_reference_dedup_2026-07-09.md`
