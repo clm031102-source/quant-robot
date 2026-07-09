@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round713_alpha_factory_readiness_guard_2026-07-09.md`
 - `docs/research/cn_stock_round712_analyst_prescreen_readiness_guard_2026-07-09.md`
 - `docs/research/cn_stock_round711_factor_batch_readiness_validator_2026-07-09.md`
 - `docs/research/cn_stock_round710_office_quota_pack_export_2026-07-09.md`
@@ -5841,3 +5842,23 @@ Docs:
 - `docs/research/cn_stock_round712_analyst_prescreen_readiness_guard_2026-07-09.md`
 
 Decision: use `--factor-batch-readiness-gate` for any future analyst-report revision prescreen. Current blocked readiness packets must stop prescreen execution until quota/source/candidate readiness clears.
+
+## Round713 Alpha Factory Readiness Guard
+
+Round713 connected the processed CN `tushare_alpha_factory` entrypoint to the combined factor-batch readiness validator.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Added `--factor-batch-readiness-gate-packet` to `scripts/run_tushare_alpha_factory.py`.
+- Processed CN factory runs now require startup gate, data manifest, candidate-plan gate, and combined factor-batch readiness gate before loading market data.
+- Deprecated bypass flag `--allow-missing-factor-batch-readiness-gate` raises instead of bypassing.
+- Real smoke used today's CN stock data manifest and a daily-basic candidate-plan gate; it then stopped on the blocked Round708 readiness packet.
+- Error: `CN processed-bars alpha factory factor batch readiness gate is not ready`.
+- The alpha factory smoke output directory was not created.
+- Related tests: `48 passed`; compile check passed.
+- No provider download, new factor formula, IC screen, portfolio grid, walk-forward conversion, promotion gate, signal generation, or final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round713_alpha_factory_readiness_guard_2026-07-09.md`
+
+Decision: future processed CN alpha factory runs must provide a ready combined factor-batch readiness packet. The current Round708 readiness packet is blocked, so no fresh factor leaderboard should be generated until quota/source/candidate readiness clears.

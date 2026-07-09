@@ -17,6 +17,7 @@ from quant_robot.factors.tushare_inputs import DAILY_BASIC_FACTOR_NAMES
 from quant_robot.factors.tushare_moneyflow import MONEYFLOW_FACTOR_NAMES
 from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manifest_packet
 from quant_robot.ops.factor_mining_candidate_plan_gate import validate_candidate_plan_gate_packet
+from quant_robot.ops.factor_batch_readiness_gate import validate_factor_batch_readiness_gate_packet
 from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet
 from scripts.run_research_pipeline import load_research_bars
 
@@ -47,8 +48,12 @@ def run_alpha_factory_cli(
     candidate_plan_gate_packet: str | Path | None = Path(
         "data/reports/factor_mining_candidate_plan_gate/factor_mining_candidate_plan_gate.json"
     ),
+    factor_batch_readiness_gate_packet: str | Path | None = Path(
+        "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
+    ),
     allow_missing_startup_gate: bool = False,
     allow_missing_candidate_plan_gate: bool = False,
+    allow_missing_factor_batch_readiness_gate: bool = False,
     allow_review_required_data_manifest: bool = False,
 ) -> dict[str, object]:
     _enforce_cn_stock_startup_gate(
@@ -58,8 +63,10 @@ def run_alpha_factory_cli(
         startup_gate_packet=startup_gate_packet,
         data_manifest_packet=data_manifest_packet,
         candidate_plan_gate_packet=candidate_plan_gate_packet,
+        factor_batch_readiness_gate_packet=factor_batch_readiness_gate_packet,
         allow_missing_startup_gate=allow_missing_startup_gate,
         allow_missing_candidate_plan_gate=allow_missing_candidate_plan_gate,
+        allow_missing_factor_batch_readiness_gate=allow_missing_factor_batch_readiness_gate,
         allow_review_required_data_manifest=allow_review_required_data_manifest,
         data_root=Path(data_root),
     )
@@ -93,6 +100,7 @@ def run_alpha_factory_cli(
         startup_gate_packet=startup_gate_packet,
         data_manifest_packet=data_manifest_packet,
         candidate_plan_gate_packet=candidate_plan_gate_packet,
+        factor_batch_readiness_gate_packet=factor_batch_readiness_gate_packet,
     )
 
 
@@ -152,6 +160,16 @@ def main() -> None:
         action="store_true",
         help="Deprecated. CN processed-bars runs cannot bypass the candidate-plan gate.",
     )
+    parser.add_argument(
+        "--factor-batch-readiness-gate-packet",
+        default="data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json",
+        help="Ready combined factor-batch readiness gate packet required for processed CN runs.",
+    )
+    parser.add_argument(
+        "--allow-missing-factor-batch-readiness-gate",
+        action="store_true",
+        help="Deprecated. CN processed-bars runs cannot bypass the combined readiness gate.",
+    )
     args = parser.parse_args()
     result = run_alpha_factory_cli(
         source=args.source,
@@ -177,8 +195,12 @@ def main() -> None:
         startup_gate_packet=Path(args.startup_gate_packet) if args.startup_gate_packet else None,
         data_manifest_packet=Path(args.data_manifest_packet) if args.data_manifest_packet else None,
         candidate_plan_gate_packet=Path(args.candidate_plan_gate_packet) if args.candidate_plan_gate_packet else None,
+        factor_batch_readiness_gate_packet=(
+            Path(args.factor_batch_readiness_gate_packet) if args.factor_batch_readiness_gate_packet else None
+        ),
         allow_missing_startup_gate=args.allow_missing_startup_gate,
         allow_missing_candidate_plan_gate=args.allow_missing_candidate_plan_gate,
+        allow_missing_factor_batch_readiness_gate=args.allow_missing_factor_batch_readiness_gate,
         allow_review_required_data_manifest=args.allow_review_required_data_manifest,
     )
     print(
@@ -201,8 +223,10 @@ def _enforce_cn_stock_startup_gate(
     startup_gate_packet: str | Path | None,
     data_manifest_packet: str | Path | None,
     candidate_plan_gate_packet: str | Path | None,
+    factor_batch_readiness_gate_packet: str | Path | None,
     allow_missing_startup_gate: bool,
     allow_missing_candidate_plan_gate: bool,
+    allow_missing_factor_batch_readiness_gate: bool,
     allow_review_required_data_manifest: bool,
     data_root: Path,
 ) -> None:
@@ -227,6 +251,12 @@ def _enforce_cn_stock_startup_gate(
         expected_factor_names=_factor_names_for_source(factor_source),
         context="CN processed-bars alpha factory",
     )
+    if allow_missing_factor_batch_readiness_gate:
+        raise ValueError("CN processed-bars alpha factory factor batch readiness gate cannot be bypassed")
+    validate_factor_batch_readiness_gate_packet(
+        factor_batch_readiness_gate_packet,
+        context="CN processed-bars alpha factory",
+    )
 
 
 def _factor_names_for_source(factor_source: str) -> tuple[str, ...]:
@@ -248,6 +278,7 @@ def _attach_gate_packet_trace(
     startup_gate_packet: str | Path | None,
     data_manifest_packet: str | Path | None,
     candidate_plan_gate_packet: str | Path | None,
+    factor_batch_readiness_gate_packet: str | Path | None,
 ) -> dict[str, object]:
     if source != "processed-bars" or market.upper() != "CN":
         return result
@@ -255,6 +286,7 @@ def _attach_gate_packet_trace(
         "startup_gate_packet": _path_text(startup_gate_packet),
         "data_manifest_packet": _path_text(data_manifest_packet),
         "candidate_plan_gate_packet": _path_text(candidate_plan_gate_packet),
+        "factor_batch_readiness_gate_packet": _path_text(factor_batch_readiness_gate_packet),
     }
     traced = {**result, "gate_packets": gate_packets}
     manifest_path = output_dir / "manifest.json"

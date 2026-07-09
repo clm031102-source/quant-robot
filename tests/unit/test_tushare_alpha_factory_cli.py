@@ -18,6 +18,10 @@ from quant_robot.ops.factor_mining_candidate_plan_gate import (
     default_cn_stock_promotion_policy,
     write_factor_mining_candidate_plan_gate,
 )
+from quant_robot.ops.factor_batch_readiness_gate import (
+    build_factor_batch_readiness_gate,
+    write_factor_batch_readiness_gate,
+)
 from quant_robot.ops.factor_mining_startup import build_factor_mining_startup_gate
 from quant_robot.storage.dataset_store import DatasetStore
 from scripts.run_tushare_alpha_factory import run_alpha_factory_cli
@@ -187,6 +191,8 @@ class TushareAlphaFactoryCliTests(unittest.TestCase):
             )
             candidate_gate_dir = root / "candidate_gate"
             _write_candidate_plan_gate(candidate_gate_dir, DAILY_BASIC_FACTOR_NAMES)
+            readiness_dir = root / "readiness_gate"
+            _write_factor_batch_readiness_gate(readiness_dir, ready=True)
             bars = load_demo_market_bars()
             expected = {"summary": {"hypothesis_count": 1}, "candidate_leaderboard": []}
             output_dir = root / "factory"
@@ -211,6 +217,7 @@ class TushareAlphaFactoryCliTests(unittest.TestCase):
                         startup_gate_packet=gate_packet,
                         data_manifest_packet=data_manifest,
                         candidate_plan_gate_packet=candidate_gate_dir / "factor_mining_candidate_plan_gate.json",
+                        factor_batch_readiness_gate_packet=readiness_dir / "factor_batch_readiness_gate.json",
                     )
 
             gate_packets = result["gate_packets"]
@@ -220,10 +227,54 @@ class TushareAlphaFactoryCliTests(unittest.TestCase):
                 gate_packets["candidate_plan_gate_packet"],
                 str(candidate_gate_dir / "factor_mining_candidate_plan_gate.json"),
             )
+            self.assertEqual(
+                gate_packets["factor_batch_readiness_gate_packet"],
+                str(readiness_dir / "factor_batch_readiness_gate.json"),
+            )
             manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["gate_packets"], gate_packets)
             load_bars.assert_called_once()
             run_factory.assert_called_once()
+
+    def test_processed_cn_alpha_factory_requires_ready_factor_batch_readiness_gate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            gate_packet = root / "factor_mining_startup_gate.json"
+            gate_packet.write_text(_valid_startup_gate_packet_json(), encoding="utf-8")
+            data_manifest = root / "cn_stock_data_manifest.json"
+            data_manifest.write_text(
+                json.dumps(
+                    {
+                        "generated_at": date.today().isoformat(),
+                        "status": "cleared",
+                        "summary": {"source_root": root.as_posix(), "bar_rows": 10, "bar_symbols": 2},
+                        "decision": {"data_manifest_cleared": True, "blockers": [], "warnings": []},
+                        "live_boundary_allowed": False,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            candidate_gate_dir = root / "candidate_gate"
+            _write_candidate_plan_gate(candidate_gate_dir, DAILY_BASIC_FACTOR_NAMES)
+            readiness_dir = root / "readiness_gate"
+            _write_factor_batch_readiness_gate(readiness_dir, ready=False)
+
+            with patch("scripts.run_tushare_alpha_factory.load_research_bars") as load_bars:
+                with self.assertRaisesRegex(ValueError, "factor batch readiness gate is not ready"):
+                    run_alpha_factory_cli(
+                        source="processed-bars",
+                        data_root=root,
+                        market="CN",
+                        factor_input_root=root / "factor_inputs",
+                        output_dir=root / "factory",
+                        top_n=1,
+                        startup_gate_packet=gate_packet,
+                        data_manifest_packet=data_manifest,
+                        candidate_plan_gate_packet=candidate_gate_dir / "factor_mining_candidate_plan_gate.json",
+                        factor_batch_readiness_gate_packet=readiness_dir / "factor_batch_readiness_gate.json",
+                    )
+
+            load_bars.assert_not_called()
 
     def test_processed_cn_alpha_factory_requires_candidate_plan_gate_packet_after_data_manifest(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -437,6 +488,40 @@ def _write_candidate_plan_gate(output_dir: Path, factor_names: tuple[str, ...]) 
     }
     packet = build_factor_mining_candidate_plan_gate(plan, gate_stage="discovery")
     write_factor_mining_candidate_plan_gate(output_dir, packet)
+
+
+def _write_factor_batch_readiness_gate(output_dir: Path, *, ready: bool) -> None:
+    if ready:
+        source_queue_packet = {
+            "decision": {"status": "cleared", "blockers": []},
+            "summary": {"active_source_count": 1},
+        }
+        candidate_plan_gate_packet = {
+            "status": "research_ready",
+            "decision": {"candidate_plan_gate_cleared": True, "research_screen_allowed": True, "blockers": []},
+            "summary": {"candidate_count": len(DAILY_BASIC_FACTOR_NAMES)},
+        }
+    else:
+        source_queue_packet = {
+            "decision": {"status": "blocked", "blockers": ["report_rc_quota_blocked"]},
+            "summary": {"active_source_count": 1},
+        }
+        candidate_plan_gate_packet = {
+            "status": "blocked",
+            "decision": {
+                "candidate_plan_gate_cleared": False,
+                "blockers": ["candidate_source_provider_not_allowed"],
+            },
+            "summary": {"candidate_count": len(DAILY_BASIC_FACTOR_NAMES)},
+        }
+    packet = build_factor_batch_readiness_gate(
+        source_queue_packet=source_queue_packet,
+        candidate_plan_gate_packet=candidate_plan_gate_packet,
+        candidate_plan_path="candidate_plan.json",
+        source_queue_output_dir="source_queue",
+        candidate_plan_gate_output_dir="candidate_gate",
+    )
+    write_factor_batch_readiness_gate(output_dir, packet)
 
 
 def _valid_startup_gate_packet_json() -> str:
