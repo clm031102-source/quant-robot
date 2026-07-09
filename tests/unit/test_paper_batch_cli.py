@@ -4,11 +4,17 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
 
+from quant_robot.ops.factor_batch_readiness_gate import (
+    build_factor_batch_readiness_gate,
+    write_factor_batch_readiness_gate,
+)
+from quant_robot.ops.factor_mining_startup import build_factor_mining_startup_gate
 from scripts.run_paper_batch import load_paper_batch_config, run_paper_batch
 
 
@@ -345,14 +351,22 @@ class PaperBatchCliTests(unittest.TestCase):
             ).to_csv(candidate_path, index=False)
             output_dir = root / "paper_batch"
             factor_input_root = root / "factor_inputs"
+            data_root = root / "data"
+            startup_gate = _write_startup_gate(root)
+            data_manifest = _write_data_manifest(root, data_root)
+            readiness_gate = _write_factor_batch_readiness_gate(root, ready=True)
             config_path = root / "paper_batch_alpha.json"
             config_path.write_text(
                 json.dumps(
                     {
                         "candidate_leaderboard": str(candidate_path),
                         "source": "processed-bars",
-                        "data_root": str(root / "data"),
+                        "data_root": str(data_root),
                         "factor_input_root": str(factor_input_root),
+                        "startup_gate_packet": str(startup_gate),
+                        "data_manifest_packet": str(data_manifest),
+                        "factor_batch_readiness_gate_packet": str(readiness_gate),
+                        "allow_review_required_data_manifest": True,
                         "output_dir": str(output_dir),
                         "max_candidates": 5,
                         "min_paper_sharpe": 0.5,
@@ -395,9 +409,63 @@ class PaperBatchCliTests(unittest.TestCase):
         kwargs = run_mock.call_args.kwargs
         self.assertEqual(kwargs["factor_source"], "tushare_daily_basic")
         self.assertEqual(kwargs["factor_input_root"], factor_input_root)
+        self.assertEqual(kwargs["startup_gate_packet"], startup_gate)
+        self.assertEqual(kwargs["data_manifest_packet"], data_manifest)
+        self.assertEqual(kwargs["factor_batch_readiness_gate_packet"], readiness_gate)
+        self.assertTrue(kwargs["allow_review_required_data_manifest"])
         self.assertEqual(result["candidates"][1]["error"], "adjusted_ic_significance_not_passed")
         self.assertEqual(result["candidates"][2]["error"], "paper_candidate_not_allowed")
         self.assertTrue(result["candidates"][0]["paper_passed"])
+
+    def test_processed_cn_paper_batch_blocks_before_output_when_readiness_gate_is_blocked(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            candidate_path = root / "candidate_leaderboard.csv"
+            pd.DataFrame(
+                [
+                    {
+                        "case_id": "CN_total_mv_log_top1_cost5_reb1",
+                        "market": "CN",
+                        "factor_source": "tushare_daily_basic",
+                        "factor_name": "total_mv_log",
+                        "factor_windows": "[1]",
+                        "top_n": 1,
+                        "cost_bps": 5,
+                        "rebalance_interval": 1,
+                        "status": "completed",
+                        "passes_adjusted_ic_p_value": True,
+                        "adjusted_ic_p_value": 0.01,
+                        "significance_status": "significant_positive",
+                        "paper_candidate_allowed": True,
+                        "candidate_rank": 1,
+                    }
+                ]
+            ).to_csv(candidate_path, index=False)
+            output_dir = root / "paper_batch"
+            config_path = root / "paper_batch_alpha.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "candidate_leaderboard": str(candidate_path),
+                        "source": "processed-bars",
+                        "data_root": str(root / "data"),
+                        "factor_input_root": str(root / "factor_inputs"),
+                        "startup_gate_packet": str(_write_startup_gate(root)),
+                        "data_manifest_packet": str(_write_data_manifest(root, root / "data")),
+                        "factor_batch_readiness_gate_packet": str(_write_factor_batch_readiness_gate(root, ready=False)),
+                        "allow_review_required_data_manifest": True,
+                        "output_dir": str(output_dir),
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with patch("scripts.run_paper_batch.run_simulation") as run_mock:
+                with self.assertRaisesRegex(ValueError, "factor batch readiness gate is not ready"):
+                    run_paper_batch(config_path)
+
+            run_mock.assert_not_called()
+            self.assertFalse(output_dir.exists())
 
     def test_run_paper_batch_passes_moneyflow_input_root_for_moneyflow_candidates(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -425,14 +493,19 @@ class PaperBatchCliTests(unittest.TestCase):
             ).to_csv(candidate_path, index=False)
             output_dir = root / "paper_batch"
             moneyflow_root = root / "moneyflow_inputs"
+            data_root = root / "data"
             config_path = root / "paper_batch_moneyflow.json"
             config_path.write_text(
                 json.dumps(
                     {
                         "candidate_leaderboard": str(candidate_path),
                         "source": "processed-bars",
-                        "data_root": str(root / "data"),
+                        "data_root": str(data_root),
                         "moneyflow_input_root": str(moneyflow_root),
+                        "startup_gate_packet": str(_write_startup_gate(root)),
+                        "data_manifest_packet": str(_write_data_manifest(root, data_root)),
+                        "factor_batch_readiness_gate_packet": str(_write_factor_batch_readiness_gate(root, ready=True)),
+                        "allow_review_required_data_manifest": True,
                         "output_dir": str(output_dir),
                         "max_candidates": 5,
                         "min_paper_sharpe": 0.5,
@@ -498,14 +571,19 @@ class PaperBatchCliTests(unittest.TestCase):
                     },
                 ]
             ).to_csv(candidate_path, index=False)
+            data_root = root / "data"
             config_path = root / "paper_batch_alpha.json"
             config_path.write_text(
                 json.dumps(
                     {
                         "candidate_leaderboard": str(candidate_path),
                         "source": "processed-bars",
-                        "data_root": str(root / "data"),
+                        "data_root": str(data_root),
                         "factor_input_root": str(root / "factor_inputs"),
+                        "startup_gate_packet": str(_write_startup_gate(root)),
+                        "data_manifest_packet": str(_write_data_manifest(root, data_root)),
+                        "factor_batch_readiness_gate_packet": str(_write_factor_batch_readiness_gate(root, ready=True)),
+                        "allow_review_required_data_manifest": True,
                         "output_dir": str(root / "paper_batch"),
                         "min_paper_sharpe": 0.5,
                         "min_paper_total_return": 0.0,
@@ -545,6 +623,98 @@ class PaperBatchCliTests(unittest.TestCase):
         self.assertFalse(result["candidates"][0]["paper_passed"])
         self.assertIn("paper_sharpe_below_min", result["candidates"][0]["paper_rejection_reasons"])
         self.assertIn("paper_total_return_below_min", result["candidates"][0]["paper_rejection_reasons"])
+
+
+def _write_startup_gate(root: Path) -> Path:
+    packet_path = root / "factor_mining_startup_gate.json"
+    config = {
+        "scope_id": "cn_stock_factor_mining",
+        "market": "CN",
+        "asset_type": "stock",
+        "allowed_machines": ["office_desktop"],
+        "allowed_tasks": ["factor_batch"],
+        "recommended_branch_prefixes": ["codex/factor-batch-cn-stock-"],
+        "required_confirmations": [
+            "machine_confirmed",
+            "task_confirmed",
+            "branch_confirmed",
+            "push_policy_confirmed",
+            "cn_stock_scope_confirmed",
+            "etf_scope_rejected",
+        ],
+    }
+    branch = "codex/factor-batch-cn-stock-20260617"
+    packet = build_factor_mining_startup_gate(
+        config,
+        request={
+            "machine": "office_desktop",
+            "task": "factor_batch",
+            "branch": branch,
+            "market": "CN",
+            "asset_type": "stock",
+            "confirmations": {name: True for name in config["required_confirmations"]},
+        },
+        current_branch=branch,
+    )
+    packet_path.write_text(json.dumps(packet), encoding="utf-8")
+    return packet_path
+
+
+def _write_data_manifest(root: Path, source_root: Path) -> Path:
+    packet_path = root / "cn_stock_data_manifest.json"
+    packet_path.write_text(
+        json.dumps(
+            {
+                "generated_at": date.today().isoformat(),
+                "status": "cleared",
+                "summary": {"source_root": source_root.as_posix(), "bar_rows": 10, "bar_symbols": 2},
+                "decision": {"data_manifest_cleared": True, "blockers": [], "warnings": []},
+                "live_boundary_allowed": False,
+            }
+        ),
+        encoding="utf-8",
+    )
+    return packet_path
+
+
+def _write_factor_batch_readiness_gate(root: Path, *, ready: bool) -> Path:
+    output_dir = root / ("ready_readiness_gate" if ready else "blocked_readiness_gate")
+    if ready:
+        source_queue_packet = {
+            "decision": {"status": "cleared", "blockers": []},
+            "summary": {"active_source_count": 1},
+        }
+        candidate_plan_gate_packet = {
+            "status": "research_ready",
+            "decision": {
+                "candidate_plan_gate_cleared": True,
+                "research_screen_allowed": True,
+                "blockers": [],
+            },
+            "summary": {"candidate_count": 1},
+        }
+    else:
+        source_queue_packet = {
+            "decision": {"status": "blocked", "blockers": ["report_rc_quota_blocked"]},
+            "summary": {"active_source_count": 1},
+        }
+        candidate_plan_gate_packet = {
+            "status": "blocked",
+            "decision": {
+                "candidate_plan_gate_cleared": False,
+                "blockers": ["candidate_source_provider_not_allowed"],
+            },
+            "summary": {"candidate_count": 1},
+        }
+    packet = build_factor_batch_readiness_gate(
+        source_queue_packet=source_queue_packet,
+        candidate_plan_gate_packet=candidate_plan_gate_packet,
+        candidate_plan_path="candidate_plan.json",
+        source_queue_output_dir="source_queue",
+        candidate_plan_gate_output_dir="candidate_gate",
+    )
+    write_factor_batch_readiness_gate(output_dir, packet)
+    return output_dir / "factor_batch_readiness_gate.json"
 
 
 if __name__ == "__main__":

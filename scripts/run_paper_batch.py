@@ -17,6 +17,9 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 
 ensure_workspace_imports()
 
+from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manifest_packet
+from quant_robot.ops.factor_batch_readiness_gate import validate_factor_batch_readiness_gate_packet
+from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet
 from quant_robot.paper.simulator import write_paper_simulation_artifacts
 
 try:
@@ -33,6 +36,10 @@ class PaperBatchConfig:
     data_root: Path = Path("data/processed")
     factor_input_root: Path | None = None
     moneyflow_input_root: Path | None = None
+    startup_gate_packet: Path | None = None
+    data_manifest_packet: Path | None = None
+    factor_batch_readiness_gate_packet: Path | None = None
+    allow_review_required_data_manifest: bool = False
     output_dir: Path = Path("data/reports/paper_batch")
     max_candidates: int | None = None
     initial_cash: float = 100000.0
@@ -65,6 +72,14 @@ def load_paper_batch_config(path: str | Path) -> PaperBatchConfig:
         data_root=Path(data.get("data_root", PaperBatchConfig.data_root)),
         factor_input_root=Path(data["factor_input_root"]) if data.get("factor_input_root") else None,
         moneyflow_input_root=Path(data["moneyflow_input_root"]) if data.get("moneyflow_input_root") else None,
+        startup_gate_packet=Path(data["startup_gate_packet"]) if data.get("startup_gate_packet") else None,
+        data_manifest_packet=Path(data["data_manifest_packet"]) if data.get("data_manifest_packet") else None,
+        factor_batch_readiness_gate_packet=(
+            Path(data["factor_batch_readiness_gate_packet"]) if data.get("factor_batch_readiness_gate_packet") else None
+        ),
+        allow_review_required_data_manifest=bool(
+            data.get("allow_review_required_data_manifest", PaperBatchConfig.allow_review_required_data_manifest)
+        ),
         output_dir=Path(data.get("output_dir", PaperBatchConfig.output_dir)),
         max_candidates=int(data["max_candidates"]) if data.get("max_candidates") is not None else None,
         initial_cash=float(data.get("initial_cash", PaperBatchConfig.initial_cash)),
@@ -96,8 +111,9 @@ def run_paper_batch(
     config = load_paper_batch_config(config_path)
     if output_dir is not None:
         config = PaperBatchConfig(**{**config.__dict__, "output_dir": Path(output_dir)})
-    _prepare_output_dir(config.output_dir)
     rows = _candidate_rows(config)
+    _enforce_cn_stock_paper_batch_inputs(config, rows)
+    _prepare_output_dir(config.output_dir)
     results = [_run_candidate(row, config) for row in rows]
     summary = _summary(results)
     report = {"config": _config_dict(config), "summary": summary, "candidates": results}
@@ -168,6 +184,25 @@ def _read_leaderboard(path: Path, label: str) -> pd.DataFrame:
     return pd.read_csv(path)
 
 
+def _enforce_cn_stock_paper_batch_inputs(config: PaperBatchConfig, rows: list[dict[str, Any]]) -> None:
+    if config.source != "processed-bars" or not any(str(row.get("market", "")).upper() in {"CN", "ALL"} for row in rows):
+        return
+    validate_cleared_startup_gate_packet(
+        config.startup_gate_packet,
+        context="CN paper batch",
+    )
+    validate_cn_stock_data_manifest_packet(
+        config.data_manifest_packet,
+        expected_source_root=config.data_root,
+        allow_review_required=config.allow_review_required_data_manifest,
+        context="CN paper batch",
+    )
+    validate_factor_batch_readiness_gate_packet(
+        config.factor_batch_readiness_gate_packet,
+        context="CN paper batch",
+    )
+
+
 def _run_candidate(row: dict[str, Any], config: PaperBatchConfig) -> dict[str, Any]:
     case_id = str(row.get("case_id"))
     skip_reason = row.get("_skip_reason")
@@ -215,6 +250,10 @@ def _run_profile_attempt(row: dict[str, Any], config: PaperBatchConfig, profile:
             factor_windows=_factor_windows(row.get("factor_windows")),
             factor_input_root=config.factor_input_root,
             moneyflow_input_root=config.moneyflow_input_root,
+            startup_gate_packet=config.startup_gate_packet,
+            data_manifest_packet=config.data_manifest_packet,
+            factor_batch_readiness_gate_packet=config.factor_batch_readiness_gate_packet,
+            allow_review_required_data_manifest=config.allow_review_required_data_manifest,
             top_n=int(_float(row.get("top_n"), 1.0)),
             rebalance_interval=rebalance_interval,
             initial_cash=config.initial_cash,
@@ -424,6 +463,12 @@ def _config_dict(config: PaperBatchConfig) -> dict[str, Any]:
         "data_root": str(config.data_root),
         "factor_input_root": str(config.factor_input_root) if config.factor_input_root is not None else None,
         "moneyflow_input_root": str(config.moneyflow_input_root) if config.moneyflow_input_root is not None else None,
+        "startup_gate_packet": str(config.startup_gate_packet) if config.startup_gate_packet is not None else None,
+        "data_manifest_packet": str(config.data_manifest_packet) if config.data_manifest_packet is not None else None,
+        "factor_batch_readiness_gate_packet": (
+            str(config.factor_batch_readiness_gate_packet) if config.factor_batch_readiness_gate_packet is not None else None
+        ),
+        "allow_review_required_data_manifest": config.allow_review_required_data_manifest,
         "output_dir": str(config.output_dir),
         "max_candidates": config.max_candidates,
         "initial_cash": config.initial_cash,
