@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round698_hk_hold_quarterly_policy_audit_2026-07-09.md`
 - `docs/research/cn_stock_round697_hk_hold_source_symbol_composition_audit_2026-07-09.md`
 - `docs/research/cn_stock_round696_external_hk_hold_lpr_candidate_plan_feasibility_2026-07-09.md`
 - `docs/research/cn_stock_round695_external_lpr_source_readiness_2026-07-09.md`
@@ -5468,3 +5469,23 @@ Docs:
 - `docs/research/cn_stock_round697_hk_hold_source_symbol_composition_audit_2026-07-09.md`
 
 Decision: do not run HK-hold x LPR as a factor candidate yet. The current provider path does not clear the preregistered 60-observation CN HK-hold history requirement, and lowering that threshold after seeing the source audit remains blocked. Search for an alternative valid CN-suffixed HK-hold source mode before any new IC or portfolio work.
+
+## Round698 HK-Hold Quarterly Policy Audit
+
+Round698 checked the Tushare official `hk_hold` source policy against live quarter-end probes.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Official source note: Tushare documents that daily northbound holding publication stopped from 2024-08-20 and changed to quarterly disclosure.
+- Real quarterly audit dates: 2024-09-30, 2024-12-31, 2025-03-31, 2025-06-30, 2025-09-30, 2025-12-31.
+- Raw rows: 24,128.
+- CN rows: 20,744.
+- Non-CN rows: 3,384.
+- Usable CN dates: 6 / 6.
+- Promotion allowed: false.
+- No factor generation, IC screen, portfolio grid, promotion gate, mixed-window harvesting, signal generation, or 2026 final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round698_hk_hold_quarterly_policy_audit_2026-07-09.md`
+
+Decision: treat `hk_hold` as a quarterly low-frequency state source after 2024-08-20, not as a daily rank feed needing blind repair. Rotate away from HK-hold x LPR for immediate active stock factor mining unless a future candidate plan explicitly models quarterly stale-state behavior and passes the normal gate.
