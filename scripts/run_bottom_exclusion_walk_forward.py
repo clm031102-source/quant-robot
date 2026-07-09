@@ -37,6 +37,12 @@ def run_bottom_exclusion_walk_forward_cli(
     source: str = "authority-processed-bars",
     data_root: str | Path = "data/processed",
     authority_bars_config: str | Path | None = "configs/cn_stock_authority_bars_2015_2025_adjusted_ratio_clean.json",
+    startup_gate_packet: str | Path | None = Path("data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"),
+    data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
+    factor_batch_readiness_gate_packet: str | Path | None = Path(
+        "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
+    ),
+    allow_review_required_data_manifest: bool = False,
     rolling_train_days: int = 756,
     rolling_test_days: int = 252,
     rolling_step_days: int = 252,
@@ -60,6 +66,12 @@ def run_bottom_exclusion_walk_forward_cli(
             source=source,
             data_root=Path(data_root),
             authority_bars_config=Path(authority_bars_config) if authority_bars_config else None,
+            startup_gate_packet=Path(startup_gate_packet) if startup_gate_packet is not None else None,
+            data_manifest_packet=Path(data_manifest_packet) if data_manifest_packet is not None else None,
+            factor_batch_readiness_gate_packet=(
+                Path(factor_batch_readiness_gate_packet) if factor_batch_readiness_gate_packet is not None else None
+            ),
+            allow_review_required_data_manifest=allow_review_required_data_manifest,
             rebalance_interval=rebalance_interval,
             holding_period=holding_period,
         )
@@ -111,6 +123,13 @@ def main() -> None:
     parser.add_argument("--source", choices=["fixture", "processed-bars", "authority-processed-bars"], default="authority-processed-bars")
     parser.add_argument("--data-root", default="data/processed")
     parser.add_argument("--authority-bars-config", default="configs/cn_stock_authority_bars_2015_2025_adjusted_ratio_clean.json")
+    parser.add_argument("--startup-gate-packet", default="data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json")
+    parser.add_argument("--data-manifest-packet", default="data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json")
+    parser.add_argument(
+        "--factor-batch-readiness-gate-packet",
+        default="data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json",
+    )
+    parser.add_argument("--allow-review-required-data-manifest", action="store_true")
     parser.add_argument("--rolling-train-days", type=int, default=756)
     parser.add_argument("--rolling-test-days", type=int, default=252)
     parser.add_argument("--rolling-step-days", type=int, default=252)
@@ -128,32 +147,41 @@ def main() -> None:
     parser.add_argument("--min-test-overlap-adjusted-sharpe", type=float, default=0.5)
     parser.add_argument("--max-test-drawdown-limit", type=float, default=0.5)
     args = parser.parse_args()
-    result = run_bottom_exclusion_walk_forward_cli(
-        output_dir=Path(args.output_dir),
-        factors=Path(args.factors) if args.factors else None,
-        labels=Path(args.labels) if args.labels else None,
-        bars=Path(args.bars) if args.bars else None,
-        grid_config=Path(args.grid_config) if args.grid_config else None,
-        source=args.source,
-        data_root=Path(args.data_root),
-        authority_bars_config=Path(args.authority_bars_config) if args.authority_bars_config else None,
-        rolling_train_days=args.rolling_train_days,
-        rolling_test_days=args.rolling_test_days,
-        rolling_step_days=args.rolling_step_days,
-        min_accepted_folds=args.min_accepted_folds,
-        bottom_quantile=args.bottom_quantile,
-        rebalance_interval=args.rebalance_interval,
-        holding_period=args.holding_period,
-        cost_bps=args.cost_bps,
-        market_impact_bps=args.market_impact_bps,
-        max_participation_rate=args.max_participation_rate,
-        min_entry_amount=args.min_entry_amount,
-        portfolio_value=args.portfolio_value,
-        target_gross_exposure=args.target_gross_exposure,
-        min_positive_relative_fold_rate=args.min_positive_relative_fold_rate,
-        min_test_overlap_adjusted_sharpe=args.min_test_overlap_adjusted_sharpe,
-        max_test_drawdown_limit=args.max_test_drawdown_limit,
-    )
+    try:
+        result = run_bottom_exclusion_walk_forward_cli(
+            output_dir=Path(args.output_dir),
+            factors=Path(args.factors) if args.factors else None,
+            labels=Path(args.labels) if args.labels else None,
+            bars=Path(args.bars) if args.bars else None,
+            grid_config=Path(args.grid_config) if args.grid_config else None,
+            source=args.source,
+            data_root=Path(args.data_root),
+            authority_bars_config=Path(args.authority_bars_config) if args.authority_bars_config else None,
+            startup_gate_packet=Path(args.startup_gate_packet) if args.startup_gate_packet else None,
+            data_manifest_packet=Path(args.data_manifest_packet) if args.data_manifest_packet else None,
+            factor_batch_readiness_gate_packet=(
+                Path(args.factor_batch_readiness_gate_packet) if args.factor_batch_readiness_gate_packet else None
+            ),
+            allow_review_required_data_manifest=args.allow_review_required_data_manifest,
+            rolling_train_days=args.rolling_train_days,
+            rolling_test_days=args.rolling_test_days,
+            rolling_step_days=args.rolling_step_days,
+            min_accepted_folds=args.min_accepted_folds,
+            bottom_quantile=args.bottom_quantile,
+            rebalance_interval=args.rebalance_interval,
+            holding_period=args.holding_period,
+            cost_bps=args.cost_bps,
+            market_impact_bps=args.market_impact_bps,
+            max_participation_rate=args.max_participation_rate,
+            min_entry_amount=args.min_entry_amount,
+            portfolio_value=args.portfolio_value,
+            target_gross_exposure=args.target_gross_exposure,
+            min_positive_relative_fold_rate=args.min_positive_relative_fold_rate,
+            min_test_overlap_adjusted_sharpe=args.min_test_overlap_adjusted_sharpe,
+            max_test_drawdown_limit=args.max_test_drawdown_limit,
+        )
+    except (FileNotFoundError, RuntimeError, ValueError) as exc:
+        raise SystemExit(str(exc)) from exc
     print(
         json.dumps(
             {

@@ -32,6 +32,12 @@ def run_benchmark_beta_exposure_audit_cli(
     source: str = "authority-processed-bars",
     data_root: str | Path = "data/processed",
     authority_bars_config: str | Path | None = "configs/cn_stock_authority_bars_2015_2025_adjusted_ratio_clean.json",
+    startup_gate_packet: str | Path | None = Path("data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"),
+    data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
+    factor_batch_readiness_gate_packet: str | Path | None = Path(
+        "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
+    ),
+    allow_review_required_data_manifest: bool = False,
     bottom_quantile: float = 0.2,
     rebalance_interval: int | None = None,
     holding_period: int | None = None,
@@ -54,6 +60,12 @@ def run_benchmark_beta_exposure_audit_cli(
             source=source,
             data_root=Path(data_root),
             authority_bars_config=Path(authority_bars_config) if authority_bars_config else None,
+            startup_gate_packet=Path(startup_gate_packet) if startup_gate_packet is not None else None,
+            data_manifest_packet=Path(data_manifest_packet) if data_manifest_packet is not None else None,
+            factor_batch_readiness_gate_packet=(
+                Path(factor_batch_readiness_gate_packet) if factor_batch_readiness_gate_packet is not None else None
+            ),
+            allow_review_required_data_manifest=allow_review_required_data_manifest,
             rebalance_interval=rebalance_interval,
             holding_period=holding_period,
         )
@@ -102,6 +114,13 @@ def main() -> None:
     parser.add_argument("--source", choices=["fixture", "processed-bars", "authority-processed-bars"], default="authority-processed-bars")
     parser.add_argument("--data-root", default="data/processed")
     parser.add_argument("--authority-bars-config", default="configs/cn_stock_authority_bars_2015_2025_adjusted_ratio_clean.json")
+    parser.add_argument("--startup-gate-packet", default="data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json")
+    parser.add_argument("--data-manifest-packet", default="data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json")
+    parser.add_argument(
+        "--factor-batch-readiness-gate-packet",
+        default="data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json",
+    )
+    parser.add_argument("--allow-review-required-data-manifest", action="store_true")
     parser.add_argument("--bottom-quantile", type=float, default=0.2)
     parser.add_argument("--rebalance-interval", type=int)
     parser.add_argument("--holding-period", type=int)
@@ -119,31 +138,40 @@ def main() -> None:
     parser.add_argument("--min-meaningful-beta", type=float, default=0.2)
     args = parser.parse_args()
 
-    result = run_benchmark_beta_exposure_audit_cli(
-        output_dir=Path(args.output_dir),
-        factors=Path(args.factors) if args.factors else None,
-        labels=Path(args.labels) if args.labels else None,
-        bars=Path(args.bars) if args.bars else None,
-        grid_config=Path(args.grid_config) if args.grid_config else None,
-        source=args.source,
-        data_root=Path(args.data_root),
-        authority_bars_config=Path(args.authority_bars_config) if args.authority_bars_config else None,
-        bottom_quantile=args.bottom_quantile,
-        rebalance_interval=args.rebalance_interval,
-        holding_period=args.holding_period,
-        cost_bps=args.cost_bps,
-        market_impact_bps=args.market_impact_bps,
-        max_participation_rate=args.max_participation_rate,
-        min_entry_amount=args.min_entry_amount,
-        portfolio_value=args.portfolio_value,
-        target_gross_exposure=args.target_gross_exposure,
-        risk_off_exposure=args.risk_off_exposure,
-        market_state_lookback=args.market_state_lookback,
-        min_alpha_t_stat=args.min_alpha_t_stat,
-        min_residual_sharpe=args.min_residual_sharpe,
-        min_beta_dominated_r_squared=args.min_beta_dominated_r_squared,
-        min_meaningful_beta=args.min_meaningful_beta,
-    )
+    try:
+        result = run_benchmark_beta_exposure_audit_cli(
+            output_dir=Path(args.output_dir),
+            factors=Path(args.factors) if args.factors else None,
+            labels=Path(args.labels) if args.labels else None,
+            bars=Path(args.bars) if args.bars else None,
+            grid_config=Path(args.grid_config) if args.grid_config else None,
+            source=args.source,
+            data_root=Path(args.data_root),
+            authority_bars_config=Path(args.authority_bars_config) if args.authority_bars_config else None,
+            startup_gate_packet=Path(args.startup_gate_packet) if args.startup_gate_packet else None,
+            data_manifest_packet=Path(args.data_manifest_packet) if args.data_manifest_packet else None,
+            factor_batch_readiness_gate_packet=(
+                Path(args.factor_batch_readiness_gate_packet) if args.factor_batch_readiness_gate_packet else None
+            ),
+            allow_review_required_data_manifest=args.allow_review_required_data_manifest,
+            bottom_quantile=args.bottom_quantile,
+            rebalance_interval=args.rebalance_interval,
+            holding_period=args.holding_period,
+            cost_bps=args.cost_bps,
+            market_impact_bps=args.market_impact_bps,
+            max_participation_rate=args.max_participation_rate,
+            min_entry_amount=args.min_entry_amount,
+            portfolio_value=args.portfolio_value,
+            target_gross_exposure=args.target_gross_exposure,
+            risk_off_exposure=args.risk_off_exposure,
+            market_state_lookback=args.market_state_lookback,
+            min_alpha_t_stat=args.min_alpha_t_stat,
+            min_residual_sharpe=args.min_residual_sharpe,
+            min_beta_dominated_r_squared=args.min_beta_dominated_r_squared,
+            min_meaningful_beta=args.min_meaningful_beta,
+        )
+    except (FileNotFoundError, RuntimeError, ValueError) as exc:
+        raise SystemExit(str(exc)) from exc
     print(
         json.dumps(
             {

@@ -6115,3 +6115,25 @@ Docs:
 - `docs/research/cn_stock_round725_post_refresh_replay_readiness_pass_through_2026-07-09.md`
 
 Decision: future CN processed-bars post-refresh replay runs must provide ready startup, data-manifest, and combined factor-batch readiness packets before they can produce Daily Ops signal/simulation evidence. The current Round708 readiness packet is blocked, so post-refresh replay may only record downstream failure packs until quota/source/candidate readiness clears.
+
+## Round726 Bottom-Exclusion Grid Readiness Guard
+
+Round726 connected the shared bottom-exclusion grid loader to startup, data-manifest, and combined factor-batch readiness gates before CN authority or processed bars can be loaded.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Added readiness packet parameters to `scripts/run_bottom_exclusion_portfolio_backtest.py`.
+- The shared `_build_frames_from_grid` now validates startup gate, CN data manifest, and combined factor-batch readiness for CN `processed-bars` and `authority-processed-bars` sources before `_load_bars`.
+- Passed the same readiness parameters through `scripts/run_bottom_exclusion_walk_forward.py`, `scripts/run_beta_hedged_spread_audit.py`, `scripts/run_benchmark_beta_exposure_audit.py`, and `scripts/run_dynamic_cash_overlay_backtest.py`.
+- CLI validation failures for these wrappers now exit with the gate error message instead of a Python traceback.
+- Red test proved a blocked readiness packet prevents `load_authority_processed_bars_from_config` from being called.
+- Real smoke used a temporary CN authority grid and stopped on the blocked Round708 readiness packet.
+- Error: `CN bottom-exclusion grid factor batch readiness gate is not ready`.
+- Smoke output directory was not created.
+- Focused tests: `13 tests`, `OK`.
+- No provider download, new factor formula, IC screen, ready bottom-exclusion grid, ready walk-forward validation, promotion gate, ready signal snapshot, paper simulation, broker access, order placement, or final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round726_bottom_exclusion_grid_readiness_guard_2026-07-09.md`
+
+Decision: future CN bottom-exclusion portfolio, walk-forward, beta-hedged spread, benchmark-beta exposure, and dynamic-cash overlay grid runs must provide ready startup, data-manifest, and combined factor-batch readiness packets before authority or processed bars are loaded. The current Round708 readiness packet is blocked, so these paths must not generate CN bottom-exclusion grid evidence until quota/source/candidate readiness clears.
