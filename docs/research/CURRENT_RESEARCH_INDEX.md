@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round703_local_source_queue_audit_2026-07-09.md`
 - `docs/research/cn_stock_round702_analyst_target_upside_robustness_diagnostic_2026-07-09.md`
 - `docs/research/cn_stock_round701_analyst_report_revision_june_extension_2026-07-09.md`
 - `docs/research/cn_stock_round700_analyst_report_revision_may_extension_2026-07-09.md`
@@ -5635,3 +5636,22 @@ Docs:
 - `docs/research/cn_stock_round702_analyst_target_upside_robustness_diagnostic_2026-07-09.md`
 
 Decision: keep analyst-report revision active only as controlled source accumulation, with `analyst_target_upside_60` horizon 5 as the priority diagnostic row after quota reset. Do not convert it to a portfolio signal: the evidence is still single-year, February is adverse, and the June improvement comes from a small added cohort. Continue only by adding the next monthly cache and rerunning the same frozen prescreen without formula, sign, threshold, or final-holdout tuning.
+
+## Round703 Local Source Queue Audit
+
+Round703 audited the no-provider local factor-mining queue after Round702.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Worktree after Round702 commit `6801b5a2`: clean.
+- Round701 postcheck had already blocked another analyst-report provider request with `daily_provider_request_budget_exhausted`, counted request windows `2`, remaining windows `0`.
+- No provider request, factor formula generation, portfolio grid, walk-forward conversion, promotion gate, signal generation, mixed-window harvesting, or 2026 final-holdout read occurred.
+- Local processed source scan found the latest usable analyst-report roots through June 2024, repaired LPR source roots, broad financial-statement shard roots, and older forecast/express, dragon-tiger, and daily-basic roots.
+- No fresh local processed root was found for a genuinely new dividend, buyback, holder-number, top-holder concentration, index-rebalance, margin, or northbound mechanism that has not already been tested, blocked by permissions, or closed by later evidence.
+- Active mining queue: analyst-report revision source accumulation only.
+- Hibernated or closed local directions include adjacent realized-statement formulas, forecast/express disagreement, share unlock/pledge, repurchase contextual repair, index rebalance, dragon tiger, northbound, margin, daily-basic, low-turnover, public technical, Alpha101, limit-event proxy, official tradeability state, and industry breadth.
+
+Docs:
+
+- `docs/research/cn_stock_round703_local_source_queue_audit_2026-07-09.md`
+
+Decision: do not run another no-provider factor batch today from the closed local queue. After `report_rc` quota resets, run one analyst-report monthly cache preflight for July 2024 and, only if allowed, send one provider request and rerun the same frozen analyst prescreen. If provider use is unavailable, continue only source governance or validation-only work under the appropriate task mode.
