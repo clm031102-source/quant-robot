@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts import run_daily_ops as daily_ops_module
 from scripts.run_daily_ops import run_daily_ops
 
 
@@ -135,6 +136,9 @@ class DailyOpsCliTests(unittest.TestCase):
             readiness = root / "pre_api_readiness_board.json"
             paper_profile = root / "paper_profile_optimizer_pack.json"
             output_dir = root / "daily_ops"
+            startup_gate = root / "startup_gate.json"
+            data_manifest = root / "data_manifest.json"
+            readiness_gate = root / "factor_batch_readiness_gate.json"
             promotion.write_text(
                 json.dumps(
                     {
@@ -210,6 +214,10 @@ class DailyOpsCliTests(unittest.TestCase):
                     paper_profile_pack=paper_profile,
                     output_dir=output_dir,
                     run_date="2026-06-13",
+                    startup_gate_packet=startup_gate,
+                    data_manifest_packet=data_manifest,
+                    factor_batch_readiness_gate_packet=readiness_gate,
+                    allow_review_required_data_manifest=True,
                 )
 
             self.assertEqual(pack["stage"], "phase_5_5_profile_daily_ops_activation")
@@ -218,7 +226,15 @@ class DailyOpsCliTests(unittest.TestCase):
             self.assertEqual(pack["paper_profile"]["profile_id"], "cap60_guard12_cd3")
             self.assertEqual(pack["paper_profile"]["risk_tier"], "aggressive_growth")
             self.assertEqual(signal_mock.call_args.kwargs["max_asset_weight"], 0.6)
+            self.assertEqual(signal_mock.call_args.kwargs["startup_gate_packet"], startup_gate)
+            self.assertEqual(signal_mock.call_args.kwargs["data_manifest_packet"], data_manifest)
+            self.assertEqual(signal_mock.call_args.kwargs["factor_batch_readiness_gate_packet"], readiness_gate)
+            self.assertTrue(signal_mock.call_args.kwargs["allow_review_required_data_manifest"])
             self.assertEqual(simulation_mock.call_args.kwargs["max_asset_weight"], 0.6)
+            self.assertEqual(simulation_mock.call_args.kwargs["startup_gate_packet"], startup_gate)
+            self.assertEqual(simulation_mock.call_args.kwargs["data_manifest_packet"], data_manifest)
+            self.assertEqual(simulation_mock.call_args.kwargs["factor_batch_readiness_gate_packet"], readiness_gate)
+            self.assertTrue(simulation_mock.call_args.kwargs["allow_review_required_data_manifest"])
             self.assertEqual(simulation_mock.call_args.kwargs["max_drawdown_guard"], 0.12)
             self.assertEqual(simulation_mock.call_args.kwargs["guard_cooldown_periods"], 3)
 
@@ -365,6 +381,16 @@ class DailyOpsCliTests(unittest.TestCase):
             self.assertEqual(signal_mock.call_args.kwargs["as_of_date"], "2026-07-02")
             self.assertEqual(simulation_mock.call_args.kwargs["start_date"], "2026-05-06")
             self.assertEqual(simulation_mock.call_args.kwargs["end_date"], "2026-07-02")
+
+    def test_cli_reports_validation_failures_without_traceback(self):
+        with (
+            patch("sys.argv", ["run_daily_ops.py"]),
+            patch.object(daily_ops_module, "run_daily_ops", side_effect=ValueError("blocked readiness gate")),
+            self.assertRaises(SystemExit) as raised,
+        ):
+            daily_ops_module.main()
+
+        self.assertEqual(str(raised.exception), "blocked readiness gate")
 
 
 if __name__ == "__main__":

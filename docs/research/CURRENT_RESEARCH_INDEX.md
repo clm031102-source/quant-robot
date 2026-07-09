@@ -6071,3 +6071,25 @@ Docs:
 - `docs/research/cn_stock_round723_constrained_search_readiness_pass_through_2026-07-09.md`
 
 Decision: future CN processed-bars constrained-search configs that run fresh walk-forward evidence must provide ready startup, data-manifest, and combined factor-batch readiness packets. The current Round708 readiness packet is blocked, so no CN constrained-search walk-forward evidence should be generated until quota/source/candidate readiness clears.
+
+## Round724 Daily Ops Readiness Pass-Through
+
+Round724 connected Daily Ops to explicit startup, data-manifest, and combined factor-batch readiness packets when it generates a fresh signal snapshot or paper simulation.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Added `--startup-gate-packet`, `--data-manifest-packet`, `--factor-batch-readiness-gate-packet`, and `--allow-review-required-data-manifest` to `scripts/run_daily_ops.py`.
+- Generated signal snapshots now receive the configured readiness packet paths.
+- Generated paper simulations now receive the configured readiness packet paths.
+- Existing artifact-read mode is unchanged.
+- The CLI now reports validation failures without a Python traceback.
+- Real smoke used temporary CN promotion/readiness/profile JSON and stopped on the blocked Round708 readiness packet before generating a signal snapshot.
+- Error: `CN signal snapshot factor batch readiness gate is not ready`.
+- Daily Ops output directory was not created.
+- Focused tests: `6 passed`.
+- No provider download, new factor formula, IC screen, ready signal snapshot, ready paper simulation, advisory ticket generation from a ready packet, order placement, broker access, or final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round724_daily_ops_readiness_pass_through_2026-07-09.md`
+
+Decision: future CN processed-bars Daily Ops runs that generate signal or paper-simulation artifacts must provide ready startup, data-manifest, and combined factor-batch readiness packets. The current Round708 readiness packet is blocked, so no CN Daily Ops signal/simulation evidence should be generated until quota/source/candidate readiness clears.

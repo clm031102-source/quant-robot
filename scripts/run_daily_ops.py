@@ -48,6 +48,14 @@ def run_daily_ops(
     end_date: str | None = None,
     data_root: str | Path = DEFAULT_DATA_ROOT,
     source: str = "processed-bars",
+    startup_gate_packet: str | Path | None = Path(
+        "data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"
+    ),
+    data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
+    factor_batch_readiness_gate_packet: str | Path | None = Path(
+        "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
+    ),
+    allow_review_required_data_manifest: bool = False,
     portfolio_value: float = 100000.0,
     positions_csv: str | Path | None = None,
     max_drawdown_limit: float | None = None,
@@ -78,6 +86,12 @@ def run_daily_ops(
             factor_name=factor_name,
             factor_windows=factor_windows,
             top_n=top_n,
+            startup_gate_packet=Path(startup_gate_packet) if startup_gate_packet is not None else None,
+            data_manifest_packet=Path(data_manifest_packet) if data_manifest_packet is not None else None,
+            factor_batch_readiness_gate_packet=(
+                Path(factor_batch_readiness_gate_packet) if factor_batch_readiness_gate_packet is not None else None
+            ),
+            allow_review_required_data_manifest=allow_review_required_data_manifest,
             as_of_date=run_date,
             portfolio_scope="market",
             max_asset_weight=profile_params["max_asset_weight"],
@@ -99,6 +113,12 @@ def run_daily_ops(
             factor_name=factor_name,
             factor_windows=factor_windows,
             top_n=top_n,
+            startup_gate_packet=Path(startup_gate_packet) if startup_gate_packet is not None else None,
+            data_manifest_packet=Path(data_manifest_packet) if data_manifest_packet is not None else None,
+            factor_batch_readiness_gate_packet=(
+                Path(factor_batch_readiness_gate_packet) if factor_batch_readiness_gate_packet is not None else None
+            ),
+            allow_review_required_data_manifest=allow_review_required_data_manifest,
             rebalance_interval=rebalance_interval,
             start_date=start_date,
             end_date=end_date,
@@ -140,6 +160,19 @@ def main() -> None:
     parser.add_argument("--end-date")
     parser.add_argument("--data-root", default=str(DEFAULT_DATA_ROOT))
     parser.add_argument("--source", choices=["fixture", "processed-bars"], default="processed-bars")
+    parser.add_argument(
+        "--startup-gate-packet",
+        default="data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json",
+    )
+    parser.add_argument(
+        "--data-manifest-packet",
+        default="data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json",
+    )
+    parser.add_argument(
+        "--factor-batch-readiness-gate-packet",
+        default="data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json",
+    )
+    parser.add_argument("--allow-review-required-data-manifest", action="store_true")
     parser.add_argument("--portfolio-value", default=100000.0, type=float)
     parser.add_argument("--positions-csv")
     parser.add_argument(
@@ -155,23 +188,32 @@ def main() -> None:
         help="Maximum calendar days between signal_date and run_date before daily ops blocks tickets.",
     )
     args = parser.parse_args()
-    pack = run_daily_ops(
-        promotion_review=Path(args.promotion_review),
-        readiness_board=Path(args.readiness_board),
-        signal_snapshot=Path(args.signal_snapshot) if args.signal_snapshot else None,
-        paper_simulation=Path(args.paper_simulation) if args.paper_simulation else None,
-        paper_profile_pack=Path(args.paper_profile_pack) if args.paper_profile_pack else None,
-        output_dir=Path(args.output_dir),
-        run_date=args.run_date,
-        start_date=args.start_date,
-        end_date=args.end_date,
-        data_root=Path(args.data_root),
-        source=args.source,
-        portfolio_value=args.portfolio_value,
-        positions_csv=Path(args.positions_csv) if args.positions_csv else None,
-        max_drawdown_limit=args.max_drawdown_limit,
-        max_signal_age_days=args.max_signal_age_days,
-    )
+    try:
+        pack = run_daily_ops(
+            promotion_review=Path(args.promotion_review),
+            readiness_board=Path(args.readiness_board),
+            signal_snapshot=Path(args.signal_snapshot) if args.signal_snapshot else None,
+            paper_simulation=Path(args.paper_simulation) if args.paper_simulation else None,
+            paper_profile_pack=Path(args.paper_profile_pack) if args.paper_profile_pack else None,
+            output_dir=Path(args.output_dir),
+            run_date=args.run_date,
+            start_date=args.start_date,
+            end_date=args.end_date,
+            data_root=Path(args.data_root),
+            source=args.source,
+            startup_gate_packet=Path(args.startup_gate_packet) if args.startup_gate_packet else None,
+            data_manifest_packet=Path(args.data_manifest_packet) if args.data_manifest_packet else None,
+            factor_batch_readiness_gate_packet=(
+                Path(args.factor_batch_readiness_gate_packet) if args.factor_batch_readiness_gate_packet else None
+            ),
+            allow_review_required_data_manifest=args.allow_review_required_data_manifest,
+            portfolio_value=args.portfolio_value,
+            positions_csv=Path(args.positions_csv) if args.positions_csv else None,
+            max_drawdown_limit=args.max_drawdown_limit,
+            max_signal_age_days=args.max_signal_age_days,
+        )
+    except (FileNotFoundError, RuntimeError, ValueError) as exc:
+        raise SystemExit(str(exc)) from exc
     print(
         json.dumps(
             {
