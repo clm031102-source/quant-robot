@@ -112,6 +112,12 @@ def default_source_queue_definitions() -> list[SourceQueueDefinition]:
             ("old_forecast_or_express_formula_grid", "guidance_range_tuning"),
             "forecast_express_prior_zero_research_leads",
             "Old forecast and express event formulas failed strict neutral gates.",
+            report_globs=(
+                "round255_event_express_profit_surprise_pit_ic_prescreen_*",
+                "round256_forecast_guidance_uncertainty_pit_ic_prescreen_*",
+                "round268_forecast_express_disagreement_pit_ic_prescreen_*",
+            ),
+            evidence_required=True,
         ),
         SourceQueueDefinition(
             "share_unlock_pledge",
@@ -121,6 +127,8 @@ def default_source_queue_definitions() -> list[SourceQueueDefinition]:
             ("unlock_direct_rank", "pledge_direct_rank", "sparse_year_retry"),
             "share_unlock_pledge_sparse_year_and_zero_lead_evidence",
             "Supply-event evidence was too sparse and failed size-neutral checks.",
+            report_globs=("round251_share_unlock_pledge_full_*",),
+            evidence_required=True,
         ),
         SourceQueueDefinition(
             "repurchase_contextual_repair",
@@ -130,6 +138,13 @@ def default_source_queue_definitions() -> list[SourceQueueDefinition]:
             ("context_weight_tuning", "raw_event_reentry"),
             "event_contextual_underreaction_reference_dedup_failures",
             "Contextual event leads were explained by raw event and reference clusters.",
+            report_globs=(
+                "round248_event_contextual_underreaction_prescreen_*",
+                "round249_event_contextual_underreaction_reference_dedup_*",
+                "round250_event_contextual_underreaction_residual_audit_*",
+                "round303_24h_profit_sprint_repurchase_contextual_repair_pit_ic_prescreen_*",
+            ),
+            evidence_required=True,
         ),
         SourceQueueDefinition(
             "index_rebalance_passive_flow",
@@ -139,6 +154,8 @@ def default_source_queue_definitions() -> list[SourceQueueDefinition]:
             ("direction_flip", "window_grid", "portfolio_grid"),
             "index_rebalance_zero_research_leads",
             "Passive-flow tests had no promotable research leads.",
+            report_globs=("round231_index_rebalance_passive_flow_*",),
+            evidence_required=True,
         ),
         SourceQueueDefinition(
             "dragon_tiger_attention",
@@ -148,6 +165,12 @@ def default_source_queue_definitions() -> list[SourceQueueDefinition]:
             ("window_expansion", "size_residual_repair_retry"),
             "dragon_tiger_direct_and_size_residual_repair_zero_leads",
             "Dragon-tiger attention/reversal repair produced zero size-residual leads.",
+            report_globs=(
+                "round232_dragon_tiger_pit_ic_prescreen_*",
+                "round233_dragon_tiger_size_residual_repair_*",
+                "round234_family_rotation_after_dragon_tiger_failure_*",
+            ),
+            evidence_required=True,
         ),
         SourceQueueDefinition(
             "northbound_hk_hold_daily",
@@ -186,6 +209,12 @@ def default_source_queue_definitions() -> list[SourceQueueDefinition]:
             ("valuation_reversion_weight_tuning", "direct_carry_grid"),
             "daily_basic_direct_and_valuation_shape_failures",
             "Daily-basic direct carry/valuation had IC fragments but failed shape, coverage, or strict gates.",
+            report_globs=(
+                "round257_daily_basic_non_price_public_carry_full_sample_replay_*",
+                "round258_daily_basic_valuation_reversion_dvratio_full_sample_prescreen_*",
+                "round258_daily_basic_valuation_shape_exposure_audit_*",
+            ),
+            evidence_required=True,
         ),
         SourceQueueDefinition(
             "calendar_seasonality",
@@ -205,6 +234,7 @@ def default_source_queue_definitions() -> list[SourceQueueDefinition]:
                 "and larger-capital capacity gates; do not revive it through window or portfolio tuning."
             ),
             report_globs=("cn_calendar_pre_holiday_cost_capacity_preflight_round165_*",),
+            evidence_required=True,
         ),
         SourceQueueDefinition(
             "listing_age_board_structural",
@@ -225,6 +255,7 @@ def default_source_queue_definitions() -> list[SourceQueueDefinition]:
                 "liquidity, volatility, and yearly-stability controls."
             ),
             report_globs=("round259_listing_age_board_full_core_*",),
+            evidence_required=True,
         ),
         SourceQueueDefinition(
             "low_turnover_public_technical_alpha101",
@@ -234,6 +265,13 @@ def default_source_queue_definitions() -> list[SourceQueueDefinition]:
             ("mfi_obv_macd_rsi_tuning", "alpha101_rank_replay", "low_turnover_repair_grid"),
             "public_technical_alpha101_low_turnover_closeouts",
             "Public technical, Alpha101, and low-turnover repair lines failed residual or walk-forward gates.",
+            report_globs=(
+                "alpha101_rank_pv_reversal_residual_prescreen_round130_*",
+                "public_alpha101_reference_exposure_dedup_round116_*",
+                "round315_24h_profit_sprint_turnover_low_exact_validation_*",
+                "round333_24h_profit_sprint_turnover_low_failure_attribution_*",
+            ),
+            evidence_required=True,
         ),
         SourceQueueDefinition(
             "official_tradeability_state",

@@ -275,6 +275,40 @@ class CnStockLocalSourceQueueAuditTests(unittest.TestCase):
         self.assertFalse(margin_row["local_prescreen_allowed"])
         self.assertEqual(present_packet["summary"]["no_provider_ready_source_count"], 0)
 
+    def test_all_non_validation_closed_or_hibernated_sources_require_report_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            processed = root / "processed"
+            reports = root / "reports"
+            (processed / "round701_analyst_report_revision_cache_202406_20260709").mkdir(parents=True)
+            (reports / "round701_analyst_report_revision_cache_202406_20260709").mkdir(parents=True)
+
+            packet = build_cn_stock_local_source_queue_audit(
+                processed_root=processed,
+                reports_root=reports,
+                provider_request_allowed=False,
+            )
+
+        rows = {row["source_id"]: row for row in packet["source_rows"]}
+        required_sources = {
+            "financial_statement_adjacent_realized",
+            "forecast_express_event",
+            "share_unlock_pledge",
+            "repurchase_contextual_repair",
+            "index_rebalance_passive_flow",
+            "dragon_tiger_attention",
+            "northbound_hk_hold_daily",
+            "margin_financing",
+            "daily_basic_direct",
+            "calendar_seasonality",
+            "listing_age_board_structural",
+            "low_turnover_public_technical_alpha101",
+        }
+        for source_id in required_sources:
+            self.assertTrue(rows[source_id]["evidence_required"], source_id)
+            self.assertFalse(rows[source_id]["evidence_present"], source_id)
+            self.assertFalse(rows[source_id]["local_prescreen_allowed"], source_id)
+
     def test_missing_active_source_evidence_is_reported_as_blocker(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
