@@ -67,6 +67,37 @@ class ResearchPipelineTests(unittest.TestCase):
         self.assertEqual({row["market"] for row in result["trades"]}, {"CN"})
         self.assertEqual({row["market"] for row in result["holdings"]}, {"CN"})
 
+    def test_pipeline_passes_selection_method_to_backtest_engine(self):
+        bars = load_demo_market_bars()
+        dates = sorted(pd.to_datetime(bars["date"]).dt.date.unique())
+        fake_backtest = SimpleNamespace(
+            equity_curve=pd.DataFrame(
+                {
+                    "date": dates,
+                    "period_return": [0.0 for _ in dates],
+                    "equity": [1.0 for _ in dates],
+                }
+            ),
+            positions=pd.DataFrame(columns=["date", "asset_id", "market", "factor_name", "factor_value"]),
+            trades=pd.DataFrame(),
+            metrics={"total_return": 0.0, "max_drawdown": 0.0},
+        )
+
+        with patch("quant_robot.research.pipeline.run_factor_backtest", return_value=fake_backtest) as backtest:
+            result = run_research_pipeline(
+                bars,
+                ResearchPipelineConfig(
+                    factor_name="momentum_2",
+                    factor_windows=(2,),
+                    market="CN",
+                    top_n=2,
+                    selection_method="industry_neutral_top_n",
+                ),
+            )
+
+        self.assertEqual(result["request"]["selection_method"], "industry_neutral_top_n")
+        self.assertEqual(backtest.call_args.kwargs["selection_method"], "industry_neutral_top_n")
+
     def test_pipeline_uses_forward_horizon_for_backtest_exit(self):
         config = ResearchPipelineConfig(factor_name="momentum_2", factor_windows=(2,), market="CN", top_n=1, forward_horizon=2)
 

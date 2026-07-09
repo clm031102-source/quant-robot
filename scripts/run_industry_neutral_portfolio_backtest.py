@@ -19,14 +19,15 @@ ensure_workspace_imports()
 from quant_robot.data.fixtures import load_demo_market_bars  # noqa: E402
 from quant_robot.experiments.runner import (  # noqa: E402
     _filter_bars_for_asset_universe,
-    _pipeline_config,
     _precompute_factor_matrix,
     build_experiment_cases,
     load_experiment_grid_config,
 )
+from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manifest_packet  # noqa: E402
+from quant_robot.ops.factor_batch_readiness_gate import validate_factor_batch_readiness_gate_packet  # noqa: E402
+from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet  # noqa: E402
 from quant_robot.research.pipeline import (  # noqa: E402
-    prepare_research_pipeline_inputs,
-    research_input_fingerprint,
+    ResearchPipelineConfig,
     run_research_pipeline,
 )
 from quant_robot.storage.authority_bars import load_authority_processed_bars_from_config  # noqa: E402
@@ -45,9 +46,24 @@ def run_industry_neutral_portfolio_backtest(
     source: str = "authority-processed-bars",
     data_root: str | Path = "data/processed",
     authority_bars_config: str | Path | None = "configs/cn_stock_authority_bars_2015_2025_adjusted_ratio_clean.json",
+    startup_gate_packet: str | Path | None = Path("data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"),
+    data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
+    factor_batch_readiness_gate_packet: str | Path | None = Path(
+        "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
+    ),
+    allow_review_required_data_manifest: bool = False,
     progress: Any | None = None,
 ) -> dict[str, Any]:
     config = load_experiment_grid_config(config_path)
+    _enforce_cn_stock_industry_neutral_portfolio_inputs(
+        source=source,
+        markets=config.markets,
+        startup_gate_packet=startup_gate_packet,
+        data_manifest_packet=data_manifest_packet,
+        factor_batch_readiness_gate_packet=factor_batch_readiness_gate_packet,
+        data_root=Path(data_root),
+        allow_review_required_data_manifest=allow_review_required_data_manifest,
+    )
     bars = _load_bars(
         source,
         Path(data_root),
@@ -62,7 +78,6 @@ def run_industry_neutral_portfolio_backtest(
     factors = _attach_industry(factors, _load_frame(Path(stock_basic)))
     _emit(progress, "precompute_done", factor_rows=len(factors))
 
-    prepared_by_key = {}
     rows = []
     cases = build_experiment_cases(config)
     for index, case in enumerate(cases, start=1):
@@ -71,18 +86,10 @@ def run_industry_neutral_portfolio_backtest(
             _pipeline_config(config, case, output_dir=None),
             selection_method="industry_neutral_top_n",
         )
-        cache_key = research_input_fingerprint(pipeline_config)
-        if cache_key not in prepared_by_key:
-            prepared_by_key[cache_key] = prepare_research_pipeline_inputs(
-                bars,
-                pipeline_config,
-                precomputed_factors=factors,
-            )
         result = run_research_pipeline(
             bars,
             pipeline_config,
             precomputed_factors=factors,
-            prepared_inputs=prepared_by_key[cache_key],
         )
         row = _leaderboard_row(case, result)
         rows.append(row)
@@ -122,16 +129,32 @@ def main() -> None:
     parser.add_argument("--source", choices=["fixture", "processed-bars", "authority-processed-bars"], default="authority-processed-bars")
     parser.add_argument("--data-root", default="data/processed")
     parser.add_argument("--authority-bars-config", default="configs/cn_stock_authority_bars_2015_2025_adjusted_ratio_clean.json")
-    args = parser.parse_args()
-    result = run_industry_neutral_portfolio_backtest(
-        config_path=Path(args.config),
-        stock_basic=Path(args.stock_basic),
-        output_dir=Path(args.output_dir),
-        source=args.source,
-        data_root=Path(args.data_root),
-        authority_bars_config=Path(args.authority_bars_config) if args.authority_bars_config else None,
-        progress=_stderr_progress,
+    parser.add_argument("--startup-gate-packet", default="data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json")
+    parser.add_argument("--data-manifest-packet", default="data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json")
+    parser.add_argument(
+        "--factor-batch-readiness-gate-packet",
+        default="data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json",
     )
+    parser.add_argument("--allow-review-required-data-manifest", action="store_true")
+    args = parser.parse_args()
+    try:
+        result = run_industry_neutral_portfolio_backtest(
+            config_path=Path(args.config),
+            stock_basic=Path(args.stock_basic),
+            output_dir=Path(args.output_dir),
+            source=args.source,
+            data_root=Path(args.data_root),
+            authority_bars_config=Path(args.authority_bars_config) if args.authority_bars_config else None,
+            startup_gate_packet=Path(args.startup_gate_packet) if args.startup_gate_packet else None,
+            data_manifest_packet=Path(args.data_manifest_packet) if args.data_manifest_packet else None,
+            factor_batch_readiness_gate_packet=(
+                Path(args.factor_batch_readiness_gate_packet) if args.factor_batch_readiness_gate_packet else None
+            ),
+            allow_review_required_data_manifest=args.allow_review_required_data_manifest,
+            progress=_stderr_progress,
+        )
+    except (FileNotFoundError, RuntimeError, ValueError) as exc:
+        raise SystemExit(str(exc)) from exc
     print(json.dumps({"summary": result["summary"], "top": result["leaderboard"][:10]}, indent=2, sort_keys=True))
 
 
@@ -146,6 +169,51 @@ def _attach_industry(factors: pd.DataFrame, stock_basic: pd.DataFrame) -> pd.Dat
     metadata["industry"] = metadata["industry"].astype(str)
     metadata = metadata.drop_duplicates(subset=["asset_id"], keep="last")
     return factors.merge(metadata, on="asset_id", how="left")
+
+
+def _pipeline_config(config: Any, case: Any, *, output_dir: Path | None) -> ResearchPipelineConfig:
+    return ResearchPipelineConfig(
+        factor_name=case.factor_name,
+        factor_source=config.factor_source,
+        factor_windows=case.factor_windows,
+        factor_input_root=config.factor_input_root,
+        factor_input_required=config.factor_input_required,
+        moneyflow_input_root=config.moneyflow_input_root,
+        rotation_membership_root=config.rotation_membership_root,
+        rotation_membership_required=config.rotation_membership_required,
+        min_rotation_history_rows=config.min_rotation_history_rows,
+        min_rotation_live_members=config.min_rotation_live_members,
+        market=case.market,
+        start_date=config.start_date,
+        end_date=config.end_date,
+        forward_horizon=config.forward_horizon,
+        execution_lag=config.execution_lag,
+        rebalance_interval=case.rebalance_interval,
+        quantiles=config.quantiles,
+        top_n=case.top_n,
+        cost_bps=case.cost_bps,
+        portfolio_scope=config.portfolio_scope,
+        periods_per_year=config.periods_per_year,
+        benchmark_asset_id=config.benchmark_asset_id,
+        cash_annual_return=config.cash_annual_return,
+        regime_filter=config.regime_filter,
+        regime_lookback=case.regime_lookback,
+        target_gross_exposure=config.target_gross_exposure,
+        commission_bps=config.commission_bps,
+        slippage_bps=config.slippage_bps,
+        market_impact_bps=config.market_impact_bps,
+        max_participation_rate=config.max_participation_rate,
+        min_signal_amount=config.min_signal_amount,
+        max_calendar_holding_days=config.max_calendar_holding_days,
+        portfolio_value=config.portfolio_value,
+        min_relative_return=config.min_relative_return,
+        max_drawdown_limit=config.max_drawdown_limit,
+        signal_start_date=config.signal_start_date,
+        signal_end_date=config.signal_end_date,
+        min_signal_average_amount=config.min_signal_average_amount,
+        signal_amount_window=config.signal_amount_window,
+        output_dir=output_dir,
+    )
 
 
 def _leaderboard_row(case: Any, result: dict[str, Any]) -> dict[str, Any]:
@@ -276,6 +344,34 @@ def _load_bars(
     if not frames:
         raise ValueError("processed-bars source requires at least one specific market")
     return pd.concat(frames, ignore_index=True)
+
+
+def _enforce_cn_stock_industry_neutral_portfolio_inputs(
+    *,
+    source: str,
+    markets: tuple[str, ...],
+    startup_gate_packet: str | Path | None,
+    data_manifest_packet: str | Path | None,
+    factor_batch_readiness_gate_packet: str | Path | None,
+    data_root: Path,
+    allow_review_required_data_manifest: bool,
+) -> None:
+    if source not in {"processed-bars", "authority-processed-bars"} or not any(market.upper() == "CN" for market in markets):
+        return
+    validate_cleared_startup_gate_packet(
+        startup_gate_packet,
+        context="CN industry-neutral portfolio backtest",
+    )
+    validate_cn_stock_data_manifest_packet(
+        data_manifest_packet,
+        expected_source_root=data_root,
+        allow_review_required=allow_review_required_data_manifest,
+        context="CN industry-neutral portfolio backtest",
+    )
+    validate_factor_batch_readiness_gate_packet(
+        factor_batch_readiness_gate_packet,
+        context="CN industry-neutral portfolio backtest",
+    )
 
 
 def _load_frame(path: Path) -> pd.DataFrame:

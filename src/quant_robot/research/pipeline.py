@@ -63,6 +63,7 @@ class ResearchPipelineConfig:
     rebalance_interval: int = 1
     quantiles: int = 2
     top_n: int = 2
+    selection_method: str = "top_n"
     cost_bps: float = 5.0
     portfolio_scope: str | None = None
     periods_per_year: float | None = None
@@ -141,6 +142,7 @@ def run_research_pipeline(
         min_signal_amount=config.min_signal_amount,
         max_calendar_holding_days=config.max_calendar_holding_days,
         portfolio_value=config.portfolio_value,
+        selection_method=config.selection_method,
     )
     tail_ic = compute_ic(backtest.positions, labels)
     drawdown = _drawdown_curve(backtest.equity_curve)

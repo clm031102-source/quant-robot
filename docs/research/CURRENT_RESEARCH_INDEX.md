@@ -6137,3 +6137,26 @@ Docs:
 - `docs/research/cn_stock_round726_bottom_exclusion_grid_readiness_guard_2026-07-09.md`
 
 Decision: future CN bottom-exclusion portfolio, walk-forward, beta-hedged spread, benchmark-beta exposure, and dynamic-cash overlay grid runs must provide ready startup, data-manifest, and combined factor-batch readiness packets before authority or processed bars are loaded. The current Round708 readiness packet is blocked, so these paths must not generate CN bottom-exclusion grid evidence until quota/source/candidate readiness clears.
+
+## Round727 Overlay And Industry Readiness Guard
+
+Round727 connected additional CN overlay and industry grid entrypoints to startup, data-manifest, and combined factor-batch readiness gates before CN authority or processed bars can be loaded.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Added readiness packet parameters to `scripts/run_bottom_exclusion_overlay_audit.py`, `scripts/run_industry_breadth_bridge_audit.py`, `scripts/run_industry_neutral_ic_audit.py`, and `scripts/run_industry_neutral_portfolio_backtest.py`.
+- Each CN `processed-bars` or `authority-processed-bars` grid path now validates startup gate, CN data manifest, and combined factor-batch readiness before `_load_bars`.
+- CLI validation failures now exit with the gate error message instead of a Python traceback.
+- Fixed the stale industry-neutral portfolio script imports by using the current public `run_research_pipeline(..., precomputed_factors=...)` path.
+- Added `selection_method` to `ResearchPipelineConfig` and passed it to `run_factor_backtest`, restoring the `industry_neutral_top_n` pipeline path expected by the industry-neutral portfolio script.
+- Red tests proved blocked readiness prevents overlay authority-bar loading and `selection_method` reaches the backtest engine.
+- Real smokes stopped on the blocked Round708 readiness packet for bottom-exclusion overlay and industry-neutral portfolio.
+- Errors: `CN bottom-exclusion overlay audit factor batch readiness gate is not ready`; `CN industry-neutral portfolio backtest factor batch readiness gate is not ready`.
+- Smoke output directories were not created.
+- Focused tests: overlay/industry audit tests `13 tests`, `OK`; pipeline selection-method test `OK`.
+- No provider download, new factor formula, IC screen, ready overlay audit, ready industry audit, promotion gate, ready signal snapshot, paper simulation, broker access, order placement, or final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round727_overlay_industry_readiness_guard_2026-07-09.md`
+
+Decision: future CN bottom-exclusion overlay, industry-breadth bridge, industry-neutral IC, and industry-neutral portfolio grid runs must provide ready startup, data-manifest, and combined factor-batch readiness packets before authority or processed bars are loaded. The current Round708 readiness packet is blocked, so these paths must not generate CN overlay or industry-grid evidence until quota/source/candidate readiness clears.

@@ -25,6 +25,9 @@ from quant_robot.ops.industry_neutral_ic_audit import (  # noqa: E402
     build_industry_neutral_ic_audit,
     write_industry_neutral_ic_audit,
 )
+from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manifest_packet  # noqa: E402
+from quant_robot.ops.factor_batch_readiness_gate import validate_factor_batch_readiness_gate_packet  # noqa: E402
+from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet  # noqa: E402
 from quant_robot.research.labels import make_forward_returns  # noqa: E402
 from quant_robot.storage.authority_bars import load_authority_processed_bars_from_config  # noqa: E402
 from quant_robot.storage.processed_bars import load_processed_bars  # noqa: E402
@@ -44,19 +47,30 @@ def run_industry_neutral_ic_audit(
     source: str = "authority-processed-bars",
     data_root: str | Path = "data/processed",
     authority_bars_config: str | Path | None = "configs/cn_stock_authority_bars_2015_2025_adjusted_ratio_clean.json",
+    startup_gate_packet: str | Path | None = Path("data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"),
+    data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
+    factor_batch_readiness_gate_packet: str | Path | None = Path(
+        "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
+    ),
+    allow_review_required_data_manifest: bool = False,
     min_overall_rank_ic: float = 0.02,
     min_neutral_rank_ic: float = 0.01,
     min_rank_ic_t_stat: float = 2.0,
     min_neutral_retention: float = 0.5,
     min_industry_rank_ic: float = 0.02,
 ) -> dict[str, Any]:
-    stock_basic_frame = _load_frame(Path(stock_basic))
     if grid_config is not None:
         factor_frame, label_frame, source_report = _build_frames_from_grid(
             Path(grid_config),
             source=source,
             data_root=Path(data_root),
             authority_bars_config=Path(authority_bars_config) if authority_bars_config else None,
+            startup_gate_packet=Path(startup_gate_packet) if startup_gate_packet is not None else None,
+            data_manifest_packet=Path(data_manifest_packet) if data_manifest_packet is not None else None,
+            factor_batch_readiness_gate_packet=(
+                Path(factor_batch_readiness_gate_packet) if factor_batch_readiness_gate_packet is not None else None
+            ),
+            allow_review_required_data_manifest=allow_review_required_data_manifest,
         )
     else:
         if factors is None or labels is None:
@@ -64,6 +78,7 @@ def run_industry_neutral_ic_audit(
         factor_frame = _load_frame(Path(factors))
         label_frame = _load_frame(Path(labels))
         source_report = f"factors={Path(factors)} labels={Path(labels)}"
+    stock_basic_frame = _load_frame(Path(stock_basic))
 
     audit = build_industry_neutral_ic_audit(
         factor_frame,
@@ -90,6 +105,13 @@ def main() -> None:
     parser.add_argument("--source", choices=["fixture", "processed-bars", "authority-processed-bars"], default="authority-processed-bars")
     parser.add_argument("--data-root", default="data/processed")
     parser.add_argument("--authority-bars-config", default="configs/cn_stock_authority_bars_2015_2025_adjusted_ratio_clean.json")
+    parser.add_argument("--startup-gate-packet", default="data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json")
+    parser.add_argument("--data-manifest-packet", default="data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json")
+    parser.add_argument(
+        "--factor-batch-readiness-gate-packet",
+        default="data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json",
+    )
+    parser.add_argument("--allow-review-required-data-manifest", action="store_true")
     parser.add_argument("--min-overall-rank-ic", type=float, default=0.02)
     parser.add_argument("--min-neutral-rank-ic", type=float, default=0.01)
     parser.add_argument("--min-rank-ic-t-stat", type=float, default=2.0)
@@ -97,21 +119,30 @@ def main() -> None:
     parser.add_argument("--min-industry-rank-ic", type=float, default=0.02)
     args = parser.parse_args()
 
-    audit = run_industry_neutral_ic_audit(
-        stock_basic=Path(args.stock_basic),
-        output_dir=Path(args.output_dir),
-        factors=Path(args.factors) if args.factors else None,
-        labels=Path(args.labels) if args.labels else None,
-        grid_config=Path(args.grid_config) if args.grid_config else None,
-        source=args.source,
-        data_root=Path(args.data_root),
-        authority_bars_config=Path(args.authority_bars_config) if args.authority_bars_config else None,
-        min_overall_rank_ic=args.min_overall_rank_ic,
-        min_neutral_rank_ic=args.min_neutral_rank_ic,
-        min_rank_ic_t_stat=args.min_rank_ic_t_stat,
-        min_neutral_retention=args.min_neutral_retention,
-        min_industry_rank_ic=args.min_industry_rank_ic,
-    )
+    try:
+        audit = run_industry_neutral_ic_audit(
+            stock_basic=Path(args.stock_basic),
+            output_dir=Path(args.output_dir),
+            factors=Path(args.factors) if args.factors else None,
+            labels=Path(args.labels) if args.labels else None,
+            grid_config=Path(args.grid_config) if args.grid_config else None,
+            source=args.source,
+            data_root=Path(args.data_root),
+            authority_bars_config=Path(args.authority_bars_config) if args.authority_bars_config else None,
+            startup_gate_packet=Path(args.startup_gate_packet) if args.startup_gate_packet else None,
+            data_manifest_packet=Path(args.data_manifest_packet) if args.data_manifest_packet else None,
+            factor_batch_readiness_gate_packet=(
+                Path(args.factor_batch_readiness_gate_packet) if args.factor_batch_readiness_gate_packet else None
+            ),
+            allow_review_required_data_manifest=args.allow_review_required_data_manifest,
+            min_overall_rank_ic=args.min_overall_rank_ic,
+            min_neutral_rank_ic=args.min_neutral_rank_ic,
+            min_rank_ic_t_stat=args.min_rank_ic_t_stat,
+            min_neutral_retention=args.min_neutral_retention,
+            min_industry_rank_ic=args.min_industry_rank_ic,
+        )
+    except (FileNotFoundError, RuntimeError, ValueError) as exc:
+        raise SystemExit(str(exc)) from exc
     print(
         json.dumps(
             {
@@ -131,8 +162,23 @@ def _build_frames_from_grid(
     source: str,
     data_root: Path,
     authority_bars_config: Path | None,
+    startup_gate_packet: str | Path | None = Path("data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"),
+    data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
+    factor_batch_readiness_gate_packet: str | Path | None = Path(
+        "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
+    ),
+    allow_review_required_data_manifest: bool = False,
 ) -> tuple[pd.DataFrame, pd.DataFrame, str]:
     config = load_experiment_grid_config(config_path)
+    _enforce_cn_stock_industry_neutral_ic_inputs(
+        source=source,
+        markets=config.markets,
+        startup_gate_packet=startup_gate_packet,
+        data_manifest_packet=data_manifest_packet,
+        factor_batch_readiness_gate_packet=factor_batch_readiness_gate_packet,
+        data_root=data_root,
+        allow_review_required_data_manifest=allow_review_required_data_manifest,
+    )
     bars = _load_bars(
         source,
         data_root,
@@ -150,6 +196,34 @@ def _build_frames_from_grid(
         execution_lag=config.execution_lag,
     )
     return factors, labels, f"grid_config={config_path}"
+
+
+def _enforce_cn_stock_industry_neutral_ic_inputs(
+    *,
+    source: str,
+    markets: tuple[str, ...],
+    startup_gate_packet: str | Path | None,
+    data_manifest_packet: str | Path | None,
+    factor_batch_readiness_gate_packet: str | Path | None,
+    data_root: Path,
+    allow_review_required_data_manifest: bool,
+) -> None:
+    if source not in {"processed-bars", "authority-processed-bars"} or not any(market.upper() == "CN" for market in markets):
+        return
+    validate_cleared_startup_gate_packet(
+        startup_gate_packet,
+        context="CN industry-neutral IC audit",
+    )
+    validate_cn_stock_data_manifest_packet(
+        data_manifest_packet,
+        expected_source_root=data_root,
+        allow_review_required=allow_review_required_data_manifest,
+        context="CN industry-neutral IC audit",
+    )
+    validate_factor_batch_readiness_gate_packet(
+        factor_batch_readiness_gate_packet,
+        context="CN industry-neutral IC audit",
+    )
 
 
 def _load_bars(

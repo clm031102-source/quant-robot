@@ -25,6 +25,9 @@ from quant_robot.ops.bottom_exclusion_overlay_audit import (  # noqa: E402
     build_bottom_exclusion_overlay_audit,
     write_bottom_exclusion_overlay_audit,
 )
+from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manifest_packet  # noqa: E402
+from quant_robot.ops.factor_batch_readiness_gate import validate_factor_batch_readiness_gate_packet  # noqa: E402
+from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet  # noqa: E402
 from quant_robot.research.labels import make_forward_returns  # noqa: E402
 from quant_robot.storage.authority_bars import load_authority_processed_bars_from_config  # noqa: E402
 from quant_robot.storage.processed_bars import load_processed_bars  # noqa: E402
@@ -42,6 +45,12 @@ def run_bottom_exclusion_overlay_audit(
     source: str = "authority-processed-bars",
     data_root: str | Path = "data/processed",
     authority_bars_config: str | Path | None = "configs/cn_stock_authority_bars_2015_2025_adjusted_ratio_clean.json",
+    startup_gate_packet: str | Path | None = Path("data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"),
+    data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
+    factor_batch_readiness_gate_packet: str | Path | None = Path(
+        "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
+    ),
+    allow_review_required_data_manifest: bool = False,
     bottom_quantile: float = 0.2,
     rebalance_interval: int | None = None,
     min_dates: int = 5,
@@ -55,6 +64,12 @@ def run_bottom_exclusion_overlay_audit(
             source=source,
             data_root=Path(data_root),
             authority_bars_config=Path(authority_bars_config) if authority_bars_config else None,
+            startup_gate_packet=Path(startup_gate_packet) if startup_gate_packet is not None else None,
+            data_manifest_packet=Path(data_manifest_packet) if data_manifest_packet is not None else None,
+            factor_batch_readiness_gate_packet=(
+                Path(factor_batch_readiness_gate_packet) if factor_batch_readiness_gate_packet is not None else None
+            ),
+            allow_review_required_data_manifest=allow_review_required_data_manifest,
             rebalance_interval=rebalance_interval,
         )
     else:
@@ -89,6 +104,13 @@ def main() -> None:
     parser.add_argument("--source", choices=["fixture", "processed-bars", "authority-processed-bars"], default="authority-processed-bars")
     parser.add_argument("--data-root", default="data/processed")
     parser.add_argument("--authority-bars-config", default="configs/cn_stock_authority_bars_2015_2025_adjusted_ratio_clean.json")
+    parser.add_argument("--startup-gate-packet", default="data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json")
+    parser.add_argument("--data-manifest-packet", default="data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json")
+    parser.add_argument(
+        "--factor-batch-readiness-gate-packet",
+        default="data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json",
+    )
+    parser.add_argument("--allow-review-required-data-manifest", action="store_true")
     parser.add_argument("--bottom-quantile", type=float, default=0.2)
     parser.add_argument("--rebalance-interval", type=int)
     parser.add_argument("--min-dates", type=int, default=5)
@@ -97,21 +119,30 @@ def main() -> None:
     parser.add_argument("--min-mean-overlay-excess-return", type=float, default=0.0)
     args = parser.parse_args()
 
-    audit = run_bottom_exclusion_overlay_audit(
-        output_dir=Path(args.output_dir),
-        factors=Path(args.factors) if args.factors else None,
-        labels=Path(args.labels) if args.labels else None,
-        grid_config=Path(args.grid_config) if args.grid_config else None,
-        source=args.source,
-        data_root=Path(args.data_root),
-        authority_bars_config=Path(args.authority_bars_config) if args.authority_bars_config else None,
-        bottom_quantile=args.bottom_quantile,
-        rebalance_interval=args.rebalance_interval,
-        min_dates=args.min_dates,
-        min_overlay_t_stat=args.min_overlay_t_stat,
-        min_positive_overlay_rate=args.min_positive_overlay_rate,
-        min_mean_overlay_excess_return=args.min_mean_overlay_excess_return,
-    )
+    try:
+        audit = run_bottom_exclusion_overlay_audit(
+            output_dir=Path(args.output_dir),
+            factors=Path(args.factors) if args.factors else None,
+            labels=Path(args.labels) if args.labels else None,
+            grid_config=Path(args.grid_config) if args.grid_config else None,
+            source=args.source,
+            data_root=Path(args.data_root),
+            authority_bars_config=Path(args.authority_bars_config) if args.authority_bars_config else None,
+            startup_gate_packet=Path(args.startup_gate_packet) if args.startup_gate_packet else None,
+            data_manifest_packet=Path(args.data_manifest_packet) if args.data_manifest_packet else None,
+            factor_batch_readiness_gate_packet=(
+                Path(args.factor_batch_readiness_gate_packet) if args.factor_batch_readiness_gate_packet else None
+            ),
+            allow_review_required_data_manifest=args.allow_review_required_data_manifest,
+            bottom_quantile=args.bottom_quantile,
+            rebalance_interval=args.rebalance_interval,
+            min_dates=args.min_dates,
+            min_overlay_t_stat=args.min_overlay_t_stat,
+            min_positive_overlay_rate=args.min_positive_overlay_rate,
+            min_mean_overlay_excess_return=args.min_mean_overlay_excess_return,
+        )
+    except (FileNotFoundError, RuntimeError, ValueError) as exc:
+        raise SystemExit(str(exc)) from exc
     print(
         json.dumps(
             {
@@ -132,9 +163,24 @@ def _build_frames_from_grid(
     source: str,
     data_root: Path,
     authority_bars_config: Path | None,
+    startup_gate_packet: str | Path | None = Path("data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"),
+    data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
+    factor_batch_readiness_gate_packet: str | Path | None = Path(
+        "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
+    ),
+    allow_review_required_data_manifest: bool = False,
     rebalance_interval: int | None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, str, int]:
     config = load_experiment_grid_config(config_path)
+    _enforce_cn_stock_bottom_exclusion_overlay_inputs(
+        source=source,
+        markets=config.markets,
+        startup_gate_packet=startup_gate_packet,
+        data_manifest_packet=data_manifest_packet,
+        factor_batch_readiness_gate_packet=factor_batch_readiness_gate_packet,
+        data_root=data_root,
+        allow_review_required_data_manifest=allow_review_required_data_manifest,
+    )
     bars = _load_bars(
         source,
         data_root,
@@ -154,6 +200,34 @@ def _build_frames_from_grid(
     resolved_rebalance_interval = rebalance_interval or int(config.rebalance_intervals[0])
     source_report = f"grid_config={config_path} rebalance_interval={resolved_rebalance_interval}"
     return factors, labels, source_report, resolved_rebalance_interval
+
+
+def _enforce_cn_stock_bottom_exclusion_overlay_inputs(
+    *,
+    source: str,
+    markets: tuple[str, ...],
+    startup_gate_packet: str | Path | None,
+    data_manifest_packet: str | Path | None,
+    factor_batch_readiness_gate_packet: str | Path | None,
+    data_root: Path,
+    allow_review_required_data_manifest: bool,
+) -> None:
+    if source not in {"processed-bars", "authority-processed-bars"} or not any(market.upper() == "CN" for market in markets):
+        return
+    validate_cleared_startup_gate_packet(
+        startup_gate_packet,
+        context="CN bottom-exclusion overlay audit",
+    )
+    validate_cn_stock_data_manifest_packet(
+        data_manifest_packet,
+        expected_source_root=data_root,
+        allow_review_required=allow_review_required_data_manifest,
+        context="CN bottom-exclusion overlay audit",
+    )
+    validate_factor_batch_readiness_gate_packet(
+        factor_batch_readiness_gate_packet,
+        context="CN bottom-exclusion overlay audit",
+    )
 
 
 def _load_bars(
