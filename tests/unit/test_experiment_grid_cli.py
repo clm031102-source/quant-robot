@@ -7,6 +7,10 @@ from unittest.mock import patch
 
 import pandas as pd
 
+from quant_robot.ops.factor_batch_readiness_gate import (
+    build_factor_batch_readiness_gate,
+    write_factor_batch_readiness_gate,
+)
 from quant_robot.ops.factor_mining_startup import build_factor_mining_startup_gate
 from scripts.run_experiment_grid import assert_grid_succeeded, run_grid
 
@@ -119,6 +123,8 @@ class ExperimentGridCliTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
+            readiness_dir = root / "readiness_gate"
+            _write_factor_batch_readiness_gate(readiness_dir, ready=True)
             expected = {"summary": {"cases": 1, "completed": 1, "failed": 0}, "leaderboard": []}
 
             with patch("scripts.run_experiment_grid.load_processed_bars", return_value=pd.DataFrame({"market": ["CN"]})) as load_bars:
@@ -129,11 +135,51 @@ class ExperimentGridCliTests(unittest.TestCase):
                         data_root=root,
                         startup_gate_packet=gate_packet,
                         data_manifest_packet=data_manifest,
+                        factor_batch_readiness_gate_packet=readiness_dir / "factor_batch_readiness_gate.json",
                     )
 
             self.assertEqual(result, expected)
             load_bars.assert_called_once()
             runner.assert_called_once()
+
+    def test_processed_cn_grid_requires_ready_factor_batch_readiness_gate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "grid.json"
+            config_path.write_text(
+                json.dumps({"markets": ["CN"], "factor_names": ["momentum_2"], "factor_windows": [2]}),
+                encoding="utf-8",
+            )
+            gate_packet = root / "factor_mining_startup_gate.json"
+            gate_packet.write_text(_valid_startup_gate_packet_json(), encoding="utf-8")
+            data_manifest = root / "cn_stock_data_manifest.json"
+            data_manifest.write_text(
+                json.dumps(
+                    {
+                        "generated_at": date.today().isoformat(),
+                        "status": "cleared",
+                        "summary": {"source_root": root.as_posix(), "bar_rows": 10, "bar_symbols": 2},
+                        "decision": {"data_manifest_cleared": True, "blockers": [], "warnings": []},
+                        "live_boundary_allowed": False,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            readiness_dir = root / "readiness_gate"
+            _write_factor_batch_readiness_gate(readiness_dir, ready=False)
+
+            with patch("scripts.run_experiment_grid.load_processed_bars") as load_bars:
+                with self.assertRaisesRegex(ValueError, "factor batch readiness gate is not ready"):
+                    run_grid(
+                        config_path=config_path,
+                        source="processed-bars",
+                        data_root=root,
+                        startup_gate_packet=gate_packet,
+                        data_manifest_packet=data_manifest,
+                        factor_batch_readiness_gate_packet=readiness_dir / "factor_batch_readiness_gate.json",
+                    )
+
+            load_bars.assert_not_called()
 
     def test_processed_cn_grid_requires_data_manifest_packet_after_startup_gate(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -189,6 +235,44 @@ def _valid_startup_gate_packet_json() -> str:
         current_branch=branch,
     )
     return json.dumps(packet)
+
+
+def _write_factor_batch_readiness_gate(output_dir: Path, *, ready: bool) -> None:
+    if ready:
+        source_queue_packet = {
+            "decision": {"status": "cleared", "blockers": []},
+            "summary": {"active_source_count": 1},
+        }
+        candidate_plan_gate_packet = {
+            "status": "research_ready",
+            "decision": {
+                "candidate_plan_gate_cleared": True,
+                "research_screen_allowed": True,
+                "blockers": [],
+            },
+            "summary": {"candidate_count": 1},
+        }
+    else:
+        source_queue_packet = {
+            "decision": {"status": "blocked", "blockers": ["report_rc_quota_blocked"]},
+            "summary": {"active_source_count": 1},
+        }
+        candidate_plan_gate_packet = {
+            "status": "blocked",
+            "decision": {
+                "candidate_plan_gate_cleared": False,
+                "blockers": ["candidate_source_provider_not_allowed"],
+            },
+            "summary": {"candidate_count": 1},
+        }
+    packet = build_factor_batch_readiness_gate(
+        source_queue_packet=source_queue_packet,
+        candidate_plan_gate_packet=candidate_plan_gate_packet,
+        candidate_plan_path="candidate_plan.json",
+        source_queue_output_dir="source_queue",
+        candidate_plan_gate_output_dir="candidate_gate",
+    )
+    write_factor_batch_readiness_gate(output_dir, packet)
 
 
 def _legacy_startup_gate_packet_json() -> str:

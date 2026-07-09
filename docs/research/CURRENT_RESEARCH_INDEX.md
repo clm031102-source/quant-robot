@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round714_experiment_grid_readiness_guard_2026-07-09.md`
 - `docs/research/cn_stock_round713_alpha_factory_readiness_guard_2026-07-09.md`
 - `docs/research/cn_stock_round712_analyst_prescreen_readiness_guard_2026-07-09.md`
 - `docs/research/cn_stock_round711_factor_batch_readiness_validator_2026-07-09.md`
@@ -5862,3 +5863,23 @@ Docs:
 - `docs/research/cn_stock_round713_alpha_factory_readiness_guard_2026-07-09.md`
 
 Decision: future processed CN alpha factory runs must provide a ready combined factor-batch readiness packet. The current Round708 readiness packet is blocked, so no fresh factor leaderboard should be generated until quota/source/candidate readiness clears.
+
+## Round714 Experiment Grid Readiness Guard
+
+Round714 connected the processed CN experiment-grid entrypoint to the combined factor-batch readiness validator.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Added `--factor-batch-readiness-gate-packet` to `scripts/run_experiment_grid.py`.
+- Processed CN grids now require startup gate, data manifest, and combined factor-batch readiness gate before loading bars.
+- Deprecated bypass flag `--allow-missing-factor-batch-readiness-gate` raises instead of bypassing.
+- Real smoke used today's CN stock data manifest and stopped on the blocked Round708 readiness packet.
+- Error: `CN processed-bars experiment grid factor batch readiness gate is not ready`.
+- The experiment-grid smoke output directory was not created.
+- Related tests: `38 passed`; compile check passed.
+- No provider download, new factor formula, IC screen, portfolio grid, walk-forward conversion, promotion gate, signal generation, or final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round714_experiment_grid_readiness_guard_2026-07-09.md`
+
+Decision: future processed CN experiment grids must provide a ready combined factor-batch readiness packet. The current Round708 readiness packet is blocked, so no portfolio/parameter grid should run until quota/source/candidate readiness clears.

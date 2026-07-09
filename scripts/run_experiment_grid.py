@@ -17,6 +17,7 @@ ensure_workspace_imports()
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.experiments.runner import ExperimentGridConfig, load_experiment_grid_config, run_experiment_grid
 from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manifest_packet
+from quant_robot.ops.factor_batch_readiness_gate import validate_factor_batch_readiness_gate_packet
 from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet
 from quant_robot.storage.processed_bars import load_processed_bars
 
@@ -28,7 +29,11 @@ def run_grid(
     output_dir: str | Path | None = None,
     startup_gate_packet: str | Path | None = Path("data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"),
     data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
+    factor_batch_readiness_gate_packet: str | Path | None = Path(
+        "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
+    ),
     allow_missing_startup_gate: bool = False,
+    allow_missing_factor_batch_readiness_gate: bool = False,
     allow_review_required_data_manifest: bool = False,
 ) -> dict[str, object]:
     config = load_experiment_grid_config(config_path) if config_path is not None else ExperimentGridConfig()
@@ -39,7 +44,9 @@ def run_grid(
         markets=config.markets,
         startup_gate_packet=startup_gate_packet,
         data_manifest_packet=data_manifest_packet,
+        factor_batch_readiness_gate_packet=factor_batch_readiness_gate_packet,
         allow_missing_startup_gate=allow_missing_startup_gate,
+        allow_missing_factor_batch_readiness_gate=allow_missing_factor_batch_readiness_gate,
         allow_review_required_data_manifest=allow_review_required_data_manifest,
         data_root=Path(data_root),
     )
@@ -74,6 +81,16 @@ def main() -> None:
         action="store_true",
         help="Allow a reviewed CN stock data manifest that has warnings but no blockers.",
     )
+    parser.add_argument(
+        "--factor-batch-readiness-gate-packet",
+        default="data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json",
+        help="Ready combined factor-batch readiness gate packet required for processed CN grids.",
+    )
+    parser.add_argument(
+        "--allow-missing-factor-batch-readiness-gate",
+        action="store_true",
+        help="Deprecated. CN processed-bars grids cannot bypass the combined readiness gate.",
+    )
     args = parser.parse_args()
     result = run_grid(
         config_path=Path(args.config),
@@ -82,7 +99,11 @@ def main() -> None:
         output_dir=Path(args.output_dir) if args.output_dir else None,
         startup_gate_packet=Path(args.startup_gate_packet) if args.startup_gate_packet else None,
         data_manifest_packet=Path(args.data_manifest_packet) if args.data_manifest_packet else None,
+        factor_batch_readiness_gate_packet=(
+            Path(args.factor_batch_readiness_gate_packet) if args.factor_batch_readiness_gate_packet else None
+        ),
         allow_missing_startup_gate=args.allow_missing_startup_gate,
+        allow_missing_factor_batch_readiness_gate=args.allow_missing_factor_batch_readiness_gate,
         allow_review_required_data_manifest=args.allow_review_required_data_manifest,
     )
     print(json.dumps({"summary": result["summary"], "top": result["leaderboard"][:10]}, indent=2, sort_keys=True))
@@ -130,7 +151,9 @@ def _enforce_cn_stock_startup_gate(
     markets: tuple[str, ...],
     startup_gate_packet: str | Path | None,
     data_manifest_packet: str | Path | None,
+    factor_batch_readiness_gate_packet: str | Path | None,
     allow_missing_startup_gate: bool,
+    allow_missing_factor_batch_readiness_gate: bool,
     allow_review_required_data_manifest: bool,
     data_root: Path,
 ) -> None:
@@ -146,6 +169,12 @@ def _enforce_cn_stock_startup_gate(
         data_manifest_packet,
         expected_source_root=data_root,
         allow_review_required=allow_review_required_data_manifest,
+        context="CN processed-bars experiment grid",
+    )
+    if allow_missing_factor_batch_readiness_gate:
+        raise ValueError("CN processed-bars experiment grid factor batch readiness gate cannot be bypassed")
+    validate_factor_batch_readiness_gate_packet(
+        factor_batch_readiness_gate_packet,
         context="CN processed-bars experiment grid",
     )
 
