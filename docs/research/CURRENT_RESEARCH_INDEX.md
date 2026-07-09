@@ -6485,3 +6485,24 @@ Docs:
 - `docs/research/cn_stock_round741_local_source_queue_lpr_rejection_absorption_2026-07-09.md`
 
 Decision: the repaired LPR source is maintenance evidence only after the rejection. Future LPR work requires a genuinely new macro-interaction source gate; the current active route remains analyst-report source extension after quota reset or a separate new PIT-safe source gate.
+
+## Round742 Factor Batch Readiness After LPR Rejection
+
+Round742 rebuilt the combined factor-batch readiness gate after Round741 absorbed the LPR rejection into the default local source queue.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Existing CLI: `scripts/run_factor_batch_readiness_gate.py`.
+- Command used the analyst-report candidate plan `configs/factor_mining_candidate_plan_round453_analyst_report_revision_20260627.json`, quota root `data\reports`, target date `2026-07-09`, and wrote `data/reports/round742_factor_batch_readiness_after_lpr_rejection_20260709`.
+- Real startup gates passed: Quant PM startup gate `ready`; factor-mining startup gate `cleared`.
+- Readiness result: status `blocked`, candidate count 4, source queue status `blocked`, candidate-plan gate status `blocked`, provider quota preflight status `blocked`.
+- Factor batch ready false, research screen allowed false, portfolio grid allowed false, promotion allowed false.
+- Decision blockers: provider quota exhausted, no local no-provider source ready, report_rc quota blocked, candidate-plan gate blocked by the local source queue, and analyst provider source not allowed for full factor batch.
+- Nested source queue confirms active source count 1, local-prescreen-ready source count 1, no-provider-ready source count 0, provider-ready source count 1.
+- `external_macro_lpr_regime` is `source_maintenance_only`, evidence present true, local prescreen allowed false, next action `new_lpr_macro_interaction_source_gate_only_after_round738_rejection`.
+- No provider download, factor batch, portfolio grid, promotion gate, ready signal snapshot, paper simulation, broker access, order placement, or final-holdout tuning occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round742_factor_batch_readiness_after_lpr_rejection_2026-07-09.md`
+
+Decision: current full factor-batch readiness remains blocked, and the latest readiness evidence correctly prevents repaired LPR data from opening a no-provider factor batch. Continue only analyst source extension after quota reset, cached prescreen governance, or a genuinely new PIT-safe source gate.
