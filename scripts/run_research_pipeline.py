@@ -13,6 +13,9 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 ensure_workspace_imports()
 
 from quant_robot.data.fixtures import load_demo_market_bars
+from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manifest_packet
+from quant_robot.ops.factor_batch_readiness_gate import validate_factor_batch_readiness_gate_packet
+from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet
 from quant_robot.research.pipeline import ResearchPipelineConfig, run_research_pipeline
 from quant_robot.storage.processed_bars import load_processed_bars
 
@@ -62,8 +65,25 @@ def main() -> None:
     parser.add_argument("--signal-start-date")
     parser.add_argument("--signal-end-date")
     parser.add_argument("--output-dir", default="data/reports/research_pipeline")
+    parser.add_argument("--startup-gate-packet", default="data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json")
+    parser.add_argument("--data-manifest-packet", default="data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json")
+    parser.add_argument(
+        "--factor-batch-readiness-gate-packet",
+        default="data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json",
+    )
+    parser.add_argument("--allow-review-required-data-manifest", action="store_true")
     args = parser.parse_args()
-    bars = load_research_bars(args.source, Path(args.data_root), args.market)
+    bars = load_research_bars(
+        args.source,
+        Path(args.data_root),
+        args.market,
+        startup_gate_packet=Path(args.startup_gate_packet) if args.startup_gate_packet else None,
+        data_manifest_packet=Path(args.data_manifest_packet) if args.data_manifest_packet else None,
+        factor_batch_readiness_gate_packet=Path(args.factor_batch_readiness_gate_packet)
+        if args.factor_batch_readiness_gate_packet
+        else None,
+        allow_review_required_data_manifest=args.allow_review_required_data_manifest,
+    )
     config = build_research_config(args)
     config = attach_processed_cn_etf_rotation_membership(config, args.source, Path(args.data_root))
     result = run_research_pipeline(bars, config)
@@ -134,11 +154,31 @@ def attach_processed_cn_etf_rotation_membership(
     )
 
 
-def load_research_bars(source: str, data_root: Path, market: str) -> object:
+def load_research_bars(
+    source: str,
+    data_root: Path,
+    market: str,
+    *,
+    startup_gate_packet: str | Path | None = Path("data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"),
+    data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
+    factor_batch_readiness_gate_packet: str | Path | None = Path(
+        "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
+    ),
+    allow_review_required_data_manifest: bool = False,
+) -> object:
     if source == "fixture":
         return load_demo_market_bars()
     if source != "processed-bars":
         raise ValueError(f"Unsupported research source: {source}")
+    _enforce_cn_stock_research_pipeline_inputs(
+        source=source,
+        market=market,
+        startup_gate_packet=startup_gate_packet,
+        data_manifest_packet=data_manifest_packet,
+        factor_batch_readiness_gate_packet=factor_batch_readiness_gate_packet,
+        data_root=data_root,
+        allow_review_required_data_manifest=allow_review_required_data_manifest,
+    )
     market_upper = market.upper()
     if market_upper != "ALL":
         return load_processed_bars(data_root, market_upper)
@@ -146,6 +186,34 @@ def load_research_bars(source: str, data_root: Path, market: str) -> object:
 
     frames = [load_processed_bars(data_root, item) for item in DEFAULT_MARKETS]
     return pd.concat(frames, ignore_index=True)
+
+
+def _enforce_cn_stock_research_pipeline_inputs(
+    *,
+    source: str,
+    market: str,
+    startup_gate_packet: str | Path | None,
+    data_manifest_packet: str | Path | None,
+    factor_batch_readiness_gate_packet: str | Path | None,
+    data_root: Path,
+    allow_review_required_data_manifest: bool,
+) -> None:
+    if source != "processed-bars" or market.upper() not in {"CN", "ALL"}:
+        return
+    validate_cleared_startup_gate_packet(
+        startup_gate_packet,
+        context="CN research pipeline",
+    )
+    validate_cn_stock_data_manifest_packet(
+        data_manifest_packet,
+        expected_source_root=data_root,
+        allow_review_required=allow_review_required_data_manifest,
+        context="CN research pipeline",
+    )
+    validate_factor_batch_readiness_gate_packet(
+        factor_batch_readiness_gate_packet,
+        context="CN research pipeline",
+    )
 
 
 if __name__ == "__main__":
