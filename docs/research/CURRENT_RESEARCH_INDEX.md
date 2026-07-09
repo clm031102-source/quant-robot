@@ -1,6 +1,6 @@
 # Current Research And Cloud Sync Index
 
-Last updated: 2026-07-08
+Last updated: 2026-07-09
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round695_external_lpr_source_readiness_2026-07-09.md`
 - `docs/research/cn_stock_cloud_branch_integration_handoff_2026-07-04.md`
 - `docs/research/cn_stock_round463_analyst_report_revision_source_smoke_2026-07-04.md`
 - `docs/research/cn_stock_round464_benchmark_relative_moneyflow_preregistration_2026-07-04.md`

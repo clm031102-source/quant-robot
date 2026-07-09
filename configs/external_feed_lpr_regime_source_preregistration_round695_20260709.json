@@ -1,0 +1,97 @@
+{
+  "asset_type": "stock",
+  "created_at": "2026-07-09",
+  "market": "CN",
+  "pit_policy": {
+    "final_holdout_policy": "No 2026 tuning. The repaired LPR source is source-readiness evidence only.",
+    "forbidden_join_date_column": "date",
+    "join_date_column": "available_date",
+    "signal_rule": "External macro observations may join stock signal dates only when available_date <= signal_date; same-day raw-date joins are forbidden."
+  },
+  "promotion_policy": {
+    "promotion_allowed": false,
+    "reason": "Round695 repairs and smoke-tests external macro LPR source readiness only.",
+    "required_before_promotion": [
+      "candidate_plan_gate_for_a_new_lpr_regime_interaction_family",
+      "residual_ic_and_quantile_shape_prescreen",
+      "reference_dedup_against_price_volume_moneyflow_and_style",
+      "cost_capacity_portfolio_bridge",
+      "rolling_walk_forward",
+      "regime_and_event_stress_audit"
+    ]
+  },
+  "source_audit": "data/reports/round695_external_feed_lpr_repaired_coverage_audit_20260709/external_feed_coverage_audit.json",
+  "source_processed_root": "data/processed/round695_external_feeds_lpr_repaired_20260709",
+  "stage": "round695_external_lpr_regime_source_preregistration",
+  "blocked_uses": [
+    "lpr_repair_as_alpha_evidence",
+    "standalone_market_level_lpr_stock_rank",
+    "old_northbound_accumulation_rerun_without_new_mechanism",
+    "old_margin_credit_reentry_without_residual_repair",
+    "portfolio_grid_before_candidate_plan_and_residual_prescreen",
+    "promotion_gate_from_source_or_join_smoke"
+  ],
+  "factor_seeds": [
+    {
+      "factor_name": "lpr_term_premium_easing_regime_60",
+      "family": "external_macro_lpr_regime",
+      "hypothesis": "The LPR 5Y minus 1Y term premium and its medium-term change can be used as a market-level credit-easing or tightening state for later interaction tests, not as a standalone stock rank.",
+      "hypothesis_source": "macro_liquidity:lpr_term_structure_regime",
+      "minimum_history_days": 60,
+      "neutralization_required": [
+        "market_regime_coverage_audit"
+      ],
+      "primary_feed": "external_macro_rates",
+      "required_columns": [
+        "available_date",
+        "lpr_1y",
+        "lpr_5y",
+        "shibor_3m"
+      ],
+      "seed_type": "regime_control"
+    },
+    {
+      "factor_name": "lpr_shibor_credit_gap_regime_60",
+      "family": "external_macro_lpr_regime",
+      "hypothesis": "The gap between policy loan rates and money-market rates can flag credit-liquidity stress regimes for later gating of cross-sectional factors.",
+      "hypothesis_source": "macro_liquidity:lpr_shibor_credit_gap",
+      "minimum_history_days": 60,
+      "neutralization_required": [
+        "market_regime_coverage_audit"
+      ],
+      "primary_feed": "external_macro_rates",
+      "required_columns": [
+        "available_date",
+        "lpr_1y",
+        "lpr_5y",
+        "shibor_1m",
+        "shibor_3m",
+        "shibor_1y"
+      ],
+      "seed_type": "regime_control"
+    },
+    {
+      "factor_name": "hk_hold_stability_x_lpr_easing_regime_60",
+      "family": "external_hk_hold_lpr_regime_interaction",
+      "hypothesis": "Northbound holding stability may matter differently during LPR easing than during credit tightening; this is a future interaction hypothesis and not a rerun of old standalone northbound accumulation.",
+      "hypothesis_source": "market_microstructure:northbound_stability_x_macro_credit_regime",
+      "minimum_history_days": 60,
+      "neutralization_required": [
+        "industry",
+        "size",
+        "liquidity",
+        "market_regime_coverage_audit"
+      ],
+      "primary_feed": "external_hk_hold",
+      "required_columns": [
+        "symbol",
+        "available_date",
+        "hold_ratio",
+        "lpr_1y",
+        "lpr_5y"
+      ],
+      "secondary_feed": "external_macro_rates",
+      "seed_type": "interaction"
+    }
+  ]
+}
