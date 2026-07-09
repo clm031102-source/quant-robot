@@ -17,6 +17,9 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 ensure_workspace_imports()
 
 from quant_robot.data.fixtures import load_demo_market_bars
+from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manifest_packet
+from quant_robot.ops.factor_batch_readiness_gate import validate_factor_batch_readiness_gate_packet
+from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet
 from quant_robot.portfolio.rebalance import build_rebalance_plan
 from quant_robot.signals.pipeline import SignalPipelineConfig, generate_signal_snapshot, write_signal_snapshot
 from quant_robot.storage.processed_bars import load_processed_bars
@@ -42,7 +45,22 @@ def run_signal_snapshot(
     rotation_membership_root: str | Path | None = None,
     rotation_membership_required: bool = False,
     output_dir: str | Path | None = None,
+    startup_gate_packet: str | Path | None = Path("data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"),
+    data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
+    factor_batch_readiness_gate_packet: str | Path | None = Path(
+        "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
+    ),
+    allow_review_required_data_manifest: bool = False,
 ) -> dict[str, Any]:
+    _enforce_cn_stock_signal_snapshot_inputs(
+        source=source,
+        market=market,
+        startup_gate_packet=startup_gate_packet,
+        data_manifest_packet=data_manifest_packet,
+        factor_batch_readiness_gate_packet=factor_batch_readiness_gate_packet,
+        data_root=Path(data_root),
+        allow_review_required_data_manifest=allow_review_required_data_manifest,
+    )
     bars = _load_bars(source, Path(data_root), market)
     config = SignalPipelineConfig(
         factor_name=factor_name,
@@ -94,6 +112,13 @@ def main() -> None:
     parser.add_argument("--rotation-membership-root")
     parser.add_argument("--rotation-membership-required", action="store_true")
     parser.add_argument("--output-dir", default="data/reports/signal_snapshot")
+    parser.add_argument("--startup-gate-packet", default="data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json")
+    parser.add_argument("--data-manifest-packet", default="data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json")
+    parser.add_argument(
+        "--factor-batch-readiness-gate-packet",
+        default="data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json",
+    )
+    parser.add_argument("--allow-review-required-data-manifest", action="store_true")
     args = parser.parse_args()
     result = run_signal_snapshot(
         source=args.source,
@@ -113,6 +138,12 @@ def main() -> None:
         rotation_membership_root=Path(args.rotation_membership_root) if args.rotation_membership_root else None,
         rotation_membership_required=args.rotation_membership_required,
         output_dir=Path(args.output_dir),
+        startup_gate_packet=Path(args.startup_gate_packet) if args.startup_gate_packet else None,
+        data_manifest_packet=Path(args.data_manifest_packet) if args.data_manifest_packet else None,
+        factor_batch_readiness_gate_packet=Path(args.factor_batch_readiness_gate_packet)
+        if args.factor_batch_readiness_gate_packet
+        else None,
+        allow_review_required_data_manifest=args.allow_review_required_data_manifest,
     )
     print(
         json.dumps(
@@ -160,6 +191,34 @@ def _load_bars(source: str, data_root: Path, market: str) -> pd.DataFrame:
         return load_processed_bars(data_root, market)
     frames = [load_processed_bars(data_root, item) for item in DEFAULT_MARKETS]
     return pd.concat(frames, ignore_index=True)
+
+
+def _enforce_cn_stock_signal_snapshot_inputs(
+    *,
+    source: str,
+    market: str,
+    startup_gate_packet: str | Path | None,
+    data_manifest_packet: str | Path | None,
+    factor_batch_readiness_gate_packet: str | Path | None,
+    data_root: Path,
+    allow_review_required_data_manifest: bool,
+) -> None:
+    if source != "processed-bars" or market.upper() not in {"CN", "ALL"}:
+        return
+    validate_cleared_startup_gate_packet(
+        startup_gate_packet,
+        context="CN signal snapshot",
+    )
+    validate_cn_stock_data_manifest_packet(
+        data_manifest_packet,
+        expected_source_root=data_root,
+        allow_review_required=allow_review_required_data_manifest,
+        context="CN signal snapshot",
+    )
+    validate_factor_batch_readiness_gate_packet(
+        factor_batch_readiness_gate_packet,
+        context="CN signal snapshot",
+    )
 
 
 def _parse_windows(value: str) -> tuple[int, ...]:
