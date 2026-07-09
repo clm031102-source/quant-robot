@@ -166,6 +166,55 @@ class CnStockLocalSourceQueueAuditTests(unittest.TestCase):
         self.assertEqual(packet["summary"]["no_provider_ready_source_count"], 0)
         self.assertFalse(packet["decision"]["no_provider_factor_batch_allowed"])
 
+    def test_statement_source_closeout_requires_round691_694_report_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            processed = root / "processed"
+            reports = root / "reports"
+            (processed / "round701_analyst_report_revision_cache_202406_20260709").mkdir(parents=True)
+            (reports / "round701_analyst_report_revision_cache_202406_20260709").mkdir(parents=True)
+
+            missing_packet = build_cn_stock_local_source_queue_audit(
+                processed_root=processed,
+                reports_root=reports,
+                provider_request_allowed=False,
+            )
+            rows = {row["source_id"]: row for row in missing_packet["source_rows"]}
+            self.assertEqual(rows["financial_statement_adjacent_realized"]["status"], "closed")
+            self.assertFalse(rows["financial_statement_adjacent_realized"]["evidence_present"])
+            self.assertIn(
+                "financial_statement_adjacent_realized",
+                [
+                    row["source_id"]
+                    for row in missing_packet["source_rows"]
+                    if row["evidence_required"] and not row["evidence_present"]
+                ],
+            )
+
+            (
+                reports / "round691_financial_reporting_timeliness_residual_ic_shape_prescreen_20260709"
+            ).mkdir(parents=True)
+            present_packet = build_cn_stock_local_source_queue_audit(
+                processed_root=processed,
+                reports_root=reports,
+                provider_request_allowed=False,
+            )
+
+        rows = {row["source_id"]: row for row in present_packet["source_rows"]}
+        statement_row = rows["financial_statement_adjacent_realized"]
+        self.assertTrue(statement_row["evidence_present"])
+        self.assertEqual(
+            statement_row["matched_report_paths"],
+            [
+                str(
+                    reports
+                    / "round691_financial_reporting_timeliness_residual_ic_shape_prescreen_20260709"
+                )
+            ],
+        )
+        self.assertEqual(present_packet["summary"]["no_provider_ready_source_count"], 0)
+        self.assertFalse(present_packet["decision"]["no_provider_factor_batch_allowed"])
+
     def test_missing_active_source_evidence_is_reported_as_blocker(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

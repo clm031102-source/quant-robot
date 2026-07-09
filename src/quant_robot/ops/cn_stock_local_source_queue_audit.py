@@ -96,6 +96,13 @@ def default_source_queue_definitions() -> list[SourceQueueDefinition]:
             ("direct_formula_mutation", "sign_flip_after_negative_ic", "same_parameter_replay"),
             "round691_694_statement_source_closeout",
             "Adjacent realized-statement rotations produced zero research leads across the closeout set.",
+            report_globs=(
+                "round691_financial_reporting_timeliness_residual_ic_shape_prescreen_*",
+                "round692_pead_gap_reversal_source_repair_residual_prescreen_*",
+                "round693_statement_working_capital_pressure_residual_prescreen_*",
+                "round694_statement_capital_structure_efficiency_residual_prescreen_*",
+            ),
+            evidence_required=True,
         ),
         SourceQueueDefinition(
             "forecast_express_event",
@@ -412,7 +419,12 @@ def _build_source_row(
     report_matches = _match_globs(reports_root, definition.report_globs)
     evidence_present = True
     if definition.evidence_required:
-        evidence_present = bool(processed_matches) and bool(report_matches)
+        required_evidence = []
+        if definition.processed_globs:
+            required_evidence.append(bool(processed_matches))
+        if definition.report_globs:
+            required_evidence.append(bool(report_matches))
+        evidence_present = all(required_evidence) if required_evidence else False
     status = definition.status
     if status == CONDITIONAL_ACTIVE_STATUS:
         status = ACTIVE_STATUS if evidence_present else "source_pending_evidence"
