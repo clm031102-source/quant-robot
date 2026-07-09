@@ -6160,3 +6160,25 @@ Docs:
 - `docs/research/cn_stock_round727_overlay_industry_readiness_guard_2026-07-09.md`
 
 Decision: future CN bottom-exclusion overlay, industry-breadth bridge, industry-neutral IC, and industry-neutral portfolio grid runs must provide ready startup, data-manifest, and combined factor-batch readiness packets before authority or processed bars are loaded. The current Round708 readiness packet is blocked, so these paths must not generate CN overlay or industry-grid evidence until quota/source/candidate readiness clears.
+
+## Round728 Batch12 OOS Readiness Guard
+
+Round728 connected the locked Batch12 CN stock OOS validation CLI to startup, data-manifest, and combined factor-batch readiness gates before authority bars or daily-basic inputs can be loaded.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Added `run_cn_stock_batch12_oos_validation_from_files(...)` to make the CLI path testable.
+- Added `--data-root`, `--startup-gate-packet`, `--data-manifest-packet`, `--factor-batch-readiness-gate-packet`, and `--allow-review-required-data-manifest` to `scripts/run_cn_stock_batch12_oos_validation.py`.
+- The script now validates startup gate, CN data manifest, and combined factor-batch readiness before `load_authority_processed_bars_from_config` or `load_authority_processed_dataset_from_config`.
+- CLI validation failures now exit with the gate error message instead of a Python traceback.
+- Red test proved blocked readiness prevents both authority loads.
+- Real smoke stopped on the blocked Round708 readiness packet.
+- Error: `CN batch12 OOS validation factor batch readiness gate is not ready`.
+- Smoke output directory was not created.
+- Focused test: `1 test`, `OK`.
+- No provider download, new factor formula, ready OOS validation, promotion gate, ready signal snapshot, paper simulation, broker access, order placement, or final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round728_batch12_oos_readiness_guard_2026-07-09.md`
+
+Decision: future Batch12 CN stock OOS validation runs must provide ready startup, data-manifest, and combined factor-batch readiness packets before authority bars or daily-basic inputs are loaded. The current Round708 readiness packet is blocked, so Batch12 OOS validation must not generate new evidence until quota/source/candidate readiness clears.
