@@ -1,0 +1,256 @@
+{
+  "stage": "round691_financial_reporting_timeliness_preregistration",
+  "round": 691,
+  "market": "CN",
+  "asset_type": "stock",
+  "source_audit": "docs/research/cn_stock_round690_financial_reporting_timeliness_backfill_progress_2026-07-08.md",
+  "source_plan_doc": "docs/superpowers/specs/2026-07-09-round691-financial-reporting-timeliness-design.md",
+  "implementation_plan": "docs/superpowers/plans/2026-07-09-round691-financial-reporting-timeliness-candidate-plan.md",
+  "scope": {
+    "machine": "office_desktop",
+    "task": "factor_batch",
+    "branch": "codex/factor-batch-cn-stock-financial-reporting-timeliness-round691-20260709"
+  },
+  "research_control_plan": {
+    "declared_controls": {
+      "cn_stock_tradeability": [
+        "limit_up_down_filter",
+        "suspension_filter",
+        "st_flag_filter",
+        "new_listing_age_filter",
+        "delisting_risk_filter",
+        "board_permission_filter"
+      ],
+      "financial_pit_timing": [
+        "ann_date_or_effective_date_lag",
+        "financial_revision_announcement_handling",
+        "report_release_lag_not_period_end",
+        "no_period_end_only_financial_signal"
+      ],
+      "source_sample_integrity": [
+        "endpoint_permission_or_cache_manifest",
+        "point_in_time_available_date_semantics",
+        "full_sample_2015_2025_same_parameter_replay",
+        "train_test_or_walk_forward_split_declared",
+        "future_function_static_audit",
+        "rejected_hypothesis_counting"
+      ],
+      "industry_style_neutralization": [
+        "industry_exposure_report",
+        "size_exposure_report",
+        "value_lowvol_momentum_liquidity_decomposition",
+        "neutralized_or_residual_factor_matrix"
+      ],
+      "etf_rotation_scope_boundary": [
+        "stock_scope_confirmed",
+        "etf_rotation_evidence_rejected_for_stock_factor",
+        "cn_etf_dedicated_signal_pack_separate"
+      ],
+      "portfolio_construction": [
+        "risk_budget_position_sizing",
+        "volatility_targeting_or_volatility_budget",
+        "industry_weight_constraints",
+        "turnover_constraints",
+        "stop_loss_or_de_risk_rules"
+      ],
+      "strict_statistics": [
+        "deflated_sharpe",
+        "purged_cpcv",
+        "white_reality_check_or_fdr",
+        "parameter_sensitivity_heatmap",
+        "multiple_testing_accounting"
+      ],
+      "china_market_regime": [
+        "policy_liquidity_regime",
+        "credit_cycle_proxy",
+        "northbound_margin_turnover_temperature",
+        "index_location_state",
+        "signal_window_regime_coverage"
+      ],
+      "event_factors": [
+        "earnings_forecast_or_statement_event_audit",
+        "dividend_ex_right_event_audit",
+        "buyback_holder_unlock_event_audit",
+        "index_rebalance_event_audit",
+        "event_contamination_extreme_return_audit"
+      ]
+    },
+    "policy": "Round691 may only preregister PIT financial reporting timeliness candidates for research screening. Portfolio grids, promotion, sign/window tuning, mixed-window harvesting, live trading, and final-holdout reads remain blocked."
+  },
+  "data_source_plan": {
+    "source_family": "financial_statement_roots",
+    "local_cache_root": "data/processed",
+    "source_gate_report": "docs/research/cn_stock_round690_financial_reporting_timeliness_backfill_progress_2026-07-08.md",
+    "long_cycle_start_date": "2015-01-01",
+    "long_cycle_end_date": "2025-12-31",
+    "final_holdout_available_for_tuning": false,
+    "available_date_rule": "Use the first valid trading date strictly after ann_date or an explicitly later effective date; same-day announcement trading is blocked.",
+    "period_end_only_signal_policy": "forbidden",
+    "provider_limit_policy": "Use local processed PIT statement cache; do not download or extend source data during candidate-plan gate."
+  },
+  "source_gate_result": {
+    "status": "source_ready",
+    "source_gate_cleared": true,
+    "candidate_plan_allowed": true,
+    "unique_symbols": 1002,
+    "minimum_required_symbols": 1000,
+    "row_count": 212387,
+    "blockers": []
+  },
+  "cn_stock_data_manifest_result": {
+    "status": "review_required",
+    "output_dir": "data/reports/round691_cn_stock_data_manifest_20260709",
+    "bar_asset_ids": 5774,
+    "moneyflow_asset_ids": 5648,
+    "date_start": "2015-01-05",
+    "date_end": "2026-06-15",
+    "blockers": [],
+    "warnings": [
+      "extreme_return_rows_present",
+      "moneyflow_symbol_coverage_below_bars"
+    ],
+    "warning_policy": "Warnings must be carried into prescreen documentation and cannot be interpreted as alpha evidence."
+  },
+  "candidate_generation_policy": {
+    "pre_register_every_candidate": true,
+    "record_rejected_candidates": true,
+    "parameter_grid_allowed": false,
+    "portfolio_grid_allowed": false,
+    "promotion_allowed": false,
+    "active_candidate_count": 5,
+    "planned_test_count": 5,
+    "multiple_testing_accounting_rule": "Every formula, sign, lag, horizon, or window variant must be preregistered and counted before screening."
+  },
+  "evaluation_gate": {
+    "required_metrics": [
+      "point_in_time_ann_date_to_signal_date_alignment",
+      "candidate_coverage_by_year_and_symbol",
+      "industry_neutral_ic_5d_20d",
+      "size_liquidity_neutral_ic_5d_20d",
+      "style_residual_ic_5d_20d",
+      "quantile_monotonicity",
+      "yearly_ic_stability",
+      "regime_coverage_breakout",
+      "manifest_warning_carry_forward",
+      "cost_capacity_preflight_if_prescreen_lead_exists",
+      "deflated_sharpe_or_fdr",
+      "purged_cpcv_or_walk_forward_preflight",
+      "future_function_static_audit",
+      "parameter_sensitivity_heatmap"
+    ],
+    "fixed_horizons": [
+      5,
+      20
+    ],
+    "multiple_testing_accounting_required": true,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "promotion_allowed": false,
+    "final_holdout_available_for_tuning": false
+  },
+  "promotion_policy": {
+    "promotion_allowed": false,
+    "portfolio_backtest_allowed_before_prescreen": false,
+    "requires_data_source_availability_proof": true,
+    "requires_long_cycle_replay": true,
+    "requires_same_parameter_full_sample": true,
+    "requires_full_sample_regime_coverage": true,
+    "requires_walk_forward": true,
+    "requires_cost_capacity_gate": true,
+    "requires_regime_coverage": true,
+    "requires_no_lookahead_audit": true,
+    "requires_future_function_static_audit": true,
+    "requires_overfit_multiple_testing_control": true,
+    "requires_overlap_adjusted_statistics": true,
+    "requires_parameter_sensitivity": true,
+    "requires_parameter_sensitivity_heatmap": true,
+    "requires_deflated_sharpe_or_fdr": true,
+    "requires_cpcv_or_purged_walk_forward": true,
+    "requires_white_reality_check_or_multiple_test_adjustment": true,
+    "requires_profit_drawdown_winrate_report": true,
+    "requires_final_holdout_read_once": true,
+    "requires_tradeability_survivorship_audit": true,
+    "requires_industry_style_neutralization": true,
+    "requires_source_performance_evidence": true
+  },
+  "family_rotation_policy": {
+    "current_family_id": "financial_reporting_timeliness",
+    "current_family_round_count": 1,
+    "max_rounds_before_review": 3,
+    "three_round_review_completed": true,
+    "hibernated_families": [
+      {
+        "family": "forecast_express_disagreement_after_round268_zero_research_leads",
+        "reason": "Prior forecast/express disagreement prescreen produced zero usable research leads."
+      },
+      {
+        "family": "accounting_quality_realized_statement_formula_mutations",
+        "reason": "Prior realized statement formula mutations lacked robust residual leads and must not be treated as this PIT timeliness family."
+      }
+    ],
+    "blocked_families": []
+  },
+  "candidates": [
+    {
+      "factor_name": "frt_reporting_lag_short",
+      "family": "financial_reporting_timeliness",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "formula": "negative cross-sectional rank of report_lag_days = ann_date - end_date, evaluated only from the first valid trading date after ann_date",
+      "hypothesis_source": "Round690 PIT financial statement cache with ann_date and report-period end_date; disclosure-timeliness and information-opacity literature.",
+      "economic_rationale": "Shorter reporting lag can proxy stronger internal controls, lower opacity, and faster information release when shifted to a later tradable signal date.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "frt_reporting_lag_improvement_4q",
+      "family": "financial_reporting_timeliness",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "formula": "same-quarter year-over-year improvement in report_lag_days, where higher score means the current report arrives faster than four quarters earlier",
+      "hypothesis_source": "Round690 PIT financial statement cache; reporting process improvement and disclosure-quality intuition.",
+      "economic_rationale": "Improving reporting discipline may indicate better operating cadence or disclosure quality, but must be tested with industry and style residual controls.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "frt_reporting_lag_stability_8q",
+      "family": "financial_reporting_timeliness",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "formula": "negative trailing eight-quarter standard deviation of report_lag_days, shifted to the first valid trading date after ann_date",
+      "hypothesis_source": "Round690 PIT financial statement cache; stable reporting cadence as a disclosure-process quality proxy.",
+      "economic_rationale": "Stable reporting cadence can reduce uncertainty and event-timing noise, but may be redundant with industry and company maturity controls.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "frt_early_report_quality_combo",
+      "family": "financial_reporting_timeliness",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "formula": "frozen equal-weight composite of timely reporting and PIT-safe realized quality or cash-conversion rank, used only when required columns are present",
+      "hypothesis_source": "Round690 PIT financial statement cache; accounting-quality and timely-disclosure joint hypothesis.",
+      "economic_rationale": "Timeliness is more plausible as an alpha source when paired with realized quality, reducing the risk of measuring only a calendar artifact.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    },
+    {
+      "factor_name": "frt_late_reporter_risk_avoidance",
+      "family": "financial_reporting_timeliness",
+      "market": "CN",
+      "asset_type": "stock",
+      "registration_status": "pre_registered",
+      "formula": "negative score for extreme late reporters after their announcement is observable; no same-day or period-end-only signal is allowed",
+      "hypothesis_source": "Round690 PIT financial statement cache; late disclosure as an information-opacity, weak-control, or operating-friction risk proxy.",
+      "economic_rationale": "Very late reporting may identify opacity or governance friction that is compensated through weaker subsequent returns after controls.",
+      "portfolio_backtest_allowed": false,
+      "promotion_allowed": false
+    }
+  ],
+  "next_gate_if_cleared": "round691_financial_reporting_timeliness_pit_residual_prescreen_fixed_5d_20d",
+  "safety": "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+}

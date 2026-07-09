@@ -5439,3 +5439,27 @@ Docs:
 - `docs/research/ROUND690_NEXT_STEPS_CHECKLIST.md`
 
 Decision: Round690 cleared the financial reporting timeliness source gate. Stop source-only backfill for this family and move to a dedicated factor-batch candidate-plan branch from merged `main`. Run preregistration plus `scripts/run_factor_mining_candidate_plan_gate.py` before any IC screen. Portfolio grids, promotion, sign/window tuning, mixed-window harvesting, and 2026 final-holdout reads remain blocked.
+
+## Round691 Financial Reporting Timeliness Candidate Plan Gate
+
+Round691 started from the clean, merged `main` state after Round690 and used the CN stock factor-batch branch prefix required by the startup gate:
+
+- Active branch: `codex/factor-batch-cn-stock-financial-reporting-timeliness-round691-20260709`.
+- Startup context selected `office_desktop` / `factor_batch`.
+- Quant PM startup gate status: `ready`, blockers `[]`.
+- Factor mining startup gate status: `cleared`, blockers `[]`.
+- CN stock data manifest status: `review_required`, blockers `[]`, warnings `extreme_return_rows_present` and `moneyflow_symbol_coverage_below_bars`.
+- Candidate plan config: `configs/factor_mining_candidate_plan_round691_financial_reporting_timeliness_20260709.json`.
+- Candidate plan gate result: `research_ready`, candidate plan cleared true, research screen allowed true, portfolio grid allowed false, promotion allowed false, blockers `[]`.
+- Candidate plan summary: 5 active candidates, 5 unique names, 9 / 9 complete control areas, 0 blocked control areas.
+- Preregistered candidates: `frt_reporting_lag_short`, `frt_reporting_lag_improvement_4q`, `frt_reporting_lag_stability_8q`, `frt_early_report_quality_combo`, `frt_late_reporter_risk_avoidance`.
+- Generated `data\reports` evidence remains local and uncommitted.
+- No IC screen, residual prescreen, portfolio grid, promotion gate, sign/window tuning, mixed-window harvesting, live-trading work, or 2026 final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round691_financial_reporting_timeliness_candidate_plan_gate_2026-07-09.md`
+- `docs/superpowers/specs/2026-07-09-round691-financial-reporting-timeliness-design.md`
+- `docs/superpowers/plans/2026-07-09-round691-financial-reporting-timeliness-candidate-plan.md`
+
+Decision: Round691 clears the preregistered candidate plan gate for `financial_reporting_timeliness`. The next allowed action is a specialized PIT financial reporting timeliness prescreen with fixed 5D and 20D horizons, strict `signal_date > ann_date` proof, industry/style residual controls, multiple-testing accounting, and manifest-warning carry-forward. Portfolio grids, promotion, sign/window tuning, mixed-window harvesting, live trading work, and 2026 final-holdout reads remain blocked.
