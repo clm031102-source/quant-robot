@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round704_local_source_queue_audit_tooling_2026-07-09.md`
 - `docs/research/cn_stock_round703_local_source_queue_audit_2026-07-09.md`
 - `docs/research/cn_stock_round702_analyst_target_upside_robustness_diagnostic_2026-07-09.md`
 - `docs/research/cn_stock_round701_analyst_report_revision_june_extension_2026-07-09.md`
@@ -5655,3 +5656,24 @@ Docs:
 - `docs/research/cn_stock_round703_local_source_queue_audit_2026-07-09.md`
 
 Decision: do not run another no-provider factor batch today from the closed local queue. After `report_rc` quota resets, run one analyst-report monthly cache preflight for July 2024 and, only if allowed, send one provider request and rerun the same frozen analyst prescreen. If provider use is unavailable, continue only source governance or validation-only work under the appropriate task mode.
+
+## Round704 Local Source Queue Audit Tooling
+
+Round704 turned the Round703 local-source queue decision into a repeatable code audit after the July 2024 analyst-report quota preflight remained blocked.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Quant PM startup gate: `ready`; primary market `CN_ETF`; blockers `[]`.
+- CN stock factor-mining startup gate: `cleared`.
+- July 2024 analyst-report quota preflight: `blocked` by `daily_provider_request_budget_exhausted`; counted request windows `2`, remaining windows `0`.
+- Added `src/quant_robot/ops/cn_stock_local_source_queue_audit.py`.
+- Added `scripts/run_cn_stock_local_source_queue_audit.py`.
+- Added unit and CLI tests for the new audit.
+- Real CLI output under `data/reports/round704_local_source_queue_audit_20260709`: status `blocked`, source count `13`, active source count `1`, evidence-ready active source count `1`, provider-ready source count `1`, no-provider-ready source count `0`, hibernated or closed source count `10`.
+- Blockers: `no_local_no_provider_source_ready`, `report_rc_quota_blocked`.
+- Next action: `wait_for_report_rc_quota_reset_then_analyst_monthly_cache_preflight`.
+
+Docs:
+
+- `docs/research/cn_stock_round704_local_source_queue_audit_tooling_2026-07-09.md`
+
+Decision: no no-provider factor batch should run from the local source queue. The only active source is analyst-report revision accumulation, and it remains blocked until `report_rc` quota resets. Continue source-governance work only, or wait for quota reset before a narrow July 2024 analyst monthly cache preflight.
