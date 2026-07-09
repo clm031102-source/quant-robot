@@ -170,6 +170,25 @@ def default_source_queue_definitions() -> list[SourceQueueDefinition]:
             "Daily-basic direct carry/valuation had IC fragments but failed shape, coverage, or strict gates.",
         ),
         SourceQueueDefinition(
+            "calendar_seasonality",
+            "hibernated",
+            False,
+            "do_not_reenter_pre_holiday_or_calendar_windows_after_round165_failure",
+            (
+                "pre_holiday_window_tuning",
+                "calendar_bucket_grid",
+                "cost_or_capacity_assumption_rescue",
+                "walk_forward_after_round165_failure",
+                "portfolio_grid",
+            ),
+            "round163_165_calendar_seasonality_cost_capacity_failure",
+            (
+                "The only calendar residual lead failed Round165 cost/capacity, overlap-quality, holding-day, "
+                "and larger-capital capacity gates; do not revive it through window or portfolio tuning."
+            ),
+            report_globs=("cn_calendar_pre_holiday_cost_capacity_preflight_round165_*",),
+        ),
+        SourceQueueDefinition(
             "low_turnover_public_technical_alpha101",
             "hibernated",
             False,

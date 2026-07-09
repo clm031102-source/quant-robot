@@ -106,6 +106,36 @@ class CnStockLocalSourceQueueAuditTests(unittest.TestCase):
             "wait_for_report_rc_quota_reset_then_analyst_monthly_cache_preflight",
         )
 
+    def test_calendar_seasonality_stays_hibernated_after_cost_capacity_failure(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            processed = root / "processed"
+            reports = root / "reports"
+            (processed / "round701_analyst_report_revision_cache_202406_20260709").mkdir(parents=True)
+            (reports / "round701_analyst_report_revision_cache_202406_20260709").mkdir(parents=True)
+            (reports / "cn_calendar_pre_holiday_cost_capacity_preflight_round165_20260623").mkdir(parents=True)
+
+            packet = build_cn_stock_local_source_queue_audit(
+                processed_root=processed,
+                reports_root=reports,
+                provider_request_allowed=False,
+            )
+
+        rows = {row["source_id"]: row for row in packet["source_rows"]}
+        calendar_row = rows["calendar_seasonality"]
+        self.assertEqual(calendar_row["status"], "hibernated")
+        self.assertTrue(calendar_row["evidence_present"])
+        self.assertFalse(calendar_row["provider_required"])
+        self.assertFalse(calendar_row["local_prescreen_allowed"])
+        self.assertEqual(
+            calendar_row["allowed_next_action"],
+            "do_not_reenter_pre_holiday_or_calendar_windows_after_round165_failure",
+        )
+        self.assertIn("pre_holiday_window_tuning", calendar_row["blocked_actions"])
+        self.assertIn("walk_forward_after_round165_failure", calendar_row["blocked_actions"])
+        self.assertEqual(packet["summary"]["no_provider_ready_source_count"], 0)
+        self.assertFalse(packet["decision"]["no_provider_factor_batch_allowed"])
+
     def test_missing_active_source_evidence_is_reported_as_blocker(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
