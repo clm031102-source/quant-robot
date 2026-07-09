@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 from dataclasses import asdict, dataclass
 from datetime import date
 from pathlib import Path
@@ -19,6 +20,10 @@ SOURCE_ROW_COLUMNS = (
     "local_prescreen_allowed",
     "matched_processed_paths",
     "matched_report_paths",
+    "matched_prescreen_paths",
+    "latest_source_cache_period",
+    "latest_prescreen_period",
+    "local_prescreen_current",
     "allowed_next_action",
     "blocked_actions",
     "latest_evidence",
@@ -41,6 +46,7 @@ class SourceQueueDefinition:
     rationale: str
     processed_globs: tuple[str, ...] = ()
     report_globs: tuple[str, ...] = ()
+    prescreen_globs: tuple[str, ...] = ()
     evidence_required: bool = False
 
 
@@ -63,6 +69,7 @@ def default_source_queue_definitions() -> list[SourceQueueDefinition]:
             ),
             processed_globs=("round70*_analyst_report_revision_cache_*",),
             report_globs=("round70*_analyst_report_revision_cache_*",),
+            prescreen_globs=("round*_analyst_report_revision_*prescreen_*",),
             evidence_required=True,
         ),
         SourceQueueDefinition(
@@ -439,18 +446,21 @@ def render_cn_stock_local_source_queue_audit_markdown(packet: dict[str, Any]) ->
             "",
             "## Source Rows",
             "",
-            "| Source | Status | Provider Required | Evidence Present | Local Prescreen Allowed | Allowed Next Action | Blocked Actions |",
-            "|---|---|---:|---:|---:|---|---|",
+            "| Source | Status | Provider Required | Evidence Present | Local Prescreen Allowed | Latest Cache | Latest Prescreen | Prescreen Current | Allowed Next Action | Blocked Actions |",
+            "|---|---|---:|---:|---:|---|---|---:|---|---|",
         ]
     )
     for row in _list_of_dicts(packet.get("source_rows")):
         lines.append(
-            "| {source_id} | {status} | {provider_required} | {evidence_present} | {local_prescreen_allowed} | {allowed_next_action} | {blocked_actions} |".format(
+            "| {source_id} | {status} | {provider_required} | {evidence_present} | {local_prescreen_allowed} | {cache_period} | {prescreen_period} | {prescreen_current} | {allowed_next_action} | {blocked_actions} |".format(
                 source_id=row.get("source_id", ""),
                 status=row.get("status", ""),
                 provider_required=row.get("provider_required", False),
                 evidence_present=row.get("evidence_present", False),
                 local_prescreen_allowed=row.get("local_prescreen_allowed", False),
+                cache_period=row.get("latest_source_cache_period", ""),
+                prescreen_period=row.get("latest_prescreen_period", ""),
+                prescreen_current=row.get("local_prescreen_current", False),
                 allowed_next_action=str(row.get("allowed_next_action", "")).replace("|", "/"),
                 blocked_actions=", ".join(_list(row.get("blocked_actions"))),
             )
@@ -466,6 +476,13 @@ def _build_source_row(
 ) -> dict[str, Any]:
     processed_matches = _match_globs(processed_root, definition.processed_globs)
     report_matches = _match_globs(reports_root, definition.report_globs)
+    prescreen_matches = _match_globs(reports_root, definition.prescreen_globs)
+    period_state = _source_period_state(
+        definition=definition,
+        processed_matches=processed_matches,
+        report_matches=report_matches,
+        prescreen_matches=prescreen_matches,
+    )
     evidence_present = True
     if definition.evidence_required:
         required_evidence = []
@@ -485,6 +502,8 @@ def _build_source_row(
         "status": status,
         "matched_processed_paths": [str(path) for path in processed_matches],
         "matched_report_paths": [str(path) for path in report_matches],
+        "matched_prescreen_paths": [str(path) for path in prescreen_matches],
+        **period_state,
         "evidence_present": evidence_present,
         "local_prescreen_allowed": local_prescreen_allowed,
     }
@@ -558,9 +577,81 @@ def _local_prescreen_next_action(
 ) -> str:
     if not local_prescreen_ready_rows:
         return "restore_active_source_evidence_before_cached_prescreen"
+    if any(row.get("local_prescreen_current") is not True for row in local_prescreen_ready_rows):
+        if provider_ready_rows and not provider_request_allowed:
+            return "run_cached_local_prescreen_then_wait_for_report_rc_quota_reset"
+        return "run_cached_local_prescreen"
+    if provider_ready_rows and provider_request_allowed:
+        return "analyst_monthly_cache_preflight_then_frozen_prescreen"
     if provider_ready_rows and not provider_request_allowed:
-        return "run_cached_local_prescreen_then_wait_for_report_rc_quota_reset"
-    return "run_cached_local_prescreen"
+        return "local_prescreen_current_wait_for_report_rc_quota_reset_then_analyst_monthly_cache_preflight"
+    return "local_prescreen_current_review_next_source_extension"
+
+
+def _source_period_state(
+    *,
+    definition: SourceQueueDefinition,
+    processed_matches: list[Path],
+    report_matches: list[Path],
+    prescreen_matches: list[Path],
+) -> dict[str, Any]:
+    if definition.source_id != "analyst_report_revision":
+        return {
+            "latest_source_cache_period": "",
+            "latest_prescreen_period": "",
+            "local_prescreen_current": False,
+        }
+    cache_period = _latest_cache_period([*processed_matches, *report_matches])
+    prescreen_period = _latest_analyst_prescreen_period(prescreen_matches)
+    return {
+        "latest_source_cache_period": cache_period,
+        "latest_prescreen_period": prescreen_period,
+        "local_prescreen_current": bool(cache_period and prescreen_period and prescreen_period >= cache_period),
+    }
+
+
+def _latest_cache_period(paths: list[Path]) -> str:
+    periods: list[str] = []
+    for path in paths:
+        match = re.search(r"analyst_report_revision_cache_(20\d{4})", path.name)
+        if match:
+            periods.append(match.group(1))
+    return max(periods) if periods else ""
+
+
+def _latest_analyst_prescreen_period(paths: list[Path]) -> str:
+    periods: list[str] = []
+    for path in paths:
+        periods.extend(_prescreen_periods_from_report_json(path))
+        periods.extend(_prescreen_periods_from_path_name(path.name))
+    return max(periods) if periods else ""
+
+
+def _prescreen_periods_from_report_json(path: Path) -> list[str]:
+    report_path = path / "analyst_report_revision_prescreen.json" if path.is_dir() else path
+    if not report_path.exists():
+        return []
+    try:
+        packet = json.loads(report_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+    max_report_date = str(_dict(packet.get("data_window")).get("max_report_date", ""))
+    period = _yyyymm_from_date(max_report_date)
+    return [period] if period else []
+
+
+def _prescreen_periods_from_path_name(name: str) -> list[str]:
+    periods: list[str] = []
+    for match in re.finditer(r"_(20\d{4})_(20\d{4})_", name):
+        periods.append(match.group(2))
+    return periods
+
+
+def _yyyymm_from_date(value: str) -> str:
+    match = re.search(r"(20\d{2})[-_/]?([01]\d)", value)
+    if not match:
+        return ""
+    return f"{match.group(1)}{match.group(2)}"
 
 
 def _dict(value: Any) -> dict[str, Any]:

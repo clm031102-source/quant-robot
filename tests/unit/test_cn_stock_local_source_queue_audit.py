@@ -69,6 +69,36 @@ class CnStockLocalSourceQueueAuditTests(unittest.TestCase):
             "analyst_monthly_cache_preflight_then_frozen_prescreen",
         )
 
+    def test_local_prescreen_next_action_waits_when_latest_cache_is_already_prescreened(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            processed = root / "processed"
+            reports = root / "reports"
+            (processed / "round701_analyst_report_revision_cache_202406_20260709").mkdir(parents=True)
+            (reports / "round701_analyst_report_revision_cache_202406_20260709").mkdir(parents=True)
+            prescreen = reports / "round729_analyst_report_revision_jan_jun_local_prescreen_20260709"
+            prescreen.mkdir(parents=True)
+            (prescreen / "analyst_report_revision_prescreen.json").write_text(
+                json.dumps({"data_window": {"max_report_date": "2024-06-30"}}),
+                encoding="utf-8",
+            )
+
+            packet = build_cn_stock_local_source_queue_audit(
+                processed_root=processed,
+                reports_root=reports,
+                provider_request_allowed=False,
+            )
+
+        rows = {row["source_id"]: row for row in packet["source_rows"]}
+        analyst_row = rows["analyst_report_revision"]
+        self.assertEqual(analyst_row["latest_source_cache_period"], "202406")
+        self.assertEqual(analyst_row["latest_prescreen_period"], "202406")
+        self.assertTrue(analyst_row["local_prescreen_current"])
+        self.assertEqual(
+            packet["decision"]["local_prescreen_next_action"],
+            "local_prescreen_current_wait_for_report_rc_quota_reset_then_analyst_monthly_cache_preflight",
+        )
+
     def test_lpr_macro_regime_source_stays_maintenance_only_after_walk_forward_rejection(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
