@@ -6526,3 +6526,25 @@ Docs:
 - `docs/research/cn_stock_round743_non_lpr_source_gate_default_readiness_refresh_2026-07-09.md`
 
 Decision: default non-LPR source selection now uses the current post-LPR-closure readiness evidence. Analyst-report revision remains selected but blocked; no full factor batch is allowed.
+
+## Round744 Analyst Source Extension Priority Gate
+
+Round744 converted the current analyst-report revision evidence into a repeatable source-extension priority gate.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- New op and CLI: `src/quant_robot/ops/analyst_report_source_extension_priority_gate.py` and `scripts/run_analyst_report_source_extension_priority_gate.py`.
+- The gate consumes the Round743 non-LPR source gate and the Round729 analyst local prescreen, ranks frozen analyst rows, penalizes missing year coverage, and writes the next source-extension priority without permitting provider use while quota is blocked.
+- Real output wrote `data/reports/round744_analyst_source_extension_priority_gate_20260709`.
+- Result: status `blocked_waiting_for_quota`, priority source `analyst_report_revision`, priority factor `analyst_target_upside_60`, priority horizon 5, priority score 4.4664, latest report date 2024-06-30.
+- Provider cache allowed now false; cache next month after quota reset true; frozen prescreen required true.
+- Formula tuning false, window tuning false, portfolio grid false, promotion false, live boundary false.
+- Blockers: `provider_quota_preflight_blocked` and `priority_row_year_coverage_below_gate`.
+- Top priority rows are `analyst_target_upside_60` H5, `analyst_target_upside_60` H20, `analyst_revision_target_composite_90` H20, and `analyst_revision_target_composite_90` H5; EPS/NP rows are watch-only because they are not FDR-significant.
+- Focused tests: analyst source extension priority gate and CLI `5 passed`.
+- No provider download, new analyst cache, factor batch, portfolio grid, promotion gate, ready signal snapshot, paper simulation, broker access, order placement, or final-holdout tuning occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round744_analyst_source_extension_priority_gate_2026-07-09.md`
+
+Decision: after quota reset, cache the next analyst-report month and rerun the same frozen prescreen with `analyst_target_upside_60` H5 as the priority diagnostic row. Do not tune formulas/windows or run portfolio/promotion/paper/live paths from current one-year evidence.
