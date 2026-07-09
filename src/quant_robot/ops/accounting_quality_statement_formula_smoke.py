@@ -77,6 +77,30 @@ FORMULA_SPECS: list[dict[str, Any]] = [
         "economic_direction": "profitability_acceleration_without_balance_sheet_expansion_better",
         "required_columns": ["asset_id", "netprofit", "total_assets"],
     },
+    {
+        "factor_name": "swcp_cash_current_liability_improvement",
+        "formula": "delta_4q(c_cash_equ_end_period / total_cur_liab)",
+        "economic_direction": "improving_cash_current_liability_coverage_better",
+        "required_columns": ["asset_id", "c_cash_equ_end_period", "total_cur_liab"],
+    },
+    {
+        "factor_name": "swcp_operating_working_capital_release",
+        "formula": "-delta_4q((inventories + accounts_receiv - accounts_pay) / total_assets)",
+        "economic_direction": "falling_operating_working_capital_lockup_better",
+        "required_columns": ["asset_id", "inventories", "accounts_receiv", "accounts_pay", "total_assets"],
+    },
+    {
+        "factor_name": "swcp_inventory_receivable_efficiency_improvement",
+        "formula": "-delta_4q((inventories + accounts_receiv) / total_revenue)",
+        "economic_direction": "falling_inventory_receivable_intensity_better",
+        "required_columns": ["asset_id", "inventories", "accounts_receiv", "total_revenue"],
+    },
+    {
+        "factor_name": "swcp_free_cashflow_liability_buffer",
+        "formula": "free_cashflow / total_liab + c_cash_equ_end_period / total_cur_liab",
+        "economic_direction": "higher_free_cashflow_and_cash_liability_buffer_better",
+        "required_columns": ["free_cashflow", "total_liab", "c_cash_equ_end_period", "total_cur_liab"],
+    },
 ]
 
 
@@ -261,6 +285,13 @@ def _prepare_statement_frame(frame: pd.DataFrame) -> pd.DataFrame:
         "total_liab",
         "total_cur_assets",
         "total_cur_liab",
+        "inventories",
+        "accounts_receiv",
+        "accounts_pay",
+        "total_revenue",
+        "revenue",
+        "free_cashflow",
+        "c_cash_equ_end_period",
     ]:
         if column in output:
             output[column] = pd.to_numeric(output[column], errors="coerce")
@@ -314,6 +345,30 @@ def _add_formula_values(frame: pd.DataFrame) -> pd.DataFrame:
         stress_relief = -(liability_stress - liability_stress.groupby(output["asset_id"]).shift(4))
         cash_confirmation = (output["n_cashflow_act"] - output["netprofit"]) / denominator
         output["aq_balance_sheet_stress_relief"] = stress_relief + cash_confirmation
+    if {"asset_id", "c_cash_equ_end_period", "total_cur_liab"}.issubset(output.columns):
+        cash_current_liability = output["c_cash_equ_end_period"] / output["total_cur_liab"].replace(0, np.nan)
+        output["swcp_cash_current_liability_improvement"] = (
+            cash_current_liability - cash_current_liability.groupby(output["asset_id"]).shift(4)
+        )
+    if {"asset_id", "inventories", "accounts_receiv", "accounts_pay", "total_assets"}.issubset(output.columns):
+        operating_working_capital = output["inventories"] + output["accounts_receiv"] - output["accounts_pay"]
+        working_capital_lockup = operating_working_capital / output["total_assets"].replace(0, np.nan)
+        output["swcp_operating_working_capital_release"] = -(
+            working_capital_lockup - working_capital_lockup.groupby(output["asset_id"]).shift(4)
+        )
+    revenue_column = "total_revenue" if "total_revenue" in output.columns else "revenue"
+    if {"asset_id", "inventories", "accounts_receiv", revenue_column}.issubset(output.columns):
+        inventory_receivable_intensity = (
+            output["inventories"] + output["accounts_receiv"]
+        ) / output[revenue_column].replace(0, np.nan)
+        output["swcp_inventory_receivable_efficiency_improvement"] = -(
+            inventory_receivable_intensity - inventory_receivable_intensity.groupby(output["asset_id"]).shift(4)
+        )
+    if {"free_cashflow", "total_liab", "c_cash_equ_end_period", "total_cur_liab"}.issubset(output.columns):
+        output["swcp_free_cashflow_liability_buffer"] = (
+            output["free_cashflow"] / output["total_liab"].replace(0, np.nan)
+            + output["c_cash_equ_end_period"] / output["total_cur_liab"].replace(0, np.nan)
+        )
     return output
 
 

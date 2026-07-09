@@ -324,6 +324,51 @@ class AccountingQualityStatementResidualIcShapePrescreenTests(unittest.TestCase)
         )
         self.assertFalse(result["promotion_policy"]["promotion_allowed"])
 
+    def test_builds_statement_working_capital_pressure_mode_without_old_candidates(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            statement_root = root / "statement"
+            bars_root = root / "bars"
+            daily_basic_root = root / "daily_basic"
+            stock_basic_root = root / "stock_basic"
+            assets = [f"CN_XSHE_{index:06d}" for index in range(8)]
+            _write_statement_inputs(statement_root, _statement_rows(assets))
+            _write_bars(bars_root, _bar_rows(assets))
+            _write_daily_basic(daily_basic_root, assets)
+            _write_stock_basic(stock_basic_root, assets)
+
+            result = build_accounting_quality_statement_residual_ic_shape_prescreen(
+                statement_roots=[statement_root],
+                bars_roots=[bars_root],
+                stock_basic_path=stock_basic_root,
+                daily_basic_roots=[daily_basic_root],
+                horizons=(5,),
+                factor_mode="statement_working_capital_pressure",
+                min_cross_section=4,
+                min_ic_observations=2,
+                min_neutral_ic_t_stat=0.0,
+            )
+
+        self.assertEqual(result["factor_mode"], "statement_working_capital_pressure")
+        self.assertEqual(result["summary"]["candidate_count"], 5)
+        self.assertEqual(
+            result["source_context"]["candidate_family"],
+            "statement_working_capital_pressure",
+        )
+        tested_names = {row["factor_name"] for row in result["results"]}
+        self.assertEqual(
+            tested_names,
+            {
+                "swcp_cash_current_liability_improvement",
+                "swcp_operating_working_capital_release",
+                "swcp_inventory_receivable_efficiency_improvement",
+                "swcp_free_cashflow_liability_buffer",
+                "swcp_balanced_cash_working_capital_pressure",
+            },
+        )
+        self.assertTrue(all(name.startswith("swcp_") for name in tested_names))
+        self.assertFalse(result["promotion_policy"]["promotion_allowed"])
+
     def test_repaired_factor_frame_uses_industry_relative_and_residual_composites(self) -> None:
         raw_factor_frame, stock_basic = _repair_input_frames()
 
@@ -570,6 +615,13 @@ def _statement_rows(asset_ids: list[str]) -> pd.DataFrame:
                     "total_liab": 400.0 + asset_index * 10,
                     "total_cur_assets": 300.0 + period_index * 5 + asset_index,
                     "total_cur_liab": 180.0 + period_index * 2,
+                    "inventories": 80.0 + asset_index * 3 + period_index * 4,
+                    "accounts_receiv": 60.0 + asset_index * 2 + period_index * 3,
+                    "accounts_pay": 45.0 + asset_index + period_index,
+                    "total_revenue": 500.0 + asset_index * 20 + period_index * 12,
+                    "revenue": 495.0 + asset_index * 20 + period_index * 12,
+                    "free_cashflow": 40.0 + asset_index * 5 + period_index * 2,
+                    "c_cash_equ_end_period": 150.0 + asset_index * 8 + period_index * 6,
                 }
             )
     return pd.DataFrame(rows)

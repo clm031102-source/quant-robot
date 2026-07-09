@@ -47,6 +47,12 @@ NEXT_DIRECTION_STATEMENT_PROFITABILITY_REVISION_WITH_LEADS = "round248_accountin
 NEXT_DIRECTION_STATEMENT_PROFITABILITY_REVISION_WITHOUT_LEADS = "round248_rotate_to_external_revision_or_nonfinancial_event_context"
 NEXT_DIRECTION_INDUSTRY_RELATIVE_SURPRISE_WITH_LEADS = "round254_industry_relative_surprise_walk_forward_cost_capacity_regime_preflight"
 NEXT_DIRECTION_INDUSTRY_RELATIVE_SURPRISE_WITHOUT_LEADS = "round254_rotate_after_industry_relative_surprise_residual_ic_shape_failure"
+NEXT_DIRECTION_STATEMENT_WORKING_CAPITAL_PRESSURE_WITH_LEADS = (
+    "round694_statement_working_capital_pressure_walk_forward_cost_capacity_regime_preflight"
+)
+NEXT_DIRECTION_STATEMENT_WORKING_CAPITAL_PRESSURE_WITHOUT_LEADS = (
+    "round694_rotate_after_statement_working_capital_pressure_residual_ic_shape_failure"
+)
 REPAIRED_FACTOR_NAMES = (
     "aq_repaired_industry_relative_cash_accrual_quality",
     "aq_repaired_size_liquidity_residual_asset_growth_quality",
@@ -75,6 +81,16 @@ INDUSTRY_RELATIVE_SURPRISE_FACTOR_NAMES = (
     "aq_industry_relative_profitability_surprise",
     "aq_industry_relative_asset_disciplined_surprise",
     "aq_industry_relative_cash_conversion_surprise",
+)
+STATEMENT_WORKING_CAPITAL_PRESSURE_SOURCE_FACTOR_NAMES = (
+    "swcp_cash_current_liability_improvement",
+    "swcp_operating_working_capital_release",
+    "swcp_inventory_receivable_efficiency_improvement",
+    "swcp_free_cashflow_liability_buffer",
+)
+STATEMENT_WORKING_CAPITAL_PRESSURE_FACTOR_NAMES = (
+    *STATEMENT_WORKING_CAPITAL_PRESSURE_SOURCE_FACTOR_NAMES,
+    "swcp_balanced_cash_working_capital_pressure",
 )
 
 
@@ -105,12 +121,14 @@ def build_accounting_quality_statement_residual_ic_shape_prescreen(
         "statement_event_drift",
         "statement_profitability_revision",
         "industry_relative_surprise",
+        "statement_working_capital_pressure",
     }
     if factor_mode not in valid_factor_modes:
         raise ValueError(
             "factor_mode must be 'raw', 'repaired', 'new_substructure', "
             "'new_substructure_directional_audit', 'statement_event_drift', "
-            "'statement_profitability_revision', or 'industry_relative_surprise'"
+            "'statement_profitability_revision', 'industry_relative_surprise', "
+            "or 'statement_working_capital_pressure'"
         )
     statement_root_paths = [Path(root) for root in statement_roots]
     bars_root_paths = [Path(root) for root in bars_roots]
@@ -166,6 +184,13 @@ def build_accounting_quality_statement_residual_ic_shape_prescreen(
             min_cross_section=min_cross_section,
         )
         candidate_specs = _industry_relative_surprise_candidate_specs()
+        expected_candidate_count = len(candidate_specs)
+    elif factor_mode == "statement_working_capital_pressure":
+        context_factor_frame = build_statement_working_capital_pressure_factor_frame(
+            context_factor_frame,
+            min_cross_section=min_cross_section,
+        )
+        candidate_specs = _statement_working_capital_pressure_candidate_specs()
         expected_candidate_count = len(candidate_specs)
     else:
         context_factor_frame = _filter_factor_names(context_factor_frame, RAW_CASH_ACCRUAL_FACTOR_NAMES)
@@ -269,6 +294,18 @@ def build_accounting_quality_statement_residual_ic_shape_prescreen(
             NEXT_DIRECTION_INDUSTRY_RELATIVE_SURPRISE_WITH_LEADS
             if int(result["summary"].get("research_lead_count", 0))
             else NEXT_DIRECTION_INDUSTRY_RELATIVE_SURPRISE_WITHOUT_LEADS
+        )
+    if factor_mode == "statement_working_capital_pressure":
+        result["source_context"]["candidate_family"] = "statement_working_capital_pressure"
+        result["source_context"]["hypothesis_source"] = (
+            "PIT statement operating working-capital pressure fields: cash coverage, inventory, receivables, "
+            "payables, free cashflow, and liability buffers; no old profitability revision or timeliness reuse"
+        )
+        result["summary"]["source_raw_factor_rows_before_statement_working_capital_pressure"] = int(len(raw_factor_frame))
+        result["summary"]["next_direction"] = (
+            NEXT_DIRECTION_STATEMENT_WORKING_CAPITAL_PRESSURE_WITH_LEADS
+            if int(result["summary"].get("research_lead_count", 0))
+            else NEXT_DIRECTION_STATEMENT_WORKING_CAPITAL_PRESSURE_WITHOUT_LEADS
         )
     result["markdown"] = render_accounting_quality_statement_residual_ic_shape_prescreen_markdown(result)
     return result
@@ -692,6 +729,41 @@ def _industry_relative_surprise_candidate_specs() -> list[dict[str, Any]]:
     ]
 
 
+def _statement_working_capital_pressure_candidate_specs() -> list[dict[str, Any]]:
+    source_specs = {
+        str(spec["factor_name"]): spec
+        for spec in FORMULA_SPECS
+        if str(spec["factor_name"]) in STATEMENT_WORKING_CAPITAL_PRESSURE_SOURCE_FACTOR_NAMES
+    }
+    specs = []
+    for factor_name in STATEMENT_WORKING_CAPITAL_PRESSURE_SOURCE_FACTOR_NAMES:
+        spec = source_specs.get(factor_name, {})
+        specs.append(
+            {
+                "factor_name": factor_name,
+                "family": "statement_working_capital_pressure",
+                "formula": str(spec.get("formula", "")),
+                "hypothesis_source": (
+                    "Round693 PIT statement working-capital pressure family; tests cash-buffer, "
+                    "operating working-capital, and free-cashflow liability coverage after announcement"
+                ),
+            }
+        )
+    specs.append(
+        {
+            "factor_name": "swcp_balanced_cash_working_capital_pressure",
+            "family": "statement_working_capital_pressure",
+            "formula": (
+                "equal-weight same-date percentile-rank composite of "
+                "swcp_cash_current_liability_improvement, swcp_operating_working_capital_release, "
+                "and swcp_free_cashflow_liability_buffer"
+            ),
+            "hypothesis_source": "Round693 frozen composite; no optimized weights or parameter tuning",
+        }
+    )
+    return specs
+
+
 def _repaired_candidate_specs() -> list[dict[str, Any]]:
     return [
         {
@@ -808,6 +880,48 @@ def build_accounting_quality_statement_industry_relative_surprise_factor_frame(
             industry_relative = source_rank - industry_mean_rank
             industry_relative.loc[~valid_peer_group] = pd.NA
             pieces.append(_repaired_piece(working, factor_name, industry_relative))
+    pieces = [piece for piece in pieces if not piece.empty]
+    if not pieces:
+        return _empty_factor_frame()
+    return (
+        pd.concat(pieces, ignore_index=True)
+        .sort_values(["factor_name", "date", "asset_id"])
+        .reset_index(drop=True)
+    )
+
+
+def build_statement_working_capital_pressure_factor_frame(
+    raw_factor_frame: pd.DataFrame,
+    *,
+    min_cross_section: int = 30,
+) -> pd.DataFrame:
+    if raw_factor_frame.empty:
+        return _empty_factor_frame()
+    wide = _wide_raw_accounting_quality_frame(raw_factor_frame)
+    if wide.empty:
+        return _empty_factor_frame()
+    pieces: list[pd.DataFrame] = []
+    for _, date_frame in wide.groupby("date", sort=True):
+        if len(date_frame) < int(min_cross_section):
+            continue
+        working = date_frame.copy()
+        for factor_name in STATEMENT_WORKING_CAPITAL_PRESSURE_SOURCE_FACTOR_NAMES:
+            if factor_name not in working:
+                continue
+            pieces.append(_repaired_piece(working, factor_name, pd.to_numeric(working[factor_name], errors="coerce")))
+        composite_sources = [
+            source
+            for source in [
+                "swcp_cash_current_liability_improvement",
+                "swcp_operating_working_capital_release",
+                "swcp_free_cashflow_liability_buffer",
+            ]
+            if source in working
+        ]
+        if composite_sources:
+            ranks = [_percentile_rank(working[source]) for source in composite_sources]
+            composite = pd.concat(ranks, axis=1).mean(axis=1)
+            pieces.append(_repaired_piece(working, "swcp_balanced_cash_working_capital_pressure", composite))
     pieces = [piece for piece in pieces if not piece.empty]
     if not pieces:
         return _empty_factor_frame()

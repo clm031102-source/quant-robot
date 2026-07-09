@@ -1,8 +1,12 @@
 import tempfile
 import unittest
 from pathlib import Path
+from contextlib import redirect_stdout
+import io
+from unittest.mock import patch
 
 from scripts.run_accounting_quality_statement_residual_ic_shape_prescreen import (
+    main as residual_prescreen_main,
     run_accounting_quality_statement_residual_ic_shape_prescreen_cli,
 )
 from tests.unit.test_accounting_quality_statement_residual_ic_shape_prescreen import (
@@ -207,6 +211,51 @@ class AccountingQualityStatementResidualIcShapePrescreenCliTests(unittest.TestCa
             self.assertEqual(result["summary"]["candidate_count"], 3)
             self.assertFalse(result["promotion_policy"]["promotion_allowed"])
             self.assertTrue((output_dir / "accounting_quality_statement_residual_ic_results.csv").exists())
+
+    def test_main_accepts_statement_working_capital_pressure_factor_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            statement_root = root / "statement"
+            bars_root = root / "bars"
+            daily_basic_root = root / "daily_basic"
+            stock_basic_root = root / "stock_basic"
+            output_dir = root / "output"
+            assets = [f"CN_XSHE_{index:06d}" for index in range(8)]
+            _write_statement_inputs(statement_root, _statement_rows(assets))
+            _write_bars(bars_root, _bar_rows(assets))
+            _write_daily_basic(daily_basic_root, assets)
+            _write_stock_basic(stock_basic_root, assets)
+
+            argv = [
+                "run_accounting_quality_statement_residual_ic_shape_prescreen.py",
+                "--statement-root",
+                str(statement_root),
+                "--bars-root",
+                str(bars_root),
+                "--stock-basic",
+                str(stock_basic_root),
+                "--daily-basic-root",
+                str(daily_basic_root),
+                "--output-dir",
+                str(output_dir),
+                "--horizon",
+                "5",
+                "--factor-mode",
+                "statement_working_capital_pressure",
+                "--min-cross-section",
+                "4",
+                "--min-ic-observations",
+                "2",
+                "--min-neutral-ic-t-stat",
+                "0.0",
+            ]
+            stdout = io.StringIO()
+
+            with patch("sys.argv", argv), redirect_stdout(stdout):
+                residual_prescreen_main()
+
+            self.assertIn('"factor_rows"', stdout.getvalue())
+            self.assertTrue((output_dir / "accounting_quality_statement_residual_ic_shape_prescreen.json").exists())
 
 
 if __name__ == "__main__":
