@@ -76,6 +76,9 @@ class PostRefreshReplayTests(unittest.TestCase):
             root = Path(tmp)
             processed = root / "processed"
             recent_pack = root / "recent_data_refresh_pack.json"
+            startup_gate = root / "startup_gate.json"
+            data_manifest = root / "data_manifest.json"
+            readiness_gate = root / "factor_batch_readiness_gate.json"
             recent_pack.write_text(
                 json.dumps(
                     {
@@ -131,6 +134,10 @@ class PostRefreshReplayTests(unittest.TestCase):
                 report_dir=report_dir,
                 daily_ops_runner=daily_ops_runner,
                 profile_observation_runner=profile_observation_runner,
+                startup_gate_packet=startup_gate,
+                data_manifest_packet=data_manifest,
+                factor_batch_readiness_gate_packet=readiness_gate,
+                allow_review_required_data_manifest=True,
             )
             artifact_exists = (report_dir / "post_refresh_replay_pack.json").exists()
             markdown_exists = (report_dir / "post_refresh_replay_pack.md").exists()
@@ -144,6 +151,10 @@ class PostRefreshReplayTests(unittest.TestCase):
         self.assertEqual(calls["daily"]["run_date"], "2026-06-14")
         self.assertEqual(calls["daily"]["start_date"], "2026-06-01")
         self.assertEqual(calls["daily"]["end_date"], "2026-06-14")
+        self.assertEqual(calls["daily"]["startup_gate_packet"], startup_gate)
+        self.assertEqual(calls["daily"]["data_manifest_packet"], data_manifest)
+        self.assertEqual(calls["daily"]["factor_batch_readiness_gate_packet"], readiness_gate)
+        self.assertTrue(calls["daily"]["allow_review_required_data_manifest"])
         self.assertEqual(calls["observation"]["daily_ops_pack"], report_dir / "daily_ops" / "daily_ops_pack.json")
         self.assertEqual(calls["observation"]["simulation_dir"], report_dir / "daily_ops" / "paper_simulation")
         self.assertEqual(calls["observation"]["run_date"], "2026-06-14")

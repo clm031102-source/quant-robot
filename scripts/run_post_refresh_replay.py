@@ -36,6 +36,14 @@ def run_post_refresh_replay(
     readiness_board: str | Path = DEFAULT_READINESS_BOARD,
     paper_profile_pack: str | Path = DEFAULT_PAPER_PROFILE_PACK,
     run_date: str | None = None,
+    startup_gate_packet: str | Path | None = Path(
+        "data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"
+    ),
+    data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
+    factor_batch_readiness_gate_packet: str | Path | None = Path(
+        "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
+    ),
+    allow_review_required_data_manifest: bool = False,
     portfolio_value: float = 100000.0,
     positions_csv: str | Path | None = None,
     max_drawdown_limit: float | None = None,
@@ -71,6 +79,12 @@ def run_post_refresh_replay(
             run_date=effective_run_date,
             data_root=Path(str(recent_pack.get("output_dir", ""))),
             source="processed-bars",
+            startup_gate_packet=Path(startup_gate_packet) if startup_gate_packet is not None else None,
+            data_manifest_packet=Path(data_manifest_packet) if data_manifest_packet is not None else None,
+            factor_batch_readiness_gate_packet=(
+                Path(factor_batch_readiness_gate_packet) if factor_batch_readiness_gate_packet is not None else None
+            ),
+            allow_review_required_data_manifest=allow_review_required_data_manifest,
             portfolio_value=portfolio_value,
             positions_csv=Path(positions_csv) if positions_csv else None,
             max_drawdown_limit=max_drawdown_limit,
@@ -106,6 +120,19 @@ def main() -> None:
     parser.add_argument("--readiness-board", default=str(DEFAULT_READINESS_BOARD))
     parser.add_argument("--paper-profile-pack", default=str(DEFAULT_PAPER_PROFILE_PACK))
     parser.add_argument("--run-date")
+    parser.add_argument(
+        "--startup-gate-packet",
+        default="data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json",
+    )
+    parser.add_argument(
+        "--data-manifest-packet",
+        default="data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json",
+    )
+    parser.add_argument(
+        "--factor-batch-readiness-gate-packet",
+        default="data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json",
+    )
+    parser.add_argument("--allow-review-required-data-manifest", action="store_true")
     parser.add_argument("--portfolio-value", default=100000.0, type=float)
     parser.add_argument("--positions-csv")
     parser.add_argument("--max-drawdown-limit", default=None, type=float)
@@ -117,6 +144,12 @@ def main() -> None:
         readiness_board=Path(args.readiness_board),
         paper_profile_pack=Path(args.paper_profile_pack),
         run_date=args.run_date,
+        startup_gate_packet=Path(args.startup_gate_packet) if args.startup_gate_packet else None,
+        data_manifest_packet=Path(args.data_manifest_packet) if args.data_manifest_packet else None,
+        factor_batch_readiness_gate_packet=(
+            Path(args.factor_batch_readiness_gate_packet) if args.factor_batch_readiness_gate_packet else None
+        ),
+        allow_review_required_data_manifest=args.allow_review_required_data_manifest,
         portfolio_value=args.portfolio_value,
         positions_csv=Path(args.positions_csv) if args.positions_csv else None,
         max_drawdown_limit=args.max_drawdown_limit,

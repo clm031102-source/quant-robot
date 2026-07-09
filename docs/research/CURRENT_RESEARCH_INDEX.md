@@ -6093,3 +6093,25 @@ Docs:
 - `docs/research/cn_stock_round724_daily_ops_readiness_pass_through_2026-07-09.md`
 
 Decision: future CN processed-bars Daily Ops runs that generate signal or paper-simulation artifacts must provide ready startup, data-manifest, and combined factor-batch readiness packets. The current Round708 readiness packet is blocked, so no CN Daily Ops signal/simulation evidence should be generated until quota/source/candidate readiness clears.
+
+## Round725 Post-Refresh Replay Readiness Pass-Through
+
+Round725 connected post-refresh replay to explicit startup, data-manifest, and combined factor-batch readiness packets when it invokes Daily Ops after a recent data refresh.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Added `--startup-gate-packet`, `--data-manifest-packet`, `--factor-batch-readiness-gate-packet`, and `--allow-review-required-data-manifest` to `scripts/run_post_refresh_replay.py`.
+- When recent data is ready, post-refresh replay now passes those readiness paths to `run_daily_ops`.
+- Existing recent-refresh-not-ready behavior is unchanged.
+- Existing downstream-error behavior is unchanged: validation failures are recorded as a post-refresh replay pack with `status=replay_failed`.
+- Real smoke used temporary CN recent-refresh, promotion, readiness, and profile JSON and stopped on the blocked Round708 readiness packet inside Daily Ops signal snapshot generation.
+- Pack status: `replay_failed`.
+- Error: `post_refresh_downstream_failed: CN signal snapshot factor batch readiness gate is not ready`.
+- Daily Ops child output directory was not created.
+- Focused tests: `3 passed`.
+- No provider download, new factor formula, IC screen, ready signal snapshot, ready paper simulation, advisory ticket generation from a ready packet, order placement, broker access, or final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round725_post_refresh_replay_readiness_pass_through_2026-07-09.md`
+
+Decision: future CN processed-bars post-refresh replay runs must provide ready startup, data-manifest, and combined factor-batch readiness packets before they can produce Daily Ops signal/simulation evidence. The current Round708 readiness packet is blocked, so post-refresh replay may only record downstream failure packs until quota/source/candidate readiness clears.
