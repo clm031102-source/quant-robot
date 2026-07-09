@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round736_lpr_macro_regime_state_conditioned_walk_forward_preflight_2026-07-09.md`
 - `docs/research/cn_stock_round735_lpr_macro_regime_state_conditioned_reference_dedup_2026-07-09.md`
 - `docs/research/cn_stock_round734_lpr_macro_regime_factor_value_reconstruction_smoke_2026-07-09.md`
 - `docs/research/cn_stock_round733_lpr_macro_regime_reference_dedup_preflight_2026-07-09.md`
@@ -6356,3 +6357,26 @@ Docs:
 - `docs/research/cn_stock_round735_lpr_macro_regime_state_conditioned_reference_dedup_2026-07-09.md`
 
 Decision: both `gap_widening` representatives may proceed only to walk-forward preflight. The anomaly equal-weight representative requires an explicit moderate-`realized_vol_20` exposure challenge in that next step. Portfolio grids, promotion gates, paper signals, and live boundaries remain blocked.
+
+## Round736 LPR Macro Regime State-Conditioned Walk-Forward Preflight
+
+Round736 froze the two Round735 `gap_widening` LPR-SHIBOR representatives for the next formal walk-forward validation step and generated the fold plan.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- New op and CLI: `src/quant_robot/ops/lpr_macro_regime_state_conditioned_walk_forward_preflight.py` and `scripts/run_lpr_macro_regime_state_conditioned_walk_forward_preflight.py`.
+- The preflight consumes the Round735 reference-dedup gate, rebuilds Round734 residual factor values, aligns factor values to LPR states, computes candidate-to-candidate factor-value correlations inside `gap_widening`, freezes non-duplicate representatives, and writes a state-date train/test fold plan.
+- Real startup gates passed: Quant PM startup gate `ready`; factor-mining startup gate `cleared`.
+- Real output wrote `data/reports/round736_lpr_macro_regime_state_conditioned_walk_forward_preflight_20260709`.
+- Preflight summary: status `cleared`, 2 reference-dedup candidates, 1 candidate-pair row, 2 frozen walk-forward candidates, 0 cluster duplicates, 0 blocked candidates, max candidate absolute factor-value correlation 0.611, and 2 planned walk-forward folds.
+- Frozen candidate 1: `public_anomaly_residual_equal_weight_20_industry_size_liquidity_vol_residual`, `gap_widening`, 100 state dates, median cross-section 4,039, exposure class `moderate_exposure`, challenge `challenge_realized_vol_20_exposure_in_walk_forward`.
+- Frozen candidate 2: `williams_range_failure_reversal_14_20_industry_size_liquidity_vol_residual`, `gap_widening`, 100 state dates, median cross-section 4,039, exposure class `low_exposure`.
+- Candidate-pair evidence: mean absolute Spearman correlation 0.269, max absolute Spearman correlation 0.611, similarity class `distinct_factor_value`.
+- Fold plan: Fold 1 train 2025-02-20 to 2025-07-28 and test 2025-07-29 to 2025-09-01; Fold 2 train 2025-05-30 to 2025-09-01 and test 2025-09-02 to 2025-09-29.
+- Focused tests: LPR state-conditioned walk-forward preflight and CLI `4 passed`.
+- No provider download, walk-forward return validation, portfolio grid, promotion gate, ready signal snapshot, paper simulation, broker access, order placement, or final-holdout tuning occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round736_lpr_macro_regime_state_conditioned_walk_forward_preflight_2026-07-09.md`
+
+Decision: both `gap_widening` representatives may proceed only to formal walk-forward cost/capacity/regime validation. Parameter expansion, portfolio grids, promotion gates, paper signals, and live boundaries remain blocked.
