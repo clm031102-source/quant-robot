@@ -21,7 +21,7 @@ DEFAULT_ROUND738_ROTATION_GATE = Path(
     "lpr_macro_regime_walk_forward_rejection_rotation_gate.json"
 )
 DEFAULT_READINESS_GATE = Path(
-    "data/reports/round729_factor_batch_readiness_local_prescreen_gate_20260709/"
+    "data/reports/round742_factor_batch_readiness_after_lpr_rejection_20260709/"
     "factor_batch_readiness_gate.json"
 )
 DEFAULT_ANALYST_PRESCREEN = Path(

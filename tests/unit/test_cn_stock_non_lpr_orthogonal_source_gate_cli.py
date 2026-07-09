@@ -9,6 +9,20 @@ from scripts.run_cn_stock_non_lpr_orthogonal_source_gate import main
 
 
 class CNStockNonLPROrthogonalSourceGateCliTests(unittest.TestCase):
+    def test_cli_defaults_to_latest_post_lpr_rejection_readiness_gate(self) -> None:
+        with patch(
+            "scripts.run_cn_stock_non_lpr_orthogonal_source_gate.run_cn_stock_non_lpr_orthogonal_source_gate",
+            return_value={"status": "blocked", "summary": {}, "decision": {"blockers": []}},
+        ) as run_gate:
+            with redirect_stdout(StringIO()):
+                exit_code = main(["--allow-blocked"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn(
+            "round742_factor_batch_readiness_after_lpr_rejection_20260709",
+            str(run_gate.call_args.kwargs["readiness_gate_path"]),
+        )
+
     def test_cli_passes_input_paths_and_output_dir(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

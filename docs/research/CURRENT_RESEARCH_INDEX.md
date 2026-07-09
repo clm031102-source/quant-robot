@@ -6506,3 +6506,23 @@ Docs:
 - `docs/research/cn_stock_round742_factor_batch_readiness_after_lpr_rejection_2026-07-09.md`
 
 Decision: current full factor-batch readiness remains blocked, and the latest readiness evidence correctly prevents repaired LPR data from opening a no-provider factor batch. Continue only analyst source extension after quota reset, cached prescreen governance, or a genuinely new PIT-safe source gate.
+
+## Round743 Non-LPR Source Gate Default Readiness Refresh
+
+Round743 updated the non-LPR orthogonal source gate CLI to default to the latest Round742 readiness packet instead of the stale Round729 packet.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Updated `scripts/run_cn_stock_non_lpr_orthogonal_source_gate.py` and `tests/unit/test_cn_stock_non_lpr_orthogonal_source_gate_cli.py`.
+- New default readiness path: `data/reports/round742_factor_batch_readiness_after_lpr_rejection_20260709/factor_batch_readiness_gate.json`.
+- Red test first proved the CLI still defaulted to Round729; after the change, focused selector/CLI tests passed.
+- Real default run wrote `data/reports/round743_non_lpr_source_gate_default_readiness_refresh_20260709`.
+- Result: status `blocked`, selected source `analyst_report_revision`, source gate selected true, source gate ready false, local cached prescreen allowed true, full factor batch allowed false, provider request allowed false.
+- Blockers remained provider quota, full factor-batch readiness, analyst year coverage, and zero research leads.
+- Focused tests: non-LPR source gate and CLI `6 passed`.
+- No provider download, factor batch, portfolio grid, promotion gate, ready signal snapshot, paper simulation, broker access, order placement, or final-holdout tuning occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round743_non_lpr_source_gate_default_readiness_refresh_2026-07-09.md`
+
+Decision: default non-LPR source selection now uses the current post-LPR-closure readiness evidence. Analyst-report revision remains selected but blocked; no full factor batch is allowed.
