@@ -6233,4 +6233,26 @@ Docs:
 
 - `docs/research/cn_stock_round730_lpr_macro_regime_source_gate_2026-07-09.md`
 
+## Round731 LPR Macro Regime State Prescreen
+
+Round731 implemented and ran the narrow LPR macro regime-control state prescreen requested by Round730.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- New op and CLI: `src/quant_robot/ops/lpr_macro_regime_state_prescreen.py` and `scripts/run_lpr_macro_regime_state_prescreen.py`.
+- The prescreen validates the factor-batch readiness gate, reads local repaired `external_macro_rates`, uses `signal_date = available_date`, computes `lpr_1y - shibor_3m`, and classifies the 60 available-observation gap change into `gap_widening`, `gap_narrowing`, `gap_flat`, and `insufficient_lookback`.
+- Real startup gates passed: Quant PM startup gate `ready`; factor-mining startup gate `cleared`.
+- Real output wrote `data/reports/round731_lpr_macro_regime_state_prescreen_20260709`.
+- Prescreen summary: 1 active candidate, 2 inactive candidates, 343 state rows, 3 states, 2 directional states, 276 non-zero gap changes, 1 ready regime-control candidate, 0 portfolio-grid candidates, 0 promotion candidates.
+- State distribution: `gap_narrowing` 177 dates, `gap_widening` 99 dates, `gap_flat` 7 dates, `insufficient_lookback` 60 dates.
+- PIT audit: 0 available-date violations and 0 raw-date not-before-signal violations in the prescreen window.
+- Candidate result: `lpr_shibor_credit_gap_regime_60` is state-ready for regime-control pairing; `lpr_term_premium_easing_regime_60` and `hk_hold_stability_x_lpr_easing_regime_60` remain inactive.
+- Focused tests: LPR state prescreen and CLI `4 passed`.
+- No provider download, standalone LPR stock rank, portfolio grid, promotion gate, ready signal snapshot, paper simulation, broker access, order placement, or final-holdout tuning occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round731_lpr_macro_regime_state_prescreen_2026-07-09.md`
+
+Decision: `lpr_shibor_credit_gap_regime_60` may proceed only to a pre-registered stock-factor residual-IC-by-regime pairing prescreen. This is not alpha, profitability, portfolio, promotion, or live evidence; all residual, dedup, walk-forward, cost/capacity, regime-coverage, multiple-testing, and final-holdout gates remain required.
+
 Decision: LPR macro-rate source is ready for a dedicated residual/regime-control prescreen only for `lpr_shibor_credit_gap_regime_60`. Do not reuse the old market-regime-temperature prescreen blindly because it depends on daily-basic factor inputs. Build a narrow LPR macro residual prescreen next; keep LPR standalone alpha, degenerate term-premium seed, hk_hold×LPR interaction, portfolio grids, and promotion blocked until their specific gates pass.
