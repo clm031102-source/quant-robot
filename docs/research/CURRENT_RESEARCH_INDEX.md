@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round712_analyst_prescreen_readiness_guard_2026-07-09.md`
 - `docs/research/cn_stock_round711_factor_batch_readiness_validator_2026-07-09.md`
 - `docs/research/cn_stock_round710_office_quota_pack_export_2026-07-09.md`
 - `docs/research/cn_stock_round709_quota_next_action_priority_2026-07-09.md`
@@ -5822,3 +5823,21 @@ Docs:
 - `docs/research/cn_stock_round711_factor_batch_readiness_validator_2026-07-09.md`
 
 Decision: future factor-screen or analyst prescreen entrypoints should validate the combined readiness packet before starting. A blocked readiness packet should stop the run with its blocker evidence instead of allowing local scripts to proceed from partial gates.
+
+## Round712 Analyst Prescreen Readiness Guard
+
+Round712 connected the analyst-report revision prescreen CLI to the combined factor-batch readiness validator.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Added optional `--factor-batch-readiness-gate` to `scripts/run_analyst_report_revision_prescreen.py`.
+- If provided, the readiness packet is validated before loading stock-basic, report, or bar data.
+- A blocked readiness packet stops the CLI before prescreen outputs are written.
+- Real smoke using the blocked Round708 readiness packet returned non-zero with `factor batch readiness gate is not ready`.
+- Focused tests: `12 passed`; full related gate-chain tests: `63 passed`; compile check passed.
+- No provider download, new factor formula, IC screen, portfolio grid, walk-forward conversion, promotion gate, signal generation, or final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round712_analyst_prescreen_readiness_guard_2026-07-09.md`
+
+Decision: use `--factor-batch-readiness-gate` for any future analyst-report revision prescreen. Current blocked readiness packets must stop prescreen execution until quota/source/candidate readiness clears.

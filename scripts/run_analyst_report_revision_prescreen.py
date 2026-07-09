@@ -17,6 +17,9 @@ from quant_robot.ops.analyst_report_revision_prescreen import (  # noqa: E402
     build_analyst_report_revision_prescreen,
     write_analyst_report_revision_prescreen,
 )
+from quant_robot.ops.factor_batch_readiness_gate import (  # noqa: E402
+    validate_factor_batch_readiness_gate_packet,
+)
 from quant_robot.ops.capacity_safe_price_volume_prescreen import (  # noqa: E402
     DEFAULT_ANALYSIS_END_DATE,
     DEFAULT_ANALYSIS_START_DATE,
@@ -48,7 +51,20 @@ def main() -> None:
     parser.add_argument("--min-industries", type=int, default=2)
     parser.add_argument("--min-assets-per-industry", type=int, default=2)
     parser.add_argument("--min-signal-date-amount", type=float, default=10_000_000.0)
+    parser.add_argument(
+        "--factor-batch-readiness-gate",
+        help="Optional combined readiness gate packet; if provided, it must be ready before prescreen starts.",
+    )
     args = parser.parse_args()
+
+    if args.factor_batch_readiness_gate:
+        try:
+            validate_factor_batch_readiness_gate_packet(
+                args.factor_batch_readiness_gate,
+                context="Analyst report revision prescreen",
+            )
+        except ValueError as exc:
+            parser.error(str(exc))
 
     horizons = tuple(int(item.strip()) for item in str(args.horizons).split(",") if item.strip())
     bars_roots = tuple(Path(path) for path in (args.bars_root or DEFAULT_BARS_ROOTS))

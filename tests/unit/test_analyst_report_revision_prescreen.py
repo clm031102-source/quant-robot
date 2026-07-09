@@ -1,9 +1,15 @@
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
 import pandas as pd
 
+from quant_robot.ops.factor_batch_readiness_gate import (
+    build_factor_batch_readiness_gate,
+    write_factor_batch_readiness_gate,
+)
 from quant_robot.ops.analyst_report_revision_prescreen import (
     build_analyst_report_revision_prescreen,
     compute_analyst_report_revision_factors,
@@ -66,6 +72,53 @@ class AnalystReportRevisionPrescreenTests(unittest.TestCase):
             write_analyst_report_revision_prescreen(root / "out", result)
             self.assertTrue((root / "out" / "analyst_report_revision_prescreen.json").exists())
             self.assertTrue((root / "out" / "analyst_report_revision_prescreen.md").exists())
+
+    def test_cli_requires_ready_factor_batch_readiness_when_packet_is_provided(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            output = root / "out"
+            readiness_dir = root / "readiness"
+            blocked_packet = build_factor_batch_readiness_gate(
+                source_queue_packet={
+                    "decision": {"status": "blocked", "blockers": ["report_rc_quota_blocked"]},
+                    "summary": {},
+                },
+                candidate_plan_gate_packet={
+                    "status": "blocked",
+                    "decision": {
+                        "candidate_plan_gate_cleared": False,
+                        "blockers": ["candidate_source_provider_not_allowed"],
+                    },
+                    "summary": {},
+                },
+                candidate_plan_path="candidate_plan.json",
+                source_queue_output_dir="source_queue",
+                candidate_plan_gate_output_dir="candidate_gate",
+            )
+            write_factor_batch_readiness_gate(readiness_dir, blocked_packet)
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/run_analyst_report_revision_prescreen.py",
+                    "--report-root",
+                    str(root / "missing_reports"),
+                    "--stock-basic",
+                    str(root / "missing_stock_basic.csv"),
+                    "--output-dir",
+                    str(output),
+                    "--factor-batch-readiness-gate",
+                    str(readiness_dir / "factor_batch_readiness_gate.json"),
+                ],
+                cwd=Path(__file__).resolve().parents[2],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("factor batch readiness gate is not ready", result.stderr)
+        self.assertFalse((output / "analyst_report_revision_prescreen.json").exists())
 
 
 def _bars(days: int, assets: int) -> pd.DataFrame:
