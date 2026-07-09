@@ -90,6 +90,28 @@ def write_factor_batch_readiness_gate(output_dir: str | Path, packet: dict[str, 
     )
 
 
+def validate_factor_batch_readiness_gate_packet(
+    packet_path: str | Path | None,
+    *,
+    require_generated_today: bool = True,
+    context: str = "CN stock factor batch",
+) -> dict[str, Any]:
+    if packet_path is None:
+        raise ValueError(f"{context} requires a factor batch readiness gate packet")
+    path = Path(packet_path)
+    if not path.exists():
+        raise ValueError(f"{context} requires a factor batch readiness gate packet: {path}")
+    packet = json.loads(path.read_text(encoding="utf-8"))
+    if require_generated_today and packet.get("generated_at") != date.today().isoformat():
+        raise ValueError(f"{context} factor batch readiness gate must be generated today: {path}")
+    decision = _dict(packet.get("decision"))
+    if packet.get("status") != "ready" or decision.get("factor_batch_ready") is not True:
+        raise ValueError(f"{context} factor batch readiness gate is not ready: {path}")
+    if packet.get("live_boundary_allowed") is not False:
+        raise ValueError(f"{context} factor batch readiness gate violates live boundary: {path}")
+    return packet
+
+
 def render_factor_batch_readiness_gate_markdown(packet: dict[str, Any]) -> str:
     summary = _dict(packet.get("summary"))
     decision = _dict(packet.get("decision"))

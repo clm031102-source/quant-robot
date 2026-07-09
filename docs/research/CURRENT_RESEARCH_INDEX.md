@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round711_factor_batch_readiness_validator_2026-07-09.md`
 - `docs/research/cn_stock_round710_office_quota_pack_export_2026-07-09.md`
 - `docs/research/cn_stock_round709_quota_next_action_priority_2026-07-09.md`
 - `docs/research/cn_stock_round708_quota_preflight_readiness_gate_2026-07-09.md`
@@ -5804,3 +5805,20 @@ Docs:
 - `docs/research/cn_stock_round710_office_quota_pack_export_2026-07-09.md`
 
 Decision: the office side of quota-pack evidence is now available locally, but provider readiness still requires valid `highspec_desktop` and `laptop` quota packs and a non-exhausted `report_rc` daily budget.
+
+## Round711 Factor Batch Readiness Validator
+
+Round711 added a reusable validator for combined factor-batch readiness packets.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Added `validate_factor_batch_readiness_gate_packet`.
+- The validator requires an existing packet, today's `generated_at` by default, top-level `status=ready`, `decision.factor_batch_ready=true`, and `live_boundary_allowed=false`.
+- Downstream factor-screen or analyst prescreen entrypoints can use this helper to reject stale or blocked readiness evidence before starting.
+- Focused readiness tests: `9 passed`; compile check passed.
+- No provider download, new factor formula, IC screen, portfolio grid, walk-forward conversion, promotion gate, signal generation, or final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round711_factor_batch_readiness_validator_2026-07-09.md`
+
+Decision: future factor-screen or analyst prescreen entrypoints should validate the combined readiness packet before starting. A blocked readiness packet should stop the run with its blocker evidence instead of allowing local scripts to proceed from partial gates.

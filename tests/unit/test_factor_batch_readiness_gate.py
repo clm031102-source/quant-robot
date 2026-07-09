@@ -5,6 +5,7 @@ from pathlib import Path
 
 from quant_robot.ops.factor_batch_readiness_gate import (
     build_factor_batch_readiness_gate,
+    validate_factor_batch_readiness_gate_packet,
     write_factor_batch_readiness_gate,
 )
 
@@ -136,6 +137,50 @@ class FactorBatchReadinessGateTests(unittest.TestCase):
             self.assertTrue((root / "factor_batch_readiness_gate.md").exists())
 
         self.assertEqual(payload["status"], "ready")
+
+    def test_validate_factor_batch_readiness_packet_requires_ready_gate(self) -> None:
+        ready_packet = build_factor_batch_readiness_gate(
+            source_queue_packet={"decision": {"status": "cleared", "blockers": []}, "summary": {}},
+            candidate_plan_gate_packet={
+                "status": "research_ready",
+                "decision": {"candidate_plan_gate_cleared": True, "research_screen_allowed": True, "blockers": []},
+                "summary": {},
+            },
+            candidate_plan_path="candidate_plan.json",
+            source_queue_output_dir="source_queue",
+            candidate_plan_gate_output_dir="candidate_gate",
+        )
+        blocked_packet = build_factor_batch_readiness_gate(
+            source_queue_packet={
+                "decision": {"status": "blocked", "blockers": ["report_rc_quota_blocked"]},
+                "summary": {},
+            },
+            candidate_plan_gate_packet={
+                "status": "blocked",
+                "decision": {
+                    "candidate_plan_gate_cleared": False,
+                    "blockers": ["candidate_source_provider_not_allowed"],
+                },
+                "summary": {},
+            },
+            candidate_plan_path="candidate_plan.json",
+            source_queue_output_dir="source_queue",
+            candidate_plan_gate_output_dir="candidate_gate",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            ready_dir = root / "ready"
+            blocked_dir = root / "blocked"
+            write_factor_batch_readiness_gate(ready_dir, ready_packet)
+            write_factor_batch_readiness_gate(blocked_dir, blocked_packet)
+
+            loaded = validate_factor_batch_readiness_gate_packet(ready_dir / "factor_batch_readiness_gate.json")
+            with self.assertRaisesRegex(ValueError, "factor batch readiness gate is not ready"):
+                validate_factor_batch_readiness_gate_packet(blocked_dir / "factor_batch_readiness_gate.json")
+
+        self.assertEqual(loaded["status"], "ready")
+        self.assertTrue(loaded["decision"]["factor_batch_ready"])
 
 
 if __name__ == "__main__":
