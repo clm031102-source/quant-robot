@@ -215,6 +215,66 @@ class CnStockLocalSourceQueueAuditTests(unittest.TestCase):
         self.assertEqual(present_packet["summary"]["no_provider_ready_source_count"], 0)
         self.assertFalse(present_packet["decision"]["no_provider_factor_batch_allowed"])
 
+    def test_hk_hold_daily_source_requires_round697_or_698_report_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            processed = root / "processed"
+            reports = root / "reports"
+            (processed / "round701_analyst_report_revision_cache_202406_20260709").mkdir(parents=True)
+            (reports / "round701_analyst_report_revision_cache_202406_20260709").mkdir(parents=True)
+
+            missing_packet = build_cn_stock_local_source_queue_audit(
+                processed_root=processed,
+                reports_root=reports,
+                provider_request_allowed=False,
+            )
+            rows = {row["source_id"]: row for row in missing_packet["source_rows"]}
+            self.assertEqual(rows["northbound_hk_hold_daily"]["status"], "source_maintenance_only")
+            self.assertFalse(rows["northbound_hk_hold_daily"]["evidence_present"])
+
+            (reports / "round697_hk_hold_source_symbol_composition_audit_20260709").mkdir(parents=True)
+            present_packet = build_cn_stock_local_source_queue_audit(
+                processed_root=processed,
+                reports_root=reports,
+                provider_request_allowed=False,
+            )
+
+        rows = {row["source_id"]: row for row in present_packet["source_rows"]}
+        hk_hold_row = rows["northbound_hk_hold_daily"]
+        self.assertTrue(hk_hold_row["evidence_present"])
+        self.assertFalse(hk_hold_row["local_prescreen_allowed"])
+        self.assertEqual(present_packet["summary"]["no_provider_ready_source_count"], 0)
+
+    def test_margin_financing_source_requires_prior_margin_or_rotation_report_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            processed = root / "processed"
+            reports = root / "reports"
+            (processed / "round701_analyst_report_revision_cache_202406_20260709").mkdir(parents=True)
+            (reports / "round701_analyst_report_revision_cache_202406_20260709").mkdir(parents=True)
+
+            missing_packet = build_cn_stock_local_source_queue_audit(
+                processed_root=processed,
+                reports_root=reports,
+                provider_request_allowed=False,
+            )
+            rows = {row["source_id"]: row for row in missing_packet["source_rows"]}
+            self.assertEqual(rows["margin_financing"]["status"], "hibernated")
+            self.assertFalse(rows["margin_financing"]["evidence_present"])
+
+            (reports / "round193_external_margin_credit_neutral_dedup_20260623").mkdir(parents=True)
+            present_packet = build_cn_stock_local_source_queue_audit(
+                processed_root=processed,
+                reports_root=reports,
+                provider_request_allowed=False,
+            )
+
+        rows = {row["source_id"]: row for row in present_packet["source_rows"]}
+        margin_row = rows["margin_financing"]
+        self.assertTrue(margin_row["evidence_present"])
+        self.assertFalse(margin_row["local_prescreen_allowed"])
+        self.assertEqual(present_packet["summary"]["no_provider_ready_source_count"], 0)
+
     def test_missing_active_source_evidence_is_reported_as_blocker(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

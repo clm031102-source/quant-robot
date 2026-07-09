@@ -157,6 +157,11 @@ def default_source_queue_definitions() -> list[SourceQueueDefinition]:
             ("daily_northbound_factor_generation", "post_2024_daily_hk_hold_panel"),
             "round697_round698_hk_hold_source_audit",
             "Tushare hk_hold daily northbound holding feed stopped and is now quarterly disclosure state.",
+            report_globs=(
+                "round697_hk_hold_source_symbol_composition_audit_*",
+                "round698_hk_hold_quarterly_policy_audit_*",
+            ),
+            evidence_required=True,
         ),
         SourceQueueDefinition(
             "margin_financing",
@@ -166,6 +171,12 @@ def default_source_queue_definitions() -> list[SourceQueueDefinition]:
             ("direct_margin_rank", "credit_temperature_alpha"),
             "external_feed_rotation_closeout",
             "Margin-style external feed rotations are not active alpha sources in the current queue.",
+            report_globs=(
+                "round192_external_margin_credit_prescreen_*",
+                "round193_external_margin_credit_neutral_dedup_*",
+                "round528_external_feed_coverage_audit_*",
+            ),
+            evidence_required=True,
         ),
         SourceQueueDefinition(
             "daily_basic_direct",
