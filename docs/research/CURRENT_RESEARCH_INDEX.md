@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round719_paper_simulation_readiness_guard_2026-07-09.md`
 - `docs/research/cn_stock_round718_research_pipeline_readiness_guard_2026-07-09.md`
 - `docs/research/cn_stock_round717_signal_snapshot_readiness_guard_2026-07-09.md`
 - `docs/research/cn_stock_round716_walk_forward_readiness_guard_2026-07-09.md`
@@ -5967,3 +5968,23 @@ Docs:
 - `docs/research/cn_stock_round718_research_pipeline_readiness_guard_2026-07-09.md`
 
 Decision: future CN processed-bars research-pipeline runs must provide ready startup, data-manifest, and combined factor-batch readiness packets. The current Round708 readiness packet is blocked, so no CN single-candidate research/backtest evidence should be generated until quota/source/candidate readiness clears.
+
+## Round719 Paper Simulation Readiness Guard
+
+Round719 connected the CN paper-simulation entrypoint to startup, data-manifest, and combined factor-batch readiness gates.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Added `--startup-gate-packet`, `--data-manifest-packet`, `--factor-batch-readiness-gate-packet`, and `--allow-review-required-data-manifest` to `scripts/run_paper_simulation.py`.
+- CN `processed-bars` paper-simulation runs for `market=CN` and `market=ALL` now require startup gate, data manifest, and combined factor-batch readiness gate before loading bars.
+- Fixture and CN ETF-only processed-bars behavior is unchanged.
+- Real smoke used today's CN stock data manifest and stopped on the blocked Round708 readiness packet.
+- Error: `CN paper simulation factor batch readiness gate is not ready`.
+- The paper-simulation smoke output directory was not created.
+- Focused tests: `4 passed`.
+- No provider download, new factor formula, IC screen, portfolio grid, walk-forward validation, promotion gate, ready signal generation, paper simulation from a ready packet, or final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round719_paper_simulation_readiness_guard_2026-07-09.md`
+
+Decision: future CN processed-bars paper-simulation runs must provide ready startup, data-manifest, and combined factor-batch readiness packets. The current Round708 readiness packet is blocked, so no CN paper-simulation evidence should be generated until quota/source/candidate readiness clears.
