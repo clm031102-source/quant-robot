@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round733_lpr_macro_regime_reference_dedup_preflight_2026-07-09.md`
 - `docs/research/cn_stock_round732_lpr_macro_regime_pairwise_residual_ic_prescreen_2026-07-09.md`
 - `docs/research/cn_stock_round731_lpr_macro_regime_state_prescreen_2026-07-09.md`
 - `docs/research/cn_stock_round730_lpr_macro_regime_source_gate_2026-07-09.md`
@@ -6289,3 +6290,25 @@ Docs:
 - `docs/research/cn_stock_round732_lpr_macro_regime_pairwise_residual_ic_prescreen_2026-07-09.md`
 
 Decision: `lpr_shibor_credit_gap_regime_60` may proceed only to reference-dedup and walk-forward preflight for the four `gap_widening` residual candidates. This is not portfolio, promotion, paper-ready, or live evidence; cost/capacity, regime coverage, multiple-testing, final-holdout, and paper-lane gates remain required.
+
+## Round733 LPR Macro Regime Reference Dedup Preflight
+
+Round733 routed the four Round732 `gap_widening` residual IC leads into candidate clusters before any factor-value reference deduplication, walk-forward validation, portfolio grid, paper signal, or promotion claim.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- New op and CLI: `src/quant_robot/ops/lpr_macro_regime_reference_dedup_preflight.py` and `scripts/run_lpr_macro_regime_reference_dedup_preflight.py`.
+- The preflight consumes the Round732 pairwise prescreen, realigns residual IC observations to the LPR state, computes pairwise IC-curve correlations inside `gap_widening`, clusters candidates at absolute IC-correlation >= 0.90, marks duplicates at >= 0.98, and folds in source report reference/exposure evidence.
+- Real startup gates passed: Quant PM startup gate `ready`; factor-mining startup gate `cleared`.
+- Real output wrote `data/reports/round733_lpr_macro_regime_reference_dedup_preflight_20260709`.
+- Prescreen summary: 4 state leads, 2 candidate clusters, 2 representative candidates, 2 cluster-blocked candidates, 2 factor-value reference-dedup candidates allowed next, 0 walk-forward-preflight candidates, 0 portfolio-grid candidates, and 0 promotion candidates.
+- Cluster 1 representative: `public_anomaly_residual_equal_weight_20_industry_size_liquidity_vol_residual`.
+- Cluster 1 blocked variants: `public_anomaly_residual_regime_conditioned_20_industry_size_liquidity_vol_residual` with IC-curve correlation 1.000, and `public_anomaly_residual_agreement_20_industry_size_liquidity_vol_residual` with IC-curve correlation 0.927.
+- Cluster 2 representative: `williams_range_failure_reversal_14_20_industry_size_liquidity_vol_residual`, unique versus the anomaly cluster by IC-curve correlation but still moderately redundant with existing references and high exposure in source evidence.
+- Focused tests: LPR reference-dedup preflight and CLI `3 passed`.
+- No provider download, standalone LPR stock rank, portfolio grid, promotion gate, ready signal snapshot, paper simulation, broker access, order placement, or final-holdout tuning occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round733_lpr_macro_regime_reference_dedup_preflight_2026-07-09.md`
+
+Decision: only two `gap_widening` representatives may proceed to factor-value reference deduplication and exposure reaudit. Walk-forward, portfolio grids, promotion gates, paper signals, and live boundaries remain blocked.
