@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round701_analyst_report_revision_june_extension_2026-07-09.md`
 - `docs/research/cn_stock_round700_analyst_report_revision_may_extension_2026-07-09.md`
 - `docs/research/cn_stock_round699_statement_industry_relative_surprise_full_replay_2026-07-09.md`
 - `docs/research/cn_stock_round698_hk_hold_quarterly_policy_audit_2026-07-09.md`
@@ -5571,3 +5572,41 @@ Docs:
 - `docs/research/cn_stock_round700_analyst_report_revision_may_extension_2026-07-09.md`
 
 Decision: reject the January-May analyst-report revision evidence for factor conversion. The source extension succeeded, but the frozen prescreen still produced zero research leads; the best row, `analyst_target_upside_60` at horizon 5, had positive raw IC but failed FDR and size-neutral gates with only one IC year of coverage. Rotate away unless the next task is explicitly slow source accumulation under quota governance.
+
+## Round701 Analyst Report Revision June Extension
+
+Round701 used the remaining local daily `report_rc` request budget to extend the frozen analyst-report revision source through June 2024, then reran the same January-June PIT/IC prescreen.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Quant PM startup gate status: `ready`, blockers `[]`.
+- CN stock factor-mining startup gate status: `cleared`, blockers `[]`.
+- CN stock data manifest blockers: `[]`.
+- Quota preflight request allowed: true.
+- Quota preflight counted same-day windows: 1.
+- Quota preflight remaining request windows: 1.
+- Quota warning: `local_report_roots_only`.
+- June 2024 cache rows: 1,880.
+- June 2024 cache assets: 1,075.
+- Failed windows: 0.
+- Row-cap warning windows: 0.
+- Postcheck after June cache: blocked by `daily_provider_request_budget_exhausted`, counted windows 2, remaining windows 0.
+- Combined report rows: 10,509.
+- Combined report assets: 2,226.
+- Candidate count: 4.
+- Test count: 8.
+- Factor rows: 24,781.
+- Aligned rows: 49,562.
+- Multiple-testing leads: 4.
+- Neutral-gate passes: 2.
+- Research leads: 0.
+- Promotion allowed candidates: 0.
+- Year-coverage pass count: 0.
+- Best row: `analyst_target_upside_60` horizon 5, IC 0.1511, ICIR 0.577, t 3.74, FDR true, size-neutral IC 0.1146, size-neutral t 2.91.
+- Final holdout included: false.
+- No portfolio grid, walk-forward conversion, promotion gate, sign/window tuning, formula tuning, mixed-window harvesting, signal generation, or 2026 final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round701_analyst_report_revision_june_extension_2026-07-09.md`
+
+Decision: keep analyst-report revision as a promising source-accumulation line, not a research lead yet. The June extension improved FDR and neutral evidence, but all IC evidence still sits in one year, so year coverage blocks any portfolio conversion. After quota reset, the only allowed continuation is another monthly cache plus the same frozen prescreen, with no formula, sign, threshold, or final-holdout tuning.
