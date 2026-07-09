@@ -90,6 +90,17 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round732_lpr_macro_regime_pairwise_residual_ic_prescreen_2026-07-09.md`
+- `docs/research/cn_stock_round731_lpr_macro_regime_state_prescreen_2026-07-09.md`
+- `docs/research/cn_stock_round730_lpr_macro_regime_source_gate_2026-07-09.md`
+- `docs/research/cn_stock_round729_local_cached_analyst_prescreen_gate_2026-07-09.md`
+- `docs/research/cn_stock_round728_batch12_oos_readiness_guard_2026-07-09.md`
+- `docs/research/cn_stock_round727_overlay_industry_readiness_guard_2026-07-09.md`
+- `docs/research/cn_stock_round726_bottom_exclusion_grid_readiness_guard_2026-07-09.md`
+- `docs/research/cn_stock_round725_post_refresh_replay_readiness_pass_through_2026-07-09.md`
+- `docs/research/cn_stock_round724_daily_ops_readiness_pass_through_2026-07-09.md`
+- `docs/research/cn_stock_round723_constrained_search_readiness_pass_through_2026-07-09.md`
+- `docs/research/cn_stock_round722_desktop_validation_readiness_guard_2026-07-09.md`
 - `docs/research/cn_stock_round721_paper_profile_optimizer_readiness_guard_2026-07-09.md`
 - `docs/research/cn_stock_round720_paper_batch_readiness_guard_2026-07-09.md`
 - `docs/research/cn_stock_round719_paper_simulation_readiness_guard_2026-07-09.md`
@@ -6256,3 +6267,25 @@ Docs:
 Decision: `lpr_shibor_credit_gap_regime_60` may proceed only to a pre-registered stock-factor residual-IC-by-regime pairing prescreen. This is not alpha, profitability, portfolio, promotion, or live evidence; all residual, dedup, walk-forward, cost/capacity, regime-coverage, multiple-testing, and final-holdout gates remain required.
 
 Decision: LPR macro-rate source is ready for a dedicated residual/regime-control prescreen only for `lpr_shibor_credit_gap_regime_60`. Do not reuse the old market-regime-temperature prescreen blindly because it depends on daily-basic factor inputs. Build a narrow LPR macro residual prescreen next; keep LPR standalone alpha, degenerate term-premium seed, hk_hold×LPR interaction, portfolio grids, and promotion blocked until their specific gates pass.
+
+## Round732 LPR Macro Regime Pairwise Residual IC Prescreen
+
+Round732 paired the Round731 LPR-SHIBOR gap regime state with existing residual stock-factor IC observations.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- New op and CLI: `src/quant_robot/ops/lpr_macro_regime_pairwise_residual_ic_prescreen.py` and `scripts/run_lpr_macro_regime_pairwise_residual_ic_prescreen.py`.
+- The prescreen loads one or more residual IC observation CSVs, aligns each IC date to the latest LPR state with `available_date <= ic_date`, audits join misses and future-date violations separately, computes state-level residual IC, and applies Bonferroni/FDR accounting across factor x horizon x state tests.
+- Real startup gates passed: Quant PM startup gate `ready`; factor-mining startup gate `cleared`.
+- Real output wrote `data/reports/round732_lpr_macro_regime_pairwise_residual_ic_prescreen_20260709`.
+- Inputs: `public_anomaly_residual_ensemble_prescreen_round229_20260624` and `public_trend_strength_state_residual_prescreen_round219_20260624`.
+- Prescreen summary: 2 residual IC files, 25,651 residual IC rows loaded, 3,535 analysis-window IC rows, 3,526 rows paired to an LPR state, 10 residual factors, 40 state tests, 4 state research leads, and 4 candidate research leads.
+- Pairing audit: 9 state join misses, 0 available-date-after-IC-date violations, 4 paired states, and 2 directional states.
+- All four state leads are in `gap_widening`: residual anomaly equal-weight, residual anomaly regime-conditioned, residual anomaly agreement, and Williams range failure reversal residual.
+- Focused tests: LPR pairwise residual IC prescreen and CLI `5 passed`.
+- No provider download, standalone LPR stock rank, portfolio grid, promotion gate, ready signal snapshot, paper simulation, broker access, order placement, or final-holdout tuning occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round732_lpr_macro_regime_pairwise_residual_ic_prescreen_2026-07-09.md`
+
+Decision: `lpr_shibor_credit_gap_regime_60` may proceed only to reference-dedup and walk-forward preflight for the four `gap_widening` residual candidates. This is not portfolio, promotion, paper-ready, or live evidence; cost/capacity, regime coverage, multiple-testing, final-holdout, and paper-lane gates remain required.
