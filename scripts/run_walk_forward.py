@@ -16,6 +16,9 @@ ensure_workspace_imports()
 
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.experiments.runner import ExperimentGridConfig
+from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manifest_packet
+from quant_robot.ops.factor_batch_readiness_gate import validate_factor_batch_readiness_gate_packet
+from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet
 from quant_robot.storage.processed_bars import load_processed_bars
 from quant_robot.validation.walk_forward import load_walk_forward_config, run_walk_forward_validation
 
@@ -25,6 +28,12 @@ def run_walk_forward(
     source: str = "fixture",
     data_root: str | Path = "data/processed",
     output_dir: str | Path | None = None,
+    startup_gate_packet: str | Path | None = Path("data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"),
+    data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
+    factor_batch_readiness_gate_packet: str | Path | None = Path(
+        "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
+    ),
+    allow_review_required_data_manifest: bool = False,
 ) -> dict[str, object]:
     config = load_walk_forward_config(config_path)
     if output_dir is not None:
@@ -32,6 +41,15 @@ def run_walk_forward(
     experiment_grid = _attach_processed_cn_etf_rotation_membership(config.experiment_grid, source, Path(data_root))
     if experiment_grid is not config.experiment_grid:
         config = replace(config, experiment_grid=experiment_grid)
+    _enforce_cn_stock_walk_forward_inputs(
+        source=source,
+        markets=config.experiment_grid.markets,
+        startup_gate_packet=startup_gate_packet,
+        data_manifest_packet=data_manifest_packet,
+        factor_batch_readiness_gate_packet=factor_batch_readiness_gate_packet,
+        data_root=Path(data_root),
+        allow_review_required_data_manifest=allow_review_required_data_manifest,
+    )
     bars = _load_bars(source, Path(data_root), config.experiment_grid.markets)
     return run_walk_forward_validation(bars, config)
 
@@ -42,6 +60,13 @@ def main() -> None:
     parser.add_argument("--source", choices=["fixture", "processed-bars"], default="fixture")
     parser.add_argument("--data-root", default="data/processed")
     parser.add_argument("--output-dir")
+    parser.add_argument("--startup-gate-packet", default="data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json")
+    parser.add_argument("--data-manifest-packet", default="data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json")
+    parser.add_argument(
+        "--factor-batch-readiness-gate-packet",
+        default="data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json",
+    )
+    parser.add_argument("--allow-review-required-data-manifest", action="store_true")
     parser.add_argument(
         "--allow-no-accepted",
         action="store_true",
@@ -53,6 +78,12 @@ def main() -> None:
         source=args.source,
         data_root=Path(args.data_root),
         output_dir=Path(args.output_dir) if args.output_dir else None,
+        startup_gate_packet=Path(args.startup_gate_packet) if args.startup_gate_packet else None,
+        data_manifest_packet=Path(args.data_manifest_packet) if args.data_manifest_packet else None,
+        factor_batch_readiness_gate_packet=Path(args.factor_batch_readiness_gate_packet)
+        if args.factor_batch_readiness_gate_packet
+        else None,
+        allow_review_required_data_manifest=args.allow_review_required_data_manifest,
     )
     print(json.dumps({"summary": result["summary"], "top": result["leaderboard"][:10]}, indent=2, sort_keys=True))
     try:
@@ -94,6 +125,34 @@ def _load_bars(source: str, data_root: Path, markets: tuple[str, ...]) -> pd.Dat
     if not frames:
         raise ValueError("processed-bars source requires at least one specific market")
     return pd.concat(frames, ignore_index=True)
+
+
+def _enforce_cn_stock_walk_forward_inputs(
+    *,
+    source: str,
+    markets: tuple[str, ...],
+    startup_gate_packet: str | Path | None,
+    data_manifest_packet: str | Path | None,
+    factor_batch_readiness_gate_packet: str | Path | None,
+    data_root: Path,
+    allow_review_required_data_manifest: bool,
+) -> None:
+    if source != "processed-bars" or not any(market.upper() == "CN" for market in markets):
+        return
+    validate_cleared_startup_gate_packet(
+        startup_gate_packet,
+        context="CN walk-forward validation",
+    )
+    validate_cn_stock_data_manifest_packet(
+        data_manifest_packet,
+        expected_source_root=data_root,
+        allow_review_required=allow_review_required_data_manifest,
+        context="CN walk-forward validation",
+    )
+    validate_factor_batch_readiness_gate_packet(
+        factor_batch_readiness_gate_packet,
+        context="CN walk-forward validation",
+    )
 
 
 def _attach_processed_cn_etf_rotation_membership(

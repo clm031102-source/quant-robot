@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round716_walk_forward_readiness_guard_2026-07-09.md`
 - `docs/research/cn_stock_round715_replay_diagnostic_readiness_guard_2026-07-09.md`
 - `docs/research/cn_stock_round714_experiment_grid_readiness_guard_2026-07-09.md`
 - `docs/research/cn_stock_round713_alpha_factory_readiness_guard_2026-07-09.md`
@@ -5904,3 +5905,23 @@ Docs:
 - `docs/research/cn_stock_round715_replay_diagnostic_readiness_guard_2026-07-09.md`
 
 Decision: future CN same-parameter replay and extreme-trade diagnostic runs must provide a ready combined factor-batch readiness packet. The current Round708 readiness packet is blocked, so no replay or diagnostic evidence should be generated until quota/source/candidate readiness clears.
+
+## Round716 Walk-Forward Readiness Guard
+
+Round716 connected the generic CN processed-bars walk-forward validation entrypoint to the startup, data-manifest, and combined factor-batch readiness gates.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Added `--startup-gate-packet`, `--data-manifest-packet`, `--factor-batch-readiness-gate-packet`, and `--allow-review-required-data-manifest` to `scripts/run_walk_forward.py`.
+- CN `processed-bars` walk-forward runs now require startup gate, data manifest, and combined factor-batch readiness gate before loading bars.
+- Fixture and non-CN processed-bars behavior is unchanged.
+- Real smoke used today's CN stock data manifest and stopped on the blocked Round708 readiness packet.
+- Error: `CN walk-forward validation factor batch readiness gate is not ready`.
+- The walk-forward smoke output directory was not created.
+- Focused tests: `5 passed`.
+- No provider download, new factor formula, IC screen, portfolio grid, walk-forward validation, promotion gate, signal generation, or final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round716_walk_forward_readiness_guard_2026-07-09.md`
+
+Decision: future CN processed-bars walk-forward validation must provide ready startup, data-manifest, and combined factor-batch readiness packets. The current Round708 readiness packet is blocked, so no walk-forward validation evidence should be generated until quota/source/candidate readiness clears.
