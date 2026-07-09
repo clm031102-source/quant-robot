@@ -96,6 +96,7 @@ Latest same-day progress reports:
 - `docs/research/cn_stock_round697_hk_hold_source_symbol_composition_audit_2026-07-09.md`
 - `docs/research/cn_stock_round696_external_hk_hold_lpr_candidate_plan_feasibility_2026-07-09.md`
 - `docs/research/cn_stock_round695_external_lpr_source_readiness_2026-07-09.md`
+- `docs/research/cn_stock_round691_694_statement_source_rotation_closeout_2026-07-09.md`
 - `docs/research/cn_stock_cloud_branch_integration_handoff_2026-07-04.md`
 - `docs/research/cn_stock_round463_analyst_report_revision_source_smoke_2026-07-04.md`
 - `docs/research/cn_stock_round464_benchmark_relative_moneyflow_preregistration_2026-07-04.md`
@@ -5445,6 +5446,29 @@ Docs:
 - `docs/research/ROUND690_NEXT_STEPS_CHECKLIST.md`
 
 Decision: Round690 cleared the financial reporting timeliness source gate. Stop source-only backfill for this family and move to a dedicated factor-batch candidate-plan branch from merged `main`. Run preregistration plus `scripts/run_factor_mining_candidate_plan_gate.py` before any IC screen. Portfolio grids, promotion, sign/window tuning, mixed-window harvesting, and 2026 final-holdout reads remain blocked.
+
+## Round691-694 Statement Source Rotation Closeout
+
+Round691-Round694 converted the newly broadened statement source into four controlled residual IC shape screens, then closed the local source-rotation block before Round695 moved to external LPR/HK-hold source readiness.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Families covered: financial reporting timeliness, PEAD gap reversal source repair, statement working-capital pressure, and statement capital-structure efficiency.
+- Total candidate families screened: 4.
+- Total candidates: 20.
+- Total tests: 35.
+- Research leads across all four rounds: 0.
+- Promotion allowed candidates across all four rounds: 0.
+- Round691 financial reporting timeliness: 5 candidates, 10 tests, 0 FDR leads, 0 neutral passes, 0 research leads.
+- Round692 PEAD gap reversal source repair: 5 candidates, 5 tests, 4 FDR leads, 0 neutral passes, 0 research leads; top rows became wrong-signed after source repair.
+- Round693 statement working-capital pressure: 5 candidates, 10 tests, 0 FDR leads, 0 neutral passes, 0 research leads.
+- Round694 statement capital-structure efficiency: 5 candidates, 10 tests, 4 FDR leads, 0 neutral passes, 0 research leads; top rows were negative and failed size/liquidity gates.
+- No portfolio grid, walk-forward conversion, promotion gate, sign/window tuning, formula tuning, mixed-window harvesting, signal generation, or 2026 final-holdout read is allowed from these results.
+
+Docs:
+
+- `docs/research/cn_stock_round691_694_statement_source_rotation_closeout_2026-07-09.md`
+
+Decision: rotate away from adjacent realized-statement ratio families and PEAD source-repair variants. Do not use negative FDR diagnostics as sign-flip invitations, and do not run portfolio grids from any Round691-Round694 row. Future work needs a genuinely new PIT-safe source mechanism or source-only accumulation/audit with no alpha claim.
 
 ## Round697 HK-Hold Source Symbol Composition Audit
 
