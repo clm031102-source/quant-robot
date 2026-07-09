@@ -19,7 +19,12 @@ class FactorBatchReadinessGateTests(unittest.TestCase):
                     "blockers": ["report_rc_quota_blocked"],
                     "next_action": "wait_for_report_rc_quota_reset_then_analyst_monthly_cache_preflight",
                 },
-                "summary": {"active_source_count": 1},
+                "summary": {
+                    "active_source_count": 1,
+                    "source_count": 16,
+                    "no_provider_ready_source_count": 0,
+                    "hibernated_or_closed_source_count": 13,
+                },
             },
             candidate_plan_gate_packet={
                 "status": "blocked",
@@ -36,6 +41,9 @@ class FactorBatchReadinessGateTests(unittest.TestCase):
 
         self.assertEqual(packet["stage"], "factor_batch_readiness_gate")
         self.assertEqual(packet["status"], "blocked")
+        self.assertEqual(packet["summary"]["source_queue_source_count"], 16)
+        self.assertEqual(packet["summary"]["source_queue_no_provider_ready_source_count"], 0)
+        self.assertEqual(packet["summary"]["source_queue_hibernated_or_closed_source_count"], 13)
         self.assertFalse(packet["decision"]["factor_batch_ready"])
         self.assertFalse(packet["decision"]["research_screen_allowed"])
         self.assertIn("source_queue_blocked:report_rc_quota_blocked", packet["decision"]["blockers"])

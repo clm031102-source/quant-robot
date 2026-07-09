@@ -9,6 +9,24 @@ from scripts.run_analyst_report_source_extension_priority_gate import main
 
 
 class AnalystReportSourceExtensionPriorityGateCliTests(unittest.TestCase):
+    def test_cli_defaults_to_latest_non_lpr_source_gate(self) -> None:
+        with patch(
+            "scripts.run_analyst_report_source_extension_priority_gate.run_analyst_report_source_extension_priority_gate",
+            return_value={"status": "blocked_waiting_for_quota", "summary": {}, "decision": {"blockers": []}},
+        ) as run_gate:
+            with redirect_stdout(StringIO()):
+                exit_code = main(["--allow-blocked"])
+
+        self.assertEqual(exit_code, 0)
+        self.assertIn(
+            "round748_non_lpr_source_gate_after_source_queue_hibernation_20260709",
+            str(run_gate.call_args.kwargs["source_gate_path"]),
+        )
+        self.assertIn(
+            "round748_analyst_source_extension_priority_gate_after_source_queue_hibernation_20260709",
+            str(run_gate.call_args.kwargs["output_dir"]),
+        )
+
     def test_cli_passes_input_paths_and_output_dir(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -56,6 +56,13 @@ def build_factor_batch_readiness_gate(
             "source_queue_active_source_count": _int(
                 _dict(source_queue_packet.get("summary")).get("active_source_count")
             ),
+            "source_queue_source_count": _int(_dict(source_queue_packet.get("summary")).get("source_count")),
+            "source_queue_no_provider_ready_source_count": _int(
+                _dict(source_queue_packet.get("summary")).get("no_provider_ready_source_count")
+            ),
+            "source_queue_hibernated_or_closed_source_count": _int(
+                _dict(source_queue_packet.get("summary")).get("hibernated_or_closed_source_count")
+            ),
             "candidate_count": _int(_dict(candidate_plan_gate_packet.get("summary")).get("candidate_count")),
         },
         "decision": {

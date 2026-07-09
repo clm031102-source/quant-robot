@@ -17,14 +17,16 @@ from quant_robot.ops.analyst_report_source_extension_priority_gate import (  # n
 
 
 DEFAULT_SOURCE_GATE = Path(
-    "data/reports/round743_non_lpr_source_gate_default_readiness_refresh_20260709/"
+    "data/reports/round748_non_lpr_source_gate_after_source_queue_hibernation_20260709/"
     "cn_stock_non_lpr_orthogonal_source_gate.json"
 )
 DEFAULT_ANALYST_PRESCREEN = Path(
     "data/reports/round729_analyst_report_revision_jan_jun_local_prescreen_20260709/"
     "analyst_report_revision_prescreen.json"
 )
-DEFAULT_OUTPUT_DIR = Path("data/reports/round744_analyst_source_extension_priority_gate_20260709")
+DEFAULT_OUTPUT_DIR = Path(
+    "data/reports/round748_analyst_source_extension_priority_gate_after_source_queue_hibernation_20260709"
+)
 
 
 def main(argv: list[str] | None = None) -> int:

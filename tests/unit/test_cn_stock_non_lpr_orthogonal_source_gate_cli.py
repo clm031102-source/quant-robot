@@ -19,8 +19,12 @@ class CNStockNonLPROrthogonalSourceGateCliTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         self.assertIn(
-            "round742_factor_batch_readiness_after_lpr_rejection_20260709",
+            "round748_factor_batch_readiness_after_source_queue_hibernation_20260709",
             str(run_gate.call_args.kwargs["readiness_gate_path"]),
+        )
+        self.assertIn(
+            "round748_non_lpr_source_gate_after_source_queue_hibernation_20260709",
+            str(run_gate.call_args.kwargs["output_dir"]),
         )
 
     def test_cli_passes_input_paths_and_output_dir(self) -> None:

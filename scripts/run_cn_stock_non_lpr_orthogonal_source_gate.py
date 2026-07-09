@@ -21,14 +21,14 @@ DEFAULT_ROUND738_ROTATION_GATE = Path(
     "lpr_macro_regime_walk_forward_rejection_rotation_gate.json"
 )
 DEFAULT_READINESS_GATE = Path(
-    "data/reports/round742_factor_batch_readiness_after_lpr_rejection_20260709/"
+    "data/reports/round748_factor_batch_readiness_after_source_queue_hibernation_20260709/"
     "factor_batch_readiness_gate.json"
 )
 DEFAULT_ANALYST_PRESCREEN = Path(
     "data/reports/round729_analyst_report_revision_jan_jun_local_prescreen_20260709/"
     "analyst_report_revision_prescreen.json"
 )
-DEFAULT_OUTPUT_DIR = Path("data/reports/round739_non_lpr_orthogonal_source_gate_20260709")
+DEFAULT_OUTPUT_DIR = Path("data/reports/round748_non_lpr_source_gate_after_source_queue_hibernation_20260709")
 
 
 def main(argv: list[str] | None = None) -> int:
