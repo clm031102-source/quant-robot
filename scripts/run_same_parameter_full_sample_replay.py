@@ -17,6 +17,7 @@ ensure_workspace_imports()
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.experiments.runner import load_experiment_grid_config
 from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manifest_packet
+from quant_robot.ops.factor_batch_readiness_gate import validate_factor_batch_readiness_gate_packet
 from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet
 from quant_robot.ops.same_parameter_replay import run_same_parameter_full_sample_replay
 from quant_robot.storage.authority_bars import load_authority_processed_bars_from_config
@@ -40,6 +41,9 @@ def run_same_parameter_full_sample_replay_from_files(
     authority_bars_config: str | Path | None = Path("configs/cn_stock_authority_bars_2015_2025.json"),
     startup_gate_packet: str | Path | None = Path("data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"),
     data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
+    factor_batch_readiness_gate_packet: str | Path | None = Path(
+        "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
+    ),
     allow_review_required_data_manifest: bool = False,
     max_candidates: int | None = None,
 ) -> dict[str, Any]:
@@ -50,6 +54,7 @@ def run_same_parameter_full_sample_replay_from_files(
         markets=base_config.markets,
         startup_gate_packet=startup_gate_packet,
         data_manifest_packet=data_manifest_packet,
+        factor_batch_readiness_gate_packet=factor_batch_readiness_gate_packet,
         data_root=Path(data_root),
         allow_review_required_data_manifest=allow_review_required_data_manifest,
     )
@@ -107,6 +112,7 @@ def _enforce_cn_stock_replay_inputs(
     markets: tuple[str, ...],
     startup_gate_packet: str | Path | None,
     data_manifest_packet: str | Path | None,
+    factor_batch_readiness_gate_packet: str | Path | None,
     data_root: Path,
     allow_review_required_data_manifest: bool,
 ) -> None:
@@ -120,6 +126,10 @@ def _enforce_cn_stock_replay_inputs(
         data_manifest_packet,
         expected_source_root=data_root,
         allow_review_required=allow_review_required_data_manifest,
+        context="CN same-parameter full-sample replay",
+    )
+    validate_factor_batch_readiness_gate_packet(
+        factor_batch_readiness_gate_packet,
         context="CN same-parameter full-sample replay",
     )
 
@@ -136,6 +146,10 @@ def main() -> None:
     parser.add_argument("--authority-bars-config", default="configs/cn_stock_authority_bars_2015_2025.json")
     parser.add_argument("--startup-gate-packet", default="data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json")
     parser.add_argument("--data-manifest-packet", default="data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json")
+    parser.add_argument(
+        "--factor-batch-readiness-gate-packet",
+        default="data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json",
+    )
     parser.add_argument("--allow-review-required-data-manifest", action="store_true")
     parser.add_argument("--max-candidates", type=int)
     args = parser.parse_args()
@@ -151,6 +165,9 @@ def main() -> None:
         authority_bars_config=Path(args.authority_bars_config) if args.authority_bars_config else None,
         startup_gate_packet=Path(args.startup_gate_packet) if args.startup_gate_packet else None,
         data_manifest_packet=Path(args.data_manifest_packet) if args.data_manifest_packet else None,
+        factor_batch_readiness_gate_packet=Path(args.factor_batch_readiness_gate_packet)
+        if args.factor_batch_readiness_gate_packet
+        else None,
         allow_review_required_data_manifest=args.allow_review_required_data_manifest,
         max_candidates=args.max_candidates,
     )

@@ -22,6 +22,7 @@ from quant_robot.ops.extreme_trade_diagnostic import (
     diagnose_extreme_trades,
     write_extreme_trade_diagnostic,
 )
+from quant_robot.ops.factor_batch_readiness_gate import validate_factor_batch_readiness_gate_packet
 from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet
 from quant_robot.research.pipeline import ResearchPipelineConfig, run_research_pipeline
 from quant_robot.storage.authority_bars import load_authority_processed_bars_from_config
@@ -44,6 +45,9 @@ def run_extreme_trade_diagnostic_from_config(
     authority_bars_config: str | Path | None = Path("configs/cn_stock_authority_bars_2015_2025.json"),
     startup_gate_packet: str | Path | None = Path("data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"),
     data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
+    factor_batch_readiness_gate_packet: str | Path | None = Path(
+        "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
+    ),
     allow_review_required_data_manifest: bool = False,
 ) -> dict[str, Any]:
     grid = load_experiment_grid_config(config_path)
@@ -53,6 +57,7 @@ def run_extreme_trade_diagnostic_from_config(
         markets=(resolved_market,),
         startup_gate_packet=startup_gate_packet,
         data_manifest_packet=data_manifest_packet,
+        factor_batch_readiness_gate_packet=factor_batch_readiness_gate_packet,
         data_root=Path(data_root),
         allow_review_required_data_manifest=allow_review_required_data_manifest,
     )
@@ -169,6 +174,7 @@ def _enforce_cn_stock_inputs(
     markets: tuple[str, ...],
     startup_gate_packet: str | Path | None,
     data_manifest_packet: str | Path | None,
+    factor_batch_readiness_gate_packet: str | Path | None,
     data_root: Path,
     allow_review_required_data_manifest: bool,
 ) -> None:
@@ -182,6 +188,10 @@ def _enforce_cn_stock_inputs(
         data_manifest_packet,
         expected_source_root=data_root,
         allow_review_required=allow_review_required_data_manifest,
+        context="CN extreme trade diagnostic",
+    )
+    validate_factor_batch_readiness_gate_packet(
+        factor_batch_readiness_gate_packet,
         context="CN extreme trade diagnostic",
     )
 
@@ -213,6 +223,10 @@ def main() -> None:
     parser.add_argument("--authority-bars-config", default="configs/cn_stock_authority_bars_2015_2025.json")
     parser.add_argument("--startup-gate-packet", default="data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json")
     parser.add_argument("--data-manifest-packet", default="data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json")
+    parser.add_argument(
+        "--factor-batch-readiness-gate-packet",
+        default="data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json",
+    )
     parser.add_argument("--allow-review-required-data-manifest", action="store_true")
     args = parser.parse_args()
     diagnostic = run_extreme_trade_diagnostic_from_config(
@@ -230,6 +244,9 @@ def main() -> None:
         authority_bars_config=Path(args.authority_bars_config) if args.authority_bars_config else None,
         startup_gate_packet=Path(args.startup_gate_packet) if args.startup_gate_packet else None,
         data_manifest_packet=Path(args.data_manifest_packet) if args.data_manifest_packet else None,
+        factor_batch_readiness_gate_packet=Path(args.factor_batch_readiness_gate_packet)
+        if args.factor_batch_readiness_gate_packet
+        else None,
         allow_review_required_data_manifest=args.allow_review_required_data_manifest,
     )
     print(json.dumps({"summary": diagnostic["summary"], "output_dir": str(Path(args.output_dir))}, indent=2, sort_keys=True))

@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round715_replay_diagnostic_readiness_guard_2026-07-09.md`
 - `docs/research/cn_stock_round714_experiment_grid_readiness_guard_2026-07-09.md`
 - `docs/research/cn_stock_round713_alpha_factory_readiness_guard_2026-07-09.md`
 - `docs/research/cn_stock_round712_analyst_prescreen_readiness_guard_2026-07-09.md`
@@ -5883,3 +5884,23 @@ Docs:
 - `docs/research/cn_stock_round714_experiment_grid_readiness_guard_2026-07-09.md`
 
 Decision: future processed CN experiment grids must provide a ready combined factor-batch readiness packet. The current Round708 readiness packet is blocked, so no portfolio/parameter grid should run until quota/source/candidate readiness clears.
+
+## Round715 Replay And Diagnostic Readiness Guard
+
+Round715 connected the CN same-parameter replay and extreme-trade diagnostic entrypoints to the combined factor-batch readiness validator.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Added `--factor-batch-readiness-gate-packet` to `scripts/run_same_parameter_full_sample_replay.py` and `scripts/run_extreme_trade_diagnostic.py`.
+- CN `processed-bars` and `authority-processed-bars` runs now require startup gate, data manifest, and combined factor-batch readiness gate before loading bars.
+- Real smokes used today's CN stock data manifest and stopped on the blocked Round708 readiness packet.
+- Same-parameter replay error: `CN same-parameter full-sample replay factor batch readiness gate is not ready`.
+- Extreme-trade diagnostic error: `CN extreme trade diagnostic factor batch readiness gate is not ready`.
+- Both smoke output directories were not created.
+- Focused tests: replay CLI `3 passed`; diagnostic CLI `2 passed`.
+- No provider download, new factor formula, IC screen, portfolio grid, walk-forward conversion, promotion gate, signal generation, or final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round715_replay_diagnostic_readiness_guard_2026-07-09.md`
+
+Decision: future CN same-parameter replay and extreme-trade diagnostic runs must provide a ready combined factor-batch readiness packet. The current Round708 readiness packet is blocked, so no replay or diagnostic evidence should be generated until quota/source/candidate readiness clears.
