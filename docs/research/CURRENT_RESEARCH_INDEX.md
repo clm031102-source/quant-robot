@@ -6424,3 +6424,25 @@ Docs:
 - `docs/research/cn_stock_round738_lpr_macro_regime_walk_forward_rejection_rotation_gate_2026-07-09.md`
 
 Decision: the failed Round737 LPR `gap_widening` path is closed to simple rerun or threshold rescue. Future work may rotate to a new orthogonal source gate, or revisit LPR only through a genuinely new macro-interaction source gate.
+
+## Round739 Non-LPR Orthogonal Source Gate
+
+Round739 consumed Round738's rotation clearance, Round729's factor-batch/local-prescreen readiness packet, and the Round729 analyst-report local prescreen to choose the next non-LPR source path.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- New op and CLI: `src/quant_robot/ops/cn_stock_non_lpr_orthogonal_source_gate.py` and `scripts/run_cn_stock_non_lpr_orthogonal_source_gate.py`.
+- The gate keeps the failed LPR `gap_widening` residual path closed, separates local cached prescreen permission from full factor-batch readiness, and selects `analyst_report_revision` only as a blocked PIT source-extension path.
+- Real startup gates passed: Quant PM startup gate `ready`; factor-mining startup gate `cleared`.
+- Real output wrote `data/reports/round739_non_lpr_orthogonal_source_gate_20260709`.
+- Source-gate summary: status `blocked`, selected source `analyst_report_revision`, source gate selected true, source gate ready false, local cached prescreen allowed true, full factor batch allowed false, provider request allowed false.
+- Analyst evidence from Round729: 4 candidates, 4 multiple-testing leads, 2 neutral-gate passes, 0 year-coverage passes, 0 research leads, latest report date 2024-06-30.
+- Blockers: `provider_quota_preflight_blocked`, `full_factor_batch_readiness_blocked`, `analyst_year_coverage_below_gate`, and `analyst_research_lead_count_zero`.
+- Next action: `wait_for_report_rc_quota_reset_then_cache_next_analyst_month`.
+- Focused tests: non-LPR orthogonal source gate and CLI `5 passed`.
+- No provider download, factor batch, portfolio grid, promotion gate, ready signal snapshot, paper simulation, broker access, order placement, or final-holdout tuning occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round739_non_lpr_orthogonal_source_gate_2026-07-09.md`
+
+Decision: `analyst_report_revision` is the selected non-LPR PIT source path, but only as a quota-blocked source-extension path. Local cached prescreen permission is not full factor-batch readiness and must not unlock portfolio grids, promotion, paper signals, or live workflows.
