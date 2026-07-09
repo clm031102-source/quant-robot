@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round734_lpr_macro_regime_factor_value_reconstruction_smoke_2026-07-09.md`
 - `docs/research/cn_stock_round733_lpr_macro_regime_reference_dedup_preflight_2026-07-09.md`
 - `docs/research/cn_stock_round732_lpr_macro_regime_pairwise_residual_ic_prescreen_2026-07-09.md`
 - `docs/research/cn_stock_round731_lpr_macro_regime_state_prescreen_2026-07-09.md`
@@ -6312,3 +6313,24 @@ Docs:
 - `docs/research/cn_stock_round733_lpr_macro_regime_reference_dedup_preflight_2026-07-09.md`
 
 Decision: only two `gap_widening` representatives may proceed to factor-value reference deduplication and exposure reaudit. Walk-forward, portfolio grids, promotion gates, paper signals, and live boundaries remain blocked.
+
+## Round734 LPR Macro Regime Factor Value Reconstruction Smoke
+
+Round734 rebuilt residual factor values for the two Round733 `gap_widening` representative candidates and joined them to the LPR-SHIBOR regime state.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- New op and CLI: `src/quant_robot/ops/lpr_macro_regime_factor_value_reconstruction_smoke.py` and `scripts/run_lpr_macro_regime_factor_value_reconstruction_smoke.py`.
+- The smoke consumes the Round733 preflight, rebuilds the LPR-SHIBOR state, reconstructs only cluster representatives, applies the same industry and size/liquidity/volatility residualization path used by the source prescreens, and checks factor-value coverage inside `gap_widening`.
+- Real startup gates passed: Quant PM startup gate `ready`; factor-mining startup gate `cleared`.
+- Real output wrote `data/reports/round734_lpr_macro_regime_factor_value_reconstruction_smoke_20260709`.
+- Prescreen summary: 2 representative candidates, 2,773,424 residual factor-value rows rebuilt, 2 factor-value-ready candidates, 0 blocked candidates, 0 walk-forward-preflight candidates, 0 portfolio-grid candidates, and 0 promotion candidates.
+- `public_anomaly_residual_equal_weight_20_industry_size_liquidity_vol_residual`: 1,386,712 factor rows, 400,891 `gap_widening` state rows, 100 state dates, median cross-section 4,039, from 2025-02-20 to 2025-09-29.
+- `williams_range_failure_reversal_14_20_industry_size_liquidity_vol_residual`: 1,386,712 factor rows, 400,891 `gap_widening` state rows, 100 state dates, median cross-section 4,039, from 2025-02-20 to 2025-09-29.
+- Focused tests: LPR factor-value reconstruction smoke and CLI `3 passed`.
+- No provider download, reference-correlation run, walk-forward validation, portfolio grid, promotion gate, ready signal snapshot, paper simulation, broker access, order placement, or final-holdout tuning occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round734_lpr_macro_regime_factor_value_reconstruction_smoke_2026-07-09.md`
+
+Decision: the two `gap_widening` representatives have enough state-conditioned factor-value coverage to proceed only to true factor-value reference deduplication and exposure reaudit. Walk-forward, portfolio grids, promotion gates, paper signals, and live boundaries remain blocked.
