@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round699_statement_industry_relative_surprise_full_replay_2026-07-09.md`
 - `docs/research/cn_stock_round698_hk_hold_quarterly_policy_audit_2026-07-09.md`
 - `docs/research/cn_stock_round697_hk_hold_source_symbol_composition_audit_2026-07-09.md`
 - `docs/research/cn_stock_round696_external_hk_hold_lpr_candidate_plan_feasibility_2026-07-09.md`
@@ -5489,3 +5490,27 @@ Docs:
 - `docs/research/cn_stock_round698_hk_hold_quarterly_policy_audit_2026-07-09.md`
 
 Decision: treat `hk_hold` as a quarterly low-frequency state source after 2024-08-20, not as a daily rank feed needing blind repair. Rotate away from HK-hold x LPR for immediate active stock factor mining unless a future candidate plan explicitly models quarterly stale-state behavior and passes the normal gate.
+
+## Round699 Statement Industry-Relative Surprise Full Replay
+
+Round699 replayed the frozen Round253 `accounting_quality_industry_relative_surprise` family after the local statement source expanded from the old 130-symbol sample to the current broad statement root.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Factor mode: `industry_relative_surprise`.
+- Final holdout included: false.
+- Candidate count: 3.
+- Test count: 6.
+- Factor rows: 67,782.
+- Aligned rows: 135,564.
+- IC observations per test: 160.
+- Multiple-testing leads: 0.
+- Neutral-gate passes: 0.
+- Research leads: 0.
+- Promotion allowed candidates: 0.
+- No portfolio grid, walk-forward conversion, promotion gate, mixed-window harvesting, signal generation, or 2026 final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round699_statement_industry_relative_surprise_full_replay_2026-07-09.md`
+
+Decision: reject the family after full-sample replay. The old failure was not solved by broader statement coverage: raw IC remained negative or near zero, FDR failed for all tests, quantile spread was negative or tiny, and size/liquidity neutral gates failed. Rotate away from realized statement surprise formulas.
