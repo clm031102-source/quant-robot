@@ -6050,3 +6050,24 @@ Docs:
 - `docs/research/cn_stock_round722_desktop_validation_readiness_guard_2026-07-09.md`
 
 Decision: future CN processed-bars desktop validation wrappers must provide ready startup, data-manifest, and combined factor-batch readiness packets. The current Round708 readiness packet is blocked, so no CN desktop validation evidence should be generated until quota/source/candidate readiness clears.
+
+## Round723 Constrained Search Readiness Pass-Through
+
+Round723 added readiness packet pass-through to constrained candidate search when it runs a fresh walk-forward stage.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Added config fields `startup_gate_packet`, `data_manifest_packet`, `factor_batch_readiness_gate_packet`, and `allow_review_required_data_manifest` to `scripts/run_constrained_candidate_search.py`.
+- Fresh walk-forward runs inside constrained search now pass those fields to `run_walk_forward`.
+- The constrained search output pack records the configured readiness packet paths in `config`.
+- The CLI now reports validation failures without a Python traceback.
+- Real smoke used a temporary CN processed-bars config, disabled artifact reuse, and stopped on the blocked Round708 readiness packet.
+- Error: `CN walk-forward validation factor batch readiness gate is not ready`.
+- Constrained search output and walk-forward output directories were not created.
+- Focused tests: `4 passed`.
+- No provider download, new factor formula, IC screen, walk-forward from a ready packet, paper batch, promotion gate, ready signal generation, paper simulation, or final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round723_constrained_search_readiness_pass_through_2026-07-09.md`
+
+Decision: future CN processed-bars constrained-search configs that run fresh walk-forward evidence must provide ready startup, data-manifest, and combined factor-batch readiness packets. The current Round708 readiness packet is blocked, so no CN constrained-search walk-forward evidence should be generated until quota/source/candidate readiness clears.

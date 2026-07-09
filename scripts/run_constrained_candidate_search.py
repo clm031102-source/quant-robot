@@ -30,6 +30,12 @@ class ConstrainedCandidateSearchConfig:
     data_root: Path = Path("data/processed/etf_csv")
     walk_forward_config: Path = Path("configs/walk_forward_cn_etf_risk_constrained.json")
     walk_forward_output_dir: Path = Path("data/reports/walk_forward_cn_etf_risk_constrained")
+    startup_gate_packet: Path | None = Path("data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json")
+    data_manifest_packet: Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json")
+    factor_batch_readiness_gate_packet: Path | None = Path(
+        "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
+    )
+    allow_review_required_data_manifest: bool = False
     paper_batch_config: Path = Path("configs/paper_batch_cn_etf_risk_constrained.json")
     paper_batch_output_dir: Path = Path("data/reports/paper_batch_cn_etf_risk_constrained")
     promotion_config: Path = Path("configs/promotion_gate_cn_etf_risk_constrained.json")
@@ -54,6 +60,17 @@ def load_constrained_candidate_search_config(path: str | Path = DEFAULT_CONFIG) 
         data_root=Path(data.get("data_root", ConstrainedCandidateSearchConfig.data_root)),
         walk_forward_config=Path(data.get("walk_forward_config", ConstrainedCandidateSearchConfig.walk_forward_config)),
         walk_forward_output_dir=Path(data.get("walk_forward_output_dir", ConstrainedCandidateSearchConfig.walk_forward_output_dir)),
+        startup_gate_packet=_optional_path(data.get("startup_gate_packet", ConstrainedCandidateSearchConfig.startup_gate_packet)),
+        data_manifest_packet=_optional_path(data.get("data_manifest_packet", ConstrainedCandidateSearchConfig.data_manifest_packet)),
+        factor_batch_readiness_gate_packet=_optional_path(
+            data.get("factor_batch_readiness_gate_packet", ConstrainedCandidateSearchConfig.factor_batch_readiness_gate_packet)
+        ),
+        allow_review_required_data_manifest=bool(
+            data.get(
+                "allow_review_required_data_manifest",
+                ConstrainedCandidateSearchConfig.allow_review_required_data_manifest,
+            )
+        ),
         paper_batch_config=Path(data.get("paper_batch_config", ConstrainedCandidateSearchConfig.paper_batch_config)),
         paper_batch_output_dir=Path(data.get("paper_batch_output_dir", ConstrainedCandidateSearchConfig.paper_batch_output_dir)),
         promotion_config=Path(data.get("promotion_config", ConstrainedCandidateSearchConfig.promotion_config)),
@@ -82,6 +99,10 @@ def run_constrained_candidate_search(config_path: str | Path = DEFAULT_CONFIG) -
             source=config.source,
             data_root=config.data_root,
             output_dir=config.walk_forward_output_dir,
+            startup_gate_packet=config.startup_gate_packet,
+            data_manifest_packet=config.data_manifest_packet,
+            factor_batch_readiness_gate_packet=config.factor_batch_readiness_gate_packet,
+            allow_review_required_data_manifest=config.allow_review_required_data_manifest,
         ),
     )
     paper_batch = _reuse_or_run(
@@ -218,7 +239,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run a local risk-constrained candidate search pipeline.")
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
     args = parser.parse_args()
-    pack = run_constrained_candidate_search(Path(args.config))
+    try:
+        pack = run_constrained_candidate_search(Path(args.config))
+    except (FileNotFoundError, RuntimeError, ValueError) as exc:
+        raise SystemExit(str(exc)) from exc
     print(
         json.dumps(
             {
@@ -289,6 +313,14 @@ def _config_dict(config: ConstrainedCandidateSearchConfig) -> dict[str, Any]:
         "data_root": str(config.data_root),
         "walk_forward_config": str(config.walk_forward_config),
         "walk_forward_output_dir": str(config.walk_forward_output_dir),
+        "startup_gate_packet": str(config.startup_gate_packet) if config.startup_gate_packet is not None else None,
+        "data_manifest_packet": str(config.data_manifest_packet) if config.data_manifest_packet is not None else None,
+        "factor_batch_readiness_gate_packet": (
+            str(config.factor_batch_readiness_gate_packet)
+            if config.factor_batch_readiness_gate_packet is not None
+            else None
+        ),
+        "allow_review_required_data_manifest": config.allow_review_required_data_manifest,
         "paper_batch_config": str(config.paper_batch_config),
         "paper_batch_output_dir": str(config.paper_batch_output_dir),
         "promotion_config": str(config.promotion_config),
@@ -311,6 +343,12 @@ def _risk_tier(value: Any) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError("risk_tiers entries must be JSON objects")
     return dict(value)
+
+
+def _optional_path(value: Any) -> Path | None:
+    if value is None:
+        return None
+    return Path(value)
 
 
 def _frontier_candidates(risk_candidates: dict[str, Any]) -> list[dict[str, Any]]:

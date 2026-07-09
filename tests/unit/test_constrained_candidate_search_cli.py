@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from scripts import run_constrained_candidate_search as constrained_module
 from scripts.run_constrained_candidate_search import run_constrained_candidate_search
 
 
@@ -17,6 +18,9 @@ class ConstrainedCandidateSearchCliTests(unittest.TestCase):
             paper_output = root / "paper"
             promotion_output = root / "promotion"
             risk_output = root / "risk"
+            startup_gate = root / "startup_gate.json"
+            data_manifest = root / "data_manifest.json"
+            readiness_gate = root / "factor_batch_readiness_gate.json"
             config_path.write_text(
                 json.dumps(
                     {
@@ -24,6 +28,10 @@ class ConstrainedCandidateSearchCliTests(unittest.TestCase):
                         "data_root": str(root / "bars"),
                         "walk_forward_config": str(root / "walk.json"),
                         "walk_forward_output_dir": str(walk_output),
+                        "startup_gate_packet": str(startup_gate),
+                        "data_manifest_packet": str(data_manifest),
+                        "factor_batch_readiness_gate_packet": str(readiness_gate),
+                        "allow_review_required_data_manifest": True,
                         "paper_batch_config": str(root / "paper.json"),
                         "paper_batch_output_dir": str(paper_output),
                         "promotion_config": str(root / "promotion.json"),
@@ -78,6 +86,10 @@ class ConstrainedCandidateSearchCliTests(unittest.TestCase):
                 source="processed-bars",
                 data_root=root / "bars",
                 output_dir=walk_output,
+                startup_gate_packet=startup_gate,
+                data_manifest_packet=data_manifest,
+                factor_batch_readiness_gate_packet=readiness_gate,
+                allow_review_required_data_manifest=True,
             )
             paper_mock.assert_called_once_with(config_path=root / "paper.json", output_dir=paper_output)
             promotion_mock.assert_called_once_with(config_path=root / "promotion.json", output_dir=promotion_output)
@@ -109,6 +121,7 @@ class ConstrainedCandidateSearchCliTests(unittest.TestCase):
             self.assertEqual(pack["stage"], "phase_5_2_constrained_candidate_search")
             self.assertEqual(pack["selection_status"], "risk_candidate_selected")
             self.assertEqual(pack["selected_candidate"]["case_id"], "case_a")
+            self.assertEqual(pack["config"]["factor_batch_readiness_gate_packet"], str(readiness_gate))
             self.assertEqual(pack["summary"]["risk_eligible_candidates"], 1)
             self.assertTrue((output_dir / "constrained_candidate_search_pack.json").exists())
             self.assertTrue((output_dir / "constrained_candidate_search_pack.md").exists())
@@ -253,6 +266,20 @@ class ConstrainedCandidateSearchCliTests(unittest.TestCase):
         self.assertEqual(pack["summary"]["frontier_candidates"], 1)
         self.assertEqual(pack["frontier_candidates"][0]["case_id"], "case_aggressive")
         self.assertEqual(pack["frontier_candidates"][0]["risk_tier"], "aggressive_growth")
+
+    def test_cli_reports_validation_failures_without_traceback(self):
+        with (
+            patch("sys.argv", ["run_constrained_candidate_search.py"]),
+            patch.object(
+                constrained_module,
+                "run_constrained_candidate_search",
+                side_effect=ValueError("blocked readiness gate"),
+            ),
+            self.assertRaises(SystemExit) as raised,
+        ):
+            constrained_module.main()
+
+        self.assertEqual(str(raised.exception), "blocked readiness gate")
 
 
 if __name__ == "__main__":
