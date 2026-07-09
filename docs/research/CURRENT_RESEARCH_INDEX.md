@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round700_analyst_report_revision_may_extension_2026-07-09.md`
 - `docs/research/cn_stock_round699_statement_industry_relative_surprise_full_replay_2026-07-09.md`
 - `docs/research/cn_stock_round698_hk_hold_quarterly_policy_audit_2026-07-09.md`
 - `docs/research/cn_stock_round697_hk_hold_source_symbol_composition_audit_2026-07-09.md`
@@ -5514,3 +5515,35 @@ Docs:
 - `docs/research/cn_stock_round699_statement_industry_relative_surprise_full_replay_2026-07-09.md`
 
 Decision: reject the family after full-sample replay. The old failure was not solved by broader statement coverage: raw IC remained negative or near zero, FDR failed for all tests, quantile spread was negative or tiny, and size/liquidity neutral gates failed. Rotate away from realized statement surprise formulas.
+
+## Round700 Analyst Report Revision May Extension
+
+Round700 spent one controlled Tushare `report_rc` request window to extend the frozen analyst-report revision source through May 2024, then reran the same January-May PIT/IC prescreen.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- Quant PM startup gate status before provider work: `ready`, blockers `[]`.
+- Quota preflight request allowed: true.
+- Quota warning: `local_report_roots_only`.
+- May 2024 cache rows: 1,801.
+- May 2024 cache assets: 1,072.
+- Failed windows: 0.
+- Row-cap warning windows: 0.
+- Combined report rows: 8,629.
+- Combined report assets: 2,039.
+- Candidate count: 4.
+- Test count: 8.
+- Factor rows: 18,969.
+- Aligned rows: 37,938.
+- Multiple-testing leads: 0.
+- Neutral-gate passes: 0.
+- Research leads: 0.
+- Promotion allowed candidates: 0.
+- Year-coverage pass count: 0.
+- Final holdout included: false.
+- No portfolio grid, walk-forward conversion, promotion gate, sign/window tuning, formula tuning, mixed-window harvesting, signal generation, or 2026 final-holdout read occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round700_analyst_report_revision_may_extension_2026-07-09.md`
+
+Decision: reject the January-May analyst-report revision evidence for factor conversion. The source extension succeeded, but the frozen prescreen still produced zero research leads; the best row, `analyst_target_upside_60` at horizon 5, had positive raw IC but failed FDR and size-neutral gates with only one IC year of coverage. Rotate away unless the next task is explicitly slow source accumulation under quota governance.
