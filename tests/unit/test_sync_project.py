@@ -1,5 +1,7 @@
 import unittest
 import subprocess
+import tempfile
+from pathlib import Path
 
 from scripts.sync_project import (
     _cleanup_topic_branches_when_requested,
@@ -15,6 +17,56 @@ from scripts.sync_project import (
 
 
 class SyncProjectTests(unittest.TestCase):
+    def test_forbidden_paths_are_case_insensitive(self) -> None:
+        config = _config()
+
+        result = classify_changed_paths([".ENV.PRODUCTION"], config)
+
+        self.assertEqual(result["blocked"], [".ENV.PRODUCTION"])
+
+    def test_blocks_high_confidence_secret_content_in_allowed_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "configs").mkdir()
+            fake_token = "sk-" + "abcdefghijklmnopqrstuvwxyz123456"
+            (root / "configs" / "secret.json").write_text(
+                '{"openai_api_key": "' + fake_token + '"}',
+                encoding="utf-8",
+            )
+
+            result = classify_changed_paths(["configs/secret.json"], _config(), root=root)
+
+            self.assertEqual(result["blocked"], ["configs/secret.json"])
+            self.assertIn("secret_content", result["blocked_reasons"]["configs/secret.json"])
+
+    def test_blocks_risky_extensions_and_large_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "configs").mkdir()
+            (root / "docs").mkdir()
+            (root / "configs" / "cache.db").write_bytes(b"sqlite")
+            (root / "docs" / "large.md").write_text("x" * 128, encoding="utf-8")
+
+            result = classify_changed_paths(
+                ["configs/cache.db", "docs/large.md"],
+                _config(),
+                root=root,
+                max_file_size_bytes=64,
+            )
+
+            self.assertEqual(result["blocked"], ["configs/cache.db", "docs/large.md"])
+            self.assertIn("risky_extension", result["blocked_reasons"]["configs/cache.db"])
+            self.assertIn("file_too_large", result["blocked_reasons"]["docs/large.md"])
+
+    def test_blocks_paths_that_escape_the_workspace(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            result = classify_changed_paths(["../outside.py", "C:\\outside.py"], _config(), root=tmp)
+
+            self.assertEqual(result["blocked"], ["../outside.py", "C:/outside.py"])
+            self.assertTrue(
+                all("path_outside_workspace" in reasons for reasons in result["blocked_reasons"].values())
+            )
+
     def test_classifies_code_docs_and_configs_as_syncable(self) -> None:
         config = _config()
 
@@ -27,6 +79,9 @@ class SyncProjectTests(unittest.TestCase):
                 "docs/example.md",
                 "README.md",
                 "AGENTS.md",
+                ".gitattributes",
+                ".gitignore",
+                "requirements/constraints-ci.txt",
             ],
             config,
         )
@@ -41,6 +96,9 @@ class SyncProjectTests(unittest.TestCase):
                 "docs/example.md",
                 "README.md",
                 "AGENTS.md",
+                ".gitattributes",
+                ".gitignore",
+                "requirements/constraints-ci.txt",
             ],
         )
         self.assertEqual(result["blocked"], [])
@@ -539,6 +597,8 @@ def _config() -> dict:
             "allowed_paths": [
                 "AGENTS.md",
                 "README.md",
+                ".gitattributes",
+                ".gitignore",
                 ".github/",
                 "configs/",
                 "docs/",
@@ -546,6 +606,7 @@ def _config() -> dict:
                 "src/",
                 "tests/",
                 "pyproject.toml",
+                "requirements/",
                 ".env.example",
             ],
             "forbidden_paths": [

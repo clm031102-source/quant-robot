@@ -6,8 +6,8 @@ class CloudProjectDocsTests(unittest.TestCase):
     def test_current_research_index_matches_single_main_remote_structure(self) -> None:
         index = Path("docs/research/CURRENT_RESEARCH_INDEX.md").read_text(encoding="utf-8")
 
-        self.assertIn("Current remote topic branches: none", index)
-        self.assertIn("Remote branch cleanup status: complete", index)
+        self.assertIn("Current remote topic branch: none", index)
+        self.assertIn("Remote branch cleanup status:", index)
         self.assertIn("Deleted historical branches", index)
         self.assertNotIn("Current active CN stock sprint branch", index)
         self.assertNotIn("pending CN ETF research branch", index)

@@ -3,9 +3,11 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
+from pathlib import PurePosixPath
 from typing import Any, Callable
 
 try:
@@ -27,18 +29,59 @@ BRANCH_CLEANUP_STATUSES = {
     "ignored_by_manifest",
     "merged_to_stable_branch",
 }
+DEFAULT_MAX_SYNC_FILE_SIZE_BYTES = 5 * 1024 * 1024
+RISKY_SYNC_SUFFIXES = {
+    ".db",
+    ".duckdb",
+    ".key",
+    ".jsonl",
+    ".p12",
+    ".pem",
+    ".pfx",
+    ".sqlite",
+    ".sqlite3",
+}
+SECRET_PATTERNS = (
+    re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
+    re.compile(r"\bsk-[A-Za-z0-9_-]{24,}\b"),
+    re.compile(r"\bgh[pousr]_[A-Za-z0-9]{30,}\b"),
+    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),
+)
+SECRET_ASSIGNMENT = re.compile(
+    r"(?i)[\"']?(?:openai_api_key|tushare_token|api_key|secret_key|access_token|password)[\"']?"
+    r"\s*[:=]\s*[\"']([^\"'\r\n]{16,})[\"']"
+)
+SECRET_PLACEHOLDERS = ("example", "placeholder", "dummy", "fake", "test-only", "<", "${", "your_")
 
 
-def classify_changed_paths(paths: list[str], config: dict[str, Any]) -> dict[str, list[str]]:
+def classify_changed_paths(
+    paths: list[str],
+    config: dict[str, Any],
+    *,
+    root: str | Path = ".",
+    max_file_size_bytes: int | None = None,
+) -> dict[str, Any]:
     syncable: list[str] = []
     blocked: list[str] = []
     ignored: list[str] = []
+    blocked_reasons: dict[str, list[str]] = {}
+    root_path = Path(root).resolve()
+    configured_limit = _sync_policy(config).get("max_file_size_bytes", DEFAULT_MAX_SYNC_FILE_SIZE_BYTES)
+    size_limit = int(max_file_size_bytes if max_file_size_bytes is not None else configured_limit)
     for raw_path in paths:
         path = _normalize_path(raw_path)
         if not path:
             continue
-        if is_forbidden_path(path, config):
+        reasons = []
+        if _path_outside_workspace(path, root_path):
+            reasons.append("path_outside_workspace")
+        elif is_forbidden_path(path, config):
+            reasons.append("forbidden_path_policy")
+        else:
+            reasons.extend(_file_sync_risks(root_path / path, size_limit))
+        if reasons:
             blocked.append(path)
+            blocked_reasons[path] = sorted(set(reasons))
         elif is_allowed_path(path, config):
             syncable.append(path)
         else:
@@ -47,12 +90,13 @@ def classify_changed_paths(paths: list[str], config: dict[str, Any]) -> dict[str
         "syncable": syncable,
         "blocked": blocked,
         "ignored": ignored,
+        "blocked_reasons": blocked_reasons,
     }
 
 
 def is_forbidden_path(path: str, config: dict[str, Any]) -> bool:
     normalized = _normalize_path(path)
-    if normalized == ".env.example":
+    if normalized.casefold() == ".env.example":
         return False
     forbidden = list(_sync_policy(config).get("forbidden_paths", []))
     forbidden.extend(_data_policy(config).get("ignored_paths", []))
@@ -676,13 +720,65 @@ def _manifest_commit_keys(manifest: dict[str, Any], key: str) -> set[tuple[str, 
 
 def _matches(path: str, pattern: str) -> bool:
     normalized_pattern = _normalize_path(pattern)
-    if normalized_pattern.endswith("/"):
-        return path == normalized_pattern[:-1] or path.startswith(normalized_pattern)
-    return path == normalized_pattern or fnmatch.fnmatch(path, normalized_pattern)
+    normalized_path = _normalize_path(path)
+    path_key = normalized_path.casefold()
+    pattern_key = normalized_pattern.casefold()
+    if pattern_key.endswith("/"):
+        return path_key == pattern_key[:-1] or path_key.startswith(pattern_key)
+    return path_key == pattern_key or fnmatch.fnmatchcase(path_key, pattern_key)
 
 
 def _normalize_path(path: str) -> str:
     return path.replace("\\", "/").strip().strip('"')
+
+
+def _path_outside_workspace(path: str, root: Path) -> bool:
+    if "\x00" in path or path.startswith("/") or re.match(r"^[A-Za-z]:/", path):
+        return True
+    if ".." in PurePosixPath(path).parts:
+        return True
+    candidate = (root / path).resolve()
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        return True
+    return False
+
+
+def _file_sync_risks(path: Path, max_file_size_bytes: int) -> list[str]:
+    risks = []
+    if path.suffix.casefold() in RISKY_SYNC_SUFFIXES:
+        risks.append("risky_extension")
+    if not path.is_file():
+        return risks
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return [*risks, "file_unreadable"]
+    if size > max_file_size_bytes:
+        risks.append("file_too_large")
+        return risks
+    try:
+        content = path.read_bytes()
+    except OSError:
+        return [*risks, "file_unreadable"]
+    if b"\x00" in content:
+        risks.append("binary_content")
+        return risks
+    text = content.decode("utf-8", errors="ignore")
+    if _contains_high_confidence_secret(text):
+        risks.append("secret_content")
+    return risks
+
+
+def _contains_high_confidence_secret(text: str) -> bool:
+    if any(pattern.search(text) for pattern in SECRET_PATTERNS):
+        return True
+    for match in SECRET_ASSIGNMENT.finditer(text):
+        value = match.group(1).strip().casefold()
+        if not any(marker in value for marker in SECRET_PLACEHOLDERS):
+            return True
+    return False
 
 
 def _behind_upstream(upstream_sync: str) -> bool:

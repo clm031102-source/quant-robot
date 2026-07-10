@@ -6,6 +6,69 @@ from quant_robot.audit.project_audit import collect_project_audit, render_markdo
 
 
 class ProjectAuditTests(unittest.TestCase):
+    def test_repository_has_bounded_dependencies_line_endings_and_ci_matrix(self):
+        pyproject = Path("pyproject.toml").read_text(encoding="utf-8")
+        attributes = Path(".gitattributes").read_text(encoding="utf-8")
+        constraints = Path("requirements/constraints-ci.txt").read_text(encoding="utf-8")
+        workflow = Path(".github/workflows/ci.yml").read_text(encoding="utf-8")
+
+        self.assertIn('requires-python = ">=3.11,<3.14"', pyproject)
+        self.assertIn('"numpy>=1.26,<3"', pyproject)
+        self.assertIn('"pandas>=2.0,<4"', pyproject)
+        self.assertIn("*.py text eol=lf", attributes)
+        self.assertIn("numpy>=1.26,<3", constraints)
+        self.assertIn("matrix:", workflow)
+        self.assertIn("ubuntu-latest", workflow)
+        self.assertIn("windows-latest", workflow)
+        self.assertIn("python -m build --wheel", workflow)
+        self.assertIn("requirements/constraints-ci.txt", workflow)
+
+    def test_audit_flags_forbidden_identifiers_case_insensitively(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "src").mkdir()
+            (root / "src" / "danger.py").write_text(
+                "def Place_Order(order):\n    return order\n",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            self.assertFalse(audit["safety"]["passes"])
+            self.assertEqual(audit["safety"]["forbidden_hits"][0]["pattern"], "place_order")
+
+    def test_inline_boundary_phrase_does_not_hide_forbidden_implementation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "src").mkdir()
+            (root / "src" / "danger.py").write_text(
+                "def place_order(order):  # no broker connection\n    return order\n",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            self.assertFalse(audit["safety"]["passes"])
+            self.assertEqual(len(audit["safety"]["forbidden_hits"]), 1)
+
+    def test_audit_rejects_production_imports_from_test_fixtures(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "src").mkdir()
+            (root / "src" / "service.py").write_text(
+                "from tests.unit.sample_fixture import bars\n",
+                encoding="utf-8",
+            )
+
+            audit = collect_project_audit(root)
+
+            self.assertFalse(audit["mock_boundaries"]["passes"])
+            self.assertEqual(
+                audit["mock_boundaries"]["invalid_fixture_imports"][0]["module"],
+                "tests.unit.sample_fixture",
+            )
+            self.assertFalse(audit["summary"]["passes"])
+
     def test_audit_flags_order_implementation_but_allows_boundary_docs(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -334,15 +334,15 @@ Commit message: `fix: make market gap audits fail closed`
 - Modify: `tests/unit/test_gui.py`
 - Modify: `tests/unit/test_cloud_project_docs.py`
 
-- [ ] **Step 1: Add failing tests for case-insensitive forbidden identifiers, inline safety-phrase bypass, fixture imports, secret content, risky extensions, and large files**
+- [x] **Step 1: Add failing tests for case-insensitive forbidden identifiers, inline safety-phrase bypass, fixture imports, secret content, risky extensions, and large files**
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
-- [ ] **Step 3: Implement AST-aware audit and content-aware sync inspection**
+- [x] **Step 3: Implement AST-aware audit and content-aware sync inspection**
 
-- [ ] **Step 4: Add deterministic line endings, bounded dependencies, and CI matrix/build checks**
+- [x] **Step 4: Add deterministic line endings, bounded dependencies, and CI matrix/build checks**
 
-- [ ] **Step 5: Verify GREEN and commit**
+- [x] **Step 5: Verify GREEN and commit**
 
 Commit message: `chore: harden repository governance`
 

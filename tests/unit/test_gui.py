@@ -5702,7 +5702,7 @@ class GuiHttpTests(unittest.TestCase):
 
 def _read_text(url: str) -> str:
     with urlopen(url, timeout=5) as response:
-        return response.read().decode("utf-8")
+        return response.read().decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
 
 
 def _read_json(url: str) -> dict[str, object]:

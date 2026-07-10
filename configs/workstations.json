@@ -81,6 +81,8 @@
     "allowed_paths": [
       "AGENTS.md",
       "README.md",
+      ".gitattributes",
+      ".gitignore",
       ".github/",
       "configs/",
       "docs/",
@@ -89,6 +91,7 @@
       "src/",
       "tests/",
       "pyproject.toml",
+      "requirements/",
       ".env.example"
     ],
     "forbidden_paths": [
@@ -98,7 +101,16 @@
       "data/processed/",
       "data/reports/",
       "*.parquet",
-      "*.log"
+      "*.log",
+      "*.db",
+      "*.duckdb",
+      "*.jsonl",
+      "*.key",
+      "*.p12",
+      "*.pem",
+      "*.pfx",
+      "*.sqlite",
+      "*.sqlite3"
     ],
     "ask_before_push_when": [
       "machine is not confirmed",

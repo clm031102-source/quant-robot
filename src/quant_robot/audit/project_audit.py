@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import re
 from pathlib import Path
@@ -119,8 +120,11 @@ def collect_project_audit(root: str | Path = ".") -> dict[str, Any]:
     root_path = Path(root)
     files = _scan_files(root_path)
     forbidden_hits = []
+    syntax_errors = []
     boundary_mentions = 0
     mock_files = []
+    fixture_imports = []
+    invalid_fixture_imports = []
     for path in files:
         relative = _relative(path, root_path)
         text = path.read_text(encoding="utf-8", errors="ignore")
@@ -130,24 +134,16 @@ def collect_project_audit(root: str | Path = ".") -> dict[str, Any]:
         boundary_mentions += sum(1 for line in lower.splitlines() if any(phrase in line for phrase in BOUNDARY_PHRASES))
         if not _is_implementation_file(relative):
             continue
-        for line_number, line in enumerate(text.splitlines(), start=1):
-            if _is_allowed_boundary_line(line):
-                continue
-            for pattern in FORBIDDEN_PATTERNS:
-                if pattern in line:
-                    forbidden_hits.append(
-                        {
-                            "path": relative,
-                            "line": line_number,
-                            "pattern": pattern,
-                            "text": line.strip(),
-                        }
-                    )
+        implementation = _audit_python_implementation(text, relative)
+        forbidden_hits.extend(implementation["forbidden_hits"])
+        syntax_errors.extend(implementation["syntax_errors"])
+        fixture_imports.extend(implementation["fixture_imports"])
+        invalid_fixture_imports.extend(implementation["invalid_fixture_imports"])
     tushare = check_tushare_readiness()
     parquet = check_parquet_readiness()
     factor_config_registry = _audit_factor_config_registry(root_path)
-    safety_passes = not forbidden_hits
-    mock_passes = all("mock" in file.lower() or "fixture" in file.lower() for file in mock_files)
+    safety_passes = not forbidden_hits and not syntax_errors
+    mock_passes = not invalid_fixture_imports
     factor_config_passes = bool(factor_config_registry["passes"])
     return {
         "summary": {
@@ -157,11 +153,14 @@ def collect_project_audit(root: str | Path = ".") -> dict[str, Any]:
         "safety": {
             "passes": safety_passes,
             "forbidden_hits": forbidden_hits,
+            "syntax_errors": syntax_errors,
             "boundary_mentions": boundary_mentions,
         },
         "mock_boundaries": {
             "passes": mock_passes,
             "mock_files": sorted(mock_files),
+            "fixture_imports": fixture_imports,
+            "invalid_fixture_imports": invalid_fixture_imports,
         },
         "real_data": {
             "tushare_ready": bool(tushare["ready"]),
@@ -189,6 +188,7 @@ def render_markdown_report(audit: dict[str, Any]) -> str:
         f"- Passes: {safety['passes']}",
         f"- Boundary mentions: {safety['boundary_mentions']}",
         f"- Forbidden implementation hits: {len(safety['forbidden_hits'])}",
+        f"- Syntax errors: {len(safety.get('syntax_errors', []))}",
     ]
     for hit in safety["forbidden_hits"]:
         lines.append(f"  - {hit['path']}:{hit['line']} `{hit['pattern']}`")
@@ -199,10 +199,13 @@ def render_markdown_report(audit: dict[str, Any]) -> str:
             "",
             f"- Passes: {mock['passes']}",
             f"- Mock/fixture files: {len(mock['mock_files'])}",
+            f"- Invalid fixture imports: {len(mock.get('invalid_fixture_imports', []))}",
         ]
     )
     for file in mock["mock_files"]:
         lines.append(f"  - `{file}`")
+    for hit in mock.get("invalid_fixture_imports", []):
+        lines.append(f"  - {hit['path']}:{hit['line']} imports `{hit['module']}`")
     lines.extend(
         [
             "",
@@ -280,29 +283,158 @@ def _relative(path: Path, root: Path) -> str:
     return path.relative_to(root).as_posix()
 
 
-def _is_allowed_boundary_line(line: str) -> bool:
-    lower = line.lower()
-    return any(phrase in lower for phrase in BOUNDARY_PHRASES) or _is_disabled_live_boundary_line(lower)
+def _audit_python_implementation(text: str, relative_path: str) -> dict[str, list[dict[str, Any]]]:
+    try:
+        tree = ast.parse(text, filename=relative_path)
+    except SyntaxError as exc:
+        return {
+            "forbidden_hits": [],
+            "syntax_errors": [
+                {
+                    "path": relative_path,
+                    "line": int(exc.lineno or 0),
+                    "error": str(exc.msg),
+                }
+            ],
+            "fixture_imports": [],
+            "invalid_fixture_imports": [],
+        }
+
+    source_lines = text.splitlines()
+    hit_keys: set[tuple[int, str]] = set()
+    forbidden_hits: list[dict[str, Any]] = []
+
+    def add_hit(line_number: int, pattern: str) -> None:
+        key = (line_number, pattern)
+        if key in hit_keys:
+            return
+        hit_keys.add(key)
+        source = source_lines[line_number - 1].strip() if 0 < line_number <= len(source_lines) else ""
+        forbidden_hits.append(
+            {
+                "path": relative_path,
+                "line": line_number,
+                "pattern": pattern,
+                "text": source,
+            }
+        )
+
+    for node in ast.walk(tree):
+        for identifier in _node_identifiers(node):
+            lowered = identifier.casefold()
+            if lowered in DISABLED_LIVE_BOUNDARY_FIELDS:
+                continue
+            for pattern in FORBIDDEN_PATTERNS:
+                if pattern.casefold() in lowered:
+                    add_hit(int(getattr(node, "lineno", 0) or 0), pattern)
+        for field, value, line_number in _live_boundary_assignments(node):
+            if field.casefold() in DISABLED_LIVE_BOUNDARY_FIELDS and not _is_literal_false(value):
+                add_hit(line_number, "live_order")
+
+    fixture_imports = _fixture_import_records(tree, relative_path)
+    invalid_fixture_imports = [row for row in fixture_imports if not _fixture_import_allowed(row, relative_path)]
+    return {
+        "forbidden_hits": sorted(forbidden_hits, key=lambda row: (row["path"], row["line"], row["pattern"])),
+        "syntax_errors": [],
+        "fixture_imports": fixture_imports,
+        "invalid_fixture_imports": invalid_fixture_imports,
+    }
 
 
-def _is_disabled_live_boundary_line(lower_line: str) -> bool:
-    stripped = lower_line.strip()
-    for field in DISABLED_LIVE_BOUNDARY_FIELDS:
-        quoted_field = rf"[\"']{re.escape(field)}[\"']"
-        field_reference = rf"{quoted_field}\s*,?$"
-        single_item_collection = rf"\w+\s*=\s*[\(\[\{{]\s*{quoted_field}\s*,?\s*[\)\]\}}]\s*"
-        disabled_mapping = rf"{quoted_field}\s*:\s*false\b"
-        disabled_assignment = rf"\b{re.escape(field)}\s*=\s*false\b"
-        disabled_index_assignment = rf"\w+\s*\[\s*{quoted_field}\s*\]\s*=\s*false\b"
-        if re.fullmatch(field_reference, stripped) or re.fullmatch(single_item_collection, stripped):
-            return True
-        if (
-            re.search(disabled_mapping, stripped)
-            or re.search(disabled_assignment, stripped)
-            or re.search(disabled_index_assignment, stripped)
-        ):
-            return True
-    return False
+def _node_identifiers(node: ast.AST) -> list[str]:
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        return [node.name]
+    if isinstance(node, ast.Name):
+        return [node.id]
+    if isinstance(node, ast.Attribute):
+        return [node.attr]
+    if isinstance(node, ast.arg):
+        return [node.arg]
+    if isinstance(node, ast.alias):
+        return [node.name, node.asname or ""]
+    if isinstance(node, ast.keyword) and node.arg:
+        return [node.arg]
+    return []
+
+
+def _live_boundary_assignments(node: ast.AST) -> list[tuple[str, ast.AST, int]]:
+    rows: list[tuple[str, ast.AST, int]] = []
+    if isinstance(node, ast.Dict):
+        for key, value in zip(node.keys, node.values):
+            field = _string_literal(key)
+            if field is not None:
+                rows.append((field, value, int(getattr(key, "lineno", getattr(node, "lineno", 0)) or 0)))
+    elif isinstance(node, ast.Assign):
+        for target in node.targets:
+            field = _assignment_field(target)
+            if field is not None:
+                rows.append((field, node.value, int(getattr(target, "lineno", getattr(node, "lineno", 0)) or 0)))
+    elif isinstance(node, ast.AnnAssign):
+        field = _assignment_field(node.target)
+        if field is not None and node.value is not None:
+            rows.append((field, node.value, int(getattr(node.target, "lineno", getattr(node, "lineno", 0)) or 0)))
+    elif isinstance(node, ast.keyword) and node.arg:
+        rows.append((node.arg, node.value, int(getattr(node, "lineno", 0) or 0)))
+    return rows
+
+
+def _assignment_field(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    if isinstance(node, ast.Subscript):
+        return _string_literal(node.slice)
+    return None
+
+
+def _string_literal(node: ast.AST | None) -> str | None:
+    if isinstance(node, ast.Constant) and isinstance(node.value, str):
+        return node.value
+    return None
+
+
+def _is_literal_false(node: ast.AST) -> bool:
+    return isinstance(node, ast.Constant) and node.value is False
+
+
+def _fixture_import_records(tree: ast.AST, relative_path: str) -> list[dict[str, Any]]:
+    rows = []
+    for node in ast.walk(tree):
+        modules = []
+        if isinstance(node, ast.Import):
+            modules.extend(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            prefix = "." * int(node.level or 0)
+            if node.module:
+                modules.append(prefix + node.module)
+            else:
+                modules.extend(prefix + alias.name for alias in node.names)
+        for module in modules:
+            if _looks_like_fixture_module(module):
+                rows.append(
+                    {
+                        "path": relative_path,
+                        "line": int(getattr(node, "lineno", 0) or 0),
+                        "module": module,
+                    }
+                )
+    return sorted(rows, key=lambda row: (row["path"], row["line"], row["module"]))
+
+
+def _looks_like_fixture_module(module: str) -> bool:
+    return any("fixture" in part.casefold() or "mock" in part.casefold() for part in module.split("."))
+
+
+def _fixture_import_allowed(row: dict[str, Any], relative_path: str) -> bool:
+    module = str(row.get("module", "")).lstrip(".").casefold()
+    if module == "tests" or module.startswith("tests."):
+        return False
+    if relative_path.startswith("scripts/"):
+        return True
+    if relative_path.startswith("src/quant_robot/gui/") and module.startswith("quant_robot.gui.fixtures"):
+        return True
+    return not relative_path.startswith("src/")
 
 
 def _is_mock_file(relative_path: str) -> bool:

@@ -1,22 +1,22 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=68,<83"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "quant-robot"
 version = "0.1.0"
 description = "Local multi-market quantitative research framework without live trading."
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.14"
 dependencies = [
-  "numpy>=1.26",
-  "pandas>=2.0",
-  "pydantic>=2.0",
+  "numpy>=1.26,<3",
+  "pandas>=2.0,<4",
+  "pydantic>=2.0,<3",
 ]
 
 [project.optional-dependencies]
-parquet = ["pyarrow>=15"]
-reports = ["matplotlib>=3.8"]
-data = ["akshare>=1.15", "tushare>=1.4", "yfinance>=0.2", "ccxt>=4.0"]
+parquet = ["pyarrow>=15,<25"]
+reports = ["matplotlib>=3.8,<4"]
+data = ["akshare>=1.15,<2", "tushare>=1.4,<2", "yfinance>=0.2,<1", "ccxt>=4.0,<5"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
