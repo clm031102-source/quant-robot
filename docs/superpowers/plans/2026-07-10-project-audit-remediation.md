@@ -266,15 +266,15 @@ Commit message: `fix: lock final holdout access`
 - Modify: `tests/unit/test_experiment_runner.py`
 - Modify: `tests/unit/test_walk_forward.py`
 
-- [ ] **Step 1: Add failing tests for missing amount, rejected over-capacity trades, uncapped impact, target-weight turnover, and downstream rejection**
+- [x] **Step 1: Add failing tests for missing amount, rejected over-capacity trades, uncapped impact, target-weight turnover, and downstream rejection**
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
-- [ ] **Step 3: Reject unmeasurable/over-limit capacity and compute target-delta turnover**
+- [x] **Step 3: Reject unmeasurable/over-limit capacity and compute target-delta turnover**
 
-- [ ] **Step 4: Surface `capacity_rejected_trades` and reject affected validation cases**
+- [x] **Step 4: Surface `capacity_rejected_trades` and reject affected validation cases**
 
-- [ ] **Step 5: Verify GREEN and commit**
+- [x] **Step 5: Verify GREEN and commit**
 
 Commit message: `fix: enforce executable capacity constraints`
 

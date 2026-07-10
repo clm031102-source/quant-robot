@@ -106,12 +106,17 @@ def run_factor_backtest(
     metrics.update(signal_filter_metrics)
     metrics.update(trade_gate_metrics)
     if not trades.empty:
-        metrics["turnover"] = float(trades.groupby("signal_date")["target_weight"].sum().mean())
+        metrics["turnover"] = _target_weight_turnover(trades, portfolio_scope)
         metrics["average_holdings"] = float(trades.groupby("signal_date")["asset_id"].nunique().mean())
         metrics["avg_cost_rate"] = float(trades["cost_rate"].mean())
         metrics["max_cost_rate"] = float(trades["cost_rate"].max())
-        metrics["avg_participation_rate"] = float(trades["participation_rate"].mean())
-        metrics["max_participation_rate"] = float(trades["participation_rate"].max())
+        available_participation = pd.to_numeric(trades["participation_rate"], errors="coerce").dropna()
+        metrics["avg_participation_rate"] = (
+            float(available_participation.mean()) if not available_participation.empty else 0.0
+        )
+        metrics["max_participation_rate"] = (
+            float(available_participation.max()) if not available_participation.empty else 0.0
+        )
         metrics["capacity_limited_trades"] = int(trades["capacity_limited"].sum())
         metrics["max_calendar_holding_days"] = int(trades["calendar_holding_days"].max())
         metrics["p99_calendar_holding_days"] = float(trades["calendar_holding_days"].quantile(0.99))
@@ -266,6 +271,9 @@ def _build_trades(
     trades_filtered_exit_tradeability = 0
     trades_delayed_exit_tradeability = 0
     max_tradeability_exit_delay_days = 0
+    capacity_rejected_trades = 0
+    capacity_amount_missing_trades = 0
+    participation_unavailable_trades = 0
     for row in selected.itertuples(index=False):
         asset_bars = bar_lookup.get(row.asset_id)
         if asset_bars is None:
@@ -300,13 +308,26 @@ def _build_trades(
             calendar_limited_trades += 1
             max_skipped_calendar_holding_days = max(max_skipped_calendar_holding_days, calendar_holding_days)
             continue
-        participation_rate = _participation_rate(row.target_weight, entry, portfolio_value)
+        entry_amount = _entry_amount(entry)
+        capacity_controls_active = max_participation_rate is not None or market_impact_bps > 0.0
+        if entry_amount <= 0.0:
+            participation_unavailable_trades += 1
+            if capacity_controls_active:
+                capacity_amount_missing_trades += 1
+                capacity_rejected_trades += 1
+                continue
+            participation_rate = float("nan")
+        else:
+            participation_rate = _participation_rate(row.target_weight, entry_amount, portfolio_value)
+        if pd.notna(participation_rate) and capacity_limited(participation_rate, max_participation_rate):
+            capacity_rejected_trades += 1
+            continue
         cost_rate = estimate_trade_cost_rate(
             cost_bps,
             commission_bps=commission_bps,
             slippage_bps=slippage_bps,
             market_impact_bps=market_impact_bps,
-            participation_rate=participation_rate,
+            participation_rate=float(participation_rate) if pd.notna(participation_rate) else 0.0,
             max_participation_rate=max_participation_rate,
         )
         gross_return = exit_["adj_close"] / entry["adj_close"] - 1.0
@@ -322,7 +343,7 @@ def _build_trades(
                 "target_weight": row.target_weight,
                 "target_notional": abs(row.target_weight) * portfolio_value,
                 "signal_amount": _row_value(row, "signal_amount"),
-                "entry_amount": _entry_amount(entry),
+                "entry_amount": entry_amount,
                 "participation_rate": participation_rate,
                 "capacity_limited": capacity_limited(participation_rate, max_participation_rate),
                 "calendar_holding_days": calendar_holding_days,
@@ -343,6 +364,9 @@ def _build_trades(
         "tradeability_filtered_trades": int(
             trades_filtered_entry_tradeability + trades_filtered_exit_tradeability
         ),
+        "capacity_rejected_trades": int(capacity_rejected_trades),
+        "capacity_amount_missing_trades": int(capacity_amount_missing_trades),
+        "participation_unavailable_trades": int(participation_unavailable_trades),
     }
     if not rows:
         return (
@@ -372,11 +396,36 @@ def _build_trades(
     return pd.DataFrame(rows).sort_values(["signal_date", "factor_name", "asset_id"]).reset_index(drop=True), gate_metrics
 
 
-def _participation_rate(target_weight: float, entry: pd.Series, portfolio_value: float) -> float:
-    entry_amount = _entry_amount(entry)
-    if entry_amount <= 0.0:
-        return 0.0
+def _participation_rate(target_weight: float, entry_amount: float, portfolio_value: float) -> float:
     return abs(float(target_weight)) * float(portfolio_value) / entry_amount
+
+
+def _target_weight_turnover(trades: pd.DataFrame, portfolio_scope: str) -> float:
+    if trades.empty:
+        return 0.0
+    scope_columns = ["factor_name"]
+    if portfolio_scope == "market":
+        scope_columns.append("market")
+    observations: list[float] = []
+    group_key: str | list[str] = scope_columns[0] if len(scope_columns) == 1 else scope_columns
+    for _, portfolio in trades.groupby(group_key, sort=False, dropna=False):
+        previous_weights: dict[str, float] = {}
+        previous_cash = 1.0
+        for _, rebalance in portfolio.groupby("signal_date", sort=True):
+            current_weights = {
+                str(asset_id): float(weight)
+                for asset_id, weight in rebalance.groupby("asset_id")["target_weight"].sum().items()
+            }
+            current_cash = 1.0 - sum(current_weights.values())
+            asset_ids = set(previous_weights) | set(current_weights)
+            asset_change = sum(
+                abs(current_weights.get(asset_id, 0.0) - previous_weights.get(asset_id, 0.0))
+                for asset_id in asset_ids
+            )
+            observations.append(0.5 * (asset_change + abs(current_cash - previous_cash)))
+            previous_weights = current_weights
+            previous_cash = current_cash
+    return float(sum(observations) / len(observations)) if observations else 0.0
 
 
 def _entry_amount(entry: pd.Series) -> float:

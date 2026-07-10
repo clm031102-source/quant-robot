@@ -10,6 +10,7 @@ from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.experiments.runner import ExperimentGridConfig
 from quant_robot.validation.walk_forward import (
     WalkForwardConfig,
+    _rejection_reasons,
     _with_multiple_testing_evidence,
     load_walk_forward_config,
     run_walk_forward_validation,
@@ -17,6 +18,17 @@ from quant_robot.validation.walk_forward import (
 
 
 class WalkForwardTests(unittest.TestCase):
+    def test_walk_forward_rejects_capacity_filtered_oos_cases(self):
+        config = WalkForwardConfig(
+            split_date="2024-01-08",
+            experiment_grid=ExperimentGridConfig(),
+        )
+        train = {"status": "completed"}
+        test = {"status": "completed", "capacity_rejected_trades": 3}
+
+        reasons = _rejection_reasons(train, test, 100, 1.0, 0.1, -0.1, config)
+
+        self.assertIn("capacity_rejected_trades_present", reasons)
     def test_walk_forward_runs_train_and_test_splits_and_writes_artifacts(self):
         with tempfile.TemporaryDirectory() as tmp:
             config = WalkForwardConfig(

@@ -2,7 +2,7 @@ import unittest
 
 import pandas as pd
 
-from quant_robot.backtest.costs import round_trip_cost
+from quant_robot.backtest.costs import market_impact_cost_bps, round_trip_cost
 from quant_robot.backtest.engine import run_factor_backtest
 from quant_robot.backtest.metrics import max_drawdown, summarize_returns
 
@@ -195,7 +195,7 @@ class BacktestTests(unittest.TestCase):
         result = run_factor_backtest(factors, bars, top_n=1, cost_bps=0.0, holding_period=2)
 
         self.assertTrue(all(abs(weight - 0.5) < 1e-9 for weight in result.trades["target_weight"]))
-        self.assertAlmostEqual(result.metrics["turnover"], 0.5)
+        self.assertAlmostEqual(result.metrics["turnover"], 1.0 / 6.0)
 
     def test_backtest_metrics_include_overlap_aware_statistics_for_multi_day_holds(self):
         factors = pd.DataFrame(
@@ -255,7 +255,7 @@ class BacktestTests(unittest.TestCase):
         )
 
         self.assertTrue(all(abs(weight - 1.0) < 1e-9 for weight in result.trades["target_weight"]))
-        self.assertAlmostEqual(result.metrics["turnover"], 1.0)
+        self.assertAlmostEqual(result.metrics["turnover"], 0.5)
 
     def test_backtest_scales_target_gross_exposure(self):
         factors = pd.DataFrame(
@@ -311,12 +311,68 @@ class BacktestTests(unittest.TestCase):
             max_participation_rate=0.10,
         )
 
-        trade = result.trades.iloc[0]
-        self.assertGreater(trade["participation_rate"], 0.10)
-        self.assertTrue(bool(trade["capacity_limited"]))
-        self.assertGreater(trade["cost_rate"], round_trip_cost(5.0))
-        self.assertEqual(result.metrics["capacity_limited_trades"], 1)
-        self.assertGreater(result.metrics["max_participation_rate"], 0.10)
+        self.assertTrue(result.trades.empty)
+        self.assertEqual(result.metrics["capacity_rejected_trades"], 1)
+        self.assertEqual(result.metrics["capacity_limited_trades"], 0)
+
+    def test_backtest_rejects_capacity_control_when_amount_is_missing(self):
+        factors = pd.DataFrame(
+            {
+                "date": [pd.Timestamp("2024-01-01").date()],
+                "asset_id": ["A"],
+                "market": ["US"],
+                "factor_name": ["momentum_1"],
+                "factor_value": [1.0],
+            }
+        )
+        bars = pd.DataFrame(
+            {
+                "date": pd.date_range("2024-01-01", periods=3).date,
+                "asset_id": ["A"] * 3,
+                "market": ["US"] * 3,
+                "adj_close": [100.0, 100.0, 110.0],
+            }
+        )
+
+        result = run_factor_backtest(
+            factors,
+            bars,
+            top_n=1,
+            max_participation_rate=0.10,
+        )
+
+        self.assertTrue(result.trades.empty)
+        self.assertEqual(result.metrics["capacity_amount_missing_trades"], 1)
+        self.assertEqual(result.metrics["capacity_rejected_trades"], 1)
+
+    def test_market_impact_continues_above_participation_limit(self):
+        self.assertAlmostEqual(
+            market_impact_cost_bps(10.0, participation_rate=0.20, max_participation_rate=0.10),
+            20.0,
+        )
+
+    def test_turnover_uses_changes_in_target_weights(self):
+        factors = pd.DataFrame(
+            {
+                "date": [pd.Timestamp("2024-01-01").date(), pd.Timestamp("2024-01-02").date()],
+                "asset_id": ["A", "A"],
+                "market": ["US", "US"],
+                "factor_name": ["momentum_1", "momentum_1"],
+                "factor_value": [1.0, 1.0],
+            }
+        )
+        bars = pd.DataFrame(
+            {
+                "date": pd.date_range("2024-01-01", periods=4).date,
+                "asset_id": ["A"] * 4,
+                "market": ["US"] * 4,
+                "adj_close": [100.0, 101.0, 102.0, 103.0],
+            }
+        )
+
+        result = run_factor_backtest(factors, bars, top_n=1, cost_bps=0.0)
+
+        self.assertAlmostEqual(result.metrics["turnover"], 0.5)
 
     def test_backtest_filters_low_signal_amount_before_top_n_selection(self):
         factors = pd.DataFrame(

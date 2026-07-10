@@ -173,6 +173,25 @@ class ExperimentRunnerTests(unittest.TestCase):
         self.assertEqual(result["leaderboard"][0]["status"], "no_trades")
         self.assertEqual(result["leaderboard"][0]["trades"], 0)
 
+    def test_experiment_grid_surfaces_capacity_rejected_trades(self):
+        bars = load_demo_market_bars().copy()
+        bars["amount"] = 1.0
+        config = ExperimentGridConfig(
+            markets=("CN",),
+            factor_names=("momentum_2",),
+            factor_windows=(2,),
+            top_n_values=(1,),
+            cost_bps_values=(0.0,),
+            max_participation_rate=0.01,
+            portfolio_value=1_000_000.0,
+        )
+
+        result = run_experiment_grid(bars, config)
+
+        row = result["leaderboard"][0]
+        self.assertEqual(row["status"], "no_trades")
+        self.assertGreater(row["capacity_rejected_trades"], 0)
+
     def test_experiment_grid_rejects_factor_window_mismatch(self):
         config = ExperimentGridConfig(
             markets=("CN",),

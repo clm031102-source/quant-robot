@@ -45,5 +45,5 @@ def _market_impact_bps(
     if market_impact_bps <= 0.0 or participation_rate <= 0.0:
         return 0.0
     if max_participation_rate is not None and max_participation_rate > 0.0:
-        return float(market_impact_bps) * min(participation_rate / max_participation_rate, 1.0)
+        return float(market_impact_bps) * (participation_rate / max_participation_rate)
     return float(market_impact_bps) * min(participation_rate, 1.0)

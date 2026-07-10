@@ -475,6 +475,13 @@ def _row(case: ExperimentCase, status: str, error: str | None, trades: int, resu
             "avg_participation_rate": _number(metrics.get("avg_participation_rate"), 0.0),
             "max_participation_rate": _number(metrics.get("max_participation_rate"), 0.0),
             "capacity_limited_trades": int(_number(metrics.get("capacity_limited_trades"), 0.0)),
+            "capacity_rejected_trades": int(_number(metrics.get("capacity_rejected_trades"), 0.0)),
+            "capacity_amount_missing_trades": int(
+                _number(metrics.get("capacity_amount_missing_trades"), 0.0)
+            ),
+            "participation_unavailable_trades": int(
+                _number(metrics.get("participation_unavailable_trades"), 0.0)
+            ),
             "benchmark_total_return": _number(benchmark_metrics.get("benchmark_total_return"), 0.0),
             "relative_return": _number(benchmark_metrics.get("relative_return"), 0.0),
             "excess_over_cash": _number(benchmark_metrics.get("excess_over_cash"), 0.0),

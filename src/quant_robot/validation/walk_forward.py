@@ -330,6 +330,11 @@ def _merged_row(
             "test_avg_participation_rate": _metric(test, "avg_participation_rate"),
             "test_max_participation_rate": _metric(test, "max_participation_rate"),
             "test_capacity_limited_trades": int(_metric(test, "capacity_limited_trades")),
+            "test_capacity_rejected_trades": int(_metric(test, "capacity_rejected_trades")),
+            "test_capacity_amount_missing_trades": int(_metric(test, "capacity_amount_missing_trades")),
+            "test_participation_unavailable_trades": int(
+                _metric(test, "participation_unavailable_trades")
+            ),
             "folds": 1,
             "accepted_folds": 0 if reasons else 1,
             "rejected_folds": 1 if reasons else 0,
@@ -456,6 +461,15 @@ def _aggregate_case_rows(case_id: str, rows: list[dict[str, Any]], config: WalkF
             "test_avg_participation_rate": _mean_metric(rows, "test_avg_participation_rate"),
             "test_max_participation_rate": _max_metric(rows, "test_max_participation_rate"),
             "test_capacity_limited_trades": sum(int(_metric(row, "test_capacity_limited_trades")) for row in rows),
+            "test_capacity_rejected_trades": sum(
+                int(_metric(row, "test_capacity_rejected_trades")) for row in rows
+            ),
+            "test_capacity_amount_missing_trades": sum(
+                int(_metric(row, "test_capacity_amount_missing_trades")) for row in rows
+            ),
+            "test_participation_unavailable_trades": sum(
+                int(_metric(row, "test_participation_unavailable_trades")) for row in rows
+            ),
             "sharpe_degradation": _mean_metric(rows, "sharpe_degradation"),
             "stability_score": mean_stability_score,
             "mean_stability_score": mean_stability_score,
@@ -511,6 +525,8 @@ def _rejection_reasons(
         reasons.append("relative_return_below_threshold")
     if config.max_test_drawdown is not None and test_max_drawdown < -abs(config.max_test_drawdown):
         reasons.append("drawdown_above_limit")
+    if int(_metric(test, "capacity_rejected_trades")) > 0:
+        reasons.append("capacity_rejected_trades_present")
     return reasons
 
 
