@@ -1,5 +1,9 @@
 import tempfile
 import unittest
+from dataclasses import asdict
+from datetime import date
+import hashlib
+import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -10,6 +14,9 @@ from quant_robot.ops.capacity_safe_price_volume_prescreen import (
     build_capacity_safe_price_volume_prescreen,
     compute_capacity_safe_price_volume_factors,
     summarize_capacity_safe_price_volume_prescreen,
+)
+from quant_robot.ops.capacity_safe_price_volume_preregistration import (
+    default_capacity_safe_price_volume_candidate_specs,
 )
 
 
@@ -133,6 +140,92 @@ class CapacitySafePriceVolumePrescreenTests(unittest.TestCase):
             {5},
         )
 
+    def test_final_holdout_requires_authorization_packet_and_read_once_ledger(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "processed"
+            bars = _synthetic_bars(include_holdout=True)
+            store = DatasetStore(root)
+            for year, group in bars.groupby(bars["date"].dt.year):
+                store.write_frame(
+                    group,
+                    "bars",
+                    {"frequency": "1d", "market": "CN", "year": str(year)},
+                )
+            packet_path = Path(tmp) / "holdout_access.json"
+            ledger_path = Path(tmp) / "holdout_ledger.json"
+            candidate_hash = _candidate_hash(horizons=(5,))
+            packet_path.write_text(
+                json.dumps(
+                    {
+                        "stage": "final_holdout_access_authorization",
+                        "generated_at": date.today().isoformat(),
+                        "status": "authorized",
+                        "candidate_set_sha256": candidate_hash,
+                        "decision": {
+                            "candidate_frozen": True,
+                            "final_holdout_read_allowed": True,
+                            "blockers": [],
+                        },
+                        "read_once": True,
+                        "live_boundary_allowed": False,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = build_capacity_safe_price_volume_prescreen(
+                bars_roots=[root],
+                analysis_end_date="2025-12-31",
+                include_final_holdout=True,
+                final_holdout_access_packet=packet_path,
+                final_holdout_ledger=ledger_path,
+                horizons=(5,),
+                min_cross_section=20,
+                min_ic_observations=4,
+            )
+
+            self.assertTrue(result["holdout_policy"]["final_holdout_included"])
+            self.assertEqual(result["holdout_policy"]["candidate_set_sha256"], candidate_hash)
+            self.assertTrue(ledger_path.exists())
+            with self.assertRaisesRegex(ValueError, "already consumed"):
+                build_capacity_safe_price_volume_prescreen(
+                    bars_roots=[root],
+                    analysis_end_date="2025-12-31",
+                    include_final_holdout=True,
+                    final_holdout_access_packet=packet_path,
+                    final_holdout_ledger=ledger_path,
+                    horizons=(5,),
+                    min_cross_section=20,
+                    min_ic_observations=4,
+                )
+
+    def test_final_holdout_rejects_changed_candidate_set(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            packet_path = Path(tmp) / "holdout_access.json"
+            packet_path.write_text(
+                json.dumps(
+                    {
+                        "stage": "final_holdout_access_authorization",
+                        "generated_at": date.today().isoformat(),
+                        "status": "authorized",
+                        "candidate_set_sha256": _candidate_hash(horizons=(5,)),
+                        "decision": {"candidate_frozen": True, "final_holdout_read_allowed": True, "blockers": []},
+                        "read_once": True,
+                        "live_boundary_allowed": False,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "candidate hash mismatch"):
+                build_capacity_safe_price_volume_prescreen(
+                    bars_roots=[Path(tmp) / "unused"],
+                    include_final_holdout=True,
+                    final_holdout_access_packet=packet_path,
+                    final_holdout_ledger=Path(tmp) / "ledger.json",
+                    horizons=(20,),
+                )
+
     def test_computes_all_pre_registered_factor_names(self) -> None:
         factors = compute_capacity_safe_price_volume_factors(_synthetic_bars(), min_signal_date_amount=10_000_000)
 
@@ -193,6 +286,21 @@ class CapacitySafePriceVolumePrescreenTests(unittest.TestCase):
 
         self.assertEqual(result["summary"]["test_count"], 2)
         self.assertEqual(result["summary"]["research_lead_count"], 2)
+
+
+def _candidate_hash(*, horizons: tuple[int, ...]) -> str:
+    payload = {
+        "candidate_specs": [asdict(spec) for spec in default_capacity_safe_price_volume_candidate_specs()],
+        "analysis_start_date": "2015-01-01",
+        "analysis_end_date": "2025-12-31",
+        "horizons": list(horizons),
+        "execution_lag": 1,
+        "min_cross_section": 30 if horizons == (20,) else 20,
+        "min_ic_observations": 20 if horizons == (20,) else 4,
+        "min_signal_date_amount": 10_000_000,
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 if __name__ == "__main__":

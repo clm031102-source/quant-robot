@@ -12,6 +12,15 @@ from scripts.run_capacity_safe_price_volume_prescreen import (
 
 
 class CapacitySafePriceVolumePrescreenCliTests(unittest.TestCase):
+    def test_cli_rejects_bare_final_holdout_flag(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(ValueError, "access packet"):
+                run_capacity_safe_price_volume_prescreen_cli(
+                    bars_roots=[Path(tmp) / "missing"],
+                    output_dir=Path(tmp) / "output",
+                    include_final_holdout=True,
+                )
+
     def test_cli_writes_json_markdown_and_result_csv(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "processed"

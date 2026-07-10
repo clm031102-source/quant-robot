@@ -239,19 +239,19 @@ Commit message: `fix: remove PIT and horizon mixing bias`
 - Modify: `tests/unit/test_capacity_safe_price_volume_prescreen.py`
 - Modify: `tests/unit/test_capacity_safe_price_volume_prescreen_cli.py`
 
-- [ ] **Step 1: Add failing tests that reject a bare `include_final_holdout=True`, changed candidate hashes, and a second read**
+- [x] **Step 1: Add failing tests that reject a bare `include_final_holdout=True`, changed candidate hashes, and a second read**
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
-- [ ] **Step 3: Implement frozen-candidate hash plus atomic read-once ledger receipt**
+- [x] **Step 3: Implement frozen-candidate hash plus atomic read-once ledger receipt**
 
 ```python
 def authorize_final_holdout(*, packet_path, ledger_path, candidate_hash, context) -> dict[str, Any]: ...
 ```
 
-- [ ] **Step 4: Replace the bare CLI flag with packet and ledger arguments**
+- [x] **Step 4: Replace the bare CLI flag with packet and ledger arguments**
 
-- [ ] **Step 5: Verify GREEN and commit**
+- [x] **Step 5: Verify GREEN and commit**
 
 Commit message: `fix: lock final holdout access`
 

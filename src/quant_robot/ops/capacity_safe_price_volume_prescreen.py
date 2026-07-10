@@ -16,6 +16,11 @@ from quant_robot.ops.capacity_safe_price_volume_preregistration import (
     default_capacity_safe_price_volume_candidate_specs,
 )
 from quant_robot.research.labels import make_forward_returns
+from quant_robot.validation.final_holdout_access import (
+    authorize_final_holdout,
+    candidate_set_sha256,
+    validate_final_holdout_authorization,
+)
 
 
 STAGE = "capacity_safe_price_volume_prescreen"
@@ -55,6 +60,8 @@ def build_capacity_safe_price_volume_prescreen(
     analysis_start_date: str = DEFAULT_ANALYSIS_START_DATE,
     analysis_end_date: str = DEFAULT_ANALYSIS_END_DATE,
     include_final_holdout: bool = False,
+    final_holdout_access_packet: str | Path | None = None,
+    final_holdout_ledger: str | Path | None = None,
     horizons: tuple[int, ...] = DEFAULT_HORIZONS,
     execution_lag: int = 1,
     min_cross_section: int = 30,
@@ -62,11 +69,24 @@ def build_capacity_safe_price_volume_prescreen(
     min_signal_date_amount: float = DEFAULT_CAPACITY_FILTERS["min_signal_date_amount"],
 ) -> dict[str, Any]:
     specs = list(candidate_specs or default_capacity_safe_price_volume_candidate_specs())
+    candidate_hash = capacity_safe_prescreen_candidate_hash(
+        candidate_specs=specs,
+        analysis_start_date=analysis_start_date,
+        analysis_end_date=analysis_end_date,
+        horizons=horizons,
+        execution_lag=execution_lag,
+        min_cross_section=min_cross_section,
+        min_ic_observations=min_ic_observations,
+        min_signal_date_amount=min_signal_date_amount,
+    )
     bars = load_capacity_safe_bars(
         bars_roots,
         analysis_start_date=analysis_start_date,
         analysis_end_date=analysis_end_date,
         include_final_holdout=include_final_holdout,
+        final_holdout_access_packet=final_holdout_access_packet,
+        final_holdout_ledger=final_holdout_ledger,
+        candidate_hash=candidate_hash,
     )
     factor_frame = compute_capacity_safe_price_volume_factors(
         bars,
@@ -78,7 +98,8 @@ def build_capacity_safe_price_volume_prescreen(
         horizons=horizons,
         execution_lag=execution_lag,
     )
-    labels = labels[labels["date"] <= pd.Timestamp(analysis_end_date)].reset_index(drop=True)
+    label_end = bars["date"].max() if include_final_holdout and not bars.empty else pd.Timestamp(analysis_end_date)
+    labels = labels[labels["date"] <= pd.Timestamp(label_end)].reset_index(drop=True)
     result = summarize_capacity_safe_price_volume_prescreen(
         factor_frame,
         labels,
@@ -95,6 +116,8 @@ def build_capacity_safe_price_volume_prescreen(
         "analysis_end_date": analysis_end_date,
         "final_holdout_start": "2026-01-01",
         "final_holdout_use": "read_once_after_oos_clearance_only",
+        "candidate_set_sha256": candidate_hash,
+        "read_receipt": bars.attrs.get("final_holdout_read_receipt"),
     }
     result["capacity_policy"] = {
         "min_signal_date_amount": min_signal_date_amount,
@@ -111,7 +134,18 @@ def load_capacity_safe_bars(
     analysis_start_date: str = DEFAULT_ANALYSIS_START_DATE,
     analysis_end_date: str = DEFAULT_ANALYSIS_END_DATE,
     include_final_holdout: bool = False,
+    final_holdout_access_packet: str | Path | None = None,
+    final_holdout_ledger: str | Path | None = None,
+    candidate_hash: str | None = None,
 ) -> pd.DataFrame:
+    if include_final_holdout:
+        if not candidate_hash:
+            raise ValueError("capacity-safe prescreen final holdout requires a frozen candidate hash")
+        validate_final_holdout_authorization(
+            packet_path=final_holdout_access_packet,
+            candidate_hash=candidate_hash,
+            context="capacity-safe price-volume prescreen",
+        )
     files: list[Path] = []
     for root in bars_roots:
         root_path = Path(root)
@@ -127,12 +161,48 @@ def load_capacity_safe_bars(
     start = pd.Timestamp(analysis_start_date)
     end = pd.Timestamp(analysis_end_date)
     if include_final_holdout:
+        receipt = authorize_final_holdout(
+            packet_path=final_holdout_access_packet,
+            ledger_path=final_holdout_ledger,
+            candidate_hash=str(candidate_hash),
+            context="capacity-safe price-volume prescreen",
+        )
         end = max(end, bars["date"].max())
+    else:
+        receipt = None
     bars = bars[(bars["date"] >= start) & (bars["date"] <= end)]
-    return (
+    result = (
         bars.drop_duplicates(["asset_id", "market", "date"], keep="last")
         .sort_values(["asset_id", "date"])
         .reset_index(drop=True)
+    )
+    if receipt is not None:
+        result.attrs["final_holdout_read_receipt"] = receipt
+    return result
+
+
+def capacity_safe_prescreen_candidate_hash(
+    *,
+    candidate_specs: Sequence[Any],
+    analysis_start_date: str,
+    analysis_end_date: str,
+    horizons: tuple[int, ...],
+    execution_lag: int,
+    min_cross_section: int,
+    min_ic_observations: int,
+    min_signal_date_amount: float,
+) -> str:
+    return candidate_set_sha256(
+        {
+            "candidate_specs": [asdict(spec) for spec in candidate_specs],
+            "analysis_start_date": analysis_start_date,
+            "analysis_end_date": analysis_end_date,
+            "horizons": list(horizons),
+            "execution_lag": int(execution_lag),
+            "min_cross_section": int(min_cross_section),
+            "min_ic_observations": int(min_ic_observations),
+            "min_signal_date_amount": min_signal_date_amount,
+        }
     )
 
 

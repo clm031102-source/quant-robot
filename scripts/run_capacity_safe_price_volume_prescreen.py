@@ -35,6 +35,8 @@ def run_capacity_safe_price_volume_prescreen_cli(
     analysis_start_date: str = DEFAULT_ANALYSIS_START_DATE,
     analysis_end_date: str = DEFAULT_ANALYSIS_END_DATE,
     include_final_holdout: bool = False,
+    final_holdout_access_packet: str | Path | None = None,
+    final_holdout_ledger: str | Path | None = None,
     horizons: tuple[int, ...] = DEFAULT_HORIZONS,
     execution_lag: int = 1,
     min_cross_section: int = 30,
@@ -46,6 +48,8 @@ def run_capacity_safe_price_volume_prescreen_cli(
         analysis_start_date=analysis_start_date,
         analysis_end_date=analysis_end_date,
         include_final_holdout=include_final_holdout,
+        final_holdout_access_packet=final_holdout_access_packet,
+        final_holdout_ledger=final_holdout_ledger,
         horizons=horizons,
         execution_lag=execution_lag,
         min_cross_section=min_cross_section,
@@ -65,6 +69,8 @@ def main() -> None:
     parser.add_argument("--analysis-start-date", default=DEFAULT_ANALYSIS_START_DATE)
     parser.add_argument("--analysis-end-date", default=DEFAULT_ANALYSIS_END_DATE)
     parser.add_argument("--include-final-holdout", action="store_true")
+    parser.add_argument("--final-holdout-access-packet")
+    parser.add_argument("--final-holdout-ledger")
     parser.add_argument("--horizons", default=",".join(str(horizon) for horizon in DEFAULT_HORIZONS))
     parser.add_argument("--execution-lag", type=int, default=1)
     parser.add_argument("--min-cross-section", type=int, default=30)
@@ -79,6 +85,10 @@ def main() -> None:
         analysis_start_date=args.analysis_start_date,
         analysis_end_date=args.analysis_end_date,
         include_final_holdout=args.include_final_holdout,
+        final_holdout_access_packet=(
+            Path(args.final_holdout_access_packet) if args.final_holdout_access_packet else None
+        ),
+        final_holdout_ledger=Path(args.final_holdout_ledger) if args.final_holdout_ledger else None,
         horizons=horizons,
         execution_lag=args.execution_lag,
         min_cross_section=args.min_cross_section,
