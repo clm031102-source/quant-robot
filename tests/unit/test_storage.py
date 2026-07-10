@@ -1,6 +1,8 @@
 import importlib.util
 import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 import pandas as pd
 
@@ -24,6 +26,23 @@ class StorageTests(unittest.TestCase):
             result = store.read_dataset("sample")
 
             self.assertEqual(result.loc[0, "asset_id"], "US_XNAS_AAPL")
+
+    @unittest.skipIf(importlib.util.find_spec("pyarrow") is None, "pyarrow not installed")
+    def test_parquet_store_preserves_existing_file_when_write_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = ParquetStore(tmp)
+            existing = store.write_dataset(pd.DataFrame({"asset_id": ["OLD"]}), "sample")
+            original = existing.read_bytes()
+
+            def corrupt_then_fail(_frame, path, *args, **kwargs):
+                Path(path).write_bytes(b"partial")
+                raise OSError("simulated write failure")
+
+            with patch("pandas.DataFrame.to_parquet", autospec=True, side_effect=corrupt_then_fail):
+                with self.assertRaisesRegex(OSError, "simulated write failure"):
+                    store.write_dataset(pd.DataFrame({"asset_id": ["NEW"]}), "sample")
+
+            self.assertEqual(existing.read_bytes(), original)
 
 
 if __name__ == "__main__":

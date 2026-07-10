@@ -7,8 +7,12 @@ from typing import Any
 
 import pandas as pd
 
+from quant_robot.storage.atomic import atomic_write, atomic_write_text, atomic_write_json
+from quant_robot.storage.fingerprints import fingerprint_dataset_root, fingerprint_frame, fingerprint_schema
+
 
 STAGE = "cn_stock_data_manifest"
+MANIFEST_SCHEMA_VERSION = 2
 SAFETY_TEXT = "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
 
 
@@ -24,8 +28,10 @@ def build_cn_stock_data_manifest(
     blockers = _blockers(clean_bars)
     warnings = _warnings(clean_bars, clean_moneyflow, extreme_return_threshold)
     status = "blocked" if blockers else "review_required" if warnings else "cleared"
-    summary = _summary(clean_bars, clean_moneyflow, source_root)
+    source_fingerprint = fingerprint_dataset_root(source_root)
+    summary = _summary(clean_bars, clean_moneyflow, source_root, source_fingerprint)
     manifest = {
+        "manifest_schema_version": MANIFEST_SCHEMA_VERSION,
         "stage": STAGE,
         "generated_at": date.today().isoformat(),
         "status": status,
@@ -36,6 +42,7 @@ def build_cn_stock_data_manifest(
             "warnings": warnings,
         },
         "symbol_coverage": _symbol_coverage(clean_bars, clean_moneyflow),
+        "source_files": source_fingerprint["files"],
         "safety": SAFETY_TEXT,
         "live_boundary_allowed": False,
     }
@@ -46,12 +53,12 @@ def build_cn_stock_data_manifest(
 def write_cn_stock_data_manifest(output_dir: str | Path, manifest: dict[str, Any]) -> None:
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
-    (output_path / "cn_stock_data_manifest.json").write_text(
-        json.dumps(_json_manifest(manifest), indent=2, sort_keys=True),
-        encoding="utf-8",
+    atomic_write_json(output_path / "cn_stock_data_manifest.json", _json_manifest(manifest))
+    atomic_write_text(output_path / "cn_stock_data_manifest.md", str(manifest.get("markdown", "")))
+    atomic_write(
+        output_path / "cn_stock_symbol_coverage.csv",
+        lambda temporary: pd.DataFrame(manifest.get("symbol_coverage", [])).to_csv(temporary, index=False),
     )
-    (output_path / "cn_stock_data_manifest.md").write_text(str(manifest.get("markdown", "")), encoding="utf-8")
-    pd.DataFrame(manifest.get("symbol_coverage", [])).to_csv(output_path / "cn_stock_symbol_coverage.csv", index=False)
 
 
 def validate_cn_stock_data_manifest_packet(
@@ -61,6 +68,7 @@ def validate_cn_stock_data_manifest_packet(
     allow_review_required: bool = False,
     context: str = "CN stock factor mining",
     require_generated_today: bool = True,
+    verify_source_fingerprint: bool = False,
 ) -> dict[str, Any]:
     if packet_path is None:
         raise ValueError(f"{context} requires a CN stock data manifest packet")
@@ -88,6 +96,19 @@ def validate_cn_stock_data_manifest_packet(
         raise ValueError(f"{context} data manifest violates live boundary: {path}")
     if expected_source_root is not None and _path_text(summary.get("source_root")) != _path_text(expected_source_root):
         raise ValueError(f"{context} data manifest source root mismatch: {path}")
+    if verify_source_fingerprint:
+        if int(packet.get("manifest_schema_version") or 0) < MANIFEST_SCHEMA_VERSION:
+            raise ValueError(f"{context} data manifest fingerprint schema is missing: {path}")
+        if expected_source_root is None:
+            raise ValueError(f"{context} source fingerprint verification requires expected_source_root: {path}")
+        current = fingerprint_dataset_root(expected_source_root)
+        if not current["exists"]:
+            raise ValueError(f"{context} data manifest source root does not exist: {expected_source_root}")
+        if (
+            str(summary.get("source_content_sha256", "")) != current["content_sha256"]
+            or int(summary.get("source_file_count") or 0) != current["file_count"]
+        ):
+            raise ValueError(f"{context} data manifest source fingerprint mismatch: {path}")
     return packet
 
 
@@ -105,6 +126,8 @@ def render_cn_stock_data_manifest_markdown(manifest: dict[str, Any]) -> str:
         f"- Moneyflow rows: {summary.get('moneyflow_rows', 0)}",
         f"- Moneyflow symbols: {summary.get('moneyflow_symbols', 0)}",
         f"- Date range: {summary.get('date_start')} to {summary.get('date_end')}",
+        f"- Source files: {summary.get('source_file_count', 0)}",
+        f"- Source fingerprint: {summary.get('source_content_sha256', '')}",
         f"- Live boundary allowed: {manifest.get('live_boundary_allowed', False)}",
         "",
         "## Blockers",
@@ -135,7 +158,12 @@ def _prepare_moneyflow(moneyflow_inputs: pd.DataFrame | None) -> pd.DataFrame:
     return frame
 
 
-def _summary(bars: pd.DataFrame, moneyflow: pd.DataFrame, source_root: str | Path) -> dict[str, Any]:
+def _summary(
+    bars: pd.DataFrame,
+    moneyflow: pd.DataFrame,
+    source_root: str | Path,
+    source_fingerprint: dict[str, Any],
+) -> dict[str, Any]:
     return {
         "source_root": str(source_root),
         "bar_rows": int(len(bars)),
@@ -151,6 +179,13 @@ def _summary(bars: pd.DataFrame, moneyflow: pd.DataFrame, source_root: str | Pat
         "zero_volume_rows": _zero_count(bars, "volume"),
         "zero_amount_rows": _zero_count(bars, "amount"),
         "missing_adj_close_rows": _missing_count(bars, "adj_close"),
+        "bar_schema_sha256": fingerprint_schema(bars),
+        "bar_content_sha256": fingerprint_frame(bars),
+        "moneyflow_schema_sha256": fingerprint_schema(moneyflow),
+        "moneyflow_content_sha256": fingerprint_frame(moneyflow),
+        "source_file_count": int(source_fingerprint["file_count"]),
+        "source_content_sha256": str(source_fingerprint["content_sha256"]),
+        "source_fingerprint_schema_version": int(source_fingerprint["fingerprint_schema_version"]),
     }
 
 

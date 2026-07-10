@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from quant_robot.storage.atomic import atomic_write_text
+
 
 class IngestManifest:
     def __init__(self, path: str | Path) -> None:
@@ -23,7 +25,11 @@ class IngestManifest:
 
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(self.data, indent=2, sort_keys=True), encoding="utf-8")
+        atomic_write_text(
+            self.path,
+            json.dumps(self.data, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
 
     def _load(self) -> dict[str, Any]:
         if not self.path.exists():

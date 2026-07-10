@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from quant_robot.storage.paths import dataset_path
+from quant_robot.storage.atomic import atomic_write
 
 
 class ParquetStore:
@@ -18,7 +19,7 @@ class ParquetStore:
         path.mkdir(parents=True, exist_ok=True)
         sorted_frame = self._sort_for_stability(frame)
         file_path = path / "part-00000.parquet"
-        sorted_frame.to_parquet(file_path, index=False)
+        atomic_write(file_path, lambda temporary: sorted_frame.to_parquet(temporary, index=False))
         return file_path
 
     def read_dataset(self, name: str) -> pd.DataFrame:

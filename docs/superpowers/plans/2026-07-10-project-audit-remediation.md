@@ -78,7 +78,7 @@ Commit message: `fix: require authoritative processed bars`
 - Modify: `tests/unit/test_ingest_manifest.py`
 - Modify: `tests/unit/test_cn_stock_data_manifest.py`
 
-- [ ] **Step 1: Write failing atomicity, format-conflict, and fingerprint tests**
+- [x] **Step 1: Write failing atomicity, format-conflict, and fingerprint tests**
 
 ```python
 def test_write_frame_removes_stale_alternate_format(self): ...
@@ -86,11 +86,11 @@ def test_atomic_write_preserves_existing_file_when_writer_raises(self): ...
 def test_manifest_rejects_changed_source_tree_fingerprint(self): ...
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
 Run: `.venv\Scripts\python.exe -m pytest tests/unit/test_dataset_store.py tests/unit/test_storage.py tests/unit/test_ingest_manifest.py tests/unit/test_cn_stock_data_manifest.py -q`
 
-- [ ] **Step 3: Implement atomic replacement and deterministic fingerprints**
+- [x] **Step 3: Implement atomic replacement and deterministic fingerprints**
 
 ```python
 def atomic_write(path: Path, writer: Callable[[Path], None]) -> None:
@@ -105,9 +105,9 @@ def fingerprint_frame(frame: pd.DataFrame) -> str: ...
 def fingerprint_dataset_root(root: Path) -> dict[str, Any]: ...
 ```
 
-- [ ] **Step 4: Require manifest schema and fingerprint when strict validation is requested**
+- [x] **Step 4: Require manifest schema and fingerprint when strict validation is requested**
 
-- [ ] **Step 5: Verify GREEN and commit**
+- [x] **Step 5: Verify GREEN and commit**
 
 Commit message: `fix: make research data artifacts reproducible`
 

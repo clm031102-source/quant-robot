@@ -172,6 +172,51 @@ class CnStockDataManifestTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "generated today"):
                 validate_cn_stock_data_manifest_packet(path)
 
+    def test_manifest_records_and_validates_source_fingerprint(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "source"
+            root.mkdir()
+            source_file = root / "bars.csv"
+            source_file.write_text("date,asset_id\n2024-01-02,A\n", encoding="utf-8")
+            manifest = build_cn_stock_data_manifest(
+                bars=pd.DataFrame(
+                    {
+                        "date": ["2024-01-02"],
+                        "asset_id": ["A"],
+                        "symbol": ["000001.SZ"],
+                        "market": ["CN"],
+                        "asset_type": ["stock"],
+                        "adj_close": [10.0],
+                        "volume": [1000],
+                        "amount": [10000.0],
+                    }
+                ),
+                moneyflow_inputs=None,
+                source_root=root,
+            )
+            output = Path(tmp) / "report"
+            write_cn_stock_data_manifest(output, manifest)
+            packet_path = output / "cn_stock_data_manifest.json"
+
+            self.assertEqual(manifest["manifest_schema_version"], 2)
+            self.assertEqual(manifest["summary"]["source_file_count"], 1)
+            self.assertEqual(len(manifest["summary"]["source_content_sha256"]), 64)
+            validate_cn_stock_data_manifest_packet(
+                packet_path,
+                expected_source_root=root,
+                allow_review_required=True,
+                verify_source_fingerprint=True,
+            )
+
+            source_file.write_text("date,asset_id\n2024-01-02,B\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "source fingerprint mismatch"):
+                validate_cn_stock_data_manifest_packet(
+                    packet_path,
+                    expected_source_root=root,
+                    allow_review_required=True,
+                    verify_source_fingerprint=True,
+                )
+
 
 if __name__ == "__main__":
     unittest.main()
