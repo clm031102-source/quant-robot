@@ -14,12 +14,21 @@ ensure_workspace_imports()
 from quant_robot.storage.catalog import build_storage_catalog
 
 
-def main() -> None:
+def run_data_catalog_cli(*, root: str | Path = "data", summary_only: bool = False) -> str:
+    catalog = build_storage_catalog(
+        Path(root),
+        include_datasets=not summary_only,
+        count_rows=not summary_only,
+    )
+    return render_catalog(catalog, summary_only=summary_only)
+
+
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Show local Quant Robot data catalog.")
     parser.add_argument("--root", default="data")
     parser.add_argument("--summary-only", action="store_true")
-    args = parser.parse_args()
-    print(render_catalog(build_storage_catalog(Path(args.root)), summary_only=args.summary_only))
+    args = parser.parse_args(argv)
+    print(run_data_catalog_cli(root=args.root, summary_only=args.summary_only))
 
 
 def render_catalog(catalog: dict[str, object], summary_only: bool = False) -> str:

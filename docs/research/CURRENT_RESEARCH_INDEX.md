@@ -90,6 +90,7 @@ Promotion status:
 
 Latest same-day progress reports:
 
+- `docs/research/cn_stock_round753_fast_data_catalog_summary_2026-07-09.md`
 - `docs/research/cn_stock_round752_local_prescreen_currency_guard_2026-07-09.md`
 - `docs/research/cn_stock_round751_full_hibernation_source_queue_evidence_2026-07-09.md`
 - `docs/research/cn_stock_round750_external_feed_source_queue_evidence_2026-07-09.md`
@@ -6583,3 +6584,21 @@ Docs:
 - `docs/research/cn_stock_round752_local_prescreen_currency_guard_2026-07-09.md`
 
 Decision: no new factor batch is unlocked. The current analyst prescreen is already up to date through June 2024, so the next valid analyst action is to wait for `report_rc` quota readiness, cache the next monthly window, then rerun the same frozen prescreen once.
+
+## Round753 Fast Data Catalog Summary
+
+Round753 made the local data catalog usable as a no-provider source-discovery starting point.
+
+- Active branch: `codex/factor-batch-cn-stock-source-readiness-round695-20260709`.
+- `build_storage_catalog` now supports `include_datasets` and `count_rows`, and reports `total_rows=null` when row counting is skipped or dataset details are omitted.
+- `scripts/show_data_catalog.py --summary-only` now avoids per-CSV row counting and per-file dataset materialization.
+- Real command `.\.venv\Scripts\python.exe scripts\show_data_catalog.py --root data --summary-only` completed on the full local `data` tree.
+- Local scale: 404,358 data files, 19,646,988,047 bytes, `total_rows=null`.
+- Focused tests: storage catalog and data catalog CLI `5 passed`.
+- No provider download, factor IC screen, factor batch, portfolio grid, promotion gate, ready signal snapshot, paper simulation, broker access, order placement, or final-holdout tuning occurred.
+
+Docs:
+
+- `docs/research/cn_stock_round753_fast_data_catalog_summary_2026-07-09.md`
+
+Decision: this is tooling progress, not factor evidence. The next no-provider action is a quick local source inventory over `data/processed` and `data/reports` to identify PIT-safe candidate roots not already closed, hibernated, or quota-blocked in the local source queue.

@@ -8,20 +8,31 @@ from typing import Any
 DATA_FILE_SUFFIXES = {".csv", ".parquet", ".json"}
 
 
-def build_storage_catalog(root: str | Path) -> dict[str, Any]:
+def build_storage_catalog(
+    root: str | Path,
+    *,
+    include_datasets: bool = True,
+    count_rows: bool = True,
+) -> dict[str, Any]:
     root_path = Path(root)
     files = [path for path in root_path.rglob("*") if path.is_file() and path.suffix.lower() in DATA_FILE_SUFFIXES] if root_path.exists() else []
-    datasets = [_file_summary(root_path, path) for path in sorted(files)]
-    return {
+    datasets = [_file_summary(root_path, path, count_rows=count_rows) for path in sorted(files)] if include_datasets else []
+    catalog = {
         "root": str(root_path),
-        "total_files": len(datasets),
-        "total_bytes": sum(item["bytes"] for item in datasets),
-        "total_rows": sum(item["rows"] for item in datasets if item["rows"] is not None),
-        "datasets": datasets,
+        "total_files": len(files),
+        "total_bytes": sum(path.stat().st_size for path in files),
+        "total_rows": (
+            sum(item["rows"] for item in datasets if item["rows"] is not None)
+            if include_datasets and count_rows
+            else None
+        ),
     }
+    if include_datasets:
+        catalog["datasets"] = datasets
+    return catalog
 
 
-def _file_summary(root: Path, path: Path) -> dict[str, Any]:
+def _file_summary(root: Path, path: Path, *, count_rows: bool = True) -> dict[str, Any]:
     relative = path.relative_to(root).as_posix()
     parts = Path(relative).parts
     partition_start = next((index for index, part in enumerate(parts) if "=" in part), len(parts) - 1)
@@ -31,7 +42,7 @@ def _file_summary(root: Path, path: Path) -> dict[str, Any]:
         "dataset": dataset,
         "format": path.suffix.lower().lstrip("."),
         "bytes": path.stat().st_size,
-        "rows": _count_csv_rows(path) if path.suffix.lower() == ".csv" else None,
+        "rows": _count_csv_rows(path) if count_rows and path.suffix.lower() == ".csv" else None,
         "partitions": _partitions(parts),
     }
 
