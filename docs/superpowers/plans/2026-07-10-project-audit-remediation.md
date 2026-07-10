@@ -287,15 +287,15 @@ Commit message: `fix: enforce executable capacity constraints`
 - Modify: `tests/unit/test_experiment_runner.py`
 - Modify: `tests/unit/test_walk_forward.py`
 
-- [ ] **Step 1: Add failing tests showing changed bars/config/code invalidate resume and prior hypotheses increase correction count**
+- [x] **Step 1: Add failing tests showing changed bars/config/code invalidate resume and prior hypotheses increase correction count**
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
-- [ ] **Step 3: Record config, data, code, and environment fingerprints in experiment manifests**
+- [x] **Step 3: Record config, data, code, and environment fingerprints in experiment manifests**
 
-- [ ] **Step 4: Atomically register unique tested case identities in the cumulative ledger**
+- [x] **Step 4: Atomically register unique tested case identities in the cumulative ledger**
 
-- [ ] **Step 5: Verify GREEN and commit**
+- [x] **Step 5: Verify GREEN and commit**
 
 Commit message: `fix: fingerprint experiments and track all hypotheses`
 

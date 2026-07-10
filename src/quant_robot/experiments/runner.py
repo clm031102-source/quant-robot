@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import math
+import platform
 from dataclasses import asdict, dataclass
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import numpy as np
 
 from quant_robot.factors.etf_moneyflow_basket import (
     aggregate_etf_moneyflow_basket_inputs,
@@ -22,6 +25,11 @@ from quant_robot.storage.etf_moneyflow_baskets import load_etf_moneyflow_baskets
 from quant_robot.storage.etf_share_size import load_etf_share_size_inputs
 from quant_robot.storage.cn_etf_theme_map import load_cn_etf_theme_map
 from quant_robot.storage.moneyflow_inputs import load_moneyflow_inputs
+from quant_robot.storage.atomic import atomic_write, atomic_write_json
+from quant_robot.storage.fingerprints import fingerprint_frame, sha256_file
+
+
+EXPERIMENT_FINGERPRINT_SCHEMA_VERSION = 1
 
 
 @dataclass(frozen=True)
@@ -204,15 +212,17 @@ def run_experiment_grid(
     progress: Callable[[dict[str, Any]], None] | None = None,
 ) -> dict[str, Any]:
     _validate_config(config)
-    cached = _load_completed_grid(config)
+    bars = _filter_bars_for_asset_universe(bars, config)
+    reproducibility = _experiment_reproducibility(bars, config)
+    cached = _load_completed_grid(config, reproducibility)
     if cached is not None:
         return cached
-    bars = _filter_bars_for_asset_universe(bars, config)
     precomputed_factors = _precompute_factor_matrix(bars, config) if config.precompute_factor_matrix else None
     rows = [_run_case(bars, config, case, precomputed_factors) for case in build_experiment_cases(config)]
     leaderboard = _rank_rows(rows, config.rank_by)
     result = {
         "config": _config_dict(config),
+        "reproducibility": reproducibility,
         "summary": _summary(leaderboard),
         "leaderboard": leaderboard,
     }
@@ -221,7 +231,10 @@ def run_experiment_grid(
     return result
 
 
-def _load_completed_grid(config: ExperimentGridConfig) -> dict[str, Any] | None:
+def _load_completed_grid(
+    config: ExperimentGridConfig,
+    reproducibility: dict[str, Any],
+) -> dict[str, Any] | None:
     if not config.resume_completed_cases or config.output_dir is None:
         return None
     manifest_path = config.output_dir / "manifest.json"
@@ -234,6 +247,13 @@ def _load_completed_grid(config: ExperimentGridConfig) -> dict[str, Any] | None:
     except (OSError, json.JSONDecodeError):
         return None
     if not isinstance(manifest, dict) or not isinstance(leaderboard, list):
+        return None
+    cached_reproducibility = manifest.get("reproducibility")
+    if not isinstance(cached_reproducibility, dict):
+        return None
+    if cached_reproducibility.get("schema_version") != EXPERIMENT_FINGERPRINT_SCHEMA_VERSION:
+        return None
+    if cached_reproducibility.get("fingerprint") != reproducibility.get("fingerprint"):
         return None
     expected_case_ids = {case.case_id for case in build_experiment_cases(config)}
     cached_case_ids = {str(row.get("case_id", "")) for row in leaderboard if isinstance(row, dict)}
@@ -248,6 +268,7 @@ def _load_completed_grid(config: ExperimentGridConfig) -> dict[str, Any] | None:
         return None
     return {
         "config": manifest.get("config", _config_dict(config)),
+        "reproducibility": cached_reproducibility,
         "summary": summary,
         "leaderboard": leaderboard,
     }
@@ -626,13 +647,125 @@ def _parse_factor_window(factor_name: str) -> int | None:
 
 def _write_grid_artifacts(output_dir: Path, result: dict[str, Any], leaderboard: list[dict[str, Any]]) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(leaderboard).to_csv(output_dir / "leaderboard.csv", index=False)
-    (output_dir / "leaderboard.json").write_text(json.dumps(leaderboard, indent=2, sort_keys=True), encoding="utf-8")
+    atomic_write(output_dir / "leaderboard.csv", lambda path: pd.DataFrame(leaderboard).to_csv(path, index=False))
+    atomic_write_json(output_dir / "leaderboard.json", leaderboard)
     manifest = {
         "config": result["config"],
+        "reproducibility": result["reproducibility"],
         "summary": result["summary"],
     }
-    (output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+    atomic_write_json(output_dir / "manifest.json", manifest)
+
+
+def _experiment_reproducibility(bars: pd.DataFrame, config: ExperimentGridConfig) -> dict[str, Any]:
+    effective_config = _effective_config_dict(config)
+    config_sha256 = _sha256_json(effective_config)
+    bars_sha256 = _fingerprint_effective_bars(bars)
+    auxiliary_inputs = _auxiliary_input_inventory(config)
+    data_sha256 = _sha256_json({"bars_sha256": bars_sha256, "auxiliary_inputs": auxiliary_inputs})
+    code_sha256 = _fingerprint_code()
+    environment = {
+        "python": platform.python_version(),
+        "implementation": platform.python_implementation(),
+        "pandas": pd.__version__,
+        "numpy": np.__version__,
+    }
+    environment_sha256 = _sha256_json(environment)
+    fingerprint = _sha256_json(
+        {
+            "schema_version": EXPERIMENT_FINGERPRINT_SCHEMA_VERSION,
+            "config_sha256": config_sha256,
+            "data_sha256": data_sha256,
+            "code_sha256": code_sha256,
+            "environment_sha256": environment_sha256,
+        }
+    )
+    return {
+        "schema_version": EXPERIMENT_FINGERPRINT_SCHEMA_VERSION,
+        "fingerprint": fingerprint,
+        "config_sha256": config_sha256,
+        "data_sha256": data_sha256,
+        "bars_sha256": bars_sha256,
+        "code_sha256": code_sha256,
+        "environment_sha256": environment_sha256,
+        "environment": environment,
+        "auxiliary_inputs": auxiliary_inputs,
+    }
+
+
+def _effective_config_dict(config: ExperimentGridConfig) -> dict[str, Any]:
+    data = _config_dict(config)
+    for key in ("output_dir", "write_case_artifacts", "resume_completed_cases"):
+        data.pop(key, None)
+    return data
+
+
+def _fingerprint_effective_bars(bars: pd.DataFrame) -> str:
+    volatile_columns = [column for column in ("ingested_at",) if column in bars.columns]
+    effective = bars.drop(columns=volatile_columns) if volatile_columns else bars
+    return fingerprint_frame(effective)
+
+
+def _fingerprint_code() -> str:
+    package_root = Path(__file__).resolve().parents[1]
+    digest = hashlib.sha256()
+    for path in sorted(package_root.rglob("*.py")):
+        relative = path.relative_to(package_root).as_posix()
+        digest.update(relative.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(sha256_file(path).encode("ascii"))
+        digest.update(b"\n")
+    return digest.hexdigest()
+
+
+def _auxiliary_input_inventory(config: ExperimentGridConfig) -> list[dict[str, Any]]:
+    inventory = []
+    for label, path in (
+        ("factor_input_root", config.factor_input_root),
+        ("moneyflow_input_root", config.moneyflow_input_root),
+        ("asset_universe_path", config.asset_universe_path),
+        ("rotation_membership_root", config.rotation_membership_root),
+    ):
+        if path is None:
+            continue
+        inventory.append({"label": label, **_fingerprint_auxiliary_path(Path(path))})
+    return inventory
+
+
+def _fingerprint_auxiliary_path(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {"path": str(path), "exists": False}
+    if path.is_file():
+        return {
+            "path": str(path),
+            "exists": True,
+            "kind": "file",
+            "size_bytes": path.stat().st_size,
+            "sha256": sha256_file(path),
+        }
+    rows = []
+    for child in sorted(candidate for candidate in path.rglob("*") if candidate.is_file()):
+        stat = child.stat()
+        rows.append(
+            {
+                "path": child.relative_to(path).as_posix(),
+                "size_bytes": stat.st_size,
+                "mtime_ns": stat.st_mtime_ns,
+                "sha256": sha256_file(child) if child.name.lower() == "manifest.json" else None,
+            }
+        )
+    return {
+        "path": str(path),
+        "exists": True,
+        "kind": "directory",
+        "file_count": len(rows),
+        "inventory_sha256": _sha256_json(rows),
+    }
+
+
+def _sha256_json(value: Any) -> str:
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def _config_dict(config: ExperimentGridConfig) -> dict[str, Any]:

@@ -9,6 +9,7 @@ from typing import Any
 import pandas as pd
 
 from quant_robot.experiments.runner import ExperimentGridConfig, run_experiment_grid
+from quant_robot.research.hypothesis_ledger import canonical_hypothesis_id, register_hypotheses
 
 
 @dataclass(frozen=True)
@@ -28,6 +29,7 @@ class WalkForwardConfig:
     rolling_step_days: int | None = None
     min_accepted_folds: int = 1
     multiple_testing_alpha: float = 0.05
+    hypothesis_ledger_path: Path | None = None
 
 
 def load_walk_forward_config(path: str | Path) -> WalkForwardConfig:
@@ -50,6 +52,9 @@ def load_walk_forward_config(path: str | Path) -> WalkForwardConfig:
         rolling_step_days=int(data["rolling_step_days"]) if data.get("rolling_step_days") is not None else None,
         min_accepted_folds=int(data.get("min_accepted_folds", WalkForwardConfig.min_accepted_folds)),
         multiple_testing_alpha=float(data.get("multiple_testing_alpha", WalkForwardConfig.multiple_testing_alpha)),
+        hypothesis_ledger_path=(
+            Path(data["hypothesis_ledger_path"]) if data.get("hypothesis_ledger_path") else None
+        ),
     )
 
 
@@ -259,6 +264,7 @@ def _merged_row(
             "factor_windows": source.get("factor_windows", []),
             "top_n": source.get("top_n"),
             "cost_bps": source.get("cost_bps"),
+            "rebalance_interval": source.get("rebalance_interval"),
             "regime_lookback": source.get("regime_lookback"),
             "data_mode": _data_mode(train, test),
             "train_status": train.get("status") if train else "missing",
@@ -378,6 +384,7 @@ def _aggregate_case_rows(case_id: str, rows: list[dict[str, Any]], config: WalkF
             "factor_windows": source.get("factor_windows", []),
             "top_n": source.get("top_n"),
             "cost_bps": source.get("cost_bps"),
+            "rebalance_interval": source.get("rebalance_interval"),
             "regime_lookback": source.get("regime_lookback"),
             "data_mode": _aggregate_data_mode(rows),
             "train_status": _aggregate_status(rows, "train_status"),
@@ -478,9 +485,20 @@ def _aggregate_case_rows(case_id: str, rows: list[dict[str, Any]], config: WalkF
 
 
 def _with_multiple_testing_evidence(rows: list[dict[str, Any]], config: WalkForwardConfig) -> list[dict[str, Any]]:
-    hypothesis_count = len(rows)
+    identities = [_hypothesis_identity(row, config) for row in rows]
+    hypothesis_ids = [canonical_hypothesis_id(identity) for identity in identities]
+    ledger_path = _hypothesis_ledger_path(config)
+    if ledger_path is not None:
+        ledger = register_hypotheses(ledger_path, identities)
+        hypothesis_count = int(ledger["hypothesis_count"])
+        ledger_status = "persisted"
+        ledger_location = str(ledger_path)
+    else:
+        hypothesis_count = len(set(hypothesis_ids))
+        ledger_status = "current_grid_only"
+        ledger_location = None
     corrected = []
-    for row in rows:
+    for row, hypothesis_id in zip(rows, hypothesis_ids):
         p_value = _metric_or(row, "test_ic_p_value", 1.0)
         adjusted = min(max(p_value, 0.0) * max(hypothesis_count, 1), 1.0)
         passes = adjusted <= config.multiple_testing_alpha
@@ -496,11 +514,56 @@ def _with_multiple_testing_evidence(rows: list[dict[str, Any]], config: WalkForw
                 "validation_status": validation_status,
                 "rejection_reasons": reasons,
                 "hypothesis_count": hypothesis_count,
+                "hypothesis_id": hypothesis_id,
+                "hypothesis_ledger_status": ledger_status,
+                "hypothesis_ledger_path": ledger_location,
                 "adjusted_ic_p_value": adjusted,
                 "passes_adjusted_ic_p_value": passes,
             }
         )
     return corrected
+
+
+def _hypothesis_identity(row: dict[str, Any], config: WalkForwardConfig) -> dict[str, Any]:
+    grid = config.experiment_grid
+    return {
+        "case_id": str(row.get("case_id", "")),
+        "market": row.get("market"),
+        "factor_source": row.get("factor_source", grid.factor_source),
+        "factor_name": row.get("factor_name"),
+        "factor_windows": row.get("factor_windows", list(grid.factor_windows)),
+        "top_n": row.get("top_n"),
+        "cost_bps": row.get("cost_bps"),
+        "rebalance_interval": row.get("rebalance_interval"),
+        "regime_lookback": row.get("regime_lookback"),
+        "forward_horizon": grid.forward_horizon,
+        "execution_lag": grid.execution_lag,
+        "quantiles": grid.quantiles,
+        "portfolio_scope": grid.portfolio_scope,
+        "target_gross_exposure": grid.target_gross_exposure,
+        "commission_bps": grid.commission_bps,
+        "slippage_bps": grid.slippage_bps,
+        "market_impact_bps": grid.market_impact_bps,
+        "max_participation_rate": grid.max_participation_rate,
+        "min_signal_amount": grid.min_signal_amount,
+        "max_calendar_holding_days": grid.max_calendar_holding_days,
+        "portfolio_value": grid.portfolio_value,
+    }
+
+
+def _hypothesis_ledger_path(config: WalkForwardConfig) -> Path | None:
+    if config.hypothesis_ledger_path is not None:
+        return Path(config.hypothesis_ledger_path)
+    if config.output_dir is None:
+        return None
+    output_dir = Path(config.output_dir)
+    repository_root = Path(__file__).resolve().parents[3]
+    reports_root = (repository_root / "data" / "reports").resolve()
+    try:
+        output_dir.resolve().relative_to(reports_root)
+    except ValueError:
+        return output_dir / "hypothesis_ledger.json"
+    return reports_root / "hypothesis_ledger.json"
 
 
 def _rejection_reasons(
@@ -638,6 +701,9 @@ def _grid_from_mapping(data: dict[str, Any]) -> ExperimentGridConfig:
 def _config_dict(config: WalkForwardConfig) -> dict[str, Any]:
     data = asdict(config)
     data["output_dir"] = str(config.output_dir) if config.output_dir is not None else None
+    data["hypothesis_ledger_path"] = (
+        str(config.hypothesis_ledger_path) if config.hypothesis_ledger_path is not None else None
+    )
     data["experiment_grid"]["output_dir"] = None
     data["experiment_grid"]["factor_input_root"] = (
         str(config.experiment_grid.factor_input_root) if config.experiment_grid.factor_input_root is not None else None

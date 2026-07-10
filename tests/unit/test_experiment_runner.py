@@ -1,11 +1,13 @@
 import json
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
 
+import quant_robot.experiments.runner as experiment_runner
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.experiments.runner import (
@@ -91,6 +93,14 @@ class ExperimentRunnerTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / "leaderboard.csv").exists())
             self.assertTrue((Path(tmp) / "leaderboard.json").exists())
             self.assertTrue((Path(tmp) / "manifest.json").exists())
+            manifest = json.loads((Path(tmp) / "manifest.json").read_text(encoding="utf-8"))
+            reproducibility = manifest["reproducibility"]
+            self.assertEqual(reproducibility["schema_version"], 1)
+            self.assertEqual(len(reproducibility["fingerprint"]), 64)
+            self.assertEqual(len(reproducibility["config_sha256"]), 64)
+            self.assertEqual(len(reproducibility["data_sha256"]), 64)
+            self.assertEqual(len(reproducibility["code_sha256"]), 64)
+            self.assertEqual(len(reproducibility["environment_sha256"]), 64)
             self.assertTrue((Path(tmp) / leaderboard[0]["case_id"] / "metrics.json").exists())
             saved = pd.read_csv(Path(tmp) / "leaderboard.csv")
             self.assertEqual(len(saved), 8)
@@ -98,23 +108,107 @@ class ExperimentRunnerTests(unittest.TestCase):
     def test_experiment_grid_reuses_completed_output_when_resume_enabled(self):
         with tempfile.TemporaryDirectory() as tmp:
             output_dir = Path(tmp)
+            config = ExperimentGridConfig(
+                markets=("CN",),
+                factor_names=("momentum_2",),
+                factor_windows=(2,),
+                top_n_values=(1,),
+                cost_bps_values=(0.0,),
+                output_dir=output_dir,
+                resume_completed_cases=True,
+            )
+            expected = run_experiment_grid(load_demo_market_bars(), config)
+
+            with patch("quant_robot.experiments.runner.run_research_pipeline") as pipeline:
+                result = run_experiment_grid(load_demo_market_bars(), config)
+
+            pipeline.assert_not_called()
+            self.assertEqual(result["summary"]["cases"], 1)
+            self.assertEqual(result["leaderboard"], expected["leaderboard"])
+
+    def test_experiment_grid_invalidates_resume_when_bars_change(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bars = load_demo_market_bars()
+            config = ExperimentGridConfig(
+                markets=("CN",),
+                factor_names=("momentum_2",),
+                factor_windows=(2,),
+                top_n_values=(1,),
+                cost_bps_values=(0.0,),
+                output_dir=Path(tmp),
+                resume_completed_cases=True,
+            )
+            run_experiment_grid(bars, config)
+            changed_bars = bars.copy()
+            changed_bars.loc[changed_bars.index[0], "adj_close"] += 1.0
+
+            with patch(
+                "quant_robot.experiments.runner.run_research_pipeline",
+                wraps=experiment_runner.run_research_pipeline,
+            ) as pipeline:
+                run_experiment_grid(changed_bars, config)
+
+            pipeline.assert_called_once()
+
+    def test_experiment_grid_invalidates_resume_when_effective_config_changes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bars = load_demo_market_bars()
+            config = ExperimentGridConfig(
+                markets=("CN",),
+                factor_names=("momentum_2",),
+                factor_windows=(2,),
+                top_n_values=(1,),
+                cost_bps_values=(0.0,),
+                output_dir=Path(tmp),
+                resume_completed_cases=True,
+            )
+            run_experiment_grid(bars, config)
+
+            with patch(
+                "quant_robot.experiments.runner.run_research_pipeline",
+                wraps=experiment_runner.run_research_pipeline,
+            ) as pipeline:
+                run_experiment_grid(bars, replace(config, target_gross_exposure=0.8))
+
+            pipeline.assert_called_once()
+
+    def test_experiment_grid_invalidates_resume_when_code_fingerprint_changes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bars = load_demo_market_bars()
+            config = ExperimentGridConfig(
+                markets=("CN",),
+                factor_names=("momentum_2",),
+                factor_windows=(2,),
+                top_n_values=(1,),
+                cost_bps_values=(0.0,),
+                output_dir=Path(tmp),
+                resume_completed_cases=True,
+            )
+            with patch("quant_robot.experiments.runner._fingerprint_code", return_value="a" * 64):
+                run_experiment_grid(bars, config)
+
+            with (
+                patch("quant_robot.experiments.runner._fingerprint_code", return_value="b" * 64),
+                patch(
+                    "quant_robot.experiments.runner.run_research_pipeline",
+                    wraps=experiment_runner.run_research_pipeline,
+                ) as pipeline,
+            ):
+                run_experiment_grid(bars, config)
+
+            pipeline.assert_called_once()
+
+    def test_experiment_grid_refuses_legacy_resume_manifest_without_fingerprint(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp)
             cached_row = {
                 "case_id": "CN_momentum_2_top1_cost0_reb1",
-                "market": "CN",
-                "factor_source": "technical",
-                "factor_name": "momentum_2",
                 "status": "completed",
-                "trades": 5,
                 "rank": 1,
             }
             (output_dir / "leaderboard.json").write_text(json.dumps([cached_row]), encoding="utf-8")
             (output_dir / "manifest.json").write_text(
-                json.dumps(
-                    {
-                        "config": {"factor_names": ["momentum_2"]},
-                        "summary": {"cases": 1, "completed": 1, "no_trades": 0, "failed": 0},
-                    }
-                ),
+                json.dumps({"config": {}, "summary": {"cases": 1}}),
                 encoding="utf-8",
             )
             config = ExperimentGridConfig(
@@ -127,12 +221,14 @@ class ExperimentRunnerTests(unittest.TestCase):
                 resume_completed_cases=True,
             )
 
-            with patch("quant_robot.experiments.runner.run_research_pipeline") as pipeline:
+            with patch(
+                "quant_robot.experiments.runner.run_research_pipeline",
+                wraps=experiment_runner.run_research_pipeline,
+            ) as pipeline:
                 result = run_experiment_grid(load_demo_market_bars(), config)
 
-            pipeline.assert_not_called()
-            self.assertEqual(result["summary"]["cases"], 1)
-            self.assertEqual(result["leaderboard"], [cached_row])
+            pipeline.assert_called_once()
+            self.assertGreater(len(result["leaderboard"][0]), len(cached_row))
 
     def test_experiment_grid_surfaces_decision_metrics(self):
         config = ExperimentGridConfig(

@@ -106,6 +106,52 @@ class WalkForwardTests(unittest.TestCase):
         self.assertEqual(result[0]["validation_status"], "rejected")
         self.assertIn("adjusted_ic_significance_not_passed", result[0]["rejection_reasons"])
 
+    def test_multiple_testing_uses_cumulative_unique_hypothesis_ledger(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            ledger_path = Path(tmp) / "hypotheses.json"
+            config = WalkForwardConfig(
+                split_date="2024-01-08",
+                experiment_grid=ExperimentGridConfig(),
+                hypothesis_ledger_path=ledger_path,
+            )
+            prior_rows = [
+                {
+                    "case_id": "prior_a",
+                    "factor_name": "momentum_2",
+                    "validation_status": "accepted",
+                    "rejection_reasons": [],
+                    "test_ic_p_value": 0.001,
+                },
+                {
+                    "case_id": "prior_b",
+                    "factor_name": "reversal_2",
+                    "validation_status": "accepted",
+                    "rejection_reasons": [],
+                    "test_ic_p_value": 0.001,
+                },
+            ]
+            _with_multiple_testing_evidence(prior_rows, config)
+            current = _with_multiple_testing_evidence(
+                [
+                    {
+                        "case_id": "current_c",
+                        "factor_name": "volatility_2",
+                        "validation_status": "accepted",
+                        "rejection_reasons": [],
+                        "test_ic_p_value": 0.01,
+                    }
+                ],
+                config,
+            )
+            duplicate = _with_multiple_testing_evidence(prior_rows[:1], config)
+
+            self.assertEqual(current[0]["hypothesis_count"], 3)
+            self.assertAlmostEqual(current[0]["adjusted_ic_p_value"], 0.03)
+            self.assertEqual(current[0]["hypothesis_ledger_status"], "persisted")
+            self.assertEqual(duplicate[0]["hypothesis_count"], 3)
+            payload = json.loads(ledger_path.read_text(encoding="utf-8"))
+            self.assertEqual(len(payload["hypotheses"]), 3)
+
     def test_walk_forward_rejects_candidates_below_relative_return_threshold(self):
         config = WalkForwardConfig(
             split_date="2024-01-08",
