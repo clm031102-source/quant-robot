@@ -254,12 +254,18 @@ def _merge_stock_basic(frame: pd.DataFrame, stock_basic: pd.DataFrame | None) ->
         "list_date": pd.NaT,
         "delist_date": pd.NaT,
         "is_active": True,
+        "status_effective_date": pd.NaT,
     }
     if stock_basic is None or stock_basic.empty:
         for column, default in defaults.items():
             frame[column] = default
         return frame
     basic = stock_basic.copy()
+    if "status_effective_date" not in basic.columns:
+        for candidate in ("status_date", "as_of_date"):
+            if candidate in basic.columns:
+                basic["status_effective_date"] = basic[candidate]
+                break
     keep = [
         column
         for column in (
@@ -270,6 +276,7 @@ def _merge_stock_basic(frame: pd.DataFrame, stock_basic: pd.DataFrame | None) ->
             "list_date",
             "delist_date",
             "is_active",
+            "status_effective_date",
         )
         if column in basic.columns
     ]
@@ -278,7 +285,7 @@ def _merge_stock_basic(frame: pd.DataFrame, stock_basic: pd.DataFrame | None) ->
     for column, default in defaults.items():
         if column not in merged.columns:
             merged[column] = default
-        elif column in {"list_date", "delist_date"}:
+        elif column in {"list_date", "delist_date", "status_effective_date"}:
             merged[column] = pd.to_datetime(merged[column], errors="coerce").dt.date
         elif column == "is_active":
             merged[column] = merged[column].map(_boolish).fillna(True)
@@ -416,7 +423,9 @@ def _delisted_or_inactive_flag(frame: pd.DataFrame) -> pd.Series:
     dates = pd.to_datetime(frame["date"], errors="coerce")
     after_delist = delist_dates.notna() & (dates >= delist_dates)
     inactive = ~frame["is_active"].map(_boolish).fillna(True)
-    return after_delist | inactive
+    status_dates = pd.to_datetime(frame.get("status_effective_date"), errors="coerce")
+    inactive_effective = inactive & status_dates.notna() & (dates >= status_dates)
+    return after_delist | inactive_effective
 
 
 def _board_permission_blocked(boards: pd.Series, policy: CNStockTradeabilityPolicy) -> pd.Series:

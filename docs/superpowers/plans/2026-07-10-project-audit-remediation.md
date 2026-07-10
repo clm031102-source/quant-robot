@@ -216,17 +216,17 @@ Commit message: `fix: require verified statistical controls`
 - Modify: `tests/unit/test_research.py`
 - Modify: `tests/unit/test_research_pipeline.py`
 
-- [ ] **Step 1: Add failing tests for pre-delist eligibility, post-announcement execution, separate horizons, and HAC evidence**
+- [x] **Step 1: Add failing tests for pre-delist eligibility, post-announcement execution, separate horizons, and HAC evidence**
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
-- [ ] **Step 3: Implement effective-date status logic and strict next-session event alignment**
+- [x] **Step 3: Implement effective-date status logic and strict next-session event alignment**
 
-- [ ] **Step 4: Carry optional label dimensions through IC, quantile, and long-short grouping**
+- [x] **Step 4: Carry optional label dimensions through IC, quantile, and long-short grouping**
 
-- [ ] **Step 5: Use Newey-West mean tests with at least 20 IC observations**
+- [x] **Step 5: Use Newey-West mean tests with at least 20 IC observations**
 
-- [ ] **Step 6: Verify GREEN and commit**
+- [x] **Step 6: Verify GREEN and commit**
 
 Commit message: `fix: remove PIT and horizon mixing bias`
 

@@ -210,7 +210,7 @@ def _event_frame(financial: pd.DataFrame, bars: pd.DataFrame) -> pd.DataFrame:
         if dates is None or pd.isna(row.ann_date):
             signal_dates.append(pd.NaT)
             continue
-        position = dates.searchsorted(row.ann_date, side="left")
+        position = dates.searchsorted(row.ann_date, side="right")
         signal_dates.append(dates[position] if position < len(dates) else pd.NaT)
     events["signal_date"] = signal_dates
     events["has_signal_date"] = events["signal_date"].notna()
@@ -337,5 +337,5 @@ def _alignment_violation_count(aligned: pd.DataFrame) -> int:
     ann_dates = pd.to_datetime(aligned["ann_date"], errors="coerce")
     entry_dates = pd.to_datetime(aligned["entry_date"], errors="coerce")
     exit_dates = pd.to_datetime(aligned["exit_date"], errors="coerce")
-    violations = (signal_dates < ann_dates) | (entry_dates <= signal_dates) | (exit_dates <= entry_dates)
+    violations = (signal_dates <= ann_dates) | (entry_dates <= signal_dates) | (exit_dates <= entry_dates)
     return int(violations.sum())

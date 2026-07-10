@@ -180,6 +180,33 @@ class CNStockTradeabilityGateTests(unittest.TestCase):
         self.assertEqual(report["summary"]["board_permission_blocked_rows"], 1)
         self.assertEqual(report["summary"]["can_buy_rows"], 1)
 
+    def test_current_inactive_status_does_not_exclude_pre_delisting_history(self) -> None:
+        bars = pd.DataFrame(
+            [
+                _bar("CN_XSHG_600099", "600099.SH", "2020-01-02", 10.0, 10.1, 9.9, 10.0, 1000, 10000, "XSHG"),
+                _bar("CN_XSHG_600099", "600099.SH", "2024-01-03", 8.0, 8.1, 7.9, 8.0, 1000, 8000, "XSHG"),
+            ]
+        )
+        stock_basic = pd.DataFrame(
+            [
+                _basic(
+                    "CN_XSHG_600099",
+                    "600099.SH",
+                    "delisted company",
+                    "main",
+                    "XSHG",
+                    "2010-01-01",
+                    is_active=False,
+                    delist_date="2024-01-03",
+                )
+            ]
+        )
+
+        frame = build_cn_stock_tradeability_frame(bars, stock_basic).set_index("date")
+
+        self.assertFalse(bool(frame.loc[pd.Timestamp("2020-01-02").date(), "delisted_or_inactive_flag"]))
+        self.assertTrue(bool(frame.loc[pd.Timestamp("2024-01-03").date(), "delisted_or_inactive_flag"]))
+
 
 def _bar(
     asset_id: str,

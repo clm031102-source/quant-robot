@@ -5,18 +5,22 @@ import math
 import pandas as pd
 
 
+LABEL_DIMENSIONS = ("horizon", "execution_lag")
+
+
 def compute_ic(factors: pd.DataFrame, labels: pd.DataFrame) -> pd.DataFrame:
     merged = _merge_factors_labels(factors, labels)
     rows = []
-    for (date, market, factor_name), group in merged.groupby(["date", "market", "factor_name"], sort=True):
+    group_columns = _evaluation_group_columns(merged)
+    for group_key, group in merged.groupby(group_columns, sort=True):
+        values = group_key if isinstance(group_key, tuple) else (group_key,)
+        identity = dict(zip(group_columns, values, strict=True))
         valid = group[["factor_value", "forward_return"]].dropna()
         ic = _corr_stats(valid["factor_value"], valid["forward_return"])
         rank_ic = _corr_stats(valid["factor_value"].rank(), valid["forward_return"].rank())
         rows.append(
             {
-                "date": date,
-                "market": market,
-                "factor_name": factor_name,
+                **identity,
                 "ic": ic["correlation"],
                 "rank_ic": rank_ic["correlation"],
                 "ic_t_stat": ic["t_stat"],
@@ -30,7 +34,15 @@ def compute_ic(factors: pd.DataFrame, labels: pd.DataFrame) -> pd.DataFrame:
 
 
 def _merge_factors_labels(factors: pd.DataFrame, labels: pd.DataFrame) -> pd.DataFrame:
-    return factors.merge(labels, on=["date", "asset_id", "market"], how="inner")
+    keys = ["date", "asset_id", "market"]
+    keys.extend(column for column in LABEL_DIMENSIONS if column in factors.columns and column in labels.columns)
+    return factors.merge(labels, on=keys, how="inner")
+
+
+def _evaluation_group_columns(frame: pd.DataFrame) -> list[str]:
+    columns = ["date", "market", "factor_name"]
+    columns.extend(column for column in LABEL_DIMENSIONS if column in frame.columns)
+    return columns
 
 
 def _safe_corr(left: pd.Series, right: pd.Series) -> float:

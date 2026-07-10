@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 from quant_robot.ops.profitability_quality_factor_matrix_smoke import (
+    _event_frame,
     build_profitability_quality_factor_matrix_smoke,
 )
 from quant_robot.ops.profitability_quality_preregistration import (
@@ -19,6 +20,20 @@ from tests.unit.test_profitability_quality_preregistration import (
 
 
 class ProfitabilityQualityFactorMatrixSmokeTests(unittest.TestCase):
+    def test_financial_event_is_tradeable_only_after_announcement_session(self) -> None:
+        financial = pd.DataFrame(
+            {"asset_id": ["CN_A"], "ann_date": ["2024-01-02"], "end_date": ["2023-12-31"]}
+        )
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["CN_A", "CN_A"],
+                "date": pd.to_datetime(["2024-01-02", "2024-01-03"]),
+            }
+        )
+
+        events = _event_frame(financial, bars)
+
+        self.assertEqual(events.loc[0, "signal_date"], pd.Timestamp("2024-01-03"))
     def test_builds_factor_matrix_and_forward_labels_without_leakage(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

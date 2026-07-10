@@ -6,6 +6,30 @@ from typing import Any
 import pandas as pd
 
 
+def newey_west_mean_test(values: pd.Series, *, max_lag: int | None = None) -> dict[str, float | int]:
+    clean = pd.to_numeric(values, errors="coerce").dropna().astype(float)
+    observations = int(len(clean))
+    if observations < 2:
+        return {"t_stat": 0.0, "p_value": 1.0, "standard_error": 0.0, "max_lag": 0}
+    lag_count = (
+        max(0, min(int(max_lag), observations - 1))
+        if max_lag is not None
+        else min(max(int(4.0 * (observations / 100.0) ** (2.0 / 9.0)), 1), observations - 1)
+    )
+    long_run_variance = _newey_west_long_run_variance(clean, lag_count)
+    standard_error = math.sqrt(max(long_run_variance, 0.0) / observations)
+    if standard_error <= 0.0 or not math.isfinite(standard_error):
+        return {"t_stat": 0.0, "p_value": 1.0, "standard_error": 0.0, "max_lag": lag_count}
+    t_stat = float(clean.mean()) / standard_error
+    p_value = max(0.0, min(math.erfc(abs(t_stat) / math.sqrt(2.0)), 1.0))
+    return {
+        "t_stat": _finite(t_stat),
+        "p_value": _finite(p_value),
+        "standard_error": _finite(standard_error),
+        "max_lag": lag_count,
+    }
+
+
 def overlap_aware_return_stats(
     returns: pd.Series,
     *,
@@ -122,4 +146,3 @@ def _empty_stats(*, observations: int, max_lag: int) -> dict[str, Any]:
 
 def _finite(value: float) -> float:
     return float(value) if math.isfinite(float(value)) else 0.0
-

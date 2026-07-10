@@ -96,6 +96,25 @@ class ResearchTests(unittest.TestCase):
 
         self.assertIn("market", result.columns)
 
+    def test_multi_horizon_evaluations_remain_separate(self):
+        horizon_five = self.labels.copy()
+        horizon_five["horizon"] = 5
+        horizon_five["forward_return"] = [0.04, 0.03, 0.02, 0.01]
+        labels = pd.concat([self.labels, horizon_five], ignore_index=True)
+
+        ic = compute_ic(self.factors, labels).sort_values("horizon").reset_index(drop=True)
+        grouped = quantile_group_returns(self.factors, labels, quantiles=2)
+        long_short = long_short_returns(self.factors, labels, quantiles=2).sort_values("horizon")
+
+        self.assertEqual(ic["horizon"].tolist(), [1, 5])
+        self.assertAlmostEqual(ic.loc[0, "ic"], 1.0)
+        self.assertAlmostEqual(ic.loc[1, "ic"], -1.0)
+        self.assertEqual(set(grouped["horizon"]), {1, 5})
+        self.assertEqual(len(grouped), 4)
+        self.assertEqual(long_short["horizon"].tolist(), [1, 5])
+        self.assertGreater(long_short.iloc[0]["long_short_return"], 0.0)
+        self.assertLess(long_short.iloc[1]["long_short_return"], 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

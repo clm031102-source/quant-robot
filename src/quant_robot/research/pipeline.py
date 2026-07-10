@@ -31,6 +31,7 @@ from quant_robot.research.groups import quantile_group_returns
 from quant_robot.research.ic import compute_ic
 from quant_robot.research.labels import make_forward_returns
 from quant_robot.research.long_short import long_short_returns
+from quant_robot.research.overlap import newey_west_mean_test
 from quant_robot.storage.etf_moneyflow_baskets import load_etf_moneyflow_baskets
 from quant_robot.storage.etf_share_size import load_etf_share_size_inputs
 from quant_robot.storage.cn_etf_theme_map import load_cn_etf_theme_map
@@ -39,7 +40,7 @@ from quant_robot.storage.factor_inputs import load_factor_inputs
 from quant_robot.storage.moneyflow_inputs import load_moneyflow_inputs
 
 
-MIN_IC_OBSERVATIONS_FOR_SIGNIFICANCE = 3
+MIN_IC_OBSERVATIONS_FOR_SIGNIFICANCE = 20
 ZERO_VARIANCE_TOLERANCE = 1e-12
 
 
@@ -475,13 +476,16 @@ def _factor_summary(ic: pd.DataFrame) -> dict[str, float | int | str]:
             "rank_ic_t_stat": 0.0,
             "rank_ic_p_value": 1.0,
             "significance_status": "insufficient_data",
+            "ic_standard_error_method": "newey_west",
+            "ic_hac_lags": 0,
+            "rank_ic_hac_lags": 0,
         }
     clean_ic = pd.to_numeric(ic["ic"], errors="coerce").dropna()
     clean_rank = pd.to_numeric(ic["rank_ic"], errors="coerce").dropna()
     mean_ic = float(clean_ic.mean()) if not clean_ic.empty else 0.0
     std_ic = float(clean_ic.std(ddof=0)) if not clean_ic.empty else 0.0
-    ic_t_stat, ic_p_value = _guarded_series_t_test(clean_ic)
-    rank_t_stat, rank_p_value = _guarded_series_t_test(clean_rank)
+    ic_t_stat, ic_p_value, ic_hac_lags = _guarded_series_t_test(clean_ic)
+    rank_t_stat, rank_p_value, rank_hac_lags = _guarded_series_t_test(clean_rank)
     return {
         "mean_ic": mean_ic,
         "mean_rank_ic": float(clean_rank.mean()) if not clean_rank.empty else 0.0,
@@ -493,6 +497,9 @@ def _factor_summary(ic: pd.DataFrame) -> dict[str, float | int | str]:
         "rank_ic_t_stat": rank_t_stat,
         "rank_ic_p_value": rank_p_value,
         "significance_status": _significance_status(mean_ic, ic_p_value, len(clean_ic), std_ic),
+        "ic_standard_error_method": "newey_west",
+        "ic_hac_lags": ic_hac_lags,
+        "rank_ic_hac_lags": rank_hac_lags,
     }
 
 
@@ -500,13 +507,14 @@ def _tail_factor_summary(ic: pd.DataFrame) -> dict[str, float | int | str]:
     return {f"tail_{key}": value for key, value in _factor_summary(ic).items()}
 
 
-def _guarded_series_t_test(values: pd.Series) -> tuple[float, float]:
+def _guarded_series_t_test(values: pd.Series) -> tuple[float, float, int]:
     clean = pd.to_numeric(values, errors="coerce").dropna()
     if len(clean) < MIN_IC_OBSERVATIONS_FOR_SIGNIFICANCE:
-        return 0.0, 1.0
+        return 0.0, 1.0, 0
     if _is_zero_variance(float(clean.std(ddof=0))):
-        return 0.0, 1.0
-    return _series_t_test(clean)
+        return 0.0, 1.0, 0
+    result = newey_west_mean_test(clean)
+    return float(result["t_stat"]), float(result["p_value"]), int(result["max_lag"])
 
 
 def _series_t_test(values: pd.Series) -> tuple[float, float]:
@@ -514,13 +522,8 @@ def _series_t_test(values: pd.Series) -> tuple[float, float]:
     observations = len(clean)
     if observations < MIN_IC_OBSERVATIONS_FOR_SIGNIFICANCE:
         return 0.0, 1.0
-    mean = float(clean.mean())
-    std = float(clean.std(ddof=1))
-    if _is_zero_variance(std):
-        return 0.0, 1.0
-    t_stat = mean / (std / math.sqrt(observations))
-    p_value = math.erfc(abs(t_stat) / math.sqrt(2.0))
-    return t_stat, max(min(p_value, 1.0), 0.0)
+    result = newey_west_mean_test(clean)
+    return float(result["t_stat"]), float(result["p_value"])
 
 
 def _significance_status(mean_ic: float, p_value: float, observations: int, std_ic: float) -> str:

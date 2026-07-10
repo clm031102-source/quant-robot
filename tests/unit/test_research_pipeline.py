@@ -294,6 +294,15 @@ class ResearchPipelineTests(unittest.TestCase):
         self.assertEqual(summary["ic_p_value"], 1.0)
         self.assertEqual(summary["ic_t_stat"], 0.0)
 
+    def test_factor_summary_uses_newey_west_significance_with_minimum_sample(self):
+        values = [0.02 + (index % 5) * 0.002 for index in range(20)]
+        summary = _factor_summary(pd.DataFrame({"ic": values, "rank_ic": values}))
+
+        self.assertEqual(summary["ic_observations"], 20)
+        self.assertEqual(summary["ic_standard_error_method"], "newey_west")
+        self.assertGreaterEqual(summary["ic_hac_lags"], 1)
+        self.assertGreater(summary["ic_t_stat"], 0.0)
+
     def test_benchmark_curve_respects_signal_start_date(self):
         result = run_research_pipeline(
             _falling_regime_bars(),
