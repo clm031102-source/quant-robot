@@ -120,6 +120,8 @@ class PromotionGateCliTests(unittest.TestCase):
                         "paper_manifest_dir": str(manifest_dir),
                         "min_oos_sharpe": 0.5,
                         "min_paper_sharpe": 0.5,
+                        "require_quality_report": False,
+                        "require_paper_provenance": False,
                     }
                 ),
                 encoding="utf-8",

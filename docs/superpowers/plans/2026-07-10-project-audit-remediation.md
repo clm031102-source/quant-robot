@@ -143,7 +143,7 @@ Commit message: `fix: enforce readiness gate permissions`
 - Modify: `configs/promotion_gate_cn_stock_daily_basic_value_low_turnover_bucket_20260620.json`
 - Modify: `tests/unit/test_promotion_gate.py`
 
-- [ ] **Step 1: Add failing tests for unknown config keys, declared audit/replay paths, missing quality evidence, non-positive paper return, and provenance mismatch**
+- [x] **Step 1: Add failing tests for unknown config keys, declared audit/replay paths, missing quality evidence, non-positive paper return, and provenance mismatch**
 
 ```python
 def test_load_config_rejects_unknown_requirement(): ...
@@ -151,9 +151,9 @@ def test_required_progress_and_replay_packets_block_when_missing(): ...
 def test_strict_paper_identity_rejects_data_fingerprint_mismatch(): ...
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
-- [ ] **Step 3: Extend `PromotionGateConfig` and fail closed on required evidence**
+- [x] **Step 3: Extend `PromotionGateConfig` and fail closed on required evidence**
 
 ```python
 walk_forward_progress_audit: Path | None = None
@@ -165,9 +165,9 @@ require_positive_paper_return: bool = True
 require_paper_provenance: bool = False
 ```
 
-- [ ] **Step 4: Compare full candidate identity in strict mode**
+- [x] **Step 4: Compare full candidate identity in strict mode**
 
-- [ ] **Step 5: Verify GREEN and commit**
+- [x] **Step 5: Verify GREEN and commit**
 
 Commit message: `fix: enforce promotion evidence contracts`
 

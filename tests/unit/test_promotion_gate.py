@@ -6,6 +6,94 @@ from quant_robot.promotion.gate import PromotionGateConfig, build_promotion_repo
 
 
 class PromotionGateTests(unittest.TestCase):
+    def test_load_promotion_gate_config_rejects_unknown_keys(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config_path = Path(tmp) / "promotion.json"
+            config_path.write_text(
+                '{"walk_forward_leaderboard": "walk_forward.csv", "require_magic_evidence": true}',
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "unknown promotion gate config keys"):
+                load_promotion_gate_config(config_path)
+
+    def test_declared_progress_and_long_cycle_evidence_are_hard_requirements(self):
+        report = build_promotion_report(
+            walk_forward_rows=[_accepted_walk_forward_row("CN_ETF_momentum_20_top1_cost5_reb5", "momentum_20")],
+            paper_manifest=_paper_manifest(
+                case_id="CN_ETF_momentum_20_top1_cost5_reb5",
+                factor_name="momentum_20",
+                sharpe=0.80,
+                total_return=0.20,
+            ),
+            config=PromotionGateConfig(
+                require_walk_forward_progress_audit=True,
+                require_long_cycle_replay=True,
+            ),
+        )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "blocked")
+        self.assertIn("walk_forward_progress_audit_missing", row["blocking_reasons"])
+        self.assertIn("long_cycle_replay_missing", row["blocking_reasons"])
+
+    def test_required_quality_report_and_positive_paper_return_block_promotion(self):
+        report = build_promotion_report(
+            walk_forward_rows=[_accepted_walk_forward_row("CN_ETF_momentum_20_top1_cost5_reb5", "momentum_20")],
+            paper_manifest=_paper_manifest(
+                case_id="CN_ETF_momentum_20_top1_cost5_reb5",
+                factor_name="momentum_20",
+                sharpe=0.80,
+                total_return=0.0,
+            ),
+            config=PromotionGateConfig(
+                require_quality_report=True,
+                require_positive_paper_return=True,
+            ),
+        )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "blocked")
+        self.assertIn("quality_report_missing", row["blocking_reasons"])
+        self.assertIn("paper_total_return_not_positive", row["blocking_reasons"])
+
+    def test_strict_paper_provenance_rejects_data_fingerprint_mismatch(self):
+        walk_forward = _accepted_walk_forward_row("CN_ETF_momentum_20_top1_cost5_reb5", "momentum_20")
+        walk_forward.update(
+            {
+                "factor_source": "technical",
+                "universe_id": "cn_etf_rotation_v1",
+                "data_fingerprint": "research-data-sha",
+                "start_date": "2018-01-01",
+                "end_date": "2025-12-31",
+            }
+        )
+        paper = _paper_manifest(
+            case_id="CN_ETF_momentum_20_top1_cost5_reb5",
+            factor_name="momentum_20",
+            sharpe=0.80,
+            total_return=0.20,
+        )
+        paper["request"].update(
+            {
+                "factor_source": "technical",
+                "cost_bps": 5,
+                "universe_id": "cn_etf_rotation_v1",
+                "data_fingerprint": "different-data-sha",
+                "start_date": "2018-01-01",
+                "end_date": "2025-12-31",
+            }
+        )
+
+        report = build_promotion_report(
+            walk_forward_rows=[walk_forward],
+            paper_manifest=paper,
+            config=PromotionGateConfig(require_paper_provenance=True),
+        )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "research_only")
+        self.assertIn("paper_simulation_does_not_match_candidate", row["warnings"])
     def test_duplicate_paper_intent_signatures_block_redundant_candidates(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -462,6 +550,26 @@ class PromotionGateTests(unittest.TestCase):
         self.assertEqual(config.required_factor_source, "tushare_daily_basic")
         self.assertAlmostEqual(config.max_adjusted_ic_p_value, 0.05)
         self.assertAlmostEqual(config.max_tail_ic_p_value, 0.05)
+
+    def test_load_promotion_gate_config_reads_declared_progress_and_replay_controls(self):
+        config = load_promotion_gate_config("configs/promotion_gate_cn_stock_price_volume_technical_20260620.json")
+
+        self.assertEqual(
+            config.walk_forward_progress_audit,
+            Path(
+                "data/reports/walk_forward_progress_audit_cn_stock_price_volume_technical_20260620/"
+                "walk_forward_progress_audit.json"
+            ),
+        )
+        self.assertEqual(
+            config.long_cycle_replay,
+            Path(
+                "data/reports/long_cycle_factor_replay_cn_stock_price_volume_technical_20260620/"
+                "long_cycle_replay_pack.json"
+            ),
+        )
+        self.assertTrue(config.require_walk_forward_progress_audit)
+        self.assertTrue(config.require_long_cycle_replay)
 
     def test_residual_regime_promotion_config_uses_strict_moneyflow_combo_controls(self):
         config = load_promotion_gate_config("configs/promotion_gate_tushare_moneyflow_residual_regime.json")

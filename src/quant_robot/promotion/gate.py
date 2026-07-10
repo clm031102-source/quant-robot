@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import math
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -20,6 +20,8 @@ class PromotionGateConfig:
     provider_status: Path | None = None
     quality_report: Path | None = None
     market_regime_coverage: Path | None = None
+    walk_forward_progress_audit: Path | None = None
+    long_cycle_replay: Path | None = None
     output_dir: Path | None = None
     min_oos_trades: int = 20
     min_oos_sharpe: float = 0.50
@@ -45,10 +47,21 @@ class PromotionGateConfig:
     max_provider_status_age_days: int | None = None
     require_market_regime_coverage: bool = False
     min_distinct_regime_lookbacks_for_family: int = 1
+    require_walk_forward_progress_audit: bool = False
+    require_long_cycle_replay: bool = False
+    require_quality_report: bool = False
+    require_positive_paper_return: bool = True
+    require_paper_provenance: bool = False
 
 
 def load_promotion_gate_config(path: str | Path) -> PromotionGateConfig:
     data = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError(f"Expected promotion gate config object in {path}")
+    known_keys = {field.name for field in fields(PromotionGateConfig)}
+    unknown_keys = sorted(set(data).difference(known_keys))
+    if unknown_keys:
+        raise ValueError("unknown promotion gate config keys: " + ", ".join(unknown_keys))
     return PromotionGateConfig(
         walk_forward_leaderboard=_optional_path(data.get("walk_forward_leaderboard")),
         experiment_leaderboard=_optional_path(data.get("experiment_leaderboard")),
@@ -58,6 +71,8 @@ def load_promotion_gate_config(path: str | Path) -> PromotionGateConfig:
         provider_status=_optional_path(data.get("provider_status")),
         quality_report=_optional_path(data.get("quality_report")),
         market_regime_coverage=_optional_path(data.get("market_regime_coverage")),
+        walk_forward_progress_audit=_optional_path(data.get("walk_forward_progress_audit")),
+        long_cycle_replay=_optional_path(data.get("long_cycle_replay")),
         output_dir=_optional_path(data.get("output_dir")),
         min_oos_trades=int(data.get("min_oos_trades", PromotionGateConfig.min_oos_trades)),
         min_oos_sharpe=float(data.get("min_oos_sharpe", PromotionGateConfig.min_oos_sharpe)),
@@ -100,6 +115,11 @@ def load_promotion_gate_config(path: str | Path) -> PromotionGateConfig:
                 PromotionGateConfig.min_distinct_regime_lookbacks_for_family,
             )
         ),
+        require_walk_forward_progress_audit=bool(data.get("require_walk_forward_progress_audit", False)),
+        require_long_cycle_replay=bool(data.get("require_long_cycle_replay", False)),
+        require_quality_report=bool(data.get("require_quality_report", True)),
+        require_positive_paper_return=bool(data.get("require_positive_paper_return", True)),
+        require_paper_provenance=bool(data.get("require_paper_provenance", True)),
     )
 
 
@@ -112,6 +132,10 @@ def run_promotion_gate(config: PromotionGateConfig) -> dict[str, Any]:
     provider_status = _read_json(config.provider_status) if config.provider_status else None
     quality_report = _read_json(config.quality_report) if config.quality_report else None
     market_regime_coverage = _read_optional_json(config.market_regime_coverage) if config.market_regime_coverage else None
+    walk_forward_progress_audit = (
+        _read_optional_json(config.walk_forward_progress_audit) if config.walk_forward_progress_audit else None
+    )
+    long_cycle_replay = _read_optional_json(config.long_cycle_replay) if config.long_cycle_replay else None
     report = build_promotion_report(
         walk_forward_rows,
         experiment_rows=experiment_rows,
@@ -119,6 +143,8 @@ def run_promotion_gate(config: PromotionGateConfig) -> dict[str, Any]:
         provider_status=provider_status,
         quality_report=quality_report,
         market_regime_coverage=market_regime_coverage,
+        walk_forward_progress_audit=walk_forward_progress_audit,
+        long_cycle_replay=long_cycle_replay,
         config=config,
     )
     if config.output_dir is not None:
@@ -134,6 +160,8 @@ def build_promotion_report(
     provider_status: dict[str, Any] | None = None,
     quality_report: dict[str, Any] | None = None,
     market_regime_coverage: dict[str, Any] | None = None,
+    walk_forward_progress_audit: dict[str, Any] | None = None,
+    long_cycle_replay: dict[str, Any] | None = None,
     config: PromotionGateConfig = PromotionGateConfig(),
 ) -> dict[str, Any]:
     experiment_by_case = {str(row.get("case_id")): row for row in experiment_rows or []}
@@ -149,6 +177,8 @@ def build_promotion_report(
             provider_status,
             quality_report,
             market_regime_coverage,
+            walk_forward_progress_audit,
+            long_cycle_replay,
             accepted_regime_lookbacks_by_family,
             config,
         )
@@ -182,6 +212,8 @@ def _candidate_report(
     provider_status: dict[str, Any] | None,
     quality_report: dict[str, Any] | None,
     market_regime_coverage: dict[str, Any] | None,
+    walk_forward_progress_audit: dict[str, Any] | None,
+    long_cycle_replay: dict[str, Any] | None,
     accepted_regime_lookbacks_by_family: dict[tuple[str, str, int | None, float | None], set[int]],
     config: PromotionGateConfig,
 ) -> dict[str, Any]:
@@ -225,11 +257,13 @@ def _candidate_report(
     if test_max_drawdown < -abs(config.max_oos_drawdown):
         blocking.append("oos_drawdown_above_limit")
 
-    quality_reasons = _quality_reasons(quality_report)
+    quality_reasons = _quality_reasons(quality_report, required=config.require_quality_report)
     blocking.extend(quality_reasons["blocking"])
     warnings.extend(quality_reasons["warnings"])
 
     blocking.extend(_market_regime_reasons(market_regime_coverage, config))
+    blocking.extend(_walk_forward_progress_reasons(case_id, walk_forward_progress_audit, config))
+    blocking.extend(_long_cycle_replay_reasons(case_id, long_cycle_replay, config))
 
     paper_summary = _paper_summary(row, paper_manifests, config)
     blocking.extend(paper_summary["blocking"])
@@ -251,7 +285,7 @@ def _candidate_report(
 
     if blocking:
         promotion_status = "blocked"
-    elif research_warnings or not paper_summary["paper_present"]:
+    elif research_warnings or not paper_summary["paper_matched"]:
         promotion_status = "research_only"
     elif config.allow_manual_live_review and providers_ready:
         promotion_status = "manual_live_review"
@@ -303,6 +337,8 @@ def _candidate_report(
                 "max_drawdown": paper_summary["paper_max_drawdown"],
             },
             "market_regime_coverage": _market_regime_summary(market_regime_coverage),
+            "walk_forward_progress_audit": _evidence_summary(walk_forward_progress_audit),
+            "long_cycle_replay": _evidence_summary(long_cycle_replay),
             "duplicate_of": None,
             "duplicate_similarity": 0.0,
             "_signal_signature": sorted(paper_summary["signal_signature"]),
@@ -326,11 +362,11 @@ def _paper_summary(row: dict[str, Any], paper_manifests: list[dict[str, Any]], c
     if not paper_manifests:
         summary["warnings"].append("paper_simulation_missing")
         return summary
-    paper_manifest = _matching_paper_manifest(row, paper_manifests)
+    paper_manifest = _matching_paper_manifest(row, paper_manifests, config)
     if paper_manifest is None:
         summary["warnings"].append("paper_simulation_does_not_match_candidate")
         return summary
-    if not _paper_matches(row, paper_manifest):
+    if not _paper_matches(row, paper_manifest, config):
         summary["warnings"].append("paper_simulation_does_not_match_candidate")
         return summary
     metrics = paper_manifest.get("metrics", {})
@@ -349,7 +385,10 @@ def _paper_summary(row: dict[str, Any], paper_manifests: list[dict[str, Any]], c
     if summary["paper_max_drawdown"] < -abs(config.max_paper_drawdown):
         summary["blocking"].append("paper_drawdown_above_limit")
     if summary["paper_total_return"] <= 0.0:
-        summary["warnings"].append("paper_total_return_not_positive")
+        if config.require_positive_paper_return:
+            summary["blocking"].append("paper_total_return_not_positive")
+        else:
+            summary["warnings"].append("paper_total_return_not_positive")
     return summary
 
 
@@ -412,8 +451,12 @@ def _jaccard_similarity(left: set[str], right: set[str]) -> float:
     return len(left & right) / len(left | right)
 
 
-def _matching_paper_manifest(row: dict[str, Any], paper_manifests: list[dict[str, Any]]) -> dict[str, Any] | None:
-    matches = [manifest for manifest in paper_manifests if _paper_matches(row, manifest)]
+def _matching_paper_manifest(
+    row: dict[str, Any],
+    paper_manifests: list[dict[str, Any]],
+    config: PromotionGateConfig,
+) -> dict[str, Any] | None:
+    matches = [manifest for manifest in paper_manifests if _paper_matches(row, manifest, config)]
     if not matches:
         return None
     exact_case = [manifest for manifest in matches if _case_id_from_manifest(manifest) == str(row.get("case_id", ""))]
@@ -422,7 +465,11 @@ def _matching_paper_manifest(row: dict[str, Any], paper_manifests: list[dict[str
     return matches[0]
 
 
-def _paper_matches(row: dict[str, Any], paper_manifest: dict[str, Any]) -> bool:
+def _paper_matches(
+    row: dict[str, Any],
+    paper_manifest: dict[str, Any],
+    config: PromotionGateConfig,
+) -> bool:
     request = paper_manifest.get("request", {})
     if not isinstance(request, dict):
         return False
@@ -436,6 +483,8 @@ def _paper_matches(row: dict[str, Any], paper_manifest: dict[str, Any]) -> bool:
         return False
     request_rebalance = _maybe_int(request.get("rebalance_interval"))
     if row_rebalance is not None and request_rebalance is not None and row_rebalance != request_rebalance:
+        return False
+    if config.require_paper_provenance and not _strict_paper_identity_matches(row, request):
         return False
     return True
 
@@ -464,8 +513,14 @@ def _paper_drawdown(metrics: dict[str, Any]) -> float:
     return _metric(metrics, "max_drawdown")
 
 
-def _quality_reasons(quality_report: dict[str, Any] | None) -> dict[str, list[str]]:
+def _quality_reasons(
+    quality_report: dict[str, Any] | None,
+    *,
+    required: bool,
+) -> dict[str, list[str]]:
     if quality_report is None:
+        if required:
+            return {"blocking": ["quality_report_missing"], "warnings": []}
         return {"blocking": [], "warnings": ["quality_report_missing"]}
     blocking = []
     warnings = []
@@ -476,12 +531,117 @@ def _quality_reasons(quality_report: dict[str, Any] | None) -> dict[str, list[st
     if _quality_metric(quality_report, "adj_close_jump_rows") > 0:
         blocking.append("adj_close_jumps_present")
     if _quality_metric(quality_report, "missing_date_rows") > 0:
-        warnings.append("missing_dates_present")
+        (blocking if required else warnings).append("missing_dates_present")
     if _quality_metric(quality_report, "zero_volume_rows") > 0:
-        warnings.append("zero_volume_rows_present")
+        (blocking if required else warnings).append("zero_volume_rows_present")
     if _quality_metric(quality_report, "stale_price_rows") > 0:
         warnings.append("stale_price_rows_present")
     return {"blocking": blocking, "warnings": warnings}
+
+
+def _walk_forward_progress_reasons(
+    case_id: str,
+    audit: dict[str, Any] | None,
+    config: PromotionGateConfig,
+) -> list[str]:
+    if not config.require_walk_forward_progress_audit:
+        return []
+    if audit is None:
+        return ["walk_forward_progress_audit_missing"]
+    summary = _dict(audit.get("summary"))
+    reasons = []
+    if summary.get("is_complete") is not True:
+        reasons.append("walk_forward_progress_audit_incomplete")
+    robust_cases = {
+        str(row.get("case_id"))
+        for row in audit.get("robust_case_candidates", [])
+        if isinstance(row, dict) and row.get("case_id")
+    }
+    if case_id not in robust_cases:
+        reasons.append("walk_forward_progress_candidate_not_robust")
+    return reasons
+
+
+def _long_cycle_replay_reasons(
+    case_id: str,
+    replay: dict[str, Any] | None,
+    config: PromotionGateConfig,
+) -> list[str]:
+    if not config.require_long_cycle_replay:
+        return []
+    if replay is None:
+        return ["long_cycle_replay_missing"]
+    reasons = []
+    coverage = _dict(replay.get("coverage"))
+    if coverage.get("status") != "sufficient":
+        reasons.append("long_cycle_replay_coverage_insufficient")
+    decisions = {
+        str(row.get("case_id")): str(row.get("decision_status"))
+        for row in replay.get("candidate_decisions", [])
+        if isinstance(row, dict) and row.get("case_id")
+    }
+    if decisions.get(case_id) not in {"validation_candidate", "paper_candidate"}:
+        reasons.append("long_cycle_replay_candidate_not_validated")
+    return reasons
+
+
+def _evidence_summary(packet: dict[str, Any] | None) -> dict[str, Any]:
+    if packet is None:
+        return {"present": False}
+    return {
+        "present": True,
+        "stage": packet.get("stage"),
+        "status": packet.get("status"),
+        "summary": packet.get("summary") if isinstance(packet.get("summary"), dict) else {},
+    }
+
+
+def _strict_paper_identity_matches(row: dict[str, Any], request: dict[str, Any]) -> bool:
+    row_identity = {
+        "case_id": _optional_text(row.get("case_id")),
+        "factor_source": _optional_text(row.get("factor_source")),
+        "cost_bps": _maybe_float(row.get("cost_bps")),
+        "rebalance_interval": _maybe_int(row.get("rebalance_interval"))
+        or _case_rebalance_interval(str(row.get("case_id", ""))),
+        "universe_id": _first_text(row, "universe_id", "asset_universe_id"),
+        "data_fingerprint": _first_text(
+            row,
+            "data_fingerprint",
+            "dataset_fingerprint",
+            "source_content_sha256",
+        ),
+        "start_date": _first_text(row, "start_date", "signal_start_date", "test_start_date"),
+        "end_date": _first_text(row, "end_date", "signal_end_date", "test_end_date"),
+    }
+    request_identity = {
+        "case_id": _optional_text(request.get("case_id")),
+        "factor_source": _optional_text(request.get("factor_source")),
+        "cost_bps": _maybe_float(request.get("cost_bps")),
+        "rebalance_interval": _maybe_int(request.get("rebalance_interval")),
+        "universe_id": _first_text(request, "universe_id", "asset_universe_id"),
+        "data_fingerprint": _first_text(
+            request,
+            "data_fingerprint",
+            "dataset_fingerprint",
+            "source_content_sha256",
+        ),
+        "start_date": _first_text(request, "start_date", "signal_start_date"),
+        "end_date": _first_text(request, "end_date", "signal_end_date"),
+    }
+    return all(
+        row_identity[key] is not None
+        and request_identity[key] is not None
+        and row_identity[key] == request_identity[key]
+        for key in row_identity
+    )
+
+
+def _first_text(mapping: dict[str, Any], *keys: str) -> str | None:
+    for key in keys:
+        value = _optional_text(mapping.get(key))
+        if value is not None:
+            return value
+    return None
 
 
 def _quality_metric(quality_report: dict[str, Any], key: str) -> float:
@@ -785,6 +945,8 @@ def _config_dict(config: PromotionGateConfig) -> dict[str, Any]:
         "provider_status",
         "quality_report",
         "market_regime_coverage",
+        "walk_forward_progress_audit",
+        "long_cycle_replay",
         "output_dir",
     ):
         data[key] = str(data[key]) if data[key] is not None else None
