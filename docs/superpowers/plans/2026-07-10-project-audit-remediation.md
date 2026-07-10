@@ -307,15 +307,15 @@ Commit message: `fix: fingerprint experiments and track all hypotheses`
 - Modify: `tests/unit/test_data_quality_gap_audit.py`
 - Modify: `tests/unit/test_data_quality_gap_audit_cli.py`
 
-- [ ] **Step 1: Add failing tests for missing explicit calendar, whole-market gaps, and example truncation**
+- [x] **Step 1: Add failing tests for missing explicit calendar, whole-market gaps, and example truncation**
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
-- [ ] **Step 3: Separate total counts from examples and add decision/status fields**
+- [x] **Step 3: Separate total counts from examples and add decision/status fields**
 
-- [ ] **Step 4: Add `--calendar-path` and non-zero blocked exit**
+- [x] **Step 4: Add `--calendar-path` and non-zero blocked exit**
 
-- [ ] **Step 5: Verify GREEN and commit**
+- [x] **Step 5: Verify GREEN and commit**
 
 Commit message: `fix: make market gap audits fail closed`
 

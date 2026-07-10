@@ -497,6 +497,29 @@ class PromotionGateTests(unittest.TestCase):
         self.assertIn("missing_dates_present", row["warnings"])
         self.assertIn("zero_volume_rows_present", row["warnings"])
 
+    def test_required_quality_report_rejects_blocked_gap_audit_even_when_counts_are_zero(self):
+        report = build_promotion_report(
+            walk_forward_rows=[_accepted_walk_forward_row("CN_ETF_momentum_60_top1_cost5_reb5", "momentum_60")],
+            quality_report={
+                "stage": "phase_3_1_data_quality_gap_audit",
+                "status": "blocked",
+                "summary": {"missing_date_rows": 0, "zero_volume_rows": 0},
+                "decision": {
+                    "gap_audit_cleared": False,
+                    "blockers": ["explicit_trading_calendar_required"],
+                },
+            },
+            config=PromotionGateConfig(
+                require_quality_report=True,
+                min_oos_sharpe=0.5,
+                min_paper_sharpe=0.5,
+            ),
+        )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["promotion_status"], "blocked")
+        self.assertIn("quality_gap_audit_not_cleared", row["blocking_reasons"])
+
     def test_promotion_accepts_candidate_with_factor_source_and_adjusted_ic_evidence(self):
         walk_forward = _accepted_walk_forward_row("CN_ETF_total_mv_log_top1_cost5_reb5", "total_mv_log")
         walk_forward.update(

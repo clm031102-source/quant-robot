@@ -524,6 +524,15 @@ def _quality_reasons(
         return {"blocking": [], "warnings": ["quality_report_missing"]}
     blocking = []
     warnings = []
+    if quality_report.get("stage") == "phase_3_1_data_quality_gap_audit":
+        decision_value = quality_report.get("decision")
+        decision = decision_value if isinstance(decision_value, dict) else {}
+        gap_audit_cleared = (
+            quality_report.get("status") == "cleared"
+            and decision.get("gap_audit_cleared") is True
+        )
+        if not gap_audit_cleared:
+            (blocking if required else warnings).append("quality_gap_audit_not_cleared")
     if _quality_metric(quality_report, "duplicate_bars") > 0:
         blocking.append("duplicate_bars_present")
     if _quality_metric(quality_report, "extreme_return_rows") > 0:

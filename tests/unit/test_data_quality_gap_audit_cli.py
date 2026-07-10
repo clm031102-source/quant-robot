@@ -2,10 +2,11 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import pandas as pd
 
-from scripts.run_data_quality_audit import run_data_quality_audit
+from scripts.run_data_quality_audit import main, run_data_quality_audit
 from quant_robot.storage.dataset_store import DatasetStore
 
 
@@ -24,7 +25,18 @@ class DataQualityGapAuditCliTests(unittest.TestCase):
                 }
             )
 
-            result = run_data_quality_audit(bars=bars, output_dir=output_dir, data_root=root, market="CN_ETF")
+            calendar_path = root / "calendar.csv"
+            pd.DataFrame({"date": ["2024-01-02", "2024-01-03", "2024-01-04"]}).to_csv(
+                calendar_path,
+                index=False,
+            )
+            result = run_data_quality_audit(
+                bars=bars,
+                output_dir=output_dir,
+                data_root=root,
+                market="CN_ETF",
+                calendar_path=calendar_path,
+            )
 
             self.assertEqual(result["summary"]["missing_date_rows"], 1)
             self.assertTrue((output_dir / "data_quality_gap_audit.json").exists())
@@ -32,6 +44,25 @@ class DataQualityGapAuditCliTests(unittest.TestCase):
             self.assertTrue((output_dir / "missing_dates.csv").exists())
             payload = json.loads((output_dir / "data_quality_gap_audit.json").read_text(encoding="utf-8"))
             self.assertEqual(payload["stage"], "phase_3_1_data_quality_gap_audit")
+            self.assertEqual(payload["summary"]["calendar_source"], str(calendar_path))
+
+    def test_main_exits_nonzero_when_gap_audit_is_blocked(self):
+        blocked = {
+            "status": "blocked",
+            "summary": {},
+            "missing_dates": [],
+            "repair_actions": [],
+            "decision": {"gap_audit_cleared": False, "blockers": ["explicit_trading_calendar_required"]},
+        }
+
+        with (
+            patch("scripts.run_data_quality_audit.run_data_quality_audit", return_value=blocked),
+            patch("sys.argv", ["run_data_quality_audit.py"]),
+            self.assertRaises(SystemExit) as raised,
+        ):
+            main()
+
+        self.assertEqual(raised.exception.code, 3)
 
     def test_run_data_quality_audit_accepts_authority_bars_config_file(self):
         with tempfile.TemporaryDirectory() as tmp:
