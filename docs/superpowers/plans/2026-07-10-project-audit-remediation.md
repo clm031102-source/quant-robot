@@ -373,15 +373,15 @@ Commit message: `docs: report research readiness honestly`
 - Modify: `docs/superpowers/plans/2026-07-10-project-audit-remediation.md`
 - Create: `docs/research/project_audit_remediation_summary_2026-07-10.md`
 
-- [ ] **Step 1: Run focused changed-subsystem tests**
+- [x] **Step 1: Run focused changed-subsystem tests**
 
 Run: `.venv\Scripts\python.exe -m pytest <all changed test files> -q`
 
-- [ ] **Step 2: Run the complete unit suite**
+- [x] **Step 2: Run the complete unit suite**
 
 Run: `.venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py"`
 
-- [ ] **Step 3: Run compile, project audit, and diff validation**
+- [x] **Step 3: Run compile, project audit, and diff validation**
 
 ```powershell
 .venv\Scripts\python.exe -m compileall -q src scripts tests
@@ -389,8 +389,8 @@ Run: `.venv\Scripts\python.exe -m unittest discover -s tests -p "test_*.py"`
 git diff --check
 ```
 
-- [ ] **Step 4: Record exact pass/fail evidence and external blockers in the remediation summary**
+- [x] **Step 4: Record exact pass/fail evidence and external blockers in the remediation summary**
 
-- [ ] **Step 5: Commit without pushing**
+- [x] **Step 5: Commit without pushing**
 
 Commit message: `docs: close audit remediation round`
