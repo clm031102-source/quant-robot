@@ -20,7 +20,7 @@
 - Modify: `tests/unit/test_data_fixtures.py`
 - Modify: `tests/unit/test_authority_bars.py`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 ```python
 def test_processed_bar_loader_rejects_multiple_recursive_store_roots():
@@ -37,13 +37,13 @@ def test_market_data_rejects_out_of_order_asset_rows():
         validate_market_data(out_of_order)
 ```
 
-- [ ] **Step 2: Run tests and verify RED**
+- [x] **Step 2: Run tests and verify RED**
 
 Run: `.venv\Scripts\python.exe -m pytest tests/unit/test_research_pipeline.py tests/unit/test_data_fixtures.py tests/unit/test_authority_bars.py -q`
 
 Expected: new ambiguity, duplicate, and ordering assertions fail.
 
-- [ ] **Step 3: Implement strict discovery and validation**
+- [x] **Step 3: Implement strict discovery and validation**
 
 ```python
 def load_processed_bars(root, market, *, recursive=False):
@@ -58,9 +58,9 @@ for asset_id, group in frame.groupby("asset_id", sort=False):
         raise ValueError(...)
 ```
 
-- [ ] **Step 4: Run focused tests and verify GREEN**
+- [x] **Step 4: Run focused tests and verify GREEN**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 Commit message: `fix: require authoritative processed bars`
 
@@ -394,4 +394,3 @@ git diff --check
 - [ ] **Step 5: Commit without pushing**
 
 Commit message: `docs: close audit remediation round`
-

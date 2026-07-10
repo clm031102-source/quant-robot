@@ -357,9 +357,24 @@ class ResearchPipelineTests(unittest.TestCase):
             cn_bars = bars[bars["market"] == "CN"].reset_index(drop=True)
             DatasetStore(store_root).write_frame(cn_bars, "processed/bars", {"frequency": "1d", "market": "CN", "year": "2024"})
 
-            result = load_processed_bars(search_root, "CN")
+            result = load_processed_bars(search_root, "CN", recursive=True)
 
             self.assertEqual(len(result), len(cn_bars))
+
+    def test_processed_bar_loader_rejects_ambiguous_recursive_roots(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            search_root = Path(tmp)
+            bars = load_demo_market_bars()
+            cn_bars = bars[bars["market"] == "CN"].reset_index(drop=True)
+            for name in ("first_ingest", "second_ingest"):
+                DatasetStore(search_root / name).write_frame(
+                    cn_bars,
+                    "processed/bars",
+                    {"frequency": "1d", "market": "CN", "year": "2024"},
+                )
+
+            with self.assertRaisesRegex(ValueError, "ambiguous processed bars"):
+                load_processed_bars(search_root, "CN", recursive=True)
 
     def test_research_cli_loader_supports_all_processed_markets(self):
         with tempfile.TemporaryDirectory() as tmp:

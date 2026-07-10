@@ -12,7 +12,7 @@ def validate_market_data(frame: pd.DataFrame) -> None:
 
     _validate_required_values(frame)
 
-    duplicate_keys = ["asset_id", "timestamp", "frequency", "source"]
+    duplicate_keys = ["asset_id", "timestamp", "frequency"]
     if frame.duplicated(duplicate_keys).any():
         raise ValueError("Market data contains duplicate bars")
 
@@ -69,6 +69,6 @@ def _validate_ohlc(frame: pd.DataFrame) -> None:
 
 
 def _validate_monotonic_dates(frame: pd.DataFrame) -> None:
-    for asset_id, group in frame.sort_values(["asset_id", "timestamp"]).groupby("asset_id"):
+    for asset_id, group in frame.groupby("asset_id", sort=False):
         if not group["timestamp"].is_monotonic_increasing:
             raise ValueError(f"Market data timestamps are not monotonic for {asset_id}")

@@ -11,8 +11,8 @@ from quant_robot.data.quality import validate_market_data
 from quant_robot.storage.dataset_store import DatasetStore
 
 
-AUTHORITY_DUPLICATE_KEYS = ("asset_id", "timestamp", "frequency", "source")
-AUTHORITY_INPUT_DUPLICATE_KEYS = ("date", "asset_id", "market", "source")
+AUTHORITY_DUPLICATE_KEYS = ("asset_id", "timestamp", "frequency")
+AUTHORITY_INPUT_DUPLICATE_KEYS = ("date", "asset_id", "market")
 
 
 @dataclass(frozen=True)

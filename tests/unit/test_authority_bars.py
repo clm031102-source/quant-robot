@@ -65,6 +65,22 @@ class AuthorityBarsTests(unittest.TestCase):
                     market="CN",
                 )
 
+    def test_authority_loader_rejects_same_bar_from_different_sources(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            first = root / "first"
+            second = root / "second"
+            first_row = _bar("2024-01-02", close=10.0, adjusted=True)
+            second_row = {**_bar("2024-01-02", close=10.5, adjusted=True), "source": "archive"}
+            _write_bars(first, [first_row])
+            _write_bars(second, [second_row])
+
+            with self.assertRaisesRegex(ValueError, "duplicate authority bars"):
+                load_authority_processed_bars(
+                    [AuthorityBarSegment(root=first), AuthorityBarSegment(root=second)],
+                    market="CN",
+                )
+
     def test_load_authority_bars_config_reads_segments(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "authority.json"
