@@ -12,6 +12,7 @@ import pandas as pd
 STAGE = "accounting_quality_statement_formula_smoke"
 SAFETY = "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
 SUPPORTED_SUFFIXES = {".parquet", ".csv", ".json", ".jsonl", ".ndjson"}
+STATEMENT_METADATA_NAMES = {"_format.json", "manifest.json", "quality_report.json"}
 STATEMENT_INPUT_SEGMENT = "financial_statement_inputs"
 STATEMENT_KEY_COLUMNS = ["asset_id", "end_date", "ann_date", "report_type"]
 
@@ -227,13 +228,22 @@ def render_accounting_quality_statement_formula_smoke_markdown(result: dict[str,
 
 def _statement_files(root: Path) -> list[Path]:
     if root.is_file():
-        return [root] if root.suffix.lower() in SUPPORTED_SUFFIXES else []
+        return [root] if _is_statement_data_file(root) else []
     if not root.exists():
         return []
     base = root / "processed" / STATEMENT_INPUT_SEGMENT
     search_root = base if base.exists() else root
-    files = [path for path in search_root.rglob("*") if path.is_file() and path.suffix.lower() in SUPPORTED_SUFFIXES]
+    files = [path for path in search_root.rglob("*") if path.is_file() and _is_statement_data_file(path)]
     return [path for path in files if STATEMENT_INPUT_SEGMENT in str(path).replace("\\", "/")]
+
+
+def _is_statement_data_file(path: Path) -> bool:
+    name = path.name.lower()
+    if path.suffix.lower() not in SUPPORTED_SUFFIXES:
+        return False
+    if name.startswith("_") or name in STATEMENT_METADATA_NAMES:
+        return False
+    return not (name.endswith("_manifest.json") or name.endswith("_quality_report.json"))
 
 
 def _read_frame(path: Path) -> pd.DataFrame:

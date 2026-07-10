@@ -77,7 +77,7 @@ class CNCalendarPreHolidayCostCapacityPreflightTests(unittest.TestCase):
         self.assertLess(costly["total_return"], free["total_return"])
         self.assertFalse(free["hard_blocked"])
 
-    def test_capacity_limited_trades_block_walk_forward(self) -> None:
+    def test_capacity_rejected_trades_block_walk_forward(self) -> None:
         factors, bars = _portfolio_frames(amount=1_000_000.0)
 
         result = summarize_cn_calendar_pre_holiday_cost_capacity_preflight(
@@ -95,9 +95,11 @@ class CNCalendarPreHolidayCostCapacityPreflightTests(unittest.TestCase):
         )
 
         row = result["leaderboard"][0]
-        self.assertGreater(row["capacity_limited_trades"], 0)
+        self.assertEqual(row["trades"], 0)
+        self.assertEqual(row["capacity_limited_trades"], 0)
+        self.assertGreater(row["capacity_rejected_trades"], 0)
         self.assertTrue(row["hard_blocked"])
-        self.assertIn("capacity_limited_trades_present", row["blockers"])
+        self.assertIn("capacity_rejected_trades_present", row["blockers"])
         self.assertEqual(result["portfolio_preflight_policy"]["walk_forward_allowed_candidates"], 0)
 
     def test_build_generates_residual_lead_from_calendar_bars_without_final_holdout(self) -> None:

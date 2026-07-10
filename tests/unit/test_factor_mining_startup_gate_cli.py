@@ -121,9 +121,16 @@ class FactorMiningStartupGateCliTests(unittest.TestCase):
             self.assertEqual(packet["research_direction"]["objective"], "cn_stock_cross_sectional_alpha")
             self.assertIn("single_family_lockin", packet["research_direction"]["forbidden_directions"])
             quality_gate = packet["quality_gate"]
-            self.assertEqual(quality_gate["status"], "promotion_ready")
+            self.assertEqual(quality_gate["status"], "classified")
             self.assertTrue(quality_gate["decision"]["startup_gate_cleared"])
-            self.assertTrue(quality_gate["decision"]["promotion_gate_cleared"])
+            self.assertFalse(quality_gate["decision"]["promotion_gate_cleared"])
+            self.assertTrue(quality_gate["decision"]["promotion_blockers"])
+            self.assertTrue(
+                all(
+                    blocker.startswith("promotion_evidence_unverified:")
+                    for blocker in quality_gate["decision"]["promotion_blockers"]
+                )
+            )
             self.assertIn(
                 "cn_stock_tradeability",
                 {area["id"] for area in quality_gate["quality_areas"]},

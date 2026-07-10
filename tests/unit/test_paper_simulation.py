@@ -346,7 +346,7 @@ class PaperSimulationTests(unittest.TestCase):
         self.assertNotIn("CN_ETF_XSHG_510300", filled_assets)
         self.assertNotIn("CN_ETF_XSHE_159915", filled_assets)
 
-    def test_paper_simulation_records_capacity_and_market_impact_evidence(self):
+    def test_paper_simulation_rejects_over_capacity_fills(self):
         result = run_paper_simulation(
             load_demo_market_bars(),
             PaperSimulationConfig(
@@ -364,11 +364,38 @@ class PaperSimulationTests(unittest.TestCase):
             ),
         )
 
+        self.assertEqual(len(result["fills"]), 0)
+        self.assertIn("capacity_limit_exceeded", {event["reason"] for event in result["execution_events"]})
+        self.assertGreater(result["metrics"]["capacity_rejected_fills"], 0)
+        self.assertEqual(result["metrics"]["capacity_limited_fills"], 0)
+        self.assertGreaterEqual(result["metrics"]["ending_cash"], 0.0)
+
+    def test_paper_simulation_records_market_impact_for_capacity_clean_fills(self):
+        bars = load_demo_market_bars().copy()
+        bars["amount"] = 1_000_000_000.0
+
+        result = run_paper_simulation(
+            bars,
+            PaperSimulationConfig(
+                market="CN_ETF",
+                factor_name="momentum_2",
+                factor_windows=(2,),
+                top_n=1,
+                start_date="2024-01-04",
+                end_date="2024-01-08",
+                initial_cash=100000.0,
+                max_asset_weight=1.0,
+                min_cash_weight=0.0,
+                market_impact_bps=10.0,
+                max_participation_rate=0.10,
+            ),
+        )
+
         self.assertGreater(len(result["fills"]), 0)
-        self.assertTrue(any(row["capacity_limited"] for row in result["fills"]))
         self.assertTrue(any(row["market_impact_fee"] > 0.0 for row in result["fills"]))
-        self.assertGreater(result["metrics"]["capacity_limited_fills"], 0)
-        self.assertGreater(result["metrics"]["max_participation_rate"], 0.10)
+        self.assertTrue(all(row["participation_rate"] <= 0.10 for row in result["fills"]))
+        self.assertEqual(result["metrics"]["capacity_rejected_fills"], 0)
+        self.assertGreaterEqual(result["metrics"]["ending_cash"], 0.0)
 
 
 def _bars_with_cn_closed_on_execution_date() -> pd.DataFrame:

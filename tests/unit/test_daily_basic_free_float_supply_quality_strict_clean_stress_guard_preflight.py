@@ -197,7 +197,7 @@ class DailyBasicFreeFloatSupplyQualityStrictCleanStressGuardPreflightTests(unitt
         self.assertIn("train_overlap_autocorr_adjusted_sharpe", rows[("none", 20.0)])
         self.assertIn("stress_guard_mode", result["thresholds"])
 
-    def test_capacity_limited_trades_block_walk_forward_candidate_even_when_return_positive(self) -> None:
+    def test_capacity_rejected_trades_block_walk_forward_candidate_without_execution(self) -> None:
         factors, bars, market_state = _portfolio_frames(amount=1_000_000.0)
 
         result = summarize_daily_basic_free_float_supply_quality_strict_clean_stress_guard_preflight(
@@ -220,10 +220,12 @@ class DailyBasicFreeFloatSupplyQualityStrictCleanStressGuardPreflightTests(unitt
         )
 
         row = result["leaderboard"][0]
-        self.assertGreater(row["total_return"], 0.0)
-        self.assertGreater(row["capacity_limited_trades"], 0)
+        self.assertEqual(row["total_return"], 0.0)
+        self.assertEqual(row["trades"], 0)
+        self.assertEqual(row["capacity_limited_trades"], 0)
+        self.assertGreater(row["capacity_rejected_trades"], 0)
         self.assertTrue(row["hard_blocked"])
-        self.assertIn("capacity_limited_trades_present", row["blockers"])
+        self.assertIn("capacity_rejected_trades_present", row["blockers"])
         self.assertEqual(result["portfolio_preflight_policy"]["walk_forward_allowed_candidates"], 0)
 
     def test_only_extreme_trade_blockers_route_to_extreme_trade_audit_not_hibernation(self) -> None:

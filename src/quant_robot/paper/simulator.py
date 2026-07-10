@@ -423,20 +423,58 @@ def _simulate_fills(
         signed_quantity = _round_signed_quantity_to_lot(signed_quantity, lot_size)
         quantity = abs(signed_quantity)
         notional = quantity * fill_price
-        fee = notional * commission_bps / 10000.0
-        if signed_quantity > 0.0 and notional + fee > cash and notional > 0.0:
-            scale = max(cash, 0.0) / (notional + fee)
+        commission_fee = notional * commission_bps / 10000.0
+        if signed_quantity > 0.0 and notional + commission_fee > cash and notional > 0.0:
+            scale = max(cash, 0.0) / (notional + commission_fee)
             signed_quantity = _round_signed_quantity_to_lot(quantity * scale, lot_size)
             quantity = abs(signed_quantity)
             notional = quantity * fill_price
-            fee = notional * commission_bps / 10000.0
+            commission_fee = notional * commission_bps / 10000.0
         if quantity <= 1e-12:
             continue
+        amount = _available_amount(price_row)
+        capacity_controls_active = max_participation_rate is not None or market_impact_bps > 0.0
+        if capacity_controls_active and amount <= 0.0:
+            execution_events.append(
+                _capacity_rejection_event(
+                    intent,
+                    price_row,
+                    reason="capacity_amount_missing",
+                    available_amount=amount,
+                    max_participation_rate=max_participation_rate,
+                )
+            )
+            continue
         participation_rate = _participation_rate(quantity, fill_price, price_row)
+        if capacity_limited(participation_rate, max_participation_rate):
+            execution_events.append(
+                _capacity_rejection_event(
+                    intent,
+                    price_row,
+                    reason="capacity_limit_exceeded",
+                    available_amount=amount,
+                    participation_rate=participation_rate,
+                    max_participation_rate=max_participation_rate,
+                )
+            )
+            continue
         impact_bps = market_impact_cost_bps(market_impact_bps, participation_rate, max_participation_rate)
         market_impact_fee = notional * impact_bps / 10000.0
-        capacity_flag = capacity_limited(participation_rate, max_participation_rate)
-        fee += market_impact_fee
+        fee = commission_fee + market_impact_fee
+        if signed_quantity > 0.0 and notional + fee > cash:
+            scale = max(cash, 0.0) / (notional + fee)
+            signed_quantity = _round_signed_quantity_to_lot(quantity * scale, lot_size)
+            quantity = abs(signed_quantity)
+            if quantity <= 1e-12:
+                continue
+            notional = quantity * fill_price
+            commission_fee = notional * commission_bps / 10000.0
+            participation_rate = _participation_rate(quantity, fill_price, price_row)
+            impact_bps = market_impact_cost_bps(market_impact_bps, participation_rate, max_participation_rate)
+            market_impact_fee = notional * impact_bps / 10000.0
+            fee = commission_fee + market_impact_fee
+        if signed_quantity > 0.0 and notional + fee > cash + 1e-9:
+            continue
         cash += notional - fee if signed_quantity < 0.0 else -(notional + fee)
         fills.append(
             {
@@ -452,10 +490,10 @@ def _simulate_fills(
                 "fill_price": fill_price,
                 "notional": notional,
                 "fee": fee,
-                "commission_fee": notional * commission_bps / 10000.0,
+                "commission_fee": commission_fee,
                 "market_impact_fee": market_impact_fee,
                 "participation_rate": participation_rate,
-                "capacity_limited": capacity_flag,
+                "capacity_limited": False,
                 "fill_type": "simulated",
                 "broker_order_id": None,
             }
@@ -464,13 +502,42 @@ def _simulate_fills(
 
 
 def _participation_rate(quantity: float, fill_price: float, price_row: dict[str, Any]) -> float:
+    amount = _available_amount(price_row)
+    if amount <= 0.0:
+        return 0.0
+    return abs(float(quantity)) * float(fill_price) / amount
+
+
+def _available_amount(price_row: dict[str, Any]) -> float:
     try:
         amount = float(price_row.get("amount", 0.0))
     except (TypeError, ValueError):
         return 0.0
-    if amount <= 0.0:
-        return 0.0
-    return abs(float(quantity)) * float(fill_price) / amount
+    return amount if math.isfinite(amount) and amount > 0.0 else 0.0
+
+
+def _capacity_rejection_event(
+    intent: dict[str, Any],
+    price_row: dict[str, Any],
+    *,
+    reason: str,
+    available_amount: float,
+    max_participation_rate: float | None,
+    participation_rate: float | None = None,
+) -> dict[str, Any]:
+    return {
+        "event_type": "capacity_rejected_fill",
+        "reason": reason,
+        "intent_id": intent["intent_id"],
+        "signal_date": intent["signal_date"],
+        "execution_date": intent["execution_date"],
+        "asset_id": intent["asset_id"],
+        "market": str(price_row.get("market", intent["market"])),
+        "side": intent["side"],
+        "available_amount": float(available_amount),
+        "participation_rate": participation_rate,
+        "max_participation_rate": max_participation_rate,
+    }
 
 
 def _execution_blocking_reason(intent: dict[str, Any], price_row: dict[str, Any], enabled: bool) -> str | None:
@@ -618,6 +685,16 @@ def _metrics(
             "guard_event_count": float(len(guard_events)),
             "execution_block_event_count": float(len(execution_events)),
             "capacity_limited_fills": float(sum(1 for fill in fills if fill.get("capacity_limited"))),
+            "capacity_rejected_fills": float(
+                sum(
+                    1
+                    for event in execution_events
+                    if event.get("reason") in {"capacity_limit_exceeded", "capacity_amount_missing"}
+                )
+            ),
+            "capacity_amount_missing_fills": float(
+                sum(1 for event in execution_events if event.get("reason") == "capacity_amount_missing")
+            ),
             "max_participation_rate": max((float(fill.get("participation_rate", 0.0)) for fill in fills), default=0.0),
             "market_impact_fee": sum(float(fill.get("market_impact_fee", 0.0)) for fill in fills),
         }

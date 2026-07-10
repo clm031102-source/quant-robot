@@ -82,7 +82,7 @@ class TurnoverRepairChampionPortfolioConversionTests(unittest.TestCase):
         self.assertEqual(free["capacity_limited_trades"], 0)
         self.assertFalse(free["hard_blocked"])
 
-    def test_capacity_limited_trades_block_walk_forward_even_when_return_is_positive(self) -> None:
+    def test_capacity_rejected_trades_block_walk_forward_without_execution(self) -> None:
         factors, bars = _costed_conversion_frames(amount=1_000_000.0)
 
         result = summarize_turnover_repair_champion_portfolio_conversion(
@@ -101,10 +101,12 @@ class TurnoverRepairChampionPortfolioConversionTests(unittest.TestCase):
         )
 
         row = result["leaderboard"][0]
-        self.assertGreater(row["total_return"], 0.0)
-        self.assertGreater(row["capacity_limited_trades"], 0)
+        self.assertEqual(row["total_return"], 0.0)
+        self.assertEqual(row["trades"], 0)
+        self.assertEqual(row["capacity_limited_trades"], 0)
+        self.assertGreater(row["capacity_rejected_trades"], 0)
         self.assertTrue(row["hard_blocked"])
-        self.assertIn("capacity_limited_trades_present", row["blockers"])
+        self.assertIn("capacity_rejected_trades_present", row["blockers"])
         self.assertEqual(result["portfolio_conversion_policy"]["walk_forward_allowed_candidates"], 0)
 
     def test_costed_conversion_applies_tradeability_masks_to_portfolio_execution(self) -> None:

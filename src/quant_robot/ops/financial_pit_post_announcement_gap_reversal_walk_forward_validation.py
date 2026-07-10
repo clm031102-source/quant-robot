@@ -56,6 +56,7 @@ LEADERBOARD_COLUMNS = [
     "worst_test_max_drawdown",
     "mean_test_win_rate",
     "test_capacity_limited_trades",
+    "test_capacity_rejected_trades",
     "test_regime_state_count",
     "rejection_reasons",
     "rank",
@@ -89,6 +90,8 @@ FOLD_COLUMNS = [
     "test_win_rate",
     "train_capacity_limited_trades",
     "test_capacity_limited_trades",
+    "train_capacity_rejected_trades",
+    "test_capacity_rejected_trades",
     "test_regime_states",
     "test_regime_state_count",
 ]
@@ -354,7 +357,7 @@ def render_financial_pit_post_announcement_gap_reversal_walk_forward_validation_
         "",
         "## Top Leaderboard",
         "",
-        "| Rank | Factor | TopN | Cost | Capital | Status | Folds | Test Total | Test Ann | Test Overlap | Worst DD | Win | CapLimited | Reasons |",
+        "| Rank | Factor | TopN | Cost | Capital | Status | Folds | Test Total | Test Ann | Test Overlap | Worst DD | Win | CapRejected | Reasons |",
         "|---:|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---|",
     ]
     for row in (result.get("leaderboard", []) or [])[:20]:
@@ -373,7 +376,7 @@ def render_financial_pit_post_announcement_gap_reversal_walk_forward_validation_
                 overlap=_number(row.get("mean_test_overlap_autocorr_adjusted_sharpe")),
                 dd=_number(row.get("worst_test_max_drawdown")),
                 win=_number(row.get("mean_test_win_rate")),
-                caplim=int(_number(row.get("test_capacity_limited_trades"))),
+                caplim=int(_number(row.get("test_capacity_rejected_trades"))),
                 reasons=",".join(str(item) for item in row.get("rejection_reasons", []) or []) or "none",
             )
         )
@@ -484,6 +487,8 @@ def _case_fold_rows(
                     "test_win_rate": _number(test.get("win_rate")),
                     "train_capacity_limited_trades": int(_number(train.get("capacity_limited_trades"))),
                     "test_capacity_limited_trades": int(_number(test.get("capacity_limited_trades"))),
+                    "train_capacity_rejected_trades": int(_number(train.get("capacity_rejected_trades"))),
+                    "test_capacity_rejected_trades": int(_number(test.get("capacity_rejected_trades"))),
                     "test_regime_states": ",".join(states),
                     "test_regime_state_count": len(states),
                 }
@@ -548,6 +553,8 @@ def _fold_reasons(
         reasons.append("test_drawdown_above_limit")
     if int(_number(test.get("capacity_limited_trades"))) > 0:
         reasons.append("test_capacity_limited_trades_present")
+    if int(_number(test.get("capacity_rejected_trades"))) > 0:
+        reasons.append("test_capacity_rejected_trades_present")
     if bool(test.get("extreme_trade_return_flag")):
         reasons.append("test_extreme_trade_return")
     if int(test_regime_state_count) < int(min_regime_states):
@@ -608,6 +615,7 @@ def _aggregate_fold_rows(
                     "worst_test_max_drawdown": min((_number(row.get("test_max_drawdown")) for row in items), default=0.0),
                     "mean_test_win_rate": _mean(items, "test_win_rate"),
                     "test_capacity_limited_trades": sum(int(_number(row.get("test_capacity_limited_trades"))) for row in items),
+                    "test_capacity_rejected_trades": sum(int(_number(row.get("test_capacity_rejected_trades"))) for row in items),
                     "test_regime_state_count": state_count,
                     "rejection_reasons": _dedupe(reasons),
                 }

@@ -109,6 +109,7 @@ LEADERBOARD_COLUMNS = [
     "avg_participation_rate",
     "max_participation_rate",
     "capacity_limited_trades",
+    "capacity_rejected_trades",
     "max_abs_trade_gross_return",
     "p99_abs_trade_gross_return",
     "extreme_trade_return_count",
@@ -126,6 +127,8 @@ LEADERBOARD_COLUMNS = [
     "test_max_drawdown",
     "test_win_rate",
     "test_capacity_limited_trades",
+    "train_capacity_rejected_trades",
+    "test_capacity_rejected_trades",
     "hard_blocked",
     "walk_forward_candidate",
     "blockers",
@@ -558,12 +561,12 @@ def render_daily_basic_free_float_supply_quality_strict_clean_stress_guard_prefl
         "",
         "## Leaderboard",
         "",
-        "| Case | Guard | Cost | Capital | Full Total | Full Sharpe | Full Overlap | Test Total | Test Overlap | MaxDD | CapTrades | Candidate | Blockers |",
-        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---|",
+        "| Case | Guard | Cost | Capital | Full Total | Full Sharpe | Full Overlap | Test Total | Test Overlap | MaxDD | Full CapRejected | Test CapRejected | Candidate | Blockers |",
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---|",
     ]
     for row in result.get("leaderboard", []):
         lines.append(
-            "| {case} | {guard} | {cost:.1f} | {capital:.0f} | {total:.2%} | {sharpe:.3f} | {overlap:.3f} | {test_total:.2%} | {test_overlap:.3f} | {dd:.2%} | {cap} | {cand} | {blockers} |".format(
+            "| {case} | {guard} | {cost:.1f} | {capital:.0f} | {total:.2%} | {sharpe:.3f} | {overlap:.3f} | {test_total:.2%} | {test_overlap:.3f} | {dd:.2%} | {cap_rejected} | {test_cap_rejected} | {cand} | {blockers} |".format(
                 case=row.get("case_id", ""),
                 guard=row.get("guard_mode", ""),
                 cost=_number(row.get("cost_bps")),
@@ -574,7 +577,8 @@ def render_daily_basic_free_float_supply_quality_strict_clean_stress_guard_prefl
                 test_total=_number(row.get("test_total_return")),
                 test_overlap=_number(row.get("test_overlap_autocorr_adjusted_sharpe")),
                 dd=_number(row.get("max_drawdown")),
-                cap=int(_number(row.get("capacity_limited_trades"))),
+                cap_rejected=int(_number(row.get("capacity_rejected_trades"))),
+                test_cap_rejected=int(_number(row.get("test_capacity_rejected_trades"))),
                 cand="yes" if row.get("walk_forward_candidate") else "no",
                 blockers=row.get("blockers", "") or "none",
             )
@@ -671,6 +675,8 @@ def _split_metrics(
         "test_max_drawdown": _metric(test_metrics, "max_drawdown"),
         "test_win_rate": _metric(test_metrics, "win_rate"),
         "test_capacity_limited_trades": int(_metric(test_metrics, "capacity_limited_trades")),
+        "train_capacity_rejected_trades": int(_metric(train_metrics, "capacity_rejected_trades")),
+        "test_capacity_rejected_trades": int(_metric(test_metrics, "capacity_rejected_trades")),
     }
 
 
@@ -694,6 +700,8 @@ def _oos_blockers(
         blockers.append("oos_overlap_adjusted_sharpe_below_min")
     if _number(row.get("test_capacity_limited_trades")) > 0:
         blockers.append("oos_capacity_limited_trades_present")
+    if _number(row.get("test_capacity_rejected_trades")) > 0:
+        blockers.append("oos_capacity_rejected_trades_present")
     if _number(row.get("test_max_drawdown")) < max_drawdown_floor:
         blockers.append("oos_max_drawdown_below_user_floor")
     return blockers
@@ -731,6 +739,7 @@ def _summary(factors: pd.DataFrame, leaderboard: list[dict[str, Any]]) -> dict[s
         "best_test_overlap_adjusted_sharpe": _best_metric(leaderboard, "test_overlap_autocorr_adjusted_sharpe"),
         "min_max_drawdown": _min_metric(leaderboard, "max_drawdown"),
         "max_capacity_limited_trades": int(max((_number(row.get("capacity_limited_trades")) for row in leaderboard), default=0)),
+        "max_capacity_rejected_trades": int(max((_number(row.get("capacity_rejected_trades")) for row in leaderboard), default=0)),
     }
 
 

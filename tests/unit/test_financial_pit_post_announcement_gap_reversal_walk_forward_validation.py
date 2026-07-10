@@ -37,7 +37,7 @@ class FinancialPitPostAnnouncementGapReversalWalkForwardValidationTests(unittest
         self.assertEqual(result["leaderboard"][0]["accepted_folds"], 2)
         self.assertFalse(result["promotion_policy"]["promotion_allowed"])
 
-    def test_capacity_limited_test_trades_reject_case(self) -> None:
+    def test_capacity_rejected_test_trades_reject_case(self) -> None:
         factors, bars = _frames(amount=1_000.0, winner_return=0.02, loser_return=-0.01)
 
         result = run_financial_pit_post_announcement_gap_reversal_walk_forward_validation_from_frames(
@@ -57,8 +57,9 @@ class FinancialPitPostAnnouncementGapReversalWalkForwardValidationTests(unittest
 
         row = result["leaderboard"][0]
         self.assertEqual(row["validation_status"], "rejected")
-        self.assertIn("test_capacity_limited_trades_present", row["rejection_reasons"])
-        self.assertGreater(row["test_capacity_limited_trades"], 0)
+        self.assertIn("test_capacity_rejected_trades_present", row["rejection_reasons"])
+        self.assertEqual(row["test_capacity_limited_trades"], 0)
+        self.assertGreater(row["test_capacity_rejected_trades"], 0)
 
     def test_write_outputs(self) -> None:
         factors, bars = _frames(amount=1_000_000_000.0, winner_return=0.02, loser_return=-0.01)

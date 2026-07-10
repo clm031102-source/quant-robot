@@ -94,6 +94,7 @@ LEADERBOARD_COLUMNS = [
     "avg_participation_rate",
     "max_participation_rate",
     "capacity_limited_trades",
+    "capacity_rejected_trades",
     "max_abs_trade_gross_return",
     "p99_abs_trade_gross_return",
     "extreme_trade_return_count",
@@ -363,12 +364,12 @@ def render_turnover_repair_champion_portfolio_conversion_markdown(result: dict[s
         "",
         "## Leaderboard",
         "",
-        "| Case | Cost | Capital | Total | Ann | Sharpe | Overlap Sharpe | MaxDD | Win | CapTrades | ExtremeRate | Candidate | Blockers |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---|",
+        "| Case | Cost | Capital | Total | Ann | Sharpe | Overlap Sharpe | MaxDD | Win | CapLimited | CapRejected | ExtremeRate | Candidate | Blockers |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---|",
     ]
     for row in result.get("leaderboard", []):
         lines.append(
-            "| {case} | {cost:.1f} | {capital:.0f} | {total:.2%} | {ann:.2%} | {sharpe:.3f} | {overlap:.3f} | {dd:.2%} | {win:.1%} | {cap} | {extreme:.2%} | {cand} | {blockers} |".format(
+            "| {case} | {cost:.1f} | {capital:.0f} | {total:.2%} | {ann:.2%} | {sharpe:.3f} | {overlap:.3f} | {dd:.2%} | {win:.1%} | {cap} | {cap_rejected} | {extreme:.2%} | {cand} | {blockers} |".format(
                 case=row.get("case_id", ""),
                 cost=_number(row.get("cost_bps")),
                 capital=_number(row.get("portfolio_value")),
@@ -379,6 +380,7 @@ def render_turnover_repair_champion_portfolio_conversion_markdown(result: dict[s
                 dd=_number(row.get("max_drawdown")),
                 win=_number(row.get("win_rate")),
                 cap=int(_number(row.get("capacity_limited_trades"))),
+                cap_rejected=int(_number(row.get("capacity_rejected_trades"))),
                 extreme=_number(row.get("extreme_trade_return_rate")),
                 cand="yes" if row.get("walk_forward_candidate") else "no",
                 blockers=row.get("blockers", "") or "none",
@@ -647,6 +649,7 @@ def _case_row(
         "avg_participation_rate": _metric(metrics, "avg_participation_rate"),
         "max_participation_rate": _metric(metrics, "max_participation_rate"),
         "capacity_limited_trades": int(_metric(metrics, "capacity_limited_trades")),
+        "capacity_rejected_trades": int(_metric(metrics, "capacity_rejected_trades")),
         "max_abs_trade_gross_return": _metric(metrics, "max_abs_trade_gross_return"),
         "p99_abs_trade_gross_return": _metric(metrics, "p99_abs_trade_gross_return"),
         "extreme_trade_return_count": int(extreme_count),
@@ -681,6 +684,8 @@ def _blockers(
         blockers.append("overlap_adjusted_sharpe_below_min")
     if _metric(metrics, "capacity_limited_trades") > 0:
         blockers.append("capacity_limited_trades_present")
+    if _metric(metrics, "capacity_rejected_trades") > 0:
+        blockers.append("capacity_rejected_trades_present")
     if _metric(metrics, "max_participation_rate") > max_participation_rate:
         blockers.append("max_participation_rate_exceeded")
     if _metric(metrics, "calendar_limited_trades") > 0:
@@ -716,6 +721,7 @@ def _summary(factors: pd.DataFrame, leaderboard: list[dict[str, Any]]) -> dict[s
         "best_overlap_adjusted_sharpe": _best_metric(leaderboard, "overlap_autocorr_adjusted_sharpe"),
         "min_max_drawdown": _min_metric(leaderboard, "max_drawdown"),
         "max_capacity_limited_trades": int(max((_number(row.get("capacity_limited_trades")) for row in leaderboard), default=0)),
+        "max_capacity_rejected_trades": int(max((_number(row.get("capacity_rejected_trades")) for row in leaderboard), default=0)),
         "max_tradeability_filtered_trades": int(
             max((_number(row.get("tradeability_filtered_trades")) for row in leaderboard), default=0)
         ),
