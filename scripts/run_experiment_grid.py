@@ -176,6 +176,7 @@ def _enforce_cn_stock_startup_gate(
     validate_factor_batch_readiness_gate_packet(
         factor_batch_readiness_gate_packet,
         context="CN processed-bars experiment grid",
+        required_permission="portfolio_grid_allowed",
     )
 
 

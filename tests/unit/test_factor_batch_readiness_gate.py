@@ -229,6 +229,31 @@ class FactorBatchReadinessGateTests(unittest.TestCase):
         self.assertEqual(loaded["status"], "ready")
         self.assertTrue(loaded["decision"]["factor_batch_ready"])
 
+    def test_validator_requires_the_permission_requested_by_consumer(self) -> None:
+        packet = build_factor_batch_readiness_gate(
+            source_queue_packet={"decision": {"status": "cleared", "blockers": []}, "summary": {}},
+            candidate_plan_gate_packet={
+                "status": "research_ready",
+                "decision": {
+                    "candidate_plan_gate_cleared": True,
+                    "research_screen_allowed": True,
+                    "portfolio_grid_allowed": False,
+                    "blockers": [],
+                },
+                "summary": {},
+            },
+            candidate_plan_path="candidate_plan.json",
+            source_queue_output_dir="source_queue",
+            candidate_plan_gate_output_dir="candidate_gate",
+        )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            write_factor_batch_readiness_gate(tmp, packet)
+            path = Path(tmp) / "factor_batch_readiness_gate.json"
+            validate_factor_batch_readiness_gate_packet(path, required_permission="research_screen_allowed")
+            with self.assertRaisesRegex(ValueError, "portfolio_grid_allowed"):
+                validate_factor_batch_readiness_gate_packet(path, required_permission="portfolio_grid_allowed")
+
 
 if __name__ == "__main__":
     unittest.main()

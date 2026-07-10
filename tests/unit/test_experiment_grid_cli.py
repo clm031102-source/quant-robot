@@ -181,6 +181,45 @@ class ExperimentGridCliTests(unittest.TestCase):
 
             load_bars.assert_not_called()
 
+    def test_processed_cn_grid_rejects_research_only_readiness(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "grid.json"
+            config_path.write_text(
+                json.dumps({"markets": ["CN"], "factor_names": ["momentum_2"], "factor_windows": [2]}),
+                encoding="utf-8",
+            )
+            gate_packet = root / "factor_mining_startup_gate.json"
+            gate_packet.write_text(_valid_startup_gate_packet_json(), encoding="utf-8")
+            data_manifest = root / "cn_stock_data_manifest.json"
+            data_manifest.write_text(
+                json.dumps(
+                    {
+                        "generated_at": date.today().isoformat(),
+                        "status": "cleared",
+                        "summary": {"source_root": root.as_posix(), "bar_rows": 10, "bar_symbols": 2},
+                        "decision": {"data_manifest_cleared": True, "blockers": [], "warnings": []},
+                        "live_boundary_allowed": False,
+                    }
+                ),
+                encoding="utf-8",
+            )
+            readiness_dir = root / "readiness_gate"
+            _write_factor_batch_readiness_gate(readiness_dir, ready=True, portfolio_grid_allowed=False)
+
+            with patch("scripts.run_experiment_grid.load_processed_bars") as load_bars:
+                with self.assertRaisesRegex(ValueError, "portfolio_grid_allowed"):
+                    run_grid(
+                        config_path=config_path,
+                        source="processed-bars",
+                        data_root=root,
+                        startup_gate_packet=gate_packet,
+                        data_manifest_packet=data_manifest,
+                        factor_batch_readiness_gate_packet=readiness_dir / "factor_batch_readiness_gate.json",
+                    )
+
+            load_bars.assert_not_called()
+
     def test_processed_cn_grid_requires_data_manifest_packet_after_startup_gate(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -237,7 +276,12 @@ def _valid_startup_gate_packet_json() -> str:
     return json.dumps(packet)
 
 
-def _write_factor_batch_readiness_gate(output_dir: Path, *, ready: bool) -> None:
+def _write_factor_batch_readiness_gate(
+    output_dir: Path,
+    *,
+    ready: bool,
+    portfolio_grid_allowed: bool = True,
+) -> None:
     if ready:
         source_queue_packet = {
             "decision": {"status": "cleared", "blockers": []},
@@ -248,6 +292,7 @@ def _write_factor_batch_readiness_gate(output_dir: Path, *, ready: bool) -> None
             "decision": {
                 "candidate_plan_gate_cleared": True,
                 "research_screen_allowed": True,
+                "portfolio_grid_allowed": portfolio_grid_allowed,
                 "blockers": [],
             },
             "summary": {"candidate_count": 1},

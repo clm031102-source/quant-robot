@@ -8,6 +8,12 @@ from typing import Any
 
 STAGE = "factor_batch_readiness_gate"
 SAFETY = "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+DECISION_PERMISSIONS = {
+    "factor_batch_ready",
+    "research_screen_allowed",
+    "portfolio_grid_allowed",
+    "promotion_allowed",
+}
 
 
 def build_factor_batch_readiness_gate(
@@ -70,8 +76,8 @@ def build_factor_batch_readiness_gate(
         "decision": {
             "factor_batch_ready": ready,
             "research_screen_allowed": ready and candidate_decision.get("research_screen_allowed") is True,
-            "portfolio_grid_allowed": False,
-            "promotion_allowed": False,
+            "portfolio_grid_allowed": ready and candidate_decision.get("portfolio_grid_allowed") is True,
+            "promotion_allowed": ready and candidate_decision.get("promotion_allowed") is True,
             "next_action": next_action,
             "blockers": blockers,
         },
@@ -104,7 +110,10 @@ def validate_factor_batch_readiness_gate_packet(
     *,
     require_generated_today: bool = True,
     context: str = "CN stock factor batch",
+    required_permission: str = "factor_batch_ready",
 ) -> dict[str, Any]:
+    if required_permission not in DECISION_PERMISSIONS:
+        raise ValueError(f"{context} requested unknown readiness permission: {required_permission}")
     if packet_path is None:
         raise ValueError(f"{context} requires a factor batch readiness gate packet")
     path = Path(packet_path)
@@ -116,6 +125,10 @@ def validate_factor_batch_readiness_gate_packet(
     decision = _dict(packet.get("decision"))
     if packet.get("status") != "ready" or decision.get("factor_batch_ready") is not True:
         raise ValueError(f"{context} factor batch readiness gate is not ready: {path}")
+    if decision.get(required_permission) is not True:
+        raise ValueError(
+            f"{context} factor batch readiness gate does not allow {required_permission}: {path}"
+        )
     if packet.get("live_boundary_allowed") is not False:
         raise ValueError(f"{context} factor batch readiness gate violates live boundary: {path}")
     return packet

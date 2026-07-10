@@ -119,18 +119,18 @@ Commit message: `fix: make research data artifacts reproducible`
 - Modify: `tests/unit/test_factor_batch_readiness_gate.py`
 - Modify: `tests/unit/test_experiment_grid_cli.py`
 
-- [ ] **Step 1: Write a failing test proving a research-ready packet cannot run a portfolio grid**
+- [x] **Step 1: Write a failing test proving a research-ready packet cannot run a portfolio grid**
 
 ```python
 with self.assertRaisesRegex(ValueError, "portfolio_grid_allowed"):
     validate_factor_batch_readiness_gate_packet(path, required_permission="portfolio_grid_allowed")
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
-- [ ] **Step 3: Add `required_permission` validation and require it in the grid entrypoint**
+- [x] **Step 3: Add `required_permission` validation and require it in the grid entrypoint**
 
-- [ ] **Step 4: Verify GREEN and commit**
+- [x] **Step 4: Verify GREEN and commit**
 
 Commit message: `fix: enforce readiness gate permissions`
 
