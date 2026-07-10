@@ -38,7 +38,8 @@ class ProjectCompletionGateTests(unittest.TestCase):
 
         self.assertEqual(gate["status"], "blocked")
         self.assertFalse(gate["factor_mining_allowed"])
-        self.assertEqual(gate["progress_estimate_percent"], 98)
+        self.assertNotIn("progress_estimate_percent", gate)
+        self.assertFalse(gate["readiness"]["project_complete"])
         self.assertEqual(
             gate["blockers"],
             [
@@ -51,7 +52,7 @@ class ProjectCompletionGateTests(unittest.TestCase):
         self.assertEqual(gate["observation"]["required_fills"], 20)
         self.assertEqual(gate["next_actions"][0]["action"], "run_laptop_project_sync")
 
-    def test_allows_factor_mining_only_after_project_completion_conditions_clear(self) -> None:
+    def test_allows_factor_mining_only_after_pre_alpha_readiness_conditions_clear(self) -> None:
         gate = build_completion_gate(
             current_branch="main",
             stable_branch="main",
@@ -65,13 +66,17 @@ class ProjectCompletionGateTests(unittest.TestCase):
             },
         )
 
-        self.assertEqual(gate["status"], "complete")
+        self.assertEqual(gate["stage"], "pre_alpha_research_readiness_gate")
+        self.assertEqual(gate["status"], "ready_for_factor_mining")
         self.assertTrue(gate["factor_mining_allowed"])
-        self.assertEqual(gate["progress_estimate_percent"], 100)
+        self.assertNotIn("progress_estimate_percent", gate)
+        self.assertTrue(gate["readiness"]["pre_alpha_controls_cleared"])
+        self.assertFalse(gate["readiness"]["project_complete"])
+        self.assertEqual(gate["readiness"]["claim_scope"], "pre_alpha_research_readiness_only")
         self.assertEqual(gate["blockers"], [])
         self.assertEqual(gate["next_actions"][0]["action"], "start_profit_factor_mining")
 
-    def test_progress_reaches_99_when_only_mainline_git_integration_remains(self) -> None:
+    def test_gate_does_not_claim_whole_project_completion_when_only_git_integration_remains(self) -> None:
         gate = build_completion_gate(
             current_branch="codex/factor-batch-current",
             stable_branch="main",
@@ -86,7 +91,9 @@ class ProjectCompletionGateTests(unittest.TestCase):
             recent_data_refresh_pack={"status": "completed", "coverage": {"target_end_covered": True}},
         )
 
-        self.assertEqual(gate["progress_estimate_percent"], 99)
+        self.assertEqual(gate["status"], "blocked")
+        self.assertNotIn("progress_estimate_percent", gate)
+        self.assertFalse(gate["readiness"]["project_complete"])
         self.assertEqual(gate["blockers"], ["not_on_stable_branch", "remote_topic_branches_remaining"])
 
     def test_require_complete_exit_code_blocks_automation_until_gate_clears(self) -> None:

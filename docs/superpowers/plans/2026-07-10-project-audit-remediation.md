@@ -355,15 +355,15 @@ Commit message: `chore: harden repository governance`
 - Modify: `tests/unit/test_project_completion_gate.py`
 - Modify: `docs/research/CURRENT_RESEARCH_INDEX.md`
 
-- [ ] **Step 1: Add failing tests that reject whole-project completion claims and report large-module/test-topology debt**
+- [x] **Step 1: Add failing tests that reject whole-project completion claims and report large-module/test-topology debt**
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
-- [ ] **Step 3: Reframe completion as pre-alpha readiness and remove synthetic 98/99/100 scoring**
+- [x] **Step 3: Reframe completion as pre-alpha readiness and remove synthetic 98/99/100 scoring**
 
-- [ ] **Step 4: Add non-growing maintainability baselines and correct historical documentation**
+- [x] **Step 4: Add non-growing maintainability baselines and correct historical documentation**
 
-- [ ] **Step 5: Verify GREEN and commit**
+- [x] **Step 5: Verify GREEN and commit**
 
 Commit message: `docs: report research readiness honestly`
 

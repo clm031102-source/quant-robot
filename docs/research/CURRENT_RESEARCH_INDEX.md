@@ -514,11 +514,11 @@ Decision: before starting `alpha-mine`, run:
 .\.venv\Scripts\python.exe scripts\run_project_completion_gate.py --observation-sufficiency-pack <latest_observation_sufficiency_pack>
 ```
 
-Proceed only when `factor_mining_allowed=true`, `status=complete`, and `blockers=[]`.
+Proceed only when `factor_mining_allowed=true`, `status=ready_for_factor_mining`, and `blockers=[]`. This is pre-alpha research readiness, not whole-project completion.
 
 Round483 hardened the completion gate for automation:
 
-- `scripts/run_project_completion_gate.py --require-complete` now exits 2 when `factor_mining_allowed=false`.
+- `scripts/run_project_completion_gate.py --require-ready` exits 2 when `factor_mining_allowed=false`; `--require-complete` remains a compatibility alias only.
 - Without `--require-complete`, the gate remains a report command and exits 0 when it can emit JSON.
 - Current clean office-desktop state still exits 2 with `--require-complete`.
 - Current blockers remain `not_on_stable_branch`, `remote_topic_branches_remaining`, and `observation_sufficiency_not_cleared`.
@@ -537,7 +537,7 @@ Round484 made the completion gate discover the latest observation sufficiency pa
 Decision: future completion checks can use:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\run_project_completion_gate.py --require-complete
+.\.venv\Scripts\python.exe scripts\run_project_completion_gate.py --require-ready
 ```
 
 and the gate will use the latest non-fixture sufficiency evidence it can find.
@@ -545,7 +545,7 @@ and the gate will use the latest non-fixture sufficiency evidence it can find.
 Round485 added a `pre-alpha` completion check profile for automated mining safety:
 
 - `scripts/run_checks.py --profile pre-alpha` now emits a single local `project_completion_gate` step.
-- The step runs `scripts/run_project_completion_gate.py --require-complete`.
+- The step retains the legacy-compatible `scripts/run_project_completion_gate.py --require-complete` command, which now evaluates only pre-alpha readiness.
 - `execute_check_plan` now preserves failed child exit codes, so the pre-alpha profile exits 2 when the completion gate blocks mining.
 - Current blocked execution still reports `factor_mining_allowed=false`, selected Round478 sufficiency evidence, 5 / 20 fills, and a 15-fill deficit.
 - During the uncommitted Round485 edit, `working_tree_dirty` appears as a transient blocker; after commit, the durable blockers remain `not_on_stable_branch`, `remote_topic_branches_remaining`, and `observation_sufficiency_not_cleared`.
@@ -556,7 +556,7 @@ Decision: run the pre-alpha profile before any future `alpha-mine` or profit-fac
 .\.venv\Scripts\python.exe scripts\run_checks.py --profile pre-alpha --execute
 ```
 
-Mining remains blocked until that profile exits 0 and the completion gate reports `factor_mining_allowed=true`, `status=complete`, and `blockers=[]`.
+Mining remains blocked until that profile exits 0 and the readiness gate reports `factor_mining_allowed=true`, `status=ready_for_factor_mining`, and `blockers=[]`.
 
 Round486 added a laptop-owned topic integration plan generator:
 
@@ -689,7 +689,7 @@ Round501 cleared the observation sufficiency gate:
 - Default `pre-alpha` now discovers the Round501 sufficient pack and no longer emits `observation_sufficiency_not_cleared`.
 - A tracked lightweight fallback evidence file, `docs/research/project_round501_completion_evidence_2026-07-04.json`, carries the same sufficiency summary so laptop/main integration does not depend on ignored office-local `data/reports` files.
 
-Decision: the project is now 99% complete. Remaining blockers are only laptop-owned `main` integration, remote topic branch cleanup, and committing/pushing this Round501 evidence branch. Do not start alpha mining until the completion gate is clean on `main`.
+Decision: Round501 cleared a specific observation-sufficiency checkpoint but did not establish a whole-project completion percentage. Remaining blockers were laptop-owned `main` integration, remote topic branch cleanup, and committing/pushing this evidence branch. Do not start alpha mining until the pre-alpha readiness gate is clean on `main`.
 
 Round502 rehearsed the final laptop integration after tracked completion evidence was added:
 
@@ -697,7 +697,7 @@ Round502 rehearsed the final laptop integration after tracked completion evidenc
 - Merged Round464 then the latest Round465/Round501 branch with no conflicts.
 - `scripts/run_checks.py --profile laptop-integration --execute` passed with 73 / 73 targeted tests.
 - The simulated merged worktree had no `data/reports`, but completion gate still discovered `docs/research/project_round501_completion_evidence_2026-07-04.json`.
-- A post-cleanup projection with branch `main`, no dirty paths, and no remote topic branches returned `status=complete`, `progress_estimate_percent=100`, and `factor_mining_allowed=true`.
+- A post-cleanup projection with branch `main`, no dirty paths, and no remote topic branches returned the legacy fields `status=complete`, `progress_estimate_percent=100`, and `factor_mining_allowed=true`. Those fields represented gate clearance only and must not be read as whole-project completion.
 
 Decision: laptop can now run `python scripts\run_laptop_topic_integration_plan.py --machine laptop --task project_sync --execute` from `main`. Office desktop should not push `main` or delete the remote topic branches.
 
@@ -776,7 +776,7 @@ Round503 completed the user-authorized final cloud branch cleanup and started th
 - `scripts/run_checks.py --profile laptop-integration --execute` passed on merged `main`: 73 / 73 tests, compile, project audit, and laptop project-sync audit.
 - `main` was pushed to GitHub at merge commit `af474d5a`.
 - Project-sync cleanup removed the two absorbed topic branches locally and remotely.
-- Final `pre-alpha` returned `status=complete`, `progress_estimate_percent=100`, `factor_mining_allowed=true`, and no blockers.
+- Final `pre-alpha` returned the legacy fields `status=complete`, `progress_estimate_percent=100`, `factor_mining_allowed=true`, and no blockers. This was a pre-alpha control result, not a 100% project-completion claim.
 - New branch: `codex/factor-batch-cn-stock-profit-mining-20260704`.
 - CN stock factor-mining startup gate cleared on the new branch, and the CN stock data manifest had no blockers.
 - Direct daily-basic alpha factory was blocked by the round-state validator, so the branch did not proceed with anonymous direct factor generation.
@@ -3992,7 +3992,7 @@ Decision: Round639 improved source coverage from 742 to 747 unique symbols, but 
 Round507 continued the quota-aware analyst-report-revision PIT source from the clean gated factor-batch branch:
 
 - Active branch: `codex/factor-batch-cn-stock-20260707`.
-- Pre-alpha completion gate cleared after Round638 was fast-forwarded into `main` and the absorbed remote topic branch was removed.
+- Pre-alpha research-readiness gate cleared after Round638 was fast-forwarded into `main` and the absorbed remote topic branch was removed.
 - Quant PM startup gate status: `ready`, blockers `[]`.
 - CN stock startup gate status: `cleared`, blockers `[]`.
 - CN stock data manifest blockers: `[]`; warnings remained `extreme_return_rows_present` and `moneyflow_symbol_coverage_below_bars`.

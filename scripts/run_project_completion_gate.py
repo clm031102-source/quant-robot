@@ -48,16 +48,17 @@ def build_completion_gate(
         blockers.append("observation_sufficiency_not_cleared")
 
     factor_mining_allowed = not blockers
-    progress_estimate_percent = _progress_estimate_percent(
-        factor_mining_allowed=factor_mining_allowed,
-        observation=observation,
-        recent_data_refresh=recent_data_refresh,
-    )
     return {
-        "stage": "project_completion_gate",
-        "status": "complete" if factor_mining_allowed else "blocked",
-        "progress_estimate_percent": progress_estimate_percent,
+        "stage": "pre_alpha_research_readiness_gate",
+        "legacy_stage_alias": "project_completion_gate",
+        "status": "ready_for_factor_mining" if factor_mining_allowed else "blocked",
         "factor_mining_allowed": factor_mining_allowed,
+        "readiness": {
+            "pre_alpha_controls_cleared": factor_mining_allowed,
+            "claim_scope": "pre_alpha_research_readiness_only",
+            "project_complete": False,
+            "completion_percentage_available": False,
+        },
         "blockers": blockers,
         "git": {
             "current_branch": current_branch,
@@ -79,19 +80,6 @@ def build_completion_gate(
     }
 
 
-def _progress_estimate_percent(
-    *,
-    factor_mining_allowed: bool,
-    observation: dict[str, Any],
-    recent_data_refresh: dict[str, Any],
-) -> int:
-    if factor_mining_allowed:
-        return 100
-    if observation.get("sufficiency_cleared") and not recent_data_refresh.get("target_end_gap"):
-        return 99
-    return 98
-
-
 def completion_gate_exit_code(gate: dict[str, Any], *, require_complete: bool) -> int:
     if require_complete and not bool(gate.get("factor_mining_allowed")):
         return 2
@@ -99,7 +87,7 @@ def completion_gate_exit_code(gate: dict[str, Any], *, require_complete: bool) -
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Gate project completion before profit-factor mining starts.")
+    parser = argparse.ArgumentParser(description="Gate pre-alpha research readiness before factor mining starts.")
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
     parser.add_argument(
         "--observation-sufficiency-pack",
@@ -112,9 +100,11 @@ def main() -> None:
     )
     parser.add_argument("--skip-fetch", action="store_true", help="Do not fetch/prune before reading remote branches.")
     parser.add_argument(
+        "--require-ready",
         "--require-complete",
+        dest="require_ready",
         action="store_true",
-        help="Exit with code 2 when project completion conditions do not allow profit-factor mining.",
+        help="Exit with code 2 when pre-alpha readiness conditions do not allow factor mining.",
     )
     args = parser.parse_args()
 
@@ -144,7 +134,7 @@ def main() -> None:
         recent_data_refresh_pack_path=recent_data_refresh_path,
     )
     print(json.dumps(gate, indent=2, sort_keys=True))
-    raise SystemExit(completion_gate_exit_code(gate, require_complete=args.require_complete))
+    raise SystemExit(completion_gate_exit_code(gate, require_complete=args.require_ready))
 
 
 def discover_latest_observation_sufficiency_pack(root: str | Path = DEFAULT_OBSERVATION_REPORTS_ROOT) -> Path | None:
@@ -321,7 +311,7 @@ def _next_actions(blockers: list[str], *, recent_data_refresh: dict[str, Any] | 
             {
                 "action": "start_profit_factor_mining",
                 "command": "python scripts/run_factor_mining_startup_gate.py && python scripts/run_checks.py --profile laptop-integration --execute",
-                "reason": "main integration, branch cleanup, and observation sufficiency are clear",
+                "reason": "pre-alpha main integration, branch cleanup, and observation sufficiency controls are clear",
             }
         ]
     actions: list[dict[str, str]] = []

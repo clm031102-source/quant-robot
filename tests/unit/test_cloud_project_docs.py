@@ -12,6 +12,7 @@ class CloudProjectDocsTests(unittest.TestCase):
         self.assertNotIn("Current active CN stock sprint branch", index)
         self.assertNotIn("pending CN ETF research branch", index)
         self.assertNotIn("Do not delete `codex/factor-batch-cn-etf-20260617`", index)
+        self.assertNotIn("the project is now 99% complete", index.casefold())
 
     def test_readme_uses_real_safe_sync_trigger_phrase(self) -> None:
         readme = Path("README.md").read_text(encoding="utf-8")

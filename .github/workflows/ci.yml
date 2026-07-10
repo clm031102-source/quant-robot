@@ -53,3 +53,6 @@ jobs:
         run: |
           python scripts/run_project_audit.py --json > project_audit.json
           python -c "import json, pathlib, sys; audit=json.loads(pathlib.Path('project_audit.json').read_text(encoding='utf-8')); print(json.dumps(audit['summary'], sort_keys=True)); sys.exit(0 if audit['summary']['passes'] else 1)"
+
+      - name: Maintainability baseline
+        run: python scripts/run_maintainability_audit.py --json --fail-on-regression
