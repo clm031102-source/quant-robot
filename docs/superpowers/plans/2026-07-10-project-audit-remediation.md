@@ -180,16 +180,16 @@ Commit message: `fix: enforce promotion evidence contracts`
 - Modify: `tests/unit/test_factor_mining_quality_gate.py`
 - Modify: `tests/unit/test_factor_statistical_reality_check.py`
 
-- [ ] **Step 1: Add failing tests showing prose cannot clear promotion and split plans cannot satisfy CPCV**
+- [x] **Step 1: Add failing tests showing prose cannot clear promotion and split plans cannot satisfy CPCV**
 
 ```python
 def test_implemented_control_requires_machine_verifiable_artifact_for_promotion(): ...
 def test_cpcv_report_requires_split_level_realized_returns(): ...
 ```
 
-- [ ] **Step 2: Verify RED**
+- [x] **Step 2: Verify RED**
 
-- [ ] **Step 3: Validate structured control artifacts and calculate CPCV split distributions**
+- [x] **Step 3: Validate structured control artifacts and calculate CPCV split distributions**
 
 ```python
 def evaluate_purged_cpcv(frame, splits, *, date_column, return_column, case_column):
@@ -197,7 +197,7 @@ def evaluate_purged_cpcv(frame, splits, *, date_column, return_column, case_colu
     ...
 ```
 
-- [ ] **Step 4: Verify GREEN and commit**
+- [x] **Step 4: Verify GREEN and commit**
 
 Commit message: `fix: require verified statistical controls`
 

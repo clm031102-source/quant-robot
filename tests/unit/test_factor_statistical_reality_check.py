@@ -98,6 +98,7 @@ class FactorStatisticalRealityCheckTests(unittest.TestCase):
                     "p_value": 0.001,
                     "lookback": 20,
                     "top_n": 50,
+                    "period_return": 0.012,
                 },
                 {
                     "case_id": "strong_b",
@@ -108,6 +109,7 @@ class FactorStatisticalRealityCheckTests(unittest.TestCase):
                     "p_value": 0.004,
                     "lookback": 40,
                     "top_n": 50,
+                    "period_return": 0.008,
                 },
                 {
                     "case_id": "weak_a",
@@ -118,6 +120,7 @@ class FactorStatisticalRealityCheckTests(unittest.TestCase):
                     "p_value": 0.40,
                     "lookback": 20,
                     "top_n": 100,
+                    "period_return": -0.004,
                 },
                 {
                     "case_id": "weak_b",
@@ -128,6 +131,7 @@ class FactorStatisticalRealityCheckTests(unittest.TestCase):
                     "p_value": 0.80,
                     "lookback": 40,
                     "top_n": 100,
+                    "period_return": -0.010,
                 },
             ]
         )
@@ -135,6 +139,7 @@ class FactorStatisticalRealityCheckTests(unittest.TestCase):
         report = build_factor_statistical_reality_check(
             experiments,
             date_column="date",
+            cpcv_return_column="period_return",
             x_param="lookback",
             y_param="top_n",
             sensitivity_metric="test_overlap_autocorr_adjusted_sharpe",
@@ -149,7 +154,34 @@ class FactorStatisticalRealityCheckTests(unittest.TestCase):
         self.assertGreaterEqual(report["summary"]["fdr_significant_count"], 2)
         self.assertGreaterEqual(report["summary"]["statistical_candidate_count"], 1)
         self.assertEqual(report["summary"]["cpcv_split_count"], 2)
+        self.assertEqual(report["cpcv_evaluation"]["status"], "evaluated")
+        self.assertGreater(report["summary"]["cpcv_evaluated_case_count"], 0)
         self.assertEqual(report["sensitivity"]["x_param"], "lookback")
+
+    def test_cpcv_split_plan_without_realized_returns_is_blocked(self) -> None:
+        experiments = pd.DataFrame(
+            [
+                {
+                    "case_id": "case_a",
+                    "date": date,
+                    "test_sharpe": 0.8,
+                    "test_trades": 50,
+                    "p_value": 0.01,
+                }
+                for date in pd.date_range("2024-01-01", periods=8, freq="D")
+            ]
+        )
+
+        report = build_factor_statistical_reality_check(
+            experiments,
+            date_column="date",
+            cpcv_groups=4,
+            cpcv_test_group_count=1,
+        )
+
+        self.assertEqual(report["cpcv_evaluation"]["status"], "missing_return_column")
+        self.assertIn("cpcv_returns_not_evaluated", report["summary"]["blockers"])
+        self.assertFalse(report["promotion_policy"]["portfolio_backtest_allowed"])
 
 
 if __name__ == "__main__":

@@ -25,6 +25,7 @@ class FactorStatisticalRealityCheckCliTests(unittest.TestCase):
                         "p_value": 0.002,
                         "lookback": 20,
                         "top_n": 50,
+                        "period_return": 0.01,
                     },
                     {
                         "case_id": "case_b",
@@ -35,6 +36,7 @@ class FactorStatisticalRealityCheckCliTests(unittest.TestCase):
                         "p_value": 0.01,
                         "lookback": 40,
                         "top_n": 50,
+                        "period_return": 0.02,
                     },
                 ]
             ).to_csv(experiments_path, index=False)
@@ -43,6 +45,7 @@ class FactorStatisticalRealityCheckCliTests(unittest.TestCase):
                 experiments_path=experiments_path,
                 output_dir=output_dir,
                 date_column="date",
+                cpcv_return_column="period_return",
                 x_param="lookback",
                 y_param="top_n",
                 sensitivity_metric="test_overlap_autocorr_adjusted_sharpe",
@@ -59,6 +62,7 @@ class FactorStatisticalRealityCheckCliTests(unittest.TestCase):
                 (output_dir / "factor_statistical_reality_check.json").read_text(encoding="utf-8")
             )
             self.assertEqual(payload["summary"]["cpcv_split_count"], 2)
+            self.assertEqual(payload["cpcv_evaluation"]["status"], "evaluated")
 
 
 if __name__ == "__main__":

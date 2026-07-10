@@ -32,6 +32,7 @@ def run_factor_statistical_reality_check(
     p_value_column: str | None = None,
     case_column: str = "case_id",
     date_column: str | None = None,
+    cpcv_return_column: str | None = None,
     x_param: str | None = None,
     y_param: str | None = None,
     sensitivity_metric: str | None = None,
@@ -50,6 +51,7 @@ def run_factor_statistical_reality_check(
         p_value_column=p_value_column,
         case_column=case_column,
         date_column=date_column,
+        cpcv_return_column=cpcv_return_column,
         x_param=x_param,
         y_param=y_param,
         sensitivity_metric=sensitivity_metric,
@@ -73,6 +75,7 @@ def main() -> None:
     parser.add_argument("--p-value-column")
     parser.add_argument("--case-column", default="case_id")
     parser.add_argument("--date-column")
+    parser.add_argument("--cpcv-return-column")
     parser.add_argument("--x-param")
     parser.add_argument("--y-param")
     parser.add_argument("--sensitivity-metric")
@@ -91,6 +94,7 @@ def main() -> None:
         p_value_column=args.p_value_column,
         case_column=args.case_column,
         date_column=args.date_column,
+        cpcv_return_column=args.cpcv_return_column,
         x_param=args.x_param,
         y_param=args.y_param,
         sensitivity_metric=args.sensitivity_metric,

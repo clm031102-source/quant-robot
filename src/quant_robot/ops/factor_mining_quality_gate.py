@@ -5,6 +5,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from quant_robot.storage.fingerprints import sha256_file
+
 
 STAGE = "factor_mining_quality_gate"
 ALLOWED_CONTROL_STATUSES = {"implemented", "partial", "planned", "not_applicable"}
@@ -131,12 +133,15 @@ def build_factor_mining_quality_gate(config: dict[str, Any] | None = None) -> di
     configured_status = _dict(config.get("control_status"))
     evidence = _dict(config.get("control_evidence"))
     next_actions = _dict(config.get("control_next_actions"))
+    artifacts = _dict(config.get("control_artifacts"))
     normalized_status: dict[str, str] = {}
     blockers: list[str] = []
     promotion_blockers: list[str] = []
     control_rows: list[dict[str, str]] = []
     missing_evidence_count = 0
     missing_next_action_count = 0
+    unverified_promotion_evidence_count = 0
+    artifact_verification: dict[str, dict[str, Any]] = {}
 
     for area in areas:
         for control_id in _list(area.get("required_controls")):
@@ -159,6 +164,14 @@ def build_factor_mining_quality_gate(config: dict[str, Any] | None = None) -> di
                     missing_next_action_count += 1
                 if status not in PROMOTION_READY_STATUSES:
                     promotion_blockers.append(f"promotion_control_not_implemented:{control_id}")
+                if status == "implemented":
+                    verification = _verify_control_artifacts(_list_of_dicts(artifacts.get(control_id)))
+                    artifact_verification[control_id] = verification
+                    if not verification["verified"]:
+                        reason = str(verification.get("reason", "unverified"))
+                        prefix = "promotion_evidence_unverified" if reason == "missing" else "promotion_evidence_invalid"
+                        promotion_blockers.append(f"{prefix}:{control_id}" + (f":{reason}" if reason != "missing" else ""))
+                        unverified_promotion_evidence_count += 1
             control_rows.append(
                 {
                     "area_id": str(area.get("id", "")),
@@ -192,11 +205,14 @@ def build_factor_mining_quality_gate(config: dict[str, Any] | None = None) -> di
             **summary,
             "missing_evidence_controls": missing_evidence_count,
             "missing_next_action_controls": missing_next_action_count,
+            "unverified_promotion_evidence_controls": unverified_promotion_evidence_count,
         },
         "quality_areas": _annotated_areas(areas, normalized_status, evidence, next_actions),
         "control_status": normalized_status,
         "control_evidence": evidence,
         "control_next_actions": next_actions,
+        "control_artifacts": artifacts,
+        "artifact_verification": artifact_verification,
         "control_rows": control_rows,
         "research_execution_policy": research_execution_policy,
         "decision": {
@@ -253,6 +269,7 @@ def render_markdown(packet: dict[str, Any]) -> str:
         f"- Missing: {summary.get('missing_controls', 0)}",
         f"- Missing evidence controls: {summary.get('missing_evidence_controls', 0)}",
         f"- Missing next-action controls: {summary.get('missing_next_action_controls', 0)}",
+        f"- Unverified promotion evidence controls: {summary.get('unverified_promotion_evidence_controls', 0)}",
         f"- Startup cleared: {decision.get('startup_gate_cleared', False)}",
         f"- Promotion cleared: {decision.get('promotion_gate_cleared', False)}",
         "",
@@ -413,6 +430,48 @@ def _list_of_dicts(value: Any) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         return []
     return [item for item in value if isinstance(item, dict)]
+
+
+def _verify_control_artifacts(artifacts: list[dict[str, Any]]) -> dict[str, Any]:
+    if not artifacts:
+        return {"verified": False, "reason": "missing", "artifacts": []}
+    rows = []
+    for artifact in artifacts:
+        path_text = str(artifact.get("path", "")).strip()
+        expected_sha256 = str(artifact.get("sha256", "")).strip().lower()
+        decision_path = str(artifact.get("decision_path", "")).strip()
+        expected = artifact.get("expected", True)
+        if not path_text or not expected_sha256 or not decision_path:
+            return {"verified": False, "reason": "metadata_missing", "artifacts": rows}
+        path = Path(path_text)
+        if not path.is_file():
+            return {"verified": False, "reason": "file_missing", "artifacts": rows}
+        actual_sha256 = sha256_file(path)
+        if actual_sha256 != expected_sha256:
+            return {"verified": False, "reason": "sha256_mismatch", "artifacts": rows}
+        if path.suffix.lower() != ".json":
+            return {"verified": False, "reason": "json_required", "artifacts": rows}
+        try:
+            packet = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return {"verified": False, "reason": "invalid_json", "artifacts": rows}
+        actual = _nested_value(packet, decision_path)
+        if actual != expected:
+            return {"verified": False, "reason": "decision_mismatch", "artifacts": rows}
+        decision = _dict(packet.get("decision")) if isinstance(packet, dict) else {}
+        if _list(decision.get("blockers")):
+            return {"verified": False, "reason": "artifact_blocked", "artifacts": rows}
+        rows.append({"path": path_text, "sha256": actual_sha256, "decision_path": decision_path})
+    return {"verified": True, "reason": None, "artifacts": rows}
+
+
+def _nested_value(packet: Any, dotted_path: str) -> Any:
+    value = packet
+    for part in dotted_path.split("."):
+        if not isinstance(value, dict) or part not in value:
+            return None
+        value = value[part]
+    return value
 
 
 def _unique_preserving_order(items: Any) -> list[str]:

@@ -40,6 +40,13 @@ DEFAULT_P_VALUE_COLUMNS = (
     "rank_ic_p_value",
     "p_value",
 )
+DEFAULT_CPCV_RETURN_COLUMNS = (
+    "period_return",
+    "long_short_return",
+    "forward_return",
+    "test_return",
+    "relative_return",
+)
 
 _NORMAL = NormalDist()
 _EULER_GAMMA = 0.5772156649015329
@@ -278,6 +285,7 @@ def build_factor_statistical_reality_check(
     p_value_column: str | None = None,
     case_column: str = "case_id",
     date_column: str | None = None,
+    cpcv_return_column: str | None = None,
     x_param: str | None = None,
     y_param: str | None = None,
     sensitivity_metric: str | None = None,
@@ -317,9 +325,18 @@ def build_factor_statistical_reality_check(
         row["statistical_candidate"] = bool(row["deflated_sharpe_pass"] and row["fdr_significant"])
 
     cpcv_splits: list[dict[str, Any]] = []
+    cpcv_evaluation: dict[str, Any] = {
+        "status": "not_requested",
+        "return_column": None,
+        "case_count": 0,
+        "passed_case_count": 0,
+        "cases": [],
+        "split_rows": [],
+    }
     if date_column:
         if date_column not in experiments.columns:
             blockers.append("missing_cpcv_date_column")
+            cpcv_evaluation["status"] = "missing_date_column"
         else:
             cpcv_splits = build_purged_cpcv_splits(
                 experiments[date_column].dropna(),
@@ -328,6 +345,18 @@ def build_factor_statistical_reality_check(
                 purge_observations=purge_observations,
                 embargo_observations=embargo_observations,
             )
+            return_name = cpcv_return_column or _first_existing_column(experiments, DEFAULT_CPCV_RETURN_COLUMNS)
+            if return_name is None or return_name not in experiments.columns:
+                blockers.append("cpcv_returns_not_evaluated")
+                cpcv_evaluation["status"] = "missing_return_column"
+            else:
+                cpcv_evaluation = evaluate_purged_cpcv(
+                    experiments,
+                    cpcv_splits,
+                    date_column=date_column,
+                    return_column=return_name,
+                    case_column=case_column,
+                )
 
     sensitivity = None
     if x_param and y_param:
@@ -360,6 +389,7 @@ def build_factor_statistical_reality_check(
         observations_column=observation_name,
         p_value_column=p_value_name,
         cpcv_splits=cpcv_splits,
+        cpcv_evaluation=cpcv_evaluation,
         sensitivity=sensitivity,
     )
     report = {
@@ -368,11 +398,19 @@ def build_factor_statistical_reality_check(
         "summary": summary,
         "rows": ranked_rows,
         "cpcv_splits": cpcv_splits,
+        "cpcv_evaluation": cpcv_evaluation,
         "sensitivity": sensitivity,
         "promotion_policy": {
             "promotion_allowed": False,
             "paper_ready_allowed": False,
-            "portfolio_backtest_allowed": summary["statistical_candidate_count"] > 0,
+            "portfolio_backtest_allowed": (
+                summary["statistical_candidate_count"] > 0
+                and cpcv_evaluation.get("status") != "missing_return_column"
+                and (
+                    cpcv_evaluation.get("status") == "not_requested"
+                    or int(cpcv_evaluation.get("passed_case_count", 0)) > 0
+                )
+            ),
             "next_allowed_action": (
                 "Candidates may proceed only to long-cycle replay, tradeability, portfolio construction, "
                 "regime, event, and capacity audits."
@@ -405,6 +443,10 @@ def write_factor_statistical_reality_check(output_dir: str | Path, report: dict[
         columns=["train_dates", "test_dates", "purged_dates"],
         errors="ignore",
     ).to_csv(output_path / "factor_statistical_reality_check_cpcv_splits.csv", index=False)
+    pd.DataFrame((clean_report.get("cpcv_evaluation") or {}).get("split_rows", []) or []).to_csv(
+        output_path / "factor_statistical_reality_check_cpcv_returns.csv",
+        index=False,
+    )
     sensitivity = clean_report.get("sensitivity") or {}
     pd.DataFrame(sensitivity.get("cells", []) or []).to_csv(
         output_path / "factor_statistical_reality_check_sensitivity.csv",
@@ -427,6 +469,8 @@ def render_markdown(report: dict[str, Any]) -> str:
         f"- FDR significant: {summary.get('fdr_significant_count', 0)}",
         f"- Statistical candidates: {summary.get('statistical_candidate_count', 0)}",
         f"- CPCV splits: {summary.get('cpcv_split_count', 0)}",
+        f"- CPCV evaluated cases: {summary.get('cpcv_evaluated_case_count', 0)}",
+        f"- CPCV passed cases: {summary.get('cpcv_passed_case_count', 0)}",
         f"- Sensitivity stable peak: {summary.get('sensitivity_stable_peak', False)}",
         f"- Blockers: {', '.join(summary.get('blockers', []) or []) or 'none'}",
         f"- Promotion allowed: {report.get('promotion_policy', {}).get('promotion_allowed', False)}",
@@ -523,6 +567,7 @@ def _summary(
     observations_column: str | None,
     p_value_column: str | None,
     cpcv_splits: list[dict[str, Any]],
+    cpcv_evaluation: dict[str, Any],
     sensitivity: dict[str, Any] | None,
 ) -> dict[str, Any]:
     best = rows[0] if rows else {}
@@ -543,10 +588,82 @@ def _summary(
         "fdr_significant_count": sum(1 for row in rows if row.get("fdr_significant")),
         "statistical_candidate_count": sum(1 for row in rows if row.get("statistical_candidate")),
         "cpcv_split_count": len(cpcv_splits),
+        "cpcv_evaluated_case_count": int(cpcv_evaluation.get("case_count", 0)),
+        "cpcv_passed_case_count": int(cpcv_evaluation.get("passed_case_count", 0)),
         "sensitivity_status": (sensitivity or {}).get("status") if sensitivity else "not_requested",
         "sensitivity_stable_peak": bool(best_cell and best_cell.get("stable_peak")),
         "blockers": blockers,
         "passes": bool(rows) and not blockers,
+    }
+
+
+def evaluate_purged_cpcv(
+    experiments: pd.DataFrame,
+    splits: list[dict[str, Any]],
+    *,
+    date_column: str,
+    return_column: str,
+    case_column: str = "case_id",
+    periods_per_year: float = 252.0,
+    min_positive_split_rate: float = 0.50,
+    min_p10_mean_return: float = 0.0,
+) -> dict[str, Any]:
+    frame = experiments.copy()
+    if case_column not in frame.columns:
+        frame[case_column] = "all_cases"
+    frame["_cpcv_date"] = pd.to_datetime(frame[date_column], errors="coerce").dt.date.astype("string")
+    frame["_cpcv_return"] = pd.to_numeric(frame[return_column], errors="coerce")
+    frame = frame.dropna(subset=["_cpcv_date", "_cpcv_return"])
+    split_rows: list[dict[str, Any]] = []
+    for case_id, case_frame in frame.groupby(case_column, sort=True):
+        for split in splits:
+            test_dates = set(str(value) for value in split.get("test_dates", []))
+            values = case_frame.loc[case_frame["_cpcv_date"].isin(test_dates), "_cpcv_return"]
+            if values.empty:
+                continue
+            mean_return = float(values.mean())
+            std_return = float(values.std(ddof=1)) if len(values) > 1 else 0.0
+            sharpe = mean_return / std_return * math.sqrt(periods_per_year) if std_return > 0.0 else 0.0
+            split_rows.append(
+                {
+                    "case_id": str(case_id),
+                    "split_id": int(split.get("split_id", 0)),
+                    "observations": int(len(values)),
+                    "mean_return": mean_return,
+                    "sharpe": sharpe,
+                    "positive": mean_return > 0.0,
+                }
+            )
+    cases = []
+    for case_id, rows in pd.DataFrame(split_rows).groupby("case_id", sort=True) if split_rows else []:
+        means = pd.to_numeric(rows["mean_return"], errors="coerce").dropna()
+        sharpes = pd.to_numeric(rows["sharpe"], errors="coerce").dropna()
+        positive_rate = float((means > 0.0).mean()) if not means.empty else 0.0
+        p10_mean = float(means.quantile(0.10)) if not means.empty else 0.0
+        passes = bool(
+            len(means) > 0
+            and positive_rate >= float(min_positive_split_rate)
+            and p10_mean >= float(min_p10_mean_return)
+        )
+        cases.append(
+            {
+                "case_id": str(case_id),
+                "split_count": int(len(means)),
+                "positive_split_rate": positive_rate,
+                "p10_mean_return": p10_mean,
+                "median_sharpe": float(sharpes.median()) if not sharpes.empty else 0.0,
+                "passes": passes,
+            }
+        )
+    return {
+        "status": "evaluated",
+        "return_column": return_column,
+        "case_count": len(cases),
+        "passed_case_count": sum(1 for row in cases if row["passes"]),
+        "min_positive_split_rate": float(min_positive_split_rate),
+        "min_p10_mean_return": float(min_p10_mean_return),
+        "cases": cases,
+        "split_rows": split_rows,
     }
 
 

@@ -45,9 +45,10 @@ class FactorMiningQualityGateCliTests(unittest.TestCase):
             packet = run_factor_mining_quality_gate(output_dir=Path(tmp))
 
         self.assertEqual(packet["summary"]["scope_id"], "cn_stock_factor_mining_round142")
-        self.assertEqual(packet["status"], "promotion_ready")
+        self.assertEqual(packet["status"], "classified")
         self.assertTrue(packet["decision"]["startup_gate_cleared"])
-        self.assertTrue(packet["decision"]["promotion_gate_cleared"])
+        self.assertFalse(packet["decision"]["promotion_gate_cleared"])
+        self.assertGreater(packet["summary"]["unverified_promotion_evidence_controls"], 0)
         self.assertEqual(packet["summary"]["missing_controls"], 0)
         self.assertEqual(packet["summary"]["missing_evidence_controls"], 0)
         self.assertEqual(packet["summary"]["missing_next_action_controls"], 0)
@@ -85,7 +86,7 @@ class FactorMiningQualityGateCliTests(unittest.TestCase):
         self.assertIn("coverage_blocked", evidence["buyback_holder_change_unlock_events"])
         self.assertEqual(packet["research_execution_policy"]["direct_mining_blockers"], [])
         self.assertTrue(packet["research_execution_policy"]["direct_factor_generation_allowed"])
-        self.assertTrue(packet["decision"]["promotion_gate_cleared"])
+        self.assertFalse(packet["decision"]["promotion_gate_cleared"])
 
 
 if __name__ == "__main__":

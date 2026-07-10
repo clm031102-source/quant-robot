@@ -9,6 +9,7 @@ from quant_robot.ops.factor_mining_quality_gate import (
     required_control_ids,
     validate_quality_gate_for_startup,
 )
+from quant_robot.storage.fingerprints import sha256_file
 
 
 class FactorMiningQualityGateTests(unittest.TestCase):
@@ -72,7 +73,7 @@ class FactorMiningQualityGateTests(unittest.TestCase):
             policy["direct_mining_blockers"],
         )
 
-    def test_implemented_controls_clear_promotion(self) -> None:
+    def test_implemented_controls_with_prose_only_do_not_clear_promotion(self) -> None:
         statuses = {control_id: "implemented" for control_id in required_control_ids()}
 
         packet = build_factor_mining_quality_gate(
@@ -84,12 +85,45 @@ class FactorMiningQualityGateTests(unittest.TestCase):
             }
         )
 
-        self.assertEqual(packet["status"], "promotion_ready")
+        self.assertEqual(packet["status"], "classified")
         self.assertTrue(packet["decision"]["startup_gate_cleared"])
-        self.assertTrue(packet["decision"]["promotion_gate_cleared"])
-        self.assertEqual(packet["decision"]["promotion_blockers"], [])
+        self.assertFalse(packet["decision"]["promotion_gate_cleared"])
+        self.assertIn(
+            "promotion_evidence_unverified:limit_up_down_filter",
+            packet["decision"]["promotion_blockers"],
+        )
         self.assertTrue(packet["research_execution_policy"]["direct_factor_generation_allowed"])
         self.assertEqual(packet["research_execution_policy"]["direct_mining_blockers"], [])
+
+    def test_machine_verifiable_artifacts_clear_implemented_controls(self) -> None:
+        statuses = {control_id: "implemented" for control_id in required_control_ids()}
+        with tempfile.TemporaryDirectory() as tmp:
+            artifact_path = Path(tmp) / "control_packet.json"
+            artifact_path.write_text(
+                json.dumps({"status": "passed", "decision": {"control_cleared": True, "blockers": []}}),
+                encoding="utf-8",
+            )
+            artifact = {
+                "path": str(artifact_path),
+                "sha256": sha256_file(artifact_path),
+                "decision_path": "decision.control_cleared",
+                "expected": True,
+            }
+            packet = build_factor_mining_quality_gate(
+                {
+                    "control_status": statuses,
+                    "control_evidence": {
+                        control_id: f"evidence {control_id}" for control_id in required_control_ids()
+                    },
+                    "control_artifacts": {
+                        control_id: [artifact] for control_id in required_control_ids()
+                    },
+                }
+            )
+
+        self.assertEqual(packet["status"], "promotion_ready")
+        self.assertTrue(packet["decision"]["promotion_gate_cleared"])
+        self.assertEqual(packet["decision"]["promotion_blockers"], [])
 
     def test_area_rows_include_control_evidence(self) -> None:
         statuses = {control_id: "planned" for control_id in required_control_ids()}
