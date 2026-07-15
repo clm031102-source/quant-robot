@@ -19,6 +19,8 @@ from quant_robot.experiments.runner import ExperimentGridConfig
 from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manifest_packet
 from quant_robot.ops.factor_batch_readiness_gate import validate_factor_batch_readiness_gate_packet
 from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet
+from quant_robot.ops.factor_validation_readiness import validate_factor_validation_readiness_packet
+from quant_robot.storage.authority_bars import load_authority_processed_bars_from_config
 from quant_robot.storage.processed_bars import load_processed_bars
 from quant_robot.validation.walk_forward import load_walk_forward_config, run_walk_forward_validation
 
@@ -33,6 +35,7 @@ def run_walk_forward(
     factor_batch_readiness_gate_packet: str | Path | None = Path(
         "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
     ),
+    factor_validation_readiness_packet: str | Path | None = None,
     allow_review_required_data_manifest: bool = False,
 ) -> dict[str, object]:
     config = load_walk_forward_config(config_path)
@@ -47,7 +50,11 @@ def run_walk_forward(
         startup_gate_packet=startup_gate_packet,
         data_manifest_packet=data_manifest_packet,
         factor_batch_readiness_gate_packet=factor_batch_readiness_gate_packet,
+        factor_validation_readiness_packet=factor_validation_readiness_packet,
         data_root=Path(data_root),
+        config_path=Path(config_path),
+        moneyflow_source_root=config.experiment_grid.moneyflow_input_root,
+        factor_names=list(config.experiment_grid.factor_names),
         allow_review_required_data_manifest=allow_review_required_data_manifest,
     )
     bars = _load_bars(source, Path(data_root), config.experiment_grid.markets)
@@ -57,7 +64,7 @@ def run_walk_forward(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run local walk-forward validation for experiment candidates.")
     parser.add_argument("--config", default="configs/walk_forward.json")
-    parser.add_argument("--source", choices=["fixture", "processed-bars"], default="fixture")
+    parser.add_argument("--source", choices=["fixture", "processed-bars", "authority-bars"], default="fixture")
     parser.add_argument("--data-root", default="data/processed")
     parser.add_argument("--output-dir")
     parser.add_argument("--startup-gate-packet", default="data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json")
@@ -66,6 +73,7 @@ def main() -> None:
         "--factor-batch-readiness-gate-packet",
         default="data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json",
     )
+    parser.add_argument("--factor-validation-readiness-packet")
     parser.add_argument("--allow-review-required-data-manifest", action="store_true")
     parser.add_argument(
         "--allow-no-accepted",
@@ -80,9 +88,14 @@ def main() -> None:
         output_dir=Path(args.output_dir) if args.output_dir else None,
         startup_gate_packet=Path(args.startup_gate_packet) if args.startup_gate_packet else None,
         data_manifest_packet=Path(args.data_manifest_packet) if args.data_manifest_packet else None,
-        factor_batch_readiness_gate_packet=Path(args.factor_batch_readiness_gate_packet)
-        if args.factor_batch_readiness_gate_packet
-        else None,
+        factor_batch_readiness_gate_packet=(
+            None
+            if args.factor_validation_readiness_packet
+            else Path(args.factor_batch_readiness_gate_packet) if args.factor_batch_readiness_gate_packet else None
+        ),
+        factor_validation_readiness_packet=(
+            Path(args.factor_validation_readiness_packet) if args.factor_validation_readiness_packet else None
+        ),
         allow_review_required_data_manifest=args.allow_review_required_data_manifest,
     )
     print(json.dumps({"summary": result["summary"], "top": result["leaderboard"][:10]}, indent=2, sort_keys=True))
@@ -119,6 +132,10 @@ def _has_failed_grid_status(row: dict[str, object]) -> bool:
 def _load_bars(source: str, data_root: Path, markets: tuple[str, ...]) -> pd.DataFrame:
     if source == "fixture":
         return load_demo_market_bars()
+    if source == "authority-bars":
+        if not data_root.is_file():
+            raise ValueError(f"authority-bars source requires an authority config file: {data_root}")
+        return load_authority_processed_bars_from_config(data_root, markets)
     if source != "processed-bars":
         raise ValueError(f"Unsupported walk-forward source: {source}")
     frames = [load_processed_bars(data_root, market) for market in markets if market.upper() != "ALL"]
@@ -134,10 +151,14 @@ def _enforce_cn_stock_walk_forward_inputs(
     startup_gate_packet: str | Path | None,
     data_manifest_packet: str | Path | None,
     factor_batch_readiness_gate_packet: str | Path | None,
+    factor_validation_readiness_packet: str | Path | None,
     data_root: Path,
+    config_path: Path,
+    moneyflow_source_root: Path | None,
+    factor_names: list[str],
     allow_review_required_data_manifest: bool,
 ) -> None:
-    if source != "processed-bars" or not any(market.upper() == "CN" for market in markets):
+    if source not in {"processed-bars", "authority-bars"} or not any(market.upper() == "CN" for market in markets):
         return
     validate_cleared_startup_gate_packet(
         startup_gate_packet,
@@ -146,11 +167,30 @@ def _enforce_cn_stock_walk_forward_inputs(
     validate_cn_stock_data_manifest_packet(
         data_manifest_packet,
         expected_source_root=data_root,
+        expected_moneyflow_source_root=moneyflow_source_root if source == "authority-bars" else None,
         allow_review_required=allow_review_required_data_manifest,
+        verify_source_fingerprint=source == "authority-bars",
         context="CN walk-forward validation",
     )
+    gate_count = sum(
+        packet is not None
+        for packet in (factor_batch_readiness_gate_packet, factor_validation_readiness_packet)
+    )
+    if gate_count != 1:
+        raise ValueError("CN walk-forward validation requires exactly one readiness gate type")
+    if factor_validation_readiness_packet is not None:
+        validate_factor_validation_readiness_packet(
+            factor_validation_readiness_packet,
+            expected_config_path=config_path,
+            expected_source=source,
+            expected_data_root=data_root,
+            expected_factor_names=factor_names,
+            context="CN walk-forward validation",
+        )
+        return
     validate_factor_batch_readiness_gate_packet(
         factor_batch_readiness_gate_packet,
+        required_permission="portfolio_grid_allowed",
         context="CN walk-forward validation",
     )
 

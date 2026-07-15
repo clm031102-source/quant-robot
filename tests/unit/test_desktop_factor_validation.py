@@ -25,18 +25,23 @@ class DesktopFactorValidationTests(unittest.TestCase):
             returned = run_desktop_factor_validation()
 
         self.assertIs(returned, result)
-        preflight.assert_called_once_with(DEFAULT_CONFIG_PATH, "processed-bars", DEFAULT_DATA_ROOT)
+        preflight.assert_called_once_with(DEFAULT_CONFIG_PATH, "authority-bars", DEFAULT_DATA_ROOT)
         walk_forward.assert_called_once_with(
             config_path=DEFAULT_CONFIG_PATH,
-            source="processed-bars",
+            source="authority-bars",
             data_root=DEFAULT_DATA_ROOT,
             output_dir=None,
             startup_gate_packet=Path("data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"),
-            data_manifest_packet=Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
-            factor_batch_readiness_gate_packet=Path(
-                "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
+            data_manifest_packet=Path(
+                "data/reports/cn_stock_data_manifest_tushare_moneyflow_residual_regime/"
+                "cn_stock_data_manifest.json"
             ),
-            allow_review_required_data_manifest=False,
+            factor_batch_readiness_gate_packet=None,
+            factor_validation_readiness_packet=Path(
+                "data/reports/factor_validation_readiness_tushare_moneyflow_residual_regime/"
+                "factor_validation_readiness.json"
+            ),
+            allow_review_required_data_manifest=True,
         )
         assert_succeeded.assert_called_once_with(result, allow_no_accepted=True)
 
@@ -83,7 +88,7 @@ class DesktopFactorValidationTests(unittest.TestCase):
         result = {"summary": {"cases": 1, "accepted": 0, "rejected": 1}, "leaderboard": []}
         startup_gate = Path("data/reports/startup/factor_mining_startup_gate.json")
         data_manifest = Path("data/reports/manifest/cn_stock_data_manifest.json")
-        readiness_gate = Path("data/reports/readiness/factor_batch_readiness_gate.json")
+        validation_readiness = Path("data/reports/readiness/factor_validation_readiness.json")
 
         with (
             patch("scripts.run_desktop_factor_validation._preflight_desktop_inputs"),
@@ -93,19 +98,21 @@ class DesktopFactorValidationTests(unittest.TestCase):
             returned = run_desktop_factor_validation(
                 startup_gate_packet=startup_gate,
                 data_manifest_packet=data_manifest,
-                factor_batch_readiness_gate_packet=readiness_gate,
+                factor_batch_readiness_gate_packet=None,
+                factor_validation_readiness_packet=validation_readiness,
                 allow_review_required_data_manifest=True,
             )
 
         self.assertIs(returned, result)
         walk_forward.assert_called_once_with(
             config_path=DEFAULT_CONFIG_PATH,
-            source="processed-bars",
+            source="authority-bars",
             data_root=DEFAULT_DATA_ROOT,
             output_dir=None,
             startup_gate_packet=startup_gate,
             data_manifest_packet=data_manifest,
-            factor_batch_readiness_gate_packet=readiness_gate,
+            factor_batch_readiness_gate_packet=None,
+            factor_validation_readiness_packet=validation_readiness,
             allow_review_required_data_manifest=True,
         )
 
@@ -150,6 +157,31 @@ class DesktopFactorValidationTests(unittest.TestCase):
 
             with self.assertRaisesRegex(FileNotFoundError, "Tushare moneyflow inputs"):
                 _preflight_desktop_inputs(config_path, "processed-bars", data_root)
+
+    def test_preflight_requires_authority_bars_config_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "walk_forward.json"
+            moneyflow = root / "moneyflow.json"
+            moneyflow.write_text("{}", encoding="utf-8")
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "split_date": "2025-01-02",
+                        "experiment_grid": {
+                            "markets": ["CN"],
+                            "factor_source": "moneyflow_technical_combo",
+                            "moneyflow_input_root": str(moneyflow),
+                            "factor_names": ["large_resid_liq_vol_amt_gate_20"],
+                            "factor_windows": [20],
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(FileNotFoundError, "authority bars config"):
+                _preflight_desktop_inputs(config_path, "authority-bars", root / "missing.json")
 
 
 def _cleared_batch12_preflight_packet() -> dict:

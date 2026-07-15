@@ -21,23 +21,29 @@ from quant_robot.ops.batch12_validation_preflight import validate_batch12_valida
 
 
 DEFAULT_CONFIG_PATH = Path("configs/walk_forward_tushare_moneyflow_residual_regime.json")
-DEFAULT_DATA_ROOT = Path("data/processed")
+DEFAULT_DATA_ROOT = Path("configs/cn_stock_authority_bars_2015_2025_adjusted_ratio_clean.json")
+DEFAULT_DATA_MANIFEST = Path(
+    "data/reports/cn_stock_data_manifest_tushare_moneyflow_residual_regime/cn_stock_data_manifest.json"
+)
+DEFAULT_VALIDATION_READINESS = Path(
+    "data/reports/factor_validation_readiness_tushare_moneyflow_residual_regime/"
+    "factor_validation_readiness.json"
+)
 
 
 def run_desktop_factor_validation(
     *,
     config_path: str | Path = DEFAULT_CONFIG_PATH,
-    source: str = "processed-bars",
+    source: str = "authority-bars",
     data_root: str | Path = DEFAULT_DATA_ROOT,
     output_dir: str | Path | None = None,
     startup_gate_packet: str | Path | None = Path(
         "data/reports/factor_mining_startup_gate/factor_mining_startup_gate.json"
     ),
-    data_manifest_packet: str | Path | None = Path("data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json"),
-    factor_batch_readiness_gate_packet: str | Path | None = Path(
-        "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
-    ),
-    allow_review_required_data_manifest: bool = False,
+    data_manifest_packet: str | Path | None = DEFAULT_DATA_MANIFEST,
+    factor_batch_readiness_gate_packet: str | Path | None = None,
+    factor_validation_readiness_packet: str | Path | None = DEFAULT_VALIDATION_READINESS,
+    allow_review_required_data_manifest: bool = True,
     require_accepted: bool = False,
     batch12_validation_preflight_packet: str | Path | None = None,
 ) -> dict[str, object]:
@@ -55,6 +61,9 @@ def run_desktop_factor_validation(
         factor_batch_readiness_gate_packet=(
             Path(factor_batch_readiness_gate_packet) if factor_batch_readiness_gate_packet is not None else None
         ),
+        factor_validation_readiness_packet=(
+            Path(factor_validation_readiness_packet) if factor_validation_readiness_packet is not None else None
+        ),
         allow_review_required_data_manifest=allow_review_required_data_manifest,
     )
     assert_walk_forward_succeeded(result, allow_no_accepted=not require_accepted)
@@ -68,10 +77,12 @@ def _validate_optional_batch12_preflight(packet_path: str | Path | None) -> None
 
 
 def _preflight_desktop_inputs(config_path: str | Path, source: str, data_root: str | Path) -> None:
-    if source != "processed-bars":
+    if source not in {"processed-bars", "authority-bars"}:
         return
     root = Path(data_root)
-    if not root.exists():
+    if source == "authority-bars" and not root.is_file():
+        raise FileNotFoundError(f"Desktop factor validation authority bars config does not exist: {root}")
+    if source == "processed-bars" and not root.exists():
         raise FileNotFoundError(f"Processed bars data root does not exist: {root}")
     config = load_walk_forward_config(config_path)
     moneyflow_root = config.experiment_grid.moneyflow_input_root
@@ -88,7 +99,11 @@ def main() -> None:
         description="Run the desktop strict residual-regime factor validation profile."
     )
     parser.add_argument("--config", default=str(DEFAULT_CONFIG_PATH))
-    parser.add_argument("--source", choices=["fixture", "processed-bars"], default="processed-bars")
+    parser.add_argument(
+        "--source",
+        choices=["fixture", "processed-bars", "authority-bars"],
+        default="authority-bars",
+    )
     parser.add_argument("--data-root", default=str(DEFAULT_DATA_ROOT))
     parser.add_argument("--output-dir")
     parser.add_argument(
@@ -97,13 +112,21 @@ def main() -> None:
     )
     parser.add_argument(
         "--data-manifest-packet",
-        default="data/reports/cn_stock_data_manifest/cn_stock_data_manifest.json",
+        default=str(DEFAULT_DATA_MANIFEST),
     )
     parser.add_argument(
         "--factor-batch-readiness-gate-packet",
-        default="data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json",
+        default=None,
     )
-    parser.add_argument("--allow-review-required-data-manifest", action="store_true")
+    parser.add_argument(
+        "--factor-validation-readiness-packet",
+        default=str(DEFAULT_VALIDATION_READINESS),
+    )
+    parser.add_argument(
+        "--strict-data-manifest",
+        action="store_true",
+        help="Reject review-required data manifests instead of running research validation with promotion blocked.",
+    )
     parser.add_argument(
         "--require-accepted",
         action="store_true",
@@ -125,7 +148,10 @@ def main() -> None:
             factor_batch_readiness_gate_packet=(
                 Path(args.factor_batch_readiness_gate_packet) if args.factor_batch_readiness_gate_packet else None
             ),
-            allow_review_required_data_manifest=args.allow_review_required_data_manifest,
+            factor_validation_readiness_packet=(
+                Path(args.factor_validation_readiness_packet) if args.factor_validation_readiness_packet else None
+            ),
+            allow_review_required_data_manifest=not args.strict_data_manifest,
             require_accepted=args.require_accepted,
             batch12_validation_preflight_packet=(
                 Path(args.batch12_validation_preflight_packet)

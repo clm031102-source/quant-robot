@@ -10,7 +10,7 @@ from quant_robot.ops.factor_batch_readiness_gate import (
     write_factor_batch_readiness_gate,
 )
 from quant_robot.ops.factor_mining_startup import build_factor_mining_startup_gate
-from scripts.run_walk_forward import assert_walk_forward_succeeded, run_walk_forward
+from scripts.run_walk_forward import _load_bars, assert_walk_forward_succeeded, run_walk_forward
 
 
 class WalkForwardCliTests(unittest.TestCase):
@@ -116,6 +116,111 @@ class WalkForwardCliTests(unittest.TestCase):
                     )
 
             load_bars.assert_not_called()
+
+    def test_authority_bars_source_uses_authority_loader(self):
+        expected = object()
+        with tempfile.TemporaryDirectory() as tmp:
+            config_path = Path(tmp) / "authority.json"
+            config_path.write_text("{}", encoding="utf-8")
+            with patch(
+                "scripts.run_walk_forward.load_authority_processed_bars_from_config",
+                return_value=expected,
+            ) as loader:
+                result = _load_bars("authority-bars", config_path, ("CN",))
+
+        self.assertIs(result, expected)
+        loader.assert_called_once_with(config_path, ("CN",))
+
+    def test_authority_cn_validation_requires_matching_validation_readiness(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "walk_forward.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "split_date": "2024-01-08",
+                        "bar_start_date": "2024-01-01",
+                        "bar_end_date": "2025-12-31",
+                        "experiment_grid": {
+                            "markets": ["CN"],
+                            "moneyflow_input_root": str(root / "moneyflow.json"),
+                            "factor_names": ["momentum_2"],
+                            "factor_windows": [2],
+                            "top_n_values": [1],
+                            "cost_bps_values": [0],
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            data_root = root / "authority.json"
+            data_root.write_text("{}", encoding="utf-8")
+            result = {"summary": {"cases": 0}, "leaderboard": []}
+            with (
+                patch("scripts.run_walk_forward.validate_cleared_startup_gate_packet"),
+                patch("scripts.run_walk_forward.validate_cn_stock_data_manifest_packet") as manifest,
+                patch("scripts.run_walk_forward.validate_factor_batch_readiness_gate_packet") as batch_gate,
+                patch("scripts.run_walk_forward.validate_factor_validation_readiness_packet") as validation_gate,
+                patch("scripts.run_walk_forward.load_authority_processed_bars_from_config", return_value=object()),
+                patch("scripts.run_walk_forward.run_walk_forward_validation", return_value=result),
+            ):
+                returned = run_walk_forward(
+                    config_path=config_path,
+                    source="authority-bars",
+                    data_root=data_root,
+                    startup_gate_packet=root / "startup.json",
+                    data_manifest_packet=root / "manifest.json",
+                    factor_batch_readiness_gate_packet=None,
+                    factor_validation_readiness_packet=root / "validation_readiness.json",
+                    allow_review_required_data_manifest=True,
+                )
+
+            self.assertIs(returned, result)
+            batch_gate.assert_not_called()
+            validation_gate.assert_called_once_with(
+                root / "validation_readiness.json",
+                expected_config_path=config_path,
+                expected_source="authority-bars",
+                expected_data_root=data_root,
+                expected_factor_names=["momentum_2"],
+                context="CN walk-forward validation",
+            )
+            self.assertEqual(manifest.call_args.kwargs["expected_moneyflow_source_root"], root / "moneyflow.json")
+            self.assertTrue(manifest.call_args.kwargs["verify_source_fingerprint"])
+
+    def test_cn_walk_forward_rejects_two_readiness_gate_types(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            config_path = root / "walk_forward.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "split_date": "2024-01-08",
+                        "experiment_grid": {
+                            "markets": ["CN"],
+                            "factor_names": ["momentum_2"],
+                            "factor_windows": [2],
+                            "top_n_values": [1],
+                            "cost_bps_values": [0],
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with (
+                patch("scripts.run_walk_forward.validate_cleared_startup_gate_packet"),
+                patch("scripts.run_walk_forward.validate_cn_stock_data_manifest_packet"),
+                self.assertRaisesRegex(ValueError, "exactly one readiness gate"),
+            ):
+                run_walk_forward(
+                    config_path=config_path,
+                    source="processed-bars",
+                    data_root=root,
+                    startup_gate_packet=root / "startup.json",
+                    data_manifest_packet=root / "manifest.json",
+                    factor_batch_readiness_gate_packet=root / "batch.json",
+                    factor_validation_readiness_packet=root / "validation.json",
+                )
 
 
 def _valid_startup_gate_packet_json() -> str:

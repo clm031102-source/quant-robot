@@ -76,11 +76,11 @@
 - Modify: `tests/unit/test_walk_forward_cli.py`
 - Modify: `tests/unit/test_desktop_factor_validation.py`
 
-- [ ] Add failing tests for `authority-bars`, file-only authority roots, exact validation packet matching, and rejection of implicit gate bypasses.
-- [ ] Run focused tests and verify RED.
-- [ ] Add the authority loader, dual readiness-gate enforcement, repaired moneyflow config, and authority defaults.
-- [ ] Run focused tests and verify GREEN.
-- [ ] Commit as `fix: run desktop validation from authority inputs`.
+- [x] Add failing tests for `authority-bars`, file-only authority roots, exact validation packet matching, and rejection of implicit gate bypasses.
+- [x] Run focused tests and verify RED.
+- [x] Add the authority loader, dual readiness-gate enforcement, repaired moneyflow config, and authority defaults.
+- [x] Run focused tests and verify GREEN.
+- [x] Commit as `fix: run desktop validation from authority inputs`.
 
 ### Task 6: Desktop Profile Rewire
 
