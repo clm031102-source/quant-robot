@@ -1,8 +1,20 @@
 # Current Research And Cloud Sync Index
 
-Last updated: 2026-07-09
+Last updated: 2026-07-16
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
+
+## Local Desktop Validation Evidence (Not Yet Cloud-Integrated)
+
+- Local branch: `codex/factor-validation-cn-stock-evidence-closure-20260715`
+- Audit: `docs/research/desktop_validation_evidence_closure_2026-07-15.md`
+- Strict residual-moneyflow validation: 38 folds, 96 candidates, 0 accepted, 96 rejected
+- Promotion: 96 blocked, 0 paper-ready, 0 live-review
+- Data state: zero whole-market gaps; 337,904 asset-session gaps remain under suspension/listing review
+- Direction: do not retune this residual-moneyflow family; close PIT asset-session classification, then return primary research budget to preregistered `CN_ETF` work
+- Boundary: research-to-paper only; no broker, account, order, or automatic-live access
+
+This local evidence is not part of `origin/main` until reviewed and integrated. It does not change the cloud branch inventory below.
 
 ## Current Cloud State
 

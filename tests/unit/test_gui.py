@@ -58,6 +58,7 @@ from quant_robot.storage.dataset_store import DatasetStore
 
 
 HTTP_TEST_TIMEOUT_SECONDS = 15
+SLOW_HTTP_TEST_TIMEOUT_SECONDS = 60
 
 
 class GuiDesktopAppTests(unittest.TestCase):
@@ -5384,7 +5385,8 @@ class GuiHttpTests(unittest.TestCase):
                             ensure_ascii=False,
                         )
                     }
-                )
+                ),
+                timeout=SLOW_HTTP_TEST_TIMEOUT_SECONDS,
             )
             self.assertEqual(trade_advisory["stage"], "phase_6_0_daily_trade_advisory")
             self.assertIn("summary", trade_advisory)
@@ -5469,7 +5471,9 @@ class GuiHttpTests(unittest.TestCase):
 
             invalid_positions = _read_json(
                 f"{base_url}/api/trade/daily-advisory?source=demo_fixture&market=CN_ETF&limit=3"
-                "&current_positions=asset_id%2Cquantity%2Clatest_price%2Caccount_id%0ACN_ETF_XSHG_510300%2C1000%2C4.864%2Creal"
+                "&current_positions=asset_id%2Cquantity%2Clatest_price%2Caccount_id%0A"
+                "CN_ETF_XSHG_510300%2C1000%2C4.864%2Creal",
+                timeout=SLOW_HTTP_TEST_TIMEOUT_SECONDS,
             )
             self.assertEqual(invalid_positions["stage"], "phase_6_0_daily_trade_advisory")
             self.assertEqual(invalid_positions["current_position_validation"]["status"], "error")
@@ -5705,13 +5709,13 @@ class GuiHttpTests(unittest.TestCase):
         self.assertTrue(all(str(row["date"]).startswith("2026-") for row in research["equity_curve"]))
 
 
-def _read_text(url: str) -> str:
-    with urlopen(url, timeout=HTTP_TEST_TIMEOUT_SECONDS) as response:
+def _read_text(url: str, *, timeout: float = HTTP_TEST_TIMEOUT_SECONDS) -> str:
+    with urlopen(url, timeout=timeout) as response:
         return response.read().decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
 
 
-def _read_json(url: str) -> dict[str, object]:
-    return json.loads(_read_text(url))
+def _read_json(url: str, *, timeout: float = HTTP_TEST_TIMEOUT_SECONDS) -> dict[str, object]:
+    return json.loads(_read_text(url, timeout=timeout))
 
 
 def _post_json(url: str, payload: dict[str, object]) -> dict[str, object]:

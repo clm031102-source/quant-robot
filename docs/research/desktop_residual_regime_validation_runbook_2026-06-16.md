@@ -59,7 +59,7 @@ This wraps:
 
 - `configs/walk_forward_tushare_moneyflow_residual_regime.json`
 - authority-bars source from the adjusted-ratio-clean tracked config
-- precomputed factor-matrix reuse inside each experiment grid run
+- one causal factor-matrix build for the frozen validation window, sliced and reused across rolling folds
 - rolling walk-forward validation
 - explicit regime lookbacks: 120, 150, 180, 252
 - top-N values: 5, 10, 20
@@ -67,7 +67,7 @@ This wraps:
 - capacity controls and max participation checks
 
 The script intentionally allows zero accepted candidates. A complete rejection set is useful evidence when the underlying train/test grids did not fail.
-The residual-regime config enables `precompute_factor_matrix`, `reuse_research_inputs`, and strict fingerprinted resume. A rolling fold lazily shares one factor matrix across train/test grids. Cases with identical factor, regime, and signal rules reuse labels, IC/group inputs, and benchmark preparation, but every TopN/cost/capacity portfolio is still backtested separately. Completed grids are reused only when their reproducibility fingerprint matches. Train grids retain manifests and leaderboards but skip per-case charts, while test grids retain regime curves required by the coverage gate.
+The residual-regime config enables `precompute_factor_matrix`, `reuse_research_inputs`, `case_artifact_mode=evidence`, and strict fingerprinted resume. The rolling validator lazily computes one full-window factor matrix, after pruning unrequested moneyflow and technical dependencies, and gives each fold only its date slice. This is point-in-time safe because the frozen factors use historical rolling values and same-day cross-sectional transforms; future-row invariance is covered by tests. Cases with identical factor, regime, and signal rules reuse labels, IC/group inputs, and benchmark preparation, but every TopN/cost/capacity portfolio is still backtested separately. Completed grids are reused only when their reproducibility fingerprint matches. Train grids retain manifests and leaderboards without case files. Test cases atomically retain only `regime_curve.csv` and final `metrics.json`, the exact evidence required for regime coverage and safe resume; full research artifacts remain the default outside this profile.
 
 To run the full desktop validation check chain, use:
 

@@ -617,7 +617,13 @@ class PromotionGateTests(unittest.TestCase):
             config.quality_report,
             Path("data/reports/data_quality_gap_audit_tushare_moneyflow_residual_regime/data_quality_gap_audit.json"),
         )
+        self.assertEqual(
+            config.provider_status,
+            Path("data/reports/provider_status/provider_status.json"),
+        )
         self.assertTrue(config.require_market_regime_coverage)
+        self.assertTrue(config.require_provider_ready_for_promotion)
+        self.assertEqual(config.max_provider_status_age_days, 1)
 
     def test_promotion_blocks_stale_or_unready_provider_status_when_required(self):
         report = build_promotion_report(

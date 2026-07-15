@@ -100,19 +100,19 @@
 
 ### Task 7: Real Evidence Run And Failure Repair
 
-- [ ] Fetch and write the real Tushare SSE/SZSE calendar for 2015-2025.
-- [ ] Validate the calendar artifact and manifest.
-- [ ] Generate the authority CN data manifest.
-- [ ] Run the stock-aware quality audit and record its exact review/blocker counts.
-- [ ] Generate the factor-validation readiness packet.
-- [ ] Run `desktop-validation` and repair code defects using systematic debugging; after three repetitions of the same external blocker, stop that path and document the blocker instead of looping.
-- [ ] Confirm the promotion report remains research-only or blocked unless every evidence contract genuinely clears.
+- [x] Fetch and write the real Tushare SSE/SZSE calendar for 2015-2025.
+- [x] Validate the calendar artifact and manifest.
+- [x] Generate the authority CN data manifest.
+- [x] Run the stock-aware quality audit and record its exact review/blocker counts.
+- [x] Generate the factor-validation readiness packet.
+- [x] Run `desktop-validation` and repair code defects using systematic debugging; after three repetitions of the same external blocker, stop that path and document the blocker instead of looping.
+- [x] Confirm the promotion report remains research-only or blocked unless every evidence contract genuinely clears.
 
 ### Task 8: Final Verification, Audit Report, And Commit
 
-- [ ] Run all focused tests changed in Tasks 1-6.
-- [ ] Run the complete unit/integration suite.
-- [ ] Run compile checks, project audit, maintainability audit, and `git diff --check`.
-- [ ] Write `docs/research/desktop_validation_evidence_closure_2026-07-15.md` with completion, feasibility, defects fixed, unresolved evidence gaps, and current profitability judgment.
-- [ ] Update the implementation checklist and commit final documentation as `docs: report desktop validation evidence closure`.
-- [ ] Do not push from the office desktop.
+- [x] Run all focused tests changed in Tasks 1-6.
+- [x] Run the complete unit/integration suite.
+- [x] Run compile checks, project audit, maintainability audit, and `git diff --check`.
+- [x] Write `docs/research/desktop_validation_evidence_closure_2026-07-15.md` with completion, feasibility, defects fixed, unresolved evidence gaps, and current profitability judgment.
+- [x] Update the implementation checklist and commit final documentation as `docs: report desktop validation evidence closure`.
+- [x] Do not push from the office desktop.
