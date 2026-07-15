@@ -528,6 +528,7 @@ class WalkForwardTests(unittest.TestCase):
 
         self.assertTrue(config.experiment_grid.precompute_factor_matrix)
         self.assertTrue(config.experiment_grid.resume_completed_cases)
+        self.assertTrue(config.experiment_grid.reuse_research_inputs)
         self.assertFalse(config.write_train_case_artifacts)
 
     def test_tushare_cn_etf_rotation_seed_config_covers_three_active_primary_families(self):

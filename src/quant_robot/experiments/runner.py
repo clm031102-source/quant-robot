@@ -226,7 +226,11 @@ def run_experiment_grid(
             if precomputed_factor_factory is not None
             else _precompute_factor_matrix(bars, config)
         )
-    rows = [_run_case(bars, config, case, precomputed_factors) for case in build_experiment_cases(config)]
+    research_input_cache: dict[tuple[Any, ...], Any] | None = {} if config.reuse_research_inputs else None
+    rows = [
+        _run_case(bars, config, case, precomputed_factors, research_input_cache)
+        for case in build_experiment_cases(config)
+    ]
     leaderboard = _rank_rows(rows, config.rank_by)
     result = {
         "config": _config_dict(config),
@@ -287,6 +291,7 @@ def _run_case(
     grid_config: ExperimentGridConfig,
     case: ExperimentCase,
     precomputed_factors: pd.DataFrame | None = None,
+    research_input_cache: dict[tuple[Any, ...], Any] | None = None,
 ) -> dict[str, Any]:
     try:
         output_dir = grid_config.output_dir / case.case_id if grid_config.output_dir is not None and grid_config.write_case_artifacts else None
@@ -335,6 +340,7 @@ def _run_case(
                 output_dir=output_dir,
             ),
             precomputed_factors=precomputed_factors,
+            research_input_cache=research_input_cache,
         )
         trades = int(result["artifact_rows"]["trades"])
         status = "completed" if trades >= grid_config.min_trades else "no_trades"

@@ -572,6 +572,32 @@ class ExperimentRunnerTests(unittest.TestCase):
         self.assertEqual(len(pipeline.call_args_list), 4)
         self.assertTrue(all(call.kwargs["precomputed_factors"] is matrix for call in pipeline.call_args_list))
 
+    def test_experiment_grid_shares_one_research_input_cache_when_enabled(self):
+        config = ExperimentGridConfig(
+            markets=("CN",),
+            factor_names=("momentum_2",),
+            factor_windows=(2,),
+            top_n_values=(1, 2),
+            cost_bps_values=(0.0, 5.0),
+            reuse_research_inputs=True,
+        )
+        pipeline_result = {
+            "data_mode": "research",
+            "metrics": {"sharpe": 0.0, "max_drawdown": 0.0},
+            "benchmark_metrics": {"relative_return": 0.0},
+            "decision": {"decision_status": "rejected", "rejection_reasons": []},
+            "factor_summary": {},
+            "artifact_rows": {"trades": 1, "holdings": 1},
+        }
+
+        with patch("quant_robot.experiments.runner.run_research_pipeline", return_value=pipeline_result) as pipeline:
+            run_experiment_grid(load_demo_market_bars(), config)
+
+        caches = [call.kwargs["research_input_cache"] for call in pipeline.call_args_list]
+        self.assertEqual(len(caches), 4)
+        self.assertTrue(all(cache is caches[0] for cache in caches))
+        self.assertIsInstance(caches[0], dict)
+
     def test_experiment_grid_filters_bars_before_precomputing_factor_matrix(self):
         bars = pd.DataFrame(
             {

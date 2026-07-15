@@ -1,6 +1,7 @@
 import json
 import tempfile
 import unittest
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 from unittest.mock import patch
@@ -8,6 +9,7 @@ from types import SimpleNamespace
 
 import pandas as pd
 
+import quant_robot.research.pipeline as research_pipeline
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.ops.factor_batch_readiness_gate import (
@@ -22,6 +24,38 @@ from scripts.run_research_pipeline import build_research_config, load_research_b
 
 
 class ResearchPipelineTests(unittest.TestCase):
+    def test_pipeline_reuses_equivalent_research_inputs_without_changing_results(self):
+        bars = load_demo_market_bars()
+        first_config = ResearchPipelineConfig(
+            factor_name="momentum_2",
+            factor_windows=(2,),
+            market="CN",
+            top_n=1,
+            cost_bps=0.0,
+        )
+        second_config = replace(first_config, top_n=2, cost_bps=5.0)
+        expected_first = run_research_pipeline(bars, first_config)
+        expected_second = run_research_pipeline(bars, second_config)
+        cache: dict[tuple[object, ...], object] = {}
+
+        with (
+            patch(
+                "quant_robot.research.pipeline.make_forward_returns",
+                wraps=research_pipeline.make_forward_returns,
+            ) as labels,
+            patch(
+                "quant_robot.research.pipeline.quantile_group_returns",
+                wraps=research_pipeline.quantile_group_returns,
+            ) as groups,
+        ):
+            actual_first = run_research_pipeline(bars, first_config, research_input_cache=cache)
+            actual_second = run_research_pipeline(bars, second_config, research_input_cache=cache)
+
+        labels.assert_called_once()
+        groups.assert_called_once()
+        self.assertEqual(actual_first, expected_first)
+        self.assertEqual(actual_second, expected_second)
+
     def test_pipeline_runs_configurable_factor_backtest_and_writes_artifacts(self):
         with tempfile.TemporaryDirectory() as tmp:
             config = ResearchPipelineConfig(
