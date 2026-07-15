@@ -145,6 +145,105 @@ class AuthorityBarsTests(unittest.TestCase):
 
             self.assertTrue(config.exclude_adjusted_ratio_jump_assets)
 
+    def test_load_authority_bars_config_reads_official_lifecycle_controls(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "authority.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "market": "CN",
+                        "stock_basic_root": "data/processed/official",
+                        "enforce_official_lifecycle": True,
+                        "exclude_assets_without_lifecycle_metadata": True,
+                        "segments": [{"root": "data/processed/first"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            config = load_authority_bars_config(path)
+
+            self.assertEqual(config.stock_basic_root, Path("data/processed/official"))
+            self.assertTrue(config.enforce_official_lifecycle)
+            self.assertTrue(config.exclude_assets_without_lifecycle_metadata)
+
+    def test_authority_config_loader_enforces_official_lifecycle_fail_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            store = root / "store"
+            metadata = root / "official"
+            _write_bars(
+                store,
+                [
+                    _bar("2024-01-01", asset_id="CN_XSHE_KNOWN", symbol="000001.SZ", close=9.0),
+                    _bar("2024-01-02", asset_id="CN_XSHE_KNOWN", symbol="000001.SZ", close=10.0),
+                    _bar("2024-01-03", asset_id="CN_XSHE_KNOWN", symbol="000001.SZ", close=11.0),
+                    _bar("2024-01-04", asset_id="CN_XSHE_KNOWN", symbol="000001.SZ", close=12.0),
+                    _bar("2024-01-03", asset_id="CN_XSHE_UNKNOWN", symbol="000002.SZ", close=20.0),
+                ],
+            )
+            _write_stock_basic(
+                metadata,
+                [
+                    {
+                        "asset_id": "CN_XSHE_KNOWN",
+                        "symbol": "000001.SZ",
+                        "list_date": "2024-01-02",
+                        "delist_date": "2024-01-03",
+                    }
+                ],
+            )
+            config_path = root / "authority.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "market": "CN",
+                        "stock_basic_root": str(metadata),
+                        "enforce_official_lifecycle": True,
+                        "exclude_assets_without_lifecycle_metadata": True,
+                        "segments": [{"root": str(store)}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            bars = load_authority_processed_bars_from_config(config_path, markets=("CN",))
+
+            self.assertEqual(set(bars["asset_id"]), {"CN_XSHE_KNOWN"})
+            self.assertEqual(
+                pd.to_datetime(bars["date"]).dt.strftime("%Y-%m-%d").tolist(),
+                ["2024-01-02", "2024-01-03"],
+            )
+
+    def test_authority_config_loader_rejects_duplicate_lifecycle_metadata(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            store = root / "store"
+            metadata = root / "official"
+            _write_bars(store, [_bar("2024-01-02", close=10.0)])
+            duplicate = {
+                "asset_id": "CN_XSHE_000001",
+                "symbol": "000001.SZ",
+                "list_date": "2020-01-01",
+                "delist_date": None,
+            }
+            _write_stock_basic(metadata, [duplicate, duplicate])
+            config_path = root / "authority.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "market": "CN",
+                        "stock_basic_root": str(metadata),
+                        "enforce_official_lifecycle": True,
+                        "segments": [{"root": str(store)}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "duplicate stock_basic asset_id"):
+                load_authority_processed_bars_from_config(config_path, markets=("CN",))
+
     def test_authority_config_loader_repairs_mass_adjusted_ratio_jumps(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -222,6 +321,12 @@ def _write_bars(root: Path, rows: list[dict]) -> None:
         "processed/bars",
         {"frequency": "1d", "market": "CN", "year": "2024"},
     )
+
+
+def _write_stock_basic(root: Path, rows: list[dict]) -> None:
+    path = root / "metadata/tushare_stock_basic/list_status=L/snapshot=2026-06-23/part-00000.parquet"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rows).to_parquet(path, index=False)
 
 
 def _bar(

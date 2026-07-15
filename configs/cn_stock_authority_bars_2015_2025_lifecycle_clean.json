@@ -1,0 +1,27 @@
+{
+  "market": "CN",
+  "stock_basic_root": "data/processed/round198_tradeability_long_cycle_official_backfill_20260623",
+  "enforce_official_lifecycle": true,
+  "exclude_assets_without_lifecycle_metadata": true,
+  "repair_adjusted_ratio_mass_jumps": true,
+  "exclude_adjusted_ratio_jump_assets": true,
+  "adjusted_ratio_jump_threshold": 1.5,
+  "adjusted_ratio_mass_jump_asset_threshold": 100,
+  "segments": [
+    {
+      "adjusted_only": true,
+      "end_date": "2023-06-30",
+      "root": "data/processed/cn_stock_long_history_2015_202306"
+    },
+    {
+      "adjusted_only": false,
+      "end_date": "2025-12-31",
+      "root": "data/processed/office_desktop_20260616_combined_research",
+      "start_date": "2023-07-03"
+    },
+    {
+      "adjusted_only": true,
+      "root": "data/processed/cn_stock_authority_gap_repairs_20260715"
+    }
+  ]
+}
