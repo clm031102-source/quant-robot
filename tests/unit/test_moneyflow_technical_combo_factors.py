@@ -1,8 +1,10 @@
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
 
+import quant_robot.factors.moneyflow_technical as moneyflow_technical
 from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.factors.moneyflow_technical import (
     MONEYFLOW_TECHNICAL_COMBO_FACTOR_NAMES,
@@ -12,6 +14,41 @@ from quant_robot.schema.factors import FACTOR_COLUMNS
 
 
 class MoneyflowTechnicalComboFactorTests(unittest.TestCase):
+    def test_combo_builder_requests_only_registered_dependencies(self):
+        factor_names = (
+            "large_minus_liquidity_20",
+            "large_resid_liquidity_20",
+            "large_resid_liq_vol_amt_20",
+            "large_resid_liq_vol_amt_gate_20",
+        )
+
+        with (
+            patch.object(
+                moneyflow_technical,
+                "compute_moneyflow_factors",
+                wraps=moneyflow_technical.compute_moneyflow_factors,
+            ) as moneyflow,
+            patch.object(
+                moneyflow_technical,
+                "compute_basic_factors",
+                wraps=moneyflow_technical.compute_basic_factors,
+            ) as technical,
+        ):
+            compute_moneyflow_technical_combo_factors(
+                _multi_exposure_framework_bars(),
+                _multi_exposure_framework_moneyflow_inputs(),
+                factor_names=factor_names,
+            )
+
+        self.assertEqual(
+            moneyflow.call_args.kwargs["factor_names"],
+            ("large_order_net_amount_ratio",),
+        )
+        self.assertEqual(
+            technical.call_args.kwargs["factor_names"],
+            ("liquidity_20", "volatility_20"),
+        )
+
     def test_combo_builder_emits_registered_schema_factors(self):
         factors = compute_moneyflow_technical_combo_factors(_combo_bars(), _combo_moneyflow_inputs())
 

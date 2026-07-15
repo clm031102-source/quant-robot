@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 import pandas as pd
 
@@ -302,6 +303,35 @@ class FactorTests(unittest.TestCase):
 
         self.assertEqual(set(factors["factor_name"]), {"momentum_2"})
         self.assertEqual(set(factors["lookback_window"]), {2})
+
+    def test_basic_factor_direct_subset_skips_unrequested_calculations(self):
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["A"] * 4,
+                "market": ["US"] * 4,
+                "date": pd.date_range("2024-01-01", periods=4).date,
+                "adj_close": [100.0, 110.0, 121.0, 133.1],
+                "volume": [100.0, 100.0, 100.0, 100.0],
+                "amount": [10000.0, 11000.0, 12100.0, 13310.0],
+            }
+        )
+        full = compute_basic_factors(bars, windows=(2,))
+
+        with patch(
+            "quant_robot.factors.technical._risk_adjusted_momentum",
+            side_effect=AssertionError("unrequested factor calculation"),
+        ):
+            factors = compute_basic_factors(
+                bars,
+                windows=(2,),
+                factor_names=("liquidity_2", "volatility_2"),
+            )
+
+        self.assertEqual(set(factors["factor_name"]), {"liquidity_2", "volatility_2"})
+        pd.testing.assert_frame_equal(
+            factors.reset_index(drop=True),
+            full[full["factor_name"].isin({"liquidity_2", "volatility_2"})].reset_index(drop=True),
+        )
 
     def test_basic_factors_reject_unknown_requested_factor_names(self):
         bars = pd.DataFrame(

@@ -31,6 +31,26 @@ _STATE_ADAPTIVE_COMPONENTS = (
     "recovery_quality",
 )
 
+_DIRECT_FACTOR_PREFIXES = (
+    "momentum",
+    "risk_adjusted_momentum",
+    "reversal",
+    "volatility",
+    "low_volatility",
+    "low_downside_volatility",
+    "drawdown_resilience",
+    "volume_change",
+    "liquidity",
+    "high_liquidity",
+    "liquidity_resilience",
+    "amount_stability",
+    "average_amount",
+    "crash_recovery",
+    "recovery_quality",
+    "demand_pressure",
+    "quiet_accumulation",
+)
+
 
 def compute_basic_factors(
     bars: pd.DataFrame,
@@ -42,6 +62,14 @@ def compute_basic_factors(
     if missing:
         raise ValueError(f"Bars are missing columns for factor calculation: {', '.join(missing)}")
 
+    requested = {str(name) for name in factor_names} if factor_names is not None else None
+    direct_names = {
+        f"{prefix}_{window}"
+        for window in windows
+        for prefix in _DIRECT_FACTOR_PREFIXES
+    }
+    direct_subset = requested is not None and requested.issubset(direct_names)
+
     frame = bars.copy()
     frame["date"] = pd.to_datetime(frame["date"]).dt.date
     frame = frame.sort_values(["asset_id", "date"])
@@ -50,6 +78,9 @@ def compute_basic_factors(
         enriched = group.copy()
         enriched["_return"] = enriched["adj_close"].pct_change()
         for window in windows:
+            if direct_subset:
+                pieces.extend(_direct_factor_frames(enriched, window, requested or set()))
+                continue
             pieces.extend(
                 [
                     _factor_frame(enriched, f"momentum_{window}", _momentum(enriched["adj_close"], window), window),
@@ -139,6 +170,8 @@ def compute_basic_factors(
     if not pieces:
         return pd.DataFrame(columns=FACTOR_COLUMNS)
     base = pd.concat(pieces, ignore_index=True)[FACTOR_COLUMNS]
+    if direct_subset:
+        return base.sort_values(["asset_id", "date", "factor_name"]).reset_index(drop=True)
     cross_sectional = _cross_sectional_relative_factors(base)
     expanded = pd.concat([base, cross_sectional], ignore_index=True) if not cross_sectional.empty else base
     liquidity_gated = _liquidity_gated_factors(expanded)
@@ -159,6 +192,66 @@ def compute_basic_factors(
     return factors[FACTOR_COLUMNS].sort_values(
         ["asset_id", "date", "factor_name"]
     ).reset_index(drop=True)
+
+
+def _direct_factor_frames(
+    enriched: pd.DataFrame,
+    window: int,
+    requested: set[str],
+) -> list[pd.DataFrame]:
+    frames: list[pd.DataFrame] = []
+
+    def add(prefix: str, values: pd.Series) -> None:
+        name = f"{prefix}_{window}"
+        if name in requested:
+            frames.append(_factor_frame(enriched, name, values, window))
+
+    price = enriched["adj_close"]
+    returns = enriched["_return"]
+    amount = enriched["amount"]
+    momentum_names = {f"momentum_{window}", f"reversal_{window}"}
+    if requested & momentum_names:
+        momentum = _momentum(price, window)
+        add("momentum", momentum)
+        add("reversal", -momentum)
+    if f"risk_adjusted_momentum_{window}" in requested:
+        add("risk_adjusted_momentum", _risk_adjusted_momentum(price, returns, window))
+    volatility_names = {f"volatility_{window}", f"low_volatility_{window}"}
+    if requested & volatility_names:
+        volatility = returns.rolling(window).std(ddof=0)
+        add("volatility", volatility)
+        add("low_volatility", -volatility)
+    if f"low_downside_volatility_{window}" in requested:
+        add("low_downside_volatility", _low_downside_volatility(returns, window))
+    if f"drawdown_resilience_{window}" in requested:
+        add("drawdown_resilience", _drawdown_resilience(price, window))
+    if f"volume_change_{window}" in requested:
+        add("volume_change", enriched["volume"] / enriched["volume"].rolling(window).mean() - 1.0)
+    liquidity_names = {
+        f"liquidity_{window}",
+        f"high_liquidity_{window}",
+        f"liquidity_resilience_{window}",
+    }
+    if requested & liquidity_names:
+        amihud = _amihud(returns, amount)
+        if requested & {f"liquidity_{window}", f"high_liquidity_{window}"}:
+            liquidity = amihud.rolling(window).mean()
+            add("liquidity", liquidity)
+            add("high_liquidity", -liquidity)
+        add("liquidity_resilience", -amihud)
+    if f"amount_stability_{window}" in requested:
+        add("amount_stability", _amount_stability(amount, window))
+    if f"average_amount_{window}" in requested:
+        add("average_amount", _average_amount(amount, window))
+    if f"crash_recovery_{window}" in requested:
+        add("crash_recovery", _crash_recovery(price, window))
+    if f"recovery_quality_{window}" in requested:
+        add("recovery_quality", _recovery_quality(price, returns, window))
+    if f"demand_pressure_{window}" in requested:
+        add("demand_pressure", _demand_pressure(price, amount, window))
+    if f"quiet_accumulation_{window}" in requested:
+        add("quiet_accumulation", _quiet_accumulation(returns, amount, window))
+    return frames
 
 
 def _momentum(price: pd.Series, window: int) -> pd.Series:

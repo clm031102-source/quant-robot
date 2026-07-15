@@ -7,6 +7,20 @@ from quant_robot.schema.factors import FACTOR_COLUMNS
 
 
 class TushareMoneyflowFactorTests(unittest.TestCase):
+    def test_moneyflow_factor_builder_materializes_only_requested_factors(self):
+        full = compute_moneyflow_factors(_moneyflow_inputs())
+        factors = compute_moneyflow_factors(
+            _moneyflow_inputs(),
+            factor_names=("large_order_net_amount_ratio",),
+        )
+
+        self.assertEqual(set(factors["factor_name"]), {"large_order_net_amount_ratio"})
+        self.assertEqual(len(factors), len(_moneyflow_inputs()))
+        pd.testing.assert_frame_equal(
+            factors.reset_index(drop=True),
+            full[full["factor_name"] == "large_order_net_amount_ratio"].reset_index(drop=True),
+        )
+
     def test_moneyflow_factor_builder_emits_schema_columns(self):
         factors = compute_moneyflow_factors(_moneyflow_inputs())
 

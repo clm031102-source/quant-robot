@@ -166,8 +166,25 @@ def compute_moneyflow_technical_combo_factors(
         raise ValueError(f"Unsupported moneyflow technical combo factors: {', '.join(unknown)}")
     specs = {name: MONEYFLOW_TECHNICAL_COMBO_SPECS[name] for name in factor_names}
     windows = tuple(sorted({spec.lookback_window for spec in specs.values()}))
-    moneyflow = _with_cross_sectional_zscore(compute_moneyflow_factors(moneyflow_inputs))
-    technical_raw = compute_basic_factors(bars, windows=windows)
+    moneyflow_names = tuple(sorted({spec.moneyflow_factor for spec in specs.values()}))
+    technical_names = tuple(
+        sorted(
+            {
+                name
+                for spec in specs.values()
+                for name in (*_exposure_factor_names(spec), spec.liquidity_gate_factor)
+                if name is not None and not name.startswith("log_amount_")
+            }
+        )
+    )
+    moneyflow = _with_cross_sectional_zscore(
+        compute_moneyflow_factors(moneyflow_inputs, factor_names=moneyflow_names)
+    )
+    technical_raw = compute_basic_factors(
+        bars,
+        windows=windows,
+        factor_names=technical_names,
+    )
     log_amount = _compute_log_amount_factors(bars, _required_log_amount_windows(specs.values()))
     technical = _with_cross_sectional_zscore(pd.concat([technical_raw, log_amount], ignore_index=True))
     pieces = [_combo_frame(name, spec, moneyflow, technical, bars) for name, spec in specs.items()]

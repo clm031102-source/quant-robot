@@ -18,7 +18,14 @@ MONEYFLOW_FACTOR_NAMES = (
 )
 
 
-def compute_moneyflow_factors(inputs: pd.DataFrame) -> pd.DataFrame:
+def compute_moneyflow_factors(
+    inputs: pd.DataFrame,
+    factor_names: tuple[str, ...] | None = None,
+) -> pd.DataFrame:
+    requested = set(MONEYFLOW_FACTOR_NAMES if factor_names is None else factor_names)
+    unknown = sorted(requested - set(MONEYFLOW_FACTOR_NAMES))
+    if unknown:
+        raise ValueError("Unsupported moneyflow factor_names: " + ", ".join(unknown))
     required = [
         "date",
         "asset_id",
@@ -40,27 +47,40 @@ def compute_moneyflow_factors(inputs: pd.DataFrame) -> pd.DataFrame:
     frame["date"] = pd.to_datetime(frame["date"]).dt.date
     frame = frame.sort_values(["asset_id", "date"])
     denominator = _total_flow_amount(frame)
-    net_mf = _ratio(frame["net_mf_amount"], denominator)
-    large_order_net = _ratio(
-        _number(frame["buy_lg_amount"])
-        + _number(frame["buy_elg_amount"])
-        - _number(frame["sell_lg_amount"])
-        - _number(frame["sell_elg_amount"]),
-        denominator,
-    )
-    extra_large_net = _ratio(_number(frame["buy_elg_amount"]) - _number(frame["sell_elg_amount"]), denominator)
-    small_sell_pressure = _ratio(_number(frame["sell_sm_amount"]) - _number(frame["buy_sm_amount"]), denominator)
-    factor_values = {
-        "net_mf_amount_ratio": net_mf,
-        "net_mf_amount_ratio_low": -net_mf,
-        "large_order_net_amount_ratio": large_order_net,
-        "large_order_net_amount_ratio_low": -large_order_net,
-        "extra_large_order_net_amount_ratio": extra_large_net,
-        "extra_large_order_net_amount_ratio_low": -extra_large_net,
-        "small_order_sell_pressure": small_sell_pressure,
-        "small_order_sell_pressure_low": -small_sell_pressure,
-    }
-    pieces = [_factor_frame(frame, name, values) for name, values in factor_values.items()]
+    factor_values: dict[str, pd.Series] = {}
+    if requested & {"net_mf_amount_ratio", "net_mf_amount_ratio_low"}:
+        net_mf = _ratio(frame["net_mf_amount"], denominator)
+        factor_values["net_mf_amount_ratio"] = net_mf
+        factor_values["net_mf_amount_ratio_low"] = -net_mf
+    if requested & {"large_order_net_amount_ratio", "large_order_net_amount_ratio_low"}:
+        large_order_net = _ratio(
+            _number(frame["buy_lg_amount"])
+            + _number(frame["buy_elg_amount"])
+            - _number(frame["sell_lg_amount"])
+            - _number(frame["sell_elg_amount"]),
+            denominator,
+        )
+        factor_values["large_order_net_amount_ratio"] = large_order_net
+        factor_values["large_order_net_amount_ratio_low"] = -large_order_net
+    if requested & {"extra_large_order_net_amount_ratio", "extra_large_order_net_amount_ratio_low"}:
+        extra_large_net = _ratio(
+            _number(frame["buy_elg_amount"]) - _number(frame["sell_elg_amount"]),
+            denominator,
+        )
+        factor_values["extra_large_order_net_amount_ratio"] = extra_large_net
+        factor_values["extra_large_order_net_amount_ratio_low"] = -extra_large_net
+    if requested & {"small_order_sell_pressure", "small_order_sell_pressure_low"}:
+        small_sell_pressure = _ratio(
+            _number(frame["sell_sm_amount"]) - _number(frame["buy_sm_amount"]),
+            denominator,
+        )
+        factor_values["small_order_sell_pressure"] = small_sell_pressure
+        factor_values["small_order_sell_pressure_low"] = -small_sell_pressure
+    pieces = [
+        _factor_frame(frame, name, factor_values[name])
+        for name in MONEYFLOW_FACTOR_NAMES
+        if name in requested
+    ]
     if not pieces:
         return pd.DataFrame(columns=FACTOR_COLUMNS)
     return pd.concat(pieces, ignore_index=True)[FACTOR_COLUMNS].sort_values(
