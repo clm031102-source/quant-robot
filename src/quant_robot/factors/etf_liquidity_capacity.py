@@ -61,12 +61,36 @@ def compute_etf_liquidity_reference_factors(
     eligible_keys: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     frame = _normalise_bars(bars)
-    references = compute_basic_factors(
-        frame,
-        windows=(5, 10, 20, 60),
-        factor_names=ETF_LIQUIDITY_REFERENCE_FACTOR_NAMES,
-    )
-    references = _select_eligible_keys(references, eligible_keys, validate="many_to_one")
+    if eligible_keys is None:
+        references = compute_basic_factors(
+            frame,
+            windows=(5, 10, 20, 60),
+            factor_names=ETF_LIQUIDITY_REFERENCE_FACTOR_NAMES,
+        )
+    else:
+        keys = _normalise_eligible_keys(eligible_keys)
+        references_by_asset = []
+        selected = frame[frame["asset_id"].isin(keys["asset_id"].unique())]
+        for asset_id, group in selected.groupby("asset_id", sort=False):
+            asset_references = compute_basic_factors(
+                group,
+                windows=(5, 10, 20, 60),
+                factor_names=ETF_LIQUIDITY_REFERENCE_FACTOR_NAMES,
+            )
+            asset_keys = keys[keys["asset_id"].eq(asset_id)]
+            references_by_asset.append(
+                asset_references.merge(
+                    asset_keys,
+                    on=["date", "asset_id", "market"],
+                    how="inner",
+                    validate="many_to_one",
+                )
+            )
+        references = (
+            pd.concat(references_by_asset, ignore_index=True)
+            if references_by_asset
+            else pd.DataFrame(columns=FACTOR_COLUMNS)
+        )
     return references[FACTOR_COLUMNS].sort_values(["asset_id", "date", "factor_name"]).reset_index(drop=True)
 
 
@@ -146,6 +170,11 @@ def _select_eligible_keys(
 ) -> pd.DataFrame:
     if eligible_keys is None:
         return frame
+    keys = _normalise_eligible_keys(eligible_keys)
+    return frame.merge(keys, on=["date", "asset_id", "market"], how="inner", validate=validate)
+
+
+def _normalise_eligible_keys(eligible_keys: pd.DataFrame) -> pd.DataFrame:
     required = ["date", "asset_id", "market"]
     missing = [column for column in required if column not in eligible_keys.columns]
     if missing:
@@ -156,7 +185,7 @@ def _select_eligible_keys(
     keys["market"] = keys["market"].astype(str)
     if keys.duplicated(required).any():
         raise ValueError("eligible_keys contain duplicate asset-date rows")
-    return frame.merge(keys, on=required, how="inner", validate=validate)
+    return keys
 
 
 def _factor_frame(frame: pd.DataFrame, name: str, values: pd.Series, lookback: int) -> pd.DataFrame:
