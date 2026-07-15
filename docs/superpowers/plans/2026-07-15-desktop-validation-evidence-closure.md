@@ -61,11 +61,11 @@
 - Create: `tests/unit/test_factor_validation_readiness.py`
 - Create: `tests/unit/test_factor_validation_readiness_cli.py`
 
-- [ ] Add failing tests for config/factor/source mismatches, stale startup or data manifests, calendar gaps, post-2025 data, changed fingerprints, final-holdout access, and live permission.
-- [ ] Run focused tests and verify RED.
-- [ ] Implement packet build/write/validate functions and CLI generation.
-- [ ] Run focused tests and verify GREEN.
-- [ ] Commit as `feat: bind frozen factor validation evidence`.
+- [x] Add failing tests for config/factor/source mismatches, stale startup or data manifests, calendar gaps, post-2025 data, changed fingerprints, final-holdout access, and live permission.
+- [x] Run focused tests and verify RED.
+- [x] Implement packet build/write/validate functions and CLI generation.
+- [x] Run focused tests and verify GREEN.
+- [x] Commit as `feat: bind frozen factor validation evidence`.
 
 ### Task 5: Authority Walk-Forward Source
 
