@@ -120,6 +120,14 @@ class TushareAdapter(MarketDataAdapter):
     def fetch_suspend_d_by_date(self, trade_date: str) -> pd.DataFrame:
         return self._call(self.client.suspend_d, trade_date=_date_to_tushare(trade_date))
 
+    def fetch_legacy_suspension(self, ts_code: str, start_date: str, end_date: str) -> pd.DataFrame:
+        return self._call(
+            self.client.suspend,
+            ts_code=ts_code,
+            start_date=_date_to_tushare(start_date),
+            end_date=_date_to_tushare(end_date),
+        )
+
     def fetch_namechange(self, start_date: str, end_date: str) -> pd.DataFrame:
         return self._call(
             self.client.namechange,

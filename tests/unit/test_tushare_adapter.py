@@ -216,6 +216,17 @@ class FakeTushareClient:
             }
         )
 
+    def suspend(self, **kwargs):
+        self.calls.append(("suspend", kwargs))
+        return pd.DataFrame(
+            {
+                "ts_code": [kwargs.get("ts_code", "000001.SZ") or "000001.SZ"],
+                "suspend_date": [kwargs.get("start_date", "20240102") or "20240102"],
+                "resume_date": [kwargs.get("end_date", "20240103") or "20240103"],
+                "suspend_reason": ["major event"],
+            }
+        )
+
     def namechange(self, **kwargs):
         self.calls.append(("namechange", kwargs))
         return pd.DataFrame(
@@ -458,6 +469,25 @@ class TushareAdapterTests(unittest.TestCase):
         self.assertEqual(client.calls[-1][0], "namechange")
         self.assertEqual(client.calls[-1][1]["start_date"], "20240102")
         self.assertEqual(client.calls[-1][1]["end_date"], "20240131")
+
+    def test_fetch_legacy_suspension_is_symbol_scoped(self):
+        client = FakeTushareClient()
+        adapter = TushareAdapter(client=client)
+
+        frame = adapter.fetch_legacy_suspension("002260.SZ", "2015-01-01", "2025-12-31")
+
+        self.assertEqual(frame.loc[0, "ts_code"], "002260.SZ")
+        self.assertEqual(
+            client.calls[-1],
+            (
+                "suspend",
+                {
+                    "ts_code": "002260.SZ",
+                    "start_date": "20150101",
+                    "end_date": "20251231",
+                },
+            ),
+        )
 
     def test_fetch_index_weight_calls_official_tushare_endpoint(self):
         client = FakeTushareClient()
