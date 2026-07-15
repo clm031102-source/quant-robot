@@ -12,6 +12,12 @@ import pandas as pd
 
 from quant_robot.data.readiness import check_parquet_readiness, check_tushare_readiness
 from quant_robot.factors.technical import compute_basic_factors
+from quant_robot.gui.daily_trade_factors import (
+    candidate_factor_names as _candidate_factor_names,
+    candidate_factor_windows as _candidate_factor_windows,
+    daily_trade_factor_windows as _daily_trade_factor_windows,
+    resolve_factor_windows as _resolve_factor_windows,
+)
 from quant_robot.gui.fixtures import mock_data
 from quant_robot.gui.operation_ledger import (
     build_daily_closure_ledger_snapshot,
@@ -953,17 +959,10 @@ def _daily_trade_signal_snapshots(
     try:
         bars = _load_gui_bars(source_name, data_root, market)
         factor_bars = _bars_until_as_of_date(bars, as_of_date)
-        requested_factor_names = tuple(
-            dict.fromkeys(
-                str(candidate.get("factor_name") or "")
-                for candidate in candidates
-                if str(candidate.get("factor_name") or "").strip()
-            )
-        )
         factors = compute_basic_factors(
             factor_bars,
             windows=_daily_trade_factor_windows(candidates),
-            factor_names=requested_factor_names,
+            factor_names=_candidate_factor_names(candidates),
         )
     except Exception as exc:
         errors = [
@@ -1205,14 +1204,6 @@ def _bars_until_as_of_date(bars: pd.DataFrame, as_of_date: str | None) -> pd.Dat
     return bars[pd.to_datetime(bars["date"]).dt.date <= cutoff].copy()
 
 
-def _daily_trade_factor_windows(candidates: list[dict[str, Any]]) -> tuple[int, ...]:
-    windows: set[int] = set()
-    for candidate in candidates:
-        factor_name = str(candidate.get("factor_name") or "")
-        windows.update(_resolve_factor_windows(factor_name, _candidate_factor_windows(candidate)))
-    return tuple(sorted(windows)) or (2, 3)
-
-
 def _runtime_daily_trade_candidates(factor_names: list[str], market: str, limit: int) -> list[dict[str, Any]]:
     preferred = ["momentum_2", "reversal_2", "volatility_2", "liquidity_2", "volume_change_2"]
     ordered = [name for name in preferred if name in set(factor_names)]
@@ -1237,29 +1228,6 @@ def _runtime_daily_trade_candidates(factor_names: list[str], market: str, limit:
             }
         )
     return rows
-
-
-def _candidate_factor_windows(candidate: dict[str, Any]) -> tuple[int, ...] | None:
-    params = candidate.get("params") if isinstance(candidate.get("params"), dict) else {}
-    value = params.get("factor_windows") or candidate.get("factor_windows")
-    if isinstance(value, list):
-        return tuple(int(item) for item in value if str(item).strip())
-    if isinstance(value, str) and value.strip():
-        text = value.strip()
-        if text.startswith("[") and text.endswith("]"):
-            try:
-                parsed = json.loads(text)
-            except json.JSONDecodeError:
-                parsed = None
-            if isinstance(parsed, list):
-                return tuple(int(item) for item in parsed if str(item).strip())
-        cleaned = text.replace("[", "").replace("]", "")
-        return tuple(int(part.strip()) for part in cleaned.split(",") if part.strip().isdigit())
-    factor_name = str(candidate.get("factor_name") or "")
-    suffix = factor_name.rsplit("_", 1)[-1]
-    if suffix.isdigit():
-        return (int(suffix),)
-    return None
 
 
 def _candidate_int(params: dict[str, Any], keys: tuple[str, ...], default: int) -> int:
@@ -2105,15 +2073,6 @@ def _load_gui_bars(source: str, data_root: str | Path | None, market: str) -> pd
     if not frames:
         raise FileNotFoundError(f"No processed bars found under {root}")
     return pd.concat(frames, ignore_index=True)
-
-
-def _resolve_factor_windows(factor_name: str, explicit: tuple[int, ...] | None) -> tuple[int, ...]:
-    if explicit:
-        return explicit
-    suffix = factor_name.rsplit("_", 1)[-1]
-    if suffix.isdigit():
-        return (int(suffix),)
-    return (2, 3)
 
 
 def _first_existing(paths: list[Path]) -> Path | None:
