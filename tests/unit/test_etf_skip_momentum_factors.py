@@ -84,6 +84,27 @@ class EtfSkipMomentumFactorTests(unittest.TestCase):
         ]
         self.assertTrue(momentum.rank().equals(relative.rank()))
 
+    def test_materializes_only_requested_point_in_time_eligible_keys(self) -> None:
+        bars = _bars(day_count=165, asset_count=6)
+        eligible_keys = bars[
+            bars["asset_id"].isin(["CN_ETF_XSHG_510000", "CN_ETF_XSHG_510001", "CN_ETF_XSHG_510002"])
+            & (bars["date"] >= bars["date"].drop_duplicates().sort_values().iloc[-10])
+        ][["date", "asset_id", "market"]]
+
+        candidates = compute_etf_skip_momentum_factors(bars, eligible_keys=eligible_keys)
+        references = compute_etf_price_rotation_reference_factors(bars, eligible_keys=eligible_keys)
+
+        expected_keys = {
+            (pd.Timestamp(row.date).date(), row.asset_id, row.market)
+            for row in eligible_keys.itertuples(index=False)
+        }
+        candidate_keys = {(row.date, row.asset_id, row.market) for row in candidates.itertuples(index=False)}
+        reference_keys = {(row.date, row.asset_id, row.market) for row in references.itertuples(index=False)}
+        self.assertEqual(candidate_keys, expected_keys)
+        self.assertEqual(reference_keys, expected_keys)
+        self.assertEqual(len(candidates), len(expected_keys) * len(ETF_SKIP_MOMENTUM_FACTOR_NAMES))
+        self.assertEqual(len(references), len(expected_keys) * len(ETF_PRICE_ROTATION_REFERENCE_FACTOR_NAMES))
+
     def test_rejects_unknown_requested_factor(self) -> None:
         with self.assertRaisesRegex(ValueError, "Unsupported ETF skip-momentum factor_names"):
             compute_etf_skip_momentum_factors(_bars(day_count=20), factor_names=("missing",))

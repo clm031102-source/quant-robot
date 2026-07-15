@@ -27,6 +27,8 @@ ETF_PRICE_ROTATION_REFERENCE_FACTOR_NAMES = (
 def compute_etf_skip_momentum_factors(
     bars: pd.DataFrame,
     factor_names: tuple[str, ...] | None = None,
+    *,
+    eligible_keys: pd.DataFrame | None = None,
 ) -> pd.DataFrame:
     frame = _normalise_bars(bars, require_amount=True)
     requested = ETF_SKIP_MOMENTUM_FACTOR_NAMES if factor_names is None else tuple(factor_names)
@@ -36,6 +38,7 @@ def compute_etf_skip_momentum_factors(
     requested_set = set(requested)
     feature_pieces = [_candidate_features(group) for _, group in frame.groupby("asset_id", sort=False)]
     features = pd.concat(feature_pieces, ignore_index=True) if feature_pieces else frame.iloc[0:0].copy()
+    features = _select_eligible_keys(features, eligible_keys)
     if features.empty:
         return pd.DataFrame(columns=FACTOR_COLUMNS)
 
@@ -64,36 +67,43 @@ def compute_etf_skip_momentum_factors(
     ).reset_index(drop=True)
 
 
-def compute_etf_price_rotation_reference_factors(bars: pd.DataFrame) -> pd.DataFrame:
+def compute_etf_price_rotation_reference_factors(
+    bars: pd.DataFrame,
+    *,
+    eligible_keys: pd.DataFrame | None = None,
+) -> pd.DataFrame:
     frame = _normalise_bars(bars, require_amount=False)
-    pieces: list[pd.DataFrame] = []
+    feature_pieces: list[pd.DataFrame] = []
     for _, group in frame.groupby("asset_id", sort=False):
         item = group.sort_values("date").copy()
         price = item["adj_close"]
         returns = price.pct_change()
-        momentum_20 = price / price.shift(20) - 1.0
-        momentum_60 = price / price.shift(60) - 1.0
-        values = {
-            "momentum_20": momentum_20,
-            "momentum_60": momentum_60,
-            "risk_adjusted_momentum_20": _safe_div(momentum_20, returns.rolling(20).std(ddof=0)),
-            "risk_adjusted_momentum_60": _safe_div(momentum_60, returns.rolling(60).std(ddof=0)),
-            "reversal_5": -(price / price.shift(5) - 1.0),
-            "reversal_20": -momentum_20,
-        }
-        for name, factor_values in values.items():
-            pieces.append(_factor_frame(item, name, factor_values, int(name.rsplit("_", 1)[-1])))
-    if not pieces:
+        item["momentum_20"] = price / price.shift(20) - 1.0
+        item["momentum_60"] = price / price.shift(60) - 1.0
+        item["risk_adjusted_momentum_20"] = _safe_div(
+            item["momentum_20"],
+            returns.rolling(20).std(ddof=0),
+        )
+        item["risk_adjusted_momentum_60"] = _safe_div(
+            item["momentum_60"],
+            returns.rolling(60).std(ddof=0),
+        )
+        item["reversal_5"] = -(price / price.shift(5) - 1.0)
+        item["reversal_20"] = -item["momentum_20"]
+        feature_pieces.append(item)
+    if not feature_pieces:
         return pd.DataFrame(columns=FACTOR_COLUMNS)
-    base = pd.concat(pieces, ignore_index=True)
-    relatives = []
+    features = _select_eligible_keys(pd.concat(feature_pieces, ignore_index=True), eligible_keys)
+    values = {name: features[name] for name in ETF_PRICE_ROTATION_REFERENCE_FACTOR_NAMES if name in features}
     for window in (20, 60):
-        source = base[base["factor_name"] == f"momentum_{window}"].copy()
-        median = source.groupby(["date", "market"], sort=False)["factor_value"].transform("median")
-        source["factor_name"] = f"market_relative_strength_{window}"
-        source["factor_value"] = source["factor_value"] - median
-        relatives.append(source)
-    return pd.concat([base, *relatives], ignore_index=True)[FACTOR_COLUMNS].sort_values(
+        momentum = features[f"momentum_{window}"]
+        median = momentum.groupby([features["date"], features["market"]], sort=False).transform("median")
+        values[f"market_relative_strength_{window}"] = momentum - median
+    pieces = [
+        _factor_frame(features, name, values[name], int(name.rsplit("_", 1)[-1]))
+        for name in ETF_PRICE_ROTATION_REFERENCE_FACTOR_NAMES
+    ]
+    return pd.concat(pieces, ignore_index=True)[FACTOR_COLUMNS].sort_values(
         ["asset_id", "date", "factor_name"]
     ).reset_index(drop=True)
 
@@ -134,6 +144,22 @@ def _normalise_bars(bars: pd.DataFrame, *, require_amount: bool) -> pd.DataFrame
     if duplicates.any():
         raise ValueError("Bars contain duplicate asset-date rows for ETF skip-momentum factors")
     return frame.sort_values(["asset_id", "date"]).reset_index(drop=True)
+
+
+def _select_eligible_keys(frame: pd.DataFrame, eligible_keys: pd.DataFrame | None) -> pd.DataFrame:
+    if eligible_keys is None:
+        return frame
+    required = ["date", "asset_id", "market"]
+    missing = [column for column in required if column not in eligible_keys.columns]
+    if missing:
+        raise ValueError("eligible_keys are missing columns: " + ", ".join(missing))
+    keys = eligible_keys[required].copy()
+    keys["date"] = pd.to_datetime(keys["date"]).dt.date
+    keys["asset_id"] = keys["asset_id"].astype(str)
+    keys["market"] = keys["market"].astype(str)
+    if keys.duplicated(required).any():
+        raise ValueError("eligible_keys contain duplicate asset-date rows")
+    return frame.merge(keys, on=required, how="inner", validate="one_to_one")
 
 
 def _path_smoothness(returns: pd.Series, window_return: pd.Series, window: int) -> pd.Series:

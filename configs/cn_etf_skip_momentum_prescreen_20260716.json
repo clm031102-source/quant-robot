@@ -1,0 +1,68 @@
+{
+  "stage": "cn_etf_skip_momentum_prescreen",
+  "primary_market": "CN_ETF",
+  "research_family": "cn_etf_price_rotation",
+  "research_scope": "final_skip_momentum_subspace_only",
+  "data_root": "data/processed/tushare_etf_wide_history_2023_2026",
+  "metadata_root": "data/processed/tushare_etf_wide_history_2023_2026/metadata/tushare_fund_basic",
+  "analysis_start_date": "2020-01-02",
+  "analysis_end_date": "2024-06-28",
+  "final_holdout_start": "2026-01-01",
+  "candidate_names": [
+    "etf_skip5_momentum_60",
+    "etf_skip20_momentum_120",
+    "fip_smooth_momentum_skip5_60"
+  ],
+  "reference_names": [
+    "momentum_20",
+    "momentum_60",
+    "risk_adjusted_momentum_20",
+    "risk_adjusted_momentum_60",
+    "reversal_5",
+    "reversal_20",
+    "market_relative_strength_20",
+    "market_relative_strength_60"
+  ],
+  "horizons": [
+    5,
+    20
+  ],
+  "execution_lag": 1,
+  "eligibility": {
+    "point_in_time": true,
+    "official_etf_only": true,
+    "min_prior_observations": 252,
+    "liquidity_window": 20,
+    "min_trailing_median_amount": 5000000.0,
+    "max_stale_rate": 0.05,
+    "max_abs_return": 0.2
+  },
+  "thresholds": {
+    "alpha": 0.05,
+    "min_cross_section": 30,
+    "min_ic_observations": 20,
+    "min_year_ic_observations": 20,
+    "min_usable_years": 3,
+    "min_mean_rank_ic": 0.02,
+    "min_icir": 0.3,
+    "min_positive_ic_rate": 0.55,
+    "min_quantile_monotonicity": 0.7,
+    "max_top_quantile_turnover": 0.9,
+    "min_positive_year_rate": 0.6,
+    "max_abs_reference_correlation": 0.85
+  },
+  "multiple_testing": {
+    "method": "benjamini_hochberg",
+    "scope": "all_frozen_candidate_horizon_tests"
+  },
+  "output_dir": "data/reports/cn_etf_skip_momentum_prescreen_20260716",
+  "parameter_rescue_allowed": false,
+  "window_tuning_allowed": false,
+  "threshold_relaxation_allowed": false,
+  "portfolio_grid_allowed": false,
+  "paper_signal_allowed": false,
+  "broker_connection_allowed": false,
+  "account_read_allowed": false,
+  "order_placement_allowed": false,
+  "live_trading_allowed": false
+}
