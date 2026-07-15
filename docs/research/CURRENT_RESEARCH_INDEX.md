@@ -20,6 +20,20 @@ Purpose: this is the first file to read after syncing the repository on any work
 
 This local evidence is not part of `origin/main` until reviewed and integrated. It does not change the cloud branch inventory below.
 
+## Local CN ETF Price-Rotation Closeout (Not Yet Cloud-Integrated)
+
+- Local branch: `codex/factor-batch-cn-etf-price-rotation-20260716`
+- Closeout report: `docs/research/cn_etf_skip_momentum_prescreen_2026-07-16.md`
+- Frozen prescreen: 3 candidates, 2 horizons, 6 tests, 0 research leads
+- Data window: 2020-01-02 through 2024-06-28; 2026 final holdout sealed and not accessed
+- Result: all skip-momentum candidates rejected; `etf_skip5_momentum_60` also duplicated `momentum_60` at 0.8801 mean daily cross-sectional rank correlation
+- Family decision: `cn_etf_price_rotation` is stop-lossed with zero budget; no retry, parameter rescue, portfolio grid, or walk-forward
+- New scheduler allocation: liquidity capacity 0.35, volatility regime 0.30, flow-breadth aggregation 0.20, fund structure 0.15
+- Next factor direction: preregistered `cn_etf_liquidity_capacity` batch after preserving point-in-time eligibility; backfill and audit 2024-H2 through 2025 before walk-forward
+- Boundary: research-to-paper only; no broker, account, order, paper signal, or automatic-live access
+
+This local closeout is not part of `origin/main` until reviewed and integrated. Generated evidence remains under ignored `data/reports/` paths.
+
 ## Current Cloud State
 
 - Stable branch: `main`

@@ -8,22 +8,53 @@
     "max_repeated_failure_rounds": 2,
     "max_rescue_iterations": 3
   },
+  "last_decision": {
+    "date": "2026-07-16",
+    "source_stage": "cn_etf_skip_momentum_prescreen",
+    "source_config_sha256": "75dd8529d21762804029741928287fb07ba5251bcfd85bcfe7445a029ac93611",
+    "research_lead_count": 0,
+    "closed_family": "cn_etf_price_rotation",
+    "reallocated_budget_share": 0.3,
+    "reallocation": {
+      "cn_etf_liquidity_capacity": 0.1,
+      "cn_etf_volatility_regime": 0.1,
+      "cn_etf_flow_breadth_aggregation": 0.05,
+      "cn_etf_fund_structure": 0.05
+    }
+  },
   "families": [
     {
       "family_id": "cn_etf_price_rotation",
       "market": "CN_ETF",
       "hypothesis_family": "price_trend_reversal_rotation",
-      "status": "active",
-      "budget_share": 0.3,
+      "status": "stop_lossed",
+      "budget_share": 0.0,
+      "failure_reasons": [
+        "plain_and_risk_adjusted_momentum_rejected",
+        "relative_strength_rejected",
+        "tail_guard_and_defensive_reversal_rejected",
+        "skip_momentum_fdr_and_shape_gates_failed",
+        "skip5_momentum_duplicate_with_momentum_60"
+      ],
+      "parameter_rescue_allowed": false,
+      "window_tuning_allowed": false,
+      "threshold_relaxation_allowed": false,
+      "forbidden_actions": [
+        "price_rotation_retry",
+        "parameter_rescue",
+        "threshold_relaxation",
+        "portfolio_grid",
+        "walk_forward"
+      ],
       "economic_thesis": "ETF relative strength, skip-window momentum, and short-horizon reversal can capture persistent fund rotation without stock-level selection.",
-      "next_action": "Mine full-history CN_ETF relative momentum, skip-momentum, and reversal factors with walk-forward gates."
+      "next_action": "Keep the CN ETF price-rotation family closed; preserve rejection evidence and do not allocate another retry, rescue, portfolio-grid, or walk-forward batch."
     },
     {
       "family_id": "cn_etf_liquidity_capacity",
       "market": "CN_ETF",
       "hypothesis_family": "liquidity_turnover_capacity",
       "status": "active",
-      "budget_share": 0.25,
+      "budget_share": 0.35,
       "economic_thesis": "ETF flows leave tradable traces in volume, amount, turnover stability, and liquidity crowding; costs and participation must be modeled from the start.",
       "next_action": "Mine liquidity, turnover stability, and capacity-aware low-turnover factors on the full CN_ETF universe."
     },
@@ -32,7 +63,7 @@
       "market": "CN_ETF",
       "hypothesis_family": "volatility_drawdown_regime",
       "status": "active",
-      "budget_share": 0.2,
+      "budget_share": 0.3,
       "economic_thesis": "ETF rotation should adapt to volatility compression, drawdown pressure, trend fragility, and defensive-asset regimes.",
       "next_action": "Mine low-volatility, downside-risk, drawdown-control, and regime-gated ETF factors."
     },
@@ -42,7 +73,7 @@
       "auxiliary_markets": ["CN"],
       "hypothesis_family": "stock_flow_breadth_as_etf_feature",
       "status": "exploratory",
-      "budget_share": 0.15,
+      "budget_share": 0.2,
       "economic_thesis": "Stock-level moneyflow can still help when aggregated into ETF theme breadth, industry diffusion, and risk-appetite features aligned to ETF holdings or themes.",
       "allowed_roles": [
         "market_breadth_auxiliary",
@@ -62,7 +93,7 @@
       "market": "CN_ETF",
       "hypothesis_family": "fund_share_nav_structure",
       "status": "exploratory",
-      "budget_share": 0.1,
+      "budget_share": 0.15,
       "economic_thesis": "Fund share changes, scale proxies, NAV behavior, and premium/discount proxies may identify ETF demand pressure and crowded exits.",
       "next_action": "Probe daily etf_share_size share-change, scale-change, NAV, and premium/discount proxies where Tushare permissions and coverage are sufficient."
     },
