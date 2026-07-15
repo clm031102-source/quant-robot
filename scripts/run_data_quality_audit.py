@@ -15,6 +15,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 ensure_workspace_imports()
 
 from quant_robot.data.gap_audit import build_data_quality_gap_audit, write_data_quality_gap_audit
+from quant_robot.data.cn_trading_calendar import validate_cn_trading_calendar_artifact
 from quant_robot.storage.authority_bars import load_authority_processed_bars_from_config
 from quant_robot.storage.processed_bars import load_processed_bars
 
@@ -29,7 +30,9 @@ def run_data_quality_audit(
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
     bars: pd.DataFrame | None = None,
     calendar_path: str | Path | None = None,
+    calendar_manifest_path: str | Path | None = None,
     expected_dates: list[object] | None = None,
+    asset_gap_policy: str = "block",
 ) -> dict[str, Any]:
     if calendar_path is not None and expected_dates is not None:
         raise ValueError("Provide calendar_path or expected_dates, not both")
@@ -42,14 +45,26 @@ def run_data_quality_audit(
         frame = load_processed_bars(root, market)
     calendar_dates = expected_dates
     calendar_source = None
+    calendar_provenance: dict[str, Any] | None = None
+    if calendar_manifest_path is not None and calendar_path is None:
+        raise ValueError("calendar_manifest_path requires calendar_path")
     if calendar_path is not None:
         calendar_source = str(Path(calendar_path))
         calendar_dates = _load_calendar_dates(calendar_path, market)
+        if calendar_manifest_path is not None:
+            manifest = validate_cn_trading_calendar_artifact(calendar_path, calendar_manifest_path)
+            artifact = manifest.get("artifact", {}) if isinstance(manifest.get("artifact"), dict) else {}
+            calendar_provenance = {
+                "manifest_path": str(Path(calendar_manifest_path)),
+                "artifact_sha256": artifact.get("sha256"),
+            }
     audit = build_data_quality_gap_audit(
         frame,
         expected_dates=calendar_dates,
         source_root=root,
         calendar_source=calendar_source,
+        asset_gap_policy=asset_gap_policy,
+        calendar_provenance=calendar_provenance,
     )
     write_data_quality_gap_audit(output_dir, audit)
     return audit
@@ -61,12 +76,21 @@ def main() -> None:
     parser.add_argument("--market", default="CN_ETF")
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--calendar-path", help="CSV or JSON file containing the explicit trading calendar")
+    parser.add_argument("--calendar-manifest-path", help="Provider calendar manifest used to verify the artifact")
+    parser.add_argument("--asset-gap-policy", choices=["block", "review"], default="block")
+    parser.add_argument(
+        "--allow-review-required",
+        action="store_true",
+        help="Continue after a review-required audit; promotion remains blocked until the review is cleared.",
+    )
     args = parser.parse_args()
     result = run_data_quality_audit(
         data_root=Path(args.data_root),
         market=args.market,
         output_dir=Path(args.output_dir),
         calendar_path=Path(args.calendar_path) if args.calendar_path else None,
+        calendar_manifest_path=Path(args.calendar_manifest_path) if args.calendar_manifest_path else None,
+        asset_gap_policy=args.asset_gap_policy,
     )
     print(
         json.dumps(
@@ -81,8 +105,10 @@ def main() -> None:
             sort_keys=True,
         )
     )
-    if result["status"] != "cleared":
+    if result["status"] == "blocked":
         raise SystemExit(3)
+    if result["status"] == "review_required" and not args.allow_review_required:
+        raise SystemExit(4)
 
 
 def _load_calendar_dates(path: str | Path, market: str) -> list[object]:

@@ -32,11 +32,11 @@
 - Modify: `tests/unit/test_data_quality_gap_audit.py`
 - Modify: `tests/unit/test_data_quality_gap_audit_cli.py`
 
-- [ ] Add failing tests for `asset_gap_policy=review`, whole-market hard blockers, review-required CLI exit behavior, and calendar-manifest provenance.
-- [ ] Run focused tests and verify RED.
-- [ ] Implement `block` and `review` policies, preserve strict default behavior, and add `--allow-review-required` plus calendar-manifest validation.
-- [ ] Run focused tests and verify GREEN.
-- [ ] Commit as `fix: classify stock calendar gaps honestly`.
+- [x] Add failing tests for `asset_gap_policy=review`, whole-market hard blockers, review-required CLI exit behavior, and calendar-manifest provenance.
+- [x] Run focused tests and verify RED.
+- [x] Implement `block` and `review` policies, preserve strict default behavior, and add `--allow-review-required` plus calendar-manifest validation.
+- [x] Run focused tests and verify GREEN.
+- [x] Commit as `fix: classify stock calendar gaps honestly`.
 
 ### Task 3: Authority Data Manifest
 

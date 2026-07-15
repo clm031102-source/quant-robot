@@ -14,10 +14,14 @@ def build_data_quality_gap_audit(
     source_root: str | Path | None = None,
     max_examples_per_asset: int = 20,
     calendar_source: str | None = None,
+    asset_gap_policy: str = "block",
+    calendar_provenance: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     _require_columns(bars, ["asset_id", "market", "date", "volume"])
     if max_examples_per_asset < 0:
         raise ValueError("max_examples_per_asset must be non-negative")
+    if asset_gap_policy not in {"block", "review"}:
+        raise ValueError("asset_gap_policy must be 'block' or 'review'")
     frame = bars.copy()
     frame["date"] = pd.to_datetime(frame["date"]).dt.date
     explicit_calendar = expected_dates is not None
@@ -37,8 +41,14 @@ def build_data_quality_gap_audit(
         expected_dates=expected,
         missing_date_rows=missing_date_rows,
         whole_market_missing_dates=whole_market_missing_count,
+        asset_gap_policy=asset_gap_policy,
     )
-    status = "cleared" if not blockers else "blocked"
+    review_reasons = _gap_review_reasons(
+        missing_date_rows=missing_date_rows,
+        asset_gap_policy=asset_gap_policy,
+    )
+    status = "blocked" if blockers else "review_required" if review_reasons else "cleared"
+    provenance = calendar_provenance if isinstance(calendar_provenance, dict) else {}
     audit = {
         "stage": "phase_3_1_data_quality_gap_audit",
         "status": status,
@@ -58,6 +68,9 @@ def build_data_quality_gap_audit(
                 else "observed_dates_diagnostic_only"
             ),
             "explicit_calendar_supplied": explicit_calendar,
+            "asset_gap_policy": asset_gap_policy,
+            "calendar_manifest": provenance.get("manifest_path"),
+            "calendar_artifact_sha256": provenance.get("artifact_sha256"),
             "missing_date_rows": int(missing_date_rows),
             "missing_date_examples": int(len(missing_dates)),
             "missing_date_examples_truncated": bool(missing_date_rows > len(missing_dates)),
@@ -73,9 +86,10 @@ def build_data_quality_gap_audit(
         "whole_market_missing_dates": whole_market_missing_dates,
         "coverage_by_asset": coverage,
         "decision": {
-            "gap_audit_cleared": not blockers,
+            "gap_audit_cleared": status == "cleared",
             "calendar_required_for_clearance": True,
             "blockers": blockers,
+            "review_reasons": review_reasons,
         },
         "repair_actions": _repair_actions(source_root, _repair_market(markets)),
     }
@@ -104,6 +118,8 @@ def render_data_quality_gap_audit_markdown(audit: dict[str, Any]) -> str:
         f"- Stage: {audit.get('stage', 'unknown')}",
         f"- Status: {audit.get('status', 'unknown')}",
         f"- Calendar source: {summary.get('calendar_source', 'unknown')}",
+        f"- Calendar manifest: {summary.get('calendar_manifest', 'not_provided')}",
+        f"- Asset gap policy: {summary.get('asset_gap_policy', 'block')}",
         f"- Missing date rows: {summary.get('missing_date_rows', 0)}",
         f"- Missing date examples: {summary.get('missing_date_examples', 0)}",
         f"- Assets with gaps: {summary.get('assets_with_gaps', 0)}",
@@ -130,7 +146,18 @@ def render_data_quality_gap_audit_markdown(audit: dict[str, Any]) -> str:
     if not market_missing:
         lines.append("| none | none |")
     blockers = audit.get("decision", {}).get("blockers", []) if isinstance(audit.get("decision"), dict) else []
-    lines.extend(["", "## Decision", "", f"- Blockers: {', '.join(blockers) if blockers else 'none'}"])
+    review_reasons = (
+        audit.get("decision", {}).get("review_reasons", []) if isinstance(audit.get("decision"), dict) else []
+    )
+    lines.extend(
+        [
+            "",
+            "## Decision",
+            "",
+            f"- Blockers: {', '.join(blockers) if blockers else 'none'}",
+            f"- Review reasons: {', '.join(review_reasons) if review_reasons else 'none'}",
+        ]
+    )
     lines.extend(["", "## Repair Actions", ""])
     for action in audit.get("repair_actions", []):
         if isinstance(action, dict):
@@ -218,17 +245,24 @@ def _gap_blockers(
     expected_dates: list[Any],
     missing_date_rows: int,
     whole_market_missing_dates: int,
+    asset_gap_policy: str,
 ) -> list[str]:
     blockers = []
     if not explicit_calendar:
         blockers.append("explicit_trading_calendar_required")
     elif not expected_dates:
         blockers.append("explicit_trading_calendar_empty")
-    if missing_date_rows > 0:
+    if missing_date_rows > 0 and asset_gap_policy == "block":
         blockers.append("asset_sessions_missing")
     if whole_market_missing_dates > 0:
         blockers.append("whole_market_sessions_missing")
     return blockers
+
+
+def _gap_review_reasons(*, missing_date_rows: int, asset_gap_policy: str) -> list[str]:
+    if missing_date_rows > 0 and asset_gap_policy == "review":
+        return ["asset_sessions_require_suspension_review"]
+    return []
 
 
 def _symbol_by_asset(frame: pd.DataFrame) -> dict[str, str]:

@@ -122,6 +122,64 @@ class DataQualityGapAuditTests(unittest.TestCase):
         self.assertTrue(audit["decision"]["gap_audit_cleared"])
         self.assertEqual(audit["decision"]["blockers"], [])
 
+    def test_stock_review_policy_keeps_asset_gaps_out_of_hard_blockers(self):
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["CN_A", "CN_A", "CN_B", "CN_B", "CN_B"],
+                "market": ["CN"] * 5,
+                "date": ["2024-01-02", "2024-01-04", "2024-01-02", "2024-01-03", "2024-01-04"],
+                "volume": [100, 120, 200, 210, 220],
+            }
+        )
+
+        audit = build_data_quality_gap_audit(
+            bars,
+            expected_dates=["2024-01-02", "2024-01-03", "2024-01-04"],
+            asset_gap_policy="review",
+        )
+
+        self.assertEqual(audit["status"], "review_required")
+        self.assertFalse(audit["decision"]["gap_audit_cleared"])
+        self.assertEqual(audit["decision"]["blockers"], [])
+        self.assertEqual(audit["decision"]["review_reasons"], ["asset_sessions_require_suspension_review"])
+        self.assertEqual(audit["summary"]["asset_gap_policy"], "review")
+
+    def test_stock_review_policy_still_blocks_whole_market_session_loss(self):
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["CN_A", "CN_A", "CN_B", "CN_B"],
+                "market": ["CN"] * 4,
+                "date": ["2024-01-02", "2024-01-04", "2024-01-02", "2024-01-04"],
+                "volume": [100, 120, 200, 220],
+            }
+        )
+
+        audit = build_data_quality_gap_audit(
+            bars,
+            expected_dates=["2024-01-02", "2024-01-03", "2024-01-04"],
+            asset_gap_policy="review",
+        )
+
+        self.assertEqual(audit["status"], "blocked")
+        self.assertIn("whole_market_sessions_missing", audit["decision"]["blockers"])
+
+    def test_gap_audit_rejects_unknown_asset_gap_policy(self):
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["CN_A"],
+                "market": ["CN"],
+                "date": ["2024-01-02"],
+                "volume": [100],
+            }
+        )
+
+        with self.assertRaisesRegex(ValueError, "asset_gap_policy"):
+            build_data_quality_gap_audit(
+                bars,
+                expected_dates=["2024-01-02"],
+                asset_gap_policy="ignore",
+            )
+
     def test_repair_actions_use_audited_market(self):
         bars = pd.DataFrame(
             {

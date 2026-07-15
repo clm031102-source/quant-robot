@@ -7,6 +7,7 @@ from unittest.mock import patch
 import pandas as pd
 
 from scripts.run_data_quality_audit import main, run_data_quality_audit
+from quant_robot.data.cn_trading_calendar import build_cn_trading_calendar, write_cn_trading_calendar
 from quant_robot.storage.dataset_store import DatasetStore
 
 
@@ -63,6 +64,75 @@ class DataQualityGapAuditCliTests(unittest.TestCase):
             main()
 
         self.assertEqual(raised.exception.code, 3)
+
+    def test_main_requires_explicit_flag_to_continue_after_review_required(self):
+        review = {
+            "status": "review_required",
+            "summary": {},
+            "missing_dates": [],
+            "repair_actions": [],
+            "decision": {
+                "gap_audit_cleared": False,
+                "blockers": [],
+                "review_reasons": ["asset_sessions_require_suspension_review"],
+            },
+        }
+
+        with (
+            patch("scripts.run_data_quality_audit.run_data_quality_audit", return_value=review),
+            patch("sys.argv", ["run_data_quality_audit.py"]),
+            self.assertRaises(SystemExit) as raised,
+        ):
+            main()
+        self.assertEqual(raised.exception.code, 4)
+
+        with (
+            patch("scripts.run_data_quality_audit.run_data_quality_audit", return_value=review),
+            patch("sys.argv", ["run_data_quality_audit.py", "--allow-review-required"]),
+        ):
+            main()
+
+    def test_run_data_quality_audit_validates_calendar_manifest_provenance(self):
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["CN_A", "CN_A"],
+                "market": ["CN", "CN"],
+                "date": ["2024-01-02", "2024-01-03"],
+                "volume": [100, 120],
+            }
+        )
+        exchange_frame = pd.DataFrame(
+            {
+                "exchange": ["SSE", "SSE"],
+                "date": pd.to_datetime(["2024-01-02", "2024-01-03"]).date,
+                "is_open": [1, 1],
+            }
+        )
+        szse_frame = exchange_frame.assign(exchange="SZSE")
+        calendar, manifest = build_cn_trading_calendar(
+            {"SSE": exchange_frame, "SZSE": szse_frame},
+            start_date="2024-01-01",
+            end_date="2024-01-04",
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            paths = write_cn_trading_calendar(root / "calendar", calendar, manifest)
+
+            result = run_data_quality_audit(
+                bars=bars,
+                data_root=root,
+                market="CN",
+                output_dir=root / "audit",
+                calendar_path=paths["calendar_path"],
+                calendar_manifest_path=paths["manifest_path"],
+            )
+
+            self.assertEqual(result["status"], "cleared")
+            self.assertEqual(result["summary"]["calendar_manifest"], paths["manifest_path"])
+            self.assertEqual(
+                result["summary"]["calendar_artifact_sha256"],
+                paths["manifest"]["artifact"]["sha256"],
+            )
 
     def test_run_data_quality_audit_accepts_authority_bars_config_file(self):
         with tempfile.TemporaryDirectory() as tmp:
