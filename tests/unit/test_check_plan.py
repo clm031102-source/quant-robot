@@ -285,6 +285,8 @@ class CheckPlanTests(unittest.TestCase):
                 "scripts/run_market_regime_coverage.py",
                 "--regime-curve-glob",
                 "data/reports/walk_forward_tushare_moneyflow_residual_regime/fold_*/test/*/regime_curve.csv",
+                "--walk-forward-folds",
+                "data/reports/walk_forward_tushare_moneyflow_residual_regime/walk_forward_folds.csv",
                 "--output-dir",
                 "data/reports/market_regime_coverage_tushare_moneyflow_residual_regime",
                 "--min-regimes",

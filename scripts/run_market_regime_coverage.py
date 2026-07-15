@@ -25,6 +25,7 @@ DEFAULT_OUTPUT_DIR = Path("data/reports/market_regime_coverage")
 def run_market_regime_coverage(
     regime_curve: str | Path = DEFAULT_REGIME_CURVE,
     regime_curve_glob: str | None = None,
+    walk_forward_folds_path: str | Path | None = None,
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
     min_regimes: int = 2,
     min_rows_per_regime: int = 5,
@@ -34,7 +35,11 @@ def run_market_regime_coverage(
     negative_threshold: float = -0.02,
     require_sufficient: bool = False,
 ) -> dict[str, Any]:
-    rows = _read_regime_rows(regime_curve, regime_curve_glob)
+    rows, source_evidence = _read_regime_rows(
+        regime_curve,
+        regime_curve_glob,
+        walk_forward_folds_path,
+    )
     pack = build_market_regime_coverage_pack(
         rows,
         min_regimes=min_regimes,
@@ -44,6 +49,7 @@ def run_market_regime_coverage(
         positive_threshold=positive_threshold,
         negative_threshold=negative_threshold,
     )
+    pack["source_evidence"] = source_evidence
     write_market_regime_coverage_pack(output_dir, pack)
     if require_sufficient and pack["status"] != "sufficient":
         blockers = ", ".join(pack["decision"]["blockers"])
@@ -51,24 +57,84 @@ def run_market_regime_coverage(
     return pack
 
 
-def _read_regime_rows(regime_curve: str | Path, regime_curve_glob: str | None) -> pd.DataFrame:
+def _read_regime_rows(
+    regime_curve: str | Path,
+    regime_curve_glob: str | None,
+    walk_forward_folds_path: str | Path | None = None,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
     if not regime_curve_glob:
-        return pd.read_csv(regime_curve)
+        return pd.read_csv(regime_curve), {
+            "mode": "single_curve",
+            "expected_fold_cases": 0,
+            "selected_curves": 1,
+            "ignored_stale_curves": 0,
+        }
     paths = sorted(Path(path) for path in glob.glob(regime_curve_glob, recursive=True))
-    if not paths:
-        return pd.DataFrame(columns=["date", "regime_momentum", "regime_allowed"])
+    expected = _expected_fold_cases(walk_forward_folds_path) if walk_forward_folds_path is not None else None
+    selected_paths = paths
+    ignored = 0
+    if expected is not None:
+        paths_by_identity = {_curve_identity(path): path for path in paths}
+        missing = sorted(expected.difference(paths_by_identity))
+        if missing:
+            examples = ", ".join(f"fold_{fold:02d}/{case_id}" for fold, case_id in missing[:5])
+            raise RuntimeError(f"missing current walk-forward regime curves: {examples}")
+        selected_paths = [paths_by_identity[identity] for identity in sorted(expected)]
+        ignored = len(paths) - len(selected_paths)
+    if not selected_paths:
+        return pd.DataFrame(columns=["date", "regime_momentum", "regime_allowed"]), {
+            "mode": "glob",
+            "expected_fold_cases": len(expected or set()),
+            "selected_curves": 0,
+            "ignored_stale_curves": ignored,
+        }
     frames = []
-    for path in paths:
+    for path in selected_paths:
         frame = pd.read_csv(path)
         frame["source_file"] = str(path)
         frames.append(frame)
-    return pd.concat(frames, ignore_index=True)
+    return pd.concat(frames, ignore_index=True), {
+        "mode": "walk_forward_bound" if expected is not None else "glob",
+        "walk_forward_folds_path": str(walk_forward_folds_path) if walk_forward_folds_path is not None else None,
+        "expected_fold_cases": len(expected or set()),
+        "selected_curves": len(selected_paths),
+        "ignored_stale_curves": ignored,
+    }
+
+
+def _expected_fold_cases(path: str | Path) -> set[tuple[int, str]]:
+    frame = pd.read_csv(path)
+    missing = [column for column in ("fold", "case_id") if column not in frame.columns]
+    if missing:
+        raise RuntimeError(f"walk-forward folds evidence is missing columns: {', '.join(missing)}")
+    expected = {
+        (int(row.fold), str(row.case_id))
+        for row in frame[["fold", "case_id"]].dropna().itertuples(index=False)
+    }
+    if not expected:
+        raise RuntimeError("walk-forward folds evidence contains no fold cases")
+    return expected
+
+
+def _curve_identity(path: Path) -> tuple[int, str]:
+    fold = None
+    for parent in path.parents:
+        if parent.name.startswith("fold_"):
+            try:
+                fold = int(parent.name.split("_", 1)[1])
+            except ValueError:
+                break
+            break
+    if fold is None:
+        raise RuntimeError(f"regime curve path has no fold identity: {path}")
+    return fold, path.parent.name
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build a local market-regime coverage pack from a research regime_curve.csv.")
     parser.add_argument("--regime-curve", default=str(DEFAULT_REGIME_CURVE))
     parser.add_argument("--regime-curve-glob")
+    parser.add_argument("--walk-forward-folds")
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     parser.add_argument("--min-regimes", default=2, type=int)
     parser.add_argument("--min-rows-per-regime", default=5, type=int)
@@ -82,6 +148,9 @@ def main() -> None:
         pack = run_market_regime_coverage(
             regime_curve=Path(args.regime_curve),
             regime_curve_glob=args.regime_curve_glob,
+            walk_forward_folds_path=(
+                Path(args.walk_forward_folds) if args.walk_forward_folds else None
+            ),
             output_dir=Path(args.output_dir),
             min_regimes=args.min_regimes,
             min_rows_per_regime=args.min_rows_per_regime,

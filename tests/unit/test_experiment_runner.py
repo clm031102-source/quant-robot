@@ -175,6 +175,32 @@ class ExperimentRunnerTests(unittest.TestCase):
 
             pipeline.assert_called_once()
 
+    def test_experiment_grid_invalidates_resume_when_required_case_artifact_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp)
+            config = ExperimentGridConfig(
+                markets=("CN",),
+                factor_names=("momentum_2",),
+                factor_windows=(2,),
+                top_n_values=(1,),
+                cost_bps_values=(0.0,),
+                output_dir=output_dir,
+                write_case_artifacts=True,
+                resume_completed_cases=True,
+            )
+            bars = load_demo_market_bars()
+            result = run_experiment_grid(bars, config)
+            case_id = result["leaderboard"][0]["case_id"]
+            (output_dir / case_id / "metrics.json").unlink()
+
+            with patch(
+                "quant_robot.experiments.runner.run_research_pipeline",
+                wraps=experiment_runner.run_research_pipeline,
+            ) as pipeline:
+                run_experiment_grid(bars, config)
+
+            pipeline.assert_called_once()
+
     def test_experiment_grid_invalidates_resume_when_effective_config_changes(self):
         with tempfile.TemporaryDirectory() as tmp:
             bars = load_demo_market_bars()

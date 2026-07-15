@@ -278,12 +278,30 @@ def _load_completed_grid(
         return None
     if int(summary.get("cases", len(leaderboard))) != len(expected_case_ids):
         return None
+    if not _completed_case_artifacts_exist(config, expected_case_ids):
+        return None
     return {
         "config": manifest.get("config", _config_dict(config)),
         "reproducibility": cached_reproducibility,
         "summary": summary,
         "leaderboard": leaderboard,
     }
+
+
+def _completed_case_artifacts_exist(
+    config: ExperimentGridConfig,
+    expected_case_ids: set[str],
+) -> bool:
+    if not config.write_case_artifacts or config.output_dir is None:
+        return True
+    required = ["metrics.json"]
+    if config.regime_filter:
+        required.append("regime_curve.csv")
+    return all(
+        (config.output_dir / case_id / filename).is_file()
+        for case_id in expected_case_ids
+        for filename in required
+    )
 
 
 def _run_case(
