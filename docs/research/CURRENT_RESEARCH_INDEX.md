@@ -4,14 +4,18 @@ Last updated: 2026-07-16
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
-## Local Desktop Validation Evidence (Not Yet Cloud-Integrated)
+## Local Desktop Validation And Integrity Evidence (Not Yet Cloud-Integrated)
 
-- Local branch: `codex/factor-validation-cn-stock-evidence-closure-20260715`
-- Audit: `docs/research/desktop_validation_evidence_closure_2026-07-15.md`
+- Local branch: `codex/tushare-data-pipeline`
+- Validation audit: `docs/research/desktop_validation_evidence_closure_2026-07-15.md`
+- Integrity audit: `docs/research/cn_stock_session_price_integrity_2026-07-16.md`
 - Strict residual-moneyflow validation: 38 folds, 96 candidates, 0 accepted, 96 rejected
-- Promotion: 96 blocked, 0 paper-ready, 0 live-review
-- Data state: zero whole-market gaps; 337,904 asset-session gaps remain under suspension/listing review
-- Direction: do not retune this residual-moneyflow family; close PIT asset-session classification, then return primary research budget to preregistered `CN_ETF` work
+- Final authority view: 6,512,719 bars, 3,853 assets, 2,674 market sessions
+- Session integrity: zero unresolved sessions, zero missing-lifecycle assets, zero lifecycle contamination
+- Price integrity: zero blocking rows; 14 official initial-price-discovery and 49 official post-suspension rows remain review-required
+- Integrity-bound manifest: `review_required`, zero blockers, exact packet path and SHA-256 provenance
+- Direction: do not retune the residual-moneyflow family; return primary research budget to scheduler-governed, preregistered `CN_ETF` work
+- Default next family: duplicate/stop-loss review, then `cn_etf_price_rotation` if it remains active and non-exhausted
 - Boundary: research-to-paper only; no broker, account, order, or automatic-live access
 
 This local evidence is not part of `origin/main` until reviewed and integrated. It does not change the cloud branch inventory below.
