@@ -15,7 +15,7 @@ Purpose: this is the first file to read after syncing the repository on any work
 - Price integrity: zero blocking rows; 14 official initial-price-discovery and 49 official post-suspension rows remain review-required
 - Integrity-bound manifest: `review_required`, zero blockers, exact packet path and SHA-256 provenance
 - Direction: do not retune the residual-moneyflow family; return primary research budget to scheduler-governed, preregistered `CN_ETF` work
-- Default next family: duplicate/stop-loss review, then `cn_etf_price_rotation` if it remains active and non-exhausted
+- Default next family: the frozen final `cn_etf_volatility_regime` market-residual prescreen; raw price-rotation and liquidity-capacity retries are closed
 - Boundary: research-to-paper only; no broker, account, order, or automatic-live access
 
 This local evidence is not part of `origin/main` until reviewed and integrated. It does not change the cloud branch inventory below.
@@ -35,6 +35,20 @@ This local evidence is not part of `origin/main` until reviewed and integrated. 
 - Boundary: research-to-paper only; no broker, account, order, paper signal, or automatic-live access
 
 This local closeout is not part of `origin/main` until reviewed and integrated. Generated evidence remains under ignored `data/reports/` paths.
+
+## Local CN ETF Volatility-Regime Review (Not Yet Cloud-Integrated)
+
+- Local branch: `codex/factor-review-cn-etf-volatility-regime-20260716`
+- Audit: `docs/research/cn_etf_volatility_regime_duplicate_stop_loss_audit_2026-07-16.md`
+- Historical decision: raw volatility, low/downside volatility, drawdown, recovery, state-adaptive, hard-regime, range-compression, Bollinger, and SuperTrend/ATR branches are closed
+- Evidence: Round37 rejected 48/48 cases; state/recovery diagnostics had zero aggregate promotions; range-contraction full-sample Sharpe fell to 0.44-0.53 and was capacity-blocked
+- Remaining subspace: one frozen, three-candidate point-in-time market-residual prescreen for low idiosyncratic volatility, low downside beta, and positive residual skew
+- Budget: volatility regime remains 0.35 only for this last-chance batch; flow breadth 0.35; fund structure 0.30
+- Zero-lead transition: stop-loss volatility, set flow breadth/fund structure/peer relative value to 0.35/0.35/0.30
+- Final holdout: 2026 remains sealed; no walk-forward before an audited 2024-H2 through 2025 backfill
+- Boundary: research-to-paper only; no broker, account, order, paper signal, or automatic-live access
+
+This review and preregistration are local until integrated. They authorize a statistical prescreen only, not a portfolio or profitability claim.
 
 ## Local CN ETF Price-Rotation Closeout (Not Yet Cloud-Integrated)
 

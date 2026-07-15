@@ -10,6 +10,23 @@
   },
   "last_decision": {
     "date": "2026-07-16",
+    "source_stage": "cn_etf_volatility_regime_duplicate_stop_loss_audit",
+    "reviewed_family": "cn_etf_volatility_regime",
+    "decision": "narrow_to_last_compact_market_residual_prescreen",
+    "retained_budget_share": 0.35,
+    "candidate_names": [
+      "etf_idio_vol_low_60",
+      "etf_downside_beta_low_120",
+      "etf_positive_residual_skew_60"
+    ],
+    "zero_lead_resulting_budget_shares": {
+      "cn_etf_flow_breadth_aggregation": 0.35,
+      "cn_etf_fund_structure": 0.35,
+      "cn_etf_peer_relative_value": 0.3
+    }
+  },
+  "previous_decision": {
+    "date": "2026-07-16",
     "source_stage": "cn_etf_liquidity_capacity_prescreen",
     "source_config_sha256": "b0eed9567ddd0172c0a02cc7cb3b1fb494db95b5053cc5acb8a2cf68412e5b76",
     "research_lead_count": 0,
@@ -84,11 +101,49 @@
     {
       "family_id": "cn_etf_volatility_regime",
       "market": "CN_ETF",
-      "hypothesis_family": "volatility_drawdown_regime",
+      "hypothesis_family": "market_residual_volatility_asymmetry",
       "status": "active",
       "budget_share": 0.35,
-      "economic_thesis": "ETF rotation should adapt to volatility compression, drawdown pressure, trend fragility, and defensive-asset regimes.",
-      "next_action": "Mine low-volatility, downside-risk, drawdown-control, and regime-gated ETF factors."
+      "review_status": "last_compact_prescreen_only",
+      "closed_subfamilies": [
+        "raw_realized_volatility",
+        "standalone_low_volatility",
+        "raw_downside_volatility",
+        "drawdown_resilience",
+        "defensive_blends",
+        "crash_recovery",
+        "state_adaptive_defense",
+        "hard_positive_momentum_regime_filter",
+        "range_and_volatility_compression",
+        "public_volatility_normalized_indicators"
+      ],
+      "remaining_candidate_names": [
+        "etf_idio_vol_low_60",
+        "etf_downside_beta_low_120",
+        "etf_positive_residual_skew_60"
+      ],
+      "last_chance_batch": true,
+      "parameter_rescue_allowed": false,
+      "window_tuning_allowed": false,
+      "threshold_relaxation_allowed": false,
+      "sign_flip_rescue_allowed": false,
+      "regime_rescue_allowed": false,
+      "forbidden_actions": [
+        "raw_volatility_retry",
+        "low_volatility_retry",
+        "downside_volatility_retry",
+        "drawdown_or_recovery_retry",
+        "range_contraction_retry",
+        "hard_regime_filter_retry",
+        "sign_flip_rescue",
+        "parameter_rescue",
+        "window_tuning",
+        "threshold_relaxation",
+        "portfolio_grid",
+        "walk_forward"
+      ],
+      "economic_thesis": "After removing the point-in-time common ETF market component, low idiosyncratic volatility, low downside beta, or favorable residual skew may contain information that raw volatility, drawdown, compression, and regime factors did not test.",
+      "next_action": "Run only the frozen three-candidate market-residual volatility prescreen; zero leads immediately stop-loss the family and activate peer-relative ETF value research."
     },
     {
       "family_id": "cn_etf_flow_breadth_aggregation",

@@ -1,0 +1,106 @@
+{
+  "stage": "cn_etf_market_residual_volatility_prescreen",
+  "primary_market": "CN_ETF",
+  "research_family": "cn_etf_volatility_regime",
+  "research_scope": "market_residual_volatility_asymmetry_last_chance",
+  "data_root": "data/processed/tushare_etf_wide_history_2023_2026",
+  "metadata_root": "data/processed/tushare_etf_wide_history_2023_2026/metadata/tushare_fund_basic",
+  "analysis_start_date": "2020-01-02",
+  "analysis_end_date": "2024-06-28",
+  "final_holdout_start": "2026-01-01",
+  "market_proxy": {
+    "method": "point_in_time_eligible_cross_sectional_median_return",
+    "min_cross_section": 30
+  },
+  "candidate_names": [
+    "etf_idio_vol_low_60",
+    "etf_downside_beta_low_120",
+    "etf_positive_residual_skew_60"
+  ],
+  "candidate_parameters": {
+    "beta_window": 120,
+    "beta_min_observations": 80,
+    "downside_beta_window": 120,
+    "downside_beta_min_observations": 24,
+    "residual_window": 60,
+    "residual_min_observations": 40,
+    "residual_model_lag": 1,
+    "include_intercept": true
+  },
+  "reference_names": [
+    "low_volatility_20",
+    "low_volatility_60",
+    "low_downside_volatility_60",
+    "drawdown_resilience_60",
+    "crash_recovery_60",
+    "recovery_quality_60",
+    "formula_range_contraction_breakout_20",
+    "formula_range_contraction_breakout_lowvol_20",
+    "bollinger_reversal_20"
+  ],
+  "horizons": [
+    5,
+    20
+  ],
+  "execution_lag": 1,
+  "eligibility": {
+    "point_in_time": true,
+    "official_etf_only": true,
+    "min_prior_observations": 252,
+    "liquidity_window": 20,
+    "min_trailing_median_amount": 5000000.0,
+    "max_stale_rate": 0.05,
+    "max_abs_return": 0.2
+  },
+  "thresholds": {
+    "alpha": 0.05,
+    "min_cross_section": 30,
+    "min_ic_observations": 20,
+    "min_year_ic_observations": 20,
+    "min_usable_years": 3,
+    "min_mean_rank_ic": 0.02,
+    "min_icir": 0.3,
+    "min_positive_ic_rate": 0.55,
+    "min_quantile_monotonicity": 0.7,
+    "max_top_quantile_turnover": 0.9,
+    "min_positive_year_rate": 0.6,
+    "max_abs_reference_correlation": 0.85
+  },
+  "capacity": {
+    "amount_unit": "CNY",
+    "adv_window": 20,
+    "portfolio_value_cny": 1000000.0,
+    "position_count": 10,
+    "max_one_way_participation_rate": 0.01,
+    "top_quantile_adv20_percentile": 0.1,
+    "required_capacity_coverage_rate": 1.0
+  },
+  "multiple_testing": {
+    "method": "benjamini_hochberg",
+    "scope": "all_frozen_candidate_horizon_tests"
+  },
+  "zero_lead_decision": {
+    "closed_family": "cn_etf_volatility_regime",
+    "closed_budget_share": 0.35,
+    "activated_family": "cn_etf_peer_relative_value",
+    "resulting_budget_shares": {
+      "cn_etf_flow_breadth_aggregation": 0.35,
+      "cn_etf_fund_structure": 0.35,
+      "cn_etf_peer_relative_value": 0.3
+    }
+  },
+  "output_dir": "data/reports/cn_etf_market_residual_volatility_prescreen_20260716",
+  "last_chance_batch": true,
+  "sign_flip_rescue_allowed": false,
+  "parameter_rescue_allowed": false,
+  "window_tuning_allowed": false,
+  "threshold_relaxation_allowed": false,
+  "regime_rescue_allowed": false,
+  "portfolio_grid_allowed": false,
+  "walk_forward_allowed": false,
+  "paper_signal_allowed": false,
+  "broker_connection_allowed": false,
+  "account_read_allowed": false,
+  "order_placement_allowed": false,
+  "live_trading_allowed": false
+}
