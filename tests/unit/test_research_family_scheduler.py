@@ -67,6 +67,35 @@ class ResearchFamilySchedulerTests(unittest.TestCase):
         self.assertIn("research_family_stop_loss", family["stop_loss_reasons"])
         self.assertIn("rescue_iteration_limit_reached", family["stop_loss_reasons"])
 
+    def test_explicit_stop_lossed_status_never_receives_primary_allocation(self):
+        config = {
+            "min_active_primary_families": 1,
+            "max_budget_share_per_family": 1.0,
+            "families": [
+                {
+                    "family_id": "closed_price_rotation",
+                    "market": "CN_ETF",
+                    "status": "stop_lossed",
+                    "budget_share": 0.0,
+                },
+                {
+                    "family_id": "liquidity",
+                    "market": "CN_ETF",
+                    "status": "active",
+                    "budget_share": 1.0,
+                },
+            ],
+        }
+
+        pack = build_research_family_schedule(config)
+
+        family = next(row for row in pack["families"] if row["family_id"] == "closed_price_rotation")
+        self.assertTrue(family["stop_loss_triggered"])
+        self.assertIn("status_stop_lossed", family["stop_loss_reasons"])
+        self.assertEqual(family["allocation_status"], "no_primary_allocation")
+        self.assertFalse(family["primary_allocation_allowed"])
+        self.assertEqual(pack["summary"]["stop_lossed_families"], 1)
+
     def test_scheduler_requires_multiple_active_research_families(self):
         config = {
             "min_active_primary_families": 3,

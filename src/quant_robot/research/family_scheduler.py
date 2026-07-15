@@ -11,7 +11,14 @@ import pandas as pd
 
 STAGE = "research_family_scheduler"
 PRIMARY_STATUSES = {"active", "exploratory"}
-NON_PRIMARY_STATUSES = {"auxiliary_only", "deprecated", "paused", "retired", "rejected_as_primary"}
+NON_PRIMARY_STATUSES = {
+    "auxiliary_only",
+    "deprecated",
+    "paused",
+    "retired",
+    "rejected_as_primary",
+    "stop_lossed",
+}
 
 
 def load_research_family_config(path: str | Path) -> dict[str, Any]:
