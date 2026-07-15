@@ -953,7 +953,18 @@ def _daily_trade_signal_snapshots(
     try:
         bars = _load_gui_bars(source_name, data_root, market)
         factor_bars = _bars_until_as_of_date(bars, as_of_date)
-        factors = compute_basic_factors(factor_bars, windows=_daily_trade_factor_windows(candidates))
+        requested_factor_names = tuple(
+            dict.fromkeys(
+                str(candidate.get("factor_name") or "")
+                for candidate in candidates
+                if str(candidate.get("factor_name") or "").strip()
+            )
+        )
+        factors = compute_basic_factors(
+            factor_bars,
+            windows=_daily_trade_factor_windows(candidates),
+            factor_names=requested_factor_names,
+        )
     except Exception as exc:
         errors = [
             {

@@ -95,15 +95,27 @@ class ExperimentRunnerTests(unittest.TestCase):
             self.assertTrue((Path(tmp) / "manifest.json").exists())
             manifest = json.loads((Path(tmp) / "manifest.json").read_text(encoding="utf-8"))
             reproducibility = manifest["reproducibility"]
-            self.assertEqual(reproducibility["schema_version"], 1)
+            self.assertEqual(reproducibility["schema_version"], 2)
             self.assertEqual(len(reproducibility["fingerprint"]), 64)
             self.assertEqual(len(reproducibility["config_sha256"]), 64)
             self.assertEqual(len(reproducibility["data_sha256"]), 64)
             self.assertEqual(len(reproducibility["code_sha256"]), 64)
             self.assertEqual(len(reproducibility["environment_sha256"]), 64)
+
             self.assertTrue((Path(tmp) / leaderboard[0]["case_id"] / "metrics.json").exists())
             saved = pd.read_csv(Path(tmp) / "leaderboard.csv")
             self.assertEqual(len(saved), 8)
+
+    def test_research_code_fingerprint_excludes_unrelated_gui_modules(self):
+        package_root = Path(experiment_runner.__file__).resolve().parents[1]
+        paths = experiment_runner._research_code_paths()
+        relative = {path.relative_to(package_root).as_posix() for path in paths}
+
+        self.assertIn("experiments/runner.py", relative)
+        self.assertIn("factors/technical.py", relative)
+        self.assertIn("research/pipeline.py", relative)
+        self.assertFalse(any(path.startswith("gui/") for path in relative))
+        self.assertEqual(paths, sorted(set(paths)))
 
     def test_experiment_grid_reuses_completed_output_when_resume_enabled(self):
         with tempfile.TemporaryDirectory() as tmp:

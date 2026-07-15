@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 import hashlib
 import math
@@ -29,7 +30,7 @@ from quant_robot.storage.atomic import atomic_write, atomic_write_json
 from quant_robot.storage.fingerprints import fingerprint_frame, sha256_file
 
 
-EXPERIMENT_FINGERPRINT_SCHEMA_VERSION = 1
+EXPERIMENT_FINGERPRINT_SCHEMA_VERSION = 2
 
 
 @dataclass(frozen=True)
@@ -754,13 +755,86 @@ def _fingerprint_effective_bars(bars: pd.DataFrame) -> str:
 def _fingerprint_code() -> str:
     package_root = Path(__file__).resolve().parents[1]
     digest = hashlib.sha256()
-    for path in sorted(package_root.rglob("*.py")):
+    for path in _research_code_paths():
         relative = path.relative_to(package_root).as_posix()
         digest.update(relative.encode("utf-8"))
         digest.update(b"\0")
         digest.update(sha256_file(path).encode("ascii"))
         digest.update(b"\n")
     return digest.hexdigest()
+
+
+def _research_code_paths() -> list[Path]:
+    package_root = Path(__file__).resolve().parents[1]
+    package_parent = package_root.parent
+    pending = [Path(__file__).resolve()]
+    discovered: set[Path] = set()
+    while pending:
+        path = pending.pop()
+        if path in discovered:
+            continue
+        discovered.add(path)
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        except (OSError, SyntaxError) as exc:
+            raise ValueError(f"cannot fingerprint research dependency {path}: {exc}") from exc
+        for module_name in _imported_package_modules(path, tree, package_parent):
+            for candidate in _package_module_paths(module_name, package_parent):
+                if candidate not in discovered:
+                    pending.append(candidate)
+    return sorted(discovered)
+
+
+def _imported_package_modules(
+    path: Path,
+    tree: ast.AST,
+    package_parent: Path,
+) -> set[str]:
+    relative_parts = path.relative_to(package_parent).with_suffix("").parts
+    current_package = list(relative_parts[:-1])
+    modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names if alias.name.startswith("quant_robot"))
+            continue
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        if node.level:
+            parent_count = node.level - 1
+            if parent_count > len(current_package):
+                raise ValueError(f"invalid relative import while fingerprinting {path}")
+            base_parts = current_package[: len(current_package) - parent_count]
+            if node.module:
+                base_parts.extend(node.module.split("."))
+        else:
+            base_parts = (node.module or "").split(".") if node.module else []
+        base_module = ".".join(base_parts)
+        if base_module.startswith("quant_robot"):
+            modules.add(base_module)
+            modules.update(
+                f"{base_module}.{alias.name}"
+                for alias in node.names
+                if alias.name != "*"
+            )
+    return modules
+
+
+def _package_module_paths(module_name: str, package_parent: Path) -> list[Path]:
+    parts = module_name.split(".")
+    if not parts or parts[0] != "quant_robot":
+        return []
+    candidates: set[Path] = set()
+    for length in range(1, len(parts)):
+        package_init = package_parent.joinpath(*parts[:length], "__init__.py")
+        if package_init.is_file():
+            candidates.add(package_init.resolve())
+    module_file = package_parent.joinpath(*parts).with_suffix(".py")
+    package_init = package_parent.joinpath(*parts, "__init__.py")
+    if module_file.is_file():
+        candidates.add(module_file.resolve())
+    if package_init.is_file():
+        candidates.add(package_init.resolve())
+    return sorted(candidates)
 
 
 def _auxiliary_input_inventory(config: ExperimentGridConfig) -> list[dict[str, Any]]:

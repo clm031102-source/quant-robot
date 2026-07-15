@@ -10,6 +10,7 @@ from urllib.request import Request, urlopen
 
 import pandas as pd
 
+from quant_robot.gui import research_service
 from quant_robot.data.fixtures import load_demo_market_bars
 from quant_robot.gui.app import create_gui_handler
 from quant_robot.gui.desktop_app import (
@@ -849,6 +850,7 @@ class GuiSnapshotTests(unittest.TestCase):
             snapshot["daily_operator_mission_control"]["stage"],
             "phase_6_30_daily_operator_mission_control",
         )
+
         self.assertFalse(snapshot["daily_operator_mission_control"]["summary"]["order_placement_allowed"])
         live_system = snapshot["daily_live_trading_system_status"]
         self.assertEqual(live_system["stage"], "phase_6_31_daily_live_trading_system_status")
@@ -1100,6 +1102,21 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertGreaterEqual(len(snapshot["operator_next_actions"]), 1)
         self.assertEqual(snapshot["operator_next_actions"][0]["automation_allowed"], False)
         self.assertLessEqual(snapshot["summary"]["selected_factor_count"], 3)
+
+    def test_daily_trade_advisory_prunes_factor_computation_to_selected_candidates(self):
+        with patch(
+            "quant_robot.gui.research_service.compute_basic_factors",
+            wraps=research_service.compute_basic_factors,
+        ) as factor_builder:
+            snapshot = build_daily_trade_advisory_snapshot(
+                source="demo_fixture",
+                market="CN_ETF",
+                limit=3,
+            )
+
+        requested = factor_builder.call_args.kwargs["factor_names"]
+        selected = {str(row["factor_name"]) for row in snapshot["selected_candidates"]}
+        self.assertEqual(set(requested), selected)
 
     def test_daily_trade_advisory_exposes_daily_ops_handoff_for_paper_ready_ticket(self):
         with tempfile.TemporaryDirectory() as tmp:
