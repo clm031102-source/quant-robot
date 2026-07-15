@@ -161,16 +161,22 @@ class MoneyflowTechnicalComboFactorTests(unittest.TestCase):
         moneyflow = _multi_exposure_framework_moneyflow_inputs()
         future_bars = _future_spike_bars(bars)
         future_moneyflow = _future_spike_moneyflow_inputs(moneyflow)
+        frozen_factors = (
+            "large_minus_liquidity_20",
+            "large_resid_liquidity_20",
+            "large_resid_liq_vol_amt_20",
+            "large_resid_liq_vol_amt_gate_20",
+        )
 
         baseline = compute_moneyflow_technical_combo_factors(
             bars,
             moneyflow,
-            factor_names=("large_resid_liq_vol_amt_gate_20",),
+            factor_names=frozen_factors,
         )
         with_future = compute_moneyflow_technical_combo_factors(
             pd.concat([bars, future_bars], ignore_index=True),
             pd.concat([moneyflow, future_moneyflow], ignore_index=True),
-            factor_names=("large_resid_liq_vol_amt_gate_20",),
+            factor_names=frozen_factors,
         )
 
         original_last_date = pd.Timestamp("2024-01-25").date()

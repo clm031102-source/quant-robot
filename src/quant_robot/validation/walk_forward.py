@@ -116,6 +116,7 @@ def _run_rolling_walk_forward_validation(bars: pd.DataFrame, config: WalkForward
         raise ValueError("Rolling walk-forward requires enough dates for at least one fold")
     fold_rows: list[dict[str, Any]] = []
     max_window = _warmup_rows(config)
+    shared_factor_factory = _lazy_factor_matrix_factory(bars, config.experiment_grid)
     for fold in folds:
         fold_dir = config.output_dir / f"fold_{fold['fold']:02d}" if config.output_dir is not None else None
         train_dir = fold_dir / "train" if fold_dir is not None else None
@@ -134,8 +135,11 @@ def _run_rolling_walk_forward_validation(bars: pd.DataFrame, config: WalkForward
             signal_end_date=str(fold["test_end_date"]),
         )
         test_bars = _with_warmup_bars(fold["train_bars"], fold["test_bars"], max_window)
-        factor_bars = _combine_factor_bars(fold["train_bars"], fold["test_bars"])
-        factor_factory = _lazy_factor_matrix_factory(factor_bars, config.experiment_grid)
+        factor_factory = _fold_factor_matrix_factory(
+            shared_factor_factory,
+            start_date=fold["train_start_date"],
+            end_date=fold["test_end_date"],
+        )
         train = run_experiment_grid(
             fold["train_bars"],
             train_config,
@@ -212,6 +216,33 @@ def _lazy_factor_matrix_factory(
         nonlocal matrix
         if matrix is missing:
             matrix = precompute_experiment_factor_matrix(bars, config)
+        return matrix if isinstance(matrix, pd.DataFrame) else None
+
+    return load
+
+
+def _fold_factor_matrix_factory(
+    shared_factory: Callable[[], pd.DataFrame | None] | None,
+    *,
+    start_date: Any,
+    end_date: Any,
+) -> Callable[[], pd.DataFrame | None] | None:
+    if shared_factory is None:
+        return None
+    missing = object()
+    matrix: object = missing
+
+    def load() -> pd.DataFrame | None:
+        nonlocal matrix
+        if matrix is missing:
+            shared = shared_factory()
+            if shared is None:
+                matrix = None
+            else:
+                dates = pd.to_datetime(shared["date"]).dt.date
+                start = pd.to_datetime(start_date).date()
+                end = pd.to_datetime(end_date).date()
+                matrix = shared.loc[(dates >= start) & (dates <= end)].reset_index(drop=True)
         return matrix if isinstance(matrix, pd.DataFrame) else None
 
     return load
@@ -767,6 +798,7 @@ def _grid_from_mapping(data: dict[str, Any]) -> ExperimentGridConfig:
         signal_amount_window=int(data.get("signal_amount_window", ExperimentGridConfig.signal_amount_window)),
         output_dir=None,
         write_case_artifacts=bool(data.get("write_case_artifacts", ExperimentGridConfig.write_case_artifacts)),
+        case_artifact_mode=str(data.get("case_artifact_mode", ExperimentGridConfig.case_artifact_mode)),
         rank_by=str(data.get("rank_by", ExperimentGridConfig.rank_by)),
         min_trades=int(data.get("min_trades", ExperimentGridConfig.min_trades)),
         precompute_factor_matrix=bool(data.get("precompute_factor_matrix", ExperimentGridConfig.precompute_factor_matrix)),

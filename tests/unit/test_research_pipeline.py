@@ -24,6 +24,52 @@ from scripts.run_research_pipeline import build_research_config, load_research_b
 
 
 class ResearchPipelineTests(unittest.TestCase):
+    def test_evidence_artifact_mode_writes_only_atomic_resume_and_regime_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp)
+            writes = []
+            atomic_file = research_pipeline.atomic_write
+            atomic_json = research_pipeline.atomic_write_json
+            config = ResearchPipelineConfig(
+                factor_name="momentum_2",
+                factor_windows=(2,),
+                market="CN",
+                top_n=1,
+                cost_bps=0.0,
+                regime_filter=True,
+                regime_lookback=2,
+                output_dir=output_dir,
+            )
+
+            def record_file(path, writer):
+                writes.append(("file", Path(path).name))
+                return atomic_file(path, writer)
+
+            def record_json(path, payload):
+                writes.append(("json", Path(path).name))
+                return atomic_json(path, payload)
+
+            with (
+                patch.object(research_pipeline, "atomic_write", side_effect=record_file),
+                patch.object(research_pipeline, "atomic_write_json", side_effect=record_json),
+            ):
+                run_research_pipeline(
+                    load_demo_market_bars(),
+                    config,
+                    artifact_mode="evidence",
+                )
+
+            self.assertEqual(
+                {path.name for path in output_dir.iterdir()},
+                {"metrics.json", "regime_curve.csv"},
+            )
+            self.assertGreater(len(pd.read_csv(output_dir / "regime_curve.csv")), 0)
+            self.assertIn("total_return", json.loads((output_dir / "metrics.json").read_text(encoding="utf-8")))
+            self.assertEqual(
+                writes,
+                [("file", "regime_curve.csv"), ("json", "metrics.json")],
+            )
+
     def test_pipeline_reuses_equivalent_research_inputs_without_changing_results(self):
         bars = load_demo_market_bars()
         first_config = ResearchPipelineConfig(

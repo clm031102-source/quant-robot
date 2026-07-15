@@ -334,7 +334,7 @@ class WalkForwardTests(unittest.TestCase):
         self.assertEqual(str(pd.to_datetime(test_bars["date"]).dt.date.min()), "2024-01-02")
         self.assertEqual(str(pd.to_datetime(test_bars["date"]).dt.date.max()), "2024-01-08")
 
-    def test_rolling_walk_forward_shares_one_lazy_factor_matrix_per_fold(self):
+    def test_rolling_walk_forward_precomputes_once_and_shares_a_date_slice_per_fold(self):
         dates = pd.date_range("2024-01-01", periods=10, freq="D")
         bars = pd.DataFrame(
             {
@@ -374,6 +374,7 @@ class WalkForwardTests(unittest.TestCase):
             ]
         }
         matrices: list[pd.DataFrame] = []
+        precompute_rows: list[int] = []
         grid_configs: list[ExperimentGridConfig] = []
 
         def run_grid(_bars, grid_config, *, precomputed_factor_factory=None, **_kwargs):
@@ -381,10 +382,23 @@ class WalkForwardTests(unittest.TestCase):
             matrices.append(precomputed_factor_factory())
             return grid_result
 
+        def precompute(all_bars, _config):
+            precompute_rows.append(len(all_bars))
+            return pd.DataFrame(
+                {
+                    "asset_id": ["CN_A"] * len(dates),
+                    "market": ["CN"] * len(dates),
+                    "date": [str(date.date()) for date in dates],
+                    "factor_name": ["momentum_2"] * len(dates),
+                    "factor_value": range(len(dates)),
+                    "lookback_window": [2] * len(dates),
+                }
+            )
+
         with (
             patch(
                 "quant_robot.validation.walk_forward.precompute_experiment_factor_matrix",
-                side_effect=lambda fold_bars, _config: pd.DataFrame({"rows": [len(fold_bars)]}),
+                side_effect=precompute,
                 create=True,
             ) as precompute,
             patch("quant_robot.validation.walk_forward.run_experiment_grid", side_effect=run_grid),
@@ -392,10 +406,22 @@ class WalkForwardTests(unittest.TestCase):
             result = run_walk_forward_validation(bars, config)
 
         folds = result["summary"]["folds"]
-        self.assertEqual(precompute.call_count, folds)
+        self.assertEqual(precompute.call_count, 1)
+        self.assertEqual(precompute_rows, [len(bars)])
         self.assertEqual(len(matrices), folds * 2)
         for index in range(0, len(matrices), 2):
             self.assertIs(matrices[index], matrices[index + 1])
+        self.assertIsNot(matrices[0], matrices[2])
+        self.assertEqual(
+            [
+                (
+                    str(pd.to_datetime(matrix["date"]).dt.date.min()),
+                    str(pd.to_datetime(matrix["date"]).dt.date.max()),
+                )
+                for matrix in matrices[::2]
+            ],
+            [("2024-01-01", "2024-01-08"), ("2024-01-03", "2024-01-10")],
+        )
         self.assertTrue(all(not item.write_case_artifacts for item in grid_configs[0::2]))
         self.assertTrue(all(item.write_case_artifacts for item in grid_configs[1::2]))
 
@@ -571,6 +597,7 @@ class WalkForwardTests(unittest.TestCase):
         self.assertTrue(config.experiment_grid.precompute_factor_matrix)
         self.assertTrue(config.experiment_grid.resume_completed_cases)
         self.assertTrue(config.experiment_grid.reuse_research_inputs)
+        self.assertEqual(config.experiment_grid.case_artifact_mode, "evidence")
         self.assertFalse(config.write_train_case_artifacts)
 
     def test_tushare_cn_etf_rotation_seed_config_covers_three_active_primary_families(self):

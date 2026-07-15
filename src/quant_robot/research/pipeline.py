@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import math
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -38,6 +37,7 @@ from quant_robot.storage.cn_etf_theme_map import load_cn_etf_theme_map
 from quant_robot.storage.cn_etf_rotation_membership import filter_signals_to_cn_etf_rotation_membership
 from quant_robot.storage.factor_inputs import load_factor_inputs
 from quant_robot.storage.moneyflow_inputs import load_moneyflow_inputs
+from quant_robot.storage.atomic import atomic_write, atomic_write_json
 
 
 MIN_IC_OBSERVATIONS_FOR_SIGNIFICANCE = 20
@@ -117,7 +117,10 @@ def run_research_pipeline(
     *,
     precomputed_factors: pd.DataFrame | None = None,
     research_input_cache: dict[tuple[Any, ...], Any] | None = None,
+    artifact_mode: str = "full",
 ) -> dict[str, Any]:
+    if artifact_mode not in {"full", "evidence"}:
+        raise ValueError("artifact_mode must be 'full' or 'evidence'")
     if config.rebalance_interval < 1:
         raise ValueError("rebalance_interval must be at least 1")
     prepared = _research_inputs(
@@ -211,6 +214,7 @@ def run_research_pipeline(
             prepared.long_short,
             backtest.trades,
             backtest.positions,
+            artifact_mode=artifact_mode,
         )
     return result
 
@@ -693,28 +697,43 @@ def _write_artifacts(
     long_short: pd.DataFrame,
     trades: pd.DataFrame,
     holdings: pd.DataFrame,
+    *,
+    artifact_mode: str,
 ) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "metrics.json").write_text(
-        json.dumps({"data_mode": result["data_mode"], **result["metrics"]}, indent=2, sort_keys=True),
-        encoding="utf-8",
-    )
-    (output_dir / "benchmark_metrics.json").write_text(json.dumps(result["benchmark_metrics"], indent=2, sort_keys=True), encoding="utf-8")
-    (output_dir / "decision.json").write_text(json.dumps(result["decision"], indent=2, sort_keys=True), encoding="utf-8")
-    (output_dir / "factor_summary.json").write_text(json.dumps(result["factor_summary"], indent=2, sort_keys=True), encoding="utf-8")
-    equity_curve.to_csv(output_dir / "equity_curve.csv", index=False)
-    benchmark_curve.to_csv(output_dir / "benchmark_curve.csv", index=False)
-    drawdown.to_csv(output_dir / "drawdown_curve.csv", index=False)
-    regime.to_csv(output_dir / "regime_curve.csv", index=False)
-    ic.to_csv(output_dir / "ic.csv", index=False)
-    tail_ic.to_csv(output_dir / "tail_ic.csv", index=False)
-    groups.to_csv(output_dir / "group_returns.csv", index=False)
-    long_short.to_csv(output_dir / "long_short.csv", index=False)
-    trades.to_csv(output_dir / "trades.csv", index=False)
-    holdings.to_csv(output_dir / "holdings.csv", index=False)
-    write_line_svg(equity_curve, "date", "equity", output_dir / "equity_curve.svg", "Research Pipeline Equity")
-    write_line_svg(drawdown, "date", "drawdown", output_dir / "drawdown_curve.svg", "Research Pipeline Drawdown")
-    write_line_svg(ic, "date", "ic", output_dir / "ic.svg", "Research Pipeline IC")
+    if artifact_mode == "full":
+        atomic_write_json(output_dir / "benchmark_metrics.json", result["benchmark_metrics"])
+        atomic_write_json(output_dir / "decision.json", result["decision"])
+        atomic_write_json(output_dir / "factor_summary.json", result["factor_summary"])
+        for filename, frame in (
+            ("equity_curve.csv", equity_curve),
+            ("benchmark_curve.csv", benchmark_curve),
+            ("drawdown_curve.csv", drawdown),
+            ("ic.csv", ic),
+            ("tail_ic.csv", tail_ic),
+            ("group_returns.csv", groups),
+            ("long_short.csv", long_short),
+            ("trades.csv", trades),
+            ("holdings.csv", holdings),
+        ):
+            atomic_write(output_dir / filename, lambda temporary, data=frame: data.to_csv(temporary, index=False))
+        for filename, frame, y_column, title in (
+            ("equity_curve.svg", equity_curve, "equity", "Research Pipeline Equity"),
+            ("drawdown_curve.svg", drawdown, "drawdown", "Research Pipeline Drawdown"),
+            ("ic.svg", ic, "ic", "Research Pipeline IC"),
+        ):
+            atomic_write(
+                output_dir / filename,
+                lambda temporary, data=frame, y=y_column, heading=title: write_line_svg(
+                    data,
+                    "date",
+                    y,
+                    temporary,
+                    heading,
+                ),
+            )
+    atomic_write(output_dir / "regime_curve.csv", lambda temporary: regime.to_csv(temporary, index=False))
+    atomic_write_json(output_dir / "metrics.json", {"data_mode": result["data_mode"], **result["metrics"]})
 
 
 def _config_dict(config: ResearchPipelineConfig, portfolio_scope: str, periods_per_year: float) -> dict[str, Any]:

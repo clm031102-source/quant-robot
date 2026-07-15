@@ -39,6 +39,7 @@
     "max_drawdown_limit": 0.30,
     "rank_by": "sharpe",
     "min_trades": 30,
+    "case_artifact_mode": "evidence",
     "precompute_factor_matrix": true,
     "resume_completed_cases": true,
     "reuse_research_inputs": true,

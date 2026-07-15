@@ -83,6 +83,7 @@ class ExperimentGridConfig:
     signal_amount_window: int = 20
     output_dir: Path | None = None
     write_case_artifacts: bool = True
+    case_artifact_mode: str = "full"
     rank_by: str = "sharpe"
     min_trades: int = 1
     precompute_factor_matrix: bool = False
@@ -198,6 +199,7 @@ def load_experiment_grid_config(path: str | Path) -> ExperimentGridConfig:
         signal_amount_window=int(data.get("signal_amount_window", ExperimentGridConfig.signal_amount_window)),
         output_dir=Path(data["output_dir"]) if data.get("output_dir") else None,
         write_case_artifacts=bool(data.get("write_case_artifacts", ExperimentGridConfig.write_case_artifacts)),
+        case_artifact_mode=str(data.get("case_artifact_mode", ExperimentGridConfig.case_artifact_mode)),
         rank_by=str(data.get("rank_by", ExperimentGridConfig.rank_by)),
         min_trades=int(data.get("min_trades", ExperimentGridConfig.min_trades)),
         precompute_factor_matrix=bool(data.get("precompute_factor_matrix", ExperimentGridConfig.precompute_factor_matrix)),
@@ -359,6 +361,7 @@ def _run_case(
             ),
             precomputed_factors=precomputed_factors,
             research_input_cache=research_input_cache,
+            artifact_mode=grid_config.case_artifact_mode,
         )
         trades = int(result["artifact_rows"]["trades"])
         status = "completed" if trades >= grid_config.min_trades else "no_trades"
@@ -650,6 +653,8 @@ def _summary(leaderboard: list[dict[str, Any]]) -> dict[str, int]:
 
 
 def _validate_config(config: ExperimentGridConfig) -> None:
+    if config.case_artifact_mode not in {"full", "evidence"}:
+        raise ValueError("case_artifact_mode must be 'full' or 'evidence'")
     regime_lookbacks = _regime_lookback_values(config)
     if not regime_lookbacks:
         raise ValueError("regime_lookback_values must not be empty")
@@ -735,7 +740,7 @@ def _experiment_reproducibility(bars: pd.DataFrame, config: ExperimentGridConfig
 
 def _effective_config_dict(config: ExperimentGridConfig) -> dict[str, Any]:
     data = _config_dict(config)
-    for key in ("output_dir", "write_case_artifacts", "resume_completed_cases"):
+    for key in ("output_dir", "write_case_artifacts", "case_artifact_mode", "resume_completed_cases"):
         data.pop(key, None)
     return data
 
