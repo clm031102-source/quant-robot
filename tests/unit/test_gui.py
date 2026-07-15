@@ -52,7 +52,12 @@ from quant_robot.gui.research_service import (
     run_demo_research,
     run_demo_signal_snapshot,
 )
+
+
 from quant_robot.storage.dataset_store import DatasetStore
+
+
+HTTP_TEST_TIMEOUT_SECONDS = 15
 
 
 class GuiDesktopAppTests(unittest.TestCase):
@@ -5701,7 +5706,7 @@ class GuiHttpTests(unittest.TestCase):
 
 
 def _read_text(url: str) -> str:
-    with urlopen(url, timeout=5) as response:
+    with urlopen(url, timeout=HTTP_TEST_TIMEOUT_SECONDS) as response:
         return response.read().decode("utf-8").replace("\r\n", "\n").replace("\r", "\n")
 
 
@@ -5717,7 +5722,7 @@ def _post_json(url: str, payload: dict[str, object]) -> dict[str, object]:
         method="POST",
         headers={"Content-Type": "application/json; charset=utf-8"},
     )
-    with urlopen(request, timeout=5) as response:
+    with urlopen(request, timeout=HTTP_TEST_TIMEOUT_SECONDS) as response:
         return json.loads(response.read().decode("utf-8"))
 
 

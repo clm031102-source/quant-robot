@@ -455,7 +455,10 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
             self.send_header("Cache-Control", "no-store")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
-            self.wfile.write(body)
+            try:
+                self.wfile.write(body)
+            except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+                return
 
         def _send_text(self, body: str, status: int, content_type: str) -> None:
             encoded = body.encode("utf-8")
