@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pandas as pd
 
@@ -125,6 +125,31 @@ class ExperimentRunnerTests(unittest.TestCase):
             pipeline.assert_not_called()
             self.assertEqual(result["summary"]["cases"], 1)
             self.assertEqual(result["leaderboard"], expected["leaderboard"])
+
+    def test_experiment_grid_does_not_build_lazy_factor_matrix_when_resume_matches(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            config = ExperimentGridConfig(
+                markets=("CN",),
+                factor_names=("momentum_2",),
+                factor_windows=(2,),
+                top_n_values=(1,),
+                cost_bps_values=(0.0,),
+                output_dir=Path(tmp),
+                precompute_factor_matrix=True,
+                resume_completed_cases=True,
+            )
+            bars = load_demo_market_bars()
+            run_experiment_grid(bars, config)
+            lazy_factory = Mock(side_effect=AssertionError("cached grids must not rebuild factors"))
+
+            result = run_experiment_grid(
+                bars,
+                config,
+                precomputed_factor_factory=lazy_factory,
+            )
+
+            lazy_factory.assert_not_called()
+            self.assertEqual(result["summary"]["cases"], 1)
 
     def test_experiment_grid_invalidates_resume_when_bars_change(self):
         with tempfile.TemporaryDirectory() as tmp:

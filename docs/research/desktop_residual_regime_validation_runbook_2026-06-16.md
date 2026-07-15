@@ -67,7 +67,7 @@ This wraps:
 - capacity controls and max participation checks
 
 The script intentionally allows zero accepted candidates. A complete rejection set is useful evidence when the underlying train/test grids did not fail.
-The residual-regime config enables `precompute_factor_matrix`, so each grid run computes the production moneyflow combo factor matrix once and reuses it across TopN, cost, and regime cases.
+The residual-regime config enables `precompute_factor_matrix` and strict fingerprinted resume. A rolling fold lazily shares one factor matrix across train/test grids; completed grids are reused only when their reproducibility fingerprint matches. Train grids retain manifests and leaderboards but skip per-case charts, while test grids retain regime curves required by the coverage gate.
 
 To run the full desktop validation check chain, use:
 

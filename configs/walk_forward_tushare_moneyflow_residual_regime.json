@@ -13,6 +13,7 @@
   "rolling_step_days": 63,
   "min_accepted_folds": 2,
   "multiple_testing_alpha": 0.05,
+  "write_train_case_artifacts": false,
   "experiment_grid": {
     "markets": ["CN"],
     "factor_source": "moneyflow_technical_combo",
@@ -39,6 +40,7 @@
     "rank_by": "sharpe",
     "min_trades": 30,
     "precompute_factor_matrix": true,
+    "resume_completed_cases": true,
     "regime_filter": true,
     "regime_lookback": 150,
     "regime_lookback_values": [120, 150, 180, 252]

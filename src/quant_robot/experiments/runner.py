@@ -210,6 +210,8 @@ def run_experiment_grid(
     bars: pd.DataFrame,
     config: ExperimentGridConfig,
     progress: Callable[[dict[str, Any]], None] | None = None,
+    *,
+    precomputed_factor_factory: Callable[[], pd.DataFrame | None] | None = None,
 ) -> dict[str, Any]:
     _validate_config(config)
     bars = _filter_bars_for_asset_universe(bars, config)
@@ -217,7 +219,13 @@ def run_experiment_grid(
     cached = _load_completed_grid(config, reproducibility)
     if cached is not None:
         return cached
-    precomputed_factors = _precompute_factor_matrix(bars, config) if config.precompute_factor_matrix else None
+    precomputed_factors = None
+    if config.precompute_factor_matrix:
+        precomputed_factors = (
+            precomputed_factor_factory()
+            if precomputed_factor_factory is not None
+            else _precompute_factor_matrix(bars, config)
+        )
     rows = [_run_case(bars, config, case, precomputed_factors) for case in build_experiment_cases(config)]
     leaderboard = _rank_rows(rows, config.rank_by)
     result = {
@@ -357,6 +365,14 @@ def _precompute_factor_matrix(bars: pd.DataFrame, config: ExperimentGridConfig) 
             factor_names=config.factor_names,
         )
     return None
+
+
+def precompute_experiment_factor_matrix(
+    bars: pd.DataFrame,
+    config: ExperimentGridConfig,
+) -> pd.DataFrame | None:
+    filtered = _filter_bars_for_asset_universe(bars, config)
+    return _precompute_factor_matrix(filtered, config)
 
 
 def _filter_bars_for_precompute(bars: pd.DataFrame, config: ExperimentGridConfig) -> pd.DataFrame:

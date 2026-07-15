@@ -244,7 +244,7 @@ python scripts\run_desktop_factor_validation.py
 ```
 
 This uses `configs/walk_forward_tushare_moneyflow_residual_regime.json` with the tracked adjusted-ratio-clean authority bars config and the tracked authority moneyflow config. It also requires a same-day validation-readiness packet that binds those inputs, the exact factor list, the startup gate, the data manifest, and the provider-backed calendar. A run with zero accepted candidates is still valid strict-validation evidence when all train/test grids completed.
-The residual-regime config enables `precompute_factor_matrix` so each grid run reuses one production factor matrix across TopN, cost, and regime cases instead of recomputing the same residual factors for every case.
+The residual-regime config enables `precompute_factor_matrix` and strict fingerprinted resume. Each fold lazily shares one production factor matrix across its train/test grids, completed grids are reused only when code/config/data/environment fingerprints match, and train grids skip per-case charts while retaining their manifest and leaderboard evidence.
 
 To run the desktop validation check chain around that profile:
 

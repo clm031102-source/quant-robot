@@ -3,12 +3,17 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import asdict, dataclass, replace
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
-from quant_robot.experiments.runner import ExperimentGridConfig, run_experiment_grid
+from quant_robot.experiments.runner import (
+    ExperimentGridConfig,
+    precompute_experiment_factor_matrix,
+    run_experiment_grid,
+)
 from quant_robot.research.hypothesis_ledger import canonical_hypothesis_id, register_hypotheses
 
 
@@ -30,6 +35,7 @@ class WalkForwardConfig:
     min_accepted_folds: int = 1
     multiple_testing_alpha: float = 0.05
     hypothesis_ledger_path: Path | None = None
+    write_train_case_artifacts: bool | None = None
 
 
 def load_walk_forward_config(path: str | Path) -> WalkForwardConfig:
@@ -55,6 +61,11 @@ def load_walk_forward_config(path: str | Path) -> WalkForwardConfig:
         hypothesis_ledger_path=(
             Path(data["hypothesis_ledger_path"]) if data.get("hypothesis_ledger_path") else None
         ),
+        write_train_case_artifacts=(
+            bool(data["write_train_case_artifacts"])
+            if data.get("write_train_case_artifacts") is not None
+            else None
+        ),
     )
 
 
@@ -67,10 +78,25 @@ def run_walk_forward_validation(bars: pd.DataFrame, config: WalkForwardConfig) -
     test_bars = _with_warmup_bars(train_bars, post_split_bars, _warmup_rows(config))
     train_dir = config.output_dir / "train" if config.output_dir is not None else None
     test_dir = config.output_dir / "test" if config.output_dir is not None else None
-    train_config = replace(config.experiment_grid, output_dir=train_dir, signal_end_date=config.split_date)
+    train_config = replace(
+        config.experiment_grid,
+        output_dir=train_dir,
+        signal_end_date=config.split_date,
+        write_case_artifacts=_write_train_case_artifacts(config),
+    )
     test_config = replace(config.experiment_grid, output_dir=test_dir, signal_start_date=test_signal_start)
-    train = run_experiment_grid(train_bars, train_config)
-    test = run_experiment_grid(test_bars, test_config)
+    factor_bars = _combine_factor_bars(train_bars, post_split_bars)
+    factor_factory = _lazy_factor_matrix_factory(factor_bars, config.experiment_grid)
+    train = run_experiment_grid(
+        train_bars,
+        train_config,
+        precomputed_factor_factory=factor_factory,
+    )
+    test = run_experiment_grid(
+        test_bars,
+        test_config,
+        precomputed_factor_factory=factor_factory,
+    )
     rows = _merge_leaderboards(train["leaderboard"], test["leaderboard"], config)
     leaderboard = _rank_rows(_with_multiple_testing_evidence(rows, config), config.rank_by)
     result = {
@@ -98,6 +124,7 @@ def _run_rolling_walk_forward_validation(bars: pd.DataFrame, config: WalkForward
             output_dir=train_dir,
             signal_start_date=str(fold["train_start_date"]),
             signal_end_date=str(fold["train_end_date"]),
+            write_case_artifacts=_write_train_case_artifacts(config),
         )
         test_config = replace(
             config.experiment_grid,
@@ -106,8 +133,18 @@ def _run_rolling_walk_forward_validation(bars: pd.DataFrame, config: WalkForward
             signal_end_date=str(fold["test_end_date"]),
         )
         test_bars = _with_warmup_bars(fold["train_bars"], fold["test_bars"], max_window)
-        train = run_experiment_grid(fold["train_bars"], train_config)
-        test = run_experiment_grid(test_bars, test_config)
+        factor_bars = _combine_factor_bars(fold["train_bars"], fold["test_bars"])
+        factor_factory = _lazy_factor_matrix_factory(factor_bars, config.experiment_grid)
+        train = run_experiment_grid(
+            fold["train_bars"],
+            train_config,
+            precomputed_factor_factory=factor_factory,
+        )
+        test = run_experiment_grid(
+            test_bars,
+            test_config,
+            precomputed_factor_factory=factor_factory,
+        )
         merged = _merge_leaderboards(train["leaderboard"], test["leaderboard"], config)
         for row in merged:
             fold_rows.append(
@@ -144,6 +181,39 @@ def _rolling_enabled(config: WalkForwardConfig) -> bool:
     if any(int(value) < 1 for value in values if value is not None):
         raise ValueError("rolling walk-forward day counts must be positive")
     return True
+
+
+def _write_train_case_artifacts(config: WalkForwardConfig) -> bool:
+    if config.write_train_case_artifacts is None:
+        return config.experiment_grid.write_case_artifacts
+    return config.write_train_case_artifacts
+
+
+def _combine_factor_bars(train_bars: pd.DataFrame, test_bars: pd.DataFrame) -> pd.DataFrame:
+    return (
+        pd.concat([train_bars, test_bars], ignore_index=True)
+        .drop_duplicates([column for column in ("asset_id", "date") if column in train_bars.columns])
+        .sort_values([column for column in ("asset_id", "date") if column in train_bars.columns])
+        .reset_index(drop=True)
+    )
+
+
+def _lazy_factor_matrix_factory(
+    bars: pd.DataFrame,
+    config: ExperimentGridConfig,
+) -> Callable[[], pd.DataFrame | None] | None:
+    if not config.precompute_factor_matrix:
+        return None
+    missing = object()
+    matrix: object = missing
+
+    def load() -> pd.DataFrame | None:
+        nonlocal matrix
+        if matrix is missing:
+            matrix = precompute_experiment_factor_matrix(bars, config)
+        return matrix if isinstance(matrix, pd.DataFrame) else None
+
+    return load
 
 
 def _filter_validation_bars(bars: pd.DataFrame, config: WalkForwardConfig) -> pd.DataFrame:
