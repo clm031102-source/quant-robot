@@ -92,11 +92,11 @@
 - Modify: `tests/unit/test_run_checks.py`
 - Modify: `tests/unit/test_desktop_validation_summary.py`
 
-- [ ] Add failing tests for exact profile order, authority paths, calendar validation, review-required quality audit, validation readiness, and summary quality status.
-- [ ] Run focused tests and verify RED.
-- [ ] Rewire the profile, remove its unscoped catalog scan, and update operator documentation.
-- [ ] Run focused tests and verify GREEN.
-- [ ] Commit as `fix: close desktop validation evidence chain`.
+- [x] Add failing tests for exact profile order, authority paths, calendar validation, review-required quality audit, validation readiness, and summary quality status.
+- [x] Run focused tests and verify RED.
+- [x] Rewire the profile, remove its unscoped catalog scan, and update operator documentation.
+- [x] Run focused tests and verify GREEN.
+- [x] Commit as `fix: close desktop validation evidence chain`.
 
 ### Task 7: Real Evidence Run And Failure Repair
 

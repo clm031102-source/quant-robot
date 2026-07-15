@@ -45,8 +45,6 @@ DESKTOP_VALIDATION_CHECK_NAMES = (
     "project_audit",
     "readiness_check",
     "provider_status",
-    "data_catalog",
-    "data_quality_audit",
 )
 
 LAPTOP_INTEGRATION_TESTS = (
@@ -149,6 +147,47 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
         selected = set(DESKTOP_VALIDATION_CHECK_NAMES)
         return [
             *(_with_desktop_validation_context(step) for step in full_plan if step.name in selected),
+            CheckStep(
+                "desktop_calendar_validation",
+                [python_executable, "scripts/run_cn_trading_calendar.py", "--validate-only"],
+            ),
+            CheckStep(
+                "desktop_cn_stock_data_manifest",
+                [
+                    python_executable,
+                    "scripts/run_cn_stock_data_manifest.py",
+                    "--data-root",
+                    "configs/cn_stock_authority_bars_2015_2025_adjusted_ratio_clean.json",
+                    "--moneyflow-root",
+                    "configs/cn_stock_authority_moneyflow_inputs_2015_2025.json",
+                    "--output-dir",
+                    "data/reports/cn_stock_data_manifest_tushare_moneyflow_residual_regime",
+                ],
+            ),
+            CheckStep(
+                "data_quality_audit",
+                [
+                    python_executable,
+                    "scripts/run_data_quality_audit.py",
+                    "--data-root",
+                    "configs/cn_stock_authority_bars_2015_2025_adjusted_ratio_clean.json",
+                    "--market",
+                    "CN",
+                    "--calendar-path",
+                    "data/processed/trading_calendars/cn_tushare_2015_2025/cn_trading_calendar.csv",
+                    "--calendar-manifest-path",
+                    "data/processed/trading_calendars/cn_tushare_2015_2025/cn_trading_calendar_manifest.json",
+                    "--asset-gap-policy",
+                    "review",
+                    "--allow-review-required",
+                    "--output-dir",
+                    "data/reports/data_quality_gap_audit_tushare_moneyflow_residual_regime",
+                ],
+            ),
+            CheckStep(
+                "desktop_factor_validation_readiness",
+                [python_executable, "scripts/run_factor_validation_readiness.py"],
+            ),
             CheckStep("desktop_factor_validation", [python_executable, "scripts/run_desktop_factor_validation.py"]),
             CheckStep(
                 "desktop_market_regime_coverage",

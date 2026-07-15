@@ -217,8 +217,10 @@ class CheckPlanTests(unittest.TestCase):
                 "project_audit",
                 "readiness_check",
                 "provider_status",
-                "data_catalog",
+                "desktop_calendar_validation",
+                "desktop_cn_stock_data_manifest",
                 "data_quality_audit",
+                "desktop_factor_validation_readiness",
                 "desktop_factor_validation",
                 "desktop_market_regime_coverage",
                 "desktop_promotion_report",
@@ -233,12 +235,43 @@ class CheckPlanTests(unittest.TestCase):
                 "python",
                 "scripts/run_data_quality_audit.py",
                 "--data-root",
-                "data/processed",
+                "configs/cn_stock_authority_bars_2015_2025_adjusted_ratio_clean.json",
                 "--market",
                 "CN",
+                "--calendar-path",
+                "data/processed/trading_calendars/cn_tushare_2015_2025/cn_trading_calendar.csv",
+                "--calendar-manifest-path",
+                "data/processed/trading_calendars/cn_tushare_2015_2025/cn_trading_calendar_manifest.json",
+                "--asset-gap-policy",
+                "review",
+                "--allow-review-required",
                 "--output-dir",
                 "data/reports/data_quality_gap_audit_tushare_moneyflow_residual_regime",
             ],
+        )
+        calendar = next(step for step in plan if step.name == "desktop_calendar_validation")
+        self.assertIn("scripts/run_cn_trading_calendar.py", calendar.command)
+        self.assertIn("--validate-only", calendar.command)
+        manifest = next(step for step in plan if step.name == "desktop_cn_stock_data_manifest")
+        self.assertEqual(
+            manifest.command,
+            [
+                "python",
+                "scripts/run_cn_stock_data_manifest.py",
+                "--data-root",
+                "configs/cn_stock_authority_bars_2015_2025_adjusted_ratio_clean.json",
+                "--moneyflow-root",
+                "configs/cn_stock_authority_moneyflow_inputs_2015_2025.json",
+                "--output-dir",
+                "data/reports/cn_stock_data_manifest_tushare_moneyflow_residual_regime",
+            ],
+        )
+        validation_readiness = next(
+            step for step in plan if step.name == "desktop_factor_validation_readiness"
+        )
+        self.assertEqual(
+            validation_readiness.command,
+            ["python", "scripts/run_factor_validation_readiness.py"],
         )
         self.assertEqual(plan[-4].command, ["python", "scripts/run_desktop_factor_validation.py"])
         self.assertEqual(

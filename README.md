@@ -243,7 +243,7 @@ $env:PYTHONPATH='src'
 python scripts\run_desktop_factor_validation.py
 ```
 
-This uses `configs/walk_forward_tushare_moneyflow_residual_regime.json` with processed bars and Tushare moneyflow inputs. A run with zero accepted candidates is still a valid strict-validation result when all train/test grids completed.
+This uses `configs/walk_forward_tushare_moneyflow_residual_regime.json` with the tracked adjusted-ratio-clean authority bars config and the tracked authority moneyflow config. It also requires a same-day validation-readiness packet that binds those inputs, the exact factor list, the startup gate, the data manifest, and the provider-backed calendar. A run with zero accepted candidates is still valid strict-validation evidence when all train/test grids completed.
 The residual-regime config enables `precompute_factor_matrix` so each grid run reuses one production factor matrix across TopN, cost, and regime cases instead of recomputing the same residual factors for every case.
 
 To run the desktop validation check chain around that profile:
@@ -253,9 +253,17 @@ $env:PYTHONPATH='src'
 python scripts\run_checks.py --profile desktop-validation --execute
 ```
 
-The profile also builds a strict market-regime coverage pack from walk-forward test-fold `regime_curve.csv` files, requiring both allowed and blocked regime-filter dates, then builds a research-only promotion gate report and writes `docs/research/desktop_residual_regime_validation_latest.md`. The residual-regime promotion gate requires that coverage pack, blocks single-lookback regime wins, and treats out-of-sample Sharpe above `3.0` as an overfit blocker, so one-regime or too-good-to-be-true evidence cannot be promoted by running the promotion command alone. The summary command cross-checks the leaderboard against the walk-forward `manifest.json`, verifies promotion candidate case IDs, and records data-quality, promotion-gate, and regime-coverage status, so stale or mismatched validation artifacts fail instead of producing a misleading Markdown summary.
+Before the first local run, fetch the independent 2015-2025 Tushare calendar after the startup gates have cleared:
 
-The desktop profile's data-quality audit is pinned to the CN residual-regime data surface: `python scripts\run_data_quality_audit.py --data-root data\processed --market CN --output-dir data\reports\data_quality_gap_audit_tushare_moneyflow_residual_regime`. The residual-regime promotion gate consumes that audit JSON, so missing data-quality evidence stops the gate instead of being silently ignored. To build only the promotion report after a validation run:
+```powershell
+python scripts\run_cn_trading_calendar.py
+```
+
+Subsequent desktop profiles validate the local artifact and its SHA-256 manifest without making a provider request. The profile then builds the authority data manifest, runs the stock-aware gap audit, creates the frozen validation-readiness packet, executes walk-forward validation, builds a strict market-regime coverage pack, builds the research-only promotion report, and writes `docs/research/desktop_residual_regime_validation_latest.md`.
+
+The gap audit treats whole-market missing sessions as hard blockers. Per-stock missing sessions are `review_required` until suspension evidence explains them; validation may continue, but promotion remains blocked because `gap_audit_cleared` is false. The summary cross-checks leaderboard and promotion case IDs and displays the calendar source, gap policy, review reasons, and regime coverage.
+
+The desktop profile's data-quality audit is pinned to `configs/cn_stock_authority_bars_2015_2025_adjusted_ratio_clean.json` and the validated provider calendar under `data/processed/trading_calendars/cn_tushare_2015_2025`. The residual-regime promotion gate consumes that audit JSON, so missing, blocked, or review-required quality evidence cannot be silently promoted. To build only the promotion report after a validation run:
 
 ```powershell
 $env:PYTHONPATH='src'

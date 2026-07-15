@@ -116,11 +116,19 @@ class DesktopValidationSummaryTests(unittest.TestCase):
             data_quality.write_text(
                 json.dumps(
                     {
+                        "status": "review_required",
                         "summary": {
                             "assets": 2,
                             "missing_date_rows": 4,
                             "duplicate_bars": 1,
                             "zero_volume_rows": 0,
+                            "asset_gap_policy": "review",
+                            "calendar_manifest": "calendar_manifest.json",
+                        },
+                        "decision": {
+                            "gap_audit_cleared": False,
+                            "blockers": [],
+                            "review_reasons": ["asset_sessions_require_suspension_review"],
                         },
                         "repair_actions": [
                             {"action": "backfill_missing_dates", "priority": 1},
@@ -147,6 +155,10 @@ class DesktopValidationSummaryTests(unittest.TestCase):
             self.assertIn("case_a", text)
             self.assertIn("Data Quality", text)
             self.assertIn("Missing date rows: 4", text)
+            self.assertIn("Status: review_required", text)
+            self.assertIn("Asset gap policy: review", text)
+            self.assertIn("asset_sessions_require_suspension_review", text)
+            self.assertIn("calendar_manifest.json", text)
             self.assertIn("deduplicate_bars", text)
             self.assertIn("Market Regime Coverage", text)
             self.assertIn("sufficient", text)

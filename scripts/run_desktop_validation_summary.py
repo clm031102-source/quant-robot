@@ -172,6 +172,7 @@ def _data_quality_lines(report: dict[str, Any] | None) -> list[str]:
     if report is None:
         return ["", "## Data Quality", "", "- Data-quality audit: missing."]
     summary = report.get("summary", {}) if isinstance(report.get("summary"), dict) else {}
+    decision = report.get("decision", {}) if isinstance(report.get("decision"), dict) else {}
     repair_actions = report.get("repair_actions", []) if isinstance(report.get("repair_actions"), list) else []
     actions = [
         str(action.get("action"))
@@ -182,10 +183,16 @@ def _data_quality_lines(report: dict[str, Any] | None) -> list[str]:
         "",
         "## Data Quality",
         "",
+        f"- Status: {_text(report.get('status'))}",
+        f"- Cleared: {_text(decision.get('gap_audit_cleared'))}",
         f"- Assets: {_text(summary.get('assets'))}",
         f"- Missing date rows: {_text(summary.get('missing_date_rows'))}",
         f"- Duplicate bars: {_text(summary.get('duplicate_bars'))}",
         f"- Zero-volume rows: {_text(summary.get('zero_volume_rows'))}",
+        f"- Asset gap policy: {_text(summary.get('asset_gap_policy'))}",
+        f"- Calendar manifest: {_text(summary.get('calendar_manifest'))}",
+        f"- Blockers: {', '.join(str(value) for value in decision.get('blockers', []) or []) or 'none'}",
+        f"- Review reasons: {', '.join(str(value) for value in decision.get('review_reasons', []) or []) or 'none'}",
         "",
         "### Repair Actions",
         "",

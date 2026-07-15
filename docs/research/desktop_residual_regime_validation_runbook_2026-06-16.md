@@ -15,7 +15,7 @@ If the optimization branch has not been merged into `main`, start from it:
 git fetch origin --prune
 git switch codex/factor-method-optimization-20260616
 git pull --ff-only
-git switch -c codex/factor-validation-residual-regime-20260616
+git switch -c codex/factor-validation-cn-stock-residual-regime-<date>
 ```
 
 If the optimization branch is already merged into `main`, start from `main` instead:
@@ -24,17 +24,20 @@ If the optimization branch is already merged into `main`, start from `main` inst
 git fetch origin --prune
 git switch main
 git pull --ff-only
-git switch -c codex/factor-validation-residual-regime-20260616
+git switch -c codex/factor-validation-cn-stock-residual-regime-<date>
 ```
 
 ## Required Data
 
-The run expects local processed data that is not committed to Git:
+The run expects local authority data that is not committed to Git:
 
-- CN processed bars under `data/processed`.
-- Tushare moneyflow inputs under `data/processed/tushare_moneyflow_inputs`.
+- Bars declared by `configs/cn_stock_authority_bars_2015_2025_adjusted_ratio_clean.json`.
+- Moneyflow declared by `configs/cn_stock_authority_moneyflow_inputs_2015_2025.json`.
+- A provider-backed calendar under `data/processed/trading_calendars/cn_tushare_2015_2025`.
 
-The validation entrypoint fails fast with a clear message when these local inputs are missing. Missing local data is a desktop data-preparation issue, not a Git sync issue.
+After the Quant PM and CN stock startup gates clear, create the calendar once with `python scripts\run_cn_trading_calendar.py`. The command requires synchronized SSE and SZSE open sessions and writes a fingerprinted local manifest. Normal validation profiles use `--validate-only` and do not redownload it.
+
+The validation entrypoint fails fast when an authority config, referenced partition, calendar artifact, or same-day readiness packet is missing or changed. Missing local data is a desktop data-preparation issue, not a Git sync issue.
 
 Run a sync audit before starting heavy validation:
 
@@ -55,7 +58,7 @@ python scripts\run_desktop_factor_validation.py
 This wraps:
 
 - `configs/walk_forward_tushare_moneyflow_residual_regime.json`
-- processed-bars source from `data/processed`
+- authority-bars source from the adjusted-ratio-clean tracked config
 - precomputed factor-matrix reuse inside each experiment grid run
 - rolling walk-forward validation
 - explicit regime lookbacks: 120, 150, 180, 252
@@ -72,15 +75,15 @@ To run the full desktop validation check chain, use:
 python scripts\run_checks.py --profile desktop-validation --execute
 ```
 
-This runs unit/integration tests, Python compile, project audit, readiness checks, provider status, data catalog, data-quality audit, the residual-regime validation command, a strict market-regime coverage check from walk-forward test-fold `regime_curve.csv` files, the research-only promotion gate report, and a lightweight Markdown summary at `docs/research/desktop_residual_regime_validation_latest.md`.
+This runs unit/integration tests, Python compile, project audit, readiness checks, provider status, local calendar validation, authority data-manifest generation, the stock-aware data-quality audit, frozen factor-validation readiness, the residual-regime validation command, a strict market-regime coverage check, the research-only promotion report, and a lightweight Markdown summary at `docs/research/desktop_residual_regime_validation_latest.md`.
 
 For this profile, the data-quality audit is intentionally pinned to the CN Tushare residual-regime data surface instead of the default CN ETF surface:
 
 ```powershell
-python scripts\run_data_quality_audit.py --data-root data\processed --market CN --output-dir data\reports\data_quality_gap_audit_tushare_moneyflow_residual_regime
+python scripts\run_data_quality_audit.py --data-root configs\cn_stock_authority_bars_2015_2025_adjusted_ratio_clean.json --market CN --calendar-path data\processed\trading_calendars\cn_tushare_2015_2025\cn_trading_calendar.csv --calendar-manifest-path data\processed\trading_calendars\cn_tushare_2015_2025\cn_trading_calendar_manifest.json --asset-gap-policy review --allow-review-required --output-dir data\reports\data_quality_gap_audit_tushare_moneyflow_residual_regime
 ```
 
-The residual-regime promotion gate consumes this JSON through `configs/promotion_gate_tushare_moneyflow_residual_regime.json`. Missing or malformed data-quality evidence should stop the desktop profile instead of producing a promotion report from incomplete inputs.
+The residual-regime promotion gate consumes this JSON through `configs/promotion_gate_tushare_moneyflow_residual_regime.json`. Whole-market gaps stop the profile. Unclassified per-stock gaps produce `review_required`, allowing validation to finish while keeping promotion blocked until suspension evidence is available.
 
 To rebuild only the market-regime coverage pack after a completed walk-forward run:
 
@@ -141,8 +144,4 @@ Audit first:
 python scripts\sync_project.py --machine highspec_desktop --task factor_validation
 ```
 
-Execute only after the audit is clean:
-
-```powershell
-python scripts\sync_project.py --machine highspec_desktop --task factor_validation --execute --push
-```
+Do not push from the office desktop unless a later task explicitly approves it. Generated reports and processed data remain outside Git.
