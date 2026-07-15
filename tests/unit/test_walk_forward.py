@@ -11,6 +11,7 @@ from quant_robot.experiments.runner import ExperimentGridConfig
 from quant_robot.validation.walk_forward import (
     WalkForwardConfig,
     _rejection_reasons,
+    _write_artifacts,
     _with_multiple_testing_evidence,
     load_walk_forward_config,
     run_walk_forward_validation,
@@ -18,6 +19,47 @@ from quant_robot.validation.walk_forward import (
 
 
 class WalkForwardTests(unittest.TestCase):
+    def test_walk_forward_artifacts_are_atomic_and_manifest_is_written_last(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output_dir = Path(tmp)
+            result = {
+                "config": {"split_date": "2024-01-08"},
+                "summary": {"cases": 1, "accepted": 0, "rejected": 1},
+                "folds": [{"fold": 1, "case_id": "case_a"}],
+            }
+            leaderboard = [{"case_id": "case_a", "validation_status": "rejected"}]
+            writes = []
+
+            def record_file(path, _writer):
+                writes.append(("file", Path(path).name))
+
+            def record_json(path, _payload):
+                writes.append(("json", Path(path).name))
+
+            with (
+                patch(
+                    "quant_robot.validation.walk_forward.atomic_write",
+                    side_effect=record_file,
+                    create=True,
+                ),
+                patch(
+                    "quant_robot.validation.walk_forward.atomic_write_json",
+                    side_effect=record_json,
+                    create=True,
+                ),
+            ):
+                _write_artifacts(output_dir, result, leaderboard)
+
+            self.assertEqual(
+                writes,
+                [
+                    ("file", "walk_forward_leaderboard.csv"),
+                    ("json", "walk_forward_leaderboard.json"),
+                    ("file", "walk_forward_folds.csv"),
+                    ("json", "manifest.json"),
+                ],
+            )
+
     def test_walk_forward_rejects_capacity_filtered_oos_cases(self):
         config = WalkForwardConfig(
             split_date="2024-01-08",

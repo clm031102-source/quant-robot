@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import json
 import math
 from datetime import date
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
+
+from quant_robot.storage.atomic import atomic_write, atomic_write_json, atomic_write_text
 
 
 STAGE = "phase_6_0_market_regime_coverage"
@@ -71,12 +72,12 @@ def build_market_regime_coverage_pack(
 def write_market_regime_coverage_pack(output_dir: str | Path, pack: dict[str, Any]) -> None:
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
-    (output_path / "market_regime_coverage_pack.json").write_text(
-        json.dumps(pack, indent=2, sort_keys=True),
-        encoding="utf-8",
+    atomic_write(
+        output_path / "market_regime_coverage_ledger.csv",
+        lambda temporary: pd.DataFrame(pack.get("regime_ledger", [])).to_csv(temporary, index=False),
     )
-    (output_path / "market_regime_coverage_pack.md").write_text(str(pack.get("markdown", "")), encoding="utf-8")
-    pd.DataFrame(pack.get("regime_ledger", [])).to_csv(output_path / "market_regime_coverage_ledger.csv", index=False)
+    atomic_write_text(output_path / "market_regime_coverage_pack.md", str(pack.get("markdown", "")))
+    atomic_write_json(output_path / "market_regime_coverage_pack.json", pack)
 
 
 def render_market_regime_coverage_markdown(pack: dict[str, Any]) -> str:

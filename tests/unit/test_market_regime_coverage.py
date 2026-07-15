@@ -1,9 +1,60 @@
 import unittest
 
-from quant_robot.ops.market_regime_coverage import build_market_regime_coverage_pack
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
+
+from quant_robot.ops.market_regime_coverage import (
+    build_market_regime_coverage_pack,
+    write_market_regime_coverage_pack,
+)
 
 
 class MarketRegimeCoverageTests(unittest.TestCase):
+    def test_coverage_pack_is_atomic_and_json_completion_marker_is_written_last(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            writes = []
+
+            def record_file(path, _writer):
+                writes.append(("file", Path(path).name))
+
+            def record_text(path, _text):
+                writes.append(("text", Path(path).name))
+
+            def record_json(path, _payload):
+                writes.append(("json", Path(path).name))
+
+            with (
+                patch(
+                    "quant_robot.ops.market_regime_coverage.atomic_write",
+                    side_effect=record_file,
+                    create=True,
+                ),
+                patch(
+                    "quant_robot.ops.market_regime_coverage.atomic_write_text",
+                    side_effect=record_text,
+                    create=True,
+                ),
+                patch(
+                    "quant_robot.ops.market_regime_coverage.atomic_write_json",
+                    side_effect=record_json,
+                    create=True,
+                ),
+            ):
+                write_market_regime_coverage_pack(
+                    tmp,
+                    {"markdown": "# Coverage\n", "regime_ledger": [{"date": "2024-01-01"}]},
+                )
+
+            self.assertEqual(
+                writes,
+                [
+                    ("file", "market_regime_coverage_ledger.csv"),
+                    ("text", "market_regime_coverage_pack.md"),
+                    ("json", "market_regime_coverage_pack.json"),
+                ],
+            )
+
     def test_pack_clears_when_multiple_market_regimes_are_observed(self):
         pack = build_market_regime_coverage_pack(
             [

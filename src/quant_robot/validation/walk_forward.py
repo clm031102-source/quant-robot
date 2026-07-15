@@ -15,6 +15,7 @@ from quant_robot.experiments.runner import (
     run_experiment_grid,
 )
 from quant_robot.research.hypothesis_ledger import canonical_hypothesis_id, register_hypotheses
+from quant_robot.storage.atomic import atomic_write, atomic_write_json
 
 
 @dataclass(frozen=True)
@@ -688,15 +689,21 @@ def _summary(leaderboard: list[dict[str, Any]]) -> dict[str, int]:
 
 def _write_artifacts(output_dir: Path, result: dict[str, Any], leaderboard: list[dict[str, Any]]) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(leaderboard).to_csv(output_dir / "walk_forward_leaderboard.csv", index=False)
-    (output_dir / "walk_forward_leaderboard.json").write_text(json.dumps(leaderboard, indent=2, sort_keys=True), encoding="utf-8")
+    atomic_write(
+        output_dir / "walk_forward_leaderboard.csv",
+        lambda temporary: pd.DataFrame(leaderboard).to_csv(temporary, index=False),
+    )
+    atomic_write_json(output_dir / "walk_forward_leaderboard.json", leaderboard)
     if result.get("folds"):
-        pd.DataFrame(result["folds"]).to_csv(output_dir / "walk_forward_folds.csv", index=False)
+        atomic_write(
+            output_dir / "walk_forward_folds.csv",
+            lambda temporary: pd.DataFrame(result["folds"]).to_csv(temporary, index=False),
+        )
     manifest = {
         "config": result["config"],
         "summary": result["summary"],
     }
-    (output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+    atomic_write_json(output_dir / "manifest.json", manifest)
 
 
 def _grid_from_mapping(data: dict[str, Any]) -> ExperimentGridConfig:
