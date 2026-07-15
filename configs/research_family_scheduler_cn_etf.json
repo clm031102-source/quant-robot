@@ -10,6 +10,31 @@
   },
   "last_decision": {
     "date": "2026-07-16",
+    "source_stage": "cn_etf_market_residual_volatility_prescreen",
+    "source_config_sha256": "303b0a66961baa65fbbf72f55f0ad030675908b061954017ae84a890dea62ad0",
+    "source_result_sha256": "736dbf2fd39d6d0c8e0e947ddb1fdde58e919a6732a28221a68a62ecfa51b539",
+    "research_lead_count": 0,
+    "closed_family": "cn_etf_volatility_regime",
+    "closed_budget_share": 0.35,
+    "activated_family": "cn_etf_peer_relative_value",
+    "reallocation": {
+      "cn_etf_fund_structure": 0.05,
+      "cn_etf_peer_relative_value": 0.3
+    },
+    "resulting_budget_shares": {
+      "cn_etf_flow_breadth_aggregation": 0.35,
+      "cn_etf_fund_structure": 0.35,
+      "cn_etf_peer_relative_value": 0.3
+    },
+    "decisive_evidence": [
+      "etf_idio_vol_low_60_duplicated_low_volatility_60_at_0.871466_mean_daily_rank_correlation",
+      "all_six_top_quantile_capacity_rows_failed_the_one_percent_participation_gate",
+      "etf_downside_beta_low_120_failed_fdr_or_icir_gates",
+      "etf_positive_residual_skew_60_had_negative_ic_spread_and_monotonicity"
+    ]
+  },
+  "previous_decision": {
+    "date": "2026-07-16",
     "source_stage": "cn_etf_volatility_regime_duplicate_stop_loss_audit",
     "reviewed_family": "cn_etf_volatility_regime",
     "decision": "narrow_to_last_compact_market_residual_prescreen",
@@ -25,7 +50,7 @@
       "cn_etf_peer_relative_value": 0.3
     }
   },
-  "previous_decision": {
+  "earlier_decision": {
     "date": "2026-07-16",
     "source_stage": "cn_etf_liquidity_capacity_prescreen",
     "source_config_sha256": "b0eed9567ddd0172c0a02cc7cb3b1fb494db95b5053cc5acb8a2cf68412e5b76",
@@ -102,9 +127,9 @@
       "family_id": "cn_etf_volatility_regime",
       "market": "CN_ETF",
       "hypothesis_family": "market_residual_volatility_asymmetry",
-      "status": "active",
-      "budget_share": 0.35,
-      "review_status": "last_compact_prescreen_only",
+      "status": "stop_lossed",
+      "budget_share": 0.0,
+      "review_status": "closed_after_zero_lead_last_chance_prescreen",
       "closed_subfamilies": [
         "raw_realized_volatility",
         "standalone_low_volatility",
@@ -117,18 +142,28 @@
         "range_and_volatility_compression",
         "public_volatility_normalized_indicators"
       ],
-      "remaining_candidate_names": [
+      "final_tested_candidate_names": [
         "etf_idio_vol_low_60",
         "etf_downside_beta_low_120",
         "etf_positive_residual_skew_60"
       ],
       "last_chance_batch": true,
+      "research_lead_count": 0,
+      "failure_reasons": [
+        "etf_idio_vol_low_60_duplicate_with_low_volatility_60",
+        "all_six_top_quantile_capacity_rows_failed_one_percent_gate",
+        "etf_downside_beta_low_120_failed_fdr_or_icir_gates",
+        "etf_positive_residual_skew_60_failed_direction_shape_and_year_consistency"
+      ],
       "parameter_rescue_allowed": false,
       "window_tuning_allowed": false,
       "threshold_relaxation_allowed": false,
       "sign_flip_rescue_allowed": false,
       "regime_rescue_allowed": false,
       "forbidden_actions": [
+        "residual_volatility_retry",
+        "downside_beta_retry",
+        "residual_skew_sign_flip",
         "raw_volatility_retry",
         "low_volatility_retry",
         "downside_volatility_retry",
@@ -143,7 +178,7 @@
         "walk_forward"
       ],
       "economic_thesis": "After removing the point-in-time common ETF market component, low idiosyncratic volatility, low downside beta, or favorable residual skew may contain information that raw volatility, drawdown, compression, and regime factors did not test.",
-      "next_action": "Run only the frozen three-candidate market-residual volatility prescreen; zero leads immediately stop-loss the family and activate peer-relative ETF value research."
+      "next_action": "Keep the volatility-regime family closed; preserve the duplicate, statistical-gate, direction, and capacity rejection evidence without another residual-volatility rescue."
     },
     {
       "family_id": "cn_etf_flow_breadth_aggregation",
@@ -171,9 +206,33 @@
       "market": "CN_ETF",
       "hypothesis_family": "fund_share_nav_structure",
       "status": "exploratory",
-      "budget_share": 0.3,
+      "budget_share": 0.35,
       "economic_thesis": "Fund share changes, scale proxies, NAV behavior, and premium/discount proxies may identify ETF demand pressure and crowded exits.",
       "next_action": "Probe daily etf_share_size share-change, scale-change, NAV, and premium/discount proxies where Tushare permissions and coverage are sufficient."
+    },
+    {
+      "family_id": "cn_etf_peer_relative_value",
+      "market": "CN_ETF",
+      "hypothesis_family": "same_index_theme_peer_dislocation",
+      "status": "exploratory",
+      "budget_share": 0.3,
+      "metadata_readiness_review_required": true,
+      "factor_batch_before_readiness_allowed": false,
+      "preregistration_required": true,
+      "economic_thesis": "ETFs tracking the same index or a tightly defined theme can temporarily diverge in price-to-NAV, tracking efficiency, liquidity, or flow pressure, creating point-in-time cross-sectional relative-value information.",
+      "allowed_roles": [
+        "same_index_peer_dislocation",
+        "same_theme_peer_dislocation",
+        "tracking_efficiency_relative_value",
+        "price_nav_relative_value"
+      ],
+      "forbidden_actions": [
+        "name_only_peer_mapping_without_quality_gate",
+        "factor_batch_before_metadata_readiness",
+        "portfolio_grid_before_prescreen",
+        "walk_forward_before_prescreen"
+      ],
+      "next_action": "Audit official and derived same-index or same-theme peer mapping coverage and point-in-time integrity, then preregister one compact peer-relative-value prescreen."
     },
     {
       "family_id": "cn_stock_moneyflow_selection",

@@ -10,6 +10,8 @@ Branch: `codex/factor-review-cn-etf-volatility-regime-20260716`
 
 Status: narrowed to one final market-residual prescreen; all previously tested subfamilies closed
 
+Outcome note: the subsequent frozen prescreen completed with zero research leads. The family is now stop-lossed; see `docs/research/cn_etf_market_residual_volatility_prescreen_2026-07-16.md`.
+
 ## Decision
 
 Do not repeat raw volatility, low-volatility, downside-volatility, drawdown, recovery, range-contraction, hard-regime, or state-adaptive CN ETF factors. Those structures have already been tested and rejected, or are rank-equivalent derivatives of rejected structures.

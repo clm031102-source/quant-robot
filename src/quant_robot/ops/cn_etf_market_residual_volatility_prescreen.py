@@ -15,12 +15,12 @@ from quant_robot.data.etf_point_in_time_universe import (
     build_point_in_time_etf_eligibility,
     load_official_etf_lifecycle,
 )
-from quant_robot.factors.etf_liquidity_capacity import (
-    ETF_LIQUIDITY_CAPACITY_FACTOR_NAMES,
-    ETF_LIQUIDITY_REFERENCE_FACTOR_NAMES,
-    compute_etf_adv20,
-    compute_etf_liquidity_capacity_factors,
-    compute_etf_liquidity_reference_factors,
+from quant_robot.factors.etf_liquidity_capacity import compute_etf_adv20
+from quant_robot.factors.etf_market_residual_volatility import (
+    ETF_MARKET_RESIDUAL_VOLATILITY_FACTOR_NAMES,
+    ETF_MARKET_RESIDUAL_VOLATILITY_REFERENCE_NAMES,
+    compute_etf_market_residual_volatility_factors,
+    compute_etf_market_residual_volatility_references,
 )
 from quant_robot.research.cross_sectional_capacity import summarize_top_quantile_capacity
 from quant_robot.research.cross_sectional_factor_prescreen import (
@@ -31,7 +31,7 @@ from quant_robot.research.labels import make_forward_returns
 from quant_robot.storage.processed_bars import load_processed_bars
 
 
-STAGE = "cn_etf_liquidity_capacity_prescreen"
+STAGE = "cn_etf_market_residual_volatility_prescreen"
 DEFAULT_DATA_ROOT = Path("data/processed/tushare_etf_wide_history_2023_2026")
 DEFAULT_LEGACY_PROMOTION_REPORT = Path(
     "data/reports/promotion_gate_cn_etf_candidate_search/promotion_report.json"
@@ -42,55 +42,66 @@ DEFAULT_HORIZONS = (5, 20)
 SAFETY = "Research-to-paper only. No broker connection, account reads, order placement, or live trading."
 
 
-def build_historical_liquidity_capacity_review() -> dict[str, Any]:
+def build_historical_volatility_regime_review() -> dict[str, Any]:
     return {
-        "family_id": "cn_etf_liquidity_capacity",
-        "review_status": "only_liquidity_change_persistence_and_distribution_subspace_remains",
+        "family_id": "cn_etf_volatility_regime",
+        "review_status": "only_market_residual_volatility_asymmetry_subspace_remains",
         "closed_factor_names": [
-            "liquidity_5",
-            "liquidity_10",
-            "liquidity_20",
-            "liquidity_60",
-            "liquidity_120",
-            "high_liquidity_20",
-            "high_liquidity_60",
-            "liquidity_resilience_60",
-            "amount_stability_20",
-            "amount_stability_60",
-            "average_amount_20",
-            "average_amount_60",
-            "volume_change_20",
-            "volume_change_60",
-            "demand_pressure_60",
-            "quiet_accumulation_60",
+            "volatility_5",
+            "volatility_10",
+            "volatility_20",
+            "volatility_60",
+            "volatility_120",
+            "low_volatility_20",
+            "low_volatility_60",
+            "low_downside_volatility_60",
+            "drawdown_resilience_60",
+            "defensive_reversal_60",
+            "trend_resilience_60",
+            "risk_confirmed_momentum_60",
+            "crash_recovery_60",
+            "recovery_quality_60",
+            "state_adaptive_trend_defense_60",
+            "state_stress_defensive_resilience_60",
+            "state_stress_recovery_leadership_60",
+            "formula_range_contraction_breakout_20",
+            "formula_range_contraction_breakout_lowvol_20",
+            "bollinger_reversal_20",
+            "supertrend_volume_confirmed_10_3_20",
         ],
         "closed_subfamilies": [
-            "liquidity_level",
-            "amount_level",
-            "amount_acceleration",
-            "amount_stability",
-            "liquidity_gated_price_rotation",
-            "trend_volume_capacity_repair",
+            "raw_realized_volatility",
+            "standalone_low_volatility",
+            "raw_downside_volatility",
+            "drawdown_resilience",
+            "defensive_blends",
+            "crash_recovery",
+            "state_adaptive_defense",
+            "hard_positive_momentum_regime_filter",
+            "range_and_volatility_compression",
+            "public_volatility_normalized_indicators",
         ],
-        "legacy_candidate_id": "CN_ETF_liquidity_10_top1_cost5_reb5",
-        "legacy_gate_status": "superseded_by_current_strict_gate",
-        "current_strict_gate_expected_candidate_count": 270,
-        "current_strict_gate_expected_blocked": 270,
-        "current_strict_gate_expected_paper_ready": 0,
-        "legacy_candidate_reuse_allowed": False,
+        "remaining_candidate_names": list(ETF_MARKET_RESIDUAL_VOLATILITY_FACTOR_NAMES),
+        "remaining_candidate_count": len(ETF_MARKET_RESIDUAL_VOLATILITY_FACTOR_NAMES),
+        "last_chance_batch": True,
         "parameter_rescue_allowed": False,
         "window_tuning_allowed": False,
         "threshold_relaxation_allowed": False,
+        "sign_flip_rescue_allowed": False,
+        "regime_rescue_allowed": False,
         "portfolio_grid_before_prescreen_lead_allowed": False,
         "source_reports": [
             "docs/research/highspec_desktop_cn_etf_rotation_seed_2026-06-17.md",
             "docs/research/cn_etf_liquid_defensive_lowvol_liquidity_round37_2026-06-21.md",
-            "docs/research/cn_etf_public_trend_volume_capacity_strict_round45_2026-06-21.md",
+            "docs/research/cn_etf_rounds37_39_audit_2026-06-21.md",
+            "docs/research/cn_etf_rounds40_42_audit_2026-06-21.md",
+            "docs/research/cn_etf_cn_stock_rounds44_46_audit_2026-06-21.md",
+            "docs/research/cn_etf_volatility_regime_duplicate_stop_loss_audit_2026-07-16.md",
         ],
     }
 
 
-def build_cn_etf_liquidity_capacity_prescreen(
+def build_cn_etf_market_residual_volatility_prescreen(
     *,
     data_root: str | Path = DEFAULT_DATA_ROOT,
     metadata_root: str | Path | None = None,
@@ -100,6 +111,14 @@ def build_cn_etf_liquidity_capacity_prescreen(
     horizons: tuple[int, ...] = DEFAULT_HORIZONS,
     execution_lag: int = 1,
     eligibility_policy: EtfEligibilityPolicy = EtfEligibilityPolicy(),
+    market_proxy_min_cross_section: int = 30,
+    beta_window: int = 120,
+    beta_min_observations: int = 80,
+    downside_beta_window: int = 120,
+    downside_beta_min_observations: int = 24,
+    residual_window: int = 60,
+    residual_min_observations: int = 40,
+    residual_model_lag: int = 1,
     min_cross_section: int = 30,
     min_ic_observations: int = 20,
     min_year_ic_observations: int = 20,
@@ -119,22 +138,21 @@ def build_cn_etf_liquidity_capacity_prescreen(
     start = pd.Timestamp(analysis_start_date)
     end = pd.Timestamp(analysis_end_date)
     if end >= pd.Timestamp("2026-01-01"):
-        raise ValueError("CN ETF liquidity-capacity prescreen cannot read the sealed 2026 final holdout")
+        raise ValueError("CN ETF residual-volatility prescreen cannot read the sealed 2026 final holdout")
     if start > end:
         raise ValueError("analysis_start_date must be on or before analysis_end_date")
     if not horizons or any(int(horizon) < 1 for horizon in horizons):
         raise ValueError("horizons must contain positive integers")
 
     root = Path(data_root)
-    bars = load_processed_bars(root, "CN_ETF").copy()
+    bars = load_processed_bars(root, "CN_ETF", end_date=end).copy()
     bars["date"] = pd.to_datetime(bars["date"])
     source_window = _frame_window(bars)
-    history = bars[bars["date"].le(end)].copy()
-    if history.empty:
+    if bars.empty:
         raise ValueError("No CN_ETF bars are available on or before analysis_end_date")
     official_root = Path(metadata_root) if metadata_root is not None else root / "metadata" / "tushare_fund_basic"
     lifecycle = load_official_etf_lifecycle(official_root)
-    eligibility = build_point_in_time_etf_eligibility(history, lifecycle, policy=eligibility_policy)
+    eligibility = build_point_in_time_etf_eligibility(bars, lifecycle, policy=eligibility_policy)
     eligible = eligibility[
         eligibility["eligible"]
         & eligibility["date"].ge(start)
@@ -142,24 +160,38 @@ def build_cn_etf_liquidity_capacity_prescreen(
     ].copy()
     eligible_keys = eligible[["date", "asset_id", "market"]].drop_duplicates()
 
-    factors = compute_etf_liquidity_capacity_factors(history, eligible_keys=eligible_keys)
-    references = compute_etf_liquidity_reference_factors(history, eligible_keys=eligible_keys)
-    adv20 = compute_etf_adv20(history, eligible_keys=eligible_keys)
+    factors = compute_etf_market_residual_volatility_factors(
+        bars,
+        eligible_keys=eligible_keys,
+        market_proxy_min_cross_section=market_proxy_min_cross_section,
+        beta_window=beta_window,
+        beta_min_observations=beta_min_observations,
+        downside_beta_window=downside_beta_window,
+        downside_beta_min_observations=downside_beta_min_observations,
+        residual_window=residual_window,
+        residual_min_observations=residual_min_observations,
+        residual_model_lag=residual_model_lag,
+    )
+    references = compute_etf_market_residual_volatility_references(
+        bars,
+        eligible_keys=eligible_keys,
+    )
+    adv20 = compute_etf_adv20(bars, eligible_keys=eligible_keys)
     labels = make_forward_returns(
-        history[["date", "asset_id", "market", "adj_close"]],
+        bars[["date", "asset_id", "market", "adj_close"]],
         horizons=tuple(int(value) for value in horizons),
         execution_lag=int(execution_lag),
     )
     labels["date"] = pd.to_datetime(labels["date"])
     labels = labels[labels["date"].ge(start) & labels["date"].le(end)].reset_index(drop=True)
 
-    result = summarize_cn_etf_liquidity_capacity_prescreen(
+    result = summarize_cn_etf_market_residual_volatility_prescreen(
         factors,
         labels,
         references,
         adv20,
-        expected_candidate_names=ETF_LIQUIDITY_CAPACITY_FACTOR_NAMES,
-        expected_reference_names=ETF_LIQUIDITY_REFERENCE_FACTOR_NAMES,
+        expected_candidate_names=ETF_MARKET_RESIDUAL_VOLATILITY_FACTOR_NAMES,
+        expected_reference_names=ETF_MARKET_RESIDUAL_VOLATILITY_REFERENCE_NAMES,
         horizons=tuple(int(value) for value in horizons),
         min_cross_section=min_cross_section,
         min_ic_observations=min_ic_observations,
@@ -181,7 +213,7 @@ def build_cn_etf_liquidity_capacity_prescreen(
         "source": source_window,
         "analysis_start_date": start.date().isoformat(),
         "analysis_end_date": end.date().isoformat(),
-        "history_rows": int(len(history)),
+        "history_rows": int(len(bars)),
         "eligible_signal_rows": int(len(eligible_keys)),
         "eligible_assets": int(eligible_keys["asset_id"].nunique()),
         "eligible_dates": int(eligible_keys["date"].nunique()),
@@ -192,22 +224,39 @@ def build_cn_etf_liquidity_capacity_prescreen(
         "static_round25_universe_used": False,
         **eligibility_policy.__dict__,
     }
+    result["market_proxy_policy"] = {
+        "method": "point_in_time_eligible_cross_sectional_median_return",
+        "min_cross_section": int(market_proxy_min_cross_section),
+    }
+    result["candidate_parameters"] = {
+        "beta_window": int(beta_window),
+        "beta_min_observations": int(beta_min_observations),
+        "downside_beta_window": int(downside_beta_window),
+        "downside_beta_min_observations": int(downside_beta_min_observations),
+        "residual_window": int(residual_window),
+        "residual_min_observations": int(residual_min_observations),
+        "residual_model_lag": int(residual_model_lag),
+        "include_intercept": True,
+    }
     result["holdout_policy"] = {
         "final_holdout_start": "2026-01-01",
         "final_holdout_included": False,
         "final_holdout_access_allowed": False,
+        "later_year_partitions_skipped_before_read": True,
     }
     result["source_paths"] = {
         "data_root": str(root),
         "metadata_root": str(official_root),
         "legacy_promotion_report": str(Path(legacy_promotion_report)),
     }
-    result["legacy_promotion_quarantine"] = load_legacy_promotion_quarantine(legacy_promotion_report)
-    result["markdown"] = render_cn_etf_liquidity_capacity_prescreen_markdown(result)
+    result["legacy_promotion_quarantine"] = load_legacy_volatility_quarantine(
+        legacy_promotion_report
+    )
+    result["markdown"] = render_cn_etf_market_residual_volatility_prescreen_markdown(result)
     return result
 
 
-def load_legacy_promotion_quarantine(path: str | Path) -> dict[str, Any]:
+def load_legacy_volatility_quarantine(path: str | Path) -> dict[str, Any]:
     report_path = Path(path)
     if not report_path.exists():
         raise FileNotFoundError(f"Legacy CN ETF promotion report does not exist: {report_path}")
@@ -216,30 +265,37 @@ def load_legacy_promotion_quarantine(path: str | Path) -> dict[str, Any]:
     except json.JSONDecodeError as exc:
         raise ValueError(f"Invalid legacy CN ETF promotion report JSON: {report_path}") from exc
     summary = payload.get("summary") if isinstance(payload, dict) else None
-    if not isinstance(summary, dict):
-        raise ValueError("Legacy CN ETF promotion report is missing a summary object")
+    candidates = payload.get("candidates") if isinstance(payload, dict) else None
+    if not isinstance(summary, dict) or not isinstance(candidates, list):
+        raise ValueError("Legacy CN ETF promotion report must contain summary and candidates")
     observed = {
         "candidates": int(summary.get("candidates", -1)),
         "blocked": int(summary.get("blocked", -1)),
         "paper_ready": int(summary.get("paper_ready", -1)),
-        "research_only": int(summary.get("research_only", -1)),
     }
-    expected = {"candidates": 270, "blocked": 270, "paper_ready": 0}
-    if any(observed[key] != value for key, value in expected.items()):
-        raise ValueError(
-            "Legacy CN ETF promotion quarantine must show 270 candidates, 270 blocked, and zero paper-ready"
-        )
+    if observed != {"candidates": 270, "blocked": 270, "paper_ready": 0}:
+        raise ValueError("Legacy promotion quarantine must show 270 candidates, 270 blocked, and zero paper-ready")
+    volatility_rows = [
+        row
+        for row in candidates
+        if isinstance(row, dict) and str(row.get("factor_name", "")).startswith("volatility_")
+    ]
+    if len(volatility_rows) != 45:
+        raise ValueError("Legacy promotion quarantine must contain exactly 45 raw-volatility rows")
+    if any(row.get("promotion_status") != "blocked" for row in volatility_rows):
+        raise ValueError("All legacy raw-volatility rows must be blocked")
     return {
         "path": str(report_path),
         "sha256": hashlib.sha256(report_path.read_bytes()).hexdigest(),
         "status": "quarantined_by_current_strict_gate",
-        "legacy_candidate_id": "CN_ETF_liquidity_10_top1_cost5_reb5",
-        "legacy_candidate_reuse_allowed": False,
         "summary": observed,
+        "volatility_rows": len(volatility_rows),
+        "blocked_volatility_rows": len(volatility_rows),
+        "legacy_candidate_reuse_allowed": False,
     }
 
 
-def summarize_cn_etf_liquidity_capacity_prescreen(
+def summarize_cn_etf_market_residual_volatility_prescreen(
     factors: pd.DataFrame,
     labels: pd.DataFrame,
     references: pd.DataFrame,
@@ -264,12 +320,6 @@ def summarize_cn_etf_liquidity_capacity_prescreen(
     position_count: int = 10,
     max_one_way_participation_rate: float = 0.01,
 ) -> dict[str, Any]:
-    if portfolio_value_cny <= 0.0:
-        raise ValueError("portfolio_value_cny must be positive")
-    if position_count < 1:
-        raise ValueError("position_count must be positive")
-    if not 0.0 < max_one_way_participation_rate <= 1.0:
-        raise ValueError("max_one_way_participation_rate must be in (0, 1]")
     thresholds = CrossSectionalPrescreenThresholds(
         min_cross_section=min_cross_section,
         min_ic_observations=min_ic_observations,
@@ -305,14 +355,14 @@ def summarize_cn_etf_liquidity_capacity_prescreen(
         max_one_way_participation_rate=max_one_way_participation_rate,
     )
     capacity_by_key = {
-        (str(row["factor_name"]), int(row["horizon"])): row
-        for row in capacity_rows
+        (str(row["factor_name"]), int(row["horizon"])): row for row in capacity_rows
     }
     for row in core["results"]:
-        capacity = capacity_by_key[(str(row["factor_name"]), int(row["horizon"]))]
-        row.update(capacity)
+        row.update(capacity_by_key[(str(row["factor_name"]), int(row["horizon"]))])
         capacity_blockers = []
-        if int(row["top_quantile_asset_observations"]) == 0 or int(row["top_quantile_adv20_observations"]) == 0:
+        if int(row["top_quantile_asset_observations"]) == 0 or int(
+            row["top_quantile_adv20_observations"]
+        ) == 0:
             capacity_blockers.append("top_quantile_capacity_evidence_missing")
         elif float(row["top_quantile_adv20_coverage_rate"]) < 1.0:
             capacity_blockers.append("top_quantile_capacity_evidence_incomplete")
@@ -340,14 +390,14 @@ def summarize_cn_etf_liquidity_capacity_prescreen(
     next_action = (
         "backfill_2024h2_2025_then_freeze_walk_forward"
         if lead_rows
-        else "stop_loss_liquidity_capacity_and_rotate_scheduler"
+        else "stop_loss_volatility_regime_and_activate_peer_relative_value"
     )
     return {
         "stage": STAGE,
         "generated_at": date.today().isoformat(),
         "status": status,
         "summary": core["summary"],
-        "historical_stop_loss_review": build_historical_liquidity_capacity_review(),
+        "historical_stop_loss_review": build_historical_volatility_regime_review(),
         "candidate_names": core["candidate_names"],
         "reference_names": core["reference_names"],
         "thresholds": {
@@ -384,6 +434,7 @@ def summarize_cn_etf_liquidity_capacity_prescreen(
             "portfolio_grid_allowed": False,
             "promotion_allowed": False,
             "paper_signal_allowed": False,
+            "last_chance_batch": True,
             "next_action": next_action,
         },
         "live_boundary_allowed": False,
@@ -391,72 +442,80 @@ def summarize_cn_etf_liquidity_capacity_prescreen(
     }
 
 
-def write_cn_etf_liquidity_capacity_prescreen(
+def write_cn_etf_market_residual_volatility_prescreen(
     output_dir: str | Path,
     result: dict[str, Any],
 ) -> dict[str, Path]:
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
     paths = {
-        "json": output / "cn_etf_liquidity_capacity_prescreen.json",
-        "markdown": output / "cn_etf_liquidity_capacity_prescreen.md",
-        "results": output / "cn_etf_liquidity_capacity_prescreen_results.csv",
-        "ic_observations": output / "cn_etf_liquidity_capacity_ic_observations.csv",
-        "yearly_ic": output / "cn_etf_liquidity_capacity_yearly_ic.csv",
-        "reference_correlations": output / "cn_etf_liquidity_capacity_reference_correlations.csv",
-        "capacity": output / "cn_etf_liquidity_capacity_capacity.csv",
+        "json": output / "cn_etf_market_residual_volatility_prescreen.json",
+        "markdown": output / "cn_etf_market_residual_volatility_prescreen.md",
+        "results": output / "cn_etf_market_residual_volatility_prescreen_results.csv",
+        "ic_observations": output / "cn_etf_market_residual_volatility_ic_observations.csv",
+        "yearly_ic": output / "cn_etf_market_residual_volatility_yearly_ic.csv",
+        "reference_correlations": output
+        / "cn_etf_market_residual_volatility_reference_correlations.csv",
+        "capacity": output / "cn_etf_market_residual_volatility_capacity.csv",
     }
-    paths["json"].write_text(json.dumps(_sanitize(result), indent=2, sort_keys=True), encoding="utf-8")
+    paths["json"].write_text(
+        json.dumps(_sanitize(result), indent=2, sort_keys=True), encoding="utf-8"
+    )
     paths["markdown"].write_text(
-        render_cn_etf_liquidity_capacity_prescreen_markdown(result),
+        render_cn_etf_market_residual_volatility_prescreen_markdown(result),
         encoding="utf-8",
     )
     pd.DataFrame(result.get("results", [])).to_csv(paths["results"], index=False)
     pd.DataFrame(result.get("ic_observations", [])).to_csv(paths["ic_observations"], index=False)
     pd.DataFrame(result.get("yearly_ic", [])).to_csv(paths["yearly_ic"], index=False)
-    pd.DataFrame(result.get("reference_correlations", [])).to_csv(paths["reference_correlations"], index=False)
+    pd.DataFrame(result.get("reference_correlations", [])).to_csv(
+        paths["reference_correlations"], index=False
+    )
     pd.DataFrame(result.get("capacity_rows", [])).to_csv(paths["capacity"], index=False)
     return paths
 
 
-def render_cn_etf_liquidity_capacity_prescreen_markdown(result: dict[str, Any]) -> str:
+def render_cn_etf_market_residual_volatility_prescreen_markdown(
+    result: dict[str, Any],
+) -> str:
     summary = result.get("summary", {})
     decision = result.get("decision", {})
     data_window = result.get("data_window", {})
-    legacy = result.get("legacy_promotion_quarantine", {}).get("summary", {})
+    legacy = result.get("legacy_promotion_quarantine", {})
     lines = [
-        "# CN ETF Liquidity-Capacity Prescreen",
+        "# CN ETF Market-Residual Volatility Prescreen",
         "",
         f"- Status: {result.get('status', 'unknown')}",
         f"- Candidates / tests / references: {summary.get('candidate_count', 0)} / {summary.get('test_count', 0)} / {summary.get('reference_count', 0)}",
         f"- Research leads: {summary.get('research_lead_count', 0)}",
-        f"- Analysis end: {data_window.get('analysis_end_date', 'not_attached')}",
-        f"- Final holdout included: {result.get('holdout_policy', {}).get('final_holdout_included', False)}",
-        f"- Legacy strict gate blocked / paper-ready: {legacy.get('blocked', 'not_attached')} / {legacy.get('paper_ready', 'not_attached')}",
-        f"- Next action: {decision.get('next_action', 'unknown')}",
-        f"- Safety: {result.get('safety', SAFETY)}",
+        f"- Analysis window: {data_window.get('analysis_start_date', 'n/a')} to {data_window.get('analysis_end_date', 'n/a')}",
+        f"- Eligible assets / dates: {data_window.get('eligible_assets', 0)} / {data_window.get('eligible_dates', 0)}",
+        f"- Legacy raw-volatility rows quarantined: {legacy.get('volatility_rows', 0)}",
+        f"- Next action: {decision.get('next_action', 'n/a')}",
+        "- Final 2026 holdout included: no",
+        "- Live boundary allowed: no",
         "",
         "## Results",
         "",
-        "| Factor | Horizon | Rank IC | ICIR | FDR q | Q5-Q1 | Mono | Turnover | Years | Max ref corr | ADV20 P10 CNY | Participation | Capacity coverage | Lead |",
+        "| Factor | H | Mean IC | ICIR | FDR q | IC>0 | Q5-Q1 | Mono | Turnover | Years+ | Max ref corr | ADV20 P10 | Participation | Lead |",
         "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
     ]
     for row in result.get("results", []):
         lines.append(
-            "| {factor} | {horizon} | {ic:.4f} | {icir:.3f} | {q:.4g} | {spread:.4f} | {mono:.3f} | {turnover:.1%} | {years} | {corr:.3f} | {adv20} | {participation} | {coverage:.1%} | {lead} |".format(
-                factor=row.get("factor_name"),
-                horizon=row.get("horizon"),
+            "| {factor} | {horizon} | {ic:.4f} | {icir:.3f} | {fdr:.4f} | {positive:.1%} | {spread:.5f} | {mono:.2f} | {turnover:.1%} | {years:.1%} | {corr:.4f} | {adv20} | {participation} | {lead} |".format(
+                factor=row.get("factor_name", ""),
+                horizon=int(row.get("horizon", 0)),
                 ic=float(row.get("mean_rank_ic", 0.0)),
                 icir=float(row.get("icir", 0.0)),
-                q=float(row.get("fdr_adjusted_p_value", 1.0)),
+                fdr=float(row.get("fdr_adjusted_p_value", 1.0)),
+                positive=float(row.get("positive_ic_rate", 0.0)),
                 spread=float(row.get("quantile_spread", 0.0)),
                 mono=float(row.get("quantile_monotonicity", 0.0)),
-                turnover=float(row.get("avg_top_quantile_turnover", 1.0)),
-                years=int(row.get("usable_years", 0)),
+                turnover=float(row.get("avg_top_quantile_turnover", 0.0)),
+                years=float(row.get("positive_year_rate", 0.0)),
                 corr=float(row.get("max_abs_reference_correlation", 0.0)),
                 adv20=_format_optional_number(row.get("top_quantile_adv20_p10_cny"), decimals=0),
                 participation=_format_optional_percent(row.get("p10_one_way_participation_rate")),
-                coverage=float(row.get("top_quantile_adv20_coverage_rate", 0.0)),
                 lead="yes" if row.get("research_lead") else "no",
             )
         )
@@ -465,8 +524,10 @@ def render_cn_etf_liquidity_capacity_prescreen_markdown(result: dict[str, Any]) 
             "",
             "## Boundary",
             "",
-            "- This packet cannot authorize walk-forward until the 2024-H2 through 2025 history gap is backfilled and audited.",
-            "- It cannot authorize a portfolio grid, promotion, paper signal, broker access, account read, order placement, or live trading.",
+            "- This is the final allowed batch for the volatility-regime family.",
+            "- Zero leads require immediate family stop-loss and scheduler rotation.",
+            "- A lead cannot authorize walk-forward until the 2024-H2 through 2025 gap is backfilled and audited.",
+            "- No portfolio grid, promotion, paper signal, broker access, account read, order placement, or live trading is authorized.",
         ]
     )
     return "\n".join(lines) + "\n"

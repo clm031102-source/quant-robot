@@ -94,6 +94,8 @@ Primary local root: `data/processed/tushare_etf_wide_history_2023_2026`.
 
 The actual source window is 2020-01-02 through 2024-06-28. The directory name does not authorize reading later data. The 2026 final holdout is sealed. Any later walk-forward requires an audited 2024-H2 through 2025 backfill first.
 
+The loader must skip partitions after the configured analysis year before opening their files. Filtering 2026 rows only after loading is not considered a sealed holdout.
+
 Signal-date eligibility requires:
 
 - Official ETF flag and valid list/delist lifecycle.
@@ -156,8 +158,9 @@ If no row passes:
 - A dedicated ETF residual-risk factor module with formula and causality tests.
 - A thin prescreen wrapper using the shared cross-sectional statistical engine.
 - Historical-reference computation that requests only the frozen names.
+- Historical-reference completeness that fails closed when a frozen reference lacks the minimum usable daily cross-sections.
 - Capacity diagnostics with fail-closed evidence coverage.
-- A config-driven CLI that rejects 2026 dates and any unregistered factor/reference name.
+- A config-driven CLI that rejects 2026 dates and any drift in the frozen analysis window, eligibility policy, market proxy, candidate parameters, factor/reference names, thresholds, capacity assumptions, multiple-testing policy, zero-lead allocation, or execution boundaries.
 - JSON, Markdown, result, IC, yearly IC, reference-correlation, and capacity artifacts under ignored `data/reports/` paths.
 
 ## Safety

@@ -240,15 +240,28 @@ def _next_actions(
                 "reason": "Research family scheduling is blocked; do not start another factor batch until budget and stop-loss issues are resolved.",
             }
         ]
-    actions = [
-        {
-            "action": "run_active_family_batch",
-            "family_id": row.get("family_id"),
-            "budget_share": row.get("budget_share"),
-            "reason": str(row.get("next_action", "Run the next pre-registered hypothesis batch for this family.")),
-        }
-        for row in active_primary
-    ]
+    actions = []
+    for row in active_primary:
+        readiness_review_required = bool(row.get("metadata_readiness_review_required")) and (
+            row.get("factor_batch_before_readiness_allowed") is False
+        )
+        actions.append(
+            {
+                "action": (
+                    "run_metadata_readiness_review"
+                    if readiness_review_required
+                    else "run_active_family_batch"
+                ),
+                "family_id": row.get("family_id"),
+                "budget_share": row.get("budget_share"),
+                "reason": str(
+                    row.get(
+                        "next_action",
+                        "Run the next pre-registered hypothesis batch for this family.",
+                    )
+                ),
+            }
+        )
     auxiliary = [row for row in families if row.get("status") == "auxiliary_only"]
     for row in auxiliary:
         actions.append(

@@ -23,22 +23,17 @@ Forbidden use after downgrade:
 
 The `cn_etf_price_rotation` and `cn_etf_liquidity_capacity` families are now stop-lossed with zero budget. Their negative prescreens prohibit sign, window, threshold, portfolio-grid, and walk-forward rescue.
 
-The `cn_etf_volatility_regime` review closed raw volatility, low volatility, downside volatility, drawdown, recovery, compression, hard-regime, and state-adaptive retries. It retains 0.35 only for one final three-candidate market-residual prescreen. A zero-lead result closes the family immediately.
+The `cn_etf_volatility_regime` final market-residual prescreen produced zero research leads. The family is now stop-lossed with zero budget. Residual-volatility retry, downside-beta retry, residual-skew sign flip, window or threshold rescue, portfolio grids, and walk-forward are prohibited.
 
 ## ETF Rotation Hypothesis Portfolio
 
 Current primary allocation:
 
-- `cn_etf_volatility_regime`: 0.35, limited to `etf_idio_vol_low_60`, `etf_downside_beta_low_120`, and `etf_positive_residual_skew_60`.
 - `cn_etf_flow_breadth_aggregation`: 0.35, using stock flow only after ETF-level aggregation.
-- `cn_etf_fund_structure`: 0.30, subject to source permission and coverage checks.
+- `cn_etf_fund_structure`: 0.35, subject to source permission and coverage checks.
+- `cn_etf_peer_relative_value`: 0.30, restricted to metadata-readiness review before factor implementation.
 
-Frozen zero-lead transition for the residual-volatility batch:
-
-- Stop-loss `cn_etf_volatility_regime` at 0.
-- Keep flow breadth at 0.35.
-- Raise fund structure to 0.35.
-- Activate `cn_etf_peer_relative_value` at 0.30 after a metadata-readiness review and separate preregistration.
+The peer-relative-value family must first establish point-in-time same-index or tightly defined same-theme mappings. A name-only mapping, factor batch before readiness, portfolio grid before prescreen, or walk-forward before prescreen is prohibited.
 
 No single family should consume more than the configured per-family budget cap.
 At least three primary ETF research families must be active before a new factor batch starts.

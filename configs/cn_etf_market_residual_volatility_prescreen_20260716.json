@@ -5,6 +5,7 @@
   "research_scope": "market_residual_volatility_asymmetry_last_chance",
   "data_root": "data/processed/tushare_etf_wide_history_2023_2026",
   "metadata_root": "data/processed/tushare_etf_wide_history_2023_2026/metadata/tushare_fund_basic",
+  "legacy_promotion_report": "data/reports/promotion_gate_cn_etf_candidate_search/promotion_report.json",
   "analysis_start_date": "2020-01-02",
   "analysis_end_date": "2024-06-28",
   "final_holdout_start": "2026-01-01",

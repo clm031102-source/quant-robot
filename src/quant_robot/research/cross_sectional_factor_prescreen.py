@@ -93,7 +93,15 @@ def summarize_cross_sectional_factor_prescreen(
             abs(float(maximum["mean_daily_spearman"])) if maximum is not None else 0.0
         )
         row["max_reference_factor_name"] = maximum["reference_factor_name"] if maximum is not None else None
-        blockers = _research_blockers(row, thresholds=thresholds, missing_reference_names=missing_references)
+        reference_evidence_incomplete = bool(missing_references) or any(
+            int(item["daily_observations"]) < thresholds.min_ic_observations
+            for item in correlations
+        )
+        blockers = _research_blockers(
+            row,
+            thresholds=thresholds,
+            reference_evidence_incomplete=reference_evidence_incomplete,
+        )
         row["research_lead"] = not blockers
         row["blockers"] = blockers
 
@@ -290,7 +298,7 @@ def _research_blockers(
     row: dict[str, Any],
     *,
     thresholds: CrossSectionalPrescreenThresholds,
-    missing_reference_names: list[str],
+    reference_evidence_incomplete: bool,
 ) -> list[str]:
     blockers = []
     if int(row["ic_observations"]) < thresholds.min_ic_observations:
@@ -313,7 +321,7 @@ def _research_blockers(
         blockers.append("usable_years_below_threshold")
     if float(row["positive_year_rate"]) < thresholds.min_positive_year_rate:
         blockers.append("positive_year_rate_below_threshold")
-    if missing_reference_names:
+    if reference_evidence_incomplete:
         blockers.append("historical_reference_evidence_incomplete")
     if float(row["max_abs_reference_correlation"]) >= thresholds.max_abs_reference_correlation:
         blockers.append("historical_reference_duplicate")
