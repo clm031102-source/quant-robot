@@ -30,15 +30,19 @@ class AuthorityBarsConfig:
     stock_basic_root: Path | None = None
     enforce_official_lifecycle: bool = False
     exclude_assets_without_lifecycle_metadata: bool = False
+    quarantined_asset_ids_path: Path | None = None
     repair_adjusted_ratio_mass_jumps: bool = False
     exclude_adjusted_ratio_jump_assets: bool = False
     adjusted_ratio_jump_threshold: float = 2.0
+    adjusted_ratio_mass_jump_threshold: float = 2.0
     adjusted_ratio_mass_jump_asset_threshold: int = 100
 
 
 def load_authority_bars_config(path: str | Path) -> AuthorityBarsConfig:
     data = json.loads(Path(path).read_text(encoding="utf-8-sig"))
     stock_basic_root = data.get("stock_basic_root")
+    quarantined_asset_ids_path = data.get("quarantined_asset_ids_path")
+    adjusted_ratio_jump_threshold = float(data.get("adjusted_ratio_jump_threshold", 2.0))
     return AuthorityBarsConfig(
         market=str(data.get("market", "CN")).upper(),
         segments=tuple(_segment(item) for item in data.get("segments", [])),
@@ -47,9 +51,15 @@ def load_authority_bars_config(path: str | Path) -> AuthorityBarsConfig:
         exclude_assets_without_lifecycle_metadata=bool(
             data.get("exclude_assets_without_lifecycle_metadata", False)
         ),
+        quarantined_asset_ids_path=(
+            Path(str(quarantined_asset_ids_path)) if quarantined_asset_ids_path else None
+        ),
         repair_adjusted_ratio_mass_jumps=bool(data.get("repair_adjusted_ratio_mass_jumps", False)),
         exclude_adjusted_ratio_jump_assets=bool(data.get("exclude_adjusted_ratio_jump_assets", False)),
-        adjusted_ratio_jump_threshold=float(data.get("adjusted_ratio_jump_threshold", 2.0)),
+        adjusted_ratio_jump_threshold=adjusted_ratio_jump_threshold,
+        adjusted_ratio_mass_jump_threshold=float(
+            data.get("adjusted_ratio_mass_jump_threshold", adjusted_ratio_jump_threshold)
+        ),
         adjusted_ratio_mass_jump_asset_threshold=int(data.get("adjusted_ratio_mass_jump_asset_threshold", 100)),
     )
 
@@ -81,13 +91,20 @@ def load_authority_processed_bars_from_config(path: str | Path, markets: tuple[s
     if config.repair_adjusted_ratio_mass_jumps:
         bars = repair_adjusted_ratio_mass_jumps(
             bars,
-            jump_threshold=config.adjusted_ratio_jump_threshold,
+            jump_threshold=config.adjusted_ratio_mass_jump_threshold,
             mass_jump_asset_threshold=config.adjusted_ratio_mass_jump_asset_threshold,
         )
     if config.exclude_adjusted_ratio_jump_assets:
         bars = exclude_adjusted_ratio_jump_assets(
             bars,
             jump_threshold=config.adjusted_ratio_jump_threshold,
+        )
+    if config.quarantined_asset_ids_path is not None:
+        quarantined_asset_ids = _load_quarantined_asset_ids(
+            config.quarantined_asset_ids_path
+        )
+        bars = bars[~bars["asset_id"].astype(str).isin(quarantined_asset_ids)].reset_index(
+            drop=True
         )
     validate_market_data(bars)
     return bars
@@ -272,6 +289,23 @@ def _filter_bars_to_official_lifecycle(
     )
     keep = within_lifecycle if exclude_assets_without_metadata else within_lifecycle | ~known
     return frame.loc[keep, bars.columns].reset_index(drop=True)
+
+
+def _load_quarantined_asset_ids(path: Path) -> set[str]:
+    if not path.is_file():
+        raise FileNotFoundError(f"quarantined asset config does not exist: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8-sig"))
+    if not isinstance(payload, dict) or payload.get("schema_version") != 1:
+        raise ValueError("quarantined asset config must use schema_version 1")
+    values = payload.get("asset_ids")
+    if not isinstance(values, list):
+        raise ValueError("quarantined asset config asset_ids must be a list")
+    asset_ids = [str(value).strip() for value in values]
+    if any(not value for value in asset_ids):
+        raise ValueError("quarantined asset config contains an empty asset_id")
+    if len(asset_ids) != len(set(asset_ids)):
+        raise ValueError("quarantined asset config contains duplicate asset_ids")
+    return set(asset_ids)
 
 
 def _adjusted_ratio(frame: pd.DataFrame) -> pd.Series:

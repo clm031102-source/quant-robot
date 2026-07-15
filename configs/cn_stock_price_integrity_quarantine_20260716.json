@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "generated_date": "2026-07-16",
+  "scope": "CN stock authority bars, 2015-01-01 through 2025-12-31",
+  "reason": "Unexplained raw-price discontinuities above 50 percent outside initial price discovery and without official suspension evidence.",
+  "source_audit": "data/reports/cn_stock_price_integrity_20260716_initial_price_classified/cn_stock_price_integrity_audit.json",
+  "source_audit_sha256": "44d279093ce558e386831b69d24733671e3572cd5318584693f386d8c82bbabe",
+  "asset_ids": [
+    "CN_XBEI_920270",
+    "CN_XBEI_920593",
+    "CN_XBEI_920663"
+  ],
+  "evidence": [
+    {
+      "asset_id": "CN_XBEI_920270",
+      "previous_date": "2023-09-15",
+      "date": "2023-09-18",
+      "observed_session_number": 254,
+      "calendar_days_since_list": 381,
+      "raw_return": -0.506344410876133
+    },
+    {
+      "asset_id": "CN_XBEI_920593",
+      "previous_date": "2023-09-20",
+      "date": "2023-09-21",
+      "observed_session_number": 111,
+      "calendar_days_since_list": 161,
+      "raw_return": -0.534320987654321
+    },
+    {
+      "asset_id": "CN_XBEI_920663",
+      "previous_date": "2023-10-13",
+      "date": "2023-10-16",
+      "observed_session_number": 142,
+      "calendar_days_since_list": 215,
+      "raw_return": -0.5269938650306749
+    }
+  ]
+}

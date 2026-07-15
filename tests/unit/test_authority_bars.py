@@ -113,6 +113,7 @@ class AuthorityBarsTests(unittest.TestCase):
                         "market": "CN",
                         "repair_adjusted_ratio_mass_jumps": True,
                         "adjusted_ratio_jump_threshold": 2.5,
+                        "adjusted_ratio_mass_jump_threshold": 1.2,
                         "adjusted_ratio_mass_jump_asset_threshold": 25,
                         "segments": [{"root": "data/processed/first"}],
                     }
@@ -124,6 +125,7 @@ class AuthorityBarsTests(unittest.TestCase):
 
             self.assertTrue(config.repair_adjusted_ratio_mass_jumps)
             self.assertEqual(config.adjusted_ratio_jump_threshold, 2.5)
+            self.assertEqual(config.adjusted_ratio_mass_jump_threshold, 1.2)
             self.assertEqual(config.adjusted_ratio_mass_jump_asset_threshold, 25)
             self.assertFalse(config.exclude_adjusted_ratio_jump_assets)
 
@@ -155,6 +157,7 @@ class AuthorityBarsTests(unittest.TestCase):
                         "stock_basic_root": "data/processed/official",
                         "enforce_official_lifecycle": True,
                         "exclude_assets_without_lifecycle_metadata": True,
+                        "quarantined_asset_ids_path": "configs/quarantine.json",
                         "segments": [{"root": "data/processed/first"}],
                     }
                 ),
@@ -166,6 +169,39 @@ class AuthorityBarsTests(unittest.TestCase):
             self.assertEqual(config.stock_basic_root, Path("data/processed/official"))
             self.assertTrue(config.enforce_official_lifecycle)
             self.assertTrue(config.exclude_assets_without_lifecycle_metadata)
+            self.assertEqual(config.quarantined_asset_ids_path, Path("configs/quarantine.json"))
+
+    def test_authority_config_loader_excludes_explicitly_quarantined_assets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            store = root / "store"
+            _write_bars(
+                store,
+                [
+                    _bar("2024-01-02", asset_id="CN_XSHE_CLEAN", symbol="000001.SZ", close=10.0),
+                    _bar("2024-01-02", asset_id="CN_XSHE_BAD", symbol="000002.SZ", close=20.0),
+                ],
+            )
+            quarantine_path = root / "quarantine.json"
+            quarantine_path.write_text(
+                json.dumps({"schema_version": 1, "asset_ids": ["CN_XSHE_BAD"]}),
+                encoding="utf-8",
+            )
+            config_path = root / "authority.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "market": "CN",
+                        "quarantined_asset_ids_path": str(quarantine_path),
+                        "segments": [{"root": str(store)}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            bars = load_authority_processed_bars_from_config(config_path, markets=("CN",))
+
+            self.assertEqual(set(bars["asset_id"]), {"CN_XSHE_CLEAN"})
 
     def test_authority_config_loader_enforces_official_lifecycle_fail_closed(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -280,6 +316,42 @@ class AuthorityBarsTests(unittest.TestCase):
             self.assertEqual(repaired.loc[2, "adj_close"], 11.0)
             self.assertEqual(repaired.loc[4, "adj_close"], 20.5)
             self.assertEqual(repaired.loc[5, "adj_close"], 21.0)
+
+    def test_mass_jump_repair_can_use_a_lower_threshold_than_asset_exclusion(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            store = root / "store"
+            _write_bars(
+                store,
+                [
+                    _bar("2024-01-02", asset_id="CN_XSHE_000001", symbol="000001.SZ", close=10.0, adj_close=10.0),
+                    _bar("2024-01-03", asset_id="CN_XSHE_000001", symbol="000001.SZ", close=10.5, adj_close=14.7),
+                    _bar("2024-01-02", asset_id="CN_XSHE_000002", symbol="000002.SZ", close=20.0, adj_close=20.0),
+                    _bar("2024-01-03", asset_id="CN_XSHE_000002", symbol="000002.SZ", close=20.5, adj_close=28.7),
+                ],
+            )
+            config_path = root / "authority.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "market": "CN",
+                        "repair_adjusted_ratio_mass_jumps": True,
+                        "exclude_adjusted_ratio_jump_assets": True,
+                        "adjusted_ratio_mass_jump_threshold": 1.2,
+                        "adjusted_ratio_jump_threshold": 1.5,
+                        "adjusted_ratio_mass_jump_asset_threshold": 2,
+                        "segments": [{"root": str(store)}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            repaired = load_authority_processed_bars_from_config(config_path, markets=("CN",))
+
+            repaired = repaired.sort_values(["asset_id", "date"]).reset_index(drop=True)
+            self.assertEqual(set(repaired["asset_id"]), {"CN_XSHE_000001", "CN_XSHE_000002"})
+            self.assertAlmostEqual(repaired.loc[1, "adj_close"], 10.5)
+            self.assertAlmostEqual(repaired.loc[3, "adj_close"], 20.5)
 
     def test_authority_config_loader_excludes_assets_with_adjusted_ratio_jumps(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -3,9 +3,11 @@
   "stock_basic_root": "data/processed/round198_tradeability_long_cycle_official_backfill_20260623",
   "enforce_official_lifecycle": true,
   "exclude_assets_without_lifecycle_metadata": true,
+  "quarantined_asset_ids_path": "configs/cn_stock_price_integrity_quarantine_20260716.json",
   "repair_adjusted_ratio_mass_jumps": true,
   "exclude_adjusted_ratio_jump_assets": true,
   "adjusted_ratio_jump_threshold": 1.5,
+  "adjusted_ratio_mass_jump_threshold": 1.2,
   "adjusted_ratio_mass_jump_asset_threshold": 100,
   "segments": [
     {
