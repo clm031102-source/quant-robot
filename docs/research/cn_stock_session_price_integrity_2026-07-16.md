@@ -195,12 +195,13 @@ The only manifest warnings are the two attached review-required packets and thei
 
 ## Verification
 
-- Complete unit/integration suite before the final runtime optimization: 2,176 tests passed in 659.55 seconds.
-- GUI and experiment-runner suites after dependency pruning: 103 tests passed.
+- Final complete suite after all runtime and structural optimizations: 2,178 tests passed in 654.558 seconds.
+- The preceding full-suite run exposed one maintainability-only regression: `research_service.py` had grown to 2,945 lines against its 2,934-line ceiling. Candidate-factor request parsing was extracted into a focused module, reducing the service to 2,904 lines without relaxing the baseline.
+- GUI and experiment-runner suites after dependency pruning and extraction: 103 tests passed.
 - Python compilation: passed.
-- Project audit: 2,734 files scanned; safety, syntax, mock boundaries, real data, and 82 factor configs passed.
+- Project audit: 2,736 files scanned; safety, syntax, mock boundaries, real data, and 82 factor configs passed.
 - Readiness: Tushare and Parquet ready.
-- Maintainability baseline: passed with known debt; no baseline regression.
+- Maintainability baseline: passed with known debt; no baseline regression remains.
 - Research-family scheduler: ready; five CN ETF families allocate 100% of primary research budget; direct CN stock moneyflow remains 0% and `auxiliary_only`.
 
 ## Feasibility
