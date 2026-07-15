@@ -1,8 +1,9 @@
 import unittest
+from unittest.mock import patch
 
 import pandas as pd
 
-from quant_robot.data.gap_audit import build_data_quality_gap_audit
+from quant_robot.data.gap_audit import _coverage_rows, build_data_quality_gap_audit
 
 
 class DataQualityGapAuditTests(unittest.TestCase):
@@ -203,6 +204,28 @@ class DataQualityGapAuditTests(unittest.TestCase):
         refresh_action = next(action for action in audit["repair_actions"] if action["action"] == "refresh_tushare_data")
         self.assertIn("--source tushare", refresh_action["command"])
         self.assertIn("--market CN ", refresh_action["command"])
+
+    def test_coverage_computes_asset_date_bounds_once(self):
+        dates = pd.date_range("2020-01-01", periods=500).date.tolist()
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["CN_A", "CN_A"],
+                "market": ["CN", "CN"],
+                "date": [dates[0], dates[-1]],
+                "volume": [100, 120],
+            }
+        )
+        real_min = min
+        real_max = max
+        with (
+            patch("builtins.min", wraps=real_min) as minimum,
+            patch("builtins.max", wraps=real_max) as maximum,
+        ):
+            rows = _coverage_rows(bars, dates)
+
+        self.assertEqual(rows[0]["expected_rows"], 500)
+        self.assertLessEqual(minimum.call_count, 5)
+        self.assertLessEqual(maximum.call_count, 5)
 
 
 if __name__ == "__main__":

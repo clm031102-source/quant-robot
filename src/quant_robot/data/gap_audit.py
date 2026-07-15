@@ -204,7 +204,12 @@ def _coverage_rows(frame: pd.DataFrame, expected_dates: list[Any]) -> list[dict[
     symbol_by_asset = _symbol_by_asset(frame)
     for asset_id, group in frame.groupby("asset_id", sort=True):
         observed = set(group["date"])
-        in_range = [date for date in expected_dates if min(observed) <= date <= max(observed)] if observed else []
+        if observed:
+            start = min(observed)
+            end = max(observed)
+            in_range = [date for date in expected_dates if start <= date <= end]
+        else:
+            in_range = []
         missing_count = len(set(in_range) - observed)
         rows.append(
             {
