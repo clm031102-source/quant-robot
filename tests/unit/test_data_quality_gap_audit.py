@@ -205,6 +205,26 @@ class DataQualityGapAuditTests(unittest.TestCase):
         self.assertIn("--source tushare", refresh_action["command"])
         self.assertIn("--market CN ", refresh_action["command"])
 
+    def test_repair_action_never_uses_authority_config_as_output_directory(self):
+        bars = pd.DataFrame(
+            {
+                "asset_id": ["CN_A", "CN_A"],
+                "market": ["CN", "CN"],
+                "date": ["2024-01-02", "2024-01-04"],
+                "volume": [100, 120],
+            }
+        )
+
+        audit = build_data_quality_gap_audit(
+            bars,
+            expected_dates=["2024-01-02", "2024-01-03", "2024-01-04"],
+            source_root="configs/cn_stock_authority_bars.json",
+        )
+
+        refresh_action = next(action for action in audit["repair_actions"] if action["action"] == "refresh_tushare_data")
+        self.assertIn("--output-dir data\\processed\\cn_stock_gap_repair", refresh_action["command"])
+        self.assertNotIn("--output-dir configs/cn_stock_authority_bars.json", refresh_action["command"])
+
     def test_coverage_computes_asset_date_bounds_once(self):
         dates = pd.date_range("2020-01-01", periods=500).date.tolist()
         bars = pd.DataFrame(

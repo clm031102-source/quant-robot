@@ -305,8 +305,18 @@ def _refresh_action(data_root: str, market: str) -> dict[str, str]:
             "command": "python scripts\\batch_import_etf_csv.py --input-dir data\\raw\\tradingview_etf_csv --raw-dir data\\raw\\tradingview_etf_csv --output-dir data\\processed\\etf_csv",
             "reason": "Refresh local TradingView ETF CSV coverage when missing dates are confirmed.",
         }
+    output_root = _repair_output_root(data_root, market)
     return {
         "action": "refresh_tushare_data",
-        "command": f"python scripts\\ingest_data.py --source tushare --market {market} --start-date <start-date> --end-date <end-date> --output-dir {data_root}",
+        "command": f"python scripts\\ingest_data.py --source tushare --market {market} --start-date <start-date> --end-date <end-date> --output-dir {output_root}",
         "reason": "Refresh the audited market through the local Tushare pipeline after confirming exact missing-date windows.",
     }
+
+
+def _repair_output_root(data_root: str, market: str) -> str:
+    source = Path(data_root)
+    if source.suffix.lower() not in {".json", ".yaml", ".yml"} and not source.is_file():
+        return data_root
+    market_name = market.lower()
+    suffix = "stock" if market.upper() == "CN" else "market"
+    return f"data\\processed\\{market_name}_{suffix}_gap_repair"
