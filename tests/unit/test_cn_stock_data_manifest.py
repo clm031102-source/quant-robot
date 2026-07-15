@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from datetime import date, timedelta
@@ -198,7 +199,7 @@ class CnStockDataManifestTests(unittest.TestCase):
             write_cn_stock_data_manifest(output, manifest)
             packet_path = output / "cn_stock_data_manifest.json"
 
-            self.assertEqual(manifest["manifest_schema_version"], 2)
+            self.assertEqual(manifest["manifest_schema_version"], 3)
             self.assertEqual(manifest["summary"]["source_file_count"], 1)
             self.assertEqual(len(manifest["summary"]["source_content_sha256"]), 64)
             validate_cn_stock_data_manifest_packet(
@@ -215,6 +216,107 @@ class CnStockDataManifestTests(unittest.TestCase):
                     expected_source_root=root,
                     allow_review_required=True,
                     verify_source_fingerprint=True,
+                )
+
+    def test_authority_manifest_fingerprints_referenced_bar_and_moneyflow_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bar_store = root / "bars_store"
+            moneyflow_store = root / "moneyflow_store"
+            bar_file = bar_store / "processed/bars/frequency=1d/market=CN/year=2024/bars.csv"
+            moneyflow_file = (
+                moneyflow_store / "processed/moneyflow_inputs/frequency=1d/market=CN/year=2024/moneyflow.csv"
+            )
+            bar_file.parent.mkdir(parents=True)
+            moneyflow_file.parent.mkdir(parents=True)
+            bar_file.write_text("date,asset_id\n2024-01-02,A\n", encoding="utf-8")
+            moneyflow_file.write_text("date,asset_id\n2024-01-02,A\n", encoding="utf-8")
+            bar_config = root / "authority_bars.json"
+            moneyflow_config = root / "authority_moneyflow.json"
+            bar_config.write_text(
+                json.dumps({"market": "CN", "segments": [{"root": str(bar_store)}]}),
+                encoding="utf-8",
+            )
+            moneyflow_config.write_text(
+                json.dumps({"market": "CN", "segments": [{"root": str(moneyflow_store)}]}),
+                encoding="utf-8",
+            )
+            bars = pd.DataFrame(
+                {
+                    "date": ["2024-01-02"],
+                    "asset_id": ["A"],
+                    "symbol": ["000001.SZ"],
+                    "market": ["CN"],
+                    "asset_type": ["stock"],
+                    "adj_close": [10.0],
+                    "volume": [1000],
+                    "amount": [10000.0],
+                }
+            )
+            moneyflow = pd.DataFrame(
+                {
+                    "date": ["2024-01-02"],
+                    "asset_id": ["A"],
+                    "symbol": ["000001.SZ"],
+                    "market": ["CN"],
+                    "net_mf_amount": [10.0],
+                }
+            )
+            manifest = build_cn_stock_data_manifest(
+                bars=bars,
+                moneyflow_inputs=moneyflow,
+                source_root=bar_config,
+                moneyflow_source_root=moneyflow_config,
+            )
+            output = root / "report"
+            write_cn_stock_data_manifest(output, manifest)
+            packet_path = output / "cn_stock_data_manifest.json"
+
+            self.assertEqual(manifest["summary"]["source_file_count"], 2)
+            self.assertEqual(manifest["summary"]["moneyflow_source_file_count"], 2)
+            self.assertEqual(manifest["summary"]["moneyflow_source_root"], str(moneyflow_config))
+            validate_cn_stock_data_manifest_packet(
+                packet_path,
+                expected_source_root=bar_config,
+                expected_moneyflow_source_root=moneyflow_config,
+                verify_source_fingerprint=True,
+            )
+
+            bar_file.write_text("date,asset_id\n2024-01-02,B\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "source fingerprint mismatch"):
+                validate_cn_stock_data_manifest_packet(
+                    packet_path,
+                    expected_source_root=bar_config,
+                    expected_moneyflow_source_root=moneyflow_config,
+                    verify_source_fingerprint=True,
+                )
+
+    def test_validate_manifest_rejects_moneyflow_source_mismatch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "cn_stock_data_manifest.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "generated_at": date.today().isoformat(),
+                        "status": "cleared",
+                        "summary": {
+                            "source_root": "bars.json",
+                            "moneyflow_source_root": "moneyflow.json",
+                            "bar_rows": 10,
+                            "bar_symbols": 2,
+                        },
+                        "decision": {"data_manifest_cleared": True, "blockers": [], "warnings": []},
+                        "live_boundary_allowed": False,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "moneyflow source root mismatch"):
+                validate_cn_stock_data_manifest_packet(
+                    path,
+                    expected_source_root="bars.json",
+                    expected_moneyflow_source_root="other_moneyflow.json",
                 )
 
 

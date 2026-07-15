@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -67,6 +68,52 @@ class CnStockDataManifestCliTests(unittest.TestCase):
 
         self.assertEqual(manifest["status"], "review_required")
         self.assertIn("moneyflow_inputs_missing", manifest["decision"]["warnings"])
+
+    def test_cli_runner_loads_separate_authority_bar_and_moneyflow_configs(self) -> None:
+        bars = pd.DataFrame(
+            {
+                "date": ["2024-01-02"],
+                "asset_id": ["000001.SZ"],
+                "symbol": ["000001.SZ"],
+                "market": ["CN"],
+                "asset_type": ["stock"],
+                "adj_close": [10.0],
+                "volume": [1000],
+                "amount": [10000.0],
+            }
+        )
+        moneyflow = pd.DataFrame(
+            {
+                "date": ["2024-01-02"],
+                "asset_id": ["000001.SZ"],
+                "symbol": ["000001.SZ"],
+                "market": ["CN"],
+                "net_mf_amount": [100.0],
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            bars_config = root / "bars.json"
+            moneyflow_config = root / "moneyflow.json"
+            bars_config.write_text(json.dumps({"market": "CN", "segments": []}), encoding="utf-8")
+            moneyflow_config.write_text(json.dumps({"market": "CN", "segments": []}), encoding="utf-8")
+            with (
+                patch(
+                    "scripts.run_cn_stock_data_manifest.load_authority_processed_bars_from_config",
+                    return_value=bars,
+                ) as load_bars,
+                patch("scripts.run_cn_stock_data_manifest.load_moneyflow_inputs", return_value=moneyflow) as load_moneyflow,
+            ):
+                manifest = run_cn_stock_data_manifest(
+                    data_root=bars_config,
+                    moneyflow_root=moneyflow_config,
+                    output_dir=root / "report",
+                )
+
+            load_bars.assert_called_once_with(bars_config, ("CN",))
+            load_moneyflow.assert_called_once_with(moneyflow_config, "CN")
+            self.assertEqual(manifest["summary"]["source_root"], str(bars_config))
+            self.assertEqual(manifest["summary"]["moneyflow_source_root"], str(moneyflow_config))
 
 
 if __name__ == "__main__":

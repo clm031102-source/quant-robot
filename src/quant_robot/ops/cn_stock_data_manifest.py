@@ -8,11 +8,11 @@ from typing import Any
 import pandas as pd
 
 from quant_robot.storage.atomic import atomic_write, atomic_write_text, atomic_write_json
-from quant_robot.storage.fingerprints import fingerprint_dataset_root, fingerprint_frame, fingerprint_schema
+from quant_robot.storage.fingerprints import fingerprint_frame, fingerprint_research_source, fingerprint_schema
 
 
 STAGE = "cn_stock_data_manifest"
-MANIFEST_SCHEMA_VERSION = 2
+MANIFEST_SCHEMA_VERSION = 3
 SAFETY_TEXT = "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
 
 
@@ -21,6 +21,7 @@ def build_cn_stock_data_manifest(
     bars: pd.DataFrame,
     moneyflow_inputs: pd.DataFrame | None,
     source_root: str | Path,
+    moneyflow_source_root: str | Path | None = None,
     extreme_return_threshold: float = 0.50,
 ) -> dict[str, Any]:
     clean_bars = _prepare_bars(bars)
@@ -28,8 +29,20 @@ def build_cn_stock_data_manifest(
     blockers = _blockers(clean_bars)
     warnings = _warnings(clean_bars, clean_moneyflow, extreme_return_threshold)
     status = "blocked" if blockers else "review_required" if warnings else "cleared"
-    source_fingerprint = fingerprint_dataset_root(source_root)
-    summary = _summary(clean_bars, clean_moneyflow, source_root, source_fingerprint)
+    effective_moneyflow_root = source_root if moneyflow_source_root is None else moneyflow_source_root
+    source_fingerprint = fingerprint_research_source(source_root, dataset="processed/bars")
+    moneyflow_source_fingerprint = fingerprint_research_source(
+        effective_moneyflow_root,
+        dataset="processed/moneyflow_inputs",
+    )
+    summary = _summary(
+        clean_bars,
+        clean_moneyflow,
+        source_root,
+        source_fingerprint,
+        effective_moneyflow_root,
+        moneyflow_source_fingerprint,
+    )
     manifest = {
         "manifest_schema_version": MANIFEST_SCHEMA_VERSION,
         "stage": STAGE,
@@ -43,6 +56,7 @@ def build_cn_stock_data_manifest(
         },
         "symbol_coverage": _symbol_coverage(clean_bars, clean_moneyflow),
         "source_files": source_fingerprint["files"],
+        "moneyflow_source_files": moneyflow_source_fingerprint["files"],
         "safety": SAFETY_TEXT,
         "live_boundary_allowed": False,
     }
@@ -65,6 +79,7 @@ def validate_cn_stock_data_manifest_packet(
     packet_path: str | Path | None,
     *,
     expected_source_root: str | Path | None = None,
+    expected_moneyflow_source_root: str | Path | None = None,
     allow_review_required: bool = False,
     context: str = "CN stock factor mining",
     require_generated_today: bool = True,
@@ -96,12 +111,17 @@ def validate_cn_stock_data_manifest_packet(
         raise ValueError(f"{context} data manifest violates live boundary: {path}")
     if expected_source_root is not None and _path_text(summary.get("source_root")) != _path_text(expected_source_root):
         raise ValueError(f"{context} data manifest source root mismatch: {path}")
+    if (
+        expected_moneyflow_source_root is not None
+        and _path_text(summary.get("moneyflow_source_root")) != _path_text(expected_moneyflow_source_root)
+    ):
+        raise ValueError(f"{context} data manifest moneyflow source root mismatch: {path}")
     if verify_source_fingerprint:
         if int(packet.get("manifest_schema_version") or 0) < MANIFEST_SCHEMA_VERSION:
             raise ValueError(f"{context} data manifest fingerprint schema is missing: {path}")
         if expected_source_root is None:
             raise ValueError(f"{context} source fingerprint verification requires expected_source_root: {path}")
-        current = fingerprint_dataset_root(expected_source_root)
+        current = fingerprint_research_source(expected_source_root, dataset="processed/bars")
         if not current["exists"]:
             raise ValueError(f"{context} data manifest source root does not exist: {expected_source_root}")
         if (
@@ -109,6 +129,20 @@ def validate_cn_stock_data_manifest_packet(
             or int(summary.get("source_file_count") or 0) != current["file_count"]
         ):
             raise ValueError(f"{context} data manifest source fingerprint mismatch: {path}")
+        if expected_moneyflow_source_root is not None:
+            moneyflow_current = fingerprint_research_source(
+                expected_moneyflow_source_root,
+                dataset="processed/moneyflow_inputs",
+            )
+            if not moneyflow_current["exists"]:
+                raise ValueError(
+                    f"{context} data manifest moneyflow source root does not exist: {expected_moneyflow_source_root}"
+                )
+            if (
+                str(summary.get("moneyflow_source_content_sha256", "")) != moneyflow_current["content_sha256"]
+                or int(summary.get("moneyflow_source_file_count") or 0) != moneyflow_current["file_count"]
+            ):
+                raise ValueError(f"{context} data manifest moneyflow source fingerprint mismatch: {path}")
     return packet
 
 
@@ -121,6 +155,7 @@ def render_cn_stock_data_manifest_markdown(manifest: dict[str, Any]) -> str:
         f"- Stage: {manifest.get('stage', STAGE)}",
         f"- Status: {manifest.get('status', 'unknown')}",
         f"- Source root: {summary.get('source_root')}",
+        f"- Moneyflow source root: {summary.get('moneyflow_source_root')}",
         f"- Bar rows: {summary.get('bar_rows', 0)}",
         f"- Bar symbols: {summary.get('bar_symbols', 0)}",
         f"- Moneyflow rows: {summary.get('moneyflow_rows', 0)}",
@@ -163,9 +198,12 @@ def _summary(
     moneyflow: pd.DataFrame,
     source_root: str | Path,
     source_fingerprint: dict[str, Any],
+    moneyflow_source_root: str | Path,
+    moneyflow_source_fingerprint: dict[str, Any],
 ) -> dict[str, Any]:
     return {
         "source_root": str(source_root),
+        "moneyflow_source_root": str(moneyflow_source_root),
         "bar_rows": int(len(bars)),
         "bar_symbols": _nunique(bars, "symbol"),
         "bar_asset_ids": _nunique(bars, "asset_id"),
@@ -186,6 +224,11 @@ def _summary(
         "source_file_count": int(source_fingerprint["file_count"]),
         "source_content_sha256": str(source_fingerprint["content_sha256"]),
         "source_fingerprint_schema_version": int(source_fingerprint["fingerprint_schema_version"]),
+        "moneyflow_source_file_count": int(moneyflow_source_fingerprint["file_count"]),
+        "moneyflow_source_content_sha256": str(moneyflow_source_fingerprint["content_sha256"]),
+        "moneyflow_source_fingerprint_schema_version": int(
+            moneyflow_source_fingerprint["fingerprint_schema_version"]
+        ),
     }
 
 

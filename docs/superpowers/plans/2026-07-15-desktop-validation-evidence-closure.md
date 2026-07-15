@@ -47,11 +47,11 @@
 - Modify: `tests/unit/test_cn_stock_data_manifest.py`
 - Modify: `tests/unit/test_cn_stock_data_manifest_cli.py`
 
-- [ ] Add failing tests for authority bar configs, separate moneyflow authority configs, referenced dataset fingerprints, and tampered segment files.
-- [ ] Run focused tests and verify RED.
-- [ ] Implement authority-dataset inventory fingerprints and record/validate both source roots.
-- [ ] Run focused tests and verify GREEN.
-- [ ] Commit as `fix: bind CN manifests to authority datasets`.
+- [x] Add failing tests for authority bar configs, separate moneyflow authority configs, referenced dataset fingerprints, and tampered segment files.
+- [x] Run focused tests and verify RED.
+- [x] Implement authority-dataset inventory fingerprints and record/validate both source roots.
+- [x] Run focused tests and verify GREEN.
+- [x] Commit as `fix: bind CN manifests to authority datasets`.
 
 ### Task 4: Validation-Specific Readiness Contract
 
