@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -35,6 +36,8 @@ def run_cn_stock_data_manifest(
     moneyflow_inputs: pd.DataFrame | None = None,
     calendar_path: str | Path | None = None,
     calendar_manifest_path: str | Path | None = None,
+    session_integrity_packet_path: str | Path | None = None,
+    price_integrity_packet_path: str | Path | None = None,
 ) -> dict[str, Any]:
     if (calendar_path is None) != (calendar_manifest_path is None):
         raise ValueError("calendar_path and calendar_manifest_path must be provided together")
@@ -61,6 +64,8 @@ def run_cn_stock_data_manifest(
         manifest_file = Path(calendar_manifest_path)
         calendar_manifest = validate_cn_trading_calendar_artifact(calendar_file, manifest_file)
         expected_sessions = pd.read_csv(calendar_file)
+    session_integrity_packet = _load_integrity_packet(session_integrity_packet_path)
+    price_integrity_packet = _load_integrity_packet(price_integrity_packet_path)
     manifest = build_cn_stock_data_manifest(
         bars=bar_frame,
         moneyflow_inputs=moneyflow_frame,
@@ -68,6 +73,8 @@ def run_cn_stock_data_manifest(
         moneyflow_source_root=effective_moneyflow_root,
         expected_sessions=expected_sessions,
         calendar_manifest=calendar_manifest,
+        session_integrity_packet=session_integrity_packet,
+        price_integrity_packet=price_integrity_packet,
     )
     write_cn_stock_data_manifest(output_dir, manifest)
     return manifest
@@ -80,6 +87,8 @@ def main() -> None:
     parser.add_argument("--moneyflow-root", help="Separate processed or authority-config moneyflow root")
     parser.add_argument("--calendar-path", help="Validated provider-backed CN trading calendar CSV")
     parser.add_argument("--calendar-manifest-path", help="Manifest for --calendar-path")
+    parser.add_argument("--session-integrity-packet", help="Asset-session integrity audit JSON")
+    parser.add_argument("--price-integrity-packet", help="Price integrity audit JSON")
     parser.add_argument("--market", default="CN")
     args = parser.parse_args()
     manifest = run_cn_stock_data_manifest(
@@ -88,6 +97,12 @@ def main() -> None:
         moneyflow_root=Path(args.moneyflow_root) if args.moneyflow_root else None,
         calendar_path=Path(args.calendar_path) if args.calendar_path else None,
         calendar_manifest_path=Path(args.calendar_manifest_path) if args.calendar_manifest_path else None,
+        session_integrity_packet_path=(
+            Path(args.session_integrity_packet) if args.session_integrity_packet else None
+        ),
+        price_integrity_packet_path=(
+            Path(args.price_integrity_packet) if args.price_integrity_packet else None
+        ),
         market=args.market,
     )
     print(
@@ -110,6 +125,23 @@ def _load_moneyflow_or_none(root: Path, market: str) -> pd.DataFrame | None:
         return load_moneyflow_inputs(root, market)
     except FileNotFoundError:
         return None
+
+
+def _load_integrity_packet(path: str | Path | None) -> dict[str, Any] | None:
+    if path is None:
+        return None
+    packet_path = Path(path)
+    if not packet_path.is_file():
+        raise FileNotFoundError(f"integrity packet does not exist: {packet_path}")
+    raw = packet_path.read_bytes()
+    packet = json.loads(raw.decode("utf-8-sig"))
+    if not isinstance(packet, dict):
+        raise ValueError(f"integrity packet must contain a JSON object: {packet_path}")
+    packet["_provenance"] = {
+        "path": str(packet_path),
+        "sha256": hashlib.sha256(raw).hexdigest(),
+    }
+    return packet
 
 
 if __name__ == "__main__":

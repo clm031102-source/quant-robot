@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -12,7 +12,7 @@ from quant_robot.storage.fingerprints import fingerprint_frame, fingerprint_rese
 
 
 STAGE = "cn_stock_data_manifest"
-MANIFEST_SCHEMA_VERSION = 4
+MANIFEST_SCHEMA_VERSION = 5
 SAFETY_TEXT = "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
 
 
@@ -24,6 +24,8 @@ def build_cn_stock_data_manifest(
     moneyflow_source_root: str | Path | None = None,
     expected_sessions: pd.DataFrame | None = None,
     calendar_manifest: dict[str, Any] | None = None,
+    session_integrity_packet: dict[str, Any] | None = None,
+    price_integrity_packet: dict[str, Any] | None = None,
     extreme_return_threshold: float = 0.50,
 ) -> dict[str, Any]:
     clean_bars = _prepare_bars(bars)
@@ -31,7 +33,28 @@ def build_cn_stock_data_manifest(
     clean_sessions = _prepare_sessions(expected_sessions)
     session_coverage = _market_session_coverage(clean_bars, clean_moneyflow, clean_sessions)
     blockers = _blockers(clean_bars, session_coverage)
-    warnings = _warnings(clean_bars, clean_moneyflow, extreme_return_threshold)
+    warnings = _warnings(
+        clean_bars,
+        clean_moneyflow,
+        extreme_return_threshold,
+        include_extreme_return_warning=price_integrity_packet is None,
+    )
+    session_blockers, session_warnings, session_provenance = _integrity_gate(
+        session_integrity_packet,
+        label="asset_session_integrity",
+        expected_stage="cn_stock_asset_session_integrity_audit",
+        expected_source_root=source_root,
+        cleared_flag="asset_session_integrity_cleared",
+    )
+    price_blockers, price_warnings, price_provenance = _integrity_gate(
+        price_integrity_packet,
+        label="price_integrity",
+        expected_stage="cn_stock_price_integrity_audit",
+        expected_source_root=source_root,
+        cleared_flag="price_integrity_cleared",
+    )
+    blockers = _dedupe(blockers + session_blockers + price_blockers)
+    warnings = _dedupe(warnings + session_warnings + price_warnings)
     status = "blocked" if blockers else "review_required" if warnings else "cleared"
     effective_moneyflow_root = source_root if moneyflow_source_root is None else moneyflow_source_root
     source_fingerprint = fingerprint_research_source(source_root, dataset="processed/bars")
@@ -63,6 +86,10 @@ def build_cn_stock_data_manifest(
         "source_files": source_fingerprint["files"],
         "moneyflow_source_files": moneyflow_source_fingerprint["files"],
         "calendar": _calendar_provenance(calendar_manifest),
+        "integrity": {
+            "asset_session": session_provenance,
+            "price": price_provenance,
+        },
         "safety": SAFETY_TEXT,
         "live_boundary_allowed": False,
     }
@@ -172,6 +199,8 @@ def render_cn_stock_data_manifest_markdown(manifest: dict[str, Any]) -> str:
         f"- Missing whole-market moneyflow sessions: {summary.get('missing_moneyflow_market_sessions', 0)}",
         f"- Source files: {summary.get('source_file_count', 0)}",
         f"- Source fingerprint: {summary.get('source_content_sha256', '')}",
+        f"- Asset-session integrity: {_integrity_status(manifest, 'asset_session')}",
+        f"- Price integrity: {_integrity_status(manifest, 'price')}",
         f"- Live boundary allowed: {manifest.get('live_boundary_allowed', False)}",
         "",
         "## Blockers",
@@ -331,7 +360,13 @@ def _date_count(frame: pd.DataFrame) -> int:
     return len(_date_set(frame))
 
 
-def _warnings(bars: pd.DataFrame, moneyflow: pd.DataFrame, extreme_return_threshold: float) -> list[str]:
+def _warnings(
+    bars: pd.DataFrame,
+    moneyflow: pd.DataFrame,
+    extreme_return_threshold: float,
+    *,
+    include_extreme_return_warning: bool = True,
+) -> list[str]:
     warnings = []
     if _zero_count(bars, "volume") > 0:
         warnings.append("zero_volume_rows_present")
@@ -339,13 +374,94 @@ def _warnings(bars: pd.DataFrame, moneyflow: pd.DataFrame, extreme_return_thresh
         warnings.append("zero_amount_rows_present")
     if _missing_count(bars, "adj_close") > 0:
         warnings.append("missing_adj_close_rows_present")
-    if _extreme_return_rows(bars, extreme_return_threshold) > 0:
+    if include_extreme_return_warning and _extreme_return_rows(bars, extreme_return_threshold) > 0:
         warnings.append("extreme_return_rows_present")
     if not moneyflow.empty and _nunique(moneyflow, "symbol") < _nunique(bars, "symbol"):
         warnings.append("moneyflow_symbol_coverage_below_bars")
     if moneyflow.empty:
         warnings.append("moneyflow_inputs_missing")
     return warnings
+
+
+def _integrity_gate(
+    packet: dict[str, Any] | None,
+    *,
+    label: str,
+    expected_stage: str,
+    expected_source_root: str | Path,
+    cleared_flag: str,
+) -> tuple[list[str], list[str], dict[str, Any] | None]:
+    if packet is None:
+        return [], [], None
+    if not isinstance(packet, dict):
+        return [f"{label}_packet_invalid"], [], None
+    blockers: list[str] = []
+    warnings: list[str] = []
+    decision = _dict(packet.get("decision"))
+    status = str(packet.get("status", "unknown"))
+    if packet.get("stage") != expected_stage:
+        blockers.append(f"{label}_stage_mismatch")
+    if not _packet_generated_today(packet.get("generated_at")):
+        blockers.append(f"{label}_packet_stale")
+    if _path_text(packet.get("source_root")) != _path_text(expected_source_root):
+        blockers.append(f"{label}_source_root_mismatch")
+    if packet.get("live_boundary_allowed") is not False:
+        blockers.append(f"{label}_live_boundary_violation")
+    packet_blockers = _list(decision.get("blockers"))
+    review_reasons = _list(decision.get("review_reasons"))
+    if status == "blocked" or packet_blockers:
+        blockers.append(f"{label}_blocked")
+        blockers.extend(f"{label}:{item}" for item in packet_blockers)
+    elif status == "review_required":
+        warnings.append(f"{label}_review_required")
+        warnings.extend(f"{label}:{item}" for item in review_reasons)
+    elif status == "cleared":
+        if decision.get(cleared_flag) is not True:
+            blockers.append(f"{label}_cleared_flag_mismatch")
+    else:
+        blockers.append(f"{label}_status_invalid:{status}")
+    provenance = _integrity_provenance(packet)
+    return _dedupe(blockers), _dedupe(warnings), provenance
+
+
+def _integrity_provenance(packet: dict[str, Any]) -> dict[str, Any]:
+    provenance = _dict(packet.get("_provenance"))
+    return {
+        "stage": packet.get("stage"),
+        "generated_at": packet.get("generated_at"),
+        "status": packet.get("status"),
+        "source_root": packet.get("source_root"),
+        "evidence_root": packet.get("evidence_root"),
+        "packet_path": provenance.get("path"),
+        "packet_sha256": provenance.get("sha256"),
+        "summary": _dict(packet.get("summary")),
+        "decision": _dict(packet.get("decision")),
+    }
+
+
+def _packet_generated_today(value: Any) -> bool:
+    text = str(value or "").strip()
+    if not text:
+        return False
+    try:
+        if "T" not in text:
+            return date.fromisoformat(text[:10]) == date.today()
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone()
+    return parsed.date() == date.today()
+
+
+def _integrity_status(manifest: dict[str, Any], name: str) -> str:
+    integrity = _dict(manifest.get("integrity"))
+    packet = integrity.get(name)
+    return str(packet.get("status", "not_attached")) if isinstance(packet, dict) else "not_attached"
+
+
+def _dedupe(values: list[str]) -> list[str]:
+    return list(dict.fromkeys(values))
 
 
 def _symbol_coverage(bars: pd.DataFrame, moneyflow: pd.DataFrame) -> list[dict[str, Any]]:

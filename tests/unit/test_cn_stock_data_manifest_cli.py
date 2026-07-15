@@ -10,6 +10,64 @@ from scripts.run_cn_stock_data_manifest import run_cn_stock_data_manifest
 
 
 class CnStockDataManifestCliTests(unittest.TestCase):
+    def test_cli_runner_loads_integrity_packets_with_hash_provenance(self) -> None:
+        bars = pd.DataFrame(
+            {
+                "date": ["2024-01-02"],
+                "asset_id": ["A"],
+                "symbol": ["000001.SZ"],
+                "market": ["CN"],
+                "asset_type": ["stock"],
+                "adj_close": [10.0],
+                "volume": [1000],
+                "amount": [10000.0],
+            }
+        )
+        moneyflow = pd.DataFrame(
+            {
+                "date": ["2024-01-02"],
+                "asset_id": ["A"],
+                "symbol": ["000001.SZ"],
+                "market": ["CN"],
+                "net_mf_amount": [100.0],
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            session_path = root / "session.json"
+            price_path = root / "price.json"
+            for path, stage in [
+                (session_path, "cn_stock_asset_session_integrity_audit"),
+                (price_path, "cn_stock_price_integrity_audit"),
+            ]:
+                path.write_text(
+                    json.dumps(
+                        {
+                            "stage": stage,
+                            "generated_at": pd.Timestamp.today().date().isoformat(),
+                            "status": "review_required",
+                            "source_root": "data/processed/demo",
+                            "summary": {},
+                            "decision": {"blockers": [], "review_reasons": ["manual_review"]},
+                            "live_boundary_allowed": False,
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+
+            manifest = run_cn_stock_data_manifest(
+                data_root="data/processed/demo",
+                output_dir=root / "report",
+                bars=bars,
+                moneyflow_inputs=moneyflow,
+                session_integrity_packet_path=session_path,
+                price_integrity_packet_path=price_path,
+            )
+
+        self.assertEqual(manifest["status"], "review_required")
+        self.assertEqual(len(manifest["integrity"]["asset_session"]["packet_sha256"]), 64)
+        self.assertEqual(manifest["integrity"]["price"]["packet_path"], str(price_path))
+
     def test_cli_runner_validates_calendar_and_passes_expected_sessions(self) -> None:
         bars = pd.DataFrame(
             {

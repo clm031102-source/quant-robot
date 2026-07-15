@@ -61,7 +61,7 @@ class CnStockDataManifestTests(unittest.TestCase):
         )
 
         self.assertEqual(manifest["status"], "blocked")
-        self.assertEqual(manifest["manifest_schema_version"], 4)
+        self.assertEqual(manifest["manifest_schema_version"], 5)
         self.assertEqual(manifest["summary"]["expected_market_sessions"], 3)
         self.assertEqual(manifest["summary"]["missing_bar_market_sessions"], 1)
         self.assertEqual(manifest["summary"]["missing_moneyflow_market_sessions"], 1)
@@ -128,6 +128,69 @@ class CnStockDataManifestTests(unittest.TestCase):
         self.assertEqual(manifest["status"], "blocked")
         self.assertIn("non_cn_rows_present", manifest["decision"]["blockers"])
         self.assertIn("non_stock_rows_present", manifest["decision"]["blockers"])
+
+    def test_manifest_blocks_when_integrity_packet_is_blocked(self) -> None:
+        bars, moneyflow = _clean_manifest_inputs()
+        session_packet = _integrity_packet(
+            stage="cn_stock_asset_session_integrity_audit",
+            status="blocked",
+            source_root="data/processed/demo",
+            blockers=["unresolved_active_sessions:1"],
+        )
+
+        manifest = build_cn_stock_data_manifest(
+            bars=bars,
+            moneyflow_inputs=moneyflow,
+            source_root="data/processed/demo",
+            session_integrity_packet=session_packet,
+        )
+
+        self.assertEqual(manifest["status"], "blocked")
+        self.assertIn("asset_session_integrity_blocked", manifest["decision"]["blockers"])
+        self.assertIn(
+            "asset_session_integrity:unresolved_active_sessions:1",
+            manifest["decision"]["blockers"],
+        )
+
+    def test_manifest_preserves_review_required_integrity_provenance(self) -> None:
+        bars, moneyflow = _clean_manifest_inputs()
+        session_packet = _integrity_packet(
+            stage="cn_stock_asset_session_integrity_audit",
+            status="review_required",
+            source_root="data/processed/demo",
+            review_reasons=["retrospective_legacy_suspension_evidence"],
+        )
+        session_packet["generated_at"] = (
+            pd.Timestamp(date.today())
+            .tz_localize("Asia/Shanghai")
+            .tz_convert("UTC")
+            .isoformat()
+        )
+        price_packet = _integrity_packet(
+            stage="cn_stock_price_integrity_audit",
+            status="review_required",
+            source_root="data/processed/demo",
+            review_reasons=["official_post_suspension_repricing_rows:2"],
+        )
+        price_packet["_provenance"] = {
+            "path": "data/reports/price.json",
+            "sha256": "a" * 64,
+        }
+
+        manifest = build_cn_stock_data_manifest(
+            bars=bars,
+            moneyflow_inputs=moneyflow,
+            source_root="data/processed/demo",
+            session_integrity_packet=session_packet,
+            price_integrity_packet=price_packet,
+        )
+
+        self.assertEqual(manifest["status"], "review_required")
+        self.assertIn("asset_session_integrity_review_required", manifest["decision"]["warnings"])
+        self.assertIn("price_integrity_review_required", manifest["decision"]["warnings"])
+        self.assertNotIn("extreme_return_rows_present", manifest["decision"]["warnings"])
+        self.assertEqual(manifest["integrity"]["price"]["packet_sha256"], "a" * 64)
+        self.assertEqual(manifest["integrity"]["asset_session"]["status"], "review_required")
 
     def test_write_manifest_outputs_json_markdown_and_symbol_coverage(self) -> None:
         manifest = build_cn_stock_data_manifest(
@@ -256,7 +319,7 @@ class CnStockDataManifestTests(unittest.TestCase):
             write_cn_stock_data_manifest(output, manifest)
             packet_path = output / "cn_stock_data_manifest.json"
 
-            self.assertEqual(manifest["manifest_schema_version"], 4)
+            self.assertEqual(manifest["manifest_schema_version"], 5)
             self.assertEqual(manifest["summary"]["source_file_count"], 1)
             self.assertEqual(len(manifest["summary"]["source_content_sha256"]), 64)
             validate_cn_stock_data_manifest_packet(
@@ -375,6 +438,53 @@ class CnStockDataManifestTests(unittest.TestCase):
                     expected_source_root="bars.json",
                     expected_moneyflow_source_root="other_moneyflow.json",
                 )
+
+
+def _clean_manifest_inputs() -> tuple[pd.DataFrame, pd.DataFrame]:
+    bars = pd.DataFrame(
+        {
+            "date": ["2024-01-02", "2024-01-03"],
+            "asset_id": ["A", "A"],
+            "symbol": ["000001.SZ", "000001.SZ"],
+            "market": ["CN", "CN"],
+            "asset_type": ["stock", "stock"],
+            "adj_close": [10.0, 10.1],
+            "volume": [1000, 1100],
+            "amount": [10000.0, 11100.0],
+        }
+    )
+    moneyflow = pd.DataFrame(
+        {
+            "date": ["2024-01-02", "2024-01-03"],
+            "asset_id": ["A", "A"],
+            "symbol": ["000001.SZ", "000001.SZ"],
+            "market": ["CN", "CN"],
+            "net_mf_amount": [100.0, 120.0],
+        }
+    )
+    return bars, moneyflow
+
+
+def _integrity_packet(
+    *,
+    stage: str,
+    status: str,
+    source_root: str,
+    blockers: list[str] | None = None,
+    review_reasons: list[str] | None = None,
+) -> dict:
+    return {
+        "stage": stage,
+        "generated_at": date.today().isoformat() + "T00:00:00+00:00",
+        "status": status,
+        "source_root": source_root,
+        "summary": {},
+        "decision": {
+            "blockers": blockers or [],
+            "review_reasons": review_reasons or [],
+        },
+        "live_boundary_allowed": False,
+    }
 
 
 if __name__ == "__main__":
