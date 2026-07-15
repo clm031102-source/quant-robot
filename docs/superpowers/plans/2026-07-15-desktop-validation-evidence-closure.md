@@ -18,11 +18,11 @@
 - Create: `tests/unit/test_cn_trading_calendar.py`
 - Create: `tests/unit/test_cn_trading_calendar_cli.py`
 
-- [ ] Write failing tests for synchronized SSE/SZSE construction, exchange divergence, empty source data, duplicate dates, atomic artifact output, and SHA-256 tamper detection.
-- [ ] Run the focused tests and verify RED.
-- [ ] Implement calendar construction, manifest writing, manifest validation, Tushare fetch, and validate-only CLI mode.
-- [ ] Run the focused tests and verify GREEN.
-- [ ] Commit as `feat: add provider-backed CN trading calendar`.
+- [x] Write failing tests for synchronized SSE/SZSE construction, exchange divergence, empty source data, duplicate dates, atomic artifact output, and SHA-256 tamper detection.
+- [x] Run the focused tests and verify RED.
+- [x] Implement calendar construction, manifest writing, manifest validation, Tushare fetch, and validate-only CLI mode.
+- [x] Run the focused tests and verify GREEN.
+- [x] Commit as `feat: add provider-backed CN trading calendar`.
 
 ### Task 2: Stock-Aware Gap Audit State
 
