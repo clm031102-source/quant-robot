@@ -20,6 +20,22 @@ Purpose: this is the first file to read after syncing the repository on any work
 
 This local evidence is not part of `origin/main` until reviewed and integrated. It does not change the cloud branch inventory below.
 
+## Local CN ETF Liquidity-Capacity Closeout (Not Yet Cloud-Integrated)
+
+- Local branch: `codex/factor-batch-cn-etf-liquidity-capacity-20260716`
+- Closeout report: `docs/research/cn_etf_liquidity_capacity_prescreen_2026-07-16.md`
+- Frozen prescreen: 3 candidates, 2 horizons, 6 tests, 13 historical references, 0 research leads
+- Point-in-time sample: 227,010 eligible asset-date keys, 679 assets, 833 sessions, 2020-01-02 through 2024-06-28
+- Result: all six mean Rank IC values were negative, all six failed FDR and directional shape, and all six failed the CNY 10 million top-quintile ADV20 P10 capacity threshold
+- Legacy quarantine: current strict promotion gate has 270 candidates, 270 blocked, and 0 paper-ready; `CN_ETF_liquidity_10_top1_cost5_reb5` cannot be reused
+- Family decision: `cn_etf_liquidity_capacity` is stop-lossed with zero budget; sign flip, window/threshold/parameter rescue, portfolio grid, and walk-forward are prohibited
+- New scheduler allocation: volatility regime 0.35, ETF-level flow breadth aggregation 0.35, fund structure 0.30
+- Next factor direction: duplicate/stop-loss audit `cn_etf_volatility_regime`; if no genuinely untested subspace remains, rotate directly to ETF-level flow breadth aggregation
+- Final holdout: 2026 remained sealed and was not accessed
+- Boundary: research-to-paper only; no broker, account, order, paper signal, or automatic-live access
+
+This local closeout is not part of `origin/main` until reviewed and integrated. Generated evidence remains under ignored `data/reports/` paths.
+
 ## Local CN ETF Price-Rotation Closeout (Not Yet Cloud-Integrated)
 
 - Local branch: `codex/factor-batch-cn-etf-price-rotation-20260716`
