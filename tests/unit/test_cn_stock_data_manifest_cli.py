@@ -10,6 +10,72 @@ from scripts.run_cn_stock_data_manifest import run_cn_stock_data_manifest
 
 
 class CnStockDataManifestCliTests(unittest.TestCase):
+    def test_cli_runner_validates_calendar_and_passes_expected_sessions(self) -> None:
+        bars = pd.DataFrame(
+            {
+                "date": ["2024-01-02"],
+                "asset_id": ["000001.SZ"],
+                "symbol": ["000001.SZ"],
+                "market": ["CN"],
+                "asset_type": ["stock"],
+                "adj_close": [10.0],
+                "volume": [1000],
+                "amount": [10000.0],
+            }
+        )
+        moneyflow = pd.DataFrame(
+            {
+                "date": ["2024-01-02"],
+                "asset_id": ["000001.SZ"],
+                "symbol": ["000001.SZ"],
+                "market": ["CN"],
+                "net_mf_amount": [100.0],
+            }
+        )
+        calendar = pd.DataFrame(
+            {"market": ["CN"], "date": ["2024-01-02"], "is_open": [1], "source": ["tushare"]}
+        )
+        calendar_manifest = {
+            "provider": "tushare",
+            "endpoint": "trade_cal",
+            "effective_range": {"start": "2024-01-02", "end": "2024-01-02"},
+            "summary": {"session_date_sha256": "calendar-sha"},
+            "artifact": {"sha256": "artifact-sha"},
+        }
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            calendar_path = root / "calendar.csv"
+            calendar_manifest_path = root / "calendar.json"
+            calendar.to_csv(calendar_path, index=False)
+            calendar_manifest_path.write_text(json.dumps(calendar_manifest), encoding="utf-8")
+            with (
+                patch("scripts.run_cn_stock_data_manifest.load_processed_bars", return_value=bars),
+                patch("scripts.run_cn_stock_data_manifest.load_moneyflow_inputs", return_value=moneyflow),
+                patch(
+                    "scripts.run_cn_stock_data_manifest.validate_cn_trading_calendar_artifact",
+                    return_value=calendar_manifest,
+                ) as validate_calendar,
+            ):
+                manifest = run_cn_stock_data_manifest(
+                    data_root=Path("data/processed/demo"),
+                    output_dir=root / "report",
+                    calendar_path=calendar_path,
+                    calendar_manifest_path=calendar_manifest_path,
+                )
+
+        validate_calendar.assert_called_once_with(calendar_path, calendar_manifest_path)
+        self.assertEqual(manifest["summary"]["expected_market_sessions"], 1)
+        self.assertEqual(manifest["status"], "cleared")
+
+    def test_cli_runner_requires_calendar_paths_as_a_pair(self) -> None:
+        with self.assertRaisesRegex(ValueError, "calendar_path and calendar_manifest_path"):
+            run_cn_stock_data_manifest(
+                data_root=Path("data/processed/demo"),
+                output_dir=Path("data/reports/demo"),
+                calendar_path=Path("calendar.csv"),
+            )
+
     def test_cli_runner_loads_cn_bars_and_moneyflow_then_writes_manifest(self) -> None:
         bars = pd.DataFrame(
             {

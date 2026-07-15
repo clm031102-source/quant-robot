@@ -12,7 +12,7 @@ from quant_robot.storage.fingerprints import fingerprint_frame, fingerprint_rese
 
 
 STAGE = "cn_stock_data_manifest"
-MANIFEST_SCHEMA_VERSION = 3
+MANIFEST_SCHEMA_VERSION = 4
 SAFETY_TEXT = "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
 
 
@@ -22,11 +22,15 @@ def build_cn_stock_data_manifest(
     moneyflow_inputs: pd.DataFrame | None,
     source_root: str | Path,
     moneyflow_source_root: str | Path | None = None,
+    expected_sessions: pd.DataFrame | None = None,
+    calendar_manifest: dict[str, Any] | None = None,
     extreme_return_threshold: float = 0.50,
 ) -> dict[str, Any]:
     clean_bars = _prepare_bars(bars)
     clean_moneyflow = _prepare_moneyflow(moneyflow_inputs)
-    blockers = _blockers(clean_bars)
+    clean_sessions = _prepare_sessions(expected_sessions)
+    session_coverage = _market_session_coverage(clean_bars, clean_moneyflow, clean_sessions)
+    blockers = _blockers(clean_bars, session_coverage)
     warnings = _warnings(clean_bars, clean_moneyflow, extreme_return_threshold)
     status = "blocked" if blockers else "review_required" if warnings else "cleared"
     effective_moneyflow_root = source_root if moneyflow_source_root is None else moneyflow_source_root
@@ -42,6 +46,7 @@ def build_cn_stock_data_manifest(
         source_fingerprint,
         effective_moneyflow_root,
         moneyflow_source_fingerprint,
+        session_coverage,
     )
     manifest = {
         "manifest_schema_version": MANIFEST_SCHEMA_VERSION,
@@ -57,6 +62,7 @@ def build_cn_stock_data_manifest(
         "symbol_coverage": _symbol_coverage(clean_bars, clean_moneyflow),
         "source_files": source_fingerprint["files"],
         "moneyflow_source_files": moneyflow_source_fingerprint["files"],
+        "calendar": _calendar_provenance(calendar_manifest),
         "safety": SAFETY_TEXT,
         "live_boundary_allowed": False,
     }
@@ -161,6 +167,9 @@ def render_cn_stock_data_manifest_markdown(manifest: dict[str, Any]) -> str:
         f"- Moneyflow rows: {summary.get('moneyflow_rows', 0)}",
         f"- Moneyflow symbols: {summary.get('moneyflow_symbols', 0)}",
         f"- Date range: {summary.get('date_start')} to {summary.get('date_end')}",
+        f"- Expected market sessions: {summary.get('expected_market_sessions', 0)}",
+        f"- Missing whole-market bar sessions: {summary.get('missing_bar_market_sessions', 0)}",
+        f"- Missing whole-market moneyflow sessions: {summary.get('missing_moneyflow_market_sessions', 0)}",
         f"- Source files: {summary.get('source_file_count', 0)}",
         f"- Source fingerprint: {summary.get('source_content_sha256', '')}",
         f"- Live boundary allowed: {manifest.get('live_boundary_allowed', False)}",
@@ -193,6 +202,18 @@ def _prepare_moneyflow(moneyflow_inputs: pd.DataFrame | None) -> pd.DataFrame:
     return frame
 
 
+def _prepare_sessions(expected_sessions: pd.DataFrame | None) -> pd.DataFrame:
+    if expected_sessions is None:
+        return pd.DataFrame(columns=["date"])
+    if "date" not in expected_sessions.columns:
+        raise ValueError("expected market sessions are missing the date column")
+    frame = expected_sessions.copy()
+    frame["date"] = pd.to_datetime(frame["date"], errors="raise").dt.normalize()
+    if frame["date"].duplicated().any():
+        raise ValueError("expected market sessions contain duplicate dates")
+    return frame.sort_values("date").reset_index(drop=True)
+
+
 def _summary(
     bars: pd.DataFrame,
     moneyflow: pd.DataFrame,
@@ -200,6 +221,7 @@ def _summary(
     source_fingerprint: dict[str, Any],
     moneyflow_source_root: str | Path,
     moneyflow_source_fingerprint: dict[str, Any],
+    session_coverage: dict[str, Any],
 ) -> dict[str, Any]:
     return {
         "source_root": str(source_root),
@@ -229,10 +251,11 @@ def _summary(
         "moneyflow_source_fingerprint_schema_version": int(
             moneyflow_source_fingerprint["fingerprint_schema_version"]
         ),
+        **session_coverage,
     }
 
 
-def _blockers(bars: pd.DataFrame) -> list[str]:
+def _blockers(bars: pd.DataFrame, session_coverage: dict[str, Any]) -> list[str]:
     blockers = []
     if bars.empty:
         blockers.append("bars_missing")
@@ -244,7 +267,68 @@ def _blockers(bars: pd.DataFrame) -> list[str]:
         blockers.append("non_cn_rows_present")
     if "asset_type" in bars and any(str(value).lower() != "stock" for value in bars["asset_type"].dropna().unique()):
         blockers.append("non_stock_rows_present")
+    missing_bars = int(session_coverage.get("missing_bar_market_sessions") or 0)
+    missing_moneyflow = int(session_coverage.get("missing_moneyflow_market_sessions") or 0)
+    if missing_bars:
+        blockers.append(f"whole_market_bar_sessions_missing:{missing_bars}")
+    if missing_moneyflow:
+        blockers.append(f"whole_market_moneyflow_sessions_missing:{missing_moneyflow}")
     return blockers
+
+
+def _market_session_coverage(
+    bars: pd.DataFrame,
+    moneyflow: pd.DataFrame,
+    expected_sessions: pd.DataFrame,
+) -> dict[str, Any]:
+    if expected_sessions.empty:
+        return {
+            "expected_market_sessions": 0,
+            "bar_market_sessions": _date_count(bars),
+            "moneyflow_market_sessions": _date_count(moneyflow),
+            "missing_bar_market_sessions": 0,
+            "missing_moneyflow_market_sessions": 0,
+            "missing_bar_market_session_examples": [],
+            "missing_moneyflow_market_session_examples": [],
+        }
+    expected = set(expected_sessions["date"])
+    bar_dates = _date_set(bars)
+    moneyflow_dates = _date_set(moneyflow)
+    missing_bars = sorted(expected - bar_dates)
+    missing_moneyflow = sorted(expected - moneyflow_dates)
+    return {
+        "expected_market_sessions": len(expected),
+        "bar_market_sessions": len(expected & bar_dates),
+        "moneyflow_market_sessions": len(expected & moneyflow_dates),
+        "missing_bar_market_sessions": len(missing_bars),
+        "missing_moneyflow_market_sessions": len(missing_moneyflow),
+        "missing_bar_market_session_examples": [_date_value(value) for value in missing_bars[:20]],
+        "missing_moneyflow_market_session_examples": [_date_value(value) for value in missing_moneyflow[:20]],
+    }
+
+
+def _calendar_provenance(calendar_manifest: dict[str, Any] | None) -> dict[str, Any] | None:
+    if calendar_manifest is None:
+        return None
+    summary = _dict(calendar_manifest.get("summary"))
+    artifact = _dict(calendar_manifest.get("artifact"))
+    return {
+        "provider": calendar_manifest.get("provider"),
+        "endpoint": calendar_manifest.get("endpoint"),
+        "effective_range": _dict(calendar_manifest.get("effective_range")),
+        "session_date_sha256": summary.get("session_date_sha256"),
+        "artifact_sha256": artifact.get("sha256"),
+    }
+
+
+def _date_set(frame: pd.DataFrame) -> set[pd.Timestamp]:
+    if frame.empty or "date" not in frame:
+        return set()
+    return set(pd.to_datetime(frame["date"], errors="coerce").dropna().dt.normalize())
+
+
+def _date_count(frame: pd.DataFrame) -> int:
+    return len(_date_set(frame))
 
 
 def _warnings(bars: pd.DataFrame, moneyflow: pd.DataFrame, extreme_return_threshold: float) -> list[str]:

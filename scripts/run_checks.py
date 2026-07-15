@@ -162,6 +162,10 @@ def build_check_plan(python_executable: str = sys.executable, profile: str = "fu
                     "configs/cn_stock_authority_moneyflow_inputs_2015_2025.json",
                     "--output-dir",
                     "data/reports/cn_stock_data_manifest_tushare_moneyflow_residual_regime",
+                    "--calendar-path",
+                    "data/processed/trading_calendars/cn_tushare_2015_2025/cn_trading_calendar.csv",
+                    "--calendar-manifest-path",
+                    "data/processed/trading_calendars/cn_tushare_2015_2025/cn_trading_calendar_manifest.json",
                 ],
             ),
             CheckStep(

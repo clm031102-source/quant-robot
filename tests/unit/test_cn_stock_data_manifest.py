@@ -14,6 +14,63 @@ from quant_robot.ops.cn_stock_data_manifest import (
 
 
 class CnStockDataManifestTests(unittest.TestCase):
+    def test_manifest_blocks_whole_market_bar_and_moneyflow_session_gaps(self) -> None:
+        bars = pd.DataFrame(
+            {
+                "date": ["2024-01-02", "2024-01-04"],
+                "asset_id": ["A", "A"],
+                "symbol": ["000001.SZ", "000001.SZ"],
+                "market": ["CN", "CN"],
+                "asset_type": ["stock", "stock"],
+                "adj_close": [10.0, 10.1],
+                "volume": [1000, 1100],
+                "amount": [10000.0, 11100.0],
+            }
+        )
+        moneyflow = pd.DataFrame(
+            {
+                "date": ["2024-01-02", "2024-01-03"],
+                "asset_id": ["A", "A"],
+                "symbol": ["000001.SZ", "000001.SZ"],
+                "market": ["CN", "CN"],
+                "net_mf_amount": [100.0, 120.0],
+            }
+        )
+        calendar = pd.DataFrame(
+            {
+                "market": ["CN", "CN", "CN"],
+                "date": ["2024-01-02", "2024-01-03", "2024-01-04"],
+                "is_open": [1, 1, 1],
+                "source": ["tushare", "tushare", "tushare"],
+            }
+        )
+        calendar_manifest = {
+            "provider": "tushare",
+            "endpoint": "trade_cal",
+            "effective_range": {"start": "2024-01-02", "end": "2024-01-04"},
+            "summary": {"session_date_sha256": "calendar-sha"},
+            "artifact": {"sha256": "artifact-sha"},
+        }
+
+        manifest = build_cn_stock_data_manifest(
+            bars=bars,
+            moneyflow_inputs=moneyflow,
+            source_root="data/processed/demo",
+            expected_sessions=calendar,
+            calendar_manifest=calendar_manifest,
+        )
+
+        self.assertEqual(manifest["status"], "blocked")
+        self.assertEqual(manifest["manifest_schema_version"], 4)
+        self.assertEqual(manifest["summary"]["expected_market_sessions"], 3)
+        self.assertEqual(manifest["summary"]["missing_bar_market_sessions"], 1)
+        self.assertEqual(manifest["summary"]["missing_moneyflow_market_sessions"], 1)
+        self.assertEqual(manifest["summary"]["missing_bar_market_session_examples"], ["2024-01-03"])
+        self.assertEqual(manifest["summary"]["missing_moneyflow_market_session_examples"], ["2024-01-04"])
+        self.assertIn("whole_market_bar_sessions_missing:1", manifest["decision"]["blockers"])
+        self.assertIn("whole_market_moneyflow_sessions_missing:1", manifest["decision"]["blockers"])
+        self.assertEqual(manifest["calendar"]["artifact_sha256"], "artifact-sha")
+
     def test_manifest_summarizes_cn_stock_bars_and_moneyflow_inputs(self) -> None:
         bars = pd.DataFrame(
             {
@@ -199,7 +256,7 @@ class CnStockDataManifestTests(unittest.TestCase):
             write_cn_stock_data_manifest(output, manifest)
             packet_path = output / "cn_stock_data_manifest.json"
 
-            self.assertEqual(manifest["manifest_schema_version"], 3)
+            self.assertEqual(manifest["manifest_schema_version"], 4)
             self.assertEqual(manifest["summary"]["source_file_count"], 1)
             self.assertEqual(len(manifest["summary"]["source_content_sha256"]), 64)
             validate_cn_stock_data_manifest_packet(
