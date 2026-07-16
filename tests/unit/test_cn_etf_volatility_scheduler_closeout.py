@@ -6,7 +6,7 @@ from quant_robot.research.family_scheduler import build_research_family_schedule
 
 
 class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
-    def test_metadata_audit_removes_source_blocked_families_from_primary_allocation(self) -> None:
+    def test_dynamic_peer_readiness_allows_only_preregistration(self) -> None:
         config = json.loads(
             Path("configs/research_family_scheduler_cn_etf.json").read_text(encoding="utf-8")
         )
@@ -49,10 +49,36 @@ class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
                 if row.get("action") == "run_active_family_batch"
             },
         )
+        dynamic_peer = families["cn_etf_dynamic_comovement_peer_dislocation"]
+        self.assertEqual(dynamic_peer["status"], "exploratory")
+        self.assertEqual(dynamic_peer["budget_share"], 0.0)
+        self.assertEqual(
+            dynamic_peer["source_readiness_status"],
+            "ready_for_peer_source_preregistration",
+        )
+        self.assertTrue(dynamic_peer["preregistration_required"])
+        self.assertFalse(dynamic_peer["factor_batch_before_preregistration_allowed"])
+        self.assertFalse(dynamic_peer["primary_allocation_allowed"])
+        self.assertEqual(dynamic_peer["source_audit"]["mapping_rows"], 20301)
+        self.assertEqual(dynamic_peer["source_audit"]["qualifying_dates"], 904)
+        self.assertAlmostEqual(
+            dynamic_peer["source_audit"]["qualifying_date_coverage"],
+            0.8331797235023042,
+        )
         decision = config["last_decision"]
-        self.assertEqual(decision["source_stage"], "cn_etf_peer_relative_value_metadata_readiness")
-        self.assertEqual(decision["decision"], "source_blocked_no_factor_batch")
-        self.assertEqual(decision["historical_peer_mapping_coverage"], 0.0)
+        self.assertEqual(
+            decision["source_stage"],
+            "cn_etf_dynamic_comovement_peer_readiness",
+        )
+        self.assertEqual(
+            decision["decision"],
+            "source_ready_preregistration_required_no_factor_batch",
+        )
+        self.assertEqual(
+            decision["source_status"],
+            "ready_for_peer_source_preregistration",
+        )
+        self.assertFalse(decision["factor_batch_allowed"])
         self.assertEqual(decision["unallocated_budget_share"], 1.0)
 
 

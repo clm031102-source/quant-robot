@@ -119,6 +119,8 @@ The mapping method is `lagged_market_residual_correlation_topk`. Duplicate asset
 - Minimum qualifying-date coverage across all 1,085 analysis dates: 80%.
 - Warm-up dates remain in the denominator.
 - A mapped asset must have three to five peers in its active snapshot.
+- Daily coverage counts an asset only when that asset and at least three of its active peers pass the point-in-time eligibility policy on that analysis date. Quarterly source membership alone is not sufficient.
+- The coverage artifact reports both the active snapshot population and the smaller daily-usable mapped population so lifecycle exits, liquidity deterioration, stale prices, and extreme-return exclusions cannot be hidden.
 
 ## Stability Gate
 

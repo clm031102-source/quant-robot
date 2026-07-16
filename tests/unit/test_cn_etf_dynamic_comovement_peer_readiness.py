@@ -143,6 +143,39 @@ class CnEtfDynamicComovementPeerReadinessTests(unittest.TestCase):
         self.assertEqual(result["duplicate_overlap"]["min_edge_evidence_coverage"], 1.0)
         self.assertEqual(result["duplicate_overlap"]["max_edge_overlap"], 0.0)
 
+    def test_daily_coverage_requires_asset_and_minimum_peers_to_remain_eligible(self) -> None:
+        calendar, source = _ready_source()
+        daily_eligible_keys = pd.DataFrame(
+            [
+                {"date": signal_date, "asset_id": asset_id}
+                for signal_date in calendar
+                for asset_id in ("A", "B")
+            ]
+        )
+
+        result = summarize_cn_etf_dynamic_comovement_peer_readiness(
+            calendar_dates=calendar,
+            source=source,
+            daily_eligible_keys=daily_eligible_keys,
+            min_active_peers_per_asset=2,
+            min_qualifying_assets_per_date=2,
+            min_qualifying_date_coverage=0.80,
+            min_comparable_assets_per_transition=2,
+            min_median_jaccard=0.25,
+            min_median_retention=0.40,
+            max_complete_churn_rate=0.40,
+            min_reciprocity_rate=0.30,
+            max_reference_edge_overlap=0.50,
+            min_reference_edge_coverage=0.80,
+        )
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertEqual(result["coverage"]["qualifying_dates"], 0)
+        self.assertIn(
+            "dynamic_peer_date_coverage_below_minimum",
+            result["gate"]["blockers"],
+        )
+
 
 def _summarize(
     calendar: pd.DatetimeIndex,

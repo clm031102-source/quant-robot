@@ -42,7 +42,7 @@ def build_quant_pm_startup_gate(
     family_path = gate_config.get("research_family_config", "configs/research_family_scheduler_cn_etf.json")
     resolved_family_config = family_config or load_research_family_config(root / str(family_path))
     family_schedule = build_research_family_schedule(resolved_family_config)
-    source_repair_mode = _source_repair_mode_allowed(task, resolved_family_config, family_schedule)
+    restricted_mode = _restricted_review_mode(task, resolved_family_config, family_schedule)
     blockers: list[str] = []
     warnings: list[str] = []
 
@@ -50,10 +50,12 @@ def build_quant_pm_startup_gate(
     blockers.extend(f"required_reading_missing:{path}" for path in missing_reading)
     if str(resolved_family_config.get("primary_market", "")).upper() != primary_market:
         blockers.append("research_family_primary_market_mismatch")
-    if _dict(family_schedule.get("summary")).get("scheduler_status") != "ready" and not source_repair_mode:
+    if _dict(family_schedule.get("summary")).get("scheduler_status") != "ready" and not restricted_mode:
         blockers.append("research_family_scheduler_not_ready")
-    if source_repair_mode:
+    if restricted_mode == "source_repair_only":
         warnings.append("research_family_scheduler_source_repair_mode")
+    elif restricted_mode == "preregistration_only":
+        warnings.append("research_family_scheduler_preregistration_mode")
     else:
         blockers.extend(str(blocker) for blocker in _list(family_schedule.get("blockers")))
     blockers.extend(
@@ -61,7 +63,7 @@ def build_quant_pm_startup_gate(
             gate_config,
             family_schedule,
             primary_market,
-            allow_no_primary_allocation=source_repair_mode,
+            allow_no_primary_allocation=bool(restricted_mode),
         )
     )
     warnings.extend(str(warning) for warning in _list(family_schedule.get("warnings")))
@@ -70,7 +72,7 @@ def build_quant_pm_startup_gate(
         "stage": gate_config.get("stage", STAGE),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "status": "blocked" if blockers else "ready",
-        "mode": "source_repair_only" if source_repair_mode else "standard_research",
+        "mode": restricted_mode or "standard_research",
         "selected": {
             "machine": machine,
             "task": task,
@@ -95,11 +97,11 @@ def build_quant_pm_startup_gate(
         },
         "blockers": _unique(blockers),
         "warnings": _unique(warnings),
-        "next_actions": _next_actions(blockers, source_repair_mode=source_repair_mode),
+        "next_actions": _next_actions(blockers, restricted_mode=restricted_mode),
         "safety": {
             "research_only": True,
             "paper_only_next_step": True,
-            "factor_batch_allowed": bool(not blockers and not source_repair_mode),
+            "factor_batch_allowed": bool(not blockers and not restricted_mode),
             "live_boundary_allowed": False,
             "token_storage": "environment_only",
         },
@@ -254,29 +256,41 @@ def _direction_blockers(
     return blockers
 
 
-def _source_repair_mode_allowed(
+def _restricted_review_mode(
     task: str | None,
     family_config: dict[str, Any],
     family_schedule: dict[str, Any],
-) -> bool:
-    if task not in {"data_pipeline", "factor_review"}:
-        return False
+) -> str | None:
     decision = _dict(family_config.get("last_decision"))
-    if decision.get("decision") != "source_blocked_no_factor_batch":
-        return False
+    decision_name = str(decision.get("decision", ""))
+    if decision_name == "source_blocked_no_factor_batch":
+        allowed_tasks = {"data_pipeline", "factor_review"}
+        mode = "source_repair_only"
+    elif decision_name == "source_ready_preregistration_required_no_factor_batch":
+        allowed_tasks = {"factor_review"}
+        mode = "preregistration_only"
+    else:
+        return None
+    if task not in allowed_tasks:
+        return None
     if decision.get("factor_batch_allowed") is not False:
-        return False
+        return None
     schedule_blockers = {str(item) for item in _list(family_schedule.get("blockers"))}
     if schedule_blockers != {"insufficient_active_research_families"}:
-        return False
+        return None
     summary = _dict(family_schedule.get("summary"))
-    return (
+    allowed = (
         _float(summary.get("primary_budget_share"), -1.0) == 0.0
         and int(summary.get("active_primary_families", -1)) == 0
     )
+    return mode if allowed else None
 
 
-def _next_actions(blockers: list[str], *, source_repair_mode: bool = False) -> list[dict[str, Any]]:
+def _next_actions(
+    blockers: list[str],
+    *,
+    restricted_mode: str | None = None,
+) -> list[dict[str, Any]]:
     if blockers:
         return [
             {
@@ -284,11 +298,18 @@ def _next_actions(blockers: list[str], *, source_repair_mode: bool = False) -> l
                 "reason": "Quant PM startup gate is blocked; fix direction, context, or required reading before running data or factor batches.",
             }
         ]
-    if source_repair_mode:
+    if restricted_mode == "source_repair_only":
         return [
             {
                 "action": "repair_cn_etf_source_readiness",
                 "reason": "Source-repair mode is ready for metadata or data backfill only; factor batches remain disabled until the scheduler has audited primary allocations.",
+            }
+        ]
+    if restricted_mode == "preregistration_only":
+        return [
+            {
+                "action": "preregister_cn_etf_source_prescreen",
+                "reason": "The source-readiness gate passed, but only a frozen prescreen preregistration is allowed; factor generation and batches remain disabled.",
             }
         ]
     return [

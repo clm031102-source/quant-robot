@@ -98,6 +98,11 @@ def build_cn_etf_dynamic_comovement_peer_readiness(
     result = summarize_cn_etf_dynamic_comovement_peer_readiness(
         calendar_dates=calendar,
         source=source,
+        daily_eligible_keys=eligibility.loc[
+            eligibility["eligible"] & eligibility["date"].between(start, end),
+            ["date", "asset_id"],
+        ].drop_duplicates(),
+        min_active_peers_per_asset=peer_policy.min_peers,
         min_qualifying_assets_per_date=min_qualifying_assets_per_date,
         min_qualifying_date_coverage=min_qualifying_date_coverage,
         min_comparable_assets_per_transition=min_comparable_assets_per_transition,
@@ -137,6 +142,8 @@ def summarize_cn_etf_dynamic_comovement_peer_readiness(
     *,
     calendar_dates: Iterable[str | pd.Timestamp],
     source: DynamicPeerSourceResult,
+    daily_eligible_keys: pd.DataFrame | None = None,
+    min_active_peers_per_asset: int = 3,
     min_qualifying_assets_per_date: int = 30,
     min_qualifying_date_coverage: float = 0.80,
     min_comparable_assets_per_transition: int = 30,
@@ -148,6 +155,7 @@ def summarize_cn_etf_dynamic_comovement_peer_readiness(
     min_reference_edge_coverage: float = 0.80,
 ) -> dict[str, Any]:
     _validate_thresholds(
+        min_active_peers_per_asset=min_active_peers_per_asset,
         min_qualifying_assets_per_date=min_qualifying_assets_per_date,
         min_qualifying_date_coverage=min_qualifying_date_coverage,
         min_comparable_assets_per_transition=min_comparable_assets_per_transition,
@@ -172,6 +180,8 @@ def summarize_cn_etf_dynamic_comovement_peer_readiness(
     coverage = _coverage_by_date(
         calendar,
         source.mapping,
+        daily_eligible_keys=daily_eligible_keys,
+        min_active_peers_per_asset=min_active_peers_per_asset,
         min_qualifying_assets_per_date=min_qualifying_assets_per_date,
     )
     qualifying_dates = int(coverage["date_gate_passed"].sum()) if not coverage.empty else 0
@@ -281,6 +291,7 @@ def summarize_cn_etf_dynamic_comovement_peer_readiness(
             "analysis_dates": int(len(calendar)),
             "qualifying_dates": qualifying_dates,
             "qualifying_date_coverage": qualifying_date_coverage,
+            "daily_eligibility_intersection_used": daily_eligible_keys is not None,
             "min_mapped_assets": int(coverage["mapped_assets"].min()) if not coverage.empty else 0,
             "median_mapped_assets": float(coverage["mapped_assets"].median()) if not coverage.empty else 0.0,
             "max_mapped_assets": int(coverage["mapped_assets"].max()) if not coverage.empty else 0,
@@ -288,6 +299,7 @@ def summarize_cn_etf_dynamic_comovement_peer_readiness(
         "stability": stability_summary,
         "duplicate_overlap": duplicate_summary,
         "thresholds": {
+            "min_active_peers_per_asset": int(min_active_peers_per_asset),
             "min_qualifying_assets_per_date": int(min_qualifying_assets_per_date),
             "min_qualifying_date_coverage": float(min_qualifying_date_coverage),
             "min_comparable_assets_per_transition": int(min_comparable_assets_per_transition),
@@ -401,6 +413,8 @@ def _coverage_by_date(
     calendar: pd.DatetimeIndex,
     mapping: pd.DataFrame,
     *,
+    daily_eligible_keys: pd.DataFrame | None,
+    min_active_peers_per_asset: int,
     min_qualifying_assets_per_date: int,
 ) -> pd.DataFrame:
     rows = []
@@ -410,6 +424,20 @@ def _coverage_by_date(
         parsed = mapping.copy()
         parsed["valid_from"] = pd.to_datetime(parsed["valid_from"], errors="coerce")
         parsed["valid_to"] = pd.to_datetime(parsed["valid_to"], errors="coerce")
+    eligible_by_date: dict[pd.Timestamp, set[str]] | None = None
+    if daily_eligible_keys is not None:
+        required = {"date", "asset_id"}
+        missing = sorted(required.difference(daily_eligible_keys.columns))
+        if missing:
+            raise ValueError("daily eligible keys are missing columns: " + ", ".join(missing))
+        daily = daily_eligible_keys[["date", "asset_id"]].copy()
+        daily["date"] = pd.to_datetime(daily["date"], errors="coerce")
+        daily["asset_id"] = daily["asset_id"].fillna("").astype(str).str.strip()
+        daily = daily[daily["date"].notna() & daily["asset_id"].ne("")].drop_duplicates()
+        eligible_by_date = {
+            pd.Timestamp(signal_date): set(group["asset_id"])
+            for signal_date, group in daily.groupby("date", sort=False)
+        }
     for signal_date in calendar:
         active = (
             parsed[
@@ -419,15 +447,29 @@ def _coverage_by_date(
             if not parsed.empty
             else parsed
         )
-        mapped_assets = int(active["asset_id"].nunique()) if not active.empty else 0
+        active_mapping_assets = int(active["asset_id"].nunique()) if not active.empty else 0
+        if active.empty or eligible_by_date is None:
+            mapped_assets = active_mapping_assets
+        else:
+            eligible_assets = eligible_by_date.get(pd.Timestamp(signal_date), set())
+            usable_edges = active[
+                active["asset_id"].astype(str).isin(eligible_assets)
+                & active["peer_asset_id"].astype(str).isin(eligible_assets)
+            ]
+            peer_counts = usable_edges.groupby("asset_id")["peer_asset_id"].nunique()
+            mapped_assets = int(peer_counts.ge(min_active_peers_per_asset).sum())
         rows.append(
             {
                 "date": pd.Timestamp(signal_date),
+                "active_mapping_assets": active_mapping_assets,
                 "mapped_assets": mapped_assets,
                 "date_gate_passed": bool(mapped_assets >= min_qualifying_assets_per_date),
             }
         )
-    return pd.DataFrame(rows, columns=["date", "mapped_assets", "date_gate_passed"])
+    return pd.DataFrame(
+        rows,
+        columns=["date", "active_mapping_assets", "mapped_assets", "date_gate_passed"],
+    )
 
 
 def _duplicate_summary(frame: pd.DataFrame) -> dict[str, Any]:
@@ -486,6 +528,7 @@ def _stability_summary(frame: pd.DataFrame) -> dict[str, Any]:
 
 def _validate_thresholds(**thresholds: int | float) -> None:
     positive_integer_names = (
+        "min_active_peers_per_asset",
         "min_qualifying_assets_per_date",
         "min_comparable_assets_per_transition",
     )

@@ -122,6 +122,49 @@ class QuantPmStartupGateTests(unittest.TestCase):
             self.assertIn("research_family_scheduler_not_ready", factor_batch["blockers"])
             self.assertIn("no_primary_research_allocation", factor_batch["blockers"])
 
+    def test_gate_allows_preregistration_only_mode_without_unlocking_factor_batches(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for row in _gate_config()["required_reading"]:
+                target = root / row["path"]
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("ok\n", encoding="utf-8")
+
+            preregistration = build_quant_pm_startup_gate(
+                gate_config=_gate_config(),
+                workstations_config=_workstations(),
+                repo_root=root,
+                machine="highspec_desktop",
+                task="factor_review",
+                branch="codex/factor-review-dynamic-peer",
+                current_branch="codex/factor-review-dynamic-peer",
+                family_config=_source_ready_family_config(),
+            )
+            factor_batch = build_quant_pm_startup_gate(
+                gate_config=_gate_config(),
+                workstations_config=_workstations(),
+                repo_root=root,
+                machine="highspec_desktop",
+                task="factor_batch",
+                branch="codex/factor-batch-dynamic-peer",
+                current_branch="codex/factor-batch-dynamic-peer",
+                family_config=_source_ready_family_config(),
+            )
+
+            self.assertEqual(preregistration["status"], "ready")
+            self.assertEqual(preregistration["mode"], "preregistration_only")
+            self.assertFalse(preregistration["safety"]["factor_batch_allowed"])
+            self.assertIn(
+                "research_family_scheduler_preregistration_mode",
+                preregistration["warnings"],
+            )
+            self.assertEqual(
+                preregistration["next_actions"][0]["action"],
+                "preregister_cn_etf_source_prescreen",
+            )
+            self.assertEqual(factor_batch["status"], "blocked")
+            self.assertIn("research_family_scheduler_not_ready", factor_batch["blockers"])
+
     def test_load_and_write_gate_pack(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -231,6 +274,15 @@ def _source_blocked_family_config():
             },
         ],
     }
+
+
+def _source_ready_family_config():
+    config = json.loads(json.dumps(_source_blocked_family_config()))
+    config["last_decision"] = {
+        "decision": "source_ready_preregistration_required_no_factor_batch",
+        "factor_batch_allowed": False,
+    }
+    return config
 
 
 if __name__ == "__main__":

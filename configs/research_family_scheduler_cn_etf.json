@@ -10,6 +10,29 @@
   },
   "last_decision": {
     "date": "2026-07-16",
+    "source_stage": "cn_etf_dynamic_comovement_peer_readiness",
+    "source_config_sha256": "a3eeda49ade9624c1e335d9adfc7a6cdd0803def723feda9ef28a99d1e9c6016",
+    "source_result_sha256": "4177895b7799c5074ab0b7a0102f9a1f3917d789817e5b2380497c08346fac44",
+    "source_status": "ready_for_peer_source_preregistration",
+    "decision": "source_ready_preregistration_required_no_factor_batch",
+    "mapping_rows": 20301,
+    "mapping_assets": 681,
+    "mapping_snapshots": 15,
+    "qualifying_dates": 904,
+    "analysis_dates": 1085,
+    "qualifying_date_coverage": 0.8331797235023042,
+    "daily_eligibility_intersection_required": true,
+    "minimum_median_jaccard": 0.42857142857142855,
+    "minimum_median_retention": 0.6,
+    "maximum_complete_churn": 0.07142857142857142,
+    "maximum_source_duplicate_overlap": 0.301707779886148,
+    "source_blockers": [],
+    "unallocated_budget_share": 1.0,
+    "factor_batch_allowed": false,
+    "next_direction": "preregister_one_dynamic_peer_dislocation_prescreen"
+  },
+  "previous_decision": {
+    "date": "2026-07-16",
     "source_stage": "cn_etf_peer_relative_value_metadata_readiness",
     "source_config_sha256": "5eee324a902a0c4bf9b228ae9f233d8f790c52a9d27037bb7a6a466819cac3fa",
     "source_result_sha256": "8a23185f04648a1aeef48a273dcb16e4940a24100b953bd17c6e71f837b1afc1",
@@ -35,7 +58,7 @@
     "factor_batch_allowed": false,
     "next_direction": "audit_lagged_dynamic_comovement_peer_source_as_a_separate_family_before_any_factor_generation"
   },
-  "previous_decision": {
+  "earlier_decision": {
     "date": "2026-07-16",
     "source_stage": "cn_etf_volatility_regime_duplicate_stop_loss_audit",
     "reviewed_family": "cn_etf_volatility_regime",
@@ -52,24 +75,26 @@
       "cn_etf_peer_relative_value": 0.3
     }
   },
-  "earlier_decision": {
-    "date": "2026-07-16",
-    "source_stage": "cn_etf_liquidity_capacity_prescreen",
-    "source_config_sha256": "b0eed9567ddd0172c0a02cc7cb3b1fb494db95b5053cc5acb8a2cf68412e5b76",
-    "research_lead_count": 0,
-    "closed_family": "cn_etf_liquidity_capacity",
-    "reallocated_budget_share": 0.35,
-    "reallocation": {
-      "cn_etf_volatility_regime": 0.05,
-      "cn_etf_flow_breadth_aggregation": 0.15,
-      "cn_etf_fund_structure": 0.15
-    },
-    "resulting_budget_shares": {
-      "cn_etf_volatility_regime": 0.35,
-      "cn_etf_flow_breadth_aggregation": 0.35,
-      "cn_etf_fund_structure": 0.3
+  "archived_decisions": [
+    {
+      "date": "2026-07-16",
+      "source_stage": "cn_etf_liquidity_capacity_prescreen",
+      "source_config_sha256": "b0eed9567ddd0172c0a02cc7cb3b1fb494db95b5053cc5acb8a2cf68412e5b76",
+      "research_lead_count": 0,
+      "closed_family": "cn_etf_liquidity_capacity",
+      "reallocated_budget_share": 0.35,
+      "reallocation": {
+        "cn_etf_volatility_regime": 0.05,
+        "cn_etf_flow_breadth_aggregation": 0.15,
+        "cn_etf_fund_structure": 0.15
+      },
+      "resulting_budget_shares": {
+        "cn_etf_volatility_regime": 0.35,
+        "cn_etf_flow_breadth_aggregation": 0.35,
+        "cn_etf_fund_structure": 0.3
+      }
     }
-  },
+  ],
   "families": [
     {
       "family_id": "cn_etf_price_rotation",
@@ -223,6 +248,47 @@
       "factor_batch_before_readiness_allowed": false,
       "economic_thesis": "Fund share changes, scale proxies, NAV behavior, and premium/discount proxies may identify ETF demand pressure and crowded exits.",
       "next_action": "Keep unallocated until daily ETF share, scale, NAV, and close history passes a point-in-time coverage audit."
+    },
+    {
+      "family_id": "cn_etf_dynamic_comovement_peer_dislocation",
+      "market": "CN_ETF",
+      "hypothesis_family": "lagged_market_residual_peer_dislocation",
+      "status": "exploratory",
+      "budget_share": 0.0,
+      "source_readiness_status": "ready_for_peer_source_preregistration",
+      "preregistration_required": true,
+      "factor_batch_before_preregistration_allowed": false,
+      "source_audit": {
+        "config_sha256": "a3eeda49ade9624c1e335d9adfc7a6cdd0803def723feda9ef28a99d1e9c6016",
+        "result_sha256": "4177895b7799c5074ab0b7a0102f9a1f3917d789817e5b2380497c08346fac44",
+        "mapping_rows": 20301,
+        "mapping_assets": 681,
+        "mapping_snapshots": 15,
+        "qualifying_dates": 904,
+        "analysis_dates": 1085,
+        "qualifying_date_coverage": 0.8331797235023042,
+        "minimum_median_jaccard": 0.42857142857142855,
+        "minimum_median_retention": 0.6,
+        "maximum_complete_churn": 0.07142857142857142,
+        "maximum_source_duplicate_overlap": 0.301707779886148
+      },
+      "economic_thesis": "ETFs with persistently similar lagged market-residual returns can form point-in-time economic peer sets; temporary within-peer dislocations may contain information not captured by standalone momentum or volatility levels.",
+      "allowed_roles": [
+        "lagged_dynamic_peer_assignment",
+        "peer_relative_dislocation_prescreen",
+        "peer_relative_tracking_diagnostic"
+      ],
+      "forbidden_actions": [
+        "current_name_or_theme_peer_inference",
+        "forward_return_peer_assignment",
+        "factor_batch_before_preregistration",
+        "parameter_grid_before_prescreen",
+        "portfolio_grid_before_prescreen",
+        "walk_forward_before_prescreen",
+        "final_holdout_access",
+        "paper_signal_before_promotion"
+      ],
+      "next_action": "Write exactly one source-locked dynamic peer-dislocation prescreen preregistration; keep budget at zero and do not generate factors until that preregistration is separately reviewed."
     },
     {
       "family_id": "cn_etf_peer_relative_value",

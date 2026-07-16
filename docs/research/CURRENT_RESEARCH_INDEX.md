@@ -15,10 +15,27 @@ Purpose: this is the first file to read after syncing the repository on any work
 - Price integrity: zero blocking rows; 14 official initial-price-discovery and 49 official post-suspension rows remain review-required
 - Integrity-bound manifest: `review_required`, zero blockers, exact packet path and SHA-256 provenance
 - Direction: do not retune the residual-moneyflow family; return primary research budget to scheduler-governed, preregistered `CN_ETF` work
-- Default next task: source-repair-only review of `cn_etf_dynamic_comovement_peer_dislocation`; audit lagged peer construction, leakage, stability, coverage, and duplication before any factor implementation
+- Default next task: write exactly one source-locked preregistration for `cn_etf_dynamic_comovement_peer_dislocation`; freeze direction, horizons, capacity/cost rules, multiple-testing control, and stop conditions before reading forward returns
 - Boundary: research-to-paper only; no broker, account, order, or automatic-live access
 
 This local evidence is not part of `origin/main` until reviewed and integrated. It does not change the cloud branch inventory below.
+
+## Local CN ETF Dynamic Co-Movement Peer Readiness (Not Yet Cloud-Integrated)
+
+- Local branch: `codex/factor-review-cn-etf-dynamic-comovement-20260716`
+- Audit report: `docs/research/cn_etf_dynamic_comovement_peer_readiness_2026-07-16.md`
+- Frozen source: quarterly lagged market-residual return correlation, prior-session cutoff, 120-return window, deterministic top five peers, and at least three peers
+- Point-in-time evidence: 20,301 directed mapping rows, 681 mapped assets, 651 peer assets, and 15 usable snapshots
+- Coverage: 904 of 1,085 dates qualify after intersecting the asset and at least three peers with daily eligibility; coverage is 83.317972%
+- Stability: minimum median Jaccard 0.428571, minimum retention 0.600000, maximum complete churn 0.071429, and minimum reciprocity 0.588665
+- Source duplication: maximum edge overlap is 0.301708 across beta, residual-volatility, momentum, short-return, and liquidity nearest-neighbor references
+- Decision: `ready_for_peer_source_preregistration`; source readiness passed, but alpha and profitability are untested
+- Scheduler: family budget remains zero, total unallocated primary budget remains 1.0, and factor batches remain disabled
+- Startup behavior: `factor_review` may run in `preregistration_only` mode; factor generation, parameter grids, portfolio grids, walk-forward, promotion, paper signals, and live boundaries remain disabled
+- Next direction: preregister exactly one compact peer-dislocation prescreen without changing the frozen peer-source method or reading the 2026 holdout
+- Boundary: research-to-paper only; no broker, account, order, paper signal, or automatic-live access
+
+Generated mapping and audit artifacts remain under ignored `data/reports/` paths and must not be committed.
 
 ## Local CN ETF Peer Relative-Value Metadata Readiness (Not Yet Cloud-Integrated)
 
