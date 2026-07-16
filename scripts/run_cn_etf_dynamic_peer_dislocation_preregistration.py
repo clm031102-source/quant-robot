@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
 import json
 from pathlib import Path
@@ -67,6 +68,13 @@ def run_cn_etf_dynamic_peer_dislocation_preregistration_cli(
     evidence_hashes = {name: sha256_file(source) for name, source in source_paths.items()}
     _validate_evidence_hashes(payload, evidence_hashes)
     source_readiness = _load_source_readiness(source_paths["source_result"])
+    mapping_method = _validated_mapping_method(
+        source_paths["mapping"],
+        expected=payload["source_evidence"]["mapping_method"],
+    )
+    mapping_integrity = dict(source_readiness.get("mapping_integrity", {}))
+    mapping_integrity["mapping_method"] = mapping_method
+    source_readiness["mapping_integrity"] = mapping_integrity
     result = build_cn_etf_dynamic_peer_dislocation_preregistration(
         config=payload,
         source_readiness=source_readiness,
@@ -175,6 +183,26 @@ def _load_source_readiness(path: Path) -> dict[str, Any]:
     if not isinstance(payload, dict):
         raise ValueError(f"frozen source readiness JSON must be an object: {path}")
     return payload
+
+
+def _validated_mapping_method(path: Path, *, expected: str) -> str:
+    try:
+        with path.open("r", encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            if not reader.fieldnames or "mapping_method" not in reader.fieldnames:
+                raise ValueError(f"frozen source mapping is missing mapping_method: {path}")
+            methods = {
+                str(row.get("mapping_method", "")).strip()
+                for row in reader
+                if str(row.get("mapping_method", "")).strip()
+            }
+    except (OSError, csv.Error) as exc:
+        raise ValueError(f"frozen source mapping CSV is invalid: {path}") from exc
+    if methods != {expected}:
+        raise ValueError(
+            f"frozen source mapping method mismatch: expected {expected}, observed {sorted(methods)}"
+        )
+    return expected
 
 
 def _validate_source_mapping(value: Any, *, label: str, require_sha256: bool) -> None:

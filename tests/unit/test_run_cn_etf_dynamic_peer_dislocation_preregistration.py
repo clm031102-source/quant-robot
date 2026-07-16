@@ -127,7 +127,9 @@ def _write_fixture(root: Path, *, mutate=None) -> dict[str, Path]:
                 "status": "ready_for_peer_source_preregistration",
                 "gate": {"cleared": True, "blockers": []},
                 "mapping_integrity": {
-                    "mapping_method": "lagged_market_residual_correlation_topk"
+                    "passed": True,
+                    "error": None,
+                    "source_dates_strictly_lagged": True
                 },
                 "source_boundaries": {
                     "current_name_used": False,
@@ -142,7 +144,10 @@ def _write_fixture(root: Path, *, mutate=None) -> dict[str, Path]:
         ),
         encoding="utf-8",
     )
-    mapping_path.write_bytes(b"snapshot_date,asset_id,peer_asset_id,correlation\n")
+    mapping_path.write_bytes(
+        b"asset_id,peer_asset_id,mapping_method\n"
+        b"CN_ETF_XSHG_510001,CN_ETF_XSHG_510002,lagged_market_residual_correlation_topk\n"
+    )
     paths = {
         "source_config": source_config_path,
         "source_result": source_result_path,
