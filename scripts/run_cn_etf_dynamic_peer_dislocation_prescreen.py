@@ -38,7 +38,10 @@ from quant_robot.research.dynamic_comovement_peer_source import (  # noqa: E402
     MAPPING_METHOD,
     validate_dynamic_peer_mapping,
 )
-from quant_robot.research.labels import make_forward_returns  # noqa: E402
+from quant_robot.research.labels import (  # noqa: E402
+    filter_market_calendar_aligned_forward_returns,
+    make_forward_returns,
+)
 from quant_robot.storage.atomic import atomic_write_json  # noqa: E402
 from quant_robot.storage.fingerprints import sha256_file  # noqa: E402
 from quant_robot.storage.processed_bars import load_processed_bars  # noqa: E402
@@ -230,6 +233,8 @@ def _execute_authorized(
             horizons=tuple(int(value) for value in evaluation["horizons"]),
             execution_lag=int(evaluation["execution_lag"]),
         )
+        raw_label_rows = int(len(labels))
+        labels = filter_market_calendar_aligned_forward_returns(labels, prepared.bars)
         start = pd.Timestamp(config["data_boundary"]["analysis_start_date"])
         end = pd.Timestamp(config["data_boundary"]["analysis_end_date"])
         label_dates = pd.to_datetime(labels["date"])
@@ -244,7 +249,12 @@ def _execute_authorized(
             "authorization_sha256": str(preflight["authorization_sha256"]),
         }
         result["source_hashes"] = dict(preflight["source_hashes"])
-        result["data_window"] = dict(prepared.metadata)
+        result["data_window"] = {
+            **prepared.metadata,
+            "raw_forward_label_rows": raw_label_rows,
+            "calendar_aligned_forward_label_rows": int(len(labels)),
+            "market_calendar_alignment_required": True,
+        }
         result["authorization"] = {
             "authorization_id": str(preflight["authorization_id"]),
             "execution_claim_recorded": True,

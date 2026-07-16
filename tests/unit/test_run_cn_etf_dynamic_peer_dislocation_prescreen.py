@@ -179,6 +179,7 @@ class RunCnEtfDynamicPeerDislocationPrescreenTests(unittest.TestCase):
 
             self.assertEqual(runs[0]["status"], "primary_passed_backfill_required")
             self.assertEqual(len(runs[0]["results"]), 2)
+            self.assertTrue(runs[0]["data_window"]["market_calendar_alignment_required"])
             analytical_names = sorted(
                 set(runs[0]["artifacts"])
                 - {"json", "hash_manifest", "execution_outcome"}
