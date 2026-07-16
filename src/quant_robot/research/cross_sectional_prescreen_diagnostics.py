@@ -249,6 +249,8 @@ def _daily_long_short_rows(
         clean = group.dropna(subset=["factor_value", "forward_return"])
         if len(clean) < min_cross_section:
             continue
+        if clean["factor_value"].nunique() < 2 or clean["forward_return"].nunique() < 2:
+            continue
         quantiles = assign_cross_sectional_quintiles(clean["factor_value"])
         if quantiles is None:
             continue
@@ -261,6 +263,10 @@ def _daily_long_short_rows(
             1.0 if previous_bottom is None else _set_turnover(previous_bottom, bottom_set)
         )
         gross = float(top["forward_return"].mean() - bottom["forward_return"].mean())
+        quantile_means = {
+            f"q{index + 1}_return": float(clean.loc[quantiles.eq(index), "forward_return"].mean())
+            for index in range(5)
+        }
         row: dict[str, Any] = {
             "factor_name": factor_name,
             "horizon": int(horizon),
@@ -271,6 +277,7 @@ def _daily_long_short_rows(
             "top_turnover": float(top_turnover),
             "bottom_turnover": float(bottom_turnover),
             "gross_top_minus_bottom": gross,
+            **quantile_means,
         }
         for cost_bps in costs_bps:
             row[_net_column(cost_bps)] = gross - (cost_bps / 10_000.0) * (
@@ -318,6 +325,8 @@ def _daily_capacity_rows(
     for signal_date, group in merged.groupby("date", sort=True):
         clean = group.dropna(subset=["factor_value", "forward_return"])
         if len(clean) < min_cross_section:
+            continue
+        if clean["factor_value"].nunique() < 2 or clean["forward_return"].nunique() < 2:
             continue
         quantiles = assign_cross_sectional_quintiles(clean["factor_value"])
         if quantiles is None:
