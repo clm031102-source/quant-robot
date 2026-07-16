@@ -84,6 +84,44 @@ class QuantPmStartupGateTests(unittest.TestCase):
             self.assertEqual(pack["status"], "blocked")
             self.assertTrue(any(blocker.startswith("required_reading_missing:") for blocker in pack["blockers"]))
 
+    def test_gate_allows_source_repair_mode_without_unlocking_factor_batches(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for row in _gate_config()["required_reading"]:
+                target = root / row["path"]
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("ok\n", encoding="utf-8")
+
+            source_repair = build_quant_pm_startup_gate(
+                gate_config=_gate_config(),
+                workstations_config=_workstations(),
+                repo_root=root,
+                machine="highspec_desktop",
+                task="data_pipeline",
+                branch="codex/tushare-data-pipeline",
+                current_branch="codex/tushare-data-pipeline",
+                family_config=_source_blocked_family_config(),
+            )
+            factor_batch = build_quant_pm_startup_gate(
+                gate_config=_gate_config(),
+                workstations_config=_workstations(),
+                repo_root=root,
+                machine="highspec_desktop",
+                task="factor_batch",
+                branch="codex/factor-batch-cn-etf",
+                current_branch="codex/factor-batch-cn-etf",
+                family_config=_source_blocked_family_config(),
+            )
+
+            self.assertEqual(source_repair["status"], "ready")
+            self.assertEqual(source_repair["mode"], "source_repair_only")
+            self.assertFalse(source_repair["safety"]["factor_batch_allowed"])
+            self.assertIn("research_family_scheduler_source_repair_mode", source_repair["warnings"])
+            self.assertEqual(source_repair["next_actions"][0]["action"], "repair_cn_etf_source_readiness")
+            self.assertEqual(factor_batch["status"], "blocked")
+            self.assertIn("research_family_scheduler_not_ready", factor_batch["blockers"])
+            self.assertIn("no_primary_research_allocation", factor_batch["blockers"])
+
     def test_load_and_write_gate_pack(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -130,7 +168,11 @@ def _workstations():
                 "allowed_tasks": ["data_pipeline", "factor_batch", "factor_validation", "factor_review"]
             }
         },
-        "tasks": {"factor_batch": {"branch": "codex/factor-batch-<topic-or-date>"}},
+        "tasks": {
+            "data_pipeline": {"branch": "codex/tushare-data-pipeline"},
+            "factor_batch": {"branch": "codex/factor-batch-<topic-or-date>"},
+            "factor_review": {"branch": "codex/factor-review-<topic-or-date>"},
+        },
     }
 
 
@@ -153,6 +195,39 @@ def _family_config(moneyflow_status="auxiliary_only", moneyflow_budget=0.0):
                 "failed_rounds": 3,
                 "rescue_iterations": 3,
                 "failure_reasons": ["capacity_limited", "oos_relative_return_failed"],
+            },
+        ],
+    }
+
+
+def _source_blocked_family_config():
+    return {
+        "primary_market": "CN_ETF",
+        "min_active_primary_families": 3,
+        "last_decision": {
+            "decision": "source_blocked_no_factor_batch",
+            "factor_batch_allowed": False,
+        },
+        "families": [
+            {
+                "family_id": "cn_etf_fund_structure",
+                "market": "CN_ETF",
+                "status": "exploratory",
+                "budget_share": 0.0,
+                "source_readiness_status": "blocked",
+            },
+            {
+                "family_id": "cn_etf_peer_relative_value",
+                "market": "CN_ETF",
+                "status": "exploratory",
+                "budget_share": 0.0,
+                "metadata_readiness_status": "blocked",
+            },
+            {
+                "family_id": "cn_stock_moneyflow_selection",
+                "market": "CN",
+                "status": "auxiliary_only",
+                "budget_share": 0.0,
             },
         ],
     }

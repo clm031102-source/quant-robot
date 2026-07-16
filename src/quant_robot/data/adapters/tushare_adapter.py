@@ -14,6 +14,7 @@ from quant_robot.data.sources.tushare_mapping import (
     map_tushare_cashflow_statement,
     map_tushare_daily,
     map_tushare_daily_basic,
+    map_tushare_etf_basic,
     map_tushare_etf_share_size,
     map_tushare_fina_indicator,
     map_tushare_fund_basic,
@@ -238,10 +239,21 @@ class TushareAdapter(MarketDataAdapter):
             status=status,
             fields=(
                 "ts_code,name,management,custodian,fund_type,found_date,due_date,"
-                "list_date,issue_date,delist_date,status,invest_type,type,market"
+                "list_date,issue_date,delist_date,benchmark,status,invest_type,type,market"
             ),
         )
         return map_tushare_fund_basic(raw)
+
+    def fetch_etf_basic(self, list_status: str = "") -> pd.DataFrame:
+        raw = self._call(
+            self.client.etf_basic,
+            list_status=list_status,
+            fields=(
+                "ts_code,csname,extname,cname,index_code,index_name,setup_date,list_date,"
+                "list_status,exchange,mgr_name,custod_name,mgt_fee,etf_type"
+            ),
+        )
+        return map_tushare_etf_basic(raw)
 
     def fetch_etf_share_size_by_trade_date(self, trade_date: str, exchange: str = "") -> pd.DataFrame:
         raw = self._call(
@@ -286,6 +298,8 @@ class TushareAdapter(MarketDataAdapter):
                 return result
             except Exception as exc:  # pragma: no cover - exercised with live providers
                 last_error = exc
+                if _is_non_retryable_tushare_error(exc):
+                    raise RuntimeError(f"Tushare non-retryable request failure: {exc}") from exc
                 if attempt < self.max_retries - 1:
                     sleep(self.retry_sleep_seconds)
         detail = f": {last_error}" if last_error is not None else ""
@@ -301,3 +315,18 @@ def _create_tushare_client() -> object:
 
 def _date_to_tushare(value: str) -> str:
     return value.replace("-", "")
+
+
+def _is_non_retryable_tushare_error(error: Exception) -> bool:
+    message = str(error).lower()
+    return any(
+        marker in message
+        for marker in (
+            "没有接口",
+            "访问权限",
+            "无权限",
+            "permission denied",
+            "invalid token",
+            "token不对",
+        )
+    )

@@ -140,6 +140,7 @@ FUND_BASIC_COLUMNS = [
     "list_date",
     "issue_date",
     "delist_date",
+    "benchmark",
     "status",
     "invest_type",
     "type",
@@ -147,6 +148,24 @@ FUND_BASIC_COLUMNS = [
     "is_active",
     "is_exchange_traded",
     "is_etf",
+]
+
+ETF_BASIC_COLUMNS = [
+    "symbol",
+    "name",
+    "extended_name",
+    "full_name",
+    "index_code",
+    "index_name",
+    "setup_date",
+    "list_date",
+    "list_status",
+    "exchange",
+    "manager",
+    "custodian",
+    "management_fee",
+    "etf_type",
+    "is_active",
 ]
 
 FUND_PORTFOLIO_COLUMNS = [
@@ -341,6 +360,7 @@ def map_tushare_fund_basic(frame: pd.DataFrame) -> pd.DataFrame:
             "list_date": _optional_date(source, "list_date"),
             "issue_date": _optional_date(source, "issue_date"),
             "delist_date": _optional_date(source, "delist_date"),
+            "benchmark": _optional_text(source, "benchmark"),
             "status": _optional_text(source, "status"),
             "invest_type": _optional_text(source, "invest_type"),
             "type": _optional_text(source, "type"),
@@ -351,6 +371,33 @@ def map_tushare_fund_basic(frame: pd.DataFrame) -> pd.DataFrame:
     mapped["is_exchange_traded"] = mapped["market"].astype(str).str.upper().eq("E")
     mapped["is_etf"] = _fund_basic_etf_mask(mapped)
     return mapped[FUND_BASIC_COLUMNS].sort_values(["symbol"]).reset_index(drop=True)
+
+
+def map_tushare_etf_basic(frame: pd.DataFrame) -> pd.DataFrame:
+    if frame.empty:
+        return pd.DataFrame(columns=ETF_BASIC_COLUMNS)
+    _require_columns(frame, ["ts_code", "index_code", "list_status", "exchange"], "tushare etf_basic")
+    source = frame.copy()
+    mapped = pd.DataFrame(
+        {
+            "symbol": source["ts_code"],
+            "name": _optional_text(source, "csname"),
+            "extended_name": _optional_text(source, "extname"),
+            "full_name": _optional_text(source, "cname"),
+            "index_code": _optional_text(source, "index_code"),
+            "index_name": _optional_text(source, "index_name"),
+            "setup_date": _optional_date(source, "setup_date"),
+            "list_date": _optional_date(source, "list_date"),
+            "list_status": source["list_status"],
+            "exchange": source["exchange"],
+            "manager": _optional_text(source, "mgr_name"),
+            "custodian": _optional_text(source, "custod_name"),
+            "management_fee": _optional_numeric(source, "mgt_fee"),
+            "etf_type": _optional_text(source, "etf_type"),
+        }
+    )
+    mapped["is_active"] = mapped["list_status"].astype(str).str.upper().eq("L")
+    return mapped[ETF_BASIC_COLUMNS].sort_values(["symbol"]).reset_index(drop=True)
 
 
 def map_tushare_fund_portfolio(frame: pd.DataFrame) -> pd.DataFrame:

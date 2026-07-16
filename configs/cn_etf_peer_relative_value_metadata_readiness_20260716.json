@@ -1,0 +1,26 @@
+{
+  "stage": "cn_etf_peer_relative_value_metadata_readiness",
+  "primary_market": "CN_ETF",
+  "research_family": "cn_etf_peer_relative_value",
+  "audit_scope": "point_in_time_official_peer_mapping",
+  "data_root": "data/processed/tushare_etf_wide_history_2023_2026",
+  "peer_mapping_path": null,
+  "analysis_start_date": "2020-01-02",
+  "analysis_end_date": "2024-06-28",
+  "final_holdout_start": "2026-01-01",
+  "thresholds": {
+    "min_peer_group_size": 2,
+    "min_qualifying_assets_per_date": 30,
+    "min_qualifying_date_coverage": 0.8
+  },
+  "output_dir": "data/reports/cn_etf_peer_relative_value_metadata_readiness_20260716",
+  "name_only_mapping_allowed": false,
+  "prescreen_execution_allowed": false,
+  "portfolio_grid_allowed": false,
+  "walk_forward_allowed": false,
+  "paper_signal_allowed": false,
+  "broker_connection_allowed": false,
+  "account_read_allowed": false,
+  "order_placement_allowed": false,
+  "live_trading_allowed": false
+}

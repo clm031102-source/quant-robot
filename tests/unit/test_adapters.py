@@ -204,6 +204,7 @@ class AdapterTests(unittest.TestCase):
                         "list_date": ["20120601"],
                         "issue_date": ["20120501"],
                         "delist_date": [""],
+                        "benchmark": ["CSI 300 Index"],
                         "status": ["L"],
                         "invest_type": ["Passive"],
                         "type": ["ETF"],
@@ -218,8 +219,57 @@ class AdapterTests(unittest.TestCase):
 
         self.assertEqual(client.kwargs["market"], "E")
         self.assertEqual(client.kwargs["status"], "L")
+        self.assertIn("benchmark", client.kwargs["fields"])
         self.assertEqual(result.loc[0, "symbol"], "510300.SH")
+        self.assertEqual(result.loc[0, "benchmark"], "CSI 300 Index")
         self.assertTrue(bool(result.loc[0, "is_etf"]))
+
+    def test_tushare_adapter_fetches_etf_basic_with_official_index_code(self):
+        class FakeTushare:
+            def etf_basic(self, **kwargs):
+                self.kwargs = kwargs
+                return pd.DataFrame(
+                    {
+                        "ts_code": ["510300.SH"],
+                        "csname": ["300ETF"],
+                        "extname": ["沪深300ETF"],
+                        "cname": ["沪深300交易型开放式指数基金"],
+                        "index_code": ["000300.SH"],
+                        "index_name": ["沪深300指数"],
+                        "setup_date": ["20120528"],
+                        "list_date": ["20120528"],
+                        "list_status": ["L"],
+                        "exchange": ["SH"],
+                        "mgr_name": ["Manager A"],
+                        "custod_name": ["Bank A"],
+                        "mgt_fee": [0.5],
+                        "etf_type": ["境内"],
+                    }
+                )
+
+        client = FakeTushare()
+        result = TushareAdapter(client=client).fetch_etf_basic(list_status="")
+
+        self.assertEqual(client.kwargs["list_status"], "")
+        self.assertIn("index_code", client.kwargs["fields"])
+        self.assertEqual(result.loc[0, "index_code"], "000300.SH")
+
+    def test_tushare_adapter_does_not_retry_permission_denials(self):
+        class FakeTushare:
+            def __init__(self):
+                self.calls = 0
+
+            def etf_basic(self, **kwargs):
+                self.calls += 1
+                raise Exception("抱歉，您没有接口(etf_basic)访问权限")
+
+        client = FakeTushare()
+        adapter = TushareAdapter(client=client, max_retries=3, retry_sleep_seconds=0)
+
+        with self.assertRaisesRegex(RuntimeError, "non-retryable"):
+            adapter.fetch_etf_basic()
+
+        self.assertEqual(client.calls, 1)
 
     def test_tushare_adapter_fetches_etf_share_size_by_trade_date_and_exchange(self):
         class FakeTushare:

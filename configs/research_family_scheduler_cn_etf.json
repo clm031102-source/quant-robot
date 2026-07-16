@@ -10,28 +10,30 @@
   },
   "last_decision": {
     "date": "2026-07-16",
-    "source_stage": "cn_etf_market_residual_volatility_prescreen",
-    "source_config_sha256": "303b0a66961baa65fbbf72f55f0ad030675908b061954017ae84a890dea62ad0",
-    "source_result_sha256": "736dbf2fd39d6d0c8e0e947ddb1fdde58e919a6732a28221a68a62ecfa51b539",
-    "research_lead_count": 0,
-    "closed_family": "cn_etf_volatility_regime",
-    "closed_budget_share": 0.35,
-    "activated_family": "cn_etf_peer_relative_value",
-    "reallocation": {
-      "cn_etf_fund_structure": 0.05,
-      "cn_etf_peer_relative_value": 0.3
-    },
-    "resulting_budget_shares": {
+    "source_stage": "cn_etf_peer_relative_value_metadata_readiness",
+    "source_config_sha256": "5eee324a902a0c4bf9b228ae9f233d8f790c52a9d27037bb7a6a466819cac3fa",
+    "source_result_sha256": "8a23185f04648a1aeef48a273dcb16e4940a24100b953bd17c6e71f837b1afc1",
+    "source_status": "blocked",
+    "decision": "source_blocked_no_factor_batch",
+    "official_benchmark_mapping_rows": 1611,
+    "official_benchmark_peer_ids": 675,
+    "earliest_mapping_known_from": "2026-07-16",
+    "historical_peer_mapping_coverage": 0.0,
+    "historical_qualifying_date_coverage": 0.0,
+    "source_blockers": [
+      "no_qualifying_peer_groups_in_2020_2024_analysis_window",
+      "peer_mapping_date_coverage_below_minimum",
+      "missing_historical_etf_share_size_and_nav",
+      "missing_etf_moneyflow_baskets"
+    ],
+    "released_budget_shares": {
       "cn_etf_flow_breadth_aggregation": 0.35,
       "cn_etf_fund_structure": 0.35,
       "cn_etf_peer_relative_value": 0.3
     },
-    "decisive_evidence": [
-      "etf_idio_vol_low_60_duplicated_low_volatility_60_at_0.871466_mean_daily_rank_correlation",
-      "all_six_top_quantile_capacity_rows_failed_the_one_percent_participation_gate",
-      "etf_downside_beta_low_120_failed_fdr_or_icir_gates",
-      "etf_positive_residual_skew_60_had_negative_ic_spread_and_monotonicity"
-    ]
+    "unallocated_budget_share": 1.0,
+    "factor_batch_allowed": false,
+    "next_direction": "audit_lagged_dynamic_comovement_peer_source_as_a_separate_family_before_any_factor_generation"
   },
   "previous_decision": {
     "date": "2026-07-16",
@@ -186,7 +188,13 @@
       "auxiliary_markets": ["CN"],
       "hypothesis_family": "stock_flow_breadth_as_etf_feature",
       "status": "exploratory",
-      "budget_share": 0.35,
+      "budget_share": 0.0,
+      "source_readiness_status": "blocked",
+      "source_blockers": [
+        "missing_etf_moneyflow_baskets",
+        "historical_holdings_or_audited_theme_membership_unavailable"
+      ],
+      "factor_batch_before_readiness_allowed": false,
       "economic_thesis": "Stock-level moneyflow can still help when aggregated into ETF theme breadth, industry diffusion, and risk-appetite features aligned to ETF holdings or themes.",
       "allowed_roles": [
         "market_breadth_auxiliary",
@@ -199,26 +207,41 @@
         "moneyflow_topn_rescue",
         "stock_moneyflow_regime_rescue"
       ],
-      "next_action": "Use CN moneyflow only after aggregation into ETF-level breadth or theme-flow features."
+      "next_action": "Keep unallocated until point-in-time ETF holdings or an audited historical theme bridge exists; CN moneyflow remains auxiliary only."
     },
     {
       "family_id": "cn_etf_fund_structure",
       "market": "CN_ETF",
       "hypothesis_family": "fund_share_nav_structure",
       "status": "exploratory",
-      "budget_share": 0.35,
+      "budget_share": 0.0,
+      "source_readiness_status": "blocked",
+      "source_blockers": [
+        "missing_historical_etf_share_size",
+        "missing_historical_nav"
+      ],
+      "factor_batch_before_readiness_allowed": false,
       "economic_thesis": "Fund share changes, scale proxies, NAV behavior, and premium/discount proxies may identify ETF demand pressure and crowded exits.",
-      "next_action": "Probe daily etf_share_size share-change, scale-change, NAV, and premium/discount proxies where Tushare permissions and coverage are sufficient."
+      "next_action": "Keep unallocated until daily ETF share, scale, NAV, and close history passes a point-in-time coverage audit."
     },
     {
       "family_id": "cn_etf_peer_relative_value",
       "market": "CN_ETF",
       "hypothesis_family": "same_index_theme_peer_dislocation",
       "status": "exploratory",
-      "budget_share": 0.3,
-      "metadata_readiness_review_required": true,
+      "budget_share": 0.0,
+      "metadata_readiness_status": "blocked",
+      "metadata_readiness_review_required": false,
       "factor_batch_before_readiness_allowed": false,
       "preregistration_required": true,
+      "metadata_audit": {
+        "config_sha256": "5eee324a902a0c4bf9b228ae9f233d8f790c52a9d27037bb7a6a466819cac3fa",
+        "result_sha256": "8a23185f04648a1aeef48a273dcb16e4940a24100b953bd17c6e71f837b1afc1",
+        "official_mapping_rows": 1611,
+        "peer_ids": 675,
+        "earliest_known_from": "2026-07-16",
+        "historical_qualifying_date_coverage": 0.0
+      },
       "economic_thesis": "ETFs tracking the same index or a tightly defined theme can temporarily diverge in price-to-NAV, tracking efficiency, liquidity, or flow pressure, creating point-in-time cross-sectional relative-value information.",
       "allowed_roles": [
         "same_index_peer_dislocation",
@@ -232,7 +255,7 @@
         "portfolio_grid_before_prescreen",
         "walk_forward_before_prescreen"
       ],
-      "next_action": "Audit official and derived same-index or same-theme peer mapping coverage and point-in-time integrity, then preregister one compact peer-relative-value prescreen."
+      "next_action": "Do not generate factors. Backfill audited historical official peer assignments, or rotate to a separately governed PIT-safe source-readiness review without reusing current names."
     },
     {
       "family_id": "cn_stock_moneyflow_selection",

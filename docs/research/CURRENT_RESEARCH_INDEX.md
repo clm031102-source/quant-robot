@@ -15,10 +15,26 @@ Purpose: this is the first file to read after syncing the repository on any work
 - Price integrity: zero blocking rows; 14 official initial-price-discovery and 49 official post-suspension rows remain review-required
 - Integrity-bound manifest: `review_required`, zero blockers, exact packet path and SHA-256 provenance
 - Direction: do not retune the residual-moneyflow family; return primary research budget to scheduler-governed, preregistered `CN_ETF` work
-- Default next task: `cn_etf_peer_relative_value` metadata-readiness and point-in-time peer-mapping review; the volatility, price-rotation, and liquidity-capacity families are closed
+- Default next task: source-repair-only review of `cn_etf_dynamic_comovement_peer_dislocation`; audit lagged peer construction, leakage, stability, coverage, and duplication before any factor implementation
 - Boundary: research-to-paper only; no broker, account, order, or automatic-live access
 
 This local evidence is not part of `origin/main` until reviewed and integrated. It does not change the cloud branch inventory below.
+
+## Local CN ETF Peer Relative-Value Metadata Readiness (Not Yet Cloud-Integrated)
+
+- Local branch: `codex/factor-review-cn-etf-peer-relative-value-20260716`
+- Audit report: `docs/research/cn_etf_peer_relative_value_metadata_readiness_2026-07-16.md`
+- Historical input: 1,119,490 bars, 1,781 ETF assets, 1,085 sessions, 2020-01-02 through 2024-06-28
+- Source repair: `fund_basic.benchmark` is now preserved; `etf_basic.index_code` collection and conservative snapshot intervals are implemented; provider permission denied the live `etf_basic` call
+- Official snapshot evidence: 1,611 ETF mappings, 675 benchmark identities, and 1,177 current ETFs in multi-member groups
+- Point-in-time result: earliest knowledge date 2026-07-16, zero qualifying dates in the analysis window, zero historical ETF share/NAV rows
+- Decision: peer relative value is source-blocked, not factor-rejected; current-name keyword themes cannot clear the gate
+- Scheduler: flow breadth, fund structure, and peer relative value all have zero primary budget; unallocated share is 1.0 and factor batches are blocked
+- Startup behavior: `data_pipeline` and `factor_review` may run in `source_repair_only` mode; factor batches, portfolio grids, walk-forward, promotion, and paper signals remain disabled
+- Next direction: separately audit lagged dynamic co-movement peers using only T-1 information; reject the path if it duplicates closed price, volatility, theme, or reversal families
+- Boundary: research-to-paper only; no broker, account, order, paper signal, or automatic-live access
+
+Generated source snapshots and audit artifacts remain under ignored `data/` paths and must not be committed.
 
 ## Local CN ETF Liquidity-Capacity Closeout (Not Yet Cloud-Integrated)
 

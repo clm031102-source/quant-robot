@@ -42,6 +42,7 @@ def build_quant_pm_startup_gate(
     family_path = gate_config.get("research_family_config", "configs/research_family_scheduler_cn_etf.json")
     resolved_family_config = family_config or load_research_family_config(root / str(family_path))
     family_schedule = build_research_family_schedule(resolved_family_config)
+    source_repair_mode = _source_repair_mode_allowed(task, resolved_family_config, family_schedule)
     blockers: list[str] = []
     warnings: list[str] = []
 
@@ -49,16 +50,27 @@ def build_quant_pm_startup_gate(
     blockers.extend(f"required_reading_missing:{path}" for path in missing_reading)
     if str(resolved_family_config.get("primary_market", "")).upper() != primary_market:
         blockers.append("research_family_primary_market_mismatch")
-    if _dict(family_schedule.get("summary")).get("scheduler_status") != "ready":
+    if _dict(family_schedule.get("summary")).get("scheduler_status") != "ready" and not source_repair_mode:
         blockers.append("research_family_scheduler_not_ready")
-    blockers.extend(str(blocker) for blocker in _list(family_schedule.get("blockers")))
-    blockers.extend(_direction_blockers(gate_config, family_schedule, primary_market))
+    if source_repair_mode:
+        warnings.append("research_family_scheduler_source_repair_mode")
+    else:
+        blockers.extend(str(blocker) for blocker in _list(family_schedule.get("blockers")))
+    blockers.extend(
+        _direction_blockers(
+            gate_config,
+            family_schedule,
+            primary_market,
+            allow_no_primary_allocation=source_repair_mode,
+        )
+    )
     warnings.extend(str(warning) for warning in _list(family_schedule.get("warnings")))
 
     pack = {
         "stage": gate_config.get("stage", STAGE),
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "status": "blocked" if blockers else "ready",
+        "mode": "source_repair_only" if source_repair_mode else "standard_research",
         "selected": {
             "machine": machine,
             "task": task,
@@ -83,10 +95,11 @@ def build_quant_pm_startup_gate(
         },
         "blockers": _unique(blockers),
         "warnings": _unique(warnings),
-        "next_actions": _next_actions(blockers),
+        "next_actions": _next_actions(blockers, source_repair_mode=source_repair_mode),
         "safety": {
             "research_only": True,
             "paper_only_next_step": True,
+            "factor_batch_allowed": bool(not blockers and not source_repair_mode),
             "live_boundary_allowed": False,
             "token_storage": "environment_only",
         },
@@ -120,6 +133,7 @@ def render_quant_pm_startup_gate_markdown(pack: dict[str, Any]) -> str:
         "",
         f"- Stage: {pack.get('stage', STAGE)}",
         f"- Status: {pack.get('status', 'unknown')}",
+        f"- Mode: {pack.get('mode', 'standard_research')}",
         f"- Machine: {selected.get('machine')}",
         f"- Task: {selected.get('task')}",
         f"- Branch: {selected.get('branch')}",
@@ -210,7 +224,13 @@ def _context_blockers(
     return blockers
 
 
-def _direction_blockers(gate_config: dict[str, Any], family_schedule: dict[str, Any], primary_market: str) -> list[str]:
+def _direction_blockers(
+    gate_config: dict[str, Any],
+    family_schedule: dict[str, Any],
+    primary_market: str,
+    *,
+    allow_no_primary_allocation: bool = False,
+) -> list[str]:
     blockers: list[str] = []
     rules = _dict(gate_config.get("direction_rules"))
     if str(rules.get("final_signal_market", primary_market)).upper() != primary_market:
@@ -229,17 +249,46 @@ def _direction_blockers(gate_config: dict[str, Any], family_schedule: dict[str, 
             blockers.append("cn_stock_moneyflow_budget_not_zero")
         if moneyflow.get("primary_allocation_allowed"):
             blockers.append("cn_stock_moneyflow_primary_allocation_allowed")
-    if not _list(family_schedule.get("allocation")):
+    if not allow_no_primary_allocation and not _list(family_schedule.get("allocation")):
         blockers.append("no_primary_research_allocation")
     return blockers
 
 
-def _next_actions(blockers: list[str]) -> list[dict[str, Any]]:
+def _source_repair_mode_allowed(
+    task: str | None,
+    family_config: dict[str, Any],
+    family_schedule: dict[str, Any],
+) -> bool:
+    if task not in {"data_pipeline", "factor_review"}:
+        return False
+    decision = _dict(family_config.get("last_decision"))
+    if decision.get("decision") != "source_blocked_no_factor_batch":
+        return False
+    if decision.get("factor_batch_allowed") is not False:
+        return False
+    schedule_blockers = {str(item) for item in _list(family_schedule.get("blockers"))}
+    if schedule_blockers != {"insufficient_active_research_families"}:
+        return False
+    summary = _dict(family_schedule.get("summary"))
+    return (
+        _float(summary.get("primary_budget_share"), -1.0) == 0.0
+        and int(summary.get("active_primary_families", -1)) == 0
+    )
+
+
+def _next_actions(blockers: list[str], *, source_repair_mode: bool = False) -> list[dict[str, Any]]:
     if blockers:
         return [
             {
                 "action": "stop_before_factor_mining",
                 "reason": "Quant PM startup gate is blocked; fix direction, context, or required reading before running data or factor batches.",
+            }
+        ]
+    if source_repair_mode:
+        return [
+            {
+                "action": "repair_cn_etf_source_readiness",
+                "reason": "Source-repair mode is ready for metadata or data backfill only; factor batches remain disabled until the scheduler has audited primary allocations.",
             }
         ]
     return [

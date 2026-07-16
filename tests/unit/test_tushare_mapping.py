@@ -3,6 +3,7 @@ import unittest
 import pandas as pd
 
 from quant_robot.data.sources.tushare_mapping import (
+    ETF_BASIC_COLUMNS,
     ETF_SHARE_SIZE_COLUMNS,
     FUND_BASIC_COLUMNS,
     FUND_PORTFOLIO_COLUMNS,
@@ -10,6 +11,7 @@ from quant_robot.data.sources.tushare_mapping import (
     map_tushare_adj_factor,
     map_tushare_daily,
     map_tushare_daily_basic,
+    map_tushare_etf_basic,
     map_tushare_etf_share_size,
     map_tushare_fund_basic,
     map_tushare_fund_portfolio,
@@ -279,6 +281,7 @@ class TushareMappingTests(unittest.TestCase):
                 "list_date": ["20120601", ""],
                 "issue_date": ["20120501", "20120501"],
                 "delist_date": ["", ""],
+                "benchmark": ["CSI 300 Index", "CSI 300 Index"],
                 "status": ["L", "L"],
                 "invest_type": ["Passive", "Passive"],
                 "type": ["ETF", "Linked"],
@@ -295,6 +298,7 @@ class TushareMappingTests(unittest.TestCase):
         self.assertTrue(bool(etf_row["is_active"]))
         self.assertTrue(bool(etf_row["is_exchange_traded"]))
         self.assertTrue(bool(etf_row["is_etf"]))
+        self.assertEqual(etf_row["benchmark"], "CSI 300 Index")
         self.assertFalse(bool(linked_row["is_exchange_traded"]))
 
     def test_map_fund_basic_does_not_mark_etf_linked_lof_as_etf(self):
@@ -319,6 +323,40 @@ class TushareMappingTests(unittest.TestCase):
 
         self.assertTrue(result.empty)
         self.assertEqual(list(result.columns), FUND_BASIC_COLUMNS)
+
+    def test_map_etf_basic_preserves_official_tracking_index(self):
+        source = pd.DataFrame(
+            {
+                "ts_code": ["510300.SH"],
+                "csname": ["300ETF"],
+                "extname": ["沪深300ETF"],
+                "cname": ["沪深300交易型开放式指数基金"],
+                "index_code": ["000300.SH"],
+                "index_name": ["沪深300指数"],
+                "setup_date": ["20120528"],
+                "list_date": ["20120528"],
+                "list_status": ["L"],
+                "exchange": ["SH"],
+                "mgr_name": ["Manager A"],
+                "custod_name": ["Bank A"],
+                "mgt_fee": [0.5],
+                "etf_type": ["境内"],
+            }
+        )
+
+        result = map_tushare_etf_basic(source)
+
+        self.assertEqual(list(result.columns), ETF_BASIC_COLUMNS)
+        self.assertEqual(result.loc[0, "symbol"], "510300.SH")
+        self.assertEqual(result.loc[0, "index_code"], "000300.SH")
+        self.assertEqual(str(result.loc[0, "list_date"]), "2012-05-28")
+        self.assertTrue(bool(result.loc[0, "is_active"]))
+
+    def test_map_etf_basic_returns_standard_empty_frame(self):
+        result = map_tushare_etf_basic(pd.DataFrame())
+
+        self.assertTrue(result.empty)
+        self.assertEqual(list(result.columns), ETF_BASIC_COLUMNS)
 
     def test_map_etf_share_size_returns_standard_empty_frame(self):
         result = map_tushare_etf_share_size(pd.DataFrame())
