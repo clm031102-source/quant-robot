@@ -152,7 +152,7 @@ def _summarize_factor_horizon(
         if len(clean) < thresholds.min_cross_section:
             continue
         rank_ic = _spearman(clean["factor_value"], clean["forward_return"])
-        quantiles = _quintiles(clean["factor_value"])
+        quantiles = assign_cross_sectional_quintiles(clean["factor_value"])
         if not math.isfinite(rank_ic) or quantiles is None:
             continue
         quantile_means = [float(clean.loc[quantiles.eq(index), "forward_return"].mean()) for index in range(5)]
@@ -344,7 +344,9 @@ def _normalise_factor_frame(frame: pd.DataFrame) -> pd.DataFrame:
     return result
 
 
-def _quintiles(values: pd.Series) -> pd.Series | None:
+def assign_cross_sectional_quintiles(values: pd.Series) -> pd.Series | None:
+    """Assign deterministic q1..q5 membership using the shared prescreen rule."""
+
     numeric = pd.to_numeric(values, errors="coerce")
     if numeric.nunique() < 5:
         return None
