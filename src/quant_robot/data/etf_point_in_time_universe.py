@@ -21,9 +21,14 @@ def load_official_etf_lifecycle(metadata_root: str | Path) -> pd.DataFrame:
     files = [root] if root.is_file() else sorted(root.rglob("*.parquet")) + sorted(root.rglob("*.csv"))
     if not files:
         raise FileNotFoundError(f"No official ETF lifecycle files found under {root}")
-    frames = [_read_lifecycle_file(path) for path in files]
-    lifecycle = _normalise_lifecycle(pd.concat(frames, ignore_index=True))
-    lifecycle = lifecycle[lifecycle["is_etf"]].copy()
+    frames = []
+    for path in files:
+        frame = _normalise_lifecycle(_read_lifecycle_file(path))
+        frame = frame[frame["is_etf"]].copy()
+        _validate_lifecycle(frame)
+        frame["_snapshot_date"] = _snapshot_date_for_path(path)
+        frames.append(frame)
+    lifecycle = _consolidate_dated_lifecycle(pd.concat(frames, ignore_index=True))
     _validate_lifecycle(lifecycle)
     return lifecycle.sort_values("symbol").reset_index(drop=True)
 
@@ -107,6 +112,35 @@ def _read_lifecycle_file(path: Path) -> pd.DataFrame:
     if path.suffix.casefold() == ".parquet":
         return pd.read_parquet(path)
     return pd.read_csv(path)
+
+
+def _snapshot_date_for_path(path: Path) -> pd.Timestamp | None:
+    for part in reversed(path.parts):
+        if not part.startswith("snapshot="):
+            continue
+        value = pd.to_datetime(part.split("=", 1)[1], errors="coerce")
+        return None if pd.isna(value) else pd.Timestamp(value).normalize()
+    return None
+
+
+def _consolidate_dated_lifecycle(lifecycle: pd.DataFrame) -> pd.DataFrame:
+    duplicate_rows = lifecycle[lifecycle["symbol"].duplicated(keep=False)]
+    if not duplicate_rows.empty:
+        invalid_symbols = []
+        for symbol, group in duplicate_rows.groupby("symbol", sort=True):
+            snapshots = group["_snapshot_date"]
+            if snapshots.isna().any() or snapshots.duplicated().any():
+                invalid_symbols.append(str(symbol))
+        if invalid_symbols:
+            raise ValueError(
+                "duplicate official ETF lifecycle symbols: " + ", ".join(invalid_symbols[:10])
+            )
+    return (
+        lifecycle.sort_values(["symbol", "_snapshot_date"], na_position="first")
+        .drop_duplicates("symbol", keep="last")
+        .drop(columns="_snapshot_date")
+        .reset_index(drop=True)
+    )
 
 
 def _normalise_lifecycle(lifecycle: pd.DataFrame) -> pd.DataFrame:

@@ -124,6 +124,46 @@ class EtfPointInTimeUniverseTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "duplicate official ETF lifecycle symbols"):
                 load_official_etf_lifecycle(root)
 
+    def test_loader_consolidates_dated_snapshots_and_preserves_older_only_assets(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            older = root / "snapshot=2026-06-21"
+            latest = root / "snapshot=2026-07-16"
+            older.mkdir()
+            latest.mkdir()
+            pd.DataFrame(
+                [
+                    {
+                        "symbol": "510300.SH",
+                        "is_etf": True,
+                        "list_date": "2012-05-28",
+                        "delist_date": None,
+                    },
+                    {
+                        "symbol": "510500.SH",
+                        "is_etf": True,
+                        "list_date": "2013-03-15",
+                        "delist_date": "2024-06-28",
+                    },
+                ]
+            ).to_parquet(older / "part-00000.parquet", index=False)
+            pd.DataFrame(
+                [
+                    {
+                        "symbol": "510300.SH",
+                        "is_etf": True,
+                        "list_date": "2012-05-28",
+                        "delist_date": "2026-07-15",
+                    }
+                ]
+            ).to_parquet(latest / "part-00000.parquet", index=False)
+
+            lifecycle = load_official_etf_lifecycle(root).set_index("symbol")
+
+            self.assertEqual(set(lifecycle.index), {"510300.SH", "510500.SH"})
+            self.assertEqual(lifecycle.loc["510300.SH", "delist_date"], pd.Timestamp("2026-07-15"))
+            self.assertEqual(lifecycle.loc["510500.SH", "delist_date"], pd.Timestamp("2024-06-28"))
+
     def test_rejects_reversed_official_lifecycle(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
