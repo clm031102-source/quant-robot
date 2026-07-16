@@ -26,6 +26,10 @@ class SinglePrescreenAuthorizationTests(unittest.TestCase):
         )
         self.assertEqual(first["max_executions"], 1)
         self.assertTrue(first["execution_ledger_required"])
+        self.assertEqual(
+            first["execution_ledger_path"],
+            "data/reports/fixture_single_prescreen_ledger.json",
+        )
         self.assertEqual(len(first["authorization_id"]), 64)
         for field in _prohibited_boundaries():
             self.assertFalse(first[field])
@@ -38,6 +42,7 @@ class SinglePrescreenAuthorizationTests(unittest.TestCase):
                 preregistration_config_sha256="not-a-hash",
                 preregistration_result_sha256="b" * 64,
                 source_hashes=_source_hashes(),
+                execution_ledger_path="data/reports/fixture_single_prescreen_ledger.json",
             )
 
     def test_validate_rejects_candidate_config_and_packet_hash_mismatches(self) -> None:
@@ -113,7 +118,10 @@ class SinglePrescreenAuthorizationTests(unittest.TestCase):
             root = Path(tmp)
             packet_path = root / "authorization.json"
             ledger_path = root / "claims.json"
-            write_single_prescreen_authorization(packet_path, _packet())
+            write_single_prescreen_authorization(
+                packet_path,
+                _packet(execution_ledger_path=str(ledger_path)),
+            )
             kwargs = {
                 "packet_path": packet_path,
                 "ledger_path": ledger_path,
@@ -138,7 +146,10 @@ class SinglePrescreenAuthorizationTests(unittest.TestCase):
             packet_path = root / "authorization.json"
             ledger_path = root / "claims.json"
             lock_path = ledger_path.with_suffix(ledger_path.suffix + ".lock")
-            write_single_prescreen_authorization(packet_path, _packet())
+            write_single_prescreen_authorization(
+                packet_path,
+                _packet(execution_ledger_path=str(ledger_path)),
+            )
             lock_path.write_text("held", encoding="utf-8")
 
             with self.assertRaisesRegex(ValueError, "ledger is locked"):
@@ -154,14 +165,42 @@ class SinglePrescreenAuthorizationTests(unittest.TestCase):
             self.assertTrue(lock_path.is_file())
             self.assertFalse(ledger_path.exists())
 
+    def test_claim_rejects_a_ledger_path_not_bound_to_the_packet(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            packet_path = root / "authorization.json"
+            bound_ledger = root / "bound_claims.json"
+            alternate_ledger = root / "alternate_claims.json"
+            write_single_prescreen_authorization(
+                packet_path,
+                _packet(execution_ledger_path=str(bound_ledger)),
+            )
 
-def _packet() -> dict:
+            with self.assertRaisesRegex(ValueError, "ledger path mismatch"):
+                claim_single_prescreen_authorization(
+                    packet_path=packet_path,
+                    ledger_path=alternate_ledger,
+                    expected_candidate_name=_candidate(),
+                    expected_config_sha256="a" * 64,
+                    expected_packet_sha256=sha256_file(packet_path),
+                    context="fixture prescreen",
+                )
+
+            self.assertFalse(bound_ledger.exists())
+            self.assertFalse(alternate_ledger.exists())
+
+
+def _packet(
+    *,
+    execution_ledger_path: str = "data/reports/fixture_single_prescreen_ledger.json",
+) -> dict:
     return build_single_prescreen_authorization(
         registration_date="2026-07-16",
         candidate_name=_candidate(),
         preregistration_config_sha256="a" * 64,
         preregistration_result_sha256="b" * 64,
         source_hashes=_source_hashes(),
+        execution_ledger_path=execution_ledger_path,
     )
 
 

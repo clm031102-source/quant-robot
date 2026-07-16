@@ -92,6 +92,7 @@ def run_cn_etf_dynamic_peer_dislocation_preregistration_cli(
         preregistration_config_sha256=config_sha256,
         preregistration_result_sha256=result_sha256,
         source_hashes=evidence_hashes,
+        execution_ledger_path=payload["execution_ledger_path"],
     )
     authorization_path = write_single_prescreen_authorization(
         destination / payload["authorization_filename"],

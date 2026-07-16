@@ -37,18 +37,22 @@ def build_single_prescreen_authorization(
     preregistration_config_sha256: str,
     preregistration_result_sha256: str,
     source_hashes: Mapping[str, str],
+    execution_ledger_path: str | Path,
 ) -> dict[str, Any]:
     """Build a deterministic authorization for exactly one frozen prescreen."""
 
     _require_nonempty(candidate_name, "candidate name")
     _require_sha256(preregistration_config_sha256, "preregistration config SHA-256")
     _require_sha256(preregistration_result_sha256, "preregistration result SHA-256")
+    ledger_path = str(execution_ledger_path)
+    _require_nonempty(ledger_path, "execution ledger path")
     normalized_source_hashes = _validated_source_hashes(source_hashes)
     identity_payload = {
         "candidate_name": candidate_name,
         "preregistration_config_sha256": preregistration_config_sha256,
         "preregistration_result_sha256": preregistration_result_sha256,
         "source_hashes": normalized_source_hashes,
+        "execution_ledger_path": ledger_path,
     }
     packet: dict[str, Any] = {
         "stage": AUTHORIZATION_STAGE,
@@ -135,6 +139,12 @@ def claim_single_prescreen_authorization(
         context=context,
     )
     ledger = Path(ledger_path)
+    bound_ledger = Path(validated["packet"]["execution_ledger_path"])
+    if ledger.resolve() != bound_ledger.resolve():
+        raise ValueError(
+            f"{context} single prescreen ledger path mismatch: "
+            f"expected {bound_ledger}, received {ledger}"
+        )
     ledger.parent.mkdir(parents=True, exist_ok=True)
     lock_path = ledger.with_suffix(ledger.suffix + ".lock")
     descriptor = _exclusive_lock(lock_path, context=context)
@@ -175,6 +185,7 @@ def _validate_packet_contract(packet: Mapping[str, Any], *, context: str, path: 
         raise ValueError(f"{context} single prescreen horizon contract mismatch: {path}")
     if packet.get("max_executions") != 1 or packet.get("execution_ledger_required") is not True:
         raise ValueError(f"{context} single prescreen execution contract mismatch: {path}")
+    _require_nonempty(packet.get("execution_ledger_path"), f"{context} execution ledger path")
     for field in PROHIBITED_BOUNDARIES:
         if packet.get(field) is not False:
             raise ValueError(f"{context} single prescreen boundary enabled: {field}")
@@ -186,6 +197,7 @@ def _identity_payload(packet: Mapping[str, Any]) -> dict[str, Any]:
         "preregistration_config_sha256": packet.get("preregistration_config_sha256"),
         "preregistration_result_sha256": packet.get("preregistration_result_sha256"),
         "source_hashes": packet.get("source_hashes"),
+        "execution_ledger_path": packet.get("execution_ledger_path"),
     }
 
 
@@ -199,6 +211,8 @@ def _authorization_id(identity_payload: Mapping[str, Any]) -> str:
 
 
 def _validated_source_hashes(source_hashes: Mapping[str, str]) -> dict[str, str]:
+    if not isinstance(source_hashes, Mapping):
+        raise ValueError("source hashes must be a JSON object")
     normalized = {str(key): str(value) for key, value in source_hashes.items()}
     if tuple(sorted(normalized)) != SOURCE_HASH_KEYS:
         raise ValueError(

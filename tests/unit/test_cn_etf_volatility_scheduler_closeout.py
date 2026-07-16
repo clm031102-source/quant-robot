@@ -96,7 +96,7 @@ class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
         )
         self.assertEqual(
             decision["authorization_sha256"],
-            "d5bea41ac87cd54b3c98adca3f815bf67d8d3b6f9a77798287dce9ed4635d659",
+            "c645de436c462365c443dd0574b750feb68b3955263b39a316b184862e99f5c9",
         )
         self.assertEqual(decision["hypothesis_count"], 2)
         self.assertEqual(decision["single_prescreen_run_limit"], 1)
