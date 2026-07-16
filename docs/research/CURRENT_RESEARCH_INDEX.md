@@ -15,10 +15,31 @@ Purpose: this is the first file to read after syncing the repository on any work
 - Price integrity: zero blocking rows; 14 official initial-price-discovery and 49 official post-suspension rows remain review-required
 - Integrity-bound manifest: `review_required`, zero blockers, exact packet path and SHA-256 provenance
 - Direction: do not retune the residual-moneyflow family; return primary research budget to scheduler-governed, preregistered `CN_ETF` work
-- Default next task: write exactly one source-locked preregistration for `cn_etf_dynamic_comovement_peer_dislocation`; freeze direction, horizons, capacity/cost rules, multiple-testing control, and stop conditions before reading forward returns
+- Default next task: on a new `factor_batch` branch, execute exactly one authorization-bound prescreen for `etf_dynamic_peer_residual_dislocation_reversal_5_60`; claim the frozen authorization atomically before labels, then stop without tuning or a second run
 - Boundary: research-to-paper only; no broker, account, order, or automatic-live access
 
 This local evidence is not part of `origin/main` until reviewed and integrated. It does not change the cloud branch inventory below.
+
+## Local CN ETF Dynamic Peer Dislocation Preregistration (Not Yet Cloud-Integrated)
+
+- Local branch: `codex/factor-review-cn-etf-dynamic-peer-preregistration-20260716`
+- Preregistration report: `docs/research/cn_etf_dynamic_peer_dislocation_preregistration_2026-07-16.md`
+- Frozen candidate: `etf_dynamic_peer_residual_dislocation_reversal_5_60`
+- Formula: negative robust 60-session z-score of the ETF five-session lagged market-residual move minus the ordinary median move of at least three active dynamic peers
+- Timing: 120-session beta through `t-1`, five-session residual dislocation through `t`, 60 prior dislocation dates through `t-1`, and one-session execution lag
+- Counted tests: one candidate, primary horizon 5, diagnostic horizon 20, two Benjamini-Hochberg hypotheses; the diagnostic row cannot rescue the primary row
+- Frozen config SHA-256: `4811e1497bbfe9688e006dcb7764381c7ea977ddfde79790248f0223996233c6`
+- Preregistration result SHA-256: `2038a32fa9b250a33a76bdca08c204a349a1cdec959fc3c10dbe4b6a4f6440f5`
+- Authorization SHA-256: `c645de436c462365c443dd0574b750feb68b3955263b39a316b184862e99f5c9`; authorization ID `6460f4cafced4f39cc963c5e0bbc31fe4ae56d7f976804ae8beebfdd0d262a62`
+- Authorization packet: `data/reports/cn_etf_dynamic_peer_dislocation_preregistration_20260716/single_prescreen_authorization.json`
+- Required claim ledger: `data/reports/cn_etf_dynamic_peer_dislocation_prescreen_execution_ledger.json`; it does not yet exist and execution count is zero
+- Scheduler: family budget remains zero and unallocated primary budget remains 1.0; Quant PM permits only `single_prescreen_only` for the exact hash-bound factor batch
+- No-evidence boundary: preregistration read no bars, factor values, forward labels, IC, quantile returns, portfolios, walk-forward folds, or 2026 holdout rows; alpha and profitability remain untested
+- Stop rule: any failed primary statistical, reference, exposure, capacity, or 10 bps stressed-cost gate closes the family with zero budget; no sign, window, threshold, regime, portfolio, or walk-forward rescue
+- Default next task: create `codex/factor-batch-cn-etf-dynamic-peer-dislocation-20260716`, run the Quant PM gate, validate and atomically claim the exact authorization, execute one frozen prescreen, record its decision, and stop
+- Boundary: research-to-paper only; no portfolio grid, walk-forward, final holdout, paper signal, broker, account, order, or automatic-live access
+
+Generated preregistration and authorization artifacts remain under ignored `data/reports/` paths and must not be committed.
 
 ## Local CN ETF Dynamic Co-Movement Peer Readiness (Not Yet Cloud-Integrated)
 
