@@ -42,7 +42,8 @@ def build_quant_pm_startup_gate(
     family_path = gate_config.get("research_family_config", "configs/research_family_scheduler_cn_etf.json")
     resolved_family_config = family_config or load_research_family_config(root / str(family_path))
     family_schedule = build_research_family_schedule(resolved_family_config)
-    restricted_mode = _restricted_review_mode(task, resolved_family_config, family_schedule)
+    restricted = _restricted_review_mode(task, resolved_family_config, family_schedule)
+    restricted_mode = str(restricted.get("mode", "")) if restricted else ""
     blockers: list[str] = []
     warnings: list[str] = []
 
@@ -56,6 +57,8 @@ def build_quant_pm_startup_gate(
         warnings.append("research_family_scheduler_source_repair_mode")
     elif restricted_mode == "preregistration_only":
         warnings.append("research_family_scheduler_preregistration_mode")
+    elif restricted_mode == "single_prescreen_only":
+        warnings.append("research_family_scheduler_single_prescreen_mode")
     else:
         blockers.extend(str(blocker) for blocker in _list(family_schedule.get("blockers")))
     blockers.extend(
@@ -101,7 +104,15 @@ def build_quant_pm_startup_gate(
         "safety": {
             "research_only": True,
             "paper_only_next_step": True,
-            "factor_batch_allowed": bool(not blockers and not restricted_mode),
+            "factor_batch_allowed": bool(
+                not blockers
+                and (not restricted_mode or restricted_mode == "single_prescreen_only")
+            ),
+            "factor_batch_scope": _dict(restricted.get("scope")) if restricted else {},
+            "single_prescreen_authorization_required": restricted_mode == "single_prescreen_only",
+            "portfolio_grid_allowed": False,
+            "walk_forward_allowed": False,
+            "final_holdout_allowed": False,
             "live_boundary_allowed": False,
             "token_storage": "environment_only",
         },
@@ -260,7 +271,7 @@ def _restricted_review_mode(
     task: str | None,
     family_config: dict[str, Any],
     family_schedule: dict[str, Any],
-) -> str | None:
+) -> dict[str, Any] | None:
     decision = _dict(family_config.get("last_decision"))
     decision_name = str(decision.get("decision", ""))
     if decision_name == "source_blocked_no_factor_batch":
@@ -269,6 +280,8 @@ def _restricted_review_mode(
     elif decision_name == "source_ready_preregistration_required_no_factor_batch":
         allowed_tasks = {"factor_review"}
         mode = "preregistration_only"
+    elif decision_name == "prescreen_preregistered_single_batch_only":
+        return _single_prescreen_mode(task, decision, family_schedule)
     else:
         return None
     if task not in allowed_tasks:
@@ -283,7 +296,82 @@ def _restricted_review_mode(
         _float(summary.get("primary_budget_share"), -1.0) == 0.0
         and int(summary.get("active_primary_families", -1)) == 0
     )
-    return mode if allowed else None
+    return {"mode": mode, "scope": {}} if allowed else None
+
+
+def _single_prescreen_mode(
+    task: str | None,
+    decision: dict[str, Any],
+    family_schedule: dict[str, Any],
+) -> dict[str, Any] | None:
+    if task != "factor_batch":
+        return None
+    schedule_blockers = {str(item) for item in _list(family_schedule.get("blockers"))}
+    if schedule_blockers != {"insufficient_active_research_families"}:
+        return None
+    summary = _dict(family_schedule.get("summary"))
+    if (
+        _float(summary.get("primary_budget_share"), -1.0) != 0.0
+        or int(summary.get("active_primary_families", -1)) != 0
+        or _float(decision.get("unallocated_budget_share"), -1.0) != 1.0
+    ):
+        return None
+    if decision.get("factor_name") != "etf_dynamic_peer_residual_dislocation_reversal_5_60":
+        return None
+    for key in (
+        "preregistration_config_sha256",
+        "preregistration_result_sha256",
+        "authorization_sha256",
+        "source_config_sha256",
+        "source_result_sha256",
+        "mapping_sha256",
+    ):
+        if not _is_sha256(decision.get(key)):
+            return None
+    if (
+        decision.get("hypothesis_count") != 2
+        or decision.get("primary_horizon") != 5
+        or decision.get("diagnostic_horizon") != 20
+        or decision.get("single_prescreen_run_limit") != 1
+        or decision.get("execution_count") != 0
+        or decision.get("execution_ledger_required") is not True
+        or decision.get("factor_batch_allowed") is not True
+        or decision.get("single_prescreen_allowed") is not True
+        or decision.get("allowed_stage") != "cn_etf_dynamic_peer_dislocation_prescreen"
+    ):
+        return None
+    ledger_path = decision.get("execution_ledger_path")
+    if not isinstance(ledger_path, str) or not ledger_path.strip():
+        return None
+    for key in (
+        "portfolio_grid_allowed",
+        "walk_forward_allowed",
+        "final_holdout_allowed",
+        "promotion_allowed",
+        "paper_signal_allowed",
+        "broker_connection_allowed",
+        "account_read_allowed",
+        "order_placement_allowed",
+        "live_boundary_allowed",
+    ):
+        if decision.get(key) is not False:
+            return None
+    return {
+        "mode": "single_prescreen_only",
+        "scope": {
+            "factor_name": decision["factor_name"],
+            "config_sha256": decision["preregistration_config_sha256"],
+            "preregistration_result_sha256": decision["preregistration_result_sha256"],
+            "authorization_sha256": decision["authorization_sha256"],
+            "source_config_sha256": decision["source_config_sha256"],
+            "source_result_sha256": decision["source_result_sha256"],
+            "mapping_sha256": decision["mapping_sha256"],
+            "allowed_stage": decision["allowed_stage"],
+            "max_executions": 1,
+            "execution_count": 0,
+            "execution_ledger_path": ledger_path,
+        },
+    }
 
 
 def _next_actions(
@@ -310,6 +398,13 @@ def _next_actions(
             {
                 "action": "preregister_cn_etf_source_prescreen",
                 "reason": "The source-readiness gate passed, but only a frozen prescreen preregistration is allowed; factor generation and batches remain disabled.",
+            }
+        ]
+    if restricted_mode == "single_prescreen_only":
+        return [
+            {
+                "action": "run_hash_bound_single_prescreen",
+                "reason": "Exactly one authorization-bound dynamic-peer dislocation prescreen is allowed; all portfolio, walk-forward, holdout, paper, and live actions remain disabled.",
             }
         ]
     return [
@@ -340,6 +435,15 @@ def _float(value: Any, default: float = 0.0) -> float:
     except (TypeError, ValueError):
         return default
     return number if math.isfinite(number) else default
+
+
+def _is_sha256(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and value == value.lower()
+        and all(character in "0123456789abcdef" for character in value)
+    )
 
 
 def _round(value: Any) -> float:

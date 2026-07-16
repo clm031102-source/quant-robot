@@ -165,6 +165,87 @@ class QuantPmStartupGateTests(unittest.TestCase):
             self.assertEqual(factor_batch["status"], "blocked")
             self.assertIn("research_family_scheduler_not_ready", factor_batch["blockers"])
 
+    def test_gate_allows_only_the_hash_bound_single_prescreen(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for row in _gate_config()["required_reading"]:
+                target = root / row["path"]
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("ok\n", encoding="utf-8")
+            family = _single_prescreen_family_config()
+
+            factor_batch = build_quant_pm_startup_gate(
+                gate_config=_gate_config(),
+                workstations_config=_workstations(),
+                repo_root=root,
+                machine="highspec_desktop",
+                task="factor_batch",
+                branch="codex/factor-batch-dynamic-peer",
+                current_branch="codex/factor-batch-dynamic-peer",
+                family_config=family,
+            )
+
+            self.assertEqual(factor_batch["status"], "ready")
+            self.assertEqual(factor_batch["mode"], "single_prescreen_only")
+            self.assertTrue(factor_batch["safety"]["factor_batch_allowed"])
+            self.assertTrue(
+                factor_batch["safety"]["single_prescreen_authorization_required"]
+            )
+            self.assertEqual(
+                factor_batch["safety"]["factor_batch_scope"]["factor_name"],
+                "etf_dynamic_peer_residual_dislocation_reversal_5_60",
+            )
+            self.assertEqual(
+                factor_batch["safety"]["factor_batch_scope"]["config_sha256"],
+                "a" * 64,
+            )
+            self.assertFalse(factor_batch["safety"]["portfolio_grid_allowed"])
+            self.assertFalse(factor_batch["safety"]["walk_forward_allowed"])
+            self.assertFalse(factor_batch["safety"]["final_holdout_allowed"])
+            self.assertFalse(factor_batch["safety"]["live_boundary_allowed"])
+            self.assertEqual(
+                factor_batch["next_actions"][0]["action"],
+                "run_hash_bound_single_prescreen",
+            )
+
+            invalid_cases = (
+                ("run_limit", "single_prescreen_run_limit", 2),
+                ("missing_hash", "authorization_sha256", None),
+                ("walk_forward", "walk_forward_allowed", True),
+            )
+            for name, field, value in invalid_cases:
+                with self.subTest(name=name):
+                    invalid = json.loads(json.dumps(family))
+                    if value is None:
+                        invalid["last_decision"].pop(field)
+                    else:
+                        invalid["last_decision"][field] = value
+                    pack = build_quant_pm_startup_gate(
+                        gate_config=_gate_config(),
+                        workstations_config=_workstations(),
+                        repo_root=root,
+                        machine="highspec_desktop",
+                        task="factor_batch",
+                        branch="codex/factor-batch-dynamic-peer",
+                        current_branch="codex/factor-batch-dynamic-peer",
+                        family_config=invalid,
+                    )
+                    self.assertEqual(pack["status"], "blocked")
+                    self.assertFalse(pack["safety"]["factor_batch_allowed"])
+
+            other_task = build_quant_pm_startup_gate(
+                gate_config=_gate_config(),
+                workstations_config=_workstations(),
+                repo_root=root,
+                machine="highspec_desktop",
+                task="data_pipeline",
+                branch="codex/tushare-data-pipeline",
+                current_branch="codex/tushare-data-pipeline",
+                family_config=family,
+            )
+            self.assertEqual(other_task["status"], "blocked")
+            self.assertFalse(other_task["safety"]["factor_batch_allowed"])
+
     def test_load_and_write_gate_pack(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -281,6 +362,41 @@ def _source_ready_family_config():
     config["last_decision"] = {
         "decision": "source_ready_preregistration_required_no_factor_batch",
         "factor_batch_allowed": False,
+    }
+    return config
+
+
+def _single_prescreen_family_config():
+    config = json.loads(json.dumps(_source_blocked_family_config()))
+    config["last_decision"] = {
+        "decision": "prescreen_preregistered_single_batch_only",
+        "factor_name": "etf_dynamic_peer_residual_dislocation_reversal_5_60",
+        "preregistration_config_sha256": "a" * 64,
+        "preregistration_result_sha256": "b" * 64,
+        "authorization_sha256": "c" * 64,
+        "source_config_sha256": "d" * 64,
+        "source_result_sha256": "e" * 64,
+        "mapping_sha256": "f" * 64,
+        "hypothesis_count": 2,
+        "primary_horizon": 5,
+        "diagnostic_horizon": 20,
+        "single_prescreen_run_limit": 1,
+        "execution_count": 0,
+        "execution_ledger_required": True,
+        "execution_ledger_path": "data/reports/single_prescreen_ledger.json",
+        "allowed_stage": "cn_etf_dynamic_peer_dislocation_prescreen",
+        "unallocated_budget_share": 1.0,
+        "factor_batch_allowed": True,
+        "single_prescreen_allowed": True,
+        "portfolio_grid_allowed": False,
+        "walk_forward_allowed": False,
+        "final_holdout_allowed": False,
+        "promotion_allowed": False,
+        "paper_signal_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "live_boundary_allowed": False,
     }
     return config
 

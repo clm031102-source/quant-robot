@@ -6,7 +6,7 @@ from quant_robot.research.family_scheduler import build_research_family_schedule
 
 
 class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
-    def test_dynamic_peer_readiness_allows_only_preregistration(self) -> None:
+    def test_dynamic_peer_preregistration_allows_only_one_scoped_prescreen(self) -> None:
         config = json.loads(
             Path("configs/research_family_scheduler_cn_etf.json").read_text(encoding="utf-8")
         )
@@ -58,6 +58,14 @@ class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
         )
         self.assertTrue(dynamic_peer["preregistration_required"])
         self.assertFalse(dynamic_peer["factor_batch_before_preregistration_allowed"])
+        self.assertEqual(
+            dynamic_peer["preregistration_status"],
+            "preregistered_single_prescreen",
+        )
+        self.assertTrue(dynamic_peer["single_prescreen_allowed"])
+        self.assertFalse(dynamic_peer["portfolio_grid_allowed"])
+        self.assertFalse(dynamic_peer["walk_forward_allowed"])
+        self.assertFalse(dynamic_peer["final_holdout_allowed"])
         self.assertFalse(dynamic_peer["primary_allocation_allowed"])
         self.assertEqual(dynamic_peer["source_audit"]["mapping_rows"], 20301)
         self.assertEqual(dynamic_peer["source_audit"]["qualifying_dates"], 904)
@@ -68,18 +76,51 @@ class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
         decision = config["last_decision"]
         self.assertEqual(
             decision["source_stage"],
-            "cn_etf_dynamic_comovement_peer_readiness",
+            "cn_etf_dynamic_peer_dislocation_preregistration",
         )
         self.assertEqual(
             decision["decision"],
-            "source_ready_preregistration_required_no_factor_batch",
+            "prescreen_preregistered_single_batch_only",
         )
         self.assertEqual(
-            decision["source_status"],
-            "ready_for_peer_source_preregistration",
+            decision["factor_name"],
+            "etf_dynamic_peer_residual_dislocation_reversal_5_60",
         )
-        self.assertFalse(decision["factor_batch_allowed"])
+        self.assertEqual(
+            decision["preregistration_config_sha256"],
+            "4811e1497bbfe9688e006dcb7764381c7ea977ddfde79790248f0223996233c6",
+        )
+        self.assertEqual(
+            decision["preregistration_result_sha256"],
+            "2038a32fa9b250a33a76bdca08c204a349a1cdec959fc3c10dbe4b6a4f6440f5",
+        )
+        self.assertEqual(
+            decision["authorization_sha256"],
+            "d5bea41ac87cd54b3c98adca3f815bf67d8d3b6f9a77798287dce9ed4635d659",
+        )
+        self.assertEqual(decision["hypothesis_count"], 2)
+        self.assertEqual(decision["single_prescreen_run_limit"], 1)
+        self.assertEqual(decision["execution_count"], 0)
+        self.assertTrue(decision["execution_ledger_required"])
+        self.assertTrue(decision["factor_batch_allowed"])
+        self.assertTrue(decision["single_prescreen_allowed"])
+        for boundary in (
+            "portfolio_grid_allowed",
+            "walk_forward_allowed",
+            "final_holdout_allowed",
+            "promotion_allowed",
+            "paper_signal_allowed",
+            "broker_connection_allowed",
+            "account_read_allowed",
+            "order_placement_allowed",
+            "live_boundary_allowed",
+        ):
+            self.assertFalse(decision[boundary])
         self.assertEqual(decision["unallocated_budget_share"], 1.0)
+        self.assertEqual(
+            config["previous_decision"]["decision"],
+            "source_ready_preregistration_required_no_factor_batch",
+        )
 
 
 if __name__ == "__main__":
