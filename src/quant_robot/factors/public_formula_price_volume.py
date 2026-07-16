@@ -67,14 +67,14 @@ def _feature_frame(bars: pd.DataFrame) -> pd.DataFrame:
         high = pd.to_numeric(item["high"], errors="coerce")
         low = pd.to_numeric(item["low"], errors="coerce")
         amount = pd.to_numeric(item["amount"], errors="coerce")
-        returns = price.pct_change()
-        amount_change = amount.pct_change()
+        returns = price.pct_change(fill_method=None)
+        amount_change = amount.pct_change(fill_method=None)
         rolling_high_20 = high.rolling(20, min_periods=5).max()
         rolling_low_20 = low.rolling(20, min_periods=5).min()
         item["return_1d"] = returns
-        item["momentum_20"] = price.pct_change(20)
-        item["momentum_60"] = price.pct_change(60)
-        item["reversal_5"] = -price.pct_change(5)
+        item["momentum_20"] = price.pct_change(20, fill_method=None)
+        item["momentum_60"] = price.pct_change(60, fill_method=None)
+        item["reversal_5"] = -price.pct_change(5, fill_method=None)
         item["amount_trend_20"] = (amount.rolling(5, min_periods=3).mean() / amount.rolling(20, min_periods=5).mean().replace(0.0, np.nan)) - 1.0
         item["pv_corr_20"] = returns.rolling(20, min_periods=10).corr(amount_change)
         item["pv_divergence_20"] = -item["momentum_20"] * item["amount_trend_20"]

@@ -56,6 +56,26 @@ class EtfMarketResidualVolatilityFactorTests(unittest.TestCase):
         self.assertEqual(int(proxy.iloc[0]["eligible_asset_count"]), 3)
         self.assertAlmostEqual(float(proxy.iloc[0]["market_return"]), expected)
 
+    def test_market_proxy_does_not_forward_fill_missing_prices(self) -> None:
+        bars = _bars(day_count=8, asset_count=5)
+        dates = pd.DatetimeIndex(sorted(pd.to_datetime(bars["date"]).unique()))
+        missing = (
+            bars["asset_id"].eq("CN_ETF_XSHG_510000")
+            & pd.to_datetime(bars["date"]).eq(dates[-2])
+        )
+        bars.loc[missing, "adj_close"] = np.nan
+        eligible_keys = bars[
+            pd.to_datetime(bars["date"]).eq(dates[-1])
+        ][["date", "asset_id", "market"]]
+
+        proxy = compute_point_in_time_etf_market_proxy(
+            bars,
+            eligible_keys=eligible_keys,
+            min_cross_section=4,
+        )
+
+        self.assertEqual(int(proxy.iloc[0]["eligible_asset_count"]), 4)
+
     def test_exports_frozen_names_and_exact_formulas(self) -> None:
         bars = _bars(day_count=210, asset_count=7)
         eligible_keys = bars[["date", "asset_id", "market"]]

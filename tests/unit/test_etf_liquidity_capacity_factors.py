@@ -149,6 +149,23 @@ class EtfLiquidityCapacityFactorTests(unittest.TestCase):
         self.assertFalse(np.isinf(pd.to_numeric(factors["factor_value"], errors="coerce")).any())
         self.assertFalse(np.isinf(pd.to_numeric(adv20["adv20"], errors="coerce")).any())
 
+    def test_amihud_factor_does_not_forward_fill_missing_prices(self) -> None:
+        bars = _bars(day_count=100, asset_count=6)
+        dates = pd.DatetimeIndex(sorted(pd.to_datetime(bars["date"]).unique()))
+        asset_id = "CN_ETF_XSHG_510000"
+        missing = bars["asset_id"].eq(asset_id) & pd.to_datetime(bars["date"]).eq(dates[90])
+        bars.loc[missing, "adj_close"] = np.nan
+
+        factors = compute_etf_liquidity_capacity_factors(bars)
+
+        value = _factor_value(
+            factors,
+            asset_id,
+            dates[91],
+            "etf_amihud_improvement_5_60",
+        )
+        self.assertTrue(np.isnan(value))
+
 
 def _bars(*, day_count: int, asset_count: int, future_spike: bool = False) -> pd.DataFrame:
     dates = pd.bdate_range("2023-01-02", periods=day_count)

@@ -46,7 +46,9 @@ def compute_point_in_time_etf_market_proxy(
     keys = _normalise_eligible_keys(eligible_keys)
     eligible_assets = set(keys["asset_id"])
     frame = frame[frame["asset_id"].isin(eligible_assets)].copy()
-    frame["asset_return"] = frame.groupby("asset_id", sort=False)["adj_close"].pct_change()
+    frame["asset_return"] = frame.groupby("asset_id", sort=False)["adj_close"].pct_change(
+        fill_method=None
+    )
     eligible = keys.merge(
         frame[["date", "asset_id", "market", "asset_return"]],
         on=["date", "asset_id", "market"],
@@ -107,7 +109,7 @@ def compute_etf_market_residual_volatility_factors(
     pieces: list[pd.DataFrame] = []
     for _, group in frame.groupby("asset_id", sort=False):
         item = group.copy()
-        returns = item["adj_close"].pct_change()
+        returns = item["adj_close"].pct_change(fill_method=None)
         market_returns = pd.to_numeric(item["market_return"], errors="coerce")
         beta = _rolling_beta(
             returns,

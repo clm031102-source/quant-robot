@@ -77,7 +77,7 @@ def compute_etf_price_rotation_reference_factors(
     for _, group in frame.groupby("asset_id", sort=False):
         item = group.sort_values("date").copy()
         price = item["adj_close"]
-        returns = price.pct_change()
+        returns = price.pct_change(fill_method=None)
         item["momentum_20"] = price / price.shift(20) - 1.0
         item["momentum_60"] = price / price.shift(60) - 1.0
         item["risk_adjusted_momentum_20"] = _safe_div(
@@ -112,7 +112,7 @@ def _candidate_features(group: pd.DataFrame) -> pd.DataFrame:
     item = group.sort_values("date").copy()
     price = item["adj_close"]
     amount = item["amount"]
-    returns = price.pct_change()
+    returns = price.pct_change(fill_method=None)
     shifted_returns = returns.shift(5)
     item["return_1d"] = returns
     item["skip5_return_60"] = price.shift(5) / price.shift(65) - 1.0

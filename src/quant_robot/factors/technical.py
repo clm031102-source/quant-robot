@@ -76,7 +76,7 @@ def compute_basic_factors(
     pieces: list[pd.DataFrame] = []
     for _, group in frame.groupby("asset_id", sort=False):
         enriched = group.copy()
-        enriched["_return"] = enriched["adj_close"].pct_change()
+        enriched["_return"] = enriched["adj_close"].pct_change(fill_method=None)
         for window in windows:
             if direct_subset:
                 pieces.extend(_direct_factor_frames(enriched, window, requested or set()))
@@ -284,7 +284,7 @@ def _amihud(returns: pd.Series, amount: pd.Series) -> pd.Series:
 
 
 def _amount_stability(amount: pd.Series, window: int) -> pd.Series:
-    amount_change = amount.replace(0, np.nan).pct_change()
+    amount_change = amount.replace(0, np.nan).pct_change(fill_method=None)
     return -amount_change.rolling(window).std(ddof=0)
 
 

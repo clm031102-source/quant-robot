@@ -109,6 +109,23 @@ class EtfSkipMomentumFactorTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unsupported ETF skip-momentum factor_names"):
             compute_etf_skip_momentum_factors(_bars(day_count=20), factor_names=("missing",))
 
+    def test_price_rotation_risk_adjustment_does_not_forward_fill_missing_prices(self) -> None:
+        bars = _bars(day_count=100, asset_count=6)
+        dates = pd.DatetimeIndex(sorted(pd.to_datetime(bars["date"]).unique()))
+        asset_id = "CN_ETF_XSHG_510000"
+        missing = bars["asset_id"].eq(asset_id) & pd.to_datetime(bars["date"]).eq(dates[80])
+        bars.loc[missing, "adj_close"] = np.nan
+
+        references = compute_etf_price_rotation_reference_factors(bars)
+
+        value = _factor_value(
+            references,
+            asset_id,
+            dates[81],
+            "risk_adjusted_momentum_20",
+        )
+        self.assertTrue(np.isnan(value))
+
 
 def _bars(*, day_count: int, asset_count: int = 6, future_spike: bool = False) -> pd.DataFrame:
     dates = pd.bdate_range("2023-01-02", periods=day_count)

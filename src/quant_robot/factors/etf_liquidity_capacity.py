@@ -112,7 +112,7 @@ def _compute_features(frame: pd.DataFrame) -> pd.DataFrame:
         item = group.sort_values("date").copy()
         price = item["adj_close"]
         amount = item["amount"].where(item["amount"] > 0.0)
-        daily_amihud = price.pct_change().abs() / amount
+        daily_amihud = price.pct_change(fill_method=None).abs() / amount
         recent_impact = daily_amihud.rolling(5, min_periods=5).mean()
         prior_impact = daily_amihud.shift(5).rolling(60, min_periods=60).mean()
         with np.errstate(divide="ignore", invalid="ignore"):
