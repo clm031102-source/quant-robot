@@ -109,6 +109,20 @@ class TushareAdapter(MarketDataAdapter):
             end_date=_date_to_tushare(end_date),
         )
 
+    def fetch_etf_sh_constituents(self, ts_code: str, trade_date: str) -> pd.DataFrame:
+        return self._call(
+            self.client.etf_sh_cons,
+            ts_code=ts_code,
+            trade_date=_date_to_tushare(trade_date),
+        )
+
+    def fetch_etf_sz_constituents(self, ts_code: str, trade_date: str) -> pd.DataFrame:
+        return self._call(
+            self.client.etf_sz_cons,
+            ts_code=ts_code,
+            trade_date=_date_to_tushare(trade_date),
+        )
+
     def fetch_shibor_by_date(self, date: str) -> pd.DataFrame:
         return self._call(self.client.shibor, date=_date_to_tushare(date))
 

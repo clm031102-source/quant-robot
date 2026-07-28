@@ -1,0 +1,161 @@
+{
+  "stage": "cn_etf_external_data_unlock_review",
+  "as_of_date": "2026-07-28",
+  "market": "CN_ETF",
+  "analysis_boundary": {
+    "start_date": "2020-01-02",
+    "end_date": "2024-06-28",
+    "final_holdout_start": "2026-01-01",
+    "forward_returns_allowed": false
+  },
+  "output_dir": "data/reports/cn_etf_external_data_unlock_review_20260728",
+  "probes": [
+    {
+      "route": "historical_pcf",
+      "endpoint": "etf_sh_cons",
+      "required_points": 8000,
+      "parameters": {
+        "ts_code": "510050.SH",
+        "trade_date": "2020-01-02"
+      },
+      "required_columns": [
+        "trade_date",
+        "ts_code",
+        "con_code",
+        "qty",
+        "sub_flag",
+        "cpr",
+        "rdr"
+      ]
+    },
+    {
+      "route": "historical_pcf",
+      "endpoint": "etf_sh_cons",
+      "required_points": 8000,
+      "parameters": {
+        "ts_code": "510050.SH",
+        "trade_date": "2024-06-28"
+      },
+      "required_columns": [
+        "trade_date",
+        "ts_code",
+        "con_code",
+        "qty",
+        "sub_flag",
+        "cpr",
+        "rdr"
+      ]
+    },
+    {
+      "route": "historical_pcf",
+      "endpoint": "etf_sz_cons",
+      "required_points": 8000,
+      "parameters": {
+        "ts_code": "159919.SZ",
+        "trade_date": "2020-01-02"
+      },
+      "required_columns": [
+        "trade_date",
+        "ts_code",
+        "con_code",
+        "qty",
+        "sub_flag",
+        "cpr",
+        "rdr"
+      ]
+    },
+    {
+      "route": "historical_pcf",
+      "endpoint": "etf_sz_cons",
+      "required_points": 8000,
+      "parameters": {
+        "ts_code": "159919.SZ",
+        "trade_date": "2024-06-28"
+      },
+      "required_columns": [
+        "trade_date",
+        "ts_code",
+        "con_code",
+        "qty",
+        "sub_flag",
+        "cpr",
+        "rdr"
+      ]
+    },
+    {
+      "route": "tracking_index_mapping",
+      "endpoint": "etf_basic",
+      "required_points": 8000,
+      "parameters": {
+        "list_status": "L"
+      },
+      "required_columns": [
+        "symbol",
+        "index_code",
+        "list_date",
+        "list_status",
+        "exchange"
+      ]
+    },
+    {
+      "route": "tracking_index_mapping",
+      "endpoint": "fund_basic",
+      "required_points": 2000,
+      "parameters": {
+        "market": "E",
+        "status": "L"
+      },
+      "required_columns": [
+        "symbol",
+        "benchmark",
+        "list_date",
+        "status",
+        "market"
+      ]
+    },
+    {
+      "route": "historical_index_weights",
+      "endpoint": "index_weight",
+      "required_points": 2000,
+      "parameters": {
+        "index_code": "000300.SH",
+        "start_date": "2020-01-01",
+        "end_date": "2020-01-31"
+      },
+      "required_columns": [
+        "index_code",
+        "con_code",
+        "trade_date",
+        "weight"
+      ]
+    }
+  ],
+  "documented_but_not_historical": [
+    {
+      "endpoint": "rt_etf_sz_iopv",
+      "scope": "current Shenzhen ETF reference only",
+      "permission": "separate paid permission unrelated to points",
+      "reason_not_primary_unlock": "No historical archive is documented, so it cannot backfill the frozen research window."
+    }
+  ],
+  "documentation": {
+    "etf_sh_cons": "https://tushare.pro/document/2?doc_id=471",
+    "etf_sz_cons": "https://tushare.pro/document/2?doc_id=472",
+    "etf_basic": "https://tushare.pro/document/2?doc_id=385",
+    "fund_basic": "https://tushare.pro/document/1?doc_id=19",
+    "index_weight": "https://tushare.pro/document/2?doc_id=96",
+    "rt_etf_sz_iopv": "https://tushare.pro/document/2?doc_id=454"
+  },
+  "boundaries": {
+    "factor_generation_allowed": false,
+    "forward_return_read_allowed": false,
+    "portfolio_grid_allowed": false,
+    "walk_forward_allowed": false,
+    "final_holdout_allowed": false,
+    "paper_signal_allowed": false,
+    "broker_connection_allowed": false,
+    "account_read_allowed": false,
+    "order_placement_allowed": false,
+    "live_boundary_allowed": false
+  }
+}

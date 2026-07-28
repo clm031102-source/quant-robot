@@ -4,6 +4,20 @@ Last updated: 2026-07-28
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
+## Current CN ETF External-Data Unlock
+
+- Completed review branch: `codex/factor-review-cn-etf-external-data-unlock-20260728`; `main` is canonical after integration
+- Durable report: `docs/research/cn_etf_external_data_unlock_review_2026-07-28.md`
+- Decision: `unlock_historical_pcf_first`; this is source access, not alpha
+- Historical PCF: four cross-exchange/cross-period probes of `etf_sh_cons` and `etf_sz_cons` were all permission denied
+- ETF-to-index mapping: `etf_basic` was permission denied; `fund_basic` succeeded with 2,154 active exchange-fund rows but is current text metadata, not a complete historical mapping
+- Historical index constituents: `index_weight` succeeded with 300 CSI 300 rows for January 2020
+- External requirement: enable the official 8,000-point PCF/ETF metadata endpoints or provide a licensed SSE+SZSE historical PCF export for 2020-01-02 through 2024-06-28
+- Default next task after access: backfill, fingerprint, point-in-time align, and quality-audit the full PCF source before defining one compact hypothesis
+- Boundary: no factor, forward return, portfolio, walk-forward, final holdout, broker, account, order, paper signal, or live access
+
+Generated access evidence remains under ignored `data/reports/` paths and must not be committed.
+
 ## Current CN ETF Margin-Positioning Closeout
 
 - Completed topic branch: `codex/factor-batch-cn-etf-margin-positioning-20260728`; `main` is canonical after integration

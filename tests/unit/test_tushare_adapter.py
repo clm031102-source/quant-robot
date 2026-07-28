@@ -268,6 +268,32 @@ class FakeTushareClient:
             }
         )
 
+    def etf_sh_cons(self, **kwargs):
+        self.calls.append(("etf_sh_cons", kwargs))
+        return pd.DataFrame(
+            {
+                "trade_date": [kwargs.get("trade_date", "20240102") or "20240102"],
+                "ts_code": [kwargs.get("ts_code", "510050.SH") or "510050.SH"],
+                "con_code": ["600000.SH"],
+                "qty": [1000],
+                "cpr": [10.0],
+                "rdr": [0.0],
+            }
+        )
+
+    def etf_sz_cons(self, **kwargs):
+        self.calls.append(("etf_sz_cons", kwargs))
+        return pd.DataFrame(
+            {
+                "trade_date": [kwargs.get("trade_date", "20240102") or "20240102"],
+                "ts_code": [kwargs.get("ts_code", "159919.SZ") or "159919.SZ"],
+                "con_code": ["000001.SZ"],
+                "qty": [1000],
+                "cpr": [10.0],
+                "rdr": [0.0],
+            }
+        )
+
     def top_list(self, **kwargs):
         self.calls.append(("top_list", kwargs))
         return pd.DataFrame(
@@ -501,6 +527,24 @@ class TushareAdapterTests(unittest.TestCase):
         self.assertEqual(client.calls[-1][1]["index_code"], "000300.SH")
         self.assertEqual(client.calls[-1][1]["start_date"], "20240101")
         self.assertEqual(client.calls[-1][1]["end_date"], "20240131")
+
+    def test_fetch_etf_pcf_constituents_calls_exchange_specific_endpoints(self):
+        client = FakeTushareClient()
+        adapter = TushareAdapter(client=client)
+
+        sh = adapter.fetch_etf_sh_constituents("510050.SH", "2024-01-02")
+        sz = adapter.fetch_etf_sz_constituents("159919.SZ", "2024-01-02")
+
+        self.assertEqual(sh.loc[0, "con_code"], "600000.SH")
+        self.assertEqual(sz.loc[0, "con_code"], "000001.SZ")
+        self.assertEqual(
+            client.calls[-2],
+            ("etf_sh_cons", {"ts_code": "510050.SH", "trade_date": "20240102"}),
+        )
+        self.assertEqual(
+            client.calls[-1],
+            ("etf_sz_cons", {"ts_code": "159919.SZ", "trade_date": "20240102"}),
+        )
 
     def test_fetch_dragon_tiger_endpoints_by_trade_date(self):
         client = FakeTushareClient()
