@@ -4,9 +4,26 @@ Last updated: 2026-07-28
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
+## Current CN ETF Margin-Positioning Closeout
+
+- Completed topic branch: `codex/factor-batch-cn-etf-margin-positioning-20260728`; `main` is canonical after integration
+- Durable report: `docs/research/cn_etf_margin_positioning_prescreen_2026-07-28.md`
+- Frozen candidate: `etf_residual_margin_financing_growth_reversal_20`
+- Execution: the exact authorization was atomically claimed and consumed once
+- Point-in-time sample: 139,592 finite rows, 357 ETFs/funds, and 927 dates after explicit bar-gap window exclusion
+- Primary H5: mean Rank IC `0.011358`, ICIR `0.110679`, FDR q `0.087843`, monotonicity `0.70`, and 10 bps net spread `0.000037`
+- Capacity: 866 of 921 primary dates qualified; minimum daily top-quintile P10 ADV20 was CNY 7.10 million and maximum participation was 1.407612%
+- Independence: maximum closed-family correlation `0.154660`; maximum direct raw-margin-growth exposure correlation `0.888064`, above the strict `0.85` ceiling
+- Diagnostic H20: mean Rank IC `0.012208` and 10 bps net spread `0.001268`; diagnostic evidence cannot rescue the failed primary
+- Decision: statistical materiality, independence, and capacity failed; `cn_etf_margin_positioning` is stop-lossed with zero budget and no rerun, tuning, rescue, portfolio grid, walk-forward, or holdout access
+- Default next task: acquire or audit a genuinely new point-in-time source, prioritizing historical official ETF PCF/constituents, historical benchmark membership, or IOPV/premium microstructure
+- Boundary: research-to-paper only; no broker, account, order, paper signal, or live access
+
+Generated execution and analytical evidence remains under ignored `data/reports/` paths and must not be committed.
+
 ## Current CN ETF Margin-Positioning Source Readiness
 
-- Active branch: `codex/data-pipeline-cn-etf-margin-positioning-20260728`
+- Completed source branch: `codex/data-pipeline-cn-etf-margin-positioning-20260728`; `main` is canonical
 - Durable report: `docs/research/cn_etf_margin_positioning_source_readiness_2026-07-28.md`
 - Decision: `ready_for_margin_positioning_preregistration`; this is source readiness, not alpha
 - Frozen source: 199,793 point-in-time rows, 410 marginable ETFs/funds, 1,085 observed dates, and 99.816007% qualifying-date coverage
@@ -14,14 +31,14 @@ Purpose: this is the first file to read after syncing the repository on any work
 - Integrity: 100% exact next-session availability, 100% same-date ETF-bar intersection, zero duplicate or holdout rows
 - Data-quality constraint: the CN ETF bar authority is entirely missing official sessions 2020-05-28 and 2020-06-03; exclude gap-crossing factor/label windows and repair before promotion
 - Prior evidence constraint: the CN-stock margin-credit signal failed residual proof; the ETF prescreen must be style-residualized and explicitly duplication-gated
-- Default next task: preregister exactly one compact authorization-bound ETF margin-positioning prescreen
+- Default next task: completed and rejected by the closeout above; do not rerun or rescue
 - Boundary: no factor generation or forward-return read before preregistration; no portfolio grid, walk-forward, final holdout, broker, account, order, paper signal, or live access
 
 Canonical data and detailed reports remain under ignored `data/` paths and must not be committed.
 
 ## Current CN ETF Option-Sentiment Source Blocker
 
-- Active branch: `codex/factor-review-cn-etf-option-sentiment-source-20260728`
+- Completed source branch: `codex/factor-review-cn-etf-option-sentiment-source-20260728`; `main` is canonical
 - Durable report: `docs/research/cn_etf_option_sentiment_source_readiness_2026-07-28.md`
 - Source result: Tushare option metadata and daily probes are accessible and clean, but only nine ETF underlyings overlap the frozen 2020-01-02 through 2024-06-28 analysis window
 - Coverage: 9,346 unique contracts across five SSE and four SZSE ETF underlyings; the preregistered primary cross-sectional minimum is 30
@@ -35,7 +52,7 @@ Generated source evidence remains under ignored `data/reports/` paths and must n
 
 ## Current CN ETF Fund-Structure Crowding Closeout
 
-- Active branch: `codex/factor-batch-cn-etf-fund-structure-20260728`
+- Completed topic branch: `codex/factor-batch-cn-etf-fund-structure-20260728`; `main` is canonical
 - Durable report: `docs/research/cn_etf_fund_structure_crowding_prescreen_2026-07-28.md`
 - Frozen candidate: `etf_residual_share_creation_crowding_reversal_20`
 - Execution: the hash-bound authorization was claimed and consumed exactly once

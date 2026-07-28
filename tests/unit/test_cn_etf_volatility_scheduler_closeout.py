@@ -6,7 +6,7 @@ from quant_robot.research.family_scheduler import build_research_family_schedule
 
 
 class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
-    def test_margin_preregistration_opens_only_one_prescreen(self) -> None:
+    def test_margin_prescreen_rejection_opens_only_family_rotation(self) -> None:
         config = json.loads(
             Path("configs/research_family_scheduler_cn_etf.json").read_text(encoding="utf-8")
         )
@@ -114,27 +114,29 @@ class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
         self.assertFalse(option["factor_batch_before_readiness_allowed"])
         self.assertFalse(option["primary_allocation_allowed"])
         margin = families["cn_etf_margin_positioning"]
-        self.assertEqual(margin["status"], "exploratory")
+        self.assertEqual(margin["status"], "stop_lossed")
         self.assertEqual(margin["budget_share"], 0.0)
         self.assertEqual(
             margin["source_readiness_status"],
             "ready_for_margin_positioning_preregistration",
         )
         self.assertFalse(margin["preregistration_required"])
-        self.assertEqual(margin["preregistration_status"], "preregistered_single_prescreen")
+        self.assertEqual(margin["preregistration_status"], "prescreen_completed_rejected")
         self.assertFalse(margin["factor_batch_before_preregistration_allowed"])
-        self.assertTrue(margin["single_prescreen_allowed"])
+        self.assertFalse(margin["single_prescreen_allowed"])
         self.assertFalse(margin["primary_allocation_allowed"])
         self.assertEqual(margin["source_audit"]["rows"], 199793)
         self.assertEqual(margin["source_audit"]["assets"], 410)
+        self.assertFalse(margin["prescreen_audit"]["primary_passed"])
+        self.assertTrue(margin["prescreen_audit"]["diagnostic_passed"])
         decision = config["last_decision"]
         self.assertEqual(
             decision["source_stage"],
-            "cn_etf_margin_positioning_preregistration",
+            "cn_etf_margin_positioning_prescreen",
         )
         self.assertEqual(
             decision["decision"],
-            "prescreen_preregistered_single_batch_only",
+            "prescreen_rejected_family_rotation_review_only",
         )
         self.assertEqual(
             decision["preregistration_config_sha256"],
@@ -144,12 +146,15 @@ class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
             decision["preregistration_result_sha256"],
             "bcc8f5030d24530f9f9afa81f2c411375fba9009ce82f70589ff6a4b7973e45d",
         )
-        self.assertTrue(decision["factor_batch_allowed"])
-        self.assertTrue(decision["single_prescreen_allowed"])
-        self.assertEqual(decision["execution_count"], 0)
-        self.assertEqual(
-            decision["allowed_stage"],
-            "cn_etf_margin_positioning_prescreen",
+        self.assertFalse(decision["factor_batch_allowed"])
+        self.assertFalse(decision["single_prescreen_allowed"])
+        self.assertEqual(decision["execution_count"], 1)
+        self.assertFalse(decision["primary_passed"])
+        self.assertTrue(decision["diagnostic_passed"])
+        self.assertAlmostEqual(decision["primary_mean_rank_ic"], 0.011358240680928455)
+        self.assertAlmostEqual(
+            decision["primary_net_spread_10bps"],
+            0.00003680290896090278,
         )
         for boundary in (
             "portfolio_grid_allowed",
@@ -170,6 +175,14 @@ class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
             "cn_etf_margin_positioning_source_readiness",
         )
         self.assertEqual(source_decision["rows"], 199793)
+        preregistration_decision = config[
+            "prior_margin_positioning_preregistration_decision"
+        ]
+        self.assertEqual(
+            preregistration_decision["decision"],
+            "prescreen_preregistered_single_batch_only",
+        )
+        self.assertEqual(preregistration_decision["execution_count"], 0)
         option_decision = config["prior_option_source_blocked_decision"]
         self.assertEqual(
             option_decision["source_stage"],
