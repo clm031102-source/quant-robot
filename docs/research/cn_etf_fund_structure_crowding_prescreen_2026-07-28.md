@@ -1,7 +1,8 @@
 # CN ETF Fund-Structure Crowding Prescreen Closeout
 
-Date: 2026-07-28  
-Branch: `codex/factor-batch-cn-etf-fund-structure-20260728`  
+Date: 2026-07-28
+
+Branch: `codex/factor-batch-cn-etf-fund-structure-20260728`
 Market: `CN_ETF`
 
 ## Decision
