@@ -6,7 +6,7 @@ from quant_robot.research.family_scheduler import build_research_family_schedule
 
 
 class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
-    def test_dynamic_peer_rejection_closes_family_and_allows_only_rotation_review(self) -> None:
+    def test_fund_structure_source_readiness_opens_only_preregistration_review(self) -> None:
         config = json.loads(
             Path("configs/research_family_scheduler_cn_etf.json").read_text(encoding="utf-8")
         )
@@ -30,7 +30,16 @@ class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
         self.assertEqual(flow["budget_share"], 0.0)
         self.assertEqual(structure["budget_share"], 0.0)
         self.assertEqual(flow["source_readiness_status"], "blocked")
-        self.assertEqual(structure["source_readiness_status"], "blocked")
+        self.assertEqual(structure["source_readiness_status"], "ready_for_preregistration")
+        self.assertTrue(structure["preregistration_required"])
+        self.assertFalse(structure["factor_batch_before_preregistration_allowed"])
+        self.assertEqual(structure["source_audit"]["share_rows"], 645645)
+        self.assertEqual(structure["source_audit"]["share_assets"], 1023)
+        self.assertEqual(structure["source_audit"]["analysis_sessions"], 1085)
+        self.assertAlmostEqual(
+            structure["source_audit"]["nav_intersection_coverage"],
+            0.994795901772646,
+        )
         peer = families["cn_etf_peer_relative_value"]
         self.assertEqual(peer["status"], "exploratory")
         self.assertEqual(peer["budget_share"], 0.0)
@@ -92,40 +101,30 @@ class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
         decision = config["last_decision"]
         self.assertEqual(
             decision["source_stage"],
-            "cn_etf_dynamic_peer_dislocation_prescreen",
+            "cn_etf_fund_structure_source_readiness",
         )
         self.assertEqual(
             decision["decision"],
-            "prescreen_rejected_family_rotation_review_only",
+            "source_ready_preregistration_required_no_factor_batch",
         )
         self.assertEqual(
-            decision["factor_name"],
-            "etf_dynamic_peer_residual_dislocation_reversal_5_60",
+            decision["source_config_sha256"],
+            "04cb2acc675762f04c109798949d2b174fb1c9c72a9d91497423837f366a0ba3",
         )
         self.assertEqual(
-            decision["preregistration_config_sha256"],
-            "4811e1497bbfe9688e006dcb7764381c7ea977ddfde79790248f0223996233c6",
+            decision["source_result_sha256"],
+            "3ccb5ba4d04ff24b7b5ef81c2984f1571a0a23cd41f077c7b20ae688879f3a13",
         )
-        self.assertEqual(
-            decision["preregistration_result_sha256"],
-            "2038a32fa9b250a33a76bdca08c204a349a1cdec959fc3c10dbe4b6a4f6440f5",
-        )
-        self.assertEqual(
-            decision["authorization_sha256"],
-            "c645de436c462365c443dd0574b750feb68b3955263b39a316b184862e99f5c9",
-        )
-        self.assertEqual(decision["hypothesis_count"], 2)
-        self.assertEqual(decision["single_prescreen_run_limit"], 1)
-        self.assertEqual(decision["execution_count"], 1)
-        self.assertTrue(decision["execution_ledger_required"])
+        self.assertEqual(decision["share_rows"], 645645)
+        self.assertEqual(decision["share_assets"], 1023)
+        self.assertEqual(decision["analysis_sessions"], 1085)
+        self.assertEqual(decision["combined_qualifying_date_coverage"], 1.0)
+        self.assertEqual(decision["sse_date_coverage"], 1.0)
+        self.assertEqual(decision["szse_date_coverage"], 1.0)
+        self.assertAlmostEqual(decision["nav_intersection_coverage"], 0.994795901772646)
         self.assertFalse(decision["factor_batch_allowed"])
         self.assertFalse(decision["single_prescreen_allowed"])
-        self.assertTrue(decision["family_rotation_review_allowed"])
-        self.assertFalse(decision["primary_passed"])
-        self.assertEqual(
-            decision["prescreen_result_sha256"],
-            "3cadcd4755947e1837894c25c87f7455a17bc603f416a551b9b12aed55b4c813",
-        )
+        self.assertTrue(decision["preregistration_required"])
         for boundary in (
             "portfolio_grid_allowed",
             "walk_forward_allowed",
@@ -140,8 +139,8 @@ class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
             self.assertFalse(decision[boundary])
         self.assertEqual(decision["unallocated_budget_share"], 1.0)
         self.assertEqual(
-            config["previous_decision"]["decision"],
-            "prescreen_preregistered_single_batch_only",
+            config["prior_dynamic_peer_closeout_decision"]["decision"],
+            "prescreen_rejected_family_rotation_review_only",
         )
 
 

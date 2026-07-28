@@ -4,9 +4,26 @@ Last updated: 2026-07-28
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
-## Local CN ETF Dynamic Peer Dislocation Closeout (Not Yet Cloud-Integrated)
+## Current CN ETF Fund-Structure Source Readiness
 
-- Local branch: `codex/factor-batch-cn-etf-dynamic-peer-dislocation-20260716`
+- Active branch: `codex/factor-review-cn-etf-fund-structure-source-20260728`
+- Durable report: `docs/research/cn_etf_fund_structure_source_readiness_2026-07-28.md`
+- Decision: `ready_for_fund_structure_preregistration`; this is source readiness, not alpha
+- Frozen sample: 645,645 share/NAV rows, 1,023 ETFs, 1,085 sessions, 2020-01-02 through 2024-06-28
+- Exchange coverage: SSE 100%, SZSE 100%, combined qualifying dates 100%
+- Median daily bar-asset share coverage: 60.074627%
+- NAV intersection coverage: 99.479590%; 642,285 positive NAV rows
+- Integrity: zero duplicate rows, point-in-time violations, derived-value mismatches, out-of-window rows, or final-holdout rows
+- Tushare endpoint status: `etf_share_size` permission denied; the audited repair uses official SSE/SZSE shares, public Eastmoney NAV, bounded Tushare closes, and the fingerprinted official CN calendar
+- Scheduler: family budget remains zero; `factor_review` is allowed only in `preregistration_only` mode
+- Default next task: preregister exactly one compact fund-structure prescreen; do not run the legacy broad share-size walk-forward grid
+- Boundary: no factor batch yet, no portfolio grid, no walk-forward, no final holdout, no broker/account/order/live access
+
+Generated source data and detailed reports remain under ignored `data/` paths and must not be committed.
+
+## Integrated CN ETF Dynamic Peer Dislocation Closeout
+
+- Integrated through `main` at or before commit `51fbce25`
 - Closeout report: `docs/research/cn_etf_dynamic_peer_dislocation_prescreen_2026-07-16.md`
 - Frozen candidate: `etf_dynamic_peer_residual_dislocation_reversal_5_60`
 - Execution: the exact authorization was atomically claimed and consumed once; no second execution is allowed
@@ -17,7 +34,7 @@ Purpose: this is the first file to read after syncing the repository on any work
 - Duplication/exposure: maximum absolute historical-reference and direct-exposure correlation was `0.201903`, below the frozen `0.85` ceiling
 - Decision: zero research leads; `cn_etf_dynamic_comovement_peer_dislocation` is stop-lossed with budget 0 and no rerun, tuning, rescue, portfolio grid, walk-forward, holdout, paper signal, or promotion
 - Scheduler: unallocated primary budget is 1.0; only `factor_review` for one genuinely orthogonal CN ETF family is allowed
-- Default next task: review point-in-time historical fund-share, scale, NAV, and premium/discount source readiness before generating any new factor
+- Default next task: completed by the fund-structure source-readiness section above; do not rerun this closed family
 - Final holdout: 2026 remained sealed and later partitions were skipped before read
 - Boundary: research-to-paper only; no broker, account, order, paper signal, or automatic-live access
 
