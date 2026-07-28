@@ -14,6 +14,15 @@
     "end_date": "2024-06-28",
     "final_holdout_start": "2026-01-01"
   },
+  "frozen_delivery_scope": {
+    "vendor_request": "configs/cn_etf_pcf_vendor_request_20260728.json",
+    "target_universe_sha256": "0082e32b1f3704ce19301c871bee62e1cebbded650ab496f413df868e93bad9a",
+    "target_etfs": 1069,
+    "official_sessions": 1087,
+    "expected_etf_sessions": 698700,
+    "expected_sse_etf_sessions": 444998,
+    "expected_szse_etf_sessions": 253702
+  },
   "required_source_fields": {
     "trade_date": [
       "trade_date"

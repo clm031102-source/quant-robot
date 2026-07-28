@@ -111,6 +111,10 @@ Preferred delivery is Parquet partitioned by date or year. CSV is acceptable.
 Files must be historical snapshots, not a present-day constituent list applied
 backward.
 
+The exact frozen request is tracked at
+`configs/cn_etf_pcf_vendor_request_20260728.json`: 1,069 ETFs, 1,087 official
+sessions, and 698,700 expected ETF-session baskets across both exchanges.
+
 ## Secondary unlocks
 
 1. Historical point-in-time ETF-to-index mapping. The local account can already

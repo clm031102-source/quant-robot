@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "request_id": "cn_etf_historical_pcf_2020_2024_v1",
+  "market": "CN_ETF",
+  "purpose": "Licensed point-in-time research data for research-to-paper validation only",
+  "requested_scope": {
+    "start_date": "2020-01-02",
+    "end_date": "2024-06-28",
+    "market_exchanges": [
+      "SSE",
+      "SZSE"
+    ],
+    "target_universe_path": "data/processed/cn_etf_pcf_target_universe_2020_2024/target_universe.csv",
+    "target_universe_sha256": "0082e32b1f3704ce19301c871bee62e1cebbded650ab496f413df868e93bad9a",
+    "target_etfs": 1069,
+    "sse_target_etfs": 636,
+    "szse_target_etfs": 433,
+    "official_sessions": 1087,
+    "expected_etf_sessions": 698700,
+    "expected_sse_etf_sessions": 444998,
+    "expected_szse_etf_sessions": 253702
+  },
+  "required_fields": [
+    "trade_date",
+    "etf_code",
+    "constituent_code",
+    "quantity",
+    "substitution_flag"
+  ],
+  "required_exchange_specific_fields_when_published": [
+    "constituent_name",
+    "constituent_exchange",
+    "subscription_rate_pct",
+    "redemption_rate_pct",
+    "cash_substitution_amount_cny",
+    "subscription_cash_amount_cny",
+    "redemption_cash_amount_cny"
+  ],
+  "delivery": {
+    "preferred_format": "parquet",
+    "accepted_formats": [
+      "parquet",
+      "csv"
+    ],
+    "preferred_partitioning": [
+      "market_exchange",
+      "year"
+    ],
+    "separate_exchange_roots_required": true,
+    "data_dictionary_required": true,
+    "license_or_source_identity_required": true,
+    "revision_policy_required": true,
+    "historical_snapshots_required": true,
+    "current_composition_backfill_forbidden": true
+  },
+  "acceptance": {
+    "delivery_contract": "configs/cn_etf_pcf_delivery_contract.json",
+    "structural_validator": "scripts/validate_cn_etf_pcf_delivery.py",
+    "source_readiness_gate": "scripts/run_cn_etf_pcf_source_readiness.py",
+    "required_etf_session_coverage_ratio": 1.0,
+    "duplicate_keys_allowed": false,
+    "rows_outside_target_active_window_allowed": false,
+    "final_holdout_rows_allowed": false,
+    "cleared_action": "preregister_one_compact_pcf_factor_family_only"
+  },
+  "do_not_include": [
+    "broker credentials",
+    "account identifiers",
+    "order permissions",
+    "Tushare token",
+    "live-trading secrets"
+  ]
+}

@@ -50,6 +50,13 @@ upgrade alone. The official endpoints cap each response at 3,000 rows, so a
 complete multi-year, multi-ETF backfill still requires substantial sharding and
 provider calls.
 
+The exact shareable vendor request is
+`configs/cn_etf_pcf_vendor_request_20260728.json`. It freezes 1,069 ETFs,
+1,087 official sessions, and 698,700 expected ETF-session baskets:
+444,998 SSE and 253,702 SZSE. A delivery does not pass merely because it has
+many rows; it must cover every frozen ETF-session or explicitly repair the
+target scope before any hypothesis is registered.
+
 The repository now includes a machine-readable delivery contract at
 `configs/cn_etf_pcf_delivery_contract.json` and a review-only validator:
 
