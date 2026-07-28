@@ -7,6 +7,7 @@
     "tushare_8000_point_access_enabled": null,
     "licensed_export_local_path": null,
     "licensed_export_data_dictionary_path": null,
+    "historical_etf_target_universe_path": "data/processed/cn_etf_pcf_target_universe_2020_2024/target_universe.csv",
     "bar_gap_repair_source": null
   },
   "capital_and_risk": {

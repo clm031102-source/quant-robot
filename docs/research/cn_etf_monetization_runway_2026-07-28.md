@@ -62,6 +62,37 @@ the input and checks aliases, key uniqueness, exchange suffixes, nonnegative
 quantities, and the frozen date boundary. It writes only a lightweight report;
 it does not write canonical market data or authorize factor generation.
 
+The repository now builds the frozen target universe locally from the
+all-status Tushare `fund_basic` snapshot and the analysis-window bar authority:
+
+```powershell
+python scripts\build_cn_etf_pcf_target_universe.py
+```
+
+The current real run cleared with 1,069 ETFs across both exchanges, including
+101 delisted funds. The 51 ETF-classified metadata rows with missing list dates
+had no bar in the analysis window. The generated target artifact SHA-256 is
+`0082e32b1f3704ce19301c871bee62e1cebbded650ab496f413df868e93bad9a`.
+Therefore the operator does not need to supply another target-universe file
+unless the licensed PCF export uses a materially different scope.
+
+After the PCF delivery arrives, run:
+
+```powershell
+python scripts\run_cn_etf_pcf_source_readiness.py `
+  --sse-input <sse-file-or-directory> `
+  --szse-input <szse-file-or-directory> `
+  --target-universe data/processed/cn_etf_pcf_target_universe_2020_2024/target_universe.csv `
+  --provider <provider-name>
+```
+
+This second gate recursively discovers CSV/Parquet partitions, fingerprints
+every source file, validates the official calendar artifact, and requires 100%
+ETF-session basket coverage across the frozen delivered scope (with a hard
+minimum of 30 ETFs) and both exchanges.
+It writes only readiness reports and coverage tables. Even a cleared result
+permits preregistration only; factors and returns remain unread.
+
 Also provide authoritative ETF bars for 2020-05-28 and 2020-06-03 if available.
 The current bar authority has no rows on those two official sessions.
 

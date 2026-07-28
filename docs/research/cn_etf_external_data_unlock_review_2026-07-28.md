@@ -102,6 +102,11 @@ The vendor export must contain, at minimum:
 - subscription/redemption cash-substitution amounts where supplied;
 - exchange/source identity and a data dictionary.
 
+The repository can supply the target universe locally: the all-status
+`fund_basic` snapshot plus the analysis-window bar authority produced a cleared
+1,069-ETF universe across both exchanges, including 101 delisted funds. A
+vendor-specific universe file is needed only if the export's scope differs.
+
 Preferred delivery is Parquet partitioned by date or year. CSV is acceptable.
 Files must be historical snapshots, not a present-day constituent list applied
 backward.

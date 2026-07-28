@@ -70,6 +70,22 @@
     "etf_code",
     "constituent_code"
   ],
+  "target_universe_contract": {
+    "required_fields": [
+      "etf_code_or_symbol",
+      "list_date",
+      "delist_date"
+    ],
+    "minimum_active_etfs_in_analysis_window": 30,
+    "required_market_exchanges": [
+      "SSE",
+      "SZSE"
+    ],
+    "current_active_only_snapshot_allowed": false,
+    "reason": "The frozen target must include delisted ETFs that existed in the analysis window to avoid survivorship bias.",
+    "default_local_builder": "scripts/build_cn_etf_pcf_target_universe.py",
+    "default_local_artifact": "data/processed/cn_etf_pcf_target_universe_2020_2024/target_universe.csv"
+  },
   "point_in_time_policy": {
     "publication_phase": "official_pre_open_daily_pcf",
     "available_date": "trade_date",
@@ -85,5 +101,15 @@
     "final_holdout_allowed": false,
     "paper_signal_allowed": false,
     "live_boundary_allowed": false
+  },
+  "source_readiness_gate": {
+    "required_etf_session_coverage_ratio": 1.0,
+    "requires_validated_official_trading_calendar": true,
+    "requires_source_file_sha256": true,
+    "requires_target_universe_sha256": true,
+    "requires_no_rows_outside_target_active_window": true,
+    "requires_no_final_holdout_rows": true,
+    "runner": "scripts/run_cn_etf_pcf_source_readiness.py",
+    "cleared_action": "preregister_one_compact_pcf_factor_family_only"
   }
 }
