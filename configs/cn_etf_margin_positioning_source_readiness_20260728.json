@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "stage": "cn_etf_margin_positioning_source_readiness",
+  "review_date": "2026-07-28",
+  "primary_market": "CN_ETF",
+  "research_family": "cn_etf_margin_positioning",
+  "analysis": {
+    "bar_root": "data/processed/tushare_etf_wide_history_2023_2026",
+    "trading_calendar_path": "data/processed/trading_calendars/cn_tushare_2015_2025/cn_trading_calendar.csv",
+    "trading_calendar_manifest_path": "data/processed/trading_calendars/cn_tushare_2015_2025/cn_trading_calendar_manifest.json",
+    "start_date": "2020-01-02",
+    "end_date": "2024-06-28",
+    "next_session_read_end": "2024-07-05",
+    "final_holdout_start": "2026-01-01"
+  },
+  "outputs": {
+    "data_dir": "data/processed/cn_etf_margin_positioning_2020_2024",
+    "report_dir": "data/reports/cn_etf_margin_positioning_source_readiness_20260728"
+  },
+  "provider": {
+    "source": "tushare_margin_detail",
+    "fields": "trade_date,ts_code,rzye,rqye,rzmre,rqyl,rzche,rqchl,rqmcl,rzrqye",
+    "max_workers": 3,
+    "max_retries": 4,
+    "retry_sleep_seconds": 1.0
+  },
+  "thresholds": {
+    "minimum_assets_per_date": 50,
+    "minimum_qualifying_date_coverage": 0.95,
+    "minimum_positive_financing_balance_ratio": 0.95,
+    "minimum_valid_nonnegative_numeric_ratio": 0.99
+  },
+  "boundaries": {
+    "factor_generation_allowed": false,
+    "forward_return_read": false,
+    "portfolio_grid_allowed": false,
+    "walk_forward_allowed": false,
+    "final_holdout_allowed": false,
+    "promotion_allowed": false,
+    "paper_signal_allowed": false,
+    "broker_connection_allowed": false,
+    "account_read_allowed": false,
+    "order_placement_allowed": false,
+    "live_boundary_allowed": false
+  }
+}

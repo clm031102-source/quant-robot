@@ -70,7 +70,7 @@
     "live_boundary_allowed": false,
     "next_direction": "review_one_genuinely_orthogonal_cn_etf_source_family"
   },
-  "last_decision": {
+  "prior_option_source_blocked_decision": {
     "date": "2026-07-28",
     "source_stage": "cn_etf_option_sentiment_source_readiness",
     "source_status": "blocked",
@@ -107,6 +107,52 @@
     "order_placement_allowed": false,
     "live_boundary_allowed": false,
     "next_direction": "rotate_to_another_orthogonal_cn_etf_source_family"
+  },
+  "last_decision": {
+    "date": "2026-07-28",
+    "source_stage": "cn_etf_margin_positioning_source_readiness",
+    "source_status": "ready_for_margin_positioning_preregistration",
+    "decision": "source_ready_preregistration_required_no_factor_batch",
+    "source_config_path": "configs/cn_etf_margin_positioning_source_readiness_20260728.json",
+    "source_result_path": "data/reports/cn_etf_margin_positioning_source_readiness_20260728/cn_etf_margin_positioning_source_readiness.json",
+    "source_config_sha256": "0b0760536cd779e90bc9b4af607ef6ce0441f9f948369006dedcbbbb47c30c22",
+    "source_result_sha256": "8c61c7b147046bfd6c4a33f832e8c77bcd732d51b52c98b0aa9be5a6e0a3f2d5",
+    "manifest_sha256": "382ccf8b48bb3e64f2bf8e3b3cbe5b176791d450094e6be004b291d2938542db",
+    "canonical_data_sha256": "f1152513e73bc69576d04a61585f3971cad007dc04482dbdc0e38d049d3565ec",
+    "date_coverage_sha256": "819dd2b0f2b52cee8844acf46e919d9e0b733930347615ce939d950311147fe1",
+    "rows": 199793,
+    "assets": 410,
+    "analysis_sessions": 1087,
+    "observed_dates": 1085,
+    "qualifying_dates": 1085,
+    "qualifying_date_coverage": 0.9981600735970562,
+    "median_assets_per_date": 183.0,
+    "maximum_assets_per_date": 297,
+    "positive_financing_balance_ratio": 0.9996045907514277,
+    "valid_nonnegative_numeric_ratio": 0.9995601697757178,
+    "exact_next_session_ratio": 1.0,
+    "same_date_bar_intersection_ratio": 1.0,
+    "bar_authority_gap_dates": [
+      "2020-05-28",
+      "2020-06-03"
+    ],
+    "bar_gap_policy": "exclude_gap_crossing_factor_and_label_windows_and_require_repair_before_promotion",
+    "unallocated_budget_share": 1.0,
+    "preregistration_required": true,
+    "factor_generation_allowed": false,
+    "forward_return_read": false,
+    "factor_batch_allowed": false,
+    "single_prescreen_allowed": false,
+    "portfolio_grid_allowed": false,
+    "walk_forward_allowed": false,
+    "final_holdout_allowed": false,
+    "promotion_allowed": false,
+    "paper_signal_allowed": false,
+    "broker_connection_allowed": false,
+    "account_read_allowed": false,
+    "order_placement_allowed": false,
+    "live_boundary_allowed": false,
+    "next_direction": "preregister_one_compact_margin_positioning_prescreen"
   },
   "prior_fund_structure_preregistration_decision": {
     "date": "2026-07-28",
@@ -689,6 +735,62 @@
         "walk_forward_before_prescreen"
       ],
       "next_action": "Do not generate factors. Backfill audited historical official peer assignments, or rotate to a separately governed PIT-safe source-readiness review without reusing current names."
+    },
+    {
+      "family_id": "cn_etf_margin_positioning",
+      "market": "CN_ETF",
+      "hypothesis_family": "etf_margin_financing_and_lending_positioning",
+      "status": "exploratory",
+      "budget_share": 0.0,
+      "source_readiness_status": "ready_for_margin_positioning_preregistration",
+      "source_blockers": [],
+      "preregistration_required": true,
+      "factor_batch_before_readiness_allowed": false,
+      "factor_batch_before_preregistration_allowed": false,
+      "single_prescreen_allowed": false,
+      "primary_allocation_allowed": false,
+      "portfolio_grid_allowed": false,
+      "walk_forward_allowed": false,
+      "final_holdout_allowed": false,
+      "source_audit": {
+        "config_sha256": "0b0760536cd779e90bc9b4af607ef6ce0441f9f948369006dedcbbbb47c30c22",
+        "result_sha256": "8c61c7b147046bfd6c4a33f832e8c77bcd732d51b52c98b0aa9be5a6e0a3f2d5",
+        "manifest_sha256": "382ccf8b48bb3e64f2bf8e3b3cbe5b176791d450094e6be004b291d2938542db",
+        "canonical_data_sha256": "f1152513e73bc69576d04a61585f3971cad007dc04482dbdc0e38d049d3565ec",
+        "rows": 199793,
+        "assets": 410,
+        "analysis_sessions": 1087,
+        "observed_dates": 1085,
+        "qualifying_dates": 1085,
+        "qualifying_date_coverage": 0.9981600735970562,
+        "median_assets_per_date": 183.0,
+        "positive_financing_balance_ratio": 0.9996045907514277,
+        "valid_nonnegative_numeric_ratio": 0.9995601697757178,
+        "exact_next_session_ratio": 1.0,
+        "bar_authority_gap_dates": [
+          "2020-05-28",
+          "2020-06-03"
+        ]
+      },
+      "economic_thesis": "ETF-level financing balances and financing purchases measure leveraged demand in the traded fund itself; residual acceleration or crowding may identify positioning exhaustion distinct from the closed price, liquidity, volatility, peer, fund-share, and option families.",
+      "required_prescreen_controls": [
+        "return",
+        "realized_volatility",
+        "liquidity",
+        "size",
+        "venue",
+        "closed_family_reference_correlation",
+        "cn_stock_margin_credit_residual_failure_reference"
+      ],
+      "forbidden_actions": [
+        "reuse_cn_stock_raw_margin_credit_signal_without_etf_residual_proof",
+        "factor_batch_before_preregistration",
+        "portfolio_grid_before_prescreen",
+        "walk_forward_before_prescreen",
+        "final_holdout_access",
+        "promotion_before_bar_gap_repair"
+      ],
+      "next_action": "Preregister one compact ETF-specific margin-positioning prescreen with exact next-session availability, gap-crossing exclusion, style residualization, and direct reference-duplication gates."
     },
     {
       "family_id": "cn_etf_option_sentiment",

@@ -4,6 +4,21 @@ Last updated: 2026-07-28
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
+## Current CN ETF Margin-Positioning Source Readiness
+
+- Active branch: `codex/data-pipeline-cn-etf-margin-positioning-20260728`
+- Durable report: `docs/research/cn_etf_margin_positioning_source_readiness_2026-07-28.md`
+- Decision: `ready_for_margin_positioning_preregistration`; this is source readiness, not alpha
+- Frozen source: 199,793 point-in-time rows, 410 marginable ETFs/funds, 1,085 observed dates, and 99.816007% qualifying-date coverage
+- Breadth: median 183 and maximum 297 assets per observed date
+- Integrity: 100% exact next-session availability, 100% same-date ETF-bar intersection, zero duplicate or holdout rows
+- Data-quality constraint: the CN ETF bar authority is entirely missing official sessions 2020-05-28 and 2020-06-03; exclude gap-crossing factor/label windows and repair before promotion
+- Prior evidence constraint: the CN-stock margin-credit signal failed residual proof; the ETF prescreen must be style-residualized and explicitly duplication-gated
+- Default next task: preregister exactly one compact authorization-bound ETF margin-positioning prescreen
+- Boundary: no factor generation or forward-return read before preregistration; no portfolio grid, walk-forward, final holdout, broker, account, order, paper signal, or live access
+
+Canonical data and detailed reports remain under ignored `data/` paths and must not be committed.
+
 ## Current CN ETF Option-Sentiment Source Blocker
 
 - Active branch: `codex/factor-review-cn-etf-option-sentiment-source-20260728`
@@ -13,7 +28,7 @@ Purpose: this is the first file to read after syncing the repository on any work
 - Daily probes: all five dates present, 100% contract mapping, and positive-close ratios from 97.038724% to 100%
 - Decision: `source_blocked_no_factor_batch`; no factor values, labels, prescreen, tuning, or holdout reads were performed
 - Allowed reuse: option data may be retained only as a market-regime or risk-control input
-- Default next task: rotate to another genuinely orthogonal CN ETF source family
+- Default next task: completed by the margin-positioning source readiness above; do not generate a primary option cross-section
 - Boundary: research-to-paper only; no broker, account, order, paper signal, or live access
 
 Generated source evidence remains under ignored `data/reports/` paths and must not be committed.
