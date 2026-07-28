@@ -3,7 +3,10 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+import subprocess
 from typing import Any, Callable, Mapping
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 try:
     from scripts.bootstrap import ensure_workspace_imports
@@ -26,7 +29,8 @@ from scripts.run_quant_pm_startup_gate import run_quant_pm_startup_gate  # noqa:
 
 
 DEFAULT_CONFIG = Path("configs/cn_etf_external_data_unlock_review_20260728.json")
-EXPECTED_BRANCH = "codex/factor-review-cn-etf-external-data-unlock-20260728"
+EXPECTED_BRANCH_PREFIX = "codex/factor-review-cn-etf-"
+PUBLIC_PCF_LIST_URL = "https://market.ft.tech/data/api/v1/market/data/etf-pcf/etf-pcfs"
 FALSE_BOUNDARIES = (
     "factor_generation_allowed",
     "forward_return_read_allowed",
@@ -50,10 +54,13 @@ def run_cn_etf_external_data_unlock_review(
     path = Path(config_path)
     config = _load_and_validate_config(path)
     if enforce_startup_gate:
+        branch = _current_branch()
+        if not branch.startswith(EXPECTED_BRANCH_PREFIX):
+            raise ValueError("external-data unlock review requires a CN ETF factor-review branch")
         gate = run_quant_pm_startup_gate(
             machine="office_desktop",
             task="factor_review",
-            branch=EXPECTED_BRANCH,
+            branch=branch,
         )
         if gate.get("status") != "ready":
             raise ValueError("Quant PM startup gate did not authorize source-access review")
@@ -84,6 +91,7 @@ def _run_probe(adapter: TushareAdapter, probe: Mapping[str, Any]) -> dict[str, A
         "etf_basic": lambda: adapter.fetch_etf_basic(**parameters),
         "fund_basic": lambda: adapter.fetch_fund_basic(**parameters),
         "index_weight": lambda: adapter.fetch_index_weight(**parameters),
+        "ft_tech_pcf_list": lambda: _fetch_public_pcf_list(parameters),
     }
     if endpoint not in calls:
         raise ValueError(f"unsupported external-data probe endpoint: {endpoint}")
@@ -98,6 +106,46 @@ def _run_probe(adapter: TushareAdapter, probe: Mapping[str, Any]) -> dict[str, A
         return classify_external_data_probe(frame=calls[endpoint](), **common)
     except Exception as exc:  # provider failures are the evidence under review
         return classify_external_data_probe(error=exc, **common)
+
+
+def _fetch_public_pcf_list(parameters: Mapping[str, Any]) -> pd.DataFrame:
+    allowed = {"date", "page", "page_size"}
+    if set(parameters) != allowed:
+        raise ValueError("public PCF probe parameters must be date, page, and page_size")
+    page_size = int(parameters["page_size"])
+    if page_size < 1 or page_size > 100:
+        raise ValueError("public PCF probe page_size must be between 1 and 100")
+    query = urlencode(
+        {
+            "date": int(parameters["date"]),
+            "page": int(parameters["page"]),
+            "page_size": page_size,
+        }
+    )
+    request = Request(f"{PUBLIC_PCF_LIST_URL}?{query}", method="GET")
+    with urlopen(request, timeout=20) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError("public PCF list response must be a JSON object")
+    items = payload.get("items")
+    if items is None and isinstance(payload.get("data"), dict):
+        items = payload["data"].get("items")
+    if not isinstance(items, list):
+        raise ValueError("public PCF list response is missing items")
+    return pd.DataFrame(items)
+
+
+def _current_branch() -> str:
+    result = subprocess.run(
+        ["git", "branch", "--show-current"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    branch = result.stdout.strip()
+    if not branch:
+        raise ValueError("external-data unlock review requires an attached Git branch")
+    return branch
 
 
 def _load_and_validate_config(path: Path) -> dict[str, Any]:

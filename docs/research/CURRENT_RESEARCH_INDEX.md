@@ -10,6 +10,7 @@ Purpose: this is the first file to read after syncing the repository on any work
 - Durable report: `docs/research/cn_etf_external_data_unlock_review_2026-07-28.md`
 - Decision: `unlock_historical_pcf_first`; this is source access, not alpha
 - Historical PCF: four cross-exchange/cross-period probes of `etf_sh_cons` and `etf_sz_cons` were all permission denied
+- Public fallback: three bounded FT Tech PCF-list probes, including both ends of the research window, all returned provider errors; licensing and completeness are also unverified
 - ETF-to-index mapping: `etf_basic` was permission denied; `fund_basic` succeeded with 2,154 active exchange-fund rows but is current text metadata, not a complete historical mapping
 - Historical index constituents: `index_weight` succeeded with 300 CSI 300 rows for January 2020
 - External requirement: enable the official 8,000-point PCF/ETF metadata endpoints or provide a licensed SSE+SZSE historical PCF export for 2020-01-02 through 2024-06-28

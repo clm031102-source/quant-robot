@@ -59,6 +59,19 @@ class CnEtfExternalDataUnlockTests(unittest.TestCase):
         self.assertEqual(probe["rows"], 1)
         self.assertFalse(probe["full_history_ready"])
 
+    def test_unavailable_public_fallback_is_counted_without_error_detail(self):
+        probe = classify_external_data_probe(
+            endpoint="ft_tech_pcf_list",
+            route="public_pcf_fallback",
+            required_points=None,
+            error=RuntimeError("HTTP 503 with internal detail"),
+        )
+        result = summarize_cn_etf_external_data_unlock([probe])
+
+        self.assertEqual(probe["status"], "provider_error")
+        self.assertNotIn("internal detail", str(probe))
+        self.assertEqual(result["routes"]["public_pcf_fallback"]["provider_error_probes"], 1)
+
     def test_writer_is_deterministic(self):
         result = summarize_cn_etf_external_data_unlock(
             [

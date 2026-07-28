@@ -30,6 +30,9 @@ requirement.
 | ETF-to-index mapping | `etf_basic` | all active ETFs | permission denied |
 | Fund metadata | `fund_basic` | active exchange-traded funds | ready, 2,154 rows |
 | Historical index constituents | `index_weight` | CSI 300, January 2020 | ready, 300 rows |
+| Unaffiliated public fallback | FT Tech PCF list | 2020-01-02 | HTTP provider error |
+| Unaffiliated public fallback | FT Tech PCF list | 2024-06-28 | HTTP provider error |
+| Unaffiliated public fallback | FT Tech PCF list | 2026-03-09 | HTTP provider error |
 
 The four PCF probes deliberately cover both exchanges and both ends of the
 frozen research period. A successful probe would still be access evidence only,
@@ -40,11 +43,11 @@ is defined.
 Generated evidence:
 
 - config SHA-256:
-  `c2fdc6b14c8e2f18bc802bafcf3b374012dffdab8119ff068f1c21cf284470e0`
+  `d095506c046b81ea65d6e772bd6719ba8aba8edaf5bfdf2cd728148f150aa65e`
 - result SHA-256:
-  `1228366e935fb5f197f3377a5f9e1d3f5d6d76f16b4233c8207454c9fccb573d`
+  `6648dc16b0bc9a78d05cdd8626ce31c4f9164a8cf7a6856037244c6b1a6ea340`
 - probe table SHA-256:
-  `4c9c62bc29eac4817dfa9731cb3ccd055eee33b4a24b27d27a46126978be616d`
+  `24022dad71cf9c52012655c569705275afd84570fe8a66db03c0f084d1c81040`
 
 Detailed evidence remains under ignored
 `data/reports/cn_etf_external_data_unlock_review_20260728/`.
@@ -69,6 +72,14 @@ The exchange websites publish current daily PCF information, but this review
 did not establish a complete, programmatically retrievable historical archive
 for both exchanges. Current files are not a substitute for the frozen
 2020-01-02 through 2024-06-28 history.
+
+An unaffiliated public service advertised a dated PCF-list and XML-download
+route. The review inspected its published handler, then made bounded list-only
+requests for both ends of the research window and one date used by its own
+example. All three returned HTTP 503. No file was downloaded. Even if the
+service recovers, source ownership, licensing, historical completeness,
+revision policy, and parity with exchange files would need to pass an
+independent audit before use. It is not currently a usable free bypass.
 
 ## Minimum acceptable delivery
 

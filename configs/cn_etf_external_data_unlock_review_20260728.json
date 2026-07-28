@@ -98,6 +98,45 @@
       ]
     },
     {
+      "route": "public_pcf_fallback",
+      "endpoint": "ft_tech_pcf_list",
+      "required_points": null,
+      "parameters": {
+        "date": 20200102,
+        "page": 1,
+        "page_size": 5
+      },
+      "required_columns": [
+        "filename"
+      ]
+    },
+    {
+      "route": "public_pcf_fallback",
+      "endpoint": "ft_tech_pcf_list",
+      "required_points": null,
+      "parameters": {
+        "date": 20240628,
+        "page": 1,
+        "page_size": 5
+      },
+      "required_columns": [
+        "filename"
+      ]
+    },
+    {
+      "route": "public_pcf_fallback",
+      "endpoint": "ft_tech_pcf_list",
+      "required_points": null,
+      "parameters": {
+        "date": 20260309,
+        "page": 1,
+        "page_size": 5
+      },
+      "required_columns": [
+        "filename"
+      ]
+    },
+    {
       "route": "tracking_index_mapping",
       "endpoint": "fund_basic",
       "required_points": 2000,
@@ -144,7 +183,8 @@
     "etf_basic": "https://tushare.pro/document/2?doc_id=385",
     "fund_basic": "https://tushare.pro/document/1?doc_id=19",
     "index_weight": "https://tushare.pro/document/2?doc_id=96",
-    "rt_etf_sz_iopv": "https://tushare.pro/document/2?doc_id=454"
+    "rt_etf_sz_iopv": "https://tushare.pro/document/2?doc_id=454",
+    "ft_tech_pcf_list": "https://clawhub.ai/shawn92/skills/ftshare-etf-data"
   },
   "boundaries": {
     "factor_generation_allowed": false,

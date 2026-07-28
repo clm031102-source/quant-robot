@@ -86,6 +86,8 @@ def summarize_cn_etf_external_data_unlock(
                 "permission_denied_probes": 0,
                 "empty_probes": 0,
                 "schema_blocked_probes": 0,
+                "rate_limited_probes": 0,
+                "provider_error_probes": 0,
                 "full_history_ready": False,
             },
         )
@@ -95,6 +97,8 @@ def summarize_cn_etf_external_data_unlock(
         summary["permission_denied_probes"] += int(status == "permission_denied")
         summary["empty_probes"] += int(status == "empty_response")
         summary["schema_blocked_probes"] += int(status == "schema_mismatch")
+        summary["rate_limited_probes"] += int(status == "rate_limited")
+        summary["provider_error_probes"] += int(status == "provider_error")
     pcf = routes.get("historical_pcf", {})
     pcf_ready = (
         int(pcf.get("probes", 0)) > 0
