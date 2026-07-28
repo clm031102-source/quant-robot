@@ -7,6 +7,7 @@ import unittest
 import pandas as pd
 
 from quant_robot.data.adapters.public_cn_etf_fund_structure import (
+    PublicCnEtfFundStructureAdapter,
     ProviderResponseError,
     parse_eastmoney_nav_javascript,
     parse_sse_share_response,
@@ -186,6 +187,36 @@ class PublicCnEtfFundStructureAdapterTests(unittest.TestCase):
             end_date="2024-06-28",
         )
         self.assertEqual(nav["nav"].tolist(), [0.0])
+
+    def test_live_nav_fetch_decodes_utf8_without_expensive_encoding_detection(self) -> None:
+        javascript = (
+            'var fS_code = "510300"; '
+            'var Data_netWorthTrend = [{"x": 1719504000000, "y": 3.4874}];'
+        )
+
+        class _Response:
+            content = javascript.encode("utf-8")
+            url = "https://fund.eastmoney.com/pingzhongdata/510300.js"
+
+            @property
+            def apparent_encoding(self) -> str:
+                raise AssertionError("apparent encoding detection must not run")
+
+            def raise_for_status(self) -> None:
+                return None
+
+        class _Session:
+            def get(self, *args, **kwargs):
+                return _Response()
+
+        fetched = PublicCnEtfFundStructureAdapter(session=_Session()).fetch_eastmoney_nav_symbol(
+            "510300.SH",
+            start_date="2024-06-28",
+            end_date="2024-06-28",
+        )
+
+        self.assertEqual(len(fetched.frame), 1)
+        self.assertEqual(fetched.frame.loc[0, "nav"], 3.4874)
 
 
 if __name__ == "__main__":

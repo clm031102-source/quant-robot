@@ -275,8 +275,7 @@ class PublicCnEtfFundStructureAdapter:
         response = self.session.get(url, headers=headers, timeout=self.timeout)
         response.raise_for_status()
         content = response.content
-        response.encoding = response.apparent_encoding or "utf-8"
-        javascript = response.text
+        javascript = content.decode("utf-8", errors="replace")
         return FetchedFrame(
             frame=parse_eastmoney_nav_javascript(
                 javascript,
