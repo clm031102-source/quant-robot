@@ -124,10 +124,10 @@ def run_cn_etf_fund_structure_source_readiness_cli(
         }
     )
     result["tushare_probe"] = dict(payload["tushare_probe"])
-    if ingest_result is not None:
-        result["ingest_result"] = ingest_result
     artifacts = write_cn_etf_fund_structure_source_readiness(report_dir, result)
     result["artifacts"] = {name: str(artifact) for name, artifact in artifacts.items()}
+    if ingest_result is not None:
+        result["ingest_result"] = ingest_result
     return result
 
 

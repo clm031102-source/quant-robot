@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import tempfile
 import threading
@@ -94,6 +95,15 @@ class RunCnEtfFundStructureSourceReadinessTests(unittest.TestCase):
             self.assertFalse(result["factor_generation_allowed"])
             self.assertFalse(result["final_holdout_allowed"])
             self.assertFalse(result["live_boundary_allowed"])
+            result_json = Path(result["artifacts"]["json"])
+            first_hash = hashlib.sha256(result_json.read_bytes()).hexdigest()
+
+            repeated = run_cn_etf_fund_structure_source_readiness_cli(
+                config_path=config_path,
+                execute=False,
+            )
+            second_hash = hashlib.sha256(Path(repeated["artifacts"]["json"]).read_bytes()).hexdigest()
+            self.assertEqual(first_hash, second_hash)
 
     def test_config_rejects_threshold_and_boundary_drift(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
