@@ -108,7 +108,7 @@
     "live_boundary_allowed": false,
     "next_direction": "rotate_to_another_orthogonal_cn_etf_source_family"
   },
-  "last_decision": {
+  "prior_margin_positioning_source_ready_decision": {
     "date": "2026-07-28",
     "source_stage": "cn_etf_margin_positioning_source_readiness",
     "source_status": "ready_for_margin_positioning_preregistration",
@@ -153,6 +153,47 @@
     "order_placement_allowed": false,
     "live_boundary_allowed": false,
     "next_direction": "preregister_one_compact_margin_positioning_prescreen"
+  },
+  "last_decision": {
+    "date": "2026-07-28",
+    "source_stage": "cn_etf_margin_positioning_preregistration",
+    "source_status": "preregistered_single_prescreen",
+    "decision": "prescreen_preregistered_single_batch_only",
+    "factor_name": "etf_residual_margin_financing_growth_reversal_20",
+    "preregistration_config_sha256": "c6d11639c7e1f5c454f7ad4434e682139c074d031bd391d89034aafc76b26855",
+    "preregistration_result_sha256": "bcc8f5030d24530f9f9afa81f2c411375fba9009ce82f70589ff6a4b7973e45d",
+    "authorization_sha256": "2dbc3f08f1c16a9a174b2bae3ddf1ba94188ae1fcf764c775fe6691709053fc2",
+    "authorization_id": "e1a1bd00518ff83a360a30bdb4ba8373087519f340d5ba60d2184ff27e758baa",
+    "authorization_path": "data/reports/cn_etf_margin_positioning_preregistration_20260728/single_prescreen_authorization.json",
+    "source_config_sha256": "0b0760536cd779e90bc9b4af607ef6ce0441f9f948369006dedcbbbb47c30c22",
+    "source_result_sha256": "8c61c7b147046bfd6c4a33f832e8c77bcd732d51b52c98b0aa9be5a6e0a3f2d5",
+    "manifest_sha256": "382ccf8b48bb3e64f2bf8e3b3cbe5b176791d450094e6be004b291d2938542db",
+    "canonical_data_sha256": "f1152513e73bc69576d04a61585f3971cad007dc04482dbdc0e38d049d3565ec",
+    "hypothesis_count": 2,
+    "primary_horizon": 5,
+    "diagnostic_horizon": 20,
+    "single_prescreen_run_limit": 1,
+    "execution_count": 0,
+    "execution_ledger_required": true,
+    "execution_ledger_path": "data/reports/cn_etf_margin_positioning_prescreen_execution_ledger.json",
+    "allowed_stage": "cn_etf_margin_positioning_prescreen",
+    "bar_authority_gap_dates": [
+      "2020-05-28",
+      "2020-06-03"
+    ],
+    "unallocated_budget_share": 1.0,
+    "factor_batch_allowed": true,
+    "single_prescreen_allowed": true,
+    "portfolio_grid_allowed": false,
+    "walk_forward_allowed": false,
+    "final_holdout_allowed": false,
+    "promotion_allowed": false,
+    "paper_signal_allowed": false,
+    "broker_connection_allowed": false,
+    "account_read_allowed": false,
+    "order_placement_allowed": false,
+    "live_boundary_allowed": false,
+    "next_direction": "run_exactly_one_hash_bound_margin_positioning_prescreen"
   },
   "prior_fund_structure_preregistration_decision": {
     "date": "2026-07-28",
@@ -744,10 +785,11 @@
       "budget_share": 0.0,
       "source_readiness_status": "ready_for_margin_positioning_preregistration",
       "source_blockers": [],
-      "preregistration_required": true,
+      "preregistration_required": false,
+      "preregistration_status": "preregistered_single_prescreen",
       "factor_batch_before_readiness_allowed": false,
       "factor_batch_before_preregistration_allowed": false,
-      "single_prescreen_allowed": false,
+      "single_prescreen_allowed": true,
       "primary_allocation_allowed": false,
       "portfolio_grid_allowed": false,
       "walk_forward_allowed": false,
@@ -772,6 +814,18 @@
           "2020-06-03"
         ]
       },
+      "preregistration_audit": {
+        "factor_name": "etf_residual_margin_financing_growth_reversal_20",
+        "config_sha256": "c6d11639c7e1f5c454f7ad4434e682139c074d031bd391d89034aafc76b26855",
+        "result_sha256": "bcc8f5030d24530f9f9afa81f2c411375fba9009ce82f70589ff6a4b7973e45d",
+        "authorization_sha256": "2dbc3f08f1c16a9a174b2bae3ddf1ba94188ae1fcf764c775fe6691709053fc2",
+        "authorization_id": "e1a1bd00518ff83a360a30bdb4ba8373087519f340d5ba60d2184ff27e758baa",
+        "hypothesis_count": 2,
+        "primary_horizon": 5,
+        "diagnostic_horizon": 20,
+        "single_prescreen_run_limit": 1,
+        "execution_count": 0
+      },
       "economic_thesis": "ETF-level financing balances and financing purchases measure leveraged demand in the traded fund itself; residual acceleration or crowding may identify positioning exhaustion distinct from the closed price, liquidity, volatility, peer, fund-share, and option families.",
       "required_prescreen_controls": [
         "return",
@@ -790,7 +844,7 @@
         "final_holdout_access",
         "promotion_before_bar_gap_repair"
       ],
-      "next_action": "Preregister one compact ETF-specific margin-positioning prescreen with exact next-session availability, gap-crossing exclusion, style residualization, and direct reference-duplication gates."
+      "next_action": "Run exactly one authorization-bound margin-positioning prescreen. Do not tune, rerun, or access the final holdout."
     },
     {
       "family_id": "cn_etf_option_sentiment",

@@ -6,7 +6,7 @@ from quant_robot.research.family_scheduler import build_research_family_schedule
 
 
 class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
-    def test_margin_source_ready_opens_only_preregistration(self) -> None:
+    def test_margin_preregistration_opens_only_one_prescreen(self) -> None:
         config = json.loads(
             Path("configs/research_family_scheduler_cn_etf.json").read_text(encoding="utf-8")
         )
@@ -120,37 +120,38 @@ class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
             margin["source_readiness_status"],
             "ready_for_margin_positioning_preregistration",
         )
-        self.assertTrue(margin["preregistration_required"])
+        self.assertFalse(margin["preregistration_required"])
+        self.assertEqual(margin["preregistration_status"], "preregistered_single_prescreen")
         self.assertFalse(margin["factor_batch_before_preregistration_allowed"])
+        self.assertTrue(margin["single_prescreen_allowed"])
         self.assertFalse(margin["primary_allocation_allowed"])
         self.assertEqual(margin["source_audit"]["rows"], 199793)
         self.assertEqual(margin["source_audit"]["assets"], 410)
         decision = config["last_decision"]
         self.assertEqual(
             decision["source_stage"],
-            "cn_etf_margin_positioning_source_readiness",
+            "cn_etf_margin_positioning_preregistration",
         )
         self.assertEqual(
             decision["decision"],
-            "source_ready_preregistration_required_no_factor_batch",
+            "prescreen_preregistered_single_batch_only",
         )
         self.assertEqual(
-            decision["source_config_sha256"],
-            "0b0760536cd779e90bc9b4af607ef6ce0441f9f948369006dedcbbbb47c30c22",
+            decision["preregistration_config_sha256"],
+            "c6d11639c7e1f5c454f7ad4434e682139c074d031bd391d89034aafc76b26855",
         )
         self.assertEqual(
-            decision["source_result_sha256"],
-            "8c61c7b147046bfd6c4a33f832e8c77bcd732d51b52c98b0aa9be5a6e0a3f2d5",
+            decision["preregistration_result_sha256"],
+            "bcc8f5030d24530f9f9afa81f2c411375fba9009ce82f70589ff6a4b7973e45d",
         )
-        self.assertFalse(decision["factor_batch_allowed"])
-        self.assertTrue(decision["preregistration_required"])
-        self.assertEqual(decision["rows"], 199793)
-        self.assertEqual(decision["assets"], 410)
-        self.assertEqual(decision["analysis_sessions"], 1087)
-        self.assertEqual(decision["qualifying_dates"], 1085)
+        self.assertTrue(decision["factor_batch_allowed"])
+        self.assertTrue(decision["single_prescreen_allowed"])
+        self.assertEqual(decision["execution_count"], 0)
+        self.assertEqual(
+            decision["allowed_stage"],
+            "cn_etf_margin_positioning_prescreen",
+        )
         for boundary in (
-            "factor_generation_allowed",
-            "forward_return_read",
             "portfolio_grid_allowed",
             "walk_forward_allowed",
             "final_holdout_allowed",
@@ -163,6 +164,12 @@ class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
         ):
             self.assertFalse(decision[boundary])
         self.assertEqual(decision["unallocated_budget_share"], 1.0)
+        source_decision = config["prior_margin_positioning_source_ready_decision"]
+        self.assertEqual(
+            source_decision["source_stage"],
+            "cn_etf_margin_positioning_source_readiness",
+        )
+        self.assertEqual(source_decision["rows"], 199793)
         option_decision = config["prior_option_source_blocked_decision"]
         self.assertEqual(
             option_decision["source_stage"],

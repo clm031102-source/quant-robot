@@ -351,6 +351,10 @@ def _single_prescreen_mode(
             "cn_etf_fund_structure_crowding_prescreen",
             "canonical_data_sha256",
         ),
+        "etf_residual_margin_financing_growth_reversal_20": (
+            "cn_etf_margin_positioning_prescreen",
+            "canonical_data_sha256",
+        ),
     }
     factor_name = decision.get("factor_name")
     if factor_name not in allowed_scopes:
