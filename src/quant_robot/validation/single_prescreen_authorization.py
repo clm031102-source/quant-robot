@@ -38,6 +38,8 @@ def build_single_prescreen_authorization(
     preregistration_result_sha256: str,
     source_hashes: Mapping[str, str],
     execution_ledger_path: str | Path,
+    allowed_stage: str = ALLOWED_STAGE,
+    source_hash_keys: tuple[str, ...] = SOURCE_HASH_KEYS,
 ) -> dict[str, Any]:
     """Build a deterministic authorization for exactly one frozen prescreen."""
 
@@ -46,7 +48,11 @@ def build_single_prescreen_authorization(
     _require_sha256(preregistration_result_sha256, "preregistration result SHA-256")
     ledger_path = str(execution_ledger_path)
     _require_nonempty(ledger_path, "execution ledger path")
-    normalized_source_hashes = _validated_source_hashes(source_hashes)
+    _require_nonempty(allowed_stage, "allowed stage")
+    normalized_source_hashes = _validated_source_hashes(
+        source_hashes,
+        expected_keys=source_hash_keys,
+    )
     identity_payload = {
         "candidate_name": candidate_name,
         "preregistration_config_sha256": preregistration_config_sha256,
@@ -63,7 +69,7 @@ def build_single_prescreen_authorization(
         "primary_horizon": 5,
         "diagnostic_horizon": 20,
         "allowed_task": ALLOWED_TASK,
-        "allowed_stage": ALLOWED_STAGE,
+        "allowed_stage": allowed_stage,
         "max_executions": 1,
         "execution_ledger_required": True,
     }
@@ -87,6 +93,8 @@ def validate_single_prescreen_authorization(
     expected_config_sha256: str,
     expected_packet_sha256: str,
     context: str,
+    expected_allowed_stage: str = ALLOWED_STAGE,
+    expected_source_hash_keys: tuple[str, ...] = SOURCE_HASH_KEYS,
 ) -> dict[str, Any]:
     path = Path(packet_path)
     if not path.is_file():
@@ -110,7 +118,13 @@ def validate_single_prescreen_authorization(
         raise ValueError(f"{context} single prescreen candidate mismatch: {path}")
     if packet.get("preregistration_config_sha256") != expected_config_sha256:
         raise ValueError(f"{context} single prescreen config hash mismatch: {path}")
-    _validate_packet_contract(packet, context=context, path=path)
+    _validate_packet_contract(
+        packet,
+        context=context,
+        path=path,
+        expected_allowed_stage=expected_allowed_stage,
+        expected_source_hash_keys=expected_source_hash_keys,
+    )
     identity_payload = _identity_payload(packet)
     if packet.get("authorization_id") != _authorization_id(identity_payload):
         raise ValueError(f"{context} single prescreen authorization identity mismatch: {path}")
@@ -130,6 +144,8 @@ def claim_single_prescreen_authorization(
     expected_config_sha256: str,
     expected_packet_sha256: str,
     context: str,
+    expected_allowed_stage: str = ALLOWED_STAGE,
+    expected_source_hash_keys: tuple[str, ...] = SOURCE_HASH_KEYS,
 ) -> dict[str, Any]:
     validated = validate_single_prescreen_authorization(
         packet_path=packet_path,
@@ -137,6 +153,8 @@ def claim_single_prescreen_authorization(
         expected_config_sha256=expected_config_sha256,
         expected_packet_sha256=expected_packet_sha256,
         context=context,
+        expected_allowed_stage=expected_allowed_stage,
+        expected_source_hash_keys=expected_source_hash_keys,
     )
     ledger = Path(ledger_path)
     bound_ledger = Path(validated["packet"]["execution_ledger_path"])
@@ -173,13 +191,26 @@ def claim_single_prescreen_authorization(
         lock_path.unlink(missing_ok=True)
 
 
-def _validate_packet_contract(packet: Mapping[str, Any], *, context: str, path: Path) -> None:
+def _validate_packet_contract(
+    packet: Mapping[str, Any],
+    *,
+    context: str,
+    path: Path,
+    expected_allowed_stage: str,
+    expected_source_hash_keys: tuple[str, ...],
+) -> None:
     _require_sha256(
         packet.get("preregistration_result_sha256"),
         f"{context} preregistration result SHA-256",
     )
-    _validated_source_hashes(packet.get("source_hashes", {}))
-    if packet.get("allowed_task") != ALLOWED_TASK or packet.get("allowed_stage") != ALLOWED_STAGE:
+    _validated_source_hashes(
+        packet.get("source_hashes", {}),
+        expected_keys=expected_source_hash_keys,
+    )
+    if (
+        packet.get("allowed_task") != ALLOWED_TASK
+        or packet.get("allowed_stage") != expected_allowed_stage
+    ):
         raise ValueError(f"{context} single prescreen scope mismatch: {path}")
     if packet.get("primary_horizon") != 5 or packet.get("diagnostic_horizon") != 20:
         raise ValueError(f"{context} single prescreen horizon contract mismatch: {path}")
@@ -210,17 +241,25 @@ def _authorization_id(identity_payload: Mapping[str, Any]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
-def _validated_source_hashes(source_hashes: Mapping[str, str]) -> dict[str, str]:
+def _validated_source_hashes(
+    source_hashes: Mapping[str, str],
+    *,
+    expected_keys: tuple[str, ...] = SOURCE_HASH_KEYS,
+) -> dict[str, str]:
     if not isinstance(source_hashes, Mapping):
         raise ValueError("source hashes must be a JSON object")
+    if not expected_keys or len(set(expected_keys)) != len(expected_keys):
+        raise ValueError("expected source hash keys must be unique and non-empty")
+    if any(not isinstance(key, str) or not key for key in expected_keys):
+        raise ValueError("expected source hash keys must be non-empty strings")
     normalized = {str(key): str(value) for key, value in source_hashes.items()}
-    if tuple(sorted(normalized)) != SOURCE_HASH_KEYS:
+    if set(normalized) != set(expected_keys):
         raise ValueError(
-            "source hashes must contain exactly mapping, source_config, and source_result"
+            "source hashes must contain exactly " + ", ".join(expected_keys)
         )
     for key, value in normalized.items():
         _require_sha256(value, f"source {key} SHA-256")
-    return {key: normalized[key] for key in SOURCE_HASH_KEYS}
+    return {key: normalized[key] for key in expected_keys}
 
 
 def _require_sha256(value: Any, label: str) -> None:

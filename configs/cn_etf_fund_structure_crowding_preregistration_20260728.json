@@ -1,0 +1,183 @@
+{
+  "stage": "cn_etf_fund_structure_crowding_preregistration",
+  "registration_date": "2026-07-28",
+  "primary_market": "CN_ETF",
+  "research_family": "cn_etf_fund_structure",
+  "source_evidence": {
+    "required_status": "ready_for_fund_structure_preregistration",
+    "paths": {
+      "source_config": "configs/cn_etf_fund_structure_source_readiness_20260728.json",
+      "source_result": "data/reports/cn_etf_fund_structure_source_readiness_20260728/cn_etf_fund_structure_source_readiness.json",
+      "canonical_2020": "data/processed/cn_etf_fund_structure_public_2020_2024/processed/etf_share_size/frequency=1d/market=CN_ETF/year=2020/part-00000.parquet",
+      "canonical_2021": "data/processed/cn_etf_fund_structure_public_2020_2024/processed/etf_share_size/frequency=1d/market=CN_ETF/year=2021/part-00000.parquet",
+      "canonical_2022": "data/processed/cn_etf_fund_structure_public_2020_2024/processed/etf_share_size/frequency=1d/market=CN_ETF/year=2022/part-00000.parquet",
+      "canonical_2023": "data/processed/cn_etf_fund_structure_public_2020_2024/processed/etf_share_size/frequency=1d/market=CN_ETF/year=2023/part-00000.parquet",
+      "canonical_2024": "data/processed/cn_etf_fund_structure_public_2020_2024/processed/etf_share_size/frequency=1d/market=CN_ETF/year=2024/part-00000.parquet"
+    },
+    "hashes": {
+      "source_config": "04cb2acc675762f04c109798949d2b174fb1c9c72a9d91497423837f366a0ba3",
+      "source_result": "3ccb5ba4d04ff24b7b5ef81c2984f1571a0a23cd41f077c7b20ae688879f3a13",
+      "canonical_2020": "a46680257d3765ad8e3f945d48c68733ae23a98aab1d80a7d607675027cb6e2d",
+      "canonical_2021": "70dcdfd169a227207809160a63f75106a136e2a5eef9c67c4fd325855cb5c192",
+      "canonical_2022": "65357c506b86bc1ce46eed164cd126bbc61e3c71d43debea5e1aa418f6321bff",
+      "canonical_2023": "4d35a34aa3932a8dfe8d1d0efa53d1d075ddb55c5ecf0666766ac5dfac30c3ba",
+      "canonical_2024": "98d58a9a9ad508d9f8ec6182e219632319659db560f836b2b9386cf4b27705ca"
+    }
+  },
+  "candidate": {
+    "factor_name": "etf_residual_share_creation_crowding_reversal_20",
+    "family": "cn_etf_fund_structure",
+    "direction": "higher_is_better",
+    "economic_hypothesis": "After fixed price, volatility, liquidity, size, and venue controls, unusually large ETF share creations identify crowded inflows that reverse over the next five sessions.",
+    "formula": "-cross_sectional_ols_residual(winsor_z(log(total_share_t/total_share_t_minus_20_sessions))|winsor_z(return_20,return_60,realized_volatility_20,log_adv20,log_total_size),exchange_sse)",
+    "share_lookback": 20,
+    "short_return_window": 20,
+    "long_return_window": 60,
+    "volatility_window": 20,
+    "adv_window": 20,
+    "minimum_daily_cross_section": 30,
+    "winsor_lower": 0.01,
+    "winsor_upper": 0.99,
+    "standardization": "daily_population_zscore",
+    "regression": "daily_ols_with_intercept_full_rank_required",
+    "scale_epsilon": 1e-12,
+    "share_lag_policy": "exact_market_session_lag",
+    "signal_date_policy": "known_from",
+    "control_names": [
+      "return_20",
+      "return_60",
+      "realized_volatility_20",
+      "log_adv20",
+      "log_total_size",
+      "exchange_sse"
+    ]
+  },
+  "data_boundary": {
+    "bar_root": "data/processed/tushare_etf_wide_history_2023_2026",
+    "fund_structure_root": "data/processed/cn_etf_fund_structure_public_2020_2024",
+    "analysis_start_date": "2020-01-02",
+    "analysis_end_date": "2024-06-28",
+    "final_holdout_start": "2026-01-01",
+    "skip_post_analysis_partitions_before_read": true,
+    "known_from_strictly_after_source_date": true,
+    "current_name_input_allowed": false,
+    "current_theme_input_allowed": false,
+    "forward_fill_returns_allowed": false,
+    "share_forward_fill_allowed": false
+  },
+  "eligibility": {
+    "official_lifecycle_membership_required": true,
+    "min_prior_observations": 120,
+    "liquidity_window": 20,
+    "min_trailing_median_amount_cny": 5000000.0,
+    "max_stale_price_rate": 0.05,
+    "max_abs_daily_adjusted_return": 0.2,
+    "factor_asset_daily_eligibility_required": true
+  },
+  "evaluation": {
+    "horizons": [5, 20],
+    "primary_horizon": 5,
+    "diagnostic_horizon": 20,
+    "diagnostic_horizon_can_rescue_primary": false,
+    "execution_lag": 1,
+    "minimum_daily_cross_section": 30,
+    "minimum_ic_observations": 20,
+    "minimum_yearly_ic_observations": 20,
+    "minimum_usable_years": 3,
+    "newey_west_alpha": 0.05,
+    "fdr_alpha": 0.05,
+    "multiple_testing_method": "benjamini_hochberg",
+    "multiple_testing_scope": "all_frozen_candidate_horizon_tests",
+    "minimum_mean_rank_ic": 0.02,
+    "minimum_icir": 0.3,
+    "minimum_positive_ic_rate": 0.55,
+    "minimum_quintile_monotonicity": 0.7,
+    "maximum_top_quintile_turnover": 0.9,
+    "minimum_positive_year_rate": 0.6,
+    "maximum_abs_mean_daily_reference_correlation": 0.85,
+    "reference_correlation_operator": "strictly_less_than",
+    "primary_horizon_must_pass_all_gates": true,
+    "diagnostic_minimum_mean_rank_ic": 0.0,
+    "diagnostic_minimum_top_minus_bottom_spread": 0.0
+  },
+  "reference_policy": {
+    "reference_configs": [
+      {
+        "path": "configs/cn_etf_skip_momentum_prescreen_20260716.json",
+        "sha256": "75dd8529d21762804029741928287fb07ba5251bcfd85bcfe7445a029ac93611"
+      },
+      {
+        "path": "configs/cn_etf_liquidity_capacity_prescreen_20260716.json",
+        "sha256": "b0eed9567ddd0172c0a02cc7cb3b1fb494db95b5053cc5acb8a2cf68412e5b76"
+      },
+      {
+        "path": "configs/cn_etf_market_residual_volatility_prescreen_20260716.json",
+        "sha256": "303b0a66961baa65fbbf72f55f0ad030675908b061954017ae84a890dea62ad0"
+      }
+    ],
+    "reference_set_policy": "complete_candidate_and_reference_union",
+    "missing_or_all_null_reference_fails": true,
+    "max_abs_reference_correlation": 0.85,
+    "reference_correlation_operator": "strictly_less_than",
+    "direct_exposure_names": [
+      "share_creation_20",
+      "return_20",
+      "return_60",
+      "realized_volatility_20",
+      "log_adv20",
+      "log_total_size"
+    ],
+    "max_abs_direct_exposure_correlation": 0.85,
+    "direct_exposure_correlation_operator": "strictly_less_than"
+  },
+  "capacity": {
+    "amount_unit": "CNY",
+    "adv_window": 20,
+    "portfolio_value_cny": 1000000.0,
+    "position_count": 10,
+    "diagnostic_position_value_cny": 100000.0,
+    "max_one_way_participation_rate": 0.01,
+    "top_quintile_adv20_p10_support_required_every_date": true,
+    "top_and_bottom_quintile_turnover_required": true
+  },
+  "costs": {
+    "one_way_bps": [5.0, 10.0],
+    "required_positive_net_spread_bps": 10.0,
+    "primary_cost_adjusted_spread_must_be_positive": true
+  },
+  "stop_policy": {
+    "candidate_count": 1,
+    "hypothesis_count": 2,
+    "single_prescreen_run_limit": 1,
+    "primary_horizon_must_pass": true,
+    "primary_failure_action": "close_family_zero_budget",
+    "primary_pass_next_action": "backfill_2024_h2_through_2025_then_preregister_walk_forward",
+    "sign_flip_rescue_allowed": false,
+    "window_tuning_allowed": false,
+    "control_removal_allowed": false,
+    "eligibility_relaxation_allowed": false,
+    "threshold_relaxation_allowed": false,
+    "horizon_substitution_allowed": false,
+    "parameter_grid_allowed": false,
+    "regime_rescue_allowed": false,
+    "portfolio_rescue_allowed": false,
+    "walk_forward_rescue_allowed": false,
+    "final_holdout_remains_sealed": true
+  },
+  "output_dir": "data/reports/cn_etf_fund_structure_crowding_preregistration_20260728",
+  "authorization_filename": "single_prescreen_authorization.json",
+  "execution_ledger_path": "data/reports/cn_etf_fund_structure_crowding_prescreen_execution_ledger.json",
+  "forward_return_read_allowed": false,
+  "factor_generation_allowed": false,
+  "prescreen_execution_allowed": false,
+  "portfolio_grid_allowed": false,
+  "walk_forward_allowed": false,
+  "final_holdout_allowed": false,
+  "promotion_allowed": false,
+  "paper_signal_allowed": false,
+  "broker_connection_allowed": false,
+  "account_read_allowed": false,
+  "order_placement_allowed": false,
+  "live_trading_allowed": false,
+  "live_boundary_allowed": false
+}

@@ -342,15 +342,27 @@ def _single_prescreen_mode(
         or _float(decision.get("unallocated_budget_share"), -1.0) != 1.0
     ):
         return None
-    if decision.get("factor_name") != "etf_dynamic_peer_residual_dislocation_reversal_5_60":
+    allowed_scopes = {
+        "etf_dynamic_peer_residual_dislocation_reversal_5_60": (
+            "cn_etf_dynamic_peer_dislocation_prescreen",
+            "mapping_sha256",
+        ),
+        "etf_residual_share_creation_crowding_reversal_20": (
+            "cn_etf_fund_structure_crowding_prescreen",
+            "canonical_data_sha256",
+        ),
+    }
+    factor_name = decision.get("factor_name")
+    if factor_name not in allowed_scopes:
         return None
+    allowed_stage, source_identity_key = allowed_scopes[factor_name]
     for key in (
         "preregistration_config_sha256",
         "preregistration_result_sha256",
         "authorization_sha256",
         "source_config_sha256",
         "source_result_sha256",
-        "mapping_sha256",
+        source_identity_key,
     ):
         if not _is_sha256(decision.get(key)):
             return None
@@ -363,7 +375,7 @@ def _single_prescreen_mode(
         or decision.get("execution_ledger_required") is not True
         or decision.get("factor_batch_allowed") is not True
         or decision.get("single_prescreen_allowed") is not True
-        or decision.get("allowed_stage") != "cn_etf_dynamic_peer_dislocation_prescreen"
+        or decision.get("allowed_stage") != allowed_stage
     ):
         return None
     ledger_path = decision.get("execution_ledger_path")
@@ -391,7 +403,7 @@ def _single_prescreen_mode(
             "authorization_sha256": decision["authorization_sha256"],
             "source_config_sha256": decision["source_config_sha256"],
             "source_result_sha256": decision["source_result_sha256"],
-            "mapping_sha256": decision["mapping_sha256"],
+            source_identity_key: decision[source_identity_key],
             "allowed_stage": decision["allowed_stage"],
             "max_executions": 1,
             "execution_count": 0,

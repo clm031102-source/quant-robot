@@ -189,6 +189,43 @@ class SinglePrescreenAuthorizationTests(unittest.TestCase):
             self.assertFalse(bound_ledger.exists())
             self.assertFalse(alternate_ledger.exists())
 
+    def test_supports_a_hash_bound_custom_stage_and_source_key_set(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            packet_path = root / "authorization.json"
+            ledger_path = root / "claims.json"
+            stage = "cn_etf_fund_structure_crowding_prescreen"
+            source_keys = ("canonical_2020", "source_config", "source_result")
+            packet = build_single_prescreen_authorization(
+                registration_date="2026-07-28",
+                candidate_name="etf_residual_share_creation_crowding_reversal_20",
+                preregistration_config_sha256="a" * 64,
+                preregistration_result_sha256="b" * 64,
+                source_hashes={
+                    "canonical_2020": "c" * 64,
+                    "source_config": "d" * 64,
+                    "source_result": "e" * 64,
+                },
+                execution_ledger_path=ledger_path,
+                allowed_stage=stage,
+                source_hash_keys=source_keys,
+            )
+            write_single_prescreen_authorization(packet_path, packet)
+
+            receipt = claim_single_prescreen_authorization(
+                packet_path=packet_path,
+                ledger_path=ledger_path,
+                expected_candidate_name=packet["candidate_name"],
+                expected_config_sha256="a" * 64,
+                expected_packet_sha256=sha256_file(packet_path),
+                expected_allowed_stage=stage,
+                expected_source_hash_keys=source_keys,
+                context="custom fixture",
+            )
+
+            self.assertTrue(receipt["execution_claim_recorded"])
+            self.assertEqual(packet["allowed_stage"], stage)
+
 
 def _packet(
     *,
