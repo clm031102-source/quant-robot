@@ -6,7 +6,7 @@ from quant_robot.research.family_scheduler import build_research_family_schedule
 
 
 class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
-    def test_fund_structure_preregistration_opens_only_one_prescreen(self) -> None:
+    def test_fund_structure_rejected_prescreen_opens_only_family_rotation(self) -> None:
         config = json.loads(
             Path("configs/research_family_scheduler_cn_etf.json").read_text(encoding="utf-8")
         )
@@ -30,13 +30,15 @@ class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
         self.assertEqual(flow["budget_share"], 0.0)
         self.assertEqual(structure["budget_share"], 0.0)
         self.assertEqual(flow["source_readiness_status"], "blocked")
+        self.assertEqual(structure["status"], "stop_lossed")
         self.assertEqual(structure["source_readiness_status"], "ready_for_preregistration")
         self.assertFalse(structure["preregistration_required"])
         self.assertFalse(structure["factor_batch_before_preregistration_allowed"])
-        self.assertTrue(structure["single_prescreen_allowed"])
+        self.assertFalse(structure["single_prescreen_allowed"])
+        self.assertFalse(structure["primary_allocation_allowed"])
         self.assertEqual(
             structure["preregistration_status"],
-            "preregistered_single_prescreen",
+            "prescreen_completed_rejected",
         )
         self.assertEqual(structure["source_audit"]["share_rows"], 645645)
         self.assertEqual(structure["source_audit"]["share_assets"], 1023)
@@ -106,11 +108,11 @@ class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
         decision = config["last_decision"]
         self.assertEqual(
             decision["source_stage"],
-            "cn_etf_fund_structure_crowding_preregistration",
+            "cn_etf_fund_structure_crowding_prescreen",
         )
         self.assertEqual(
             decision["decision"],
-            "prescreen_preregistered_single_batch_only",
+            "prescreen_rejected_family_rotation_review_only",
         )
         self.assertEqual(
             decision["source_config_sha256"],
@@ -124,10 +126,20 @@ class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
             decision["factor_name"],
             "etf_residual_share_creation_crowding_reversal_20",
         )
-        self.assertEqual(decision["execution_count"], 0)
-        self.assertTrue(decision["factor_batch_allowed"])
-        self.assertTrue(decision["single_prescreen_allowed"])
+        self.assertEqual(decision["execution_count"], 1)
+        self.assertFalse(decision["factor_batch_allowed"])
+        self.assertFalse(decision["single_prescreen_allowed"])
         self.assertFalse(decision["preregistration_required"])
+        self.assertFalse(decision["primary_passed"])
+        self.assertTrue(decision["diagnostic_passed"])
+        self.assertAlmostEqual(
+            decision["primary_mean_rank_ic"],
+            0.0062187073014604065,
+        )
+        self.assertAlmostEqual(
+            decision["primary_net_spread_10bps"],
+            0.0010780130212781924,
+        )
         for boundary in (
             "portfolio_grid_allowed",
             "walk_forward_allowed",
@@ -144,6 +156,10 @@ class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
         self.assertEqual(
             config["prior_fund_structure_source_ready_decision"]["share_rows"],
             645645,
+        )
+        self.assertEqual(
+            config["prior_fund_structure_preregistration_decision"]["execution_count"],
+            0,
         )
         self.assertEqual(
             config["prior_dynamic_peer_closeout_decision"]["decision"],

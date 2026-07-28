@@ -135,6 +135,9 @@ def summarize_cn_etf_dynamic_peer_dislocation_prescreen(
     required_positive_net_spread_bps: float = 10.0,
     diagnostic_min_mean_rank_ic: float = 0.0,
     diagnostic_min_quantile_spread: float = 0.0,
+    candidate_name: str = FACTOR_NAME,
+    result_stage: str = STAGE,
+    safety_text: str = SAFETY,
 ) -> dict[str, Any]:
     _validate_frozen_roles(
         horizons=horizons,
@@ -161,7 +164,7 @@ def summarize_cn_etf_dynamic_peer_dislocation_prescreen(
         factors,
         labels,
         references,
-        candidate_names=(FACTOR_NAME,),
+        candidate_names=(candidate_name,),
         reference_names=expected_reference_names,
         horizons=horizons,
         thresholds=thresholds,
@@ -169,7 +172,7 @@ def summarize_cn_etf_dynamic_peer_dislocation_prescreen(
     costs = summarize_long_short_costs(
         factors,
         labels,
-        candidate_names=(FACTOR_NAME,),
+        candidate_names=(candidate_name,),
         horizons=horizons,
         min_cross_section=min_cross_section,
         one_way_costs_bps=one_way_costs_bps,
@@ -178,7 +181,7 @@ def summarize_cn_etf_dynamic_peer_dislocation_prescreen(
         factors,
         labels,
         adv20,
-        candidate_names=(FACTOR_NAME,),
+        candidate_names=(candidate_name,),
         horizons=horizons,
         min_cross_section=min_cross_section,
         position_value_cny=position_value_cny,
@@ -187,7 +190,7 @@ def summarize_cn_etf_dynamic_peer_dislocation_prescreen(
     exposure = summarize_direct_exposure_correlations(
         factors,
         direct_exposures,
-        candidate_names=(FACTOR_NAME,),
+        candidate_names=(candidate_name,),
         exposure_names=direct_exposure_names,
         min_cross_section=min_cross_section,
         min_daily_observations=direct_min_daily_observations,
@@ -246,10 +249,10 @@ def summarize_cn_etf_dynamic_peer_dislocation_prescreen(
     core_summary["research_lead_count"] = int(primary_passed)
     core_summary["research_lead_factor_count"] = int(primary_passed)
     return {
-        "stage": STAGE,
+        "stage": result_stage,
         "status": status,
         "summary": core_summary,
-        "candidate_names": [FACTOR_NAME],
+        "candidate_names": [candidate_name],
         "reference_names": list(expected_reference_names),
         "direct_exposure_names": list(direct_exposure_names),
         "thresholds": {
@@ -295,7 +298,7 @@ def summarize_cn_etf_dynamic_peer_dislocation_prescreen(
             "paper_signal_allowed": False,
             "live_boundary_allowed": False,
         },
-        "safety": SAFETY,
+        "safety": safety_text,
     }
 
 

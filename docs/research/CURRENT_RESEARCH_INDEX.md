@@ -4,9 +4,26 @@ Last updated: 2026-07-28
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
-## Current CN ETF Fund-Structure Source Readiness
+## Current CN ETF Fund-Structure Crowding Closeout
 
-- Active branch: `codex/factor-review-cn-etf-fund-structure-source-20260728`
+- Active branch: `codex/factor-batch-cn-etf-fund-structure-20260728`
+- Durable report: `docs/research/cn_etf_fund_structure_crowding_prescreen_2026-07-28.md`
+- Frozen candidate: `etf_residual_share_creation_crowding_reversal_20`
+- Execution: the hash-bound authorization was claimed and consumed exactly once
+- Point-in-time sample: 283,787 finite candidate rows, 771 ETFs, and 965 dates over 2020-01-02 through 2024-06-28
+- Primary H5: mean Rank IC `0.006219`, ICIR `0.058750`, FDR q `0.576070`, monotonicity `0.60`, and 10 bps net spread `0.001078`
+- Capacity: 378 of 959 primary dates qualified; minimum daily top-quintile P10 ADV20 was CNY 6.05 million and maximum participation was 1.652690%
+- Diagnostic H20: mean Rank IC `0.001172` and 10 bps net spread `0.002766`; diagnostic evidence cannot rescue the failed primary
+- Duplication/exposure: maximum closed-family correlation `0.229150`; maximum direct-exposure correlation `0.849910`, below the strict `0.85` ceiling
+- Decision: statistical and capacity evidence failed; `cn_etf_fund_structure` is stop-lossed with zero budget and no rerun, tuning, portfolio grid, walk-forward, or holdout access
+- Default next task: review one genuinely orthogonal CN ETF source family without reusing closed price, liquidity, volatility, peer, or fund-share directions
+- Boundary: research-to-paper only; no broker, account, order, paper signal, or live access
+
+Generated execution, analytical, and hash evidence remains under ignored `data/reports/` paths and must not be committed.
+
+## Integrated CN ETF Fund-Structure Source Readiness
+
+- Source branch: `codex/factor-review-cn-etf-fund-structure-source-20260728`
 - Durable report: `docs/research/cn_etf_fund_structure_source_readiness_2026-07-28.md`
 - Decision: `ready_for_fund_structure_preregistration`; this is source readiness, not alpha
 - Frozen sample: 645,645 share/NAV rows, 1,023 ETFs, 1,085 sessions, 2020-01-02 through 2024-06-28
@@ -15,9 +32,9 @@ Purpose: this is the first file to read after syncing the repository on any work
 - NAV intersection coverage: 99.479590%; 642,285 positive NAV rows
 - Integrity: zero duplicate rows, point-in-time violations, derived-value mismatches, out-of-window rows, or final-holdout rows
 - Tushare endpoint status: `etf_share_size` permission denied; the audited repair uses official SSE/SZSE shares, public Eastmoney NAV, bounded Tushare closes, and the fingerprinted official CN calendar
-- Scheduler: family budget remains zero; `factor_review` is allowed only in `preregistration_only` mode
-- Default next task: preregister exactly one compact fund-structure prescreen; do not run the legacy broad share-size walk-forward grid
-- Boundary: no factor batch yet, no portfolio grid, no walk-forward, no final holdout, no broker/account/order/live access
+- Scheduler: the later preregistered prescreen was consumed and rejected; source readiness is preserved as provenance, not alpha
+- Default next task: completed by the closeout section above; do not run the legacy broad share-size grid
+- Boundary: no repeat batch, portfolio grid, walk-forward, final holdout, broker/account/order/live access
 
 Generated source data and detailed reports remain under ignored `data/` paths and must not be committed.
 
