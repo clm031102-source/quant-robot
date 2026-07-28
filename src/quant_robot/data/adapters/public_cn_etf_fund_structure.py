@@ -131,6 +131,11 @@ def parse_eastmoney_nav_javascript(
     start_date: str,
     end_date: str,
 ) -> pd.DataFrame:
+    normalized_symbol = _normalize_symbol(symbol)
+    expected_code = normalized_symbol.split(".", 1)[0]
+    code_match = re.search(r'var\s+fS_code\s*=\s*"([^"]*)";', javascript)
+    if code_match is None or code_match.group(1) != expected_code:
+        raise ProviderResponseError("Eastmoney response fund code does not match the requested symbol")
     match = re.search(r"var\s+Data_netWorthTrend\s*=\s*(.*?);", javascript, flags=re.DOTALL)
     if match is None:
         raise ProviderResponseError(
@@ -143,7 +148,6 @@ def parse_eastmoney_nav_javascript(
         raise ProviderResponseError("Eastmoney Data_netWorthTrend is not valid JSON") from exc
     if not isinstance(raw_rows, list):
         raise ProviderResponseError("Eastmoney Data_netWorthTrend schema is invalid")
-    normalized_symbol = _normalize_symbol(symbol)
     start = pd.to_datetime(start_date, errors="raise").date()
     end = pd.to_datetime(end_date, errors="raise").date()
     if start > end:

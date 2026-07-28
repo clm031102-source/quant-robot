@@ -113,6 +113,7 @@ class PublicCnEtfFundStructureAdapterTests(unittest.TestCase):
             {"x": 1577750400000, "y": 1.0, "equityReturn": 0.0, "unitMoney": ""},
         ]
         javascript = (
+            'var fS_code = "510300";\n'
             "var unrelated = 1;\n"
             f"var Data_netWorthTrend = {json.dumps(rows)};\n"
             "var Data_ACWorthTrend = [];\n"
@@ -136,7 +137,7 @@ class PublicCnEtfFundStructureAdapterTests(unittest.TestCase):
     def test_parse_eastmoney_nav_javascript_rejects_missing_or_duplicate_values(self) -> None:
         with self.assertRaisesRegex(ProviderResponseError, "Data_netWorthTrend"):
             parse_eastmoney_nav_javascript(
-                "var somethingElse = [];",
+                'var fS_code = "510300"; var somethingElse = [];',
                 symbol="510300.SH",
                 start_date="2024-01-01",
                 end_date="2024-06-28",
@@ -148,7 +149,15 @@ class PublicCnEtfFundStructureAdapterTests(unittest.TestCase):
         ]
         with self.assertRaisesRegex(ProviderResponseError, "duplicate"):
             parse_eastmoney_nav_javascript(
-                f"var Data_netWorthTrend = {json.dumps(rows)};",
+                f'var fS_code = "510300"; var Data_netWorthTrend = {json.dumps(rows)};',
+                symbol="510300.SH",
+                start_date="2024-01-01",
+                end_date="2024-06-28",
+            )
+
+        with self.assertRaisesRegex(ProviderResponseError, "fund code"):
+            parse_eastmoney_nav_javascript(
+                'var fS_code = "159919"; var Data_netWorthTrend = [];',
                 symbol="510300.SH",
                 start_date="2024-01-01",
                 end_date="2024-06-28",
@@ -170,6 +179,7 @@ class PublicCnEtfFundStructureAdapterTests(unittest.TestCase):
         self.assertEqual(shares["total_share"].tolist(), [0.0])
 
         nav = parse_eastmoney_nav_javascript(
+            'var fS_code = "510300"; '
             'var Data_netWorthTrend = [{"x": 1719504000000, "y": 0}];',
             symbol="510300.SH",
             start_date="2024-01-01",
