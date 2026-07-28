@@ -15,6 +15,7 @@ Purpose: this is the first file to read after syncing the repository on any work
 - Public fallback: three bounded FT Tech PCF-list probes, including both ends of the research window, all returned provider errors; licensing and completeness are also unverified
 - ETF-to-index mapping: `etf_basic` was permission denied; `fund_basic` succeeded with 2,154 active exchange-fund rows but is current text metadata, not a complete historical mapping
 - Historical index constituents: `index_weight` succeeded with 300 CSI 300 rows for January 2020
+- Bar authority repair: `docs/research/cn_etf_bar_authority_gap_repair_2026-07-28.md`; 2020-05-28 and 2020-06-03 are now present with 767 and 793 rows
 - External requirement: enable the official 8,000-point PCF/ETF metadata endpoints or provide a licensed SSE+SZSE historical PCF export for 2020-01-02 through 2024-06-28
 - Default next task after access: backfill, fingerprint, point-in-time align, and quality-audit the full PCF source before defining one compact hypothesis
 - Boundary: no factor, forward return, portfolio, walk-forward, final holdout, broker, account, order, paper signal, or live access
@@ -46,7 +47,7 @@ Generated execution and analytical evidence remains under ignored `data/reports/
 - Frozen source: 199,793 point-in-time rows, 410 marginable ETFs/funds, 1,085 observed dates, and 99.816007% qualifying-date coverage
 - Breadth: median 183 and maximum 297 assets per observed date
 - Integrity: 100% exact next-session availability, 100% same-date ETF-bar intersection, zero duplicate or holdout rows
-- Data-quality constraint: the CN ETF bar authority is entirely missing official sessions 2020-05-28 and 2020-06-03; exclude gap-crossing factor/label windows and repair before promotion
+- Historical data-quality note: the source-readiness and prescreen artifacts excluded 2020-05-28 and 2020-06-03 because they were missing at execution time; both authority sessions were subsequently repaired and future preregistrations may use the repaired source
 - Prior evidence constraint: the CN-stock margin-credit signal failed residual proof; the ETF prescreen must be style-residualized and explicitly duplication-gated
 - Default next task: completed and rejected by the closeout above; do not rerun or rescue
 - Boundary: no factor generation or forward-return read before preregistration; no portfolio grid, walk-forward, final holdout, broker, account, order, paper signal, or live access

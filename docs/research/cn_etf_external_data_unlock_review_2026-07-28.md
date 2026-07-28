@@ -120,9 +120,9 @@ backward.
 2. Historical ETF IOPV/premium minute data. Tushare documents
    `rt_etf_sz_iopv` as a current Shenzhen-only, separately permissioned feed;
    it does not document the historical archive needed here.
-3. Authoritative replacement ETF bars for 2020-05-28 and 2020-06-03. Those two
-   official sessions remain absent from the current ETF bar authority and must
-   be repaired or formally adjudicated before promotion.
+3. Historical ETF bar gaps were a secondary unlock at review time. They were
+   subsequently repaired from Tushare `fund_daily`: 767 rows on 2020-05-28 and
+   793 rows on 2020-06-03. This item is no longer an operator input.
 
 ## Boundary
 

@@ -8,6 +8,27 @@
     "max_repeated_failure_rounds": 2,
     "max_rescue_iterations": 3
   },
+  "bar_authority_repair_decision": {
+    "date": "2026-07-28",
+    "source_stage": "cn_etf_bar_authority_gap_repair",
+    "status": "repaired",
+    "gap_dates": [
+      "2020-05-28",
+      "2020-06-03"
+    ],
+    "inserted_rows_by_date": {
+      "2020-05-28": 767,
+      "2020-06-03": 793
+    },
+    "processed_partition_sha256": "892fd8e59621cf9ea0963439c60e6de1c233fcdc251aff7c9b143d76a8498f5e",
+    "quality_report_sha256": "f3f08fa60be888d63cce5069d32ab12d732063309285e690328de2d8cb7f0421",
+    "future_preregistration_bar_gap_blocker": false,
+    "rejected_family_reopen_allowed": false,
+    "factor_generation_allowed": false,
+    "forward_return_read": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
+  },
   "prior_fund_structure_closeout_decision": {
     "date": "2026-07-28",
     "source_stage": "cn_etf_fund_structure_crowding_prescreen",

@@ -8,7 +8,7 @@
     "licensed_export_local_path": null,
     "licensed_export_data_dictionary_path": null,
     "historical_etf_target_universe_path": "data/processed/cn_etf_pcf_target_universe_2020_2024/target_universe.csv",
-    "bar_gap_repair_source": null
+    "bar_gap_repair_source": "resolved_tushare_fund_daily_20260728"
   },
   "capital_and_risk": {
     "intended_initial_capital_cny": null,

@@ -93,8 +93,9 @@ minimum of 30 ETFs) and both exchanges.
 It writes only readiness reports and coverage tables. Even a cleared result
 permits preregistration only; factors and returns remain unread.
 
-Also provide authoritative ETF bars for 2020-05-28 and 2020-06-03 if available.
-The current bar authority has no rows on those two official sessions.
+The prior ETF bar gaps on 2020-05-28 and 2020-06-03 were repaired during this
+work session from Tushare `fund_daily` with 767 and 793 rows respectively.
+No operator input is needed for those dates.
 
 ### Needed before cost and capacity validation
 
