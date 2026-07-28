@@ -89,4 +89,3 @@ Do not generate a primary option-sentiment cross-sectional factor, read forward
 returns, run a factor batch, tune parameters, access the final holdout, or open
 paper/live execution boundaries. Rotate to another genuinely orthogonal CN ETF
 source family.
-
