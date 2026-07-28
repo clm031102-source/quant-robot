@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "stage": "cn_etf_fund_structure_source_readiness",
+  "review_date": "2026-07-28",
+  "primary_market": "CN_ETF",
+  "research_family": "cn_etf_fund_structure",
+  "analysis": {
+    "bar_root": "data/processed/tushare_etf_wide_history_2023_2026",
+    "start_date": "2020-01-02",
+    "end_date": "2024-06-28",
+    "next_session_read_end": "2024-07-05",
+    "final_holdout_start": "2026-01-01"
+  },
+  "outputs": {
+    "data_dir": "data/processed/cn_etf_fund_structure_public_2020_2024",
+    "report_dir": "data/reports/cn_etf_fund_structure_source_readiness_20260728"
+  },
+  "providers": {
+    "sse_share_source": "sse_official_etf_scale",
+    "szse_share_source": "szse_official_fund_scale",
+    "nav_source": "eastmoney_fund_detail_history",
+    "close_source": "tushare_fund_daily",
+    "max_retries": 4,
+    "backoff_factor": 0.75,
+    "connect_timeout_seconds": 15.0,
+    "read_timeout_seconds": 60.0,
+    "max_workers": 4,
+    "szse_window_days": 183
+  },
+  "tushare_probe": {
+    "probe_date": "2024-06-28",
+    "endpoint": "etf_share_size",
+    "status": "permission_denied",
+    "retryable": false
+  },
+  "thresholds": {
+    "minimum_combined_assets_per_date": 30,
+    "minimum_combined_date_coverage": 0.8,
+    "minimum_exchange_assets_per_date": 30,
+    "minimum_exchange_date_coverage": 0.75,
+    "minimum_median_share_asset_coverage": 0.5,
+    "minimum_nav_intersection_coverage": 0.7,
+    "minimum_positive_share_ratio": 0.95,
+    "minimum_positive_nav_ratio": 0.95
+  },
+  "boundaries": {
+    "factor_generation_allowed": false,
+    "forward_return_read": false,
+    "portfolio_grid_allowed": false,
+    "walk_forward_allowed": false,
+    "final_holdout_allowed": false,
+    "promotion_allowed": false,
+    "paper_signal_allowed": false,
+    "broker_connection_allowed": false,
+    "account_read_allowed": false,
+    "order_placement_allowed": false,
+    "live_boundary_allowed": false
+  }
+}
