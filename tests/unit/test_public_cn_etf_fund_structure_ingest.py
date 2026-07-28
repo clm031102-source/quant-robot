@@ -4,6 +4,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import pandas as pd
 
@@ -12,6 +13,7 @@ from quant_robot.data.ingest.public_cn_etf_fund_structure import (
     build_public_source_request_plan,
     normalize_public_cn_etf_fund_structure,
     run_public_cn_etf_fund_structure_ingest,
+    _save_manifest,
 )
 from quant_robot.storage.etf_share_size import load_etf_share_size_inputs
 
@@ -73,6 +75,21 @@ class _FakeAdapter:
 
 
 class PublicCnEtfFundStructureIngestTests(unittest.TestCase):
+    def test_manifest_write_retries_transient_windows_replace_denial(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp, "manifest.json")
+            with (
+                patch(
+                    "quant_robot.data.ingest.public_cn_etf_fund_structure.atomic_write_json",
+                    side_effect=[PermissionError("busy"), None],
+                ) as writer,
+                patch("quant_robot.data.ingest.public_cn_etf_fund_structure.time.sleep") as sleeper,
+            ):
+                _save_manifest(path, {"schema_version": 1}, max_attempts=3, retry_delay_seconds=0.1)
+
+            self.assertEqual(writer.call_count, 2)
+            sleeper.assert_called_once_with(0.1)
+
     def test_request_plan_uses_only_analysis_sessions_and_observed_symbols(self) -> None:
         bars = _bars()
 

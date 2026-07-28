@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
@@ -376,7 +377,7 @@ def _run_pending_requests(
                     "error_category": category,
                     "error": _bounded_error(exc),
                 }
-            atomic_write_json(manifest_path, manifest)
+            _save_manifest(manifest_path, manifest)
 
 
 def _load_completed_frames(
@@ -414,7 +415,7 @@ def _load_manifest(path: Path, plan: dict[str, Any]) -> dict[str, Any]:
             "scope": scope,
             "requests": {},
         }
-        atomic_write_json(path, manifest)
+        _save_manifest(path, manifest)
         return manifest
     manifest = json.loads(path.read_text(encoding="utf-8"))
     if manifest.get("schema_version") != MANIFEST_SCHEMA_VERSION:
@@ -424,6 +425,25 @@ def _load_manifest(path: Path, plan: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(manifest.get("requests"), dict):
         raise ValueError(f"Public source manifest requests are invalid: {path}")
     return manifest
+
+
+def _save_manifest(
+    path: Path,
+    manifest: dict[str, Any],
+    *,
+    max_attempts: int = 5,
+    retry_delay_seconds: float = 0.1,
+) -> None:
+    if max_attempts < 1:
+        raise ValueError("max_attempts must be positive")
+    for attempt in range(1, max_attempts + 1):
+        try:
+            atomic_write_json(path, manifest)
+            return
+        except PermissionError:
+            if attempt == max_attempts:
+                raise
+            time.sleep(retry_delay_seconds)
 
 
 def _completed_request_is_present(
