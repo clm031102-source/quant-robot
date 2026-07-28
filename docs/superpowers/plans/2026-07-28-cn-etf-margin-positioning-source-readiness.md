@@ -15,4 +15,3 @@ dataset before any alpha test.
    ETF-specific margin-positioning prescreen; otherwise record the blocker and
    rotate.
 5. Verify, commit, integrate, push, and clean the completed branch.
-

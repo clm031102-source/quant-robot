@@ -51,4 +51,3 @@ stores only code, config, tests, hashes, and lightweight reports. No factor
 generation, forward returns, portfolio grid, walk-forward, final holdout,
 paper signal, broker, account, order, or live execution is allowed in this
 stage.
-

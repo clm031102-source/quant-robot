@@ -83,4 +83,3 @@ Before that registration, factor generation and forward-return reads remain
 disabled. The later prescreen must be authorization-bound, cost-aware, capacity
 aware, style-residualized, duplication-gated, and unable to access the 2026
 final holdout.
-
