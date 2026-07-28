@@ -149,6 +149,28 @@ class CnEtfFundStructureSourceReadinessTests(unittest.TestCase):
         )
         self.assertIn("official_share_requests_incomplete", result["gate"]["blockers"])
 
+    def test_source_identity_and_derived_values_fail_closed(self) -> None:
+        processed = _processed()
+        processed.loc[processed.index[0], "close_source"] = "unapproved_close_source"
+        processed.loc[processed.index[1], "share_source"] = "unapproved_share_source"
+        processed.loc[processed.index[2], "nav_source"] = "unapproved_nav_source"
+        processed.loc[processed.index[3], "total_size"] = 999.0
+        processed.loc[processed.index[4], "nav_premium_discount"] = 999.0
+
+        result = build_cn_etf_fund_structure_source_readiness(
+            config=_config(),
+            processed=processed,
+            bars=_bars(),
+            request_manifest=_manifest(),
+            configuration_sha256="a" * 64,
+        )
+
+        self.assertIn("unapproved_close_source_rows", result["gate"]["blockers"])
+        self.assertIn("unapproved_share_source_rows", result["gate"]["blockers"])
+        self.assertIn("unapproved_nav_source_rows", result["gate"]["blockers"])
+        self.assertIn("derived_total_size_mismatch_rows", result["gate"]["blockers"])
+        self.assertIn("derived_premium_discount_mismatch_rows", result["gate"]["blockers"])
+
     def test_any_enabled_downstream_boundary_blocks_readiness(self) -> None:
         for key in _config()["boundaries"]:
             with self.subTest(key=key):

@@ -88,6 +88,53 @@ def build_cn_etf_fund_structure_source_readiness(
         ).sum()
     )
     official_share_failures = _official_share_failures(request_manifest)
+    unapproved_close_source_rows = int(
+        source_frame["close_source"].ne("tushare_fund_daily").sum()
+    )
+    unapproved_share_source_rows = int(
+        (
+            ~source_frame["share_source"].isin(
+                {"sse_official_etf_scale", "szse_official_fund_scale"}
+            )
+        ).sum()
+    )
+    unapproved_nav_source_rows = int(
+        (
+            nav_values.notna()
+            & source_frame["nav_source"].ne("eastmoney_fund_detail_history")
+        ).sum()
+    )
+    numeric_share = pd.to_numeric(source_frame["total_share"], errors="coerce")
+    numeric_close = pd.to_numeric(source_frame["close"], errors="coerce")
+    numeric_size = pd.to_numeric(source_frame["total_size"], errors="coerce")
+    numeric_premium = pd.to_numeric(source_frame["nav_premium_discount"], errors="coerce")
+    derived_eligible = (
+        numeric_share.gt(0.0)
+        & nav_values.gt(0.0)
+        & numeric_close.gt(0.0)
+    )
+    expected_size = numeric_share * nav_values
+    expected_premium = numeric_close / nav_values - 1.0
+    size_matches = np.isclose(
+        numeric_size.to_numpy(dtype=float, na_value=np.nan),
+        expected_size.to_numpy(dtype=float, na_value=np.nan),
+        rtol=1e-10,
+        atol=1e-12,
+        equal_nan=False,
+    )
+    premium_matches = np.isclose(
+        numeric_premium.to_numpy(dtype=float, na_value=np.nan),
+        expected_premium.to_numpy(dtype=float, na_value=np.nan),
+        rtol=1e-10,
+        atol=1e-12,
+        equal_nan=False,
+    )
+    derived_total_size_mismatch_rows = int(
+        (derived_eligible & ~pd.Series(size_matches, index=source_frame.index)).sum()
+    )
+    derived_premium_mismatch_rows = int(
+        (derived_eligible & ~pd.Series(premium_matches, index=source_frame.index)).sum()
+    )
 
     blockers: list[str] = []
     if duplicate_rows:
@@ -100,6 +147,16 @@ def build_cn_etf_fund_structure_source_readiness(
         blockers.append("known_from_not_after_observation_date")
     if official_share_failures:
         blockers.append("official_share_requests_incomplete")
+    if unapproved_close_source_rows:
+        blockers.append("unapproved_close_source_rows")
+    if unapproved_share_source_rows:
+        blockers.append("unapproved_share_source_rows")
+    if unapproved_nav_source_rows:
+        blockers.append("unapproved_nav_source_rows")
+    if derived_total_size_mismatch_rows:
+        blockers.append("derived_total_size_mismatch_rows")
+    if derived_premium_mismatch_rows:
+        blockers.append("derived_premium_discount_mismatch_rows")
     if combined_coverage < float(thresholds["minimum_combined_date_coverage"]):
         blockers.append("combined_share_date_coverage_below_minimum")
     for exchange, prefix in (("SSE", "sse"), ("SZSE", "szse")):
@@ -147,6 +204,11 @@ def build_cn_etf_fund_structure_source_readiness(
             "holdout_rows": holdout_rows,
             "pit_violations": pit_violations,
             "official_share_request_failures": official_share_failures,
+            "unapproved_close_source_rows": unapproved_close_source_rows,
+            "unapproved_share_source_rows": unapproved_share_source_rows,
+            "unapproved_nav_source_rows": unapproved_nav_source_rows,
+            "derived_total_size_mismatch_rows": derived_total_size_mismatch_rows,
+            "derived_premium_discount_mismatch_rows": derived_premium_mismatch_rows,
         },
         "coverage": {
             "combined_qualifying_dates": combined_qualifying_dates,
