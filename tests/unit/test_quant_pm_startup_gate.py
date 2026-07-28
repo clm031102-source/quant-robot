@@ -246,6 +246,92 @@ class QuantPmStartupGateTests(unittest.TestCase):
             self.assertEqual(other_task["status"], "blocked")
             self.assertFalse(other_task["safety"]["factor_batch_allowed"])
 
+    def test_gate_allows_family_rotation_review_after_rejected_prescreen(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for row in _gate_config()["required_reading"]:
+                target = root / row["path"]
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("ok\n", encoding="utf-8")
+            family = _rejected_prescreen_family_config()
+
+            review = build_quant_pm_startup_gate(
+                gate_config=_gate_config(),
+                workstations_config=_workstations(),
+                repo_root=root,
+                machine="highspec_desktop",
+                task="factor_review",
+                branch="codex/factor-review-cn-etf-family-rotation",
+                current_branch="codex/factor-review-cn-etf-family-rotation",
+                family_config=family,
+            )
+            factor_batch = build_quant_pm_startup_gate(
+                gate_config=_gate_config(),
+                workstations_config=_workstations(),
+                repo_root=root,
+                machine="highspec_desktop",
+                task="factor_batch",
+                branch="codex/factor-batch-cn-etf",
+                current_branch="codex/factor-batch-cn-etf",
+                family_config=family,
+            )
+
+            self.assertEqual(review["status"], "ready")
+            self.assertEqual(review["mode"], "family_rotation_review_only")
+            self.assertFalse(review["safety"]["factor_batch_allowed"])
+            self.assertIn(
+                "research_family_scheduler_family_rotation_review_mode",
+                review["warnings"],
+            )
+            self.assertEqual(
+                review["next_actions"][0]["action"],
+                "review_next_orthogonal_cn_etf_family",
+            )
+            self.assertEqual(factor_batch["status"], "blocked")
+            self.assertIn("research_family_scheduler_not_ready", factor_batch["blockers"])
+
+    def test_family_rotation_review_fails_closed_on_reopened_downstream_boundary(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for row in _gate_config()["required_reading"]:
+                target = root / row["path"]
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("ok\n", encoding="utf-8")
+
+            for boundary in (
+                "single_prescreen_allowed",
+                "portfolio_grid_allowed",
+                "walk_forward_allowed",
+                "final_holdout_allowed",
+                "promotion_allowed",
+                "paper_signal_allowed",
+                "broker_connection_allowed",
+                "account_read_allowed",
+                "order_placement_allowed",
+                "live_boundary_allowed",
+            ):
+                with self.subTest(boundary=boundary):
+                    family = _rejected_prescreen_family_config()
+                    family["last_decision"][boundary] = True
+
+                    pack = build_quant_pm_startup_gate(
+                        gate_config=_gate_config(),
+                        workstations_config=_workstations(),
+                        repo_root=root,
+                        machine="highspec_desktop",
+                        task="factor_review",
+                        branch="codex/factor-review-cn-etf-family-rotation",
+                        current_branch="codex/factor-review-cn-etf-family-rotation",
+                        family_config=family,
+                    )
+
+                    self.assertEqual(pack["status"], "blocked")
+                    self.assertEqual(pack["mode"], "standard_research")
+                    self.assertIn(
+                        "research_family_scheduler_not_ready",
+                        pack["blockers"],
+                    )
+
     def test_load_and_write_gate_pack(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -388,6 +474,29 @@ def _single_prescreen_family_config():
         "unallocated_budget_share": 1.0,
         "factor_batch_allowed": True,
         "single_prescreen_allowed": True,
+        "portfolio_grid_allowed": False,
+        "walk_forward_allowed": False,
+        "final_holdout_allowed": False,
+        "promotion_allowed": False,
+        "paper_signal_allowed": False,
+        "broker_connection_allowed": False,
+        "account_read_allowed": False,
+        "order_placement_allowed": False,
+        "live_boundary_allowed": False,
+    }
+    return config
+
+
+def _rejected_prescreen_family_config():
+    config = json.loads(json.dumps(_source_blocked_family_config()))
+    config["last_decision"] = {
+        "decision": "prescreen_rejected_family_rotation_review_only",
+        "factor_batch_allowed": False,
+        "family_rotation_review_allowed": True,
+        "unallocated_budget_share": 1.0,
+        "primary_passed": False,
+        "execution_count": 1,
+        "single_prescreen_allowed": False,
         "portfolio_grid_allowed": False,
         "walk_forward_allowed": False,
         "final_holdout_allowed": False,

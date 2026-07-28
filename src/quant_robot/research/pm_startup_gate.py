@@ -59,6 +59,8 @@ def build_quant_pm_startup_gate(
         warnings.append("research_family_scheduler_preregistration_mode")
     elif restricted_mode == "single_prescreen_only":
         warnings.append("research_family_scheduler_single_prescreen_mode")
+    elif restricted_mode == "family_rotation_review_only":
+        warnings.append("research_family_scheduler_family_rotation_review_mode")
     else:
         blockers.extend(str(blocker) for blocker in _list(family_schedule.get("blockers")))
     blockers.extend(
@@ -282,6 +284,30 @@ def _restricted_review_mode(
         mode = "preregistration_only"
     elif decision_name == "prescreen_preregistered_single_batch_only":
         return _single_prescreen_mode(task, decision, family_schedule)
+    elif decision_name == "prescreen_rejected_family_rotation_review_only":
+        if (
+            decision.get("family_rotation_review_allowed") is not True
+            or decision.get("primary_passed") is not False
+            or decision.get("execution_count") != 1
+            or _float(decision.get("unallocated_budget_share"), -1.0) != 1.0
+        ):
+            return None
+        for key in (
+            "single_prescreen_allowed",
+            "portfolio_grid_allowed",
+            "walk_forward_allowed",
+            "final_holdout_allowed",
+            "promotion_allowed",
+            "paper_signal_allowed",
+            "broker_connection_allowed",
+            "account_read_allowed",
+            "order_placement_allowed",
+            "live_boundary_allowed",
+        ):
+            if decision.get(key) is not False:
+                return None
+        allowed_tasks = {"factor_review"}
+        mode = "family_rotation_review_only"
     else:
         return None
     if task not in allowed_tasks:
@@ -405,6 +431,13 @@ def _next_actions(
             {
                 "action": "run_hash_bound_single_prescreen",
                 "reason": "Exactly one authorization-bound dynamic-peer dislocation prescreen is allowed; all portfolio, walk-forward, holdout, paper, and live actions remain disabled.",
+            }
+        ]
+    if restricted_mode == "family_rotation_review_only":
+        return [
+            {
+                "action": "review_next_orthogonal_cn_etf_family",
+                "reason": "The authorized dynamic-peer prescreen was rejected and closed; review one new point-in-time-safe orthogonal family before any further factor batch.",
             }
         ]
     return [

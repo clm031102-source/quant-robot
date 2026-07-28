@@ -1,8 +1,27 @@
 # Current Research And Cloud Sync Index
 
-Last updated: 2026-07-16
+Last updated: 2026-07-28
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
+
+## Local CN ETF Dynamic Peer Dislocation Closeout (Not Yet Cloud-Integrated)
+
+- Local branch: `codex/factor-batch-cn-etf-dynamic-peer-dislocation-20260716`
+- Closeout report: `docs/research/cn_etf_dynamic_peer_dislocation_prescreen_2026-07-16.md`
+- Frozen candidate: `etf_dynamic_peer_residual_dislocation_reversal_5_60`
+- Execution: the exact authorization was atomically claimed and consumed once; no second execution is allowed
+- Point-in-time sample: 207,954 candidate rows, 136,612 finite rows, 581 assets, and 841 dates over 2020-01-02 through 2024-06-28
+- Primary result: horizon 5 mean Rank IC `0.004539`, ICIR `0.058640`, FDR q `0.253717`, monotonicity `0.30`, and 10 bps net spread `-0.000684`
+- Capacity result: only 466 of 835 primary dates qualified; minimum daily top-quintile P10 ADV20 was CNY 6.31 million and maximum participation was 1.584645%
+- Diagnostic result: horizon 20 mean Rank IC `-0.006343` and 10 bps net spread `-0.001414`; the diagnostic cannot rescue the primary row
+- Duplication/exposure: maximum absolute historical-reference and direct-exposure correlation was `0.201903`, below the frozen `0.85` ceiling
+- Decision: zero research leads; `cn_etf_dynamic_comovement_peer_dislocation` is stop-lossed with budget 0 and no rerun, tuning, rescue, portfolio grid, walk-forward, holdout, paper signal, or promotion
+- Scheduler: unallocated primary budget is 1.0; only `factor_review` for one genuinely orthogonal CN ETF family is allowed
+- Default next task: review point-in-time historical fund-share, scale, NAV, and premium/discount source readiness before generating any new factor
+- Final holdout: 2026 remained sealed and later partitions were skipped before read
+- Boundary: research-to-paper only; no broker, account, order, paper signal, or automatic-live access
+
+Generated execution, analytical, and hash evidence remains under ignored `data/reports/` paths and must not be committed.
 
 ## Local Desktop Validation And Integrity Evidence (Not Yet Cloud-Integrated)
 
@@ -15,12 +34,12 @@ Purpose: this is the first file to read after syncing the repository on any work
 - Price integrity: zero blocking rows; 14 official initial-price-discovery and 49 official post-suspension rows remain review-required
 - Integrity-bound manifest: `review_required`, zero blockers, exact packet path and SHA-256 provenance
 - Direction: do not retune the residual-moneyflow family; return primary research budget to scheduler-governed, preregistered `CN_ETF` work
-- Default next task: on a new `factor_batch` branch, execute exactly one authorization-bound prescreen for `etf_dynamic_peer_residual_dislocation_reversal_5_60`; claim the frozen authorization atomically before labels, then stop without tuning or a second run
+- Default next task: the dynamic-peer prescreen is complete and rejected; do not retune it. Run a scheduler-governed `factor_review` for one orthogonal CN ETF family, prioritizing fund-share and NAV source readiness
 - Boundary: research-to-paper only; no broker, account, order, or automatic-live access
 
 This local evidence is not part of `origin/main` until reviewed and integrated. It does not change the cloud branch inventory below.
 
-## Local CN ETF Dynamic Peer Dislocation Preregistration (Not Yet Cloud-Integrated)
+## Local CN ETF Dynamic Peer Dislocation Preregistration (Superseded By Closeout)
 
 - Local branch: `codex/factor-review-cn-etf-dynamic-peer-preregistration-20260716`
 - Preregistration report: `docs/research/cn_etf_dynamic_peer_dislocation_preregistration_2026-07-16.md`
@@ -32,11 +51,11 @@ This local evidence is not part of `origin/main` until reviewed and integrated. 
 - Preregistration result SHA-256: `2038a32fa9b250a33a76bdca08c204a349a1cdec959fc3c10dbe4b6a4f6440f5`
 - Authorization SHA-256: `c645de436c462365c443dd0574b750feb68b3955263b39a316b184862e99f5c9`; authorization ID `6460f4cafced4f39cc963c5e0bbc31fe4ae56d7f976804ae8beebfdd0d262a62`
 - Authorization packet: `data/reports/cn_etf_dynamic_peer_dislocation_preregistration_20260716/single_prescreen_authorization.json`
-- Required claim ledger: `data/reports/cn_etf_dynamic_peer_dislocation_prescreen_execution_ledger.json`; it does not yet exist and execution count is zero
-- Scheduler: family budget remains zero and unallocated primary budget remains 1.0; Quant PM permits only `single_prescreen_only` for the exact hash-bound factor batch
-- No-evidence boundary: preregistration read no bars, factor values, forward labels, IC, quantile returns, portfolios, walk-forward folds, or 2026 holdout rows; alpha and profitability remain untested
+- Required claim ledger: `data/reports/cn_etf_dynamic_peer_dislocation_prescreen_execution_ledger.json`; the authorization has now been claimed exactly once and is permanently consumed
+- Scheduler: the completed primary row failed; the family is stop-lossed at zero budget, unallocated primary budget remains 1.0, and Quant PM permits only `family_rotation_review_only`
+- Historical boundary: this preregistration stage itself read no labels or outcomes; the later authorized run is documented in the closeout section above and did not access the 2026 holdout
 - Stop rule: any failed primary statistical, reference, exposure, capacity, or 10 bps stressed-cost gate closes the family with zero budget; no sign, window, threshold, regime, portfolio, or walk-forward rescue
-- Default next task: create `codex/factor-batch-cn-etf-dynamic-peer-dislocation-20260716`, run the Quant PM gate, validate and atomically claim the exact authorization, execute one frozen prescreen, record its decision, and stop
+- Default next task: do not rerun the consumed prescreen. Review one orthogonal CN ETF family, prioritizing historical fund-share and NAV source readiness
 - Boundary: research-to-paper only; no portfolio grid, walk-forward, final holdout, paper signal, broker, account, order, or automatic-live access
 
 Generated preregistration and authorization artifacts remain under ignored `data/reports/` paths and must not be committed.
