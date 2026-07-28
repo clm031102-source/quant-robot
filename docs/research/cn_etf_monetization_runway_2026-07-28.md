@@ -50,6 +50,18 @@ upgrade alone. The official endpoints cap each response at 3,000 rows, so a
 complete multi-year, multi-ETF backfill still requires substantial sharding and
 provider calls.
 
+The repository now includes a machine-readable delivery contract at
+`configs/cn_etf_pcf_delivery_contract.json` and a review-only validator:
+
+```powershell
+python scripts\validate_cn_etf_pcf_delivery.py --input <file> --exchange SSE --provider <provider-name>
+```
+
+Run the corresponding command for SZSE separately. The validator fingerprints
+the input and checks aliases, key uniqueness, exchange suffixes, nonnegative
+quantities, and the frozen date boundary. It writes only a lightweight report;
+it does not write canonical market data or authorize factor generation.
+
 Also provide authoritative ETF bars for 2020-05-28 and 2020-06-03 if available.
 The current bar authority has no rows on those two official sessions.
 

@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "market": "CN_ETF",
+  "accepted_file_formats": [
+    "csv",
+    "parquet"
+  ],
+  "accepted_market_exchanges": [
+    "SSE",
+    "SZSE"
+  ],
+  "frozen_analysis_window": {
+    "start_date": "2020-01-02",
+    "end_date": "2024-06-28",
+    "final_holdout_start": "2026-01-01"
+  },
+  "required_source_fields": {
+    "trade_date": [
+      "trade_date"
+    ],
+    "etf_code": [
+      "etf_code",
+      "ts_code"
+    ],
+    "constituent_code": [
+      "constituent_code",
+      "con_code"
+    ],
+    "quantity": [
+      "quantity",
+      "qty"
+    ],
+    "substitution_flag": [
+      "substitution_flag",
+      "sub_flag"
+    ]
+  },
+  "optional_source_fields": {
+    "constituent_name": [
+      "constituent_name",
+      "con_name"
+    ],
+    "subscription_rate_pct": [
+      "subscription_rate_pct",
+      "cpr"
+    ],
+    "redemption_rate_pct": [
+      "redemption_rate_pct",
+      "rdr"
+    ],
+    "sse_cash_substitution_amount_cny": [
+      "cash_substitution_amount_cny",
+      "sca"
+    ],
+    "szse_subscription_cash_amount_cny": [
+      "subscription_cash_amount_cny",
+      "sub_cc"
+    ],
+    "szse_redemption_cash_amount_cny": [
+      "redemption_cash_amount_cny",
+      "red_cc"
+    ],
+    "constituent_exchange": [
+      "constituent_exchange",
+      "exchange"
+    ]
+  },
+  "canonical_key": [
+    "trade_date",
+    "etf_code",
+    "constituent_code"
+  ],
+  "point_in_time_policy": {
+    "publication_phase": "official_pre_open_daily_pcf",
+    "available_date": "trade_date",
+    "earliest_research_use_session_offset": 1,
+    "same_session_factor_use_allowed": false
+  },
+  "review_only_boundaries": {
+    "writes_canonical_market_data": false,
+    "source_ready_after_structural_validation": false,
+    "factor_generation_allowed": false,
+    "forward_return_read_allowed": false,
+    "portfolio_grid_allowed": false,
+    "final_holdout_allowed": false,
+    "paper_signal_allowed": false,
+    "live_boundary_allowed": false
+  }
+}

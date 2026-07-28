@@ -9,6 +9,7 @@ Purpose: this is the first file to read after syncing the repository on any work
 - Completed review branch: `codex/factor-review-cn-etf-external-data-unlock-20260728`; `main` is canonical after integration
 - Durable report: `docs/research/cn_etf_external_data_unlock_review_2026-07-28.md`
 - Monetization runway: `docs/research/cn_etf_monetization_runway_2026-07-28.md`; operator input template: `configs/cn_etf_monetization_inputs_template.json`
+- PCF delivery contract: `configs/cn_etf_pcf_delivery_contract.json`; review-only validator: `scripts/validate_cn_etf_pcf_delivery.py`
 - Decision: `unlock_historical_pcf_first`; this is source access, not alpha
 - Historical PCF: four cross-exchange/cross-period probes of `etf_sh_cons` and `etf_sz_cons` were all permission denied
 - Public fallback: three bounded FT Tech PCF-list probes, including both ends of the research window, all returned provider errors; licensing and completeness are also unverified
