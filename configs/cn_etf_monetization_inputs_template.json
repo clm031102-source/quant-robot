@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "market": "CN_ETF",
+  "research_to_paper_only": true,
+  "external_data": {
+    "historical_pcf_delivery_mode": null,
+    "tushare_8000_point_access_enabled": null,
+    "licensed_export_local_path": null,
+    "licensed_export_data_dictionary_path": null,
+    "bar_gap_repair_source": null
+  },
+  "capital_and_risk": {
+    "intended_initial_capital_cny": null,
+    "maximum_single_position_cny": null,
+    "maximum_daily_loss_cny": null,
+    "maximum_acceptable_drawdown": null,
+    "maximum_one_way_participation_rate": null
+  },
+  "execution_economics": {
+    "commission_bps_per_side": null,
+    "minimum_commission_cny_per_order": null,
+    "other_etf_fees_bps_per_side": null,
+    "expected_slippage_bps_per_side": null,
+    "stress_slippage_bps_per_side": null
+  },
+  "operating_preferences": {
+    "acceptable_holding_period_sessions": [],
+    "maximum_rebalances_per_week": null,
+    "manual_review_timezone": "Asia/Shanghai",
+    "manual_review_days_per_week": null
+  },
+  "do_not_put_here": [
+    "broker username or password",
+    "broker API key or secret",
+    "account number",
+    "Tushare token",
+    "order authorization"
+  ]
+}
