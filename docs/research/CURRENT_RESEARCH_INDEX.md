@@ -4,6 +4,20 @@ Last updated: 2026-07-28
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
+## Current CN ETF Option-Sentiment Source Blocker
+
+- Active branch: `codex/factor-review-cn-etf-option-sentiment-source-20260728`
+- Durable report: `docs/research/cn_etf_option_sentiment_source_readiness_2026-07-28.md`
+- Source result: Tushare option metadata and daily probes are accessible and clean, but only nine ETF underlyings overlap the frozen 2020-01-02 through 2024-06-28 analysis window
+- Coverage: 9,346 unique contracts across five SSE and four SZSE ETF underlyings; the preregistered primary cross-sectional minimum is 30
+- Daily probes: all five dates present, 100% contract mapping, and positive-close ratios from 97.038724% to 100%
+- Decision: `source_blocked_no_factor_batch`; no factor values, labels, prescreen, tuning, or holdout reads were performed
+- Allowed reuse: option data may be retained only as a market-regime or risk-control input
+- Default next task: rotate to another genuinely orthogonal CN ETF source family
+- Boundary: research-to-paper only; no broker, account, order, paper signal, or live access
+
+Generated source evidence remains under ignored `data/reports/` paths and must not be committed.
+
 ## Current CN ETF Fund-Structure Crowding Closeout
 
 - Active branch: `codex/factor-batch-cn-etf-fund-structure-20260728`
@@ -16,7 +30,7 @@ Purpose: this is the first file to read after syncing the repository on any work
 - Diagnostic H20: mean Rank IC `0.001172` and 10 bps net spread `0.002766`; diagnostic evidence cannot rescue the failed primary
 - Duplication/exposure: maximum closed-family correlation `0.229150`; maximum direct-exposure correlation `0.849910`, below the strict `0.85` ceiling
 - Decision: statistical and capacity evidence failed; `cn_etf_fund_structure` is stop-lossed with zero budget and no rerun, tuning, portfolio grid, walk-forward, or holdout access
-- Default next task: review one genuinely orthogonal CN ETF source family without reusing closed price, liquidity, volatility, peer, or fund-share directions
+- Default next task: superseded by the option-sentiment source blocker above; do not rerun this family
 - Boundary: research-to-paper only; no broker, account, order, paper signal, or live access
 
 Generated execution, analytical, and hash evidence remains under ignored `data/reports/` paths and must not be committed.

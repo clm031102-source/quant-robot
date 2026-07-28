@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "stage": "cn_etf_option_sentiment_source_readiness",
+  "review_date": "2026-07-28",
+  "primary_market": "CN_ETF",
+  "research_family": "cn_etf_option_sentiment",
+  "analysis": {
+    "start_date": "2020-01-02",
+    "end_date": "2024-06-28",
+    "final_holdout_start": "2026-01-01"
+  },
+  "providers": {
+    "contract_source": "tushare_opt_basic",
+    "daily_source": "tushare_opt_daily",
+    "exchanges": ["SSE", "SZSE"],
+    "contract_fields": "ts_code,exchange,opt_code,call_put,list_date,delist_date",
+    "daily_fields": "ts_code,trade_date,exchange,close,vol,amount,oi"
+  },
+  "probes": {
+    "dates": [
+      "2020-01-02",
+      "2021-01-04",
+      "2022-01-04",
+      "2023-01-03",
+      "2024-06-28"
+    ]
+  },
+  "thresholds": {
+    "minimum_etf_underlyings": 30,
+    "minimum_positive_close_ratio_per_probe": 0.95
+  },
+  "outputs": {
+    "report_dir": "data/reports/cn_etf_option_sentiment_source_readiness_20260728"
+  },
+  "boundaries": {
+    "factor_generation_allowed": false,
+    "forward_return_read": false,
+    "portfolio_grid_allowed": false,
+    "walk_forward_allowed": false,
+    "final_holdout_allowed": false,
+    "promotion_allowed": false,
+    "paper_signal_allowed": false,
+    "broker_connection_allowed": false,
+    "account_read_allowed": false,
+    "order_placement_allowed": false,
+    "live_boundary_allowed": false
+  }
+}

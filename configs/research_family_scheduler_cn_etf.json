@@ -8,7 +8,7 @@
     "max_repeated_failure_rounds": 2,
     "max_rescue_iterations": 3
   },
-  "last_decision": {
+  "prior_fund_structure_closeout_decision": {
     "date": "2026-07-28",
     "source_stage": "cn_etf_fund_structure_crowding_prescreen",
     "source_status": "close_family_zero_budget",
@@ -69,6 +69,44 @@
     "order_placement_allowed": false,
     "live_boundary_allowed": false,
     "next_direction": "review_one_genuinely_orthogonal_cn_etf_source_family"
+  },
+  "last_decision": {
+    "date": "2026-07-28",
+    "source_stage": "cn_etf_option_sentiment_source_readiness",
+    "source_status": "blocked",
+    "decision": "source_blocked_no_factor_batch",
+    "source_config_path": "configs/cn_etf_option_sentiment_source_readiness_20260728.json",
+    "source_result_path": "data/reports/cn_etf_option_sentiment_source_readiness_20260728/cn_etf_option_sentiment_source_readiness.json",
+    "source_config_sha256": "d0c2a95f2bde767ceb181cfe01b881eedab5c493f7253eb9ba42274dfe6a1deb",
+    "source_result_sha256": "0c889a9bea6f583947c3faac60cb2175c643966fde8dadad9deef9df46ee8739",
+    "contracts_sha256": "0329d9a568e4437561bc6e6a1d9ebcf008aa426de0f100240ecf2077ed13bfc3",
+    "daily_rows_sha256": "bf30db5fbf794edd1d4c483851d84f4cb7bcd4f1b16a358d47fbc2dab6e8e145",
+    "underlyings_sha256": "2268cbc3027a9c4241e53d9369ad8fcd5dad3b465b7d649f896646c0bff5b82b",
+    "daily_probes_sha256": "481133ff268bf2b8dce606678f1325ab143d30ea3f0420a29b5dd7f0afcd49a8",
+    "contract_count": 9346,
+    "underlying_count": 9,
+    "sse_underlyings": 5,
+    "szse_underlyings": 4,
+    "minimum_required_underlyings": 30,
+    "probe_count": 5,
+    "source_blockers": [
+      "etf_option_underlying_count_below_minimum"
+    ],
+    "allowed_role_if_blocked": "market_regime_or_risk_control_only",
+    "unallocated_budget_share": 1.0,
+    "factor_generation_allowed": false,
+    "forward_return_read": false,
+    "factor_batch_allowed": false,
+    "portfolio_grid_allowed": false,
+    "walk_forward_allowed": false,
+    "final_holdout_allowed": false,
+    "promotion_allowed": false,
+    "paper_signal_allowed": false,
+    "broker_connection_allowed": false,
+    "account_read_allowed": false,
+    "order_placement_allowed": false,
+    "live_boundary_allowed": false,
+    "next_direction": "rotate_to_another_orthogonal_cn_etf_source_family"
   },
   "prior_fund_structure_preregistration_decision": {
     "date": "2026-07-28",
@@ -651,6 +689,48 @@
         "walk_forward_before_prescreen"
       ],
       "next_action": "Do not generate factors. Backfill audited historical official peer assignments, or rotate to a separately governed PIT-safe source-readiness review without reusing current names."
+    },
+    {
+      "family_id": "cn_etf_option_sentiment",
+      "market": "CN_ETF",
+      "hypothesis_family": "etf_option_sentiment_and_positioning",
+      "status": "exploratory",
+      "budget_share": 0.0,
+      "source_readiness_status": "blocked",
+      "source_blockers": [
+        "etf_option_underlying_count_below_minimum"
+      ],
+      "factor_batch_before_readiness_allowed": false,
+      "primary_allocation_allowed": false,
+      "portfolio_grid_allowed": false,
+      "walk_forward_allowed": false,
+      "final_holdout_allowed": false,
+      "source_audit": {
+        "config_sha256": "d0c2a95f2bde767ceb181cfe01b881eedab5c493f7253eb9ba42274dfe6a1deb",
+        "result_sha256": "0c889a9bea6f583947c3faac60cb2175c643966fde8dadad9deef9df46ee8739",
+        "contracts_sha256": "0329d9a568e4437561bc6e6a1d9ebcf008aa426de0f100240ecf2077ed13bfc3",
+        "daily_rows_sha256": "bf30db5fbf794edd1d4c483851d84f4cb7bcd4f1b16a358d47fbc2dab6e8e145",
+        "contract_count": 9346,
+        "underlying_count": 9,
+        "sse_underlyings": 5,
+        "szse_underlyings": 4,
+        "probe_count": 5,
+        "minimum_positive_close_ratio": 0.9703872437357631,
+        "minimum_contract_mapping_ratio": 1.0
+      },
+      "economic_thesis": "ETF option put-call activity, implied positioning, and open-interest changes may contain demand and hedging information distinct from ETF price, liquidity, volatility, peer, and fund-share signals.",
+      "allowed_roles": [
+        "market_regime_input",
+        "risk_control_input"
+      ],
+      "forbidden_actions": [
+        "primary_cross_sectional_factor_batch",
+        "forward_return_read_before_source_readiness",
+        "portfolio_grid_before_source_readiness",
+        "walk_forward_before_source_readiness",
+        "final_holdout_access"
+      ],
+      "next_action": "Do not generate a primary cross-sectional factor from nine option underlyings. Preserve the clean source audit for future market-regime or risk-control use and rotate to another orthogonal CN ETF source family."
     },
     {
       "family_id": "cn_stock_moneyflow_selection",

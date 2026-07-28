@@ -6,7 +6,7 @@ from quant_robot.research.family_scheduler import build_research_family_schedule
 
 
 class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
-    def test_fund_structure_rejected_prescreen_opens_only_family_rotation(self) -> None:
+    def test_option_source_blocker_keeps_factor_batches_closed(self) -> None:
         config = json.loads(
             Path("configs/research_family_scheduler_cn_etf.json").read_text(encoding="utf-8")
         )
@@ -105,42 +105,42 @@ class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
             dynamic_peer["source_audit"]["qualifying_date_coverage"],
             0.8331797235023042,
         )
+        option = families["cn_etf_option_sentiment"]
+        self.assertEqual(option["status"], "exploratory")
+        self.assertEqual(option["budget_share"], 0.0)
+        self.assertEqual(option["source_readiness_status"], "blocked")
+        self.assertEqual(option["source_audit"]["underlying_count"], 9)
+        self.assertEqual(option["source_audit"]["probe_count"], 5)
+        self.assertFalse(option["factor_batch_before_readiness_allowed"])
+        self.assertFalse(option["primary_allocation_allowed"])
         decision = config["last_decision"]
         self.assertEqual(
             decision["source_stage"],
-            "cn_etf_fund_structure_crowding_prescreen",
+            "cn_etf_option_sentiment_source_readiness",
         )
         self.assertEqual(
             decision["decision"],
-            "prescreen_rejected_family_rotation_review_only",
+            "source_blocked_no_factor_batch",
         )
         self.assertEqual(
             decision["source_config_sha256"],
-            "04cb2acc675762f04c109798949d2b174fb1c9c72a9d91497423837f366a0ba3",
+            "d0c2a95f2bde767ceb181cfe01b881eedab5c493f7253eb9ba42274dfe6a1deb",
         )
         self.assertEqual(
             decision["source_result_sha256"],
-            "3ccb5ba4d04ff24b7b5ef81c2984f1571a0a23cd41f077c7b20ae688879f3a13",
+            "0c889a9bea6f583947c3faac60cb2175c643966fde8dadad9deef9df46ee8739",
         )
-        self.assertEqual(
-            decision["factor_name"],
-            "etf_residual_share_creation_crowding_reversal_20",
-        )
-        self.assertEqual(decision["execution_count"], 1)
         self.assertFalse(decision["factor_batch_allowed"])
-        self.assertFalse(decision["single_prescreen_allowed"])
-        self.assertFalse(decision["preregistration_required"])
-        self.assertFalse(decision["primary_passed"])
-        self.assertTrue(decision["diagnostic_passed"])
-        self.assertAlmostEqual(
-            decision["primary_mean_rank_ic"],
-            0.0062187073014604065,
-        )
-        self.assertAlmostEqual(
-            decision["primary_net_spread_10bps"],
-            0.0010780130212781924,
+        self.assertEqual(decision["underlying_count"], 9)
+        self.assertEqual(decision["minimum_required_underlyings"], 30)
+        self.assertEqual(decision["probe_count"], 5)
+        self.assertIn(
+            "etf_option_underlying_count_below_minimum",
+            decision["source_blockers"],
         )
         for boundary in (
+            "factor_generation_allowed",
+            "forward_return_read",
             "portfolio_grid_allowed",
             "walk_forward_allowed",
             "final_holdout_allowed",
@@ -153,6 +153,18 @@ class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
         ):
             self.assertFalse(decision[boundary])
         self.assertEqual(decision["unallocated_budget_share"], 1.0)
+        closeout = config["prior_fund_structure_closeout_decision"]
+        self.assertEqual(
+            closeout["source_stage"],
+            "cn_etf_fund_structure_crowding_prescreen",
+        )
+        self.assertEqual(closeout["execution_count"], 1)
+        self.assertFalse(closeout["primary_passed"])
+        self.assertTrue(closeout["diagnostic_passed"])
+        self.assertAlmostEqual(
+            closeout["primary_net_spread_10bps"],
+            0.0010780130212781924,
+        )
         self.assertEqual(
             config["prior_fund_structure_source_ready_decision"]["share_rows"],
             645645,
