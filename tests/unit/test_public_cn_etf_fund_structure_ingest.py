@@ -167,6 +167,16 @@ class PublicCnEtfFundStructureIngestTests(unittest.TestCase):
                 end_date="2024-01-04",
             )
 
+        lagged = normalize_public_cn_etf_fund_structure(
+            shares=_share_frame("2024-01-04", "510300.SH", 100.0),
+            nav=nav,
+            bars=bars[bars["date"] <= pd.Timestamp("2024-01-04").date()],
+            start_date="2024-01-02",
+            end_date="2024-01-04",
+            trading_sessions=["2024-01-02", "2024-01-03", "2024-01-04", "2024-01-05"],
+        )
+        self.assertEqual(str(lagged.loc[0, "known_from"]), "2024-01-05")
+
     def test_live_orchestration_is_resumable_and_writes_canonical_partitions(self) -> None:
         adapter = _FakeAdapter()
         with tempfile.TemporaryDirectory() as tmp:

@@ -9,6 +9,10 @@ from pathlib import Path
 import pandas as pd
 
 from quant_robot.data.adapters.public_cn_etf_fund_structure import FetchedFrame
+from quant_robot.data.cn_trading_calendar import (
+    build_cn_trading_calendar,
+    write_cn_trading_calendar,
+)
 from quant_robot.storage.dataset_store import DatasetStore
 from scripts.run_cn_etf_fund_structure_source_readiness import (
     _load_and_validate_config,
@@ -128,12 +132,36 @@ class RunCnEtfFundStructureSourceReadinessTests(unittest.TestCase):
 def _fixture_config(root: Path, bar_root: Path) -> Path:
     source = Path("configs/cn_etf_fund_structure_source_readiness_20260728.json")
     payload = json.loads(source.read_text(encoding="utf-8"))
+    calendar_path, calendar_manifest_path = _write_calendar(root)
     payload["analysis"]["bar_root"] = str(bar_root)
+    payload["analysis"]["trading_calendar_path"] = str(calendar_path)
+    payload["analysis"]["trading_calendar_manifest_path"] = str(calendar_manifest_path)
     payload["outputs"]["data_dir"] = str(root / "processed")
     payload["outputs"]["report_dir"] = str(root / "reports")
     config_path = root / "config.json"
     config_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return config_path
+
+
+def _write_calendar(root: Path) -> tuple[Path, Path]:
+    dates = ["2024-01-02", "2024-01-03", "2024-01-04", "2024-07-01"]
+    exchange_frames = {
+        exchange: pd.DataFrame(
+            {
+                "date": dates,
+                "is_open": [1] * len(dates),
+                "exchange": [exchange] * len(dates),
+            }
+        )
+        for exchange in ("SSE", "SZSE")
+    }
+    calendar, manifest = build_cn_trading_calendar(
+        exchange_frames,
+        start_date="2024-01-02",
+        end_date="2024-07-01",
+    )
+    paths = write_cn_trading_calendar(root / "calendar", calendar, manifest)
+    return Path(paths["calendar_path"]), Path(paths["manifest_path"])
 
 
 def _write_bars(root: Path) -> None:

@@ -112,6 +112,7 @@ def normalize_public_cn_etf_fund_structure(
     start_date: str,
     end_date: str,
     ingested_at: str | None = None,
+    trading_sessions: list[str] | None = None,
 ) -> pd.DataFrame:
     start = pd.to_datetime(start_date).date()
     end = pd.to_datetime(end_date).date()
@@ -126,7 +127,19 @@ def normalize_public_cn_etf_fund_structure(
         raise ValueError("bar authority contains invalid dates")
     if bar_frame.duplicated(["asset_id", "date"]).any():
         raise ValueError("bar authority contains duplicate bar asset-date rows")
-    all_sessions = sorted(bar_frame["date"].unique())
+    if trading_sessions is None:
+        all_sessions = sorted(bar_frame["date"].unique())
+    else:
+        session_values = pd.to_datetime(pd.Series(trading_sessions), errors="raise").dt.date
+        if session_values.duplicated().any():
+            raise ValueError("trading_sessions contains duplicate dates")
+        all_sessions = sorted(session_values.tolist())
+        missing_bar_sessions = sorted(set(bar_frame["date"].unique()) - set(all_sessions))
+        if missing_bar_sessions:
+            raise ValueError(
+                "trading_sessions does not cover bar authority dates: "
+                + ", ".join(value.isoformat() for value in missing_bar_sessions[:5])
+            )
     next_session = {
         all_sessions[index]: all_sessions[index + 1]
         for index in range(len(all_sessions) - 1)
@@ -219,6 +232,7 @@ def run_public_cn_etf_fund_structure_ingest(
     output_dir: str | Path,
     szse_window_days: int = 183,
     max_workers: int = 4,
+    trading_sessions: list[str] | None = None,
 ) -> dict[str, Any]:
     if max_workers < 1 or max_workers > 16:
         raise ValueError("max_workers must be between 1 and 16")
@@ -256,6 +270,7 @@ def run_public_cn_etf_fund_structure_ingest(
         bars=bars,
         start_date=start_date,
         end_date=end_date,
+        trading_sessions=trading_sessions,
     )
     _write_processed_years(store, processed)
     quality = _quality_report(processed, plan)

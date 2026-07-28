@@ -18,6 +18,9 @@ import pandas as pd  # noqa: E402
 from quant_robot.data.adapters.public_cn_etf_fund_structure import (  # noqa: E402
     PublicCnEtfFundStructureAdapter,
 )
+from quant_robot.data.cn_trading_calendar import (  # noqa: E402
+    validate_cn_trading_calendar_artifact,
+)
 from quant_robot.data.ingest.public_cn_etf_fund_structure import (  # noqa: E402
     MANIFEST_NAME,
     PublicFundStructureAdapter,
@@ -67,6 +70,7 @@ def run_cn_etf_fund_structure_source_readiness_cli(
     data_dir = Path(outputs["data_dir"])
     report_dir = Path(outputs["report_dir"])
     ingest_result: dict[str, Any] | None = None
+    trading_sessions = _load_trading_sessions(analysis)
 
     if execute:
         ingest_bars = load_processed_bars(
@@ -89,6 +93,7 @@ def run_cn_etf_fund_structure_source_readiness_cli(
             output_dir=data_dir,
             szse_window_days=int(providers["szse_window_days"]),
             max_workers=int(providers["max_workers"]),
+            trading_sessions=trading_sessions,
         )
 
     processed = load_etf_share_size_inputs(data_dir, "CN_ETF")
@@ -154,6 +159,8 @@ def _load_and_validate_config(path: Path) -> dict[str, Any]:
         analysis,
         (
             "bar_root",
+            "trading_calendar_path",
+            "trading_calendar_manifest_path",
             "start_date",
             "end_date",
             "next_session_read_end",
@@ -170,8 +177,9 @@ def _load_and_validate_config(path: Path) -> dict[str, Any]:
     holdout = pd.Timestamp(analysis["final_holdout_start"])
     if not start <= end < next_end < holdout:
         raise ValueError("config analysis and next-session dates violate the frozen holdout boundary")
-    if not isinstance(analysis["bar_root"], str) or not analysis["bar_root"].strip():
-        raise ValueError("config bar_root must be a non-empty path string")
+    for key in ("bar_root", "trading_calendar_path", "trading_calendar_manifest_path"):
+        if not isinstance(analysis[key], str) or not analysis[key].strip():
+            raise ValueError(f"config {key} must be a non-empty path string")
     outputs = payload["outputs"]
     _require_keys(outputs, ("data_dir", "report_dir"))
     if not all(isinstance(outputs[key], str) and outputs[key].strip() for key in outputs):
@@ -208,6 +216,29 @@ def _load_and_validate_config(path: Path) -> dict[str, Any]:
     ):
         raise ValueError("config Tushare probe evidence does not match the frozen permission denial")
     return payload
+
+
+def _load_trading_sessions(analysis: Mapping[str, Any]) -> list[str]:
+    calendar_path = Path(str(analysis["trading_calendar_path"]))
+    manifest_path = Path(str(analysis["trading_calendar_manifest_path"]))
+    validate_cn_trading_calendar_artifact(calendar_path, manifest_path)
+    calendar = pd.read_csv(calendar_path)
+    dates = pd.to_datetime(calendar["date"], errors="raise")
+    start = pd.Timestamp(analysis["start_date"])
+    next_end = pd.Timestamp(analysis["next_session_read_end"])
+    sessions = (
+        dates.loc[dates.between(start, next_end)]
+        .dt.strftime("%Y-%m-%d")
+        .drop_duplicates()
+        .sort_values()
+        .tolist()
+    )
+    if not sessions:
+        raise ValueError("validated CN trading calendar does not cover the analysis window")
+    analysis_end = pd.Timestamp(analysis["end_date"]).date()
+    if not any(pd.Timestamp(value).date() > analysis_end for value in sessions):
+        raise ValueError("validated CN trading calendar lacks a next session after analysis end")
+    return sessions
 
 
 def _require_keys(payload: Mapping[str, Any], keys: tuple[str, ...]) -> None:
