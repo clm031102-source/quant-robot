@@ -27,7 +27,7 @@
     "connect_timeout_seconds": 15.0,
     "read_timeout_seconds": 60.0,
     "max_workers": 4,
-    "szse_window_days": 183
+    "szse_window_days": 90
   },
   "tushare_probe": {
     "probe_date": "2024-06-28",

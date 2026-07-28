@@ -13,6 +13,7 @@ from quant_robot.data.ingest.public_cn_etf_fund_structure import (
     build_public_source_request_plan,
     normalize_public_cn_etf_fund_structure,
     run_public_cn_etf_fund_structure_ingest,
+    _load_manifest,
     _save_manifest,
 )
 from quant_robot.storage.etf_share_size import load_etf_share_size_inputs
@@ -75,6 +76,42 @@ class _FakeAdapter:
 
 
 class PublicCnEtfFundStructureIngestTests(unittest.TestCase):
+    def test_manifest_allows_only_szse_window_rechunk_without_losing_other_sources(self) -> None:
+        base_scope = {
+            "analysis_start": "2024-01-02",
+            "analysis_end": "2024-06-28",
+            "symbols": ["159919.SZ", "510300.SH"],
+            "analysis_sessions": ["2024-01-02", "2024-01-03"],
+        }
+        first_plan = {
+            **base_scope,
+            "szse_windows": [{"start_date": "2024-01-02", "end_date": "2024-06-28"}],
+        }
+        second_plan = {
+            **base_scope,
+            "szse_windows": [
+                {"start_date": "2024-01-02", "end_date": "2024-03-31"},
+                {"start_date": "2024-04-01", "end_date": "2024-06-28"},
+            ],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp, "manifest.json")
+            manifest = _load_manifest(path, first_plan)
+            manifest["requests"] = {
+                "sse:2024-01-02": {"kind": "sse_share", "status": "completed"},
+                "nav:510300.SH": {"kind": "eastmoney_nav", "status": "completed"},
+                "szse:old": {"kind": "szse_share", "status": "completed"},
+            }
+            _save_manifest(path, manifest)
+
+            migrated = _load_manifest(path, second_plan)
+
+            self.assertEqual(migrated["scope"]["szse_windows"], second_plan["szse_windows"])
+            self.assertIn("sse:2024-01-02", migrated["requests"])
+            self.assertIn("nav:510300.SH", migrated["requests"])
+            self.assertNotIn("szse:old", migrated["requests"])
+            self.assertEqual(migrated["migrations"][-1]["kind"], "szse_window_rechunk")
+
     def test_manifest_write_retries_transient_windows_replace_denial(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp, "manifest.json")
@@ -259,7 +296,7 @@ def _bars(include_holdout: bool = False) -> pd.DataFrame:
                     "symbol": symbol,
                     "market": "CN_ETF",
                     "close": close + date_idx,
-                    "source": "tushare_fund_daily",
+                    "source": "tushare",
                 }
             )
     return pd.DataFrame(rows)

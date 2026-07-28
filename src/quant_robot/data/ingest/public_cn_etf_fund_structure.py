@@ -175,6 +175,12 @@ def normalize_public_cn_etf_fund_structure(
     ].copy()
     authority["close"] = pd.to_numeric(authority["close"], errors="coerce")
     authority = authority.rename(columns={"source": "close_source"})
+    authority["close_source"] = authority["close_source"].replace(
+        {
+            "tushare": "tushare_fund_daily",
+            "tushare_fund_daily": "tushare_fund_daily",
+        }
+    )
     canonical = share_frame.merge(
         authority,
         on=["date", "asset_id", "symbol"],
@@ -436,10 +442,41 @@ def _load_manifest(path: Path, plan: dict[str, Any]) -> dict[str, Any]:
     if manifest.get("schema_version") != MANIFEST_SCHEMA_VERSION:
         raise ValueError(f"Unsupported public source manifest schema: {path}")
     if manifest.get("scope") != scope:
-        raise ValueError(f"Public source manifest scope mismatch: {path}")
+        previous_scope = manifest.get("scope")
+        if not _scope_differs_only_by_szse_windows(previous_scope, scope):
+            raise ValueError(f"Public source manifest scope mismatch: {path}")
+        requests = manifest.get("requests", {})
+        if not isinstance(requests, dict):
+            raise ValueError(f"Public source manifest requests are invalid: {path}")
+        manifest["requests"] = {
+            key: row
+            for key, row in requests.items()
+            if not isinstance(row, dict) or row.get("kind") != "szse_share"
+        }
+        manifest["scope"] = scope
+        migrations = manifest.setdefault("migrations", [])
+        if not isinstance(migrations, list):
+            raise ValueError(f"Public source manifest migrations are invalid: {path}")
+        migrations.append(
+            {
+                "kind": "szse_window_rechunk",
+                "previous_windows": previous_scope.get("szse_windows", []),
+                "current_windows": scope["szse_windows"],
+            }
+        )
+        _save_manifest(path, manifest)
     if not isinstance(manifest.get("requests"), dict):
         raise ValueError(f"Public source manifest requests are invalid: {path}")
     return manifest
+
+
+def _scope_differs_only_by_szse_windows(previous: Any, current: dict[str, Any]) -> bool:
+    if not isinstance(previous, dict):
+        return False
+    stable_keys = ("analysis_start", "analysis_end", "symbols", "analysis_sessions")
+    return all(previous.get(key) == current.get(key) for key in stable_keys) and (
+        previous.get("szse_windows") != current.get("szse_windows")
+    )
 
 
 def _save_manifest(
