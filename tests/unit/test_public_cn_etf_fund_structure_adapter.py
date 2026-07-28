@@ -154,28 +154,28 @@ class PublicCnEtfFundStructureAdapterTests(unittest.TestCase):
                 end_date="2024-06-28",
             )
 
-    def test_parsers_reject_non_positive_numeric_observations(self) -> None:
-        with self.assertRaisesRegex(ProviderResponseError, "positive"):
-            parse_sse_share_response(
-                {
-                    "result": [
-                        {
-                            "SEC_CODE": "510300",
-                            "STAT_DATE": "2024-06-28",
-                            "TOT_VOL": "0",
-                        }
-                    ]
-                },
-                requested_date="2024-06-28",
-            )
+    def test_parsers_retain_non_positive_numeric_observations_for_quality_gate(self) -> None:
+        shares = parse_sse_share_response(
+            {
+                "result": [
+                    {
+                        "SEC_CODE": "510300",
+                        "STAT_DATE": "2024-06-28",
+                        "TOT_VOL": "0",
+                    }
+                ]
+            },
+            requested_date="2024-06-28",
+        )
+        self.assertEqual(shares["total_share"].tolist(), [0.0])
 
-        with self.assertRaisesRegex(ProviderResponseError, "positive"):
-            parse_eastmoney_nav_javascript(
-                'var Data_netWorthTrend = [{"x": 1719504000000, "y": 0}];',
-                symbol="510300.SH",
-                start_date="2024-01-01",
-                end_date="2024-06-28",
-            )
+        nav = parse_eastmoney_nav_javascript(
+            'var Data_netWorthTrend = [{"x": 1719504000000, "y": 0}];',
+            symbol="510300.SH",
+            start_date="2024-01-01",
+            end_date="2024-06-28",
+        )
+        self.assertEqual(nav["nav"].tolist(), [0.0])
 
 
 if __name__ == "__main__":

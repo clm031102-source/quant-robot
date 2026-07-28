@@ -68,8 +68,8 @@ def parse_sse_share_response(payload: dict[str, Any], *, requested_date: str) ->
                 f"SSE ETF share response does not match requested date {requested.isoformat()}"
             )
         share = pd.to_numeric(item.get("TOT_VOL"), errors="coerce")
-        if pd.isna(share) or float(share) <= 0.0:
-            raise ProviderResponseError("SSE ETF share response contains a non-positive share value")
+        if pd.isna(share):
+            raise ProviderResponseError("SSE ETF share response contains a non-numeric share value")
         symbol = f"{code}.SH"
         rows.append(
             {
@@ -106,8 +106,6 @@ def parse_szse_share_workbook(content: bytes) -> pd.DataFrame:
     codes = codes.loc[valid].astype(int).astype(str).str.zfill(6)
     dates = dates.loc[valid].dt.date
     shares = shares.loc[valid].astype(float)
-    if (shares <= 0.0).any():
-        raise ProviderResponseError("SZSE ETF share workbook contains a non-positive share value")
     rows = []
     for idx, code in codes.items():
         symbol = f"{code}.SZ"
@@ -165,8 +163,6 @@ def parse_eastmoney_nav_javascript(
         )
         if observed_date < start or observed_date > end:
             continue
-        if float(nav) <= 0.0:
-            raise ProviderResponseError("Eastmoney NAV response contains a non-positive NAV value")
         rows.append(
             {
                 "date": observed_date,
