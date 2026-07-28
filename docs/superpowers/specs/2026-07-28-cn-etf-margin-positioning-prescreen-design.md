@@ -46,4 +46,3 @@ The preregistration creates exactly one hash-bound execution authorization.
 No rerun, sign flip, window tuning, control removal, threshold relaxation,
 subgroup rescue, portfolio grid, walk-forward, holdout read, paper signal, or
 live action is allowed.
-
