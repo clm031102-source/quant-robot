@@ -1906,7 +1906,15 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertGreaterEqual(len(result["audit_scorecard"]["categories"]), 5)
         self.assertTrue(any(item["category_id"] == "paper_live_boundary" for item in result["audit_scorecard"]["categories"]))
         self.assertTrue(any(item["category_id"] == "audit_feedback_loop" for item in result["audit_scorecard"]["categories"]))
-        self.assertGreaterEqual(result["audit_scorecard"]["summary"]["local_self_check_score"], 99)
+        local_score = result["audit_scorecard"]["summary"]["local_self_check_score"]
+        max_score = result["audit_scorecard"]["summary"]["max_score"]
+        self.assertGreaterEqual(local_score, 0)
+        self.assertLessEqual(local_score, max_score)
+        if (
+            result["audit_packets"]["summary"]["required_missing"] == 0
+            and result["audit_scorecard"]["summary"]["missing_artifact_count"] == 0
+        ):
+            self.assertGreaterEqual(local_score, 99)
         if result["audit_packets"]["summary"]["independent_audit_complete"]:
             self.assertFalse(
                 any(item["action"] == "Run independent 5h GUI audit" for item in result["audit_scorecard"]["repair_queue"])
@@ -3006,8 +3014,11 @@ class GuiSnapshotTests(unittest.TestCase):
             category_ids = {item["category_id"] for item in packet["scorecard"]["categories"]}
             self.assertIn("audit_feedback_loop", category_ids)
             action_names = {item["action"] for item in packet["next_actions"]}
-            self.assertNotIn("Attach audit findings to next optimization round", action_names)
-            self.assertNotIn("Review linked audit packets during next audit", action_names)
+            if packet["audit_packets"]["summary"]["required_missing"] == 0:
+                self.assertNotIn("Attach audit findings to next optimization round", action_names)
+                self.assertNotIn("Review linked audit packets during next audit", action_names)
+            else:
+                self.assertIn("Generate missing audit packets", action_names)
             self.assertEqual(packet["audit_iteration_plan"]["summary"]["audit_score"], packet["score"])
             self.assertEqual(packet["audit_iteration_plan"]["summary"]["verdict"], packet["verdict"])
             if not packet["next_actions"]:

@@ -150,6 +150,19 @@ FUND_BASIC_COLUMNS = [
     "is_etf",
 ]
 
+FUND_NAV_COLUMNS = [
+    "symbol",
+    "ann_date",
+    "nav_date",
+    "unit_nav",
+    "accum_nav",
+    "accum_div",
+    "net_asset",
+    "total_netasset",
+    "adj_nav",
+    "update_flag",
+]
+
 ETF_BASIC_COLUMNS = [
     "symbol",
     "name",
@@ -223,6 +236,15 @@ _CASHFLOW_STATEMENT_NUMERIC_COLUMNS = [
 ]
 _FUND_PORTFOLIO_NUMERIC_COLUMNS = ["mkv", "amount", "stk_mkv_ratio", "stk_float_ratio"]
 _ETF_SHARE_SIZE_NUMERIC_COLUMNS = ["total_share", "total_size", "nav", "close"]
+_FUND_NAV_NUMERIC_COLUMNS = [
+    "unit_nav",
+    "accum_nav",
+    "accum_div",
+    "net_asset",
+    "total_netasset",
+    "adj_nav",
+    "update_flag",
+]
 
 
 def map_tushare_daily(frame: pd.DataFrame) -> pd.DataFrame:
@@ -371,6 +393,26 @@ def map_tushare_fund_basic(frame: pd.DataFrame) -> pd.DataFrame:
     mapped["is_exchange_traded"] = mapped["market"].astype(str).str.upper().eq("E")
     mapped["is_etf"] = _fund_basic_etf_mask(mapped)
     return mapped[FUND_BASIC_COLUMNS].sort_values(["symbol"]).reset_index(drop=True)
+
+
+def map_tushare_fund_nav(frame: pd.DataFrame) -> pd.DataFrame:
+    if frame.empty:
+        return pd.DataFrame(columns=FUND_NAV_COLUMNS)
+    _require_columns(frame, ["ts_code", "ann_date", "nav_date", "unit_nav"], "tushare fund_nav")
+    source = frame.copy()
+    mapped = pd.DataFrame(
+        {
+            "symbol": source["ts_code"],
+            "ann_date": _optional_date(source, "ann_date"),
+            "nav_date": _optional_date(source, "nav_date"),
+        }
+    )
+    for column in _FUND_NAV_NUMERIC_COLUMNS:
+        mapped[column] = _optional_numeric(source, column)
+    return mapped[FUND_NAV_COLUMNS].sort_values(
+        ["symbol", "nav_date", "ann_date", "update_flag"],
+        na_position="last",
+    ).reset_index(drop=True)
 
 
 def map_tushare_etf_basic(frame: pd.DataFrame) -> pd.DataFrame:

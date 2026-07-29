@@ -284,12 +284,20 @@ def _restricted_review_mode(
         mode = "preregistration_only"
     elif decision_name == "prescreen_preregistered_single_batch_only":
         return _single_prescreen_mode(task, decision, family_schedule)
-    elif decision_name == "prescreen_rejected_family_rotation_review_only":
+    elif decision_name in {
+        "prescreen_rejected_family_rotation_review_only",
+        "prescreen_invalidated_family_closed_no_rerun",
+    }:
         if (
             decision.get("family_rotation_review_allowed") is not True
             or decision.get("primary_passed") is not False
             or decision.get("execution_count") != 1
             or _float(decision.get("unallocated_budget_share"), -1.0) != 1.0
+        ):
+            return None
+        if decision_name == "prescreen_invalidated_family_closed_no_rerun" and (
+            decision.get("metrics_governing") is not False
+            or decision.get("rerun_allowed") is not False
         ):
             return None
         for key in (
@@ -346,20 +354,42 @@ def _single_prescreen_mode(
         "etf_dynamic_peer_residual_dislocation_reversal_5_60": (
             "cn_etf_dynamic_peer_dislocation_prescreen",
             "mapping_sha256",
+            2,
+            5,
+            20,
         ),
         "etf_residual_share_creation_crowding_reversal_20": (
             "cn_etf_fund_structure_crowding_prescreen",
             "canonical_data_sha256",
+            2,
+            5,
+            20,
         ),
         "etf_residual_margin_financing_growth_reversal_20": (
             "cn_etf_margin_positioning_prescreen",
             "canonical_data_sha256",
+            2,
+            5,
+            20,
+        ),
+        "etf_delayed_nav_premium_innovation_reversal_60": (
+            "cn_etf_delayed_nav_premium_prescreen",
+            "canonical_data_sha256",
+            1,
+            1,
+            5,
         ),
     }
     factor_name = decision.get("factor_name")
     if factor_name not in allowed_scopes:
         return None
-    allowed_stage, source_identity_key = allowed_scopes[factor_name]
+    (
+        allowed_stage,
+        source_identity_key,
+        hypothesis_count,
+        primary_horizon,
+        diagnostic_horizon,
+    ) = allowed_scopes[factor_name]
     for key in (
         "preregistration_config_sha256",
         "preregistration_result_sha256",
@@ -371,9 +401,9 @@ def _single_prescreen_mode(
         if not _is_sha256(decision.get(key)):
             return None
     if (
-        decision.get("hypothesis_count") != 2
-        or decision.get("primary_horizon") != 5
-        or decision.get("diagnostic_horizon") != 20
+        decision.get("hypothesis_count") != hypothesis_count
+        or decision.get("primary_horizon") != primary_horizon
+        or decision.get("diagnostic_horizon") != diagnostic_horizon
         or decision.get("single_prescreen_run_limit") != 1
         or decision.get("execution_count") != 0
         or decision.get("execution_ledger_required") is not True

@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "as_of_date": "2026-07-29",
+  "purpose": "execution_interface_readiness_without_external_access",
+  "broker": {
+    "provider": "unselected",
+    "api_protocol": "unselected",
+    "sandbox_available": "unknown",
+    "credentials_present": false
+  },
+  "market_contract": {
+    "market": "CN_ETF",
+    "currency": "CNY",
+    "exchanges": [
+      "SSE",
+      "SZSE"
+    ],
+    "instrument_metadata_required": [
+      "symbol",
+      "exchange",
+      "lot_size",
+      "price_tick",
+      "trade_status"
+    ]
+  },
+  "order_intent_schema": {
+    "required_fields": [
+      "schema_version",
+      "client_intent_id",
+      "idempotency_key",
+      "strategy_id",
+      "strategy_version",
+      "signal_timestamp",
+      "symbol",
+      "exchange",
+      "side",
+      "quantity",
+      "order_type",
+      "limit_price",
+      "time_in_force",
+      "max_slippage_bps",
+      "expires_at"
+    ],
+    "allowed_sides": [
+      "BUY",
+      "SELL"
+    ],
+    "allowed_order_types": [
+      "LIMIT"
+    ],
+    "default_time_in_force": "DAY",
+    "duplicate_intent_policy": "reject_same_idempotency_key"
+  },
+  "risk_contract": {
+    "capital_cny": {
+      "minimum": 1000,
+      "maximum": 3000
+    },
+    "commission_bps_per_side": 0.5,
+    "slippage_bps_per_side": 10.0,
+    "minimum_commission_cny_stress": 5.0,
+    "absolute_max_drawdown": 0.4,
+    "paper_promotion_max_drawdown": 0.08,
+    "max_holding_sessions": 252,
+    "max_single_position_cny": 1000,
+    "max_daily_loss_cny": 60,
+    "max_one_way_adv_participation": 0.01
+  },
+  "paper_gates": {
+    "minimum_days": 20,
+    "minimum_fills": 30,
+    "minimum_market_regimes": 2,
+    "manual_approval_required": true,
+    "strategy_must_pass_frozen_prescreen": true
+  },
+  "risk_controls": {
+    "kill_switch_required": true,
+    "pre_trade_risk_check_required": true,
+    "post_trade_reconciliation_required": true,
+    "append_only_audit_log_required": true,
+    "manual_confirmation_required": true,
+    "default_deny_on_unknown_state": true
+  },
+  "required_broker_onboarding_inputs": [
+    "broker_name_and_api_documentation",
+    "sandbox_or_simulation_endpoint",
+    "authentication_and_session_model",
+    "account_type_and_supported_cn_etf_exchanges",
+    "minimum_commission_and_other_fees",
+    "supported_order_types_and_time_in_force",
+    "lot_size_price_tick_and_trading_status_endpoint",
+    "rate_limits_error_codes_and_idempotency_semantics",
+    "trade_fill_position_and_cash_reconciliation_endpoints"
+  ],
+  "boundaries": {
+    "schema_validation_allowed": true,
+    "broker_connection_allowed": false,
+    "account_read_allowed": false,
+    "order_placement_allowed": false,
+    "live_boundary_allowed": false
+  }
+}

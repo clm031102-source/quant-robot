@@ -280,6 +280,48 @@ class QuantPmStartupGateTests(unittest.TestCase):
                 "etf_residual_share_creation_crowding_reversal_20",
             )
 
+    def test_gate_allows_frozen_delayed_nav_premium_single_prescreen(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for row in _gate_config()["required_reading"]:
+                target = root / row["path"]
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("ok\n", encoding="utf-8")
+            family = _single_prescreen_family_config()
+            family["last_decision"].update(
+                {
+                    "factor_name": "etf_delayed_nav_premium_innovation_reversal_60",
+                    "allowed_stage": "cn_etf_delayed_nav_premium_prescreen",
+                    "canonical_data_sha256": "f" * 64,
+                    "hypothesis_count": 1,
+                    "primary_horizon": 1,
+                    "diagnostic_horizon": 5,
+                }
+            )
+            family["last_decision"].pop("mapping_sha256")
+
+            result = build_quant_pm_startup_gate(
+                gate_config=_gate_config(),
+                workstations_config=_workstations(),
+                repo_root=root,
+                machine="highspec_desktop",
+                task="factor_batch",
+                branch="codex/factor-batch-cn-etf-nav-premium-20260729",
+                current_branch="codex/factor-batch-cn-etf-nav-premium-20260729",
+                family_config=family,
+            )
+
+            self.assertEqual(result["status"], "ready")
+            self.assertEqual(result["mode"], "single_prescreen_only")
+            self.assertEqual(
+                result["safety"]["factor_batch_scope"]["factor_name"],
+                "etf_delayed_nav_premium_innovation_reversal_60",
+            )
+            self.assertEqual(
+                result["safety"]["factor_batch_scope"]["canonical_data_sha256"],
+                "f" * 64,
+            )
+
     def test_gate_allows_family_rotation_review_after_rejected_prescreen(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -317,6 +359,48 @@ class QuantPmStartupGateTests(unittest.TestCase):
                 "research_family_scheduler_family_rotation_review_mode",
                 review["warnings"],
             )
+
+    def test_gate_allows_family_rotation_after_invalidated_consumed_prescreen(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for row in _gate_config()["required_reading"]:
+                target = root / row["path"]
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("ok\n", encoding="utf-8")
+            family = _rejected_prescreen_family_config()
+            family["last_decision"].update(
+                {
+                    "decision": "prescreen_invalidated_family_closed_no_rerun",
+                    "metrics_governing": False,
+                    "rerun_allowed": False,
+                }
+            )
+
+            review = build_quant_pm_startup_gate(
+                gate_config=_gate_config(),
+                workstations_config=_workstations(),
+                repo_root=root,
+                machine="highspec_desktop",
+                task="factor_review",
+                branch="codex/factor-review-cn-etf-family-rotation",
+                current_branch="codex/factor-review-cn-etf-family-rotation",
+                family_config=family,
+            )
+            factor_batch = build_quant_pm_startup_gate(
+                gate_config=_gate_config(),
+                workstations_config=_workstations(),
+                repo_root=root,
+                machine="highspec_desktop",
+                task="factor_batch",
+                branch="codex/factor-batch-cn-etf",
+                current_branch="codex/factor-batch-cn-etf",
+                family_config=family,
+            )
+
+            self.assertEqual(review["status"], "ready")
+            self.assertEqual(review["mode"], "family_rotation_review_only")
+            self.assertEqual(factor_batch["status"], "blocked")
+            self.assertFalse(factor_batch["safety"]["factor_batch_allowed"])
             self.assertEqual(
                 review["next_actions"][0]["action"],
                 "review_next_orthogonal_cn_etf_family",

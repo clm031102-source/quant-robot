@@ -328,6 +328,42 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(result.loc[0, "fund_symbol"], "510300.SH")
         self.assertEqual(str(result.loc[0, "known_date"]), "2024-01-10")
 
+    def test_tushare_adapter_fetches_bounded_fund_nav(self):
+        class FakeTushare:
+            def fund_nav(self, **kwargs):
+                self.kwargs = kwargs
+                return pd.DataFrame(
+                    {
+                        "ts_code": ["510300.SH"],
+                        "ann_date": ["20200103"],
+                        "nav_date": ["20200102"],
+                        "unit_nav": ["4.1234"],
+                        "accum_nav": ["4.5678"],
+                        "accum_div": ["0.4444"],
+                        "net_asset": ["100.0"],
+                        "total_netasset": ["200.0"],
+                        "adj_nav": ["4.1000"],
+                        "update_flag": ["1"],
+                    }
+                )
+
+        client = FakeTushare()
+        adapter = TushareAdapter(client=client)
+
+        result = adapter.fetch_fund_nav(
+            "510300.SH",
+            start_date="2020-01-02",
+            end_date="2024-06-28",
+        )
+
+        self.assertEqual(client.kwargs["ts_code"], "510300.SH")
+        self.assertEqual(client.kwargs["market"], "E")
+        self.assertEqual(client.kwargs["start_date"], "20200102")
+        self.assertEqual(client.kwargs["end_date"], "20240628")
+        self.assertIn("update_flag", client.kwargs["fields"])
+        self.assertEqual(result.loc[0, "symbol"], "510300.SH")
+        self.assertEqual(str(result.loc[0, "nav_date"]), "2020-01-02")
+
 
 if __name__ == "__main__":
     unittest.main()

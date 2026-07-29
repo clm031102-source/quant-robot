@@ -27,6 +27,7 @@ class CNMarketRegimeTemperatureResidualPrescreenCliTests(unittest.TestCase):
                 bars_roots=[root / "bars_root"],
                 factor_inputs_root=root / "factor_root",
                 stock_basic=stock_basic,
+                preregistration_json=None,
                 output_dir=output,
                 analysis_start_date="2020-01-01",
                 analysis_end_date="2020-05-30",

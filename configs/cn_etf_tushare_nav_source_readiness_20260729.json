@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "stage": "cn_etf_tushare_nav_source_readiness",
+  "review_date": "2026-07-29",
+  "primary_market": "CN_ETF",
+  "research_family": "cn_etf_nav_premium_relative_value",
+  "analysis": {
+    "target_universe_path": "data/processed/cn_etf_pcf_target_universe_2020_2024/target_universe.csv",
+    "public_nav_root": "data/processed/cn_etf_fund_structure_public_2020_2024",
+    "bar_root": "data/processed/tushare_etf_wide_history_2023_2026",
+    "trading_calendar_path": "data/processed/trading_calendars/cn_tushare_2015_2025/cn_trading_calendar.csv",
+    "trading_calendar_manifest_path": "data/processed/trading_calendars/cn_tushare_2015_2025/cn_trading_calendar_manifest.json",
+    "start_date": "2020-01-02",
+    "end_date": "2024-06-28",
+    "next_session_read_end": "2024-08-02",
+    "final_holdout_start": "2026-01-01"
+  },
+  "outputs": {
+    "data_dir": "data/processed/cn_etf_tushare_nav_2020_2024",
+    "report_dir": "data/reports/cn_etf_tushare_nav_source_readiness_20260729"
+  },
+  "provider": {
+    "endpoint": "fund_nav",
+    "market": "E",
+    "request_sleep_seconds": 0.35
+  },
+  "thresholds": {
+    "minimum_terminal_request_ratio": 1.0,
+    "minimum_valid_announcement_ratio": 0.99,
+    "minimum_positive_unit_nav_ratio": 0.999,
+    "minimum_public_key_intersection_ratio": 0.9,
+    "minimum_public_asset_match_ratio": 0.9,
+    "minimum_within_10bp_ratio": 0.99,
+    "maximum_severe_disagreement_ratio": 0.001,
+    "severe_disagreement_threshold": 0.05,
+    "minimum_usable_assets_per_session": 30,
+    "minimum_usable_session_coverage": 0.8
+  },
+  "boundaries": {
+    "factor_generation_allowed": false,
+    "forward_return_read": false,
+    "portfolio_grid_allowed": false,
+    "walk_forward_allowed": false,
+    "final_holdout_allowed": false,
+    "promotion_allowed": false,
+    "paper_signal_allowed": false,
+    "broker_connection_allowed": false,
+    "account_read_allowed": false,
+    "order_placement_allowed": false,
+    "live_boundary_allowed": false
+  }
+}

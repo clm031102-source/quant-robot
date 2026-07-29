@@ -1,0 +1,138 @@
+{
+  "stage": "cn_etf_delayed_nav_premium_preregistration",
+  "registration_date": "2026-07-29",
+  "primary_market": "CN_ETF",
+  "research_family": "cn_etf_nav_premium_relative_value",
+  "source_evidence": {
+    "required_status": "ready_for_nav_premium_preregistration",
+    "paths": {
+      "source_config": "configs/cn_etf_tushare_nav_source_readiness_20260729.json",
+      "source_result": "data/reports/cn_etf_tushare_nav_source_readiness_20260729/source_readiness.json",
+      "request_manifest": "data/processed/cn_etf_tushare_nav_2020_2024/request_manifest.json",
+      "canonical_nav": "data/processed/cn_etf_tushare_nav_2020_2024/canonical/nav.parquet",
+      "session_coverage": "data/reports/cn_etf_tushare_nav_source_readiness_20260729/session_coverage.csv",
+      "nav_agreement": "data/reports/cn_etf_tushare_nav_source_readiness_20260729/nav_agreement_summary.csv",
+      "small_capital_inputs": "configs/cn_etf_small_capital_inputs_20260729.json"
+    },
+    "hashes": {
+      "source_config": "0cc8f1d5ea88e1c262b32d3b698275e0552df1da7f65df5a3cbc9c50de032814",
+      "source_result": "151a30944fd4ca62fd765af2a48fa33b5dc3997e469af7bf923b126179b53f8b",
+      "request_manifest": "35a2c5331b2ca3efae870010c2604099be4ab6d6ec6b1046208d3038a1f2e920",
+      "canonical_nav": "8cbc3a63561dbfcb0a42dcef56b053da484c149f32f1554ff271c1875cb6338a",
+      "session_coverage": "9b1483919cafeaf497ecea2581eeb7193408f2995c9f5edc22bd02fe48704f1e",
+      "nav_agreement": "62d4b65694a1fa5d3d204e9fa76702d71b2946ee92956a5aa80562102f64a7c4",
+      "small_capital_inputs": "06ab14e15b6ba6bff0cd586ffa86ceef5d8873c4cb767790056dff5f97afaf41"
+    }
+  },
+  "candidate": {
+    "factor_name": "etf_delayed_nav_premium_innovation_reversal_60",
+    "hypothesis_count": 1,
+    "premium_lookback": 60,
+    "direction": "negative_innovation",
+    "nav_availability_rule": "latest_known_from_lte_signal_date",
+    "rolling_rule": "prior_60_complete_official_sessions_excluding_current"
+  },
+  "data_boundary": {
+    "bar_root": "data/processed/tushare_etf_wide_history_2023_2026",
+    "canonical_nav_path": "data/processed/cn_etf_tushare_nav_2020_2024/canonical/nav.parquet",
+    "trading_calendar_path": "data/processed/trading_calendars/cn_tushare_2015_2025/cn_trading_calendar.csv",
+    "trading_calendar_manifest_path": "data/processed/trading_calendars/cn_tushare_2015_2025/cn_trading_calendar_manifest.json",
+    "target_universe_path": "data/processed/cn_etf_pcf_target_universe_2020_2024/target_universe.csv",
+    "analysis_start_date": "2020-01-02",
+    "analysis_end_date": "2024-06-28",
+    "final_holdout_start": "2026-01-01",
+    "skip_post_analysis_partitions_before_read": true,
+    "current_name_input_allowed": false,
+    "current_theme_input_allowed": false,
+    "forward_fill_returns_allowed": false,
+    "nav_forward_fill_before_known_from_allowed": false
+  },
+  "eligibility": {
+    "official_lifecycle_membership_required": true,
+    "min_prior_observations": 120,
+    "liquidity_window": 20,
+    "min_trailing_median_amount_cny": 5000000.0,
+    "max_stale_price_rate": 0.05,
+    "max_abs_daily_adjusted_return": 0.2,
+    "factor_asset_daily_eligibility_required": true
+  },
+  "evaluation": {
+    "horizons": [1, 5],
+    "primary_horizon": 1,
+    "diagnostic_horizon": 5,
+    "execution_lag": 1
+  },
+  "thresholds": {
+    "minimum_daily_cross_section": 30,
+    "minimum_ic_observations": 20,
+    "minimum_yearly_ic_observations": 20,
+    "minimum_usable_years": 3,
+    "newey_west_alpha": 0.05,
+    "minimum_mean_rank_ic": 0.02,
+    "minimum_icir": 0.3,
+    "minimum_positive_ic_rate": 0.55,
+    "minimum_quintile_monotonicity": 0.7,
+    "maximum_top_quintile_turnover": 0.9,
+    "minimum_positive_year_rate": 0.6,
+    "maximum_abs_mean_daily_reference_correlation": 0.85,
+    "maximum_abs_direct_exposure_correlation": 0.85,
+    "direct_minimum_daily_observations": 20,
+    "diagnostic_minimum_mean_rank_ic": 0.0,
+    "diagnostic_minimum_top_minus_bottom_spread": 0.0
+  },
+  "reference_policy": {
+    "reference_set": "closed_cn_etf_families_v1",
+    "missing_or_all_null_reference_fails": true,
+    "direct_exposure_names": [
+      "raw_nav_premium",
+      "return_20",
+      "return_60",
+      "realized_volatility_20",
+      "log_adv20"
+    ]
+  },
+  "costs": {
+    "one_way_costs_bps": [10.5, 26.6666666667, 60.0],
+    "required_positive_net_spread_bps": 10.5
+  },
+  "capacity": {
+    "position_value_cny": 1000,
+    "max_one_way_participation_rate": 0.01
+  },
+  "stop_policy": {
+    "candidate_count": 1,
+    "hypothesis_count": 1,
+    "single_prescreen_run_limit": 1,
+    "primary_horizon_must_pass": true,
+    "diagnostic_horizon_can_rescue_primary": false,
+    "primary_failure_action": "close_family_zero_budget",
+    "sign_flip_rescue_allowed": false,
+    "window_tuning_allowed": false,
+    "eligibility_relaxation_allowed": false,
+    "threshold_relaxation_allowed": false,
+    "horizon_substitution_allowed": false,
+    "parameter_grid_allowed": false,
+    "regime_rescue_allowed": false,
+    "portfolio_rescue_allowed": false,
+    "walk_forward_rescue_allowed": false,
+    "final_holdout_remains_sealed": true
+  },
+  "output_dir": "data/reports/cn_etf_delayed_nav_premium_preregistration_20260729",
+  "authorization_filename": "single_prescreen_authorization.json",
+  "execution_ledger_path": "data/reports/cn_etf_delayed_nav_premium_prescreen_execution_ledger.json",
+  "boundaries": {
+    "forward_return_read_allowed": false,
+    "factor_generation_allowed": false,
+    "prescreen_execution_allowed": false,
+    "portfolio_grid_allowed": false,
+    "walk_forward_allowed": false,
+    "final_holdout_allowed": false,
+    "promotion_allowed": false,
+    "paper_signal_allowed": false,
+    "broker_connection_allowed": false,
+    "account_read_allowed": false,
+    "order_placement_allowed": false,
+    "live_trading_allowed": false,
+    "live_boundary_allowed": false
+  }
+}
