@@ -216,7 +216,7 @@
     "live_boundary_allowed": false,
     "next_direction": "run_exactly_one_hash_bound_margin_positioning_prescreen"
   },
-  "last_decision": {
+  "prior_nav_premium_source_ready_decision": {
     "date": "2026-07-29",
     "source_stage": "cn_etf_tushare_nav_source_readiness",
     "source_status": "ready_for_nav_premium_preregistration",
@@ -258,6 +258,47 @@
     "order_placement_allowed": false,
     "live_boundary_allowed": false,
     "next_direction": "preregister_one_hash_bound_delayed_nav_premium_innovation_prescreen"
+  },
+  "last_decision": {
+    "date": "2026-07-29",
+    "source_stage": "cn_etf_delayed_nav_premium_preregistration",
+    "source_status": "preregistered_single_prescreen",
+    "decision": "prescreen_preregistered_single_batch_only",
+    "factor_name": "etf_delayed_nav_premium_innovation_reversal_60",
+    "preregistration_config_path": "configs/cn_etf_delayed_nav_premium_innovation_reversal_60_20260729.json",
+    "preregistration_result_path": "data/reports/cn_etf_delayed_nav_premium_preregistration_20260729/preregistration.json",
+    "preregistration_config_sha256": "2b2af772c377257531cd9692550790def6c6112862f37d1208abd65f4c8f11f9",
+    "preregistration_result_sha256": "98c15eef32ade8180d74a402e65aadaba6e903a1310838ff5c653cedb73dcaa3",
+    "authorization_sha256": "2866603a951b63c11f05422d9fa6890ab2f7231a5d3313f118e3c3c8e830c7f4",
+    "authorization_id": "55c75636aba0892a725234ee380bd5dd695c64c384ec6d9ce8b01e0031179dfd",
+    "authorization_path": "data/reports/cn_etf_delayed_nav_premium_preregistration_20260729/single_prescreen_authorization.json",
+    "source_config_path": "configs/cn_etf_tushare_nav_source_readiness_20260729.json",
+    "source_result_path": "data/reports/cn_etf_tushare_nav_source_readiness_20260729/source_readiness.json",
+    "source_config_sha256": "0cc8f1d5ea88e1c262b32d3b698275e0552df1da7f65df5a3cbc9c50de032814",
+    "source_result_sha256": "151a30944fd4ca62fd765af2a48fa33b5dc3997e469af7bf923b126179b53f8b",
+    "canonical_data_sha256": "8cbc3a63561dbfcb0a42dcef56b053da484c149f32f1554ff271c1875cb6338a",
+    "hypothesis_count": 1,
+    "primary_horizon": 1,
+    "diagnostic_horizon": 5,
+    "single_prescreen_run_limit": 1,
+    "execution_count": 0,
+    "execution_ledger_required": true,
+    "execution_ledger_path": "data/reports/cn_etf_delayed_nav_premium_prescreen_execution_ledger.json",
+    "allowed_stage": "cn_etf_delayed_nav_premium_prescreen",
+    "unallocated_budget_share": 1.0,
+    "preregistration_required": false,
+    "factor_batch_allowed": true,
+    "single_prescreen_allowed": true,
+    "portfolio_grid_allowed": false,
+    "walk_forward_allowed": false,
+    "final_holdout_allowed": false,
+    "promotion_allowed": false,
+    "paper_signal_allowed": false,
+    "broker_connection_allowed": false,
+    "account_read_allowed": false,
+    "order_placement_allowed": false,
+    "live_boundary_allowed": false,
+    "next_direction": "run_exactly_one_hash_bound_delayed_nav_premium_prescreen"
   },
   "prior_margin_positioning_closeout_decision": {
     "date": "2026-07-28",
@@ -586,10 +627,11 @@
       "budget_share": 0.0,
       "source_readiness_status": "ready_for_nav_premium_preregistration",
       "source_blockers": [],
-      "preregistration_required": true,
+      "preregistration_required": false,
+      "preregistration_status": "prescreen_preregistered",
       "factor_batch_before_readiness_allowed": false,
       "factor_batch_before_preregistration_allowed": false,
-      "single_prescreen_allowed": false,
+      "single_prescreen_allowed": true,
       "primary_allocation_allowed": false,
       "portfolio_grid_allowed": false,
       "walk_forward_allowed": false,
@@ -608,6 +650,16 @@
         "within_10bp_ratio": 0.9999984430563427,
         "usable_session_coverage": 1.0
       },
+      "preregistration_audit": {
+        "config_sha256": "2b2af772c377257531cd9692550790def6c6112862f37d1208abd65f4c8f11f9",
+        "result_sha256": "98c15eef32ade8180d74a402e65aadaba6e903a1310838ff5c653cedb73dcaa3",
+        "authorization_sha256": "2866603a951b63c11f05422d9fa6890ab2f7231a5d3313f118e3c3c8e830c7f4",
+        "authorization_id": "55c75636aba0892a725234ee380bd5dd695c64c384ec6d9ce8b01e0031179dfd",
+        "primary_horizon": 1,
+        "diagnostic_horizon": 5,
+        "single_prescreen_run_limit": 1,
+        "execution_count": 0
+      },
       "economic_thesis": "ETF closes can temporarily diverge from the latest officially knowable unit NAV; an own-history premium innovation may reverse after removing the fund's persistent premium level without relying on current-name peer mapping.",
       "allowed_roles": [
         "point_in_time_price_nav_relative_value",
@@ -624,7 +676,7 @@
         "final_holdout_access",
         "paper_signal_before_promotion"
       ],
-      "next_action": "Preregister one 60-session delayed-NAV premium-innovation reversal candidate; do not read labels until the hash-bound single-prescreen authorization exists."
+      "next_action": "Run exactly one hash-bound H1/H5 delayed-NAV premium-innovation prescreen; do not expand the grid or rescue a failed sign/window."
     },
     {
       "family_id": "cn_etf_price_rotation",
