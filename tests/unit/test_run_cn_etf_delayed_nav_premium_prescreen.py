@@ -14,11 +14,13 @@ from quant_robot.validation.single_prescreen_authorization import (
 )
 from scripts.run_cn_etf_delayed_nav_premium_preregistration import SOURCE_KEYS
 from scripts.run_cn_etf_delayed_nav_premium_prescreen import (
+    DEFAULT_AUTHORIZATION,
     DEFAULT_CONFIG,
     FROZEN_HASHES,
     PreparedInputs,
     PrescreenRuntime,
     _load_config,
+    _validate_scheduler,
     run_cn_etf_delayed_nav_premium_prescreen_cli,
 )
 
@@ -90,6 +92,25 @@ class RunCnEtfDelayedNavPremiumPrescreenTests(unittest.TestCase):
                         runtime=fixture["runtime"],
                     )
             self.assertFalse(fixture["runtime"].ledger_path.exists())
+
+    def test_invalidated_scheduler_prevents_any_second_execution(self):
+        scheduler = json.loads(
+            Path("configs/research_family_scheduler_cn_etf.json").read_text(
+                encoding="utf-8"
+            )
+        )
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "scheduler single-prescreen decision mismatch: decision",
+        ):
+            _validate_scheduler(
+                scheduler,
+                authorization_id=(
+                    "55c75636aba0892a725234ee380bd5dd695c64c384ec6d9ce8b01e0031179dfd"
+                ),
+                authorization_path=DEFAULT_AUTHORIZATION,
+            )
 
 
 def _fixture(root: Path) -> dict:

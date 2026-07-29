@@ -83,6 +83,14 @@ class CnEtfTushareNavSourceReadinessTests(unittest.TestCase):
         result = _evaluate(nav=nav)
         self.assertIn("known_from_not_strictly_after_nav_and_announcement", result["gate"]["blockers"])
 
+        nav = _nav()
+        nav.loc[nav.index[0], "known_from"] = pd.Timestamp("2024-01-05").date()
+        result = _evaluate(nav=nav)
+        self.assertIn(
+            "known_from_not_first_official_session_after_nav_and_announcement",
+            result["gate"]["blockers"],
+        )
+
     def test_positive_nav_and_session_coverage_fail_closed(self):
         nav = _nav()
         nav.loc[nav.index[0], "unit_nav"] = 0.0

@@ -251,6 +251,10 @@ def run_tushare_fund_nav_ingest(
             prior.get("status") in {"completed", "empty"}
             and prior.get("request_sha256") == request_sha256
             and source_path.exists()
+            and _source_partition_matches_response_hash(
+                source_path,
+                prior.get("response_sha256"),
+            )
         ):
             resumed += 1
             continue
@@ -296,7 +300,12 @@ def run_tushare_fund_nav_ingest(
         source_path = Path(str(row["source_path"]))
         if not source_path.exists():
             raise ValueError(f"completed NAV request is missing its source partition: {symbol}")
-        source_frames.append(pd.read_parquet(source_path))
+        source_frame = pd.read_parquet(source_path)
+        if _frame_sha256(source_frame) != row.get("response_sha256"):
+            raise ValueError(
+                f"completed NAV request response hash mismatch: {symbol}"
+            )
+        source_frames.append(source_frame)
     raw = (
         pd.concat(source_frames, ignore_index=True)
         if source_frames
@@ -409,6 +418,19 @@ def _frame_sha256(frame: pd.DataFrame) -> str:
         stable = stable.sort_values(list(stable.columns), na_position="last").reset_index(drop=True)
     payload = stable.to_csv(index=False, lineterminator="\n", na_rep="<NA>")
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _source_partition_matches_response_hash(
+    path: Path,
+    expected_sha256: object,
+) -> bool:
+    if not isinstance(expected_sha256, str) or len(expected_sha256) != 64:
+        return False
+    try:
+        frame = pd.read_parquet(path)
+    except Exception:
+        return False
+    return _frame_sha256(frame) == expected_sha256
 
 
 def _json_sha256(payload: dict[str, Any]) -> str:

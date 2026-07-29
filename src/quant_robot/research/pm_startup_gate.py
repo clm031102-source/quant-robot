@@ -284,12 +284,20 @@ def _restricted_review_mode(
         mode = "preregistration_only"
     elif decision_name == "prescreen_preregistered_single_batch_only":
         return _single_prescreen_mode(task, decision, family_schedule)
-    elif decision_name == "prescreen_rejected_family_rotation_review_only":
+    elif decision_name in {
+        "prescreen_rejected_family_rotation_review_only",
+        "prescreen_invalidated_family_closed_no_rerun",
+    }:
         if (
             decision.get("family_rotation_review_allowed") is not True
             or decision.get("primary_passed") is not False
             or decision.get("execution_count") != 1
             or _float(decision.get("unallocated_budget_share"), -1.0) != 1.0
+        ):
+            return None
+        if decision_name == "prescreen_invalidated_family_closed_no_rerun" and (
+            decision.get("metrics_governing") is not False
+            or decision.get("rerun_allowed") is not False
         ):
             return None
         for key in (

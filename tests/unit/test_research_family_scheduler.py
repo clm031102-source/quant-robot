@@ -18,11 +18,11 @@ class ResearchFamilySchedulerTests(unittest.TestCase):
         decision = config["last_decision"]
         self.assertEqual(
             decision["decision"],
-            "prescreen_rejected_family_rotation_review_only",
+            "prescreen_invalidated_family_closed_no_rerun",
         )
         self.assertEqual(
             decision["source_status"],
-            "close_family_zero_budget",
+            "invalidated_implementation_and_authorization_drift",
         )
         self.assertFalse(decision["factor_batch_allowed"])
         self.assertFalse(decision["single_prescreen_allowed"])
@@ -30,7 +30,8 @@ class ResearchFamilySchedulerTests(unittest.TestCase):
         self.assertEqual(decision["diagnostic_horizon"], 5)
         self.assertEqual(decision["execution_count"], 1)
         self.assertFalse(decision["primary_passed"])
-        self.assertTrue(decision["diagnostic_passed"])
+        self.assertFalse(decision["metrics_governing"])
+        self.assertFalse(decision["rerun_allowed"])
         family = next(
             row
             for row in config["families"]
@@ -40,7 +41,7 @@ class ResearchFamilySchedulerTests(unittest.TestCase):
         self.assertEqual(family["budget_share"], 0.0)
         self.assertFalse(family["preregistration_required"])
         self.assertFalse(family["single_prescreen_allowed"])
-        self.assertEqual(family["preregistration_status"], "prescreen_consumed_rejected")
+        self.assertEqual(family["preregistration_status"], "prescreen_consumed_invalidated")
 
     def test_scheduler_accepts_diversified_cn_etf_hypothesis_portfolio(self):
         config = {

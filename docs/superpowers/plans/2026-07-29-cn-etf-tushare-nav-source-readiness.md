@@ -789,6 +789,13 @@ The first strict execution consumes the family budget. Do not rescue, retune, or
 - Pass all frozen OOS/PIT/cost/capacity/stability gates: prepare the existing manual paper-observation package with broker actions still disabled.
 - Fail any hard gate: close the family and preserve the rejection evidence.
 
+Post-execution review on 2026-07-29 invalidated the consumed run before it
+could support either branch of this decision. A late older NAV could replace a
+newer already-available NAV, the conditional neutralization contract was not
+implemented, and bar/lifecycle/calendar inputs were not included in the
+authorization hashes. The run remains consumed and non-governing; it must not
+be corrected and rerun after label access. The family is closed at zero budget.
+
 - [ ] **Step 6: Commit only code, config, tests, and lightweight summary**
 
 Never commit generated data, large reports, provider responses, logs, tokens, account data, broker credentials, or orders.

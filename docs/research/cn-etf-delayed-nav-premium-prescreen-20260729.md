@@ -2,15 +2,23 @@
 
 ## Decision
 
-The single-use, hash-bound prescreen was completed exactly once and the
-`cn_etf_nav_premium_relative_value` family is closed at zero research budget.
-The frozen H1 primary horizon failed four hard gates. H5 was diagnostic-only
-and cannot rescue H1. No sign flip, lookback change, threshold relaxation,
-subgroup selection, second execution, portfolio grid, walk-forward run, final
-holdout read, or paper promotion is authorized.
+The single-use prescreen was completed exactly once, but the execution is
+non-governing and invalidated. Post-execution review found three material
+contract defects:
 
-This is a useful rejection, not a paper strategy and not evidence of expected
-profitability.
+- a late announcement for an older NAV date could replace a newer NAV that was
+  already available;
+- the implementation did not execute the conditionally preregistered
+  neutralization contract;
+- the authorization hashes covered NAV evidence but did not bind the mutable
+  bar, lifecycle, and trading-calendar authorities used for factors and labels.
+
+The `cn_etf_nav_premium_relative_value` family is therefore closed at zero
+research budget without a valid pass-or-reject conclusion. The authorization
+was consumed, and the observed labels make a corrected second run a prohibited
+post-result retry. No sign flip, lookback change, neutralization redesign,
+threshold relaxation, subgroup selection, second execution, portfolio grid,
+walk-forward run, final holdout read, or paper promotion is authorized.
 
 ## Frozen Evidence
 
@@ -24,6 +32,9 @@ profitability.
 - Final 2026 holdout included: false
 - Current-name or current-theme input used: false
 - Authorization executions allowed/consumed: 1 / 1
+- Execution metrics governing: false
+- Corrected rerun allowed: false
+- Revalidated exact `known_from` violations: 0
 
 Hash identities:
 
@@ -31,6 +42,7 @@ Hash identities:
 - Preregistration result: `98c15eef32ade8180d74a402e65aadaba6e903a1310838ff5c653cedb73dcaa3`
 - Single-use authorization: `2866603a951b63c11f05422d9fa6890ab2f7231a5d3313f118e3c3c8e830c7f4`
 - Canonical NAV: `8cbc3a63561dbfcb0a42dcef56b053da484c149f32f1554ff271c1875cb6338a`
+- Strictly revalidated source result: `f6ec09a2631eb0972781ee94d5e2f00979d0145c381d517f8bbbbcb56a52b43c`
 - Prescreen result: `39d5e4add6e6e4558e3b86e90b29e2ea59436966bcea50f9d3bc9d06b26d7395`
 - Candidate-horizon table: `3d63248e27d742785078b72cf0e4d5759ba5677fe36c50b394196db4160a1cf0`
 - Hash manifest: `c655701e3f90e97dca85b1925c1e32436e42d18627d93a5ae283849a4748051c`
@@ -40,7 +52,10 @@ Generated result data remains ignored under
 `data/reports/cn_etf_delayed_nav_premium_prescreen_20260729`; it is not a Git
 payload.
 
-## Quantitative Result
+## Non-Governing Diagnostic Output
+
+The following values describe the invalid execution only. They must not be
+used for promotion, rejection, parameter choice, or a later corrected run.
 
 | Gate metric | H1 primary | H5 diagnostic |
 |---|---:|---:|
@@ -56,7 +71,7 @@ payload.
 | Maximum absolute direct-exposure correlation | 0.9291 | 0.9291 |
 | Capacity dates supported | 905 / 905 | 901 / 901 |
 
-H1 blockers:
+Observed H1 blockers under the invalid execution:
 
 - ICIR below 0.30;
 - positive IC rate below 55%;
@@ -64,9 +79,9 @@ H1 blockers:
   `raw_nav_premium`;
 - net spread at the 10.5 bp/side base cost is not positive.
 
-Capacity was not the blocker at CNY 1,000 position size: the maximum observed
-one-way participation rate was 0.0144%, well below the 1% ceiling. The economic
-edge and independence gates failed.
+The invalid execution also observed a maximum one-way participation rate of
+0.0144% at CNY 1,000 position size. That diagnostic does not establish
+capacity readiness for a corrected signal.
 
 ## Small-Capital Reality
 
@@ -98,7 +113,7 @@ physical promotion requirements remain entirely uncompleted:
 - paper maximum drawdown no worse than 8%;
 - manual promotion review.
 
-The offline broker adapter contract is now schema-ready and repeatably
+The offline execution-interface contract is schema-ready and repeatably
 validated by:
 
 ```powershell
@@ -118,12 +133,15 @@ error/idempotency semantics, and fill/position/cash reconciliation endpoints.
 
 ## Next Direction
 
-Do not spend another research execution on this factor family. The next
-candidate must be economically independent of raw NAV premium and all eight
-closed CN ETF families. It requires a new source/readiness thesis and a new
-preregistration before any labels are read. Until a frozen candidate passes,
-broker integration is an interface-engineering exercise only and must not be
-presented as a path to live profit.
+Do not spend another research execution on this factor family. Future
+prescreens must select the maximum NAV date among rows already available,
+freeze any neutralization formula explicitly, and bind bar partitions,
+lifecycle metadata, trading-calendar data, and the calendar manifest before
+authorization. The next candidate must be economically independent of raw NAV
+premium and all eight closed CN ETF families, with a new source/readiness
+thesis and preregistration before labels are read. Until a frozen candidate
+passes, broker integration is an interface-engineering exercise only and must
+not be presented as a path to live profit.
 
 No broker connection, account read, order placement, or live-trading action
 occurred.

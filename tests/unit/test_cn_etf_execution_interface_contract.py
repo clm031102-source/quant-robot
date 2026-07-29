@@ -14,7 +14,7 @@ from scripts.run_cn_etf_execution_interface_contract_readiness import (
 CONFIG_PATH = "configs/cn_etf_execution_interface_contract_20260729.json"
 
 
-class CnEtfBrokerAdapterContractTests(unittest.TestCase):
+class CnEtfExecutionInterfaceContractTests(unittest.TestCase):
     def test_schema_is_ready_while_every_external_action_remains_disabled(self):
         config = json.loads(open(CONFIG_PATH, encoding="utf-8").read())
 
@@ -63,6 +63,20 @@ class CnEtfBrokerAdapterContractTests(unittest.TestCase):
         self.assertEqual(result["status"], "blocked")
         self.assertIn("order_intent_schema_mismatch", result["blockers"])
         self.assertIn("kill_switch_not_required", result["blockers"])
+
+    def test_weakened_instrument_or_order_controls_block_the_contract(self):
+        config = json.loads(open(CONFIG_PATH, encoding="utf-8").read())
+        config["market_contract"]["instrument_metadata_required"].remove(
+            "trade_status"
+        )
+        config["order_intent_schema"]["allowed_order_types"].append("MARKET")
+        config["order_intent_schema"]["default_time_in_force"] = "GTC"
+
+        result = build_cn_etf_execution_interface_contract_readiness(config)
+
+        self.assertEqual(result["status"], "blocked")
+        self.assertIn("instrument_metadata_contract_mismatch", result["blockers"])
+        self.assertIn("order_control_contract_mismatch", result["blockers"])
 
     def test_cli_writes_only_a_local_disabled_readiness_packet(self):
         with tempfile.TemporaryDirectory() as tmp:

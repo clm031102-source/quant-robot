@@ -5,11 +5,13 @@
 Status: `ready_for_nav_premium_preregistration`.
 
 The Tushare `fund_nav` source passed every frozen point-in-time, completeness,
-cross-source agreement, breadth, and safety gate. This decision authorizes only
-a separate hash-bound preregistration for one delayed-NAV premium-innovation
-candidate. It is not factor-performance evidence and does not authorize a
-factor batch, portfolio grid, walk-forward run, paper signal, broker
-connection, account read, order placement, or live trading.
+cross-source agreement, breadth, and safety gate. Post-execution review added
+an explicit independent check that every `known_from` is the first official
+session strictly after both source dates; the source still passes with zero
+violations. Source readiness does not authorize a rerun of the consumed,
+invalidated delayed-NAV candidate. It is not factor-performance evidence and
+does not authorize a factor batch, portfolio grid, walk-forward run, paper
+signal, broker connection, account read, order placement, or live trading.
 
 ## Quantitative Evidence
 
@@ -19,7 +21,8 @@ connection, account read, order placement, or live trading.
 - Duplicate `asset_id`/`nav_date` rows: 0.
 - Valid `ann_date >= nav_date`: 705,055 rows, 99.996312%.
 - Finite positive `unit_nav`: 705,081 rows, 100%.
-- Strict `known_from` violations after calendar-tail repair: 0.
+- Strict ordering `known_from` violations after calendar-tail repair: 0.
+- Exact first-official-session `known_from` violations: 0.
 - Public comparison keys: 642,285; matched: 642,284, or 99.999844%.
 - Public comparison assets: 1,020; matched: 1,020, or 100%.
 - Agreement within 10 bp: 642,283 of 642,284 matched rows, or 99.999844%.
@@ -32,13 +35,16 @@ official-calendar tail from 2024-07-05 to 2024-08-02 established the correct
 2024-07-31 `known_from`; the retained NAV window and sealed final holdout did
 not change.
 
-The local no-network rerun reproduced the source-readiness JSON SHA-256
-exactly.
+The stricter local no-network revalidation produced the deterministic
+source-readiness identity recorded below.
 
 ## Source Identity
 
 - Config SHA-256: `0cc8f1d5ea88e1c262b32d3b698275e0552df1da7f65df5a3cbc9c50de032814`
-- Readiness result SHA-256: `151a30944fd4ca62fd765af2a48fa33b5dc3997e469af7bf923b126179b53f8b`
+- Initial readiness result SHA-256:
+  `151a30944fd4ca62fd765af2a48fa33b5dc3997e469af7bf923b126179b53f8b`
+- Strictly revalidated readiness result SHA-256:
+  `f6ec09a2631eb0972781ee94d5e2f00979d0145c381d517f8bbbbcb56a52b43c`
 - Request manifest SHA-256: `35a2c5331b2ca3efae870010c2604099be4ab6d6ec6b1046208d3038a1f2e920`
 - Canonical NAV SHA-256: `8cbc3a63561dbfcb0a42dcef56b053da484c149f32f1554ff271c1875cb6338a`
 - Session coverage SHA-256: `9b1483919cafeaf497ecea2581eeb7193408f2995c9f5edc22bd02fe48704f1e`

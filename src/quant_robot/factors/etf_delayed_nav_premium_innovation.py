@@ -62,10 +62,8 @@ def compute_etf_delayed_nav_premium_innovation(
             item["known_from"] = pd.NaT
             item["latest_unit_nav"] = np.nan
         else:
-            asset_nav = (
-                asset_nav.sort_values(["known_from", "nav_date"])
-                .drop_duplicates("known_from", keep="last")
-                .rename(columns={"unit_nav": "latest_unit_nav"})
+            asset_nav = _latest_nav_frontier(asset_nav).rename(
+                columns={"unit_nav": "latest_unit_nav"}
             )
             item = pd.merge_asof(
                 item.sort_values("date"),
@@ -224,6 +222,19 @@ def _normalise_nav(nav: pd.DataFrame) -> pd.DataFrame:
     if frame.duplicated(["asset_id", "nav_date"]).any():
         raise ValueError("Tushare NAV source contains duplicate asset-date rows")
     return frame.sort_values(["asset_id", "known_from", "nav_date"]).reset_index(drop=True)
+
+
+def _latest_nav_frontier(nav: pd.DataFrame) -> pd.DataFrame:
+    frame = (
+        nav.sort_values(["known_from", "nav_date"])
+        .drop_duplicates("known_from", keep="last")
+        .copy()
+    )
+    newest_available_date = frame["nav_date"].cummax()
+    frame = frame.loc[frame["nav_date"].eq(newest_available_date)].copy()
+    return frame.loc[
+        frame["nav_date"].ne(frame["nav_date"].shift())
+    ].reset_index(drop=True)
 
 
 def _add_bar_exposures(

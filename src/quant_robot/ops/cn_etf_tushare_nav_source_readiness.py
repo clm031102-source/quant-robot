@@ -51,11 +51,14 @@ def build_cn_etf_tushare_nav_source_readiness(
     )
     frame = _normalize_nav(nav)
     public = _normalize_public_nav(public_nav)
+    official_index = pd.DatetimeIndex(
+        pd.to_datetime(pd.Series(official_sessions), errors="raise")
+    ).normalize().drop_duplicates().sort_values()
     sessions = sorted(
         {
-            value
-            for value in pd.to_datetime(pd.Series(official_sessions), errors="raise").dt.date
-            if start <= value <= end
+            value.date()
+            for value in official_index
+            if start <= value.date() <= end
         }
     )
     request_rows, request_summary = _request_rows_and_summary(request_manifest)
@@ -72,6 +75,24 @@ def build_cn_etf_tushare_nav_source_readiness(
         & (frame["known_from"] > frame["ann_date"])
     )
     known_from_violations = int((valid_announcement & ~known_from_valid).sum())
+    availability_base = pd.concat(
+        [
+            pd.to_datetime(frame["nav_date"], errors="coerce"),
+            pd.to_datetime(frame["ann_date"], errors="coerce"),
+        ],
+        axis=1,
+    ).max(axis=1)
+    expected_known_from = _first_official_session_strictly_after(
+        availability_base,
+        official_index,
+    )
+    exact_known_from = pd.to_datetime(
+        frame["known_from"],
+        errors="coerce",
+    ).dt.normalize().eq(expected_known_from)
+    exact_known_from_violations = int(
+        (valid_announcement & known_from_valid & ~exact_known_from).sum()
+    )
     unit_nav = pd.to_numeric(frame["unit_nav"], errors="coerce")
     positive_unit_nav = unit_nav.notna() & np.isfinite(unit_nav) & unit_nav.gt(0.0)
     positive_unit_nav_ratio = _ratio(int(positive_unit_nav.sum()), rows)
@@ -153,6 +174,10 @@ def build_cn_etf_tushare_nav_source_readiness(
         blockers.append("valid_announcement_ratio_below_minimum")
     if known_from_violations:
         blockers.append("known_from_not_strictly_after_nav_and_announcement")
+    if exact_known_from_violations:
+        blockers.append(
+            "known_from_not_first_official_session_after_nav_and_announcement"
+        )
     if positive_unit_nav_ratio < float(thresholds["minimum_positive_unit_nav_ratio"]):
         blockers.append("positive_unit_nav_ratio_below_minimum")
     if source_identity_violations:
@@ -197,6 +222,7 @@ def build_cn_etf_tushare_nav_source_readiness(
             "holdout_rows": holdout_rows,
             "valid_announcement_rows": int(valid_announcement.sum()),
             "known_from_violations": known_from_violations,
+            "exact_known_from_violations": exact_known_from_violations,
             "positive_unit_nav_rows": int(positive_unit_nav.sum()),
             "source_identity_violations": source_identity_violations,
             "forbidden_columns": forbidden_columns,
@@ -328,6 +354,22 @@ def render_cn_etf_tushare_nav_source_readiness(result: Mapping[str, Any]) -> str
         ]
     )
     return "\n".join(lines)
+
+
+def _first_official_session_strictly_after(
+    availability_base: pd.Series,
+    official_sessions: pd.DatetimeIndex,
+) -> pd.Series:
+    base = pd.to_datetime(availability_base, errors="coerce").dt.normalize()
+    expected = pd.Series(pd.NaT, index=base.index, dtype="datetime64[ns]")
+    valid = base.notna()
+    if not valid.any() or official_sessions.empty:
+        return expected
+    positions = official_sessions.searchsorted(base.loc[valid], side="right")
+    within_calendar = positions < len(official_sessions)
+    target_index = base.loc[valid].index[within_calendar]
+    expected.loc[target_index] = official_sessions.take(positions[within_calendar])
+    return expected
 
 
 def _normalize_nav(nav: pd.DataFrame) -> pd.DataFrame:

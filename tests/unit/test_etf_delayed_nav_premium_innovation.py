@@ -70,6 +70,41 @@ class EtfDelayedNavPremiumInnovationTests(unittest.TestCase):
         self.assertAlmostEqual(final["premium_innovation"], 0.10)
         self.assertAlmostEqual(final["factor_value"], -0.10)
 
+    def test_late_old_nav_cannot_replace_a_newer_available_nav(self):
+        dates = pd.date_range("2024-01-02", periods=5, freq="B")
+        bars = _bars(dates, closes=[1.0] * len(dates))
+        nav = pd.DataFrame(
+            {
+                "nav_date": [dates[1].date(), dates[0].date()],
+                "ann_date": [dates[1].date(), dates[3].date()],
+                "known_from": [dates[2].date(), dates[4].date()],
+                "asset_id": ["CN_ETF_XSHG_510300"] * 2,
+                "symbol": ["510300.SH"] * 2,
+                "exchange": ["XSHG"] * 2,
+                "unit_nav": [1.1, 0.9],
+                "accum_nav": [1.1, 0.9],
+                "total_netasset": [100.0, 100.0],
+                "update_flag": [1.0, 1.0],
+                "is_pit_usable": [True, True],
+                "source": ["tushare_fund_nav"] * 2,
+            }
+        )
+
+        result = compute_etf_delayed_nav_premium_innovation(
+            bars,
+            nav,
+            eligible_keys=_eligible(bars),
+            official_sessions=dates,
+            premium_lookback=2,
+            return_windows=(1, 2),
+            volatility_window=2,
+            adv_window=2,
+        )
+
+        final = result.diagnostics.set_index("date").loc[dates[4]]
+        self.assertEqual(final["nav_date"], dates[1])
+        self.assertEqual(final["latest_unit_nav"], 1.1)
+
     def test_missing_official_session_prevents_compressed_lookback(self):
         dates = pd.date_range("2024-01-02", periods=5, freq="B")
         bars = _bars(dates, closes=[1.0] * len(dates))

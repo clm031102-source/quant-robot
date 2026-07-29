@@ -9,6 +9,13 @@ BOUNDARY_KEYS = (
     "order_placement_allowed",
     "live_boundary_allowed",
 )
+REQUIRED_INSTRUMENT_METADATA = (
+    "symbol",
+    "exchange",
+    "lot_size",
+    "price_tick",
+    "trade_status",
+)
 REQUIRED_ORDER_INTENT_FIELDS = (
     "schema_version",
     "client_intent_id",
@@ -57,9 +64,20 @@ def build_cn_etf_execution_interface_contract_readiness(
         or tuple(market.get("exchanges", ())) != ("SSE", "SZSE")
     ):
         blockers.append("market_contract_mismatch")
+    if (
+        tuple(market.get("instrument_metadata_required", ()))
+        != REQUIRED_INSTRUMENT_METADATA
+    ):
+        blockers.append("instrument_metadata_contract_mismatch")
     order = _mapping(config.get("order_intent_schema"))
     if tuple(order.get("required_fields", ())) != REQUIRED_ORDER_INTENT_FIELDS:
         blockers.append("order_intent_schema_mismatch")
+    if (
+        tuple(order.get("allowed_sides", ())) != ("BUY", "SELL")
+        or tuple(order.get("allowed_order_types", ())) != ("LIMIT",)
+        or order.get("default_time_in_force") != "DAY"
+    ):
+        blockers.append("order_control_contract_mismatch")
     if order.get("duplicate_intent_policy") != "reject_same_idempotency_key":
         blockers.append("idempotency_policy_mismatch")
     risk = _mapping(config.get("risk_contract"))

@@ -268,6 +268,50 @@ class TushareFundNavIngestTests(unittest.TestCase):
         self.assertEqual(result.summary["request_summary"]["empty"], 1)
         self.assertIn('"status": "empty"', manifest_text)
 
+    def test_ingest_refetches_a_partition_with_a_response_hash_mismatch(self):
+        class FakeAdapter:
+            def __init__(self):
+                self.calls = 0
+
+            def fetch_fund_nav(self, ts_code, start_date="", end_date="", market="E"):
+                self.calls += 1
+                return _provider_frame(ts_code)
+
+        with TemporaryDirectory() as directory:
+            first_adapter = FakeAdapter()
+            first = run_tushare_fund_nav_ingest(
+                adapter=first_adapter,
+                target_universe=_target_universe(["510300.SH"]),
+                trading_sessions=self.sessions,
+                output_dir=directory,
+                start_date="2020-01-02",
+                end_date="2020-01-03",
+                request_sleep_seconds=0.0,
+            )
+            manifest = json.loads(Path(first.manifest_path).read_text(encoding="utf-8"))
+            source_path = Path(manifest["requests"]["510300.SH"]["source_path"])
+            tampered = pd.read_parquet(source_path)
+            tampered.loc[0, "unit_nav"] = 9.9
+            tampered.to_parquet(source_path, index=False)
+
+            second_adapter = FakeAdapter()
+            second = run_tushare_fund_nav_ingest(
+                adapter=second_adapter,
+                target_universe=_target_universe(["510300.SH"]),
+                trading_sessions=self.sessions,
+                output_dir=directory,
+                start_date="2020-01-02",
+                end_date="2020-01-03",
+                request_sleep_seconds=0.0,
+            )
+
+            self.assertEqual(second_adapter.calls, 1)
+            self.assertEqual(second.summary["request_summary"]["resumed"], 0)
+            self.assertAlmostEqual(
+                pd.read_parquet(second.canonical_path).loc[0, "unit_nav"],
+                4.0,
+            )
+
     def test_ingest_records_failure_without_leaking_exception_secret(self):
         class FailingAdapter:
             def fetch_fund_nav(self, ts_code, start_date="", end_date="", market="E"):
