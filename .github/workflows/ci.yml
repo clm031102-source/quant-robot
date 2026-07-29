@@ -30,7 +30,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -c requirements/constraints-ci.txt build wheel
-          python -m pip install -c requirements/constraints-ci.txt -e ".[parquet,reports]"
+          python -m pip install -c requirements/constraints-ci.txt -e ".[parquet,reports,public-web]"
           python -m pip check
 
       - name: Build wheel

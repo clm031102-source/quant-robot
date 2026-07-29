@@ -1,8 +1,10 @@
 build>=1.2,<2
+lxml>=5,<7
 matplotlib>=3.8,<4
 numpy>=1.26,<3
 pandas>=2.0,<4
 pyarrow>=15,<25
 pydantic>=2.0,<3
+requests>=2.31,<3
 setuptools>=68,<83
 wheel>=0.42,<1

@@ -117,6 +117,7 @@ class WaitedDesktopFactorValidationTests(unittest.TestCase):
 
         with (
             patch("builtins.__import__", side_effect=import_without_psutil),
+            patch.object(waited_module.os, "name", "nt"),
             patch("os.kill", side_effect=OSError("signal 0 unsupported")),
             patch("scripts.run_waited_desktop_factor_validation._windows_pid_exists", return_value=True, create=True) as fallback,
         ):

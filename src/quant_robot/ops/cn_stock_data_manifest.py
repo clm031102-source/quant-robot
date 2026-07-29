@@ -4,6 +4,7 @@ import json
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -14,6 +15,7 @@ from quant_robot.storage.fingerprints import fingerprint_frame, fingerprint_rese
 STAGE = "cn_stock_data_manifest"
 MANIFEST_SCHEMA_VERSION = 5
 SAFETY_TEXT = "Research-to-review only. No broker connection, no account reads, no order placement, no live trading."
+PROJECT_TIMEZONE = ZoneInfo("Asia/Shanghai")
 
 
 def build_cn_stock_data_manifest(
@@ -445,13 +447,13 @@ def _packet_generated_today(value: Any) -> bool:
         return False
     try:
         if "T" not in text:
-            return date.fromisoformat(text[:10]) == date.today()
+            return date.fromisoformat(text[:10]) == datetime.now(PROJECT_TIMEZONE).date()
         parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError:
         return False
     if parsed.tzinfo is not None:
-        parsed = parsed.astimezone()
-    return parsed.date() == date.today()
+        parsed = parsed.astimezone(PROJECT_TIMEZONE)
+    return parsed.date() == datetime.now(PROJECT_TIMEZONE).date()
 
 
 def _integrity_status(manifest: dict[str, Any], name: str) -> str:
