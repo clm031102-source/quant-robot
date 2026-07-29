@@ -10,7 +10,7 @@ from quant_robot.research.family_scheduler import (
 
 
 class ResearchFamilySchedulerTests(unittest.TestCase):
-    def test_current_nav_premium_candidate_is_single_prescreen_authorized(self):
+    def test_current_nav_premium_candidate_is_closed_after_single_prescreen(self):
         config = load_research_family_config(
             Path("configs/research_family_scheduler_cn_etf.json")
         )
@@ -18,27 +18,29 @@ class ResearchFamilySchedulerTests(unittest.TestCase):
         decision = config["last_decision"]
         self.assertEqual(
             decision["decision"],
-            "prescreen_preregistered_single_batch_only",
+            "prescreen_rejected_family_rotation_review_only",
         )
         self.assertEqual(
             decision["source_status"],
-            "preregistered_single_prescreen",
+            "close_family_zero_budget",
         )
-        self.assertTrue(decision["factor_batch_allowed"])
-        self.assertTrue(decision["single_prescreen_allowed"])
+        self.assertFalse(decision["factor_batch_allowed"])
+        self.assertFalse(decision["single_prescreen_allowed"])
         self.assertEqual(decision["primary_horizon"], 1)
         self.assertEqual(decision["diagnostic_horizon"], 5)
-        self.assertEqual(decision["execution_count"], 0)
+        self.assertEqual(decision["execution_count"], 1)
+        self.assertFalse(decision["primary_passed"])
+        self.assertTrue(decision["diagnostic_passed"])
         family = next(
             row
             for row in config["families"]
             if row["family_id"] == "cn_etf_nav_premium_relative_value"
         )
-        self.assertEqual(family["status"], "exploratory")
+        self.assertEqual(family["status"], "stop_lossed")
         self.assertEqual(family["budget_share"], 0.0)
         self.assertFalse(family["preregistration_required"])
-        self.assertTrue(family["single_prescreen_allowed"])
-        self.assertEqual(family["preregistration_status"], "prescreen_preregistered")
+        self.assertFalse(family["single_prescreen_allowed"])
+        self.assertEqual(family["preregistration_status"], "prescreen_consumed_rejected")
 
     def test_scheduler_accepts_diversified_cn_etf_hypothesis_portfolio(self):
         config = {
