@@ -1,11 +1,16 @@
+import json
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pandas as pd
 
 from quant_robot.data.ingest.tushare_fund_nav import (
     CANONICAL_COLUMNS,
+    TushareFundNavIngestResult,
     build_tushare_fund_nav_request_plan,
     canonicalize_tushare_fund_nav,
+    run_tushare_fund_nav_ingest,
 )
 
 
@@ -169,6 +174,143 @@ class TushareFundNavIngestTests(unittest.TestCase):
         self.assertEqual(list(result.columns), CANONICAL_COLUMNS)
         forbidden_tokens = ("return", "label", "signal", "score", "rank", "portfolio")
         self.assertFalse(any(token in column for column in result.columns for token in forbidden_tokens))
+
+    def test_ingest_is_resumable_and_preserves_stable_hashes(self):
+        class FakeAdapter:
+            def __init__(self):
+                self.calls = []
+
+            def fetch_fund_nav(self, ts_code, start_date="", end_date="", market="E"):
+                self.calls.append((ts_code, start_date, end_date, market))
+                return _provider_frame(ts_code)
+
+        universe = _target_universe(["510300.SH"])
+        first_adapter = FakeAdapter()
+        with TemporaryDirectory() as directory:
+            first = run_tushare_fund_nav_ingest(
+                adapter=first_adapter,
+                target_universe=universe,
+                trading_sessions=self.sessions,
+                output_dir=directory,
+                start_date="2020-01-02",
+                end_date="2020-01-03",
+                request_sleep_seconds=0.0,
+            )
+            first_manifest = json.loads(Path(first.manifest_path).read_text(encoding="utf-8"))
+            second_adapter = FakeAdapter()
+            second = run_tushare_fund_nav_ingest(
+                adapter=second_adapter,
+                target_universe=universe,
+                trading_sessions=self.sessions,
+                output_dir=directory,
+                start_date="2020-01-02",
+                end_date="2020-01-03",
+                request_sleep_seconds=0.0,
+            )
+            second_manifest = json.loads(Path(second.manifest_path).read_text(encoding="utf-8"))
+
+            self.assertIsInstance(first, TushareFundNavIngestResult)
+            self.assertEqual(len(first_adapter.calls), 1)
+            self.assertEqual(second_adapter.calls, [])
+            self.assertEqual(first.summary["request_summary"]["completed"], 1)
+            self.assertEqual(second.summary["request_summary"]["resumed"], 1)
+            self.assertEqual(
+                first_manifest["requests"]["510300.SH"]["response_sha256"],
+                second_manifest["requests"]["510300.SH"]["response_sha256"],
+            )
+            self.assertTrue(Path(first.canonical_path).exists())
+
+    def test_ingest_records_deterministic_empty_as_terminal(self):
+        class EmptyAdapter:
+            def fetch_fund_nav(self, ts_code, start_date="", end_date="", market="E"):
+                return pd.DataFrame()
+
+        with TemporaryDirectory() as directory:
+            result = run_tushare_fund_nav_ingest(
+                adapter=EmptyAdapter(),
+                target_universe=_target_universe(["159901.SZ"]),
+                trading_sessions=self.sessions,
+                output_dir=directory,
+                start_date="2020-01-02",
+                end_date="2020-01-03",
+                request_sleep_seconds=0.0,
+            )
+            manifest_text = Path(result.manifest_path).read_text(encoding="utf-8")
+
+        self.assertEqual(result.summary["request_summary"]["empty"], 1)
+        self.assertIn('"status": "empty"', manifest_text)
+
+    def test_ingest_records_failure_without_leaking_exception_secret(self):
+        class FailingAdapter:
+            def fetch_fund_nav(self, ts_code, start_date="", end_date="", market="E"):
+                raise RuntimeError("provider rejected token=super-secret-value")
+
+        with TemporaryDirectory() as directory:
+            result = run_tushare_fund_nav_ingest(
+                adapter=FailingAdapter(),
+                target_universe=_target_universe(["510300.SH"]),
+                trading_sessions=self.sessions,
+                output_dir=directory,
+                start_date="2020-01-02",
+                end_date="2020-01-03",
+                request_sleep_seconds=0.0,
+            )
+            manifest_text = Path(result.manifest_path).read_text(encoding="utf-8")
+
+        self.assertEqual(result.summary["request_summary"]["failed"], 1)
+        self.assertIn('"status": "failed"', manifest_text)
+        self.assertNotIn("super-secret-value", manifest_text)
+        self.assertNotIn("token=", manifest_text)
+
+    def test_ingest_has_a_terminal_state_for_every_request(self):
+        class MixedAdapter:
+            def fetch_fund_nav(self, ts_code, start_date="", end_date="", market="E"):
+                if ts_code == "159901.SZ":
+                    return pd.DataFrame()
+                return _provider_frame(ts_code)
+
+        with TemporaryDirectory() as directory:
+            result = run_tushare_fund_nav_ingest(
+                adapter=MixedAdapter(),
+                target_universe=_target_universe(["159901.SZ", "510300.SH"]),
+                trading_sessions=self.sessions,
+                output_dir=directory,
+                start_date="2020-01-02",
+                end_date="2020-01-03",
+                request_sleep_seconds=0.0,
+            )
+
+        summary = result.summary["request_summary"]
+        self.assertEqual(summary["total"], 2)
+        self.assertEqual(summary["completed"] + summary["empty"] + summary["failed"], 2)
+
+
+def _target_universe(symbols):
+    return pd.DataFrame(
+        {
+            "etf_code": symbols,
+            "market_exchange": ["SSE" if symbol.endswith(".SH") else "SZSE" for symbol in symbols],
+            "list_date": ["2010-01-01"] * len(symbols),
+            "delist_date": [None] * len(symbols),
+        }
+    )
+
+
+def _provider_frame(symbol):
+    return pd.DataFrame(
+        {
+            "symbol": [symbol],
+            "ann_date": [pd.Timestamp("2020-01-03").date()],
+            "nav_date": [pd.Timestamp("2020-01-02").date()],
+            "unit_nav": [4.0],
+            "accum_nav": [4.1],
+            "accum_div": [0.1],
+            "net_asset": [100.0],
+            "total_netasset": [200.0],
+            "adj_nav": [4.0],
+            "update_flag": [1.0],
+        }
+    )
 
 
 if __name__ == "__main__":
