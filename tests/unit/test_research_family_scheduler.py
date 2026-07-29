@@ -10,6 +10,32 @@ from quant_robot.research.family_scheduler import (
 
 
 class ResearchFamilySchedulerTests(unittest.TestCase):
+    def test_current_nav_premium_source_is_ready_but_not_factor_authorized(self):
+        config = load_research_family_config(
+            Path("configs/research_family_scheduler_cn_etf.json")
+        )
+
+        decision = config["last_decision"]
+        self.assertEqual(
+            decision["decision"],
+            "source_ready_preregistration_required_no_factor_batch",
+        )
+        self.assertEqual(
+            decision["source_status"],
+            "ready_for_nav_premium_preregistration",
+        )
+        self.assertFalse(decision["factor_batch_allowed"])
+        self.assertFalse(decision["single_prescreen_allowed"])
+        family = next(
+            row
+            for row in config["families"]
+            if row["family_id"] == "cn_etf_nav_premium_relative_value"
+        )
+        self.assertEqual(family["status"], "exploratory")
+        self.assertEqual(family["budget_share"], 0.0)
+        self.assertTrue(family["preregistration_required"])
+        self.assertFalse(family["factor_batch_before_preregistration_allowed"])
+
     def test_scheduler_accepts_diversified_cn_etf_hypothesis_portfolio(self):
         config = {
             "primary_market": "CN_ETF",
