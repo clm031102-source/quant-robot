@@ -40,6 +40,8 @@ def build_single_prescreen_authorization(
     execution_ledger_path: str | Path,
     allowed_stage: str = ALLOWED_STAGE,
     source_hash_keys: tuple[str, ...] = SOURCE_HASH_KEYS,
+    primary_horizon: int = 5,
+    diagnostic_horizon: int = 20,
 ) -> dict[str, Any]:
     """Build a deterministic authorization for exactly one frozen prescreen."""
 
@@ -49,6 +51,7 @@ def build_single_prescreen_authorization(
     ledger_path = str(execution_ledger_path)
     _require_nonempty(ledger_path, "execution ledger path")
     _require_nonempty(allowed_stage, "allowed stage")
+    _require_horizons(primary_horizon, diagnostic_horizon)
     normalized_source_hashes = _validated_source_hashes(
         source_hashes,
         expected_keys=source_hash_keys,
@@ -66,8 +69,8 @@ def build_single_prescreen_authorization(
         "status": AUTHORIZED_STATUS,
         "authorization_id": _authorization_id(identity_payload),
         **identity_payload,
-        "primary_horizon": 5,
-        "diagnostic_horizon": 20,
+        "primary_horizon": int(primary_horizon),
+        "diagnostic_horizon": int(diagnostic_horizon),
         "allowed_task": ALLOWED_TASK,
         "allowed_stage": allowed_stage,
         "max_executions": 1,
@@ -95,6 +98,8 @@ def validate_single_prescreen_authorization(
     context: str,
     expected_allowed_stage: str = ALLOWED_STAGE,
     expected_source_hash_keys: tuple[str, ...] = SOURCE_HASH_KEYS,
+    expected_primary_horizon: int = 5,
+    expected_diagnostic_horizon: int = 20,
 ) -> dict[str, Any]:
     path = Path(packet_path)
     if not path.is_file():
@@ -124,6 +129,8 @@ def validate_single_prescreen_authorization(
         path=path,
         expected_allowed_stage=expected_allowed_stage,
         expected_source_hash_keys=expected_source_hash_keys,
+        expected_primary_horizon=expected_primary_horizon,
+        expected_diagnostic_horizon=expected_diagnostic_horizon,
     )
     identity_payload = _identity_payload(packet)
     if packet.get("authorization_id") != _authorization_id(identity_payload):
@@ -146,6 +153,8 @@ def claim_single_prescreen_authorization(
     context: str,
     expected_allowed_stage: str = ALLOWED_STAGE,
     expected_source_hash_keys: tuple[str, ...] = SOURCE_HASH_KEYS,
+    expected_primary_horizon: int = 5,
+    expected_diagnostic_horizon: int = 20,
 ) -> dict[str, Any]:
     validated = validate_single_prescreen_authorization(
         packet_path=packet_path,
@@ -155,6 +164,8 @@ def claim_single_prescreen_authorization(
         context=context,
         expected_allowed_stage=expected_allowed_stage,
         expected_source_hash_keys=expected_source_hash_keys,
+        expected_primary_horizon=expected_primary_horizon,
+        expected_diagnostic_horizon=expected_diagnostic_horizon,
     )
     ledger = Path(ledger_path)
     bound_ledger = Path(validated["packet"]["execution_ledger_path"])
@@ -198,6 +209,8 @@ def _validate_packet_contract(
     path: Path,
     expected_allowed_stage: str,
     expected_source_hash_keys: tuple[str, ...],
+    expected_primary_horizon: int,
+    expected_diagnostic_horizon: int,
 ) -> None:
     _require_sha256(
         packet.get("preregistration_result_sha256"),
@@ -212,7 +225,11 @@ def _validate_packet_contract(
         or packet.get("allowed_stage") != expected_allowed_stage
     ):
         raise ValueError(f"{context} single prescreen scope mismatch: {path}")
-    if packet.get("primary_horizon") != 5 or packet.get("diagnostic_horizon") != 20:
+    _require_horizons(expected_primary_horizon, expected_diagnostic_horizon)
+    if (
+        packet.get("primary_horizon") != int(expected_primary_horizon)
+        or packet.get("diagnostic_horizon") != int(expected_diagnostic_horizon)
+    ):
         raise ValueError(f"{context} single prescreen horizon contract mismatch: {path}")
     if packet.get("max_executions") != 1 or packet.get("execution_ledger_required") is not True:
         raise ValueError(f"{context} single prescreen execution contract mismatch: {path}")
@@ -272,6 +289,20 @@ def _require_sha256(value: Any, label: str) -> None:
 def _require_nonempty(value: Any, label: str) -> None:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{label} must be non-empty")
+
+
+def _require_horizons(primary_horizon: int, diagnostic_horizon: int) -> None:
+    if (
+        isinstance(primary_horizon, bool)
+        or isinstance(diagnostic_horizon, bool)
+        or not isinstance(primary_horizon, int)
+        or not isinstance(diagnostic_horizon, int)
+        or primary_horizon < 1
+        or diagnostic_horizon <= primary_horizon
+    ):
+        raise ValueError(
+            "single prescreen horizons must be positive integers with diagnostic above primary"
+        )
 
 
 def _exclusive_lock(path: Path, *, context: str) -> int:

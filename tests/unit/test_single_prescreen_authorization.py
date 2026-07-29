@@ -226,6 +226,38 @@ class SinglePrescreenAuthorizationTests(unittest.TestCase):
             self.assertTrue(receipt["execution_claim_recorded"])
             self.assertEqual(packet["allowed_stage"], stage)
 
+    def test_supports_hash_bound_custom_primary_and_diagnostic_horizons(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            packet_path = root / "authorization.json"
+            ledger_path = root / "claims.json"
+            packet = build_single_prescreen_authorization(
+                registration_date="2026-07-29",
+                candidate_name="etf_delayed_nav_premium_innovation_reversal_60",
+                preregistration_config_sha256="a" * 64,
+                preregistration_result_sha256="b" * 64,
+                source_hashes=_source_hashes(),
+                execution_ledger_path=ledger_path,
+                allowed_stage="cn_etf_delayed_nav_premium_prescreen",
+                primary_horizon=1,
+                diagnostic_horizon=5,
+            )
+            write_single_prescreen_authorization(packet_path, packet)
+
+            validated = validate_single_prescreen_authorization(
+                packet_path=packet_path,
+                expected_candidate_name=packet["candidate_name"],
+                expected_config_sha256="a" * 64,
+                expected_packet_sha256=sha256_file(packet_path),
+                expected_allowed_stage="cn_etf_delayed_nav_premium_prescreen",
+                expected_primary_horizon=1,
+                expected_diagnostic_horizon=5,
+                context="custom-horizon fixture",
+            )
+
+            self.assertEqual(validated["packet"]["primary_horizon"], 1)
+            self.assertEqual(validated["packet"]["diagnostic_horizon"], 5)
+
 
 def _packet(
     *,

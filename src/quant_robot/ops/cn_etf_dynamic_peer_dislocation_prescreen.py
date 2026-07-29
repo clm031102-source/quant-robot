@@ -138,6 +138,9 @@ def summarize_cn_etf_dynamic_peer_dislocation_prescreen(
     candidate_name: str = FACTOR_NAME,
     result_stage: str = STAGE,
     safety_text: str = SAFETY,
+    expected_horizons: tuple[int, ...] = (5, 20),
+    expected_one_way_costs_bps: tuple[float, ...] = (5.0, 10.0),
+    expected_required_positive_net_spread_bps: float = 10.0,
 ) -> dict[str, Any]:
     _validate_frozen_roles(
         horizons=horizons,
@@ -145,6 +148,11 @@ def summarize_cn_etf_dynamic_peer_dislocation_prescreen(
         diagnostic_horizon=diagnostic_horizon,
         one_way_costs_bps=one_way_costs_bps,
         required_positive_net_spread_bps=required_positive_net_spread_bps,
+        expected_horizons=expected_horizons,
+        expected_one_way_costs_bps=expected_one_way_costs_bps,
+        expected_required_positive_net_spread_bps=(
+            expected_required_positive_net_spread_bps
+        ),
     )
     thresholds = CrossSectionalPrescreenThresholds(
         min_cross_section=min_cross_section,
@@ -390,16 +398,40 @@ def _validate_frozen_roles(
     diagnostic_horizon: int,
     one_way_costs_bps: tuple[float, ...],
     required_positive_net_spread_bps: float,
+    expected_horizons: tuple[int, ...] = (5, 20),
+    expected_one_way_costs_bps: tuple[float, ...] = (5.0, 10.0),
+    expected_required_positive_net_spread_bps: float = 10.0,
 ) -> None:
-    if tuple(int(value) for value in horizons) != (5, 20):
-        raise ValueError("Dynamic-peer prescreen horizons must remain frozen at (5, 20)")
-    if int(primary_horizon) != 5 or int(diagnostic_horizon) != 20:
-        raise ValueError("Dynamic-peer primary and diagnostic horizons are frozen at 5 and 20")
+    expected_role_horizons = tuple(int(value) for value in expected_horizons)
+    if (
+        len(expected_role_horizons) != 2
+        or expected_role_horizons[0] < 1
+        or expected_role_horizons[1] <= expected_role_horizons[0]
+    ):
+        raise ValueError("Expected prescreen horizons must contain two increasing values")
+    if tuple(int(value) for value in horizons) != expected_role_horizons:
+        raise ValueError(
+            f"Prescreen horizons must remain frozen at {expected_role_horizons}"
+        )
+    if (
+        int(primary_horizon) != expected_role_horizons[0]
+        or int(diagnostic_horizon) != expected_role_horizons[1]
+    ):
+        raise ValueError(
+            "Prescreen primary and diagnostic horizons do not match the frozen role contract"
+        )
     costs = tuple(float(value) for value in one_way_costs_bps)
-    if costs != (5.0, 10.0):
-        raise ValueError("Dynamic-peer one-way costs must remain frozen at 5 and 10 bps")
-    if float(required_positive_net_spread_bps) != 10.0:
-        raise ValueError("Dynamic-peer stressed positive-net gate must remain frozen at 10 bps")
+    expected_costs = tuple(float(value) for value in expected_one_way_costs_bps)
+    if not expected_costs or any(value < 0.0 for value in expected_costs):
+        raise ValueError("Expected one-way cost contract must be non-negative and non-empty")
+    if costs != expected_costs:
+        raise ValueError(
+            f"Prescreen one-way costs must remain frozen at {expected_costs} bps"
+        )
+    if float(required_positive_net_spread_bps) != float(
+        expected_required_positive_net_spread_bps
+    ):
+        raise ValueError("Prescreen positive-net gate does not match the frozen cost contract")
 
 
 def _rows_by_key(rows: list[dict[str, Any]]) -> dict[tuple[str, int], dict[str, Any]]:

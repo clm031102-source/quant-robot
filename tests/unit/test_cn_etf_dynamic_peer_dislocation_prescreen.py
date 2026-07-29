@@ -9,6 +9,7 @@ from quant_robot.factors.etf_dynamic_peer_dislocation import FACTOR_NAME
 from quant_robot.ops.cn_etf_dynamic_peer_dislocation_prescreen import (
     CLOSED_FAMILY_REFERENCE_NAMES,
     STAGE,
+    _validate_frozen_roles,
     compute_closed_family_reference_union,
     summarize_cn_etf_dynamic_peer_dislocation_prescreen,
     write_cn_etf_dynamic_peer_dislocation_prescreen,
@@ -16,6 +17,18 @@ from quant_robot.ops.cn_etf_dynamic_peer_dislocation_prescreen import (
 
 
 class CnEtfDynamicPeerDislocationPrescreenTests(unittest.TestCase):
+    def test_role_contract_can_freeze_candidate_specific_horizons_and_costs(self) -> None:
+        _validate_frozen_roles(
+            horizons=(1, 5),
+            primary_horizon=1,
+            diagnostic_horizon=5,
+            one_way_costs_bps=(10.5, 26.6666666667, 60.0),
+            required_positive_net_spread_bps=10.5,
+            expected_horizons=(1, 5),
+            expected_one_way_costs_bps=(10.5, 26.6666666667, 60.0),
+            expected_required_positive_net_spread_bps=10.5,
+        )
+
     def test_closed_family_reference_union_contains_exactly_39_unique_names(self) -> None:
         key = pd.DataFrame(
             [{"date": pd.Timestamp("2023-01-02"), "asset_id": "A00", "market": "CN_ETF"}]
