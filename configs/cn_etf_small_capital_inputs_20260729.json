@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "as_of_date": "2026-07-29",
+  "capital_cny": {
+    "minimum": 1000,
+    "maximum": 3000
+  },
+  "commission_bps_per_side": 0.5,
+  "slippage_bps_per_side": 10.0,
+  "minimum_commission_cny_stress": 5.0,
+  "absolute_max_drawdown": 0.4,
+  "paper_promotion_max_drawdown": 0.08,
+  "max_holding_sessions": 252,
+  "max_single_position_cny": 1000,
+  "max_daily_loss_cny": 60,
+  "max_one_way_adv_participation": 0.01,
+  "minimum_paper_days": 20,
+  "minimum_paper_fills": 30,
+  "minimum_market_regimes": 2,
+  "boundaries": {
+    "broker_connection_allowed": false,
+    "account_read_allowed": false,
+    "order_placement_allowed": false,
+    "live_boundary_allowed": false
+  }
+}
