@@ -18,6 +18,7 @@ from quant_robot.data.sources.tushare_mapping import (
     map_tushare_etf_share_size,
     map_tushare_fina_indicator,
     map_tushare_fund_basic,
+    map_tushare_fund_nav,
     map_tushare_fund_portfolio,
     map_tushare_income_statement,
     map_tushare_moneyflow,
@@ -257,6 +258,26 @@ class TushareAdapter(MarketDataAdapter):
             ),
         )
         return map_tushare_fund_basic(raw)
+
+    def fetch_fund_nav(
+        self,
+        ts_code: str,
+        start_date: str = "",
+        end_date: str = "",
+        market: str = "E",
+    ) -> pd.DataFrame:
+        raw = self._call(
+            self.client.fund_nav,
+            ts_code=ts_code,
+            market=market,
+            start_date=_date_to_tushare(start_date) if start_date else "",
+            end_date=_date_to_tushare(end_date) if end_date else "",
+            fields=(
+                "ts_code,ann_date,nav_date,unit_nav,accum_nav,accum_div,"
+                "net_asset,total_netasset,adj_nav,update_flag"
+            ),
+        )
+        return map_tushare_fund_nav(raw)
 
     def fetch_etf_basic(self, list_status: str = "") -> pd.DataFrame:
         raw = self._call(

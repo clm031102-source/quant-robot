@@ -6,6 +6,7 @@ from quant_robot.data.sources.tushare_mapping import (
     ETF_BASIC_COLUMNS,
     ETF_SHARE_SIZE_COLUMNS,
     FUND_BASIC_COLUMNS,
+    FUND_NAV_COLUMNS,
     FUND_PORTFOLIO_COLUMNS,
     MONEYFLOW_COLUMNS,
     map_tushare_adj_factor,
@@ -14,6 +15,7 @@ from quant_robot.data.sources.tushare_mapping import (
     map_tushare_etf_basic,
     map_tushare_etf_share_size,
     map_tushare_fund_basic,
+    map_tushare_fund_nav,
     map_tushare_fund_portfolio,
     map_tushare_moneyflow,
     map_tushare_stock_basic,
@@ -323,6 +325,49 @@ class TushareMappingTests(unittest.TestCase):
 
         self.assertTrue(result.empty)
         self.assertEqual(list(result.columns), FUND_BASIC_COLUMNS)
+
+    def test_map_fund_nav_normalizes_dates_numbers_and_sort_order(self):
+        source = pd.DataFrame(
+            {
+                "ts_code": ["510300.SH", "159915.SZ"],
+                "ann_date": ["20200103", "20200104"],
+                "nav_date": ["20200102", "20200103"],
+                "unit_nav": ["4.1234", "1.2345"],
+                "accum_nav": ["4.5678", "1.3456"],
+                "accum_div": ["0.4444", "0.1111"],
+                "net_asset": ["100.0", "50.0"],
+                "total_netasset": ["200.0", "75.0"],
+                "adj_nav": ["4.1000", "1.2000"],
+                "update_flag": ["1", "0"],
+            }
+        )
+
+        result = map_tushare_fund_nav(source)
+
+        self.assertEqual(list(result.columns), FUND_NAV_COLUMNS)
+        self.assertEqual(result.loc[0, "symbol"], "159915.SZ")
+        self.assertEqual(str(result.loc[0, "ann_date"]), "2020-01-04")
+        self.assertEqual(str(result.loc[1, "nav_date"]), "2020-01-02")
+        self.assertAlmostEqual(result.loc[1, "unit_nav"], 4.1234)
+        self.assertAlmostEqual(result.loc[1, "update_flag"], 1.0)
+
+    def test_map_fund_nav_returns_standard_empty_frame(self):
+        result = map_tushare_fund_nav(pd.DataFrame())
+
+        self.assertTrue(result.empty)
+        self.assertEqual(list(result.columns), FUND_NAV_COLUMNS)
+
+    def test_map_fund_nav_requires_identity_and_pit_columns(self):
+        with self.assertRaisesRegex(ValueError, "ann_date"):
+            map_tushare_fund_nav(
+                pd.DataFrame(
+                    {
+                        "ts_code": ["510300.SH"],
+                        "nav_date": ["20200102"],
+                        "unit_nav": [4.0],
+                    }
+                )
+            )
 
     def test_map_etf_basic_preserves_official_tracking_index(self):
         source = pd.DataFrame(
