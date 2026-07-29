@@ -129,7 +129,7 @@ class CnEtfVolatilitySchedulerCloseoutTests(unittest.TestCase):
         self.assertEqual(margin["source_audit"]["assets"], 410)
         self.assertFalse(margin["prescreen_audit"]["primary_passed"])
         self.assertTrue(margin["prescreen_audit"]["diagnostic_passed"])
-        decision = config["last_decision"]
+        decision = config["prior_margin_positioning_closeout_decision"]
         self.assertEqual(
             decision["source_stage"],
             "cn_etf_margin_positioning_prescreen",
