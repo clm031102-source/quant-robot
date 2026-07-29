@@ -12,19 +12,21 @@ from scripts.run_cn_etf_delayed_nav_premium_preregistration import (
 
 
 class RunCnEtfDelayedNavPremiumPreregistrationTests(unittest.TestCase):
-    def test_real_ready_source_produces_h1_h5_single_use_authorization(self):
+    def test_historical_preregistration_cannot_issue_again_after_strict_source_revalidation(
+        self,
+    ):
         with TemporaryDirectory() as directory:
-            result = run_cn_etf_delayed_nav_premium_preregistration_cli(
-                output_dir=directory
-            )
+            with self.assertRaisesRegex(
+                ValueError,
+                "source evidence hash mismatch: source_result",
+            ):
+                run_cn_etf_delayed_nav_premium_preregistration_cli(
+                    output_dir=directory
+                )
 
-            self.assertEqual(result["status"], "preregistered_single_prescreen")
-            self.assertEqual(result["authorization"]["primary_horizon"], 1)
-            self.assertEqual(result["authorization"]["diagnostic_horizon"], 5)
-            self.assertEqual(result["authorization"]["max_executions"], 1)
-            self.assertFalse(result["forward_return_read"])
-            for path in result["artifacts"].values():
-                self.assertTrue(Path(path).exists(), path)
+            self.assertFalse(
+                (Path(directory) / "single_prescreen_authorization.json").exists()
+            )
 
     def test_config_rejects_candidate_and_source_hash_drift(self):
         source = Path(
