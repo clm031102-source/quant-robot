@@ -39,13 +39,13 @@ REQUIRED_BROKER_INPUTS = (
 )
 
 
-def build_cn_etf_broker_adapter_contract_readiness(
+def build_cn_etf_execution_interface_contract_readiness(
     config: Mapping[str, Any],
 ) -> dict[str, Any]:
     blockers: list[str] = []
     if config.get("schema_version") != 1:
         blockers.append("schema_version_mismatch")
-    if config.get("purpose") != "broker_adapter_interface_readiness_without_external_access":
+    if config.get("purpose") != "execution_interface_readiness_without_external_access":
         blockers.append("purpose_mismatch")
     broker = _mapping(config.get("broker"))
     if broker.get("credentials_present") is not False:
@@ -96,7 +96,7 @@ def build_cn_etf_broker_adapter_contract_readiness(
             blockers.append(f"boundary_enabled:{key}")
     blockers = list(dict.fromkeys(blockers))
     return {
-        "stage": "cn_etf_broker_adapter_contract_readiness",
+        "stage": "cn_etf_execution_interface_contract_readiness",
         "status": "blocked" if blockers else "schema_ready_execution_disabled",
         "blockers": blockers,
         "broker": dict(broker),

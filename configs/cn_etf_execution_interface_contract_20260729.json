@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "as_of_date": "2026-07-29",
-  "purpose": "broker_adapter_interface_readiness_without_external_access",
+  "purpose": "execution_interface_readiness_without_external_access",
   "broker": {
     "provider": "unselected",
     "api_protocol": "unselected",

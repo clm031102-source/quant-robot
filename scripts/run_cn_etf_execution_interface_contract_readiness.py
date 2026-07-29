@@ -12,32 +12,32 @@ except ModuleNotFoundError:  # pragma: no cover
 
 ensure_workspace_imports()
 
-from quant_robot.ops.cn_etf_broker_adapter_contract import (  # noqa: E402
-    build_cn_etf_broker_adapter_contract_readiness,
+from quant_robot.ops.cn_etf_execution_interface_contract import (  # noqa: E402
+    build_cn_etf_execution_interface_contract_readiness,
 )
 from quant_robot.storage.atomic import atomic_write_json, atomic_write_text  # noqa: E402
 
 
-DEFAULT_CONFIG = Path("configs/cn_etf_broker_adapter_contract_20260729.json")
+DEFAULT_CONFIG = Path("configs/cn_etf_execution_interface_contract_20260729.json")
 DEFAULT_OUTPUT_DIR = Path(
-    "data/reports/cn_etf_broker_adapter_contract_readiness_20260729"
+    "data/reports/cn_etf_execution_interface_contract_readiness_20260729"
 )
 
 
-def run_cn_etf_broker_adapter_contract_readiness_cli(
+def run_cn_etf_execution_interface_contract_readiness_cli(
     *,
     config_path: str | Path = DEFAULT_CONFIG,
     output_dir: str | Path = DEFAULT_OUTPUT_DIR,
 ) -> dict[str, Any]:
     config = _load_json(Path(config_path))
-    result = build_cn_etf_broker_adapter_contract_readiness(config)
+    result = build_cn_etf_execution_interface_contract_readiness(config)
     destination = Path(output_dir)
     json_path = atomic_write_json(
-        destination / "cn_etf_broker_adapter_contract_readiness.json",
+        destination / "cn_etf_execution_interface_contract_readiness.json",
         result,
     )
     markdown_path = atomic_write_text(
-        destination / "cn_etf_broker_adapter_contract_readiness.md",
+        destination / "cn_etf_execution_interface_contract_readiness.md",
         _render(result),
     )
     result["artifacts"] = {
@@ -115,7 +115,7 @@ def main() -> None:
     parser.add_argument("--config", default=str(DEFAULT_CONFIG))
     parser.add_argument("--output-dir", default=str(DEFAULT_OUTPUT_DIR))
     args = parser.parse_args()
-    result = run_cn_etf_broker_adapter_contract_readiness_cli(
+    result = run_cn_etf_execution_interface_contract_readiness_cli(
         config_path=args.config,
         output_dir=args.output_dir,
     )

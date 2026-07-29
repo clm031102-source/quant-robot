@@ -102,7 +102,7 @@ The offline broker adapter contract is now schema-ready and repeatably
 validated by:
 
 ```powershell
-python scripts\run_cn_etf_broker_adapter_contract_readiness.py
+python scripts\run_cn_etf_execution_interface_contract_readiness.py
 ```
 
 It freezes order-intent idempotency, limit-order-only defaults, instrument
