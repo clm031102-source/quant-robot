@@ -43,6 +43,13 @@ class FixtureFundNavAdapter:
 
 
 class RunCnEtfTushareNavSourceReadinessTests(unittest.TestCase):
+    def test_frozen_calendar_tail_covers_delayed_nav_announcement(self):
+        payload = _load_and_validate_config(
+            Path("configs/cn_etf_tushare_nav_source_readiness_20260729.json")
+        )
+
+        self.assertEqual(payload["analysis"]["next_session_read_end"], "2024-08-02")
+
     def test_end_to_end_execute_then_local_audit_is_ready_and_deterministic(self):
         with TemporaryDirectory() as directory:
             root = Path(directory)
@@ -179,7 +186,7 @@ def _write_calendar(root: Path):
     calendar, manifest = build_cn_trading_calendar(
         exchange_frames,
         start_date="2020-01-02",
-        end_date="2024-07-05",
+        end_date="2024-08-02",
     )
     paths = write_cn_trading_calendar(root / "calendar", calendar, manifest)
     return Path(paths["calendar_path"]), Path(paths["manifest_path"])

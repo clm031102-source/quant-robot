@@ -13,7 +13,7 @@
 ## Frozen Decisions
 
 - Machine/task/branch: `office_desktop` / `factor_review` / `codex/factor-review-cn-etf-current-access-20260728`.
-- Analysis window: `2020-01-02` through `2024-06-28`; read the calendar through `2024-07-05` only to compute the next official session.
+- Analysis window: `2020-01-02` through `2024-06-28`; read the calendar through `2024-08-02` only to cover the observed delayed 2024-07-30 announcement and compute its next official session.
 - Final 2026 holdout remains sealed.
 - Target universe: `data/processed/cn_etf_pcf_target_universe_2020_2024/target_universe.csv`.
 - Comparison source: `data/processed/cn_etf_fund_structure_public_2020_2024`.
@@ -485,7 +485,7 @@ The config must record:
     "trading_calendar_manifest_path": "data/processed/trading_calendars/cn_tushare_2015_2025/cn_trading_calendar_manifest.json",
     "start_date": "2020-01-02",
     "end_date": "2024-06-28",
-    "next_session_read_end": "2024-07-05",
+    "next_session_read_end": "2024-08-02",
     "final_holdout_start": "2026-01-01"
   },
   "outputs": {

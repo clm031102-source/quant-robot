@@ -162,7 +162,7 @@ def _load_and_validate_config(path: Path) -> dict[str, Any]:
     if analysis["start_date"] != "2020-01-02" or analysis["end_date"] != "2024-06-28":
         raise ValueError("config dates do not match the frozen analysis boundary")
     if (
-        analysis["next_session_read_end"] != "2024-07-05"
+        analysis["next_session_read_end"] != "2024-08-02"
         or analysis["final_holdout_start"] != "2026-01-01"
     ):
         raise ValueError("config dates violate the frozen analysis boundary and holdout")

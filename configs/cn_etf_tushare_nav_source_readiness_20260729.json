@@ -12,7 +12,7 @@
     "trading_calendar_manifest_path": "data/processed/trading_calendars/cn_tushare_2015_2025/cn_trading_calendar_manifest.json",
     "start_date": "2020-01-02",
     "end_date": "2024-06-28",
-    "next_session_read_end": "2024-07-05",
+    "next_session_read_end": "2024-08-02",
     "final_holdout_start": "2026-01-01"
   },
   "outputs": {

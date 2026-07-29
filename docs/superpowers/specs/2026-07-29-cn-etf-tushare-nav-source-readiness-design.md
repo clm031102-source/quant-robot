@@ -77,8 +77,16 @@ cross-sectional programme.
   `data/processed/tushare_etf_wide_history_2023_2026`.
 - Official calendar authority: the fingerprinted Tushare SSE/SZSE calendar
   already required by the Quant PM gate.
+- Calendar-tail read end: 2024-08-02. The first real source audit found that
+  `516690.SH` NAV dated 2024-06-06 was announced on 2024-07-30, so the earlier
+  2024-07-05 tail could not prove the next official `known_from` session. The
+  extended tail supplies 2024-07-31 while the retained NAV window remains
+  unchanged.
 - Tushare requests must set an end date of 2024-06-28 and must discard any
   provider row outside the frozen window before persistence.
+
+The evidence-driven calendar-tail repair reads no return, label, factor, or
+holdout data and does not relax any readiness threshold.
 
 The target universe includes delisted funds. Current listing status must never
 be used to remove a historical fund.
