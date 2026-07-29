@@ -2,6 +2,7 @@ import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 import pandas as pd
 
@@ -174,6 +175,33 @@ class TushareFundNavIngestTests(unittest.TestCase):
         self.assertEqual(list(result.columns), CANONICAL_COLUMNS)
         forbidden_tokens = ("return", "label", "signal", "score", "rank", "portfolio")
         self.assertFalse(any(token in column for column in result.columns for token in forbidden_tokens))
+
+    def test_canonicalize_does_not_dispatch_one_python_call_per_asset_date(self):
+        dates = pd.date_range("2020-01-02", periods=20, freq="B")
+        rows = []
+        for index in range(10):
+            symbol = f"{510000 + index:06d}.SH"
+            for date in dates:
+                rows.append(
+                    {
+                        "symbol": symbol,
+                        "nav_date": date,
+                        "ann_date": date,
+                        "unit_nav": 1.0,
+                        "update_flag": 1.0,
+                    }
+                )
+        raw = pd.DataFrame(rows)
+        sessions = pd.date_range("2020-01-02", periods=21, freq="B")
+
+        with patch(
+            "quant_robot.data.ingest.tushare_fund_nav._select_revision",
+            side_effect=AssertionError("per-group Python revision dispatch"),
+            create=True,
+        ):
+            result = canonicalize_tushare_fund_nav(raw, sessions)
+
+        self.assertEqual(len(result), len(raw))
 
     def test_ingest_is_resumable_and_preserves_stable_hashes(self):
         class FakeAdapter:

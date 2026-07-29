@@ -173,10 +173,7 @@ def canonicalize_tushare_fund_nav(
     if frame.empty:
         return pd.DataFrame(columns=CANONICAL_COLUMNS)
 
-    selected_rows = []
-    for _, group in frame.groupby(["symbol", "nav_date"], sort=True, dropna=False):
-        selected_rows.append(_select_revision(group).iloc[0].to_dict())
-    selected = pd.DataFrame(selected_rows)
+    selected = _select_revisions_vectorized(frame)
     selected["exchange"] = selected["symbol"].map(
         lambda value: "XSHG" if value.endswith(".SH") else "XSHE"
     )
@@ -185,21 +182,19 @@ def canonicalize_tushare_fund_nav(
         axis=1,
     )
 
-    known_from: list[pd.Timestamp | pd.NaT] = []
-    pit_usable: list[bool] = []
-    for row in selected.itertuples(index=False):
-        valid_lag = pd.notna(row.ann_date) and row.ann_date >= row.nav_date
-        next_session: pd.Timestamp | pd.NaT = pd.NaT
-        if valid_lag:
-            cutoff = max(row.nav_date, row.ann_date)
-            position = sessions.searchsorted(cutoff, side="right")
-            if position < len(sessions):
-                next_session = sessions[position]
-        positive_nav = bool(np.isfinite(row.unit_nav) and row.unit_nav > 0.0)
-        known_from.append(next_session)
-        pit_usable.append(bool(valid_lag and pd.notna(next_session) and positive_nav))
+    nav_values = selected["nav_date"].to_numpy(dtype="datetime64[ns]")
+    announcement_values = selected["ann_date"].to_numpy(dtype="datetime64[ns]")
+    valid_lag = ~pd.isna(announcement_values) & (announcement_values >= nav_values)
+    cutoff_values = np.maximum(nav_values, announcement_values)
+    session_values = sessions.to_numpy(dtype="datetime64[ns]")
+    positions = np.searchsorted(session_values, cutoff_values, side="right")
+    has_next_session = valid_lag & (positions < len(session_values))
+    known_from = np.full(len(selected), np.datetime64("NaT"), dtype="datetime64[ns]")
+    known_from[has_next_session] = session_values[positions[has_next_session]]
+    numeric_unit_nav = pd.to_numeric(selected["unit_nav"], errors="coerce").to_numpy(dtype=float)
+    positive_nav = np.isfinite(numeric_unit_nav) & (numeric_unit_nav > 0.0)
     selected["known_from"] = known_from
-    selected["is_pit_usable"] = pit_usable
+    selected["is_pit_usable"] = has_next_session & positive_nav
     selected["source"] = source
 
     for column in ["nav_date", "ann_date", "known_from"]:
@@ -358,34 +353,28 @@ def run_tushare_fund_nav_ingest(
     )
 
 
-def _select_revision(group: pd.DataFrame) -> pd.DataFrame:
-    working = group.copy()
-    announcement_rank = working["ann_date"].fillna(pd.Timestamp.min)
-    latest_announcement = announcement_rank.max()
-    candidates = working.loc[announcement_rank == latest_announcement].copy()
-    update_rank = candidates["update_flag"].fillna(float("-inf"))
-    highest_update = update_rank.max()
-    candidates = candidates.loc[update_rank == highest_update].copy()
-    if len(candidates) > 1:
-        comparison = candidates[_CONFLICT_VALUE_COLUMNS].copy()
-        first = comparison.iloc[0]
-        same = comparison.apply(lambda row: _values_equal(row, first), axis=1)
-        if not bool(same.all()):
-            symbol = str(candidates["symbol"].iloc[0])
-            nav_date = pd.Timestamp(candidates["nav_date"].iloc[0]).date().isoformat()
-            raise ValueError(f"conflicting NAV revisions for {symbol} on {nav_date}")
-    return candidates.iloc[[0]]
-
-
-def _values_equal(left: pd.Series, right: pd.Series) -> bool:
-    for column in _CONFLICT_VALUE_COLUMNS:
-        left_value = left[column]
-        right_value = right[column]
-        if pd.isna(left_value) and pd.isna(right_value):
-            continue
-        if left_value != right_value:
-            return False
-    return True
+def _select_revisions_vectorized(frame: pd.DataFrame) -> pd.DataFrame:
+    keys = ["symbol", "nav_date"]
+    working = frame.copy()
+    working["_announcement_rank"] = working["ann_date"].fillna(pd.Timestamp.min)
+    latest_announcement = working.groupby(keys, sort=False)["_announcement_rank"].transform("max")
+    candidates = working.loc[working["_announcement_rank"].eq(latest_announcement)].copy()
+    candidates["_update_rank"] = candidates["update_flag"].fillna(float("-inf"))
+    highest_update = candidates.groupby(keys, sort=False)["_update_rank"].transform("max")
+    top = candidates.loc[candidates["_update_rank"].eq(highest_update)].copy()
+    if top.duplicated(keys, keep=False).any():
+        variation = top.groupby(keys, sort=False)[_CONFLICT_VALUE_COLUMNS].nunique(dropna=False)
+        conflicts = variation.gt(1).any(axis=1)
+        if conflicts.any():
+            symbol, nav_date = conflicts[conflicts].index[0]
+            date_text = pd.Timestamp(nav_date).date().isoformat()
+            raise ValueError(f"conflicting NAV revisions for {symbol} on {date_text}")
+    return (
+        top.sort_values(keys)
+        .drop_duplicates(keys, keep="first")
+        .drop(columns=["_announcement_rank", "_update_rank"])
+        .reset_index(drop=True)
+    )
 
 
 def _load_or_create_request_manifest(path: Path, scope: dict[str, Any]) -> dict[str, Any]:
