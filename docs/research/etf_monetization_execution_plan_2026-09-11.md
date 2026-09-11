@@ -181,7 +181,7 @@
 
 80个合同候选的封面和自身定义已进一步核对：79条适用记录对应78份不同内容、31个代码，仍是点状观察。515330路径中的一份文件实际属于创业板300ETF，已拒用，并从同日正确招募书补到沪深300声明；没有把别的基金合同解释成目标指数变更。结果分别在`official_core_intervals/full_contract_versions/contract_field_review.json`和`repair_515330/source_repair_review.json`。接续重点改为逐资产连接可知日、生效日、修订与存续记录，明确具体缺口，不继续以增加文件数量代替资格验收。
 
-当前接续入口为`data/reports/etf_monetization_20260911/official_core_intervals/interval_qualification_join_queue.json`：67项有同日合同候选、12项不修订合同、4项需按已有修订原文或正确招募书判断指数字段支持。日期相同不自动认证版本，缺独立合同也不自动否定已有法律条款。下一批先闭合这些具体字段与日期依赖，再审剩余存续/变更范围；不盲目扩取327份招募书。
+当前接续入口为`data/reports/etf_monetization_20260911/official_core_intervals/interval_qualification_join_queue_v2.json`：原83项中67项有同日合同候选、12项不修订合同、4项需按已有修订原文或正确招募书判断指数字段支持，另附7项补充公告观察。追加核对已解决510710两次通用法律文件修订及三只ETF的费用、简称或NAV精度事项，发现公告标题不含“基金合同”也可能修订基金合同，后续须覆盖这种遗漏。日期相同不自动认证版本，缺独立合同也不自动否定已有法律条款。下一批先闭合具体字段与日期依赖，再审剩余存续/变更范围；不盲目扩取327份招募书。
 
 ## 当前执行队列与状态
 
