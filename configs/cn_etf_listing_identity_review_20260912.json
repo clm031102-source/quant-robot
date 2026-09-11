@@ -1,0 +1,7 @@
+{
+  "source_manifest_path": "data/reports/etf_monetization_20260911/official_listing_identity/listing_identity_documents.json",
+  "source_manifest_sha256": "c71697346d6e705caf4b18b3bfe2a8f31618d71e40c89b21cba2cb64a01ac3fe",
+  "fund_managers": {
+    "515080.SH": "招商基金管理有限公司"
+  }
+}
