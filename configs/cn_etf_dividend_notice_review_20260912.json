@@ -1,0 +1,54 @@
+{
+  "symbol": "510300.SH",
+  "window_start": "2020-01-01",
+  "window_end": "2024-06-28",
+  "index_pages": [
+    {
+      "request_record": "data/reports/etf_monetization_20260911/official_action_sources/sse_all_announcements_510300_2020.json",
+      "request_record_sha256": "31af0703863de02d2c5787dc3b1c439aebbe6f172b835d5b0efd55f7a9299661",
+      "response": "data/reports/etf_monetization_20260911/official_action_sources/sse_all_announcements_510300_2020.response"
+    },
+    {
+      "request_record": "data/reports/etf_monetization_20260911/official_action_sources/sse_all_announcements_510300_2021.json",
+      "request_record_sha256": "708be18f3e02d39f97f7bf862c21455d407c0a1d0d41883da3f2739f75e76b59",
+      "response": "data/reports/etf_monetization_20260911/official_action_sources/sse_all_announcements_510300_2021.response"
+    },
+    {
+      "request_record": "data/reports/etf_monetization_20260911/official_action_sources/sse_all_announcements_510300_2022.json",
+      "request_record_sha256": "bfc3da529cdd508088ce2597eaea508eda613063568fd112e8824705ef602ec9",
+      "response": "data/reports/etf_monetization_20260911/official_action_sources/sse_all_announcements_510300_2022.response"
+    },
+    {
+      "request_record": "data/reports/etf_monetization_20260911/official_action_sources/sse_all_announcements_510300_2023.json",
+      "request_record_sha256": "84b273f0f5c9f81299da418a5638435908702a7124fab5015e0bef8b12de1fcd",
+      "response": "data/reports/etf_monetization_20260911/official_action_sources/sse_all_announcements_510300_2023.response"
+    },
+    {
+      "request_record": "data/reports/etf_monetization_20260911/official_action_sources/sse_all_announcements_510300_2024.json",
+      "request_record_sha256": "f7cc2da33aeda25857532fcad77c56931f7278def5f5aad5da8ea26316b3c914",
+      "response": "data/reports/etf_monetization_20260911/official_action_sources/sse_all_announcements_510300_2024.response"
+    }
+  ],
+  "notices": [
+    {
+      "url_path": "/disclosure/fund/announcement/c/2021-01-11/510300_20210111_1.pdf",
+      "pdf": "data/reports/etf_monetization_20260911/official_action_sources/510300_20210111_1.pdf",
+      "sha256": "1992271ca55dc3c7f88cf528f8f0f757fc48143b2a805159d2b3efdfb9143fc2"
+    },
+    {
+      "url_path": "/disclosure/fund/announcement/c/new/2022-01-12/510300_20220112_1_pWPNE0aG.pdf",
+      "pdf": "data/reports/etf_monetization_20260911/official_action_sources/510300_20220112_1_pWPNE0aG.pdf",
+      "sha256": "1f5411e65cb9043bec5ae100df3925e6bb0aa122ea18186c7ba9a7e0747a9b50"
+    },
+    {
+      "url_path": "/disclosure/fund/announcement/c/new/2023-01-09/510300_20230109_0ED5.pdf",
+      "pdf": "data/reports/etf_monetization_20260911/official_action_sources/510300_20230109_0ED5.pdf",
+      "sha256": "68f2227ae25acec3b831d50d042b87f12696dc0df1514ef9dacb36e018d571d7"
+    },
+    {
+      "url_path": "/disclosure/fund/announcement/c/new/2024-01-11/510300_20240111_QQFV.pdf",
+      "pdf": "data/reports/etf_monetization_20260911/official_action_sources/510300_20240111_QQFV.pdf",
+      "sha256": "165ddaec9b36480ff4cbc738227043db7b7acc4f80ac31bedaa0e4f5c4001f4b"
+    }
+  ]
+}
