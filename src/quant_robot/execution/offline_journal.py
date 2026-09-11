@@ -148,6 +148,8 @@ class OfflineOrderJournal:
                 fault = exc
                 event = _event(rejection_kind, {"reason": str(exc), "risk_stop": exc.risk_stop,
                     "rejected_request": rejected_request})
+                if rejection_kind == "VALUATION_REJECTED":
+                    event["data"]["valuation_unavailable"] = getattr(exc, "valuation_unavailable", True)
             if event is not None:
                 self._append(state, event)
             self._db.commit()
@@ -291,6 +293,29 @@ class OfflineOrderJournal:
         from .offline_timeouts import timeout_event
         clock = clock or (lambda: datetime.now(timezone.utc))
         return self._run(lambda state: timeout_event(state, clock()))
+
+    def record_valuation(self, context, *, clock=None):
+        """Record supplied synthetic marks independently of order submissions."""
+        from .offline_intent_contract import instant, normalize_packet
+        from .offline_valuation import ValuationRejected, valuation_event
+        message = None
+        try:
+            packet = normalize_packet(context)
+            request = {"context": packet}
+        except ValueError as exc:
+            message = str(exc)
+            request = {"parse_failure": message, "provided_context_metadata": {
+                key: context[key][:2000] for key in ("snapshot_id", "source_ref", "as_of")
+                if isinstance(context, dict) and isinstance(context.get(key), str)}}
+        clock = clock or (lambda: datetime.now(timezone.utc))
+
+        def build(state):
+            now = instant(clock())
+            request["decision_at"] = now.isoformat()
+            if message is not None:
+                raise ValuationRejected(message, unavailable=True)
+            return valuation_event(state, packet, now)
+        return self._run(build, request, rejection_kind="VALUATION_REJECTED")
 
     def report_status(self, order_id, report_id, status, cumulative_quantity):
         if not isinstance(status, str) or status not in {"ACCEPTED", "CANCELLED", "REJECTED", "UNKNOWN"}:

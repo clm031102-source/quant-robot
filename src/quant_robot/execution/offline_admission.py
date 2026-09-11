@@ -5,14 +5,15 @@ from datetime import datetime, time
 from decimal import Decimal
 
 from .offline_intent_contract import SHANGHAI, day, instant
-from .offline_order_state import ACTIVE, AdmissionRejected, ZERO, commission, money_context, reservations
+from .offline_order_state import ACTIVE, VALUATION_UNAVAILABLE, AdmissionRejected, ZERO, money_context, reservations
+from .offline_portfolio_risk import portfolio_totals
 
 
 def deny(message, *, stop=False):
     raise AdmissionRejected(message, risk_stop=stop)
 
 
-def _check_context(state, packet, now):
+def _check_context(state, packet, now, *, opening=False):
     policy = state.get("admission_policy")
     if policy is None:
         deny("guarded admission policy is required")
@@ -29,7 +30,15 @@ def _check_context(state, packet, now):
         deny("stale or future risk context")
     if packet["journal_sequence"] != state["sequence"] or packet["journal_hash"] != state["journal_hash"]:
         deny("risk context has a stale journal anchor")
-    if state["faults"] or state["kill_switch"]:
+    valuation = state.get("portfolio_valuation", {}).get("last_valid")
+    if valuation and not opening:
+        previous = valuation["context"]
+        if (now < instant(valuation["decision_at"]) or instant(packet["as_of"]) < instant(previous["as_of"])
+                or any(key in previous["quotes"] and instant(row["timestamp"]) < instant(previous["quotes"][key]["timestamp"])
+                    for key, row in packet["quotes"].items())):
+            deny("risk context predates the latest valuation")
+    faults = state["faults"] - {VALUATION_UNAVAILABLE} if opening else state["faults"]
+    if faults or state["kill_switch"]:
         deny("journal paused; reconcile or release operator stop")
     return policy, now
 
@@ -42,6 +51,8 @@ def _marks(policy, packet, now, required):
     for code, row in packet["quotes"].items():
         if code not in policy["allowed_symbols"]:
             deny("quote outside configured universe")
+        if code in required and row["trade_status"] != "TRADING":
+            deny("instrument is not trading; no supported valuation quote for non-trading instrument")
         age = (now - instant(row["timestamp"])).total_seconds()
         if age < 0 or age > policy["max_quote_age_seconds"] or instant(row["timestamp"]) > instant(packet["as_of"]):
             deny("stale or future quote")
@@ -54,7 +65,7 @@ def _marks(policy, packet, now, required):
 
 @money_context
 def begin_session_event(state, packet, now):
-    policy, now = _check_context(state, packet, now)
+    policy, now = _check_context(state, packet, now, opening=True)
     current = state.get("risk_session")
     if current and packet["session_date"] <= current["session_date"]:
         deny("session baseline cannot be reset or rolled backward")
@@ -146,30 +157,16 @@ def _risk_totals(state, order, marks, policy):
     adv = Decimal(state["risk_session"]["instruments"][code]["adv_shares"])
     if committed + order["quantity"] > adv * Decimal(policy["max_adv_participation"]):
         deny("daily one-way ADV participation exceeded")
-    exposure = {key: qty * marks[key] for key, qty in state["positions"].items() if qty}
-    pending_cost = ZERO
     candidate = {**order, "filled_quantity": 0, "filled_notional": ZERO, "commission": ZERO, "status": "PENDING",
         "limit_price": Decimal(order["limit_price"])}
-    # Every live reservation is risk, even if its original admission was earlier.
-    for row in [*state["orders"].values(), candidate]:
-        if row["status"] not in ACTIVE:
-            continue
-        qty = row["quantity"] - row["filled_quantity"]
-        price, key = row["limit_price"], row["symbol"]
-        pending_cost += max(ZERO, commission(state, row["filled_notional"] + qty * price) - row["commission"])
-        if row["side"] == "BUY":
-            exposure[key] = exposure.get(key, ZERO) + qty * max(price, marks[key])
-            pending_cost += qty * max(ZERO, price - marks[key])
-        else:
-            pending_cost += qty * max(ZERO, marks[key] - price)
-    gross = sum(exposure.values(), ZERO)
+    totals = portfolio_totals(state, marks, [candidate])
+    gross, exposure = totals["gross"], totals["exposure"]
     if order["side"] == "BUY":
         if gross > Decimal(policy["capital_limit_cny"]):
             deny("capital exposure limit exceeded")
         if any(value > Decimal(policy["max_position_cny"]) for value in exposure.values()):
             deny("single position limit exceeded")
-    equity = state["cash"] + sum((qty * marks[key] for key, qty in state["positions"].items() if qty), ZERO)
-    projected_loss = Decimal(state["risk_session"]["opening_equity"]) - equity + pending_cost
+    equity, projected_loss = totals["equity"], totals["projected_loss"]
     if projected_loss >= Decimal(policy["max_daily_loss_cny"]):
         deny("daily loss limit including pending costs reached", stop=True)
     return {"current_equity": str(equity), "projected_daily_loss": str(projected_loss),

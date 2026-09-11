@@ -1,4 +1,4 @@
-"""Exercise synthetic admission, send-decision revalidation and risk recovery."""
+"""Exercise synthetic admission, dispatch, order-independent valuation and recovery."""
 from __future__ import annotations
 
 import argparse
@@ -29,7 +29,7 @@ def run_drill(config_path: Path, output_dir: Path):
     journal_path = output_dir / "guarded_synthetic_orders.sqlite"
     book = OfflineOrderJournal.create(journal_path, initial_cash=cfg["initial_cash"], initial_positions=cfg["initial_positions"],
         commission_bps=cfg["commission_bps"], minimum_commission=cfg["minimum_commission"], admission_policy=cfg["policy"])
-    stages, rejected, dispatch_rejections = [], [], []
+    stages, rejected, dispatch_rejections, valuation_rejections = [], [], [], []
 
     def packet():
         state = book.snapshot()
@@ -102,9 +102,37 @@ def run_drill(config_path: Path, output_dir: Path):
         book.prepare_dispatch("settled-sell", "prepare-settled-sell", packet(), clock=lambda: now)
         book.fill("settled-sell", "f3", 100, cfg["fixture_price"])
         capture("new_session_explicit_settlement_and_sale")
+        book.record_valuation(packet(), clock=lambda: now)
+        capture("book_valued_without_a_new_order")
+        now += timedelta(seconds=31)
+        missing = packet()
+        missing["quotes"].pop("510300.SH")
+        try:
+            book.record_valuation(missing, clock=lambda: now)
+        except ValueError as exc:
+            if "missing" not in str(exc):
+                raise
+            valuation_rejections.append(str(exc))
+        else:
+            raise AssertionError("missing holding quote was accepted")
+        if not book.snapshot()["paused"]:
+            raise AssertionError("quote outage did not pause the journal")
+        capture("missing_quote_pauses_and_preserves_previous_valuation")
+        book.record_valuation(packet(), clock=lambda: now)
+        if book.snapshot()["paused"]:
+            raise AssertionError("fresh valuation did not resolve the quote-only fault")
+        capture("fresh_quote_restores_book_visibility")
         loss = packet()
-        loss["quotes"]["510300.SH"].update(bid="3.2", ask="3.2")
-        expect_rejection(order("loss-check", code="159915.SZ"), loss, "daily loss")
+        loss["quotes"]["510300.SH"].update(bid="3.1", ask="3.1")
+        book.record_valuation(loss, clock=lambda: now)
+        if "daily_loss" not in book.snapshot()["portfolio_valuation"]["last_valid"]["breaches"]:
+            raise AssertionError("order-independent daily loss was not detected")
+        capture("daily_loss_triggers_before_any_new_order")
+        expect_rejection(order("loss-check", code="159915.SZ"), packet(), "risk stop")
+        book.set_kill_switch(True, reason="synthetic operator stop during continuing valuation")
+        book.record_valuation(packet(), clock=lambda: now)
+        if not book.snapshot()["kill_switch"]:
+            raise AssertionError("valuation cleared the operator stop")
         book.set_kill_switch(False, reason="synthetic operator switch cannot clear risk stop")
         expect_rejection(order("rebound", code="159915.SZ"), packet(), "risk stop")
         capture("daily_loss_stop_survives_quote_rebound_and_operator_switch")
@@ -119,13 +147,15 @@ def run_drill(config_path: Path, output_dir: Path):
     root = Path(__file__).resolve().parents[1]
     files = [Path(__file__).resolve(), root / "scripts/bootstrap.py", *[
         root / "src/quant_robot/execution" / name for name in ("offline_journal.py", "offline_order_state.py",
-            "offline_admission.py", "offline_dispatch.py", "offline_timeouts.py", "offline_intent_contract.py", "boundary.py")]]
+            "offline_admission.py", "offline_dispatch.py", "offline_timeouts.py", "offline_portfolio_risk.py",
+            "offline_valuation.py", "offline_intent_contract.py", "boundary.py")]]
     result = {"schema_version": 1, "generated_at": datetime.now(timezone.utc).isoformat(),
         "status": "synthetic_admission_drill_passed", "mode": "offline_fixture_only", "executable": False,
         "counts_as_forward_paper_days": 0, "qualifies_for_strategy_promotion": False,
         "fee_and_instrument_source": "synthetic_fixture_not_broker_or_source_verified",
         "config_sha256": hashlib.sha256(original).hexdigest(), "boundary": build_execution_boundary_status(),
-        "rejected_intents": rejected, "rejected_dispatches": dispatch_rejections, "stages": stages,
+        "rejected_intents": rejected, "rejected_dispatches": dispatch_rejections,
+        "rejected_valuations": valuation_rejections, "stages": stages,
         "implementation_sha256": {path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest() for path in files},
         "journal_path": str(journal_path.resolve()), "journal_sha256": hashlib.sha256(journal_path.read_bytes()).hexdigest()}
     atomic_write_json(output_dir / "guarded_drill_report.json", result)

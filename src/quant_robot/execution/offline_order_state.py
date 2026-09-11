@@ -14,6 +14,7 @@ ACTIVE = {"PENDING", "ACCEPTED", "PARTIAL", "CANCEL_PENDING", "UNKNOWN"}
 TERMINAL = {"FILLED", "CANCELLED", "REJECTED"}
 STATUSES = ACTIVE | TERMINAL
 ZERO = Decimal("0")
+VALUATION_UNAVAILABLE = "portfolio_valuation_unavailable"
 
 
 class AdmissionRejected(ValueError):
@@ -124,6 +125,7 @@ def apply_event(state, event):
             admission_policy=data.get("admission_policy"), admission_policy_fingerprint=data.get("admission_policy_fingerprint"),
             timeout_policy=data.get("timeout_policy"), timeout_policy_fingerprint=data.get("timeout_policy_fingerprint"),
             last_timeout_at=None,
+            portfolio_valuation={"last_valid": None, "last_rejection": None, "unavailable": False},
             risk_session=None, sellable_positions={}, attempted_intent_ids=set(), attempted_idempotency_keys=set(),
             attempted_dispatch_ids=set())
     elif kind == "REGISTER":
@@ -135,6 +137,19 @@ def apply_event(state, event):
     elif kind == "RISK_SESSION":
         state["risk_session"] = dict(data)
         state["sellable_positions"] = dict(data["sellable_positions"])
+        state["portfolio_valuation"] = {"last_valid": None, "last_rejection": None, "unavailable": False}
+        state["faults"].discard(VALUATION_UNAVAILABLE)
+    elif kind == "PORTFOLIO_VALUATION":
+        state["portfolio_valuation"].update(last_valid={**data, "event_sequence": state["sequence"] + 1}, unavailable=False)
+        state["risk_session"]["valuation_peak_equity"] = data["book_equity_peak"]
+        if data["risk_stop_required"]:
+            state["risk_session"]["risk_stop"] = True
+        state["faults"].discard(VALUATION_UNAVAILABLE)
+    elif kind == "VALUATION_REJECTED":
+        state["portfolio_valuation"]["last_rejection"] = dict(data)
+        if data["valuation_unavailable"] and state["risk_session"] is not None:
+            state["portfolio_valuation"]["unavailable"] = True
+            state["faults"].add(VALUATION_UNAVAILABLE)
     elif kind in {"ADMISSION_DENIED", "DISPATCH_DENIED"}:
         request = data["rejected_request"] or {}
         if kind == "DISPATCH_DENIED" and "attempt_id" in request:
@@ -181,7 +196,7 @@ def apply_event(state, event):
     elif kind == "RECONCILE":
         for key, order in data["orders"].items():
             state["orders"][key]["status"] = order["status"]
-        state["faults"].clear()
+        state["faults"].intersection_update({VALUATION_UNAVAILABLE})
     elif kind == "KILL_SWITCH":
         state["kill_switch"] = data["enabled"]
     else:
@@ -242,6 +257,8 @@ def public_snapshot(state):
         "admission_policy_fingerprint": state["admission_policy_fingerprint"],
         "timeout_policy_fingerprint": state["timeout_policy_fingerprint"],
         "risk_session": state["risk_session"],
+        "portfolio_valuation": {**state["portfolio_valuation"], "matches_current_journal":
+            (state["portfolio_valuation"]["last_valid"] or {}).get("event_sequence") == state["sequence"]},
         "paused": bool(state["kill_switch"] or state["faults"] or (state["risk_session"] or {}).get("risk_stop")), "kill_switch": state["kill_switch"],
         "faults": sorted(state["faults"]),
         "orders": {key: {name: str(value) if isinstance(value, Decimal) else value for name, value in row.items()}
