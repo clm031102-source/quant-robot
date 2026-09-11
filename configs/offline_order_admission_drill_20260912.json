@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "mode": "offline_fixture_only",
+  "logical_clock_start": "2026-09-14T10:00:00+08:00",
+  "initial_cash": "2000",
+  "initial_positions": {"510300.SH": 150},
+  "opening_sellable_positions": {"510300.SH": 80},
+  "commission_bps": "0.5",
+  "minimum_commission": "5",
+  "fixture_price": "4",
+  "policy": {
+    "schema_version": 1,
+    "mode": "offline_fixture_only",
+    "policy_id": "cn-etf-synthetic-admission-20260912",
+    "strategy_id": "synthetic-fixture",
+    "strategy_version": "1",
+    "allowed_symbols": ["510300.SH", "159915.SZ"],
+    "capital_limit_cny": "3000",
+    "max_position_cny": "1000",
+    "max_daily_loss_cny": "60",
+    "max_adv_participation": "0.01",
+    "max_slippage_bps": "10",
+    "max_spread_bps": "20",
+    "max_quote_age_seconds": 30,
+    "max_context_age_seconds": 30,
+    "max_signal_age_seconds": 300,
+    "max_adv_age_days": 7,
+    "session_dates": ["2026-09-14", "2026-09-15"],
+    "trading_windows": [["09:30", "11:30"], ["13:00", "14:57"]]
+  },
+  "instruments": {
+    "510300.SH": {
+      "symbol": "510300.SH", "exchange": "SSE", "instrument_type": "ETF",
+      "lot_size": 100, "price_tick": "0.001", "settlement": "T1", "odd_lot_sell_allowed": true,
+      "adv_shares": "100000", "adv_as_of": "2026-09-11", "valid_from": "2026-09-11", "valid_until": "2026-09-15",
+      "source_ref": "synthetic-instrument-and-liquidity-fixture"
+    },
+    "159915.SZ": {
+      "symbol": "159915.SZ", "exchange": "SZSE", "instrument_type": "ETF",
+      "lot_size": 100, "price_tick": "0.001", "settlement": "T1", "odd_lot_sell_allowed": true,
+      "adv_shares": "100000", "adv_as_of": "2026-09-11", "valid_from": "2026-09-11", "valid_until": "2026-09-15",
+      "source_ref": "synthetic-instrument-and-liquidity-fixture"
+    }
+  }
+}

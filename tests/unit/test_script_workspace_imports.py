@@ -144,6 +144,23 @@ class ScriptWorkspaceImportTests(unittest.TestCase):
 
         self.assertEqual(offenders, [])
 
+    def test_offline_order_drills_prefer_workspace_with_legacy_package_present(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            legacy = root / "legacy"
+            _write_legacy_quant_robot_package(legacy)
+            env = dict(os.environ)
+            env["PYTHONPATH"] = str(legacy)
+            for name, report in (("run_offline_order_drill", "drill_report.json"),
+                    ("run_guarded_order_drill", "guarded_drill_report.json")):
+                with self.subTest(script=name):
+                    output = root / name
+                    result = subprocess.run([sys.executable, "scripts/" + name + ".py", "--output-dir", str(output)],
+                        cwd=repo_root, env=env, capture_output=True, text=True, timeout=30)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertTrue((output / report).is_file())
+
 
 def _write_legacy_quant_robot_package(root: Path) -> None:
     package_root = root / "quant_robot"

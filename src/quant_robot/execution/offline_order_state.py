@@ -16,6 +16,12 @@ STATUSES = ACTIVE | TERMINAL
 ZERO = Decimal("0")
 
 
+class AdmissionRejected(ValueError):
+    def __init__(self, message, *, risk_stop=False):
+        super().__init__(message)
+        self.risk_stop = risk_stop
+
+
 def money_context(function):
     @wraps(function)
     def wrapped(*args, **kwargs):
@@ -103,7 +109,9 @@ def reservations(state):
 def risk_deficit(state) -> bool:
     cash, shares = reservations(state)
     return (state["cash"] < cash or any(qty < 0 for qty in state["positions"].values())
-        or any(qty > state["positions"].get(key, 0) for key, qty in shares.items()))
+        or any(qty > state["positions"].get(key, 0) for key, qty in shares.items())
+        or (state.get("risk_session") is not None and (any(qty < 0 for qty in state["sellable_positions"].values())
+            or any(qty > state["sellable_positions"].get(key, 0) for key, qty in shares.items()))))
 
 
 @money_context
@@ -112,10 +120,27 @@ def apply_event(state, event):
     if kind == "GENESIS":
         state.update(cash=Decimal(data["initial_cash"]), positions=dict(data["initial_positions"]),
             commission_bps=Decimal(data["commission_bps"]), minimum_commission=Decimal(data["minimum_commission"]),
-            orders={}, receipts={}, faults=set(), kill_switch=False)
+            orders={}, receipts={}, faults=set(), kill_switch=False,
+            admission_policy=data.get("admission_policy"), admission_policy_fingerprint=data.get("admission_policy_fingerprint"),
+            risk_session=None, sellable_positions={}, attempted_intent_ids=set(), attempted_idempotency_keys=set())
     elif kind == "REGISTER":
         state["orders"][data["order_id"]] = {**data, "limit_price": Decimal(data["limit_price"]),
             "status": "PENDING", "filled_quantity": 0, "filled_notional": ZERO, "commission": ZERO}
+        if "admission" in data:
+            state["attempted_intent_ids"].add(data["order_id"])
+            state["attempted_idempotency_keys"].add(data["idempotency_key"])
+    elif kind == "RISK_SESSION":
+        state["risk_session"] = dict(data)
+        state["sellable_positions"] = dict(data["sellable_positions"])
+    elif kind == "ADMISSION_DENIED":
+        request = data["rejected_request"] or {}
+        if "intent" in request:
+            if "client_intent_id" in request["intent"]:
+                state["attempted_intent_ids"].add(request["intent"]["client_intent_id"])
+            if "idempotency_key" in request["intent"]:
+                state["attempted_idempotency_keys"].add(request["intent"]["idempotency_key"])
+        if data["risk_stop"] and state["risk_session"] is not None:
+            state["risk_session"]["risk_stop"] = True
     elif kind == "FILL":
         _apply_fill(state, data)
     elif kind == "STATUS":
@@ -160,6 +185,15 @@ def _apply_fill(state, data):
     state["cash"] -= direction * value + extra_fee
     key = order["symbol"]
     state["positions"][key] = state["positions"].get(key, 0) + direction * qty
+    if state["risk_session"] is not None:
+        metadata = state["risk_session"]["instruments"][key]
+        if direction < 0 or metadata["settlement"] == "T0":
+            state["sellable_positions"][key] = state["sellable_positions"].get(key, 0) + direction * qty
+        if order["admission"]["session_date"] != state["risk_session"]["session_date"]:
+            # Without a trade-date transport contract, conservatively consume
+            # the receipt session's budget. Reconciliation cannot erase this.
+            carryover = state["risk_session"]["carryover_fill_shares"].setdefault(key, {})
+            carryover[order["side"]] = carryover.get(order["side"], 0) + qty
     order["filled_quantity"] += qty
     order["filled_notional"] += value
     order["commission"] = fee
@@ -180,14 +214,18 @@ def _apply_fill(state, data):
 @money_context
 def public_snapshot(state):
     cash, shares = reservations(state)
+    sellable = state["sellable_positions"] if state["risk_session"] is not None else state["positions"]
     return {"schema_version": 1, "mode": "offline_fixture_only", "executable": False,
         "sequence": state["sequence"], "journal_hash": state["journal_hash"],
         "cash": str(state["cash"]), "reserved_cash": str(cash),
         "available_cash": str(max(ZERO, state["cash"] - cash)),
         "positions": {key: qty for key, qty in state["positions"].items() if qty},
         "reserved_positions": shares,
-        "available_positions": {key: max(0, qty - shares.get(key, 0)) for key, qty in state["positions"].items() if qty},
-        "paused": bool(state["kill_switch"] or state["faults"]), "kill_switch": state["kill_switch"],
+        "available_positions": {key: max(0, min(qty, sellable.get(key, 0)) - shares.get(key, 0)) for key, qty in state["positions"].items() if qty},
+        "sellable_positions": {key: qty for key, qty in sellable.items() if qty},
+        "admission_policy_fingerprint": state["admission_policy_fingerprint"],
+        "risk_session": state["risk_session"],
+        "paused": bool(state["kill_switch"] or state["faults"] or (state["risk_session"] or {}).get("risk_stop")), "kill_switch": state["kill_switch"],
         "faults": sorted(state["faults"]),
         "orders": {key: {name: str(value) if isinstance(value, Decimal) else value for name, value in row.items()}
             for key, row in state["orders"].items()}}

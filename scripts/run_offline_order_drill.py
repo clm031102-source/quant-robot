@@ -8,6 +8,13 @@ import hashlib
 import json
 from pathlib import Path
 
+try:
+    from scripts.bootstrap import ensure_workspace_imports
+except ModuleNotFoundError:
+    from bootstrap import ensure_workspace_imports
+
+ensure_workspace_imports()
+
 from quant_robot.execution.boundary import build_execution_boundary_status
 from quant_robot.execution.offline_journal import OfflineOrderJournal
 

@@ -16,7 +16,7 @@ from pathlib import Path
 import sqlite3
 
 from .offline_order_state import (
-    ACTIVE, TERMINAL, amount, apply_event, identity, positions, public_snapshot,
+    ACTIVE, TERMINAL, AdmissionRejected, amount, apply_event, identity, positions, public_snapshot,
     reservations, risk_deficit, units,
 )
 
@@ -35,11 +35,17 @@ def _event(kind, data, receipt_key=None):
 
 class OfflineOrderJournal:
     @classmethod
-    def create(cls, path, *, initial_cash, initial_positions, commission_bps, minimum_commission):
+    def create(cls, path, *, initial_cash, initial_positions, commission_bps, minimum_commission, admission_policy=None):
         genesis = {"initial_cash": str(amount(initial_cash)), "initial_positions": positions(initial_positions),
             "commission_bps": str(amount(commission_bps)), "minimum_commission": str(amount(minimum_commission))}
         if Decimal(genesis["commission_bps"]) >= 10000:
             raise ValueError("commission_bps must be below 10000")
+        if admission_policy is not None:
+            from .offline_intent_contract import fingerprint, normalize_policy
+            policy = normalize_policy(admission_policy)
+            if Decimal(genesis["initial_cash"]) > Decimal(policy["capital_limit_cny"]):
+                raise ValueError("initial cash exceeds admission capital limit")
+            genesis.update(admission_policy=policy, admission_policy_fingerprint=fingerprint(policy))
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         # Exclusive creation prevents accidentally replacing an existing account.
@@ -131,6 +137,10 @@ class OfflineOrderJournal:
             except _Quarantine as exc:
                 fault = exc
                 event = _event("FAULT", {"reason": str(exc), "rejected_request": rejected_request})
+            except AdmissionRejected as exc:
+                fault = exc
+                event = _event("ADMISSION_DENIED", {"reason": str(exc), "risk_stop": exc.risk_stop,
+                    "rejected_request": rejected_request})
             if event is not None:
                 self._append(state, event)
             self._db.commit()
@@ -174,20 +184,56 @@ class OfflineOrderJournal:
         if not isinstance(side, str) or side not in {"BUY", "SELL"}:
             raise ValueError("unsupported side")
 
+        return self._run(lambda state: self._registration_event(state, data), data)
+
+    @staticmethod
+    def _registration_event(state, data, *, guarded=False):
+        if state["admission_policy"] is not None and not guarded:
+            raise ValueError("guarded journal requires full intent admission")
+        if data["order_id"] in state["orders"] or any(row["idempotency_key"] == data["idempotency_key"] for row in state["orders"].values()):
+            raise ValueError("duplicate order or idempotency key")
+        if state["faults"] or state["kill_switch"]:
+            raise ValueError("offline journal paused; reconcile before registering orders")
+        event = _event("REGISTER", data)
+        candidate = {**state, "orders": dict(state["orders"]),
+            "attempted_intent_ids": set(state["attempted_intent_ids"]),
+            "attempted_idempotency_keys": set(state["attempted_idempotency_keys"])}
+        apply_event(candidate, event)
+        cash, shares = reservations(candidate)
+        if state["cash"] < cash:
+            raise ValueError("insufficient unreserved cash")
+        if any(qty > state["positions"].get(key, 0) for key, qty in shares.items()):
+            raise ValueError("insufficient unreserved position")
+        if risk_deficit(candidate):
+            raise ValueError("insufficient unreserved sellable position")
+        return event
+
+    def begin_session(self, context, *, clock=None):
+        from .offline_admission import begin_session_event
+        from .offline_intent_contract import normalize_packet
+        packet = normalize_packet(context, opening=True)
+        clock = clock or (lambda: datetime.now(timezone.utc))
+        return self._run(lambda state: begin_session_event(state, packet, clock()), {"context": packet})
+
+    def admit(self, intent, context, *, clock=None):
+        from .offline_admission import admission_event
+        from .offline_intent_contract import normalize_intent, normalize_packet, rejection_evidence
+        try:
+            order, packet = normalize_intent(intent), normalize_packet(context)
+        except ValueError as exc:
+            message = str(exc)
+            def reject(_state):
+                raise AdmissionRejected(message)
+            return self._run(reject, rejection_evidence(intent, exc))
+        clock = clock or (lambda: datetime.now(timezone.utc))
+
         def build(state):
-            if order_id in state["orders"] or any(row["idempotency_key"] == idempotency_key for row in state["orders"].values()):
-                raise ValueError("duplicate order or idempotency key")
-            if state["faults"] or state["kill_switch"]:
-                raise ValueError("offline journal paused; reconcile before registering orders")
-            event = _event("REGISTER", data)
-            apply_event(state, event)
-            cash, shares = reservations(state)
-            if state["cash"] < cash:
-                raise ValueError("insufficient unreserved cash")
-            if any(qty > state["positions"].get(key, 0) for key, qty in shares.items()):
-                raise ValueError("insufficient unreserved position")
-            return event
-        return self._run(build, data)
+            event = admission_event(state, order, packet, clock())
+            try:
+                return self._registration_event(state, event["data"], guarded=True)
+            except ValueError as exc:
+                raise AdmissionRejected(str(exc)) from exc
+        return self._run(build, {"intent": order, "context": packet})
 
     def fill(self, order_id, fill_id, quantity, price):
         data = {"order_id": identity(order_id), "fill_id": identity(fill_id),
@@ -280,6 +326,9 @@ class OfflineOrderJournal:
         for key, row in data["orders"].items():
             order = state["orders"][key]
             status, filled = row["status"], row["filled_quantity"]
+            if (state["risk_session"] is not None and status in ACTIVE
+                    and order.get("admission", {}).get("session_date", "") < state["risk_session"]["session_date"]):
+                raise _Quarantine("expired DAY order cannot reopen across sessions")
             legal = ((status in {"ACCEPTED", "REJECTED"} and filled == 0)
                 or (status == "PARTIAL" and 0 < filled < order["quantity"])
                 or (status in {"CANCEL_PENDING", "CANCELLED"} and filled < order["quantity"])
