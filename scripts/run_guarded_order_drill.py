@@ -119,7 +119,7 @@ def run_drill(config_path: Path, output_dir: Path):
     root = Path(__file__).resolve().parents[1]
     files = [Path(__file__).resolve(), root / "scripts/bootstrap.py", *[
         root / "src/quant_robot/execution" / name for name in ("offline_journal.py", "offline_order_state.py",
-            "offline_admission.py", "offline_dispatch.py", "offline_intent_contract.py", "boundary.py")]]
+            "offline_admission.py", "offline_dispatch.py", "offline_timeouts.py", "offline_intent_contract.py", "boundary.py")]]
     result = {"schema_version": 1, "generated_at": datetime.now(timezone.utc).isoformat(),
         "status": "synthetic_admission_drill_passed", "mode": "offline_fixture_only", "executable": False,
         "counts_as_forward_paper_days": 0, "qualifies_for_strategy_promotion": False,

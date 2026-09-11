@@ -32,6 +32,8 @@ def dispatch_event(state, order_id, attempt_id, packet, now):
         "attempted_intent_ids": state["attempted_intent_ids"] - {order_id},
         "attempted_idempotency_keys": state["attempted_idempotency_keys"] - {order["idempotency_key"]}}
     checked = admission_event(view, admission["intent"], packet, now)["data"]["admission"]
+    from .offline_timeouts import ack_deadline
     return {"kind": "DISPATCH_PREPARED", "data": {"order_id": order_id, "attempt_id": attempt_id,
         "context": packet, "decision_at": checked["decision_at"], "risk": checked["risk"],
-        "policy_fingerprint": checked["policy_fingerprint"], "mode": "offline_fixture_only", "executable": False}}
+        "policy_fingerprint": checked["policy_fingerprint"], "mode": "offline_fixture_only", "executable": False,
+        **ack_deadline(state, now)}}

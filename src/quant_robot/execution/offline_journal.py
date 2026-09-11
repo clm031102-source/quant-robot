@@ -35,7 +35,8 @@ def _event(kind, data, receipt_key=None):
 
 class OfflineOrderJournal:
     @classmethod
-    def create(cls, path, *, initial_cash, initial_positions, commission_bps, minimum_commission, admission_policy=None):
+    def create(cls, path, *, initial_cash, initial_positions, commission_bps, minimum_commission,
+            admission_policy=None, timeout_policy=None):
         genesis = {"initial_cash": str(amount(initial_cash)), "initial_positions": positions(initial_positions),
             "commission_bps": str(amount(commission_bps)), "minimum_commission": str(amount(minimum_commission))}
         if Decimal(genesis["commission_bps"]) >= 10000:
@@ -46,6 +47,12 @@ class OfflineOrderJournal:
             if Decimal(genesis["initial_cash"]) > Decimal(policy["capital_limit_cny"]):
                 raise ValueError("initial cash exceeds admission capital limit")
             genesis.update(admission_policy=policy, admission_policy_fingerprint=fingerprint(policy))
+        if timeout_policy is not None:
+            if admission_policy is None:
+                raise ValueError("timeouts require a guarded admission policy")
+            from .offline_timeouts import normalize_timeout_policy
+            timeouts = normalize_timeout_policy(timeout_policy, genesis["admission_policy"])
+            genesis.update(timeout_policy=timeouts, timeout_policy_fingerprint=fingerprint(timeouts))
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         # Exclusive creation prevents accidentally replacing an existing account.
@@ -265,8 +272,9 @@ class OfflineOrderJournal:
             return _event("FILL", data, receipt)
         return self._run(build, data)
 
-    def request_cancel(self, order_id):
+    def request_cancel(self, order_id, *, clock=None):
         identity(order_id)
+        clock = clock or (lambda: datetime.now(timezone.utc))
 
         def build(state):
             order = self._order(state, order_id)
@@ -274,8 +282,15 @@ class OfflineOrderJournal:
                 return None
             if order["status"] not in {"PENDING", "ACCEPTED", "PARTIAL"}:
                 raise ValueError("cannot cancel order in current state")
-            return _event("CANCEL_REQUEST", {"order_id": order_id})
+            from .offline_timeouts import cancel_timing
+            return _event("CANCEL_REQUEST", {"order_id": order_id, **cancel_timing(state, order, clock())})
         return self._run(build, {"order_id": order_id, "kind": "cancel_request"})
+
+    def monitor_timeouts(self, *, clock=None):
+        """Quarantine overdue offline orders without inventing execution receipts."""
+        from .offline_timeouts import timeout_event
+        clock = clock or (lambda: datetime.now(timezone.utc))
+        return self._run(lambda state: timeout_event(state, clock()))
 
     def report_status(self, order_id, report_id, status, cumulative_quantity):
         if not isinstance(status, str) or status not in {"ACCEPTED", "CANCELLED", "REJECTED", "UNKNOWN"}:
@@ -342,6 +357,9 @@ class OfflineOrderJournal:
         for key, row in data["orders"].items():
             order = state["orders"][key]
             status, filled = row["status"], row["filled_quantity"]
+            if (status in ACTIVE and order.get("timeout", {}).get("reason") in
+                    {"day_order_expired", "cancel_confirmation_timeout", "unprepared_intent_expired"}):
+                raise _Quarantine("timed-out order requires a terminal reconciliation result")
             if (state["risk_session"] is not None and status in ACTIVE
                     and order.get("admission", {}).get("session_date", "") < state["risk_session"]["session_date"]):
                 raise _Quarantine("expired DAY order cannot reopen across sessions")

@@ -122,6 +122,8 @@ def apply_event(state, event):
             commission_bps=Decimal(data["commission_bps"]), minimum_commission=Decimal(data["minimum_commission"]),
             orders={}, receipts={}, faults=set(), kill_switch=False,
             admission_policy=data.get("admission_policy"), admission_policy_fingerprint=data.get("admission_policy_fingerprint"),
+            timeout_policy=data.get("timeout_policy"), timeout_policy_fingerprint=data.get("timeout_policy_fingerprint"),
+            last_timeout_at=None,
             risk_session=None, sellable_positions={}, attempted_intent_ids=set(), attempted_idempotency_keys=set(),
             attempted_dispatch_ids=set())
     elif kind == "REGISTER":
@@ -162,6 +164,14 @@ def apply_event(state, event):
             order["status"] = status
     elif kind == "CANCEL_REQUEST":
         state["orders"][data["order_id"]]["status"] = "CANCEL_PENDING"
+        if "confirmation_deadline" in data:
+            state["orders"][data["order_id"]]["cancel_request"] = dict(data)
+    elif kind == "ORDER_TIMEOUT":
+        for row in data["orders"]:
+            order = state["orders"][row["order_id"]]
+            order["status"], order["timeout"] = "UNKNOWN", dict(row)
+        state["last_timeout_at"] = data["observed_at"]
+        state["faults"].add("order_timeout_requires_reconciliation")
     elif kind == "RECOVERY":
         for key in data["order_ids"]:
             state["orders"][key]["status"] = "UNKNOWN"
@@ -230,6 +240,7 @@ def public_snapshot(state):
         "available_positions": {key: max(0, min(qty, sellable.get(key, 0)) - shares.get(key, 0)) for key, qty in state["positions"].items() if qty},
         "sellable_positions": {key: qty for key, qty in sellable.items() if qty},
         "admission_policy_fingerprint": state["admission_policy_fingerprint"],
+        "timeout_policy_fingerprint": state["timeout_policy_fingerprint"],
         "risk_session": state["risk_session"],
         "paused": bool(state["kill_switch"] or state["faults"] or (state["risk_session"] or {}).get("risk_stop")), "kill_switch": state["kill_switch"],
         "faults": sorted(state["faults"]),
