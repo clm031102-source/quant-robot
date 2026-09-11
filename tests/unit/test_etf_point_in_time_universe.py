@@ -181,6 +181,27 @@ class EtfPointInTimeUniverseTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "reversed official ETF lifecycle"):
                 load_official_etf_lifecycle(root)
 
+    def test_latest_negative_classification_revokes_older_etf_label(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for snapshot, flag in (("2026-06-21", True), ("2026-07-16", False)):
+                folder = root / f"snapshot={snapshot}"
+                folder.mkdir()
+                pd.DataFrame([{"symbol": "160119.SZ", "is_etf": flag,
+                    "list_date": "2009-09-25", "delist_date": None}]).to_parquet(
+                        folder / "part.parquet", index=False)
+            self.assertTrue(load_official_etf_lifecycle(root).empty)
+
+    def test_same_snapshot_conflicting_classifications_are_not_silently_filtered(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "snapshot=2026-07-16"
+            root.mkdir()
+            pd.DataFrame([{"symbol": "160119.SZ", "is_etf": flag,
+                "list_date": "2009-09-25", "delist_date": None}
+                for flag in (True, False)]).to_parquet(root / "part.parquet", index=False)
+            with self.assertRaisesRegex(ValueError, "duplicate official ETF lifecycle symbols"):
+                load_official_etf_lifecycle(root)
+
 
 def _eligibility_fixture() -> tuple[pd.DataFrame, pd.DataFrame, pd.DatetimeIndex]:
     dates = pd.bdate_range("2024-01-02", periods=8)

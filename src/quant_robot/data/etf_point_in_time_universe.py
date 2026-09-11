@@ -17,6 +17,11 @@ class EtfEligibilityPolicy:
 
 
 def load_official_etf_lifecycle(metadata_root: str | Path) -> pd.DataFrame:
+    """Consolidate supplied catalogue labels, not certify historical membership.
+
+    Snapshot dates order corrections; list dates do not establish when a label
+    was known. Callers still need independent point-in-time source qualification.
+    """
     root = Path(metadata_root)
     files = [root] if root.is_file() else sorted(root.rglob("*.parquet")) + sorted(root.rglob("*.csv"))
     if not files:
@@ -24,11 +29,12 @@ def load_official_etf_lifecycle(metadata_root: str | Path) -> pd.DataFrame:
     frames = []
     for path in files:
         frame = _normalise_lifecycle(_read_lifecycle_file(path))
-        frame = frame[frame["is_etf"]].copy()
         _validate_lifecycle(frame)
         frame["_snapshot_date"] = _snapshot_date_for_path(path)
         frames.append(frame)
     lifecycle = _consolidate_dated_lifecycle(pd.concat(frames, ignore_index=True))
+    # Negative corrections must supersede stale positives before filtering.
+    lifecycle = lifecycle[lifecycle["is_etf"]].copy()
     _validate_lifecycle(lifecycle)
     return lifecycle.sort_values("symbol").reset_index(drop=True)
 

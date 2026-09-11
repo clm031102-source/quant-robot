@@ -190,7 +190,8 @@ def _inventory(path: Path, inventory: dict[str, dict[str, Any]]) -> None:
 
 def _read_partition(path: Path, columns: tuple[str, ...], start: date, end: date,
                     inventory: dict[str, dict[str, Any]], *, partition_date: date | None = None,
-                    partition_year: int | None = None) -> list[pd.DataFrame]:
+                    partition_year: int | None = None, partition_start: date | None = None,
+                    partition_end: date | None = None) -> list[pd.DataFrame]:
     marker = path / "_format.json"
     if marker.is_file():
         _inventory(marker, inventory)
@@ -222,7 +223,9 @@ def _read_partition(path: Path, columns: tuple[str, ...], start: date, end: date
         if dates.isna().any() or any(value >= FINAL_HOLDOUT_START for value in dates):
             raise ValueError(f"invalid or final holdout dates in source partition: {file}")
         if ((partition_date is not None and dates.ne(partition_date).any())
-                or (partition_year is not None and any(value.year != partition_year for value in dates))):
+                or (partition_year is not None and any(value.year != partition_year for value in dates))
+                or (partition_start is not None and dates.lt(partition_start).any())
+                or (partition_end is not None and dates.gt(partition_end).any())):
             raise ValueError(f"source partition label and row dates disagree: {file}")
         if file.suffix == ".parquet":
             import pyarrow as pa
