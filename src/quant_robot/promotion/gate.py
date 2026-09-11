@@ -10,6 +10,7 @@ from typing import Any
 import pandas as pd
 
 from quant_robot.paper.economics import normalize_execution_economics, paper_economics_match
+from quant_robot.paper.accounting_evidence import paper_accounting_blockers
 from quant_robot.promotion.signatures import (
     jaccard_similarity as _jaccard_similarity,
     paper_signal_signature as _paper_signal_signature,
@@ -59,6 +60,7 @@ class PromotionGateConfig:
     require_positive_paper_return: bool = True
     require_paper_provenance: bool = False
     require_execution_economics: bool = False
+    require_execution_accounting: bool = False
 
 
 def load_promotion_gate_config(path: str | Path) -> PromotionGateConfig:
@@ -128,6 +130,7 @@ def load_promotion_gate_config(path: str | Path) -> PromotionGateConfig:
         require_positive_paper_return=bool(data.get("require_positive_paper_return", True)),
         require_paper_provenance=bool(data.get("require_paper_provenance", True)),
         require_execution_economics=bool(data.get("require_execution_economics", False)),
+        require_execution_accounting=bool(data.get("require_execution_accounting", False)),
     )
 
 
@@ -306,7 +309,8 @@ def _candidate_report(
             "market": row.get("market"),
             "factor_source": factor_source,
             "factor_name": row.get("factor_name"),
-            **({"execution_economics": paper_summary["execution_economics"]}
+            **({"execution_economics": paper_summary["execution_economics"],
+                "corporate_actions_path": paper_summary.get("corporate_actions_path")}
                if "execution_economics" in paper_summary else {}),
             "top_n": _maybe_int(row.get("top_n")),
             "cost_bps": _maybe_float(row.get("cost_bps")),
@@ -366,7 +370,7 @@ def _paper_summary(row: dict[str, Any], paper_manifests: list[dict[str, Any]], c
         "paper_total_return": 0.0,
         "paper_max_drawdown": 0.0,
         "signal_signature": set(),
-        "blocking": [],
+        "blocking": ["paper_execution_accounting_missing"] if config.require_execution_accounting else [],
         "warnings": [],
     }
     if not paper_manifests:
@@ -389,8 +393,11 @@ def _paper_summary(row: dict[str, Any], paper_manifests: list[dict[str, Any]], c
     summary["paper_matched"] = True
     summary["paper_manifest_path"] = paper_manifest.get("manifest_path")
     request = paper_manifest.get("request", {})
+    if config.require_execution_accounting:
+        summary["blocking"] = paper_accounting_blockers(paper_manifest)
     if paper_economics_match(row, request):
         summary["execution_economics"] = normalize_execution_economics(row["execution_economics"])
+        summary["corporate_actions_path"] = request.get("corporate_actions_path")
     summary["paper_risk_profile_id"] = request.get("risk_profile_id") if isinstance(request, dict) else None
     summary["signal_signature"] = _paper_signal_signature(summary["paper_manifest_path"])
     summary["paper_sharpe"] = _metric(metrics, "sharpe")

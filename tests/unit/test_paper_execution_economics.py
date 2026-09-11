@@ -11,8 +11,8 @@ from scripts.run_daily_ops import run_daily_ops, _execution_params
 
 def economics():
     return {
-        "schema_version": 2, "commission_model": "per_order_minimum_v1",
-        "valuation_model": "daily_adjusted_close_v1",
+        "schema_version": 3, "commission_model": "per_order_minimum_v1",
+        "valuation_model": "daily_raw_close_cash_actions_v1", "corporate_actions_fingerprint": None,
         "initial_cash": 3000.0, "commission_bps": 0.5, "minimum_commission": 5.0,
         "slippage_bps": 10.0, "market_impact_bps": 0.0, "max_participation_rate": 0.01,
     }

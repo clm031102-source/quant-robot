@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -67,7 +68,9 @@ def run_daily_ops(
     positions_csv: str | Path | None = None,
     max_drawdown_limit: float | None = None,
     max_signal_age_days: int = DEFAULT_MAX_SIGNAL_AGE_DAYS,
+    corporate_actions_path: str | Path | None = None,
 ) -> dict[str, Any]:
+    explicit_actions_path = Path(corporate_actions_path) if corporate_actions_path is not None else None
     promotion = _read_json(Path(promotion_review))
     readiness = _read_json(Path(readiness_board))
     profile_pack_path = Path(paper_profile_pack) if paper_profile_pack is not None else _default_paper_profile_pack()
@@ -80,6 +83,12 @@ def run_daily_ops(
         profile_pack, paper_profile, candidate, portfolio_value,
     )
     portfolio_value = execution_economics["initial_cash"]
+    if corporate_actions_path is None:
+        corporate_actions_path = next((item.get("corporate_actions_path") for item in
+            (paper_profile, candidate, profile_pack.get("config", {}))
+            if isinstance(item, dict) and item.get("corporate_actions_path")), None)
+    if frozen_economics and execution_economics["corporate_actions_fingerprint"] is not None and corporate_actions_path is None and paper_simulation is None:
+        raise ValueError("frozen corporate action evidence requires corporate_actions_path for regeneration")
     market = str(candidate.get("market") or "CN_ETF")
     factor_name = str(candidate.get("factor_name") or "liquidity_10")
     factor_windows = _factor_windows(candidate, factor_name)
@@ -136,6 +145,7 @@ def run_daily_ops(
             initial_cash=portfolio_value,
             commission_bps=execution_economics["commission_bps"],
             minimum_commission=execution_economics["minimum_commission"],
+            corporate_actions_path=corporate_actions_path,
             slippage_bps=execution_economics["slippage_bps"],
             market_impact_bps=execution_economics["market_impact_bps"],
             max_participation_rate=execution_economics["max_participation_rate"],
@@ -149,8 +159,12 @@ def run_daily_ops(
             output_dir=output_path / "paper_simulation",
         )
     )
+    request = simulation.get("request", {})
+    if paper_simulation is not None and explicit_actions_path is not None:
+        fingerprint = hashlib.sha256(explicit_actions_path.read_bytes()).hexdigest()
+        if not isinstance(request, dict) or request.get("corporate_actions_fingerprint") != fingerprint:
+            raise ValueError("explicit corporate_actions file fingerprint does not match cached paper simulation")
     if frozen_economics:
-        request = simulation.get("request", {})
         if (
             normalize_execution_economics(request.get("execution_economics")) != execution_economics
             or execution_economics_from_request(request) != execution_economics
@@ -197,6 +211,7 @@ def main() -> None:
     )
     parser.add_argument("--allow-review-required-data-manifest", action="store_true")
     parser.add_argument("--portfolio-value", default=None, type=float)
+    parser.add_argument("--corporate-actions", help="Local versioned corporate-action dataset JSON")
     parser.add_argument("--positions-csv")
     parser.add_argument(
         "--max-drawdown-limit",
@@ -231,6 +246,7 @@ def main() -> None:
             ),
             allow_review_required_data_manifest=args.allow_review_required_data_manifest,
             portfolio_value=args.portfolio_value,
+            corporate_actions_path=args.corporate_actions,
             positions_csv=Path(args.positions_csv) if args.positions_csv else None,
             max_drawdown_limit=args.max_drawdown_limit,
             max_signal_age_days=args.max_signal_age_days,
@@ -287,6 +303,7 @@ def _execution_params(
     # Legacy profiles remain replayable, but cannot pass the new ETF economics gate.
     parameters = {
         "valuation_model": VALUATION_MODEL,
+        "corporate_actions_fingerprint": None,
         "initial_cash": 100000.0, "commission_bps": 5.0, "minimum_commission": 0.0,
         "slippage_bps": 5.0, "market_impact_bps": 0.0, "max_participation_rate": None,
     }

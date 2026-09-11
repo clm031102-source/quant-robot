@@ -45,6 +45,7 @@ class PaperBatchConfig:
     initial_cash: float = 100000.0
     commission_bps: float | None = None
     minimum_commission: float = 0.0
+    corporate_actions_path: Path | None = None
     slippage_bps: float | None = None
     market_impact_bps: float = 0.0
     max_participation_rate: float | None = None
@@ -86,6 +87,7 @@ def load_paper_batch_config(path: str | Path) -> PaperBatchConfig:
         initial_cash=float(data.get("initial_cash", PaperBatchConfig.initial_cash)),
         commission_bps=float(data["commission_bps"]) if data.get("commission_bps") is not None else None,
         minimum_commission=float(data.get("minimum_commission", PaperBatchConfig.minimum_commission)),
+        corporate_actions_path=Path(data["corporate_actions_path"]) if data.get("corporate_actions_path") else None,
         slippage_bps=float(data["slippage_bps"]) if data.get("slippage_bps") is not None else None,
         market_impact_bps=float(data.get("market_impact_bps", PaperBatchConfig.market_impact_bps)),
         max_participation_rate=float(data["max_participation_rate"]) if data.get("max_participation_rate") is not None else None,
@@ -261,6 +263,7 @@ def _run_profile_attempt(row: dict[str, Any], config: PaperBatchConfig, profile:
             initial_cash=config.initial_cash,
             commission_bps=commission_bps if commission_bps is not None else cost_bps,
             minimum_commission=float(_profile_value(config, profile, "minimum_commission")),
+            corporate_actions_path=config.corporate_actions_path,
             slippage_bps=slippage_bps if slippage_bps is not None else cost_bps,
             market_impact_bps=float(_profile_value(config, profile, "market_impact_bps")),
             max_participation_rate=_profile_value(config, profile, "max_participation_rate"),
@@ -296,6 +299,7 @@ def _candidate_summary(
     return {
         "case_id": str(row.get("case_id")),
         "execution_economics": result.get("request", {}).get("execution_economics") if result else None,
+        "corporate_actions_path": result.get("request", {}).get("corporate_actions_path") if result else None,
         "market": row.get("market"),
         "factor_source": row.get("factor_source"),
         "factor_name": row.get("factor_name"),
@@ -479,6 +483,7 @@ def _config_dict(config: PaperBatchConfig) -> dict[str, Any]:
         "initial_cash": config.initial_cash,
         "commission_bps": config.commission_bps,
         "minimum_commission": config.minimum_commission,
+        "corporate_actions_path": str(config.corporate_actions_path) if config.corporate_actions_path else None,
         "slippage_bps": config.slippage_bps,
         "market_impact_bps": config.market_impact_bps,
         "max_participation_rate": config.max_participation_rate,

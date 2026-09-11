@@ -62,6 +62,7 @@ def run_simulation(
     ),
     allow_review_required_data_manifest: bool = False,
     minimum_commission: float = 0.0,
+    corporate_actions_path: str | Path | None = None,
 ) -> dict[str, Any]:
     _enforce_cn_stock_paper_simulation_inputs(
         source=source,
@@ -90,6 +91,7 @@ def run_simulation(
         initial_cash=initial_cash,
         commission_bps=commission_bps,
         minimum_commission=minimum_commission,
+        corporate_actions_path=Path(corporate_actions_path) if corporate_actions_path is not None else None,
         slippage_bps=slippage_bps,
         market_impact_bps=market_impact_bps,
         max_participation_rate=max_participation_rate,
@@ -127,6 +129,7 @@ def main() -> None:
     parser.add_argument("--initial-cash", default=100000.0, type=float)
     parser.add_argument("--commission-bps", default=5.0, type=float)
     parser.add_argument("--minimum-commission", default=0.0, type=float)
+    parser.add_argument("--corporate-actions", help="Local versioned corporate-action dataset JSON")
     parser.add_argument("--slippage-bps", default=5.0, type=float)
     parser.add_argument("--market-impact-bps", default=0.0, type=float)
     parser.add_argument("--max-participation-rate", type=float)
@@ -166,6 +169,7 @@ def main() -> None:
         initial_cash=args.initial_cash,
         commission_bps=args.commission_bps,
         minimum_commission=args.minimum_commission,
+        corporate_actions_path=args.corporate_actions,
         slippage_bps=args.slippage_bps,
         market_impact_bps=args.market_impact_bps,
         max_participation_rate=args.max_participation_rate,

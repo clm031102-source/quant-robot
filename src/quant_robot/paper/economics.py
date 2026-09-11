@@ -3,10 +3,11 @@ from __future__ import annotations
 import ast
 import json
 import math
+import re
 from collections.abc import Mapping
 from typing import Any
 
-VALUATION_MODEL = "daily_adjusted_close_v1"
+VALUATION_MODEL = "daily_raw_close_cash_actions_v1"
 
 EXECUTION_ECONOMICS_FIELDS = (
     "initial_cash", "commission_bps", "minimum_commission", "slippage_bps",
@@ -26,14 +27,20 @@ def normalize_execution_economics(value: Any) -> dict[str, Any]:
                 raise ValueError("execution_economics must be a complete object") from exc
     if not isinstance(value, Mapping):
         raise ValueError("execution_economics must be a complete object")
-    if (type(value.get("schema_version")) is not int or value.get("schema_version") != 2
+    if (type(value.get("schema_version")) is not int or value.get("schema_version") != 3
             or value.get("commission_model") != "per_order_minimum_v1"
             or value.get("valuation_model") != VALUATION_MODEL):
         raise ValueError("execution_economics has an unsupported model or schema")
-    unknown = set(value).difference({"schema_version", "commission_model", "valuation_model", *EXECUTION_ECONOMICS_FIELDS})
+    unknown = set(value).difference({"schema_version", "commission_model", "valuation_model", "corporate_actions_fingerprint", *EXECUTION_ECONOMICS_FIELDS})
     if unknown:
         raise ValueError("execution_economics has unsupported fields: " + ", ".join(sorted(unknown)))
-    result: dict[str, Any] = {"schema_version": 2, "commission_model": "per_order_minimum_v1", "valuation_model": VALUATION_MODEL}
+    if "corporate_actions_fingerprint" not in value:
+        raise ValueError("execution_economics missing corporate_actions_fingerprint")
+    fingerprint = value["corporate_actions_fingerprint"]
+    if fingerprint is not None and (not isinstance(fingerprint, str) or re.fullmatch(r"[0-9a-f]{64}", fingerprint) is None):
+        raise ValueError("execution_economics invalid corporate_actions_fingerprint")
+    result: dict[str, Any] = {"schema_version": 3, "commission_model": "per_order_minimum_v1", "valuation_model": VALUATION_MODEL,
+                            "corporate_actions_fingerprint": fingerprint}
     for field in EXECUTION_ECONOMICS_FIELDS:
         if field not in value:
             raise ValueError(f"execution_economics missing {field}")
@@ -55,8 +62,9 @@ def normalize_execution_economics(value: Any) -> dict[str, Any]:
 
 def execution_economics_from_request(request: Mapping[str, Any]) -> dict[str, Any]:
     return normalize_execution_economics({
-        "schema_version": 2, "commission_model": "per_order_minimum_v1",
+        "schema_version": 3, "commission_model": "per_order_minimum_v1",
         "valuation_model": request.get("valuation_model"),
+        **({"corporate_actions_fingerprint": request["corporate_actions_fingerprint"]} if "corporate_actions_fingerprint" in request else {}),
         **{field: request[field] for field in EXECUTION_ECONOMICS_FIELDS if field in request},
     })
 
