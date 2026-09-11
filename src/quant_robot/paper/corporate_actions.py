@@ -9,7 +9,7 @@ import hashlib
 import json
 import math
 from datetime import date
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, ROUND_CEILING, ROUND_HALF_UP, localcontext
 from pathlib import Path
 from typing import Any
 
@@ -29,7 +29,9 @@ class CorporateActionLedger:
         self.first_date = dates[0]
         if path is not None:
             raw = Path(path).read_bytes()
-            data = json.loads(raw)
+            # V2 share ratios must retain the decimal declared in the event file.
+            # Event validation still normalizes legacy V1 amounts to float.
+            data = json.loads(raw, parse_float=Decimal)
             self.events = _validate_dataset(data, assets, dates)
             self.fingerprint = hashlib.sha256(raw).hexdigest()
             self.source_ref = data["source_ref"]
@@ -77,21 +79,22 @@ class CorporateActionLedger:
             else:
                 ratio = event["share_ratio"]
                 old_quantity = positions.get(asset, 0.0)
-                new_quantity = old_quantity * ratio
-                if asset.startswith("CN_ETF_"):
+                rounding_evidence = {}
+                if "share_rounding" in event:
+                    new_quantity, rounding_evidence = _convert_whole_shares(old_quantity, event)
+                else:
+                    new_quantity = old_quantity * ratio
+                if "share_rounding" not in event and asset.startswith("CN_ETF_"):
                     if not math.isclose(new_quantity, round(new_quantity), rel_tol=0, abs_tol=1e-9):
                         raise ValueError("fractional ETF share conversion requires an explicit cash-in-lieu model")
                     new_quantity = float(round(new_quantity))
+                adjusted = _convert_intents(adjusted, event, old_quantity, new_quantity)
                 if old_quantity:
                     positions[asset] = new_quantity
                 if event["tradable_date"] > session:
                     self.locked.setdefault(asset, []).append((event["tradable_date"], new_quantity))
-                for intent in adjusted:
-                    if intent["asset_id"] == asset:
-                        intent["signed_quantity"] *= ratio
-                        intent["intended_quantity"] *= ratio
-                        intent["reference_price"] /= ratio
-                self._record("share_conversion", event, session, old_quantity=old_quantity, quantity=new_quantity)
+                self._record("share_conversion", event, session, old_quantity=old_quantity,
+                             quantity=new_quantity, **rounding_evidence)
             self.processed.add(event_id)
         adjusted = self._limit_sales_to_available_holdings(session, positions, adjusted)
         return self._pay(session, include_today=False), adjusted
@@ -161,9 +164,75 @@ class CorporateActionLedger:
                              "asset_id": event["asset_id"], "date": str(session), **values})
 
 
+def _convert_intents(intents: list[dict[str, Any]], event: dict[str, Any], old_quantity: float,
+                     new_quantity: float) -> list[dict[str, Any]]:
+    adjusted = [dict(intent) for intent in intents]
+    matching = [intent for intent in adjusted if intent["asset_id"] == event["asset_id"]]
+    explicit = "share_rounding" in event
+    sales = [intent for intent in matching if intent["signed_quantity"] < 0]
+    if explicit and _sum_sale_quantities(sales) > Decimal(str(old_quantity)):
+        raise ValueError("aggregate pending sales exceed the holder's pre-conversion holdings")
+    for intent in matching:
+        full_sale = (explicit and len(sales) == 1 and old_quantity > 0
+                     and intent["signed_quantity"] == -old_quantity)
+        for field in ("signed_quantity", "intended_quantity", "reference_price"):
+            value = intent[field]
+            if explicit:
+                number, ratio = Decimal(str(value)), Decimal(event["share_ratio_exact"])
+                with localcontext() as context:
+                    context.prec = max(28, len(number.as_tuple().digits) + len(ratio.as_tuple().digits) + 2)
+                    scaled = float(number / ratio if field == "reference_price" else number * ratio)
+                if not math.isfinite(scaled):
+                    raise ValueError("converted intent quantity or price cannot be safely represented")
+            else:
+                scaled = value / event["share_ratio"] if field == "reference_price" else value * event["share_ratio"]
+            intent[field] = scaled
+        # Only an unambiguous full liquidation inherits the one holder credit.
+        # Multiple partial orders keep proportional units without per-order rounding.
+        if full_sale:
+            intent["signed_quantity"] = -new_quantity
+            intent["intended_quantity"] = new_quantity
+    return adjusted
+
+
+def _sum_sale_quantities(sales: list[dict[str, Any]]) -> Decimal:
+    values = [Decimal(str(-intent["signed_quantity"])) for intent in sales]
+    if not values:
+        return Decimal(0)
+    if not all(value.is_finite() for value in values):
+        raise ValueError("pending sale quantities must be finite")
+    # Align all decimal places and reserve carry digits; caller precision must
+    # never round an over-subscribed aggregate down to the available holding.
+    places = max(value.adjusted() for value in values) - min(value.as_tuple().exponent for value in values) + 1
+    with localcontext() as context:
+        context.prec = max(28, places + len(str(len(values))))
+        return sum(values, Decimal(0))
+
+
+def _convert_whole_shares(quantity: float, event: dict[str, Any]) -> tuple[float, dict[str, str]]:
+    """One ledger represents one holder; never round individual order lots."""
+    max_quantity = 2 ** 53 - 1  # Subsequent position/execution interfaces use float.
+    old = Decimal(str(quantity))
+    if (not old.is_finite() or old < 0 or old > max_quantity
+            or old != old.to_integral_value()):
+        raise ValueError("share conversion requires a nonnegative, safely represented whole quantity")
+    ratio = Decimal(event["share_ratio_exact"])
+    with localcontext() as context:
+        context.prec = max(28, len(old.as_tuple().digits) + len(ratio.as_tuple().digits) + 2)
+        theoretical = old * ratio
+        converted = theoretical.to_integral_value(rounding=ROUND_CEILING)
+        if event["share_rounding"] == "reject_fractional" and theoretical != converted:
+            raise ValueError("fractional share conversion is forbidden by the declared rounding rule")
+        if converted > max_quantity:
+            raise ValueError("converted share quantity cannot be safely represented")
+        evidence = {"share_ratio_exact": str(ratio), "share_rounding": event["share_rounding"],
+                    "unrounded_quantity": str(theoretical), "rounding_share_credit": str(converted - theoretical)}
+    return float(converted), evidence
+
+
 def _validate_dataset(data: Any, assets: set[str], dates: list[date]) -> list[dict[str, Any]]:
     expected = {"schema_version", "source_ref", "coverage_start", "coverage_end", "asset_ids", "events"}
-    if not isinstance(data, dict) or set(data) != expected or type(data["schema_version"]) is not int or data["schema_version"] != 1:
+    if not isinstance(data, dict) or set(data) != expected or type(data["schema_version"]) is not int or data["schema_version"] not in (1, 2):
         raise ValueError("corporate action dataset has an unsupported schema")
     if not isinstance(data["source_ref"], str) or not data["source_ref"].strip():
         raise ValueError("corporate action source_ref is required")
@@ -178,7 +247,7 @@ def _validate_dataset(data: Any, assets: set[str], dates: list[date]) -> list[di
     economic_events: set[tuple[str, str, date]] = set()
     splits: dict[str, list[dict[str, Any]]] = {}
     for raw in data["events"]:
-        event = _validate_event(raw)
+        event = _validate_event(raw, version=data["schema_version"])
         if event["event_id"] in ids:
             raise ValueError("duplicate corporate action event_id")
         ids.add(event["event_id"])
@@ -203,7 +272,7 @@ def _validate_dataset(data: Any, assets: set[str], dates: list[date]) -> list[di
     return sorted(result, key=lambda event: (event["ex_date"], event["event_id"]))
 
 
-def _validate_event(raw: Any) -> dict[str, Any]:
+def _validate_event(raw: Any, *, version: int = 1) -> dict[str, Any]:
     if not isinstance(raw, dict):
         raise ValueError("corporate action event must be an object")
     fields = {"event_id", "asset_id", "kind", "announced_date", "ex_date"}
@@ -212,6 +281,8 @@ def _validate_event(raw: Any) -> dict[str, Any]:
         number_field = "net_cash_per_share"
     elif raw.get("kind") == "share_split":
         fields |= {"tradable_date", "share_ratio"}
+        if version == 2:
+            fields.add("share_rounding")
         number_field = "share_ratio"
     else:
         raise ValueError("unsupported corporate action kind")
@@ -225,6 +296,12 @@ def _validate_event(raw: Any) -> dict[str, Any]:
     if isinstance(raw[number_field], bool) or not math.isfinite(number) or number <= 0:
         raise ValueError("corporate action amount or ratio must be finite and positive")
     event[number_field] = number
+    if event["kind"] == "share_split" and version == 2:
+        if raw["share_rounding"] not in ("reject_fractional", "ceil_per_holder"):
+            raise ValueError("unsupported share rounding rule")
+        if not isinstance(raw["share_ratio"], (int, Decimal)):
+            raise ValueError("V2 share ratio must be a JSON number")
+        event["share_ratio_exact"] = str(raw["share_ratio"])
     if event["kind"] == "cash_dividend":
         valid = event["announced_date"] <= event["record_date"] < event["ex_date"] <= event["pay_date"]
     else:
