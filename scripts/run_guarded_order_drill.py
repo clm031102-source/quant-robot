@@ -1,4 +1,4 @@
-"""Exercise frozen synthetic intent admission, settlement and risk-stop recovery."""
+"""Exercise synthetic admission, send-decision revalidation and risk recovery."""
 from __future__ import annotations
 
 import argparse
@@ -29,7 +29,7 @@ def run_drill(config_path: Path, output_dir: Path):
     journal_path = output_dir / "guarded_synthetic_orders.sqlite"
     book = OfflineOrderJournal.create(journal_path, initial_cash=cfg["initial_cash"], initial_positions=cfg["initial_positions"],
         commission_bps=cfg["commission_bps"], minimum_commission=cfg["minimum_commission"], admission_policy=cfg["policy"])
-    stages, rejected = [], []
+    stages, rejected, dispatch_rejections = [], [], []
 
     def packet():
         state = book.snapshot()
@@ -75,8 +75,20 @@ def run_drill(config_path: Path, output_dir: Path):
         expect_rejection(order("split-oddlot", "SELL", 50), packet(), "odd-lot")
         capture("stale_quote_and_incomplete_oddlot_rejected")
         book.admit(order("sell-available", "SELL", 80), packet(), clock=lambda: now)
+        book.prepare_dispatch("sell-available", "prepare-sell", packet(), clock=lambda: now)
         book.fill("sell-available", "f1", 80, cfg["fixture_price"])
         book.admit(order("buy-t1"), packet(), clock=lambda: now)
+        expired_quote = packet()
+        expired_quote["quotes"]["510300.SH"]["timestamp"] = (now - timedelta(seconds=31)).isoformat()
+        try:
+            book.prepare_dispatch("buy-t1", "prepare-stale-buy", expired_quote, clock=lambda: now)
+        except ValueError as exc:
+            if "stale" not in str(exc):
+                raise
+            dispatch_rejections.append({"order_id": "buy-t1", "reason": str(exc)})
+        else:
+            raise AssertionError("stale dispatch was prepared")
+        book.prepare_dispatch("buy-t1", "prepare-fresh-buy", packet(), clock=lambda: now)
         book.fill("buy-t1", "f2", 100, cfg["fixture_price"])
         expect_rejection(order("same-day-sell", "SELL"), packet(), "sellable")
         capture("only_available_shares_sold_and_t1_buy_locked")
@@ -87,6 +99,7 @@ def run_drill(config_path: Path, output_dir: Path):
         now += timedelta(days=1)
         start(book.snapshot()["positions"])
         book.admit(order("settled-sell", "SELL"), packet(), clock=lambda: now)
+        book.prepare_dispatch("settled-sell", "prepare-settled-sell", packet(), clock=lambda: now)
         book.fill("settled-sell", "f3", 100, cfg["fixture_price"])
         capture("new_session_explicit_settlement_and_sale")
         loss = packet()
@@ -106,13 +119,13 @@ def run_drill(config_path: Path, output_dir: Path):
     root = Path(__file__).resolve().parents[1]
     files = [Path(__file__).resolve(), root / "scripts/bootstrap.py", *[
         root / "src/quant_robot/execution" / name for name in ("offline_journal.py", "offline_order_state.py",
-            "offline_admission.py", "offline_intent_contract.py", "boundary.py")]]
+            "offline_admission.py", "offline_dispatch.py", "offline_intent_contract.py", "boundary.py")]]
     result = {"schema_version": 1, "generated_at": datetime.now(timezone.utc).isoformat(),
         "status": "synthetic_admission_drill_passed", "mode": "offline_fixture_only", "executable": False,
         "counts_as_forward_paper_days": 0, "qualifies_for_strategy_promotion": False,
         "fee_and_instrument_source": "synthetic_fixture_not_broker_or_source_verified",
         "config_sha256": hashlib.sha256(original).hexdigest(), "boundary": build_execution_boundary_status(),
-        "rejected_intents": rejected, "stages": stages,
+        "rejected_intents": rejected, "rejected_dispatches": dispatch_rejections, "stages": stages,
         "implementation_sha256": {path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest() for path in files},
         "journal_path": str(journal_path.resolve()), "journal_sha256": hashlib.sha256(journal_path.read_bytes()).hexdigest()}
     atomic_write_json(output_dir / "guarded_drill_report.json", result)

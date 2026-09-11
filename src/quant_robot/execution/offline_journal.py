@@ -127,7 +127,7 @@ class OfflineOrderJournal:
         apply_event(state, event)
         state.update(sequence=sequence, journal_hash=digest)
 
-    def _run(self, build, rejected_request=None):
+    def _run(self, build, rejected_request=None, *, rejection_kind="ADMISSION_DENIED"):
         self._db.execute("BEGIN IMMEDIATE")
         fault = None
         try:
@@ -139,7 +139,7 @@ class OfflineOrderJournal:
                 event = _event("FAULT", {"reason": str(exc), "rejected_request": rejected_request})
             except AdmissionRejected as exc:
                 fault = exc
-                event = _event("ADMISSION_DENIED", {"reason": str(exc), "risk_stop": exc.risk_stop,
+                event = _event(rejection_kind, {"reason": str(exc), "risk_stop": exc.risk_stop,
                     "rejected_request": rejected_request})
             if event is not None:
                 self._append(state, event)
@@ -234,6 +234,22 @@ class OfflineOrderJournal:
             except ValueError as exc:
                 raise AdmissionRejected(str(exc)) from exc
         return self._run(build, {"intent": order, "context": packet})
+
+    def prepare_dispatch(self, order_id, attempt_id, context, *, clock=None):
+        """Record a single offline send-decision check; never emit a live request."""
+        from .offline_dispatch import dispatch_event
+        from .offline_intent_contract import normalize_packet
+        request = {"order_id": identity(order_id), "attempt_id": identity(attempt_id)}
+        try:
+            packet = normalize_packet(context)
+        except ValueError as exc:
+            message = str(exc)
+            def reject(_state):
+                raise AdmissionRejected(message)
+            return self._run(reject, request, rejection_kind="DISPATCH_DENIED")
+        clock = clock or (lambda: datetime.now(timezone.utc))
+        return self._run(lambda state: dispatch_event(state, order_id, attempt_id, packet, clock()),
+            {**request, "context": packet}, rejection_kind="DISPATCH_DENIED")
 
     def fill(self, order_id, fill_id, quantity, price):
         data = {"order_id": identity(order_id), "fill_id": identity(fill_id),

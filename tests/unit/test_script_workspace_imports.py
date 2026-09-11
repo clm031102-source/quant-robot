@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import sys
@@ -160,6 +161,13 @@ class ScriptWorkspaceImportTests(unittest.TestCase):
                         cwd=repo_root, env=env, capture_output=True, text=True, timeout=30)
                     self.assertEqual(result.returncode, 0, result.stderr)
                     self.assertTrue((output / report).is_file())
+                    if name == "run_guarded_order_drill":
+                        evidence = json.loads((output / report).read_text(encoding="utf-8"))
+                        self.assertEqual(len(evidence["rejected_dispatches"]), 1)
+                        final = evidence["stages"][-1]["state"]
+                        self.assertTrue(all("dispatch" in row for row in final["orders"].values()))
+                        self.assertFalse(evidence["executable"])
+                        self.assertEqual(evidence["counts_as_forward_paper_days"], 0)
 
 
 def _write_legacy_quant_robot_package(root: Path) -> None:

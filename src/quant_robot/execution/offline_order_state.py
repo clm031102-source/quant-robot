@@ -122,7 +122,8 @@ def apply_event(state, event):
             commission_bps=Decimal(data["commission_bps"]), minimum_commission=Decimal(data["minimum_commission"]),
             orders={}, receipts={}, faults=set(), kill_switch=False,
             admission_policy=data.get("admission_policy"), admission_policy_fingerprint=data.get("admission_policy_fingerprint"),
-            risk_session=None, sellable_positions={}, attempted_intent_ids=set(), attempted_idempotency_keys=set())
+            risk_session=None, sellable_positions={}, attempted_intent_ids=set(), attempted_idempotency_keys=set(),
+            attempted_dispatch_ids=set())
     elif kind == "REGISTER":
         state["orders"][data["order_id"]] = {**data, "limit_price": Decimal(data["limit_price"]),
             "status": "PENDING", "filled_quantity": 0, "filled_notional": ZERO, "commission": ZERO}
@@ -132,8 +133,10 @@ def apply_event(state, event):
     elif kind == "RISK_SESSION":
         state["risk_session"] = dict(data)
         state["sellable_positions"] = dict(data["sellable_positions"])
-    elif kind == "ADMISSION_DENIED":
+    elif kind in {"ADMISSION_DENIED", "DISPATCH_DENIED"}:
         request = data["rejected_request"] or {}
+        if kind == "DISPATCH_DENIED" and "attempt_id" in request:
+            state["attempted_dispatch_ids"].add(request["attempt_id"])
         if "intent" in request:
             if "client_intent_id" in request["intent"]:
                 state["attempted_intent_ids"].add(request["intent"]["client_intent_id"])
@@ -141,6 +144,9 @@ def apply_event(state, event):
                 state["attempted_idempotency_keys"].add(request["intent"]["idempotency_key"])
         if data["risk_stop"] and state["risk_session"] is not None:
             state["risk_session"]["risk_stop"] = True
+    elif kind == "DISPATCH_PREPARED":
+        state["orders"][data["order_id"]]["dispatch"] = dict(data)
+        state["attempted_dispatch_ids"].add(data["attempt_id"])
     elif kind == "FILL":
         _apply_fill(state, data)
     elif kind == "STATUS":
