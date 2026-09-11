@@ -1,0 +1,7 @@
+{
+  "data_root": "data/processed/tushare_etf_wide_history_2023_2026",
+  "start_date": "2020-01-02",
+  "end_date": "2024-06-28",
+  "calendar_path": "data/processed/trading_calendars/cn_tushare_2015_2025/cn_trading_calendar.csv",
+  "calendar_manifest_path": "data/processed/trading_calendars/cn_tushare_2015_2025/cn_trading_calendar_manifest.json"
+}
