@@ -1,6 +1,13 @@
 from __future__ import annotations
 
 
+def trade_commission(notional: float, commission_bps: float, minimum_commission: float = 0.0) -> float:
+    """Commission in cash units for one executed order; unfilled orders cost zero."""
+    if notional <= 0.0:
+        return 0.0
+    return max(notional * commission_bps / 10000.0, minimum_commission)
+
+
 def round_trip_cost(cost_bps: float) -> float:
     return 2.0 * cost_bps / 10000.0
 

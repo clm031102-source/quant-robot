@@ -1,8 +1,16 @@
 # Current Research And Cloud Sync Index
 
-Last updated: 2026-07-28
+Last updated: 2026-09-11
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
+
+## Current ETF Deployment Work
+
+- Current task branch: `codex/factor-review-etf-monetization-20260911`; office desktop, commits and pushes authorized. This entry does not claim that the branch has been merged into `main`.
+- Authoritative execution plan: [CN_ETF deployment plan](etf_monetization_execution_plan_2026-09-11.md), including acceptance gates, stall diagnosis, direction changes, and hourly reporting.
+- Research status: follow `configs/research_family_scheduler_cn_etf.json`. Its latest decision closes the invalidated delayed-NAV family; no primary family is active. Do not rerun closed candidates or interpret earlier paper-ready records as current profitability evidence.
+- Current deliverable: offline minimum commission, affordable lot sizing, complete cash/cost provenance through promotion and Daily Ops, and synthetic regression coverage. Real execution-price and corporate-action accounting is next.
+- The subsequent dated source-access and research entries remain historical evidence. They do not authorize new factor batches, final-holdout reads, broker connections, account reads, or orders.
 
 ## Current CN ETF External-Data Unlock
 

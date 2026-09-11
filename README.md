@@ -6,6 +6,8 @@ The project is currently in a Phase 5.x research-to-paper stage. It has research
 
 ## Current Status
 
+- Latest ETF deployment assessment (2026-09-11): [execution plan and acceptance criteria](docs/research/etf_monetization_execution_plan_2026-09-11.md). The research-family scheduler has no active primary family; the delayed-NAV result was invalidated and its family is closed. No current candidate has established deployable net positive expectancy. The historical `paper_ready` and activation records below are workflow history, not current strategy or live-profit qualification.
+- Minimum commission and frozen cash/cost identity now run through offline simulation, batch/profile selection, promotion, and Daily Ops. Actual broker fees, raw execution prices, corporate-action accounting, forward observation, and broker integration still require their own acceptance evidence.
 - Cloud/research sync index: `docs/research/CURRENT_RESEARCH_INDEX.md`. Read this first after syncing on any workstation.
 - Cloud branch structure: `origin/main` is the only durable remote branch after the 2026-06-27 cleanup; task branches should be temporary and deleted after merge/archive.
 - Current stage: Phase 5.15 paper ops runbook.

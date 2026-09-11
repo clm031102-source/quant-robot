@@ -53,6 +53,7 @@ class PaperProfileOptimizerConfig:
     factor_windows: tuple[int, ...] = (5, 10, 20, 60, 120)
     initial_cash: float = 100000.0
     commission_bps: float = 5.0
+    minimum_commission: float = 0.0
     slippage_bps: float = 5.0
     market_impact_bps: float = 0.0
     max_participation_rate: float | None = None
@@ -88,6 +89,7 @@ def load_paper_profile_optimizer_config(path: str | Path = DEFAULT_CONFIG) -> Pa
         factor_windows=tuple(int(value) for value in data.get("factor_windows", PaperProfileOptimizerConfig.factor_windows)),
         initial_cash=float(data.get("initial_cash", PaperProfileOptimizerConfig.initial_cash)),
         commission_bps=float(data.get("commission_bps", PaperProfileOptimizerConfig.commission_bps)),
+        minimum_commission=float(data.get("minimum_commission", PaperProfileOptimizerConfig.minimum_commission)),
         slippage_bps=float(data.get("slippage_bps", PaperProfileOptimizerConfig.slippage_bps)),
         market_impact_bps=float(data.get("market_impact_bps", PaperProfileOptimizerConfig.market_impact_bps)),
         max_participation_rate=(
@@ -266,6 +268,7 @@ def _run_profile_attempt(candidate: dict[str, Any], profile: dict[str, Any], con
             rebalance_interval=_case_rebalance_interval(case_id),
             initial_cash=config.initial_cash,
             commission_bps=config.commission_bps,
+            minimum_commission=config.minimum_commission,
             slippage_bps=config.slippage_bps,
             market_impact_bps=config.market_impact_bps,
             max_participation_rate=config.max_participation_rate,
@@ -302,6 +305,9 @@ def _run_profile_attempt(candidate: dict[str, Any], profile: dict[str, Any], con
             "guard_cooldown_periods": _int(profile.get("guard_cooldown_periods")),
         }
         attempt["paper_calmar"] = _round(paper_calmar(attempt["paper_total_return"], attempt["paper_max_drawdown"]))
+        request = result.get("request", {})
+        if isinstance(request, dict) and "execution_economics" in request:
+            attempt["execution_economics"] = request["execution_economics"]
         attempt["rejection_reasons"] = _rejection_reasons(attempt, config)
         _apply_risk_tiers(attempt, config)
         attempt["profile_status"] = "paper_profile_eligible" if not attempt["rejection_reasons"] else "rejected"
@@ -551,6 +557,7 @@ def _config_dict(config: PaperProfileOptimizerConfig) -> dict[str, Any]:
         "factor_windows": list(config.factor_windows),
         "initial_cash": config.initial_cash,
         "commission_bps": config.commission_bps,
+        "minimum_commission": config.minimum_commission,
         "slippage_bps": config.slippage_bps,
         "market_impact_bps": config.market_impact_bps,
         "max_participation_rate": config.max_participation_rate,

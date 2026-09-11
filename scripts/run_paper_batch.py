@@ -44,6 +44,7 @@ class PaperBatchConfig:
     max_candidates: int | None = None
     initial_cash: float = 100000.0
     commission_bps: float | None = None
+    minimum_commission: float = 0.0
     slippage_bps: float | None = None
     market_impact_bps: float = 0.0
     max_participation_rate: float | None = None
@@ -84,6 +85,7 @@ def load_paper_batch_config(path: str | Path) -> PaperBatchConfig:
         max_candidates=int(data["max_candidates"]) if data.get("max_candidates") is not None else None,
         initial_cash=float(data.get("initial_cash", PaperBatchConfig.initial_cash)),
         commission_bps=float(data["commission_bps"]) if data.get("commission_bps") is not None else None,
+        minimum_commission=float(data.get("minimum_commission", PaperBatchConfig.minimum_commission)),
         slippage_bps=float(data["slippage_bps"]) if data.get("slippage_bps") is not None else None,
         market_impact_bps=float(data.get("market_impact_bps", PaperBatchConfig.market_impact_bps)),
         max_participation_rate=float(data["max_participation_rate"]) if data.get("max_participation_rate") is not None else None,
@@ -258,6 +260,7 @@ def _run_profile_attempt(row: dict[str, Any], config: PaperBatchConfig, profile:
             rebalance_interval=rebalance_interval,
             initial_cash=config.initial_cash,
             commission_bps=commission_bps if commission_bps is not None else cost_bps,
+            minimum_commission=float(_profile_value(config, profile, "minimum_commission")),
             slippage_bps=slippage_bps if slippage_bps is not None else cost_bps,
             market_impact_bps=float(_profile_value(config, profile, "market_impact_bps")),
             max_participation_rate=_profile_value(config, profile, "max_participation_rate"),
@@ -292,6 +295,7 @@ def _candidate_summary(
     paper_reasons = _paper_rejection_reasons(status, metrics, config)
     return {
         "case_id": str(row.get("case_id")),
+        "execution_economics": result.get("request", {}).get("execution_economics") if result else None,
         "market": row.get("market"),
         "factor_source": row.get("factor_source"),
         "factor_name": row.get("factor_name"),
@@ -400,6 +404,7 @@ def _risk_profile(value: Any, index: int) -> dict[str, Any]:
     allowed = {
         "profile_id",
         "commission_bps",
+        "minimum_commission",
         "slippage_bps",
         "market_impact_bps",
         "max_participation_rate",
@@ -473,6 +478,7 @@ def _config_dict(config: PaperBatchConfig) -> dict[str, Any]:
         "max_candidates": config.max_candidates,
         "initial_cash": config.initial_cash,
         "commission_bps": config.commission_bps,
+        "minimum_commission": config.minimum_commission,
         "slippage_bps": config.slippage_bps,
         "market_impact_bps": config.market_impact_bps,
         "max_participation_rate": config.max_participation_rate,

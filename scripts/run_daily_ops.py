@@ -14,6 +14,12 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 
 ensure_workspace_imports()
 
+from quant_robot.paper.economics import (
+    EXECUTION_ECONOMICS_FIELDS,
+    execution_economics_from_request,
+    normalize_execution_economics,
+)
+
 from quant_robot.ops.daily_ops import (
     DEFAULT_MAX_DRAWDOWN_LIMIT,
     DEFAULT_MAX_SIGNAL_AGE_DAYS,
@@ -56,7 +62,7 @@ def run_daily_ops(
         "data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json"
     ),
     allow_review_required_data_manifest: bool = False,
-    portfolio_value: float = 100000.0,
+    portfolio_value: float | None = None,
     positions_csv: str | Path | None = None,
     max_drawdown_limit: float | None = None,
     max_signal_age_days: int = DEFAULT_MAX_SIGNAL_AGE_DAYS,
@@ -69,6 +75,10 @@ def run_daily_ops(
     profile_params = _profile_params(paper_profile)
     effective_max_drawdown_limit = _effective_drawdown_limit(max_drawdown_limit, profile_pack, paper_profile)
     candidate = _candidate(promotion, readiness)
+    execution_economics, frozen_economics = _execution_params(
+        profile_pack, paper_profile, candidate, portfolio_value,
+    )
+    portfolio_value = execution_economics["initial_cash"]
     market = str(candidate.get("market") or "CN_ETF")
     factor_name = str(candidate.get("factor_name") or "liquidity_10")
     factor_windows = _factor_windows(candidate, factor_name)
@@ -123,6 +133,11 @@ def run_daily_ops(
             start_date=start_date,
             end_date=end_date,
             initial_cash=portfolio_value,
+            commission_bps=execution_economics["commission_bps"],
+            minimum_commission=execution_economics["minimum_commission"],
+            slippage_bps=execution_economics["slippage_bps"],
+            market_impact_bps=execution_economics["market_impact_bps"],
+            max_participation_rate=execution_economics["max_participation_rate"],
             max_asset_weight=profile_params["max_asset_weight"],
             max_market_weight=profile_params["max_market_weight"],
             max_gross_exposure=profile_params["max_gross_exposure"],
@@ -133,6 +148,13 @@ def run_daily_ops(
             output_dir=output_path / "paper_simulation",
         )
     )
+    if frozen_economics:
+        request = simulation.get("request", {})
+        if (
+            normalize_execution_economics(request.get("execution_economics")) != execution_economics
+            or execution_economics_from_request(request) != execution_economics
+        ):
+            raise ValueError("paper simulation execution_economics does not match the selected profile")
     pack = build_daily_ops_pack(
         promotion,
         readiness,
@@ -173,7 +195,7 @@ def main() -> None:
         default="data/reports/factor_batch_readiness_gate/factor_batch_readiness_gate.json",
     )
     parser.add_argument("--allow-review-required-data-manifest", action="store_true")
-    parser.add_argument("--portfolio-value", default=100000.0, type=float)
+    parser.add_argument("--portfolio-value", default=None, type=float)
     parser.add_argument("--positions-csv")
     parser.add_argument(
         "--max-drawdown-limit",
@@ -246,6 +268,32 @@ def _selected_paper_profile(profile_pack: dict[str, Any]) -> dict[str, Any]:
 
 def _default_paper_profile_pack() -> Path | None:
     return DEFAULT_PAPER_PROFILE_PACK if DEFAULT_PAPER_PROFILE_PACK.exists() else None
+
+
+def _execution_params(
+    profile_pack: dict[str, Any], paper_profile: dict[str, Any],
+    candidate: dict[str, Any], portfolio_value: float | None,
+) -> tuple[dict[str, Any], bool]:
+    contracts = [normalize_execution_economics(item["execution_economics"])
+                 for item in (paper_profile, candidate) if "execution_economics" in item]
+    if contracts:
+        if any(contract != contracts[0] for contract in contracts):
+            raise ValueError("candidate and profile execution_economics do not match")
+        contract = contracts[0]
+        if portfolio_value is not None and portfolio_value != contract["initial_cash"]:
+            raise ValueError("portfolio_value differs from frozen execution_economics initial_cash")
+        return contract, True
+    # Legacy profiles remain replayable, but cannot pass the new ETF economics gate.
+    parameters = {
+        "initial_cash": 100000.0, "commission_bps": 5.0, "minimum_commission": 0.0,
+        "slippage_bps": 5.0, "market_impact_bps": 0.0, "max_participation_rate": None,
+    }
+    request = profile_pack.get("config", profile_pack.get("request", {}))
+    if isinstance(request, dict):
+        parameters.update({key: request[key] for key in EXECUTION_ECONOMICS_FIELDS if key in request})
+    if portfolio_value is not None:
+        parameters["initial_cash"] = portfolio_value
+    return execution_economics_from_request(parameters), False
 
 
 def _profile_params(paper_profile: dict[str, Any]) -> dict[str, Any]:

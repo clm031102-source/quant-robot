@@ -89,6 +89,8 @@ def _candidate_card(candidate: dict[str, Any] | None) -> dict[str, Any] | None:
         "case_id": candidate.get("case_id"),
         "market": candidate.get("market"),
         "factor_name": candidate.get("factor_name"),
+        **({"execution_economics": candidate["execution_economics"]}
+           if "execution_economics" in candidate else {}),
         "promotion_status": candidate.get("promotion_status"),
         "score": candidate.get("score"),
         "risk_profile_id": paper.get("risk_profile_id"),

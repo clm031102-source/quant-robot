@@ -4,11 +4,11 @@ import json
 import math
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import pandas as pd
 
-from quant_robot.backtest.costs import capacity_limited, market_impact_cost_bps
+from quant_robot.backtest.costs import capacity_limited, market_impact_cost_bps, trade_commission
 from quant_robot.backtest.portfolio import select_top_n
 from quant_robot.backtest.metrics import max_drawdown, summarize_returns
 from quant_robot.data.quality import validate_market_data
@@ -16,6 +16,7 @@ from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.factors.tushare_inputs import compute_daily_basic_factors
 from quant_robot.factors.tushare_moneyflow import compute_moneyflow_factors
 from quant_robot.portfolio.constraints import PortfolioConstraints, apply_portfolio_constraints
+from quant_robot.paper.economics import execution_economics_from_request
 from quant_robot.portfolio.rebalance import FORBIDDEN_REAL_ACCOUNT_COLUMNS, build_rebalance_plan
 from quant_robot.storage.cn_etf_rotation_membership import filter_signals_to_cn_etf_rotation_membership
 from quant_robot.storage.factor_inputs import load_factor_inputs
@@ -51,6 +52,7 @@ class PaperSimulationConfig:
     guard_cooldown_periods: int = 0
     respect_execution_constraints: bool = True
     output_dir: Path | None = None
+    minimum_commission: float = 0.0
 
 
 def run_paper_simulation(
@@ -58,8 +60,12 @@ def run_paper_simulation(
     config: PaperSimulationConfig,
     initial_positions: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
-    if config.initial_cash <= 0.0:
+    if not math.isfinite(config.initial_cash) or config.initial_cash <= 0.0:
         raise ValueError("initial_cash must be positive")
+    for name in ("commission_bps", "minimum_commission", "slippage_bps", "market_impact_bps"):
+        value = getattr(config, name)
+        if not math.isfinite(value) or value < 0.0:
+            raise ValueError(f"{name} must be finite and nonnegative")
     if config.rebalance_interval < 1:
         raise ValueError("rebalance_interval must be at least 1")
     positions = _initial_positions(initial_positions)
@@ -139,6 +145,7 @@ def run_paper_simulation(
             config.max_participation_rate,
             cash,
             respect_execution_constraints=config.respect_execution_constraints,
+            minimum_commission=config.minimum_commission,
         )
         cash = _apply_fills(positions, cash, day_fills)
         intents.extend(day_intents)
@@ -392,6 +399,7 @@ def _simulate_fills(
     max_participation_rate: float | None,
     available_cash: float,
     respect_execution_constraints: bool = True,
+    minimum_commission: float = 0.0,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     price_lookup = execution_prices.set_index("asset_id").to_dict(orient="index")
     fills: list[dict[str, Any]] = []
@@ -422,14 +430,6 @@ def _simulate_fills(
         lot_size = _lot_size_for_market(str(price_row.get("market", intent["market"])))
         signed_quantity = _round_signed_quantity_to_lot(signed_quantity, lot_size)
         quantity = abs(signed_quantity)
-        notional = quantity * fill_price
-        commission_fee = notional * commission_bps / 10000.0
-        if signed_quantity > 0.0 and notional + commission_fee > cash and notional > 0.0:
-            scale = max(cash, 0.0) / (notional + commission_fee)
-            signed_quantity = _round_signed_quantity_to_lot(quantity * scale, lot_size)
-            quantity = abs(signed_quantity)
-            notional = quantity * fill_price
-            commission_fee = notional * commission_bps / 10000.0
         if quantity <= 1e-12:
             continue
         amount = _available_amount(price_row)
@@ -445,6 +445,19 @@ def _simulate_fills(
                 )
             )
             continue
+        def purchase_cost(fill_quantity: float) -> float:
+            value = fill_quantity * fill_price
+            participation = _participation_rate(fill_quantity, fill_price, price_row)
+            impact = market_impact_cost_bps(market_impact_bps, participation, max_participation_rate)
+            return value + trade_commission(value, commission_bps, minimum_commission) + value * impact / 10000.0
+
+        if signed_quantity > 0.0:
+            quantity = _affordable_quantity(quantity, lot_size, cash, purchase_cost)
+            signed_quantity = quantity
+        if quantity <= 1e-12:
+            continue
+        notional = quantity * fill_price
+        commission_fee = trade_commission(notional, commission_bps, minimum_commission)
         participation_rate = _participation_rate(quantity, fill_price, price_row)
         if capacity_limited(participation_rate, max_participation_rate):
             execution_events.append(
@@ -461,19 +474,16 @@ def _simulate_fills(
         impact_bps = market_impact_cost_bps(market_impact_bps, participation_rate, max_participation_rate)
         market_impact_fee = notional * impact_bps / 10000.0
         fee = commission_fee + market_impact_fee
-        if signed_quantity > 0.0 and notional + fee > cash:
-            scale = max(cash, 0.0) / (notional + fee)
-            signed_quantity = _round_signed_quantity_to_lot(quantity * scale, lot_size)
-            quantity = abs(signed_quantity)
-            if quantity <= 1e-12:
-                continue
-            notional = quantity * fill_price
-            commission_fee = notional * commission_bps / 10000.0
-            participation_rate = _participation_rate(quantity, fill_price, price_row)
-            impact_bps = market_impact_cost_bps(market_impact_bps, participation_rate, max_participation_rate)
-            market_impact_fee = notional * impact_bps / 10000.0
-            fee = commission_fee + market_impact_fee
         if signed_quantity > 0.0 and notional + fee > cash + 1e-9:
+            continue
+        if signed_quantity < 0.0 and cash + notional < fee:
+            execution_events.append({
+                "event_type": "cash_rejected_fill", "reason": "insufficient_cash_for_fees",
+                "intent_id": intent["intent_id"], "signal_date": intent["signal_date"],
+                "execution_date": intent["execution_date"], "asset_id": intent["asset_id"],
+                "market": intent["market"], "side": intent["side"],
+                "available_cash": cash, "notional": notional, "fee": fee,
+            })
             continue
         cash += notional - fee if signed_quantity < 0.0 else -(notional + fee)
         fills.append(
@@ -614,6 +624,31 @@ def _fill_price(base_price: float, signed_quantity: float, slippage_bps: float) 
     return base_price * (1.0 + direction * slippage_bps / 10000.0)
 
 
+def _affordable_quantity(quantity: float, lot_size: float, cash: float, cost: Callable[[float], float]) -> float:
+    if cost(quantity) <= cash:
+        return quantity
+    if cash <= 0.0:
+        return 0.0
+    if lot_size > 1.0:
+        low, high = 0, math.floor(quantity / lot_size)
+        while low < high:
+            middle = (low + high + 1) // 2
+            if cost(middle * lot_size) <= cash:
+                low = middle
+            else:
+                high = middle - 1
+        return low * lot_size
+    # Preserve the simulator's existing fractional-quantity behavior outside CN.
+    low, high = 0.0, quantity
+    for _ in range(80):
+        middle = (low + high) / 2.0
+        if cost(middle) <= cash:
+            low = middle
+        else:
+            high = middle
+    return low
+
+
 def _lot_size_for_market(market: str) -> float:
     return 100.0 if market.upper() in {"CN", "CN_ETF"} else 1.0
 
@@ -704,6 +739,7 @@ def _metrics(
 
 def _config_dict(config: PaperSimulationConfig) -> dict[str, Any]:
     data = asdict(config)
+    data["execution_economics"] = execution_economics_from_request(data)
     data["factor_windows"] = list(config.factor_windows)
     data["rotation_membership_root"] = (
         str(config.rotation_membership_root) if config.rotation_membership_root is not None else None
