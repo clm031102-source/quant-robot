@@ -11,7 +11,8 @@ from scripts.run_daily_ops import run_daily_ops, _execution_params
 
 def economics():
     return {
-        "schema_version": 1, "commission_model": "per_order_minimum_v1",
+        "schema_version": 2, "commission_model": "per_order_minimum_v1",
+        "valuation_model": "daily_adjusted_close_v1",
         "initial_cash": 3000.0, "commission_bps": 0.5, "minimum_commission": 5.0,
         "slippage_bps": 10.0, "market_impact_bps": 0.0, "max_participation_rate": 0.01,
     }
@@ -96,6 +97,13 @@ class PaperExecutionEconomicsTests(unittest.TestCase):
                 row, paper = self.evidence()
                 paper["request"]["execution_economics"] = value
                 self.assertFalse(self.summary(row, paper)["paper_matched"])
+
+    def test_old_rebalance_only_valuation_cannot_be_reused_as_daily_evidence(self):
+        row, paper = self.evidence()
+        for item in (row["execution_economics"], paper["request"]["execution_economics"]):
+            item["schema_version"] = 1
+            item.pop("valuation_model", None)
+        self.assertFalse(self.summary(row, paper)["paper_matched"])
 
     def test_daily_ops_uses_selected_profile_capital_and_fees(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -258,7 +258,7 @@ class PaperSimulationTests(unittest.TestCase):
         )
 
         self.assertEqual(sampled["request"]["rebalance_interval"], 3)
-        self.assertAlmostEqual(sampled["request"]["periods_per_year"], 252 / 3)
+        self.assertAlmostEqual(sampled["request"]["periods_per_year"], 252)
         self.assertLess(len(sampled["snapshots"]), len(daily["snapshots"]))
 
     def test_paper_simulation_does_not_fill_assets_without_execution_day_bar(self):

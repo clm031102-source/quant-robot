@@ -15,6 +15,7 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 ensure_workspace_imports()
 
 from quant_robot.paper.economics import (
+    VALUATION_MODEL,
     EXECUTION_ECONOMICS_FIELDS,
     execution_economics_from_request,
     normalize_execution_economics,
@@ -285,6 +286,7 @@ def _execution_params(
         return contract, True
     # Legacy profiles remain replayable, but cannot pass the new ETF economics gate.
     parameters = {
+        "valuation_model": VALUATION_MODEL,
         "initial_cash": 100000.0, "commission_bps": 5.0, "minimum_commission": 0.0,
         "slippage_bps": 5.0, "market_impact_bps": 0.0, "max_participation_rate": None,
     }
