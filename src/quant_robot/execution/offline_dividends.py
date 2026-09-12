@@ -100,11 +100,14 @@ def accrual_event(state, now):
     return {"kind": "DIVIDEND_ACCRUAL", "data": {"event_ids": [e["event_id"] for e in due], "decision_at": now.isoformat()}}
 
 
-def credit_event(state, action_id, receipt_id, cash_amount, now):
+@money_context
+def credit_event(state, action_id, receipt_id, cash_amount, now, *, installment=False):
     policy, now, date = _clock(state, now)
     event = next((e for e in policy["events"] if e["event_id"] == action_id), None)
     if event is None or date < event["pay_date"]:
         raise AdmissionRejected("unknown dividend or credit before pay date")
+    if installment and (cash_amount <= 0 or cash_amount != cash_amount.quantize(Decimal("0.01"))):
+        raise AdmissionRejected("dividend installment must be positive whole cents")
     receipt_key = "dividend_cash:" + receipt_id
     previous = state["receipts"].get(receipt_key)
     if previous:
@@ -114,9 +117,9 @@ def credit_event(state, action_id, receipt_id, cash_amount, now):
     if action_id in state["dividends"]["paid"]:
         raise AdmissionRejected("dividend has already been credited")
     owed = state["dividends"]["receivables"].get(action_id)
-    if owed is None or Decimal(owed) != cash_amount:
+    if owed is None or (cash_amount > Decimal(owed) if installment else Decimal(owed) != cash_amount):
         raise AdmissionRejected("cash credit does not match an accrued dividend receivable")
-    return {"kind": "DIVIDEND_CASH_CREDIT", "receipt_key": receipt_key,
+    return {"kind": "DIVIDEND_CASH_INSTALLMENT" if installment else "DIVIDEND_CASH_CREDIT", "receipt_key": receipt_key,
         "data": {"event_id": action_id, "cash_amount": str(cash_amount), "decision_at": now.isoformat()}}
 
 

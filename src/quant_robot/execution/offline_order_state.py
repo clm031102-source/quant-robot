@@ -199,10 +199,14 @@ def apply_event(state, event):
             state["dividends"]["price_basis"][entitlement["symbol"]] = "cash_dividend:" + key
             _record_price_basis(state, entitlement["symbol"], "cash_dividend:" + key)
         state["dividends"]["last_transition_at"] = data["decision_at"]
-    elif kind == "DIVIDEND_CASH_CREDIT":
+    elif kind in {"DIVIDEND_CASH_CREDIT", "DIVIDEND_CASH_INSTALLMENT"}:
         state["cash"] += Decimal(data["cash_amount"])
-        state["dividends"]["receivables"].pop(data["event_id"])
-        state["dividends"]["paid"].add(data["event_id"])
+        remaining = Decimal(state["dividends"]["receivables"][data["event_id"]]) - Decimal(data["cash_amount"])
+        if kind == "DIVIDEND_CASH_INSTALLMENT" and remaining > 0:
+            state["dividends"]["receivables"][data["event_id"]] = str(remaining)
+        else:
+            state["dividends"]["receivables"].pop(data["event_id"])
+            state["dividends"]["paid"].add(data["event_id"])
         state["dividends"]["last_transition_at"] = data["decision_at"]
     elif kind == "DIVIDEND_REJECTED":
         state["dividends"]["last_rejection"] = dict(data)
@@ -277,7 +281,7 @@ def apply_event(state, event):
         raise ValueError("unknown journal event")
     if "receipt_key" in event:
         state["receipts"][event["receipt_key"]] = data
-    if kind in {"DIVIDEND_ENTITLEMENTS", "DIVIDEND_ACCRUAL", "DIVIDEND_CASH_CREDIT", "CONVERSION_ENTITLEMENTS", "SHARE_CONVERSIONS"}:
+    if kind in {"DIVIDEND_ENTITLEMENTS", "DIVIDEND_ACCRUAL", "DIVIDEND_CASH_CREDIT", "DIVIDEND_CASH_INSTALLMENT", "CONVERSION_ENTITLEMENTS", "SHARE_CONVERSIONS"}:
         state["corporate_last_transition_at"] = data["decision_at"]
 
 

@@ -443,6 +443,12 @@ class OfflineOrderJournal:
         return self._run_corporate(lambda state, now: credit_event(state, event_id, receipt_id, cash_amount, now),
             {"operation": "cash_credit", "event_id": event_id, "receipt_id": receipt_id, "cash_amount": str(cash_amount)}, clock, "DIVIDEND_REJECTED")
 
+    def record_dividend_cash_installment(self, event_id, receipt_id, cash_amount, *, clock=None):
+        from .offline_dividends import credit_event
+        event_id, receipt_id, cash_amount = identity(event_id), identity(receipt_id), amount(cash_amount, positive=True)
+        return self._run_corporate(lambda state, now: credit_event(state, event_id, receipt_id, cash_amount, now, installment=True),
+            {"operation": "cash_installment", "event_id": event_id, "receipt_id": receipt_id, "cash_amount": str(cash_amount)}, clock, "DIVIDEND_REJECTED")
+
     def record_conversion_entitlements(self, *, clock=None):
         from .offline_conversions import entitlement_event
         return self._run_corporate(entitlement_event, {"operation": "conversion_entitlement"}, clock, "CONVERSION_REJECTED")

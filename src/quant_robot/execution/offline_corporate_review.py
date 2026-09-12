@@ -27,7 +27,7 @@ def _capture(events, kind, action_id):
 
 
 def _action_events(events, action_id, kind):
-    kinds = {"DIVIDEND_ENTITLEMENTS", "DIVIDEND_ACCRUAL", "DIVIDEND_CASH_CREDIT"} if kind == "dividend" else {"CONVERSION_ENTITLEMENTS", "SHARE_CONVERSIONS"}
+    kinds = {"DIVIDEND_ENTITLEMENTS", "DIVIDEND_ACCRUAL", "DIVIDEND_CASH_CREDIT", "DIVIDEND_CASH_INSTALLMENT"} if kind == "dividend" else {"CONVERSION_ENTITLEMENTS", "SHARE_CONVERSIONS"}
     result = []
     for row in events:
         event, data = row["event"], row["event"]["data"]
