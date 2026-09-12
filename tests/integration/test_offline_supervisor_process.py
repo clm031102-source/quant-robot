@@ -236,10 +236,15 @@ print(json.dumps(dict(pid=os.getpid(),nested_handle_pid=child.pid,nested=json.lo
     def test_supervisor_entrypoint_uses_workspace_with_stale_installed_package(self):
         package=self.root/'legacy'/'quant_robot';package.mkdir(parents=True)
         (package/'__init__.py').write_text("raise RuntimeError('stale package imported')")
-        result=subprocess.run(self.cli(),capture_output=True,text=True,timeout=15,
+        # Verify import precedence without treating ordinary CI scheduling as a stall.
+        # Fault-specific tests keep their deliberately short watchdog deadlines.
+        result=subprocess.run(self.cli('--stall-seconds','5'),capture_output=True,text=True,timeout=15,
             env={**os.environ,'PYTHONPATH':str(package.parent)})
-        self.assertEqual(result.returncode,0,result.stderr)
-        self.assertEqual(json.loads(result.stdout)['phase'],'stopped')
+        self.assertEqual(result.returncode,0,'stdout='+result.stdout+'\nstderr='+result.stderr)
+        monitor=json.loads(result.stdout)
+        self.assertEqual(monitor['phase'],'stopped')
+        self.assertEqual(monitor['completed_ticks'],3)
+        self.assertEqual(self.snapshot()['faults'],[])
 
     def test_expired_supervisor_permit_latches_worker_without_discarding_valuation(self):
         identity=dict(instance_id='a'*32,**journal_identity(self.path))
