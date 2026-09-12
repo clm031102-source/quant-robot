@@ -8,6 +8,7 @@ never produce an executable request. See the scope document before integration.
 """
 from __future__ import annotations
 
+from copy import deepcopy
 from datetime import datetime, timezone
 from decimal import Decimal
 import hashlib
@@ -118,6 +119,7 @@ class OfflineOrderJournal:
             raise
 
     def _connect(self, path):
+        self._projection = None
         self._db = sqlite3.connect(str(path), isolation_level=None, timeout=5)
         self._db.execute("PRAGMA journal_mode = WAL")
         self._db.execute("PRAGMA synchronous = FULL")
@@ -127,6 +129,7 @@ class OfflineOrderJournal:
         if connection is not None:
             connection.close()
             self._db = None
+            self._projection = None
 
     def __enter__(self):
         return self
@@ -135,9 +138,38 @@ class OfflineOrderJournal:
         self.close()
 
     def _read(self):
-        state = {"sequence": 0, "journal_hash": "0" * 64}
+        owns_transaction = not self._db.in_transaction
+        if owns_transaction:
+            self._db.execute("BEGIN")
+        try:
+            marker = self._projection_marker()
+            cached = getattr(self, "_projection", None)
+            state = deepcopy(cached[1]) if cached is not None and cached[0] == marker else self._replay()
+            if owns_transaction:
+                projection = (marker, deepcopy(state))
+                self._db.commit()
+                self._projection = projection
+            # A caller-owned transaction may still roll back. Never publish its reads.
+            return state
+        except BaseException:
+            self._projection = None
+            if owns_transaction:
+                self._db.rollback()
+            raise
+
+    def _projection_marker(self):
+        # Pin the SQLite read snapshot before consulting connection-local counters.
+        tip = self._db.execute("SELECT sequence, event_hash FROM events ORDER BY sequence DESC LIMIT 1").fetchone()
+        return (self._db.execute("PRAGMA data_version").fetchone()[0], self._db.total_changes, tip)
+
+    def _replay(self, state=None):
+        # Only our own locked transaction may extend a previously verified prefix.
+        # Another connection's commit, reopen, or untracked local DML requires a full replay.
+        if state is None:
+            state = {"sequence": 0, "journal_hash": "0" * 64}
         for sequence, created, payload, previous, digest in self._db.execute(
-                "SELECT sequence, created_at, payload, previous_hash, event_hash FROM events ORDER BY sequence"):
+                "SELECT sequence, created_at, payload, previous_hash, event_hash FROM events WHERE sequence > ? ORDER BY sequence",
+                (state["sequence"],)):
             expected = hashlib.sha256(_json([sequence, created, previous, payload]).encode()).hexdigest()
             if sequence != state["sequence"] + 1 or previous != state["journal_hash"] or digest != expected:
                 raise ValueError("offline journal hash or sequence mismatch")
@@ -164,6 +196,7 @@ class OfflineOrderJournal:
         fault = None
         try:
             state = self._read()
+            verified = deepcopy(state)
             try:
                 event = build(state)
             except _Quarantine as exc:
@@ -177,8 +210,13 @@ class OfflineOrderJournal:
                     event["data"]["valuation_unavailable"] = getattr(exc, "valuation_unavailable", True)
             if event is not None:
                 self._append(state, event)
+            # Replay the stored payload, not builder-mutated state or caller-owned data.
+            self._replay(verified)
+            projection = (self._projection_marker(), verified)
             self._db.commit()
+            self._projection = projection
         except BaseException:
+            self._projection = None
             self._db.rollback()
             raise
         if fault:

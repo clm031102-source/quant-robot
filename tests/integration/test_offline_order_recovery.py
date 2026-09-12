@@ -77,6 +77,21 @@ os._exit(7)
         self.assertCountEqual(results, ["registered", "insufficient unreserved cash"])
         self.assertEqual(len(self.book.snapshot()["orders"]), 1)
 
+    def test_warm_parent_observes_stop_committed_by_another_process(self):
+        self.assertFalse(self.book.snapshot()["paused"])
+        source = """
+import sys
+from quant_robot.execution.offline_journal import OfflineOrderJournal
+with OfflineOrderJournal(sys.argv[1]) as book:
+    book.set_kill_switch(True, reason='synthetic external process stop')
+"""
+        result = subprocess.run([sys.executable, "-c", source, str(self.path)],
+            capture_output=True, text=True, timeout=30)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(self.book.snapshot()["paused"])
+        with self.assertRaisesRegex(ValueError, "paused"):
+            self.register(self.book, "blocked")
+
     def test_changed_event_body_is_detected_on_reopen(self):
         self.register(self.book, "o1")
         self.book.close()
