@@ -67,9 +67,9 @@ with OfflineRuntime(b['journal_path'],clock=lambda:NOW) as runtime:
         self.addCleanup(cleanup)
         return launch,children
 
-    def supervise(self, launch, **options):
+    def supervise(self, launch, *, stall_seconds=.4, **options):
         return supervise_worker(self.path,health_path=self.health,permit_path=self.permit,report_path=self.report,
-            launch=launch,interval_seconds=.05,poll_seconds=.02,startup_seconds=2,stall_seconds=.4,**options)
+            launch=launch,interval_seconds=.05,poll_seconds=.02,startup_seconds=2,stall_seconds=stall_seconds,**options)
 
     def test_normal_bounded_cli_exits_with_stopped_health_and_no_fault(self):
         result=subprocess.run(self.cli(),capture_output=True,text=True,timeout=15)
@@ -124,11 +124,15 @@ print(json.dumps(dict(pid=os.getpid(),nested_handle_pid=child.pid,nested=json.lo
         self.assertEqual(result['pause_enforcement']['status'],'latched')
 
     def test_exit_after_preparing_order_recovers_unknown_and_never_restarts(self):
-        launch,children=self.launch_fixture("packet=observation(runtime,opening=True)\npacket['intents']=[intent()]\nhealth.complete_tick(runtime.tick(packet))\nos._exit(7)")
-        result=self.supervise(launch)
+        # Exercise crash recovery after work, allowing scheduling/disk latency.
+        # The separate stalled-worker tests retain the short watchdog deadline.
+        launch,children=self.launch_fixture("time.sleep(.6)\npacket=observation(runtime,opening=True)\npacket['intents']=[intent()]\nhealth.complete_tick(runtime.tick(packet))\nos._exit(7)")
+        result=self.supervise(launch,stall_seconds=5)
         state=self.snapshot()
         self.assertEqual(len(children),1)
         self.assertEqual(result['child_returncode'],7,json.dumps(result)+"\n"+self.fixture_errors())
+        self.assertEqual(result['completed_ticks'],1)
+        self.assertIn('worker exited without verified clean stop: 7',result['failure'])
         self.assertEqual(state['orders']['one']['status'],'UNKNOWN')
         self.assertEqual(state['orders']['one']['filled_quantity'],0)
         self.assertIn('runtime_supervision_requires_review',state['faults'])
