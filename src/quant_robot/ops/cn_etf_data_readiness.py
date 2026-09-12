@@ -10,7 +10,7 @@ import pandas as pd
 
 from quant_robot.data.gap_audit import build_data_quality_gap_audit
 from quant_robot.storage.cn_etf_rotation_membership import load_cn_etf_rotation_membership
-from quant_robot.storage.etf_moneyflow_baskets import load_etf_moneyflow_baskets
+from quant_robot.storage.etf_moneyflow_baskets import UnverifiedEtfMoneyflowBaskets, load_etf_moneyflow_baskets
 from quant_robot.storage.etf_share_size import load_etf_share_size_inputs
 from quant_robot.storage.processed_bars import load_processed_bars
 
@@ -349,6 +349,11 @@ def _dataset_summary(
 ) -> dict[str, Any]:
     try:
         frame = loader()
+    except UnverifiedEtfMoneyflowBaskets as exc:
+        source_blocker = "unverified_etf_moneyflow_baskets"
+        if require:
+            blockers.append(source_blocker)
+        return {"status": "unverified", "dataset": name, "required": require, "rows": 0, "reason": str(exc)}
     except FileNotFoundError:
         if require:
             blockers.append(blocker)
@@ -390,6 +395,8 @@ def _next_actions(pack: dict[str, Any]) -> list[str]:
         actions.append("Sync ETF share-size inputs before share/size pressure research.")
     if "missing_etf_moneyflow_baskets" in blockers:
         actions.append("Sync fund portfolio baskets before ETF moneyflow aggregation research.")
+    if "unverified_etf_moneyflow_baskets" in blockers:
+        actions.append("Audit full holdings scope, report identity and historical publication availability before ETF moneyflow research.")
     if "sync_pack_not_ready" in blockers or "missing_tushare_cn_etf_sync_pack" in blockers:
         actions.append("Generate a ready Tushare CN_ETF sync pack before factor mining.")
     return actions
