@@ -156,7 +156,8 @@ class ScriptWorkspaceImportTests(unittest.TestCase):
             for name, report, config in (("run_offline_order_drill", "drill_report.json", None),
                     ("run_guarded_order_drill", "guarded_drill_report.json", None),
                     ("run_guarded_order_drill", "guarded_drill_report.json", "configs/offline_dividend_drill_20260912.json"),
-                    ("run_guarded_order_drill", "guarded_drill_report.json", "configs/offline_conversion_drill_20260912.json")):
+                    ("run_guarded_order_drill", "guarded_drill_report.json", "configs/offline_conversion_drill_20260912.json"),
+                    ("run_offline_runtime_drill", "runtime_drill_report.json", None)):
                 with self.subTest(script=name, config=config):
                     output = root / (name + ("-" + Path(config).stem if config else ""))
                     command = [sys.executable, "scripts/" + name + ".py", "--output-dir", str(output)]

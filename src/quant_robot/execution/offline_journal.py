@@ -35,6 +35,19 @@ def _event(kind, data, receipt_key=None):
 
 class OfflineOrderJournal:
     @classmethod
+    def inspect_configuration(cls, path):
+        """Read frozen synthetic rules without triggering order recovery."""
+        reader = cls.__new__(cls)
+        reader._db = sqlite3.connect(Path(path).resolve().as_uri() + "?mode=ro", uri=True)
+        try:
+            if reader._db.execute("PRAGMA user_version").fetchone()[0] != 1:
+                raise ValueError("unsupported offline journal schema")
+            state = reader._read()
+            return {key: state[key] for key in ("admission_policy", "timeout_policy", "dividend_policy", "conversion_policy")}
+        finally:
+            reader.close()
+
+    @classmethod
     def create(cls, path, *, initial_cash, initial_positions, commission_bps, minimum_commission,
             admission_policy=None, timeout_policy=None, dividend_policy=None, conversion_policy=None):
         genesis = {"initial_cash": str(amount(initial_cash)), "initial_positions": positions(initial_positions),
@@ -399,6 +412,13 @@ class OfflineOrderJournal:
             return _event("KILL_SWITCH", {"enabled": enabled, "reason": reason})
         return self._run(build)
 
+    def note_unusable_runtime_receipt(self, detail):
+        if not isinstance(detail, str):
+            raise ValueError("receipt review detail must be text")
+        reason = "runtime_receipt_requires_review"
+        return self._run(lambda state: None if reason in state["faults"] else
+            _event("FAULT", {"reason": reason, "detail": detail[:500]}))
+
     def reconcile(self, *, snapshot_id, expected_sequence, cash, positions: dict, orders: dict):
         from .offline_order_state import positions as validate_positions
         data = {"snapshot_id": identity(snapshot_id), "expected_sequence": units(expected_sequence),
@@ -408,6 +428,8 @@ class OfflineOrderJournal:
         for key, row in orders.items():
             if not isinstance(row, dict) or set(row) != {"status", "filled_quantity", "filled_notional", "commission"}:
                 raise ValueError("invalid reconciliation order evidence")
+            if not isinstance(row["status"], str):
+                raise ValueError("reconciliation status must be text")
             data["orders"][identity(key)] = {"status": row["status"], "filled_quantity": units(row["filled_quantity"]),
                 "filled_notional": str(amount(row["filled_notional"], bounded=False)),
                 "commission": str(amount(row["commission"], bounded=False))}

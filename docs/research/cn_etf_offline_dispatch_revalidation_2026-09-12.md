@@ -37,6 +37,6 @@
 
 ## 下一项验收
 
-无新订单时的估值与日损失检查已实现，见[持续估值验收](cn_etf_offline_portfolio_valuation_2026-09-12.md)。随后接入[现金分红权益、应收和到账](cn_etf_offline_dividend_journal_2026-09-12.md)及[份额折算/锁定](cn_etf_offline_share_conversion_2026-09-12.md)，最终192项相关检查和十六阶段综合演练通过。接续处理运行驱动、断流和完整模拟适配器。当前超时、估值与公司行为处理均为显式调用的离线能力，没有常驻调度器或真实券商回报协议。P2仍未整体完成。
+无新订单时的估值与日损失检查已实现，见[持续估值验收](cn_etf_offline_portfolio_valuation_2026-09-12.md)。随后接入[现金分红](cn_etf_offline_dividend_journal_2026-09-12.md)、[份额折算/锁定](cn_etf_offline_share_conversion_2026-09-12.md)和[离线运行驱动](cn_etf_offline_runtime_2026-09-12.md)。驱动调用发送前复核并处理明确回报，不提供真实券商传输。长期容量、进程存活监测和完整向前模拟仍待验收，P2未整体完成。
 
 关联：[完整意图准入](cn_etf_guarded_order_admission_2026-09-12.md)、[落地执行方案](etf_monetization_execution_plan_2026-09-11.md)。
