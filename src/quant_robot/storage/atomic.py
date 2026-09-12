@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
+import time
 from typing import Any, Callable
 
 
@@ -22,7 +23,17 @@ def atomic_write(path: str | Path, writer: Callable[[Path], None]) -> Path:
         with temporary.open("rb+") as handle:
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temporary, target)
+        # Windows readers can briefly deny replacement even when they only read.
+        # Reuse the already-fsynced file, with at most five 10 ms waits. Persistent
+        # access errors and all other I/O errors still propagate to the caller.
+        for attempt in range(6):
+            try:
+                os.replace(temporary, target)
+                break
+            except OSError as exc:
+                if getattr(exc, "winerror", None) not in {5, 32, 33} or attempt == 5:
+                    raise
+                time.sleep(0.01)
     finally:
         temporary.unlink(missing_ok=True)
     return target

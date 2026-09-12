@@ -20,6 +20,7 @@ from .offline_order_state import (
     ACTIVE, TERMINAL, AdmissionRejected, amount, apply_event, identity, positions, public_snapshot,
     reservations, risk_deficit, units,
 )
+from .offline_history import mutable_copy, mutable_order, seal_history
 
 
 class _Quarantine(ValueError):
@@ -137,16 +138,17 @@ class OfflineOrderJournal:
     def __exit__(self, *_args):
         self.close()
 
-    def _read(self):
+    def _read(self, *, _for_command=False):
         owns_transaction = not self._db.in_transaction
         if owns_transaction:
             self._db.execute("BEGIN")
         try:
             marker = self._projection_marker()
             cached = getattr(self, "_projection", None)
-            state = deepcopy(cached[1]) if cached is not None and cached[0] == marker else self._replay()
+            cache_hit = cached is not None and cached[0] == marker
+            state = (deepcopy(cached[1]) if _for_command else mutable_copy(cached[1])) if cache_hit else self._replay()
             if owns_transaction:
-                projection = (marker, deepcopy(state))
+                projection = cached if cache_hit else (marker, seal_history(deepcopy(state)))
                 self._db.commit()
                 self._projection = projection
             # A caller-owned transaction may still roll back. Never publish its reads.
@@ -195,7 +197,7 @@ class OfflineOrderJournal:
         self._db.execute("BEGIN IMMEDIATE")
         fault = None
         try:
-            state = self._read()
+            state = self._read(_for_command=True)
             verified = deepcopy(state)
             try:
                 event = build(state)
@@ -212,7 +214,7 @@ class OfflineOrderJournal:
                 self._append(state, event)
             # Replay the stored payload, not builder-mutated state or caller-owned data.
             self._replay(verified)
-            projection = (self._projection_marker(), verified)
+            projection = (self._projection_marker(), seal_history(verified))
             self._db.commit()
             self._projection = projection
         except BaseException:
@@ -514,6 +516,6 @@ class OfflineOrderJournal:
                 raise _Quarantine("reconciliation order status or fill totals mismatch")
         # Apply the proposed statuses to a disposable projection before clearing faults.
         for key, row in data["orders"].items():
-            state["orders"][key]["status"] = row["status"]
+            mutable_order(state, key)["status"] = row["status"]
         if risk_deficit(state):
             raise _Quarantine("reconciliation leaves an account or reservation deficit")

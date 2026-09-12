@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 from quant_robot.execution.offline_journal import OfflineOrderJournal
 from quant_robot.execution.offline_runtime import OfflineRuntime
-from quant_robot.execution.offline_runtime_health import journal_identity
+from quant_robot.execution.offline_runtime_health import journal_identity, read_health
 from quant_robot.execution import offline_supervisor
 from quant_robot.execution.offline_supervisor import launch_owned_python, supervise_worker
 from tests.unit.test_offline_runtime import create_book, observation
@@ -234,6 +234,11 @@ print(json.dumps(dict(pid=os.getpid(),nested_handle_pid=child.pid,nested=json.lo
 
     def test_expired_supervisor_permit_latches_worker_without_discarding_valuation(self):
         identity=dict(instance_id='a'*32,**journal_identity(self.path))
+        error_path=self.root/'permit-worker-errors.log'
+        errors=error_path.open('w',encoding='utf-8');self.addCleanup(errors.close)
+        def diagnostic():
+            errors.flush()
+            return error_path.read_text(encoding='utf-8',errors='replace')[-6000:]
         source="""
 import json,sys,time
 from quant_robot.execution.offline_runtime_health import health_record
@@ -243,7 +248,7 @@ for _ in range(500):
     atomic_write_json(sys.argv[1],health_record('supervisor',**identity,phase='running'))
     time.sleep(.02)
 """
-        producer=launch_owned_python(['-c',source,str(self.permit),json.dumps(identity)])
+        producer=launch_owned_python(['-c',source,str(self.permit),json.dumps(identity)],stderr=errors)
         worker=None
         try:
             deadline=time.monotonic()+5
@@ -253,15 +258,21 @@ for _ in range(500):
                 '--health',str(self.health),'--instance-id',identity['instance_id'],'--supervisor-permit',str(self.permit),
                 '--supervisor-pid',str(producer.pid),'--supervisor-genesis',identity['genesis_hash'],'--supervisor-max-age','.5',
                 '--interval-seconds','.05','--max-ticks','50','--fixture-clock-start',NOW.isoformat()]
-            worker=launch_owned_python(command[1:])
+            worker=launch_owned_python(command[1:],stderr=errors)
             deadline=time.monotonic()+5
+            ready=False
             while time.monotonic()<deadline:
-                if self.health.exists() and json.loads(self.health.read_text()).get('completed_ticks',0)>=2:break
+                if self.health.exists():
+                    health=read_health(self.health)
+                    if health.get('completed_ticks',0)>=2 and health.get('last_tick_status')=='ready':
+                        ready=True
+                        break
                 if worker.poll() is not None:break
                 time.sleep(.01)
-            self.assertIsNone(worker.poll())
+            self.assertIsNone(worker.poll(),diagnostic())
+            self.assertTrue(ready,diagnostic())
             producer.kill();producer.wait(timeout=5)
-            self.assertEqual(worker.wait(timeout=10),0)
+            self.assertEqual(worker.wait(timeout=10),0,diagnostic())
             state=self.snapshot()
             self.assertIn('runtime_supervision_requires_review',state['faults'])
             self.assertIsNotNone(state['portfolio_valuation']['last_valid'])

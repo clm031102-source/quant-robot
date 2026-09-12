@@ -12,6 +12,8 @@ import hashlib
 import json
 import re
 
+from .offline_history import mutable_order
+
 ACTIVE = {"PENDING", "ACCEPTED", "PARTIAL", "CANCEL_PENDING", "UNKNOWN"}
 TERMINAL = {"FILLED", "CANCELLED", "REJECTED"}
 STATUSES = ACTIVE | TERMINAL
@@ -234,12 +236,12 @@ def apply_event(state, event):
         if data["risk_stop"] and state["risk_session"] is not None:
             state["risk_session"]["risk_stop"] = True
     elif kind == "DISPATCH_PREPARED":
-        state["orders"][data["order_id"]]["dispatch"] = dict(data)
+        mutable_order(state, data["order_id"])["dispatch"] = dict(data)
         state["attempted_dispatch_ids"].add(data["attempt_id"])
     elif kind == "FILL":
         _apply_fill(state, data)
     elif kind == "STATUS":
-        order = state["orders"][data["order_id"]]
+        order = mutable_order(state, data["order_id"])
         status = data["status"]
         if status == "UNKNOWN":
             order["status"] = status
@@ -250,24 +252,24 @@ def apply_event(state, event):
         elif order["status"] != "FILLED":
             order["status"] = status
     elif kind == "CANCEL_REQUEST":
-        state["orders"][data["order_id"]]["status"] = "CANCEL_PENDING"
+        mutable_order(state, data["order_id"])["status"] = "CANCEL_PENDING"
         if "confirmation_deadline" in data:
             state["orders"][data["order_id"]]["cancel_request"] = dict(data)
     elif kind == "ORDER_TIMEOUT":
         for row in data["orders"]:
-            order = state["orders"][row["order_id"]]
+            order = mutable_order(state, row["order_id"])
             order["status"], order["timeout"] = "UNKNOWN", dict(row)
         state["last_timeout_at"] = data["observed_at"]
         state["faults"].add("order_timeout_requires_reconciliation")
     elif kind == "RECOVERY":
         for key in data["order_ids"]:
-            state["orders"][key]["status"] = "UNKNOWN"
+            mutable_order(state, key)["status"] = "UNKNOWN"
         state["faults"].add("restart_requires_reconciliation")
     elif kind == "FAULT":
         state["faults"].add(data["reason"])
     elif kind == "RECONCILE":
         for key, order in data["orders"].items():
-            state["orders"][key]["status"] = order["status"]
+            mutable_order(state, key)["status"] = order["status"]
         state["faults"].intersection_update({VALUATION_UNAVAILABLE, DIVIDEND_ENTITLEMENT_UNCERTAIN, CONVERSION_UNCERTAIN})
     elif kind == "KILL_SWITCH":
         state["kill_switch"] = data["enabled"]
@@ -280,7 +282,7 @@ def apply_event(state, event):
 
 
 def _apply_fill(state, data):
-    order = state["orders"][data["order_id"]]
+    order = mutable_order(state, data["order_id"])
     old_status = order["status"]
     qty, price = data["quantity"], Decimal(data["price"])
     value = qty * price
