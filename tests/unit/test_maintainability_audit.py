@@ -20,8 +20,25 @@ class MaintainabilityAuditTests(unittest.TestCase):
             "src/quant_robot/ops/daily_trade_advisory.py",
         )
         self.assertGreaterEqual(audit["summary"]["largest_module"]["lines"], 13_000)
-        self.assertIn("integration_test_layer_sparse", audit["decision"]["known_debt"])
         self.assertIn("e2e_test_layer_missing", audit["decision"]["known_debt"])
+
+    def test_integration_debt_clears_when_test_layer_reaches_ten_files(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            integration = root / "tests" / "integration"
+            integration.mkdir(parents=True)
+            for index in range(9):
+                (integration / f"test_case_{index}.py").write_text("", encoding="utf-8")
+
+            sparse = collect_maintainability_audit(root)
+            self.assertEqual(sparse["test_topology"]["integration_test_files"], 9)
+            self.assertIn("integration_test_layer_sparse", sparse["decision"]["known_debt"])
+
+            (integration / "test_case_9.py").write_text("", encoding="utf-8")
+            sufficient = collect_maintainability_audit(root)
+            self.assertEqual(sufficient["test_topology"]["integration_test_files"], 10)
+            self.assertNotIn("integration_test_layer_sparse", sufficient["decision"]["known_debt"])
+            self.assertTrue(sufficient["decision"]["maintainability_baseline_passed"])
 
     def test_audit_blocks_growth_in_baselined_and_new_oversized_modules(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
