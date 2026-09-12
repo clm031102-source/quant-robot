@@ -22,6 +22,7 @@ from quant_robot.portfolio.rebalance import FORBIDDEN_REAL_ACCOUNT_COLUMNS, buil
 from quant_robot.storage.cn_etf_rotation_membership import filter_signals_to_cn_etf_rotation_membership
 from quant_robot.storage.factor_inputs import load_factor_inputs
 from quant_robot.storage.moneyflow_inputs import load_moneyflow_inputs
+from quant_robot.storage.input_provenance import describe_calculation_inputs
 
 
 @dataclass(frozen=True)
@@ -158,6 +159,8 @@ def run_paper_simulation(
         {
             "data_mode": "fixture" if set(filtered["source"].astype(str)) == {"fixture"} else "research",
             "request": _config_dict(config, actions.fingerprint),
+            "input_provenance": describe_calculation_inputs(filtered, factors,
+                artifact_role="historical_simulation", factor_role="membership_filtered_factor_history"),
             "accounting": actions.evidence(),
             "corporate_action_events": actions.journal,
             "metrics": metrics,
@@ -178,18 +181,22 @@ def run_paper_simulation(
 def write_paper_simulation_artifacts(result: dict[str, Any], output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(result["intents"]).to_csv(output_dir / "intents.csv", index=False)
-    pd.DataFrame(result["fills"]).to_csv(output_dir / "fills.csv", index=False)
+    pd.DataFrame(result["fills"], columns=None if result["fills"] else
+        ["asset_id", "execution_date", "quantity", "price"]).to_csv(output_dir / "fills.csv", index=False)
     pd.DataFrame(result["positions"]).to_csv(output_dir / "positions.csv", index=False)
     pd.DataFrame(result["equity_curve"]).to_csv(output_dir / "equity_curve.csv", index=False)
     pd.DataFrame(result["snapshots"]).to_csv(output_dir / "snapshots.csv", index=False)
-    pd.DataFrame(result["guard_events"]).to_csv(output_dir / "guard_events.csv", index=False)
-    pd.DataFrame(result.get("execution_events", [])).to_csv(output_dir / "execution_events.csv", index=False)
+    pd.DataFrame(result["guard_events"], columns=None if result["guard_events"] else
+        ["signal_date", "event"]).to_csv(output_dir / "guard_events.csv", index=False)
+    pd.DataFrame(result.get("execution_events", []), columns=None if result.get("execution_events") else
+        ["execution_date", "event"]).to_csv(output_dir / "execution_events.csv", index=False)
     pd.DataFrame(result.get("corporate_action_events", [])).to_csv(output_dir / "corporate_action_events.csv", index=False)
     manifest = {
         "data_mode": result["data_mode"],
         "request": result["request"],
         "metrics": result["metrics"],
         "accounting": result.get("accounting", {}),
+        **({"input_provenance": result["input_provenance"]} if "input_provenance" in result else {}),
         "safety": "Local paper simulation only. No broker connection, no order placement, no live trading.",
     }
     (output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")

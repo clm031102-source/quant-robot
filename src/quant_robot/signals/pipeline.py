@@ -13,6 +13,7 @@ from quant_robot.data.quality import validate_market_data
 from quant_robot.factors.technical import compute_basic_factors
 from quant_robot.portfolio.constraints import PortfolioConstraints, apply_portfolio_constraints
 from quant_robot.storage.cn_etf_rotation_membership import filter_signals_to_cn_etf_rotation_membership
+from quant_robot.storage.input_provenance import describe_calculation_inputs
 
 
 @dataclass(frozen=True)
@@ -87,6 +88,8 @@ def _build_signal_snapshot(
             "as_of_date": str(as_of_date),
             "signal_date": str(signal_date),
             "request": {**_config_dict(config, portfolio_scope), "factor_source": factor_source},
+            "input_provenance": describe_calculation_inputs(filtered, selected,
+                artifact_role="signal_snapshot", factor_role="latest_membership_filtered_ranking_input"),
             "constraints": asdict(constraints),
             "target_gross_exposure": target_gross,
             "cash_weight": cash_weight,
@@ -98,7 +101,8 @@ def _build_signal_snapshot(
 
 def write_signal_snapshot(result: dict[str, Any], output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
-    pd.DataFrame(result["targets"]).to_csv(output_dir / "targets.csv", index=False)
+    pd.DataFrame(result["targets"], columns=None if result["targets"] else
+        ["asset_id", "market", "target_weight", "signal_date", "latest_price"]).to_csv(output_dir / "targets.csv", index=False)
     manifest = {key: value for key, value in result.items() if key != "targets"}
     (output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
 
