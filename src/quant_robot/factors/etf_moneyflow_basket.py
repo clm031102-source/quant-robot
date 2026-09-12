@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date as calendar_date
+
 import numpy as np
 import pandas as pd
 
@@ -32,6 +34,12 @@ _MONEYFLOW_AMOUNT_COLUMNS = [
 
 
 def aggregate_etf_moneyflow_basket_inputs(moneyflow_inputs: pd.DataFrame, baskets: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate only complete mapped memberships on observed input dates.
+
+    This guard does not certify the supplied basket as a complete fund holding,
+    or detect an entire market session absent from the input date universe.
+    Source qualification and the independent calendar audit remain required.
+    """
     _require_columns(
         moneyflow_inputs,
         ["date", "asset_id", *_MONEYFLOW_AMOUNT_COLUMNS, "net_mf_amount"],
@@ -40,15 +48,26 @@ def aggregate_etf_moneyflow_basket_inputs(moneyflow_inputs: pd.DataFrame, basket
     _require_columns(baskets, ["etf_asset_id", "stock_asset_id", "weight", "known_date"], "ETF moneyflow baskets")
     moneyflow = moneyflow_inputs.copy()
     moneyflow["date"] = pd.to_datetime(moneyflow["date"]).dt.date
+    if moneyflow["date"].isna().any():
+        raise ValueError("Moneyflow inputs contain missing dates")
+    if moneyflow.duplicated(["date", "asset_id"]).any():
+        raise ValueError("duplicate stock/date moneyflow observations")
     moneyflow = _with_stock_moneyflow_ratios(moneyflow)
     basket = baskets.copy()
     basket["known_date"] = pd.to_datetime(basket["known_date"], errors="coerce").dt.date
+    raw_end = basket["end_date"].copy() if "end_date" in basket else pd.Series(pd.NaT, index=basket.index)
     basket["end_date"] = (
         pd.to_datetime(basket["end_date"], errors="coerce").dt.date
         if "end_date" in basket.columns
         else pd.NaT
     )
+    if (raw_end.notna() & basket["end_date"].isna()).any():
+        raise ValueError("ETF moneyflow baskets contain invalid end_date values")
+    boolean_weights = basket["weight"].map(lambda value: isinstance(value, (bool, np.bool_)))
     basket["weight"] = pd.to_numeric(basket["weight"], errors="coerce")
+    weight_values = basket["weight"].to_numpy(dtype=float, na_value=np.nan)
+    if boolean_weights.any() or not np.isfinite(weight_values).all() or (weight_values <= 0).any():
+        raise ValueError("finite positive basket weights required")
     if "etf_symbol" not in basket.columns:
         basket["etf_symbol"] = basket["etf_asset_id"]
     else:
@@ -56,6 +75,15 @@ def aggregate_etf_moneyflow_basket_inputs(moneyflow_inputs: pd.DataFrame, basket
         basket["etf_symbol"] = symbol.where(symbol.str.strip().ne("") & symbol.notna(), basket["etf_asset_id"])
     if basket["known_date"].isna().any():
         raise ValueError("ETF moneyflow baskets contain missing known_date values")
+    basket["_coverage_end"] = basket["end_date"].where(basket["end_date"].notna(), calendar_date.max)
+    if (basket["_coverage_end"] < basket["known_date"]).any():
+        raise ValueError("ETF moneyflow basket end_date precedes known_date")
+    for frame, columns in ((moneyflow, ["asset_id"]), (basket, ["etf_asset_id", "stock_asset_id"])):
+        for column in columns:
+            if not frame[column].map(lambda value: isinstance(value, str) and bool(value.strip()) and value == value.strip()).all():
+                raise ValueError("nonempty unambiguous asset identities required")
+    _check_membership_intervals(basket)
+    expected = _expected_constituent_counts(basket, sorted(moneyflow["date"].unique()))
     joined = moneyflow.merge(
         basket,
         left_on="asset_id",
@@ -63,15 +91,25 @@ def aggregate_etf_moneyflow_basket_inputs(moneyflow_inputs: pd.DataFrame, basket
         how="inner",
         suffixes=("_stock", "_basket"),
     )
-    if joined.empty:
-        return _empty_aggregated()
     date = pd.to_datetime(joined["date"]).dt.date
     known = pd.to_datetime(joined["known_date"]).dt.date
     end = pd.to_datetime(joined["end_date"], errors="coerce").dt.date
     active = (known <= date) & (pd.isna(end) | (date <= end))
     joined = joined[active].copy()
+    actual = joined.groupby(["date", "etf_asset_id"]).size()
+    if (actual.reindex(expected.index, fill_value=0) != expected).any():
+        raise ValueError("incomplete active constituent moneyflow coverage; no reweighting permitted")
     if joined.empty:
         return _empty_aggregated()
+    raw_amounts = joined[_MONEYFLOW_AMOUNT_COLUMNS].apply(pd.to_numeric, errors="coerce")
+    ratios = joined[["stock_net_mf_amount_ratio", "stock_large_order_net_amount_ratio",
+                     "stock_extra_large_order_net_amount_ratio", "stock_small_order_sell_pressure"]]
+    with np.errstate(over="ignore"):
+        flow_totals = raw_amounts.to_numpy(dtype=float, na_value=np.nan).sum(axis=1)
+    if (not np.isfinite(raw_amounts.to_numpy(dtype=float, na_value=np.nan)).all()
+            or (raw_amounts < 0).any().any() or not np.isfinite(flow_totals).all() or (flow_totals <= 0).any()
+            or not np.isfinite(ratios.to_numpy(dtype=float, na_value=np.nan)).all()):
+        raise ValueError("invalid active constituent moneyflow; missing values cannot be neutralized")
     joined["positive_net_mf_weight"] = np.where(joined["stock_net_mf_amount_ratio"] > 0.0, joined["weight"], 0.0)
     ratio_columns = [
         "stock_net_mf_amount_ratio",
@@ -93,6 +131,9 @@ def aggregate_etf_moneyflow_basket_inputs(moneyflow_inputs: pd.DataFrame, basket
         positive_net_mf_weight=("positive_net_mf_weight", "sum"),
     )
     denominator = pd.to_numeric(rows["basket_weight_sum"], errors="coerce").where(rows["basket_weight_sum"] > 0)
+    if not np.isfinite(rows[["basket_weight_sum", "weighted_net_mf", "weighted_large", "weighted_extra",
+                             "weighted_small_sell", "positive_net_mf_weight"]].to_numpy(dtype=float)).all():
+        raise ValueError("nonfinite basket aggregate after weighting")
     rows["asset_id"] = rows["etf_asset_id"]
     rows["symbol"] = rows["etf_symbol"]
     rows["market"] = "CN_ETF"
@@ -117,6 +158,30 @@ def aggregate_etf_moneyflow_basket_inputs(moneyflow_inputs: pd.DataFrame, basket
         "etf_net_mf_positive_weight",
     ]
     return rows[output_columns].sort_values(["asset_id", "date"]).reset_index(drop=True)
+
+
+def _check_membership_intervals(basket: pd.DataFrame) -> None:
+    for _, rows in basket.groupby(["etf_asset_id", "stock_asset_id"], sort=False):
+        previous_end = None
+        for start, end in rows.sort_values("known_date")[["known_date", "_coverage_end"]].itertuples(index=False, name=None):
+            if previous_end is not None and start <= previous_end:
+                raise ValueError("overlapping ETF constituent membership intervals")
+            previous_end = end
+
+
+def _expected_constituent_counts(basket: pd.DataFrame, dates: list) -> pd.Series:
+    # Expand window COUNTS, not every constituent against every historical day.
+    # This also retains an expected ETF/day when all of its flows are missing.
+    pieces = []
+    windows = basket.groupby(["etf_asset_id", "known_date", "_coverage_end"], sort=False).size()
+    for (etf, start, end), count in windows.items():
+        active_dates = [value for value in dates if start <= value <= end]
+        if active_dates:
+            pieces.append(pd.DataFrame({"date": active_dates, "etf_asset_id": etf, "expected": count}))
+    if not pieces:
+        index = pd.MultiIndex.from_arrays([[], []], names=["date", "etf_asset_id"])
+        return pd.Series(index=index, dtype="int64")
+    return pd.concat(pieces, ignore_index=True).groupby(["date", "etf_asset_id"])["expected"].sum()
 
 
 def compute_etf_moneyflow_basket_factors(inputs: pd.DataFrame) -> pd.DataFrame:
