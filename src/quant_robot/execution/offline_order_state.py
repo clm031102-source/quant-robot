@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP, localcontext
 from functools import wraps
+import hashlib
+import json
 import re
 
 ACTIVE = {"PENDING", "ACCEPTED", "PARTIAL", "CANCEL_PENDING", "UNKNOWN"}
@@ -16,6 +18,7 @@ STATUSES = ACTIVE | TERMINAL
 ZERO = Decimal("0")
 VALUATION_UNAVAILABLE = "portfolio_valuation_unavailable"
 DIVIDEND_ENTITLEMENT_UNCERTAIN = "dividend_entitlement_requires_review"
+CONVERSION_UNCERTAIN = "share_conversion_requires_review"
 
 
 class AdmissionRejected(ValueError):
@@ -121,6 +124,23 @@ def dividend_receivable(state):
     return sum((Decimal(value) for value in state["dividends"]["receivables"].values()), ZERO)
 
 
+def _record_price_basis(state, code, event_ref):
+    history = state["price_basis_events"].setdefault(code, [])
+    if event_ref not in history:
+        history.append(event_ref)
+    state["price_basis"][code] = (history[0] if len(history) == 1 else "corporate_actions:" +
+        hashlib.sha256(json.dumps(sorted(history), separators=(",", ":")).encode()).hexdigest())
+
+
+def _mark_entitlement_uncertainty(state, order):
+    for policy_key, state_key, fault in (("dividend_policy", "dividends", DIVIDEND_ENTITLEMENT_UNCERTAIN),
+            ("conversion_policy", "conversions", CONVERSION_UNCERTAIN)):
+        for event in (state.get(policy_key) or {}).get("events", []):
+            if (event["symbol"] == order["symbol"] and event["event_id"] in state[state_key]["entitlements"]
+                    and order["admission"]["session_date"] <= event["record_date"]):
+                state["faults"].add(fault)
+
+
 @money_context
 def apply_event(state, event):
     kind, data = event["kind"], event["data"]
@@ -135,6 +155,10 @@ def apply_event(state, event):
             dividend_policy=data.get("dividend_policy"), dividend_policy_fingerprint=data.get("dividend_policy_fingerprint"),
             dividends={"entitlements": {}, "receivables": {}, "accrued": set(), "paid": set(), "price_basis": {},
                 "last_transition_at": None, "last_rejection": None},
+            conversion_policy=data.get("conversion_policy"), conversion_policy_fingerprint=data.get("conversion_policy_fingerprint"),
+            conversions={"entitlements": {}, "applied": {}, "locks": {}, "released": set(), "unapplied_fills": {},
+                "last_transition_at": None, "last_rejection": None},
+            price_basis={}, price_basis_events={}, corporate_last_transition_at=None,
             risk_session=None, sellable_positions={}, attempted_intent_ids=set(), attempted_idempotency_keys=set(),
             attempted_dispatch_ids=set())
     elif kind == "REGISTER":
@@ -148,6 +172,9 @@ def apply_event(state, event):
         state["sellable_positions"] = dict(data["sellable_positions"])
         state["portfolio_valuation"] = {"last_valid": None, "last_rejection": None, "unavailable": False}
         state["faults"].discard(VALUATION_UNAVAILABLE)
+        for code in data.get("released_conversion_locks", []):
+            lock = state["conversions"]["locks"].pop(code)
+            state["conversions"]["released"].add(lock["event_id"])
     elif kind == "PORTFOLIO_VALUATION":
         state["portfolio_valuation"].update(last_valid={**data, "event_sequence": state["sequence"] + 1}, unavailable=False)
         state["risk_session"]["valuation_peak_equity"] = data["book_equity_peak"]
@@ -168,6 +195,7 @@ def apply_event(state, event):
             state["dividends"]["receivables"][key] = entitlement["net_amount"]
             state["dividends"]["accrued"].add(key)
             state["dividends"]["price_basis"][entitlement["symbol"]] = "cash_dividend:" + key
+            _record_price_basis(state, entitlement["symbol"], "cash_dividend:" + key)
         state["dividends"]["last_transition_at"] = data["decision_at"]
     elif kind == "DIVIDEND_CASH_CREDIT":
         state["cash"] += Decimal(data["cash_amount"])
@@ -176,6 +204,24 @@ def apply_event(state, event):
         state["dividends"]["last_transition_at"] = data["decision_at"]
     elif kind == "DIVIDEND_REJECTED":
         state["dividends"]["last_rejection"] = dict(data)
+    elif kind == "CONVERSION_ENTITLEMENTS":
+        state["conversions"]["entitlements"].update(data["entitlements"])
+        state["conversions"]["last_transition_at"] = data["decision_at"]
+    elif kind == "SHARE_CONVERSIONS":
+        for key, row in data["conversions"].items():
+            code = row["symbol"]
+            state["positions"][code] = row["new_quantity"]
+            state["sellable_positions"][code] = 0
+            state["conversions"]["applied"][key] = dict(row)
+            state["conversions"]["locks"][code] = {"event_id": key, "quantity": row["new_quantity"], "tradable_date": row["tradable_date"]}
+            _record_price_basis(state, code, "share_conversion:" + key)
+        state["conversions"]["last_transition_at"] = data["decision_at"]
+    elif kind == "CONVERSION_UNAPPLIED_FILL":
+        state["conversions"]["unapplied_fills"][data["fill_id"]] = dict(data)
+        state["faults"].add(CONVERSION_UNCERTAIN)
+        _mark_entitlement_uncertainty(state, state["orders"][data["order_id"]])
+    elif kind == "CONVERSION_REJECTED":
+        state["conversions"]["last_rejection"] = dict(data)
     elif kind in {"ADMISSION_DENIED", "DISPATCH_DENIED"}:
         request = data["rejected_request"] or {}
         if kind == "DISPATCH_DENIED" and "attempt_id" in request:
@@ -222,13 +268,15 @@ def apply_event(state, event):
     elif kind == "RECONCILE":
         for key, order in data["orders"].items():
             state["orders"][key]["status"] = order["status"]
-        state["faults"].intersection_update({VALUATION_UNAVAILABLE, DIVIDEND_ENTITLEMENT_UNCERTAIN})
+        state["faults"].intersection_update({VALUATION_UNAVAILABLE, DIVIDEND_ENTITLEMENT_UNCERTAIN, CONVERSION_UNCERTAIN})
     elif kind == "KILL_SWITCH":
         state["kill_switch"] = data["enabled"]
     else:
         raise ValueError("unknown journal event")
     if "receipt_key" in event:
         state["receipts"][event["receipt_key"]] = data
+    if kind in {"DIVIDEND_ENTITLEMENTS", "DIVIDEND_ACCRUAL", "DIVIDEND_CASH_CREDIT", "CONVERSION_ENTITLEMENTS", "SHARE_CONVERSIONS"}:
+        state["corporate_last_transition_at"] = data["decision_at"]
 
 
 def _apply_fill(state, data):
@@ -241,10 +289,7 @@ def _apply_fill(state, data):
     direction = 1 if order["side"] == "BUY" else -1
     state["cash"] -= direction * value + extra_fee
     key = order["symbol"]
-    for event in (state.get("dividend_policy") or {}).get("events", []):
-        if (event["symbol"] == key and event["event_id"] in state["dividends"]["entitlements"]
-                and order["admission"]["session_date"] <= event["record_date"]):
-            state["faults"].add(DIVIDEND_ENTITLEMENT_UNCERTAIN)
+    _mark_entitlement_uncertainty(state, order)
     state["positions"][key] = state["positions"].get(key, 0) + direction * qty
     if state["risk_session"] is not None:
         metadata = state["risk_session"]["instruments"][key]
@@ -287,6 +332,9 @@ def public_snapshot(state):
         "admission_policy_fingerprint": state["admission_policy_fingerprint"],
         "timeout_policy_fingerprint": state["timeout_policy_fingerprint"],
         "dividend_policy_fingerprint": state["dividend_policy_fingerprint"],
+        "conversion_policy_fingerprint": state["conversion_policy_fingerprint"],
+        "price_basis": dict(state["price_basis"]),
+        "conversions": {**state["conversions"], "released": sorted(state["conversions"]["released"])},
         "dividends": {**state["dividends"], "accrued": sorted(state["dividends"]["accrued"]),
             "paid": sorted(state["dividends"]["paid"]), "receivable_total": str(dividend_receivable(state))},
         "risk_session": state["risk_session"],

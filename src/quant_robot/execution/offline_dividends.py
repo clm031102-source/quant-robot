@@ -52,7 +52,7 @@ def _clock(state, now):
     date = now.astimezone(SHANGHAI).date().isoformat()
     if not policy["coverage_start"] <= date <= policy["coverage_end"]:
         raise AdmissionRejected("dividend clock outside declared coverage")
-    last = state["dividends"]["last_transition_at"]
+    last = state["corporate_last_transition_at"]
     if last and now < instant(last):
         raise AdmissionRejected("dividend clock moved backward")
     return policy, now, date
@@ -64,6 +64,8 @@ def entitlement_event(state, now):
     due = [e for e in policy["events"] if e["record_date"] == date and e["event_id"] not in state["dividends"]["entitlements"]]
     if not due:
         return None
+    from .offline_conversions import require_due_conversions_applied
+    require_due_conversions_applied(state, date)
     if (now.astimezone(SHANGHAI).time() < time.fromisoformat(policy["record_cutoff"])
             or (state.get("risk_session") or {}).get("session_date") != date):
         raise AdmissionRejected("entitlement requires the initialized record date at its cutoff")
@@ -126,10 +128,10 @@ def check_dividend_basis(state, packet, now, required):
             raise AdmissionRejected("dividend coverage unavailable")
         if any(e["ex_date"] <= date and e["event_id"] not in state["dividends"]["accrued"] for e in policy["events"]):
             raise AdmissionRejected("due dividend accrual must be applied before portfolio valuation")
-        last = state["dividends"]["last_transition_at"]
-        if last and now < instant(last):
-            raise AdmissionRejected("risk clock predates the last dividend transition")
+    last = state["corporate_last_transition_at"]
+    if last and now < instant(last):
+        raise AdmissionRejected("risk clock predates the last corporate-action transition")
     for code in required:
-        expected = state["dividends"]["price_basis"].get(code, "initial_raw")
+        expected = state["price_basis"].get(code, "initial_raw")
         if packet["quotes"].get(code, {}).get("price_basis_id", "initial_raw") != expected:
             raise AdmissionRejected("quote price basis does not match the corporate-action state")

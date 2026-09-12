@@ -36,7 +36,7 @@ def _event(kind, data, receipt_key=None):
 class OfflineOrderJournal:
     @classmethod
     def create(cls, path, *, initial_cash, initial_positions, commission_bps, minimum_commission,
-            admission_policy=None, timeout_policy=None, dividend_policy=None):
+            admission_policy=None, timeout_policy=None, dividend_policy=None, conversion_policy=None):
         genesis = {"initial_cash": str(amount(initial_cash)), "initial_positions": positions(initial_positions),
             "commission_bps": str(amount(commission_bps)), "minimum_commission": str(amount(minimum_commission))}
         if Decimal(genesis["commission_bps"]) >= 10000:
@@ -59,6 +59,12 @@ class OfflineOrderJournal:
             from .offline_dividends import normalize_dividend_policy
             dividends = normalize_dividend_policy(dividend_policy, genesis["admission_policy"])
             genesis.update(dividend_policy=dividends, dividend_policy_fingerprint=fingerprint(dividends))
+        if conversion_policy is not None:
+            if admission_policy is None:
+                raise ValueError("conversions require a guarded admission policy")
+            from .offline_conversions import normalize_conversion_policy
+            conversions = normalize_conversion_policy(conversion_policy, genesis["admission_policy"])
+            genesis.update(conversion_policy=conversions, conversion_policy_fingerprint=fingerprint(conversions))
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         # Exclusive creation prevents accidentally replacing an existing account.
@@ -275,8 +281,12 @@ class OfflineOrderJournal:
             if self._duplicate(state, receipt, data):
                 return None
             order = self._order(state, order_id)
-            if order["filled_quantity"] + quantity > order["quantity"]:
+            deferred = sum(row["quantity"] for row in state["conversions"]["unapplied_fills"].values() if row["order_id"] == order_id)
+            if order["filled_quantity"] + deferred + quantity > order["quantity"]:
                 raise _Quarantine("fill exceeds order quantity")
+            from .offline_conversions import has_converted_order_basis
+            if has_converted_order_basis(state, order):
+                return _event("CONVERSION_UNAPPLIED_FILL", data, receipt)
             return _event("FILL", data, receipt)
         return self._run(build, data)
 
@@ -325,19 +335,27 @@ class OfflineOrderJournal:
 
     def record_dividend_entitlements(self, *, clock=None):
         from .offline_dividends import entitlement_event
-        return self._run_dividend(entitlement_event, {"operation": "entitlement"}, clock)
+        return self._run_corporate(entitlement_event, {"operation": "entitlement"}, clock, "DIVIDEND_REJECTED")
 
     def accrue_dividends(self, *, clock=None):
         from .offline_dividends import accrual_event
-        return self._run_dividend(accrual_event, {"operation": "accrual"}, clock)
+        return self._run_corporate(accrual_event, {"operation": "accrual"}, clock, "DIVIDEND_REJECTED")
 
     def record_dividend_cash_credit(self, event_id, receipt_id, cash_amount, *, clock=None):
         from .offline_dividends import credit_event
         event_id, receipt_id, cash_amount = identity(event_id), identity(receipt_id), amount(cash_amount)
-        return self._run_dividend(lambda state, now: credit_event(state, event_id, receipt_id, cash_amount, now),
-            {"operation": "cash_credit", "event_id": event_id, "receipt_id": receipt_id, "cash_amount": str(cash_amount)}, clock)
+        return self._run_corporate(lambda state, now: credit_event(state, event_id, receipt_id, cash_amount, now),
+            {"operation": "cash_credit", "event_id": event_id, "receipt_id": receipt_id, "cash_amount": str(cash_amount)}, clock, "DIVIDEND_REJECTED")
 
-    def _run_dividend(self, builder, request, clock):
+    def record_conversion_entitlements(self, *, clock=None):
+        from .offline_conversions import entitlement_event
+        return self._run_corporate(entitlement_event, {"operation": "conversion_entitlement"}, clock, "CONVERSION_REJECTED")
+
+    def apply_share_conversions(self, *, clock=None):
+        from .offline_conversions import conversion_event
+        return self._run_corporate(conversion_event, {"operation": "share_conversion"}, clock, "CONVERSION_REJECTED")
+
+    def _run_corporate(self, builder, request, clock, rejection_kind):
         from .offline_intent_contract import instant
         clock = clock or (lambda: datetime.now(timezone.utc))
 
@@ -345,7 +363,7 @@ class OfflineOrderJournal:
             now = instant(clock())
             request["decision_at"] = now.isoformat()
             return builder(state, now)
-        return self._run(build, request, rejection_kind="DIVIDEND_REJECTED")
+        return self._run(build, request, rejection_kind=rejection_kind)
 
     def report_status(self, order_id, report_id, status, cumulative_quantity):
         if not isinstance(status, str) or status not in {"ACCEPTED", "CANCELLED", "REJECTED", "UNKNOWN"}:

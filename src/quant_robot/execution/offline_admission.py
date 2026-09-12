@@ -46,7 +46,9 @@ def _check_context(state, packet, now, *, opening=False):
 @money_context
 def _marks(policy, packet, now, required, *, state=None):
     if state is not None:
+        from .offline_conversions import check_conversion_state
         from .offline_dividends import check_dividend_basis
+        check_conversion_state(state, packet, now, required)
         check_dividend_basis(state, packet, now, required)
     if not set(required).issubset(packet["quotes"]):
         deny("missing quote for order or portfolio risk")
@@ -85,6 +87,8 @@ def begin_session_event(state, packet, now):
             deny("liquidity evidence must use recent completed sessions")
     if any(qty > state["positions"].get(code, 0) for code, qty in packet["sellable_positions"].items()):
         deny("opening sellable position exceeds holdings")
+    from .offline_conversions import opening_conversion_locks
+    released_locks = opening_conversion_locks(state, packet)
     held = {key for key, qty in state["positions"].items() if qty}
     if not held.issubset(policy["allowed_symbols"]):
         deny("holding outside configured universe")
@@ -94,7 +98,7 @@ def begin_session_event(state, packet, now):
         deny("nonpositive opening equity")
     return {"kind": "RISK_SESSION", "data": {**packet, "decision_at": now.isoformat(),
         "opening_equity": str(equity), "opening_positions": dict(state["positions"]), "risk_stop": False,
-        "carryover_fill_shares": {}}}
+        "carryover_fill_shares": {}, "released_conversion_locks": released_locks}}
 
 
 def _check_intent(state, order, packet, policy, now):
@@ -124,6 +128,8 @@ def _check_intent(state, order, packet, policy, now):
 @money_context
 def _check_instrument(state, order, packet, policy):
     code, qty = order["symbol"], order["quantity"]
+    if code in state["conversions"]["locks"]:
+        deny("converted instrument remains locked until an eligible opening snapshot")
     metadata = state["risk_session"]["instruments"][code]
     price, quote = Decimal(order["limit_price"]), packet["quotes"][code]
     if quote["trade_status"] != "TRADING":
