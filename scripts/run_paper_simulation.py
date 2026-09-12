@@ -21,6 +21,7 @@ from quant_robot.ops.factor_batch_readiness_gate import validate_factor_batch_re
 from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet
 from quant_robot.paper.simulator import PaperSimulationConfig, run_paper_simulation, write_paper_simulation_artifacts
 from quant_robot.storage.processed_bars import load_processed_bars
+from quant_robot.research.cn_etf_entrypoint_access import require_registered_cn_etf_entrypoint
 
 DEFAULT_MARKETS = ("CN", "CN_ETF", "HK", "US", "CRYPTO")
 
@@ -64,6 +65,7 @@ def run_simulation(
     minimum_commission: float = 0.0,
     corporate_actions_path: str | Path | None = None,
 ) -> dict[str, Any]:
+    require_registered_cn_etf_entrypoint(source, market)
     _enforce_cn_stock_paper_simulation_inputs(
         source=source,
         market=market,
@@ -210,6 +212,7 @@ def main() -> None:
 
 
 def _load_bars(source: str, data_root: Path, market: str) -> pd.DataFrame:
+    require_registered_cn_etf_entrypoint(source, market)
     if source == "fixture":
         return load_demo_market_bars()
     if source != "processed-bars":

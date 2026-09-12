@@ -20,6 +20,7 @@ from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manife
 from quant_robot.ops.factor_batch_readiness_gate import validate_factor_batch_readiness_gate_packet
 from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet
 from quant_robot.ops.factor_validation_readiness import validate_factor_validation_readiness_packet
+from quant_robot.research.cn_etf_entrypoint_access import require_registered_cn_etf_markets
 from quant_robot.storage.authority_bars import load_authority_processed_bars_from_config
 from quant_robot.storage.processed_bars import load_processed_bars
 from quant_robot.validation.walk_forward import load_walk_forward_config, run_walk_forward_validation
@@ -39,6 +40,7 @@ def run_walk_forward(
     allow_review_required_data_manifest: bool = False,
 ) -> dict[str, object]:
     config = load_walk_forward_config(config_path)
+    require_registered_cn_etf_markets(source, config.experiment_grid.markets)
     if output_dir is not None:
         config = replace(config, output_dir=Path(output_dir))
     experiment_grid = _attach_processed_cn_etf_rotation_membership(config.experiment_grid, source, Path(data_root))
@@ -130,6 +132,7 @@ def _has_failed_grid_status(row: dict[str, object]) -> bool:
 
 
 def _load_bars(source: str, data_root: Path, markets: tuple[str, ...]) -> pd.DataFrame:
+    require_registered_cn_etf_markets(source, markets)
     if source == "fixture":
         return load_demo_market_bars()
     if source == "authority-bars":

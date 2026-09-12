@@ -23,6 +23,7 @@ from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_
 from quant_robot.portfolio.rebalance import build_rebalance_plan
 from quant_robot.signals.pipeline import SignalPipelineConfig, generate_signal_snapshot, write_signal_snapshot
 from quant_robot.storage.processed_bars import load_processed_bars
+from quant_robot.research.cn_etf_entrypoint_access import require_registered_cn_etf_entrypoint
 
 DEFAULT_MARKETS = ("CN", "CN_ETF", "HK", "US", "CRYPTO")
 
@@ -52,6 +53,7 @@ def run_signal_snapshot(
     ),
     allow_review_required_data_manifest: bool = False,
 ) -> dict[str, Any]:
+    require_registered_cn_etf_entrypoint(source, market)
     _enforce_cn_stock_signal_snapshot_inputs(
         source=source,
         market=market,
@@ -183,6 +185,7 @@ def _attach_processed_cn_etf_rotation_membership(
 
 
 def _load_bars(source: str, data_root: Path, market: str) -> pd.DataFrame:
+    require_registered_cn_etf_entrypoint(source, market)
     if source == "fixture":
         return load_demo_market_bars()
     if source != "processed-bars":
