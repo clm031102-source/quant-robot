@@ -37,6 +37,22 @@ def _event(kind, data, receipt_key=None):
 
 class OfflineOrderJournal:
     @classmethod
+    def inspect_snapshot(cls, path):
+        """Verify and read a committed synthetic snapshot without order recovery.
+
+        This is an inspection at the returned sequence/hash, not a promise that
+        another writer cannot subsequently advance the journal.
+        """
+        reader = cls.__new__(cls)
+        reader._db = sqlite3.connect(Path(path).resolve().as_uri() + "?mode=ro", uri=True)
+        try:
+            if reader._db.execute("PRAGMA user_version").fetchone()[0] != 1:
+                raise ValueError("unsupported offline journal schema")
+            return reader.snapshot()
+        finally:
+            reader.close()
+
+    @classmethod
     def inspect_configuration(cls, path):
         """Read frozen synthetic rules without triggering order recovery."""
         reader = cls.__new__(cls)
