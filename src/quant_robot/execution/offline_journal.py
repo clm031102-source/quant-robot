@@ -379,7 +379,8 @@ class OfflineOrderJournal:
             if self._duplicate(state, receipt, data):
                 return None
             order = self._order(state, order_id)
-            deferred = sum(row["quantity"] for row in state["conversions"]["unapplied_fills"].values() if row["order_id"] == order_id)
+            deferred = sum(row["quantity"] for key, row in state["conversions"]["unapplied_fills"].items()
+                if key not in state["conversions"]["accounted_fills"] and row["order_id"] == order_id)
             if order["filled_quantity"] + deferred + quantity > order["quantity"]:
                 raise _Quarantine("fill exceeds order quantity")
             from .offline_conversions import has_converted_order_basis
@@ -463,6 +464,15 @@ class OfflineOrderJournal:
         return self._run(lambda state: revision_event(state, packet, clock(), lambda: self._read_evidence(state)),
             {"operation": "dividend_revision", "revision_id": packet["revision_id"], "facts_fingerprint": fingerprint(packet)},
             rejection_kind="DIVIDEND_REJECTED")
+
+    def resolve_conversion_fills(self, facts, *, clock=None):
+        from .offline_conversion_revisions import normalize_facts, resolution_event
+        from .offline_intent_contract import fingerprint
+        packet = normalize_facts(facts)
+        clock = clock or (lambda: datetime.now(timezone.utc))
+        return self._run(lambda state: resolution_event(state, packet, clock(), lambda: self._read_evidence(state)),
+            {"operation": "conversion_resolution", "revision_id": packet["revision_id"], "facts_fingerprint": fingerprint(packet)},
+            rejection_kind="CONVERSION_REJECTED")
 
     def record_dividend_cash_refund(self, event_id, receipt_id, cash_amount, *, expected_revision_id, clock=None):
         from .offline_dividend_revisions import refund_event

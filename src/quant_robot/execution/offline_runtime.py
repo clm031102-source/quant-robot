@@ -115,6 +115,7 @@ class OfflineRuntime:
             "dividend_credit": {"event_id", "receipt_id", "cash_amount"},
             "dividend_installment": {"event_id", "receipt_id", "cash_amount"},
             "dividend_revision": {"facts"},
+            "conversion_resolution": {"facts"},
             "dividend_refund": {"event_id", "receipt_id", "cash_amount", "expected_revision_id"},
             "reconcile": {"snapshot_id", "expected_sequence", "cash", "positions", "orders"}}
         if not isinstance(kind, str) or kind not in fields:
@@ -126,6 +127,7 @@ class OfflineRuntime:
         if kind == "dividend_credit": return self.book.record_dividend_cash_credit(**args, clock=self.clock)
         if kind == "dividend_installment": return self.book.record_dividend_cash_installment(**args, clock=self.clock)
         if kind == "dividend_revision": return self.book.revise_dividend_entitlement(**args, clock=self.clock)
+        if kind == "conversion_resolution": return self.book.resolve_conversion_fills(**args, clock=self.clock)
         if kind == "dividend_refund": return self.book.record_dividend_cash_refund(**args, clock=self.clock)
         return self.book.reconcile(**args)
 

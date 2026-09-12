@@ -96,9 +96,11 @@ def begin_session_event(state, packet, now):
     equity = state["cash"] + dividend_receivable(state) - dividend_payable(state) + sum((qty * marks[key] for key, qty in state["positions"].items() if qty), ZERO)
     if equity <= 0:
         deny("nonpositive opening equity")
+    from .offline_conversion_revisions import opening_participation
+    carryover, consumed = opening_participation(state, packet["session_date"])
     return {"kind": "RISK_SESSION", "data": {**packet, "decision_at": now.isoformat(),
         "opening_equity": str(equity), "opening_positions": dict(state["positions"]), "risk_stop": False,
-        "carryover_fill_shares": {}, "released_conversion_locks": released_locks,
+        "carryover_fill_shares": carryover, "consumed_conversion_participation": consumed, "released_conversion_locks": released_locks,
         "opening_dividend_adjustment_total": state["dividends"]["posted_adjustment_total"]}}
 
 

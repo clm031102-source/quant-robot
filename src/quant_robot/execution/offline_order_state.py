@@ -199,7 +199,7 @@ def apply_event(state, event):
                 "payables": {}, "reviewed_receipts": {}, "posted_adjustment_total": "0"},
             conversion_policy=data.get("conversion_policy"), conversion_policy_fingerprint=data.get("conversion_policy_fingerprint"),
             conversions={"entitlements": {}, "applied": {}, "locks": {}, "released": set(), "unapplied_fills": {},
-                "last_transition_at": None, "last_rejection": None},
+                "last_transition_at": None, "last_rejection": None, "revisions": {}, "accounted_fills": {}, "participation": {}},
             price_basis={}, price_basis_events={}, corporate_last_transition_at=None,
             risk_session=None, sellable_positions={}, attempted_intent_ids=set(), attempted_idempotency_keys=set(),
             attempted_dispatch_ids=set())
@@ -217,6 +217,8 @@ def apply_event(state, event):
         for code in data.get("released_conversion_locks", []):
             lock = state["conversions"]["locks"].pop(code)
             state["conversions"]["released"].add(lock["event_id"])
+        for key in data.get("consumed_conversion_participation", []):
+            state["conversions"]["participation"][key]["consumed_session"] = data["session_date"]
     elif kind == "PORTFOLIO_VALUATION":
         state["portfolio_valuation"].update(last_valid={**data, "event_sequence": state["sequence"] + 1}, unavailable=False)
         state["risk_session"]["valuation_peak_equity"] = data["book_equity_peak"]
@@ -267,6 +269,9 @@ def apply_event(state, event):
         state["conversions"]["unapplied_fills"][data["fill_id"]] = dict(data)
         state["faults"].add(CONVERSION_UNCERTAIN)
         _mark_entitlement_uncertainty(state, state["orders"][data["order_id"]])
+    elif kind == "CONVERSION_FILL_RESOLUTION":
+        from .offline_conversion_revisions import apply_resolution
+        apply_resolution(state, data)
     elif kind == "CONVERSION_REJECTED":
         state["conversions"]["last_rejection"] = dict(data)
     elif kind in {"ADMISSION_DENIED", "DISPATCH_DENIED"}:
@@ -323,7 +328,7 @@ def apply_event(state, event):
     if "receipt_key" in event:
         state["receipts"][event["receipt_key"]] = data
     if kind in {"DIVIDEND_ENTITLEMENTS", "DIVIDEND_ACCRUAL", "DIVIDEND_CASH_CREDIT", "DIVIDEND_CASH_INSTALLMENT",
-            "DIVIDEND_CASH_REFUND", "DIVIDEND_ENTITLEMENT_REVISION", "CONVERSION_ENTITLEMENTS", "SHARE_CONVERSIONS"}:
+            "DIVIDEND_CASH_REFUND", "DIVIDEND_ENTITLEMENT_REVISION", "CONVERSION_ENTITLEMENTS", "SHARE_CONVERSIONS", "CONVERSION_FILL_RESOLUTION"}:
         state["corporate_last_transition_at"] = data["decision_at"]
 
 
@@ -383,7 +388,9 @@ def public_snapshot(state):
         "dividend_policy_fingerprint": state["dividend_policy_fingerprint"],
         "conversion_policy_fingerprint": state["conversion_policy_fingerprint"],
         "price_basis": dict(state["price_basis"]),
-        "conversions": {**state["conversions"], "released": sorted(state["conversions"]["released"])},
+        "conversions": {**state["conversions"], "released": sorted(state["conversions"]["released"]),
+            "unresolved_fills": {key: row for key, row in state["conversions"]["unapplied_fills"].items()
+                if key not in state["conversions"]["accounted_fills"]}},
         "dividends": {**state["dividends"], "accrued": sorted(state["dividends"]["accrued"]),
             "paid": sorted(state["dividends"]["paid"]), "receivable_total": str(dividend_receivable(state)), "payable_total": str(dividend_payable(state))},
         "risk_session": state["risk_session"],

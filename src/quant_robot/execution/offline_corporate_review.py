@@ -28,7 +28,7 @@ def _capture(events, kind, action_id):
 
 def _action_events(events, action_id, kind):
     kinds = {"DIVIDEND_ENTITLEMENTS", "DIVIDEND_ACCRUAL", "DIVIDEND_CASH_CREDIT", "DIVIDEND_CASH_INSTALLMENT",
-        "DIVIDEND_ENTITLEMENT_REVISION", "DIVIDEND_CASH_REFUND"} if kind == "dividend" else {"CONVERSION_ENTITLEMENTS", "SHARE_CONVERSIONS"}
+        "DIVIDEND_ENTITLEMENT_REVISION", "DIVIDEND_CASH_REFUND"} if kind == "dividend" else {"CONVERSION_ENTITLEMENTS", "SHARE_CONVERSIONS", "CONVERSION_FILL_RESOLUTION"}
     result = []
     for row in events:
         event, data = row["event"], row["event"]["data"]
@@ -58,8 +58,10 @@ def _candidates(events, snapshot, rule, capture):
         session = (order.get("admission") or {}).get("session_date")
         if session is not None and session > rule["record_date"]:
             continue
+        accounted = snapshot["conversions"]["accounted_fills"].get(payload["fill_id"])
         result.append({**_reference(row), "kind": event["kind"], "payload": payload,
-            "order_admission_session": session, "applied_to_book": event["kind"] == "FILL",
+            "order_admission_session": session, "applied_to_book": event["kind"] == "FILL" or accounted is not None,
+            "assumed_conversion_resolution": accounted,
             "association": "possible_under_recorded_order_session_rule",
             "execution_attribution_confirmed": False, "actual_execution_at": None,
             "journal_time_is_execution_time": False})
@@ -101,12 +103,17 @@ def build_corporate_action_review(path, *, max_events=10_000, max_payload_bytes=
             else:
                 lock = snapshot[section]["locks"].get(code)
                 row.update(applied_conversion=snapshot[section]["applied"].get(action_id),
+                    effective_conversion=snapshot[section]["revisions"].get(action_id, snapshot[section]["applied"].get(action_id)),
+                    assumed_fixture_revision=snapshot[section]["revisions"].get(action_id), revision_source_authenticated=False,
+                    accounted_fills={key: value for key, value in snapshot[section]["accounted_fills"].items() if value["event_id"] == action_id},
+                    participation={key: value for key, value in snapshot[section]["participation"].items() if value["event_id"] == action_id},
                     lock=lock if lock and lock["event_id"] == action_id else None,
                     released=action_id in snapshot[section]["released"],
                     unapplied_fill_scope="all_unapplied_for_symbol_not_confirmed_action_attribution",
-                    unapplied_fills={key: value for key, value in snapshot[section]["unapplied_fills"].items()
+                    unapplied_fills={key: value for key, value in snapshot[section]["unresolved_fills"].items()
                         if snapshot["orders"][value["order_id"]]["symbol"] == code})
-            item_count += 1 + len(candidates) + len(row["recorded_action_events"]) + len(row["active_orders"]) + len(row.get("unapplied_fills", {}))
+            item_count += (1 + len(candidates) + len(row["recorded_action_events"]) + len(row["active_orders"])
+                + len(row.get("unapplied_fills", {})) + len(row.get("accounted_fills", {})) + len(row.get("participation", {})))
             if item_count > MAX_REVIEW_ITEMS:
                 raise ValueError("review exceeds relationship limit; no partial evidence returned")
             actions.append(row)
@@ -128,7 +135,8 @@ def build_corporate_action_review(path, *, max_events=10_000, max_payload_bytes=
         "account": {key: snapshot[key] for key in ("cash", "positions", "reserved_cash", "reserved_positions", "available_cash",
             "dividend_refund_cash_reserve", "paused", "kill_switch", "faults")},
         "price_basis": snapshot["price_basis"], "actions": actions,
-        "unapplied_fills": snapshot["conversions"]["unapplied_fills"],
+        "unapplied_fills": snapshot["conversions"]["unresolved_fills"],
+        "retained_conversion_fill_receipts": snapshot["conversions"]["unapplied_fills"],
         "limitations": ["recorded synthetic book only, not authenticated account data", "candidate links do not establish execution time or cause",
             "one receipt may be a candidate for multiple actions; do not sum hypothetical corrections",
             "absence of a recorded fault does not certify complete rights or sources", "another writer can advance the journal after this view"]}
