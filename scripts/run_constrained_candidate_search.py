@@ -91,6 +91,15 @@ def load_constrained_candidate_search_config(path: str | Path = DEFAULT_CONFIG) 
 
 def run_constrained_candidate_search(config_path: str | Path = DEFAULT_CONFIG) -> dict[str, Any]:
     config = load_constrained_candidate_search_config(config_path)
+    if config.reuse_existing_artifacts:
+        for artifact_path in (
+            config.walk_forward_output_dir / "manifest.json",
+            config.paper_batch_output_dir / "paper_batch_summary.json",
+            config.promotion_output_dir / "promotion_report.json",
+            config.risk_candidate_output_dir / "risk_candidate_pack.json",
+        ):
+            if artifact_path.exists():
+                _reject_unbound_candidate_artifact(artifact_path)
     walk_forward = _reuse_or_run(
         config.reuse_existing_artifacts,
         config.walk_forward_output_dir / "manifest.json",
@@ -412,11 +421,20 @@ def _frontier_candidates(risk_candidates: dict[str, Any]) -> list[dict[str, Any]
 
 def _reuse_or_run(reuse_existing: bool, artifact_path: Path, runner: Any) -> dict[str, Any]:
     if reuse_existing and artifact_path.exists():
-        return _read_json(artifact_path)
+        _reject_unbound_candidate_artifact(artifact_path)
     result = runner()
     if not isinstance(result, dict):
         raise ValueError(f"Pipeline stage returned non-object result for {artifact_path}")
     return result
+
+
+def _reject_unbound_candidate_artifact(artifact_path: Path) -> None:
+    raise ValueError(
+        f"Unbound candidate artifact reuse is not allowed: {artifact_path}. "
+        "This generic pipeline cannot verify the artifact against current inputs, policy, "
+        "source, preregistration and research/holdout authorization. "
+        "A fresh run still requires its own authorized research entrypoint."
+    )
 
 
 def _read_json(path: Path) -> dict[str, Any]:
