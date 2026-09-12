@@ -5,7 +5,7 @@ from datetime import datetime, time
 from decimal import Decimal
 
 from .offline_intent_contract import SHANGHAI, day, instant
-from .offline_order_state import ACTIVE, VALUATION_UNAVAILABLE, AdmissionRejected, ZERO, dividend_receivable, money_context, reservations
+from .offline_order_state import ACTIVE, VALUATION_UNAVAILABLE, AdmissionRejected, ZERO, dividend_receivable, dividend_payable, money_context, reservations
 from .offline_portfolio_risk import portfolio_totals
 
 
@@ -93,12 +93,13 @@ def begin_session_event(state, packet, now):
     if not held.issubset(policy["allowed_symbols"]):
         deny("holding outside configured universe")
     marks = _marks(policy, packet, now, held, state=state)
-    equity = state["cash"] + dividend_receivable(state) + sum((qty * marks[key] for key, qty in state["positions"].items() if qty), ZERO)
+    equity = state["cash"] + dividend_receivable(state) - dividend_payable(state) + sum((qty * marks[key] for key, qty in state["positions"].items() if qty), ZERO)
     if equity <= 0:
         deny("nonpositive opening equity")
     return {"kind": "RISK_SESSION", "data": {**packet, "decision_at": now.isoformat(),
         "opening_equity": str(equity), "opening_positions": dict(state["positions"]), "risk_stop": False,
-        "carryover_fill_shares": {}, "released_conversion_locks": released_locks}}
+        "carryover_fill_shares": {}, "released_conversion_locks": released_locks,
+        "opening_dividend_adjustment_total": state["dividends"]["posted_adjustment_total"]}}
 
 
 def _check_intent(state, order, packet, policy, now):

@@ -113,9 +113,10 @@ def reservations(state):
     return cash, shares
 
 
+@money_context
 def risk_deficit(state) -> bool:
     cash, shares = reservations(state)
-    return (state["cash"] < cash or any(qty < 0 for qty in state["positions"].values())
+    return (state["cash"] < cash + dividend_payable(state) or any(qty < 0 for qty in state["positions"].values())
         or any(qty > state["positions"].get(key, 0) for key, qty in shares.items())
         or (state.get("risk_session") is not None and (any(qty < 0 for qty in state["sellable_positions"].values())
             or any(qty > state["sellable_positions"].get(key, 0) for key, qty in shares.items()))))
@@ -124,6 +125,44 @@ def risk_deficit(state) -> bool:
 @money_context
 def dividend_receivable(state):
     return sum((Decimal(value) for value in state["dividends"]["receivables"].values()), ZERO)
+
+
+@money_context
+def dividend_payable(state):
+    return sum((Decimal(value) for value in state["dividends"].get("payables", {}).values()), ZERO)
+
+
+def effective_dividend_entitlement(state, action_id):
+    return state["dividends"]["revisions"].get(action_id, state["dividends"]["entitlements"][action_id])
+
+
+def _refresh_dividend_balance(state, action_id):
+    dividends = state["dividends"]
+    if action_id not in dividends["accrued"]:
+        return
+    remaining = Decimal(effective_dividend_entitlement(state, action_id)["net_amount"]) - Decimal(dividends["settled_net"].get(action_id, "0"))
+    dividends["receivables"].pop(action_id, None); dividends["payables"].pop(action_id, None)
+    dividends["paid"].discard(action_id)
+    if remaining > 0:
+        dividends["receivables"][action_id] = str(remaining)
+    elif remaining < 0:
+        dividends["payables"][action_id] = str(-remaining)
+    elif action_id in dividends["settled_net"]:
+        dividends["paid"].add(action_id)
+
+
+def _apply_dividend_revision(state, data):
+    dividends, action_id = state["dividends"], data["event_id"]
+    dividends["revisions"][action_id] = {key: data[key] for key in ("revision_id", "symbol", "quantity", "net_amount",
+        "net_adjustment", "posted_adjustment", "facts_fingerprint", "decision_at")}
+    dividends["reviewed_receipts"][action_id] = dict(data["reviewed_receipts"])
+    dividends["posted_adjustment_total"] = str(Decimal(dividends["posted_adjustment_total"]) + Decimal(data["posted_adjustment"]))
+    _refresh_dividend_balance(state, action_id)
+    dividends["last_transition_at"] = data["decision_at"]
+    if data["clears_dividend_review_fault"]:
+        state["faults"].discard(DIVIDEND_ENTITLEMENT_UNCERTAIN)
+    if risk_deficit(state):
+        state["faults"].add("account_or_reservation_deficit")
 
 
 def _record_price_basis(state, code, event_ref):
@@ -156,7 +195,8 @@ def apply_event(state, event):
             portfolio_valuation={"last_valid": None, "last_rejection": None, "unavailable": False},
             dividend_policy=data.get("dividend_policy"), dividend_policy_fingerprint=data.get("dividend_policy_fingerprint"),
             dividends={"entitlements": {}, "receivables": {}, "accrued": set(), "paid": set(), "price_basis": {},
-                "last_transition_at": None, "last_rejection": None},
+                "last_transition_at": None, "last_rejection": None, "revisions": {}, "settled_net": {},
+                "payables": {}, "reviewed_receipts": {}, "posted_adjustment_total": "0"},
             conversion_policy=data.get("conversion_policy"), conversion_policy_fingerprint=data.get("conversion_policy_fingerprint"),
             conversions={"entitlements": {}, "applied": {}, "locks": {}, "released": set(), "unapplied_fills": {},
                 "last_transition_at": None, "last_rejection": None},
@@ -193,21 +233,22 @@ def apply_event(state, event):
         state["dividends"]["last_transition_at"] = data["decision_at"]
     elif kind == "DIVIDEND_ACCRUAL":
         for key in data["event_ids"]:
-            entitlement = state["dividends"]["entitlements"][key]
+            entitlement = effective_dividend_entitlement(state, key)
             state["dividends"]["receivables"][key] = entitlement["net_amount"]
             state["dividends"]["accrued"].add(key)
             state["dividends"]["price_basis"][entitlement["symbol"]] = "cash_dividend:" + key
             _record_price_basis(state, entitlement["symbol"], "cash_dividend:" + key)
         state["dividends"]["last_transition_at"] = data["decision_at"]
-    elif kind in {"DIVIDEND_CASH_CREDIT", "DIVIDEND_CASH_INSTALLMENT"}:
+    elif kind in {"DIVIDEND_CASH_CREDIT", "DIVIDEND_CASH_INSTALLMENT", "DIVIDEND_CASH_REFUND"}:
         state["cash"] += Decimal(data["cash_amount"])
-        remaining = Decimal(state["dividends"]["receivables"][data["event_id"]]) - Decimal(data["cash_amount"])
-        if kind == "DIVIDEND_CASH_INSTALLMENT" and remaining > 0:
-            state["dividends"]["receivables"][data["event_id"]] = str(remaining)
-        else:
-            state["dividends"]["receivables"].pop(data["event_id"])
-            state["dividends"]["paid"].add(data["event_id"])
+        settled = state["dividends"]["settled_net"]
+        settled[data["event_id"]] = str(Decimal(settled.get(data["event_id"], "0")) + Decimal(data["cash_amount"]))
+        _refresh_dividend_balance(state, data["event_id"])
         state["dividends"]["last_transition_at"] = data["decision_at"]
+        if kind == "DIVIDEND_CASH_REFUND" and risk_deficit(state):
+            state["faults"].add("account_or_reservation_deficit")
+    elif kind == "DIVIDEND_ENTITLEMENT_REVISION":
+        _apply_dividend_revision(state, data)
     elif kind == "DIVIDEND_REJECTED":
         state["dividends"]["last_rejection"] = dict(data)
     elif kind == "CONVERSION_ENTITLEMENTS":
@@ -281,7 +322,8 @@ def apply_event(state, event):
         raise ValueError("unknown journal event")
     if "receipt_key" in event:
         state["receipts"][event["receipt_key"]] = data
-    if kind in {"DIVIDEND_ENTITLEMENTS", "DIVIDEND_ACCRUAL", "DIVIDEND_CASH_CREDIT", "DIVIDEND_CASH_INSTALLMENT", "CONVERSION_ENTITLEMENTS", "SHARE_CONVERSIONS"}:
+    if kind in {"DIVIDEND_ENTITLEMENTS", "DIVIDEND_ACCRUAL", "DIVIDEND_CASH_CREDIT", "DIVIDEND_CASH_INSTALLMENT",
+            "DIVIDEND_CASH_REFUND", "DIVIDEND_ENTITLEMENT_REVISION", "CONVERSION_ENTITLEMENTS", "SHARE_CONVERSIONS"}:
         state["corporate_last_transition_at"] = data["decision_at"]
 
 
@@ -330,7 +372,8 @@ def public_snapshot(state):
     return {"schema_version": 1, "mode": "offline_fixture_only", "executable": False,
         "sequence": state["sequence"], "journal_hash": state["journal_hash"],
         "cash": str(state["cash"]), "reserved_cash": str(cash),
-        "available_cash": str(max(ZERO, state["cash"] - cash)),
+        "available_cash": str(max(ZERO, state["cash"] - cash - dividend_payable(state))),
+        "dividend_refund_cash_reserve": str(dividend_payable(state)),
         "positions": {key: qty for key, qty in state["positions"].items() if qty},
         "reserved_positions": shares,
         "available_positions": {key: max(0, min(qty, sellable.get(key, 0)) - shares.get(key, 0)) for key, qty in state["positions"].items() if qty},
@@ -342,7 +385,7 @@ def public_snapshot(state):
         "price_basis": dict(state["price_basis"]),
         "conversions": {**state["conversions"], "released": sorted(state["conversions"]["released"])},
         "dividends": {**state["dividends"], "accrued": sorted(state["dividends"]["accrued"]),
-            "paid": sorted(state["dividends"]["paid"]), "receivable_total": str(dividend_receivable(state))},
+            "paid": sorted(state["dividends"]["paid"]), "receivable_total": str(dividend_receivable(state)), "payable_total": str(dividend_payable(state))},
         "risk_session": state["risk_session"],
         "portfolio_valuation": {**state["portfolio_valuation"], "matches_current_journal":
             (state["portfolio_valuation"]["last_valid"] or {}).get("event_sequence") == state["sequence"]},

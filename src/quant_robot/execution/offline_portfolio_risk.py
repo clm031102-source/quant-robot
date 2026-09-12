@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from .offline_order_state import ACTIVE, ZERO, commission, dividend_receivable, money_context
+from .offline_order_state import ACTIVE, ZERO, commission, dividend_receivable, dividend_payable, money_context
 
 
 @money_context
@@ -22,7 +22,9 @@ def portfolio_totals(state, marks, additional_orders=()):
         else:
             pending_cost += qty * max(ZERO, marks[key] - price)
     receivable = dividend_receivable(state)
-    equity = state["cash"] + receivable + sum((qty * marks[key] for key, qty in state["positions"].items() if qty), ZERO)
+    payable = dividend_payable(state)
+    equity = state["cash"] + receivable - payable + sum((qty * marks[key] for key, qty in state["positions"].items() if qty), ZERO)
     return {"equity": equity, "exposure": exposure, "gross": sum(exposure.values(), ZERO),
-        "pending_cost": pending_cost, "dividend_receivable": receivable,
+        "pending_cost": pending_cost, "dividend_receivable": receivable, "dividend_payable": payable,
+        "dividend_adjustment_since_open": Decimal(state["dividends"]["posted_adjustment_total"]) - Decimal(state["risk_session"].get("opening_dividend_adjustment_total", "0")),
         "projected_loss": Decimal(state["risk_session"]["opening_equity"]) - equity + pending_cost}

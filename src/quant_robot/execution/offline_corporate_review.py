@@ -27,7 +27,8 @@ def _capture(events, kind, action_id):
 
 
 def _action_events(events, action_id, kind):
-    kinds = {"DIVIDEND_ENTITLEMENTS", "DIVIDEND_ACCRUAL", "DIVIDEND_CASH_CREDIT", "DIVIDEND_CASH_INSTALLMENT"} if kind == "dividend" else {"CONVERSION_ENTITLEMENTS", "SHARE_CONVERSIONS"}
+    kinds = {"DIVIDEND_ENTITLEMENTS", "DIVIDEND_ACCRUAL", "DIVIDEND_CASH_CREDIT", "DIVIDEND_CASH_INSTALLMENT",
+        "DIVIDEND_ENTITLEMENT_REVISION", "DIVIDEND_CASH_REFUND"} if kind == "dividend" else {"CONVERSION_ENTITLEMENTS", "SHARE_CONVERSIONS"}
     result = []
     for row in events:
         event, data = row["event"], row["event"]["data"]
@@ -93,7 +94,10 @@ def build_corporate_action_review(path, *, max_events=10_000, max_payload_bytes=
                 "correction_proposed": False}
             if kind == "dividend":
                 row.update(accrued=action_id in snapshot[section]["accrued"], paid=action_id in snapshot[section]["paid"],
-                    receivable=snapshot[section]["receivables"].get(action_id))
+                    receivable=snapshot[section]["receivables"].get(action_id), payable=snapshot[section]["payables"].get(action_id),
+                    settled_net=snapshot[section]["settled_net"].get(action_id, "0"),
+                    effective_entitlement=snapshot[section]["revisions"].get(action_id, entitlement),
+                    assumed_fixture_revision=snapshot[section]["revisions"].get(action_id), revision_source_authenticated=False)
             else:
                 lock = snapshot[section]["locks"].get(code)
                 row.update(applied_conversion=snapshot[section]["applied"].get(action_id),
@@ -121,7 +125,8 @@ def build_corporate_action_review(path, *, max_events=10_000, max_payload_bytes=
         "source_event_count": evidence["source_event_count"], "source_payload_bytes": evidence["source_payload_bytes"],
         "execution_supplement": supplement,
         "review_item_count": item_count, "review_item_limit": MAX_REVIEW_ITEMS,
-        "account": {key: snapshot[key] for key in ("cash", "positions", "reserved_cash", "reserved_positions", "paused", "kill_switch", "faults")},
+        "account": {key: snapshot[key] for key in ("cash", "positions", "reserved_cash", "reserved_positions", "available_cash",
+            "dividend_refund_cash_reserve", "paused", "kill_switch", "faults")},
         "price_basis": snapshot["price_basis"], "actions": actions,
         "unapplied_fills": snapshot["conversions"]["unapplied_fills"],
         "limitations": ["recorded synthetic book only, not authenticated account data", "candidate links do not establish execution time or cause",

@@ -18,7 +18,7 @@ import sqlite3
 
 from .offline_order_state import (
     ACTIVE, TERMINAL, AdmissionRejected, amount, apply_event, identity, positions, public_snapshot,
-    reservations, risk_deficit, units,
+    reservations, risk_deficit, units, dividend_payable, money_context,
 )
 from .offline_history import mutable_copy, mutable_order, seal_history
 
@@ -64,20 +64,21 @@ class OfflineOrderJournal:
             reader._db.execute("BEGIN")
             if reader._db.execute("PRAGMA user_version").fetchone()[0] != 1:
                 raise ValueError("unsupported offline journal schema")
-            count, size = reader._db.execute(
-                "SELECT count(*), coalesce(sum(length(CAST(payload AS BLOB))), 0) FROM events"
-            ).fetchone()
-            if count > max_events or size > max_payload_bytes:
-                raise ValueError("journal exceeds inspection size limit; no partial evidence returned")
-            state = reader._read()
-            events = [{"sequence": seq, "journal_recorded_at": recorded, "event_hash": digest, "event": json.loads(payload)}
-                for seq, recorded, digest, payload in reader._db.execute(
-                    "SELECT sequence, created_at, event_hash, payload FROM events ORDER BY sequence")]
-            return {"snapshot": public_snapshot(state), "events": events,
-                "policies": {key: state[key] for key in ("dividend_policy", "conversion_policy")},
-                "source_event_count": count, "source_payload_bytes": size}
+            return reader._read_evidence(max_events=max_events, max_payload_bytes=max_payload_bytes)
         finally:
             reader.close()
+
+    def _read_evidence(self, state=None, *, max_events=10_000, max_payload_bytes=16_000_000):
+        # Caller owns either the inspection read transaction or command write lock.
+        count, size = self._db.execute("SELECT count(*), coalesce(sum(length(CAST(payload AS BLOB))), 0) FROM events").fetchone()
+        if count > max_events or size > max_payload_bytes:
+            raise ValueError("journal exceeds inspection size limit; no partial evidence returned")
+        state = self._read() if state is None else state
+        events = [{"sequence": seq, "journal_recorded_at": recorded, "event_hash": digest, "event": json.loads(payload)}
+            for seq, recorded, digest, payload in self._db.execute("SELECT sequence, created_at, event_hash, payload FROM events ORDER BY sequence")]
+        return {"snapshot": public_snapshot(state), "events": events,
+            "policies": {key: state[key] for key in ("dividend_policy", "conversion_policy")},
+            "source_event_count": count, "source_payload_bytes": size}
 
     @classmethod
     def inspect_configuration(cls, path):
@@ -304,6 +305,7 @@ class OfflineOrderJournal:
         return self._run(lambda state: self._registration_event(state, data), data)
 
     @staticmethod
+    @money_context
     def _registration_event(state, data, *, guarded=False):
         if state["admission_policy"] is not None and not guarded:
             raise ValueError("guarded journal requires full intent admission")
@@ -317,7 +319,7 @@ class OfflineOrderJournal:
             "attempted_idempotency_keys": set(state["attempted_idempotency_keys"])}
         apply_event(candidate, event)
         cash, shares = reservations(candidate)
-        if state["cash"] < cash:
+        if state["cash"] < cash + dividend_payable(state):
             raise ValueError("insufficient unreserved cash")
         if any(qty > state["positions"].get(key, 0) for key, qty in shares.items()):
             raise ValueError("insufficient unreserved position")
@@ -452,6 +454,23 @@ class OfflineOrderJournal:
     def record_conversion_entitlements(self, *, clock=None):
         from .offline_conversions import entitlement_event
         return self._run_corporate(entitlement_event, {"operation": "conversion_entitlement"}, clock, "CONVERSION_REJECTED")
+
+    def revise_dividend_entitlement(self, facts, *, clock=None):
+        from .offline_dividend_revisions import normalize_facts, revision_event
+        from .offline_intent_contract import fingerprint
+        packet = normalize_facts(facts)
+        clock = clock or (lambda: datetime.now(timezone.utc))
+        return self._run(lambda state: revision_event(state, packet, clock(), lambda: self._read_evidence(state)),
+            {"operation": "dividend_revision", "revision_id": packet["revision_id"], "facts_fingerprint": fingerprint(packet)},
+            rejection_kind="DIVIDEND_REJECTED")
+
+    def record_dividend_cash_refund(self, event_id, receipt_id, cash_amount, *, expected_revision_id, clock=None):
+        from .offline_dividend_revisions import refund_event
+        event_id, receipt_id = identity(event_id), identity(receipt_id)
+        value, revision = amount(cash_amount, positive=True), identity(expected_revision_id)
+        return self._run_corporate(lambda state, now: refund_event(state, event_id, receipt_id, value, revision, now),
+            {"operation": "dividend_refund", "event_id": event_id, "receipt_id": receipt_id,
+                "cash_amount": str(value), "revision_id": revision}, clock, "DIVIDEND_REJECTED")
 
     def apply_share_conversions(self, *, clock=None):
         from .offline_conversions import conversion_event

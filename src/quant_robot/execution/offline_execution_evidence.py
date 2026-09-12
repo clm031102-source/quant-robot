@@ -65,12 +65,12 @@ def _execution(value, observed, view, order):
         raise ValueError("invalid execution quantity")
     if price is not None and (not isinstance(price, str) or not re.fullmatch(r"(?:0|[1-9]\d{0,14})(?:\.\d{1,12})?", price) or Decimal(price) <= 0):
         raise ValueError("invalid execution price")
-    if value["quantity_basis"] not in ("unknown", "pre_action_shares", "post_action_shares") or value["price_basis"] not in ("unknown", "raw_execution"):
+    if value["quantity_basis"] not in ("unknown", "unconverted_shares", "pre_action_shares", "post_action_shares") or value["price_basis"] not in ("unknown", "raw_execution"):
         raise ValueError("invalid execution basis")
     action_id = value["basis_event_id"]
-    if value["quantity_basis"] == "unknown":
+    if value["quantity_basis"] in ("unknown", "unconverted_shares"):
         if action_id is not None:
-            raise ValueError("unknown units cannot assert a basis action")
+            raise ValueError("unknown or unconverted units cannot assert a basis action")
     else:
         _text(action_id, "basis action")
         rules = (view["policies"]["conversion_policy"] or {}).get("events", [])

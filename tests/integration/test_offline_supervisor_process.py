@@ -40,6 +40,8 @@ class OfflineSupervisorProcessTests(unittest.TestCase):
 
     def launch_fixture(self, body):
         children=[]
+        error_paths=[]
+        self.fixture_errors=lambda:'\n'.join(path.read_text(encoding='utf-8',errors='replace') for path in error_paths if path.exists())[-6000:]
         source="""
 import json,sys,time,os
 from quant_robot.execution.offline_runtime import OfflineRuntime
@@ -52,7 +54,10 @@ with OfflineRuntime(b['journal_path'],clock=lambda:NOW) as runtime:
     health.publish('starting')
 """+''.join('    '+line+'\n' for line in body.splitlines())
         def launch(binding):
-            child=launch_owned_python(['-c',source,json.dumps(binding)])
+            error_path=self.root/('fixture-child-'+str(len(children))+'.stderr')
+            error_paths.append(error_path)
+            with error_path.open('wb') as errors:
+                child=launch_owned_python(['-c',source,json.dumps(binding)],stderr=errors)
             children.append(child)
             return child
         def cleanup():
@@ -123,7 +128,7 @@ print(json.dumps(dict(pid=os.getpid(),nested_handle_pid=child.pid,nested=json.lo
         result=self.supervise(launch)
         state=self.snapshot()
         self.assertEqual(len(children),1)
-        self.assertEqual(result['child_returncode'],7)
+        self.assertEqual(result['child_returncode'],7,json.dumps(result)+"\n"+self.fixture_errors())
         self.assertEqual(state['orders']['one']['status'],'UNKNOWN')
         self.assertEqual(state['orders']['one']['filled_quantity'],0)
         self.assertIn('runtime_supervision_requires_review',state['faults'])
