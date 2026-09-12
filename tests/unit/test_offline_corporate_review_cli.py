@@ -8,6 +8,7 @@ import tempfile
 import unittest
 
 from quant_robot.execution.offline_journal import OfflineOrderJournal
+from tests.unit.test_offline_execution_evidence import supplement
 
 
 class OfflineCorporateReviewCliTests(unittest.TestCase):
@@ -77,6 +78,38 @@ class OfflineCorporateReviewCliTests(unittest.TestCase):
         self.assertIn('output byte limit',result.stderr)
         self.assertEqual(output.read_text(encoding='utf-8'),'previous report')
         self.assertEqual(list(self.directory.glob('.review.*.json')),[])
+        self.assertEqual(self.path.read_bytes(),self.before)
+
+    def source(self):
+        with OfflineOrderJournal(self.path) as book:book.fill('one','fill1',40,'4')
+        self.before=self.path.read_bytes()
+        source=self.directory/'source.json'
+        source.write_text(json.dumps(supplement(OfflineOrderJournal.inspect_evidence(self.path))),encoding='utf-8')
+        return source
+
+    def test_cli_attaches_bounded_assertions_and_preserves_both_inputs(self):
+        source=self.source();before=source.read_bytes();output=self.directory/'review.json'
+        result=self.run_cli(output,'--execution-evidence',str(source))
+        self.assertEqual(result.returncode,0,result.stderr)
+        packet=json.loads(output.read_text(encoding='utf-8'))
+        self.assertTrue(packet['execution_supplement']['journal_and_receipt_binding_verified'])
+        self.assertFalse(packet['execution_supplement']['source_authenticated'])
+        self.assertEqual(source.read_bytes(),before);self.assertEqual(self.path.read_bytes(),self.before)
+
+    def test_output_cannot_replace_execution_evidence_or_its_alias(self):
+        source=self.source();before=source.read_bytes();alias=self.directory/'alias.json';os.link(source,alias)
+        for output in (source,alias):
+            result=self.run_cli(output,'--execution-evidence',str(source))
+            self.assertNotEqual(result.returncode,0);self.assertIn('must not replace or alias',result.stderr)
+        self.assertEqual(source.read_bytes(),before);self.assertEqual(self.path.read_bytes(),self.before)
+
+    def test_invalid_or_stale_execution_evidence_preserves_previous_report(self):
+        source=self.source();packet=json.loads(source.read_text());packet['journal']['sequence']+=1
+        output=self.directory/'review.json';output.write_text('previous',encoding='utf-8')
+        for content in ('null','{"x":NaN}',json.dumps(packet)):
+            source.write_text(content,encoding='utf-8');result=self.run_cli(output,'--execution-evidence',str(source))
+            self.assertNotEqual(result.returncode,0);self.assertNotIn('Traceback',result.stderr)
+            self.assertEqual(output.read_text(encoding='utf-8'),'previous')
         self.assertEqual(self.path.read_bytes(),self.before)
 
 

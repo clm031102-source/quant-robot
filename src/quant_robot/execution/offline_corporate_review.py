@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .offline_journal import OfflineOrderJournal
+from .offline_execution_evidence import validate_execution_supplement
 from .offline_order_state import ACTIVE, CONVERSION_UNCERTAIN, DIVIDEND_ENTITLEMENT_UNCERTAIN
 
 
@@ -64,8 +65,9 @@ def _candidates(events, snapshot, rule, capture):
     return result
 
 
-def build_corporate_action_review(path, *, max_events=10_000, max_payload_bytes=16_000_000):
+def build_corporate_action_review(path, *, max_events=10_000, max_payload_bytes=16_000_000, execution_supplement=None):
     evidence = OfflineOrderJournal.inspect_evidence(path, max_events=max_events, max_payload_bytes=max_payload_bytes)
+    supplement = validate_execution_supplement(execution_supplement, evidence) if execution_supplement is not None else None
     snapshot, events = evidence["snapshot"], evidence["events"]
     actions, item_count = [], 0
     for kind, section, capture_kind, fault in (
@@ -117,6 +119,7 @@ def build_corporate_action_review(path, *, max_events=10_000, max_payload_bytes=
         "journal": {"path": str(Path(path).resolve()), "sequence": snapshot["sequence"], "hash": snapshot["journal_hash"],
             "genesis_hash": events[0]["event_hash"], "view": "single_verified_read_transaction"},
         "source_event_count": evidence["source_event_count"], "source_payload_bytes": evidence["source_payload_bytes"],
+        "execution_supplement": supplement,
         "review_item_count": item_count, "review_item_limit": MAX_REVIEW_ITEMS,
         "account": {key: snapshot[key] for key in ("cash", "positions", "reserved_cash", "reserved_positions", "paused", "kill_switch", "faults")},
         "price_basis": snapshot["price_basis"], "actions": actions,
