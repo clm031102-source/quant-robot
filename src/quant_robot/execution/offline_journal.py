@@ -53,6 +53,33 @@ class OfflineOrderJournal:
             reader.close()
 
     @classmethod
+    def inspect_evidence(cls, path, *, max_events=10_000, max_payload_bytes=16_000_000):
+        """Return bounded policies, events and state from one verified read view."""
+        for value, ceiling in ((max_events, 100_000), (max_payload_bytes, 64_000_000)):
+            if type(value) is not int or not 0 < value <= ceiling:
+                raise ValueError("invalid inspection size limit")
+        reader = cls.__new__(cls)
+        reader._db = sqlite3.connect(Path(path).resolve().as_uri() + "?mode=ro", uri=True)
+        try:
+            reader._db.execute("BEGIN")
+            if reader._db.execute("PRAGMA user_version").fetchone()[0] != 1:
+                raise ValueError("unsupported offline journal schema")
+            count, size = reader._db.execute(
+                "SELECT count(*), coalesce(sum(length(CAST(payload AS BLOB))), 0) FROM events"
+            ).fetchone()
+            if count > max_events or size > max_payload_bytes:
+                raise ValueError("journal exceeds inspection size limit; no partial evidence returned")
+            state = reader._read()
+            events = [{"sequence": seq, "journal_recorded_at": recorded, "event_hash": digest, "event": json.loads(payload)}
+                for seq, recorded, digest, payload in reader._db.execute(
+                    "SELECT sequence, created_at, event_hash, payload FROM events ORDER BY sequence")]
+            return {"snapshot": public_snapshot(state), "events": events,
+                "policies": {key: state[key] for key in ("dividend_policy", "conversion_policy")},
+                "source_event_count": count, "source_payload_bytes": size}
+        finally:
+            reader.close()
+
+    @classmethod
     def inspect_configuration(cls, path):
         """Read frozen synthetic rules without triggering order recovery."""
         reader = cls.__new__(cls)
