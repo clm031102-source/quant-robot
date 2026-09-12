@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlencode, urlparse
 from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 
 import pandas as pd
 
@@ -1235,20 +1236,17 @@ class GuiSnapshotTests(unittest.TestCase):
                 "quant_robot.gui.research_service.DEFAULT_RECENT_GUI_PROCESSED_ROOT",
                 recent_root,
             ):
-                snapshot = build_daily_trade_advisory_snapshot(
-                    source="processed-bars",
-                    data_root=None,
-                    market="CN_ETF",
-                    limit=3,
+                resolved, policy = research_service._resolve_daily_trade_data_root(
+                    "processed-bars", None, "CN_ETF",
                     recent_data_refresh_pack=refresh_pack,
                 )
 
-        self.assertEqual(snapshot["data_root"], str(recent_root))
+        self.assertEqual(resolved, recent_root)
         self.assertEqual(
-            snapshot["data_root_policy"]["policy"],
+            policy["policy"],
             "recent_refresh_preferred_for_daily_signal",
         )
-        self.assertEqual(snapshot["data_root_policy"]["requested_data_root"], str(default_root))
+        self.assertEqual(policy["requested_data_root"], str(default_root))
 
     def test_daily_trade_advisory_prefers_recent_refresh_root_when_refresh_has_provider_warnings(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1275,22 +1273,19 @@ class GuiSnapshotTests(unittest.TestCase):
                 "quant_robot.gui.research_service.DEFAULT_RECENT_GUI_PROCESSED_ROOT",
                 recent_root,
             ):
-                snapshot = build_daily_trade_advisory_snapshot(
-                    source="processed-bars",
-                    data_root=None,
-                    market="CN_ETF",
-                    limit=3,
+                resolved, policy = research_service._resolve_daily_trade_data_root(
+                    "processed-bars", None, "CN_ETF",
                     recent_data_refresh_pack=refresh_pack,
                 )
 
-        self.assertEqual(snapshot["data_root"], str(recent_root))
+        self.assertEqual(resolved, recent_root)
         self.assertEqual(
-            snapshot["data_root_policy"]["policy"],
+            policy["policy"],
             "recent_refresh_preferred_for_daily_signal",
         )
-        self.assertEqual(snapshot["data_root_policy"]["recent_data_refresh_status"], "completed_with_warnings")
-        self.assertEqual(snapshot["data_root_policy"]["coverage_status"], "pass_with_warnings")
-        self.assertEqual(snapshot["data_root_policy"]["provider_missing_date_rows"], 7)
+        self.assertEqual(policy["recent_data_refresh_status"], "completed_with_warnings")
+        self.assertEqual(policy["coverage_status"], "pass_with_warnings")
+        self.assertEqual(policy["provider_missing_date_rows"], 7)
 
     def test_daily_trade_advisory_accepts_runtime_evidence_snapshot(self):
         snapshot = build_daily_trade_advisory_snapshot(
@@ -3796,71 +3791,54 @@ class GuiSnapshotTests(unittest.TestCase):
         self.assertEqual(result["stage_ledger"][3]["stage"], "iterative_observation_expansion")
         self.assertFalse(result["live_boundary_allowed"])
 
-    def test_gui_research_can_run_on_processed_bars(self):
+    def test_gui_research_rejects_unregistered_processed_bars(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = _write_processed_cn_etf_fixture(Path(tmp))
 
-            result = run_gui_research(
-                source="processed-bars",
-                data_root=root,
-                market="CN_ETF",
-                factor_name="momentum_2",
-                top_n=2,
-                start_date="2026-01-02",
-                end_date="2026-01-13",
-            )
+            with self.assertRaisesRegex(ValueError, '专用入口'):
+                run_gui_research(
+                    source="processed-bars",
+                    data_root=root,
+                    market="CN_ETF",
+                    factor_name="momentum_2",
+                    top_n=2,
+                    start_date="2026-01-02",
+                    end_date="2026-01-13",
+                )
 
-        self.assertEqual(result["data_mode"], "research")
-        self.assertEqual(result["data_source"], "processed-bars")
-        self.assertEqual(result["request"]["market"], "CN_ETF")
-        self.assertGreater(len(result["equity_curve"]), 0)
-        self.assertTrue(all(str(row["date"]).startswith("2026-") for row in result["equity_curve"]))
-
-    def test_gui_signal_snapshot_can_run_on_processed_bars(self):
+    def test_gui_signal_snapshot_rejects_unregistered_processed_bars(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = _write_processed_cn_etf_fixture(Path(tmp))
 
-            result = run_gui_signal_snapshot(
-                source="processed-bars",
-                data_root=root,
-                market="CN_ETF",
-                factor_name="momentum_2",
-                top_n=2,
-                as_of_date="2026-01-13",
-                max_asset_weight=0.4,
-                min_cash_weight=0.1,
-            )
+            with self.assertRaisesRegex(ValueError, '专用入口'):
+                run_gui_signal_snapshot(
+                    source="processed-bars",
+                    data_root=root,
+                    market="CN_ETF",
+                    factor_name="momentum_2",
+                    top_n=2,
+                    as_of_date="2026-01-13",
+                    max_asset_weight=0.4,
+                    min_cash_weight=0.1,
+                )
 
-        self.assertEqual(result["data_mode"], "research")
-        self.assertEqual(result["data_source"], "processed-bars")
-        self.assertTrue(str(result["signal_date"]).startswith("2026-"))
-        self.assertGreater(len(result["targets"]), 0)
-        self.assertGreater(len(result["rebalance_plan"]), 0)
-        self.assertTrue(all(row["executable"] is False for row in result["rebalance_plan"]))
-
-    def test_gui_paper_simulation_can_run_on_processed_bars(self):
+    def test_gui_paper_simulation_rejects_unregistered_processed_bars(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = _write_processed_cn_etf_fixture(Path(tmp))
 
-            result = run_gui_paper_simulation(
-                source="processed-bars",
-                data_root=root,
-                market="CN_ETF",
-                factor_name="momentum_2",
-                top_n=2,
-                start_date="2026-01-04",
-                end_date="2026-01-13",
-                initial_cash=100000.0,
-                max_asset_weight=0.4,
-                min_cash_weight=0.1,
-            )
-
-        self.assertEqual(result["data_mode"], "research")
-        self.assertEqual(result["data_source"], "processed-bars")
-        self.assertGreater(len(result["equity_curve"]), 0)
-        self.assertTrue(all(str(row["date"]).startswith("2026-") for row in result["equity_curve"]))
-        self.assertGreater(len(result["fills"]), 0)
-        self.assertTrue(all(row["fill_type"] == "simulated" for row in result["fills"]))
+            with self.assertRaisesRegex(ValueError, '专用入口'):
+                run_gui_paper_simulation(
+                    source="processed-bars",
+                    data_root=root,
+                    market="CN_ETF",
+                    factor_name="momentum_2",
+                    top_n=2,
+                    start_date="2026-01-04",
+                    end_date="2026-01-13",
+                    initial_cash=100000.0,
+                    max_asset_weight=0.4,
+                    min_cash_weight=0.1,
+                )
 
 
 class GuiHttpTests(unittest.TestCase):
@@ -5705,7 +5683,7 @@ class GuiHttpTests(unittest.TestCase):
         self.assertEqual(result["top20"][0]["factor_name"], "cn_etf_public_indicator_combo")
         self.assertEqual(result["top20"][0]["score_metric"], "sharpe")
 
-    def test_http_app_runs_processed_research_workflow(self):
+    def test_http_app_rejects_unregistered_processed_research_workflow(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = _write_processed_cn_etf_fixture(Path(tmp))
             server = ThreadingHTTPServer(("127.0.0.1", 0), create_gui_handler())
@@ -5725,16 +5703,18 @@ class GuiHttpTests(unittest.TestCase):
                 }
             )
             try:
-                research = _read_json(f"{base_url}/api/research?{query}")
+                with self.assertRaises(HTTPError) as caught:
+                    _read_json(f"{base_url}/api/research?{query}")
+                with caught.exception as response:
+                    self.assertEqual(response.code, 403)
+                    research = json.load(response)
             finally:
                 server.shutdown()
                 thread.join(timeout=5)
                 server.server_close()
 
-        self.assertEqual(research["data_mode"], "research")
-        self.assertEqual(research["data_source"], "processed-bars")
-        self.assertGreater(len(research["equity_curve"]), 0)
-        self.assertTrue(all(str(row["date"]).startswith("2026-") for row in research["equity_curve"]))
+        self.assertEqual(research["status"], "research_access_denied")
+        self.assertIn('专用入口', research['error'])
 
 
 def _read_text(url: str, *, timeout: float = HTTP_TEST_TIMEOUT_SECONDS) -> str:

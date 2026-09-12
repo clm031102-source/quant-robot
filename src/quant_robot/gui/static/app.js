@@ -749,12 +749,22 @@ async function loadDailyOps() {
   renderDashboard();
 }
 
-async function loadDailyTradeAdvisory() {
-  const params = buildDailyTradeAdvisoryParams();
-  state.dailyTradeAdvisory = attachRequestToResult(
-    await fetchJson(`/api/trade/daily-advisory?${params.toString()}`),
-    params,
-  );
+async function loadDailyTradeAdvisory(params = buildDailyTradeAdvisoryParams()) {
+  try {
+    state.dailyTradeAdvisory = attachRequestToResult(
+      await fetchJson(`/api/trade/daily-advisory?${params.toString()}`),
+      params,
+    );
+  } catch (error) {
+    state.dailyTradeAdvisory = {
+      status: error.status || "request_failed",
+      error: error.message || "交易建议加载失败",
+      summary: {signal_count: 0, selected_factor_count: 0, manual_ticket_count: 0},
+    };
+    renderDailyTradeAdvisory();
+    renderDashboard();
+    throw error;
+  }
   renderDailyTradeAdvisory();
   renderDashboard();
 }
@@ -2021,12 +2031,7 @@ async function runDailyTradeAdvisory() {
   });
   if (!confirmed) return;
   await withBusy("run-daily-trade-advisory", async () => {
-    state.dailyTradeAdvisory = attachRequestToResult(
-      await fetchJson(`/api/trade/daily-advisory?${params.toString()}`),
-      params,
-    );
-    renderDailyTradeAdvisory();
-    renderDashboard();
+    await loadDailyTradeAdvisory(params);
     appendRunHistory({
       workflow_id: "daily_trade_advisory",
       label: "Generate top-three manual trade advisory",
@@ -6644,7 +6649,8 @@ function renderDailyTradeAdvisory() {
   const tag = byId("daily-trade-advisory-tag");
   const signalCount = Number(summary.signal_count || 0);
   const selectedCount = Number(summary.selected_factor_count || 0);
-  const status = signalCount > 0 ? "manual_advisory_ready" : "waiting_for_signals";
+  const accessDenied = pack.status === "research_access_denied";
+  const status = accessDenied ? "研究准入未完成" : pack.error ? "请求未完成" : signalCount > 0 ? "manual_advisory_ready" : "waiting_for_signals";
   if (tag) {
     tag.textContent = zhConsoleText(status);
     tag.classList.toggle("tag-warn", signalCount === 0);
@@ -6659,12 +6665,12 @@ function renderDailyTradeAdvisory() {
     metric("下单权限", summary.order_placement_allowed ? "允许" : "禁止", "manual only"),
   ].join("");
   byId("daily-trade-advisory-status").innerHTML = statusRows([
-    ["来源", pack.fallback_used ? "排行榜无可运行前三，使用可运行基线兜底" : "从 CN_ETF 排行榜取可运行前三候选", pack.fallback_used ? "warn" : "ok"],
+    ["来源", pack.error ? "本次请求未生成交易建议" : pack.fallback_used ? "排行榜无可运行前三，使用可运行基线兜底" : "从 CN_ETF 排行榜取可运行前三候选", pack.error ? "danger" : pack.fallback_used ? "warn" : "ok"],
     ["信号状态", `${signalCount} / ${selectedCount}`, signalCount > 0 ? "ok" : "warn"],
     ["当前持仓", positionValidation.plain_summary || "未填写当前持仓；将按目标仓位估算。", positionValidation.status === "error" ? "danger" : positionValidation.status === "ok" ? "ok" : "warn"],
     ["执行边界", pack.safety || "Research-to-paper only", "danger"],
-    ["下一步", summary.next_action || "先复核信号，再看模拟盘，不自动下单。", "warn"],
-    ["错误", (pack.signal_errors || []).map((item) => item.factor_name || item.case_id).join(" / ") || "无", pack.signal_errors?.length ? "warn" : "ok"],
+    ["下一步", pack.error || summary.next_action || "先复核信号，再看模拟盘，不自动下单。", "warn"],
+    ["错误", pack.error || (pack.signal_errors || []).map((item) => item.factor_name || item.case_id).join(" / ") || "无", pack.error || pack.signal_errors?.length ? "warn" : "ok"],
   ]);
   renderDailyOpsHandoff(pack.daily_ops_handoff || {});
   renderDailyOpsPaperExecutionRecheck(pack.daily_ops_handoff?.paper_execution_recheck || {});
@@ -14517,7 +14523,13 @@ async function runActionCenterWorkflow(workflowId, button = null) {
 
 async function fetchJson(url) {
   const response = await fetch(url);
-  if (!response.ok) throw new Error(`Request failed: ${url}`);
+  if (!response.ok) {
+    const problem = await response.json().catch(() => null);
+    const message = problem && typeof problem.error === "string" ? problem.error : `Request failed: ${url}`;
+    const error = new Error(message);
+    error.status = problem && typeof problem.status === "string" ? problem.status : "request_failed";
+    throw error;
+  }
   return response.json();
 }
 

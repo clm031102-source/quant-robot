@@ -19,6 +19,7 @@ from quant_robot.gui.daily_trade_factors import (
     resolve_factor_windows as _resolve_factor_windows,
 )
 from quant_robot.gui.fixtures import mock_data
+from quant_robot.gui.research_access import require_gui_research_access
 from quant_robot.gui.operation_ledger import (
     build_daily_closure_ledger_snapshot,
     build_pre_live_master_gate,
@@ -476,6 +477,7 @@ def build_daily_trade_advisory_snapshot(
     daily_ops_pack: str | Path | None = DEFAULT_DAILY_OPS_PACK,
     repo_root: str | Path | None = None,
 ) -> dict[str, Any]:
+    require_gui_research_access(_normalize_gui_source(source), market)
     leaderboard = build_factor_leaderboard_snapshot(
         reports_root=reports_root,
         configs_root=configs_root,
@@ -2058,6 +2060,7 @@ def _normalize_gui_source(source: str) -> str:
 
 
 def _load_gui_bars(source: str, data_root: str | Path | None, market: str) -> pd.DataFrame:
+    require_gui_research_access(source, market)
     if source == "demo_fixture":
         return mock_data.demo_bars()
     root = Path(data_root) if data_root is not None else DEFAULT_GUI_PROCESSED_ROOT
