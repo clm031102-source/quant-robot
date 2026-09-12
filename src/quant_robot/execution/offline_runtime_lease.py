@@ -6,8 +6,16 @@ from pathlib import Path
 
 
 class RuntimeLease:
-    def __init__(self, journal_path):
-        path = Path(str(Path(journal_path).resolve()) + ".driver.lock")
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        self.close()
+
+    def __init__(self, journal_path, *, role="driver"):
+        if role not in {"driver", "supervisor"}:
+            raise ValueError("invalid offline lease role")
+        path = Path(str(Path(journal_path).resolve()) + "." + role + ".lock")
         self._file = path.open("a+b")
         self._locked = False
         try:
@@ -25,7 +33,7 @@ class RuntimeLease:
             self._locked = True
         except OSError as exc:
             self.close()
-            raise ValueError("another offline driver owns this journal") from exc
+            raise ValueError("another offline " + role + " owns this journal") from exc
 
     def close(self):
         if self._file is None:

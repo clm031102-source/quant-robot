@@ -457,6 +457,13 @@ class OfflineOrderJournal:
         return self._run(lambda state: None if reason in state["faults"] else
             _event("FAULT", {"reason": reason, "detail": detail[:500]}))
 
+    def note_runtime_supervision_fault(self, detail):
+        if not isinstance(detail, str):
+            raise ValueError("supervision detail must be text")
+        reason = "runtime_supervision_requires_review"
+        return self._run(lambda state: None if reason in state["faults"] else
+            _event("FAULT", {"reason": reason, "detail": detail[:500]}))
+
     def reconcile(self, *, snapshot_id, expected_sequence, cash, positions: dict, orders: dict):
         from .offline_order_state import positions as validate_positions
         data = {"snapshot_id": identity(snapshot_id), "expected_sequence": units(expected_sequence),

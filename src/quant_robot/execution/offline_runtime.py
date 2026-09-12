@@ -41,11 +41,12 @@ def _observation(value, now):
 
 
 class OfflineRuntime:
-    def __init__(self, journal_path, *, clock=None):
+    def __init__(self, journal_path, *, clock=None, admission_guard=None):
         path = Path(journal_path).resolve()
         if not path.is_file():
             raise FileNotFoundError(path)
         self.clock = clock or (lambda: datetime.now(timezone.utc))
+        self.admission_guard = admission_guard
         self.lease, self.book, self.last_tick = RuntimeLease(path), None, None
         try:
             self.rules = OfflineOrderJournal.inspect_configuration(path)
@@ -90,6 +91,20 @@ class OfflineRuntime:
             packet.update(self.feed["opening"])
         return packet
 
+    def _check_supervision(self):
+        if self.admission_guard is None:
+            return
+        try:
+            reason = self.admission_guard()
+            if reason is None:
+                return
+            if not isinstance(reason, str) or not reason:
+                reason = "invalid supervisor permit result"
+        except (OSError, ValueError, TypeError) as exc:
+            reason = str(exc)[:500]
+        self.book.note_runtime_supervision_fault(reason)
+        self.steps.append({"stage": "supervision", "status": "rejected", "reason": reason[:500]})
+
     def _receipt(self, value):
         if not isinstance(value, dict):
             raise ValueError("runtime receipt must be an object")
@@ -128,6 +143,7 @@ class OfflineRuntime:
         if self.last_tick is not None and now < self.last_tick:
             raise ValueError("runtime clock moved backward")
         self.last_tick, self.steps = now, []
+        self._check_supervision()
         try:
             self.feed, feed_status = _observation(observation, now)
         except ValueError as exc:
@@ -145,6 +161,7 @@ class OfflineRuntime:
             self._call("opening", lambda: self.book.begin_session(self._packet(opening=True), clock=self.clock), retry_anchor=True)
         self._call("valuation", lambda: self.book.record_valuation(self._packet(), clock=self.clock), retry_anchor=True)
         for row in self.feed.get("intents", []):
+            self._check_supervision()
             state = self.book._read()
             key = row.get("client_intent_id") if isinstance(row, dict) else None
             if isinstance(key, str) and (key in state["orders"] or key in state["attempted_intent_ids"]):
@@ -159,6 +176,7 @@ class OfflineRuntime:
                 attempt_id = "runtime-" + hashlib.sha256(json.dumps([key, self.feed["snapshot_id"], self.feed["as_of"]]).encode()).hexdigest()
                 if attempt_id in state["attempted_dispatch_ids"]:
                     continue
+                self._check_supervision()
                 self._call("dispatch", lambda key=key, attempt_id=attempt_id: self.book.prepare_dispatch(key, attempt_id, self._packet(), clock=self.clock))
         state = self.book.snapshot()
         if any(row["stage"] in {"intent", "dispatch"} and row.get("changed") for row in self.steps):
@@ -190,11 +208,13 @@ def validate_loop_limits(interval_seconds, max_ticks):
         raise ValueError("max_ticks must be a positive integer or None")
 
 
-def run_loop(runtime, supplier, *, interval_seconds=1.0, max_ticks=None, sleep=system_time.sleep, on_tick=None):
+def run_loop(runtime, supplier, *, interval_seconds=1.0, max_ticks=None, sleep=system_time.sleep, on_tick=None, on_tick_start=None):
     validate_loop_limits(interval_seconds, max_ticks)
     ticks, last = 0, None
     while max_ticks is None or ticks < max_ticks:
         started = system_time.monotonic()
+        if on_tick_start is not None:
+            on_tick_start()
         error = None
         try:
             feed = supplier()
