@@ -68,7 +68,9 @@ def _candidates(events, snapshot, rule, capture):
     return result
 
 
-def build_corporate_action_review(path, *, max_events=10_000, max_payload_bytes=16_000_000, execution_supplement=None):
+def build_corporate_action_review(path, *, max_events=10_000, max_payload_bytes=16_000_000, execution_supplement=None, include_attribution=False):
+    if type(include_attribution) is not bool:
+        raise ValueError("include_attribution must be a boolean")
     evidence = OfflineOrderJournal.inspect_evidence(path, max_events=max_events, max_payload_bytes=max_payload_bytes)
     supplement = validate_execution_supplement(execution_supplement, evidence) if execution_supplement is not None else None
     snapshot, events = evidence["snapshot"], evidence["events"]
@@ -121,7 +123,7 @@ def build_corporate_action_review(path, *, max_events=10_000, max_payload_bytes=
     gaps = [{"fault": fault, "reason": "no_candidate_receipt_identified; source attribution remains unresolved"}
         for fault in review_faults if not any(action["candidate_receipts"] for action in actions
             if action["kind"] == ("dividend" if fault == DIVIDEND_ENTITLEMENT_UNCERTAIN else "conversion"))]
-    return {"schema_version": 1, "mode": "offline_fixture_only", "status": "inspection_only",
+    packet = {"schema_version": 1, "mode": "offline_fixture_only", "status": "inspection_only",
         "generated_at": datetime.now(timezone.utc).isoformat(), "executable": False,
         "automatic_correction_allowed": False, "clears_faults": False, "qualifies_for_strategy_promotion": False,
         "counts_as_forward_paper_days": 0, "recorded_corporate_review_required": bool(review_faults),
@@ -140,3 +142,7 @@ def build_corporate_action_review(path, *, max_events=10_000, max_payload_bytes=
         "limitations": ["recorded synthetic book only, not authenticated account data", "candidate links do not establish execution time or cause",
             "one receipt may be a candidate for multiple actions; do not sum hypothetical corrections",
             "absence of a recorded fault does not certify complete rights or sources", "another writer can advance the journal after this view"]}
+    if include_attribution:
+        from .offline_correction_attribution import _attribution_from_evidence
+        packet["correction_attribution"] = _attribution_from_evidence(evidence)
+    return packet

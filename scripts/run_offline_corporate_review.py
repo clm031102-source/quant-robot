@@ -39,6 +39,7 @@ def main():
     parser.add_argument("--journal", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--execution-evidence", type=Path)
+    parser.add_argument("--include-attribution", action="store_true", help="include retrospective correction-entry accounting effects, not strategy returns")
     parser.add_argument("--max-events", type=int, default=10_000)
     parser.add_argument("--max-payload-bytes", type=int, default=16_000_000)
     parser.add_argument("--max-output-bytes", type=int, default=32_000_000)
@@ -47,7 +48,7 @@ def main():
         ensure_distinct_paths({**protected_paths(args.journal, None), "review_output": args.output, "execution_evidence": args.execution_evidence})
         supplement = load_execution_supplement(args.execution_evidence) if args.execution_evidence is not None else None
         packet = build_corporate_action_review(args.journal, max_events=args.max_events, max_payload_bytes=args.max_payload_bytes,
-            execution_supplement=supplement)
+            execution_supplement=supplement, include_attribution=args.include_attribution)
         _write_review_packet(args.output, packet, max_output_bytes=args.max_output_bytes)
     except (OSError, ValueError, sqlite3.Error) as exc:
         parser.error(str(exc))
