@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -118,7 +119,7 @@ def render_daily_ops_markdown(pack: dict[str, Any]) -> str:
         "## Risk",
         "",
         f"- Total return: {risk.get('total_return', 0.0)}",
-        f"- Max equity drawdown: {risk.get('max_equity_drawdown', 0.0)}",
+        f"- Max equity drawdown: {risk.get('max_equity_drawdown') if risk.get('max_equity_drawdown') is not None else 'unknown'}",
         f"- Guard events: {risk.get('guard_events', 0)}",
         f"- Execution blocks: {risk.get('execution_blocks', 0)}",
         f"- Max drawdown limit: {pack.get('risk_policy', {}).get('max_drawdown_limit', DEFAULT_MAX_DRAWDOWN_LIMIT)}",
@@ -171,14 +172,33 @@ def _promotion_status_blockers(candidate: dict[str, Any]) -> list[str]:
 
 
 def _risk_policy(paper_simulation: dict[str, Any], max_drawdown_limit: float) -> dict[str, Any]:
-    metrics = paper_simulation.get("metrics", {}) if isinstance(paper_simulation.get("metrics"), dict) else {}
-    max_drawdown = _float(metrics.get("max_equity_drawdown"), 0.0)
-    breached = max_drawdown < max_drawdown_limit
+    max_drawdown, evidence_status = _observed_drawdown(paper_simulation)
+    breached = max_drawdown < max_drawdown_limit if max_drawdown is not None else None
+    blockers = ["risk_max_drawdown_breach"] if breached else []
+    if evidence_status != "value_valid":
+        blockers.append(f"risk_drawdown_evidence_{evidence_status}")
     return {
         "max_drawdown_limit": max_drawdown_limit,
         "max_drawdown_breached": breached,
-        "risk_blockers": ["risk_max_drawdown_breach"] if breached else [],
+        "drawdown_evidence_status": evidence_status,
+        "risk_blockers": blockers,
     }
+
+
+def _observed_drawdown(paper_simulation: dict[str, Any]) -> tuple[float | None, str]:
+    metrics = paper_simulation.get("metrics")
+    if not isinstance(metrics, dict) or metrics.get("max_equity_drawdown") is None:
+        return None, "missing"
+    raw = metrics["max_equity_drawdown"]
+    if isinstance(raw, bool):
+        return None, "invalid"
+    try:
+        value = float(raw)
+    except (TypeError, ValueError, OverflowError):
+        return None, "invalid"
+    if not math.isfinite(value) or not -1.0 <= value <= 0.0:
+        return None, "invalid"
+    return value, "value_valid"
 
 
 def _merge_unique(first: list[str], second: list[str]) -> list[str]:
@@ -244,7 +264,7 @@ def _risk_summary(paper_simulation: dict[str, Any]) -> dict[str, Any]:
     metrics = paper_simulation.get("metrics", {}) if isinstance(paper_simulation.get("metrics"), dict) else {}
     return {
         "total_return": _float(metrics.get("total_return"), 0.0),
-        "max_equity_drawdown": _float(metrics.get("max_equity_drawdown"), 0.0),
+        "max_equity_drawdown": _observed_drawdown(paper_simulation)[0],
         "ending_equity": _float(metrics.get("ending_equity"), 0.0),
         "guard_events": len(paper_simulation.get("guard_events", []) if isinstance(paper_simulation.get("guard_events"), list) else []),
         "execution_blocks": len(paper_simulation.get("execution_events", []) if isinstance(paper_simulation.get("execution_events"), list) else []),
@@ -323,7 +343,13 @@ def _float(value: Any, default: float = 0.0) -> float:
 
 
 def _normalized_drawdown_limit(value: float) -> float:
-    return -abs(_float(value, DEFAULT_MAX_DRAWDOWN_LIMIT))
+    try:
+        normalized = float(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("max_drawdown_limit must be finite and within [-1, 1]") from exc
+    if isinstance(value, bool) or not math.isfinite(normalized) or abs(normalized) > 1.0:
+        raise ValueError("max_drawdown_limit must be finite and within [-1, 1]")
+    return -abs(normalized)
 
 
 def _signal_freshness(signal_snapshot: dict[str, Any], run_date: str, max_signal_age_days: int) -> dict[str, Any]:

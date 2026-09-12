@@ -73,7 +73,10 @@ class DailyOpsTests(unittest.TestCase):
         )
 
         self.assertEqual(pack["decision"]["status"], "blocked")
-        self.assertEqual(pack["decision"]["blocking_reasons"], ["provider_readiness_not_ready"])
+        self.assertEqual(
+            pack["decision"]["blocking_reasons"],
+            ["provider_readiness_not_ready", "risk_drawdown_evidence_missing"],
+        )
         self.assertEqual(pack["advisory_tickets"], [])
 
     def test_stale_signal_blocks_daily_ops_tickets(self):
