@@ -56,12 +56,16 @@ class AtomicReplaceContentionTests(unittest.TestCase):
 
     @unittest.skipUnless(os.name == 'nt', 'Windows sharing semantics')
     def test_real_windows_reader_closure_allows_pending_atomic_publication(self):
-        attempted = threading.Event(); failures=[]; original=os.replace
+        attempted = threading.Event(); released = threading.Event(); failures=[]; original=os.replace
         reader=self.path.open('rb')
         def replace(source, target):
             try: return original(source, target)
             except PermissionError:
                 attempted.set()
+                # Coordinate the test reader explicitly. A busy CI scheduler may
+                # otherwise keep the parent asleep beyond the publisher's 50 ms
+                # wait budget; that is covered by the persistent-failure test.
+                if not released.wait(2): raise RuntimeError('test reader did not close')
                 raise
         def write():
             try: atomic_write_json(self.path, {'generation':2})
@@ -74,6 +78,7 @@ class AtomicReplaceContentionTests(unittest.TestCase):
                 self.assertEqual(json.loads(reader.read()), {'generation':1})
             finally:
                 reader.close()
+                released.set()
                 worker.join(timeout=2)
         self.assertFalse(worker.is_alive())
         self.assertEqual(failures, [])
