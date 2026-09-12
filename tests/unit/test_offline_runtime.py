@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 import json
+from unittest.mock import patch
 
 from quant_robot.execution.offline_journal import OfflineOrderJournal
 from quant_robot.execution.offline_runtime import OfflineRuntime, read_observation, run_loop
@@ -235,6 +236,21 @@ class OfflineRuntimeTests(unittest.TestCase):
         self.assertEqual(len(sleeps), 2)
         self.assertTrue(all(0 <= duration <= 60 for duration in sleeps))
         self.assertTrue(all(r["counts_as_forward_paper_days"] == 0 for r in reports))
+
+    def test_processing_cadence_warning_is_independent_of_healthy_feed(self):
+        for elapsed in (.125, .25, .5):
+            with self.subTest(elapsed=elapsed), patch(
+                    "quant_robot.execution.offline_runtime.system_time.monotonic",
+                    side_effect=[10, 10 + elapsed]):
+                report = run_loop(self.runtime, lambda: observation(self.runtime, opening=True),
+                    interval_seconds=.25, max_ticks=1)["last_report"]
+            self.assertEqual(report["feed_status"], "present")
+            self.assertFalse(report["paused"])
+            self.assertEqual(report["faults"], [])
+            self.assertFalse(any(step["status"] == "rejected" for step in report["steps"]))
+            self.assertEqual(report["tick_duration_seconds"], elapsed)
+            self.assertEqual(report["cadence_overrun"], elapsed > .25)
+            self.assertEqual(report["status"], "attention" if elapsed > .25 else "ready")
 
     def test_observation_file_is_bounded_and_invalid_json_is_rejected(self):
         path = self.path.parent/"feed.json"

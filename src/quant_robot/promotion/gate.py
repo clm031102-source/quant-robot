@@ -307,8 +307,10 @@ def _candidate_report(
         {
             "case_id": case_id,
             "market": row.get("market"),
-            "factor_source": factor_source,
+            "factor_source": row.get("factor_source"),
             "factor_name": row.get("factor_name"),
+            "factor_windows": row.get("factor_windows"),
+            "rebalance_interval": row.get("rebalance_interval"),
             **({"execution_economics": paper_summary["execution_economics"],
                 "corporate_actions_path": paper_summary.get("corporate_actions_path")}
                if "execution_economics" in paper_summary else {}),

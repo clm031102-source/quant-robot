@@ -7,14 +7,17 @@ from quant_robot.ops.daily_ops import build_daily_ops_pack, write_daily_ops_pack
 
 
 def synthetic_pack(metrics, limit=-0.08):
+    recipe = {'market': 'CN_ETF', 'factor_source': 'technical', 'factor_name': 'momentum_2',
+              'factor_windows': [2], 'top_n': 1, 'rebalance_interval': 1}
+    weights = {'max_asset_weight': 0.1, 'max_market_weight': 1.0,
+               'max_gross_exposure': 1.0, 'min_cash_weight': 0.0}
     return build_daily_ops_pack(
-        {'selected_candidate': {'case_id': 'synthetic', 'market': 'CN_ETF',
-                                'factor_name': 'momentum_2', 'promotion_status': 'paper_ready'}},
+        {'selected_candidate': {'case_id': 'synthetic', **recipe, 'promotion_status': 'paper_ready'}},
         {'blocker_register': []},
-        {'signal_date': '2024-01-08', 'as_of_date': '2024-01-08',
+        {'signal_date': '2024-01-08', 'as_of_date': '2024-01-08', 'request': {**recipe, **weights},
          'rebalance_plan': [{'asset_id': 'CN_ETF_XSHG_510300', 'market': 'CN_ETF',
                              'estimated_quantity_delta': 100, 'target_weight': 0.1, 'delta_value': 500}]},
-        {'metrics': metrics, 'fills': [], 'guard_events': [], 'execution_events': []},
+        {'metrics': metrics, 'request': {**recipe, **weights}, 'fills': [], 'guard_events': [], 'execution_events': []},
         run_date='2024-01-09', max_drawdown_limit=limit,
     )
 

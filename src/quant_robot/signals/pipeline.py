@@ -36,7 +36,7 @@ def generate_signal_snapshot(bars: pd.DataFrame, config: SignalPipelineConfig) -
     validate_market_data(filtered)
     as_of_date = _resolve_as_of_date(filtered, config)
     factors = compute_basic_factors(filtered, windows=config.factor_windows)
-    return _build_signal_snapshot(filtered, factors, config, as_of_date)
+    return _build_signal_snapshot(filtered, factors, config, as_of_date, factor_source="technical")
 
 
 def generate_signal_snapshot_from_factors(
@@ -44,13 +44,14 @@ def generate_signal_snapshot_from_factors(
     factors: pd.DataFrame,
     config: SignalPipelineConfig,
     validate: bool = True,
+    factor_source: str | None = None,
 ) -> dict[str, Any]:
     filtered = _filter_bars(bars, config)
     if validate:
         validate_market_data(filtered)
     as_of_date = _resolve_as_of_date(filtered, config)
     factor_frame = _filter_factor_rows(factors, config)
-    return _build_signal_snapshot(filtered, factor_frame, config, as_of_date)
+    return _build_signal_snapshot(filtered, factor_frame, config, as_of_date, factor_source=factor_source)
 
 
 def _build_signal_snapshot(
@@ -58,6 +59,8 @@ def _build_signal_snapshot(
     factors: pd.DataFrame,
     config: SignalPipelineConfig,
     as_of_date: Any,
+    *,
+    factor_source: str | None = None,
 ) -> dict[str, Any]:
     selected = _latest_factor_slice(factors, config.factor_name, as_of_date)
     selected = filter_signals_to_cn_etf_rotation_membership(
@@ -83,7 +86,7 @@ def _build_signal_snapshot(
             "data_mode": "fixture" if set(filtered["source"].astype(str)) == {"fixture"} else "research",
             "as_of_date": str(as_of_date),
             "signal_date": str(signal_date),
-            "request": _config_dict(config, portfolio_scope),
+            "request": {**_config_dict(config, portfolio_scope), "factor_source": factor_source},
             "constraints": asdict(constraints),
             "target_gross_exposure": target_gross,
             "cash_weight": cash_weight,

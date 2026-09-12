@@ -23,6 +23,7 @@ class PaperExecutionEconomicsTests(unittest.TestCase):
         row = {
             "case_id": "CN_ETF_momentum_2_top1_cost5_reb1", "market": "CN_ETF",
             "factor_name": "momentum_2", "factor_source": "technical", "top_n": 1,
+            "factor_windows": [2],
             "cost_bps": 5, "rebalance_interval": 1, "universe_id": "test-universe",
             "data_fingerprint": "same-frozen-data", "start_date": "2024-01-01",
             "end_date": "2024-01-31", "execution_economics": economics(),

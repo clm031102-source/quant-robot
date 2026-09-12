@@ -28,6 +28,7 @@ from quant_robot.ops.daily_ops import (
     build_daily_ops_pack,
     write_daily_ops_pack,
 )
+from quant_robot.ops.daily_ops_identity import require_daily_candidate_recipe
 
 try:
     from scripts.run_paper_simulation import run_simulation
@@ -89,11 +90,16 @@ def run_daily_ops(
             if isinstance(item, dict) and item.get("corporate_actions_path")), None)
     if frozen_economics and execution_economics["corporate_actions_fingerprint"] is not None and corporate_actions_path is None and paper_simulation is None:
         raise ValueError("frozen corporate action evidence requires corporate_actions_path for regeneration")
-    market = str(candidate.get("market") or "CN_ETF")
-    factor_name = str(candidate.get("factor_name") or "liquidity_10")
-    factor_windows = _factor_windows(candidate, factor_name)
-    top_n = _top_n(candidate)
-    rebalance_interval = _rebalance_interval(candidate)
+    if signal_snapshot is None or paper_simulation is None:
+        recipe = require_daily_candidate_recipe(candidate)
+        if signal_snapshot is None and recipe["factor_source"] != "technical":
+            raise ValueError("Daily Ops fresh signal generation requires an explicitly technical candidate recipe")
+        market = recipe["market"]
+        factor_source = recipe["factor_source"]
+        factor_name = recipe["factor_name"]
+        factor_windows = tuple(recipe["factor_windows"])
+        top_n = recipe["top_n"]
+        rebalance_interval = recipe["rebalance_interval"]
 
     output_path = Path(output_dir)
     signal = (
@@ -130,6 +136,7 @@ def run_daily_ops(
             source=source,
             data_root=Path(data_root),
             market=market,
+            factor_source=factor_source,
             factor_name=factor_name,
             factor_windows=factor_windows,
             top_n=top_n,
@@ -384,30 +391,6 @@ def _candidate(promotion: dict[str, Any], readiness: dict[str, Any]) -> dict[str
     if not isinstance(candidate, dict):
         candidate = readiness.get("selected_candidate")
     return candidate if isinstance(candidate, dict) else {}
-
-
-def _factor_windows(candidate: dict[str, Any], factor_name: str) -> tuple[int, ...]:
-    value = candidate.get("factor_windows")
-    if isinstance(value, list):
-        return tuple(int(item) for item in value)
-    suffix = factor_name.rsplit("_", 1)[-1]
-    return (int(suffix),) if suffix.isdigit() else (2, 3)
-
-
-def _top_n(candidate: dict[str, Any]) -> int:
-    case_id = str(candidate.get("case_id", ""))
-    for part in case_id.split("_"):
-        if part.startswith("top") and part[3:].isdigit():
-            return int(part[3:])
-    return int(candidate.get("top_n", 1) or 1)
-
-
-def _rebalance_interval(candidate: dict[str, Any]) -> int:
-    case_id = str(candidate.get("case_id", ""))
-    for part in case_id.split("_"):
-        if part.startswith("reb") and part[3:].isdigit():
-            return int(part[3:])
-    return int(candidate.get("rebalance_interval", 1) or 1)
 
 
 def _float(value: Any, default: float = 0.0) -> float:

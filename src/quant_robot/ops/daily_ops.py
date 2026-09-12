@@ -8,6 +8,8 @@ from typing import Any
 
 import pandas as pd
 
+from quant_robot.ops.daily_ops_identity import validate_daily_artifact_recipe
+
 
 STAGE = "phase_5_0_daily_ops"
 PROFILE_DAILY_OPS_STAGE = "phase_5_5_profile_daily_ops_activation"
@@ -45,12 +47,18 @@ def build_daily_ops_pack(
     signal_freshness = _signal_freshness(signal_snapshot, run_day, max_signal_age_days)
     signal_market_validation = _signal_market_validation(signal_snapshot, candidate)
     profile_summary = _paper_profile_summary(paper_profile or {})
+    raw_candidate = _selected_candidate(promotion_review, readiness_board)
+    artifact_identity = validate_daily_artifact_recipe(
+        raw_candidate, readiness_board.get("selected_candidate"), signal_snapshot,
+        paper_simulation, paper_profile or {},
+    )
     blockers = _merge_unique(
         _blocker_ids(readiness_board),
         _promotion_status_blockers(candidate)
         + risk_policy["risk_blockers"]
         + signal_freshness["blocking_reasons"]
-        + signal_market_validation["blocking_reasons"],
+        + signal_market_validation["blocking_reasons"]
+        + artifact_identity["blocking_reasons"],
     )
     non_manual_blockers = [blocker for blocker in blockers if blocker not in MANUAL_ONLY_BLOCKERS]
     status = "blocked" if non_manual_blockers else "paper_ready"
@@ -68,6 +76,7 @@ def build_daily_ops_pack(
             "non_manual_blocking_reasons": non_manual_blockers,
             "signal_freshness": signal_freshness,
             "signal_market_validation": signal_market_validation,
+            "artifact_identity": artifact_identity,
         },
         "signal": _signal_summary(signal_snapshot, signal_freshness, signal_market_validation),
         "risk": _risk_summary(paper_simulation),
@@ -113,6 +122,7 @@ def render_daily_ops_markdown(pack: dict[str, Any]) -> str:
         f"- Signal date: {signal.get('signal_date', 'unknown')}",
         f"- Signal age days: {signal.get('signal_age_days', 'unknown')}",
         f"- Market validation: {signal.get('market_validation_status', 'unknown')}",
+        f"- Recipe consistency: {decision.get('artifact_identity', {}).get('status', 'unknown')}",
         f"- Targets: {signal.get('target_count', 0)}",
         f"- Advisory tickets: {len(pack.get('advisory_tickets', []))}",
         "",
@@ -141,11 +151,7 @@ def render_daily_ops_markdown(pack: dict[str, Any]) -> str:
 
 
 def _candidate(promotion_review: dict[str, Any], readiness_board: dict[str, Any]) -> dict[str, Any]:
-    candidate = promotion_review.get("selected_candidate")
-    if not isinstance(candidate, dict):
-        candidate = readiness_board.get("selected_candidate")
-    if not isinstance(candidate, dict):
-        return {}
+    candidate = _selected_candidate(promotion_review, readiness_board)
     return {
         "case_id": candidate.get("case_id"),
         "market": candidate.get("market"),
@@ -153,6 +159,15 @@ def _candidate(promotion_review: dict[str, Any], readiness_board: dict[str, Any]
         "rank": candidate.get("rank"),
         "promotion_status": candidate.get("promotion_status"),
     }
+
+
+def _selected_candidate(promotion_review: dict[str, Any], readiness_board: dict[str, Any]) -> dict[str, Any]:
+    candidate = promotion_review.get("selected_candidate")
+    if not isinstance(candidate, dict):
+        candidate = readiness_board.get("selected_candidate")
+    if not isinstance(candidate, dict):
+        return {}
+    return candidate
 
 
 def _blocker_ids(readiness_board: dict[str, Any]) -> list[str]:

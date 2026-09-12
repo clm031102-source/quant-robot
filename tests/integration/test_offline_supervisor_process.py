@@ -72,11 +72,22 @@ with OfflineRuntime(b['journal_path'],clock=lambda:NOW) as runtime:
             launch=launch,interval_seconds=.05,poll_seconds=.02,startup_seconds=2,stall_seconds=stall_seconds,**options)
 
     def test_normal_bounded_cli_exits_with_stopped_health_and_no_fault(self):
-        result=subprocess.run(self.cli(),capture_output=True,text=True,timeout=15)
+        worker_report=self.root/'worker-report.json'
+        result=subprocess.run(self.cli('--worker-report',str(worker_report)),capture_output=True,text=True,timeout=15)
         self.assertEqual(result.returncode,0,result.stderr)
         monitor=json.loads(result.stdout);worker=json.loads(self.health.read_text())
+        report=json.loads(worker_report.read_text())
         self.assertEqual(monitor['phase'],'stopped');self.assertFalse(monitor['child_alive'])
-        self.assertEqual(worker['phase'],'stopped');self.assertEqual(worker['last_tick_status'],'ready')
+        self.assertEqual(worker['phase'],'stopped')
+        # Process health does not imply that a shared runner meets a 250 ms cadence.
+        self.assertEqual(report['feed_status'],'present',report)
+        self.assertFalse(report['paused'],report)
+        self.assertEqual(report['faults'],[],report)
+        self.assertFalse(any(step['status']=='rejected' for step in report['steps']),report)
+        self.assertEqual(report['cadence_overrun'],report['tick_duration_seconds'] > .25,report)
+        expected='attention' if report['cadence_overrun'] else 'ready'
+        self.assertEqual(report['status'],expected,report)
+        self.assertEqual(worker['last_tick_status'],report['status'],report)
         self.assertEqual(worker['completed_ticks'],3)
         self.assertEqual(self.snapshot()['faults'],[])
         self.assertEqual(worker['instance_id'],monitor['instance_id'])
