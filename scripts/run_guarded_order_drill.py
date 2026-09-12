@@ -28,8 +28,11 @@ def run_drill(config_path: Path, output_dir: Path):
     now = datetime.fromisoformat(cfg["logical_clock_start"])
     journal_path = output_dir / "guarded_synthetic_orders.sqlite"
     book = OfflineOrderJournal.create(journal_path, initial_cash=cfg["initial_cash"], initial_positions=cfg["initial_positions"],
-        commission_bps=cfg["commission_bps"], minimum_commission=cfg["minimum_commission"], admission_policy=cfg["policy"])
+        commission_bps=cfg["commission_bps"], minimum_commission=cfg["minimum_commission"], admission_policy=cfg["policy"],
+        dividend_policy=cfg.get("dividend_policy"))
     stages, rejected, dispatch_rejections, valuation_rejections = [], [], [], []
+    quote_prices = {code: cfg["fixture_price"] for code in cfg["instruments"]}
+    price_bases = {}
 
     def packet():
         state = book.snapshot()
@@ -37,7 +40,8 @@ def run_drill(config_path: Path, output_dir: Path):
             "source_ref": "synthetic-snapshot", "as_of": now.isoformat(), "session_date": now.date().isoformat(),
             "journal_sequence": state["sequence"], "journal_hash": state["journal_hash"],
             "quotes": {code: {"symbol": code, "exchange": row["exchange"], "timestamp": now.isoformat(),
-                "bid": cfg["fixture_price"], "ask": cfg["fixture_price"], "trade_status": "TRADING", "source_ref": "synthetic-quote"}
+                "bid": quote_prices[code], "ask": quote_prices[code], "trade_status": "TRADING", "source_ref": "synthetic-quote",
+                **({"price_basis_id": price_bases[code]} if code in price_bases else {})}
                 for code, row in cfg["instruments"].items()}}
 
     def start(sellable):
@@ -140,6 +144,41 @@ def run_drill(config_path: Path, output_dir: Path):
         if (not final["paused"] or Decimal(final["cash"]) != Decimal("2305")
                 or final["positions"] != {"510300.SH": 70} or len(final["orders"]) != 3):
             raise AssertionError("unexpected final guarded journal state")
+        if "dividend_policy" in cfg:
+            distribution = cfg["dividend_policy"]["events"][0]
+            now = datetime.fromisoformat(distribution["record_date"] + "T" + cfg["dividend_policy"]["record_cutoff"] + ":00+08:00")
+            book.record_dividend_entitlements(clock=lambda: now)
+            capture("record_date_entitlement_preserved_while_risk_stopped")
+            now = datetime.fromisoformat(distribution["ex_date"] + "T09:00:00+08:00")
+            book.accrue_dividends(clock=lambda: now)
+            quote_prices["510300.SH"] = cfg["post_dividend_fixture_price"]
+            price_bases["510300.SH"] = "cash_dividend:" + distribution["event_id"]
+            now = now.replace(hour=10)
+            start(book.snapshot()["positions"])
+            book.record_valuation(packet(), clock=lambda: now)
+            value = book.snapshot()["portfolio_valuation"]["last_valid"]
+            if Decimal(value["book_equity"]) != Decimal("2585") or Decimal(value["dividend_receivable"]) != Decimal("42"):
+                raise AssertionError("ex-dividend value or receivable is incorrect")
+            capture("ex_dividend_receivable_preserves_value_without_spendable_cash")
+            try:
+                book.record_dividend_cash_credit(distribution["event_id"], "early", "42", clock=lambda: now)
+            except ValueError as exc:
+                if "pay date" not in str(exc):
+                    raise
+            else:
+                raise AssertionError("cash became available before its declared pay date")
+            capture("premature_cash_credit_rejected")
+            now = datetime.fromisoformat(distribution["pay_date"] + "T10:00:00+08:00")
+            start(book.snapshot()["positions"])
+            book.record_dividend_cash_credit(distribution["event_id"], "confirmed-credit", "42", clock=lambda: now)
+            if book.record_dividend_cash_credit(distribution["event_id"], "confirmed-credit", "42", clock=lambda: now):
+                raise AssertionError("duplicate dividend credit changed the journal")
+            book.record_valuation(packet(), clock=lambda: now)
+            final = book.snapshot()
+            if (Decimal(final["cash"]) != Decimal("2347") or Decimal(final["dividends"]["receivable_total"]) != 0
+                    or Decimal(final["portfolio_valuation"]["last_valid"]["book_equity"]) != Decimal("2585")):
+                raise AssertionError("dividend credit did not transfer value exactly once")
+            capture("confirmed_cash_replaces_receivable_once")
     finally:
         book.close()
     if config_path.read_bytes() != original:
@@ -148,7 +187,7 @@ def run_drill(config_path: Path, output_dir: Path):
     files = [Path(__file__).resolve(), root / "scripts/bootstrap.py", *[
         root / "src/quant_robot/execution" / name for name in ("offline_journal.py", "offline_order_state.py",
             "offline_admission.py", "offline_dispatch.py", "offline_timeouts.py", "offline_portfolio_risk.py",
-            "offline_valuation.py", "offline_intent_contract.py", "boundary.py")]]
+            "offline_valuation.py", "offline_dividends.py", "offline_intent_contract.py", "boundary.py")]]
     result = {"schema_version": 1, "generated_at": datetime.now(timezone.utc).isoformat(),
         "status": "synthetic_admission_drill_passed", "mode": "offline_fixture_only", "executable": False,
         "counts_as_forward_paper_days": 0, "qualifies_for_strategy_promotion": False,

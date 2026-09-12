@@ -167,13 +167,18 @@ def normalize_packet(value, *, opening=False):
         raise ValueError("quotes must be a mapping")
     for key, quote in value["quotes"].items():
         code = symbol(key)
-        exact(quote, {"symbol", "exchange", "timestamp", "bid", "ask", "trade_status", "source_ref"}, "quote")
+        quote_fields = {"symbol", "exchange", "timestamp", "bid", "ask", "trade_status", "source_ref"}
+        if isinstance(quote, dict) and "price_basis_id" in quote:
+            quote_fields.add("price_basis_id")
+        exact(quote, quote_fields, "quote")
         if quote["symbol"] != code:
             raise ValueError("quote symbol mismatch")
         result["quotes"][code] = {"symbol": code, "exchange": exchange(code, quote["exchange"]),
             "timestamp": instant(quote["timestamp"]).isoformat(), "bid": str(amount(quote["bid"], positive=True)),
             "ask": str(amount(quote["ask"], positive=True)), "trade_status": identity(quote["trade_status"]),
             "source_ref": identity(quote["source_ref"])}
+        if "price_basis_id" in quote:
+            result["quotes"][code]["price_basis_id"] = identity(quote["price_basis_id"])
     if opening:
         if not isinstance(value["instruments"], dict):
             raise ValueError("instruments must be a mapping")

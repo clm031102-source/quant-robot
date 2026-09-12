@@ -43,7 +43,7 @@ def valuation_event(state, packet, now):
     required = {key for key, qty in state["positions"].items() if qty}
     required |= {row["symbol"] for row in state["orders"].values() if row["status"] in ACTIVE}
     try:
-        marks = _marks(policy, packet, now, required)
+        marks = _marks(policy, packet, now, required, state=state)
     except AdmissionRejected as exc:
         raise ValuationRejected(str(exc), unavailable=True) from exc
     prior_quotes = previous["context"]["quotes"] if previous else session["quotes"]
@@ -70,6 +70,7 @@ def valuation_event(state, packet, now):
         "opening_equity": str(opening), "book_pnl_from_open": str(equity - opening),
         "book_loss_from_open": str(opening - equity), "book_equity_peak": str(peak),
         "book_peak_drawdown": str(peak - equity), "pending_cost_bound": str(totals["pending_cost"]),
+        "dividend_receivable": str(totals["dividend_receivable"]),
         "projected_daily_loss": str(totals["projected_loss"]), "gross_committed_exposure": str(totals["gross"]),
         "committed_position_values": {key: str(value) for key, value in totals["exposure"].items()},
         "marks": {key: str(value) for key, value in marks.items() if key in required},

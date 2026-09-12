@@ -5,7 +5,7 @@ from datetime import datetime, time
 from decimal import Decimal
 
 from .offline_intent_contract import SHANGHAI, day, instant
-from .offline_order_state import ACTIVE, VALUATION_UNAVAILABLE, AdmissionRejected, ZERO, money_context, reservations
+from .offline_order_state import ACTIVE, VALUATION_UNAVAILABLE, AdmissionRejected, ZERO, dividend_receivable, money_context, reservations
 from .offline_portfolio_risk import portfolio_totals
 
 
@@ -44,7 +44,10 @@ def _check_context(state, packet, now, *, opening=False):
 
 
 @money_context
-def _marks(policy, packet, now, required):
+def _marks(policy, packet, now, required, *, state=None):
+    if state is not None:
+        from .offline_dividends import check_dividend_basis
+        check_dividend_basis(state, packet, now, required)
     if not set(required).issubset(packet["quotes"]):
         deny("missing quote for order or portfolio risk")
     marks = {}
@@ -85,8 +88,8 @@ def begin_session_event(state, packet, now):
     held = {key for key, qty in state["positions"].items() if qty}
     if not held.issubset(policy["allowed_symbols"]):
         deny("holding outside configured universe")
-    marks = _marks(policy, packet, now, held)
-    equity = state["cash"] + sum((qty * marks[key] for key, qty in state["positions"].items() if qty), ZERO)
+    marks = _marks(policy, packet, now, held, state=state)
+    equity = state["cash"] + dividend_receivable(state) + sum((qty * marks[key] for key, qty in state["positions"].items() if qty), ZERO)
     if equity <= 0:
         deny("nonpositive opening equity")
     return {"kind": "RISK_SESSION", "data": {**packet, "decision_at": now.isoformat(),
@@ -179,7 +182,7 @@ def admission_event(state, order, packet, now):
     _check_intent(state, order, packet, policy, now)
     required = {key for key, qty in state["positions"].items() if qty} | {order["symbol"]}
     required |= {row["symbol"] for row in state["orders"].values() if row["status"] in ACTIVE}
-    marks = _marks(policy, packet, now, required)
+    marks = _marks(policy, packet, now, required, state=state)
     _check_instrument(state, order, packet, policy)
     totals = _risk_totals(state, order, marks, policy)
     return {"kind": "REGISTER", "data": {"order_id": order["client_intent_id"], "idempotency_key": order["idempotency_key"],

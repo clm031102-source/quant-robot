@@ -153,11 +153,15 @@ class ScriptWorkspaceImportTests(unittest.TestCase):
             _write_legacy_quant_robot_package(legacy)
             env = dict(os.environ)
             env["PYTHONPATH"] = str(legacy)
-            for name, report in (("run_offline_order_drill", "drill_report.json"),
-                    ("run_guarded_order_drill", "guarded_drill_report.json")):
-                with self.subTest(script=name):
-                    output = root / name
-                    result = subprocess.run([sys.executable, "scripts/" + name + ".py", "--output-dir", str(output)],
+            for name, report, config in (("run_offline_order_drill", "drill_report.json", None),
+                    ("run_guarded_order_drill", "guarded_drill_report.json", None),
+                    ("run_guarded_order_drill", "guarded_drill_report.json", "configs/offline_dividend_drill_20260912.json")):
+                with self.subTest(script=name, config=config):
+                    output = root / (name + ("-dividends" if config else ""))
+                    command = [sys.executable, "scripts/" + name + ".py", "--output-dir", str(output)]
+                    if config:
+                        command.extend(["--config", config])
+                    result = subprocess.run(command,
                         cwd=repo_root, env=env, capture_output=True, text=True, timeout=30)
                     self.assertEqual(result.returncode, 0, result.stderr)
                     self.assertTrue((output / report).is_file())
@@ -168,6 +172,9 @@ class ScriptWorkspaceImportTests(unittest.TestCase):
                         self.assertTrue(all("dispatch" in row for row in final["orders"].values()))
                         self.assertFalse(evidence["executable"])
                         self.assertEqual(evidence["counts_as_forward_paper_days"], 0)
+                        if config:
+                            self.assertEqual(len(evidence["stages"]), 14)
+                            self.assertEqual(final["dividends"]["paid"], ["synthetic-distribution"])
 
 
 def _write_legacy_quant_robot_package(root: Path) -> None:

@@ -15,6 +15,7 @@ TERMINAL = {"FILLED", "CANCELLED", "REJECTED"}
 STATUSES = ACTIVE | TERMINAL
 ZERO = Decimal("0")
 VALUATION_UNAVAILABLE = "portfolio_valuation_unavailable"
+DIVIDEND_ENTITLEMENT_UNCERTAIN = "dividend_entitlement_requires_review"
 
 
 class AdmissionRejected(ValueError):
@@ -116,6 +117,11 @@ def risk_deficit(state) -> bool:
 
 
 @money_context
+def dividend_receivable(state):
+    return sum((Decimal(value) for value in state["dividends"]["receivables"].values()), ZERO)
+
+
+@money_context
 def apply_event(state, event):
     kind, data = event["kind"], event["data"]
     if kind == "GENESIS":
@@ -126,6 +132,9 @@ def apply_event(state, event):
             timeout_policy=data.get("timeout_policy"), timeout_policy_fingerprint=data.get("timeout_policy_fingerprint"),
             last_timeout_at=None,
             portfolio_valuation={"last_valid": None, "last_rejection": None, "unavailable": False},
+            dividend_policy=data.get("dividend_policy"), dividend_policy_fingerprint=data.get("dividend_policy_fingerprint"),
+            dividends={"entitlements": {}, "receivables": {}, "accrued": set(), "paid": set(), "price_basis": {},
+                "last_transition_at": None, "last_rejection": None},
             risk_session=None, sellable_positions={}, attempted_intent_ids=set(), attempted_idempotency_keys=set(),
             attempted_dispatch_ids=set())
     elif kind == "REGISTER":
@@ -150,6 +159,23 @@ def apply_event(state, event):
         if data["valuation_unavailable"] and state["risk_session"] is not None:
             state["portfolio_valuation"]["unavailable"] = True
             state["faults"].add(VALUATION_UNAVAILABLE)
+    elif kind == "DIVIDEND_ENTITLEMENTS":
+        state["dividends"]["entitlements"].update(data["entitlements"])
+        state["dividends"]["last_transition_at"] = data["decision_at"]
+    elif kind == "DIVIDEND_ACCRUAL":
+        for key in data["event_ids"]:
+            entitlement = state["dividends"]["entitlements"][key]
+            state["dividends"]["receivables"][key] = entitlement["net_amount"]
+            state["dividends"]["accrued"].add(key)
+            state["dividends"]["price_basis"][entitlement["symbol"]] = "cash_dividend:" + key
+        state["dividends"]["last_transition_at"] = data["decision_at"]
+    elif kind == "DIVIDEND_CASH_CREDIT":
+        state["cash"] += Decimal(data["cash_amount"])
+        state["dividends"]["receivables"].pop(data["event_id"])
+        state["dividends"]["paid"].add(data["event_id"])
+        state["dividends"]["last_transition_at"] = data["decision_at"]
+    elif kind == "DIVIDEND_REJECTED":
+        state["dividends"]["last_rejection"] = dict(data)
     elif kind in {"ADMISSION_DENIED", "DISPATCH_DENIED"}:
         request = data["rejected_request"] or {}
         if kind == "DISPATCH_DENIED" and "attempt_id" in request:
@@ -196,7 +222,7 @@ def apply_event(state, event):
     elif kind == "RECONCILE":
         for key, order in data["orders"].items():
             state["orders"][key]["status"] = order["status"]
-        state["faults"].intersection_update({VALUATION_UNAVAILABLE})
+        state["faults"].intersection_update({VALUATION_UNAVAILABLE, DIVIDEND_ENTITLEMENT_UNCERTAIN})
     elif kind == "KILL_SWITCH":
         state["kill_switch"] = data["enabled"]
     else:
@@ -215,6 +241,10 @@ def _apply_fill(state, data):
     direction = 1 if order["side"] == "BUY" else -1
     state["cash"] -= direction * value + extra_fee
     key = order["symbol"]
+    for event in (state.get("dividend_policy") or {}).get("events", []):
+        if (event["symbol"] == key and event["event_id"] in state["dividends"]["entitlements"]
+                and order["admission"]["session_date"] <= event["record_date"]):
+            state["faults"].add(DIVIDEND_ENTITLEMENT_UNCERTAIN)
     state["positions"][key] = state["positions"].get(key, 0) + direction * qty
     if state["risk_session"] is not None:
         metadata = state["risk_session"]["instruments"][key]
@@ -256,6 +286,9 @@ def public_snapshot(state):
         "sellable_positions": {key: qty for key, qty in sellable.items() if qty},
         "admission_policy_fingerprint": state["admission_policy_fingerprint"],
         "timeout_policy_fingerprint": state["timeout_policy_fingerprint"],
+        "dividend_policy_fingerprint": state["dividend_policy_fingerprint"],
+        "dividends": {**state["dividends"], "accrued": sorted(state["dividends"]["accrued"]),
+            "paid": sorted(state["dividends"]["paid"]), "receivable_total": str(dividend_receivable(state))},
         "risk_session": state["risk_session"],
         "portfolio_valuation": {**state["portfolio_valuation"], "matches_current_journal":
             (state["portfolio_valuation"]["last_valid"] or {}).get("event_sequence") == state["sequence"]},
