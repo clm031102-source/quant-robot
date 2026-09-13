@@ -21,7 +21,7 @@ def _observation(value, now):
             "source_ref": "runtime-clock-without-price-observation", "as_of": now.isoformat(),
             "session_date": now.astimezone(SHANGHAI).date().isoformat(), "quotes": {}}, "missing"
     required = {"schema_version", "mode", "snapshot_id", "source_ref", "as_of", "session_date", "quotes"}
-    optional = {"receipts", "intents", "cancel_requests", "opening"}
+    optional = {"receipts", "intents", "targets", "cancel_requests", "opening"}
     if not isinstance(value, dict) or not required.issubset(value) or set(value) - required - optional:
         raise ValueError("invalid runtime observation fields")
     version(value)
@@ -32,7 +32,7 @@ def _observation(value, now):
         result[key] = identity(value[key])
     result["as_of"] = instant(value["as_of"]).isoformat()
     result["session_date"] = day(value["session_date"]).isoformat()
-    for key in ("receipts", "intents", "cancel_requests"):
+    for key in ("receipts", "intents", "targets", "cancel_requests"):
         if key in value and not isinstance(value[key], list):
             raise ValueError("runtime command groups must be lists")
     if "opening" in value:
@@ -168,14 +168,15 @@ class OfflineRuntime:
         if "opening" in self.feed and (session is None or session["session_date"] != self.feed["session_date"]):
             self._call("opening", lambda: self.book.begin_session(self._packet(opening=True), clock=self.clock), retry_anchor=True)
         self._call("valuation", lambda: self.book.record_valuation(self._packet(), clock=self.clock), retry_anchor=True)
-        for row in self.feed.get("intents", []):
-            self._check_supervision()
-            state = self.book._read()
-            key = row.get("client_intent_id") if isinstance(row, dict) else None
-            if isinstance(key, str) and (key in state["orders"] or key in state["attempted_intent_ids"]):
-                self.steps.append({"stage": "intent", "status": "already_attempted"})
-                continue
-            self._call("intent", lambda row=row: self.book.admit(row, self._packet(), clock=self.clock))
+        for stage, group, admit in (("intent", "intents", self.book.admit), ("target", "targets", self.book.admit_target)):
+            for row in self.feed.get(group, []):
+                self._check_supervision()
+                state = self.book._read()
+                key = row.get("client_intent_id") if isinstance(row, dict) else None
+                if isinstance(key, str) and (key in state["orders"] or key in state["attempted_intent_ids"]):
+                    self.steps.append({"stage": stage, "status": "already_attempted"})
+                    continue
+                self._call(stage, lambda row=row: admit(row, self._packet(), clock=self.clock))
         state = self.book._read()
         if not self.book.snapshot()["paused"]:
             for key, order in state["orders"].items():
@@ -187,7 +188,7 @@ class OfflineRuntime:
                 self._check_supervision()
                 self._call("dispatch", lambda key=key, attempt_id=attempt_id: self.book.prepare_dispatch(key, attempt_id, self._packet(), clock=self.clock))
         state = self.book.snapshot()
-        if any(row["stage"] in {"intent", "dispatch"} and row.get("changed") for row in self.steps):
+        if any(row["stage"] in {"intent", "target", "dispatch"} and row.get("changed") for row in self.steps):
             self._call("post_order_valuation", lambda: self.book.record_valuation(self._packet(), clock=self.clock), retry_anchor=True)
             state = self.book.snapshot()
         current_session = (state["risk_session"] or {}).get("session_date") == now.astimezone(SHANGHAI).date().isoformat()

@@ -356,6 +356,27 @@ class OfflineOrderJournal:
                 raise AdmissionRejected(str(exc)) from exc
         return self._run(build, {"intent": order, "context": packet})
 
+    def admit_target(self, target, context, *, clock=None):
+        """Compile and admit a supplied synthetic target under one journal lock."""
+        from .offline_target_compiler import compile_target_event, normalize_target
+        from .offline_intent_contract import normalize_packet, rejection_evidence
+        try:
+            request, packet = normalize_target(target), normalize_packet(context)
+        except ValueError as exc:
+            message = str(exc)
+            def reject(_state):
+                raise AdmissionRejected(message)
+            return self._run(reject, rejection_evidence(target, exc))
+        clock = clock or (lambda: datetime.now(timezone.utc))
+        def build(state):
+            event = compile_target_event(state, request, packet, clock())
+            try:
+                return self._registration_event(state, event['data'], guarded=True)
+            except ValueError as exc:
+                raise AdmissionRejected(str(exc)) from exc
+        return self._run(build, {'intent':{'client_intent_id':request['client_intent_id'],
+            'idempotency_key':request['idempotency_key']},'target':request,'context':packet})
+
     def prepare_dispatch(self, order_id, attempt_id, context, *, clock=None):
         """Record a single offline send-decision check; never emit a live request."""
         from .offline_dispatch import dispatch_event
