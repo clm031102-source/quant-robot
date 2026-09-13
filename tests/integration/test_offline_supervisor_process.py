@@ -18,6 +18,27 @@ from tests.unit.test_offline_runtime import create_book, observation
 from tests.unit.test_offline_order_admission import NOW
 
 
+def wait_for_progressing_worker(worker, read_state, *, clock=time.monotonic, sleep=time.sleep,
+        stall_seconds=10, total_seconds=60):
+    """A slow progressing CI worker is distinct from a worker that has stalled."""
+    started = last_progress = clock()
+    previous_ticks = -1
+    latest = None
+    while worker.poll() is None:
+        try:
+            latest = read_state()
+        except (OSError, ValueError):
+            latest = None
+        now = clock()
+        ticks = latest.get('completed_ticks') if isinstance(latest, dict) else None
+        if type(ticks) is int and ticks > previous_ticks:
+            previous_ticks, last_progress = ticks, now
+        if now - last_progress >= stall_seconds or now - started >= total_seconds:
+            raise TimeoutError(f'worker still running: elapsed={now-started:.3f}, last_progress_age={now-last_progress:.3f}, health={latest}')
+        sleep(.02)
+    return worker.wait(timeout=1)
+
+
 class OfflineSupervisorProcessTests(unittest.TestCase):
     def setUp(self):
         directory=tempfile.TemporaryDirectory()
@@ -297,7 +318,7 @@ for _ in range(500):
             self.assertIsNone(worker.poll(),diagnostic())
             self.assertTrue(ready,diagnostic())
             producer.kill();producer.wait(timeout=5)
-            self.assertEqual(worker.wait(timeout=10),0,diagnostic())
+            self.assertEqual(wait_for_progressing_worker(worker, lambda: read_health(self.health)),0,diagnostic())
             state=self.snapshot()
             self.assertIn('runtime_supervision_requires_review',state['faults'])
             self.assertIsNotNone(state['portfolio_valuation']['last_valid'])
