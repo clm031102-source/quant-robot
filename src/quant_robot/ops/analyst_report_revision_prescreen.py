@@ -322,9 +322,11 @@ def _daily_report_snapshot(reports: pd.DataFrame) -> pd.DataFrame:
     frame = reports.copy()
     frame["report_date"] = pd.to_datetime(frame["report_date"])
     frame["rating_score"] = frame["rating"].map(_rating_score)
-    frame["target_price"] = pd.to_numeric(frame["tp"], errors="coerce").combine_first(
-        (pd.to_numeric(frame["min_price"], errors="coerce") + pd.to_numeric(frame["max_price"], errors="coerce")) / 2.0
-    )
+    # report_rc.tp is predicted total profit in CNY10,000, not a target price.
+    low = pd.to_numeric(frame["min_price"], errors="coerce")
+    high = pd.to_numeric(frame["max_price"], errors="coerce")
+    valid = low.gt(0) & high.ge(low) & low.lt(float("inf")) & high.lt(float("inf"))
+    frame["target_price"] = (low / 2.0 + high / 2.0).where(valid)
     grouped = (
         frame.groupby(["asset_id", "symbol", "market", "report_date"], as_index=False)
         .agg(

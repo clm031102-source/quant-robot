@@ -14,6 +14,7 @@ from quant_robot.storage.dataset_store import DatasetStore
 
 
 SAFETY = "research-to-review only; no broker, account, order, or live-trading access"
+REPORT_RC_DOCUMENTED_ROW_LIMIT = 3000  # https://tushare.pro/document/2?doc_id=292
 ANALYST_REPORT_COLUMNS = [
     "report_date",
     "available_date",
@@ -60,10 +61,11 @@ def run_tushare_analyst_report_cache(
     resume: bool = True,
     window_frequency: str = "MS",
     request_sleep_seconds: float = 3660.0,
-    max_rows_per_window: int = 5000,
+    max_rows_per_window: int = REPORT_RC_DOCUMENTED_ROW_LIMIT,
     stop_on_rate_limit: bool = True,
     progress_callback: ProgressCallback | None = None,
 ) -> dict[str, object]:
+    effective_row_threshold = min(int(max_rows_per_window), REPORT_RC_DOCUMENTED_ROW_LIMIT)
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
     processed_path = Path(processed_output_dir) if processed_output_dir else output_path
@@ -128,7 +130,7 @@ def run_tushare_analyst_report_cache(
         fetched_count += 1
         status = "ok"
         cap_assessment = "unknown_raw_response_count" if raw_rows is None else "below_configured_warning_threshold"
-        if raw_rows is not None and raw_rows >= int(max_rows_per_window):
+        if raw_rows is not None and raw_rows >= effective_row_threshold:
             warning = {
                 "window_start": start_label,
                 "window_end": end_label,
@@ -167,6 +169,8 @@ def run_tushare_analyst_report_cache(
         "processed_writes_enabled": bool(execute_write_processed),
         "resume": bool(resume),
         "configured_row_warning_threshold": int(max_rows_per_window),
+        "effective_row_warning_threshold": effective_row_threshold,
+        "documented_provider_row_limit": REPORT_RC_DOCUMENTED_ROW_LIMIT,
         "source_completeness_verified": False,
         "summary": {
             "windows": int(len(windows)),
@@ -376,7 +380,7 @@ def _markdown(result: dict[str, object]) -> str:
         "## Interpretation",
         "",
         "- This cache records obtained inputs; it does not certify completeness, historical availability, or a trading signal.",
-        "- The configured warning threshold is checked against raw response rows before filtering or deduplication.",
+        "- Raw rows are checked against the smaller of the configured threshold and documented 3000-row limit, before filtering or deduplication.",
         "- Normalized cached rows cannot reconstruct the original response count; resumed windows remain unverified.",
         "- A smaller-window collection requires a separate authorized scope and quota review; this report does not trigger requests.",
     ]
