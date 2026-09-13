@@ -20,6 +20,7 @@ from quant_robot.ops.cn_stock_data_manifest import validate_cn_stock_data_manife
 from quant_robot.ops.factor_batch_readiness_gate import validate_factor_batch_readiness_gate_packet
 from quant_robot.ops.factor_mining_startup import validate_cleared_startup_gate_packet
 from quant_robot.paper.simulator import PaperSimulationConfig, run_paper_simulation, write_paper_simulation_artifacts
+from quant_robot.paper.fixed_hold_attachment import attach_fixed_hold_comparison, load_fixed_hold_entries
 from quant_robot.storage.processed_bars import load_processed_bars
 from quant_robot.research.cn_etf_entrypoint_access import require_registered_cn_etf_entrypoint
 
@@ -64,8 +65,14 @@ def run_simulation(
     allow_review_required_data_manifest: bool = False,
     minimum_commission: float = 0.0,
     corporate_actions_path: str | Path | None = None,
+    fixed_hold_benchmark_path: str | Path | None = None,
 ) -> dict[str, Any]:
     require_registered_cn_etf_entrypoint(source, market)
+    fixed_hold = None
+    if fixed_hold_benchmark_path is not None:
+        if market != 'CN_ETF' or positions_csv is not None or corporate_actions_path is None or max_participation_rate is None:
+            raise ValueError('Fixed-hold comparison requires CN_ETF, an all-cash start, explicit corporate actions and capacity')
+        fixed_hold = load_fixed_hold_entries(fixed_hold_benchmark_path)
     _enforce_cn_stock_paper_simulation_inputs(
         source=source,
         market=market,
@@ -109,6 +116,9 @@ def run_simulation(
     )
     config = _attach_processed_cn_etf_rotation_membership(config, source, Path(data_root))
     result = run_paper_simulation(bars, config, initial_positions=positions)
+    if fixed_hold is not None:
+        result = attach_fixed_hold_comparison(bars, result, entries=fixed_hold[0],
+            source_path=fixed_hold_benchmark_path, source_sha256=fixed_hold[1])
     if output_dir is not None:
         write_paper_simulation_artifacts(result, Path(output_dir))
     return result
@@ -132,6 +142,7 @@ def main() -> None:
     parser.add_argument("--commission-bps", default=5.0, type=float)
     parser.add_argument("--minimum-commission", default=0.0, type=float)
     parser.add_argument("--corporate-actions", help="Local versioned corporate-action dataset JSON")
+    parser.add_argument("--fixed-hold-benchmark", help="Declared fixed-hold entries JSON; inherits account cash and costs")
     parser.add_argument("--slippage-bps", default=5.0, type=float)
     parser.add_argument("--market-impact-bps", default=0.0, type=float)
     parser.add_argument("--max-participation-rate", type=float)
@@ -172,6 +183,7 @@ def main() -> None:
         commission_bps=args.commission_bps,
         minimum_commission=args.minimum_commission,
         corporate_actions_path=args.corporate_actions,
+        fixed_hold_benchmark_path=args.fixed_hold_benchmark,
         slippage_bps=args.slippage_bps,
         market_impact_bps=args.market_impact_bps,
         max_participation_rate=args.max_participation_rate,

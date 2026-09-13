@@ -179,6 +179,11 @@ def run_paper_simulation(
 
 
 def write_paper_simulation_artifacts(result: dict[str, Any], output_dir: Path) -> None:
+    if output_dir.exists() and (
+            ("fixed_hold_benchmark" in result and any(output_dir.iterdir()))
+            or any((output_dir / name).exists() for name in
+                   ("fixed_hold_benchmark.json", "fixed_hold_benchmark_curve.csv", "account_comparison.json"))):
+        raise FileExistsError("Use a new output directory to preserve fixed-hold comparison evidence")
     output_dir.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(result["intents"]).to_csv(output_dir / "intents.csv", index=False)
     pd.DataFrame(result["fills"], columns=None if result["fills"] else
@@ -191,11 +196,19 @@ def write_paper_simulation_artifacts(result: dict[str, Any], output_dir: Path) -
     pd.DataFrame(result.get("execution_events", []), columns=None if result.get("execution_events") else
         ["execution_date", "event"]).to_csv(output_dir / "execution_events.csv", index=False)
     pd.DataFrame(result.get("corporate_action_events", [])).to_csv(output_dir / "corporate_action_events.csv", index=False)
+    if "fixed_hold_benchmark" in result:
+        (output_dir / "fixed_hold_benchmark.json").write_text(
+            json.dumps(result["fixed_hold_benchmark"], indent=2, ensure_ascii=False), encoding="utf-8")
+        pd.DataFrame(result["fixed_hold_benchmark"]["equity_curve"]).to_csv(
+            output_dir / "fixed_hold_benchmark_curve.csv", index=False)
+        (output_dir / "account_comparison.json").write_text(
+            json.dumps(result["account_comparison"], indent=2, ensure_ascii=False), encoding="utf-8")
     manifest = {
         "data_mode": result["data_mode"],
         "request": result["request"],
         "metrics": result["metrics"],
         "accounting": result.get("accounting", {}),
+        **({"account_comparison": result["account_comparison"]} if "account_comparison" in result else {}),
         **({"input_provenance": result["input_provenance"]} if "input_provenance" in result else {}),
         "safety": "Local paper simulation only. No broker connection, no order placement, no live trading.",
     }
