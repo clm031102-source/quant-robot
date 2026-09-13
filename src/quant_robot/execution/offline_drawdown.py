@@ -33,4 +33,5 @@ def apply_drawdown_evidence(state, event):
     if guard is not None:
         state['drawdown_guard'] = dict(guard)
         if guard['stop_latched'] and state.get('risk_session') is not None:
-            state['risk_session']['risk_stop'] = True
+            from .offline_exposure_stop import latch_stop
+            latch_stop(state, ['cumulative_drawdown'])

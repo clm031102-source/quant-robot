@@ -8,10 +8,11 @@ from .offline_intent_contract import SHANGHAI, day, instant
 from .offline_order_state import ACTIVE, VALUATION_UNAVAILABLE, AdmissionRejected, ZERO, dividend_receivable, dividend_payable, money_context, reservations
 from .offline_portfolio_risk import portfolio_totals
 from .offline_drawdown import drawdown_evidence
+from .offline_exposure_stop import exposure_only_stop, reduction_evidence
 
 
-def deny(message, *, stop=False):
-    raise AdmissionRejected(message, risk_stop=stop)
+def deny(message, *, stop=False, cause=None):
+    raise AdmissionRejected(message, risk_stop=stop, risk_stop_causes=[cause] if cause else None)
 
 
 def _check_context(state, packet, now, *, opening=False):
@@ -102,6 +103,7 @@ def begin_session_event(state, packet, now):
     guard = drawdown_evidence(state, equity)
     return {"kind": "RISK_SESSION", "data": {**packet, "decision_at": now.isoformat(),
         "opening_equity": str(equity), "opening_positions": dict(state["positions"]), "risk_stop": bool(guard and guard['stop_latched']),
+        "risk_stop_causes": ['cumulative_drawdown'] if guard and guard['stop_latched'] else [],
         **({'drawdown_guard':guard} if guard is not None else {}),
         "carryover_fill_shares": carryover, "consumed_conversion_participation": consumed, "released_conversion_locks": released_locks,
         "opening_dividend_adjustment_total": state["dividends"]["posted_adjustment_total"]}}
@@ -115,7 +117,7 @@ def _check_intent(state, order, packet, policy, now):
     session = state.get("risk_session")
     if session is None or session["session_date"] != packet["session_date"]:
         deny("risk session must be initialized")
-    if session["risk_stop"]:
+    if session["risk_stop"] and not exposure_only_stop(state, policy):
         deny("session risk stop remains active")
     if order["strategy_id"] != policy["strategy_id"] or order["strategy_version"] != policy["strategy_version"]:
         deny("strategy identity or version mismatch")
@@ -185,9 +187,10 @@ def _risk_totals(state, order, marks, policy):
     guard = drawdown_evidence(state, equity, totals['pending_cost'])
     if guard and guard['stop_latched']:
         raise AdmissionRejected('cumulative drawdown limit including pending costs reached',
-            risk_stop=True, drawdown_guard=guard)
+            risk_stop=True, drawdown_guard=guard, risk_stop_causes=['cumulative_drawdown'])
     if projected_loss >= Decimal(policy["max_daily_loss_cny"]):
-        raise AdmissionRejected("daily loss limit including pending costs reached", risk_stop=True, drawdown_guard=guard)
+        raise AdmissionRejected("daily loss limit including pending costs reached", risk_stop=True,
+            drawdown_guard=guard, risk_stop_causes=['daily_loss'])
     return {"current_equity": str(equity), "projected_daily_loss": str(projected_loss),
         **({'drawdown_guard':guard} if guard is not None else {}),
         "gross_committed_exposure": str(gross), "one_way_committed_shares": committed + order["quantity"]}
@@ -201,7 +204,10 @@ def admission_event(state, order, packet, now):
     required |= {row["symbol"] for row in state["orders"].values() if row["status"] in ACTIVE}
     marks = _marks(policy, packet, now, required, state=state)
     _check_instrument(state, order, packet, policy)
+    reduction = reduction_evidence(state, order, policy, marks)
     totals = _risk_totals(state, order, marks, policy)
+    if reduction is not None:
+        totals['exposure_stop_reduction'] = reduction
     return {"kind": "REGISTER", "data": {"order_id": order["client_intent_id"], "idempotency_key": order["idempotency_key"],
         "symbol": order["symbol"], "side": order["side"], "quantity": order["quantity"], "limit_price": order["limit_price"],
         "admission": {"intent": order, "context": packet, "session_date": packet["session_date"],

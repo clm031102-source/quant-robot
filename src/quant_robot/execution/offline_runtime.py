@@ -13,6 +13,7 @@ from .offline_intent_contract import SHANGHAI, day, exact, instant, version
 from .offline_journal import OfflineOrderJournal
 from .offline_order_state import identity
 from .offline_runtime_lease import RuntimeLease
+from .offline_exposure_stop import exposure_only_stop
 
 
 def _observation(value, now):
@@ -178,9 +179,14 @@ class OfflineRuntime:
                     continue
                 self._call(stage, lambda row=row: admit(row, self._packet(), clock=self.clock))
         state = self.book._read()
-        if not self.book.snapshot()["paused"]:
+        paused = self.book.snapshot()["paused"]
+        reduction_checks = (exposure_only_stop(state, state.get("admission_policy") or {})
+            and not state["faults"] and not state["kill_switch"])
+        if not paused or reduction_checks:
             for key, order in state["orders"].items():
                 if order["status"] != "PENDING" or order["filled_quantity"] or "dispatch" in order:
+                    continue
+                if paused and order["side"] != "SELL":
                     continue
                 attempt_id = "runtime-" + hashlib.sha256(json.dumps([key, self.feed["snapshot_id"], self.feed["as_of"]]).encode()).hexdigest()
                 if attempt_id in state["attempted_dispatch_ids"]:
@@ -199,7 +205,8 @@ class OfflineRuntime:
             "counts_as_forward_paper_days": 0, "qualifies_for_strategy_promotion": False,
             "journal_sequence": state["sequence"], "journal_hash": state["journal_hash"],
             "drawdown_guard_configured": state['drawdown_guard_configured'], "drawdown_guard": state['drawdown_guard'],
-            "paused": state["paused"], "faults": state["faults"], "steps": self.steps}
+            "paused": state["paused"], "risk_stop_causes": (state["risk_session"] or {}).get("risk_stop_causes", []),
+            "faults": state["faults"], "steps": self.steps}
 
 
 def read_observation(path, *, max_bytes=2_000_000):

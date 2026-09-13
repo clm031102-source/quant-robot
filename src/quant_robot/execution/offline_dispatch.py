@@ -22,7 +22,7 @@ def dispatch_event(state, order_id, attempt_id, packet, now):
     if instant(now) < instant(admission["decision_at"]):
         deny("dispatch clock precedes the original admission")
     if risk_deficit(state):
-        deny("account or reservation deficit before dispatch", stop=True)
+        deny("account or reservation deficit before dispatch", stop=True, cause="account_or_reservation_deficit")
 
     # Revalidate the ORIGINAL immutable intent as one candidate. Its unfilled
     # reservation is removed only from this temporary view, never the journal.

@@ -24,10 +24,11 @@ CONVERSION_UNCERTAIN = "share_conversion_requires_review"
 
 
 class AdmissionRejected(ValueError):
-    def __init__(self, message, *, risk_stop=False, drawdown_guard=None):
+    def __init__(self, message, *, risk_stop=False, drawdown_guard=None, risk_stop_causes=None):
         super().__init__(message)
         self.risk_stop = risk_stop
         self.drawdown_guard = drawdown_guard
+        self.risk_stop_causes = risk_stop_causes
 
 
 def money_context(function):
@@ -212,6 +213,9 @@ def apply_event(state, event):
             state["attempted_idempotency_keys"].add(data["idempotency_key"])
     elif kind == "RISK_SESSION":
         state["risk_session"] = dict(data)
+        from .offline_exposure_stop import latch_stop
+        if data["risk_stop"]:
+            latch_stop(state, data.get("risk_stop_causes"))
         state["sellable_positions"] = dict(data["sellable_positions"])
         state["portfolio_valuation"] = {"last_valid": None, "last_rejection": None, "unavailable": False}
         state["faults"].discard(VALUATION_UNAVAILABLE)
@@ -224,7 +228,8 @@ def apply_event(state, event):
         state["portfolio_valuation"].update(last_valid={**data, "event_sequence": state["sequence"] + 1}, unavailable=False)
         state["risk_session"]["valuation_peak_equity"] = data["book_equity_peak"]
         if data["risk_stop_required"]:
-            state["risk_session"]["risk_stop"] = True
+            from .offline_exposure_stop import latch_stop
+            latch_stop(state, data.get("breaches"))
         state["faults"].discard(VALUATION_UNAVAILABLE)
     elif kind == "VALUATION_REJECTED":
         state["portfolio_valuation"]["last_rejection"] = dict(data)
@@ -285,7 +290,8 @@ def apply_event(state, event):
             if "idempotency_key" in request["intent"]:
                 state["attempted_idempotency_keys"].add(request["intent"]["idempotency_key"])
         if data["risk_stop"] and state["risk_session"] is not None:
-            state["risk_session"]["risk_stop"] = True
+            from .offline_exposure_stop import latch_stop
+            latch_stop(state, data.get("risk_stop_causes"))
     elif kind == "DISPATCH_PREPARED":
         mutable_order(state, data["order_id"])["dispatch"] = dict(data)
         state["attempted_dispatch_ids"].add(data["attempt_id"])

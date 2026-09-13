@@ -61,11 +61,16 @@ def normalize_policy(value):
     if type(policy_version) is not int or policy_version not in {1, 2}:
         raise ValueError('unsupported admission policy schema_version')
     drawdown_fields = {'max_drawdown'} if policy_version == 2 else set()
+    stop_fields = {'exposure_stop_action'} if policy_version == 2 and 'exposure_stop_action' in value else set()
     exact(value, {"schema_version", "mode", "policy_id", "strategy_id", "strategy_version", "allowed_symbols",
-        "session_dates", "trading_windows", *POLICY_MONEY, *POLICY_SECONDS, *drawdown_fields}, "admission policy")
+        "session_dates", "trading_windows", *POLICY_MONEY, *POLICY_SECONDS, *drawdown_fields, *stop_fields}, "admission policy")
     if value["mode"] != "offline_fixture_only":
         raise ValueError("only offline_fixture_only admission is supported")
     result = {"schema_version": policy_version, "mode": "offline_fixture_only"}
+    if stop_fields:
+        if value['exposure_stop_action'] not in ('halt_all', 'reduce_only'):
+            raise ValueError('unsupported exposure_stop_action')
+        result['exposure_stop_action'] = value['exposure_stop_action']
     if policy_version == 2:
         limit = amount(value['max_drawdown'], positive=True)
         if limit >= 1:
