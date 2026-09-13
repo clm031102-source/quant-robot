@@ -38,6 +38,7 @@ def compare_cash_accounts(strategy: dict, benchmark: dict) -> dict:
         raise ValueError('Cash accounts must use the same initial capital')
     strategy_return = float(left.iloc[-1]['equity'] / left.iloc[0]['equity'] - 1)
     benchmark_return = float(right.iloc[-1]['equity'] / right.iloc[0]['equity'] - 1)
+    from quant_robot.paper.risk_evidence import audit_cash_account_risk
     return {'comparison_type': 'same_calendar_cash_accounts_v1',
         'strategy_total_return': strategy_return, 'benchmark_total_return': benchmark_return,
         'relative_return': strategy_return - benchmark_return,
@@ -45,6 +46,7 @@ def compare_cash_accounts(strategy: dict, benchmark: dict) -> dict:
         'excess_over_cash': strategy_return, 'initial_capital': float(left.iloc[0]['equity']),
         'first_date': str(left.iloc[0]['date']), 'last_date': str(left.iloc[-1]['date']),
         'sessions': len(left), 'risk_adjusted_alpha_verified': False,
+        'risk_comparison':{'strategy':audit_cash_account_risk(strategy), 'benchmark':audit_cash_account_risk(benchmark)},
         'source_quality_verified': False, 'research_admission_verified': False}
 
 

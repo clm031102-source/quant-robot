@@ -189,7 +189,7 @@ def write_paper_simulation_artifacts(result: dict[str, Any], output_dir: Path) -
     pd.DataFrame(result["fills"], columns=None if result["fills"] else
         ["asset_id", "execution_date", "quantity", "price"]).to_csv(output_dir / "fills.csv", index=False)
     pd.DataFrame(result["positions"]).to_csv(output_dir / "positions.csv", index=False)
-    pd.DataFrame(result["equity_curve"]).to_csv(output_dir / "equity_curve.csv", index=False)
+    _write_equity_curve(result['equity_curve'], output_dir/'equity_curve.csv')
     pd.DataFrame(result["snapshots"]).to_csv(output_dir / "snapshots.csv", index=False)
     pd.DataFrame(result["guard_events"], columns=None if result["guard_events"] else
         ["signal_date", "event"]).to_csv(output_dir / "guard_events.csv", index=False)
@@ -199,8 +199,7 @@ def write_paper_simulation_artifacts(result: dict[str, Any], output_dir: Path) -
     if "fixed_hold_benchmark" in result:
         (output_dir / "fixed_hold_benchmark.json").write_text(
             json.dumps(result["fixed_hold_benchmark"], indent=2, ensure_ascii=False), encoding="utf-8")
-        pd.DataFrame(result["fixed_hold_benchmark"]["equity_curve"]).to_csv(
-            output_dir / "fixed_hold_benchmark_curve.csv", index=False)
+        _write_equity_curve(result['fixed_hold_benchmark']['equity_curve'], output_dir/'fixed_hold_benchmark_curve.csv')
         (output_dir / "account_comparison.json").write_text(
             json.dumps(result["account_comparison"], indent=2, ensure_ascii=False), encoding="utf-8")
     manifest = {
@@ -213,6 +212,14 @@ def write_paper_simulation_artifacts(result: dict[str, Any], output_dir: Path) -
         "safety": "Local paper simulation only. No broker connection, no order placement, no live trading.",
     }
     (output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def _write_equity_curve(rows, path):
+    curve = pd.DataFrame(rows)
+    if 'position_values' in curve:
+        curve['position_values'] = curve['position_values'].map(
+            lambda value: json.dumps(value, sort_keys=True, allow_nan=False))
+    curve.to_csv(path, index=False)
 
 
 def _filter_bars(bars: pd.DataFrame, config: PaperSimulationConfig) -> pd.DataFrame:
@@ -704,6 +711,11 @@ def _apply_fills(positions: dict[str, float], cash: float, fills: list[dict[str,
 def _equity_row(date: Any, cash: float, positions: dict[str, float], prices: pd.DataFrame, dividend_receivable: float = 0.0) -> dict[str, Any]:
     equity = _portfolio_value(cash, positions, prices, dividend_receivable)
     gross_exposure = 0.0 if equity <= 0.0 else (equity - cash - dividend_receivable) / equity
+    lookup = prices.set_index('asset_id').to_dict(orient='index')
+    marked = {asset: {'quantity':quantity, 'price':float(lookup[asset]['latest_price']),
+        'price_date':str(lookup[asset]['price_date']) if lookup[asset].get('price_date') is not None else None,
+        'market_value':quantity*float(lookup[asset]['latest_price'])}
+        for asset, quantity in positions.items() if quantity != 0}
     return {
         "date": date,
         "cash": cash,
@@ -711,6 +723,7 @@ def _equity_row(date: Any, cash: float, positions: dict[str, float], prices: pd.
         "equity": equity,
         "gross_exposure": gross_exposure,
         "position_count": len(positions),
+        "position_values": marked,
     }
 
 

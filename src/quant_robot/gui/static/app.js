@@ -6741,12 +6741,20 @@ function renderPaperComparison() {
     target.innerHTML = statusRows([["账户对照", paper.error || "尚未运行固定持有账户对照。", "warn"]]);
     return;
   }
+  const limits = comparison.risk_comparison?.strategy?.limits;
   target.innerHTML = statusRows([
     ["策略账户收益", formatPercent(comparison.strategy_total_return), "muted"],
     ["固定持有账户收益", formatPercent(comparison.benchmark_total_return), "muted"],
     ["账户收益差", formatPercent(comparison.relative_return), "muted"],
     ["现金情景收益", formatPercent(comparison.cash_total_return), "muted"],
+    ["逐日核对条件", limits ? `资金${limits.initial_cash}元 / 单仓${limits.max_position_cny}元 / 日亏${limits.max_daily_loss_cny}元 / 回撤${formatPercent(limits.max_drawdown)}` : "未附带冻结风险条件", "muted"],
     ["持有对照风险条件", paper.fixed_hold_benchmark?.risk?.compatible_with_declared_limits ? "未观察到越限" : "存在越限或缺少证据", "warn"],
+    ...[ ["strategy", "策略逐日金额核对"], ["benchmark", "对照逐日金额核对"] ].map(([key, label]) => {
+      const audit = comparison.risk_comparison?.[key];
+      return [label, !audit?.evidence_complete_on_supplied_calendar ? "缺少完整的当日持仓估值证据" :
+        audit.within_limits_on_supplied_marks ? "所供估值未越过金额和回撤条件；尚未认证执行约束" :
+          `发现${audit.breaches?.length || 0}条越限记录`, "warn"];
+    }),
     ["结论限制", "两账户风险可能不同，收益差不等于风险调整后的优势，正EV未证实。期末持仓按价格估值，现金采用零利息情景。", "warn"],
     ["文件版本", "结果对应运行时已固定的版本；再次运行会重新核对，文件版本不等于来源质量认证。", "muted"],
   ]);
