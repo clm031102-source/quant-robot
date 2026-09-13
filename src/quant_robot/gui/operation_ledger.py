@@ -5,6 +5,7 @@ import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from quant_robot.gui.paper_result_archive import operation_result_fields
 
 from quant_robot.gui.paper_request_identity import (
     PAPER_REQUEST_SIGNATURE_KEYS, _request_signature, _signature_mismatch_keys,
@@ -856,9 +857,7 @@ def _build_entry(
         "status": status,
         "command": command,
         "request": _json_safe(request),
-        "metrics": _json_safe(metrics),
-        **({'account_comparison':_json_safe(result['account_comparison'])}
-           if isinstance(result.get('account_comparison'), dict) else {}),
+        **operation_result_fields(result),
         "request_summary": _request_summary(request),
         "metric_summary": _metric_summary(metrics, result),
         "stage": result.get("stage", ""),

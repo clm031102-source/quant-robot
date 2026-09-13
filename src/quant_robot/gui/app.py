@@ -9,6 +9,7 @@ from urllib.parse import parse_qs, urlparse
 from quant_robot.gui.control_center import build_control_center_snapshot, run_verification_gate
 from quant_robot.gui.research_access import GuiResearchAccessDenied
 from quant_robot.gui.paper_inputs import prepare_gui_paper_inputs
+from quant_robot.gui.paper_result_archive import load_paper_result, retain_paper_result
 from quant_robot.gui.operation_ledger import append_operation_ledger_entry, build_operation_ledger_snapshot
 from quant_robot.gui.research_service import (
     build_constrained_search_snapshot,
@@ -57,7 +58,7 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
             except GuiResearchAccessDenied as exc:
                 self._send_json(exc.payload(), status=403)
             except (ValueError, OSError) as exc:
-                if urlparse(self.path).path not in {'/api/paper', '/api/paper/demo', '/api/paper/inputs'}:
+                if urlparse(self.path).path not in {'/api/paper', '/api/paper/demo', '/api/paper/inputs', '/api/paper/archive'}:
                     raise
                 self._send_json({'status':'paper_input_error', 'error':str(exc),
                                  'executable':False}, status=400)
@@ -69,6 +70,10 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                 return
             if parsed.path == "/api/control/operation-ledger":
                 self._send_json(build_operation_ledger_snapshot(Path.cwd()))
+                return
+            if parsed.path == '/api/paper/archive':
+                query = parse_qs(parsed.query)
+                self._send_json(load_paper_result(Path.cwd(), _first(query, 'archive_id', '')))
                 return
             if parsed.path == "/api/control/verification":
                 query = parse_qs(parsed.query)
@@ -325,8 +330,7 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                 return
             if parsed.path == "/api/paper/demo":
                 query = parse_qs(parsed.query)
-                self._send_json(
-                    run_demo_paper_simulation(
+                result = run_demo_paper_simulation(
                         market=_first(query, "market", "ALL"),
                         factor_name=_first(query, "factor", "momentum_2"),
                         top_n=int(_first(query, "top_n", "2")),
@@ -343,8 +347,11 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                         min_cash_weight=float(_first(query, "min_cash_weight", "0")),
                         max_drawdown_guard=_optional_float(query, "max_drawdown_guard"),
                         guard_cooldown_periods=int(_first(query, "guard_cooldown_periods", "0")),
-                    )
                 )
+                _record_operation(workflow_id='paper_simulation', label='Run demo paper simulation',
+                    status='completed', command=f'GET {parsed.path}?{parsed.query}',
+                    request=result.get('request', {}), result=result, retain_paper=True)
+                self._send_json(result)
                 return
             if parsed.path == "/api/paper":
                 query = parse_qs(parsed.query)
@@ -385,6 +392,7 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                 _record_operation(
                     workflow_id="paper_simulation",
                     label="Run local paper simulation",
+                    retain_paper=True,
                     status="completed",
                     command=f"GET {parsed.path}?{parsed.query}",
                     request=operation_request,
@@ -518,7 +526,10 @@ def _record_operation(
     command: str,
     request: dict[str, object] | None,
     result: dict[str, object],
+    retain_paper: bool = False,
 ) -> None:
+    if retain_paper:
+        retain_paper_result(Path.cwd(), result)
     try:
         append_operation_ledger_entry(
             repo_root=Path.cwd(),

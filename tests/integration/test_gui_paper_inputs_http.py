@@ -47,6 +47,7 @@ class GuiPaperInputsHttpTests(unittest.TestCase):
 
     def test_prepare_then_run_persists_actual_comparison_without_recording_preparation_as_a_run(self):
         def record(**kwargs):
+            kwargs.pop('retain_paper', None)
             return append_operation_ledger_entry(repo_root=self.root, **kwargs)
         with patch('quant_robot.gui.app._record_operation',side_effect=record) as saved:
             prepared = self.get('/api/paper/inputs',self.params)

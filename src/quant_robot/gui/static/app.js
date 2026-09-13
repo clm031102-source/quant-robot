@@ -370,6 +370,12 @@ function bindActions() {
   byId("run-research").addEventListener("click", runResearch);
   byId("run-signals").addEventListener("click", runSignals);
   byId("run-paper").addEventListener("click", runPaper);
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-paper-archive]");
+    if (!button) return;
+    event.preventDefault();
+    restorePaperArchive(button.dataset.paperArchive, button);
+  });
   byId("run-daily-ops").addEventListener("click", runDailyOps);
   byId("run-daily-trade-advisory").addEventListener("click", runDailyTradeAdvisory);
   byId("run-promotion").addEventListener("click", runPromotionOps);
@@ -1668,13 +1674,14 @@ function resultFreshnessRow(label, result, params, keys, detail) {
     };
   }
   const isCurrent = requestMatchesCurrentParams(resultRequest, params, keys);
+  const isArchive = result.paper_archive?.restored === true;
   return {
     label,
-    status: isCurrent ? "当前" : "已过期",
-    statusClass: isCurrent ? "ok" : "warn",
+    status: isArchive ? `历史归档（${isCurrent ? "参数一致" : "参数不同"}）` : isCurrent ? "当前" : "已过期",
+    statusClass: isCurrent && !isArchive ? "ok" : "warn",
     currentSummary: `当前参数=${requestFreshnessSummary(currentRequest)}`,
     resultSummary: `页面结果=${requestFreshnessSummary(resultRequest)}`,
-    detail: isCurrent ? "页面指标匹配当前表单参数。" : detail,
+    detail: isArchive ? "已恢复保存结果，没有重新运行或新增观察日。" : isCurrent ? "页面指标匹配当前表单参数。" : detail,
   };
 }
 
@@ -2067,12 +2074,16 @@ async function runSignals() {
 }
 
 async function refreshPaper(preparedParams = null) {
+  state.paperArchiveGeneration = (state.paperArchiveGeneration || 0) + 1;
+  state.paperSimulationRunning = true;
   try {
     const params = preparedParams || await preparePaperParams();
     state.paper = await fetchJson(`/api/paper?${params.toString()}`);
   } catch (error) {
     invalidatePaperResult(error);
     throw error;
+  } finally {
+    state.paperSimulationRunning = false;
   }
   renderDashboard();
   renderPaper();
@@ -6720,6 +6731,7 @@ function renderPaper() {
     {label:"固定持有账户", color:chartTheme.benchmark, rows:paper.fixed_hold_benchmark.equity_curve || [], yKey:"equity"},
   ]) : lineChart(paper.equity_curve || [], "equity", chartTheme.paper, "Paper equity");
   renderPaperComparison();
+  renderPaperArchive();
   byId("paper-exposure-chart").innerHTML = lineChart(paper.equity_curve || [], "gross_exposure", chartTheme.benchmark, "Gross exposure");
   byId("paper-fill-table").innerHTML = tableRows(paper.fills || [], ["signal_date", "execution_date", "asset_id", "market", "side", "quantity", "fill_price", "fee"]);
   byId("paper-guard-table").innerHTML = tableRows(paper.guard_events || [], ["date", "event_type", "drawdown", "blocked_buy_intents", "cooldown_remaining"]);
@@ -6730,6 +6742,61 @@ function renderPaper() {
   renderBeginnerPostCloseJournal();
   renderBeginnerLiveHandoff();
   renderDailyRealWorldHandoffGate(state.dailyTradeAdvisory?.real_world_manual_handoff_gate || {});
+}
+
+function paperArchiveControls(ref = {}) {
+  const id = ref?.archive_id;
+  if (!['saved', 'verified'].includes(ref?.status) || !/^[0-9a-f]{64}$/.test(id || '')) {
+    return `<span>${ref?.status === 'failed' ? '完整归档保存失败' : '此记录没有完整归档'}</span>`;
+  }
+  return `<button type="button" class="secondary-button" data-paper-archive="${id}">恢复完整曲线</button>
+    <a class="secondary-button" href="/api/paper/archive?archive_id=${id}" download="paper-result-${id.slice(0, 12)}.json">下载完整记录</a>`;
+}
+
+function renderPaperArchive() {
+  const target = byId('paper-archive');
+  if (!target) return;
+  const ref = state.paper?.paper_archive;
+  const message = ref?.restored ? '历史结果已恢复；没有新增模拟运行或观察日。'
+    : ref?.status === 'saved' ? '完整结果已保存，可恢复账户曲线、持仓、成交和运行条件。'
+    : ref?.status === 'failed' ? '本次结果尚未完整保存。' : '运行完成后在本机保存完整记录。';
+  target.innerHTML = `<div class="list-row ${ref?.status === 'failed' ? 'danger' : 'muted'}">
+    <span>${escapeHtml(message)}</span>${paperArchiveControls(ref)}
+    ${ref?.error ? `<span>${escapeHtml(ref.error)}</span>` : ''}</div>`;
+}
+
+async function restorePaperArchive(archiveId, button = null) {
+  if (state.paperSimulationRunning) {
+    showToast('模拟正在运行，请在完成后恢复历史记录');
+    return;
+  }
+  const generation = (state.paperArchiveGeneration || 0) + 1;
+  state.paperArchiveGeneration = generation;
+  if (button) button.disabled = true;
+  state.paper = null;
+  try {
+    if (!/^[0-9a-f]{64}$/.test(archiveId || '')) throw new Error('归档编号无效');
+    const result = await fetchJson(`/api/paper/archive?archive_id=${archiveId}`);
+    if (generation !== state.paperArchiveGeneration) return;
+    if (result.paper_archive?.archive_id !== archiveId || result.paper_archive?.status !== 'verified'
+        || result.paper_archive?.restored !== true || !result.request || !result.metrics || !Array.isArray(result.equity_curve)) {
+      throw new Error('归档结果不完整或版本不符');
+    }
+    state.paper = result;
+    activatePage('paper');
+    showToast('已恢复历史曲线，未重新运行');
+  } catch (error) {
+    if (generation === state.paperArchiveGeneration) {
+      state.paper = null;
+      showToast(`无法恢复完整记录：${error.message}`);
+    }
+  } finally {
+    if (button) button.disabled = false;
+    if (generation === state.paperArchiveGeneration) {
+      renderPaper();
+      renderResultFreshness();
+    }
+  }
 }
 
 function renderPaperComparison() {
@@ -13293,6 +13360,7 @@ function renderOperationLedger(ledger = {}) {
         <span>${escapeHtml(`${item.recorded_at || "--"} / ${status || "--"} / ${item.workflow_id || "--"}`)}</span>
         <span>${escapeHtml(operationLedgerText(item.request_summary || item.command || ""))}</span>
         <span>${escapeHtml(operationLedgerText(item.metric_summary || item.stage || ""))}</span>
+        ${item.workflow_id === 'paper_simulation' ? paperArchiveControls(item.paper_archive) : ''}
       </div>
     `;
   }).join("");
@@ -14273,6 +14341,7 @@ function renderExecutionReceipts(spec = {}) {
         <span>${escapeHtml(`${item.time || "--"} / ${requestText || "--"}`)}</span>
         <span>${escapeHtml(metricText || item.decision || item.safety || "")}</span>
         <span>${escapeHtml(zhConsoleText(item.safety || ""))}</span>
+        ${item.workflow_id === 'paper_simulation' ? paperArchiveControls(item.paper_archive) : ''}
       </div>
     `;
   }).join("");
@@ -14384,6 +14453,7 @@ function paperReceipt(result = {}) {
     },
     decision: "local_simulation_only",
     ...(result.account_comparison ? {account_comparison: result.account_comparison} : {}),
+    ...(result.paper_archive ? {paper_archive: result.paper_archive} : {}),
     safety: "local simulated fills only; no broker, account, or order side effects",
   };
 }
