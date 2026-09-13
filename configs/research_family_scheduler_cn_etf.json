@@ -1318,5 +1318,24 @@
       ],
       "next_action": "Keep as auxiliary ETF-level aggregate input only; do not allocate another primary factor-mining batch to direct CN stock moneyflow."
     }
-  ]
+  ],
+  "household_diagnostic_decision": {
+    "status": "authorized_once",
+    "registration_id": "8cb677a2d4887bf7d3d04c00fb1ff1b0d4f0bc067f4d159bb03ce74de5166c9f",
+    "registration_sha256": "e67edf9ad09b69d8c639d2d81701d89312ef391f42d7c60019829f47b9bdbf68",
+    "registration_path": "data/reports/cn_etf_household_preference_event_diagnostic_20260914/registration.json",
+    "execution_count": 0,
+    "max_executions": 1,
+    "allowed_stage": "cn_etf_household_preference_event_diagnostic_v1",
+    "ledger_path": "data/reports/cn_etf_household_preference_event_diagnostic_20260914/attempt_claim.json",
+    "conditional_gross_diagnostic_only": true,
+    "source_origin": "retained_research_sources",
+    "general_factor_batch_allowed": false,
+    "promotion_allowed": false,
+    "holdout_allowed": false,
+    "paper_account_allowed": false,
+    "broker_connection_allowed": false,
+    "account_read_allowed": false,
+    "order_placement_allowed": false
+  }
 }
