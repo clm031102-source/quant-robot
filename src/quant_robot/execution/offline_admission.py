@@ -101,9 +101,14 @@ def begin_session_event(state, packet, now):
     from .offline_conversion_revisions import opening_participation
     carryover, consumed = opening_participation(state, packet["session_date"])
     guard = drawdown_evidence(state, equity)
+    from .offline_session_baseline import opening_reference
+    reference = opening_reference(state, policy, packet['session_date'], equity)
+    causes = ['cumulative_drawdown'] if guard and guard['stop_latched'] else []
+    if reference and Decimal(reference['daily_loss_reference_equity']) - equity >= Decimal(policy['max_daily_loss_cny']):
+        causes.append('daily_loss')
     return {"kind": "RISK_SESSION", "data": {**packet, "decision_at": now.isoformat(),
-        "opening_equity": str(equity), "opening_positions": dict(state["positions"]), "risk_stop": bool(guard and guard['stop_latched']),
-        "risk_stop_causes": ['cumulative_drawdown'] if guard and guard['stop_latched'] else [],
+        "opening_equity": str(equity), "opening_positions": dict(state["positions"]), "risk_stop": bool(causes),
+        "risk_stop_causes": causes, **reference,
         **({'drawdown_guard':guard} if guard is not None else {}),
         "carryover_fill_shares": carryover, "consumed_conversion_participation": consumed, "released_conversion_locks": released_locks,
         "opening_dividend_adjustment_total": state["dividends"]["posted_adjustment_total"]}}

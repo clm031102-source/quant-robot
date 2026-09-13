@@ -27,4 +27,4 @@ def portfolio_totals(state, marks, additional_orders=()):
     return {"equity": equity, "exposure": exposure, "gross": sum(exposure.values(), ZERO),
         "pending_cost": pending_cost, "dividend_receivable": receivable, "dividend_payable": payable,
         "dividend_adjustment_since_open": Decimal(state["dividends"]["posted_adjustment_total"]) - Decimal(state["risk_session"].get("opening_dividend_adjustment_total", "0")),
-        "projected_loss": Decimal(state["risk_session"]["opening_equity"]) - equity + pending_cost}
+        "projected_loss": Decimal(state["risk_session"].get("daily_loss_reference_equity", state["risk_session"]["opening_equity"])) - equity + pending_cost}

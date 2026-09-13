@@ -62,8 +62,9 @@ def normalize_policy(value):
         raise ValueError('unsupported admission policy schema_version')
     drawdown_fields = {'max_drawdown'} if policy_version == 2 else set()
     stop_fields = {'exposure_stop_action'} if policy_version == 2 and 'exposure_stop_action' in value else set()
+    daily_fields = {'daily_loss_basis'} if policy_version == 2 and 'daily_loss_basis' in value else set()
     exact(value, {"schema_version", "mode", "policy_id", "strategy_id", "strategy_version", "allowed_symbols",
-        "session_dates", "trading_windows", *POLICY_MONEY, *POLICY_SECONDS, *drawdown_fields, *stop_fields}, "admission policy")
+        "session_dates", "trading_windows", *POLICY_MONEY, *POLICY_SECONDS, *drawdown_fields, *stop_fields, *daily_fields}, "admission policy")
     if value["mode"] != "offline_fixture_only":
         raise ValueError("only offline_fixture_only admission is supported")
     result = {"schema_version": policy_version, "mode": "offline_fixture_only"}
@@ -71,6 +72,10 @@ def normalize_policy(value):
         if value['exposure_stop_action'] not in ('halt_all', 'reduce_only'):
             raise ValueError('unsupported exposure_stop_action')
         result['exposure_stop_action'] = value['exposure_stop_action']
+    if daily_fields:
+        if value['daily_loss_basis'] != 'previous_session_close_v1':
+            raise ValueError('unsupported daily_loss_basis')
+        result['daily_loss_basis'] = value['daily_loss_basis']
     if policy_version == 2:
         limit = amount(value['max_drawdown'], positive=True)
         if limit >= 1:
@@ -107,6 +112,8 @@ def normalize_policy(value):
             raise ValueError("overlapping or invalid trading windows")
         result["trading_windows"].append(list(window))
         previous_end = end
+    if daily_fields and (previous_end > time(15) or any(result[key] > 30 for key in ('max_quote_age_seconds', 'max_context_age_seconds'))):
+        raise ValueError('previous-close basis requires trading to end by15:00 and context/quote age limits no greater than30seconds')
     return result
 
 

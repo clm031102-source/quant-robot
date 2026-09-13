@@ -69,7 +69,12 @@ def valuation_event(state, packet, now):
         breaches.append("account_or_reservation_deficit")
     account_faults = sorted(state["faults"] - {VALUATION_UNAVAILABLE})
     unknown_orders = sorted(key for key, row in state["orders"].items() if row["status"] == "UNKNOWN")
+    from .offline_session_baseline import close_observation, loss_from_reference
+    closing = close_observation(state, policy, packet, now, equity)
     return {"kind": "PORTFOLIO_VALUATION", "data": {"context": packet, "decision_at": now.isoformat(),
+        **({'session_close_observation': closing} if closing is not None else {}),
+        **({'daily_loss_reference': session['daily_loss_reference'], 'book_daily_loss': str(loss_from_reference(session, equity))}
+            if 'daily_loss_reference' in session else {}),
         **({'drawdown_guard':guard} if guard is not None else {}),
         "basis": "recorded_synthetic_book_at_supplied_quotes", "book_equity": str(equity),
         "opening_equity": str(opening), "book_pnl_from_open": str(equity - opening),

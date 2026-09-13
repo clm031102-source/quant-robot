@@ -203,7 +203,7 @@ def apply_event(state, event):
             conversions={"entitlements": {}, "applied": {}, "locks": {}, "released": set(), "unapplied_fills": {},
                 "last_transition_at": None, "last_rejection": None, "revisions": {}, "accounted_fills": {}, "participation": {}},
             price_basis={}, price_basis_events={}, corporate_last_transition_at=None,
-            risk_session=None, drawdown_guard=None, sellable_positions={}, attempted_intent_ids=set(), attempted_idempotency_keys=set(),
+            risk_session=None, drawdown_guard=None, last_session_close=None, sellable_positions={}, attempted_intent_ids=set(), attempted_idempotency_keys=set(),
             attempted_dispatch_ids=set())
     elif kind == "REGISTER":
         state["orders"][data["order_id"]] = {**data, "limit_price": Decimal(data["limit_price"]),
@@ -226,6 +226,8 @@ def apply_event(state, event):
             state["conversions"]["participation"][key]["consumed_session"] = data["session_date"]
     elif kind == "PORTFOLIO_VALUATION":
         state["portfolio_valuation"].update(last_valid={**data, "event_sequence": state["sequence"] + 1}, unavailable=False)
+        if data.get('session_close_observation') is not None:
+            state['last_session_close'] = {**data['session_close_observation'], 'event_sequence': state['sequence'] + 1}
         state["risk_session"]["valuation_peak_equity"] = data["book_equity_peak"]
         if data["risk_stop_required"]:
             from .offline_exposure_stop import latch_stop
@@ -403,6 +405,7 @@ def public_snapshot(state):
         "dividends": {**state["dividends"], "accrued": sorted(state["dividends"]["accrued"]),
             "paid": sorted(state["dividends"]["paid"]), "receivable_total": str(dividend_receivable(state)), "payable_total": str(dividend_payable(state))},
         "risk_session": state["risk_session"],
+        "last_session_close": state.get("last_session_close"),
         "drawdown_guard": state.get('drawdown_guard'),
         "drawdown_guard_configured": (state.get('admission_policy') or {}).get('schema_version') == 2,
         "portfolio_valuation": {**state["portfolio_valuation"], "matches_current_journal":
