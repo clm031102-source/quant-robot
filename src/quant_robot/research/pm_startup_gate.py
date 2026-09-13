@@ -11,6 +11,7 @@ import pandas as pd
 
 from quant_robot.research.family_scheduler import build_research_family_schedule, load_research_family_config
 from quant_robot.research.monthly_diagnostic_pm_scope import monthly_diagnostic_scope
+from quant_robot.research.household_diagnostic_pm_scope import household_diagnostic_scope
 
 
 STAGE = "quant_pm_startup_gate"
@@ -43,11 +44,18 @@ def build_quant_pm_startup_gate(
     family_path = gate_config.get("research_family_config", "configs/research_family_scheduler_cn_etf.json")
     resolved_family_config = family_config or load_research_family_config(root / str(family_path))
     family_schedule = build_research_family_schedule(resolved_family_config)
-    restricted = monthly_diagnostic_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch)
+    diagnostic_scopes = [scope for scope in (
+        monthly_diagnostic_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
+        household_diagnostic_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
+    ) if scope]
+    restricted = diagnostic_scopes[0] if len(diagnostic_scopes) == 1 else None
     restricted = restricted or _restricted_review_mode(task, resolved_family_config, family_schedule)
     restricted_mode = str(restricted.get("mode", "")) if restricted else ""
     blockers: list[str] = []
     warnings: list[str] = []
+
+    if len(diagnostic_scopes) > 1:
+        blockers.append("multiple_dedicated_diagnostics_authorized")
 
     blockers.extend(_context_blockers(workstations_config, machine, task, selected_branch, current_branch))
     blockers.extend(f"required_reading_missing:{path}" for path in missing_reading)
@@ -65,6 +73,8 @@ def build_quant_pm_startup_gate(
         warnings.append("research_family_scheduler_family_rotation_review_mode")
     elif restricted_mode == "single_monthly_diagnostic_only":
         warnings.append("research_family_scheduler_single_monthly_diagnostic_mode")
+    elif restricted_mode == "single_household_diagnostic_only":
+        warnings.append("research_family_scheduler_single_household_diagnostic_mode")
     else:
         blockers.extend(str(blocker) for blocker in _list(family_schedule.get("blockers")))
     blockers.extend(
@@ -114,9 +124,11 @@ def build_quant_pm_startup_gate(
                 not blockers
                 and (not restricted_mode or restricted_mode == "single_prescreen_only")
             ),
-            "factor_batch_scope": _dict(restricted.get("scope")) if restricted and restricted_mode != "single_monthly_diagnostic_only" else {},
+            "factor_batch_scope": _dict(restricted.get("scope")) if restricted and restricted_mode not in {"single_monthly_diagnostic_only", "single_household_diagnostic_only"} else {},
             "monthly_diagnostic_allowed": not blockers and restricted_mode == "single_monthly_diagnostic_only",
             "monthly_diagnostic_scope": _dict(restricted.get("scope")) if restricted_mode == "single_monthly_diagnostic_only" else {},
+            "household_diagnostic_allowed": not blockers and restricted_mode == "single_household_diagnostic_only",
+            "household_diagnostic_scope": _dict(restricted.get("scope")) if restricted_mode == "single_household_diagnostic_only" else {},
             "single_prescreen_authorization_required": restricted_mode == "single_prescreen_only",
             "portfolio_grid_allowed": False,
             "walk_forward_allowed": False,
@@ -488,6 +500,9 @@ def _next_actions(
     if restricted_mode == "single_monthly_diagnostic_only":
         return [{"action": "run_registered_single_monthly_diagnostic",
             "reason": "Only the exact unconsumed registered monthly gross diagnostic may execute; general batches, account runs, holdout and promotion remain disabled."}]
+    if restricted_mode == "single_household_diagnostic_only":
+        return [{"action": "run_registered_single_household_diagnostic",
+            "reason": "Only the exact unconsumed household event diagnostic may execute; general batches, accounts, holdout and promotion remain disabled."}]
     if restricted_mode == "family_rotation_review_only":
         return [
             {
