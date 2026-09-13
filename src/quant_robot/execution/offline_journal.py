@@ -252,6 +252,8 @@ class OfflineOrderJournal:
                 fault = exc
                 event = _event(rejection_kind, {"reason": str(exc), "risk_stop": exc.risk_stop,
                     "rejected_request": rejected_request})
+                if exc.drawdown_guard is not None:
+                    event['data']['drawdown_guard'] = exc.drawdown_guard
                 if rejection_kind == "VALUATION_REJECTED":
                     event["data"]["valuation_unavailable"] = getattr(exc, "valuation_unavailable", True)
             if event is not None:

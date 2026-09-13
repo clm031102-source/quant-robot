@@ -197,6 +197,7 @@ class OfflineRuntime:
             "feed_snapshot_id": self.feed["snapshot_id"], "feed_as_of": self.feed["as_of"], "feed_source_ref": self.feed["source_ref"],
             "counts_as_forward_paper_days": 0, "qualifies_for_strategy_promotion": False,
             "journal_sequence": state["sequence"], "journal_hash": state["journal_hash"],
+            "drawdown_guard_configured": state['drawdown_guard_configured'], "drawdown_guard": state['drawdown_guard'],
             "paused": state["paused"], "faults": state["faults"], "steps": self.steps}
 
 

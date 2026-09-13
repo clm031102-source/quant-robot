@@ -7,6 +7,7 @@ from .offline_admission import _marks
 from .offline_intent_contract import SHANGHAI, instant
 from .offline_order_state import ACTIVE, VALUATION_UNAVAILABLE, AdmissionRejected, money_context, risk_deficit
 from .offline_portfolio_risk import portfolio_totals
+from .offline_drawdown import drawdown_evidence
 
 
 class ValuationRejected(AdmissionRejected):
@@ -55,6 +56,9 @@ def valuation_event(state, packet, now):
     opening, equity = Decimal(session["opening_equity"]), totals["equity"]
     peak = max(Decimal(session.get("valuation_peak_equity", session["opening_equity"])), equity)
     breaches = []
+    guard = drawdown_evidence(state, equity, totals['pending_cost'])
+    if guard and guard['stop_latched']:
+        breaches.append('cumulative_drawdown')
     if totals["projected_loss"] >= Decimal(policy["max_daily_loss_cny"]):
         breaches.append("daily_loss")
     if totals["gross"] > Decimal(policy["capital_limit_cny"]):
@@ -66,6 +70,7 @@ def valuation_event(state, packet, now):
     account_faults = sorted(state["faults"] - {VALUATION_UNAVAILABLE})
     unknown_orders = sorted(key for key, row in state["orders"].items() if row["status"] == "UNKNOWN")
     return {"kind": "PORTFOLIO_VALUATION", "data": {"context": packet, "decision_at": now.isoformat(),
+        **({'drawdown_guard':guard} if guard is not None else {}),
         "basis": "recorded_synthetic_book_at_supplied_quotes", "book_equity": str(equity),
         "opening_equity": str(opening), "book_pnl_from_open": str(equity - opening),
         "book_loss_from_open": str(opening - equity), "book_equity_peak": str(peak),

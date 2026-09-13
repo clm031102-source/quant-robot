@@ -24,9 +24,10 @@ CONVERSION_UNCERTAIN = "share_conversion_requires_review"
 
 
 class AdmissionRejected(ValueError):
-    def __init__(self, message, *, risk_stop=False):
+    def __init__(self, message, *, risk_stop=False, drawdown_guard=None):
         super().__init__(message)
         self.risk_stop = risk_stop
+        self.drawdown_guard = drawdown_guard
 
 
 def money_context(function):
@@ -201,7 +202,7 @@ def apply_event(state, event):
             conversions={"entitlements": {}, "applied": {}, "locks": {}, "released": set(), "unapplied_fills": {},
                 "last_transition_at": None, "last_rejection": None, "revisions": {}, "accounted_fills": {}, "participation": {}},
             price_basis={}, price_basis_events={}, corporate_last_transition_at=None,
-            risk_session=None, sellable_positions={}, attempted_intent_ids=set(), attempted_idempotency_keys=set(),
+            risk_session=None, drawdown_guard=None, sellable_positions={}, attempted_intent_ids=set(), attempted_idempotency_keys=set(),
             attempted_dispatch_ids=set())
     elif kind == "REGISTER":
         state["orders"][data["order_id"]] = {**data, "limit_price": Decimal(data["limit_price"]),
@@ -325,6 +326,8 @@ def apply_event(state, event):
         state["kill_switch"] = data["enabled"]
     else:
         raise ValueError("unknown journal event")
+    from .offline_drawdown import apply_drawdown_evidence
+    apply_drawdown_evidence(state, event)
     if "receipt_key" in event:
         state["receipts"][event["receipt_key"]] = data
     if kind in {"DIVIDEND_ENTITLEMENTS", "DIVIDEND_ACCRUAL", "DIVIDEND_CASH_CREDIT", "DIVIDEND_CASH_INSTALLMENT",
@@ -394,6 +397,8 @@ def public_snapshot(state):
         "dividends": {**state["dividends"], "accrued": sorted(state["dividends"]["accrued"]),
             "paid": sorted(state["dividends"]["paid"]), "receivable_total": str(dividend_receivable(state)), "payable_total": str(dividend_payable(state))},
         "risk_session": state["risk_session"],
+        "drawdown_guard": state.get('drawdown_guard'),
+        "drawdown_guard_configured": (state.get('admission_policy') or {}).get('schema_version') == 2,
         "portfolio_valuation": {**state["portfolio_valuation"], "matches_current_journal":
             (state["portfolio_valuation"]["last_valid"] or {}).get("event_sequence") == state["sequence"]},
         "paused": bool(state["kill_switch"] or state["faults"] or (state["risk_session"] or {}).get("risk_stop")), "kill_switch": state["kill_switch"],

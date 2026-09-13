@@ -7,6 +7,7 @@ from decimal import Decimal
 from .offline_intent_contract import SHANGHAI, day, instant
 from .offline_order_state import ACTIVE, VALUATION_UNAVAILABLE, AdmissionRejected, ZERO, dividend_receivable, dividend_payable, money_context, reservations
 from .offline_portfolio_risk import portfolio_totals
+from .offline_drawdown import drawdown_evidence
 
 
 def deny(message, *, stop=False):
@@ -98,8 +99,10 @@ def begin_session_event(state, packet, now):
         deny("nonpositive opening equity")
     from .offline_conversion_revisions import opening_participation
     carryover, consumed = opening_participation(state, packet["session_date"])
+    guard = drawdown_evidence(state, equity)
     return {"kind": "RISK_SESSION", "data": {**packet, "decision_at": now.isoformat(),
-        "opening_equity": str(equity), "opening_positions": dict(state["positions"]), "risk_stop": False,
+        "opening_equity": str(equity), "opening_positions": dict(state["positions"]), "risk_stop": bool(guard and guard['stop_latched']),
+        **({'drawdown_guard':guard} if guard is not None else {}),
         "carryover_fill_shares": carryover, "consumed_conversion_participation": consumed, "released_conversion_locks": released_locks,
         "opening_dividend_adjustment_total": state["dividends"]["posted_adjustment_total"]}}
 
@@ -179,9 +182,14 @@ def _risk_totals(state, order, marks, policy):
         if any(value > Decimal(policy["max_position_cny"]) for value in exposure.values()):
             deny("single position limit exceeded")
     equity, projected_loss = totals["equity"], totals["projected_loss"]
+    guard = drawdown_evidence(state, equity, totals['pending_cost'])
+    if guard and guard['stop_latched']:
+        raise AdmissionRejected('cumulative drawdown limit including pending costs reached',
+            risk_stop=True, drawdown_guard=guard)
     if projected_loss >= Decimal(policy["max_daily_loss_cny"]):
-        deny("daily loss limit including pending costs reached", stop=True)
+        raise AdmissionRejected("daily loss limit including pending costs reached", risk_stop=True, drawdown_guard=guard)
     return {"current_equity": str(equity), "projected_daily_loss": str(projected_loss),
+        **({'drawdown_guard':guard} if guard is not None else {}),
         "gross_committed_exposure": str(gross), "one_way_committed_shares": committed + order["quantity"]}
 
 

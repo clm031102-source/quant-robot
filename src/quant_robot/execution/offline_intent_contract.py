@@ -57,12 +57,20 @@ def exchange(code, value):
 
 
 def normalize_policy(value):
+    policy_version = value.get('schema_version') if isinstance(value, dict) else None
+    if type(policy_version) is not int or policy_version not in {1, 2}:
+        raise ValueError('unsupported admission policy schema_version')
+    drawdown_fields = {'max_drawdown'} if policy_version == 2 else set()
     exact(value, {"schema_version", "mode", "policy_id", "strategy_id", "strategy_version", "allowed_symbols",
-        "session_dates", "trading_windows", *POLICY_MONEY, *POLICY_SECONDS}, "admission policy")
-    version(value)
+        "session_dates", "trading_windows", *POLICY_MONEY, *POLICY_SECONDS, *drawdown_fields}, "admission policy")
     if value["mode"] != "offline_fixture_only":
         raise ValueError("only offline_fixture_only admission is supported")
-    result = {"schema_version": 1, "mode": "offline_fixture_only"}
+    result = {"schema_version": policy_version, "mode": "offline_fixture_only"}
+    if policy_version == 2:
+        limit = amount(value['max_drawdown'], positive=True)
+        if limit >= 1:
+            raise ValueError('max_drawdown must be a positive fraction below 1')
+        result['max_drawdown'] = str(limit)
     for key in ("policy_id", "strategy_id", "strategy_version"):
         result[key] = identity(value[key])
     for key in POLICY_MONEY:
