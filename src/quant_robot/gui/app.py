@@ -8,6 +8,7 @@ from urllib.parse import parse_qs, urlparse
 
 from quant_robot.gui.control_center import build_control_center_snapshot, run_verification_gate
 from quant_robot.gui.research_access import GuiResearchAccessDenied
+from quant_robot.gui.paper_inputs import prepare_gui_paper_inputs
 from quant_robot.gui.operation_ledger import append_operation_ledger_entry, build_operation_ledger_snapshot
 from quant_robot.gui.research_service import (
     build_constrained_search_snapshot,
@@ -55,6 +56,11 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                 self._do_GET()
             except GuiResearchAccessDenied as exc:
                 self._send_json(exc.payload(), status=403)
+            except (ValueError, OSError) as exc:
+                if urlparse(self.path).path not in {'/api/paper', '/api/paper/demo', '/api/paper/inputs'}:
+                    raise
+                self._send_json({'status':'paper_input_error', 'error':str(exc),
+                                 'executable':False}, status=400)
 
         def _do_GET(self) -> None:
             parsed = urlparse(self.path)
@@ -310,6 +316,13 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                 )
                 self._send_json(result)
                 return
+            if parsed.path == "/api/paper/inputs":
+                query = parse_qs(parsed.query)
+                self._send_json(prepare_gui_paper_inputs(
+                    source=_first(query, "source", "demo_fixture"), market=_first(query, "market", "ALL"),
+                    corporate_actions_path=_optional(query, "corporate_actions_path"),
+                    fixed_hold_benchmark_path=_optional(query, "fixed_hold_benchmark_path")))
+                return
             if parsed.path == "/api/paper/demo":
                 query = parse_qs(parsed.query)
                 self._send_json(
@@ -322,6 +335,7 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                         initial_cash=float(_first(query, "initial_cash", "100000")),
                         commission_bps=float(_first(query, "commission_bps", "5")),
                         minimum_commission=float(_first(query, "minimum_commission", "0")),
+                        **_paper_execution_inputs(query),
                         slippage_bps=float(_first(query, "slippage_bps", "5")),
                         max_asset_weight=float(_first(query, "max_asset_weight", "1")),
                         max_market_weight=float(_first(query, "max_market_weight", "1")),
@@ -347,6 +361,7 @@ def create_gui_handler(static_dir: Path | None = None) -> type[BaseHTTPRequestHa
                     initial_cash=float(_first(query, "initial_cash", "100000")),
                     commission_bps=float(_first(query, "commission_bps", "5")),
                     minimum_commission=float(_first(query, "minimum_commission", "0")),
+                    **_paper_execution_inputs(query),
                     slippage_bps=float(_first(query, "slippage_bps", "5")),
                     max_asset_weight=float(_first(query, "max_asset_weight", "1")),
                     max_market_weight=float(_first(query, "max_market_weight", "1")),
@@ -578,6 +593,14 @@ def _optional(query: dict[str, list[str]], key: str) -> str | None:
 def _optional_float(query: dict[str, list[str]], key: str) -> float | None:
     value = _optional(query, key)
     return float(value) if value is not None else None
+
+
+def _paper_execution_inputs(query: dict[str, list[str]]) -> dict[str, object]:
+    return {'market_impact_bps':float(_first(query, 'market_impact_bps', '0')),
+            'max_participation_rate':_optional_float(query, 'max_participation_rate'),
+            **{key:_optional(query, key) for key in (
+                'corporate_actions_path', 'corporate_actions_fingerprint',
+                'fixed_hold_benchmark_path', 'fixed_hold_benchmark_sha256')}}
 
 
 def _optional_windows(query: dict[str, list[str]], key: str) -> tuple[int, ...] | None:

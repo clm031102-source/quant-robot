@@ -8,6 +8,15 @@ its dedicated reviewed entrypoint; this module does not issue authorizations.
 from __future__ import annotations
 
 
+def normalize_gui_source(source: str) -> str:
+    normalized = source.strip().lower().replace('_', '-')
+    if normalized in {'demo', 'demo-fixture', 'fixture'}:
+        return 'demo_fixture'
+    if normalized == 'processed-bars':
+        return 'processed-bars'
+    raise ValueError(f'Unsupported GUI data source: {source}')
+
+
 class GuiResearchAccessDenied(ValueError):
     def __init__(self, market: str):
         super().__init__(

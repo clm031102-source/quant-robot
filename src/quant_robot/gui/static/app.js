@@ -4,6 +4,7 @@ const state = {
   research: null,
   signals: null,
   paper: null,
+  paperInputVersions: null,
   promotion: null,
   promotionReview: null,
   evidenceRefresh: null,
@@ -145,6 +146,10 @@ const REQUEST_PREVIEW_INPUT_IDS = [
   "paper-initial-cash",
   "paper-commission-bps",
   "paper-minimum-commission",
+  "paper-impact-bps",
+  "paper-participation-rate",
+  "paper-actions-path",
+  "paper-fixed-hold-path",
   "paper-slippage-bps",
   "paper-max-asset-weight",
   "paper-max-market-weight",
@@ -927,6 +932,10 @@ function buildPaperParams() {
     initial_cash: valueOf("paper-initial-cash") || "100000",
     commission_bps: valueOf("paper-commission-bps") || "5",
     minimum_commission: valueOf("paper-minimum-commission") || "0",
+    market_impact_bps: valueOf("paper-impact-bps") || "0",
+    max_participation_rate: valueOf("paper-participation-rate") || "",
+    corporate_actions_path: valueOf("paper-actions-path") || "",
+    fixed_hold_benchmark_path: valueOf("paper-fixed-hold-path") || "",
     slippage_bps: valueOf("paper-slippage-bps") || "5",
     max_asset_weight: valueOf("paper-max-asset-weight") || "1",
     max_market_weight: valueOf("paper-max-market-weight") || "1",
@@ -937,7 +946,57 @@ function buildPaperParams() {
   });
   addSourceParams(params);
   appendSameParameterPaperMetadata(params, lockedRequest);
+  appendPaperInputPins(params, lockedRequest);
   return params;
+}
+
+function paperInputVersionKey(params) {
+  return JSON.stringify(["source", "market", "corporate_actions_path", "fixed_hold_benchmark_path"]
+    .map((key) => params.get(key) || ""));
+}
+
+function appendPaperInputPins(params, lockedRequest = null) {
+  const cached = state.paperInputVersions;
+  const pins = lockedRequest || (cached?.key === paperInputVersionKey(params) ? cached.pins : {});
+  for (const [path, pin] of [["corporate_actions_path", "corporate_actions_fingerprint"],
+    ["fixed_hold_benchmark_path", "fixed_hold_benchmark_sha256"]]) {
+    params.delete(pin);
+    if (params.get(path) && pins?.[pin]) params.set(pin, String(pins[pin]));
+  }
+}
+
+async function preparePaperParams(lockedRequest = null) {
+  try {
+    const params = buildPaperParams(lockedRequest);
+    if (!params.get("corporate_actions_path") && !params.get("fixed_hold_benchmark_path")) return params;
+    const files = new URLSearchParams();
+    ["source", "market", "corporate_actions_path", "fixed_hold_benchmark_path"]
+      .forEach((key) => files.set(key, params.get(key) || ""));
+    const prepared = await fetchJson(`/api/paper/inputs?${files}`);
+    for (const [path, pin] of [["corporate_actions_path", "corporate_actions_fingerprint"],
+      ["fixed_hold_benchmark_path", "fixed_hold_benchmark_sha256"]]) {
+      if (!params.get(path)) continue;
+      if (!/^[0-9a-f]{64}$/.test(prepared.pins?.[pin] || "")) throw new Error("未取得完整输入文件版本");
+      if (lockedRequest && lockedRequest[pin] !== prepared.pins[pin]) {
+        throw new Error("同参数请求的文件版本缺失或已变化，不能自动替换");
+      }
+    }
+    state.paperInputVersions = {key:paperInputVersionKey(params), pins:prepared.pins};
+    appendPaperInputPins(params, lockedRequest);
+    return params;
+  } catch (error) {
+    invalidatePaperResult(error);
+    showToast(error.message, true);
+    throw error;
+  }
+}
+
+function invalidatePaperResult(error) {
+  state.paperInputVersions = null;
+  state.paper = {status:error.status || "paper_input_error", error:error.message || "模拟请求未完成"};
+  renderDashboard();
+  renderPaper();
+  renderControlCenter();
 }
 
 function appendSameParameterPaperMetadata(params, lockedRequest = null) {
@@ -1446,6 +1505,10 @@ function applyControlDefaults() {
   setValue("paper-initial-cash", paper.initial_cash ?? "");
   setValue("paper-commission-bps", paper.commission_bps ?? "");
   setValue("paper-minimum-commission", paper.minimum_commission ?? "0");
+  setValue("paper-impact-bps", paper.market_impact_bps ?? "0");
+  setValue("paper-participation-rate", paper.max_participation_rate ?? "");
+  setValue("paper-actions-path", paper.corporate_actions_path ?? "");
+  setValue("paper-fixed-hold-path", paper.fixed_hold_benchmark_path ?? "");
   setValue("paper-slippage-bps", paper.slippage_bps ?? "");
   setValue("paper-max-asset-weight", paper.max_asset_weight ?? "");
   setValue("paper-max-market-weight", paper.max_market_weight ?? "");
@@ -1492,7 +1555,8 @@ function renderResultFreshness() {
       "模拟盘结果",
       state.paper,
       buildPaperParams(),
-      ["market", "factor_name", "top_n", "start_date", "end_date", "initial_cash", "commission_bps", "minimum_commission", "slippage_bps"],
+      ["market", "factor_name", "top_n", "start_date", "end_date", "initial_cash", "commission_bps", "minimum_commission", "slippage_bps",
+        "market_impact_bps", "max_participation_rate", "corporate_actions_path", "corporate_actions_fingerprint", "fixed_hold_benchmark_path", "fixed_hold_benchmark_sha256"],
       "修改市场、因子、TopN、日期窗口、初始资金或费用情景后，需要重新跑本地模拟盘。",
     ),
     resultFreshnessRow(
@@ -1640,6 +1704,12 @@ function requestObjectFromParams(params) {
     initial_cash: params.get("initial_cash") || "",
     commission_bps: params.get("commission_bps") || "",
     minimum_commission: params.get("minimum_commission") || "",
+    market_impact_bps: params.get("market_impact_bps") || "",
+    max_participation_rate: params.get("max_participation_rate") || "",
+    corporate_actions_path: params.get("corporate_actions_path") || "",
+    corporate_actions_fingerprint: params.get("corporate_actions_fingerprint") || "",
+    fixed_hold_benchmark_path: params.get("fixed_hold_benchmark_path") || "",
+    fixed_hold_benchmark_sha256: params.get("fixed_hold_benchmark_sha256") || "",
     slippage_bps: params.get("slippage_bps") || "",
     max_asset_weight: params.get("max_asset_weight") || "",
     max_market_weight: params.get("max_market_weight") || "",
@@ -1996,16 +2066,21 @@ async function runSignals() {
   });
 }
 
-async function refreshPaper() {
-  const params = buildPaperParams();
-  state.paper = await fetchJson(`/api/paper?${params.toString()}`);
+async function refreshPaper(preparedParams = null) {
+  try {
+    const params = preparedParams || await preparePaperParams();
+    state.paper = await fetchJson(`/api/paper?${params.toString()}`);
+  } catch (error) {
+    invalidatePaperResult(error);
+    throw error;
+  }
   renderDashboard();
   renderPaper();
   renderControlCenter();
 }
 
 async function runPaper() {
-  const params = buildPaperParams();
+  const params = await preparePaperParams();
   const confirmed = await confirmSafeWorkflow({
     workflow_id: "paper_simulation",
     label: "本地模拟盘回放",
@@ -2014,7 +2089,7 @@ async function runPaper() {
   });
   if (!confirmed) return;
   await withBusy("run-paper", async () => {
-    await refreshPaper();
+    await refreshPaper(params);
     appendRunHistory({
       workflow_id: "paper_simulation",
       label: "Run local paper simulation",
@@ -6363,6 +6438,10 @@ function applyDailyPaperHandoffToForm(request = {}) {
   if (request.initial_cash != null) setValue("paper-initial-cash", leaderboardInputValue(request.initial_cash));
   if (request.commission_bps != null) setValue("paper-commission-bps", leaderboardInputValue(request.commission_bps));
   setValue("paper-minimum-commission", leaderboardInputValue(request.minimum_commission ?? 0));
+  setValue("paper-impact-bps", leaderboardInputValue(request.market_impact_bps ?? 0));
+  setValue("paper-participation-rate", leaderboardInputValue(request.max_participation_rate ?? ""));
+  setValue("paper-actions-path", request.corporate_actions_path ?? "");
+  setValue("paper-fixed-hold-path", request.fixed_hold_benchmark_path ?? "");
   if (request.slippage_bps != null) setValue("paper-slippage-bps", leaderboardInputValue(request.slippage_bps));
   if (request.max_asset_weight != null) setValue("paper-max-asset-weight", leaderboardInputValue(request.max_asset_weight));
   if (request.max_market_weight != null) setValue("paper-max-market-weight", leaderboardInputValue(request.max_market_weight));
@@ -6418,7 +6497,7 @@ function applySameParameterPaperToForm(request = {}) {
 async function runSameParameterPaperSimulation(button) {
   const request = sameParameterPaperRequestFromButton(button);
   applySameParameterPaperToForm(request);
-  const params = buildPaperParams(request);
+  const params = await preparePaperParams(request);
   const confirmed = await confirmSafeWorkflow({
     workflow_id: "paper_simulation",
     label: "Top3 同参数本地模拟盘复核",
@@ -6431,23 +6510,23 @@ async function runSameParameterPaperSimulation(button) {
     button.disabled = true;
     button.textContent = "运行中";
   }
-  await withBusy("run-paper", async () => {
-    state.paper = await fetchJson(`/api/paper?${params.toString()}`);
-    renderDashboard();
-    renderPaper();
-    renderControlCenter();
-    appendRunHistory({
-      workflow_id: "paper_simulation",
-      label: "Run locked same-parameter Top3 paper simulation",
-      status: "completed",
-      detail: `${request.factor || valueOf("paper-factor-select") || "--"} / lock=${request.same_parameter_lock_id || request.lock_id || "--"}`,
+  try {
+    await withBusy("run-paper", async () => {
+      await refreshPaper(params);
+      appendRunHistory({
+        workflow_id: "paper_simulation",
+        label: "Run locked same-parameter Top3 paper simulation",
+        status: "completed",
+        detail: `${request.factor || valueOf("paper-factor-select") || "--"} / lock=${request.same_parameter_lock_id || request.lock_id || "--"}`,
+      });
+      appendExecutionReceipt(paperReceipt(state.paper));
+      showToast("同参数模拟盘已更新");
     });
-    appendExecutionReceipt(paperReceipt(state.paper));
-    showToast("同参数模拟盘已更新");
-  });
-  if (button) {
-    button.disabled = false;
-    button.textContent = original || "运行模拟盘";
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = original || "运行模拟盘";
+    }
   }
 }
 
@@ -6636,7 +6715,11 @@ function renderPaper() {
     metric("成交笔数", paper.fills?.length ?? 0, "fills"),
     metric("保护事件", formatNumber(metrics.guard_event_count), "guard"),
   ].join("");
-  byId("paper-equity-chart").innerHTML = lineChart(paper.equity_curve || [], "equity", chartTheme.paper, "Paper equity");
+  byId("paper-equity-chart").innerHTML = paper.fixed_hold_benchmark ? multiLineChart([
+    {label:"策略账户", color:chartTheme.paper, rows:paper.equity_curve || [], yKey:"equity"},
+    {label:"固定持有账户", color:chartTheme.benchmark, rows:paper.fixed_hold_benchmark.equity_curve || [], yKey:"equity"},
+  ]) : lineChart(paper.equity_curve || [], "equity", chartTheme.paper, "Paper equity");
+  renderPaperComparison();
   byId("paper-exposure-chart").innerHTML = lineChart(paper.equity_curve || [], "gross_exposure", chartTheme.benchmark, "Gross exposure");
   byId("paper-fill-table").innerHTML = tableRows(paper.fills || [], ["signal_date", "execution_date", "asset_id", "market", "side", "quantity", "fill_price", "fee"]);
   byId("paper-guard-table").innerHTML = tableRows(paper.guard_events || [], ["date", "event_type", "drawdown", "blocked_buy_intents", "cooldown_remaining"]);
@@ -6647,6 +6730,26 @@ function renderPaper() {
   renderBeginnerPostCloseJournal();
   renderBeginnerLiveHandoff();
   renderDailyRealWorldHandoffGate(state.dailyTradeAdvisory?.real_world_manual_handoff_gate || {});
+}
+
+function renderPaperComparison() {
+  const target = byId("paper-comparison");
+  if (!target) return;
+  const paper = state.paper || {};
+  const comparison = paper.account_comparison;
+  if (!comparison) {
+    target.innerHTML = statusRows([["账户对照", paper.error || "尚未运行固定持有账户对照。", "warn"]]);
+    return;
+  }
+  target.innerHTML = statusRows([
+    ["策略账户收益", formatPercent(comparison.strategy_total_return), "muted"],
+    ["固定持有账户收益", formatPercent(comparison.benchmark_total_return), "muted"],
+    ["账户收益差", formatPercent(comparison.relative_return), "muted"],
+    ["现金情景收益", formatPercent(comparison.cash_total_return), "muted"],
+    ["持有对照风险条件", paper.fixed_hold_benchmark?.risk?.compatible_with_declared_limits ? "未观察到越限" : "存在越限或缺少证据", "warn"],
+    ["结论限制", "两账户风险可能不同，收益差不等于风险调整后的优势，正EV未证实。期末持仓按价格估值，现金采用零利息情景。", "warn"],
+    ["文件版本", "结果对应运行时已固定的版本；再次运行会重新核对，文件版本不等于来源质量认证。", "muted"],
+  ]);
 }
 
 function renderDailyTradeAdvisory() {
@@ -10192,7 +10295,18 @@ function paperReceiptMatchesRequest(receipt = {}, request = {}) {
     return {matches: false, compared_keys: [], mismatch_keys: []};
   }
   const receiptRequest = receipt.request || {};
+  const participation = (value) => normalizeReceiptNumber(value == null || value === "" ? "none" : value);
+  const sourceName = (value) => {
+    const name = String(value || "").trim().toLowerCase().replaceAll("_", "-");
+    return ["demo", "demo-fixture", "fixture"].includes(name) ? "demo_fixture" : name;
+  };
+  const stable = (value) => {
+    if (Array.isArray(value)) return value.map(stable);
+    if (value && typeof value === "object") return Object.fromEntries(Object.keys(value).sort().map(key => [key, stable(value[key])]));
+    return value;
+  };
   const comparisons = [
+    ["source", sourceName(receiptRequest.source), sourceName(request.source)],
     ["market", normalizeReceiptText(receiptRequest.market), normalizeReceiptText(request.market)],
     ["factor", normalizeReceiptText(receiptRequest.factor_name || receiptRequest.factor), normalizeReceiptText(request.factor || request.factor_name)],
     ["factor_windows", normalizeReceiptText(receiptRequest.factor_windows), normalizeReceiptText(request.factor_windows)],
@@ -10201,6 +10315,10 @@ function paperReceiptMatchesRequest(receipt = {}, request = {}) {
     ["initial_cash", normalizeReceiptNumber(receiptRequest.initial_cash), normalizeReceiptNumber(request.initial_cash)],
     ["commission_bps", normalizeReceiptNumber(receiptRequest.commission_bps), normalizeReceiptNumber(request.commission_bps)],
     ["minimum_commission", normalizeReceiptNumber(receiptRequest.minimum_commission || 0), normalizeReceiptNumber(request.minimum_commission || 0)],
+    ["market_impact_bps", normalizeReceiptNumber(receiptRequest.market_impact_bps || 0), normalizeReceiptNumber(request.market_impact_bps || 0)],
+    ["max_participation_rate", participation(receiptRequest.max_participation_rate), participation(request.max_participation_rate)],
+    ["corporate_actions_path", String(receiptRequest.corporate_actions_path || "none"), String(request.corporate_actions_path || "none")],
+    ["fixed_hold_benchmark_path", String(receiptRequest.fixed_hold_benchmark_path || "none"), String(request.fixed_hold_benchmark_path || "none")],
     ["slippage_bps", normalizeReceiptNumber(receiptRequest.slippage_bps), normalizeReceiptNumber(request.slippage_bps)],
     ["max_asset_weight", normalizeReceiptNumber(receiptRequest.max_asset_weight), normalizeReceiptNumber(request.max_asset_weight)],
     ["max_market_weight", normalizeReceiptNumber(receiptRequest.max_market_weight), normalizeReceiptNumber(request.max_market_weight)],
@@ -10212,8 +10330,17 @@ function paperReceiptMatchesRequest(receipt = {}, request = {}) {
   const mismatchKeys = comparisons
     .filter((item) => item[1] === "" || item[1] !== item[2])
     .map((item) => item[0]);
+  if (request.execution_economics != null &&
+      JSON.stringify(stable(receiptRequest.execution_economics)) !== JSON.stringify(stable(request.execution_economics))) {
+    mismatchKeys.push("execution_economics");
+  }
+  for (const [path, pin] of [["corporate_actions_path", "corporate_actions_fingerprint"],
+    ["fixed_hold_benchmark_path", "fixed_hold_benchmark_sha256"]]) {
+    if (request[path] && (!/^[0-9a-f]{64}$/.test(request[pin] || "") || receiptRequest[pin] !== request[pin])) mismatchKeys.push(pin);
+  }
   return {
-    matches: comparisons.some((item) => item[0] !== "minimum_commission") && mismatchKeys.length === 0,
+    matches: comparisons.some((item) => !["minimum_commission", "market_impact_bps", "max_participation_rate",
+      "corporate_actions_path", "fixed_hold_benchmark_path"].includes(item[0])) && mismatchKeys.length === 0,
     compared_keys: comparisons.map((item) => item[0]),
     mismatch_keys: mismatchKeys,
   };
@@ -14216,6 +14343,13 @@ function paperReceipt(result = {}) {
       initial_cash: request.initial_cash,
       commission_bps: request.commission_bps,
       minimum_commission: request.minimum_commission,
+      market_impact_bps: request.market_impact_bps,
+      max_participation_rate: request.max_participation_rate,
+      corporate_actions_path: request.corporate_actions_path,
+      corporate_actions_fingerprint: request.corporate_actions_fingerprint,
+      fixed_hold_benchmark_path: request.fixed_hold_benchmark_path,
+      fixed_hold_benchmark_sha256: request.fixed_hold_benchmark_sha256,
+      execution_economics: request.execution_economics,
       slippage_bps: request.slippage_bps,
       max_asset_weight: request.max_asset_weight,
       max_market_weight: request.max_market_weight,
@@ -14241,6 +14375,7 @@ function paperReceipt(result = {}) {
       fill_count: (result.fills || []).length,
     },
     decision: "local_simulation_only",
+    ...(result.account_comparison ? {account_comparison: result.account_comparison} : {}),
     safety: "local simulated fills only; no broker, account, or order side effects",
   };
 }
@@ -14262,6 +14397,13 @@ function dailyPaperRequestSignature(result = {}) {
     initial_cash: request.initial_cash,
     commission_bps: request.commission_bps,
     minimum_commission: request.minimum_commission,
+    market_impact_bps: request.market_impact_bps,
+    max_participation_rate: request.max_participation_rate,
+    corporate_actions_path: request.corporate_actions_path,
+    corporate_actions_fingerprint: request.corporate_actions_fingerprint,
+    fixed_hold_benchmark_path: request.fixed_hold_benchmark_path,
+    fixed_hold_benchmark_sha256: request.fixed_hold_benchmark_sha256,
+    execution_economics: request.execution_economics,
     slippage_bps: request.slippage_bps,
     max_asset_weight: request.max_asset_weight,
     max_market_weight: request.max_market_weight,

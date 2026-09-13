@@ -14,7 +14,7 @@ function actualFunction(name) {
 test('browser transmits the selected minimum, including explicit zero', () => {
   const values = {'paper-minimum-commission': '5'};
   const context = {URLSearchParams, valueOf: id => values[id] ?? '',
-    factorWindowCsvForFactor: () => '2', addSourceParams() {}, appendSameParameterPaperMetadata() {}};
+    factorWindowCsvForFactor: () => '2', addSourceParams() {}, appendSameParameterPaperMetadata() {}, appendPaperInputPins() {}};
   vm.createContext(context);
   vm.runInContext(actualFunction('buildPaperParams'), context);
   assert.equal(context.buildPaperParams().get('minimum_commission'), '5');

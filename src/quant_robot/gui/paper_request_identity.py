@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,13 @@ PAPER_REQUEST_SIGNATURE_KEYS = (
     "commission_bps",
     "minimum_commission",
     "slippage_bps",
+    "market_impact_bps",
+    "max_participation_rate",
+    "corporate_actions_path",
+    "corporate_actions_fingerprint",
+    "fixed_hold_benchmark_path",
+    "fixed_hold_benchmark_sha256",
+    "execution_economics",
     "max_asset_weight",
     "max_market_weight",
     "max_gross_exposure",
@@ -58,6 +66,11 @@ def _request_signature(request: dict[str, Any]) -> dict[str, Any]:
     # request into paper identity solely by adding this default.
     if signature and "minimum_commission" not in signature:
         signature["minimum_commission"] = 0.0
+    if signature:
+        for key, value in {'market_impact_bps':0.0, 'max_participation_rate':None,
+                'corporate_actions_path':None, 'corporate_actions_fingerprint':None,
+                'fixed_hold_benchmark_path':None, 'fixed_hold_benchmark_sha256':None}.items():
+            signature.setdefault(key, value)
     return signature
 
 def _signature_mismatch_keys(actual: dict[str, Any], expected: dict[str, Any]) -> list[str]:
@@ -65,6 +78,12 @@ def _signature_mismatch_keys(actual: dict[str, Any], expected: dict[str, Any]) -
     for key, expected_value in expected.items():
         if actual.get(key) != expected_value:
             mismatches.append(key)
+    for path, pin in (('corporate_actions_path', 'corporate_actions_fingerprint'),
+                      ('fixed_hold_benchmark_path', 'fixed_hold_benchmark_sha256')):
+        if expected.get(path) and any(not isinstance(row.get(pin), str) or
+                not re.fullmatch('[0-9a-f]{64}', row[pin]) for row in (actual, expected)):
+            if pin not in mismatches:
+                mismatches.append(pin)
     return mismatches
 
 def _canonical_signature_value(key: str, value: Any) -> Any:
@@ -75,6 +94,9 @@ def _canonical_signature_value(key: str, value: Any) -> Any:
     text = str(value).strip()
     if key == "market":
         return text.upper()
+    if key == "source":
+        name = text.lower().replace("_", "-")
+        return "demo_fixture" if name in {"demo", "demo-fixture", "fixture"} else name
     if key == "factor_windows":
         if isinstance(value, (list, tuple)):
             return ",".join(str(item).strip() for item in value if str(item).strip())
@@ -86,6 +108,8 @@ def _canonical_signature_value(key: str, value: Any) -> Any:
         "commission_bps",
         "minimum_commission",
         "slippage_bps",
+        "market_impact_bps",
+        "max_participation_rate",
         "max_asset_weight",
         "max_market_weight",
         "max_gross_exposure",

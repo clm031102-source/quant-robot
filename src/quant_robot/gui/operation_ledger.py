@@ -857,6 +857,8 @@ def _build_entry(
         "command": command,
         "request": _json_safe(request),
         "metrics": _json_safe(metrics),
+        **({'account_comparison':_json_safe(result['account_comparison'])}
+           if isinstance(result.get('account_comparison'), dict) else {}),
         "request_summary": _request_summary(request),
         "metric_summary": _metric_summary(metrics, result),
         "stage": result.get("stage", ""),
