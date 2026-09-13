@@ -17,6 +17,14 @@ import pandas as pd
 _PRIMARY_DATE = {
     "fund_adj": "trade_date", "fund_div": "ann_date",
     "anns_d": "ann_date", "etf_limit": "trade_date",
+    "dividend": "imp_ann_date",
+}
+_DIVIDEND_DATES = {
+    "end_date", "ann_date", "imp_ann_date", "record_date", "ex_date",
+    "pay_date", "base_date", "div_listdate",
+}
+_DIVIDEND_REQUIRED = (_DIVIDEND_DATES - {"div_listdate"}) | {
+    "ts_code", "div_proc", "cash_div", "cash_div_tax", "base_share",
 }
 
 
@@ -86,8 +94,16 @@ class TushareSourceHttpClient:
         primary = _PRIMARY_DATE[api_name]
         point_dates = {"ann_date", "ex_date", "pay_date"} if api_name == "fund_div" else {primary}
         allowed = {"ts_code", *point_dates}
-        if api_name != "fund_div":
+        if api_name not in {"fund_div", "dividend"}:
             allowed |= {"start_date", "end_date"}
+        if api_name == "dividend":
+            # A metadata pilot must not silently become a whole-market history read.
+            if set(params) != {"ts_code", "imp_ann_date"} or not re.fullmatch(
+                r"(?:6[0-9]{5}\.SH|[03][0-9]{5}\.SZ)", str(params.get("ts_code", "")),
+            ):
+                raise TushareSourceError("invalid_scope", "dividend requires one A-share code and implementation date")
+            if not _DIVIDEND_REQUIRED <= set(names):
+                raise TushareSourceError("invalid_scope", "dividend event, cash and share-base fields required")
         if not set(params) <= allowed:
             raise TushareSourceError("invalid_scope", "unsupported query parameters")
         points = set(params) & point_dates
@@ -138,6 +154,13 @@ class TushareSourceHttpClient:
             if any(isinstance(value, float) and not math.isfinite(value) for value in row):
                 raise TushareSourceError("response_schema", "nonfinite source value")
             record = dict(zip(columns, row, strict=True))
+            if primary == "imp_ann_date":
+                for key in _DIVIDEND_DATES & record.keys():
+                    value = record[key]
+                    if key != primary and value in (None, ""):
+                        continue  # Unknown source fields are retained, not filled as zero.
+                    if _date(value) > self.max_date:
+                        raise TushareSourceError("response_scope", "dividend date exceeds frozen date ceiling")
             if _date(record[primary]) > self.max_date:
                 raise TushareSourceError("response_scope", "response exceeds frozen date ceiling")
             if any(record[key] != params[key] for key in points):
