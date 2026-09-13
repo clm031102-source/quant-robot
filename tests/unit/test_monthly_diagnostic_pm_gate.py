@@ -13,12 +13,12 @@ class MonthlyDiagnosticPMGateTests(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory(); self.addCleanup(tmp.cleanup); self.root=Path(tmp.name)
         self.packet, decision, _ = execution_fixture(self.root)
-        self.family=json.loads((REPO/'configs/research_family_scheduler_cn_etf.json').read_text())
+        self.family=json.loads((REPO/'configs/research_family_scheduler_cn_etf.json').read_text(encoding='utf-8'))
         self.family['monthly_diagnostic_decision']=decision['monthly_diagnostic_decision']
-        self.config=json.loads((REPO/'configs/quant_pm_startup_gate_cn_etf.json').read_text())
-        self.workstations=json.loads((REPO/'configs/workstations.json').read_text())
+        self.config=json.loads((REPO/'configs/quant_pm_startup_gate_cn_etf.json').read_text(encoding='utf-8'))
+        self.workstations=json.loads((REPO/'configs/workstations.json').read_text(encoding='utf-8'))
         for row in self.config['required_reading']:
-            path=self.root/row['path'];path.parent.mkdir(parents=True,exist_ok=True);path.write_text('fixture protocol')
+            path=self.root/row['path'];path.parent.mkdir(parents=True,exist_ok=True);path.write_text('fixture protocol',encoding='utf-8')
 
     def gate(self, family=None):
         return build_quant_pm_startup_gate(gate_config=self.config,workstations_config=self.workstations,
@@ -43,7 +43,7 @@ class MonthlyDiagnosticPMGateTests(unittest.TestCase):
         for field in ('promotion_allowed','general_factor_batch_allowed','holdout_allowed'):
             family=copy.deepcopy(self.family);family['monthly_diagnostic_decision'][field]=True
             with self.subTest(field=field):self.assertEqual(self.gate(family)['status'],'blocked')
-        (self.root/'registration.json').write_text('{}')
+        (self.root/'registration.json').write_text('{}',encoding='utf-8')
         self.assertEqual(self.gate()['status'],'blocked')
 
     def test_auxiliary_moneyflow_violation_still_blocks(self):
