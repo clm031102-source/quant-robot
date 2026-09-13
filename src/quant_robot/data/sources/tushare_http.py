@@ -69,6 +69,11 @@ class TushareSourceHttpClient:
         self.timeout = (connect_timeout, read_timeout)
         self.requests_used = 0
         self.last_attempt: dict[str, object] = {}
+        self.last_payload: dict[str, object] | None = None
+
+    def validate_query(self, api_name: str, *, fields: str, max_rows: int, **params) -> None:
+        """Validate one request without credentials use, network, or budget consumption."""
+        self._scope(api_name, fields, max_rows, params)
 
     def _scope(self, api_name, fields, max_rows, params):
         if not isinstance(api_name, str) or api_name not in _PRIMARY_DATE:
@@ -111,6 +116,14 @@ class TushareSourceHttpClient:
         data = parsed.get("data")
         if not isinstance(data, dict):
             raise TushareSourceError("response_schema", "data object missing")
+        page = {key: data[key] for key in ("has_more", "count") if key in data}
+        if "has_more" in page and type(page["has_more"]) is not bool:
+            raise TushareSourceError("response_schema", "invalid has_more metadata")
+        if "count" in page and (type(page["count"]) is not int or page["count"] < 0):
+            raise TushareSourceError("response_schema", "invalid count metadata")
+        self.last_attempt["provider_page_metadata"] = page
+        if page.get("has_more") is True:
+            raise TushareSourceError("response_incomplete", "provider reports more pages; no automatic pagination")
         columns, rows = data.get("fields"), data.get("items")
         if not isinstance(columns, list) or columns != list(dict.fromkeys(columns)) or set(columns) != set(names):
             raise TushareSourceError("response_schema", "columns differ from requested fields")
@@ -134,6 +147,9 @@ class TushareSourceHttpClient:
             if "ts_code" in params and record["ts_code"] != params["ts_code"]:
                 raise TushareSourceError("response_scope", "response symbol differs from request")
             cleaned.append([value.replace(self._token, "[REDACTED]") if isinstance(value, str) else value for value in row])
+        # Preserve provider scalar types/nulls before DataFrame type coercion.
+        # This validated, redacted projection is not the original HTTP body.
+        self.last_payload = {"code": 0, "data": {"fields": columns, "items": cleaned, **page}}
         return pd.DataFrame(cleaned, columns=columns)
 
     def query(self, api_name: str, *, fields: str, max_rows: int, **params) -> pd.DataFrame:
@@ -141,6 +157,7 @@ class TushareSourceHttpClient:
         if self.requests_used >= self.max_requests:
             raise TushareSourceError("request_budget", "frozen request budget exhausted")
         self.requests_used += 1
+        self.last_payload = None
         self.last_attempt = {"api_name": api_name, "request_number": self.requests_used,
             "status": "started", "trust_env": self.trust_env,
             "params": dict(params), "fields": fields, "max_rows": max_rows,

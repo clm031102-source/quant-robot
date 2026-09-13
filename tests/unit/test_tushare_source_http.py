@@ -165,6 +165,23 @@ class TushareSourceHttpTests(unittest.TestCase):
         self.assertEqual(len(result), 2)
         self.assertEqual(result.title.tolist(), ["[REDACTED]", "[REDACTED]"])
 
+    def test_pagination_metadata_survives_and_more_pages_cannot_be_silent_success(self):
+        payload = self.payload()
+        payload["data"].update(has_more=False, count=0)
+        client = self.client()
+        with patch("quant_robot.data.sources.tushare_http._new_session", return_value=Session(Response(payload))):
+            self.query(client)
+        self.assertEqual(client.last_payload["data"], payload["data"])
+        self.assertEqual(client.last_attempt["provider_page_metadata"], {"has_more": False, "count": 0})
+        payload["data"]["has_more"] = True
+        client = self.client()
+        with patch("quant_robot.data.sources.tushare_http._new_session", return_value=Session(Response(payload))):
+            with self.assertRaises(TushareSourceError) as error:
+                self.query(client)
+        self.assertEqual(error.exception.kind, "response_incomplete")
+        self.assertTrue(client.last_attempt["provider_page_metadata"]["has_more"])
+        self.assertIsNone(client.last_payload)
+
 
 if __name__ == "__main__":
     unittest.main()
