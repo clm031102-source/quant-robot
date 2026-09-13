@@ -59,8 +59,28 @@ class GuiMinimumCommissionTests(unittest.TestCase):
             load.assert_not_called()
 
     @unittest.skipUnless(shutil.which('node'), 'Node.js needed for browser regression')
+    def test_browser_timeout_preserves_captured_progress(self):
+        for stdout, stderr in ((b'TAP progress', b'bootstrap reached'),
+                               ('TAP progress', 'bootstrap reached')):
+            with self.subTest(output_type=type(stdout).__name__):
+                timeout = subprocess.TimeoutExpired('synthetic node command', 30,
+                    output=stdout, stderr=stderr)
+                with patch.object(subprocess, 'run', side_effect=timeout):
+                    with self.assertRaises(AssertionError) as failure:
+                        self.test_browser_fee_transmission_and_receipt_matching()
+                self.assertIn('30', str(failure.exception))
+                self.assertIn('TAP progress', str(failure.exception))
+                self.assertIn('bootstrap reached', str(failure.exception))
+
+    @unittest.skipUnless(shutil.which('node'), 'Node.js needed for browser regression')
     def test_browser_fee_transmission_and_receipt_matching(self):
-        result = subprocess.run([shutil.which('node'), '--test', 'tests/gui_minimum_commission.test.cjs'],
-            cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True,
-            encoding='utf-8', timeout=30)
+        try:
+            result = subprocess.run([shutil.which('node'), '--test', 'tests/gui_minimum_commission.test.cjs'],
+                cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True,
+                encoding='utf-8', timeout=30)
+        except subprocess.TimeoutExpired as exc:
+            outputs = [value.decode('utf-8', errors='replace') if isinstance(value, bytes)
+                       else value or '<no captured output>' for value in (exc.stdout, exc.stderr)]
+            self.fail(f'Node browser fee regression exceeded {exc.timeout}s; '
+                      f'command={exc.cmd!r}\nstdout:\n{outputs[0]}\nstderr:\n{outputs[1]}')
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

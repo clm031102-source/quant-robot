@@ -1,3 +1,4 @@
+console.error(`browser fee regression bootstrap: node ${process.version}, platform ${process.platform}`);
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
 const {readFileSync} = require('node:fs');
