@@ -32,7 +32,7 @@ class CorporateActionLedger:
             # V2 share ratios must retain the decimal declared in the event file.
             # Event validation still normalizes legacy V1 amounts to float.
             data = json.loads(raw, parse_float=Decimal)
-            self.events = _validate_dataset(data, assets, dates)
+            self.events = validate_corporate_action_dataset(data, assets, dates)
             self.fingerprint = hashlib.sha256(raw).hexdigest()
             self.source_ref = data["source_ref"]
         for event in self.events:
@@ -230,7 +230,8 @@ def _convert_whole_shares(quantity: float, event: dict[str, Any]) -> tuple[float
     return float(converted), evidence
 
 
-def _validate_dataset(data: Any, assets: set[str], dates: list[date]) -> list[dict[str, Any]]:
+def validate_corporate_action_dataset(data: Any, assets: set[str], dates: list[date]) -> list[dict[str, Any]]:
+    """Validate declared events and coverage; this does not certify their source."""
     expected = {"schema_version", "source_ref", "coverage_start", "coverage_end", "asset_ids", "events"}
     if not isinstance(data, dict) or set(data) != expected or type(data["schema_version"]) is not int or data["schema_version"] not in (1, 2):
         raise ValueError("corporate action dataset has an unsupported schema")
