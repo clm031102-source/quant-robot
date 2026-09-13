@@ -8,6 +8,7 @@ import pandas as pd
 
 from quant_robot.assets.models import Asset
 from quant_robot.data.ingest.manifest import IngestManifest
+from quant_robot.data.ingest.tushare_daily_evidence import fetch_provider_capture, bind_mapped_capture, inspect_provider_capture
 from quant_robot.data.normalize import normalize_ohlcv
 from quant_robot.data.quality import validate_market_data
 from quant_robot.data.quality_report import build_quality_report
@@ -42,21 +43,33 @@ def run_tushare_daily_ingest(
     raw_frames_by_date: dict[str, pd.DataFrame] = {}
     downloaded_rows_by_date: dict[str, int] = {}
     raw_dataset = _raw_dataset(market)
+    source_evidence: dict[str, object] = {}
+    source_bindings = manifest.data['metadata'].setdefault('daily_provider_evidence', {})
 
     trade_dates = _trade_dates(adapter, start_date, end_date)
     for trade_date in trade_dates:
         key = _manifest_key(market, trade_date)
-        if resume and manifest.is_completed(key) and _raw_partition_has_rows(store, _raw_dataset(market), trade_date):
-            skipped.append(trade_date)
-            continue
-        if resume and _raw_partition_has_rows(store, raw_dataset, trade_date):
-            skipped.append(trade_date)
-            reused_raw.append(trade_date)
-            continue
-        raw = _fetch_daily(adapter, trade_date, market)
-        if raw.empty:
-            _mark_empty_raw_response(manifest, key, trade_date)
-        store.write_frame(raw, raw_dataset, {"trade_date": trade_date})
+        try:
+            if resume and _raw_partition_has_rows(store, raw_dataset, trade_date):
+                source_evidence[trade_date] = inspect_provider_capture(store, source_bindings.get(key), trade_date=trade_date, market=market)
+                skipped.append(trade_date)
+                if not manifest.is_completed(key):
+                    reused_raw.append(trade_date)
+                continue
+            captured = fetch_provider_capture(adapter, trade_date, market, store)
+            raw, capture = captured if captured is not None else (_fetch_daily(adapter, trade_date, market), None)
+            if raw.empty:
+                _mark_empty_raw_response(manifest, key, trade_date)
+            mapped_path = store.write_frame(raw, raw_dataset, {"trade_date": trade_date})
+            if capture is not None:
+                source_bindings[key] = bind_mapped_capture(store, capture, mapped_path)
+            else:
+                source_bindings.pop(key, None)
+            source_evidence[trade_date] = inspect_provider_capture(store, source_bindings.get(key), trade_date=trade_date, market=market)
+        except Exception as exc:
+            manifest.mark_failed(key, reason=str(exc))
+            manifest.save()
+            raise
         downloaded.append(trade_date)
         downloaded_rows_by_date[trade_date] = len(raw)
         raw_frames_by_date[trade_date] = raw
@@ -99,6 +112,7 @@ def run_tushare_daily_ingest(
         "adjusted": adjusted,
         "adjustment_report": adjustment_report,
         "quality_report": report,
+        "provider_source_evidence": source_evidence,
     }
 
 
