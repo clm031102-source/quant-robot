@@ -73,7 +73,7 @@ def main() -> None:
     parser.add_argument("--metric-column")
     parser.add_argument("--observations-column")
     parser.add_argument("--p-value-column")
-    parser.add_argument("--case-column", default="case_id")
+    parser.add_argument("--case-column", default="case_id", help="Use trial_id for combined experiment-grid exports; case_id is local to a grid.")
     parser.add_argument("--date-column")
     parser.add_argument("--cpcv-return-column")
     parser.add_argument("--x-param")
