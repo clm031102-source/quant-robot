@@ -75,7 +75,8 @@ class GuiMinimumCommissionTests(unittest.TestCase):
     @unittest.skipUnless(shutil.which('node'), 'Node.js needed for browser regression')
     def test_browser_fee_transmission_and_receipt_matching(self):
         try:
-            result = subprocess.run([shutil.which('node'), '--test', 'tests/gui_minimum_commission.test.cjs'],
+            # One file already has its own process; avoid a nested Node test worker.
+            result = subprocess.run([shutil.which('node'), 'tests/gui_minimum_commission.test.cjs'],
                 cwd=Path(__file__).resolve().parents[2], capture_output=True, text=True,
                 encoding='utf-8', timeout=30)
         except subprocess.TimeoutExpired as exc:
