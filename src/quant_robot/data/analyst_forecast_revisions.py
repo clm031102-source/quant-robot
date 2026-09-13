@@ -110,6 +110,17 @@ def _transition(
             return row('stale_provider_version_ignored', current), state
         return row('provider_correction', current), new_state
 
+    baseline_changed = any(
+        e.record_id == prior.record_id and (
+            e.provider_updated_at is None or prior.provider_updated_at is None
+            or e.provider_updated_at > prior.provider_updated_at
+        ) for e in events
+    )
+    if baseline_changed:
+        return row('new_report_with_baseline_change', current,
+                   net_profit_status='simultaneous_baseline_change',
+                   eps_status='simultaneous_baseline_change'), new_state
+
     change, ratio, status = _changes(current.net_profit, prior.net_profit)
     current_basis = basis_ids.get(current.version_id)
     previous_basis = basis_ids.get(prior.version_id)

@@ -76,6 +76,50 @@ class AnalystForecastRevisionTests(unittest.TestCase):
         self.assertIsNone(rows[1].net_profit_relative_change)
         self.assertEqual(rows[2].previous_version_id, correction.version_id)
 
+    def test_correction_and_new_report_in_same_capture_are_not_a_pure_revision(self):
+        correction = observation('20240102', B.observed_at.isoformat(), np='110',
+                                 create_time='2024-01-03 21:00:00')
+        later = observation('20240104', '2024-01-05T02:00:00+00:00', np='180')
+        rows = self.trace(A, correction, B, later)
+        self.assertEqual(rows[1].kind, 'new_report_with_baseline_change')
+        self.assertIsNone(rows[1].net_profit_change)
+        self.assertIsNone(rows[1].net_profit_relative_change)
+        self.assertEqual(rows[1].net_profit_status, 'simultaneous_baseline_change')
+        self.assertEqual(set(rows[1].observed_version_ids), {correction.version_id, B.version_id})
+        self.assertEqual(rows[2].previous_version_id, B.version_id)
+        self.assertEqual(rows[2].net_profit_relative_change, Decimal('.5'))
+
+    def test_simultaneous_baseline_change_blocks_eps_even_with_share_basis(self):
+        correction = observation('20240102', B.observed_at.isoformat(), eps='1.1',
+                                 create_time='2024-01-03 21:00:00')
+        rows = self.trace(A, correction, B, eps_basis_ids={A.version_id:'basis-a', B.version_id:'basis-a'})
+        self.assertEqual(rows[-1].kind, 'new_report_with_baseline_change')
+        self.assertIsNone(rows[-1].eps_relative_change)
+        self.assertEqual(rows[-1].eps_status, 'simultaneous_baseline_change')
+        self.assertEqual(rows, self.trace(B, A, correction, eps_basis_ids={A.version_id:'basis-a', B.version_id:'basis-a'}))
+
+    def test_simultaneous_older_baseline_version_does_not_block_new_report(self):
+        prior = observation('20240102', A.observed_at.isoformat(), np='100',
+                            create_time='2024-01-03 09:00:00')
+        stale = observation('20240102', B.observed_at.isoformat(), np='80')
+        row = self.trace(prior, stale, B)[-1]
+        self.assertEqual(row.kind, 'new_report_revision')
+        self.assertEqual(row.net_profit_relative_change, Decimal('.2'))
+
+    def test_simultaneous_missing_baseline_version_time_is_not_ordered(self):
+        for missing_side in ('earlier', 'current'):
+            with self.subTest(missing_side=missing_side):
+                prior = observation('20240102', A.observed_at.isoformat(), np='100',
+                                    create_time=None if missing_side == 'earlier' else '2024-01-02 21:00:00')
+                changed = observation('20240102', B.observed_at.isoformat(), np='110',
+                                      create_time=None if missing_side == 'current' else '2024-01-03 21:00:00')
+                self.assertEqual(self.trace(prior, changed, B)[-1].kind, 'new_report_with_baseline_change')
+
+    def test_simultaneous_nonbaseline_old_report_cannot_suppress_revision(self):
+        unrelated = observation('20240101', B.observed_at.isoformat(), np='110',
+                                create_time='2024-01-03 21:00:00')
+        self.assertEqual(self.trace(A, unrelated, B)[-1].net_profit_relative_change, Decimal('.2'))
+
     def test_same_update_conflict_across_snapshots_is_rejected(self):
         conflict = observation('20240102', '2024-01-04T02:00:00+00:00', np='200')
         with self.assertRaisesRegex(ValueError, 'conflicting_forecast_version'):

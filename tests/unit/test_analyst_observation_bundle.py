@@ -63,6 +63,22 @@ class AnalystObservationBundleTests(unittest.TestCase):
             self.run_bundle()
         self.assertFalse(self.output.exists())
 
+    def test_same_capture_correction_is_preserved_without_counting_a_clean_revision(self):
+        self.captures = [self.captures[0]]
+        corrected = {**BASE, 'np':'110', 'create_time':'2024-01-04 20:00:00'}
+        new = {**BASE, 'np':'120', 'report_date':'20240104', 'create_time':'2024-01-04 21:00:00'}
+        self.add_capture('mixed.json', '2024-01-05T02:00:00Z', corrected, new)
+        self.write_manifest()
+        self.run_bundle()
+        report = json.loads((self.output / 'review.json').read_text(encoding='utf-8'))
+        self.assertEqual(report['summary']['new_report_revisions'], 0)
+        self.assertEqual(report['summary']['transition_kinds']['new_report_with_baseline_change'], 1)
+        self.assertEqual(len(report['events']), 3)
+        self.assertIsNone(report['transitions'][-1]['net_profit_relative_change'])
+        materialize_observation_bundle(self.output / 'manifest.json', self.root / 'replay', as_of=report['as_of'])
+        replay = json.loads((self.root / 'replay' / 'review.json').read_text(encoding='utf-8'))
+        self.assertEqual(report['transitions'], replay['transitions'])
+
     def test_naive_cutoff_and_observation_are_rejected(self):
         with self.assertRaisesRegex(ValueError, 'timezone_required'):
             self.run_bundle(as_of='2024-02-01')
