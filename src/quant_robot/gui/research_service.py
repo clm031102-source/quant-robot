@@ -131,6 +131,7 @@ FACTOR_LEADERBOARD_PARAM_KEYS = (
     "topN",
     "cost_bps",
     "commission_bps",
+    "minimum_commission",
     "slippage_bps",
     "rebalance_interval",
     "holding_period",
@@ -1895,6 +1896,7 @@ def run_demo_paper_simulation(
     min_cash_weight: float = 0.0,
     max_drawdown_guard: float | None = None,
     guard_cooldown_periods: int = 0,
+    minimum_commission: float = 0.0,
 ) -> dict[str, Any]:
     return run_gui_paper_simulation(
         source="demo_fixture",
@@ -1906,6 +1908,7 @@ def run_demo_paper_simulation(
         end_date=end_date,
         initial_cash=initial_cash,
         commission_bps=commission_bps,
+        minimum_commission=minimum_commission,
         slippage_bps=slippage_bps,
         max_asset_weight=max_asset_weight,
         max_market_weight=max_market_weight,
@@ -1936,6 +1939,7 @@ def run_gui_paper_simulation(
     periods_per_year: float | None = None,
     max_drawdown_guard: float | None = None,
     guard_cooldown_periods: int = 0,
+    minimum_commission: float = 0.0,
 ) -> dict[str, Any]:
     source_name = _normalize_gui_source(source)
     result = run_paper_simulation(
@@ -1950,6 +1954,7 @@ def run_gui_paper_simulation(
             end_date=end_date,
             initial_cash=initial_cash,
             commission_bps=commission_bps,
+            minimum_commission=minimum_commission,
             slippage_bps=slippage_bps,
             max_asset_weight=max_asset_weight,
             max_market_weight=max_market_weight,

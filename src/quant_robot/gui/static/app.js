@@ -144,6 +144,7 @@ const REQUEST_PREVIEW_INPUT_IDS = [
   "paper-end-date",
   "paper-initial-cash",
   "paper-commission-bps",
+  "paper-minimum-commission",
   "paper-slippage-bps",
   "paper-max-asset-weight",
   "paper-max-market-weight",
@@ -925,6 +926,7 @@ function buildPaperParams() {
     run_date: operationDate,
     initial_cash: valueOf("paper-initial-cash") || "100000",
     commission_bps: valueOf("paper-commission-bps") || "5",
+    minimum_commission: valueOf("paper-minimum-commission") || "0",
     slippage_bps: valueOf("paper-slippage-bps") || "5",
     max_asset_weight: valueOf("paper-max-asset-weight") || "1",
     max_market_weight: valueOf("paper-max-market-weight") || "1",
@@ -1443,6 +1445,7 @@ function applyControlDefaults() {
   setValue("paper-end-date", paper.end_date || research.end_date || "");
   setValue("paper-initial-cash", paper.initial_cash ?? "");
   setValue("paper-commission-bps", paper.commission_bps ?? "");
+  setValue("paper-minimum-commission", paper.minimum_commission ?? "0");
   setValue("paper-slippage-bps", paper.slippage_bps ?? "");
   setValue("paper-max-asset-weight", paper.max_asset_weight ?? "");
   setValue("paper-max-market-weight", paper.max_market_weight ?? "");
@@ -1489,8 +1492,8 @@ function renderResultFreshness() {
       "模拟盘结果",
       state.paper,
       buildPaperParams(),
-      ["market", "factor_name", "top_n", "start_date", "end_date", "initial_cash"],
-      "修改市场、因子、TopN、日期窗口或初始资金后，需要重新跑本地模拟盘。",
+      ["market", "factor_name", "top_n", "start_date", "end_date", "initial_cash", "commission_bps", "minimum_commission", "slippage_bps"],
+      "修改市场、因子、TopN、日期窗口、初始资金或费用情景后，需要重新跑本地模拟盘。",
     ),
     resultFreshnessRow(
       "每日前三建议",
@@ -1636,6 +1639,7 @@ function requestObjectFromParams(params) {
     max_drawdown_limit: params.get("max_drawdown_limit") || "",
     initial_cash: params.get("initial_cash") || "",
     commission_bps: params.get("commission_bps") || "",
+    minimum_commission: params.get("minimum_commission") || "",
     slippage_bps: params.get("slippage_bps") || "",
     max_asset_weight: params.get("max_asset_weight") || "",
     max_market_weight: params.get("max_market_weight") || "",
@@ -1666,6 +1670,7 @@ function requestFreshnessSummary(request = {}) {
     request.manual_available_cash != null && request.manual_available_cash !== "" ? `手填现金=${request.manual_available_cash}` : "",
     request.risk_profile_id || "",
     request.initial_cash != null && request.initial_cash !== "" ? `初始资金=${request.initial_cash}` : "",
+    request.minimum_commission != null && request.minimum_commission !== "" ? `最低佣金情景=${request.minimum_commission}元/笔` : "",
     request.start_date || request.as_of_date || "",
     request.end_date || "",
   ].filter(Boolean).join(" / ") || "--";
@@ -6357,6 +6362,7 @@ function applyDailyPaperHandoffToForm(request = {}) {
   if (request.rebalance_interval != null) setValue("rebalance-interval", leaderboardInputValue(request.rebalance_interval));
   if (request.initial_cash != null) setValue("paper-initial-cash", leaderboardInputValue(request.initial_cash));
   if (request.commission_bps != null) setValue("paper-commission-bps", leaderboardInputValue(request.commission_bps));
+  setValue("paper-minimum-commission", leaderboardInputValue(request.minimum_commission ?? 0));
   if (request.slippage_bps != null) setValue("paper-slippage-bps", leaderboardInputValue(request.slippage_bps));
   if (request.max_asset_weight != null) setValue("paper-max-asset-weight", leaderboardInputValue(request.max_asset_weight));
   if (request.max_market_weight != null) setValue("paper-max-market-weight", leaderboardInputValue(request.max_market_weight));
@@ -6625,6 +6631,7 @@ function renderPaper() {
   byId("paper-metrics").innerHTML = [
     metric("期末权益", formatNumber(metrics.ending_equity), "demo"),
     metric("总收益", formatPercent(metrics.total_return), "simulated"),
+    metric("最低佣金情景", formatNumber(paper.request?.minimum_commission), "元/笔，待核实"),
     metric("最大回撤", formatPercent(metrics.max_equity_drawdown ?? metrics.max_drawdown), "simulated"),
     metric("成交笔数", paper.fills?.length ?? 0, "fills"),
     metric("保护事件", formatNumber(metrics.guard_event_count), "guard"),
@@ -10181,6 +10188,9 @@ function dailyPaperManualReviewRow(status = {}) {
 }
 
 function paperReceiptMatchesRequest(receipt = {}, request = {}) {
+  if (Object.keys(request).length === 0) {
+    return {matches: false, compared_keys: [], mismatch_keys: []};
+  }
   const receiptRequest = receipt.request || {};
   const comparisons = [
     ["market", normalizeReceiptText(receiptRequest.market), normalizeReceiptText(request.market)],
@@ -10190,6 +10200,7 @@ function paperReceiptMatchesRequest(receipt = {}, request = {}) {
     ["rebalance_interval", normalizeReceiptNumber(receiptRequest.rebalance_interval), normalizeReceiptNumber(request.rebalance_interval)],
     ["initial_cash", normalizeReceiptNumber(receiptRequest.initial_cash), normalizeReceiptNumber(request.initial_cash)],
     ["commission_bps", normalizeReceiptNumber(receiptRequest.commission_bps), normalizeReceiptNumber(request.commission_bps)],
+    ["minimum_commission", normalizeReceiptNumber(receiptRequest.minimum_commission || 0), normalizeReceiptNumber(request.minimum_commission || 0)],
     ["slippage_bps", normalizeReceiptNumber(receiptRequest.slippage_bps), normalizeReceiptNumber(request.slippage_bps)],
     ["max_asset_weight", normalizeReceiptNumber(receiptRequest.max_asset_weight), normalizeReceiptNumber(request.max_asset_weight)],
     ["max_market_weight", normalizeReceiptNumber(receiptRequest.max_market_weight), normalizeReceiptNumber(request.max_market_weight)],
@@ -10202,7 +10213,7 @@ function paperReceiptMatchesRequest(receipt = {}, request = {}) {
     .filter((item) => item[1] === "" || item[1] !== item[2])
     .map((item) => item[0]);
   return {
-    matches: comparisons.length > 0 && mismatchKeys.length === 0,
+    matches: comparisons.some((item) => item[0] !== "minimum_commission") && mismatchKeys.length === 0,
     compared_keys: comparisons.map((item) => item[0]),
     mismatch_keys: mismatchKeys,
   };
@@ -14204,6 +14215,7 @@ function paperReceipt(result = {}) {
       run_date: request.run_date || request.as_of_date || request.end_date,
       initial_cash: request.initial_cash,
       commission_bps: request.commission_bps,
+      minimum_commission: request.minimum_commission,
       slippage_bps: request.slippage_bps,
       max_asset_weight: request.max_asset_weight,
       max_market_weight: request.max_market_weight,
@@ -14249,6 +14261,7 @@ function dailyPaperRequestSignature(result = {}) {
     run_date: result.run_date || request.run_date || request.as_of_date,
     initial_cash: request.initial_cash,
     commission_bps: request.commission_bps,
+    minimum_commission: request.minimum_commission,
     slippage_bps: request.slippage_bps,
     max_asset_weight: request.max_asset_weight,
     max_market_weight: request.max_market_weight,
