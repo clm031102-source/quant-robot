@@ -74,7 +74,7 @@ with OfflineRuntime(b['journal_path'],clock=lambda:NOW) as runtime:
     def test_normal_bounded_cli_exits_with_stopped_health_and_no_fault(self):
         worker_report=self.root/'worker-report.json'
         result=subprocess.run(self.cli('--worker-report',str(worker_report)),capture_output=True,text=True,timeout=15)
-        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertEqual(result.returncode,0,result.stdout + "\n" + result.stderr)
         monitor=json.loads(result.stdout);worker=json.loads(self.health.read_text())
         report=json.loads(worker_report.read_text())
         self.assertEqual(monitor['phase'],'stopped');self.assertFalse(monitor['child_alive'])
