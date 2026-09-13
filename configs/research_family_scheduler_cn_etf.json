@@ -1320,11 +1320,11 @@
     }
   ],
   "household_diagnostic_decision": {
-    "status": "authorized_once",
+    "status": "completed_positive_descriptive",
     "registration_id": "8cb677a2d4887bf7d3d04c00fb1ff1b0d4f0bc067f4d159bb03ce74de5166c9f",
     "registration_sha256": "e67edf9ad09b69d8c639d2d81701d89312ef391f42d7c60019829f47b9bdbf68",
     "registration_path": "data/reports/cn_etf_household_preference_event_diagnostic_20260914/registration.json",
-    "execution_count": 0,
+    "execution_count": 1,
     "max_executions": 1,
     "allowed_stage": "cn_etf_household_preference_event_diagnostic_v1",
     "ledger_path": "data/reports/cn_etf_household_preference_event_diagnostic_20260914/attempt_claim.json",
