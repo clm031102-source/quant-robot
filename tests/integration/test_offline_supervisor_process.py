@@ -88,9 +88,9 @@ with OfflineRuntime(b['journal_path'],clock=lambda:NOW) as runtime:
         self.addCleanup(cleanup)
         return launch,children
 
-    def supervise(self, launch, *, stall_seconds=.4, **options):
+    def supervise(self, launch, *, startup_seconds=2, stall_seconds=.4, **options):
         return supervise_worker(self.path,health_path=self.health,permit_path=self.permit,report_path=self.report,
-            launch=launch,interval_seconds=.05,poll_seconds=.02,startup_seconds=2,stall_seconds=stall_seconds,**options)
+            launch=launch,interval_seconds=.05,poll_seconds=.02,startup_seconds=startup_seconds,stall_seconds=stall_seconds,**options)
 
     def test_normal_bounded_cli_exits_with_stopped_health_and_no_fault(self):
         worker_report=self.root/'worker-report.json'
@@ -172,13 +172,26 @@ print(json.dumps(dict(pid=os.getpid(),nested_handle_pid=child.pid,nested=json.lo
     def test_identity_change_after_ownership_is_observed_stops_owned_child(self):
         launch,children=self.launch_fixture('time.sleep(20)')
         corrupted=False
+        read=offline_supervisor.read_health
+        delayed=False
+        def delayed_first_health(path):
+            nonlocal delayed
+            row=read(path)
+            if not delayed and row.get('role')=='worker':
+                delayed=True
+                # A delayed CI poll must not replace the intended identity fault
+                # with the separate short-deadline stale-health scenario.
+                time.sleep(.6)
+            return row
         def corrupt(record):
             nonlocal corrupted
             if record['owner_observed'] and not corrupted:
                 row=json.loads(self.health.read_text());row['instance_id']='f'*32
                 self.health.write_text(json.dumps(row));corrupted=True
-        result=self.supervise(launch,on_observation=corrupt)
-        self.assertTrue(corrupted)
+        with patch.object(offline_supervisor,'read_health',side_effect=delayed_first_health):
+            result=self.supervise(launch,startup_seconds=10,stall_seconds=5,on_observation=corrupt)
+        self.assertTrue(delayed)
+        self.assertTrue(corrupted,json.dumps(result)+"\n"+self.fixture_errors())
         self.assertIn('identity',result['failure'])
         self.assertEqual(result['pause_enforcement']['status'],'latched')
         self.assertIsNotNone(children[0].poll())
