@@ -3101,7 +3101,10 @@ class GuiSnapshotTests(unittest.TestCase):
                 packet = run_gui_browser_smoke(base_url=base_url, output_dir=output_dir)
 
                 self.assertEqual(packet["stage"], "gui_browser_smoke_evidence")
-                self.assertEqual(packet["status"], "passed")
+                self.assertEqual(
+                    packet["status"], "passed",
+                    msg=json.dumps([row for row in packet["checks"] if row["status"] != "passed"], ensure_ascii=False),
+                )
                 self.assertEqual(packet["summary"]["failed"], 0)
                 self.assertGreaterEqual(packet["summary"]["passed"], 5)
                 check_ids = {row["check_id"] for row in packet["checks"]}
