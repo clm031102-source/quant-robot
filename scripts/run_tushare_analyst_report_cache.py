@@ -44,7 +44,7 @@ SKIP_QUOTA_REQUIRES_PROCESSED_WRITES_BLOCKER = "skip_quota_preflight_requires_pr
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "Cache Tushare report_rc analyst reports with resume and PIT-safe normalization. "
+            "Cache Tushare report_rc analyst reports using legacy normalization; historical availability is not certified. "
             "By default this command runs local quota preflight first and exits 3 when blocked."
         ),
         epilog=(
