@@ -149,16 +149,23 @@ def _resolve_portfolio_scope(config: SignalPipelineConfig) -> str:
 def _attach_latest_prices(targets: pd.DataFrame, bars: pd.DataFrame, as_of_date: Any) -> pd.DataFrame:
     if targets.empty:
         return targets.assign(latest_price=pd.Series(dtype=float))
+    if "close" not in bars.columns:
+        raise ValueError("Signal reference prices require raw close")
     available = bars[pd.to_datetime(bars["date"]).dt.date <= as_of_date].sort_values(["asset_id", "date"])
+    # Research-adjusted prices must not determine cash values or share quantities.
     prices = (
         available.groupby("asset_id", as_index=False, group_keys=False)
-        .tail(1)[["asset_id", "adj_close"]]
-        .rename(columns={"adj_close": "latest_price"})
+        .tail(1)[["asset_id", "close"]]
+        .rename(columns={"close": "latest_price"})
     )
     merged = targets.merge(prices, on="asset_id", how="left")
-    if merged["latest_price"].isna().any():
-        missing = sorted(merged.loc[merged["latest_price"].isna(), "asset_id"].astype(str).unique())
-        raise ValueError("Missing latest prices for signal targets: " + ", ".join(missing))
+    merged["latest_price"] = pd.to_numeric(merged["latest_price"], errors="coerce")
+    invalid = ~merged["latest_price"].map(
+        lambda value: pd.notna(value) and math.isfinite(float(value)) and value > 0
+    )
+    if invalid.any():
+        missing = sorted(merged.loc[invalid, "asset_id"].astype(str).unique())
+        raise ValueError("Missing finite positive raw close for signal targets: " + ", ".join(missing))
     merged["signal_date"] = merged["date"]
     return merged
 
