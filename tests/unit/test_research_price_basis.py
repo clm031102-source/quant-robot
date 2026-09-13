@@ -30,6 +30,14 @@ def split(**changes):
             'tradable_date': '2024-01-04', 'share_ratio': 2.0, **changes}
 
 
+def explicit_dividend(**changes):
+    event = dividend()
+    event.pop('net_cash_per_share')
+    event.update(cash_per_share=1.0, cash_amount_basis='gross')
+    event.update(changes)
+    return event
+
+
 def fixture_bars(prices):
     bars = load_demo_market_bars()
     bars = bars[bars.asset_id.eq(ASSET)].head(len(prices)).copy().reset_index(drop=True)
@@ -100,10 +108,12 @@ class ResearchPriceBasisTests(unittest.TestCase):
     def test_split_preserves_analytical_units_without_holder_rounding_profit(self):
         result = self.build([10, 10, 5, 5], [split()])
         self.assertEqual(result.bars['adj_close'].tolist(), [10.0] * 4)
-        rounded = self.build([10, 10, 20, 20],
-            [split(share_ratio=0.5, share_rounding='ceil_per_holder')], version=2)
-        self.assertEqual(rounded.bars['adj_close'].tolist(), [10.0] * 4)
-        self.assertEqual(rounded.evidence['holder_rounding'], 'not_applied_to_theoretical_index')
+        for version in (2, 3):
+            with self.subTest(version=version):
+                rounded = self.build([10, 10, 20, 20],
+                    [split(share_ratio=0.5, share_rounding='ceil_per_holder')], version=version)
+                self.assertEqual(rounded.bars['adj_close'].tolist(), [10.0] * 4)
+                self.assertEqual(rounded.evidence['holder_rounding'], 'not_applied_to_theoretical_index')
 
     def test_future_events_and_prices_do_not_rewrite_earlier_levels(self):
         prefix = self.build([10, 10, 9, 9], [dividend()])
@@ -205,6 +215,50 @@ class ResearchPriceBasisTests(unittest.TestCase):
                 bars['close'] = prices
                 with self.subTest(prices=prices), self.assertRaises(ValueError):
                     build_cash_action_research_prices(bars, path, sessions=SESSIONS[:2])
+
+    def test_explicit_gross_distribution_builds_a_labelled_analytical_series(self):
+        result = self.build([10, 10, 10, 20], [explicit_dividend()], version=3)
+        self.assertEqual(result.bars['adj_close'].tolist(), [10.0, 10.0, 11.0, 22.0])
+        self.assertEqual(result.evidence['cash_amount_basis'], 'gross')
+        self.assertEqual(set(result.bars['research_cash_amount_basis']), {'gross'})
+        self.assertFalse(result.evidence['account_cash_or_tradability_verified'])
+
+    def test_account_ledger_rejects_gross_amount_without_net_cash_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = write_actions(tmp, [explicit_dividend()], version=3)
+            with self.assertRaisesRegex(ValueError, 'net cash'):
+                CorporateActionLedger(path, {ASSET}, SESSIONS, {ASSET: 100.0})
+
+    def test_explicit_net_distribution_matches_legacy_and_enters_ledger_once(self):
+        net = explicit_dividend(cash_amount_basis='net')
+        result = self.build([10, 10, 9, 9], [net], version=3)
+        self.assertEqual(result.bars['adj_close'].tolist(), self.build([10, 10, 9, 9], [dividend()]).bars['adj_close'].tolist())
+        self.assertEqual(result.evidence['cash_amount_basis'], 'net')
+        with tempfile.TemporaryDirectory() as tmp:
+            path = write_actions(tmp, [net], version=3)
+            positions = {ASSET: 100.0}
+            ledger = CorporateActionLedger(path, {ASSET}, SESSIONS, positions)
+            cash = 0.0
+            for session in SESSIONS:
+                before, _ = ledger.before_session(session, positions, [])
+                cash += before + ledger.after_session(session, positions)
+        self.assertEqual(cash, 100.0)
+        self.assertEqual(ledger.receivable, 0.0)
+
+    def test_gross_and_net_cannot_be_mixed_within_one_research_window(self):
+        net = explicit_dividend(cash_amount_basis='net')
+        later = explicit_dividend(event_id='later', announced_date='2024-01-05', record_date='2024-01-08',
+            ex_date='2024-01-09', pay_date='2024-01-10')
+        prefix = self.build([10, 10, 9, 9], [net, later], version=3)
+        self.assertEqual(prefix.evidence['cash_amount_basis'], 'net')
+        with self.assertRaisesRegex(ValueError, 'mix gross and net'):
+            self.build([10, 10, 9, 9, 9, 8], [net, later], version=3)
+
+    def test_unknown_cash_basis_or_ambiguous_amount_fields_are_rejected(self):
+        for event in [explicit_dividend(cash_amount_basis='unknown'),
+                      explicit_dividend(net_cash_per_share=1.0), dividend()]:
+            with self.subTest(event=event), self.assertRaises(ValueError):
+                self.build([10, 10, 9, 9], [event], version=3)
 
 
 if __name__ == '__main__':

@@ -100,13 +100,42 @@ def run_drill(output_dir: Path) -> dict:
             'signal_reference_price': signal['targets'][0]['latest_price'],
             'files': {str(path.relative_to(output_dir)): hashlib.sha256(path.read_bytes()).hexdigest()
                       for path in sorted(directory.iterdir()) if path.is_file()}}
+    gross_boundary = _gross_amount_boundary(output_dir)
     report = {'at': datetime.now(timezone.utc).isoformat(), 'data_mode': 'synthetic_fixture',
-        'status': 'passed' if all(item['passed'] for item in results.values()) else 'failed',
+        'status': 'passed' if all(item['passed'] for item in results.values()) and gross_boundary['passed'] else 'failed',
+        'gross_amount_boundary': gross_boundary,
         'cases': results, 'source_audit_verified': False, 'research_admission_verified': False,
         'new_forward_paper_days': 0, 'market_data_requests': 0, 'executable': False,
         'scope': 'Fixed analytical and ledger arithmetic; no strategy trading, costs, fresh quotes or real sources'}
     (output_dir / 'report.json').write_text(json.dumps(report, indent=2), encoding='utf-8')
     return report
+
+
+def _gross_amount_boundary(output_dir: Path) -> dict:
+    directory = output_dir / 'gross_amount_boundary'
+    directory.mkdir(exist_ok=True)
+    dataset = _actions('cash_dividend')
+    dataset['schema_version'] = 3
+    event = dataset['events'][0]
+    event['cash_per_share'] = event.pop('net_cash_per_share')
+    event['cash_amount_basis'] = 'gross'
+    path = directory / 'actions.json'
+    path.write_text(json.dumps(dataset, indent=2), encoding='utf-8')
+    result = build_cash_action_research_prices(_bars([10, 10, 9, 9, 9, 9]), path, sessions=DATES)
+    rejected = False
+    reason = None
+    try:
+        CorporateActionLedger(path, {ASSET_ID}, DATES, {ASSET_ID: 100.0})
+    except ValueError as exc:
+        reason = str(exc)
+        rejected = 'declared net cash' in reason
+    result.bars.to_csv(directory / 'research_bars.csv', index=False)
+    (directory / 'basis_evidence.json').write_text(json.dumps(result.evidence, indent=2), encoding='utf-8')
+    return {'passed': rejected and result.evidence['cash_amount_basis'] == 'gross',
+        'account_rejected': rejected, 'rejection_reason': reason,
+        'cash_amount_basis': result.evidence['cash_amount_basis'],
+        'files': {str(item.relative_to(output_dir)): hashlib.sha256(item.read_bytes()).hexdigest()
+                  for item in sorted(directory.iterdir()) if item.is_file()}}
 
 
 def _bars(prices: list[int]) -> pd.DataFrame:

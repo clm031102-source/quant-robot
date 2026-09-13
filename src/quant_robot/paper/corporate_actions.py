@@ -33,6 +33,9 @@ class CorporateActionLedger:
             # Event validation still normalizes legacy V1 amounts to float.
             data = json.loads(raw, parse_float=Decimal)
             self.events = validate_corporate_action_dataset(data, assets, dates)
+            if any(event['kind'] == 'cash_dividend' and event.get('cash_amount_basis', 'net') != 'net'
+                   for event in self.events):
+                raise ValueError('Account dividend ledger requires declared net cash; gross amounts are research only')
             self.fingerprint = hashlib.sha256(raw).hexdigest()
             self.source_ref = data["source_ref"]
         for event in self.events:
@@ -233,7 +236,7 @@ def _convert_whole_shares(quantity: float, event: dict[str, Any]) -> tuple[float
 def validate_corporate_action_dataset(data: Any, assets: set[str], dates: list[date]) -> list[dict[str, Any]]:
     """Validate declared events and coverage; this does not certify their source."""
     expected = {"schema_version", "source_ref", "coverage_start", "coverage_end", "asset_ids", "events"}
-    if not isinstance(data, dict) or set(data) != expected or type(data["schema_version"]) is not int or data["schema_version"] not in (1, 2):
+    if not isinstance(data, dict) or set(data) != expected or type(data["schema_version"]) is not int or data["schema_version"] not in (1, 2, 3):
         raise ValueError("corporate action dataset has an unsupported schema")
     if not isinstance(data["source_ref"], str) or not data["source_ref"].strip():
         raise ValueError("corporate action source_ref is required")
@@ -278,17 +281,24 @@ def _validate_event(raw: Any, *, version: int = 1) -> dict[str, Any]:
         raise ValueError("corporate action event must be an object")
     fields = {"event_id", "asset_id", "kind", "announced_date", "ex_date"}
     if raw.get("kind") == "cash_dividend":
-        fields |= {"record_date", "pay_date", "net_cash_per_share"}
-        number_field = "net_cash_per_share"
+        fields |= {"record_date", "pay_date"}
+        if version == 3:
+            fields |= {"cash_per_share", "cash_amount_basis"}
+            number_field = "cash_per_share"
+        else:
+            fields.add("net_cash_per_share")
+            number_field = "net_cash_per_share"
     elif raw.get("kind") == "share_split":
         fields |= {"tradable_date", "share_ratio"}
-        if version == 2:
+        if version >= 2:
             fields.add("share_rounding")
         number_field = "share_ratio"
     else:
         raise ValueError("unsupported corporate action kind")
     if set(raw) != fields or any(not isinstance(raw.get(key), str) or not raw[key].strip() for key in ("event_id", "asset_id")):
         raise ValueError("corporate action fields are incomplete or unsupported")
+    if raw['kind'] == 'cash_dividend' and version == 3 and raw['cash_amount_basis'] not in ('gross', 'net'):
+        raise ValueError('Corporate action cash amount basis must be gross or net')
     event = dict(raw)
     for key in fields:
         if key.endswith("_date"):
@@ -297,11 +307,13 @@ def _validate_event(raw: Any, *, version: int = 1) -> dict[str, Any]:
     if isinstance(raw[number_field], bool) or not math.isfinite(number) or number <= 0:
         raise ValueError("corporate action amount or ratio must be finite and positive")
     event[number_field] = number
-    if event["kind"] == "share_split" and version == 2:
+    if event['kind'] == 'cash_dividend' and version == 3 and event['cash_amount_basis'] == 'net':
+        event['net_cash_per_share'] = number
+    if event["kind"] == "share_split" and version >= 2:
         if raw["share_rounding"] not in ("reject_fractional", "ceil_per_holder"):
             raise ValueError("unsupported share rounding rule")
         if not isinstance(raw["share_ratio"], (int, Decimal)):
-            raise ValueError("V2 share ratio must be a JSON number")
+            raise ValueError("V2/V3 share ratio must be a JSON number")
         event["share_ratio_exact"] = str(raw["share_ratio"])
     if event["kind"] == "cash_dividend":
         valid = event["announced_date"] <= event["record_date"] < event["ex_date"] <= event["pay_date"]

@@ -24,10 +24,15 @@ class ResearchPriceBasisDrillTests(unittest.TestCase):
             self.assertEqual(report['market_data_requests'], 0)
             self.assertFalse(report['executable'])
             self.assertFalse(report['source_audit_verified'])
+            self.assertTrue(report['gross_amount_boundary']['passed'])
+            self.assertTrue(report['gross_amount_boundary']['account_rejected'])
+            self.assertEqual(report['gross_amount_boundary']['cash_amount_basis'], 'gross')
             for case in report['cases'].values():
                 self.assertTrue(all(case['checks'].values()))
                 for relative, expected_hash in case['files'].items():
                     self.assertEqual(hashlib.sha256((output / relative).read_bytes()).hexdigest(), expected_hash)
+            for relative, expected_hash in report['gross_amount_boundary']['files'].items():
+                self.assertEqual(hashlib.sha256((output / relative).read_bytes()).hexdigest(), expected_hash)
             account = pd.read_csv(output / 'dividend_reinvestment_gap' / 'account_comparison.csv')
             self.assertEqual(account.iloc[3]['account_equity'], 1900)
             self.assertEqual(account.iloc[3]['theoretical_index_value'], 2000)

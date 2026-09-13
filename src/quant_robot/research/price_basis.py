@@ -70,6 +70,11 @@ def build_cash_action_research_prices(
     events = validate_corporate_action_dataset(dataset, set(frame['asset_id']), calendar)
     exact_events = {item['event_id']: item for item in dataset['events']}
     by_date = _events_by_date(events, exact_events, calendar)
+    cash_bases = {event.get('cash_amount_basis', 'net') for event in by_date.values()
+                  if event['kind'] == 'cash_dividend'}
+    if len(cash_bases) > 1:
+        raise ValueError('Cannot mix gross and net distributions in one research price window')
+    cash_basis = next(iter(cash_bases), 'no_cash_events')
     records: list[dict[str, Any]] = []
     levels: list[float] = []
     for asset, group in frame.groupby('asset_id', sort=False):
@@ -81,7 +86,8 @@ def build_cash_action_research_prices(
             cash, ratio = Decimal(0), Decimal(1)
             if event:
                 if event['kind'] == 'cash_dividend':
-                    cash = _positive_decimal(event['net_cash_per_share'], 'declared cash per share')
+                    amount = event['cash_per_share'] if 'cash_per_share' in event else event['net_cash_per_share']
+                    cash = _positive_decimal(amount, 'declared cash per share')
                 else:
                     ratio = _positive_decimal(event['share_ratio'], 'share ratio')
             with localcontext() as context:
@@ -107,13 +113,15 @@ def build_cash_action_research_prices(
     frame['adj_close'] = levels
     frame['adjusted'] = True
     frame['research_price_basis'] = PRICE_BASIS
+    frame['research_cash_amount_basis'] = cash_basis
     observations = pd.DataFrame(records)
     evidence = {
         'price_basis': PRICE_BASIS,
         'formula': 'index_t = index_prev * (raw_close_t * share_ratio_t + declared_cash_t) / raw_close_prev',
         'initial_level': 'first_raw_close_per_asset',
         'reinvestment': 'theoretical_fractional_units_at_ex_date_close',
-        'cash_amount_basis': 'declared_net_cash_per_share_without_independent_tax_verification',
+        'cash_amount_basis': cash_basis,
+        'tax_and_fee_assumptions': 'declared_amount_only_without_independent_investor_tax_or_broker_fee_verification',
         'holder_rounding': 'not_applied_to_theoretical_index',
         'first_date': str(calendar[0]), 'last_date': str(calendar[-1]),
         'sessions': len(calendar), 'asset_count': frame['asset_id'].nunique(),

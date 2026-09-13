@@ -16,7 +16,7 @@
 
 单次模拟和Daily Ops新增 `--corporate-actions <本地JSON路径>`；批量模拟及配置优化使用 `corporate_actions_path`。文件位置随所选配置传递，文件指纹随执行经济契约绑定。Daily Ops重新生成时校验真实文件指纹，不能将另一版本事件文件与已冻结候选混用；显式指定事件文件且读取旧缓存时也重算指纹，避免新路径被缓存忽略。未显式指定新文件的历史缓存回放保留原始证据身份。
 
-输入是版本化对象，仅允许以下顶层字段：`schema_version`（整数1或2）、`source_ref`、`coverage_start`、`coverage_end`、`asset_ids`、`events`。日期使用严格YYYY-MM-DD，声明范围必须覆盖全部模拟资产及日期，空事件清单必须显式提供。
+输入是版本化对象，仅允许以下顶层字段：`schema_version`（整数1、2或3）、`source_ref`、`coverage_start`、`coverage_end`、`asset_ids`、`events`。日期使用严格YYYY-MM-DD，声明范围必须覆盖全部模拟资产及日期，空事件清单必须显式提供。
 
 | 事件 | 必需字段 |
 | --- | --- |
@@ -28,6 +28,8 @@ schema v2的每个份额折算事件还必须提供`share_rounding`，仅接受`
 `ex_date`是本模型在交易前开始采用新份额和除权后价格基准的日期，不能不加区分地填写登记机构的日终折算日。停牌、登记、首个折算后报价及恢复可交易时间必须由来源分别核对。当前仍不能用停牌前旧价给新份额估值；缺少合适价格基准时拒绝，不因新增取整能力放行真实事件历史。
 
 声明完整不等于来源完整。输出manifest的accounting保留来源、文件指纹、覆盖声明、现金时点、估值假设和未通过原因；事件明细写入 `corporate_action_events.csv`。目前实现始终标记 `source_audit_verified=false`，三个CN_ETF晋级配置均要求执行账本审计，因此仅有事件文件或费用匹配不能晋级。
+
+schema v3的现金事件将`net_cash_per_share`替换为`cash_per_share`及`cash_amount_basis`（`gross`或`net`），其他日期与身份字段不变；两套金额字段不能混填。研究转换可以使用明确的毛额序列，账户账本只接受声明的净额，拒绝将毛额直接记为现金。v3份额折算沿用v2规则。声明净额仍不等于已核实真实账户到账、税费或券商条件。[研究价格与金额口径](cn_etf_research_price_basis_2026-09-13.md)
 
 ## 来源依据与尚未完成的验收
 
