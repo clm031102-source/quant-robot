@@ -14,6 +14,7 @@ SCOPE_KEYS = {
     "trust_env", "max_response_bytes", "connect_timeout", "read_timeout",
     "review_evidence", "requests",
 }
+OPTIONAL_SCOPE_KEYS = {"allow_dividend_market_day"}
 # The final ETF holdout remains sealed, irrespective of the current system date.
 SOURCE_DATE_CEILING = "20251231"
 
@@ -48,12 +49,13 @@ def _verify_evidence(records: object, root: Path) -> None:
 
 def make_client(scope: dict, token: str) -> TushareSourceHttpClient:
     return TushareSourceHttpClient(token=token, max_requests=len(scope["requests"]),
+        allow_dividend_market_day=scope.get("allow_dividend_market_day", False),
         **{key: scope[key] for key in ("max_date", "trust_env", "max_response_bytes", "connect_timeout", "read_timeout")})
 
 
 def validate_scope(scope: dict, *, repo_root: str | Path) -> dict:
     root = Path(repo_root).resolve()
-    if not isinstance(scope, dict) or set(scope) != SCOPE_KEYS:
+    if not isinstance(scope, dict) or not SCOPE_KEYS <= set(scope) or not set(scope) <= SCOPE_KEYS | OPTIONAL_SCOPE_KEYS:
         raise ValueError("scope fields differ from the source-only schema")
     if type(scope["schema_version"]) is not int or scope["schema_version"] != 1:
         raise ValueError("unsupported scope schema version")
@@ -76,6 +78,8 @@ def validate_scope(scope: dict, *, repo_root: str | Path) -> dict:
                 raise ValueError("invalid request fields")
             if not isinstance(request["params"], dict):
                 raise ValueError("request params must be an object")
+            if client.allow_dividend_market_day and request["api_name"] != "dividend":
+                raise ValueError("market-day review only supports dividend metadata")
             client.validate_query(request["api_name"], fields=request["fields"],
                 max_rows=request["max_rows"], **request["params"])
             if request["max_rows"] > 10_000:

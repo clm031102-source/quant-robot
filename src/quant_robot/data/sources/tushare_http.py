@@ -59,6 +59,7 @@ class TushareSourceHttpClient:
         self, *, token: str, max_requests: int, max_date: str,
         trust_env: bool = True, max_response_bytes: int = 2_000_000,
         connect_timeout: float = 10, read_timeout: float = 20,
+        allow_dividend_market_day: bool = False,
     ) -> None:
         if not isinstance(token, str) or not token.strip():
             raise TushareSourceError("invalid_scope", "existing token is required")
@@ -66,6 +67,8 @@ class TushareSourceHttpClient:
             raise TushareSourceError("invalid_scope", "positive request/byte budgets are required")
         if type(trust_env) is not bool:
             raise TushareSourceError("invalid_scope", "trust_env must be explicit boolean")
+        if type(allow_dividend_market_day) is not bool or (allow_dividend_market_day and max_requests != 1):
+            raise TushareSourceError("invalid_scope", "market-day source review requires a boolean and one request")
         for timeout in (connect_timeout, read_timeout):
             if isinstance(timeout, bool) or not math.isfinite(timeout) or timeout <= 0:
                 raise TushareSourceError("invalid_scope", "timeouts must be finite and positive")
@@ -73,6 +76,7 @@ class TushareSourceHttpClient:
         self.max_requests = max_requests
         self.max_date = _date(max_date)
         self.trust_env = trust_env
+        self.allow_dividend_market_day = allow_dividend_market_day
         self.max_response_bytes = max_response_bytes
         self.timeout = (connect_timeout, read_timeout)
         self.requests_used = 0
@@ -97,11 +101,12 @@ class TushareSourceHttpClient:
         if api_name not in {"fund_div", "dividend"}:
             allowed |= {"start_date", "end_date"}
         if api_name == "dividend":
-            # A metadata pilot must not silently become a whole-market history read.
-            if set(params) != {"ts_code", "imp_ann_date"} or not re.fullmatch(
+            market_day = self.allow_dividend_market_day and set(params) == {"imp_ann_date"} and max_rows <= 2000
+            single_issuer = not self.allow_dividend_market_day and set(params) == {"ts_code", "imp_ann_date"} and re.fullmatch(
                 r"(?:6[0-9]{5}\.SH|[03][0-9]{5}\.SZ)", str(params.get("ts_code", "")),
-            ):
-                raise TushareSourceError("invalid_scope", "dividend requires one A-share code and implementation date")
+            )
+            if not (market_day or single_issuer):
+                raise TushareSourceError("invalid_scope", "dividend requires its explicit issuer/day source scope")
             if not _DIVIDEND_REQUIRED <= set(names):
                 raise TushareSourceError("invalid_scope", "dividend event, cash and share-base fields required")
         if not set(params) <= allowed:
