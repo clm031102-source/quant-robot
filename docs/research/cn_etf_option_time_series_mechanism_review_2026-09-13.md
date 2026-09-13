@@ -32,3 +32,9 @@
 本地证据位于`data/reports/etf_monetization_20260911/option_mechanism_20260913/`。实际新增公共文件请求三次：大学PDF成功、期刊正文页超时、SSRN全文403；第四次须有期刊返回页明确全文链接，条件未满足，未消费。失败响应中另有HTML解析错误，保留原响应，不影响403判定。范围文件手工填写的冻结时间晚于执行时间，已用`scope_time_and_fetch_clarification.json`明确纠正其证据效力，原文件保留；文件实际写入在请求之前。
 
 搜索结果附带过2026年论文的业绩摘要，已记录为文献上下文暴露，不能称相关研究上下文完全盲态；没有打开2026 ETF行情或收益数据。原五日CSV首次查看表头时附带一条2020年期权价格，不属于新增ETF收益检验。本次没有新增研究失败家族、真实向前模拟日或正EV证据，成熟度不因文献与测试数量上调。
+
+## 后续全文定位收束
+
+两次限定检索确认2021年线索的作者为Teng Ma、Xiaoyan Zhang，题名为《The Informational Role of Options Trading: Evidence from the Shanghai Stock Exchange 50ETF Options in China》，SSRN标示成稿2021-06-27、上网2021-07-09、59页。未找到已验证的独立机构全文链接；图书馆目录不能代替正文，也不重试已拒绝的SSRN下载路径。
+
+检索另出现2023年不同作者的[国内衍生品危机预警论文](https://www.tandfonline.com/doi/full/10.1080/1540496X.2023.2236284)，独立冻结的一次出版社阅读请求返回403，停止该访问。只见检索摘要，没有核对完整标签、特征或模型，不声称已获准复现。两项记录分别保存在`option_fullmethod_lookup_20260913/`与`option_crisis_method_20260913/`，均位于本任务本地报告目录。原文缺失阻止的是复现这些具体方法；[自主新假设及分阶段来源要求](cn_etf_research_stage_dependencies_2026-09-13.md)仍可按规则推进。
