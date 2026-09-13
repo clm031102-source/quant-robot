@@ -63,7 +63,7 @@ def main() -> None:
         default=3660.0,
         help="Sleep between provider request windows.",
     )
-    parser.add_argument("--max-rows-per-window", type=int, default=5000, help="Warn when a provider window reaches this row count.")
+    parser.add_argument("--max-rows-per-window", type=int, default=5000, help="Warn when raw response rows reach this configured threshold; this does not verify the provider limit or completeness.")
     parser.add_argument("--no-resume", action="store_true", help="Do not reuse existing processed window files.")
     parser.add_argument("--no-write-processed", action="store_true", help="Run without writing normalized processed outputs.")
     parser.add_argument(

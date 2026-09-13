@@ -90,6 +90,8 @@ def run_tushare_analyst_report_cache(
                     "window_start": start_label,
                     "window_end": end_label,
                     "rows": int(len(cached)),
+                    "raw_rows": None,
+                    "row_cap_assessment": "unknown_raw_response_count",
                     "status": "cached",
                 }
             )
@@ -120,20 +122,28 @@ def run_tushare_analyst_report_cache(
                 sleep(float(request_sleep_seconds))
             continue
 
+        raw_rows = int(len(raw)) if raw is not None else None
         normalized = _normalize_analyst_report_rc(raw)
         rows = int(len(normalized))
         fetched_count += 1
         status = "ok"
-        if rows >= int(max_rows_per_window):
+        cap_assessment = "unknown_raw_response_count" if raw_rows is None else "below_configured_warning_threshold"
+        if raw_rows is not None and raw_rows >= int(max_rows_per_window):
             warning = {
                 "window_start": start_label,
                 "window_end": end_label,
                 "rows": rows,
+                "raw_rows": raw_rows,
+                "count_basis": "provider_response_before_normalization",
                 "warning": "row_count_at_or_above_window_cap_use_smaller_window",
             }
             row_cap_warnings.append(warning)
             status = "cap_warning"
-        rows_by_window.append({"window_start": start_label, "window_end": end_label, "rows": rows, "status": status})
+            cap_assessment = "at_or_above_configured_warning_threshold"
+        rows_by_window.append({
+            "window_start": start_label, "window_end": end_label, "rows": rows, "status": status,
+            "raw_rows": raw_rows, "row_cap_assessment": cap_assessment,
+        })
         if execute_write_processed:
             store.write_frame(normalized, "processed/analyst_report_rc_window", partitions)
         normalized_frames.append(normalized)
@@ -156,6 +166,8 @@ def run_tushare_analyst_report_cache(
         "processed_output_dir": str(processed_path),
         "processed_writes_enabled": bool(execute_write_processed),
         "resume": bool(resume),
+        "configured_row_warning_threshold": int(max_rows_per_window),
+        "source_completeness_verified": False,
         "summary": {
             "windows": int(len(windows)),
             "fetched_windows": int(fetched_count),
@@ -164,6 +176,7 @@ def run_tushare_analyst_report_cache(
             "next_retry_after_seconds": _next_retry_after_seconds(failures),
             "stopped_on_rate_limit": bool(stopped_on_rate_limit),
             "row_cap_warning_windows": int(len(row_cap_warnings)),
+            "raw_row_count_unknown_windows": sum(row.get("raw_rows") is None for row in rows_by_window),
             "rows": int(len(combined)),
             "assets": int(combined["asset_id"].nunique()) if not combined.empty else 0,
             "min_report_date": _min_date(combined, "report_date"),
@@ -357,11 +370,14 @@ def _markdown(result: dict[str, object]) -> str:
         f"- Assets: {summary.get('assets', 0) if isinstance(summary, dict) else 0}",
         f"- Failed windows: {summary.get('failed_windows', 0) if isinstance(summary, dict) else 0}",
         f"- Cap-warning windows: {summary.get('row_cap_warning_windows', 0) if isinstance(summary, dict) else 0}",
+        f"- Unknown raw-count windows: {summary.get('raw_row_count_unknown_windows', 0) if isinstance(summary, dict) else 0}",
         f"- Safety: {result.get('safety', SAFETY)}",
         "",
         "## Interpretation",
         "",
-        "- This cache is source proof and factor input only; it is not a trading signal.",
-        "- Windows at or above the provider row cap must be rerun with a smaller window before full-sample claims.",
+        "- This cache records obtained inputs; it does not certify completeness, historical availability, or a trading signal.",
+        "- The configured warning threshold is checked against raw response rows before filtering or deduplication.",
+        "- Normalized cached rows cannot reconstruct the original response count; resumed windows remain unverified.",
+        "- A smaller-window collection requires a separate authorized scope and quota review; this report does not trigger requests.",
     ]
     return "\n".join(lines) + "\n"

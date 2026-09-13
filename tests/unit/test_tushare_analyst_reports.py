@@ -8,6 +8,56 @@ from quant_robot.data.ingest.tushare_analyst_reports import run_tushare_analyst_
 
 
 class TushareAnalystReportsTests(unittest.TestCase):
+    def test_raw_cap_is_not_hidden_by_duplicate_removal(self) -> None:
+        raw = _FakeAnalystReportAdapter().fetch_report_rc('20240101', '20240131').iloc[[0, 0]]
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_tushare_analyst_report_cache(
+                _FrameAdapter(raw), '2024-01-01', '2024-01-31', tmp,
+                execute_write_processed=False, request_sleep_seconds=0, max_rows_per_window=2,
+            )
+        self.assertEqual(result['summary']['rows'], 1)
+        self.assertEqual(result['summary']['row_cap_warning_windows'], 1)
+        self.assertEqual(result['rows_by_window'][0]['raw_rows'], 2)
+
+    def test_raw_cap_is_not_hidden_by_invalid_date_removal(self) -> None:
+        raw = _FakeAnalystReportAdapter().fetch_report_rc('20240101', '20240131')
+        raw.loc[:, 'report_date'] = 'invalid'
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_tushare_analyst_report_cache(
+                _FrameAdapter(raw), '2024-01-01', '2024-01-31', tmp,
+                execute_write_processed=False, request_sleep_seconds=0, max_rows_per_window=2,
+            )
+        self.assertEqual(result['summary']['rows'], 0)
+        self.assertEqual(result['summary']['row_cap_warning_windows'], 1)
+        self.assertEqual(result['row_cap_warnings'][0]['raw_rows'], 2)
+
+    def test_below_warning_threshold_does_not_verify_source_completeness(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            result = run_tushare_analyst_report_cache(
+                _FakeAnalystReportAdapter(), '2024-01-01', '2024-01-31', tmp,
+                execute_write_processed=False, request_sleep_seconds=0, max_rows_per_window=10,
+            )
+            markdown = (Path(tmp) / 'tushare_analyst_report_cache.md').read_text(encoding='utf-8')
+        self.assertEqual(result['summary']['row_cap_warning_windows'], 0)
+        self.assertFalse(result['source_completeness_verified'])
+        self.assertEqual(result['configured_row_warning_threshold'], 10)
+        self.assertIn('does not certify completeness', markdown)
+
+    def test_resumed_normalized_cache_has_unknown_raw_count_without_refetch(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            common = dict(processed_output_dir=Path(tmp) / 'processed', request_sleep_seconds=0)
+            run_tushare_analyst_report_cache(
+                _FakeAnalystReportAdapter(), '2024-01-01', '2024-01-31', Path(tmp) / 'first', **common,
+            )
+            result = run_tushare_analyst_report_cache(
+                _FrameAdapter(None), '2024-01-01', '2024-01-31', Path(tmp) / 'resume', **common,
+            )
+        self.assertEqual(result['summary']['fetched_windows'], 0)
+        self.assertEqual(result['summary']['raw_row_count_unknown_windows'], 1)
+        self.assertIsNone(result['rows_by_window'][0]['raw_rows'])
+        self.assertEqual(result['rows_by_window'][0]['row_cap_assessment'], 'unknown_raw_response_count')
+        self.assertFalse(result['source_completeness_verified'])
+
     def test_cache_normalizes_report_rc_windows_and_flags_row_caps(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             result = run_tushare_analyst_report_cache(
@@ -90,6 +140,16 @@ class _FakeAnalystReportAdapter:
                 "tp": [12.0, 24.0],
             }
         )
+
+
+class _FrameAdapter:
+    def __init__(self, frame):
+        self.frame = frame
+
+    def fetch_report_rc(self, **kwargs):
+        if self.frame is None:
+            raise AssertionError('Cached replay must not request provider data')
+        return self.frame.copy()
 
 
 class _RateLimitedAnalystReportAdapter:
