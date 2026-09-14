@@ -1337,5 +1337,24 @@
     "broker_connection_allowed": false,
     "account_read_allowed": false,
     "order_placement_allowed": false
+  },
+  "month_start_diagnostic_decision": {
+    "status": "authorized_once",
+    "registration_id": "a9f17ed49b79a0dbb1610296c00908299e496c8c1dbd4ecfc86e41d0bcdda456",
+    "registration_sha256": "a92f7a97bcf8274f51c8717b5b9a3df9d2ae9ef19e4f282bdd2fe3735d9b42f0",
+    "registration_path": "data/reports/cn_etf_month_start_commission_diagnostic_20260914/registration.json",
+    "execution_count": 0,
+    "max_executions": 1,
+    "allowed_stage": "cn_etf_month_start_commission_diagnostic_v1",
+    "ledger_path": "data/reports/cn_etf_month_start_commission_diagnostic_20260914/attempt_claim.json",
+    "conditional_commission_screen_only": true,
+    "source_origin": "retained_research_sources",
+    "general_factor_batch_allowed": false,
+    "promotion_allowed": false,
+    "holdout_allowed": false,
+    "paper_account_allowed": false,
+    "broker_connection_allowed": false,
+    "account_read_allowed": false,
+    "order_placement_allowed": false
   }
 }
