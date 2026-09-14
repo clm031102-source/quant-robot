@@ -33,9 +33,9 @@ class CorporateActionLedger:
             # Event validation still normalizes legacy V1 amounts to float.
             data = json.loads(raw, parse_float=Decimal)
             self.events = validate_corporate_action_dataset(data, assets, dates)
-            if any(event['kind'] == 'cash_dividend' and event.get('cash_amount_basis', 'net') != 'net'
-                   for event in self.events):
-                raise ValueError('Account dividend ledger requires declared net cash; gross amounts are research only')
+            for event in self.events:
+                if event['kind'] == 'cash_dividend':
+                    self._cash_per_share(event)
             self.fingerprint = hashlib.sha256(raw).hexdigest()
             self.source_ref = data["source_ref"]
         for event in self.events:
@@ -52,6 +52,11 @@ class CorporateActionLedger:
     @property
     def receivable(self) -> float:
         return sum(self.receivables.values())
+
+    def _cash_per_share(self, event: dict[str, Any]) -> float:
+        if event.get('cash_amount_basis', 'net') != 'net':
+            raise ValueError('Account dividend ledger requires declared net cash; gross amounts are research only')
+        return event['net_cash_per_share']
 
     def record_close(self, session: date, positions: dict[str, float]) -> None:
         for event in self.events:
@@ -75,7 +80,7 @@ class CorporateActionLedger:
                 if event_id not in self.entitlements:
                     raise ValueError("dividend record-date holdings were not observed")
                 quantity = self.entitlements[event_id]
-                amount = float((Decimal(str(quantity)) * Decimal(str(event["net_cash_per_share"]))).quantize(
+                amount = float((Decimal(str(quantity)) * Decimal(str(self._cash_per_share(event)))).quantize(
                     Decimal("0.01"), rounding=ROUND_HALF_UP))
                 self.receivables[event_id] = amount
                 self._record("dividend_receivable", event, session, quantity=quantity, amount=amount)
