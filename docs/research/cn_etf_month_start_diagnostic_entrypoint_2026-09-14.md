@@ -10,4 +10,4 @@
 
 新增纯计算、日历适配、登记、来源、执行及启动检查共45项测试，相关114项及最终配置回归32项全部通过，去重后为132项。覆盖旧额度拒绝、多个专门权限冲突、状态扩大、输入变化、读取顺序、失败和中断不可重跑、快照一致性，以及费用和日期边界。项目审计扫描3221个文件通过；可维护性基线通过，既有技术债仍在。
 
-下一步以最终提交完成一次预检及一次执行，完整保留全部周期、毛选择差额和0/5/10元最低佣金情景，按冻结规则收束。结果保存在`data/reports/cn_etf_month_start_commission_diagnostic_20260914/`；本地来源及验收在`data/reports/etf_monetization_20260911/calendar_liquidity_review_20260914/`。本次不认证净账户、风险达标、净正EV或真实向前天数，不读取2026ETF留出。
+已在提交`6d2c85fa`之后完成一次预检及唯一执行，53个周期和三组费用完整保留。[结果](cn_etf_month_start_diagnostic_result_2026-09-14.md)为费用依赖、暂缓账户实验，额度已消费，不再执行准备或诊断入口。结果保存在`data/reports/cn_etf_month_start_commission_diagnostic_20260914/`；本地来源及验收在`data/reports/etf_monetization_20260911/calendar_liquidity_review_20260914/`。本次不认证净账户、风险达标、净正EV或真实向前天数，不读取2026ETF留出。
