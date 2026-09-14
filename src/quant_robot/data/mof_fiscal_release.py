@@ -108,7 +108,8 @@ def _amount(paragraph, label):
     return Decimal(matches[0])
 
 
-def parse_mof_monthly_expenditure(raw: bytes, *, expected_year: int, expected_month: int) -> dict:
+def parse_mof_monthly_expenditure(raw: bytes, *, expected_year: int, expected_month: int,
+                                component_label_schema: str = 'central_own_local') -> dict:
     """Return reported cumulative expenditure and dates, never a fiscal factor.
 
     The caller binds URL/origin and review scope. Only the declared monthly
@@ -118,6 +119,8 @@ def parse_mof_monthly_expenditure(raw: bytes, *, expected_year: int, expected_mo
         raise ValueError('retained source must be bytes within the 3MB limit')
     if type(expected_year) is not int or type(expected_month) is not int:
         raise ValueError('year and month must be explicit integers')
+    if component_label_schema not in ('central_own_local', 'reported_legacy'):
+        raise ValueError('unreviewed component label schema')
     try:
         first = date(expected_year, 1, 1)
         last = date(expected_year, expected_month, calendar.monthrange(expected_year, expected_month)[1])
@@ -136,23 +139,28 @@ def parse_mof_monthly_expenditure(raw: bytes, *, expected_year: int, expected_mo
         if re.fullmatch(rf'{expected_year}年{period}财政收支情况', title) is None:
             raise ValueError('monthly title differs from the declared year and period')
         lines = [re.sub(r'\s+', '', line) for line in ''.join(doc.visible).splitlines()]
-        paragraphs = [line for line in lines if '全国一般公共预算支出' in line]
+        paragraphs = [line for line in lines if re.search(r'全国一般公共预算支出[+-]?[0-9]', line)]
         if len(paragraphs) != 1:
             raise ValueError('one unambiguous nationwide expenditure paragraph required')
         paragraph = paragraphs[0]
         prefix = rf'(?:{expected_year}年)?1[-—－–至]{expected_month}月(?:累计)?'
-        if expected_month == 6:
+        if expected_month == 3:
+            prefix = '(?:' + prefix + '|一季度(?:累计)?)'
+        elif expected_month == 6:
             prefix = '(?:' + prefix + '|上半年(?:累计)?)'
         elif expected_month == 12:
             prefix = '(?:' + prefix + rf'|{expected_year}年(?:累计)?)'
         if re.match(prefix + r'[,，]全国一般公共预算支出', paragraph) is None:
             raise ValueError('reported cumulative period differs from expected January-to-month period')
         nationwide = _amount(paragraph, '全国一般公共预算支出')
-        central = _amount(paragraph, '中央一般公共预算本级支出')
-        local = _amount(paragraph, '地方一般公共预算支出')
+        central_label, local_label = ('中央一般公共预算本级支出', '地方一般公共预算支出')
+        if component_label_schema == 'reported_legacy':
+            central_label, local_label = ('中央一般公共预算支出', '地方一般公共预算本级支出')
+        central = _amount(paragraph, central_label)
+        local = _amount(paragraph, local_label)
         with localcontext(Context(prec=40)):
             if nationwide <= 0 or central < 0 or local < 0 or central + local != nationwide:
-                raise ValueError('national expenditure must reconcile to central own plus local expenditure')
+                raise ValueError('national expenditure must reconcile to reported central plus local components')
         published = _publication_day(doc, '\n'.join(lines))
         if published <= last:
             raise ValueError('publication day must follow the completed reporting period')
@@ -161,7 +169,12 @@ def parse_mof_monthly_expenditure(raw: bytes, *, expected_year: int, expected_mo
         raise ValueError('malformed source encoding or date') from exc
     return {'title': title, 'period_start': first.isoformat(), 'period_end': last.isoformat(),
         'scope': 'national_general_public_budget', 'source_value_semantics': 'cumulative_from_january',
-        'amount_cny_100m': str(nationwide), 'central_own_amount_cny_100m': str(central),
+        'amount_cny_100m': str(nationwide),
+        'central_own_amount_cny_100m': str(central) if component_label_schema == 'central_own_local' else None,
+        'component_label_schema': component_label_schema,
+        'component_amounts_as_reported': [
+            {'label': central_label, 'amount_cny_100m': str(central)},
+            {'label': local_label, 'amount_cny_100m': str(local)}],
         'local_amount_cny_100m': str(local), 'published_date_label': published.isoformat(),
         'publication_metadata': list(doc.publication), 'assumed_available_civil_day': available.isoformat(),
         'source_sha256': hashlib.sha256(raw).hexdigest(), 'source_encoding': encoding,

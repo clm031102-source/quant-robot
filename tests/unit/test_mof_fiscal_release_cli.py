@@ -97,6 +97,19 @@ class MofFiscalReleaseCliTests(unittest.TestCase):
         self.assertEqual(result['observation']['source_encoding'], 'gb2312')
         self.assertEqual(result['observation']['source_sha256'], hashlib.sha256(raw).hexdigest())
 
+    def test_explicit_legacy_schema_is_recorded_and_not_a_central_own_certification(self):
+        raw = document().replace('中央一般公共预算本级支出'.encode(), '中央一般公共预算支出'.encode())
+        raw = raw.replace('地方一般公共预算支出'.encode(), '地方一般公共预算本级支出'.encode())
+        self.source.write_bytes(raw)
+        args = list(self.args) + ['--component-label-schema', 'reported_legacy']
+        args[args.index('--source-sha256') + 1] = hashlib.sha256(raw).hexdigest()
+        with patch.object(cli, 'run_quant_pm_startup_gate', return_value=self.gate):
+            code, result = self.invoke(args)
+        self.assertEqual(code, 0)
+        self.assertIsNone(result['observation']['central_own_amount_cny_100m'])
+        invocation = json.loads((self.output / 'invocation.json').read_text())
+        self.assertEqual(invocation['component_label_schema'], 'reported_legacy')
+
 
 if __name__ == '__main__':
     unittest.main()

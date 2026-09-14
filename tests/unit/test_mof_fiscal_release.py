@@ -155,6 +155,24 @@ class MofFiscalReleaseTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.parse(raw)
 
+    def test_explicit_legacy_schema_retains_labels_without_inventing_central_own_value(self):
+        raw = document().replace('中央一般公共预算本级支出'.encode(), '中央一般公共预算支出'.encode())
+        raw = raw.replace('地方一般公共预算支出'.encode(), '地方一般公共预算本级支出'.encode())
+        r = self.parse(raw, component_label_schema='reported_legacy')
+        self.assertEqual(r['amount_cny_100m'], '120')
+        self.assertIsNone(r['central_own_amount_cny_100m'])
+        self.assertEqual(r['component_amounts_as_reported'], [
+            {'label': '中央一般公共预算支出', 'amount_cny_100m': '20'},
+            {'label': '地方一般公共预算本级支出', 'amount_cny_100m': '100'}])
+        self.assertFalse(r['research_admission_granted'])
+
+    def test_explicit_schema_does_not_guess_mixed_labels_or_unknown_conventions(self):
+        for raw, schema in [(document(), 'reported_legacy'), (document(), 'unknown'),
+                            (document().replace('中央一般公共预算本级支出'.encode(),
+                                                '中央一般公共预算支出'.encode()), 'reported_legacy')]:
+            with self.subTest(schema=schema), self.assertRaises(ValueError):
+                self.parse(raw, component_label_schema=schema)
+
     def test_secondary_placeholder_template_title_does_not_change_primary_title(self):
         raw = document(extra='<head><title>无标题文档</title></head>')
         self.assertEqual(self.parse(raw)['title'], '2024年5月财政收支情况')
@@ -163,6 +181,21 @@ class MofFiscalReleaseTests(unittest.TestCase):
         for title in ['2023年5月财政收支情况', '2024年5月财政收支情况', 'unreviewed template']:
             with self.subTest(title=title), self.assertRaises(ValueError):
                 self.parse(document(extra=f'<head><title>{title}</title></head>'))
+
+    def test_first_quarter_words_are_cumulative_only_for_march(self):
+        raw = document(title='2024年一季度财政收支情况', period='一季度',
+                       published='2024年4月22日', meta='2024-04-22')
+        r = parse_mof_monthly_expenditure(raw, expected_year=2024, expected_month=3)
+        self.assertEqual(r['period_end'], '2024-03-31')
+        with self.assertRaises(ValueError):
+            parse_mof_monthly_expenditure(raw, expected_year=2024, expected_month=4)
+
+    def test_narrative_growth_discussion_is_not_a_second_amount_but_any_numeric_total_is(self):
+        raw = document(extra='<p>全国一般公共预算支出增幅比去年同期加快。</p>')
+        self.assertEqual(self.parse(raw)['amount_cny_100m'], '120')
+        for unit in ['亿元', '万元']:
+            with self.subTest(unit=unit), self.assertRaises(ValueError):
+                self.parse(document(extra=f'<p>全国一般公共预算支出121{unit}。</p>'))
 
 
 if __name__ == '__main__':

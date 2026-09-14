@@ -27,6 +27,8 @@ def main(argv=None):
     parser.add_argument('--source-sha256', required=True)
     parser.add_argument('--year', required=True, type=int)
     parser.add_argument('--month', required=True, type=int)
+    parser.add_argument('--component-label-schema', default='central_own_local',
+                        choices=['central_own_local', 'reported_legacy'])
     parser.add_argument('--output-dir', required=True)
     parser.add_argument('--machine', required=True)
     parser.add_argument('--branch', required=True)
@@ -48,11 +50,13 @@ def main(argv=None):
         output = destination
         result.update(source_path=str(source), source_sha256=args.source_sha256,
             expected_year=args.year, expected_month=args.month,
+            component_label_schema=args.component_label_schema,
             implementation_sha256={p.name: hashlib.sha256(p.read_bytes()).hexdigest()
                 for p in (Path(__file__), Path(mof_fiscal_release.__file__))})
         atomic_write_json(output / 'result.json', result)
         atomic_write_json(output / 'invocation.json', {'machine': args.machine, 'task': 'factor_review',
             'branch': args.branch, 'year': args.year, 'month': args.month,
+            'component_label_schema': args.component_label_schema,
             'source_path': str(source), 'source_sha256': args.source_sha256})
         gate = run_quant_pm_startup_gate(output_dir=output / 'startup_gate', machine=args.machine,
                                         task='factor_review', branch=args.branch)
@@ -62,7 +66,8 @@ def main(argv=None):
             result['status'] = 'gate_blocked'
         else:
             result['observation'] = parse_mof_monthly_expenditure(raw,
-                expected_year=args.year, expected_month=args.month)
+                expected_year=args.year, expected_month=args.month,
+                component_label_schema=args.component_label_schema)
             result['status'] = 'parsed_source_not_admitted'
     except Exception as exc:
         result.update(status='rejected', failure_kind=type(exc).__name__)
