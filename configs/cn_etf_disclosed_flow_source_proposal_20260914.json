@@ -1,0 +1,122 @@
+{
+  "stage": "cn_etf_disclosed_flow_source_proposal",
+  "status": "proposal_only_not_research_admission",
+  "primary_market": "CN_ETF",
+  "family_id": "cn_etf_flow_breadth_aggregation",
+  "stock_role": "auxiliary_only",
+  "historical_source_cutoff": "2024-06-28",
+  "new_study_budget": 0,
+  "factor_generation_allowed": false,
+  "historical_source_authority_verified": false,
+  "holdings": {
+    "meaning": "dated_publicly_disclosed_equity_exposure_not_current_constituents",
+    "required_scope": "all_stocks",
+    "weight_basis": "exact_cent_stock_fair_value_divided_by_complete_report_equity_total",
+    "displayed_NAV_percent_used_for_weighting": false,
+    "zero_displayed_weight_positive_value_rows": "retain",
+    "index_and_active_investment_sections": "combine_after_separate_reconciliation",
+    "availability": "next_verified_session_after_actual_publication_date",
+    "latest_selection": "greatest_available_report_period_then_publication",
+    "partial_quarterly_report_can_supersede": false,
+    "newer_unreviewed_complete_title": "unknown_until_source_review_not_old_snapshot_carry_forward",
+    "unreviewed_same_period_revision": "unknown_until_revision_review",
+    "max_period_age_calendar_months": 9,
+    "calendar_month_rule": "preserve_month_end_then_expire_after_that_date",
+    "age_ceiling_basis": "autonomous_conservative_source_design_not_a_legal_deadline_or_fitted_return_threshold",
+    "on_expiry_or_missing": "unknown_not_cash_or_zero_flow",
+    "weights_updated_with_current_prices": false
+  },
+  "moneyflow": {
+    "provider": "tushare",
+    "api_name": "moneyflow",
+    "primary_value": "net_mf_amount",
+    "amount_unit": "CNY_10000",
+    "volume_unit": "hands_as_reported_not_used_in_amount_breadth",
+    "net_value_reconstructed_by_size_bucket_subtraction": false,
+    "THS_or_DC_alias_substitution_allowed": false,
+    "expected_update_policy": {
+      "observed_on": "2026-09-14",
+      "source_url": "https://tushare.pro/document/1?doc_id=108",
+      "stated_clock": "trading_day_19:00",
+      "proposed_local_timezone": "Asia/Shanghai",
+      "historical_schedule_and_version_guaranteed": false,
+      "schedule_is_actual_receipt": false
+    },
+    "required_provenance": [
+      "api_identity_and_observed_schema_fingerprint",
+      "raw_response_fingerprint",
+      "trade_date",
+      "actual_observed_at_with_timezone",
+      "publication_evidence_or_explicit_unknown",
+      "revision_identity_and_observed_at_or_explicit_unknown"
+    ],
+    "historical_bulk_download_is_contemporaneous_receipt": false,
+    "late_corrections_rewrite_prior_decisions": false,
+    "same_day_close_execution_allowed": false,
+    "next_session_use": "only_if_required_inputs_were_actually_available_before_frozen_decision_cutoff",
+    "exact_zero": "observed_nonpositive",
+    "missing_suspension_or_no_trade_evidence": "unknown_not_automatically_zero"
+  },
+  "missingness_review": {
+    "complete_known_positive_weight": "L=sum_of_stock_weight_times_known_positive_day_count_divided_by_fixed_session_count",
+    "unobserved_total_weight": "U=sum_of_stock_weight_times_unknown_day_count_divided_by_fixed_session_count",
+    "descriptive_breadth_bounds": "[L,L+U]",
+    "full_report_denominator_preserved": true,
+    "bounds_are_a_trade_signal": false,
+    "bounds_relax_existing_complete_coverage_guard": false,
+    "stale_holdings_uncertainty_solved_by_flow_bounds": false
+  },
+  "evidence_grades": {
+    "contemporaneous_or_reconstructed_vintage": "may_support_point_in_time_research_after_source_specific_review",
+    "historical_trade_derived_latest_vintage": "assumed_timing_only; any descriptive diagnostic requires its own explicit preregistration and source exception; cannot support promotion or verified historical profitability",
+    "unexplained_identity_units_or_date_scope": "no_diagnostic_admission",
+    "grade_assignment_is_automatic": false,
+    "current_diagnostic_admission_granted": false,
+    "uncertainty_can_be_removed_by_adding_one_day_lag": false
+  },
+  "economic_hypothesis": {
+    "proposal": "Persistent active trading or gradual information diffusion may leave predictive information in disclosed-exposure breadth beyond ETF price history.",
+    "institution_identity_inferred_from_order_size": false,
+    "fund_subscription_cash_inferred_from_active_trading": false,
+    "same_sign_guarantees_future_return": false,
+    "measurement_hypothesis_id": "disclosed_equity_flow_monthly_breadth_v1",
+    "trade_target_for_proposal": "510300.SH",
+    "predictor": "At the first session of month M, use the latest eligible complete disclosed equity weights, and average the positive-net_mf_amount indicator over every constituent and every session of month M-1 using only versions visible by the decision cutoff.",
+    "positive_condition": "full_weight_breadth_strictly_greater_than_0.5",
+    "prediction_direction": "positive_condition_predicts_higher_month_M_ETF_total_return_than_unconditional_exposure_on_same_source_eligible_months",
+    "prediction_horizon": "month_M_first_session_open_to_month_M_plus_1_first_session_open",
+    "decision_cutoff_proposal": "09:15_Asia_Shanghai_on_first_session_of_month",
+    "missing_input_month": "unavailable_with_reason_not_negative_signal; same_source_eligibility_applies_to_comparator",
+    "daily_signal_crossings_trigger_trades": false,
+    "measurement_direction_horizon_and_cutoff_frozen_for_proposal": true,
+    "quantity_fill_rebalancing_and_account_execution_contract_frozen": false,
+    "parameter_choice_basis": "Autonomous hypothesis about a month of persistent constituent trading; no market flow values or new ETF returns inspected to choose it. Monthly sampling is not proof the effect persists for a month.",
+    "historical_return_window_is_fresh_OOS": false,
+    "absolute_after_cost_profit_and_benchmark_comparison_required": true,
+    "old_stock_selection_failures_or_ETF_closed_families_reopened": false
+  },
+  "cost_context": {
+    "account_capital_cny": 10000,
+    "max_position_cny": 1000,
+    "commission_bps_each_side_provisional": 5,
+    "minimum_commission_scenarios_cny": [0, 5, 10],
+    "minimum_commission_baseline_unconfirmed_cny": 5,
+    "daily_loss_limit_cny": 60,
+    "max_drawdown": 0.08,
+    "slippage_taxes_other_fees_and_lot_effects_omitted_from_simple_fee_bound": true
+  },
+  "remaining_admission_requirements": [
+    "version_and_availability_evidence_for_real_stock_flow_inputs",
+    "complete_report_and_revision_coverage_for_the_frozen_universe",
+    "a_signed_horizon_and_execution_hypothesis_compatible_with_small_order_costs",
+    "dedicated_preregistration_and_scheduler_admission_before_market_factor_or_return_reads"
+  ],
+  "safety": {
+    "research_to_paper_only": true,
+    "broker_connection_allowed": false,
+    "account_read_allowed": false,
+    "order_placement_allowed": false,
+    "live_trading_allowed": false,
+    "holdout_2026_ETF_outcomes_allowed": false
+  }
+}
