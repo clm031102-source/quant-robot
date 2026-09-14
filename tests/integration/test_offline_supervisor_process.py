@@ -94,7 +94,10 @@ with OfflineRuntime(b['journal_path'],clock=lambda:NOW) as runtime:
 
     def test_normal_bounded_cli_exits_with_stopped_health_and_no_fault(self):
         worker_report=self.root/'worker-report.json'
-        result=subprocess.run(self.cli('--worker-report',str(worker_report)),capture_output=True,text=True,timeout=15)
+        # This checks normal lifecycle under the CLI's default watchdog budget.
+        # Dedicated stalled-worker tests retain their short deadlines.
+        result=subprocess.run(self.cli('--stall-seconds','5','--worker-report',str(worker_report)),
+                              capture_output=True,text=True,timeout=15)
         diagnostics = []
         if result.returncode:
             # Retain both process clocks and the last tick before TemporaryDirectory cleanup.
