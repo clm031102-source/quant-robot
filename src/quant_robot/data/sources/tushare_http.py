@@ -13,11 +13,15 @@ from datetime import datetime, timezone
 
 import pandas as pd
 
+from quant_robot.data.sources.tushare_calendar_contract import (
+    validate_calendar_query, validate_calendar_records,
+)
+
 
 _PRIMARY_DATE = {
     "fund_adj": "trade_date", "fund_div": "ann_date",
     "anns_d": "ann_date", "etf_limit": "trade_date",
-    "dividend": "imp_ann_date",
+    "dividend": "imp_ann_date", "trade_cal": "cal_date",
 }
 _DIVIDEND_DATES = {
     "end_date", "ann_date", "imp_ann_date", "record_date", "ex_date",
@@ -96,6 +100,12 @@ class TushareSourceHttpClient:
         if any(not name or not name.isidentifier() for name in names) or len(set(names)) != len(names):
             raise TushareSourceError("invalid_scope", "fields must be unique identifiers")
         primary = _PRIMARY_DATE[api_name]
+        if api_name == "trade_cal":
+            try:
+                validate_calendar_query(names, max_rows, params, self.max_date)
+            except (ValueError, TypeError) as exc:
+                raise TushareSourceError("invalid_scope", str(exc)) from None
+            return names, primary, set()
         point_dates = {"ann_date", "ex_date", "pay_date"} if api_name == "fund_div" else {primary}
         allowed = {"ts_code", *point_dates}
         if api_name not in {"fund_div", "dividend"}:
@@ -175,6 +185,11 @@ class TushareSourceHttpClient:
             if "ts_code" in params and record["ts_code"] != params["ts_code"]:
                 raise TushareSourceError("response_scope", "response symbol differs from request")
             cleaned.append([value.replace(self._token, "[REDACTED]") if isinstance(value, str) else value for value in row])
+        if primary == "cal_date":
+            try:
+                validate_calendar_records([dict(zip(columns, row, strict=True)) for row in cleaned], params)
+            except (ValueError, TypeError) as exc:
+                raise TushareSourceError("response_scope", str(exc)) from None
         # Preserve provider scalar types/nulls before DataFrame type coercion.
         # This validated, redacted projection is not the original HTTP body.
         self.last_payload = {"code": 0, "data": {"fields": columns, "items": cleaned, **page}}

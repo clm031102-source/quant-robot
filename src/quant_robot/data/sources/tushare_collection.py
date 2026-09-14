@@ -32,7 +32,8 @@ def _exclusive_json(path: Path, payload: dict) -> None:
 
 def _implementation_hashes() -> dict:
     return {path.name: hashlib.sha256(path.read_bytes()).hexdigest() for path in (
-        Path(__file__), Path(tushare_http.__file__), Path(__file__).with_name("tushare_collection_scope.py"))}
+        Path(__file__), Path(tushare_http.__file__), Path(__file__).with_name("tushare_collection_scope.py"),
+        Path(__file__).with_name("tushare_calendar_contract.py"))}
 
 
 def _collect_requests(scope: dict, validated: dict, *, client, output: Path, claims: Path, result: dict) -> None:
