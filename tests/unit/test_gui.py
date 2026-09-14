@@ -3098,7 +3098,13 @@ class GuiSnapshotTests(unittest.TestCase):
             with tempfile.TemporaryDirectory() as tmpdir:
                 output_dir = Path(tmpdir) / "gui_browser_smoke"
 
-                packet = run_gui_browser_smoke(base_url=base_url, output_dir=output_dir)
+                # This verifies the HTTP evidence contract, using the same CI
+                # request budget as the other GUI endpoints. The CLI retains
+                # its separate five-second operational deadline.
+                packet = run_gui_browser_smoke(
+                    base_url=base_url, output_dir=output_dir,
+                    timeout=HTTP_TEST_TIMEOUT_SECONDS,
+                )
 
                 self.assertEqual(packet["stage"], "gui_browser_smoke_evidence")
                 self.assertEqual(
