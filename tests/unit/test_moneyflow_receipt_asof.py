@@ -160,7 +160,7 @@ class MoneyflowReceiptAsOfTests(unittest.TestCase):
             m = self.manifest(); change(m)
             with self.assertRaises(ValueError):
                 self.review(m)
-        d = json.loads(self.packets[0].read_bytes()); d["receipt_schema_version"] = 2
+        d = json.loads(self.packets[0].read_bytes()); d["receipt_schema_version"] = 99
         self.packets[0].write_text(json.dumps(d), encoding="utf-8")
         with self.assertRaises(ValueError):
             self.review()

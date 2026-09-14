@@ -7,7 +7,7 @@ from pathlib import Path
 import re
 
 from quant_robot.data.sources.tushare_moneyflow_observation import (
-    ARCHIVE, CHINA, COMMON, FIELDS, MAX_BYTES, parse_moneyflow_payload,
+    ARCHIVE, CHINA, COMMON, FIELDS, MAX_BYTES, _receipt_version, parse_moneyflow_payload,
 )
 
 
@@ -56,11 +56,15 @@ def _day(value):
 def _source_contract(value):
     if not isinstance(value, dict):
         raise ValueError("source record must be an object")
+    version = _receipt_version(value)
     for key, expected in COMMON.items():
+        if key == "receipt_schema_version":
+            continue
         if type(value.get(key)) is not type(expected) or value[key] != expected:
             raise ValueError("source receipt contract changed")
     if value.get("api_name") != "moneyflow" or value.get("fields") != FIELDS:
         raise ValueError("source API or fields changed")
+    return version
 
 
 def _path(root, value):
@@ -121,7 +125,7 @@ def _metadata(packets, cutoff):
     records, future = {}, 0
     for path, digest in packets:
         packet = _json(_pinned(path, digest, 32_000))
-        _source_contract(packet)
+        version = _source_contract(packet)
         folder = path.parent
         if packet["local_attempt_date"] != folder.name or packet["purpose"] != "prospective_source_receipts_only":
             raise ValueError("packet date or purpose changed")
@@ -132,7 +136,8 @@ def _metadata(packets, cutoff):
             future += 1
             continue  # Future values and record bodies are not opened.
         claim = _json(_pinned(_path(folder, "claim.json"), packet["claim_sha256"], 16_000))
-        _source_contract(claim)
+        if _source_contract(claim) != version:
+            raise ValueError("claim and packet receipt versions differ")
         if (claim["started_at"] != packet["started_at"] or claim["local_attempt_date"] != folder.name
                 or claim["purpose"] != packet["purpose"] or claim["maximum_requests"] != 2):
             raise ValueError("daily claim differs from packet")
@@ -156,7 +161,8 @@ def _metadata(packets, cutoff):
             if _path(folder, entry["record_path"]) != record_path:
                 raise ValueError("receipt reference leaves its fixed path")
             record = _json(_pinned(record_path, entry["record_sha256"], 24_000))
-            _source_contract(record)
+            if _source_contract(record) != version:
+                raise ValueError("record and packet receipt versions differ")
             if record["kind"] != kind or record["status"] not in {"observed_unqualified", "incomplete_unqualified", "source_rejected"}:
                 raise ValueError("invalid source status or kind")
             day = _day(record["trade_date"])
@@ -219,7 +225,8 @@ def _source_values(item, symbols):
     if record["status"] == "source_rejected":
         return None, len(raw)
     parsed = _json(raw)
-    summary = parse_moneyflow_payload(parsed, trade_date=record["trade_date"])
+    summary = parse_moneyflow_payload(parsed, trade_date=record["trade_date"],
+                                     receipt_schema_version=record["receipt_schema_version"])
     for key, value in summary.items():
         if key not in record or type(record[key]) is not type(value) or record[key] != value:
             raise ValueError("recorded source summary differs from original body")

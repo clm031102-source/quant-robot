@@ -20,6 +20,8 @@ CHINA = timezone(timedelta(hours=8))
 COMMON = {"receipt_schema_version": 1, "primary_market": "CN_ETF", "stock_role": "auxiliary_only",
           "research_admission_granted": False, "historical_vintage_verified": False,
           "universe_coverage_verified": False, "new_forward_paper_days": 0}
+CAPTURE_SCHEMA_VERSION = 2
+CAPTURE_COMMON = {**COMMON, "receipt_schema_version": CAPTURE_SCHEMA_VERSION}
 
 
 def _utc_now():
@@ -113,8 +115,18 @@ def _number_identity(value):
     return f"{sign}:{''.join(map(str, digits))}:{exponent}"
 
 
-def parse_moneyflow_payload(parsed, *, trade_date):
-    """Qualify identity and shape, without deriving signs, breadth or returns."""
+def _receipt_version(value):
+    if not isinstance(value, dict):
+        raise ValueError("source receipt must be an object")
+    version = value.get("receipt_schema_version")
+    if type(version) is not int or version not in (1, 2):
+        raise ValueError("unsupported source receipt version")
+    return version
+
+
+def parse_moneyflow_payload(parsed, *, trade_date, receipt_schema_version=1):
+    """Versioned source shape checks; standalone callers retain v1 semantics."""
+    version = _receipt_version({"receipt_schema_version": receipt_schema_version})
     if not re.fullmatch(r"[0-9]{8}", trade_date):
         raise ValueError("invalid source date")
     datetime.strptime(trade_date, "%Y%m%d")
@@ -128,18 +140,26 @@ def parse_moneyflow_payload(parsed, *, trade_date):
         raise ValueError("moneyflow fields changed")
     if not isinstance(rows, list) or len(rows) > MAX_ROWS:
         raise ValueError("moneyflow row budget exceeded")
-    if "count" in data and (type(data["count"]) is not int or data["count"] != len(rows)):
-        raise ValueError("provider count differs from response")
+    if "count" in data:
+        if version == 1 and (type(data["count"]) is not int or data["count"] != len(rows)):
+            raise ValueError("provider count differs from response")
+        if version == 2 and (type(data["count"]) is not int or data["count"] < 0):
+            raise ValueError("invalid unverified count metadata")
     if "has_more" in data and type(data["has_more"]) is not bool:
         raise ValueError("invalid pagination metadata")
     canonical, seen, nulls, types = [], set(), 0, {field: set() for field in fields}
+    eligible_rows = excluded_bj_rows = 0
     for row in rows:
         if not isinstance(row, list) or len(row) != len(fields):
             raise ValueError("invalid moneyflow row")
         item = dict(zip(fields, row, strict=True))
         symbol, day, value = (item[field] for field in FIELDS)
-        if not isinstance(symbol, str) or not re.fullmatch(r"(?:6[0-9]{5}\.SH|[03][0-9]{5}\.SZ)", symbol):
+        eligible = isinstance(symbol, str) and re.fullmatch(r"(?:6[0-9]{5}\.SH|[03][0-9]{5}\.SZ)", symbol)
+        excluded_bj = version == 2 and isinstance(symbol, str) and re.fullmatch(r"920[0-9]{3}\.BJ", symbol)
+        if not eligible and not excluded_bj:
             raise ValueError("source must be a Shanghai or Shenzhen A share")
+        eligible_rows += bool(eligible)
+        excluded_bj_rows += bool(excluded_bj)
         if day != trade_date or symbol in seen:
             raise ValueError("source date or unique stock identity failed")
         if value is not None and type(value) not in (int, float, Decimal):
@@ -149,20 +169,32 @@ def parse_moneyflow_payload(parsed, *, trade_date):
         canonical.append([symbol, day, None if value is None else _number_identity(value)])
         for field, scalar in item.items():
             types[field].add("number" if type(scalar) in (int, float, Decimal) else type(scalar).__name__)
-    complete_shape = bool(rows) and not nulls and len(rows) < MAX_ROWS and not data.get("has_more", False)
-    return {"status": "observed_unqualified" if complete_shape else "incomplete_unqualified",
+    complete_shape = bool(eligible_rows) and not nulls and len(rows) < MAX_ROWS and not data.get("has_more", False)
+    summary = {"status": "observed_unqualified" if complete_shape else "incomplete_unqualified",
             "rows": len(rows), "null_net_amount_rows": nulls,
             "row_limit_reached": len(rows) == MAX_ROWS, "provider_has_more": data.get("has_more"),
             "provider_count": data.get("count"), "amount_unit": "CNY_10000",
             "content_sha256": _digest(sorted(canonical)),
             "schema_sha256": _digest({"fields": fields, "scalar_types": {k: sorted(v) for k, v in types.items()}}),
-            **COMMON}
+            **COMMON, "receipt_schema_version": version}
+    if version == 2:
+        # The SDK uses fields/items. The undocumented count is retained as
+        # metadata, never interpreted as an empty page or completeness proof.
+        summary.update(eligible_source_rows=eligible_rows, excluded_bj_source_rows=excluded_bj_rows,
+            projection_universe="SH_SZ_A", excluded_source_universe="BJ_920",
+            provider_count_semantics_verified=False,
+            provider_count_matches_response_rows=data["count"] == len(rows) if "count" in data else None)
+    return summary
 
 
 def _verified_day(folder):
     result = json.loads(_read(_child(folder, "completion.json"), 32_000))
-    if result["local_attempt_date"] != folder.name or result["claim_sha256"] != _sha(_read(_child(folder, "claim.json"), 16_000)):
+    version = _receipt_version(result)
+    claim_raw = _read(_child(folder, "claim.json"), 16_000)
+    if result["local_attempt_date"] != folder.name or result["claim_sha256"] != _sha(claim_raw):
         raise ValueError("daily claim differs from receipt")
+    if _receipt_version(json.loads(claim_raw)) != version:
+        raise ValueError("daily claim and packet versions differ")
     if not isinstance(result["records"], list) or len(result["records"]) > 2:
         raise ValueError("invalid daily record list")
     seen = set()
@@ -177,6 +209,8 @@ def _verified_day(folder):
         if str(path) != entry["record_path"] or _sha(raw) != entry["record_sha256"]:
             raise ValueError("record identity changed")
         record = json.loads(raw)
+        if _receipt_version(record) != version:
+            raise ValueError("daily record and packet versions differ")
         body_path = _child(folder, kind + ".response.json")
         if record.get("raw_retained"):
             if record["raw_path"] != str(body_path) or _sha(_read(body_path, MAX_BYTES)) != record["raw_sha256"]:
@@ -212,7 +246,7 @@ def _prior_candidate(archive, today):
 
 def _capture_slot(folder, *, kind, trade_date, token, original=None, revision_claim=None):
     started = _clock()
-    record = {**COMMON, "kind": kind, "trade_date": trade_date, "api_name": "moneyflow",
+    record = {**CAPTURE_COMMON, "kind": kind, "trade_date": trade_date, "api_name": "moneyflow",
               "fields": FIELDS, "status": "source_rejected", "started_at": started.isoformat(),
               "source_published_at": None, "raw_retained": False,
               "body_representation": "requests_decompressed_response_entity_bytes_not_wire_encoding"}
@@ -249,7 +283,8 @@ def _capture_slot(folder, *, kind, trade_date, token, original=None, revision_cl
             handle.flush()
             os.fsync(handle.fileno())
         record.update(raw_retained=True, raw_path=str(raw_path))
-        record.update(parse_moneyflow_payload(parsed, trade_date=trade_date))
+        record.update(parse_moneyflow_payload(parsed, trade_date=trade_date,
+                                             receipt_schema_version=CAPTURE_SCHEMA_VERSION))
         if original:
             record["content_changed_since_original"] = record["content_sha256"] != original[0]["content_sha256"]
     except Exception as exc:
@@ -271,12 +306,12 @@ def capture_moneyflow_observation(*, repo_root, run_gate, get_token, execute=Fal
     local = started.astimezone(CHINA)
     due = local.weekday() < 5 and (local.hour, local.minute) >= (19, 5)
     if not execute:
-        return {**COMMON, "status": "preview", "due": due, "api_name": "moneyflow",
+        return {**CAPTURE_COMMON, "status": "preview", "due": due, "api_name": "moneyflow",
                 "maximum_requests_per_local_day": 2, "maximum_response_bytes": MAX_BYTES,
                 "maximum_rows": MAX_ROWS, "prior_lookback_calendar_days": 7,
                 "each_prior_date_maximum_checks": 1, "fields": FIELDS}
     if not due:
-        return {**COMMON, "status": "not_due"}
+        return {**CAPTURE_COMMON, "status": "not_due"}
     root = Path(repo_root).resolve()
     archive = _child(root, ARCHIVE)
     folder = _child(archive, local.date().isoformat())
@@ -285,17 +320,18 @@ def capture_moneyflow_observation(*, repo_root, run_gate, get_token, execute=Fal
         try:
             result, _ = _verified_day(folder)
         except FileNotFoundError:
-            return {**COMMON, "status": "attempt_incomplete", "result_path": str(completion)}
+            return {**CAPTURE_COMMON, "status": "attempt_incomplete", "result_path": str(completion)}
         except (OSError, ValueError, KeyError, TypeError):
-            return {**COMMON, "status": "archive_integrity_failed", "result_path": str(completion)}
-        return {**COMMON, "status": "already_attempted", "previous_status": result["status"],
+            return {**CAPTURE_COMMON, "status": "archive_integrity_failed", "result_path": str(completion)}
+        return {**CAPTURE_COMMON, "receipt_schema_version": result["receipt_schema_version"],
+                "status": "already_attempted", "previous_status": result["status"],
                 "result_path": str(completion)}
     folder.parent.mkdir(parents=True, exist_ok=True)
     try:
         folder.mkdir()
     except FileExistsError:
-        return {**COMMON, "status": "attempt_incomplete", "result_path": str(completion)}
-    claim = {**COMMON, "local_attempt_date": local.date().isoformat(), "started_at": started.isoformat(),
+        return {**CAPTURE_COMMON, "status": "attempt_incomplete", "result_path": str(completion)}
+    claim = {**CAPTURE_COMMON, "local_attempt_date": local.date().isoformat(), "started_at": started.isoformat(),
              "collector_sha256": _sha(Path(__file__).read_bytes()), "maximum_requests": 2,
              "purpose": "prospective_source_receipts_only", "fields": FIELDS, "api_name": "moneyflow"}
     claim_path = _child(folder, "claim.json")
