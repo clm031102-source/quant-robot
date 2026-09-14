@@ -99,7 +99,11 @@
     "account_capital_cny": 10000,
     "max_position_cny": 1000,
     "commission_bps_each_side_provisional": 5,
-    "minimum_commission_scenarios_cny": [0, 5, 10],
+    "minimum_commission_scenarios_cny": [
+      0,
+      5,
+      10
+    ],
     "minimum_commission_baseline_unconfirmed_cny": 5,
     "daily_loss_limit_cny": 60,
     "max_drawdown": 0.08,
@@ -118,5 +122,25 @@
     "order_placement_allowed": false,
     "live_trading_allowed": false,
     "holdout_2026_ETF_outcomes_allowed": false
+  },
+  "source_probe_review": {
+    "reviewed_on": "2026-09-14",
+    "document": "docs/research/cn_etf_disclosed_flow_source_probe_2026-09-14.md",
+    "two_date_matched_mapped_raw_rows": 725,
+    "two_date_mapped_to_processed_net_amount_mismatches": 0,
+    "evidence_grade": "mapped_raw_reconciled_processing_vintage_only",
+    "original_provider_HTTP_bytes_verified": false,
+    "historical_observed_at_verified": false,
+    "historical_revision_vintage_verified": false,
+    "fixed_month": "2024-03",
+    "fixed_decision_date": "2024-04-01",
+    "expected_stock_session_cells": 8190,
+    "valid_numeric_cells": 8185,
+    "missing_stock_session_cells": 5,
+    "strict_complete_coverage_passed": false,
+    "decision": "pause_interim_PDF_and_full_history_expansion; review bounded prospective original receipt design first",
+    "missing_cells_automatically_zero_filled": false,
+    "factor_or_outcome_computed": false,
+    "new_diagnostic_admission_granted": false
   }
 }
