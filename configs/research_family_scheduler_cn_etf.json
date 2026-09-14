@@ -1360,11 +1360,11 @@
     "order_placement_allowed": false
   },
   "fiscal_event_account_decision": {
-    "status": "authorized_once",
+    "status": "completed_fixed_contract_not_passed",
     "registration_id": "8638e0c650a27fce781e8c45a167600ae016be750651073055733fa44dcfcf38",
     "registration_path": "data/reports/cn_etf_fiscal_event_account_20260914/registration.json",
     "registration_sha256": "a0b6096f8857374bb7ff8859989104ae33690ce920d34420f2075e0970115d22",
-    "execution_count": 0,
+    "execution_count": 1,
     "max_executions": 1,
     "allowed_stage": "cn_etf_fiscal_event_account_v1",
     "ledger_path": "data/reports/cn_etf_fiscal_event_account_20260914/attempt_claim.json",
@@ -1377,5 +1377,35 @@
     "broker_connection_allowed": false,
     "account_read_allowed": false,
     "order_placement_allowed": false
+  },
+  "fiscal_event_account_closeout": {
+    "economic_hypothesis_id": "general_public_budget_execution_pace_v1",
+    "decision": "fixed_contract_closed_no_rerun",
+    "registration_id": "8638e0c650a27fce781e8c45a167600ae016be750651073055733fa44dcfcf38",
+    "attempt_id": "ea61bd48c9db472d988c1acc9e4faf17",
+    "result_path": "data/reports/cn_etf_fiscal_event_account_20260914/result.json",
+    "artifact_sha256": {
+      "registration": "a0b6096f8857374bb7ff8859989104ae33690ce920d34420f2075e0970115d22",
+      "attempt_claim": "9a9677616f9606209783100e36e621a66bf8ffa7a8b9a5961b5ee422117d97df",
+      "result": "cbb4febe6f4b9a90e3fb08580e9309d871e77b85b9752cd64aff7b826e13b38f",
+      "outcome": "e3fd33e728bc3ac4a65e5867584929418367853957092829c7fa52c0c072f0be"
+    },
+    "current_report_periods": 48,
+    "eligible_periods": 43,
+    "positive_signal_periods": 24,
+    "selected_complete_round_trips": 5,
+    "unconditional_complete_round_trips": 9,
+    "primary_minimum_commission_cny": 5,
+    "selected_pnl_cny": -9.74,
+    "unconditional_pnl_cny": 119.56,
+    "selected_minus_unconditional_pnl_cny": -129.3,
+    "risk_event": "2021-09-06 marked position above1000CNY; permanent entry halt under frozen contract; liquidated2021-09-07",
+    "long_full_window_active_trading_verified": false,
+    "net_positive_ev_verified": false,
+    "new_forward_paper_days": 0,
+    "rerun_allowed": false,
+    "sign_flip_rescue_allowed": false,
+    "window_or_threshold_tuning_allowed": false,
+    "next": "Review recoverable position-cap drift separately from loss circuit breakers for sustained operation, on synthetic fixtures only. Keep this fiscal study closed; do not replace it immediately with another scalar macro timing search."
   }
 }
