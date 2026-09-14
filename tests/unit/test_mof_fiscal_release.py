@@ -113,6 +113,57 @@ class MofFiscalReleaseTests(unittest.TestCase):
             with self.subTest(year=year, month=month), self.assertRaises(ValueError):
                 parse_mof_monthly_expenditure(document(), expected_year=year, expected_month=month)
 
+    def test_quarter_and_full_year_titles_bind_to_exact_cumulative_period(self):
+        for month, label, period in [(3, '一季度', '1-3月'), (9, '前三季度', '1-9月'),
+                                     (12, '', '2024年')]:
+            with self.subTest(month=month):
+                raw = document(title='2024年' + label + '财政收支情况', period=period,
+                               published='2025年1月29日', meta='2025-01-29 08:00:00')
+                r = parse_mof_monthly_expenditure(raw, expected_year=2024, expected_month=month)
+                self.assertEqual(r['period_end'], f'2024-{month:02d}-' + ('30' if month == 9 else '31'))
+
+    def test_annual_body_year_cannot_substitute_for_month_or_different_year(self):
+        for month, title, period in [(5, '2024年5月财政收支情况', '2024年'),
+                                     (12, '2024年财政收支情况', '2023年'),
+                                     (6, '2024年一季度财政收支情况', '上半年')]:
+            with self.subTest(month=month), self.assertRaises(ValueError):
+                parse_mof_monthly_expenditure(document(title=title, period=period,
+                    published='2025年1月29日', meta='2025-01-29'), expected_year=2024, expected_month=month)
+
+    def test_declared_gb2312_retains_original_byte_identity(self):
+        text = document().decode().replace('<meta charset="UTF-8">',
+            '<meta http-equiv="Content-Type" content="text/html; charset=gb2312">')
+        raw = text.encode('gb2312')
+        r = self.parse(raw)
+        self.assertEqual(r['source_encoding'], 'gb2312')
+        self.assertEqual(r['source_sha256'], hashlib.sha256(raw).hexdigest())
+        self.assertEqual(r['amount_cny_100m'], '120')
+
+    def test_missing_conflicting_unknown_or_false_encoding_declarations_reject(self):
+        cases = [document().decode().replace('UTF-8', 'gb2312').encode(),
+                 document().decode().encode('gb2312'),
+                 document().replace(b'<meta charset="UTF-8">', b'<meta charset="UTF-8"><meta charset="gb2312">'),
+                 document().replace(b'UTF-8', b'gb18030'),
+                 b'\xef\xbb\xbf' + document().decode().replace('UTF-8', 'gb2312').encode('gb2312')]
+        for raw in cases:
+            with self.subTest(raw_prefix=raw[:60]), self.assertRaises(ValueError):
+                self.parse(raw)
+
+    def test_legacy_central_local_labels_stay_review_required(self):
+        raw = document().replace('中央一般公共预算本级支出'.encode(), '中央一般公共预算支出'.encode())
+        raw = raw.replace('地方一般公共预算支出'.encode(), '地方一般公共预算本级支出'.encode())
+        with self.assertRaises(ValueError):
+            self.parse(raw)
+
+    def test_secondary_placeholder_template_title_does_not_change_primary_title(self):
+        raw = document(extra='<head><title>无标题文档</title></head>')
+        self.assertEqual(self.parse(raw)['title'], '2024年5月财政收支情况')
+
+    def test_substantive_secondary_title_is_not_silently_discarded(self):
+        for title in ['2023年5月财政收支情况', '2024年5月财政收支情况', 'unreviewed template']:
+            with self.subTest(title=title), self.assertRaises(ValueError):
+                self.parse(document(extra=f'<head><title>{title}</title></head>'))
+
 
 if __name__ == '__main__':
     unittest.main()

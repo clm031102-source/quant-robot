@@ -86,6 +86,17 @@ class MofFiscalReleaseCliTests(unittest.TestCase):
         self.assertEqual(marker.read_text(), 'preserve')
         gate.assert_not_called()
 
+    def test_gb2312_cli_binds_original_source_instead_of_transcoded_hash(self):
+        raw = document().decode().replace('UTF-8', 'gb2312').encode('gb2312')
+        self.source.write_bytes(raw)
+        args = list(self.args)
+        args[args.index('--source-sha256') + 1] = hashlib.sha256(raw).hexdigest()
+        with patch.object(cli, 'run_quant_pm_startup_gate', return_value=self.gate):
+            code, result = self.invoke(args)
+        self.assertEqual(code, 0)
+        self.assertEqual(result['observation']['source_encoding'], 'gb2312')
+        self.assertEqual(result['observation']['source_sha256'], hashlib.sha256(raw).hexdigest())
+
 
 if __name__ == '__main__':
     unittest.main()

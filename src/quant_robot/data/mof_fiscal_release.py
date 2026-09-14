@@ -17,7 +17,7 @@ import re
 class _Document(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
-        self.title, self.visible, self.publication = [], [], []
+        self.title, self.visible, self.publication, self.charsets = [], [], [], []
         self.suppressed = []
         self.in_title = False
 
@@ -28,8 +28,16 @@ class _Document(HTMLParser):
             return
         if tag == 'title':
             self.in_title = True
+            self.title.append([])
         elif tag == 'meta':
             values = dict(attrs)
+            if 'charset' in values:
+                self.charsets.append(values['charset'] or '')
+            if (values.get('http-equiv') or '').strip().lower() == 'content-type':
+                content = values.get('content') or ''
+                if 'charset' in content.lower():
+                    declared = re.search(r'''charset\s*=\s*["']?([A-Za-z0-9_-]+)''', content, re.I)
+                    self.charsets.append(declared[1] if declared else '')
             if (values.get('name') or '').lower() == 'pubdate' and values.get('content'):
                 self.publication.append(values['content'])
         elif tag in {'p', 'div', 'br', 'li', 'h1', 'h2', 'h3'}:
@@ -47,11 +55,29 @@ class _Document(HTMLParser):
 
     def handle_data(self, value):
         if not self.suppressed:
-            (self.title if self.in_title else self.visible).append(value)
+            (self.title[-1] if self.in_title else self.visible).append(value)
 
 
 _DAY = r'(?:[0-9]{4}年[0-9]{1,2}月[0-9]{1,2}日|[0-9]{4}-[0-9]{2}-[0-9]{2})'
 _NUMBER = r'(?:0|[1-9][0-9]{0,11})(?:\.[0-9]{1,6})?'
+
+
+def _decode(raw):
+    # Read ASCII-compatible HTML declarations without guessing a legacy codec.
+    probe = _Document()
+    probe.feed(raw.decode('latin-1'))
+    probe.close()
+    encodings = {name.strip().lower().replace('_', '-') for name in probe.charsets}
+    encodings = {'utf-8' if name == 'utf8' else name for name in encodings}
+    if not encodings:
+        encodings = {'utf-8'}
+    if len(encodings) != 1 or not encodings <= {'utf-8', 'gb2312'}:
+        raise ValueError('unreviewed or conflicting source encoding declarations')
+    encoding = encodings.pop()
+    if encoding != 'utf-8' and raw.startswith(b'\xef\xbb\xbf'):
+        raise ValueError('UTF8 byte marker conflicts with declared legacy encoding')
+    decoded = raw.decode('utf-8-sig' if encoding == 'utf-8' else encoding)
+    return decoded, encoding, probe.charsets
 
 
 def _day(token):
@@ -96,11 +122,17 @@ def parse_mof_monthly_expenditure(raw: bytes, *, expected_year: int, expected_mo
         first = date(expected_year, 1, 1)
         last = date(expected_year, expected_month, calendar.monthrange(expected_year, expected_month)[1])
         doc = _Document()
-        doc.feed(raw.decode('utf-8-sig'))
+        decoded, encoding, declarations = _decode(raw)
+        doc.feed(decoded)
         doc.close()
-        title = re.sub(r'\s+', '', ''.join(doc.title))
-        period = rf'(?:{expected_month}月|1[-—－–]{expected_month}月'
-        period += '|上半年)' if expected_month == 6 else ')'
+        titles = [re.sub(r'\s+', '', ''.join(parts)) for parts in doc.title]
+        if not titles or any(t != '无标题文档' for t in titles[1:]):
+            raise ValueError('ambiguous or unreviewed secondary document titles')
+        title = titles[0]
+        titles = [rf'{expected_month}月', rf'1[-—－–]{expected_month}月']
+        if expected_month in {3, 6, 9, 12}:
+            titles.append({3: '一季度', 6: '上半年', 9: '前三季度', 12: ''}[expected_month])
+        period = '(?:' + '|'.join(titles) + ')'
         if re.fullmatch(rf'{expected_year}年{period}财政收支情况', title) is None:
             raise ValueError('monthly title differs from the declared year and period')
         lines = [re.sub(r'\s+', '', line) for line in ''.join(doc.visible).splitlines()]
@@ -111,6 +143,8 @@ def parse_mof_monthly_expenditure(raw: bytes, *, expected_year: int, expected_mo
         prefix = rf'(?:{expected_year}年)?1[-—－–至]{expected_month}月(?:累计)?'
         if expected_month == 6:
             prefix = '(?:' + prefix + '|上半年(?:累计)?)'
+        elif expected_month == 12:
+            prefix = '(?:' + prefix + rf'|{expected_year}年(?:累计)?)'
         if re.match(prefix + r'[,，]全国一般公共预算支出', paragraph) is None:
             raise ValueError('reported cumulative period differs from expected January-to-month period')
         nationwide = _amount(paragraph, '全国一般公共预算支出')
@@ -130,6 +164,7 @@ def parse_mof_monthly_expenditure(raw: bytes, *, expected_year: int, expected_mo
         'amount_cny_100m': str(nationwide), 'central_own_amount_cny_100m': str(central),
         'local_amount_cny_100m': str(local), 'published_date_label': published.isoformat(),
         'publication_metadata': list(doc.publication), 'assumed_available_civil_day': available.isoformat(),
-        'source_sha256': hashlib.sha256(raw).hexdigest(), 'matched_paragraph': paragraph,
+        'source_sha256': hashlib.sha256(raw).hexdigest(), 'source_encoding': encoding,
+        'source_encoding_declarations': declarations, 'matched_paragraph': paragraph,
         'historical_availability_verified': False, 'source_audit_verified': False,
         'research_admission_granted': False, 'factor_or_return_computed': False}
