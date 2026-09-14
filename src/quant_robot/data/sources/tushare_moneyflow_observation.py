@@ -17,7 +17,7 @@ MAX_ROWS = 6000
 MAX_BYTES = 1_000_000
 ARCHIVE = Path("data/reports/tushare_moneyflow_forward")
 CHINA = timezone(timedelta(hours=8))
-COMMON = {"primary_market": "CN_ETF", "stock_role": "auxiliary_only",
+COMMON = {"receipt_schema_version": 1, "primary_market": "CN_ETF", "stock_role": "auxiliary_only",
           "research_admission_granted": False, "historical_vintage_verified": False,
           "universe_coverage_verified": False, "new_forward_paper_days": 0}
 
@@ -210,7 +210,7 @@ def _prior_candidate(archive, today):
     return None, "no_unchecked_recent_original"
 
 
-def _capture_slot(folder, *, kind, trade_date, token, original=None):
+def _capture_slot(folder, *, kind, trade_date, token, original=None, revision_claim=None):
     started = _clock()
     record = {**COMMON, "kind": kind, "trade_date": trade_date, "api_name": "moneyflow",
               "fields": FIELDS, "status": "source_rejected", "started_at": started.isoformat(),
@@ -220,6 +220,8 @@ def _capture_slot(folder, *, kind, trade_date, token, original=None):
         prior, entry = original
         record.update(original_record_path=entry["record_path"], original_record_sha256=entry["record_sha256"],
                       original_raw_sha256=prior["raw_sha256"], original_observed_at=prior["observed_at"])
+        record.update(revision_claim_path=str(revision_claim),
+                      revision_claim_sha256=_sha(_read(revision_claim, 16_000)))
     try:
         if started.astimezone(CHINA).date().isoformat() != folder.name:
             raise ValueError("capture day changed before request")
@@ -331,7 +333,7 @@ def capture_moneyflow_observation(*, repo_root, run_gate, get_token, execute=Fal
                     else:
                         result["requests_started"] += 1
                         revision, entry = _capture_slot(folder, kind="revision", trade_date=prior[0]["trade_date"],
-                                                        token=token, original=prior)
+                                                        token=token, original=prior, revision_claim=revision_claim)
                         result["records"].append(entry)
                         statuses.append(revision["status"])
                 if all(status == "observed_unqualified" for status in statuses) and result["prior_review_status"] != "archive_integrity_failed":
