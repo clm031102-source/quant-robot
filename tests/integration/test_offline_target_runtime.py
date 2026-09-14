@@ -99,9 +99,22 @@ class OfflineTargetRuntimeTests(unittest.TestCase):
         self.assertEqual(result.returncode,0,result.stdout+result.stderr)
         reports=[json.loads(line) for line in result.stdout.splitlines()]
         self.assertEqual(len(reports),2)
-        self.assertTrue(all(r['status']=='ready' and r['counts_as_forward_paper_days']==0 for r in reports))
+        # A shared runner can exceed the requested cadence without rejecting
+        # the target. Keep that warning, and verify the actual execution state.
+        for report in reports:
+            self.assertEqual(report['feed_status'],'present',report)
+            self.assertFalse(report['paused'],report)
+            self.assertEqual(report['faults'],[],report)
+            self.assertEqual(report['risk_stop_causes'],[],report)
+            self.assertFalse(any(step['status']=='rejected' for step in report['steps']),report)
+            self.assertEqual(report['cadence_overrun'],report['tick_duration_seconds'] > 1,report)
+            self.assertEqual(report['status'],'attention' if report['cadence_overrun'] else 'ready',report)
+            self.assertEqual(report['counts_as_forward_paper_days'],0,report)
+            self.assertFalse(report['qualifies_for_strategy_promotion'],report)
+            self.assertFalse(report['executable'],report)
         self.assertEqual(json.loads(report_path.read_text(encoding='utf-8')),reports[-1])
         snap=OfflineOrderJournal.inspect_snapshot(path)
+        self.assertEqual(snap['risk_session']['session_date'],NOW.date().isoformat())
         self.assertEqual(Decimal(snap['cash']),10000)
         self.assertEqual(Decimal(snap['reserved_cash']),805)
         self.assertEqual(len(snap['orders']),1)
