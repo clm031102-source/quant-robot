@@ -9,6 +9,13 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
+Current source-stage hypothesis: [broad RMB RRR implementation events](cn_etf_rrr_effective_event_review_2026-09-21.md).
+The direction, eligibility and20session holding rule were fixed before event collection.
+Fifteen known qualifying announcements have retained official evidence and complete calendar
+intervals, eight from2020onward; eight excluded originals are also retained. Forty scoped
+direct requests are consumed(35retained). Annual event-universe completeness is still pending;
+there is no RRR outcome calculation or execution admission. Do not confuse source counts with trades.
+
 Latest actual test: [quarterly US variance-insurance gap](cn_etf_us_variance_risk_review_2026-09-21.md).
 The 45-quarter study selected 37 quarters, 18 positive (48.65%), mean gross +1.4039%.
 Its full matched-exposure effect is -0.3960 bp/session with a fixed 95% block interval
@@ -36,7 +43,8 @@ and -0.1009% mean gross return.
 None of these fixed hypotheses may be rescued by changing its sign, threshold or window.
 Verified net-positive-EV strategies remain zero; the ongoing mandate stays active.
 
-Next review should target a different economic mechanism with more independent observations.
+Next source work should reconcile the RRR event ledger against complete official annual policy records,
+then freeze an exact single net-diagnostic registration if the sources qualify.
 The labor source corpus and method paper remain reusable evidence; its failed or completed scopes
 cannot be reopened. Original official definitions and releases were recovered using a separately
 frozen direct HTTPS scope, without changing global proxy or TLS verification. Historical vintages
