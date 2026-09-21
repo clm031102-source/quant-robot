@@ -1763,5 +1763,21 @@
     "sign_flip_allowed": false,
     "horizon_or_eligibility_rescue_allowed": false,
     "next": "Review a distinct economic mechanism with viable observation frequency and cost burden. Reuse retained source evidence; do not rescue consumed event hypotheses or read the2026ETFholdout."
+  },
+  "dividend_style_diagnostic_decision": {
+    "status": "authorized_once",
+    "registration_id": "43271ee4e6bf233021f37175441a54823e3037e2b65c31e49bbd236538221f01",
+    "registration_path": "data/reports/positive_ev_20260921/dividend_style_diagnostic/registration.json",
+    "registration_sha256": "bba6299f9643184cb139e3aa4e3db97834d7642f1d45b0e0718684e58ac85137",
+    "max_executions": 1,
+    "execution_count": 0,
+    "allowed_stage": "single_dividend_style_endpoint_cost_diagnostic",
+    "ledger_path": "data/reports/positive_ev_20260921/dividend_style_diagnostic/attempt_claim.json",
+    "conditional_endpoint_cost_only": true,
+    "general_factor_batch_allowed": false,
+    "net_account_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
   }
 }
