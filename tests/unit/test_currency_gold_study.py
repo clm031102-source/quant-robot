@@ -132,4 +132,3 @@ class CurrencyGoldGrossAdmissionTests(unittest.TestCase):
         self.assertIn('multiple_dedicated_diagnostics_authorized', gate['blockers'])
         self.assertFalse(gate['safety']['currency_gold_diagnostic_allowed'])
         self.assertFalse(gate['safety']['factor_batch_allowed'])
-

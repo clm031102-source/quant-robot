@@ -1,0 +1,139 @@
+{
+  "schema_version": 1,
+  "study_id": "cny_depreciation_gold_demand_quarterly_v1",
+  "stage": "account_method_frozen_after_gross_before_account_outcomes",
+  "authority": "Standing autonomous CNY10000 mandate; same-researcher method decision, not independent human review.",
+  "bindings": {
+    "original_proposal": {
+      "path": "configs/cn_etf_currency_gold_proposal_20260922.json",
+      "sha256": "e6160c95bfbeba77f1153a2be02fc6965d39f23e84c4797b8d7e6f469a631b76"
+    },
+    "cadence_result": {
+      "path": "data/reports/positive_ev_20260922/currency_gold_cadence/result.json",
+      "sha256": "e264e655acec451c3fa85a02b7c59f4e5605d83156d0f320334f88d0916b73fc"
+    },
+    "gross_result": {
+      "path": "data/reports/positive_ev_20260922/currency_gold_diagnostic/result.json",
+      "sha256": "4962916543ee25e9f6f4de50fe9f1d35cddf3a5e4889b01c198635731c9c8ec8"
+    },
+    "gross_verification": {
+      "path": "data/reports/positive_ev_20260922/currency_gold_diagnostic/verification.json",
+      "sha256": "665e4ec758bc76ca75d8c8760e3cbf295848642de8292e357116d6deea24f6a4"
+    },
+    "retained_input_binding": {
+      "path": "data/reports/positive_ev_20260921/equity_gold_review/account_input_binding.json",
+      "sha256": "3c609d3347d52f2ae2ef2710b1da7d829a85192dfd71e75688f99c6e4fa467dc"
+    },
+    "prior_execution_clarification": {
+      "path": "configs/cn_etf_equity_gold_execution_clarification_20260921.json",
+      "sha256": "cb985bb9896581089a83afc9f5710cdb35b05be94d0c17625f3be2d694b7c7ed"
+    }
+  },
+  "exposure": "Frozen gross result known:20selectedquarters/10episodes,13positive;later7quarters/5episodes allpositive. All retained historical goldprices exposed. This account method is fixed before account sizing,fills,fees,riskpaths or net results,not before all market-outcome access. No untouchedOOSclaim.",
+  "asset": "CN_ETF_XSHG_518880",
+  "limits": {
+    "capital_CNY": 10000,
+    "all_in_position_cap_CNY": 1000,
+    "daily_loss_limit_CNY": 60,
+    "paper_drawdown_limit": 0.08,
+    "absolute_drawdown_limit": 0.4,
+    "max_holding_sessions": 252,
+    "ADV_participation_limit": 0.01,
+    "commission_bps_each": 5,
+    "minimum_commission_CNY": [
+      0,
+      5,
+      10
+    ],
+    "slippage_bps": [
+      0,
+      10,
+      30
+    ],
+    "primary_minimum_commission_CNY": 5,
+    "primary_slippage_bps": 10,
+    "lot_shares": 100,
+    "quote_tick_CNY": "0.001",
+    "actual_broker_fees_certified": false
+  },
+  "window": {
+    "first_signal_open": "2014-01-02",
+    "terminal_open": "2024-01-02",
+    "warmup_source_start": "2013-12-05",
+    "capital_reset": false,
+    "later_slice": "2020..2023civil-year equity contributions including separately disclosed terminal2024contribution; same continuousaccount."
+  },
+  "signal_and_entry": {
+    "rule": "Reuse the consumed and verified40quarter states without recomputation or changes. Enter only at the first session of a new contiguous state1episode. Hold across adjacent state1quarters without rebalance,topups or fee reset. State0orunknown is cash.",
+    "timing": "First session of a selectedquarter at raw open plus adverse scenario slippage; signal sources already published before this opening. Planned quantity uses preceding session close and previous20complete session share volumes only.",
+    "sizing": "Largest nonnegative multipleof100 whose adverse tick-rounded priorclose notional plus cent-rounded commission fits1000CNYand available priorcash,and at most1percentof prior20session mean volume.",
+    "missing_warmup": "An episode entry with fewer than20complete preceding sessions is canceled,not delayed or retried. Initial calendar has19sessions before2014-01-02; this rule is unconditional and must be disclosed for any affected episode.",
+    "fill": "Entire predeclared quantity fills only if actual modeled open price retains all-in1000budget,available cash and at most1percentof current full-day volume. Otherwise cancel whole entry; no hindsight resizing,partial buy,catch-up or retry.",
+    "overlap": "No new buy if occupied at session start or unresolved mandatory exit. One opportunity per sourceepisode; max-holding liquidation or a failed entry never creates a new entry while state remains1."
+  },
+  "exit_and_risk": {
+    "scheduled": "First open of the next state0orunknownquarter,or the fixed2024-01-02terminal,whichever comes first; maxholding entryindex+252sessions if earlier. The nextquarter signal is required only for thatquarter opening and is never used to act earlier.",
+    "prices": "Raw open minus adverse slippage,tickrounded down to0.001. Entry buys round up. Daily equity and risk use actual raw close separately; never replace closes with opens in the marks.",
+    "stops": "Close-to-close equity loss>=60CNYor drawdown>=8percent permanently halts entries and queues liquidation at nextsession open. The40percentabsolute drawdown limit also stays in the audit. No reset or same-dayretroactive riskfill.",
+    "position": "A close mark above1000CNYis recorded as a breach; queue smallest100share trim for nextsession open. Recompute/cancel unfilledtrim after the nextclose. No automatic buyback; successful trimming does not erase a breach.",
+    "precedence": "Permanent accountstop,scheduled/252session liquidation,refreshed positiontrim,then eligible sourceepisode entry. Mandatory exits persist; trims expire eachsession. No opposite-side fill on sameasset/session.",
+    "liquidity": "Advance sell request cappedby previous20complete session mean share volume*1percent. Currentfull-day volume is only an ex-post fill bound; roundpartial sells down to100except an entire remaining oddlot iffullysupported. Charge minimumfee on every fill. Keep unfilled exits until terminal,then reportunsettled.",
+    "no_guaranteed_loss_cap": true
+  },
+  "accounting": {
+    "cash": "Continuous10000CNYinitialcash,no leverage,idlecashinterest0,no cashETFoverlay or reinvestment. Profits do not enlarge1000entrybudget.",
+    "actions": "Retained2014..2023goldannuals and2024terminalinterim report no cashdistributions orsplit. Goldactionlist mustbeempty and sourcecoveragebound. The equityevents in reused combined file are excluded. Unsupportedgoldactions fail inputacceptance.",
+    "identity": "cash+receivables+quantity*rawclose=equity every session; terminalmustfullysettle. Retain all fills,fees,cancellations,breaches and daily balances.",
+    "episode_pnl": "Aggregate actual buys,sells,trims and fees by original sourceepisode. Count win/loss only when entirely closed. A trimmedlot is not a new trade. Exclude carry-in from newlater-entry counts,while keeping its marked PnL in lateraccount contributions."
+  },
+  "costs": {
+    "commission_bps_per_side": 5,
+    "minimum_commission_CNY": [
+      0,
+      5,
+      10
+    ],
+    "slippage_bps_per_side": [
+      0,
+      10,
+      30
+    ],
+    "primary": {
+      "minimum_commission_CNY": 5,
+      "slippage_bps_per_side": 10
+    },
+    "rounding": "feeHALF_UP0.01CNY; buypriceCEILING0.001;sellpriceFLOOR0.001",
+    "broker_confirmed": false,
+    "all_scenarios_reported": true,
+    "no_scenario_selection": true
+  },
+  "financial_screen": {
+    "primary": "min5/slip10; other8scenarios are sensitivity,not substitutes.",
+    "necessary": [
+      "terminal fully settled",
+      "fullnetPnL>0",
+      "laternetaccountcontribution>0",
+      "atleast6completedsourceepisodesoverall",
+      "atleast3completedepisodeswithnewentryfrom2020",
+      "completednetepisodewinfraction>0.5overall and for newlaterentries",
+      "meanannualnetPnL2.5percentblocklower>0",
+      "no observedposition/dailyloss/drawdown/holdinglimitbreach"
+    ],
+    "annual_contributions": "Ten2014..2023yearend equity changes,initial10000; terminal2024liquidation change assignedto2023andseparatelyreported. Include zerocashyears, no per-yearrestart.",
+    "uncertainty": "Existingannualaccount convention:5000paired circular2yearblocks from10annualCNYcontributions,5blocks/draw,seed20260921,linear2.5/97.5quantiles. Exploratorypath-dependent sensitivity,not proof of independentrepeatableEV.",
+    "win_rate": "Netcompletedepisodefrequency is observedhistoricalfrequency,not forecast probability. Quarter positivefrequency doesnotreplace tradefrequency.",
+    "failure": "Any necessary primaryfinancial or riskfailure closes this fixed candidate. No sign,currency,entrytiming,quarterhorizon,sample,count,fee,riskorbootstrapchanges afteraccountoutcomes torescue it."
+  },
+  "source_caveats": "Historical release-time/currentrevision assumptions,unknowntradingflags and depth,unconfirmedbrokerfees,and222retained volume/amount taildifferences remain explicit. RawgoldOHLCmatched9816cells. Grosspass or conditionalaccountpass doesnotcertifyexecution or authorizepromotion.",
+  "implementation": "Extend the existing tested annual_allocation numerical engine with an explicit rawopen fill basis while retaining priorclose sizing and close risk marks; preserve defaultclose behavior. Reuse continuousaccount accounting and existingannual uncertainty conventions. Test synthetic causality and no episode reset before execution.",
+  "required_before_execution": [
+    "Bind exact goldOHLC/sharevolume/calendar/zeroaction authorities and gross/cadence proof chain",
+    "Implement and test rawopen fills,priorclose sizing,continuousepisodes,max252exit,stops,trimexpiry,fees and terminal",
+    "Freeze code/input/runtime hashes,commit and obtain exact one-use project admission before netaccountcalculation"
+  ],
+  "account_execution_allowed_now": false,
+  "general_factor_batch_allowed": false,
+  "paper_promotion_allowed": false,
+  "final_holdout_allowed": false,
+  "live_boundary_allowed": false
+}

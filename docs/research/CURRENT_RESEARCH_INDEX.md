@@ -9,15 +9,19 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
-Current result count: ten return studies and three source-cadence screens in the CNY10000continuation,
+Current result count: eleven return studies and three source-cadence screens in the CNY10000continuation,
 zero qualified net-positive-EV strategies and zero new real forward days. Earlier archived studies remain
 separate consumed evidence.
 
-Latest candidate decision: [currency/gold cadence](cn_etf_currency_gold_cadence_2026-09-22.md) passes.
-40full quarters contain20selected quarters and10episodes;16later quarters contain7selected quarters and5new entries.
-All six criteria pass. Separate Fraction/calendar reconciliation checks2434daily states,189pins and7protocols.
-The [one-use gross study](cn_etf_currency_gold_gross_2026-09-22.md) now has exact admission under the unchanged
-proposal. No new candidate returns have yet been calculated; no account or promotion permission is implied.
+Latest candidate decision: [currency/gold gross diagnostic](cn_etf_currency_gold_gross_2026-09-22.md) passes
+its frozen four necessary gross checks.20selected quarters across10episodes have13positive quarters(65%)
+and3.11255%mean gross return;7later selected quarters across5episodes are all positive,mean3.77209%.
+The session-matched D is1.03731bp/day with4quarter-block95%interval[0.0211501,1.98431]bp/day;
+its lower bound is close to zero and unadjusted for multiple testing. This is gross exploratory evidence,
+not net trade win rate, untouched OOS, or qualification.39related synthetic tests pass; a separate scalar
+oracle reconciles9816original goldOHLCcells,40quarterreturns,5000draws,348pins and7protocols.
+The preceding source-only [cadence screen](cn_etf_currency_gold_cadence_2026-09-22.md) also passed.
+Next:freeze and admit the full CNY10000account with unchanged fees and risk limits before its outcomes.
 
 Preceding candidate decision: [credit premium cadence](cn_etf_credit_premium_cadence_2026-09-22.md).
 The fixed44-quarter screen has18selected quarters and8continuous episodes; the later16quarters have
@@ -42,8 +46,8 @@ from2013Q3to2023Q3now have conditional H.10China quotes under the unchanged14cal
 selected source ages span4..10days. One observed2017markup change was repaired with a regression test;
 the15already-fetched originals were retained and only24unrequested URLscontinued,with zero networkretries.
 20synthetic tests and separate BeautifulSoup/calendar extraction reconcile all cells,endpoints,166pins
-and7frozen protocols. The subsequent count screen has now passed; no new candidate ETFreturns yet computed.
-Next:run the separately frozen one-use gross diagnostic. Archive revisions and historical release timing stay
+and7frozen protocols. The subsequent count and gross screens have now passed under separate one-use admissions.
+Next:full same-capital account preparation; no net account executed yet. Archive revisions and historical release timing stay
 conditional;source success is no netEV or promotion evidence.
 
 Preceding source preparation: [same-tenor credit premium](cn_etf_credit_premium_proposal_2026-09-22.md).

@@ -2243,19 +2243,38 @@
     "next_stage": "One separately registered frozen gross diagnostic; no net-account promotion."
   },
   "currency_gold_diagnostic_decision": {
-    "status": "authorized_once",
+    "status": "consumed_fixed_currency_gold_gross_passed",
     "registration_id": "36ee27926f29b3820d81ef14a621026fe834992392e2682f7fcbf3e2d4aa35b6",
     "registration_path": "data/reports/positive_ev_20260922/currency_gold_diagnostic/registration.json",
     "registration_sha256": "360dbb6de23fd47832eff2c41b031874a3e2a406d139910a811466fe01b06adb",
     "max_executions": 1,
-    "execution_count": 0,
+    "execution_count": 1,
     "allowed_stage": "single_currency_gold_gross_diagnostic",
     "ledger_path": "data/reports/positive_ev_20260922/currency_gold_diagnostic/attempt_claim.json",
-    "conditional_gross_only": true,
+    "conditional_gross_only": false,
     "general_factor_batch_allowed": false,
     "net_account_allowed": false,
     "promotion_allowed": false,
     "final_holdout_allowed": false,
-    "live_boundary_allowed": false
+    "live_boundary_allowed": false,
+    "gross_screen_passed": true,
+    "result": {
+      "path": "data/reports/positive_ev_20260922/currency_gold_diagnostic/result.json",
+      "sha256": "4962916543ee25e9f6f4de50fe9f1d35cddf3a5e4889b01c198635731c9c8ec8"
+    },
+    "outcome": {
+      "path": "data/reports/positive_ev_20260922/currency_gold_diagnostic/outcome.json",
+      "sha256": "3a9e5f7a2a046fecb5484afc0febce32a1f4d6ca94553e4b5515a595a02660cd"
+    },
+    "verification": {
+      "path": "data/reports/positive_ev_20260922/currency_gold_diagnostic/verification.json",
+      "sha256": "665e4ec758bc76ca75d8c8760e3cbf295848642de8292e357116d6deea24f6a4"
+    },
+    "total_return_studies": 11,
+    "total_source_cadence_screens": 3,
+    "net_positive_EV_verified": false,
+    "qualified_strategies": 0,
+    "new_forward_days": 0,
+    "next_stage": "Freeze the full same-capital account and exact source/code admission before running it; no gross rerun."
   }
 }
