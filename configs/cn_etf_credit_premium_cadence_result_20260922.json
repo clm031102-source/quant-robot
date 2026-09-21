@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "study_id": "domestic_aaa_credit_premium_quarterly_v1",
+  "stage": "consumed_source_cadence_closed_before_financial_outcomes",
+  "capital_CNY": 10000,
+  "all_in_position_cap_CNY": 1000,
+  "frozen_code_commit": "f712e085",
+  "document": "docs/research/cn_etf_credit_premium_cadence_2026-09-22.md",
+  "registration": {
+    "path": "data/reports/positive_ev_20260922/credit_premium_cadence/registration.json",
+    "sha256": "e1329677df76cd84f955716f5185d0d6a022338350373f694e2cb2932960532f"
+  },
+  "claim": {
+    "path": "data/reports/positive_ev_20260922/credit_premium_cadence/attempt_claim.json",
+    "sha256": "eda018ae465dc39c411298a510c4a38d23a0d5b0fda1d81f01b36d4d118c6651"
+  },
+  "result": {
+    "path": "data/reports/positive_ev_20260922/credit_premium_cadence/result.json",
+    "sha256": "eb9ba81aac2c5b296da4aab4aabcb5c6432a65482bea4dc1ba86a646fa8302d5"
+  },
+  "outcome": {
+    "path": "data/reports/positive_ev_20260922/credit_premium_cadence/outcome.json",
+    "sha256": "9b078cee6f79174eaa0fc0f3add8df20f22bcabca7d695e30d5de38315939cfd"
+  },
+  "verification": {
+    "path": "data/reports/positive_ev_20260922/credit_premium_cadence/verification.json",
+    "sha256": "95ead23068f010d9d89da6db7f6cbcc58bf0abfe459694ae284ac3121d595d8a"
+  },
+  "full_screen": {
+    "carry_in_episodes": 0,
+    "interval_session_max": 66,
+    "interval_session_min": 56,
+    "intervals": 44,
+    "known_cash_intervals": 22,
+    "known_cash_sessions": 1349,
+    "new_selected_episodes": 8,
+    "selected_episodes": 8,
+    "selected_intervals": 18,
+    "selected_sessions": 1080,
+    "total_sessions": 2672,
+    "unknown_intervals": 4,
+    "unknown_sessions": 243
+  },
+  "later_screen": {
+    "carry_in_episodes": 0,
+    "interval_session_max": 66,
+    "interval_session_min": 58,
+    "intervals": 16,
+    "known_cash_intervals": 7,
+    "known_cash_sessions": 428,
+    "new_selected_episodes": 3,
+    "selected_episodes": 3,
+    "selected_intervals": 5,
+    "selected_sessions": 299,
+    "total_sessions": 970,
+    "unknown_intervals": 4,
+    "unknown_sessions": 243
+  },
+  "checks": {
+    "full_known_cash": true,
+    "full_selected_episodes": true,
+    "full_selected_intervals": true,
+    "later_known_cash": true,
+    "later_new_selected_episodes": true,
+    "later_selected_intervals": false
+  },
+  "passed": false,
+  "failed_checks": [
+    "later_selected_intervals"
+  ],
+  "unknown_source_month": "2020-01",
+  "unknown_quarter_entries": [
+    "2020-04-01",
+    "2020-07-01",
+    "2020-10-09",
+    "2021-01-04"
+  ],
+  "selected_episodes_are_not_independent_random_trials": true,
+  "historical_vintage_certified": false,
+  "historical_release_clock_certified": false,
+  "later_slice_is_untouched_OOS": false,
+  "ETF_outcomes_read": false,
+  "returns_computed": false,
+  "net_positive_EV_verified": false,
+  "new_return_studies": 0,
+  "total_return_studies_current_mandate": 10,
+  "new_source_cadence_screens": 1,
+  "total_source_cadence_screens": 2,
+  "qualified_strategies": 0,
+  "new_real_forward_days": 0,
+  "synthetic_tests_passed": 50,
+  "pinned_files_checked": 95,
+  "protocols_checked": 7,
+  "daily_states_reconciled": 2672,
+  "same_researcher_separate_implementation": true,
+  "independent_human_review": false,
+  "rerun_allowed": false,
+  "financial_execution_allowed": false,
+  "general_factor_batch_allowed": false,
+  "net_account_allowed": false,
+  "paper_promotion_allowed": false,
+  "final_holdout_allowed": false,
+  "live_boundary_allowed": false,
+  "interpretation": "Insufficient predeclared later observations; this source-only rejection estimates neither positive nor negativeEV and provides no win rate. A count miss is not permission to relax criteria after seeing states.",
+  "next": "Close this fixed AAA1Yminusgovernment1Y hypothesis: five later selected quarters fail the frozen minimum of six. No ETF outcome join, parameter/sample/threshold/unknown-month/fee/risk rescue or rerun. Continue a distinct economically justified mechanism under the standingCNY10000mandate; general batches, promotion, holdout and live execution stay disabled."
+}
