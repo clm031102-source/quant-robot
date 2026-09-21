@@ -5,22 +5,52 @@
   "status": "source_review_only_no_returns",
   "basis": "The fixed2024-06-28probe retained the official159001PCF XML and matching dated JSON. Examine three prespecified earlier dates before committing to a full archive, and one contract-title catalog to locate the unresolved payment revision. This does not reopen consumed market studies.",
   "PCF_dates": [
-    {"date": "2015-01-05", "basis": "First trading session in the first complete calendar year following2014ETF conversion."},
-    {"date": "2019-10-21", "basis": "Effective date in the retained settlement revision."},
-    {"date": "2023-06-05", "basis": "Explicit contract-update date in the retained2023prospectus."}
+    {
+      "date": "2015-01-05",
+      "basis": "First trading session in the first complete calendar year following2014ETF conversion."
+    },
+    {
+      "date": "2019-10-21",
+      "basis": "Effective date in the retained settlement revision."
+    },
+    {
+      "date": "2023-06-05",
+      "basis": "Explicit contract-update date in the retained2023prospectus."
+    }
   ],
   "PCF_link_endpoint": "https://api.efunds.com.cn/xcowch/front/etffund/downfile",
-  "PCF_fixed_parameters": {"fundCode": "159001", "listType": "ON_SITE"},
+  "PCF_fixed_parameters": {
+    "fundCode": "159001",
+    "listType": "ON_SITE"
+  },
   "original_policy": "Use only each exact-date response's fileName; validate filename and fund/trading-date identity. No substitute dates, inferred archive paths, retries or redirects. Retain unavailable or mismatched points as failures.",
   "contract_catalog": {
     "url": "https://api.efunds.com.cn/xcowch/front/contents",
     "method": "POST",
-    "body": {"siteID": "1", "catalogAlias": "xxplflwj", "title": "基金合同", "fundCode": "159001", "isIncludeTransFund": "Y", "prop1": "2015-01-01,2023-06-05", "pageSize": 100, "pageIndex": 0},
+    "body": {
+      "siteID": "1",
+      "catalogAlias": "xxplflwj,xxpldqgg,xxpllsgg",
+      "title": "基金合同",
+      "fundCode": "159001",
+      "isIncludeTransFund": "Y",
+      "prop1": "2015-01-01,2023-06-05",
+      "pageSize": 100,
+      "pageIndex": 0
+    },
     "selection": "Inspect title/date/link metadata only. Select at most two original contract amendment notices relevant to income payment, before reading their bodies; if only full contracts appear, select oldest dated contract that postdates2015prospectus and the latest before2023prospectus to bracket rules, never select from observed income. No further pages or alternate queries under thisscope."
   },
   "maximum_requests": 9,
-  "request_roles": {"three_fixed_date_PCF_link_queries": 3, "returned_PCF_originals_at_most": 3, "one_contract_catalog": 1, "linked_contract_rule_PDFs_at_most": 2},
-  "allowed_hosts": ["api.efunds.com.cn", "cdn.efunds.com.cn", "www.efunds.com.cn"],
+  "request_roles": {
+    "three_fixed_date_PCF_link_queries": 3,
+    "returned_PCF_originals_at_most": 3,
+    "one_contract_catalog": 1,
+    "linked_contract_rule_PDFs_at_most": 2
+  },
+  "allowed_hosts": [
+    "api.efunds.com.cn",
+    "cdn.efunds.com.cn",
+    "www.efunds.com.cn"
+  ],
   "execution_policy": "VerifiedTLS;publicrequests;exclusiveclaim;noauthentication;30secondtimeout;12MiBcap;noautomaticretryorredirect;sourcecode/metadataextractiononly.",
   "source_only": true,
   "income_series_allowed": false,
