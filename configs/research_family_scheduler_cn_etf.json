@@ -1765,12 +1765,12 @@
     "next": "Review a distinct economic mechanism with viable observation frequency and cost burden. Reuse retained source evidence; do not rescue consumed event hypotheses or read the2026ETFholdout."
   },
   "dividend_style_diagnostic_decision": {
-    "status": "authorized_once",
+    "status": "completed_rejected",
     "registration_id": "43271ee4e6bf233021f37175441a54823e3037e2b65c31e49bbd236538221f01",
     "registration_path": "data/reports/positive_ev_20260921/dividend_style_diagnostic/registration.json",
     "registration_sha256": "bba6299f9643184cb139e3aa4e3db97834d7642f1d45b0e0718684e58ac85137",
     "max_executions": 1,
-    "execution_count": 0,
+    "execution_count": 1,
     "allowed_stage": "single_dividend_style_endpoint_cost_diagnostic",
     "ledger_path": "data/reports/positive_ev_20260921/dividend_style_diagnostic/attempt_claim.json",
     "conditional_endpoint_cost_only": true,
@@ -1778,6 +1778,43 @@
     "net_account_allowed": false,
     "promotion_allowed": false,
     "final_holdout_allowed": false,
-    "live_boundary_allowed": false
+    "live_boundary_allowed": false,
+    "result_path": "data/reports/positive_ev_20260921/dividend_style_diagnostic/result.json",
+    "result_sha256": "89bfd4a45688994f07d94a323004fb7701e0b204b723de54a782ccdc5736f1a2"
+  },
+  "dividend_style_diagnostic_result": {
+    "date": "2026-09-21",
+    "study_id": "fixed_dividend_style_annual_cash_return_v1",
+    "decision": "fixed_endpoint_cost_hypothesis_closed_insufficient_evidence_no_rerun",
+    "full": {
+      "executed": 16,
+      "mean_net_PnL_CNY": 32.743750000000006,
+      "opportunities": 16,
+      "positive": 9,
+      "positive_frequency": 0.5625,
+      "reference_capital_contribution": 0.052390000000000006,
+      "total_net_PnL_CNY": 523.9000000000001
+    },
+    "later_2020_onward": {
+      "executed": 4,
+      "mean_net_PnL_CNY": 27.950000000000003,
+      "opportunities": 4,
+      "positive": 3,
+      "positive_frequency": 0.75,
+      "reference_capital_contribution": 0.01118,
+      "total_net_PnL_CNY": 111.80000000000001
+    },
+    "bootstrap_mean_PnL_CNY_2_5_97_5": [
+      -66.35671874999998,
+      130.91156249999992
+    ],
+    "failed_checks": [
+      "block_lower_positive"
+    ],
+    "negative_population_EV_proven": false,
+    "net_positive_EV_verified": false,
+    "net_account_run": false,
+    "rerun_allowed": false,
+    "next": "Review a distinct economic mechanism; six consumed hypotheses remain closed. Retained source material is reusable, not rerun authority."
   }
 }
