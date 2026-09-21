@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "study_id": "announced_USD_export_growth_acceleration_quarterly_v1",
+  "stage": "economic_proposal_source_pilot_only",
+  "capital_CNY": 10000,
+  "economic_hypothesis": "Improvement in announced nominal USD export growth relative to the same quarter of the prior year can indicate sustained external revenue conditions. The falsifiable conjecture is that gradual transmission through production, earnings revisions and domestic financing leaves positive broad-equity timing information after publication. This is an original noncausal predictive proxy, not a literature replication. Immediate pricing, import costs, base effects, currency conversion, lower required risk compensation and the mismatch between customs exporters and CSI300 firms can invalidate it.",
+  "distinct_from_previous_work": "Uses reported cross-border goods export information, not domestic electricity consumption, manufacturing survey proportions, fiscal spending, interest-rate spreads, IPO issuance, or ETF price/volume. Shared business-cycle exposures and previously seen ETF outcomes preclude a claim of statistical independence. No consumed experiment is reopened.",
+  "source": {
+    "publisher": "General Administration of Customs of China; a dated official government or ministry reproduction explicitly attributed to GACC may qualify, with its own later carrier date",
+    "field": "Directly reported national goods export year-to-date year-over-year percent growth in nominal USD for Q1, first half, first three quarters or full year",
+    "currency": "USD",
+    "quantity_or_real_revenue_interpretation_allowed": false,
+    "derive_growth_from_different_release_amounts_allowed": false,
+    "substitute_CNY_growth_or_month_only_growth_allowed": false,
+    "source_history_if_later_admitted": ["2012Q1", "2023Q2"],
+    "planned_reference_quarters": 46,
+    "source_cutoff": "For each reference quarter, the chosen carrier date must be strictly after quarter end and no later than quarter end plus45calendar days. Earliest qualifying release in the later frozen bounded official-source manifest supplies that quarter's printed growth. Do not backdate a government reproduction to an earlier claimed news date.",
+    "ambiguity": "Same-carrier internal numerical, currency or period conflict is unknown. Earliest same-date qualified sources with materially different growth are unknown. Preserve later differing releases as revisions or unresolved versions; do not replace the earlier value retroactively. Do not infer an official correction without evidence.",
+    "historical_vintage": "Current historical pages and carrier date labels are conditional reconstructed evidence. They do not certify historical immutability or original first-publication time. A later exact manifest must pin every accepted original or explicitly distinguish a retained web-tool rendering from source bytes.",
+    "prior_year_input": "Use the prior year's same reference quarter's own selected release value, not the revised prior-year base embedded in the current release. This measures a change in two announced growth rates, not exact same-vintage economic acceleration."
+  },
+  "signal": {
+    "comparison": "current quarter's announced USD cumulative export growth strictly exceeds the selected announced growth for the same quarter one year earlier",
+    "selected": "510300.SH",
+    "equal_or_lower": "cash",
+    "missing_or_ambiguous_current_or_prior_year": "unknown/cash",
+    "decision_clock": "First certified mainland ETF exchange-session open strictly after reference calendar-quarter end plus45calendar days. The source carrier date must be at or before the45-day cutoff. No intraday publication assumption or trading at the observation-period opening.",
+    "parameter_search_allowed": false,
+    "reason_for_frequency_and_lag": "Quarterly updates allow persistent states and account-cost discipline;45calendar days conservatively allow a full following month and two additional weeks for release rather than trading the headline instant. The same-quarter annual comparison reduces calendar-period composition differences. These are fixed original design choices, not optimized parameters."
+  },
+  "proposed_fixed_diagnostic": {
+    "decision_reference_quarters": ["2013Q1", "2023Q2"],
+    "planned_nonoverlapping_intervals": 42,
+    "terminal_anchor": "First exchange-session open strictly after2023Q3end plus45calendar days; no2023Q3signal is required at this terminal exit",
+    "later_slice_reference_start": "2020Q1",
+    "planned_later_intervals": 14,
+    "date_scope_reason": "Starts with the first complete calendar year after510300inception and ends at the last full quarterly anchor interval wholly covered by the previously retained pre2024price authority. Previously seen overlapping outcomes remain exposed.",
+    "return": "Raw ETF open-to-open return plus declared cash dividends whose record-date entitlement is earned during the interval; no reinvestment. Exact retained price, calendar and distribution pins and event conventions must be frozen before actual financial execution.",
+    "primary_effect": "D=sum((z-zbar)*log1p(interval_gross_return))/sum(interval_sessions), where z=1selected or0cash/unknown and zbar=sum(z*interval_sessions)/sum(interval_sessions). Keep all42quarters and all their market returns in the unconditional comparator and time denominator.",
+    "uncertainty": "5000 paired circular-block resamples of4consecutive quarterly intervals, seed20260922, linear2.5th/97.5th percentiles; recalculate exposure and D in each draw. No other horizon or block length search.",
+    "necessary_screen": {
+      "minimum_full_selected_intervals": 16,
+      "minimum_full_selected_episodes": 6,
+      "minimum_later_selected_intervals": 6,
+      "minimum_later_selected_episodes": 3,
+      "both_slices_require_known_selected_and_known_unselected": true,
+      "full_selected_mean_above_zero": true,
+      "later_selected_mean_above_zero": true,
+      "later_effect_above_zero": true,
+      "full_effect_95pct_interval_lower_above_zero": true
+    },
+    "episode": "Maximal run of adjacent selected quarters. The later slice must identify any carried-in episode instead of presenting it as a new entry.",
+    "win_rate": "Report positive gross interval frequency descriptively, without calling it net completed-trade win rate. Any future net account must report actual full holding-episode win rate, losses, costs and cash utilization.",
+    "stop_rule": "At most one exact economic diagnostic can be admitted later. Necessary-screen failure closes this hypothesis; no reverse sign, alternative currency, growth denominator, release version, cutoff, horizon, date-sample or risk-policy rescue. A pass only permits separate frozen full-account review, never direct paper promotion or a positive-EV claim.",
+    "outcome_exposure": "2013..2023ETFhistory overlaps prior studies and is already seen; the later slice is a chronological stability check, not untouched out-of-sample evidence. Local2026ETFoutcomes stay sealed, and new independent validation is still required."
+  },
+  "account_requirements": {
+    "config": "configs/cn_etf_research_account.json",
+    "max_single_position_all_in_CNY": 1000,
+    "primary_minimum_fee_CNY_per_leg": 5,
+    "primary_slippage_bps_per_side": 10,
+    "actual_broker_fees_confirmed": false,
+    "gross_diagnostic_is_net_account_test": false,
+    "continuous_selected_quarters_force_roundtrips": false,
+    "risk_rules_relaxed": false,
+    "full_account_contract_frozen": false
+  },
+  "pilot": {
+    "reference_periods": ["2012Q1", "2013Q1", "2022Q2", "2023Q2"],
+    "purpose": "Check early and late official-release format, national nominal USD cumulative growth identity and carrier-date eligibility; do not calculate acceleration states or ETF returns.",
+    "max_search_queries": 4,
+    "max_web_opens": 4,
+    "max_raw_original_requests": 4,
+    "max_bytes_per_response": 5000000,
+    "raw_retries": 0,
+    "automatic_redirects": false,
+    "missing_pilot_replacement_period_allowed": false,
+    "known_prior_source_exposure": "Prior review saw2022and2023January-February values, other2026search snippets, and IMF methodology; this is not a wholly blind context. The selected pilot periods are fixed for endpoint-format coverage, not based on newETFoutcomes."
+  },
+  "authorization": {
+    "source_pilot_only": true,
+    "full_history_collection_allowed": false,
+    "signal_generation_allowed": false,
+    "financial_execution_allowed": false,
+    "general_factor_batch_allowed": false,
+    "paper_promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
+  }
+}
