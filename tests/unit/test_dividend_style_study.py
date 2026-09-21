@@ -28,6 +28,8 @@ class DividendStyleStudyTests(unittest.TestCase):
         proposal=json.loads((REPO/study.PROPOSAL).read_bytes())
         for role in ('original_proposal','source_ledger'):
             proposal[role]=self.inputs[role]
+        for row in proposal['source_scope']['retained_raw_crosschecks']:
+            row['snapshot']=self.inputs[f"raw_crosscheck_{row['date'][:4]}"]
         raw_proposal=canonical(proposal)
         override=patch.object(study,'PROPOSAL_SHA256',sha256(raw_proposal));override.start();self.addCleanup(override.stop)
         put('proposal', raw_proposal, study.PROPOSAL)

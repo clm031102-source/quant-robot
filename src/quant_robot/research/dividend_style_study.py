@@ -100,6 +100,9 @@ def preflight(root,scheduler,gate_supplier):
         raise ValueError('Source identities differ from frozen proposal')
     receipt=json.loads(snapshots['price_receipt']); claim=json.loads(snapshots['price_claim'])
     price_scope=proposal['source_scope']
+    if any(r['snapshot']!=packet['inputs'][f"raw_crosscheck_{r['date'][:4]}"]
+           for r in price_scope['retained_raw_crosschecks']):
+        raise ValueError('Frozen raw price crosscheck identity differs')
     if (receipt.get('status')!='retained_current_source_version' or receipt.get('http_status')!=200
             or receipt.get('sha256')!=sha256(snapshots['dividend_prices'])
             or receipt.get('bytes')!=len(snapshots['dividend_prices'])
