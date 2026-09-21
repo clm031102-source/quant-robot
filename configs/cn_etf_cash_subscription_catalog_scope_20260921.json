@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "proposal_id": "money_ETF_cash_subscription_carry_source_review_v1",
+  "stage": "bounded_source_endpoint_discovery",
+  "reason": "Contract supports small cash subscription but requires datedPCF and a historical payment-rule revision. Search did not identify a stable dated source endpoint.",
+  "maximum_new_requests": 7,
+  "first_page": "https://www.efunds.com.cn/fund/159001.shtml",
+  "first_page_basis": "Fundcode substituted into official fund URL pattern observed for000009; route identity must be checked; no fallback URL guessing.",
+  "request_roles": {
+    "fund_page_HTML": 1,
+    "relevant_linked_javascript_at_most": 3,
+    "official_metadata_query_at_most": 1,
+    "linked_payment_rule_PDF_at_most": 2
+  },
+  "allowed_public_hosts": [
+    "www.efunds.com.cn",
+    "cdn.efunds.com.cn"
+  ],
+  "parsing": "Extract only title, product identity, script URLs, PCF and dated-contract links/call definitions. Do not extract quote, NAV, income, performance values or issue unbounded latest-data requests.",
+  "cutoff": "Historical catalog/PCF identities2015-01-01..2024-06-28 only.2026contracts permitted only for terms, not income.",
+  "policy": "HTTPS GET or official read-only metadataPOST;TLSverified;noautomaticredirect/retry;exclusiveclaim;30seconds;12MiBcap.",
+  "returns_allowed": false,
+  "study_execution_allowed": false,
+  "general_batch_allowed": false,
+  "live_boundary_allowed": false
+}
