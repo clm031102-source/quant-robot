@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "study_id": "announced_USD_export_growth_acceleration_quarterly_v1",
+  "status": "bounded_source_review_complete_insufficient_coverage",
+  "proposal": {
+    "path": "configs/cn_etf_export_acceleration_proposal_20260922.json",
+    "sha256": "6f11a83368849eca729d12fb8b862d0708ca0a23a5cdd1a421bf9e4d261e59a6",
+    "commit": "abef4f0bec17a6b544cb0afac53bd0e5753b8c83"
+  },
+  "history_scope": {
+    "path": "configs/cn_etf_export_acceleration_history_scope_20260922.json",
+    "sha256": "f7f38a4b29e29d3eed44f0529f811b9f72200e0e574ac6bebf567a56e1b35924",
+    "bytes": 18075
+  },
+  "source_manifest": {
+    "path": "data/reports/positive_ev_20260921/export_acceleration_history_20260922/source_manifest.json",
+    "sha256": "2dac9015cc86a1be3dce4acab5eb332af5db33f1376f224c396386c4e8b06793",
+    "bytes": 18205
+  },
+  "source_verification": {
+    "path": "data/reports/positive_ev_20260921/export_acceleration_history_20260922/source_verification.json",
+    "sha256": "6bca529acfb5601495bdd06399d8ac3fe98a389b82dae22412a6c7df98ee30ca",
+    "bytes": 79159
+  },
+  "coverage": {
+    "reference_slots": 46,
+    "eligible_reference_slots": 12,
+    "unknown_reference_slots": 34,
+    "eligible_decision_current_slots_upper_bound": 9,
+    "eligible_later_current_slots_upper_bound": 2,
+    "required_full_selected_intervals": 16,
+    "required_later_selected_intervals": 6
+  },
+  "collection_counts": {
+    "search_queries": 77,
+    "web_opens": 14,
+    "raw_attempts": 51,
+    "raw_statuses": {
+      "200": 34,
+      "ConnectionError": 8,
+      "403": 3,
+      "ConnectTimeout": 3,
+      "SSLError": 2,
+      "301": 1
+    },
+    "retained_body_bytes": 8504483,
+    "automatic_redirects": 0,
+    "automatic_retries": 0,
+    "same_URL_raw_retries": 0
+  },
+  "transport_count_scope": "The zero automatic redirects/retries and zero same-URL retries refer to the51raw HTTP attempts only. Web-tool internal transport is not independently observable; its14logical opens are retained separately.",
+  "decision": "Do not admit a financial diagnostic on this corpus: even treating every eligible current-period value as potentially selected yields at most9full/2later observations, below16/6. This is a source sufficiency bound, not an observed signal result or economic rejection. Freeze this bounded search and do not repeat the same queries or rescue with other currencies, periods, inferred attribution or unverified clocks. Reconsider only genuinely new primary publication/version evidence under a separately scoped source decision.",
+  "capital_CNY": 10000,
+  "total_economic_experiments": 10,
+  "qualified_strategies": 0,
+  "authorization": {
+    "further_same_manifest_search_allowed": false,
+    "signal_generation_allowed": false,
+    "financial_execution_allowed": false,
+    "paper_promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
+  }
+}
