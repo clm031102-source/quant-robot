@@ -1880,5 +1880,59 @@
     "primary_mean_modeled_net_PnL_CNY": 7.653984111111111,
     "later_mean_modeled_net_PnL_CNY": 2.586812,
     "next": "Retain as conditional cash-management benchmark. Annual economic evidence is complete; no repeat, fee selection or threshold rescue. Continue distinct economic-factor research and new execution/forward evidence without replacing the original profit mandate."
+  },
+  "equity_gold_account_decision": {
+    "status": "consumed_fixed_account_hypothesis_closed",
+    "registration_id": "3b1bca375416f3fd5dc14cfb1c134ca3e5313a80227a85b16fa26f7b32d78b1d",
+    "registration_path": "data/reports/positive_ev_20260921/equity_gold_account/registration.json",
+    "registration_sha256": "2dda9923b94fa039de3d91f7778c03d290c9744fdcaaae65f891bf88ce1c2b39",
+    "max_executions": 1,
+    "execution_count": 1,
+    "allowed_stage": "single_equity_gold_conditional_historical_account",
+    "ledger_path": "data/reports/positive_ev_20260921/equity_gold_account/attempt_claim.json",
+    "conditional_historical_account_allowed": false,
+    "general_factor_batch_allowed": false,
+    "general_account_runs_allowed": false,
+    "forward_paper_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false,
+    "result": {
+      "path": "data/reports/positive_ev_20260921/equity_gold_account/result.json",
+      "sha256": "1b805985e70177364521c80d9c3429cc0ec3d082627f4f81418594eea2c35066"
+    },
+    "outcome": {
+      "path": "data/reports/positive_ev_20260921/equity_gold_account/outcome.json",
+      "sha256": "b3dcd5cc57d2dd4a2b0c6c05fd75aeb53044db6006f385a5e2e914e5086655bd"
+    },
+    "independent_verification": {
+      "path": "data/reports/positive_ev_20260921/equity_gold_account/independent_verification.json",
+      "sha256": "42c39524acb802aa2c175599d3a91f40f393c547c3dafb8f0e086ff9ad758f65"
+    },
+    "conditional_financial_screen_passed": false,
+    "net_positive_EV_verified": false,
+    "qualified_strategies": 0,
+    "new_forward_paper_days": 0,
+    "net_account_run": true,
+    "rerun_allowed": false,
+    "scenario_accounts": 27,
+    "primary_net_PnL_CNY": 491.1,
+    "primary_completed_positions": 4,
+    "primary_positive_completed_positions": 2,
+    "primary_maximum_daily_loss_CNY": 61.6,
+    "primary_entry_halt_date": "2015-07-08",
+    "primary_later_net_contribution_CNY": 0,
+    "primary_block_mean_annual_PnL_CNY_2_5_97_5": [
+      0,
+      134.68
+    ],
+    "failed_financial_checks": [
+      "at_least_eight_paired_years",
+      "at_least_six_positive_years",
+      "at_least_three_later_paired_years",
+      "block_lower_positive",
+      "later_net_contribution_positive"
+    ],
+    "next": "Preserve this fixed equity/gold hypothesis as completed and rejected. Do not change capital, risk limits, restart policy, annual dates, allocations, assets or costs to rescue observed results. Standalone comparators are descriptive, not newly validated winners. Continue distinct-mechanism review using reusable sources; general batch, holdout, paper promotion and live execution remain closed."
   }
 }
