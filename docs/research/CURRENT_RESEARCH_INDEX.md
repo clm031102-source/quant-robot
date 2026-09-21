@@ -9,24 +9,23 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
-Current source work: [electricity activity and repurchase review](cn_etf_real_activity_source_review_2026-09-22.md).
-The domestic proxy and economic contract are fixed: printed monthly secondary-sector electricity YoY
-below its prior36valid-observation median,2017..2023decisions,2013..2023source history, conservative
-publication timing and62-day expiration. No sign/window/sample search or new financial execution.
-Eight definition originals verify February monthly/YTD separation and the2018classification adjustment.
-The corpus now contains186official releases and17supplemental table originals. All131months are
-listed:108conditional observations,23unavailable. January/December omissions and2022November/2023May
-are explicit; a contemporary newspaper witness is excluded from the frozen NEA-original input authority.
-One real later-release difference remains:2017July9.8in the earlier summary versus9.7in the later table.
-The project lead explicitly retains the earlier original under the fixed version rule; this resolves
-selection only, not the unexplained numeric disagreement or historical-vintage uncertainty. Earlier
-zero-conflict output was superseded after correcting a rounding-boundary bug. All16images and both
-Word layouts are reviewed. The exact gross implementation has47related tests passing and a one-use
-registration pinning273inputs and16implementation files. It is admitted but not yet executed;
-no new financial result or local2026ETFholdout access is claimed. Ordinary batch budget remains zero.
-Prior stock buyback variants remain closed; one cumulative disclosure does not establish an ETF aggregate.
+Latest actual test: [electricity activity](cn_etf_real_activity_source_review_2026-09-22.md).
+The fixed2017..2023gross study completed once:76intervals,29selected,17positive(58.62%),
+mean selected gross+1.2358%,8continuous selected episodes. The2021onward slice has13selected,
+5positive(38.46%),mean-0.4678%,3episodes. Full matched-exposure effect is+1.5498bp/session;
+the fixed95%paired12-interval block interval[-0.6711,+4.2558]crosses zero. The lower-bound and
+later-mean requirements fail; no net account or paper promotion follows. The hypothesis is consumed
+and closed without parameter/vintage/missing-month rescue. Nine economic studies are complete;
+zero strategies qualified and zero new real forward days. The standing research mandate remains active.
+Source history comprises186NEAoriginals,17supplemental tables,108conditional monthly observations and
+23explicit unavailable months. One2017July early/later9.8/9.7difference remains; earlier-version selection
+was explicitly reviewed before states, not declared rounding-compatible. The excluded newspaper witness,
+missing months, historical-vintage uncertainty and reusedETFoutcomes remain disclosed. All273input and
+16implementation pins,1701daily states,76full/32later intervals,78price anchors,108cash-adjusted returns,
+5000scalar bootstrap replicates and10screen predicates reconcile with separately written self-audit code.
+47related tests and project/maintainability audits passed. No general factor batch or2026ETFholdout opened.
 
-Latest actual test: [fixed equity plus gold continuous account](cn_etf_equity_gold_review_2026-09-21.md).
+Preceding actual test: [fixed equity plus gold continuous account](cn_etf_equity_gold_review_2026-09-21.md).
 The fixed2014..2023study completed once, with terminal settlement on2024-01-02, across9cost scenarios
 and3asset combinations. Main5CNYminimum/10bpslippage paired-account net profit is491.10CNY on
 10000CNYinitial capital, with65CNYfees and13modeled fills. Four completed asset positions have
@@ -41,7 +40,7 @@ causality: omitted entries/rejections, full event constraints, scenario identiti
 and all seven screen predicates are not independently asserted by that ledger verifier.
 62related tests passed before execution.24source requests remain
 consumed. The exact hypothesis is closed, with no risk-limit, asset, cost or restart-policy rescue.
-Eight economic studies are complete; zero strategies qualified and zero forward paper days.
+At that checkpoint eight studies were complete; none qualified and no forward paper days were added.
 Standalone gold is an exposed descriptive comparator, not an independently validated winner.
 
 Preceding actual test: [money ETF annual primary cash carry](cn_etf_cash_subscription_review_2026-09-21.md).
