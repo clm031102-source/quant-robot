@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "study_id": "domestic_sovereign_10y_1y_slope_quarterly_v1",
+  "stage": "historical_source_ready_for_conditional_falsification_not_financially_admitted",
+  "capital_CNY": 10000,
+  "max_single_position_all_in_CNY": 1000,
+  "document": "docs/research/cn_etf_term_structure_source_review_2026-09-22.md",
+  "economic_proposal": {
+    "path": "configs/cn_etf_term_structure_proposal_20260922.json",
+    "sha256": "1a28e483354fe9254283a0a20ba4c0284574031638a0ad8989226d5f6e469ebe",
+    "bytes": 6297
+  },
+  "corpus_scope": {
+    "path": "configs/cn_etf_term_structure_source_scope_20260922.json",
+    "sha256": "74d39c450faf35b3d9a8b34d9cf03f92734fb597f8123531c933821cb9a331f3",
+    "bytes": 7713
+  },
+  "corpus_review": {
+    "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/corpus_review.json",
+    "sha256": "2d5803a67ea6fa6ff04fb8bfe8868c85ec9712920c2484644cc28635747c863c",
+    "bytes": 1213320
+  },
+  "second_implementation_verification": {
+    "path": "data/reports/positive_ev_20260921/term_structure_review_20260922/corpus_independent_verification.json",
+    "sha256": "8453345d6e53289985752b7cb7738f2617fa8257bb01a959c982867c43dc6eff",
+    "bytes": 17230
+  },
+  "reused_sources": [
+    {
+      "path": "F:/lhjqr/data/reports/etf_monetization_20260911/dividend_yield_mechanism_20260914/welch_goyal_2008.pdf",
+      "sha256": "57ad3636290682b93dc52a2baabc9440d84ed76b2736a08a8ba7a014c6df5b7b",
+      "bytes": 1087972
+    },
+    {
+      "path": "F:/lhjqr/data/reports/etf_monetization_20260911/low_turnover_source_review_20260913/mof_curve_methodology.pdf",
+      "sha256": "79e1d75b7481901d2ce5418d9a2968120fc58c70299d9300db6a1f0a46fdc118",
+      "bytes": 79700
+    },
+    {
+      "path": "F:/lhjqr/data/reports/etf_monetization_20260911/credit_spread_review_20260914/history_form.html",
+      "sha256": "80ed1f2ac4bdc886056f591e6b8eae4027817673cd41f6bbf04331346ac71eb7",
+      "bytes": 6572
+    },
+    {
+      "path": "F:/lhjqr/data/reports/chinabond_forward_observations/2026-09-21/response.html",
+      "sha256": "f09f193a0519026d02eef6e65c04ed3e27c3704efe90a8b437475eca38d44008",
+      "bytes": 13544
+    }
+  ],
+  "source_coverage": {
+    "original_responses": 15,
+    "raw_bytes": 1070088,
+    "unique_rows": 2961,
+    "weekend_dated_rows_retained": 83,
+    "months": 142,
+    "conditional_months": 141,
+    "unknown_months": [
+      "2020-01"
+    ],
+    "unknown_reason": "Last January2020row is2020-01-23,8calendar days before month end. Preserve the pre-pilot maximum7day rule.",
+    "source_request_range": [
+      "2011-12-01",
+      "2023-09-30"
+    ],
+    "curve_id": "hzsylqx",
+    "tenors_years": [
+      1,
+      10
+    ],
+    "source_dates_are_ETF_sessions": false,
+    "historical_vintage_certified": false,
+    "historical_release_clock_certified": false
+  },
+  "scope_consumption": {
+    "search_queries": 6,
+    "web_opens": 4,
+    "raw_pilot_requests": 2,
+    "new_nonoverlapping_corpus_requests": 13,
+    "raw_retries": 0,
+    "PDF_downloads": 0,
+    "reused_PDF_pages_visually_reviewed": 4
+  },
+  "validation": {
+    "new_source_tests": 13,
+    "unchanged_current_source_regression_tests": 10,
+    "all_passed": true,
+    "same_researcher_second_implementation": true,
+    "independent_human_audit": false
+  },
+  "exposure": {
+    "reused_prior_ETF_outcome_context": true,
+    "current2026curve_and_search_snippets_seen": true,
+    "spreads_calculated": false,
+    "signals_generated": false,
+    "ETF_outcomes_read_this_stage": false,
+    "local2026ETF_holdout_read": false
+  },
+  "new_economic_experiments": 0,
+  "total_economic_experiments": 9,
+  "qualified_strategies": 0,
+  "new_real_forward_days": 0,
+  "financial_execution_allowed": false,
+  "general_factor_batch_allowed": false,
+  "paper_promotion_allowed": false,
+  "final_holdout_allowed": false,
+  "live_boundary_allowed": false,
+  "next": "Freeze exactETFprice, calendar and cash-action inputs, implement and synthetically validate the unchanged44quarter gross diagnostic, then admit at most one conditional test. Preserve the unknown month and reused-outcome limitations. No user reauthorization is pending; no general grid is admitted."
+}
