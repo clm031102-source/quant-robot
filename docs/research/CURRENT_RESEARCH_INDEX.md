@@ -9,12 +9,17 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
-Latest actual test: [50ETF option relative activity](cn_etf_option_relative_activity_review_2026-09-21.md).
-Official counts qualified across 1087 sessions and 54 months. The separately registered
-52-interval gross diagnostic failed: 16 selected months, 43.75% positive intervals,
--0.1009% mean selected gross return, and an insignificant rank correlation. Its one-use
-authorization is consumed; no net account or paper promotion followed. The ongoing
-project mandate remains active for economically independent hypotheses.
+Latest actual test: [disclosed-holdings flow breadth](cn_etf_disclosed_flow_bounds_review_2026-09-21.md).
+Seven complete report snapshots now cover the retained 510300 timeline. The 38-month
+conditional diagnostic had three positive-signal months: two positive returns and one
+negative, with +2.7302% mean gross return. It did not qualify: too few selected months
+and the predeclared effect interval crosses zero. Its one-use authorization is consumed;
+no net account or paper promotion followed, and historical input vintages remain unverified.
+The preceding [50ETF option activity test](cn_etf_option_relative_activity_review_2026-09-21.md)
+also remains closed: 16 selected months out of 52, 43.75% positive intervals,
+and -0.1009% mean gross return.
+Neither fixed hypothesis may be rescued by changing its sign, threshold or window.
+Verified net-positive-EV strategies remain zero; the ongoing mandate stays active.
 
 Purpose: this is the first file to read after syncing the repository on any workstation. It records the current cloud structure, which research material has been absorbed into `main`, and how to avoid repeating stale factor-mining directions.
 
