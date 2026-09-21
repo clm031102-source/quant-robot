@@ -30,6 +30,10 @@ are complete and fingerprinted. The continuous10000CNYaccount method is fixed be
 gold daily-price paths: annual entries, actual cash timing, causal trims/risk exits and nine
 cost scenarios. Input binding and account implementation remain next; no eighth outcome test,
 new paper day or qualified strategy is claimed.
+The separate `cn_etf_equity_gold_execution_clarification_20260921.json` resolves trim-order
+cancellation and daily participation after independent review. It was frozen after source-price
+inspection but before account outcomes; the original method is unchanged. It grants no execution
+or paper authority, and current-volume limits are modeled feasibility assumptions.
 
 Preceding actual test: [fixed dividend-style annual exposure](cn_etf_dividend_style_review_2026-09-21.md).
 Sixteen complete2008..2023annual opportunities, each capped at1000CNYall-in, yielded+523.90CNY
