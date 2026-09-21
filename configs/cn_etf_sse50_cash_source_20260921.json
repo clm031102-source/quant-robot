@@ -1,0 +1,65 @@
+{
+  "scope_id": "sse_510050_cash_notices_2020_2024h1_20260921",
+  "purpose": "Qualify four announced cash distributions for conditional historical total returns and one fixed option-activity study; no factor or ETF outcome decoding.",
+  "symbol": "510050.SH",
+  "catalogs": [
+    {
+      "path": "F:\\lhjqr\\data\\reports\\etf_monetization_20260911\\official_core_intervals\\indexes\\sse_510050_2020-01-01_2020-12-31.response",
+      "sha256": "0fdc42d33d3365c1c014c1d45f229e9fd2921b6b9f44c9df782956a8c2227edd",
+      "receipt_path": "F:\\lhjqr\\data\\reports\\etf_monetization_20260911\\official_core_intervals\\indexes\\sse_510050_2020-01-01_2020-12-31.request.json",
+      "receipt_sha256": "115af4c62924435d28b5f5e94a2f60e703b65036e9e5219fabeb15586756cb68"
+    },
+    {
+      "path": "F:\\lhjqr\\data\\reports\\etf_monetization_20260911\\official_core_intervals\\indexes\\sse_510050_2021-01-01_2021-12-31.response",
+      "sha256": "56397126910f664226eee9f94bcee8f8acf4123636195a1f696a35746cb670a7",
+      "receipt_path": "F:\\lhjqr\\data\\reports\\etf_monetization_20260911\\official_core_intervals\\indexes\\sse_510050_2021-01-01_2021-12-31.request.json",
+      "receipt_sha256": "efd51edf28e1913bc4a58f289fe727bb7846e4d179229818861d206ad18eff86"
+    },
+    {
+      "path": "F:\\lhjqr\\data\\reports\\etf_monetization_20260911\\official_core_intervals\\indexes\\sse_510050_2022-01-01_2022-12-31.response",
+      "sha256": "ffdf88e7d3af91c7844a252b11672ea109fde5e732bcd2630249590bf4fd82f7",
+      "receipt_path": "F:\\lhjqr\\data\\reports\\etf_monetization_20260911\\official_core_intervals\\indexes\\sse_510050_2022-01-01_2022-12-31.request.json",
+      "receipt_sha256": "2bc09891771a94176a487c66a6cc4aeaa5e0bf39cfcf9b006b6577854e284737"
+    },
+    {
+      "path": "F:\\lhjqr\\data\\reports\\etf_monetization_20260911\\official_core_intervals\\indexes\\sse_510050_2023-01-01_2023-12-31.response",
+      "sha256": "a80569da22aeeefc1903c3684fc8fa03590820d507f8cad0bc7429eec8b431cb",
+      "receipt_path": "F:\\lhjqr\\data\\reports\\etf_monetization_20260911\\official_core_intervals\\indexes\\sse_510050_2023-01-01_2023-12-31.request.json",
+      "receipt_sha256": "a7512ddb73a66bf82548e42813614262d320d6969a52afc2c8d4d5bd74396786"
+    },
+    {
+      "path": "F:\\lhjqr\\data\\reports\\etf_monetization_20260911\\official_core_intervals\\indexes\\sse_510050_2024-01-01_2024-06-28.response",
+      "sha256": "0c432f6454a97091947c863177188e8187173756433fb778fc04e5971d3b95dc",
+      "receipt_path": "F:\\lhjqr\\data\\reports\\etf_monetization_20260911\\official_core_intervals\\indexes\\sse_510050_2024-01-01_2024-06-28.request.json",
+      "receipt_sha256": "b739bc3ecab4761a615b47211033638c81a7fad32dc17e5310689af9d4aa7107"
+    }
+  ],
+  "documents": [
+    {
+      "url": "https://static.sse.com.cn/disclosure/fund/announcement/c/2020-11-11/510050_20201111_1.pdf",
+      "announced_date": "2020-11-11",
+      "filename": "510050_20201111_1.pdf"
+    },
+    {
+      "url": "https://static.sse.com.cn/disclosure/fund/announcement/c/new/2021-11-22/510050_20211122_1_7Qnnvi3l.pdf",
+      "announced_date": "2021-11-22",
+      "filename": "510050_20211122_1_7Qnnvi3l.pdf"
+    },
+    {
+      "url": "https://static.sse.com.cn/disclosure/fund/announcement/c/new/2022-11-24/510050_20221124_ERVQ.pdf",
+      "announced_date": "2022-11-24",
+      "filename": "510050_20221124_ERVQ.pdf"
+    },
+    {
+      "url": "https://static.sse.com.cn/disclosure/fund/announcement/c/new/2023-11-20/510050_20231120_P91K.pdf",
+      "announced_date": "2023-11-20",
+      "filename": "510050_20231120_P91K.pdf"
+    }
+  ],
+  "max_requests": 4,
+  "retries": 0,
+  "historical_vintage_verified": false,
+  "broker_net_cash_verified": false,
+  "start": "2020-01-01",
+  "end": "2024-06-28"
+}

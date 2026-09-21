@@ -1407,5 +1407,21 @@
     "sign_flip_rescue_allowed": false,
     "window_or_threshold_tuning_allowed": false,
     "next": "Review recoverable position-cap drift separately from loss circuit breakers for sustained operation, on synthetic fixtures only. Keep this fiscal study closed; do not replace it immediately with another scalar macro timing search."
+  },
+  "option_activity_diagnostic_decision": {
+    "status": "authorized_once",
+    "registration_id": "b55524602ddeb7bb8742cf928ef170935c07f481896aaa6926b5efb46fc1c6f0",
+    "registration_path": "data/reports/positive_ev_20260921/option_diagnostic/registration.json",
+    "registration_sha256": "e84071c6954ec36d182f2ea14e6632b3ffbfe3a9c053aecd89ee64d0ac2d0330",
+    "max_executions": 1,
+    "execution_count": 0,
+    "allowed_stage": "single_option_activity_gross_diagnostic",
+    "ledger_path": "data/reports/positive_ev_20260921/option_diagnostic/attempt_claim.json",
+    "conditional_gross_only": true,
+    "general_factor_batch_allowed": false,
+    "net_account_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
   }
 }
