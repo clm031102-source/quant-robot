@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "review_id": "official_gold_reserve_quantity_two_month_pilot_20260922",
+  "status": "bounded_source_review_complete_historical_versions_unresolved",
+  "capital_CNY": 10000,
+  "input_definition": "Official gold reserve quantity reported in 10000 ounces; not USD or SDR valuation, not automatically contemporaneous net purchases or exclusively allocated physical bullion.",
+  "frozen_scope_wording_correction": "The retained pre-search scope used physical monetary-gold holdings. This review narrows the description to reported gold reserve quantity because the retrieved China tables do not certify the instrument breakdown. The original scope bytes are preserved.",
+  "scope": {
+    "path": "data/reports/positive_ev_20260922/gold_reserve_source_review/scope.json",
+    "sha256": "4c2fe6b8a4fb87140af91b6ee7fafeb089bf894b819fda29a0caabbfc5aee6ac",
+    "parent_commit": "2285bb5"
+  },
+  "source_manifest": {
+    "path": "data/reports/positive_ev_20260922/gold_reserve_source_review/source_manifest.json",
+    "sha256": "4633eac6839845754c1ae37d8da090ff81582e91cd5fedf47064ae672fb0ac8b",
+    "bytes": 14389
+  },
+  "source_verification": {
+    "path": "data/reports/positive_ev_20260922/gold_reserve_source_review/source_verification.json",
+    "sha256": "253e66e0c92db292912c686f2ea2771983687c51899504c4a3ba682f3e6c6943",
+    "bytes": 1347,
+    "review_type": "same_researcher_offline_consistency_check"
+  },
+  "pilots": [
+    {
+      "observation_month": "2019-06",
+      "gold_quantity_10000_oz": 6194,
+      "gold_value_100million_USD": "872.68",
+      "gold_value_100million_SDR": "627.73",
+      "current_carrier_pubdate": "2020-01-07",
+      "first_publication_date": null,
+      "first_publication_version_authenticated": false,
+      "table_url": "https://www.safe.gov.cn/safe/2019/0211/11348.html",
+      "table_sha256": "5cb3a323fcbd80068e4c95025261ccd8059298de1f4e6b7472ef130d3ed977f9"
+    },
+    {
+      "observation_month": "2023-06",
+      "gold_quantity_10000_oz": 6795,
+      "gold_value_100million_USD": "1299.34",
+      "gold_value_100million_SDR": "976.89",
+      "current_carrier_pubdate": "2024-01-07",
+      "first_publication_date": null,
+      "first_publication_version_authenticated": false,
+      "table_url": "https://www.safe.gov.cn/safe/2022/0207/20625.html",
+      "table_sha256": "465627fb7f85d5a5559cbe102176864e407aa58350186521ec17fa35800a8938"
+    }
+  ],
+  "accounting_reference": {
+    "url": "https://www.imf.org/external/pubs/ft/bop/2007/pdf/bpm6.pdf",
+    "sha256": "4731d6cf731f3272169170e9fd1a689dcccfdb08db5432b3ccd360bf6ad5973a",
+    "discovery": "known_public_IMF_BPM6_manual_URI",
+    "edition": "BPM6",
+    "paragraphs": ["6.78", "9.18", "9.19", "9.20"],
+    "physical_pages_visually_reviewed": [132, 163, 164],
+    "limitation": "General accounting reference only; not China's instrument decomposition, transaction reconciliation, or evidence of future ETF returns. No assertion that BPM6 is the latest IMF edition."
+  },
+  "collection_counts": {
+    "search_queries": 4,
+    "web_opens": 4,
+    "web_readable_carriers": 2,
+    "web_HTTP_403": 2,
+    "raw_requests": 5,
+    "raw_HTTP_200": 5,
+    "raw_retained_bytes": 3297508,
+    "raw_automatic_redirects": 0,
+    "raw_automatic_retries": 0,
+    "raw_same_URL_retries": 0,
+    "unused_web_open_budget": 2,
+    "unused_raw_request_budget": 1
+  },
+  "exposure": "Annual 2019/2023 table rows and 2018/2024/2025/2026 reserve snippets were incidentally visible. Prior ETF history through2023 is already exposed. This review read no ETF return series or local2026ETF outcome holdout; it is not a claim of wholly blind source selection.",
+  "decision": "Retain the two quantity fields and accounting distinctions. Defer financial admission because this corpus does not authenticate the required historical availability/version sequence; do not infer a July first-release date from an observation month, URL path, or current annual carrier. This is not proof that earlier releases do not exist or that reserve quantities have no predictive value. A separately scoped admission could test reported stocks without claiming purchase flow, but must first fix the economic rule and address historical clocks, persistent episodes, costs and exposed history. Do not repeat this bounded search or relaunch the closed low-real-rate or constant-allocation study.",
+  "total_economic_experiments": 10,
+  "qualified_strategies": 0,
+  "authorization": {
+    "history_collection_allowed": false,
+    "signal_generation_allowed": false,
+    "financial_execution_allowed": false,
+    "paper_promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
+  }
+}
