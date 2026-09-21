@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "study_id": "domestic_aaa_credit_premium_quarterly_v1",
+  "stage": "fixed_economic_hypothesis_source_preparation_only",
+  "authority": "Project lead under the standing autonomousCNY10000research mandate; same-researcher decision, not independent human approval.",
+  "mechanism": "A high premium on same-currency,same-maturity AAA corporate short and medium term notes relative to government debt may reflect reduced intermediary risk-bearing capacity and greater subsequent broad-equity risk compensation. Expected credit losses, liquidity, taxation, rating composition and worsening fundamentals can invalidate this positive conditional direction.",
+  "original_hypothesis_not_paper_replication": true,
+  "distinctness": "Cross-issuer credit/liquidity compensation at the same1year tenor, not the consumed government's10year-minus1year term slope, bank funding rates, stock moneyflow or household preferences. Shared macro risks and already exposedETFoutcomes mean statistical independence is not claimed.",
+  "stage_decision": "Supersede the2026-09-14source pause only for this newly fixed conditional falsification proposal. The subsequent sovereign-curve research already permits reconstructed histories under explicit timing assumptions. Apply the same stage distinction here: accurate identity, units, dates and source coverage are required now; immutable historic publication versions remain unverified and bar promotion. No financial result is rescued, because this credit hypothesis has never been executed.",
+  "source": {
+    "government_curve": "ChinaBond Government Bond Yield Curve",
+    "government_id": "hzsylqx",
+    "corporate_curve": "ChinaBond CP&Note Yield Curve (AAA)",
+    "corporate_id": "zdqpjsylqx",
+    "tenor_years": 1,
+    "measure": "fitted onshore RMB yield to maturity, percent per annum; not executable quotes or pure expected-default loss",
+    "historical_range": ["2011-12-01", "2023-09-30"],
+    "month_selection": "Choose the last government observation dated within each month, including weekend-dated source records. Require it no more than7calendar days before month end, with a valid1year value. Require the corporate1year value on exactly that date. Do not shift to an earlier common date, interpolate or carry across months. Preserve all142months, unknown when conditions fail.",
+    "publication_assumption": "For conditional historical falsification only, reconstructed values are assumed available by the end of their source month. The retained current-page statement says17:30Beijing business-day publication but does not certify the whole historical clock or revision chain. No historical point-in-time certification is claimed.",
+    "execution_clock": "First mainlandETFsession open strictly after quarter end, never same-day source open."
+  },
+  "fixed_signal": {
+    "credit_premium": "corporate1year YTM minus same-date government1year YTM, percentage points",
+    "decision_months": [3, 6, 9, 12],
+    "condition": "Select only when current quarter-end month's premium strictly exceeds the median of the preceding12consecutive calendar-month premiums, excluding the current month. Even median averages the middle two. Equality means known cash.",
+    "missing": "Any of the13required months missing yields unknown/cash; retain the interval in all denominators and the unconditional comparator.",
+    "parameter_search_allowed": false
+  },
+  "proposed_evaluation": {
+    "asset": "510300.SH",
+    "full_entry_years": [2013, 2023],
+    "full_nonoverlapping_quarters": 44,
+    "first_entry": "First exchange session of2013",
+    "terminal": "First exchange session of2024",
+    "later_start": "First exchange session of2020",
+    "first_stage": "One separately registered cadence screen withoutETFoutcomes. At least16full selected intervals and6continuous selected episodes; at least6later selected intervals and3new later episode entries; both slices need known cash. A carry-in from2019does not count as a new later entry.",
+    "second_stage_if_cadence_passes": "Separately admitted one-use gross check using raw opening prices plus entitled cash distributions, no reinvestment. Source-only work does not authorize this stage.",
+    "gross_primary_effect": "D=sum((z-zbar)*log1p(interval_gross_return))/sum(interval_sessions), zbar=sum(z*interval_sessions)/sum(interval_sessions), z=1selected and0otherwise including unknown.",
+    "gross_uncertainty": "5000paired circular resamples of4consecutive quarters; each draw has44intervals and recomputes zbar andD; NumPylinear2.5/97.5percentiles, seed20260922. No alternate block length selected later.",
+    "gross_necessary_checks": "FullD interval lower bound above0; full and later selected arithmetic mean gross return above0; laterD above0. Positive-quarter frequency reported descriptively, not as net completed-trade win rate.",
+    "episodes": "Maximal adjacent selected intervals are one signal episode. Preserve a position across unchanged signals; hypothetical account252session limit still applies and cannot manufacture independent episodes.",
+    "risk_and_costs": "Any gross pass only supports a separately frozen full account test. CNY10000capital, CNY1000all-in position cap,60daily-loss limit,8%paper drawdown limit,252session holding cap and1%ADV participation remain. Primary minimum fee5CNYper side plus10bpslippage; retain0/5/10fee and0/10/30slippage scenarios. Actual investor fees unconfirmed.",
+    "failure": "A necessary cadence or gross failure closes this exact hypothesis without reversing direction or changing curve, tenor, reference window, horizon, sample, count minima, fees or risk to rescue it."
+  },
+  "exposure": "Prior2013..2023ETFoutcomes and2019-12-31/2020-01-02two-curve source values are exposed. No credit premium or condition has been calculated for this proposal. The later slice is stability evidence, not untouchedOOS.2026ETFoutcome holdout remains sealed; independent evidence is still required for the objective.",
+  "authorization": {
+    "source_preparation_allowed": true,
+    "network_collection_requires_separate_exact_scope": true,
+    "signal_generation_allowed": false,
+    "financial_execution_allowed": false,
+    "general_factor_batch_allowed": false,
+    "net_account_allowed": false,
+    "paper_promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
+  }
+}
