@@ -11,8 +11,10 @@ against the mandate's evidence criteria.
 
 Latest source review: [money ETF primary cash subscription](cn_etf_cash_subscription_review_2026-09-21.md).
 159001 supports one-share cash subscription at100CNYper share under the retained contracts.
-Eleven official responses were retained and hash-checked, including a dated2019settlement revision.
-Historical PCF/quotas, the monthly-to-daily payment revision and investor costs remain unresolved.
+Twenty-three official responses were retained and hash-checked. Four historicalPCF originals
+span2015..2024and two formats; the monthly-to-daily payment change is verified effective2023-06-05.
+Full date coverage, quota-version semantics, available execution capacity and investor costs remain unresolved.
+The current outer product date embedded in a historical API response was identified and excluded.
 No income-series request or new return calculation occurred: six actual studies and zero qualified
 strategies remain. Cash management is not a substitute for the mandate or a newly proven factor.
 
