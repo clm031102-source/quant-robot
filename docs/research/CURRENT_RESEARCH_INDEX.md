@@ -9,27 +9,39 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
+Latest actual test: [sovereign term slope](cn_etf_term_structure_source_review_2026-09-22.md).
+The fixed quarterly study completed once and closed:44quarters,16selected,6positive,9selected
+episodes; selected gross mean-1.6256%. The2020onward slice has6selected,2positive,4episodes
+and mean-4.1275%. Full matched-exposure D is-2.0918bp/session, later D-2.3441; the fixed
+95%four-quarter paired block interval is[-4.3701,+0.2290]. Four required return checks fail.
+All107input/15runtime fingerprints,7execution protocols and the claim/result/closure chain
+were independently checked against69fccef/9b5c71a. Static review found no material defect.
+Root did not rerun real signals, returns, bootstrap or the retained verifier. Four unknown
+quarters remain included. Historical curve availability and original vintages are not certified.
+Ten economic studies are complete, zero strategies qualify and zero real forward days were added.
+General batches, net account for this rejected hypothesis, promotion and2026holdout stay closed.
+
 Latest source review: [oil-price transmission](cn_etf_oil_transmission_source_review_2026-09-22.md).
 Direct monthly-oil-change transfer is suspended: early China evidence is insignificant and later
 G7 work distinguishes shock types. The China trend paper's exact full method remains unavailable.
 EIA monthly spot values are daily-price averages, and daily observation dates are not publication dates.
 Eight retained responses reconcile, with seven accepted originals and one403kept separate.
-No market test was run; nine actual economic studies and zero qualified strategies remain the totals.
+No market test was run at that source stage; its historical cumulative count was nine.
 
 Preceding source review: [A/H relative valuation](cn_etf_dual_listing_source_review_2026-09-22.md).
 The primary empirical paper distinguishes issuer-level findings from insignificant aggregate-index terms.
 The direct transfer to mainland broad-ETF timing is therefore unsupported and closed at source review.
 Five originals and six reviewed page renders reconcile; no historical index corpus or market test was run.
 The retained HSI method is September2017version1.2, not certified as the current methodology.
-This adds zero economic experiments; the cumulative count remains nine, with zero qualified strategies.
+This added zero economic experiments; the cumulative count at that checkpoint was nine.
 
-Latest actual test: [electricity activity](cn_etf_real_activity_source_review_2026-09-22.md).
+Preceding actual test: [electricity activity](cn_etf_real_activity_source_review_2026-09-22.md).
 The fixed2017..2023gross study completed once:76intervals,29selected,17positive(58.62%),
 mean selected gross+1.2358%,8continuous selected episodes. The2021onward slice has13selected,
 5positive(38.46%),mean-0.4678%,3episodes. Full matched-exposure effect is+1.5498bp/session;
 the fixed95%paired12-interval block interval[-0.6711,+4.2558]crosses zero. The lower-bound and
 later-mean requirements fail; no net account or paper promotion follows. The hypothesis is consumed
-and closed without parameter/vintage/missing-month rescue. Nine economic studies are complete;
+and closed without parameter/vintage/missing-month rescue. Nine economic studies were complete at that checkpoint;
 zero strategies qualified and zero new real forward days. The standing research mandate remains active.
 Source history comprises186NEAoriginals,17supplemental tables,108conditional monthly observations and
 23explicit unavailable months. One2017July early/later9.8/9.7difference remains; earlier-version selection

@@ -24,6 +24,7 @@ from quant_robot.research.cash_carry_study import scope as cash_carry_scope
 from quant_robot.research.cash_carry_repair_study import scope as cash_carry_repair_scope
 from quant_robot.research.equity_gold_study import scope as equity_gold_scope
 from quant_robot.research.electricity_activity_study import scope as electricity_activity_scope
+from quant_robot.research.term_structure_study import scope as term_structure_scope
 
 
 STAGE = "quant_pm_startup_gate"
@@ -71,6 +72,7 @@ def build_quant_pm_startup_gate(
         cash_carry_repair_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
         equity_gold_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
         electricity_activity_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
+        term_structure_scope(task, resolved_family_config, family_schedule, root=root, branch=selected_branch),
     ) if scope]
     restricted = diagnostic_scopes[0] if len(diagnostic_scopes) == 1 else None
     restricted = restricted or _restricted_review_mode(task, resolved_family_config, family_schedule)
@@ -115,6 +117,8 @@ def build_quant_pm_startup_gate(
         warnings.append("research_family_scheduler_single_cash_carry_diagnostic_mode")
     elif restricted_mode == "single_electricity_activity_diagnostic_only":
         warnings.append("research_family_scheduler_single_electricity_activity_diagnostic_mode")
+    elif restricted_mode == "single_term_structure_diagnostic_only":
+        warnings.append("research_family_scheduler_single_term_structure_diagnostic_mode")
     elif restricted_mode == "single_equity_gold_account_only":
         warnings.append("research_family_scheduler_single_equity_gold_account_mode")
     elif restricted_mode == "single_dividend_style_diagnostic_only":
@@ -170,7 +174,7 @@ def build_quant_pm_startup_gate(
                 not blockers
                 and (not restricted_mode or restricted_mode == "single_prescreen_only")
             ),
-            "factor_batch_scope": _dict(restricted.get("scope")) if restricted and restricted_mode not in {"single_monthly_diagnostic_only", "single_household_diagnostic_only", "single_month_start_diagnostic_only", "single_fiscal_event_account_only", "single_option_activity_diagnostic_only", "single_disclosed_flow_diagnostic_only", "single_labor_risk_diagnostic_only", "single_us_variance_risk_diagnostic_only", "single_rrr_effective_diagnostic_only", "single_dividend_style_diagnostic_only", "single_cash_carry_diagnostic_only", "single_equity_gold_account_only", "single_electricity_activity_diagnostic_only"} else {},
+            "factor_batch_scope": _dict(restricted.get("scope")) if restricted and restricted_mode not in {"single_monthly_diagnostic_only", "single_household_diagnostic_only", "single_month_start_diagnostic_only", "single_fiscal_event_account_only", "single_option_activity_diagnostic_only", "single_disclosed_flow_diagnostic_only", "single_labor_risk_diagnostic_only", "single_us_variance_risk_diagnostic_only", "single_rrr_effective_diagnostic_only", "single_dividend_style_diagnostic_only", "single_cash_carry_diagnostic_only", "single_equity_gold_account_only", "single_electricity_activity_diagnostic_only", "single_term_structure_diagnostic_only"} else {},
             "monthly_diagnostic_allowed": not blockers and restricted_mode == "single_monthly_diagnostic_only",
             "monthly_diagnostic_scope": _dict(restricted.get("scope")) if restricted_mode == "single_monthly_diagnostic_only" else {},
             "household_diagnostic_allowed": not blockers and restricted_mode == "single_household_diagnostic_only",
@@ -195,6 +199,8 @@ def build_quant_pm_startup_gate(
             "cash_carry_diagnostic_scope": _dict(restricted.get("scope")) if restricted_mode == "single_cash_carry_diagnostic_only" else {},
             "electricity_activity_diagnostic_allowed": not blockers and restricted_mode == "single_electricity_activity_diagnostic_only",
             "electricity_activity_diagnostic_scope": _dict(restricted.get("scope")) if restricted_mode == "single_electricity_activity_diagnostic_only" else {},
+            "term_structure_diagnostic_allowed": not blockers and restricted_mode == "single_term_structure_diagnostic_only",
+            "term_structure_diagnostic_scope": _dict(restricted.get("scope")) if restricted_mode == "single_term_structure_diagnostic_only" else {},
             "equity_gold_account_allowed": not blockers and restricted_mode == "single_equity_gold_account_only",
             "equity_gold_account_scope": _dict(restricted.get("scope")) if restricted_mode == "single_equity_gold_account_only" else {},
             "single_prescreen_authorization_required": restricted_mode == "single_prescreen_only",
@@ -598,6 +604,9 @@ def _next_actions(
     if restricted_mode == "single_electricity_activity_diagnostic_only":
         return [{"action": "run_registered_electricity_activity_gross_diagnostic",
                  "command": "python scripts/run_cn_etf_electricity_activity_diagnostic.py --execute"}]
+    if restricted_mode == "single_term_structure_diagnostic_only":
+        return [{"action": "run_registered_term_structure_gross_diagnostic",
+                 "command": "python scripts/run_cn_etf_term_structure_diagnostic.py --execute"}]
     if restricted_mode == "single_equity_gold_account_only":
         return [{"action": "run_registered_equity_gold_conditional_account",
             "reason": "Only the exact unused historical equity/gold account may execute once; general batches, other accounts, forward paper, holdout, promotion and live execution remain disabled."}]
