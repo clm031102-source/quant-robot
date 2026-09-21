@@ -14,13 +14,16 @@ The domestic proxy and economic contract are fixed: printed monthly secondary-se
 below its prior36valid-observation median,2017..2023decisions,2013..2023source history, conservative
 publication timing and62-day expiration. No sign/window/sample search or new financial execution.
 Eight definition originals verify February monthly/YTD separation and the2018classification adjustment.
-The source corpus now contains184official releases:177new successful requests plus7reused originals.
-An early linked Word table recovers2013February monthly-16.59%, distinct from cumulative+4.21%.
-Current/legacy catalogue recovery and source hashes are checked;5stale catalogue URLs returned404.
-All131reference months, inline images, attachment completeness and date/precision reconciliation still
-require qualification.86originals contain secondary-sector HTML table rows; this is not86qualifiedmonths.
-Current-page historical equality remains unverified. No local2026ETFholdout or financial state was read.
-This is source/contract progress, not a ninth economic result or a profitable strategy.
+The corpus now contains186official releases and17supplemental table originals. All131months are
+listed:108conditional observations,23unavailable. January/December omissions and2022November/2023May
+are explicit; a contemporary newspaper witness is excluded from the frozen NEA-original input authority.
+One real later-release difference remains:2017July9.8in the earlier summary versus9.7in the later table.
+The project lead explicitly retains the earlier original under the fixed version rule; this resolves
+selection only, not the unexplained numeric disagreement or historical-vintage uncertainty. Earlier
+zero-conflict output was superseded after correcting a rounding-boundary bug. All16images and both
+Word layouts are reviewed. The exact gross implementation has47related tests passing and a one-use
+registration pinning273inputs and16implementation files. It is admitted but not yet executed;
+no new financial result or local2026ETFholdout access is claimed. Ordinary batch budget remains zero.
 Prior stock buyback variants remain closed; one cumulative disclosure does not establish an ETF aggregate.
 
 Latest actual test: [fixed equity plus gold continuous account](cn_etf_equity_gold_review_2026-09-21.md).

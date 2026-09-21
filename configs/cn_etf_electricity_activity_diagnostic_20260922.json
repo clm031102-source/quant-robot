@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "study_id": "national_secondary_electricity_low_activity_v1",
+  "status": "fixed_exact_gross_implementation_before_actual_states_and_outcomes",
+  "economic_contract": {
+    "path": "configs/cn_etf_electricity_activity_proposal_20260922.json",
+    "sha256": "01e9992934657a3960c4879b3874a6c4b40943709a1763c5704fab0b8b465a78"
+  },
+  "source_selection_review": {
+    "path": "data/reports/positive_ev_20260921/electricity_monthly_reconciliation_20260922/source_reconciliation_review.json",
+    "sha256": "27435e292e20c9b9b6220829476257d212e3139c453b78066a8d090e469b44d7"
+  },
+  "input_months": 108,
+  "unavailable_months": 23,
+  "primary_market": "CN_ETF",
+  "asset_id": "CN_ETF_XSHG_510300",
+  "capital_CNY": 10000,
+  "calendar_and_events": {
+    "calendar": "Retained fingerprinted merged SSE/SZSE calendar2013-01-01through2024-06-28; opens used only2017-01-01throughterminal2024-01-02. Earlier2013..2016observations initialize state prospectively.",
+    "availability": "First exchange session strictly after conservative source date; install all releases landing on that open then evaluate only a new latest reference month. Earlier months in the same open are eligible median history.",
+    "window": "First exchange open on/after2017-01-01to2024-01-02open, non-overlapping intervals; terminal open is liquidation endpoint, not a new exposure.",
+    "history": "Ordinary Decimal median of last36valid prior reference months available before decision open; excludes current/future month. Less36is unknown. Exact strict comparison, ties cash.",
+    "late_old_month": "Updates eligible history for future new latest-month releases only; no interval boundary, state recomputation, expiration refresh or retroactive revision.",
+    "absent_month": "No eligible observation means no release event, so last state carries only until its own expiry. Known missing-field releases, excluded newspaper reports and annual/YTD releases do not refresh state.",
+    "expiry": "First exchange open strictly after last selected source-publication date+62calendar days. Expire once to unknown. A new latest-month release on the same open supersedes the old expiry without an artificial cash interval or episode break.",
+    "intervals": "Each new latest-month release, active-state expiry, first study open and terminal creates a boundary. Adjacent equal selected releases remain separate return intervals but one continuous selected episode.",
+    "unknown": "Cash implementation z=0, separately labeled unknown. All unknown intervals and their actual market returns stay in the unconditional comparator, exposure denominator and bootstrap. Missingness is part of this specified strategy, not an imputed activity measurement.",
+    "episodes": "A selected episode begins when final open state changes from known0or unknown to1. Preserve identity across consecutive selected releases. A carry-in episode overlapping a descriptive slice counts once, with partial coverage disclosed.",
+    "later_slice": "Start at first session on/after2021-01-01. Clip a crossing interval at that open and recompute its return/duration; do not split the full bootstrap timeline or recount it twice. Preserve episode identity."
+  },
+  "price_basis": {
+    "name": "one_share_open_to_open_declared_cash_gross_v1",
+    "formula": "(exit_raw_open+sum(gross_cash_per_share for entry<=record_date<exit)-entry_raw_open)/entry_raw_open",
+    "cash_reinvestment": false,
+    "receivables_included": true,
+    "record_ex": "Require record and ex dates to be adjacent exchange sessions. Exit at ex open still retains previous-record-day entitlement.",
+    "authority": "Reuse pinned510300raw opens, reviewed cash notices and annual share statements. Early prices are conditional raw observations, not cross-vendor certified. No unlisted unit conversions is an explicit residual assumption.",
+    "actual_net_credits_or_fills_proved": false
+  },
+  "statistics": {
+    "primary": "D=sum((z-zbar)*log1p(y))/sum(n); z=1onlyforselected, otherwise0; zbar=sum(n*z)/sum(n). n=exchange-open transitions. Unknown remains in both sums.",
+    "bootstrap": "5000paired circular resamples of12successive whole(state,y,n)intervals; NumPy default_rng seed20260922; ceil(N/12)uniform start indices per replicate, moduloN, truncate toN; recompute weighted exposure and D per sample; numpy.quantile method=linear at0.025and0.975.",
+    "counts": "Full selected intervals>=12and episodes>=6; later selected intervals>=6and episodes>=3. Both selected and known-unselected states must occur in each slice; unknown does not satisfy known-unselected requirement.",
+    "signs": "Full D lower95%bound>0; full/later selected arithmetic mean y>0; later D>0. All required.",
+    "description": "Report interval positive frequency and episodes; neither is account win rate or completed trade count. No fees/lot/fill constraints in gross result.",
+    "fresh_OOS": false,
+    "multiple_testing_adjusted": false
+  },
+  "execution": {
+    "attempts": 1,
+    "claim_before_states_or_prices": true,
+    "source_review_is_not_admission": true,
+    "exact_scheduler_and_fresh_PM_gate_required": true
+  },
+  "next_if_pass": "Separately freeze and admit continuous10000CNYaccount under existing1000CNYposition and costs; no account authority from this gross run.",
+  "next_if_fail": "Close fixed hypothesis; no window, sign, median, horizon, missing-month, vintage-selection or slice rescue.",
+  "general_factor_batch_allowed": false,
+  "net_account_allowed": false,
+  "promotion_allowed": false,
+  "holdout_2026_allowed": false,
+  "live_boundary_allowed": false,
+  "reviewer": "Project lead self-review; no independent full-model approval claimed."
+}

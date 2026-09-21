@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "study_id": "cn_electricity_activity_risk_source_review_v1",
-  "stage": "fixed_economic_definition_history_source_reconciliation",
+  "stage": "conditional_source_selection_complete_exact_gross_admission",
   "capital_CNY": 10000,
   "document": "docs/research/cn_etf_real_activity_source_review_2026-09-22.md",
-  "current_status": "eight_definition_originals_verified_fixed_proxy_and_184_release_originals_retained_monthly_reconciliation_pending",
+  "current_status": "108conditional_months_23unavailable_one_later_version_difference_retained_exact_gross_diagnostic_registered_unconsumed",
   "original_method": "Da, Huang and Yun (2017): U.S. per capita industrial electricity year-over-year growth, with historical vintages and reporting lag. Chinese secondary-industry growth is not an automatic replication.",
   "input_decisions": {
     "industrial_and_secondary_separate": true,
@@ -48,13 +48,25 @@
     "history_inventory_verification": {
       "path": "data/reports/positive_ev_20260921/electricity_history_sources_20260922/source_inventory_verification.json",
       "sha256": "c7c4e7ad5549536d024f3d02613f46be41324df3f241f149189765c59395bb09"
+    },
+    "monthly_reconciliation_review": {
+      "path": "data/reports/positive_ev_20260921/electricity_monthly_reconciliation_20260922/source_reconciliation_review.json",
+      "sha256": "27435e292e20c9b9b6220829476257d212e3139c453b78066a8d090e469b44d7"
+    },
+    "exact_gross_contract": {
+      "path": "configs/cn_etf_electricity_activity_diagnostic_20260922.json",
+      "sha256": "ab8f2f2c26ecdcfdbb927c2c56f898ba0bca4aa73babdbe1d515cfbf03e387da"
+    },
+    "diagnostic_registration": {
+      "path": "data/reports/positive_ev_20260921/electricity_activity_diagnostic/registration.json",
+      "sha256": "5eb054eedc8c75ab9cdebc1c989ce052c319507c2dffa07eacc78d3953a0d02e"
     }
   },
-  "next": "Reconcile all131reference months from2013-01through2023-11, exact monthly columns, inline images and the remaining observed attachment, explicit unavailable cells, precision and conservative dates. Verify source readiness and freeze the exact event/outcome implementation before one-use financial admission; preserve the fixed36-observation median rule and2017..2023window.",
+  "next": "Run the exact admitted once-only gross diagnostic after committed preflight and fresh PM gate. Missing inputs and later version difference remain disclosed; no net account unless all frozen gross conditions pass.",
   "existing_reference": "Labor-risk results and reused ETF history are already exposed. Physical activity is a distinct input; statistical independence and fresh out-of-sample evidence remain unproven.",
   "repurchase_decision": "Existing stock buyback event families remain closed. One cumulative cash disclosure does not qualify an ETF aggregate.",
-  "financial_rules_frozen": false,
-  "once_only_financial_authorization_issued": false,
+  "financial_rules_frozen": true,
+  "once_only_financial_authorization_issued": true,
   "factor_batch_allowed": false,
   "financial_outcomes_computed": false,
   "paper_promotion_allowed": false,
@@ -62,8 +74,12 @@
   "live_boundary_allowed": false,
   "economic_signal_and_gross_screen_contract_frozen": true,
   "complete_account_execution_contract_frozen": false,
-  "history_originals_retained": 184,
-  "history_new_release_requests": 177,
+  "history_originals_retained": 186,
+  "history_new_release_requests": 179,
   "history_reused_originals": 7,
-  "all131months_qualified": false
+  "all131months_qualified": false,
+  "conditional_selected_months": 108,
+  "unavailable_months": 23,
+  "same_release_conflicts": 0,
+  "later_release_conflicts": 1
 }

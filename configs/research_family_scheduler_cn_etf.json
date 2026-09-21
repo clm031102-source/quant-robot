@@ -1934,5 +1934,21 @@
       "later_net_contribution_positive"
     ],
     "next": "Preserve this fixed equity/gold hypothesis as completed and rejected. Do not change capital, risk limits, restart policy, annual dates, allocations, assets or costs to rescue observed results. Standalone comparators are descriptive, not newly validated winners. Continue distinct-mechanism review using reusable sources; general batch, holdout, paper promotion and live execution remain closed."
+  },
+  "electricity_activity_diagnostic_decision": {
+    "status": "authorized_once",
+    "registration_id": "c07de00ba66d7d39903f641db431bceb2ec399d8f857a3f9a4202f2261782fd6",
+    "registration_path": "data/reports/positive_ev_20260921/electricity_activity_diagnostic/registration.json",
+    "registration_sha256": "5eb054eedc8c75ab9cdebc1c989ce052c319507c2dffa07eacc78d3953a0d02e",
+    "max_executions": 1,
+    "execution_count": 0,
+    "allowed_stage": "single_electricity_activity_gross_diagnostic",
+    "ledger_path": "data/reports/positive_ev_20260921/electricity_activity_diagnostic/attempt_claim.json",
+    "conditional_gross_only": true,
+    "general_factor_batch_allowed": false,
+    "net_account_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
   }
 }
