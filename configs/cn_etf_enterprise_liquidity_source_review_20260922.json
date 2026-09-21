@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "review_id": "enterprise_working_capital_survey_two_quarter_pilot_20260922",
+  "stage": "source_pilot_complete_financial_admission_pending",
+  "parent_commit": "83581e3",
+  "capital_CNY": 10000,
+  "single_position_all_in_CNY": 1000,
+  "scope": {
+    "path": "data/reports/positive_ev_20260922/enterprise_liquidity_source_review/scope.json",
+    "sha256": "3a4a4406587dc2bfee95b25313d36fe2cdee9cf91278c9f0619ef15f1c3510a5"
+  },
+  "verification": {
+    "path": "data/reports/positive_ev_20260922/enterprise_liquidity_source_review/pilot_verification.json",
+    "sha256": "a9e7793069f6830a7fa26c650602c94291083dc64e7296555b6e153ecafc25fd"
+  },
+  "manifest": {
+    "path": "data/reports/positive_ev_20260922/enterprise_liquidity_source_review/manifest.json",
+    "sha256": "3cebe4e2ccbcf6858461be092d025f88f267b1ac9019f32467325097eb0cc1bf"
+  },
+  "prospective_hypothesis_recorded_before_pilot_values": "Improvement in surveyed corporate funds-turnover conditions compared with the same quarter one year earlier may forecast delayed improvement in repayment risk and cashflows relevant to broad Chinese equities. Consider510300versus cash only in that direction if the input contract qualifies. Immediate pricing and lower required risk premia may defeat the hypothesis. This is not a preregistered return test or a claim of independence from old outcomes.",
+  "field_definition": "Share reporting good funds-turnover conditions plus half the share reporting normal conditions; a diffusion level, not accounting cashflow, turnover speed, stock trading volume or a quarterly growth rate.",
+  "neutral_level_interpretation": "If response shares sum to100, the index equals50+0.5*(good-difficult).50alone does not imply the index was unchanged from last quarter.",
+  "selected_reports": [
+    {
+      "quarter": "2013Q4",
+      "url": "https://www.gov.cn/gzdt/att/att/site1/20131219/7845c441d7d8141c95c802.pdf",
+      "sha256": "5c23dab189be892071344ba95315c0e20386d0e2ef49d7e81b0269d9563a674d",
+      "index_percent": "57.3",
+      "good_normal_difficult_percent": ["32.7", "49.1", "18.2"],
+      "document_date": "2013-12-18",
+      "public_landing_date_authenticated": false,
+      "population": "5900plus industrial enterprises excludingTibet"
+    },
+    {
+      "quarter": "2023Q4",
+      "url": "https://www.pbc.gov.cn/diaochatongjisi/116219/116227/5300730/2024032217175283608.pdf",
+      "sha256": "cc31524561a4d8d9dfcb5f8cc0994fe2400177b1c3e275877ca06666e8acec67",
+      "index_percent": "60.2",
+      "good_normal_difficult_percent": ["33.1", "54.3", "12.6"],
+      "landing_url": "https://www.pbc.gov.cn/diaochatongjisi/116219/116227/5300730/index.html",
+      "landing_declared_at": "2024-03-22 19:01:40",
+      "PDF_metadata_creation_date": "2024-02-23",
+      "metadata_is_publication_time": false,
+      "population": "5000plus industrial enterprises excludingTibet"
+    }
+  ],
+  "rounding_check": "Both published index values are compatible with exhaustive underlying shares rounding to the published components. Retain the official index; synthetic witnesses are mathematical examples, not recovered respondent data.",
+  "unresolved": [
+    "2013Q2questionnaire revision is explicitly documented; effect on this particular field is not yet established.",
+    "2013Q4dated public landing and full quarterly publication coverage are not authenticated.",
+    "Current originals and laterLast-Modifiedheaders do not certify immutable historical vintages.",
+    "Industrial survey population is not the510300constituent set; sample composition, weights and response history remain unknown.",
+    "A complete outcome window, inference contract and financial admission are not yet frozen."
+  ],
+  "next_source_decision": "Check original questionnaire definitions immediately around2013Q2and dated carriers. Only after that decision consider a bounded historical schedule and a separate fixed test; do not substitute50as a growth threshold or fill old quarters from later tables.",
+  "requests": {
+    "search_queries": 3,
+    "web_requests": 4,
+    "raw_requests": 6,
+    "raw_success": 3,
+    "raw_TLS_failures": 3,
+    "raw_success_bytes": 538755,
+    "visual_pages_reviewed": 6,
+    "TLS_verification_disabled": false
+  },
+  "economic_experiments_added": 0,
+  "total_economic_experiments_in_current_mandate": 10,
+  "qualified_strategies": 0,
+  "new_real_forward_days": 0,
+  "history_expansion_authorized": false,
+  "financial_execution_authorized": false,
+  "final_holdout_authorized": false,
+  "changes_to_account_risk_fees_or_promotion_rules": false
+}

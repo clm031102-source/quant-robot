@@ -9,27 +9,50 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
-Latest source review: [oil-price transmission](cn_etf_oil_transmission_source_review_2026-09-22.md).
+Current result count: ten economic studies in the CNY10000continuation, zero qualified net-positive-EV
+strategies and zero new real forward days. Earlier archived studies remain separate consumed evidence.
+
+Latest source review: [enterprise working-capital survey](cn_etf_enterprise_liquidity_source_review_2026-09-22.md).
+Two official reports support the field definition and rounding compatibility. The2013Q2questionnaire
+revision still needs field-specific review, and the2023Q4official carrier is dated2024-03-22.
+The prospective hypothesis remains at source review; no signal, return test or full-history admission.
+Three complete originals and six visually reviewed pages are retained with all transport failures.
+
+Latest capital-fit review: [credit bond ETF511220](cn_etf_credit_bond_lot_review_2026-09-22.md).
+The fixed2020-01-02close implies9667.70CNYfor100units under primary costs. This fits the10000account
+but breaches the1000all-in position cap. That product/date expansion stops without a return test.
+
+Latest actual test: [domestic sovereign term slope](cn_etf_term_structure_source_review_2026-09-22.md).
+The fixed44quarter study selected16quarters,6positive(37.50%),mean gross-1.6256%; later6selected
+quarters include2positive,mean-4.1275%. Full matched-exposureD is-2.0918bp/session and its fixed95%
+block interval[-4.3701,+0.2290]crosses zero. Four prespecified financial checks fail; the one-use
+hypothesis is consumed and closed. No net-account run, promotion or holdout access follows.
+
+Other completed source decisions: [export acceleration](cn_etf_export_acceleration_proposal_2026-09-22.md)
+stops at insufficient field coverage(12of46conditional records); [gold reserves](cn_etf_gold_reserve_information_budget_2026-09-22.md)
+are deprioritized pending a cost-compatible design and genuinely new version evidence. Neither adds a study.
+
+Preceding source review: [oil-price transmission](cn_etf_oil_transmission_source_review_2026-09-22.md).
 Direct monthly-oil-change transfer is suspended: early China evidence is insignificant and later
 G7 work distinguishes shock types. The China trend paper's exact full method remains unavailable.
 EIA monthly spot values are daily-price averages, and daily observation dates are not publication dates.
 Eight retained responses reconcile, with seven accepted originals and one403kept separate.
-No market test was run; nine actual economic studies and zero qualified strategies remain the totals.
+No market test was run; at that checkpoint nine actual economic studies and zero qualified strategies were recorded.
 
 Preceding source review: [A/H relative valuation](cn_etf_dual_listing_source_review_2026-09-22.md).
 The primary empirical paper distinguishes issuer-level findings from insignificant aggregate-index terms.
 The direct transfer to mainland broad-ETF timing is therefore unsupported and closed at source review.
 Five originals and six reviewed page renders reconcile; no historical index corpus or market test was run.
 The retained HSI method is September2017version1.2, not certified as the current methodology.
-This adds zero economic experiments; the cumulative count remains nine, with zero qualified strategies.
+This added zero economic experiments; at that checkpoint the cumulative count was nine, with zero qualified strategies.
 
-Latest actual test: [electricity activity](cn_etf_real_activity_source_review_2026-09-22.md).
+Preceding actual test: [electricity activity](cn_etf_real_activity_source_review_2026-09-22.md).
 The fixed2017..2023gross study completed once:76intervals,29selected,17positive(58.62%),
 mean selected gross+1.2358%,8continuous selected episodes. The2021onward slice has13selected,
 5positive(38.46%),mean-0.4678%,3episodes. Full matched-exposure effect is+1.5498bp/session;
 the fixed95%paired12-interval block interval[-0.6711,+4.2558]crosses zero. The lower-bound and
 later-mean requirements fail; no net account or paper promotion follows. The hypothesis is consumed
-and closed without parameter/vintage/missing-month rescue. Nine economic studies are complete;
+and closed without parameter/vintage/missing-month rescue. Nine economic studies were complete at that checkpoint;
 zero strategies qualified and zero new real forward days. The standing research mandate remains active.
 Source history comprises186NEAoriginals,17supplemental tables,108conditional monthly observations and
 23explicit unavailable months. One2017July early/later9.8/9.7difference remains; earlier-version selection
