@@ -14,6 +14,8 @@ except ModuleNotFoundError:  # pragma: no cover - direct script execution
 ensure_workspace_imports()
 
 from quant_robot.data.moneyflow_receipt_asof import read_moneyflow_asof  # noqa: E402
+from quant_robot.data.sources.observation_archive import observation_archive_root  # noqa: E402
+from quant_robot.data.sources.tushare_moneyflow_observation import ARCHIVE  # noqa: E402
 from quant_robot.storage.atomic import atomic_write_json  # noqa: E402
 from scripts.run_quant_pm_startup_gate import run_quant_pm_startup_gate  # noqa: E402
 
@@ -36,9 +38,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         root = Path.cwd().resolve()
-        output = (root / args.output).resolve()
-        reports = (root / "data/reports").resolve()
-        if not reports.is_relative_to(root) or not output.is_relative_to(reports) or output == reports:
+        archive_root = observation_archive_root(root, ARCHIVE)
+        output = (archive_root / args.output).resolve()
+        reports = (archive_root / "data/reports").resolve()
+        if not reports.is_relative_to(archive_root) or not output.is_relative_to(reports) or output == reports:
             raise ValueError("source review output must be under repository reports")
         with (root / args.scope).open("rb") as handle:
             raw = handle.read(64_001)
@@ -53,7 +56,8 @@ def main(argv: list[str] | None = None) -> int:
         if gate.get("status") != "ready" or gate.get("primary_market") != "CN_ETF" or gate.get("blockers") != []:
             result = {"status": "gate_blocked", "research_admission_granted": False}
         else:
-            result = read_moneyflow_asof(manifest, repo_root=root)
+            result = read_moneyflow_asof(manifest, repo_root=archive_root)
+        result["archive_repo_root"] = str(archive_root)
         result["scope_file_sha256"] = hashlib.sha256(raw).hexdigest()
         atomic_write_json(output / "result.json", result)
     except (OSError, ValueError) as exc:
@@ -63,6 +67,7 @@ def main(argv: list[str] | None = None) -> int:
     summary = {key: result[key] for key in ("status", "source_selection_complete", "source_review_blockers",
         "observed_numeric_cells", "unknown_cells", "research_admission_granted") if key in result}
     summary["result_path"] = str(output / "result.json")
+    summary["archive_repo_root"] = str(archive_root)
     print(json.dumps(summary, sort_keys=True, indent=2))
     return 0 if result.get("source_selection_complete") is True else 1
 
