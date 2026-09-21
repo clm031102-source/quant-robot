@@ -12,13 +12,15 @@ against the mandate's evidence criteria.
 Current result count: ten economic studies in the CNY10000continuation, zero qualified net-positive-EV
 strategies and zero new real forward days. Earlier archived studies remain separate consumed evidence.
 
-Latest source review: [enterprise working-capital survey](cn_etf_enterprise_liquidity_source_review_2026-09-22.md).
-Two pilot reports support the field definition and rounding compatibility. A follow-up comparison of
-the2013Q1/Q2originals confirms the field's published definition is unchanged across the questionnaire
-revision, while sample counts differ. Dated2013carriers are identified; the2023Q4carrier is dated2024-03-22.
-The prospective hypothesis remains at source review; no signal, return test or full-history admission.
-Seven complete originals and eleven visually reviewed pages across both stages are retained with
-all three earlier transport failures. Historical sample/vintage and full release coverage remain unresolved.
+Latest source review: [enterprise working-capital history](cn_etf_enterprise_liquidity_history_2026-09-22.md).
+The fixed48-quarter corpus yields47original reports and46within the2023publication cutoff;2012Q3is
+missing and the current2023Q3carrier is dated2024-03-22. All99new requests succeed and47printed levels
+are visually checked. Legacy definitions are algebraically compatible; sample/vintage assumptions remain.
+The current2013Q1/Q4cross-hostPDFpairs differ in bytes but agree across12pages of normalized text and
+rendered pixels. This does not certify immutable historical vintages. Mean weighting, later-slice clipping,
+carry-in exclusion from new-entry minima and same-open event priority are fixed before real states.
+Next is exact single-candidate cadence admission and minimum-observation screening, before anyETFreturn
+join. No new signal, economic experiment, general factor batch or2026holdout access occurred in this stage.
 
 Latest capital-fit review: [credit bond ETF511220](cn_etf_credit_bond_lot_review_2026-09-22.md).
 The fixed2020-01-02close implies9667.70CNYfor100units under primary costs. This fits the10000account
