@@ -2044,5 +2044,84 @@
       "later_mean_positive"
     ],
     "next": "Preserve this consumed sovereign10Yminus1Yquarterly hypothesis as rejected. No sign, tenor, median-window, horizon, sample, missing-month or fee/risk rescue. Continue a distinct mechanism with independent validation evidence under the standingCNY10000mandate. General batches, netaccount for this hypothesis, promotion, holdout and live execution stay disabled."
+  },
+  "enterprise_liquidity_cadence_decision": {
+    "status": "consumed_fixed_enterprise_liquidity_cadence_closed",
+    "registration_id": "bc036f02155a8c5022d90773dbb5e63e5357117216c6be384facd7f332a9c714",
+    "registration_path": "data/reports/positive_ev_20260922/enterprise_liquidity_cadence/registration.json",
+    "registration_sha256": "a3f5288c393ac333a455b4848c06aa77b12b4c396c69d0cfa2c1d8d1b97b9b91",
+    "max_executions": 1,
+    "execution_count": 1,
+    "allowed_stage": "single_enterprise_liquidity_cadence_screen",
+    "ledger_path": "data/reports/positive_ev_20260922/enterprise_liquidity_cadence/attempt_claim.json",
+    "source_cadence_only": false,
+    "returns_allowed": false,
+    "general_factor_batch_allowed": false,
+    "net_account_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false,
+    "cadence_screen_passed": false,
+    "rerun_allowed": false,
+    "financial_execution_allowed": false,
+    "net_positive_EV_verified": false,
+    "qualified_strategies": 0,
+    "new_forward_paper_days": 0,
+    "new_return_studies": 0,
+    "total_return_studies_current_mandate": 10,
+    "result": {
+      "path": "data/reports/positive_ev_20260922/enterprise_liquidity_cadence/result.json",
+      "sha256": "481a8755d68d00440f68c69b92fdea0750bd89812b97687f9d2a557d8c6fe0c6"
+    },
+    "outcome": {
+      "path": "data/reports/positive_ev_20260922/enterprise_liquidity_cadence/outcome.json",
+      "sha256": "2012062824d011e1054bd2bcd5dcacadd8b933c9eefcb74567b9ae29e2cf109a"
+    },
+    "independent_verification": {
+      "path": "data/reports/positive_ev_20260922/enterprise_liquidity_cadence/verification.json",
+      "sha256": "b0b3113a7bbaeea1340d39edceadd482ceb957089758c0b61d95054a6e3c89b6"
+    },
+    "screen": {
+      "checks": {
+        "full_known_cash": true,
+        "full_selected_episodes": false,
+        "full_selected_intervals": true,
+        "later_known_cash": true,
+        "later_new_selected_episodes": false,
+        "later_selected_intervals": true
+      },
+      "full": {
+        "carry_in_episodes": 0,
+        "interval_session_max": 82,
+        "interval_session_min": 2,
+        "intervals": 46,
+        "known_cash_intervals": 25,
+        "known_cash_sessions": 1520,
+        "new_selected_episodes": 4,
+        "selected_episodes": 4,
+        "selected_intervals": 17,
+        "selected_sessions": 1046,
+        "total_sessions": 2672,
+        "unknown_intervals": 4,
+        "unknown_sessions": 106
+      },
+      "later": {
+        "carry_in_episodes": 1,
+        "interval_session_max": 82,
+        "interval_session_min": 2,
+        "intervals": 17,
+        "known_cash_intervals": 8,
+        "known_cash_sessions": 480,
+        "new_selected_episodes": 2,
+        "selected_episodes": 3,
+        "selected_intervals": 7,
+        "selected_sessions": 445,
+        "total_sessions": 970,
+        "unknown_intervals": 2,
+        "unknown_sessions": 45
+      },
+      "passed": false
+    },
+    "next": "Close the fixed annual-improvement/124day enterprise survey hypothesis at insufficient episode counts. No outcome join or rescue by sign, quarter comparator, expiry, sample, minimum count, fees or risk. Review a genuinely different cost-compatible economic mechanism; do not subdivide persistent states into supposedly independent trades."
   }
 }
