@@ -140,3 +140,10 @@ PDF创建时间为2024-02-23，两者明确分开。**Q1与Q4均有跨站版本�
 独立报告位于本机`F:/lhjqr/data/reports/project_progress_20260921/integration/`
 `enterprise_liquidity_proposal_review_847c0bf.json`，SHA-256
 `141a7282abfef6b028113a5f6dbe71cc58d5dfcff5dac34865d21a096cf42475`。
+
+后续已完成另行固定的[完整原件日程核验](cn_etf_enterprise_liquidity_history_2026-09-22.md)。
+本页保留试点当时的范围与限制；当前阶段、47份原报告及跨站内容核对结果见该接续记录。
+
+固定`6194b30`的执行解释已解决上述两项规格问题：选中简单区间收益等权算术均值，
+后段在2020首个合格开盘截断并重算价格、权益和交易日数，跨界延续不计入3个新入场门槛。
+该澄清保持方向、124天到期和四区间配对抽样不变；金融执行与真实信号仍需另行固定准入。
