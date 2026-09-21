@@ -1880,5 +1880,22 @@
     "primary_mean_modeled_net_PnL_CNY": 7.653984111111111,
     "later_mean_modeled_net_PnL_CNY": 2.586812,
     "next": "Retain as conditional cash-management benchmark. Annual economic evidence is complete; no repeat, fee selection or threshold rescue. Continue distinct economic-factor research and new execution/forward evidence without replacing the original profit mandate."
+  },
+  "equity_gold_account_decision": {
+    "status": "authorized_once",
+    "registration_id": "3b1bca375416f3fd5dc14cfb1c134ca3e5313a80227a85b16fa26f7b32d78b1d",
+    "registration_path": "data/reports/positive_ev_20260921/equity_gold_account/registration.json",
+    "registration_sha256": "2dda9923b94fa039de3d91f7778c03d290c9744fdcaaae65f891bf88ce1c2b39",
+    "max_executions": 1,
+    "execution_count": 0,
+    "allowed_stage": "single_equity_gold_conditional_historical_account",
+    "ledger_path": "data/reports/positive_ev_20260921/equity_gold_account/attempt_claim.json",
+    "conditional_historical_account_allowed": true,
+    "general_factor_batch_allowed": false,
+    "general_account_runs_allowed": false,
+    "forward_paper_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
   }
 }
