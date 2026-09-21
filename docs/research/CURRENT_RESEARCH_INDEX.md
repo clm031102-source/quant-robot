@@ -36,7 +36,23 @@ execution protocols and the registration/claim/result/closure chain against 30f3
 Static review found no important defect. The 2,672-state recount remains the original retained
 cross-implementation check; the integrator did not rerun it or access ETF outcome inputs.
 
-Latest source preparation: [same-tenor credit premium](cn_etf_credit_premium_proposal_2026-09-22.md).
+Latest source preparation: [currency pressure and domestic gold](cn_etf_currency_gold_proposal_2026-09-22.md).
+An autonomous demand-persistence hypothesis is fixed before the bounded full history.41quarter endpoints
+from2013Q3to2023Q3now have conditional H.10China quotes under the unchanged14calendar-daylimit.
+39new original releases plus2retained pilots supply205daily cells;10NDcells stay missing. The actual
+selected source ages span4..10days. One observed2017markup change was repaired with a regression test;
+the15already-fetched originals were retained and only24unrequested URLscontinued,with zero networkretries.
+20synthetic tests and separate BeautifulSoup/calendar extraction reconcile all cells,endpoints,166pins
+and7frozen protocols. No currency changes,states,ETFoutcomes or new cadence screens computed.
+Next:freeze and admit one exact count screen. Archive revisions and historical release timing stay
+conditional;source success is no netEV or promotion evidence.
+Independent integration reviewed the frozen608/7f runtime and pilot11-response chain, then all39
+new request chains and41 originals. All205 China cells,89 repair pins,166 closeout pins and seven
+protocols match; the original20170626 parsing failure is preserved. The source PM snapshot was
+not pinned before requests in either source scope; it is bound only by the later closeout pins.
+The review does not certify historical immutable versions, exact publication clocks or profitability.
+
+Preceding source preparation: [same-tenor credit premium](cn_etf_credit_premium_proposal_2026-09-22.md).
 The independent economic rule and exact source scope were frozen at8db2b6fbefore new corporate history.
 Thirteen requests succeed; paired government andAAA-note histories each contain2961rows across142months.
 141months meet the conditional date/tenor rule;January2020stays unknown under the unchanged7day limit.

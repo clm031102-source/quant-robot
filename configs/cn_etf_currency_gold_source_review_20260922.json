@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "study_id": "cny_depreciation_gold_demand_quarterly_v1",
+  "stage": "conditional_historical_source_preparation_complete_before_states",
+  "capital_CNY": 10000,
+  "all_in_position_cap_CNY": 1000,
+  "document": "docs/research/cn_etf_currency_gold_proposal_2026-09-22.md",
+  "frozen_proposal_and_initial_collection_commit": "608d8934",
+  "bounded_format_repair_commit": "7f4cf186",
+  "pins": {
+    "economic_proposal": {
+      "path": "configs/cn_etf_currency_gold_proposal_20260922.json",
+      "sha256": "e6160c95bfbeba77f1153a2be02fc6965d39f23e84c4797b8d7e6f469a631b76"
+    },
+    "initial_source_scope": {
+      "path": "configs/cn_etf_currency_gold_source_scope_20260922.json",
+      "sha256": "0f96f3e76bf0a76ce2fed15b62c242d2bd7dc47d516841023d425a196b86569a"
+    },
+    "source_format_repair": {
+      "path": "configs/cn_etf_currency_gold_source_repair_20260922.json",
+      "sha256": "568761268e6feb5ac534e3853d76aca5cc56ec7d4dd7e1518a4a7b2fdd4f688e"
+    },
+    "corpus_review": {
+      "path": "data/reports/positive_ev_20260922/currency_gold_history/corpus_review.json",
+      "sha256": "ae10fa59214332cd2f54d03ca3932ebb4ba0855f93418ac40dd3cb4549795e16"
+    },
+    "second_implementation_verification": {
+      "path": "data/reports/positive_ev_20260922/currency_gold_history/source_verification.json",
+      "sha256": "7dccead35a0904c2cdd6b44059b757275b043f82f8c749d3b60fb60e75d5112b"
+    }
+  },
+  "coverage": {
+    "quarter_end_start": "2013-09-30",
+    "quarter_end_last": "2023-09-30",
+    "quarters": 41,
+    "originals": 41,
+    "new_history_requests": 39,
+    "new_history_HTTP200": 39,
+    "reused_pilot_originals": 2,
+    "new_history_bytes": 2234928,
+    "daily_cells": 205,
+    "ND_cells": 10,
+    "conditional_endpoints": 41,
+    "unknown_endpoints": [],
+    "endpoint_age_days": [
+      4,
+      10
+    ],
+    "max_allowed_age_days": 14
+  },
+  "verification": {
+    "synthetic_tests_passed": 20,
+    "same_researcher_separate_implementation": true,
+    "independent_human_review": false,
+    "pinned_files": 166,
+    "frozen_protocols": 7,
+    "historical_vintage_certified": false,
+    "historical_release_time_certified": false,
+    "initial_requests_before_expansion": 11,
+    "initial_HTTP200": 9,
+    "initial_301": 2,
+    "network_retries": 0,
+    "failed_parser_receipts_retained": 1,
+    "shared_forward_collector_invoked": false
+  },
+  "new_return_studies": 0,
+  "total_return_studies_current_mandate": 10,
+  "new_cadence_screens": 0,
+  "total_source_cadence_screens": 2,
+  "qualified_strategies": 0,
+  "new_real_forward_days": 0,
+  "currency_changes_calculated": false,
+  "signals_generated": false,
+  "ETF_outcomes_read": false,
+  "signal_generation_allowed": false,
+  "financial_execution_allowed": false,
+  "general_factor_batch_allowed": false,
+  "net_account_allowed": false,
+  "paper_promotion_allowed": false,
+  "final_holdout_allowed": false,
+  "live_boundary_allowed": false,
+  "next": "Freeze and synthetically verify one exact source-only quarter-cadence implementation and fingerprinted single-use admission. Do not call collection again or calculate FXchanges before that stage. Only a count pass permits separately admitted financial work. Preserve prior ETF outcome exposure,unknowns,carry-in and conditional archive timing assumptions."
+}
