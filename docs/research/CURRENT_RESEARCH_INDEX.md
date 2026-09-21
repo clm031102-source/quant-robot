@@ -21,7 +21,19 @@ quarters remain included. Historical curve availability and original vintages ar
 Ten economic studies are complete, zero strategies qualify and zero real forward days were added.
 General batches, net account for this rejected hypothesis, promotion and2026holdout stay closed.
 
-Latest source review: [official gold reserve quantities](cn_etf_gold_reserve_source_review_2026-09-22.md).
+Latest feasibility review: [credit ETF fixed-date lot](cn_etf_credit_bond_lot_review_2026-09-22.md).
+Under the documented 100-unit assumption, 511220 at the frozen 2020-01-02 close requires
+9,667.70 CNY in the main fee scenario: it fits the 10,000 CNY account but exceeds the 1,000 CNY
+all-in position cap. All nine fee/slippage combinations independently reconcile using exact fractions.
+Root verified 23 artifact pins, seven protocols, the account line-ending binding and the single-date
+cache hash; the consumed price reader was not rerun and the cache was not decoded again.
+Independent semantics review separates the guide's fund units from bond lots. The listing evidence
+is retained web text, with incomplete raw PDF and two failed screenshots; the 2020 rule lifecycle
+remains uncertified. Stop this fixed product/date history expansion. This is neither an economic test
+nor a rejection of all credit ETFs; ten completed studies, zero qualifying strategies and zero new
+forward days remain.
+
+Preceding source review: [official gold reserve quantities](cn_etf_gold_reserve_source_review_2026-09-22.md).
 Two fixed June pilots report6194 and6795 ten-thousand ounces, distinct from USD/SDR valuation.
 Five retained originals total3297508bytes;44artifact fingerprints,7fixed protocols,4queries,4opens,
 request chains, table header spans and six selected quantity/valuation fields were independently checked.

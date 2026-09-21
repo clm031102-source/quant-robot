@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "review_id": "credit_bond_511220_fixed_date_lot_feasibility_20260922",
+  "stage": "conditional_affordability_review_not_a_return_test",
+  "parent_commit": "302718e",
+  "symbol": "511220.SH",
+  "fixed_reference_date": "2020-01-02",
+  "capital_CNY": 10000,
+  "single_position_all_in_CNY": 1000,
+  "scope": {
+    "path": "data/reports/positive_ev_20260922/credit_etf_unit_feasibility/scope.json",
+    "sha256": "bdfa26c000fb5ab9f54a1ebcb603d73da9c65412c7a49d5ddbc3e934f3ec6e09"
+  },
+  "result": {
+    "path": "data/reports/positive_ev_20260922/credit_etf_unit_feasibility/lot_result.json",
+    "sha256": "d1b8511c525042e916f7077039bd0d69bd62d5760e81c97cd4de85ba9f40c1be"
+  },
+  "proof": {
+    "path": "data/reports/positive_ev_20260922/credit_etf_unit_feasibility/review_proof.json",
+    "sha256": "eb7e58c1ebe7c7ec35d7e778292fbb2c29dae4f2d19c9db93f786ffa3bd52282"
+  },
+  "price_source": {
+    "path": "F:/lhjqr/data/processed/tushare_etf_wide_history_2023_2026/raw/tushare/fund_daily/trade_date=20200102/part-00000.parquet",
+    "sha256": "8453baed0d36aa6884613404377b3505e1de28fddb71f273e39de843b95a4e35",
+    "projected_columns": ["symbol", "date", "close"],
+    "filtered_records": 1,
+    "unadjusted_close_CNY": "96.53",
+    "is_executable_quote": false
+  },
+  "documented_example": {
+    "lot_units": 100,
+    "price_tick_CNY": "0.001",
+    "guide": "https://big5.sse.com.cn/site/cht/www.sse.com.cn/lawandrules/guide/jjznlc/c/c_20200722_3986154.shtml",
+    "guide_body_date": "2013-02-08",
+    "guide_scope": "Single-market bond ETFs using physical-bond subscriptions/redemptions; not a full2020rule lifecycle certificate.",
+    "listing_notice": "https://www.sse.com.cn/disclosure/fund/announcement/c/2014-12-10/511220_20141211_1.pdf",
+    "listing_evidence_status": "Web text supports2014-12-03share consolidation and2014-12-16listing. Raw PDF timed out after131072bytes; both screenshot requests failed. No complete-original or visual-verification claim."
+  },
+  "cost_model": {
+    "commission_rate": "0.0005",
+    "minimum_commission_CNY": [0, 5, 10],
+    "slippage_bps": [0, 10, 30],
+    "price_rounding": "ceil adverse buy price to0.001",
+    "commission_rounding": "ceil to0.01, an illustrative conservative convention",
+    "broker_confirmed": false,
+    "zero_minimum_is_zero_commission": false
+  },
+  "findings": {
+    "no_fee_no_slippage_lot_CNY": "9653.00",
+    "primary_buy_price_CNY": "96.627",
+    "primary_commission_CNY": "5.00",
+    "primary_all_in_CNY": "9667.70",
+    "all_scenarios_fit_account": true,
+    "any_scenario_fits_position_cap": false,
+    "decimal_vs_integer_arithmetic_comparisons": 9
+  },
+  "decision": "Stop history expansion for this fixed product/date example under the current1000all-in position cap. It fits the10000account, so do not describe it as unaffordable to the account. No lower-price date substitution, risk relaxation or reuse of stock credit-spread timing experiments. This does not reject all credit ETFs or establish negative expected returns.",
+  "economic_experiments_added": 0,
+  "total_economic_experiments": 10,
+  "qualified_strategies": 0,
+  "changes_to_account_risk_fees_or_promotion_rules": false,
+  "history_collection_authorized": false,
+  "financial_execution_authorized": false,
+  "final_holdout_authorized": false
+}
