@@ -19,7 +19,10 @@ Maximum drawdown is2.1107%. The annual-mean95%two-year-block interval is[0,134.6
 financial checks fail; transient position breaches and the daily-loss breach are retained.
 All143input/9implementation hashes,27accounts,66258daily ledger rows,384fills,540corporate-action
 entries,270annual contributions and144position episodes reconcile independently;5000scalar block
-replicates reproduce the interval.62related tests passed before execution.24source requests remain
+replicates reproduce the interval. This reconciles the recorded-fill ledger, not complete execution
+causality: omitted entries/rejections, full event constraints, scenario identities, primary mapping
+and all seven screen predicates are not independently asserted by that ledger verifier.
+62related tests passed before execution.24source requests remain
 consumed. The exact hypothesis is closed, with no risk-limit, asset, cost or restart-policy rescue.
 Eight economic studies are complete; zero strategies qualified and zero forward paper days.
 Standalone gold is an exposed descriptive comparator, not an independently validated winner.
