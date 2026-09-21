@@ -1840,5 +1840,22 @@
     "net_positive_EV_verified": false,
     "rerun_allowed": false,
     "next": "One separately registered exact literal-format engineering repair may be reviewed under its frozen correction proposal; preserve this failed attempt. No economic-method changes."
+  },
+  "cash_carry_format_repair_decision": {
+    "status": "authorized_once",
+    "registration_id": "2322ece942fc94f92b35b2e35f3f8a174664e1c9773581235276ef270585c0c5",
+    "registration_path": "data/reports/positive_ev_20260921/cash_carry_format_repair/registration.json",
+    "registration_sha256": "af9e5e86f2ea5519a3315b6790d6eb88b8262a1fb4843dcf6538692aa8fd7ec6",
+    "max_executions": 1,
+    "execution_count": 0,
+    "allowed_stage": "single_primary_cash_carry_literal_format_repair",
+    "ledger_path": "data/reports/positive_ev_20260921/cash_carry_format_repair/attempt_claim.json",
+    "same_economic_hypothesis": true,
+    "conditional_endpoint_cost_only": true,
+    "general_factor_batch_allowed": false,
+    "net_account_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
   }
 }
