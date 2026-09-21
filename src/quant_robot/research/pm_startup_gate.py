@@ -506,7 +506,7 @@ def _next_actions(
         return [
             {
                 "action": "run_hash_bound_single_prescreen",
-                "reason": "Exactly one authorization-bound dynamic-peer dislocation prescreen is allowed; all portfolio, walk-forward, holdout, paper, and live actions remain disabled.",
+                "reason": "Exactly one prescreen bound to the scheduler's current authorization is allowed; all portfolio, walk-forward, holdout, paper, and live actions remain disabled.",
             }
         ]
     if restricted_mode == "single_monthly_diagnostic_only":
@@ -525,7 +525,7 @@ def _next_actions(
         return [
             {
                 "action": "review_next_orthogonal_cn_etf_family",
-                "reason": "The authorized dynamic-peer prescreen was rejected and closed; review one new point-in-time-safe orthogonal family before any further factor batch.",
+                "reason": "The previous family is closed under the scheduler's governing decision; review one new point-in-time-safe orthogonal family before any further factor batch. Consumed authorizations must not be rerun, and invalidated metrics must not guide selection.",
             }
         ]
     return [

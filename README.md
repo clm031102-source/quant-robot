@@ -6,11 +6,23 @@ The project is currently in a Phase 5.x research-to-paper stage. It has research
 
 ## Current Status
 
+- Current assessment and ordered worklist (2026-09-21): [project progress review](docs/research/project_progress_review_2026-09-21.md).
 - Latest ETF deployment assessment (2026-09-11): [execution plan and acceptance criteria](docs/research/etf_monetization_execution_plan_2026-09-11.md). The research-family scheduler has no active primary family; the delayed-NAV result was invalidated and its family is closed. No current candidate has established deployable net positive expectancy. The historical `paper_ready` and activation records below are workflow history, not current strategy or live-profit qualification.
 - Minimum commission, daily valuation, raw-price execution and a synthetic-tested dividend/share-conversion ledger now run through offline paper workflows. [Accounting scope and remaining source audit](docs/research/cn_etf_paper_execution_accounting_2026-09-11.md). Actual broker fees, real price/action source qualification, forward observation, and broker integration still require their own acceptance evidence.
 - Cloud/research sync index: `docs/research/CURRENT_RESEARCH_INDEX.md`. Read this first after syncing on any workstation.
-- Cloud branch structure: `origin/main` is the only durable remote branch after the 2026-06-27 cleanup; task branches should be temporary and deleted after merge/archive.
-- Current stage: Phase 5.15 paper ops runbook.
+- Unmerged development evidence: `origin/codex/factor-review-etf-monetization-20260911` at `0b8984c` contains 141 commits beyond this mainline baseline, including offline execution/accounting, source receipts, and additional closed diagnostics. See the progress review for the integration queue; these capabilities are not yet part of `main`.
+- Research state: `family_rotation_review_only`; no current CN ETF strategy is eligible for promotion or paper observation. Historical workflow readiness is not current strategy readiness.
+- The 2026-07-29 delayed-NAV prescreen was invalidated for implementation and authorization drift. Its consumed authorization cannot be rerun, and its metrics are non-governing.
+- The authoritative scheduler has seven explicitly closed CN ETF families, three exploratory families with no budget, and one auxiliary-only CN stock family. Active primary allocation is zero.
+- Current blocker: the 2026-09-21 bounded access review again received permission denials for all four historical SSE/SZSE PCF probes and the structured ETF mapping probe. A licensed historical delivery or enabled source access is needed before source-readiness work can complete.
+- Next work: obtain and audit point-in-time historical ETF PCF/constituents, then preregister an independent hypothesis. Factor batches, portfolio grids, walk-forward, final holdout, and new paper signals remain disabled under the current decision.
+- Use the project virtual environment (`.venv/Scripts/python.exe`); supported Python versions are 3.11–3.13. The office machine's system Python 3.14 is outside this range.
+- Task branches are temporary; keep `main` stable and merge only reviewed, validated changes.
+
+### Historical workflow baseline
+
+The following Phase 5.15 statuses describe earlier engineering and paper-workflow evidence. They do not supersede the current research decision above or establish a currently deployable strategy.
+
 - Latest selected paper profile: `cap60_guard12_cd3` for `CN_ETF_liquidity_10_top1_cost5_reb5`, risk tier `aggressive_growth`.
 - Daily Ops status: `paper_ready` with live boundary disabled.
 - Baseline Profile Observation status: stopped on `signal_data_stale`, which is why the activation chain refreshes and replays recent data.
@@ -23,7 +35,7 @@ The project is currently in a Phase 5.x research-to-paper stage. It has research
 - Fixture activation status: `paper_observation_ready`, proving the local refresh -> replay -> sufficiency -> iterative expansion chain without network access.
 - CI status: GitHub Actions now runs unit/integration tests, Python compilation, and project-audit pass checks on push and pull request.
 
-To reproduce the real-data gate, set `TUSHARE_TOKEN` in the local shell environment and run:
+The historical real-data activation command is shown below for reference. Execute it only after the current research and promotion gates permit paper observation; it is not the next action while research is in family-rotation review.
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\run_tushare_activation_gate.py --machine highspec_desktop --report-dir data\reports\tushare_activation_gate --execute
