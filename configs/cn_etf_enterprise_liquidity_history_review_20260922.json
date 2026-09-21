@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "review_id": "enterprise_funds_turnover_original_history_20260922",
+  "status": "conditional_original_history_review_complete_before_signal_admission",
+  "economic_hypothesis_id": "enterprise_funds_turnover_annual_improvement_v1",
+  "proposal_commit": "847c0bf",
+  "capital_CNY": 10000,
+  "single_position_all_in_CNY": 1000,
+  "source_verification": {
+    "path": "data/reports/positive_ev_20260922/enterprise_liquidity_history/source_verification.json",
+    "sha256": "ad2f22f3c7909be3438fb6a7a213a29bff6d3b99ff784f393dec9f69b6b22abb"
+  },
+  "source_manifest": {
+    "path": "data/reports/positive_ev_20260922/enterprise_liquidity_history/source_manifest.json",
+    "sha256": "8ea72797b748c481db04aea6a0eea8dd338f546657a3b3b4ac1455a8454bf7cc"
+  },
+  "report_inventory": {
+    "path": "data/reports/positive_ev_20260922/enterprise_liquidity_history/report_inventory_reviewed.json",
+    "sha256": "fb14b617ef88f5600a0651b7abd35945e26993c4248ad8b887d79359a35c73e2"
+  },
+  "expected_quarters": 48,
+  "original_reports": 47,
+  "conditional_reports_within_2023_cutoff": 46,
+  "missing": [
+    "2012Q3"
+  ],
+  "outside_cutoff": [
+    {
+      "quarter": "2023Q3",
+      "current_official_carrier_date": "2024-03-22"
+    }
+  ],
+  "collection": {
+    "catalogue_requests": 8,
+    "landing_requests": 45,
+    "PDF_requests": 46,
+    "reused_landings": 2,
+    "reused_PDFs": 1,
+    "raw_success": 99,
+    "raw_failures": 0,
+    "new_raw_bytes": 30611727,
+    "additional_gap_search_queries": 2,
+    "search_original_found": false,
+    "no_retry_or_redirect": true,
+    "TLS_verify": true,
+    "environment_proxy_used": false
+  },
+  "verification": {
+    "printed_values_visually_checked": 47,
+    "decoded_PDF_pages": 280,
+    "all_pages_visually_reviewed": false,
+    "strict_decoder_conflicts": 0,
+    "single_successful_decoder_quarters": [
+      "2011Q4",
+      "2016Q4",
+      "2017Q1",
+      "2018Q2",
+      "2020Q4"
+    ],
+    "source_parser_unit_tests": 9,
+    "old_parser_snapshots_match_acquisition_hashes": true
+  },
+  "old_definition": {
+    "quarters": [
+      "2011Q4",
+      "2012Q1"
+    ],
+    "formula": "(100 + good share - difficult share) / 2",
+    "equivalence": "Good plus half the residual neutral share for exhaustive response shares; mathematical compatibility, not proof of invariant question wording, respondents or weights.",
+    "Q4_2011_value": "60.55",
+    "Q4_2011_value_location": "Current-quarter row in that quarter's original appendix; not a later backtable",
+    "rounding": "Keep the printed original precision. If report body contains an explicit current level, use it ahead of the appendix's greater precision."
+  },
+  "cross_host": {
+    "quarters": [
+      "2013Q1",
+      "2013Q4"
+    ],
+    "PDF_bytes_equal": false,
+    "current_normalized_text_and_1_5x_render_pages_equal": 12,
+    "historical_byte_identity_proven": false
+  },
+  "source_use_assumptions": [
+    "Current surviving bytes are conditionally treated as available on the maximum explicit catalogue, body publication and declared report date. This does not certify an unchanged historical vintage.",
+    "Different sample membership, response weights and populations remain possible.",
+    "Only original-quarter observations may be used. Missing and late reports remain unavailable; no later backtable fill.",
+    "2013..2023ETF outcomes are already exposed by prior research;2026ETFholdout remains sealed."
+  ],
+  "next_action": "Freeze exact single-candidate signal-cadence admission and implementation. Apply unchanged minimum interval and new-episode counts before any return join. Source review is not financial admission.",
+  "financial_states_generated": false,
+  "returns_computed": false,
+  "new_economic_studies": 0,
+  "total_current_mandate_studies": 10,
+  "qualified_strategies": 0,
+  "new_real_forward_days": 0,
+  "general_factor_batch_allowed": false,
+  "financial_execution_allowed": false,
+  "holdout_allowed": false,
+  "live_allowed": false
+}

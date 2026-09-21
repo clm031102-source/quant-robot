@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "hypothesis_id": "enterprise_funds_turnover_annual_improvement_v1",
+  "original_proposal_path": "configs/cn_etf_enterprise_liquidity_proposal_20260922.json",
+  "original_proposal_commit": "847c0bf",
+  "status": "interpretation_fixed_before_real_states_or_new_return_join",
+  "authority": "Project lead under standing user mandate; integration review comments considered. No independent human approval claimed.",
+  "selected_mean": "Unweighted arithmetic mean of simple gross returns across selected release/expiration intervals, including a clipped selected interval in the later descriptive slice. Do not compute competing weighting variants for selection. Variable session lengths are separately reported; duration weighting belongs only to the fixedDstatistic.",
+  "later_slice": "Use the first eligibleCNexchange open on or after2020-01-01as the exact later boundary. Intersect every original interval with[boundary,terminal_exit). Drop zero-length intersections. Recompute each clipped interval's entry/exit prices, entitled cash and session count from its clipped endpoints; never carry the full pre2020return into the later slice.",
+  "later_dividends": "For an original cash distribution, include entitlement only if clipped_entry<=record_date<clipped_exit. This is a descriptive one-share return from the clipped open, not a fabricated new account fill.",
+  "episodes": "Full episodes are maximal uninterrupted selected states on the exchange-session grid. A full episode beginning before the later boundary and active at that boundary is a disclosed carry-in segment. It does not count toward the minimum3new later selected episodes. Count later new entries only when the full episode starts on or after the boundary.",
+  "same_open_events": "Install all newly visible reports before processing any expiration at the same exchange open. A newly eligible latest quarter supersedes the old state directly. Do not insert zero-length intervals or synthetic cash between two selected states. A late older-quarter report updates history for future latest-quarter decisions without retroactive state changes.",
+  "staged_failure": "Check the unchanged minimum16full selected intervals/6full selected episodes and6later selected intervals/3new later episodes before reading any ETFprice or distribution input for this candidate. Failure closes the fixed candidate for insufficient evidence without a return join, sign reversal or threshold/window change. Counts alone do not establishEV.",
+  "signal_generation_allowed": false,
+  "financial_execution_allowed": false,
+  "general_factor_batch_allowed": false,
+  "final_holdout_allowed": false
+}

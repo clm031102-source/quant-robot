@@ -9,6 +9,29 @@ historical frozen evidence remains unchanged. The existing shared hourly task re
 original owner and now includes this continuation index; later results must be assessed
 against the mandate's evidence criteria.
 
+Current result count: ten economic studies in the CNY10000continuation, zero qualified net-positive-EV
+strategies and zero new real forward days. Earlier archived studies remain separate consumed evidence.
+
+Latest source review: [enterprise working-capital history](cn_etf_enterprise_liquidity_history_2026-09-22.md).
+The fixed48-quarter corpus yields47original reports and46within the2023publication cutoff;2012Q3is
+missing and the current2023Q3carrier is dated2024-03-22. All99new requests succeed and47printed levels
+are visually checked. Legacy definitions are algebraically compatible; sample/vintage assumptions remain.
+The current2013Q1/Q4cross-hostPDFpairs differ in bytes but agree across12pages of normalized text and
+rendered pixels. This does not certify immutable historical vintages. Mean weighting, later-slice clipping,
+carry-in exclusion from new-entry minima and same-open event priority are fixed before real states.
+Next is exact single-candidate cadence admission and minimum-observation screening, before anyETFreturn
+join. No new signal, economic experiment, general factor batch or2026holdout access occurred in this stage.
+
+Preceding [enterprise source pilot and proposal review](cn_etf_enterprise_liquidity_source_review_2026-09-22.md)
+matched 72 artifact pins, seven protocols, ten raw attempts (seven originals, 1,108,850 bytes;
+three retained TLS failures), seven queries, eight web requests and eleven key PDF pages.
+The 2013 Q1/Q2 field definition agrees, but sample composition and weights are not proven constant.
+Two Q4 rounding witnesses do not reconstruct respondents. The 2023 Q4 carrier is dated 2024-03-22.
+The source pilot did not authenticate Q1/Q4 cross-host bytes; the separately frozen history stage
+subsequently compares current content without certifying historical immutability. Query timing and
+prior outcome exposure remain explicit. The two financial specification clarifications raised against
+proposal 847c0bf are resolved in fixed 6194b30; exact signal and financial admission remain separate.
+
 Latest actual test: [sovereign term slope](cn_etf_term_structure_source_review_2026-09-22.md).
 The fixed quarterly study completed once and closed:44quarters,16selected,6positive,9selected
 episodes; selected gross mean-1.6256%. The2020onward slice has6selected,2positive,4episodes
