@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "study_id": "fixed_equity_gold_risk_diversification_v1",
+  "status": "source_and_account_method_review_only",
+  "authority": "Existing project-lead autonomous CNY10000mandate; self-review, not independent approval",
+  "primary_market": "CN_ETF",
+  "assets": [
+    "CN_ETF_XSHG_510300",
+    "CN_ETF_XSHG_518880"
+  ],
+  "economic_question": "Does a predeclared broad-equity plus physical-gold exposure produce a more useful after-cost account outcome and risk distribution than the separately disclosed components and idle cash? Diversification is a hypothesis, not an assumption of a China safe haven or positive expected return.",
+  "distinction": "Fixed asset-risk exposure composition, with no rate, price, momentum, volatility, NAV-premium or conditional macro timing signal. No reopening the rejected gold/real-rate proposal or optimizing weights to rescue earlier studies. Not presented as discovered timing alpha.",
+  "candidate_fixed_choices": {
+    "capital_CNY": 10000,
+    "maximum_all_in_budget_per_asset_CNY": 1000,
+    "assets_fixed_before_new_price_access": true,
+    "target_nominal_allocation": "Equal declared nominal budget per asset, subject to integer100-share lots; actual weights need not equal50/50. Residual cash remains in account.",
+    "source_window": "First complete civil year after2013gold ETFlisting:2014through2023, plus required2024exit anchors within existing2024-06-28research cutoff. This source review does not authorize price or return extraction.",
+    "costs": "Existing secondary-market5bpcommission per side, minimum0/5/10CNYand adverse slippage0/10/30bp; primary5CNY/10bp;0.001quote tick, cent-rounded commissions. No imported primary cash-carry fee semantics.",
+    "risk": "Preserve existing1000CNYposition cap,60CNYdaily-loss budget,8percentpaper drawdown and252sessionmaximum holding. A full execution policy must be frozen before outcomes; benchmark marking alone is insufficient.",
+    "comparison": "Cash at declared0nominal interest plus standalone same-cap components. Different invested amounts, remaining cash and component costs must be explicit; no fitted risk matching or alpha claim.",
+    "historical_test_not_yet_authorized": true
+  },
+  "method_background": [
+    {
+      "url": "https://onlinelibrary.wiley.com/doi/10.1111/j.1540-6288.2010.00244.x",
+      "status": "publisher abstract read; no full-paper replication",
+      "scope": "US,UK,German stock/bond/gold data; short-lived safe-haven claim does not prove Chinese ETF profitability"
+    },
+    {
+      "url": "https://www.sciencedirect.com/science/article/pii/S0378426609003343",
+      "status": "search returned publisher abstract; direct open403",
+      "scope": "International evidence reports no gold safe-haven result for majorBRICmarkets. Retain contrary evidence; no automatic hedge assumption."
+    }
+  ],
+  "source_scope": {
+    "maximum_new_requests": 12,
+    "allowed_public_hosts": [
+      "query.sse.com.cn",
+      "www.sse.com.cn"
+    ],
+    "annual_catalog": {
+      "url": "https://query.sse.com.cn/commonQuery.do",
+      "fund": "518880",
+      "title": "年度报告",
+      "start": "2014-01-01",
+      "end": "2024-04-30",
+      "page_size": 100,
+      "max_pages": 1
+    },
+    "annual_PDFs": {
+      "years": [
+        2013,
+        2014,
+        2015,
+        2016,
+        2017,
+        2018,
+        2019,
+        2020,
+        2021,
+        2022,
+        2023
+      ],
+      "selection": "Exactly one full original annual report per named year from returned catalogue; exclude summaries,tips,and correction titles. Ambiguity or correction notice stops that source review; never choose by performance.",
+      "maximum": 11
+    },
+    "policy": "Exclusive claim before each request;verifiedTLS;no automatic redirect/retry;30second read timeout;12MiBsize cap. Failed request remains consumed; no provider-credential call.",
+    "extraction": "Identity,contract/listing/split dates,investment and distribution rules,annual distributions and unit-capital movement only. Do not extract performance sections, NAV paths or return series.",
+    "reuse": [
+      {
+        "source": "F:/lhjqr/data/reports/etf_monetization_20260911/gold_macro_source_20260913/518880_prospectus_2019_2.pdf",
+        "snapshot": "data/reports/positive_ev_20260921/equity_gold_review/518880_prospectus_2019_2.pdf",
+        "sha256": "5cb6f18b8926b14d903b69720ac760eaad8c0a202b19042dedc798afe00b10d3",
+        "bytes": 1191439
+      },
+      {
+        "source": "F:/lhjqr/data/reports/etf_monetization_20260911/gold_macro_source_20260913/sse_gold_etf_guide_20130726.html",
+        "snapshot": "data/reports/positive_ev_20260921/equity_gold_review/sse_gold_etf_guide_20130726.html",
+        "sha256": "e6daa99234723f56f6d704879ea5d87e1e4f72451f91a924a5c00c9ca99468b8",
+        "bytes": 93280
+      },
+      {
+        "source": "F:/lhjqr/data/reports/etf_monetization_20260911/gold_macro_source_20260913/fund_and_vintage_result.json",
+        "snapshot": "data/reports/positive_ev_20260921/equity_gold_review/fund_and_vintage_result.json",
+        "sha256": "2d5ca30cb3820c61dd21391326b7e092e14c9e8a9e4360c38c0376c82bdd0b23",
+        "bytes": 1088
+      },
+      {
+        "source": "F:/lhjqr/data/reports/etf_monetization_20260911/gold_macro_source_20260913/trading_rules_result.json",
+        "snapshot": "data/reports/positive_ev_20260921/equity_gold_review/trading_rules_result.json",
+        "sha256": "93efa03cbc7b19b501d749be7110877916e85cf3d2f5c1c8351b5fbf079d96b6",
+        "bytes": 689
+      },
+      {
+        "source": "F:/lhjqr/data/reports/etf_monetization_20260911/gold_macro_source_20260913/existing_catalog_scope.json",
+        "snapshot": "data/reports/positive_ev_20260921/equity_gold_review/existing_catalog_scope.json",
+        "sha256": "79933a21e3f057398fcb0d10e19dd55c753e860c6418c3e33a1296715648f8cf",
+        "bytes": 543
+      }
+    ],
+    "equity_sources": "Reuse existing reviewed510300prices/actions/calendar evidence later under a separate full input binding; no reading or recalculation in this source scope."
+  },
+  "exposure": "Gold was chosen before the current search. Search then exposed manager-page current NAV and trailing/year-to-date gold returns, and a2026portfolio-paper abstract. These are recorded separately, not used to choose dates,weights or qualify performance. Prior2020..2024equity histories are already used research. No pristineOOS claim; local2026ETFprice/return holdout remains sealed.",
+  "new_market_return_calculation_allowed": false,
+  "general_factor_batch_allowed": false,
+  "net_account_allowed": false,
+  "paper_promotion_allowed": false,
+  "holdout_2026_allowed": false,
+  "live_boundary_allowed": false
+}

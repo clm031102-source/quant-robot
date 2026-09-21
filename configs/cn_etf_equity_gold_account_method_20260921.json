@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "study_id": "fixed_equity_gold_risk_diversification_v1",
+  "status": "financial_method_fixed_before_new_price_paths_not_execution_admission",
+  "authority": "Existing autonomous CNY10000project-lead mandate; explicit self-review",
+  "source_review": {
+    "path": "data/reports/positive_ev_20260921/equity_gold_review/source_ledger.json",
+    "sha256": "66a93c85cbc17910644577f638acc904e829fee23af7414eacf044a45f988674"
+  },
+  "assets": ["CN_ETF_XSHG_510300", "CN_ETF_XSHG_518880"],
+  "capital_CNY": 10000,
+  "window": {
+    "entry_years": [2014,2015,2016,2017,2018,2019,2020,2021,2022,2023],
+    "entry_session": "Second complete CN session of each civil year, using first-session close information only",
+    "exit_session": "First CN session of the following civil year, or entry index plus252sessions if earlier",
+    "terminal": "First CN session of2024; any unfilled sale or unpaid receivable remains explicitly unresolved and prevents account completion",
+    "warmup": "At least20complete preceding CN sessions for entry participation estimates; not counted as investment outcomes",
+    "capital_reset": false,
+    "later_slice": "Calendar2020through2023contributions plus the terminal2024liquidation contribution, disclosed separately from full results"
+  },
+  "entry": {
+    "all_in_budget_per_asset_CNY": 1000,
+    "lot_size": 100,
+    "formula": "Largest nonnegative100-share multiple whose prior-close adverse tick-rounded value plus cent-rounded commission is at most1000CNYand available cash, also at most1percentof prior20-session mean share volume. Fix quantity before the next session.",
+    "hypothetical_fill": "Next-session raw close plus scenario adverse slippage, rounded upward to0.001for buys; fill only if that predeclared quantity fits the1000CNYall-in budget, current cash and observed full-day volume. Otherwise cancel the entire entry. No hindsight resizing or entry retry.",
+    "pair_policy": "Both assets are evaluated independently in fixed asset-code order. One cancellation does not create an order in the other asset or a later catch-up trade. Report realized weights and unpaired years.",
+    "overlap": "Skip an asset's annual entry if it still holds a prior-year position or has an unsettled outgoing order. No buy and sell of the same asset on one session.",
+    "cash": "Residual cash and paid distributions remain idle at0nominal interest. No borrowing, cash-ETFoverlay, or reinvestment between annual entries. Profits do not enlarge the1000CNYbudget."
+  },
+  "exit_and_risk": {
+    "timing": "Scheduled sales are known before their session; every close-observed risk action starts no earlier than the following CN session. No retrospective stop at the breach price.",
+    "position_cap_CNY": 1000,
+    "position_rule": "At a close with marked asset value above1000CNY, schedule the minimum whole100-share sale needed to put its value at or below1000using that close. Attempt next-session close; recompute a remaining excess only after its next close. No automatic buyback. Record every temporary breach even if later reduced.",
+    "daily_loss_trigger_CNY": 60,
+    "drawdown_trigger": 0.08,
+    "account_stop": "A close-to-close equity loss of at least60CNYor drawdown of at least8percentfrom the running peak, including initial10000CNY, permanently halts new entries for this study and queues liquidation of every position for the next session. No annual reset of this halt or peak.",
+    "precedence": "Account liquidation, scheduled/max-holding liquidation, position-cap trim, then eligible annual entries. An asset receives at most one outgoing order per session.",
+    "exit_capacity": "A sell intent cannot exceed1percentof the preceding20-session mean share volume, rounded down to100shares except an allowed terminal odd-lot remainder. Full-day observed volume is an additional ex-post feasibility bound, never a source of advance order size. Retain partial/unfilled quantities and retry causally on later sessions within the fixed window.",
+    "no_guaranteed_loss_cap": true,
+    "risk_audit": "Unchanged account limits are audited independently on every mark. A cap breach remains a breach after a successful trim; no automatic paper qualification or redefinition of the1000CNYlimit."
+  },
+  "accounting": {
+    "basis": "Raw ETFprices plus explicitly dated corporate actions, never adjusted prices plus cash again",
+    "entitlement": "Record-date closing holdings determine entitlement. At ex-date open create the receivable; holdings changes afterward do not erase earned cash. On announced pay date transfer receivable to cash only after that session's fills, conservatively preventing same-session spending.",
+    "cash_amount": "Announced distribution amount with shareholder-level cent rounding HALF_UP; retained issuer statements describe their historical tax treatment. Actual investor credit remains unverified.",
+    "corporate_actions": "Gold2014..2023no distribution/split from reviewed annuals; prelisting2013conversion excluded.510300earlypaymentdates now sourced; later actions and annual zero coverage must be bound separately. Any unexplained action or price adjustment stops input acceptance.",
+    "daily_identity": "cash + dividend_receivable + sum(quantity * raw_close) = equity; carry all balances continuously and retain every fill, fee, intent rejection and action journal"
+  },
+  "costs": {
+    "commission_bps_per_side": 5,
+    "minimum_commission_CNY": [0,5,10],
+    "adverse_slippage_bps_per_side": [0,10,30],
+    "primary": {"minimum_commission_CNY":5,"adverse_slippage_bps_per_side":10},
+    "quote_tick": "0.001",
+    "commission_rounding": "HALF_UP0.01CNYper actual modeled fill; no stamp duty assumption on these fund units, subject to source/fee review",
+    "sell_price": "raw_close*(1-slippage/10000), rounded downward to0.001",
+    "market_impact_extra": "No separate fitted impact charge; slippage scenarios remain assumptions, not observed spread or depth",
+    "broker_confirmed": false
+  },
+  "comparison": {
+    "accounts": ["paired equity+gold", "510300alone", "518880alone", "idle cash"],
+    "policy": "Each starts10000CNY; same asset-level1000CNYcap and execution/risk/cost rules. Component accounts naturally invest less than the pair. Show average capital employed, residual cash, exposure, fees, PnL and drawdown; do not call their raw profit difference alpha or fit risk-normalizing weights.",
+    "no_parameter_search": true
+  },
+  "fixed_screen": {
+    "primary_financial_checks": ["terminal cash fully settled", "full net PnL >0", "later net contribution >0", "at least6of10civil-year contributions positive", "at least8years with both planned asset entries filled and at least3such years from2020onward", "2.5percentbootstrapmeanannualcontribution >0"],
+    "annual_contributions": "Changes in the continuous account's year-end equity, with terminal2024cash-liquidation contribution assigned to2023and also reported separately. No return compounding or capital reset between years.",
+    "uncertainty": "Circular contiguous2-year block bootstrap of10annual CNYcontributions;5000draws,seed20260921,concatenate5blocks per draw. Report2.5and97.5percentiles. Ten years and path-dependent risk stops make this exploratory sensitivity, not independent repeatable opportunity evidence or confirmatoryEV.",
+    "risk_checks_separate": "Report all daily position/loss/drawdown/holding breaches, action delays, missing execution flags and terminal residues. A financial-screen pass does not override a failed risk audit.",
+    "no_rescue": "No changed assets, dates, annual phase, risk policy, thresholds, fees, weights, later subset or sign after outcomes; preserve failures and all nine cost scenarios."
+  },
+  "required_before_execution": [
+    "Bound raw OHLCand share-volume authorities for both assets, including20-session warmup, exact CNcalendar and all corporate-action inputs",
+    "State unknown historical trading flags and quote/depth explicitly; do not convert missing flags into certified tradability",
+    "Implement and test the causal multi-asset continuous account, including prior-information sizing, ex-date entitlement/pay-date cash, risk exits, partial fills, fees, terminal settlement and no annual capital reset",
+    "Freeze input/code/runtime hashes and claim the exact one-use study through the PM gate before any account outcomes"
+  ],
+  "exposure": "Past broad-equity outcomes already used. Public search exposed recentgold NAV/trailingreturns, and source PDFs exposed incidental distribution-base NAVs. No pristineOOSclaim; no local2026ETFoutcomes. Method choices are fixed before new gold daily-price paths or combined-account outcomes.",
+  "financial_method_revision_after_results_allowed": false,
+  "new_download_permission": false,
+  "account_execution_allowed_now": false,
+  "general_factor_batch_allowed": false,
+  "paper_promotion_allowed": false,
+  "live_boundary_allowed": false
+}
