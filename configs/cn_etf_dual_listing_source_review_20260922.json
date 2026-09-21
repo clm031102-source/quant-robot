@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "study_id": "cn_etf_dual_listing_relative_valuation_source_review_v1",
+  "stage": "source_review_closed_without_market_test",
+  "capital_CNY": 10000,
+  "document": "docs/research/cn_etf_dual_listing_source_review_2026-09-22.md",
+  "decision": "Do not infer mainland broad-ETF timing from individual A/H premium findings: the same empirical paper reports insignificant aggregate-index terms. This rejects the proposed transfer as currently unsupported, not all possible A/H mechanisms.",
+  "source_directory": "data/reports/positive_ev_20260921/dual_listing_review_20260922",
+  "source_pins": {
+    "four_originals_ledger": {
+      "path": "data/reports/positive_ev_20260921/dual_listing_review_20260922/method_source_ledger.json",
+      "sha256": "9759f48541b6a8a009f7779ee30115e97424f87bd02b1ba22d29a4ff67bc9480"
+    },
+    "empirical_paper_receipt": {
+      "path": "data/reports/positive_ev_20260921/dual_listing_review_20260922/empirical_paper_receipt.json",
+      "sha256": "477e85b7dab918236e2a8af1327aba3627e72577d8293075e3e5b483462e42ce"
+    },
+    "source_review_verification": {
+      "path": "data/reports/positive_ev_20260921/dual_listing_review_20260922/source_review_verification.json",
+      "sha256": "2d416bf0ed3b31c6d17fa2308a08a935121e91fac1409e35ab4a697744d7f97b"
+    }
+  },
+  "method_distinctions": [
+    "Issuer-specific A/H relative prices are distinct from ETF price/NAV premiums and index-level timing.",
+    "The retained HSI methodology is September2017 version1.2; it defines a ratio of weighted sums with FX conversion, not an arithmetic average of issuer premiums.",
+    "HSI dissemination while either market is open does not certify simultaneous executable prices.",
+    "The publisher's AH Smart cheaper-share-class selection is a different strategy from buying a mainland broad ETF.",
+    "The analyst-reaction paper supports persistent segmentation, not a costed aggregate ETF signal."
+  ],
+  "remaining_requirements_for_a_materially_new_proposal": [
+    "Distinct economic justification at the investable ETF or disclosed-holdings level, with explicit exposure to the already read findings.",
+    "Point-in-time membership, weights, FX, publication clock, historical versions and practical account-cost feasibility.",
+    "Predeclared rule and independent validation evidence; no threshold or sign search justified by this source review."
+  ],
+  "scope_consumption": {
+    "initial_search_queries": 2,
+    "initial_web_opens": 4,
+    "exact_original_requests": 5,
+    "HTTP200": 5,
+    "retries": 0,
+    "original_PDFs": 4,
+    "original_HTMLs": 1,
+    "visually_reviewed_pages": 6
+  },
+  "exposure": {
+    "local_2026_ETF_holdout_read": false,
+    "current_publisher_factsheet_search_snippet_seen": true,
+    "publisher_note_historical_index_chart_seen": true,
+    "paper_full_sample_results_seen": true,
+    "historical_index_corpus_downloaded": false,
+    "ScienceDB_dataset_downloaded": false,
+    "unvisited_dataset_reference": "10.57760/sciencedb.j00214.00055",
+    "context_completely_blind": false
+  },
+  "new_economic_experiments": 0,
+  "total_economic_experiments": 9,
+  "qualified_strategies": 0,
+  "new_real_forward_days": 0,
+  "factor_batch_allowed": false,
+  "financial_execution_allowed": false,
+  "paper_promotion_allowed": false,
+  "final_holdout_allowed": false,
+  "live_boundary_allowed": false,
+  "next": "Preserve this narrow source-only closure and continue review of a distinct mechanism. Do not download A/H history solely to tune an unsupported broad-ETF timing transfer."
+}
