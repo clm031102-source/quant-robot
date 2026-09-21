@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "economic_hypothesis_id": "national_urban_unemployment_annual_contrast_v1",
+  "status": "source_and_design_review_only_not_admitted",
+  "primary_market": "CN_ETF",
+  "symbol": "510300.SH",
+  "authority": "Project lead autonomous review under the 2026-09-21 CNY10000 mandate; no independent reviewer.",
+  "mechanism": {
+    "inference": "Higher persistent labor-market risk can raise the compensation required for equity exposure after the contemporaneous price decline. The Chinese national unemployment annual contrast is an unvalidated proxy, not the paper's disaster probability.",
+    "primary_method_url": "https://www.nber.org/system/files/working_papers/w21575/revisions/w21575.rev0.pdf",
+    "primary_method_sha256": "e23c3e1b1f0bffbb7030a047851b04634ad6594f60e138221dd0466550cd3bc0",
+    "reviewed_locations": "PDF pp18-21: Theorems4,6,7; PDF p25 and p60: post-shock response and Figure9",
+    "critical_condition": "A higher equity premium does not by itself imply a higher absolute expected return; Theorem7 adds condition35. The displayed impulse response holds elevated disaster probability fixed.",
+    "transfer_to_china_verified": false,
+    "counterexamples": [
+      "unemployment can reflect labor supply, participation or productivity rather than priced disaster risk",
+      "persistent high unemployment need not mean risk is higher than one year earlier",
+      "publication lags and policy responses may eliminate or reverse a monthly relation"
+    ],
+    "distinct_from_existing_trials": "National labor-force survey numerator/denominator, not household investment preference, fiscal expenditure, ETF prices/volumes or constituent flow; common macro-state and return overlap remain possible.",
+    "statistical_independence_verified": false
+  },
+  "signal": {
+    "input": "national all-age urban surveyed unemployment rate, in percent; exclude registered, youth, prime-age, 31-city and cumulative-average series",
+    "contrast": "x_m = u_m - u_(m-12), using the same observation month in the previous year",
+    "selection": "z=1 if x_m > 0, otherwise z=0; equality is cash",
+    "reason": "Prior-year same-month comparison is a fixed seasonal reference, not a fitted threshold or an estimated disaster probability.",
+    "release_event": "Each scheduled NBS national-economy release supplying a new latest observation month; choose the latest observation month if several months appear in one release.",
+    "available_from": "First exchange session strictly after the latest declared calendar publication date across the authoritative page and its supporting record; no use of same-day timestamps to accelerate entry.",
+    "previous_year_value": "Earliest retained official value for the exact prior-year month, whose declared publication date precedes the current decision. Conflicts or missing originals stop source qualification; do not use a later backfilled table.",
+    "between_events": "Carry state until next scheduled eligible release. No synthetic January release, repeated stale monthly decision, extra daily signal or alternative comparator.",
+    "missing_or_conflicting_source": "Stop qualification for the fixed release universe; do not silently delete intervals or replace missing values with zero.",
+    "signal_generation_allowed": false,
+    "sign_threshold_window_search_allowed": false
+  },
+  "planned_scope": {
+    "decision_date_start": "2020-01-02",
+    "decision_date_end": "2024-06-28",
+    "required_observation_month_start": "2018-12",
+    "required_observation_month_end": "2024-05",
+    "interval": "Open on first session strictly after one scheduled release to open after next scheduled release; non-overlapping release-to-release intervals.",
+    "terminal_rule": "Only intervals with both endpoints within the fixed date scope; endpoint eligibility determined from publication dates and calendar before price access. Never extend through 2026.",
+    "source_timetable_required_before_trial": true,
+    "original_release_vintage_verified": false,
+    "all_historical_months_download_allowed": false,
+    "next_source_review": "Audit definition lineage and release calendar/version semantics, especially January-February combined releases and 2023 youth-statistic changes; freeze exact URLs and budget before any new source requests."
+  },
+  "later_diagnostic_requirements": {
+    "required_before_any_real_execution": [
+      "exact source identities, hashes, all release dates and unknown/conflict handling",
+      "fixed outcome dividend entitlement definition and price authorities",
+      "fixed statistic, dependency-aware uncertainty method, descriptive later segment and sample sufficiency rules",
+      "synthetic checks then dedicated one-use registration and atomic claim"
+    ],
+    "prior_2020_2024_ETF_outcomes_seen": true,
+    "fresh_out_of_sample": false,
+    "complete_search_history_verified": false,
+    "positive_gross_result_is_net_EV": false,
+    "account_config": "configs/cn_etf_research_account.json",
+    "capital_cny": 10000,
+    "max_single_position_cny": 1000,
+    "minimum_commission_cny_scenarios": [
+      0,
+      5,
+      10
+    ],
+    "slippage_bps_per_side_scenarios": [
+      0,
+      10,
+      30
+    ],
+    "main_minimum_commission_cny": 5,
+    "main_slippage_bps_per_side": 10,
+    "main_round_trip_cost_approx_bps_on_1000_position": 120,
+    "actual_fees_confirmed": false,
+    "later_account_rule": "Consecutive selected states should retain holdings where permitted; exact lot, cap-drift, dividends, fills and risk exits must be frozen before an account study. No assumption of free monthly rebalancing."
+  },
+  "boundaries": {
+    "factor_generation_allowed": false,
+    "outcome_read_allowed": false,
+    "one_use_authorization_issued": false,
+    "general_factor_batch_allowed": false,
+    "paper_promotion_allowed": false,
+    "holdout_2026_allowed": false,
+    "broker_connection_allowed": false,
+    "account_read_allowed": false,
+    "order_placement_allowed": false
+  }
+}

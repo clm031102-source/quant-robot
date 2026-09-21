@@ -946,8 +946,9 @@
       "budget_share": 0.0,
       "source_readiness_status": "blocked",
       "source_blockers": [
-        "missing_etf_moneyflow_baskets",
-        "historical_holdings_or_audited_theme_membership_unavailable"
+        "historical_moneyflow_availability_and_revision_vintages_unverified",
+        "complete_historical_holdings_revision_census_unverified",
+        "current_holdings_or_audited_mapping_for_broader_ETF_universe_unavailable"
       ],
       "factor_batch_before_readiness_allowed": false,
       "economic_thesis": "Stock-level moneyflow can still help when aggregated into ETF theme breadth, industry diffusion, and risk-appetite features aligned to ETF holdings or themes.",
@@ -962,7 +963,8 @@
         "moneyflow_topn_rescue",
         "stock_moneyflow_regime_rescue"
       ],
-      "next_action": "Keep unallocated until point-in-time ETF holdings or an audited historical theme bridge exists; CN moneyflow remains auxiliary only."
+      "next_action": "Seven retained complete 510300 reports now support a conditional source timeline; original 38-month breadth test did not qualify and is closed. Keep zero allocation; no sign, threshold or window rescue and no expansion to stock selection.",
+      "latest_conditional_diagnostic": "disclosed_flow_diagnostic_closeout"
     },
     {
       "family_id": "cn_etf_fund_structure",
@@ -1453,5 +1455,61 @@
     "sign_flip_rescue_allowed": false,
     "threshold_or_window_rescue_allowed": false,
     "next": "Retain qualified official source evidence; review a genuinely different economic mechanism. Do not repackage the failed relative activity ratio. Gross failure supplies no net-profitable candidate."
+  },
+  "disclosed_flow_diagnostic_decision": {
+    "status": "completed_insufficient_gross_evidence",
+    "registration_id": "5dea3377b99b552a1624b86a4f36909389c28f971b2d170f0270cff53c684c29",
+    "registration_path": "data/reports/positive_ev_20260921/disclosed_flow_diagnostic/registration.json",
+    "registration_sha256": "ec0151866229aa7d9b239a739192602676e4e3dd2842deebb8b814ce73e5c730",
+    "max_executions": 1,
+    "execution_count": 1,
+    "allowed_stage": "single_disclosed_flow_gross_diagnostic",
+    "ledger_path": "data/reports/positive_ev_20260921/disclosed_flow_diagnostic/attempt_claim.json",
+    "conditional_gross_only": true,
+    "general_factor_batch_allowed": false,
+    "net_account_allowed": false,
+    "promotion_allowed": false,
+    "final_holdout_allowed": false,
+    "live_boundary_allowed": false
+  },
+  "disclosed_flow_diagnostic_closeout": {
+    "study_id": "disclosed_equity_flow_monthly_breadth_v1",
+    "registration_id": "5dea3377b99b552a1624b86a4f36909389c28f971b2d170f0270cff53c684c29",
+    "decision": "fixed_hypothesis_closed_insufficient_evidence_no_rerun",
+    "artifact_sha256": {
+      "registration": "ec0151866229aa7d9b239a739192602676e4e3dd2842deebb8b814ce73e5c730",
+      "attempt_claim": "4e23765f2e735aa9a59db899d33437bed6e67903e34b0703bb5300c6b9fe2aa1",
+      "result": "734ffdbc59e6e09b9d74ca247103b2e43ce3633498d7554280934cb18757b809",
+      "outcome": "e0180d35a954fa0e33c1d01645a2f02937dfdafc975df29e8429c841074fc42c"
+    },
+    "intervals": 38,
+    "selected_months": 3,
+    "selected_positive_returns": 2,
+    "selected_win_rate": 0.6666666666666666,
+    "selected_mean_gross_return": 0.027302421879051433,
+    "unconditional_mean_gross_return": -0.006461460190947571,
+    "selection_effect_D": 0.0026655696371051846,
+    "bootstrap_D_5_95": [
+      -0.0008107306632164286,
+      0.007547372232140138
+    ],
+    "later_intervals": 17,
+    "later_selected_months": 3,
+    "unknown_state_months": 0,
+    "missing_flow_cells_preserved": 137,
+    "gross_screen_passed": false,
+    "reason": [
+      "fewer_than_six_positive_months",
+      "bootstrap_effect_lower_bound_not_positive"
+    ],
+    "negative_EV_proven": false,
+    "net_account_run": false,
+    "net_positive_ev_verified": false,
+    "new_forward_paper_days": 0,
+    "historical_vintage_verified": false,
+    "rerun_allowed": false,
+    "sign_flip_rescue_allowed": false,
+    "threshold_or_window_rescue_allowed": false,
+    "next": "Keep original fixed hypothesis closed. Sources remain reusable for genuinely different reviewed mechanisms; this limited retrospective result is not promotion or broader basket readiness."
   }
 }
