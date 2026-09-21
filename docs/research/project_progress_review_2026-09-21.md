@@ -2,7 +2,7 @@
 
 评估日期：2026-09-21。机器：`office_desktop`。本轮任务：`factor_review`。
 用户已授权选择分支、修改、提交和推送。独立工作分支为
-`codex/factor-review-project-progress-20260921`；主目录另有因子任务，后续修改使用独立 worktree。PR #12已合入main `8cb07fa`。PR #13分支`codex/factor-review-cash-benchmark-integration-20260921`保持固定等待CI；股金来源与账户方法在`codex/factor-review-equity-gold-source-integration-20260921`隔离准备。
+`codex/factor-review-project-progress-20260921`；主目录另有因子任务，后续修改使用独立 worktree。现金管理关闭证据已随PR #13合入main `ddd5733`；股金来源与账户方法在`codex/factor-review-equity-gold-source-integration-20260921`单独集成。
 
 ## 当前结论
 
@@ -44,6 +44,7 @@
 远端3,355文件审计及维护性通过。新增年度范围、运行实现和来源格式失败记录进入下一集成分支；未新增年度收益结论。
 原现金格式失败记录随后经六组矩阵通过，PR #12合入main `8cb07fa`；实际合并树与最终`6092680`一致。
 Windows 3.13完整日志确认3,879项测试通过，远端3,364文件审计及维护性通过。修正后的条件现金基准由PR #13单独验收，不混作原失败结果。
+PR #13随后通过六组矩阵并合入main `ddd5733`，实际合并树与最终`85295ae`一致；Windows 3.13完整日志确认3,889项测试通过，远端3,370文件审计及维护性通过。修正仅作为费用敏感的条件现金基准归档，原失败和两次消费记录保持，未晋级账户或纸面观察。
 
 ## 分项进度
 
