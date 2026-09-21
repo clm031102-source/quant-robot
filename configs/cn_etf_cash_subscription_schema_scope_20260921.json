@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "proposal_id": "money_ETF_cash_subscription_carry_source_review_v1",
+  "scope_id": "quota_semantics_and_blinded_income_schema_v1",
+  "status": "source_review_only",
+  "reason": "Four original PCFs and the payment transition are verified. Resolve zero-cap semantics and whether the official daily-income endpoint preserves calendar days before defining the arithmetic; do not inspect income values or select a rule from outcomes.",
+  "maximum_requests": 3,
+  "sources": [
+    {
+      "role": "quota_technical_schema",
+      "url": "https://www.szse.cn/marketServices/technicalservice/history/P020180328468147239406.pdf",
+      "basis": "Observed official SZSE technical guide search result includes original PCF gross/net fund/account limit fields. Web-reader timeout is not a permission refusal; retain one direct original request without retries."
+    },
+    {
+      "role": "quota_actual_controls_2013",
+      "url": "https://static.cninfo.com.cn/finalpage/2013-09-28/63119853.PDF",
+      "basis": "Previously read official notice specifies which four of the eight caps were active from2013-09-30; retain the original."
+    }
+  ],
+  "blinded_income_metadata_request": {
+    "method": "POST",
+    "url": "https://api.efunds.com.cn/xcowch/front/fund/nav",
+    "body": {"fundCode": "159001", "pageIndex": 0, "pageSize": 10, "startDate": "2015-01-09", "endDate": "2015-01-12", "siteID": "1", "isMoneyFund": true},
+    "date_basis": "First ordinary Friday-through-Monday interval of the first full post-conversion calendar year; fixed before income access, not chosen from performance.",
+    "allowed_extraction": "Response status/count/field names; navDate; cyclestep if present; income-field presence and null/non-null flags only. Keep all incomeUnit, incomeRatio, NAV and return values opaque, including any accidental out-of-range rows.",
+    "pagination": "Exactly one page; disclose truncation or ignored date filter and stop. No alternate date or endpoint."
+  },
+  "allowed_hosts": ["www.szse.cn", "static.cninfo.com.cn", "api.efunds.com.cn"],
+  "transport": "Public HTTPS verifiedTLS;exclusiveclaim;30secondtimeout;12MiBcap;noautomaticretryorredirect;noauthentication.",
+  "raw_income_response_allowed": true,
+  "income_value_inspection_allowed": false,
+  "new_return_computation_allowed": false,
+  "factor_or_strategy_selection_from_income_allowed": false,
+  "general_factor_batch_allowed": false,
+  "net_account_allowed": false,
+  "live_boundary_allowed": false
+}
